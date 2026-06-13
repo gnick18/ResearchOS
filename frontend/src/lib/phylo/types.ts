@@ -45,6 +45,15 @@ export interface PhyloMetadataBinding {
   rows?: Record<string, string>[];
   /** A linked Data Hub table id, when bound to a live table instead. */
   datahubTableId?: string;
+  /**
+   * Which metadata columns drive which annotation tracks, so a saved figure
+   * reopens with the same tip-point / color-strip / bar / heatmap bindings it was
+   * exported with. All optional and additive, older records simply omit them and
+   * the Studio falls back to its on-import defaults.
+   */
+  categoryColumn?: string;
+  barColumn?: string;
+  heatColumns?: string[];
 }
 
 /**

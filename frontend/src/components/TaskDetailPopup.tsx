@@ -2036,7 +2036,7 @@ function SimpleTaskChecklist({
                 data-tour-target={idx === 0 ? "workbench-list-item-checkbox" : undefined}
                 className={`w-5 h-5 rounded border-2 flex items-center justify-center transition-all flex-shrink-0 ${
                   st.is_complete
-                    ? "bg-blue-500 border-blue-500"
+                    ? "bg-brand-action border-brand-action"
                     : "border-border hover:border-blue-400"
                 } ${readOnly ? "cursor-default" : ""}`}
               >
@@ -3135,7 +3135,7 @@ function DetailsTab({
                     sub-task palette into the new blue-centric chrome. Flat
                     blue matches the rest of the popup. */}
                 <div
-                  className="h-full bg-blue-600 transition-all duration-300"
+                  className="h-full bg-brand-action transition-all duration-300"
                   style={{ width: `${(subTasks.filter(st => st.is_complete).length / subTasks.length) * 100}%` }}
                 />
               </div>
@@ -3164,7 +3164,7 @@ function DetailsTab({
                     data-tour-target={idx === 0 ? "workbench-list-item-checkbox" : undefined}
                     className={`w-5 h-5 rounded border-2 flex items-center justify-center transition-all ${
                       st.is_complete
-                        ? "bg-blue-600 border-blue-600"
+                        ? "bg-brand-action border-brand-action"
                         : "border-border hover:border-blue-400"
                     }`}
                   >

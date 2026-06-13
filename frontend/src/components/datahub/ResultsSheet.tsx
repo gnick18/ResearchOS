@@ -41,6 +41,7 @@ import {
   type NormalizedSurvival,
   type NormalizedCoxRegression,
   type NormalizedGrubbsOutlier,
+  type NormalizedContingency,
   type NormalizedTTest,
   type NormalizedTwoWayAnova,
 } from "@/lib/datahub/run-analysis";
@@ -1308,6 +1309,199 @@ function GrubbsOutlierTable({ r }: { r: NormalizedGrubbsOutlier }) {
   );
 }
 
+/** One R x C count matrix rendered with row / column labels and the margins. */
+function ContingencyMatrixTable({
+  title,
+  rowLabels,
+  colLabels,
+  matrix,
+  digits,
+  testid,
+}: {
+  title: string;
+  rowLabels: string[];
+  colLabels: string[];
+  matrix: number[][];
+  digits: number;
+  testid: string;
+}) {
+  const colTotals = colLabels.map((_, j) =>
+    matrix.reduce((s, row) => s + (row[j] ?? 0), 0),
+  );
+  const grand = colTotals.reduce((s, v) => s + v, 0);
+  return (
+    <div>
+      <h4 className="text-body font-semibold text-foreground">{title}</h4>
+      <table
+        className="mt-1 w-full border-collapse text-body tabular-nums"
+        data-testid={testid}
+      >
+        <thead>
+          <tr className="text-meta uppercase tracking-wide text-foreground-muted">
+            <th className="border-b border-border px-3 py-1.5 text-left" />
+            {colLabels.map((c, j) => (
+              <th key={j} className="border-b border-border px-3 py-1.5 text-right">
+                {c}
+              </th>
+            ))}
+            <th className="border-b border-border px-3 py-1.5 text-right">Total</th>
+          </tr>
+        </thead>
+        <tbody>
+          {matrix.map((row, i) => (
+            <tr key={i}>
+              <td className="border-b border-border px-3 py-1.5 text-left font-medium text-foreground">
+                {rowLabels[i]}
+              </td>
+              {row.map((v, j) => (
+                <td
+                  key={j}
+                  className="border-b border-border px-3 py-1.5 text-right text-foreground"
+                >
+                  {num(v, digits)}
+                </td>
+              ))}
+              <td className="border-b border-border px-3 py-1.5 text-right text-foreground-muted">
+                {num(
+                  row.reduce((s, v) => s + v, 0),
+                  digits,
+                )}
+              </td>
+            </tr>
+          ))}
+          <tr className="text-foreground-muted">
+            <td className="px-3 py-1.5 text-left font-medium">Total</td>
+            {colTotals.map((t, j) => (
+              <td key={j} className="px-3 py-1.5 text-right">
+                {num(t, digits)}
+              </td>
+            ))}
+            <td className="px-3 py-1.5 text-right">{num(grand, digits)}</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+function ratioRow(label: string, m: NormalizedContingency["oddsRatio"]) {
+  if (!m) return null;
+  return (
+    <tr>
+      <td className="border-b border-border px-3 py-1.5 text-foreground">
+        {label}
+        {m.corrected ? " (0.5 continuity correction)" : ""}
+      </td>
+      <td className="border-b border-border px-3 py-1.5 text-right text-foreground">
+        {num(m.estimate, 3)}
+      </td>
+      <td className="border-b border-border px-3 py-1.5 text-right text-foreground-muted">
+        {num(m.ciLow, 3)} to {num(m.ciHigh, 3)}
+      </td>
+    </tr>
+  );
+}
+
+function ContingencyTables({ r }: { r: NormalizedContingency }) {
+  const is2x2 = r.rows === 2 && r.cols === 2;
+  const chiLabel = is2x2 && r.yatesApplied ? "Chi-square (Yates)" : "Chi-square";
+  const chi = is2x2 && r.yatesApplied ? r.yatesChiSquare : r.chiSquare;
+  const p = is2x2 && r.yatesApplied ? r.yatesPValue : r.pValue;
+  return (
+    <div className="flex flex-col gap-4" data-testid="results-contingency-table">
+      <table className="w-full border-collapse text-body tabular-nums">
+        <tbody>
+          <tr>
+            <td className="border-b border-border px-3 py-1.5 text-foreground">
+              {chiLabel}
+            </td>
+            <td className="border-b border-border px-3 py-1.5 text-right text-foreground">
+              {num(chi, 3)}
+            </td>
+            <td className="border-b border-border px-3 py-1.5 text-right text-foreground-muted">
+              df {r.df}, {formatP(p)}
+            </td>
+          </tr>
+          {is2x2 && (
+            <>
+              <tr>
+                <td className="border-b border-border px-3 py-1.5 text-foreground">
+                  {r.yatesApplied
+                    ? "Chi-square (uncorrected)"
+                    : "Chi-square (Yates-corrected)"}
+                </td>
+                <td className="border-b border-border px-3 py-1.5 text-right text-foreground">
+                  {num(r.yatesApplied ? r.chiSquare : r.yatesChiSquare, 3)}
+                </td>
+                <td className="border-b border-border px-3 py-1.5 text-right text-foreground-muted">
+                  {formatP(r.yatesApplied ? r.pValue : r.yatesPValue)}
+                </td>
+              </tr>
+              <tr>
+                <td className="border-b border-border px-3 py-1.5 text-foreground">
+                  Fisher exact p (two-sided)
+                </td>
+                <td className="border-b border-border px-3 py-1.5 text-right text-foreground">
+                  {formatP(r.fisherPValue)}
+                </td>
+                <td className="border-b border-border px-3 py-1.5 text-right" />
+              </tr>
+              {ratioRow("Relative risk", r.relativeRisk)}
+              {ratioRow("Odds ratio", r.oddsRatio)}
+            </>
+          )}
+          <tr>
+            <td className="px-3 py-1.5 text-foreground-muted">
+              Smallest expected count
+            </td>
+            <td className="px-3 py-1.5 text-right text-foreground-muted">
+              {num(r.minExpected, 2)}
+            </td>
+            <td className="px-3 py-1.5 text-right text-foreground-muted">
+              n = {r.n}
+            </td>
+          </tr>
+        </tbody>
+      </table>
+
+      <ContingencyMatrixTable
+        title="Observed counts"
+        rowLabels={r.rowLabels}
+        colLabels={r.colLabels}
+        matrix={r.observed}
+        digits={0}
+        testid="results-contingency-observed"
+      />
+      <ContingencyMatrixTable
+        title="Expected counts (under independence)"
+        rowLabels={r.rowLabels}
+        colLabels={r.colLabels}
+        matrix={r.expected}
+        digits={2}
+        testid="results-contingency-expected"
+      />
+
+      <p className="max-w-xl text-meta text-foreground-muted">
+        The chi-square test compares the observed counts with the counts expected
+        if the two factors were independent.{" "}
+        {r.minExpected < 5
+          ? is2x2
+            ? `An expected count is below 5 (${num(
+                r.minExpected,
+                1,
+              )}), so lean on Fisher's exact p rather than the chi-square here.`
+            : `An expected count is below 5 (${num(
+                r.minExpected,
+                1,
+              )}), so the chi-square approximation is less reliable. Consider pooling sparse categories.`
+          : "Every expected count is at least 5, so the chi-square approximation is reliable."}{" "}
+        {is2x2 &&
+          "Relative risk and odds ratio read the first row as exposed and the first column as the event."}
+      </p>
+    </div>
+  );
+}
+
 /**
  * The result tabs for one normalized result. Only tabs that actually have
  * content are returned, so a t-test shows a single "Tabular results" tab while a
@@ -1467,6 +1661,14 @@ function resultTabs(result: NormalizedResult): {
           id: "tabular",
           label: "Tabular results",
           render: () => <GrubbsOutlierTable r={result} />,
+        },
+      ];
+    case "contingency":
+      return [
+        {
+          id: "tabular",
+          label: "Tabular results",
+          render: () => <ContingencyTables r={result} />,
         },
       ];
     default:

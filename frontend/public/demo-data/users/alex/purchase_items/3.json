@@ -14,5 +14,6 @@
   "category": "Reagents",
   "approved": true,
   "approved_by": "mira",
-  "approved_at": "2026-05-19T09:42:11Z"
+  "approved_at": "2026-05-19T09:42:11Z",
+  "order_status": "received"
 }

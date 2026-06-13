@@ -20,6 +20,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Icon } from "@/components/icons";
 import Tooltip from "@/components/Tooltip";
 import { phyloApi } from "@/lib/phylo/api";
+import { getDemoMode } from "@/lib/file-system/wiki-capture-mock";
 import type { PhyloMeta } from "@/lib/phylo/types";
 import {
   parseTree,
@@ -109,12 +110,25 @@ export function PhyloStudio() {
   const fileRef = useRef<HTMLInputElement>(null);
   const csvFileRef = useRef<HTMLInputElement>(null);
 
-  // Load saved trees for the "From a saved tree" picker.
+  // Load saved trees for the "From a saved tree" picker. In a demo session, open
+  // the showcase tree straight away so the Studio lands on a populated, real
+  // figure instead of the empty import panel (the screenshots + public demo).
+  const autoOpenedRef = useRef(false);
   useEffect(() => {
     phyloApi
       .list()
-      .then(setSaved)
+      .then((list) => {
+        setSaved(list);
+        if (getDemoMode() && !autoOpenedRef.current && list.length > 0) {
+          autoOpenedRef.current = true;
+          // Lowest id is the Candida auris circular showcase tree.
+          const showcase = [...list].sort((a, b) => Number(a.id) - Number(b.id))[0];
+          void onPickSaved(showcase.id);
+        }
+      })
       .catch(() => setSaved([]));
+    // onPickSaved is stable for this mount; demo auto-open runs once.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // The metadata match (tip ids -> rows), recomputed when the binding changes.
@@ -193,7 +207,41 @@ export function PhyloStudio() {
 
   async function onPickSaved(id: string) {
     const raw = await phyloApi.get(id);
-    if (raw) loadTreeText(raw.tree, raw.meta.name);
+    if (!raw) return;
+    loadTreeText(raw.tree, raw.meta.name);
+    restoreSavedFigure(raw.meta);
+  }
+
+  /**
+   * Reopen a saved tree into the same figure it was exported with. The figure
+   * spec (layout / phylogram / tracks) and the bound metadata (rows, tip column,
+   * and the per-track column bindings) all live in the sidecar, so a saved tree
+   * lands looking like its last save instead of a bare cladogram.
+   */
+  function restoreSavedFigure(meta: PhyloMeta) {
+    const fig = meta.figure;
+    if (fig) {
+      setLayout(fig.layout === "circular" ? "circular" : "rectangular");
+      setPhylogram(fig.branchLengths);
+      setTracks({ ...DEFAULT_TRACKS, ...(fig.tracks as Partial<FigureTracks>) });
+    }
+    const md = meta.metadata;
+    if (md?.rows) {
+      setMetaRows(md.rows);
+      const cols = md.rows.length > 0 ? Object.keys(md.rows[0]) : [];
+      setMetaColumns(cols);
+      setTipColumn(md.tipColumn || cols[0] || "");
+      setCategoryColumn(md.categoryColumn ?? cols[1] ?? "");
+      setBarColumn(md.barColumn ?? "");
+      setHeatColumns(md.heatColumns ?? []);
+    } else {
+      setMetaRows(null);
+      setMetaColumns([]);
+      setTipColumn("");
+      setCategoryColumn("");
+      setBarColumn("");
+      setHeatColumns([]);
+    }
   }
 
   // ---- metadata import ----
@@ -273,7 +321,13 @@ export function PhyloStudio() {
     };
     const metadata =
       metaRows && tipColumn
-        ? { tipColumn, rows: metaRows }
+        ? {
+            tipColumn,
+            rows: metaRows,
+            categoryColumn: categoryColumn || undefined,
+            barColumn: barColumn || undefined,
+            heatColumns: heatColumns.length > 0 ? heatColumns : undefined,
+          }
         : undefined;
     await phyloApi.create(serializeNewick(tree), {
       name: treeName || "Untitled tree",

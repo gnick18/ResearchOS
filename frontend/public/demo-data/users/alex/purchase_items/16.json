@@ -11,5 +11,6 @@
   "notes": null,
   "funding_string": "DEMO-DOE-EERE",
   "vendor": "Thermo",
-  "category": "Reagents"
+  "category": "Reagents",
+  "order_status": "needs_ordering"
 }

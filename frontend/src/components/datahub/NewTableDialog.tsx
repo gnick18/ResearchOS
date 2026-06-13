@@ -53,6 +53,13 @@ const TABLE_TYPES: {
       "Time to an event, with censoring, for Kaplan-Meier curves and the log-rank test.",
     enabled: true,
   },
+  {
+    type: "contingency",
+    label: "Contingency",
+    blurb:
+      "Counts in an R x C grid of two categorical factors, for the chi-square test and a 2x2 Fisher exact test with relative risk and odds ratio.",
+    enabled: true,
+  },
 ];
 
 export default function NewTableDialog({

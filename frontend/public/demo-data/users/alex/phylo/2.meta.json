@@ -1,0 +1,2024 @@
+{
+  "id": "2",
+  "name": "Human Microbiome Project tree",
+  "project_ids": [
+    "1"
+  ],
+  "added_at": "2026-05-15T11:00:00.000Z",
+  "format": "newick",
+  "source": "upload",
+  "tip_count": 334,
+  "figure": {
+    "layout": "circular",
+    "branchLengths": false,
+    "tracks": {
+      "labels": false,
+      "labelsItalic": false,
+      "points": true,
+      "strip": true,
+      "bars": true,
+      "heat": false,
+      "clade": false,
+      "support": false
+    }
+  },
+  "metadata": {
+    "tipColumn": "ID",
+    "rows": [
+      {
+        "ID": "t637000026",
+        "Phylum": "Bacteroidetes",
+        "Type": "Potential pathogens",
+        "Size": "312.804878049"
+      },
+      {
+        "ID": "t637000046",
+        "Phylum": "Proteobacteria",
+        "Type": "Potential pathogens",
+        "Size": "60"
+      },
+      {
+        "ID": "t637000077",
+        "Phylum": "Firmicutes",
+        "Type": "Potential pathogens",
+        "Size": "60"
+      },
+      {
+        "ID": "t637000092",
+        "Phylum": "Thermi",
+        "Type": "Commensal microbes",
+        "Size": "20"
+      },
+      {
+        "ID": "t637000095",
+        "Phylum": "Proteobacteria",
+        "Type": "Commensal microbes",
+        "Size": "146.341463415"
+      },
+      {
+        "ID": "t637000127",
+        "Phylum": "Proteobacteria",
+        "Type": "Commensal microbes",
+        "Size": "20"
+      },
+      {
+        "ID": "t637000163",
+        "Phylum": "Euryarchaeota",
+        "Type": "Commensal microbes",
+        "Size": "20"
+      },
+      {
+        "ID": "t637000203",
+        "Phylum": "Proteobacteria",
+        "Type": "Potential pathogens",
+        "Size": "60"
+      },
+      {
+        "ID": "t637000221",
+        "Phylum": "Proteobacteria",
+        "Type": "Commensal microbes",
+        "Size": "25.0000000001"
+      },
+      {
+        "ID": "t637000226",
+        "Phylum": "Proteobacteria",
+        "Type": "Commensal microbes",
+        "Size": "20"
+      },
+      {
+        "ID": "t637000227",
+        "Phylum": "Proteobacteria",
+        "Type": "Commensal microbes",
+        "Size": "20"
+      },
+      {
+        "ID": "t637000271",
+        "Phylum": "Proteobacteria",
+        "Type": "Commensal microbes",
+        "Size": "20"
+      },
+      {
+        "ID": "t637000281",
+        "Phylum": "Firmicutes",
+        "Type": "Potential pathogens",
+        "Size": "450"
+      },
+      {
+        "ID": "t637000284",
+        "Phylum": "Firmicutes",
+        "Type": "Potential pathogens",
+        "Size": "60"
+      },
+      {
+        "ID": "t637000302",
+        "Phylum": "Firmicutes",
+        "Type": "Commensal microbes",
+        "Size": "147.857142857"
+      },
+      {
+        "ID": "t637000327",
+        "Phylum": "Spirochaetes",
+        "Type": "Potential pathogens",
+        "Size": "228.260869565"
+      },
+      {
+        "ID": "t637000332",
+        "Phylum": "Tenericutes",
+        "Type": "Potential pathogens",
+        "Size": "105"
+      },
+      {
+        "ID": "t638341112",
+        "Phylum": "Firmicutes",
+        "Type": "Commensal microbes",
+        "Size": "20"
+      },
+      {
+        "ID": "t638341158",
+        "Phylum": "Proteobacteria",
+        "Type": "Potential pathogens",
+        "Size": "60"
+      },
+      {
+        "ID": "t638341196",
+        "Phylum": "Proteobacteria",
+        "Type": "Potential pathogens",
+        "Size": "60"
+      },
+      {
+        "ID": "t638341202",
+        "Phylum": "Firmicutes",
+        "Type": "Potential pathogens",
+        "Size": "60"
+      },
+      {
+        "ID": "t639279312",
+        "Phylum": "Proteobacteria",
+        "Type": "Commensal microbes",
+        "Size": "20"
+      },
+      {
+        "ID": "t639633010",
+        "Phylum": "Actinobacteria",
+        "Type": "Commensal microbes",
+        "Size": "85.975609756"
+      },
+      {
+        "ID": "t639633027",
+        "Phylum": "Firmicutes",
+        "Type": "Commensal microbes",
+        "Size": "20"
+      },
+      {
+        "ID": "t639633028",
+        "Phylum": "Firmicutes",
+        "Type": "Commensal microbes",
+        "Size": "20"
+      },
+      {
+        "ID": "t639633048",
+        "Phylum": "Proteobacteria",
+        "Type": "Commensal microbes",
+        "Size": "20"
+      },
+      {
+        "ID": "t640069308",
+        "Phylum": "Firmicutes",
+        "Type": "Potential pathogens",
+        "Size": "60"
+      },
+      {
+        "ID": "t640069315",
+        "Phylum": "Firmicutes",
+        "Type": "Commensal microbes",
+        "Size": "60.3658536585"
+      },
+      {
+        "ID": "t640069321",
+        "Phylum": "Cyanobacteria",
+        "Type": "Commensal microbes",
+        "Size": "20"
+      },
+      {
+        "ID": "t640069327",
+        "Phylum": "Proteobacteria",
+        "Type": "Commensal microbes",
+        "Size": "20"
+      },
+      {
+        "ID": "t640427121",
+        "Phylum": "Euryarchaeota",
+        "Type": "Commensal microbes",
+        "Size": "34.7560975609"
+      },
+      {
+        "ID": "t640427143",
+        "Phylum": "Proteobacteria",
+        "Type": "Potential pathogens",
+        "Size": "60"
+      },
+      {
+        "ID": "t640612206",
+        "Phylum": "Actinobacteria",
+        "Type": "Commensal microbes",
+        "Size": "111.585365854"
+      },
+      {
+        "ID": "t640753001",
+        "Phylum": "Proteobacteria",
+        "Type": "Commensal microbes",
+        "Size": "20"
+      },
+      {
+        "ID": "t640753008",
+        "Phylum": "Bacteroidetes",
+        "Type": "Potential pathogens",
+        "Size": "395.12195122"
+      },
+      {
+        "ID": "t640753009",
+        "Phylum": "Proteobacteria",
+        "Type": "Potential pathogens",
+        "Size": "450"
+      },
+      {
+        "ID": "t640753010",
+        "Phylum": "Proteobacteria",
+        "Type": "Potential pathogens",
+        "Size": "332.608695652"
+      },
+      {
+        "ID": "t640753011",
+        "Phylum": "Proteobacteria",
+        "Type": "Commensal microbes",
+        "Size": "25.6097560975"
+      },
+      {
+        "ID": "t640753039",
+        "Phylum": "Bacteroidetes",
+        "Type": "Potential pathogens",
+        "Size": "197.56097561"
+      },
+      {
+        "ID": "t640753047",
+        "Phylum": "Chloroflexi",
+        "Type": "Commensal microbes",
+        "Size": "20"
+      },
+      {
+        "ID": "t640753048",
+        "Phylum": "Proteobacteria",
+        "Type": "Potential pathogens",
+        "Size": "60"
+      },
+      {
+        "ID": "t640753055",
+        "Phylum": "Firmicutes",
+        "Type": "Potential pathogens",
+        "Size": "443.571428571"
+      },
+      {
+        "ID": "t640963014",
+        "Phylum": "Firmicutes",
+        "Type": "Potential pathogens",
+        "Size": "439.024390244"
+      },
+      {
+        "ID": "t640963016",
+        "Phylum": "Bacteroidetes",
+        "Type": "Commensal microbes",
+        "Size": "111.585365854"
+      },
+      {
+        "ID": "t640963022",
+        "Phylum": "Firmicutes",
+        "Type": "Commensal microbes",
+        "Size": "126.219512195"
+      },
+      {
+        "ID": "t640963023",
+        "Phylum": "Bacteroidetes",
+        "Type": "Potential pathogens",
+        "Size": "312.804878049"
+      },
+      {
+        "ID": "t640963024",
+        "Phylum": "Firmicutes",
+        "Type": "Commensal microbes",
+        "Size": "146.341463415"
+      },
+      {
+        "ID": "t640963025",
+        "Phylum": "Firmicutes",
+        "Type": "Commensal microbes",
+        "Size": "148.170731707"
+      },
+      {
+        "ID": "t640963046",
+        "Phylum": "Firmicutes",
+        "Type": "Commensal microbes",
+        "Size": "131.707317073"
+      },
+      {
+        "ID": "t640963057",
+        "Phylum": "Firmicutes",
+        "Type": "Commensal microbes",
+        "Size": "126.219512195"
+      },
+      {
+        "ID": "t640963058",
+        "Phylum": "Actinobacteria",
+        "Type": "Potential pathogens",
+        "Size": "450"
+      },
+      {
+        "ID": "t641228489",
+        "Phylum": "Proteobacteria",
+        "Type": "Commensal microbes",
+        "Size": "20"
+      },
+      {
+        "ID": "t641228495",
+        "Phylum": "Firmicutes",
+        "Type": "Commensal microbes",
+        "Size": "20"
+      },
+      {
+        "ID": "t641228498",
+        "Phylum": "Proteobacteria",
+        "Type": "Potential pathogens",
+        "Size": "397.826086956"
+      },
+      {
+        "ID": "t641380421",
+        "Phylum": "Firmicutes",
+        "Type": "Commensal microbes",
+        "Size": "137.142857143"
+      },
+      {
+        "ID": "t641380422",
+        "Phylum": "Firmicutes",
+        "Type": "Commensal microbes",
+        "Size": "23.7804878049"
+      },
+      {
+        "ID": "t641380427",
+        "Phylum": "Firmicutes",
+        "Type": "Commensal microbes",
+        "Size": "139.024390244"
+      },
+      {
+        "ID": "t641380428",
+        "Phylum": "Firmicutes",
+        "Type": "Commensal microbes",
+        "Size": "95.1219512194"
+      },
+      {
+        "ID": "t641380447",
+        "Phylum": "Bacteroidetes",
+        "Type": "Commensal microbes",
+        "Size": "124.390243902"
+      },
+      {
+        "ID": "t641522636",
+        "Phylum": "Firmicutes",
+        "Type": "Commensal microbes",
+        "Size": "20"
+      },
+      {
+        "ID": "t641522638",
+        "Phylum": "Proteobacteria",
+        "Type": "Commensal microbes",
+        "Size": "20"
+      },
+      {
+        "ID": "t641522641",
+        "Phylum": "Actinobacteria",
+        "Type": "Potential pathogens",
+        "Size": "60"
+      },
+      {
+        "ID": "t641522650",
+        "Phylum": "Proteobacteria",
+        "Type": "Potential pathogens",
+        "Size": "60"
+      },
+      {
+        "ID": "t641736113",
+        "Phylum": "Firmicutes",
+        "Type": "Commensal microbes",
+        "Size": "69.5121951219"
+      },
+      {
+        "ID": "t641736133",
+        "Phylum": "Firmicutes",
+        "Type": "Commensal microbes",
+        "Size": "137.195121951"
+      },
+      {
+        "ID": "t641736156",
+        "Phylum": "Proteobacteria",
+        "Type": "Potential pathogens",
+        "Size": "60"
+      },
+      {
+        "ID": "t641736171",
+        "Phylum": "Firmicutes",
+        "Type": "Commensal microbes",
+        "Size": "20"
+      },
+      {
+        "ID": "t641736189",
+        "Phylum": "Actinobacteria",
+        "Type": "Potential pathogens",
+        "Size": "60"
+      },
+      {
+        "ID": "t641736193",
+        "Phylum": "Firmicutes",
+        "Type": "Commensal microbes",
+        "Size": "20"
+      },
+      {
+        "ID": "t641736196",
+        "Phylum": "Bacteroidetes",
+        "Type": "Commensal microbes",
+        "Size": "98.7804878049"
+      },
+      {
+        "ID": "t641736197",
+        "Phylum": "Firmicutes",
+        "Type": "Commensal microbes",
+        "Size": "85.975609756"
+      },
+      {
+        "ID": "t641736205",
+        "Phylum": "Bacteroidetes",
+        "Type": "Potential pathogens",
+        "Size": "400.609756098"
+      },
+      {
+        "ID": "t641736227",
+        "Phylum": "Firmicutes",
+        "Type": "Commensal microbes",
+        "Size": "45.731707317"
+      },
+      {
+        "ID": "t641736271",
+        "Phylum": "Firmicutes",
+        "Type": "Commensal microbes",
+        "Size": "124.390243902"
+      },
+      {
+        "ID": "t642555104",
+        "Phylum": "Verrucomicrobia",
+        "Type": "Commensal microbes",
+        "Size": "89.6341463415"
+      },
+      {
+        "ID": "t642555107",
+        "Phylum": "Actinobacteria",
+        "Type": "Commensal microbes",
+        "Size": "98.7804878049"
+      },
+      {
+        "ID": "t642555133",
+        "Phylum": "Actinobacteria",
+        "Type": "Commensal microbes",
+        "Size": "20"
+      },
+      {
+        "ID": "t642555148",
+        "Phylum": "Bacteroidetes",
+        "Type": "Potential pathogens",
+        "Size": "60"
+      },
+      {
+        "ID": "t642555160",
+        "Phylum": "Firmicutes",
+        "Type": "Potential pathogens",
+        "Size": "60"
+      },
+      {
+        "ID": "t642555169",
+        "Phylum": "Proteobacteria",
+        "Type": "Potential pathogens",
+        "Size": "60"
+      },
+      {
+        "ID": "t642791604",
+        "Phylum": "Firmicutes",
+        "Type": "Commensal microbes",
+        "Size": "107.926829268"
+      },
+      {
+        "ID": "t642791613",
+        "Phylum": "Bacteroidetes",
+        "Type": "Commensal microbes",
+        "Size": "21.9512195123"
+      },
+      {
+        "ID": "t642791621",
+        "Phylum": "Bacteroidetes",
+        "Type": "Commensal microbes",
+        "Size": "64.0243902439"
+      },
+      {
+        "ID": "t642979305",
+        "Phylum": "Bacteroidetes",
+        "Type": "Potential pathogens",
+        "Size": "450"
+      },
+      {
+        "ID": "t642979306",
+        "Phylum": "Actinobacteria",
+        "Type": "Potential pathogens",
+        "Size": "150"
+      },
+      {
+        "ID": "t642979312",
+        "Phylum": "Actinobacteria",
+        "Type": "Commensal microbes",
+        "Size": "20.1219512195"
+      },
+      {
+        "ID": "t642979313",
+        "Phylum": "Actinobacteria",
+        "Type": "Commensal microbes",
+        "Size": "40.243902439"
+      },
+      {
+        "ID": "t642979316",
+        "Phylum": "Proteobacteria",
+        "Type": "Commensal microbes",
+        "Size": "20"
+      },
+      {
+        "ID": "t642979319",
+        "Phylum": "Bacteroidetes",
+        "Type": "Commensal microbes",
+        "Size": "106.097560976"
+      },
+      {
+        "ID": "t642979320",
+        "Phylum": "Actinobacteria",
+        "Type": "Commensal microbes",
+        "Size": "20"
+      },
+      {
+        "ID": "t642979321",
+        "Phylum": "Actinobacteria",
+        "Type": "Commensal microbes",
+        "Size": "20"
+      },
+      {
+        "ID": "t642979351",
+        "Phylum": "Bacteroidetes",
+        "Type": "Commensal microbes",
+        "Size": "20.1219512195"
+      },
+      {
+        "ID": "t642979356",
+        "Phylum": "Firmicutes",
+        "Type": "Commensal microbes",
+        "Size": "137.195121951"
+      },
+      {
+        "ID": "t642979358",
+        "Phylum": "Bacteroidetes",
+        "Type": "Commensal microbes",
+        "Size": "47.5609756098"
+      },
+      {
+        "ID": "t642979359",
+        "Phylum": "Firmicutes",
+        "Type": "Commensal microbes",
+        "Size": "20"
+      },
+      {
+        "ID": "t642979361",
+        "Phylum": "Actinobacteria",
+        "Type": "Commensal microbes",
+        "Size": "20"
+      },
+      {
+        "ID": "t642979367",
+        "Phylum": "Firmicutes",
+        "Type": "Commensal microbes",
+        "Size": "20"
+      },
+      {
+        "ID": "t642979368",
+        "Phylum": "Proteobacteria",
+        "Type": "Potential pathogens",
+        "Size": "60"
+      },
+      {
+        "ID": "t642979369",
+        "Phylum": "Firmicutes",
+        "Type": "Commensal microbes",
+        "Size": "65.8536585366"
+      },
+      {
+        "ID": "t642979370",
+        "Phylum": "Bacteroidetes",
+        "Type": "Commensal microbes",
+        "Size": "107.926829268"
+      },
+      {
+        "ID": "t642979371",
+        "Phylum": "Firmicutes",
+        "Type": "Commensal microbes",
+        "Size": "20"
+      },
+      {
+        "ID": "t643348515",
+        "Phylum": "Actinobacteria",
+        "Type": "Commensal microbes",
+        "Size": "20"
+      },
+      {
+        "ID": "t643348560",
+        "Phylum": "Proteobacteria",
+        "Type": "Potential pathogens",
+        "Size": "60"
+      },
+      {
+        "ID": "t643692016",
+        "Phylum": "Firmicutes",
+        "Type": "Potential pathogens",
+        "Size": "60"
+      },
+      {
+        "ID": "t643692018",
+        "Phylum": "Actinobacteria",
+        "Type": "Potential pathogens",
+        "Size": "60"
+      },
+      {
+        "ID": "t643692019",
+        "Phylum": "Actinobacteria",
+        "Type": "Commensal microbes",
+        "Size": "20"
+      },
+      {
+        "ID": "t643692022",
+        "Phylum": "Proteobacteria",
+        "Type": "Potential pathogens",
+        "Size": "60"
+      },
+      {
+        "ID": "t643886006",
+        "Phylum": "Firmicutes",
+        "Type": "Commensal microbes",
+        "Size": "137.195121951"
+      },
+      {
+        "ID": "t643886008",
+        "Phylum": "Proteobacteria",
+        "Type": "Commensal microbes",
+        "Size": "45"
+      },
+      {
+        "ID": "t643886009",
+        "Phylum": "Proteobacteria",
+        "Type": "Potential pathogens",
+        "Size": "436.956521739"
+      },
+      {
+        "ID": "t643886010",
+        "Phylum": "Firmicutes",
+        "Type": "Commensal microbes",
+        "Size": "150"
+      },
+      {
+        "ID": "t643886015",
+        "Phylum": "Actinobacteria",
+        "Type": "Commensal microbes",
+        "Size": "143.47826087"
+      },
+      {
+        "ID": "t643886019",
+        "Phylum": "Actinobacteria",
+        "Type": "Potential pathogens",
+        "Size": "276.428571429"
+      },
+      {
+        "ID": "t643886024",
+        "Phylum": "Proteobacteria",
+        "Type": "Potential pathogens",
+        "Size": "60"
+      },
+      {
+        "ID": "t643886039",
+        "Phylum": "Firmicutes",
+        "Type": "Commensal microbes",
+        "Size": "83.3333333334"
+      },
+      {
+        "ID": "t643886040",
+        "Phylum": "Actinobacteria",
+        "Type": "Commensal microbes",
+        "Size": "32.9268292683"
+      },
+      {
+        "ID": "t643886045",
+        "Phylum": "Firmicutes",
+        "Type": "Commensal microbes",
+        "Size": "20"
+      },
+      {
+        "ID": "t643886050",
+        "Phylum": "Firmicutes",
+        "Type": "Commensal microbes",
+        "Size": "60"
+      },
+      {
+        "ID": "t643886055",
+        "Phylum": "Firmicutes",
+        "Type": "Commensal microbes",
+        "Size": "20"
+      },
+      {
+        "ID": "t643886057",
+        "Phylum": "Actinobacteria",
+        "Type": "Commensal microbes",
+        "Size": "20"
+      },
+      {
+        "ID": "t643886058",
+        "Phylum": "Actinobacteria",
+        "Type": "Commensal microbes",
+        "Size": "125"
+      },
+      {
+        "ID": "t643886063",
+        "Phylum": "Actinobacteria",
+        "Type": "Commensal microbes",
+        "Size": "25.0000000001"
+      },
+      {
+        "ID": "t643886070",
+        "Phylum": "Firmicutes",
+        "Type": "Commensal microbes",
+        "Size": "38.5714285714"
+      },
+      {
+        "ID": "t643886074",
+        "Phylum": "Firmicutes",
+        "Type": "Commensal microbes",
+        "Size": "150"
+      },
+      {
+        "ID": "t643886084",
+        "Phylum": "Actinobacteria",
+        "Type": "Commensal microbes",
+        "Size": "116.666666667"
+      },
+      {
+        "ID": "t643886103",
+        "Phylum": "Firmicutes",
+        "Type": "Commensal microbes",
+        "Size": "122.56097561"
+      },
+      {
+        "ID": "t643886104",
+        "Phylum": "Firmicutes",
+        "Type": "Commensal microbes",
+        "Size": "150"
+      },
+      {
+        "ID": "t643886107",
+        "Phylum": "Firmicutes",
+        "Type": "Commensal microbes",
+        "Size": "29.268292683"
+      },
+      {
+        "ID": "t643886109",
+        "Phylum": "Firmicutes",
+        "Type": "Commensal microbes",
+        "Size": "20"
+      },
+      {
+        "ID": "t643886110",
+        "Phylum": "Firmicutes",
+        "Type": "Commensal microbes",
+        "Size": "20"
+      },
+      {
+        "ID": "t643886111",
+        "Phylum": "Bacteroidetes",
+        "Type": "Commensal microbes",
+        "Size": "91.4634146341"
+      },
+      {
+        "ID": "t643886112",
+        "Phylum": "Firmicutes",
+        "Type": "Commensal microbes",
+        "Size": "95.1219512194"
+      },
+      {
+        "ID": "t643886113",
+        "Phylum": "Bacteroidetes",
+        "Type": "Potential pathogens",
+        "Size": "450"
+      },
+      {
+        "ID": "t643886116",
+        "Phylum": "Firmicutes",
+        "Type": "Commensal microbes",
+        "Size": "131.707317073"
+      },
+      {
+        "ID": "t643886139",
+        "Phylum": "Firmicutes",
+        "Type": "Commensal microbes",
+        "Size": "20"
+      },
+      {
+        "ID": "t643886142",
+        "Phylum": "Bacteroidetes",
+        "Type": "Commensal microbes",
+        "Size": "20"
+      },
+      {
+        "ID": "t643886143",
+        "Phylum": "Firmicutes",
+        "Type": "Commensal microbes",
+        "Size": "131.707317073"
+      },
+      {
+        "ID": "t643886145",
+        "Phylum": "Firmicutes",
+        "Type": "Commensal microbes",
+        "Size": "20"
+      },
+      {
+        "ID": "t643886146",
+        "Phylum": "Firmicutes",
+        "Type": "Commensal microbes",
+        "Size": "51.2195121951"
+      },
+      {
+        "ID": "t643886148",
+        "Phylum": "Bacteroidetes",
+        "Type": "Commensal microbes",
+        "Size": "92.1428571429"
+      },
+      {
+        "ID": "t643886150",
+        "Phylum": "Proteobacteria",
+        "Type": "Commensal microbes",
+        "Size": "145.652173913"
+      },
+      {
+        "ID": "t643886151",
+        "Phylum": "Proteobacteria",
+        "Type": "Commensal microbes",
+        "Size": "52.1739130436"
+      },
+      {
+        "ID": "t643886181",
+        "Phylum": "Firmicutes",
+        "Type": "Commensal microbes",
+        "Size": "150"
+      },
+      {
+        "ID": "t643886188",
+        "Phylum": "Firmicutes",
+        "Type": "Commensal microbes",
+        "Size": "139.130434783"
+      },
+      {
+        "ID": "t643886193",
+        "Phylum": "Proteobacteria",
+        "Type": "Commensal microbes",
+        "Size": "150"
+      },
+      {
+        "ID": "t643886194",
+        "Phylum": "Proteobacteria",
+        "Type": "Potential pathogens",
+        "Size": "437.142857143"
+      },
+      {
+        "ID": "t643886197",
+        "Phylum": "Bacteroidetes",
+        "Type": "Commensal microbes",
+        "Size": "20"
+      },
+      {
+        "ID": "t643886198",
+        "Phylum": "Proteobacteria",
+        "Type": "Commensal microbes",
+        "Size": "147.857142857"
+      },
+      {
+        "ID": "t643886199",
+        "Phylum": "Firmicutes",
+        "Type": "Commensal microbes",
+        "Size": "54.8780487806"
+      },
+      {
+        "ID": "t643886200",
+        "Phylum": "Bacteroidetes",
+        "Type": "Commensal microbes",
+        "Size": "29.268292683"
+      },
+      {
+        "ID": "t643886203",
+        "Phylum": "Firmicutes",
+        "Type": "Commensal microbes",
+        "Size": "137.195121951"
+      },
+      {
+        "ID": "t643886206",
+        "Phylum": "Firmicutes",
+        "Type": "Commensal microbes",
+        "Size": "45.731707317"
+      },
+      {
+        "ID": "t643886208",
+        "Phylum": "Proteobacteria",
+        "Type": "Potential pathogens",
+        "Size": "450"
+      },
+      {
+        "ID": "t643886217",
+        "Phylum": "Firmicutes",
+        "Type": "Commensal microbes",
+        "Size": "100"
+      },
+      {
+        "ID": "t644736324",
+        "Phylum": "Proteobacteria",
+        "Type": "Commensal microbes",
+        "Size": "145.652173913"
+      },
+      {
+        "ID": "t644736327",
+        "Phylum": "Actinobacteria",
+        "Type": "Commensal microbes",
+        "Size": "150"
+      },
+      {
+        "ID": "t644736346",
+        "Phylum": "Actinobacteria",
+        "Type": "Potential pathogens",
+        "Size": "60"
+      },
+      {
+        "ID": "t644736358",
+        "Phylum": "Actinobacteria",
+        "Type": "Potential pathogens",
+        "Size": "235.975609756"
+      },
+      {
+        "ID": "t644736366",
+        "Phylum": "Firmicutes",
+        "Type": "Commensal microbes",
+        "Size": "135.365853659"
+      },
+      {
+        "ID": "t644736367",
+        "Phylum": "Firmicutes",
+        "Type": "Commensal microbes",
+        "Size": "146.341463415"
+      },
+      {
+        "ID": "t644736381",
+        "Phylum": "Firmicutes",
+        "Type": "Commensal microbes",
+        "Size": "20"
+      },
+      {
+        "ID": "t644736382",
+        "Phylum": "Firmicutes",
+        "Type": "Commensal microbes",
+        "Size": "20"
+      },
+      {
+        "ID": "t644736384",
+        "Phylum": "Fusobacteria",
+        "Type": "Potential pathogens",
+        "Size": "443.571428571"
+      },
+      {
+        "ID": "t644736390",
+        "Phylum": "Actinobacteria",
+        "Type": "Commensal microbes",
+        "Size": "66.6666666666"
+      },
+      {
+        "ID": "t645058705",
+        "Phylum": "Firmicutes",
+        "Type": "Commensal microbes",
+        "Size": "20"
+      },
+      {
+        "ID": "t645058712",
+        "Phylum": "Firmicutes",
+        "Type": "Commensal microbes",
+        "Size": "34.9999999999"
+      },
+      {
+        "ID": "t645058719",
+        "Phylum": "Actinobacteria",
+        "Type": "Commensal microbes",
+        "Size": "83.3333333334"
+      },
+      {
+        "ID": "t645058720",
+        "Phylum": "Proteobacteria",
+        "Type": "Potential pathogens",
+        "Size": "437.142857143"
+      },
+      {
+        "ID": "t645058738",
+        "Phylum": "Firmicutes",
+        "Type": "Commensal microbes",
+        "Size": "130.714285714"
+      },
+      {
+        "ID": "t645058748",
+        "Phylum": "Proteobacteria",
+        "Type": "Potential pathogens",
+        "Size": "430.434782609"
+      },
+      {
+        "ID": "t645058761",
+        "Phylum": "Firmicutes",
+        "Type": "Commensal microbes",
+        "Size": "20"
+      },
+      {
+        "ID": "t645058788",
+        "Phylum": "Bacteroidetes",
+        "Type": "Potential pathogens",
+        "Size": "214.024390244"
+      },
+      {
+        "ID": "t645058800",
+        "Phylum": "Actinobacteria",
+        "Type": "Potential pathogens",
+        "Size": "450"
+      },
+      {
+        "ID": "t645058825",
+        "Phylum": "Firmicutes",
+        "Type": "Commensal microbes",
+        "Size": "66.6666666666"
+      },
+      {
+        "ID": "t645058834",
+        "Phylum": "Firmicutes",
+        "Type": "Potential pathogens",
+        "Size": "450"
+      },
+      {
+        "ID": "t645058865",
+        "Phylum": "Proteobacteria",
+        "Type": "Potential pathogens",
+        "Size": "60"
+      },
+      {
+        "ID": "t645951802",
+        "Phylum": "Firmicutes",
+        "Type": "Commensal microbes",
+        "Size": "124.285714286"
+      },
+      {
+        "ID": "t645951804",
+        "Phylum": "Fusobacteria",
+        "Type": "Commensal microbes",
+        "Size": "20"
+      },
+      {
+        "ID": "t645951808",
+        "Phylum": "Firmicutes",
+        "Type": "Commensal microbes",
+        "Size": "134.782608696"
+      },
+      {
+        "ID": "t645951810",
+        "Phylum": "Proteobacteria",
+        "Type": "Commensal microbes",
+        "Size": "50"
+      },
+      {
+        "ID": "t645951817",
+        "Phylum": "Firmicutes",
+        "Type": "Commensal microbes",
+        "Size": "150"
+      },
+      {
+        "ID": "t645951819",
+        "Phylum": "Proteobacteria",
+        "Type": "Commensal microbes",
+        "Size": "150"
+      },
+      {
+        "ID": "t645951825",
+        "Phylum": "Bacteroidetes",
+        "Type": "Commensal microbes",
+        "Size": "20"
+      },
+      {
+        "ID": "t645951831",
+        "Phylum": "Firmicutes",
+        "Type": "Commensal microbes",
+        "Size": "146.341463415"
+      },
+      {
+        "ID": "t645951833",
+        "Phylum": "Firmicutes",
+        "Type": "Commensal microbes",
+        "Size": "106.52173913"
+      },
+      {
+        "ID": "t645951834",
+        "Phylum": "Firmicutes",
+        "Type": "Commensal microbes",
+        "Size": "33.3333333333"
+      },
+      {
+        "ID": "t645951835",
+        "Phylum": "Firmicutes",
+        "Type": "Commensal microbes",
+        "Size": "65.8536585366"
+      },
+      {
+        "ID": "t645951836",
+        "Phylum": "Bacteroidetes",
+        "Type": "Commensal microbes",
+        "Size": "145.714285714"
+      },
+      {
+        "ID": "t645951837",
+        "Phylum": "Actinobacteria",
+        "Type": "Commensal microbes",
+        "Size": "42.8571428571"
+      },
+      {
+        "ID": "t645951840",
+        "Phylum": "Bacteroidetes",
+        "Type": "Commensal microbes",
+        "Size": "117.857142857"
+      },
+      {
+        "ID": "t645951848",
+        "Phylum": "Fusobacteria",
+        "Type": "Potential pathogens",
+        "Size": "450"
+      },
+      {
+        "ID": "t645951855",
+        "Phylum": "Synergistetes",
+        "Type": "Commensal microbes",
+        "Size": "20"
+      },
+      {
+        "ID": "t645951857",
+        "Phylum": "Proteobacteria",
+        "Type": "Commensal microbes",
+        "Size": "143.47826087"
+      },
+      {
+        "ID": "t645951859",
+        "Phylum": "Fusobacteria",
+        "Type": "Commensal microbes",
+        "Size": "20"
+      },
+      {
+        "ID": "t645951860",
+        "Phylum": "Fusobacteria",
+        "Type": "Commensal microbes",
+        "Size": "150"
+      },
+      {
+        "ID": "t645951869",
+        "Phylum": "Spirochaetes",
+        "Type": "Commensal microbes",
+        "Size": "105"
+      },
+      {
+        "ID": "t646206250",
+        "Phylum": "Proteobacteria",
+        "Type": "Commensal microbes",
+        "Size": "38.4146341464"
+      },
+      {
+        "ID": "t646206251",
+        "Phylum": "Firmicutes",
+        "Type": "Commensal microbes",
+        "Size": "95.1219512194"
+      },
+      {
+        "ID": "t646206254",
+        "Phylum": "Fusobacteria",
+        "Type": "Commensal microbes",
+        "Size": "20"
+      },
+      {
+        "ID": "t646206268",
+        "Phylum": "Proteobacteria",
+        "Type": "Commensal microbes",
+        "Size": "20"
+      },
+      {
+        "ID": "t646206269",
+        "Phylum": "Proteobacteria",
+        "Type": "Potential pathogens",
+        "Size": "60"
+      },
+      {
+        "ID": "t646206270",
+        "Phylum": "Proteobacteria",
+        "Type": "Potential pathogens",
+        "Size": "60"
+      },
+      {
+        "ID": "t646206271",
+        "Phylum": "Proteobacteria",
+        "Type": "Potential pathogens",
+        "Size": "60"
+      },
+      {
+        "ID": "t646206275",
+        "Phylum": "Fusobacteria",
+        "Type": "Commensal microbes",
+        "Size": "20"
+      },
+      {
+        "ID": "t646206276",
+        "Phylum": "Firmicutes",
+        "Type": "Commensal microbes",
+        "Size": "25.0000000001"
+      },
+      {
+        "ID": "t646311901",
+        "Phylum": "Firmicutes",
+        "Type": "Commensal microbes",
+        "Size": "20"
+      },
+      {
+        "ID": "t646311928",
+        "Phylum": "Actinobacteria",
+        "Type": "Potential pathogens",
+        "Size": "150"
+      },
+      {
+        "ID": "t646311937",
+        "Phylum": "Proteobacteria",
+        "Type": "Commensal microbes",
+        "Size": "20"
+      },
+      {
+        "ID": "t646311941",
+        "Phylum": "Firmicutes",
+        "Type": "Potential pathogens",
+        "Size": "60"
+      },
+      {
+        "ID": "t646311946",
+        "Phylum": "Tenericutes",
+        "Type": "Commensal microbes",
+        "Size": "20"
+      },
+      {
+        "ID": "t646311956",
+        "Phylum": "Fusobacteria",
+        "Type": "Potential pathogens",
+        "Size": "60"
+      },
+      {
+        "ID": "t646564552",
+        "Phylum": "Proteobacteria",
+        "Type": "Commensal microbes",
+        "Size": "33.3333333333"
+      },
+      {
+        "ID": "t646564572",
+        "Phylum": "Firmicutes",
+        "Type": "Commensal microbes",
+        "Size": "20"
+      },
+      {
+        "ID": "t646564575",
+        "Phylum": "Firmicutes",
+        "Type": "Potential pathogens",
+        "Size": "163.043478261"
+      },
+      {
+        "ID": "t646862322",
+        "Phylum": "Proteobacteria",
+        "Type": "Potential pathogens",
+        "Size": "301.829268293"
+      },
+      {
+        "ID": "t646862342",
+        "Phylum": "Firmicutes",
+        "Type": "Potential pathogens",
+        "Size": "125"
+      },
+      {
+        "ID": "t647000207",
+        "Phylum": "Firmicutes",
+        "Type": "Commensal microbes",
+        "Size": "20"
+      },
+      {
+        "ID": "t647000215",
+        "Phylum": "Bacteroidetes",
+        "Type": "Commensal microbes",
+        "Size": "142.682926829"
+      },
+      {
+        "ID": "t647000218",
+        "Phylum": "Firmicutes",
+        "Type": "Commensal microbes",
+        "Size": "25.7142857144"
+      },
+      {
+        "ID": "t647000231",
+        "Phylum": "Actinobacteria",
+        "Type": "Potential pathogens",
+        "Size": "60"
+      },
+      {
+        "ID": "t647000254",
+        "Phylum": "Fusobacteria",
+        "Type": "Potential pathogens",
+        "Size": "450"
+      },
+      {
+        "ID": "t647000268",
+        "Phylum": "Fusobacteria",
+        "Type": "Commensal microbes",
+        "Size": "143.47826087"
+      },
+      {
+        "ID": "t647000283",
+        "Phylum": "Proteobacteria",
+        "Type": "Commensal microbes",
+        "Size": "143.47826087"
+      },
+      {
+        "ID": "t647000284",
+        "Phylum": "Proteobacteria",
+        "Type": "Commensal microbes",
+        "Size": "41.3043478261"
+      },
+      {
+        "ID": "t647000288",
+        "Phylum": "Proteobacteria",
+        "Type": "Commensal microbes",
+        "Size": "20"
+      },
+      {
+        "ID": "t647000289",
+        "Phylum": "Firmicutes",
+        "Type": "Commensal microbes",
+        "Size": "20"
+      },
+      {
+        "ID": "t647000290",
+        "Phylum": "Firmicutes",
+        "Type": "Commensal microbes",
+        "Size": "20"
+      },
+      {
+        "ID": "t647000292",
+        "Phylum": "Bacteroidetes",
+        "Type": "Commensal microbes",
+        "Size": "34.2857142857"
+      },
+      {
+        "ID": "t647000293",
+        "Phylum": "Bacteroidetes",
+        "Type": "Commensal microbes",
+        "Size": "29.268292683"
+      },
+      {
+        "ID": "t647000295",
+        "Phylum": "Bacteroidetes",
+        "Type": "Commensal microbes",
+        "Size": "34.9999999999"
+      },
+      {
+        "ID": "t647000302",
+        "Phylum": "Synergistetes",
+        "Type": "Commensal microbes",
+        "Size": "20"
+      },
+      {
+        "ID": "t647000331",
+        "Phylum": "Firmicutes",
+        "Type": "Potential pathogens",
+        "Size": "450"
+      },
+      {
+        "ID": "t647533146",
+        "Phylum": "Firmicutes",
+        "Type": "Potential pathogens",
+        "Size": "60"
+      },
+      {
+        "ID": "t647533156",
+        "Phylum": "Firmicutes",
+        "Type": "Potential pathogens",
+        "Size": "60"
+      },
+      {
+        "ID": "t647533172",
+        "Phylum": "Firmicutes",
+        "Type": "Commensal microbes",
+        "Size": "145.714285714"
+      },
+      {
+        "ID": "t647533176",
+        "Phylum": "Firmicutes",
+        "Type": "Commensal microbes",
+        "Size": "90"
+      },
+      {
+        "ID": "t647533178",
+        "Phylum": "Firmicutes",
+        "Type": "Commensal microbes",
+        "Size": "20"
+      },
+      {
+        "ID": "t647533181",
+        "Phylum": "Proteobacteria",
+        "Type": "Potential pathogens",
+        "Size": "60"
+      },
+      {
+        "ID": "t647533186",
+        "Phylum": "Proteobacteria",
+        "Type": "Potential pathogens",
+        "Size": "189.130434782"
+      },
+      {
+        "ID": "t647533194",
+        "Phylum": "Firmicutes",
+        "Type": "Commensal microbes",
+        "Size": "20"
+      },
+      {
+        "ID": "t647533210",
+        "Phylum": "Proteobacteria",
+        "Type": "Commensal microbes",
+        "Size": "47.1428571429"
+      },
+      {
+        "ID": "t648028005",
+        "Phylum": "Proteobacteria",
+        "Type": "Potential pathogens",
+        "Size": "293.478260869"
+      },
+      {
+        "ID": "t648028010",
+        "Phylum": "Proteobacteria",
+        "Type": "Commensal microbes",
+        "Size": "20"
+      },
+      {
+        "ID": "t648028018",
+        "Phylum": "Firmicutes",
+        "Type": "Commensal microbes",
+        "Size": "20"
+      },
+      {
+        "ID": "t648028033",
+        "Phylum": "Proteobacteria",
+        "Type": "Commensal microbes",
+        "Size": "20"
+      },
+      {
+        "ID": "t648028043",
+        "Phylum": "Actinobacteria",
+        "Type": "Commensal microbes",
+        "Size": "20"
+      },
+      {
+        "ID": "t648028047",
+        "Phylum": "Actinobacteria",
+        "Type": "Commensal microbes",
+        "Size": "20"
+      },
+      {
+        "ID": "t648028051",
+        "Phylum": "Bacteroidetes",
+        "Type": "Commensal microbes",
+        "Size": "150"
+      },
+      {
+        "ID": "t648028055",
+        "Phylum": "Firmicutes",
+        "Type": "Potential pathogens",
+        "Size": "335.714285714"
+      },
+      {
+        "ID": "t648276633",
+        "Phylum": "Actinobacteria",
+        "Type": "Commensal microbes",
+        "Size": "33.3333333333"
+      },
+      {
+        "ID": "t648276634",
+        "Phylum": "Actinobacteria",
+        "Type": "Potential pathogens",
+        "Size": "450"
+      },
+      {
+        "ID": "t648276674",
+        "Phylum": "Firmicutes",
+        "Type": "Commensal microbes",
+        "Size": "58.3333333333"
+      },
+      {
+        "ID": "t648276682",
+        "Phylum": "Firmicutes",
+        "Type": "Commensal microbes",
+        "Size": "60"
+      },
+      {
+        "ID": "t648276684",
+        "Phylum": "Firmicutes",
+        "Type": "Commensal microbes",
+        "Size": "20"
+      },
+      {
+        "ID": "t648276710",
+        "Phylum": "Firmicutes",
+        "Type": "Commensal microbes",
+        "Size": "20"
+      },
+      {
+        "ID": "t648276712",
+        "Phylum": "Firmicutes",
+        "Type": "Commensal microbes",
+        "Size": "141.428571429"
+      },
+      {
+        "ID": "t648276713",
+        "Phylum": "Bacteroidetes",
+        "Type": "Commensal microbes",
+        "Size": "34.2857142857"
+      },
+      {
+        "ID": "t648276715",
+        "Phylum": "Bacteroidetes",
+        "Type": "Commensal microbes",
+        "Size": "143.571428571"
+      },
+      {
+        "ID": "t648276716",
+        "Phylum": "Bacteroidetes",
+        "Type": "Commensal microbes",
+        "Size": "60.8695652174"
+      },
+      {
+        "ID": "t648276732",
+        "Phylum": "Firmicutes",
+        "Type": "Commensal microbes",
+        "Size": "20"
+      },
+      {
+        "ID": "t648276734",
+        "Phylum": "Firmicutes",
+        "Type": "Potential pathogens",
+        "Size": "450"
+      },
+      {
+        "ID": "t648276739",
+        "Phylum": "Firmicutes",
+        "Type": "Commensal microbes",
+        "Size": "150"
+      },
+      {
+        "ID": "t648276747",
+        "Phylum": "Firmicutes",
+        "Type": "Potential pathogens",
+        "Size": "60"
+      },
+      {
+        "ID": "t648276749",
+        "Phylum": "Firmicutes",
+        "Type": "Potential pathogens",
+        "Size": "60"
+      },
+      {
+        "ID": "t648276753",
+        "Phylum": "Firmicutes",
+        "Type": "Commensal microbes",
+        "Size": "150"
+      },
+      {
+        "ID": "t648861012",
+        "Phylum": "Bacteroidetes",
+        "Type": "Commensal microbes",
+        "Size": "145.714285714"
+      },
+      {
+        "ID": "t649633012",
+        "Phylum": "Bacteroidetes",
+        "Type": "Commensal microbes",
+        "Size": "20"
+      },
+      {
+        "ID": "t649633013",
+        "Phylum": "Bacteroidetes",
+        "Type": "Commensal microbes",
+        "Size": "20"
+      },
+      {
+        "ID": "t649633041",
+        "Phylum": "Proteobacteria",
+        "Type": "Commensal microbes",
+        "Size": "20"
+      },
+      {
+        "ID": "t649633064",
+        "Phylum": "Firmicutes",
+        "Type": "Commensal microbes",
+        "Size": "20"
+      },
+      {
+        "ID": "t649633075",
+        "Phylum": "Proteobacteria",
+        "Type": "Commensal microbes",
+        "Size": "23.9130434782"
+      },
+      {
+        "ID": "t649633078",
+        "Phylum": "Bacteroidetes",
+        "Type": "Commensal microbes",
+        "Size": "111.585365854"
+      },
+      {
+        "ID": "t649633084",
+        "Phylum": "Actinobacteria",
+        "Type": "Commensal microbes",
+        "Size": "20"
+      },
+      {
+        "ID": "t649633093",
+        "Phylum": "Actinobacteria",
+        "Type": "Commensal microbes",
+        "Size": "150"
+      },
+      {
+        "ID": "t649633094",
+        "Phylum": "Firmicutes",
+        "Type": "Commensal microbes",
+        "Size": "102.43902439"
+      },
+      {
+        "ID": "t649989901",
+        "Phylum": "Actinobacteria",
+        "Type": "Commensal microbes",
+        "Size": "150"
+      },
+      {
+        "ID": "t649989905",
+        "Phylum": "Actinobacteria",
+        "Type": "Potential pathogens",
+        "Size": "450"
+      },
+      {
+        "ID": "t649989906",
+        "Phylum": "Proteobacteria",
+        "Type": "Commensal microbes",
+        "Size": "145.652173913"
+      },
+      {
+        "ID": "t649989912",
+        "Phylum": "Bacteroidetes",
+        "Type": "Commensal microbes",
+        "Size": "69.5121951219"
+      },
+      {
+        "ID": "t649989917",
+        "Phylum": "Proteobacteria",
+        "Type": "Commensal microbes",
+        "Size": "115.243902439"
+      },
+      {
+        "ID": "t649989920",
+        "Phylum": "Bacteroidetes",
+        "Type": "Potential pathogens",
+        "Size": "450"
+      },
+      {
+        "ID": "t649989922",
+        "Phylum": "Firmicutes",
+        "Type": "Commensal microbes",
+        "Size": "60.3658536585"
+      },
+      {
+        "ID": "t649989928",
+        "Phylum": "Firmicutes",
+        "Type": "Commensal microbes",
+        "Size": "32.1428571429"
+      },
+      {
+        "ID": "t649989950",
+        "Phylum": "Firmicutes",
+        "Type": "Commensal microbes",
+        "Size": "150"
+      },
+      {
+        "ID": "t649989952",
+        "Phylum": "Firmicutes",
+        "Type": "Potential pathogens",
+        "Size": "450"
+      },
+      {
+        "ID": "t649989956",
+        "Phylum": "Proteobacteria",
+        "Type": "Commensal microbes",
+        "Size": "119.565217391"
+      },
+      {
+        "ID": "t649989969",
+        "Phylum": "Firmicutes",
+        "Type": "Commensal microbes",
+        "Size": "20"
+      },
+      {
+        "ID": "t649989970",
+        "Phylum": "Proteobacteria",
+        "Type": "Commensal microbes",
+        "Size": "147.826086957"
+      },
+      {
+        "ID": "t649989971",
+        "Phylum": "Firmicutes",
+        "Type": "Commensal microbes",
+        "Size": "143.571428571"
+      },
+      {
+        "ID": "t649989980",
+        "Phylum": "Actinobacteria",
+        "Type": "Commensal microbes",
+        "Size": "20"
+      },
+      {
+        "ID": "t649989982",
+        "Phylum": "Firmicutes",
+        "Type": "Commensal microbes",
+        "Size": "33.3333333333"
+      },
+      {
+        "ID": "t649989985",
+        "Phylum": "Bacteroidetes",
+        "Type": "Commensal microbes",
+        "Size": "25.6097560975"
+      },
+      {
+        "ID": "t649989986",
+        "Phylum": "Bacteroidetes",
+        "Type": "Commensal microbes",
+        "Size": "36.9565217391"
+      },
+      {
+        "ID": "t649989987",
+        "Phylum": "Bacteroidetes",
+        "Type": "Commensal microbes",
+        "Size": "137.142857143"
+      },
+      {
+        "ID": "t649989988",
+        "Phylum": "Bacteroidetes",
+        "Type": "Commensal microbes",
+        "Size": "50"
+      },
+      {
+        "ID": "t649989989",
+        "Phylum": "Bacteroidetes",
+        "Type": "Commensal microbes",
+        "Size": "150"
+      },
+      {
+        "ID": "t649989993",
+        "Phylum": "Firmicutes",
+        "Type": "Commensal microbes",
+        "Size": "20"
+      },
+      {
+        "ID": "t649989996",
+        "Phylum": "Firmicutes",
+        "Type": "Commensal microbes",
+        "Size": "117.391304348"
+      },
+      {
+        "ID": "t649989999",
+        "Phylum": "Firmicutes",
+        "Type": "Commensal microbes",
+        "Size": "150"
+      },
+      {
+        "ID": "t649990001",
+        "Phylum": "Firmicutes",
+        "Type": "Commensal microbes",
+        "Size": "143.47826087"
+      },
+      {
+        "ID": "t649990003",
+        "Phylum": "Firmicutes",
+        "Type": "Commensal microbes",
+        "Size": "150"
+      },
+      {
+        "ID": "t649990004",
+        "Phylum": "Firmicutes",
+        "Type": "Commensal microbes",
+        "Size": "147.826086957"
+      },
+      {
+        "ID": "t649990007",
+        "Phylum": "Firmicutes",
+        "Type": "Commensal microbes",
+        "Size": "150"
+      },
+      {
+        "ID": "t649990011",
+        "Phylum": "Firmicutes",
+        "Type": "Commensal microbes",
+        "Size": "150"
+      },
+      {
+        "ID": "t649990014",
+        "Phylum": "Firmicutes",
+        "Type": "Potential pathogens",
+        "Size": "450"
+      },
+      {
+        "ID": "t649990016",
+        "Phylum": "Firmicutes",
+        "Type": "Commensal microbes",
+        "Size": "150"
+      },
+      {
+        "ID": "t649990021",
+        "Phylum": "Proteobacteria",
+        "Type": "Commensal microbes",
+        "Size": "51.2195121951"
+      },
+      {
+        "ID": "t649990026",
+        "Phylum": "Spirochaetes",
+        "Type": "Commensal microbes",
+        "Size": "20"
+      },
+      {
+        "ID": "t650377901",
+        "Phylum": "Proteobacteria",
+        "Type": "Potential pathogens",
+        "Size": "60"
+      },
+      {
+        "ID": "t650377904",
+        "Phylum": "Bacteroidetes",
+        "Type": "Commensal microbes",
+        "Size": "137.195121951"
+      },
+      {
+        "ID": "t650377925",
+        "Phylum": "Firmicutes",
+        "Type": "Commensal microbes",
+        "Size": "104.268292683"
+      },
+      {
+        "ID": "t650377929",
+        "Phylum": "Firmicutes",
+        "Type": "Potential pathogens",
+        "Size": "60"
+      },
+      {
+        "ID": "t650377938",
+        "Phylum": "Firmicutes",
+        "Type": "Commensal microbes",
+        "Size": "93.2926829268"
+      },
+      {
+        "ID": "t650377943",
+        "Phylum": "Actinobacteria",
+        "Type": "Commensal microbes",
+        "Size": "87.8048780489"
+      },
+      {
+        "ID": "t650377944",
+        "Phylum": "Proteobacteria",
+        "Type": "Potential pathogens",
+        "Size": "450"
+      },
+      {
+        "ID": "t650377954",
+        "Phylum": "Firmicutes",
+        "Type": "Commensal microbes",
+        "Size": "20"
+      },
+      {
+        "ID": "t650377958",
+        "Phylum": "Firmicutes",
+        "Type": "Commensal microbes",
+        "Size": "20"
+      },
+      {
+        "ID": "t650377963",
+        "Phylum": "Proteobacteria",
+        "Type": "Commensal microbes",
+        "Size": "20"
+      },
+      {
+        "ID": "t650377966",
+        "Phylum": "Firmicutes",
+        "Type": "Commensal microbes",
+        "Size": "96.9512195122"
+      },
+      {
+        "ID": "t650377974",
+        "Phylum": "Firmicutes",
+        "Type": "Commensal microbes",
+        "Size": "20"
+      },
+      {
+        "ID": "t650377975",
+        "Phylum": "Firmicutes",
+        "Type": "Potential pathogens",
+        "Size": "60"
+      },
+      {
+        "ID": "t650633000",
+        "Phylum": "Lentisphaerae",
+        "Type": "Commensal microbes",
+        "Size": "40.243902439"
+      },
+      {
+        "ID": "t650716045",
+        "Phylum": "Firmicutes",
+        "Type": "Commensal microbes",
+        "Size": "20"
+      },
+      {
+        "ID": "t650716089",
+        "Phylum": "Firmicutes",
+        "Type": "Commensal microbes",
+        "Size": "150"
+      },
+      {
+        "ID": "t651053005",
+        "Phylum": "Actinobacteria",
+        "Type": "Commensal microbes",
+        "Size": "20"
+      },
+      {
+        "ID": "t651053029",
+        "Phylum": "Proteobacteria",
+        "Type": "Potential pathogens",
+        "Size": "60"
+      },
+      {
+        "ID": "t651053056",
+        "Phylum": "Proteobacteria",
+        "Type": "Potential pathogens",
+        "Size": "60"
+      },
+      {
+        "ID": "t651053058",
+        "Phylum": "Actinobacteria",
+        "Type": "Potential pathogens",
+        "Size": "450"
+      },
+      {
+        "ID": "t651053073",
+        "Phylum": "Firmicutes",
+        "Type": "Commensal microbes",
+        "Size": "150"
+      },
+      {
+        "ID": "t651324009",
+        "Phylum": "Firmicutes",
+        "Type": "Commensal microbes",
+        "Size": "20"
+      },
+      {
+        "ID": "t651324012",
+        "Phylum": "Bacteroidetes",
+        "Type": "Commensal microbes",
+        "Size": "137.195121951"
+      },
+      {
+        "ID": "t651324039",
+        "Phylum": "Proteobacteria",
+        "Type": "Commensal microbes",
+        "Size": "150"
+      }
+    ],
+    "categoryColumn": "Phylum",
+    "barColumn": "Size"
+  }
+}

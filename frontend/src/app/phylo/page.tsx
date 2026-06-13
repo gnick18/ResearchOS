@@ -30,8 +30,12 @@ export default function PhyloPage() {
   const [isDemo, setIsDemo] = useState(false);
   const [mounted, setMounted] = useState(false);
   useEffect(() => {
-    setIsDemo(getDemoMode());
+    const demo = getDemoMode();
+    setIsDemo(demo);
     setMounted(true);
+    // The demo seeds three populated trees, so land straight in the Tree Studio
+    // on the showcase figure rather than the empty Hub.
+    if (demo) setView("studio");
   }, []);
   const surfaceEnabled = PHYLO_ENABLED || isDemo;
 

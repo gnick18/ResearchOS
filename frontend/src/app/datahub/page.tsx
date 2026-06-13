@@ -120,6 +120,7 @@ import TableFormatControl from "@/components/datahub/TableFormatControl";
 import XYTableGrid from "@/components/datahub/XYTableGrid";
 import GroupedTableGrid from "@/components/datahub/GroupedTableGrid";
 import SurvivalTableGrid from "@/components/datahub/SurvivalTableGrid";
+import ContingencyTableGrid from "@/components/datahub/ContingencyTableGrid";
 import NewTableDialog, {
   type NewTableSubmit,
 } from "@/components/datahub/NewTableDialog";
@@ -565,7 +566,20 @@ export default function DataHubPage() {
     const handle = handleRef.current;
     if (!handle || !openContent || openIdRef.current == null) return;
     const cells: Record<string, CellValue> = {};
-    for (const col of openContent.columns) cells[col.id] = null;
+    // A Contingency table seeds the row-label cell and zeroes the count cells so
+    // a fresh row reads as a real category with no counts yet, the same shape the
+    // empty-table builder produces. Every other table type backfills null.
+    const isContingency = openContent.meta.table_type === "contingency";
+    const rowCount = openContent.rows.length;
+    for (const col of openContent.columns) {
+      if (isContingency && col.role === "x") {
+        cells[col.id] = `Group ${rowCount + 1}`;
+      } else if (isContingency && col.role === "y") {
+        cells[col.id] = 0;
+      } else {
+        cells[col.id] = null;
+      }
+    }
     const rowId = `row-${Date.now()}`;
     addRowToDoc(handle.doc, { id: rowId, cells });
     void handle.commit();
@@ -641,6 +655,26 @@ export default function DataHubPage() {
       // every existing row (there is one) so the projection reads cleanly.
       for (const row of openContent.rows) {
         for (const id of newColIds) setCell(handle.doc, row.id, id, null);
+      }
+      void handle.commit();
+      setOpenContent(getDataHubContent(handle.doc, openIdRef.current));
+      return;
+    }
+
+    // A Contingency table adds another count column (an "Outcome N" category of
+    // the column factor), backfilling 0 on every existing row so the count matrix
+    // stays rectangular.
+    if (tableType === "contingency") {
+      const colId = `col-${stamp}`;
+      const yCount = openContent.columns.filter((c) => c.role === "y").length;
+      addColumnToDoc(handle.doc, {
+        id: colId,
+        name: `Outcome ${yCount + 1}`,
+        role: "y",
+        dataType: "number",
+      });
+      for (const row of openContent.rows) {
+        setCell(handle.doc, row.id, colId, 0);
       }
       void handle.commit();
       setOpenContent(getDataHubContent(handle.doc, openIdRef.current));
@@ -1748,7 +1782,11 @@ export default function DataHubPage() {
     if (!openContent) return [];
     const type = openContent.meta.table_type;
     const addColumnLabel =
-      type === "xy" ? "Add Y column" : type === "grouped" ? "Add group" : "Add group";
+      type === "xy"
+        ? "Add Y column"
+        : type === "contingency"
+          ? "Add column"
+          : "Add group";
 
     // A summary-format Column table holds a single fixed row (the entered
     // descriptives), so Add row does not apply there; only Add group does.
@@ -2142,7 +2180,9 @@ export default function DataHubPage() {
                             ? "Grouped table. Each row is a category and each column group is a second factor, with replicate subcolumns for a two-way ANOVA."
                             : openContent.meta.table_type === "survival"
                               ? "Survival table. Each row is a subject with a time, an event indicator (1 or 0), and an optional group for Kaplan-Meier and the log-rank test."
-                              : isSummaryFormat(openContent.meta.entryFormat)
+                              : openContent.meta.table_type === "contingency"
+                                ? "Contingency table. An R x C grid of counts, one row per category of the first factor and one count column per category of the second, for the chi-square test and a 2x2 Fisher exact test with relative risk and odds ratio."
+                                : isSummaryFormat(openContent.meta.entryFormat)
                                 ? `Column table, summary entry. Each column is a group, and you enter its mean, ${spreadKindOf(entryFormatOf(openContent)).toUpperCase()}, and n directly. Graphs and the summary-compatible tests draw from those numbers.`
                                 : "Column table. Each column is a treatment group, each row a replicate."}
                     </p>
@@ -2175,6 +2215,17 @@ export default function DataHubPage() {
                         onCellCommit={handleCellCommit}
                         onToggleExclusion={handleToggleExclusion}
                         onAddRow={handleAddRow}
+                        crud={gridCrud}
+                        hideAddControls
+                        readOnly={!!derivedInfo}
+                      />
+                    ) : openContent.meta.table_type === "contingency" ? (
+                      <ContingencyTableGrid
+                        content={openContent}
+                        onCellCommit={handleCellCommit}
+                        onToggleExclusion={handleToggleExclusion}
+                        onAddRow={handleAddRow}
+                        onAddColumn={handleAddColumn}
                         crud={gridCrud}
                         hideAddControls
                         readOnly={!!derivedInfo}

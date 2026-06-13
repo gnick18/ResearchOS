@@ -24,6 +24,7 @@ import type {
   NormalizedSurvival,
   NormalizedCoxRegression,
   NormalizedGrubbsOutlier,
+  NormalizedContingency,
   NormalizedTTest,
   NormalizedTwoWayAnova,
 } from "@/lib/datahub/run-analysis";
@@ -502,6 +503,55 @@ function grubbsSummary(r: NormalizedGrubbsOutlier): string {
   )}, in ${detail}. A flagged value is a candidate for review, not an automatic deletion, so confirm it against the experiment before removing it.`;
 }
 
+function contingencySummary(r: NormalizedContingency): string {
+  // The leading chi-square is the one the Yates param selected (corrected for a
+  // 2x2 by default, uncorrected otherwise or for a larger table).
+  const is2x2 = r.rows === 2 && r.cols === 2;
+  const usingYates = is2x2 && r.yatesApplied;
+  const chi = usingYates ? r.yatesChiSquare : r.chiSquare;
+  const p = usingYates ? r.yatesPValue : r.pValue;
+  const label = usingYates
+    ? "Chi-square (Yates-corrected)"
+    : "Chi-square";
+  const stat = `${label} = ${num(chi, 2)} on ${r.df} df, ${formatP(p)}`;
+  const sig = p < ALPHA;
+  const head = sig
+    ? `The two factors are associated (${stat}). Knowing one tells you something about the other.`
+    : `There is not enough evidence that the two factors are associated (${stat}).`;
+
+  let tail = "";
+  if (is2x2 && r.oddsRatio && r.relativeRisk) {
+    tail =
+      ` The odds ratio is ${num(r.oddsRatio.estimate, 2)} (95% CI ${num(
+        r.oddsRatio.ciLow,
+        2,
+      )} to ${num(r.oddsRatio.ciHigh, 2)}) and the relative risk is ${num(
+        r.relativeRisk.estimate,
+        2,
+      )} (95% CI ${num(r.relativeRisk.ciLow, 2)} to ${num(
+        r.relativeRisk.ciHigh,
+        2,
+      )}), reading the first row as exposed and the first column as the event.`;
+  }
+
+  let caveat = "";
+  if (r.minExpected < 5) {
+    caveat = is2x2
+      ? ` The smallest expected count is ${num(
+          r.minExpected,
+          1,
+        )}, below 5, so lean on Fisher's exact p (${formatP(
+          r.fisherPValue,
+        )}) rather than the chi-square here.`
+      : ` The smallest expected count is ${num(
+          r.minExpected,
+          1,
+        )}, below 5, so the chi-square approximation is less reliable. Consider pooling sparse categories.`;
+  }
+
+  return head + tail + caveat;
+}
+
 /**
  * The one-sentence (or two-sentence) plain-language verdict for a normalized
  * result. The ResultsSheet renders this above the stats table.
@@ -524,5 +574,6 @@ export function plainLanguageSummary(result: NormalizedResult): string {
   if (result.kind === "survival") return survivalSummary(result);
   if (result.kind === "coxRegression") return coxSummary(result);
   if (result.kind === "grubbsOutlier") return grubbsSummary(result);
+  if (result.kind === "contingency") return contingencySummary(result);
   return ttestSummary(result);
 }

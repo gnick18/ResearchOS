@@ -21,10 +21,20 @@ import type { TransformOp } from "@/lib/datahub/transform/pipeline";
 
 /**
  * The Prism-style table archetypes Data Hub targets. "column" and "xy" are the
- * priority; "grouped" and "survival" are declared so the model and the on-disk
- * shape do not need a migration when those table kinds land.
+ * priority; "grouped", "survival", and "contingency" are declared so the model
+ * and the on-disk shape do not need a migration when those table kinds land.
+ *
+ * A "contingency" table is an R x C grid of non-negative integer counts. Its row
+ * headers and column headers are both editable text labels (the two factors), and
+ * the cells hold counts. The engine runs a chi-square test of independence and,
+ * for a 2x2 layout, Fisher's exact test plus relative-risk / odds-ratio measures.
  */
-export type DataHubTableType = "column" | "xy" | "grouped" | "survival";
+export type DataHubTableType =
+  | "column"
+  | "xy"
+  | "grouped"
+  | "survival"
+  | "contingency";
 
 /**
  * The role a column plays in the table. Prism groups replicate subcolumns under

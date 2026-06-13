@@ -231,7 +231,7 @@ export default function ExternalCollabSection({
           type="button"
           disabled={!canSubmit}
           onClick={onGrant}
-          className="rounded-md bg-blue-600 px-3 py-1.5 text-body font-medium text-white disabled:opacity-50"
+          className="rounded-md bg-brand-action px-3 py-1.5 text-body font-medium text-white transition-colors hover:bg-brand-action/90 disabled:opacity-50"
         >
           {phase.kind === "working" ? "Granting..." : "Grant"}
         </button>
