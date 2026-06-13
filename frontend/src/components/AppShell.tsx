@@ -404,18 +404,19 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
               permanently on the search palette, so the mascot was redundant
               chrome. The 7-click showcase unlock (clicks 1 to 6 spawn hearts,
               click 7 fires the Curtain Reveal into /showcase) moves onto the
-              "ResearchOS" text. The streak badge stays in its slot ahead of
-              the wordmark per proposal §6.1 (hidden at count 0, when streaks
-              are disabled, or pre-login). textAs="h1" keeps the header's
-              existing document outline. */}
-          <Wordmark
-            size="sm"
-            textAs="h1"
-            textOnly
-            textTestId="appshell-beakerbot-brand"
-            onTextClick={onBeakerBotClick}
-            aside={<StreakBadge username={currentUser} />}
-          />
+              "ResearchOS" text. The wordmark leads; the streak badge trails it
+              (hidden at count 0, when streaks are disabled, or pre-login).
+              textAs="h1" keeps the header's existing document outline. */}
+          <span className="flex items-center gap-1.5">
+            <Wordmark
+              size="sm"
+              textAs="h1"
+              textOnly
+              textTestId="appshell-beakerbot-brand"
+              onTextClick={onBeakerBotClick}
+            />
+            <StreakBadge username={currentUser} />
+          </span>
         </PillWrap>
 
         {/* The persistent "My work" toggle (NAV-2). Lab head only: it flips the
