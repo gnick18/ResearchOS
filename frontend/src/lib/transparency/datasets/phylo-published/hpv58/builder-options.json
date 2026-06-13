@@ -1,0 +1,21 @@
+{
+  "dataType": "nucleotide",
+  "analysis": "single",
+  "have": "raw",
+  "align": "mafft",
+  "trim": "trimal",
+  "partScheme": "gene",
+  "brlen": "p",
+  "model": "modelfinder",
+  "fixedModel": "GTR+G",
+  "infer": "iqtree",
+  "support": "ufboot",
+  "outgroup": "",
+  "os": "mac",
+  "bnni": true,
+  "ufbootReps": 1000,
+  "bsReps": 1000,
+  "asc": false,
+  "restrictModels": false,
+  "threads": "AUTO"
+}

@@ -1,0 +1,21 @@
+{
+  "dataType": "nucleotide",
+  "analysis": "supermatrix",
+  "have": "alignment",
+  "align": "skip",
+  "trim": "skip",
+  "partScheme": "gene",
+  "brlen": "p",
+  "model": "modelfinder",
+  "fixedModel": "GTR+G",
+  "infer": "iqtree",
+  "support": "ufboot",
+  "outgroup": "protopterus,Xenopus",
+  "os": "mac",
+  "bnni": true,
+  "ufbootReps": 1000,
+  "bsReps": 1000,
+  "asc": false,
+  "restrictModels": false,
+  "threads": "AUTO"
+}

@@ -132,6 +132,15 @@ import {
   allGoldensReady,
   comparePhyloLayout,
 } from "./datasets/phylo-ggtree";
+import {
+  PHYLO_PUBLISHED_CASES,
+  anyCaseReady,
+  caseIsReady,
+  comparePublishedCase,
+  pendingReason,
+  publishedTipCount,
+  recipeSummary,
+} from "./datasets/phylo-published";
 import { TM_CASES } from "./datasets/tm";
 import { TRANSLATE_CASES } from "./datasets/translation";
 import {
@@ -154,6 +163,7 @@ import {
   STATSMODELS,
   WALLACE,
   GGTREE,
+  PUBLISHED_TREE,
 } from "./oracles";
 import {
   classify,
@@ -1954,6 +1964,155 @@ function buildPhyloDomain(): DomainReport {
   };
 }
 
+/* ------------------------------------------ published-tree reproduction domain */
+
+/**
+ * Normalized Robinson-Foulds tolerance for a published-tree reproduction. The
+ * claim is honest: ML search is stochastic and we run on the paper's alignment,
+ * not its exact tool versions, so we ALLOW a small RF and surface which branches
+ * differ. A normalized RF at or below pass is a clean reproduction; up to warn is
+ * "agrees except at a few weakly supported nodes"; above that fails. A case may
+ * commit its own tighter or looser band (PhyloPublishedCase.tolerance), which
+ * overrides this default.
+ */
+const PHYLO_RF: Tolerance = {
+  pass: 0.05,
+  warn: 0.15,
+  unit: "normalized RF",
+  kind: "loose",
+  rationale:
+    "Maximum-likelihood tree search is stochastic and we run the generated "
+    + "recipe on the paper's own alignment, not its exact tool versions, so a "
+    + "bit-for-bit identical topology would be an unrealistic claim. We allow a "
+    + "small Robinson-Foulds distance and show exactly which branches differ with "
+    + "their support, so a small RF reads as agreement except at a few weakly "
+    + "supported nodes, not as a silent miss. A real failure (a wrong deep split) "
+    + "drives the normalized RF well past the warn line.",
+};
+
+/** Cap the differing-branch lists shown on the page, with a clear truncation note. */
+const MAX_DIFF_BRANCHES = 8;
+
+function buildPhyloPublishedDomain(): DomainReport {
+  // Only cases with a landed offline run get a gated comparison; the rest are
+  // shown as pending context (no comparison) so the count the gate checks stays
+  // exactly the number of ready cases.
+  const cases: CaseResult[] = PHYLO_PUBLISHED_CASES.map((pc) => {
+    const summary = recipeSummary(pc.options);
+    const ready = caseIsReady(pc);
+    const rf = ready ? comparePublishedCase(pc) : null;
+
+    if (!ready || !rf) {
+      return {
+        id: pc.id,
+        label: pc.label,
+        input: `${pc.source}. ${summary}.`,
+        comparisons: [],
+        status: "pass" as Status,
+        visual: {
+          kind: "phylo-published",
+          pending: true,
+          pendingReason: pendingReason(pc),
+          source: pc.source,
+          citation: pc.citation,
+          recipeSummary: summary,
+          toolVersions: pc.result.toolVersions,
+          sharedTaxa: 0,
+          rf: 0,
+          maxRf: 0,
+          normalizedRf: 0,
+          cladesRecovered: 0,
+          cladesTotal: publishedTipCount(pc),
+          percentRecovered: 0,
+          missingFromOurs: [],
+          extraInOurs: [],
+          oursNewick: null,
+          publishedNewick: pc.publishedNewick,
+        },
+      };
+    }
+
+    const band: Tolerance = pc.tolerance
+      ? { ...PHYLO_RF, pass: pc.tolerance.pass, warn: pc.tolerance.warn }
+      : PHYLO_RF;
+    const normalizedRf = round(rf.normalizedRf, 6);
+    const status: Status = classify(normalizedRf, band);
+
+    return {
+      id: pc.id,
+      label: pc.label,
+      input:
+        `${pc.source}. ${summary}. Compared on ${rf.sharedTaxa} shared taxa: `
+        + `normalized RF ${normalizedRf.toFixed(4)}, `
+        + `${rf.cladesRecovered}/${rf.cladesTotal} published clades recovered.`,
+      comparisons: [
+        {
+          oracleId: PUBLISHED_TREE.id,
+          metric: "normalized Robinson-Foulds",
+          ours: normalizedRf,
+          theirs: 0,
+          delta: normalizedRf,
+          tolerance: band,
+          status,
+        },
+      ],
+      status,
+      visual: {
+        kind: "phylo-published",
+        pending: false,
+        pendingReason: null,
+        source: pc.source,
+        citation: pc.citation,
+        recipeSummary: summary,
+        toolVersions: pc.result.toolVersions,
+        sharedTaxa: rf.sharedTaxa,
+        rf: rf.rf,
+        maxRf: rf.maxRf,
+        normalizedRf,
+        cladesRecovered: rf.cladesRecovered,
+        cladesTotal: rf.cladesTotal,
+        percentRecovered: round(rf.percentRecovered, 2),
+        missingFromOurs: rf.missingFromOurs.slice(0, MAX_DIFF_BRANCHES),
+        extraInOurs: rf.extraInOurs.slice(0, MAX_DIFF_BRANCHES),
+        oursNewick: pc.result.oursNewick,
+        publishedNewick: pc.publishedNewick,
+      },
+    };
+  });
+
+  const { status, totals } = rollup(
+    cases.flatMap((c) => gated(c.comparisons).map((cmp) => cmp.status)),
+  );
+
+  const ready = anyCaseReady();
+  return {
+    id: "phylo-published",
+    title: "Published-tree reproduction",
+    summary:
+      "The /phylo Tree Builder generates a tree-building recipe, it never runs one. "
+      + "To show that recipe is trustworthy we run it (offline, once) on a real "
+      + "paper's own input and check that it recovers that paper's published tree, "
+      + "scored by the Robinson-Foulds distance over the shared taxa plus the "
+      + "percent of published clades recovered. The claim is deliberately not "
+      + "bit-for-bit identity, since maximum-likelihood search is stochastic and we "
+      + "use the paper's alignment rather than its exact tool versions. What we "
+      + "prove is that a modern best-practice pipeline recovers the published "
+      + "topology, with any differences confined to weakly supported branches, "
+      + "which we list. The result trees are produced offline by a committed helper "
+      + "(run-phylo-published-case.sh), exactly like the ggtree reference, so this "
+      + "page reads honestly and the gate stays pure."
+      + (ready
+        ? ""
+        : " No offline run has landed yet, so every case below is shown as pending "
+          + "context and the gate is skipped until a result is committed."),
+    impl: "frontend/src/lib/phylo/recipe.ts",
+    oracles: [PUBLISHED_TREE],
+    cases,
+    totals,
+    status,
+  };
+}
+
 /* ------------------------------------------------------------- aggregation */
 
 /**
@@ -1973,6 +2132,7 @@ export function buildTransparencyReport(): TransparencyReport {
     buildPublishedDomain(),
     buildDatahubStatsDomain(),
     buildPhyloDomain(),
+    buildPhyloPublishedDomain(),
   ];
 
   const { status, totals } = rollup(
