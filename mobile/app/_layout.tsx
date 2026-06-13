@@ -5,6 +5,18 @@ import { StatusBar } from 'expo-status-bar';
 import { useCallback, useEffect, useState } from 'react';
 import { Platform, StyleSheet, View } from 'react-native';
 import 'react-native-reanimated';
+import { useFonts } from 'expo-font';
+import {
+  Geist_400Regular,
+  Geist_500Medium,
+  Geist_600SemiBold,
+  Geist_700Bold,
+  Geist_800ExtraBold,
+} from '@expo-google-fonts/geist';
+import {
+  GeistMono_500Medium,
+  GeistMono_600SemiBold,
+} from '@expo-google-fonts/geist-mono';
 
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
@@ -59,6 +71,18 @@ export default function RootLayout() {
   // Floating mascot is opt-in (default off). The code stays mounted-capable;
   // this just gates whether it renders. Toggle lives on the Settings screen.
   const [mascotPrefs] = useMascotPrefs();
+
+  // Load Geist (UI) + Geist Mono (numbers). The native splash stays up until the
+  // fonts are ready so there is no fallback-font flash on first paint.
+  const [fontsLoaded] = useFonts({
+    Geist_400Regular,
+    Geist_500Medium,
+    Geist_600SemiBold,
+    Geist_700Bold,
+    Geist_800ExtraBold,
+    GeistMono_500Medium,
+    GeistMono_600SemiBold,
+  });
 
   // Phone push tap-to-open routing.
   //
@@ -152,7 +176,7 @@ export default function RootLayout() {
   const [nativeHidden, setNativeHidden] = useState(false);
 
   useEffect(() => {
-    if (nativeHidden) return;
+    if (nativeHidden || !fontsLoaded) return;
     setNativeHidden(true);
     // First commit is on screen, the JS overlay now covers the same pixels with
     // a matching background, so hiding the native splash will not flash.
@@ -169,8 +193,8 @@ export default function RootLayout() {
   // so there is no white flash between screens. Matches the ThemedView canvas.
   const navTheme =
     colorScheme === 'dark'
-      ? { ...DarkTheme, colors: { ...DarkTheme.colors, background: '#0a0e1a' } }
-      : { ...DefaultTheme, colors: { ...DefaultTheme.colors, background: '#f2f3f7' } };
+      ? { ...DarkTheme, colors: { ...DarkTheme.colors, background: '#070A12' } }
+      : { ...DefaultTheme, colors: { ...DefaultTheme.colors, background: '#EEF1F6' } };
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
