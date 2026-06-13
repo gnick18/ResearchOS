@@ -1,0 +1,306 @@
+// BeakerBot summarize_experiments tool (BeakerAI lane, 2026-06-12).
+//
+// Layer 2 of the summary suite (docs/proposals/beakerbot-summary-suite.md). A
+// read-only tool that aggregates ACROSS many experiments and hands the model a
+// compact, structured tally so it can write one grounded narrative.
+//
+// THE HARD RULE (the whole point of this tool): the TOOL computes every count,
+// every group-by, and the month timeline DETERMINISTICALLY in TypeScript. The
+// model NEVER counts records, never derives a status, never invents a date. It
+// only narrates from the aggregate this tool returns. The result echoes the
+// exact filter applied, the deterministic aggregates, and a CAPPED list of the
+// matched experiments (with ids + deep links), flagged when truncated, plus a
+// clean "no matching records" path. This is BeakerBot's global no-interpretation
+// scope: a summary reports STRUCTURE (counts, dates, titles, status), never a
+// finding.
+//
+// House style, no em-dashes, no emojis, no mid-sentence colons.
+
+import {
+  experimentToBrief,
+  filterArtifacts,
+  type ArtifactBrief,
+  type ArtifactFilter,
+} from "@/lib/ai/artifact-index";
+import { fetchAllTasksIncludingShared } from "@/lib/local-api";
+import type { Task } from "@/lib/types";
+import type { AiTool } from "./types";
+
+// ---------------------------------------------------------------------------
+// Injectable deps seam (mirrors artifactIndexDeps / readArtifactDeps). A test
+// stubs listExperiments with fixture tasks and never touches a real folder.
+// ---------------------------------------------------------------------------
+
+export type SummarizeExperimentsDeps = {
+  /** Load every experiment Task the current user may see (own + shared-in),
+   *  ACL-enforced by fetchAllTasksIncludingShared upstream. */
+  listExperiments: () => Promise<Task[]>;
+};
+
+export const summarizeExperimentsDeps: SummarizeExperimentsDeps = {
+  listExperiments: async () => {
+    const all = await fetchAllTasksIncludingShared();
+    return all.filter((t) => t.task_type === "experiment");
+  },
+};
+
+// ---------------------------------------------------------------------------
+// Aggregate shape. This is the ENTIRE structured payload the model narrates from.
+// It contains numbers the tool computed, never raw record dumps.
+// ---------------------------------------------------------------------------
+
+/** One matched experiment, capped + deep-linked, for the model to list / chip. */
+export type ExperimentSummaryItem = {
+  id: string;
+  title: string;
+  status: "complete" | "active" | "overdue" | "upcoming";
+  startDate: string | null;
+  endDate: string | null;
+  projectId: string | null;
+  owner: string | null;
+  deepLink: string;
+};
+
+export type ExperimentSummary = {
+  /** The exact filter applied, echoed so the user sees the scope. */
+  filter: ArtifactFilter;
+  /** Total matched experiments (the tool's count, never the model's). */
+  total: number;
+  /** Deterministic status tally. overdue = not complete and end date < today;
+   *  upcoming = not complete and start date > today; active = the rest of the
+   *  not-complete ones. complete = is_complete. */
+  byStatus: {
+    complete: number;
+    active: number;
+    overdue: number;
+    upcoming: number;
+  };
+  /** Count per project id (only projects with at least one match appear). */
+  byProject: Record<string, number>;
+  /** Count per owning member (only owners with at least one match appear). */
+  byOwner: Record<string, number>;
+  /** Count per calendar month (YYYY-MM) by start date, plus an "undated" bucket
+   *  for experiments with no usable start date. Sorted ascending by key. */
+  byMonth: Array<{ month: string; count: number }>;
+  /** How many not-complete experiments END within the next 7 days (today
+   *  inclusive). The "what is finishing this week" signal. */
+  finishingThisWeek: number;
+  /** The "today" the tool used to derive overdue / upcoming / this-week, as a
+   *  YYYY-MM-DD string, echoed so the narration is reproducible. */
+  asOf: string;
+  /** Up to `cap` most-recent matched experiments with deep links. */
+  items: ExperimentSummaryItem[];
+  /** True when more experiments matched than `items` carries. */
+  truncated: boolean;
+};
+
+// ---------------------------------------------------------------------------
+// Pure deterministic aggregation. Exported for direct unit testing so a test
+// asserts the COUNTS / TALLIES the tool produces from a fixture, never the model.
+// ---------------------------------------------------------------------------
+
+const DEFAULT_ITEM_CAP = 15;
+
+/** The YYYY-MM-DD day prefix of an ISO-ish string, or null. Local copy kept
+ *  pure so the aggregator never reaches into the index module's internals. */
+function dayOf(value: string | null | undefined): string | null {
+  if (!value || typeof value !== "string") return null;
+  const m = value.match(/^\d{4}-\d{2}-\d{2}/);
+  return m ? m[0] : null;
+}
+
+/** Add `days` to a YYYY-MM-DD day string and return a new YYYY-MM-DD string.
+ *  UTC math so it is timezone-stable and matches the day-granular comparisons. */
+function addDays(day: string, days: number): string {
+  const d = new Date(`${day}T00:00:00Z`);
+  d.setUTCDate(d.getUTCDate() + days);
+  return d.toISOString().slice(0, 10);
+}
+
+/**
+ * Compute the experiment summary from a list of tasks, a filter, and a fixed
+ * "today". Pure and deterministic, so a test passes a fixture + a frozen today
+ * and asserts the exact counts. The runtime tool resolves `today` from the real
+ * Date; the test pins it.
+ */
+export function aggregateExperiments(
+  tasks: Task[],
+  filter: ArtifactFilter,
+  today: string,
+  cap: number = DEFAULT_ITEM_CAP,
+): ExperimentSummary {
+  // Convert to briefs (carrying owner) and keep a brief.id -> task map so we
+  // aggregate from the REAL records of only the briefs that pass the filter.
+  const byId = new Map<string, { brief: ArtifactBrief; task: Task }>();
+  const briefs: ArtifactBrief[] = [];
+  for (const task of tasks) {
+    if (task.task_type !== "experiment") continue;
+    const brief = experimentToBrief(task);
+    briefs.push(brief);
+    byId.set(brief.id, { brief, task });
+  }
+
+  const matched = filterArtifacts(briefs, filter)
+    .map((b) => byId.get(b.id))
+    .filter((x): x is { brief: ArtifactBrief; task: Task } => x !== undefined);
+
+  const byStatus = { complete: 0, active: 0, overdue: 0, upcoming: 0 };
+  const byProject: Record<string, number> = {};
+  const byOwner: Record<string, number> = {};
+  const monthCounts = new Map<string, number>();
+  const weekEnd = addDays(today, 7);
+  let finishingThisWeek = 0;
+
+  const statusOf = (task: Task): ExperimentSummaryItem["status"] => {
+    if (task.is_complete) return "complete";
+    const start = dayOf(task.start_date);
+    const end = dayOf(task.end_date);
+    if (end !== null && end < today) return "overdue";
+    if (start !== null && start > today) return "upcoming";
+    return "active";
+  };
+
+  for (const { task } of matched) {
+    const status = statusOf(task);
+    byStatus[status] += 1;
+
+    const projectId = task.project_id ? String(task.project_id) : null;
+    if (projectId) byProject[projectId] = (byProject[projectId] ?? 0) + 1;
+
+    const owner = task.owner || null;
+    if (owner) byOwner[owner] = (byOwner[owner] ?? 0) + 1;
+
+    const startDay = dayOf(task.start_date);
+    const monthKey = startDay ? startDay.slice(0, 7) : "undated";
+    monthCounts.set(monthKey, (monthCounts.get(monthKey) ?? 0) + 1);
+
+    // Finishing this week: not complete and end date in [today, today + 7).
+    if (!task.is_complete) {
+      const endDay = dayOf(task.end_date);
+      if (endDay !== null && endDay >= today && endDay < weekEnd) {
+        finishingThisWeek += 1;
+      }
+    }
+  }
+
+  const byMonth = Array.from(monthCounts.entries())
+    .map(([month, count]) => ({ month, count }))
+    .sort((a, b) => a.month.localeCompare(b.month));
+
+  // Most-recent-first by start date for the capped list.
+  const sorted = [...matched].sort((a, b) => {
+    const da = dayOf(a.task.start_date) ?? "";
+    const db = dayOf(b.task.start_date) ?? "";
+    return db.localeCompare(da);
+  });
+
+  const items: ExperimentSummaryItem[] = sorted.slice(0, cap).map(({ brief, task }) => ({
+    id: brief.id,
+    title: brief.title,
+    status: statusOf(task),
+    startDate: dayOf(task.start_date),
+    endDate: dayOf(task.end_date),
+    projectId: task.project_id ? String(task.project_id) : null,
+    owner: task.owner || null,
+    deepLink: brief.deepLink,
+  }));
+
+  return {
+    filter,
+    total: matched.length,
+    byStatus,
+    byProject,
+    byOwner,
+    byMonth,
+    finishingThisWeek,
+    asOf: today,
+    items,
+    truncated: matched.length > items.length,
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Argument parsing. The model passes absolute YYYY-MM-DD dates (it resolves
+// relative phrasing via the date-context line, exactly like search_my_work).
+// ---------------------------------------------------------------------------
+
+function parseFilter(args: Record<string, unknown>): ArtifactFilter {
+  const str = (v: unknown): string | undefined =>
+    typeof v === "string" && v.trim() ? v.trim() : undefined;
+  const strArr = (v: unknown): string[] | undefined =>
+    Array.isArray(v)
+      ? v.filter((x): x is string => typeof x === "string" && x.trim().length > 0)
+      : undefined;
+  // Experiments are a single type; the summarize tool never widens it.
+  return {
+    types: ["experiment"],
+    since: str(args.since),
+    until: str(args.until),
+    owners: strArr(args.owners),
+    projectIds: strArr(args.projectIds),
+    status: str(args.status),
+    keywords: str(args.keywords),
+  };
+}
+
+/** Today as a YYYY-MM-DD string from the real Date at call time. */
+function todayString(): string {
+  return new Date().toISOString().slice(0, 10);
+}
+
+export const summarizeExperimentsTool: AiTool = {
+  name: "summarize_experiments",
+  description:
+    "Aggregate the user's experiments across a filter and return a deterministic summary (counts, status tally, by-project and by-owner breakdowns, a month timeline, how many finish this week, and the most recent matches with deep links). " +
+    "Call this when the user asks you to summarize, count, tally, or review experiments over a scope, for example \"summarize my experiments this quarter\", \"how many experiments did Kritika run in May\", \"what is finishing this week\". " +
+    "Read-only, it changes nothing and runs straight away with no approval step. " +
+    "THE TOOL owns every count, status, and total; you NEVER count records, derive a status, or invent a date yourself. You only relay the numbers it returns and never interpret them into a finding. " +
+    "Pass absolute YYYY-MM-DD dates for since / until; resolve relative phrasing (\"this quarter\", \"last month\") to absolute dates yourself using the current date in the context line first. " +
+    "Pass owners (usernames) to scope to one or more members; the whole lab is the default (own plus everything shared with the user, never a member's private work). Pass projectIds to scope to projects, status to scope to complete / active / overdue / upcoming, and keywords for a free-text match. " +
+    "Returns { ok, summary } where summary echoes the filter and carries total, byStatus, byProject, byOwner, byMonth, finishingThisWeek, asOf, and a capped items list (flagged truncated). If nothing matches, summary.total is 0, say so plainly.",
+  parameters: {
+    type: "object",
+    properties: {
+      since: {
+        type: "string",
+        description:
+          "Optional inclusive lower bound as YYYY-MM-DD. Only experiments whose start date is on or after this day are counted. Resolve relative phrasing to an absolute date yourself first.",
+      },
+      until: {
+        type: "string",
+        description:
+          "Optional inclusive upper bound as YYYY-MM-DD. Only experiments whose start date is on or before this day are counted.",
+      },
+      owners: {
+        type: "array",
+        items: { type: "string" },
+        description:
+          "Optional. Usernames of the lab members to scope to. Omit for the whole lab (own plus everything shared with the current user). Never reaches a member's private work, only what is shared.",
+      },
+      projectIds: {
+        type: "array",
+        items: { type: "string" },
+        description:
+          "Optional. Project ids to scope to. An experiment in any of the listed projects is counted. Use search_my_work with a project type filter to resolve a project name to its id first.",
+      },
+      status: {
+        type: "string",
+        description:
+          "Optional. Scope to one status: \"complete\", \"active\", \"overdue\", or \"upcoming\". Omit to count every status.",
+      },
+      keywords: {
+        type: "string",
+        description:
+          "Optional free-text match on the experiment name and tags, for example \"miniprep\" or \"cyp51A\".",
+      },
+    },
+    required: [],
+    additionalProperties: false,
+  },
+  execute: async (args) => {
+    const filter = parseFilter(args);
+    const tasks = await summarizeExperimentsDeps.listExperiments();
+    const summary = aggregateExperiments(tasks, filter, todayString());
+    return { ok: true as const, summary };
+  },
+};

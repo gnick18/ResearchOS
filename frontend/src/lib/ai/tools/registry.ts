@@ -66,6 +66,8 @@ import {
 import { makeDataHubGraphTool } from "./datahub-graph";
 import { listNotesTool, writeNoteTool } from "./write-note";
 import { searchMyWorkTool } from "./search-my-work";
+import { summarizeExperimentsTool } from "./summarize-experiments";
+import { summarizePurchasesTool } from "./summarize-purchases";
 import { searchLiteratureTool } from "./search-literature";
 import {
   createExperimentTool,
@@ -194,6 +196,19 @@ export const READ_ONLY_TOOLS: AiTool[] = [
   // title+keyword scorer, and returns a compact list of matched briefs. Only the
   // briefs (titles, ids, deep links) cross to the model, never any bodies.
   searchMyWorkTool,
+  // Summary suite Layer 2 (artifact-index filterArtifacts + deterministic
+  // aggregates). summarize_experiments and summarize_purchases aggregate ACROSS
+  // many records over a shared filter (types / dates / owners / projects /
+  // status / keywords) and return a structured tally. Read-only, they run
+  // straight away with no approval step. The TOOL owns every count, group-by,
+  // and money total; the model only relays the aggregate and never counts a
+  // record, derives a status, or adds a dollar itself. A summary reports
+  // STRUCTURE (counts, dates, totals, titles, status), never a finding (the
+  // global no-interpretation scope). The owners filter respects the existing
+  // ACL, the shared loaders only surface what the current user may see, so a PI
+  // summarizing the lab never reads a member's private work.
+  summarizeExperimentsTool,
+  summarizePurchasesTool,
   // Layer 2 (read-by-id): one read tool per artifact type. Each accepts an id from
   // a search_my_work brief and returns a trimmed projection of that artifact's
   // content. Trimmed to protect the context window. All read-only, none navigates.
