@@ -39,12 +39,30 @@ import {
 import { ASK_USER_TOOL_NAME, parseAskUserArgs } from "./tools/ask-user";
 import type { BeakerBotReviewMode } from "./review-mode-store";
 
+// A single block inside a multimodal content array. Two variants are supported.
+//   - text: plain text, concatenated by getMessageText.
+//   - image_url: an image reference in the OpenAI vision format. The url field
+//     carries a base64 data URL (data:image/...;base64,...). These blocks are
+//     forwarded verbatim to the provider; the vision router in the API proxy
+//     detects their presence and selects the configured vision model.
+//
+// Only user messages carry image_url blocks. System, assistant, and tool
+// messages always use plain string content. No rule enforces this at the type
+// level because the provider accepts mixed-role arrays; the convention is
+// sufficient for correct routing.
+export type LoopContentBlock =
+  | { type: "text"; text: string }
+  | { type: "image_url"; image_url: { url: string } };
+
 // An OpenAI-compatible chat message. Tool plumbing needs the extra fields beyond
 // the plain { role, content } the foundation slice used. Content is nullable
-// because an assistant message that only calls tools carries no text.
+// because an assistant message that only calls tools carries no text. Content
+// may also be an array of LoopContentBlock for multimodal (vision) user turns.
+// String content and null content continue to work exactly as before; callers
+// that only send text never need to construct a block array.
 export type LoopMessage = {
   role: "system" | "user" | "assistant" | "tool";
-  content: string | null;
+  content: string | LoopContentBlock[] | null;
   // Present on an assistant message that calls tools.
   tool_calls?: ToolCall[];
   // Present on a tool result message, links it back to the originating call.
@@ -52,6 +70,23 @@ export type LoopMessage = {
   // Convenience for tool messages, not sent upstream as a separate field.
   name?: string;
 };
+
+// Extract the plain-text content from a LoopMessage content value. When content
+// is a string it is returned unchanged (null becomes ""). When content is a
+// block array, the text of all text-type blocks is concatenated; image_url
+// blocks are skipped. This is the canonical way to get displayable text from a
+// LoopMessage without caring about its shape. Use it wherever code previously
+// accessed message.content directly as a string.
+export function getMessageText(
+  content: string | LoopContentBlock[] | null | undefined,
+): string {
+  if (content == null) return "";
+  if (typeof content === "string") return content;
+  return content
+    .filter((b): b is { type: "text"; text: string } => b.type === "text")
+    .map((b) => b.text)
+    .join("");
+}
 
 export type ToolCall = {
   id: string;

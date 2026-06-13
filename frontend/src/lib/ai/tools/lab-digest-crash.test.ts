@@ -25,7 +25,7 @@ import {
 import { summarizePurchasesDeps } from "./summarize-purchases";
 import { summarizeNotesDeps } from "./summarize-notes";
 import { summarizeProjectsDeps } from "./summarize-projects";
-import { runAgentLoop, type LoopMessage, type ModelResponse } from "../agent-loop";
+import { runAgentLoop, getMessageText, type LoopMessage, type ModelResponse } from "../agent-loop";
 import type { AiTool } from "./types";
 import type { Task, PurchaseItem, Note, NoteEntry, Project } from "@/lib/types";
 
@@ -302,7 +302,7 @@ describe("runAgentLoop defensive hardening: tool throws undefined", () => {
     // The tool result message in the history must contain an error (not rethrown).
     const toolMsg = result.messages.find((m) => m.role === "tool");
     expect(toolMsg).toBeDefined();
-    const toolContent = JSON.parse(toolMsg!.content ?? "{}");
+    const toolContent = JSON.parse(getMessageText(toolMsg!.content) || "{}");
     // The catch block must have produced { error: "..." }, not a rethrow.
     // When the thrown value is undefined, the error field is the generic fallback
     // (not "undefined" the string, which would be confusing to the user).
@@ -355,7 +355,7 @@ describe("runAgentLoop defensive hardening: tool throws undefined", () => {
     expect(result.answer).toBe("Null handled.");
     const toolMsg = result.messages.find((m) => m.role === "tool");
     expect(toolMsg).toBeDefined();
-    const content = JSON.parse(toolMsg!.content ?? "{}");
+    const content = JSON.parse(getMessageText(toolMsg!.content) || "{}");
     expect(typeof content.error).toBe("string");
   });
 
@@ -402,7 +402,7 @@ describe("runAgentLoop defensive hardening: tool throws undefined", () => {
 
     expect(result.answer).toBe("String handled.");
     const toolMsg = result.messages.find((m) => m.role === "tool");
-    const content = JSON.parse(toolMsg!.content ?? "{}");
+    const content = JSON.parse(getMessageText(toolMsg!.content) || "{}");
     // For a thrown string, the error message should use String(err) so
     // the actual thrown value is relayed rather than a generic fallback.
     expect(typeof content.error).toBe("string");
