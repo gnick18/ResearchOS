@@ -11,5 +11,6 @@
   "notes": "Osmotic stress assay reagent (demo).",
   "funding_string": "DEMO-Internal-Bridge",
   "vendor": "Sigma-Aldrich",
-  "category": "Reagents"
+  "category": "Reagents",
+  "order_status": "ordered"
 }

@@ -11,5 +11,6 @@
   "notes": null,
   "funding_string": "DEMO-NIH-GM999999",
   "vendor": "IDT",
-  "category": "Reagents"
+  "category": "Reagents",
+  "order_status": "ordered"
 }

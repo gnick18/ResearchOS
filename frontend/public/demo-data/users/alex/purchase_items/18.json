@@ -11,5 +11,6 @@
   "notes": "Awaiting Lab Head sign-off on funding source.",
   "funding_string": null,
   "vendor": "Thermo",
-  "category": "Service"
+  "category": "Service",
+  "order_status": "needs_ordering"
 }

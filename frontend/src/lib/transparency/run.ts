@@ -50,6 +50,7 @@ import {
   logRank,
   gehanBreslowWilcoxon,
   coxPH,
+  contingencyTest,
   percentileInterval,
   biasCorrection,
   jackknifeAcceleration,
@@ -88,6 +89,8 @@ import {
   BOOT_DISTRIBUTION,
   BOOT_OBSERVED,
   BOOT_STATS,
+  CONTINGENCY_2X2,
+  CONTINGENCY_2X3,
   DOSE_LOG_CONC,
   DOSE_RESPONSE,
   GLOBAL_FIT_X,
@@ -1399,6 +1402,17 @@ function runDatahubEngine(): Record<string, number> {
   const cox = need(coxPH(coxRows, ["arm"]), "Cox PH");
   const coxArm = cox.coefficients[0];
 
+  // Categorical association on the fixed contingency tables. The 2x2 case carries
+  // the Yates correction, Fisher's exact p, and the relative-risk / odds-ratio
+  // measures; the 2x3 case carries only the uncorrected chi-square.
+  const ct2 = need(contingencyTest(CONTINGENCY_2X2), "chi-square 2x2");
+  const ct3 = need(contingencyTest(CONTINGENCY_2X3), "chi-square 2x3");
+  const ctRR = ct2.relativeRisk;
+  const ctOR = ct2.oddsRatio;
+  if (!ctRR || !ctOR) {
+    throw new Error("transparency: 2x2 contingency produced no effect measures");
+  }
+
   // Read the step-function survival just after a fixed time (the value carried
   // forward from the last event at or before t), matching lifelines' predict().
   const survAt = (t: number): number => {
@@ -1644,6 +1658,22 @@ function runDatahubEngine(): Record<string, number> {
     cox_lr_p: cox.lrPValue,
     cox_concordance: cox.concordance,
 
+    contingency_2x2_chi2: ct2.chiSquare,
+    contingency_2x2_p: ct2.pValue,
+    contingency_2x2_yates_chi2: ct2.yatesChiSquare,
+    contingency_2x2_yates_p: ct2.yatesPValue,
+    contingency_2x2_fisher_p: ct2.fisherPValue,
+    contingency_2x2_min_expected: ct2.minExpected,
+    contingency_2x2_rr: ctRR.estimate,
+    contingency_2x2_rr_ci_low: ctRR.ciLow,
+    contingency_2x2_rr_ci_high: ctRR.ciHigh,
+    contingency_2x2_or: ctOR.estimate,
+    contingency_2x2_or_ci_low: ctOR.ciLow,
+    contingency_2x2_or_ci_high: ctOR.ciHigh,
+    contingency_2x3_chi2: ct3.chiSquare,
+    contingency_2x3_p: ct3.pValue,
+    contingency_2x3_min_expected: ct3.minExpected,
+
     // E1: effect sizes + standardized-effect CIs (sign-preserving; the pins
     // carry the same sign as the references, so no magnitude folding here).
     unpaired_cohens_d: welch.effectSize,
@@ -1732,8 +1762,11 @@ function buildDatahubStatsDomain(): DomainReport {
       + "two-way ANOVA with Tukey post-hoc, Kruskal-Wallis, Friedman, Pearson and "
       + "Spearman correlation, simple linear regression, Shapiro-Wilk and Levene / "
       + "Brown-Forsythe assumption checks, the Grubbs outlier test, the ROC curve "
-      + "with its area under the curve (AUC, against scikit-learn) and Kaplan-Meier "
-      + "survival with the log-rank test. The diagnostic figures are validated on "
+      + "with its area under the curve (AUC, against scikit-learn), Kaplan-Meier "
+      + "survival with the log-rank test, and the chi-square test of independence on "
+      + "a contingency table (with the Yates correction, Fisher's exact test, and the "
+      + "relative-risk / odds-ratio measures for a 2x2 table, against "
+      + "scipy.stats.chi2_contingency and fisher_exact). The diagnostic figures are validated on "
       + "their plotted positions too, the normal QQ plot's theoretical quantiles and "
       + "reference line against scipy.stats.probplot and the residual plot's residuals "
       + "against statsmodels OLS. It also validates the estimation layer that "

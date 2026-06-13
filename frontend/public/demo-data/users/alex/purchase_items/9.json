@@ -11,5 +11,6 @@
   "notes": null,
   "funding_string": "DEMO-DOE-EERE",
   "vendor": "Thermo",
-  "category": "Plasticware"
+  "category": "Plasticware",
+  "order_status": "ordered"
 }

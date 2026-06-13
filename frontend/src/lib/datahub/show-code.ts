@@ -29,6 +29,7 @@ import type {
   NormalizedSurvival,
   NormalizedCoxRegression,
   NormalizedGrubbsOutlier,
+  NormalizedContingency,
   NormalizedTTest,
   NormalizedTwoWayAnova,
   RunGroup,
@@ -907,6 +908,59 @@ gbw = logrank_test(
 print(f"Gehan-Breslow-Wilcoxon chi2 = {gbw.test_statistic:.4g}, p = {gbw.p_value:.4g}")`;
 }
 
+function contingencyCode(r: NormalizedContingency): string {
+  const tableLiteral =
+    "[\n" +
+    r.observed.map((row) => `    [${row.join(", ")}],`).join("\n") +
+    "\n]";
+  const is2x2 = r.rows === 2 && r.cols === 2;
+  const correction = r.yatesApplied ? "True" : "False";
+  let block = `from scipy.stats import chi2_contingency
+
+# The observed R x C count matrix (rows = one factor, columns = the other).
+observed = ${tableLiteral}
+
+# correction=${correction} ${
+    is2x2
+      ? "applies the Yates continuity correction (scipy's 2x2 default)."
+      : "(the correction only affects a 2x2 table)."
+  }
+chi2, p, dof, expected = chi2_contingency(observed, correction=${correction})
+print(f"chi-square = {chi2:.4g}, df = {dof}, p = {p:.4g}")
+print("expected counts:")
+print(expected)`;
+
+  if (is2x2) {
+    const a = r.observed[0][0];
+    const b = r.observed[0][1];
+    const c = r.observed[1][0];
+    const d = r.observed[1][1];
+    block += `
+
+# For a 2x2 table, Fisher's exact test gives an exact two-sided p-value.
+from scipy.stats import fisher_exact
+odds_ratio, fisher_p = fisher_exact([[${a}, ${b}], [${c}, ${d}]])
+print(f"Fisher exact p (two-sided) = {fisher_p:.4g}")
+
+# Effect measures, reading row 1 as exposed and column 1 as the event.
+import numpy as np
+a, b, c, d = ${a}, ${b}, ${c}, ${d}
+rr = (a / (a + b)) / (c / (c + d))
+or_ = (a * d) / (b * c)
+# 95% CI by the log method (z = 1.959964).
+z = 1.959963984540054
+se_log_rr = np.sqrt(1 / a - 1 / (a + b) + 1 / c - 1 / (c + d))
+se_log_or = np.sqrt(1 / a + 1 / b + 1 / c + 1 / d)
+print(f"relative risk = {rr:.4g} (95% CI "
+      f"{np.exp(np.log(rr) - z * se_log_rr):.4g} to "
+      f"{np.exp(np.log(rr) + z * se_log_rr):.4g})")
+print(f"odds ratio = {or_:.4g} (95% CI "
+      f"{np.exp(np.log(or_) - z * se_log_or):.4g} to "
+      f"{np.exp(np.log(or_) + z * se_log_or):.4g})")`;
+  }
+  return block;
+}
+
 function coxRegressionCode(r: NormalizedCoxRegression): string {
   const covName = r.coefficients[0]?.name ?? "arm";
   return `from lifelines import CoxPHFitter
@@ -1108,5 +1162,6 @@ export function showCode(result: NormalizedResult): string {
   if (result.kind === "survival") return survivalCode(result);
   if (result.kind === "coxRegression") return coxRegressionCode(result);
   if (result.kind === "grubbsOutlier") return grubbsCode(result);
+  if (result.kind === "contingency") return contingencyCode(result);
   return ttestCode(result);
 }
