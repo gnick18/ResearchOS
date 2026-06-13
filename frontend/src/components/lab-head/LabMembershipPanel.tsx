@@ -24,8 +24,37 @@ import {
   loadPendingAccepts,
   finalizePendingAccepts,
 } from "@/lib/lab/lab-head-membership";
+import { getLabRemote } from "@/lib/lab/lab-do-client";
+import {
+  fetchLabRoster,
+  type UnifiedLabRoster,
+  type LabBillingStatus,
+} from "@/lib/billing/client";
 import type { StoredLabAccept } from "@/lib/lab/lab-accept-client";
 import type { FinalizeOutcome } from "@/lib/lab/lab-invite-flow";
+
+/** The chip copy + tone for each billing status, shown next to a member. */
+const BILLING_CHIP: Record<
+  LabBillingStatus,
+  { label: string; tone: string }
+> = {
+  active: {
+    label: "Paid seat",
+    tone: "bg-emerald-50 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300",
+  },
+  pending: {
+    label: "Seat pending",
+    tone: "bg-amber-50 text-amber-700 dark:bg-amber-500/15 dark:text-amber-300",
+  },
+  unbilled: {
+    label: "Not billed yet",
+    tone: "bg-surface-sunken text-foreground-muted",
+  },
+  no_identity: {
+    label: "No billing identity yet",
+    tone: "bg-surface-sunken text-foreground-muted",
+  },
+};
 
 function errMsg(e: unknown): string {
   return e instanceof Error ? e.message : String(e);
@@ -78,6 +107,16 @@ export default function LabMembershipPanel() {
   const [outcomes, setOutcomes] = useState<FinalizeOutcome[] | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  // The unified roster: data-lab members (from the DO membership log) annotated
+  // with a billing chip, plus billing-only sponsored collaborators. Best-effort,
+  // null until loaded or when billing is off (then members show without a chip).
+  const [unifiedRoster, setUnifiedRoster] = useState<UnifiedLabRoster | null>(
+    null,
+  );
+  const [dataMembersFallback, setDataMembersFallback] = useState<
+    { pubkey: string; username: string | null }[] | null
+  >(null);
 
   // Directory listing toggle state
   const [listed, setListed] = useState<boolean | null>(null);
@@ -132,6 +171,33 @@ export default function LabMembershipPanel() {
     // labNameTouched intentionally excluded: we only seed the default once.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentUser]);
+
+  // Load the unified roster: read the data-lab roster from the DO, then resolve
+  // each member's billing status. Re-runs after a finalize (outcomes) adds people.
+  useEffect(() => {
+    if (!labId) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const remote = await getLabRemote(labId);
+        if (cancelled || !remote) return;
+        const members = (remote.record.members ?? [])
+          .filter(
+            (m) =>
+              m.role !== "head" && typeof m.ed25519PublicKey === "string",
+          )
+          .map((m) => ({ pubkey: m.ed25519PublicKey, username: m.username }));
+        setDataMembersFallback(members);
+        const billing = await fetchLabRoster(members);
+        if (!cancelled) setUnifiedRoster(billing);
+      } catch {
+        // Best-effort; the roster section just stays hidden on failure.
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [labId, outcomes]);
 
   if (!labId || !currentUser) {
     return (
@@ -316,8 +382,99 @@ export default function LabMembershipPanel() {
       setPending(await loadPendingAccepts(labId, requireIdentity()));
     });
 
+  const rosterMembers =
+    unifiedRoster?.members ??
+    (dataMembersFallback ?? []).map((m) => ({
+      username: m.username,
+      pubkey: m.pubkey,
+      memberKey: null as string | null,
+      billingStatus: null as LabBillingStatus | null,
+      usageVisible: false,
+      usedBytes: null as number | null,
+      writes: null as number | null,
+    }));
+  const sponsored = unifiedRoster?.sponsored ?? [];
+
   return (
     <div className="space-y-6">
+      {/* Lab roster: who has data access, each with a billing chip. */}
+      {rosterMembers.length > 0 || sponsored.length > 0 ? (
+        <div className="space-y-3">
+          <div className="space-y-1">
+            <h4 className="flex items-center gap-2 text-body font-medium text-foreground">
+              <Icon name="users" className="h-4 w-4" />
+              Lab roster
+            </h4>
+            <p className="text-meta text-foreground-muted leading-relaxed">
+              Everyone with access to your lab&apos;s data. The chip shows whether
+              their cloud storage sits on a paid seat in your lab&apos;s pool.
+            </p>
+          </div>
+          {rosterMembers.length > 0 ? (
+            <ul className="space-y-2">
+              {rosterMembers.map((m) => {
+                const chip = m.billingStatus
+                  ? BILLING_CHIP[m.billingStatus]
+                  : null;
+                return (
+                  <li
+                    key={m.pubkey}
+                    className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-border bg-surface px-4 py-2.5"
+                  >
+                    <span className="min-w-0">
+                      <span className="block truncate text-body text-foreground">
+                        {m.username ?? `${m.pubkey.slice(0, 10)}…`}
+                      </span>
+                      {m.usedBytes != null ? (
+                        <span className="text-meta text-foreground-muted">
+                          {(m.usedBytes / 1e9).toFixed(2)} GB stored
+                        </span>
+                      ) : null}
+                    </span>
+                    {chip ? (
+                      <span
+                        className={`rounded-full px-2.5 py-1 text-meta font-medium ${chip.tone}`}
+                      >
+                        {chip.label}
+                      </span>
+                    ) : null}
+                  </li>
+                );
+              })}
+            </ul>
+          ) : (
+            <p className="text-meta text-foreground-muted">
+              No members yet. Add someone below.
+            </p>
+          )}
+
+          {/* Sponsored outside collaborators (billing-only seats, no data access). */}
+          {sponsored.length > 0 ? (
+            <div className="space-y-2">
+              <p className="text-meta font-medium uppercase tracking-wide text-foreground-muted">
+                Sponsored collaborators
+              </p>
+              <ul className="space-y-2">
+                {sponsored.map((s) => (
+                  <li
+                    key={s.memberKey}
+                    className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-dashed border-border bg-surface px-4 py-2.5"
+                  >
+                    <span className="block truncate text-body text-foreground">
+                      {s.label ?? `${s.memberKey.slice(0, 10)}…`}
+                    </span>
+                    <span className="text-meta text-foreground-muted">
+                      {s.status === "active" ? "Paid seat" : "Invited"} · no data
+                      access
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
+        </div>
+      ) : null}
+
       {/* Add a member: PI-initiated invite, two paths (directory + email). */}
       <div className="space-y-4">
         <div className="space-y-1">

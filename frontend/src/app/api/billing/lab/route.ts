@@ -103,6 +103,11 @@ export async function GET(): Promise<Response> {
       usageVisible: boolean;
       usedBytes: number | null;
       writes: number | null;
+      // 'directory' = a real data-lab member (auto-enrolled from the DO roster);
+      // 'invite' = a billing-only sponsored outside collaborator. The billing
+      // popup uses this to show only outside collaborators, since data-lab members
+      // now live in the unified People roster.
+      source: "directory" | "invite";
     }>;
     for (const m of members) {
       const active = m.status === "active";
@@ -123,6 +128,7 @@ export async function GET(): Promise<Response> {
         // (Grant 2026-06-07).
         usedBytes: active ? u : null,
         writes: active ? w : null,
+        source: m.source,
       });
     }
 

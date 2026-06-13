@@ -469,10 +469,17 @@ function LabSponsorSection({
               </div>
             </div>
 
-            {/* Invite by email */}
+            {/* Sponsor an outside collaborator. Lab members get a pooled seat
+                automatically when they join your folder (managed in Lab Mode),
+                so this is only for paying for someone OUTSIDE your shared folder.
+                Only billing-only rows (source 'invite') show here. */}
               <div className="mt-5">
                 <p className="text-meta font-medium uppercase tracking-wide text-foreground-muted">
-                  Invite a member
+                  Sponsor an outside collaborator
+                </p>
+                <p className="mt-1 text-meta text-foreground-muted">
+                  Your lab members are covered automatically. Use this only to pay
+                  for someone outside your shared folder.
                 </p>
                 <div className="mt-2 flex flex-wrap gap-2">
                   <input
@@ -483,7 +490,7 @@ function LabSponsorSection({
                     onKeyDown={(e) => {
                       if (e.key === "Enter") submitInvite();
                     }}
-                    placeholder="member@university.edu"
+                    placeholder="collaborator@another-lab.edu"
                     className="min-w-0 flex-1 rounded-lg border border-border bg-surface-sunken px-3 py-2 text-body text-foreground placeholder:text-foreground-muted focus:outline-none focus:ring-2 focus:ring-sky-500"
                   />
                   <button
@@ -492,7 +499,7 @@ function LabSponsorSection({
                     onClick={submitInvite}
                     className="rounded-lg bg-brand-action px-4 py-2 text-meta font-semibold text-white hover:bg-brand-action/90 disabled:opacity-50"
                   >
-                    Invite
+                    Sponsor
                   </button>
                 </div>
                 <p className="mt-1 text-meta text-foreground-muted">
@@ -500,45 +507,52 @@ function LabSponsorSection({
                 </p>
               </div>
 
-              {/* Roster */}
-              {lab.roster.length > 0 ? (
-                <ul className="mt-4 space-y-2">
-                  {lab.roster.map((m) => (
-                    <li
-                      key={m.memberKey}
-                      className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-border bg-surface-sunken px-4 py-2.5"
-                    >
-                      <span className="min-w-0">
-                        <span className="block truncate text-body text-foreground">
-                          {m.label ?? `${m.memberKey.slice(0, 10)}…`}
-                        </span>
-                        <span className="text-meta text-foreground-muted">
-                          {m.status === "active" ? "Active" : "Invited"}
-                          {m.usedBytes != null ? ` · ${humanBytes(m.usedBytes)}` : ""}
-                          {m.writes != null ? ` · ${formatWrites(m.writes)} edits` : ""}
-                        </span>
-                      </span>
-                      <button
-                        type="button"
-                        disabled={busy || !m.label}
-                        title={
-                          m.label
-                            ? "Remove from lab"
-                            : "Cannot remove (no stored email)"
-                        }
-                        onClick={() => m.label && onRemove(m.label)}
-                        className="rounded-lg border border-border px-3 py-1.5 text-meta font-semibold text-foreground hover:bg-surface-raised disabled:opacity-40"
+              {/* Outside collaborators only (billing-only seats). Data-lab members
+                  appear in the unified People roster, not here. */}
+              {(() => {
+                const collaborators = lab.roster.filter(
+                  (m) => m.source !== "directory",
+                );
+                return collaborators.length > 0 ? (
+                  <ul className="mt-4 space-y-2">
+                    {collaborators.map((m) => (
+                      <li
+                        key={m.memberKey}
+                        className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-border bg-surface-sunken px-4 py-2.5"
                       >
-                        Remove
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-              ) : (
-                <p className="mt-4 text-meta text-foreground-muted">
-                  No members yet. Invite someone above.
-                </p>
-              )}
+                        <span className="min-w-0">
+                          <span className="block truncate text-body text-foreground">
+                            {m.label ?? `${m.memberKey.slice(0, 10)}…`}
+                          </span>
+                          <span className="text-meta text-foreground-muted">
+                            {m.status === "active" ? "Active" : "Invited"}
+                            {m.usedBytes != null ? ` · ${humanBytes(m.usedBytes)}` : ""}
+                            {m.writes != null ? ` · ${formatWrites(m.writes)} edits` : ""}
+                          </span>
+                        </span>
+                        <button
+                          type="button"
+                          disabled={busy || !m.label}
+                          title={
+                            m.label
+                              ? "Stop sponsoring"
+                              : "Cannot remove (no stored email)"
+                          }
+                          onClick={() => m.label && onRemove(m.label)}
+                          className="rounded-lg border border-border px-3 py-1.5 text-meta font-semibold text-foreground hover:bg-surface-raised disabled:opacity-40"
+                        >
+                          Remove
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p className="mt-4 text-meta text-foreground-muted">
+                    No outside collaborators sponsored. Your lab members are
+                    covered automatically.
+                  </p>
+                );
+              })()}
             </>
           ) : null}
       </>

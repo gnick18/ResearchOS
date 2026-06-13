@@ -37,6 +37,8 @@ export interface LabRosterEntry {
   usedBytes: number | null;
   /** This month's write activity for the member (PI sees it). */
   writes: number | null;
+  /** 'directory' = real data-lab member; 'invite' = billing-only collaborator. */
+  source?: "directory" | "invite";
 }
 
 export interface LabStatus {
@@ -156,4 +158,70 @@ export function respondToInvite(
   usageVisible?: boolean,
 ): Promise<LabActionResult> {
   return postLab("/api/billing/lab/respond", { labKey, action, usageVisible });
+}
+
+// ---------------------------------------------------------------------------
+// Unified PI roster (the one-roster-with-billing-chip view).
+// ---------------------------------------------------------------------------
+
+/** A member's billing state relative to the PI's pool. */
+export type LabBillingStatus = "active" | "pending" | "unbilled" | "no_identity";
+
+/** A data-lab member, annotated with their billing chip. */
+export interface UnifiedRosterMember {
+  username: string | null;
+  pubkey: string;
+  memberKey: string | null;
+  billingStatus: LabBillingStatus;
+  usageVisible: boolean;
+  usedBytes: number | null;
+  writes: number | null;
+}
+
+/** A billing-only sponsored collaborator (a seat with no folder access). */
+export interface SponsoredCollaboratorEntry {
+  memberKey: string;
+  label: string | null;
+  status: "invited" | "active" | "declined";
+  usageVisible: boolean;
+  usedBytes: number | null;
+  writes: number | null;
+}
+
+export interface UnifiedLabRoster {
+  enabled: boolean;
+  members: UnifiedRosterMember[];
+  sponsored: SponsoredCollaboratorEntry[];
+  sponsoredOwners: number;
+  aggregateUsedBytes: number;
+  aggregateWrites: number;
+  freeBytes: number;
+}
+
+/** The DO-roster shape the PI's client reads from getLabRemote (non-head). */
+export interface DataRosterMember {
+  pubkey: string;
+  username?: string;
+}
+
+/**
+ * Fetches the unified PI roster: the data-lab members (from the DO roster the
+ * caller passes) each annotated with a billing chip, plus billing-only sponsored
+ * collaborators and the pool aggregate. Returns null when billing is off or the
+ * request fails, so the caller can fall back gracefully.
+ */
+export async function fetchLabRoster(
+  members: DataRosterMember[],
+): Promise<UnifiedLabRoster | null> {
+  try {
+    const res = await fetch("/api/billing/lab/roster", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ members }),
+    });
+    if (!res.ok) return null;
+    return (await res.json()) as UnifiedLabRoster;
+  } catch {
+    return null;
+  }
 }
