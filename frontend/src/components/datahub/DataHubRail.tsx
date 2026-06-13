@@ -316,6 +316,7 @@ export default function DataHubRail({
   onDuplicatePlot,
   onExportPlotPng,
   onExportPlotSvg,
+  onCollapse,
 }: {
   projects: Project[];
   /** The tables visible under the active collection filter. */
@@ -385,8 +386,20 @@ export default function DataHubRail({
   onExportPlotPng?: (id: string) => void;
   /** Export a figure as an SVG download (no need to open it). */
   onExportPlotSvg?: (id: string) => void;
+  /** Collapse the rail to focus the main pane (the shared split shell). Absent
+   *  renders no collapse control (e.g. a context where the rail is always shown). */
+  onCollapse?: () => void;
 }) {
-  const groups = useMemo(() => groupByFolder(tables), [tables]);
+  // Type-to-filter the table family-tree by name (matches Sequences / Chemistry /
+  // Tree Studio). A folder shows only if it still has a matching table.
+  const [filter, setFilter] = useState("");
+  const groups = useMemo(() => {
+    const q = filter.trim().toLowerCase();
+    const visible = q
+      ? tables.filter((t) => t.name.toLowerCase().includes(q))
+      : tables;
+    return groupByFolder(visible);
+  }, [tables, filter]);
   // A table id -> name lookup so a derived table can show its source's name in
   // the rail ("from <source>"). Built from the visible tables; a source outside
   // the current filter falls back to a generic label.
@@ -828,9 +841,25 @@ export default function DataHubRail({
 
   return (
     <aside
-      className="flex h-full w-[232px] shrink-0 flex-col gap-4 overflow-y-auto rounded-lg border border-border bg-surface-sunken p-3"
+      className="flex h-full w-full flex-col gap-4 overflow-y-auto rounded-lg border border-border bg-surface-sunken p-3"
       data-testid="datahub-rail"
     >
+      {onCollapse && (
+        <div className="flex items-center justify-between">
+          <span className="text-body font-bold text-foreground">Data Hub</span>
+          <Tooltip label="Hide the rail">
+            <button
+              type="button"
+              onClick={onCollapse}
+              aria-label="Hide the rail"
+              className="shrink-0 rounded-md p-1 text-foreground-muted transition-colors hover:bg-surface-raised hover:text-foreground"
+            >
+              <Icon name="chevronLeft" className="h-4 w-4" />
+            </button>
+          </Tooltip>
+        </div>
+      )}
+
       {/* Collection filter */}
       <div className="border-b border-border pb-3">
         <label className="mb-1 block text-meta font-medium uppercase tracking-wide text-foreground-muted">
@@ -854,6 +883,23 @@ export default function DataHubRail({
             </optgroup>
           )}
         </select>
+      </div>
+
+      {/* Filter the table family-tree by name (instant, like the other pages). */}
+      <div className="relative">
+        <Icon
+          name="search"
+          className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-foreground-muted"
+        />
+        <input
+          type="search"
+          value={filter}
+          onChange={(e) => setFilter(e.target.value)}
+          placeholder="Filter tables"
+          aria-label="Filter tables by name"
+          data-testid="datahub-rail-filter"
+          className="w-full rounded-md border border-border bg-surface-raised pl-8 pr-2 py-1.5 text-body text-foreground placeholder:text-foreground-muted focus:border-sky-400 focus:outline-none"
+        />
       </div>
 
       {/* Data Tables tree */}
@@ -907,9 +953,11 @@ export default function DataHubRail({
           </div>
         </div>
 
-        {tables.length === 0 ? (
+        {groups.length === 0 ? (
           <p className="px-1 py-2 text-meta text-foreground-muted">
-            No tables in this collection yet. Use New table to start one.
+            {tables.length === 0
+              ? "No tables in this collection yet. Use New table to start one."
+              : `No tables match "${filter.trim()}".`}
           </p>
         ) : (
           <div className="flex flex-col gap-0.5">

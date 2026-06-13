@@ -138,6 +138,12 @@ import {
   type PlotStyle,
 } from "@/lib/datahub/plot-spec";
 import DataHubRail, { type Collection } from "@/components/datahub/DataHubRail";
+import {
+  clampListWidth,
+  DEFAULT_LIST_WIDTH,
+  LIST_MIN_WIDTH,
+  LIST_MAX_WIDTH,
+} from "@/lib/sequences/split-layout";
 import DataTableGrid from "@/components/datahub/DataTableGrid";
 import TableFormatControl from "@/components/datahub/TableFormatControl";
 import XYTableGrid from "@/components/datahub/XYTableGrid";
@@ -228,6 +234,10 @@ function transformLabel(kind: TransformKind): string {
       return "Transform";
   }
 }
+
+/** localStorage key for the persisted Data Hub rail width (shared split shell,
+ *  keyed per page exactly like Sequences / Chemistry / Tree Studio). */
+const RAIL_WIDTH_KEY = "researchos:datahub:listWidth";
 
 export default function DataHubPage() {
   const { currentUser } = useCurrentUser();
@@ -320,6 +330,76 @@ export default function DataHubPage() {
   const [derivedSourceMissing, setDerivedSourceMissing] = useState(false);
   const handleRef = useRef<DataHubDocHandle | null>(null);
   const openIdRef = useRef<string | null>(null);
+
+  // Shared split shell (resizable + collapse-to-focus + persisted width), the
+  // same shell /sequences, /chemistry, and Tree Studio use. The rail keeps its
+  // family-tree; only its width / collapse chrome is unified across the pages.
+  const splitRef = useRef<HTMLDivElement>(null);
+  const railDraggingRef = useRef(false);
+  const [railWidth, setRailWidth] = useState(DEFAULT_LIST_WIDTH);
+  const [railCollapsed, setRailCollapsed] = useState(false);
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const raw = window.localStorage.getItem(RAIL_WIDTH_KEY);
+    const parsed = raw ? Number.parseFloat(raw) : NaN;
+    const w = splitRef.current?.getBoundingClientRect().width ?? 0;
+    if (Number.isFinite(parsed)) setRailWidth(clampListWidth(parsed, w));
+  }, []);
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    window.localStorage.setItem(RAIL_WIDTH_KEY, String(Math.round(railWidth)));
+  }, [railWidth]);
+  const onRailDividerDown = useCallback(
+    (e: React.PointerEvent<HTMLDivElement>) => {
+      if (e.button !== 0) return;
+      e.preventDefault();
+      railDraggingRef.current = true;
+      (e.target as HTMLElement).setPointerCapture?.(e.pointerId);
+      document.body.style.userSelect = "none";
+      document.body.style.cursor = "col-resize";
+    },
+    [],
+  );
+  const onRailDividerMove = useCallback(
+    (e: React.PointerEvent<HTMLDivElement>) => {
+      if (!railDraggingRef.current) return;
+      const rect = splitRef.current?.getBoundingClientRect();
+      if (!rect) return;
+      setRailWidth(clampListWidth(e.clientX - rect.left, rect.width));
+    },
+    [],
+  );
+  const onRailDividerUp = useCallback(
+    (e: React.PointerEvent<HTMLDivElement>) => {
+      if (!railDraggingRef.current) return;
+      railDraggingRef.current = false;
+      (e.target as HTMLElement).releasePointerCapture?.(e.pointerId);
+      document.body.style.userSelect = "";
+      document.body.style.cursor = "";
+    },
+    [],
+  );
+  const onRailDividerKeyDown = useCallback(
+    (e: React.KeyboardEvent<HTMLDivElement>) => {
+      if (e.key !== "ArrowLeft" && e.key !== "ArrowRight") return;
+      e.preventDefault();
+      const step = e.shiftKey ? 48 : 16;
+      const w = splitRef.current?.getBoundingClientRect().width ?? 0;
+      setRailWidth((cur) =>
+        clampListWidth(cur + (e.key === "ArrowLeft" ? -step : step), w),
+      );
+    },
+    [],
+  );
+  useEffect(() => {
+    return () => {
+      if (railDraggingRef.current) {
+        document.body.style.userSelect = "";
+        document.body.style.cursor = "";
+        railDraggingRef.current = false;
+      }
+    };
+  }, []);
 
   const { data: projects = [] } = useQuery({
     queryKey: ["projects", "for-datahub"],
@@ -2195,8 +2275,30 @@ export default function DataHubPage() {
 
   return (
     <AppShell>
-      <div className="flex h-full min-h-0 gap-3 px-4 pb-4">
-        <DataHubRail
+      <div
+        ref={splitRef}
+        className="relative flex h-full min-h-0 gap-0 px-4 pb-4"
+      >
+        {railCollapsed ? (
+          <Tooltip label="Show the table list">
+            <button
+              type="button"
+              onClick={() => setRailCollapsed(false)}
+              aria-label="Show the table list"
+              className="mr-2 mt-1 flex h-9 w-7 shrink-0 items-center justify-center self-start rounded-md border border-border bg-surface-raised text-foreground-muted hover:text-foreground hover:bg-surface-sunken"
+            >
+              <Icon name="chevronRight" className="h-4 w-4" />
+            </button>
+          </Tooltip>
+        ) : null}
+        <aside
+          className={`flex shrink-0 flex-col overflow-hidden transition-[width] duration-200 ${
+            railCollapsed ? "pointer-events-none" : ""
+          }`}
+          style={{ width: railCollapsed ? 0 : railWidth }}
+          aria-hidden={railCollapsed}
+        >
+          <DataHubRail
           projects={projects}
           tables={tablesInCollection}
           collection={collection}
@@ -2256,7 +2358,31 @@ export default function DataHubPage() {
           onDuplicatePlot={handleDuplicatePlot}
           onExportPlotPng={(id) => exportPlot(id, "png")}
           onExportPlotSvg={(id) => exportPlot(id, "svg")}
-        />
+          onCollapse={() => setRailCollapsed(true)}
+          />
+        </aside>
+
+        {railCollapsed ? null : (
+          <Tooltip label="Drag to resize (or use arrow keys)">
+            <div
+              role="separator"
+              aria-orientation="vertical"
+              aria-label="Resize the table list"
+              aria-valuenow={Math.round(railWidth)}
+              aria-valuemin={LIST_MIN_WIDTH}
+              aria-valuemax={LIST_MAX_WIDTH}
+              tabIndex={0}
+              onPointerDown={onRailDividerDown}
+              onPointerMove={onRailDividerMove}
+              onPointerUp={onRailDividerUp}
+              onPointerCancel={onRailDividerUp}
+              onKeyDown={onRailDividerKeyDown}
+              className="group relative mx-1 flex w-2 shrink-0 cursor-col-resize touch-none items-center justify-center focus:outline-none"
+            >
+              <span className="h-12 w-1 rounded-full bg-border transition-colors group-hover:bg-brand-action group-focus:bg-brand-action" />
+            </div>
+          </Tooltip>
+        )}
 
         <section
           className={`flex min-w-0 flex-1 flex-col rounded-lg border border-border bg-surface-raised ${
