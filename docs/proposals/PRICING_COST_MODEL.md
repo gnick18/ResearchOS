@@ -33,9 +33,14 @@ Per paying account per month, our real costs are:
    about one request (~$0.15/M), so ~$1.15 per million writes, measured. Durable
    Object active duration ($12.50/M GB-s) is real but not yet attributed per
    owner, so pad activity to ~$1.50/M writes until we measure it.
-3. STRIPE. 2.9% + $0.30 per invoice, plus ~0.5% if Stripe Tax is on. The flat
-   $0.30 dominates small invoices, which is why tiny amounts are not worth billing
-   (the existing ~$2 minimum).
+3. STRIPE. 2.9% + $0.30 per invoice on a US card, plus ~1.5% for an international
+   card and ~1% for currency conversion, plus ~0.5% if Stripe Tax is on. A bank
+   debit (ACH, SEPA) is far cheaper at ~0.8% (ACH capped at $5). That spread is
+   why billing offers DUAL PRICING: the card is the list price and a bank-transfer
+   payer gets a discount reflecting the lower fee (a discount for a cheaper method,
+   not a card surcharge, see BILLING_FACTS.md and lib/billing/processing-fee.ts).
+   The flat $0.30 dominates small invoices, which is why tiny amounts are not worth
+   billing (the existing ~$2 minimum).
 4. TAX. WI sales tax (if the DOR rules it taxable) is ADDED to the customer at
    checkout, not absorbed by us. Income tax is on profit; at cost recovery profit
    is ~0, so the income-tax reserve is near zero.

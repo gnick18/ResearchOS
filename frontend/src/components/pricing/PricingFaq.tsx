@@ -29,6 +29,14 @@ const FAQ: { q: string; a: string }[] = [
     a: "Only the principal investigator. The free tier and any paid plan are one shared pool for the whole lab, on one invoice. Members never see a bill and never enter a card.",
   },
   {
+    q: "How do departments and institutions pay?",
+    a: "An automated recurring invoice to your procurement office on net terms, with a PO number, paid by bank transfer or card. A smaller department or a PI fronting the cost can instead put a card or bank account on file and have it charged each cycle. The amount is adjustable any month with no lock-in, and institutions outside the US can pay too.",
+  },
+  {
+    q: "Is it cheaper to pay by bank transfer?",
+    a: "Yes, a little, everywhere on the site. A bank transfer (ACH) costs us far less to process than a card, so we pass that saving back as a lower price rather than charging a card fee on top. It is a discount for the cheaper method, the same way a cash discount works, and you can always pay by card instead.",
+  },
+  {
     q: "Why are the Plus and Pro prices not shown yet?",
     a: "We hold the exact figure until a few weeks of real usage show what storage actually costs, so we set it from data instead of guessing high. During the beta every plan is free.",
   },

@@ -162,9 +162,10 @@ export default function InstitutionBuilder() {
               surplus keeps ResearchOS free for individual researchers and funds
               the open-source development, and it is still a small fraction of the
               per-seat licenses you pay elsewhere. One automatic recurring invoice
-              on net terms, no one quotes it by hand. An estimate, not a final
-              price, and free during the beta. Assumes about {AVG_MEMBERS_PER_LAB}{" "}
-              members per lab.
+              on net terms, or a card or bank account on file, no one quotes it by
+              hand. Paying by bank transfer costs a little less because it costs us
+              less to process. An estimate, not a final price, and free during the
+              beta. Assumes about {AVG_MEMBERS_PER_LAB} members per lab.
             </p>
           </div>
         </div>

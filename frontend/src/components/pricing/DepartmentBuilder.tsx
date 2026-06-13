@@ -146,8 +146,10 @@ export default function DepartmentBuilder() {
               bare cost. That surplus keeps ResearchOS free for individual
               researchers and funds the open-source development, and it is still a
               fraction of what you pay per seat elsewhere. One automatic recurring
-              invoice to your procurement office on net terms, change it any month,
-              no lock-in. An estimate, not a final price, and free during the beta.
+              invoice to your procurement office on net terms, or a card or bank
+              account on file, change it any month, no lock-in. Paying by bank
+              transfer costs a little less because it costs us less to process. An
+              estimate, not a final price, and free during the beta.
             </p>
           </div>
         </div>
