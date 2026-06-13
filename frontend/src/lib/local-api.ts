@@ -9151,6 +9151,38 @@ export const labApi = {
   },
 
   /**
+   * Lab-wide FULL tasks (RS-2, the PI-Mode Gantt rollup). UNLIKE getTasks (which
+   * slims each record to LabTask), this returns every member's complete Task
+   * objects so the GanttChart can render them with its existing lab-mode path.
+   * Each task is stamped with `owner` (so taskKey is unique across members) and
+   * `username` (which the GanttChart lab-mode color lookup reads). Read-only by
+   * use: the Gantt's lab mode disables every drag/resize handler.
+   */
+  getTasksFull: async (): Promise<Array<Task & { username: string }>> => {
+    const { usernames } = await loadLabUsers();
+    const out: Array<Task & { username: string }> = [];
+    for (const username of usernames) {
+      const userTasks = await tasksStore.listAllForUser(username);
+      for (const t of userTasks) {
+        const owner = t.owner || username;
+        out.push({ ...t, owner, username: owner });
+      }
+    }
+    return out;
+  },
+
+  /** Lab-wide FULL projects (RS-2), owner-stamped, for the Gantt rollup. */
+  getProjectsFull: async (): Promise<Project[]> => {
+    const { usernames } = await loadLabUsers();
+    const out: Project[] = [];
+    for (const username of usernames) {
+      const userProjects = await projectsStore.listAllForUser(username);
+      for (const p of userProjects) out.push({ ...p, owner: p.owner || username });
+    }
+    return out;
+  },
+
+  /**
    * Project-widgets family (project-widgets, 2026-05-29): a
    * sharing-aware cross-member projects read for the Projects Overview
    * (lab mode) + Single-Project pin-picker widgets.
