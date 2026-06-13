@@ -12,6 +12,7 @@ import NoteDeleteUndoToast from "./NoteDeleteUndoToast";
 import SequenceDeleteUndoToast from "./SequenceDeleteUndoToast";
 import MoleculeDeleteUndoToast from "./MoleculeDeleteUndoToast";
 import NotificationBadge from "./NotificationBadge";
+import NotificationDesktopWatcher from "./NotificationDesktopWatcher";
 import ReminderRunner from "./ReminderRunner";
 import IdlePasswordWipe from "./IdlePasswordWipe";
 import Tooltip from "./Tooltip";
@@ -596,6 +597,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
       <LabCreateResume />
       <LabInviteResume />
       <ReminderRunner />
+      <NotificationDesktopWatcher />
 
       {/* Universal floating utility cluster — a single fixed flex row at
           bottom-right, ordered right-to-left by expected frequency:
