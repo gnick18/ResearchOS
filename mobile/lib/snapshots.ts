@@ -36,6 +36,13 @@ export type SnapshotTask = {
   start_date?: string;
   end_date?: string;
   task_type?: string;
+  /** Name of the first attached method. Only present on experiment-type tasks
+   *  that have a method attachment and were built by a laptop that supports the
+   *  today-band feature. Absent on older laptops and non-experiment tasks. */
+  linkedMethodName?: string | null;
+  /** Raw method_type of the first attached method (e.g. "pcr", "markdown").
+   *  Optional companion to linkedMethodName for a type badge. */
+  linkedMethodType?: string | null;
 };
 
 // The decrypted "today" snapshot. generatedAt drives the "last synced" line.

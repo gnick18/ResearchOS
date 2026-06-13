@@ -10,10 +10,11 @@
 //
 // No em-dashes, no emojis, no mid-sentence colons.
 
-import { fetchAllTasks } from "@/lib/local-api";
+import { fetchAllTasks, methodsApi } from "@/lib/local-api";
 import { sealToRecipient } from "@/lib/sharing/encryption";
 import { decodePublicKey } from "@/lib/sharing/identity/keys";
 import { listDevices, publishSnapshot, type UserCaptureKeys } from "./client";
+import type { Task } from "@/lib/types";
 
 /** A single task as it appears in the phone's "today" view. */
 export interface SnapshotTask {
@@ -22,6 +23,18 @@ export interface SnapshotTask {
   start_date: string;
   end_date: string;
   task_type: string;
+  /**
+   * Name of the first attached method. Only populated for experiment-type tasks
+   * that have at least one method attachment. Optional so older phones and all
+   * non-experiment tasks are completely unaffected.
+   */
+  linkedMethodName?: string | null;
+  /**
+   * Raw method_type of the first attached method (e.g. "pcr", "markdown").
+   * Optional companion to linkedMethodName, used by the phone for a type badge.
+   * Omitted when the method could not be resolved or the task is not an experiment.
+   */
+  linkedMethodType?: string | null;
 }
 
 /** The decrypted shape the phone reads after openSealed. */
@@ -54,7 +67,9 @@ function localToday(): string {
 }
 
 /** A minimal Task shape this module reads. The full Task carries more, but the
- *  buckets only need these fields. */
+ *  buckets only need these fields. method_attachments is included so the
+ *  experiment-band resolution can reach the first attached method without a
+ *  second full-task fetch. */
 interface TaskLike {
   id: string;
   name: string;
@@ -62,6 +77,10 @@ interface TaskLike {
   end_date: string;
   task_type: string;
   is_complete: boolean;
+  /** Present on real Task records returned by fetchAllTasks. */
+  method_attachments?: Array<{ method_id: number; owner: string | null }>;
+  /** Present on real Task records; used as fallback owner for method lookup. */
+  owner?: string;
 }
 
 /**
@@ -92,18 +111,71 @@ export function classifyToday(
   return { active, overdue, upcoming };
 }
 
+/**
+ * Resolve the name (and raw method_type) of the first method attachment on an
+ * experiment task. Only called for tasks where task_type === "experiment" and
+ * method_attachments is non-empty, so the methodsApi.get calls are bounded to
+ * the set of active-today experiments, not the whole task list. Returns null
+ * when the method cannot be loaded (safe degradation).
+ */
+async function resolveFirstMethodName(
+  t: TaskLike,
+): Promise<{ name: string | null; methodType: string | null }> {
+  const attachments = t.method_attachments ?? [];
+  if (attachments.length === 0) return { name: null, methodType: null };
+  const first = attachments[0];
+  const lookupOwner = first.owner ?? t.owner ?? undefined;
+  try {
+    const method = await methodsApi.get(first.method_id, lookupOwner);
+    if (!method) return { name: null, methodType: null };
+    return {
+      name: (method as { name?: string }).name ?? null,
+      methodType: (method as { method_type?: string | null }).method_type ?? null,
+    };
+  } catch {
+    return { name: null, methodType: null };
+  }
+}
+
 /** Reads the connected folder's tasks and builds today's snapshot. */
 export async function buildTodaySnapshot(): Promise<TodaySnapshot> {
   const today = localToday();
   const tasks = (await fetchAllTasks()) as unknown as TaskLike[];
   const { active, overdue, upcoming } = classifyToday(tasks, today);
-  const toSnap = (t: TaskLike): SnapshotTask => ({
-    id: t.id,
-    name: t.name,
-    start_date: t.start_date,
-    end_date: t.end_date,
-    task_type: t.task_type,
-  });
+
+  // Resolve linked method names for experiment-type active tasks only.
+  // Non-experiment tasks and experiments with no attachments skip the API call.
+  const methodResolutions = new Map<string, { name: string | null; methodType: string | null }>();
+  await Promise.all(
+    active
+      .filter(
+        (t) =>
+          t.task_type === "experiment" &&
+          Array.isArray(t.method_attachments) &&
+          t.method_attachments.length > 0,
+      )
+      .map(async (t) => {
+        const resolved = await resolveFirstMethodName(t);
+        methodResolutions.set(t.id, resolved);
+      }),
+  );
+
+  const toSnap = (t: TaskLike): SnapshotTask => {
+    const snap: SnapshotTask = {
+      id: t.id,
+      name: t.name,
+      start_date: t.start_date,
+      end_date: t.end_date,
+      task_type: t.task_type,
+    };
+    const resolved = methodResolutions.get(t.id);
+    if (resolved) {
+      snap.linkedMethodName = resolved.name;
+      snap.linkedMethodType = resolved.methodType;
+    }
+    return snap;
+  };
+
   // Overdue oldest-due first (most behind at the top); upcoming soonest-first.
   const overdueSorted = [...overdue].sort((a, b) =>
     a.end_date.localeCompare(b.end_date),

@@ -39,6 +39,7 @@ import Animated, {
   withSpring,
   withTiming,
 } from 'react-native-reanimated';
+import { useRouter } from 'expo-router';
 
 import { ThemedText } from '@/components/themed-text';
 import { useTheme, palette } from '@/lib/design';
@@ -85,6 +86,12 @@ export function TodayPanel({
 }: TodayPanelProps) {
   const { surface, dark } = useTheme();
   const reduceMotion = useReducedMotion();
+  const router = useRouter();
+
+  // Partition active tasks: experiments go into the dedicated band, everything
+  // else stays in the regular Today task list.
+  const activeBandTasks = tasks.filter((t) => t.task_type === 'experiment');
+  const activeListTasks = tasks.filter((t) => t.task_type !== 'experiment');
 
   // translateY: 0 = fully open, CLOSED_OFFSET = fully hidden above the screen.
   const translateY = useSharedValue(CLOSED_OFFSET);
@@ -167,7 +174,7 @@ export function TodayPanel({
   const dateLabel = formatTodayDate();
 
   const showRows = loaded && snapshot !== null && !error;
-  const hasTodayRows = tasks.length > 0;
+  const hasTodayRows = activeListTasks.length > 0;
 
   return (
     <View style={styles.host} pointerEvents="box-none">
@@ -247,9 +254,28 @@ export function TodayPanel({
 
           {showRows ? (
             <>
+              {/* Active experiments band: pinned above the regular Today list. */}
+              {activeBandTasks.length > 0 ? (
+                <ActiveExperimentsBand
+                  experiments={activeBandTasks}
+                  dark={dark}
+                  onPress={(task) => {
+                    // Deep-link to the method read view for the focused experiment.
+                    // The method snapshot is published separately by the laptop when
+                    // the user taps "View method on phone". We navigate to the same
+                    // route the Method tab's recs band uses (/method-detail?read=1),
+                    // which reads the currently published method snapshot. If the
+                    // laptop has not published a method snapshot for this experiment
+                    // the read screen shows its "open a method from the laptop"
+                    // empty state, which is the correct degradation.
+                    router.push('/method-detail?read=1');
+                  }}
+                />
+              ) : null}
+
               <GroupLabel text="Today" color={surface.muted} />
               {hasTodayRows ? (
-                tasks.map((task, i) => (
+                activeListTasks.map((task, i) => (
                   <TaskRow key={task.id ?? `today-${i}`} task={task} tone="today" />
                 ))
               ) : (
@@ -325,6 +351,135 @@ export function TodayPanel({
     </View>
   );
 }
+
+// ── Active experiments band ───────────────────────────────────────────────────
+
+/**
+ * Parse a YYYY-MM-DD date string to a UTC midnight timestamp. Returns NaN when
+ * the string is missing or malformed. No date-lib dependency; the phone already
+ * receives dates in this format from the snapshot.
+ */
+function parseDateStr(value?: string): number {
+  if (!value) return NaN;
+  const ms = Date.parse(value);
+  return ms;
+}
+
+/**
+ * Compute the "Day N" (or "Day N of M") label for an experiment card.
+ *
+ * N = floor((today - start_date) / 86400000) + 1, clamped to >= 1.
+ * M = floor((end_date - start_date) / 86400000) + 1 (only shown when M > 1).
+ *
+ * All arithmetic is in UTC milliseconds (the dates are stored as YYYY-MM-DD
+ * without a time component, so UTC midnight comparisons are correct regardless
+ * of the phone's locale).
+ */
+function dayLabel(start_date?: string, end_date?: string): string {
+  const now = new Date();
+  // Represent today as a UTC midnight timestamp for consistent arithmetic.
+  const todayUTC = Date.UTC(now.getFullYear(), now.getMonth(), now.getDate());
+  const startMs = parseDateStr(start_date);
+  if (isNaN(startMs)) return 'Day 1';
+  const dayN = Math.max(1, Math.floor((todayUTC - startMs) / 86400000) + 1);
+  const endMs = parseDateStr(end_date);
+  if (!isNaN(endMs) && endMs > startMs) {
+    const totalDays = Math.floor((endMs - startMs) / 86400000) + 1;
+    if (totalDays > 1) return `Day ${dayN} of ${totalDays}`;
+  }
+  return `Day ${dayN}`;
+}
+
+/** One experiment card inside the Active Experiments band. */
+function ExperimentCard({
+  task,
+  dark,
+  onPress,
+}: {
+  task: SnapshotTask;
+  dark: boolean;
+  onPress: () => void;
+}) {
+  const { surface } = useTheme();
+  // Subtle purple-tinted surface so the experiment cards are visually distinct
+  // from the neutral sky-tinted Today task rows and the rest of the panel.
+  const cardBg = dark ? 'rgba(91,71,214,0.14)' : 'rgba(91,71,214,0.07)';
+  const cardBorder = dark ? 'rgba(91,71,214,0.30)' : 'rgba(91,71,214,0.20)';
+  const chipBg = dark ? 'rgba(91,71,214,0.22)' : 'rgba(91,71,214,0.12)';
+
+  const label = dayLabel(task.start_date, task.end_date);
+  const hasMethod = !!task.linkedMethodName;
+
+  return (
+    <Pressable
+      onPress={onPress}
+      style={[
+        styles.expCard,
+        { backgroundColor: cardBg, borderColor: cardBorder },
+      ]}
+      accessibilityRole="button"
+      accessibilityLabel={`Open method for ${task.name ?? 'experiment'}`}
+    >
+      <View style={styles.expCardTop}>
+        <ThemedText
+          style={[styles.expName, { color: surface.text }]}
+          numberOfLines={1}
+        >
+          {task.name && task.name.length > 0 ? task.name : 'Untitled experiment'}
+        </ThemedText>
+        <View style={[styles.dayChip, { backgroundColor: chipBg }]}>
+          <ThemedText style={[styles.dayChipText, { color: palette.purple }]}>
+            {label}
+          </ThemedText>
+        </View>
+      </View>
+      {hasMethod ? (
+        <View style={styles.expMethodRow}>
+          {/* Flask glyph rendered as a unicode character keeps the no-emoji rule
+              (this is a scientific symbol, not an emoji codepoint). Using a
+              View-based inline mark keeps everything in the existing text stack. */}
+          <View style={[styles.flaskDot, { backgroundColor: palette.purple }]} />
+          <ThemedText
+            style={[styles.expMethodName, { color: surface.muted }]}
+            numberOfLines={1}
+          >
+            {task.linkedMethodName}
+          </ThemedText>
+        </View>
+      ) : null}
+    </Pressable>
+  );
+}
+
+/** The full "ACTIVE EXPERIMENTS" band, rendered only when >= 1 experiment. */
+function ActiveExperimentsBand({
+  experiments,
+  dark,
+  onPress,
+}: {
+  experiments: SnapshotTask[];
+  dark: boolean;
+  onPress: (task: SnapshotTask) => void;
+}) {
+  const { surface } = useTheme();
+  return (
+    <View style={styles.expBand}>
+      <ThemedText style={[styles.expBandHeader, { color: surface.muted }]}>
+        {`ACTIVE EXPERIMENTS · ${experiments.length}`}
+      </ThemedText>
+      {experiments.map((task, i) => (
+        <ExperimentCard
+          key={task.id ?? `exp-${i}`}
+          task={task}
+          dark={dark}
+          onPress={() => onPress(task)}
+        />
+      ))}
+    </View>
+  );
+}
+
+// ── Stat tile ────────────────────────────────────────────────────────────────
 
 // A single glanceable count tile (Today sky / Overdue red / Coming up amber).
 function StatTile({
@@ -488,6 +643,67 @@ const styles = StyleSheet.create({
     marginTop: 5,
     textTransform: 'uppercase',
     letterSpacing: 0.4,
+  },
+
+  // Active experiments band
+  expBand: {
+    marginTop: 4,
+    marginBottom: 2,
+  },
+  expBandHeader: {
+    fontSize: 10.5,
+    fontWeight: '800',
+    letterSpacing: 0.5,
+    textTransform: 'uppercase',
+    marginBottom: 6,
+    marginHorizontal: 4,
+  },
+  expCard: {
+    borderWidth: 1,
+    borderRadius: 12,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    marginBottom: 6,
+    gap: 4,
+  },
+  expCardTop: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    justifyContent: 'space-between',
+  },
+  expName: {
+    fontSize: 12.5,
+    fontWeight: '700',
+    flex: 1,
+    minWidth: 0,
+  },
+  dayChip: {
+    borderRadius: 999,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    flexShrink: 0,
+  },
+  dayChipText: {
+    fontSize: 10,
+    fontWeight: '800',
+  },
+  expMethodRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginTop: 2,
+  },
+  flaskDot: {
+    width: 5,
+    height: 5,
+    borderRadius: 999,
+    flexShrink: 0,
+  },
+  expMethodName: {
+    fontSize: 10.5,
+    flex: 1,
+    minWidth: 0,
   },
 
   scroll: { flexGrow: 0 },
