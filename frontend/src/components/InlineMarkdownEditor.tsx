@@ -13,6 +13,7 @@ import {
   isCodeBlockInsertSyntax,
 } from "@/lib/markdown/cm-inline-reveal/code-languages";
 import { detectUnfence } from "@/lib/markdown/cm-inline-reveal/markdown-keymap";
+import { isBlockEmbedMarkdown } from "@/lib/references";
 
 /**
  * Read the seed markdown for a Loro-bound surface. A task surface exposes its
@@ -831,6 +832,28 @@ export default function InlineMarkdownEditor({
       // inside an existing fence, or a multi-cursor selection), fall through to
       // the literal insert below so the click still does something sensible.
       if (isCodeBlockInsertSyntax(syntax) && openCodeBlockPickerRef.current(view)) {
+        return;
+      }
+      // A block embed only renders as a card when it is alone in its paragraph,
+      // so an embed inserted mid-line would show as an inline chip. Give it its
+      // own line (blank line above + below) and leave the caret on the line
+      // below, so it renders as a block immediately instead of as raw source.
+      if (isBlockEmbedMarkdown(syntax)) {
+        const sel = view.state.selection.main;
+        const before = view.state.doc.sliceString(0, sel.from);
+        const after = view.state.doc.sliceString(sel.to);
+        const lead =
+          before.length === 0 || before.endsWith("\n\n")
+            ? ""
+            : before.endsWith("\n")
+              ? "\n"
+              : "\n\n";
+        // Always leave a line below so the caret lands off the embed (a caret on
+        // the embed line would reveal its source). At doc end one newline is
+        // enough; otherwise ensure a blank line before any following text.
+        const trail = after.length === 0 ? "\n" : after.startsWith("\n") ? "\n" : "\n\n";
+        view.dispatch(view.state.replaceSelection(lead + syntax + trail));
+        view.focus();
         return;
       }
       view.dispatch(view.state.replaceSelection(syntax));

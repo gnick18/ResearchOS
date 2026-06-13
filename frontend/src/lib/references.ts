@@ -379,6 +379,18 @@ export function objectEmbedMarkdown(
   return `[${escapeLinkText(name)}](${buildObjectEmbedHref(type, id, opts)})`;
 }
 
+/** True when a markdown string is a single `[caption](href)` link that parses as
+ *  a BLOCK embed (a `#ros=` view other than chip). Used by the editor to decide
+ *  whether an inserted reference needs its own paragraph (a block embed only
+ *  renders as a card when it is alone on its line). An inline mention (chip) or
+ *  any other markdown returns false, so it inserts inline as before. */
+export function isBlockEmbedMarkdown(markdown: string): boolean {
+  const m = markdown.trim().match(/^\[[^\]]*\]\((.+)\)$/);
+  if (!m) return false;
+  const descriptor = parseObjectEmbed(m[1]);
+  return descriptor?.isEmbed === true;
+}
+
 /** Swap only the view of an object-embed href, preserving type, id, and every opt
  *  (region / rows / cols / analysis / plot / pin / ref / size hints). Rebuilds
  *  through buildObjectEmbedHref so the byte form matches a freshly built embed of

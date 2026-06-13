@@ -2,11 +2,26 @@ import { describe, it, expect } from "vitest";
 import {
   objectDeepLink,
   objectReferenceMarkdown,
+  objectEmbedMarkdown,
   parseObjectDeepLink,
+  isBlockEmbedMarkdown,
   methodRefId,
   splitMethodRefId,
   type ObjectRefType,
 } from "@/lib/references";
+
+describe("isBlockEmbedMarkdown", () => {
+  it("is true for a block embed (a non-chip #ros view)", () => {
+    expect(isBlockEmbedMarkdown(objectEmbedMarkdown("molecule", "4", "Resveratrol", { view: "card" }))).toBe(true);
+    expect(isBlockEmbedMarkdown("[pUC19 map](/sequences?seq=5#ros=map)")).toBe(true);
+  });
+  it("is false for an inline mention / chip and plain markdown", () => {
+    expect(isBlockEmbedMarkdown("[Resveratrol](/chemistry?molecule=4)")).toBe(false);
+    expect(isBlockEmbedMarkdown("[pUC19](/sequences?seq=5#ros=chip)")).toBe(false);
+    expect(isBlockEmbedMarkdown("**bold**")).toBe(false);
+    expect(isBlockEmbedMarkdown("See [pUC19](/sequences?seq=5#ros=map) inline")).toBe(false);
+  });
+});
 
 describe("objectDeepLink", () => {
   it("builds the sequence route", () => {
