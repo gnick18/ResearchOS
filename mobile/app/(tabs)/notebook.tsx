@@ -79,6 +79,7 @@ import {
   DEMO_NOTIF_FIRED_KEY,
 } from '@/lib/demo-fixtures';
 import { ensureNotificationPermission } from '@/lib/notifications';
+import { useUnreadNotificationCount } from '@/lib/unread-notifications';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export default function NotebookScreen() {
@@ -88,6 +89,9 @@ export default function NotebookScreen() {
   // ---- Pairing ----
   const { pairing, refresh: refreshPairing } = usePairing();
   const paired = !!pairing;
+
+  // Unread count for the header bell badge (refreshes on focus).
+  const unreadCount = useUnreadNotificationCount();
 
   // Keep the connection card current when returning from the pair screen.
   useFocusEffect(
@@ -893,10 +897,21 @@ export default function NotebookScreen() {
               onPress={() => router.push('/notifications')}
               hitSlop={12}
               accessibilityRole="button"
-              accessibilityLabel="Notifications"
+              accessibilityLabel={
+                unreadCount > 0
+                  ? `Notifications, ${unreadCount} unread`
+                  : 'Notifications'
+              }
               style={styles.settingsBtn}
             >
               <Ionicons name="notifications-outline" size={23} color={palette.sky} />
+              {unreadCount > 0 ? (
+                <View style={styles.bellBadge}>
+                  <ThemedText style={styles.bellBadgeText}>
+                    {unreadCount > 9 ? '9+' : String(unreadCount)}
+                  </ThemedText>
+                </View>
+              ) : null}
             </Pressable>
             <Pressable
               onPress={() => router.push('/modal')}
@@ -1603,6 +1618,24 @@ const styles = StyleSheet.create({
     height: 36,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  bellBadge: {
+    position: 'absolute',
+    top: 3,
+    right: 3,
+    minWidth: 16,
+    height: 16,
+    borderRadius: 999,
+    paddingHorizontal: 4,
+    backgroundColor: palette.coral,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  bellBadgeText: {
+    color: palette.white,
+    fontSize: 10,
+    fontWeight: '800',
+    lineHeight: 13,
   },
   cardTitle: { fontSize: 16, fontWeight: '700', lineHeight: 22 },
 
