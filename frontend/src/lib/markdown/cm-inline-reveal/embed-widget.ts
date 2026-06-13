@@ -238,6 +238,29 @@ export class EmbedWidget extends WidgetType {
         }
       : undefined;
 
+    // Edit markdown. When clicked, resolve the embed's position fresh (posAtDOM)
+    // and place the CM6 caret INTO the embed's source line. That selection update
+    // triggers the existing reveal-on-caret path (selectionTouchesNode) so the raw
+    // markdown source shows as editable text, exactly as if the user had navigated
+    // there with arrow keys. posAtDOM is resolved at click time, never cached, so a
+    // doc edit elsewhere cannot target a stale offset.
+    const onEditMarkdown = () => {
+      try {
+        const pos = view.posAtDOM(wrap);
+        const line = view.state.doc.lineAt(pos);
+        // Place the caret at the start of the embed line. This satisfies
+        // selectionTouchesNode for the paragraph (which checks >= from / <= to),
+        // so the block widget collapses and the raw source appears.
+        view.dispatch({
+          selection: { anchor: line.from },
+          scrollIntoView: true,
+        });
+        view.focus();
+      } catch {
+        // posAtDOM gave a stale position or the line moved. Do nothing.
+      }
+    };
+
     try {
       this.root = createRoot(wrap);
       this.root.render(
@@ -247,6 +270,7 @@ export class EmbedWidget extends WidgetType {
           basePath: this.basePath,
           onViewChange,
           pinContext: pinHandlers,
+          onEditMarkdown,
         }),
       );
     } catch {
@@ -268,7 +292,15 @@ export class EmbedWidget extends WidgetType {
     }
   }
 
-  ignoreEvent(): boolean {
-    return false;
+  /** Return true for mouse events so CM6 does not move the caret on a click
+   *  anywhere inside the widget. This prevents the accidental reveal-on-caret that
+   *  happened when a user clicked the embed body. React onClick handlers STILL fire
+   *  (ignoreEvent only suppresses CM6's own mouse handler, not the DOM event), so
+   *  the view-switch, Freeze/Unfreeze, and Edit-markdown buttons all work normally.
+   *  Keyboard caret navigation (arrow keys) is unaffected: keyboard events arrive
+   *  via the editor's own key handler, not via ignoreEvent, so the caret can still
+   *  land on the embed's line and trigger reveal. */
+  ignoreEvent(event: Event): boolean {
+    return event instanceof MouseEvent;
   }
 }

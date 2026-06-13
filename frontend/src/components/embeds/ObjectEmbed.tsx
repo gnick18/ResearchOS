@@ -18,6 +18,7 @@
 import { lazy, Suspense, useEffect, useState, type ComponentType } from "react";
 import { Icon } from "@/components/icons";
 import type { IconName } from "@/components/icons";
+import Tooltip from "@/components/Tooltip";
 import { objectDeepLink, type EmbedDescriptor, type ObjectRefType } from "@/lib/references";
 import type { BakeEmbedsDeps } from "@/lib/export/bake-embeds";
 import {
@@ -61,6 +62,12 @@ export interface EmbedRendererProps {
    *  editor host supplies it; every read-only caller leaves it undefined and the
    *  embed behaves exactly as today. */
   pinContext?: EmbedPinContext;
+  /** When present, the embed shows an "Edit markdown" button (bottom-left) that
+   *  programmatically places the caret into the embed's source line, triggering
+   *  the reveal-on-caret path so the raw markdown becomes editable. Only the CM6
+   *  editor host supplies this; the read-only Preview passes nothing, so the button
+   *  never appears there. */
+  onEditMarkdown?: () => void;
 }
 
 // Per-type rich renderers, added as each phase lands. A type absent here uses the
@@ -180,13 +187,13 @@ export function ObjectEmbedCard({
   );
 }
 
-/** The quiet "pinned <date>" badge shown on a frozen embed. Small, muted, text
+/** The quiet "frozen <date>" badge shown on a frozen embed. Small, muted, text
  *  only (no inline svg, no emoji). Reuses the calm `.badge`-style look. */
 function PinnedBadge({ pinnedAt }: { pinnedAt: string }) {
-  let label = "pinned";
+  let label = "frozen";
   const d = new Date(pinnedAt);
   if (!Number.isNaN(d.getTime())) {
-    label = `pinned ${d.toLocaleDateString()}`;
+    label = `frozen ${d.toLocaleDateString()}`;
   }
   return (
     <span
@@ -198,8 +205,8 @@ function PinnedBadge({ pinnedAt }: { pinnedAt: string }) {
   );
 }
 
-/** The Pin / Unpin action. Text label, no inline svg, so the icon guard holds. Only
- *  rendered when the editor host supplied the matching closure. */
+/** The Freeze / Unfreeze action. Text label, no inline svg, so the icon guard holds.
+ *  Only rendered when the editor host supplied the matching closure. */
 function PinControl({
   pinned,
   onClick,
@@ -207,7 +214,7 @@ function PinControl({
   pinned: boolean;
   onClick: () => void;
 }) {
-  const label = pinned ? "Unpin" : "Pin";
+  const label = pinned ? "Unfreeze" : "Freeze";
   return (
     <button
       type="button"
@@ -220,8 +227,8 @@ function PinControl({
   );
 }
 
-/** A quiet text button used by the staleness row (View current / show pinned /
- *  Re-pin). No inline svg, calm muted styling that matches the Pin control. */
+/** A quiet text button used by the staleness row (View current / Show frozen /
+ *  Re-freeze). No inline svg, calm muted styling that matches the Freeze control. */
 function StaleAction({
   label,
   onClick,
@@ -241,11 +248,11 @@ function StaleAction({
   );
 }
 
-/** The quiet "source changed since you pinned this" badge plus its actions. Amber /
+/** The quiet "source changed since you froze this" badge plus its actions. Amber /
  *  muted, text only (no inline svg, no emoji). Rendered only when the staleness check
  *  proved the live source moved on AND we are showing the frozen snapshot. View
- *  current toggles the live render for this session without touching the pin; Re-pin
- *  (editor only) recaptures the snapshot and clears the badge. */
+ *  current toggles the live render for this session without touching the freeze;
+ *  Re-freeze (editor only) recaptures the snapshot and clears the badge. */
 function StaleRow({
   viewingCurrent,
   canRepin,
@@ -265,16 +272,16 @@ function StaleRow({
         data-embed-stale="true"
         className="inline-flex items-center rounded-full bg-amber-100 px-2 py-0.5 text-meta font-semibold text-amber-800 dark:bg-amber-500/15 dark:text-amber-300"
       >
-        source changed since you pinned this
+        source changed since you froze this
       </span>
       <span className="ml-auto inline-flex items-center gap-2">
         <StaleAction
-          label={viewingCurrent ? "Show pinned" : "View current"}
+          label={viewingCurrent ? "Show frozen" : "View current"}
           onClick={onToggleView}
         />
         {canRepin ? (
           <StaleAction
-            label={repinning ? "Re-pinning…" : "Re-pin"}
+            label={repinning ? "Re-freezing…" : "Re-freeze"}
             onClick={onRepin}
           />
         ) : null}
@@ -283,26 +290,51 @@ function StaleRow({
   );
 }
 
-/** The footer holding the pinned badge and / or the Pin-Unpin control. Renders
- *  nothing when there is neither a badge nor a control (the no-pin-context case),
- *  so today's embeds get no extra chrome. */
+/** The icon button that places the caret into the embed source line, triggering the
+ *  reveal-on-caret path so the raw markdown becomes editable. Only rendered when the
+ *  editor host supplied the onEditMarkdown callback; the read-only Preview never
+ *  receives it, so the button never appears there. */
+function EditMarkdownButton({ onClick, caption }: { onClick: () => void; caption: string }) {
+  return (
+    <Tooltip label="Edit markdown" placement="top">
+      <button
+        type="button"
+        aria-label={`Edit markdown for ${caption || "embed"}`}
+        onClick={onClick}
+        className="shrink-0 rounded-md border border-border p-1 text-foreground-muted transition-colors hover:border-brand-action hover:text-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-action"
+      >
+        <Icon name="pencil" className="h-3.5 w-3.5" />
+      </button>
+    </Tooltip>
+  );
+}
+
+/** The footer holding the frozen badge, the Freeze/Unfreeze control, and (in editor
+ *  context) the Edit markdown button. Renders nothing when there is no badge, no
+ *  control, and no edit button (the no-pin-context / preview case), so today's embeds
+ *  get no extra chrome. */
 function PinFooter({
   pin,
   pinContext,
   descriptor,
   caption,
+  onEditMarkdown,
 }: {
   pin: EmbedPin | null;
   pinContext?: EmbedPinContext;
   descriptor: EmbedDescriptor;
   caption: string;
+  onEditMarkdown?: () => void;
 }) {
   const canPin = Boolean(pinContext?.onPin);
   const canUnpin = Boolean(pinContext?.onUnpin);
   const showControl = pin ? canUnpin : canPin;
-  if (!pin && !showControl) return null;
+  if (!pin && !showControl && !onEditMarkdown) return null;
   return (
     <div className="flex items-center gap-2 border-t border-border px-3 py-1.5">
+      {onEditMarkdown ? (
+        <EditMarkdownButton onClick={onEditMarkdown} caption={caption} />
+      ) : null}
       {pin ? <PinnedBadge pinnedAt={pin.pinnedAt} /> : null}
       <span className="ml-auto inline-flex">
         {showControl ? (
@@ -326,6 +358,7 @@ export default function ObjectEmbed({
   figureLabel,
   onViewChange,
   pinContext,
+  onEditMarkdown,
 }: EmbedRendererProps) {
   // P7-2 transclusion. A note embed with view "transclude" renders a live section
   // of another note, recursion-guarded. It is NOT pinnable or view-switchable in
@@ -349,6 +382,11 @@ export default function ObjectEmbed({
             basePath={basePath}
           />
         </Suspense>
+        {onEditMarkdown ? (
+          <div className="flex items-center border-t border-border px-3 py-1.5">
+            <EditMarkdownButton onClick={onEditMarkdown} caption={caption} />
+          </div>
+        ) : null}
       </figure>
     );
   }
@@ -426,12 +464,12 @@ export default function ObjectEmbed({
     setViewingCurrent(false);
   }, [pin]);
 
-  // Re-pin. Recapture the snapshot and UPDATE the stored pin in place, keeping the
+  // Re-freeze. Recapture the snapshot and UPDATE the stored pin in place, keeping the
   // same short id so the fragment (&pin=s_xxx) never needs rewriting. Editor-only:
-  // gated on the same editor signal 1a uses to decide Pin / Unpin (the host wired
-  // onPin / onUnpin closures). A read-only preview gets a sidecarPath but no
-  // closures, so it can View current but never Re-pin. After a successful re-pin the
-  // badge clears and the refreshed frozen state shows.
+  // gated on the same editor signal 1a uses to decide Freeze / Unfreeze (the host
+  // wired onPin / onUnpin closures). A read-only preview gets a sidecarPath but no
+  // closures, so it can View current but never Re-freeze. After a successful re-freeze
+  // the badge clears and the refreshed frozen state shows.
   const [repinning, setRepinning] = useState(false);
   const isEditorHost = Boolean(pinContext?.onPin || pinContext?.onUnpin);
   const canRepin = Boolean(sidecarPath && pinId && isEditorHost);
@@ -491,7 +529,7 @@ export default function ObjectEmbed({
       )}
       {/* The stale row shows only on a found pin whose live source has moved on. It
           stays visible while View-current is toggled (so the user can flip back),
-          and clears after a successful Re-pin. */}
+          and clears after a successful Re-freeze. */}
       {hasPin && stale ? (
         <StaleRow
           viewingCurrent={viewingCurrent}
@@ -506,6 +544,7 @@ export default function ObjectEmbed({
         pinContext={pinContext}
         descriptor={descriptor}
         caption={caption}
+        onEditMarkdown={onEditMarkdown}
       />
     </figure>
   );

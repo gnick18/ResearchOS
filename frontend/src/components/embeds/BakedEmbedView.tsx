@@ -12,7 +12,7 @@
 //   missing -> the shared UnavailableEmbedCard
 //
 // No inline svg (icon guard), no emoji, calm muted styling that matches the live
-// embeds. The "pinned <date>" badge is rendered by ObjectEmbed around this view,
+// embeds. The "frozen <date>" badge is rendered by ObjectEmbed around this view,
 // not here, so this stays a pure snapshot renderer.
 //
 // Voice: no em-dashes, no emojis, no mid-sentence colons.
