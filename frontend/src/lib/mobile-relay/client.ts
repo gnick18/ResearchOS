@@ -282,6 +282,10 @@ export async function publishNotifyConfig(
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ u, config: json, ts, sig }),
   });
+  // 404 = this relay predates the notify routes (not redeployed yet). The whole
+  // phone-push lane is inert until then, so stay silent rather than warn every
+  // publish cadence; surface only real failures (5xx / network).
+  if (res.status === 404) return;
   if (!res.ok) throw new Error(`publishNotifyConfig failed: ${res.status}`);
 }
 
@@ -310,6 +314,8 @@ export async function publishReminderSchedule(
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ u, reminders, ts, sig }),
   });
+  // 404 = relay predates the register-reminders route (see publishNotifyConfig).
+  if (res.status === 404) return;
   if (!res.ok) throw new Error(`publishReminderSchedule failed: ${res.status}`);
 }
 
