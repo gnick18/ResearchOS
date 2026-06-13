@@ -35,6 +35,14 @@ import type { TransformOp } from "@/lib/datahub/transform/pipeline";
  * groups) and the nested one-way ANOVA (3 or more groups), treating the subgroup
  * as the unit of biological replication so the technical replicates are not
  * pseudo-replicated.
+ *
+ * An "info" sheet is NOT a data grid at all. It is a documentation page that
+ * lives in the Data Hub rail next to the tables, so the context of a dataset
+ * (what it is, where it came from, the instrument, key constants) travels with
+ * the data. It holds a free-text markdown BODY plus an optional list of named
+ * CONSTANTS (name / value / optional note), and it runs no statistic, draws no
+ * figure, and offers no analysis. Its content lives in the additive `info` field
+ * on DataHubDocContent rather than the columns / rows grid.
  */
 export type DataHubTableType =
   | "column"
@@ -43,7 +51,8 @@ export type DataHubTableType =
   | "survival"
   | "contingency"
   | "nested"
-  | "partsOfWhole";
+  | "partsOfWhole"
+  | "info";
 
 /**
  * The role a column plays in the table. Prism groups replicate subcolumns under
@@ -301,9 +310,42 @@ export interface DataHubDocument {
 }
 
 /**
+ * One named CONSTANT recorded on an Info sheet, a value a researcher writes down
+ * for reference (e.g. name "Dilution factor", value "100", note "serial 1:10").
+ * Both name and value are free text (the value stays a string so units, ranges,
+ * and instrument names round-trip verbatim); the note is an optional aside. v1
+ * is DOCUMENTATION ONLY, so a constant is displayed, not yet read by an analysis.
+ */
+export interface InfoConstant {
+  name: string;
+  value: string;
+  note?: string;
+}
+
+/**
+ * The documentation payload of an Info sheet (table_type "info"). It holds the
+ * free-text markdown BODY plus the optional list of named CONSTANTS. This is the
+ * ADDITIVE content field: it is present only on an Info sheet, so every other
+ * table type's content (and its on-disk Loro bytes) stays byte-identical to
+ * before this field existed. An Info sheet leaves columns / rows / analyses /
+ * plots empty and carries all of its content here.
+ */
+export interface InfoContent {
+  /** The free-text markdown documentation body. */
+  body: string;
+  /** Named reference constants (displayed, not yet used in analyses). */
+  constants: InfoConstant[];
+}
+
+/**
  * The full document content as plain JSON: the inverse of seedDataHubDoc. The
  * meta block plus the columns, rows, analyses, and plots. This is the projection
  * getDataHubContent returns and the shape the readable mirror can re-derive.
+ *
+ * The optional `info` field carries an Info sheet's body + constants. It is
+ * ADDITIVE and present ONLY on an Info sheet (table_type "info"); absent on every
+ * grid table, so a non-info document projects without it and stays byte-identical
+ * to before this field existed.
  */
 export interface DataHubDocContent {
   meta: DataHubDocument;
@@ -311,6 +353,8 @@ export interface DataHubDocContent {
   rows: RowRecord[];
   analyses: AnalysisSpec[];
   plots: PlotSpec[];
+  /** Info-sheet documentation (body + constants). Present only on an Info sheet. */
+  info?: InfoContent;
 }
 
 /**
@@ -336,6 +380,8 @@ export interface DataHubCreate {
   rows?: RowRecord[];
   analyses?: AnalysisSpec[];
   plots?: PlotSpec[];
+  /** Optional Info-sheet documentation; present only when creating an Info sheet. */
+  info?: InfoContent;
 }
 
 /**
@@ -358,4 +404,6 @@ export interface DataHubUpdate {
   rows?: RowRecord[];
   analyses?: AnalysisSpec[];
   plots?: PlotSpec[];
+  /** Optional Info-sheet documentation; absent leaves the stored value as is. */
+  info?: InfoContent;
 }

@@ -74,6 +74,13 @@ const TABLE_TYPES: {
       "The composition of one whole, a category label and a value per slice, for pie, donut, and 100-percent stacked-bar figures with the percent of total.",
     enabled: true,
   },
+  {
+    type: "info",
+    label: "Info sheet",
+    blurb:
+      "Notes and constants that document a dataset, so the context travels with the data. No analysis or figures.",
+    enabled: true,
+  },
 ];
 
 export default function NewTableDialog({

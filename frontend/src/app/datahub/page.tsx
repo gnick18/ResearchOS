@@ -34,6 +34,7 @@ import type {
   DataHubDocContent,
   DataHubDocument,
   EntryFormat,
+  InfoContent,
   PlotSpec,
   TransformKind,
 } from "@/lib/datahub/model/types";
@@ -59,6 +60,7 @@ import {
   replaceTable as replaceTableInDoc,
   setEntryFormat as setEntryFormatInDoc,
   setExcludedCells as setExcludedCellsInDoc,
+  setInfoContent as setInfoContentInDoc,
 } from "@/lib/loro/datahub-doc";
 import {
   isCellExcluded,
@@ -110,6 +112,7 @@ import {
   DEFAULT_NESTED_SUBGROUPS,
 } from "@/lib/datahub/nested-table";
 import { buildEmptyPartsOfWholeTable } from "@/lib/datahub/parts-of-whole-table";
+import { buildEmptyInfoSheet } from "@/lib/datahub/info-sheet";
 import { runAnalysis } from "@/lib/datahub/run-analysis";
 import { coerceParam } from "@/lib/datahub/analysis-params";
 import {
@@ -132,6 +135,7 @@ import SurvivalTableGrid from "@/components/datahub/SurvivalTableGrid";
 import ContingencyTableGrid from "@/components/datahub/ContingencyTableGrid";
 import NestedTableGrid from "@/components/datahub/NestedTableGrid";
 import PartsOfWholeTableGrid from "@/components/datahub/PartsOfWholeTableGrid";
+import InfoSheetEditor from "@/components/datahub/InfoSheetEditor";
 import NewTableDialog, {
   type NewTableSubmit,
 } from "@/components/datahub/NewTableDialog";
@@ -571,6 +575,18 @@ export default function DataHubPage() {
     },
     [openContent?.meta.derivedFrom],
   );
+
+  // Persist an Info sheet's documentation (body + constants). An Info sheet has
+  // no grid, so this writes the whole info payload to meta and commits, mirroring
+  // a cell edit (the editor builds the next payload, this stores it). Reprojects
+  // so the editor sees the committed content flow straight back in.
+  const handleInfoChange = useCallback((next: InfoContent) => {
+    const handle = handleRef.current;
+    if (!handle || openIdRef.current == null) return;
+    setInfoContentInDoc(handle.doc, next);
+    void handle.commit();
+    setOpenContent(getDataHubContent(handle.doc, openIdRef.current));
+  }, []);
 
   // Append a blank replicate row across the existing columns.
   const handleAddRow = useCallback(() => {
@@ -1119,6 +1135,9 @@ export default function DataHubPage() {
   const handleNewTable = useCallback(
     async (data: NewTableSubmit) => {
       setNewTableOpen(false);
+      // An Info sheet is documentation, not a grid: it seeds an empty body +
+      // constants in the info field and leaves columns / rows empty. Every grid
+      // table seeds its columns / rows the usual way.
       const seed =
         data.tableType === "column"
           ? buildEmptyColumnTable()
@@ -1141,6 +1160,7 @@ export default function DataHubPage() {
         project_ids: data.collectionId ? [data.collectionId] : [],
         columns: seed.columns,
         rows: seed.rows,
+        ...(data.tableType === "info" ? { info: buildEmptyInfoSheet() } : {}),
       });
       await queryClient.invalidateQueries({ queryKey: ["datahub", "tables"] });
       // If the new table lands in the active collection, select it.
@@ -1878,6 +1898,33 @@ export default function DataHubPage() {
   const tableToolbarGroups = useMemo<ToolbarGroup[]>(() => {
     if (!openContent) return [];
     const type = openContent.meta.table_type;
+
+    // An Info sheet is documentation, not data. It has no Analyze, no New graph,
+    // no Plan study, no Transform, and no Add controls. It still gets the
+    // table-level Duplicate / Delete (Export-as-CSV is dropped, there is no grid
+    // to export); rename lives on the rail like the other docs.
+    if (type === "info") {
+      return [
+        [
+          {
+            icon: "cloning" as const,
+            label: "Duplicate",
+            onClick: () => void handleDuplicateTable(),
+            tooltip: "Copy this info sheet with its notes and constants.",
+            testId: "datahub-toolbar-duplicate",
+          },
+          {
+            icon: "trash" as const,
+            label: "Delete",
+            onClick: () => setConfirmDeleteTableId(selectedTableId),
+            danger: true,
+            tooltip: "Delete this info sheet.",
+            testId: "datahub-toolbar-delete",
+          },
+        ],
+      ];
+    }
+
     const addColumnLabel =
       type === "xy"
         ? "Add Y column"
@@ -2053,7 +2100,7 @@ export default function DataHubPage() {
           onSelectAnalysis={(id) => { setSelectedPlotId(null); setSelectedAnalysisId(id); }}
           onNewAnalysis={() => setNewAnalysisOpen(true)}
           onGuidedAnalysis={() => setGuidedOpen(true)}
-          analysesEnabled={!!openContent}
+          analysesEnabled={!!openContent && openContent.meta.table_type !== "info"}
           plots={openContent?.plots ?? []}
           selectedPlotId={selectedPlotId}
           onSelectPlot={(id) => {
@@ -2061,7 +2108,7 @@ export default function DataHubPage() {
             setSelectedPlotId(id);
           }}
           onNewGraph={() => setNewGraphOpen(true)}
-          graphsEnabled={!!openContent}
+          graphsEnabled={!!openContent && openContent.meta.table_type !== "info"}
           onRenameTable={handleRenameTable}
           onDuplicateTable={handleDuplicateTable}
           onDeleteTable={(id) => {
@@ -2243,7 +2290,14 @@ export default function DataHubPage() {
               )}
 
               <div className="min-h-0 flex-1 overflow-auto px-5 pb-5 pt-4">
-                {derivedInfo && derivedSourceMissing ? (
+                {openContent.meta.table_type === "info" ? (
+                  // An Info sheet is documentation, not a grid: render the
+                  // markdown body + constants editor instead of any table grid.
+                  <InfoSheetEditor
+                    content={openContent}
+                    onChange={handleInfoChange}
+                  />
+                ) : derivedInfo && derivedSourceMissing ? (
                   // The source table was deleted, so the live link has nothing to
                   // recompute from. Show a calm empty state (never a crash) with a
                   // way to delete this now-orphaned derived table.

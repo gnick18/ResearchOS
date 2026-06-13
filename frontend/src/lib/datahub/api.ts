@@ -189,6 +189,9 @@ export const dataHubApi = {
       rows: data.rows ?? [],
       analyses: data.analyses ?? [],
       plots: data.plots ?? [],
+      // Info-sheet documentation; present only when creating an Info sheet, so a
+      // grid table seeds without it and stays byte-identical on disk.
+      ...(data.info ? { info: data.info } : {}),
     };
     await persistDataHubContent(owner, id, content);
     return meta;
@@ -219,12 +222,16 @@ export const dataHubApi = {
       last_edited_by: data.last_edited_by ?? content.meta.last_edited_by,
       last_edited_at: data.last_edited_at ?? content.meta.last_edited_at,
     };
+    const nextInfo = data.info ?? content.info;
     const next: DataHubDocContent = {
       meta,
       columns: data.columns ?? content.columns,
       rows: data.rows ?? content.rows,
       analyses: data.analyses ?? content.analyses,
       plots: data.plots ?? content.plots,
+      // Info-sheet documentation; absent on a grid table leaves it off, so the
+      // metadata-only update path stays byte-identical for every other type.
+      ...(nextInfo ? { info: nextInfo } : {}),
     };
     await persistDataHubContent(owner, id, next);
     return meta;
