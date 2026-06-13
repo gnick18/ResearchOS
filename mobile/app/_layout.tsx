@@ -186,6 +186,7 @@ export default function RootLayout() {
           <Stack.Screen name="bulk" options={{ headerShown: false }} />
           <Stack.Screen name="annotate" options={{ headerShown: false }} />
           <Stack.Screen name="add-purchase" options={{ headerShown: false }} />
+          <Stack.Screen name="notifications" options={{ headerShown: false }} />
           <Stack.Screen name="method-detail" options={{ headerShown: false }} />
           <Stack.Screen name="calc-custom" options={{ headerShown: false }} />
           <Stack.Screen name="wiki/[slug]" options={{ headerShown: false }} />
