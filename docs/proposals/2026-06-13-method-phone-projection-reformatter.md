@@ -72,6 +72,18 @@ The reformatter is a single module (`reformatMethodToSteps(body) -> MethodProjec
 2. **LLM layer** (paid, opt-in). The "Make phone-friendly" action, the cached-on-save pipeline, the staleness cue. Gated behind the AI billing wiring (no free AI in beta).
 3. **Reuse + seeds**. Point PDF-reproduce at the same engine; regenerate the demo seeds through it.
 
+## Validated against a real SOP (2026-06-13)
+
+Prototyped the reformat against a real lab method (Grant's Trichoderma asperellum transformation SOP: a .docx, 43 numbered steps with a/b and i/ii sub-steps, three unlabeled material lists, three phase headers, 6 inline figures, superscripts). I reformatted it by hand as the model would, injected it as a temp seed, and rendered it on the emulator. It produced a clean 49-step phone reader with every rpm / temp / time / volume / concentration preserved verbatim. So the segment-and-label-only approach is achievable on a genuinely messy method. The test also surfaced what the projection model must gain to do these justice (today the generic/markdown path in `mobile/lib/method-read.ts` only splits a flat `body` string into headline + detail steps):
+
+- **Explicit step kicker / phase.** `buildGeneric` hard-codes the kicker to "Step N of M" via `numberKickers`. The reformatter wants to set the phase ("Germlings", "Protoplasting", "Transformation") so the reader shows where you are. The model should let the reformatter supply the kicker. For the prototype I encoded the phase into the headline ("Transformation, pellet") as a workaround; a real phase field is cleaner.
+- **Structured reagent / material checks.** The reader already renders a `checks[]` checklist for pcr/lc steps; the generic/markdown path does not populate it, so the three material lists rendered as prose detail instead of checkboxes. The reformatter should emit `checks[]` for any reagent or material list.
+- **Sub-step nesting.** The SOP has a/b and i/ii/iii sub-steps. Folding them into the parent step's detail prose works but loses the structure; consider a nested/indented detail or sub-checks.
+- **Figures are the biggest open question.** The 6 inline figures (confirm germlings under scope, flask color, protoplast morphology at two mags) carry real bench meaning and were dropped to a "(see figure)" note. Decision needed: ship the figure images in the method snapshot and render them inline at their step, or keep the laptop-only note for v1. Image-heavy methods are common, so this matters.
+- **Pinned-header weight on long protocols.** The full keyParams card stays pinned above the step scroll; on a 49-step method that eats a lot of vertical space. Consider collapsing the header to a thin bar after the first step for long methods.
+
+Implication for the data model: the reformatter should emit a **structured step list** (phase/title/detail/checks/figureRef), and the body-type model builder should consume that, not just a flat `body` string. That is the main model change phase 1 should include.
+
 ## Open questions for Grant
 
 - Should phase 1 (the free deterministic parser) auto-apply to all body-only types silently, or only when it clearly improves on the flat body? (Recommendation: auto-apply, since it is non-destructive and reversible to the raw view.)
