@@ -546,7 +546,7 @@ function SettingsBodyInner({
           id: "notifications",
           group: "Workspace",
           title: "Notifications",
-          icon: "alert",
+          icon: "bell",
           keywords:
             "notifications notify alert bell email phone laptop desktop pop-up push quiet hours channel route digest mention comment shared reminder",
           render: () => (
