@@ -423,6 +423,13 @@ export async function collectEmbeddedObjects(
           // is a later sharing pass. Skip rather than fail the whole collect.
           skipCount += 1;
           continue;
+        case "dataset":
+          // Big-table datasets (the DuckDB-backed large-table lane) are not yet
+          // packaged into a cross-boundary share bundle. The embed + deep link work
+          // in-library now; bundling the data.parquet + sidecar is a later sharing
+          // pass. Skip rather than fail the whole collect, like phylo above.
+          skipCount += 1;
+          continue;
         default: {
           // TypeScript exhaustiveness guard. Treat unknown types as missing.
           const exhaustive: never = dep.type;

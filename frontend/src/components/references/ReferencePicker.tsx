@@ -24,11 +24,12 @@ import {
   type ObjectRefType,
 } from "@/lib/references";
 import { CHEMISTRY_ENABLED } from "@/lib/chemistry/config";
-import { DATAHUB_ENABLED } from "@/lib/datahub/config";
+import { DATAHUB_ENABLED, isBigTableEnabled } from "@/lib/datahub/config";
 import { MoleculeThumbnail } from "@/components/chemistry/MoleculeThumbnail";
 import type { Molecule } from "@/lib/chemistry/api";
 import type { SequenceRecord, Method } from "@/lib/types";
 import type { DataHubDocument } from "@/lib/datahub/model/types";
+import type { DatasetSidecar } from "@/lib/datahub/bigtable/types";
 
 // Lazy to avoid importing heavy APIs at parse time (the wasm etc.) when the
 // picker has never been opened. Each source is best-effort so one failing list
@@ -38,25 +39,42 @@ async function loadData(): Promise<{
   sequences: SequenceRecord[];
   methods: Method[];
   datahub: DataHubDocument[];
+  datasets: DatasetSidecar[];
 }> {
-  const [{ moleculesApi }, local, datahubMod] = await Promise.all([
+  // The big-table dataset lane is gated separately from the editable lane, so its
+  // store + owner resolver only load when both flags are on. listDatasets is
+  // owner-scoped, so we resolve the current owner the same way the rest of the lane
+  // does (getCurrentUserCached) rather than threading a hook through the picker.
+  const [{ moleculesApi }, local, datahubMod, datasetMod] = await Promise.all([
     import("@/lib/chemistry/api"),
     import("@/lib/local-api"),
     DATAHUB_ENABLED
       ? import("@/lib/datahub/api")
       : Promise.resolve(null),
+    isBigTableEnabled()
+      ? Promise.all([
+          import("@/lib/datahub/bigtable/dataset-store"),
+          import("@/lib/storage/json-store"),
+        ])
+      : Promise.resolve(null),
   ]);
   const { sequencesApi, methodsApi } = local;
-  const [molecules, sequences, methods, datahub] = await Promise.all([
+  const [molecules, sequences, methods, datahub, datasets] = await Promise.all([
     CHEMISTRY_ENABLED ? moleculesApi.list().catch(() => []) : Promise.resolve([] as Molecule[]),
     sequencesApi.list().catch(() => [] as SequenceRecord[]),
     methodsApi.list().catch(() => [] as Method[]),
     datahubMod ? datahubMod.dataHubApi.list().catch(() => [] as DataHubDocument[]) : Promise.resolve([] as DataHubDocument[]),
+    datasetMod
+      ? datasetMod[1]
+          .getCurrentUserCached()
+          .then((owner) => datasetMod[0].listDatasets(owner))
+          .catch(() => [] as DatasetSidecar[])
+      : Promise.resolve([] as DatasetSidecar[]),
   ]);
-  return { molecules, sequences, methods, datahub };
+  return { molecules, sequences, methods, datahub, datasets };
 }
 
-type Tab = "molecules" | "sequences" | "methods" | "datahub";
+type Tab = "molecules" | "sequences" | "methods" | "datahub" | "datasets";
 
 const defaultTab: Tab = CHEMISTRY_ENABLED ? "molecules" : "sequences";
 
@@ -129,6 +147,7 @@ export default function ReferencePicker({ onPick, onClose }: ReferencePickerProp
   const [sequences, setSequences] = useState<SequenceRecord[]>([]);
   const [methods, setMethods] = useState<Method[]>([]);
   const [datahub, setDatahub] = useState<DataHubDocument[]>([]);
+  const [datasets, setDatasets] = useState<DatasetSidecar[]>([]);
   const [highlighted, setHighlighted] = useState(0);
   const searchRef = useRef<HTMLInputElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
@@ -144,6 +163,7 @@ export default function ReferencePicker({ onPick, onClose }: ReferencePickerProp
         setSequences(data.sequences);
         setMethods(data.methods);
         setDatahub(data.datahub);
+        setDatasets(data.datasets);
         setLoading(false);
       })
       .catch(() => {
@@ -204,6 +224,7 @@ export default function ReferencePicker({ onPick, onClose }: ReferencePickerProp
       "sequences",
       "methods",
       ...(DATAHUB_ENABLED ? (["datahub"] as Tab[]) : []),
+      ...(isBigTableEnabled() ? (["datasets"] as Tab[]) : []),
     ],
     [],
   );
@@ -307,11 +328,30 @@ export default function ReferencePicker({ onPick, onClose }: ReferencePickerProp
     [datahub, q],
   );
 
+  // Big-table datasets (the DuckDB-backed large-table lane). A picked dataset
+  // inserts a `dataset` block embed, which renders the slim preview window via
+  // DatasetEmbed (never the full grid). Distinct from the `datahub` editable-lane
+  // items above, they read different stores.
+  const datasetItems = useMemo<PickerItem[]>(
+    () =>
+      datasets
+        .filter((d) => !q || (d.name ?? "").toLowerCase().includes(q))
+        .map((d) => ({
+          key: `ds-bt-${d.id}`,
+          label: d.name || `Dataset ${d.id}`,
+          sublabel: `${d.rowCount.toLocaleString()} rows by ${d.colCount.toLocaleString()} columns`,
+          markdown: objectReferenceMarkdown("dataset", d.id, d.name || `Dataset ${d.id}`),
+          ref: { type: "dataset" as const, id: d.id, name: d.name || `Dataset ${d.id}` },
+        })),
+    [datasets, q],
+  );
+
   const itemsByTab: Record<Tab, PickerItem[]> = {
     molecules: moleculeItems,
     sequences: sequenceItems,
     methods: methodItems,
     datahub: datahubItems,
+    datasets: datasetItems,
   };
   const items = itemsByTab[tab];
 
@@ -320,6 +360,7 @@ export default function ReferencePicker({ onPick, onClose }: ReferencePickerProp
     sequences: "Sequences",
     methods: "Methods",
     datahub: "Data Hub",
+    datasets: "Datasets",
   };
 
   // Reset the highlight whenever the visible list changes (tab or query).

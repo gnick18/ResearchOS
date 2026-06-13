@@ -208,6 +208,34 @@ export async function copyQueryToParquet(sql: string): Promise<ArrayBuffer> {
 }
 
 /**
+ * Run a query and materialize its result to a CSV byte buffer, returned as an
+ * ArrayBuffer the caller wraps in a Blob for download (Phase 4 export). The mirror
+ * of copyQueryToParquet, COPYing to a transient `.csv` virtual file with
+ * (FORMAT CSV) and reading the bytes back, so nothing caches on disk inside the
+ * worker beyond the transient buffer (dropped in finally).
+ */
+export async function copyQueryToCsv(sql: string): Promise<ArrayBuffer> {
+  const { db, conn } = await engine();
+  const outName = `__bigtable_out_${Date.now()}_${Math.random().toString(36).slice(2)}.csv`;
+  try {
+    // COPY (<query>) TO '<virtual file>' (FORMAT CSV) writes the result as CSV
+    // bytes into the registered virtual filesystem.
+    await conn.query(
+      `COPY (${sql}) TO '${outName}' (FORMAT CSV);`,
+    );
+    const bytes = await db.copyFileToBuffer(outName);
+    // Return a copy detached from the worker's memory.
+    return bytes.slice().buffer;
+  } finally {
+    try {
+      await db.dropFile(outName);
+    } catch {
+      // best effort
+    }
+  }
+}
+
+/**
  * Build a Parquet byte buffer from in-memory rows. The rows are turned into an
  * Arrow table, streamed into a temporary DuckDB table via insertArrowFromIPCStream
  * (the proven interchange path), then COPYied out to Parquet. Used by the ingest

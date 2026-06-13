@@ -38,6 +38,7 @@ import ColumnManager from "./ColumnManager";
 import FullRenderWarning from "./FullRenderWarning";
 import DatasetAnalysisDialog from "./DatasetAnalysisDialog";
 import DatasetPlotDialog from "./DatasetPlotDialog";
+import DatasetExportDialog from "./DatasetExportDialog";
 import Tooltip from "@/components/Tooltip";
 import { isBigTableEnabled } from "@/lib/datahub/config";
 
@@ -93,6 +94,7 @@ export default function DatasetView({
   const [jumpValue, setJumpValue] = useState("");
   const [showAnalyze, setShowAnalyze] = useState(false);
   const [showGraph, setShowGraph] = useState(false);
+  const [showExport, setShowExport] = useState(false);
   // The analysis + graph entry points stay behind the lane flag, like every other
   // surface in this lane. Both run through the validated engine / plot path.
   const analyzeEnabled = isBigTableEnabled();
@@ -289,6 +291,28 @@ export default function DatasetView({
             Transform
           </button>
         )}
+        {analyzeEnabled && (
+          <Tooltip
+            label={
+              handle === null
+                ? "The dataset is still opening"
+                : "Download the current view as CSV or Parquet"
+            }
+          >
+            <button
+              type="button"
+              onClick={() => setShowExport(true)}
+              disabled={handle === null}
+              className={`inline-flex items-center gap-1.5 rounded-md border border-border px-2.5 py-1 text-meta font-medium text-foreground transition-colors hover:bg-surface-sunken disabled:opacity-50 ${
+                analyzeEnabled || onOpenTransform ? "" : "ml-auto"
+              }`}
+              data-testid="bigtable-open-export"
+            >
+              <Icon name="download" className="h-3.5 w-3.5" />
+              Export
+            </button>
+          </Tooltip>
+        )}
         <span
           className={`text-meta text-foreground-muted ${
             onOpenTransform || analyzeEnabled ? "" : "ml-auto"
@@ -464,6 +488,15 @@ export default function DatasetView({
           sidecar={sidecar}
           handle={handle}
           onClose={() => setShowGraph(false)}
+        />
+      )}
+
+      {analyzeEnabled && (
+        <DatasetExportDialog
+          open={showExport}
+          sidecar={sidecar}
+          handle={handle}
+          onClose={() => setShowExport(false)}
         />
       )}
     </div>

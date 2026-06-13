@@ -32,6 +32,7 @@ import {
   registerParquetBuffer,
   dropFileBuffer,
   copyQueryToParquet,
+  copyQueryToCsv,
 } from "./duckdb-client";
 import { recipeToSql } from "@/lib/datahub/transform/sql-codegen";
 import type { TransformOp } from "@/lib/datahub/transform/pipeline";
@@ -331,6 +332,25 @@ export async function countRows(
   const row = table.toArray()[0] as { n: unknown } | undefined;
   const n = row ? Number(row.n) : 0;
   return Number.isFinite(n) ? n : 0;
+}
+
+/**
+ * Export the CURRENT view of a dataset to CSV or Parquet bytes (Phase 4). The
+ * SELECT runs over fromSource, so passing the active recipe exports the
+ * FILTERED / TRANSFORMED slice exactly as the preview grid shows it, and omitting
+ * the recipe exports the raw dataset byte-for-byte. This is a READ path, DuckDB
+ * only moves the rows out; no statistic is computed or altered. The full result is
+ * streamed by DuckDB's COPY into a transient buffer, returned as an ArrayBuffer the
+ * caller wraps in a Blob and downloads.
+ */
+export async function exportDatasetView(
+  handle: OpenDatasetHandle,
+  recipe: TransformOp[] | undefined,
+  format: "csv" | "parquet",
+): Promise<ArrayBuffer> {
+  await init();
+  const sql = `SELECT * FROM ${fromSource(handle, recipe)}`;
+  return format === "csv" ? copyQueryToCsv(sql) : copyQueryToParquet(sql);
 }
 
 /**

@@ -832,6 +832,12 @@ export async function bakeOne(
       return bakeTask(descriptor, caption, label, "Experiment");
     case "file":
       return bakeFile(descriptor, caption, label);
+    case "dataset":
+      // A big-table dataset embed is a LIVE DuckDB-backed preview window, not a
+      // static snapshot, so it has no PDF-bakeable form in this pass. Treat it as
+      // missing (a name-only placeholder), the same as the default fallback. A
+      // future pass can bake the preview window if needed.
+      return { kind: "missing", name: caption || String(descriptor.id), label };
     default: {
       // TypeScript exhaustiveness guard. Treat unknown types as missing.
       const exhaustive: never = descriptor.type;

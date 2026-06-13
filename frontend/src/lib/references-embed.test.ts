@@ -112,6 +112,20 @@ describe("markdown builders", () => {
     expect(objectReferenceMarkdown("sequence", 2, "pUC19")).toBe("[pUC19](/sequences?seq=2)");
   });
 
+  it("dataset embed round-trips through parseObjectEmbed with view table (Phase 4)", () => {
+    const md = objectEmbedMarkdown("dataset", "5", "Plate reads", { view: "table" });
+    expect(md).toBe("[Plate reads](/datahub?dataset=5#ros=table)");
+    // The link text is the href inside [caption](href).
+    const href = md.slice(md.indexOf("(") + 1, -1);
+    const d = parseObjectEmbed(href);
+    expect(d).toMatchObject({
+      type: "dataset",
+      id: "5",
+      view: "table",
+      isEmbed: true,
+    });
+  });
+
   it("escapes brackets in the name so they cannot break the link", () => {
     const md = objectReferenceMarkdown("sequence", 2, "pGEX-3X [clone]");
     expect(md).toBe("[pGEX-3X \\[clone\\]](/sequences?seq=2)");

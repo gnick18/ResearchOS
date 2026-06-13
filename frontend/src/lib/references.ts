@@ -26,6 +26,7 @@ export type ObjectRefType =
   | "project"
   | "molecule"
   | "datahub"
+  | "dataset"
   | "phylo"
   | "task"
   | "experiment";
@@ -98,6 +99,20 @@ const OBJECT_ROUTES: Record<ObjectRefType, RouteShape> = {
       if (pathname !== "/datahub") return null;
       const doc = params.get("doc");
       return doc && doc.length > 0 ? doc : null;
+    },
+  },
+  // The Data Hub large-table lane opens a DATASET (the DuckDB-backed big table,
+  // distinct from the editable-lane `doc`) via its own query param. The /datahub
+  // page reads `dataset` to auto-select that dataset, so a reference in a note jumps
+  // straight to the preview grid. Kept a separate type from `datahub` so the embed
+  // renderer and the deep link never confuse a big-table dataset with an editable
+  // workbook (they read different stores).
+  dataset: {
+    build: (id) => `/datahub?dataset=${encodeURIComponent(id)}`,
+    match: (pathname, params) => {
+      if (pathname !== "/datahub") return null;
+      const ds = params.get("dataset");
+      return ds && ds.length > 0 ? ds : null;
     },
   },
   // The phylogenetics Tree Studio opens a saved tree via a query param, like
@@ -306,6 +321,7 @@ export const DEFAULT_EMBED_VIEW: Record<ObjectRefType, string> = {
   project: "card",
   molecule: "card",
   datahub: "table",
+  dataset: "table",
   phylo: "studio",
   task: "card",
   experiment: "results",
