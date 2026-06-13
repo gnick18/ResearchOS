@@ -29,6 +29,7 @@ import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { Icon } from "@/components/icons";
 import { useAiChat } from "./useAiChat";
+import BeakerBotThinking from "./BeakerBotThinking";
 import ObjectChip from "@/components/ObjectChip";
 import ObjectEmbed from "@/components/embeds/ObjectEmbed";
 import { parseObjectDeepLink, parseObjectEmbed } from "@/lib/references";
@@ -585,11 +586,12 @@ export default function BeakerBotConversation({
                 m.content ? (
                   <AssistantMarkdown content={m.content} />
                 ) : (
-                  <span
-                    data-testid="beakerbot-status"
-                    className="text-meta text-foreground-muted"
-                  >
-                    {status ?? "Thinking"}
+                  // The living blue blob, BeakerBot's thinking indicator. It is
+                  // an abstract pulse, not a beaker, so it does not conflict with
+                  // the single riding mascot. The grey status line rides alongside
+                  // it as the label.
+                  <span data-testid="beakerbot-status">
+                    <BeakerBotThinking variant="pulse" label={status ?? "Thinking"} />
                   </span>
                 )
               ) : (
