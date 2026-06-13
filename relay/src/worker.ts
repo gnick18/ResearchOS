@@ -133,6 +133,12 @@ export interface Env {
    *  state, matching RELAY_BREAKER_SECRET on the Vercel side. Unset = the
    *  endpoint is read without auth (dev). */
   RELAY_BREAKER_SECRET?: string;
+  /** Test-only overrides (ms) for the phone-push timing gates, so the smoke
+   *  harness need not wait the real 30s cooldown / 3-min dead-man's-switch.
+   *  Unset in prod (the constants apply). Set via
+   *  `wrangler dev --var NOTIFY_COOLDOWN_MS:0 --var REMINDER_STALE_MS:0`. */
+  NOTIFY_COOLDOWN_MS?: string;
+  REMINDER_STALE_MS?: string;
 }
 
 /**
@@ -1685,6 +1691,21 @@ export class CaptureInbox {
     }
   }
 
+  /** Effective phone-push cooldown (ms). Env override for the smoke harness,
+   *  else the constant. Allows 0 in tests. */
+  private cooldownMs(): number {
+    const v = this.env.NOTIFY_COOLDOWN_MS;
+    const n = Number(v);
+    return v != null && v !== "" && Number.isFinite(n) ? n : NOTIFY_COOLDOWN_MS;
+  }
+
+  /** Effective reminder dead-man's-switch window (ms). Env override for tests. */
+  private staleMs(): number {
+    const v = this.env.REMINDER_STALE_MS;
+    const n = Number(v);
+    return v != null && v !== "" && Number.isFinite(n) ? n : REMINDER_STALE_MS;
+  }
+
   /** An ISO timestamp is fresh when it is within +/- 120s of now (the brief's
    *  replay window for user-key-signed reads). Unparseable input is stale. */
   private isFreshIso(iso: string): boolean {
@@ -2316,7 +2337,7 @@ export class CaptureInbox {
     }
     const nowMs = Date.now();
     const lastAt = rows[0].last_notify_at ?? 0;
-    if (nowMs - lastAt < NOTIFY_COOLDOWN_MS) {
+    if (nowMs - lastAt < this.cooldownMs()) {
       return this.json({ ok: true, pushed: 0, reason: "cooldown" }, 200);
     }
     let config: NotifyConfig;
@@ -2502,7 +2523,7 @@ export class CaptureInbox {
       .exec<{ id: string }>("SELECT id FROM reminders WHERE fire_at <= ?", nowMs)
       .toArray();
 
-    const laptopOnline = nowMs - registeredAt < REMINDER_STALE_MS;
+    const laptopOnline = nowMs - registeredAt < this.staleMs();
     if (due.length > 0 && !laptopOnline) {
       // Gate on the recipient's own reminders routing + quiet hours + cooldown.
       const cfgRows = this.sql()
@@ -2512,7 +2533,7 @@ export class CaptureInbox {
         .toArray();
       const cooled =
         cfgRows.length > 0 &&
-        nowMs - (cfgRows[0].last_notify_at ?? 0) >= NOTIFY_COOLDOWN_MS;
+        nowMs - (cfgRows[0].last_notify_at ?? 0) >= this.cooldownMs();
       if (cfgRows.length > 0 && cfgRows[0].config && cooled) {
         try {
           const config = JSON.parse(cfgRows[0].config) as NotifyConfig;
