@@ -138,6 +138,95 @@ describe("renderPanel geoms", () => {
     });
   }
 
+  // ---- Phase 2 distribution / value-axis geoms ----
+  const violin = { id: "v", kind: "violin" as const, visible: true, columns: ["ab", "load"] };
+  const scatter = { id: "j", kind: "scatter" as const, visible: true, columns: ["ab", "load"] };
+  const point = {
+    id: "pt",
+    kind: "point" as const,
+    visible: true,
+    columns: ["ab", "load"],
+    options: { errorKind: "sd", axis: true },
+  };
+
+  for (const layout of ["rect", "circ"] as const) {
+    const axis = layout === "rect" ? rectAxis : circAxis;
+
+    it(`violin draws a density silhouette path per tip (${layout})`, () => {
+      const r = renderPanel(
+        violin,
+        axis(),
+        extractPanelValues(violin, TREE, META),
+        buildPanelScales(violin, TREE, META),
+      );
+      // One closed density path per tip (a <path>), plus the axis markup.
+      const paths = (r.svg.match(/<path/g) || []).length;
+      expect(paths).toBeGreaterThanOrEqual(leaves(TREE).length);
+      expect(r.thickness).toBeGreaterThan(0);
+    });
+
+    it(`point draws one circle per tip with a whisker line (${layout})`, () => {
+      // Axis off so the circle count is exactly the data points (the circular
+      // value axis draws one extra guide ring circle).
+      const p = { ...point, options: { errorKind: "sd", axis: false } };
+      const r = renderPanel(
+        p,
+        axis(),
+        extractPanelValues(p, TREE, META),
+        buildPanelScales(p, TREE, META),
+      );
+      expect((r.svg.match(/<circle/g) || []).length).toBe(leaves(TREE).length);
+      // sd > 0 on each two-value tip, so each draws at least one whisker line.
+      expect((r.svg.match(/<line/g) || []).length).toBeGreaterThanOrEqual(
+        leaves(TREE).length,
+      );
+    });
+
+    it(`point with errorKind none draws no whisker (${layout})`, () => {
+      const noErr = { ...point, options: { errorKind: "none", axis: false } };
+      const r = renderPanel(
+        noErr,
+        axis(),
+        extractPanelValues(noErr, TREE, META),
+        buildPanelScales(noErr, TREE, META),
+      );
+      expect((r.svg.match(/<circle/g) || []).length).toBe(leaves(TREE).length);
+      expect((r.svg.match(/<line/g) || []).length).toBe(0);
+    });
+
+    it(`scatter draws one circle per replicate value (${layout})`, () => {
+      // Axis off so the count is exactly the replicate points (the circular
+      // value axis draws one extra guide ring circle).
+      const s = { ...scatter, options: { jitter: true, axis: false } };
+      const r = renderPanel(
+        s,
+        axis(),
+        extractPanelValues(s, TREE, META),
+        buildPanelScales(s, TREE, META),
+      );
+      // 4 tips x 2 replicate columns = 8 individual points.
+      expect((r.svg.match(/<circle/g) || []).length).toBe(
+        leaves(TREE).length * 2,
+      );
+    });
+  }
+
+  it("value axis off omits the rectangular tick labels", () => {
+    const withAxis = renderPanel(
+      { ...violin, options: { axis: true } },
+      rectAxis(),
+      extractPanelValues(violin, TREE, META),
+      buildPanelScales(violin, TREE, META),
+    );
+    const noAxis = renderPanel(
+      { ...violin, options: { axis: false } },
+      rectAxis(),
+      extractPanelValues(violin, TREE, META),
+      buildPanelScales(violin, TREE, META),
+    );
+    expect(withAxis.svg.length).toBeGreaterThan(noAxis.svg.length);
+  });
+
   it("a hidden panel renders nothing", () => {
     const r = renderPanel(
       { ...strip, visible: false },

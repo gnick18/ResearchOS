@@ -70,9 +70,22 @@ export type AlignedPanelKind =
   | "bars"
   | "dots"
   | "box"
+  | "violin"
+  | "point"
+  | "scatter"
   | "clade"
   | "support"
   | "msa";
+
+/**
+ * Error-whisker kind for the point (lollipop) geom, mirroring the Data Hub
+ * ErrorBarKind concept (lib/datahub/plot-spec.ts) so the meaning is identical
+ * across the two surfaces. "sd" / "sem" derive from the bound replicate columns
+ * (or the explicit error column), "none" draws a bare point. We reuse the CONCEPT,
+ * not the Data Hub renderer (the cross-lane boundary), the phylo panel renderer
+ * draws the whisker against the TipAxis itself.
+ */
+export type PhyloErrorKind = "sd" | "sem" | "none";
 
 /**
  * One layer in the figure stack: a tip decoration, an aligned data panel, a
@@ -92,6 +105,14 @@ export interface AlignedPanel {
   column?: string;
   /** Bound columns for a multi-column panel (a heat matrix, gheatmap-style). */
   columns?: string[];
+  /**
+   * Optional explicit error-magnitude column for the point (lollipop) geom, paired
+   * with `column` (the value / mean). Additive + back-compatible (phylo Phase 2):
+   * an older record omits it, and the point geom falls back to deriving the error
+   * from the bound replicate `columns[]` (or draws no whisker when neither is set).
+   * Used only by the point geom; every other geom ignores it.
+   */
+  errorColumn?: string;
   /** The color scale for the panel. Absent lets the renderer classify the column. */
   scale?: { kind: "continuous" | "categorical"; paletteId?: string };
   /** Draw a legend for this panel. */

@@ -297,6 +297,30 @@ function generateFromPanels(spec: RenderSpec, panels: AlignedPanel[]): string {
         );
         offset += 0.1;
         break;
+      case "violin":
+        lines.push(
+          "# A per-tip distribution (violin) panel. From a LONG per-tip table (one",
+          "# row per replicate), ggtreeExtra draws it with:",
+          `#   p <- p + geom_fruit(data = long, geom = geom_violin, mapping = aes(x = value, group = label), offset = ${offset.toFixed(2)})`,
+        );
+        offset += 0.1;
+        break;
+      case "point":
+        lines.push(
+          "# A point + error (lollipop) panel. From a per-tip summary table with a",
+          "# mean column and an error column (sd / sem), ggtreeExtra draws it with:",
+          `#   p <- p + geom_fruit(data = summ, geom = geom_pointrange, mapping = aes(x = mean, xmin = mean - err, xmax = mean + err), offset = ${offset.toFixed(2)})`,
+        );
+        offset += 0.1;
+        break;
+      case "scatter":
+        lines.push(
+          "# A jitter-scatter panel of the individual replicates. From a LONG per-tip",
+          "# table (one row per replicate), ggtreeExtra draws it with:",
+          `#   p <- p + geom_fruit(data = long, geom = geom_jitter, mapping = aes(x = value), offset = ${offset.toFixed(2)})`,
+        );
+        offset += 0.1;
+        break;
       default:
         break;
     }
