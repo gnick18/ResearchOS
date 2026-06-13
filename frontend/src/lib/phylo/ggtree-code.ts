@@ -244,9 +244,15 @@ function generateFromPanels(spec: RenderSpec, panels: AlignedPanel[]): string {
               typeof c.node === "number"
                 ? String(c.node)
                 : `MRCA(tree, c(${(c.tips ?? []).map((t) => rstr(t)).join(", ")}))`;
-            lines.push(
-              `p <- p + geom_hilight(node = ${node}, fill = ${rstr(c.color || "#1AA0E6")}, alpha = 0.12)${c.label ? `   # ${c.label}` : ""}`,
-            );
+            if (c.style === "label") {
+              lines.push(
+                `p <- p + geom_cladelab(node = ${node}, label = ${rstr(c.label || "")}, barcolour = ${rstr(c.color || "#1AA0E6")})`,
+              );
+            } else {
+              lines.push(
+                `p <- p + geom_hilight(node = ${node}, fill = ${rstr(c.color || "#1AA0E6")}, alpha = 0.12)${c.label ? `   # ${c.label}` : ""}`,
+              );
+            }
           }
         } else if (spec.cladeHighlight) {
           lines.push(

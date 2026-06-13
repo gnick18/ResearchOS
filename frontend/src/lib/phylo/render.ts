@@ -521,15 +521,32 @@ function drawRectTree(
     if (!cladeRoot) continue;
     const cl = leaves(cladeRoot.node).map((t) => byId.get(t.id)!);
     if (cl.length === 0) continue;
-    const y0 = Math.min(...cl.map((c) => c.y)) - 12;
-    const y1 = Math.max(...cl.map((c) => c.y)) + 12;
-    parts.push(
-      `<rect x="12" y="${y0}" width="${plotRight + 6 - 12}" height="${y1 - y0}" rx="6" fill="${hl.color}" opacity="0.10"/>`,
-    );
-    if (hl.label) {
+    const ys = cl.map((c) => c.y);
+    if (hl.style === "label") {
+      // A bracket spanning the clade's tips just past the tree edge, label
+      // alongside (ggtree geom_cladelab).
+      const ymin = Math.min(...ys);
+      const ymax = Math.max(...ys);
+      const bx = plotRight + 8;
       parts.push(
-        `<text x="16" y="${y0 + 12}" font-size="10" font-weight="700" fill="${hl.color}">${esc(hl.label)}</text>`,
+        `<path d="M${bx} ${ymin.toFixed(1)} L${bx + 4} ${ymin.toFixed(1)} L${bx + 4} ${ymax.toFixed(1)} L${bx} ${ymax.toFixed(1)}" fill="none" stroke="${hl.color}" stroke-width="1.5"/>`,
       );
+      if (hl.label) {
+        parts.push(
+          `<text x="${bx + 8}" y="${((ymin + ymax) / 2 + 3).toFixed(1)}" font-size="10" font-weight="700" fill="${hl.color}">${esc(hl.label)}</text>`,
+        );
+      }
+    } else {
+      const y0 = Math.min(...ys) - 12;
+      const y1 = Math.max(...ys) + 12;
+      parts.push(
+        `<rect x="12" y="${y0}" width="${plotRight + 6 - 12}" height="${y1 - y0}" rx="6" fill="${hl.color}" opacity="0.10"/>`,
+      );
+      if (hl.label) {
+        parts.push(
+          `<text x="16" y="${y0 + 12}" font-size="10" font-weight="700" fill="${hl.color}">${esc(hl.label)}</text>`,
+        );
+      }
     }
   }
   for (const p of layout.nodes) {
@@ -597,9 +614,24 @@ function drawCircularTree(
       const pad = Math.max(0.02, (a1 - a0) * 0.04);
       const innerR = cladeRoot.radius;
       const outerR = Math.max(...tips.map((t) => t.radius)) + 10;
-      parts.push(
-        arcBand(layout.cx, layout.cy, innerR, outerR, a0 - pad, a1 + pad, hl.color),
-      );
+      if (hl.style === "label") {
+        // A bracket arc just outside the tips (ggtree geom_cladelab).
+        const r = outerR;
+        const pt = (a: number): [number, number] => [
+          layout.cx + r * Math.cos(a - Math.PI / 2),
+          layout.cy + r * Math.sin(a - Math.PI / 2),
+        ];
+        const [sx, sy] = pt(a0 - pad);
+        const [ex, ey] = pt(a1 + pad);
+        const large = Math.abs(a1 + pad - (a0 - pad)) > Math.PI ? 1 : 0;
+        parts.push(
+          `<path d="M${sx.toFixed(1)} ${sy.toFixed(1)} A ${r.toFixed(1)} ${r.toFixed(1)} 0 ${large} 1 ${ex.toFixed(1)} ${ey.toFixed(1)}" fill="none" stroke="${hl.color}" stroke-width="1.6"/>`,
+        );
+      } else {
+        parts.push(
+          arcBand(layout.cx, layout.cy, innerR, outerR, a0 - pad, a1 + pad, hl.color),
+        );
+      }
       if (hl.label) {
         const mid = (a0 + a1) / 2;
         const lx = layout.cx + (outerR + 6) * Math.cos(mid - Math.PI / 2);
@@ -911,21 +943,32 @@ function colorForBranch(
  * An older figure that never set options.clades falls back to the legacy single
  * auto-highlight, so its render is unchanged.
  */
+interface ResolvedClade {
+  nodeId: number;
+  color: string;
+  label: string;
+  style: "highlight" | "label";
+}
 function resolveCladeHighlights(
   root: TreeNode,
   panels: AlignedPanel[],
   spec: RenderSpec,
-): { nodeId: number; color: string; label: string }[] {
+): ResolvedClade[] {
   const cladePanel = panels.find((p) => p.visible && p.kind === "clade");
   if (!cladePanel) return [];
   const clades = cladePanel.options?.clades as CladeAnnotation[] | undefined;
   if (clades && clades.length > 0) {
-    const out: { nodeId: number; color: string; label: string }[] = [];
+    const out: ResolvedClade[] = [];
     for (const c of clades) {
       const nodeId =
         typeof c.node === "number" ? c.node : mrca(root, c.tips ?? []);
       if (nodeId == null) continue;
-      out.push({ nodeId, color: c.color || "#1AA0E6", label: c.label ?? "" });
+      out.push({
+        nodeId,
+        color: c.color || "#1AA0E6",
+        label: c.label ?? "",
+        style: c.style === "label" ? "label" : "highlight",
+      });
     }
     return out;
   }
@@ -935,6 +978,7 @@ function resolveCladeHighlights(
           nodeId: spec.cladeHighlight.nodeId,
           color: spec.cladeHighlight.color,
           label: spec.cladeHighlight.label,
+          style: "highlight",
         },
       ]
     : [];

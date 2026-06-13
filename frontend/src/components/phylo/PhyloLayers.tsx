@@ -690,6 +690,21 @@ function CladeInspector({
               <Icon name="trash" className="h-3.5 w-3.5" />
             </button>
           </div>
+          <div className="flex items-center justify-between gap-2 text-sm">
+            <span className="text-foreground-muted">Style</span>
+            <select
+              value={c.style ?? "highlight"}
+              onChange={(e) =>
+                patchClade(c.id, {
+                  style: e.target.value === "label" ? "label" : "highlight",
+                })
+              }
+              className="text-sm border border-border rounded-lg px-2 py-1 bg-surface text-foreground"
+            >
+              <option value="highlight">Highlight</option>
+              <option value="label">Bracket</option>
+            </select>
+          </div>
           <MultiColumnField
             columns={tipNames}
             selected={c.tips ?? []}

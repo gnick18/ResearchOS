@@ -88,7 +88,13 @@ export interface CladeAnnotation {
   color: string;
   /** A label drawn at the clade. */
   label: string;
-  /** Collapse the clade to a triangle (geom_collapse). Wave 2 follow-on. */
+  /**
+   * How to annotate the clade. "highlight" = a shaded band over the clade
+   * (ggtree geom_hilight, the default). "label" = a bracket spanning the clade's
+   * tips with the label alongside, no shading (ggtree geom_cladelab).
+   */
+  style?: "highlight" | "label";
+  /** Collapse the clade to a triangle (ggtree geom_collapse / collapse()). */
   collapsed?: boolean;
 }
 

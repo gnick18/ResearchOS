@@ -428,6 +428,18 @@ describe("multi-clade highlights by MRCA (Wave 2: geom_hilight)", () => {
     );
     expect(svg).not.toContain("#123456");
   });
+
+  it("style 'label' draws a bracket (geom_cladelab), not a shaded band", () => {
+    const svg = renderTreeSvg(
+      TREE,
+      cladeSpec("rectangular", [
+        { id: "a", tips: ["A", "B"], color: "#ff0000", label: "AB", style: "label" },
+      ]),
+    );
+    expect(svg).not.toContain('opacity="0.10"'); // no shaded highlight
+    expect(svg).toContain('stroke="#ff0000" stroke-width="1.5"'); // the bracket
+    expect(svg).toContain("AB");
+  });
 });
 
 describe("template-apply idempotence (flicker fix)", () => {
