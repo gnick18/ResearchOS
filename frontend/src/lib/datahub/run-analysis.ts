@@ -1077,6 +1077,12 @@ export function validAnalysisTypes(content: DataHubDocContent): AnalysisType[] {
     if (g >= 3) return ["nestedOneWayAnova"];
     return [];
   }
+  if (content.meta.table_type === "partsOfWhole") {
+    // A Parts-of-whole table is purely descriptive (it shows each category's
+    // percent of the total and draws pie / donut / stacked-bar figures). There
+    // is no inferential statistic, so it offers no analysis.
+    return [];
+  }
   // A Column table in a summary entry format offers only the summary-compatible
   // tests, gated by the number of entered groups (2+ for the unpaired t, 3+ for
   // the one-way ANOVA). The paired and rank-based tests need raw replicates.

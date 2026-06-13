@@ -26,11 +26,13 @@ import {
   resolvePlotGroups,
   errorMagnitude,
   toInches,
+  seriesColors,
   FIG,
   type PlotStyle,
   type PlotGroup,
 } from "@/lib/datahub/plot-spec";
 import { pairedRows } from "@/lib/datahub/estimation-plot";
+import { partsOfWhole } from "@/lib/datahub/parts-of-whole-table";
 import {
   resolveQQSample,
   residualPositions,
@@ -681,6 +683,90 @@ function rocCode(
   return lines.join("\n");
 }
 
+// ---------------------------------------------------------------------------
+// Parts of whole: pie / donut / 100-percent stacked bar
+// ---------------------------------------------------------------------------
+
+/** The pie / donut matplotlib script (one wedge per category sized by value). */
+function pieCode(
+  content: DataHubDocContent,
+  style: PlotStyle,
+  donut: boolean,
+): string {
+  const { w, h } = figsizeInches(style);
+  const dpi = figureDpi(style);
+  const parts = partsOfWhole(content).categories.filter(
+    (c) => c.value !== null && c.value > 0,
+  );
+  const labels = parts.map((c) => c.label);
+  const values = parts.map((c) => c.value as number);
+  const colors = seriesColors(style, parts.length);
+  const lines: string[] = [];
+  lines.push(header(donut ? "Donut chart (parts of whole)" : "Pie chart (parts of whole)"));
+  lines.push("");
+  lines.push("import matplotlib.pyplot as plt");
+  lines.push("");
+  lines.push(`labels = ${pyStrList(labels)}`);
+  lines.push(`values = ${pyList(values)}`);
+  lines.push(`colors = ${pyStrList(colors)}`);
+  lines.push("");
+  lines.push(`fig, ax = plt.subplots(figsize=(${inchAttr(w)}, ${inchAttr(h)}))`);
+  // autopct prints each slice's percent of the total, the same readout the
+  // figure shows. A donut sets a wedge width to leave the center hole.
+  const ratio =
+    typeof style.donutHoleRatio === "number" &&
+    style.donutHoleRatio >= 0 &&
+    style.donutHoleRatio < 0.9
+      ? style.donutHoleRatio
+      : 0.6;
+  const wedgeProps = donut
+    ? `, wedgeprops={"width": ${Number((1 - ratio).toFixed(3))}}`
+    : "";
+  lines.push(
+    `ax.pie(values, labels=labels, colors=colors, autopct="%1.1f%%", startangle=90, counterclock=False${wedgeProps})`,
+  );
+  lines.push('ax.axis("equal")  # a circular pie / donut');
+  if (style.title.trim() !== "")
+    lines.push(`ax.set_title(${pyStr(style.title)})`);
+  lines.push("");
+  lines.push(footer(dpi));
+  return lines.join("\n");
+}
+
+/** The 100-percent stacked-bar matplotlib script (one segment per category). */
+function stackedBarCode(content: DataHubDocContent, style: PlotStyle): string {
+  const { w, h } = figsizeInches(style);
+  const dpi = figureDpi(style);
+  const { categories, total } = partsOfWhole(content);
+  const parts = categories.filter((c) => c.value !== null && c.value > 0);
+  const labels = parts.map((c) => c.label);
+  const percents = parts.map((c) => (c.percent ?? 0));
+  const colors = seriesColors(style, parts.length);
+  const lines: string[] = [];
+  lines.push(header("100% stacked bar (parts of whole)"));
+  lines.push("");
+  lines.push("import matplotlib.pyplot as plt");
+  lines.push("");
+  lines.push(`labels = ${pyStrList(labels)}`);
+  lines.push(`percents = ${pyList(percents)}  # each category as a percent of ${pyNum(total)}`);
+  lines.push(`colors = ${pyStrList(colors)}`);
+  lines.push("");
+  lines.push(`fig, ax = plt.subplots(figsize=(${inchAttr(w)}, ${inchAttr(h)}))`);
+  lines.push("bottom = 0.0");
+  lines.push("for label, pct, color in zip(labels, percents, colors):");
+  lines.push('    ax.bar(0, pct, bottom=bottom, width=0.5, color=color, label=label)');
+  lines.push("    bottom += pct");
+  lines.push("ax.set_ylim(0, 100)");
+  lines.push('ax.set_ylabel("Percent of total")');
+  lines.push("ax.set_xticks([])");
+  lines.push('ax.legend(loc="center left", bbox_to_anchor=(1.02, 0.5))');
+  if (style.title.trim() !== "")
+    lines.push(`ax.set_title(${pyStr(style.title)})`);
+  lines.push("");
+  lines.push(footer(dpi));
+  return lines.join("\n");
+}
+
 /**
  * The runnable matplotlib script that reproduces a figure on screen, with the
  * real group names + values baked in. The optional analysis is accepted for
@@ -715,6 +801,12 @@ export function plotCode(
   }
   if (style.kind === "rocCurve") {
     return rocCode(style, analysis);
+  }
+  if (style.kind === "pie" || style.kind === "donut") {
+    return pieCode(content, style, style.kind === "donut");
+  }
+  if (style.kind === "stackedBar") {
+    return stackedBarCode(content, style);
   }
   const groups = resolvePlotGroups(content, style);
   if (style.kind === "columnBar") {

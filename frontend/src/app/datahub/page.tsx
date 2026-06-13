@@ -107,6 +107,7 @@ import {
   nestedGroupColumns,
   DEFAULT_NESTED_SUBGROUPS,
 } from "@/lib/datahub/nested-table";
+import { buildEmptyPartsOfWholeTable } from "@/lib/datahub/parts-of-whole-table";
 import { runAnalysis } from "@/lib/datahub/run-analysis";
 import { coerceParam } from "@/lib/datahub/analysis-params";
 import {
@@ -128,6 +129,7 @@ import GroupedTableGrid from "@/components/datahub/GroupedTableGrid";
 import SurvivalTableGrid from "@/components/datahub/SurvivalTableGrid";
 import ContingencyTableGrid from "@/components/datahub/ContingencyTableGrid";
 import NestedTableGrid from "@/components/datahub/NestedTableGrid";
+import PartsOfWholeTableGrid from "@/components/datahub/PartsOfWholeTableGrid";
 import NewTableDialog, {
   type NewTableSubmit,
 } from "@/components/datahub/NewTableDialog";
@@ -1128,7 +1130,9 @@ export default function DataHubPage() {
                   ? buildEmptyContingencyTable()
                   : data.tableType === "nested"
                     ? buildEmptyNestedTable()
-                    : { columns: [], rows: [] };
+                    : data.tableType === "partsOfWhole"
+                      ? buildEmptyPartsOfWholeTable()
+                      : { columns: [], rows: [] };
       const created = await dataHubApi.create({
         name: data.name,
         table_type: data.tableType,
@@ -2261,6 +2265,8 @@ export default function DataHubPage() {
                                 ? "Contingency table. An R x C grid of counts, one row per category of the first factor and one count column per category of the second, for the chi-square test and a 2x2 Fisher exact test with relative risk and odds ratio."
                                 : openContent.meta.table_type === "nested"
                                 ? "Nested table. Each group is a treatment, each subgroup column a biological replicate, each row a technical replicate, for the nested t-test and nested one-way ANOVA."
+                                : openContent.meta.table_type === "partsOfWhole"
+                                ? "Parts-of-whole table. Each row is one slice of a single whole, a category label and a value, with the percent of total computed live, for pie, donut, and 100-percent stacked-bar figures."
                                 : isSummaryFormat(openContent.meta.entryFormat)
                                 ? `Column table, summary entry. Each column is a group, and you enter its mean, ${spreadKindOf(entryFormatOf(openContent)).toUpperCase()}, and n directly. Graphs and the summary-compatible tests draw from those numbers.`
                                 : "Column table. Each column is a treatment group, each row a replicate."}
@@ -2318,6 +2324,16 @@ export default function DataHubPage() {
                         onAddColumn={handleAddColumn}
                         onRenameGroup={handleRenameGroup}
                         onRenameSubgroup={handleRenameSubgroup}
+                        crud={gridCrud}
+                        hideAddControls
+                        readOnly={!!derivedInfo}
+                      />
+                    ) : openContent.meta.table_type === "partsOfWhole" ? (
+                      <PartsOfWholeTableGrid
+                        content={openContent}
+                        onCellCommit={handleCellCommit}
+                        onToggleExclusion={handleToggleExclusion}
+                        onAddRow={handleAddRow}
                         crud={gridCrud}
                         hideAddControls
                         readOnly={!!derivedInfo}
