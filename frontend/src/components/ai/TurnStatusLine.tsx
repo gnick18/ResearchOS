@@ -11,7 +11,8 @@
 //   with a status badge (running / done / queued).
 //
 // SETTLED state (sending=false, summary provided):
-//   [BeakerBot-glyph] 8s . 12.4k tokens . credit: later
+//   [BeakerBot-glyph] 8s . 12.4k tokens
+//   Fades away after SETTLED_VISIBLE_MS then unmounts (like Claude's status).
 //
 // House style: no em-dashes, no emojis, no mid-sentence colons. Middot
 // separators. Tooltip for any interactive element (Stop button is handled
@@ -60,6 +61,28 @@ export function phaseWord(
   // model is doing its final reasoning pass.
   if (runningToolCount === 0) return "wrapping up";
   return "working";
+}
+
+// ---- Settled-bar fade constants ----------------------------------------------
+
+/**
+ * How long (ms) the settled token bar stays fully visible before it fades.
+ * Named constant so tests can reference it without magic numbers.
+ */
+export const SETTLED_VISIBLE_MS = 2500;
+
+/** Duration (ms) of the opacity-out transition after SETTLED_VISIBLE_MS. */
+export const SETTLED_FADE_MS = 400;
+
+/** Pure helper: given elapsed time since the settled bar appeared, return the
+ *  CSS opacity value (1 while visible, linearly interpolated to 0 during the
+ *  fade, 0 after). Exported for unit testing; the component drives it via a
+ *  timer. */
+export function settledOpacity(elapsedSinceSettledMs: number): number {
+  if (elapsedSinceSettledMs < SETTLED_VISIBLE_MS) return 1;
+  const fadeProgress =
+    (elapsedSinceSettledMs - SETTLED_VISIBLE_MS) / SETTLED_FADE_MS;
+  return Math.max(0, 1 - fadeProgress);
 }
 
 // ---- BeakerBot glyph (small rounded square, not a registry icon) -----------
@@ -244,9 +267,32 @@ function SettledStatusLine({ summary }: { summary: TurnSummary }) {
   const hasTokens = summary.tokens > 0;
   const elapsedStr = formatElapsed(summary.elapsedMs);
 
+  // Track elapsed time since this bar appeared so we can compute the fade
+  // opacity. appearedAt is a ref so the interval closure always reads the
+  // original mount time, never re-creates on renders.
+  const appearedAt = useRef<number>(Date.now());
+  const [opacity, setOpacity] = useState(1);
+  const [gone, setGone] = useState(false);
+
+  useEffect(() => {
+    const id = setInterval(() => {
+      const elapsed = Date.now() - appearedAt.current;
+      const op = settledOpacity(elapsed);
+      setOpacity(op);
+      if (op <= 0) {
+        clearInterval(id);
+        setGone(true);
+      }
+    }, 50);
+    return () => clearInterval(id);
+  }, []);
+
+  if (gone) return null;
+
   return (
     <div
       data-testid="beakerbot-status-line-settled"
+      style={{ opacity, transition: `opacity ${SETTLED_FADE_MS}ms linear` }}
       className="flex items-center gap-0 border-t border-border bg-surface-sunken px-3 py-1 text-xs text-foreground-muted"
     >
       <StatusGlyph />
@@ -264,8 +310,6 @@ function SettledStatusLine({ summary }: { summary: TurnSummary }) {
           <span className="font-semibold text-green-700">done</span>
         </>
       ) : null}
-      <Sep />
-      <span className="italic text-foreground-muted">credit: later</span>
     </div>
   );
 }
@@ -277,7 +321,7 @@ export { RunningStatusLine, SettledStatusLine };
 /** Render the appropriate status line for the current turn state.
  *
  *  Pass `sending=true` with a non-null `turnStartedAt` to show the running bar.
- *  Pass a `settledSummary` to show the pinned settled bar.
+ *  Pass a `settledSummary` to show the fading settled bar.
  *  Returns null when neither condition applies (idle, no prior turn). */
 export default function TurnStatusLine({
   sending,

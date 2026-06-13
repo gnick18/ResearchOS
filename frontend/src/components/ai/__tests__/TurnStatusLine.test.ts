@@ -1,13 +1,20 @@
 // TurnStatusLine unit tests (BeakerAI lane manager, 2026-06-13).
 //
-// Pins the pure formatting helpers and the phaseWord heuristic. No DOM or
-// React rendering needed for these: they are plain functions importable from
-// TurnStatusLine.tsx.
+// Pins the pure formatting helpers, the phaseWord heuristic, and the
+// fade-timing helper (settledOpacity). No DOM or React rendering needed: they
+// are plain functions importable from TurnStatusLine.tsx.
 //
 // House style, no em-dashes, no emojis, no mid-sentence colons.
 
 import { describe, it, expect } from "vitest";
-import { formatElapsed, formatTokens, phaseWord } from "../TurnStatusLine";
+import {
+  formatElapsed,
+  formatTokens,
+  phaseWord,
+  settledOpacity,
+  SETTLED_VISIBLE_MS,
+  SETTLED_FADE_MS,
+} from "../TurnStatusLine";
 
 describe("formatElapsed", () => {
   it("shows 0 seconds as '0s'", () => {
@@ -88,5 +95,39 @@ describe("phaseWord", () => {
     expect(phaseWord(0, 1, "Waiting for your go-ahead")).toBe("waiting");
     expect(phaseWord(1, 2, "Waiting for your choice")).toBe("waiting");
     expect(phaseWord(0, 0, "Waiting for your review")).toBe("waiting");
+  });
+});
+
+describe("settledOpacity (fade-timing helper)", () => {
+  it("returns 1 before the visible window ends", () => {
+    expect(settledOpacity(0)).toBe(1);
+    expect(settledOpacity(SETTLED_VISIBLE_MS - 1)).toBe(1);
+  });
+
+  it("returns exactly 1 at the start of the visible window", () => {
+    expect(settledOpacity(SETTLED_VISIBLE_MS)).toBe(1);
+  });
+
+  it("returns a fractional opacity mid-fade", () => {
+    // Halfway through the fade window the opacity should be 0.5.
+    const midFade = SETTLED_VISIBLE_MS + SETTLED_FADE_MS / 2;
+    expect(settledOpacity(midFade)).toBeCloseTo(0.5, 5);
+  });
+
+  it("returns 0 at the end of the fade window", () => {
+    expect(settledOpacity(SETTLED_VISIBLE_MS + SETTLED_FADE_MS)).toBe(0);
+  });
+
+  it("clamps to 0 beyond the fade window", () => {
+    expect(settledOpacity(SETTLED_VISIBLE_MS + SETTLED_FADE_MS + 1000)).toBe(0);
+  });
+
+  it("uses the named constants so timing is not magic-number dependent", () => {
+    // Sanity check: SETTLED_VISIBLE_MS is at least 2s and at most 5s.
+    expect(SETTLED_VISIBLE_MS).toBeGreaterThanOrEqual(2000);
+    expect(SETTLED_VISIBLE_MS).toBeLessThanOrEqual(5000);
+    // SETTLED_FADE_MS is at least 200ms and at most 1000ms.
+    expect(SETTLED_FADE_MS).toBeGreaterThanOrEqual(200);
+    expect(SETTLED_FADE_MS).toBeLessThanOrEqual(1000);
   });
 });
