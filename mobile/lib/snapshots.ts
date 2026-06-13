@@ -4,6 +4,7 @@
 // locally, and parses the JSON. The relay only ever holds opaque bytes. House
 // style: no em-dashes, no emojis, no mid-sentence colons.
 import { unsealSnapshot } from '@/lib/device-identity';
+import { recordSnapshotGeneratedAt } from '@/lib/connection-status';
 import type { Pairing } from '@/lib/pairing';
 
 import {
@@ -295,6 +296,10 @@ export async function fetchSnapshot(
   deviceSign: (message: string) => Promise<string>,
 ): Promise<unknown | null> {
   if (pairing.demo) {
+    // Demo stands in for a laptop that is open and publishing, so the liveness
+    // indicator reads "Live". The fixtures carry a generatedAt frozen at app
+    // load, so stamp the current time instead to keep a long demo session live.
+    recordSnapshotGeneratedAt(new Date().toISOString());
     // Return the appropriate fixture without signing or fetching anything.
     if (name === 'inventory') return DEMO_INVENTORY_SNAPSHOT;
     // The notebooks fixture gives the capture chooser real destinations to route
@@ -353,7 +358,19 @@ export async function fetchSnapshot(
     throw e;
   }
   try {
-    return JSON.parse(new TextDecoder().decode(opened));
+    const parsed = JSON.parse(new TextDecoder().decode(opened));
+    // Record the laptop's publish time for the liveness indicator. The pending
+    // lane is relay-written while the laptop is closed (and carries no
+    // generatedAt), so it must never count toward "Live".
+    if (
+      name !== 'notifications-pending' &&
+      parsed &&
+      typeof parsed === 'object' &&
+      typeof (parsed as { generatedAt?: unknown }).generatedAt === 'string'
+    ) {
+      recordSnapshotGeneratedAt((parsed as { generatedAt?: string }).generatedAt);
+    }
+    return parsed;
   } catch (e) {
     // The bytes unsealed fine but are not valid JSON (truncated or wrong-shape
     // publish). Surface a clear format error instead of the raw SyntaxError, so
