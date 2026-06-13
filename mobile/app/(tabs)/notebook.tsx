@@ -17,7 +17,6 @@ import {
   ActivityIndicator,
   Alert,
   Image,
-  LayoutAnimation,
   Pressable,
   RefreshControl,
   StyleSheet,
@@ -26,8 +25,15 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 // ScrollView comes from gesture-handler so the per-row swipe-to-delete
-// cooperates with vertical scrolling instead of fighting it.
-import { Swipeable, ScrollView } from 'react-native-gesture-handler';
+// cooperates with vertical scrolling instead of fighting it. Gesture +
+// GestureDetector drive the Today pull-down affordance at the top.
+import {
+  Swipeable,
+  ScrollView,
+  Gesture,
+  GestureDetector,
+} from 'react-native-gesture-handler';
+import { runOnJS } from 'react-native-reanimated';
 import { useFocusEffect, useRouter } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
 
@@ -41,8 +47,6 @@ import type { AnnotationDoc } from '@/lib/annotations';
 import { ScreenFrame } from '@/components/ui/ScreenFrame';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
-import { EmptyState } from '@/components/ui/EmptyState';
-import { SectionHeader } from '@/components/ui/SectionHeader';
 import { useTheme, palette } from '@/lib/design';
 import {
   addCapture,
@@ -70,7 +74,8 @@ import { sendTextNote } from '@/lib/notes';
 import { NotebookChooser } from '@/components/NotebookChooser';
 import { fireSuccess } from '@/lib/success-burst';
 import { useTodayPrefs } from '@/lib/today-prefs';
-import { hapticImpact, useReduceMotion } from '@/lib/interaction-prefs';
+import { TodayPanel } from '@/components/TodayPanel';
+import { hapticImpact } from '@/lib/interaction-prefs';
 import {
   DEMO_IMAGE_URI,
   DEMO_SEED_KEY,
@@ -106,22 +111,19 @@ export default function NotebookScreen() {
   const [snapshotLoading, setSnapshotLoading] = useState(false);
   const [snapshotError, setSnapshotError] = useState<string | null>(null);
 
-  // ---- Today visibility (device-local pref) + collapse state ----
+  // ---- Today visibility (device-local pref) + pull-down state ----
   // showToday gates the whole surface (default on, so existing users keep it).
-  // todayExpanded is the in-session pull-down state, expanded by default, so
-  // the glance is there on open and one tap on the grab handle tucks it away.
+  // Today is now an Apple-Notification-Center-style panel (TodayPanel) that
+  // pulls DOWN from the top of the screen over a dimmed scrim. todayOpen drives
+  // it; a slim pull-down affordance at the very top opens it (drag or tap), and
+  // the Settings "Show Today" toggle removes the affordance entirely.
   const [todayPrefs] = useTodayPrefs();
-  const [todayExpanded, setTodayExpanded] = useState(true);
-  const reduceMotion = useReduceMotion();
-  const toggleTodayExpanded = useCallback(() => {
+  const [todayOpen, setTodayOpen] = useState(false);
+  const openToday = useCallback(() => {
     hapticImpact();
-    // A light height animation reads as a pull-down/tuck-away. Skipped under
-    // reduce motion so the section just snaps open or closed.
-    if (!reduceMotion) {
-      LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
-    }
-    setTodayExpanded((prev) => !prev);
-  }, [reduceMotion]);
+    setTodayOpen(true);
+  }, []);
+  const closeToday = useCallback(() => setTodayOpen(false), []);
 
   // ---- Demo mode side-effects (seeding captures + one-time notification) ----
   // These run once when we first land in demo mode. Guards in AsyncStorage
@@ -824,6 +826,21 @@ export default function NotebookScreen() {
   const upcomingTasks: SnapshotTask[] = Array.isArray(snapshot?.upcomingTasks)
     ? snapshot!.upcomingTasks!
     : [];
+  const syncedLabel = snapshot?.generatedAt
+    ? formatSynced(snapshot.generatedAt)
+    : null;
+
+  // Pull-down affordance gesture. A short downward drag (or a tap) on the slim
+  // top handle opens the Today panel. We only need a one-shot open here; the
+  // panel itself owns the drag-to-dismiss + animation, so this gesture just
+  // detects intent and flips todayOpen on.
+  const openPan = Gesture.Pan()
+    .onEnd((e) => {
+      'worklet';
+      if (e.translationY > 12 || e.velocityY > 250) {
+        runOnJS(setTodayOpen)(true);
+      }
+    });
 
   // Connection gate: until the phone is paired, the Notebook does real work only
   // through the laptop, so it shows nothing but the pair CTA (capture now
@@ -955,136 +972,44 @@ export default function NotebookScreen() {
           onUnpair={onUnpair}
         />
 
-        {/* Today pull-down (top of the tab, expanded by default). The grab
-            handle plus chevron tucks the glance away for a lean bench, and the
-            Settings "Show Today" toggle removes it entirely. Only shown when
-            paired, since the today snapshot comes from the laptop. Hidden
-            entirely when the pref is off, so the app is unchanged. */}
+        {/* Slim Today pull-down affordance. Today now lives in TodayPanel, an
+            Apple-Notification-Center-style overlay that pulls down from the top
+            of the screen (mounted as a sibling below). This handle is the
+            affordance, a short downward drag or a tap opens it. Only shown when
+            paired (the snapshot comes from the laptop) and when the Settings
+            "Show Today" toggle is on, so the app is unchanged when it is off. */}
         {pairing && todayPrefs.showToday ? (
-          <View style={styles.todaySection}>
+          <GestureDetector gesture={openPan}>
             <Pressable
-              onPress={toggleTodayExpanded}
+              testID="notebook-today-affordance"
+              onPress={openToday}
               accessibilityRole="button"
-              accessibilityState={{ expanded: todayExpanded }}
-              accessibilityLabel={
-                todayExpanded ? 'Hide Today' : 'Show Today'
-              }
+              accessibilityLabel="Open Today"
               style={({ pressed }) => [
-                styles.todayHandleWrap,
-                { opacity: pressed ? 0.85 : 1 },
+                styles.todayPullTab,
+                { opacity: pressed ? 0.7 : 1 },
               ]}
             >
-              {/* Grab handle bar, the pull-down affordance. */}
-              <View style={[styles.todayGrab, { backgroundColor: surface.border }]} />
-              <View style={styles.todayHeaderRow}>
-                <View style={styles.todayHeaderLeft}>
-                  <View style={styles.todayBadge}>
-                    <Ionicons name="today-outline" size={15} color={palette.white} />
+              <View
+                style={[styles.todayPullBar, { backgroundColor: surface.border }]}
+              />
+              <View style={styles.todayPullHintRow}>
+                <ThemedText
+                  style={[styles.todayPullHint, { color: surface.muted }]}
+                >
+                  Today
+                </ThemedText>
+                <Ionicons name="chevron-down" size={13} color={surface.muted} />
+                {overdue > 0 ? (
+                  <View style={styles.todayOverduePill}>
+                    <ThemedText style={styles.todayOverduePillText}>
+                      {overdue} overdue
+                    </ThemedText>
                   </View>
-                  <ThemedText style={[styles.todayTitle, { color: surface.text }]}>
-                    Today
-                  </ThemedText>
-                  {overdue > 0 ? (
-                    <View style={styles.todayOverduePill}>
-                      <ThemedText style={styles.todayOverduePillText}>
-                        {overdue} overdue
-                      </ThemedText>
-                    </View>
-                  ) : null}
-                </View>
-                <Ionicons
-                  name={todayExpanded ? 'chevron-up' : 'chevron-down'}
-                  size={18}
-                  color={surface.muted}
-                />
+                ) : null}
               </View>
             </Pressable>
-
-            {todayExpanded ? (
-              <View style={styles.todayBody}>
-                {snapshotError ? (
-                  <View
-                    style={[
-                      styles.errorBanner,
-                      {
-                        borderColor: palette.dangerBorder,
-                        backgroundColor: palette.dangerLight,
-                        borderRadius: 12,
-                      },
-                    ]}
-                  >
-                    <ThemedText style={[styles.errorText, { color: palette.danger }]}>
-                      {snapshotError}
-                    </ThemedText>
-                  </View>
-                ) : null}
-
-                {snapshotLoading && !snapshotLoaded ? (
-                  <View style={styles.loadingWrap}>
-                    <ActivityIndicator color={palette.sky} />
-                  </View>
-                ) : null}
-
-                {snapshotLoaded && snapshot === null && !snapshotError ? (
-                  <Card>
-                    <ThemedText style={[styles.cardTitle, { color: surface.text }]}>
-                      Not synced yet
-                    </ThemedText>
-                    <ThemedText style={[styles.tagline, { color: surface.muted }]}>
-                      Open ResearchOS on your laptop to sync today.
-                    </ThemedText>
-                  </Card>
-                ) : null}
-
-                {snapshotLoaded && snapshot !== null && !snapshotError ? (
-                  <>
-                    {tasks.length > 0 ? (
-                      tasks.map((task, i) => (
-                        <TaskRow key={task.id ?? `today-${i}`} task={task} />
-                      ))
-                    ) : (
-                      <EmptyState
-                        icon="calendar-outline"
-                        text="Nothing scheduled for today."
-                      />
-                    )}
-
-                    {overdueTasks.length > 0 ? (
-                      <>
-                        <SectionHeader title={`Overdue (${overdue})`} />
-                        {overdueTasks.map((task, i) => (
-                          <TaskRow key={task.id ?? `overdue-${i}`} task={task} overdue />
-                        ))}
-                      </>
-                    ) : overdue > 0 ? (
-                      <ThemedText style={[styles.emptyLine, { color: palette.danger }]}>
-                        {overdue} overdue
-                      </ThemedText>
-                    ) : null}
-
-                    {upcomingTasks.length > 0 ? (
-                      <>
-                        <SectionHeader title={`Coming up (${upcoming})`} />
-                        {upcomingTasks.map((task, i) => (
-                          <TaskRow key={task.id ?? `upcoming-${i}`} task={task} />
-                        ))}
-                      </>
-                    ) : upcoming > 0 ? (
-                      <ThemedText style={[styles.emptyLine, { color: surface.muted }]}>
-                        {upcoming} upcoming
-                      </ThemedText>
-                    ) : null}
-                  </>
-                ) : null}
-
-                {snapshot?.generatedAt ? (
-                  <ThemedText style={[styles.synced, { color: surface.muted }]}>
-                    Last synced {formatSynced(snapshot.generatedAt)}
-                  </ThemedText>
-                ) : null}
-              </View>
-            ) : null}
-          </View>
+          </GestureDetector>
         ) : null}
 
         {/* Quick-capture action row (per mockup: side-by-side icon-over-label cards) */}
@@ -1387,6 +1312,26 @@ export default function NotebookScreen() {
           onClose={onQuickNoteChooserClose}
         />
       ) : null}
+
+      {/* Today pull-down panel. An overlay floating above the tab content; it
+          owns its own drag-to-dismiss + scrim. Driven by todayOpen. Only
+          mounted when paired and the pref is on, matching the affordance. */}
+      {pairing && todayPrefs.showToday ? (
+        <TodayPanel
+          visible={todayOpen}
+          onClose={closeToday}
+          snapshot={snapshot}
+          tasks={tasks}
+          overdueTasks={overdueTasks}
+          upcomingTasks={upcomingTasks}
+          overdue={overdue}
+          upcoming={upcoming}
+          loading={snapshotLoading}
+          loaded={snapshotLoaded}
+          error={snapshotError}
+          syncedLabel={syncedLabel}
+        />
+      ) : null}
     </ScreenFrame>
   );
 }
@@ -1419,29 +1364,6 @@ function ConnectionCard({
         </ThemedText>
       </Pressable>
     </View>
-  );
-}
-
-function TaskRow({ task, overdue }: { task: SnapshotTask; overdue?: boolean }) {
-  const { surface } = useTheme();
-  const meta = [formatDateRange(task.start_date, task.end_date), task.task_type]
-    .filter((part): part is string => !!part && part.length > 0)
-    .join('  -  ');
-  return (
-    <Card compact>
-      <ThemedText
-        style={[
-          styles.rowTitle,
-          { color: overdue ? palette.danger : surface.text },
-        ]}
-        numberOfLines={2}
-      >
-        {task.name && task.name.length > 0 ? task.name : 'Untitled task'}
-      </ThemedText>
-      {meta.length > 0 ? (
-        <ThemedText style={[styles.rowMeta, { color: surface.muted }]}>{meta}</ThemedText>
-      ) : null}
-    </Card>
   );
 }
 
@@ -1557,23 +1479,6 @@ function CaptureRow({
       </View>
     </Swipeable>
   );
-}
-
-function formatDateRange(start?: string, end?: string): string {
-  const s = formatShortDate(start);
-  const e = formatShortDate(end);
-  if (s && e) return s === e ? s : `${s} to ${e}`;
-  return s || e || '';
-}
-
-function formatShortDate(value?: string): string {
-  if (!value) return '';
-  const ms = Date.parse(value);
-  if (Number.isNaN(ms)) return '';
-  return new Date(ms).toLocaleDateString(undefined, {
-    month: 'short',
-    day: 'numeric',
-  });
 }
 
 function formatSynced(value: string): string {
@@ -1769,54 +1674,37 @@ const styles = StyleSheet.create({
   },
   swipeDeleteLabel: { color: palette.white, fontSize: 12, fontWeight: '700' },
 
-  // Today pull-down
-  todaySection: { gap: 10 },
-  todayHandleWrap: {
-    backgroundColor: '#ffffff',
-    borderRadius: 14,
-    paddingTop: 8,
-    paddingBottom: 10,
-    paddingHorizontal: 14,
-    gap: 8,
-    shadowColor: '#101828',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.06,
-    shadowRadius: 3,
-    elevation: 1,
+  // Today pull-down affordance (slim handle at the top; opens TodayPanel).
+  todayPullTab: {
+    alignItems: 'center',
+    gap: 4,
+    paddingTop: 2,
+    paddingBottom: 2,
+    marginTop: -2,
   },
-  todayGrab: {
-    alignSelf: 'center',
+  todayPullBar: {
     width: 40,
-    height: 4,
+    height: 5,
     borderRadius: 999,
   },
-  todayHeaderRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+  todayPullHintRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  todayPullHint: {
+    fontSize: 11,
+    fontWeight: '700',
+    letterSpacing: 0.2,
   },
-  todayHeaderLeft: { flexDirection: 'row', alignItems: 'center', gap: 9 },
-  todayBadge: {
-    width: 27,
-    height: 27,
-    borderRadius: 8,
-    backgroundColor: palette.sky,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  todayTitle: { fontSize: 19, fontWeight: '800', letterSpacing: -0.2 },
   todayOverduePill: {
     backgroundColor: palette.dangerLight,
     borderRadius: 999,
-    paddingHorizontal: 9,
-    paddingVertical: 3,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    marginLeft: 4,
   },
   todayOverduePillText: {
-    fontSize: 11.5,
+    fontSize: 10.5,
     fontWeight: '700',
     color: palette.danger,
   },
-  todayBody: { gap: 14 },
 
   // Scan flagship card
   scanCard: {
@@ -1846,14 +1734,6 @@ const styles = StyleSheet.create({
   scanCardTitle: { fontSize: 15.5, fontWeight: '800', color: palette.sky, letterSpacing: -0.2 },
   scanCardSub: { fontSize: 12.5, lineHeight: 17, color: palette.sky, opacity: 0.85 },
 
-  // Today glance
-  emptyLine: { lineHeight: 20 },
-  loadingWrap: { paddingVertical: 24, alignItems: 'center' },
-  rowTitle: { fontSize: 15, fontWeight: '600', lineHeight: 20 },
-  rowMeta: { fontSize: 13, lineHeight: 18 },
-  synced: { fontSize: 12, marginTop: 4 },
-  errorBanner: { borderWidth: 1, paddingHorizontal: 14, paddingVertical: 12 },
-  errorText: { lineHeight: 20 },
 
   // Demo mode pill
   demoPill: {
