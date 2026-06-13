@@ -145,6 +145,12 @@ interface LiveMarkdownEditorProps {
   disabled?: boolean;
   /** Whether to show the keyboard shortcuts helper panel */
   showShortcutsHelper?: boolean;
+  /** Whether to suppress the bottom Images / Files attachment manager strip
+   *  entirely (the tab bar, the ImageStrip / FileStrip, and the trash drop
+   *  zones). Surfaces that are pure editor space with no file attachments (the
+   *  BeakerBot Canvas draft panel) set this true. Defaults to false so notes,
+   *  methods, results, and task surfaces keep the attachment strip unchanged. */
+  hideAttachments?: boolean;
   /** Whether to allow any file type uploads (not just images) */
   allowAnyFileType?: boolean;
   /** Editor mode. Defaults to 'inline' (the CodeMirror 6 surface, the sole
@@ -260,6 +266,7 @@ export default function LiveMarkdownEditor({
   onBrowseImages,
   disabled = false,
   showShortcutsHelper = true,
+  hideAttachments = false,
   allowAnyFileType = false,
   mode = "inline",
   onModeChange,
@@ -2254,10 +2261,12 @@ export default function LiveMarkdownEditor({
             // sheet stays one click away without disturbing the calm surface;
             // the shortcuts keep working via the CM6 keymap.
             <div className="flex h-full min-h-0">
-              <MarkdownShortcutsSidebar
-                onInsertSyntax={(s) => insertRef.current?.(s)}
-                focusActive={focusModeActive}
-              />
+              {showShortcutsHelper && (
+                <MarkdownShortcutsSidebar
+                  onInsertSyntax={(s) => insertRef.current?.(s)}
+                  focusActive={focusModeActive}
+                />
+              )}
               <div
                 className="relative flex-1 flex flex-col min-h-0 h-full"
                 data-tour-target="inline-editor-surface"
@@ -2294,7 +2303,7 @@ export default function LiveMarkdownEditor({
           markdown to insert at the drop point, or (images only) drop on the
           trash zone (rendered while an image drag is in progress) to delete
           from disk and strip references. */}
-      {showAttachmentStrip && (
+      {!hideAttachments && showAttachmentStrip && (
         <div className="sticky bottom-0 z-10">
           <div className="flex items-center gap-1 px-3 pt-2 bg-surface-sunken border-t border-border">
             <button
@@ -2340,8 +2349,12 @@ export default function LiveMarkdownEditor({
           )}
         </div>
       )}
-      <ImageTrashDropZone value={value} onChange={onChange} basePath={imageBasePath} />
-      <FileTrashDropZone value={value} onChange={onChange} basePath={imageBasePath} />
+      {!hideAttachments && (
+        <>
+          <ImageTrashDropZone value={value} onChange={onChange} basePath={imageBasePath} />
+          <FileTrashDropZone value={value} onChange={onChange} basePath={imageBasePath} />
+        </>
+      )}
 
       {/* Image Resize Popover (preview mode click-to-resize) */}
       {imageResize && (
