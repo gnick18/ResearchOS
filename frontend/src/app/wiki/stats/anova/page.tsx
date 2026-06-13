@@ -1,6 +1,7 @@
 import Link from "next/link";
 import WikiPage from "@/components/wiki/WikiPage";
 import Callout from "@/components/wiki/Callout";
+import Screenshot from "@/components/wiki/Screenshot";
 
 export default function AnovaPage() {
   return (
@@ -44,6 +45,12 @@ export default function AnovaPage() {
         ANOVA is a stopping point, if the overall test finds nothing, you do not
         go fishing for pairwise differences.
       </p>
+
+      <Screenshot
+        src="/wiki/screenshots/datahub-stats-anova.png"
+        alt="A one-way ANOVA result in the Data Hub comparing four groups, with the source-of-variation table (between groups, within groups, total) reporting SS, DF, MS, F, and the p-value, plus eta-squared and omega-squared effect sizes, and a Multiple comparisons tab."
+        caption="The ANOVA table breaks the variation into between-group and within-group parts, and F is the ratio of the two. Eta-squared and omega-squared below it say how much of the spread the grouping explains, and the Multiple comparisons tab holds the post-hoc pairs."
+      />
 
       <h2 id="post-hoc">Post-hoc tests: which pairs differ</h2>
       <p>

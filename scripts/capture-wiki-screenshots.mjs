@@ -4297,6 +4297,54 @@ const FIXTURE_ROUTES = [
       }
     },
   },
+  // ── Data Hub stats explainers (/wiki/stats/*) ──────────────────────────────
+  // Each shot lands directly on a saved analysis result via the Data Hub
+  // `?doc=<tableId>&analysis=<analysisId>` deep link (page.tsx reads both on
+  // first load), so no rail clicking is needed. The result recomputes live
+  // from the fixture table (ResultsSheet runAnalysis), so these render the real
+  // BeakerBot interpretation box + the result table for the explainer page.
+  // The seven fixture tables + their analyses live in wiki-capture-fixture.ts.
+  // waitFor keys on the BeakerBot box header, which every result type shares.
+  // NEEDS NEXT_PUBLIC_DATAHUB_ENABLED=1 in the build/dev server, or /datahub
+  // renders the disabled gate. House style: no highlight (illustrative result
+  // shots, not click-here shots).
+  {
+    // Effect sizes + CIs: a two-group t-test shows the mean difference, its
+    // 95% CI, and Cohen's d, the trio the effect-sizes page teaches to read.
+    path: "/datahub?doc=3&analysis=analysis-survival-ttest",
+    file: "datahub-stats-effect-sizes.png",
+    waitFor: "text=read on this result",
+    settleMs: 1200,
+  },
+  {
+    // One-way ANOVA across the four fakeGFP groups, with the Tukey comparisons.
+    path: "/datahub?doc=1&analysis=analysis-gfp-anova",
+    file: "datahub-stats-anova.png",
+    waitFor: "text=read on this result",
+    settleMs: 1200,
+  },
+  {
+    // Correlation and regression, the simple-linear case: growth vs time.
+    path: "/datahub?doc=2&analysis=analysis-growth-reg",
+    file: "datahub-stats-linear-regression.png",
+    waitFor: "text=read on this result",
+    settleMs: 1200,
+  },
+  {
+    // Correlation and regression, the multiple-predictor case: the coefficient
+    // table with standardized betas + VIF that the page's MLR section explains.
+    path: "/datahub?doc=6&analysis=analysis-yield-mlr",
+    file: "datahub-stats-multiple-regression.png",
+    waitFor: "text=read on this result",
+    settleMs: 1200,
+  },
+  {
+    // Dose-response: the 4PL fit with EC50/IC50 for the dose-response page.
+    path: "/datahub?doc=4&analysis=analysis-dose-4pl",
+    file: "datahub-stats-dose-response.png",
+    waitFor: "text=read on this result",
+    settleMs: 1200,
+  },
 ];
 
 /** Hide dev/beta UI that distracts from docs. Re-applied per page.

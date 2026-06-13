@@ -1,6 +1,7 @@
 import Link from "next/link";
 import WikiPage from "@/components/wiki/WikiPage";
 import Callout from "@/components/wiki/Callout";
+import Screenshot from "@/components/wiki/Screenshot";
 
 export default function CorrelationRegressionPage() {
   return (
@@ -51,6 +52,12 @@ export default function CorrelationRegressionPage() {
         behind.
       </p>
 
+      <Screenshot
+        src="/wiki/screenshots/datahub-stats-linear-regression.png"
+        alt="A simple linear regression result in the Data Hub, reporting the slope with its standard error and 95 percent confidence interval, the intercept with its interval, and the r-squared."
+        caption="The slope is the headline, the change in the outcome for each one-unit change in the predictor, in real units. It comes with its standard error and 95 percent confidence interval, and the r-squared says how much of the variation the line accounts for."
+      />
+
       <h2>A worked example</h2>
       <p>
         You plot fluorescence against protein concentration and fit a line. The
@@ -80,6 +87,13 @@ export default function CorrelationRegressionPage() {
         mattered on its own can fall to non-significance here, which usually means
         another predictor was carrying the signal all along.
       </p>
+
+      <Screenshot
+        src="/wiki/screenshots/datahub-stats-multiple-regression.png"
+        alt="A multiple regression result in the Data Hub, with a coefficient table reporting the estimate, standard error, t, p-value, 95 percent confidence interval, standardized beta, and VIF for each predictor, plus overall r-squared, adjusted r-squared, and the model F test."
+        caption="Each predictor gets its own coefficient, read as the change in the outcome per unit while the other predictors are held fixed. The standardized beta puts the slopes on a common scale, and the VIF column flags predictors that move together, where a value above about 5 to 10 means a coefficient is hard to trust."
+      />
+
       <Callout variant="tip" title="Watch for predictors that move together">
         When two predictors are themselves strongly correlated (temperature and
         pressure that always rise together in your setup), the model struggles to

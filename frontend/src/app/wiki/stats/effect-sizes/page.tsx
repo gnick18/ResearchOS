@@ -1,6 +1,7 @@
 import Link from "next/link";
 import WikiPage from "@/components/wiki/WikiPage";
 import Callout from "@/components/wiki/Callout";
+import Screenshot from "@/components/wiki/Screenshot";
 
 export default function EffectSizesPage() {
   return (
@@ -79,6 +80,20 @@ export default function EffectSizesPage() {
         standardized effect size. The plain-language verdict above the table
         already states the direction and whether the difference is statistically
         clear. The table is where you read the size and the precision.
+      </p>
+
+      <Screenshot
+        src="/wiki/screenshots/datahub-stats-effect-sizes.png"
+        alt="A two-group t-test result in the Data Hub, showing the mean of each group, the difference of means with its 95 percent confidence interval, the p-value, Cohen's d with its own interval, and Hedges' g."
+        caption="A two-group comparison. BeakerBot states the direction and whether the gap is clear above the table, and the table reports the difference of means with its 95 percent confidence interval alongside Cohen's d and its interval, so you read the size and the precision together."
+      />
+
+      <p>
+        The bootstrap interval and Hedges&apos; g sit just below. The bootstrap
+        CI is a second, assumption-light estimate of the same interval, and
+        Hedges&apos; g is Cohen&apos;s d with a small-sample correction, so on
+        the handful of replicates a typical experiment collects it is the more
+        honest standardized number.
       </p>
 
       <h2>A worked example</h2>

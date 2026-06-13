@@ -1,6 +1,7 @@
 import Link from "next/link";
 import WikiPage from "@/components/wiki/WikiPage";
 import Callout from "@/components/wiki/Callout";
+import Screenshot from "@/components/wiki/Screenshot";
 
 export default function DoseResponsePage() {
   return (
@@ -53,6 +54,12 @@ export default function DoseResponsePage() {
         summary (r squared and the residual spread) so you can see how well the
         curve tracks the points.
       </p>
+
+      <Screenshot
+        src="/wiki/screenshots/datahub-stats-dose-response.png"
+        alt="A four-parameter logistic dose-response fit in the Data Hub, reporting EC50/IC50 with its 95 percent confidence interval, the Hill slope, the top and bottom plateaus each with an interval, and an r-squared goodness-of-fit."
+        caption="The 4PL fit reports every parameter with its own confidence interval, the EC50 (the half-maximal dose), the Hill slope, and the two plateaus, plus an r-squared for how closely the curve tracks the points. BeakerBot reads the EC50 back in the dose units you entered."
+      />
 
       <h2 id="model-comparison">Comparing models</h2>
       <p>
