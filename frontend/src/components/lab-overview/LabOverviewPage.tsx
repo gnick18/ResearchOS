@@ -321,8 +321,8 @@ function ActionBar() {
       count: pending,
       label: pending === 1 ? "approval" : "approvals",
       tint: "bg-amber-100 dark:bg-amber-500/20 text-amber-800 dark:text-amber-200 hover:bg-amber-200",
-      // Pending purchase approvals live on the purchases surface.
-      onClick: () => router.push("/purchases"),
+      // Pending purchase approvals live on the unified Approvals queue (PI Mode).
+      onClick: () => router.push("/approvals"),
     });
   }
   if (flagged > 0) {
@@ -331,8 +331,8 @@ function ActionBar() {
       count: flagged,
       label: "flagged",
       tint: "bg-red-100 dark:bg-red-500/20 text-red-800 dark:text-red-200 hover:bg-red-200",
-      // Flagged records by the PI surface in the Lab Inbox.
-      onClick: () => router.push("/lab-inbox"),
+      // Flagged records join the same Approvals queue (AP-3).
+      onClick: () => router.push("/approvals"),
     });
   }
   if (mentions > 0) {
@@ -510,17 +510,16 @@ function PiToolsCard({ onJumpToRoster }: { onJumpToRoster: () => void }) {
           icon="check"
           label="Pending approvals"
           description="Approve or decline purchase requests."
-          // Pending purchase approvals live on the purchases surface, the same
-          // route the action bar's "approvals" segment uses.
-          onClick={() => router.push("/purchases")}
+          // The unified Approvals queue (PI Mode), the same route the action
+          // bar's "approvals" segment uses.
+          onClick={() => router.push("/approvals")}
         />
         <PiTool
           icon="alert"
           label="Flag queue"
           description="Records you flagged for follow-up."
-          // Flagged records surface in the Lab Inbox, the same route the action
-          // bar's "flagged" segment uses.
-          onClick={() => router.push("/lab-inbox")}
+          // The flag queue joins the same Approvals queue (AP-3).
+          onClick={() => router.push("/approvals")}
         />
       </div>
       <AuditTrailViewer open={auditOpen} onClose={() => setAuditOpen(false)} />
