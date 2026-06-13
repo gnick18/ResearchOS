@@ -80,10 +80,12 @@ export type StripeRecurringMethod =
 
 /** The Stripe payment_method_types to allow for a method class, so a bank
  *  (discounted) price can only be paid by a bank debit. Card stays card-only.
- *  The bank set covers US ACH plus the common international bank debits; Stripe
- *  shows only the ones eligible for the customer and billing currency. */
+ *
+ *  We bill in USD, so the only bank debit Stripe accepts is ACH
+ *  (us_bank_account). SEPA / BACS / ACSS require a EUR / GBP / CAD price, so
+ *  listing them on a USD Checkout session makes Stripe REJECT the session. They
+ *  come back the day we bill in those currencies (multi-currency, not built yet);
+ *  until then the bank set is ACH-only so the Checkout never errors. */
 export function stripeMethodsFor(payClass: PayClass): StripeRecurringMethod[] {
-  return payClass === "bank"
-    ? ["us_bank_account", "sepa_debit", "bacs_debit", "acss_debit"]
-    : ["card"];
+  return payClass === "bank" ? ["us_bank_account"] : ["card"];
 }

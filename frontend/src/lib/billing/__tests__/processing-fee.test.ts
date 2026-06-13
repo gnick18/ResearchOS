@@ -47,10 +47,11 @@ describe("priceForMethod", () => {
 });
 
 describe("stripeMethodsFor", () => {
-  it("card price is payable only by card; bank price only by bank debits", () => {
+  it("card price is payable only by card; bank price only by ACH (USD-safe)", () => {
     expect(stripeMethodsFor("card")).toEqual(["card"]);
-    expect(stripeMethodsFor("bank")).toContain("us_bank_account");
-    expect(stripeMethodsFor("bank")).toContain("sepa_debit");
+    // USD billing, so ACH only. SEPA/BACS would make Stripe reject a USD session;
+    // they return when we bill in EUR/GBP (multi-currency).
+    expect(stripeMethodsFor("bank")).toEqual(["us_bank_account"]);
     expect(stripeMethodsFor("bank")).not.toContain("card");
   });
 });
