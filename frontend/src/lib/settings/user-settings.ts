@@ -337,6 +337,13 @@ export interface UserSettings {
   /** Lab-tier: the lab this user belongs to (head or member). Absent for solo users. */
   lab_id?: string;
 
+  /** Department tier Phase 1: the dept_id this user ADMINISTERS, if any. Set when
+   *  they create a department or accept an institution's dept-admin invite. An
+   *  additive org relationship, NOT a mutually-exclusive account_type, so a PI can
+   *  be both a lab head and a dept admin (the Department lens shows when this is
+   *  set). Absent for everyone who does not run a department. */
+  dept_admin_of?: string | null;
+
   /** Purchase department-routing config (lab-head only, opt-in). Defaults to a
    *  disabled empty config; normalize() repairs a hand-edited bad shape. */
   purchaseRouting: PurchaseRoutingConfig;
