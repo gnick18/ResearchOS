@@ -26,6 +26,7 @@ import { publishNotebooksToAllDevices } from "@/lib/mobile-relay/notebooks-snaps
 import { publishCalculatorsToAllDevices } from "@/lib/mobile-relay/calculators-snapshot";
 import { publishTimersToAllDevices } from "@/lib/mobile-relay/timers-snapshot";
 import { publishNotificationsToAllDevices } from "@/lib/mobile-relay/notifications-snapshot";
+import { publishNotifyConfig } from "@/lib/mobile-relay/client";
 import {
   DEFAULT_NOTIFICATION_PREFERENCES,
   normalizeNotificationPreferences,
@@ -119,6 +120,27 @@ export default function TodaySnapshotPublisher() {
           console.info(
             `[notifications-publisher] published to ${notif.published} device(s), skipped ${notif.skipped}`,
           );
+        }
+        // Mirror the routing config to the relay (phone push P2) so a sender can
+        // buzz this user while their laptop is closed and the relay can still
+        // honor this user's per-category + quiet-hours gate. No research content,
+        // only channel toggles + a time window + the tz offset for local time.
+        if (cancelled) return;
+        try {
+          await publishNotifyConfig(keys, {
+            channels: Object.fromEntries(
+              Object.entries(prefs.channels).map(([cat, ch]) => [
+                cat,
+                { phone: !!ch.phone },
+              ]),
+            ),
+            quietHours: prefs.quietHours,
+            tzOffsetMinutes: new Date().getTimezoneOffset(),
+          });
+        } catch (err) {
+          // Non-fatal: a missed config publish only means P2 falls back to
+          // "no buzz" (fail-safe) until the next cadence tick.
+          console.warn("[notify-config] publish failed (will retry)", err);
         }
       } catch (err) {
         console.warn("[today-publisher] publish failed (will retry)", err);

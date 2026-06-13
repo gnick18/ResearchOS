@@ -113,6 +113,13 @@ export async function publishNotificationsToAllDevices(
 
   const snap = await buildNotificationsSnapshot(prefs);
   const plaintext = new TextEncoder().encode(JSON.stringify(snap));
+  // The laptop is online and authoritative here, so its full list supersedes any
+  // relay-written offline stand-in. Clear the P2 pending lane (publish an empty
+  // one) alongside the full list so a generic "new activity" row does not linger
+  // next to the real notification once the laptop has synced it.
+  const emptyPending = new TextEncoder().encode(
+    JSON.stringify({ kind: "notifications", version: 1, notifications: [] }),
+  );
 
   let published = 0;
   let skipped = 0;
@@ -125,10 +132,17 @@ export async function publishNotificationsToAllDevices(
       skipped += 1;
       continue;
     }
-    const sealed = sealToRecipient(plaintext, decodePublicKey(device.x25519Pubkey));
+    const recipientKey = decodePublicKey(device.x25519Pubkey);
+    const sealed = sealToRecipient(plaintext, recipientKey);
     await publishSnapshot(keys, "notifications", device.devicePubkey, sealed);
     published += 1;
     if (device.pushToken) pushTokens.push(device.pushToken);
+    try {
+      const sealedEmpty = sealToRecipient(emptyPending, recipientKey);
+      await publishSnapshot(keys, "notifications-pending", device.devicePubkey, sealedEmpty);
+    } catch {
+      // A failed pending-clear is cosmetic (a stale generic row), never fatal.
+    }
   }
   return { published, skipped, pushTokens };
 }
