@@ -34,7 +34,7 @@ import {
 import { getStripe, getWebhookSecret } from "@/lib/billing/stripe";
 import { formatUSD } from "@/lib/business/calc";
 import {
-  addLedgerEntry,
+  addLedgerEntryBySource,
   ensureBusinessSchema,
   recordBusinessEmail,
 } from "@/lib/business/db";
@@ -229,20 +229,26 @@ export async function POST(request: Request): Promise<Response> {
             : owner
               ? `owner ${owner.ownerKey.slice(0, 12)}...`
               : "storage payment";
-          await addLedgerEntry({
+          // Idempotent per invoice: Stripe fires both invoice.paid and
+          // invoice.payment_succeeded for one payment, so key the ledger row on
+          // the invoice id to book it exactly once regardless of which (or both)
+          // arrive, or of webhook redelivery.
+          const { inserted } = await addLedgerEntryBySource({
             date,
             direction: "in",
             category,
             amountCents,
             note,
-            source: "storage-payment",
+            source: inv.id ? `storage-payment:${inv.id}` : "storage-payment",
           });
-          await recordBusinessEmail({
-            kind: "storage-receipt",
-            toEmail: inv.customer_email ?? "",
-            subject: `${category} payment received, ${formatUSD(amountCents)}`,
-            body: `A ${category.toLowerCase()} payment of ${formatUSD(amountCents)} was received on ${date}. Stripe sends the customer-facing receipt; this is the LLC record.`,
-          });
+          if (inserted) {
+            await recordBusinessEmail({
+              kind: "storage-receipt",
+              toEmail: inv.customer_email ?? "",
+              subject: `${category} payment received, ${formatUSD(amountCents)}`,
+              body: `A ${category.toLowerCase()} payment of ${formatUSD(amountCents)} was received on ${date}. Stripe sends the customer-facing receipt; this is the LLC record.`,
+            });
+          }
         }
         break;
       }
