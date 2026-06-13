@@ -182,6 +182,19 @@ export class EmbedWidget extends WidgetType {
     // The widget is a rendered artifact, not editable text. The caret reaches
     // the source by entering the (atomic) range, not by editing inside.
     wrap.contentEditable = "false";
+    // ignoreEvent stops CM6 from moving the caret on a click, but it does not
+    // call preventDefault, so the browser's native contenteditable selection
+    // still fires on a click inside the widget (e.g. on the molecule SVG, which
+    // is not a button or link). CM6's DOM observer then reads that selection and
+    // reveals the raw markdown. Prevent the default on a mousedown anywhere in
+    // the body that is NOT an interactive control, so a body click never moves
+    // the selection. Buttons and links still work: their click fires separately,
+    // and link navigation happens on click, not mousedown.
+    wrap.addEventListener("mousedown", (e) => {
+      const target = e.target as HTMLElement | null;
+      if (target?.closest("a, button, input, textarea, select")) return;
+      e.preventDefault();
+    });
     // On a user view-switch, persist by rewriting only the #ros view in the source
     // line. The position is resolved fresh at click time via posAtDOM, never
     // cached, so a doc edit elsewhere cannot make us write to a stale offset. After
