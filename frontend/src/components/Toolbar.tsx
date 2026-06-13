@@ -366,7 +366,7 @@ export default function Toolbar({
                       <span
                         className={`
                           inline-flex items-center justify-center w-4 h-4 rounded border
-                          ${isSelected ? "bg-blue-600 border-blue-600 text-white" : "bg-surface-raised border-border"}
+                          ${isSelected ? "bg-brand-action border-brand-action text-white" : "bg-surface-raised border-border"}
                         `}
                         aria-hidden="true"
                       >
@@ -426,7 +426,7 @@ export default function Toolbar({
                           ${
                             projectFilterMode === "all" ||
                             selectedProjectIds.includes(STANDALONE_FILTER_KEY)
-                              ? "bg-blue-600 border-blue-600 text-white"
+                              ? "bg-brand-action border-brand-action text-white"
                               : "bg-surface-raised border-border"
                           }
                         `}

@@ -165,7 +165,7 @@ export function NoteDependencyPanel({
                     onClick={() => onToggleIncluded(dep.href, !isIncluded)}
                     className={`shrink-0 w-5 h-5 rounded border-2 flex items-center justify-center transition-colors ${
                       isIncluded
-                        ? "border-blue-500 bg-blue-500 text-white"
+                        ? "border-brand-action bg-brand-action text-white"
                         : "border-border bg-transparent"
                     }`}
                     aria-label={`${isIncluded ? "Exclude" : "Include"} ${dep.caption || dep.id}`}

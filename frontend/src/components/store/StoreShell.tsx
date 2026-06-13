@@ -420,7 +420,7 @@ function FilterChip({
       aria-current={active ? "true" : undefined}
       className={`shrink-0 whitespace-nowrap rounded-full px-3 py-1 text-meta font-medium transition-colors ${
         active
-          ? "bg-blue-600 text-white"
+          ? "bg-brand-action text-white"
           : "bg-surface-sunken text-foreground-muted hover:bg-surface-sunken"
       }`}
     >
@@ -453,7 +453,7 @@ function EnabledOnlyToggle({
       >
         <span
           className={`relative shrink-0 inline-flex h-5 w-9 items-center rounded-full transition-colors ${
-            on ? "bg-blue-600" : "bg-gray-300"
+            on ? "bg-brand-action" : "bg-gray-300"
           }`}
         >
           <span

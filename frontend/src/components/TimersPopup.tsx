@@ -202,7 +202,7 @@ function AlarmModeSetting() {
         onClick={() => choose(value)}
         className={`flex flex-1 items-center justify-center gap-1.5 rounded-lg px-2 py-2 text-meta font-semibold transition-colors ${
           on
-            ? "bg-sky-500 text-white"
+            ? "bg-brand-action text-white"
             : "bg-surface-raised text-foreground-muted hover:text-foreground"
         }`}
       >

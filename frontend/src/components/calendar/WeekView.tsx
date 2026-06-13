@@ -104,7 +104,7 @@ export default function WeekView({
               </p>
               <p
                 className={`mt-1 inline-flex items-center justify-center w-7 h-7 rounded-full text-body font-medium ${
-                  isToday ? "bg-blue-600 text-white" : "text-foreground"
+                  isToday ? "bg-amber-400 text-amber-900" : "text-foreground"
                 }`}
               >
                 {d.getDate()}

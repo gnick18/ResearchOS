@@ -638,7 +638,7 @@ function PurchasesPageContent() {
                 data-tour-target={`purchases-order-status-${chip.key}`}
                 className={`px-3 py-1 text-meta rounded-full transition-colors ${
                   isActive
-                    ? "bg-blue-600 text-white"
+                    ? "bg-brand-action text-white"
                     : "bg-surface-sunken text-foreground-muted hover:bg-foreground-muted/15"
                 }`}
               >
