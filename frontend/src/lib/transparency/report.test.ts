@@ -37,6 +37,14 @@ describe("transparency report — every advertised comparison must hold", () => 
   // One assertion per individual comparison so a failure points at the exact
   // case + oracle, not just "something is off".
   for (const domain of report.domains) {
+    // A domain may be all-informational at a given moment (e.g. the phylo domain
+    // before its offline ggtree golden is committed, when every comparison is
+    // context, not a gated validation). That would leave an empty describe, which
+    // vitest rejects, so skip the per-domain block until it has a gated comparison.
+    const hasGated = domain.cases.some((c) =>
+      c.comparisons.some((cmp) => !cmp.informational),
+    );
+    if (!hasGated) continue;
     describe(domain.title, () => {
       for (const c of domain.cases) {
         // Informational cross-method comparisons (Wallace / GC rules) are context,

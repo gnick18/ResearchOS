@@ -1,0 +1,11 @@
+{
+  "pending": true,
+  "tree": "hmp",
+  "layout": "rectangular",
+  "oracle": "ggtree",
+  "ggtreeVersion": "PENDING",
+  "tipCount": 0,
+  "nodeCount": 0,
+  "note": "PLACEHOLDER. Replace by running scripts/gen-phylo-ggtree-golden.R in a real R + ggtree environment, then commit the regenerated file (pending becomes false). The phylo-plots gate stays skipped until every seeded tree golden has pending = false.",
+  "nodes": []
+}
