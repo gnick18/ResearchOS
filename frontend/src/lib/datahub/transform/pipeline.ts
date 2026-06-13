@@ -564,6 +564,289 @@ export interface DatePartsOp {
   parts: Array<"year" | "month" | "day" | "weekday" | "hour">;
 }
 
+// ---------------------------------------------------------------------------
+// Phase 2b-2 numeric / window / filter-helper / summarize ops
+// ---------------------------------------------------------------------------
+//
+// The second half of the "edit with code" vocabulary, building on the cleaning
+// set. Each op maps to a pandas one-liner (codegen.ts), a DuckDB SQL expression
+// or query (sql-codegen.ts), and a JS engine case (engine.ts). A few summarize
+// ops (crosstab, pivot_table) reshape on values only known at runtime, so they
+// run on the JS engine and emit a pass-through SQL note rather than a static
+// query, following the precedent set by data-dependent pivot in Phase 2a.
+
+/**
+ * Clamp a numeric column to a [lower, upper] range (pandas Series.clip, DuckDB
+ * least/greatest). An absent bound leaves that side unclamped. Empty cells stay
+ * empty.
+ *
+ *   pandas:  df[col] = df[col].clip(lower=lo, upper=hi)
+ *   SQL:     least(greatest(col, lo), hi)
+ */
+export interface ClipOp {
+  kind: "clip";
+  column: string;
+  /** Lower bound (inclusive). Absent means no lower clamp. */
+  lower?: number;
+  /** Upper bound (inclusive). Absent means no upper clamp. */
+  upper?: number;
+}
+
+/**
+ * Round a numeric column to a number of decimal places (pandas Series.round,
+ * DuckDB round). decimals defaults to 0. Empty / non-numeric cells stay empty.
+ *
+ *   pandas:  df[col] = df[col].round(decimals)
+ *   SQL:     round(TRY_CAST(col AS DOUBLE), decimals)
+ */
+export interface RoundOp {
+  kind: "round";
+  column: string;
+  /** Decimal places. Defaults to 0. */
+  decimals?: number;
+}
+
+/**
+ * Cut a numeric column into labeled bins, written to a NEW column (pandas cut /
+ * qcut). Two modes:
+ *
+ *   - "ranges": explicit ascending edges. A value v lands in the bin whose edge
+ *     range [edges[i], edges[i+1]) contains it. Labels default to "lo-hi".
+ *   - "quantiles": split into N equal-frequency buckets (qcut). Labels default
+ *     to "Q1".."QN".
+ *
+ *   pandas:  df[out] = pd.cut(df[col], bins=edges, labels=labels)
+ *            df[out] = pd.qcut(df[col], q=n, labels=labels)
+ *   SQL:     a CASE WHEN ladder over the edges (ranges); quantile edges are
+ *            data-dependent so quantile mode runs JS-only with a SQL note.
+ */
+export interface BinOp {
+  kind: "bin";
+  column: string;
+  mode: "ranges" | "quantiles";
+  /** ranges: ascending bin edges, length N+1 for N bins. */
+  edges?: number[];
+  /** quantiles: how many equal-frequency buckets. */
+  quantiles?: number;
+  /** Optional bin labels. Length must match the bin count when present. */
+  labels?: string[];
+  /** Name of the new column. */
+  outputName: string;
+}
+
+/**
+ * Replace values in a column via a lookup dictionary (pandas Series.map / replace
+ * dict, DuckDB CASE WHEN). Keys are matched as strings against the cell's string
+ * form. Unmatched cells keep their original value (replace semantics) unless
+ * fallback is set.
+ *
+ *   pandas:  df[col] = df[col].replace({k: v, ...})
+ *   SQL:     CASE WHEN col = k THEN v ... ELSE col END
+ */
+export interface MapOp {
+  kind: "map";
+  column: string;
+  /** Ordered key -> value pairs. */
+  mapping: Array<{ from: string; to: string }>;
+  /** When set, unmatched cells become this value instead of keeping the original. */
+  fallback?: string;
+}
+
+/**
+ * Rank a numeric column into a NEW column (pandas Series.rank, DuckDB window
+ * rank / dense_rank). Ascending ranks the smallest value 1; descending ranks the
+ * largest 1. method "dense" gives no rank gaps after ties.
+ *
+ *   pandas:  df[out] = df[col].rank(ascending=<bool>, method=<m>)
+ *   SQL:     rank() / dense_rank() OVER (ORDER BY col ASC|DESC)
+ */
+export interface RankOp {
+  kind: "rank";
+  column: string;
+  ascending: boolean;
+  method: "min" | "dense";
+  /** Name of the new column. */
+  outputName: string;
+}
+
+/**
+ * Cumulative running aggregate over a numeric column, written to a NEW column
+ * (pandas cumsum / cumprod / cummax / cummin, DuckDB an ordered window).
+ *
+ *   pandas:  df[out] = df[col].cumsum()
+ *   SQL:     sum(col) OVER (ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW)
+ */
+export interface CumulativeOp {
+  kind: "cumulative";
+  column: string;
+  func: "sum" | "prod" | "max" | "min";
+  /** Name of the new column. */
+  outputName: string;
+}
+
+/**
+ * Shift a column by N rows, or take the row-to-row difference / percent change,
+ * written to a NEW column (pandas shift / diff / pct_change, DuckDB lag).
+ *
+ *   - "shift": the value N rows back (positive) or forward (negative).
+ *   - "diff": value minus the value N rows back.
+ *   - "pct_change": (value - prev) / prev for a step of N rows.
+ *
+ *   pandas:  df[out] = df[col].shift(n) / .diff(n) / .pct_change(n)
+ *   SQL:     lag(col, n) OVER (...) and arithmetic on it
+ */
+export interface LagOp {
+  kind: "lag";
+  column: string;
+  mode: "shift" | "diff" | "pct_change";
+  /** How many rows back. Defaults to 1. */
+  periods?: number;
+  /** Name of the new column. */
+  outputName: string;
+}
+
+/**
+ * Rolling-window aggregate over a numeric column, written to a NEW column
+ * (pandas Series.rolling, DuckDB a framed window). The window covers the current
+ * row and the (size - 1) rows before it. The first (size - 1) rows are empty,
+ * matching pandas with the default min_periods.
+ *
+ *   pandas:  df[out] = df[col].rolling(size).mean()
+ *   SQL:     avg(col) OVER (ROWS BETWEEN <size-1> PRECEDING AND CURRENT ROW)
+ */
+export interface RollingOp {
+  kind: "rolling";
+  column: string;
+  size: number;
+  func: "mean" | "sum" | "min" | "max";
+  /** Name of the new column. */
+  outputName: string;
+}
+
+/**
+ * Keep rows whose column value is in a set (pandas Series.isin, DuckDB IN). The
+ * set members are matched as strings against the cell's string form. negate
+ * keeps rows NOT in the set.
+ *
+ *   pandas:  df = df[df[col].isin(values)]
+ *   SQL:     WHERE col IN (...)
+ */
+export interface IsInOp {
+  kind: "isin";
+  column: string;
+  values: string[];
+  negate?: boolean;
+}
+
+/**
+ * Keep rows whose numeric column value falls in [lower, upper] inclusive (pandas
+ * Series.between, DuckDB BETWEEN).
+ *
+ *   pandas:  df = df[df[col].between(lo, hi)]
+ *   SQL:     WHERE TRY_CAST(col AS DOUBLE) BETWEEN lo AND hi
+ */
+export interface BetweenOp {
+  kind: "between";
+  column: string;
+  lower: number;
+  upper: number;
+}
+
+/**
+ * Keep the N rows with the largest or smallest value in a column (pandas
+ * nlargest / nsmallest, DuckDB ORDER BY ... LIMIT).
+ *
+ *   pandas:  df = df.nlargest(n, col)
+ *   SQL:     SELECT * FROM t ORDER BY col DESC LIMIT n
+ */
+export interface TopNOp {
+  kind: "topn";
+  column: string;
+  n: number;
+  /** "largest" keeps the highest values, "smallest" the lowest. */
+  which: "largest" | "smallest";
+}
+
+/**
+ * Take a random sample of rows (pandas DataFrame.sample, DuckDB USING SAMPLE).
+ * Either an exact row count or a fraction of the table. A seed makes the JS
+ * sample reproducible.
+ *
+ *   pandas:  df = df.sample(n=n, random_state=seed)
+ *   SQL:     SELECT * FROM t USING SAMPLE n ROWS  /  frac% (bernoulli)
+ */
+export interface SampleOp {
+  kind: "sample";
+  mode: "count" | "fraction";
+  /** count mode: number of rows. */
+  n?: number;
+  /** fraction mode: 0..1 share of rows. */
+  fraction?: number;
+  /** Optional RNG seed for a reproducible JS sample. */
+  seed?: number;
+}
+
+/**
+ * Count the occurrences of each distinct value in a column, producing a two
+ * column summary table (value, count) sorted by count descending (pandas
+ * value_counts, DuckDB GROUP BY). This REPLACES the table with the summary.
+ *
+ *   pandas:  out = df[col].value_counts().reset_index()
+ *   SQL:     SELECT col AS value, count(*) AS count FROM t GROUP BY col ORDER BY count DESC
+ */
+export interface ValueCountsOp {
+  kind: "value_counts";
+  column: string;
+}
+
+/**
+ * Summary statistics for the selected numeric columns, producing a stat-by-column
+ * table (pandas DataFrame.describe). This REPLACES the table with the summary
+ * (rows = count / mean / std / min / 25% / 50% / 75% / max). The summary stats
+ * are descriptive only and computed by the same code paths the validated engine
+ * uses, never a new statistical path.
+ *
+ *   pandas:  out = df[columns].describe().reset_index()
+ *
+ * The result shape (one row per statistic, one column per input column) is
+ * data-shaped, so describe runs on the JS engine with a pass-through SQL note.
+ */
+export interface DescribeOp {
+  kind: "describe";
+  /** Columns to summarize. Empty means all numeric columns. */
+  columns?: string[];
+}
+
+/**
+ * Cross-tabulation of two columns, counting co-occurrences (pandas crosstab).
+ * Rows are the distinct values of `row`, columns the distinct values of `column`,
+ * cells the row counts. The spread column names are data-dependent, so crosstab
+ * runs on the JS engine with a pass-through SQL note (same precedent as pivot).
+ *
+ *   pandas:  out = pd.crosstab(df[row], df[column]).reset_index()
+ */
+export interface CrosstabOp {
+  kind: "crosstab";
+  row: string;
+  column: string;
+}
+
+/**
+ * Spreadsheet-style pivot table (pandas pivot_table). Group by `index`, spread
+ * the distinct values of `columns` across new columns, and aggregate `value` in
+ * each cell. The spread names depend on the data, so pivot_table runs on the JS
+ * engine with a pass-through SQL note (same precedent as the reshape pivot op).
+ *
+ *   pandas:  out = pd.pivot_table(df, index=index, columns=columns, values=value, aggfunc=agg)
+ */
+export interface PivotTableOp {
+  kind: "pivot_table";
+  index: string;
+  columns: string;
+  value: string;
+  agg: "mean" | "sum" | "count" | "min" | "max";
+}
+
 /**
  * The full set of supported transform operations.
  */
@@ -591,7 +874,23 @@ export type TransformOp =
   | StrOp
   | AsTypeOp
   | ToDateOp
-  | DatePartsOp;
+  | DatePartsOp
+  | ClipOp
+  | RoundOp
+  | BinOp
+  | MapOp
+  | RankOp
+  | CumulativeOp
+  | LagOp
+  | RollingOp
+  | IsInOp
+  | BetweenOp
+  | TopNOp
+  | SampleOp
+  | ValueCountsOp
+  | DescribeOp
+  | CrosstabOp
+  | PivotTableOp;
 
 // ---------------------------------------------------------------------------
 // Pipeline

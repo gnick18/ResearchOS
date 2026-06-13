@@ -55,6 +55,22 @@ import type {
   AsTypeOp,
   ToDateOp,
   DatePartsOp,
+  ClipOp,
+  RoundOp,
+  BinOp,
+  MapOp,
+  RankOp,
+  CumulativeOp,
+  LagOp,
+  RollingOp,
+  IsInOp,
+  BetweenOp,
+  TopNOp,
+  SampleOp,
+  ValueCountsOp,
+  DescribeOp,
+  CrosstabOp,
+  PivotTableOp,
 } from "./pipeline";
 import type {
   TransformParams,
@@ -886,6 +902,166 @@ function datePartsPandas(df: string, op: DatePartsOp): { code: string; comment: 
 }
 
 // ---------------------------------------------------------------------------
+// Phase 2b-2 numeric / window / filter-helper / summarize ops -> pandas
+// ---------------------------------------------------------------------------
+
+function clipPandas(df: string, op: ClipOp): { code: string; comment: string } {
+  const col = colRef(df, op.column);
+  const args: string[] = [];
+  if (op.lower !== undefined) args.push(`lower=${pyNum(op.lower)}`);
+  if (op.upper !== undefined) args.push(`upper=${pyNum(op.upper)}`);
+  return {
+    code: `${col} = pd.to_numeric(${col}, errors="coerce").clip(${args.join(", ")})`,
+    comment: `Clamp ${op.column} to the given range.`,
+  };
+}
+
+function roundPandas(df: string, op: RoundOp): { code: string; comment: string } {
+  const col = colRef(df, op.column);
+  const d = op.decimals ?? 0;
+  return {
+    code: `${col} = pd.to_numeric(${col}, errors="coerce").round(${d})`,
+    comment: `Round ${op.column} to ${d} decimal place${d === 1 ? "" : "s"}.`,
+  };
+}
+
+function binPandas(df: string, op: BinOp): { code: string; comment: string } {
+  const src = `pd.to_numeric(${colRef(df, op.column)}, errors="coerce")`;
+  const labels = op.labels ? pyStrList(op.labels) : "False";
+  if (op.mode === "quantiles") {
+    const q = op.quantiles ?? 4;
+    return {
+      code: `${colRef(df, op.outputName)} = pd.qcut(${src}, q=${q}, labels=${op.labels ? labels : "None"})`,
+      comment: `Bin ${op.column} into ${q} equal-frequency buckets.`,
+    };
+  }
+  const edges = `[${(op.edges ?? []).map(pyNum).join(", ")}]`;
+  return {
+    code: `${colRef(df, op.outputName)} = pd.cut(${src}, bins=${edges}, labels=${op.labels ? labels : "None"}, include_lowest=True)`,
+    comment: `Bin ${op.column} into ranges.`,
+  };
+}
+
+function mapPandas(df: string, op: MapOp): { code: string; comment: string } {
+  const col = colRef(df, op.column);
+  const entries = op.mapping.map((m) => `${pyStr(m.from)}: ${pyStr(m.to)}`).join(", ");
+  if (op.fallback !== undefined) {
+    return {
+      code: `${col} = ${col}.astype("string").map({${entries}}).fillna(${pyStr(op.fallback)})`,
+      comment: `Map ${op.column} via the lookup, unmatched cells become ${pyStr(op.fallback)}.`,
+    };
+  }
+  return {
+    code: `${col} = ${col}.replace({${entries}})`,
+    comment: `Replace values in ${op.column} via the lookup.`,
+  };
+}
+
+function rankPandas(df: string, op: RankOp): { code: string; comment: string } {
+  const src = `pd.to_numeric(${colRef(df, op.column)}, errors="coerce")`;
+  return {
+    code: `${colRef(df, op.outputName)} = ${src}.rank(ascending=${op.ascending ? "True" : "False"}, method=${pyStr(op.method)})`,
+    comment: `Rank ${op.column} ${op.ascending ? "ascending" : "descending"}.`,
+  };
+}
+
+function cumulativePandas(df: string, op: CumulativeOp): { code: string; comment: string } {
+  const src = `pd.to_numeric(${colRef(df, op.column)}, errors="coerce")`;
+  const fn = { sum: "cumsum", prod: "cumprod", max: "cummax", min: "cummin" }[op.func];
+  return {
+    code: `${colRef(df, op.outputName)} = ${src}.${fn}()`,
+    comment: `Running ${op.func} of ${op.column}.`,
+  };
+}
+
+function lagPandas(df: string, op: LagOp): { code: string; comment: string } {
+  const src = `pd.to_numeric(${colRef(df, op.column)}, errors="coerce")`;
+  const n = op.periods ?? 1;
+  const out = colRef(df, op.outputName);
+  if (op.mode === "shift") {
+    return { code: `${out} = ${src}.shift(${n})`, comment: `Shift ${op.column} by ${n} rows.` };
+  }
+  if (op.mode === "diff") {
+    return { code: `${out} = ${src}.diff(${n})`, comment: `Row-to-row difference of ${op.column}.` };
+  }
+  return {
+    code: `${out} = ${src}.pct_change(periods=${n})`,
+    comment: `Percent change of ${op.column}.`,
+  };
+}
+
+function rollingPandas(df: string, op: RollingOp): { code: string; comment: string } {
+  const src = `pd.to_numeric(${colRef(df, op.column)}, errors="coerce")`;
+  return {
+    code: `${colRef(df, op.outputName)} = ${src}.rolling(${op.size}).${op.func}()`,
+    comment: `Rolling ${op.func} of ${op.column} over a ${op.size}-row window.`,
+  };
+}
+
+function isinPandas(df: string, op: IsInOp): { code: string; comment: string } {
+  const mask = `${colRef(df, op.column)}.astype("string").isin(${pyStrList(op.values)})`;
+  const expr = op.negate ? `~(${mask})` : mask;
+  return {
+    code: `${df} = ${df}[${expr}].reset_index(drop=True)`,
+    comment: `Keep rows where ${op.column} is ${op.negate ? "not " : ""}in the set.`,
+  };
+}
+
+function betweenPandas(df: string, op: BetweenOp): { code: string; comment: string } {
+  const num = `pd.to_numeric(${colRef(df, op.column)}, errors="coerce")`;
+  return {
+    code: `${df} = ${df}[${num}.between(${pyNum(op.lower)}, ${pyNum(op.upper)})].reset_index(drop=True)`,
+    comment: `Keep rows where ${op.column} is between ${op.lower} and ${op.upper}.`,
+  };
+}
+
+function topnPandas(df: string, op: TopNOp): { code: string; comment: string } {
+  const fn = op.which === "largest" ? "nlargest" : "nsmallest";
+  return {
+    code: `${df} = ${df}.${fn}(${op.n}, ${pyStr(op.column)}).reset_index(drop=True)`,
+    comment: `Keep the ${op.n} ${op.which} rows by ${op.column}.`,
+  };
+}
+
+function samplePandas(df: string, op: SampleOp): { code: string; comment: string } {
+  const seed = op.seed !== undefined ? `, random_state=${op.seed}` : "";
+  const arg = op.mode === "fraction" ? `frac=${pyNum(op.fraction ?? 0)}` : `n=${op.n ?? 0}`;
+  return {
+    code: `${df} = ${df}.sample(${arg}${seed}).reset_index(drop=True)`,
+    comment: `Take a random sample of rows.`,
+  };
+}
+
+function valueCountsPandas(df: string, op: ValueCountsOp): { code: string; comment: string } {
+  return {
+    code: `${df} = ${colRef(df, op.column)}.value_counts().rename_axis("value").reset_index(name="count")`,
+    comment: `Count occurrences of each value in ${op.column}.`,
+  };
+}
+
+function describePandas(df: string, op: DescribeOp): { code: string; comment: string } {
+  const subset = op.columns && op.columns.length > 0 ? `[${pyStrList(op.columns)}]` : "";
+  return {
+    code: `${df} = ${df}${subset}.describe().rename_axis("statistic").reset_index()`,
+    comment: `Summary statistics for ${op.columns && op.columns.length ? op.columns.join(", ") : "the numeric columns"}.`,
+  };
+}
+
+function crosstabPandas(df: string, op: CrosstabOp): { code: string; comment: string } {
+  return {
+    code: `${df} = pd.crosstab(${colRef(df, op.row)}, ${colRef(df, op.column)}).reset_index()`,
+    comment: `Cross-tabulate ${op.row} against ${op.column}.`,
+  };
+}
+
+function pivotTablePandas(df: string, op: PivotTableOp): { code: string; comment: string } {
+  return {
+    code: `${df} = pd.pivot_table(${df}, index=${pyStr(op.index)}, columns=${pyStr(op.columns)}, values=${pyStr(op.value)}, aggfunc=${pyStr(op.agg)}).reset_index()`,
+    comment: `Pivot ${op.value} by ${op.index} and ${op.columns} (${op.agg}).`,
+  };
+}
+
+// ---------------------------------------------------------------------------
 // One op -> pandas (the public per-op entry point)
 // ---------------------------------------------------------------------------
 
@@ -969,6 +1145,38 @@ export function transformOpToPandas(
       return toDatePandas(df, op);
     case "date-parts":
       return datePartsPandas(df, op);
+    case "clip":
+      return clipPandas(df, op);
+    case "round":
+      return roundPandas(df, op);
+    case "bin":
+      return binPandas(df, op);
+    case "map":
+      return mapPandas(df, op);
+    case "rank":
+      return rankPandas(df, op);
+    case "cumulative":
+      return cumulativePandas(df, op);
+    case "lag":
+      return lagPandas(df, op);
+    case "rolling":
+      return rollingPandas(df, op);
+    case "isin":
+      return isinPandas(df, op);
+    case "between":
+      return betweenPandas(df, op);
+    case "topn":
+      return topnPandas(df, op);
+    case "sample":
+      return samplePandas(df, op);
+    case "value_counts":
+      return valueCountsPandas(df, op);
+    case "describe":
+      return describePandas(df, op);
+    case "crosstab":
+      return crosstabPandas(df, op);
+    case "pivot_table":
+      return pivotTablePandas(df, op);
     default: {
       // Exhaustiveness guard. A new op kind without a case here is a type error;
       // at runtime it emits a clear no-op comment instead of crashing the export.
@@ -1186,9 +1394,29 @@ function nextColumnNames(
       const add = names.filter((n) => !current.includes(n));
       return [...current, ...add];
     }
+    // The Phase 2b-2 ops that write a NEW column add their output name.
+    case "bin":
+    case "rank":
+    case "cumulative":
+    case "lag":
+    case "rolling":
+      return current.includes(op.outputName) ? current : [...current, op.outputName];
+    case "value_counts":
+      return ["value", "count"];
+    case "describe": {
+      const cols = op.columns && op.columns.length > 0 ? op.columns : current;
+      return ["statistic", ...cols];
+    }
+    case "crosstab":
+      // The spread column names are data-dependent; keep the row key visible.
+      return [op.row];
+    case "pivot_table":
+      // The spread column names are data-dependent; keep the index visible.
+      return [op.index];
     // pivot, sort, filter, dedupe, transpose, the folded column transforms,
-    // fillna, dropna, set-where, astype, to-date do not add or rename a column a
-    // later derive formula relies on, so we keep the current list.
+    // fillna, dropna, set-where, astype, to-date, clip, round, map, isin,
+    // between, topn, sample do not add or rename a column a later derive formula
+    // relies on, so we keep the current list.
     default:
       return current;
   }

@@ -66,6 +66,22 @@ import type {
   AsTypeOp,
   ToDateOp,
   DatePartsOp,
+  ClipOp,
+  RoundOp,
+  BinOp,
+  MapOp,
+  RankOp,
+  CumulativeOp,
+  LagOp,
+  RollingOp,
+  IsInOp,
+  BetweenOp,
+  TopNOp,
+  SampleOp,
+  ValueCountsOp,
+  DescribeOp,
+  CrosstabOp,
+  PivotTableOp,
 } from "./pipeline";
 import type {
   TransformParams,
@@ -446,6 +462,39 @@ export function transformOpToSql(op: TransformOp, ctx: SqlCodegenContext): strin
     case "date-parts":
       return datePartsSql(from, op);
 
+    case "clip":
+      return clipSql(from, op);
+    case "round":
+      return roundSql(from, op);
+    case "bin":
+      return binSql(from, op);
+    case "map":
+      return mapSql(from, op);
+    case "rank":
+      return rankSql(from, op);
+    case "cumulative":
+      return cumulativeSql(from, op);
+    case "lag":
+      return lagSql(from, op);
+    case "rolling":
+      return rollingSql(from, op);
+    case "isin":
+      return isinSql(from, op);
+    case "between":
+      return betweenSql(from, op);
+    case "topn":
+      return topnSql(from, op);
+    case "sample":
+      return sampleSql(from, op);
+    case "value_counts":
+      return valueCountsSql(from, op);
+    case "describe":
+      return describeSql(from, op);
+    case "crosstab":
+      return crosstabSql(from, op);
+    case "pivot_table":
+      return pivotTableSql(from, op);
+
     default: {
       const _exhaustive: never = op;
       void _exhaustive;
@@ -797,6 +846,163 @@ function datePartsSql(from: string, op: DatePartsOp): string {
 }
 
 // ---------------------------------------------------------------------------
+// Phase 2b-2 numeric / window / filter-helper / summarize ops -> SQL
+// ---------------------------------------------------------------------------
+
+function clipSql(from: string, op: ClipOp): string {
+  const num = `TRY_CAST(${sqlIdent(op.column)} AS DOUBLE)`;
+  let expr = num;
+  if (op.lower !== undefined) expr = `greatest(${expr}, ${sqlNum(op.lower)})`;
+  if (op.upper !== undefined) expr = `least(${expr}, ${sqlNum(op.upper)})`;
+  return `SELECT * REPLACE (${expr} AS ${sqlIdent(op.column)}) FROM ${from}`;
+}
+
+function roundSql(from: string, op: RoundOp): string {
+  const num = `TRY_CAST(${sqlIdent(op.column)} AS DOUBLE)`;
+  return `SELECT * REPLACE (round(${num}, ${op.decimals ?? 0}) AS ${sqlIdent(op.column)}) FROM ${from}`;
+}
+
+function binSql(from: string, op: BinOp): string {
+  if (op.mode === "quantiles") {
+    // Quantile edges depend on the data, so the bin labels cannot be a static
+    // SQL string. Run on the JS engine instead (precedent: data-dependent pivot).
+    return `SELECT * FROM ${from} /* quantile binning runs on the JS engine, not as a static SQL query */`;
+  }
+  const edges = [...(op.edges ?? [])].slice().sort((a, b) => a - b);
+  const num = `TRY_CAST(${sqlIdent(op.column)} AS DOUBLE)`;
+  const binCount = edges.length - 1;
+  const label = (i: number) =>
+    op.labels && op.labels[i] !== undefined ? op.labels[i] : `${edges[i]}-${edges[i + 1]}`;
+  const whens: string[] = [];
+  for (let i = 0; i < binCount; i++) {
+    const upper = i === binCount - 1 ? `${num} <= ${sqlNum(edges[i + 1])}` : `${num} < ${sqlNum(edges[i + 1])}`;
+    whens.push(`WHEN ${num} >= ${sqlNum(edges[i])} AND ${upper} THEN ${sqlStr(label(i))}`);
+  }
+  const expr = `CASE ${whens.join(" ")} ELSE NULL END`;
+  return `SELECT *, ${expr} AS ${sqlIdent(op.outputName)} FROM ${from}`;
+}
+
+function mapSql(from: string, op: MapOp): string {
+  const ref = `CAST(${sqlIdent(op.column)} AS VARCHAR)`;
+  const whens = op.mapping.map((m) => `WHEN ${ref} = ${sqlStr(m.from)} THEN ${sqlStr(m.to)}`);
+  const fallback = op.fallback !== undefined ? sqlStr(op.fallback) : sqlIdent(op.column);
+  const expr = `CASE ${whens.join(" ")} ELSE ${fallback} END`;
+  return `SELECT * REPLACE (${expr} AS ${sqlIdent(op.column)}) FROM ${from}`;
+}
+
+function rankSql(from: string, op: RankOp): string {
+  const dir = op.ascending ? "ASC" : "DESC";
+  const fn = op.method === "dense" ? "dense_rank" : "rank";
+  const num = `TRY_CAST(${sqlIdent(op.column)} AS DOUBLE)`;
+  const expr = `${fn}() OVER (ORDER BY ${num} ${dir})`;
+  return `SELECT *, ${expr} AS ${sqlIdent(op.outputName)} FROM ${from}`;
+}
+
+function cumulativeSql(from: string, op: CumulativeOp): string {
+  const num = `TRY_CAST(${sqlIdent(op.column)} AS DOUBLE)`;
+  const frame = "ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW";
+  const fn = { sum: "sum", prod: "product", max: "max", min: "min" }[op.func];
+  const expr = `${fn}(${num}) OVER (${frame})`;
+  return `SELECT *, ${expr} AS ${sqlIdent(op.outputName)} FROM ${from}`;
+}
+
+function lagSql(from: string, op: LagOp): string {
+  const num = `TRY_CAST(${sqlIdent(op.column)} AS DOUBLE)`;
+  const n = op.periods ?? 1;
+  const prev = `lag(${num}, ${n}) OVER ()`;
+  let expr: string;
+  if (op.mode === "shift") {
+    expr = prev;
+  } else if (op.mode === "diff") {
+    expr = `${num} - ${prev}`;
+  } else {
+    expr = `(${num} - ${prev}) / nullif(${prev}, 0)`;
+  }
+  return `SELECT *, ${expr} AS ${sqlIdent(op.outputName)} FROM ${from}`;
+}
+
+function rollingSql(from: string, op: RollingOp): string {
+  const num = `TRY_CAST(${sqlIdent(op.column)} AS DOUBLE)`;
+  const frame = `ROWS BETWEEN ${op.size - 1} PRECEDING AND CURRENT ROW`;
+  // count over the same frame so the leading rows (fewer than size) read NULL,
+  // matching pandas rolling with the default min_periods.
+  const fn = `${op.func}(${num}) OVER (${frame})`;
+  const guard = `count(${num}) OVER (${frame})`;
+  const expr = `CASE WHEN ${guard} >= ${op.size} THEN ${fn} ELSE NULL END`;
+  return `SELECT *, ${expr} AS ${sqlIdent(op.outputName)} FROM ${from}`;
+}
+
+function isinSql(from: string, op: IsInOp): string {
+  const ref = `CAST(${sqlIdent(op.column)} AS VARCHAR)`;
+  if (op.values.length === 0) return `SELECT * FROM ${from} WHERE ${op.negate ? "TRUE" : "FALSE"}`;
+  const set = op.values.map((v) => sqlStr(v)).join(", ");
+  const pred = `${ref} IN (${set})`;
+  return `SELECT * FROM ${from} WHERE ${op.negate ? `NOT (${pred})` : pred}`;
+}
+
+function betweenSql(from: string, op: BetweenOp): string {
+  const num = `TRY_CAST(${sqlIdent(op.column)} AS DOUBLE)`;
+  return `SELECT * FROM ${from} WHERE ${num} BETWEEN ${sqlNum(op.lower)} AND ${sqlNum(op.upper)}`;
+}
+
+function topnSql(from: string, op: TopNOp): string {
+  const num = `TRY_CAST(${sqlIdent(op.column)} AS DOUBLE)`;
+  const dir = op.which === "largest" ? "DESC" : "ASC";
+  // NULLS LAST so non-numeric / empty cells never crowd out a real top-N row.
+  return `SELECT * FROM ${from} ORDER BY ${num} ${dir} NULLS LAST LIMIT ${op.n}`;
+}
+
+function sampleSql(from: string, op: SampleOp): string {
+  const seed = op.seed !== undefined ? ` REPEATABLE (${op.seed})` : "";
+  if (op.mode === "fraction") {
+    const pct = Math.max(0, Math.min(1, op.fraction ?? 0)) * 100;
+    return `SELECT * FROM ${from} USING SAMPLE ${pct}%${seed}`;
+  }
+  return `SELECT * FROM ${from} USING SAMPLE ${op.n ?? 0} ROWS${seed}`;
+}
+
+function valueCountsSql(from: string, op: ValueCountsOp): string {
+  const ref = sqlIdent(op.column);
+  return (
+    `SELECT ${ref} AS value, count(*) AS count FROM ${from} ` +
+    `WHERE NOT (${ref} IS NULL OR CAST(${ref} AS VARCHAR) = '') ` +
+    `GROUP BY ${ref} ORDER BY count DESC`
+  );
+}
+
+function describeSql(from: string, op: DescribeOp): string {
+  // DuckDB SUMMARIZE produces the same descriptive stats per column. The exact
+  // long-to-statistic-rows shape differs from pandas describe, so this runs on
+  // the JS engine; SUMMARIZE is the closest show-the-code equivalent.
+  const subset =
+    op.columns && op.columns.length > 0
+      ? `(SELECT ${op.columns.map(sqlIdent).join(", ")} FROM ${from})`
+      : from;
+  return `SUMMARIZE ${subset} /* describe runs on the JS engine; SUMMARIZE is the SQL equivalent */`;
+}
+
+function crosstabSql(from: string, op: CrosstabOp): string {
+  // The spread column names are the distinct values of the column, only known at
+  // runtime, so crosstab runs on the JS engine (precedent: data-dependent pivot).
+  return (
+    `PIVOT ${from} ON ${sqlIdent(op.column)} USING count(*) GROUP BY ${sqlIdent(op.row)} ` +
+    `/* crosstab runs on the JS engine; PIVOT is the SQL equivalent (spread columns are data-dependent) */`
+  );
+}
+
+function pivotTableSql(from: string, op: PivotTableOp): string {
+  // The spread column names depend on the data, so pivot_table runs on the JS
+  // engine (same precedent as the reshape pivot op). PIVOT shows the equivalent.
+  const aggFn = { mean: "avg", sum: "sum", count: "count", min: "min", max: "max" }[op.agg];
+  const valExpr =
+    op.agg === "count" ? "*" : `TRY_CAST(${sqlIdent(op.value)} AS DOUBLE)`;
+  return (
+    `PIVOT ${from} ON ${sqlIdent(op.columns)} USING ${aggFn}(${valExpr}) GROUP BY ${sqlIdent(op.index)} ` +
+    `/* pivot_table runs on the JS engine; PIVOT is the SQL equivalent (spread columns are data-dependent) */`
+  );
+}
+
+// ---------------------------------------------------------------------------
 // A whole recipe -> one DuckDB query over a source relation
 // ---------------------------------------------------------------------------
 
@@ -907,10 +1113,27 @@ function nextColumnNames(
       const names = op.parts.map((p) => `${op.column}_${p}`);
       return [...current, ...names.filter((n) => !current.includes(n))];
     }
+    case "bin":
+    case "rank":
+    case "cumulative":
+    case "lag":
+    case "rolling":
+      return current.includes(op.outputName) ? current : [...current, op.outputName];
+    case "value_counts":
+      return ["value", "count"];
+    case "describe": {
+      const cols = op.columns && op.columns.length > 0 ? op.columns : current;
+      return ["statistic", ...cols];
+    }
+    case "crosstab":
+      return [op.row];
+    case "pivot_table":
+      return [op.index];
     // join / union add columns we cannot name from here; pivot's spread columns
     // are data-dependent; sort / filter / dedupe / transpose / the folded column
-    // transforms / fillna / dropna / set-where / astype / to-date do not add or
-    // rename a column. Keep the current list.
+    // transforms / fillna / dropna / set-where / astype / to-date / clip / round /
+    // map / isin / between / topn / sample do not add or rename a column. Keep the
+    // current list.
     default:
       return current;
   }

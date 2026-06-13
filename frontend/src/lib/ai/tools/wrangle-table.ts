@@ -167,6 +167,71 @@ const OP_META: Record<TransformOp["kind"], { label: string; blurb: string }> = {
     label: "Extract date parts",
     blurb: "Pull the year, month, day, weekday, or hour out of a date column into new columns.",
   },
+  clip: {
+    label: "Clip to range",
+    blurb: "Clamp a numeric column so values stay within a low and high bound.",
+  },
+  round: {
+    label: "Round",
+    blurb: "Round a numeric column to a number of decimal places.",
+  },
+  bin: {
+    label: "Bin into categories",
+    blurb:
+      "Cut a numeric column into labeled bins, by explicit ranges or by equal-frequency quantiles.",
+  },
+  map: {
+    label: "Map via lookup",
+    blurb: "Replace values in a column using a key to value lookup, with an optional fallback.",
+  },
+  rank: {
+    label: "Rank",
+    blurb: "Rank a numeric column ascending or descending into a new column.",
+  },
+  cumulative: {
+    label: "Running total",
+    blurb: "Running sum, product, max, or min of a numeric column into a new column.",
+  },
+  lag: {
+    label: "Shift / diff / pct change",
+    blurb: "Shift a column by rows, or take the row-to-row difference or percent change.",
+  },
+  rolling: {
+    label: "Rolling window",
+    blurb: "Rolling mean, sum, min, or max of a numeric column over a fixed window.",
+  },
+  isin: {
+    label: "Keep rows in set",
+    blurb: "Keep (or drop) rows whose column value is in a set of values.",
+  },
+  between: {
+    label: "Keep rows between",
+    blurb: "Keep rows whose numeric column value falls between a low and high bound.",
+  },
+  topn: {
+    label: "Top N by column",
+    blurb: "Keep the N rows with the largest or smallest value in a column.",
+  },
+  sample: {
+    label: "Random sample",
+    blurb: "Take a random sample of rows, by exact count or by fraction.",
+  },
+  value_counts: {
+    label: "Value counts",
+    blurb: "Count how many times each distinct value appears in a column.",
+  },
+  describe: {
+    label: "Describe",
+    blurb: "Summary statistics (count, mean, std, min, quartiles, max) for the numeric columns.",
+  },
+  crosstab: {
+    label: "Cross-tabulate",
+    blurb: "Count co-occurrences of two columns into a row-by-column table.",
+  },
+  pivot_table: {
+    label: "Pivot table",
+    blurb: "Group by an index, spread one column across new columns, and aggregate a value.",
+  },
 };
 
 // The set of valid op kinds, derived from OP_META so the two never drift.
