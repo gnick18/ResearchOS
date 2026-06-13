@@ -36,6 +36,7 @@ import {
   getOrCreateDeviceKey,
   getDeviceX25519PubHex,
 } from '@/lib/device-identity';
+import { registerPushToken } from '@/lib/push-token';
 
 // Canonical grant string, copied verbatim from the relay contract
 // (relay/scripts/smoke-capture.mjs / relay/src/worker.ts). Must stay byte
@@ -179,13 +180,19 @@ export default function PairScreen() {
           typeof body.userX25519PubHex === 'string'
             ? body.userX25519PubHex
             : userX25519PubHex;
-        await setPairing({
+        const paired = await setPairing({
           u: grant.u,
           relayUrl: base,
           devicePubkey: device.devicePubHex,
           labName,
           userX25519PubHex: userX25519FromResponse,
         });
+        // Register this phone's Expo push token so phone-routed notifications can
+        // buzz it (phone push P1). Fire and forget: it prompts for the OS
+        // notification grant and reaches the relay over the device-signed route,
+        // and a denied grant or Expo Go just means no buzz, never a pairing
+        // failure. Pairing has already succeeded by here.
+        void registerPushToken(paired);
         router.back();
       } catch {
         fail('Could not reach the relay. Check your connection and try again.');

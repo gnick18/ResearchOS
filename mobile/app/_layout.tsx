@@ -1,5 +1,5 @@
 import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
-import { Stack } from 'expo-router';
+import { Stack, useRouter } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
 import { useCallback, useEffect, useState } from 'react';
@@ -48,9 +48,34 @@ export const unstable_settings = {
 
 export default function RootLayout() {
   const colorScheme = useColorScheme();
+  const router = useRouter();
   // Floating mascot is opt-in (default off). The code stays mounted-capable;
   // this just gates whether it renders. Toggle lives on the Settings screen.
   const [mascotPrefs] = useMascotPrefs();
+
+  // Phone push P1 tap-to-open. A generic wake-and-fetch buzz carries only
+  // data.kind = "notifications" (never content); tapping it opens the
+  // notifications screen, which fetches + locally decrypts the sealed snapshot.
+  // Guarded so a missing native module never breaks startup.
+  useEffect(() => {
+    let Notifications: typeof import('expo-notifications') | null = null;
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      Notifications = require('expo-notifications');
+    } catch {
+      return;
+    }
+    if (!Notifications) return;
+    const sub = Notifications.addNotificationResponseReceivedListener((response) => {
+      const data = response?.notification?.request?.content?.data as
+        | { kind?: unknown }
+        | undefined;
+      if (data?.kind === 'notifications') {
+        router.push('/notifications');
+      }
+    });
+    return () => sub.remove();
+  }, [router]);
 
   // Branded launch handoff. We hide the native splash once the first frame is
   // ready and mount AppSplash over the app. The app renders underneath the whole
