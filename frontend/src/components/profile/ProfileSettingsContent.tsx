@@ -23,6 +23,7 @@ import SharingSection, {
 import CloudStorageLauncher from "@/components/billing/CloudStorageLauncher";
 import { useFileSystem } from "@/lib/file-system/file-system-context";
 import { useSharingIdentity } from "@/hooks/useSharingIdentity";
+import { useAccountCapabilities } from "@/hooks/useAccountCapabilities";
 import { useAppStore } from "@/lib/store";
 import { listInbox } from "@/lib/sharing/relay/client";
 import { USER_COLOR_QUERY_KEY } from "@/hooks/useUserColor";
@@ -35,6 +36,9 @@ import {
 export default function ProfileSettingsContent() {
   const { currentUser, isConnected } = useFileSystem();
   const sharing = useSharingIdentity();
+  // Capability gates (account/cloud/inbox) route through the unified model;
+  // sharing is kept only for the identity DATA read (email) below.
+  const caps = useAccountCapabilities();
   const queryClient = useQueryClient();
   const hydrateFromSettings = useAppStore((s) => s.hydrateFromSettings);
 
@@ -65,12 +69,12 @@ export default function ProfileSettingsContent() {
   const sharingInbox = useQuery({
     queryKey: ["sharing-inbox", sharing.email],
     queryFn: () => listInbox({ email: sharing.email as string }),
-    enabled: sharing.status === "ready" && !!sharing.email,
+    enabled: caps.canAccessInbox,
     staleTime: 30_000,
     retry: false,
   });
   const pendingShareCount =
-    sharing.status === "ready" &&
+    caps.canAccessInbox &&
     !sharingInbox.isError &&
     sharingInbox.data !== undefined
       ? sharingInbox.data.length
@@ -154,13 +158,13 @@ export default function ProfileSettingsContent() {
       {/* Researcher profile (public) leads when the key is on this device, it
           is the friendly thing people edit most. The technical "Account and
           keys" identity, inbox, and storage sit below it. */}
-      {sharing.status === "ready" && <ProfileEditorCard />}
+      {caps.mode === "account" && <ProfileEditorCard />}
 
       {/* Cloud storage glance + entry into the consolidated billing popup, right
           under your profile, above the technical account/keys section. The popup
           owns all billing (solo cap + payment + lab sponsorship). Self-hides for
           local-only users. */}
-      {sharing.status === "ready" && <CloudStorageLauncher />}
+      {caps.canUseCloud && <CloudStorageLauncher />}
 
       {/* Account and keys + Inbox and storage + Cloud storage (moved here from
           Settings, 2026-06-06, this is your account, not an app setting). When
@@ -170,7 +174,7 @@ export default function ProfileSettingsContent() {
           the same flow the shared-folder login gate uses. Publishing a findable
           profile (OAuth, or email) becomes the optional secondary step, offered
           by SharingSection once the keypair exists. */}
-      {sharing.status === "none" ? (
+      {caps.mode === "solo" ? (
         <section className="bg-surface-raised rounded-xl border border-border p-6">
           <div className="mb-4">
             <h2 className="text-title font-semibold text-foreground">

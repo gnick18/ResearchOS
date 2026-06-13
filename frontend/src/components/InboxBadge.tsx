@@ -15,7 +15,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { fileService } from "@/lib/file-system/file-service";
 import { imageEvents } from "@/lib/attachments/image-events";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
-import { useSharingIdentity } from "@/hooks/useSharingIdentity";
+import { useAccountCapabilities } from "@/hooks/useAccountCapabilities";
 import { listInbox } from "@/lib/sharing/relay/client";
 import InboxPanel from "./InboxPanel";
 
@@ -30,7 +30,9 @@ const SHARES_POLL_MS = 3 * 60 * 1000;
 
 export default function InboxBadge() {
   const { currentUser } = useCurrentUser();
-  const { isReady, email } = useSharingIdentity();
+  // Inbox access (account + a published email) comes from the unified
+  // capability model, so the badge gates the same way every other surface does.
+  const { canAccessInbox, email } = useAccountCapabilities();
   const [photosCount, setPhotosCount] = useState(0);
   const [sharesCount, setSharesCount] = useState(0);
   const [open, setOpen] = useState(false);
@@ -62,7 +64,7 @@ export default function InboxBadge() {
 
   // ── Shares: polled refresh (open / focus / interval), gated on identity. ────
   const refreshShares = useCallback(async () => {
-    if (!isReady || !email) {
+    if (!canAccessInbox || !email) {
       setSharesCount(0);
       return;
     }
@@ -73,7 +75,7 @@ export default function InboxBadge() {
       // A relay hiccup must not break the badge; keep the last known count.
       console.warn("[inbox] badge share-count poll failed:", err);
     }
-  }, [isReady, email]);
+  }, [canAccessInbox, email]);
 
   // Keep the latest refreshShares in a ref so the focus / interval listeners
   // don't need to re-bind on every identity change.
@@ -82,7 +84,7 @@ export default function InboxBadge() {
 
   // Initial + identity-change load, plus the gentle interval and focus refresh.
   useEffect(() => {
-    if (!isReady || !email) {
+    if (!canAccessInbox || !email) {
       setSharesCount(0);
       return;
     }
@@ -97,7 +99,7 @@ export default function InboxBadge() {
       window.clearInterval(interval);
       window.removeEventListener("focus", onFocus);
     };
-  }, [isReady, email, refreshShares]);
+  }, [canAccessInbox, email, refreshShares]);
 
   // Refresh shares on panel open so the count is fresh when the user looks.
   useEffect(() => {

@@ -79,6 +79,7 @@ import {
   useSettingsSearch,
 } from "./search-context";
 import { useSharingIdentity } from "@/hooks/useSharingIdentity";
+import { useAccountCapabilities } from "@/hooks/useAccountCapabilities";
 import SettingsShell, {
   type SettingsGroupDef,
 } from "@/components/settings/SettingsShell";
@@ -212,6 +213,9 @@ function SettingsBodyInner({
   // surface (2026-06-06), it is "your account", not an app setting. Settings
   // keeps only `sharing` (read) for the ProfilePointerCard + SecuritySection.
   const sharing = useSharingIdentity();
+  // Account gating reads the unified capability model; `sharing` is kept for the
+  // genuine identity reads it feeds DevicesSection (status + refresh).
+  const caps = useAccountCapabilities();
   // floating-cluster-split bot (2026-06-02): the Data-folder + Switch-user
   // CONFIG actions relocated here from the AppShell floating cluster. Each
   // opens the same self-contained modal/screen the floating buttons used.
@@ -365,7 +369,7 @@ function SettingsBodyInner({
   // group) and show one gentle "what an account adds" callout instead, so the
   // surface is tuned to what they can actually use. `status === "ready"` is the
   // same has-an-account signal NotificationsSection + DevicesSection gate on.
-  const hasAccount = sharing.status === "ready";
+  const hasAccount = caps.mode === "account";
 
   const groups: SettingsGroupDef[] = [
     {
@@ -398,10 +402,7 @@ function SettingsBodyInner({
               />
               <SecuritySection
                 pwExists={pwExists}
-                claimed={
-                  sharing.status === "ready" ||
-                  sharing.status === "needs-restore"
-                }
+                claimed={caps.mode !== "solo"}
                 onOpen={() => setPwOpen(true)}
               />
             </>

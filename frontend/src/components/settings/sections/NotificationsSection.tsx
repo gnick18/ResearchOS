@@ -3,7 +3,7 @@
 import { useState } from "react";
 
 import type { UserSettings } from "@/lib/settings/user-settings";
-import { useSharingIdentity } from "@/hooks/useSharingIdentity";
+import { useAccountCapabilities } from "@/hooks/useAccountCapabilities";
 import {
   DEFAULT_NOTIFICATION_PREFERENCES,
   NOTIFICATION_CATEGORIES,
@@ -79,8 +79,10 @@ export default function NotificationsSection({
   settings: UserSettings;
   update: (patch: Partial<UserSettings>) => Promise<void>;
 }) {
-  const { status } = useSharingIdentity();
-  const hasAccount = status === "ready";
+  // Email + phone are account-only channels; gate them through the unified
+  // capability model so this matches every other account-gated surface.
+  const { mode } = useAccountCapabilities();
+  const hasAccount = mode === "account";
 
   const prefs = normalizeNotificationPreferences(
     settings.notificationPreferences ?? DEFAULT_NOTIFICATION_PREFERENCES,
