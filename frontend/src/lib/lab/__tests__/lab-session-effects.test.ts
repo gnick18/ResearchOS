@@ -39,6 +39,7 @@ vi.mock("@/lib/sharing/identity/session-key", () => ({
 
 vi.mock("@/lib/lab/lab-do-client", () => ({
   getLabRemote: vi.fn(),
+  resyncLabRemote: vi.fn().mockResolvedValue(true),
 }));
 
 vi.mock("@/lib/lab/lab-key", () => ({
@@ -61,7 +62,7 @@ import {
   isSessionUnlocked,
   getSessionIdentity,
 } from "@/lib/sharing/identity/session-key";
-import { getLabRemote } from "@/lib/lab/lab-do-client";
+import { getLabRemote, resyncLabRemote } from "@/lib/lab/lab-do-client";
 import { openLabKeyCopy } from "@/lib/lab/lab-key";
 import type { LabKeyEnvelope } from "@/lib/lab/lab-key";
 import { verifyMemberEmailBinding } from "@/lib/lab/lab-binding";
@@ -274,6 +275,11 @@ describe("openLabKey", () => {
     );
     expect(result.member.username).toBe(USERNAME);
     expect(result.member.labId).toBe(LAB_ID);
+
+    // A successful login triggers a best-effort billing resync for this lab, so
+    // a member whose directory binding only just landed gets reconciled into the
+    // shared pool (closing the head-added-before-bind timing race).
+    expect(resyncLabRemote).toHaveBeenCalledWith(LAB_ID);
   });
 
   it("hard-rejects the login when the OAuth-email binding fails (Phase 8a)", async () => {

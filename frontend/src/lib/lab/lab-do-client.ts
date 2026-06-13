@@ -210,3 +210,23 @@ export async function getLabRemote(
   }
   return (await res.json()) as GetLabResult;
 }
+
+/**
+ * Asks the relay to re-report this lab's current roster to the Vercel billing
+ * reconcile endpoint, without any membership change. POSTs /lab/resync?lab=<id>.
+ *
+ * A member calls this right after their directory auto-bind lands on their first
+ * lab login, so the billing pool reconciles again now that their pubkey resolves
+ * to an email hash (the initial reconcile, fired when the head added them, ran
+ * before the binding existed and skipped them). Best-effort: it never throws, so
+ * a relay hiccup can never block the login flow that triggers it.
+ */
+export async function resyncLabRemote(labId: string): Promise<boolean> {
+  try {
+    ensureEnabled();
+    const res = await postJson(`/lab/resync?lab=${encodeURIComponent(labId)}`, {});
+    return res.ok;
+  } catch {
+    return false;
+  }
+}

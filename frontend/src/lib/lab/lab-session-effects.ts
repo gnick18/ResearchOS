@@ -49,7 +49,7 @@ import {
   getSessionIdentity,
 } from "@/lib/sharing/identity/session-key";
 import { restoreSessionFromStore } from "@/lib/sharing/identity/storage";
-import { getLabRemote } from "./lab-do-client";
+import { getLabRemote, resyncLabRemote } from "./lab-do-client";
 import { openLabKeyCopy } from "./lab-key";
 import { verifyMemberEmailBinding } from "./lab-binding";
 import { autoBindLabProfile } from "./lab-profile-auto-bind";
@@ -260,6 +260,15 @@ export function createLabSessionEffects(params: {
       } catch {
         // best-effort profile bind, swallow all errors
       }
+
+      // Step 5b: ask the relay to re-report this lab's roster to the billing
+      // reconcile endpoint. This closes a timing race where the head added this
+      // member to the log (firing reconcile) BEFORE the member's auto-bind above
+      // had ever landed, so that first reconcile could not resolve their pubkey
+      // and skipped them. Triggering on every login is idempotent and cheap, so
+      // it also self-heals any member whose earlier resync did not land. Fully
+      // best-effort: a relay error must never block the login.
+      void resyncLabRemote(labId);
 
       // Step 6: assemble and return the live-session payload.
       const signingKeyPair: LabSigningKeyPair = {
