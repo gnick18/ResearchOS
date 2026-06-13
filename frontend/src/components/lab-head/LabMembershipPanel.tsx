@@ -12,10 +12,13 @@
 //
 // No emojis, no em-dashes, no mid-sentence colons.
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { useLabSession } from "@/hooks/useLabSession";
 import { getSessionIdentity } from "@/lib/sharing/identity/session-key";
+import { isRealSharingEnabled } from "@/lib/sharing/oauth-availability";
+import { readUserSettings } from "@/lib/settings/user-settings";
+import { Icon } from "@/components/icons";
 import {
   mintInviteForHead,
   loadPendingAccepts,
@@ -43,6 +46,27 @@ interface DirJoinRequest {
   createdAt: string;
 }
 
+/**
+ * One matching researcher from GET /api/directory/search. The directory NEVER
+ * returns an email (privacy by design), so a directory invite cannot be mailed.
+ * We mint a copyable link for the PI to deliver out of band instead.
+ */
+interface DirSearchResult {
+  fingerprint: string;
+  displayName: string;
+  affiliation: string | null;
+  affiliationDomain: string | null;
+}
+
+/**
+ * Where the by-email invite currently stands. The mint always succeeds locally,
+ * the email send is best effort, so a failure still leaves the copyable link.
+ */
+type EmailInvite =
+  | { status: "sent"; email: string; link: string }
+  | { status: "failed"; email: string; link: string }
+  | { status: "link-only"; email: string; link: string };
+
 export default function LabMembershipPanel() {
   const { currentUser } = useCurrentUser();
   const session = useLabSession();
@@ -66,6 +90,48 @@ export default function LabMembershipPanel() {
   // emailHash -> minted invite link, shown after approving so the PI can deliver
   // it to the approved researcher (auto-delivery to their inbox is a follow-up).
   const [approvedLinks, setApprovedLinks] = useState<Record<string, string>>({});
+
+  // Add-a-member: search the directory for an existing account.
+  const [searchQ, setSearchQ] = useState("");
+  const [searchResults, setSearchResults] = useState<DirSearchResult[] | null>(
+    null,
+  );
+  // fingerprint -> minted link for a directory match (no email to mail to).
+  const [searchLinks, setSearchLinks] = useState<Record<string, string>>({});
+
+  // Add-a-member: invite any email address.
+  const [inviteEmail, setInviteEmail] = useState("");
+  const [emailInvite, setEmailInvite] = useState<EmailInvite | null>(null);
+
+  // The head's display label for the email body. Read once from settings, with
+  // the username as a calm fallback. Editable lab name is prefilled from it so
+  // the email reads well without any new persisted field.
+  const [senderLabel, setSenderLabel] = useState<string>(currentUser ?? "");
+  const [labName, setLabName] = useState<string>("");
+  const [labNameTouched, setLabNameTouched] = useState(false);
+
+  const sharingOn = isRealSharingEnabled();
+
+  useEffect(() => {
+    if (!currentUser) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const settings = await readUserSettings(currentUser);
+        if (cancelled) return;
+        const label = settings.displayName?.trim() || currentUser;
+        setSenderLabel(label);
+        setLabName((cur) => (labNameTouched || cur ? cur : `${label}'s lab`));
+      } catch {
+        // Keep the username fallback already in state.
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+    // labNameTouched intentionally excluded: we only seed the default once.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentUser]);
 
   if (!labId || !currentUser) {
     return (
@@ -118,6 +184,78 @@ export default function LabMembershipPanel() {
       setError("Could not copy. Select the link and copy it manually.");
     }
   };
+
+  const mintLink = () =>
+    mintInviteForHead({
+      labId,
+      username: currentUser,
+      identity: requireIdentity(),
+      origin: window.location.origin,
+    }).link;
+
+  /** POST the minted link to the recipient's inbox. Best effort. */
+  const deliverInviteEmail = async (toEmail: string, inviteUrl: string) => {
+    const res = await fetch("/api/lab/invite-email", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify({
+        toEmail,
+        senderLabel: senderLabel.trim() || currentUser,
+        labName: labName.trim() || `${currentUser}'s lab`,
+        inviteUrl,
+      }),
+    });
+    if (!res.ok) throw new Error(`invite email failed (HTTP ${res.status})`);
+  };
+
+  const searchDirectory = () =>
+    run("search", async () => {
+      const q = searchQ.trim();
+      if (!q) {
+        setSearchResults([]);
+        return;
+      }
+      const res = await fetch(
+        `/api/directory/search?q=${encodeURIComponent(q)}`,
+        { credentials: "include" },
+      );
+      if (res.status === 404) {
+        throw new Error("Directory search is off in this deployment.");
+      }
+      if (!res.ok) throw new Error("Could not search the directory.");
+      const j = (await res.json()) as { results?: DirSearchResult[] };
+      setSearchResults(j.results ?? []);
+    });
+
+  // Directory matches carry no email, so an invite here mints a copyable link
+  // for the PI to deliver (a sent-to-inbox path needs the recipient's address,
+  // which the directory deliberately withholds).
+  const inviteDirectoryMatch = (r: DirSearchResult) =>
+    run(`search-${r.fingerprint}`, async () => {
+      const link = mintLink();
+      setSearchLinks((cur) => ({ ...cur, [r.fingerprint]: link }));
+    });
+
+  const inviteByEmail = () =>
+    run("email", async () => {
+      const email = inviteEmail.trim();
+      if (!email) throw new Error("Enter an email address to invite.");
+      const link = mintLink();
+      if (!sharingOn) {
+        // Email infra is dark in this deployment, hand over the copyable link.
+        setEmailInvite({ status: "link-only", email, link });
+        return;
+      }
+      try {
+        await deliverInviteEmail(email, link);
+        setEmailInvite({ status: "sent", email, link });
+        setInviteEmail("");
+      } catch {
+        // Mint succeeded, send did not. Leave the link so the PI can deliver it.
+        setEmailInvite({ status: "failed", email, link });
+      }
+    });
 
   const refresh = () =>
     run("refresh", async () => {
@@ -180,19 +318,256 @@ export default function LabMembershipPanel() {
 
   return (
     <div className="space-y-6">
-      {/* Invite a member */}
+      {/* Add a member: PI-initiated invite, two paths (directory + email). */}
+      <div className="space-y-4">
+        <div className="space-y-1">
+          <h4 className="flex items-center gap-2 text-body font-medium text-foreground">
+            <Icon name="userPlus" className="h-4 w-4" />
+            Add a member
+          </h4>
+          <p className="text-meta text-foreground-muted leading-relaxed">
+            Look up an existing ResearchOS account, or invite anyone by email.
+            The person you invite signs in with any provider, and that address
+            binds to their membership. No one joins until you add them below.
+          </p>
+        </div>
+
+        {/* Path 1: search the directory for an existing account. */}
+        <div className="space-y-2">
+          <label className="block text-meta font-medium text-foreground">
+            Search the directory
+          </label>
+          <form
+            className="flex items-stretch gap-2"
+            onSubmit={(e) => {
+              e.preventDefault();
+              if (busy === null) searchDirectory();
+            }}
+          >
+            <div className="relative flex-1">
+              <span className="pointer-events-none absolute inset-y-0 left-2 flex items-center text-foreground-subtle">
+                <Icon name="search" className="h-4 w-4" />
+              </span>
+              <input
+                type="text"
+                value={searchQ}
+                onChange={(e) => setSearchQ(e.target.value)}
+                placeholder="Name or affiliation"
+                className="w-full rounded-md border border-border bg-surface py-2 pl-8 pr-3 text-meta text-foreground placeholder:text-foreground-subtle"
+              />
+            </div>
+            <button
+              type="submit"
+              disabled={busy !== null || !searchQ.trim()}
+              className={secondaryBtn}
+            >
+              {busy === "search" ? "Searching..." : "Search"}
+            </button>
+          </form>
+
+          {!sharingOn && (
+            <p className="text-meta text-foreground-subtle leading-relaxed">
+              The researcher directory is off in this deployment, so search and
+              email delivery are unavailable. The invite link below still works.
+            </p>
+          )}
+
+          {searchResults !== null && searchResults.length === 0 && (
+            <p className="text-meta text-foreground-muted leading-relaxed">
+              No matching accounts. Invite them by email instead.
+            </p>
+          )}
+
+          {searchResults !== null && searchResults.length > 0 && (
+            <ul className="divide-y divide-border rounded-md border border-border">
+              {searchResults.map((r) => {
+                const minted = searchLinks[r.fingerprint];
+                return (
+                  <li key={r.fingerprint} className="px-3 py-2">
+                    <div className="flex items-center justify-between gap-3">
+                      <span className="min-w-0 text-meta text-foreground">
+                        <span className="font-medium">{r.displayName}</span>
+                        {r.affiliation && (
+                          <span className="text-foreground-subtle">
+                            {" "}
+                            {r.affiliation}
+                          </span>
+                        )}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => inviteDirectoryMatch(r)}
+                        disabled={busy !== null || Boolean(minted)}
+                        className={secondaryBtn}
+                      >
+                        {busy === `search-${r.fingerprint}`
+                          ? "Inviting..."
+                          : minted
+                            ? "Link ready"
+                            : "Invite"}
+                      </button>
+                    </div>
+                    {minted && (
+                      <div className="mt-2 space-y-1">
+                        <div className="flex items-center gap-2">
+                          <input
+                            readOnly
+                            value={minted}
+                            onFocus={(e) => e.currentTarget.select()}
+                            className="flex-1 truncate rounded border border-border bg-surface px-2 py-1 text-meta text-foreground-muted"
+                          />
+                          <button
+                            type="button"
+                            onClick={() =>
+                              void navigator.clipboard.writeText(minted)
+                            }
+                            className={secondaryBtn}
+                          >
+                            Copy
+                          </button>
+                        </div>
+                        <p className="text-meta text-foreground-subtle leading-relaxed">
+                          Directory profiles do not expose an email, so send this
+                          link to {r.displayName} yourself. It expires in 7 days.
+                        </p>
+                      </div>
+                    )}
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </div>
+
+        {/* Path 2: invite any email address, delivered to the inbox. */}
+        <div className="space-y-2">
+          <label
+            htmlFor="lab-invite-email"
+            className="block text-meta font-medium text-foreground"
+          >
+            Invite by email
+          </label>
+          <form
+            className="flex items-stretch gap-2"
+            onSubmit={(e) => {
+              e.preventDefault();
+              if (busy === null) inviteByEmail();
+            }}
+          >
+            <div className="relative flex-1">
+              <span className="pointer-events-none absolute inset-y-0 left-2 flex items-center text-foreground-subtle">
+                <Icon name="mail" className="h-4 w-4" />
+              </span>
+              <input
+                id="lab-invite-email"
+                type="email"
+                value={inviteEmail}
+                onChange={(e) => setInviteEmail(e.target.value)}
+                placeholder="name@university.edu"
+                className="w-full rounded-md border border-border bg-surface py-2 pl-8 pr-3 text-meta text-foreground placeholder:text-foreground-subtle"
+              />
+            </div>
+            <button
+              type="submit"
+              disabled={busy !== null || !inviteEmail.trim()}
+              className={primaryBtn}
+            >
+              {busy === "email"
+                ? "Sending..."
+                : sharingOn
+                  ? "Send invite"
+                  : "Create link"}
+            </button>
+          </form>
+
+          {sharingOn && (
+            <div className="flex items-center gap-2">
+              <label
+                htmlFor="lab-invite-labname"
+                className="shrink-0 text-meta text-foreground-subtle"
+              >
+                Lab name in the email
+              </label>
+              <input
+                id="lab-invite-labname"
+                type="text"
+                value={labName}
+                onChange={(e) => {
+                  setLabName(e.target.value);
+                  setLabNameTouched(true);
+                }}
+                placeholder="the Nickles Lab"
+                className="flex-1 rounded-md border border-border bg-surface px-2 py-1 text-meta text-foreground placeholder:text-foreground-subtle"
+              />
+            </div>
+          )}
+
+          {emailInvite && (
+            <div className="space-y-2">
+              {emailInvite.status === "sent" && (
+                <p className="flex items-center gap-2 text-meta text-foreground leading-relaxed">
+                  <Icon
+                    name="check"
+                    className="h-4 w-4 text-emerald-600 shrink-0"
+                  />
+                  Invite sent to {emailInvite.email}. They join once you add them
+                  below.
+                </p>
+              )}
+              {emailInvite.status === "failed" && (
+                <p className="text-meta text-foreground-muted leading-relaxed">
+                  We could not email {emailInvite.email} just now. The invite link
+                  is ready below, send it to them yourself.
+                </p>
+              )}
+              {emailInvite.status === "link-only" && (
+                <p className="text-meta text-foreground-muted leading-relaxed">
+                  Email delivery is off in this deployment. Copy the invite link
+                  below and send it to {emailInvite.email}.
+                </p>
+              )}
+              {emailInvite.status !== "sent" && (
+                <div className="flex items-center gap-2">
+                  <input
+                    readOnly
+                    value={emailInvite.link}
+                    onFocus={(e) => e.currentTarget.select()}
+                    className="flex-1 truncate rounded border border-border bg-surface px-2 py-1 text-meta text-foreground-muted"
+                  />
+                  <button
+                    type="button"
+                    onClick={() =>
+                      void navigator.clipboard.writeText(emailInvite.link)
+                    }
+                    className={secondaryBtn}
+                  >
+                    Copy
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      </div>
+
+      <hr className="border-border" />
+
+      {/* Invite link (manual fallback): share a generic one-time link yourself. */}
       <div className="space-y-3">
+        <h4 className="text-body font-medium text-foreground">
+          Or share an invite link
+        </h4>
         <p className="text-meta text-foreground-muted leading-relaxed">
-          Invite a member by sharing a one-time link. They open it, sign in with
-          any provider they like, and request to join. You add them below. The
-          email they sign in with is bound to their membership, whatever address
-          you sent the link to.
+          Mint a one-time link and share it however you like (chat, a printed
+          QR, in person). They open it, sign in with any provider, and request
+          to join. The email they sign in with is bound to their membership,
+          whatever address you sent the link to.
         </p>
         <button
           type="button"
           onClick={createLink}
           disabled={busy !== null}
-          className={primaryBtn}
+          className={secondaryBtn}
         >
           {busy === "link" ? "Creating..." : "Create invite link"}
         </button>
