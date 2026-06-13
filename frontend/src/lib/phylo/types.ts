@@ -69,6 +69,29 @@ export interface PhyloFigureSpec {
   branchColorColumn?: string;
 }
 
+/**
+ * One highlighted / labeled clade, stored in the clade layer's `options.clades`.
+ * Defined BY TIP NAME (the headline QOL: name the members, the MRCA resolves the
+ * clade root, so you never hunt for a node on a large tree) or by an explicit
+ * node id. Carried on the loose `AlignedPanel.options` seam, so no new on-disk
+ * field. An empty / absent clades array falls back to the legacy single
+ * auto-highlight, so an older figure is unchanged.
+ */
+export interface CladeAnnotation {
+  /** Stable id within the figure (React key + edit target). */
+  id: string;
+  /** Clade members by tip NAME; the MRCA of these is the clade root. */
+  tips?: string[];
+  /** Or a direct node id (e.g. picked on the tree), taking precedence over tips. */
+  node?: number;
+  /** Highlight fill / label color. */
+  color: string;
+  /** A label drawn at the clade. */
+  label: string;
+  /** Collapse the clade to a triangle (geom_collapse). Wave 2 follow-on. */
+  collapsed?: boolean;
+}
+
 /** The geom catalog a layer can be, grows over phases. */
 export type AlignedPanelKind =
   | "labels"

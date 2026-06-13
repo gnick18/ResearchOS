@@ -645,6 +645,7 @@ export function PhyloStudio({ initialTreeId }: { initialTreeId?: string } = {}) 
           panels={panels}
           selectedId={selectedLayerId}
           columns={metaColumns.filter((c) => c !== tipColumn)}
+          tipNames={tips.map((t) => t.name)}
           treeSummary={`${phylogram ? "phylogram" : "cladogram"}, ${layout}`}
           appliedTemplate={appliedTemplate}
           onChange={editPanels}

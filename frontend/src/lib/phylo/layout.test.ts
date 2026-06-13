@@ -5,6 +5,7 @@ import {
   layoutCircular,
   ladderize,
   collapseClade,
+  mrca,
   rerootOnNode,
   midpointRoot,
   parseCsv,
@@ -88,6 +89,45 @@ describe("ladderize", () => {
     const before = t.children.map((c) => c.children.length);
     ladderize(t, true);
     expect(t.children.map((c) => c.children.length)).toEqual(before);
+  });
+});
+
+describe("mrca (find a clade by tip names)", () => {
+  // ((A,B),(C,D)): MRCA(A,B) is the left clade root; MRCA(A,C) is the whole-tree
+  // root; MRCA(A,B,C) is also the root; a missing name is undefinable.
+  const t = parseNewick("((A,B),(C,D));");
+  const idOf = (name: string) => leaves(t).find((l) => l.name === name)!.id;
+
+  it("finds the MRCA of two sister tips (the clade above them, not a tip)", () => {
+    const node = mrca(t, ["A", "B"]);
+    expect(node).not.toBeNull();
+    expect(node).not.toBe(idOf("A"));
+    expect(node).not.toBe(idOf("B"));
+    // The (A,B) clade has exactly tips A and B beneath it.
+    const found = (function find(n): TreeNode | null {
+      if (n.id === node) return n;
+      for (const c of n.children) {
+        const r = find(c);
+        if (r) return r;
+      }
+      return null;
+    })(t);
+    expect(leaves(found!).map((l) => l.name).sort()).toEqual(["A", "B"]);
+  });
+
+  it("MRCA of tips in different clades is the deeper shared ancestor", () => {
+    const ab = mrca(t, ["A", "B"]);
+    const ac = mrca(t, ["A", "C"]);
+    expect(ac).not.toBeNull();
+    expect(ac).not.toBe(ab); // A and C only meet at the root
+  });
+
+  it("returns null when a named tip is not in the tree", () => {
+    expect(mrca(t, ["A", "Nope"])).toBeNull();
+  });
+
+  it("returns null for an empty set", () => {
+    expect(mrca(t, [])).toBeNull();
   });
 });
 

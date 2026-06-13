@@ -32,6 +32,7 @@ import { CATEGORY_PALETTE } from "./render-palette";
 import {
   rectTipAxis,
   circularTipAxis,
+  mrca,
   type TipAxis,
 } from "./layout";
 import {
@@ -50,7 +51,7 @@ import {
   extractPanelValues,
   buildPanelScales,
 } from "./panels";
-import type { AlignedPanel } from "./types";
+import type { AlignedPanel, CladeAnnotation } from "./types";
 
 export { CATEGORY_PALETTE } from "./render-palette";
 
@@ -513,23 +514,22 @@ function drawRectTree(
   const byId = new Map(layout.nodes.map((p) => [p.node.id, p]));
   const plotRight = Math.max(...layout.nodes.map((p) => p.x));
   const showSupport = panels.some((p) => p.visible && p.kind === "support");
-  const cladePanel = panels.find((p) => p.visible && p.kind === "clade");
   const pointsPanel = panels.find((p) => p.visible && p.kind === "points");
 
-  if (cladePanel && spec.cladeHighlight) {
-    const cladeRoot = layout.nodes.find(
-      (p) => p.node.id === spec.cladeHighlight!.nodeId,
+  for (const hl of resolveCladeHighlights(root, panels, spec)) {
+    const cladeRoot = layout.nodes.find((p) => p.node.id === hl.nodeId);
+    if (!cladeRoot) continue;
+    const cl = leaves(cladeRoot.node).map((t) => byId.get(t.id)!);
+    if (cl.length === 0) continue;
+    const y0 = Math.min(...cl.map((c) => c.y)) - 12;
+    const y1 = Math.max(...cl.map((c) => c.y)) + 12;
+    parts.push(
+      `<rect x="12" y="${y0}" width="${plotRight + 6 - 12}" height="${y1 - y0}" rx="6" fill="${hl.color}" opacity="0.10"/>`,
     );
-    if (cladeRoot) {
-      const cl = leaves(cladeRoot.node).map((t) => byId.get(t.id)!);
-      if (cl.length > 0) {
-        const y0 = Math.min(...cl.map((c) => c.y)) - 12;
-        const y1 = Math.max(...cl.map((c) => c.y)) + 12;
-        parts.push(
-          `<rect x="12" y="${y0}" width="${plotRight + 6 - 12}" height="${y1 - y0}" rx="6" fill="${spec.cladeHighlight.color}" opacity="0.10"/>`,
-          `<text x="16" y="${y0 + 12}" font-size="10" font-weight="700" fill="${spec.cladeHighlight.color}">${esc(spec.cladeHighlight.label)}</text>`,
-        );
-      }
+    if (hl.label) {
+      parts.push(
+        `<text x="16" y="${y0 + 12}" font-size="10" font-weight="700" fill="${hl.color}">${esc(hl.label)}</text>`,
+      );
     }
   }
   for (const p of layout.nodes) {
@@ -580,6 +580,36 @@ function drawCircularTree(
   spec: RenderSpec,
   panels: AlignedPanel[],
 ): void {
+  // Clade highlights as annulus bands, drawn under the spine. Circular clade
+  // highlighting was deferred in Phase 1; it lands here with the multi-clade /
+  // MRCA model so a named clade highlights in either layout.
+  const highlights = resolveCladeHighlights(root, panels, spec);
+  if (highlights.length > 0) {
+    const byId = new Map(layout.nodes.map((p) => [p.node.id, p]));
+    for (const hl of highlights) {
+      const cladeRoot = byId.get(hl.nodeId);
+      if (!cladeRoot) continue;
+      const tips = leaves(cladeRoot.node).map((t) => byId.get(t.id)!);
+      if (tips.length === 0) continue;
+      const angles = tips.map((t) => t.angle);
+      const a0 = Math.min(...angles);
+      const a1 = Math.max(...angles);
+      const pad = Math.max(0.02, (a1 - a0) * 0.04);
+      const innerR = cladeRoot.radius;
+      const outerR = Math.max(...tips.map((t) => t.radius)) + 10;
+      parts.push(
+        arcBand(layout.cx, layout.cy, innerR, outerR, a0 - pad, a1 + pad, hl.color),
+      );
+      if (hl.label) {
+        const mid = (a0 + a1) / 2;
+        const lx = layout.cx + (outerR + 6) * Math.cos(mid - Math.PI / 2);
+        const ly = layout.cy + (outerR + 6) * Math.sin(mid - Math.PI / 2);
+        parts.push(
+          `<text x="${lx.toFixed(1)}" y="${ly.toFixed(1)}" font-size="9" font-weight="700" fill="${hl.color}" text-anchor="middle">${esc(hl.label)}</text>`,
+        );
+      }
+    }
+  }
   for (const p of layout.nodes) {
     if (
       p.parentX === null ||
@@ -873,6 +903,64 @@ function colorForBranch(
   nodeId: number,
 ): string {
   return spec.branchColors?.[nodeId] ?? FG;
+}
+
+/**
+ * Resolve the clade layer's highlights to node ids. Each clade is named by tip
+ * NAMES (resolved through the MRCA, the large-tree QOL) or an explicit node id.
+ * An older figure that never set options.clades falls back to the legacy single
+ * auto-highlight, so its render is unchanged.
+ */
+function resolveCladeHighlights(
+  root: TreeNode,
+  panels: AlignedPanel[],
+  spec: RenderSpec,
+): { nodeId: number; color: string; label: string }[] {
+  const cladePanel = panels.find((p) => p.visible && p.kind === "clade");
+  if (!cladePanel) return [];
+  const clades = cladePanel.options?.clades as CladeAnnotation[] | undefined;
+  if (clades && clades.length > 0) {
+    const out: { nodeId: number; color: string; label: string }[] = [];
+    for (const c of clades) {
+      const nodeId =
+        typeof c.node === "number" ? c.node : mrca(root, c.tips ?? []);
+      if (nodeId == null) continue;
+      out.push({ nodeId, color: c.color || "#1AA0E6", label: c.label ?? "" });
+    }
+    return out;
+  }
+  return spec.cladeHighlight
+    ? [
+        {
+          nodeId: spec.cladeHighlight.nodeId,
+          color: spec.cladeHighlight.color,
+          label: spec.cladeHighlight.label,
+        },
+      ]
+    : [];
+}
+
+/** An annulus-sector band over an angular + radial span, for a circular clade
+ *  highlight. Angles use the renderer's (angle - PI/2) screen convention. */
+function arcBand(
+  cx: number,
+  cy: number,
+  r0: number,
+  r1: number,
+  a0: number,
+  a1: number,
+  fill: string,
+): string {
+  const pt = (r: number, a: number): [number, number] => [
+    cx + r * Math.cos(a - Math.PI / 2),
+    cy + r * Math.sin(a - Math.PI / 2),
+  ];
+  const large = Math.abs(a1 - a0) > Math.PI ? 1 : 0;
+  const [ox0, oy0] = pt(r1, a0);
+  const [ox1, oy1] = pt(r1, a1);
+  const [ix1, iy1] = pt(r0, a1);
+  const [ix0, iy0] = pt(r0, a0);
+  return `<path d="M${ox0.toFixed(1)} ${oy0.toFixed(1)} A ${r1.toFixed(1)} ${r1.toFixed(1)} 0 ${large} 1 ${ox1.toFixed(1)} ${oy1.toFixed(1)} L ${ix1.toFixed(1)} ${iy1.toFixed(1)} A ${r0.toFixed(1)} ${r0.toFixed(1)} 0 ${large} 0 ${ix0.toFixed(1)} ${iy0.toFixed(1)} Z" fill="${fill}" opacity="0.12"/>`;
 }
 
 // ---------------------------------------------------------------------------

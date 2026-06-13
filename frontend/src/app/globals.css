@@ -119,6 +119,13 @@
     #0284c7 72%,
     #9333ea 100%
   );
+
+  /* The wordmark "OS" rainbow is theme-aware for legibility. On light surfaces
+   * it uses the vivid ramp (above); the dark scope swaps in a brighter luminous
+   * ramp, because the vivid hues go murky on near-black while the decorative
+   * pastels wash out. Light surfaces inside the dark app (.light-scope) keep
+   * the vivid ramp since they read as white paper. */
+  --brand-rainbow-wordmark: var(--brand-rainbow-vivid);
 }
 
 /* ── Dark theme (seeded, not yet user-togglable) ─────────────────────────────
@@ -187,6 +194,18 @@
    * rather than a fill. .brand-rainbow-bg picks this up automatically. */
   --brand-rainbow: var(--brand-rainbow-vivid);
   --brand-rainbow-vertical: var(--brand-rainbow-vivid);
+
+  /* Luminous wordmark ramp (Tailwind-400 hues): bright orange, amber, green,
+   * sky, purple that stay legible as clipped "OS" text on the near-black
+   * header, where the vivid ramp goes murky. */
+  --brand-rainbow-wordmark: linear-gradient(
+    95deg,
+    #fb923c 0%,
+    #fbbf24 25%,
+    #4ade80 50%,
+    #38bdf8 75%,
+    #c084fc 100%
+  );
 }
 
 /* Opposite-mode edge for feature/primer color swatches in the sequence popups
@@ -265,6 +284,9 @@
     #a6d2f4 75%,
     #d6b5f0 100%
   );
+  /* Light-scope reads as white paper, so the wordmark keeps the vivid ramp
+   * (the luminous dark-mode ramp is only for actual dark surfaces). */
+  --brand-rainbow-wordmark: var(--brand-rainbow-vivid);
 }
 
 /* Word-model writing surface: the markdown document body (CM editor + Preview)
@@ -320,6 +342,13 @@
   /* Clip the vivid rainbow into the text itself (gradient headline words). */
   .brand-rainbow-text {
     background-image: var(--brand-rainbow-vivid);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+  /* Clip the theme-aware wordmark rainbow into the "OS" of the lockup. */
+  .brand-rainbow-wordmark {
+    background-image: var(--brand-rainbow-wordmark);
     -webkit-background-clip: text;
     background-clip: text;
     color: transparent;

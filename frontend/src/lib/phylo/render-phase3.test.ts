@@ -363,6 +363,73 @@ describe("branch coloring by trait (Wave 2: aes(color=...))", () => {
   });
 });
 
+describe("multi-clade highlights by MRCA (Wave 2: geom_hilight)", () => {
+  // TREE = ((A,B),(C,D)): clade (A,B) and clade (C,D) are each a valid MRCA.
+  function cladeSpec(
+    layout: "rectangular" | "circular",
+    clades: Record<string, unknown>[],
+  ): RenderSpec {
+    const clade: AlignedPanel = {
+      id: "cl",
+      kind: "clade",
+      visible: true,
+      options: { clades },
+    };
+    return {
+      layout,
+      phylogram: true,
+      tracks: {
+        labels: false,
+        labelsItalic: false,
+        points: false,
+        strip: false,
+        bars: false,
+        heat: false,
+        clade: false,
+        support: false,
+      },
+      columns: {},
+      width: 700,
+      height: 480,
+      panels: [clade],
+    };
+  }
+
+  it("rectangular: highlights each named clade with its color + label", () => {
+    const svg = renderTreeSvg(
+      TREE,
+      cladeSpec("rectangular", [
+        { id: "a", tips: ["A", "B"], color: "#ff0000", label: "Clade AB" },
+        { id: "b", tips: ["C", "D"], color: "#00ff00", label: "Clade CD" },
+      ]),
+    );
+    expect(svg).toContain('fill="#ff0000" opacity="0.10"');
+    expect(svg).toContain('fill="#00ff00" opacity="0.10"');
+    expect(svg).toContain("Clade AB");
+    expect(svg).toContain("Clade CD");
+  });
+
+  it("circular: draws an annulus band for a named clade", () => {
+    const svg = renderTreeSvg(
+      TREE,
+      cladeSpec("circular", [
+        { id: "a", tips: ["A", "B"], color: "#ff0000", label: "" },
+      ]),
+    );
+    expect(svg).toContain('fill="#ff0000" opacity="0.12"');
+  });
+
+  it("a clade naming a missing tip is skipped, never crashes", () => {
+    const svg = renderTreeSvg(
+      TREE,
+      cladeSpec("rectangular", [
+        { id: "x", tips: ["A", "Ghost"], color: "#123456", label: "X" },
+      ]),
+    );
+    expect(svg).not.toContain("#123456");
+  });
+});
+
 describe("template-apply idempotence (flicker fix)", () => {
   // The flicker fix makes the apply atomic + pure: rendering the SAME applied
   // layer stack twice must produce byte-identical markup (no transient state).

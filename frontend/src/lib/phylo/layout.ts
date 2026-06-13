@@ -355,6 +355,42 @@ function deepClone(n: TreeNode): TreeNode {
 }
 
 /**
+ * The most recent common ancestor of a set of tips, found BY NAME (ggtree's
+ * `MRCA(tree, c("tipA", "tipB"))`). The headline QOL on a large tree: you know
+ * the tip names you care about, not the node id buried among hundreds of tips, so
+ * you name the members and we resolve the clade root. Returns the node id of the
+ * deepest node whose subtree contains every named tip, or null when a name is
+ * missing (no clade can be formed) or fewer than one name matches.
+ *
+ * Pure: post-order count of how many distinct targets each subtree holds; the
+ * first node (deepest, children visited first) to hold them all is the MRCA.
+ */
+export function mrca(root: TreeNode, tipNames: string[]): number | null {
+  const targets = new Set(tipNames.filter((n) => n.trim() !== ""));
+  if (targets.size === 0) return null;
+  // Bail when a requested name is not a tip at all (an undefinable clade).
+  const present = new Set(leaves(root).map((t) => t.name));
+  for (const t of targets) if (!present.has(t)) return null;
+
+  let result: number | null = null;
+  const visit = (n: TreeNode): number => {
+    let count: number;
+    if (n.children.length === 0) {
+      count = targets.has(n.name) ? 1 : 0;
+    } else {
+      count = n.children.reduce((s, c) => s + visit(c), 0);
+    }
+    // The deepest node to reach the full set is the MRCA; post-order visits
+    // children first, so the first hit is the lowest such node. Do not overwrite
+    // with the ancestors that also contain all the targets.
+    if (count === targets.size && result === null) result = n.id;
+    return count;
+  };
+  visit(root);
+  return result;
+}
+
+/**
  * Ladderize: sort children so the smaller (or larger) subtree sits on top. The
  * usual published convention puts the smaller clade up (ascending), the default.
  */

@@ -20,7 +20,11 @@ import { useMemo, useRef, useState } from "react";
 import { Icon } from "@/components/icons";
 import Tooltip from "@/components/Tooltip";
 import { reorderPanels } from "@/lib/phylo/panels";
-import type { AlignedPanel, AlignedPanelKind } from "@/lib/phylo/types";
+import type {
+  AlignedPanel,
+  AlignedPanelKind,
+  CladeAnnotation,
+} from "@/lib/phylo/types";
 
 /** The Add-panel catalog, categorized for the searchable menu (mockup parity). */
 interface CatalogItem {
@@ -140,6 +144,7 @@ export function PhyloLayersControl({
   panels,
   selectedId,
   columns,
+  tipNames = [],
   treeSummary,
   appliedTemplate,
   onChange,
@@ -149,6 +154,8 @@ export function PhyloLayersControl({
   panels: AlignedPanel[];
   selectedId: string | null;
   columns: string[];
+  /** Every tip name in the tree, for naming clade members (MRCA picker). */
+  tipNames?: string[];
   treeSummary: string;
   /** The template id currently applied (drives the picker so it never snaps back
    *  to the placeholder after an apply, the flicker fix). "" when none / edited. */
@@ -200,6 +207,7 @@ export function PhyloLayersControl({
           panels={panels}
           selectedId={selectedId}
           columns={columns}
+          tipNames={tipNames}
           onSelect={onSelect}
           onUpdate={update}
           onRemove={remove}
@@ -232,6 +240,7 @@ function LayerList({
   panels,
   selectedId,
   columns,
+  tipNames,
   onSelect,
   onUpdate,
   onRemove,
@@ -240,6 +249,7 @@ function LayerList({
   panels: AlignedPanel[];
   selectedId: string | null;
   columns: string[];
+  tipNames: string[];
   onSelect: (id: string | null) => void;
   onUpdate: (id: string, patch: Partial<AlignedPanel>) => void;
   onRemove: (id: string) => void;
@@ -368,6 +378,7 @@ function LayerList({
               <Inspector
                 panel={panel}
                 columns={columns}
+                tipNames={tipNames}
                 onUpdate={(patch) => onUpdate(panel.id, patch)}
               />
             )}
@@ -385,10 +396,12 @@ function LayerList({
 function Inspector({
   panel,
   columns,
+  tipNames,
   onUpdate,
 }: {
   panel: AlignedPanel;
   columns: string[];
+  tipNames: string[];
   onUpdate: (patch: Partial<AlignedPanel>) => void;
 }) {
   const colored = COLORED_KINDS.has(panel.kind);
@@ -577,9 +590,7 @@ function Inspector({
         </p>
       )}
       {panel.kind === "clade" && (
-        <p className="text-xs text-foreground-muted">
-          Shades the first major clade. Per-clade selection is coming next.
-        </p>
+        <CladeInspector panel={panel} tipNames={tipNames} onUpdate={onUpdate} />
       )}
       {panel.kind === "msa" && (
         <>
@@ -598,6 +609,102 @@ function Inspector({
           </Field>
         </>
       )}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// The clade inspector (ggtree geom_hilight / MRCA). Each clade is named by its
+// tip MEMBERS; the MRCA of those tips is the clade root (the large-tree QOL: name
+// what you know, never hunt for a node). Multiple clades, each a color + label.
+// ---------------------------------------------------------------------------
+
+const CLADE_PALETTE = [
+  "#1AA0E6",
+  "#D85A30",
+  "#1D9E75",
+  "#7F77DD",
+  "#D4537E",
+  "#BA7517",
+];
+
+function CladeInspector({
+  panel,
+  tipNames,
+  onUpdate,
+}: {
+  panel: AlignedPanel;
+  tipNames: string[];
+  onUpdate: (patch: Partial<AlignedPanel>) => void;
+}) {
+  const clades = (panel.options?.clades as CladeAnnotation[] | undefined) ?? [];
+  const setClades = (next: CladeAnnotation[]) =>
+    onUpdate({ options: { ...panel.options, clades: next } });
+  const addClade = () =>
+    setClades([
+      ...clades,
+      {
+        id: `clade-${clades.length}-${tipNames.length}`,
+        tips: [],
+        color: CLADE_PALETTE[clades.length % CLADE_PALETTE.length],
+        label: "",
+      },
+    ]);
+  const patchClade = (id: string, patch: Partial<CladeAnnotation>) =>
+    setClades(clades.map((c) => (c.id === id ? { ...c, ...patch } : c)));
+  const removeClade = (id: string) =>
+    setClades(clades.filter((c) => c.id !== id));
+
+  return (
+    <div className="space-y-2">
+      <p className="text-xs text-foreground-muted">
+        Name a clade by its tip members; its MRCA is found for you and the clade
+        is highlighted (works in both layouts).
+      </p>
+      {clades.map((c) => (
+        <div
+          key={c.id}
+          className="rounded-lg border border-border p-2 space-y-1.5 bg-surface-raised"
+        >
+          <div className="flex items-center gap-2">
+            <input
+              type="color"
+              value={c.color}
+              onChange={(e) => patchClade(c.id, { color: e.target.value })}
+              aria-label="Clade color"
+              className="h-6 w-6 shrink-0 cursor-pointer rounded border border-border bg-transparent p-0"
+            />
+            <input
+              type="text"
+              value={c.label}
+              placeholder="Label (optional)"
+              onChange={(e) => patchClade(c.id, { label: e.target.value })}
+              className="min-w-0 flex-1 rounded-md border border-border bg-surface px-2 py-1 text-sm text-foreground"
+            />
+            <button
+              type="button"
+              onClick={() => removeClade(c.id)}
+              aria-label="Remove clade"
+              className="shrink-0 rounded p-1 text-foreground-muted hover:text-red-500"
+            >
+              <Icon name="trash" className="h-3.5 w-3.5" />
+            </button>
+          </div>
+          <MultiColumnField
+            columns={tipNames}
+            selected={c.tips ?? []}
+            label="Members (tips)"
+            onChange={(tips) => patchClade(c.id, { tips })}
+          />
+        </div>
+      ))}
+      <button
+        type="button"
+        onClick={addClade}
+        className="inline-flex items-center gap-1 rounded-lg border border-border px-2.5 py-1 text-sm font-semibold text-foreground hover:border-accent"
+      >
+        <Icon name="plus" className="h-3.5 w-3.5" /> Add clade
+      </button>
     </div>
   );
 }

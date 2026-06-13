@@ -16,7 +16,7 @@
 // No em-dashes, no emojis, no mid-sentence colons.
 
 import type { RenderSpec } from "./render";
-import type { AlignedPanel } from "./types";
+import type { AlignedPanel, CladeAnnotation } from "./types";
 
 export const GGTREE_CAVEAT =
   "This script is generated from your figure. The ggtree output is close but not 100% pixel-identical to the Studio canvas, ggtree uses a different layout engine.";
@@ -233,13 +233,28 @@ function generateFromPanels(spec: RenderSpec, panels: AlignedPanel[]): string {
           "p <- p + geom_nodelab(aes(label = label), size = 2, hjust = -0.2)   # branch support",
         );
         break;
-      case "clade":
-        if (spec.cladeHighlight) {
+      case "clade": {
+        const clades =
+          (panel.options?.clades as CladeAnnotation[] | undefined) ?? [];
+        if (clades.length > 0) {
+          for (const c of clades) {
+            // MRCA(tree, c("t1","t2")) is exactly how ggtree resolves a clade by
+            // tip names; an explicit node id is emitted verbatim.
+            const node =
+              typeof c.node === "number"
+                ? String(c.node)
+                : `MRCA(tree, c(${(c.tips ?? []).map((t) => rstr(t)).join(", ")}))`;
+            lines.push(
+              `p <- p + geom_hilight(node = ${node}, fill = ${rstr(c.color || "#1AA0E6")}, alpha = 0.12)${c.label ? `   # ${c.label}` : ""}`,
+            );
+          }
+        } else if (spec.cladeHighlight) {
           lines.push(
             `p <- p + geom_hilight(node = ${spec.cladeHighlight.nodeId}, fill = ${rstr(spec.cladeHighlight.color)}, alpha = 0.12)   # ${spec.cladeHighlight.label}`,
           );
         }
         break;
+      }
       case "points":
         if (col) {
           lines.push(
