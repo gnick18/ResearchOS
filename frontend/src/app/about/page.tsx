@@ -6,6 +6,7 @@ import MarketingFooter from "@/components/MarketingFooter";
 import MarketingNav from "@/components/MarketingNav";
 import MarketingBackdrop from "@/components/marketing/MarketingBackdrop";
 import Reveal from "@/components/marketing/Reveal";
+import Kicker from "@/components/marketing/Kicker";
 
 /**
  * Public `/about` company page. The origin story and the "real, accountable
@@ -30,18 +31,6 @@ export const metadata: Metadata = {
   description:
     "ResearchOS is an open-source company that grew out of a research fellowship at UW-Madison. It builds free, local-first alternatives to the expensive tools labs depend on, so researchers own their data and can verify the science in public. A registered Wisconsin LLC stands behind it.",
 };
-
-/** A section eyebrow with the pastel-rainbow rule, matching the welcome page. */
-function Kicker({ children }: { children: string }) {
-  return (
-    <span className="inline-flex items-center gap-2.5">
-      <span aria-hidden className="brand-rainbow-bg h-[3px] w-6 flex-none rounded-full" />
-      <span className="font-mono text-meta font-semibold uppercase tracking-[0.08em] text-brand-action">
-        {children}
-      </span>
-    </span>
-  );
-}
 
 const ONWARD: { href: string; title: string; sub: string; external?: boolean }[] = [
   { href: "/pricing", title: "Pricing", sub: "Every number, the real cost math" },

@@ -54,6 +54,8 @@ import MarketingBackdrop from "@/components/marketing/MarketingBackdrop";
 import MarketingFooter from "@/components/MarketingFooter";
 import MarketingNav from "@/components/MarketingNav";
 import Reveal from "@/components/marketing/Reveal";
+import Kicker from "@/components/marketing/Kicker";
+import RainbowFrame from "@/components/marketing/RainbowFrame";
 import SponsorStrip from "@/components/SponsorStrip";
 import { markLandingSeen } from "@/lib/landing/landing-gate";
 
@@ -70,39 +72,8 @@ const RAINBOW_TEXT = "var(--brand-rainbow-vivid)";
  * as one continuous brand stage.
  * -------------------------------------------------------------------------- */
 
-/** Section eyebrow kicker in the page's monospace accent style, with a short
- *  rainbow rule before the label (the bold-rainbow brand-up). */
-function Kicker({ children }: { children: ReactNode }) {
-  return (
-    <div className="flex items-center gap-2.5">
-      <span
-        aria-hidden
-        className="brand-rainbow-bg h-[3px] w-6 flex-none rounded-full"
-      />
-      <span className="font-mono text-meta font-semibold uppercase tracking-[0.12em] text-brand-action">
-        {children}
-      </span>
-    </div>
-  );
-}
-
-/** A rainbow-gradient frame around a result window, painting the brand ramp as
- *  a thin padded border behind a white inner card. Children render inside. */
-function RainbowFrame({
-  children,
-  className,
-}: {
-  children: ReactNode;
-  className?: string;
-}) {
-  return (
-    <div
-      className={`brand-rainbow-bg rounded-[20px] p-[3px] shadow-[0_24px_60px_rgba(15,40,80,0.12)] ${className ?? ""}`}
-    >
-      <div className="overflow-hidden rounded-[17px] bg-white">{children}</div>
-    </div>
-  );
-}
+// Kicker and RainbowFrame now live in @/components/marketing (shared across the
+// marketing pages); imported at the top of this file.
 
 /* ----------------------------------------------------------------------------
  * Capability section scaffold. A section header (icon chip, title, the "what

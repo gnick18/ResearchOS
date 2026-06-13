@@ -61,6 +61,9 @@ import Wordmark from "@/components/Wordmark";
 import DemoLoop, { DemoLoopPlaceholder } from "@/components/welcome/DemoLoop";
 import Reveal from "@/components/marketing/Reveal";
 import MarketingBackdrop from "@/components/marketing/MarketingBackdrop";
+import Kicker from "@/components/marketing/Kicker";
+import RainbowFrame from "@/components/marketing/RainbowFrame";
+import FeatureRow from "@/components/marketing/FeatureRow";
 import RoadmapModal from "@/components/RoadmapModal";
 import { markLandingSeen } from "@/lib/landing/landing-gate";
 
@@ -93,42 +96,8 @@ function CheckGlyph() {
   );
 }
 
-/** Section eyebrow kicker in the page's monospace accent style, with a short
- *  rainbow rule before the label (the bold-rainbow brand-up: every section
- *  kicker carries the brand ramp as a quiet ornament). */
-function Kicker({ children }: { children: ReactNode }) {
-  return (
-    <div className="flex items-center gap-2.5">
-      <span
-        aria-hidden
-        className="brand-rainbow-bg h-[3px] w-6 flex-none rounded-full"
-      />
-      <span className="font-mono text-meta font-semibold uppercase tracking-[0.12em] text-brand-action">
-        {children}
-      </span>
-    </div>
-  );
-}
-
-/** A rainbow-gradient frame around a demo window. The mockup's bold-rainbow
- *  treatment wraps the browser/demo chrome in a thin brand-ramp border by
- *  painting the rainbow as the padded background behind a white inner card.
- *  Children render inside the inner card. */
-function RainbowFrame({
-  children,
-  className,
-}: {
-  children: ReactNode;
-  className?: string;
-}) {
-  return (
-    <div
-      className={`brand-rainbow-bg rounded-[20px] p-[3px] shadow-[0_24px_60px_rgba(15,40,80,0.12)] ${className ?? ""}`}
-    >
-      <div className="overflow-hidden rounded-[17px] bg-white">{children}</div>
-    </div>
-  );
-}
+// Kicker and RainbowFrame now live in @/components/marketing (shared across the
+// marketing pages); imported at the top of this file.
 
 /* ----------------------------------------------------------------------------
  * The mentorship-tree + IDP illustration for the check-ins feature row. A lab
@@ -332,78 +301,8 @@ function CheckinsVisual() {
  * other. `flip` puts the visual first on desktop (the mockup's .feat.alt). The
  * whole row reveals as one unit.
  * -------------------------------------------------------------------------- */
-function FeatureRow({
-  kicker,
-  title,
-  body,
-  pills,
-  visual,
-  flip = false,
-  tint = false,
-  children,
-}: {
-  kicker: string;
-  title: string;
-  body: ReactNode;
-  pills?: string[];
-  visual: ReactNode;
-  flip?: boolean;
-  tint?: boolean;
-  /** Optional extra content under the body (e.g. a bullet list or a link). */
-  children?: ReactNode;
-}) {
-  const text = (
-    <div className={flip ? "md:order-2" : undefined}>
-      <Kicker>{kicker}</Kicker>
-      <h2 className="mt-3 max-w-[20ch] text-3xl font-extrabold leading-[1.12] tracking-tight text-brand-ink md:text-[30px]">
-        {title}
-      </h2>
-      <p className="mt-4 max-w-[54ch] text-title leading-relaxed text-[#475569]">
-        {body}
-      </p>
-      {pills && pills.length > 0 ? (
-        <div className="mt-4 flex flex-wrap gap-x-5 gap-y-2">
-          {pills.map((p) => (
-            <span
-              key={p}
-              className="flex items-center gap-1.5 text-body font-semibold text-brand-ink"
-            >
-              <span
-                aria-hidden
-                className="h-[6px] w-[6px] flex-none rounded-full bg-brand-action"
-              />
-              {p}
-            </span>
-          ))}
-        </div>
-      ) : null}
-      {children}
-    </div>
-  );
-  const media = <div className={flip ? "md:order-1" : undefined}>{visual}</div>;
-
-  return (
-    <section
-      className={`px-6 py-16 sm:px-12 ${
-        tint ? "border-y border-[#dbe6f3] bg-[#f4f8fd]" : ""
-      }`}
-    >
-      <Reveal className="mx-auto grid max-w-[1180px] items-center gap-12 md:grid-cols-2">
-        {flip ? (
-          <>
-            {media}
-            {text}
-          </>
-        ) : (
-          <>
-            {text}
-            {media}
-          </>
-        )}
-      </Reveal>
-    </section>
-  );
-}
+// FeatureRow now lives in @/components/marketing/FeatureRow (shared); imported
+// at the top of this file.
 
 /* ----------------------------------------------------------------------------
  * Comparison table, carried from the prior page and restyled to the light
