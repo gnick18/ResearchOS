@@ -20,6 +20,8 @@ import {
   type FigureTracks,
   type RenderSpec,
 } from "./render";
+import { projectTracksToPanels } from "./panels";
+import type { AlignedPanel } from "./types";
 
 /** The track defaults a fresh figure starts from. A persisted figure overrides
  *  only the keys it stored, so an older record (missing a newer track) still
@@ -57,6 +59,14 @@ export interface FigureInputs {
   scales?: FigureScales;
   /** Draw legends for the colored tracks. Defaults ON when omitted. */
   legend?: boolean;
+  /**
+   * The ordered layer stack (phylo Phase 1). When the Studio passes its live
+   * layer list, the render takes the consolidated panel path with exactly these
+   * panels. When omitted, the adapter PROJECTS panels from the tracks + columns
+   * above (the migration read path), so an old saved figure with no stored panels
+   * still renders through the one panel system.
+   */
+  panels?: AlignedPanel[];
 }
 
 /** The deepest first clade with at least two tips, the default highlight target.
@@ -92,7 +102,24 @@ export function figureToRenderSpec(
     match?.matched,
     inputs.categoryColumn,
   );
+  // The layer stack: the Studio's live panels when given, else projected from the
+  // Phase 0 tracks + columns (the migration read path) so the one panel renderer
+  // always draws the figure.
+  const panels: AlignedPanel[] =
+    inputs.panels ??
+    projectTracksToPanels({
+      tracks: inputs.tracks,
+      category: inputs.categoryColumn || undefined,
+      bar: inputs.barColumn || undefined,
+      heat:
+        inputs.heatColumns && inputs.heatColumns.length > 0
+          ? inputs.heatColumns
+          : undefined,
+      scales: inputs.scales,
+      legend: inputs.legend,
+    });
   return {
+    panels,
     layout: inputs.layout,
     phylogram: inputs.phylogram,
     tracks: inputs.tracks,
@@ -125,6 +152,9 @@ interface StoredFigure {
   scales?: FigureScales;
   /** Legend toggle (Phase 0, optional, defaults ON). */
   legend?: boolean;
+  /** The ordered layer stack (Phase 1, optional). Absent on a pre-Phase-1 record,
+   *  which is why the adapter projects panels from tracks when this is missing. */
+  panels?: AlignedPanel[];
 }
 interface StoredMetadata {
   tipColumn?: string;
@@ -152,8 +182,11 @@ export function figureInputsFromStored(
   };
   const scales = figure?.scales;
   const legend = figure?.legend;
+  // Pass stored panels through when the record has them (Phase 1+); a pre-Phase-1
+  // record has none, so figureToRenderSpec projects them from tracks.
+  const panels = figure?.panels;
   if (!metadata?.rows) {
-    return { layout, phylogram, tracks, metaRows: null, scales, legend };
+    return { layout, phylogram, tracks, metaRows: null, scales, legend, panels };
   }
   const cols = metadata.rows.length > 0 ? Object.keys(metadata.rows[0]) : [];
   return {
@@ -167,5 +200,6 @@ export function figureInputsFromStored(
     heatColumns: metadata.heatColumns ?? [],
     scales,
     legend,
+    panels,
   };
 }
