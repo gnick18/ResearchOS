@@ -1,0 +1,262 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Tree Studio: ggtree-class aligned panels (target mockup)</title>
+<style>
+  :root {
+    --bg: #f7f9fc; --panel: #ffffff; --ink: #1f2937; --muted: #64748b;
+    --border: #e2e8f0; --sky: #1AA0E6; --indigo: #5B47D6; --line: #334155;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink);
+    font: 15px/1.5 -apple-system, Inter, system-ui, sans-serif; }
+  header { padding: 20px 28px 8px; }
+  h1 { font-size: 20px; margin: 0 0 4px; }
+  .sub { color: var(--muted); max-width: 70ch; }
+  .wrap { display: grid; grid-template-columns: 260px 1fr; gap: 20px; padding: 16px 28px 40px; align-items: start; }
+  .controls { background: var(--panel); border: 1px solid var(--border); border-radius: 14px; padding: 16px; position: sticky; top: 16px; }
+  .controls h2 { font-size: 12px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin: 0 0 10px; }
+  .grp { margin-bottom: 16px; padding-bottom: 14px; border-bottom: 1px solid var(--border); }
+  .grp:last-child { border-bottom: 0; margin-bottom: 0; padding-bottom: 0; }
+  .row { display: flex; align-items: center; justify-content: space-between; padding: 5px 0; }
+  .row label { font-size: 14px; }
+  .seg { display: inline-flex; border: 1px solid var(--border); border-radius: 9px; overflow: hidden; }
+  .seg button { border: 0; background: var(--panel); padding: 6px 12px; font: inherit; font-size: 13px; cursor: pointer; color: var(--muted); }
+  .seg button.on { background: var(--sky); color: #fff; }
+  .stage { background: var(--panel); border: 1px solid var(--border); border-radius: 14px; padding: 8px; min-height: 640px; display: flex; align-items: center; justify-content: center; }
+  switch, .sw { position: relative; width: 38px; height: 22px; border-radius: 999px; background: #cbd5e1; cursor: pointer; transition: background .15s; flex: 0 0 auto; }
+  .sw.on { background: var(--sky); }
+  .sw::after { content: ""; position: absolute; top: 2px; left: 2px; width: 18px; height: 18px; border-radius: 50%; background: #fff; transition: left .15s; }
+  .sw.on::after { left: 18px; }
+  .note { font-size: 12.5px; color: var(--muted); margin-top: 10px; }
+  .pill { display:inline-block; font-size: 11px; padding: 2px 8px; border-radius: 999px; background: #eef2f7; color: var(--muted); margin-left: 8px;}
+  text { font-family: -apple-system, Inter, system-ui, sans-serif; }
+  .legendTitle { font-size: 11px; fill: var(--muted); }
+</style>
+</head>
+<body>
+<header>
+  <h1>Tree Studio: ggtree-class aligned panels <span class="pill" id="modepill">TARGET</span></h1>
+  <p class="sub">The vision: the tree is a shared tip axis, and data panels align to it tip-for-tip, the way
+  ggtreeExtra::geom_fruit stacks rings and aplot links plots. Panels render with continuous color scales and
+  legends, powered by the Data Hub plot engine. Toggle "Today vs Target" to contrast with the current
+  iTOL-basic Studio. This is a design mockup, not the live app.</p>
+</header>
+<div class="wrap">
+  <aside class="controls">
+    <div class="grp">
+      <h2>View</h2>
+      <div class="row"><label>Mode</label>
+        <div class="seg" id="modeSeg"><button data-m="target" class="on">Target</button><button data-m="today">Today</button></div>
+      </div>
+      <div class="row"><label>Layout</label>
+        <div class="seg" id="layoutSeg"><button data-l="circular" class="on">Circular</button><button data-l="rect">Rectangular</button></div>
+      </div>
+    </div>
+    <div class="grp" id="panelToggles">
+      <h2>Aligned panels (geom_fruit)</h2>
+      <div class="row"><label>Tip points (body site)</label><div class="sw on" data-p="points"></div></div>
+      <div class="row"><label>Clade strip (categorical)</label><div class="sw on" data-p="strip"></div></div>
+      <div class="row"><label>Abundance heatmap (continuous)</label><div class="sw on" data-p="heat"></div></div>
+      <div class="row"><label>Viral load bars (continuous)</label><div class="sw on" data-p="bars"></div></div>
+      <div class="row"><label>Replicate boxplot (Data Hub)</label><div class="sw on" data-p="box"></div></div>
+    </div>
+    <div class="grp">
+      <h2>Heatmap scale</h2>
+      <div class="row"><label>Color</label>
+        <div class="seg" id="scaleSeg"><button data-s="viridis" class="on">Viridis</button><button data-s="blues">Blues</button><button data-s="cat">Categorical</button></div>
+      </div>
+      <p class="note" id="scaleNote">Continuous Viridis gradient mapped to abundance, with a legend. The current Studio can only do binary on/off heatmaps in a fixed categorical palette.</p>
+    </div>
+  </aside>
+  <div class="stage"><svg id="fig" viewBox="0 0 760 660" width="100%" style="max-width:760px"></svg></div>
+</div>
+
+<script>
+// ---- tiny deterministic tree (24 tips, balanced-ish) + per-tip data --------
+const TIPS = 24;
+const CLADES = ["Clade I","Clade II","Clade III","Clade IV"];
+const CLADE_COLORS = ["#1AA0E6","#5B47D6","#16a34a","#b45309"];
+const SITES = ["Gut","Skin","Oral"];
+const SITE_COLORS = ["#0891b2","#dc2626","#7c3aed"];
+// seeded pseudo-random so the figure is stable
+let _s = 42; function rnd(){ _s = (_s*1103515245+12345)&0x7fffffff; return _s/0x7fffffff; }
+const tips = Array.from({length:TIPS}, (_,i)=>{
+  const clade = Math.floor(i/ (TIPS/4));
+  return {
+    id: "t"+i, name: CLADES[clade].replace("Clade ","C")+"_"+(i+1),
+    clade, site: Math.floor(rnd()*3),
+    abundance: Math.round(rnd()*100),            // continuous 0..100
+    load: Math.round(20+rnd()*80),               // continuous bar value
+    reps: Array.from({length:6},()=> +(2+rnd()*6).toFixed(2)) // boxplot replicates
+  };
+});
+// ---- color helpers ---------------------------------------------------------
+// Viridis + Blues sampled control points (approx), interpolated.
+const VIRIDIS = ["#440154","#414487","#2a788e","#22a884","#7ad151","#fde725"];
+const BLUES   = ["#f7fbff","#c6dbef","#6baed6","#2171b5","#08306b"];
+function lerp(a,b,t){return Math.round(a+(b-a)*t);}
+function hex(c){c=c.replace('#','');return [parseInt(c.substr(0,2),16),parseInt(c.substr(2,2),16),parseInt(c.substr(4,2),16)];}
+function ramp(stops,t){ t=Math.max(0,Math.min(1,t)); const x=t*(stops.length-1); const i=Math.floor(x); const f=x-i;
+  if(i>=stops.length-1) return stops[stops.length-1]; const a=hex(stops[i]),b=hex(stops[i+1]);
+  return `rgb(${lerp(a[0],b[0],f)},${lerp(a[1],b[1],f)},${lerp(a[2],b[2],f)})`; }
+function heatColor(v){ const t=v/100; if(state.scale==="viridis")return ramp(VIRIDIS,t); if(state.scale==="blues")return ramp(BLUES,t);
+  return CLADE_COLORS[Math.min(3,Math.floor(t*4))]; } // categorical bucket fallback
+
+// ---- state -----------------------------------------------------------------
+const state = { mode:"target", layout:"circular", scale:"viridis",
+  panels:{points:true,strip:true,heat:true,bars:true,box:true} };
+
+const svg = document.getElementById("fig");
+const NS = "http://www.w3.org/2000/svg";
+function el(tag,attrs,kids){ const e=document.createElementNS(NS,tag); for(const k in attrs)e.setAttribute(k,attrs[k]);
+  (kids||[]).forEach(c=>e.appendChild(c)); return e; }
+function txt(x,y,s,attrs){ const t=el("text",Object.assign({x,y},attrs||[])); t.textContent=s; return t; }
+
+// ---- circular layout -------------------------------------------------------
+function draw(){
+  svg.innerHTML="";
+  const today = state.mode==="today";
+  document.getElementById("modepill").textContent = today?"TODAY":"TARGET";
+  document.getElementById("modepill").style.background = today?"#eef2f7":"#dff3ff";
+  // In "today" mode, force the limited capability set.
+  const P = today ? {points:true,strip:true,heat:true,bars:false,box:false} : state.panels;
+  if(state.layout==="circular") drawCircular(P, today); else drawRect(P, today);
+  drawLegends(P, today);
+}
+
+function drawCircular(P, today){
+  const cx=300, cy=330, R=150;
+  // tip angles
+  const ang = i => (-90 + (360/TIPS)*i) * Math.PI/180;
+  const polar=(r,a)=>[cx+r*Math.cos(a), cy+r*Math.sin(a)];
+  // simple radial tree: tips on circle R, internal arcs by clade
+  // draw clade arcs (group the tree spine)
+  for(let c=0;c<4;c++){
+    const i0=c*(TIPS/4), i1=i0+(TIPS/4)-1;
+    const a0=ang(i0), a1=ang(i1);
+    const [x0,y0]=polar(R*0.42,(a0+a1)/2);
+    // radial edges from center-ish to each tip
+  }
+  // edges: center -> clade node -> tip (stylized)
+  for(let c=0;c<4;c++){
+    const i0=c*(TIPS/4), aMid=ang(i0+ (TIPS/8) -0.5);
+    const [nx,ny]=polar(R*0.5,aMid);
+    svg.appendChild(el("line",{x1:cx,y1:cy,x2:nx,y2:ny,stroke:"#cbd5e1","stroke-width":1.4}));
+    for(let k=0;k<TIPS/4;k++){ const i=i0+k; const a=ang(i); const [tx,ty]=polar(R,a);
+      const [bx,by]=polar(R*0.5,aMid);
+      svg.appendChild(el("path",{d:`M${bx},${by} L${tx},${ty}`,stroke:"#cbd5e1","stroke-width":1.1,fill:"none"})); }
+  }
+  // rings, outward
+  let r = R+6;
+  // tip points
+  if(P.points){ tips.forEach((t,i)=>{ const [x,y]=polar(R, ang(i));
+    svg.appendChild(el("circle",{cx:x,cy:y,r:3.4,fill:SITE_COLORS[t.site]})); }); }
+  // clade strip ring
+  if(P.strip){ const rw=12; tips.forEach((t,i)=>{ const a=ang(i), span=(360/TIPS)*Math.PI/180*0.92;
+    svg.appendChild(arcCell(cx,cy,r,r+rw,a-span/2,a+span/2,CLADE_COLORS[t.clade])); }); r+=rw+4; }
+  // continuous heatmap ring
+  if(P.heat){ const rw=14; tips.forEach((t,i)=>{ const a=ang(i), span=(360/TIPS)*Math.PI/180*0.92;
+    const col = today ? (t.abundance>50?"#1AA0E6":"#f1f5f9") : heatColor(t.abundance);
+    svg.appendChild(arcCell(cx,cy,r,r+rw,a-span/2,a+span/2,col)); }); r+=rw+6; }
+  // bar ring (continuous), target only
+  if(P.bars){ const barMax=40; tips.forEach((t,i)=>{ const a=ang(i);
+    const len=barMax*(t.load/100); const [x0,y0]=polar(r,a),[x1,y1]=polar(r+len,a);
+    svg.appendChild(el("line",{x1:x0,y1:y0,x2:x1,y2:y1,stroke: heatColor(t.load),"stroke-width":4,"stroke-linecap":"round"})); }); r+=barMax+6; }
+  // boxplot ring (Data Hub panel), target only -> draw mini boxes radially
+  if(P.box){ const bw=34; tips.forEach((t,i)=>{ const a=ang(i);
+    const lo=Math.min(...t.reps),hi=Math.max(...t.reps),med=t.reps.slice().sort((x,y)=>x-y)[3];
+    const f=v=>(v-1)/8; // 1..9 domain -> 0..1
+    const [bx,by]=polar(r+bw*f(lo),a),[ex,ey]=polar(r+bw*f(hi),a),[mx,my]=polar(r+bw*f(med),a);
+    svg.appendChild(el("line",{x1:bx,y1:by,x2:ex,y2:ey,stroke:"#94a3b8","stroke-width":1.5}));
+    svg.appendChild(el("circle",{cx:mx,cy:my,r:2.6,fill:"#5B47D6"})); }); r+=bw+4; }
+  // labels (outer)
+  tips.forEach((t,i)=>{ const a=ang(i); const [lx,ly]=polar(r+4,a);
+    const deg=a*180/Math.PI; const flip = deg>90||deg<-90;
+    const tn=txt(lx,ly,t.name,{ "font-size":8, fill:"#475569",
+      transform:`rotate(${flip?deg+180:deg} ${lx} ${ly})`, "text-anchor": flip?"end":"start","dominant-baseline":"middle"});
+    svg.appendChild(tn); });
+}
+function arcCell(cx,cy,r0,r1,a0,a1,fill){
+  const p=(r,a)=>[cx+r*Math.cos(a),cy+r*Math.sin(a)];
+  const [x0,y0]=p(r0,a0),[x1,y1]=p(r1,a0),[x2,y2]=p(r1,a1),[x3,y3]=p(r0,a1);
+  const large=(a1-a0)>Math.PI?1:0;
+  const d=`M${x0},${y0} L${x1},${y1} A${r1},${r1} 0 ${large} 1 ${x2},${y2} L${x3},${y3} A${r0},${r0} 0 ${large} 0 ${x0},${y0} Z`;
+  return el("path",{d,fill,stroke:"#fff","stroke-width":.6});
+}
+
+// ---- rectangular layout (tree left, aligned columns right) -----------------
+function drawRect(P, today){
+  const x0=70, top=40, rowH=20, treeW=150;
+  // tree spine
+  for(let c=0;c<4;c++){ const i0=c*(TIPS/4); const yMid=top+(i0+ (TIPS/8)-0.5)*rowH+rowH/2;
+    svg.appendChild(el("line",{x1:x0,y1:top+rowH/2,x2:x0,y2:top+(TIPS-0.5)*rowH,stroke:"#cbd5e1","stroke-width":1.2}));
+    svg.appendChild(el("line",{x1:x0,y1:yMid,x2:x0+40,y2:yMid,stroke:"#cbd5e1","stroke-width":1.2}));
+    for(let k=0;k<TIPS/4;k++){ const i=i0+k; const y=top+i*rowH+rowH/2;
+      svg.appendChild(el("path",{d:`M${x0+40},${yMid} L${x0+treeW},${y}`,stroke:"#cbd5e1","stroke-width":1,fill:"none"})); }
+  }
+  let cx=x0+treeW+10;
+  const yOf=i=>top+i*rowH+rowH/2;
+  if(P.points){ tips.forEach((t,i)=>svg.appendChild(el("circle",{cx,cy:yOf(i),r:3.4,fill:SITE_COLORS[t.site]}))); cx+=16; }
+  if(P.strip){ const w=16; svg.appendChild(colHead(cx,top,"Clade")); tips.forEach((t,i)=>svg.appendChild(el("rect",{x:cx,y:yOf(i)-7,width:w,height:14,rx:2,fill:CLADE_COLORS[t.clade]}))); cx+=w+10; }
+  if(P.heat){ const w=16; svg.appendChild(colHead(cx,top,"Abundance")); tips.forEach((t,i)=>{const col=today?(t.abundance>50?"#1AA0E6":"#f1f5f9"):heatColor(t.abundance);
+    svg.appendChild(el("rect",{x:cx,y:yOf(i)-7,width:w,height:14,rx:2,fill:col,stroke:"#e2e8f0","stroke-width":.5}));}); cx+=w+12; }
+  if(P.bars){ const w=80; svg.appendChild(colHead(cx,top,"Viral load")); tips.forEach((t,i)=>svg.appendChild(el("rect",{x:cx,y:yOf(i)-5,width:w*(t.load/100),height:10,rx:2,fill:heatColor(t.load),opacity:.9}))); cx+=w+14; }
+  if(P.box){ const w=96; svg.appendChild(colHead(cx,top,"Replicates (box)"));
+    const f=v=>cx+w*((v-1)/8);
+    tips.forEach((t,i)=>{ const y=yOf(i); const sr=t.reps.slice().sort((a,b)=>a-b);
+      const lo=sr[0],hi=sr[5],q1=sr[1],q3=sr[4],med=sr[3];
+      svg.appendChild(el("line",{x1:f(lo),y1:y,x2:f(hi),y2:y,stroke:"#94a3b8","stroke-width":1}));
+      svg.appendChild(el("rect",{x:f(q1),y:y-4,width:f(q3)-f(q1),height:8,rx:1.5,fill:"#dbeafe",stroke:"#5B47D6","stroke-width":1}));
+      svg.appendChild(el("line",{x1:f(med),y1:y-4,x2:f(med),y2:y+4,stroke:"#5B47D6","stroke-width":1.5})); }); cx+=w+10; }
+  tips.forEach((t,i)=>svg.appendChild(txt(cx,yOf(i),t.name,{"font-size":9,fill:"#475569","dominant-baseline":"middle"})));
+}
+function colHead(x,top,label){ return txt(x,top-6,label,{"font-size":9,fill:"#64748b","transform":`rotate(-32 ${x} ${top-6})`}); }
+
+// ---- legends ---------------------------------------------------------------
+function drawLegends(P, today){
+  let lx=600, ly=70;
+  const g=(title)=>{ svg.appendChild(txt(lx,ly,title,{class:"legendTitle"})); ly+=14; };
+  const sw=(color,label)=>{ svg.appendChild(el("rect",{x:lx,y:ly-9,width:11,height:11,rx:2,fill:color}));
+    svg.appendChild(txt(lx+16,ly,label,{"font-size":11,fill:"#334155"})); ly+=16; };
+  if(today){
+    g("Legend"); svg.appendChild(txt(lx,ly,"(none in today's Studio)",{"font-size":11,fill:"#94a3b8"}));
+    return;
+  }
+  if(P.points){ g("Body site"); SITES.forEach((s,i)=>sw(SITE_COLORS[i],s)); ly+=6; }
+  if(P.strip){ g("Clade"); CLADES.forEach((c,i)=>sw(CLADE_COLORS[i],c)); ly+=6; }
+  if(P.heat || P.bars){
+    g(state.scale==="cat" ? "Abundance (binned)" : "Abundance / load");
+    if(state.scale==="cat"){ ["0-25","25-50","50-75","75-100"].forEach((b,i)=>sw(CLADE_COLORS[i],b)); }
+    else { // gradient bar
+      const gw=120,gh=10; const id="grad"; const defs=el("defs"); const lg=el("linearGradient",{id});
+      const stops=(state.scale==="blues"?BLUES:VIRIDIS);
+      stops.forEach((c,i)=>lg.appendChild(el("stop",{offset:(i/(stops.length-1)*100)+"%","stop-color":c})));
+      defs.appendChild(lg); svg.appendChild(defs);
+      svg.appendChild(el("rect",{x:lx,y:ly-9,width:gw,height:gh,rx:2,fill:`url(#${id})`,stroke:"#e2e8f0"}));
+      svg.appendChild(txt(lx,ly+14,"0",{"font-size":10,fill:"#64748b"}));
+      svg.appendChild(txt(lx+gw-6,ly+14,"100",{"font-size":10,fill:"#64748b"})); ly+=28;
+    }
+  }
+  if(P.box){ g("Replicate boxplot"); svg.appendChild(txt(lx,ly,"Data Hub panel, per-tip",{"font-size":10,fill:"#94a3b8"})); ly+=14; }
+}
+
+// ---- controls --------------------------------------------------------------
+document.getElementById("modeSeg").addEventListener("click",e=>{ if(!e.target.dataset.m)return;
+  state.mode=e.target.dataset.m; segOn("modeSeg",e.target);
+  document.getElementById("panelToggles").style.opacity = state.mode==="today"?".45":"1";
+  draw(); });
+document.getElementById("layoutSeg").addEventListener("click",e=>{ if(!e.target.dataset.l)return;
+  state.layout=e.target.dataset.l; segOn("layoutSeg",e.target); draw(); });
+document.getElementById("scaleSeg").addEventListener("click",e=>{ if(!e.target.dataset.s)return;
+  state.scale=e.target.dataset.s; segOn("scaleSeg",e.target); draw(); });
+document.querySelectorAll(".sw[data-p]").forEach(s=>s.addEventListener("click",()=>{
+  if(state.mode==="today")return; s.classList.toggle("on");
+  state.panels[s.dataset.p]=s.classList.contains("on"); draw(); }));
+function segOn(id,btn){ document.querySelectorAll("#"+id+" button").forEach(b=>b.classList.remove("on")); btn.classList.add("on"); }
+draw();
+</script>
+</body>
+</html>
