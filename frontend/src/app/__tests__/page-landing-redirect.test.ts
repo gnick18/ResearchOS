@@ -56,6 +56,28 @@ describe("decideLandingRedirect — role-based bounce", () => {
     });
   });
 
+  it("bounces a lab_head in My-work mode to /workbench (NAV-2)", () => {
+    const d = decideLandingRedirect(
+      input({ isLabHead: true, piViewMode: "my-work" }),
+    );
+    expect(d).toEqual({
+      kind: "replace",
+      to: "/workbench",
+      markOneShot: true,
+    });
+  });
+
+  it("keeps a lab_head in the lab lens on /lab-overview (explicit lab mode)", () => {
+    const d = decideLandingRedirect(
+      input({ isLabHead: true, piViewMode: "lab" }),
+    );
+    expect(d).toEqual({
+      kind: "replace",
+      to: "/lab-overview",
+      markOneShot: true,
+    });
+  });
+
   it("bounces a member to /workbench", () => {
     const d = decideLandingRedirect(input({ isLabHead: false }));
     expect(d).toEqual({

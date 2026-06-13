@@ -60,6 +60,8 @@ import LabCreateResume from "@/components/lab/LabCreateResume";
 import { LabSessionMount } from "@/components/lab/LabSessionMount";
 import BeakerSearchBottomBar from "@/components/beaker-search/BeakerSearchBottomBar";
 import AppNavBar from "@/components/AppNavBar";
+import PiViewModeToggle from "@/components/PiViewModeToggle";
+import { usePiViewMode } from "@/hooks/usePiViewMode";
 import type { NavItem } from "@/lib/nav";
 
 export default function AppShell({ children }: { children: React.ReactNode }) {
@@ -191,6 +193,11 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   // guaranteed-reachable landing tab), so there's no flicker-out risk.
   const isLabHead = useIsLabHead(currentUser ?? null);
 
+  // PI view mode (NAV-1/2/3): a lab head defaults to the lab lens and can flip to
+  // their personal "My work" researcher view. Only affects the nav for a lab head.
+  const { mode: piViewMode } = usePiViewMode();
+  const labLens = isLabHead === true && piViewMode === "lab";
+
   // The dashboard ("/") is always shown so the user has a guaranteed safe
   // landing tab even if they hide everything else (or if Settings was
   // wiped). Settings itself is rendered as a gear icon, never as part of
@@ -234,11 +241,13 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
     // /purchases entry is NO LONGER hidden for PIs: the LabPurchasesWidget
     // that justified hiding it was deleted with the canvas, so a PI needs
     // the /purchases nav entry back.
-    if (isLabHead) {
-      // PI-Mode People surface (PE-1): a first-class PI-only tab, inserted right
-      // after Lab Overview to match the approved PI nav lineup. Kept OUT of the
-      // shared NAV_ITEMS so it never appears for members or in the drag-customize
-      // visibleTabs set; the full PI nav reorder (NAV-1) lands separately.
+    // PI lab lens (NAV-1): the lab-head's default nav is the PI lineup (Lab
+    // Overview, People, Approvals, Funding) followed by the lab tools. The
+    // personal Workbench drops out of the primary set (it is the researcher home,
+    // reached via the "My work" toggle), per NAV-3. The PI tabs are kept OUT of
+    // the shared NAV_ITEMS so they never appear for members or in the
+    // drag-customize visibleTabs set.
+    if (labLens) {
       const out: NavItem[] = [];
       for (const item of filtered) {
         if (item.href === HOME_HREF) {
@@ -246,14 +255,20 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
           out.push({ href: "/people", label: "People" });
           out.push({ href: "/approvals", label: "Approvals" });
           out.push({ href: "/funding", label: "Funding" });
+        } else if (item.href === "/workbench") {
+          // Researcher home; reachable by flipping to "My work", not in lab lens.
+          continue;
         } else {
           out.push(item);
         }
       }
       return out;
     }
+    // Member, OR a lab head in "My work" mode: the researcher tab set (Workbench
+    // landing), with the PI-only tabs hidden. The "My work" toggle in the header
+    // is the way back to the lab lens for a PI.
     return filtered.filter((item) => item.href !== HOME_HREF);
-  }, [filtered, isLabHead]);
+  }, [filtered, labLens]);
 
   // Supplies hub (Supplies hub, 2026-06-07). When INVENTORY_ENABLED is on,
   // Inventory and Purchases collapse into ONE "Supplies" nav item pointing at
@@ -352,6 +367,14 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
             aside={<StreakBadge username={currentUser} />}
           />
         </PillWrap>
+
+        {/* The persistent "My work" toggle (NAV-2). Lab head only: it flips the
+            nav between the lab lens and the personal researcher view. */}
+        {isLabHead === true && (
+          <PillWrap on={tinted}>
+            <PiViewModeToggle />
+          </PillWrap>
+        )}
 
         {/* Navigation — the slim, drag-customizable bar (AppNavBar). The
             inline-vs-More split is the user's to set; the responsive auto-
