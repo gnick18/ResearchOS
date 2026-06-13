@@ -30,6 +30,7 @@ import {
   type DatasetSidecar,
   type DatasetSource,
   type SavedDatasetAnalysis,
+  type SavedDatasetPlot,
 } from "./types";
 import type { TransformOp } from "@/lib/datahub/transform/pipeline";
 
@@ -91,6 +92,8 @@ export interface BuildSidecarInput {
   folder_path?: string | null;
   /** Saved analyses (Phase 3a). Optional and additive; absent stays absent. */
   savedAnalyses?: SavedDatasetAnalysis[];
+  /** Saved figures (Phase 3b). Optional and additive; absent stays absent. */
+  savedPlots?: SavedDatasetPlot[];
   created_at?: string;
   updated_at?: string;
 }
@@ -117,6 +120,11 @@ export function buildSidecar(input: BuildSidecarInput): DatasetSidecar {
     // serializes byte-identical to the pre-Phase-3a shape (the field is absent).
     ...(input.savedAnalyses && input.savedAnalyses.length > 0
       ? { savedAnalyses: input.savedAnalyses }
+      : {}),
+    // Same additive rule as savedAnalyses: only carry savedPlots when present, so a
+    // sidecar without any figures serializes byte-identical to the pre-3b shape.
+    ...(input.savedPlots && input.savedPlots.length > 0
+      ? { savedPlots: input.savedPlots }
       : {}),
     created_at: input.created_at ?? now,
     updated_at: input.updated_at ?? now,
@@ -149,6 +157,11 @@ export function sidecarFromJson(raw: unknown): DatasetSidecar | null {
     // array, so a sidecar written before Phase 3a reads back with the field absent.
     ...(Array.isArray(o.savedAnalyses) && o.savedAnalyses.length > 0
       ? { savedAnalyses: o.savedAnalyses as SavedDatasetAnalysis[] }
+      : {}),
+    // Additive: keep savedPlots only when the parsed object carries a non-empty
+    // array, so a sidecar written before Phase 3b reads back with the field absent.
+    ...(Array.isArray(o.savedPlots) && o.savedPlots.length > 0
+      ? { savedPlots: o.savedPlots as SavedDatasetPlot[] }
       : {}),
     created_at: typeof o.created_at === "string" ? o.created_at : "",
     updated_at: typeof o.updated_at === "string" ? o.updated_at : "",
@@ -213,6 +226,55 @@ export async function removeSavedAnalysis(
   const updated: DatasetSidecar = { ...sidecar, updated_at: new Date().toISOString() };
   if (next.length > 0) updated.savedAnalyses = next;
   else delete updated.savedAnalyses;
+  await writeDatasetSidecar(owner, updated);
+  return updated;
+}
+
+/**
+ * Persist (add or replace) a saved figure on a dataset's sidecar, in place. Read
+ * the current sidecar, upsert the entry by id, bump updated_at, write it back.
+ * Additive: a sidecar with no prior savedPlots gains the field; replacing the only
+ * entry with nothing is handled by removeSavedPlot. Returns the updated sidecar, or
+ * null when the dataset is missing.
+ */
+export async function saveDatasetPlot(
+  owner: string,
+  id: string,
+  plot: SavedDatasetPlot,
+): Promise<DatasetSidecar | null> {
+  const sidecar = await readDatasetSidecar(owner, id);
+  if (!sidecar) return null;
+  const prior = sidecar.savedPlots ?? [];
+  const idx = prior.findIndex((p) => p.id === plot.id);
+  const next =
+    idx >= 0
+      ? prior.map((p) => (p.id === plot.id ? plot : p))
+      : [...prior, plot];
+  const updated: DatasetSidecar = {
+    ...sidecar,
+    savedPlots: next,
+    updated_at: new Date().toISOString(),
+  };
+  await writeDatasetSidecar(owner, updated);
+  return updated;
+}
+
+/**
+ * Remove a saved figure by id from a dataset's sidecar. When the last entry is
+ * removed the savedPlots field is dropped so the sidecar serializes back to the
+ * pre-3b shape. Returns the updated sidecar, or null when the dataset is missing.
+ */
+export async function removeSavedPlot(
+  owner: string,
+  id: string,
+  plotId: string,
+): Promise<DatasetSidecar | null> {
+  const sidecar = await readDatasetSidecar(owner, id);
+  if (!sidecar) return null;
+  const next = (sidecar.savedPlots ?? []).filter((p) => p.id !== plotId);
+  const updated: DatasetSidecar = { ...sidecar, updated_at: new Date().toISOString() };
+  if (next.length > 0) updated.savedPlots = next;
+  else delete updated.savedPlots;
   await writeDatasetSidecar(owner, updated);
   return updated;
 }
