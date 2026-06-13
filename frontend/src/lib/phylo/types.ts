@@ -32,6 +32,23 @@ export interface PhyloFigureSpec {
   branchLengths: boolean;
   /** Annotation track key -> enabled. */
   tracks: Record<string, boolean>;
+  /**
+   * Draw legends for the colored tracks (Phase 0). Optional + additive: an older
+   * record omits it and the renderer defaults legends ON, so a saved figure is
+   * unchanged either way.
+   */
+  legend?: boolean;
+  /**
+   * Per-track sequential-palette overrides for numeric columns (Phase 0). Optional
+   * + additive: an older record omits it and numeric columns default to Viridis,
+   * categorical to the brand palette. Shape mirrors render.ts FigureScales:
+   * { category?: string; bar?: string; heat?: Record<string, string> }.
+   */
+  scales?: {
+    category?: string;
+    bar?: string;
+    heat?: Record<string, string>;
+  };
 }
 
 /**

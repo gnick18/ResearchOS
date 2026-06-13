@@ -68,6 +68,12 @@ export interface LayoutOptions {
   padding: number;
   /** true = phylogram (x = cumulative branch length), false = cladogram (x = rank depth). */
   phylogram: boolean;
+  /**
+   * Extra radial room (px) the circular renderer needs OUTSIDE the tip circle for
+   * its ring tracks (strip / heat / bar) before labels. Optional and 0 by default
+   * so an unannotated circular tree, and every rectangular caller, are unchanged.
+   */
+  circularRingRoom?: number;
 }
 
 /** Sum of branch lengths from the root to each node. Treats missing lengths as 0. */
@@ -170,8 +176,13 @@ export function layoutCircular(
   const aMax = Math.max(1, lv.length - 1);
   const cx = width / 2;
   const cy = height / 2;
-  // Leave room for tip labels outside the circle.
-  const radius = Math.max(20, Math.min(width, height) / 2 - opts.padding - 56);
+  // Leave room for tip labels outside the circle, plus any ring tracks the
+  // renderer draws between the tips and the labels (Phase 0 bar / heat rings).
+  const ringRoom = Math.max(0, opts.circularRingRoom ?? 0);
+  const radius = Math.max(
+    20,
+    Math.min(width, height) / 2 - opts.padding - 56 - ringRoom,
+  );
   const innerR = 18;
 
   // Spread tips over a 330 degree fan (the open gap reads as a rooted fan).

@@ -100,6 +100,9 @@ export function PhyloStudio({ initialTreeId }: { initialTreeId?: string } = {}) 
   );
   const [phylogram, setPhylogram] = useState(true);
   const [tracks, setTracks] = useState<FigureTracks>(DEFAULT_TRACKS);
+  // Draw legends for the colored tracks (Phase 0). On by default so a figure is
+  // self-describing; persisted per figure on save.
+  const [legend, setLegend] = useState(true);
 
   // Metadata binding.
   const [metaRows, setMetaRows] = useState<Record<string, string>[] | null>(
@@ -182,6 +185,7 @@ export function PhyloStudio({ initialTreeId }: { initialTreeId?: string } = {}) 
         heatColumns,
         metaRows,
         tipColumn,
+        legend,
       },
       { width: FIG_W, height: FIG_H },
     );
@@ -195,6 +199,7 @@ export function PhyloStudio({ initialTreeId }: { initialTreeId?: string } = {}) 
     heatColumns,
     metaRows,
     tipColumn,
+    legend,
   ]);
 
   const svgMarkup = useMemo(
@@ -255,6 +260,7 @@ export function PhyloStudio({ initialTreeId }: { initialTreeId?: string } = {}) 
     setLayout(inputs.layout);
     setPhylogram(inputs.phylogram);
     setTracks(inputs.tracks);
+    setLegend(inputs.legend ?? true);
     if (inputs.metaRows) {
       setMetaRows(inputs.metaRows);
       const cols =
@@ -353,6 +359,7 @@ export function PhyloStudio({ initialTreeId }: { initialTreeId?: string } = {}) 
       layout,
       branchLengths: phylogram,
       tracks: tracks as unknown as Record<string, boolean>,
+      legend,
     };
     const metadata =
       metaRows && tipColumn
@@ -480,6 +487,21 @@ export function PhyloStudio({ initialTreeId }: { initialTreeId?: string } = {}) 
                 options={["", ...metaColumns]}
                 onChange={setBarColumn}
               />
+              {tracks.heat && (
+                <HeatColumnPicker
+                  columns={metaColumns}
+                  selected={heatColumns}
+                  tipColumn={tipColumn}
+                  onAdd={(c) =>
+                    setHeatColumns((prev) =>
+                      prev.includes(c) ? prev : [...prev, c],
+                    )
+                  }
+                  onRemove={(c) =>
+                    setHeatColumns((prev) => prev.filter((x) => x !== c))
+                  }
+                />
+              )}
             </div>
           )}
           {match && (
@@ -553,6 +575,8 @@ export function PhyloStudio({ initialTreeId }: { initialTreeId?: string } = {}) 
           <TrackRow label="Tip points" on={tracks.points} onClick={() => toggleTrack("points")} />
           <TrackRow label="Color strip" on={tracks.strip} onClick={() => toggleTrack("strip")} />
           <TrackRow label="Bar chart" on={tracks.bars} onClick={() => toggleTrack("bars")} />
+          <TrackRow label="Heatmap" on={tracks.heat} onClick={() => toggleTrack("heat")} />
+          <TrackRow label="Legend" on={legend} onClick={() => setLegend((v) => !v)} />
           <TrackRow label="Clade highlight" on={tracks.clade} onClick={() => toggleTrack("clade")} />
           <TrackRow
             label="Support values"
@@ -867,6 +891,76 @@ function ColumnSelect({
         ))}
       </select>
     </label>
+  );
+}
+
+/**
+ * Pick which metadata columns the heatmap track draws, one ring / strip per
+ * column. Selected columns show as removable chips; the dropdown adds another.
+ * The tip-id column is excluded (it is the join key, not data). Each column is
+ * scaled on its own (numeric gradient or categorical) by the renderer.
+ */
+function HeatColumnPicker({
+  columns,
+  selected,
+  tipColumn,
+  onAdd,
+  onRemove,
+}: {
+  columns: string[];
+  selected: string[];
+  tipColumn: string;
+  onAdd: (c: string) => void;
+  onRemove: (c: string) => void;
+}) {
+  const available = columns.filter(
+    (c) => c !== tipColumn && !selected.includes(c),
+  );
+  return (
+    <div className="block text-xs">
+      <span className="text-foreground-muted">Heatmap columns</span>
+      {selected.length > 0 && (
+        <div className="mt-1 flex flex-wrap gap-1">
+          {selected.map((c) => (
+            <span
+              key={c}
+              className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-accent-soft text-accent text-xs font-semibold"
+            >
+              {c}
+              <Tooltip label={`Remove ${c}`}>
+                <button
+                  onClick={() => onRemove(c)}
+                  className="hover:text-foreground"
+                  aria-label={`Remove ${c}`}
+                >
+                  <Icon name="close" className="w-3 h-3" />
+                </button>
+              </Tooltip>
+            </span>
+          ))}
+        </div>
+      )}
+      {available.length > 0 ? (
+        <select
+          value=""
+          onChange={(e) => e.target.value && onAdd(e.target.value)}
+          className="mt-1 w-full text-sm border border-border rounded-lg px-2 py-1 bg-surface text-foreground"
+        >
+          <option value="">Add a column...</option>
+          {available.map((c) => (
+            <option key={c} value={c}>
+              {c}
+            </option>
+          ))}
+        </select>
+      ) : (
+        selected.length === 0 && (
+          <p className="mt-1 text-foreground-muted">
+            No columns to add. Link a metadata table first.
+          </p>
+        )
+      )}
+    </div>
   );
 }
 

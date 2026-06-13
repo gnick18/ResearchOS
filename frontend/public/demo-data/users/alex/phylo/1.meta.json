@@ -6738,6 +6738,7 @@
     ],
     "categoryColumn": "CLADE",
     "heatColumns": [
+      "year",
       "FCZ",
       "AMB",
       "MCF"
