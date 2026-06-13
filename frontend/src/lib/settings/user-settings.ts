@@ -7,6 +7,10 @@ import {
 import type { ViewMode } from "../types";
 import type { AnimationType } from "../store";
 import { ALL_TAB_HREFS, HOME_HREF, isValidTabHref } from "../nav";
+import {
+  type NotificationPreferences,
+  normalizeNotificationPreferences,
+} from "@/lib/notifications/preferences";
 
 export type CalendarViewMode = "month" | "week" | "day";
 export type DateFormat = "MDY" | "DMY" | "YMD";
@@ -337,6 +341,12 @@ export interface UserSettings {
    *  disabled empty config; normalize() repairs a hand-edited bad shape. */
   purchaseRouting: PurchaseRoutingConfig;
 
+  /** Per-category notification routing (bell / laptop / phone / email) plus
+   *  quiet hours. Absent until the user opens the Notifications settings;
+   *  consumers fall back to DEFAULT_NOTIFICATION_PREFERENCES. Phone + email are
+   *  account-only, so a solo user's prefs never activate them. */
+  notificationPreferences?: NotificationPreferences;
+
   /** Lab membership agreement config (lab-head only, opt-in). PI-side template +
    *  version; normalize() repairs a hand-edited bad shape. */
   labMembershipAgreement: LabMembershipAgreement;
@@ -609,6 +619,14 @@ function normalize(raw: Partial<UserSettings> | null | undefined): UserSettings 
               : DEFAULT_PURCHASE_ROUTING.bodyTemplate,
         }
       : { ...DEFAULT_PURCHASE_ROUTING };
+
+  // Notification routing: repair a hand-edited shape to the full matrix. Left
+  // absent when the user has never set it, so consumers default cleanly.
+  if (merged.notificationPreferences) {
+    merged.notificationPreferences = normalizeNotificationPreferences(
+      merged.notificationPreferences,
+    );
+  }
 
   // Lab membership agreement: same defensive repair as the routing config.
   const ag = merged.labMembershipAgreement as
