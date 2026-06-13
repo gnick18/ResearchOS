@@ -13,6 +13,7 @@ import {
   DEMO_NOTEBOOKS_SNAPSHOT,
   DEMO_NOTIFICATIONS_SNAPSHOT,
 } from '@/lib/demo-fixtures';
+import { DEMO_METHOD_SNAPSHOT } from '@/lib/method-library';
 
 // ---- Canonical signed-byte string (MUST match relay/scripts/smoke-snapshot.mjs
 // and relay/src/worker.ts verbatim). The DEVICE Ed25519 key signs this; "device"
@@ -305,10 +306,10 @@ export async function fetchSnapshot(
     // The notebooks fixture gives the capture chooser real destinations to route
     // into (Lab Notes / Results / an experiment) instead of an empty list.
     if (name === 'notebooks') return DEMO_NOTEBOOKS_SNAPSHOT;
-    // The method snapshot has no demo fixture (the read-mode method viewer is
-    // driven by a real focused experiment on the laptop). Return null so the
-    // viewer shows its "open a method from the laptop" empty state in demo mode.
-    if (name === 'method') return null;
+    // The method snapshot stands in for a focused experiment the laptop has sent,
+    // so the active-experiment recommendations band (and its read mode) are
+    // demoable. Per-type seeds are browsed from the library tab's DEMO_LIBRARY.
+    if (name === 'method') return DEMO_METHOD_SNAPSHOT;
     // The library snapshot has no relay fixture; the library tab keeps its own
     // DEMO_LIBRARY fixture for demo mode so demo recordings still work. Return
     // null so the tab falls back to that fixture instead of an empty cache.

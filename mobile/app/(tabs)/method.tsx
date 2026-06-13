@@ -327,10 +327,10 @@ export default function MethodLibraryScreen() {
   // (the demo cache is the fixture, resolved the same way once wired live).
   const openLibraryRow = useCallback(
     (uid: string) => {
-      // Demo mode has no cached projection (the rows are a fixture), so route to
-      // the focused-method read screen so demo recordings still open read mode.
+      // Demo mode resolves the tapped row to its seeded read projection by uid, so
+      // every seeded type opens its own reader (one method per type for review).
       if (isDemo) {
-        router.push('/method-detail?read=1');
+        router.push(`/method-detail?demo=${encodeURIComponent(uid)}`);
         return;
       }
       router.push(`/method-detail?uid=${encodeURIComponent(uid)}`);
