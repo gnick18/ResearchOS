@@ -23,7 +23,8 @@ import type { DemoStep } from "./engine";
 const NAV = (href: string): string => `a[href="${href}"]`;
 
 // --- Chemistry Workbench: PubChem import -> properties -> structure search ->
-// literature. Shows 4 features. Beat 4 (literature) is a live network call. ---
+// literature EXPLORER (filter rail + per-year histogram + star). Beat 4 opens the
+// explorer from the molecule's Papers & patents and is a live network call. ---
 const chemistry: DemoStep[] = [
   { action: "wait", ms: 900 },
   { action: "click", target: NAV("/chemistry"), durationMs: 850 },
@@ -65,20 +66,35 @@ const chemistry: DemoStep[] = [
     clear: true,
   },
   { action: "wait", ms: 1400 },
-  // Beat 4: literature + patent search for the compound (live Europe PMC + PubChem;
-  // bump the final wait to ~5000 if the API is slow at record time).
-  { action: "click", target: { testid: "chem-rail-literature" }, durationMs: 850 },
-  { action: "wait", ms: 700 },
+  // Beat 4: the LITERATURE EXPLORER (the filter rail + per-year histogram + star),
+  // reached from caffeine's molecule detail. The hub "Find in literature" rail is
+  // the flat quick-list; the explorer (the cool toggles) opens via "View all" on a
+  // molecule's Papers & patents, so we drive it there. caffeine's detail is still
+  // the main pane after the rail substructure search above. Live Europe PMC +
+  // PubChem; bump the waits if the API is slow at record time.
+  { action: "click", target: { textContains: "Find papers and patents" }, durationMs: 800 },
+  { action: "wait", ms: 3200 },
+  { action: "moveTo", target: { testid: "lit-explorer-open" }, durationMs: 800 },
+  { action: "click", target: { testid: "lit-explorer-open" }, durationMs: 350 },
+  { action: "wait", ms: 1300 },
+  // Narrow the year range (rescales the histogram + the list).
   {
     action: "type",
-    target: { testid: "lit-search-input" },
-    text: "caffeine",
-    cadenceMs: 90,
+    target: { testid: "lit-explorer-year-min" },
+    text: "2015",
+    cadenceMs: 110,
     clear: true,
   },
-  { action: "wait", ms: 350 },
-  { action: "click", target: { testid: "lit-search-submit" }, durationMs: 600 },
-  { action: "wait", ms: 3800 },
+  { action: "wait", ms: 1000 },
+  // Toggle the Research type filter off then on.
+  { action: "click", target: { testid: "lit-explorer-filter-research" }, durationMs: 600 },
+  { action: "wait", ms: 900 },
+  { action: "click", target: { testid: "lit-explorer-filter-research" }, durationMs: 400 },
+  { action: "wait", ms: 700 },
+  // Star a paper (persists to caffeine's starred_papers).
+  { action: "moveTo", target: { testid: "lit-explorer-star" }, durationMs: 700 },
+  { action: "click", target: { testid: "lit-explorer-star" }, durationMs: 350 },
+  { action: "wait", ms: 1800 },
 ];
 
 const RAIL = '[data-testid="datahub-rail"]';
