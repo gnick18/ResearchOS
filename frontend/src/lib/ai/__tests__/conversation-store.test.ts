@@ -1289,3 +1289,169 @@ describe("vision: send() with images", () => {
     expect(useConversationStore.getState().pendingImages).toHaveLength(0);
   });
 });
+
+// ---- PDF paper attachment: state management and injection --------------------
+//
+// Tests that:
+//   1. setAttachedPaper / clearAttachedPaper work.
+//   2. attachedPaper is null after clearConversation / newChat.
+//   3. send() injects the paper text as a per-turn system message (paperMessage)
+//      and the message is identity-filtered out of historyStore so it is NOT
+//      re-sent on the next turn (the critical no-re-send property).
+//   4. attachedPaper is null after send() (cleared atomically with the send).
+
+const FAKE_PAPER = {
+  name: "smith-et-al-2023.pdf",
+  text: "Abstract: We studied something important.",
+  pageCount: 12,
+  truncated: false,
+};
+
+describe("PDF paper attachment: state management", () => {
+  it("setAttachedPaper stores the paper", () => {
+    useConversationStore.getState().setAttachedPaper(FAKE_PAPER);
+    expect(useConversationStore.getState().attachedPaper).toEqual(FAKE_PAPER);
+  });
+
+  it("clearAttachedPaper removes the paper", () => {
+    useConversationStore.getState().setAttachedPaper(FAKE_PAPER);
+    useConversationStore.getState().clearAttachedPaper();
+    expect(useConversationStore.getState().attachedPaper).toBeNull();
+  });
+
+  it("attachedPaper is cleared by clearConversation", () => {
+    useConversationStore.getState().setAttachedPaper(FAKE_PAPER);
+    useConversationStore.getState().clearConversation();
+    expect(useConversationStore.getState().attachedPaper).toBeNull();
+  });
+
+  it("attachedPaper is cleared by newChat", () => {
+    useConversationStore.getState().setAttachedPaper(FAKE_PAPER);
+    useConversationStore.getState().newChat();
+    expect(useConversationStore.getState().attachedPaper).toBeNull();
+  });
+
+  it("starts with attachedPaper null", () => {
+    expect(useConversationStore.getState().attachedPaper).toBeNull();
+  });
+});
+
+describe("PDF paper attachment: send() injection and no-re-send", () => {
+  it("injects the paper text as a per-turn system message on send", async () => {
+    // Capture the messages array passed to runAgentLoop.
+    let capturedMessages: LoopMessage[] = [];
+    vi.mocked(runAgentLoop).mockImplementationOnce(async (opts) => {
+      capturedMessages = opts.messages as LoopMessage[];
+      return {
+        answer: "Here is the summary.",
+        messages: [...capturedMessages, { role: "assistant", content: "Here is the summary." }],
+        iterations: 1,
+        stoppedOnGuard: false,
+        totalUsage: { promptTokens: 20, completionTokens: 10 },
+      };
+    });
+    vi.mocked(callModelViaProxy).mockResolvedValueOnce(
+      jsonChoices("Here is the summary.") as Awaited<ReturnType<typeof callModelViaProxy>>,
+    );
+
+    // Stage a paper and send.
+    useConversationStore.getState().setAttachedPaper(FAKE_PAPER);
+    await useConversationStore.getState().send("summarize this paper");
+    await flushAll();
+
+    // There should be a system message in the loop input containing the paper text.
+    const paperSysMsg = capturedMessages.find(
+      (m) =>
+        m.role === "system" &&
+        typeof m.content === "string" &&
+        (m.content as string).includes(FAKE_PAPER.text),
+    );
+    expect(paperSysMsg).toBeDefined();
+    // The message should also contain the paper name.
+    expect((paperSysMsg?.content as string)).toContain(FAKE_PAPER.name);
+    // The message should contain the page count.
+    expect((paperSysMsg?.content as string)).toContain("12 pages");
+
+    // attachedPaper should be null after send (cleared atomically).
+    expect(useConversationStore.getState().attachedPaper).toBeNull();
+  });
+
+  it("does NOT persist the paper system message into historyStore (no-re-send)", async () => {
+    // First send with paper.
+    vi.mocked(runAgentLoop).mockImplementationOnce(async (opts) => {
+      const msgs = opts.messages as LoopMessage[];
+      return {
+        answer: "summary done",
+        messages: [...msgs, { role: "assistant", content: "summary done" }],
+        iterations: 1,
+        stoppedOnGuard: false,
+        totalUsage: { promptTokens: 50, completionTokens: 10 },
+      };
+    });
+    vi.mocked(callModelViaProxy).mockResolvedValueOnce(
+      jsonChoices("summary done") as Awaited<ReturnType<typeof callModelViaProxy>>,
+    );
+
+    useConversationStore.getState().setAttachedPaper(FAKE_PAPER);
+    await useConversationStore.getState().send("summarize");
+    await flushAll();
+
+    // Now send a SECOND message WITHOUT a paper. The loop input for the second
+    // send must NOT contain the paper system message.
+    let secondCallMessages: LoopMessage[] = [];
+    vi.mocked(runAgentLoop).mockImplementationOnce(async (opts) => {
+      secondCallMessages = opts.messages as LoopMessage[];
+      return {
+        answer: "follow-up",
+        messages: [...secondCallMessages, { role: "assistant", content: "follow-up" }],
+        iterations: 1,
+        stoppedOnGuard: false,
+        totalUsage: { promptTokens: 20, completionTokens: 5 },
+      };
+    });
+    vi.mocked(callModelViaProxy).mockResolvedValueOnce(
+      jsonChoices("follow-up") as Awaited<ReturnType<typeof callModelViaProxy>>,
+    );
+
+    await useConversationStore.getState().send("what else?");
+    await flushAll();
+
+    // The second call's messages must NOT include the paper text.
+    const paperInSecond = secondCallMessages.find(
+      (m) =>
+        m.role === "system" &&
+        typeof m.content === "string" &&
+        (m.content as string).includes(FAKE_PAPER.text),
+    );
+    expect(paperInSecond).toBeUndefined();
+  });
+
+  it("includes a truncation note when truncated is true", async () => {
+    let capturedMessages: LoopMessage[] = [];
+    vi.mocked(runAgentLoop).mockImplementationOnce(async (opts) => {
+      capturedMessages = opts.messages as LoopMessage[];
+      return {
+        answer: "truncated summary",
+        messages: [...capturedMessages, { role: "assistant", content: "truncated summary" }],
+        iterations: 1,
+        stoppedOnGuard: false,
+        totalUsage: { promptTokens: 10, completionTokens: 5 },
+      };
+    });
+    vi.mocked(callModelViaProxy).mockResolvedValueOnce(
+      jsonChoices("truncated summary") as Awaited<ReturnType<typeof callModelViaProxy>>,
+    );
+
+    useConversationStore.getState().setAttachedPaper({ ...FAKE_PAPER, truncated: true });
+    await useConversationStore.getState().send("summarize");
+    await flushAll();
+
+    const paperSysMsg = capturedMessages.find(
+      (m) =>
+        m.role === "system" &&
+        typeof m.content === "string" &&
+        (m.content as string).includes(FAKE_PAPER.text),
+    );
+    expect((paperSysMsg?.content as string)).toContain("truncated");
+  });
+});

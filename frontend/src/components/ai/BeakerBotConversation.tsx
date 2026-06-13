@@ -627,16 +627,25 @@ export default function BeakerBotConversation({
     addPendingImage,
     removePendingImage,
     clearPendingImages,
+    attachedPaper,
+    setAttachedPaper,
+    clearAttachedPaper,
   } = useAiChat();
   const [draft, setDraft] = useState("");
   const listRef = useRef<HTMLDivElement | null>(null);
   // Track the assistant message id for the in-flight placeholder so stop() can
   // remove the empty bubble if the turn is cancelled before any text arrives.
   const assistantIdRef = useRef<string | null>(null);
-  // Hidden file input for the camera/attach button.
+  // Hidden file input for the camera/attach button (images).
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  // Hidden file input for the paperclip attach button (PDFs).
+  const pdfInputRef = useRef<HTMLInputElement | null>(null);
   // drag-over state for the composer drop zone visual indicator.
   const [isDragOver, setIsDragOver] = useState(false);
+  // Local extracting flag: true while pdfjs is loading + parsing the PDF.
+  // Distinct from the store's attachedPaper so the "Extracting" chip state
+  // does not bleed into the global reactive state.
+  const [pdfExtracting, setPdfExtracting] = useState(false);
 
   // copiedId: the id of the message that most recently had its text copied. A
   // brief "Copied" label replaces the Copy button label while this is set.
@@ -708,6 +717,40 @@ export default function BeakerBotConversation({
     [readFileAsDataUrl, addPendingImage],
   );
 
+  // ---- PDF attach handler -------------------------------------------------------
+  //
+  // handlePdfFile: extract text from a PDF File, show the extracting chip, then
+  // transition to the ready chip once done. If extraction fails, log and reset.
+  // Dynamic-imported pdf-extract so pdfjs-dist is not in the initial bundle.
+  //
+  // NOTE for Grant: reusing the "file" registry icon as the closest match for
+  // "attach PDF / paperclip." No new registry icon was added. If you want a
+  // dedicated paperclip glyph, please sign it off and I will add it.
+  const handlePdfFile = useCallback(
+    async (file: File) => {
+      if (!file.type.includes("pdf") && !file.name.endsWith(".pdf")) return;
+      setPdfExtracting(true);
+      // Clear any previously attached paper so the chip starts fresh.
+      clearAttachedPaper();
+      try {
+        const { extractPdfText } = await import("@/lib/ai/pdf-extract");
+        const result = await extractPdfText(file);
+        setAttachedPaper({
+          name: file.name,
+          text: result.text,
+          pageCount: result.pageCount,
+          truncated: result.truncated,
+        });
+      } catch (err) {
+        console.error("[BeakerBot] PDF extraction failed:", err);
+        // Do not surface an error state here; the chip simply disappears.
+      } finally {
+        setPdfExtracting(false);
+      }
+    },
+    [clearAttachedPaper, setAttachedPaper],
+  );
+
   // Keep the newest message in view as the answer reveals.
   useEffect(() => {
     const el = listRef.current;
@@ -717,9 +760,11 @@ export default function BeakerBotConversation({
   const handleSend = () => {
     const text = draft;
     // Allow send when there is text, or when images are staged (even with no text,
-    // the model can respond to an image-only message).
+    // the model can respond to an image-only message). A staged paper also
+    // enables send even with empty text, so the user can say "summarize this."
     const hasImages = BEAKERBOT_VISION_ENABLED && pendingImages.length > 0;
-    if ((!text.trim() && !hasImages) || sending) return;
+    const hasPaper = attachedPaper !== null;
+    if ((!text.trim() && !hasImages && !hasPaper) || sending) return;
     setDraft("");
     void send(text);
     // Capture the id of the empty assistant placeholder the store just seeded.
@@ -1241,6 +1286,53 @@ export default function BeakerBotConversation({
             : undefined
         }
       >
+        {/* PDF chip. Shows when a paper is being extracted (extracting state)
+            or has been extracted and is staged (ready state). The chip resets
+            on send (the store clears attachedPaper atomically with send). A
+            "stays in your browser" note reinforces local-first privacy. */}
+        {(pdfExtracting || attachedPaper !== null) ? (
+          <div
+            data-testid="beakerbot-pdf-chip"
+            className="mb-2 flex items-center gap-2 rounded-lg border border-brand/40 bg-brand/5 px-2.5 py-1.5"
+          >
+            {/* File icon badge */}
+            <span className="flex h-6 w-6 flex-none items-center justify-center rounded bg-brand/15 text-brand">
+              <Icon name="file" className="h-3.5 w-3.5" title="PDF" />
+            </span>
+            {/* Name + meta */}
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-[12px] font-semibold text-foreground leading-tight">
+                {pdfExtracting ? "Extracting…" : (attachedPaper?.name ?? "")}
+              </p>
+              {attachedPaper && !pdfExtracting ? (
+                <p className="text-[11px] text-foreground-muted leading-tight">
+                  {attachedPaper.pageCount} page{attachedPaper.pageCount === 1 ? "" : "s"}
+                  {attachedPaper.truncated ? " (first 60k chars)" : ""}
+                  {" • stays in your browser"}
+                </p>
+              ) : (
+                <p className="text-[11px] text-foreground-muted leading-tight">
+                  Reading text locally…
+                </p>
+              )}
+            </div>
+            {/* Remove button (only when ready, not while extracting) */}
+            {attachedPaper && !pdfExtracting ? (
+              <Tooltip label="Remove paper" placement="top">
+                <button
+                  type="button"
+                  data-testid="beakerbot-remove-pdf"
+                  aria-label="Remove attached paper"
+                  onClick={clearAttachedPaper}
+                  className="flex-none text-foreground-muted hover:text-foreground"
+                >
+                  <Icon name="close" className="h-3.5 w-3.5" title="Remove" />
+                </button>
+              </Tooltip>
+            ) : null}
+          </div>
+        ) : null}
+
         {/* Pending-image thumbnail strip. Only rendered when images are staged
             and the vision feature is enabled. Each thumbnail shows a small
             preview with an X button to remove it. */}
@@ -1297,7 +1389,7 @@ export default function BeakerBotConversation({
         ) : null}
 
         <div className="flex items-end gap-2">
-          {/* Hidden file input, triggered by the camera button below. */}
+          {/* Hidden file input for image attach, triggered by the camera button below. */}
           {BEAKERBOT_VISION_ENABLED ? (
             <input
               ref={fileInputRef}
@@ -1316,6 +1408,23 @@ export default function BeakerBotConversation({
             />
           ) : null}
 
+          {/* Hidden file input for PDF attach, triggered by the paperclip button. */}
+          <input
+            ref={pdfInputRef}
+            type="file"
+            accept=".pdf,application/pdf"
+            aria-hidden="true"
+            className="sr-only"
+            onChange={(e) => {
+              const file = e.target.files?.[0];
+              if (file) {
+                void handlePdfFile(file);
+                // Reset so the same file can be re-selected.
+                e.target.value = "";
+              }
+            }}
+          />
+
           <textarea
             data-testid="beakerbot-input"
             aria-label="Message BeakerBot"
@@ -1333,6 +1442,25 @@ export default function BeakerBotConversation({
             placeholder="Message BeakerBot"
             className="min-h-0 flex-1 resize-none rounded-md border border-border bg-surface-raised px-3 py-2 text-body text-foreground placeholder:text-foreground-muted focus:outline-none focus:ring-2 focus:ring-brand"
           />
+
+          {/* PDF paperclip attach button. Uses the "file" registry icon (closest
+              match to a paperclip; see handlePdfFile note above). Always visible
+              (not gated), since the PDF fan-out is the primary use case here.
+              Disabled while extracting or while a turn is in flight. */}
+          {!sending ? (
+            <Tooltip label="Attach a paper PDF" placement="top">
+              <button
+                type="button"
+                data-testid="beakerbot-attach-pdf"
+                aria-label="Attach a paper PDF"
+                disabled={pdfExtracting}
+                onClick={() => pdfInputRef.current?.click()}
+                className="flex items-center justify-center rounded-md border border-border bg-surface-raised px-2.5 py-2 text-foreground-muted transition-colors hover:bg-surface-sunken hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                <Icon name="file" className="h-4 w-4" title="Attach PDF" />
+              </button>
+            </Tooltip>
+          ) : null}
 
           {/* Image attach button (camera icon). Gated on BEAKERBOT_VISION_ENABLED.
               NOTE for Grant: reusing the "camera" registry icon as the closest match
@@ -1377,7 +1505,8 @@ export default function BeakerBotConversation({
               onClick={handleSend}
               disabled={
                 draft.trim().length === 0 &&
-                !(BEAKERBOT_VISION_ENABLED && pendingImages.length > 0)
+                !(BEAKERBOT_VISION_ENABLED && pendingImages.length > 0) &&
+                attachedPaper === null
               }
               className="bg-brand-action text-white transition-colors hover:bg-brand-action/90 rounded-md px-3 py-2 text-body font-medium disabled:cursor-not-allowed disabled:opacity-50"
             >

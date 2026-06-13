@@ -24,6 +24,7 @@ export type {
   PendingApproval,
   TurnSummary,
   ToolStep,
+  AttachedPaper,
 } from "@/lib/ai/conversation-store";
 
 export function useAiChat() {
@@ -53,6 +54,10 @@ export function useAiChat() {
   const addPendingImage = useConversationStore((s) => s.addPendingImage);
   const removePendingImage = useConversationStore((s) => s.removePendingImage);
   const clearPendingImages = useConversationStore((s) => s.clearPendingImages);
+  // PDF paper attachment.
+  const attachedPaper = useConversationStore((s) => s.attachedPaper);
+  const setAttachedPaper = useConversationStore((s) => s.setAttachedPaper);
+  const clearAttachedPaper = useConversationStore((s) => s.clearAttachedPaper);
 
   return {
     messages,
@@ -81,5 +86,9 @@ export function useAiChat() {
     addPendingImage,
     removePendingImage,
     clearPendingImages,
+    // PDF paper attachment.
+    attachedPaper,
+    setAttachedPaper,
+    clearAttachedPaper,
   };
 }

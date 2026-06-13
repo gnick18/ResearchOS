@@ -228,7 +228,28 @@ interface ConversationState {
   //   composer reads this to show removable thumbnails. Cleared on every send()
   //   and on clearConversation/newChat.
   pendingImages: string[];
+
+  // ---- PDF paper attachment state -----------------------------------------------
+  //
+  // attachedPaper: the paper currently staged for the next send. Null when no PDF
+  //   is attached. Cleared on every send() (the text is injected as a per-turn
+  //   context message on that turn, then discarded so it is NOT re-sent every later
+  //   turn) and on clearConversation/newChat. The composer reads this to show the
+  //   PDF chip with extracting/ready states.
+  attachedPaper: AttachedPaper | null;
 }
+
+/** A paper PDF that has been extracted and staged for the next send. */
+export type AttachedPaper = {
+  /** Original file name (for display in the chip). */
+  name: string;
+  /** Extracted text, already capped by TEXT_BUDGET_CHARS. */
+  text: string;
+  /** Total page count reported by pdfjs. */
+  pageCount: number;
+  /** Whether the text was truncated at the budget. */
+  truncated: boolean;
+};
 
 // A single tool call entry in the live steps panel.
 export type ToolStep = {
@@ -245,6 +266,10 @@ interface ConversationActions {
   removePendingImage: (dataUrl: string) => void;
   /** Clear all staged images without sending. */
   clearPendingImages: () => void;
+  /** Stage an extracted paper for the next send. Replaces any previously staged paper. */
+  setAttachedPaper: (paper: AttachedPaper) => void;
+  /** Remove the staged paper without sending. */
+  clearAttachedPaper: () => void;
   /**
    * Abort the currently in-flight send. Clears the sending/loading state and
    * removes the empty assistant placeholder bubble so it does not hang on
@@ -474,6 +499,8 @@ export const useConversationStore = create<ConversationStore>((set, get) => ({
   turnToolSteps: [],
   // Vision attachment state.
   pendingImages: [],
+  // PDF paper attachment state.
+  attachedPaper: null,
 
   stop: (placeholderAssistantId?: string) => {
     // Guard: nothing to abort when idle.
@@ -526,6 +553,14 @@ export const useConversationStore = create<ConversationStore>((set, get) => ({
     set({ pendingImages: [] });
   },
 
+  setAttachedPaper: (paper: AttachedPaper) => {
+    set({ attachedPaper: paper });
+  },
+
+  clearAttachedPaper: () => {
+    set({ attachedPaper: null });
+  },
+
   clearQueue: () => {
     pendingQueuedText = null;
     set({ queuedText: null });
@@ -558,6 +593,8 @@ export const useConversationStore = create<ConversationStore>((set, get) => ({
       turnToolSteps: [],
       // Clear any staged images when starting fresh.
       pendingImages: [],
+      // Clear any staged paper when starting fresh.
+      attachedPaper: null,
     });
   },
 
@@ -612,6 +649,8 @@ export const useConversationStore = create<ConversationStore>((set, get) => ({
       turnToolSteps: [],
       // Discard any staged images when switching threads.
       pendingImages: [],
+      // Discard any staged paper when switching threads.
+      attachedPaper: null,
     });
   },
 
@@ -736,7 +775,13 @@ export const useConversationStore = create<ConversationStore>((set, get) => ({
     // the user staged before pressing Send are consumed on this turn only; the
     // store slot is emptied so they do not carry over to the next turn.
     const capturedImages = get().pendingImages;
-    set({ pendingImages: [] });
+    // Snapshot and clear the staged paper atomically with the send. The paper
+    // text is injected as a per-turn system message (paperMessage) and is
+    // identity-filtered out of historyStore after the loop, so it is NOT
+    // re-sent on every subsequent turn (the same pattern as contextMessage /
+    // memoryMessage). Cleared here so it does not carry over to the next turn.
+    const capturedPaper = get().attachedPaper;
+    set({ pendingImages: [], attachedPaper: null });
 
     const userMessage: ChatMessage = {
       id: nextId(),
@@ -850,6 +895,24 @@ export const useConversationStore = create<ConversationStore>((set, get) => ({
       ? { role: "system", content: memoryContent }
       : null;
 
+    // Inject the attached paper text as a per-turn system message. Held by
+    // reference for the same identity-filter-before-persist pattern as
+    // contextMessage and memoryMessage: it is stripped from result.messages
+    // before historyStore is updated so the large paper text is NOT re-sent on
+    // every subsequent turn. Null when no paper is attached on this turn.
+    // Format: "[Attached paper: <name>, <N> pages]\n<text>[TRUNCATED]"
+    const paperMessage: LoopMessage | null = capturedPaper
+      ? {
+          role: "system",
+          content: [
+            `[Attached paper: ${capturedPaper.name}, ${capturedPaper.pageCount} page${capturedPaper.pageCount === 1 ? "" : "s"}]`,
+            capturedPaper.truncated
+              ? `${capturedPaper.text}\n\n[Note: paper text was truncated at 60,000 characters because the document is very long. Only the first portion of the paper is shown above.]`
+              : capturedPaper.text,
+          ].join("\n"),
+        }
+      : null;
+
     // Build the user turn for the loop. When images are staged, content is a
     // LoopContentBlock array so the vision router in the API proxy selects the
     // vision model. The text block is omitted when the message is image-only
@@ -897,6 +960,7 @@ export const useConversationStore = create<ConversationStore>((set, get) => ({
       historyStore[0], // base system prompt
       contextMessage, // fresh per-turn review mode + context
       ...(memoryMessage ? [memoryMessage] : []), // per-turn user preferences
+      ...(paperMessage ? [paperMessage] : []), // per-turn attached paper text (if any)
       ...historyStore.slice(1), // rest of persisted history
       userLoopMessage, // this turn's user message (may be multimodal)
     ];
@@ -954,8 +1018,10 @@ export const useConversationStore = create<ConversationStore>((set, get) => ({
       // Persist the full loop history (including tool turns) for the next send,
       // but strip ALL per-turn injected messages by reference so they never persist.
       // Persisting any of them would let a stale line accumulate, one extra system
-      // message per send. Both contextMessage and memoryMessage (when present) are
-      // filtered by the same identity check.
+      // message per send. contextMessage, memoryMessage, and paperMessage (when
+      // present) are all filtered by the same identity check. The large paper text
+      // in particular must not persist, as re-sending it on every later turn would
+      // be extremely expensive and incorrect (it was used on the turn it was needed).
       //
       // COST-COLLAPSE: when images were attached on this turn, userLoopMessage
       // carries the full image_url blocks. We replace that exact reference with
@@ -963,7 +1029,7 @@ export const useConversationStore = create<ConversationStore>((set, get) => ({
       // re-sent on every subsequent turn. The display ChatMessage.images still
       // holds the thumbnails for rendering; only the historyStore entry is collapsed.
       const filteredMessages = result.messages.filter(
-        (m) => m !== contextMessage && m !== memoryMessage,
+        (m) => m !== contextMessage && m !== memoryMessage && m !== paperMessage,
       );
       if (collapseMessage !== null) {
         historyStore = filteredMessages.map((m) =>
@@ -1197,5 +1263,6 @@ export function resetConversationModule(): void {
     settledTurns: [],
     turnToolSteps: [],
     pendingImages: [],
+    attachedPaper: null,
   });
 }

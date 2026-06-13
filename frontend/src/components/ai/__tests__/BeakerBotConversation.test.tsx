@@ -26,6 +26,9 @@ vi.mock("next/navigation", () => ({
 }));
 
 // The read tool reads from local-api. Mock it so the tool runs without a folder.
+vi.mock("@/lib/ai/pdf-extract", () => ({
+  extractPdfText: vi.fn(async () => ({ text: "", pageCount: 0, truncated: false })),
+}));
 vi.mock("@/lib/local-api", () => ({
   fetchAllTasksIncludingShared: vi.fn(async () => [
     {
