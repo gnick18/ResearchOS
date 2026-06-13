@@ -1071,3 +1071,221 @@ describe("revertToHere: truncates messages and historyStore to the right point",
     expect(useConversationStore.getState().messages).toHaveLength(3);
   });
 });
+
+// ---- Vision: pending image state management ----------------------------------
+//
+// Tests that addPendingImage / removePendingImage / clearPendingImages work
+// correctly and that the images are cleared on newChat / clearConversation.
+// The flag (NEXT_PUBLIC_BEAKERBOT_VISION) gates the UI only; the store itself
+// is always available for direct testing.
+
+describe("vision: pending image state management", () => {
+  const FAKE_URL_A = "data:image/png;base64,AAAA";
+  const FAKE_URL_B = "data:image/png;base64,BBBB";
+
+  it("addPendingImage appends a data URL to pendingImages", () => {
+    useConversationStore.getState().addPendingImage(FAKE_URL_A);
+    expect(useConversationStore.getState().pendingImages).toEqual([FAKE_URL_A]);
+    useConversationStore.getState().addPendingImage(FAKE_URL_B);
+    expect(useConversationStore.getState().pendingImages).toEqual([FAKE_URL_A, FAKE_URL_B]);
+  });
+
+  it("removePendingImage removes the matching URL", () => {
+    useConversationStore.getState().addPendingImage(FAKE_URL_A);
+    useConversationStore.getState().addPendingImage(FAKE_URL_B);
+    useConversationStore.getState().removePendingImage(FAKE_URL_A);
+    expect(useConversationStore.getState().pendingImages).toEqual([FAKE_URL_B]);
+  });
+
+  it("clearPendingImages empties the array", () => {
+    useConversationStore.getState().addPendingImage(FAKE_URL_A);
+    useConversationStore.getState().addPendingImage(FAKE_URL_B);
+    useConversationStore.getState().clearPendingImages();
+    expect(useConversationStore.getState().pendingImages).toEqual([]);
+  });
+
+  it("pendingImages is cleared by clearConversation", () => {
+    useConversationStore.getState().addPendingImage(FAKE_URL_A);
+    useConversationStore.getState().clearConversation();
+    expect(useConversationStore.getState().pendingImages).toEqual([]);
+  });
+
+  it("pendingImages is cleared by newChat", () => {
+    useConversationStore.getState().addPendingImage(FAKE_URL_A);
+    useConversationStore.getState().newChat();
+    expect(useConversationStore.getState().pendingImages).toEqual([]);
+  });
+});
+
+// ---- Vision: send() with images (multimodal content + cost-collapse) ---------
+//
+// Tests that:
+//   1. send() with pendingImages builds multimodal LoopMessage content (text
+//      block + image_url blocks) and clears pendingImages.
+//   2. ChatMessage.images is set on the display message.
+//   3. The historyStore cost-collapse: the persisted user message replaces
+//      image_url blocks with "[image attached]" so images are NOT re-sent on
+//      subsequent turns.
+//   4. After the collapse, a second send does NOT receive image blocks in its
+//      loop input.
+
+describe("vision: send() with images", () => {
+  const FAKE_URL = "data:image/png;base64,iVBORw0KGgo=";
+
+  it("send() with a staged image builds multimodal loop content and sets ChatMessage.images", async () => {
+    // Capture the messages array passed to runAgentLoop.
+    let capturedMessages: LoopMessage[] = [];
+    vi.mocked(runAgentLoop).mockImplementationOnce(async (opts) => {
+      capturedMessages = opts.messages as LoopMessage[];
+      return {
+        answer: "I see an image.",
+        messages: [...capturedMessages, { role: "assistant", content: "I see an image." }],
+        iterations: 1,
+        stoppedOnGuard: false,
+        totalUsage: { promptTokens: 10, completionTokens: 5 },
+      };
+    });
+    vi.mocked(callModelViaProxy).mockResolvedValueOnce(
+      jsonChoices("I see an image.") as Awaited<ReturnType<typeof callModelViaProxy>>,
+    );
+
+    // Stage an image and send.
+    useConversationStore.getState().addPendingImage(FAKE_URL);
+    expect(useConversationStore.getState().pendingImages).toHaveLength(1);
+
+    await useConversationStore.getState().send("what is this?");
+    await flushAll();
+
+    // The pending image should be cleared after send.
+    expect(useConversationStore.getState().pendingImages).toHaveLength(0);
+
+    // The last message passed to the loop should be multimodal.
+    const userLoopMessage = capturedMessages[capturedMessages.length - 1];
+    expect(userLoopMessage.role).toBe("user");
+    expect(Array.isArray(userLoopMessage.content)).toBe(true);
+    const blocks = userLoopMessage.content as Array<{ type: string; text?: string; image_url?: { url: string } }>;
+    expect(blocks.some((b) => b.type === "text" && b.text === "what is this?")).toBe(true);
+    expect(blocks.some((b) => b.type === "image_url" && b.image_url?.url === FAKE_URL)).toBe(true);
+
+    // The display ChatMessage should have .images set.
+    const msgs = useConversationStore.getState().messages;
+    const userMsg = msgs.find((m) => m.role === "user");
+    expect(userMsg?.images).toEqual([FAKE_URL]);
+  });
+
+  it("send() without images keeps content as a plain string", async () => {
+    let capturedMessages: LoopMessage[] = [];
+    vi.mocked(runAgentLoop).mockImplementationOnce(async (opts) => {
+      capturedMessages = opts.messages as LoopMessage[];
+      return {
+        answer: "plain answer",
+        messages: [...capturedMessages, { role: "assistant", content: "plain answer" }],
+        iterations: 1,
+        stoppedOnGuard: false,
+        totalUsage: { promptTokens: 5, completionTokens: 2 },
+      };
+    });
+    vi.mocked(callModelViaProxy).mockResolvedValueOnce(
+      jsonChoices("plain answer") as Awaited<ReturnType<typeof callModelViaProxy>>,
+    );
+
+    await useConversationStore.getState().send("hello");
+    await flushAll();
+
+    // Last message in loop input should be a plain string.
+    const userLoopMessage = capturedMessages[capturedMessages.length - 1];
+    expect(typeof userLoopMessage.content).toBe("string");
+    expect(userLoopMessage.content).toBe("hello");
+
+    // No .images on the display message.
+    const msgs = useConversationStore.getState().messages;
+    const userMsg = msgs.find((m) => m.role === "user");
+    expect(userMsg?.images).toBeUndefined();
+  });
+
+  it("cost-collapse: historyStore persists [image attached] marker, not the image_url block", async () => {
+    let firstCallMessages: LoopMessage[] = [];
+    vi.mocked(runAgentLoop).mockImplementationOnce(async (opts) => {
+      firstCallMessages = opts.messages as LoopMessage[];
+      return {
+        answer: "replied",
+        messages: [...firstCallMessages, { role: "assistant", content: "replied" }],
+        iterations: 1,
+        stoppedOnGuard: false,
+        totalUsage: { promptTokens: 10, completionTokens: 3 },
+      };
+    });
+    vi.mocked(callModelViaProxy).mockResolvedValueOnce(
+      jsonChoices("replied") as Awaited<ReturnType<typeof callModelViaProxy>>,
+    );
+
+    // First send with an image.
+    useConversationStore.getState().addPendingImage(FAKE_URL);
+    await useConversationStore.getState().send("look at this");
+    await flushAll();
+
+    // Now send a follow-up WITHOUT any image. Capture what historyStore sent.
+    let secondCallMessages: LoopMessage[] = [];
+    vi.mocked(runAgentLoop).mockImplementationOnce(async (opts) => {
+      secondCallMessages = opts.messages as LoopMessage[];
+      return {
+        answer: "follow-up",
+        messages: [...secondCallMessages, { role: "assistant", content: "follow-up" }],
+        iterations: 1,
+        stoppedOnGuard: false,
+        totalUsage: { promptTokens: 10, completionTokens: 3 },
+      };
+    });
+    vi.mocked(callModelViaProxy).mockResolvedValueOnce(
+      jsonChoices("follow-up") as Awaited<ReturnType<typeof callModelViaProxy>>,
+    );
+
+    await useConversationStore.getState().send("what was in that image?");
+    await flushAll();
+
+    // The second call's messages should include the COLLAPSED user message from
+    // the first turn (the text + "[image attached]" marker, NOT the image_url block).
+    const collapsedUserMsg = secondCallMessages.find(
+      (m) =>
+        m.role === "user" &&
+        typeof m.content === "string" &&
+        (m.content as string).includes("[image attached]"),
+    );
+    expect(collapsedUserMsg).toBeDefined();
+    expect(collapsedUserMsg?.content).toBe("look at this [image attached]");
+
+    // And there should be NO image_url blocks anywhere in the second call's messages.
+    const hasImageBlock = secondCallMessages.some(
+      (m) =>
+        Array.isArray(m.content) &&
+        (m.content as Array<{ type: string }>).some((b) => b.type === "image_url"),
+    );
+    expect(hasImageBlock).toBe(false);
+
+    // The display ChatMessage from the first turn still shows the image URL.
+    const msgs = useConversationStore.getState().messages;
+    const firstUserMsg = msgs.find((m) => m.role === "user" && m.content === "look at this");
+    expect(firstUserMsg?.images).toEqual([FAKE_URL]);
+  });
+
+  it("pendingImages is empty after send", async () => {
+    vi.mocked(runAgentLoop).mockImplementationOnce(async (opts) => {
+      return {
+        answer: "ok",
+        messages: [...(opts.messages as LoopMessage[]), { role: "assistant", content: "ok" }],
+        iterations: 1,
+        stoppedOnGuard: false,
+        totalUsage: { promptTokens: 0, completionTokens: 0 },
+      };
+    });
+    vi.mocked(callModelViaProxy).mockResolvedValueOnce(
+      jsonChoices("ok") as Awaited<ReturnType<typeof callModelViaProxy>>,
+    );
+
+    useConversationStore.getState().addPendingImage(FAKE_URL);
+    await useConversationStore.getState().send("test");
+    await flushAll();
+
+    expect(useConversationStore.getState().pendingImages).toHaveLength(0);
+  });
+});

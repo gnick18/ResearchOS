@@ -17,3 +17,14 @@
 export const AI_ASSISTANT_ENABLED =
   process.env.NEXT_PUBLIC_AI_ASSISTANT_ENABLED === "1" ||
   process.env.NEXT_PUBLIC_AI_ASSISTANT_ENABLED === "true";
+
+// Whether the BeakerBot image-attachment composer is visible. Default OFF.
+// Enable by setting NEXT_PUBLIC_BEAKERBOT_VISION=true in .env.local (or as a
+// Vercel plain var). The toggle is in the UI only; the store and the proxy
+// route accept images regardless. Set AI_VISION_MODEL on the server side so
+// the proxy selects the vision model when image blocks are present.
+// When this is false, the attach button, paste-image, drag-and-drop, and the
+// thumbnail strip are all absent and behavior is identical to today.
+export const BEAKERBOT_VISION_ENABLED =
+  process.env.NEXT_PUBLIC_BEAKERBOT_VISION === "true" ||
+  process.env.NEXT_PUBLIC_BEAKERBOT_VISION === "1";

@@ -25,12 +25,13 @@
 // House style, Icon only, brand + semantic tokens, no emojis / em-dashes /
 // mid-sentence colons.
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { Icon } from "@/components/icons";
 import Tooltip from "@/components/Tooltip";
 import { useAiChat } from "./useAiChat";
+import { BEAKERBOT_VISION_ENABLED } from "@/lib/ai/config";
 import BeakerBotThinking from "./BeakerBotThinking";
 import { RunningStatusLine, SettledStatusLine } from "./TurnStatusLine";
 import ObjectChip from "@/components/ObjectChip";
@@ -622,12 +623,20 @@ export default function BeakerBotConversation({
     settledTurns,
     regenerate,
     revertToHere,
+    pendingImages,
+    addPendingImage,
+    removePendingImage,
+    clearPendingImages,
   } = useAiChat();
   const [draft, setDraft] = useState("");
   const listRef = useRef<HTMLDivElement | null>(null);
   // Track the assistant message id for the in-flight placeholder so stop() can
   // remove the empty bubble if the turn is cancelled before any text arrives.
   const assistantIdRef = useRef<string | null>(null);
+  // Hidden file input for the camera/attach button.
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+  // drag-over state for the composer drop zone visual indicator.
+  const [isDragOver, setIsDragOver] = useState(false);
 
   // copiedId: the id of the message that most recently had its text copied. A
   // brief "Copied" label replaces the Copy button label while this is set.
@@ -641,6 +650,64 @@ export default function BeakerBotConversation({
   // to BeakerBotBridges (mounted once in app/layout.tsx). This component is now
   // bridge-free so it can render in multiple surfaces without double-registering.
 
+  // ---- Vision helpers (only active when BEAKERBOT_VISION_ENABLED) --------------
+  //
+  // readFileAsDataUrl: converts a File to a base64 data URL via FileReader,
+  // using the browser's built-in capability (no new npm dep). Returns a Promise
+  // so callers can await it and skip non-image files cleanly.
+  const readFileAsDataUrl = useCallback((file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result as string);
+      reader.onerror = () => reject(reader.error);
+      reader.readAsDataURL(file);
+    });
+  }, []);
+
+  // processImageFiles: reads each image File and stages it in the store.
+  // Non-image files are silently skipped (the user may drag a mixed folder).
+  const processImageFiles = useCallback(
+    async (files: FileList | File[]) => {
+      if (!BEAKERBOT_VISION_ENABLED) return;
+      const arr = Array.from(files);
+      for (const file of arr) {
+        if (!file.type.startsWith("image/")) continue;
+        try {
+          const dataUrl = await readFileAsDataUrl(file);
+          addPendingImage(dataUrl);
+        } catch {
+          // Silently skip unreadable files.
+        }
+      }
+    },
+    [readFileAsDataUrl, addPendingImage],
+  );
+
+  // handlePaste: intercept image items from the clipboard and stage them.
+  // Plain text pastes flow through normally (the textarea handles them).
+  const handlePaste = useCallback(
+    async (e: React.ClipboardEvent<HTMLTextAreaElement>) => {
+      if (!BEAKERBOT_VISION_ENABLED) return;
+      const items = Array.from(e.clipboardData.items);
+      const imageItems = items.filter((item) => item.type.startsWith("image/"));
+      if (imageItems.length === 0) return;
+      // Prevent default so the image blob is not pasted as garbled text.
+      e.preventDefault();
+      for (const item of imageItems) {
+        const file = item.getAsFile();
+        if (file) {
+          try {
+            const dataUrl = await readFileAsDataUrl(file);
+            addPendingImage(dataUrl);
+          } catch {
+            // Skip.
+          }
+        }
+      }
+    },
+    [readFileAsDataUrl, addPendingImage],
+  );
+
   // Keep the newest message in view as the answer reveals.
   useEffect(() => {
     const el = listRef.current;
@@ -649,7 +716,10 @@ export default function BeakerBotConversation({
 
   const handleSend = () => {
     const text = draft;
-    if (!text.trim() || sending) return;
+    // Allow send when there is text, or when images are staged (even with no text,
+    // the model can respond to an image-only message).
+    const hasImages = BEAKERBOT_VISION_ENABLED && pendingImages.length > 0;
+    if ((!text.trim() && !hasImages) || sending) return;
     setDraft("");
     void send(text);
     // Capture the id of the empty assistant placeholder the store just seeded.
@@ -785,7 +855,31 @@ export default function BeakerBotConversation({
                       </span>
                     )
                   ) : (
-                    m.content
+                    // User bubble: text (if any) then image thumbnails (if any).
+                    // Images are display-only (base64 data URLs stored on ChatMessage).
+                    // The cost-collapse in the store ensures these are not re-sent.
+                    <>
+                      {m.content ? (
+                        <span data-testid="beakerbot-user-text">{m.content}</span>
+                      ) : null}
+                      {m.images && m.images.length > 0 ? (
+                        <div
+                          data-testid="beakerbot-user-images"
+                          className={`flex flex-wrap gap-1.5 ${m.content ? "mt-2" : ""}`}
+                        >
+                          {m.images.map((url, imgIdx) => (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img
+                              key={imgIdx}
+                              src={url}
+                              alt={`Attached image ${imgIdx + 1}`}
+                              className="max-h-48 max-w-full rounded-md object-contain"
+                              style={{ maxWidth: "min(100%, 200px)" }}
+                            />
+                          ))}
+                        </div>
+                      ) : null}
+                    </>
                   )}
                 </div>
 
@@ -1122,8 +1216,106 @@ export default function BeakerBotConversation({
       ) : null}
 
       {/* Composer */}
-      <div className={sending ? "border-t-0 border-border p-3" : "border-t border-border p-3"}>
+      <div
+        className={sending ? "border-t-0 border-border p-3" : "border-t border-border p-3"}
+        onDragOver={
+          BEAKERBOT_VISION_ENABLED
+            ? (e) => {
+                e.preventDefault();
+                setIsDragOver(true);
+              }
+            : undefined
+        }
+        onDragLeave={
+          BEAKERBOT_VISION_ENABLED ? () => setIsDragOver(false) : undefined
+        }
+        onDrop={
+          BEAKERBOT_VISION_ENABLED
+            ? (e) => {
+                e.preventDefault();
+                setIsDragOver(false);
+                if (e.dataTransfer.files.length > 0) {
+                  void processImageFiles(e.dataTransfer.files);
+                }
+              }
+            : undefined
+        }
+      >
+        {/* Pending-image thumbnail strip. Only rendered when images are staged
+            and the vision feature is enabled. Each thumbnail shows a small
+            preview with an X button to remove it. */}
+        {BEAKERBOT_VISION_ENABLED && pendingImages.length > 0 ? (
+          <div
+            data-testid="beakerbot-image-thumbnails"
+            className="mb-2 flex flex-wrap gap-2"
+          >
+            {pendingImages.map((url, index) => (
+              <div
+                key={`${index}-${url.slice(0, 30)}`}
+                className="relative h-16 w-16 flex-none overflow-hidden rounded-md border border-border bg-surface-sunken"
+              >
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={url}
+                  alt={`Attached image ${index + 1}`}
+                  className="h-full w-full object-cover"
+                />
+                <Tooltip label="Remove image" placement="top">
+                  <button
+                    type="button"
+                    data-testid="beakerbot-remove-image"
+                    aria-label={`Remove image ${index + 1}`}
+                    onClick={() => removePendingImage(url)}
+                    className="absolute right-0.5 top-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-black/60 text-white hover:bg-black/80"
+                  >
+                    <Icon name="close" className="h-2.5 w-2.5" title="Remove" />
+                  </button>
+                </Tooltip>
+              </div>
+            ))}
+            {/* Clear-all button when more than one image is staged. */}
+            {pendingImages.length > 1 ? (
+              <Tooltip label="Remove all images" placement="top">
+                <button
+                  type="button"
+                  data-testid="beakerbot-clear-images"
+                  onClick={clearPendingImages}
+                  className="self-start rounded-md border border-border px-2 py-1 text-[11px] text-foreground-muted transition-colors hover:bg-surface-sunken hover:text-foreground"
+                >
+                  Clear all
+                </button>
+              </Tooltip>
+            ) : null}
+          </div>
+        ) : null}
+
+        {/* Drag-over visual indicator */}
+        {BEAKERBOT_VISION_ENABLED && isDragOver ? (
+          <div className="mb-2 flex items-center justify-center rounded-md border-2 border-dashed border-brand bg-brand/5 py-3 text-meta text-brand">
+            Drop image to attach
+          </div>
+        ) : null}
+
         <div className="flex items-end gap-2">
+          {/* Hidden file input, triggered by the camera button below. */}
+          {BEAKERBOT_VISION_ENABLED ? (
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              multiple
+              aria-hidden="true"
+              className="sr-only"
+              onChange={(e) => {
+                if (e.target.files && e.target.files.length > 0) {
+                  void processImageFiles(e.target.files);
+                  // Reset so the same file can be re-selected.
+                  e.target.value = "";
+                }
+              }}
+            />
+          ) : null}
+
           <textarea
             data-testid="beakerbot-input"
             aria-label="Message BeakerBot"
@@ -1137,9 +1329,29 @@ export default function BeakerBotConversation({
                 handleSend();
               }
             }}
+            onPaste={BEAKERBOT_VISION_ENABLED ? handlePaste : undefined}
             placeholder="Message BeakerBot"
             className="min-h-0 flex-1 resize-none rounded-md border border-border bg-surface-raised px-3 py-2 text-body text-foreground placeholder:text-foreground-muted focus:outline-none focus:ring-2 focus:ring-brand"
           />
+
+          {/* Image attach button (camera icon). Gated on BEAKERBOT_VISION_ENABLED.
+              NOTE for Grant: reusing the "camera" registry icon as the closest match
+              for "attach image." No new registry icon added; Grant to confirm or
+              approve a new "attach" / "image" glyph at next sign-off. */}
+          {BEAKERBOT_VISION_ENABLED && !sending ? (
+            <Tooltip label="Attach image" placement="top">
+              <button
+                type="button"
+                data-testid="beakerbot-attach-image"
+                aria-label="Attach image"
+                onClick={() => fileInputRef.current?.click()}
+                className="flex items-center justify-center rounded-md border border-border bg-surface-raised px-2.5 py-2 text-foreground-muted transition-colors hover:bg-surface-sunken hover:text-foreground"
+              >
+                <Icon name="camera" className="h-4 w-4" title="Attach image" />
+              </button>
+            </Tooltip>
+          ) : null}
+
           {sending ? (
             // Stop button: replaces send while a turn is in flight. Uses a small
             // filled square (a styled span) as the glyph because no stop/square
@@ -1163,7 +1375,10 @@ export default function BeakerBotConversation({
               type="button"
               data-testid="beakerbot-send"
               onClick={handleSend}
-              disabled={draft.trim().length === 0}
+              disabled={
+                draft.trim().length === 0 &&
+                !(BEAKERBOT_VISION_ENABLED && pendingImages.length > 0)
+              }
               className="bg-brand-action text-white transition-colors hover:bg-brand-action/90 rounded-md px-3 py-2 text-body font-medium disabled:cursor-not-allowed disabled:opacity-50"
             >
               <Icon name="chevronRight" className="h-4 w-4" title="Send" />
