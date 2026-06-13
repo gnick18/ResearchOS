@@ -30,6 +30,7 @@ import remarkGfm from "remark-gfm";
 import { Icon } from "@/components/icons";
 import { useAiChat } from "./useAiChat";
 import BeakerBotThinking from "./BeakerBotThinking";
+import { RunningStatusLine, SettledStatusLine } from "./TurnStatusLine";
 import ObjectChip from "@/components/ObjectChip";
 import ObjectEmbed from "@/components/embeds/ObjectEmbed";
 import { parseObjectDeepLink, parseObjectEmbed } from "@/lib/references";
@@ -546,6 +547,11 @@ export default function BeakerBotConversation({
     resolveChoice,
     queuedText,
     clearQueue,
+    turnStartedAt,
+    turnTokens,
+    runningToolCount,
+    turnToolSteps,
+    settledTurns,
   } = useAiChat();
   const [draft, setDraft] = useState("");
   const listRef = useRef<HTMLDivElement | null>(null);
@@ -611,6 +617,12 @@ export default function BeakerBotConversation({
           messages.map((m, index) => {
             // Only the last message in the list is eligible to show follow-up chips.
             const isLast = index === messages.length - 1;
+            // Look up the settled-turn summary for this assistant message so the
+            // pinned per-turn token line appears directly below the reply.
+            const settledSummary =
+              m.role === "assistant" && m.content
+                ? settledTurns.find((t) => t.assistantId === m.id)
+                : undefined;
             return (
               <div key={m.id} className="flex flex-col gap-1.5 self-start w-full">
                 <div
@@ -637,6 +649,12 @@ export default function BeakerBotConversation({
                     m.content
                   )}
                 </div>
+
+                {/* Settled per-turn token summary pinned below a finished assistant
+                    reply. Always shown so each turn's cost is auditable. */}
+                {settledSummary ? (
+                  <SettledStatusLine summary={settledSummary} />
+                ) : null}
 
                 {/* Follow-up suggestion chips, shown only below the last assistant message. */}
                 {isLast &&
@@ -890,8 +908,22 @@ export default function BeakerBotConversation({
         </div>
       ) : null}
 
+      {/* Running status line: elapsed time, token count, running-tool count, and
+          a phase word. Appears while a turn is in flight, above the composer.
+          The Stop button lives in the composer row below, not in this line.
+          Replaces the old plain "Thinking" label region for the running state. */}
+      {sending && turnStartedAt !== null ? (
+        <RunningStatusLine
+          turnStartedAt={turnStartedAt}
+          turnTokens={turnTokens}
+          runningToolCount={runningToolCount}
+          turnToolSteps={turnToolSteps}
+          statusLabel={status}
+        />
+      ) : null}
+
       {/* Composer */}
-      <div className="border-t border-border p-3">
+      <div className={sending ? "border-t-0 border-border p-3" : "border-t border-border p-3"}>
         <div className="flex items-end gap-2">
           <textarea
             data-testid="beakerbot-input"

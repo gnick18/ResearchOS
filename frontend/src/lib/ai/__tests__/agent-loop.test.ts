@@ -163,4 +163,92 @@ describe("runAgentLoop", () => {
     );
     expect(JSON.parse(toolMessage?.content as string)).toHaveProperty("error");
   });
+
+  // ---- Token usage accumulation (STAGE 1, 2026-06-13) -----------------------
+
+  it("totalUsage starts at zero when the provider returns no usage block", async () => {
+    const callModel = vi.fn(async () => assistantFinal("hello"));
+    const result = await runAgentLoop({
+      messages: [{ role: "user", content: "hi" }],
+      tools: [],
+      callModel,
+    });
+    // Zero when usage is absent, never NaN or undefined.
+    expect(result.totalUsage.promptTokens).toBe(0);
+    expect(result.totalUsage.completionTokens).toBe(0);
+  });
+
+  it("totalUsage accumulates across multiple iterations", async () => {
+    const fakeTool: AiTool = {
+      name: "lookup",
+      description: "Look something up.",
+      parameters: { type: "object", properties: { q: { type: "string" } } },
+      execute: async () => ({ result: "found" }),
+    };
+
+    // Turn 1: tool call, usage { prompt: 100, completion: 20 }.
+    const turn1: ModelResponse = {
+      ...assistantWithToolCall("lookup", { q: "test" }),
+      usage: { prompt_tokens: 100, completion_tokens: 20 },
+    };
+    // Turn 2: final answer, usage { prompt: 150, completion: 50 }.
+    const turn2: ModelResponse = {
+      ...assistantFinal("The answer."),
+      usage: { prompt_tokens: 150, completion_tokens: 50 },
+    };
+
+    const callModel = vi.fn().mockResolvedValueOnce(turn1).mockResolvedValueOnce(turn2);
+
+    const usageCalls: Array<{ promptTokens: number; completionTokens: number }> = [];
+    const result = await runAgentLoop({
+      messages: [{ role: "user", content: "look up test" }],
+      tools: [fakeTool],
+      callModel,
+      onUsage: (cumulative) => { usageCalls.push({ ...cumulative }); },
+    });
+
+    // Final totalUsage must be the sum of both iterations.
+    expect(result.totalUsage.promptTokens).toBe(250);
+    expect(result.totalUsage.completionTokens).toBe(70);
+
+    // onUsage was called once per iteration that reported non-zero usage.
+    expect(usageCalls).toHaveLength(2);
+    // After turn 1: cumulative = 100 + 20.
+    expect(usageCalls[0]).toEqual({ promptTokens: 100, completionTokens: 20 });
+    // After turn 2: cumulative = 250 + 70.
+    expect(usageCalls[1]).toEqual({ promptTokens: 250, completionTokens: 70 });
+  });
+
+  it("onUsage is not called when the usage block is empty or zero", async () => {
+    const turn1: ModelResponse = {
+      ...assistantFinal("hi"),
+      usage: { prompt_tokens: 0, completion_tokens: 0 },
+    };
+    const callModel = vi.fn().mockResolvedValueOnce(turn1);
+    const onUsage = vi.fn();
+
+    await runAgentLoop({
+      messages: [{ role: "user", content: "hi" }],
+      tools: [],
+      callModel,
+      onUsage,
+    });
+
+    // Zero usage must not trigger the callback (avoids a 0-token live update).
+    expect(onUsage).not.toHaveBeenCalled();
+  });
+
+  it("onUsage is not called when usage is absent from the response", async () => {
+    const callModel = vi.fn(async () => assistantFinal("ok"));
+    const onUsage = vi.fn();
+
+    await runAgentLoop({
+      messages: [{ role: "user", content: "ok" }],
+      tools: [],
+      callModel,
+      onUsage,
+    });
+
+    expect(onUsage).not.toHaveBeenCalled();
+  });
 });

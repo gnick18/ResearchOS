@@ -33,7 +33,7 @@ import {
   reviewModeDirective,
   todayContext,
 } from "../conversation-store";
-import type { LoopMessage } from "../agent-loop";
+import type { LoopMessage, LoopStatus } from "../agent-loop";
 
 // ---- module mocks -----------------------------------------------------------
 
@@ -747,5 +747,153 @@ describe("memory injection: memory system line does not accumulate in history", 
     // There should be exactly one system message: the base prompt (index 0).
     const systemMessages = history.filter((m) => m.role === "system");
     expect(systemMessages).toHaveLength(1);
+  });
+});
+
+// ---- Status-line state (STAGE 1, 2026-06-13) ---------------------------------
+//
+// Pins the live status-line fields introduced for the Claude-Code-style turn
+// indicator: turnStartedAt, turnElapsedMs, turnTokens, runningToolCount,
+// settledTurns, and turnToolSteps. All model/loop calls are mocked.
+
+describe("status-line: turnStartedAt is set on send and cleared after settle", () => {
+  it("is non-null while sending and null after", async () => {
+    vi.mocked(callModelViaProxy).mockResolvedValueOnce(
+      jsonChoices("hello") as Awaited<ReturnType<typeof callModelViaProxy>>,
+    );
+
+    const p = useConversationStore.getState().send("hi");
+    // Synchronously seeded: turnStartedAt should be set.
+    const duringTurn = useConversationStore.getState().turnStartedAt;
+    expect(duringTurn).not.toBeNull();
+    expect(typeof duringTurn).toBe("number");
+
+    await p;
+    await flushAll();
+
+    // After settle: turnStartedAt is cleared (set to null in finally).
+    expect(useConversationStore.getState().turnStartedAt).toBeNull();
+  });
+});
+
+describe("status-line: runningToolCount tracks tool-phase onStatus events", () => {
+  it("is 1 when a tool phase fires and 0 at settle", async () => {
+    let capturedOnStatus: ((status: LoopStatus) => void) | undefined;
+
+    vi.mocked(runAgentLoop).mockImplementationOnce(async (opts) => {
+      capturedOnStatus = opts.onStatus;
+      const response = await vi.mocked(callModelViaProxy)([], []);
+      const r = response as { choices: [{ message: { content: string } }] };
+      const answer = r.choices[0]?.message?.content ?? "";
+      return {
+        answer,
+        messages: [{ role: "assistant", content: answer }],
+        iterations: 1,
+        stoppedOnGuard: false,
+        totalUsage: { promptTokens: 0, completionTokens: 0 },
+      };
+    });
+
+    vi.mocked(callModelViaProxy).mockResolvedValueOnce(
+      jsonChoices("answer") as Awaited<ReturnType<typeof callModelViaProxy>>,
+    );
+
+    const p = useConversationStore.getState().send("run a tool");
+    await flushAll(50);
+
+    // Simulate the loop firing a tool-phase event.
+    capturedOnStatus?.({ phase: "tool", toolName: "read_note" });
+    expect(useConversationStore.getState().runningToolCount).toBe(1);
+
+    // Simulate the loop firing a thinking-phase event (tool finished).
+    capturedOnStatus?.({ phase: "thinking" });
+    expect(useConversationStore.getState().runningToolCount).toBe(0);
+
+    await p;
+    await flushAll();
+
+    expect(useConversationStore.getState().runningToolCount).toBe(0);
+  });
+});
+
+describe("status-line: turnTokens accumulates from onUsage", () => {
+  it("is null initially and updated when onUsage fires", async () => {
+    let capturedOnUsage: ((u: { promptTokens: number; completionTokens: number }) => void) | undefined;
+
+    vi.mocked(runAgentLoop).mockImplementationOnce(async (opts) => {
+      capturedOnUsage = opts.onUsage;
+      const response = await vi.mocked(callModelViaProxy)([], []);
+      const r = response as { choices: [{ message: { content: string } }] };
+      const answer = r.choices[0]?.message?.content ?? "";
+      // Simulate: fire onUsage with some non-zero usage.
+      opts.onUsage?.({ promptTokens: 10000, completionTokens: 2400 });
+      return {
+        answer,
+        messages: [{ role: "assistant", content: answer }],
+        iterations: 1,
+        stoppedOnGuard: false,
+        totalUsage: { promptTokens: 10000, completionTokens: 2400 },
+      };
+    });
+
+    vi.mocked(callModelViaProxy).mockResolvedValueOnce(
+      jsonChoices("tokens test") as Awaited<ReturnType<typeof callModelViaProxy>>,
+    );
+
+    await useConversationStore.getState().send("test tokens");
+    await flushAll();
+
+    // After settle: turnTokens should be the sum from the result's totalUsage.
+    expect(useConversationStore.getState().turnTokens).toBe(12400);
+    void capturedOnUsage; // referenced to avoid unused-variable lint noise
+  });
+});
+
+describe("status-line: settledTurns is populated after a completed turn", () => {
+  it("appends one TurnSummary per completed turn", async () => {
+    vi.mocked(callModelViaProxy)
+      .mockResolvedValueOnce(jsonChoices("first") as Awaited<ReturnType<typeof callModelViaProxy>>)
+      .mockResolvedValueOnce(jsonChoices("second") as Awaited<ReturnType<typeof callModelViaProxy>>);
+
+    expect(useConversationStore.getState().settledTurns).toHaveLength(0);
+
+    await useConversationStore.getState().send("turn 1");
+    await flushAll();
+
+    expect(useConversationStore.getState().settledTurns).toHaveLength(1);
+    const s1 = useConversationStore.getState().settledTurns[0];
+    expect(s1.elapsedMs).toBeGreaterThanOrEqual(0);
+
+    await useConversationStore.getState().send("turn 2");
+    await flushAll();
+
+    expect(useConversationStore.getState().settledTurns).toHaveLength(2);
+  });
+
+  it("resets settledTurns on clearConversation", async () => {
+    vi.mocked(callModelViaProxy).mockResolvedValueOnce(
+      jsonChoices("bye") as Awaited<ReturnType<typeof callModelViaProxy>>,
+    );
+    await useConversationStore.getState().send("hello");
+    await flushAll();
+
+    expect(useConversationStore.getState().settledTurns.length).toBeGreaterThan(0);
+    useConversationStore.getState().clearConversation();
+    expect(useConversationStore.getState().settledTurns).toHaveLength(0);
+  });
+});
+
+describe("status-line: graceful when provider returns no usage", () => {
+  it("settles with tokens null (not crash) when totalUsage is zero", async () => {
+    // The default mock returns totalUsage: { promptTokens: 0, completionTokens: 0 }.
+    vi.mocked(callModelViaProxy).mockResolvedValueOnce(
+      jsonChoices("ok") as Awaited<ReturnType<typeof callModelViaProxy>>,
+    );
+
+    await useConversationStore.getState().send("no usage");
+    await flushAll();
+
+    // turnTokens should stay null (zero total = no usage reported).
+    expect(useConversationStore.getState().turnTokens).toBeNull();
   });
 });

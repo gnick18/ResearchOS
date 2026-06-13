@@ -184,7 +184,20 @@ interface ConversationState {
   //   reply after the turn finishes. Each entry carries the assistant message id
   //   (so the UI can match it), the elapsed duration, and the total tokens.
   settledTurns: TurnSummary[];
+  // turnToolSteps: ordered list of tool calls dispatched in the current turn,
+  //   with a status per call. Used by the expandable steps panel. Each entry
+  //   starts as "running" when onStatus fires for that tool, then flips to
+  //   "done" when a subsequent thinking or different-tool phase arrives. Reset
+  //   to [] on each new turn.
+  turnToolSteps: ToolStep[];
 }
+
+// A single tool call entry in the live steps panel.
+export type ToolStep = {
+  toolName: string;
+  // The current status of this step in the panel.
+  status: "running" | "done" | "queued";
+};
 
 interface ConversationActions {
   send: (text: string) => Promise<void>;
@@ -385,6 +398,7 @@ export const useConversationStore = create<ConversationStore>((set, get) => ({
   turnTokens: null,
   runningToolCount: 0,
   settledTurns: [],
+  turnToolSteps: [],
 
   stop: (placeholderAssistantId?: string) => {
     // Guard: nothing to abort when idle.
@@ -414,6 +428,7 @@ export const useConversationStore = create<ConversationStore>((set, get) => ({
       queuedText: null,
       runningToolCount: 0,
       turnStartedAt: null,
+      turnToolSteps: [],
       messages: placeholderAssistantId
         ? state.messages.filter(
             (m) => !(m.id === placeholderAssistantId && m.content === ""),
@@ -451,6 +466,7 @@ export const useConversationStore = create<ConversationStore>((set, get) => ({
       turnTokens: null,
       runningToolCount: 0,
       settledTurns: [],
+      turnToolSteps: [],
     });
   },
 
@@ -502,6 +518,7 @@ export const useConversationStore = create<ConversationStore>((set, get) => ({
       turnTokens: null,
       runningToolCount: 0,
       settledTurns: [],
+      turnToolSteps: [],
     });
   },
 
@@ -572,6 +589,7 @@ export const useConversationStore = create<ConversationStore>((set, get) => ({
       turnElapsedMs: 0,
       turnTokens: null,
       runningToolCount: 0,
+      turnToolSteps: [],
     }));
 
     // On the first user message of a fresh conversation, create a persisted
@@ -665,13 +683,25 @@ export const useConversationStore = create<ConversationStore>((set, get) => ({
         callModel: callModelViaProxy,
         onStatus: (s) => {
           // Update the friendly status label for the existing "Thinking" text.
-          // Also update the running-tool count so the status line shows "1 running"
-          // vs "0 running" (thinking phase).
+          // Also update the running-tool count and the steps panel list.
           const label = statusLabel(s);
           const isToolPhase = s.phase === "tool";
-          set({
-            status: label,
-            runningToolCount: isToolPhase ? 1 : 0,
+          set((state) => {
+            // Mark any currently-running step as done before adding a new one.
+            const prevSteps = state.turnToolSteps.map((step) =>
+              step.status === "running" ? { ...step, status: "done" as const } : step,
+            );
+            const nextSteps = isToolPhase
+              ? [
+                  ...prevSteps,
+                  { toolName: (s as { toolName: string }).toolName, status: "running" as const },
+                ]
+              : prevSteps;
+            return {
+              status: label,
+              runningToolCount: isToolPhase ? 1 : 0,
+              turnToolSteps: nextSteps,
+            };
           });
         },
         // Read the live review mode at each dispatch, so flipping the control
@@ -703,14 +733,20 @@ export const useConversationStore = create<ConversationStore>((set, get) => ({
       const turnEndedAt = Date.now();
       const turnElapsedMs = turnEndedAt - turnStartedAt;
       const finalTokens = result.totalUsage.promptTokens + result.totalUsage.completionTokens;
-      set({
+      set((state) => ({
         status: null,
         runningToolCount: 0,
         // Keep turnElapsedMs at the final value so the settled status line can
         // show the real duration. It is only reset on newChat/clearConversation.
         turnElapsedMs,
-        turnTokens: finalTokens > 0 ? finalTokens : get().turnTokens,
-      });
+        turnTokens: finalTokens > 0 ? finalTokens : state.turnTokens,
+        // Mark any still-running step as done at settle time (the loop may have
+        // returned the final answer without a subsequent thinking-phase callback
+        // to flip the running step).
+        turnToolSteps: state.turnToolSteps.map((step) =>
+          step.status === "running" ? { ...step, status: "done" as const } : step,
+        ),
+      }));
 
       // A stopped (aborted) run returns an empty answer. Remove the placeholder
       // and return quietly, no error banner needed. We still save the user message
@@ -915,5 +951,6 @@ export function resetConversationModule(): void {
     turnTokens: null,
     runningToolCount: 0,
     settledTurns: [],
+    turnToolSteps: [],
   });
 }

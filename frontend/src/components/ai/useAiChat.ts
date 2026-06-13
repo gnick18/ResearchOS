@@ -23,6 +23,7 @@ export type {
   ChatMessage,
   PendingApproval,
   TurnSummary,
+  ToolStep,
 } from "@/lib/ai/conversation-store";
 
 export function useAiChat() {
@@ -43,6 +44,7 @@ export function useAiChat() {
   const turnTokens = useConversationStore((s) => s.turnTokens);
   const runningToolCount = useConversationStore((s) => s.runningToolCount);
   const settledTurns = useConversationStore((s) => s.settledTurns);
+  const turnToolSteps = useConversationStore((s) => s.turnToolSteps);
 
   return {
     messages,
@@ -62,5 +64,6 @@ export function useAiChat() {
     turnTokens,
     runningToolCount,
     settledTurns,
+    turnToolSteps,
   };
 }

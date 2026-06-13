@@ -32,6 +32,7 @@ vi.mock("../agent-loop", () => ({
       messages: [...(opts.messages as unknown[]), { role: "assistant", content: answer }],
       iterations: 1,
       stoppedOnGuard: false,
+      totalUsage: { promptTokens: 0, completionTokens: 0 },
     };
   }),
 }));
