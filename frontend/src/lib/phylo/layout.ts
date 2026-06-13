@@ -434,6 +434,18 @@ function normalizeLabel(s: string): string {
   return s.toLowerCase().replace(/[_\s.]+/g, " ").trim();
 }
 
+/**
+ * Split a label into the distinct tokens real tip names are built from, so a
+ * composite label like "SC144|FJ385264" or "Homo_sapiens_AB12345" can join to a
+ * metadata table keyed on just one part (the strain, the accession). Splits on
+ * the delimiters tip labels commonly use, lowercases, and drops tokens shorter
+ * than three characters so a stray "1" or "sp" can never cause a false join.
+ */
+function labelTokens(s: string): string[] {
+  const norm = s.toLowerCase().replace(/[|/\\,;:_\s.()]+/g, " ").trim();
+  return Array.from(new Set(norm.split(" ").filter((t) => t.length >= 3)));
+}
+
 export interface MetadataMatch {
   /** tip id -> the matched metadata row. */
   matched: Map<number, Record<string, string>>;
@@ -444,10 +456,13 @@ export interface MetadataMatch {
 }
 
 /**
- * Fuzzy-match metadata rows to tree tips by a chosen tip-id column. Exact match
- * first, then a normalized (case / space / underscore / dot insensitive) match.
- * Both sides of the mismatch are returned so the UI can show them; nothing is
- * dropped silently (the design rule).
+ * Match metadata rows to tree tips by a chosen tip-id column, in three passes of
+ * decreasing confidence: exact, then normalized (case / space / underscore / dot
+ * insensitive), then a token pass for composite labels (e.g. tip "SC144|FJ385264"
+ * joins a row keyed "SC144"). The token pass only accepts a UNIQUE candidate, so
+ * a token shared by several rows stays unmatched rather than joining the wrong
+ * row. Both sides of the mismatch are returned so the UI can show them; nothing
+ * is dropped silently (the design rule).
  */
 export function matchMetadataToTips(
   root: TreeNode,
@@ -457,21 +472,39 @@ export function matchMetadataToTips(
   const tips = leaves(root);
   const byExact = new Map<string, Record<string, string>>();
   const byNorm = new Map<string, Record<string, string>>();
+  const byToken = new Map<string, Set<Record<string, string>>>();
   for (const row of rows) {
     const key = row[tipColumn] ?? "";
     if (key === "") continue;
     byExact.set(key, row);
     byNorm.set(normalizeLabel(key), row);
+    for (const t of labelTokens(key)) {
+      let set = byToken.get(t);
+      if (!set) {
+        set = new Set();
+        byToken.set(t, set);
+      }
+      set.add(row);
+    }
   }
   const matched = new Map<number, Record<string, string>>();
   const unmatchedTips: string[] = [];
   const usedKeys = new Set<string>();
   for (const tip of tips) {
-    const exact = byExact.get(tip.name);
-    const norm = exact ?? byNorm.get(normalizeLabel(tip.name));
-    if (norm) {
-      matched.set(tip.id, norm);
-      usedKeys.add(norm[tipColumn] ?? "");
+    let row = byExact.get(tip.name) ?? byNorm.get(normalizeLabel(tip.name));
+    if (!row) {
+      // Token / containment fallback for composite labels. Gather every row any
+      // of the tip's tokens points at; accept only if exactly one distinct row.
+      const cand = new Set<Record<string, string>>();
+      for (const t of labelTokens(tip.name)) {
+        const s = byToken.get(t);
+        if (s) for (const r of s) cand.add(r);
+      }
+      if (cand.size === 1) row = cand.values().next().value;
+    }
+    if (row) {
+      matched.set(tip.id, row);
+      usedKeys.add(row[tipColumn] ?? "");
     } else {
       unmatchedTips.push(tip.name);
     }
@@ -480,4 +513,37 @@ export function matchMetadataToTips(
     .map((r) => r[tipColumn] ?? "")
     .filter((k) => k !== "" && !usedKeys.has(k));
   return { matched, unmatchedTips, unmatchedRows };
+}
+
+/** Fraction of tips (0 to 1) that join metadata on a given column. */
+export function tipColumnMatchRate(
+  root: TreeNode,
+  rows: Record<string, string>[],
+  column: string,
+): number {
+  const total = leaves(root).length;
+  if (total === 0) return 0;
+  return matchMetadataToTips(root, rows, column).matched.size / total;
+}
+
+/**
+ * Pick the metadata column that joins the most tips, the likely tip-id column.
+ * Used to auto-select the join key on import so the user does not have to hunt
+ * for which column matches the tree. Ties keep the earliest column.
+ */
+export function bestTipColumn(
+  root: TreeNode,
+  rows: Record<string, string>[],
+  columns: string[],
+): string {
+  let best = columns[0] ?? "";
+  let bestRate = -1;
+  for (const c of columns) {
+    const rate = tipColumnMatchRate(root, rows, c);
+    if (rate > bestRate) {
+      bestRate = rate;
+      best = c;
+    }
+  }
+  return best;
 }

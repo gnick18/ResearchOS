@@ -34,6 +34,7 @@ import {
   rerootOnNode,
   parseCsv,
   matchMetadataToTips,
+  bestTipColumn,
   type MetadataMatch,
 } from "@/lib/phylo/layout";
 import {
@@ -280,9 +281,14 @@ export function PhyloStudio({ initialTreeId }: { initialTreeId?: string } = {}) 
     if (parsed.columns.length === 0) return;
     setMetaRows(parsed.rows);
     setMetaColumns(parsed.columns);
-    // Sensible defaults: first column is the tip id, look for a categorical one.
-    setTipColumn(parsed.columns[0]);
-    setCategoryColumn(parsed.columns[1] ?? "");
+    // Auto-detect the join key: the column that matches the most tree tips, so
+    // the user does not have to hunt for which column lines up with the tips.
+    // Falls back to the first column when no tree is loaded yet.
+    const tipCol = tree
+      ? bestTipColumn(tree, parsed.rows, parsed.columns)
+      : parsed.columns[0];
+    setTipColumn(tipCol);
+    setCategoryColumn(parsed.columns.find((c) => c !== tipCol) ?? "");
   }
 
   async function onUploadCsv(file: File) {
@@ -474,6 +480,19 @@ export function PhyloStudio({ initialTreeId }: { initialTreeId?: string } = {}) 
                 options={["", ...metaColumns]}
                 onChange={setBarColumn}
               />
+            </div>
+          )}
+          {match && (
+            <div
+              className={`mt-2 text-xs font-medium ${
+                match.unmatchedTips.length === 0
+                  ? "text-emerald-600"
+                  : "text-foreground-muted"
+              }`}
+            >
+              Matched {match.matched.size} of{" "}
+              {match.matched.size + match.unmatchedTips.length} tips on{" "}
+              {tipColumn}
             </div>
           )}
           {match && match.unmatchedTips.length > 0 && (
