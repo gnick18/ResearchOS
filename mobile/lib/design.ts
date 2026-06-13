@@ -69,9 +69,16 @@ export const palette = {
   warning: '#d97706',
   warningLight: 'rgba(217, 119, 6, 0.12)',
 
-  // Rainbow signature (pastel for the decorative edge; vivid set for dark mode)
-  rainbowLight: ['#FFB3A7', '#FFD79A', '#A9E6B8', '#A7D8F5', '#C9B8F0'],
-  rainbowDark: ['#F2724F', '#F5A623', '#3FBF6B', '#2E9BE6', '#7C5CE0'],
+  // Rainbow signature, three-ramp model (mirrors web brand, main 2026-06-13).
+  // PASTEL: light decoration + the BeakerBot mascot liquid (always pastel, any theme).
+  // VIVID: gradient TEXT on LIGHT surfaces only.
+  // LUMINOUS: the preferred ramp on DARK surfaces (fills AND clipped text).
+  rainbowPastel: ['#FFD2B0', '#FFF1A8', '#B7EBB1', '#A6D2F4', '#D6B5F0'],
+  rainbowVivid: ['#F97316', '#E8920B', '#16A34A', '#0284C7', '#9333EA'],
+  rainbowLuminous: ['#FB923C', '#FBBF24', '#4ADE80', '#38BDF8', '#C084FC'],
+  // Back-compat aliases: decorative edge uses pastel on light, luminous on dark.
+  rainbowLight: ['#FFD2B0', '#FFF1A8', '#B7EBB1', '#A6D2F4', '#D6B5F0'],
+  rainbowDark: ['#FB923C', '#FBBF24', '#4ADE80', '#38BDF8', '#C084FC'],
 
   white: '#ffffff',
   black: '#000000',

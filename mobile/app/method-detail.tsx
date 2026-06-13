@@ -39,6 +39,7 @@ import { usePairing } from '@/lib/pairing';
 import { signWithDevice } from '@/lib/device-identity';
 import { fetchSnapshot, type MethodSnapshot, type MethodProjection } from '@/lib/snapshots';
 import { getCachedMethod } from '@/lib/method-library-store';
+import { getDemoMethod } from '@/lib/method-library';
 import { postAddVariation } from '@/lib/add-variation';
 
 // ── Per-type read renderers ──────────────────────────────────────────────────
@@ -391,7 +392,9 @@ export default function MethodScreen() {
   //                  published "method" snapshot (active-experiment rec).
   //   ?uid=<owner:id> open read mode for ONE method resolved from the offline
   //                  library cache (any library row, works with no signal).
-  const params = useLocalSearchParams<{ read?: string; uid?: string }>();
+  //   ?demo=<uid>    open read mode for a seeded demo method (one per type),
+  //                  resolved from the bundled DEMO_METHOD_DETAILS fixture.
+  const params = useLocalSearchParams<{ read?: string; uid?: string; demo?: string }>();
 
   const [snapshot, setSnapshot] = useState<MethodSnapshot | null>(null);
   const [loaded, setLoaded] = useState(false);
@@ -500,6 +503,32 @@ export default function MethodScreen() {
   // (it would have nowhere to route). We still resolve it the same way the card
   // viewer does, from a full MethodProjection, so PCR / LC / compound / body all
   // render offline.
+  // Demo (?demo) open: resolve the seeded method synchronously from the bundled
+  // fixture and render its read mode. No pairing or network, works in demo mode.
+  if (params.demo) {
+    const demoMethod = getDemoMethod(params.demo);
+    if (!demoMethod) {
+      return (
+        <ScreenFrame>
+          <ScreenHeader />
+          <EmptyState icon="flask-outline" text="This demo method is not available." />
+        </ScreenFrame>
+      );
+    }
+    return (
+      <ScreenFrame edges={['top', 'bottom']}>
+        <MethodReadMode
+          method={demoMethod}
+          onClose={() => router.back()}
+          onAddVariation={async () => {
+            // No-op: a demo method has no experiment to route a variation to.
+          }}
+          variationBusy={false}
+        />
+      </ScreenFrame>
+    );
+  }
+
   if (params.uid) {
     if (!cachedLoaded) {
       return (
