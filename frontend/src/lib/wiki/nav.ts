@@ -31,6 +31,7 @@ export const APP_ROUTE_TO_WIKI: Record<string, string> = {
   "/sequences": "/wiki/features/sequences",
   "/datahub": "/wiki/features/datahub",
   "/chemistry": "/wiki/features/chemistry",
+  "/phylo": "/wiki/features/phylo",
 };
 
 /** Prefix-aware lookup. Tries an exact match first, then walks the
@@ -247,6 +248,11 @@ export const WIKI_NAV: WikiNode[] = [
         href: "/wiki/features/chemistry",
         label: "Chemistry",
         blurb: "A free ChemDraw and SciFinder alternative. Draw structures, build a molecule library, and find the papers and patents for a compound, all in the browser.",
+      },
+      {
+        href: "/wiki/features/phylo",
+        label: "Phylogenetics",
+        blurb: "A Tree Builder that writes you a verified, runnable tree-building recipe, and a Tree Studio that renders and annotates trees in the browser, a free iTOL alternative.",
       },
       {
         href: "/wiki/features/cloning",
