@@ -513,7 +513,10 @@ function SettingsBodyInner({
               searchKeywords="companion phone pair pairing mobile capture photo qr relay inbox camera bench notes scan today glance devices hub open"
             >
               <OpenCompanionHubButton />
-              <DevicesSection ready={sharing.isReady} />
+              <DevicesSection
+                status={sharing.status}
+                refreshIdentity={sharing.refresh}
+              />
             </SectionShell>
           ),
         },

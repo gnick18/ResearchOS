@@ -22,7 +22,11 @@ import QRCode from "qrcode";
 import BeakerBot from "@/components/BeakerBot";
 import Tooltip from "@/components/Tooltip";
 import { Icon } from "@/components/icons";
+import SharingProviderButtons, {
+  type SharingProvider,
+} from "@/components/sharing/SharingProviderButtons";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
+import type { SharingIdentityStatus } from "@/hooks/useSharingIdentity";
 import {
   listDevices,
   makePairingGrant,
@@ -34,6 +38,9 @@ import { loadUserCaptureKeys } from "@/lib/mobile-relay/keys";
 import { runCaptureInboxPoll } from "@/lib/mobile-relay/poll";
 import { publishTodayToAllDevices } from "@/lib/mobile-relay/today-snapshot";
 import { publishInventoryToAllDevices } from "@/lib/mobile-relay/inventory-snapshot";
+import { startSharingClaimOAuth } from "@/lib/sharing/claim-oauth";
+import { createLocalIdentity } from "@/lib/sharing/identity/storage";
+import { isOAuthPublishAvailable } from "@/lib/sharing/oauth-availability";
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -116,13 +123,39 @@ const FEATURE_CHIPS = [
 // ── Props / component ─────────────────────────────────────────────────────────
 
 interface DevicesSectionProps {
-  /** True when the current user's identity is unlocked (Ed25519 key available). */
-  ready: boolean;
+  /**
+   * The sharing-identity status from useSharingIdentity. Drives the gate so a
+   * no-account user ("none") sees the make-an-account flow rather than the
+   * locked-account copy. The pair flow only renders when status is "ready".
+   */
+  status: SharingIdentityStatus;
+  /**
+   * Re-read the identity (useSharingIdentity().refresh). Called after the dev
+   * override mints a local identity so the status flips to "ready" and the pair
+   * flow appears without a manual reload.
+   */
+  refreshIdentity?: () => void | Promise<void>;
+  /**
+   * Legacy boolean for callers that have not migrated to `status` yet. Ignored
+   * when `status` is supplied; kept only so an older caller still type-checks.
+   */
+  ready?: boolean;
 }
 
-export default function DevicesSection({ ready }: DevicesSectionProps) {
+export default function DevicesSection({
+  status,
+  refreshIdentity,
+}: DevicesSectionProps) {
   const { currentUser } = useCurrentUser();
+  // "ready" is the unlocked-identity signal the device list + pairing wiring
+  // already keyed off; it is now derived from the status the hook exposes.
+  const ready = status === "ready";
   const [devices, setDevices] = useState<BoundDevice[] | null>(null);
+
+  // Dev-only override (status === "none"): mint a self-contained local identity
+  // so companion pairing can be tested on a dev server with no OAuth/email.
+  const [creatingDevId, setCreatingDevId] = useState(false);
+  const [devIdError, setDevIdError] = useState<string | null>(null);
 
   // Pairing state
   const [grant, setGrant] = useState<PairingGrant | null>(null);
@@ -313,16 +346,111 @@ export default function DevicesSection({ ready }: DevicesSectionProps) {
     }
   }, []);
 
-  // ── Identity locked gate ───────────────────────────────────────────────────
+  // ── Identity gates (driven by sharing status) ──────────────────────────────
 
-  if (!ready) {
+  // A provider button starts the real OAuth claim, the same path the login
+  // screen + profile setup use. The global SharingClaimResume (mounted in
+  // AppShell) finishes the claim on return, which mints the keypair and flips
+  // the status to "ready".
+  const onProvider = useCallback((provider: SharingProvider) => {
+    startSharingClaimOAuth(provider);
+  }, []);
+
+  // DEV ONLY. Mint a self-contained local identity (no OAuth, no email) so
+  // companion pairing can be exercised on a dev server, then refresh the hook so
+  // status re-derives to "ready" and the pair flow appears.
+  const createDevIdentity = useCallback(async () => {
+    if (!currentUser) {
+      setDevIdError("Connect your data folder first.");
+      return;
+    }
+    setDevIdError(null);
+    setCreatingDevId(true);
+    try {
+      await createLocalIdentity(currentUser);
+      await refreshIdentity?.();
+    } catch {
+      setDevIdError("Could not create a dev identity. Try again.");
+    } finally {
+      setCreatingDevId(false);
+    }
+  }, [currentUser, refreshIdentity]);
+
+  // Still reading the sidecar + device store — a calm placeholder, not the
+  // account-presumptive copy.
+  if (status === "loading") {
+    return (
+      <div className="flex items-center gap-3 rounded-xl border border-dashed border-border bg-surface-sunken p-4 text-body text-foreground-muted">
+        <span className="animate-spin rounded-full h-4 w-4 border-b-2 border-foreground-muted flex-shrink-0" />
+        Checking your companion setup.
+      </div>
+    );
+  }
+
+  // No account here. Pairing a phone needs an account keypair, so offer a clean
+  // make-an-account gate (provider sign-in) rather than the locked-account copy.
+  if (status === "none") {
+    const isDev = process.env.NODE_ENV === "development";
+    const oauthAvailable = isOAuthPublishAvailable();
+    return (
+      <div className="space-y-4">
+        <div className="scard-head flex items-center gap-3">
+          <BotTile />
+          <div>
+            <h3 className="text-title font-semibold text-foreground">
+              Make an account to use Companion
+            </h3>
+            <p className="text-meta text-foreground-muted mt-0.5 leading-relaxed">
+              Pairing a phone needs an account keypair, which is what authorizes the
+              phone and end-to-end encrypts everything it sends back.
+            </p>
+          </div>
+        </div>
+
+        {oauthAvailable ? (
+          <SharingProviderButtons onProvider={onProvider} />
+        ) : (
+          <p className="rounded-xl border border-dashed border-border bg-surface-sunken px-4 py-3 text-body text-foreground-muted leading-relaxed">
+            Sign-in is not available here. Create your account from the login
+            screen, then come back to pair a phone.
+          </p>
+        )}
+
+        {isDev && (
+          <div className="rounded-xl border border-dashed border-amber-400/60 bg-amber-50 dark:bg-amber-500/10 p-3 space-y-1.5">
+            <button
+              type="button"
+              onClick={() => void createDevIdentity()}
+              disabled={creatingDevId}
+              className="w-full flex items-center justify-center gap-2 py-2.5 text-body rounded-lg bg-amber-500 text-white hover:bg-amber-600 font-medium transition-colors disabled:opacity-50"
+            >
+              {creatingDevId
+                ? "Creating dev identity..."
+                : "Create a dev identity (skip sign-in)"}
+            </button>
+            <p className="text-meta text-amber-700 dark:text-amber-300/90 text-center">
+              Dev only. Mints a local account with no sign-in so you can test
+              pairing on this dev server.
+            </p>
+            {devIdError && (
+              <p className="text-meta text-red-600 dark:text-red-400 text-center">
+                {devIdError}
+              </p>
+            )}
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  // Account exists but the key is not on hand on this device (locked).
+  if (status === "needs-restore") {
     return (
       <div className="flex gap-3 items-start rounded-xl border border-dashed border-border bg-surface-sunken p-4 text-body text-foreground-muted leading-relaxed">
         <Icon name="lock" className="w-3.5 h-3.5 flex-shrink-0 mt-0.5" />
         <span>
-          Your account keypair is what authorizes a phone. It now stays unlocked across refreshes. If it
-          ever locks, you will see &ldquo;Unlock with your recovery code or passkey&rdquo; right here instead of
-          the pair button.
+          Your account is locked on this device. Unlock with your recovery code or
+          passkey to pair a phone.
         </span>
       </div>
     );
