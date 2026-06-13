@@ -99,9 +99,10 @@ const chemistry: DemoStep[] = [
 
 const RAIL = '[data-testid="datahub-rail"]';
 
-// --- Data Hub: table -> t-test -> bar plot -> graph-style tweaks -> guided
-// analysis. The graph-style toggles read as "publication-figure control". Guided
-// analysis is LAST so its wizard dialog never blocks an earlier beat. ---
+// --- Data Hub: open table -> guided analysis wizard RUN to completion -> the
+// BeakerBot plain-language interpretation on the result -> bar plot -> graph-style
+// tweaks (publication-figure control, points toggled off+on for a visible
+// change). The guided analysis runs while the table is the active doc. ---
 const dataHub: DemoStep[] = [
   { action: "wait", ms: 900 },
   { action: "click", target: NAV("/datahub"), durationMs: 850 },
@@ -113,13 +114,28 @@ const dataHub: DemoStep[] = [
     durationMs: 850,
   },
   { action: "wait", ms: 1700 },
-  // Show the validated t-test result.
-  {
-    action: "click",
-    target: { textContains: "Unpaired t-test", within: RAIL },
-    durationMs: 750,
-  },
-  { action: "wait", ms: 1800 },
+  // Guided analysis (the wizard, run to completion while the table is active).
+  // The means -> two groups -> independent path; the table is a column means
+  // table so step 1 offers "the means of two or more groups". If a record-time
+  // run shows different family options, the table type changed -- adjust.
+  { action: "moveTo", target: { testid: "datahub-guided-analysis-button" }, durationMs: 700 },
+  { action: "click", target: { testid: "datahub-guided-analysis-button" }, durationMs: 350 },
+  { action: "wait", ms: 1200 },
+  { action: "click", target: { textContains: "means of two or more groups" }, durationMs: 700 },
+  { action: "wait", ms: 700 },
+  { action: "click", target: { textContains: "Two groups" }, durationMs: 700 },
+  { action: "wait", ms: 700 },
+  { action: "click", target: { textContains: "Independent" }, durationMs: 700 },
+  { action: "wait", ms: 900 },
+  // Dwell on the recommendation, then run it.
+  { action: "moveTo", target: { testid: "wizard-recommendation" }, durationMs: 700 },
+  { action: "wait", ms: 1400 },
+  { action: "click", target: { testid: "wizard-run" }, durationMs: 500 },
+  { action: "wait", ms: 2000 },
+  // The result opens with BeakerBot's plain-language interpretation up top.
+  // Glide over the verdict (the "interpretation" feature) before the figure.
+  { action: "moveTo", target: { testid: "results-verdict" }, durationMs: 800 },
+  { action: "wait", ms: 2200 },
   // Show the publication-ready bar plot (shortest "Heat-shock…" match is the
   // graph row, not the longer table row that also carries the COLUMN tag).
   {
@@ -137,14 +153,13 @@ const dataHub: DemoStep[] = [
   // Error bars SEM -> SD.
   { action: "click", target: { testid: "datahub-errorbars-sd" }, durationMs: 400 },
   { action: "wait", ms: 800 },
-  // Overlay the individual data points.
-  { action: "click", target: { testid: "datahub-points-on" }, durationMs: 400 },
+  // Toggle the individual data points off then back on, so there is a visible
+  // change (they start ON for this graph, so a single "on" click did nothing on
+  // camera). Closing flourish: the points overlay snapping back on.
+  { action: "click", target: { testid: "datahub-points-off" }, durationMs: 400 },
   { action: "wait", ms: 900 },
-  // Closing flourish: open the guided-analysis wizard (last beat — if the dialog
-  // stays up the clip is already done, nothing to unblock).
-  { action: "moveTo", target: { testid: "datahub-guided-analysis-button" }, durationMs: 700 },
-  { action: "click", target: { testid: "datahub-guided-analysis-button" }, durationMs: 400 },
-  { action: "wait", ms: 1600 },
+  { action: "click", target: { testid: "datahub-points-on" }, durationMs: 400 },
+  { action: "wait", ms: 1400 },
 ];
 
 // --- Sequence editor: open pEGFP-N1 (4,733 bp) -> spin the map -> enzyme sites
