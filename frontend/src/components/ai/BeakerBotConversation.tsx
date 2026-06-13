@@ -41,7 +41,13 @@ import ComposerMentionPicker, {
   entryToRef,
 } from "./ComposerMentionPicker";
 import type { GlobalIndexEntry } from "@/components/beaker-search/global-index";
-import ComposerSlashMenu from "./ComposerSlashMenu";
+import ComposerSlashMenu, { type MacroMenuItem } from "./ComposerSlashMenu";
+import MacroEditorSheet from "./MacroEditorSheet";
+import {
+  listMacros,
+  type StoredMacro,
+  type MacroStep,
+} from "@/lib/ai/beaker-macros-store";
 import {
   parseSlashQuery,
   filterSlashCommands,
@@ -723,6 +729,8 @@ export default function BeakerBotConversation({
     attachedRefs,
     addAttachedRef,
     removeAttachedRef,
+    runStoredMacro,
+    captureMacroDraftFromLastRun,
   } = useAiChat();
   const [draft, setDraft] = useState("");
   const listRef = useRef<HTMLDivElement | null>(null);
@@ -802,12 +810,58 @@ export default function BeakerBotConversation({
   const slashCommands: SlashCommand[] =
     slashQuery !== null ? filterSlashCommands(slashQuery) : [];
 
+  // The user's saved workflow macros, shown in the / menu below the curated
+  // commands. Loaded from disk when the menu opens so a just-created macro shows
+  // without a reload. Empty (and the group hidden) when none exist or no folder
+  // is connected (listMacros returns [] safely).
+  const [macros, setMacros] = useState<StoredMacro[]>([]);
+  // The macro editor sheet, open with the steps captured from a finished run.
+  const [macroEditorSteps, setMacroEditorSteps] = useState<MacroStep[] | null>(
+    null,
+  );
+  // The steps the last run would capture, drives the "Save as macro" affordance.
+  const [macroDraftSteps, setMacroDraftSteps] = useState<MacroStep[]>([]);
+  const slashActive = slashQuery !== null;
+  useEffect(() => {
+    if (!slashActive) return;
+    let live = true;
+    void listMacros().then((all) => {
+      if (live) setMacros(all);
+    });
+    return () => {
+      live = false;
+    };
+  }, [slashActive]);
+
+  // Filter macros by the / query, prefix-first then substring on the name, the
+  // same ranking the curated commands use.
+  const filteredMacros: MacroMenuItem[] = (() => {
+    if (slashQuery === null) return [];
+    const q = slashQuery.trim().toLowerCase();
+    const items = macros.map((m) => ({
+      id: m.id,
+      name: m.name,
+      description: m.description,
+    }));
+    if (!q) return items;
+    const prefix = items.filter((m) => m.name.toLowerCase().startsWith(q));
+    const substring = items.filter(
+      (m) => !m.name.toLowerCase().startsWith(q) && m.name.toLowerCase().includes(q),
+    );
+    return [...prefix, ...substring];
+  })();
+
   // The container mounts whenever an "@" mention is being typed; it owns the
   // index hook and reports results up. pickerOpen (keyboard-active) additionally
   // requires at least one result row to be showing.
   const pickerMounted = atQuery !== null;
   const pickerOpen = pickerMounted && mentionResults.length > 0;
-  const slashOpen = slashQuery !== null && slashCommands.length > 0;
+  const slashOpen =
+    slashQuery !== null &&
+    (slashCommands.length > 0 || filteredMacros.length > 0);
+  // The number of rows the keyboard navigates in the slash menu, commands then
+  // macros, so one arrow path moves through both groups.
+  const slashRowCount = slashCommands.length + filteredMacros.length;
 
   // When the @ mention is dismissed, drop any stale results so a reopened picker
   // does not flash the previous query's rows before the hook recomputes.
@@ -898,6 +952,19 @@ export default function BeakerBotConversation({
       });
     },
     [closeOverlays],
+  );
+
+  // Pick a macro from the / menu. Unlike a curated command it does NOT pre-fill
+  // prose, the steps are already fixed, so it clears the draft and stages the run
+  // (runStoredMacro raises the one Run-card approval and replays the steps).
+  const handleMacroSelect = useCallback(
+    (item: MacroMenuItem) => {
+      const macro = macros.find((m) => m.id === item.id);
+      closeOverlays();
+      setDraft("");
+      if (macro) void runStoredMacro(macro);
+    },
+    [macros, closeOverlays, runStoredMacro],
   );
 
   // Bridge registration (useNavigationBridge + useBeakerBotMessageBridge) moved
@@ -1087,6 +1154,17 @@ export default function BeakerBotConversation({
         })()
       : null;
 
+  // After a run settles, compute whether it captured any meaningful steps, so the
+  // "Save as macro" affordance shows only on a run worth saving. Cheap history
+  // parse, recomputed when the last reply or the sending state changes.
+  useEffect(() => {
+    if (sending || !lastAssistantId) {
+      setMacroDraftSteps([]);
+      return;
+    }
+    setMacroDraftSteps(captureMacroDraftFromLastRun());
+  }, [sending, lastAssistantId, captureMacroDraftFromLastRun]);
+
   // When a Canvas draft panel is docked open, the chat column narrows to make
   // room for it (the mockup's split-win, chat + Canvas). When collapsed, the
   // chat occupies the full surface as before.
@@ -1242,6 +1320,26 @@ export default function BeakerBotConversation({
                         >
                           <Icon name="refresh" className="h-3 w-3" title="Regenerate" />
                           Regenerate
+                        </button>
+                      </Tooltip>
+                    ) : null}
+
+                    {/* Save as macro (last assistant reply, only when the run
+                        captured meaningful steps). Opens the editor pre-filled. */}
+                    {isSettledAssistant &&
+                    canRegenerate &&
+                    !sending &&
+                    macroDraftSteps.length > 0 ? (
+                      <Tooltip label="Save these steps as a reusable macro" placement="bottom">
+                        <button
+                          type="button"
+                          data-testid="beakerbot-save-macro"
+                          aria-label="Save as macro"
+                          onClick={() => setMacroEditorSteps(macroDraftSteps)}
+                          className="flex items-center gap-1 rounded px-1.5 py-0.5 text-[11px] text-purple-600 transition-colors hover:bg-purple-500/10 dark:text-purple-300"
+                        >
+                          <Icon name="bolt" className="h-3 w-3" title="Save as macro" />
+                          Save as macro
                         </button>
                       </Tooltip>
                     ) : null}
@@ -1705,8 +1803,10 @@ export default function BeakerBotConversation({
             {slashOpen ? (
               <ComposerSlashMenu
                 commands={slashCommands}
+                macros={filteredMacros}
                 activeIndex={activeIndex}
                 onSelect={handleSlashSelect}
+                onSelectMacro={handleMacroSelect}
               />
             ) : null}
 
@@ -1778,7 +1878,7 @@ export default function BeakerBotConversation({
                 const overlayOpen = pickerOpen || slashOpen;
                 const count = pickerOpen
                   ? mentionResults.length
-                  : slashCommands.length;
+                  : slashRowCount;
                 if (overlayOpen) {
                   if (e.key === "ArrowDown") {
                     e.preventDefault();
@@ -1799,8 +1899,12 @@ export default function BeakerBotConversation({
                     e.preventDefault();
                     if (pickerOpen) {
                       handleMentionSelect(entryToRef(mentionResults[activeIndex]));
-                    } else {
+                    } else if (activeIndex < slashCommands.length) {
                       handleSlashSelect(slashCommands[activeIndex]);
+                    } else {
+                      handleMacroSelect(
+                        filteredMacros[activeIndex - slashCommands.length],
+                      );
                     }
                     return;
                   }
@@ -1935,6 +2039,20 @@ export default function BeakerBotConversation({
           the Canvas store), so it sits to the right of the chat column whenever
           canvasDocked is true. */}
       {canvasDocked ? <BeakerBotCanvas /> : null}
+
+      {/* Macro editor sheet, opened by "Save as macro" with the captured steps.
+          Scoped to this panel (the root is relative). */}
+      {macroEditorSteps !== null ? (
+        <MacroEditorSheet
+          initialName=""
+          initialDescription=""
+          initialSteps={macroEditorSteps}
+          onClose={() => setMacroEditorSteps(null)}
+          onSaved={() => {
+            void listMacros().then(setMacros);
+          }}
+        />
+      ) : null}
     </div>
   );
 }

@@ -36,8 +36,12 @@ import {
   type ApprovalDecision,
 } from "./tools/types";
 import { buildToolMap } from "./tools/registry";
-import { gateToolCall, type GateDeps } from "./agent-loop";
-import type { MacroStep, StoredMacro } from "./beaker-macros-store";
+import { gateToolCall, type GateDeps, type LoopMessage } from "./agent-loop";
+import {
+  type MacroStep,
+  type StoredMacro,
+  type CapturedInvocation,
+} from "./beaker-macros-store";
 
 // The lifecycle status of a single macro step. "running" is emitted before the
 // step executes so a live panel can show progress, the others are terminal.
@@ -186,4 +190,80 @@ export async function runMacro(
     failedAt,
     aborted,
   };
+}
+
+// Reconstruct the tool invocations of the most recent turn from the loop history,
+// for the "Save as macro" capture. The live steps panel only keeps tool names and
+// statuses, but the history carries each assistant tool_call with its arguments,
+// so this is where capture gets the args. Reads only the messages AFTER the last
+// user turn (the run the user just saw), in order. A tool_call with unparseable
+// arguments is captured with empty args rather than dropped, so a macro never
+// silently loses a step. `describeLabel` turns a (tool, args) pair into the human
+// sentence shown in the run card, the caller passes the tool's own describeAction.
+// Pure, so capture is unit-testable.
+export function invocationsFromHistory(
+  history: LoopMessage[],
+  describeLabel: (tool: string, args: Record<string, unknown>) => string,
+): CapturedInvocation[] {
+  let start = 0;
+  for (let i = history.length - 1; i >= 0; i--) {
+    if (history[i].role === "user") {
+      start = i + 1;
+      break;
+    }
+  }
+  const invocations: CapturedInvocation[] = [];
+  for (let i = start; i < history.length; i++) {
+    const msg = history[i];
+    if (msg.role !== "assistant" || !msg.tool_calls) continue;
+    for (const call of msg.tool_calls) {
+      let args: Record<string, unknown> = {};
+      try {
+        const raw = call.function.arguments;
+        const parsed = raw && raw.trim().length > 0 ? JSON.parse(raw) : {};
+        if (parsed && typeof parsed === "object") {
+          args = parsed as Record<string, unknown>;
+        }
+      } catch {
+        args = {};
+      }
+      invocations.push({
+        tool: call.function.name,
+        args,
+        label: describeLabel(call.function.name, args),
+      });
+    }
+  }
+  return invocations;
+}
+
+// Build the one-line assistant message that BeakerBot posts after a macro run.
+// Pure, so the wording is unit-tested and the store action just renders it.
+// Counts come from the terminal outcomes, the tool counts deterministically and
+// the message only narrates, never invents a number (the no-interpretation rule).
+export function summarizeMacroRun(
+  macroName: string,
+  result: RunMacroResult,
+): string {
+  const token = `/${macroName}`;
+  const done = result.outcomes.filter((o) => o.status === "done").length;
+  const skipped = result.outcomes.filter(
+    (o) => o.status === "skipped" || o.status === "skipped-dangling",
+  ).length;
+
+  const stepWord = (n: number) => `${n} step${n === 1 ? "" : "s"}`;
+
+  if (result.aborted) {
+    return `Stopped ${token} early. ${stepWord(done)} ran before you stopped it.`;
+  }
+
+  if (result.failedAt !== null) {
+    const failed = result.outcomes.find((o) => o.status === "failed");
+    const label = failed?.step.label ?? `step ${result.failedAt + 1}`;
+    const reason = failed?.error ? `, it failed (${failed.error})` : "";
+    return `Ran ${token} and stopped at "${label}"${reason}. ${stepWord(done)} ran before it.`;
+  }
+
+  const tail = skipped > 0 ? `, ${skipped} skipped` : "";
+  return `Ran ${token}. ${stepWord(done)} done${tail}.`;
 }

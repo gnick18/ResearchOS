@@ -10,7 +10,13 @@
 // House style, no em-dashes, no emojis, no mid-sentence colons.
 
 import { describe, it, expect, vi } from "vitest";
-import { runMacro, type MacroStepEvent } from "../macro-runner";
+import {
+  runMacro,
+  summarizeMacroRun,
+  invocationsFromHistory,
+  type MacroStepEvent,
+} from "../macro-runner";
+import type { LoopMessage } from "../agent-loop";
 import type { AiTool } from "../tools/types";
 import type { MacroStep } from "../beaker-macros-store";
 
@@ -183,5 +189,130 @@ describe("runMacro dangling / failed / disabled / abort", () => {
     expect(ran).not.toHaveBeenCalled();
     expect(res.aborted).toBe(true);
     expect(res.completed).toBe(false);
+  });
+});
+
+describe("summarizeMacroRun", () => {
+  it("reports a clean run with the done count", async () => {
+    const res = await runMacro({
+      macro: { name: "rollup", steps: [step("a"), step("b")] },
+      tools: [makeTool("a", { action: true }), makeTool("b", { action: true })],
+    });
+    expect(summarizeMacroRun("rollup", res)).toBe("Ran /rollup. 2 steps done.");
+  });
+
+  it("notes skipped steps and singular wording", async () => {
+    const res = await runMacro({
+      macro: { name: "m", steps: [step("known"), step("gone")] },
+      tools: [makeTool("known", { action: true })],
+    });
+    expect(summarizeMacroRun("m", res)).toBe("Ran /m. 1 step done, 1 skipped.");
+  });
+
+  it("reports a failed step with its label, reason, and the count that ran before", async () => {
+    const res = await runMacro({
+      macro: { name: "m", steps: [step("ok"), step("boom"), step("after")] },
+      tools: [
+        makeTool("ok", { action: true }),
+        makeTool("boom", { action: true, throws: true }),
+        makeTool("after", { action: true }),
+      ],
+    });
+    const msg = summarizeMacroRun("m", res);
+    expect(msg).toContain('stopped at "boom"');
+    expect(msg).toContain("boom blew up");
+    expect(msg).toContain("1 step ran before it");
+  });
+
+  it("reports an aborted run", async () => {
+    const controller = new AbortController();
+    controller.abort();
+    const res = await runMacro({
+      macro: { name: "m", steps: [step("a")] },
+      tools: [makeTool("a", { action: true })],
+      signal: controller.signal,
+    });
+    expect(summarizeMacroRun("m", res)).toBe(
+      "Stopped /m early. 0 steps ran before you stopped it.",
+    );
+  });
+});
+
+describe("invocationsFromHistory (capture for Save as macro)", () => {
+  const label = (tool: string) => `do ${tool}`;
+
+  it("captures assistant tool_calls after the last user turn, with parsed args", () => {
+    const history: LoopMessage[] = [
+      { role: "system", content: "prompt" },
+      { role: "user", content: "first ask" },
+      {
+        role: "assistant",
+        content: null,
+        tool_calls: [
+          {
+            id: "1",
+            type: "function",
+            function: { name: "old_digest", arguments: "{}" },
+          },
+        ],
+      },
+      { role: "user", content: "the run we save" },
+      {
+        role: "assistant",
+        content: null,
+        tool_calls: [
+          {
+            id: "2",
+            type: "function",
+            function: {
+              name: "lab_digest",
+              arguments: '{"range":"this week"}',
+            },
+          },
+        ],
+      },
+      { role: "tool", content: "ok", tool_call_id: "2" },
+      {
+        role: "assistant",
+        content: null,
+        tool_calls: [
+          {
+            id: "3",
+            type: "function",
+            function: { name: "write_note", arguments: '{"title":"S"}' },
+          },
+        ],
+      },
+      { role: "assistant", content: "done" },
+    ];
+    const invs = invocationsFromHistory(history, label);
+    expect(invs).toEqual([
+      { tool: "lab_digest", args: { range: "this week" }, label: "do lab_digest" },
+      { tool: "write_note", args: { title: "S" }, label: "do write_note" },
+    ]);
+  });
+
+  it("captures a tool_call with unparseable args as empty args, never dropping it", () => {
+    const history: LoopMessage[] = [
+      { role: "user", content: "ask" },
+      {
+        role: "assistant",
+        content: null,
+        tool_calls: [
+          { id: "1", type: "function", function: { name: "t", arguments: "{bad" } },
+        ],
+      },
+    ];
+    expect(invocationsFromHistory(history, label)).toEqual([
+      { tool: "t", args: {}, label: "do t" },
+    ]);
+  });
+
+  it("returns nothing when the last turn called no tools", () => {
+    const history: LoopMessage[] = [
+      { role: "user", content: "hi" },
+      { role: "assistant", content: "hello" },
+    ];
+    expect(invocationsFromHistory(history, label)).toEqual([]);
   });
 });
