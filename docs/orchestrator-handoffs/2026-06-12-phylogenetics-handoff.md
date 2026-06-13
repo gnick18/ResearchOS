@@ -45,6 +45,6 @@ Builder/Studio/embeds/seed/transparency/wizard all merged earlier in the session
 ## Next steps
 1. Decide the `-T AUTO` default (and improve the smoke FASTA). STILL OPEN (the catalog/recipe default is unchanged; the run helper passes `-T` straight from builder-options so the footgun note applies there too).
 2. ~~Build the published-reproduction framework~~ DONE 2026-06-13 (merge `8cf39d8db`). To ACTIVATE: Grant runs `frontend/scripts/run-phylo-published-case.sh hpv58` offline + commits the result (HPV58 is ready now); source the turtle published tree from TreeBASE; Grant downloads the 2 opsin Dryad files. Each case lights up its /transparency section + the gate independently when its files land.
-3. Write the `/phylo` wiki page (then drop it from EXCLUDED_PREFIXES).
+3. ~~Write the `/phylo` wiki page~~ DONE 2026-06-13 (commit `8b805a3f0`): `src/app/wiki/features/phylo/page.tsx`, concept-first + screenshot-heavy, wired into `APP_ROUTE_TO_WIKI` + `WIKI_NAV` (search index auto-builds at prebuild). No real "EXCLUDED_PREFIXES" gate existed (the handoff phrasing was loose; the only wiki-coverage test is `nav.test.ts`, forward-direction, green). REMAINING: capture the 6 `/wiki/screenshots/phylo-*.png` via the `?wikiCapture=1` fixture harness (the `Screenshot` component shows a clean pending placeholder until then) -- Grant's capture step.
 4. Coordinate with BeakerAI on the PDF-method-extraction synergy + the sequence->FASTA binding.
 5. Grant verifies the full page on :3000, then a push decision.
