@@ -71,16 +71,16 @@ function lab(
 export function demoDeptUsage() {
   const labs = [
     lab("demo-lab-okafor", "Okafor Lab", [
-      ["Dr. Okafor (PI)", 41, 1820, true],
+      ["Dr. Okafor", 41, 1820, true],
       ["A. Brenner", 88, 3110, false],
       ["L. Mwangi", 52, 2240, false],
     ]),
     lab("demo-lab-zhang", "Zhang Lab", [
-      ["Dr. Zhang (PI)", 30, 1450, true],
+      ["Dr. Zhang", 30, 1450, true],
       ["P. Costa", 120, 4015, false],
     ]),
     lab("demo-lab-reyes", "Reyes Lab", [
-      ["Dr. Reyes (PI)", 60, 2380, true],
+      ["Dr. Reyes", 60, 2380, true],
       ["S. Haddad", 47, 1670, false],
       ["T. Nilsson", 39, 1290, false],
     ]),
