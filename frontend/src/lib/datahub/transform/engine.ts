@@ -89,6 +89,22 @@ import type {
   AsTypeOp,
   ToDateOp,
   DatePartsOp,
+  ClipOp,
+  RoundOp,
+  BinOp,
+  MapOp,
+  RankOp,
+  CumulativeOp,
+  LagOp,
+  RollingOp,
+  IsInOp,
+  BetweenOp,
+  TopNOp,
+  SampleOp,
+  ValueCountsOp,
+  DescribeOp,
+  CrosstabOp,
+  PivotTableOp,
 } from "./pipeline";
 
 // ---------------------------------------------------------------------------
@@ -1322,6 +1338,440 @@ function applyDateParts(table: InternalTable, op: DatePartsOp): InternalTable | 
 }
 
 // ---------------------------------------------------------------------------
+// Phase 2b-2 numeric / window / filter-helper / summarize ops
+// ---------------------------------------------------------------------------
+
+/** Linear-interpolated quantile (q in 0..1) over a numeric array, matching the
+ *  default pandas / numpy method so describe and qcut line up with the codegen. */
+function quantile(sorted: number[], q: number): number {
+  if (sorted.length === 0) return NaN;
+  if (sorted.length === 1) return sorted[0];
+  const pos = (sorted.length - 1) * q;
+  const lo = Math.floor(pos);
+  const hi = Math.ceil(pos);
+  if (lo === hi) return sorted[lo];
+  return sorted[lo] + (sorted[hi] - sorted[lo]) * (pos - lo);
+}
+
+function numericColumn(table: InternalTable, col: string): number[] {
+  return table.rows
+    .map((r) => r[col])
+    .filter((v) => !isEmpty(v))
+    .map(coerceToNumber)
+    .filter((n) => Number.isFinite(n));
+}
+
+function applyClip(table: InternalTable, op: ClipOp): InternalTable | string {
+  if (!table.columns.includes(op.column)) return `clip: column "${op.column}" not found`;
+  const col = op.column;
+  const rows = table.rows.map((r) => {
+    const v = r[col];
+    if (isEmpty(v)) return r;
+    const n = coerceToNumber(v);
+    if (!Number.isFinite(n)) return r;
+    let out = n;
+    if (op.lower !== undefined && out < op.lower) out = op.lower;
+    if (op.upper !== undefined && out > op.upper) out = op.upper;
+    return { ...r, [col]: out };
+  });
+  return { columns: table.columns, rows };
+}
+
+function applyRound(table: InternalTable, op: RoundOp): InternalTable | string {
+  if (!table.columns.includes(op.column)) return `round: column "${op.column}" not found`;
+  const col = op.column;
+  const d = op.decimals ?? 0;
+  const factor = Math.pow(10, d);
+  const rows = table.rows.map((r) => {
+    const v = r[col];
+    if (isEmpty(v)) return r;
+    const n = coerceToNumber(v);
+    if (!Number.isFinite(n)) return r;
+    return { ...r, [col]: Math.round(n * factor) / factor };
+  });
+  return { columns: table.columns, rows };
+}
+
+function applyBin(table: InternalTable, op: BinOp): InternalTable | string {
+  if (!table.columns.includes(op.column)) return `bin: column "${op.column}" not found`;
+  const out = op.outputName;
+  const columns = table.columns.includes(out) ? table.columns : [...table.columns, out];
+
+  let edges: number[];
+  if (op.mode === "quantiles") {
+    const n = Math.max(1, op.quantiles ?? 4);
+    const sorted = [...numericColumn(table, op.column)].sort((a, b) => a - b);
+    edges = Array.from({ length: n + 1 }, (_, i) => quantile(sorted, i / n));
+  } else {
+    edges = [...(op.edges ?? [])].slice().sort((a, b) => a - b);
+  }
+  if (edges.length < 2) return `bin: need at least two edges`;
+
+  const binCount = edges.length - 1;
+  const labelFor = (i: number): string => {
+    if (op.labels && op.labels[i] !== undefined) return op.labels[i];
+    if (op.mode === "quantiles") return `Q${i + 1}`;
+    return `${edges[i]}-${edges[i + 1]}`;
+  };
+
+  const rows = table.rows.map((r) => {
+    const v = r[op.column];
+    if (isEmpty(v)) return { ...r, [out]: null };
+    const n = coerceToNumber(v);
+    if (!Number.isFinite(n) || n < edges[0] || n > edges[binCount]) return { ...r, [out]: null };
+    // Right-closed only on the very last bin, matching pandas cut default.
+    let idx = -1;
+    for (let i = 0; i < binCount; i++) {
+      const upperClosed = i === binCount - 1;
+      if (n >= edges[i] && (upperClosed ? n <= edges[i + 1] : n < edges[i + 1])) {
+        idx = i;
+        break;
+      }
+    }
+    return { ...r, [out]: idx >= 0 ? labelFor(idx) : null };
+  });
+  return { columns, rows };
+}
+
+function applyMap(table: InternalTable, op: MapOp): InternalTable | string {
+  if (!table.columns.includes(op.column)) return `map: column "${op.column}" not found`;
+  const col = op.column;
+  const lookup = new Map(op.mapping.map((m) => [m.from, m.to]));
+  const rows = table.rows.map((r) => {
+    const v = r[col];
+    const key = isEmpty(v) ? "" : String(v);
+    if (lookup.has(key)) return { ...r, [col]: lookup.get(key)! };
+    if (op.fallback !== undefined) return { ...r, [col]: op.fallback };
+    return r;
+  });
+  return { columns: table.columns, rows };
+}
+
+function applyRank(table: InternalTable, op: RankOp): InternalTable | string {
+  if (!table.columns.includes(op.column)) return `rank: column "${op.column}" not found`;
+  const out = op.outputName;
+  const columns = table.columns.includes(out) ? table.columns : [...table.columns, out];
+  // Build a sorted list of distinct non-empty numeric values to assign ranks.
+  const vals = table.rows.map((r) => {
+    const v = r[op.column];
+    return isEmpty(v) ? NaN : coerceToNumber(v);
+  });
+  const finite = [...new Set(vals.filter((n) => Number.isFinite(n)))].sort((a, b) =>
+    op.ascending ? a - b : b - a,
+  );
+  // "min": the rank a value would get is 1 + count of strictly-better values.
+  // "dense": the value's position in the ordered distinct list, 1-based.
+  const denseRank = new Map<number, number>();
+  finite.forEach((v, i) => denseRank.set(v, i + 1));
+  const minRank = new Map<number, number>();
+  {
+    let seen = 0;
+    // Sort all finite (with duplicates) to compute min ranks.
+    const all = vals.filter((n) => Number.isFinite(n)).sort((a, b) => (op.ascending ? a - b : b - a));
+    for (let i = 0; i < all.length; i++) {
+      if (!minRank.has(all[i])) minRank.set(all[i], seen + 1);
+      seen++;
+    }
+  }
+  const rows = table.rows.map((r, i) => {
+    const n = vals[i];
+    if (!Number.isFinite(n)) return { ...r, [out]: null };
+    const rank = op.method === "dense" ? denseRank.get(n)! : minRank.get(n)!;
+    return { ...r, [out]: rank };
+  });
+  return { columns, rows };
+}
+
+function applyCumulative(table: InternalTable, op: CumulativeOp): InternalTable | string {
+  if (!table.columns.includes(op.column)) return `cumulative: column "${op.column}" not found`;
+  const out = op.outputName;
+  const columns = table.columns.includes(out) ? table.columns : [...table.columns, out];
+  let acc: number | null = null;
+  const rows = table.rows.map((r) => {
+    const v = r[op.column];
+    if (isEmpty(v)) return { ...r, [out]: null };
+    const n = coerceToNumber(v);
+    if (!Number.isFinite(n)) return { ...r, [out]: null };
+    if (acc === null) {
+      acc = n;
+    } else {
+      switch (op.func) {
+        case "sum":
+          acc = acc + n;
+          break;
+        case "prod":
+          acc = acc * n;
+          break;
+        case "max":
+          acc = Math.max(acc, n);
+          break;
+        case "min":
+          acc = Math.min(acc, n);
+          break;
+      }
+    }
+    return { ...r, [out]: acc };
+  });
+  return { columns, rows };
+}
+
+function applyLag(table: InternalTable, op: LagOp): InternalTable | string {
+  if (!table.columns.includes(op.column)) return `lag: column "${op.column}" not found`;
+  const out = op.outputName;
+  const columns = table.columns.includes(out) ? table.columns : [...table.columns, out];
+  const periods = op.periods ?? 1;
+  const nums = table.rows.map((r) => {
+    const v = r[op.column];
+    return isEmpty(v) ? null : Number.isFinite(coerceToNumber(v)) ? coerceToNumber(v) : null;
+  });
+  const rows = table.rows.map((r, i) => {
+    const prevIdx = i - periods;
+    const prev = prevIdx >= 0 && prevIdx < nums.length ? nums[prevIdx] : null;
+    const cur = nums[i];
+    let result: CellValue;
+    if (op.mode === "shift") {
+      result = prev;
+    } else if (op.mode === "diff") {
+      result = prev !== null && cur !== null ? cur - prev : null;
+    } else {
+      result = prev !== null && prev !== 0 && cur !== null ? (cur - prev) / prev : null;
+    }
+    return { ...r, [out]: result };
+  });
+  return { columns, rows };
+}
+
+function applyRolling(table: InternalTable, op: RollingOp): InternalTable | string {
+  if (!table.columns.includes(op.column)) return `rolling: column "${op.column}" not found`;
+  const out = op.outputName;
+  const columns = table.columns.includes(out) ? table.columns : [...table.columns, out];
+  const size = Math.max(1, op.size);
+  const nums = table.rows.map((r) => {
+    const v = r[op.column];
+    return isEmpty(v) ? null : Number.isFinite(coerceToNumber(v)) ? coerceToNumber(v) : null;
+  });
+  const rows = table.rows.map((r, i) => {
+    if (i < size - 1) return { ...r, [out]: null };
+    const window = nums.slice(i - size + 1, i + 1);
+    if (window.some((n) => n === null)) return { ...r, [out]: null };
+    const w = window as number[];
+    let val: number;
+    switch (op.func) {
+      case "sum":
+        val = w.reduce((a, b) => a + b, 0);
+        break;
+      case "mean":
+        val = w.reduce((a, b) => a + b, 0) / w.length;
+        break;
+      case "min":
+        val = Math.min(...w);
+        break;
+      case "max":
+        val = Math.max(...w);
+        break;
+    }
+    return { ...r, [out]: val };
+  });
+  return { columns, rows };
+}
+
+function applyIsIn(table: InternalTable, op: IsInOp): InternalTable | string {
+  if (!table.columns.includes(op.column)) return `isin: column "${op.column}" not found`;
+  const set = new Set(op.values.map(String));
+  const rows = table.rows.filter((r) => {
+    const v = r[op.column];
+    const inSet = !isEmpty(v) && set.has(String(v));
+    return op.negate ? !inSet : inSet;
+  });
+  return { columns: table.columns, rows };
+}
+
+function applyBetween(table: InternalTable, op: BetweenOp): InternalTable | string {
+  if (!table.columns.includes(op.column)) return `between: column "${op.column}" not found`;
+  const rows = table.rows.filter((r) => {
+    const v = r[op.column];
+    if (isEmpty(v)) return false;
+    const n = coerceToNumber(v);
+    return Number.isFinite(n) && n >= op.lower && n <= op.upper;
+  });
+  return { columns: table.columns, rows };
+}
+
+function applyTopN(table: InternalTable, op: TopNOp): InternalTable | string {
+  if (!table.columns.includes(op.column)) return `topn: column "${op.column}" not found`;
+  const withNum = table.rows
+    .map((r) => ({ r, n: isEmpty(r[op.column]) ? NaN : coerceToNumber(r[op.column]) }))
+    .filter((x) => Number.isFinite(x.n));
+  withNum.sort((a, b) => (op.which === "largest" ? b.n - a.n : a.n - b.n));
+  const rows = withNum.slice(0, Math.max(0, op.n)).map((x) => x.r);
+  return { columns: table.columns, rows };
+}
+
+/** A small seeded LCG so a seeded sample is reproducible in the JS engine. */
+function seededRandom(seed: number): () => number {
+  let s = (seed >>> 0) || 1;
+  return () => {
+    s = (s * 1664525 + 1013904223) >>> 0;
+    return s / 0xffffffff;
+  };
+}
+
+function applySample(table: InternalTable, op: SampleOp): InternalTable | string {
+  const total = table.rows.length;
+  let count: number;
+  if (op.mode === "fraction") {
+    const frac = Math.max(0, Math.min(1, op.fraction ?? 0));
+    count = Math.round(total * frac);
+  } else {
+    count = Math.min(total, Math.max(0, op.n ?? 0));
+  }
+  const rand = op.seed !== undefined ? seededRandom(op.seed) : Math.random;
+  // Fisher-Yates over the index list, take the first `count`.
+  const idx = table.rows.map((_, i) => i);
+  for (let i = idx.length - 1; i > 0; i--) {
+    const j = Math.floor(rand() * (i + 1));
+    [idx[i], idx[j]] = [idx[j], idx[i]];
+  }
+  const keep = idx.slice(0, count).sort((a, b) => a - b);
+  return { columns: table.columns, rows: keep.map((i) => table.rows[i]) };
+}
+
+function applyValueCounts(table: InternalTable, op: ValueCountsOp): InternalTable | string {
+  if (!table.columns.includes(op.column)) return `value_counts: column "${op.column}" not found`;
+  const counts = new Map<string, number>();
+  for (const r of table.rows) {
+    const v = r[op.column];
+    if (isEmpty(v)) continue;
+    const key = String(v);
+    counts.set(key, (counts.get(key) ?? 0) + 1);
+  }
+  const entries = [...counts.entries()].sort((a, b) => b[1] - a[1]);
+  return {
+    columns: ["value", "count"],
+    rows: entries.map((e) => ({ value: e[0], count: e[1] })),
+  };
+}
+
+function applyDescribe(table: InternalTable, op: DescribeOp): InternalTable | string {
+  const cols =
+    op.columns && op.columns.length > 0
+      ? op.columns
+      : table.columns.filter((c) => numericColumn(table, c).length > 0);
+  for (const c of cols) {
+    if (!table.columns.includes(c)) return `describe: column "${c}" not found`;
+  }
+  const stats = ["count", "mean", "std", "min", "25%", "50%", "75%", "max"];
+  const rows = stats.map((stat) => {
+    const row: Record<string, CellValue> = { statistic: stat };
+    for (const c of cols) {
+      const nums = numericColumn(table, c);
+      const sorted = [...nums].sort((a, b) => a - b);
+      let v: CellValue = null;
+      if (nums.length > 0) {
+        switch (stat) {
+          case "count":
+            v = nums.length;
+            break;
+          case "mean":
+            v = nums.reduce((a, b) => a + b, 0) / nums.length;
+            break;
+          case "std":
+            v = sampleSd(nums);
+            break;
+          case "min":
+            v = sorted[0];
+            break;
+          case "25%":
+            v = quantile(sorted, 0.25);
+            break;
+          case "50%":
+            v = quantile(sorted, 0.5);
+            break;
+          case "75%":
+            v = quantile(sorted, 0.75);
+            break;
+          case "max":
+            v = sorted[sorted.length - 1];
+            break;
+        }
+      }
+      row[c] = v;
+    }
+    return row;
+  });
+  return { columns: ["statistic", ...cols], rows };
+}
+
+function applyCrosstab(table: InternalTable, op: CrosstabOp): InternalTable | string {
+  if (!table.columns.includes(op.row)) return `crosstab: column "${op.row}" not found`;
+  if (!table.columns.includes(op.column)) return `crosstab: column "${op.column}" not found`;
+  const rowVals: string[] = [];
+  const colVals: string[] = [];
+  const counts = new Map<string, number>();
+  for (const r of table.rows) {
+    const rv = r[op.row];
+    const cv = r[op.column];
+    if (isEmpty(rv) || isEmpty(cv)) continue;
+    const rs = String(rv);
+    const cs = String(cv);
+    if (!rowVals.includes(rs)) rowVals.push(rs);
+    if (!colVals.includes(cs)) colVals.push(cs);
+    const key = `${rs} ${cs}`;
+    counts.set(key, (counts.get(key) ?? 0) + 1);
+  }
+  const rows = rowVals.map((rs) => {
+    const row: Record<string, CellValue> = { [op.row]: rs };
+    for (const cs of colVals) row[cs] = counts.get(`${rs} ${cs}`) ?? 0;
+    return row;
+  });
+  return { columns: [op.row, ...colVals], rows };
+}
+
+function applyPivotTable(table: InternalTable, op: PivotTableOp): InternalTable | string {
+  for (const c of [op.index, op.columns, op.value]) {
+    if (!table.columns.includes(c)) return `pivot_table: column "${c}" not found`;
+  }
+  const indexVals: string[] = [];
+  const colVals: string[] = [];
+  const buckets = new Map<string, number[]>();
+  for (const r of table.rows) {
+    const iv = r[op.index];
+    const cv = r[op.columns];
+    if (isEmpty(iv) || isEmpty(cv)) continue;
+    const is = String(iv);
+    const cs = String(cv);
+    if (!indexVals.includes(is)) indexVals.push(is);
+    if (!colVals.includes(cs)) colVals.push(cs);
+    const key = `${is} ${cs}`;
+    if (!buckets.has(key)) buckets.set(key, []);
+    const n = coerceToNumber(r[op.value]);
+    if (Number.isFinite(n)) buckets.get(key)!.push(n);
+  }
+  const aggregate = (vals: number[]): CellValue => {
+    if (vals.length === 0) return null;
+    switch (op.agg) {
+      case "sum":
+        return vals.reduce((a, b) => a + b, 0);
+      case "count":
+        return vals.length;
+      case "min":
+        return Math.min(...vals);
+      case "max":
+        return Math.max(...vals);
+      case "mean":
+      default:
+        return vals.reduce((a, b) => a + b, 0) / vals.length;
+    }
+  };
+  const rows = indexVals.map((is) => {
+    const row: Record<string, CellValue> = { [op.index]: is };
+    for (const cs of colVals) row[cs] = aggregate(buckets.get(`${is} ${cs}`) ?? []);
+    return row;
+  });
+  return { columns: [op.index, ...colVals], rows };
+}
+
+// ---------------------------------------------------------------------------
 // Pipeline executor
 // ---------------------------------------------------------------------------
 
@@ -1447,6 +1897,38 @@ function executeOp(
       return applyToDate(table, op);
     case "date-parts":
       return applyDateParts(table, op);
+    case "clip":
+      return applyClip(table, op);
+    case "round":
+      return applyRound(table, op);
+    case "bin":
+      return applyBin(table, op);
+    case "map":
+      return applyMap(table, op);
+    case "rank":
+      return applyRank(table, op);
+    case "cumulative":
+      return applyCumulative(table, op);
+    case "lag":
+      return applyLag(table, op);
+    case "rolling":
+      return applyRolling(table, op);
+    case "isin":
+      return applyIsIn(table, op);
+    case "between":
+      return applyBetween(table, op);
+    case "topn":
+      return applyTopN(table, op);
+    case "sample":
+      return applySample(table, op);
+    case "value_counts":
+      return applyValueCounts(table, op);
+    case "describe":
+      return applyDescribe(table, op);
+    case "crosstab":
+      return applyCrosstab(table, op);
+    case "pivot_table":
+      return applyPivotTable(table, op);
     default: {
       // TypeScript exhaustiveness guard. If a new op kind is added to
       // TransformOp without a case here, this will be a type error.

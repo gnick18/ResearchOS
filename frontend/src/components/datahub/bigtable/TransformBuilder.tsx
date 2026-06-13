@@ -63,19 +63,19 @@ const PALETTE: { group: string; ops: PaletteEntry[] }[] = [
       { kind: "filter", label: "keep rows where", ready: true },
       { kind: "select", label: "keep columns", ready: true },
       { kind: "drop", label: "drop columns", ready: true },
-      { kind: "isin", label: "keep rows in set", ready: false },
-      { kind: "between", label: "keep rows between", ready: false },
-      { kind: "topn", label: "top N by column", ready: false },
-      { kind: "sample", label: "random sample", ready: false },
+      { kind: "isin", label: "keep rows in set", ready: true },
+      { kind: "between", label: "keep rows between", ready: true },
+      { kind: "topn", label: "top N by column", ready: true },
+      { kind: "sample", label: "random sample", ready: true },
     ],
   },
   {
     group: "Edit values",
     ops: [
       { kind: "setwhere", label: "set value where", ready: true },
-      { kind: "clip", label: "clip to range", ready: false },
-      { kind: "round", label: "round", ready: false },
-      { kind: "map", label: "map via lookup", ready: false },
+      { kind: "clip", label: "clip to range", ready: true },
+      { kind: "round", label: "round", ready: true },
+      { kind: "map", label: "map via lookup", ready: true },
     ],
   },
   {
@@ -102,9 +102,11 @@ const PALETTE: { group: string; ops: PaletteEntry[] }[] = [
     group: "Compute",
     ops: [
       { kind: "derive", label: "new column from formula", ready: true },
-      { kind: "bin", label: "bin into categories", ready: false },
-      { kind: "rank", label: "rank", ready: false },
-      { kind: "lag", label: "shift / diff / pct change", ready: false },
+      { kind: "bin", label: "bin into categories", ready: true },
+      { kind: "rank", label: "rank", ready: true },
+      { kind: "cumulative", label: "running total", ready: true },
+      { kind: "lag", label: "shift / diff / pct change", ready: true },
+      { kind: "rolling", label: "rolling window", ready: true },
     ],
   },
   {
@@ -122,8 +124,10 @@ const PALETTE: { group: string; ops: PaletteEntry[] }[] = [
       { kind: "sort", label: "sort", ready: true },
       { kind: "dedupe", label: "drop duplicates", ready: true },
       { kind: "groupby", label: "group + aggregate", ready: true },
-      { kind: "valuecounts", label: "value counts", ready: false },
-      { kind: "describe", label: "describe", ready: false },
+      { kind: "valuecounts", label: "value counts", ready: true },
+      { kind: "describe", label: "describe", ready: true },
+      { kind: "crosstab", label: "cross-tabulate", ready: true },
+      { kind: "pivottable", label: "pivot table", ready: true },
     ],
   },
 ];
@@ -144,6 +148,22 @@ const VERB: Record<string, string> = {
   astype: "Cast type",
   "to-date": "Parse date",
   "date-parts": "Date parts",
+  clip: "Clip",
+  round: "Round",
+  bin: "Bin",
+  map: "Map",
+  rank: "Rank",
+  cumulative: "Running total",
+  lag: "Shift / diff",
+  rolling: "Rolling",
+  isin: "Keep in set",
+  between: "Keep between",
+  topn: "Top N",
+  sample: "Sample",
+  value_counts: "Value counts",
+  describe: "Describe",
+  crosstab: "Cross-tab",
+  pivot_table: "Pivot table",
 };
 
 // ---------------------------------------------------------------------------
@@ -252,6 +272,73 @@ function defaultOp(kind: string, cols: string[], numericCols: string[]): Transfo
       return { kind: "to-date", column: first, format: "%Y-%m-%d" };
     case "dateparts":
       return { kind: "date-parts", column: first, parts: ["year", "month"] };
+    case "clip":
+      return { kind: "clip", column: firstNum, lower: 0, upper: 1 };
+    case "round":
+      return { kind: "round", column: firstNum, decimals: 2 };
+    case "bin":
+      return {
+        kind: "bin",
+        column: firstNum,
+        mode: "quantiles",
+        quantiles: 4,
+        outputName: `${firstNum}_bin`,
+      };
+    case "map":
+      return { kind: "map", column: first, mapping: [{ from: "", to: "" }] };
+    case "rank":
+      return {
+        kind: "rank",
+        column: firstNum,
+        ascending: false,
+        method: "min",
+        outputName: `${firstNum}_rank`,
+      };
+    case "cumulative":
+      return {
+        kind: "cumulative",
+        column: firstNum,
+        func: "sum",
+        outputName: `${firstNum}_cumsum`,
+      };
+    case "lag":
+      return {
+        kind: "lag",
+        column: firstNum,
+        mode: "shift",
+        periods: 1,
+        outputName: `${firstNum}_lag`,
+      };
+    case "rolling":
+      return {
+        kind: "rolling",
+        column: firstNum,
+        size: 3,
+        func: "mean",
+        outputName: `${firstNum}_rolling`,
+      };
+    case "isin":
+      return { kind: "isin", column: first, values: [], negate: false };
+    case "between":
+      return { kind: "between", column: firstNum, lower: 0, upper: 1 };
+    case "topn":
+      return { kind: "topn", column: firstNum, n: 10, which: "largest" };
+    case "sample":
+      return { kind: "sample", mode: "count", n: 100 };
+    case "valuecounts":
+      return { kind: "value_counts", column: first };
+    case "describe":
+      return { kind: "describe", columns: [] };
+    case "crosstab":
+      return { kind: "crosstab", row: first, column: cols[1] ?? first };
+    case "pivottable":
+      return {
+        kind: "pivot_table",
+        index: first,
+        columns: cols[1] ?? first,
+        value: firstNum,
+        agg: "mean",
+      };
     default:
       return null;
   }
@@ -945,6 +1032,538 @@ function OpParams({
     );
   }
 
+  if (op.kind === "clip") {
+    return (
+      <>
+        <Pill>clamp</Pill>
+        <select
+          className={selectCls()}
+          value={op.column}
+          onChange={(e) => onChange({ ...op, column: e.target.value })}
+        >
+          {colOptions}
+        </select>
+        <Pill>between</Pill>
+        <input
+          className={`${inputCls()} w-20`}
+          placeholder="min"
+          value={op.lower ?? ""}
+          onChange={(e) => {
+            const n = Number(e.target.value);
+            onChange({ ...op, lower: e.target.value === "" ? undefined : n });
+          }}
+        />
+        <Pill>and</Pill>
+        <input
+          className={`${inputCls()} w-20`}
+          placeholder="max"
+          value={op.upper ?? ""}
+          onChange={(e) => {
+            const n = Number(e.target.value);
+            onChange({ ...op, upper: e.target.value === "" ? undefined : n });
+          }}
+        />
+      </>
+    );
+  }
+
+  if (op.kind === "round") {
+    return (
+      <>
+        <Pill>round</Pill>
+        <select
+          className={selectCls()}
+          value={op.column}
+          onChange={(e) => onChange({ ...op, column: e.target.value })}
+        >
+          {colOptions}
+        </select>
+        <Pill>to</Pill>
+        <input
+          className={`${inputCls()} w-16`}
+          type="number"
+          value={op.decimals ?? 0}
+          onChange={(e) => onChange({ ...op, decimals: Math.max(0, Number(e.target.value) || 0) })}
+        />
+        <Pill>decimals</Pill>
+      </>
+    );
+  }
+
+  if (op.kind === "bin") {
+    return (
+      <>
+        <Pill>bin</Pill>
+        <select
+          className={selectCls()}
+          value={op.column}
+          onChange={(e) => onChange({ ...op, column: e.target.value })}
+        >
+          {colOptions}
+        </select>
+        <Pill>by</Pill>
+        <select
+          className={selectCls()}
+          value={op.mode}
+          onChange={(e) => onChange({ ...op, mode: e.target.value as typeof op.mode })}
+        >
+          <option value="quantiles">quantiles</option>
+          <option value="ranges">ranges</option>
+        </select>
+        {op.mode === "quantiles" ? (
+          <>
+            <input
+              className={`${inputCls()} w-16`}
+              type="number"
+              value={op.quantiles ?? 4}
+              onChange={(e) => onChange({ ...op, quantiles: Math.max(1, Number(e.target.value) || 1) })}
+            />
+            <Pill>buckets</Pill>
+          </>
+        ) : (
+          <input
+            className={`${inputCls()} w-44`}
+            placeholder="edges e.g. 0, 10, 20"
+            value={(op.edges ?? []).join(", ")}
+            onChange={(e) => {
+              const edges = e.target.value
+                .split(",")
+                .map((s) => Number(s.trim()))
+                .filter((n) => Number.isFinite(n));
+              onChange({ ...op, edges });
+            }}
+          />
+        )}
+        <Pill>into</Pill>
+        <input
+          className={`${inputCls()} w-32`}
+          value={op.outputName}
+          onChange={(e) => onChange({ ...op, outputName: e.target.value })}
+        />
+      </>
+    );
+  }
+
+  if (op.kind === "map") {
+    const setPair = (i: number, key: "from" | "to", value: string) => {
+      const mapping = op.mapping.map((m, j) => (j === i ? { ...m, [key]: value } : m));
+      onChange({ ...op, mapping });
+    };
+    return (
+      <>
+        <Pill>map</Pill>
+        <select
+          className={selectCls()}
+          value={op.column}
+          onChange={(e) => onChange({ ...op, column: e.target.value })}
+        >
+          {colOptions}
+        </select>
+        {op.mapping.map((m, i) => (
+          <span key={i} className="inline-flex items-center gap-1">
+            <input
+              className={`${inputCls()} w-20`}
+              placeholder="from"
+              value={m.from}
+              onChange={(e) => setPair(i, "from", e.target.value)}
+            />
+            <Pill>to</Pill>
+            <input
+              className={`${inputCls()} w-20`}
+              placeholder="to"
+              value={m.to}
+              onChange={(e) => setPair(i, "to", e.target.value)}
+            />
+          </span>
+        ))}
+        <Tooltip label="Add a mapping">
+          <button
+            type="button"
+            className="rounded-md border border-border px-2 py-1 text-meta text-foreground-muted"
+            onClick={() => onChange({ ...op, mapping: [...op.mapping, { from: "", to: "" }] })}
+          >
+            <Icon name="plus" className="h-3.5 w-3.5" />
+          </button>
+        </Tooltip>
+      </>
+    );
+  }
+
+  if (op.kind === "rank") {
+    return (
+      <>
+        <Pill>rank</Pill>
+        <select
+          className={selectCls()}
+          value={op.column}
+          onChange={(e) => onChange({ ...op, column: e.target.value })}
+        >
+          {colOptions}
+        </select>
+        <select
+          className={selectCls()}
+          value={op.ascending ? "asc" : "desc"}
+          onChange={(e) => onChange({ ...op, ascending: e.target.value === "asc" })}
+        >
+          <option value="desc">largest first</option>
+          <option value="asc">smallest first</option>
+        </select>
+        <select
+          className={selectCls()}
+          value={op.method}
+          onChange={(e) => onChange({ ...op, method: e.target.value as typeof op.method })}
+        >
+          <option value="min">ties share the lower rank</option>
+          <option value="dense">dense (no gaps)</option>
+        </select>
+        <Pill>into</Pill>
+        <input
+          className={`${inputCls()} w-32`}
+          value={op.outputName}
+          onChange={(e) => onChange({ ...op, outputName: e.target.value })}
+        />
+      </>
+    );
+  }
+
+  if (op.kind === "cumulative") {
+    return (
+      <>
+        <Pill>running</Pill>
+        <select
+          className={selectCls()}
+          value={op.func}
+          onChange={(e) => onChange({ ...op, func: e.target.value as typeof op.func })}
+        >
+          <option value="sum">sum</option>
+          <option value="prod">product</option>
+          <option value="max">max</option>
+          <option value="min">min</option>
+        </select>
+        <Pill>of</Pill>
+        <select
+          className={selectCls()}
+          value={op.column}
+          onChange={(e) => onChange({ ...op, column: e.target.value })}
+        >
+          {colOptions}
+        </select>
+        <Pill>into</Pill>
+        <input
+          className={`${inputCls()} w-32`}
+          value={op.outputName}
+          onChange={(e) => onChange({ ...op, outputName: e.target.value })}
+        />
+      </>
+    );
+  }
+
+  if (op.kind === "lag") {
+    return (
+      <>
+        <select
+          className={selectCls()}
+          value={op.mode}
+          onChange={(e) => onChange({ ...op, mode: e.target.value as typeof op.mode })}
+        >
+          <option value="shift">shift</option>
+          <option value="diff">difference</option>
+          <option value="pct_change">percent change</option>
+        </select>
+        <Pill>of</Pill>
+        <select
+          className={selectCls()}
+          value={op.column}
+          onChange={(e) => onChange({ ...op, column: e.target.value })}
+        >
+          {colOptions}
+        </select>
+        <Pill>by</Pill>
+        <input
+          className={`${inputCls()} w-16`}
+          type="number"
+          value={op.periods ?? 1}
+          onChange={(e) => onChange({ ...op, periods: Number(e.target.value) || 1 })}
+        />
+        <Pill>rows into</Pill>
+        <input
+          className={`${inputCls()} w-32`}
+          value={op.outputName}
+          onChange={(e) => onChange({ ...op, outputName: e.target.value })}
+        />
+      </>
+    );
+  }
+
+  if (op.kind === "rolling") {
+    return (
+      <>
+        <Pill>rolling</Pill>
+        <select
+          className={selectCls()}
+          value={op.func}
+          onChange={(e) => onChange({ ...op, func: e.target.value as typeof op.func })}
+        >
+          <option value="mean">mean</option>
+          <option value="sum">sum</option>
+          <option value="min">min</option>
+          <option value="max">max</option>
+        </select>
+        <Pill>of</Pill>
+        <select
+          className={selectCls()}
+          value={op.column}
+          onChange={(e) => onChange({ ...op, column: e.target.value })}
+        >
+          {colOptions}
+        </select>
+        <Pill>over</Pill>
+        <input
+          className={`${inputCls()} w-16`}
+          type="number"
+          value={op.size}
+          onChange={(e) => onChange({ ...op, size: Math.max(1, Number(e.target.value) || 1) })}
+        />
+        <Pill>rows into</Pill>
+        <input
+          className={`${inputCls()} w-32`}
+          value={op.outputName}
+          onChange={(e) => onChange({ ...op, outputName: e.target.value })}
+        />
+      </>
+    );
+  }
+
+  if (op.kind === "isin") {
+    return (
+      <>
+        <Pill>keep rows where</Pill>
+        <select
+          className={selectCls()}
+          value={op.column}
+          onChange={(e) => onChange({ ...op, column: e.target.value })}
+        >
+          {colOptions}
+        </select>
+        <select
+          className={selectCls()}
+          value={op.negate ? "not" : "in"}
+          onChange={(e) => onChange({ ...op, negate: e.target.value === "not" })}
+        >
+          <option value="in">is in</option>
+          <option value="not">is not in</option>
+        </select>
+        <input
+          className={`${inputCls()} w-56`}
+          placeholder="values, comma separated"
+          value={op.values.join(", ")}
+          onChange={(e) =>
+            onChange({
+              ...op,
+              values: e.target.value.split(",").map((s) => s.trim()).filter(Boolean),
+            })
+          }
+        />
+      </>
+    );
+  }
+
+  if (op.kind === "between") {
+    return (
+      <>
+        <Pill>keep rows where</Pill>
+        <select
+          className={selectCls()}
+          value={op.column}
+          onChange={(e) => onChange({ ...op, column: e.target.value })}
+        >
+          {colOptions}
+        </select>
+        <Pill>is between</Pill>
+        <input
+          className={`${inputCls()} w-20`}
+          value={op.lower}
+          onChange={(e) => onChange({ ...op, lower: Number(e.target.value) || 0 })}
+        />
+        <Pill>and</Pill>
+        <input
+          className={`${inputCls()} w-20`}
+          value={op.upper}
+          onChange={(e) => onChange({ ...op, upper: Number(e.target.value) || 0 })}
+        />
+      </>
+    );
+  }
+
+  if (op.kind === "topn") {
+    return (
+      <>
+        <Pill>keep the</Pill>
+        <input
+          className={`${inputCls()} w-16`}
+          type="number"
+          value={op.n}
+          onChange={(e) => onChange({ ...op, n: Math.max(0, Number(e.target.value) || 0) })}
+        />
+        <select
+          className={selectCls()}
+          value={op.which}
+          onChange={(e) => onChange({ ...op, which: e.target.value as typeof op.which })}
+        >
+          <option value="largest">largest</option>
+          <option value="smallest">smallest</option>
+        </select>
+        <Pill>by</Pill>
+        <select
+          className={selectCls()}
+          value={op.column}
+          onChange={(e) => onChange({ ...op, column: e.target.value })}
+        >
+          {colOptions}
+        </select>
+      </>
+    );
+  }
+
+  if (op.kind === "sample") {
+    return (
+      <>
+        <Pill>sample</Pill>
+        <select
+          className={selectCls()}
+          value={op.mode}
+          onChange={(e) => onChange({ ...op, mode: e.target.value as typeof op.mode })}
+        >
+          <option value="count">a number of rows</option>
+          <option value="fraction">a fraction of rows</option>
+        </select>
+        {op.mode === "count" ? (
+          <input
+            className={`${inputCls()} w-20`}
+            type="number"
+            value={op.n ?? 0}
+            onChange={(e) => onChange({ ...op, n: Math.max(0, Number(e.target.value) || 0) })}
+          />
+        ) : (
+          <input
+            className={`${inputCls()} w-20`}
+            type="number"
+            step="0.01"
+            value={op.fraction ?? 0}
+            onChange={(e) => onChange({ ...op, fraction: Number(e.target.value) || 0 })}
+          />
+        )}
+        <Pill>seed</Pill>
+        <input
+          className={`${inputCls()} w-20`}
+          placeholder="optional"
+          value={op.seed ?? ""}
+          onChange={(e) => {
+            const v = e.target.value;
+            onChange({ ...op, seed: v === "" ? undefined : Number(v) });
+          }}
+        />
+      </>
+    );
+  }
+
+  if (op.kind === "value_counts") {
+    return (
+      <>
+        <Pill>count values in</Pill>
+        <select
+          className={selectCls()}
+          value={op.column}
+          onChange={(e) => onChange({ ...op, column: e.target.value })}
+        >
+          {colOptions}
+        </select>
+      </>
+    );
+  }
+
+  if (op.kind === "describe") {
+    return (
+      <>
+        <Pill>describe</Pill>
+        <input
+          className={`${inputCls()} w-56`}
+          placeholder="all numeric columns"
+          value={(op.columns ?? []).join(", ")}
+          onChange={(e) => {
+            const c = e.target.value.split(",").map((s) => s.trim()).filter(Boolean);
+            onChange({ ...op, columns: c });
+          }}
+        />
+      </>
+    );
+  }
+
+  if (op.kind === "crosstab") {
+    return (
+      <>
+        <Pill>rows</Pill>
+        <select
+          className={selectCls()}
+          value={op.row}
+          onChange={(e) => onChange({ ...op, row: e.target.value })}
+        >
+          {colOptions}
+        </select>
+        <Pill>columns</Pill>
+        <select
+          className={selectCls()}
+          value={op.column}
+          onChange={(e) => onChange({ ...op, column: e.target.value })}
+        >
+          {colOptions}
+        </select>
+      </>
+    );
+  }
+
+  if (op.kind === "pivot_table") {
+    return (
+      <>
+        <Pill>index</Pill>
+        <select
+          className={selectCls()}
+          value={op.index}
+          onChange={(e) => onChange({ ...op, index: e.target.value })}
+        >
+          {colOptions}
+        </select>
+        <Pill>spread</Pill>
+        <select
+          className={selectCls()}
+          value={op.columns}
+          onChange={(e) => onChange({ ...op, columns: e.target.value })}
+        >
+          {colOptions}
+        </select>
+        <Pill>of</Pill>
+        <select
+          className={selectCls()}
+          value={op.value}
+          onChange={(e) => onChange({ ...op, value: e.target.value })}
+        >
+          {colOptions}
+        </select>
+        <select
+          className={selectCls()}
+          value={op.agg}
+          onChange={(e) => onChange({ ...op, agg: e.target.value as typeof op.agg })}
+        >
+          <option value="mean">mean</option>
+          <option value="sum">sum</option>
+          <option value="count">count</option>
+          <option value="min">min</option>
+          <option value="max">max</option>
+        </select>
+      </>
+    );
+  }
+
   return <Pill>parameters for {VERB[op.kind] ?? op.kind}</Pill>;
 }
 
@@ -1370,6 +1989,22 @@ function nextNames(current: string[], op: TransformOp): string[] {
       const names = op.parts.map((p) => `${op.column}_${p}`);
       return [...current, ...names.filter((n) => !current.includes(n))];
     }
+    case "bin":
+    case "rank":
+    case "cumulative":
+    case "lag":
+    case "rolling":
+      return current.includes(op.outputName) ? current : [...current, op.outputName];
+    case "value_counts":
+      return ["value", "count"];
+    case "describe": {
+      const cols = op.columns && op.columns.length > 0 ? op.columns : current;
+      return ["statistic", ...cols];
+    }
+    case "crosstab":
+      return [op.row];
+    case "pivot_table":
+      return [op.index];
     default:
       return current;
   }
