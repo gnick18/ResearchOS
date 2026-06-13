@@ -39,6 +39,8 @@ import { useUserColors } from "@/hooks/useUserColor";
 import { useErrorReporting } from "@/hooks/useErrorReporting";
 import { useFeaturePicks } from "@/hooks/useFeaturePicks";
 import { useIsLabHead } from "@/hooks/useIsLabHead";
+import { useDeptAdminOf } from "@/hooks/useDeptAdminOf";
+import { DEPT_TIER_ENABLED } from "@/lib/dept/config";
 import { deriveVisibleTabs } from "@/lib/onboarding/feature-picks-tabs";
 import { usePrefetchOnHover } from "@/lib/perf/use-prefetch-on-hover";
 import { headerGradient, rainbowTheme } from "@/lib/colors";
@@ -198,6 +200,11 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   const { mode: piViewMode } = usePiViewMode();
   const labLens = isLabHead === true && piViewMode === "lab";
 
+  // Department tier: a dept admin gets a "Department" nav entry (dark unless the
+  // tier flag is on). Independent of lab role -- a PI who also runs a department
+  // sees it in both lenses; a non-PI dept admin sees it in their researcher nav.
+  const isDeptAdmin = DEPT_TIER_ENABLED && !!useDeptAdminOf(currentUser ?? null);
+
   // The dashboard ("/") is always shown so the user has a guaranteed safe
   // landing tab even if they hide everything else (or if Settings was
   // wiped). Settings itself is rendered as a gear icon, never as part of
@@ -264,13 +271,16 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
           out.push(item);
         }
       }
+      if (isDeptAdmin) out.push({ href: "/department", label: "Department" });
       return out;
     }
     // Member, OR a lab head in "My work" mode: the researcher tab set (Workbench
     // landing), with the PI-only tabs hidden. The "My work" toggle in the header
     // is the way back to the lab lens for a PI.
-    return filtered.filter((item) => item.href !== HOME_HREF);
-  }, [filtered, labLens]);
+    const researcher = filtered.filter((item) => item.href !== HOME_HREF);
+    if (isDeptAdmin) researcher.push({ href: "/department", label: "Department" });
+    return researcher;
+  }, [filtered, labLens, isDeptAdmin]);
 
   // Supplies hub (Supplies hub, 2026-06-07). When INVENTORY_ENABLED is on,
   // Inventory and Purchases collapse into ONE "Supplies" nav item pointing at
