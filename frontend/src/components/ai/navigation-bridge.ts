@@ -24,9 +24,8 @@
 //
 // House style, no em-dashes, no emojis, no mid-sentence colons.
 
-import { useEffect, useRef } from "react";
+import { useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { useSearchParams } from "next/navigation";
 import { withFixtureParam } from "@/components/FixtureLink";
 
 // The current handler that performs navigation. Set by the React subscriber when
@@ -132,21 +131,35 @@ export function registerNavigationHandler(fn: NavHandler): () => void {
  *  identity is stable and it is never transiently null while the panel is mounted.
  *  The latest fixture-capture param is read from a ref that a separate effect keeps
  *  current, so a param change does not force a re-register (which used to open a
- *  null-handler window that turned the next navigation into a hard reload). */
+ *  null-handler window that turned the next navigation into a hard reload).
+ *
+ *  Suspense-free by design (app-shell stability bot, 2026-06-12). This bridge is
+ *  registered once at the ROOT layout (BeakerBotBridges), so any hook it calls
+ *  runs in the shared server-render shell of every page. It used to read the
+ *  wikiCapture param with next/navigation's useSearchParams, which forces a
+ *  Suspense boundary around this root-level mount. Under rapid BeakerBot
+ *  navigation an in-flight server render is aborted, and Next 16.1.6 surfaces
+ *  that abort as a thrown `undefined` INTO the nearest Suspense boundary, which
+ *  then crashes Next's own error handler (it reads `.digest` off the undefined)
+ *  and takes the dev server down. So the capture param is now read lazily from
+ *  window.location at navigation time instead, with no Suspense boundary in the
+ *  shell. This mirrors the deliberate useSearchParams-avoidance in
+ *  lib/providers.tsx and is also more correct (it reads the live URL at the
+ *  moment of navigation rather than an effect-synced snapshot). */
 export function useNavigationBridge(): void {
   const router = useRouter();
-  const params = useSearchParams();
-
-  // Keep the latest capture param in a ref so the stable handler can read it
-  // without being recreated when the param changes.
-  const captureRef = useRef<string | null>(null);
-  useEffect(() => {
-    captureRef.current = params?.get("wikiCapture") ?? null;
-  }, [params]);
 
   useEffect(() => {
     const unregister = registerNavigationHandler((path: string) => {
-      const href = withFixtureParam(path, captureRef.current);
+      // Read the wiki-capture param at navigation time straight from the live
+      // URL (Suspense-free, see the note above), so a spotlight navigation in
+      // demo / wiki-capture mode keeps the gate without a useSearchParams
+      // subscription in the root shell.
+      const capture =
+        typeof window !== "undefined"
+          ? new URLSearchParams(window.location.search).get("wikiCapture")
+          : null;
+      const href = withFixtureParam(path, capture);
       const target = typeof href === "string" ? href : path;
       // Idempotency guard. BeakerBot's analysis tools each navigate to the
       // result they just stored, and several in a row (a whole-plan run) can
