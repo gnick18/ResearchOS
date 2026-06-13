@@ -73,6 +73,8 @@ const EXCLUDED_PREFIXES = [
   "/funding", // pending wiki page (PI Mode funding surface; real PI-only AppShell page, wiki page lands with the PI-experience lane). Like /people.
   "/activity", // pending wiki page (PI Mode activity feed; real AppShell page, wiki page lands with the PI-experience lane). Like /people.
   "/approvals", // pending wiki page (PI Mode Approvals queue, AP-1..3; real AppShell page, wiki page lands with the PI-experience lane). Like /people.
+  "/department", // flag-gated org tier (DEPT/INSTITUTION_TIER_ENABLED, dark in beta); org/billing hierarchy above labs, wiki page lands when the dept/institution tier ships. Like /people.
+  "/institution", // flag-gated org tier (DEPT/INSTITUTION_TIER_ENABLED, dark in beta); top-of-hierarchy org/billing surface, wiki page lands when the dept/institution tier ships. Like /department.
 ];
 
 /** Next.js conventions to ignore when walking app/. */
