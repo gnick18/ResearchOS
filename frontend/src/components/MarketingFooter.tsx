@@ -71,8 +71,8 @@ const COLUMNS: FooterColumn[] = [
   {
     heading: "Resources",
     links: [
-      { label: "Docs and wiki", href: "/wiki" },
-      { label: "Help", href: "/wiki" },
+      { label: "Getting started", href: "/wiki/getting-started" },
+      { label: "Help", href: "/wiki/start-here" },
       { label: "Community", href: GITHUB_DISCUSSIONS_URL, external: true },
     ],
   },
