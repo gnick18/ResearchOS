@@ -52,7 +52,7 @@ type JourneyStep = {
   fg: string;
 };
 const JOURNEY: JourneyStep[] = [
-  { label: "Swim lessons", sub: "A business I co-ran with my mom", icon: "dropletLow", bg: "#0EA5E9", fg: "#FFFFFF" },
+  { label: "Swim lessons", sub: "Co-founded with other family members", icon: "dropletLow", bg: "#0EA5E9", fg: "#FFFFFF" },
   { label: "Iowa State", sub: "B.S. in genetics", mono: "ISU", bg: "#C8102E", fg: "#F1BE48" },
   { label: "UW-Madison", sub: "PhD mining fungal genomes", mono: "UW", bg: "#C5050C", fg: "#FFFFFF" },
   { label: "UW Fellow", sub: "Distinguished Research Fellowship", mono: "UW", bg: "#C5050C", fg: "#FFFFFF" },
