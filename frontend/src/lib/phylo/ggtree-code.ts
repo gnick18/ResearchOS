@@ -243,11 +243,22 @@ function generateFromPanels(spec: RenderSpec, panels: AlignedPanel[]): string {
           lines.push(panelColorScale(spec, col, numeric, "color"));
         }
         break;
-      case "labels":
+      case "labels": {
+        const lo = panel.options ?? {};
+        const face = (lo.italic ?? true) ? 'fontface = "italic", ' : "";
+        const geomArg = lo.boxed ? 'geom = "label", ' : "";
+        const colorArg =
+          typeof lo.colorColumn === "string" && lo.colorColumn
+            ? `aes(color = ${rNameKey(lo.colorColumn)}), `
+            : "";
+        const size = Number(lo.fontSize)
+          ? (Number(lo.fontSize) / 3.7).toFixed(1)
+          : "3";
         lines.push(
-          `p <- p + geom_tiplab(${panel.options?.italic ? 'fontface = "italic", ' : ""}size = 3)`,
+          `p <- p + geom_tiplab(${geomArg}${colorArg}${face}size = ${size})`,
         );
         break;
+      }
       case "strip":
         if (col) {
           lines.push(

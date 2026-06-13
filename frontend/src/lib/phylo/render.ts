@@ -342,10 +342,9 @@ function renderFromPanels(
   const aligned = panels.filter(
     (p) => p.visible && ALIGNED_KINDS.has(p.kind),
   );
-  const hasLabels = panels.some((p) => p.visible && p.kind === "labels");
-  const italic = panels.some(
-    (p) => p.kind === "labels" && (p.options?.italic ?? true),
-  );
+  const labelsPanel =
+    panels.find((p) => p.visible && p.kind === "labels") ?? null;
+  const hasLabels = !!labelsPanel;
 
   // Legends, one per colored aligned panel (and colored tip decoration) that asks
   // for one. Tip points are a decoration drawn on the tree, not an aligned panel,
@@ -428,8 +427,8 @@ function renderFromPanels(
   }
 
   // Tip labels (outermost), drawn past the last panel.
-  if (hasLabels) {
-    drawLabels(parts, axis, spec, cursor, italic);
+  if (labelsPanel) {
+    drawLabels(parts, root, axis, spec, cursor, labelsPanel);
   }
 
   // Scale bar (rectangular phylogram only) is drawn inside drawRectTree.
@@ -606,23 +605,54 @@ function drawCircularTree(
   }
 }
 
-/** Draw tip labels at the outer edge for both layouts (panel path). */
+/**
+ * Draw tip labels at the outer edge for both layouts (panel path). Honors the
+ * labels panel's options (ggtree geom_tiplab / geom_label parity):
+ *   italic      -> font-style italic (default on)
+ *   fontSize    -> label point size (default 11 rect / 10 circular)
+ *   colorColumn -> color each label by a metadata column (aes(color=...))
+ *   boxed       -> draw each label in a bordered box (geom = "label"), rect only
+ */
 function drawLabels(
   parts: string[],
+  root: TreeNode,
   axis: TipAxis,
   spec: RenderSpec,
   cursor: number,
-  italic: boolean,
+  panel: AlignedPanel,
 ): void {
+  const opts = panel.options ?? {};
+  const italic = (opts.italic ?? true) as boolean;
   const styleAttr = italic ? ' font-style="italic"' : "";
+  const boxed = !!opts.boxed;
+  const colorColumn =
+    typeof opts.colorColumn === "string" ? opts.colorColumn : "";
+  const scale =
+    colorColumn && spec.metadata
+      ? buildColorScale(root, spec.metadata, colorColumn, {
+          categoryColors: spec.categoryColors,
+        })
+      : null;
+  const fillFor = (id: number): string =>
+    scale ? scale.colorFor(spec.metadata?.get(id)?.[colorColumn]) : FG;
+
   if (axis.layout === "rectangular") {
-    const tx = cursor + 4;
+    const fs = Number(opts.fontSize) || 11;
+    const tx = cursor + 4 + (boxed ? 3 : 0);
     for (const slot of axis.tips) {
+      const fill = fillFor(slot.id);
+      if (boxed) {
+        const w = Math.max(8, slot.name.length * fs * 0.6) + 8;
+        parts.push(
+          `<rect x="${tx - 4}" y="${(slot.y - fs / 2 - 3).toFixed(1)}" width="${w.toFixed(1)}" height="${fs + 6}" rx="3" fill="#ffffff" stroke="${fill}" stroke-width="0.75"/>`,
+        );
+      }
       parts.push(
-        `<text x="${tx}" y="${slot.y + 4}" font-size="11"${styleAttr} fill="${FG}">${esc(slot.name)}</text>`,
+        `<text x="${tx}" y="${(slot.y + fs * 0.36).toFixed(1)}" font-size="${fs}"${styleAttr} fill="${fill}">${esc(slot.name)}</text>`,
       );
     }
   } else {
+    const fs = Number(opts.fontSize) || 10;
     const lr = cursor + 4;
     for (const slot of axis.tips) {
       const lx = axis.cx + lr * Math.cos(slot.angle - Math.PI / 2);
@@ -630,7 +660,7 @@ function drawLabels(
       const deg = ((slot.angle - Math.PI / 2) * 180) / Math.PI;
       const flip = Math.cos(slot.angle - Math.PI / 2) < 0;
       parts.push(
-        `<text x="${lx}" y="${ly}" font-size="10"${styleAttr} fill="${FG}" transform="rotate(${flip ? deg + 180 : deg} ${lx} ${ly})" text-anchor="${flip ? "end" : "start"}">${esc(slot.name)}</text>`,
+        `<text x="${lx.toFixed(1)}" y="${ly.toFixed(1)}" font-size="${fs}"${styleAttr} fill="${fillFor(slot.id)}" transform="rotate(${(flip ? deg + 180 : deg).toFixed(1)} ${lx.toFixed(1)} ${ly.toFixed(1)})" text-anchor="${flip ? "end" : "start"}">${esc(slot.name)}</text>`,
       );
     }
   }

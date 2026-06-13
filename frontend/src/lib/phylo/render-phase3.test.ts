@@ -251,6 +251,66 @@ describe("distribution panel value scale-key (circular numeric axis fix)", () =>
   });
 });
 
+describe("tip-label options (Wave 1: geom_tiplab / geom_label parity)", () => {
+  const ROWS = [
+    { tip: "A", grp: "X" },
+    { tip: "B", grp: "X" },
+    { tip: "C", grp: "Y" },
+    { tip: "D", grp: "Y" },
+  ];
+  const META = matchMetadataToTips(TREE, ROWS, "tip").matched;
+  function labelSpec(options: Record<string, unknown>): RenderSpec {
+    const labels: AlignedPanel = {
+      id: "lab",
+      kind: "labels",
+      visible: true,
+      options,
+    };
+    return {
+      layout: "rectangular",
+      phylogram: true,
+      tracks: {
+        labels: false,
+        labelsItalic: false,
+        points: false,
+        strip: false,
+        bars: false,
+        heat: false,
+        clade: false,
+        support: false,
+      },
+      columns: {},
+      width: 700,
+      height: 480,
+      metadata: META,
+      panels: [labels],
+    };
+  }
+
+  it("applies a custom font size", () => {
+    expect(renderTreeSvg(TREE, labelSpec({ fontSize: 14 }))).toContain(
+      'font-size="14"',
+    );
+  });
+
+  it("boxed draws a bordered box per label (geom = label)", () => {
+    const boxed = renderTreeSvg(TREE, labelSpec({ boxed: true }));
+    const plain = renderTreeSvg(TREE, labelSpec({ boxed: false }));
+    expect(boxed).toContain('stroke-width="0.75"');
+    expect(plain).not.toContain('stroke-width="0.75"');
+  });
+
+  it("color-by-column colors labels by the trait (distinct groups, distinct fills)", () => {
+    const svg = renderTreeSvg(TREE, labelSpec({ colorColumn: "grp" }));
+    const fills = new Set(
+      Array.from(
+        svg.matchAll(/<text[^>]*font-size="11"[^>]*fill="(#[0-9a-fA-F]+)"/g),
+      ).map((m) => m[1]),
+    );
+    expect(fills.size).toBeGreaterThan(1);
+  });
+});
+
 describe("template-apply idempotence (flicker fix)", () => {
   // The flicker fix makes the apply atomic + pure: rendering the SAME applied
   // layer stack twice must produce byte-identical markup (no transient state).

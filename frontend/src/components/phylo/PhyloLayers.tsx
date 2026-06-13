@@ -511,16 +511,52 @@ function Inspector({
       )}
 
       {panel.kind === "labels" && (
-        <Field label="Italic">
-          <ToggleInput
-            on={!!panel.options?.italic}
-            onClick={() =>
-              onUpdate({
-                options: { ...panel.options, italic: !panel.options?.italic },
-              })
-            }
-          />
-        </Field>
+        <>
+          <Field label="Italic">
+            <ToggleInput
+              on={(panel.options?.italic ?? true) as boolean}
+              onClick={() =>
+                onUpdate({
+                  options: {
+                    ...panel.options,
+                    italic: !(panel.options?.italic ?? true),
+                  },
+                })
+              }
+            />
+          </Field>
+          <Field label="Font size">
+            <RangeInput
+              value={Number(panel.options?.fontSize) || 11}
+              min={7}
+              max={18}
+              onChange={(n) =>
+                onUpdate({ options: { ...panel.options, fontSize: n } })
+              }
+            />
+          </Field>
+          <Field label="Boxed">
+            <ToggleInput
+              on={!!panel.options?.boxed}
+              onClick={() =>
+                onUpdate({
+                  options: { ...panel.options, boxed: !panel.options?.boxed },
+                })
+              }
+            />
+          </Field>
+          <Field label="Color by">
+            <SelectInput
+              value={(panel.options?.colorColumn as string) ?? ""}
+              options={["", ...columns]}
+              onChange={(v) =>
+                onUpdate({
+                  options: { ...panel.options, colorColumn: v || undefined },
+                })
+              }
+            />
+          </Field>
+        </>
       )}
 
       {(isData ||
