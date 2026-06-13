@@ -27,7 +27,7 @@
 // mid-sentence colons.
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Icon } from "@/components/icons";
+import { Icon, type IconName } from "@/components/icons";
 import Tooltip from "@/components/Tooltip";
 import type { DatasetSidecar } from "@/lib/datahub/bigtable";
 import type { TransformOp } from "@/lib/datahub/transform/pipeline";
@@ -131,6 +131,19 @@ const PALETTE: { group: string; ops: PaletteEntry[] }[] = [
     ],
   },
 ];
+
+// Category -> registry glyph. The icon lives ONLY on the category card header
+// (per the Option C review, do not stamp it on every op row). Strings reuses
+// `align` as a placeholder until a real text/string glyph is signed off.
+const GROUP_ICON: Record<string, IconName> = {
+  "Filter & select": "filter",
+  "Edit values": "pencil",
+  "Missing data": "dropletLow",
+  Strings: "align",
+  Compute: "calculator",
+  "Type & schema": "database",
+  "Reshape & summarize": "table",
+};
 
 const VERB: Record<string, string> = {
   filter: "Filter",
@@ -1604,6 +1617,7 @@ export default function TransformBuilder({
   const [saving, setSaving] = useState(false);
   const [saveName, setSaveName] = useState(`${sidecar.name} (transformed)`);
   const [showSave, setShowSave] = useState(false);
+  const [opQuery, setOpQuery] = useState("");
 
   const runSeqRef = useRef(0);
 
@@ -1787,32 +1801,63 @@ export default function TransformBuilder({
           className="overflow-auto rounded-lg border border-border bg-surface-raised p-2"
           data-testid="bigtable-builder-palette"
         >
-          {PALETTE.map((g) => (
-            <div key={g.group}>
-              <div className="mt-2 px-1 text-[10px] font-bold uppercase tracking-wide text-foreground-muted first:mt-0">
-                {g.group}
-              </div>
-              {g.ops.map((o) =>
-                o.ready ? (
-                  <button
-                    key={o.kind}
-                    type="button"
-                    onClick={() => addOp(o.kind)}
-                    className="block w-full rounded-md px-2 py-1 text-left text-meta text-foreground transition-colors hover:bg-brand-action/10 hover:text-brand-action"
-                    data-testid={`bigtable-builder-op-${o.kind}`}
-                  >
-                    {o.label}
-                  </button>
-                ) : (
-                  <Tooltip key={o.kind} label="More operations are coming in the next phase.">
-                    <span className="block w-full cursor-not-allowed px-2 py-1 text-left text-meta text-foreground-muted/50">
-                      {o.label}
-                    </span>
-                  </Tooltip>
-                ),
-              )}
+          {/* Search-first: filter ops by label as you type. */}
+          <div className="sticky top-0 z-10 mb-2 bg-surface-raised pb-1">
+            <div className="relative">
+              <Icon
+                name="search"
+                className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-foreground-muted"
+              />
+              <input
+                type="text"
+                value={opQuery}
+                onChange={(e) => setOpQuery(e.target.value)}
+                placeholder="Search operations..."
+                className="w-full rounded-md border border-border bg-surface py-1.5 pl-8 pr-2 text-meta text-foreground placeholder:text-foreground-muted focus:border-brand-action focus:outline-none"
+                data-testid="bigtable-builder-op-search"
+              />
             </div>
-          ))}
+          </div>
+          {PALETTE.map((g) => {
+            const q = opQuery.trim().toLowerCase();
+            const ops = q
+              ? g.ops.filter((o) => o.label.toLowerCase().includes(q))
+              : g.ops;
+            if (ops.length === 0) return null;
+            return (
+              <div
+                key={g.group}
+                className="mb-2 overflow-hidden rounded-lg border border-border bg-surface last:mb-0"
+              >
+                {/* Tinted card header. The category glyph lives here only, never on each row. */}
+                <div className="flex items-center gap-1.5 border-b border-border bg-brand-action/[0.08] px-2.5 py-1.5 text-[10px] font-bold uppercase tracking-wide text-brand-action">
+                  <Icon name={GROUP_ICON[g.group]} className="h-3 w-3 flex-none" />
+                  {g.group}
+                </div>
+                <div className="p-1">
+                  {ops.map((o) =>
+                    o.ready ? (
+                      <button
+                        key={o.kind}
+                        type="button"
+                        onClick={() => addOp(o.kind)}
+                        className="block w-full rounded-md px-2 py-1 text-left text-meta text-foreground transition-colors hover:bg-brand-action/10 hover:text-brand-action"
+                        data-testid={`bigtable-builder-op-${o.kind}`}
+                      >
+                        {o.label}
+                      </button>
+                    ) : (
+                      <Tooltip key={o.kind} label="More operations are coming in the next phase.">
+                        <span className="block w-full cursor-not-allowed px-2 py-1 text-left text-meta text-foreground-muted/50">
+                          {o.label}
+                        </span>
+                      </Tooltip>
+                    ),
+                  )}
+                </div>
+              </div>
+            );
+          })}
         </div>
 
         {/* Stage */}
