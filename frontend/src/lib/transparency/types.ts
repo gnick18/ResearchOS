@@ -199,6 +199,43 @@ export type CaseVisual =
       depthAgreement: number;
       /** True while the golden is still the shipped placeholder (no real ggtree run yet). */
       pending: boolean;
+    }
+  | {
+      kind: "phylo-published";
+      /** True while no offline recipe run has landed for this case yet. */
+      pending: boolean;
+      /** Why the case is pending, when it is (no published tree sourced, files from Dryad, etc.). */
+      pendingReason: string | null;
+      /** Provenance of the input the recipe ran on. */
+      source: string;
+      /** Citation (DOI / accession) of the published study. */
+      citation: string;
+      /** One-line summary of the generated recipe (the BuilderOptions). */
+      recipeSummary: string;
+      /** Free-text tool versions from the offline run, or null while pending. */
+      toolVersions: string | null;
+      /** Taxa shared between our result and the published tree (the comparison set). */
+      sharedTaxa: number;
+      /** Robinson-Foulds distance (count of bipartitions in exactly one tree). */
+      rf: number;
+      /** Maximum possible RF for this many shared taxa. */
+      maxRf: number;
+      /** rf / maxRf, in [0, 1]. The gated headline metric (lower is better). */
+      normalizedRf: number;
+      /** Published clades our result also recovers. */
+      cladesRecovered: number;
+      /** Total nontrivial clades in the published tree. */
+      cladesTotal: number;
+      /** 100 * cladesRecovered / cladesTotal. */
+      percentRecovered: number;
+      /** Published clades our result missed, canonical sorted tip-name side, capped for display. */
+      missingFromOurs: string[][];
+      /** Clades in our result not in the published tree, same form, capped for display. */
+      extraInOurs: string[][];
+      /** Our result tree as Newick for the side-by-side render, or null while pending. */
+      oursNewick: string | null;
+      /** The published tree as Newick for the side-by-side render, or null while pending. */
+      publishedNewick: string | null;
     };
 
 /** One showcase case within a domain (e.g. a single oligo, a single pair). */

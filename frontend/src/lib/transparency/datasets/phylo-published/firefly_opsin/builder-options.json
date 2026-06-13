@@ -1,0 +1,21 @@
+{
+  "dataType": "protein",
+  "analysis": "single",
+  "have": "alignment",
+  "align": "skip",
+  "trim": "skip",
+  "partScheme": "gene",
+  "brlen": "p",
+  "model": "modelfinder",
+  "fixedModel": "LG+G",
+  "infer": "iqtree",
+  "support": "ufboot",
+  "outgroup": "",
+  "os": "mac",
+  "bnni": true,
+  "ufbootReps": 1000,
+  "bsReps": 1000,
+  "asc": false,
+  "restrictModels": false,
+  "threads": "AUTO"
+}

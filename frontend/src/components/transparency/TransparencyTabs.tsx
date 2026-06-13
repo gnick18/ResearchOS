@@ -25,6 +25,7 @@ import FragmentLadder from "./FragmentLadder";
 import HomologyMap from "./HomologyMap";
 import ParityScatter, { type ParityPoint } from "./ParityScatter";
 import PhyloFigures from "./PhyloFigures";
+import PhyloPublished from "./PhyloPublished";
 import PropertyTable from "./PropertyTable";
 import ScalarMixedTable from "./ScalarMixedTable";
 import SequenceMatch from "./SequenceMatch";
@@ -149,11 +150,32 @@ function CaseVisualCard({ domain, c }: { domain: DomainReport; c: CaseResult }) 
           pending={v.pending}
         />
       ) : null}
+      {v?.kind === "phylo-published" ? (
+        <PhyloPublished
+          pending={v.pending}
+          pendingReason={v.pendingReason}
+          source={v.source}
+          citation={v.citation}
+          recipeSummary={v.recipeSummary}
+          toolVersions={v.toolVersions}
+          sharedTaxa={v.sharedTaxa}
+          rf={v.rf}
+          maxRf={v.maxRf}
+          normalizedRf={v.normalizedRf}
+          cladesRecovered={v.cladesRecovered}
+          cladesTotal={v.cladesTotal}
+          percentRecovered={v.percentRecovered}
+          missingFromOurs={v.missingFromOurs}
+          extraInOurs={v.extraInOurs}
+          oursNewick={v.oursNewick}
+          publishedNewick={v.publishedNewick}
+        />
+      ) : null}
 
       {/* property-table, sequence-match and domain-set already show their own
           numbers; the generic footer would duplicate them. Other visuals get the
           one-liner. */}
-      {v?.kind === "property-table" || v?.kind === "sequence-match" || v?.kind === "domain-set" || v?.kind === "phylo-figures" ? null : (
+      {v?.kind === "property-table" || v?.kind === "sequence-match" || v?.kind === "domain-set" || v?.kind === "phylo-figures" || v?.kind === "phylo-published" ? null : (
         <div className="mt-3 flex flex-wrap gap-x-5 gap-y-1 text-meta">
           {c.comparisons.map((cmp) => (
             <span key={`${cmp.oracleId}-${cmp.metric ?? ""}`} className="text-foreground-muted">

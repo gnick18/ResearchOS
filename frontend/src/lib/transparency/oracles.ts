@@ -240,6 +240,19 @@ export const GGTREE: OracleRef = {
   url: "https://yulab-smu.top/treedata-book/",
 };
 
+export const PUBLISHED_TREE: OracleRef = {
+  id: "published-tree",
+  name: "the published tree",
+  version: "as published",
+  entrypoint: "Robinson-Foulds distance over the shared taxa (lib/phylo/rf.ts)",
+  citation:
+    "Each case cites its own study (DOI + accession) in "
+    + "datasets/phylo-published/<case>/SOURCES.md. The reference is the topology "
+    + "that study published.",
+  generator: "frontend/scripts/run-phylo-published-case.sh",
+  url: "https://en.wikipedia.org/wiki/Robinson%E2%80%93Foulds_metric",
+};
+
 /** Lookup by id, for resolving an oracle from a case's comparison. */
 export const ORACLES: Record<string, OracleRef> = {
   [BIOPYTHON.id]: BIOPYTHON,
@@ -263,4 +276,5 @@ export const ORACLES: Record<string, OracleRef> = {
   [LIFELINES.id]: LIFELINES,
   [SKLEARN.id]: SKLEARN,
   [GGTREE.id]: GGTREE,
+  [PUBLISHED_TREE.id]: PUBLISHED_TREE,
 };
