@@ -167,6 +167,12 @@ const TYPE_META: Record<
       "Screen each group column for a value that sits too far from the mean to be chance. Reports the Grubbs G and its critical value, every flagged outlier with its row, and the cleaned sample size. The iterative sweep clears more than one outlier from the same column.",
     groupCount: "screen",
   },
+  contingency: {
+    label: "Chi-square / Fisher exact",
+    blurb:
+      "Test whether two categorical factors are associated. Reports the chi-square test of independence and, for a 2x2 table, Fisher's exact p plus the relative risk and odds ratio with 95% intervals.",
+    groupCount: "all",
+  },
 };
 
 export default function NewAnalysisDialog({
@@ -196,7 +202,8 @@ export default function NewAnalysisDialog({
   const isXY = content?.meta.table_type === "xy";
   const isGrouped = content?.meta.table_type === "grouped";
   const isSurvival = content?.meta.table_type === "survival";
-  const wholeTable = isGrouped || isSurvival;
+  const isContingency = content?.meta.table_type === "contingency";
+  const wholeTable = isGrouped || isSurvival || isContingency;
   const groups = useMemo(
     () => (content ? groupColumns(content) : []),
     [content],
@@ -330,7 +337,9 @@ export default function NewAnalysisDialog({
                 ? "Label at least two rows and fill at least two groups with numbers before running a two-way ANOVA."
                 : isSurvival
                   ? "Enter a Time and an Event (1 or 0) for at least one subject before running a survival analysis."
-                  : "Add at least two groups with numbers before running an analysis."}
+                  : isContingency
+                    ? "Enter at least one count in the contingency table before running the test."
+                    : "Add at least two groups with numbers before running an analysis."}
           </p>
         ) : (
           <>
@@ -373,6 +382,12 @@ export default function NewAnalysisDialog({
                 Estimates a Kaplan-Meier curve for each Group on this table, and
                 runs the log-rank test when there are two or more groups. No
                 column picking needed.
+              </p>
+            ) : isContingency ? (
+              <p className="mt-4 rounded-md border border-border bg-surface-raised px-3 py-2 text-meta text-foreground-muted">
+                Reads every row and every count column on this table as the
+                count matrix. A 2x2 table also reports Fisher's exact p, the
+                relative risk, and the odds ratio. No column picking needed.
               </p>
             ) : isGlobalFit ? (
               <div className="mt-4 flex flex-col gap-3">
