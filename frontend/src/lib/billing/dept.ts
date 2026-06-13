@@ -96,6 +96,59 @@ export async function ensureDeptSchema(): Promise<void> {
       ON dept_members (labhead_owner_key)
       WHERE status = 'active'
   `;
+  // Monthly usage snapshots, the over-time foundation for the dept dashboard.
+  // One row per (dept, year-month); upserted opportunistically when the admin
+  // opens the dashboard, so history accumulates without a separate cron.
+  await sql`
+    CREATE TABLE IF NOT EXISTS dept_usage_snapshots (
+      dept_id       text not null,
+      ym            text not null,  -- "YYYY-MM"
+      storage_bytes bigint not null default 0,
+      sync_count    integer not null default 0,
+      updated_at    timestamptz default now(),
+      primary key (dept_id, ym)
+    )
+  `;
+}
+
+/** Upserts this month's usage snapshot for a department (idempotent per ym). */
+export async function recordDeptUsageSnapshot(
+  deptId: string,
+  ym: string,
+  storageBytes: number,
+  syncCount: number,
+): Promise<void> {
+  const sql = getSql();
+  await sql`
+    INSERT INTO dept_usage_snapshots (dept_id, ym, storage_bytes, sync_count, updated_at)
+    VALUES (${deptId}, ${ym}, ${Math.round(storageBytes)}, ${Math.round(syncCount)}, now())
+    ON CONFLICT (dept_id, ym) DO UPDATE SET
+      storage_bytes = ${Math.round(storageBytes)},
+      sync_count = ${Math.round(syncCount)},
+      updated_at = now()
+  `;
+}
+
+/** The last `months` monthly snapshots for a department, oldest first. */
+export async function getDeptUsageHistory(
+  deptId: string,
+  months = 6,
+): Promise<Array<{ ym: string; storageBytes: number; syncCount: number }>> {
+  const sql = getSql();
+  const rows = (await sql`
+    SELECT ym, storage_bytes, sync_count
+    FROM dept_usage_snapshots
+    WHERE dept_id = ${deptId}
+    ORDER BY ym DESC
+    LIMIT ${months}
+  `) as { ym: string; storage_bytes: number; sync_count: number }[];
+  return rows
+    .map((r) => ({
+      ym: r.ym,
+      storageBytes: Number(r.storage_bytes),
+      syncCount: Number(r.sync_count),
+    }))
+    .reverse();
 }
 
 /** Creates a department (idempotent on dept_id). The caller becomes the admin. */
