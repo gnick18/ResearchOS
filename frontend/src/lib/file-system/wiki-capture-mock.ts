@@ -637,13 +637,13 @@ export async function installWikiCaptureFixture(
 
   for (const [path, content] of fixtures) {
     const norm = normalizePath(path);
-    // Raw-TEXT fixtures (e.g. sequence `.gb` GenBank files and chemistry `.mol`
-    // Molfiles, both read via `fileService.readText`) must land in the text-file
-    // store, not the JSON store, or the sequence / molecule store's `readText`
-    // would miss them while `listFiles` still enumerated them. Route string
-    // values for known text-file extensions accordingly; everything else stays
-    // JSON.
-    if (typeof content === "string" && /\.(gb|gbk|genbank|mol)$/i.test(norm)) {
+    // Raw-TEXT fixtures (e.g. sequence `.gb` GenBank files, chemistry `.mol`
+    // Molfiles, and phylo `.tree` Newick files, all read via
+    // `fileService.readText`) must land in the text-file store, not the JSON
+    // store, or the owning store's `readText` would miss them while `listFiles`
+    // still enumerated them. Route string values for known text-file extensions
+    // accordingly; everything else stays JSON.
+    if (typeof content === "string" && /\.(gb|gbk|genbank|mol|tree)$/i.test(norm)) {
       textFiles.set(norm, content);
     } else {
       files.set(norm, content);

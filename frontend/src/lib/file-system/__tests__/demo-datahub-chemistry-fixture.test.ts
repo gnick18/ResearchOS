@@ -59,5 +59,32 @@ describe("demo fixture: Data Hub + Chemistry are populated", () => {
     const raw = await moleculeStore.getRawForUser(metas[0].id, "alex");
     expect(raw).toBeTruthy();
     expect(raw!.molfile).toContain("V2000");
+
+    // Phylogenetics: the three seeded trees the /phylo Tree Studio reads.
+    const { phyloApi } = await import("@/lib/phylo/api");
+    const trees = await phyloApi.listForUser("alex");
+    const treeNames = trees.map((t) => t.name).sort();
+    expect(treeNames).toContain("Candida auris global epidemiology");
+    expect(treeNames).toContain("Human Microbiome Project tree");
+    expect(treeNames).toContain("HPV58 phylogeny");
+    expect(trees.length).toBeGreaterThanOrEqual(3);
+
+    // The showcase tree carries a real figure spec, a bound metadata table, and
+    // its .tree source-of-truth text (so the Studio reopens it populated).
+    const candida = trees.find(
+      (t) => t.name === "Candida auris global epidemiology",
+    );
+    expect(candida).toBeTruthy();
+    expect(candida!.figure?.layout).toBe("circular");
+    expect(candida!.metadata?.heatColumns).toEqual(["FCZ", "AMB", "MCF"]);
+    expect((candida!.tip_count ?? 0)).toBeGreaterThan(0);
+    // The `.tree` source-of-truth text routed to the text store, so the Studio
+    // can read the tree back (mirrors the `.mol` routing above).
+    const { fileService } = await import("@/lib/file-system/file-service");
+    const treeText = await fileService.readText(
+      `users/alex/phylo/${candida!.id}.tree`,
+    );
+    expect(treeText).toBeTruthy();
+    expect(treeText!).toContain("(");
   });
 });
