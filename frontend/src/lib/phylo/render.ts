@@ -267,7 +267,16 @@ function renderFromTracks(root: TreeNode, spec: RenderSpec): string {
 // ---------------------------------------------------------------------------
 
 /** The geoms drawn as aligned columns / rings (through renderPanel). */
-const ALIGNED_KINDS = new Set(["strip", "heat", "bars", "dots", "box"]);
+const ALIGNED_KINDS = new Set([
+  "strip",
+  "heat",
+  "bars",
+  "dots",
+  "box",
+  "violin",
+  "point",
+  "scatter",
+]);
 
 /** Sum the radial / horizontal room every visible aligned panel needs. */
 function alignedRoom(panels: AlignedPanel[]): number {

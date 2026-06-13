@@ -48,6 +48,9 @@ export const PANEL_CATALOG: CatalogGroup[] = [
       { kind: "bars", name: "Bar panel", desc: "numeric, aligned" },
       { kind: "dots", name: "Dot panel", desc: "numeric points" },
       { kind: "box", name: "Boxplot", desc: "per-tip distribution" },
+      { kind: "violin", name: "Violin", desc: "per-tip density" },
+      { kind: "point", name: "Point + error", desc: "mean with SD / SEM whisker" },
+      { kind: "scatter", name: "Jitter scatter", desc: "individual replicates" },
     ],
   },
   {
@@ -109,8 +112,22 @@ export function makePanel(
     }
     return { ...base, column: firstData ?? "", legend: true };
   }
-  if (kind === "box") {
-    return { ...base, columns: columns.slice(0, 3), legend: false };
+  if (kind === "box" || kind === "violin" || kind === "scatter") {
+    return {
+      ...base,
+      columns: columns.slice(0, 3),
+      legend: false,
+      options: kind === "scatter" ? { jitter: true, axis: true } : { axis: true },
+    };
+  }
+  if (kind === "point") {
+    // Default to replicate columns (mean + sd derived), error kind sd, axis on.
+    return {
+      ...base,
+      columns: columns.slice(0, 3),
+      legend: false,
+      options: { errorKind: "sd", axis: true },
+    };
   }
   return base;
 }
@@ -394,13 +411,53 @@ function Inspector({
         />
       )}
 
-      {panel.kind === "box" && (
+      {(panel.kind === "box" ||
+        panel.kind === "violin" ||
+        panel.kind === "scatter") && (
         <MultiColumnField
           columns={columns}
           selected={panel.columns ?? []}
           label="Replicate columns"
           onChange={(cols) => onUpdate({ columns: cols })}
         />
+      )}
+
+      {panel.kind === "point" && (
+        <PointInspector panel={panel} columns={columns} onUpdate={onUpdate} />
+      )}
+
+      {panel.kind === "scatter" && (
+        <Field label="Jitter">
+          <ToggleInput
+            on={panel.options?.jitter !== false}
+            onClick={() =>
+              onUpdate({
+                options: {
+                  ...panel.options,
+                  jitter: panel.options?.jitter === false,
+                },
+              })
+            }
+          />
+        </Field>
+      )}
+
+      {(panel.kind === "violin" ||
+        panel.kind === "point" ||
+        panel.kind === "scatter") && (
+        <Field label="Value axis">
+          <ToggleInput
+            on={panel.options?.axis !== false}
+            onClick={() =>
+              onUpdate({
+                options: {
+                  ...panel.options,
+                  axis: panel.options?.axis === false,
+                },
+              })
+            }
+          />
+        </Field>
       )}
 
       {(colored || panel.kind === "bars" || panel.kind === "dots") && (
@@ -487,6 +544,76 @@ function Inspector({
         </p>
       )}
     </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// The point (lollipop) inspector. Two binding modes: a single value column plus
+// an optional error column (read straight from the table), or the replicate
+// columns (the mean + the SD / SEM are derived). Picking a value column switches
+// to the value mode; clearing it falls back to the replicate columns.
+// ---------------------------------------------------------------------------
+
+const ERROR_KINDS: { id: string; label: string }[] = [
+  { id: "sd", label: "Std deviation" },
+  { id: "sem", label: "Std error (SEM)" },
+  { id: "none", label: "No whisker" },
+];
+
+function PointInspector({
+  panel,
+  columns,
+  onUpdate,
+}: {
+  panel: AlignedPanel;
+  columns: string[];
+  onUpdate: (patch: Partial<AlignedPanel>) => void;
+}) {
+  const errorKind =
+    (panel.options?.errorKind as string | undefined) ?? "sd";
+  const valueMode = !!panel.column;
+  return (
+    <>
+      <Field label="Value column">
+        <SelectInput
+          value={panel.column ?? ""}
+          options={["", ...columns]}
+          onChange={(v) =>
+            // A value column engages the value+error mode; clearing it (none)
+            // hands back to the replicate columns below.
+            onUpdate(v ? { column: v } : { column: undefined })
+          }
+        />
+      </Field>
+      {valueMode ? (
+        errorKind !== "none" && (
+          <Field label="Error column">
+            <SelectInput
+              value={panel.errorColumn ?? ""}
+              options={["", ...columns]}
+              onChange={(v) => onUpdate({ errorColumn: v || undefined })}
+            />
+          </Field>
+        )
+      ) : (
+        <MultiColumnField
+          columns={columns}
+          selected={panel.columns ?? []}
+          label="Replicate columns"
+          onChange={(cols) => onUpdate({ columns: cols })}
+        />
+      )}
+      <Field label="Error bar">
+        <SelectInput
+          value={errorKind}
+          options={ERROR_KINDS.map((e) => e.id)}
+          labels={Object.fromEntries(ERROR_KINDS.map((e) => [e.id, e.label]))}
+          onChange={(v) =>
+            onUpdate({ options: { ...panel.options, errorKind: v } })
+          }
+        />
+      </Field>
+    </>
   );
 }
 
