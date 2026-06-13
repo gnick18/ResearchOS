@@ -309,6 +309,27 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
     return out;
   }, [navItemsWithOverview]);
 
+  // NAV-1/NAV-3: in the PI lab lens the nav uses a FIXED lineup (the PI tabs
+  // inline in order, every researcher tool in More), overriding the user's saved
+  // drag-layout. Without this the PI tabs are new hrefs that resolveNavLayout
+  // pushes into More, burying People/Lab Work/Approvals/Activity/Funding.
+  const labNavLayout = useMemo(() => {
+    if (!labLens) return undefined;
+    const order = [
+      "/lab-overview",
+      "/people",
+      "/lab-work",
+      "/approvals",
+      "/activity",
+      "/funding",
+    ];
+    const inlineSet = new Set(order);
+    return {
+      inline: order.filter((h) => navItems.some((i) => i.href === h)),
+      more: navItems.filter((i) => !inlineSet.has(i.href)).map((i) => i.href),
+    };
+  }, [labLens, navItems]);
+
   // Header is tinted only when (a) a user is signed in, AND (b) the user
   // has opted into a colored header in Settings → Profile. Either off →
   // the classic white header. On the tinted variant, every interactive
@@ -397,6 +418,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
               pathname === "/inventory" ||
               pathname === "/purchases")
           }
+          layoutOverride={labNavLayout}
         />
 
         <div className="flex items-center gap-2">
