@@ -51,6 +51,11 @@ import {
   runLogisticRegressionTool,
   globalFitTool,
   runDoseResponseTool,
+  runCoxRegressionTool,
+  runRocCurveTool,
+  runRepeatedMeasuresAnovaTool,
+  runMixedModelTool,
+  runGrubbsOutliersTool,
   listDataHubAnalysesTool,
   readDataHubAnalysisTool,
   getAnalysisCodeTool,
@@ -140,6 +145,16 @@ export const READ_ONLY_TOOLS: AiTool[] = [
   // storing a reversible analysis the user asked for, then navigates to it. The
   // engine owns the fit, the EC50, the Hill slope, and the R-squared.
   runDoseResponseTool,
+  // Non-gated for the same reason (Data Hub Themes 3 + 4). Each runs a Survival,
+  // XY, or within-subject Column analysis through the same validated runAnalysis
+  // path, storing a reversible analysis the user asked for, then navigates to it.
+  // The engine owns every hazard ratio, AUC, F, variance component, and outlier
+  // flag; the model only relays the numbers it returned.
+  runCoxRegressionTool,
+  runRocCurveTool,
+  runRepeatedMeasuresAnovaTool,
+  runMixedModelTool,
+  runGrubbsOutliersTool,
   // Non-gated for the same reason. make_datahub_graph builds a reversible,
   // version-controlled figure the user explicitly asked for (and whose graph type
   // / error bar they may have tapped through ask_user) through the validated plot

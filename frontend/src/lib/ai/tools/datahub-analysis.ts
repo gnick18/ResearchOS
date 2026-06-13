@@ -49,6 +49,7 @@ import {
 import { getCurrentUserCached } from "@/lib/storage/json-store";
 import { groupColumns } from "@/lib/datahub/column-table";
 import { isXYTable, yColumns } from "@/lib/datahub/xy-table";
+import { survivalGroups, hasSurvivalData } from "@/lib/datahub/survival-table";
 import { getModel, listModels } from "@/lib/datahub/engine";
 import { planAnalysis, type AnalysisIntent } from "@/lib/datahub/planner";
 import {
@@ -1872,6 +1873,1094 @@ export const runDoseResponseTool: AiTool = {
     }
     datahubAnalysisDeps.navigate(`/datahub?doc=${parsed.tableId}&analysis=${built.result.analysisId}`);
     return built.result satisfies DoseResponseToolResult;
+  },
+};
+
+// ===========================================================================
+// Data Hub Themes 3 + 4 analysis tools (ai beakerai bot, 2026-06-12).
+//
+// Five more read-only Data Hub coworkers, each mirroring run_dose_response end
+// to end: parse args, resolve the table from the content cache, build the
+// SAME AnalysisSpec the wizard writes, run it through runAnalysis, store +
+// navigate, and relay ONLY the numbers the engine returned. BeakerBot never
+// computes a hazard ratio, an F, a variance component, an outlier flag, or an
+// AUC, the engine owns every statistic.
+//
+//   - run_cox_regression (coxRegression): a Survival table, reference arm param.
+//   - run_roc_curve (rocCurve): an XY table, the binary-outcome shape.
+//   - run_repeated_measures_anova (repeatedMeasuresAnova): a row-paired Column
+//     table of 3+ condition columns.
+//   - run_mixed_model (linearMixedModel): the same row-paired Column table.
+//   - run_grubbs_outliers (grubbsOutlier): a Column table, alpha + iterative.
+// ===========================================================================
+
+// ---------------------------------------------------------------------------
+// run_cox_regression (Survival table, maps to the coxRegression engine)
+// ---------------------------------------------------------------------------
+
+/** The model-supplied args for run_cox_regression. */
+export type CoxRegressionArgs = {
+  tableId: string;
+  /** Which arm is coded 0 (the reference the hazard ratio is measured against),
+   *  by its Group label. Omit to use the first arm in the table. */
+  referenceGroup?: string;
+};
+
+/** The compact result run_cox_regression relays. The engine computed every
+ *  number here; the model only repeats them, never a hazard ratio or a p of
+ *  its own. */
+export type CoxRegressionToolResult =
+  | {
+      ok: true;
+      table: string;
+      n: number;
+      events: number;
+      /** The full normalized Cox result (per-covariate HR + CI, LR test, concordance). */
+      cox: Extract<RunOutcome, { kind: "coxRegression" }>;
+      analysisId: string;
+    }
+  | { ok: false; error: string };
+
+/** Parse the loose args into typed CoxRegressionArgs. Pure. */
+export function parseCoxRegressionArgs(
+  args: Record<string, unknown>,
+): CoxRegressionArgs {
+  return {
+    tableId: typeof args.tableId === "string" ? args.tableId : "",
+    referenceGroup:
+      typeof args.referenceGroup === "string" && args.referenceGroup.trim()
+        ? args.referenceGroup.trim()
+        : undefined,
+  };
+}
+
+/**
+ * Build a coxRegression spec for the request against live content and run it
+ * through the SAME runAnalysis path the wizard uses. Cox reads a Survival table
+ * directly (the engine's survivalGroups projects Time + Event + Group into arms),
+ * so there are no input column ids to resolve; the only knob is which arm is the
+ * reference (coded 0), passed through the referenceGroup param exactly as the
+ * engine reads it. The engine fits the proportional-hazards model; the model only
+ * names the reference arm. Pure given the content.
+ */
+export function buildCoxRegression(
+  content: DataHubDocContent,
+  parsed: CoxRegressionArgs,
+):
+  | { ok: true; spec: AnalysisSpec; result: Extract<CoxRegressionToolResult, { ok: true }> }
+  | { ok: false; error: string } {
+  if (!hasSurvivalData(content)) {
+    return {
+      ok: false,
+      error:
+        "Cox regression runs on a Survival table (a Time column, an Event column of 1/0, and a Group column for the arms), and that table has no survival data. Pick a Survival table and enter a Time and an Event for each subject.",
+    };
+  }
+  if (survivalGroups(content).filter((g) => g.observations.length > 0).length < 2) {
+    return {
+      ok: false,
+      error:
+        "Cox regression needs two arms to compare (a reference and a comparison). That Survival table has only one arm. Label the subjects into two groups first.",
+    };
+  }
+
+  const spec: AnalysisSpec = {
+    id: `analysis-${Date.now()}`,
+    type: "coxRegression",
+    // The engine reads spec.params.referenceGroup as the arm name to code 0; an
+    // absent / unknown name keeps the first-arm default, so omit it when unset.
+    params: parsed.referenceGroup ? { referenceGroup: parsed.referenceGroup } : {},
+    inputs: { columnIds: [] },
+    resultCache: null,
+    resultStale: false,
+  };
+
+  const outcome = runAnalysis(spec, content);
+  if (!outcome.ok) return { ok: false, error: outcome.error };
+  if (outcome.kind !== "coxRegression") {
+    return { ok: false, error: "The engine did not return a Cox regression." };
+  }
+  spec.resultCache = outcome;
+
+  const result: Extract<CoxRegressionToolResult, { ok: true }> = {
+    ok: true,
+    table: content.meta.name,
+    n: outcome.n,
+    events: outcome.events,
+    cox: outcome,
+    analysisId: spec.id,
+  };
+  return { ok: true, spec, result };
+}
+
+/** Sync one-line preview for the step-review card, built from the args + cached
+ *  content without running the fit. Mirrors the other analysis describers, and
+ *  emits a stepPayload even with no cached content. */
+export function describeCoxRegression(args: Record<string, unknown>): {
+  summary: string;
+  stepPayload?: StepApprovalRequest;
+} {
+  const parsed = parseCoxRegressionArgs(args);
+  const content = getCachedTableContent(parsed.tableId);
+  const refPhrase = parsed.referenceGroup
+    ? ` (reference ${parsed.referenceGroup})`
+    : "";
+  if (!content) {
+    return {
+      summary: `run a Cox proportional-hazards regression on a Data Hub table${refPhrase}`,
+      stepPayload: stepPayloadFor({
+        toolName: "run_cox_regression",
+        iconName: "lineage",
+        title: "Run a Cox regression",
+        name: "Cox proportional hazards",
+        blurb: "Estimate the hazard ratio between the survival arms.",
+        params: parsed.referenceGroup
+          ? [{ label: "Reference", value: parsed.referenceGroup }]
+          : [],
+      }),
+    };
+  }
+  return {
+    summary: `Cox regression on ${content.meta.name}${refPhrase}`,
+    stepPayload: stepPayloadFor({
+      toolName: "run_cox_regression",
+      iconName: "lineage",
+      title: "Run a Cox regression",
+      subtitle: `on ${content.meta.name}`,
+      name: "Cox proportional hazards",
+      blurb: "Estimate the hazard ratio between the survival arms.",
+      params: [
+        ...(parsed.referenceGroup
+          ? [{ label: "Reference", value: parsed.referenceGroup }]
+          : []),
+        { label: "Table", value: content.meta.name },
+      ],
+      previewLines: ["Reports the hazard ratio with CI, the likelihood-ratio test, and concordance."],
+    }),
+  };
+}
+
+export const runCoxRegressionTool: AiTool = {
+  name: "run_cox_regression",
+  description:
+    "Fit a Cox proportional-hazards regression on a Survival table (the hazard of an event over time for one arm versus a reference arm), store the result, and take the user to it. Use this when the user wants the hazard ratio between two survival arms (for example \"Cox regression of the treated vs control arm\", \"what is the hazard ratio for the drug group\"). The table must be a Survival table (a Time column, an Event column of 1 = event / 0 = censored, and a Group column for the arms) with two or more arms. Call list_datahub_tables first to get the table id. Optionally pass referenceGroup (a Group label) to choose which arm is coded 0 (the baseline the hazard ratio is measured against); omit to use the first arm. The engine fits the model by partial-likelihood and reports each covariate's hazard ratio with its 95% CI, the z and p, the overall likelihood-ratio test (chi-square, df, p), and Harrell's concordance. You NEVER compute a coefficient, a hazard ratio, a p-value, or a concordance, the engine does, and it errors cleanly when there are fewer than two arms; relay that message. This runs straight away, there is NO separate approval step, so do not call propose_plan for it. It saves the result as a version-controlled analysis, navigates the user to the Data Hub so they see it, and returns the fit. After it returns, give ONE short line, the hazard ratio with its CI, the likelihood-ratio test p, and the concordance. Never invent a number, only repeat what this returns.",
+  parameters: {
+    type: "object",
+    properties: {
+      tableId: {
+        type: "string",
+        description: "The id of the Survival Data Hub table to fit, from a list_datahub_tables result.",
+      },
+      referenceGroup: {
+        type: "string",
+        description:
+          "Optional. The Group label of the arm to code 0 (the reference the hazard ratio is measured against). Omit to use the first arm in the table.",
+      },
+    },
+    required: ["tableId"],
+    additionalProperties: false,
+  },
+  // Previewable, not an action (see run_datahub_analysis). Step mode previews the
+  // fit; plan mode runs it free, the write is a reversible, version-controlled
+  // analysis and the user's request is the consent.
+  previewable: true,
+  describeAction: describeCoxRegression,
+  execute: async (args) => {
+    const parsed = parseCoxRegressionArgs(args);
+    if (!parsed.tableId) {
+      return {
+        ok: false,
+        error: "No table was given. Call list_datahub_tables first and pass the Survival table id.",
+      } satisfies CoxRegressionToolResult;
+    }
+    const content = await datahubAnalysisDeps.resolveContent(parsed.tableId);
+    if (!content) {
+      return {
+        ok: false,
+        error: "I could not open that table. It may have been deleted, or the id is wrong.",
+      } satisfies CoxRegressionToolResult;
+    }
+    cacheTableContent(parsed.tableId, content);
+
+    const built = buildCoxRegression(content, parsed);
+    if (!built.ok) return { ok: false, error: built.error } satisfies CoxRegressionToolResult;
+
+    const stored = await datahubAnalysisDeps.persistAnalysis(parsed.tableId, built.spec);
+    if (!stored) {
+      return {
+        ok: false,
+        error: "The Cox regression computed but could not be saved to the table. The result is not stored.",
+      } satisfies CoxRegressionToolResult;
+    }
+    datahubAnalysisDeps.navigate(`/datahub?doc=${parsed.tableId}&analysis=${built.result.analysisId}`);
+    return built.result satisfies CoxRegressionToolResult;
+  },
+};
+
+// ---------------------------------------------------------------------------
+// run_roc_curve (XY table with a binary outcome, maps to the rocCurve engine)
+// ---------------------------------------------------------------------------
+
+/** The model-supplied args for run_roc_curve. The arg shape mirrors
+ *  run_logistic_regression exactly (the engine reads the SAME XY shape). */
+export type RocCurveArgs = {
+  tableId: string;
+  /** The binary (0/1) outcome column, by name or id. The score is the X column. */
+  yColumn?: string;
+};
+
+/** The compact result run_roc_curve relays. The engine computed every number
+ *  here; the model only repeats them, never an AUC or a threshold of its own. */
+export type RocCurveToolResult =
+  | {
+      ok: true;
+      table: string;
+      xName: string;
+      yName: string;
+      n: number;
+      nPositive: number;
+      nNegative: number;
+      auc: number;
+      aucCiLow: number;
+      aucCiHigh: number;
+      youdenThreshold: number;
+      youdenSensitivity: number;
+      youdenSpecificity: number;
+      /** The full normalized ROC result (AUC + CI, Youden cut point, the curve). */
+      roc: Extract<RunOutcome, { kind: "rocCurve" }>;
+      analysisId: string;
+    }
+  | { ok: false; error: string };
+
+/** Parse the loose args into typed RocCurveArgs. Pure. Mirrors
+ *  parseLogisticRegressionArgs (the ROC reads the same XY shape). */
+export function parseRocCurveArgs(args: Record<string, unknown>): RocCurveArgs {
+  return {
+    tableId: typeof args.tableId === "string" ? args.tableId : "",
+    yColumn:
+      typeof args.yColumn === "string" && args.yColumn.trim() ? args.yColumn.trim() : undefined,
+  };
+}
+
+/**
+ * Build a rocCurve spec for the request against live content and run it through
+ * the SAME runAnalysis path the wizard uses. ROC reads the binary-outcome XY
+ * shape exactly like simple logistic regression (a continuous score X plus a 0/1
+ * outcome Y), so this mirrors buildLogisticRegression, inputs.columnIds = [yId]
+ * (the binary outcome) and the score is the table's X column. The engine sweeps
+ * the thresholds and computes the AUC; the model only picks which Y is the
+ * outcome. Pure given the content.
+ */
+export function buildRocCurve(
+  content: DataHubDocContent,
+  parsed: RocCurveArgs,
+):
+  | { ok: true; spec: AnalysisSpec; result: Extract<RocCurveToolResult, { ok: true }> }
+  | { ok: false; error: string } {
+  if (!isXYTable(content)) {
+    return {
+      ok: false,
+      error:
+        "An ROC curve runs on an XY table (a continuous score X plus a binary 0/1 outcome Y), and that table is not one. Pick an XY table.",
+    };
+  }
+  const yId = resolveYColumnId(content, parsed.yColumn);
+  if (!yId) {
+    return {
+      ok: false,
+      error: "That XY table has no Y column to use as the binary outcome.",
+    };
+  }
+  const spec: AnalysisSpec = {
+    id: `analysis-${Date.now()}`,
+    type: "rocCurve",
+    params: {},
+    inputs: { columnIds: [yId] },
+    resultCache: null,
+    resultStale: false,
+  };
+
+  const outcome = runAnalysis(spec, content);
+  if (!outcome.ok) return { ok: false, error: outcome.error };
+  if (outcome.kind !== "rocCurve") {
+    return { ok: false, error: "The engine did not return an ROC curve." };
+  }
+  spec.resultCache = outcome;
+
+  const result: Extract<RocCurveToolResult, { ok: true }> = {
+    ok: true,
+    table: content.meta.name,
+    xName: outcome.xName,
+    yName: outcome.yName,
+    n: outcome.n,
+    nPositive: outcome.nPositive,
+    nNegative: outcome.nNegative,
+    auc: outcome.auc,
+    aucCiLow: outcome.aucCiLow,
+    aucCiHigh: outcome.aucCiHigh,
+    youdenThreshold: outcome.youdenThreshold,
+    youdenSensitivity: outcome.youdenSensitivity,
+    youdenSpecificity: outcome.youdenSpecificity,
+    roc: outcome,
+    analysisId: spec.id,
+  };
+  return { ok: true, spec, result };
+}
+
+/** Sync one-line preview for the step-review card, built from the args + cached
+ *  content without running the curve. Mirrors describeLogisticRegression and
+ *  emits a stepPayload even with no cached content. */
+export function describeRocCurve(args: Record<string, unknown>): {
+  summary: string;
+  stepPayload?: StepApprovalRequest;
+} {
+  const parsed = parseRocCurveArgs(args);
+  const content = getCachedTableContent(parsed.tableId);
+  if (!content) {
+    return {
+      summary: "trace an ROC curve and AUC on a Data Hub table",
+      stepPayload: stepPayloadFor({
+        toolName: "run_roc_curve",
+        iconName: "growth",
+        title: "Trace an ROC curve",
+        name: "ROC curve and AUC",
+        blurb: "Sweep the score thresholds and read out the AUC.",
+        params: [],
+      }),
+    };
+  }
+  const yId = resolveYColumnId(content, parsed.yColumn);
+  const yName =
+    (yId && yColumns(content).find((c) => c.id === yId)?.name) || "the outcome";
+  return {
+    summary: `ROC curve of ${yName} against the X column in ${content.meta.name}`,
+    stepPayload: stepPayloadFor({
+      toolName: "run_roc_curve",
+      iconName: "growth",
+      title: `ROC curve of ${yName}`,
+      subtitle: `against the X column in ${content.meta.name}`,
+      name: "ROC curve and AUC",
+      blurb: `Sweep the score thresholds for the 0/1 outcome ${yName}.`,
+      params: [
+        { label: "Outcome", value: yName },
+        { label: "Score", value: "the table's X column" },
+        { label: "Table", value: content.meta.name },
+      ],
+      previewLines: ["Reports the AUC with CI and the Youden cut point with its sensitivity and specificity."],
+    }),
+  };
+}
+
+export const runRocCurveTool: AiTool = {
+  name: "run_roc_curve",
+  description:
+    "Trace an ROC curve and its AUC on an XY table (how well a continuous score separates a binary 0/1 outcome), store the result, and take the user to it. Use this when the user wants to judge a score, marker, or test as a classifier (for example \"ROC curve of the biomarker for disease\", \"what is the AUC of this score\", \"find the best cutoff\"). Call list_datahub_tables first to get the XY table id, then pass the binary Y column to use as the outcome (the score is the table's X column). Omit yColumn to use the first Y column. The Y column must hold a binary 0/1 outcome. The engine sweeps every score threshold and reports the AUC with its Hanley-McNeil 95% CI, the counts of positives and negatives, and the optimal cut point by Youden's J with its sensitivity and specificity. You NEVER compute an AUC, a threshold, a sensitivity, or a specificity, the engine does, and it drops any row whose outcome is not exactly 0 or 1; relay any error message. This runs straight away, there is NO separate approval step, so do not call propose_plan for it. It saves the result as a version-controlled analysis, navigates the user to the Data Hub so they see it, and returns the curve. After it returns, give ONE short line, the AUC with its CI and the Youden threshold with its sensitivity and specificity. If the returned n is much smaller than the table (rows whose outcome was not 0/1 were dropped), say so. Never invent a number, only repeat what this returns.",
+  parameters: {
+    type: "object",
+    properties: {
+      tableId: {
+        type: "string",
+        description: "The id of the XY Data Hub table to score, from a list_datahub_tables result.",
+      },
+      yColumn: {
+        type: "string",
+        description:
+          "The binary (0/1) outcome column, by name or id. Omit to use the first Y column. The score (predictor) is the table's X column.",
+      },
+    },
+    required: ["tableId"],
+    additionalProperties: false,
+  },
+  // Previewable, not an action (see run_logistic_regression). Step mode previews
+  // the curve; plan mode runs it free.
+  previewable: true,
+  describeAction: describeRocCurve,
+  execute: async (args) => {
+    const parsed = parseRocCurveArgs(args);
+    if (!parsed.tableId) {
+      return {
+        ok: false,
+        error: "No table was given. Call list_datahub_tables first and pass the XY table id.",
+      } satisfies RocCurveToolResult;
+    }
+    const content = await datahubAnalysisDeps.resolveContent(parsed.tableId);
+    if (!content) {
+      return {
+        ok: false,
+        error: "I could not open that table. It may have been deleted, or the id is wrong.",
+      } satisfies RocCurveToolResult;
+    }
+    cacheTableContent(parsed.tableId, content);
+
+    const built = buildRocCurve(content, parsed);
+    if (!built.ok) return { ok: false, error: built.error } satisfies RocCurveToolResult;
+
+    const stored = await datahubAnalysisDeps.persistAnalysis(parsed.tableId, built.spec);
+    if (!stored) {
+      return {
+        ok: false,
+        error: "The ROC curve computed but could not be saved to the table. The result is not stored.",
+      } satisfies RocCurveToolResult;
+    }
+    datahubAnalysisDeps.navigate(`/datahub?doc=${parsed.tableId}&analysis=${built.result.analysisId}`);
+    return built.result satisfies RocCurveToolResult;
+  },
+};
+
+// ---------------------------------------------------------------------------
+// run_repeated_measures_anova (row-paired Column table, repeatedMeasuresAnova)
+// ---------------------------------------------------------------------------
+
+/** The model-supplied args for run_repeated_measures_anova. */
+export type RmAnovaArgs = {
+  tableId: string;
+  /** The within-subject condition columns, by name or id (three or more). Each
+   *  row is the same subject measured under every condition. Omit for every
+   *  group column. */
+  conditions?: string[];
+};
+
+/** The compact result run_repeated_measures_anova relays. The engine computed
+ *  every number; the model only repeats them. */
+export type RmAnovaToolResult =
+  | {
+      ok: true;
+      table: string;
+      conditionNames: string[];
+      subjects: number;
+      conditions: number;
+      fStatistic: number;
+      pValue: number;
+      dfConditions: number;
+      dfError: number;
+      partialEtaSquared: number;
+      greenhouseGeisserEpsilon: number;
+      pGreenhouseGeisser: number;
+      huynhFeldtEpsilon: number;
+      pHuynhFeldt: number;
+      /** The full normalized result (per-condition means + the ANOVA table). */
+      rmAnova: Extract<RunOutcome, { kind: "rmAnova" }>;
+      analysisId: string;
+    }
+  | { ok: false; error: string };
+
+/** Parse the loose args into typed RmAnovaArgs. Pure. */
+export function parseRmAnovaArgs(args: Record<string, unknown>): RmAnovaArgs {
+  return {
+    tableId: typeof args.tableId === "string" ? args.tableId : "",
+    conditions: Array.isArray(args.conditions)
+      ? args.conditions.filter((c): c is string => typeof c === "string")
+      : undefined,
+  };
+}
+
+/**
+ * Build a repeatedMeasuresAnova spec for the request against live content and run
+ * it through the SAME runAnalysis path the wizard uses. The engine reads the
+ * selected condition columns ALIGNED BY ROW (each row a subject), so the spec
+ * carries the condition column ids in inputs.columnIds in order, resolved the same
+ * way the means family resolves group columns. No params. The engine runs the
+ * within-subject F and the sphericity corrections; the model only picks which
+ * columns are the conditions. Pure given the content.
+ */
+export function buildRmAnova(
+  content: DataHubDocContent,
+  parsed: RmAnovaArgs,
+):
+  | { ok: true; spec: AnalysisSpec; result: Extract<RmAnovaToolResult, { ok: true }> }
+  | { ok: false; error: string } {
+  if (groupColumns(content).length === 0) {
+    return {
+      ok: false,
+      error:
+        "Repeated-measures ANOVA runs on a Column table whose columns are within-subject conditions, and that table has no measurement columns. Pick a Column table.",
+    };
+  }
+  const columnIds = resolveColumnIds(content, parsed.conditions);
+  if (columnIds.length < 3) {
+    return {
+      ok: false,
+      error:
+        "Repeated-measures ANOVA needs at least 3 condition columns measured on the same subjects. Name three or more condition columns, or check the table has that many groups.",
+    };
+  }
+
+  const spec: AnalysisSpec = {
+    id: `analysis-${Date.now()}`,
+    type: "repeatedMeasuresAnova",
+    params: {},
+    inputs: { columnIds },
+    resultCache: null,
+    resultStale: false,
+  };
+
+  const outcome = runAnalysis(spec, content);
+  if (!outcome.ok) return { ok: false, error: outcome.error };
+  if (outcome.kind !== "rmAnova") {
+    return { ok: false, error: "The engine did not return a repeated-measures ANOVA." };
+  }
+  spec.resultCache = outcome;
+
+  const result: Extract<RmAnovaToolResult, { ok: true }> = {
+    ok: true,
+    table: content.meta.name,
+    conditionNames: outcome.groups.map((g) => g.name),
+    subjects: outcome.subjects,
+    conditions: outcome.conditions,
+    fStatistic: outcome.statistic,
+    pValue: outcome.pValue,
+    dfConditions: outcome.dfConditions,
+    dfError: outcome.dfError,
+    partialEtaSquared: outcome.partialEtaSquared,
+    greenhouseGeisserEpsilon: outcome.greenhouseGeisserEpsilon,
+    pGreenhouseGeisser: outcome.pGreenhouseGeisser,
+    huynhFeldtEpsilon: outcome.huynhFeldtEpsilon,
+    pHuynhFeldt: outcome.pHuynhFeldt,
+    rmAnova: outcome,
+    analysisId: spec.id,
+  };
+  return { ok: true, spec, result };
+}
+
+/** A shared describer body for the two within-subject tools (rm-ANOVA + mixed
+ *  model), which read the SAME row-paired Column table of condition columns.
+ *  Resolves the condition names where the content is cached, and falls back to a
+ *  generic line otherwise, always emitting a stepPayload. */
+function describeWithinSubject(
+  toolName: "run_repeated_measures_anova" | "run_mixed_model",
+  title: string,
+  name: string,
+  blurb: string,
+  previewLine: string,
+  args: Record<string, unknown>,
+): { summary: string; stepPayload?: StepApprovalRequest } {
+  const tableId = typeof args.tableId === "string" ? args.tableId : "";
+  const conditions = Array.isArray(args.conditions)
+    ? args.conditions.filter((c): c is string => typeof c === "string")
+    : undefined;
+  const content = getCachedTableContent(tableId);
+  if (!content) {
+    return {
+      summary: `${blurb} on a Data Hub table`,
+      stepPayload: stepPayloadFor({
+        toolName,
+        iconName: "chart",
+        title,
+        name,
+        blurb,
+        params: [],
+      }),
+    };
+  }
+  const ids = resolveColumnIds(content, conditions);
+  const byId = new Map(groupColumns(content).map((c) => [c.id, c.name]));
+  const condNames = ids.map((id) => byId.get(id) ?? id).join(", ");
+  const where = ` in ${content.meta.name}`;
+  return {
+    summary: condNames
+      ? `${blurb} across ${condNames}${where}`
+      : `${blurb}${where}`,
+    stepPayload: stepPayloadFor({
+      toolName,
+      iconName: "chart",
+      title,
+      subtitle: `across ${condNames || "the conditions"}${where}`,
+      name,
+      blurb,
+      params: [
+        ...(condNames ? [{ label: "Conditions", value: condNames }] : []),
+        { label: "Table", value: content.meta.name },
+      ],
+      previewLines: [previewLine],
+    }),
+  };
+}
+
+/** Sync one-line preview for the run_repeated_measures_anova step. */
+export function describeRmAnova(args: Record<string, unknown>): {
+  summary: string;
+  stepPayload?: StepApprovalRequest;
+} {
+  return describeWithinSubject(
+    "run_repeated_measures_anova",
+    "Repeated-measures ANOVA",
+    "One-way repeated-measures ANOVA",
+    "compare the same subjects across conditions",
+    "Reports the within-subject F and p, the Greenhouse-Geisser corrected p, and partial eta-squared.",
+    args,
+  );
+}
+
+export const runRepeatedMeasuresAnovaTool: AiTool = {
+  name: "run_repeated_measures_anova",
+  description:
+    "Run a one-way repeated-measures ANOVA on a Column table whose columns are within-subject conditions (the same subjects measured under three or more conditions, one subject per row), store the result, and take the user to it. Use this when the same subjects are measured repeatedly and the user wants to compare the condition means (for example \"compare the baseline, week 4, and week 8 measurements on the same mice\", \"repeated-measures ANOVA across the three timepoints\"). Call list_datahub_tables first to get the table id and the real column names, then pass three or more condition columns; omit conditions to use every group column. Each ROW must be one subject measured under every condition (the engine aligns the columns by row and keeps complete cases only). The engine runs the within-subject F test and both sphericity corrections; it reports the uncorrected F with its df and p, partial eta-squared, and the Greenhouse-Geisser and Huynh-Feldt epsilons with their corrected p-values. You NEVER compute an F, a p, an epsilon, or an eta-squared, the engine does, and it errors cleanly with fewer than 3 conditions or too few complete subjects; relay that message. This runs straight away, there is NO separate approval step, so do not call propose_plan for it. It saves the result as a version-controlled analysis, navigates the user to the Data Hub so they see it, and returns the result. After it returns, give ONE short line, the F and p, the Greenhouse-Geisser corrected p (use it when sphericity is in doubt), and partial eta-squared. Never invent a number, only repeat what this returns.",
+  parameters: {
+    type: "object",
+    properties: {
+      tableId: {
+        type: "string",
+        description: "The id of the Column Data Hub table whose columns are within-subject conditions, from a list_datahub_tables result.",
+      },
+      conditions: {
+        type: "array",
+        items: { type: "string" },
+        description:
+          "The within-subject condition columns, by name or id, in order (three or more). Each row must be the same subject measured under every condition. Omit to use every group column in the table.",
+      },
+    },
+    required: ["tableId"],
+    additionalProperties: false,
+  },
+  // Previewable, not an action (see run_datahub_analysis). Step mode previews the
+  // run; plan mode runs it free.
+  previewable: true,
+  describeAction: describeRmAnova,
+  execute: async (args) => {
+    const parsed = parseRmAnovaArgs(args);
+    if (!parsed.tableId) {
+      return {
+        ok: false,
+        error: "No table was given. Call list_datahub_tables first and pass the table id.",
+      } satisfies RmAnovaToolResult;
+    }
+    const content = await datahubAnalysisDeps.resolveContent(parsed.tableId);
+    if (!content) {
+      return {
+        ok: false,
+        error: "I could not open that table. It may have been deleted, or the id is wrong.",
+      } satisfies RmAnovaToolResult;
+    }
+    cacheTableContent(parsed.tableId, content);
+
+    const built = buildRmAnova(content, parsed);
+    if (!built.ok) return { ok: false, error: built.error } satisfies RmAnovaToolResult;
+
+    const stored = await datahubAnalysisDeps.persistAnalysis(parsed.tableId, built.spec);
+    if (!stored) {
+      return {
+        ok: false,
+        error: "The repeated-measures ANOVA computed but could not be saved to the table. The result is not stored.",
+      } satisfies RmAnovaToolResult;
+    }
+    datahubAnalysisDeps.navigate(`/datahub?doc=${parsed.tableId}&analysis=${built.result.analysisId}`);
+    return built.result satisfies RmAnovaToolResult;
+  },
+};
+
+// ---------------------------------------------------------------------------
+// run_mixed_model (row-paired Column table, maps to the linearMixedModel engine)
+// ---------------------------------------------------------------------------
+
+/** The model-supplied args for run_mixed_model. Same row-paired Column shape as
+ *  the repeated-measures ANOVA. */
+export type MixedModelArgs = {
+  tableId: string;
+  /** The within-subject condition columns, by name or id (two or more). Omit for
+   *  every group column. */
+  conditions?: string[];
+};
+
+/** The compact result run_mixed_model relays. The engine computed every number;
+ *  the model only repeats them. */
+export type MixedModelToolResult =
+  | {
+      ok: true;
+      table: string;
+      conditionNames: string[];
+      subjects: number;
+      observations: number;
+      groupVariance: number;
+      residualVariance: number;
+      remlLogLikelihood: number;
+      /** The full normalized result (each fixed effect with CI + p, variances). */
+      mixedModel: Extract<RunOutcome, { kind: "mixedModel" }>;
+      analysisId: string;
+    }
+  | { ok: false; error: string };
+
+/** Parse the loose args into typed MixedModelArgs. Pure. */
+export function parseMixedModelArgs(args: Record<string, unknown>): MixedModelArgs {
+  return {
+    tableId: typeof args.tableId === "string" ? args.tableId : "",
+    conditions: Array.isArray(args.conditions)
+      ? args.conditions.filter((c): c is string => typeof c === "string")
+      : undefined,
+  };
+}
+
+/**
+ * Build a linearMixedModel spec for the request against live content and run it
+ * through the SAME runAnalysis path the wizard uses. The engine reads the same
+ * row-paired Column table the repeated-measures ANOVA reads (each row a subject,
+ * each selected column a within-subject condition), reshapes it to long form, and
+ * fits a random-intercept REML model. So the spec carries the condition column
+ * ids in inputs.columnIds, resolved the same way, with no params. The engine fits
+ * the model; the model only picks which columns are the conditions. Pure given
+ * the content.
+ */
+export function buildMixedModel(
+  content: DataHubDocContent,
+  parsed: MixedModelArgs,
+):
+  | { ok: true; spec: AnalysisSpec; result: Extract<MixedModelToolResult, { ok: true }> }
+  | { ok: false; error: string } {
+  if (groupColumns(content).length === 0) {
+    return {
+      ok: false,
+      error:
+        "A linear mixed model runs on a Column table whose columns are within-subject conditions, and that table has no measurement columns. Pick a Column table.",
+    };
+  }
+  const columnIds = resolveColumnIds(content, parsed.conditions);
+  if (columnIds.length < 2) {
+    return {
+      ok: false,
+      error:
+        "A linear mixed model needs at least 2 condition columns measured on the same subjects. Name two or more condition columns, or check the table has that many groups.",
+    };
+  }
+
+  const spec: AnalysisSpec = {
+    id: `analysis-${Date.now()}`,
+    type: "linearMixedModel",
+    params: {},
+    inputs: { columnIds },
+    resultCache: null,
+    resultStale: false,
+  };
+
+  const outcome = runAnalysis(spec, content);
+  if (!outcome.ok) return { ok: false, error: outcome.error };
+  if (outcome.kind !== "mixedModel") {
+    return { ok: false, error: "The engine did not return a linear mixed model." };
+  }
+  spec.resultCache = outcome;
+
+  const result: Extract<MixedModelToolResult, { ok: true }> = {
+    ok: true,
+    table: content.meta.name,
+    conditionNames: outcome.groups.map((g) => g.name),
+    subjects: outcome.subjects,
+    observations: outcome.observations,
+    groupVariance: outcome.groupVariance,
+    residualVariance: outcome.residualVariance,
+    remlLogLikelihood: outcome.remlLogLikelihood,
+    mixedModel: outcome,
+    analysisId: spec.id,
+  };
+  return { ok: true, spec, result };
+}
+
+/** Sync one-line preview for the run_mixed_model step. */
+export function describeMixedModel(args: Record<string, unknown>): {
+  summary: string;
+  stepPayload?: StepApprovalRequest;
+} {
+  return describeWithinSubject(
+    "run_mixed_model",
+    "Linear mixed model",
+    "Random-intercept linear mixed model",
+    "model the same subjects across conditions",
+    "Reports each fixed effect with its CI and p, plus the group and residual variance components.",
+    args,
+  );
+}
+
+export const runMixedModelTool: AiTool = {
+  name: "run_mixed_model",
+  description:
+    "Fit a random-intercept linear mixed model on a Column table whose columns are within-subject conditions (the same subjects measured under two or more conditions, one subject per row), store the result, and take the user to it. Use this when the same subjects are measured repeatedly and the user wants the condition effects with a per-subject random intercept (for example \"mixed model of the response across the three doses, random intercept per animal\", \"linear mixed model with subject as a random effect\"). It is the model-based companion to repeated-measures ANOVA, and it handles unbalanced or missing cells more gracefully. Call list_datahub_tables first to get the table id and the real column names, then pass two or more condition columns; omit conditions to use every group column. Each ROW must be one subject measured under every condition (the engine reshapes the columns to long form, with the first condition as the reference). The engine fits the model by REML and reports the intercept (the reference-condition mean) and one fixed effect per non-reference condition (its difference from the reference), each with a Wald SE, z, two-sided p, and 95% CI, plus the random-intercept group variance, the residual variance, and the REML log-likelihood. You NEVER compute a coefficient, a p-value, or a variance component, the engine does, and it errors cleanly with fewer than 2 conditions or too few complete subjects; relay that message. This runs straight away, there is NO separate approval step, so do not call propose_plan for it. It saves the result as a version-controlled analysis, navigates the user to the Data Hub so they see it, and returns the fit. After it returns, give ONE short line, each fixed-effect estimate with its CI and p, and the group and residual variance components. Never invent a number, only repeat what this returns.",
+  parameters: {
+    type: "object",
+    properties: {
+      tableId: {
+        type: "string",
+        description: "The id of the Column Data Hub table whose columns are within-subject conditions, from a list_datahub_tables result.",
+      },
+      conditions: {
+        type: "array",
+        items: { type: "string" },
+        description:
+          "The within-subject condition columns, by name or id, in order (two or more, the first is the reference). Each row must be the same subject measured under every condition. Omit to use every group column in the table.",
+      },
+    },
+    required: ["tableId"],
+    additionalProperties: false,
+  },
+  // Previewable, not an action (see run_datahub_analysis). Step mode previews the
+  // fit; plan mode runs it free.
+  previewable: true,
+  describeAction: describeMixedModel,
+  execute: async (args) => {
+    const parsed = parseMixedModelArgs(args);
+    if (!parsed.tableId) {
+      return {
+        ok: false,
+        error: "No table was given. Call list_datahub_tables first and pass the table id.",
+      } satisfies MixedModelToolResult;
+    }
+    const content = await datahubAnalysisDeps.resolveContent(parsed.tableId);
+    if (!content) {
+      return {
+        ok: false,
+        error: "I could not open that table. It may have been deleted, or the id is wrong.",
+      } satisfies MixedModelToolResult;
+    }
+    cacheTableContent(parsed.tableId, content);
+
+    const built = buildMixedModel(content, parsed);
+    if (!built.ok) return { ok: false, error: built.error } satisfies MixedModelToolResult;
+
+    const stored = await datahubAnalysisDeps.persistAnalysis(parsed.tableId, built.spec);
+    if (!stored) {
+      return {
+        ok: false,
+        error: "The mixed model computed but could not be saved to the table. The result is not stored.",
+      } satisfies MixedModelToolResult;
+    }
+    datahubAnalysisDeps.navigate(`/datahub?doc=${parsed.tableId}&analysis=${built.result.analysisId}`);
+    return built.result satisfies MixedModelToolResult;
+  },
+};
+
+// ---------------------------------------------------------------------------
+// run_grubbs_outliers (Column table, maps to the grubbsOutlier engine)
+// ---------------------------------------------------------------------------
+
+/** The model-supplied args for run_grubbs_outliers. */
+export type GrubbsOutliersArgs = {
+  tableId: string;
+  /** The columns to screen, by name or id. Omit to screen every group column. */
+  columns?: string[];
+  /** The significance level, 0.05 (default) or 0.01. */
+  alpha: 0.05 | 0.01;
+  /** True (the default) to sweep iteratively, false for a single pass. */
+  iterative: boolean;
+};
+
+/** The compact result run_grubbs_outliers relays. The engine computed every
+ *  flag; the model only repeats them. */
+export type GrubbsOutliersToolResult =
+  | {
+      ok: true;
+      table: string;
+      alpha: number;
+      iterative: boolean;
+      totalOutliers: number;
+      /** A per-column summary the model relays (name + the flagged values). */
+      columns: { name: string; n: number; cleanedN: number; outlierValues: number[] }[];
+      /** The full normalized result (every column's steps + cleaned n). */
+      grubbs: Extract<RunOutcome, { kind: "grubbsOutlier" }>;
+      analysisId: string;
+    }
+  | { ok: false; error: string };
+
+/** Parse the loose args into typed GrubbsOutliersArgs, defaulting to the standard
+ *  Grubbs sweep (alpha 0.05, iterative). Pure. */
+export function parseGrubbsOutliersArgs(args: Record<string, unknown>): GrubbsOutliersArgs {
+  // The engine reads alpha as the STRING "0.01" (anything else is 0.05) and an
+  // iterative sweep unless params.mode === "single". We accept a number or a
+  // string from the model and normalize here.
+  const rawAlpha = args.alpha;
+  const alpha: 0.05 | 0.01 =
+    rawAlpha === 0.01 || rawAlpha === "0.01" ? 0.01 : 0.05;
+  return {
+    tableId: typeof args.tableId === "string" ? args.tableId : "",
+    columns: Array.isArray(args.columns)
+      ? args.columns.filter((c): c is string => typeof c === "string")
+      : undefined,
+    alpha,
+    // Default iterative true; only an explicit false turns the sweep off.
+    iterative: args.iterative !== false,
+  };
+}
+
+/**
+ * Build a grubbsOutlier spec for the request against live content and run it
+ * through the SAME runAnalysis path the wizard uses. The engine screens each
+ * selected column on its own (each is a separate sample), so the spec carries the
+ * column ids in inputs.columnIds. The two knobs live in the params bag the way the
+ * engine reads them, alpha as the string "0.01" or "0.05" and mode "single" for a
+ * single pass (omitted for the default iterative sweep). The engine flags the
+ * outliers; the model only picks the columns and the settings. Pure given the
+ * content.
+ */
+export function buildGrubbsOutliers(
+  content: DataHubDocContent,
+  parsed: GrubbsOutliersArgs,
+):
+  | { ok: true; spec: AnalysisSpec; result: Extract<GrubbsOutliersToolResult, { ok: true }> }
+  | { ok: false; error: string } {
+  if (groupColumns(content).length === 0) {
+    return {
+      ok: false,
+      error:
+        "Grubbs outlier detection runs on a Column table of measurement columns, and that table has none. Pick a Column table.",
+    };
+  }
+  const columnIds = resolveColumnIds(content, parsed.columns);
+  if (columnIds.length < 1) {
+    return {
+      ok: false,
+      error:
+        "I need at least one column to screen for outliers. Name a column, or check the table has a measurement column.",
+    };
+  }
+
+  const spec: AnalysisSpec = {
+    id: `analysis-${Date.now()}`,
+    type: "grubbsOutlier",
+    // The engine reads alpha as the string "0.01" (else 0.05) and runs the
+    // iterative sweep unless mode is "single", so encode exactly that.
+    params: {
+      alpha: parsed.alpha === 0.01 ? "0.01" : "0.05",
+      ...(parsed.iterative ? {} : { mode: "single" }),
+    },
+    inputs: { columnIds },
+    resultCache: null,
+    resultStale: false,
+  };
+
+  const outcome = runAnalysis(spec, content);
+  if (!outcome.ok) return { ok: false, error: outcome.error };
+  if (outcome.kind !== "grubbsOutlier") {
+    return { ok: false, error: "The engine did not return a Grubbs outlier screen." };
+  }
+  spec.resultCache = outcome;
+
+  const result: Extract<GrubbsOutliersToolResult, { ok: true }> = {
+    ok: true,
+    table: content.meta.name,
+    alpha: outcome.alpha,
+    iterative: outcome.iterative,
+    totalOutliers: outcome.totalOutliers,
+    columns: outcome.columns.map((c) => ({
+      name: c.name,
+      n: c.result.n,
+      cleanedN: c.result.cleanedN,
+      outlierValues: c.result.outlierValues,
+    })),
+    grubbs: outcome,
+    analysisId: spec.id,
+  };
+  return { ok: true, spec, result };
+}
+
+/** Sync one-line preview for the run_grubbs_outliers step, built from the args +
+ *  cached content without running the screen. Mirrors the other describers, and
+ *  emits a stepPayload even with no cached content. */
+export function describeGrubbsOutliers(args: Record<string, unknown>): {
+  summary: string;
+  stepPayload?: StepApprovalRequest;
+} {
+  const parsed = parseGrubbsOutliersArgs(args);
+  const content = getCachedTableContent(parsed.tableId);
+  const alphaPhrase = `alpha ${parsed.alpha}`;
+  const passPhrase = parsed.iterative ? "iterative" : "single-pass";
+  if (!content) {
+    return {
+      summary: `screen a Data Hub table for outliers (Grubbs, ${alphaPhrase}, ${passPhrase})`,
+      stepPayload: stepPayloadFor({
+        toolName: "run_grubbs_outliers",
+        iconName: "chart",
+        title: "Screen for outliers",
+        name: "Grubbs outlier test",
+        blurb: "Flag the statistical outliers in each column.",
+        params: [
+          { label: "Alpha", value: String(parsed.alpha) },
+          { label: "Sweep", value: passPhrase },
+        ],
+      }),
+    };
+  }
+  const ids = resolveColumnIds(content, parsed.columns);
+  const byId = new Map(groupColumns(content).map((c) => [c.id, c.name]));
+  const colNames = ids.map((id) => byId.get(id) ?? id).join(", ");
+  return {
+    summary: `screen ${colNames || "the columns"} in ${content.meta.name} for outliers (Grubbs, ${alphaPhrase}, ${passPhrase})`,
+    stepPayload: stepPayloadFor({
+      toolName: "run_grubbs_outliers",
+      iconName: "chart",
+      title: "Screen for outliers",
+      subtitle: `${colNames || "the columns"} in ${content.meta.name}`,
+      name: "Grubbs outlier test",
+      blurb: "Flag the statistical outliers in each column.",
+      params: [
+        ...(colNames ? [{ label: "Columns", value: colNames }] : []),
+        { label: "Alpha", value: String(parsed.alpha) },
+        { label: "Sweep", value: passPhrase },
+        { label: "Table", value: content.meta.name },
+      ],
+      previewLines: ["Reports how many outliers were flagged and which values, per column."],
+    }),
+  };
+}
+
+export const runGrubbsOutliersTool: AiTool = {
+  name: "run_grubbs_outliers",
+  description:
+    "Screen a Column table for statistical outliers with Grubbs' test, store the result, and take the user to it. Use this when the user wants to find or flag outliers in their data (for example \"are there any outliers in the control column\", \"run Grubbs on these replicates\", \"clean the outliers out of this measurement\"). Call list_datahub_tables first to get the table id and the real column names, then pass the columns to screen; omit columns to screen every group column. Each column is screened on its own (each is a separate sample). Pass alpha (0.05 the default, or 0.01 for a stricter screen) and iterative (true the default, sweeps repeatedly removing the most extreme point until none is flagged; false for a single pass that flags at most one point). The engine computes the Grubbs G statistic and the critical value at each step and flags the outliers; it reports how many outliers were flagged in total and, per column, the original n, the flagged outlier values, and the cleaned n. You NEVER decide an outlier yourself or compute a G statistic, the engine does, and it errors cleanly when a column has too few values to screen; relay that message naming the column. This runs straight away, there is NO separate approval step, so do not call propose_plan for it. It saves the result as a version-controlled analysis, navigates the user to the Data Hub so they see it, and returns the screen. After it returns, give ONE short line, how many outliers were flagged and which columns and values; if none were flagged, say so plainly. Removing the flagged points is the user's call, not yours. Never invent a value, only repeat what this returns.",
+  parameters: {
+    type: "object",
+    properties: {
+      tableId: {
+        type: "string",
+        description: "The id of the Column Data Hub table to screen, from a list_datahub_tables result.",
+      },
+      columns: {
+        type: "array",
+        items: { type: "string" },
+        description:
+          "The columns to screen for outliers, by name or id. Each is screened on its own. Omit to screen every group column in the table.",
+      },
+      alpha: {
+        type: "number",
+        description:
+          "The significance level for the test, 0.05 (the default) or 0.01 (a stricter screen). Only these two values are supported.",
+      },
+      iterative: {
+        type: "boolean",
+        description:
+          "True (the default) to sweep iteratively, removing the most extreme point and re-testing until none is flagged. False for a single pass that flags at most one point.",
+      },
+    },
+    required: ["tableId"],
+    additionalProperties: false,
+  },
+  // Previewable, not an action (see run_datahub_analysis). Step mode previews the
+  // screen; plan mode runs it free.
+  previewable: true,
+  describeAction: describeGrubbsOutliers,
+  execute: async (args) => {
+    const parsed = parseGrubbsOutliersArgs(args);
+    if (!parsed.tableId) {
+      return {
+        ok: false,
+        error: "No table was given. Call list_datahub_tables first and pass the table id.",
+      } satisfies GrubbsOutliersToolResult;
+    }
+    const content = await datahubAnalysisDeps.resolveContent(parsed.tableId);
+    if (!content) {
+      return {
+        ok: false,
+        error: "I could not open that table. It may have been deleted, or the id is wrong.",
+      } satisfies GrubbsOutliersToolResult;
+    }
+    cacheTableContent(parsed.tableId, content);
+
+    const built = buildGrubbsOutliers(content, parsed);
+    if (!built.ok) return { ok: false, error: built.error } satisfies GrubbsOutliersToolResult;
+
+    const stored = await datahubAnalysisDeps.persistAnalysis(parsed.tableId, built.spec);
+    if (!stored) {
+      return {
+        ok: false,
+        error: "The outlier screen computed but could not be saved to the table. The result is not stored.",
+      } satisfies GrubbsOutliersToolResult;
+    }
+    datahubAnalysisDeps.navigate(`/datahub?doc=${parsed.tableId}&analysis=${built.result.analysisId}`);
+    return built.result satisfies GrubbsOutliersToolResult;
   },
 };
 

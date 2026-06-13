@@ -48,6 +48,26 @@ import {
   buildDoseResponse,
   describeDoseResponse,
   runDoseResponseTool,
+  parseCoxRegressionArgs,
+  buildCoxRegression,
+  describeCoxRegression,
+  runCoxRegressionTool,
+  parseRocCurveArgs,
+  buildRocCurve,
+  describeRocCurve,
+  runRocCurveTool,
+  parseRmAnovaArgs,
+  buildRmAnova,
+  describeRmAnova,
+  runRepeatedMeasuresAnovaTool,
+  parseMixedModelArgs,
+  buildMixedModel,
+  describeMixedModel,
+  runMixedModelTool,
+  parseGrubbsOutliersArgs,
+  buildGrubbsOutliers,
+  describeGrubbsOutliers,
+  runGrubbsOutliersTool,
 } from "../tools/datahub-analysis";
 
 // ---------------------------------------------------------------------------
@@ -1270,6 +1290,542 @@ describe("run_dose_response tool", () => {
 
   it("returns an error when no tableId is given", async () => {
     const result = (await runDoseResponseTool.execute({})) as { ok: boolean };
+    expect(result.ok).toBe(false);
+  });
+});
+
+// ===========================================================================
+// Data Hub Themes 3 + 4 tools (ai beakerai bot). Each pure builder is asserted
+// against the engine's OWN output for the same spec (we never eyeball a
+// statistic), and each tool's execute is checked for non-gated store + navigate
+// plus the no-content describe fallback emitting a stepPayload.
+// ===========================================================================
+
+// ---------------------------------------------------------------------------
+// run_cox_regression (Survival table)
+// ---------------------------------------------------------------------------
+
+// A two-arm Survival table (Time + Event + Group). The treated arm tends to
+// outlive the control, but the event times are INTERLEAVED between arms (no arm
+// fully precedes the other), so the Cox partial-likelihood is well-conditioned
+// and its information matrix is not singular.
+function survivalContent(): DataHubDocContent {
+  const subjects = [
+    { time: 5, event: 1, group: "Control" },
+    { time: 8, event: 1, group: "Treated" },
+    { time: 9, event: 1, group: "Control" },
+    { time: 12, event: 0, group: "Treated" },
+    { time: 13, event: 1, group: "Control" },
+    { time: 14, event: 1, group: "Treated" },
+    { time: 6, event: 0, group: "Control" },
+    { time: 18, event: 1, group: "Treated" },
+    { time: 11, event: 1, group: "Control" },
+    { time: 20, event: 0, group: "Treated" },
+    { time: 16, event: 1, group: "Treated" },
+    { time: 7, event: 1, group: "Control" },
+  ];
+  return {
+    meta: meta({ id: "10", name: "Trial survival", table_type: "survival" }),
+    columns: [
+      { id: "time", name: "Time", role: "x", dataType: "number" },
+      { id: "event", name: "Event", role: "y", dataType: "number" },
+      { id: "group", name: "Group", role: "group", dataType: "text" },
+    ],
+    rows: subjects.map((s, i) => ({
+      id: `r${i}`,
+      cells: { time: s.time, event: s.event, group: s.group },
+    })),
+    analyses: [],
+    plots: [],
+  };
+}
+
+describe("parseCoxRegressionArgs", () => {
+  it("reads the tableId and trims an optional referenceGroup", () => {
+    expect(parseCoxRegressionArgs({ tableId: "10" })).toEqual({
+      tableId: "10",
+      referenceGroup: undefined,
+    });
+    expect(
+      parseCoxRegressionArgs({ tableId: "10", referenceGroup: " Treated " }).referenceGroup,
+    ).toBe("Treated");
+  });
+});
+
+describe("buildCoxRegression", () => {
+  it("builds a coxRegression spec and relays the engine's HR + LR test + concordance", () => {
+    const content = survivalContent();
+    const built = buildCoxRegression(content, parseCoxRegressionArgs({ tableId: "10" }));
+    expect(built.ok).toBe(true);
+    if (!built.ok) return;
+    expect(built.spec.type).toBe("coxRegression");
+    expect(built.result.cox.kind).toBe("coxRegression");
+
+    // The tool relays the engine's OWN numbers. Recompute the same spec and
+    // assert the headline fields match exactly.
+    const ref = runAnalysis(built.spec, content);
+    expect(ref.ok && ref.kind === "coxRegression").toBe(true);
+    if (!ref.ok || ref.kind !== "coxRegression") return;
+    expect(built.result.n).toBe(ref.n);
+    expect(built.result.events).toBe(ref.events);
+    expect(built.result.cox.lrPValue).toBe(ref.lrPValue);
+    expect(built.result.cox.concordance).toBe(ref.concordance);
+    expect(built.result.cox.coefficients[0].hazardRatio).toBe(
+      ref.coefficients[0].hazardRatio,
+    );
+  });
+
+  it("passes referenceGroup through to the engine params", () => {
+    const built = buildCoxRegression(
+      survivalContent(),
+      parseCoxRegressionArgs({ tableId: "10", referenceGroup: "Treated" }),
+    );
+    expect(built.ok).toBe(true);
+    if (!built.ok) return;
+    expect(built.spec.params).toEqual({ referenceGroup: "Treated" });
+  });
+
+  it("rejects a table with no survival data", () => {
+    const built = buildCoxRegression(twoGroupContent(), parseCoxRegressionArgs({ tableId: "1" }));
+    expect(built.ok).toBe(false);
+    if (built.ok) return;
+    expect(built.error).toMatch(/Survival table/i);
+  });
+});
+
+describe("describeCoxRegression", () => {
+  it("names the table when content is cached", () => {
+    cacheTableContent("10", survivalContent());
+    const { summary, stepPayload } = describeCoxRegression({ tableId: "10" });
+    expect(summary).toMatch(/Cox regression/i);
+    expect(summary).toMatch(/Trial survival/);
+    expect(stepPayload).toBeDefined();
+  });
+
+  it("emits a stepPayload even when the table is NOT cached", () => {
+    const { summary, stepPayload } = describeCoxRegression({ tableId: "999" });
+    expect(summary).toMatch(/Cox proportional-hazards/i);
+    expect(stepPayload?.steps[0].kind).toBe("run_cox_regression");
+  });
+});
+
+describe("run_cox_regression tool", () => {
+  it("is previewable, not a gated action", () => {
+    expect(runCoxRegressionTool.action).toBeFalsy();
+    expect(runCoxRegressionTool.previewable).toBe(true);
+    expect(typeof runCoxRegressionTool.describeAction).toBe("function");
+  });
+
+  it("stores the fit and navigates the user to it", async () => {
+    vi.spyOn(datahubAnalysisDeps, "resolveContent").mockResolvedValue(survivalContent());
+    const persist = vi.spyOn(datahubAnalysisDeps, "persistAnalysis").mockResolvedValue(true);
+    const navigate = vi.spyOn(datahubAnalysisDeps, "navigate").mockImplementation(() => {});
+    const result = (await runCoxRegressionTool.execute({ tableId: "10" })) as {
+      ok: boolean;
+      analysisId?: string;
+    };
+    expect(result.ok).toBe(true);
+    expect(persist).toHaveBeenCalled();
+    expect(navigate).toHaveBeenCalledWith(
+      expect.stringContaining(`/datahub?doc=10&analysis=${(result as { analysisId: string }).analysisId}`),
+    );
+  });
+
+  it("returns an error when no tableId is given", async () => {
+    const result = (await runCoxRegressionTool.execute({})) as { ok: boolean };
+    expect(result.ok).toBe(false);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// run_roc_curve (XY table with a binary outcome, same shape as logistic)
+// ---------------------------------------------------------------------------
+
+describe("parseRocCurveArgs", () => {
+  it("reads the tableId and trims an optional yColumn", () => {
+    expect(parseRocCurveArgs({ tableId: "8" })).toEqual({ tableId: "8", yColumn: undefined });
+    expect(parseRocCurveArgs({ tableId: "8", yColumn: " Survived " }).yColumn).toBe("Survived");
+  });
+});
+
+describe("buildRocCurve", () => {
+  it("builds a rocCurve spec with columnIds = [yId] and relays the engine's AUC + Youden", () => {
+    const content = binaryOutcomeContent();
+    const built = buildRocCurve(content, parseRocCurveArgs({ tableId: "8", yColumn: "Survived" }));
+    expect(built.ok).toBe(true);
+    if (!built.ok) return;
+    expect(built.spec.type).toBe("rocCurve");
+    expect(built.spec.inputs).toEqual({ columnIds: ["y1"] });
+    expect(built.result.roc.kind).toBe("rocCurve");
+
+    const ref = runAnalysis(built.spec, content);
+    expect(ref.ok && ref.kind === "rocCurve").toBe(true);
+    if (!ref.ok || ref.kind !== "rocCurve") return;
+    expect(built.result.auc).toBe(ref.auc);
+    expect(built.result.aucCiLow).toBe(ref.aucCiLow);
+    expect(built.result.aucCiHigh).toBe(ref.aucCiHigh);
+    expect(built.result.youdenThreshold).toBe(ref.youdenThreshold);
+    expect(built.result.youdenSensitivity).toBe(ref.youdenSensitivity);
+    expect(built.result.youdenSpecificity).toBe(ref.youdenSpecificity);
+  });
+
+  it("rejects a non-XY (Column) table", () => {
+    const built = buildRocCurve(multiRegContent(), parseRocCurveArgs({ tableId: "7" }));
+    expect(built.ok).toBe(false);
+    if (built.ok) return;
+    expect(built.error).toMatch(/XY table/i);
+  });
+});
+
+describe("describeRocCurve", () => {
+  it("names the outcome and table when content is cached", () => {
+    cacheTableContent("8", binaryOutcomeContent());
+    const { summary } = describeRocCurve({ tableId: "8", yColumn: "Survived" });
+    expect(summary).toMatch(/ROC curve/i);
+    expect(summary).toMatch(/Survived/);
+    expect(summary).toMatch(/Survival/);
+  });
+
+  it("emits a stepPayload even when the table is NOT cached", () => {
+    const { summary, stepPayload } = describeRocCurve({ tableId: "999" });
+    expect(summary).toMatch(/ROC curve/i);
+    expect(stepPayload?.steps[0].kind).toBe("run_roc_curve");
+  });
+});
+
+describe("run_roc_curve tool", () => {
+  it("is previewable, not a gated action", () => {
+    expect(runRocCurveTool.action).toBeFalsy();
+    expect(runRocCurveTool.previewable).toBe(true);
+  });
+
+  it("stores the curve and navigates the user to it", async () => {
+    vi.spyOn(datahubAnalysisDeps, "resolveContent").mockResolvedValue(binaryOutcomeContent());
+    vi.spyOn(datahubAnalysisDeps, "persistAnalysis").mockResolvedValue(true);
+    const navigate = vi.spyOn(datahubAnalysisDeps, "navigate").mockImplementation(() => {});
+    const result = (await runRocCurveTool.execute({ tableId: "8", yColumn: "Survived" })) as {
+      ok: boolean;
+      analysisId?: string;
+    };
+    expect(result.ok).toBe(true);
+    expect(navigate).toHaveBeenCalledWith(
+      expect.stringContaining(`/datahub?doc=8&analysis=${(result as { analysisId: string }).analysisId}`),
+    );
+  });
+});
+
+// ---------------------------------------------------------------------------
+// run_repeated_measures_anova + run_mixed_model (row-paired Column table)
+// ---------------------------------------------------------------------------
+
+// A within-subject Column table: each row is one subject measured under three
+// conditions (a clear upward trend across the conditions on the same subjects),
+// so both the RM-ANOVA and the random-intercept mixed model are well-posed.
+function withinSubjectContent(): DataHubDocContent {
+  const c1 = [10, 12, 11, 13, 9, 14];
+  const c2 = [14, 17, 15, 18, 13, 19];
+  const c3 = [20, 23, 21, 24, 19, 25];
+  const rows = c1.map((_, i) => ({
+    id: `r${i}`,
+    cells: { cA: c1[i], cB: c2[i], cC: c3[i] },
+  }));
+  return {
+    meta: meta({ id: "11", name: "Timepoints" }),
+    columns: [
+      { id: "cA", name: "Baseline", role: "y", dataType: "number" },
+      { id: "cB", name: "Week 4", role: "y", dataType: "number" },
+      { id: "cC", name: "Week 8", role: "y", dataType: "number" },
+    ],
+    rows,
+    analyses: [],
+    plots: [],
+  };
+}
+
+describe("parseRmAnovaArgs", () => {
+  it("reads the tableId and an optional conditions array", () => {
+    expect(parseRmAnovaArgs({ tableId: "11" })).toEqual({ tableId: "11", conditions: undefined });
+    expect(
+      parseRmAnovaArgs({ tableId: "11", conditions: ["Baseline", "Week 4", 7] }).conditions,
+    ).toEqual(["Baseline", "Week 4"]);
+  });
+});
+
+describe("buildRmAnova", () => {
+  it("builds a repeatedMeasuresAnova spec carrying the condition ids and relays the engine's F + corrections", () => {
+    const content = withinSubjectContent();
+    const built = buildRmAnova(content, parseRmAnovaArgs({ tableId: "11" }));
+    expect(built.ok).toBe(true);
+    if (!built.ok) return;
+    expect(built.spec.type).toBe("repeatedMeasuresAnova");
+    expect(built.spec.inputs).toEqual({ columnIds: ["cA", "cB", "cC"] });
+    expect(built.result.rmAnova.kind).toBe("rmAnova");
+
+    const ref = runAnalysis(built.spec, content);
+    expect(ref.ok && ref.kind === "rmAnova").toBe(true);
+    if (!ref.ok || ref.kind !== "rmAnova") return;
+    expect(built.result.fStatistic).toBe(ref.statistic);
+    expect(built.result.pValue).toBe(ref.pValue);
+    expect(built.result.pGreenhouseGeisser).toBe(ref.pGreenhouseGeisser);
+    expect(built.result.partialEtaSquared).toBe(ref.partialEtaSquared);
+    expect(built.result.conditionNames).toEqual(["Baseline", "Week 4", "Week 8"]);
+  });
+
+  it("rejects fewer than 3 conditions", () => {
+    const built = buildRmAnova(
+      withinSubjectContent(),
+      parseRmAnovaArgs({ tableId: "11", conditions: ["Baseline", "Week 4"] }),
+    );
+    expect(built.ok).toBe(false);
+    if (built.ok) return;
+    expect(built.error).toMatch(/at least 3 condition/i);
+  });
+});
+
+describe("describeRmAnova", () => {
+  it("names the conditions and table when content is cached", () => {
+    cacheTableContent("11", withinSubjectContent());
+    const { summary } = describeRmAnova({ tableId: "11" });
+    expect(summary).toMatch(/Baseline/);
+    expect(summary).toMatch(/Timepoints/);
+  });
+
+  it("emits a stepPayload even when the table is NOT cached", () => {
+    const { stepPayload } = describeRmAnova({ tableId: "999" });
+    expect(stepPayload?.steps[0].kind).toBe("run_repeated_measures_anova");
+  });
+});
+
+describe("run_repeated_measures_anova tool", () => {
+  it("is previewable, not a gated action", () => {
+    expect(runRepeatedMeasuresAnovaTool.action).toBeFalsy();
+    expect(runRepeatedMeasuresAnovaTool.previewable).toBe(true);
+  });
+
+  it("stores the result and navigates the user to it", async () => {
+    vi.spyOn(datahubAnalysisDeps, "resolveContent").mockResolvedValue(withinSubjectContent());
+    vi.spyOn(datahubAnalysisDeps, "persistAnalysis").mockResolvedValue(true);
+    const navigate = vi.spyOn(datahubAnalysisDeps, "navigate").mockImplementation(() => {});
+    const result = (await runRepeatedMeasuresAnovaTool.execute({ tableId: "11" })) as {
+      ok: boolean;
+      analysisId?: string;
+    };
+    expect(result.ok).toBe(true);
+    expect(navigate).toHaveBeenCalledWith(
+      expect.stringContaining(`/datahub?doc=11&analysis=${(result as { analysisId: string }).analysisId}`),
+    );
+  });
+});
+
+describe("parseMixedModelArgs", () => {
+  it("reads the tableId and an optional conditions array", () => {
+    expect(parseMixedModelArgs({ tableId: "11" })).toEqual({ tableId: "11", conditions: undefined });
+    expect(parseMixedModelArgs({ tableId: "11", conditions: ["Baseline", "Week 4"] }).conditions).toEqual([
+      "Baseline",
+      "Week 4",
+    ]);
+  });
+});
+
+describe("buildMixedModel", () => {
+  it("builds a linearMixedModel spec carrying the condition ids and relays the engine's fixed effects + variances", () => {
+    const content = withinSubjectContent();
+    const built = buildMixedModel(content, parseMixedModelArgs({ tableId: "11" }));
+    expect(built.ok).toBe(true);
+    if (!built.ok) return;
+    expect(built.spec.type).toBe("linearMixedModel");
+    expect(built.spec.inputs).toEqual({ columnIds: ["cA", "cB", "cC"] });
+    expect(built.result.mixedModel.kind).toBe("mixedModel");
+
+    const ref = runAnalysis(built.spec, content);
+    expect(ref.ok && ref.kind === "mixedModel").toBe(true);
+    if (!ref.ok || ref.kind !== "mixedModel") return;
+    expect(built.result.groupVariance).toBe(ref.groupVariance);
+    expect(built.result.residualVariance).toBe(ref.residualVariance);
+    expect(built.result.remlLogLikelihood).toBe(ref.remlLogLikelihood);
+    expect(built.result.mixedModel.fixedEffects).toEqual(ref.fixedEffects);
+  });
+
+  it("rejects fewer than 2 conditions", () => {
+    const built = buildMixedModel(
+      withinSubjectContent(),
+      parseMixedModelArgs({ tableId: "11", conditions: ["Baseline"] }),
+    );
+    expect(built.ok).toBe(false);
+    if (built.ok) return;
+    expect(built.error).toMatch(/at least 2 condition/i);
+  });
+});
+
+describe("describeMixedModel", () => {
+  it("emits a stepPayload even when the table is NOT cached", () => {
+    const { stepPayload } = describeMixedModel({ tableId: "999" });
+    expect(stepPayload?.steps[0].kind).toBe("run_mixed_model");
+  });
+});
+
+describe("run_mixed_model tool", () => {
+  it("is previewable, not a gated action, and stores + navigates", async () => {
+    expect(runMixedModelTool.action).toBeFalsy();
+    expect(runMixedModelTool.previewable).toBe(true);
+    vi.spyOn(datahubAnalysisDeps, "resolveContent").mockResolvedValue(withinSubjectContent());
+    vi.spyOn(datahubAnalysisDeps, "persistAnalysis").mockResolvedValue(true);
+    const navigate = vi.spyOn(datahubAnalysisDeps, "navigate").mockImplementation(() => {});
+    const result = (await runMixedModelTool.execute({ tableId: "11" })) as {
+      ok: boolean;
+      analysisId?: string;
+    };
+    expect(result.ok).toBe(true);
+    expect(navigate).toHaveBeenCalledWith(
+      expect.stringContaining(`/datahub?doc=11&analysis=${(result as { analysisId: string }).analysisId}`),
+    );
+  });
+});
+
+// ---------------------------------------------------------------------------
+// run_grubbs_outliers (Column table)
+// ---------------------------------------------------------------------------
+
+// A Column table with one obvious outlier planted in the Control column (the 99
+// among values near 10), so the iterative Grubbs sweep flags exactly that point.
+function outlierContent(): DataHubDocContent {
+  const control = [10, 11, 9, 12, 10, 11, 99, 10, 9, 11];
+  const drug = [20, 21, 19, 22, 20, 21, 19, 20, 21, 20];
+  const rows = control.map((_, i) => ({
+    id: `r${i}`,
+    cells: { cControl: control[i], cDrug: drug[i] },
+  }));
+  return {
+    meta: meta({ id: "12", name: "Replicates" }),
+    columns: [
+      { id: "cControl", name: "Control", role: "y", dataType: "number" },
+      { id: "cDrug", name: "Drug", role: "y", dataType: "number" },
+    ],
+    rows,
+    analyses: [],
+    plots: [],
+  };
+}
+
+describe("parseGrubbsOutliersArgs", () => {
+  it("defaults to alpha 0.05 and an iterative sweep", () => {
+    expect(parseGrubbsOutliersArgs({ tableId: "12" })).toEqual({
+      tableId: "12",
+      columns: undefined,
+      alpha: 0.05,
+      iterative: true,
+    });
+  });
+  it("reads alpha as a number or a string, and an explicit non-iterative flag", () => {
+    expect(parseGrubbsOutliersArgs({ tableId: "12", alpha: 0.01 }).alpha).toBe(0.01);
+    expect(parseGrubbsOutliersArgs({ tableId: "12", alpha: "0.01" }).alpha).toBe(0.01);
+    expect(parseGrubbsOutliersArgs({ tableId: "12", alpha: 0.2 }).alpha).toBe(0.05);
+    expect(parseGrubbsOutliersArgs({ tableId: "12", iterative: false }).iterative).toBe(false);
+  });
+});
+
+describe("buildGrubbsOutliers", () => {
+  it("builds a grubbsOutlier spec, encodes the params the engine reads, and relays the engine's flags", () => {
+    const content = outlierContent();
+    const built = buildGrubbsOutliers(content, parseGrubbsOutliersArgs({ tableId: "12" }));
+    expect(built.ok).toBe(true);
+    if (!built.ok) return;
+    expect(built.spec.type).toBe("grubbsOutlier");
+    // alpha is the STRING the engine expects; iterative omits mode entirely.
+    expect(built.spec.params).toEqual({ alpha: "0.05" });
+    expect(built.spec.inputs).toEqual({ columnIds: ["cControl", "cDrug"] });
+
+    const ref = runAnalysis(built.spec, content);
+    expect(ref.ok && ref.kind === "grubbsOutlier").toBe(true);
+    if (!ref.ok || ref.kind !== "grubbsOutlier") return;
+    expect(built.result.totalOutliers).toBe(ref.totalOutliers);
+    // The planted 99 in Control is flagged.
+    expect(built.result.totalOutliers).toBeGreaterThanOrEqual(1);
+    const control = built.result.columns.find((c) => c.name === "Control");
+    expect(control?.outlierValues).toContain(99);
+  });
+
+  it("encodes a single-pass screen as params.mode = single", () => {
+    const built = buildGrubbsOutliers(
+      outlierContent(),
+      parseGrubbsOutliersArgs({ tableId: "12", iterative: false }),
+    );
+    expect(built.ok).toBe(true);
+    if (!built.ok) return;
+    expect(built.spec.params).toEqual({ alpha: "0.05", mode: "single" });
+  });
+
+  it("encodes alpha 0.01 as the string params.alpha", () => {
+    const built = buildGrubbsOutliers(
+      outlierContent(),
+      parseGrubbsOutliersArgs({ tableId: "12", alpha: 0.01 }),
+    );
+    expect(built.ok).toBe(true);
+    if (!built.ok) return;
+    expect(built.spec.params).toMatchObject({ alpha: "0.01" });
+  });
+
+  it("rejects a table with no measurement columns (none to screen)", () => {
+    // A table whose only column is an X column (role x). groupColumns returns the
+    // y/group roles, so there is nothing to screen here.
+    const xOnly: DataHubDocContent = {
+      meta: meta({ id: "13", name: "X only", table_type: "xy" }),
+      columns: [{ id: "x", name: "Dose", role: "x", dataType: "number" }],
+      rows: [
+        { id: "r0", cells: { x: 1 } },
+        { id: "r1", cells: { x: 2 } },
+      ],
+      analyses: [],
+      plots: [],
+    };
+    const built = buildGrubbsOutliers(xOnly, parseGrubbsOutliersArgs({ tableId: "13" }));
+    expect(built.ok).toBe(false);
+    if (built.ok) return;
+    expect(built.error).toMatch(/Column table/i);
+  });
+});
+
+describe("describeGrubbsOutliers", () => {
+  it("names the columns, alpha, and sweep when content is cached", () => {
+    cacheTableContent("12", outlierContent());
+    const { summary } = describeGrubbsOutliers({ tableId: "12" });
+    expect(summary).toMatch(/Control/);
+    expect(summary).toMatch(/Grubbs/);
+    expect(summary).toMatch(/iterative/);
+  });
+
+  it("emits a stepPayload even when the table is NOT cached", () => {
+    const { summary, stepPayload } = describeGrubbsOutliers({ tableId: "999", iterative: false });
+    expect(summary).toMatch(/single-pass/);
+    expect(stepPayload?.steps[0].kind).toBe("run_grubbs_outliers");
+  });
+});
+
+describe("run_grubbs_outliers tool", () => {
+  it("is previewable, not a gated action", () => {
+    expect(runGrubbsOutliersTool.action).toBeFalsy();
+    expect(runGrubbsOutliersTool.previewable).toBe(true);
+  });
+
+  it("stores the screen and navigates the user to it", async () => {
+    vi.spyOn(datahubAnalysisDeps, "resolveContent").mockResolvedValue(outlierContent());
+    const persist = vi.spyOn(datahubAnalysisDeps, "persistAnalysis").mockResolvedValue(true);
+    const navigate = vi.spyOn(datahubAnalysisDeps, "navigate").mockImplementation(() => {});
+    const result = (await runGrubbsOutliersTool.execute({ tableId: "12" })) as {
+      ok: boolean;
+      analysisId?: string;
+      totalOutliers?: number;
+    };
+    expect(result.ok).toBe(true);
+    expect(persist).toHaveBeenCalled();
+    expect(typeof result.totalOutliers).toBe("number");
+    expect(navigate).toHaveBeenCalledWith(
+      expect.stringContaining(`/datahub?doc=12&analysis=${(result as { analysisId: string }).analysisId}`),
+    );
+  });
+
+  it("returns an error when no tableId is given", async () => {
+    const result = (await runGrubbsOutliersTool.execute({})) as { ok: boolean };
     expect(result.ok).toBe(false);
   });
 });
