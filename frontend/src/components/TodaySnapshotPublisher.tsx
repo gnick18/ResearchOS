@@ -25,6 +25,11 @@ import { publishInventoryToAllDevices } from "@/lib/mobile-relay/inventory-snaps
 import { publishNotebooksToAllDevices } from "@/lib/mobile-relay/notebooks-snapshot";
 import { publishCalculatorsToAllDevices } from "@/lib/mobile-relay/calculators-snapshot";
 import { publishTimersToAllDevices } from "@/lib/mobile-relay/timers-snapshot";
+import { publishNotificationsToAllDevices } from "@/lib/mobile-relay/notifications-snapshot";
+import {
+  DEFAULT_NOTIFICATION_PREFERENCES,
+  normalizeNotificationPreferences,
+} from "@/lib/notifications/preferences";
 import { useLaptopTimerStore } from "@/lib/timers/laptop-timers";
 
 const PUBLISH_INTERVAL_MS = 60_000;
@@ -101,6 +106,20 @@ export default function TodaySnapshotPublisher() {
         // device pairings.
         if (cancelled) return;
         await publishTimersToAllDevices(keys);
+        // Notifications snapshot (phase 3, the phone channel): seal the user's
+        // phone-routed notifications so the companion app can list them at the
+        // bench. The per-category phone toggle does the filtering inside the
+        // builder; this is a synced list, not an OS push.
+        if (cancelled) return;
+        const prefs = normalizeNotificationPreferences(
+          settings.notificationPreferences ?? DEFAULT_NOTIFICATION_PREFERENCES,
+        );
+        const notif = await publishNotificationsToAllDevices(keys, prefs);
+        if (notif.published > 0 || notif.skipped > 0) {
+          console.info(
+            `[notifications-publisher] published to ${notif.published} device(s), skipped ${notif.skipped}`,
+          );
+        }
       } catch (err) {
         console.warn("[today-publisher] publish failed (will retry)", err);
       } finally {
