@@ -972,42 +972,49 @@ export default function NotebookScreen() {
           onUnpair={onUnpair}
         />
 
-        {/* Slim Today pull-down affordance. Today now lives in TodayPanel, an
-            Apple-Notification-Center-style overlay that pulls down from the top
-            of the screen (mounted as a sibling below). This handle is the
-            affordance, a short downward drag or a tap opens it. Only shown when
-            paired (the snapshot comes from the laptop) and when the Settings
-            "Show Today" toggle is on, so the app is unchanged when it is off. */}
+        {/* Header "Today" pill. Android reserves every screen edge for a system
+            gesture (top = notification shade, left/right = back, bottom = home),
+            so Today is opened by an in-app pill here, NOT an edge swipe. The pill
+            shows the live count at rest and opens the TodayPanel (the
+            Apple-Notification-Center-style overlay mounted as a sibling below) on
+            tap, or a short downward drag on the pill itself (safe, since the pill
+            sits below the status bar, not at the system edge). Only shown when
+            paired (the snapshot comes from the laptop) and the Settings "Show
+            Today" toggle is on, so the app is unchanged when it is off. */}
         {pairing && todayPrefs.showToday ? (
           <GestureDetector gesture={openPan}>
             <Pressable
-              testID="notebook-today-affordance"
+              testID="notebook-today-pill"
               onPress={openToday}
               accessibilityRole="button"
               accessibilityLabel="Open Today"
               style={({ pressed }) => [
-                styles.todayPullTab,
-                { opacity: pressed ? 0.7 : 1 },
+                styles.todayPill,
+                {
+                  backgroundColor: surface.surface,
+                  borderColor: surface.border,
+                  opacity: pressed ? 0.85 : 1,
+                },
               ]}
             >
-              <View
-                style={[styles.todayPullBar, { backgroundColor: surface.border }]}
-              />
-              <View style={styles.todayPullHintRow}>
-                <ThemedText
-                  style={[styles.todayPullHint, { color: surface.muted }]}
-                >
-                  Today
-                </ThemedText>
-                <Ionicons name="chevron-down" size={13} color={surface.muted} />
-                {overdue > 0 ? (
-                  <View style={styles.todayOverduePill}>
-                    <ThemedText style={styles.todayOverduePillText}>
-                      {overdue} overdue
-                    </ThemedText>
-                  </View>
-                ) : null}
+              <View style={styles.todayPillBadge}>
+                <Ionicons name="today-outline" size={15} color={palette.white} />
               </View>
+              <ThemedText style={[styles.todayPillTitle, { color: surface.text }]}>
+                Today
+              </ThemedText>
+              <ThemedText style={[styles.todayPillCount, { color: surface.muted }]}>
+                {tasks.length > 0 ? `${tasks.length} today` : 'Nothing today'}
+              </ThemedText>
+              {overdue > 0 ? (
+                <View style={styles.todayOverduePill}>
+                  <ThemedText style={styles.todayOverduePillText}>
+                    {overdue} overdue
+                  </ThemedText>
+                </View>
+              ) : null}
+              <View style={{ flex: 1 }} />
+              <Ionicons name="chevron-down" size={16} color={surface.muted} />
             </Pressable>
           </GestureDetector>
         ) : null}
@@ -1675,23 +1682,31 @@ const styles = StyleSheet.create({
   swipeDeleteLabel: { color: palette.white, fontSize: 12, fontWeight: '700' },
 
   // Today pull-down affordance (slim handle at the top; opens TodayPanel).
-  todayPullTab: {
+  todayPill: {
+    flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
-    paddingTop: 2,
-    paddingBottom: 2,
-    marginTop: -2,
+    gap: 9,
+    borderWidth: 1,
+    borderRadius: 14,
+    paddingVertical: 9,
+    paddingHorizontal: 12,
+    marginTop: 4,
   },
-  todayPullBar: {
-    width: 40,
-    height: 5,
-    borderRadius: 999,
+  todayPillBadge: {
+    width: 24,
+    height: 24,
+    borderRadius: 7,
+    backgroundColor: palette.sky,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  todayPullHintRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
-  todayPullHint: {
-    fontSize: 11,
-    fontWeight: '700',
-    letterSpacing: 0.2,
+  todayPillTitle: {
+    fontSize: 14,
+    fontWeight: '800',
+  },
+  todayPillCount: {
+    fontSize: 12.5,
+    fontWeight: '600',
   },
   todayOverduePill: {
     backgroundColor: palette.dangerLight,
