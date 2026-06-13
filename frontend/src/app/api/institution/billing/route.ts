@@ -2,10 +2,12 @@
 // /api/dept/billing.
 //
 // GET  /api/institution/billing  -> current billing status (plan, rate, state)
-// POST /api/institution/billing  -> body { depts, storageTb, poNumber? }
-//   Derives the monthly rate (deriveInstitutionRate, the same math the dashboard
-//   preview shows) and creates or updates a send-invoice recurring subscription
-//   addressed to the institution.
+// POST /api/institution/billing  -> body { labs, storageGb, poNumber? }
+//   labs is the TOTAL active labs across the institution's departments, so the
+//   sustaining contribution adapts to the real size of each department. Derives
+//   the monthly rate (deriveInstitutionRate, the same cost-recovery math the
+//   dashboard preview and /pricing show) and creates or updates a send-invoice
+//   recurring subscription addressed to the institution.
 //
 // Dark unless INSTITUTION_TIER_ENABLED; POST additionally dark unless
 // BILLING_ENABLED, and a live Stripe key requires the WI sales-tax determination
@@ -36,14 +38,14 @@ const SPEC: OrgBillingSpec = {
     return inst ? { entityId: inst.institutionId, name: inst.name } : null;
   },
   parsePlanInputs: (body) => {
-    const depts = Number(body.depts);
-    const storageTb = Number(body.storageTb);
-    if (!Number.isFinite(depts) || !Number.isFinite(storageTb)) return null;
-    if (depts < 0 || storageTb < 0) return null;
-    return { depts, storageTb };
+    const labs = Number(body.labs);
+    const storageGb = Number(body.storageGb);
+    if (!Number.isFinite(labs) || !Number.isFinite(storageGb)) return null;
+    if (labs < 0 || storageGb < 0) return null;
+    return { labs, storageGb };
   },
   deriveMonthlyCents: (inputs) =>
-    deriveInstitutionRate({ depts: inputs.depts, storageTb: inputs.storageTb })
+    deriveInstitutionRate({ activeLabs: inputs.labs, storageGB: inputs.storageGb })
       .totalCents,
 };
 

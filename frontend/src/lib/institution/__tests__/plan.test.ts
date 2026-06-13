@@ -1,48 +1,55 @@
 // Tests for the institution plan-builder rate model (deriveInstitutionRate).
 //
+// The rate wraps the SAME computeCostRecovery as departments and /pricing, with
+// the sustaining contribution scaling with the TOTAL active labs across all
+// member departments. So a big department (more labs) contributes more than a
+// small one, and there is no flat per-department fee.
+//
 // No emojis, no em-dashes, no mid-sentence colons.
 
 import { describe, it, expect } from "vitest";
 import { deriveInstitutionRate, INSTITUTION_RATE, centsToUsd } from "../plan";
-import {
-  BLENDED_PER_GB_MO,
-  BUFFER,
-  SUSTAIN_PER_DEPT,
-} from "@/lib/pricing/assumptions";
+import { deriveDeptRate } from "@/lib/dept/plan";
+import { FREE_GB_PER_LAB, SUSTAIN_PER_LAB } from "@/lib/pricing/assumptions";
+import { computeCostRecovery } from "@/lib/pricing/cost-math";
 
-describe("institution rate constants derive from pricing assumptions", () => {
-  it("per-dept sustaining is SUSTAIN_PER_DEPT dollars in cents", () => {
-    expect(INSTITUTION_RATE.perDeptSustainCents).toBe(SUSTAIN_PER_DEPT * 100);
+describe("institution rate derives from the shared cost-recovery model", () => {
+  it("per-lab sustaining is SUSTAIN_PER_LAB dollars in cents", () => {
+    expect(INSTITUTION_RATE.perLabSustainCents).toBe(SUSTAIN_PER_LAB * 100);
   });
-  it("storage per TB derives from the blended per-GB cost plus the buffer", () => {
-    expect(INSTITUTION_RATE.storagePerTbCents).toBe(
-      Math.round(BLENDED_PER_GB_MO * (1 + BUFFER) * 1024 * 100),
-    );
+
+  it("matches computeCostRecovery over total labs across departments", () => {
+    const activeLabs = 48; // e.g. 6 depts x 8 labs
+    const storageGB = 5000;
+    const ref = computeCostRecovery({
+      storageGB,
+      freeGB: activeLabs * FREE_GB_PER_LAB,
+      activeLabs,
+    });
+    const r = deriveInstitutionRate({ activeLabs, storageGB });
+    expect(r.recoveryCents).toBe(Math.round(ref.recovery * 100));
+    expect(r.sustainCents).toBe(Math.round(ref.sustain * 100));
+    expect(r.totalCents).toBe(Math.round(ref.rate * 100));
+  });
+
+  it("is the same model as a department with the same labs + storage", () => {
+    const inputs = { activeLabs: 12, storageGB: 1500 };
+    expect(deriveInstitutionRate(inputs)).toEqual(deriveDeptRate(inputs));
   });
 });
 
 describe("deriveInstitutionRate", () => {
-  it("rate = storage cost recovery + per-dept sustaining", () => {
-    const r = deriveInstitutionRate({ depts: 4, storageTb: 3 });
-    expect(r.storageCents).toBe(3 * INSTITUTION_RATE.storagePerTbCents);
-    expect(r.sustainCents).toBe(4 * INSTITUTION_RATE.perDeptSustainCents);
-    expect(r.totalCents).toBe(r.storageCents + r.sustainCents);
+  it("sustaining scales with total labs (so it adapts to department size)", () => {
+    const small = deriveInstitutionRate({ activeLabs: 10, storageGB: 100 });
+    const big = deriveInstitutionRate({ activeLabs: 30, storageGB: 100 });
+    expect(big.sustainCents).toBe(3 * small.sustainCents);
   });
 
-  it("scales with both inputs independently", () => {
-    const a = deriveInstitutionRate({ depts: 1, storageTb: 1 });
-    const moreDepts = deriveInstitutionRate({ depts: 3, storageTb: 1 });
-    const moreStorage = deriveInstitutionRate({ depts: 1, storageTb: 4 });
-    expect(moreDepts.sustainCents).toBe(3 * a.sustainCents);
-    expect(moreStorage.storageCents).toBe(4 * a.storageCents);
-    expect(moreDepts.storageCents).toBe(a.storageCents); // storage unchanged
-  });
-
-  it("clamps negatives + floors fractional depts to zero-safe values", () => {
-    const r = deriveInstitutionRate({ depts: -2, storageTb: -5 });
+  it("clamps negatives + floors fractional labs", () => {
+    const r = deriveInstitutionRate({ activeLabs: -2, storageGB: -5 });
     expect(r.totalCents).toBe(0);
-    const f = deriveInstitutionRate({ depts: 2.9, storageTb: 0 });
-    expect(f.sustainCents).toBe(2 * INSTITUTION_RATE.perDeptSustainCents); // floored to 2
+    const f = deriveInstitutionRate({ activeLabs: 2.9, storageGB: 0 });
+    expect(f.sustainCents).toBe(2 * INSTITUTION_RATE.perLabSustainCents); // floored to 2
   });
 
   it("formats cents to whole-dollar USD", () => {

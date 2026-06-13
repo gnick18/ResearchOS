@@ -80,11 +80,11 @@ describe("provisionOrgSubscription", () => {
       tier: "department",
       entityId: "dept_x",
       info: INFO,
-      planInputs: { labs: 0, storageTb: 0 },
+      planInputs: { labs: 0, storageGb: 0 },
       monthlyCents: 0,
     });
     expect(sub).toBeNull();
-    expect(setOrgPlanMock).toHaveBeenCalledWith("department", "dept_x", { labs: 0, storageTb: 0 }, 0);
+    expect(setOrgPlanMock).toHaveBeenCalledWith("department", "dept_x", { labs: 0, storageGb: 0 }, 0);
     expect(setOrgSubscriptionMock).toHaveBeenCalledWith("department", "dept_x", null, null, "inactive");
     expect(customersCreateMock).not.toHaveBeenCalled();
     expect(subsCreateMock).not.toHaveBeenCalled();
@@ -95,7 +95,7 @@ describe("provisionOrgSubscription", () => {
       tier: "department",
       entityId: "dept_x",
       info: INFO,
-      planInputs: { labs: 3, storageTb: 2 },
+      planInputs: { labs: 3, storageGb: 200 },
       monthlyCents: 12345,
     });
     expect(pricesCreateMock).toHaveBeenCalledWith(
@@ -127,7 +127,7 @@ describe("provisionOrgSubscription", () => {
       tier: "department",
       entityId: "dept_x",
       info: INFO,
-      planInputs: { labs: 5, storageTb: 4 },
+      planInputs: { labs: 5, storageGb: 400 },
       monthlyCents: 22222,
     });
     expect(subsUpdateMock).toHaveBeenCalledWith(
@@ -142,7 +142,7 @@ describe("provisionOrgSubscription", () => {
       tier: "institution",
       entityId: "inst_y",
       info: INFO,
-      planInputs: { depts: 2, storageTb: 5 },
+      planInputs: { labs: 16, storageGb: 500 },
       monthlyCents: 50000,
     });
     const args = subsCreateMock.mock.calls[0][0];
@@ -155,7 +155,7 @@ describe("provisionOrgSubscription", () => {
       tier: "institution",
       entityId: "inst_y",
       info: INFO,
-      planInputs: { depts: 2, storageTb: 5 },
+      planInputs: { labs: 16, storageGb: 500 },
       monthlyCents: 50000,
     });
     const args = subsCreateMock.mock.calls[0][0];

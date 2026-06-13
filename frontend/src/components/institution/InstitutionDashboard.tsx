@@ -44,7 +44,7 @@ function fmtBytes(b: number): string {
   if (b >= 1e6) return (b / 1e6).toFixed(1) + " MB";
   return (b / 1e3).toFixed(0) + " KB";
 }
-const TB = 1e12;
+const GB = 1e9;
 
 interface BillingResponse {
   billingEnabled?: boolean;
@@ -56,8 +56,10 @@ export default function InstitutionDashboard() {
   const [usage, setUsage] = useState<UsageResponse | null>(null);
   const [open, setOpen] = useState<Set<string>>(new Set());
   // Plan builder inputs (also the inputs the procurement invoice derives from).
-  const [depts, setDepts] = useState(1);
-  const [storageTb, setStorageTb] = useState(1);
+  // Total active labs across all member departments drives the sustaining
+  // contribution, so a bigger department (more labs) contributes more.
+  const [labs, setLabs] = useState(1);
+  const [storageGb, setStorageGb] = useState(50);
   const [seeded, setSeeded] = useState(false);
   // Billing state (the send-invoice procurement subscription).
   const [billing, setBilling] = useState<BillingResponse | null>(null);
@@ -89,7 +91,7 @@ export default function InstitutionDashboard() {
       const res = await fetch("/api/institution/billing", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ depts, storageTb, poNumber: poNumber || undefined }),
+        body: JSON.stringify({ labs, storageGb, poNumber: poNumber || undefined }),
       });
       const data = (await res.json()) as BillingResponse & { error?: string };
       if (!res.ok) {
@@ -119,10 +121,10 @@ export default function InstitutionDashboard() {
         if (cancelled) return;
         setUsage(data);
         if (!seeded) {
-          // Seed the builder from observed usage: depts = current count, storage
-          // = next whole TB above current pooled use (min 1).
-          setDepts(Math.max(1, data.deptCount));
-          setStorageTb(Math.max(1, Math.ceil(data.totalBytes / TB)));
+          // Seed from observed usage: total labs across the institution + current
+          // pooled GB rounded up, so the preview starts from reality.
+          setLabs(Math.max(1, data.labCount));
+          setStorageGb(Math.max(1, Math.ceil(data.totalBytes / GB)));
           setSeeded(true);
         }
       } catch {
@@ -135,8 +137,8 @@ export default function InstitutionDashboard() {
   }, [seeded]);
 
   const rate = useMemo(
-    () => deriveInstitutionRate({ depts, storageTb }),
-    [depts, storageTb],
+    () => deriveInstitutionRate({ activeLabs: labs, storageGB: storageGb }),
+    [labs, storageGb],
   );
 
   if (!usage) {
@@ -153,18 +155,19 @@ export default function InstitutionDashboard() {
           Build your plan
         </p>
         <p className="mt-1 text-meta text-foreground-muted">
-          No fixed tiers. Set your departments and pooled storage; the monthly rate
-          derives (cost recovery plus a per-active-department sustaining
-          contribution). Adjustable any month, no lock-in.
+          No fixed tiers. Set the total labs across your departments and pooled
+          storage; the monthly rate derives (cost recovery plus a per-active-lab
+          sustaining contribution), so it scales with how big each department
+          actually is. Adjustable any month, no lock-in.
         </p>
         <div className="mt-3 flex flex-wrap gap-5">
-          <Stepper label="Active departments" value={depts} onChange={(d) => setDepts((v) => Math.max(0, v + d))} />
-          <Stepper label="Pooled storage" value={storageTb} suffix=" TB" onChange={(d) => setStorageTb((v) => Math.max(1, v + d))} />
+          <Stepper label="Active labs (all depts)" value={labs} onChange={(d) => setLabs((v) => Math.max(0, v + d))} />
+          <Stepper label="Pooled storage" value={storageGb} suffix=" GB" onChange={(d) => setStorageGb((v) => Math.max(0, v + d * 50))} />
         </div>
         <div className="mt-3 rounded-lg bg-surface-sunken px-3 py-2 text-meta text-foreground-muted">
-          Cost recovery (<b className="text-foreground">{storageTb} TB</b>){" "}
-          {centsToUsd(rate.storageCents)} + Sustaining (
-          {centsToUsd(INSTITUTION_RATE.perDeptSustainCents)}/dept &times; {depts}){" "}
+          Cost recovery (<b className="text-foreground">{storageGb} GB</b>){" "}
+          {centsToUsd(rate.recoveryCents)} + Sustaining (
+          {centsToUsd(INSTITUTION_RATE.perLabSustainCents)}/lab &times; {labs}){" "}
           {centsToUsd(rate.sustainCents)}
         </div>
         <p className="mt-2 text-heading font-bold text-foreground">

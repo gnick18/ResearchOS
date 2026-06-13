@@ -53,8 +53,9 @@ export interface OrgBillingRecord {
   stripeItemId: string | null;
   /** The last-resolved monthly rate the subscription price was set to, in cents. */
   monthlyCents: number;
-  /** The built plan inputs, re-derivable into monthlyCents. JSON-encoded:
-   *  dept = { labs, storageTb }, institution = { depts, storageTb }. */
+  /** The built plan inputs, re-derivable into monthlyCents. JSON-encoded as
+   *  { labs, storageGb } (labs = active labs; institution labs is the total
+   *  across all member departments, so the sustaining rate scales with size). */
   planInputs: Record<string, number>;
   status: OrgBillingStatus;
 }

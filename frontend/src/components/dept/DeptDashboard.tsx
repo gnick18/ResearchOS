@@ -41,7 +41,7 @@ function fmtBytes(b: number): string {
   if (b >= 1e6) return (b / 1e6).toFixed(1) + " MB";
   return (b / 1e3).toFixed(0) + " KB";
 }
-const TB = 1e12;
+const GB = 1e9;
 
 interface BillingResponse {
   billingEnabled?: boolean;
@@ -54,7 +54,7 @@ export default function DeptDashboard() {
   const [open, setOpen] = useState<Set<string>>(new Set());
   // Plan builder inputs (also the inputs the procurement invoice derives from).
   const [labs, setLabs] = useState(1);
-  const [storageTb, setStorageTb] = useState(1);
+  const [storageGb, setStorageGb] = useState(50);
   const [seeded, setSeeded] = useState(false);
   // Billing state (the send-invoice procurement subscription).
   const [billing, setBilling] = useState<BillingResponse | null>(null);
@@ -86,7 +86,7 @@ export default function DeptDashboard() {
       const res = await fetch("/api/dept/billing", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ labs, storageTb, poNumber: poNumber || undefined }),
+        body: JSON.stringify({ labs, storageGb, poNumber: poNumber || undefined }),
       });
       const data = (await res.json()) as BillingResponse & { error?: string };
       if (!res.ok) {
@@ -117,9 +117,10 @@ export default function DeptDashboard() {
         setUsage(data);
         if (!seeded) {
           // Seed the builder from observed usage: labs = current count, storage
-          // = next whole TB above current pooled use (min 1).
+          // = current pooled GB rounded up (min 1), so the preview starts from
+          // reality and the admin adjusts for projected growth.
           setLabs(Math.max(1, data.labCount));
-          setStorageTb(Math.max(1, Math.ceil(data.totalBytes / TB)));
+          setStorageGb(Math.max(1, Math.ceil(data.totalBytes / GB)));
           setSeeded(true);
         }
       } catch {
@@ -131,7 +132,10 @@ export default function DeptDashboard() {
     };
   }, [seeded]);
 
-  const rate = useMemo(() => deriveDeptRate({ labs, storageTb }), [labs, storageTb]);
+  const rate = useMemo(
+    () => deriveDeptRate({ activeLabs: labs, storageGB: storageGb }),
+    [labs, storageGb],
+  );
 
   if (!usage) {
     return <p className="text-meta text-foreground-muted">Loading usage&hellip;</p>;
@@ -153,11 +157,11 @@ export default function DeptDashboard() {
         </p>
         <div className="mt-3 flex flex-wrap gap-5">
           <Stepper label="Active labs" value={labs} onChange={(d) => setLabs((v) => Math.max(0, v + d))} />
-          <Stepper label="Pooled storage" value={storageTb} suffix=" TB" onChange={(d) => setStorageTb((v) => Math.max(1, v + d))} />
+          <Stepper label="Pooled storage" value={storageGb} suffix=" GB" onChange={(d) => setStorageGb((v) => Math.max(0, v + d * 50))} />
         </div>
         <div className="mt-3 rounded-lg bg-surface-sunken px-3 py-2 text-meta text-foreground-muted">
-          Cost recovery (<b className="text-foreground">{storageTb} TB</b>){" "}
-          {centsToUsd(rate.storageCents)} + Sustaining (
+          Cost recovery (<b className="text-foreground">{storageGb} GB</b>){" "}
+          {centsToUsd(rate.recoveryCents)} + Sustaining (
           {centsToUsd(DEPT_RATE.perLabSustainCents)}/lab &times; {labs}){" "}
           {centsToUsd(rate.sustainCents)}
         </div>

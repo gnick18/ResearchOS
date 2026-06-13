@@ -2,62 +2,66 @@
 //
 // Like departments, institutions do NOT pick fixed tiers (BILLING_FACTS.md): they
 // BUILD a plan from inputs and the monthly rate DERIVES = cost recovery (pooled
-// storage across all member depts) + a per-active-department sustaining
-// contribution. This is the one place that math lives so the builder UI and (the
-// later) Stripe invoice agree.
+// storage across all member depts) + a per-active-lab sustaining contribution.
 //
-// The rate now derives from pricing/assumptions.ts (the single source the public
-// /pricing builders also read), so the dashboard preview and the Stripe invoice
-// agree with the published cost model. Those assumptions are still FLAGGED
-// placeholders Grant tunes; nothing here is a published price.
+// This is the SAME computeCostRecovery model the public /pricing institution
+// builder uses, so the dashboard preview, the marketing page, and the invoice all
+// agree. The sustaining contribution scales with the TOTAL active labs across the
+// institution's departments, so a large department (more labs) contributes more
+// than a small one. It is NOT a flat per-department fee. The underlying
+// assumptions are FLAGGED placeholders Grant tunes; nothing here is a published
+// price.
 //
 // No emojis, no em-dashes, no mid-sentence colons.
 
-import {
-  BLENDED_PER_GB_MO,
-  BUFFER,
-  SUSTAIN_PER_DEPT,
-} from "@/lib/pricing/assumptions";
+import { FREE_GB_PER_LAB, SUSTAIN_PER_LAB } from "@/lib/pricing/assumptions";
+import { computeCostRecovery } from "@/lib/pricing/cost-math";
 
-/** Whole-cents-per-TB-per-month storage cost recovery, derived from the blended
- *  per-GB cost plus the operating buffer (1024 GB per TB, dollars to cents). */
-const STORAGE_PER_TB_CENTS = Math.round(
-  BLENDED_PER_GB_MO * (1 + BUFFER) * 1024 * 100,
-);
-
-/** Rate constants derived from the flagged pricing assumptions. */
+/** The sustaining contribution per active lab, cents per month. The institution
+ *  pays this for every lab across all its departments, so the contribution
+ *  adapts to the size of each department. */
 export const INSTITUTION_RATE = {
-  /** Cost-recovery for pooled storage, cents per TB per month. */
-  storagePerTbCents: STORAGE_PER_TB_CENTS,
-  /** Sustaining contribution per active department, cents per month. */
-  perDeptSustainCents: SUSTAIN_PER_DEPT * 100,
+  perLabSustainCents: SUSTAIN_PER_LAB * 100,
 };
 
 export interface InstitutionRateInputs {
-  /** Active departments (drives the sustaining contribution). */
-  depts: number;
-  /** Pooled storage in whole TB across all member depts (drives cost recovery). */
-  storageTb: number;
+  /** Total active labs across all member departments (drives the sustaining
+   *  contribution and the free pool). This is what makes the rate adapt to the
+   *  real size of the institution rather than a flat per-department fee. */
+  activeLabs: number;
+  /** Pooled storage across all the institution's lab pools, in GB. */
+  storageGB: number;
 }
 
 export interface InstitutionRateBreakdown {
-  storageCents: number;
+  /** Our bare cost to run the storage (recovery curve), cents per month. */
+  recoveryCents: number;
+  /** Sustaining contribution (total active labs times the per-lab rate), cents. */
   sustainCents: number;
+  /** The monthly rate, recovery + sustaining, cents. */
   totalCents: number;
 }
 
 /**
- * Derive the monthly rate from the built plan. Pure + dependency-free so it is
- * unit-testable and shared by the builder UI and the invoice path.
+ * Derive the monthly rate from the built plan via the shared cost-recovery model.
+ * Pure + dependency-free so it is unit-testable and shared by the builder UI and
+ * the invoice path. The free pool is one FREE_GB_PER_LAB allowance per active lab.
  */
 export function deriveInstitutionRate(
   inputs: InstitutionRateInputs,
 ): InstitutionRateBreakdown {
-  const depts = Math.max(0, Math.floor(inputs.depts));
-  const storageTb = Math.max(0, inputs.storageTb);
-  const storageCents = Math.round(storageTb * INSTITUTION_RATE.storagePerTbCents);
-  const sustainCents = depts * INSTITUTION_RATE.perDeptSustainCents;
-  return { storageCents, sustainCents, totalCents: storageCents + sustainCents };
+  const activeLabs = Math.max(0, Math.floor(inputs.activeLabs));
+  const storageGB = Math.max(0, inputs.storageGB);
+  const { recovery, sustain, rate } = computeCostRecovery({
+    storageGB,
+    freeGB: activeLabs * FREE_GB_PER_LAB,
+    activeLabs,
+  });
+  return {
+    recoveryCents: Math.round(recovery * 100),
+    sustainCents: Math.round(sustain * 100),
+    totalCents: Math.round(rate * 100),
+  };
 }
 
 /** Whole-dollar formatting helper for display. */

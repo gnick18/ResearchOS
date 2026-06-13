@@ -1,10 +1,10 @@
 // Department tier Phase 3: the procurement billing route.
 //
 // GET  /api/dept/billing   -> the dept's current billing status (plan, rate, state)
-// POST /api/dept/billing   -> body { labs, storageTb, poNumber? }
-//   Derives the monthly rate from the built plan (deriveDeptRate, the same math
-//   the dashboard preview shows) and creates or updates a send-invoice recurring
-//   subscription addressed to the department.
+// POST /api/dept/billing   -> body { labs, storageGb, poNumber? }
+//   Derives the monthly rate from the built plan (deriveDeptRate, the same
+//   cost-recovery math the dashboard preview and /pricing show) and creates or
+//   updates a send-invoice recurring subscription addressed to the department.
 //
 // Dark unless DEPT_TIER_ENABLED; POST additionally dark unless BILLING_ENABLED,
 // and a live Stripe key requires the WI sales-tax determination resolved.
@@ -32,13 +32,14 @@ const SPEC: OrgBillingSpec = {
   },
   parsePlanInputs: (body) => {
     const labs = Number(body.labs);
-    const storageTb = Number(body.storageTb);
-    if (!Number.isFinite(labs) || !Number.isFinite(storageTb)) return null;
-    if (labs < 0 || storageTb < 0) return null;
-    return { labs, storageTb };
+    const storageGb = Number(body.storageGb);
+    if (!Number.isFinite(labs) || !Number.isFinite(storageGb)) return null;
+    if (labs < 0 || storageGb < 0) return null;
+    return { labs, storageGb };
   },
   deriveMonthlyCents: (inputs) =>
-    deriveDeptRate({ labs: inputs.labs, storageTb: inputs.storageTb }).totalCents,
+    deriveDeptRate({ activeLabs: inputs.labs, storageGB: inputs.storageGb })
+      .totalCents,
 };
 
 export async function GET(): Promise<Response> {
