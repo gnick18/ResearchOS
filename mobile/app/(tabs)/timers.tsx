@@ -19,7 +19,7 @@ import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { SectionHeader } from '@/components/ui/SectionHeader';
 import { AlarmSettingsCard } from '@/components/AlarmSettingsCard';
-import { useTheme, palette } from '@/lib/design';
+import { useTheme, palette, fonts } from '@/lib/design';
 import { ensureNotificationPermission } from '@/lib/notifications';
 import {
   addTimer,
@@ -190,10 +190,10 @@ export default function TimersScreen() {
         contentContainerStyle={styles.scrollContent}
         keyboardShouldPersistTaps="handled"
       >
-          <TabHeader title="Timers" unreadCount={unreadCount} />
-          <ThemedText style={[styles.tagline, { color: surface.muted }]}>
-            Start a countdown at the bench and get an alert when it finishes.
+          <ThemedText style={{ fontSize: 12.5, fontFamily: fonts.semibold, color: surface.muted, marginBottom: 4 }}>
+            Bench timers
           </ThemedText>
+          <ThemedText type="title">Timers</ThemedText>
 
           {/* Running timers float to the top, newest first. The whole section
               vanishes when nothing is running, so New timer sits at the top. */}
