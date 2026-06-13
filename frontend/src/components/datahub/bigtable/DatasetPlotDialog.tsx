@@ -92,6 +92,14 @@ export default function DatasetPlotDialog({
     () => sidecar.schema.filter((c) => c.type !== "number").map((c) => c.name),
     [sidecar.schema],
   );
+  // Columns usable as a discrete grouping LABEL for "split by a label". A date is
+  // continuous, not a category, so it is excluded here (you split a column figure
+  // by treatment, not by run_date). Used only by the split picker; the grouped-bar
+  // cluster / bar pickers keep the full categorical set.
+  const labelNames = useMemo(
+    () => sidecar.schema.filter((c) => c.type === "text").map((c) => c.name),
+    [sidecar.schema],
+  );
   const offered = useMemo(
     () => validDatasetPlotKinds(numericNames.length, categoricalNames.length),
     [numericNames.length, categoricalNames.length],
@@ -125,7 +133,10 @@ export default function DatasetPlotDialog({
     setKind(offered[0] ?? null);
     setValueColumn(numericNames[0] ?? "");
     setXColumn(numericNames[1] ?? numericNames[0] ?? "");
-    setGroupByColumn(categoricalNames[0] ?? "");
+    // No default split label: the first categorical is often an identifier
+    // (sample_id), and silently splitting by it makes the figure look pooled. The
+    // user picks the label deliberately; Draw stays disabled until they do.
+    setGroupByColumn("");
     setRowFactorColumn(categoricalNames[0] ?? "");
     setSeriesColumn(categoricalNames[1] ?? categoricalNames[0] ?? "");
     setSplitByGroup(false);
@@ -316,7 +327,7 @@ export default function DatasetPlotDialog({
                         ))}
                       </select>
                     </div>
-                    {categoricalNames.length > 0 && (
+                    {labelNames.length > 0 && (
                       <div>
                         <label className="flex items-center gap-2 text-meta font-medium uppercase tracking-wide text-foreground-muted">
                           <input
@@ -331,17 +342,25 @@ export default function DatasetPlotDialog({
                           Split by a label
                         </label>
                         {splitByGroup && (
-                          <select
-                            value={groupByColumn}
-                            onChange={(e) => setGroupByColumn(e.target.value)}
-                            className="mt-1 w-full rounded-md border border-border bg-surface-raised px-2 py-1.5 text-body text-foreground focus:border-sky-400 focus:outline-none"
-                          >
-                            {categoricalNames.map((n) => (
-                              <option key={n} value={n}>
-                                {n}
-                              </option>
-                            ))}
-                          </select>
+                          <>
+                            <select
+                              value={groupByColumn}
+                              onChange={(e) => setGroupByColumn(e.target.value)}
+                              className="mt-1 w-full rounded-md border border-border bg-surface-raised px-2 py-1.5 text-body text-foreground focus:border-sky-400 focus:outline-none"
+                            >
+                              <option value="">Choose a label</option>
+                              {labelNames.map((n) => (
+                                <option key={n} value={n}>
+                                  {n}
+                                </option>
+                              ))}
+                            </select>
+                            {groupByColumn === "" && (
+                              <p className="mt-1 text-meta text-amber-600">
+                                Choose a label column to split by.
+                              </p>
+                            )}
+                          </>
                         )}
                       </div>
                     )}
