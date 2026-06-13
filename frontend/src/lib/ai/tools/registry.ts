@@ -72,6 +72,7 @@ import { summarizeNotesTool } from "./summarize-notes";
 import { summarizeProjectsTool } from "./summarize-projects";
 import { summarizeInventoryTool } from "./summarize-inventory";
 import { labDigestTool } from "./lab-digest";
+import { listLabMembersTool } from "./lab-members";
 import { searchLiteratureTool } from "./search-literature";
 import { listPhyloTreesTool, readPhyloTreeTool } from "./phylo-tools";
 import {
@@ -226,6 +227,9 @@ export const READ_ONLY_TOOLS: AiTool[] = [
   summarizeProjectsTool,
   summarizeInventoryTool,
   labDigestTool,
+  // Lab roster, so the summary wizard's whose-step can offer real member names
+  // and resolve a typed name to a real owner. Read-only.
+  listLabMembersTool,
   // Layer 2 (read-by-id): one read tool per artifact type. Each accepts an id from
   // a search_my_work brief and returns a trimmed projection of that artifact's
   // content. Trimmed to protect the context window. All read-only, none navigates.
