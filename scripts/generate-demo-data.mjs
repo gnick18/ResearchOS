@@ -4177,6 +4177,32 @@ function buildEntries() {
 
   relocateStuffedNoteBodies(out);
 
+  // Spread the demo purchase line items across ordering stages so the Purchases
+  // stage filter (Needs ordering / Ordered / Received) and its count chips
+  // visibly narrow the list on camera. Without an order_status every item
+  // defaults to "needs_ordering", so the stage filter looked inert. Keyed by the
+  // alex purchase task so each order sits cleanly in one stage (the page keeps an
+  // order when ANY of its line items is in the selected stage).
+  const ALEX_PURCHASE_STAGE = {
+    7: "received",
+    24: "received",
+    25: "ordered",
+    26: "ordered",
+    15: "needs_ordering",
+    27: "needs_ordering",
+  };
+  for (const [p, obj] of out) {
+    if (
+      typeof p === "string" &&
+      p.startsWith("users/alex/purchase_items/") &&
+      obj &&
+      typeof obj === "object" &&
+      ALEX_PURCHASE_STAGE[obj.task_id]
+    ) {
+      obj.order_status = ALEX_PURCHASE_STAGE[obj.task_id];
+    }
+  }
+
   return out;
 }
 

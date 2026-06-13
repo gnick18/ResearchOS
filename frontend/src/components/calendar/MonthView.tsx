@@ -132,7 +132,7 @@ export default function MonthView({
               <div
                 className={`text-meta font-medium mb-1 w-6 h-6 flex items-center justify-center rounded-full ${
                   isToday
-                    ? "bg-blue-600 text-white"
+                    ? "bg-amber-400 text-amber-900"
                     : day.isCurrentMonth
                       ? "text-foreground"
                       : "text-foreground-muted"

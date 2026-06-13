@@ -225,7 +225,7 @@ function SharingControl({
                 className={
                   "px-3 py-1.5 transition-colors " +
                   (scope === opt.id
-                    ? "bg-sky-600 text-white"
+                    ? "bg-brand-action text-white"
                     : "bg-surface-raised text-foreground-muted hover:bg-surface-sunken")
                 }
               >

@@ -11,5 +11,6 @@
   "notes": null,
   "funding_string": null,
   "vendor": "Sigma-Aldrich",
-  "category": "Consumables"
+  "category": "Consumables",
+  "order_status": "needs_ordering"
 }

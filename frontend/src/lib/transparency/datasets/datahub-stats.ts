@@ -146,6 +146,27 @@ export const SURV_CONTROL: SurvivalObservation[] = surv([
 /** Fixed times at which to read the Treatment-arm Kaplan-Meier survival. */
 export const KM_READ_TIMES = [7, 13, 23];
 
+/**
+ * A 2x2 contingency table with a clear association (the headline case). Layout
+ * row 1 = exposed, row 2 = not exposed, column 1 = event, column 2 = no event,
+ * so a = 30, b = 10, c = 12, d = 28. Exposure raises the event rate sharply, so
+ * the chi-square, Fisher's exact p, the relative risk, and the odds ratio all
+ * report a strong, significant association.
+ */
+export const CONTINGENCY_2X2 = [
+  [30, 10],
+  [12, 28],
+];
+
+/**
+ * A 2x3 contingency table for the larger-table chi-square path (Yates and the
+ * 2x2 effect measures do not apply to a table larger than 2x2).
+ */
+export const CONTINGENCY_2X3 = [
+  [10, 20, 30],
+  [25, 15, 20],
+];
+
 /* ---------------------- fixed inputs for the estimation-layer (E1/E3/E4) pins */
 
 /**
@@ -596,6 +617,28 @@ export const STAT_PINS: StatPin[] = [
   // lifelines and our engine differ only in the exact tied-risk-score
   // convention, a sub-1e-2 wobble on this tie-heavy two-arm dataset.
   { id: "cox_concordance", metric: "Cox PH, Harrell concordance (c-index)", reference: 0.684512, oracleId: "lifelines", tol: 5e-3, warn: 1e-2, unit: "c" },
+
+  // --- categorical association (scipy.stats.chi2_contingency / fisher_exact) ---
+  // The headline 2x2 table CONTINGENCY_2X2. chi2_contingency gives the
+  // uncorrected and Yates-corrected chi-square + p; fisher_exact gives the
+  // two-sided exact p; the relative risk and odds ratio (with 95% log-method CIs)
+  // are closed form and validated against the same generator.
+  { id: "contingency_2x2_chi2", metric: "Chi-square test (2x2, uncorrected), chi-square", reference: 16.240602, oracleId: "scipy", tol: 1e-3, warn: 5e-3, unit: "chi2" },
+  { id: "contingency_2x2_p", metric: "Chi-square test (2x2, uncorrected), p", reference: 5.58e-5, oracleId: "scipy", tol: 1e-5, warn: 5e-5, unit: "p" },
+  { id: "contingency_2x2_yates_chi2", metric: "Chi-square test (2x2, Yates-corrected), chi-square", reference: 14.486216, oracleId: "scipy", tol: 1e-3, warn: 5e-3, unit: "chi2" },
+  { id: "contingency_2x2_yates_p", metric: "Chi-square test (2x2, Yates-corrected), p", reference: 0.000141, oracleId: "scipy", tol: 1e-4, warn: 5e-4, unit: "p" },
+  { id: "contingency_2x2_fisher_p", metric: "Fisher exact test (2x2), two-sided p", reference: 0.000112, oracleId: "scipy", tol: 1e-4, warn: 5e-4, unit: "p" },
+  { id: "contingency_2x2_min_expected", metric: "Chi-square test (2x2), smallest expected count", reference: 19.0, oracleId: "scipy", tol: 1e-4, warn: 5e-4, unit: "count" },
+  { id: "contingency_2x2_rr", metric: "Relative risk (2x2)", reference: 2.5, oracleId: "scipy", tol: 1e-4, warn: 5e-4, unit: "RR" },
+  { id: "contingency_2x2_rr_ci_low", metric: "Relative risk 95% CI lower (log method)", reference: 1.507165, oracleId: "scipy", tol: 1e-3, warn: 5e-3, unit: "RR" },
+  { id: "contingency_2x2_rr_ci_high", metric: "Relative risk 95% CI upper (log method)", reference: 4.146859, oracleId: "scipy", tol: 1e-3, warn: 5e-3, unit: "RR" },
+  { id: "contingency_2x2_or", metric: "Odds ratio (2x2)", reference: 7.0, oracleId: "scipy", tol: 1e-4, warn: 5e-4, unit: "OR" },
+  { id: "contingency_2x2_or_ci_low", metric: "Odds ratio 95% CI lower (log method)", reference: 2.615022, oracleId: "scipy", tol: 1e-3, warn: 5e-3, unit: "OR" },
+  { id: "contingency_2x2_or_ci_high", metric: "Odds ratio 95% CI upper (log method)", reference: 18.73789, oracleId: "scipy", tol: 5e-3, warn: 2e-2, unit: "OR" },
+  // The larger-table 2x3 chi-square (uncorrected), CONTINGENCY_2X3.
+  { id: "contingency_2x3_chi2", metric: "Chi-square test (2x3, uncorrected), chi-square", reference: 9.142857, oracleId: "scipy", tol: 1e-3, warn: 5e-3, unit: "chi2" },
+  { id: "contingency_2x3_p", metric: "Chi-square test (2x3, uncorrected), p", reference: 0.010343, oracleId: "scipy", tol: 1e-4, warn: 5e-4, unit: "p" },
+  { id: "contingency_2x3_min_expected", metric: "Chi-square test (2x3), smallest expected count", reference: 17.5, oracleId: "scipy", tol: 1e-4, warn: 5e-4, unit: "count" },
 
   // --- ESTIMATION LAYER (E1): effect sizes + their confidence intervals ---
   // Effect sizes are pinned on the SAME fixed dataset as the tests above. Cohen's

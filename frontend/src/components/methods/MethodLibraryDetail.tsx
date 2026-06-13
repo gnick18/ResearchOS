@@ -174,7 +174,7 @@ export function MethodTypeDetail({
         </div>
         <span
           className={`shrink-0 rounded-full px-2 py-0.5 text-meta font-medium ${
-            on ? "bg-blue-600 text-white" : "bg-foreground-muted/15 text-foreground-muted"
+            on ? "bg-brand-action text-white" : "bg-foreground-muted/15 text-foreground-muted"
           }`}
         >
           {on ? "Enabled" : "Disabled"}
@@ -287,7 +287,7 @@ function EnableTypeToggle({
       </span>
       <span
         className={`relative shrink-0 inline-flex h-5 w-9 items-center rounded-full transition-colors ${
-          on ? "bg-blue-600" : "bg-foreground-muted/30"
+          on ? "bg-brand-action" : "bg-foreground-muted/30"
         }`}
       >
         <span

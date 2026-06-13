@@ -446,6 +446,73 @@ export function resultToText(result: NormalizedResult): string {
       }
       break;
     }
+    case "contingency": {
+      const ratio = (label: string, m: typeof result.relativeRisk) => {
+        if (!m) return;
+        lines.push(
+          row(
+            label,
+            n(m.estimate, 4),
+            `95% CI ${n(m.ciLow, 4)} to ${n(m.ciHigh, 4)}`,
+            m.corrected ? "0.5 continuity correction applied" : "",
+          ),
+        );
+      };
+      lines.push(
+        row("Test", "Chi-square test of independence"),
+        row("Table", `${result.rows} x ${result.cols}`),
+        row("Total count (n)", n(result.n, 0)),
+        row("Chi-square", n(result.chiSquare, 4)),
+        row("df", n(result.df, 0)),
+        row("p", formatP(result.pValue)),
+      );
+      if (result.rows === 2 && result.cols === 2) {
+        lines.push(
+          row(
+            "Yates-corrected chi-square",
+            n(result.yatesChiSquare, 4),
+            result.yatesApplied ? "(used as the reported chi-square)" : "",
+          ),
+          row("Yates-corrected p", formatP(result.yatesPValue)),
+          row("Fisher exact p (two-sided)", formatP(result.fisherPValue)),
+        );
+        ratio("Relative risk", result.relativeRisk);
+        ratio("Odds ratio", result.oddsRatio);
+      }
+      lines.push(
+        row("Smallest expected count", n(result.minExpected, 3)),
+      );
+      if (result.minExpected < 5) {
+        lines.push(
+          row(
+            "Caveat",
+            "An expected count is below 5, so the chi-square approximation is "
+            + "less reliable. Prefer Fisher's exact test for a 2x2 table.",
+          ),
+        );
+      }
+      // The observed table, with row and column labels and the row / column / grand
+      // totals so the test inputs are legible.
+      lines.push("", row("Observed", ...result.colLabels, "Row total"));
+      for (let i = 0; i < result.rows; i++) {
+        const rowTotal = result.observed[i].reduce((s, v) => s + v, 0);
+        lines.push(
+          row(
+            result.rowLabels[i],
+            ...result.observed[i].map((v) => n(v, 0)),
+            n(rowTotal, 0),
+          ),
+        );
+      }
+      // The expected table under independence.
+      lines.push("", row("Expected", ...result.colLabels));
+      for (let i = 0; i < result.rows; i++) {
+        lines.push(
+          row(result.rowLabels[i], ...result.expected[i].map((v) => n(v, 3))),
+        );
+      }
+      break;
+    }
     default: {
       // t-test family (parametric and rank tests).
       const statLabel = result.nonparametric

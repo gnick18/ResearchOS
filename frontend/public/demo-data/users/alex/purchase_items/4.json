@@ -11,5 +11,6 @@
   "notes": "Demo solvent for fake-metabolite quantification.",
   "funding_string": "DEMO-Internal-Bridge",
   "vendor": "Sigma-Aldrich",
-  "category": "Reagents"
+  "category": "Reagents",
+  "order_status": "needs_ordering"
 }

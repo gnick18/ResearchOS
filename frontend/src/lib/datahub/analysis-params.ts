@@ -266,6 +266,25 @@ const COX_REFERENCE_FIELD: ParamField = {
 };
 
 /**
+ * Yates continuity correction for the 2x2 chi-square. scipy.stats.chi2_contingency
+ * applies it by default on a 2x2 table, so the default here is On. The control is
+ * meaningful only for a 2x2 layout (the engine reports the correction for that
+ * case); for a larger table the corrected statistic is not defined and the chooser
+ * value is ignored, so showing it does no harm.
+ */
+const CONTINGENCY_YATES_FIELD: ParamField = {
+  key: "yates",
+  label: "Yates correction",
+  control: "seg",
+  options: [
+    { value: "on", label: "On" },
+    { value: "off", label: "Off" },
+  ],
+  default: "on",
+  why: "On a 2x2 table the Yates continuity correction nudges the chi-square down to better match the exact distribution of whole-number counts, which is what most tools do by default. Turn it off to read the uncorrected Pearson statistic, for example to match a paper that reported the uncorrected value.",
+};
+
+/**
  * The schema per analysis type. An empty array means the engine takes no
  * editable options for that analysis (correlation, regression). The order here
  * is the order the controls render in the panel.
@@ -296,6 +315,7 @@ export const ANALYSIS_PARAM_SCHEMA: Record<string, ParamField[]> = {
   multipleRegression: [],
   globalFit: [GLOBAL_FIT_MODEL_FIELD, GLOBAL_FIT_SHARE_FIELD],
   grubbsOutlier: [GRUBBS_ALPHA_FIELD, GRUBBS_MODE_FIELD],
+  contingency: [CONTINGENCY_YATES_FIELD],
 };
 
 /**

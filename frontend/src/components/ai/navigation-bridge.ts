@@ -147,7 +147,18 @@ export function useNavigationBridge(): void {
   useEffect(() => {
     const unregister = registerNavigationHandler((path: string) => {
       const href = withFixtureParam(path, captureRef.current);
-      router.push(typeof href === "string" ? href : path);
+      const target = typeof href === "string" ? href : path;
+      // Idempotency guard. BeakerBot's analysis tools each navigate to the
+      // result they just stored, and several in a row (a whole-plan run) can
+      // resolve to the SAME /datahub doc. Re-pushing the URL we are already on
+      // re-renders a heavy route for nothing, which amplified a Next dev-server
+      // render crash (the same /datahub URL recompiling+rendering on a loop).
+      // Skip the push when the target equals the live location.
+      if (typeof window !== "undefined") {
+        const current = window.location.pathname + window.location.search;
+        if (current === target) return;
+      }
+      router.push(target);
     });
     return unregister;
   }, [router]);

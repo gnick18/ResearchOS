@@ -402,7 +402,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
             >
               <Icon name="alarmClock" className="w-[18px] h-[18px]" />
               {runningTimers > 0 ? (
-                <span className="absolute -top-1 -right-1 min-w-[16px] h-4 px-1 rounded-full bg-sky-500 text-white text-[10px] font-extrabold flex items-center justify-center ring-2 ring-surface-raised">
+                <span className="absolute -top-1 -right-1 min-w-[16px] h-4 px-1 rounded-full bg-rose-500 text-white text-[10px] font-extrabold flex items-center justify-center ring-2 ring-surface-raised">
                   {runningTimers}
                 </span>
               ) : null}

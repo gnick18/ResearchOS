@@ -11,5 +11,6 @@
   "notes": "Demo plasmid — fake catalog entry.",
   "funding_string": "DEMO-NIH-GM999999",
   "vendor": null,
-  "category": "Reagents"
+  "category": "Reagents",
+  "order_status": "received"
 }

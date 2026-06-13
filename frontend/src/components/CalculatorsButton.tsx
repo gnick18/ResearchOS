@@ -778,7 +778,7 @@ function ScientificCalcTab() {
               className={
                 "px-3 py-1.5 transition-colors " +
                 (angleMode === m
-                  ? "bg-sky-600 text-white"
+                  ? "bg-brand-action text-white"
                   : "bg-surface-raised text-foreground-muted hover:bg-surface-sunken")
               }
             >

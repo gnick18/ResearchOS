@@ -50,6 +50,9 @@ import {
   gehanBreslowWilcoxon,
   coxPH,
   type CoxCoefficient,
+  contingencyTest,
+  type ContingencyResult,
+  type RatioMeasure,
   shapiroWilk,
   grubbsTest,
   type GrubbsResult,
@@ -106,6 +109,10 @@ import {
   twoWayObservations,
 } from "@/lib/datahub/grouped-table";
 import { survivalGroups, hasSurvivalData } from "@/lib/datahub/survival-table";
+import {
+  contingencyMatrix,
+  hasContingencyData,
+} from "@/lib/datahub/contingency-table";
 
 /** The analysis types this slice can run. */
 export type AnalysisType =
@@ -129,13 +136,17 @@ export type AnalysisType =
   | "coxRegression"
   | "multipleRegression"
   | "grubbsOutlier"
-  | "rocCurve";
+  | "rocCurve"
+  | "contingency";
 
 /** The analysis types that read a Survival table (time + event + group). */
 export const SURVIVAL_ANALYSIS_TYPES: AnalysisType[] = [
   "kaplanMeier",
   "coxRegression",
 ];
+
+/** The analysis types that read a Contingency table (R x C count matrix). */
+export const CONTINGENCY_ANALYSIS_TYPES: AnalysisType[] = ["contingency"];
 
 /**
  * The analysis types that read an XY table. Most pair the single X with ONE Y;
@@ -799,6 +810,55 @@ export interface NormalizedGrubbsOutlier {
   totalOutliers: number;
 }
 
+/**
+ * A normalized contingency result. The categorical association test on an R x C
+ * count matrix (rows = one factor's categories, columns = the other's). Carries
+ * the observed and expected matrices and their labels, the Pearson chi-square
+ * with its df and p, and the smallest expected count that drives the < 5 caveat.
+ * For a 2x2 table it also carries the Yates continuity-corrected chi-square + p,
+ * Fisher's exact two-sided p, and the relative-risk and odds-ratio effect
+ * measures (each with a 95% CI). For a larger table those 2x2-only fields are
+ * null / NaN and the verdict rests on the chi-square. The cell convention the
+ * measures use is row 1 = exposed, column 1 = event (the matrix is read in the
+ * table's visible order), echoed in `cellConvention` for the readout.
+ */
+export interface NormalizedContingency {
+  kind: "contingency";
+  type: "contingency";
+  /** Row labels (the row-factor categories), in table order. */
+  rowLabels: string[];
+  /** Column labels (the column-factor categories), in table order. */
+  colLabels: string[];
+  /** R and C. */
+  rows: number;
+  cols: number;
+  /** The observed count matrix, row-major. */
+  observed: number[][];
+  /** The expected count matrix under independence, row-major. */
+  expected: number[][];
+  chiSquare: number;
+  df: number;
+  pValue: number;
+  /** Whether the Yates continuity correction was applied (2x2 only). */
+  yatesApplied: boolean;
+  /** Yates-corrected chi-square, 2x2 only (NaN otherwise). */
+  yatesChiSquare: number;
+  /** p for the Yates statistic, 2x2 only (NaN otherwise). */
+  yatesPValue: number;
+  /** Fisher's exact two-sided p, 2x2 only (NaN otherwise). */
+  fisherPValue: number;
+  /** Relative risk + 95% CI, 2x2 only (null otherwise). */
+  relativeRisk: RatioMeasure | null;
+  /** Odds ratio + 95% CI, 2x2 only (null otherwise). */
+  oddsRatio: RatioMeasure | null;
+  /** The smallest expected count across all cells (the < 5 caveat trigger). */
+  minExpected: number;
+  /** Total count n. */
+  n: number;
+  /** Human note of the cell convention the 2x2 measures use. */
+  cellConvention: string;
+}
+
 export type NormalizedResult =
   | NormalizedTTest
   | NormalizedAnova
@@ -815,7 +875,8 @@ export type NormalizedResult =
   | NormalizedTwoWayAnova
   | NormalizedSurvival
   | NormalizedCoxRegression
-  | NormalizedGrubbsOutlier;
+  | NormalizedGrubbsOutlier
+  | NormalizedContingency;
 
 /** A failed run carries the engine (or resolver) reason so the UI can show it. */
 export interface RunFailure {
@@ -895,6 +956,9 @@ export function validAnalysisTypes(content: DataHubDocContent): AnalysisType[] {
   }
   if (content.meta.table_type === "survival") {
     return hasSurvivalData(content) ? [...SURVIVAL_ANALYSIS_TYPES] : [];
+  }
+  if (content.meta.table_type === "contingency") {
+    return hasContingencyData(content) ? [...CONTINGENCY_ANALYSIS_TYPES] : [];
   }
   // A Column table in a summary entry format offers only the summary-compatible
   // tests, gated by the number of entered groups (2+ for the unpaired t, 3+ for
@@ -1627,6 +1691,55 @@ function runCoxAnalysis(content: DataHubDocContent, spec?: AnalysisSpec): RunOut
   };
 }
 
+/**
+ * Run the categorical association analysis on a Contingency table. Resolves the
+ * grid into an R x C count matrix and runs the engine's chi-square test (plus the
+ * 2x2 Yates correction, Fisher's exact p, and the relative-risk / odds-ratio
+ * measures). The Yates correction defaults On (scipy's 2x2 default); turning it
+ * off reports the uncorrected Pearson statistic as the primary chi-square. Either
+ * way the uncorrected and corrected statistics both come back from the engine, so
+ * the param only chooses which one the verdict leads with.
+ */
+function runContingencyAnalysis(
+  content: DataHubDocContent,
+  spec: AnalysisSpec,
+): RunOutcome {
+  const { rowLabels, colLabels, matrix } = contingencyMatrix(content);
+  const r = contingencyTest(matrix);
+  if (!r.ok) return { ok: false, error: r.error };
+  const res = r as ContingencyResult & { ok: true };
+
+  const is2x2 = res.rows === 2 && res.cols === 2;
+  // The Yates param is meaningful only for a 2x2 table; default On matches scipy.
+  const yatesOn = is2x2 && (readParams(spec).yates ?? "on") !== "off";
+
+  return {
+    ok: true,
+    kind: "contingency",
+    type: "contingency",
+    rowLabels,
+    colLabels,
+    rows: res.rows,
+    cols: res.cols,
+    observed: res.observed,
+    expected: res.expected,
+    chiSquare: res.chiSquare,
+    df: res.df,
+    pValue: res.pValue,
+    yatesApplied: yatesOn,
+    yatesChiSquare: res.yatesChiSquare,
+    yatesPValue: res.yatesPValue,
+    fisherPValue: res.fisherPValue,
+    relativeRisk: res.relativeRisk,
+    oddsRatio: res.oddsRatio,
+    minExpected: res.minExpected,
+    n: res.n,
+    cellConvention:
+      "Relative risk and odds ratio read the first row as exposed and the first "
+      + "column as the event (row 1 = exposed, column 1 = event).",
+  };
+}
+
 /** Run a two-way ANOVA on a Grouped table's flattened observations. */
 function runTwoWayAnalysis(
   content: DataHubDocContent,
@@ -1888,6 +2001,10 @@ export function runAnalysis(
 
   if (type === "coxRegression") {
     return runCoxAnalysis(content, spec);
+  }
+
+  if (type === "contingency") {
+    return runContingencyAnalysis(content, spec);
   }
 
   if (type === "multipleRegression") {

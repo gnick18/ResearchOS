@@ -69,7 +69,7 @@ export default function SharingChips({
             s.username === WHOLE_LAB_SENTINEL
               ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-600 dark:text-white"
               : s.level === "edit"
-              ? "bg-blue-50 text-blue-700 dark:bg-blue-600 dark:text-white"
+              ? "bg-blue-50 text-blue-700 dark:bg-brand-action dark:text-white"
               : "bg-slate-50 text-slate-700 dark:bg-slate-600 dark:text-white"
           }`}
         >

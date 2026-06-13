@@ -733,7 +733,7 @@ export default function SearchPage() {
                       <div
                         className={`absolute top-2 right-2 w-5 h-5 rounded border-2 flex items-center justify-center transition-colors ${
                           isSelected
-                            ? "bg-blue-500 border-blue-500 text-white"
+                            ? "bg-brand-action border-brand-action text-white"
                             : "border-border bg-surface-raised"
                         }`}
                       >
