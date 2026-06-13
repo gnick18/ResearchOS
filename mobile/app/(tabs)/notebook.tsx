@@ -1293,8 +1293,8 @@ function ConnectionCard({
       accessibilityHint="Fetches the latest from your laptop"
       style={({ pressed }) => [styles.connCard, { opacity: pressed ? 0.9 : 1 }]}
     >
-      <View style={styles.connBadge}>
-        <Ionicons name="checkmark" size={16} color={palette.white} />
+      <View style={styles.pulse}>
+        <View style={styles.pulseCore} />
       </View>
       <View style={styles.connText}>
         <ThemedText style={[styles.connName, { color: surface.text }]}>
@@ -1523,6 +1523,22 @@ const styles = StyleSheet.create({
     backgroundColor: palette.success,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  // Live pulse (matches the contract statuscard): a success-dim rounded square
+  // holding a green core dot.
+  pulse: {
+    width: 42,
+    height: 42,
+    borderRadius: 13,
+    backgroundColor: palette.successDim,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  pulseCore: {
+    width: 11,
+    height: 11,
+    borderRadius: 999,
+    backgroundColor: palette.success,
   },
   connText: { flex: 1 },
   connName: { fontSize: 14, fontWeight: '600', lineHeight: 20 },
