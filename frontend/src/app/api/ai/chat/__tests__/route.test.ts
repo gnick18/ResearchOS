@@ -12,6 +12,12 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 // Also includes unit tests for the pure vision router helpers hasImageContent
 // and selectModel (vision routing, 2026-06-13).
 
+// Mock the auth module so importing the route does not pull in next-auth, whose
+// env.js does a bare `import "next/server"` that fails to resolve under vitest.
+// Billing is off in these tests, so auth() is never called at runtime; the mock
+// only keeps next-auth out of the import graph.
+vi.mock("@/lib/sharing/auth", () => ({ auth: vi.fn(async () => null) }));
+
 const ORIGINAL_ENV = { ...process.env };
 
 function makeRequest(body: unknown): Request {
