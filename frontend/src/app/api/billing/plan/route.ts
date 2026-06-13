@@ -19,6 +19,11 @@ import { ownerKeyForEmail } from "@/lib/billing/owner";
 import { getPlan, isPaidPlan, stripePriceId } from "@/lib/billing/plans";
 import { ensureBillingSchema, setPlan } from "@/lib/billing/db";
 import { getStripe } from "@/lib/billing/stripe";
+import {
+  priceForMethod,
+  stripeMethodsFor,
+  type PayClass,
+} from "@/lib/billing/processing-fee";
 import { ensureBusinessSchema, getEntity } from "@/lib/business/db";
 
 export const runtime = "nodejs";
@@ -30,14 +35,17 @@ export async function POST(request: Request): Promise<Response> {
   const email = session?.user?.email;
   if (!email) return json(401, { error: "sign in required" });
 
-  let body: { planId?: unknown };
+  let body: { planId?: unknown; payClass?: unknown };
   try {
-    body = (await request.json()) as { planId?: unknown };
+    body = (await request.json()) as { planId?: unknown; payClass?: unknown };
   } catch {
     return json(400, { error: "invalid json" });
   }
   const plan = getPlan(typeof body.planId === "string" ? body.planId : "");
   if (!plan) return json(400, { error: "unknown plan" });
+  // Pay class sets the price: card is the list (the plan's configured price), a
+  // bank debit gets the discount reflecting the lower fee. Defaults to card.
+  const payClass: PayClass = body.payClass === "bank" ? "bank" : "card";
 
   const ownerKey = ownerKeyForEmail(email);
 
@@ -81,9 +89,30 @@ export async function POST(request: Request): Promise<Response> {
       origin = process.env.BILLING_RETURN_ORIGIN ?? "http://localhost:3000";
     }
 
+    // Card pays the plan's configured list price. A bank debit gets the discount,
+    // priced inline at the lower amount, and the Checkout is restricted to bank
+    // debits so the discounted price can only be paid by a bank debit (a genuine
+    // method discount, not a card surcharge). The plan entitlement comes from the
+    // metadata planId, not the price, so the discount never changes the allowance.
+    const lineItems =
+      payClass === "bank"
+        ? [
+            {
+              price_data: {
+                currency: "usd",
+                unit_amount: priceForMethod(plan.priceCents, "bank", false),
+                recurring: { interval: "month" as const },
+                product_data: { name: `${plan.name} (bank transfer)` },
+              },
+              quantity: 1,
+            },
+          ]
+        : [{ price: priceId, quantity: 1 }];
+
     const checkout = await getStripe().checkout.sessions.create({
       mode: "subscription",
-      line_items: [{ price: priceId, quantity: 1 }],
+      payment_method_types: stripeMethodsFor(payClass),
+      line_items: lineItems,
       customer_email: email,
       // Carry owner + plan so the webhook records the right plan on this owner.
       metadata: { ownerKey, planId: plan.id },

@@ -20,6 +20,7 @@ import { useCallback, useEffect, useState } from "react";
 import LivingPopup from "@/components/ui/LivingPopup";
 import { useBillingModal } from "@/lib/billing/billing-modal-store";
 import { humanBytes, usd } from "@/lib/billing/format";
+import { priceForMethod, bankSavingCents } from "@/lib/billing/processing-fee";
 import {
   type BillingStatus,
   type LabStatus,
@@ -192,25 +193,54 @@ function PlanPicker({
 }: {
   status: BillingStatus;
   busy: boolean;
-  onChoose: (planId: string) => void;
+  onChoose: (planId: string, payClass: "card" | "bank") => void;
 }) {
   const plans = status.plans ?? [];
   const current = status.planId ?? "free";
+  // Pay class sets the price: card is the list, paying by bank transfer (ACH)
+  // earns a discount that reflects the lower processing fee. Defaults to card.
+  const [payClass, setPayClass] = useState<"card" | "bank">("card");
   if (plans.length === 0) return null;
   return (
     <Section
       title="Your plan"
       description="One plan covers your storage and your editing activity. Upgrading raises both at once, on one monthly invoice. Most people stay on Free."
     >
+      <div className="mb-2 flex items-center gap-2">
+        <span className="text-meta text-foreground-muted">Pay by</span>
+        {(["card", "bank"] as const).map((c) => (
+          <button
+            key={c}
+            type="button"
+            onClick={() => setPayClass(c)}
+            aria-pressed={payClass === c}
+            className={`rounded-full border px-3 py-1 text-meta font-semibold ${
+              payClass === c
+                ? "border-sky-500 bg-sky-50 text-foreground dark:bg-sky-500/15"
+                : "border-border bg-surface-raised text-foreground-muted hover:bg-surface-sunken"
+            }`}
+          >
+            {c === "card" ? "Card" : "Bank transfer"}
+          </button>
+        ))}
+        {payClass === "bank" && (
+          <span className="text-meta text-emerald-700 dark:text-emerald-300">
+            lower processing fee, so a lower price
+          </span>
+        )}
+      </div>
       <div className="flex flex-wrap gap-2">
         {plans.map((p) => {
           const selected = p.id === current;
+          const priceCents =
+            payClass === "bank" ? priceForMethod(p.priceCents, "bank", false) : p.priceCents;
+          const save = payClass === "bank" ? bankSavingCents(p.priceCents, false) : 0;
           return (
             <button
               key={p.id}
               type="button"
               disabled={busy}
-              onClick={() => onChoose(p.id)}
+              onClick={() => onChoose(p.id, payClass)}
               className={`flex-1 min-w-[8rem] rounded-xl border px-4 py-3 text-left disabled:opacity-50 ${
                 selected
                   ? "border-sky-500 bg-sky-50 dark:bg-sky-500/15"
@@ -227,8 +257,13 @@ function PlanPicker({
                 {formatWrites(p.activityWritesPerMonth)} edits/mo
               </span>
               <span className="mt-1 block text-meta font-semibold text-foreground-muted">
-                {p.priceCents === 0 ? "Free" : `up to ${usd(p.priceCents)}/mo`}
+                {p.priceCents === 0 ? "Free" : `up to ${usd(priceCents)}/mo`}
               </span>
+              {save > 0 && (
+                <span className="block text-meta font-semibold text-emerald-700 dark:text-emerald-300">
+                  save {usd(save)}/mo
+                </span>
+              )}
             </button>
           );
         })}
@@ -607,9 +642,9 @@ export default function BillingPopup() {
   }, [modal.isOpen, load]);
 
   const pickPlan = useCallback(
-    async (planId: string) => {
+    async (planId: string, payClass: "card" | "bank" = "card") => {
       setBusy(true);
-      const res = await choosePlan(planId);
+      const res = await choosePlan(planId, payClass);
       // A paid plan returns a Stripe Checkout url to finish payment.
       if (res.url) {
         window.location.href = res.url;

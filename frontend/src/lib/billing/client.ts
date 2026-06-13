@@ -94,13 +94,19 @@ export interface PlanResult {
 /**
  * Choose a plan. The free plan applies immediately; a paid plan returns a Stripe
  * Checkout url the caller redirects to. Mirrors the bundle "one control" model.
+ *
+ * payClass sets the price: "card" pays the list price, "bank" gets the discount
+ * for paying by bank debit (ACH/SEPA), enforced at Checkout. Defaults to card.
  */
-export async function choosePlan(planId: string): Promise<PlanResult> {
+export async function choosePlan(
+  planId: string,
+  payClass: "card" | "bank" = "card",
+): Promise<PlanResult> {
   try {
     const res = await fetch("/api/billing/plan", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ planId }),
+      body: JSON.stringify({ planId, payClass }),
     });
     const b = (await res.json().catch(() => ({}))) as {
       url?: string;
