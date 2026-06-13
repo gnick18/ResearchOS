@@ -81,13 +81,17 @@ export function LiteratureSearch() {
         ))}
       </div>
 
-      <div className="mt-6 max-w-3xl">
+      <div className="mt-6">
         {submitted ? (
+          // The full Literature Explorer (filter rail + per-year histogram +
+          // sortable list) IS the default view here, not a flat list behind a
+          // "View all". Read-only stars since the hub free-search has no molecule.
           <MoleculeLiterature
             key={submitted}
             query={submitted}
-            maxPapers={14}
-            maxPatents={28}
+            maxPapers={60}
+            maxPatents={60}
+            inlineExplorer
           />
         ) : (
           <p className="text-meta text-foreground-muted">

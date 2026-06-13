@@ -1,0 +1,621 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>PI Mode, a lab-first experience, decisions</title>
+<style>
+  :root{
+    --bg:#f6f7f9; --panel:#ffffff; --raised:#ffffff; --sunken:#eef1f5;
+    --ink:#111827; --muted:#6b7280; --faint:#9ca3af; --border:#e5e7eb;
+    --sky:#1AA0E6; --action:#1283C9; --amber:#F59E0B; --coral:#FF6F61; --green:#16a34a; --red:#dc2626; --violet:#5B47D6;
+    --chipbg:#eef2f7;
+  }
+  .dark{
+    --bg:#0a0e1a; --panel:#1c2638; --raised:#1c2638; --sunken:#141b2b;
+    --ink:#e7ecf3; --muted:#9aa6b8; --faint:#6b7890; --border:#2a3650;
+    --chipbg:#28344c;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.5 -apple-system,Inter,system-ui,sans-serif}
+  header{position:sticky;top:0;z-index:20;background:var(--panel);border-bottom:1px solid var(--border);padding:13px 22px;display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+  h1{font-size:17px;margin:0;font-weight:800;letter-spacing:-.2px}
+  .sub{color:var(--muted);font-size:12px;margin-top:2px}
+  .spacer{margin-left:auto}
+  button.tool{background:var(--sunken);color:var(--ink);border:1px solid var(--border);border-radius:8px;padding:7px 12px;font-size:12px;font-weight:600;cursor:pointer}
+  button.tool:hover{border-color:var(--action)}
+  .estat{font-size:12px;color:var(--muted)}
+
+  /* shell layout */
+  .shell{display:flex;max-width:1280px;margin:0 auto;align-items:flex-start}
+  nav.rail{position:sticky;top:55px;width:212px;flex:none;padding:20px 12px 60px;align-self:flex-start}
+  nav.rail .rgroup{font-size:10.5px;text-transform:uppercase;letter-spacing:.07em;color:var(--faint);font-weight:700;margin:14px 10px 6px}
+  nav.rail a{display:flex;align-items:center;gap:9px;padding:7px 11px;border-radius:9px;color:var(--muted);font-size:13px;font-weight:600;cursor:pointer;text-decoration:none}
+  nav.rail a:hover{background:var(--sunken);color:var(--ink)}
+  nav.rail a.on{background:var(--chipbg);color:var(--ink)}
+  nav.rail a .num{margin-left:auto;font-size:10px;font-weight:700;color:#fff;background:var(--action);border-radius:999px;padding:1px 7px;min-width:18px;text-align:center}
+  nav.rail a.done .num{background:var(--green)}
+  main{flex:1;min-width:0;padding:24px 22px 110px;max-width:1040px}
+
+  .surface{display:none}
+  .surface.active{display:block}
+  h2.surftitle{font-size:20px;margin:0 0 4px;font-weight:800;letter-spacing:-.3px}
+  .lead{color:var(--muted);font-size:13px;max-width:780px;margin:2px 0 18px}
+  .rationale{background:var(--sunken);border:1px solid var(--border);border-left:3px solid var(--action);border-radius:10px;padding:11px 14px;font-size:12.5px;color:var(--muted);margin:0 0 18px}
+  .rationale b{color:var(--ink)}
+
+  /* before/after screens */
+  .ba{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:22px}
+  @media (max-width:880px){.ba{grid-template-columns:1fr}}
+  .screen{background:var(--panel);border:1px solid var(--border);border-radius:14px;overflow:hidden;display:flex;flex-direction:column}
+  .scaph{padding:9px 14px;border-bottom:1px solid var(--border);font-weight:700;font-size:12px;display:flex;align-items:center;gap:8px;background:var(--sunken)}
+  .scaph .tag{margin-left:auto;font-size:10px;font-weight:700;border-radius:999px;padding:2px 9px}
+  .tag.before{background:var(--chipbg);color:var(--muted)}
+  .tag.after{background:var(--sky);color:#fff}
+  .scbody{padding:13px;display:flex;flex-direction:column;gap:9px}
+
+  /* generic UI sketch atoms */
+  .cardrow{border:1px solid var(--border);border-radius:10px;padding:9px 11px;background:var(--raised)}
+  .ttl{font-weight:700;font-size:12.5px}
+  .meta{color:var(--faint);font-size:11px;margin-top:2px}
+  .pi-uniform{border:1px solid var(--border);border-radius:10px;background:var(--raised)}
+  .pi-uniform .ph{padding:8px 11px;border-bottom:1px solid var(--border);font-weight:700;font-size:12px;background:var(--sunken);border-radius:10px 10px 0 0}
+  .pi-uniform .pb{padding:9px 11px;color:var(--muted);font-size:11.5px}
+  .dim{color:var(--faint);font-size:11px}
+
+  /* nav lineup chips */
+  .navset{display:flex;flex-wrap:wrap;gap:6px}
+  .navchip{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--border);border-radius:8px;padding:5px 10px;font-size:11.5px;font-weight:600;background:var(--raised)}
+  .navchip.on{background:var(--chipbg);border-color:var(--action);color:var(--ink)}
+  .navchip.muteit{color:var(--faint);opacity:.7}
+  .navchip .sq{width:13px;height:13px;display:grid;place-items:center;color:var(--muted)}
+  .moretag{font-size:10px;color:var(--faint);font-weight:700;text-transform:uppercase;letter-spacing:.05em;margin:8px 0 2px}
+  .mywork{display:inline-flex;align-items:center;gap:7px;border:1px solid var(--action);border-radius:999px;padding:5px 12px;font-size:11.5px;font-weight:700;background:rgba(18,131,201,.08);color:var(--action)}
+  .seg2{display:inline-flex;border:1px solid var(--border);border-radius:999px;overflow:hidden;font-size:11px;font-weight:700}
+  .seg2 span{padding:5px 12px;background:var(--raised);color:var(--muted)}
+  .seg2 span.on{background:var(--action);color:#fff}
+
+  /* needs-you hero */
+  .hero{border:1px solid var(--border);border-radius:12px;overflow:hidden;background:var(--raised)}
+  .hero .hh{padding:8px 12px;font-weight:800;font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--amber);background:rgba(245,158,11,.10);border-bottom:1px solid var(--border);display:flex;align-items:center;gap:7px}
+  .hgrid{display:grid;grid-template-columns:1fr 1fr;gap:8px;padding:11px}
+  .htile{border:1px solid var(--border);border-radius:9px;padding:9px 10px;background:var(--panel);display:flex;flex-direction:column;gap:2px}
+  .htile .big{font-size:20px;font-weight:800;line-height:1}
+  .htile .lbl{font-size:11px;color:var(--muted);font-weight:600}
+  .htile.amber .big{color:var(--amber)}.htile.red .big{color:var(--red)}.htile.sky .big{color:var(--sky)}.htile.violet .big{color:var(--violet)}
+
+  .strip{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+  .stat{border:1px solid var(--border);border-radius:9px;padding:8px 9px;background:var(--raised);text-align:center}
+  .stat .n{font-size:16px;font-weight:800}.stat .k{font-size:10px;color:var(--faint);font-weight:600;margin-top:1px}
+
+  .feedrow{display:flex;gap:9px;align-items:flex-start;padding:7px 0;border-bottom:1px solid var(--border)}
+  .feedrow:last-child{border-bottom:none}
+  .av{width:24px;height:24px;border-radius:999px;flex:none;display:grid;place-items:center;font-size:10px;font-weight:800;color:#fff}
+  .feedrow .ft{font-size:12px}.feedrow .fm{font-size:10.5px;color:var(--faint)}
+
+  .person{display:flex;align-items:center;gap:9px;padding:6px 0;border-bottom:1px solid var(--border)}
+  .person:last-child{border-bottom:none}
+  .person .pn{font-size:12px;font-weight:600}.person .pr{font-size:10.5px;color:var(--faint)}
+  .bar{height:6px;border-radius:999px;background:var(--sunken);overflow:hidden;flex:1;max-width:90px;margin-left:auto}
+  .bar i{display:block;height:100%;background:var(--action)}
+  .badge{font-size:9.5px;font-weight:700;border-radius:999px;padding:2px 7px}
+  .b-ok{background:rgba(22,163,74,.14);color:var(--green)}
+  .b-warn{background:rgba(245,158,11,.16);color:#b45309}
+  .dark .b-warn{color:#fbbf24}
+  .b-miss{background:rgba(220,38,38,.13);color:var(--red)}
+
+  /* tabs */
+  .tabs{display:flex;gap:5px;flex-wrap:wrap;border-bottom:1px solid var(--border);padding-bottom:7px}
+  .tab{padding:4px 10px;border-radius:8px;font-size:11.5px;font-weight:700;color:var(--muted)}
+  .tab.on{background:var(--chipbg);color:var(--ink)}
+  .tab.mut{color:var(--faint);opacity:.7}
+
+  /* approvals queue */
+  .qrow{display:flex;align-items:center;gap:9px;border:1px solid var(--border);border-radius:9px;padding:8px 10px;background:var(--raised)}
+  .qico{width:24px;height:24px;border-radius:7px;display:grid;place-items:center;color:#fff;flex:none}
+  .qico.buy{background:var(--amber)}.qico.sup{background:var(--sky)}.qico.flag{background:var(--coral)}
+  .qact{margin-left:auto;display:flex;gap:5px}
+  .mini{font-size:10px;font-weight:700;border-radius:7px;padding:4px 9px;border:1px solid var(--border);background:var(--panel);color:var(--muted)}
+  .mini.go{background:var(--green);color:#fff;border-color:var(--green)}
+  .scatter{display:flex;gap:7px;flex-wrap:wrap}
+  .scatter .route{border:1px dashed var(--border);border-radius:8px;padding:6px 9px;font-size:11px;color:var(--muted);background:var(--sunken)}
+
+  /* funding */
+  .grant{border:1px solid var(--border);border-radius:10px;padding:10px 11px;background:var(--raised)}
+  .grant .gt{font-weight:700;font-size:12.5px}.grant .gs{font-size:10.5px;color:var(--faint);margin-top:1px}
+  .gbar{height:8px;border-radius:999px;background:var(--sunken);overflow:hidden;margin-top:7px}
+  .gbar i{display:block;height:100%}
+  .gnum{display:flex;justify-content:space-between;font-size:10.5px;color:var(--muted);margin-top:4px}
+
+  /* concise after-direction cards */
+  .dir{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:14px;margin:6px 0 24px}
+  .dircard{background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:13px 15px}
+  .dircard h3{margin:0 0 3px;font-size:13.5px;font-weight:800}
+  .dircard .ds{font-size:11px;color:var(--faint);font-weight:700;text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px}
+  .dircard p{margin:0;font-size:12px;color:var(--muted)}
+
+  /* decision blocks */
+  .dwrap{margin-top:8px}
+  .dhead{font-size:13px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin:26px 0 6px;font-weight:700}
+  .card{background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:13px 15px;margin-bottom:11px}
+  .card .top{display:flex;align-items:center;gap:9px;margin-bottom:5px}
+  .did{font-size:10.5px;color:var(--faint);font-weight:700}
+  .ctitle{font-weight:700;font-size:13.5px;letter-spacing:-.1px}
+  .rec{margin-left:auto;font-size:10px;font-weight:800;color:#fff;background:var(--green);border-radius:999px;padding:2px 8px}
+  .why{font-size:12px;color:var(--muted);margin:3px 0 4px}
+  .why b{color:var(--ink)}
+  .decide{display:flex;align-items:center;gap:9px;margin-top:9px;flex-wrap:wrap}
+  .seg{display:inline-flex;border:1px solid var(--border);border-radius:9px;overflow:hidden}
+  .seg button{background:var(--panel);color:var(--muted);border:none;padding:6px 12px;font-size:11.5px;font-weight:700;cursor:pointer}
+  .seg button+button{border-left:1px solid var(--border)}
+  .seg button.on[data-v="approve"]{background:var(--green);color:#fff}
+  .seg button.on[data-v="modify"]{background:var(--amber);color:#1a1205}
+  .seg button.on[data-v="reject"]{background:var(--red);color:#fff}
+  .decide input{flex:1;min-width:190px;background:var(--sunken);border:1px solid var(--border);border-radius:8px;padding:6px 10px;color:var(--ink);font-size:12px}
+  .qopen{font-size:11px;color:var(--action);font-weight:700;margin:14px 0 4px}
+  .foot{color:var(--faint);font-size:11px;text-align:center;margin-top:36px}
+  code{background:var(--chipbg);border-radius:5px;padding:1px 5px;font-size:12px}
+  svg.ic{width:14px;height:14px;display:block}
+</style>
+</head>
+<body>
+<header>
+  <div>
+    <h1>PI Mode, a lab-first experience across every surface</h1>
+    <div class="sub">Pick a surface on the left, review each before to after change, approve or mark up. Decisions persist locally. Export when done and paste back into chat.</div>
+  </div>
+  <div class="spacer"></div>
+  <span class="estat" id="estat">No decisions yet</span>
+  <button class="tool" id="themeBtn">Toggle dark</button>
+  <button class="tool" id="exportBtn">Export decisions</button>
+</header>
+
+<div class="shell">
+  <nav class="rail" id="rail"></nav>
+  <main id="main"></main>
+</div>
+
+<script>
+// ───────────────────────────────────────────────────────────────────────────
+// Small inline icon set (no emoji). Returns an SVG string.
+// ───────────────────────────────────────────────────────────────────────────
+function ic(name){
+  const s='stroke="currentColor" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"';
+  const M={
+    home:`<path d="M3 11l9-8 9 8"/><path d="M5 10v10h14V10"/>`,
+    people:`<circle cx="9" cy="8" r="3"/><path d="M2 21v-1a5 5 0 0 1 10 0v1"/><path d="M16 8a3 3 0 1 0-1-5.8"/><path d="M22 21v-1a5 5 0 0 0-4-4.9"/>`,
+    work:`<path d="M9 3h6"/><path d="M10 3v6.5L4.5 18a2 2 0 0 0 1.7 3h11.6a2 2 0 0 0 1.7-3L14 9.5V3"/><path d="M7 14h10"/>`,
+    check:`<path d="M9 12l2 2 4-4"/><circle cx="12" cy="12" r="9"/>`,
+    activity:`<path d="M22 12h-4l-3 9L9 3l-3 9H2"/>`,
+    fund:`<circle cx="12" cy="12" r="9"/><path d="M12 7v10M9.5 9.5a2.5 2 0 0 1 5 0c0 2-5 2-5 4a2.5 2 0 0 0 5 0"/>`,
+    flask:`<path d="M9 3h6"/><path d="M10 3v6.5L4.5 18a2 2 0 0 0 1.7 3h11.6a2 2 0 0 0 1.7-3L14 9.5V3"/>`,
+    cal:`<rect x="3" y="4" width="18" height="17" rx="2"/><path d="M3 9h18M8 2v4M16 2v4"/>`,
+    gantt:`<path d="M4 6h10M4 12h7M4 18h13"/>`,
+    box:`<path d="M21 8l-9-5-9 5 9 5 9-5z"/><path d="M3 8v8l9 5 9-5V8"/>`,
+    note:`<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/>`,
+    shield:`<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>`,
+    flag:`<path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><path d="M4 22v-7"/>`,
+    at:`<circle cx="12" cy="12" r="4"/><path d="M16 8v5a3 3 0 0 0 6 0v-1a10 10 0 1 0-3.92 7.94"/>`,
+    clock:`<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>`,
+    arrow:`<path d="M5 12h14"/><path d="M12 5l7 7-7 7"/>`,
+    grid:`<rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/>`,
+    link:`<path d="M10 13a5 5 0 0 0 7 0l3-3a5 5 0 0 0-7-7l-1 1"/><path d="M14 11a5 5 0 0 0-7 0l-3 3a5 5 0 0 0 7 7l1-1"/>`
+  };
+  return `<svg class="ic" viewBox="0 0 24 24" ${s} aria-hidden="true">${M[name]||''}</svg>`;
+}
+function av(initials,color){return `<span class="av" style="background:${color}">${initials}</span>`;}
+
+// ───────────────────────────────────────────────────────────────────────────
+// Surfaces. Each has: id, label, navIcon, decisions[], and a render() of the
+// before/after sketch + rationale.
+// FakeYeast lab: Mira PI, Alex & Nia postdocs, Morgan & Sam grads,
+// Remy/Theo/Ivy undergrads.
+// ───────────────────────────────────────────────────────────────────────────
+const C={mira:'#1283C9',alex:'#0ea5a3',nia:'#5B47D6',morgan:'#F59E0B',sam:'#FF6F61',remy:'#16a34a',theo:'#8b5cf6',ivy:'#ec4899'};
+
+const SURFACES=[
+{
+  id:"nav", label:"Global nav", icon:"grid",
+  lead:"The researcher tab list today versus a PI-first lineup, with a persistent My work toggle and the researcher-only tabs dropping to More.",
+  rationale:"<b>Why:</b> a PI account inherits the bench-researcher nav and never uses half of it. PI Mode reorders the primary tabs to the lab-oversight surfaces a PI actually lives in, and keeps the personal workspace one click away via My work for the PIs who still bench.",
+  render:()=>`
+    <div class="ba">
+      <div class="screen">
+        <div class="scaph">Today, the researcher tab list <span class="tag before">Before</span></div>
+        <div class="scbody">
+          <div class="dim">Same lineup for everyone, the only PI adaptation is Home relabeled to Lab Overview.</div>
+          <div class="navset">
+            ${['Lab Overview','Workbench','GANTT','Methods','Sequences','Chemistry','Data Hub','Inventory','Purchases','Calendar','Links'].map((t,i)=>`<span class="navchip ${i===0?'on':''}"><span class="sq">${ic(i===0?'home':'work')}</span>${t}</span>`).join('')}
+          </div>
+          <div class="dim" style="margin-top:6px">Approvals, roster, lab browse, audit, funding are not in the nav. They are reached by stray link-outs from Lab Overview, or by typing the route.</div>
+        </div>
+      </div>
+      <div class="screen">
+        <div class="scaph">PI Mode, the lab-first lineup <span class="tag after">After</span></div>
+        <div class="scbody">
+          <div class="navset">
+            <span class="navchip on"><span class="sq">${ic('home')}</span>Lab Overview</span>
+            <span class="navchip"><span class="sq">${ic('people')}</span>People</span>
+            <span class="navchip"><span class="sq">${ic('work')}</span>Lab Work</span>
+            <span class="navchip"><span class="sq">${ic('check')}</span>Approvals <b style="color:var(--amber)">3</b></span>
+            <span class="navchip"><span class="sq">${ic('activity')}</span>Activity</span>
+            <span class="navchip"><span class="sq">${ic('fund')}</span>Funding</span>
+          </div>
+          <div class="moretag">More</div>
+          <div class="navset">
+            ${['Methods','Calendar','GANTT','Inventory','Data Hub','Sequences','Chemistry','Links','Compliance'].map(t=>`<span class="navchip muteit"><span class="sq">${ic('box')}</span>${t}</span>`).join('')}
+          </div>
+          <div style="margin-top:11px;display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+            <span class="mywork">${ic('work')} My work</span>
+            <span class="dim">Switches to the personal researcher tabs. The mode is remembered.</span>
+          </div>
+        </div>
+      </div>
+    </div>`,
+  decisions:[
+    {id:"NAV-1",title:"PI-first primary lineup and order",rec:true,
+     why:"The six primary tabs become Lab Overview, People, Lab Work, Approvals, Activity, Funding, in that order. This is the locked nav lineup from the IA. Researcher-only tabs drop to More."},
+    {id:"NAV-2",title:"My work toggle is a persistent header chip",rec:true,
+     why:"A single labeled chip in the header (not buried in More, not an account-menu switch) flips a PI to the personal researcher tab set and back. The chosen mode is remembered across sessions. Open question O4 asks if header chip is the right home for it."},
+    {id:"NAV-3",title:"Researcher-only tabs move to a More overflow",rec:true,
+     why:"Sequences, Chemistry, Data Hub, GANTT, Inventory, Links, Compliance stay reachable under More rather than crowding the PI primary lineup. Nothing is removed."}
+  ]
+},
+{
+  id:"overview", label:"Lab Overview", icon:"home",
+  lead:"The current uniform card stack versus a command center that leads with what needs the PI.",
+  rationale:"<b>Why:</b> today the landing is a vertical run of same-weight cards (action bar, link-outs, PI tools, Announcements, an embedded roster, then feeds). Nothing is prioritized, and the roster is buried mid-page. The command center promotes a Needs-you hero, a compact stat strip, then the activity feed beside a people snapshot, so a PI sees the actionable items first.",
+  render:()=>`
+    <div class="ba">
+      <div class="screen">
+        <div class="scaph">Today, a uniform card stack <span class="tag before">Before</span></div>
+        <div class="scbody">
+          <div class="pi-uniform"><div class="ph">What needs you</div><div class="pb">3 approvals, 1 flagged, 2 mentions, an amber action bar</div></div>
+          <div class="pi-uniform"><div class="ph">Link-outs</div><div class="pb">Browse lab experiments, Browse lab notes</div></div>
+          <div class="pi-uniform"><div class="ph">PI tools</div><div class="pb">Lab roster, Audit trail, Pending approvals, Flag queue</div></div>
+          <div class="pi-uniform"><div class="ph">Announcements</div><div class="pb">Composer plus recent posts</div></div>
+          <div class="pi-uniform"><div class="ph">Lab roster</div><div class="pb">Embedded full roster, the whole team, mid-page</div></div>
+          <div class="pi-uniform"><div class="ph">Lab activity, Today, Workload</div><div class="pb">Feed plus right rail, at the very bottom</div></div>
+          <div class="dim">Every block is the same weight. The reader scrolls to find what matters.</div>
+        </div>
+      </div>
+      <div class="screen">
+        <div class="scaph">PI Mode, the command center <span class="tag after">After</span></div>
+        <div class="scbody">
+          <div class="hero">
+            <div class="hh">${ic('shield')} Needs you</div>
+            <div class="hgrid">
+              <div class="htile amber"><span class="big">3</span><span class="lbl">approvals pending</span></div>
+              <div class="htile red"><span class="big">1</span><span class="lbl">flagged record</span></div>
+              <div class="htile sky"><span class="big">2</span><span class="lbl">at-mentions</span></div>
+              <div class="htile violet"><span class="big">2</span><span class="lbl">blocked or overdue</span></div>
+            </div>
+          </div>
+          <div class="strip">
+            <div class="stat"><div class="n">8</div><div class="k">members</div></div>
+            <div class="stat"><div class="n">14</div><div class="k">in flight</div></div>
+            <div class="stat"><div class="n">5</div><div class="k">notes this wk</div></div>
+            <div class="stat"><div class="n">2</div><div class="k">grants</div></div>
+          </div>
+          <div class="cardrow" style="display:grid;grid-template-columns:1.4fr 1fr;gap:12px">
+            <div>
+              <div class="dim" style="font-weight:700;text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px">Lab activity</div>
+              <div class="feedrow">${av('AR',C.alex)}<div><div class="ft">Alex logged qPCR run 7</div><div class="fm">2h ago</div></div></div>
+              <div class="feedrow">${av('MK',C.morgan)}<div><div class="ft">Morgan flagged a contaminated plate</div><div class="fm">5h ago</div></div></div>
+              <div class="feedrow">${av('NB',C.nia)}<div><div class="ft">Nia shared note RNA-seq prep b7</div><div class="fm">yesterday</div></div></div>
+            </div>
+            <div>
+              <div class="dim" style="font-weight:700;text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px">People</div>
+              <div class="person"><div><div class="pn">Alex Rivera</div><div class="pr">postdoc</div></div><span class="bar"><i style="width:80%"></i></span></div>
+              <div class="person"><div><div class="pn">Morgan Kade</div><div class="pr">grad</div></div><span class="bar"><i style="width:55%"></i></span></div>
+              <div class="person"><div><div class="pn">Remy Osei</div><div class="pr">undergrad</div></div><span class="bar"><i style="width:30%"></i></span></div>
+            </div>
+          </div>
+          <div class="dim">Announcements compose moves to a slim composer in the activity column, no longer a full card.</div>
+        </div>
+      </div>
+    </div>`,
+  decisions:[
+    {id:"OV-1",title:"Lead with a Needs-you hero",rec:true,
+     why:"A four-tile hero at the very top (pending approvals, flagged records, at-mentions, blocked or overdue) replaces the thin amber action bar. Grant's call to lead with what needs the PI."},
+    {id:"OV-2",title:"Compact lab stat strip under the hero",rec:true,
+     why:"Members, experiments in flight, notes this week, active grants, as a one-row strip. A quick read on lab health before the feeds."},
+    {id:"OV-3",title:"Activity feed beside a people snapshot",rec:true,
+     why:"The lab activity feed is the centerpiece, with a compact people snapshot (workload bars) beside it. The full roster moves to the People surface rather than embedding the whole roster mid-page."},
+    {id:"OV-4",title:"Retire the PI tools card and the link-outs row",rec:true,
+     why:"Lab roster, audit, approvals, flag queue, browse lab experiments, browse lab notes all become real nav tabs (People, Approvals, Lab Work, Activity), so the discovery card and the link-out buttons are no longer needed on the landing."},
+    {id:"OV-5",title:"Announcements shrink to an inline composer",rec:true,
+     why:"The full Announcements card becomes a slim composer at the top of the activity column. It stays one click to post but stops taking a full-height card on the most valuable surface."}
+  ]
+},
+{
+  id:"labwork", label:"Lab Work", icon:"work",
+  lead:"The personal Workbench tabs today versus People plus Lab experiments, Lab notes, and Mentoring, with the personal tabs moved under My work.",
+  rationale:"<b>Why:</b> a PI's Workbench defaults to personal Projects, Experiments, Lists, Notes the PI rarely fills, while the lab-wide browse (/lab-experiments, /lab-notes) and mentoring live on separate routes. Lab Work makes the lab-wide lens the default tab set and folds the existing /lab-experiments and /lab-notes pages in.",
+  render:()=>`
+    <div class="ba">
+      <div class="screen">
+        <div class="scaph">Today, the personal Workbench <span class="tag before">Before</span></div>
+        <div class="scbody">
+          <div class="tabs">
+            <span class="tab on">Projects</span><span class="tab">Experiments</span><span class="tab">Notes</span><span class="tab">Lists</span><span class="tab">Check-ins</span>
+          </div>
+          <div class="dim">Defaults to the PI's own Projects, usually empty or a stray test project.</div>
+          <div class="cardrow"><div class="ttl">My yeast pilot</div><div class="meta">1 project, owned by Mira</div></div>
+          <div class="dim" style="margin-top:6px">Lab-wide browse lives elsewhere, at /lab-experiments and /lab-notes, reached by link-outs from Lab Overview.</div>
+          <div class="scatter">
+            <span class="route">/lab-experiments</span>
+            <span class="route">/lab-notes</span>
+            <span class="route">/workbench Check-ins</span>
+          </div>
+        </div>
+      </div>
+      <div class="screen">
+        <div class="scaph">PI Mode, Lab Work <span class="tag after">After</span></div>
+        <div class="scbody">
+          <div class="tabs">
+            <span class="tab on">People</span><span class="tab">Lab experiments</span><span class="tab">Lab notes</span><span class="tab">Mentoring</span>
+          </div>
+          <div class="dim">Defaults to the lab-wide lens, every member's work in one place, read-only with edit-as-lab-head.</div>
+          <div class="cardrow" style="display:flex;align-items:center;gap:9px">${av('AR',C.alex)}<div><div class="ttl">Alex Rivera, qPCR run 7</div><div class="meta">experiment, updated 2h ago</div></div></div>
+          <div class="cardrow" style="display:flex;align-items:center;gap:9px">${av('MK',C.morgan)}<div><div class="ttl">Morgan Kade, plate map 12</div><div class="meta">experiment, in flight</div></div></div>
+          <div class="cardrow" style="display:flex;align-items:center;gap:9px">${av('NB',C.nia)}<div><div class="ttl">Nia Bello, RNA-seq prep b7</div><div class="meta">note, shared yesterday</div></div></div>
+          <div style="margin-top:6px;display:flex;align-items:center;gap:9px;flex-wrap:wrap">
+            <span class="mywork">${ic('work')} My work</span>
+            <span class="dim">The personal Projects, Experiments, Lists, Notes tabs live here.</span>
+          </div>
+        </div>
+      </div>
+    </div>`,
+  decisions:[
+    {id:"LW-1",title:"Rename Workbench to Lab Work for a PI",rec:true,
+     why:"For a PI the tab is labeled Lab Work and defaults to the lab-wide lens. Open question O1 asks whether Lab Work fully replaces the Workbench label or Workbench is kept and re-tabbed. The recommendation is to rename for PI Mode, with the personal Workbench reachable via My work."},
+    {id:"LW-2",title:"People, Lab experiments, Lab notes, Mentoring as the tab set",rec:true,
+     why:"These four are the default tabs. Lab experiments and Lab notes absorb the existing /lab-experiments and /lab-notes pages. Mentoring is the existing Check-ins one-on-one surface, role-labeled."},
+    {id:"LW-3",title:"Personal Projects, Experiments, Lists, Notes move under My work",rec:true,
+     why:"A PI who benches finds their own personal tabs after flipping My work, not mixed into the lab-wide browse. Keeps the lab-lens default clean."}
+  ]
+},
+{
+  id:"approvals", label:"Approvals", icon:"check",
+  lead:"Purchase requests, supplies orders, and the flag queue, scattered across three routes today, unified into one PI queue.",
+  rationale:"<b>Why:</b> a PI's approvals live in three places today, purchase requests on /purchases, supplies orders on /supplies, and flagged records on /lab-inbox. PI Mode unifies them into one chronological queue with inline approve and decline, so a PI clears everything in one pass. Open question O2 asks whether the flag queue should join this inbox or stay split.",
+  render:()=>`
+    <div class="ba">
+      <div class="screen">
+        <div class="scaph">Today, scattered across routes <span class="tag before">Before</span></div>
+        <div class="scbody">
+          <div class="dim">No single approvals view. Each kind lives on its own page.</div>
+          <div class="scatter">
+            <span class="route">/purchases, purchase requests</span>
+            <span class="route">/supplies, reorder requests</span>
+            <span class="route">/lab-inbox, flag queue</span>
+          </div>
+          <div class="cardrow"><div class="ttl">Purchases page</div><div class="meta">A personal purchase list with a pending-approvals section folded in</div></div>
+          <div class="cardrow"><div class="ttl">Supplies page</div><div class="meta">Reorder requests sit in the supplies hub</div></div>
+          <div class="cardrow"><div class="ttl">Lab Inbox</div><div class="meta">Records the PI flagged for follow-up</div></div>
+        </div>
+      </div>
+      <div class="screen">
+        <div class="scaph">PI Mode, one approvals queue <span class="tag after">After</span></div>
+        <div class="scbody">
+          <div class="tabs"><span class="tab on">All</span><span class="tab">Purchases</span><span class="tab">Supplies</span><span class="tab">Flags</span></div>
+          <div class="qrow"><span class="qico buy">${ic('fund')}</span><div><div class="ttl">Antibody, anti-FLAG, 100 ug</div><div class="meta">Morgan Kade, 412 dollars, R01 grant</div></div><div class="qact"><span class="mini">Decline</span><span class="mini go">Approve</span></div></div>
+          <div class="qrow"><span class="qico buy">${ic('fund')}</span><div><div class="ttl">Sequencing run, 2 lanes</div><div class="meta">Alex Rivera, 1840 dollars, NSF grant</div></div><div class="qact"><span class="mini">Decline</span><span class="mini go">Approve</span></div></div>
+          <div class="qrow"><span class="qico sup">${ic('box')}</span><div><div class="ttl">Reorder, sterile tips, 10 racks</div><div class="meta">Sam Ortiz, supplies</div></div><div class="qact"><span class="mini">Decline</span><span class="mini go">Approve</span></div></div>
+          <div class="qrow"><span class="qico flag">${ic('flag')}</span><div><div class="ttl">Contaminated plate, run 6</div><div class="meta">Flagged by Mira, follow up with Morgan</div></div><div class="qact"><span class="mini">Resolve</span></div></div>
+          <div class="dim">One chronological queue, filter by kind. Approve and decline inline.</div>
+        </div>
+      </div>
+    </div>`,
+  decisions:[
+    {id:"AP-1",title:"One unified Approvals queue",rec:true,
+     why:"Purchase requests, supplies reorder requests, and the flag queue collapse into a single Approvals surface with kind filters. The underlying /purchases, /supplies, /lab-inbox routes stay alive."},
+    {id:"AP-2",title:"Inline approve and decline on each row",rec:true,
+     why:"A PI clears a request without leaving the queue. Each row carries the requester, amount, and the grant it draws against for purchases."},
+    {id:"AP-3",title:"Flag queue joins the same inbox",rec:false,
+     why:"Folding flagged records into the same Approvals surface as a Flags tab, rather than keeping them on /lab-inbox. This is open question O2. Marked rec-off so you can choose split versus unified deliberately."}
+  ]
+},
+{
+  id:"people", label:"People", icon:"people",
+  lead:"The roster buried mid-page on Lab Overview today versus a first-class People surface, roster plus workload, mentoring, and IDP-on-file status.",
+  rationale:"<b>Why:</b> the roster exists (LabRoster) but it is embedded as a section partway down Lab Overview, and member workload and mentoring live elsewhere. People makes the team a real destination, the roster with per-member workload, a link into each member's Check-ins, and an at-a-glance IDP-on-file status so a PI can see compliance gaps.",
+  render:()=>`
+    <div class="ba">
+      <div class="screen">
+        <div class="scaph">Today, buried mid-page <span class="tag before">Before</span></div>
+        <div class="scbody">
+          <div class="pi-uniform"><div class="ph">Lab Overview</div><div class="pb dim">scroll past What needs you, link-outs, PI tools, Announcements...</div></div>
+          <div class="pi-uniform"><div class="ph">Lab roster, embedded section</div><div class="pb">Active and archived members, archive or restore</div></div>
+          <div class="dim">Workload sits in a separate right-rail widget. Mentoring is a Workbench tab. IDP status is not surfaced anywhere.</div>
+          <div class="scatter">
+            <span class="route">Lab Overview, roster section</span>
+            <span class="route">Member workload widget</span>
+            <span class="route">/workbench Check-ins</span>
+          </div>
+        </div>
+      </div>
+      <div class="screen">
+        <div class="scaph">PI Mode, a People surface <span class="tag after">After</span></div>
+        <div class="scbody">
+          <div class="person" style="border-bottom:1px solid var(--border);padding-bottom:8px">${av('AR',C.alex)}<div><div class="pn">Alex Rivera</div><div class="pr">postdoc, 14 tasks</div></div><span class="bar"><i style="width:80%"></i></span><span class="badge b-ok">IDP on file</span></div>
+          <div class="person">${av('NB',C.nia)}<div><div class="pn">Nia Bello</div><div class="pr">postdoc, 9 tasks</div></div><span class="bar"><i style="width:55%"></i></span><span class="badge b-ok">IDP on file</span></div>
+          <div class="person">${av('MK',C.morgan)}<div><div class="pn">Morgan Kade</div><div class="pr">grad, 11 tasks</div></div><span class="bar"><i style="width:62%"></i></span><span class="badge b-warn">IDP due</span></div>
+          <div class="person">${av('SO',C.sam)}<div><div class="pn">Sam Ortiz</div><div class="pr">grad, 7 tasks</div></div><span class="bar"><i style="width:40%"></i></span><span class="badge b-miss">no IDP</span></div>
+          <div class="person">${av('RO',C.remy)}<div><div class="pn">Remy Osei</div><div class="pr">undergrad, 3 tasks</div></div><span class="bar"><i style="width:22%"></i></span><span class="badge b-ok">IDP on file</span></div>
+          <div class="dim" style="margin-top:6px">Each member opens to their Check-ins, their experiments and notes, and their mentoring history.</div>
+        </div>
+      </div>
+    </div>`,
+  decisions:[
+    {id:"PE-1",title:"People is a first-class top-level surface",rec:true,
+     why:"The roster leaves the Lab Overview embed and becomes its own nav destination. The existing LabRoster component is the foundation."},
+    {id:"PE-2",title:"Per-member workload on the roster row",rec:true,
+     why:"The member-workload data shows inline as a bar on each roster row, so a PI sees who is overloaded without a separate widget."},
+    {id:"PE-3",title:"IDP-on-file status badge per member",rec:true,
+     why:"An at-a-glance compliance lens, IDP on file, IDP due, or no IDP, so a PI can spot mentoring-plan gaps. New status surfaced here for the first time. This may need an IDP data field, flagged for the build."},
+    {id:"PE-4",title:"Each member opens to their Check-ins and work",rec:true,
+     why:"Clicking a member drills into their one-on-one history, their experiments, and their notes, tying People to the existing mentoring surface."}
+  ]
+},
+{
+  id:"funding", label:"Funding", icon:"fund",
+  lead:"The funding-accounts data buried in Purchases today versus a real PI surface, spend versus budget per grant.",
+  rationale:"<b>Why:</b> FundingAccount records already carry a budget cap, award number, and funder metadata, and spend is computed live from purchase line items. But this only shows as a rollup inside Purchases. PIs care about grant burn, so Funding becomes a top-level surface, one card per grant with a spend-versus-budget bar. Open question O3 asks whether Funding is a top-level tab or a panel inside Lab Overview.",
+  render:()=>`
+    <div class="ba">
+      <div class="screen">
+        <div class="scaph">Today, buried in Purchases <span class="tag before">Before</span></div>
+        <div class="scbody">
+          <div class="pi-uniform"><div class="ph">Purchases page</div><div class="pb">A funding rollup line sits among the purchase list</div></div>
+          <div class="cardrow"><div class="ttl">Funding accounts</div><div class="meta">total budget per account, spend computed from line items</div></div>
+          <div class="dim">No dedicated view of grant burn. A PI reads spend off the purchase list, account by account.</div>
+        </div>
+      </div>
+      <div class="screen">
+        <div class="scaph">PI Mode, a Funding surface <span class="tag after">After</span></div>
+        <div class="scbody">
+          <div class="grant">
+            <div style="display:flex;justify-content:space-between;align-items:start"><div><div class="gt">R01 GM-148921</div><div class="gs">NIH NIGMS, Mira Chen, yeast proteostasis</div></div><span class="badge b-ok">58% used</span></div>
+            <div class="gbar"><i style="width:58%;background:var(--green)"></i></div>
+            <div class="gnum"><span>145,200 dollars spent</span><span>250,000 dollars budget</span></div>
+          </div>
+          <div class="grant">
+            <div style="display:flex;justify-content:space-between;align-items:start"><div><div class="gt">NSF MCB-2104478</div><div class="gs">NSF, Mira Chen, single-cell dynamics</div></div><span class="badge b-warn">86% used</span></div>
+            <div class="gbar"><i style="width:86%;background:var(--amber)"></i></div>
+            <div class="gnum"><span>129,000 dollars spent</span><span>150,000 dollars budget</span></div>
+          </div>
+          <div class="dim">One card per grant, spend versus budget at a glance, award number and funder from the existing metadata. Drill in for the line items.</div>
+        </div>
+      </div>
+    </div>`,
+  decisions:[
+    {id:"FU-1",title:"Funding is a top-level PI surface",rec:true,
+     why:"The funding-accounts data leaves the Purchases page and becomes its own nav tab. This is open question O3, top-level tab versus a panel inside Lab Overview. The recommendation is top-level, since PIs check grant burn often enough to earn a tab."},
+    {id:"FU-2",title:"Spend versus budget bar per grant",rec:true,
+     why:"Each grant shows a progress bar driven by the live computed spend against total_budget, color shifting toward amber and red as burn climbs. Award number and funder come from the existing FundingAccount metadata."}
+  ]
+},
+{
+  id:"rest", label:"Methods, Gantt, Calendar, Inventory", icon:"box",
+  lead:"Concise after-direction for the secondary surfaces. These stay reachable tools, re-lensed to lab-wide defaults for a PI, content otherwise unchanged.",
+  rationale:"<b>Why:</b> these are not PI-primary, but a PI opening them should still land on the lab view, not a personal one. Each gets a lab-wide default lens with the same My work escape hatch. No full before to after sketch, just the direction to approve.",
+  render:()=>`
+    <div class="dir">
+      <div class="dircard"><div class="ds">Methods</div><h3>Lab protocol library</h3><p>Default to the lab protocol library, public protocols plus every member's, with a who-is-using-what view. The personal protocol list stays under My work.</p></div>
+      <div class="dircard"><div class="ds">Gantt</div><h3>Lab-wide rollup</h3><p>Default to a rollup of every member's projects and milestones on one timeline, instead of the PI's personal timeline. Filter by member.</p></div>
+      <div class="dircard"><div class="ds">Calendar</div><h3>Lab-wide events</h3><p>Default to lab meetings and members' key dates across the lab, not just the PI's own calendar. Personal events stay under My work.</p></div>
+      <div class="dircard"><div class="ds">Inventory</div><h3>Lab inventory plus order-approvals lens</h3><p>Default to the shared lab inventory with the order-approvals lens on, so low stock and pending reorders surface together. Ties into the Approvals queue.</p></div>
+    </div>`,
+  decisions:[
+    {id:"RS-1",title:"Methods defaults to the lab protocol library",rec:true,
+     why:"A PI opening Methods sees the lab library (public plus members' protocols) with who-is-using-what, not their personal protocol list."},
+    {id:"RS-2",title:"Gantt defaults to a lab-wide rollup",rec:true,
+     why:"Every member's projects and milestones on one timeline, filterable by member, instead of the PI's personal timeline."},
+    {id:"RS-3",title:"Calendar defaults to lab-wide events",rec:true,
+     why:"Lab meetings and members' key dates by default, with the personal calendar under My work."},
+    {id:"RS-4",title:"Inventory defaults to lab plus the order-approvals lens",rec:true,
+     why:"The shared lab inventory with low stock and pending reorders surfaced together, tied into the Approvals queue."}
+  ]
+}
+];
+
+// Open questions (shown on the relevant surface)
+const OPENQ={
+  nav:"Open question O4, exact My work toggle placement, header chip versus the More menu versus an account-menu switch.",
+  labwork:"Open question O1, does Lab Work fully replace the Workbench label for a PI, or is Workbench kept and re-tabbed?",
+  approvals:"Open question O2, should Approvals and the flag queue be one unified inbox or stay split?",
+  funding:"Open question O3, is Funding a new top-level surface or a panel inside Lab Overview?"
+};
+
+// ───────────────────────────────────────────────────────────────────────────
+// Harness
+// ───────────────────────────────────────────────────────────────────────────
+const KEY="piModeDecisions";
+const DEC=JSON.parse(localStorage.getItem(KEY)||"{}");
+const ALLD=SURFACES.flatMap(s=>s.decisions);
+let active=SURFACES[0].id;
+function save(){localStorage.setItem(KEY,JSON.stringify(DEC));stat();renderRail();}
+
+function renderRail(){
+  document.getElementById("rail").innerHTML=
+    `<div class="rgroup">Full before to after</div>`+
+    SURFACES.slice(0,6).map(railLink).join("")+
+    `<div class="rgroup">After direction</div>`+
+    SURFACES.slice(6).map(railLink).join("");
+  document.querySelectorAll("nav.rail a").forEach(a=>a.onclick=()=>{active=a.dataset.id;renderRail();renderMain();window.scrollTo(0,0);});
+}
+function railLink(s){
+  const total=s.decisions.length;
+  const done=s.decisions.filter(d=>DEC[d.id]&&DEC[d.id].v).length;
+  const allDone=done===total&&total>0;
+  return `<a data-id="${s.id}" class="${active===s.id?'on':''} ${allDone?'done':''}">${ic(s.icon)}${s.label}<span class="num">${done}/${total}</span></a>`;
+}
+
+function renderMain(){
+  const s=SURFACES.find(x=>x.id===active);
+  let html=`<h2 class="surftitle">${s.label}</h2><p class="lead">${s.lead}</p>`+
+    `<div class="rationale">${s.rationale}</div>`+
+    s.render();
+  if(OPENQ[s.id]) html+=`<div class="qopen">${OPENQ[s.id]}</div>`;
+  html+=`<div class="dwrap"><div class="dhead">Decisions, mark up each</div>`+
+    s.decisions.map(decCard).join("")+`</div>`;
+  html+=`<div class="foot">Self-contained, nothing leaves your machine until you Export. PI Mode IA mockup, 2026-06-12.</div>`;
+  document.getElementById("main").innerHTML=html;
+  bind();
+}
+function decCard(d){
+  const cur=DEC[d.id]||{};
+  return `<div class="card">
+    <div class="top"><span class="did">${d.id}</span><span class="ctitle">${d.title}</span>${d.rec?'<span class="rec">recommended</span>':'<span class="rec" style="background:var(--amber);color:#1a1205">your call</span>'}</div>
+    <div class="why">${d.why}</div>
+    <div class="decide">
+      <span class="seg" data-id="${d.id}">
+        <button data-v="approve" class="${cur.v==='approve'?'on':''}">Approve</button>
+        <button data-v="modify" class="${cur.v==='modify'?'on':''}">Modify</button>
+        <button data-v="reject" class="${cur.v==='reject'?'on':''}">Reject</button>
+      </span>
+      <input data-note="${d.id}" placeholder="note or what you would change (optional)" value="${(cur.note||'').replace(/"/g,'&quot;')}"/>
+    </div>
+  </div>`;
+}
+function bind(){
+  document.querySelectorAll(".seg").forEach(seg=>{
+    seg.querySelectorAll("button").forEach(b=>b.onclick=()=>{
+      const id=seg.dataset.id;DEC[id]=DEC[id]||{};DEC[id].v=b.dataset.v;
+      seg.querySelectorAll("button").forEach(x=>x.classList.remove("on"));b.classList.add("on");save();
+    });
+  });
+  document.querySelectorAll("[data-note]").forEach(i=>i.oninput=()=>{
+    const id=i.dataset.note;DEC[id]=DEC[id]||{};DEC[id].note=i.value;save();
+  });
+}
+function stat(){
+  const n=ALLD.filter(d=>DEC[d.id]&&DEC[d.id].v).length;
+  document.getElementById("estat").textContent=n?`${n} of ${ALLD.length} decided`:"No decisions yet";
+}
+
+document.getElementById("themeBtn").onclick=()=>document.documentElement.classList.toggle("dark");
+document.getElementById("exportBtn").onclick=()=>{
+  const lines=["# PI Mode IA, decisions","",`_Marked up ${new Date().toISOString().slice(0,10)}_`,""];
+  SURFACES.forEach(s=>{
+    lines.push(`## ${s.label}`);
+    s.decisions.forEach(d=>{
+      const c=DEC[d.id]||{};
+      const v=c.v?c.v.toUpperCase():"(undecided)";
+      lines.push(`- ${d.id} ${d.title}  ->  ${v}${d.rec?"":" (your call)"}${c.note?"  Note: "+c.note:""}`);
+    });
+    lines.push("");
+  });
+  const txt=lines.join("\n");
+  navigator.clipboard.writeText(txt).then(()=>{},()=>{});
+  const a=document.createElement("a");
+  a.href=URL.createObjectURL(new Blob([txt],{type:"text/markdown"}));
+  a.download="pi-mode-decisions.md";a.click();
+};
+
+renderRail();renderMain();stat();
+</script>
+</body>
+</html>

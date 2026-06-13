@@ -229,10 +229,14 @@ export interface LiteratureExplorerProps {
   paperTotal?: number;
   /** True PubChem-linked patent count (the loaded patents may be a capped sample of this). */
   patentTotal?: number;
-  /** Called when the user closes the explorer. */
-  onClose: () => void;
+  /** Called when the user closes the explorer. Required in modal mode; ignored
+   *  (and the close affordance hidden) when `inline` is true. */
+  onClose?: () => void;
   /** Called when starred_papers changes so the parent can refresh the molecule. */
   onStarsChanged?: (updated: MoleculeMeta) => void;
+  /** Render in-flow (no modal overlay, no Escape-close, no close button) as the
+   *  default literature view, instead of a centered modal behind a "View all". */
+  inline?: boolean;
 }
 
 export function LiteratureExplorer({
@@ -243,6 +247,7 @@ export function LiteratureExplorer({
   patentTotal,
   onClose,
   onStarsChanged,
+  inline = false,
 }: LiteratureExplorerProps) {
   // No molecule (hub free-search) means nothing to star into: open read-only.
   const starsEnabled = !!molecule;
@@ -359,30 +364,20 @@ export function LiteratureExplorer({
     [starredKeys, items, molecule, onStarsChanged],
   );
 
-  // Close on Escape.
+  // Close on Escape (modal mode only; inline has no close).
   useEffect(() => {
+    if (inline || !onClose) return;
     const handler = (e: KeyboardEvent) => {
       if (e.key === "Escape") onClose();
     };
     document.addEventListener("keydown", handler);
     return () => document.removeEventListener("keydown", handler);
-  }, [onClose]);
+  }, [onClose, inline]);
 
   const scrollRef = useRef<HTMLDivElement>(null);
 
-  return (
-    <div
-      className="fixed inset-0 bg-black/45 flex items-center justify-center z-50"
-      onClick={(e) => {
-        if (e.target === e.currentTarget) onClose();
-      }}
-    >
-      <div
-        className="w-[min(940px,94vw)] h-[min(640px,90vh)] bg-surface border border-border rounded-2xl overflow-hidden flex flex-col shadow-2xl"
-        role="dialog"
-        aria-modal="true"
-        aria-label={`Literature explorer for ${heading}`}
-      >
+  const inner = (
+    <>
         {/* header */}
         <div className="flex items-center gap-2.5 px-4 py-3 border-b border-border bg-surface-raised flex-none">
           <span className="font-bold text-foreground">
@@ -399,16 +394,18 @@ export function LiteratureExplorer({
           {saving && (
             <span className="text-[11px] text-foreground-muted animate-pulse">Saving…</span>
           )}
-          <Tooltip label="Close (Esc)">
-            <button
-              type="button"
-              aria-label="Close literature explorer"
-              onClick={onClose}
-              className="w-7 h-7 flex items-center justify-center rounded-md hover:bg-surface-chip text-foreground-muted hover:text-foreground transition-colors"
-            >
-              <Icon name="close" className="w-4 h-4" />
-            </button>
-          </Tooltip>
+          {!inline && onClose && (
+            <Tooltip label="Close (Esc)">
+              <button
+                type="button"
+                aria-label="Close literature explorer"
+                onClick={onClose}
+                className="w-7 h-7 flex items-center justify-center rounded-md hover:bg-surface-chip text-foreground-muted hover:text-foreground transition-colors"
+              >
+                <Icon name="close" className="w-4 h-4" />
+              </button>
+            </Tooltip>
+          )}
         </div>
 
         {/* body */}
@@ -600,6 +597,34 @@ export function LiteratureExplorer({
             </div>
           </div>
         </div>
+    </>
+  );
+
+  if (inline) {
+    return (
+      <div
+        className="flex h-[min(620px,72vh)] flex-col overflow-hidden rounded-2xl border border-border bg-surface"
+        aria-label={`Literature explorer for ${heading}`}
+      >
+        {inner}
+      </div>
+    );
+  }
+
+  return (
+    <div
+      className="fixed inset-0 bg-black/45 flex items-center justify-center z-50"
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onClose?.();
+      }}
+    >
+      <div
+        className="w-[min(940px,94vw)] h-[min(640px,90vh)] bg-surface border border-border rounded-2xl overflow-hidden flex flex-col shadow-2xl"
+        role="dialog"
+        aria-modal="true"
+        aria-label={`Literature explorer for ${heading}`}
+      >
+        {inner}
       </div>
     </div>
   );

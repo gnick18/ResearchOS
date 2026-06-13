@@ -55,6 +55,7 @@ export function MoleculeLiterature({
   maxPapers = 200,
   maxPatents = 12,
   onStarsChanged,
+  inlineExplorer,
 }: {
   /** Compound name (or any text) to search Europe PMC + resolve a CID from. */
   query: string;
@@ -70,6 +71,9 @@ export function MoleculeLiterature({
   maxPatents?: number;
   /** Called after a star/unstar write so the parent can refresh the molecule. */
   onStarsChanged?: (updated: MoleculeMeta) => void;
+  /** Render the full Literature Explorer inline as the default view (the hub
+   *  "Find in literature" page) instead of the flat quick-list + "View all". */
+  inlineExplorer?: boolean;
 }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -177,6 +181,26 @@ export function MoleculeLiterature({
         <p className="text-meta text-foreground-muted py-2">
           No papers or patents found for this structure.
         </p>
+      </div>
+    );
+  }
+
+  // Inline-explorer mode (the hub "Find in literature" page): the full explorer
+  // IS the default view, not a flat list behind a "View all". Read-only on the
+  // hub (no molecule to star into); on a molecule it stays interactive.
+  if (inlineExplorer) {
+    return (
+      <div>
+        {starredStrip}
+        <LiteratureExplorer
+          inline
+          molecule={liveMolecule}
+          title={query}
+          items={data.explorerItems}
+          paperTotal={data.hitCount}
+          patentTotal={data.patentCount}
+          onStarsChanged={handleStarsChanged}
+        />
       </div>
     );
   }

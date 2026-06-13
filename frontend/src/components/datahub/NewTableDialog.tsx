@@ -67,6 +67,13 @@ const TABLE_TYPES: {
       "Technical replicates nested within biological replicates (cells within a mouse, mice within a treatment), for the nested t-test and nested one-way ANOVA.",
     enabled: true,
   },
+  {
+    type: "partsOfWhole",
+    label: "Parts of whole",
+    blurb:
+      "The composition of one whole, a category label and a value per slice, for pie, donut, and 100-percent stacked-bar figures with the percent of total.",
+    enabled: true,
+  },
 ];
 
 export default function NewTableDialog({
