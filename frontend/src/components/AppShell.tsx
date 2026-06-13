@@ -244,6 +244,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         if (item.href === HOME_HREF) {
           out.push({ href: "/lab-overview", label: "Lab Overview" });
           out.push({ href: "/people", label: "People" });
+          out.push({ href: "/approvals", label: "Approvals" });
         } else {
           out.push(item);
         }

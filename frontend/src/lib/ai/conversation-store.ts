@@ -120,6 +120,12 @@ let abortControllerRef: AbortController | null = null;
 // the first fires, the newer text replaces the older one.
 let pendingQueuedText: string | null = null;
 
+// Bumped on every clearConversation / newChat. A queued message is fired one
+// microtask after its turn settles; if the user started a fresh chat in that
+// window, the epoch no longer matches and the stale queued send is dropped
+// instead of firing into the new conversation.
+let conversationEpoch = 0;
+
 // ---- Zustand store (reactive state + actions) ---------------------------------
 
 interface ConversationState {
@@ -379,6 +385,9 @@ export const useConversationStore = create<ConversationStore>((set, get) => ({
     pendingApprovalRef = null;
     abortControllerRef = null;
     pendingQueuedText = null;
+    // Invalidate any in-flight deferred queued-send so it cannot fire into the
+    // fresh conversation (the stale "Queued: ..." re-trigger on new chat).
+    conversationEpoch += 1;
     set({
       messages: [],
       sending: false,
@@ -690,8 +699,13 @@ export const useConversationStore = create<ConversationStore>((set, get) => ({
       if (next) {
         // Defer one tick so the sending=false state settles before re-entering
         // send(). Without the deferral the sending guard would still see true
-        // in synchronous code that executes within the same microtask.
-        void Promise.resolve().then(() => get().send(next));
+        // in synchronous code that executes within the same microtask. Capture
+        // the epoch now and bail if a newChat/clearConversation happened in the
+        // meantime, so the queued message never fires into a fresh conversation.
+        const epochAtSettle = conversationEpoch;
+        void Promise.resolve().then(() => {
+          if (conversationEpoch === epochAtSettle) get().send(next);
+        });
       }
     }
   },

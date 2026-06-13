@@ -655,6 +655,35 @@ describe("Bug 2 regression: message queue while streaming", () => {
     expect(texts.includes("later queued")).toBe(true);
     expect(texts.includes("early queued")).toBe(false);
   });
+
+  it("a new chat drops a queued message so it never fires into the fresh chat", async () => {
+    let resolveFirst!: () => void;
+    const barrier = new Promise<void>((r) => { resolveFirst = r; });
+
+    vi.mocked(runAgentLoop)
+      .mockImplementationOnce(makeBarrierLoop(barrier, "ok"))
+      .mockImplementationOnce(makeInstantLoop("ok2"));
+
+    const firstSend = useConversationStore.getState().send("first");
+    // Queue a message while the first turn is in flight.
+    await useConversationStore.getState().send("stale queued");
+    expect(getPendingQueuedText()).toBe("stale queued");
+
+    // The user starts a fresh chat before the in-flight turn settles.
+    useConversationStore.getState().newChat();
+    expect(getPendingQueuedText()).toBeNull();
+
+    // Release the first loop; its finally must not fire the stale queued send
+    // into the new conversation (the bug: a queued "remember ..." re-triggering
+    // on a new chat).
+    resolveFirst();
+    await firstSend;
+    await flushAll(400);
+
+    const texts = useConversationStore.getState().messages.map((m) => m.content);
+    expect(texts.includes("stale queued")).toBe(false);
+    expect(vi.mocked(runAgentLoop)).toHaveBeenCalledTimes(1);
+  });
 });
 
 // ---- Memory injection: no accumulation across sends -------------------------

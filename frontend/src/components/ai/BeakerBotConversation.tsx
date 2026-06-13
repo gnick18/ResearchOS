@@ -124,8 +124,14 @@ export function AssistantMarkdown({ content }: { content: string }) {
               </a>
             );
           },
+          // Keep the horizontal-scroll wrapper but render a real <table> inside
+          // it. Returning a bare <div> here put react-markdown's <thead>/<tbody>
+          // directly inside a div, which is invalid HTML and tripped a hydration
+          // error whenever BeakerBot rendered a markdown table in chat.
           table: ({ children }) => (
-            <div className="overflow-x-auto text-xs">{children}</div>
+            <div className="overflow-x-auto">
+              <table className="text-xs">{children}</table>
+            </div>
           ),
         }}
       >
