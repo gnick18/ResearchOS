@@ -290,6 +290,7 @@ export default {
       url.pathname === "/lab/create" ||
       url.pathname === "/lab/append" ||
       url.pathname === "/lab/get" ||
+      url.pathname === "/lab/resync" ||
       url.pathname === "/lab/accept" ||
       url.pathname === "/lab/accept/list" ||
       url.pathname === "/lab/accept/dismiss"
@@ -3073,31 +3074,56 @@ export class LabRecordDO {
    * Ed25519 PUBKEYS only (Vercel resolves them to email hashes), so no email
    * leaves the DO. See docs/proposals/LAB_SHARED_BILLING_POOL.md.
    */
-  private async reportLabRoster(roster: LabMemberWire[]): Promise<void> {
+  private async reportLabRoster(roster: LabMemberWire[]): Promise<boolean> {
     const base = this.env.APP_BASE_URL;
-    if (!base) return; // local dev with no APP_BASE_URL; no-op
+    if (!base) {
+      // No APP_BASE_URL means the relay cannot reach the Vercel billing layer, so
+      // a lab's roster never reconciles into the shared billing pool. This is a
+      // valid local-dev state, but in a real deploy it silently strands billing,
+      // so warn loudly enough to catch a misconfigured deploy in the relay logs.
+      console.warn(
+        "[lab] reportLabRoster skipped: APP_BASE_URL is unset; billing pool will not reconcile",
+      );
+      return false;
+    }
     const piPubkey = this.metaGet("head_pubkey");
-    if (!piPubkey) return; // lab not created yet
+    if (!piPubkey) return false; // lab not created yet
     const members = roster
       .filter(
         (m) => m && m.role !== "head" && typeof m.ed25519PublicKey === "string",
       )
       .map((m) => ({ pubkey: m.ed25519PublicKey, username: m.username }));
-    try {
-      const headers: Record<string, string> = {
-        "content-type": "application/json",
-      };
-      if (this.env.RELAY_BREAKER_SECRET) {
-        headers.authorization = `Bearer ${this.env.RELAY_BREAKER_SECRET}`;
-      }
-      await fetch(`${base}/api/billing/lab/reconcile`, {
-        method: "POST",
-        headers,
-        body: JSON.stringify({ piPubkey, members }),
-      });
-    } catch {
-      // Fail silent; enrollment is best-effort and self-heals on the next change.
+    const headers: Record<string, string> = {
+      "content-type": "application/json",
+    };
+    if (this.env.RELAY_BREAKER_SECRET) {
+      headers.authorization = `Bearer ${this.env.RELAY_BREAKER_SECRET}`;
     }
+    const body = JSON.stringify({ piPubkey, members });
+    // Bounded retry so a transient Vercel hiccup does not silently drop the sync.
+    // The reconcile route is idempotent (it reconciles to the full roster each
+    // time), so a retry is always safe to re-send.
+    const MAX_ATTEMPTS = 3;
+    for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt += 1) {
+      try {
+        const res = await fetch(`${base}/api/billing/lab/reconcile`, {
+          method: "POST",
+          headers,
+          body,
+        });
+        if (res.ok) return true;
+        // A 4xx is not worth retrying (bad request / auth); only retry 5xx.
+        if (res.status < 500) return false;
+      } catch {
+        // network error: fall through to retry
+      }
+      if (attempt < MAX_ATTEMPTS) {
+        await new Promise((r) => setTimeout(r, 150 * attempt));
+      }
+    }
+    // Exhausted retries; enrollment self-heals on the next membership change or
+    // an explicit /lab/resync.
+    return false;
   }
 
   private async handleCreate(request: Request, labId: string): Promise<Response> {
@@ -3371,6 +3397,32 @@ export class LabRecordDO {
     return this.json({ record, envelopes }, 200);
   }
 
+  /**
+   * POST /lab/resync?lab=<labId>. Re-reports the lab's current roster to the
+   * Vercel billing reconcile endpoint, without any membership change.
+   *
+   * This closes a timing race: a member is added to the log (which fires a
+   * reconcile) at the moment the head finalizes their accept, which can be
+   * BEFORE that member has logged in and auto-bound their directory profile. The
+   * first reconcile then finds no pubkey binding and skips them, and reconcile
+   * only re-fires on the next membership-log change, which may never come. The
+   * member's client calls this after a successful auto-bind so the roster
+   * reconciles again now that their binding exists, enrolling them in the pool.
+   *
+   * Open write (any party can ask the relay to re-report; the relay holds the
+   * reconcile secret, so no secret leaves the server, and the reconcile body
+   * carries pubkeys only). Idempotent and harmless to call repeatedly.
+   */
+  private async handleResync(): Promise<Response> {
+    if (this.metaGet("head_pubkey") === null) {
+      return this.json({ error: "lab does not exist" }, 404);
+    }
+    const tail = this.tail();
+    const roster = tail ? tail.roster : [];
+    const reported = await this.reportLabRoster(roster);
+    return this.json({ ok: true, reported }, 200);
+  }
+
   /** POST /lab/accept?lab=<labId>. A member posts a signed join accept. Open
    *  write (the member may not be in any roster yet); the head is the real
    *  verifier at finalize. We do light shape validation, require the lab to
@@ -3480,6 +3532,7 @@ export class LabRecordDO {
     if (url.pathname === "/lab/create") return this.handleCreate(request, labId);
     if (url.pathname === "/lab/append") return this.handleAppend(request);
     if (url.pathname === "/lab/get") return this.handleGet();
+    if (url.pathname === "/lab/resync") return this.handleResync();
     if (url.pathname === "/lab/accept") return this.handleAcceptPush(request, labId);
     if (url.pathname === "/lab/accept/list") return this.handleAcceptList(request, labId);
     if (url.pathname === "/lab/accept/dismiss") return this.handleAcceptDismiss(request, labId);

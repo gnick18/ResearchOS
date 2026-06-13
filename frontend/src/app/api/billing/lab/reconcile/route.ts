@@ -59,7 +59,13 @@ export async function POST(req: Request): Promise<Response> {
     const labOwnerKey = piBinding.emailHash;
 
     // Resolve each roster member pubkey to its billing key; skip unbindable ones.
+    // A member with no directory binding has no billable identity YET (their
+    // auto-bind has not landed, see lab-profile-auto-bind.ts). We count and log
+    // these so the residual gap is observable instead of silent: a non-zero
+    // `unbound` on a stable lab means a member is in the data lab but absent from
+    // the billing pool, which a /lab/resync after their next login should clear.
     const resolved: { memberOwnerKey: string; label?: string | null }[] = [];
+    let unbound = 0;
     for (const m of rawMembers) {
       const pubkey =
         m && typeof (m as { pubkey?: unknown }).pubkey === "string"
@@ -67,7 +73,10 @@ export async function POST(req: Request): Promise<Response> {
           : "";
       if (!pubkey) continue;
       const binding = await getBindingByPubkey(pubkey);
-      if (!binding) continue; // no billable identity yet
+      if (!binding) {
+        unbound += 1;
+        continue; // no billable identity yet
+      }
       const username = (m as { username?: unknown }).username;
       resolved.push({
         memberOwnerKey: binding.emailHash,
@@ -78,7 +87,13 @@ export async function POST(req: Request): Promise<Response> {
     await ensureLabSchema();
     await reconcileLabMembers(labOwnerKey, resolved);
 
-    return NextResponse.json({ ok: true });
+    if (unbound > 0) {
+      console.warn(
+        `[billing] lab reconcile: ${unbound} roster member(s) have no directory binding yet and were not enrolled in the pool`,
+      );
+    }
+
+    return NextResponse.json({ ok: true, enrolled: resolved.length, unbound });
   } catch {
     // Never throw to the DO; reconcile self-heals on the next membership change.
     return NextResponse.json({ ok: true });
