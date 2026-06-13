@@ -963,9 +963,11 @@ export default function WelcomePage({
           pills={["Structure editor", "PubChem import", "Literature and patent search"]}
           visual={
             <RainbowFrame>
-              <DemoLoopPlaceholder
-                claim="Draw a small molecule, import a compound from PubChem, search the literature and patents by structure, then drop it into an experiment note."
-                tag="Chemistry Workbench"
+              <DemoLoop
+                src="https://tkqei2x7bdmdvg7v.public.blob.vercel-storage.com/chemistry-gliotoxin.mp4"
+                poster="https://tkqei2x7bdmdvg7v.public.blob.vercel-storage.com/chemistry-gliotoxin.poster.jpg"
+                label="Importing gliotoxin from PubChem and searching the literature and patents by structure in the ResearchOS chemistry workbench"
+                preload="metadata"
               />
             </RainbowFrame>
           }
@@ -980,9 +982,11 @@ export default function WelcomePage({
           pills={["Validated tests", "Publication figures", "No black box"]}
           visual={
             <RainbowFrame>
-              <DemoLoopPlaceholder
-                claim="Paste a dataset, run a t-test, and generate a publication-ready bar plot with error bars."
-                tag="Data Hub"
+              <DemoLoop
+                src="https://tkqei2x7bdmdvg7v.public.blob.vercel-storage.com/data-hub.mp4"
+                poster="https://tkqei2x7bdmdvg7v.public.blob.vercel-storage.com/data-hub.poster.jpg"
+                label="Running a validated t-test, reading the plain-language verdict, and styling a publication-ready bar plot in the ResearchOS Data Hub"
+                preload="metadata"
               />
             </RainbowFrame>
           }
@@ -1037,9 +1041,11 @@ export default function WelcomePage({
           pills={["Order tracking", "Attach PDFs", "Send to department"]}
           visual={
             <RainbowFrame>
-              <DemoLoopPlaceholder
-                claim="Add a purchase, attach an order PDF, watch it appear in inventory, then the PI hands it off to the department."
-                tag="Purchases + Inventory"
+              <DemoLoop
+                src="https://tkqei2x7bdmdvg7v.public.blob.vercel-storage.com/purchases.mp4"
+                poster="https://tkqei2x7bdmdvg7v.public.blob.vercel-storage.com/purchases.poster.jpg"
+                label="Filtering lab orders by stage and category, expanding line items, and the spending dashboard in ResearchOS purchases"
+                preload="metadata"
               />
             </RainbowFrame>
           }
