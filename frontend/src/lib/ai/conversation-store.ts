@@ -62,8 +62,16 @@ function getModelCaller(): ModelCaller {
 }
 import { DEFAULT_TOOLS } from "@/lib/ai/tools/registry";
 import { BEAKERBOT_SYSTEM_PROMPT } from "@/lib/ai/system-prompt";
-import { runMacro, summarizeMacroRun } from "@/lib/ai/macro-runner";
-import type { StoredMacro } from "@/lib/ai/beaker-macros-store";
+import {
+  runMacro,
+  summarizeMacroRun,
+  invocationsFromHistory,
+} from "@/lib/ai/macro-runner";
+import {
+  captureMacroSteps,
+  type StoredMacro,
+  type MacroStep,
+} from "@/lib/ai/beaker-macros-store";
 import { getReviewMode, type BeakerBotReviewMode } from "@/lib/ai/review-mode-store";
 import {
   getBeakerContext,
@@ -304,6 +312,14 @@ interface ConversationActions {
    * a turn is already in flight.
    */
   runStoredMacro: (macro: StoredMacro) => Promise<void>;
+  /**
+   * Capture the most recent run as macro steps, for the "Save as macro"
+   * affordance. Reads the executed tool calls from the loop history (where the
+   * args live), labels each via the tool's describeAction, and drops navigation
+   * and read noise. Returns the captured steps (empty when the last turn ran no
+   * meaningful tools), the editor takes it from there. Pure read, no side effect.
+   */
+  captureMacroDraftFromLastRun: () => MacroStep[];
   /** Stage a base64 data URL image for the next send. Gated on the vision flag in the UI; the store accepts it regardless so tests can call it directly. */
   addPendingImage: (dataUrl: string) => void;
   /** Remove a staged image by its data URL. */
@@ -1474,6 +1490,24 @@ export const useConversationStore = create<ConversationStore>((set, get) => ({
       }
       set({ sending: false, queuedText: null, turnStartedAt: null });
     }
+  },
+
+  captureMacroDraftFromLastRun: () => {
+    const toolMap = new Map(DEFAULT_TOOLS.map((t) => [t.name, t] as const));
+    const describeLabel = (
+      tool: string,
+      args: Record<string, unknown>,
+    ): string => {
+      try {
+        const summary = toolMap.get(tool)?.describeAction?.(args)?.summary;
+        if (summary && summary.trim().length > 0) return summary;
+      } catch {
+        // describeAction can throw on loose args, fall back to a generic label.
+      }
+      return `Run ${tool}`;
+    };
+    const invocations = invocationsFromHistory(historyStore, describeLabel);
+    return captureMacroSteps(invocations);
   },
 }));
 

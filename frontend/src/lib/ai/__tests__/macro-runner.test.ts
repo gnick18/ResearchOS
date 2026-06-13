@@ -10,7 +10,13 @@
 // House style, no em-dashes, no emojis, no mid-sentence colons.
 
 import { describe, it, expect, vi } from "vitest";
-import { runMacro, summarizeMacroRun, type MacroStepEvent } from "../macro-runner";
+import {
+  runMacro,
+  summarizeMacroRun,
+  invocationsFromHistory,
+  type MacroStepEvent,
+} from "../macro-runner";
+import type { LoopMessage } from "../agent-loop";
 import type { AiTool } from "../tools/types";
 import type { MacroStep } from "../beaker-macros-store";
 
@@ -229,5 +235,84 @@ describe("summarizeMacroRun", () => {
     expect(summarizeMacroRun("m", res)).toBe(
       "Stopped /m early. 0 steps ran before you stopped it.",
     );
+  });
+});
+
+describe("invocationsFromHistory (capture for Save as macro)", () => {
+  const label = (tool: string) => `do ${tool}`;
+
+  it("captures assistant tool_calls after the last user turn, with parsed args", () => {
+    const history: LoopMessage[] = [
+      { role: "system", content: "prompt" },
+      { role: "user", content: "first ask" },
+      {
+        role: "assistant",
+        content: null,
+        tool_calls: [
+          {
+            id: "1",
+            type: "function",
+            function: { name: "old_digest", arguments: "{}" },
+          },
+        ],
+      },
+      { role: "user", content: "the run we save" },
+      {
+        role: "assistant",
+        content: null,
+        tool_calls: [
+          {
+            id: "2",
+            type: "function",
+            function: {
+              name: "lab_digest",
+              arguments: '{"range":"this week"}',
+            },
+          },
+        ],
+      },
+      { role: "tool", content: "ok", tool_call_id: "2" },
+      {
+        role: "assistant",
+        content: null,
+        tool_calls: [
+          {
+            id: "3",
+            type: "function",
+            function: { name: "write_note", arguments: '{"title":"S"}' },
+          },
+        ],
+      },
+      { role: "assistant", content: "done" },
+    ];
+    const invs = invocationsFromHistory(history, label);
+    expect(invs).toEqual([
+      { tool: "lab_digest", args: { range: "this week" }, label: "do lab_digest" },
+      { tool: "write_note", args: { title: "S" }, label: "do write_note" },
+    ]);
+  });
+
+  it("captures a tool_call with unparseable args as empty args, never dropping it", () => {
+    const history: LoopMessage[] = [
+      { role: "user", content: "ask" },
+      {
+        role: "assistant",
+        content: null,
+        tool_calls: [
+          { id: "1", type: "function", function: { name: "t", arguments: "{bad" } },
+        ],
+      },
+    ];
+    expect(invocationsFromHistory(history, label)).toEqual([
+      { tool: "t", args: {}, label: "do t" },
+    ]);
+  });
+
+  it("returns nothing when the last turn called no tools", () => {
+    const history: LoopMessage[] = [
+      { role: "user", content: "hi" },
+      { role: "assistant", content: "hello" },
+    ];
+    expect(invocationsFromHistory(history, label)).toEqual([]);
   });
 });

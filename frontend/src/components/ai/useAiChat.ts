@@ -37,6 +37,9 @@ export function useAiChat() {
   const queuedText = useConversationStore((s) => s.queuedText);
   const send = useConversationStore((s) => s.send);
   const runStoredMacro = useConversationStore((s) => s.runStoredMacro);
+  const captureMacroDraftFromLastRun = useConversationStore(
+    (s) => s.captureMacroDraftFromLastRun,
+  );
   const stop = useConversationStore((s) => s.stop);
   const clearQueue = useConversationStore((s) => s.clearQueue);
   const resolveApproval = useConversationStore((s) => s.resolveApproval);
@@ -73,6 +76,7 @@ export function useAiChat() {
     error,
     send,
     runStoredMacro,
+    captureMacroDraftFromLastRun,
     stop,
     clearQueue,
     pendingApproval,

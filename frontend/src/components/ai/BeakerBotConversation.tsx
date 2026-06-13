@@ -42,7 +42,12 @@ import ComposerMentionPicker, {
 } from "./ComposerMentionPicker";
 import type { GlobalIndexEntry } from "@/components/beaker-search/global-index";
 import ComposerSlashMenu, { type MacroMenuItem } from "./ComposerSlashMenu";
-import { listMacros, type StoredMacro } from "@/lib/ai/beaker-macros-store";
+import MacroEditorSheet from "./MacroEditorSheet";
+import {
+  listMacros,
+  type StoredMacro,
+  type MacroStep,
+} from "@/lib/ai/beaker-macros-store";
 import {
   parseSlashQuery,
   filterSlashCommands,
@@ -725,6 +730,7 @@ export default function BeakerBotConversation({
     addAttachedRef,
     removeAttachedRef,
     runStoredMacro,
+    captureMacroDraftFromLastRun,
   } = useAiChat();
   const [draft, setDraft] = useState("");
   const listRef = useRef<HTMLDivElement | null>(null);
@@ -809,6 +815,12 @@ export default function BeakerBotConversation({
   // without a reload. Empty (and the group hidden) when none exist or no folder
   // is connected (listMacros returns [] safely).
   const [macros, setMacros] = useState<StoredMacro[]>([]);
+  // The macro editor sheet, open with the steps captured from a finished run.
+  const [macroEditorSteps, setMacroEditorSteps] = useState<MacroStep[] | null>(
+    null,
+  );
+  // The steps the last run would capture, drives the "Save as macro" affordance.
+  const [macroDraftSteps, setMacroDraftSteps] = useState<MacroStep[]>([]);
   const slashActive = slashQuery !== null;
   useEffect(() => {
     if (!slashActive) return;
@@ -1142,6 +1154,17 @@ export default function BeakerBotConversation({
         })()
       : null;
 
+  // After a run settles, compute whether it captured any meaningful steps, so the
+  // "Save as macro" affordance shows only on a run worth saving. Cheap history
+  // parse, recomputed when the last reply or the sending state changes.
+  useEffect(() => {
+    if (sending || !lastAssistantId) {
+      setMacroDraftSteps([]);
+      return;
+    }
+    setMacroDraftSteps(captureMacroDraftFromLastRun());
+  }, [sending, lastAssistantId, captureMacroDraftFromLastRun]);
+
   // When a Canvas draft panel is docked open, the chat column narrows to make
   // room for it (the mockup's split-win, chat + Canvas). When collapsed, the
   // chat occupies the full surface as before.
@@ -1297,6 +1320,26 @@ export default function BeakerBotConversation({
                         >
                           <Icon name="refresh" className="h-3 w-3" title="Regenerate" />
                           Regenerate
+                        </button>
+                      </Tooltip>
+                    ) : null}
+
+                    {/* Save as macro (last assistant reply, only when the run
+                        captured meaningful steps). Opens the editor pre-filled. */}
+                    {isSettledAssistant &&
+                    canRegenerate &&
+                    !sending &&
+                    macroDraftSteps.length > 0 ? (
+                      <Tooltip label="Save these steps as a reusable macro" placement="bottom">
+                        <button
+                          type="button"
+                          data-testid="beakerbot-save-macro"
+                          aria-label="Save as macro"
+                          onClick={() => setMacroEditorSteps(macroDraftSteps)}
+                          className="flex items-center gap-1 rounded px-1.5 py-0.5 text-[11px] text-purple-600 transition-colors hover:bg-purple-500/10 dark:text-purple-300"
+                        >
+                          <Icon name="bolt" className="h-3 w-3" title="Save as macro" />
+                          Save as macro
                         </button>
                       </Tooltip>
                     ) : null}
@@ -1996,6 +2039,20 @@ export default function BeakerBotConversation({
           the Canvas store), so it sits to the right of the chat column whenever
           canvasDocked is true. */}
       {canvasDocked ? <BeakerBotCanvas /> : null}
+
+      {/* Macro editor sheet, opened by "Save as macro" with the captured steps.
+          Scoped to this panel (the root is relative). */}
+      {macroEditorSteps !== null ? (
+        <MacroEditorSheet
+          initialName=""
+          initialDescription=""
+          initialSteps={macroEditorSteps}
+          onClose={() => setMacroEditorSteps(null)}
+          onSaved={() => {
+            void listMacros().then(setMacros);
+          }}
+        />
+      ) : null}
     </div>
   );
 }
