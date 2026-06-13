@@ -21,7 +21,7 @@ import QRCode from "qrcode";
 
 import BeakerBot from "@/components/BeakerBot";
 import Tooltip from "@/components/Tooltip";
-import { Icon } from "@/components/icons";
+import { Icon, type IconName } from "@/components/icons";
 import SharingProviderButtons, {
   type SharingProvider,
 } from "@/components/sharing/SharingProviderButtons";
@@ -119,6 +119,22 @@ const FEATURE_CHIPS = [
     icon: <Icon name="sun" className="w-[13px] h-[13px]" />,
   },
 ] as const;
+
+// ── Companion sell (shown on the no-account gate) ─────────────────────────────
+
+// Six real, SHIPPED companion capabilities, used to sell the phone companion on
+// the no-account gate before asking for a free account. Each is a tight benefit
+// phrase so all six still scan fast. Every one is wired in the mobile app today,
+// nothing aspirational, and the glyphs are distinct per meaning per the
+// icon-registry rule.
+const COMPANION_SELL: { icon: IconName; label: string }[] = [
+  { icon: "camera", label: "Snap a bench photo into the open experiment" },
+  { icon: "pencil", label: "Jot a quick note without the laptop" },
+  { icon: "scan", label: "Scan a barcode to reorder or deduct stock" },
+  { icon: "alarmClock", label: "Run bench timers and check today's tasks" },
+  { icon: "file", label: "Turn a handwritten page into searchable text" },
+  { icon: "vial", label: "Read the open experiment's method at the bench" },
+];
 
 // ── Props / component ─────────────────────────────────────────────────────────
 
@@ -387,57 +403,98 @@ export default function DevicesSection({
     );
   }
 
-  // No account here. Pairing a phone needs an account keypair, so offer a clean
-  // make-an-account gate (provider sign-in) rather than the locked-account copy.
+  // No account here. The companion is optional and free to run, so this gate is
+  // an acquisition moment, not a wall: briefly sell what the phone companion does
+  // at the bench, then frame a free account as the unlock. The account is what
+  // mints the keypair that authorizes a phone and end-to-end encrypts its
+  // captures, and it is also the on-ramp to the optional cloud sync + AI tiers.
   if (status === "none") {
     const isDev = process.env.NODE_ENV === "development";
     const oauthAvailable = isOAuthPublishAvailable();
     return (
       <div className="space-y-4">
+        {/* Sell-before-gate header. Warm and benefit-led, not a blocker. */}
         <div className="scard-head flex items-center gap-3">
           <BotTile />
           <div>
             <h3 className="text-title font-semibold text-foreground">
-              Make an account to use Companion
+              Bring ResearchOS to the bench
             </h3>
             <p className="text-meta text-foreground-muted mt-0.5 leading-relaxed">
-              Pairing a phone needs an account keypair, which is what authorizes the
-              phone and end-to-end encrypts everything it sends back.
+              Your phone becomes a capture tool for the experiment you have open,
+              free to run.
             </p>
           </div>
         </div>
 
-        {oauthAvailable ? (
-          <SharingProviderButtons onProvider={onProvider} />
-        ) : (
-          <p className="rounded-xl border border-dashed border-border bg-surface-sunken px-4 py-3 text-body text-foreground-muted leading-relaxed">
-            Sign-in is not available here. Create your account from the login
-            screen, then come back to pair a phone.
-          </p>
-        )}
+        {/* The six real, shipped companion capabilities. */}
+        <ul className="rounded-xl border border-border bg-surface-sunken divide-y divide-border">
+          {COMPANION_SELL.map((cap) => (
+            <li key={cap.label} className="flex items-center gap-3 px-3.5 py-2.5">
+              <span className="flex-shrink-0 flex items-center justify-center w-7 h-7 rounded-lg bg-surface-raised">
+                <Icon name={cap.icon} className="w-3.5 h-3.5 text-foreground-muted" />
+              </span>
+              <span className="text-body text-foreground leading-snug">{cap.label}</span>
+            </li>
+          ))}
+        </ul>
 
-        {isDev && (
-          <div className="rounded-xl border border-dashed border-amber-400/60 bg-amber-50 dark:bg-amber-500/10 p-3 space-y-1.5">
-            <button
-              type="button"
-              onClick={() => void createDevIdentity()}
-              disabled={creatingDevId}
-              className="w-full flex items-center justify-center gap-2 py-2.5 text-body rounded-lg bg-amber-500 text-white hover:bg-amber-600 font-medium transition-colors disabled:opacity-50"
-            >
-              {creatingDevId
-                ? "Creating dev identity..."
-                : "Create a dev identity (skip sign-in)"}
-            </button>
-            <p className="text-meta text-amber-700 dark:text-amber-300/90 text-center">
-              Dev only. Mints a local account with no sign-in so you can test
-              pairing on this dev server.
+        {/* Create a free account = the unlock. The provider buttons ARE the real
+            account-create flow, framed here as the primary moment. */}
+        <div className="space-y-2">
+          <p className="text-body font-semibold text-foreground">
+            Create a free account to unlock it
+          </p>
+          {oauthAvailable ? (
+            <SharingProviderButtons onProvider={onProvider} />
+          ) : (
+            <p className="rounded-xl border border-dashed border-border bg-surface-sunken px-4 py-3 text-body text-foreground-muted leading-relaxed">
+              Sign-in is not available here. Create your account from the login
+              screen, then come back to pair a phone.
             </p>
-            {devIdError && (
-              <p className="text-meta text-red-600 dark:text-red-400 text-center">
-                {devIdError}
+          )}
+        </div>
+
+        {/* Honest on-ramp one-liner. States the real why (keypair + E2E), keeps
+            the local-free promise, and previews the optional paid tiers without
+            any billing claim. Matches docs/branding/BILLING_FACTS.md. */}
+        <p className="text-meta text-foreground-muted leading-relaxed">
+          The account is what authorizes your phone and end-to-end encrypts
+          everything it sends. The local app stays free, and the same account
+          later opens optional cloud sync and the AI assistant if you ever want
+          them.
+        </p>
+
+        {/* Dev override, demoted into a disclosure so it does not compete with
+            the real CTA. Dev-only, same wiring as before. */}
+        {isDev && (
+          <details className="group">
+            <summary className="cursor-pointer text-meta text-foreground-muted select-none list-none flex items-center gap-1">
+              <Icon name="chevronRight" className="w-3 h-3 transition-transform group-open:rotate-90" />
+              Developer options
+            </summary>
+            <div className="mt-2 rounded-xl border border-dashed border-amber-400/60 bg-amber-50 dark:bg-amber-500/10 p-3 space-y-1.5">
+              <button
+                type="button"
+                onClick={() => void createDevIdentity()}
+                disabled={creatingDevId}
+                className="w-full flex items-center justify-center gap-2 py-2.5 text-body rounded-lg bg-amber-500 text-white hover:bg-amber-600 font-medium transition-colors disabled:opacity-50"
+              >
+                {creatingDevId
+                  ? "Creating dev identity..."
+                  : "Create a dev identity (skip sign-in)"}
+              </button>
+              <p className="text-meta text-amber-700 dark:text-amber-300/90 text-center">
+                Dev only. Mints a local account with no sign-in so you can test
+                pairing on this dev server.
               </p>
-            )}
-          </div>
+              {devIdError && (
+                <p className="text-meta text-red-600 dark:text-red-400 text-center">
+                  {devIdError}
+                </p>
+              )}
+            </div>
+          </details>
         )}
       </div>
     );
