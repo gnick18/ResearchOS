@@ -235,6 +235,9 @@ export async function revokeDevice(
 function notifyConfigMessage(u: string, ts: string, sha256hex: string): string {
   return `researchos-notify-config\nu=${u}\nts=${ts}\nsha256=${sha256hex}`;
 }
+function registerRemindersMessage(u: string, ts: string, sha256hex: string): string {
+  return `researchos-register-reminders\nu=${u}\nts=${ts}\nsha256=${sha256hex}`;
+}
 function notifyRecipientMessage(
   recipient: string,
   sender: string,
@@ -280,6 +283,34 @@ export async function publishNotifyConfig(
     body: JSON.stringify({ u, config: json, ts, sig }),
   });
   if (!res.ok) throw new Error(`publishNotifyConfig failed: ${res.status}`);
+}
+
+/** One upcoming reminder, content-free: an opaque id + the epoch-ms fire time. */
+export interface RelayReminder {
+  id: string;
+  fireAt: number;
+}
+
+/** PUBLISH this user's upcoming reminder schedule to its own CaptureInbox DO
+ *  (phone push P3b), REPLACING the prior set. A relay alarm fires the ones that
+ *  come due while the laptop is closed (gated by the dead-man's-switch so it
+ *  stands down while the laptop is online). User-signed. Send [] to clear. */
+export async function publishReminderSchedule(
+  keys: UserCaptureKeys,
+  reminders: RelayReminder[],
+  relayUrl = captureRelayUrl(),
+): Promise<void> {
+  const u = keys.ed25519PublicKeyHex;
+  const ts = nowIso();
+  const json = JSON.stringify(reminders);
+  const sha = await sha256Hex(new TextEncoder().encode(json));
+  const sig = sign(registerRemindersMessage(u, ts, sha), keys.ed25519PrivateKey);
+  const res = await fetch(`${relayUrl}/capture/register-reminders?u=${u}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ u, reminders, ts, sig }),
+  });
+  if (!res.ok) throw new Error(`publishReminderSchedule failed: ${res.status}`);
 }
 
 /** Ask the relay to buzz a RECIPIENT about a cross-user event (phone push P2).
