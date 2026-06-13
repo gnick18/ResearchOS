@@ -1,0 +1,113 @@
+# Clip 07: the COMBINED companion marketing montage (one continuous take).
+#
+# Unlike clips 01-06 (which each self-clear and re-enter demo), this enters the
+# demo ONCE and then walks the bench story in a single uninterrupted session so
+# it records as one clean clip for the welcome page §7 companion slot:
+#
+#   enter demo -> snap a bench photo + caption + send -> quick note ->
+#   inventory (stocks + low pills) -> calc (scientific + molarity) ->
+#   timer (1 min preset running). Ends on the live countdown.
+#
+# All steps reuse the exact selectors from 02-06; nothing new in the app. Demo
+# mode keeps every step deterministic (fixture camera, demo-guarded sends,
+# fixture inventory snapshot, offline calc/timer).
+#
+# RECORD it with scripts: ../scripts is for the desktop app; for this use the
+# sibling record-companion-clip.sh, or `maestro record .maestro/07-companion-marketing.yaml`.
+# Maestro runs fast; pace/trim the raw capture in post like the desktop clips.
+appId: app.researchos.companion
+---
+- runFlow: subflows/enter-demo.yaml
+- waitForAnimationToEnd
+
+# --- Beat 1: the hero capture (fixture photo -> caption -> send to inbox) ---
+- tapOn:
+    id: "notebook-take-photo"
+- assertVisible:
+    id: "notebook-photo-preview"
+- tapOn:
+    id: "notebook-caption-input"
+- inputText: "Plate 4, GFP channel, 20x. Strong signal in wells C3 to C6."
+- hideKeyboard
+- waitForAnimationToEnd
+- tapOn:
+    id: "notebook-send-to-inbox"
+- extendedWaitUntil:
+    visible:
+      id: "notebook-take-photo"
+    timeout: 10000
+
+# --- Beat 2: quick note compose at the bench ---
+- tapOn:
+    id: "notebook-quick-note"
+- assertVisible:
+    id: "notebook-quicknote-body"
+- tapOn:
+    id: "notebook-quicknote-title"
+- inputText: "HEK293 passage 18"
+- tapOn:
+    id: "notebook-quicknote-body"
+- inputText: "Split 1:6 into 6 wells. 0.25% trypsin 3 min at 37C, quenched with 2 mL DMEM + 10% FBS. Confluency ~85%."
+- hideKeyboard
+- waitForAnimationToEnd
+- tapOn:
+    id: "notebook-quicknote-send"
+- extendedWaitUntil:
+    notVisible:
+      id: "notebook-quicknote-body"
+    timeout: 10000
+
+# --- Beat 3: inventory (tracked stocks + low pills + orders) ---
+- tapOn: "Inventory"
+- assertVisible: "Track stock and reorder from the bench."
+- assertVisible:
+    id: "inventory-tracked-row-0"
+- assertVisible: "Fetal bovine serum (heat-inactivated)"
+- assertVisible: "low"
+- waitForAnimationToEnd
+- scrollUntilVisible:
+    element:
+      text: "Lipofectamine 3000 Transfection Kit"
+    direction: DOWN
+    timeout: 10000
+
+# --- Beat 4: bench calculator (scientific -> molarity weigh-out) ---
+- tapOn: "Calc"
+- tapOn:
+    id: "calc-tab-scientific"
+- tapOn:
+    id: "calc-scientific-input"
+- inputText: "5*2+7"
+- hideKeyboard
+- assertVisible: "17"
+- tapOn: "="
+- waitForAnimationToEnd
+- tapOn:
+    id: "calc-tab-molarity"
+- tapOn:
+    id: "calc-molarity-mw"
+- inputText: "58.44"
+- tapOn:
+    id: "calc-molarity-conc"
+- inputText: "150"
+- tapOn:
+    id: "calc-molarity-vol"
+- inputText: "500"
+- hideKeyboard
+- assertVisible: "Mass to weigh out"
+
+# --- Beat 5: bench timer (1 min preset, running countdown = the closing shot) ---
+- tapOn: "Timer"
+- assertVisible: "QUICK START"
+- runFlow:
+    when:
+      visible: "Allow"
+    commands:
+      - tapOn: "Allow"
+- tapOn:
+    id: "timer-preset-1min"
+- extendedWaitUntil:
+    visible: "Running"
+    timeout: 8000
+- assertVisible: "Lab timer"
+- waitForAnimationToEnd
