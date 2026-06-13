@@ -227,6 +227,19 @@ export const SKLEARN: OracleRef = {
   url: "https://scikit-learn.org/stable/modules/model_evaluation.html#roc-metrics",
 };
 
+export const GGTREE: OracleRef = {
+  id: "ggtree",
+  name: "ggtree",
+  version: "pending (committed once the offline R run lands)",
+  entrypoint: "ggtree::ggtree(tree, layout = 'rectangular'), node coordinate table p$data",
+  citation:
+    "Yu G, et al. 2017, ggtree: an R package for visualization and annotation of "
+    + "phylogenetic trees with their covariates and other associated data, "
+    + "Methods Ecol. Evol. 8(1):28-36",
+  generator: "frontend/scripts/gen-phylo-ggtree-golden.R",
+  url: "https://yulab-smu.top/treedata-book/",
+};
+
 /** Lookup by id, for resolving an oracle from a case's comparison. */
 export const ORACLES: Record<string, OracleRef> = {
   [BIOPYTHON.id]: BIOPYTHON,
@@ -249,4 +262,5 @@ export const ORACLES: Record<string, OracleRef> = {
   [PINGOUIN.id]: PINGOUIN,
   [LIFELINES.id]: LIFELINES,
   [SKLEARN.id]: SKLEARN,
+  [GGTREE.id]: GGTREE,
 };

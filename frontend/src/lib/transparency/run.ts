@@ -120,6 +120,11 @@ import {
   XY_Y,
   type StatPin,
 } from "./datasets/datahub-stats";
+import {
+  PHYLO_CASES,
+  allGoldensReady,
+  comparePhyloLayout,
+} from "./datasets/phylo-ggtree";
 import { TM_CASES } from "./datasets/tm";
 import { TRANSLATE_CASES } from "./datasets/translation";
 import {
@@ -141,6 +146,7 @@ import {
   SKLEARN,
   STATSMODELS,
   WALLACE,
+  GGTREE,
 } from "./oracles";
 import {
   classify,
@@ -1758,6 +1764,116 @@ function buildDatahubStatsDomain(): DomainReport {
   };
 }
 
+/* ------------------------------------------------------- phylogenetics domain */
+
+/**
+ * Tip-order agreement against ggtree. The headline claim is that our native tree
+ * layout draws tips in the SAME order as ggtree and places nodes at the SAME
+ * relative branch-length depth. Both are affine-robust correlations, so a value
+ * of 1.0 is perfect agreement and the delta is 1 minus the correlation. The band
+ * is loose because we explicitly do NOT claim pixel parity, only that the tree
+ * shape and ordering match (a real layout regression, e.g. a tip reordering,
+ * would drop the correlation far below the warn line and fail).
+ */
+const PHYLO_LAYOUT: Tolerance = {
+  pass: 0.02,
+  warn: 0.1,
+  unit: "1 - corr",
+  kind: "loose",
+  rationale:
+    "ggtree and our renderer differ in scale, pixel sizing, and y-axis "
+    + "orientation, so a pixel-identical claim would be dishonest. What must agree "
+    + "is the topology-invariant structure both tools draw, the tip ordering and "
+    + "the relative branch-length depth of every node. We compare the absolute "
+    + "Spearman correlation of tip order (orientation-invariant) and require it "
+    + "within 0.02 of a perfect 1.0. A tip reordering or a depth bug would drop it "
+    + "well past the warn line.",
+};
+
+function buildPhyloDomain(): DomainReport {
+  const ready = allGoldensReady();
+
+  const cases: CaseResult[] = PHYLO_CASES.map((pc) => {
+    const cmp = comparePhyloLayout(pc.newick, pc.golden);
+    const agreement = Number.isFinite(cmp.tipOrderAgreement)
+      ? round(cmp.tipOrderAgreement, 6)
+      : 0;
+    const delta = round(Math.abs(1 - agreement), 6);
+    const status: Status = ready ? classify(delta, PHYLO_LAYOUT) : "pass";
+
+    return {
+      id: pc.id,
+      label: pc.label,
+      input:
+        `${pc.source}. Tip-order agreement ${ready ? agreement.toFixed(4) : "pending"}, `
+        + `depth agreement ${
+          ready && Number.isFinite(cmp.depthAgreement)
+            ? cmp.depthAgreement.toFixed(4)
+            : "pending"
+        } (${cmp.matchedTips}/${cmp.ourTips} tips matched by label).`,
+      comparisons: [
+        {
+          oracleId: GGTREE.id,
+          metric: "tip-order agreement (abs Spearman)",
+          ours: agreement,
+          theirs: 1,
+          delta,
+          tolerance: PHYLO_LAYOUT,
+          status,
+          // While the golden is the placeholder the comparison is NOT gated: it is
+          // shown as context so the page reads honestly, and the gate test skips.
+          informational: !ready,
+        },
+      ],
+      status,
+      visual: {
+        kind: "phylo-figures",
+        ggtreeFigure: ready ? pc.figure : null,
+        matchedTips: cmp.matchedTips,
+        ourTips: cmp.ourTips,
+        tipOrderAgreement: agreement,
+        depthAgreement:
+          ready && Number.isFinite(cmp.depthAgreement)
+            ? round(cmp.depthAgreement, 6)
+            : 0,
+        pending: !ready,
+      },
+    };
+  });
+
+  const { status, totals } = rollup(
+    cases.flatMap((c) => gated(c.comparisons).map((cmp) => cmp.status)),
+  );
+
+  return {
+    id: "phylo",
+    title: "Phylogenetic tree layout",
+    summary:
+      "The /phylo Tree Studio lays trees out with our own native-SVG layout math, "
+      + "no plotting library. To show that layout is trustworthy we compare it "
+      + "against ggtree, the de-facto standard tree-plotting package in R, on three "
+      + "real published phylogenies (a Candida auris global-epidemiology tree, the "
+      + "Human Microbiome Project tree, and an HPV58 phylogeny). The claim is "
+      + "deliberately not pixel parity, since ggtree and our renderer differ in "
+      + "scale and y-axis orientation. What we prove is that the two draw the same "
+      + "tree, the tips fall in the same order and every node sits at the same "
+      + "relative branch-length depth, measured as orientation-invariant rank and "
+      + "depth correlations. ggtree is R and cannot run in CI, so its coordinate "
+      + "table is produced once offline by a committed R script "
+      + "(gen-phylo-ggtree-golden.R) and frozen as JSON, exactly like the scipy "
+      + "reference values, then our layout is checked against it on every build."
+      + (ready
+        ? ""
+        : " The ggtree reference is not committed yet, so these rows are shown as "
+          + "pending context and the gate is skipped until the offline run lands."),
+    impl: "frontend/src/lib/phylo/layout.ts",
+    oracles: [GGTREE],
+    cases,
+    totals,
+    status,
+  };
+}
+
 /* ------------------------------------------------------------- aggregation */
 
 /**
@@ -1776,6 +1892,7 @@ export function buildTransparencyReport(): TransparencyReport {
     buildDomainsDomain(),
     buildPublishedDomain(),
     buildDatahubStatsDomain(),
+    buildPhyloDomain(),
   ];
 
   const { status, totals } = rollup(

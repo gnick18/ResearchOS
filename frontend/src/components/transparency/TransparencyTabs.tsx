@@ -24,6 +24,7 @@ import DomainSet from "./DomainSet";
 import FragmentLadder from "./FragmentLadder";
 import HomologyMap from "./HomologyMap";
 import ParityScatter, { type ParityPoint } from "./ParityScatter";
+import PhyloFigures from "./PhyloFigures";
 import PropertyTable from "./PropertyTable";
 import ScalarMixedTable from "./ScalarMixedTable";
 import SequenceMatch from "./SequenceMatch";
@@ -42,6 +43,7 @@ const ORACLE_COLOR: Record<string, string> = {
   "genbank-translation": "#0891b2", // cyan (published reference)
   "reference-genome-digest": "#0891b2", // cyan (published reference)
   "published-qpcr": "#0891b2", // cyan (published reference)
+  ggtree: "#16a34a", // green (R tree-plotting reference)
 };
 
 function colorFor(id: string): string {
@@ -137,11 +139,21 @@ function CaseVisualCard({ domain, c }: { domain: DomainReport; c: CaseResult }) 
       {v?.kind === "domain-set" ? (
         <DomainSet domains={v.domains} negativeControl={v.negativeControl} />
       ) : null}
+      {v?.kind === "phylo-figures" ? (
+        <PhyloFigures
+          ggtreeFigure={v.ggtreeFigure}
+          matchedTips={v.matchedTips}
+          ourTips={v.ourTips}
+          tipOrderAgreement={v.tipOrderAgreement}
+          depthAgreement={v.depthAgreement}
+          pending={v.pending}
+        />
+      ) : null}
 
       {/* property-table, sequence-match and domain-set already show their own
           numbers; the generic footer would duplicate them. Other visuals get the
           one-liner. */}
-      {v?.kind === "property-table" || v?.kind === "sequence-match" || v?.kind === "domain-set" ? null : (
+      {v?.kind === "property-table" || v?.kind === "sequence-match" || v?.kind === "domain-set" || v?.kind === "phylo-figures" ? null : (
         <div className="mt-3 flex flex-wrap gap-x-5 gap-y-1 text-meta">
           {c.comparisons.map((cmp) => (
             <span key={`${cmp.oracleId}-${cmp.metric ?? ""}`} className="text-foreground-muted">

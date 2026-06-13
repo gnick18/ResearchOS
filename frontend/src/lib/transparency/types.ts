@@ -184,6 +184,21 @@ export type CaseVisual =
       }[];
       /** True for a negative control (both engines report zero domains). */
       negativeControl: boolean;
+    }
+  | {
+      kind: "phylo-figures";
+      /** Public path of the committed ggtree reference PNG, or null until the offline run lands. */
+      ggtreeFigure: string | null;
+      /** Tips matched by label between our layout and the ggtree golden. */
+      matchedTips: number;
+      /** Total tips in our layout. */
+      ourTips: number;
+      /** Absolute Spearman correlation of tip y-order (the gated, headline metric). */
+      tipOrderAgreement: number;
+      /** Pearson correlation of normalized node depth (x). */
+      depthAgreement: number;
+      /** True while the golden is still the shipped placeholder (no real ggtree run yet). */
+      pending: boolean;
     };
 
 /** One showcase case within a domain (e.g. a single oligo, a single pair). */
