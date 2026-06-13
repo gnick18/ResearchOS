@@ -1,0 +1,782 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>BeakerBot chat modernization, review</title>
+<style>
+  :root {
+    --bg:#eef1f5; --surface:#fff; --sunken:#f4f7f9;
+    --text:#1a2530; --text-2:#5a6b78; --text-3:#8a98a4;
+    --border:rgba(26,37,48,0.12); --border-2:rgba(26,37,48,0.22);
+    --sky:#38bdf8; --sky-deep:#15679c; --sky-soft:rgba(56,189,248,0.09); --sky-chip:rgba(56,189,248,0.14);
+    --sky-hover:rgba(56,189,248,0.22);
+    --ok:#1d7a3e; --ok-bg:#e7f6ec; --warn:#b45309; --warn-bg:#fef3e2;
+    --danger:#c0392b; --danger-bg:#fdecea;
+    --r:12px; --rm:8px; --sans:ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;background:var(--bg);color:var(--text);font-family:var(--sans);}
+  .topbar{position:sticky;top:0;z-index:60;display:flex;align-items:center;gap:16px;padding:11px 20px;background:var(--surface);border-bottom:1px solid var(--border-2);}
+  .topbar .title{font-size:15px;font-weight:600;}
+  .topbar .sum{margin-left:auto;font-size:12px;color:var(--text-2);}
+  .btn{font-family:inherit;font-size:13px;border:1px solid var(--border-2);background:var(--surface);color:var(--text);border-radius:var(--rm);padding:7px 13px;cursor:pointer;}
+  .btn.primary{background:var(--sky);border-color:var(--sky);color:#06243a;font-weight:600;}
+  .btn:hover{background:var(--sunken);} .btn.primary:hover{filter:brightness(0.97);}
+  .howto{background:#0f172a;color:#cfe8fb;font-size:13px;padding:10px 20px;display:flex;align-items:center;gap:8px;}
+  .howto b{color:#fff;}
+  .wrap{max-width:900px;margin:0 auto;padding:22px 22px 160px;}
+  .rs{margin-bottom:40px;}
+  .rs > header{display:flex;align-items:center;gap:12px;margin-bottom:10px;}
+  .rs h3{margin:0;font-size:14px;font-weight:600;flex:1;}
+  .seg{display:inline-flex;border:1px solid var(--border-2);border-radius:999px;overflow:hidden;font-size:11px;}
+  .seg button{font-family:inherit;border:0;background:transparent;color:var(--text-2);padding:4px 11px;cursor:pointer;}
+  .seg button.on-ok{background:var(--ok-bg);color:var(--ok);font-weight:600;}
+  .seg button.on-warn{background:var(--warn-bg);color:var(--warn);font-weight:600;}
+  .note{font-size:12px;color:var(--text-2);margin:8px 2px 0;line-height:1.5;}
+  .mockwrap{position:relative;}
+  .hint{position:absolute;top:8px;right:8px;z-index:4;display:inline-flex;align-items:center;gap:5px;font-size:11px;color:var(--sky-deep);background:var(--sky-chip);border:1px solid rgba(56,189,248,0.4);border-radius:999px;padding:3px 9px;pointer-events:none;}
+  .mock{position:relative;background:var(--surface);border:1px solid var(--border-2);border-radius:var(--r);overflow:hidden;cursor:crosshair;}
+  .mock *{pointer-events:none;}
+  .pin{position:absolute;width:24px;height:24px;border-radius:999px;background:var(--sky);color:#06243a;font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center;transform:translate(-50%,-50%);box-shadow:0 1px 5px rgba(0,0,0,.35);z-index:6;cursor:pointer;pointer-events:auto;border:2px solid #fff;}
+  .editor{position:absolute;z-index:8;width:230px;background:#fff;border:1px solid var(--border-2);border-radius:var(--rm);box-shadow:0 8px 24px rgba(0,0,0,.22);padding:9px;pointer-events:auto;}
+  .editor textarea{width:100%;border:1px solid var(--border);border-radius:6px;padding:6px;font-family:inherit;font-size:12px;resize:vertical;min-height:54px;}
+  .editor .erow{display:flex;gap:6px;margin-top:7px;}
+  .editor .esave{flex:1;background:var(--sky);border:0;color:#06243a;font-weight:600;font-size:12px;border-radius:6px;padding:6px;cursor:pointer;}
+  .editor .edel{background:none;border:1px solid var(--border-2);color:var(--text-2);font-size:12px;border-radius:6px;padding:6px 9px;cursor:pointer;}
+
+  /* ===  SIDE-BY-SIDE BEFORE / AFTER layout === */
+  .bx{display:grid;grid-template-columns:1fr 1fr;gap:16px;}
+  .bx-label{font-size:11px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--text-3);margin-bottom:6px;}
+  .bx-label.after{color:var(--sky-deep);}
+
+  /* === Chat shell shared styles === */
+  .chat-shell{display:flex;height:460px;border:1px solid var(--border-2);border-radius:var(--r);overflow:hidden;background:var(--surface);}
+  .chat-rail{width:180px;border-right:1px solid var(--border);background:var(--sunken);display:flex;flex-direction:column;flex:none;}
+  .chat-rail-head{padding:11px 13px;font-size:12px;font-weight:600;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:7px;}
+  .chat-rail-item{padding:9px 13px;font-size:12px;border-bottom:1px solid var(--border);cursor:default;}
+  .chat-rail-item.active{background:var(--sky-chip);color:var(--sky-deep);font-weight:600;}
+  .chat-rail-item .sub{font-size:10.5px;color:var(--text-3);margin-top:2px;}
+  .chat-main{flex:1;display:flex;flex-direction:column;min-width:0;}
+  .chat-header{padding:11px 14px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:9px;font-size:13px;font-weight:600;}
+  .chat-body{flex:1;overflow-y:auto;padding:14px;display:flex;flex-direction:column;gap:10px;}
+  .chat-foot{padding:10px 12px;border-top:1px solid var(--border);display:flex;align-items:center;gap:8px;}
+  .chat-input{flex:1;background:var(--sunken);border:1px solid var(--border);border-radius:7px;padding:7px 10px;font-size:13px;color:var(--text);}
+
+  /* BeakerBot avatar glyph */
+  .bb-avatar{width:24px;height:24px;border-radius:7px;background:var(--sky-chip);color:var(--sky-deep);display:inline-flex;align-items:center;justify-content:center;flex:none;}
+  .bb-avatar.sm{width:20px;height:20px;border-radius:5px;}
+
+  /* === BEFORE: plain bubbles === */
+  .msg-before{display:flex;flex-direction:column;gap:2px;}
+  .msg-before.user{align-items:flex-end;}
+  .msg-before.bot{align-items:flex-start;flex-direction:row;gap:8px;align-items:flex-start;}
+  .msg-before .bubble{padding:8px 11px;border-radius:9px;font-size:13px;line-height:1.5;max-width:78%;}
+  .msg-before.user .bubble{background:var(--sky-chip);color:var(--text);}
+  .msg-before.bot .bubble{background:var(--sunken);color:var(--text);border:1px solid var(--border);}
+  .msg-before .thinking{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text-3);padding:6px 0;}
+  .stop-btn{display:inline-flex;align-items:center;justify-content:center;width:30px;height:30px;border-radius:6px;background:var(--danger);border:none;cursor:pointer;}
+  .stop-btn svg{fill:#fff;stroke:none;}
+
+  /* === AFTER: modern bubbles with hover row === */
+  .msg-after{display:flex;flex-direction:column;gap:0;}
+  .msg-after.user{align-items:flex-end;}
+  .msg-after.bot{align-items:flex-start;}
+  .msg-after .msg-row{display:flex;gap:8px;align-items:flex-end;max-width:82%;}
+  .msg-after.user .msg-row{flex-direction:row-reverse;margin-left:auto;}
+  .msg-after .bubble{padding:9px 12px;border-radius:10px;font-size:13px;line-height:1.55;flex:1;}
+  .msg-after.user .bubble{background:var(--sky);color:#06243a;border-bottom-right-radius:3px;}
+  .msg-after.bot .bubble{background:var(--sunken);color:var(--text);border:1px solid var(--border);border-bottom-left-radius:3px;}
+  .msg-after .action-row{display:flex;align-items:center;gap:4px;padding:3px 0 3px 32px;opacity:0;transition:opacity .12s;}
+  .msg-after.user .action-row{padding-left:0;padding-right:4px;justify-content:flex-end;}
+  /* In mockup we force hover state visible on tagged items */
+  .msg-after.show-hover .action-row{opacity:1;}
+  .action-btn{display:inline-flex;align-items:center;gap:4px;font-size:11px;color:var(--text-3);background:none;border:1px solid transparent;border-radius:5px;padding:3px 7px;cursor:pointer;}
+  .action-btn:hover{background:var(--sunken);border-color:var(--border);color:var(--text-2);}
+  .action-btn.danger{color:var(--danger);}
+  .action-btn svg{width:11px;height:11px;}
+  .ts{font-size:10.5px;color:var(--text-3);padding:1px 4px;}
+
+  /* === STATUS LINE === */
+  .status-line{display:flex;align-items:center;gap:0;padding:7px 12px;background:var(--surface);border-top:1px solid var(--border);font-size:12px;color:var(--text-2);user-select:none;}
+  .status-line .bb-dot{width:20px;height:20px;border-radius:6px;background:var(--sky-chip);color:var(--sky-deep);display:inline-flex;align-items:center;justify-content:center;flex:none;margin-right:8px;}
+  .status-seg{display:flex;align-items:center;gap:2px;}
+  .status-sep{color:var(--text-3);margin:0 5px;font-size:10px;}
+  .status-badge{display:inline-flex;align-items:center;gap:3px;font-size:11px;font-weight:600;color:var(--sky-deep);}
+  .pulse-dot{width:6px;height:6px;border-radius:999px;background:var(--sky);display:inline-block;animation:pulse 1.2s ease-in-out infinite;}
+  @keyframes pulse{0%,100%{opacity:1;}50%{opacity:.35;}}
+  .status-expand{margin-left:auto;font-size:11px;color:var(--sky-deep);text-decoration:underline;cursor:pointer;}
+  .status-line.done{background:var(--sunken);}
+  .status-line.done .credit-later{color:var(--text-3);font-size:11px;font-style:italic;}
+
+  /* === EXPANDED THINKING PANEL === */
+  .thinking-panel{background:var(--sunken);border-top:1px solid var(--border);padding:10px 12px;font-size:12px;}
+  .thinking-panel .tp-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;font-weight:600;font-size:12px;}
+  .thinking-panel .tp-collapse{font-size:11px;color:var(--sky-deep);cursor:pointer;text-decoration:underline;}
+  .tool-row{display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid var(--border);}
+  .tool-row:last-child{border-bottom:none;}
+  .tool-name{flex:1;font-size:12px;color:var(--text-2);}
+  .tool-status{font-size:11px;font-weight:600;border-radius:999px;padding:2px 8px;}
+  .tool-status.running{background:var(--sky-chip);color:var(--sky-deep);}
+  .tool-status.done{background:var(--ok-bg);color:var(--ok);}
+  .tool-status.queued{background:var(--sunken);color:var(--text-3);border:1px solid var(--border);}
+  .tool-icon{width:16px;height:16px;color:var(--text-3);}
+
+  /* === CONFIRM MODAL (revert) === */
+  .confirm-overlay{position:absolute;inset:0;background:rgba(0,0,0,.35);display:flex;align-items:center;justify-content:center;z-index:9;}
+  .confirm-card{background:#fff;border-radius:10px;padding:18px 20px;width:260px;box-shadow:0 12px 32px rgba(0,0,0,.25);}
+  .confirm-card h4{margin:0 0 6px;font-size:14px;}
+  .confirm-card p{margin:0 0 14px;font-size:12px;color:var(--text-2);line-height:1.5;}
+  .confirm-row{display:flex;gap:8px;}
+  .confirm-btn{flex:1;font-family:inherit;font-size:12px;border-radius:7px;padding:8px;border:none;cursor:pointer;font-weight:600;}
+  .confirm-btn.danger{background:var(--danger);color:#fff;}
+  .confirm-btn.cancel{background:var(--sunken);border:1px solid var(--border-2);color:var(--text-2);}
+
+  /* === Inline header for split panels === */
+  .section-split{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:8px;}
+  .split-label{font-size:11px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--text-3);}
+  .split-label.after{color:var(--sky-deep);}
+
+  /* SVG base reset for icons inside mock */
+  .mock svg{stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;}
+</style>
+</head>
+<body>
+
+<!-- Shared BeakerBot SVG symbol -->
+<svg width="0" height="0" aria-hidden="true" style="position:absolute">
+<defs>
+<linearGradient id="bbliq" x1="0" y1="0" x2="0" y2="1">
+<stop offset="0%" stop-color="#FFD2B0"/><stop offset="25%" stop-color="#FFF1A8"/>
+<stop offset="50%" stop-color="#B7EBB1"/><stop offset="75%" stop-color="#A6D2F4"/>
+<stop offset="100%" stop-color="#D6B5F0"/>
+</linearGradient>
+</defs>
+<symbol id="bbmark" viewBox="8 3 24 31">
+<path d="M 12 12 L 12 24 C 12 30, 16 32, 20 32 C 24 32, 28 30, 28 24 L 28 12 Z" fill="#fff" stroke="none"/>
+<path d="M 12 19 Q 14 17.8, 16 19 T 20 19 T 24 19 T 28 19 L 28 24 C 28 30, 24 32, 20 32 C 16 32, 12 30, 12 24 L 12 19 Z" fill="url(#bbliq)" stroke="none"/>
+<path d="M22 8 C 22 6, 24 4, 26 6" stroke="currentColor"/>
+<path d="M12 12 L12 24 C 12 30, 16 32, 20 32 C 24 32, 28 30, 28 24 L28 12" stroke="currentColor"/>
+<path d="M11 12 L29 12" stroke="currentColor"/>
+<circle cx="17" cy="18" r="1.2" fill="currentColor" stroke="none"/>
+<circle cx="23" cy="18" r="1.2" fill="currentColor" stroke="none"/>
+<path d="M18 22 Q 20 24, 22 22" stroke="currentColor"/>
+<path d="M14 26 L15.5 26" stroke="currentColor"/><path d="M24.5 26 L26 26" stroke="currentColor"/>
+</symbol>
+</svg>
+
+<div class="topbar">
+  <span class="title">BeakerBot chat modernization, review</span>
+  <span class="sum" id="sum"></span>
+  <button class="btn primary" id="exportBtn">Export feedback</button>
+</div>
+<div class="howto">
+  <b>To comment:</b> click anywhere on a mockup and a note box opens right there. Set <b>Approve</b> or <b>Needs work</b> per section. Then <b>Export</b>.
+</div>
+
+<div class="wrap" id="wrap">
+
+  <!-- ============================
+       SECTION 1: Message bubbles
+       ============================ -->
+  <section class="rs" data-name="Message display, user vs BeakerBot bubbles">
+    <header>
+      <h3>1. Message display, before vs after</h3>
+      <div class="seg" data-approve>
+        <button data-v="ok">Approve</button>
+        <button data-v="warn">Needs work</button>
+      </div>
+    </header>
+
+    <div class="section-split">
+      <span class="split-label">Before</span>
+      <span class="split-label after">After</span>
+    </div>
+
+    <div class="mockwrap"><span class="hint">click to comment</span>
+    <div class="mock" style="padding:0;background:var(--sunken);">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:0;height:460px;">
+
+        <!-- BEFORE panel -->
+        <div class="chat-shell" style="border-radius:0;border:none;border-right:1px solid var(--border-2);">
+          <div class="chat-rail">
+            <div class="chat-rail-head">
+              <svg width="14" height="14" viewBox="0 0 24 24"><use href="#bbmark"/></svg> BeakerBot
+            </div>
+            <div class="chat-rail-item active">qPCR analysis<div class="sub">Today</div></div>
+            <div class="chat-rail-item">Growth curves<div class="sub">Yesterday</div></div>
+            <div class="chat-rail-item">Cloning plan<div class="sub">Mon</div></div>
+          </div>
+          <div class="chat-main">
+            <div class="chat-header">
+              <div class="bb-avatar"><svg width="14" height="14" viewBox="0 0 24 24"><use href="#bbmark"/></svg></div>
+              BeakerBot
+            </div>
+            <div class="chat-body">
+              <!-- plain bubbles, no affordances -->
+              <div class="msg-before user">
+                <div class="bubble">Summarize my qPCR results from today</div>
+              </div>
+              <div class="msg-before bot">
+                <div class="bb-avatar sm"><svg width="12" height="12" viewBox="0 0 24 24"><use href="#bbmark"/></svg></div>
+                <div class="bubble">You ran two qPCR experiments today. FakeYeast-001 showed significantly higher fakeGFP expression than the control (p = 4.2e-5). The standard curve R-squared was 0.997.</div>
+              </div>
+              <div class="msg-before user">
+                <div class="bubble">Can you also check the growth curves?</div>
+              </div>
+              <!-- Thinking state -->
+              <div class="msg-before bot">
+                <div class="bb-avatar sm"><svg width="12" height="12" viewBox="0 0 24 24"><use href="#bbmark"/></svg></div>
+                <div>
+                  <div class="thinking">
+                    <svg width="14" height="14" viewBox="0 0 24 24" style="stroke:#38bdf8;"><circle cx="12" cy="12" r="9"/><path d="M12 8v4l3 3"/></svg>
+                    <span style="color:#8a98a4;">Thinking</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="chat-foot">
+              <div class="chat-input" style="color:var(--text-3);">Ask BeakerBot&hellip;</div>
+              <!-- Stop button replaces send while running -->
+              <button class="stop-btn">
+                <svg width="10" height="10" viewBox="0 0 10 10"><rect x="1" y="1" width="8" height="8" rx="1" fill="#fff" stroke="none"/></svg>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- AFTER panel -->
+        <div class="chat-shell" style="border-radius:0;border:none;">
+          <div class="chat-rail">
+            <div class="chat-rail-head">
+              <svg width="14" height="14" viewBox="0 0 24 24"><use href="#bbmark"/></svg> BeakerBot
+            </div>
+            <div class="chat-rail-item active">qPCR analysis<div class="sub">Today</div></div>
+            <div class="chat-rail-item">Growth curves<div class="sub">Yesterday</div></div>
+            <div class="chat-rail-item">Cloning plan<div class="sub">Mon</div></div>
+          </div>
+          <div class="chat-main">
+            <div class="chat-header">
+              <div class="bb-avatar"><svg width="14" height="14" viewBox="0 0 24 24"><use href="#bbmark"/></svg></div>
+              BeakerBot
+            </div>
+            <div class="chat-body">
+              <!-- User message, hover state shown -->
+              <div class="msg-after user show-hover">
+                <div class="msg-row">
+                  <div class="bubble">Summarize my qPCR results from today</div>
+                </div>
+                <div class="action-row">
+                  <!-- user message hover: copy + revert-to-here -->
+                  <button class="action-btn">
+                    <svg viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+                    Copy
+                  </button>
+                  <button class="action-btn danger">
+                    <svg viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 9-9M3 3v5h5"/></svg>
+                    Revert to here
+                  </button>
+                </div>
+              </div>
+              <!-- Bot message, hover shown -->
+              <div class="msg-after bot show-hover">
+                <div class="msg-row">
+                  <div class="bb-avatar sm"><svg width="12" height="12" viewBox="0 0 24 24"><use href="#bbmark"/></svg></div>
+                  <div class="bubble">You ran two qPCR experiments today. FakeYeast-001 showed significantly higher fakeGFP expression than the control (p = 4.2e-5). The standard curve R-squared was 0.997.</div>
+                </div>
+                <div class="action-row">
+                  <!-- assistant message hover: copy + regenerate -->
+                  <button class="action-btn">
+                    <svg viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+                    Copy
+                  </button>
+                  <button class="action-btn">
+                    <svg viewBox="0 0 24 24"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-4.2"/></svg>
+                    Regenerate
+                  </button>
+                </div>
+              </div>
+              <!-- Second user message, no hover -->
+              <div class="msg-after user">
+                <div class="msg-row">
+                  <div class="bubble">Can you also check the growth curves?</div>
+                </div>
+                <div class="action-row">
+                  <button class="action-btn">
+                    <svg viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+                    Copy
+                  </button>
+                  <button class="action-btn danger">
+                    <svg viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 9-9M3 3v5h5"/></svg>
+                    Revert to here
+                  </button>
+                </div>
+              </div>
+            </div>
+            <div class="chat-foot">
+              <div class="chat-input" style="color:var(--text-3);">Ask BeakerBot&hellip;</div>
+              <button class="stop-btn">
+                <svg width="10" height="10" viewBox="0 0 10 10"><rect x="1" y="1" width="8" height="8" rx="1" fill="#fff" stroke="none"/></svg>
+              </button>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div></div>
+    <p class="note">
+      Before: plain bubbles, no affordances on any message. After: user bubbles get Copy and Revert-to-here on hover; assistant bubbles get Copy and Regenerate on hover. The hover row appears on the message that is being hovered (shown explicitly above as always-visible so Grant can review the layout). Stop button is unchanged on both sides, it already ships.
+    </p>
+  </section>
+
+
+  <!-- ============================
+       SECTION 2: Revert confirm
+       ============================ -->
+  <section class="rs" data-name="Revert-to-here confirm dialog">
+    <header>
+      <h3>2. Revert-to-here confirm</h3>
+      <div class="seg" data-approve>
+        <button data-v="ok">Approve</button>
+        <button data-v="warn">Needs work</button>
+      </div>
+    </header>
+    <div class="mockwrap"><span class="hint">click to comment</span>
+    <div class="mock" style="padding:22px;display:flex;justify-content:center;align-items:center;background:var(--sunken);min-height:220px;">
+      <div style="position:relative;width:420px;height:160px;background:#fff;border:1px solid var(--border-2);border-radius:var(--r);overflow:hidden;">
+        <!-- ghost of chat behind the overlay -->
+        <div style="padding:14px;font-size:12px;color:var(--text-3);">
+          <div style="display:flex;gap:8px;margin-bottom:8px;">
+            <div style="width:80px;height:12px;background:var(--border);border-radius:3px;"></div>
+          </div>
+          <div style="display:flex;justify-content:flex-end;margin-bottom:8px;">
+            <div style="width:120px;height:26px;background:var(--sky-chip);border-radius:7px;"></div>
+          </div>
+          <div style="width:180px;height:34px;background:var(--sunken);border:1px solid var(--border);border-radius:7px;"></div>
+        </div>
+        <!-- confirm overlay -->
+        <div class="confirm-overlay">
+          <div class="confirm-card">
+            <h4>Revert to this message?</h4>
+            <p>The two messages after this point will be removed. This cannot be undone.</p>
+            <div class="confirm-row">
+              <button class="confirm-btn danger">Revert</button>
+              <button class="confirm-btn cancel">Cancel</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div></div>
+    <p class="note">
+      Clicking Revert to here on any user message shows this confirm before discarding later turns. The confirm states exactly how many messages will go. Design question for Grant: should the removed turns be silently discarded, or should they be preserved as a "branch" the user can navigate back to? Branching is friendlier but adds UI complexity to the rail.
+    </p>
+  </section>
+
+
+  <!-- ============================
+       SECTION 3: Live status line (running)
+       ============================ -->
+  <section class="rs" data-name="Live status line, running state">
+    <header>
+      <h3>3. Live status line, running state (collapsed and expanded)</h3>
+      <div class="seg" data-approve>
+        <button data-v="ok">Approve</button>
+        <button data-v="warn">Needs work</button>
+      </div>
+    </header>
+
+    <div class="section-split" style="margin-top:4px;">
+      <span class="split-label">Collapsed (click to expand)</span>
+      <span class="split-label after">Expanded (click to collapse)</span>
+    </div>
+
+    <div class="mockwrap"><span class="hint">click to comment</span>
+    <div class="mock" style="padding:0;background:var(--sunken);">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:0;">
+
+        <!-- Collapsed status line -->
+        <div style="border-right:1px solid var(--border-2);padding:0;">
+          <!-- Simulated top of chat -->
+          <div style="height:120px;padding:14px;display:flex;flex-direction:column;gap:8px;">
+            <div style="align-self:flex-end;background:var(--sky-chip);padding:7px 11px;border-radius:9px;font-size:12px;max-width:80%;">Can you summarize my experiments and then check growth curves?</div>
+            <div style="display:flex;gap:8px;align-items:flex-start;">
+              <div class="bb-avatar sm"><svg width="12" height="12" viewBox="0 0 24 24"><use href="#bbmark"/></svg></div>
+              <div style="font-size:12px;color:var(--text-2);line-height:1.5;background:var(--sunken);padding:7px 11px;border-radius:9px;border:1px solid var(--border);">I found 5 experiments this week. Working on growth curves now&hellip;</div>
+            </div>
+          </div>
+          <!-- Status line, collapsed -->
+          <div class="status-line">
+            <div class="bb-dot"><svg width="12" height="12" viewBox="0 0 24 24"><use href="#bbmark"/></svg></div>
+            <div class="status-seg">
+              <span style="font-weight:600;color:var(--text);">2m 14s</span>
+            </div>
+            <span class="status-sep">&middot;</span>
+            <div class="status-seg">
+              <span>48.3k tokens</span>
+            </div>
+            <span class="status-sep">&middot;</span>
+            <div class="status-seg">
+              <span class="status-badge"><span class="pulse-dot"></span> 1 running</span>
+            </div>
+            <span class="status-sep">&middot;</span>
+            <span style="font-size:12px;color:var(--text-2);">working&hellip;</span>
+            <span class="status-expand">details</span>
+          </div>
+          <!-- Input row with Stop -->
+          <div class="chat-foot" style="border-top:1px solid var(--border);">
+            <div class="chat-input" style="color:var(--text-3);">Ask BeakerBot&hellip;</div>
+            <button class="stop-btn">
+              <svg width="10" height="10" viewBox="0 0 10 10"><rect x="1" y="1" width="8" height="8" rx="1" fill="#fff" stroke="none"/></svg>
+            </button>
+          </div>
+        </div>
+
+        <!-- Expanded status (thinking panel open) -->
+        <div style="padding:0;">
+          <!-- Simulated chat -->
+          <div style="height:80px;padding:14px;display:flex;flex-direction:column;gap:8px;">
+            <div style="align-self:flex-end;background:var(--sky-chip);padding:7px 11px;border-radius:9px;font-size:12px;max-width:80%;">Can you summarize my experiments and then check growth curves?</div>
+          </div>
+          <!-- Collapsed status line (top part) -->
+          <div class="status-line" style="border-top:1px solid var(--border);">
+            <div class="bb-dot"><svg width="12" height="12" viewBox="0 0 24 24"><use href="#bbmark"/></svg></div>
+            <div class="status-seg"><span style="font-weight:600;color:var(--text);">2m 14s</span></div>
+            <span class="status-sep">&middot;</span>
+            <div class="status-seg"><span>48.3k tokens</span></div>
+            <span class="status-sep">&middot;</span>
+            <div class="status-seg"><span class="status-badge"><span class="pulse-dot"></span> 1 running</span></div>
+            <span class="status-sep">&middot;</span>
+            <span style="font-size:12px;color:var(--text-2);">working&hellip;</span>
+            <span class="status-expand">hide</span>
+          </div>
+          <!-- Expanded thinking panel -->
+          <div class="thinking-panel">
+            <div class="tp-head">
+              Steps so far
+              <span class="tp-collapse">collapse</span>
+            </div>
+            <div class="tool-row">
+              <svg class="tool-icon" viewBox="0 0 24 24"><path d="M4 20V10M10 20V4M16 20v-7M21 20H3"/></svg>
+              <span class="tool-name">summarize_experiments</span>
+              <span class="tool-status done">done</span>
+            </div>
+            <div class="tool-row">
+              <svg class="tool-icon" viewBox="0 0 24 24"><path d="M6 3h9l3 3v15H6z"/><path d="M9 9h6M9 13h6"/></svg>
+              <span class="tool-name">summarize_notes</span>
+              <span class="tool-status done">done</span>
+            </div>
+            <div class="tool-row">
+              <svg class="tool-icon" viewBox="0 0 24 24"><path d="M4 20V10M10 20V4M16 20v-7M21 20H3"/></svg>
+              <span class="tool-name">get_growth_curve_data</span>
+              <span class="tool-status running">running</span>
+            </div>
+            <div class="tool-row">
+              <svg class="tool-icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 8v4l3 3"/></svg>
+              <span class="tool-name">run_datahub_analysis</span>
+              <span class="tool-status queued">queued</span>
+            </div>
+          </div>
+          <!-- Input row -->
+          <div class="chat-foot">
+            <div class="chat-input" style="color:var(--text-3);">Ask BeakerBot&hellip;</div>
+            <button class="stop-btn">
+              <svg width="10" height="10" viewBox="0 0 10 10"><rect x="1" y="1" width="8" height="8" rx="1" fill="#fff" stroke="none"/></svg>
+            </button>
+          </div>
+        </div>
+
+      </div>
+    </div></div>
+    <p class="note">
+      The status line is a single compact bar: BeakerBot glyph, elapsed time, token count, number of active tool calls (pulsing sky dot), and a human-readable phase word ("working", "almost done", "wrapping up"). A "details" link toggles the expanded step list below it. The Stop button (already shipping) stays visible at all times during a run. Segments use a middot separator, no colons.
+    </p>
+  </section>
+
+
+  <!-- ============================
+       SECTION 4: Status line, a longer run
+       ============================ -->
+  <section class="rs" data-name="Live status line, long run example">
+    <header>
+      <h3>4. Status line at 16 minutes, denser example</h3>
+      <div class="seg" data-approve>
+        <button data-v="ok">Approve</button>
+        <button data-v="warn">Needs work</button>
+      </div>
+    </header>
+    <div class="mockwrap"><span class="hint">click to comment</span>
+    <div class="mock" style="padding:18px;background:var(--sunken);display:flex;justify-content:center;">
+      <div style="width:480px;border:1px solid var(--border-2);border-radius:var(--r);overflow:hidden;background:#fff;">
+        <div style="height:80px;padding:12px 14px;font-size:12px;color:var(--text-3);display:flex;align-items:center;justify-content:center;">
+          &hellip; conversation above &hellip;
+        </div>
+        <!-- Dense status line -->
+        <div class="status-line" style="border-top:1px solid var(--border);">
+          <div class="bb-dot"><svg width="12" height="12" viewBox="0 0 24 24"><use href="#bbmark"/></svg></div>
+          <div class="status-seg"><span style="font-weight:600;color:var(--text);">16m 6s</span></div>
+          <span class="status-sep">&middot;</span>
+          <div class="status-seg"><span>182.7k tokens</span></div>
+          <span class="status-sep">&middot;</span>
+          <div class="status-seg"><span class="status-badge"><span class="pulse-dot"></span> 2 running</span></div>
+          <span class="status-sep">&middot;</span>
+          <span style="font-size:12px;color:var(--text-2);">almost done</span>
+          <span class="status-expand">details</span>
+        </div>
+        <!-- Input row -->
+        <div class="chat-foot">
+          <div class="chat-input" style="color:var(--text-3);">Ask BeakerBot&hellip;</div>
+          <button class="stop-btn">
+            <svg width="10" height="10" viewBox="0 0 10 10"><rect x="1" y="1" width="8" height="8" rx="1" fill="#fff" stroke="none"/></svg>
+          </button>
+        </div>
+      </div>
+    </div></div>
+    <p class="note">
+      Long run at 16 minutes and 182k tokens. "2 running" with a pulse dot makes parallel tool calls visible at a glance. Phase label rotates through "starting", "working", "almost done", "wrapping up" based on tool-call queue depth, not a timer.
+    </p>
+  </section>
+
+
+  <!-- ============================
+       SECTION 5: Finished / idle state
+       ============================ -->
+  <section class="rs" data-name="Status line, finished state with token summary">
+    <header>
+      <h3>5. Status line, finished state</h3>
+      <div class="seg" data-approve>
+        <button data-v="ok">Approve</button>
+        <button data-v="warn">Needs work</button>
+      </div>
+    </header>
+
+    <div class="section-split" style="margin-top:4px;">
+      <span class="split-label">After a short turn (~10s)</span>
+      <span class="split-label after">After a long turn (16m)</span>
+    </div>
+
+    <div class="mockwrap"><span class="hint">click to comment</span>
+    <div class="mock" style="padding:18px;background:var(--sunken);">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+
+        <!-- Short run finished -->
+        <div style="border:1px solid var(--border-2);border-radius:var(--r);overflow:hidden;background:#fff;">
+          <div style="height:80px;padding:12px 14px;font-size:12px;color:var(--text-3);display:flex;align-items:center;justify-content:center;">&hellip; short exchange &hellip;</div>
+          <div class="status-line done" style="border-top:1px solid var(--border);">
+            <div class="bb-dot"><svg width="12" height="12" viewBox="0 0 24 24"><use href="#bbmark"/></svg></div>
+            <span style="font-size:12px;color:var(--text-2);">8s</span>
+            <span class="status-sep">&middot;</span>
+            <span style="font-size:12px;color:var(--text-2);">12.4k tokens</span>
+            <span class="status-sep">&middot;</span>
+            <span class="credit-later">credit: later</span>
+          </div>
+          <div class="chat-foot">
+            <div class="chat-input" style="color:var(--text-3);">Ask BeakerBot&hellip;</div>
+            <!-- Send icon when idle -->
+            <div style="width:30px;height:30px;border-radius:6px;background:var(--sky);display:flex;align-items:center;justify-content:center;">
+              <svg width="14" height="14" viewBox="0 0 24 24" style="stroke:#06243a;fill:none;stroke-width:2;"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+            </div>
+          </div>
+        </div>
+
+        <!-- Long run finished -->
+        <div style="border:1px solid var(--border-2);border-radius:var(--r);overflow:hidden;background:#fff;">
+          <div style="height:80px;padding:12px 14px;font-size:12px;color:var(--text-3);display:flex;align-items:center;justify-content:center;">&hellip; long multi-tool run &hellip;</div>
+          <div class="status-line done" style="border-top:1px solid var(--border);">
+            <div class="bb-dot"><svg width="12" height="12" viewBox="0 0 24 24"><use href="#bbmark"/></svg></div>
+            <span style="font-size:12px;color:var(--text-2);">16m 6s</span>
+            <span class="status-sep">&middot;</span>
+            <span style="font-size:12px;color:var(--text-2);">182.7k tokens</span>
+            <span class="status-sep">&middot;</span>
+            <span style="font-size:12px;font-weight:600;color:var(--ok);">done</span>
+            <span class="status-sep">&middot;</span>
+            <span class="credit-later">credit: later</span>
+          </div>
+          <div class="chat-foot">
+            <div class="chat-input" style="color:var(--text-3);">Ask BeakerBot&hellip;</div>
+            <div style="width:30px;height:30px;border-radius:6px;background:var(--sky);display:flex;align-items:center;justify-content:center;">
+              <svg width="14" height="14" viewBox="0 0 24 24" style="stroke:#06243a;fill:none;stroke-width:2;"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div></div>
+    <p class="note">
+      When a turn finishes, the status line stays visible for the rest of the conversation so you can see what each turn cost. Token count is real (engine-reported). The "credit: later" placeholder is greyed and italic, signalling the dollar figure will appear once billing goes live. Design question for Grant: should the finished line always stay, or fade out after 30 seconds for short turns? Always-on is a cleaner audit trail; fade-out reduces clutter in a long back-and-forth chat.
+    </p>
+  </section>
+
+
+  <!-- ============================
+       SECTION 6: Full "after" view
+       ============================ -->
+  <section class="rs" data-name="Full after view, everything together">
+    <header>
+      <h3>6. Full &ldquo;after&rdquo; view, all pieces in context</h3>
+      <div class="seg" data-approve>
+        <button data-v="ok">Approve</button>
+        <button data-v="warn">Needs work</button>
+      </div>
+    </header>
+    <div class="mockwrap"><span class="hint">click to comment</span>
+    <div class="mock" style="padding:18px;display:flex;justify-content:center;background:var(--sunken);">
+      <div class="chat-shell" style="width:580px;height:520px;">
+        <div class="chat-rail">
+          <div class="chat-rail-head">
+            <svg width="14" height="14" viewBox="0 0 24 24"><use href="#bbmark"/></svg> BeakerBot
+          </div>
+          <div class="chat-rail-item active">qPCR + growth curves<div class="sub">Today</div></div>
+          <div class="chat-rail-item">Cloning plan<div class="sub">Yesterday</div></div>
+          <div class="chat-rail-item">Inventory check<div class="sub">Mon</div></div>
+        </div>
+        <div class="chat-main" style="position:relative;">
+          <div class="chat-header">
+            <div class="bb-avatar"><svg width="14" height="14" viewBox="0 0 24 24"><use href="#bbmark"/></svg></div>
+            BeakerBot
+            <span style="margin-left:auto;font-size:11px;color:var(--text-3);font-weight:400;">Chat ID: bck_20260613</span>
+          </div>
+          <div class="chat-body" style="height:300px;">
+            <!-- Turn 1 -->
+            <div class="msg-after user">
+              <div class="msg-row">
+                <div class="bubble">Summarize my qPCR results from today</div>
+              </div>
+              <div class="action-row">
+                <button class="action-btn"><svg viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg> Copy</button>
+                <button class="action-btn danger"><svg viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 9-9M3 3v5h5"/></svg> Revert to here</button>
+              </div>
+            </div>
+            <!-- Turn 1 bot reply -->
+            <div class="msg-after bot">
+              <div class="msg-row">
+                <div class="bb-avatar sm"><svg width="12" height="12" viewBox="0 0 24 24"><use href="#bbmark"/></svg></div>
+                <div class="bubble">You ran two qPCR experiments today. FakeYeast-001 showed significantly higher fakeGFP expression vs control (p = 4.2e-5). R-squared on the standard curve was 0.997. Full result saved to Data Hub.</div>
+              </div>
+              <div class="action-row">
+                <button class="action-btn"><svg viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg> Copy</button>
+                <button class="action-btn"><svg viewBox="0 0 24 24"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-4.2"/></svg> Regenerate</button>
+              </div>
+            </div>
+            <!-- Finished turn 1 status -->
+            <div style="padding:3px 0 3px 32px;font-size:11px;color:var(--text-3);display:flex;align-items:center;gap:4px;">
+              <span>8s</span><span style="margin:0 3px;">&middot;</span><span>12.4k tokens</span><span style="margin:0 3px;">&middot;</span><span style="font-style:italic;color:var(--text-3);">credit: later</span>
+            </div>
+            <!-- Turn 2 -->
+            <div class="msg-after user show-hover">
+              <div class="msg-row">
+                <div class="bubble">Now check the growth curves and run a t-test</div>
+              </div>
+              <div class="action-row">
+                <button class="action-btn"><svg viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg> Copy</button>
+                <button class="action-btn danger"><svg viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 9-9M3 3v5h5"/></svg> Revert to here</button>
+              </div>
+            </div>
+          </div>
+          <!-- Live status line while turn 2 runs -->
+          <div class="status-line" style="border-top:1px solid var(--border);">
+            <div class="bb-dot"><svg width="12" height="12" viewBox="0 0 24 24"><use href="#bbmark"/></svg></div>
+            <span style="font-weight:600;color:var(--text);font-size:12px;">2m 14s</span>
+            <span class="status-sep">&middot;</span>
+            <span style="font-size:12px;">48.3k tokens</span>
+            <span class="status-sep">&middot;</span>
+            <span class="status-badge"><span class="pulse-dot"></span> 1 running</span>
+            <span class="status-sep">&middot;</span>
+            <span style="font-size:12px;color:var(--text-2);">working&hellip;</span>
+            <span class="status-expand">details</span>
+          </div>
+          <!-- Input with Stop -->
+          <div class="chat-foot">
+            <div class="chat-input" style="color:var(--text-3);">Ask BeakerBot&hellip;</div>
+            <button class="stop-btn">
+              <svg width="10" height="10" viewBox="0 0 10 10"><rect x="1" y="1" width="8" height="8" rx="1" fill="#fff" stroke="none"/></svg>
+            </button>
+          </div>
+        </div>
+      </div>
+    </div></div>
+    <p class="note">
+      Full composition. Turn 1 is finished and its per-turn token line is pinned below the reply. Turn 2 is running with the live status line visible above the input. The hover state on the second user message shows Revert-to-here would discard only what comes after it, not the already-finished turn 1 exchange.
+    </p>
+  </section>
+
+</div><!-- /wrap -->
+
+<script>
+(function(){
+  var comments=[]; var counter=0;
+  var sections=[].slice.call(document.querySelectorAll('.rs'));
+
+  sections.forEach(function(sec){
+    var seg=sec.querySelector('[data-approve]');
+    seg.querySelectorAll('button').forEach(function(b){
+      b.addEventListener('click',function(){
+        var v=b.getAttribute('data-v');
+        var already=b.classList.contains('on-'+v);
+        seg.querySelectorAll('button').forEach(function(x){x.classList.remove('on-ok','on-warn');});
+        if(!already){b.classList.add('on-'+v);sec.dataset.state=v;} else {delete sec.dataset.state;}
+        renderSum();
+      });
+    });
+  });
+
+  document.querySelectorAll('.mock').forEach(function(mock){
+    mock.addEventListener('click',function(e){
+      if(e.target.closest('.pin')||e.target.closest('.editor')) return;
+      var rect=mock.getBoundingClientRect();
+      var x=((e.clientX-rect.left)/rect.width)*100;
+      var y=((e.clientY-rect.top)/rect.height)*100;
+      counter++;
+      var c={id:counter, section:mock.closest('.rs').getAttribute('data-name'), text:'', x:x, y:y, mock:mock};
+      comments.push(c);
+      var pin=document.createElement('div');
+      pin.className='pin'; pin.textContent=c.id; pin.style.left=x+'%'; pin.style.top=y+'%';
+      pin.addEventListener('click',function(ev){ev.stopPropagation();openEditor(c,pin);});
+      mock.appendChild(pin); c.pin=pin;
+      openEditor(c,pin);
+      renderSum();
+    });
+  });
+
+  function openEditor(c,pin){
+    document.querySelectorAll('.editor').forEach(function(e){e.remove();});
+    var ed=document.createElement('div'); ed.className='editor';
+    var left=Math.min(c.x,72); var top=Math.min(c.y+4,80);
+    ed.style.left=left+'%'; ed.style.top=top+'%';
+    ed.innerHTML='<textarea placeholder="Your note on this..."></textarea><div class="erow"><button class="esave">Save</button><button class="edel">Delete</button></div>';
+    var ta=ed.querySelector('textarea'); ta.value=c.text;
+    ta.addEventListener('input',function(){c.text=ta.value;renderSum();});
+    ed.querySelector('.esave').addEventListener('click',function(){c.text=ta.value;ed.remove();renderSum();});
+    ed.querySelector('.edel').addEventListener('click',function(){
+      if(c.pin&&c.pin.parentNode)c.pin.parentNode.removeChild(c.pin);
+      comments=comments.filter(function(x){return x.id!==c.id;}); ed.remove(); renderSum();
+    });
+    c.mock.appendChild(ed); setTimeout(function(){ta.focus();},0);
+  }
+
+  function renderSum(){
+    var ok=0,warn=0; sections.forEach(function(s){if(s.dataset.state==='ok')ok++;else if(s.dataset.state==='warn')warn++;});
+    var withText=comments.filter(function(c){return c.text.trim();}).length;
+    document.getElementById('sum').innerHTML=ok+' approved &middot; '+warn+' needs work &middot; '+withText+' comments';
+  }
+
+  document.getElementById('exportBtn').addEventListener('click',function(){
+    var lines=['# BeakerBot chat modernization, review feedback','','Date: '+new Date().toString(),''];
+    sections.forEach(function(s){
+      var name=s.getAttribute('data-name');
+      var state=s.dataset.state==='ok'?'APPROVED':s.dataset.state==='warn'?'NEEDS WORK':'undecided';
+      lines.push('## '+name+'  ['+state+']');
+      var mine=comments.filter(function(c){return c.section===name&&c.text.trim();});
+      if(!mine.length)lines.push('(no comments)');
+      else mine.forEach(function(c){lines.push('- #'+c.id+': '+c.text.trim());});
+      lines.push('');
+    });
+    var blob=new Blob([lines.join('\n')],{type:'text/markdown'});
+    var a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='beakerbot-chat-modernization-feedback.md';
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  });
+
+  renderSum();
+})();
+</script>
+</body>
+</html>
