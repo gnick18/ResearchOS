@@ -90,11 +90,18 @@ placeholder for Grant to set before launch.
   procurement office that needs a purchase order. A smaller department or a PI
   fronting the cost can instead **auto-charge a card or bank account on file**,
   charged each cycle, set up through a quick Stripe Checkout.
+- **Paying by bank transfer earns a discount**, everywhere on the site, orgs and
+  individual and lab plans alike. The card price is the list price, and a bank
+  debit (ACH, SEPA) costs us far less to process, so we pass that saving back as
+  a lower price rather than charging a card fee on top. This is a discount for a
+  lower-cost method, not a card surcharge, which is why it is allowed in every
+  state. The discount is honest because a bank price is only ever payable by a
+  bank debit.
 - **International payers** can pay too (card everywhere, plus local bank debits
-  where supported). Because Stripe charges us more on an international card and
-  for currency conversion, that real extra cost is passed through as a small
-  international processing line on the rate, so a US lab is not subsidizing it.
-  Same cost-recovery principle as everything else.
+  where supported). An international card costs us more (cross-border plus
+  currency conversion), so the card price is higher for an international card,
+  while the bank-transfer price stays low. A US lab never subsidizes an
+  international card. Same cost-recovery principle as everything else.
 - Institutions get a **self-serve trust packet** (a pre-filled HECVAT, a security
   one-pager, the open-source code, a standard agreement). Lean on local-first +
   end-to-end-encryption + Entra SSO as the easy-review edge, we hold almost none

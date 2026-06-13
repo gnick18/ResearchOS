@@ -66,10 +66,14 @@ editing slows to periodic sync (a throttle), it does not generate a surprise bil
 - The admin picks how they pay. Default is the emailed net-30 invoice (procurement, PO). A
   smaller department or a PI can instead auto-charge a card or bank account on file each cycle,
   set up through a quick Stripe Checkout.
-- International payers can pay too (card everywhere, local bank debits where supported). Stripe
-  charges us more on an international card and for currency conversion, so that real extra cost
-  is passed through as a small international processing line on the rate, not subsidized by US
-  labs. Same cost-recovery principle as the rest.
+- Paying by bank transfer earns a discount, sitewide (orgs and individual + lab plans). The card
+  price is the list price; a bank debit (ACH/SEPA) costs us far less, so we pass the saving back
+  as a lower price. This is a discount for a lower-cost method, NOT a card surcharge (which is
+  why it is allowed in every state). A bank price is only ever payable by a bank debit.
+- International payers can pay too (card everywhere, local bank debits where supported). An
+  international card costs us more (cross-border + conversion), so the card price is higher for
+  an international card while the bank-transfer price stays low. A US lab never subsidizes an
+  international card.
 - Institutions get a self-serve trust packet (pre-filled HECVAT, security one-pager, the
   open-source code, a standard agreement). Lean on local-first + E2E + Entra SSO as the
   easy-review edge, we hold almost none of their data.
