@@ -568,8 +568,20 @@ function AppContent({ children }: { children: ReactNode }) {
     // Demo + wiki-capture: render children directly. The v4 tour preview
     // pipeline (wizard-preview / wizardSeedStep) no longer needs a special
     // mount now that the tour engine is gone.
+    //
+    // The mobile-relay headless components mount here too so a demo session can
+    // pair a phone and sync to the relay (companion device-testing). They are
+    // inert without an unlocked identity (loadUserCaptureKeys returns null), so
+    // a normal demo visitor never touches the relay; they activate only once a
+    // dev identity is created and a phone is paired. IdentitySessionRestorer
+    // repopulates the unlocked key from IndexedDB on reload so the publisher
+    // keeps publishing across a refresh.
     return (
       <QueryClientProvider client={queryClient}>
+        <IdentitySessionRestorer />
+        <CaptureInboxPoller />
+        <TodaySnapshotPublisher />
+        <FocusContextPublisher />
         <>{children}</>
       </QueryClientProvider>
     );

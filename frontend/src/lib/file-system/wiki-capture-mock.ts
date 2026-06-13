@@ -460,6 +460,68 @@ export function clearAllStickyDemoFlags(): void {
       // best-effort, one bad key shouldn't block the others
     }
   }
+  // The companion pairing identity created during a demo session is persisted
+  // outside the reseeded fixture (see persistDemoSidecar). Leaving demo should
+  // drop it too so a stale sidecar never leaks into the next demo session.
+  clearDemoCompanionIdentity();
+}
+
+// ── Demo companion identity persistence ────────────────────────────────────
+//
+// The demo / wiki-capture fixture is an IN-MEMORY file system reseeded on every
+// page load, so a `_sharing_identity.json` sidecar written during a demo
+// session (the dev "Create a dev identity" flow that enables companion pairing)
+// is otherwise lost on refresh. The device keypair itself already survives in
+// the `researchos-sharing-identity` IndexedDB ("self"), but useSharingIdentity
+// keys "an account exists here" on the sidecar's recoveryBlob, so without the
+// sidecar a refresh drops the laptop back to "make an account" and a re-create
+// mints a NEW keypair that orphans the relay device binding. To keep a paired
+// demo session stable across refresh we mirror the sidecar to localStorage on
+// write and rehydrate it into the fixture on install, so both halves of the
+// identity persist together. Dev-gated in practice (the only writer is the
+// development-only dev-identity button), never written on the production /demo.
+const DEMO_IDENTITY_LS_KEY = "researchos:demo-companion-sidecars";
+
+/** True when a fixture path is a per-user sharing-identity sidecar. */
+function isSharingSidecarPath(path: string): boolean {
+  return /^users\/[^/]+\/_sharing_identity\.json$/.test(normalizePath(path));
+}
+
+/** Read the persisted demo sidecars keyed by normalized path, or an empty map. */
+function loadDemoSidecars(): Record<string, unknown> {
+  if (typeof window === "undefined") return {};
+  try {
+    const raw = window.localStorage.getItem(DEMO_IDENTITY_LS_KEY);
+    if (!raw) return {};
+    const parsed = JSON.parse(raw);
+    return parsed && typeof parsed === "object" ? parsed : {};
+  } catch {
+    return {};
+  }
+}
+
+/** Mirror a demo sidecar write to localStorage so it survives a page reload. */
+function persistDemoSidecar(path: string, data: unknown): void {
+  if (typeof window === "undefined") return;
+  try {
+    const map = loadDemoSidecars();
+    map[normalizePath(path)] = data;
+    window.localStorage.setItem(DEMO_IDENTITY_LS_KEY, JSON.stringify(map));
+  } catch {
+    // best-effort: a blocked / full localStorage just means the demo identity
+    // does not survive a refresh, the same as before this shim.
+  }
+}
+
+/** Drop the persisted demo companion identity. Called on Leave Demo so a stale
+ *  sidecar never leaks into the next demo session. */
+export function clearDemoCompanionIdentity(): void {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.removeItem(DEMO_IDENTITY_LS_KEY);
+  } catch {
+    // best-effort
+  }
 }
 
 /** True for either the localhost screenshot fixture (`?wikiCapture=…`) or
@@ -651,6 +713,17 @@ export async function installWikiCaptureFixture(
     addParentDirs(norm, dirs);
   }
 
+  // Rehydrate any demo companion identity sidecar persisted from a prior load
+  // (see persistDemoSidecar). The fixture is reseeded fresh on every load, so
+  // without this a paired demo session loses the sidecar half of its identity
+  // on refresh and the laptop drops back to "make an account". Applied after the
+  // base fixtures so the persisted sidecar wins over any seeded placeholder.
+  for (const [persistedPath, persistedData] of Object.entries(loadDemoSidecars())) {
+    const norm = normalizePath(persistedPath);
+    files.set(norm, persistedData);
+    addParentDirs(norm, dirs);
+  }
+
   // ── Wiki version-history screenshot seed (loro-seed bot, 2026-06-10) ───────
   // The wiki version-history page needs screenshots of a populated Notes
   // history sidebar (multi-version, multi-editor, multi-day) + the restore /
@@ -727,6 +800,10 @@ export async function installWikiCaptureFixture(
     const key = normalizePath(path);
     files.set(key, data);
     addParentDirs(key, dirs);
+    // Demo identity durability: mirror a sharing-identity sidecar write to
+    // localStorage so a paired companion session survives a refresh (the
+    // in-memory fixture is otherwise reseeded fresh on every load).
+    if (isSharingSidecarPath(key)) persistDemoSidecar(key, data);
   };
 
   // Raw-TEXT methods, mirroring the real fileService string semantics so the

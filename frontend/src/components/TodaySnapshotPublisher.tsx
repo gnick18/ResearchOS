@@ -55,9 +55,6 @@ let lastLibraryVersion: string | null = null;
 export default function TodaySnapshotPublisher() {
   const { currentUser, isConnected } = useFileSystem();
 
-  // A run-lock so overlapping triggers (interval + focus) don't double-publish.
-  const runningRef = useRef(false);
-  const lastRunRef = useRef(0);
   // Counts publish passes so the heavier library snapshot runs on a slower
   // cadence (every LIBRARY_PASS_EVERY passes) rather than every minute.
   const passCountRef = useRef(0);
@@ -66,13 +63,20 @@ export default function TodaySnapshotPublisher() {
     if (!isConnected || !currentUser) return;
 
     let cancelled = false;
+    // The run-lock and throttle are EFFECT-LOCAL (not component refs) so a
+    // torn-down effect can never wedge the next one. In demo the fixture
+    // install churns currentUser/isConnected, which re-runs this effect; a
+    // component-scoped lock stamped before the async identity load would leave
+    // the re-mounted run blocked by the throttle / run-lock and the publisher
+    // would never publish. Local state resets cleanly on every remount.
+    let running = false;
+    let lastRun = 0;
 
     const runOnce = async () => {
-      if (cancelled || runningRef.current) return;
+      if (cancelled || running) return;
       const now = Date.now();
-      if (now - lastRunRef.current < MIN_GAP_MS) return;
-      runningRef.current = true;
-      lastRunRef.current = now;
+      if (now - lastRun < MIN_GAP_MS) return;
+      running = true;
       try {
         const keys = await loadUserCaptureKeys();
         // No unlocked identity on hand here (needs-restore state): stay dark.
@@ -84,6 +88,10 @@ export default function TodaySnapshotPublisher() {
         // still resolves; this gate is the data snapshots only.
         const settings = await readUserSettings(currentUser);
         if (cancelled || !settings.autoPublishSnapshotsToPhones) return;
+        // Stamp the throttle only now that we are actually publishing, so a run
+        // that bailed early (no identity yet, kill switch off, or torn down
+        // mid-load) does not block the next trigger for MIN_GAP_MS.
+        lastRun = now;
         const { published, skipped } = await publishTodayToAllDevices(keys);
         if (published > 0 || skipped > 0) {
           console.info(
@@ -192,7 +200,7 @@ export default function TodaySnapshotPublisher() {
       } catch (err) {
         console.warn("[today-publisher] publish failed (will retry)", err);
       } finally {
-        runningRef.current = false;
+        running = false;
       }
     };
 
