@@ -999,6 +999,36 @@ const ICONS_RAW = {
       </>
     ),
   },
+  text: {
+    concept: "Text / strings (Aa)",
+    body: (
+      <>
+        <path d="M3 18l4-11 4 11" />
+        <path d="M4.4 14h5.2" />
+        <circle cx="17" cy="14.8" r="2.7" />
+        <path d="M19.7 12v5.6" />
+      </>
+    ),
+  },
+  emptySet: {
+    concept: "Empty set / missing or null values",
+    body: (
+      <>
+        <circle cx="12" cy="12" r="7" />
+        <path d="M7.2 16.8 16.8 7.2" />
+      </>
+    ),
+  },
+  pivot: {
+    concept: "Pivot / reshape",
+    body: (
+      <>
+        <rect x="4.5" y="4.5" width="7" height="7" rx="1" />
+        <path d="M14 8h5m0 0-2.2-2.2M19 8l-2.2 2.2" />
+        <path d="M8 14v5m0 0 2.2-2.2M8 19l-2.2-2.2" />
+      </>
+    ),
+  },
 } satisfies Record<string, IconEntry>;
 
 export type IconName = keyof typeof ICONS_RAW;
