@@ -13,6 +13,7 @@
 
 import MarketingFooter from "@/components/MarketingFooter";
 import MarketingNav from "@/components/MarketingNav";
+import Kicker from "@/components/marketing/Kicker";
 
 import { buildTransparencyReport } from "@/lib/transparency/run";
 import { agreementCounts } from "@/lib/transparency/summary";
@@ -28,10 +29,13 @@ export default function TransparencyView() {
 
   return (
     <div className="min-h-screen bg-surface-sunken">
+      <div aria-hidden className="brand-rainbow-bg h-2 w-full" />
       <MarketingNav />
       <div className="mx-auto max-w-5xl px-6 py-12">
         <header className="rounded-2xl border border-border bg-surface-raised p-8 shadow-sm sm:p-10">
-          <p className="mb-3 text-body font-semibold uppercase tracking-wide text-sky-600 dark:text-sky-300">Method validation</p>
+          <div className="mb-4">
+            <Kicker>Method validation</Kicker>
+          </div>
           <h1 className="mb-5 text-display font-bold tracking-tight text-foreground sm:text-4xl">
             Validation of bioinformatic calculations against peer-reviewed alternatives
           </h1>

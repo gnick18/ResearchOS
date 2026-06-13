@@ -24,6 +24,7 @@ import Link from "next/link";
 
 import MarketingFooter from "@/components/MarketingFooter";
 import MarketingNav from "@/components/MarketingNav";
+import Kicker from "@/components/marketing/Kicker";
 
 /* ───────────── data shape (mirrors credits.json) ───────────────────────── */
 
@@ -141,14 +142,15 @@ export default function OpenSourceCredits() {
 
   return (
     <div className="flex min-h-screen flex-col bg-surface-sunken text-foreground">
+      <div aria-hidden className="brand-rainbow-bg h-2 w-full" />
       <MarketingNav />
 
       <main className="mx-auto w-full max-w-4xl flex-1 px-6 py-12">
         {/* ── Heartfelt intro ── */}
         <section className="mb-14">
-          <p className="mb-3 text-body font-semibold uppercase tracking-wide text-sky-600 dark:text-sky-300">
-            Thank you
-          </p>
+          <div className="mb-4">
+            <Kicker>Thank you</Kicker>
+          </div>
           <h1 className="mb-6 text-display font-bold tracking-tight text-foreground sm:text-4xl">
             Built on open source
           </h1>
