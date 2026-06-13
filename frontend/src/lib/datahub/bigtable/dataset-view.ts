@@ -48,9 +48,16 @@ export function quoteIdent(name: string): string {
   return `"${String(name).replace(/"/g, '""')}"`;
 }
 
-/** A single virtual-file name per dataset id, stable so re-opens reuse it. */
+/**
+ * A UNIQUE virtual-file name per open call. It must not be merely id-stable: a
+ * remount (React strict-mode double-invoke, Fast Refresh, or a fast dataset
+ * switch) runs the new mount's openDataset and the old mount's closeDataset
+ * against the SAME engine singleton, so an id-stable name lets the stale cleanup
+ * drop the buffer the new mount just registered, and every query then fails with
+ * "No files found". A per-open suffix keeps each mount's buffer independent.
+ */
 function fileNameFor(id: string): string {
-  return `dataset_${id}.parquet`;
+  return `dataset_${id}_${Date.now()}_${Math.random().toString(36).slice(2)}.parquet`;
 }
 
 /**
