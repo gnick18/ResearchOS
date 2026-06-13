@@ -9,6 +9,8 @@ import {
   midpointRoot,
   parseCsv,
   matchMetadataToTips,
+  bestTipColumn,
+  tipColumnMatchRate,
   type LayoutOptions,
 } from "./layout";
 
@@ -176,5 +178,49 @@ describe("matchMetadataToTips", () => {
     ];
     const m = matchMetadataToTips(tree, rows, "tip");
     expect(m.unmatchedRows).toEqual(["Ghost"]);
+  });
+});
+
+describe("composite-label + auto-column matching", () => {
+  it("joins composite tip labels on a single token (strain or accession)", () => {
+    const tree = parseNewick("((SC144|FJ385264,PPH58|D90400),SC100|FJ385261);");
+    const byStrain = [
+      { id: "SC144", lineage: "A" },
+      { id: "PPH58", lineage: "B" },
+      { id: "SC100", lineage: "C" },
+    ];
+    const m1 = matchMetadataToTips(tree, byStrain, "id");
+    expect(m1.matched.size).toBe(3);
+    expect(m1.unmatchedTips).toEqual([]);
+    // and the same tree joined on the accession half instead
+    const byAcc = [
+      { id: "FJ385264", lineage: "A" },
+      { id: "D90400", lineage: "B" },
+      { id: "FJ385261", lineage: "C" },
+    ];
+    expect(matchMetadataToTips(tree, byAcc, "id").matched.size).toBe(3);
+  });
+
+  it("does not guess when a token points at more than one row", () => {
+    const tree = parseNewick("(human_AB12,human_CD34);");
+    // "human" is shared by both rows, so it is ambiguous and must NOT join
+    const rows = [
+      { id: "human_one", x: "1" },
+      { id: "human_two", x: "2" },
+    ];
+    const m = matchMetadataToTips(tree, rows, "id");
+    expect(m.matched.size).toBe(0);
+  });
+
+  it("bestTipColumn picks the column that matches the most tips", () => {
+    const tree = parseNewick("((B11201,B11207),B11200);");
+    const rows = [
+      { sample: "x1", strain: "B11201", country: "US" },
+      { sample: "x2", strain: "B11207", country: "UK" },
+      { sample: "x3", strain: "B11200", country: "US" },
+    ];
+    expect(bestTipColumn(tree, rows, ["sample", "strain", "country"])).toBe("strain");
+    expect(tipColumnMatchRate(tree, rows, "strain")).toBe(1);
+    expect(tipColumnMatchRate(tree, rows, "sample")).toBe(0);
   });
 });
