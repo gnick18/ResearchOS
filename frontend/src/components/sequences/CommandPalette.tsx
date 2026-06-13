@@ -388,6 +388,14 @@ export interface CommandPaletteProps {
   /** BeakerSearch v1 AI escalation. When present, shows the "Ask BeakerBot"
    *  row. Absent on non-shell callers (the editor's own tests). */
   onEscalate?: (query: string) => void;
+  /** When true the AI is account-locked. The escalation row still renders for
+   *  discovery, but selecting it navigates to account setup instead of calling
+   *  onEscalate. The row label reads "BeakerBot, the AI assistant, comes with a
+   *  free account" so solo users learn what they are missing without a dead end.
+   *  Instant search results are unaffected. (bug fix: 2026-06-13) */
+  aiLocked?: boolean;
+  /** Where the AI-locked upsell row navigates. Defaults to /settings?section=profile. */
+  aiLockedHref?: string;
   /** BeakerSearch v2 Phase 2. The current display mode: "search" (default,
    *  result rows) or "ask" (BeakerBot conversation in place). Controlled by the
    *  provider; absent non-shell callers leave the morph dormant. */
@@ -419,6 +427,8 @@ export function CommandPalette({
   onSearchEverything,
   recentEntries = EMPTY_OBJECT_INDEX,
   onEscalate,
+  aiLocked = false,
+  aiLockedHref = "/settings?section=profile",
   askMode = "search",
   onEnterAskMode,
   onExitAskMode,
@@ -828,8 +838,10 @@ export function CommandPalette({
 
   const flat = useMemo(() => flattenPaletteItems(viewGroups), [viewGroups]);
 
-  // BeakerSearch v1 AI escalation flags.
-  const hasEscalation = Boolean(onEscalate);
+  // BeakerSearch v1 AI escalation flags. The row renders when onEscalate is
+  // wired OR when aiLocked (the locked upsell row occupies the same slot and
+  // is keyboard-navigable so the user can open the account-setup link).
+  const hasEscalation = Boolean(onEscalate) || aiLocked;
   const totalHighlightCount = flat.length + (hasEscalation ? 1 : 0);
 
   // Reset the query and remember focus each time the palette opens; default the
@@ -1005,10 +1017,17 @@ export function CommandPalette({
           }
           return;
         }
-        if (hasEscalation && highlight === 0 && onEscalate) {
-          // Pass the stripped commandQuery so BeakerBot gets clean text
-          // regardless of whether the user is in ">" command mode.
-          onEscalate(commandQuery);
+        if (hasEscalation && highlight === 0) {
+          if (aiLocked) {
+            // AI is account-locked. Navigate to account setup (keyboard
+            // equivalent of clicking the upsell link in the row).
+            window.location.href = aiLockedHref;
+            onClose();
+          } else if (onEscalate) {
+            // Pass the stripped commandQuery so BeakerBot gets clean text
+            // regardless of whether the user is in ">" command mode.
+            onEscalate(commandQuery);
+          }
           return;
         }
         const flatIdx = hasEscalation ? highlight - 1 : highlight;
@@ -1024,6 +1043,8 @@ export function CommandPalette({
       highlight,
       hasEscalation,
       onEscalate,
+      aiLocked,
+      aiLockedHref,
       query,
       commandQuery,
       inSubflow,
@@ -1210,57 +1231,113 @@ export function CommandPalette({
               </button>
             ) : null}
 
-            {/* Ask BeakerBot escalation row. Always present when onEscalate is
-                wired; renders ABOVE the result listbox so it is always first. */}
-            {onEscalate ? (
-              <div
-                id={`${baseId}-opt-escalation`}
-                data-cmd-escalation="true"
-                role="option"
-                aria-selected={highlight === 0}
-                aria-label={
-                  commandQuery.trim()
-                    ? `Ask BeakerBot about "${commandQuery.trim()}"`
-                    : "Ask BeakerBot"
-                }
-                onMouseMove={() => setHighlight(0)}
-                onMouseDown={(e) => {
-                  e.preventDefault();
-                  // Pass the stripped commandQuery so BeakerBot receives clean
-                  // text, not a raw ">..." string, regardless of mode.
-                  onEscalate(commandQuery);
-                }}
-                className={`relative mx-2 mb-1 mt-1 flex cursor-pointer select-none items-center gap-3 rounded-xl border px-3 py-2.5 ${
-                  highlight === 0
-                    ? "border-sky-300 bg-sky-50 before:absolute before:inset-y-2 before:left-0 before:w-[3px] before:rounded-r before:bg-sky-500 dark:border-sky-700 dark:bg-sky-900/30"
-                    : "border-border bg-surface-sunken hover:border-sky-200 hover:bg-sky-50/60 dark:hover:border-sky-800 dark:hover:bg-sky-900/20"
-                }`}
-              >
-                <BeakerBot
-                  pose="idle"
-                  animated={false}
-                  className="h-5 w-5 flex-none"
-                  ariaLabel=""
-                />
-                <span className="min-w-0 flex-1">
-                  <span className="block truncate text-body font-semibold text-foreground">
-                    {commandQuery.trim()
-                      ? <>Ask BeakerBot about <span className="font-bold text-sky-700 dark:text-sky-300">&ldquo;{commandQuery.trim()}&rdquo;</span></>
-                      : "Ask BeakerBot"}
+            {/* Ask BeakerBot escalation row. Present when onEscalate is wired
+                (unlocked path) OR when aiLocked (upsell path). Both variants
+                sit ABOVE the result listbox so AI discovery is always first.
+                When locked the row navigates to account setup instead of
+                starting a conversation. Instant search is unaffected. */}
+            {hasEscalation ? (
+              aiLocked ? (
+                /* AI-locked upsell variant. An <a> so keyboard Enter navigates
+                   without JS and right-click offers "Open in new tab". */
+                <a
+                  id={`${baseId}-opt-escalation`}
+                  data-cmd-escalation="true"
+                  data-testid="beakersearch-bottom-bar-upsell"
+                  role="option"
+                  aria-selected={highlight === 0}
+                  aria-label="BeakerBot AI comes with a free account"
+                  href={aiLockedHref}
+                  onMouseMove={() => setHighlight(0)}
+                  onMouseDown={(e) => {
+                    // mousedown on an <a> inside a palette; let the click
+                    // navigate normally. Prevent focus shift to the link so
+                    // the input keeps focus and the palette stays open long
+                    // enough for the navigation to start.
+                    e.preventDefault();
+                    window.location.href = aiLockedHref;
+                    onClose();
+                  }}
+                  className={`relative mx-2 mb-1 mt-1 flex cursor-pointer select-none items-center gap-3 rounded-xl border px-3 py-2.5 no-underline ${
+                    highlight === 0
+                      ? "border-brand-action/50 bg-brand-action/[0.06] before:absolute before:inset-y-2 before:left-0 before:w-[3px] before:rounded-r before:bg-brand-action dark:border-brand-action/50 dark:bg-brand-action/10"
+                      : "border-border bg-surface-sunken hover:border-brand-action/30 hover:bg-brand-action/[0.04]"
+                  }`}
+                >
+                  <BeakerBot
+                    pose="idle"
+                    animated={false}
+                    className="h-5 w-5 flex-none opacity-60"
+                    ariaLabel=""
+                  />
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate text-body font-semibold text-foreground">
+                      BeakerBot, the AI assistant, comes with a free account
+                    </span>
+                    <span className="block truncate text-[11px] text-foreground-muted">
+                      answer, analyze, plot, write, or guide you
+                    </span>
                   </span>
-                  <span className="block truncate text-[11px] text-foreground-muted">
-                    answer, analyze, plot, write, or guide you
+                  <span className="flex flex-none items-center gap-1.5">
+                    <span className="rounded-md border border-brand-action/30 bg-brand-action/[0.06] px-1.5 py-0.5 text-[10px] font-semibold text-foreground-muted">
+                      free account
+                    </span>
+                    <kbd className="rounded border border-border bg-surface px-1.5 py-0.5 text-[11px] font-semibold text-foreground-muted">
+                      enter
+                    </kbd>
                   </span>
-                </span>
-                <span className="flex flex-none items-center gap-1.5">
-                  <span className="rounded-md border border-amber-200 bg-amber-50 px-1.5 py-0.5 text-[10px] font-semibold text-amber-700 dark:border-amber-800 dark:bg-amber-900/20 dark:text-amber-300">
-                    uses credit
+                </a>
+              ) : (
+                /* Unlocked variant: escalates to BeakerBot in-palette. */
+                <div
+                  id={`${baseId}-opt-escalation`}
+                  data-cmd-escalation="true"
+                  role="option"
+                  aria-selected={highlight === 0}
+                  aria-label={
+                    commandQuery.trim()
+                      ? `Ask BeakerBot about "${commandQuery.trim()}"`
+                      : "Ask BeakerBot"
+                  }
+                  onMouseMove={() => setHighlight(0)}
+                  onMouseDown={(e) => {
+                    e.preventDefault();
+                    // Pass the stripped commandQuery so BeakerBot receives clean
+                    // text, not a raw ">..." string, regardless of mode.
+                    onEscalate!(commandQuery);
+                  }}
+                  className={`relative mx-2 mb-1 mt-1 flex cursor-pointer select-none items-center gap-3 rounded-xl border px-3 py-2.5 ${
+                    highlight === 0
+                      ? "border-sky-300 bg-sky-50 before:absolute before:inset-y-2 before:left-0 before:w-[3px] before:rounded-r before:bg-sky-500 dark:border-sky-700 dark:bg-sky-900/30"
+                      : "border-border bg-surface-sunken hover:border-sky-200 hover:bg-sky-50/60 dark:hover:border-sky-800 dark:hover:bg-sky-900/20"
+                  }`}
+                >
+                  <BeakerBot
+                    pose="idle"
+                    animated={false}
+                    className="h-5 w-5 flex-none"
+                    ariaLabel=""
+                  />
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate text-body font-semibold text-foreground">
+                      {commandQuery.trim()
+                        ? <>Ask BeakerBot about <span className="font-bold text-sky-700 dark:text-sky-300">&ldquo;{commandQuery.trim()}&rdquo;</span></>
+                        : "Ask BeakerBot"}
+                    </span>
+                    <span className="block truncate text-[11px] text-foreground-muted">
+                      answer, analyze, plot, write, or guide you
+                    </span>
                   </span>
-                  <kbd className="rounded border border-border bg-surface px-1.5 py-0.5 text-[11px] font-semibold text-foreground-muted">
-                    enter
-                  </kbd>
-                </span>
-              </div>
+                  <span className="flex flex-none items-center gap-1.5">
+                    <span className="rounded-md border border-amber-200 bg-amber-50 px-1.5 py-0.5 text-[10px] font-semibold text-amber-700 dark:border-amber-800 dark:bg-amber-900/20 dark:text-amber-300">
+                      uses credit
+                    </span>
+                    <kbd className="rounded border border-border bg-surface px-1.5 py-0.5 text-[11px] font-semibold text-foreground-muted">
+                      enter
+                    </kbd>
+                  </span>
+                </div>
+              )
             ) : null}
 
             {/* Results in a TWO-UP GRID so the surface reads wide not long,

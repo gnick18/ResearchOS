@@ -80,6 +80,11 @@ import {
 } from "./recent-records";
 import type { GlobalIndexEntry } from "./global-index";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
+// BeakerBot AI is ACCOUNT-ONLY (Grant's lock). The provider reads canUseAI and
+// passes aiLocked to the palette so the escalation row can render an in-palette
+// discovery upsell instead of a dead escalation for solo/locked accounts.
+// (bug fix: 2026-06-13)
+import { useAccountCapabilities } from "@/hooks/useAccountCapabilities";
 
 /** The trigger-facing API, for the rail doorway and the front-door pill. */
 export interface BeakerSearchApi {
@@ -165,6 +170,12 @@ export function BeakerSearchProvider({ children }: { children: ReactNode }) {
   // the palette as the global NAVIGATE source.
   const objectIndex = useGlobalObjectIndex();
   const router = useRouter();
+
+  // AI gate: when canUseAI is false (solo/locked/demo), pass aiLocked=true to
+  // the palette so its escalation row shows the account-setup upsell instead of
+  // trying to start a BeakerBot conversation. escalateToBeakerBot itself is
+  // unchanged; it is simply never reached from the palette in the locked state.
+  const { canUseAI } = useAccountCapabilities();
 
   // BeakerSearch global object search, chunk 4. The per-user Recent-records
   // MRU. A client-only localStorage list, keyed by the current user so a
@@ -311,6 +322,7 @@ export function BeakerSearchProvider({ children }: { children: ReactNode }) {
           onSearchEverything={searchEverything}
           recentEntries={recentEntries}
           onEscalate={escalateToBeakerBot}
+          aiLocked={!canUseAI}
           askMode={askMode}
           onEnterAskMode={() => setAskMode("ask")}
           onExitAskMode={() => setAskMode("search")}
