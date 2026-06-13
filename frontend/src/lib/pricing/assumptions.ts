@@ -47,10 +47,15 @@ export const STRIPE_FIXED = 0.3;
 
 /** Extra Stripe processing cost when the payer is outside the US, as a fraction
  *  added on top of STRIPE_PCT. Stripe charges roughly +1.5% for an international
- *  card plus about +1% for currency conversion. We pass this real extra cost
- *  through to international payers so a US buyer is not subsidizing it, the same
- *  cost-recovery principle as the rest of the model. FLAGGED placeholder. */
+ *  card plus about +1% for currency conversion. This is folded into the CARD
+ *  list price so an international card covers its own higher cost. FLAGGED. */
 export const INTL_PROCESSING_PCT = 0.025;
+
+/** Stripe processing cost for a bank debit (ACH, SEPA), as a fraction. About
+ *  0.8% (ACH is capped at $5, so the effective rate is usually lower on a large
+ *  invoice). Far below a card, which is why paying by bank earns a real discount
+ *  rather than us surcharging the card. FLAGGED placeholder. */
+export const BANK_FEE_PCT = 0.008;
 
 // ── Free pool + lab assumptions ─────────────────────────────────────────────
 
