@@ -9183,6 +9183,26 @@ export const labApi = {
   },
 
   /**
+   * Lab-wide inventory items (RS-4, the PI-Mode lab inventory browse). Every
+   * member's InventoryItem records, owner-stamped, so the PI can see the whole
+   * lab's reagents/supplies grouped by owner. Read-only browse; per-item editing
+   * stays on each owner's own inventory surface.
+   */
+  getInventoryItemsFull: async (): Promise<
+    Array<InventoryItem & { owner: string }>
+  > => {
+    const { usernames } = await loadLabUsers();
+    const out: Array<InventoryItem & { owner: string }> = [];
+    for (const username of usernames) {
+      const userItems = await inventoryItemsStore.listAllForUser(username);
+      for (const it of userItems) {
+        out.push({ ...it, owner: (it as { owner?: string }).owner || username });
+      }
+    }
+    return out;
+  },
+
+  /**
    * Project-widgets family (project-widgets, 2026-05-29): a
    * sharing-aware cross-member projects read for the Projects Overview
    * (lab mode) + Single-Project pin-picker widgets.

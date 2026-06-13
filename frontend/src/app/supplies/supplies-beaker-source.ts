@@ -41,7 +41,14 @@ import {
 import type { Supply } from "@/lib/supplies/supply-model";
 
 // ── The filter union (mirrored from the page so the builder stays pure) ───────
-export type SupplyFilter = "all" | "attention" | "onorder" | "awaiting_approval";
+export type SupplyFilter =
+  | "all"
+  | "attention"
+  | "onorder"
+  | "awaiting_approval"
+  // Lab-head-only: the lab-wide inventory browse, every member's items grouped
+  // by owner (RS-4). Like awaiting_approval it is not a seedable deep-link.
+  | "lab_inventory";
 
 // ── Page-defined command groups ──────────────────────────────────────────────
 // These print between the page's nav groups and the global "Go to" / "App"
