@@ -9,7 +9,7 @@
 //
 // Shapes covered:
 //   hpv58         -- single-locus nucleotide, raw input, MAFFT + trimAl + IQ-TREE
-//   turtle        -- concatenated supermatrix, pre-aligned, IQ-TREE + partition file
+//   craugastor    -- concatenated supermatrix, pre-aligned, IQ-TREE + partition file
 //   firefly_opsin -- single-gene protein, pre-aligned, IQ-TREE (LG family)
 //
 // House style: no em-dashes, no emojis, no mid-sentence colons.
@@ -19,12 +19,12 @@ import { generateRecipe } from "@/lib/phylo/recipe";
 import type { BuilderOptions } from "@/lib/phylo/catalog";
 
 import hpv58Raw from "@/lib/transparency/datasets/phylo-published/hpv58/builder-options.json";
-import turtleRaw from "@/lib/transparency/datasets/phylo-published/turtle/builder-options.json";
+import craugastorRaw from "@/lib/transparency/datasets/phylo-published/craugastor/builder-options.json";
 import fireflyRaw from "@/lib/transparency/datasets/phylo-published/firefly_opsin/builder-options.json";
 
 // Cast once so TypeScript is happy and every test below stays clean.
 const hpv58: BuilderOptions = hpv58Raw as BuilderOptions;
-const turtle: BuilderOptions = turtleRaw as BuilderOptions;
+const craugastor: BuilderOptions = craugastorRaw as BuilderOptions;
 const firefly: BuilderOptions = fireflyRaw as BuilderOptions;
 
 // ---------------------------------------------------------------------------
@@ -106,26 +106,26 @@ describe("hpv58 fixture (single-locus nucleotide, raw input)", () => {
 });
 
 // ---------------------------------------------------------------------------
-// Fixture 2: turtle -- concatenated supermatrix, pre-aligned
+// Fixture 2: craugastor -- concatenated supermatrix, pre-aligned
 // ---------------------------------------------------------------------------
 //
 // BuilderOptions: dataType=nucleotide, analysis=supermatrix, have=alignment,
 // align=skip, trim=skip, partScheme=gene, brlen=p, infer=iqtree (forced),
-// support=ufboot, model=modelfinder, outgroup=protopterus,Xenopus, os=mac.
+// support=ufboot, model=modelfinder, outgroup="" (none), os=mac.
 //
 // Key contract for the supermatrix pre-aligned case:
 //   - have=alignment with align=skip and trim=skip means no per-gene
 //     realignment or trimming commands appear in the recipe.
-//   - The generator always produces a "partitions.txt" reference in the
-//     IQ-TREE command (this is the AMAS output file, not an input file).
+//   - have=alignment skips AMAS, so the IQ-TREE command points -p at the
+//     user's own partition file (partitions.nex), not a generated one.
 //   - IQ-TREE is always used regardless of the infer field.
-//   - The outgroup flag (-o protopterus,Xenopus) appears in the IQ-TREE line.
+//   - With an empty outgroup the IQ-TREE line carries no -o flag.
 
-describe("turtle fixture (concatenated supermatrix, pre-aligned)", () => {
-  const recipe = generateRecipe(turtle);
+describe("craugastor fixture (concatenated supermatrix, pre-aligned)", () => {
+  const recipe = generateRecipe(craugastor);
 
   it("produces a coherent, non-empty RecipeOutput for every field", () => {
-    assertCoherent(recipe, "turtle");
+    assertCoherent(recipe, "craugastor");
   });
 
   it("has iqtree2 as the tree-inference step (forced regardless of infer field)", () => {
@@ -133,10 +133,11 @@ describe("turtle fixture (concatenated supermatrix, pre-aligned)", () => {
     expect(recipe.runScript).toContain("iqtree2");
   });
 
-  it("references partitions.txt in the IQ-TREE command (the AMAS-generated partition file)", () => {
-    // The -p flag always emits partitions.txt for the supermatrix pipeline.
-    expect(recipe.commands).toContain("-p partitions.txt");
-    expect(recipe.runScript).toContain("partitions.txt");
+  it("references the user's own partition file in the IQ-TREE command", () => {
+    // The pre-aligned (have=alignment) supermatrix path skips AMAS and points
+    // -p at the partition file the user already has (partitions.nex here).
+    expect(recipe.commands).toContain("-p partitions.nex");
+    expect(recipe.runScript).toContain("partitions.nex");
   });
 
   it("does NOT emit a mafft, muscle, clustalo, trimal, clipkit, or gblocks command (pre-aligned, no realignment)", () => {
@@ -152,14 +153,14 @@ describe("turtle fixture (concatenated supermatrix, pre-aligned)", () => {
     expect(recipe.commands).toContain("-m MFP");
   });
 
-  it("uses edge-linked proportional branch lengths (-p flag before partitions.txt)", () => {
-    // The brlen=p fixture produces "iqtree2 -s supermatrix.fasta -p partitions.txt"
-    expect(recipe.commands).toContain("iqtree2 -s supermatrix.fasta -p partitions.txt");
+  it("uses edge-linked proportional branch lengths (-p flag before the partition file)", () => {
+    // The brlen=p pre-aligned fixture produces
+    // "iqtree2 -s input_alignment.fasta -p partitions.nex"
+    expect(recipe.commands).toContain("iqtree2 -s input_alignment.fasta -p partitions.nex");
   });
 
-  it("includes the outgroup flag with the fixture value (protopterus,Xenopus)", () => {
-    expect(recipe.commands).toContain("-o protopterus,Xenopus");
-    expect(recipe.runScript).toContain("protopterus,Xenopus");
+  it("emits no outgroup flag when the fixture outgroup is empty", () => {
+    expect(recipe.commands).not.toContain("-o ");
   });
 
   it("includes UFBoot flags and --bnni", () => {
