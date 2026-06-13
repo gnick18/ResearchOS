@@ -115,35 +115,37 @@ export default function DeptAdminPanel() {
   if (!roster.department) {
     return (
       <div className="mx-auto max-w-lg px-4 py-8">
-        <h1 className="flex items-center gap-2 text-title font-semibold text-foreground">
-          <Icon name="labTree" className="h-5 w-5" />
-          Start a department
-        </h1>
-        <p className="mt-1 text-meta text-foreground-muted leading-relaxed">
-          A department is a container of labs on one invoice. Name it, then invite
-          your lab heads; they enroll their own members. You see the labs and their
-          usage, never their research data.
-        </p>
-        <div className="mt-4 flex flex-wrap gap-2">
-          <input
-            className={inputCls}
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            placeholder="Department of Microbiology"
-            onKeyDown={(e) => {
-              if (e.key === "Enter" && !busy) void createDept();
-            }}
-          />
-          <button
-            type="button"
-            className={primaryBtn}
-            disabled={busy || !name.trim()}
-            onClick={() => void createDept()}
-          >
-            {busy ? "Creating…" : "Create department"}
-          </button>
+        <div className="rounded-2xl border border-border bg-surface p-6 shadow-sm">
+          <h1 className="flex items-center gap-2 text-title font-semibold text-foreground">
+            <Icon name="labTree" className="h-5 w-5" />
+            Start a department
+          </h1>
+          <p className="mt-1 text-meta text-foreground-muted leading-relaxed">
+            A department is a container of labs on one invoice. Name it, then invite
+            your lab heads; they enroll their own members. You see the labs and their
+            usage, never their research data.
+          </p>
+          <div className="mt-4 flex flex-wrap gap-2">
+            <input
+              className={inputCls}
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="Department of Microbiology"
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && !busy) void createDept();
+              }}
+            />
+            <button
+              type="button"
+              className={primaryBtn}
+              disabled={busy || !name.trim()}
+              onClick={() => void createDept()}
+            >
+              {busy ? "Creating…" : "Create department"}
+            </button>
+          </div>
+          {error && <p className="mt-2 text-meta text-rose-600">{error}</p>}
         </div>
-        {error && <p className="mt-2 text-meta text-rose-600">{error}</p>}
       </div>
     );
   }

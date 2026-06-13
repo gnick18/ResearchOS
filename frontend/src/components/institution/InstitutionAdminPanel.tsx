@@ -116,36 +116,38 @@ export default function InstitutionAdminPanel() {
   if (!roster.institution) {
     return (
       <div className="mx-auto max-w-lg px-4 py-8">
-        <h1 className="flex items-center gap-2 text-title font-semibold text-foreground">
-          <Icon name="labTree" className="h-5 w-5" />
-          Start an institution
-        </h1>
-        <p className="mt-1 text-meta text-foreground-muted leading-relaxed">
-          An institution is a container of departments on one invoice. Name it, then
-          invite your department admins; they enroll their own labs, and each lab
-          head enrolls members. You see the departments and their usage, never any
-          research data.
-        </p>
-        <div className="mt-4 flex flex-wrap gap-2">
-          <input
-            className={inputCls}
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            placeholder="University of Example"
-            onKeyDown={(e) => {
-              if (e.key === "Enter" && !busy) void createInstitution();
-            }}
-          />
-          <button
-            type="button"
-            className={primaryBtn}
-            disabled={busy || !name.trim()}
-            onClick={() => void createInstitution()}
-          >
-            {busy ? "Creating…" : "Create institution"}
-          </button>
+        <div className="rounded-2xl border border-border bg-surface p-6 shadow-sm">
+          <h1 className="flex items-center gap-2 text-title font-semibold text-foreground">
+            <Icon name="labTree" className="h-5 w-5" />
+            Start an institution
+          </h1>
+          <p className="mt-1 text-meta text-foreground-muted leading-relaxed">
+            An institution is a container of departments on one invoice. Name it, then
+            invite your department admins; they enroll their own labs, and each lab
+            head enrolls members. You see the departments and their usage, never any
+            research data.
+          </p>
+          <div className="mt-4 flex flex-wrap gap-2">
+            <input
+              className={inputCls}
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="University of Example"
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && !busy) void createInstitution();
+              }}
+            />
+            <button
+              type="button"
+              className={primaryBtn}
+              disabled={busy || !name.trim()}
+              onClick={() => void createInstitution()}
+            >
+              {busy ? "Creating…" : "Create institution"}
+            </button>
+          </div>
+          {error && <p className="mt-2 text-meta text-rose-600">{error}</p>}
         </div>
-        {error && <p className="mt-2 text-meta text-rose-600">{error}</p>}
       </div>
     );
   }
