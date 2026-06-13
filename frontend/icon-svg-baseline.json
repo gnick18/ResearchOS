@@ -229,6 +229,8 @@
   "lib/datahub/diagnostic-plot.ts": 1,
   "lib/datahub/__tests__/diagnostic-plot.test.ts": 2,
   "lib/datahub/estimation-plot.ts": 1,
+  "lib/datahub/parts-of-whole-plot.ts": 1,
+  "lib/datahub/__tests__/parts-of-whole-plot.test.ts": 3,
   "lib/datahub/plot-spec.ts": 4,
   "lib/export/__tests__/bake-embeds.test.ts": 2,
   "lib/export/bake-embeds.ts": 1,

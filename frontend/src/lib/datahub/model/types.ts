@@ -42,7 +42,8 @@ export type DataHubTableType =
   | "grouped"
   | "survival"
   | "contingency"
-  | "nested";
+  | "nested"
+  | "partsOfWhole";
 
 /**
  * The role a column plays in the table. Prism groups replicate subcolumns under

@@ -67,6 +67,11 @@ import {
   type DiagnosticGeometry,
 } from "@/lib/datahub/diagnostic-plot";
 import {
+  layoutPartsOfWhole,
+  renderPartsOfWholeSvg,
+  type PartsOfWholeGeometry,
+} from "@/lib/datahub/parts-of-whole-plot";
+import {
   paletteById,
   samplePalette,
   DEFAULT_PALETTE_ID,
@@ -106,7 +111,16 @@ export type PlotKind =
   // plots and render through the same SVG pipeline (see diagnostic-plot.ts).
   | "qqPlot"
   | "residualPlot"
-  | "rocCurve";
+  | "rocCurve"
+  // Parts-of-whole figures (the composition of a single whole, no statistic).
+  // "pie" draws one wedge per category sized by value, labeled with category +
+  // percent. "donut" is the pie with a center hole (donutHoleRatio) and the
+  // total in the center. "stackedBar" is a single 100-percent stacked column,
+  // one segment per category. All three read the resolved category/value pairs
+  // and render through the same SVG pipeline (see parts-of-whole-plot.ts).
+  | "pie"
+  | "donut"
+  | "stackedBar";
 
 /** Which error bar a figure draws, computed from the raw replicates. */
 export type ErrorBarKind = "sd" | "sem" | "none";
@@ -209,6 +223,13 @@ export interface PlotStyle {
    * QQ figure sourced from a table group carries it.
    */
   diagnosticColumnIndex?: number;
+  /**
+   * Parts-of-whole field. The donut hole radius as a fraction of the pie radius
+   * (0 draws a solid pie, 0.6 the default donut ring). Read only by the "donut"
+   * figure; clamped to [0, 0.9). Optional and additive, so any non-donut figure
+   * reads back byte-identical and only a donut figure carries it.
+   */
+  donutHoleRatio?: number;
 }
 
 /** The unit a figure's width / height is typed in (and stored as). */
@@ -273,6 +294,9 @@ export function defaultPlotStyle(): PlotStyle {
     // Diagnostic-plot default. Unread by every non-diagnostic figure; a QQ figure
     // sourced from a table group overrides it through buildPlotSpec.
     diagnosticColumnIndex: 0,
+    // Parts-of-whole default. Unread by every non-donut figure; the donut ring
+    // uses it for the center hole radius.
+    donutHoleRatio: 0.6,
   };
 }
 
@@ -383,6 +407,9 @@ export function readPlotStyle(spec: PlotSpec): PlotStyle {
     "qqPlot",
     "residualPlot",
     "rocCurve",
+    "pie",
+    "donut",
+    "stackedBar",
   ];
   const kind = KINDS.includes(s.kind as PlotKind)
     ? (s.kind as PlotKind)
@@ -491,6 +518,16 @@ export function readPlotStyle(spec: PlotSpec): PlotStyle {
       s.diagnosticColumnIndex >= 0
         ? s.diagnosticColumnIndex
         : d.diagnosticColumnIndex,
+    // Parts-of-whole field. The donut hole ratio falls to its default when
+    // absent or out of range, so an old spec (or any non-donut figure) reads
+    // back unchanged. Clamped to [0, 0.9) so the ring always has a visible band.
+    donutHoleRatio:
+      typeof s.donutHoleRatio === "number" &&
+      Number.isFinite(s.donutHoleRatio) &&
+      s.donutHoleRatio >= 0 &&
+      s.donutHoleRatio < 0.9
+        ? s.donutHoleRatio
+        : d.donutHoleRatio,
   };
 }
 
@@ -528,6 +565,8 @@ export function buildPlotSpec(args: {
   estimationControlIndex?: number;
   /** For a QQ figure sourced from a table group, which group to plot. */
   diagnosticColumnIndex?: number;
+  /** For a donut figure, the center hole radius as a fraction of the pie radius. */
+  donutHoleRatio?: number;
 }): PlotSpec {
   const style = defaultPlotStyle();
   style.kind = args.kind;
@@ -541,6 +580,8 @@ export function buildPlotSpec(args: {
     style.estimationControlIndex = args.estimationControlIndex;
   if (args.diagnosticColumnIndex !== undefined)
     style.diagnosticColumnIndex = args.diagnosticColumnIndex;
+  if (args.donutHoleRatio !== undefined)
+    style.donutHoleRatio = args.donutHoleRatio;
   const source: PlotSource = {
     tableId: args.tableId,
     analysisId: args.analysisId ?? null,
@@ -1421,7 +1462,8 @@ export function renderPlot(
     | GroupedBarGeometry
     | SurvivalCurveGeometry
     | EstimationGeometry
-    | DiagnosticGeometry;
+    | DiagnosticGeometry
+    | PartsOfWholeGeometry;
   style: PlotStyle;
   frame: FigureFrame;
 } {
@@ -1468,6 +1510,15 @@ export function renderPlot(
   ) {
     const geometry = layoutDiagnosticPlot(content, style, analysis);
     const svg = onScreen(renderDiagnosticSvg(geometry, style));
+    return { svg, geometry, style, frame };
+  }
+  if (
+    style.kind === "pie" ||
+    style.kind === "donut" ||
+    style.kind === "stackedBar"
+  ) {
+    const geometry = layoutPartsOfWhole(content, style);
+    const svg = onScreen(renderPartsOfWholeSvg(geometry, style));
     return { svg, geometry, style, frame };
   }
   const groups = resolvePlotGroups(content, style);
