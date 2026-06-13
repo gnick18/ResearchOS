@@ -181,7 +181,7 @@ export default function SettingsShell({
         {/* ── Rail ── */}
         <nav
           aria-label="Settings sections"
-          className="flex flex-col border-b border-border bg-surface-raised md:border-b-0 md:border-r"
+          className="flex min-h-0 flex-col border-b border-border bg-surface-raised md:border-b-0 md:border-r"
         >
           {/* Scrollable section list; the rail footer below stays pinned. */}
           <div className="flex-1 overflow-y-auto p-2.5">
