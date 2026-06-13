@@ -82,9 +82,15 @@ NEXT_PUBLIC_SHARING_ENABLED=true
 # Turns on every /api/billing/* route. Without it they all 404.
 BILLING_ENABLED=true
 # The billing-sim backdoor. Setting this STRING activates /api/dev/billing-sim
-# (inert/404 otherwise). The agent curls it with this as a bearer token to seed
-# an active PI subscription with NO Stripe checkout. Pick any opaque value.
-BILLING_SIM_SECRET=dev-sim-secret-change-me
+# (returns 404 when unset). The agent (or a curl) sends it as the Bearer token to
+# seed an active PI subscription with NO Stripe checkout. Pick any opaque value;
+# the Bearer you send MUST match this exactly.
+BILLING_SIM_SECRET=funnel-test-sim-secret
+# REQUIRED for billing-sim AND the invite gate: the pepper that hashes an email
+# into its owner key (ownerKeyForEmail). Without it billing-sim 500s with
+# "DIRECTORY_HMAC_PEPPER is not set". NOT in the main checkout by default; add it.
+# Any opaque value, but it must stay stable across a run (same email -> same key).
+DIRECTORY_HMAC_PEPPER=funnel-test-hmac-pepper-0001
 
 # --- Stripe (ONLY needed for the real hosted-checkout path in step 4b; the
 #     default billing-sim path needs NONE of these) ---
@@ -120,7 +126,33 @@ Per the project rule about not running a second dev server against the shared
 main checkout, run this harness against the dev server Grant already has on
 `:3000` (these are additive env reads), or against your own isolated worktree's
 dev server on a different port. Do not start a second `next dev` pointed at
-`frontend/` in the main checkout.
+`frontend/` in the main checkout. (A second port needs an isolated worktree with
+its own `node_modules` via `pnpm install` and a copied `.env.local`; COW-cloning
+a pnpm `node_modules` leaves broken symlinks, so reinstall instead of `cp`.)
+
+---
+
+## 1b. Start the relay worker (the crypto-lab half needs it)
+
+The create / invite-link / join handshake calls the lab Durable Object over
+`ws://localhost:8787` (`openLabKey` in lab-session-effects.ts; default in
+`src/lib/loro/config.ts`). If the relay is not running, every create/login step
+fails with "Failed to fetch" and resets to the locked state. Start it locally
+(miniflare, no Cloudflare account, binds `LabRecordDO` + the lab-data R2):
+
+```bash
+cd relay && npm run dev   # wrangler dev on :8787, "Ready on http://localhost:8787"
+```
+
+Leave it running for the whole walkthrough. A root GET returns 404 (it is a
+route/WS worker, not a page); that 404 means it is up, not down.
+
+Schema note (fixed 2026-06-12): the dev billing DB auto-migrates on first
+billing-sim call (`ensureBillingSchema`). Two bugs that used to block this are
+now fixed on main: billing-sim now ensures the billing schema (096bb9b6a), and
+`ensureBillingSchema` inlines its DDL defaults via `sql.unsafe` so the Neon HTTP
+driver no longer throws "bind message supplies 1 parameters" (74e9a4aa3). A fresh
+or old Neon dev DB now migrates cleanly with no manual SQL.
 
 ---
 
