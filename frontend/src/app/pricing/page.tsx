@@ -12,6 +12,7 @@ import PlanPicker from "@/components/pricing/PlanPicker";
 import PricingFaq from "@/components/pricing/PricingFaq";
 import PricingHero from "@/components/pricing/PricingHero";
 import { Section, SectionHeading } from "@/components/pricing/Section";
+import TrustBand from "@/components/pricing/TrustBand";
 import TwoPartModel from "@/components/pricing/TwoPartModel";
 
 /**
@@ -32,71 +33,6 @@ export const metadata: Metadata = {
   description:
     "The ResearchOS local notebook is free and open source forever. The only paid parts are optional cloud storage and the optional AI assistant, both metered at cost. Individuals and labs pay what it costs us, larger institutions pay a little more to keep it free for everyone else. See the competitor savings, the plan builders, the AI pricing, and the actual cost math. Everything is free during the beta.",
 };
-
-const METERING_ITEMS: FeatureItem[] = [
-  {
-    icon: "pencil",
-    title: "Editing is included, not billed",
-    body: [
-      "Collaboration and editing come with your plan. There is no second meter watching what you type, and no per-edit charge ever appears on your invoice.",
-    ],
-  },
-  {
-    icon: "gauge",
-    title: "A throttle, never a surprise bill",
-    body: [
-      "If a very heavy month runs past your editing allowance, real-time sync slows to periodic sync. Your work keeps saving. If a lab keeps hitting it, the PI raises the plan, nobody gets a shock charge.",
-    ],
-  },
-];
-
-const LABS_ITEMS: FeatureItem[] = [
-  {
-    icon: "receipt",
-    title: "One shared pool, one invoice",
-    body: [
-      "The free tier and any paid plan are a single pool for the whole lab. Only the PI pays, on one consolidated invoice. Members are never billed and never enter a card.",
-    ],
-  },
-  {
-    icon: "mail",
-    title: "Invite by email, member accepts",
-    body: [
-      "The PI invites a member by email, and the member accepts before the lab starts covering them. We do not store the email address permanently.",
-    ],
-  },
-  {
-    icon: "chart",
-    title: "The PI can manage the pool",
-    body: [
-      "Because the PI pays, they can see each member's storage and activity use, so they can manage the shared pool. Members are told this when they accept.",
-    ],
-  },
-  {
-    icon: "folder",
-    title: "Local-first for everyone",
-    body: [
-      "Every member still keeps their own data in their own folder. The lab plan funds the shared, synced copies, not the local work, which stays free.",
-    ],
-  },
-];
-
-const GUARDRAIL_ITEMS: FeatureItem[] = [
-  {
-    icon: "shield",
-    title: "A cost circuit breaker",
-    body: [
-      "We set a hard monthly budget. If cloud spend ever approaches it, cloud writes pause and the local-first app keeps working with zero interruption. There is no runaway bill that we then pass to you.",
-    ],
-  },
-  {
-    icon: "scale",
-    title: "Priced to sustain, not to profit",
-    body: [
-      "Individuals and labs pay what storage costs us, no more. Larger institutions pay a modest sustaining rate above cost, and that surplus keeps ResearchOS free for individual researchers and funds the open-source development. We are not extracting profit, we are keeping a public good alive.",
-    ],
-  },
-];
 
 const SUPPORT_ITEMS: FeatureItem[] = [
   {
@@ -238,34 +174,10 @@ export default function PricingPage() {
             <CostMath />
           </Section>
 
-          {/* Editing is never metered */}
+          {/* Trust band: metering + labs + guardrails as one designed band with
+              mechanic illustrations, replacing the three flat FeatureGrids. */}
           <Section>
-            <SectionHeading
-              title="Your editing is never metered"
-              subtitle="We never charge per keystroke or per sync. Other tools nickel and dime every action, and we built the opposite on purpose."
-            />
-            <FeatureGrid items={METERING_ITEMS} />
-            <p className="mx-auto mt-4 max-w-2xl text-center text-sm font-bold leading-snug text-brand-purple">
-              Your editing is never metered.
-            </p>
-          </Section>
-
-          {/* How labs work */}
-          <Section>
-            <SectionHeading
-              title="Built for a whole lab, billed to one person"
-              subtitle="A lab plan is a shared pool for the team, not a charge per head. The PI runs it and members just use it."
-            />
-            <FeatureGrid items={LABS_ITEMS} />
-          </Section>
-
-          {/* Guardrails */}
-          <Section>
-            <SectionHeading
-              title="We cannot run up a bill and hand it to you"
-              subtitle="Two guardrails make that a promise we can keep, not a slogan."
-            />
-            <FeatureGrid items={GUARDRAIL_ITEMS} />
+            <TrustBand />
           </Section>
 
           {/* Supporting us */}
