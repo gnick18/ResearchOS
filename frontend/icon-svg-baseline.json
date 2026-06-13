@@ -233,6 +233,7 @@
   "lib/export/__tests__/bake-embeds.test.ts": 2,
   "lib/export/bake-embeds.ts": 1,
   "lib/methods/method-type-icons.tsx": 10,
+  "lib/phylo/render.ts": 1,
   "lib/sequences/export.ts": 4,
   "lib/sharing/relay/__tests__/mailer.test.ts": 1,
   "lib/utils/icons.tsx": 8
