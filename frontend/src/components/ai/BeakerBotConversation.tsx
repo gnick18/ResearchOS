@@ -1,7 +1,8 @@
 "use client";
 
 // BeakerBotConversation (ai convo-store bot, 2026-06-11; ai palette-morph bot,
-// 2026-06-11; ai chat-embeds bot, 2026-06-11; ai transform-tool bot, 2026-06-11).
+// 2026-06-11; ai chat-embeds bot, 2026-06-11; ai transform-tool bot, 2026-06-11;
+// ai chat-modernization stage-2 bot, 2026-06-13).
 //
 // Reusable conversation body extracted from BeakerBotPanel. Contains the
 // message thread, the AssistantMarkdown renderer with ObjectChip tile upgrades,
@@ -28,6 +29,7 @@ import { useEffect, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { Icon } from "@/components/icons";
+import Tooltip from "@/components/Tooltip";
 import { useAiChat } from "./useAiChat";
 import BeakerBotThinking from "./BeakerBotThinking";
 import { RunningStatusLine, SettledStatusLine } from "./TurnStatusLine";
@@ -528,6 +530,72 @@ function StepApprovalCard({
   );
 }
 
+// ---------------------------------------------------------------------------
+// RevertConfirmDialog: a small overlay modal that asks for confirmation before
+// discarding turns. States exactly how many messages will be removed, per the
+// approved design (docs/mockups/2026-06-13-beakerbot-chat-modernization.html,
+// Section 2). House style, no em-dashes, no emojis, no mid-sentence colons.
+// ---------------------------------------------------------------------------
+
+function RevertConfirmDialog({
+  removedCount,
+  onConfirm,
+  onCancel,
+}: {
+  removedCount: number;
+  onConfirm: () => void;
+  onCancel: () => void;
+}) {
+  const noun = removedCount === 1 ? "message" : "messages";
+  return (
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-label="Confirm revert"
+      className="absolute inset-0 z-50 flex items-center justify-center bg-black/30"
+      onClick={(e) => {
+        // Click the backdrop to cancel (escape hatch, no soft-lock).
+        if (e.target === e.currentTarget) onCancel();
+      }}
+    >
+      <div className="w-64 rounded-xl bg-surface px-5 py-4 shadow-2xl border border-border">
+        <h4 className="mb-1 text-body font-semibold text-foreground">
+          Revert to this message?
+        </h4>
+        <p className="mb-4 text-meta text-foreground-muted leading-snug">
+          The {removedCount} {noun} after this point will be removed. This
+          cannot be undone.
+        </p>
+        <div className="flex gap-2">
+          <button
+            type="button"
+            data-testid="beakerbot-revert-confirm"
+            onClick={onConfirm}
+            className="flex-1 rounded-lg bg-red-600 px-3 py-2 text-meta font-semibold text-white transition-colors hover:bg-red-700"
+          >
+            Revert
+          </button>
+          <button
+            type="button"
+            data-testid="beakerbot-revert-cancel"
+            onClick={onCancel}
+            className="flex-1 rounded-lg border border-border bg-surface-raised px-3 py-2 text-meta font-medium text-foreground-muted transition-colors hover:bg-surface-sunken"
+          >
+            Cancel
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Revert pending state: the id of the user message the user clicked Revert on,
+// plus the count of messages that will be removed (shown in the confirm dialog).
+type RevertPending = {
+  messageId: string;
+  removedCount: number;
+};
+
 // The full conversation body: thread, approvals, status, composer.
 // Accepts an optional className to let the parent control sizing.
 export default function BeakerBotConversation({
@@ -552,12 +620,22 @@ export default function BeakerBotConversation({
     runningToolCount,
     turnToolSteps,
     settledTurns,
+    regenerate,
+    revertToHere,
   } = useAiChat();
   const [draft, setDraft] = useState("");
   const listRef = useRef<HTMLDivElement | null>(null);
   // Track the assistant message id for the in-flight placeholder so stop() can
   // remove the empty bubble if the turn is cancelled before any text arrives.
   const assistantIdRef = useRef<string | null>(null);
+
+  // copiedId: the id of the message that most recently had its text copied. A
+  // brief "Copied" label replaces the Copy button label while this is set.
+  const [copiedId, setCopiedId] = useState<string | null>(null);
+
+  // revertPending: set when the user clicks Revert-to-here; cleared by Cancel
+  // or after the confirmed revert runs.
+  const [revertPending, setRevertPending] = useState<RevertPending | null>(null);
 
   // Bridge registration (useNavigationBridge + useBeakerBotMessageBridge) moved
   // to BeakerBotBridges (mounted once in app/layout.tsx). This component is now
@@ -600,8 +678,56 @@ export default function BeakerBotConversation({
     }
   }, [sending, messages]);
 
+  // handleCopy: copies the given text to the clipboard. Shows a brief "Copied"
+  // label on the button (via copiedId) that auto-clears after 1.5 seconds.
+  const handleCopy = (messageId: string, text: string) => {
+    void navigator.clipboard.writeText(text).then(() => {
+      setCopiedId(messageId);
+      setTimeout(() => setCopiedId((id) => (id === messageId ? null : id)), 1500);
+    });
+  };
+
+  // handleRevertRequest: opens the confirm dialog for a given user message.
+  // removedCount is the number of messages that will be discarded (everything
+  // after the target user message, not including it).
+  const handleRevertRequest = (messageId: string, index: number) => {
+    const removedCount = messages.length - (index + 1);
+    setRevertPending({ messageId, removedCount });
+  };
+
+  const handleRevertConfirm = () => {
+    if (revertPending) {
+      revertToHere(revertPending.messageId);
+    }
+    setRevertPending(null);
+  };
+
+  const handleRevertCancel = () => setRevertPending(null);
+
+  // The last settled assistant message id, used to gate the Regenerate button.
+  // Regenerate is valid only on the very last assistant message when not sending.
+  const lastAssistantId =
+    !sending && messages.length > 0
+      ? (() => {
+          const lastMsg = messages[messages.length - 1];
+          return lastMsg.role === "assistant" && lastMsg.content.trim().length > 0
+            ? lastMsg.id
+            : null;
+        })()
+      : null;
+
   return (
-    <div className={`flex flex-col overflow-hidden${className ? ` ${className}` : ""}`}>
+    <div className={`relative flex flex-col overflow-hidden${className ? ` ${className}` : ""}`}>
+      {/* Revert confirm overlay. Covers the whole panel so the user cannot interact
+          with the conversation while the confirm is open. */}
+      {revertPending ? (
+        <RevertConfirmDialog
+          removedCount={revertPending.removedCount}
+          onConfirm={handleRevertConfirm}
+          onCancel={handleRevertCancel}
+        />
+      ) : null}
+
       {/* Message thread */}
       <div
         ref={listRef}
@@ -623,8 +749,21 @@ export default function BeakerBotConversation({
               m.role === "assistant" && m.content
                 ? settledTurns.find((t) => t.assistantId === m.id)
                 : undefined;
+
+            // Action row visibility: copy is always available on a settled message.
+            // Regenerate is only on the last settled assistant reply.
+            // Revert-to-here is only on user messages (any, not just the last).
+            const isSettledAssistant =
+              m.role === "assistant" && m.content.trim().length > 0;
+            const canRegenerate = m.id === lastAssistantId;
+            const isUserMessage = m.role === "user";
+
             return (
-              <div key={m.id} className="flex flex-col gap-1.5 self-start w-full">
+              // group class enables Tailwind's group-hover: prefix on child elements.
+              <div
+                key={m.id}
+                className="group flex flex-col gap-1.5 self-start w-full"
+              >
                 <div
                   data-testid={`beakerbot-message-${m.role}`}
                   className={
@@ -649,6 +788,66 @@ export default function BeakerBotConversation({
                     m.content
                   )}
                 </div>
+
+                {/* Per-message action row. Appears on hover (group-hover) for any
+                    settled message. User messages: Copy + Revert-to-here (danger
+                    tone). Assistant messages: Copy + Regenerate (last only). The
+                    row uses opacity-0/group-hover:opacity-100 so it does not take
+                    layout space when hidden. */}
+                {(isSettledAssistant || isUserMessage) ? (
+                  <div
+                    className={`flex items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100 ${
+                      m.role === "user" ? "justify-end pr-1" : "pl-1"
+                    }`}
+                    data-testid="beakerbot-action-row"
+                  >
+                    {/* Copy */}
+                    <Tooltip label={copiedId === m.id ? "Copied" : "Copy message"} placement="bottom">
+                      <button
+                        type="button"
+                        data-testid="beakerbot-copy"
+                        aria-label="Copy message"
+                        onClick={() => handleCopy(m.id, m.content)}
+                        className="flex items-center gap-1 rounded px-1.5 py-0.5 text-[11px] text-foreground-muted transition-colors hover:bg-surface-sunken hover:text-foreground"
+                      >
+                        <Icon name="copy" className="h-3 w-3" title="Copy" />
+                        {copiedId === m.id ? "Copied" : "Copy"}
+                      </button>
+                    </Tooltip>
+
+                    {/* Regenerate (last assistant message only) */}
+                    {isSettledAssistant && canRegenerate && !sending ? (
+                      <Tooltip label="Regenerate reply" placement="bottom">
+                        <button
+                          type="button"
+                          data-testid="beakerbot-regenerate"
+                          aria-label="Regenerate reply"
+                          onClick={() => { void regenerate(); }}
+                          className="flex items-center gap-1 rounded px-1.5 py-0.5 text-[11px] text-foreground-muted transition-colors hover:bg-surface-sunken hover:text-foreground"
+                        >
+                          <Icon name="refresh" className="h-3 w-3" title="Regenerate" />
+                          Regenerate
+                        </button>
+                      </Tooltip>
+                    ) : null}
+
+                    {/* Revert-to-here (user messages only) */}
+                    {isUserMessage && !sending ? (
+                      <Tooltip label="Remove all messages after this one" placement="bottom">
+                        <button
+                          type="button"
+                          data-testid="beakerbot-revert"
+                          aria-label="Revert to here"
+                          onClick={() => handleRevertRequest(m.id, index)}
+                          className="flex items-center gap-1 rounded px-1.5 py-0.5 text-[11px] text-red-500 transition-colors hover:bg-red-50 hover:text-red-700"
+                        >
+                          <Icon name="undo" className="h-3 w-3" title="Revert to here" />
+                          Revert to here
+                        </button>
+                      </Tooltip>
+                    ) : null}
+                  </div>
+                ) : null}
 
                 {/* Settled per-turn token summary pinned below a finished assistant
                     reply. Always shown so each turn's cost is auditable. */}

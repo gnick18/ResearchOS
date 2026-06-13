@@ -38,6 +38,9 @@ export function useAiChat() {
   const clearQueue = useConversationStore((s) => s.clearQueue);
   const resolveApproval = useConversationStore((s) => s.resolveApproval);
   const resolveChoice = useConversationStore((s) => s.resolveChoice);
+  // Per-message affordances (STAGE 2, 2026-06-13).
+  const regenerate = useConversationStore((s) => s.regenerate);
+  const revertToHere = useConversationStore((s) => s.revertToHere);
   // Live status-line fields (STAGE 1, 2026-06-13).
   const turnStartedAt = useConversationStore((s) => s.turnStartedAt);
   const turnElapsedMs = useConversationStore((s) => s.turnElapsedMs);
@@ -58,6 +61,9 @@ export function useAiChat() {
     queuedText,
     resolveApproval,
     resolveChoice,
+    // Per-message affordances (STAGE 2, 2026-06-13).
+    regenerate,
+    revertToHere,
     // Live status-line fields.
     turnStartedAt,
     turnElapsedMs,
