@@ -9,7 +9,8 @@
     "deploy": "wrangler deploy",
     "smoke:capture": "node scripts/smoke-capture.mjs",
     "smoke:snapshot": "node scripts/smoke-snapshot.mjs",
-    "smoke:notify": "node scripts/smoke-notify.mjs"
+    "smoke:notify": "node scripts/smoke-notify.mjs",
+    "test:notify": "bash scripts/smoke-notify-local.sh"
   },
   "dependencies": {
     "@noble/ciphers": "^2.2.0",
