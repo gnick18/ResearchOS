@@ -21,9 +21,10 @@ const ENDPOINT = "/api/ai/chat";
 export class ProxyError extends Error {}
 
 /** The proxy-backed model caller for production use. Sends { messages, tools,
- *  stream:false } and returns the provider JSON. Throws ProxyError with the
- *  proxy's message on a non-OK response. */
-export const callModelViaProxy: ModelCaller = async (messages, tools) => {
+ *  stream:false, stream_options.include_usage:true } and returns the provider
+ *  JSON (which carries a usage block when the provider supports it). Throws
+ *  ProxyError with the proxy's message on a non-OK response. */
+export const callModelViaProxy: ModelCaller = async (messages, tools, signal) => {
   const res = await fetch(ENDPOINT, {
     method: "POST",
     headers: { "content-type": "application/json" },
@@ -32,7 +33,14 @@ export const callModelViaProxy: ModelCaller = async (messages, tools) => {
       // Only send tools when there are some, an empty array is harmless but noise.
       tools: tools.length > 0 ? tools : undefined,
       stream: false,
+      // Request the provider to include a usage block in the non-streaming
+      // response so the status line can show a live token count. The proxy
+      // passes this through to the upstream provider. Providers that do not
+      // understand stream_options ignore the field harmlessly, and the status
+      // line degrades gracefully when usage is absent.
+      stream_options: { include_usage: true },
     }),
+    signal,
   });
 
   if (!res.ok) {

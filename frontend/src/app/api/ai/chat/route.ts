@@ -294,10 +294,17 @@ export async function POST(request: Request): Promise<Response> {
         model,
         messages: cleanMessages,
         stream,
-        // With enforcement on, ask the provider to emit a final usage chunk on the
-        // SSE stream so we can meter a streamed turn. This is an upstream-only
-        // field, the bytes the browser receives are still teed unchanged below.
-        ...(billingOn && stream
+        // Ask the provider to include a usage block so the client can display a
+        // live token count (non-streaming) and the metering branch can record it
+        // (streaming with billing on). Providers that do not understand
+        // stream_options ignore the field harmlessly. Two cases:
+        //   - non-streaming (stream:false, the agent loop): always include usage
+        //     so the status line gets a token count even without billing enabled.
+        //   - streaming with billing on: include so the server metering branch
+        //     can read the final cumulative chunk.
+        // Streaming without billing: no billing, skip the field to stay
+        // byte-identical to the original path and avoid confusing old providers.
+        ...(!stream || (billingOn && stream)
           ? { stream_options: { include_usage: true } }
           : {}),
         ...(cleanTools ? { tools: cleanTools } : {}),

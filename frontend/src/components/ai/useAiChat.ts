@@ -22,6 +22,7 @@ export type {
   ChatRole,
   ChatMessage,
   PendingApproval,
+  TurnSummary,
 } from "@/lib/ai/conversation-store";
 
 export function useAiChat() {
@@ -36,6 +37,12 @@ export function useAiChat() {
   const clearQueue = useConversationStore((s) => s.clearQueue);
   const resolveApproval = useConversationStore((s) => s.resolveApproval);
   const resolveChoice = useConversationStore((s) => s.resolveChoice);
+  // Live status-line fields (STAGE 1, 2026-06-13).
+  const turnStartedAt = useConversationStore((s) => s.turnStartedAt);
+  const turnElapsedMs = useConversationStore((s) => s.turnElapsedMs);
+  const turnTokens = useConversationStore((s) => s.turnTokens);
+  const runningToolCount = useConversationStore((s) => s.runningToolCount);
+  const settledTurns = useConversationStore((s) => s.settledTurns);
 
   return {
     messages,
@@ -49,5 +56,11 @@ export function useAiChat() {
     queuedText,
     resolveApproval,
     resolveChoice,
+    // Live status-line fields.
+    turnStartedAt,
+    turnElapsedMs,
+    turnTokens,
+    runningToolCount,
+    settledTurns,
   };
 }

@@ -33,6 +33,7 @@ import { create } from "zustand";
 import {
   runAgentLoop,
   type LoopMessage,
+  type TokenUsage,
 } from "@/lib/ai/agent-loop";
 import { callModelViaProxy, ProxyError } from "@/lib/ai/proxy-client";
 import { DEFAULT_TOOLS } from "@/lib/ai/tools/registry";
@@ -81,6 +82,19 @@ export type ChatMessage = {
 export type PendingApproval = {
   request: ApprovalRequest;
   resolve: (decision: ApprovalDecision) => void;
+};
+
+// A settled-turn summary pinned below each assistant reply. Stays visible for
+// the rest of the conversation so the user can audit what each turn cost.
+export type TurnSummary = {
+  // The assistant message id this summary belongs to, used to anchor the
+  // summary UI directly below that reply.
+  assistantId: string;
+  // Wall-clock duration of the turn in milliseconds.
+  elapsedMs: number;
+  // Total tokens (prompt + completion) for the turn. Zero when the provider
+  // did not report usage; the UI omits the token count when zero.
+  tokens: number;
 };
 
 // The map from loop status to a friendly grey status line now lives in the
@@ -144,6 +158,32 @@ interface ConversationState {
   // "queued" chip. Null when no message is queued. Set whenever
   // pendingQueuedText changes so the UI re-renders.
   queuedText: string | null;
+
+  // ---- Live status line fields (STAGE 1, 2026-06-13) ------------------------
+  //
+  // These drive the running status line (elapsed, tokens, running-count) and the
+  // settled per-turn token summary that stays pinned after each turn finishes.
+  //
+  // turnStartedAt: wall-clock time (Date.now()) when the current turn began.
+  //   Non-null only while sending is true.
+  turnStartedAt: number | null;
+  // turnElapsedMs: reactive elapsed time for the running turn, ticked by a
+  //   setInterval in the component. Stays at the final value after settling so
+  //   the pinned summary can show the real duration. Reset to null on newChat.
+  turnElapsedMs: number | null;
+  // turnTokens: cumulative prompt+completion tokens for the current (or last)
+  //   turn, updated live via onUsage. Zero when the provider did not report
+  //   usage; the UI shows it only when > 0. Reset to null on newChat.
+  turnTokens: number | null;
+  // runningToolCount: number of tool calls in progress right now. The agent
+  //   loop reports tool-phase status one tool at a time (serial dispatch), so
+  //   this is 0 or 1 today, but the field is a count so parallel dispatch in a
+  //   future iteration requires no schema change. Reset to 0 on settle.
+  runningToolCount: number;
+  // settledTurns: per-turn summaries that stay pinned below each assistant
+  //   reply after the turn finishes. Each entry carries the assistant message id
+  //   (so the UI can match it), the elapsed duration, and the total tokens.
+  settledTurns: TurnSummary[];
 }
 
 interface ConversationActions {
@@ -339,6 +379,12 @@ export const useConversationStore = create<ConversationStore>((set, get) => ({
   currentThreadId: null,
   currentTitle: null,
   queuedText: null,
+  // Live status line initial values.
+  turnStartedAt: null,
+  turnElapsedMs: null,
+  turnTokens: null,
+  runningToolCount: 0,
+  settledTurns: [],
 
   stop: (placeholderAssistantId?: string) => {
     // Guard: nothing to abort when idle.
@@ -366,6 +412,8 @@ export const useConversationStore = create<ConversationStore>((set, get) => ({
       sending: false,
       status: null,
       queuedText: null,
+      runningToolCount: 0,
+      turnStartedAt: null,
       messages: placeholderAssistantId
         ? state.messages.filter(
             (m) => !(m.id === placeholderAssistantId && m.content === ""),
@@ -397,6 +445,12 @@ export const useConversationStore = create<ConversationStore>((set, get) => ({
       currentThreadId: null,
       currentTitle: null,
       queuedText: null,
+      // Reset all status-line fields on a fresh chat.
+      turnStartedAt: null,
+      turnElapsedMs: null,
+      turnTokens: null,
+      runningToolCount: 0,
+      settledTurns: [],
     });
   },
 
@@ -440,6 +494,14 @@ export const useConversationStore = create<ConversationStore>((set, get) => ({
       pendingApproval: null,
       currentThreadId: stored.id,
       currentTitle: stored.title,
+      // Settled-turn summaries are session-only and not persisted, so a reopened
+      // thread starts with an empty list. Token counts are not shown for prior
+      // sessions in this version.
+      turnStartedAt: null,
+      turnElapsedMs: null,
+      turnTokens: null,
+      runningToolCount: 0,
+      settledTurns: [],
     });
   },
 
@@ -491,6 +553,10 @@ export const useConversationStore = create<ConversationStore>((set, get) => ({
     // Seed an empty assistant bubble so the status line and the revealed answer
     // have a visible target right away. Clear followups from all existing
     // messages so only the most recent reply shows chips.
+    //
+    // Also record the turn start time and reset the live status-line fields so
+    // any values from a prior turn do not bleed into this one.
+    const turnStartedAt = Date.now();
     set((state) => ({
       messages: [
         ...state.messages.map((m) =>
@@ -501,6 +567,11 @@ export const useConversationStore = create<ConversationStore>((set, get) => ({
       ],
       sending: true,
       status: "thinking",
+      // Live status-line fields for the new turn.
+      turnStartedAt,
+      turnElapsedMs: 0,
+      turnTokens: null,
+      runningToolCount: 0,
     }));
 
     // On the first user message of a fresh conversation, create a persisted
@@ -592,12 +663,31 @@ export const useConversationStore = create<ConversationStore>((set, get) => ({
         messages: loopInput,
         tools: DEFAULT_TOOLS,
         callModel: callModelViaProxy,
-        onStatus: (s) => set({ status: statusLabel(s) }),
+        onStatus: (s) => {
+          // Update the friendly status label for the existing "Thinking" text.
+          // Also update the running-tool count so the status line shows "1 running"
+          // vs "0 running" (thinking phase).
+          const label = statusLabel(s);
+          const isToolPhase = s.phase === "tool";
+          set({
+            status: label,
+            runningToolCount: isToolPhase ? 1 : 0,
+          });
+        },
         // Read the live review mode at each dispatch, so flipping the control
         // mid-conversation takes effect on the next step.
         getReviewMode: getReviewMode,
         requestApproval,
         signal: controller.signal,
+        // Update the reactive token total after each model iteration so the
+        // status line ticks live. The loop fires this only when the provider
+        // reports non-zero usage, so a zero here is always a real zero.
+        onUsage: (cumulative: TokenUsage) => {
+          set({
+            turnTokens:
+              cumulative.promptTokens + cumulative.completionTokens,
+          });
+        },
       });
 
       // Persist the full loop history (including tool turns) for the next send,
@@ -608,7 +698,19 @@ export const useConversationStore = create<ConversationStore>((set, get) => ({
       historyStore = result.messages.filter(
         (m) => m !== contextMessage && m !== memoryMessage,
       );
-      set({ status: null });
+      // Settle the turn. Compute the final elapsed time from the start timestamp
+      // captured before the loop, then clear the running-tool count.
+      const turnEndedAt = Date.now();
+      const turnElapsedMs = turnEndedAt - turnStartedAt;
+      const finalTokens = result.totalUsage.promptTokens + result.totalUsage.completionTokens;
+      set({
+        status: null,
+        runningToolCount: 0,
+        // Keep turnElapsedMs at the final value so the settled status line can
+        // show the real duration. It is only reset on newChat/clearConversation.
+        turnElapsedMs,
+        turnTokens: finalTokens > 0 ? finalTokens : get().turnTokens,
+      });
 
       // A stopped (aborted) run returns an empty answer. Remove the placeholder
       // and return quietly, no error banner needed. We still save the user message
@@ -653,6 +755,19 @@ export const useConversationStore = create<ConversationStore>((set, get) => ({
         }));
       }
 
+      // Pin the settled-turn summary below the assistant reply. This fires after
+      // the typewriter reveal so the summary appears once the answer is fully
+      // shown. The turn elapsed time was computed above at loop settle, so it
+      // reflects the full model+tool duration, not just the reveal time.
+      const turnSummary: TurnSummary = {
+        assistantId,
+        elapsedMs: turnElapsedMs,
+        tokens: finalTokens,
+      };
+      set((state) => ({
+        settledTurns: [...state.settledTurns, turnSummary],
+      }));
+
       // Snapshot the completed messages before any further async. This guards
       // against a concurrent newChat() that clears get().messages between the
       // revealAnswer resolve and the saveChat write. We capture BOTH the thread
@@ -690,7 +805,10 @@ export const useConversationStore = create<ConversationStore>((set, get) => ({
       if (abortControllerRef === controller) {
         abortControllerRef = null;
       }
-      set({ sending: false, queuedText: null });
+      // Clear the turn-in-progress marker. turnElapsedMs and turnTokens are left
+      // at their settled values so the pinned summary line can still read them.
+      // They are only fully reset by clearConversation/newChat.
+      set({ sending: false, queuedText: null, turnStartedAt: null });
       // If a message was queued while this turn ran, fire it now. The queue slot
       // is cleared first so a stop() during the queued send can cancel that turn
       // without re-queuing.
@@ -792,5 +910,10 @@ export function resetConversationModule(): void {
     currentThreadId: null,
     currentTitle: null,
     queuedText: null,
+    turnStartedAt: null,
+    turnElapsedMs: null,
+    turnTokens: null,
+    runningToolCount: 0,
+    settledTurns: [],
   });
 }

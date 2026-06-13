@@ -63,8 +63,17 @@ export type ToolCall = {
   };
 };
 
+// Token usage the provider reports back on a non-streaming call. Optional because
+// not every provider includes it, and the status line degrades gracefully when
+// absent (shows time and running-count, omits the token number).
+export type TokenUsage = {
+  promptTokens: number;
+  completionTokens: number;
+};
+
 // The shape the proxy returns for a stream:false request, the relevant slice of an
-// OpenAI-compatible chat completion.
+// OpenAI-compatible chat completion. The usage block is optional because some
+// providers omit it.
 export type ModelResponse = {
   choices?: Array<{
     message?: {
@@ -73,6 +82,13 @@ export type ModelResponse = {
       tool_calls?: ToolCall[];
     };
   }>;
+  // OpenAI-compatible usage block. Present when the provider returns it and
+  // stream_options.include_usage was requested. Absent from providers that do not
+  // support the field, so consumers MUST treat it as optional.
+  usage?: {
+    prompt_tokens?: number;
+    completion_tokens?: number;
+  };
 };
 
 // The function the loop calls to talk to the model. Injected, so tests pass a fake
@@ -121,6 +137,11 @@ export type RunAgentLoopOptions = {
   // current operation and returns whatever partial state it has. An AbortError
   // from the model caller is treated as a clean stop, not a crash.
   signal?: AbortSignal;
+  // Optional callback invoked after each model iteration with the CUMULATIVE
+  // token usage so the status line can update live. Only called when the
+  // provider actually reports usage (non-zero total). Absent from providers that
+  // do not support the field, so a missing call is expected, not an error.
+  onUsage?: (cumulative: TokenUsage) => void;
 };
 
 export type RunAgentLoopResult = {
@@ -133,6 +154,11 @@ export type RunAgentLoopResult = {
   // The full message history including tool calls and results, for the panel to
   // continue the conversation from.
   messages: LoopMessage[];
+  // Accumulated token usage across all model iterations in this run. Zero when
+  // the provider does not return usage, so consumers must not treat zero as an
+  // error: show the count only when at least one iteration reported non-zero
+  // usage. The status line uses this to show "48.3k tokens" live.
+  totalUsage: TokenUsage;
 };
 
 // A whole-plan pipeline (filter, then a test, then a plot, then a note) runs
@@ -555,12 +581,16 @@ export async function runAgentLoop(
 
   const signal = options.signal;
 
+  // Accumulate token usage across all iterations. Stays zero when the provider
+  // does not report usage; the status line shows time and running-count only.
+  const totalUsage: TokenUsage = { promptTokens: 0, completionTokens: 0 };
+
   let iterations = 0;
   while (iterations < maxIterations) {
     // Check for abort before each model call, so a stop() that arrived while a
     // tool was running takes effect on the next iteration boundary.
     if (signal?.aborted) {
-      return { answer: "", iterations, stoppedOnGuard: false, messages };
+      return { answer: "", iterations, stoppedOnGuard: false, messages, totalUsage };
     }
 
     iterations += 1;
@@ -573,10 +603,31 @@ export async function runAgentLoop(
       // An AbortError means the user cancelled cleanly. Return an empty answer
       // so the caller can remove the placeholder bubble without showing an error.
       if (err instanceof Error && err.name === "AbortError") {
-        return { answer: "", iterations, stoppedOnGuard: false, messages };
+        return { answer: "", iterations, stoppedOnGuard: false, messages, totalUsage };
       }
       // Any other error propagates to the caller (the catch in send()).
       throw err;
+    }
+
+    // Accumulate token usage from this iteration. Defensive: the usage block is
+    // optional, and individual fields may be absent or non-numeric, so we
+    // normalize every case to 0 rather than NaN or undefined. Add, not replace,
+    // because a multi-iteration run accumulates across rounds.
+    const rawUsage = response.usage;
+    if (rawUsage) {
+      const prompt =
+        typeof rawUsage.prompt_tokens === "number" ? rawUsage.prompt_tokens : 0;
+      const completion =
+        typeof rawUsage.completion_tokens === "number"
+          ? rawUsage.completion_tokens
+          : 0;
+      totalUsage.promptTokens += prompt;
+      totalUsage.completionTokens += completion;
+      // Only fire the callback when at least something was reported, so a
+      // provider that sends an empty usage block does not trigger a 0-token update.
+      if (prompt + completion > 0) {
+        options.onUsage?.(totalUsage);
+      }
     }
 
     const message = response.choices?.[0]?.message;
@@ -586,7 +637,7 @@ export async function runAgentLoop(
       // No tool calls means this is the final answer.
       const answer = (message?.content ?? "").trim();
       messages.push({ role: "assistant", content: answer });
-      return { answer, iterations, stoppedOnGuard: false, messages };
+      return { answer, iterations, stoppedOnGuard: false, messages, totalUsage };
     }
 
     // Record the assistant turn that requested the tools, then run each and append
@@ -602,7 +653,7 @@ export async function runAgentLoop(
       // Check for abort before each tool call so a stop() received mid-batch
       // takes effect immediately, not after the rest of the batch finishes.
       if (signal?.aborted) {
-        return { answer: "", iterations, stoppedOnGuard: false, messages };
+        return { answer: "", iterations, stoppedOnGuard: false, messages, totalUsage };
       }
       options.onStatus?.({ phase: "tool", toolName: call.function.name });
       const result = await runToolCall(call, toolMap, gateDeps);
@@ -624,5 +675,6 @@ export async function runAgentLoop(
     iterations,
     stoppedOnGuard: true,
     messages,
+    totalUsage,
   };
 }

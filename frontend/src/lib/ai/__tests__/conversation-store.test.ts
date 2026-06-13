@@ -61,6 +61,7 @@ vi.mock("../agent-loop", () => ({
       messages: [...(opts.messages as LoopMessage[]), { role: "assistant", content: answer }],
       iterations: 1,
       stoppedOnGuard: false,
+      totalUsage: { promptTokens: 0, completionTokens: 0 },
     };
   }),
 }));
@@ -215,6 +216,7 @@ describe("send: basic round-trip", () => {
         messages: [...(opts.messages as LoopMessage[]), { role: "assistant", content: answer }],
         iterations: 1,
         stoppedOnGuard: false,
+        totalUsage: { promptTokens: 0, completionTokens: 0 },
       };
     });
     vi.mocked(callModelViaProxy).mockResolvedValueOnce(
@@ -244,7 +246,7 @@ describe("send: concurrent guard now queues instead of dropping", () => {
 
     vi.mocked(runAgentLoop).mockImplementationOnce(async () => {
       await firstPromise;
-      return { answer: "first", messages: [], iterations: 1, stoppedOnGuard: false };
+      return { answer: "first", messages: [], iterations: 1, stoppedOnGuard: false, totalUsage: { promptTokens: 0, completionTokens: 0 } };
     });
 
     const firstSend = useConversationStore.getState().send("first message");
@@ -302,6 +304,7 @@ describe("approval bridge: resolveApproval", () => {
         messages: [...(opts.messages as LoopMessage[]), { role: "assistant", content: "done" }],
         iterations: 1,
         stoppedOnGuard: false,
+        totalUsage: { promptTokens: 0, completionTokens: 0 },
       };
     });
 
@@ -342,6 +345,7 @@ describe("approval bridge: resolveChoice", () => {
         messages: [...(opts.messages as LoopMessage[]), { role: "assistant", content: "chose A" }],
         iterations: 1,
         stoppedOnGuard: false,
+        totalUsage: { promptTokens: 0, completionTokens: 0 },
       };
     });
 
@@ -380,6 +384,7 @@ describe("approval bridge: double-resolve guard", () => {
         messages: [...(opts.messages as LoopMessage[]), { role: "assistant", content: "ok" }],
         iterations: 1,
         stoppedOnGuard: false,
+        totalUsage: { promptTokens: 0, completionTokens: 0 },
       };
     });
 
@@ -533,6 +538,7 @@ function makeBarrierLoop(barrier: Promise<void>, answer: string) {
       messages: [...(opts.messages as LoopMsg[]), { role: "assistant" as const, content: answer }],
       iterations: 1,
       stoppedOnGuard: false,
+      totalUsage: { promptTokens: 0, completionTokens: 0 },
     };
   });
 }
@@ -543,6 +549,7 @@ function makeInstantLoop(answer: string) {
     messages: [...(opts.messages as LoopMsg[]), { role: "assistant" as const, content: answer }],
     iterations: 1,
     stoppedOnGuard: false,
+    totalUsage: { promptTokens: 0, completionTokens: 0 },
   }));
 }
 
@@ -601,6 +608,7 @@ describe("Bug 2 regression: message queue while streaming", () => {
         messages: [...(opts.messages as LoopMsg[])],
         iterations: 1,
         stoppedOnGuard: false,
+        totalUsage: { promptTokens: 0, completionTokens: 0 },
       };
     });
 
