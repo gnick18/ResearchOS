@@ -1,0 +1,589 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>BeakerBot PDF attach, ingestion UI review</title>
+<style>
+  :root {
+    --bg:#eef1f5; --surface:#fff; --sunken:#f4f7f9;
+    --text:#1a2530; --text-2:#5a6b78; --text-3:#8a98a4;
+    --border:rgba(26,37,48,0.12); --border-2:rgba(26,37,48,0.22);
+    --sky:#38bdf8; --sky-deep:#15679c; --sky-soft:rgba(56,189,248,0.09); --sky-chip:rgba(56,189,248,0.14);
+    --ok:#1d7a3e; --ok-bg:#e7f6ec; --warn:#b45309; --warn-bg:#fef3e2;
+    --muted:#9ca3af; --muted-bg:#f3f4f6;
+    --r:12px; --rm:8px; --sans:ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;background:var(--bg);color:var(--text);font-family:var(--sans);}
+
+  /* ---- chrome ---- */
+  .topbar{position:sticky;top:0;z-index:60;display:flex;align-items:center;gap:16px;padding:11px 20px;background:var(--surface);border-bottom:1px solid var(--border-2);}
+  .topbar .title{font-size:15px;font-weight:600;}
+  .topbar .sum{margin-left:auto;font-size:12px;color:var(--text-2);}
+  .btn{font-family:inherit;font-size:13px;border:1px solid var(--border-2);background:var(--surface);color:var(--text);border-radius:var(--rm);padding:7px 13px;cursor:pointer;}
+  .btn.primary{background:var(--sky);border-color:var(--sky);color:#06243a;font-weight:600;}
+  .btn:hover{background:var(--sunken);} .btn.primary:hover{filter:brightness(0.97);}
+  .howto{background:#0f172a;color:#cfe8fb;font-size:13px;padding:10px 20px;display:flex;align-items:center;gap:8px;}
+  .howto b{color:#fff;}
+  .wrap{max-width:820px;margin:0 auto;padding:22px 22px 160px;}
+
+  /* ---- section shell ---- */
+  .rs{margin-bottom:34px;}
+  .rs > header{display:flex;align-items:center;gap:12px;margin-bottom:10px;}
+  .rs h3{margin:0;font-size:14px;font-weight:600;flex:1;}
+  .seg{display:inline-flex;border:1px solid var(--border-2);border-radius:999px;overflow:hidden;font-size:11px;}
+  .seg button{font-family:inherit;border:0;background:transparent;color:var(--text-2);padding:4px 11px;cursor:pointer;}
+  .seg button.on-ok{background:var(--ok-bg);color:var(--ok);font-weight:600;}
+  .seg button.on-warn{background:var(--warn-bg);color:var(--warn);font-weight:600;}
+  .note{font-size:12px;color:var(--text-2);margin:8px 2px 0;line-height:1.5;}
+  .mockwrap{position:relative;}
+  .hint{position:absolute;top:8px;right:8px;z-index:4;display:inline-flex;align-items:center;gap:5px;font-size:11px;color:var(--sky-deep);background:var(--sky-chip);border:1px solid rgba(56,189,248,0.4);border-radius:999px;padding:3px 9px;pointer-events:none;}
+  .mock{position:relative;background:var(--surface);border:1px solid var(--border-2);border-radius:var(--r);overflow:hidden;cursor:crosshair;}
+  .mock *{pointer-events:none;}
+
+  /* ---- comment pins ---- */
+  .pin{position:absolute;width:24px;height:24px;border-radius:999px;background:var(--sky);color:#06243a;font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center;transform:translate(-50%,-50%);box-shadow:0 1px 5px rgba(0,0,0,.35);z-index:6;cursor:pointer;pointer-events:auto;border:2px solid #fff;}
+  .editor{position:absolute;z-index:8;width:230px;background:#fff;border:1px solid var(--border-2);border-radius:var(--rm);box-shadow:0 8px 24px rgba(0,0,0,.22);padding:9px;pointer-events:auto;}
+  .editor textarea{width:100%;border:1px solid var(--border);border-radius:6px;padding:6px;font-family:inherit;font-size:12px;resize:vertical;min-height:54px;}
+  .editor .erow{display:flex;gap:6px;margin-top:7px;}
+  .editor .esave{flex:1;background:var(--sky);border:0;color:#06243a;font-weight:600;font-size:12px;border-radius:6px;padding:6px;cursor:pointer;}
+  .editor .edel{background:none;border:1px solid var(--border-2);color:var(--text-2);font-size:12px;border-radius:6px;padding:6px 9px;cursor:pointer;}
+
+  /* ---- BeakerBot panel shell ---- */
+  svg{stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;}
+  .bb-panel{width:340px;background:var(--surface);border:1px solid var(--border-2);border-radius:var(--r);overflow:hidden;display:flex;flex-direction:column;}
+  .bb-head{display:flex;align-items:center;gap:9px;padding:11px 13px;border-bottom:1px solid var(--border);flex:none;}
+  .bb-av{width:26px;height:26px;border-radius:7px;background:var(--sky-chip);color:var(--sky-deep);display:inline-flex;align-items:center;justify-content:center;flex:none;}
+  .bb-name{font-size:14px;font-weight:600;flex:1;}
+  .bb-credit{font-size:11px;color:var(--text-3);}
+  .bb-body{padding:13px;display:flex;flex-direction:column;gap:10px;flex:1;}
+  .bb-um{align-self:flex-end;max-width:88%;padding:7px 10px;border-radius:7px;background:var(--sunken);border:1px solid var(--border);font-size:12px;line-height:1.5;}
+  .bb-bm{font-size:12px;color:var(--text-2);line-height:1.6;}
+  .bb-composer{display:flex;align-items:center;gap:7px;padding:9px 11px;border-top:1px solid var(--border);background:var(--surface);flex:none;}
+  .bb-input{flex:1;border:1px solid var(--border-2);border-radius:7px;padding:7px 10px;font-family:inherit;font-size:12px;color:var(--text-3);background:var(--surface);}
+  .bb-attach{width:30px;height:30px;border-radius:7px;display:inline-flex;align-items:center;justify-content:center;border:1px solid var(--border-2);color:var(--text-2);background:var(--surface);flex:none;}
+  .bb-send{width:30px;height:30px;border-radius:7px;display:inline-flex;align-items:center;justify-content:center;background:var(--sky);color:#06243a;flex:none;}
+
+  /* ---- PDF chip ---- */
+  .pdf-chip{display:inline-flex;align-items:center;gap:8px;padding:6px 10px;border:1px solid rgba(56,189,248,0.5);border-radius:8px;background:var(--sky-soft);font-size:12px;color:var(--sky-deep);max-width:260px;}
+  .pdf-chip .pdf-icon{width:22px;height:22px;border-radius:5px;background:rgba(56,189,248,0.2);display:inline-flex;align-items:center;justify-content:center;flex:none;color:var(--sky-deep);}
+  .pdf-chip .pdf-name{font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:1;}
+  .pdf-chip .pdf-meta{font-size:11px;color:var(--sky-deep);opacity:0.8;white-space:nowrap;}
+  .pdf-chip .pdf-status{display:inline-flex;align-items:center;gap:4px;font-size:11px;color:var(--ok);}
+  .pdf-chip-extracting .pdf-status{color:var(--text-3);}
+
+  /* ---- privacy badge ---- */
+  .privacy-note{display:inline-flex;align-items:center;gap:6px;font-size:11px;color:var(--text-3);padding:5px 0;}
+
+  /* ---- draft cards ---- */
+  .draft-card{border:1px solid var(--border-2);border-radius:var(--rm);overflow:hidden;font-size:12px;margin-bottom:10px;}
+  .draft-card.active{border-color:var(--sky);}
+  .draft-card.deferred{opacity:0.65;border-style:dashed;}
+  .dc-head{display:flex;align-items:center;gap:8px;padding:9px 11px;border-bottom:1px solid var(--border);font-weight:600;}
+  .dc-head .dc-num{width:20px;height:20px;border-radius:999px;background:var(--sky-chip);color:var(--sky-deep);font-size:11px;font-weight:700;display:inline-flex;align-items:center;justify-content:center;flex:none;}
+  .dc-head .dc-title{flex:1;}
+  .dc-head .dc-badge{font-size:10px;font-weight:600;padding:2px 7px;border-radius:999px;}
+  .dc-badge.ready{background:var(--ok-bg);color:var(--ok);}
+  .dc-badge.soon{background:var(--muted-bg);color:var(--muted);border:1px solid var(--border);}
+  .dc-source{padding:8px 11px;background:var(--sunken);border-bottom:1px solid var(--border);font-size:11px;color:var(--text-2);line-height:1.5;}
+  .dc-source .dc-source-label{font-size:10px;letter-spacing:.04em;text-transform:uppercase;color:var(--text-3);display:block;margin-bottom:3px;}
+  .dc-source blockquote{margin:0;padding-left:9px;border-left:3px solid var(--sky);color:var(--text-2);font-style:italic;}
+  .dc-preview{padding:9px 11px;border-bottom:1px solid var(--border);color:var(--text);line-height:1.55;}
+  .dc-preview .dc-preview-label{font-size:10px;letter-spacing:.04em;text-transform:uppercase;color:var(--text-3);display:block;margin-bottom:4px;}
+  .dc-acts{display:flex;gap:7px;padding:9px 11px;}
+  .dc-approve{flex:1;text-align:center;padding:6px;border-radius:6px;font-size:12px;font-weight:600;background:var(--sky);color:#06243a;border:none;}
+  .dc-reject{padding:6px 11px;border-radius:6px;font-size:12px;border:1px solid var(--border-2);color:var(--text-2);background:transparent;}
+  .dc-deferred-note{padding:9px 11px;font-size:11px;color:var(--text-3);line-height:1.5;}
+
+  /* ---- verbatim highlight ---- */
+  .verbatim-tag{display:inline-flex;align-items:center;gap:4px;font-size:10px;font-weight:600;color:var(--sky-deep);background:var(--sky-chip);border-radius:4px;padding:1px 5px;margin-left:4px;vertical-align:middle;}
+
+  /* ---- flagged defaulted params ---- */
+  .param-table{width:100%;border-collapse:collapse;font-size:11px;margin-top:6px;}
+  .param-table th{text-align:left;color:var(--text-3);font-weight:600;font-size:10px;letter-spacing:.04em;padding:3px 5px;border-bottom:1px solid var(--border);}
+  .param-table td{padding:3px 5px;color:var(--text-2);border-bottom:1px solid var(--border);}
+  .param-table tr:last-child td{border-bottom:none;}
+  .param-flag{display:inline-flex;align-items:center;gap:3px;font-size:10px;color:var(--warn);background:var(--warn-bg);border-radius:4px;padding:1px 5px;}
+
+  /* ---- empty state hint ---- */
+  .empty-hint{display:flex;align-items:center;gap:8px;padding:8px 10px;border:1px dashed var(--border-2);border-radius:7px;font-size:11px;color:var(--text-3);}
+
+  /* ---- side-by-side layout ---- */
+  .two-col{display:flex;gap:24px;align-items:flex-start;}
+  .col-label{font-size:11px;font-weight:600;color:var(--text-3);letter-spacing:.04em;text-transform:uppercase;margin-bottom:8px;}
+</style>
+</head>
+<body>
+
+<!-- shared svg defs: BeakerBot mark + reusable glyphs -->
+<svg width="0" height="0" aria-hidden="true" style="position:absolute"><defs>
+<linearGradient id="bbliq" x1="0" y1="0" x2="0" y2="1">
+  <stop offset="0%" stop-color="#FFD2B0"/><stop offset="25%" stop-color="#FFF1A8"/><stop offset="50%" stop-color="#B7EBB1"/><stop offset="75%" stop-color="#A6D2F4"/><stop offset="100%" stop-color="#D6B5F0"/>
+</linearGradient>
+<symbol id="bbmark" viewBox="8 3 24 31">
+  <path d="M 12 12 L 12 24 C 12 30, 16 32, 20 32 C 24 32, 28 30, 28 24 L 28 12 Z" fill="#fff" stroke="none"/>
+  <path d="M 12 19 Q 14 17.8, 16 19 T 20 19 T 24 19 T 28 19 L 28 24 C 28 30, 24 32, 20 32 C 16 32, 12 30, 12 24 L 12 19 Z" fill="url(#bbliq)" stroke="none"/>
+  <path d="M22 8 C 22 6, 24 4, 26 6" stroke="currentColor"/>
+  <path d="M12 12 L12 24 C 12 30, 16 32, 20 32 C 24 32, 28 30, 28 24 L28 12" stroke="currentColor"/>
+  <path d="M11 12 L29 12" stroke="currentColor"/>
+  <circle cx="17" cy="18" r="1.2" fill="currentColor" stroke="none"/>
+  <circle cx="23" cy="18" r="1.2" fill="currentColor" stroke="none"/>
+  <path d="M18 22 Q 20 24, 22 22" stroke="currentColor"/>
+  <path d="M14 26 L15.5 26" stroke="currentColor"/><path d="M24.5 26 L26 26" stroke="currentColor"/>
+</symbol>
+</defs></svg>
+
+<!-- top bar -->
+<div class="topbar">
+  <span class="title">BeakerBot PDF attach, ingestion UI review</span>
+  <span class="sum" id="sum"></span>
+  <button class="btn primary" id="exportBtn">Export feedback</button>
+</div>
+<div class="howto">
+  <b>To comment:</b> click anywhere on a mockup and a note box opens right there. Set <b>Approve</b> or <b>Needs work</b> per section. Then <b>Export</b>.
+</div>
+
+<div class="wrap" id="wrap">
+
+<!-- ========================================================== -->
+<!-- SECTION 1: Attach affordance in the composer               -->
+<!-- ========================================================== -->
+<section class="rs" data-name="Attach affordance in the composer">
+  <header>
+    <h3>1. Attach affordance, where the PDF control lives</h3>
+    <div class="seg" data-approve><button data-v="ok">Approve</button><button data-v="warn">Needs work</button></div>
+  </header>
+  <div class="mockwrap"><span class="hint">click to comment</span>
+  <div class="mock" style="padding:22px;display:flex;gap:28px;justify-content:center;align-items:flex-start;background:var(--sunken);">
+
+    <!-- BEFORE: no PDF attach -->
+    <div style="display:flex;flex-direction:column;align-items:center;gap:10px;">
+      <div class="col-label">Before (today)</div>
+      <div class="bb-panel" style="width:310px;">
+        <div class="bb-head">
+          <span class="bb-av"><svg width="15" height="15" viewBox="0 0 24 24"><use href="#bbmark"/></svg></span>
+          <span class="bb-name">BeakerBot</span>
+          <span class="bb-credit">$3.80 left</span>
+        </div>
+        <div class="bb-body" style="min-height:80px;">
+          <div class="bb-bm">What would you like to work on?</div>
+        </div>
+        <div class="bb-composer">
+          <div class="bb-input">Ask anything about your lab...</div>
+          <div class="bb-send">
+            <svg width="14" height="14" viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- AFTER: with paperclip -->
+    <div style="display:flex;flex-direction:column;align-items:center;gap:10px;">
+      <div class="col-label">After (with PDF attach)</div>
+      <div class="bb-panel" style="width:310px;">
+        <div class="bb-head">
+          <span class="bb-av"><svg width="15" height="15" viewBox="0 0 24 24"><use href="#bbmark"/></svg></span>
+          <span class="bb-name">BeakerBot</span>
+          <span class="bb-credit">$3.80 left</span>
+        </div>
+        <div class="bb-body" style="min-height:80px;">
+          <div class="bb-bm">What would you like to work on?</div>
+          <!-- empty-state hint appears when composer is focused with no attachment -->
+          <div class="empty-hint">
+            <svg width="14" height="14" viewBox="0 0 24 24" style="flex:none;color:var(--text-3)"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
+            Attach a paper PDF to reproduce its analysis on your own data
+          </div>
+        </div>
+        <div class="bb-composer">
+          <!-- paperclip left of the text field -->
+          <div class="bb-attach">
+            <svg width="14" height="14" viewBox="0 0 24 24"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
+          </div>
+          <div class="bb-input">Ask anything about your lab...</div>
+          <div class="bb-send">
+            <svg width="14" height="14" viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div></div>
+  <p class="note">The paperclip sits left of the text input in the composer row, matching common chat-UI convention. The empty-state hint appears in the message stream when focus enters the composer and no file is attached yet. Open question for Grant: should the paperclip be left of the input (shown) or right, next to the send button?</p>
+</section>
+
+
+<!-- ========================================================== -->
+<!-- SECTION 2: Attached state, PDF chip                        -->
+<!-- ========================================================== -->
+<section class="rs" data-name="Attached state, PDF chip">
+  <header>
+    <h3>2. Attached state, the PDF chip</h3>
+    <div class="seg" data-approve><button data-v="ok">Approve</button><button data-v="warn">Needs work</button></div>
+  </header>
+  <div class="mockwrap"><span class="hint">click to comment</span>
+  <div class="mock" style="padding:22px;display:flex;gap:28px;justify-content:center;align-items:flex-start;background:var(--sunken);">
+
+    <!-- extracting state -->
+    <div style="display:flex;flex-direction:column;align-items:center;gap:10px;">
+      <div class="col-label">Extracting (pdf.js running)</div>
+      <div class="bb-panel" style="width:310px;">
+        <div class="bb-head">
+          <span class="bb-av"><svg width="15" height="15" viewBox="0 0 24 24"><use href="#bbmark"/></svg></span>
+          <span class="bb-name">BeakerBot</span>
+          <span class="bb-credit">$3.80 left</span>
+        </div>
+        <div class="bb-body" style="min-height:100px;">
+          <div class="bb-bm">Attach a paper to reproduce its analysis on your own data.</div>
+          <!-- chip in extracting state -->
+          <div class="pdf-chip pdf-chip-extracting">
+            <div class="pdf-icon">
+              <svg width="12" height="12" viewBox="0 0 24 24"><path d="M6 3h9l3 3v15H6z"/><path d="M9 9h6M9 13h4"/></svg>
+            </div>
+            <div class="pdf-name">Nguyen2025_HPV58_phylogeny.pdf</div>
+            <div class="pdf-status" style="color:var(--text-3);">
+              <svg width="10" height="10" viewBox="0 0 24 24" style="animation:none"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4"/></svg>
+              Reading...
+            </div>
+          </div>
+          <div class="privacy-note">
+            <svg width="11" height="11" viewBox="0 0 24 24" style="flex:none"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+            File stays in your browser. Nothing is uploaded.
+          </div>
+        </div>
+        <div class="bb-composer" style="opacity:0.5;">
+          <div class="bb-attach">
+            <svg width="14" height="14" viewBox="0 0 24 24"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
+          </div>
+          <div class="bb-input" style="color:var(--text-3);">Extracting text...</div>
+          <div class="bb-send" style="opacity:0.4;">
+            <svg width="14" height="14" viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ready state -->
+    <div style="display:flex;flex-direction:column;align-items:center;gap:10px;">
+      <div class="col-label">Ready (extraction complete)</div>
+      <div class="bb-panel" style="width:310px;">
+        <div class="bb-head">
+          <span class="bb-av"><svg width="15" height="15" viewBox="0 0 24 24"><use href="#bbmark"/></svg></span>
+          <span class="bb-name">BeakerBot</span>
+          <span class="bb-credit">$3.80 left</span>
+        </div>
+        <div class="bb-body" style="min-height:100px;">
+          <div class="bb-bm">Got the paper. 42 pages, 18,340 words. I can draft four outputs from this. Review them one by one and approve what you want written.</div>
+          <div class="pdf-chip">
+            <div class="pdf-icon">
+              <svg width="12" height="12" viewBox="0 0 24 24"><path d="M6 3h9l3 3v15H6z"/><path d="M9 9h6M9 13h4"/></svg>
+            </div>
+            <div class="pdf-name">Nguyen2025_HPV58_phylogeny.pdf</div>
+            <div class="pdf-meta">42 pp</div>
+            <div class="pdf-status">
+              <svg width="10" height="10" viewBox="0 0 24 24"><path d="M20 6L9 17l-5-5"/></svg>
+              Ready
+            </div>
+          </div>
+          <div class="privacy-note">
+            <svg width="11" height="11" viewBox="0 0 24 24" style="flex:none"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+            File stays in your browser. Nothing is uploaded.
+          </div>
+        </div>
+        <div class="bb-composer">
+          <div class="bb-attach" style="color:var(--sky-deep);border-color:rgba(56,189,248,0.5);background:var(--sky-soft);">
+            <svg width="14" height="14" viewBox="0 0 24 24"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
+          </div>
+          <div class="bb-input">Ask about the paper, or approve the drafts below...</div>
+          <div class="bb-send">
+            <svg width="14" height="14" viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div></div>
+  <p class="note">The chip shows filename and page count once extraction is done. The paperclip icon turns sky-blue when a file is attached to give clear attached/not-attached state. The privacy line "File stays in your browser. Nothing is uploaded." is shown every time because this is the first PDF-handling feature and the local-first promise is worth restating at the moment of attach.</p>
+</section>
+
+
+<!-- ========================================================== -->
+<!-- SECTION 3: Fan-out draft cards                             -->
+<!-- ========================================================== -->
+<section class="rs" data-name="Fan-out draft cards">
+  <header>
+    <h3>3. Fan-out, the four proposed draft cards</h3>
+    <div class="seg" data-approve><button data-v="ok">Approve</button><button data-v="warn">Needs work</button></div>
+  </header>
+  <div class="mockwrap"><span class="hint">click to comment</span>
+  <div class="mock" style="padding:22px;background:var(--sunken);">
+
+    <!-- simulated BeakerBot thread with all four cards -->
+    <div style="display:flex;justify-content:center;">
+    <div class="bb-panel" style="width:420px;">
+      <div class="bb-head">
+        <span class="bb-av"><svg width="15" height="15" viewBox="0 0 24 24"><use href="#bbmark"/></svg></span>
+        <span class="bb-name">BeakerBot</span>
+        <span class="bb-credit">$3.80 left</span>
+      </div>
+      <div class="bb-body" style="gap:6px;">
+
+        <div class="bb-um">Here is Nguyen2025_HPV58_phylogeny.pdf</div>
+
+        <div class="bb-bm">Got it, 42 pages. I can draft these four outputs. Approve each one before it writes anything.</div>
+
+        <div class="pdf-chip" style="margin-bottom:2px;">
+          <div class="pdf-icon"><svg width="12" height="12" viewBox="0 0 24 24"><path d="M6 3h9l3 3v15H6z"/><path d="M9 9h6M9 13h4"/></svg></div>
+          <div class="pdf-name">Nguyen2025_HPV58_phylogeny.pdf</div>
+          <div class="pdf-meta">42 pp</div>
+          <div class="pdf-status"><svg width="10" height="10" viewBox="0 0 24 24"><path d="M20 6L9 17l-5-5"/></svg> Ready</div>
+        </div>
+
+        <!-- Output 1: summary to note -->
+        <div class="draft-card active">
+          <div class="dc-head">
+            <div class="dc-num">1</div>
+            <div class="dc-title">Summary to note</div>
+            <div class="dc-badge ready">Ready to write</div>
+          </div>
+          <div class="dc-source">
+            <span class="dc-source-label">Source passage</span>
+            <blockquote>
+              "We analysed 186 HPV58 complete genomes sampled between 1990 and 2023 from 24 countries using a Bayesian time-calibrated phylogeny to reconstruct the global spread of sub-lineages..."
+            </blockquote>
+          </div>
+          <div class="dc-preview">
+            <span class="dc-preview-label">Draft note (faithful summary, no interpretation)</span>
+            Nguyen et al. 2025 reconstructed the global spread of HPV58 sub-lineages using 186 complete genomes from 24 countries (1990-2023). They used a Bayesian time-calibrated phylogeny (BEAST2, HKY+G, strict clock). The study reports divergence dates for sub-lineages A1-A4 and their geographic origins. No fitness or clinical conclusions are drawn in the scope of this summary.
+          </div>
+          <div class="dc-acts">
+            <button class="dc-approve">Approve and write note</button>
+            <button class="dc-reject">Reject</button>
+          </div>
+        </div>
+
+        <!-- Output 2: method to methods (verbatim) -->
+        <div class="draft-card active">
+          <div class="dc-head">
+            <div class="dc-num">2</div>
+            <div class="dc-title">Method to methods catalog <span class="verbatim-tag">verbatim</span></div>
+            <div class="dc-badge ready">Ready to write</div>
+          </div>
+          <div class="dc-source">
+            <span class="dc-source-label">Source passage (p. 4, Methods)</span>
+            <blockquote>
+              "Sequences were aligned using MAFFT v7.490 (--auto). Poorly aligned regions were trimmed with trimAl v1.4.1 (--automated1). Maximum-likelihood trees were inferred with IQ-TREE2 v2.2.0 under GTR+G with 1000 ultrafast bootstraps."
+            </blockquote>
+          </div>
+          <div class="dc-preview">
+            <span class="dc-preview-label">Draft method entry (verbatim extraction, not paraphrased)</span>
+            <span style="color:var(--text-3);font-size:11px;">Name:</span> Nguyen et al. 2025 phylogeny method<br>
+            <span style="color:var(--text-3);font-size:11px;display:block;margin-top:4px;">Text (verbatim from p. 4):</span>
+            Sequences were aligned using MAFFT v7.490 (--auto). Poorly aligned regions were trimmed with trimAl v1.4.1 (--automated1). Maximum-likelihood trees were inferred with IQ-TREE2 v2.2.0 under GTR+G with 1000 ultrafast bootstraps.
+          </div>
+          <div class="dc-acts">
+            <button class="dc-approve">Approve and add to methods</button>
+            <button class="dc-reject">Reject</button>
+          </div>
+        </div>
+
+        <!-- Output 3: pipeline to generate_tree -->
+        <div class="draft-card active">
+          <div class="dc-head">
+            <div class="dc-num">3</div>
+            <div class="dc-title">Reproduce the pipeline, generate_tree recipe</div>
+            <div class="dc-badge ready">Ready to write</div>
+          </div>
+          <div class="dc-source">
+            <span class="dc-source-label">Source passage (p. 4, Methods)</span>
+            <blockquote>
+              "MAFFT v7.490 (--auto), trimAl v1.4.1 (--automated1), IQ-TREE2 v2.2.0, GTR+G, 1000 ultrafast bootstraps, midpoint rooting."
+            </blockquote>
+          </div>
+          <div class="dc-preview">
+            <span class="dc-preview-label">Draft recipe (mapped to BuilderOptions, every flag from the catalog)</span>
+            <table class="param-table">
+              <thead><tr><th>Parameter</th><th>Paper value</th><th>Recipe value</th></tr></thead>
+              <tbody>
+                <tr><td>Aligner</td><td>MAFFT v7.490</td><td>mafft</td></tr>
+                <tr><td>Trimming</td><td>trimAl --automated1</td><td>trimal_auto</td></tr>
+                <tr><td>Tree method</td><td>IQ-TREE2</td><td>iqtree2</td></tr>
+                <tr><td>Model</td><td>GTR+G</td><td>GTR+G (fixed)</td></tr>
+                <tr><td>Bootstraps</td><td>1000</td><td>1000</td></tr>
+                <tr><td>Rooting</td><td>midpoint</td><td><span class="param-flag">defaulted, paper says midpoint but no outgroup listed</span></td></tr>
+              </tbody>
+            </table>
+            <div style="font-size:11px;color:var(--text-3);margin-top:6px;">The recipe will be bound to a FASTA you choose from your sequences after approval.</div>
+          </div>
+          <div class="dc-acts">
+            <button class="dc-approve">Approve and save recipe</button>
+            <button class="dc-reject">Reject</button>
+          </div>
+        </div>
+
+        <!-- Output 4: figure style, deferred -->
+        <div class="draft-card deferred">
+          <div class="dc-head">
+            <div class="dc-num">4</div>
+            <div class="dc-title">Match a figure's style</div>
+            <div class="dc-badge soon">Coming later</div>
+          </div>
+          <div class="dc-deferred-note">
+            This output reads the tree figure in the paper and drafts an editable style spec (layout, palette, tip-label coloring, branch styling) you can apply to your own tree in the Figure Studio. It needs a vision-capable model and a finished Figure Studio style spec, neither of which are in place yet.
+          </div>
+        </div>
+
+      </div>
+      <div class="bb-composer">
+        <div class="bb-attach" style="color:var(--sky-deep);border-color:rgba(56,189,248,0.5);background:var(--sky-soft);">
+          <svg width="14" height="14" viewBox="0 0 24 24"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
+        </div>
+        <div class="bb-input">Ask about the paper, or approve the drafts above...</div>
+        <div class="bb-send">
+          <svg width="14" height="14" viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+        </div>
+      </div>
+    </div>
+    </div>
+
+  </div></div>
+  <p class="note">All four outputs appear as draft cards in a single fan-out after attach. Cards 1-3 are active (ready to approve). Card 4 is greyed with dashed border and a plain "coming later" badge so the shape is visible but the unavailability is clear. Open question: should the four cards all appear at once, or should BeakerBot present them one card at a time after each approval?</p>
+</section>
+
+
+<!-- ========================================================== -->
+<!-- SECTION 4: Individual draft card detail                    -->
+<!-- ========================================================== -->
+<section class="rs" data-name="Draft card detail, source passage and approve/reject">
+  <header>
+    <h3>4. Draft card detail, source passage + Approve / Reject</h3>
+    <div class="seg" data-approve><button data-v="ok">Approve</button><button data-v="warn">Needs work</button></div>
+  </header>
+  <div class="mockwrap"><span class="hint">click to comment</span>
+  <div class="mock" style="padding:22px;display:flex;gap:22px;justify-content:center;align-items:flex-start;background:var(--sunken);">
+
+    <!-- approved state -->
+    <div style="display:flex;flex-direction:column;align-items:center;gap:10px;">
+      <div class="col-label">After approval</div>
+      <div style="width:300px;">
+        <div class="draft-card" style="border-color:var(--ok);opacity:1;">
+          <div class="dc-head" style="background:var(--ok-bg);">
+            <div class="dc-num" style="background:var(--ok-bg);color:var(--ok);">
+              <svg width="12" height="12" viewBox="0 0 24 24"><path d="M20 6L9 17l-5-5"/></svg>
+            </div>
+            <div class="dc-title" style="color:var(--ok);">Summary to note</div>
+            <div class="dc-badge ready">Written</div>
+          </div>
+          <div class="dc-preview" style="color:var(--text-3);">
+            <span class="dc-preview-label">Saved to Notes</span>
+            "Nguyen 2025 HPV58 phylogeny" has been added as a new note.
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- rejected state -->
+    <div style="display:flex;flex-direction:column;align-items:center;gap:10px;">
+      <div class="col-label">After rejection</div>
+      <div style="width:300px;">
+        <div class="draft-card" style="border-color:var(--border-2);opacity:0.6;">
+          <div class="dc-head" style="background:var(--sunken);">
+            <div class="dc-num" style="background:var(--sunken);color:var(--text-3);">
+              <svg width="12" height="12" viewBox="0 0 24 24"><path d="M18 6L6 18M6 6l12 12"/></svg>
+            </div>
+            <div class="dc-title" style="color:var(--text-3);">Summary to note</div>
+            <div class="dc-badge soon">Skipped</div>
+          </div>
+          <div class="dc-preview" style="color:var(--text-3);">
+            <span class="dc-preview-label">Not written</span>
+            Rejected. Nothing was written. You can re-run by attaching the PDF again.
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div></div>
+  <p class="note">After the user approves a card, BeakerBot confirms the write and the card collapses into a compact "Written" confirmation. After rejection the card dims to a "Skipped" state. Neither writes anything without explicit approval. The source passage above the preview is the guard against hallucination: the user can check the quoted text against the open PDF before approving.</p>
+</section>
+
+</div><!-- /wrap -->
+
+<script>
+(function(){
+  var comments=[]; var counter=0;
+  var sections=[].slice.call(document.querySelectorAll('.rs'));
+
+  sections.forEach(function(sec){
+    var seg=sec.querySelector('[data-approve]');
+    seg.querySelectorAll('button').forEach(function(b){
+      b.addEventListener('click',function(){
+        var v=b.getAttribute('data-v');
+        var already=b.classList.contains('on-'+v);
+        seg.querySelectorAll('button').forEach(function(x){x.classList.remove('on-ok','on-warn');});
+        if(!already){b.classList.add('on-'+v);sec.dataset.state=v;} else {delete sec.dataset.state;}
+        renderSum();
+      });
+    });
+  });
+
+  document.querySelectorAll('.mock').forEach(function(mock){
+    mock.addEventListener('click',function(e){
+      if(e.target.closest('.pin')||e.target.closest('.editor')) return;
+      var rect=mock.getBoundingClientRect();
+      var x=((e.clientX-rect.left)/rect.width)*100;
+      var y=((e.clientY-rect.top)/rect.height)*100;
+      counter++;
+      var c={id:counter, section:mock.closest('.rs').getAttribute('data-name'), text:'', x:x, y:y, mock:mock};
+      comments.push(c);
+      var pin=document.createElement('div');
+      pin.className='pin'; pin.textContent=c.id; pin.style.left=x+'%'; pin.style.top=y+'%';
+      pin.addEventListener('click',function(ev){ev.stopPropagation();openEditor(c,pin);});
+      mock.appendChild(pin); c.pin=pin;
+      openEditor(c,pin);
+      renderSum();
+    });
+  });
+
+  function openEditor(c,pin){
+    document.querySelectorAll('.editor').forEach(function(e){e.remove();});
+    var ed=document.createElement('div'); ed.className='editor';
+    var left=Math.min(c.x,72); var top=Math.min(c.y+4,80);
+    ed.style.left=left+'%'; ed.style.top=top+'%';
+    ed.innerHTML='<textarea placeholder="Your note on this..."></textarea><div class="erow"><button class="esave">Save</button><button class="edel">Delete</button></div>';
+    var ta=ed.querySelector('textarea'); ta.value=c.text;
+    ta.addEventListener('input',function(){c.text=ta.value;renderSum();});
+    ed.querySelector('.esave').addEventListener('click',function(){c.text=ta.value;ed.remove();renderSum();});
+    ed.querySelector('.edel').addEventListener('click',function(){
+      if(c.pin&&c.pin.parentNode)c.pin.parentNode.removeChild(c.pin);
+      comments=comments.filter(function(x){return x.id!==c.id;}); ed.remove(); renderSum();
+    });
+    c.mock.appendChild(ed); setTimeout(function(){ta.focus();},0);
+  }
+
+  function renderSum(){
+    var ok=0,warn=0; sections.forEach(function(s){if(s.dataset.state==='ok')ok++;else if(s.dataset.state==='warn')warn++;});
+    var withText=comments.filter(function(c){return c.text.trim();}).length;
+    document.getElementById('sum').innerHTML=ok+' approved &middot; '+warn+' needs work &middot; '+withText+' comments';
+  }
+
+  document.getElementById('exportBtn').addEventListener('click',function(){
+    var lines=['# BeakerBot PDF attach, ingestion UI review feedback','','Date: '+new Date().toString(),''];
+    sections.forEach(function(s){
+      var name=s.getAttribute('data-name');
+      var state=s.dataset.state==='ok'?'APPROVED':s.dataset.state==='warn'?'NEEDS WORK':'undecided';
+      lines.push('## '+name+'  ['+state+']');
+      var mine=comments.filter(function(c){return c.section===name&&c.text.trim();});
+      if(!mine.length)lines.push('(no comments)');
+      else mine.forEach(function(c){lines.push('- #'+c.id+': '+c.text.trim());});
+      lines.push('');
+    });
+    var blob=new Blob([lines.join('\n')],{type:'text/markdown'});
+    var a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='beakerbot-pdf-attach-feedback.md';
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  });
+
+  renderSum();
+})();
+</script>
+</body>
+</html>
