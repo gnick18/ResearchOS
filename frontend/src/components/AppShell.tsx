@@ -245,6 +245,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
           out.push({ href: "/lab-overview", label: "Lab Overview" });
           out.push({ href: "/people", label: "People" });
           out.push({ href: "/approvals", label: "Approvals" });
+          out.push({ href: "/funding", label: "Funding" });
         } else {
           out.push(item);
         }
