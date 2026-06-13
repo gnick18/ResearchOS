@@ -248,7 +248,7 @@ function notifyRecipientMessage(
  *  NO research content, only channel toggles + a quiet-hours window + the tz
  *  offset so the relay can resolve the recipient's local time for the gate. */
 export interface RelayNotifyConfig {
-  channels: Record<string, { phone?: boolean }>;
+  channels: Record<string, { phone?: boolean; email?: boolean }>;
   quietHours: {
     enabled: boolean;
     start: string;
@@ -257,6 +257,9 @@ export interface RelayNotifyConfig {
   };
   /** Date.getTimezoneOffset() on the recipient's machine (minutes; local = UTC - offset). */
   tzOffsetMinutes: number;
+  /** The recipient's own verified notification email (phase 2.5 sender-triggered
+   *  email). Omitted when unset; email is the only place the relay ever sends. */
+  email?: string;
 }
 
 /** PUBLISH this user's notify-routing config to its own CaptureInbox DO so the

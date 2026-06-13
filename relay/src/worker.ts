@@ -2312,38 +2312,59 @@ export class CaptureInbox {
     } catch {
       return this.json({ ok: true, pushed: 0, reason: "bad config" }, 200);
     }
-    if (!shouldBuzzPhone(config, category, nowMs)) {
-      return this.json({ ok: true, pushed: 0, reason: "gated" }, 200);
+    // Evaluate BOTH offline channels the recipient may have routed this category
+    // to: phone push (P2) and sender-triggered email (phase 2.5). Both honor the
+    // recipient's own per-category toggle + quiet hours. If neither fires, do not
+    // consume the cooldown (a muted category should never starve a later allowed
+    // one).
+    const phoneOn = shouldBuzzPhone(config, category, nowMs);
+    const emailOn = shouldEmail(config, category, nowMs);
+    if (!phoneOn && !emailOn) {
+      return this.json({ ok: true, pushed: 0, emailed: 0, reason: "gated" }, 200);
     }
     // Stamp the cooldown up front so concurrent sender calls dedupe.
     this.sql().exec("UPDATE notify_config SET last_notify_at = ? WHERE id = 1", nowMs);
 
-    const devices = this.sql()
-      .exec<{
-        device_pubkey: string;
-        x25519_pubkey: string | null;
-        push_token: string | null;
-      }>("SELECT device_pubkey, x25519_pubkey, push_token FROM devices")
-      .toArray();
-    const snap = buildPendingSnapshot(category, ts);
-    const plaintext = new TextEncoder().encode(JSON.stringify(snap));
-    const tokens: string[] = [];
-    for (const d of devices) {
-      if (!d.x25519_pubkey) continue;
-      try {
-        const sealed = sealToRecipient(plaintext, hexToBytes(d.x25519_pubkey));
-        await this.env.CAPTURES.put(
-          `${u}/snap/${d.device_pubkey}/notifications-pending`,
-          sealed,
-          { httpMetadata: { contentType: "application/octet-stream" } },
-        );
-        if (d.push_token) tokens.push(d.push_token);
-      } catch {
-        // Skip one device; the rest still get sealed + pushed.
+    let pushed = 0;
+    let sealedCount = 0;
+    if (phoneOn) {
+      const devices = this.sql()
+        .exec<{
+          device_pubkey: string;
+          x25519_pubkey: string | null;
+          push_token: string | null;
+        }>("SELECT device_pubkey, x25519_pubkey, push_token FROM devices")
+        .toArray();
+      const snap = buildPendingSnapshot(category, ts);
+      const plaintext = new TextEncoder().encode(JSON.stringify(snap));
+      const tokens: string[] = [];
+      for (const d of devices) {
+        if (!d.x25519_pubkey) continue;
+        try {
+          const sealed = sealToRecipient(plaintext, hexToBytes(d.x25519_pubkey));
+          await this.env.CAPTURES.put(
+            `${u}/snap/${d.device_pubkey}/notifications-pending`,
+            sealed,
+            { httpMetadata: { contentType: "application/octet-stream" } },
+          );
+          if (d.push_token) tokens.push(d.push_token);
+        } catch {
+          // Skip one device; the rest still get sealed + pushed.
+        }
       }
+      sealedCount = tokens.length;
+      pushed = await sendExpoPush(tokens, category);
     }
-    const pushed = await sendExpoPush(tokens, category);
-    return this.json({ ok: true, pushed, sealed: tokens.length }, 200);
+
+    let emailed = 0;
+    if (emailOn && config.email) {
+      // The recipient mails their OWN registered address (the only place email
+      // ever goes), via the existing Vercel mailer (Resend + SHARING_ENABLED gate
+      // + IP rate limit). Generic content-free body, same as the push.
+      emailed = await sendNotifyEmail(this.env.APP_BASE_URL, config.email, category);
+    }
+
+    return this.json({ ok: true, pushed, sealed: sealedCount, emailed }, 200);
   }
 
   /** POST /capture/snapshot/publish (mobile download path). multipart/form-data:
@@ -3911,7 +3932,7 @@ const EXPO_TOKEN_RE = /^Expo(nent)?PushToken\[[^\]]+\]$/;
  *  recipient's Date.getTimezoneOffset() so the relay can resolve their LOCAL
  *  time for quiet hours. */
 interface NotifyConfig {
-  channels?: Record<string, { phone?: boolean } | undefined>;
+  channels?: Record<string, { phone?: boolean; email?: boolean } | undefined>;
   quietHours?: {
     enabled?: boolean;
     start?: string;
@@ -3919,6 +3940,9 @@ interface NotifyConfig {
     weekendsQuiet?: boolean;
   };
   tzOffsetMinutes?: number;
+  /** The recipient's own verified notification email (phase 2.5). Present only
+   *  when the recipient has set it; email ever only goes to this address. */
+  email?: string;
 }
 
 /** HKDF info string, byte-identical to frontend sealToRecipient (encryption.ts).
@@ -3983,6 +4007,42 @@ function shouldBuzzPhone(
   const ch = config.channels?.[category];
   if (!ch || !ch.phone) return false;
   return !isQuietNow(config.quietHours, nowMs, config.tzOffsetMinutes ?? 0);
+}
+
+/** The recipient's own email gate (phase 2.5): the category is routed to email
+ *  AND it is not quiet hours. The caller also requires config.email to be set. */
+function shouldEmail(
+  config: NotifyConfig,
+  category: string,
+  nowMs: number,
+): boolean {
+  const ch = config.channels?.[category];
+  if (!ch || !ch.email) return false;
+  return !isQuietNow(config.quietHours, nowMs, config.tzOffsetMinutes ?? 0);
+}
+
+/** Send a generic, content-free notification email to the recipient's OWN
+ *  address (phase 2.5) via the existing Vercel mailer route (Resend +
+ *  SHARING_ENABLED gate + IP rate limit live there). Returns 1 on a 200, else 0;
+ *  a failed email is never an error (the recipient still gets the in-app + any
+ *  phone delivery). */
+async function sendNotifyEmail(
+  appOrigin: string | undefined,
+  toEmail: string,
+  category: string,
+): Promise<number> {
+  const origin = (appOrigin && appOrigin.trim() !== "" ? appOrigin : "https://research-os.app").replace(/\/+$/, "");
+  const body = GENERIC_PUSH_BODY[category] ?? DEFAULT_PUSH_BODY;
+  try {
+    const res = await fetch(`${origin}/api/notify-email`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ to: toEmail, title: "ResearchOS", body }),
+    });
+    return res.ok ? 1 : 0;
+  } catch {
+    return 0;
+  }
 }
 
 /** Build the generic, content-free pending snapshot (one synthesized row). Shape
