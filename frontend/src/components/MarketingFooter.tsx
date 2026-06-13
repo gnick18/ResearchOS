@@ -41,7 +41,7 @@ const COLUMNS: FooterColumn[] = [
   {
     heading: "Product",
     links: [
-      { label: "Features", href: "/" },
+      { label: "Features", href: "/#stack" },
       { label: "BeakerBot AI", href: "/ai" },
       { label: "Pricing", href: "/pricing" },
       { label: "Live demo", href: "/demo" },
