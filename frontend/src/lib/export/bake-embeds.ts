@@ -30,6 +30,13 @@ import {
 import { resultToText } from "@/lib/datahub/result-text";
 import { plainLanguageSummary } from "@/lib/datahub/plain-language";
 import type { NormalizedResult } from "@/lib/datahub/run-analysis";
+import { phyloApi } from "@/lib/phylo/api";
+import { parseTree } from "@/lib/phylo/parse";
+import { renderTreeSvg } from "@/lib/phylo/render";
+import {
+  figureToRenderSpec,
+  figureInputsFromStored,
+} from "@/lib/phylo/figure-to-render";
 import {
   sequencesApi,
   notesApi,
@@ -247,6 +254,58 @@ async function bakeMolecule(
       };
     }
     // Load failure degrades to missing.
+    return { kind: "missing", name: caption || descriptor.id, label };
+  }
+}
+
+/** Bake a phylogenetic tree embed into a figure image, reusing the same renderer
+ *  + shared adapter the live embed and the Studio use (one mapping). A tree that
+ *  is gone degrades to missing; a parse / canvas failure degrades to a card. */
+async function bakePhylo(
+  descriptor: EmbedDescriptor,
+  caption: string,
+  label: string | null,
+): Promise<BakedEmbed> {
+  try {
+    const raw = await phyloApi.get(descriptor.id);
+    if (!raw) {
+      return { kind: "missing", name: caption || descriptor.id, label };
+    }
+    const W = 460;
+    const H = 320;
+    let svg = "";
+    try {
+      const tree = parseTree(raw.tree);
+      const inputs = figureInputsFromStored(raw.meta.figure, raw.meta.metadata);
+      svg = renderTreeSvg(tree, figureToRenderSpec(tree, inputs, { width: W, height: H }));
+    } catch {
+      svg = "";
+    }
+    if (!svg) {
+      return {
+        kind: "card",
+        title: caption || raw.meta.name,
+        subtitle: "Phylogenetic tree",
+        meta: raw.meta.tip_count != null ? [`${raw.meta.tip_count} tips`] : [],
+        caption,
+        label,
+      };
+    }
+    const dataUrl = await svgToPngDataUrl(svg, 600);
+    const outW = 600;
+    const outH = Math.round(600 * (H / W));
+    return { kind: "image", dataUrl, width: outW, height: outH, caption, label };
+  } catch (err) {
+    if (err instanceof CanvasUnavailableError) {
+      return {
+        kind: "card",
+        title: caption || descriptor.id,
+        subtitle: "Phylogenetic tree",
+        meta: [],
+        caption,
+        label,
+      };
+    }
     return { kind: "missing", name: caption || descriptor.id, label };
   }
 }
@@ -755,6 +814,8 @@ export async function bakeOne(
       return bakeMolecule(descriptor, caption, label);
     case "datahub":
       return bakeDataHub(descriptor, caption, label);
+    case "phylo":
+      return bakePhylo(descriptor, caption, label);
     case "sequence":
       return bakeSequence(descriptor, caption, label);
     case "note":

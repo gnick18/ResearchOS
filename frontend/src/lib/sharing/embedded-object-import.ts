@@ -527,6 +527,20 @@ async function importOneObject(
       localId = await importDataHub(obj, projectIds);
       break;
 
+    case "phylo":
+      // Phylo trees are not collected into a share bundle yet (see the collect
+      // side), so this branch is unreachable today; it exists for exhaustiveness
+      // and skips defensively rather than failing the import.
+      return {
+        href: obj.href,
+        action: "skipped",
+        localType: "phylo",
+        localId: null,
+        portableId: obj.portableId,
+        name: obj.name,
+        skipReason: "phylo trees are not shared in a bundle yet",
+      };
+
     default: {
       // TypeScript exhaustiveness guard. Unknown types are skipped.
       const exhaustive: never = obj.type;

@@ -66,6 +66,7 @@ function _typeLabel(type: ObjectRefType): string {
     project: "Project",
     molecule: "Molecule",
     datahub: "Data Hub doc",
+    phylo: "Phylogenetic tree",
     task: "Task",
     experiment: "Experiment",
   };

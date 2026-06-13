@@ -26,6 +26,7 @@ export type ObjectRefType =
   | "project"
   | "molecule"
   | "datahub"
+  | "phylo"
   | "task"
   | "experiment";
 
@@ -95,6 +96,17 @@ const OBJECT_ROUTES: Record<ObjectRefType, RouteShape> = {
     build: (id) => `/datahub?doc=${encodeURIComponent(id)}`,
     match: (pathname, params) => {
       if (pathname !== "/datahub") return null;
+      const doc = params.get("doc");
+      return doc && doc.length > 0 ? doc : null;
+    },
+  },
+  // The phylogenetics Tree Studio opens a saved tree via a query param, like
+  // Data Hub. The /phylo page reads the same `doc` param to auto-open that tree in
+  // the Studio, so a reference in a note jumps straight to the figure.
+  phylo: {
+    build: (id) => `/phylo?doc=${encodeURIComponent(id)}`,
+    match: (pathname, params) => {
+      if (pathname !== "/phylo") return null;
       const doc = params.get("doc");
       return doc && doc.length > 0 ? doc : null;
     },
@@ -294,6 +306,7 @@ export const DEFAULT_EMBED_VIEW: Record<ObjectRefType, string> = {
   project: "card",
   molecule: "card",
   datahub: "table",
+  phylo: "studio",
   task: "card",
   experiment: "results",
 };

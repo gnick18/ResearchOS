@@ -1,0 +1,152 @@
+// Phylo figure -> RenderSpec adapter (phylo Phase 5).
+//
+// ONE mapping from a tree + a figure spec + a bound metadata table into the
+// RenderSpec that lib/phylo/render.ts consumes. Both the Tree Studio (live UI
+// state) and the note / chat embed renderer call this, so a figure renders the
+// same in the canvas, the export, and an embedded card, with no second copy of
+// the mapping to drift.
+//
+// The persisted forms (PhyloFigureSpec + PhyloMetadataBinding on the sidecar)
+// are the inputs an embed has on hand; the Studio passes the same pieces from
+// its working state. Pure data in, RenderSpec out, no React, no I/O.
+//
+// No em-dashes, no emojis, no mid-sentence colons.
+
+import { matchMetadataToTips } from "./layout";
+import { leaves, type TreeNode } from "./parse";
+import {
+  buildCategoryColors,
+  type FigureTracks,
+  type RenderSpec,
+} from "./render";
+
+/** The track defaults a fresh figure starts from. A persisted figure overrides
+ *  only the keys it stored, so an older record (missing a newer track) still
+ *  renders with a sensible default rather than undefined. */
+export const DEFAULT_FIGURE_TRACKS: FigureTracks = {
+  labels: true,
+  labelsItalic: true,
+  points: true,
+  strip: true,
+  bars: false,
+  heat: false,
+  clade: false,
+  support: false,
+};
+
+/** The resolved figure inputs the adapter needs. The Studio passes its live UI
+ *  state; the embed resolves these from the stored PhyloFigureSpec +
+ *  PhyloMetadataBinding via figureInputsFromStored below. */
+export interface FigureInputs {
+  layout: "rectangular" | "circular";
+  phylogram: boolean;
+  tracks: FigureTracks;
+  categoryColumn?: string;
+  barColumn?: string;
+  heatColumns?: string[];
+  /** The bound metadata rows, when a table is linked. */
+  metaRows?: Record<string, string>[] | null;
+  /** The metadata column whose values match tree tip labels. */
+  tipColumn?: string;
+}
+
+/** The deepest first clade with at least two tips, the default highlight target.
+ *  Mirrors the Studio helper so the shared spec includes the same highlight. */
+function firstCladeHighlight(
+  tree: TreeNode,
+): { nodeId: number; label: string; color: string } | null {
+  const internal = tree.children.find((c) => c.children.length >= 2);
+  if (!internal) return null;
+  return {
+    nodeId: internal.id,
+    label: internal.name || `${leaves(internal).length} tips`,
+    color: "#1AA0E6",
+  };
+}
+
+/**
+ * Build the RenderSpec for a tree from a figure + its bound metadata. This is the
+ * single mapping the Studio and the embed both call, so what the canvas draws and
+ * what an embedded card draws never diverge.
+ */
+export function figureToRenderSpec(
+  tree: TreeNode,
+  inputs: FigureInputs,
+  size: { width: number; height: number },
+): RenderSpec {
+  const match =
+    inputs.metaRows && inputs.tipColumn
+      ? matchMetadataToTips(tree, inputs.metaRows, inputs.tipColumn)
+      : null;
+  const categoryColors = buildCategoryColors(
+    tree,
+    match?.matched,
+    inputs.categoryColumn,
+  );
+  return {
+    layout: inputs.layout,
+    phylogram: inputs.phylogram,
+    tracks: inputs.tracks,
+    columns: {
+      category: inputs.categoryColumn || undefined,
+      bar: inputs.barColumn || undefined,
+      heat:
+        inputs.heatColumns && inputs.heatColumns.length > 0
+          ? inputs.heatColumns
+          : undefined,
+    },
+    width: size.width,
+    height: size.height,
+    metadata: match?.matched,
+    categoryColors,
+    cladeHighlight: inputs.tracks.clade ? firstCladeHighlight(tree) : null,
+  };
+}
+
+/** The stored figure shape on the sidecar (PhyloFigureSpec), narrowed to what the
+ *  adapter reads. Kept local so this module does not pull the heavier types
+ *  barrel; the fields match PhyloMeta.figure / PhyloMeta.metadata exactly. */
+interface StoredFigure {
+  layout?: string;
+  branchLengths?: boolean;
+  tracks?: Record<string, boolean>;
+}
+interface StoredMetadata {
+  tipColumn?: string;
+  rows?: Record<string, string>[];
+  categoryColumn?: string;
+  barColumn?: string;
+  heatColumns?: string[];
+}
+
+/**
+ * Resolve the FigureInputs from a stored sidecar figure + metadata binding (what
+ * an embed reads from phyloApi.get). Mirrors the Studio's restoreSavedFigure so a
+ * saved tree embeds looking exactly like its last save. An absent figure falls
+ * back to the track defaults (a plain rectangular phylogram with labels).
+ */
+export function figureInputsFromStored(
+  figure: StoredFigure | undefined,
+  metadata: StoredMetadata | undefined,
+): FigureInputs {
+  const layout = figure?.layout === "circular" ? "circular" : "rectangular";
+  const phylogram = figure?.branchLengths ?? true;
+  const tracks: FigureTracks = {
+    ...DEFAULT_FIGURE_TRACKS,
+    ...((figure?.tracks ?? {}) as Partial<FigureTracks>),
+  };
+  if (!metadata?.rows) {
+    return { layout, phylogram, tracks, metaRows: null };
+  }
+  const cols = metadata.rows.length > 0 ? Object.keys(metadata.rows[0]) : [];
+  return {
+    layout,
+    phylogram,
+    tracks,
+    metaRows: metadata.rows,
+    tipColumn: metadata.tipColumn || cols[0] || "",
+    categoryColumn: metadata.categoryColumn ?? cols[1] ?? "",
+    barColumn: metadata.barColumn ?? "",
+    heatColumns: metadata.heatColumns ?? [],
+  };
+}
