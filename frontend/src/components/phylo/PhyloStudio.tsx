@@ -614,7 +614,7 @@ export function PhyloStudio({ initialTreeId }: { initialTreeId?: string } = {}) 
   const tips = leaves(tree);
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-[240px_1fr_250px] gap-3.5 items-start">
+    <div className="grid grid-cols-1 lg:grid-cols-[240px_minmax(0,1fr)_250px] gap-3.5 items-start pb-20">
       {/* Left rail: tree + metadata */}
       <div className="space-y-3.5">
         <Panel title="Tree">
@@ -769,9 +769,11 @@ export function PhyloStudio({ initialTreeId }: { initialTreeId?: string } = {}) 
             onChange={(v) => setPhylogram(v === "phylo")}
           />
         </div>
-        {/* The renderer string is the single source of SVG; injected here. */}
+        {/* The renderer string is the single source of SVG; injected here. A wide
+            figure scrolls within this column instead of overflowing the page (which
+            would push the right rail past the window edge). */}
         <div
-          className="w-full"
+          className="w-full overflow-x-auto"
           dangerouslySetInnerHTML={{ __html: svgMarkup }}
         />
       </div>

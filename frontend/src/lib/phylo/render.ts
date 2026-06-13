@@ -38,6 +38,8 @@ import {
   renderPanel,
   renderPanelLegend,
   renderMsaLegend,
+  renderValueScaleLegend,
+  distributionDomain,
   panelBandThickness,
   type PanelScales,
   type PanelValues,
@@ -653,6 +655,19 @@ function collectPanelLegends(
       continue;
     }
     if (!meta) continue;
+    // Distribution geoms encode value by position with a fixed fill, so they have
+    // no color scale. Their legend is a numeric scale-key reading the same domain
+    // the geom maps against (critical in circular, where the value axis is only a
+    // guide ring with no numbers). Honor the panel's axis-off opt-out.
+    if (panel.kind === "violin" || panel.kind === "point" || panel.kind === "scatter") {
+      if (panel.options?.axis === false) continue;
+      const dom = distributionDomain(panel.kind, extractPanelValues(panel, root, meta));
+      if (dom) {
+        const title = panel.column ?? panel.columns?.[0] ?? panel.kind;
+        out.push({ title, valueScale: { lo: dom.lo, hi: dom.hi } });
+      }
+      continue;
+    }
     const sc: PanelScales = buildPanelScales(panel, root, meta, spec.categoryColors);
     if (panel.kind === "heat" && panel.columns && sc.multi) {
       panel.columns.forEach((col, i) => {
@@ -687,6 +702,16 @@ function renderOneLegend(
   if (entry.residue) {
     return renderMsaLegend(entry.title, entry.residue, x, y, maxY);
   }
+  if (entry.valueScale) {
+    return renderValueScaleLegend(
+      entry.title,
+      entry.valueScale.lo,
+      entry.valueScale.hi,
+      x,
+      y,
+      maxY,
+    );
+  }
   if (entry.scale) {
     return renderPanelLegend(entry.title, entry.scale, x, y, maxY);
   }
@@ -702,6 +727,8 @@ function estimateLegendHeight(entry: LegendEntry): number {
     const rows = entry.residue === "nucleotide" ? 5 : 8;
     return titleH + rows * 16 + 8;
   }
+  // Title (16) + a short ticked axis + tick labels (~24).
+  if (entry.valueScale) return 16 + 24;
   if (entry.scale) {
     if (entry.scale.kind === "numeric") return titleH + 56 + 16;
     const cats = entry.scale.categories?.length ?? 1;
@@ -1150,6 +1177,9 @@ interface LegendEntry {
   scale?: ColorScale;
   /** The residue alphabet, present only for an msa panel's residue-key legend. */
   residue?: AlignmentKind;
+  /** The value range, present only for a distribution panel's numeric scale-key
+   *  (violin / point / scatter), which encodes value by position not color. */
+  valueScale?: { lo: number; hi: number };
 }
 
 /** Gather a legend entry for each active colored track, in draw order. */

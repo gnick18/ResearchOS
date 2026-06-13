@@ -544,6 +544,39 @@ function sharedDomain(
   return { lo, hi };
 }
 
+/**
+ * The shared value domain a distribution panel (violin / point / scatter) maps
+ * against, computed the SAME way its renderer does so a legend scale-key reads
+ * the identical range the geom draws. Violin / scatter span every replicate;
+ * point spans each tip's mean +/- error. Null when there is nothing to scale.
+ */
+export function distributionDomain(
+  kind: AlignedPanel["kind"],
+  values: PanelValues,
+): { lo: number; hi: number } | null {
+  if (kind === "violin" || kind === "scatter") {
+    return sharedDomain(values.replicates);
+  }
+  if (kind === "point") {
+    const stats = values.pointStats;
+    if (!stats || stats.size === 0) return null;
+    let lo = Infinity;
+    let hi = -Infinity;
+    for (const { mean: m, error } of stats.values()) {
+      if (!Number.isFinite(m)) continue;
+      lo = Math.min(lo, m - error);
+      hi = Math.max(hi, m + error);
+    }
+    if (!Number.isFinite(lo) || !Number.isFinite(hi)) return null;
+    if (lo === hi) {
+      hi += 1;
+      lo -= 1;
+    }
+    return { lo, hi };
+  }
+  return null;
+}
+
 /** Mean of finite numbers, or NaN when none. */
 function mean(xs: number[]): number {
   const f = xs.filter((n) => Number.isFinite(n));
@@ -755,19 +788,11 @@ function renderPoint(
   const thick = panelBandThickness(panel);
   const stats = values.pointStats;
   if (!stats || stats.size === 0) return { svg: "", thickness: 0 };
-  // Shared domain across every tip's mean +/- error, so points are comparable.
-  let lo = Infinity;
-  let hi = -Infinity;
-  for (const { mean: m, error } of stats.values()) {
-    if (!Number.isFinite(m)) continue;
-    lo = Math.min(lo, m - error);
-    hi = Math.max(hi, m + error);
-  }
-  if (!Number.isFinite(lo) || !Number.isFinite(hi)) return { svg: "", thickness: 0 };
-  if (lo === hi) {
-    hi += 1;
-    lo -= 1;
-  }
+  // Shared domain across every tip's mean +/- error, so points are comparable
+  // (the legend scale-key reads this same range via distributionDomain).
+  const dom = distributionDomain("point", values);
+  if (!dom) return { svg: "", thickness: 0 };
+  const { lo, hi } = dom;
   const span = hi - lo;
   const frac = (v: number): number => (span > 0 ? (v - lo) / span : 0.5);
 
@@ -1038,6 +1063,49 @@ export function renderPanelLegend(
     }
     cur += 8;
   }
+  return { svg: parts.join(""), height: cur - y };
+}
+
+/**
+ * A numeric scale-key for a distribution panel (violin / point / scatter). These
+ * geoms encode value by position (rectangular: along the band; circular: by
+ * radius) with a fixed fill, so they have no color legend. The circular value
+ * axis is only a guide ring with no numbers, so without this key a reader can't
+ * read the range. Drawn in the same right-edge legend column as every other
+ * legend: a title over a short axis ticked min..max by the Data Hub niceTicks.
+ */
+export function renderValueScaleLegend(
+  title: string,
+  lo: number,
+  hi: number,
+  x: number,
+  y: number,
+  maxY: number,
+): { svg: string; height: number } {
+  const parts: string[] = [];
+  let cur = y;
+  parts.push(
+    `<text x="${x}" y="${cur}" font-size="11" font-weight="700" fill="${FG}">${esc(truncate(title, 16))}</text>`,
+  );
+  cur += 16;
+  if (cur > maxY) return { svg: parts.join(""), height: cur - y };
+  const barW = 64;
+  const axisY = cur + 2;
+  const span = hi - lo;
+  parts.push(
+    `<line x1="${x}" y1="${axisY}" x2="${x + barW}" y2="${axisY}" stroke="${AXIS_TICK}" stroke-width="1"/>`,
+  );
+  const { values } = niceTicks(lo, hi, 3);
+  for (const v of values) {
+    if (v < lo - 1e-9 || v > hi + 1e-9) continue;
+    const fr = span > 0 ? (v - lo) / span : 0.5;
+    const tx = x + fr * barW;
+    parts.push(
+      `<line x1="${tx}" y1="${axisY}" x2="${tx}" y2="${axisY + 3}" stroke="${AXIS_TICK}" stroke-width="1"/>`,
+      `<text x="${tx}" y="${axisY + 13}" font-size="9" fill="${MUTED}" text-anchor="middle">${esc(axisLabel(v))}</text>`,
+    );
+  }
+  cur = axisY + 22;
   return { svg: parts.join(""), height: cur - y };
 }
 

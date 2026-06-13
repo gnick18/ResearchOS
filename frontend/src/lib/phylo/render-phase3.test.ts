@@ -181,6 +181,76 @@ describe("multi-panel legend polish", () => {
   });
 });
 
+describe("distribution panel value scale-key (circular numeric axis fix)", () => {
+  // A distribution geom (violin / point / scatter) encodes value by position with
+  // a fixed fill, so it has no color legend. In circular the value axis is only a
+  // guide ring with no numbers, leaving the range unreadable. The scale-key adds a
+  // titled, ticked numeric key in the legend column for both layouts.
+  const ROWS = [
+    { tip: "A", yr: "2010" },
+    { tip: "B", yr: "2015" },
+    { tip: "C", yr: "2020" },
+    { tip: "D", yr: "2025" },
+  ];
+  const META = matchMetadataToTips(TREE, ROWS, "tip").matched;
+
+  function pointSpec(
+    layout: "rectangular" | "circular",
+    axis = true,
+  ): RenderSpec {
+    const point: AlignedPanel = {
+      id: "pt",
+      kind: "point",
+      visible: true,
+      column: "yr",
+      legend: true,
+      options: { errorKind: "none", axis },
+    };
+    return {
+      layout,
+      phylogram: false,
+      tracks: {
+        labels: false,
+        labelsItalic: false,
+        points: false,
+        strip: false,
+        bars: false,
+        heat: false,
+        clade: false,
+        support: false,
+      },
+      columns: {},
+      width: 700,
+      height: 480,
+      metadata: META,
+      panels: [point],
+    };
+  }
+
+  // The legend title is the bold 11px text; the panel's own column header is a
+  // separate lighter 8.5px label, so match the legend marker specifically.
+  const LEGEND_TITLE = /font-size="11" font-weight="700"[^>]*>yr</;
+
+  for (const layout of ["rectangular", "circular"] as const) {
+    it(`emits a numeric scale-key titled by the bound column (${layout})`, () => {
+      const svg = renderTreeSvg(TREE, pointSpec(layout));
+      expect(svg).toMatch(LEGEND_TITLE);
+      // A niceTicks numeric label in the value range is drawn (the readable axis),
+      // so the circular reader is no longer left with an unlabeled guide ring.
+      expect(svg).toMatch(/text-anchor="middle">2\d{3}</);
+    });
+  }
+
+  it("axis off suppresses the scale-key in circular (no numbers either)", () => {
+    const on = renderTreeSvg(TREE, pointSpec("circular", true));
+    const off = renderTreeSvg(TREE, pointSpec("circular", false));
+    expect(on).toMatch(LEGEND_TITLE);
+    expect(off).not.toMatch(LEGEND_TITLE);
+    // With the key gone and circular drawing no axis ticks, no numeric labels remain.
+    expect(off).not.toMatch(/text-anchor="middle">2\d{3}</);
+  });
+});
+
 describe("template-apply idempotence (flicker fix)", () => {
   // The flicker fix makes the apply atomic + pure: rendering the SAME applied
   // layer stack twice must produce byte-identical markup (no transient state).

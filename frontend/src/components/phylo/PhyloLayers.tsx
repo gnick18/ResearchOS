@@ -823,7 +823,7 @@ function Field({
 }) {
   return (
     <div className="flex items-center justify-between gap-2 text-sm">
-      <span className="text-foreground-muted">{label}</span>
+      <span className="text-foreground-muted shrink-0">{label}</span>
       {children}
     </div>
   );
@@ -844,7 +844,7 @@ function SelectInput({
     <select
       value={value}
       onChange={(e) => onChange(e.target.value)}
-      className="text-sm border border-border rounded-lg px-2 py-1 bg-surface text-foreground max-w-[160px]"
+      className="text-sm border border-border rounded-lg px-2 py-1 bg-surface text-foreground min-w-0 max-w-[160px] truncate"
     >
       {options.map((o) => (
         <option key={o} value={o}>
