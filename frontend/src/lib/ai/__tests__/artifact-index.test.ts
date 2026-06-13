@@ -305,6 +305,15 @@ describe("methodToBrief", () => {
     const brief = methodToBrief(makeMethod());
     expect(brief.keywords).toContain("qpcr");
   });
+
+  it("scopes a public method deep link so it cannot resolve to a same-id private method", () => {
+    // Public and private methods share the numeric id-space (separate stores).
+    // The brief id stays the bare numeric for the read_method tool, but the
+    // deep link a reference is written from must carry the public scope.
+    const brief = methodToBrief(makeMethod({ is_public: true }));
+    expect(brief.id).toBe("2");
+    expect(brief.deepLink).toBe("/methods/public%3A2");
+  });
 });
 
 describe("sequenceToBrief", () => {

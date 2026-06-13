@@ -26,7 +26,7 @@ import React, {
   useState,
 } from "react";
 import { createPortal } from "react-dom";
-import type { ObjectRefType } from "@/lib/references";
+import { splitMethodRefId, type ObjectRefType } from "@/lib/references";
 import { moleculesApi, type MoleculeMeta } from "@/lib/chemistry/api";
 import { sequencesApi, notesApi, methodsApi } from "@/lib/local-api";
 import { dataHubApi } from "@/lib/datahub/api";
@@ -126,8 +126,11 @@ async function fetchCardData(
         break;
       }
       case "method": {
-        const numId = Number(id);
-        const m = Number.isFinite(numId) ? await methodsApi.get(numId) : null;
+        // A "public:" scope prefix routes to the public store; a bare id
+        // resolves private-first. Mirrors MethodEmbed so the hover preview and
+        // the block embed agree on which method a public reference points at.
+        const { id: numId, owner } = splitMethodRefId(id);
+        const m = Number.isFinite(numId) ? await methodsApi.get(numId, owner) : null;
         data = m
           ? { kind: "method", name: m.name, methodType: m.method_type }
           : { kind: "generic", typeLabel: _typeLabel(type), name: label };

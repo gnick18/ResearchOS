@@ -3,6 +3,8 @@ import {
   objectDeepLink,
   objectReferenceMarkdown,
   parseObjectDeepLink,
+  methodRefId,
+  splitMethodRefId,
   type ObjectRefType,
 } from "@/lib/references";
 
@@ -56,6 +58,51 @@ describe("objectReferenceMarkdown", () => {
     expect(objectReferenceMarkdown("experiment", "self:7", "Western blot")).toBe(
       "[Western blot](/?openTask=self%3A7)",
     );
+  });
+});
+
+describe("method scope (public vs private)", () => {
+  it("leaves a private method ref a bare numeric id (resolves private-first)", () => {
+    expect(methodRefId(1, false)).toBe("1");
+    expect(splitMethodRefId("1")).toEqual({ id: 1 });
+  });
+
+  it("marks a public method ref with a public scope prefix", () => {
+    expect(methodRefId(1, true)).toBe("public:1");
+    expect(splitMethodRefId("public:1")).toEqual({ id: 1, owner: "public" });
+  });
+
+  it("round-trips a public method ref id", () => {
+    const refId = methodRefId(42, true);
+    expect(splitMethodRefId(refId)).toEqual({ id: 42, owner: "public" });
+  });
+
+  it("a public method reference resolves to the public method, not a same-id private one", () => {
+    // A public method id 1 and a private method id 1 both exist (separate
+    // stores, overlapping id-space). The inserted reference must carry the
+    // public scope so the resolver (methodsApi.get with owner "public") reads
+    // the public store rather than the private one that resolves first.
+    const refId = methodRefId(1, true);
+    const md = objectReferenceMarkdown("method", refId, "Lab qPCR protocol");
+    expect(md).toBe("[Lab qPCR protocol](/methods/public%3A1)");
+
+    const parsed = parseObjectDeepLink(md.slice(md.indexOf("(") + 1, -1));
+    expect(parsed).toEqual({ type: "method", id: "public:1" });
+
+    // The resolving side splits the id back into the numeric id + public owner,
+    // which is exactly the argument shape methodsApi.get needs to hit the public
+    // store instead of the same-id private method.
+    expect(splitMethodRefId(parsed!.id)).toEqual({ id: 1, owner: "public" });
+  });
+
+  it("a private method reference resolves with no owner (private-first)", () => {
+    const refId = methodRefId(1, false);
+    const md = objectReferenceMarkdown("method", refId, "My draft method");
+    expect(md).toBe("[My draft method](/methods/1)");
+
+    const parsed = parseObjectDeepLink("/methods/1");
+    expect(parsed).toEqual({ type: "method", id: "1" });
+    expect(splitMethodRefId(parsed!.id)).toEqual({ id: 1 });
   });
 });
 

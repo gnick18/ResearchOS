@@ -19,6 +19,7 @@ import Tooltip from "@/components/Tooltip";
 import {
   objectReferenceMarkdown,
   objectEmbedMarkdown,
+  methodRefId,
   DEFAULT_EMBED_VIEW,
   type ObjectRefType,
 } from "@/lib/references";
@@ -268,17 +269,22 @@ export default function ReferencePicker({ onPick, onClose }: ReferencePickerProp
             (m.name ?? "").toLowerCase().includes(q) ||
             (m.method_type ?? "").toLowerCase().includes(q),
         )
-        .map((m) => ({
+        .map((m) => {
           // Private and public method stores have overlapping id-spaces, so a
           // private method id 1 and a public method id 1 both exist. Key on the
           // public flag too, or the two collide and React throws a duplicate-key
-          // error (and can drop/duplicate rows).
-          key: `method-${m.is_public ? "pub" : "priv"}-${m.id}`,
-          label: m.name,
-          sublabel: m.method_type ?? undefined,
-          markdown: objectReferenceMarkdown("method", String(m.id), m.name),
-          ref: { type: "method" as const, id: String(m.id), name: m.name },
-        })),
+          // error (and can drop/duplicate rows). The same overlap means the
+          // INSERTED reference must mark the public scope (methodRefId prefixes
+          // "public:"), or it would resolve to the same-id private method.
+          const refId = methodRefId(m.id, !!m.is_public);
+          return {
+            key: `method-${m.is_public ? "pub" : "priv"}-${m.id}`,
+            label: m.name,
+            sublabel: m.method_type ?? undefined,
+            markdown: objectReferenceMarkdown("method", refId, m.name),
+            ref: { type: "method" as const, id: refId, name: m.name },
+          };
+        }),
     [methods, q],
   );
 

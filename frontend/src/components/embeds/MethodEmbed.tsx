@@ -12,7 +12,7 @@
 import { useEffect, useState } from "react";
 import { methodsApi, filesApi } from "@/lib/local-api";
 import type { Method } from "@/lib/types";
-import { objectDeepLink } from "@/lib/references";
+import { objectDeepLink, splitMethodRefId } from "@/lib/references";
 import { ObjectEmbedCard, UnavailableEmbedCard, type EmbedRendererProps } from "./ObjectEmbed";
 
 type LoadState =
@@ -46,8 +46,13 @@ export default function MethodEmbed({ descriptor, caption }: EmbedRendererProps)
     let cancelled = false;
     setState({ k: "loading" });
 
+    // A public-method reference carries a "public:" scope prefix on its id so it
+    // routes to the public store, not a same-id private method (private resolves
+    // first otherwise). A bare numeric id resolves private-first, as before.
+    const { id, owner } = splitMethodRefId(descriptor.id);
+
     methodsApi
-      .get(Number(descriptor.id))
+      .get(id, owner)
       .then(async (m) => {
         if (cancelled) return;
         if (!m) {

@@ -29,7 +29,7 @@
 //
 // House style, no em-dashes, no emojis, no mid-sentence colons.
 
-import { objectDeepLink, type ObjectRefType } from "@/lib/references";
+import { objectDeepLink, methodRefId, type ObjectRefType } from "@/lib/references";
 import { notesApi, methodsApi, sequencesApi, projectsApi, purchasesApi, fetchAllTasks } from "@/lib/local-api";
 import { dataHubApi } from "@/lib/datahub/api";
 import { moleculesApi } from "@/lib/chemistry/api";
@@ -124,13 +124,18 @@ export function methodToBrief(method: Method): ArtifactBrief {
   if (method.tags) keywords.push(...method.tags.map((t) => t.toLowerCase()));
   if (method.method_type) keywords.push(method.method_type);
   if (method.excerpt) keywords.push(...tokenize(method.excerpt));
+  // Public and private methods share a numeric id-space across separate stores,
+  // so the deep link must mark the public scope (methodRefId prefixes "public:")
+  // or a reference BeakerBot writes to a public method would resolve to a
+  // same-id private one. The brief `id` stays the bare numeric id so the
+  // read_method tool (which parses it as an integer) keeps working.
   return {
     type: "method",
     id: String(method.id),
     title: method.name || "Untitled method",
     subtitle: method.method_type ?? undefined,
     date: method.last_edited_at,
-    deepLink: objectDeepLink("method" as ObjectRefType, method.id),
+    deepLink: objectDeepLink("method" as ObjectRefType, methodRefId(method.id, !!method.is_public)),
     keywords: dedupe(keywords),
   };
 }

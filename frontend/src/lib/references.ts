@@ -146,6 +146,40 @@ export function objectDeepLink(type: ObjectRefType, id: string | number): string
   return OBJECT_ROUTES[type].build(String(id));
 }
 
+// ── Method scope (public vs private) ────────────────────────────────────────
+//
+// Public methods live in a separate store from private methods but share the
+// numeric id-space, so a private method id 1 and a public method id 1 both
+// exist. A bare /methods/<id> resolves private-first, which means a reference to
+// a PUBLIC method id 1 would render the wrong (private) method. We mark the
+// scope by prefixing the method ref id with "public:", mirroring the composite
+// task id form ("self:42", "<owner>:42"). Private method refs stay a bare
+// numeric id so every existing reference is byte-for-byte unchanged and still
+// resolves private-first.
+
+const PUBLIC_METHOD_REF_PREFIX = "public:";
+
+/** Build the id half of a method reference, marking the public store when the
+ *  method is public. Pair with `splitMethodRefId` on the resolving side so the
+ *  two never drift. */
+export function methodRefId(id: string | number, isPublic: boolean): string {
+  return isPublic ? `${PUBLIC_METHOD_REF_PREFIX}${id}` : String(id);
+}
+
+/** Split a method ref id back into its numeric id and owner scope. A "public:"
+ *  prefix returns `owner: "public"` so the caller routes `methodsApi.get` at the
+ *  public store; a bare id returns no owner so it resolves private-first, the
+ *  pre-existing behavior. */
+export function splitMethodRefId(refId: string): { id: number; owner?: "public" } {
+  if (refId.startsWith(PUBLIC_METHOD_REF_PREFIX)) {
+    return {
+      id: Number(refId.slice(PUBLIC_METHOD_REF_PREFIX.length)),
+      owner: "public",
+    };
+  }
+  return { id: Number(refId) };
+}
+
 /** Escape a name for safe use as markdown link text. Backslash and BOTH brackets
  *  are escaped so a `[` or `]` in the name (e.g. `pGEX-3X [clone]`) cannot break
  *  the `[text](url)` form. Parens in the name are fine, CommonMark allows them in
