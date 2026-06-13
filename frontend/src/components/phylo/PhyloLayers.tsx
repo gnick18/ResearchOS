@@ -19,6 +19,7 @@ import { useMemo, useRef, useState } from "react";
 
 import { Icon } from "@/components/icons";
 import Tooltip from "@/components/Tooltip";
+import { reorderPanels } from "@/lib/phylo/panels";
 import type { AlignedPanel, AlignedPanelKind } from "@/lib/phylo/types";
 
 /** The Add-panel catalog, categorized for the searchable menu (mockup parity). */
@@ -151,10 +152,7 @@ export function PhyloLayersControl({
   };
   const reorder = (from: number, to: number) => {
     if (from === to) return;
-    const next = panels.slice();
-    const [moved] = next.splice(from, 1);
-    next.splice(to, 0, moved);
-    onChange(next);
+    onChange(reorderPanels(panels, from, to));
   };
 
   return (
@@ -229,6 +227,11 @@ function LayerList({
   const [dragIndex, setDragIndex] = useState<number | null>(null);
   const [overIndex, setOverIndex] = useState<number | null>(null);
   const rowRefs = useRef<(HTMLDivElement | null)[]>([]);
+  // Mirror the drag indices in refs so the pointerup EVENT handler can read the
+  // final from/to and commit the reorder directly, never from inside a state
+  // updater (a setState during render warning fired when onReorder ran there).
+  const dragIndexRef = useRef<number | null>(null);
+  const overIndexRef = useRef<number | null>(null);
 
   if (panels.length === 0) {
     return (
@@ -240,6 +243,8 @@ function LayerList({
 
   const onGripDown = (index: number) => (e: React.PointerEvent) => {
     e.preventDefault();
+    dragIndexRef.current = index;
+    overIndexRef.current = index;
     setDragIndex(index);
     setOverIndex(index);
     const move = (ev: PointerEvent) => {
@@ -250,16 +255,19 @@ function LayerList({
         const r = el.getBoundingClientRect();
         if (y > r.top && y < r.bottom) target = i;
       });
+      overIndexRef.current = target;
       setOverIndex(target);
     };
     const up = () => {
-      setDragIndex((from) => {
-        setOverIndex((to) => {
-          if (from !== null && to !== null) onReorder(from, to);
-          return null;
-        });
-        return null;
-      });
+      // Commit from the EVENT handler, reading the final indices from refs, so
+      // the parent onChange (setState) never runs during a state-updater render.
+      const from = dragIndexRef.current;
+      const to = overIndexRef.current;
+      dragIndexRef.current = null;
+      overIndexRef.current = null;
+      setDragIndex(null);
+      setOverIndex(null);
+      if (from !== null && to !== null) onReorder(from, to);
       window.removeEventListener("pointermove", move);
       window.removeEventListener("pointerup", up);
     };
@@ -454,7 +462,7 @@ function Inspector({
         </Field>
       )}
 
-      {isData && (
+      {(isData || panel.kind === "points" || panel.kind === "strip") && (
         <Field label="Legend">
           <ToggleInput
             on={panel.legend !== false}

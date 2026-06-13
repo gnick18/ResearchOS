@@ -90,6 +90,50 @@ describe("buildColorScale", () => {
     const s = buildColorScale(tree, meta, "year", { paletteId: "cb-blues" });
     expect(s.paletteId).toBe("cb-blues");
   });
+
+  // BUG C regression: a pinned categoryColors map built for ANOTHER column must
+  // only OVERLAY matching values, never replace the full palette. A column whose
+  // values are absent from the pinned map still gets distinct palette colors in
+  // both the cells (colorFor) and the legend (categoryColors), not EMPTY_FILL.
+  it("a categorical column not covered by pinned colors still gets distinct hues", () => {
+    // Pinned map is for the CLADE column (values I / II), bind it to a column
+    // whose values (the clade column rebound, but pretend a COUNTRY column) are
+    // not in that map by using a different column's distinct set.
+    const COUNTRY_ROWS = [
+      { id: "A", country: "US" },
+      { id: "B", country: "FR" },
+      { id: "C", country: "US" },
+      { id: "D", country: "JP" },
+    ];
+    const countryMeta = metaMap(tree, COUNTRY_ROWS);
+    const pinnedForClade = { I: "#111111", II: "#222222" };
+    const s = buildColorScale(tree, countryMeta, "country", {
+      categoryColors: pinnedForClade,
+    });
+    expect(s.kind).toBe("categorical");
+    expect(s.categories).toEqual(["US", "FR", "JP"]);
+    // Every value resolves to a real (non-empty) color and they are distinct.
+    expect(s.colorFor("US")).not.toBe(EMPTY_FILL);
+    expect(s.colorFor("FR")).not.toBe(EMPTY_FILL);
+    expect(s.colorFor("JP")).not.toBe(EMPTY_FILL);
+    expect(s.colorFor("US")).not.toBe(s.colorFor("FR"));
+    expect(s.colorFor("FR")).not.toBe(s.colorFor("JP"));
+    // The legend map carries a non-empty swatch per value.
+    for (const v of ["US", "FR", "JP"]) {
+      expect(s.categoryColors?.[v]).toBeTruthy();
+      expect(s.categoryColors?.[v]).not.toBe(EMPTY_FILL);
+    }
+  });
+
+  it("pinned colors win for the keys they cover, palette fills the rest", () => {
+    const pinned = { I: "#abcdef" };
+    const s = buildColorScale(tree, meta, "clade", { categoryColors: pinned });
+    // Pinned value keeps its exact color.
+    expect(s.colorFor("I")).toBe("#abcdef");
+    // Uncovered value still gets a distinct palette color (not empty, not pinned).
+    expect(s.colorFor("II")).not.toBe(EMPTY_FILL);
+    expect(s.colorFor("II")).not.toBe("#abcdef");
+  });
 });
 
 describe("renderTreeSvg with continuous tracks + legend", () => {

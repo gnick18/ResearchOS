@@ -67,7 +67,8 @@ describe("layoutCircular", () => {
     const lo = layoutCircular(t, OPTS);
     expect(lo.kind).toBe("circular");
     expect(lo.cx).toBeCloseTo(280);
-    expect(lo.cy).toBeCloseTo(210);
+    // cy is nudged down by TOP_ROOM (10px) so the topmost tips do not clip.
+    expect(lo.cy).toBeCloseTo(220);
     expect(lo.nodes).toHaveLength(7); // root + 2 internal + 4 leaves
   });
 });

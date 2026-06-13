@@ -98,10 +98,19 @@ const EMPTY_TRACKS = {
   support: false,
 };
 
-function defaultPanels(): AlignedPanel[] {
+/** Tip count past which tip labels start unreadable + are defaulted OFF. */
+const LABELS_OFF_TIP_THRESHOLD = 100;
+
+/**
+ * The default layer stack for a freshly imported tree. Tip labels start OFF on a
+ * large tree (> LABELS_OFF_TIP_THRESHOLD tips) because hundreds of overlapping
+ * names are unreadable; the user can turn them back on in the layers list. A
+ * small tree keeps labels on, as before.
+ */
+function defaultPanels(tipCount = 0): AlignedPanel[] {
   return projectTracksToPanels({
     tracks: {
-      labels: true,
+      labels: tipCount <= LABELS_OFF_TIP_THRESHOLD,
       labelsItalic: true,
       points: true,
       strip: true,
@@ -260,6 +269,10 @@ export function PhyloStudio({ initialTreeId }: { initialTreeId?: string } = {}) 
       const parsed = parseTree(text);
       setTree(parsed);
       setTreeName(name);
+      // Reset to the tip-count-aware default stack (labels OFF on a big tree).
+      // A saved tree overrides this immediately via restoreSavedFigure.
+      setPanels(defaultPanels(leaves(parsed).length));
+      setSelectedLayerId(null);
       setParseError(null);
       setImportMode(null);
       setPasteText("");
@@ -378,7 +391,11 @@ export function PhyloStudio({ initialTreeId }: { initialTreeId?: string } = {}) 
   // Apply a "start from" template, rebuilding the layer stack from the available
   // metadata columns (numeric columns hint a continuous scale).
   const onApplyTemplate = (id: string) => {
-    setPanels(buildTemplate(id, metaColumns, numericColumns));
+    // Never feed the tip-id column to a template. It is the unique tip label, so
+    // binding it to a strip / points / heat produces a per-tip legend (300+ rows
+    // on a big tree) and bunched dots. Templates bind to real demo metadata only.
+    const bindable = metaColumns.filter((c) => c !== tipColumn);
+    setPanels(buildTemplate(id, bindable, numericColumns));
     setSelectedLayerId(null);
   };
 
@@ -608,19 +625,27 @@ export function PhyloStudio({ initialTreeId }: { initialTreeId?: string } = {}) 
         />
       </div>
 
-      {/* Right rail: the layer stack + export */}
-      <div className="space-y-3.5">
-        <Panel title="Layers">
-          <PhyloLayersControl
-            panels={panels}
-            selectedId={selectedLayerId}
-            columns={metaColumns.filter((c) => c !== tipColumn)}
-            treeSummary={`${phylogram ? "phylogram" : "cladogram"}, ${layout}`}
-            onChange={setPanels}
-            onSelect={setSelectedLayerId}
-            onApplyTemplate={onApplyTemplate}
-          />
-        </Panel>
+      {/* Right rail: the layer stack + export. The Layers panel is its own
+          bounded, independently-scrollable region so a long stack (and a newly
+          added bottom layer's inspector) is always reachable without scrolling
+          the whole page, and it never clips at the window edge. */}
+      <div className="space-y-3.5 lg:sticky lg:top-3.5">
+        <div className="border border-border rounded-2xl bg-surface-raised p-3.5 flex flex-col max-h-[calc(100vh-2rem)]">
+          <h3 className="text-sm font-bold text-foreground mb-2 shrink-0">
+            Layers
+          </h3>
+          <div className="overflow-y-auto -mx-1 px-1 grow min-h-0">
+            <PhyloLayersControl
+              panels={panels}
+              selectedId={selectedLayerId}
+              columns={metaColumns.filter((c) => c !== tipColumn)}
+              treeSummary={`${phylogram ? "phylogram" : "cladogram"}, ${layout}`}
+              onChange={setPanels}
+              onSelect={setSelectedLayerId}
+              onApplyTemplate={onApplyTemplate}
+            />
+          </div>
+        </div>
 
         <Panel title="Export">
           <div className="flex flex-wrap gap-1.5">

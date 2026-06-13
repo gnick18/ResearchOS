@@ -15,7 +15,9 @@ import {
   projectTracksToPanels,
   extractPanelValues,
   buildPanelScales,
+  reorderPanels,
 } from "./panels";
+import type { AlignedPanel } from "./types";
 import { figureInputsFromStored, figureToRenderSpec } from "./figure-to-render";
 import { renderTreeSvg } from "./render";
 
@@ -236,5 +238,36 @@ describe("a committed seed tree projects + binds cleanly", () => {
       (x) => x.trim() !== "",
     );
     expect(nonEmpty.length).toBeGreaterThan(0);
+  });
+});
+
+// BUG A regression: the drag-reorder commit transform. The setState-in-render
+// warning is fixed in the component (commit from the pointerup event), but the
+// resulting order must stay correct. reorderPanels is the shared pure transform.
+describe("reorderPanels", () => {
+  const mk = (id: string): AlignedPanel =>
+    ({ id, kind: "strip", visible: true });
+  const base = [mk("a"), mk("b"), mk("c"), mk("d")];
+
+  it("moves a layer down to the new index", () => {
+    const out = reorderPanels(base, 0, 2);
+    expect(out.map((p) => p.id)).toEqual(["b", "c", "a", "d"]);
+  });
+
+  it("moves a layer up to the new index", () => {
+    const out = reorderPanels(base, 3, 1);
+    expect(out.map((p) => p.id)).toEqual(["a", "d", "b", "c"]);
+  });
+
+  it("returns the array unchanged for a no-op or out-of-range move", () => {
+    expect(reorderPanels(base, 1, 1)).toBe(base);
+    expect(reorderPanels(base, -1, 2)).toBe(base);
+    expect(reorderPanels(base, 0, 9)).toBe(base);
+  });
+
+  it("does not mutate the input array", () => {
+    const snapshot = base.map((p) => p.id);
+    reorderPanels(base, 0, 3);
+    expect(base.map((p) => p.id)).toEqual(snapshot);
   });
 });

@@ -298,9 +298,16 @@ function renderFromPanels(
     (p) => p.kind === "labels" && (p.options?.italic ?? true),
   );
 
-  // Legends, one per colored aligned panel that asks for one.
+  // Legends, one per colored aligned panel (and colored tip decoration) that asks
+  // for one. Tip points are a decoration drawn on the tree, not an aligned panel,
+  // but they color by a column too, so their legend is collected alongside.
   const legendOn = spec.legend !== false;
-  const legendItems = legendOn ? collectPanelLegends(root, spec, aligned) : [];
+  const coloredPoints = panels.filter(
+    (p) => p.visible && p.kind === "points" && !!p.column,
+  );
+  const legendItems = legendOn
+    ? collectPanelLegends(root, spec, [...aligned, ...coloredPoints])
+    : [];
   const legendW = legendItems.length > 0 ? LEGEND_WIDTH : 0;
   const plotWidth = Math.max(120, spec.width - legendW);
 

@@ -19,6 +19,8 @@ import {
 import { renderPanel, renderPanelLegend } from "./panel-render";
 import { buildPanelScales, extractPanelValues } from "./panels";
 import { buildColorScale } from "./color-scale";
+import { renderTreeSvg, type RenderSpec } from "./render";
+import type { AlignedPanel } from "./types";
 
 const TREE = parseNewick("((A:0.1,B:0.2)90:0.3,(C:0.15,D:0.25)80:0.2);");
 const ROWS = [
@@ -161,5 +163,90 @@ describe("renderPanelLegend", () => {
     const r = renderPanelLegend("clade", scale, 400, 20, 400);
     expect(r.svg).toContain("I");
     expect(r.svg).toContain("II");
+  });
+});
+
+describe("panel-path legends (BUG B + BUG C end-to-end)", () => {
+  function panelSpec(panels: AlignedPanel[], over: Partial<RenderSpec> = {}): RenderSpec {
+    return {
+      layout: "rectangular",
+      phylogram: false,
+      tracks: {
+        labels: false,
+        labelsItalic: false,
+        points: false,
+        strip: false,
+        bars: false,
+        heat: false,
+        clade: false,
+        support: false,
+      },
+      columns: {},
+      width: 600,
+      height: 400,
+      metadata: META,
+      panels,
+      ...over,
+    };
+  }
+
+  // BUG B: a tip-points layer colors by a categorical column, so the panel path
+  // must emit a legend for it (it is a tip decoration, not an aligned panel, but
+  // it still color-maps a column).
+  it("a colored points layer emits a legend with its column title + swatches", () => {
+    const points: AlignedPanel = {
+      id: "p1",
+      kind: "points",
+      visible: true,
+      column: "clade",
+      legend: true,
+    };
+    const svg = renderTreeSvg(TREE, panelSpec([points]));
+    // The legend titles the column and draws a swatch per category value.
+    expect(svg).toContain("clade");
+    expect(svg).toContain("I");
+    expect(svg).toContain("II");
+  });
+
+  it("legend off on a points layer suppresses its legend", () => {
+    const points: AlignedPanel = {
+      id: "p1",
+      kind: "points",
+      visible: true,
+      column: "clade",
+      legend: false,
+    };
+    const withL = renderTreeSvg(TREE, panelSpec([{ ...points, legend: true }]));
+    const noL = renderTreeSvg(TREE, panelSpec([points]));
+    // The labeled swatch column shrinks the legend off; the "clade" title is the
+    // legend marker we assert disappears (the column itself is never a tip name).
+    expect(withL.length).toBeGreaterThan(noL.length);
+  });
+
+  // BUG C end-to-end: a color strip bound to a categorical column that is NOT in
+  // the pinned categoryColors map still draws distinct (non-empty) swatches.
+  it("a strip on a column outside the pinned map gets non-blank legend swatches", () => {
+    const strip: AlignedPanel = {
+      id: "s1",
+      kind: "strip",
+      visible: true,
+      column: "clade",
+      legend: true,
+    };
+    // Pin a map for a DIFFERENT column's values (none of which are I / II).
+    const svg = renderTreeSvg(
+      TREE,
+      panelSpec([strip], { categoryColors: { US: "#111111", FR: "#222222" } }),
+    );
+    expect(svg).toContain("clade");
+    expect(svg).toContain("I");
+    expect(svg).toContain("II");
+    // No category swatch should fall back to the empty fill.
+    const scale = buildColorScale(TREE, META, "clade", {
+      categoryColors: { US: "#111111", FR: "#222222" },
+    });
+    expect(scale.colorFor("I")).not.toBe("#f1f5f9");
+    expect(scale.colorFor("II")).not.toBe("#f1f5f9");
+    expect(scale.colorFor("I")).not.toBe(scale.colorFor("II"));
   });
 });

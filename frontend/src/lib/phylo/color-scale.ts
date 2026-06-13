@@ -137,9 +137,10 @@ function rampColor(ramp: string[], t: number): string {
  * non-numeric column to the categorical palette as before. The returned scale is
  * what every colored track + the legend read, so cells and legend never diverge.
  *
- * `categoryColors` lets a caller pin an already-built categorical map (so points,
- * strip, and legend stay byte-identical to the existing buildCategoryColors path
- * for the primary category column). When omitted a fresh categorical map is built.
+ * `categoryColors` lets a caller pin colors for specific values (so the primary
+ * category column stays byte-identical to the existing buildCategoryColors path).
+ * It is an OVERLAY, not a replacement, so a column the pinned map does not cover
+ * still gets distinct palette colors for every value in both the cells and legend.
  */
 export function buildColorScale(
   root: TreeNode,
@@ -174,12 +175,18 @@ export function buildColorScale(
     };
   }
 
-  // Categorical.
+  // Categorical. Always build a full palette over THIS column's distinct values,
+  // then overlay any pinned categoryColors on top (pinned wins for the keys it
+  // has). A pinned map built for a different column (e.g. CLADE) must never
+  // replace the full map, or a rebound column (e.g. COUNTRY) misses every value
+  // and falls back to EMPTY_FILL (blank legend + monochrome ring).
   const categories = metadata
     ? distinctValues(root, metadata, column)
     : [];
-  const categoryColors =
-    options?.categoryColors ?? buildCategoricalColors(categories);
+  const categoryColors = {
+    ...buildCategoricalColors(categories),
+    ...(options?.categoryColors ?? {}),
+  };
   return {
     column,
     kind: "categorical",
