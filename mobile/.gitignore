@@ -41,3 +41,11 @@ app-example
 # generated native folders
 /ios
 /android
+
+# FCM V1 service account PRIVATE key (push credentials) -- NEVER commit; it is
+# uploaded to Expo via `eas credentials`, not stored in the repo. Firebase names
+# it like <project>-firebase-adminsdk-*.json. (google-services.json is NOT ignored:
+# it holds only public client identifiers and EAS needs it in the build.)
+*-firebase-adminsdk-*.json
+*service-account*.json
+fcm-*.json

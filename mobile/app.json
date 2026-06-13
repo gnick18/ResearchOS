@@ -17,6 +17,7 @@
     },
     "android": {
       "package": "app.researchos.companion",
+      "googleServicesFile": "./google-services.json",
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
         "foregroundImage": "./assets/images/android-icon-foreground.png",
@@ -45,6 +46,7 @@
         }
       ],
       "expo-audio",
+      "expo-notifications",
       [
         "react-native-document-scanner-plugin",
         {
