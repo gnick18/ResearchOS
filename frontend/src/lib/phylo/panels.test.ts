@@ -140,6 +140,88 @@ describe("extractPanelValues", () => {
     const tipD = [...META.entries()].find(([, r]) => r.tip === "D")![0];
     expect(v.replicates?.get(tipD)).toEqual([95, 9]);
   });
+
+  // Phase 2: violin + scatter share the box's replicate binding.
+  for (const kind of ["violin", "scatter"] as const) {
+    it(`${kind} panel reads the same replicate columns as box`, () => {
+      const v = extractPanelValues(
+        { id: kind, kind, visible: true, columns: ["ab", "load"] },
+        TREE,
+        META,
+      );
+      const tipB = [...META.entries()].find(([, r]) => r.tip === "B")![0];
+      expect(v.replicates?.get(tipB)).toEqual([40, 8]);
+    });
+  }
+
+  it("point panel from replicate columns derives mean + sample SD", () => {
+    const v = extractPanelValues(
+      {
+        id: "pt",
+        kind: "point",
+        visible: true,
+        columns: ["ab", "load"],
+        options: { errorKind: "sd" },
+      },
+      TREE,
+      META,
+    );
+    const tipA = [...META.entries()].find(([, r]) => r.tip === "A")![0];
+    const st = v.pointStats?.get(tipA)!;
+    // ab=10, load=5 -> mean 7.5, sample sd = sqrt(((2.5)^2+(2.5)^2)/1) = 3.5355...
+    expect(st.mean).toBeCloseTo(7.5, 6);
+    expect(st.error).toBeCloseTo(Math.sqrt(((2.5) ** 2 + (2.5) ** 2) / 1), 6);
+  });
+
+  it("point panel error kind sem scales SD by 1/sqrt(n)", () => {
+    const sd = extractPanelValues(
+      { id: "p", kind: "point", visible: true, columns: ["ab", "load"], options: { errorKind: "sd" } },
+      TREE,
+      META,
+    );
+    const sem = extractPanelValues(
+      { id: "p", kind: "point", visible: true, columns: ["ab", "load"], options: { errorKind: "sem" } },
+      TREE,
+      META,
+    );
+    const tipA = [...META.entries()].find(([, r]) => r.tip === "A")![0];
+    const sdErr = sd.pointStats!.get(tipA)!.error;
+    const semErr = sem.pointStats!.get(tipA)!.error;
+    expect(semErr).toBeCloseTo(sdErr / Math.sqrt(2), 6);
+  });
+
+  it("point panel error kind none zeroes the whisker", () => {
+    const v = extractPanelValues(
+      { id: "p", kind: "point", visible: true, columns: ["ab", "load"], options: { errorKind: "none" } },
+      TREE,
+      META,
+    );
+    const tipA = [...META.entries()].find(([, r]) => r.tip === "A")![0];
+    expect(v.pointStats!.get(tipA)!.error).toBe(0);
+  });
+
+  it("point panel from a value + explicit error column reads them straight", () => {
+    const rows = [
+      { tip: "A", val: "12", err: "1.5" },
+      { tip: "B", val: "20", err: "3" },
+    ];
+    const tree = parseNewick("(A:1,B:1);");
+    const meta = matchMetadataToTips(tree, rows, "tip").matched;
+    const v = extractPanelValues(
+      {
+        id: "p",
+        kind: "point",
+        visible: true,
+        column: "val",
+        errorColumn: "err",
+        options: { errorKind: "sd" },
+      },
+      tree,
+      meta,
+    );
+    const tipB = [...meta.entries()].find(([, r]) => r.tip === "B")![0];
+    expect(v.pointStats!.get(tipB)).toEqual({ mean: 20, error: 3 });
+  });
 });
 
 describe("buildPanelScales", () => {
