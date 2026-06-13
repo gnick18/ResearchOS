@@ -51,6 +51,10 @@ export const NAV_ICON_BY_HREF: Record<string, IconName> = {
   "/sequences": "sequence",
   "/chemistry": "vial",
   "/datahub": "chart",
+  // /phylo (Phylogenetics: Tree Builder + Tree Studio) uses the branching-node
+  // "tree" glyph, which literally depicts a phylogenetic tree. Distinct from
+  // "labTree" (the lab-mentorship hierarchy), so no meaning collision.
+  "/phylo": "tree",
   "/purchases": "download",
   "/calendar": "history",
   "/inventory": "vial",
