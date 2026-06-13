@@ -23,7 +23,6 @@ import {
   useExternalEvents,
 } from "@/lib/calendar/use-external-events";
 import { useCalendarNavStore } from "@/lib/calendar/calendar-nav-store";
-import { useMorningCalendarCoffeeTrigger } from "@/hooks/useMorningCalendarCoffeeTrigger";
 import {
   expandDateRange,
   syncEventPtoChange,
@@ -55,12 +54,6 @@ export default function CalendarPage() {
   const [deleteConfirmEvent, setDeleteConfirmEvent] = useState<Event | null>(null);
   const [prefilledStartDate, setPrefilledStartDate] = useState<string | null>(null);
   const [prefilledStartTime, setPrefilledStartTime] = useState<string | null>(null);
-
-  // Morning-calendar coffee BeakerBot trigger: fires the CoffeeRefill
-  // scene the first time Calendar is opened on a given local day before
-  // 8am. Once-per-session-per-date throttle lives inside the hook. The
-  // hook is a no-op outside the morning window or after the first fire.
-  useMorningCalendarCoffeeTrigger();
 
   const { data: events = [] } = useQuery({
     queryKey: ["events"],

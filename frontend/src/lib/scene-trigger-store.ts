@@ -28,22 +28,13 @@ import { create } from "zustand";
  *  literal here and a case in `SceneTriggerHost`.
  *
  *  - `bugstomp`: bug-report path (manual click + auto-error).
- *  - `coffeeLateNight`: late-night work session, fires once per crossed
- *    hour while local time is in [23, 00, 01, 02]. See
- *    `useLateNightCoffeeTrigger`.
- *  - `coffeeMorningCalendar`: first Calendar open before 8am local on a
- *    given day. See `useMorningCalendarCoffeeTrigger`.
  *  - `twirlMilestone`: the celebratory BeakerBot twirl, fired ONCE on the
  *    first occurrence of each rare checkpoint moment (tour complete,
  *    first experiment complete, first project fully done). The 7-day
  *    streak twirl is NOT routed here: it is owned by CelebrationManager
  *    so it never double-fires on top of the corner streak celebration.
  *    See `useMilestoneTwirlTrigger`. */
-export type SceneTriggerId =
-  | "bugstomp"
-  | "coffeeLateNight"
-  | "coffeeMorningCalendar"
-  | "twirlMilestone";
+export type SceneTriggerId = "bugstomp" | "twirlMilestone";
 
 interface SceneTriggerState {
   /** Currently-playing scene, or null when idle. */

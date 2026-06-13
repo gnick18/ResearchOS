@@ -37,7 +37,6 @@ import { useAppStore } from "@/lib/store";
 import { useFileSystem } from "@/lib/file-system/file-system-context";
 import { useUserColors } from "@/hooks/useUserColor";
 import { useErrorReporting } from "@/hooks/useErrorReporting";
-import { useLateNightCoffeeTrigger } from "@/hooks/useLateNightCoffeeTrigger";
 import { useFeaturePicks } from "@/hooks/useFeaturePicks";
 import { useIsLabHead } from "@/hooks/useIsLabHead";
 import { deriveVisibleTabs } from "@/lib/onboarding/feature-picks-tabs";
@@ -131,14 +130,6 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
     setShowDevDock(!demo);
     setIsDemo(demo);
   }, []);
-  // Late-night coffee BeakerBot trigger: fires the CoffeeRefill scene
-  // at most once per crossed hour while local time is in [23, 0, 1, 2].
-  // Mounted at AppShell (not Providers) so it only runs once the user
-  // is past the login screen — pre-login surfaces aren't "work" worth
-  // an easter egg. TODO: gate on a global "animations disabled" pref
-  // when one lands (today only `prefers-reduced-motion` is honored,
-  // inside the scene component itself).
-  useLateNightCoffeeTrigger();
 
   // Showcase unlock: counts clicks on the brand-mark BeakerBot. Clicks
   // 1 to 6 still spawn hearts (the heart easter egg is internal to
