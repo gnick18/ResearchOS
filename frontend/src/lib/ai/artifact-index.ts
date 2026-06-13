@@ -33,6 +33,7 @@ import { objectDeepLink, methodRefId, type ObjectRefType } from "@/lib/reference
 import { notesApi, methodsApi, sequencesApi, projectsApi, purchasesApi, fetchAllTasks } from "@/lib/local-api";
 import { dataHubApi } from "@/lib/datahub/api";
 import { moleculesApi } from "@/lib/chemistry/api";
+import { phyloApi, type PhyloMeta } from "@/lib/phylo/api";
 import type { Note } from "@/lib/types";
 import type { Method } from "@/lib/types";
 import type { SequenceRecord } from "@/lib/types";
@@ -255,6 +256,25 @@ export function moleculeToBrief(mol: Molecule): ArtifactBrief {
   };
 }
 
+/** Map one saved phylogenetic tree (PhyloMeta) to an ArtifactBrief, so trees show
+ *  up in search and the summaries like every other artifact. The deep link is the
+ *  /phylo?doc=<id> Tree Studio route; the embed pipeline renders the card. Pure. */
+export function phyloToBrief(meta: PhyloMeta): ArtifactBrief {
+  const keywords: string[] = tokenize(meta.name);
+  if (meta.format) keywords.push(String(meta.format).toLowerCase());
+  return {
+    type: "phylo",
+    id: meta.id,
+    title: meta.name || "Untitled tree",
+    subtitle:
+      typeof meta.tip_count === "number" ? `${meta.tip_count} tips` : undefined,
+    date: meta.added_at,
+    projectIds: meta.project_ids,
+    deepLink: objectDeepLink("phylo" as ObjectRefType, meta.id),
+    keywords: dedupe(keywords),
+  };
+}
+
 // ---------------------------------------------------------------------------
 // Helpers: tokenize and dedupe for keyword extraction.
 // ---------------------------------------------------------------------------
@@ -361,6 +381,7 @@ export type ArtifactIndexDeps = {
   listPurchases: () => Promise<PurchaseItem[]>;
   listExperiments: () => Promise<Task[]>;
   listMolecules: () => Promise<Molecule[]>;
+  listPhylo: () => Promise<PhyloMeta[]>;
 };
 
 export const artifactIndexDeps: ArtifactIndexDeps = {
@@ -378,6 +399,7 @@ export const artifactIndexDeps: ArtifactIndexDeps = {
     return all.filter((t) => t.task_type === "experiment");
   },
   listMolecules: () => moleculesApi.list(),
+  listPhylo: () => phyloApi.list(),
 };
 
 // ---------------------------------------------------------------------------
@@ -445,6 +467,7 @@ export async function searchMyWork(
     purchasesResult,
     experimentsResult,
     moleculesResult,
+    phyloResult,
   ] = await Promise.allSettled([
     deps.listNotes(),
     deps.listMethods(),
@@ -454,6 +477,7 @@ export async function searchMyWork(
     deps.listPurchases(),
     deps.listExperiments(),
     deps.listMolecules(),
+    deps.listPhylo(),
   ]);
 
   // Collect all briefs from settled (fulfilled) results.
@@ -491,6 +515,7 @@ export async function searchMyWork(
   addBriefs(purchasesResult, purchaseToBrief, "purchase");
   addBriefs(experimentsResult, experimentToBrief, "experiment");
   addBriefs(moleculesResult, moleculeToBrief, "molecule");
+  addBriefs(phyloResult, phyloToBrief, "phylo");
 
   // Apply the optional date window before scoring, so a "from last week" search
   // ranks only the in-window briefs (and never spends a result slot on one that

@@ -13,6 +13,7 @@ import {
   projectToBrief,
   purchaseToBrief,
   moleculeToBrief,
+  phyloToBrief,
   experimentToBrief,
   searchMyWork,
   dayPrefix,
@@ -367,6 +368,24 @@ describe("moleculeToBrief", () => {
   });
 });
 
+describe("phyloToBrief", () => {
+  it("returns type phylo with tip count subtitle and the /phylo deepLink", () => {
+    const brief = phyloToBrief({
+      id: "tree-1",
+      name: "cyp51A tree",
+      project_ids: ["7"],
+      added_at: "2026-06-12T00:00:00.000Z",
+      format: "newick",
+      tip_count: 42,
+    } as Parameters<typeof phyloToBrief>[0]);
+    expect(brief.type).toBe("phylo");
+    expect(brief.title).toBe("cyp51A tree");
+    expect(brief.subtitle).toBe("42 tips");
+    expect(brief.projectIds).toEqual(["7"]);
+    expect(brief.deepLink).toMatch(/\/phylo\?doc=tree-1/);
+  });
+});
+
 describe("experimentToBrief", () => {
   it("returns type experiment with active status", () => {
     const brief = experimentToBrief(makeExperiment());
@@ -405,6 +424,7 @@ function makeStubDeps(overrides: Partial<ArtifactIndexDeps> = {}): ArtifactIndex
     listPurchases: async () => [makePurchase()],
     listExperiments: async () => [makeExperiment()],
     listMolecules: async () => [makeMolecule()],
+    listPhylo: async () => [],
     ...overrides,
   };
 }
