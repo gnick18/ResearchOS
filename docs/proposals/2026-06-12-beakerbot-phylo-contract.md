@@ -20,9 +20,29 @@ This is exactly the "BeakerBot never codes" model: BeakerBot fills `BuilderOptio
 
 The valid option values live in the catalog (`@/lib/phylo/catalog`): `DATA_TYPES`, `HAVE_INPUTS`, `ALIGN_TOOLS`, `TRIM_TOOLS`, `MODEL_CHOICES`, `INFER_TOOLS`, `SUPPORT_CHOICES`, `OS_CHOICES`, plus `DEFAULT_OPTIONS`. Pick only from these.
 
-CURRENT `BuilderOptions` (catalog.ts): `{ dataType, have, nTaxa, nSites, align, trim, model, infer, support, os }`.
+`BuilderOptions` is now FROZEN (merged on main 2026-06-12). Build `generate_tree` against it:
 
-> CHANGING SOON, do not freeze against this. The vetted expansion (not yet applied to code) removes `codon` from dataType, removes `nTaxa`/`nSites` (MAFFT goes `--auto`), turns the fixed model into a picked model string, and ADDS: an `analysis` fork (`single` | `supermatrix` | `coalescent`), partition fields (`partScheme`, `brlen`), an optional `outgroup`, and advanced fields (`bnni`, replicate counts, `asc`, `restrictModels`, `threads`). The three analysis values produce three different pipelines (single locus; concatenated supermatrix via AMAS + partitioned IQ-TREE; per-gene trees summarized with ASTRAL). I will re-relay the FROZEN `BuilderOptions` + catalog the moment it lands. Until then, the Builder is navigate + guide.
+```ts
+BuilderOptions = {
+  dataType: "nucleotide" | "protein";
+  analysis: "single" | "supermatrix" | "coalescent";
+  have: "raw" | "alignment" | "library";
+  align: "mafft" | "muscle" | "clustalo" | "skip";
+  trim: "trimal" | "clipkit" | "gblocks" | "skip";
+  partScheme: "gene" | "gene_codon" | "merge";  // supermatrix only
+  brlen: "p" | "q" | "Q";                         // supermatrix only
+  model: "modelfinder" | "fixed";
+  fixedModel: string;                             // when model === "fixed", from MODELS or free text
+  infer: "iqtree" | "raxml" | "fasttree" | "mrbayes";
+  support: "ufboot" | "bootstrap" | "none";
+  outgroup: string;                               // "" = none
+  os: "mac" | "windows" | "linux";
+  bnni: boolean; ufbootReps: number; bsReps: number;
+  asc: boolean; restrictModels: boolean; threads: string;
+}
+```
+
+`DEFAULT_OPTIONS` and every option list (with valid values + the MODELS preset arrays) are exported from `@/lib/phylo/catalog`. The three `analysis` values produce three pipelines (single locus; concatenated supermatrix via AMAS then partitioned IQ-TREE; per-gene trees then ASTRAL). The full per-pipeline behavior + every flag is in `docs/proposals/2026-06-12-phylo-wizard-build-spec.md`. Fill `BuilderOptions` by selecting catalog values, call `generateRecipe`, never write a flag.
 
 "Build a tree FROM these sequences": NOT wired yet. `HAVE_INPUTS` has a `library` value, but it is currently only a recipe hint ("export the selected sequences to FASTA first"). There is no sequence-id -> FASTA-export input binding. That binding is a future addition we should co-design (it is the missing piece for your "build a tree from these sequences" tool). Flag it back to me and we will spec the input contract together.
 
