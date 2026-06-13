@@ -43,6 +43,7 @@ import ComposerMentionPicker, {
 import type { GlobalIndexEntry } from "@/components/beaker-search/global-index";
 import ComposerSlashMenu, { type MacroMenuItem } from "./ComposerSlashMenu";
 import MacroEditorSheet from "./MacroEditorSheet";
+import { useMacroUiStore } from "@/lib/ai/macro-ui-store";
 import {
   listMacros,
   type StoredMacro,
@@ -815,12 +816,16 @@ export default function BeakerBotConversation({
   // without a reload. Empty (and the group hidden) when none exist or no folder
   // is connected (listMacros returns [] safely).
   const [macros, setMacros] = useState<StoredMacro[]>([]);
-  // The macro editor sheet, open with the steps captured from a finished run.
-  const [macroEditorSteps, setMacroEditorSteps] = useState<MacroStep[] | null>(
-    null,
-  );
   // The steps the last run would capture, drives the "Save as macro" affordance.
   const [macroDraftSteps, setMacroDraftSteps] = useState<MacroStep[]>([]);
+  // Shared macro UI store, the editor target (this component renders the sheet)
+  // and the revision counter so the / list re-fetches after any macro write from
+  // here OR the chat rail manager.
+  const macroEditorTarget = useMacroUiStore((s) => s.editorTarget);
+  const openMacroEditor = useMacroUiStore((s) => s.openEditor);
+  const closeMacroEditor = useMacroUiStore((s) => s.closeEditor);
+  const notifyMacrosChanged = useMacroUiStore((s) => s.notifyMacrosChanged);
+  const macroRevision = useMacroUiStore((s) => s.revision);
   const slashActive = slashQuery !== null;
   useEffect(() => {
     if (!slashActive) return;
@@ -831,7 +836,7 @@ export default function BeakerBotConversation({
     return () => {
       live = false;
     };
-  }, [slashActive]);
+  }, [slashActive, macroRevision]);
 
   // Filter macros by the / query, prefix-first then substring on the name, the
   // same ranking the curated commands use.
@@ -1335,7 +1340,13 @@ export default function BeakerBotConversation({
                           type="button"
                           data-testid="beakerbot-save-macro"
                           aria-label="Save as macro"
-                          onClick={() => setMacroEditorSteps(macroDraftSteps)}
+                          onClick={() =>
+                            openMacroEditor({
+                              name: "",
+                              description: "",
+                              steps: macroDraftSteps,
+                            })
+                          }
                           className="flex items-center gap-1 rounded px-1.5 py-0.5 text-[11px] text-purple-600 transition-colors hover:bg-purple-500/10 dark:text-purple-300"
                         >
                           <Icon name="bolt" className="h-3 w-3" title="Save as macro" />
@@ -2040,17 +2051,17 @@ export default function BeakerBotConversation({
           canvasDocked is true. */}
       {canvasDocked ? <BeakerBotCanvas /> : null}
 
-      {/* Macro editor sheet, opened by "Save as macro" with the captured steps.
-          Scoped to this panel (the root is relative). */}
-      {macroEditorSteps !== null ? (
+      {/* Macro editor sheet, opened from "Save as macro" here or New / Edit in the
+          chat rail (shared via the macro UI store). Scoped to this panel (the root
+          is relative). */}
+      {macroEditorTarget !== null ? (
         <MacroEditorSheet
-          initialName=""
-          initialDescription=""
-          initialSteps={macroEditorSteps}
-          onClose={() => setMacroEditorSteps(null)}
-          onSaved={() => {
-            void listMacros().then(setMacros);
-          }}
+          macroId={macroEditorTarget.macroId}
+          initialName={macroEditorTarget.name}
+          initialDescription={macroEditorTarget.description}
+          initialSteps={macroEditorTarget.steps}
+          onClose={closeMacroEditor}
+          onSaved={notifyMacrosChanged}
         />
       ) : null}
     </div>
