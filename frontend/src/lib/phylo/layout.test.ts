@@ -6,6 +6,7 @@ import {
   ladderize,
   collapseClade,
   mrca,
+  rotateNode,
   rerootOnNode,
   midpointRoot,
   parseCsv,
@@ -128,6 +129,21 @@ describe("mrca (find a clade by tip names)", () => {
 
   it("returns null for an empty set", () => {
     expect(mrca(t, [])).toBeNull();
+  });
+});
+
+describe("rotateNode (flip a clade)", () => {
+  it("reverses a node's child order and preserves the tip set", () => {
+    const t = parseNewick("((A,B),(C,D));");
+    const rotated = rotateNode(t, t.id);
+    expect(rotated.children[0].id).toBe(t.children[1].id);
+    expect(rotated.children[1].id).toBe(t.children[0].id);
+    expect(leaves(rotated).map((l) => l.name).sort()).toEqual([
+      "A",
+      "B",
+      "C",
+      "D",
+    ]);
   });
 });
 

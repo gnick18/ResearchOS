@@ -43,6 +43,8 @@ import {
   ladderize,
   midpointRoot,
   rerootOnNode,
+  rotateNode,
+  mrca,
   parseCsv,
   matchMetadataToTips,
   bestTipColumn,
@@ -66,6 +68,7 @@ import {
 import type { AlignedPanel } from "@/lib/phylo/types";
 import {
   PhyloLayersControl,
+  MultiColumnField,
   buildTemplate,
 } from "@/components/phylo/PhyloLayers";
 import {
@@ -213,6 +216,8 @@ export function PhyloStudio({ initialTreeId }: { initialTreeId?: string } = {}) 
   const [tipColumn, setTipColumn] = useState<string>("");
   // Color tree branches by this column (ggtree aes(color=trait)); "" = off.
   const [branchColorColumn, setBranchColorColumn] = useState<string>("");
+  // Tip members whose MRCA clade the Rotate button flips (ggtree rotate()).
+  const [rotateMembers, setRotateMembers] = useState<string[]>([]);
 
   const [copyState, setCopyState] = useState<"idle" | "image" | "text">("idle");
   const [savedMsg, setSavedMsg] = useState<string | null>(null);
@@ -682,6 +687,31 @@ export function PhyloStudio({ initialTreeId }: { initialTreeId?: string } = {}) 
                 />
               </div>
             )}
+            <div className="mt-3">
+              <span className="block text-xs text-foreground-muted mb-1">
+                Rotate a clade (flip its branches), found by its tip members
+              </span>
+              <MultiColumnField
+                columns={tips.map((t) => t.name)}
+                selected={rotateMembers}
+                label="Members"
+                onChange={setRotateMembers}
+              />
+              <button
+                onClick={() => {
+                  if (!tree) return;
+                  const id = mrca(tree, rotateMembers);
+                  if (id != null) {
+                    setTree(rotateNode(tree, id));
+                    setRotateMembers([]);
+                  }
+                }}
+                disabled={rotateMembers.length < 2}
+                className="mt-2 text-xs font-semibold text-accent hover:underline disabled:opacity-40 disabled:no-underline"
+              >
+                Rotate this clade
+              </button>
+            </div>
           </Panel>
 
           <Panel title="Metadata">

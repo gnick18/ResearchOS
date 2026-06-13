@@ -1060,7 +1060,7 @@ function ToggleInput({ on, onClick }: { on: boolean; onClick: () => void }) {
   );
 }
 
-function MultiColumnField({
+export function MultiColumnField({
   columns,
   selected,
   label = "Columns",

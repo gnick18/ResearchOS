@@ -424,6 +424,19 @@ function cladeLabel(n: TreeNode): string {
   return `${leaves(n).length} tips`;
 }
 
+/**
+ * Rotate (flip) a node: reverse the order of its children, swapping which
+ * subtree sits above the other (ggtree rotate()). A pure tree edit like
+ * ladderize; the new tree is what gets laid out + saved. Tip set is unchanged.
+ */
+export function rotateNode(root: TreeNode, nodeId: number): TreeNode {
+  const rec = (n: TreeNode): TreeNode => {
+    if (n.id === nodeId) return { ...n, children: [...n.children].reverse() };
+    return { ...n, children: n.children.map(rec) };
+  };
+  return rec(deepClone(root));
+}
+
 /** Find the path of nodes from the root down to a target id, inclusive. */
 function pathToNode(root: TreeNode, targetId: number): TreeNode[] | null {
   const path: TreeNode[] = [];
