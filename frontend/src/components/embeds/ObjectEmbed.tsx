@@ -68,14 +68,6 @@ export interface EmbedRendererProps {
    *  editor host supplies this; the read-only Preview passes nothing, so the button
    *  never appears there. */
   onEditMarkdown?: () => void;
-  /** Stopgap (transclusion crash): when true, a `#ros=transclude` note embed renders
-   *  as an INERT chip (descriptor-only, no live TransclusionEmbed mount) instead of
-   *  the live recursive section. ONLY the CM6 editor host sets this, because mounting
-   *  a live TransclusionEmbed inside the editor triggers a "Maximum update depth"
-   *  render loop (CM6 widget + Loro interaction). The read-only Preview leaves it
-   *  undefined, so the live section still renders there. Remove once the loop is fixed
-   *  at source. */
-  inertTransclude?: boolean;
 }
 
 // Per-type rich renderers, added as each phase lands. A type absent here uses the
@@ -362,59 +354,6 @@ function PinFooter({
   );
 }
 
-/** Stopgap inert transclusion chip (no live mount, no async load). Rendered in the
- *  CM6 editor host ONLY, where mounting the live TransclusionEmbed triggers a render
- *  loop. Descriptor-only: it names the transcluded section, links to the source note,
- *  and tells the user the live section renders in Preview. Carries no state and reads
- *  no data, so it can never loop. Remove once the editor loop is fixed at source. */
-function InertTransclusionCard({
-  descriptor,
-  caption,
-  onEditMarkdown,
-}: {
-  descriptor: EmbedDescriptor;
-  caption: string;
-  onEditMarkdown?: () => void;
-}) {
-  const heading = descriptor.opts.section ?? caption ?? "";
-  const href = objectDeepLink("note", descriptor.id);
-  return (
-    <figure
-      className="my-3 mx-0 overflow-hidden rounded-xl border border-border bg-surface-raised"
-      aria-label={`Transcluded section ${heading || descriptor.id}`}
-      data-embed-type={descriptor.type}
-      data-embed-view={descriptor.view}
-      data-embed-transclude-inert="true"
-    >
-      <div className="flex items-center gap-3 px-4 py-3">
-        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-surface-sunken text-foreground-muted">
-          <Icon name={TYPE_ICON.note} className="h-5 w-5" />
-        </span>
-        <div className="min-w-0 flex-1">
-          <p className="truncate text-body font-semibold text-foreground">
-            {heading || "Transcluded section"}
-          </p>
-          <p className="text-meta text-foreground-muted">
-            Transcluded section · live in Preview
-          </p>
-        </div>
-        <a
-          href={href}
-          aria-label={`Open source note ${heading || descriptor.id}`}
-          className="shrink-0 rounded-md border border-border px-2.5 py-1 text-meta font-semibold text-foreground-muted transition-colors hover:border-brand-action hover:text-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-action"
-        >
-          Open
-        </a>
-      </div>
-      {onEditMarkdown ? (
-        <div className="flex items-center border-t border-border px-3 py-1.5">
-          <EditMarkdownButton onClick={onEditMarkdown} caption={caption} />
-        </div>
-      ) : null}
-    </figure>
-  );
-}
-
 export default function ObjectEmbed({
   descriptor,
   caption,
@@ -423,7 +362,6 @@ export default function ObjectEmbed({
   onViewChange,
   pinContext,
   onEditMarkdown,
-  inertTransclude,
 }: EmbedRendererProps) {
   // P7-2 transclusion. A note embed with view "transclude" renders a live section
   // of another note, recursion-guarded. It is NOT pinnable or view-switchable in
@@ -431,18 +369,6 @@ export default function ObjectEmbed({
   // and renders inside the same quiet figure frame. Hooks above this point are not
   // yet declared, so this early return precedes them (no conditional-hook hazard).
   if (descriptor.type === "note" && descriptor.view === "transclude") {
-    // Stopgap: in the CM6 editor host (inertTransclude), render an inert chip so the
-    // live TransclusionEmbed never mounts in the editor (that mount loops). Preview
-    // leaves inertTransclude undefined, so it keeps the live recursive section.
-    if (inertTransclude) {
-      return (
-        <InertTransclusionCard
-          descriptor={descriptor}
-          caption={caption}
-          onEditMarkdown={onEditMarkdown}
-        />
-      );
-    }
     return (
       <figure
         className="my-3 mx-0 overflow-hidden rounded-xl border border-border bg-surface-raised"

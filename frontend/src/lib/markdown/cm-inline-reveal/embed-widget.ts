@@ -80,23 +80,6 @@ function locateEmbedHref(
  *  null when the line is not a lone embed link, or when the href does not parse as
  *  an embed (swapEmbedView would no-op). Exported for unit testing without an
  *  EditorView. */
-/** DEV-ONLY escape hatch for diagnosing the transclusion editor render loop. The
- *  CM6 editor renders transclusions as an inert chip by default (the stopgap, so the
- *  loop never fires). Adding `?liveTransclude=1` to the URL (or setting localStorage
- *  `ros:liveTransclude` = "1") forces the LIVE TransclusionEmbed mount back on so the
- *  loop reproduces and its stack trace can be captured. Default is false, so normal
- *  use and prod are crash-safe. Remove with the stopgap once the loop is fixed. */
-function liveTranscludeForced(): boolean {
-  if (typeof window === "undefined") return false;
-  try {
-    if (new URLSearchParams(window.location.search).has("liveTransclude")) return true;
-    if (window.localStorage?.getItem("ros:liveTransclude") === "1") return true;
-  } catch {
-    // No window.location / localStorage access. Stay inert (safe).
-  }
-  return false;
-}
-
 export function rewriteLoneEmbedLine(lineText: string, newView: string): string | null {
   const loc = locateEmbedHref(lineText);
   if (!loc) return null;
@@ -301,13 +284,6 @@ export class EmbedWidget extends WidgetType {
           onViewChange,
           pinContext: pinHandlers,
           onEditMarkdown,
-          // Stopgap: this is the CM6 EDITOR host. A live TransclusionEmbed mounted
-          // here loops ("Maximum update depth"), so render transclusions as an inert
-          // chip in the editor. Preview renders ObjectEmbed without this flag, so the
-          // live section still shows there. The dev `?liveTransclude=1` escape forces
-          // the live mount back on to capture the loop's trace. Remove with the
-          // stopgap once the loop is fixed at source.
-          inertTransclude: !liveTranscludeForced(),
         }),
       );
     } catch {
