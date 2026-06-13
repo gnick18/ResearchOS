@@ -581,6 +581,11 @@ export const useConversationStore = create<ConversationStore>((set, get) => ({
       }
     } catch (err) {
       set({ status: null });
+      // Defensive: err may be undefined, null, or a non-Error value if something
+      // in the agent loop or the proxy re-throws a non-Error. Always normalize to
+      // a safe string so the error state never contains undefined. A thrown
+      // undefined is the pathological case that crashes Next 16.1.6's .digest
+      // handler if it escapes to the React error boundary.
       const message =
         err instanceof ProxyError
           ? err.message

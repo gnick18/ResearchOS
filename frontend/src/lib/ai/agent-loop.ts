@@ -484,7 +484,20 @@ async function runToolCall(
   }
 
   // Approval gate for action tools. Read-only tools pass straight through.
-  const gate = await gateToolCall(tool, args, deps);
+  // Wrap in try/catch so a throw inside gateToolCall (e.g. a broken approval
+  // bridge) is also caught and never propagates to the React render path.
+  let gate: Awaited<ReturnType<typeof gateToolCall>>;
+  try {
+    gate = await gateToolCall(tool, args, deps);
+  } catch (gateErr) {
+    const message =
+      gateErr instanceof Error
+        ? gateErr.message
+        : gateErr != null
+          ? String(gateErr)
+          : "Tool gate check failed.";
+    return { error: message };
+  }
   if (!gate.proceed) return gate.result;
 
   try {
@@ -492,7 +505,18 @@ async function runToolCall(
   } catch (err) {
     // Surface a compact error back to the model instead of crashing the loop, so
     // it can recover or tell the user plainly.
-    const message = err instanceof Error ? err.message : "Tool execution failed.";
+    // Guard: err may be undefined, null, or a non-Error value (e.g. a string or
+    // number was thrown). A thrown undefined is the exact value that crashes
+    // Next 16.1.6's .digest handler if it escapes to the React error boundary, so
+    // it MUST be caught and normalized here. A non-Error, non-nullish value is
+    // stringified so the error message carries the actual thrown content instead
+    // of a generic fallback.
+    const message =
+      err instanceof Error
+        ? err.message
+        : err != null
+          ? String(err)
+          : "Tool execution failed.";
     return { error: message };
   }
 }
