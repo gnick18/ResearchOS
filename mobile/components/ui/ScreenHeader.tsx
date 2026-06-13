@@ -14,6 +14,7 @@ import { useRouter } from 'expo-router';
 
 import { ThemedText } from '@/components/themed-text';
 import { useTheme, palette } from '@/lib/design';
+import { ConnectionStatusChip } from '@/components/ui/ConnectionStatusChip';
 
 export function ScreenHeader({ title }: { title?: string }) {
   const router = useRouter();
@@ -32,6 +33,9 @@ export function ScreenHeader({ title }: { title?: string }) {
       {title ? (
         <ThemedText style={[styles.title, { color: surface.text }]}>{title}</ThemedText>
       ) : null}
+      {/* Header-right: app-wide sync/connection cue. Subtle, taps to explain. */}
+      <View style={styles.spacer} />
+      <ConnectionStatusChip />
     </View>
   );
 }
@@ -45,7 +49,9 @@ const styles = StyleSheet.create({
     paddingTop: 4,
     paddingBottom: 2,
     minHeight: 38,
+    paddingRight: 12,
   },
+  spacer: { flex: 1 },
   back: {
     width: 36,
     height: 36,

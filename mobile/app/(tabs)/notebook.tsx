@@ -75,7 +75,16 @@ import { NotebookChooser } from '@/components/NotebookChooser';
 import { fireSuccess } from '@/lib/success-burst';
 import { useTodayPrefs } from '@/lib/today-prefs';
 import { TodayPanel } from '@/components/TodayPanel';
-import { hapticImpact } from '@/lib/interaction-prefs';
+import { ConnectionStatusChip } from '@/components/ui/ConnectionStatusChip';
+import {
+  recordSyncSuccess,
+  recordSyncFailure,
+} from '@/lib/connection-status';
+import {
+  hapticImpact,
+  hapticNotify,
+  NotifyType,
+} from '@/lib/interaction-prefs';
 import {
   DEMO_IMAGE_URI,
   DEMO_SEED_KEY,
@@ -206,8 +215,13 @@ export default function NotebookScreen() {
       )) as TodaySnapshot | null;
       setSnapshot(data);
       setSnapshotLoaded(true);
+      // Feed the app-wide sync-freshness cue: a 200 (or a 404, which is "laptop
+      // reachable, nothing published yet") both prove the relay is reachable, so
+      // count them as a successful sync. Only a thrown fetch is a failure.
+      recordSyncSuccess();
     } catch {
       setSnapshotError('Could not sync. Pull down to try again.');
+      recordSyncFailure();
     } finally {
       setSnapshotLoading(false);
     }
@@ -857,15 +871,18 @@ export default function NotebookScreen() {
         <View style={styles.scrollContent}>
           <View style={styles.titleRow}>
             <ThemedText type="title">Notebook</ThemedText>
-            <Pressable
-              onPress={() => router.push('/modal')}
-              hitSlop={12}
-              accessibilityRole="button"
-              accessibilityLabel="Settings"
-              style={styles.settingsBtn}
-            >
-              <Ionicons name="settings-outline" size={24} color={palette.sky} />
-            </Pressable>
+            <View style={styles.headerActions}>
+              <ConnectionStatusChip />
+              <Pressable
+                onPress={() => router.push('/modal')}
+                hitSlop={12}
+                accessibilityRole="button"
+                accessibilityLabel="Settings"
+                style={styles.settingsBtn}
+              >
+                <Ionicons name="settings-outline" size={24} color={palette.sky} />
+              </Pressable>
+            </View>
           </View>
           <Card style={{ gap: spacing.sm, marginTop: spacing.lg }}>
             <ThemedText style={[styles.cardTitle, { color: surface.text }]}>
@@ -909,6 +926,9 @@ export default function NotebookScreen() {
         <View style={styles.titleRow}>
           <ThemedText type="title">Notebook</ThemedText>
           <View style={styles.headerActions}>
+            {/* App-wide sync/connection cue, also surfaced on the Notebook's own
+                header (this tab does not use the shared ScreenHeader). */}
+            <ConnectionStatusChip />
             <Pressable
               testID="notebook-notifications"
               onPress={() => router.push('/notifications')}
@@ -1376,8 +1396,11 @@ function ConnectionCard({
 
 // A single capture row inside the grouped Inbox container. The row reports
 // its own status (Sending / On your laptop / Couldn't send); a per-row action
-// appears only on a real failure (Retry). Single-row delete is a small muted
-// Remove for now; swipe-to-delete lands in the next pass.
+// appears only on a real failure (Retry). Swipe the row left to reveal Delete,
+// which removes it from the phone inbox (the laptop copy, if already sent, stays
+// put). The swipe uses the gesture-handler ScrollView so it cooperates with
+// vertical scrolling, and overshootRight stays off so the action does not
+// rubber-band past its width.
 function CaptureRow({
   capture,
   onRemove,
@@ -1402,9 +1425,22 @@ function CaptureRow({
   const failed = capture.status === 'failed' && !retrying;
   const canRetry = !!onSend && failed;
 
+  // Ref to the Swipeable so a Delete tap can animate the row closed before the
+  // list re-renders without it. Avoids the open-action flashing on the row that
+  // slides up to take its place.
+  const swipeRef = useRef<Swipeable>(null);
+
+  const onDelete = useCallback(() => {
+    // Warning haptic: deletion is destructive, even though the laptop copy (if
+    // already sent) is untouched. No-op when haptics are off.
+    hapticNotify(NotifyType.Warning);
+    swipeRef.current?.close();
+    onRemove(capture.id);
+  }, [capture.id, onRemove]);
+
   const renderRightActions = () => (
     <Pressable
-      onPress={() => onRemove(capture.id)}
+      onPress={onDelete}
       style={styles.swipeDelete}
       accessibilityRole="button"
       accessibilityLabel="Delete capture"
@@ -1415,7 +1451,11 @@ function CaptureRow({
   );
 
   return (
-    <Swipeable renderRightActions={renderRightActions} overshootRight={false}>
+    <Swipeable
+      ref={swipeRef}
+      renderRightActions={renderRightActions}
+      overshootRight={false}
+    >
       <View
         testID={testID}
         style={[
