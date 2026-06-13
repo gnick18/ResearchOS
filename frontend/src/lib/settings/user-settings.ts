@@ -344,6 +344,12 @@ export interface UserSettings {
    *  set). Absent for everyone who does not run a department. */
   dept_admin_of?: string | null;
 
+  /** Institution tier Phase 4: the institution_id this user ADMINISTERS, if any.
+   *  Set when they create an institution. Additive org relationship like
+   *  dept_admin_of (the Institution lens shows when set); a person can hold any
+   *  combination of lab head / dept admin / institution admin. */
+  institution_admin_of?: string | null;
+
   /** Purchase department-routing config (lab-head only, opt-in). Defaults to a
    *  disabled empty config; normalize() repairs a hand-edited bad shape. */
   purchaseRouting: PurchaseRoutingConfig;
