@@ -144,3 +144,34 @@ Resolved with Grant 2026-06-12:
 
 For the Phylogenetics lane: the two [PHYLO REVIEW] blocks above (output 3 param
 mapping + FASTA binding, output 4 style model + vision-to-spec).
+
+## Output 3 build contract (locked 2026-06-13 with the phylo lane)
+
+The phylo lane answered the three co-design questions. Locked decisions:
+
+1. Catalog miss. When a paper names a tool or parameter the catalog does not
+   carry, use the nearest catalog value plus a flagged FACTUAL note in the draft
+   (never a hard reject, never a judgment). For substitution MODELS specifically,
+   do not nearest-map: either use ModelFinder, or pass the paper's exact model
+   string straight through `fixedModel` (a free string that IQ-TREE validates at
+   runtime). This keeps the recipe faithful without the catalog having to enumerate
+   every model.
+2. Input binding. v1 binds a raw single-locus FASTA from the user's library
+   sequence-ids (`have: "raw"`, `align: "mafft"`). Partition input is out of v1
+   (a charset file cannot be synthesized from sequence-ids). The supermatrix /
+   pre-aligned + partition path is the follow-up, and the phylo lane will add a
+   `have: "alignment"` supermatrix branch to recipe.ts that skips AMAS and emits
+   `iqtree2 -s <aln> -p <partition>` directly.
+3. Scope cut. Ship single-locus nucleotide and protein first, supermatrix as a
+   fast follow.
+
+The three validated fixtures under
+`frontend/src/lib/transparency/datasets/phylo-published/<case>/builder-options.json`
+are the assertion target for the param->BuilderOptions mapping
+(`frontend/src/lib/ai/tools/generate-tree-fixtures.test.ts` already regression-locks
+generateRecipe against all three shapes).
+
+Lane split unchanged: BeakerAI owns `frontend/src/lib/ai/tools/phylo-tools.ts`
+(generate_tree + resolveBuilderOptions); the phylo lane owns
+`@/lib/phylo/catalog` + `recipe.ts` (consumed read-only). generate_tree already
+tracks `defaulted` fields, which is the surface for the flagged-note behavior.
