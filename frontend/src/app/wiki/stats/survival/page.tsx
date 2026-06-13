@@ -1,6 +1,7 @@
 import Link from "next/link";
 import WikiPage from "@/components/wiki/WikiPage";
 import Callout from "@/components/wiki/Callout";
+import Screenshot from "@/components/wiki/Screenshot";
 
 export default function SurvivalPage() {
   return (
@@ -34,6 +35,12 @@ export default function SurvivalPage() {
         summary, &quot;median time to relapse was 14 months in the treated arm
         versus 9 in the control.&quot;
       </p>
+
+      <Screenshot
+        src="/wiki/screenshots/datahub-stats-survival.png"
+        alt="A Kaplan-Meier survival result in the Data Hub comparing two arms, with a table of median survival per arm and the log-rank and Gehan-Breslow-Wilcoxon chi-square tests with their p-values."
+        caption="A two-arm comparison. The table gives median survival for each arm, the time by which half the subjects have had the event, and the log-rank test for whether the curves differ overall. The Gehan-Breslow-Wilcoxon test below it is the same comparison weighted toward early time points, so it is more sensitive to early differences."
+      />
 
       <h2>The log-rank test</h2>
       <p>

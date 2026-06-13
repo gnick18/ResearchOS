@@ -1,6 +1,7 @@
 import Link from "next/link";
 import WikiPage from "@/components/wiki/WikiPage";
 import Callout from "@/components/wiki/Callout";
+import Screenshot from "@/components/wiki/Screenshot";
 
 export default function RocAucPage() {
   return (
@@ -59,6 +60,12 @@ export default function RocAucPage() {
         its width tells you how sure you are, read it as on the{" "}
         <Link href="/wiki/stats/effect-sizes">effect sizes</Link> page.
       </p>
+
+      <Screenshot
+        src="/wiki/screenshots/datahub-stats-roc-auc.png"
+        alt="A ROC and AUC result in the Data Hub, reporting the AUC with an accuracy band and 95 percent confidence interval, the Youden optimal threshold with its sensitivity and specificity, and a table of the false-positive and true-positive rate at each cut."
+        caption="The AUC comes with an accuracy band and its 95 percent confidence interval, and the Youden cut point reports the sensitivity and specificity you would get at that threshold. The table below is the curve itself, the true-positive rate against the false-positive rate at every cut."
+      />
 
       <h2 id="youden">Choosing a cut point</h2>
       <p>

@@ -1,6 +1,7 @@
 import Link from "next/link";
 import WikiPage from "@/components/wiki/WikiPage";
 import Callout from "@/components/wiki/Callout";
+import Screenshot from "@/components/wiki/Screenshot";
 
 export default function RepeatedMeasuresPage() {
   return (
@@ -35,6 +36,12 @@ export default function RepeatedMeasuresPage() {
         ordinary ANOVA, but computed against the right within-subject error so
         the subject-to-subject baseline does not drown the signal.
       </p>
+
+      <Screenshot
+        src="/wiki/screenshots/datahub-stats-repeated-measures.png"
+        alt="A repeated-measures ANOVA result in the Data Hub across three within-subject timepoints, with an ANOVA table splitting variation into conditions, subjects, and error, plus partial eta-squared and the Greenhouse-Geisser and Huynh-Feldt epsilon corrections."
+        caption="Three timepoints measured on the same subjects. The table splits the variation into the condition effect, the subject-to-subject differences, and the leftover error, and F is tested against that within-subject error. The Greenhouse-Geisser and Huynh-Feldt corrections below adjust the p-value when the sphericity assumption is in doubt."
+      />
 
       <h2 id="mixed-models">Mixed models</h2>
       <p>

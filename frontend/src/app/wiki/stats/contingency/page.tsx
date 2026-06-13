@@ -1,6 +1,7 @@
 import Link from "next/link";
 import WikiPage from "@/components/wiki/WikiPage";
 import Callout from "@/components/wiki/Callout";
+import Screenshot from "@/components/wiki/Screenshot";
 
 export default function ContingencyPage() {
   return (
@@ -70,6 +71,13 @@ export default function ContingencyPage() {
         association is statistically clear, the same call the test&apos;s p-value
         makes, and the interval&apos;s width tells you the precision.
       </p>
+
+      <Screenshot
+        src="/wiki/screenshots/datahub-stats-contingency.png"
+        alt="A 2x2 contingency result in the Data Hub, reporting the Yates-corrected and uncorrected chi-square, Fisher's exact p-value, the relative risk, and the odds ratio with its interval, above the observed and expected count tables."
+        caption="A 2x2 table. The Data Hub reports the chi-square (Yates-corrected and uncorrected), Fisher's exact p for small counts, the relative risk, and the odds ratio with its 95 percent confidence interval, then shows the observed counts against the counts you would expect if the two factors were unrelated."
+      />
+
       <Callout variant="info" title="This is also what logistic regression reports">
         <strong>Logistic regression</strong> predicts a yes/no outcome from one or
         more predictors, and it reports each predictor&apos;s effect as an odds

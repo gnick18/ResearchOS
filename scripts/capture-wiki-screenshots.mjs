@@ -4345,6 +4345,45 @@ const FIXTURE_ROUTES = [
     waitFor: "text=read on this result",
     settleMs: 1200,
   },
+  {
+    // ROC + AUC on the binary-resistance table (the same XY score/outcome shape
+    // logistic regression uses), for the roc-auc page.
+    path: "/datahub?doc=5&analysis=analysis-resist-roc",
+    file: "datahub-stats-roc-auc.png",
+    waitFor: "text=read on this result",
+    settleMs: 1200,
+  },
+  {
+    // Grubbs outlier screen on a single column with one planted out-of-family
+    // replicate, for the outliers page.
+    path: "/datahub?doc=8&analysis=analysis-od-grubbs",
+    file: "datahub-stats-outliers.png",
+    waitFor: "text=read on this result",
+    settleMs: 1200,
+  },
+  {
+    // Kaplan-Meier survival with two arms + the log-rank test, for the survival page.
+    path: "/datahub?doc=9&analysis=analysis-km",
+    file: "datahub-stats-survival.png",
+    waitFor: "text=read on this result",
+    settleMs: 1200,
+  },
+  {
+    // A 2x2 contingency table with chi-square, Fisher, odds ratio + relative
+    // risk, for the contingency page.
+    path: "/datahub?doc=10&analysis=analysis-chisq",
+    file: "datahub-stats-contingency.png",
+    waitFor: "text=read on this result",
+    settleMs: 1200,
+  },
+  {
+    // Repeated-measures ANOVA across three within-subject timepoints, with the
+    // Greenhouse-Geisser / Huynh-Feldt corrections, for the repeated-measures page.
+    path: "/datahub?doc=11&analysis=analysis-rm",
+    file: "datahub-stats-repeated-measures.png",
+    waitFor: "text=read on this result",
+    settleMs: 1200,
+  },
 ];
 
 /** Hide dev/beta UI that distracts from docs. Re-applied per page.

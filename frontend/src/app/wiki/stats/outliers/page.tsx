@@ -1,6 +1,7 @@
 import Link from "next/link";
 import WikiPage from "@/components/wiki/WikiPage";
 import Callout from "@/components/wiki/Callout";
+import Screenshot from "@/components/wiki/Screenshot";
 
 export default function OutliersPage() {
   return (
@@ -38,6 +39,12 @@ export default function OutliersPage() {
         it is the wrong tool, and a cluster of extreme points often means the data
         are not normal rather than that several are errors.
       </p>
+
+      <Screenshot
+        src="/wiki/screenshots/datahub-stats-outliers.png"
+        alt="A Grubbs outlier result in the Data Hub, with a table reporting the most extreme value, its Grubbs G statistic, the critical G for the sample size and alpha, and whether the value is flagged as an outlier."
+        caption="Grubbs screens one suspected value at a time. The table reports the most extreme point and its Grubbs G, how many standard deviations it sits from the mean, against the critical G for your sample size and alpha, so a value is flagged only when G clears the bar. Here one out-of-family replicate is flagged and the next pass clears."
+      />
 
       <Callout variant="danger" title="A flag is not a license to delete">
         Statistical extremeness tells you a point is unusual. It cannot tell you{" "}
