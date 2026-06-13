@@ -50,12 +50,18 @@ export default function AppNavBar({
   tinted,
   currentUser,
   isSuppliesActive,
+  layoutOverride,
 }: {
   navItems: NavItem[];
   pathname: string | null;
   tinted: boolean;
   currentUser: string | null;
   isSuppliesActive: (item: NavItem) => boolean;
+  /** A FIXED inline/More split that overrides the user's saved drag-layout. Set
+   *  in the PI lab lens so the PI lineup (People, Lab Work, ...) is always inline
+   *  in order, not buried in More by the researcher layout. While set, drag edits
+   *  do not persist (they must not clobber the user's researcher layout). */
+  layoutOverride?: NavLayout | null;
 }) {
   const savedLayout = useAppStore((s) => s.navLayout);
   const setNavLayout = useAppStore((s) => s.setNavLayout);
@@ -72,10 +78,13 @@ export default function AppNavBar({
   // responsive overflow is computed on top of it below. In recording mode every
   // item is forced inline so no nav target hides in the More tray.
   const resolved = useMemo(() => {
-    const base = resolveNavLayout(navItems, savedLayout);
+    // In the PI lab lens, the fixed PI lineup wins over the user's saved
+    // researcher drag-layout, so the PI tabs sit inline in order instead of
+    // falling into More (new hrefs default to More otherwise).
+    const base = resolveNavLayout(navItems, layoutOverride ?? savedLayout);
     if (recording) return { inline: [...base.inline, ...base.more], more: [] };
     return base;
-  }, [navItems, savedLayout, recording]);
+  }, [navItems, savedLayout, layoutOverride, recording]);
 
   const [editing, setEditing] = useState(false);
   const [moreOpen, setMoreOpen] = useState(false);
@@ -103,12 +112,15 @@ export default function AppNavBar({
   // ---- persistence -------------------------------------------------------
   const persist = useCallback(
     (next: NavLayout) => {
+      // The lab lens uses a fixed override layout; never persist a drag over the
+      // user's own (researcher) saved layout while it is in force.
+      if (layoutOverride) return;
       setNavLayout(next);
       if (currentUser) {
         void patchUserSettings(currentUser, { navLayout: next });
       }
     },
-    [setNavLayout, currentUser],
+    [setNavLayout, currentUser, layoutOverride],
   );
 
   // The current arrangement as plain href arrays (what we mutate while editing).
