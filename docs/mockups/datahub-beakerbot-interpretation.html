@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Data Hub: BeakerBot result tips (before / after)</title>
+<style>
+  :root {
+    --bg: #f6f8fb; --card: #ffffff; --foreground: #1f2733; --muted: #5b6776;
+    --border: #e3e8ef; --accent: #1aa0e6; --accent-soft: #e8f5fd; --accent-strong: #0d7fbd;
+    --good: #15a36b;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background: var(--bg); color: var(--foreground); padding: 32px 20px 80px; }
+  .wrap { max-width: 860px; margin: 0 auto; }
+  h1 { font-size: 22px; margin: 0 0 4px; }
+  .sub { color: var(--muted); font-size: 14px; margin: 0 0 22px; }
+  .controls { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 22px; }
+  .controls button { font: inherit; font-size: 13px; padding: 7px 14px; border-radius: 8px;
+    border: 1px solid var(--border); background: var(--card); color: var(--foreground); cursor: pointer; }
+  .controls button.on { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .section-label { font-size: 12px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted);
+    margin: 26px 0 10px; font-weight: 600; }
+  .results-card { background: var(--card); border: 1px solid var(--border); border-radius: 14px;
+    padding: 18px 20px 20px; box-shadow: 0 1px 2px rgba(16,24,40,.04); }
+  .results-head { font-size: 13px; color: var(--muted); margin-bottom: 12px; }
+  .results-head b { color: var(--foreground); font-size: 15px; }
+
+  /* BEFORE: the current plain box */
+  .verdict-before { border: 1px solid rgba(26,160,230,.3); background: var(--accent-soft);
+    border-radius: 10px; padding: 12px 16px; font-size: 14px; line-height: 1.5; }
+
+  /* AFTER shared */
+  .bot { flex: 0 0 auto; width: 40px; height: 44px; }
+  .bot.lg { width: 52px; height: 58px; }
+  .tip-text { font-size: 14px; line-height: 1.55; }
+  .tip-text .lead { font-weight: 600; }
+  .worked { margin-top: 8px; padding: 9px 12px; background: rgba(21,163,107,.08);
+    border-left: 3px solid var(--good); border-radius: 6px; font-size: 13.5px; line-height: 1.5; }
+  .worked b { color: var(--good); }
+  .learn { display: inline-flex; align-items: center; gap: 5px; margin-top: 10px; font-size: 13px;
+    color: var(--accent-strong); text-decoration: none; font-weight: 600; }
+  .learn:hover { text-decoration: underline; }
+  .learn svg { width: 13px; height: 13px; }
+
+  /* Variant A: speech bubble, avatar left */
+  .vA { display: flex; gap: 12px; align-items: flex-start; border: 1px solid rgba(26,160,230,.3);
+    background: var(--accent-soft); border-radius: 12px; padding: 14px 16px 15px; position: relative; }
+  .vA .bubble { position: relative; }
+  .vA .name { font-size: 11px; font-weight: 700; color: var(--accent-strong); text-transform: uppercase;
+    letter-spacing: .05em; margin-bottom: 3px; }
+
+  /* Variant B: header badge */
+  .vB { border: 1px solid rgba(26,160,230,.3); background: var(--accent-soft); border-radius: 12px;
+    padding: 0; overflow: hidden; }
+  .vB .hdr { display: flex; align-items: center; gap: 9px; padding: 9px 14px;
+    background: rgba(26,160,230,.12); border-bottom: 1px solid rgba(26,160,230,.2); }
+  .vB .hdr .bot { width: 28px; height: 31px; }
+  .vB .hdr span { font-size: 12.5px; font-weight: 700; color: var(--accent-strong); }
+  .vB .body { padding: 13px 16px 15px; }
+
+  .hidden { display: none; }
+  .note { font-size: 12.5px; color: var(--muted); margin-top: 8px; }
+  .pin { background: #fff7e6; border: 1px solid #ffe1a8; border-radius: 8px; padding: 10px 13px;
+    font-size: 13px; margin-top: 14px; }
+  .pin b { color: #b76e00; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>BeakerBot explains your result</h1>
+  <p class="sub">Branding the Data Hub result-interpretation box as BeakerBot giving you a tip, plus a worked example from your real numbers and a "Learn more" link. Toggle the views.</p>
+
+  <div class="controls">
+    <button id="b-before" class="on" onclick="show('before')">Current (before)</button>
+    <button id="b-vA" onclick="show('vA')">After: speech bubble</button>
+    <button id="b-vB" onclick="show('vB')">After: header badge</button>
+  </div>
+
+  <div class="section-label">Result page (Cox proportional hazards example)</div>
+  <div class="results-card">
+    <div class="results-head"><b>Relapse-free survival, FakeDrug-A vs vehicle</b> &middot; Cox proportional hazards</div>
+
+    <!-- BEFORE -->
+    <div id="view-before" class="verdict-before">
+      The hazard of relapse for the Vehicle control arm is 6.24 times that of FakeDrug-A (95% CI 2.57 to 15.18, p &lt; 0.0001). The model concordance is 0.72.
+    </div>
+
+    <!-- AFTER A: speech bubble -->
+    <div id="view-vA" class="vA hidden">
+      <div class="bot lg" id="botA"></div>
+      <div class="bubble">
+        <div class="name">BeakerBot</div>
+        <div class="tip-text">
+          <span class="lead">FakeDrug-A roughly halves the hazard of relapse.</span>
+          A hazard ratio compares how fast the event happens between arms. Here the Vehicle arm relapses 6.24x faster than FakeDrug-A (95% CI 2.57 to 15.18, p &lt; 0.0001), and the CI stays well above 1, so the protection is statistically solid. Concordance 0.72 means the model ranks who relapses first correctly about 72% of the time.
+          <div class="worked">For your numbers: <b>HR 6.24</b> means that at any moment, an untreated subject is about 6x as likely to relapse next as a treated one. Flip the reference arm to read it as FakeDrug-A's protective HR of ~0.16.</div>
+          <a class="learn" href="#">Learn more about hazard ratios
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M7 17 17 7M9 7h8v8"/></svg>
+          </a>
+        </div>
+      </div>
+    </div>
+
+    <!-- AFTER B: header badge -->
+    <div id="view-vB" class="vB hidden">
+      <div class="hdr"><div class="bot" id="botB"></div><span>BeakerBot's read on this result</span></div>
+      <div class="body">
+        <div class="tip-text">
+          <span class="lead">FakeDrug-A roughly halves the hazard of relapse.</span>
+          A hazard ratio compares how fast the event happens between arms. The Vehicle arm relapses 6.24x faster than FakeDrug-A (95% CI 2.57 to 15.18, p &lt; 0.0001); the CI stays above 1, so the protection is solid. Concordance 0.72 means the model ranks who relapses first correctly about 72% of the time.
+          <div class="worked">For your numbers: <b>HR 6.24</b> means an untreated subject is about 6x as likely to relapse next as a treated one. Flip the reference arm to read FakeDrug-A's protective HR of ~0.16.</div>
+          <a class="learn" href="#">Learn more about hazard ratios
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M7 17 17 7M9 7h8v8"/></svg>
+          </a>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="pin">
+    <b>Open decision (affects the build):</b> where should "Learn more" point? Option 1, a new <b>/wiki/stats</b> explainer per test (richer, plain-English tutorial, but each page must be written). Option 2, the existing <b>/transparency</b> page (already live, shows the method validated against scipy/R plus the code, but it is validation-focused not a tutorial). I can ship Option 2 immediately and layer Option 1 in over time.
+  </div>
+
+  <div class="note">The interpretation text is unchanged from what ships today (per-analysis, in plain-language.ts). New parts: the BeakerBot avatar + name, the green "For your numbers" worked-example line built from the real result values, and the "Learn more" link. The box keeps the same sky accent you liked.</div>
+</div>
+
+<script>
+  var beaker = '<svg viewBox="8 3 24 31" fill="none" stroke="#1AA0E6" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" xmlns="http://www.w3.org/2000/svg">'
+    + '<defs><linearGradient id="liq" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#7fd3f7"/><stop offset="1" stop-color="#1aa0e6"/></linearGradient></defs>'
+    + '<path d="M 12 12 L 12 24 C 12 30, 16 32, 20 32 C 24 32, 28 30, 28 24 L 28 12 Z" fill="white" stroke="none"/>'
+    + '<path d="M 12 19 Q 14 17.8, 16 19 T 20 19 T 24 19 T 28 19 L 28 24 C 28 30, 24 32, 20 32 C 16 32, 12 30, 12 24 L 12 19 Z" fill="url(#liq)" stroke="none"/>'
+    + '<path d="M22 8 C 22 6, 24 4, 26 6"/>'
+    + '<path d="M12 12 L12 24 C 12 30, 16 32, 20 32 C 24 32, 28 30, 28 24 L28 12"/>'
+    + '<path d="M11 12 L29 12"/>'
+    + '<circle cx="17" cy="18" r="1.2" fill="#1AA0E6" stroke="none"/>'
+    + '<circle cx="23" cy="18" r="1.2" fill="#1AA0E6" stroke="none"/>'
+    + '<path d="M18 22 Q 20 24, 22 22"/>'
+    + '<path d="M14 26 L15.5 26"/><path d="M24.5 26 L26 26"/>'
+    + '</svg>';
+  document.getElementById('botA').innerHTML = beaker;
+  document.getElementById('botB').innerHTML = beaker;
+  function show(which){
+    ['before','vA','vB'].forEach(function(v){
+      document.getElementById('view-'+v).classList.toggle('hidden', v!==which);
+      document.getElementById('b-'+v).classList.toggle('on', v===which);
+    });
+  }
+</script>
+</body>
+</html>
