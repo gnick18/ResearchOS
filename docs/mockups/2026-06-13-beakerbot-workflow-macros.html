@@ -1,0 +1,417 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>BeakerBot workflow macros, review</title>
+<style>
+  :root {
+    --bg:#eef1f5; --surface:#fff; --sunken:#f4f7f9;
+    --text:#1a2530; --text-2:#5a6b78; --text-3:#8a98a4;
+    --border:rgba(26,37,48,0.12); --border-2:rgba(26,37,48,0.22);
+    --sky:#38bdf8; --sky-deep:#15679c; --sky-soft:rgba(56,189,248,0.09); --sky-chip:rgba(56,189,248,0.14);
+    --macro:#7c3aed; --macro-soft:rgba(124,58,237,0.10); --macro-chip:rgba(124,58,237,0.15);
+    --ok:#1d7a3e; --ok-bg:#e7f6ec; --warn:#b45309; --warn-bg:#fef3e2; --danger:#b91c1c; --danger-bg:#fde8e8;
+    --r:12px; --rm:8px; --sans:ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;background:var(--bg);color:var(--text);font-family:var(--sans);}
+
+  .topbar{position:sticky;top:0;z-index:60;display:flex;align-items:center;gap:16px;padding:11px 20px;background:var(--surface);border-bottom:1px solid var(--border-2);}
+  .topbar .title{font-size:15px;font-weight:600;}
+  .topbar .sum{margin-left:auto;font-size:12px;color:var(--text-2);}
+  .btn{font-family:inherit;font-size:13px;border:1px solid var(--border-2);background:var(--surface);color:var(--text);border-radius:var(--rm);padding:7px 13px;cursor:pointer;}
+  .btn.primary{background:var(--sky);border-color:var(--sky);color:#06243a;font-weight:600;}
+  .btn:hover{background:var(--sunken);} .btn.primary:hover{filter:brightness(0.97);}
+  .howto{background:#0f172a;color:#cfe8fb;font-size:13px;padding:10px 20px;display:flex;align-items:center;gap:8px;}
+  .howto b{color:#fff;}
+
+  .wrap{max-width:840px;margin:0 auto;padding:22px 22px 160px;}
+  .lead{font-size:13px;color:var(--text-2);line-height:1.6;margin:0 2px 26px;}
+  .rs{margin-bottom:38px;}
+  .rs > header{display:flex;align-items:center;gap:12px;margin-bottom:10px;}
+  .rs h3{margin:0;font-size:14px;font-weight:600;flex:1;}
+  .note{font-size:12px;color:var(--text-2);margin:9px 2px 0;line-height:1.55;}
+
+  .seg{display:inline-flex;border:1px solid var(--border-2);border-radius:999px;overflow:hidden;font-size:11px;}
+  .seg button{font-family:inherit;border:0;background:transparent;color:var(--text-2);padding:4px 11px;cursor:pointer;}
+  .seg button.on-ok{background:var(--ok-bg);color:var(--ok);font-weight:600;}
+  .seg button.on-warn{background:var(--warn-bg);color:var(--warn);font-weight:600;}
+
+  .mockwrap{position:relative;}
+  .hint{position:absolute;top:8px;right:8px;z-index:4;display:inline-flex;align-items:center;gap:5px;font-size:11px;color:var(--sky-deep);background:var(--sky-chip);border:1px solid rgba(56,189,248,0.4);border-radius:999px;padding:3px 9px;pointer-events:none;}
+  .mock{position:relative;background:var(--surface);border:1px solid var(--border-2);border-radius:var(--r);overflow:visible;cursor:crosshair;}
+  .mock *{pointer-events:none;}
+  .stage{padding:18px;background:var(--sunken);display:flex;justify-content:center;border-radius:var(--r);}
+
+  .pin{position:absolute;width:24px;height:24px;border-radius:999px;background:var(--sky);color:#06243a;font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center;transform:translate(-50%,-50%);box-shadow:0 1px 5px rgba(0,0,0,.35);z-index:6;cursor:pointer;pointer-events:auto;border:2px solid #fff;}
+  .editor{position:absolute;z-index:8;width:230px;background:#fff;border:1px solid var(--border-2);border-radius:var(--rm);box-shadow:0 8px 24px rgba(0,0,0,.22);padding:9px;pointer-events:auto;}
+  .editor textarea{width:100%;border:1px solid var(--border);border-radius:6px;padding:6px;font-family:inherit;font-size:12px;resize:vertical;min-height:54px;}
+  .editor .erow{display:flex;gap:6px;margin-top:7px;}
+  .editor .esave{flex:1;background:var(--sky);border:0;color:#06243a;font-weight:600;font-size:12px;border-radius:6px;padding:6px;cursor:pointer;}
+  .editor .edel{background:none;border:1px solid var(--border-2);color:var(--text-2);font-size:12px;border-radius:6px;padding:6px 9px;cursor:pointer;}
+
+  svg.icon{stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;}
+
+  /* BeakerBot panel */
+  .bb-panel{width:340px;background:var(--surface);border:1px solid var(--border-2);border-radius:var(--r);box-shadow:0 4px 20px rgba(0,0,0,.12);position:relative;}
+  .bb-head{display:flex;align-items:center;gap:9px;padding:11px 13px;border-bottom:1px solid var(--border);}
+  .bb-avatar{width:26px;height:26px;border-radius:7px;background:var(--sky-chip);color:var(--sky-deep);display:inline-flex;align-items:center;justify-content:center;flex:none;}
+  .bb-name{font-size:14px;font-weight:600;flex:1;}
+  .bb-menu{color:var(--text-3);}
+  .bb-body{padding:11px 13px;display:flex;flex-direction:column;gap:10px;min-height:80px;}
+  .um{align-self:flex-end;max-width:90%;padding:7px 10px;border-radius:7px;background:var(--sunken);font-size:12px;line-height:1.5;}
+  .bm{font-size:12px;color:var(--text-2);line-height:1.6;}
+
+  /* steps panel */
+  .steps{border:1px solid var(--border);border-radius:var(--rm);overflow:hidden;}
+  .steps .st-head{display:flex;align-items:center;gap:7px;padding:7px 10px;background:var(--sunken);font-size:11px;font-weight:600;color:var(--text-2);}
+  .steps .st-head .done-pill{margin-left:auto;font-size:10px;color:var(--ok);background:var(--ok-bg);border-radius:999px;padding:1px 8px;font-weight:600;}
+  .st-row{display:flex;align-items:center;gap:8px;padding:6px 10px;font-size:12px;color:var(--text);border-top:1px solid var(--border);}
+  .st-row .dot{width:14px;height:14px;flex:none;color:var(--ok);}
+  .st-row .dot.run{color:var(--sky-deep);}
+  .st-row .dot.queued{color:var(--text-3);}
+  .st-tool{color:var(--text-3);font-size:11px;margin-left:auto;}
+  .save-macro{display:flex;align-items:center;justify-content:center;gap:6px;padding:8px 10px;border-top:1px solid var(--border);font-size:12px;font-weight:600;color:var(--macro);background:var(--macro-soft);}
+
+  /* slash menu */
+  .composer{display:flex;align-items:flex-end;gap:8px;padding:10px 12px;border-top:1px solid var(--border);}
+  .composer-inner{flex:1;border:1px solid var(--border-2);border-radius:var(--rm);position:relative;}
+  .composer-input{font-family:inherit;font-size:13px;color:var(--text);padding:8px 9px;min-height:32px;}
+  .composer-input .cur{color:var(--text-3);}
+  .send-btn{width:30px;height:30px;border-radius:7px;background:var(--sky);border:0;color:#06243a;display:inline-flex;align-items:center;justify-content:center;flex:none;}
+  .slash-menu{position:absolute;bottom:calc(100% + 4px);left:0;right:0;background:var(--surface);border:1px solid var(--border-2);border-radius:var(--rm);box-shadow:0 8px 28px rgba(0,0,0,.22);overflow:hidden;z-index:20;}
+  .smtitle{font-size:10px;letter-spacing:.05em;text-transform:uppercase;color:var(--text-3);padding:8px 11px 4px;display:flex;align-items:center;gap:6px;}
+  .slash-row{display:flex;align-items:center;gap:10px;padding:8px 11px;}
+  .slash-row.sel{background:var(--macro-soft);}
+  .slash-row .s-name{font-size:13px;font-weight:600;color:var(--sky-deep);width:118px;flex:none;}
+  .slash-row.macro .s-name{color:var(--macro);}
+  .slash-row .s-desc{font-size:12px;color:var(--text-2);flex:1;line-height:1.4;}
+  .mtag{font-size:9px;letter-spacing:.04em;text-transform:uppercase;color:var(--macro);background:var(--macro-chip);border-radius:4px;padding:1px 5px;font-weight:700;flex:none;}
+  .slash-foot{padding:6px 11px;border-top:1px solid var(--border);font-size:10px;color:var(--text-3);}
+
+  /* run / approval card */
+  .run-card{border:1px solid var(--macro);border-radius:var(--rm);overflow:hidden;background:#fff;}
+  .run-card .rc-head{display:flex;align-items:center;gap:8px;padding:9px 11px;background:var(--macro-soft);font-size:12px;font-weight:600;color:var(--macro);}
+  .run-card ol{margin:0;padding:9px 11px 9px 30px;font-size:12px;color:var(--text);line-height:1.7;}
+  .run-card .rc-actions{display:flex;gap:8px;padding:9px 11px;border-top:1px solid var(--border);}
+  .rc-run{flex:1;background:var(--macro);border:0;color:#fff;font-weight:600;font-size:12px;border-radius:6px;padding:7px;}
+  .rc-cancel{background:none;border:1px solid var(--border-2);color:var(--text-2);font-size:12px;border-radius:6px;padding:7px 12px;}
+
+  /* mid-run destructive confirm */
+  .confirm-card{border:1px solid #f0b4b4;border-radius:var(--rm);overflow:hidden;background:#fff;}
+  .confirm-card .cc-head{display:flex;align-items:center;gap:8px;padding:9px 11px;background:var(--danger-bg);font-size:12px;font-weight:600;color:var(--danger);}
+  .confirm-card .cc-body{padding:9px 11px;font-size:12px;color:var(--text);line-height:1.5;}
+  .confirm-card .cc-actions{display:flex;gap:8px;padding:9px 11px;border-top:1px solid var(--border);}
+  .cc-go{background:var(--danger);border:0;color:#fff;font-weight:600;font-size:12px;border-radius:6px;padding:7px 12px;}
+  .cc-skip{background:none;border:1px solid var(--border-2);color:var(--text-2);font-size:12px;border-radius:6px;padding:7px 12px;}
+
+  /* editor sheet */
+  .sheet{width:400px;background:var(--surface);border:1px solid var(--border-2);border-radius:var(--r);box-shadow:0 8px 30px rgba(0,0,0,.18);overflow:hidden;}
+  .sheet-head{display:flex;align-items:center;gap:9px;padding:12px 14px;border-bottom:1px solid var(--border);}
+  .sheet-head .sh-ico{width:26px;height:26px;border-radius:7px;background:var(--macro-chip);color:var(--macro);display:inline-flex;align-items:center;justify-content:center;flex:none;}
+  .sheet-head .sh-title{font-size:14px;font-weight:600;flex:1;}
+  .sheet-body{padding:13px 14px;display:flex;flex-direction:column;gap:13px;}
+  .field label{font-size:11px;font-weight:600;color:var(--text-2);display:block;margin-bottom:4px;}
+  .field .inp{border:1px solid var(--border-2);border-radius:6px;padding:7px 9px;font-size:12px;color:var(--text);background:var(--sunken);}
+  .field .inp .slash{color:var(--macro);font-weight:600;}
+  .steplist{display:flex;flex-direction:column;gap:6px;}
+  .se-row{display:flex;align-items:center;gap:8px;border:1px solid var(--border);border-radius:6px;padding:7px 9px;background:#fff;}
+  .se-row .grip{color:var(--text-3);}
+  .se-row .se-label{flex:1;font-size:12px;color:var(--text);}
+  .se-row .se-tool{font-size:10px;color:var(--text-3);background:var(--sunken);border-radius:4px;padding:1px 6px;}
+  .se-row .se-x{color:var(--text-3);}
+  .datemark{font-size:9px;color:var(--warn);background:var(--warn-bg);border-radius:4px;padding:1px 5px;font-weight:600;}
+  .addstep{border:1px dashed var(--border-2);border-radius:6px;padding:7px;text-align:center;font-size:12px;color:var(--text-2);}
+  .sheet-foot{display:flex;gap:8px;padding:11px 14px;border-top:1px solid var(--border);}
+  .sheet-foot .sf-save{flex:1;background:var(--macro);border:0;color:#fff;font-weight:600;font-size:13px;border-radius:7px;padding:8px;}
+  .sheet-foot .sf-cancel{background:none;border:1px solid var(--border-2);color:var(--text-2);font-size:13px;border-radius:7px;padding:8px 14px;}
+
+  /* manager */
+  .mgr{width:420px;background:var(--surface);border:1px solid var(--border-2);border-radius:var(--r);box-shadow:0 8px 30px rgba(0,0,0,.18);overflow:hidden;}
+  .mgr-head{display:flex;align-items:center;gap:9px;padding:12px 14px;border-bottom:1px solid var(--border);font-size:14px;font-weight:600;}
+  .mgr-head .newbtn{margin-left:auto;font-size:11px;font-weight:600;color:var(--macro);background:var(--macro-chip);border-radius:6px;padding:4px 9px;}
+  .mgr-sec{font-size:10px;letter-spacing:.05em;text-transform:uppercase;color:var(--text-3);padding:11px 14px 5px;}
+  .mgr-row{display:flex;align-items:center;gap:10px;padding:9px 14px;border-top:1px solid var(--border);}
+  .mgr-row .mr-ico{width:22px;height:22px;border-radius:6px;background:var(--macro-chip);color:var(--macro);display:inline-flex;align-items:center;justify-content:center;flex:none;}
+  .mgr-row .mr-name{font-size:13px;font-weight:600;color:var(--text);}
+  .mgr-row .mr-name .tk{color:var(--macro);}
+  .mgr-row .mr-desc{font-size:11px;color:var(--text-3);}
+  .mgr-row .mr-acts{margin-left:auto;display:flex;gap:6px;}
+  .mgr-row .mr-acts .a{font-size:11px;color:var(--text-2);border:1px solid var(--border-2);border-radius:5px;padding:3px 8px;}
+  .mgr-row .mr-acts .a.run{color:#fff;background:var(--macro);border-color:var(--macro);font-weight:600;}
+  .mgr-lab{padding:13px 14px;font-size:11px;color:var(--text-3);background:var(--sunken);display:flex;align-items:center;gap:8px;border-top:1px solid var(--border);}
+  .mgr-lab .soon{font-size:9px;letter-spacing:.04em;text-transform:uppercase;color:var(--text-2);background:#fff;border:1px solid var(--border-2);border-radius:4px;padding:1px 6px;font-weight:700;}
+</style>
+</head>
+<body>
+
+<svg width="0" height="0" aria-hidden="true" style="position:absolute"><defs>
+<linearGradient id="bbliq" x1="0" y1="0" x2="0" y2="1">
+  <stop offset="0%" stop-color="#FFD2B0"/><stop offset="25%" stop-color="#FFF1A8"/>
+  <stop offset="50%" stop-color="#B7EBB1"/><stop offset="75%" stop-color="#A6D2F4"/>
+  <stop offset="100%" stop-color="#D6B5F0"/>
+</linearGradient>
+<symbol id="bbmark" viewBox="8 3 24 31">
+  <path d="M 12 12 L 12 24 C 12 30, 16 32, 20 32 C 24 32, 28 30, 28 24 L 28 12 Z" fill="#fff" stroke="none"/>
+  <path d="M 12 19 Q 14 17.8, 16 19 T 20 19 T 24 19 T 28 19 L 28 24 C 28 30, 24 32, 20 32 C 16 32, 12 30, 12 24 L 12 19 Z" fill="url(#bbliq)" stroke="none"/>
+  <path d="M22 8 C 22 6, 24 4, 26 6" stroke="currentColor"/>
+  <path d="M12 12 L12 24 C 12 30, 16 32, 20 32 C 24 32, 28 30, 28 24 L28 12" stroke="currentColor"/>
+  <path d="M11 12 L29 12" stroke="currentColor"/>
+  <circle cx="17" cy="18" r="1.2" fill="currentColor" stroke="none"/>
+  <circle cx="23" cy="18" r="1.2" fill="currentColor" stroke="none"/>
+  <path d="M18 22 Q 20 24, 22 22" stroke="currentColor"/>
+</symbol>
+<symbol id="ic-macro" viewBox="0 0 24 24"><path d="M13 2 3 14h7l-1 8 10-12h-7z"/></symbol>
+<symbol id="ic-check" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></symbol>
+<symbol id="ic-spin" viewBox="0 0 24 24"><path d="M12 3a9 9 0 1 0 9 9"/></symbol>
+<symbol id="ic-dot" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/></symbol>
+<symbol id="ic-send" viewBox="0 0 24 24"><path d="M22 2 11 13M22 2 15 22l-4-9-9-4 20-7z"/></symbol>
+<symbol id="ic-warn" viewBox="0 0 24 24"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></symbol>
+<symbol id="ic-grip" viewBox="0 0 24 24"><circle cx="9" cy="6" r="1"/><circle cx="9" cy="12" r="1"/><circle cx="9" cy="18" r="1"/><circle cx="15" cy="6" r="1"/><circle cx="15" cy="12" r="1"/><circle cx="15" cy="18" r="1"/></symbol>
+<symbol id="ic-x" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></symbol>
+<symbol id="ic-plus" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></symbol>
+<symbol id="ic-menu" viewBox="0 0 24 24"><circle cx="5" cy="12" r="1.4"/><circle cx="12" cy="12" r="1.4"/><circle cx="19" cy="12" r="1.4"/></symbol>
+</defs></svg>
+
+<div class="topbar">
+  <span class="title">BeakerBot workflow macros, review</span>
+  <span class="sum" id="sum">0 approved &middot; 0 needs work &middot; 0 comments</span>
+  <button class="btn primary" id="exportBtn">Export feedback</button>
+</div>
+<div class="howto">
+  <b>To comment:</b> click anywhere on a mockup and a note box opens right there. Set <b>Approve</b> or <b>Needs work</b> per section. Then <b>Export</b>.
+</div>
+
+<div class="wrap" id="wrap">
+
+  <p class="lead">A workflow macro is a saved, named sequence of BeakerBot steps you replay with one command. It is the user-authored cousin of the plan card. Locked decisions, deterministic replay (the saved steps run in order under one approval, destructive steps still self-confirm), record-first authoring plus a hand editor, and personal macros now with lab-shared macros built into the shape for later. These five sections are the surfaces. Approve or flag each.</p>
+
+  <!-- SECTION 1: record from chat -->
+  <section class="rs" data-name="Record a macro from a chat">
+    <header>
+      <h3>1. Recording, save a finished run as a macro</h3>
+      <div class="seg" data-approve><button data-v="ok">Approve</button><button data-v="warn">Needs work</button></div>
+    </header>
+    <div class="mockwrap"><span class="hint">click to comment</span>
+    <div class="mock"><div class="stage">
+      <div class="bb-panel">
+        <div class="bb-head"><span class="bb-avatar"><svg class="icon" width="15" height="15" viewBox="0 0 24 24"><use href="#bbmark"/></svg></span><span class="bb-name">BeakerBot</span><span class="bb-menu"><svg class="icon" width="16" height="16" viewBox="0 0 24 24"><use href="#ic-menu"/></svg></span></div>
+        <div class="bb-body">
+          <div class="um">Pull this week's lab digest, draft a summary note, then set up next week's tasks</div>
+          <div class="bm">Done. Here is what I ran.</div>
+          <div class="steps">
+            <div class="st-head"><svg class="icon" width="13" height="13" viewBox="0 0 24 24" style="color:var(--ok)"><use href="#ic-check"/></svg> Steps <span class="done-pill">3 done</span></div>
+            <div class="st-row"><svg class="icon dot" width="14" height="14" viewBox="0 0 24 24"><use href="#ic-check"/></svg> Lab digest for this week <span class="st-tool">lab_digest</span></div>
+            <div class="st-row"><svg class="icon dot" width="14" height="14" viewBox="0 0 24 24"><use href="#ic-check"/></svg> Draft summary note <span class="st-tool">write_note</span></div>
+            <div class="st-row"><svg class="icon dot" width="14" height="14" viewBox="0 0 24 24"><use href="#ic-check"/></svg> Set up next week's tasks <span class="st-tool">setup_experiment</span></div>
+            <div class="save-macro"><svg class="icon" width="14" height="14" viewBox="0 0 24 24"><use href="#ic-macro"/></svg> Save these steps as a macro</div>
+          </div>
+        </div>
+      </div>
+    </div></div></div>
+    <p class="note">After any run, a "Save these steps as a macro" affordance appears on the steps panel. It captures the deterministic action and data tools that ran, in order, with their exact arguments. The navigation clicks between them are dropped so the macro is the meaningful steps. Clicking it opens the editor (section 4) pre-filled to name and trim before saving.</p>
+  </section>
+
+  <!-- SECTION 2: slash menu -->
+  <section class="rs" data-name="Invoking a macro from the slash menu">
+    <header>
+      <h3>2. Invoking, your macros live in the / menu</h3>
+      <div class="seg" data-approve><button data-v="ok">Approve</button><button data-v="warn">Needs work</button></div>
+    </header>
+    <div class="mockwrap"><span class="hint">click to comment</span>
+    <div class="mock"><div class="stage" style="align-items:flex-end;min-height:340px;">
+      <div class="bb-panel">
+        <div class="bb-head"><span class="bb-avatar"><svg class="icon" width="15" height="15" viewBox="0 0 24 24"><use href="#bbmark"/></svg></span><span class="bb-name">BeakerBot</span><span class="bb-menu"><svg class="icon" width="16" height="16" viewBox="0 0 24 24"><use href="#ic-menu"/></svg></span></div>
+        <div class="composer">
+          <div class="composer-inner">
+            <div class="slash-menu">
+              <div class="smtitle">Commands</div>
+              <div class="slash-row"><span class="s-name">/summarize</span><span class="s-desc">Summarize an object or date range.</span></div>
+              <div class="slash-row"><span class="s-name">/digest</span><span class="s-desc">Cross-type lab digest for a period.</span></div>
+              <div class="smtitle"><svg class="icon" width="11" height="11" viewBox="0 0 24 24" style="color:var(--macro)"><use href="#ic-macro"/></svg> Your macros</div>
+              <div class="slash-row macro sel"><span class="s-name">/monday-rollup</span><span class="s-desc">Digest, draft note, set up next week's tasks.</span><span class="mtag">macro</span></div>
+              <div class="slash-row macro"><span class="s-name">/qc-batch</span><span class="s-desc">Transform the latest plate table and plot the QC chart.</span><span class="mtag">macro</span></div>
+              <div class="slash-foot">Up / Down to move &middot; Enter to run &middot; macros run their saved steps</div>
+            </div>
+            <div class="composer-input">/m<span class="cur">|</span></div>
+          </div>
+          <button class="send-btn"><svg class="icon" width="15" height="15" viewBox="0 0 24 24"><use href="#ic-send"/></svg></button>
+        </div>
+      </div>
+    </div></div></div>
+    <p class="note">Macros appear in the same / menu as the six curated commands, in a separate "Your macros" group, tinted violet with a "macro" tag so a saved routine reads differently from a one-shot command. A curated command prefills the composer for the model to interpret. A macro is already fixed, so selecting it stages a run (section 3) instead of typing prose.</p>
+  </section>
+
+  <!-- SECTION 3: run card + mid-run destructive confirm -->
+  <section class="rs" data-name="The macro run card and mid-run confirm">
+    <header>
+      <h3>3. Running, one approval, destructive steps still self-confirm</h3>
+      <div class="seg" data-approve><button data-v="ok">Approve</button><button data-v="warn">Needs work</button></div>
+    </header>
+    <div class="mockwrap"><span class="hint">click to comment</span>
+    <div class="mock"><div class="stage" style="gap:16px;flex-wrap:wrap;">
+      <div class="bb-panel" style="width:320px;">
+        <div class="bb-body" style="padding-top:13px;">
+          <div class="run-card">
+            <div class="rc-head"><svg class="icon" width="14" height="14" viewBox="0 0 24 24"><use href="#ic-macro"/></svg> Run macro, /monday-rollup</div>
+            <ol><li>Lab digest for this week</li><li>Draft a summary note</li><li>Set up next week's tasks</li></ol>
+            <div class="rc-actions"><button class="rc-run">Run 3 steps</button><button class="rc-cancel">Cancel</button></div>
+          </div>
+        </div>
+      </div>
+      <div class="bb-panel" style="width:320px;">
+        <div class="bb-body" style="padding-top:13px;">
+          <div class="steps" style="margin-bottom:2px;">
+            <div class="st-head"><svg class="icon" width="13" height="13" viewBox="0 0 24 24" style="color:var(--sky-deep)"><use href="#ic-spin"/></svg> Running /monday-rollup</div>
+            <div class="st-row"><svg class="icon dot" width="14" height="14" viewBox="0 0 24 24"><use href="#ic-check"/></svg> Lab digest for this week <span class="st-tool">done</span></div>
+            <div class="st-row"><svg class="icon dot run" width="14" height="14" viewBox="0 0 24 24"><use href="#ic-spin"/></svg> Send digest to the lab channel <span class="st-tool">running</span></div>
+            <div class="st-row"><svg class="icon dot queued" width="14" height="14" viewBox="0 0 24 24"><use href="#ic-dot"/></svg> Set up next week's tasks <span class="st-tool">queued</span></div>
+          </div>
+          <div class="confirm-card">
+            <div class="cc-head"><svg class="icon" width="14" height="14" viewBox="0 0 24 24"><use href="#ic-warn"/></svg> This step sends something</div>
+            <div class="cc-body">Step 2 posts the digest to the lab channel. Macros never auto-send. Send it?</div>
+            <div class="cc-actions"><button class="cc-go">Send</button><button class="cc-skip">Skip this step</button></div>
+          </div>
+        </div>
+      </div>
+    </div></div></div>
+    <p class="note">Selecting a macro raises one Run card showing every step (left). On Run, the steps replay in order without re-asking (right). The one carve-out is the safety rule the plan card already enforces, a destructive or outward step (send, share, delete, pay) pops its own confirm at the moment it runs, even inside an approved macro. Skip drops just that step and continues. A failed step stops the run and says which one.</p>
+  </section>
+
+  <!-- SECTION 4: editor sheet -->
+  <section class="rs" data-name="The macro editor sheet">
+    <header>
+      <h3>4. Editing, name, reorder, trim, fix frozen dates</h3>
+      <div class="seg" data-approve><button data-v="ok">Approve</button><button data-v="warn">Needs work</button></div>
+    </header>
+    <div class="mockwrap"><span class="hint">click to comment</span>
+    <div class="mock"><div class="stage">
+      <div class="sheet">
+        <div class="sheet-head"><span class="sh-ico"><svg class="icon" width="15" height="15" viewBox="0 0 24 24"><use href="#ic-macro"/></svg></span><span class="sh-title">Edit macro</span></div>
+        <div class="sheet-body">
+          <div class="field"><label>Command name</label><div class="inp"><span class="slash">/</span>monday-rollup</div></div>
+          <div class="field"><label>Description</label><div class="inp">Digest, draft note, set up next week's tasks.</div></div>
+          <div class="field"><label>Steps, drag to reorder</label>
+            <div class="steplist">
+              <div class="se-row"><svg class="icon grip" width="15" height="15" viewBox="0 0 24 24"><use href="#ic-grip"/></svg><span class="se-label">Lab digest for this week <span class="datemark">fixed date</span></span><span class="se-tool">lab_digest</span><svg class="icon se-x" width="14" height="14" viewBox="0 0 24 24"><use href="#ic-x"/></svg></div>
+              <div class="se-row"><svg class="icon grip" width="15" height="15" viewBox="0 0 24 24"><use href="#ic-grip"/></svg><span class="se-label">Draft a summary note</span><span class="se-tool">write_note</span><svg class="icon se-x" width="14" height="14" viewBox="0 0 24 24"><use href="#ic-x"/></svg></div>
+              <div class="se-row"><svg class="icon grip" width="15" height="15" viewBox="0 0 24 24"><use href="#ic-grip"/></svg><span class="se-label">Set up next week's tasks</span><span class="se-tool">setup_experiment</span><svg class="icon se-x" width="14" height="14" viewBox="0 0 24 24"><use href="#ic-x"/></svg></div>
+              <div class="addstep"><svg class="icon" width="13" height="13" viewBox="0 0 24 24" style="vertical-align:-2px"><use href="#ic-plus"/></svg> Add step</div>
+            </div>
+          </div>
+        </div>
+        <div class="sheet-foot"><button class="sf-save">Save macro</button><button class="sf-cancel">Cancel</button></div>
+      </div>
+    </div></div></div>
+    <p class="note">The same sheet serves capture, edit, and author-from-scratch (empty step list plus Add step). Each step shows its underlying tool, can be reordered, relabeled, or removed. An argument that froze a date at record time gets a "fixed date" marker so the freeze is visible and changeable, this is the honest face of deterministic replay. Smart relative dates that re-resolve each run are a planned fast-follow, not v1.</p>
+  </section>
+
+  <!-- SECTION 5: manager -->
+  <section class="rs" data-name="The macros manager">
+    <header>
+      <h3>5. Managing, your macros now, lab macros later</h3>
+      <div class="seg" data-approve><button data-v="ok">Approve</button><button data-v="warn">Needs work</button></div>
+    </header>
+    <div class="mockwrap"><span class="hint">click to comment</span>
+    <div class="mock"><div class="stage">
+      <div class="mgr">
+        <div class="mgr-head"><svg class="icon" width="16" height="16" viewBox="0 0 24 24" style="color:var(--macro)"><use href="#ic-macro"/></svg> Macros <span class="newbtn"><svg class="icon" width="11" height="11" viewBox="0 0 24 24" style="vertical-align:-1px"><use href="#ic-plus"/></svg> New macro</span></div>
+        <div class="mgr-sec">Your macros</div>
+        <div class="mgr-row"><span class="mr-ico"><svg class="icon" width="13" height="13" viewBox="0 0 24 24"><use href="#ic-macro"/></svg></span><div><div class="mr-name"><span class="tk">/</span>monday-rollup</div><div class="mr-desc">3 steps &middot; digest, note, tasks</div></div><div class="mr-acts"><span class="a run">Run</span><span class="a">Edit</span><span class="a">Duplicate</span><span class="a">Delete</span></div></div>
+        <div class="mgr-row"><span class="mr-ico"><svg class="icon" width="13" height="13" viewBox="0 0 24 24"><use href="#ic-macro"/></svg></span><div><div class="mr-name"><span class="tk">/</span>qc-batch</div><div class="mr-desc">2 steps &middot; transform, plot</div></div><div class="mr-acts"><span class="a run">Run</span><span class="a">Edit</span><span class="a">Duplicate</span><span class="a">Delete</span></div></div>
+        <div class="mgr-lab"><svg class="icon" width="14" height="14" viewBox="0 0 24 24" style="color:var(--text-3)"><use href="#ic-macro"/></svg> Lab macros, a PI can share a macro with the whole lab <span class="soon">coming soon</span></div>
+      </div>
+    </div></div></div>
+    <p class="note">A Macros view lists your saved macros with Run, Edit, Duplicate, and Delete (delete trashes, recoverable, never a hard delete). The disabled "Lab macros" row makes the personal-first, lab-next path visible and reserves the home for it. Stored per-user in the connected folder at users/&lt;u&gt;/beakerbot_macros, mirroring how chats persist, with a scope field already in the shape so lab sharing needs no migration.</p>
+  </section>
+
+</div>
+
+<script>
+(function(){
+  var comments = []; var counter = 0;
+  var sections = [].slice.call(document.querySelectorAll('.rs'));
+
+  sections.forEach(function(sec){
+    var seg = sec.querySelector('[data-approve]');
+    seg.querySelectorAll('button').forEach(function(b){
+      b.addEventListener('click', function(){
+        var v = b.getAttribute('data-v');
+        var already = b.classList.contains('on-' + v);
+        seg.querySelectorAll('button').forEach(function(x){ x.classList.remove('on-ok','on-warn'); });
+        if (!already){ b.classList.add('on-' + v); sec.dataset.state = v; }
+        else { delete sec.dataset.state; }
+        renderSum();
+      });
+    });
+  });
+
+  document.querySelectorAll('.mock').forEach(function(mock){
+    mock.addEventListener('click', function(e){
+      if (e.target.closest('.pin') || e.target.closest('.editor')) return;
+      var rect = mock.getBoundingClientRect();
+      var x = ((e.clientX - rect.left) / rect.width) * 100;
+      var y = ((e.clientY - rect.top) / rect.height) * 100;
+      counter++;
+      var c = { id: counter, section: mock.closest('.rs').getAttribute('data-name'), text: '', x: x, y: y, mock: mock };
+      comments.push(c);
+      var pin = document.createElement('div');
+      pin.className = 'pin'; pin.textContent = c.id;
+      pin.style.left = x + '%'; pin.style.top = y + '%';
+      pin.addEventListener('click', function(ev){ ev.stopPropagation(); openEditor(c, pin); });
+      mock.appendChild(pin); c.pin = pin;
+      openEditor(c, pin); renderSum();
+    });
+  });
+
+  function openEditor(c, pin){
+    document.querySelectorAll('.editor').forEach(function(e){ e.remove(); });
+    var ed = document.createElement('div');
+    ed.className = 'editor';
+    ed.style.left = Math.min(c.x, 72) + '%';
+    ed.style.top = Math.min(c.y + 4, 80) + '%';
+    ed.innerHTML = '<textarea placeholder="Your note on this..."></textarea><div class="erow"><button class="esave">Save</button><button class="edel">Delete</button></div>';
+    var ta = ed.querySelector('textarea');
+    ta.value = c.text;
+    ta.addEventListener('input', function(){ c.text = ta.value; renderSum(); });
+    ed.querySelector('.esave').addEventListener('click', function(){ c.text = ta.value; ed.remove(); renderSum(); });
+    ed.querySelector('.edel').addEventListener('click', function(){
+      if (c.pin && c.pin.parentNode) c.pin.parentNode.removeChild(c.pin);
+      comments = comments.filter(function(x){ return x.id !== c.id; });
+      ed.remove(); renderSum();
+    });
+    c.mock.appendChild(ed);
+    setTimeout(function(){ ta.focus(); }, 0);
+  }
+
+  function renderSum(){
+    var ok = 0, warn = 0;
+    sections.forEach(function(s){ if (s.dataset.state === 'ok') ok++; else if (s.dataset.state === 'warn') warn++; });
+    var withText = comments.filter(function(c){ return c.text.trim(); }).length;
+    document.getElementById('sum').innerHTML = ok + ' approved &middot; ' + warn + ' needs work &middot; ' + withText + ' comments';
+  }
+
+  document.getElementById('exportBtn').addEventListener('click', function(){
+    var lines = ['# BeakerBot workflow macros, review feedback', '', 'Date: ' + new Date().toString(), ''];
+    sections.forEach(function(s){
+      var name = s.getAttribute('data-name');
+      var state = s.dataset.state === 'ok' ? 'APPROVED' : s.dataset.state === 'warn' ? 'NEEDS WORK' : 'undecided';
+      lines.push('## ' + name + '  [' + state + ']');
+      var mine = comments.filter(function(c){ return c.section === name && c.text.trim(); });
+      if (!mine.length) lines.push('(no comments)');
+      else mine.forEach(function(c){ lines.push('- #' + c.id + ': ' + c.text.trim()); });
+      lines.push('');
+    });
+    var blob = new Blob([lines.join('\n')], { type: 'text/markdown' });
+    var a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'beakerbot-workflow-macros-feedback.md';
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  });
+
+  renderSum();
+})();
+</script>
+</body>
+</html>
