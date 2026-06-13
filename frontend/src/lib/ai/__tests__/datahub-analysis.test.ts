@@ -6,6 +6,7 @@ import type {
 } from "@/lib/datahub/model/types";
 import { runAnalysis } from "@/lib/datahub/run-analysis";
 import { planAnalysis } from "@/lib/datahub/planner";
+import { buildEmptyNestedTable } from "@/lib/datahub/nested-table";
 
 // Pins for BeakerBot's Data Hub analysis tools. The pure mapping + planning
 // functions are tested directly against built content, so no folder and no Loro
@@ -56,6 +57,13 @@ import {
   buildContingency,
   describeContingency,
   runContingencyTool,
+  parseNestedArgs,
+  buildNestedTTest,
+  buildNestedAnova,
+  describeNestedTTest,
+  describeNestedAnova,
+  runNestedTTestTool,
+  runNestedAnovaTool,
   parseRocCurveArgs,
   buildRocCurve,
   describeRocCurve,
@@ -1547,6 +1555,137 @@ describe("run_contingency tool", () => {
   it("returns an error when no tableId is given", async () => {
     const result = (await runContingencyTool.execute({})) as { ok: boolean };
     expect(result.ok).toBe(false);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// run_nested_ttest + run_nested_anova (Nested table)
+// ---------------------------------------------------------------------------
+
+// Build a Nested table with `groups` top-level groups, 2 subgroups each, 4
+// replicates, filled with a clear group effect plus subgroup clustering so the
+// REML fit is well-conditioned.
+function nestedContent(groups: number): DataHubDocContent {
+  const { columns, rows } = buildEmptyNestedTable(groups, 2, 4);
+  let g = -1;
+  let sInGroup = 0;
+  let lastDataset = "";
+  // Walk columns in declared order (group by group, subgroup by subgroup).
+  const filledRows = rows.map((row, i) => {
+    const cells: Record<string, number> = {};
+    g = -1;
+    lastDataset = "";
+    sInGroup = 0;
+    for (const col of columns) {
+      if (col.datasetId !== lastDataset) {
+        g += 1;
+        sInGroup = 0;
+        lastDataset = col.datasetId ?? "";
+      } else {
+        sInGroup += 1;
+      }
+      // group effect (g*5) + subgroup offset (sInGroup*0.7) + replicate noise.
+      cells[col.id] = g * 5 + sInGroup * 0.7 + (i % 4) * 0.4 + (i * g) * 0.05;
+    }
+    return { id: row.id, cells };
+  });
+  return {
+    meta: meta({ id: "13", name: "Nested replicates", table_type: "nested" }),
+    columns,
+    rows: filledRows,
+    analyses: [],
+    plots: [],
+  };
+}
+
+describe("parseNestedArgs", () => {
+  it("reads just the tableId", () => {
+    expect(parseNestedArgs({ tableId: "13", foo: "bar" })).toEqual({ tableId: "13" });
+  });
+});
+
+describe("buildNestedTTest", () => {
+  it("builds a nestedTTest spec and relays the engine's estimate + p + variance", () => {
+    const content = nestedContent(2);
+    const built = buildNestedTTest(content);
+    expect(built.ok).toBe(true);
+    if (!built.ok) return;
+    expect(built.spec.type).toBe("nestedTTest");
+    expect(built.spec.params).toEqual({});
+    const ref = runAnalysis(built.spec, content);
+    expect(ref.ok && ref.kind === "nestedTTest").toBe(true);
+    if (!ref.ok || ref.kind !== "nestedTTest") return;
+    expect(built.result.nested.estimate).toBe(ref.estimate);
+    expect(built.result.nested.pValue).toBe(ref.pValue);
+    expect(built.result.nested.subgroupVariance).toBe(ref.subgroupVariance);
+    expect(built.result.observations).toBe(ref.observations);
+  });
+
+  it("rejects a table that is not a nested table", () => {
+    const built = buildNestedTTest(twoGroupContent());
+    expect(built.ok).toBe(false);
+    if (built.ok) return;
+    expect(built.error).toMatch(/Nested table/i);
+  });
+});
+
+describe("buildNestedAnova", () => {
+  it("builds a nestedOneWayAnova spec and relays the engine's F + p + method", () => {
+    const content = nestedContent(3);
+    const built = buildNestedAnova(content);
+    expect(built.ok).toBe(true);
+    if (!built.ok) return;
+    expect(built.spec.type).toBe("nestedOneWayAnova");
+    const ref = runAnalysis(built.spec, content);
+    expect(ref.ok && ref.kind === "nestedOneWayAnova").toBe(true);
+    if (!ref.ok || ref.kind !== "nestedOneWayAnova") return;
+    expect(built.result.nested.f).toBe(ref.f);
+    expect(built.result.nested.pValue).toBe(ref.pValue);
+    expect(built.result.nested.method).toBe(ref.method);
+  });
+});
+
+describe("describeNested", () => {
+  it("nested t-test emits a stepPayload even when not cached", () => {
+    const { summary, stepPayload } = describeNestedTTest({ tableId: "999" });
+    expect(summary).toMatch(/nested t-test/i);
+    expect(stepPayload?.steps[0].kind).toBe("run_nested_ttest");
+  });
+  it("nested anova names the table when cached", () => {
+    cacheTableContent("13", nestedContent(3));
+    const { summary, stepPayload } = describeNestedAnova({ tableId: "13" });
+    expect(summary).toMatch(/nested one-way ANOVA/i);
+    expect(summary).toMatch(/Nested replicates/);
+    expect(stepPayload).toBeDefined();
+  });
+});
+
+describe("run_nested tools", () => {
+  it("both are previewable, not gated actions", () => {
+    expect(runNestedTTestTool.previewable).toBe(true);
+    expect(runNestedTTestTool.action).toBeFalsy();
+    expect(runNestedAnovaTool.previewable).toBe(true);
+    expect(runNestedAnovaTool.action).toBeFalsy();
+  });
+
+  it("nested t-test stores and navigates", async () => {
+    vi.spyOn(datahubAnalysisDeps, "resolveContent").mockResolvedValue(nestedContent(2));
+    const persist = vi.spyOn(datahubAnalysisDeps, "persistAnalysis").mockResolvedValue(true);
+    const navigate = vi.spyOn(datahubAnalysisDeps, "navigate").mockImplementation(() => {});
+    const result = (await runNestedTTestTool.execute({ tableId: "13" })) as {
+      ok: boolean;
+      analysisId?: string;
+    };
+    expect(result.ok).toBe(true);
+    expect(persist).toHaveBeenCalled();
+    expect(navigate).toHaveBeenCalledWith(
+      expect.stringContaining(`/datahub?doc=13&analysis=${(result as { analysisId: string }).analysisId}`),
+    );
+  });
+
+  it("returns an error when no tableId is given", async () => {
+    expect(((await runNestedTTestTool.execute({})) as { ok: boolean }).ok).toBe(false);
+    expect(((await runNestedAnovaTool.execute({})) as { ok: boolean }).ok).toBe(false);
   });
 });
 

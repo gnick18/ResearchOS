@@ -57,6 +57,8 @@ import {
   runMixedModelTool,
   runGrubbsOutliersTool,
   runContingencyTool,
+  runNestedTTestTool,
+  runNestedAnovaTool,
   listDataHubAnalysesTool,
   readDataHubAnalysisTool,
   getAnalysisCodeTool,
@@ -157,6 +159,8 @@ export const READ_ONLY_TOOLS: AiTool[] = [
   runMixedModelTool,
   runGrubbsOutliersTool,
   runContingencyTool,
+  runNestedTTestTool,
+  runNestedAnovaTool,
   // Non-gated for the same reason. make_datahub_graph builds a reversible,
   // version-controlled figure the user explicitly asked for (and whose graph type
   // / error bar they may have tapped through ask_user) through the validated plot

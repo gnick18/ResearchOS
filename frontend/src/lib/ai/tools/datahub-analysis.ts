@@ -51,6 +51,7 @@ import { groupColumns } from "@/lib/datahub/column-table";
 import { isXYTable, yColumns } from "@/lib/datahub/xy-table";
 import { survivalGroups, hasSurvivalData } from "@/lib/datahub/survival-table";
 import { hasContingencyData, isContingencyTable } from "@/lib/datahub/contingency-table";
+import { hasNestedData, isNestedTable } from "@/lib/datahub/nested-table";
 import { getModel, listModels } from "@/lib/datahub/engine";
 import { planAnalysis, type AnalysisIntent } from "@/lib/datahub/planner";
 import {
@@ -2283,6 +2284,258 @@ export const runContingencyTool: AiTool = {
     }
     datahubAnalysisDeps.navigate(`/datahub?doc=${parsed.tableId}&analysis=${built.result.analysisId}`);
     return built.result satisfies ContingencyToolResult;
+  },
+};
+
+// ---------------------------------------------------------------------------
+// run_nested_ttest + run_nested_anova (Nested table, read whole, no params)
+// ---------------------------------------------------------------------------
+
+/** The model-supplied args for the nested tools. A Nested table is read whole
+ *  (groups of subgroups of replicates), so there is nothing to pick but the
+ *  table. */
+export type NestedArgs = { tableId: string };
+
+export function parseNestedArgs(args: Record<string, unknown>): NestedArgs {
+  return { tableId: typeof args.tableId === "string" ? args.tableId : "" };
+}
+
+/** The compact result run_nested_ttest relays. The engine computed every number;
+ *  the model only repeats them. */
+export type NestedTTestToolResult =
+  | {
+      ok: true;
+      table: string;
+      observations: number;
+      subgroups: number;
+      nested: Extract<RunOutcome, { kind: "nestedTTest" }>;
+      analysisId: string;
+    }
+  | { ok: false; error: string };
+
+/** The compact result run_nested_anova relays. */
+export type NestedAnovaToolResult =
+  | {
+      ok: true;
+      table: string;
+      observations: number;
+      subgroups: number;
+      nested: Extract<RunOutcome, { kind: "nestedOneWayAnova" }>;
+      analysisId: string;
+    }
+  | { ok: false; error: string };
+
+const NESTED_NOT_NESTED_ERROR =
+  "A nested analysis runs on a Nested table (top-level groups, each holding subgroups, each holding replicate values), and that table is not a nested table with data. Pick a Nested table.";
+
+/** Build a nestedTTest spec and run it. A Nested table is read whole, so there
+ *  are no input columns and no params. Pure given the content. */
+export function buildNestedTTest(
+  content: DataHubDocContent,
+):
+  | { ok: true; spec: AnalysisSpec; result: Extract<NestedTTestToolResult, { ok: true }> }
+  | { ok: false; error: string } {
+  if (!isNestedTable(content) || !hasNestedData(content)) {
+    return { ok: false, error: NESTED_NOT_NESTED_ERROR };
+  }
+  const spec: AnalysisSpec = {
+    id: `analysis-${Date.now()}`,
+    type: "nestedTTest",
+    params: {},
+    inputs: { columnIds: [] },
+    resultCache: null,
+    resultStale: false,
+  };
+  const outcome = runAnalysis(spec, content);
+  if (!outcome.ok) return { ok: false, error: outcome.error };
+  if (outcome.kind !== "nestedTTest") {
+    return { ok: false, error: "The engine did not return a nested t-test." };
+  }
+  spec.resultCache = outcome;
+  return {
+    ok: true,
+    spec,
+    result: {
+      ok: true,
+      table: content.meta.name,
+      observations: outcome.observations,
+      subgroups: outcome.subgroups,
+      nested: outcome,
+      analysisId: spec.id,
+    },
+  };
+}
+
+/** Build a nestedOneWayAnova spec and run it. Read whole, no params. */
+export function buildNestedAnova(
+  content: DataHubDocContent,
+):
+  | { ok: true; spec: AnalysisSpec; result: Extract<NestedAnovaToolResult, { ok: true }> }
+  | { ok: false; error: string } {
+  if (!isNestedTable(content) || !hasNestedData(content)) {
+    return { ok: false, error: NESTED_NOT_NESTED_ERROR };
+  }
+  const spec: AnalysisSpec = {
+    id: `analysis-${Date.now()}`,
+    type: "nestedOneWayAnova",
+    params: {},
+    inputs: { columnIds: [] },
+    resultCache: null,
+    resultStale: false,
+  };
+  const outcome = runAnalysis(spec, content);
+  if (!outcome.ok) return { ok: false, error: outcome.error };
+  if (outcome.kind !== "nestedOneWayAnova") {
+    return { ok: false, error: "The engine did not return a nested ANOVA." };
+  }
+  spec.resultCache = outcome;
+  return {
+    ok: true,
+    spec,
+    result: {
+      ok: true,
+      table: content.meta.name,
+      observations: outcome.observations,
+      subgroups: outcome.subgroups,
+      nested: outcome,
+      analysisId: spec.id,
+    },
+  };
+}
+
+export function describeNestedTTest(args: Record<string, unknown>): {
+  summary: string;
+  stepPayload?: StepApprovalRequest;
+} {
+  const content = getCachedTableContent(parseNestedArgs(args).tableId);
+  const where = content ? ` on ${content.meta.name}` : "";
+  return {
+    summary: `run a nested t-test${where}`,
+    stepPayload: stepPayloadFor({
+      toolName: "run_nested_ttest",
+      iconName: "chart",
+      title: "Run a nested t-test",
+      ...(content ? { subtitle: `on ${content.meta.name}` } : {}),
+      name: "Nested t-test",
+      blurb: "Compare two groups while accounting for subgroup clustering.",
+      params: content ? [{ label: "Table", value: content.meta.name }] : [],
+      previewLines: ["Reports the difference with CI, the variance components, and the test that respects the nesting."],
+    }),
+  };
+}
+
+export function describeNestedAnova(args: Record<string, unknown>): {
+  summary: string;
+  stepPayload?: StepApprovalRequest;
+} {
+  const content = getCachedTableContent(parseNestedArgs(args).tableId);
+  const where = content ? ` on ${content.meta.name}` : "";
+  return {
+    summary: `run a nested one-way ANOVA${where}`,
+    stepPayload: stepPayloadFor({
+      toolName: "run_nested_anova",
+      iconName: "chart",
+      title: "Run a nested one-way ANOVA",
+      ...(content ? { subtitle: `on ${content.meta.name}` } : {}),
+      name: "Nested one-way ANOVA",
+      blurb: "Compare three or more groups against their subgroup-level variation.",
+      params: content ? [{ label: "Table", value: content.meta.name }] : [],
+      previewLines: ["Reports the omnibus F with its df and p, the variance components, and whether the design is balanced."],
+    }),
+  };
+}
+
+export const runNestedTTestTool: AiTool = {
+  name: "run_nested_ttest",
+  description:
+    "Run a nested (hierarchical) t-test on a Nested table, store the result, and take the user to it. Use this when the user compares TWO groups whose measurements are clustered in subgroups (technical replicates within biological replicates, cells within animals, wells within plates), so the replicates are not independent and a plain t-test would pseudo-replicate. The table must be a Nested table (top-level groups, each holding subgroups, each holding replicate values) with exactly two top-level groups. Call list_datahub_tables first to get the table id. The table is read whole, there is nothing to pick but the table id. The engine fits a random-intercept model by REML and reports the group difference with its 95% CI, the z and p that respect the nesting, the between-subgroup and within-subgroup variance components, and the subgroup and observation counts. You NEVER compute a difference, a p-value, or a variance component, the engine does. This runs straight away, there is NO separate approval step, so do not call propose_plan for it. It saves the result as a version-controlled analysis, navigates the user to the Data Hub so they see it, and returns the fit. After it returns, give ONE short line, the difference with its CI and the p, and note the variance is split into a subgroup and a residual component. Never invent a number, only repeat what this returns.",
+  parameters: {
+    type: "object",
+    properties: {
+      tableId: {
+        type: "string",
+        description: "The id of the Nested Data Hub table to test, from a list_datahub_tables result.",
+      },
+    },
+    required: ["tableId"],
+    additionalProperties: false,
+  },
+  previewable: true,
+  describeAction: describeNestedTTest,
+  execute: async (args) => {
+    const parsed = parseNestedArgs(args);
+    if (!parsed.tableId) {
+      return {
+        ok: false,
+        error: "No table was given. Call list_datahub_tables first and pass the Nested table id.",
+      } satisfies NestedTTestToolResult;
+    }
+    const content = await datahubAnalysisDeps.resolveContent(parsed.tableId);
+    if (!content) {
+      return {
+        ok: false,
+        error: "I could not open that table. It may have been deleted, or the id is wrong.",
+      } satisfies NestedTTestToolResult;
+    }
+    cacheTableContent(parsed.tableId, content);
+    const built = buildNestedTTest(content);
+    if (!built.ok) return { ok: false, error: built.error } satisfies NestedTTestToolResult;
+    const stored = await datahubAnalysisDeps.persistAnalysis(parsed.tableId, built.spec);
+    if (!stored) {
+      return {
+        ok: false,
+        error: "The nested t-test computed but could not be saved to the table. The result is not stored.",
+      } satisfies NestedTTestToolResult;
+    }
+    datahubAnalysisDeps.navigate(`/datahub?doc=${parsed.tableId}&analysis=${built.result.analysisId}`);
+    return built.result satisfies NestedTTestToolResult;
+  },
+};
+
+export const runNestedAnovaTool: AiTool = {
+  name: "run_nested_anova",
+  description:
+    "Run a nested (hierarchical) one-way ANOVA on a Nested table, store the result, and take the user to it. Use this when the user compares THREE OR MORE groups whose measurements are clustered in subgroups (technical replicates within biological replicates, cells within animals), so the omnibus must test the group effect against the subgroup-level variation rather than pseudo-replicating. The table must be a Nested table (top-level groups, each holding subgroups, each holding replicate values) with three or more top-level groups. Call list_datahub_tables first to get the table id. The table is read whole, there is nothing to pick but the table id. A balanced design uses the exact classic random-effects F (group mean square over the subgroup-within-group mean square); an unbalanced design falls back to a REML mixed-model omnibus, and the engine reports which route it used. It returns the omnibus F with its two df and p, the classic nested-ANOVA table, the between-subgroup and within-subgroup variance components, and the subgroup and observation counts. You NEVER compute an F, a p-value, or a variance component, the engine does. This runs straight away, there is NO separate approval step, so do not call propose_plan for it. It saves the result as a version-controlled analysis, navigates the user to the Data Hub so they see it, and returns the fit. After it returns, give ONE short line, the F with its df and p and whether the design was balanced (the classic-F or mixed-model route), and that the variance is split into a subgroup and a residual component. Never invent a number, only repeat what this returns.",
+  parameters: {
+    type: "object",
+    properties: {
+      tableId: {
+        type: "string",
+        description: "The id of the Nested Data Hub table to test, from a list_datahub_tables result.",
+      },
+    },
+    required: ["tableId"],
+    additionalProperties: false,
+  },
+  previewable: true,
+  describeAction: describeNestedAnova,
+  execute: async (args) => {
+    const parsed = parseNestedArgs(args);
+    if (!parsed.tableId) {
+      return {
+        ok: false,
+        error: "No table was given. Call list_datahub_tables first and pass the Nested table id.",
+      } satisfies NestedAnovaToolResult;
+    }
+    const content = await datahubAnalysisDeps.resolveContent(parsed.tableId);
+    if (!content) {
+      return {
+        ok: false,
+        error: "I could not open that table. It may have been deleted, or the id is wrong.",
+      } satisfies NestedAnovaToolResult;
+    }
+    cacheTableContent(parsed.tableId, content);
+    const built = buildNestedAnova(content);
+    if (!built.ok) return { ok: false, error: built.error } satisfies NestedAnovaToolResult;
+    const stored = await datahubAnalysisDeps.persistAnalysis(parsed.tableId, built.spec);
+    if (!stored) {
+      return {
+        ok: false,
+        error: "The nested ANOVA computed but could not be saved to the table. The result is not stored.",
+      } satisfies NestedAnovaToolResult;
+    }
+    datahubAnalysisDeps.navigate(`/datahub?doc=${parsed.tableId}&analysis=${built.result.analysisId}`);
+    return built.result satisfies NestedAnovaToolResult;
   },
 };
 
