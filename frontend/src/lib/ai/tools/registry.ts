@@ -129,6 +129,7 @@ import {
   assembleGibsonTool,
   digestLigateTool,
 } from "./cloning-tools";
+import { assembleTreeFastaTool } from "./assemble-tree-fasta";
 import type { AiTool } from "./types";
 
 // The read-only toolset, read-only with respect to the user's data. Exported on
@@ -405,6 +406,11 @@ export const ACTION_TOOLS: AiTool[] = [
   extractFeatureTool,
   assembleGibsonTool,
   digestLigateTool,
+  // assemble_tree_fasta (output 3 input binding): fetches the user's library
+  // sequences by id, assembles a raw multi-FASTA, and delivers it as a browser
+  // download in the Allow-gesture window so the user can run a generate_tree
+  // recipe on it. Reads sequences, never writes them; the download is reversible.
+  assembleTreeFastaTool,
 ];
 
 // The coordination toolset. These tools neither read the user's data nor act on
