@@ -1,11 +1,1085 @@
 {
-  "pending": true,
+  "pending": false,
   "tree": "hpv58",
   "layout": "rectangular",
   "oracle": "ggtree",
-  "ggtreeVersion": "PENDING",
-  "tipCount": 0,
-  "nodeCount": 0,
-  "note": "PLACEHOLDER. Replace by running scripts/gen-phylo-ggtree-golden.R in a real R + ggtree environment, then commit the regenerated file (pending becomes false). The phylo-plots gate stays skipped until every seeded tree golden has pending = false.",
-  "nodes": []
+  "ggtreeVersion": "3.6.2",
+  "tipCount": 90,
+  "nodeCount": 179,
+  "nodes": [
+    {
+      "label": "SC144|FJ385264",
+      "x": 0.00814,
+      "y": 54,
+      "isTip": true
+    },
+    {
+      "label": "PPH58|D90400",
+      "x": 0.00746,
+      "y": 57,
+      "isTip": true
+    },
+    {
+      "label": "SC165|FJ385265",
+      "x": 0.00788,
+      "y": 58,
+      "isTip": true
+    },
+    {
+      "label": "SC147|FJ385263",
+      "x": 0.00787,
+      "y": 59,
+      "isTip": true
+    },
+    {
+      "label": "SC100|FJ385261",
+      "x": 0.00814,
+      "y": 55,
+      "isTip": true
+    },
+    {
+      "label": "LZCC86|EU918765",
+      "x": 0.00827,
+      "y": 56,
+      "isTip": true
+    },
+    {
+      "label": "SC78|FJ385268",
+      "x": 0.00893,
+      "y": 60,
+      "isTip": true
+    },
+    {
+      "label": "QE00190|KY225919",
+      "x": 0.0093,
+      "y": 61,
+      "isTip": true
+    },
+    {
+      "label": "TW00060|KY225918",
+      "x": 0.00942,
+      "y": 62,
+      "isTip": true
+    },
+    {
+      "label": "CNZJ3|KC860270",
+      "x": 0.00956,
+      "y": 63,
+      "isTip": true
+    },
+    {
+      "label": "SC101|FJ385262",
+      "x": 0.00983,
+      "y": 64,
+      "isTip": true
+    },
+    {
+      "label": "SC174|FJ385266",
+      "x": 0.0101,
+      "y": 65,
+      "isTip": true
+    },
+    {
+      "label": "SC185|FJ385267",
+      "x": 0.00996,
+      "y": 66,
+      "isTip": true
+    },
+    {
+      "label": "ZWE058771|KY225920",
+      "x": 0.00786,
+      "y": 52,
+      "isTip": true
+    },
+    {
+      "label": "ZWE047402|KY225921",
+      "x": 0.008,
+      "y": 53,
+      "isTip": true
+    },
+    {
+      "label": "QV00861|HQ537755",
+      "x": 0.00953,
+      "y": 67,
+      "isTip": true
+    },
+    {
+      "label": "QE01538|KY225934",
+      "x": 0.0087,
+      "y": 68,
+      "isTip": true
+    },
+    {
+      "label": "KORK01712|KY225922",
+      "x": 0.00884,
+      "y": 69,
+      "isTip": true
+    },
+    {
+      "label": "KORK03505|KY225923",
+      "x": 0.00884,
+      "y": 70,
+      "isTip": true
+    },
+    {
+      "label": "JP0221|AB819275",
+      "x": 0.00858,
+      "y": 71,
+      "isTip": true
+    },
+    {
+      "label": "QV03554|HQ537754",
+      "x": 0.01089,
+      "y": 72,
+      "isTip": true
+    },
+    {
+      "label": "JP1352|AB819278",
+      "x": 0.00871,
+      "y": 73,
+      "isTip": true
+    },
+    {
+      "label": "RW791|HQ537753",
+      "x": 0.00899,
+      "y": 74,
+      "isTip": true
+    },
+    {
+      "label": "ZWE052265|KY225924",
+      "x": 0.00899,
+      "y": 75,
+      "isTip": true
+    },
+    {
+      "label": "ZWE051406|KY225925",
+      "x": 0.00926,
+      "y": 76,
+      "isTip": true
+    },
+    {
+      "label": "CNZJ1|KC860269",
+      "x": 0.00857,
+      "y": 80,
+      "isTip": true
+    },
+    {
+      "label": "KORK00020|KY225926",
+      "x": 0.00926,
+      "y": 83,
+      "isTip": true
+    },
+    {
+      "label": "KORK00038|KY225927",
+      "x": 0.00913,
+      "y": 84,
+      "isTip": true
+    },
+    {
+      "label": "KORK00643|KY225928",
+      "x": 0.00926,
+      "y": 85,
+      "isTip": true
+    },
+    {
+      "label": "JP0891|AB819277",
+      "x": 0.00885,
+      "y": 81,
+      "isTip": true
+    },
+    {
+      "label": "CNZJ2|KC860271",
+      "x": 0.00885,
+      "y": 82,
+      "isTip": true
+    },
+    {
+      "label": "KORK00053|KY225929",
+      "x": 0.00885,
+      "y": 86,
+      "isTip": true
+    },
+    {
+      "label": "KORK02118|KY225930",
+      "x": 0.00885,
+      "y": 87,
+      "isTip": true
+    },
+    {
+      "label": "KORK00421|KY225931",
+      "x": 0.00885,
+      "y": 88,
+      "isTip": true
+    },
+    {
+      "label": "JP0302|AB819276",
+      "x": 0.00899,
+      "y": 89,
+      "isTip": true
+    },
+    {
+      "label": "KORK00025|KY225932",
+      "x": 0.00899,
+      "y": 90,
+      "isTip": true
+    },
+    {
+      "label": "QV15606|HQ537752",
+      "x": 0.00844,
+      "y": 77,
+      "isTip": true
+    },
+    {
+      "label": "36A|KU298920",
+      "x": 0.00871,
+      "y": 78,
+      "isTip": true
+    },
+    {
+      "label": "TJ18|GQ472850",
+      "x": 0.0102,
+      "y": 79,
+      "isTip": true
+    },
+    {
+      "label": "QV32351|HQ537757",
+      "x": 0.00735,
+      "y": 27,
+      "isTip": true
+    },
+    {
+      "label": "QV15563|HQ537756",
+      "x": 0.00762,
+      "y": 28,
+      "isTip": true
+    },
+    {
+      "label": "AS405|HQ537759",
+      "x": 0.00776,
+      "y": 38,
+      "isTip": true
+    },
+    {
+      "label": "AS347|HQ537760",
+      "x": 0.00803,
+      "y": 39,
+      "isTip": true
+    },
+    {
+      "label": "KORK00613|KY225938",
+      "x": 0.00857,
+      "y": 40,
+      "isTip": true
+    },
+    {
+      "label": "KORK02546|KY225936",
+      "x": 0.00871,
+      "y": 41,
+      "isTip": true
+    },
+    {
+      "label": "KORK00008|KY225937",
+      "x": 0.0083,
+      "y": 42,
+      "isTip": true
+    },
+    {
+      "label": "KORK00191|KY225939",
+      "x": 0.0083,
+      "y": 46,
+      "isTip": true
+    },
+    {
+      "label": "KORK01374|KY225941",
+      "x": 0.00816,
+      "y": 47,
+      "isTip": true
+    },
+    {
+      "label": "JP1870|AB819279",
+      "x": 0.00816,
+      "y": 48,
+      "isTip": true
+    },
+    {
+      "label": "KORK00034|KY225942",
+      "x": 0.00857,
+      "y": 49,
+      "isTip": true
+    },
+    {
+      "label": "KORK03823|KY225943",
+      "x": 0.00816,
+      "y": 50,
+      "isTip": true
+    },
+    {
+      "label": "KORK00099|KY225944",
+      "x": 0.00816,
+      "y": 51,
+      "isTip": true
+    },
+    {
+      "label": "KORK02277|KY225945",
+      "x": 0.00817,
+      "y": 43,
+      "isTip": true
+    },
+    {
+      "label": "KORK00064|KY225946",
+      "x": 0.00817,
+      "y": 44,
+      "isTip": true
+    },
+    {
+      "label": "KORK00043|KY225947",
+      "x": 0.00817,
+      "y": 45,
+      "isTip": true
+    },
+    {
+      "label": "QE00150|KY225948",
+      "x": 0.00761,
+      "y": 32,
+      "isTip": true
+    },
+    {
+      "label": "JPNJ00739|KY225953",
+      "x": 0.00829,
+      "y": 33,
+      "isTip": true
+    },
+    {
+      "label": "THA00468|KY225949",
+      "x": 0.00843,
+      "y": 34,
+      "isTip": true
+    },
+    {
+      "label": "KORK02550|KY225950",
+      "x": 0.00762,
+      "y": 35,
+      "isTip": true
+    },
+    {
+      "label": "KORK00011|KY225951",
+      "x": 0.00762,
+      "y": 36,
+      "isTip": true
+    },
+    {
+      "label": "KORK03762|KY225952",
+      "x": 0.00762,
+      "y": 37,
+      "isTip": true
+    },
+    {
+      "label": "QV00961|HQ537758",
+      "x": 0.00937,
+      "y": 29,
+      "isTip": true
+    },
+    {
+      "label": "QE00470|KY225954",
+      "x": 0.00788,
+      "y": 30,
+      "isTip": true
+    },
+    {
+      "label": "QE01132|KY225955",
+      "x": 0.00828,
+      "y": 31,
+      "isTip": true
+    },
+    {
+      "label": "Z023|HQ537763",
+      "x": 0.00455,
+      "y": 1,
+      "isTip": true
+    },
+    {
+      "label": "BF134|HQ537762",
+      "x": 0.00442,
+      "y": 2,
+      "isTip": true
+    },
+    {
+      "label": "BF077|HQ537761",
+      "x": 0.00523,
+      "y": 3,
+      "isTip": true
+    },
+    {
+      "label": "ZWE051089|KY225956",
+      "x": 0.00576,
+      "y": 4,
+      "isTip": true
+    },
+    {
+      "label": "ZWE043998|KY225957",
+      "x": 0.00507,
+      "y": 5,
+      "isTip": true
+    },
+    {
+      "label": "RW937|HQ537764",
+      "x": 0.00501,
+      "y": 6,
+      "isTip": true
+    },
+    {
+      "label": "RW754|HQ537765",
+      "x": 0.00432,
+      "y": 7,
+      "isTip": true
+    },
+    {
+      "label": "Z094|HQ537777",
+      "x": 0.00814,
+      "y": 17,
+      "isTip": true
+    },
+    {
+      "label": "ZWE062097|KY225958",
+      "x": 0.00839,
+      "y": 18,
+      "isTip": true
+    },
+    {
+      "label": "ZWE050364|KY225959",
+      "x": 0.00839,
+      "y": 19,
+      "isTip": true
+    },
+    {
+      "label": "RW792|HQ537775",
+      "x": 0.00816,
+      "y": 20,
+      "isTip": true
+    },
+    {
+      "label": "RW644|HQ537776",
+      "x": 0.00789,
+      "y": 21,
+      "isTip": true
+    },
+    {
+      "label": "QV13816|HQ537774",
+      "x": 0.00826,
+      "y": 22,
+      "isTip": true
+    },
+    {
+      "label": "QV34982|HQ537772",
+      "x": 0.00812,
+      "y": 23,
+      "isTip": true
+    },
+    {
+      "label": "ZWE054176|KY225961",
+      "x": 0.00771,
+      "y": 24,
+      "isTip": true
+    },
+    {
+      "label": "QV03666|HQ537773",
+      "x": 0.00907,
+      "y": 25,
+      "isTip": true
+    },
+    {
+      "label": "ZWE044033|KY225963",
+      "x": 0.00839,
+      "y": 26,
+      "isTip": true
+    },
+    {
+      "label": "ARGP00138|KY225964",
+      "x": 0.00813,
+      "y": 8,
+      "isTip": true
+    },
+    {
+      "label": "QV03858|HQ537766",
+      "x": 0.0095,
+      "y": 9,
+      "isTip": true
+    },
+    {
+      "label": "QV04732|HQ537767",
+      "x": 0.00799,
+      "y": 10,
+      "isTip": true
+    },
+    {
+      "label": "QV03841|HQ537768",
+      "x": 0.00799,
+      "y": 11,
+      "isTip": true
+    },
+    {
+      "label": "ZWE064436|KY225966",
+      "x": 0.00811,
+      "y": 12,
+      "isTip": true
+    },
+    {
+      "label": "ZWE051402|KY225967",
+      "x": 0.00848,
+      "y": 13,
+      "isTip": true
+    },
+    {
+      "label": "RW841|HQ537769",
+      "x": 0.00952,
+      "y": 14,
+      "isTip": true
+    },
+    {
+      "label": "RW697|HQ537770",
+      "x": 0.00912,
+      "y": 15,
+      "isTip": true
+    },
+    {
+      "label": "RW63|HQ537771",
+      "x": 0.0117,
+      "y": 16,
+      "isTip": true
+    },
+    {
+      "label": "100",
+      "x": 0,
+      "y": 26.4401855469,
+      "isTip": false
+    },
+    {
+      "label": "",
+      "x": 0.00496,
+      "y": 46.7788085938,
+      "isTip": false
+    },
+    {
+      "label": "71",
+      "x": 0.0055,
+      "y": 62.0537109375,
+      "isTip": false
+    },
+    {
+      "label": "87",
+      "x": 0.00623,
+      "y": 55.3671875,
+      "isTip": false
+    },
+    {
+      "label": "2",
+      "x": 0.00664,
+      "y": 58.234375,
+      "isTip": false
+    },
+    {
+      "label": "4",
+      "x": 0.00678,
+      "y": 55.3125,
+      "isTip": false
+    },
+    {
+      "label": "5",
+      "x": 0.00719,
+      "y": 56.625,
+      "isTip": false
+    },
+    {
+      "label": "6",
+      "x": 0.00719,
+      "y": 57.75,
+      "isTip": false
+    },
+    {
+      "label": "18",
+      "x": 0.00733,
+      "y": 58.5,
+      "isTip": false
+    },
+    {
+      "label": "74",
+      "x": 0.00746,
+      "y": 55.5,
+      "isTip": false
+    },
+    {
+      "label": "3",
+      "x": 0.00864,
+      "y": 61.15625,
+      "isTip": false
+    },
+    {
+      "label": "7",
+      "x": 0.00902,
+      "y": 62.3125,
+      "isTip": false
+    },
+    {
+      "label": "7",
+      "x": 0.00915,
+      "y": 63.625,
+      "isTip": false
+    },
+    {
+      "label": "95",
+      "x": 0.00942,
+      "y": 62.5,
+      "isTip": false
+    },
+    {
+      "label": "8",
+      "x": 0.00942,
+      "y": 64.75,
+      "isTip": false
+    },
+    {
+      "label": "7",
+      "x": 0.00942,
+      "y": 65.5,
+      "isTip": false
+    },
+    {
+      "label": "98",
+      "x": 0.00786,
+      "y": 52.5,
+      "isTip": false
+    },
+    {
+      "label": "100",
+      "x": 0.0079,
+      "y": 68.740234375,
+      "isTip": false
+    },
+    {
+      "label": "77",
+      "x": 0.00816,
+      "y": 70.48046875,
+      "isTip": false
+    },
+    {
+      "label": "61",
+      "x": 0.0083,
+      "y": 72.9609375,
+      "isTip": false
+    },
+    {
+      "label": "100",
+      "x": 0.00884,
+      "y": 69.5,
+      "isTip": false
+    },
+    {
+      "label": "9",
+      "x": 0.0083,
+      "y": 76.421875,
+      "isTip": false
+    },
+    {
+      "label": "45",
+      "x": 0.00844,
+      "y": 72.6875,
+      "isTip": false
+    },
+    {
+      "label": "15",
+      "x": 0.00844,
+      "y": 71.5,
+      "isTip": false
+    },
+    {
+      "label": "12",
+      "x": 0.00844,
+      "y": 73.875,
+      "isTip": false
+    },
+    {
+      "label": "73",
+      "x": 0.00858,
+      "y": 74.75,
+      "isTip": false
+    },
+    {
+      "label": "97",
+      "x": 0.00899,
+      "y": 75.5,
+      "isTip": false
+    },
+    {
+      "label": "0",
+      "x": 0.0083,
+      "y": 80.15625,
+      "isTip": false
+    },
+    {
+      "label": "6",
+      "x": 0.0083,
+      "y": 82.5625,
+      "isTip": false
+    },
+    {
+      "label": "62",
+      "x": 0.00844,
+      "y": 85.125,
+      "isTip": false
+    },
+    {
+      "label": "63",
+      "x": 0.00858,
+      "y": 82.625,
+      "isTip": false
+    },
+    {
+      "label": "94",
+      "x": 0.00899,
+      "y": 83.75,
+      "isTip": false
+    },
+    {
+      "label": "62",
+      "x": 0.00899,
+      "y": 84.5,
+      "isTip": false
+    },
+    {
+      "label": "32",
+      "x": 0.00858,
+      "y": 81.5,
+      "isTip": false
+    },
+    {
+      "label": "29",
+      "x": 0.00844,
+      "y": 87.625,
+      "isTip": false
+    },
+    {
+      "label": "100",
+      "x": 0.00885,
+      "y": 86.5,
+      "isTip": false
+    },
+    {
+      "label": "95",
+      "x": 0.00885,
+      "y": 88.75,
+      "isTip": false
+    },
+    {
+      "label": "2",
+      "x": 0.00885,
+      "y": 89.5,
+      "isTip": false
+    },
+    {
+      "label": "0",
+      "x": 0.0083,
+      "y": 77.75,
+      "isTip": false
+    },
+    {
+      "label": "6",
+      "x": 0.0083,
+      "y": 78.5,
+      "isTip": false
+    },
+    {
+      "label": "100",
+      "x": 0.00721,
+      "y": 31.50390625,
+      "isTip": false
+    },
+    {
+      "label": "63",
+      "x": 0.00735,
+      "y": 27.5,
+      "isTip": false
+    },
+    {
+      "label": "10",
+      "x": 0.00721,
+      "y": 35.5078125,
+      "isTip": false
+    },
+    {
+      "label": "60",
+      "x": 0.00735,
+      "y": 39.578125,
+      "isTip": false
+    },
+    {
+      "label": "83",
+      "x": 0.00762,
+      "y": 41.15625,
+      "isTip": false
+    },
+    {
+      "label": "76",
+      "x": 0.00789,
+      "y": 43.3125,
+      "isTip": false
+    },
+    {
+      "label": "58",
+      "x": 0.00803,
+      "y": 40.75,
+      "isTip": false
+    },
+    {
+      "label": "29",
+      "x": 0.00803,
+      "y": 41.5,
+      "isTip": false
+    },
+    {
+      "label": "57",
+      "x": 0.00789,
+      "y": 45.875,
+      "isTip": false
+    },
+    {
+      "label": "64",
+      "x": 0.00789,
+      "y": 48,
+      "isTip": false
+    },
+    {
+      "label": "86",
+      "x": 0.00816,
+      "y": 46.5,
+      "isTip": false
+    },
+    {
+      "label": "65",
+      "x": 0.00802,
+      "y": 49.5,
+      "isTip": false
+    },
+    {
+      "label": "63",
+      "x": 0.00816,
+      "y": 48.5,
+      "isTip": false
+    },
+    {
+      "label": "42",
+      "x": 0.00802,
+      "y": 50.5,
+      "isTip": false
+    },
+    {
+      "label": "71",
+      "x": 0.00803,
+      "y": 43.75,
+      "isTip": false
+    },
+    {
+      "label": "34",
+      "x": 0.00803,
+      "y": 44.5,
+      "isTip": false
+    },
+    {
+      "label": "17",
+      "x": 0.00734,
+      "y": 31.4375,
+      "isTip": false
+    },
+    {
+      "label": "26",
+      "x": 0.00734,
+      "y": 33.125,
+      "isTip": false
+    },
+    {
+      "label": "61",
+      "x": 0.00748,
+      "y": 34.25,
+      "isTip": false
+    },
+    {
+      "label": "18",
+      "x": 0.00748,
+      "y": 35.5,
+      "isTip": false
+    },
+    {
+      "label": "62",
+      "x": 0.00762,
+      "y": 34.5,
+      "isTip": false
+    },
+    {
+      "label": "99",
+      "x": 0.00762,
+      "y": 36.5,
+      "isTip": false
+    },
+    {
+      "label": "38",
+      "x": 0.00747,
+      "y": 29.75,
+      "isTip": false
+    },
+    {
+      "label": "93",
+      "x": 0.00774,
+      "y": 30.5,
+      "isTip": false
+    },
+    {
+      "label": "",
+      "x": 0.00031,
+      "y": 6.1015625,
+      "isTip": false
+    },
+    {
+      "label": "100",
+      "x": 0.00373,
+      "y": 1.75,
+      "isTip": false
+    },
+    {
+      "label": "87",
+      "x": 0.00414,
+      "y": 2.5,
+      "isTip": false
+    },
+    {
+      "label": "95",
+      "x": 0.00161,
+      "y": 10.453125,
+      "isTip": false
+    },
+    {
+      "label": "100",
+      "x": 0.00374,
+      "y": 5.5,
+      "isTip": false
+    },
+    {
+      "label": "100",
+      "x": 0.0048,
+      "y": 4.5,
+      "isTip": false
+    },
+    {
+      "label": "78",
+      "x": 0.00405,
+      "y": 6.5,
+      "isTip": false
+    },
+    {
+      "label": "98",
+      "x": 0.00302,
+      "y": 15.40625,
+      "isTip": false
+    },
+    {
+      "label": "100",
+      "x": 0.00669,
+      "y": 19.90625,
+      "isTip": false
+    },
+    {
+      "label": "99",
+      "x": 0.00772,
+      "y": 17.75,
+      "isTip": false
+    },
+    {
+      "label": "100",
+      "x": 0.00839,
+      "y": 18.5,
+      "isTip": false
+    },
+    {
+      "label": "56",
+      "x": 0.00719,
+      "y": 22.0625,
+      "isTip": false
+    },
+    {
+      "label": "100",
+      "x": 0.00789,
+      "y": 20.5,
+      "isTip": false
+    },
+    {
+      "label": "86",
+      "x": 0.00771,
+      "y": 23.625,
+      "isTip": false
+    },
+    {
+      "label": "58",
+      "x": 0.00785,
+      "y": 22.5,
+      "isTip": false
+    },
+    {
+      "label": "40",
+      "x": 0.00771,
+      "y": 24.75,
+      "isTip": false
+    },
+    {
+      "label": "42",
+      "x": 0.00771,
+      "y": 25.5,
+      "isTip": false
+    },
+    {
+      "label": "100",
+      "x": 0.00569,
+      "y": 10.90625,
+      "isTip": false
+    },
+    {
+      "label": "99",
+      "x": 0.00648,
+      "y": 8.875,
+      "isTip": false
+    },
+    {
+      "label": "100",
+      "x": 0.00772,
+      "y": 9.75,
+      "isTip": false
+    },
+    {
+      "label": "58",
+      "x": 0.00772,
+      "y": 10.5,
+      "isTip": false
+    },
+    {
+      "label": "100",
+      "x": 0.00738,
+      "y": 12.9375,
+      "isTip": false
+    },
+    {
+      "label": "64",
+      "x": 0.00804,
+      "y": 13.875,
+      "isTip": false
+    },
+    {
+      "label": "78",
+      "x": 0.00883,
+      "y": 14.75,
+      "isTip": false
+    },
+    {
+      "label": "38",
+      "x": 0.00897,
+      "y": 15.5,
+      "isTip": false
+    }
+  ]
 }

@@ -35,7 +35,7 @@
  * deterministic. No em-dashes, no emojis, no mid-sentence colons.
  */
 
-import { layoutRectangular, type LaidOutNode } from "@/lib/phylo/layout";
+import { layoutRectangular, ladderize, type LaidOutNode } from "@/lib/phylo/layout";
 import { leaves, parseTree, type TreeNode } from "@/lib/phylo/parse";
 
 import { CANDIDA_AURIS_NWK, HMP_NWK, HPV58_NWK } from "./phylo-trees";
@@ -200,7 +200,11 @@ export function comparePhyloLayout(
   newick: string,
   golden: GgtreeGolden,
 ): PhyloComparison {
-  const root: TreeNode = parseTree(newick);
+  // ggtree's golden was rendered with its default ladderize = TRUE (ape's
+  // ladderize), so we ladderize our tree the same way before comparing. This
+  // isolates the layout math (x depth + y assignment) from the child-ordering
+  // convention, which is a rendering choice both tools share by default.
+  const root: TreeNode = ladderize(parseTree(newick), false);
   const layout = layoutRectangular(root, {
     width: 1000,
     height: 1000,

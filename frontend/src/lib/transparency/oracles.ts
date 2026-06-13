@@ -230,7 +230,7 @@ export const SKLEARN: OracleRef = {
 export const GGTREE: OracleRef = {
   id: "ggtree",
   name: "ggtree",
-  version: "pending (committed once the offline R run lands)",
+  version: "3.6.2",
   entrypoint: "ggtree::ggtree(tree, layout = 'rectangular'), node coordinate table p$data",
   citation:
     "Yu G, et al. 2017, ggtree: an R package for visualization and annotation of "
