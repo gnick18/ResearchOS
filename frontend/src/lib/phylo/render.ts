@@ -29,6 +29,23 @@ import {
   type ColorScale,
 } from "./color-scale";
 import { CATEGORY_PALETTE } from "./render-palette";
+import {
+  rectTipAxis,
+  circularTipAxis,
+  type TipAxis,
+} from "./layout";
+import {
+  renderPanel,
+  renderPanelLegend,
+  panelBandThickness,
+  type PanelScales,
+} from "./panel-render";
+import {
+  projectTracksToPanels,
+  extractPanelValues,
+  buildPanelScales,
+} from "./panels";
+import type { AlignedPanel } from "./types";
 
 export { CATEGORY_PALETTE } from "./render-palette";
 
@@ -95,6 +112,17 @@ export interface RenderSpec {
    * continuous tracks to legend and categorical legends are an additive gain).
    */
   legend?: boolean;
+  /**
+   * The ordered LAYER stack (phylo Phase 1). When present, the aligned data panels
+   * (strip / heat / bars / dots / box) and the tip decorations are driven by THIS
+   * array through the shared panel renderer (renderPanel), the geom_fruit
+   * consolidation, and the legacy `tracks` / `columns` path is bypassed. When
+   * absent, the Phase 0 track path runs unchanged (strict back-compat for a
+   * hand-built spec). figure-to-render.ts always supplies panels (projecting from
+   * tracks when a saved figure predates the layer stack), so the live Studio and
+   * embeds always take the consolidated path.
+   */
+  panels?: AlignedPanel[];
 }
 
 const FG = "#1f2937";
@@ -105,6 +133,24 @@ const BORDER = "#e2e8f0";
 
 /** Width reserved on the right edge for the legend column, when any legend draws. */
 const LEGEND_WIDTH = 132;
+
+/** Wrap a figure body + legend in the SVG document shell. The ONE place the
+ *  opening svg tag is written, so both render paths share it (and the icon-guard
+ *  baseline tracks a single inline svg for this module). */
+function svgDocument(
+  width: number,
+  height: number,
+  body: string,
+  legend: string,
+): string {
+  return [
+    `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${width} ${height}" width="${width}" height="${height}" font-family="system-ui, sans-serif">`,
+    `<rect x="0" y="0" width="${width}" height="${height}" fill="${PANEL_BG}"/>`,
+    body,
+    legend,
+    `</svg>`,
+  ].join("");
+}
 
 /** Escape text bound for an SVG text node (labels are user data). */
 function esc(s: string): string {
@@ -180,6 +226,14 @@ function resolveScales(root: TreeNode, spec: RenderSpec): ResolvedScales {
 
 /** Build a complete SVG string for the current figure. */
 export function renderTreeSvg(root: TreeNode, spec: RenderSpec): string {
+  if (spec.panels) return renderFromPanels(root, spec, spec.panels);
+  return renderFromTracks(root, spec);
+}
+
+/** The Phase 0 track-driven render path (kept for a hand-built spec with no
+ *  panels). figure-to-render always supplies panels, so the live app + embeds
+ *  take renderFromPanels; this path serves only legacy / test specs. */
+function renderFromTracks(root: TreeNode, spec: RenderSpec): string {
   const scales = resolveScales(root, spec);
   const legendOn = spec.legend !== false;
   const legendItems = legendOn ? collectLegends(spec, scales) : [];
@@ -203,13 +257,308 @@ export function renderTreeSvg(root: TreeNode, spec: RenderSpec): string {
     legendItems.length > 0
       ? renderLegends(legendItems, plotWidth, spec.height)
       : "";
-  return [
-    `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${spec.width} ${spec.height}" width="${spec.width}" height="${spec.height}" font-family="system-ui, sans-serif">`,
-    `<rect x="0" y="0" width="${spec.width}" height="${spec.height}" fill="${PANEL_BG}"/>`,
-    body,
-    legend,
-    `</svg>`,
-  ].join("");
+  return svgDocument(spec.width, spec.height, body, legend);
+}
+
+// ---------------------------------------------------------------------------
+// Phase 1: the layer-stack render path. The aligned data panels are drawn
+// through the shared panel renderer (one system), the tip decorations on the
+// tree, and the legends composited in a right-edge column.
+// ---------------------------------------------------------------------------
+
+/** The geoms drawn as aligned columns / rings (through renderPanel). */
+const ALIGNED_KINDS = new Set(["strip", "heat", "bars", "dots", "box"]);
+
+/** Sum the radial / horizontal room every visible aligned panel needs. */
+function alignedRoom(panels: AlignedPanel[]): number {
+  let room = 6; // initial gap from the tips
+  for (const p of panels) {
+    if (!p.visible || !ALIGNED_KINDS.has(p.kind)) continue;
+    if (p.kind === "heat") {
+      const ncol = p.columns?.length ?? 1;
+      room += ncol * (panelBandThickness(p) + 1) + 4;
+    } else {
+      room += panelBandThickness(p) + 4;
+    }
+  }
+  return room;
+}
+
+function renderFromPanels(
+  root: TreeNode,
+  spec: RenderSpec,
+  panels: AlignedPanel[],
+): string {
+  const meta = spec.metadata;
+  const aligned = panels.filter(
+    (p) => p.visible && ALIGNED_KINDS.has(p.kind),
+  );
+  const hasLabels = panels.some((p) => p.visible && p.kind === "labels");
+  const italic = panels.some(
+    (p) => p.kind === "labels" && (p.options?.italic ?? true),
+  );
+
+  // Legends, one per colored aligned panel that asks for one.
+  const legendOn = spec.legend !== false;
+  const legendItems = legendOn ? collectPanelLegends(root, spec, aligned) : [];
+  const legendW = legendItems.length > 0 ? LEGEND_WIDTH : 0;
+  const plotWidth = Math.max(120, spec.width - legendW);
+
+  const room = alignedRoom(aligned);
+  const labelRoom = hasLabels ? longestLabelPx(root) : 8;
+
+  const opts: LayoutOptions = {
+    width: plotWidth,
+    height: spec.height,
+    rightInset:
+      spec.layout === "circular" ? 0 : room + labelRoom + 8,
+    padding: 16,
+    phylogram: spec.phylogram,
+    circularRingRoom: spec.layout === "circular" ? room + 4 : 0,
+  };
+
+  const parts: string[] = [];
+  let axis: TipAxis;
+  let panelStart: number; // x cursor (rect) / radius cursor (circular)
+
+  if (spec.layout === "circular") {
+    const layout = layoutCircular(root, opts);
+    drawCircularTree(parts, root, layout, spec, panels);
+    axis = circularTipAxis(root, layout, layout.radius + 6);
+    panelStart = axis.ringStartR;
+  } else {
+    const layout = layoutRectangular(root, opts);
+    const plotRight = drawRectTree(parts, root, layout, spec, panels);
+    axis = rectTipAxis(root, layout, plotRight + 8);
+    panelStart = axis.panelStartX;
+  }
+
+  // Draw each aligned panel in order, advancing the cursor by its thickness.
+  let cursor = panelStart;
+  for (const panel of aligned) {
+    const localAxis: TipAxis =
+      spec.layout === "circular"
+        ? { ...axis, ringStartR: cursor }
+        : { ...axis, panelStartX: cursor };
+    const values = extractPanelValues(panel, root, meta);
+    const scales = buildPanelScales(panel, root, meta, spec.categoryColors);
+    const r = renderPanel(panel, localAxis, values, scales);
+    parts.push(r.svg);
+    cursor += r.thickness;
+  }
+
+  // Tip labels (outermost), drawn past the last panel.
+  if (hasLabels) {
+    drawLabels(parts, axis, spec, cursor, italic);
+  }
+
+  // Scale bar (rectangular phylogram only) is drawn inside drawRectTree.
+  const legend =
+    legendItems.length > 0
+      ? renderPanelLegendColumn(legendItems, plotWidth, spec.height)
+      : "";
+
+  return svgDocument(spec.width, spec.height, parts.join(""), legend);
+}
+
+/** Draw the rectangular tree spine + clade + support + points; returns plotRight
+ *  (the x of the deepest tip) so the caller starts panels just past it. */
+function drawRectTree(
+  parts: string[],
+  root: TreeNode,
+  layout: RectLayout,
+  spec: RenderSpec,
+  panels: AlignedPanel[],
+): number {
+  const byId = new Map(layout.nodes.map((p) => [p.node.id, p]));
+  const plotRight = Math.max(...layout.nodes.map((p) => p.x));
+  const showSupport = panels.some((p) => p.visible && p.kind === "support");
+  const cladePanel = panels.find((p) => p.visible && p.kind === "clade");
+  const pointsPanel = panels.find((p) => p.visible && p.kind === "points");
+
+  if (cladePanel && spec.cladeHighlight) {
+    const cladeRoot = layout.nodes.find(
+      (p) => p.node.id === spec.cladeHighlight!.nodeId,
+    );
+    if (cladeRoot) {
+      const cl = leaves(cladeRoot.node).map((t) => byId.get(t.id)!);
+      if (cl.length > 0) {
+        const y0 = Math.min(...cl.map((c) => c.y)) - 12;
+        const y1 = Math.max(...cl.map((c) => c.y)) + 12;
+        parts.push(
+          `<rect x="12" y="${y0}" width="${plotRight + 6 - 12}" height="${y1 - y0}" rx="6" fill="${spec.cladeHighlight.color}" opacity="0.10"/>`,
+          `<text x="16" y="${y0 + 12}" font-size="10" font-weight="700" fill="${spec.cladeHighlight.color}">${esc(spec.cladeHighlight.label)}</text>`,
+        );
+      }
+    }
+  }
+  for (const p of layout.nodes) {
+    if (p.parentX === null || p.parentY === null) continue;
+    parts.push(
+      `<path d="M${p.parentX} ${p.parentY} V${p.y} H${p.x}" fill="none" stroke="${colorForBranch(spec, p.node.id)}" stroke-width="1.5"/>`,
+    );
+    if (showSupport && p.node.children.length > 0 && p.node.support !== null) {
+      parts.push(
+        `<text x="${p.parentX + 3}" y="${p.y - 3}" font-size="9" fill="${MUTED}">${p.node.support}</text>`,
+      );
+    }
+  }
+  if (pointsPanel) {
+    const scale =
+      pointsPanel.column && spec.metadata
+        ? buildColorScale(root, spec.metadata, pointsPanel.column, {
+            paletteId: pointsPanel.scale?.paletteId,
+            categoryColors: spec.categoryColors,
+          })
+        : null;
+    for (const tip of leaves(root)) {
+      const p = byId.get(tip.id)!;
+      const fill = scale
+        ? scale.colorFor(spec.metadata?.get(tip.id)?.[pointsPanel.column ?? ""])
+        : MUTED;
+      parts.push(`<circle cx="${p.x + 6}" cy="${p.y}" r="4" fill="${fill}"/>`);
+    }
+  }
+  if (spec.phylogram && layout.unitsPerPx) {
+    const tick = niceTick(layout.maxDepth);
+    const px = tick / layout.unitsPerPx;
+    const y = spec.height - 6;
+    parts.push(
+      `<line x1="16" y1="${y}" x2="${16 + px}" y2="${y}" stroke="${MUTED}" stroke-width="1.5"/>`,
+      `<text x="16" y="${y - 4}" font-size="9" fill="${MUTED}">${tick}</text>`,
+    );
+  }
+  return plotRight;
+}
+
+/** Draw the circular tree spine + points (clade / support are deferred in the
+ *  circular layout for Phase 1, matching the Phase 0 circular renderer scope). */
+function drawCircularTree(
+  parts: string[],
+  root: TreeNode,
+  layout: CircularLayout,
+  spec: RenderSpec,
+  panels: AlignedPanel[],
+): void {
+  for (const p of layout.nodes) {
+    if (
+      p.parentX === null ||
+      p.parentY === null ||
+      p.parentRadius === null ||
+      p.parentAngle === null
+    )
+      continue;
+    const ax = layout.cx + p.parentRadius * Math.cos(p.angle - Math.PI / 2);
+    const ay = layout.cy + p.parentRadius * Math.sin(p.angle - Math.PI / 2);
+    const px = layout.cx + p.parentRadius * Math.cos(p.parentAngle - Math.PI / 2);
+    const py = layout.cy + p.parentRadius * Math.sin(p.parentAngle - Math.PI / 2);
+    const large = Math.abs(p.angle - p.parentAngle) > Math.PI ? 1 : 0;
+    const sweep = p.angle > p.parentAngle ? 1 : 0;
+    parts.push(
+      `<path d="M${px} ${py} A ${p.parentRadius} ${p.parentRadius} 0 ${large} ${sweep} ${ax} ${ay} L ${p.x} ${p.y}" fill="none" stroke="${colorForBranch(spec, p.node.id)}" stroke-width="1.4"/>`,
+    );
+  }
+  const pointsPanel = panels.find((p) => p.visible && p.kind === "points");
+  if (pointsPanel) {
+    const byId = new Map(layout.nodes.map((p) => [p.node.id, p]));
+    const scale =
+      pointsPanel.column && spec.metadata
+        ? buildColorScale(root, spec.metadata, pointsPanel.column, {
+            paletteId: pointsPanel.scale?.paletteId,
+            categoryColors: spec.categoryColors,
+          })
+        : null;
+    for (const tip of leaves(root)) {
+      const p = byId.get(tip.id)!;
+      const fill = scale
+        ? scale.colorFor(spec.metadata?.get(tip.id)?.[pointsPanel.column ?? ""])
+        : MUTED;
+      parts.push(`<circle cx="${p.x}" cy="${p.y}" r="3.5" fill="${fill}"/>`);
+    }
+  }
+}
+
+/** Draw tip labels at the outer edge for both layouts (panel path). */
+function drawLabels(
+  parts: string[],
+  axis: TipAxis,
+  spec: RenderSpec,
+  cursor: number,
+  italic: boolean,
+): void {
+  const styleAttr = italic ? ' font-style="italic"' : "";
+  if (axis.layout === "rectangular") {
+    const tx = cursor + 4;
+    for (const slot of axis.tips) {
+      parts.push(
+        `<text x="${tx}" y="${slot.y + 4}" font-size="11"${styleAttr} fill="${FG}">${esc(slot.name)}</text>`,
+      );
+    }
+  } else {
+    const lr = cursor + 4;
+    for (const slot of axis.tips) {
+      const lx = axis.cx + lr * Math.cos(slot.angle - Math.PI / 2);
+      const ly = axis.cy + lr * Math.sin(slot.angle - Math.PI / 2);
+      const deg = ((slot.angle - Math.PI / 2) * 180) / Math.PI;
+      const flip = Math.cos(slot.angle - Math.PI / 2) < 0;
+      parts.push(
+        `<text x="${lx}" y="${ly}" font-size="10"${styleAttr} fill="${FG}" transform="rotate(${flip ? deg + 180 : deg} ${lx} ${ly})" text-anchor="${flip ? "end" : "start"}">${esc(slot.name)}</text>`,
+      );
+    }
+  }
+}
+
+/** Gather a legend entry per colored aligned panel that requests one. */
+function collectPanelLegends(
+  root: TreeNode,
+  spec: RenderSpec,
+  aligned: AlignedPanel[],
+): LegendEntry[] {
+  const out: LegendEntry[] = [];
+  const meta = spec.metadata;
+  if (!meta) return out;
+  for (const panel of aligned) {
+    if (panel.legend === false) continue;
+    const sc: PanelScales = buildPanelScales(panel, root, meta, spec.categoryColors);
+    if (panel.kind === "heat" && panel.columns && sc.multi) {
+      panel.columns.forEach((col, i) => {
+        const s = sc.multi![i];
+        if (!s) return;
+        if (s.kind === "numeric" || (s.categories?.length ?? 0) > 1) {
+          out.push({ title: col, scale: s });
+        }
+      });
+    } else if (sc.scale) {
+      const s = sc.scale;
+      const title = panel.column ?? "";
+      if (!title) continue;
+      if (panel.kind === "bars" || panel.kind === "dots") {
+        if (s.kind === "numeric") out.push({ title, scale: s });
+      } else if (s.kind === "numeric" || (s.categories?.length ?? 0) > 1) {
+        out.push({ title, scale: s });
+      }
+    }
+  }
+  return out;
+}
+
+/** Render the legend column for the panel path (reuses renderPanelLegend). */
+function renderPanelLegendColumn(
+  entries: LegendEntry[],
+  plotWidth: number,
+  height: number,
+): string {
+  const x = plotWidth + 12;
+  const parts: string[] = [];
+  let y = 22;
+  const maxY = height - 12;
+  for (const entry of entries) {
+    if (y > maxY - 30) break;
+    const r = renderPanelLegend(entry.title, entry.scale, x, y, maxY);
+    parts.push(r.svg);
+    y += r.height;
+  }
+  return parts.join("");
 }
 
 /** Reserve horizontal room on the right for the active tracks + labels. */

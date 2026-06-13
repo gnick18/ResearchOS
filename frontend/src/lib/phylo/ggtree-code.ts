@@ -16,6 +16,7 @@
 // No em-dashes, no emojis, no mid-sentence colons.
 
 import type { RenderSpec } from "./render";
+import type { AlignedPanel } from "./types";
 
 export const GGTREE_CAVEAT =
   "This script is generated from your figure. The ggtree output is close but not 100% pixel-identical to the Studio canvas, ggtree uses a different layout engine.";
@@ -70,6 +71,12 @@ function rNameKey(k: string): string {
  * enabled track maps to its ggtree / ggtreeExtra layer.
  */
 export function generateGgtreeCode(spec: RenderSpec): string {
+  if (spec.panels) return generateFromPanels(spec, spec.panels);
+  return generateFromTracks(spec);
+}
+
+/** The Phase 0 track-driven generator (fallback for a hand-built spec). */
+function generateFromTracks(spec: RenderSpec): string {
   const t = spec.tracks;
   const cols = spec.columns;
   const lines: string[] = [];
@@ -174,4 +181,142 @@ export function generateGgtreeCode(spec: RenderSpec): string {
   // Theme + scale bar.
   lines.push("p + theme_tree() + geom_treescale()");
   return lines.join("\n");
+}
+
+/**
+ * The Phase 1 layer-stack generator: walk the ordered panels[] and emit one
+ * ggtree / ggtreeExtra layer per panel, in draw order, the geom_fruit story made
+ * honest. Each aligned data panel becomes a geom_fruit with the matching geom; a
+ * numeric column adds a continuous scale, a categorical column the manual named
+ * values. A multi-column heat panel uses gheatmap (one fill scale on the matrix,
+ * the known approximation, noted in a comment). The box panel is the one geom we
+ * cannot map cleanly (per-tip replicate columns), so it emits a clear TODO rather
+ * than a wrong layer.
+ */
+function generateFromPanels(spec: RenderSpec, panels: AlignedPanel[]): string {
+  const lines: string[] = [];
+  const meta = spec.metadata;
+  const hasMeta = !!meta && meta.size > 0;
+
+  lines.push(`# ${GGTREE_CAVEAT}`);
+  lines.push(
+    '# install once: BiocManager::install(c("ggtree", "ggtreeExtra", "treeio"))',
+  );
+  lines.push(
+    "library(ggtree); library(ggtreeExtra); library(ggplot2); library(treeio)",
+  );
+  lines.push("");
+  lines.push('tree <- read.tree("tree.nwk")');
+  if (hasMeta) lines.push('meta <- read.csv("metadata.csv")');
+  lines.push("");
+
+  const layout = ggtreeLayout(spec);
+  lines.push(
+    hasMeta
+      ? `p <- ggtree(tree, layout = ${rstr(layout)}) %<+% meta`
+      : `p <- ggtree(tree, layout = ${rstr(layout)})`,
+  );
+
+  let offset = 0.05;
+  for (const panel of panels) {
+    if (!panel.visible && panel.kind !== "labels") continue;
+    const col = panel.column ?? panel.columns?.[0];
+    const numeric = !!(meta && col && isNumericColumn(meta, col));
+    switch (panel.kind) {
+      case "support":
+        lines.push(
+          "p <- p + geom_nodelab(aes(label = label), size = 2, hjust = -0.2)   # branch support",
+        );
+        break;
+      case "clade":
+        if (spec.cladeHighlight) {
+          lines.push(
+            `p <- p + geom_hilight(node = ${spec.cladeHighlight.nodeId}, fill = ${rstr(spec.cladeHighlight.color)}, alpha = 0.12)   # ${spec.cladeHighlight.label}`,
+          );
+        }
+        break;
+      case "points":
+        if (col) {
+          lines.push(
+            `p <- p + geom_tippoint(aes(color = ${rNameKey(col)}), size = 2)`,
+          );
+          lines.push(panelColorScale(spec, col, numeric, "color"));
+        }
+        break;
+      case "labels":
+        lines.push(
+          `p <- p + geom_tiplab(${panel.options?.italic ? 'fontface = "italic", ' : ""}size = 3)`,
+        );
+        break;
+      case "strip":
+        if (col) {
+          lines.push(
+            `p <- p + geom_fruit(geom = geom_tile, mapping = aes(fill = ${rNameKey(col)}), width = 0.05, offset = ${offset.toFixed(2)})   # color strip`,
+          );
+          lines.push(panelColorScale(spec, col, numeric, "fill"));
+          offset += 0.05;
+        }
+        break;
+      case "bars":
+        if (col) {
+          lines.push(
+            `p <- p + geom_fruit(geom = geom_col, mapping = aes(x = ${rNameKey(col)}${numeric ? `, fill = ${rNameKey(col)}` : ""}), offset = ${offset.toFixed(2)})   # aligned bar panel`,
+          );
+          if (numeric) lines.push("p <- p + scale_fill_viridis_c()");
+          offset += 0.1;
+        }
+        break;
+      case "dots":
+        if (col) {
+          lines.push(
+            `p <- p + geom_fruit(geom = geom_point, mapping = aes(x = ${rNameKey(col)}${numeric ? `, color = ${rNameKey(col)}` : ""}), offset = ${offset.toFixed(2)})   # aligned dot panel`,
+          );
+          if (numeric) lines.push("p <- p + scale_color_viridis_c()");
+          offset += 0.08;
+        }
+        break;
+      case "heat":
+        if (panel.columns && panel.columns.length > 0) {
+          // gheatmap applies one fill scale to the whole matrix, so a per-column
+          // continuous scale is not reproduced exactly (the known approximation).
+          lines.push(
+            `gene_matrix <- meta[, c(${panel.columns.map((c) => rstr(c)).join(", ")})]   # one fill scale on the matrix (approximation)`,
+          );
+          lines.push(
+            "p <- gheatmap(p, gene_matrix, width = 0.3, colnames_angle = 90)",
+          );
+          offset += 0.1;
+        }
+        break;
+      case "box":
+        lines.push(
+          "# TODO: a per-tip distribution (box) panel. ggtreeExtra can draw it with",
+          "# geom_fruit(geom = geom_boxplot) from a LONG per-tip table (one row per",
+          "# replicate). Reshape your replicate columns to long form, then add:",
+          `#   p <- p + geom_fruit(data = long, geom = geom_boxplot, mapping = aes(x = value, group = label), offset = ${offset.toFixed(2)})`,
+        );
+        offset += 0.1;
+        break;
+      default:
+        break;
+    }
+  }
+  lines.push("p + theme_tree() + geom_treescale()");
+  return lines.join("\n");
+}
+
+/** Emit the color / fill scale line for a panel's column. */
+function panelColorScale(
+  spec: RenderSpec,
+  column: string,
+  numeric: boolean,
+  aes: "color" | "fill",
+): string {
+  if (numeric) {
+    return `p <- p + scale_${aes}_viridis_c()   # continuous scale (numeric column)`;
+  }
+  if (spec.categoryColors && Object.keys(spec.categoryColors).length > 0) {
+    return `p <- p + scale_${aes}_manual(values = ${rNamedColors(spec.categoryColors)})`;
+  }
+  return `p <- p + scale_${aes}_brewer(palette = "Set2")   # ${column}`;
 }

@@ -225,6 +225,112 @@ export function layoutCircular(
 }
 
 // ---------------------------------------------------------------------------
+// The shared aligned-axis contract (phylo Phase 1).
+//
+// Every aligned panel (a column in rectangular, a ring in circular) lines up
+// tip-for-tip against the SAME tip positions the tree drew. Rather than have the
+// panel renderer reach back into the layout's node list, the layout exposes one
+// small TipAxis: per-tip position + band size, plus where panels begin. This is
+// the seam Phase 2 plugs Data Hub plots into (the tree drives their row order).
+// ---------------------------------------------------------------------------
+
+/** A single tip's slot on the shared axis. */
+export interface TipSlot {
+  /** Tree tip id (matchMetadataToTips keys metadata on this). */
+  id: number;
+  /** Tip display name. */
+  name: string;
+  // Rectangular fields (NaN in circular).
+  /** Vertical center of the tip row (rectangular). */
+  y: number;
+  // Circular fields (NaN in rectangular).
+  /** Angle of the tip spoke in radians, 0 = up, clockwise (circular). */
+  angle: number;
+  /** Radius of the tip on the circle (circular). */
+  radius: number;
+}
+
+/**
+ * The contract a panel renderer consumes. One per laid-out figure. A rectangular
+ * axis carries `bandHeight` (a tip row's vertical thickness) and `panelStartX`
+ * (the x where the first column begins, just past the deepest tip). A circular
+ * axis carries `cx` / `cy` / `halfAngle` (a wedge's angular half-width) and
+ * `ringStartR` (the radius the first ring begins at). The unused layout's fields
+ * are present but inert so a panel renderer can branch on `layout` and read only
+ * its own.
+ */
+export interface TipAxis {
+  layout: "rectangular" | "circular";
+  tips: TipSlot[];
+  // Rectangular.
+  bandHeight: number;
+  panelStartX: number;
+  // Circular.
+  cx: number;
+  cy: number;
+  halfAngle: number;
+  ringStartR: number;
+}
+
+/** Build the shared TipAxis from a rectangular layout. `panelStartX` defaults to
+ *  just past the deepest tip; a caller can override (e.g. to leave a label gap). */
+export function rectTipAxis(
+  root: TreeNode,
+  layout: RectLayout,
+  panelStartX?: number,
+): TipAxis {
+  const byId = new Map(layout.nodes.map((p) => [p.node.id, p]));
+  const lv = leaves(root);
+  const tips: TipSlot[] = lv.map((t) => {
+    const p = byId.get(t.id)!;
+    return { id: t.id, name: t.name, y: p.y, angle: NaN, radius: NaN };
+  });
+  // Band height = the spacing between adjacent tip rows (uniform by construction).
+  const ys = tips.map((t) => t.y).sort((a, b) => a - b);
+  const band =
+    ys.length > 1 ? Math.abs(ys[1] - ys[0]) : Math.max(8, layout.height / 4);
+  const deepest = Math.max(...layout.nodes.map((p) => p.x));
+  return {
+    layout: "rectangular",
+    tips,
+    bandHeight: band,
+    panelStartX: panelStartX ?? deepest + 8,
+    cx: NaN,
+    cy: NaN,
+    halfAngle: NaN,
+    ringStartR: NaN,
+  };
+}
+
+/** Build the shared TipAxis from a circular layout. `ringStartR` defaults to just
+ *  outside the tip circle; a caller can override to leave a gap. */
+export function circularTipAxis(
+  root: TreeNode,
+  layout: CircularLayout,
+  ringStartR?: number,
+): TipAxis {
+  const byId = new Map(layout.nodes.map((p) => [p.node.id, p]));
+  const lv = leaves(root);
+  const tips: TipSlot[] = lv.map((t) => {
+    const p = byId.get(t.id)!;
+    return { id: t.id, name: t.name, y: NaN, angle: p.angle, radius: p.radius };
+  });
+  // Half the angular spacing between neighboring tips, so wedges meet without overlap.
+  const half =
+    tips.length > 1 ? Math.abs((tips[1].angle - tips[0].angle) / 2) : 0.05;
+  return {
+    layout: "circular",
+    tips,
+    bandHeight: NaN,
+    panelStartX: NaN,
+    cx: layout.cx,
+    cy: layout.cy,
+    halfAngle: half,
+    ringStartR: ringStartR ?? layout.radius + 6,
+  };
+}
+
+// ---------------------------------------------------------------------------
 // Tree editing (each returns a NEW tree, never mutating the input).
 // ---------------------------------------------------------------------------
 

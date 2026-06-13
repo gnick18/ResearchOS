@@ -49,6 +49,57 @@ export interface PhyloFigureSpec {
     bar?: string;
     heat?: Record<string, string>;
   };
+  /**
+   * The ordered LAYER stack (phylo Phase 1, the ggtree-class control model). Each
+   * row in the Studio layers list is one AlignedPanel; the array order is the draw
+   * order, inner (near the tips) to outer. OPTIONAL and additive: a saved figure
+   * with no `panels` reads exactly as today, the load path projects its Phase 0
+   * `tracks` / column bindings into a default layer set so nothing breaks. The
+   * Studio writes `panels` going forward, and the ggtree-code exporter walks this
+   * array to emit one geom per panel.
+   */
+  panels?: AlignedPanel[];
+}
+
+/** The geom catalog a layer can be, grows over phases. */
+export type AlignedPanelKind =
+  | "labels"
+  | "points"
+  | "strip"
+  | "heat"
+  | "bars"
+  | "dots"
+  | "box"
+  | "clade"
+  | "support"
+  | "msa";
+
+/**
+ * One layer in the figure stack: a tip decoration, an aligned data panel, a
+ * highlight, or an alignment track. Rendered tip-for-tip against the shared
+ * TipAxis (layout.ts) by renderPanel (panel-render.ts), so the same panel reads
+ * the same in the rectangular columns and the circular rings. All data fields are
+ * optional so a decoration layer (labels / clade / support) carries only what it
+ * needs.
+ */
+export interface AlignedPanel {
+  /** Stable id within the figure, the React key + the selection target. */
+  id: string;
+  kind: AlignedPanelKind;
+  /** Hidden layers stay in the stack (keep their order + config) but do not draw. */
+  visible: boolean;
+  /** Bound metadata column for a single-column colored / data panel. */
+  column?: string;
+  /** Bound columns for a multi-column panel (a heat matrix, gheatmap-style). */
+  columns?: string[];
+  /** The color scale for the panel. Absent lets the renderer classify the column. */
+  scale?: { kind: "continuous" | "categorical"; paletteId?: string };
+  /** Draw a legend for this panel. */
+  legend?: boolean;
+  /** Panel thickness in px (a rectangular column width / a circular ring depth). */
+  width?: number;
+  /** Geom-specific options (bar width fraction, label italic, support cutoff, ...). */
+  options?: Record<string, unknown>;
 }
 
 /**

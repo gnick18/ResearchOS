@@ -40,13 +40,18 @@ import {
 import {
   renderTreeSvg,
   type RenderSpec,
-  type FigureTracks,
 } from "@/lib/phylo/render";
 import {
   figureToRenderSpec,
   figureInputsFromStored,
-  DEFAULT_FIGURE_TRACKS,
 } from "@/lib/phylo/figure-to-render";
+import { projectTracksToPanels } from "@/lib/phylo/panels";
+import { classifyColumn } from "@/lib/phylo/color-scale";
+import type { AlignedPanel } from "@/lib/phylo/types";
+import {
+  PhyloLayersControl,
+  buildTemplate,
+} from "@/components/phylo/PhyloLayers";
 import {
   objectDeepLink,
   objectEmbedMarkdown,
@@ -77,9 +82,36 @@ const SAMPLE_CSV = [
 
 type ImportMode = "upload" | "paste" | "saved" | null;
 
-// The track defaults live in the shared adapter so the Studio and the embed start
-// from the same baseline; aliased here for the local reset paths.
-const DEFAULT_TRACKS: FigureTracks = DEFAULT_FIGURE_TRACKS;
+// The default layer stack a fresh figure starts from (phylo Phase 1): a plain
+// phylogram with tip points + color strip + labels, the same baseline the Phase 0
+// track defaults projected to. Built once, ids are regenerated per figure.
+// All Phase 0 tracks off: the layer stack drives the render now, so the adapter's
+// legacy track path stays inert and `panels` is the single source of truth.
+const EMPTY_TRACKS = {
+  labels: false,
+  labelsItalic: false,
+  points: false,
+  strip: false,
+  bars: false,
+  heat: false,
+  clade: false,
+  support: false,
+};
+
+function defaultPanels(): AlignedPanel[] {
+  return projectTracksToPanels({
+    tracks: {
+      labels: true,
+      labelsItalic: true,
+      points: true,
+      strip: true,
+      bars: false,
+      heat: false,
+      clade: false,
+      support: false,
+    },
+  });
+}
 
 export function PhyloStudio({ initialTreeId }: { initialTreeId?: string } = {}) {
   // The working tree (immutable, edits replace it). Null until a tree is brought in.
@@ -99,10 +131,10 @@ export function PhyloStudio({ initialTreeId }: { initialTreeId?: string } = {}) 
     "rectangular",
   );
   const [phylogram, setPhylogram] = useState(true);
-  const [tracks, setTracks] = useState<FigureTracks>(DEFAULT_TRACKS);
-  // Draw legends for the colored tracks (Phase 0). On by default so a figure is
-  // self-describing; persisted per figure on save.
-  const [legend, setLegend] = useState(true);
+  // The ordered LAYER stack (phylo Phase 1). This IS the persisted panels[]; the
+  // layers control edits it directly and the renderer + exporter walk it.
+  const [panels, setPanels] = useState<AlignedPanel[]>(defaultPanels);
+  const [selectedLayerId, setSelectedLayerId] = useState<string | null>(null);
 
   // Metadata binding.
   const [metaRows, setMetaRows] = useState<Record<string, string>[] | null>(
@@ -110,9 +142,6 @@ export function PhyloStudio({ initialTreeId }: { initialTreeId?: string } = {}) 
   );
   const [metaColumns, setMetaColumns] = useState<string[]>([]);
   const [tipColumn, setTipColumn] = useState<string>("");
-  const [categoryColumn, setCategoryColumn] = useState<string>("");
-  const [barColumn, setBarColumn] = useState<string>("");
-  const [heatColumns, setHeatColumns] = useState<string[]>([]);
 
   const [showCode, setShowCode] = useState(false);
   const [copyState, setCopyState] = useState<"idle" | "image" | "text">("idle");
@@ -169,9 +198,27 @@ export function PhyloStudio({ initialTreeId }: { initialTreeId?: string } = {}) 
     return matchMetadataToTips(tree, metaRows, tipColumn);
   }, [tree, metaRows, tipColumn]);
 
+  // The numeric metadata columns (drive the inspector's continuous-scale hint).
+  const numericColumns = useMemo(() => {
+    if (!tree || !match) return [];
+    return metaColumns.filter(
+      (c) => c !== tipColumn && classifyColumn(tree, match.matched, c) === "numeric",
+    );
+  }, [tree, match, metaColumns, tipColumn]);
+
+  // The primary category column for the pinned categorical hues, taken from the
+  // first points / strip layer so points + strip + legend agree (as in Phase 0).
+  const categoryColumn = useMemo(() => {
+    const p = panels.find(
+      (x) => (x.kind === "points" || x.kind === "strip") && x.column,
+    );
+    return p?.column ?? "";
+  }, [panels]);
+
   // The single figure spec the renderer + the ggtree exporter both read, built by
   // the shared figure -> RenderSpec adapter so the Studio canvas, the export, and
-  // an embedded card all map the same figure to the same spec (one mapping).
+  // an embedded card all map the same figure to the same spec (one mapping). The
+  // layer stack drives the render; the legacy track fields stay empty.
   const spec: RenderSpec | null = useMemo(() => {
     if (!tree) return null;
     return figureToRenderSpec(
@@ -179,13 +226,11 @@ export function PhyloStudio({ initialTreeId }: { initialTreeId?: string } = {}) 
       {
         layout,
         phylogram,
-        tracks,
+        tracks: EMPTY_TRACKS,
         categoryColumn,
-        barColumn,
-        heatColumns,
         metaRows,
         tipColumn,
-        legend,
+        panels,
       },
       { width: FIG_W, height: FIG_H },
     );
@@ -193,13 +238,10 @@ export function PhyloStudio({ initialTreeId }: { initialTreeId?: string } = {}) 
     tree,
     layout,
     phylogram,
-    tracks,
     categoryColumn,
-    barColumn,
-    heatColumns,
     metaRows,
     tipColumn,
-    legend,
+    panels,
   ]);
 
   const svgMarkup = useMemo(
@@ -248,35 +290,42 @@ export function PhyloStudio({ initialTreeId }: { initialTreeId?: string } = {}) 
   }
 
   /**
-   * Reopen a saved tree into the same figure it was exported with. The figure
-   * spec (layout / phylogram / tracks) and the bound metadata (rows, tip column,
-   * and the per-track column bindings) all live in the sidecar, so a saved tree
-   * lands looking like its last save instead of a bare cladogram.
+   * Reopen a saved tree into the same figure it was exported with. The layer
+   * stack + bound metadata live in the sidecar, so a saved tree lands looking
+   * like its last save. A pre-Phase-1 record has no stored panels, so the
+   * adapter projects them from its Phase 0 tracks + columns (the migration read
+   * path), and the figure still opens through the one panel system.
    */
   function restoreSavedFigure(meta: PhyloMeta) {
-    // Resolve the stored figure + metadata through the shared adapter so the
-    // Studio reopens a saved tree from the same mapping an embed renders it with.
     const inputs = figureInputsFromStored(meta.figure, meta.metadata);
     setLayout(inputs.layout);
     setPhylogram(inputs.phylogram);
-    setTracks(inputs.tracks);
-    setLegend(inputs.legend ?? true);
+    // Stored panels win; else project the layer stack from the Phase 0 fields.
+    const restored =
+      inputs.panels ??
+      projectTracksToPanels({
+        tracks: inputs.tracks,
+        category: inputs.categoryColumn || undefined,
+        bar: inputs.barColumn || undefined,
+        heat:
+          inputs.heatColumns && inputs.heatColumns.length > 0
+            ? inputs.heatColumns
+            : undefined,
+        scales: inputs.scales,
+        legend: inputs.legend,
+      });
+    setPanels(restored);
+    setSelectedLayerId(null);
     if (inputs.metaRows) {
       setMetaRows(inputs.metaRows);
       const cols =
         inputs.metaRows.length > 0 ? Object.keys(inputs.metaRows[0]) : [];
       setMetaColumns(cols);
       setTipColumn(inputs.tipColumn ?? cols[0] ?? "");
-      setCategoryColumn(inputs.categoryColumn ?? "");
-      setBarColumn(inputs.barColumn ?? "");
-      setHeatColumns(inputs.heatColumns ?? []);
     } else {
       setMetaRows(null);
       setMetaColumns([]);
       setTipColumn("");
-      setCategoryColumn("");
-      setBarColumn("");
-      setHeatColumns([]);
     }
   }
 
@@ -294,7 +343,18 @@ export function PhyloStudio({ initialTreeId }: { initialTreeId?: string } = {}) 
       ? bestTipColumn(tree, parsed.rows, parsed.columns)
       : parsed.columns[0];
     setTipColumn(tipCol);
-    setCategoryColumn(parsed.columns.find((c) => c !== tipCol) ?? "");
+    // Bind the default points / strip layers to the first non-tip column, so a
+    // freshly dropped table immediately colors the figure (Phase 0 parity).
+    const cat = parsed.columns.find((c) => c !== tipCol) ?? "";
+    if (cat) {
+      setPanels((prev) =>
+        prev.map((p) =>
+          (p.kind === "points" || p.kind === "strip") && !p.column
+            ? { ...p, column: cat }
+            : p,
+        ),
+      );
+    }
   }
 
   async function onUploadCsv(file: File) {
@@ -314,8 +374,13 @@ export function PhyloStudio({ initialTreeId }: { initialTreeId?: string } = {}) 
     );
   };
   const doLadderize = () => tree && setTree(ladderize(tree, true));
-  const toggleTrack = (k: keyof FigureTracks) =>
-    setTracks((t) => ({ ...t, [k]: !t[k] }));
+
+  // Apply a "start from" template, rebuilding the layer stack from the available
+  // metadata columns (numeric columns hint a continuous scale).
+  const onApplyTemplate = (id: string) => {
+    setPanels(buildTemplate(id, metaColumns, numericColumns));
+    setSelectedLayerId(null);
+  };
 
   // ---- export ----
 
@@ -355,20 +420,28 @@ export function PhyloStudio({ initialTreeId }: { initialTreeId?: string } = {}) 
 
   const onSave = async () => {
     if (!tree) return;
+    // The layer stack is the source of truth, written as panels. We ALSO derive
+    // the Phase 0 tracks + column bindings from the panels so a reader that has
+    // not shipped the panel path yet still renders a faithful-enough figure
+    // (forward-compat); a reader that has shipped it ignores tracks and uses
+    // panels. The columns bindings double as the metadata sidecar.
+    const derived = derivePhase0Fields(panels);
     const figure = {
       layout,
       branchLengths: phylogram,
-      tracks: tracks as unknown as Record<string, boolean>,
-      legend,
+      tracks: derived.tracks,
+      legend: true,
+      panels,
     };
     const metadata =
       metaRows && tipColumn
         ? {
             tipColumn,
             rows: metaRows,
-            categoryColumn: categoryColumn || undefined,
-            barColumn: barColumn || undefined,
-            heatColumns: heatColumns.length > 0 ? heatColumns : undefined,
+            categoryColumn: derived.categoryColumn || undefined,
+            barColumn: derived.barColumn || undefined,
+            heatColumns:
+              derived.heatColumns.length > 0 ? derived.heatColumns : undefined,
           }
         : undefined;
     const created = await phyloApi.create(serializeNewick(tree), {
@@ -447,8 +520,8 @@ export function PhyloStudio({ initialTreeId }: { initialTreeId?: string } = {}) 
 
         <Panel title="Metadata">
           <p className="text-xs text-foreground-muted mb-2">
-            Columns map onto annotation tracks. Unmatched tips are shown, never
-            dropped.
+            Drop a table, then bind its columns to layers in the inspector.
+            Unmatched tips are shown, never dropped.
           </p>
           <div className="flex flex-wrap gap-1.5">
             <GhostBtn onClick={() => csvFileRef.current?.click()}>
@@ -475,33 +548,6 @@ export function PhyloStudio({ initialTreeId }: { initialTreeId?: string } = {}) 
                 options={metaColumns}
                 onChange={setTipColumn}
               />
-              <ColumnSelect
-                label="Category (points / strip)"
-                value={categoryColumn}
-                options={["", ...metaColumns]}
-                onChange={setCategoryColumn}
-              />
-              <ColumnSelect
-                label="Bar chart value"
-                value={barColumn}
-                options={["", ...metaColumns]}
-                onChange={setBarColumn}
-              />
-              {tracks.heat && (
-                <HeatColumnPicker
-                  columns={metaColumns}
-                  selected={heatColumns}
-                  tipColumn={tipColumn}
-                  onAdd={(c) =>
-                    setHeatColumns((prev) =>
-                      prev.includes(c) ? prev : [...prev, c],
-                    )
-                  }
-                  onRemove={(c) =>
-                    setHeatColumns((prev) => prev.filter((x) => x !== c))
-                  }
-                />
-              )}
             </div>
           )}
           {match && (
@@ -558,30 +604,21 @@ export function PhyloStudio({ initialTreeId }: { initialTreeId?: string } = {}) 
         {/* The renderer string is the single source of SVG; injected here. */}
         <div
           className="w-full"
-          // eslint-disable-next-line react/no-danger
           dangerouslySetInnerHTML={{ __html: svgMarkup }}
         />
       </div>
 
-      {/* Right rail: tracks + export */}
+      {/* Right rail: the layer stack + export */}
       <div className="space-y-3.5">
-        <Panel title="Annotation tracks">
-          <TrackRow label="Tip labels" on={tracks.labels} onClick={() => toggleTrack("labels")} />
-          <TrackRow
-            label="Italic labels"
-            on={tracks.labelsItalic}
-            onClick={() => toggleTrack("labelsItalic")}
-          />
-          <TrackRow label="Tip points" on={tracks.points} onClick={() => toggleTrack("points")} />
-          <TrackRow label="Color strip" on={tracks.strip} onClick={() => toggleTrack("strip")} />
-          <TrackRow label="Bar chart" on={tracks.bars} onClick={() => toggleTrack("bars")} />
-          <TrackRow label="Heatmap" on={tracks.heat} onClick={() => toggleTrack("heat")} />
-          <TrackRow label="Legend" on={legend} onClick={() => setLegend((v) => !v)} />
-          <TrackRow label="Clade highlight" on={tracks.clade} onClick={() => toggleTrack("clade")} />
-          <TrackRow
-            label="Support values"
-            on={tracks.support}
-            onClick={() => toggleTrack("support")}
+        <Panel title="Layers">
+          <PhyloLayersControl
+            panels={panels}
+            selectedId={selectedLayerId}
+            columns={metaColumns.filter((c) => c !== tipColumn)}
+            treeSummary={`${phylogram ? "phylogram" : "cladogram"}, ${layout}`}
+            onChange={setPanels}
+            onSelect={setSelectedLayerId}
+            onApplyTemplate={onApplyTemplate}
           />
         </Panel>
 
@@ -807,36 +844,6 @@ function GhostBtn({
   );
 }
 
-function TrackRow({
-  label,
-  on,
-  onClick,
-}: {
-  label: string;
-  on: boolean;
-  onClick: () => void;
-}) {
-  return (
-    <button
-      onClick={onClick}
-      className="w-full flex items-center justify-between py-1.5 text-sm text-foreground"
-    >
-      <span>{label}</span>
-      <span
-        className={`w-9 h-5 rounded-full relative transition-colors ${
-          on ? "bg-brand-sky" : "bg-border"
-        }`}
-      >
-        <span
-          className={`absolute top-0.5 w-4 h-4 rounded-full bg-white transition-all ${
-            on ? "left-[18px]" : "left-0.5"
-          }`}
-        />
-      </span>
-    </button>
-  );
-}
-
 function Seg<T extends string>({
   value,
   options,
@@ -894,76 +901,6 @@ function ColumnSelect({
   );
 }
 
-/**
- * Pick which metadata columns the heatmap track draws, one ring / strip per
- * column. Selected columns show as removable chips; the dropdown adds another.
- * The tip-id column is excluded (it is the join key, not data). Each column is
- * scaled on its own (numeric gradient or categorical) by the renderer.
- */
-function HeatColumnPicker({
-  columns,
-  selected,
-  tipColumn,
-  onAdd,
-  onRemove,
-}: {
-  columns: string[];
-  selected: string[];
-  tipColumn: string;
-  onAdd: (c: string) => void;
-  onRemove: (c: string) => void;
-}) {
-  const available = columns.filter(
-    (c) => c !== tipColumn && !selected.includes(c),
-  );
-  return (
-    <div className="block text-xs">
-      <span className="text-foreground-muted">Heatmap columns</span>
-      {selected.length > 0 && (
-        <div className="mt-1 flex flex-wrap gap-1">
-          {selected.map((c) => (
-            <span
-              key={c}
-              className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-accent-soft text-accent text-xs font-semibold"
-            >
-              {c}
-              <Tooltip label={`Remove ${c}`}>
-                <button
-                  onClick={() => onRemove(c)}
-                  className="hover:text-foreground"
-                  aria-label={`Remove ${c}`}
-                >
-                  <Icon name="close" className="w-3 h-3" />
-                </button>
-              </Tooltip>
-            </span>
-          ))}
-        </div>
-      )}
-      {available.length > 0 ? (
-        <select
-          value=""
-          onChange={(e) => e.target.value && onAdd(e.target.value)}
-          className="mt-1 w-full text-sm border border-border rounded-lg px-2 py-1 bg-surface text-foreground"
-        >
-          <option value="">Add a column...</option>
-          {available.map((c) => (
-            <option key={c} value={c}>
-              {c}
-            </option>
-          ))}
-        </select>
-      ) : (
-        selected.length === 0 && (
-          <p className="mt-1 text-foreground-muted">
-            No columns to add. Link a metadata table first.
-          </p>
-        )
-      )}
-    </div>
-  );
-}
-
 function RerootPicker({
   tips,
   onReroot,
@@ -1004,6 +941,40 @@ function RerootPicker({
 // blankTree + firstCladeHighlight moved into the shared figure -> RenderSpec
 // adapter (lib/phylo/figure-to-render.ts) so the Studio and the embed map a
 // figure to the same spec from one place.
+
+/**
+ * Derive the Phase 0 tracks + column bindings from a layer stack, so a saved
+ * figure stays readable by a consumer that has not shipped the panel path. The
+ * panel array remains the source of truth; this is a forward-compat shadow.
+ */
+function derivePhase0Fields(panels: AlignedPanel[]): {
+  tracks: Record<string, boolean>;
+  categoryColumn: string;
+  barColumn: string;
+  heatColumns: string[];
+} {
+  const visible = (k: string) =>
+    panels.some((p) => p.visible && p.kind === k);
+  const firstCol = (k: string) =>
+    panels.find((p) => p.visible && p.kind === k)?.column ?? "";
+  const labels = panels.find((p) => p.visible && p.kind === "labels");
+  const heatPanel = panels.find((p) => p.visible && p.kind === "heat");
+  return {
+    tracks: {
+      labels: !!labels,
+      labelsItalic: !!labels?.options?.italic,
+      points: visible("points"),
+      strip: visible("strip"),
+      bars: visible("bars"),
+      heat: !!heatPanel,
+      clade: visible("clade"),
+      support: visible("support"),
+    },
+    categoryColumn: firstCol("strip") || firstCol("points"),
+    barColumn: firstCol("bars"),
+    heatColumns: heatPanel?.columns ?? [],
+  };
+}
 
 /** Serialize a tree back to Newick for persistence (round-trips the edits). */
 function serializeNewick(node: TreeNode): string {
