@@ -175,13 +175,17 @@ export function layoutCircular(
   const maxDepth = Math.max(1e-9, ...[...depths.values()]);
   const aMax = Math.max(1, lv.length - 1);
   const cx = width / 2;
-  const cy = height / 2;
+  // Nudge the center down a few px so the topmost tips + their labels do not
+  // clip at the canvas top edge (the fan is densest near the top). The bottom
+  // has the open gap of the rooted fan, so it has room to spare.
+  const TOP_ROOM = 10;
+  const cy = height / 2 + TOP_ROOM;
   // Leave room for tip labels outside the circle, plus any ring tracks the
   // renderer draws between the tips and the labels (Phase 0 bar / heat rings).
   const ringRoom = Math.max(0, opts.circularRingRoom ?? 0);
   const radius = Math.max(
     20,
-    Math.min(width, height) / 2 - opts.padding - 56 - ringRoom,
+    Math.min(width, height) / 2 - opts.padding - 56 - ringRoom - TOP_ROOM,
   );
   const innerR = 18;
 
