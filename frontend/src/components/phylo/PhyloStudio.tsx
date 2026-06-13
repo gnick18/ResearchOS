@@ -15,7 +15,7 @@
 //
 // No em-dashes, no emojis, no mid-sentence colons.
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 
 import { Icon } from "@/components/icons";
@@ -27,11 +27,10 @@ import {
   type RailOperation,
 } from "@/components/sequences/SequenceOperationsRail";
 import {
-  clampListWidth,
-  DEFAULT_LIST_WIDTH,
-  LIST_MIN_WIDTH,
-  LIST_MAX_WIDTH,
-} from "@/lib/sequences/split-layout";
+  useSplitShell,
+  SplitDivider,
+  RailReopenButton,
+} from "@/components/SplitShell";
 import { getDemoMode } from "@/lib/file-system/wiki-capture-mock";
 import type { PhyloMeta } from "@/lib/phylo/types";
 import {
@@ -226,12 +225,8 @@ export function PhyloStudio({ initialTreeId }: { initialTreeId?: string } = {}) 
   const csvFileRef = useRef<HTMLInputElement>(null);
   const alnFileRef = useRef<HTMLInputElement>(null);
 
-  // The shared split shell (resizable + collapse-to-focus + persisted width),
-  // copy-adapted from /sequences + /chemistry via the shared clamp math.
-  const splitRef = useRef<HTMLDivElement>(null);
-  const draggingRef = useRef(false);
-  const [listWidth, setListWidth] = useState(DEFAULT_LIST_WIDTH);
-  const [listCollapsed, setListCollapsed] = useState(false);
+  // The shared split shell (resizable + collapse-to-focus + persisted width).
+  const shell = useSplitShell(LIST_WIDTH_KEY);
 
   // Load saved trees for the "From a saved tree" picker. In a demo session, open
   // the showcase tree straight away so the Studio lands on a populated, real
@@ -274,65 +269,6 @@ export function PhyloStudio({ initialTreeId }: { initialTreeId?: string } = {}) 
     // onPickSaved is stable for this mount; the deep link is consumed once.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initialTreeId]);
-
-  // ---- split shell (resizable left rail) ----
-
-  // Restore + persist the dragged rail width (shared clamp math, per-page key).
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    const raw = window.localStorage.getItem(LIST_WIDTH_KEY);
-    const parsed = raw ? Number.parseFloat(raw) : NaN;
-    const w = splitRef.current?.getBoundingClientRect().width ?? 0;
-    if (Number.isFinite(parsed)) setListWidth(clampListWidth(parsed, w));
-  }, []);
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    window.localStorage.setItem(LIST_WIDTH_KEY, String(Math.round(listWidth)));
-  }, [listWidth]);
-
-  const onDividerDown = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
-    if (e.button !== 0) return;
-    e.preventDefault();
-    draggingRef.current = true;
-    (e.target as HTMLElement).setPointerCapture?.(e.pointerId);
-    document.body.style.userSelect = "none";
-    document.body.style.cursor = "col-resize";
-  }, []);
-  const onDividerMove = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
-    if (!draggingRef.current) return;
-    const rect = splitRef.current?.getBoundingClientRect();
-    if (!rect) return;
-    setListWidth(clampListWidth(e.clientX - rect.left, rect.width));
-  }, []);
-  const onDividerUp = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
-    if (!draggingRef.current) return;
-    draggingRef.current = false;
-    (e.target as HTMLElement).releasePointerCapture?.(e.pointerId);
-    document.body.style.userSelect = "";
-    document.body.style.cursor = "";
-  }, []);
-  const onDividerKeyDown = useCallback(
-    (e: React.KeyboardEvent<HTMLDivElement>) => {
-      if (e.key !== "ArrowLeft" && e.key !== "ArrowRight") return;
-      e.preventDefault();
-      const step = e.shiftKey ? 48 : 16;
-      const w = splitRef.current?.getBoundingClientRect().width ?? 0;
-      setListWidth((cur) =>
-        clampListWidth(cur + (e.key === "ArrowLeft" ? -step : step), w),
-      );
-    },
-    [],
-  );
-  // Restore the page cursor / selection if unmounted mid-drag.
-  useEffect(() => {
-    return () => {
-      if (draggingRef.current) {
-        document.body.style.userSelect = "";
-        document.body.style.cursor = "";
-        draggingRef.current = false;
-      }
-    };
-  }, []);
 
   // The metadata match (tip ids -> rows), recomputed when the binding changes.
   const match: MetadataMatch | null = useMemo(() => {
@@ -931,30 +867,24 @@ export function PhyloStudio({ initialTreeId }: { initialTreeId?: string } = {}) 
 
   return (
     <div
-      ref={splitRef}
+      ref={shell.containerRef}
       className="relative flex h-full min-h-0 gap-0 px-4 pb-4"
     >
       {/* Re-open pill, shown only when the rail is collapsed. */}
-      {listCollapsed ? (
-        <Tooltip label="Show the tree list">
-          <button
-            type="button"
-            onClick={() => setListCollapsed(false)}
-            aria-label="Show the tree list"
-            className="mr-2 mt-1 flex h-9 w-7 shrink-0 items-center justify-center self-start rounded-md border border-border bg-surface-raised text-foreground-muted hover:text-foreground hover:bg-surface-sunken"
-          >
-            <Icon name="chevronRight" className="w-4 h-4" />
-          </button>
-        </Tooltip>
+      {shell.collapsed ? (
+        <RailReopenButton
+          onClick={() => shell.setCollapsed(false)}
+          label="Show the tree list"
+        />
       ) : null}
 
       {/* LEFT RAIL: the saved-trees collection (recycled from Sequence/Chemistry). */}
       <aside
         className={`flex shrink-0 flex-col overflow-hidden rounded-lg border border-border bg-surface-raised transition-[width] duration-200 ${
-          listCollapsed ? "pointer-events-none border-0" : ""
+          shell.collapsed ? "pointer-events-none border-0" : ""
         }`}
-        style={{ width: listCollapsed ? 0 : listWidth }}
-        aria-hidden={listCollapsed}
+        style={{ width: shell.collapsed ? 0 : shell.width }}
+        aria-hidden={shell.collapsed}
       >
         <PhyloCollectionRail
           selectedId={openTreeId}
@@ -963,7 +893,7 @@ export function PhyloStudio({ initialTreeId }: { initialTreeId?: string } = {}) 
             setTree(null);
             setOpenTreeId(null);
           }}
-          onCollapse={() => setListCollapsed(true)}
+          onCollapse={() => shell.setCollapsed(true)}
           onOpenCleared={() => {
             setTree(null);
             setOpenTreeId(null);
@@ -972,27 +902,7 @@ export function PhyloStudio({ initialTreeId }: { initialTreeId?: string } = {}) 
       </aside>
 
       {/* DIVIDER (hidden when the rail is collapsed). */}
-      {listCollapsed ? null : (
-        <Tooltip label="Drag to resize (or use arrow keys)">
-          <div
-            role="separator"
-            aria-orientation="vertical"
-            aria-label="Resize the tree list"
-            aria-valuenow={Math.round(listWidth)}
-            aria-valuemin={LIST_MIN_WIDTH}
-            aria-valuemax={LIST_MAX_WIDTH}
-            tabIndex={0}
-            onPointerDown={onDividerDown}
-            onPointerMove={onDividerMove}
-            onPointerUp={onDividerUp}
-            onPointerCancel={onDividerUp}
-            onKeyDown={onDividerKeyDown}
-            className="group relative mx-1 flex w-2 shrink-0 cursor-col-resize touch-none items-center justify-center focus:outline-none"
-          >
-            <span className="h-12 w-1 rounded-full bg-border transition-colors group-hover:bg-brand-action group-focus:bg-brand-action" />
-          </div>
-        </Tooltip>
-      )}
+      <SplitDivider shell={shell} label="Resize the tree list" />
 
       {/* MAIN: the canvas + the right action rail. */}
       <section className="flex min-w-0 flex-1 overflow-hidden rounded-lg border border-border bg-surface-raised">

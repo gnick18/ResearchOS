@@ -55,11 +55,8 @@ import {
   partitionImportableFiles,
   importStatusText,
 } from "@/lib/sequences/bulk-import";
-import {
-  clampListWidth,
-  DEFAULT_LIST_WIDTH,
-  LIST_WIDTH_STORAGE_KEY,
-} from "@/lib/sequences/split-layout";
+import { LIST_WIDTH_STORAGE_KEY } from "@/lib/sequences/split-layout";
+import { useSplitShell } from "@/components/SplitShell";
 import type { SequenceRecord, SeqType } from "@/lib/types";
 import {
   lineageIdsFrom,
@@ -384,18 +381,11 @@ export default function SequencesPage() {
   const folderInputRef = useRef<HTMLInputElement>(null);
   const importMenuRef = useRef<HTMLDivElement>(null);
 
-  // Split layout: a drag-resizable left list with a min/max clamp, plus a
-  // collapse-to-focus toggle that lets the viewer fill the page width. Width
-  // is in px (init 352 = 22rem) and persisted across reloads. The container
-  // ref feeds the clamp its live width so neither pane collapses on drag.
-  const splitContainerRef = useRef<HTMLDivElement>(null);
-  const [listWidth, setListWidth] = useState<number>(DEFAULT_LIST_WIDTH);
-  // Focus mode collapses the left list so the viewer fills the page. The
-  // toggle remembers the dragged width and restores it on exit.
-  const [listCollapsed, setListCollapsed] = useState(false);
-  const draggingRef = useRef(false);
-  // The latest clamped width during an active drag, persisted on drag end.
-  const dragWidthRef = useRef<number | null>(null);
+  // Split layout: the shared resizable + collapse-to-focus + width-persisted
+  // shell, the same one Chemistry / Data Hub / Tree Studio use. Focus mode
+  // (shell.collapsed) hides the list so the viewer fills the page; the Escape
+  // handler below and the focus toggle drive it.
+  const shell = useSplitShell(LIST_WIDTH_STORAGE_KEY);
 
   const queryClient = useQueryClient();
   const { currentUser } = useCurrentUser();
@@ -1359,110 +1349,12 @@ export default function SequencesPage() {
     };
   }, [importMenuOpen]);
 
-  // Restore the persisted list width on mount, re-clamped against the live
-  // container so a value saved on a wide window does not overflow a narrow one.
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    const raw = window.localStorage.getItem(LIST_WIDTH_STORAGE_KEY);
-    const parsed = raw ? Number.parseFloat(raw) : NaN;
-    const container = splitContainerRef.current?.getBoundingClientRect().width ?? 0;
-    if (Number.isFinite(parsed)) {
-      setListWidth(clampListWidth(parsed, container));
-    }
-  }, []);
-
-  // Persist the width only when the user actually resizes (drag end + keyboard
-  // nudge below), never as a [listWidth] effect. A mount-time effect would write
-  // the default over the just-restored value before the restore's setState
-  // propagates (React 18 StrictMode double-invokes the mount effects with no
-  // re-render between passes), so the saved width never survived a reload.
-  const persistListWidth = useCallback((w: number) => {
-    if (typeof window === "undefined") return;
-    try {
-      window.localStorage.setItem(LIST_WIDTH_STORAGE_KEY, String(Math.round(w)));
-    } catch {
-      /* private mode / quota — non-fatal, the width just will not persist */
-    }
-  }, []);
-
-  // Divider drag. Pointer capture keeps the move events flowing even if the
-  // cursor outruns the thin handle; the body gets user-select:none so dragging
-  // never selects the list text. Updates funnel through clampListWidth so the
-  // viewer can never be squeezed below its min via the divider.
-  const onDividerPointerDown = useCallback(
-    (e: React.PointerEvent<HTMLDivElement>) => {
-      if (e.button !== 0) return;
-      e.preventDefault();
-      const container = splitContainerRef.current;
-      if (!container) return;
-      draggingRef.current = true;
-      (e.target as HTMLElement).setPointerCapture?.(e.pointerId);
-      document.body.style.userSelect = "none";
-      document.body.style.cursor = "col-resize";
-    },
-    [],
-  );
-
-  const onDividerPointerMove = useCallback(
-    (e: React.PointerEvent<HTMLDivElement>) => {
-      if (!draggingRef.current) return;
-      const container = splitContainerRef.current;
-      if (!container) return;
-      const rect = container.getBoundingClientRect();
-      const desired = e.clientX - rect.left;
-      const next = clampListWidth(desired, rect.width);
-      dragWidthRef.current = next;
-      setListWidth(next);
-    },
-    [],
-  );
-
-  const endDividerDrag = useCallback(
-    (e: React.PointerEvent<HTMLDivElement>) => {
-      if (!draggingRef.current) return;
-      draggingRef.current = false;
-      (e.target as HTMLElement).releasePointerCapture?.(e.pointerId);
-      document.body.style.userSelect = "";
-      document.body.style.cursor = "";
-      if (dragWidthRef.current != null) {
-        persistListWidth(dragWidthRef.current);
-        dragWidthRef.current = null;
-      }
-    },
-    [persistListWidth],
-  );
-
-  // Keyboard resize for the separator (arrow keys nudge by 16px, re-clamped).
-  const onDividerKeyDown = useCallback(
-    (e: React.KeyboardEvent<HTMLDivElement>) => {
-      const step = e.shiftKey ? 48 : 16;
-      const container = splitContainerRef.current;
-      const width = container?.getBoundingClientRect().width ?? 0;
-      if (e.key === "ArrowLeft") {
-        e.preventDefault();
-        setListWidth((w) => {
-          const next = clampListWidth(w - step, width);
-          persistListWidth(next);
-          return next;
-        });
-      } else if (e.key === "ArrowRight") {
-        e.preventDefault();
-        setListWidth((w) => {
-          const next = clampListWidth(w + step, width);
-          persistListWidth(next);
-          return next;
-        });
-      }
-    },
-    [persistListWidth],
-  );
-
   // Escape exits focus mode, but only when it is "free" — never while the user
   // types in a field / contenteditable, and never when a dialog or the import
   // menu is open (those own Escape). Mirrors the markdown editor's guarded
   // Escape (LiveMarkdownEditor) in spirit: capture phase, re-check guards.
   useEffect(() => {
-    if (!listCollapsed) return;
+    if (!shell.collapsed) return;
     if (typeof document === "undefined") return;
     const onKeyDown = (e: KeyboardEvent) => {
       if (e.key !== "Escape") return;
@@ -1482,11 +1374,19 @@ export default function SequencesPage() {
       if (document.querySelector('[role="dialog"]')) return;
       e.preventDefault();
       e.stopPropagation();
-      setListCollapsed(false);
+      shell.setCollapsed(false);
     };
     document.addEventListener("keydown", onKeyDown, true);
     return () => document.removeEventListener("keydown", onKeyDown, true);
-  }, [listCollapsed, newOpen, assembleOpen, compareOpen, importMenuOpen, importTarget]);
+  }, [
+    shell.collapsed,
+    shell.setCollapsed,
+    newOpen,
+    assembleOpen,
+    compareOpen,
+    importMenuOpen,
+    importTarget,
+  ]);
 
   return (
     <AppShell>
@@ -1516,7 +1416,7 @@ export default function SequencesPage() {
         </div>
       </div>
       <div
-        ref={splitContainerRef}
+        ref={shell.containerRef}
         /* Fill the AppShell `main` area (which already subtracts the header)
          * instead of a hardcoded `100vh - 7rem`, which undershot and left a
          * dead ~60px bar at the bottom of the editor. `h-full min-h-0` lets the
@@ -1530,11 +1430,11 @@ export default function SequencesPage() {
             sidebar header, so this thin pill on the left edge is the visible way
             back when the sidebar is hidden (Esc still works too). Absolutely
             positioned so re-opening does not shift the canvas. */}
-        {listCollapsed ? (
+        {shell.collapsed ? (
           <Tooltip label="Show the sequence list" placement="right">
             <button
               type="button"
-              onClick={() => setListCollapsed(false)}
+              onClick={() => shell.setCollapsed(false)}
               aria-label="Show the sequence list"
               className="absolute left-0 top-1/2 z-20 -translate-y-1/2 rounded-r-lg border border-l-0 border-border bg-surface-raised px-1 py-3 text-foreground-muted shadow-md transition-colors hover:bg-surface-sunken hover:text-foreground"
             >
@@ -1560,10 +1460,10 @@ export default function SequencesPage() {
             collapses to 0 in focus mode so the viewer fills the page. */}
         <div
           className={`flex shrink-0 flex-col overflow-hidden transition-[width] duration-200 ${
-            listCollapsed ? "pointer-events-none" : ""
+            shell.collapsed ? "pointer-events-none" : ""
           }`}
-          style={{ width: listCollapsed ? 0 : listWidth }}
-          aria-hidden={listCollapsed}
+          style={{ width: shell.collapsed ? 0 : shell.width }}
+          aria-hidden={shell.collapsed}
         >
         <SequenceDropZone
           onFiles={handleDroppedFiles}
@@ -1653,7 +1553,7 @@ export default function SequencesPage() {
                       )}
                       <Tooltip
                         label={
-                          listCollapsed
+                          shell.collapsed
                             ? "Exit focus mode (Esc) and show the sequence list"
                             : "Focus mode, hide the list so the viewer fills the page"
                         }
@@ -1661,15 +1561,15 @@ export default function SequencesPage() {
                       >
                         <button
                           type="button"
-                          onClick={() => setListCollapsed((v) => !v)}
-                          aria-pressed={listCollapsed}
+                          onClick={() => shell.setCollapsed(!shell.collapsed)}
+                          aria-pressed={shell.collapsed}
                           aria-label={
-                            listCollapsed
+                            shell.collapsed
                               ? "Exit viewer focus mode"
                               : "Enter viewer focus mode"
                           }
                           className={`shrink-0 rounded p-1.5 transition-colors ${
-                            listCollapsed
+                            shell.collapsed
                               ? "bg-sky-100 dark:bg-sky-500/15 text-sky-600 dark:text-sky-300 hover:bg-sky-200"
                               : "text-foreground-muted hover:bg-surface-sunken hover:text-foreground"
                           }`}
@@ -2116,18 +2016,14 @@ export default function SequencesPage() {
             focus mode (nothing to resize). Hover reveals a subtle handle;
             keyboard arrows nudge the width. Funnels through clampListWidth so
             neither pane can be dragged below its min. */}
-        {!listCollapsed ? (
+        {!shell.collapsed ? (
           <Tooltip label="Drag to resize (or use arrow keys)">
             <div
               role="separator"
               aria-orientation="vertical"
               aria-label="Resize the sequence list"
               tabIndex={0}
-              onPointerDown={onDividerPointerDown}
-              onPointerMove={onDividerPointerMove}
-              onPointerUp={endDividerDrag}
-              onPointerCancel={endDividerDrag}
-              onKeyDown={onDividerKeyDown}
+              {...shell.dividerHandlers}
               className="group relative mx-1 flex w-2 shrink-0 cursor-col-resize touch-none items-center justify-center focus:outline-none"
             >
               <span

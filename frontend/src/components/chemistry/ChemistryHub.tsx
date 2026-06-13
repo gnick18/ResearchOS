@@ -31,11 +31,10 @@ import { referenceClipboardText } from "@/lib/copy-reference";
 import { objectReferenceMarkdown } from "@/lib/references";
 import SendReferencePicker from "@/components/references/SendReferencePicker";
 import {
-  clampListWidth,
-  DEFAULT_LIST_WIDTH,
-  LIST_MIN_WIDTH,
-  LIST_MAX_WIDTH,
-} from "@/lib/sequences/split-layout";
+  useSplitShell,
+  SplitDivider,
+  RailReopenButton,
+} from "@/components/SplitShell";
 import { MoleculeThumbnail } from "./MoleculeThumbnail";
 import { MoleculeDetail } from "./MoleculeDetail";
 import { LiteratureSearch } from "./LiteratureSearch";
@@ -67,7 +66,6 @@ export function ChemistryHub({
   const [collection, setCollection] = useState<string>("all");
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [mainView, setMainView] = useState<MainView>("auto");
-  const [listCollapsed, setListCollapsed] = useState(false);
   // Bulk selection (v2 Phase 1d). A non-empty set shows the action bar; bulk
   // delete routes each id through the recoverable trash and fires ONE shared
   // Undo toast, mirroring the sequences library.
@@ -99,9 +97,7 @@ export function ChemistryHub({
   // Similarity results: ranked list with scores.
   const [similarityResults, setSimilarityResults] = useState<SimilarityResult[]>([]);
 
-  const splitRef = useRef<HTMLDivElement>(null);
-  const draggingRef = useRef(false);
-  const [listWidth, setListWidth] = useState(DEFAULT_LIST_WIDTH);
+  const shell = useSplitShell(LIST_WIDTH_KEY);
 
   const {
     data: molecules = [],
@@ -115,19 +111,6 @@ export function ChemistryHub({
     queryKey: ["projects", "for-chemistry"],
     queryFn: () => projectsApi.list(),
   });
-
-  // Restore + persist the dragged list width.
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    const raw = window.localStorage.getItem(LIST_WIDTH_KEY);
-    const parsed = raw ? Number.parseFloat(raw) : NaN;
-    const w = splitRef.current?.getBoundingClientRect().width ?? 0;
-    if (Number.isFinite(parsed)) setListWidth(clampListWidth(parsed, w));
-  }, []);
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    window.localStorage.setItem(LIST_WIDTH_KEY, String(Math.round(listWidth)));
-  }, [listWidth]);
 
   // Warm the heavy Ketcher editor in the background once the workbench has
   // settled, so the first New / Edit click is near-instant. Importing the canvas
@@ -195,56 +178,10 @@ export function ChemistryHub({
     if (selectSignal?.id) {
       setSelectedId(selectSignal.id);
       setMainView("auto");
-      setListCollapsed(false);
+      shell.setCollapsed(false);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectNonce]);
-
-  const onDividerDown = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
-    if (e.button !== 0) return;
-    e.preventDefault();
-    draggingRef.current = true;
-    (e.target as HTMLElement).setPointerCapture?.(e.pointerId);
-    document.body.style.userSelect = "none";
-    document.body.style.cursor = "col-resize";
-  }, []);
-  const onDividerMove = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
-    if (!draggingRef.current) return;
-    const rect = splitRef.current?.getBoundingClientRect();
-    if (!rect) return;
-    setListWidth(clampListWidth(e.clientX - rect.left, rect.width));
-  }, []);
-  const onDividerUp = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
-    if (!draggingRef.current) return;
-    draggingRef.current = false;
-    (e.target as HTMLElement).releasePointerCapture?.(e.pointerId);
-    document.body.style.userSelect = "";
-    document.body.style.cursor = "";
-  }, []);
-  // Keyboard resize (a11y): arrows nudge the list width, re-clamped to the pane.
-  const onDividerKeyDown = useCallback(
-    (e: React.KeyboardEvent<HTMLDivElement>) => {
-      if (e.key !== "ArrowLeft" && e.key !== "ArrowRight") return;
-      e.preventDefault();
-      const step = e.shiftKey ? 48 : 16;
-      const w = splitRef.current?.getBoundingClientRect().width ?? 0;
-      setListWidth((cur) =>
-        clampListWidth(cur + (e.key === "ArrowLeft" ? -step : step), w),
-      );
-    },
-    [],
-  );
-  // Safety net: if the component unmounts mid-drag (navigation away while
-  // dragging), restore the page cursor / text selection rather than leaking them.
-  useEffect(() => {
-    return () => {
-      if (draggingRef.current) {
-        document.body.style.userSelect = "";
-        document.body.style.cursor = "";
-        draggingRef.current = false;
-      }
-    };
-  }, []);
 
   const projectName = useMemo(() => {
     const map = new Map<string, string>();
@@ -620,27 +557,24 @@ export function ChemistryHub({
   );
 
   return (
-    <div ref={splitRef} className="relative flex h-full min-h-0 px-4 pb-4 gap-0">
+    <div
+      ref={shell.containerRef}
+      className="relative flex h-full min-h-0 px-4 pb-4 gap-0"
+    >
       {/* Re-open pill, shown only when the rail is collapsed. */}
-      {listCollapsed ? (
-        <Tooltip label="Show the molecule list">
-          <button
-            type="button"
-            onClick={() => setListCollapsed(false)}
-            aria-label="Show the molecule list"
-            className="mr-2 mt-1 flex h-9 w-7 shrink-0 items-center justify-center self-start rounded-md border border-border bg-surface-raised text-foreground-muted hover:text-foreground hover:bg-surface-sunken"
-          >
-            <Icon name="chevronRight" className="w-4 h-4" />
-          </button>
-        </Tooltip>
+      {shell.collapsed ? (
+        <RailReopenButton
+          onClick={() => shell.setCollapsed(false)}
+          label="Show the molecule list"
+        />
       ) : null}
       {/* LEFT RAIL */}
       <aside
         className={`flex shrink-0 flex-col overflow-hidden rounded-lg border border-border bg-surface-raised transition-[width] duration-200 ${
-          listCollapsed ? "pointer-events-none border-0" : ""
+          shell.collapsed ? "pointer-events-none border-0" : ""
         }`}
-        style={{ width: listCollapsed ? 0 : listWidth }}
-        aria-hidden={listCollapsed}
+        style={{ width: shell.collapsed ? 0 : shell.width }}
+        aria-hidden={shell.collapsed}
       >
         {/* header + actions */}
         <div className="border-b border-border px-3 py-3">
@@ -653,7 +587,7 @@ export function ChemistryHub({
               <Tooltip label="Hide the list">
                 <button
                   type="button"
-                  onClick={() => setListCollapsed(true)}
+                  onClick={() => shell.setCollapsed(true)}
                   aria-label="Hide the molecule list"
                   className="shrink-0 rounded-md p-1 text-foreground-muted hover:text-foreground hover:bg-surface-sunken"
                 >
@@ -989,27 +923,7 @@ export function ChemistryHub({
       </aside>
 
       {/* DIVIDER (hidden when the rail is collapsed) */}
-      {listCollapsed ? null : (
-        <Tooltip label="Drag to resize (or use arrow keys)">
-          <div
-            role="separator"
-            aria-orientation="vertical"
-            aria-label="Resize the molecule list"
-            aria-valuenow={Math.round(listWidth)}
-            aria-valuemin={LIST_MIN_WIDTH}
-            aria-valuemax={LIST_MAX_WIDTH}
-            tabIndex={0}
-            onPointerDown={onDividerDown}
-            onPointerMove={onDividerMove}
-            onPointerUp={onDividerUp}
-            onPointerCancel={onDividerUp}
-            onKeyDown={onDividerKeyDown}
-            className="group relative mx-1 flex w-2 shrink-0 cursor-col-resize touch-none items-center justify-center focus:outline-none"
-          >
-            <span className="h-12 w-1 rounded-full bg-border transition-colors group-hover:bg-brand-action group-focus:bg-brand-action" />
-          </div>
-        </Tooltip>
-      )}
+      <SplitDivider shell={shell} label="Resize the molecule list" />
 
       {/* MAIN PANE */}
       <section className="flex min-w-0 flex-1 flex-col rounded-lg border border-border bg-surface-raised overflow-hidden">
