@@ -7,6 +7,7 @@
 
 import { encodePublicKey } from "@/lib/sharing/identity/keys";
 import type { StoredIdentity } from "@/lib/sharing/identity/storage";
+import { isDemoOrWikiCapture } from "@/lib/file-system/wiki-capture-mock";
 import {
   mintDeptInvite,
   encodeDeptInviteLink,
@@ -44,8 +45,14 @@ export interface DeptRosterResult {
   labHeads: DeptRosterLabHead[];
 }
 
-/** Reads the current dept admin's department + lab-head roster. Null-safe. */
+/** Reads the current dept admin's department + lab-head roster. Null-safe. In
+ *  demo / wiki-capture mode there is no account or Neon, so a fixture roster
+ *  stands in (the contained dept demo). */
 export async function loadDeptRoster(): Promise<DeptRosterResult> {
+  if (isDemoOrWikiCapture()) {
+    const { demoDeptRoster } = await import("./demo-fixtures");
+    return demoDeptRoster();
+  }
   try {
     const res = await fetch("/api/dept/roster");
     if (!res.ok) return { department: null, labHeads: [] };

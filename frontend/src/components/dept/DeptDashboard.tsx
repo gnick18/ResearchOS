@@ -12,6 +12,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { deriveDeptRate, centsToUsd, DEPT_RATE } from "@/lib/dept/plan";
 import { bankSavingCents, priceForMethod } from "@/lib/billing/processing-fee";
+import { isDemoOrWikiCapture } from "@/lib/file-system/wiki-capture-mock";
 import PayMethodChoice, {
   payOptionRequest,
   requestToPayOption,
@@ -79,6 +80,12 @@ export default function DeptDashboard() {
   useEffect(() => {
     let cancelled = false;
     (async () => {
+      // Demo: no Neon, use a simulated billing status so the activate flow shows.
+      if (isDemoOrWikiCapture()) {
+        const { demoDeptBilling } = await import("@/lib/dept/demo-fixtures");
+        if (!cancelled) setBilling(demoDeptBilling());
+        return;
+      }
       try {
         const res = await fetch("/api/dept/billing");
         if (!res.ok) return;
@@ -101,6 +108,17 @@ export default function DeptDashboard() {
     setSaving(true);
     setSaveMsg(null);
     const { method, payClass } = payOptionRequest(payOpt);
+    // Demo: simulate activation locally, never call Stripe or the API.
+    if (isDemoOrWikiCapture()) {
+      setBilling({ billingEnabled: true, status: "active", method, payClass, monthlyCents: chargeCents });
+      setSaveMsg(
+        method === "invoice"
+          ? "Plan active (demo). A real invoice would be emailed here."
+          : "Plan active (demo). A card or bank would be charged each cycle.",
+      );
+      setSaving(false);
+      return;
+    }
     try {
       const res = await fetch("/api/dept/billing", {
         method: "POST",
@@ -139,10 +157,7 @@ export default function DeptDashboard() {
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      try {
-        const res = await fetch("/api/dept/usage");
-        if (!res.ok) return;
-        const data = (await res.json()) as UsageResponse;
+      const apply = (data: UsageResponse) => {
         if (cancelled) return;
         setUsage(data);
         if (!seeded) {
@@ -153,6 +168,17 @@ export default function DeptDashboard() {
           setStorageGb(Math.max(1, Math.ceil(data.totalBytes / GB)));
           setSeeded(true);
         }
+      };
+      // Demo: no Neon, render the fixture department + usage rollup.
+      if (isDemoOrWikiCapture()) {
+        const { demoDeptUsage } = await import("@/lib/dept/demo-fixtures");
+        apply(demoDeptUsage() as UsageResponse);
+        return;
+      }
+      try {
+        const res = await fetch("/api/dept/usage");
+        if (!res.ok) return;
+        apply((await res.json()) as UsageResponse);
       } catch {
         /* best effort */
       }

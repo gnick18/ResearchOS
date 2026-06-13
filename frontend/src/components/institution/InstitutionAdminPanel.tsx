@@ -13,6 +13,7 @@
 
 import { useEffect, useState } from "react";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
+import { isDemoOrWikiCapture } from "@/lib/file-system/wiki-capture-mock";
 import { getSessionIdentity } from "@/lib/sharing/identity/session-key";
 import { patchUserSettings } from "@/lib/settings/user-settings";
 import { Icon } from "@/components/icons";
@@ -73,8 +74,15 @@ export default function InstitutionAdminPanel() {
   };
 
   const makeInviteLink = () => {
-    if (!roster?.institution || !currentUser) return;
+    if (!roster?.institution) return;
     setError(null);
+    // Demo mode has no identity to sign with; show a representative link.
+    if (isDemoOrWikiCapture()) {
+      setLink(`${window.location.origin}/institution/join#demo-invite-link`);
+      setCopied(false);
+      return;
+    }
+    if (!currentUser) return;
     try {
       const { link: l } = mintInviteForInstitutionAdmin({
         institutionId: roster.institution.institutionId,

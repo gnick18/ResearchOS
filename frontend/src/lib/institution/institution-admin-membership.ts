@@ -5,6 +5,7 @@
 
 import { encodePublicKey } from "@/lib/sharing/identity/keys";
 import type { StoredIdentity } from "@/lib/sharing/identity/storage";
+import { isDemoOrWikiCapture } from "@/lib/file-system/wiki-capture-mock";
 import {
   mintInstitutionInvite,
   encodeInstitutionInviteLink,
@@ -42,6 +43,10 @@ export interface InstitutionRosterResult {
 }
 
 export async function loadInstitutionRoster(): Promise<InstitutionRosterResult> {
+  if (isDemoOrWikiCapture()) {
+    const { demoInstitutionRoster } = await import("./demo-fixtures");
+    return demoInstitutionRoster();
+  }
   try {
     const res = await fetch("/api/institution/roster");
     if (!res.ok) return { institution: null, depts: [] };

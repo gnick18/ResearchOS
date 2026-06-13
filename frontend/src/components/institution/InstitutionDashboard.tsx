@@ -15,6 +15,7 @@ import {
   INSTITUTION_RATE,
 } from "@/lib/institution/plan";
 import { bankSavingCents, priceForMethod } from "@/lib/billing/processing-fee";
+import { isDemoOrWikiCapture } from "@/lib/file-system/wiki-capture-mock";
 import PayMethodChoice, {
   payOptionRequest,
   requestToPayOption,
@@ -84,6 +85,11 @@ export default function InstitutionDashboard() {
   useEffect(() => {
     let cancelled = false;
     (async () => {
+      if (isDemoOrWikiCapture()) {
+        const { demoInstitutionBilling } = await import("@/lib/institution/demo-fixtures");
+        if (!cancelled) setBilling(demoInstitutionBilling());
+        return;
+      }
       try {
         const res = await fetch("/api/institution/billing");
         if (!res.ok) return;
@@ -106,6 +112,17 @@ export default function InstitutionDashboard() {
     setSaving(true);
     setSaveMsg(null);
     const { method, payClass } = payOptionRequest(payOpt);
+    // Demo: simulate activation locally, never call Stripe or the API.
+    if (isDemoOrWikiCapture()) {
+      setBilling({ billingEnabled: true, status: "active", method, payClass, monthlyCents: chargeCents });
+      setSaveMsg(
+        method === "invoice"
+          ? "Plan active (demo). A real invoice would be emailed here."
+          : "Plan active (demo). A card or bank would be charged each cycle.",
+      );
+      setSaving(false);
+      return;
+    }
     try {
       const res = await fetch("/api/institution/billing", {
         method: "POST",
@@ -143,10 +160,7 @@ export default function InstitutionDashboard() {
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      try {
-        const res = await fetch("/api/institution/usage");
-        if (!res.ok) return;
-        const data = (await res.json()) as UsageResponse;
+      const apply = (data: UsageResponse) => {
         if (cancelled) return;
         setUsage(data);
         if (!seeded) {
@@ -156,6 +170,16 @@ export default function InstitutionDashboard() {
           setStorageGb(Math.max(1, Math.ceil(data.totalBytes / GB)));
           setSeeded(true);
         }
+      };
+      if (isDemoOrWikiCapture()) {
+        const { demoInstitutionUsage } = await import("@/lib/institution/demo-fixtures");
+        apply(demoInstitutionUsage() as UsageResponse);
+        return;
+      }
+      try {
+        const res = await fetch("/api/institution/usage");
+        if (!res.ok) return;
+        apply((await res.json()) as UsageResponse);
       } catch {
         /* best effort */
       }

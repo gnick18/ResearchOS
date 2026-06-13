@@ -205,12 +205,17 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   // Department tier: a dept admin gets a "Department" nav entry (dark unless the
   // tier flag is on). Independent of lab role -- a PI who also runs a department
   // sees it in both lenses; a non-PI dept admin sees it in their researcher nav.
-  const isDeptAdmin = DEPT_TIER_ENABLED && !!useDeptAdminOf(currentUser ?? null);
+  // In demo / wiki-capture mode the contained org demo stands in for a real admin
+  // account, so the entry shows (still behind the tier flag) for the showcase.
+  const orgDemo = isDemoOrWikiCapture();
+  const isDeptAdmin =
+    DEPT_TIER_ENABLED && (orgDemo || !!useDeptAdminOf(currentUser ?? null));
 
   // Institution tier: an institution admin gets an "Institution" nav entry (dark
   // unless the tier flag is on). Same pattern as the dept admin entry, one tier up.
   const isInstitutionAdmin =
-    INSTITUTION_TIER_ENABLED && !!useInstitutionAdminOf(currentUser ?? null);
+    INSTITUTION_TIER_ENABLED &&
+    (orgDemo || !!useInstitutionAdminOf(currentUser ?? null));
 
   // The dashboard ("/") is always shown so the user has a guaranteed safe
   // landing tab even if they hide everything else (or if Settings was
