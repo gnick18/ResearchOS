@@ -20,7 +20,7 @@
 // .wizard / .reportcard block).
 //
 // House style: <Icon> only, popup is a contained surface (bg-surface-overlay +
-// border), primary CTA uses .btn-brand, no emojis / em-dashes / mid-sentence
+// border), primary CTA uses .bg-brand-action text-white transition-colors hover:bg-brand-action/90, no emojis / em-dashes / mid-sentence
 // colons.
 
 import { useEffect, useMemo, useState } from "react";
@@ -385,7 +385,7 @@ export default function GuidedAnalysisWizard({
               type="button"
               onClick={run}
               disabled={!canRun}
-              className="btn-brand rounded-md px-3 py-1.5 text-body font-medium disabled:opacity-50"
+              className="bg-brand-action text-white transition-colors hover:bg-brand-action/90 rounded-md px-3 py-1.5 text-body font-medium disabled:opacity-50"
               data-testid="wizard-run"
             >
               Run this analysis

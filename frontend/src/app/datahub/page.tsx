@@ -1961,7 +1961,7 @@ export default function DataHubPage() {
                 <button
                   type="button"
                   onClick={() => setNewTableOpen(true)}
-                  className="btn-brand rounded-md px-4 py-2 text-body font-medium"
+                  className="bg-brand-action text-white transition-colors hover:bg-brand-action/90 rounded-md px-4 py-2 text-body font-medium"
                 >
                   New table
                 </button>
