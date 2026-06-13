@@ -241,19 +241,21 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
     // /purchases entry is NO LONGER hidden for PIs: the LabPurchasesWidget
     // that justified hiding it was deleted with the canvas, so a PI needs
     // the /purchases nav entry back.
-    // PI lab lens (NAV-1): the lab-head's default nav is the PI lineup (Lab
-    // Overview, People, Approvals, Funding) followed by the lab tools. The
-    // personal Workbench drops out of the primary set (it is the researcher home,
-    // reached via the "My work" toggle), per NAV-3. The PI tabs are kept OUT of
-    // the shared NAV_ITEMS so they never appear for members or in the
-    // drag-customize visibleTabs set.
+    // PI lab lens (NAV-1): the lab-head's default nav is the full PI lineup (Lab
+    // Overview, People, Lab Work, Approvals, Activity, Funding) followed by the
+    // lab tools. The personal Workbench drops out of the primary set (it is the
+    // researcher home, reached via the "My work" toggle), per NAV-3. The PI tabs
+    // are kept OUT of the shared NAV_ITEMS so they never appear for members or in
+    // the drag-customize visibleTabs set.
     if (labLens) {
       const out: NavItem[] = [];
       for (const item of filtered) {
         if (item.href === HOME_HREF) {
           out.push({ href: "/lab-overview", label: "Lab Overview" });
           out.push({ href: "/people", label: "People" });
+          out.push({ href: "/lab-work", label: "Lab Work" });
           out.push({ href: "/approvals", label: "Approvals" });
+          out.push({ href: "/activity", label: "Activity" });
           out.push({ href: "/funding", label: "Funding" });
         } else if (item.href === "/workbench") {
           // Researcher home; reachable by flipping to "My work", not in lab lens.

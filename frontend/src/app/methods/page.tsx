@@ -17,6 +17,8 @@ import {
   fetchAllMethodsIncludingShared,
 } from "@/lib/local-api";
 import type { MethodUpdate } from "@/lib/local-api";
+import { useIsLabHead } from "@/hooks/useIsLabHead";
+import { usePiViewMode } from "@/hooks/usePiViewMode";
 import { fileService } from "@/lib/file-system/file-service";
 import { fileEvents } from "@/lib/attachments/file-events";
 import { imageEvents } from "@/lib/attachments/image-events";
@@ -300,6 +302,22 @@ export default function MethodsPage() {
     queryFn: usersApi.list,
   });
   const currentUser = userData?.current_user || "";
+
+  // RS-1: a PI in the lab lens defaults to the "Shared with lab" protocol library
+  // (public + members' methods) rather than their own private methods. Applied
+  // once when the lab lens first resolves, ref-guarded so it never fights a
+  // folder the PI then picks themselves.
+  const isLabHead = useIsLabHead(currentUser || null);
+  const { mode: piViewMode } = usePiViewMode();
+  const labLens = isLabHead === true && piViewMode === "lab";
+  const appliedLabFolderDefault = useRef(false);
+  // RS-1: once, when the PI lab lens resolves, open the Shared-with-lab library.
+  useEffect(() => {
+    if (labLens && !appliedLabFolderDefault.current) {
+      appliedLabFolderDefault.current = true;
+      setActiveFolder("shared");
+    }
+  }, [labLens]);
 
   // BeakerSearch global object search, decision 5, the methods query-key
   // alignment. The page previously read bare `["methods"]` while `/search` (the

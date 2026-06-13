@@ -15,7 +15,7 @@
 // House style: <Icon> only, brand + semantic dark-mode tokens, Tooltip on
 // icon-only buttons, no emojis / em-dashes / mid-sentence colons.
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 
@@ -25,6 +25,7 @@ import Tooltip from "@/components/Tooltip";
 import LivingPopup from "@/components/ui/LivingPopup";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { useIsLabHead } from "@/hooks/useIsLabHead";
+import { usePiViewMode } from "@/hooks/usePiViewMode";
 import { usePiRecordMenu } from "@/hooks/usePiRecordMenu";
 import { useAppStore } from "@/lib/store";
 import { INVENTORY_ENABLED } from "@/lib/inventory/config";
@@ -161,6 +162,18 @@ function SuppliesPageInner() {
     const f = searchParams.get("filter");
     return f === "attention" || f === "onorder" || f === "all" ? f : "all";
   });
+  // RS-4: a PI in the lab lens lands on the "Orders & approvals" lens by default,
+  // so reviewing the lab's pending orders is the first thing they see. Applied
+  // once when the lab lens resolves, and never when an explicit ?filter= deep-link
+  // is present (that wins) or after the PI picks another chip themselves.
+  const { mode: piViewMode } = usePiViewMode();
+  const labLens = isLabHead && piViewMode === "lab";
+  const appliedApprovalsDefault = useRef(false);
+  useEffect(() => {
+    if (!labLens || appliedApprovalsDefault.current) return;
+    appliedApprovalsDefault.current = true;
+    if (!searchParams.get("filter")) setFilter("awaiting_approval");
+  }, [labLens, searchParams]);
   const [query, setQuery] = useState("");
   // Deep-link (chunk 6 + global-index): /supplies?supply={identityKey} opens that
   // supply's detail. Read once via the lazy initializer so a click from global
