@@ -80,6 +80,7 @@ import {
   rescheduleExperimentTool,
   createExperimentChainTool,
 } from "./experiment-tools";
+import { setupExperimentTool } from "./setup-experiment";
 import {
   createTaskTool,
   rescheduleTaskTool,
@@ -334,6 +335,13 @@ export const ACTION_TOOLS: AiTool[] = [
   createExperimentTool,
   rescheduleExperimentTool,
   createExperimentChainTool,
+  // setup_experiment is the one-shot experiment setup coworker tool (action: true,
+  // isDestructive false). In a single consented action it creates the experiment,
+  // attaches methods, creates named prep tasks as FS-linked dependencies on the
+  // Gantt, and scaffolds the results.md file so the Results tab opens with a real
+  // header. The user sees a numbered preview of every step before anything writes.
+  // None of the individual writes is destructive, so it never forces the hard-stop.
+  setupExperimentTool,
   // Scheduling coworker tools (action: true, isDestructive false). create_task
   // adds a task to a project the user names; reschedule_task moves a task through
   // the dependency-aware shift path (tasksApi.move) so dependents cascade and the
