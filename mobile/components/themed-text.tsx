@@ -1,6 +1,7 @@
 import { StyleSheet, Text, type TextProps } from 'react-native';
 
 import { useThemeColor } from '@/hooks/use-theme-color';
+import { fonts } from '@/lib/design';
 
 export type ThemedTextProps = TextProps & {
   lightColor?: string;
@@ -37,28 +38,32 @@ const styles = StyleSheet.create({
   default: {
     fontSize: 16,
     lineHeight: 24,
+    fontFamily: fonts.ui,
   },
   defaultSemiBold: {
     fontSize: 16,
     lineHeight: 24,
+    fontFamily: fonts.semibold,
     fontWeight: '600',
   },
   title: {
-    // Modern iOS large title (34 / weight 800 / tight tracking), matching the
-    // ideal mockup. lineHeight sits a touch above the size so descenders never
-    // clip. This is the app-wide large title used by every tab and page header.
-    fontSize: 34,
+    // App-wide large title. Contract sizing (27 / Geist extrabold / tight
+    // tracking); lineHeight sits a touch above the size so descenders never clip.
+    fontSize: 27,
+    fontFamily: fonts.extrabold,
     fontWeight: '800',
-    lineHeight: 40,
-    letterSpacing: -0.8,
+    lineHeight: 32,
+    letterSpacing: -0.7,
   },
   subtitle: {
     fontSize: 20,
+    fontFamily: fonts.bold,
     fontWeight: 'bold',
   },
   link: {
     lineHeight: 30,
     fontSize: 16,
+    fontFamily: fonts.ui,
     color: '#0a7ea4',
   },
 });
