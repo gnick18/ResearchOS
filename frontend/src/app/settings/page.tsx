@@ -85,6 +85,7 @@ import SettingsShell, {
 import ProfileSettingsContent from "@/components/profile/ProfileSettingsContent";
 import AiUsageSection from "@/components/settings/sections/AiUsageSection";
 import CloudStorageUsageSection from "@/components/settings/sections/CloudStorageUsageSection";
+import NotificationsSection from "@/components/settings/sections/NotificationsSection";
 
 const GANTT_VIEW_OPTIONS: { value: UserSettings["defaultGanttViewMode"]; label: string }[] = [
   { value: "1week", label: "1 week" },
@@ -481,6 +482,24 @@ function SettingsBodyInner({
             >
               <OpenCompanionHubButton />
               <DevicesSection ready={sharing.isReady} />
+            </SectionShell>
+          ),
+        },
+        {
+          id: "notifications",
+          group: "Workspace",
+          title: "Notifications",
+          icon: "alert",
+          keywords:
+            "notifications notify alert bell email phone laptop desktop pop-up push quiet hours channel route digest mention comment shared reminder",
+          render: () => (
+            <SectionShell
+              id="notifications"
+              title="Notifications"
+              description="Choose what you hear about, and where each kind of notification goes, the bell, your laptop, your phone, or your inbox."
+              searchKeywords="notifications notify alert bell email phone laptop desktop pop-up push quiet hours channel route digest mention comment shared reminder"
+            >
+              <NotificationsSection settings={settings} update={update} />
             </SectionShell>
           ),
         },
