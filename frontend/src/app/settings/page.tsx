@@ -514,6 +514,27 @@ function SettingsBodyInner({
               searchKeywords="companion phone pair pairing mobile capture photo qr relay inbox camera bench notes scan today glance devices hub open"
             >
               <OpenCompanionHubButton />
+              {/*
+                Same two preferences the Companion popover Settings tab shows.
+                Both read and write UserSettings via `update`, so toggling here
+                or in the popover stays in sync (the showCompanionButton write
+                also flows into the Zustand store through hydrateFromSettings,
+                so the header button reacts instantly).
+              */}
+              <div className="space-y-4">
+                <ToggleRow
+                  label="Show Companion button on Home"
+                  description="The phone button in the app header. Off hides it; the Companion stays reachable from Settings."
+                  checked={settings?.showCompanionButton ?? true}
+                  onChange={(v) => update({ showCompanionButton: v })}
+                />
+                <ToggleRow
+                  label="Auto-publish snapshots to paired phones"
+                  description="The laptop pushes today, inventory, and notebook snapshots to your paired phones. Off stops the push."
+                  checked={settings?.autoPublishSnapshotsToPhones ?? true}
+                  onChange={(v) => update({ autoPublishSnapshotsToPhones: v })}
+                />
+              </div>
               <DevicesSection
                 status={sharing.status}
                 refreshIdentity={sharing.refresh}
