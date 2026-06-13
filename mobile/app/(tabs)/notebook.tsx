@@ -887,15 +887,27 @@ export default function NotebookScreen() {
       >
         <View style={styles.titleRow}>
           <ThemedText type="title">Notebook</ThemedText>
-          <Pressable
-            onPress={() => router.push('/modal')}
-            hitSlop={12}
-            accessibilityRole="button"
-            accessibilityLabel="Settings"
-            style={styles.settingsBtn}
-          >
-            <Ionicons name="settings-outline" size={24} color={palette.sky} />
-          </Pressable>
+          <View style={styles.headerActions}>
+            <Pressable
+              testID="notebook-notifications"
+              onPress={() => router.push('/notifications')}
+              hitSlop={12}
+              accessibilityRole="button"
+              accessibilityLabel="Notifications"
+              style={styles.settingsBtn}
+            >
+              <Ionicons name="notifications-outline" size={23} color={palette.sky} />
+            </Pressable>
+            <Pressable
+              onPress={() => router.push('/modal')}
+              hitSlop={12}
+              accessibilityRole="button"
+              accessibilityLabel="Settings"
+              style={styles.settingsBtn}
+            >
+              <Ionicons name="settings-outline" size={24} color={palette.sky} />
+            </Pressable>
+          </View>
         </View>
         <ThemedText style={[styles.tagline, { color: surface.muted }]}>
           {todayPrefs.showToday
@@ -1580,12 +1592,17 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
   },
+  headerActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 2,
+    marginRight: -6,
+  },
   settingsBtn: {
     width: 36,
     height: 36,
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: -6,
   },
   cardTitle: { fontSize: 16, fontWeight: '700', lineHeight: 22 },
 

@@ -7,7 +7,7 @@
 //   - seedDemoCaptures() called from the Notebook tab on demo entry
 //   - scheduleDemoNotification() called once per demo session
 
-import type { TodaySnapshot } from '@/lib/snapshots';
+import type { TodaySnapshot, NotificationsSnapshot } from '@/lib/snapshots';
 import type { InventorySnapshot } from '@/lib/scan';
 
 // ---------------------------------------------------------------------------
@@ -234,3 +234,49 @@ export const DEMO_NOTIFICATION_BODY =
 
 // AsyncStorage key to guard firing at most once per demo session.
 export const DEMO_NOTIF_FIRED_KEY = 'researchos.demo.notif_fired.v1';
+
+// ---------------------------------------------------------------------------
+// Notifications snapshot fixture (name = "notifications")
+// ---------------------------------------------------------------------------
+//
+// Sample phone-routed notifications so the Notifications screen shows real rows
+// in demo mode. Times are anchored off NOW_ISO so the relative labels read as
+// recent. Categories match the laptop's notificationCategory output.
+
+const oneHourAgo = new Date(Date.parse(NOW_ISO) - 60 * 60 * 1000).toISOString();
+const threeHoursAgo = new Date(
+  Date.parse(NOW_ISO) - 3 * 60 * 60 * 1000,
+).toISOString();
+const yesterdayIso = new Date(
+  Date.parse(NOW_ISO) - 26 * 60 * 60 * 1000,
+).toISOString();
+
+export const DEMO_NOTIFICATIONS_SNAPSHOT: NotificationsSnapshot = {
+  generatedAt: NOW_ISO,
+  notifications: [
+    {
+      id: 'demo-notif-1',
+      category: 'shared',
+      title: 'Shared with you',
+      body: 'Wei shared the experiment "KO clone B7 validation" with you.',
+      createdAt: oneHourAgo,
+      read: false,
+    },
+    {
+      id: 'demo-notif-2',
+      category: 'reminders',
+      title: 'Reminder',
+      body: 'Western blot for p53 is scheduled to start in two days.',
+      createdAt: threeHoursAgo,
+      read: false,
+    },
+    {
+      id: 'demo-notif-3',
+      category: 'shared',
+      title: 'Shared with you',
+      body: 'Mateo shared the method "Trypsin passage protocol" with you.',
+      createdAt: yesterdayIso,
+      read: true,
+    },
+  ],
+};

@@ -10,6 +10,7 @@ import {
   DEMO_TODAY_SNAPSHOT,
   DEMO_INVENTORY_SNAPSHOT,
   DEMO_NOTEBOOKS_SNAPSHOT,
+  DEMO_NOTIFICATIONS_SNAPSHOT,
 } from '@/lib/demo-fixtures';
 
 // ---- Canonical signed-byte string (MUST match relay/scripts/smoke-snapshot.mjs
@@ -212,6 +213,29 @@ export type CalculatorsSnapshot = {
   calculators?: SnapshotCalculator[];
 };
 
+// ---- Notifications snapshot (phone channel, 2026-06-12) --------------------
+//
+// The laptop publishes the user's phone-routed notifications under the name
+// "notifications" (see frontend/src/lib/mobile-relay/notifications-snapshot.ts).
+// Each entry is already rendered to a category title + one-line body on the
+// laptop, so the phone just lists them. All fields are tolerated missing so an
+// older laptop shape never crashes the screen. This is a synced LIST, not an OS
+// push (the laptop publishes while open; the phone shows it on poll).
+
+export type SnapshotNotification = {
+  id?: string;
+  category?: string;
+  title?: string;
+  body?: string;
+  createdAt?: string | null;
+  read?: boolean;
+};
+
+export type NotificationsSnapshot = {
+  generatedAt?: string;
+  notifications?: SnapshotNotification[];
+};
+
 // Fetch + unseal a named snapshot. GETs the relay's snapshot/get endpoint with a
 // device-Ed25519-signed query (device = the phone's Ed25519 pubkey, taken from
 // the pairing record), reads the raw sealed bytes on 200, unseals with this
@@ -240,6 +264,9 @@ export async function fetchSnapshot(
     // user-authored on a real laptop). Return null so the viewer shows its
     // "build one on the laptop" empty state in demo mode.
     if (name === 'calculators') return null;
+    // The notifications fixture gives the phone screen sample rows so the
+    // synced-list UI is shown in demo mode instead of an empty state.
+    if (name === 'notifications') return DEMO_NOTIFICATIONS_SNAPSHOT;
     // Default: "today" and any other name fall back to the today fixture.
     return DEMO_TODAY_SNAPSHOT;
   }
@@ -297,5 +324,17 @@ export async function fetchCalculatorsSnapshot(
 ): Promise<CalculatorsSnapshot | null> {
   return (await fetchSnapshot('calculators', pairing, deviceSign)) as
     | CalculatorsSnapshot
+    | null;
+}
+
+/** Typed convenience over fetchSnapshot for the "notifications" snapshot.
+ *  Returns null when the laptop has not published yet. In demo mode a fixture is
+ *  returned so the notifications screen shows sample rows. */
+export async function fetchNotificationsSnapshot(
+  pairing: Pairing,
+  deviceSign: (message: string) => Promise<string>,
+): Promise<NotificationsSnapshot | null> {
+  return (await fetchSnapshot('notifications', pairing, deviceSign)) as
+    | NotificationsSnapshot
     | null;
 }
