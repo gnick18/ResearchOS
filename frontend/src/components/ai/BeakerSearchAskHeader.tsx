@@ -6,8 +6,7 @@
 // Ask mode. Contains (left to right): back-to-search control, the "BeakerBot AI"
 // wordmark (no static mark, the riding mascot up top is the only beaker; "AI" in
 // the welcome-page rainbow gradient), Save-to control, New chat button, History,
-// the
-// review-mode control, and a static "uses credit" hint.
+// the review-mode control, and a live AI-balance indicator.
 //
 // Props:
 //   onBack         -> return to search mode (back control click)
@@ -25,10 +24,17 @@
 // "Step-by-step" (review every step) and "Whole-plan" (approve the plan once,
 // then it runs). There is no silent unattended mode.
 //
+// AI balance indicator: replaces the static "uses credit" hint with a live
+// ring/pill that reads fetchAiStatus() on open.
+//   - null/loading: renders nothing.
+//   - enabled === false (beta default): a calm "AI free in beta" pill.
+//   - enabled === true: a small SVG ring arc showing balance vs
+//     STARTER_GRANT_TOKENS, with amber/red warn at < 15 % / < 5 %.
+//
 // House style, Icon only, brand + semantic tokens, no emojis / em-dashes /
 // mid-sentence colons.
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Icon } from "@/components/icons";
 import Tooltip from "@/components/Tooltip";
 import { useBeakerBotReviewMode } from "@/lib/ai/review-mode-store";
@@ -38,6 +44,144 @@ import {
   defaultConversationTitle,
 } from "@/lib/ai/conversation-to-markdown";
 import ExportConversationPicker from "@/components/references/ExportConversationPicker";
+import {
+  fetchAiStatus,
+  type AiStatus,
+} from "@/lib/billing/ai-client";
+import { STARTER_GRANT_TOKENS } from "@/lib/billing/ai-config";
+import { formatTokens } from "@/components/ai/TurnStatusLine";
+
+// ---- AI balance helpers (pure, exported for tests) --------------------------
+
+/** The ring fraction clamped to [0, 1] using STARTER_GRANT_TOKENS as baseline. */
+export function balanceFraction(balance: number): number {
+  return Math.min(1, Math.max(0, balance / STARTER_GRANT_TOKENS));
+}
+
+export type BalanceLevel = "ok" | "low" | "critical";
+
+/**
+ * Returns the warning level for the current balance.
+ *   critical: under 5 % of STARTER_GRANT_TOKENS.
+ *   low:      under 15 %.
+ *   ok:       otherwise.
+ */
+export function balanceLevel(balance: number): BalanceLevel {
+  const frac = balance / STARTER_GRANT_TOKENS;
+  if (frac < 0.05) return "critical";
+  if (frac < 0.15) return "low";
+  return "ok";
+}
+
+/** Map a BalanceLevel to a stroke colour for the SVG ring. */
+export function ringColor(level: BalanceLevel): string {
+  if (level === "critical") return "#ef4444"; // red-500
+  if (level === "low") return "#f59e0b";      // amber-500
+  return "#22c55e";                            // green-500 (ok)
+}
+
+// ---- Small ring SVG (data-viz, not a glyph) ---------------------------------
+// The arc is a single SVG circle rendered as a stroke-dashoffset arc.
+// r = 7, circumference = 2πr ≈ 43.98.
+
+const RING_R = 7;
+const RING_SIZE = 20; // viewBox px
+const CIRCUMFERENCE = 2 * Math.PI * RING_R;
+
+function BalanceRing({
+  fraction,
+  level,
+}: {
+  fraction: number;
+  level: BalanceLevel;
+}) {
+  const color = ringColor(level);
+  const filled = fraction * CIRCUMFERENCE;
+  const cx = RING_SIZE / 2;
+  const cy = RING_SIZE / 2;
+
+  return (
+    <svg
+      width={RING_SIZE}
+      height={RING_SIZE}
+      viewBox={`0 0 ${RING_SIZE} ${RING_SIZE}`}
+      aria-hidden="true"
+      className="flex-none"
+    >
+      {/* Track */}
+      <circle
+        cx={cx}
+        cy={cy}
+        r={RING_R}
+        fill="none"
+        stroke="currentColor"
+        strokeWidth={2.5}
+        className="text-border"
+      />
+      {/* Fill arc; starts at top (rotate -90 deg) */}
+      <circle
+        cx={cx}
+        cy={cy}
+        r={RING_R}
+        fill="none"
+        stroke={color}
+        strokeWidth={2.5}
+        strokeLinecap="round"
+        strokeDasharray={`${filled} ${CIRCUMFERENCE - filled}`}
+        strokeDashoffset={CIRCUMFERENCE / 4}
+        style={{ transform: "rotate(-90deg)", transformOrigin: "center" }}
+      />
+    </svg>
+  );
+}
+
+// ---- Balance indicator widget -----------------------------------------------
+
+function AiBalanceIndicator({ status }: { status: AiStatus | null }) {
+  // Loading / error: render nothing.
+  if (status === null) return null;
+
+  // Beta: billing enforcement off. Show a neutral informational pill.
+  if (!status.enabled) {
+    return (
+      <Tooltip
+        label="BeakerBot AI is free during the beta. Token billing activates before general release."
+        placement="bottom"
+      >
+        <span
+          data-testid="beakersearch-ai-beta-pill"
+          className="cursor-default rounded-md border border-brand/30 bg-brand/5 px-1.5 py-0.5 text-[10px] font-semibold text-brand"
+        >
+          AI free in beta
+        </span>
+      </Tooltip>
+    );
+  }
+
+  // Billing on: show ring + label.
+  const balance = status.balance ?? 0;
+  const fraction = balanceFraction(balance);
+  const level = balanceLevel(balance);
+  const label = `${formatTokens(balance)} tokens remaining`;
+
+  return (
+    <Tooltip
+      label={`${label} — click to view AI usage in Settings`}
+      placement="bottom"
+    >
+      <a
+        href="/settings?section=ai-usage"
+        data-testid="beakersearch-ai-balance-ring"
+        className="flex items-center gap-1 rounded-md border border-transparent px-1 py-0.5 text-[10px] font-semibold text-foreground-muted hover:border-border hover:bg-surface-sunken hover:text-foreground"
+      >
+        <BalanceRing fraction={fraction} level={level} />
+        <span>{formatTokens(balance)} left</span>
+      </a>
+    </Tooltip>
+  );
+}
+
+// ---- Component ---------------------------------------------------------------
 
 export default function BeakerSearchAskHeader({
   onBack,
@@ -62,6 +206,20 @@ export default function BeakerSearchAskHeader({
   const [toast, setToast] = useState<{ message: string; ok: boolean } | null>(
     null,
   );
+
+  // AI balance: fetched once when the chat surface opens, null while loading
+  // or on network error (the indicator renders nothing in those states).
+  const [aiStatus, setAiStatus] = useState<AiStatus | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetchAiStatus().then((s) => {
+      if (!cancelled) setAiStatus(s);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const openExport = () => {
     const messages = useConversationStore.getState().messages;
@@ -205,10 +363,8 @@ export default function BeakerSearchAskHeader({
         </Tooltip>
       </div>
 
-      {/* Static "uses credit" hint */}
-      <span className="rounded-md border border-amber-200 bg-amber-50 px-1.5 py-0.5 text-[10px] font-semibold text-amber-700 dark:border-amber-800 dark:bg-amber-900/20 dark:text-amber-300">
-        uses credit
-      </span>
+      {/* Live AI balance indicator. Replaces static "uses credit" hint. */}
+      <AiBalanceIndicator status={aiStatus} />
     </div>
     );
   }
