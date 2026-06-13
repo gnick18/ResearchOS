@@ -13,6 +13,7 @@
 // No em-dashes, no emojis, no mid-sentence colons.
 
 import { matchMetadataToTips } from "./layout";
+import { matchAlignmentToTips, type Alignment } from "./msa";
 import { leaves, type TreeNode } from "./parse";
 import {
   buildCategoryColors,
@@ -67,6 +68,14 @@ export interface FigureInputs {
    * still renders through the one panel system.
    */
   panels?: AlignedPanel[];
+  /**
+   * The imported sequence alignment (phylo Phase 3), parsed from an aligned FASTA.
+   * The Studio passes its in-memory alignment; the adapter joins it to the tips
+   * and bins it for the msa panel. Absent for any figure without an alignment, so
+   * the msa panel simply draws nothing. Carried as live import-state, never on a
+   * persisted panels[] field, so a saved figure is unchanged.
+   */
+  alignment?: Alignment | null;
 }
 
 /** The deepest first clade with at least two tips, the default highlight target.
@@ -118,8 +127,26 @@ export function figureToRenderSpec(
       scales: inputs.scales,
       legend: inputs.legend,
     });
+  // The msa alignment track: join the imported alignment to the tips + bin it.
+  // Resolved once here (the single mapping) so the canvas, export, and embed all
+  // draw the same residue matrix. The note surfaces any column binning.
+  const alnMatch =
+    inputs.alignment && inputs.alignment.records.length > 0
+      ? matchAlignmentToTips(tree, inputs.alignment)
+      : null;
+  const msaTrack = alnMatch
+    ? {
+        rows: alnMatch.matched,
+        kind: alnMatch.binned.kind,
+        note:
+          alnMatch.binned.binSize > 1
+            ? `${alnMatch.binned.sourceColumns} cols binned to ${alnMatch.binned.blocks} (x${alnMatch.binned.binSize})`
+            : "",
+      }
+    : undefined;
   return {
     panels,
+    msaTrack,
     layout: inputs.layout,
     phylogram: inputs.phylogram,
     tracks: inputs.tracks,

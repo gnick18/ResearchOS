@@ -37,9 +37,12 @@ import {
 import {
   renderPanel,
   renderPanelLegend,
+  renderMsaLegend,
   panelBandThickness,
   type PanelScales,
+  type PanelValues,
 } from "./panel-render";
+import type { AlignmentKind } from "./msa";
 import {
   projectTracksToPanels,
   extractPanelValues,
@@ -123,6 +126,24 @@ export interface RenderSpec {
    * embeds always take the consolidated path.
    */
   panels?: AlignedPanel[];
+  /**
+   * The imported sequence alignment, joined to tips, that the msa panel draws
+   * (phylo Phase 3). Resolved by the Studio / embed from the imported aligned
+   * FASTA via lib/phylo/msa.ts matchAlignmentToTips, so the renderer only places
+   * + colors residues. Carried on the render spec (NOT on a persisted panels[]
+   * field) the same way `metadata` is: a saved figure stores no alignment, so an
+   * msa panel with no track here simply draws nothing (no breaking change). When
+   * an msa panel is visible AND a track is present, the matrix + its residue
+   * legend draw.
+   */
+  msaTrack?: {
+    /** tip id -> the per-tip binned residue row (one char per drawn block). */
+    rows: Map<number, string>;
+    /** Residue alphabet for the palette (nucleotide vs amino-acid). */
+    kind: AlignmentKind;
+    /** A short downsample note when the alignment was binned, else empty. */
+    note: string;
+  };
 }
 
 const FG = "#1f2937";
@@ -276,22 +297,34 @@ const ALIGNED_KINDS = new Set([
   "violin",
   "point",
   "scatter",
+  "msa",
 ]);
 
-/** Sum the radial / horizontal room every visible aligned panel needs. */
+/** Default thickness an msa panel occupies when it does not pin its own width
+ *  (kept in sync with renderMsa's fallback so room reservation matches the draw). */
+const MSA_DEFAULT_THICKNESS = 120;
+
+/** Sum the radial / horizontal room every visible aligned panel needs. The gap
+ *  between stacked panels is generous enough that adjacent rings / columns read
+ *  as separate bands rather than visually merging (the multi-panel spacing). */
 function alignedRoom(panels: AlignedPanel[]): number {
   let room = 6; // initial gap from the tips
   for (const p of panels) {
     if (!p.visible || !ALIGNED_KINDS.has(p.kind)) continue;
     if (p.kind === "heat") {
       const ncol = p.columns?.length ?? 1;
-      room += ncol * (panelBandThickness(p) + 1) + 4;
+      room += ncol * (panelBandThickness(p) + 1) + PANEL_GAP;
+    } else if (p.kind === "msa") {
+      room += (p.width && p.width > 0 ? p.width : MSA_DEFAULT_THICKNESS) + PANEL_GAP;
     } else {
-      room += panelBandThickness(p) + 4;
+      room += panelBandThickness(p) + PANEL_GAP;
     }
   }
   return room;
 }
+
+/** Inter-panel spacing (px) reserved so stacked rings / columns stay distinct. */
+const PANEL_GAP = 8;
 
 function renderFromPanels(
   root: TreeNode,
@@ -349,18 +382,35 @@ function renderFromPanels(
     panelStart = axis.panelStartX;
   }
 
-  // Draw each aligned panel in order, advancing the cursor by its thickness.
+  // Draw each aligned panel in order, advancing the cursor by its thickness plus
+  // a spacing gap so stacked rings / columns stay visually distinct. A small panel
+  // title sits above each panel (rectangular) so a reader knows what each column /
+  // ring is, the multi-panel readability fix.
   let cursor = panelStart;
   for (const panel of aligned) {
     const localAxis: TipAxis =
       spec.layout === "circular"
         ? { ...axis, ringStartR: cursor }
         : { ...axis, panelStartX: cursor };
-    const values = extractPanelValues(panel, root, meta);
+    // The msa panel reads its per-tip residue rows from the alignment track on the
+    // spec (not from the bound metadata); every other panel reads the metadata.
+    const values: PanelValues =
+      panel.kind === "msa"
+        ? spec.msaTrack
+          ? {
+              msa: spec.msaTrack.rows,
+              msaKind: spec.msaTrack.kind,
+              msaNote: spec.msaTrack.note,
+            }
+          : {}
+        : extractPanelValues(panel, root, meta);
     const scales = buildPanelScales(panel, root, meta, spec.categoryColors);
     const r = renderPanel(panel, localAxis, values, scales);
-    parts.push(r.svg);
-    cursor += r.thickness;
+    if (r.thickness > 0) {
+      parts.push(panelTitle(panel, localAxis, spec, root, meta));
+      parts.push(r.svg);
+      cursor += r.thickness + PANEL_GAP;
+    }
   }
 
   // Tip labels (outermost), drawn past the last panel.
@@ -375,6 +425,54 @@ function renderFromPanels(
       : "";
 
   return svgDocument(spec.width, spec.height, parts.join(""), legend);
+}
+
+/** A short human title for a panel, from its bound column(s) or its kind. */
+function panelTitleText(
+  panel: AlignedPanel,
+  spec: RenderSpec,
+): string {
+  if (panel.kind === "msa") {
+    return spec.msaTrack ? "Alignment" : "";
+  }
+  if (panel.columns && panel.columns.length > 0) {
+    return panel.columns.length <= 2
+      ? panel.columns.join(", ")
+      : `${panel.columns[0]} +${panel.columns.length - 1}`;
+  }
+  return panel.column ?? "";
+}
+
+/**
+ * A small per-panel title above the panel band so a reader knows what each
+ * column / ring is (the multi-panel readability fix, especially for circular
+ * where the rings are otherwise unlabeled). Rectangular sits the label just
+ * above the topmost tip at the panel's left edge; circular sits it above the
+ * ring's start radius. Returns empty when there is nothing meaningful to label.
+ */
+function panelTitle(
+  panel: AlignedPanel,
+  localAxis: TipAxis,
+  spec: RenderSpec,
+  root: TreeNode,
+  meta: Map<number, Record<string, string>> | undefined,
+): string {
+  void root;
+  void meta;
+  const title = panelTitleText(panel, spec);
+  if (!title) return "";
+  if (localAxis.layout === "rectangular") {
+    const top = localAxis.tips.length
+      ? Math.min(...localAxis.tips.map((t) => t.y))
+      : 0;
+    const y = top - localAxis.bandHeight / 2 - 2;
+    return `<text x="${localAxis.panelStartX}" y="${y}" font-size="8.5" font-weight="600" fill="${MUTED}">${esc(truncate(title, 18))}</text>`;
+  }
+  // Circular: a compact label just outside the ring start, at the top of the fan.
+  const r = localAxis.ringStartR;
+  const lx = localAxis.cx;
+  const ly = localAxis.cy - r - 4;
+  return `<text x="${lx}" y="${ly}" font-size="8.5" font-weight="600" fill="${MUTED}" text-anchor="middle">${esc(truncate(title, 18))}</text>`;
 }
 
 /** Draw the rectangular tree spine + clade + support + points; returns plotRight
@@ -532,9 +630,17 @@ function collectPanelLegends(
 ): LegendEntry[] {
   const out: LegendEntry[] = [];
   const meta = spec.metadata;
-  if (!meta) return out;
   for (const panel of aligned) {
     if (panel.legend === false) continue;
+    // The msa panel's legend is the residue color key (no bound metadata needed),
+    // so it is collected even when no metadata table is linked.
+    if (panel.kind === "msa") {
+      if (spec.msaTrack) {
+        out.push({ title: "Alignment", residue: spec.msaTrack.kind });
+      }
+      continue;
+    }
+    if (!meta) continue;
     const sc: PanelScales = buildPanelScales(panel, root, meta, spec.categoryColors);
     if (panel.kind === "heat" && panel.columns && sc.multi) {
       panel.columns.forEach((col, i) => {
@@ -558,19 +664,67 @@ function collectPanelLegends(
   return out;
 }
 
-/** Render the legend column for the panel path (reuses renderPanelLegend). */
+/** A single legend entry's markup + the height it consumed, at (x, y). The msa
+ *  residue entry uses the residue-key renderer, every other entry the scale one. */
+function renderOneLegend(
+  entry: LegendEntry,
+  x: number,
+  y: number,
+  maxY: number,
+): { svg: string; height: number } {
+  if (entry.residue) {
+    return renderMsaLegend(entry.title, entry.residue, x, y, maxY);
+  }
+  if (entry.scale) {
+    return renderPanelLegend(entry.title, entry.scale, x, y, maxY);
+  }
+  return { svg: "", height: 0 };
+}
+
+/**
+ * Render the stacked legends in the reserved right-edge area, columnizing when a
+ * single column would overflow the canvas height (the multi-panel legend fix at
+ * 4+ legends). Legends stack top to bottom; when the next legend would run past
+ * the bottom, a new sub-column starts to the right within the reserved width, so
+ * legends never overlap the figure or each other. A legend that still cannot fit
+ * (more columns than the reserved width holds) is dropped cleanly rather than
+ * drawn over the figure.
+ */
 function renderPanelLegendColumn(
   entries: LegendEntry[],
   plotWidth: number,
   height: number,
 ): string {
-  const x = plotWidth + 12;
-  const parts: string[] = [];
-  let y = 22;
+  const startX = plotWidth + 12;
+  const topY = 22;
   const maxY = height - 12;
+  // Sub-column width within the reserved legend area. LEGEND_WIDTH holds at most
+  // two sub-columns comfortably; we keep them inside the reserved band.
+  const colW = 64;
+  const maxCols = Math.max(1, Math.floor((LEGEND_WIDTH - 8) / colW));
+
+  const parts: string[] = [];
+  let col = 0;
+  let y = topY;
   for (const entry of entries) {
-    if (y > maxY - 30) break;
-    const r = renderPanelLegend(entry.title, entry.scale, x, y, maxY);
+    // Measure first (render at the candidate position), then place; if it would
+    // overflow this sub-column, wrap to the next one before committing.
+    let x = startX + col * colW;
+    if (y > topY) {
+      // Peek the height by rendering off to the side is wasteful; instead estimate
+      // by rendering at the candidate y and checking the consumed height.
+      const probe = renderOneLegend(entry, x, y, maxY);
+      if (y + probe.height > maxY && col < maxCols - 1) {
+        col += 1;
+        y = topY;
+        x = startX + col * colW;
+      } else if (y + probe.height > maxY) {
+        // No room in any remaining sub-column; stop cleanly.
+        break;
+      }
+    }
+    const r = renderOneLegend(entry, x, y, maxY);
+    if (r.height === 0) continue;
     parts.push(r.svg);
     y += r.height;
   }
@@ -946,9 +1100,17 @@ function annulusWedge(
 // legend always matches what was drawn.
 // ---------------------------------------------------------------------------
 
+/**
+ * One legend entry. Most are a colored-track ColorScale (categorical swatches or
+ * a continuous gradient). An msa panel instead carries a residue legend (the
+ * fixed nucleotide / amino-acid color key), so the entry is a small union: a
+ * `residue` kind picks the residue-key renderer, the absence of it is a scale.
+ */
 interface LegendEntry {
   title: string;
-  scale: ColorScale;
+  scale?: ColorScale;
+  /** The residue alphabet, present only for an msa panel's residue-key legend. */
+  residue?: AlignmentKind;
 }
 
 /** Gather a legend entry for each active colored track, in draw order. */
@@ -998,23 +1160,27 @@ function renderLegends(
 
   for (const entry of entries) {
     if (y > maxY - 30) break; // out of room, stop cleanly rather than overflow
+    // The Phase 0 track path only ever produces scale legends (no msa); guard so
+    // the shared LegendEntry union narrows cleanly.
+    if (!entry.scale) continue;
+    const scale = entry.scale;
     parts.push(
       `<text x="${x}" y="${y}" font-size="11" font-weight="700" fill="${FG}">${esc(truncate(entry.title, 16))}</text>`,
     );
     y += 14;
 
-    if (entry.scale.kind === "numeric" && entry.scale.domain) {
+    if (scale.kind === "numeric" && scale.domain) {
       // A vertical gradient bar with min / mid / max ticks.
       const gradId = `lg-${sanitizeId(entry.title)}-${y}`;
       const barH = 56;
       const barW = 12;
-      const dom = entry.scale.domain;
+      const dom = scale.domain;
       const mid = (dom.min + dom.max) / 2;
       // 5 stops bottom (min) to top (max).
       const stops = Array.from({ length: 6 }, (_, i) => {
         const frac = i / 5; // 0 at top
         const v = dom.max - frac * (dom.max - dom.min);
-        return `<stop offset="${(frac * 100).toFixed(0)}%" stop-color="${entry.scale.colorFor(String(v))}"/>`;
+        return `<stop offset="${(frac * 100).toFixed(0)}%" stop-color="${scale.colorFor(String(v))}"/>`;
       });
       parts.push(
         `<defs><linearGradient id="${gradId}" x1="0" y1="0" x2="0" y2="1">${stops.join("")}</linearGradient></defs>`,
@@ -1026,11 +1192,11 @@ function renderLegends(
       y += barH + 16;
     } else {
       // Categorical: labeled swatches, one row each.
-      const cats = entry.scale.categories ?? [];
+      const cats = scale.categories ?? [];
       for (const cat of cats) {
         if (y > maxY) break;
         parts.push(
-          `<rect x="${x}" y="${y - 8}" width="11" height="11" rx="2" fill="${entry.scale.colorFor(cat)}"/>`,
+          `<rect x="${x}" y="${y - 8}" width="11" height="11" rx="2" fill="${scale.colorFor(cat)}"/>`,
           `<text x="${x + 16}" y="${y + 1}" font-size="10" fill="${FG}">${esc(truncate(cat, 14))}</text>`,
         );
         y += 16;
