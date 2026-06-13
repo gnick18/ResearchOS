@@ -43,6 +43,7 @@ import BeakerBotConversation from "@/components/ai/BeakerBotConversation";
 import BeakerChatRail from "@/components/ai/BeakerChatRail";
 import BeakerSearchAskHeader from "@/components/ai/BeakerSearchAskHeader";
 import { useConversationStore } from "@/lib/ai/conversation-store";
+import { useCanvasStore } from "@/lib/ai/canvas-store";
 import {
   subscribeSpotlight,
   type SpotlightRect,
@@ -435,6 +436,15 @@ export function CommandPalette({
 }: CommandPaletteProps) {
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
+
+  // Whether the BeakerBot Canvas draft panel is docked open beside the chat.
+  // When it is, the Ask-mode surface widens to fit chat + Canvas comfortably so
+  // the composer is never crushed (the same condition the conversation uses to
+  // dock the panel: open AND at least one tab). Read here so the shell, which
+  // owns the surface width, can react to it.
+  const canvasDocked = useCanvasStore(
+    (s) => s.open && s.tabs.length > 0,
+  );
 
   // Adaptive dodge state. When the spotlight points at a page element and it
   // would occlude the surface, we switch from the default centered CSS class to
@@ -1116,8 +1126,16 @@ export function CommandPalette({
           // Widen in Ask mode to fit the left history rail beside the
           // conversation (the rail is ~212px). Search mode keeps the lean
           // max-w-[600px] from the class. Inline maxWidth beats the class.
+          // When the Canvas draft panel docks (a ~22rem column on the right),
+          // widen further so the chat column keeps its usable floor (min-w-20rem
+          // composer) AND the Canvas editor shows fully, neither clipped. The
+          // rail + chat + Canvas + chrome want ~1200px; cap to the viewport.
           maxWidth:
-            askMode === "ask" ? "min(820px, calc(100vw - 40px))" : undefined,
+            askMode === "ask"
+              ? canvasDocked
+                ? "min(1200px, calc(100vw - 40px))"
+                : "min(820px, calc(100vw - 40px))"
+              : undefined,
           // Fluid morph (fun pass, 2026-06-12). A springy ease-out
           // (cubic-bezier(.22,1,.36,1)) gives the size + corner glide a single
           // settling motion instead of a linear slide, and will-change promotes
