@@ -37,6 +37,16 @@ import BeakerBotThinking from "./BeakerBotThinking";
 import { RunningStatusLine, SettledStatusLine } from "./TurnStatusLine";
 import ObjectChip from "@/components/ObjectChip";
 import ObjectEmbed from "@/components/embeds/ObjectEmbed";
+import ComposerMentionPicker, {
+  entryToRef,
+} from "./ComposerMentionPicker";
+import type { GlobalIndexEntry } from "@/components/beaker-search/global-index";
+import ComposerSlashMenu from "./ComposerSlashMenu";
+import {
+  parseSlashQuery,
+  filterSlashCommands,
+  type SlashCommand,
+} from "@/lib/ai/slash-commands";
 import { parseObjectDeepLink, parseObjectEmbed } from "@/lib/references";
 import { loneEmbedFromChatParagraph, type ChatHastNode } from "./chat-embed-detect";
 import type {
@@ -45,6 +55,7 @@ import type {
   TransformStepBlock,
 } from "@/lib/ai/tools/types";
 import type { IconName } from "@/components/icons";
+import type { AttachedRef } from "@/lib/ai/conversation-store";
 
 // Lightweight markdown renderer for assistant replies only. Scoped to this
 // component. Uses standard semantic elements styled by the app's Tailwind prose
@@ -598,6 +609,33 @@ type RevertPending = {
   removedCount: number;
 };
 
+// The registry IconName per attached-ref object type, mirroring the icon each
+// type carries in the global index (global-index.ts). Kept here so the chip glyph
+// stays a verified registry Icon (no inline SVG, no new glyph). Experiments are
+// tasks in the index, so "task" uses the same "list" glyph.
+const REF_TYPE_ICON: Record<AttachedRef["type"], IconName> = {
+  task: "list",
+  project: "folder",
+  method: "book",
+  sequence: "moleculeLinear",
+  inventory: "vial",
+  note: "file",
+  datahub: "chart",
+  molecule: "vial",
+  purchase: "receipt",
+};
+
+/** Small leading glyph for an attached-ref chip. Reuses the verified icon set. */
+function ObjectChipGlyph({ type }: { type: AttachedRef["type"] }) {
+  return (
+    <Icon
+      name={REF_TYPE_ICON[type]}
+      className="h-2.5 w-2.5 flex-none"
+      title=""
+    />
+  );
+}
+
 // The full conversation body: thread, approvals, status, composer.
 // Accepts an optional className to let the parent control sizing.
 export default function BeakerBotConversation({
@@ -631,9 +669,13 @@ export default function BeakerBotConversation({
     attachedPaper,
     setAttachedPaper,
     clearAttachedPaper,
+    attachedRefs,
+    addAttachedRef,
+    removeAttachedRef,
   } = useAiChat();
   const [draft, setDraft] = useState("");
   const listRef = useRef<HTMLDivElement | null>(null);
+  const textareaRef = useRef<HTMLTextAreaElement | null>(null);
 
   // ---- Voice input (Web Speech API) ----------------------------------------
   //
@@ -672,6 +714,129 @@ export default function BeakerBotConversation({
   // revertPending: set when the user clicks Revert-to-here; cleared by Cancel
   // or after the confirmed revert runs.
   const [revertPending, setRevertPending] = useState<RevertPending | null>(null);
+
+  // ---- @ mention picker and / command menu (ai at-mentions bot, 2026-06-13) ----
+  //
+  // Two inline overlays anchored above the composer input. Both are driven by the
+  // live draft text and a single keyboard cursor (activeIndex). Only one is open
+  // at a time. The @ picker reads the global object index; the / menu reads the
+  // static command registry.
+  //
+  // atQuery: the text typed after the most recent "@" up to the caret, or null
+  //   when no open "@" mention is being typed. Drives the picker open state.
+  const [atQuery, setAtQuery] = useState<string | null>(null);
+  // slashQuery: the text after a leading "/", or null. Drives the slash menu.
+  const [slashQuery, setSlashQuery] = useState<string | null>(null);
+  // activeIndex: the highlighted row in whichever overlay is open. Reset to 0 on
+  // every query change so the cursor never points past the filtered list.
+  const [activeIndex, setActiveIndex] = useState(0);
+
+  // Ranked object results for the current @ query, reported up by the picker
+  // container so the keyboard handlers can navigate the same list the user sees.
+  // The container (which owns the global-index hook) is mounted only while the
+  // picker is open, so the index subscription stays off the path otherwise.
+  const [mentionResults, setMentionResults] = useState<GlobalIndexEntry[]>([]);
+  // Filtered commands for the current / query (cheap, recomputed inline).
+  const slashCommands: SlashCommand[] =
+    slashQuery !== null ? filterSlashCommands(slashQuery) : [];
+
+  // The container mounts whenever an "@" mention is being typed; it owns the
+  // index hook and reports results up. pickerOpen (keyboard-active) additionally
+  // requires at least one result row to be showing.
+  const pickerMounted = atQuery !== null;
+  const pickerOpen = pickerMounted && mentionResults.length > 0;
+  const slashOpen = slashQuery !== null && slashCommands.length > 0;
+
+  // When the @ mention is dismissed, drop any stale results so a reopened picker
+  // does not flash the previous query's rows before the hook recomputes.
+  useEffect(() => {
+    if (atQuery === null && mentionResults.length > 0) {
+      setMentionResults([]);
+    }
+  }, [atQuery, mentionResults.length]);
+
+  // Parse the draft + caret to decide which overlay should be open. Called on
+  // every draft change and on caret move. The "@" mention query is the run of
+  // non-whitespace characters immediately before the caret that begins at an "@"
+  // (so "summarize @qp" with the caret after "qp" yields "qp"). A whitespace
+  // between the "@" and the caret closes the picker. The "/" menu opens only when
+  // the whole draft is a single leading "/" token (parseSlashQuery).
+  const refreshOverlays = useCallback(
+    (value: string, caret: number) => {
+      // Slash command: only at the very start of the input.
+      const slash = parseSlashQuery(value);
+      if (slash !== null) {
+        setSlashQuery(slash);
+        setAtQuery(null);
+        setActiveIndex(0);
+        return;
+      }
+      setSlashQuery(null);
+
+      // @ mention: look back from the caret for an "@" not interrupted by space.
+      const upToCaret = value.slice(0, caret);
+      const atPos = upToCaret.lastIndexOf("@");
+      if (atPos === -1) {
+        setAtQuery(null);
+        return;
+      }
+      const between = upToCaret.slice(atPos + 1);
+      // A whitespace after the "@" means the mention was abandoned.
+      if (/\s/.test(between)) {
+        setAtQuery(null);
+        return;
+      }
+      setAtQuery(between);
+      setActiveIndex(0);
+    },
+    [],
+  );
+
+  // Close both overlays (Escape, or after a selection that should dismiss them).
+  const closeOverlays = useCallback(() => {
+    setAtQuery(null);
+    setSlashQuery(null);
+    setActiveIndex(0);
+  }, []);
+
+  // Attach an object from the @ picker. Stages the ref in the store and strips
+  // the in-progress "@query" token from the draft (the chip replaces it). Keeps
+  // the caret where the token was so the user can keep typing.
+  const handleMentionSelect = useCallback(
+    (ref: ReturnType<typeof entryToRef>) => {
+      addAttachedRef(ref);
+      setDraft((prev) => {
+        const ta = textareaRef.current;
+        const caret = ta ? ta.selectionStart : prev.length;
+        const upToCaret = prev.slice(0, caret);
+        const atPos = upToCaret.lastIndexOf("@");
+        if (atPos === -1) return prev;
+        // Drop the "@query" run, keep everything before the "@" and after the caret.
+        return prev.slice(0, atPos) + prev.slice(caret);
+      });
+      closeOverlays();
+      // Return focus to the textarea so typing continues seamlessly.
+      requestAnimationFrame(() => textareaRef.current?.focus());
+    },
+    [addAttachedRef, closeOverlays],
+  );
+
+  // Pick a slash command. Replaces the leading "/token" with the command's
+  // pre-fill phrase, leaving the caret at the end ready for an @object.
+  const handleSlashSelect = useCallback(
+    (command: SlashCommand) => {
+      setDraft(command.prefill);
+      closeOverlays();
+      requestAnimationFrame(() => {
+        const ta = textareaRef.current;
+        if (ta) {
+          ta.focus();
+          ta.selectionStart = ta.selectionEnd = command.prefill.length;
+        }
+      });
+    },
+    [closeOverlays],
+  );
 
   // Bridge registration (useNavigationBridge + useBeakerBotMessageBridge) moved
   // to BeakerBotBridges (mounted once in app/layout.tsx). This component is now
@@ -782,11 +947,20 @@ export default function BeakerBotConversation({
     // enables send even with empty text, so the user can say "summarize this."
     const hasImages = BEAKERBOT_VISION_ENABLED && pendingImages.length > 0;
     const hasPaper = attachedPaper !== null;
-    if ((!text.trim() && !hasImages && !hasPaper) || sending) return;
+    const hasRefs = attachedRefs.length > 0;
+    if ((!text.trim() && !hasImages && !hasPaper && !hasRefs) || sending) return;
     // Stop dictation before sending so the session closes cleanly.
     stopListening();
+    closeOverlays();
     setDraft("");
-    void send(text);
+    // When only chips are attached (no typed text, no image, no paper), send a
+    // neutral instruction so the store's empty-text guard does not drop the turn.
+    // The attached refs carry the actual targets via the per-turn refs note.
+    const outgoing =
+      text.trim() || hasImages || hasPaper
+        ? text
+        : "Use the attached objects.";
+    void send(outgoing);
     // Capture the id of the empty assistant placeholder the store just seeded.
     // The store seeds it synchronously before the first await, so we can read
     // it from the messages array on the next render. We use an effect below to
@@ -1445,23 +1619,146 @@ export default function BeakerBotConversation({
             }}
           />
 
-          <textarea
-            data-testid="beakerbot-input"
-            aria-label="Message BeakerBot"
-            rows={2}
-            value={draft}
-            disabled={sending}
-            onChange={(e) => setDraft(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter" && !e.shiftKey) {
-                e.preventDefault();
-                handleSend();
+          {/* Composer input column: holds the attached-ref chip row, the @/
+              overlays anchored above, and the textarea. Relative so the
+              dropdowns position against this column, not the whole row. */}
+          <div className="relative min-w-0 flex-1">
+            {/* @ object picker, anchored above the input. Mounted while an "@"
+                mention is being typed; it owns the global index hook and reports
+                results up for keyboard nav, and self-hides when no rows match. */}
+            {pickerMounted ? (
+              <ComposerMentionPicker
+                query={atQuery ?? ""}
+                activeIndex={activeIndex}
+                onSelect={handleMentionSelect}
+                onResultsChange={setMentionResults}
+              />
+            ) : null}
+            {/* / command menu, anchored above the input. */}
+            {slashOpen ? (
+              <ComposerSlashMenu
+                commands={slashCommands}
+                activeIndex={activeIndex}
+                onSelect={handleSlashSelect}
+              />
+            ) : null}
+
+            {/* Attached object chips (one per @ mention), above the textarea. */}
+            {attachedRefs.length > 0 ? (
+              <div
+                data-testid="beakerbot-ref-chips"
+                className="mb-1.5 flex flex-wrap gap-1.5"
+              >
+                {attachedRefs.map((ref) => (
+                  <span
+                    key={ref.id}
+                    data-testid="beakerbot-ref-chip"
+                    className="inline-flex items-center gap-1 rounded border border-brand/35 bg-brand/10 px-1.5 py-0.5 text-meta font-medium text-brand"
+                  >
+                    <ObjectChipGlyph type={ref.type} />
+                    <span className="max-w-[150px] truncate">{ref.name}</span>
+                    <Tooltip label="Remove" placement="top">
+                      <button
+                        type="button"
+                        data-testid="beakerbot-remove-ref"
+                        aria-label={`Remove ${ref.name}`}
+                        onClick={() => removeAttachedRef(ref.id)}
+                        className="ml-0.5 flex-none text-brand/70 hover:text-brand"
+                      >
+                        <Icon name="close" className="h-2.5 w-2.5" title="Remove" />
+                      </button>
+                    </Tooltip>
+                  </span>
+                ))}
+              </div>
+            ) : null}
+
+            <textarea
+              ref={textareaRef}
+              data-testid="beakerbot-input"
+              aria-label="Message BeakerBot"
+              rows={2}
+              value={draft}
+              disabled={sending}
+              onChange={(e) => {
+                setDraft(e.target.value);
+                refreshOverlays(e.target.value, e.target.selectionStart);
+              }}
+              onClick={(e) =>
+                refreshOverlays(
+                  e.currentTarget.value,
+                  e.currentTarget.selectionStart,
+                )
               }
-            }}
-            onPaste={BEAKERBOT_VISION_ENABLED ? handlePaste : undefined}
-            placeholder="Message BeakerBot"
-            className="min-h-0 flex-1 resize-none rounded-md border border-border bg-surface-raised px-3 py-2 text-body text-foreground placeholder:text-foreground-muted focus:outline-none focus:ring-2 focus:ring-brand"
-          />
+              onKeyUp={(e) => {
+                // Caret-move keys can open/close the @ picker without changing text.
+                if (
+                  e.key === "ArrowLeft" ||
+                  e.key === "ArrowRight" ||
+                  e.key === "Home" ||
+                  e.key === "End"
+                ) {
+                  refreshOverlays(
+                    e.currentTarget.value,
+                    e.currentTarget.selectionStart,
+                  );
+                }
+              }}
+              onKeyDown={(e) => {
+                const overlayOpen = pickerOpen || slashOpen;
+                const count = pickerOpen
+                  ? mentionResults.length
+                  : slashCommands.length;
+                if (overlayOpen) {
+                  if (e.key === "ArrowDown") {
+                    e.preventDefault();
+                    setActiveIndex((i) => (i + 1) % count);
+                    return;
+                  }
+                  if (e.key === "ArrowUp") {
+                    e.preventDefault();
+                    setActiveIndex((i) => (i - 1 + count) % count);
+                    return;
+                  }
+                  if (e.key === "Escape") {
+                    e.preventDefault();
+                    closeOverlays();
+                    return;
+                  }
+                  if (e.key === "Enter" && !e.shiftKey) {
+                    e.preventDefault();
+                    if (pickerOpen) {
+                      handleMentionSelect(entryToRef(mentionResults[activeIndex]));
+                    } else {
+                      handleSlashSelect(slashCommands[activeIndex]);
+                    }
+                    return;
+                  }
+                }
+                // Backspace at caret position 0 with an empty-start removes the
+                // last attached chip (Slack / Linear pattern, Q2 = both x and
+                // backspace). Only when no overlay is steering the keyboard.
+                if (
+                  e.key === "Backspace" &&
+                  !overlayOpen &&
+                  attachedRefs.length > 0 &&
+                  e.currentTarget.selectionStart === 0 &&
+                  e.currentTarget.selectionEnd === 0
+                ) {
+                  e.preventDefault();
+                  removeAttachedRef(attachedRefs[attachedRefs.length - 1].id);
+                  return;
+                }
+                if (e.key === "Enter" && !e.shiftKey) {
+                  e.preventDefault();
+                  handleSend();
+                }
+              }}
+              onPaste={BEAKERBOT_VISION_ENABLED ? handlePaste : undefined}
+              placeholder="Message BeakerBot, or @ to attach, / for a command"
+              className="min-h-0 w-full resize-none rounded-md border border-border bg-surface-raised px-3 py-2 text-body text-foreground placeholder:text-foreground-muted focus:outline-none focus:ring-2 focus:ring-brand"
+            />
+          </div>
 
           {/* PDF paperclip attach button. Uses the "file" registry icon (closest
               match to a paperclip; see handlePdfFile note above). Always visible
@@ -1553,7 +1850,8 @@ export default function BeakerBotConversation({
               disabled={
                 draft.trim().length === 0 &&
                 !(BEAKERBOT_VISION_ENABLED && pendingImages.length > 0) &&
-                attachedPaper === null
+                attachedPaper === null &&
+                attachedRefs.length === 0
               }
               className="bg-brand-action text-white transition-colors hover:bg-brand-action/90 rounded-md px-3 py-2 text-body font-medium disabled:cursor-not-allowed disabled:opacity-50"
             >

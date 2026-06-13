@@ -25,6 +25,7 @@ export type {
   TurnSummary,
   ToolStep,
   AttachedPaper,
+  AttachedRef,
 } from "@/lib/ai/conversation-store";
 
 export function useAiChat() {
@@ -58,6 +59,11 @@ export function useAiChat() {
   const attachedPaper = useConversationStore((s) => s.attachedPaper);
   const setAttachedPaper = useConversationStore((s) => s.setAttachedPaper);
   const clearAttachedPaper = useConversationStore((s) => s.clearAttachedPaper);
+  // @ mention attached object refs.
+  const attachedRefs = useConversationStore((s) => s.attachedRefs);
+  const addAttachedRef = useConversationStore((s) => s.addAttachedRef);
+  const removeAttachedRef = useConversationStore((s) => s.removeAttachedRef);
+  const clearAttachedRefs = useConversationStore((s) => s.clearAttachedRefs);
 
   return {
     messages,
@@ -90,5 +96,10 @@ export function useAiChat() {
     attachedPaper,
     setAttachedPaper,
     clearAttachedPaper,
+    // @ mention attached object refs.
+    attachedRefs,
+    addAttachedRef,
+    removeAttachedRef,
+    clearAttachedRefs,
   };
 }
