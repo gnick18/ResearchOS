@@ -40,8 +40,10 @@ import {
   countRows,
   recipeResultColumns,
   saveRecipeAsDataset,
+  formatPreviewCell,
   type OpenDatasetHandle,
 } from "@/lib/datahub/bigtable/dataset-view";
+import type { ColumnDataType } from "@/lib/datahub/model/types";
 
 const PREVIEW_ROWS = 25;
 
@@ -1611,6 +1613,17 @@ export default function TransformBuilder({
   const [handle, setHandle] = useState<OpenDatasetHandle | null>(null);
   const [previewRows, setPreviewRows] = useState<Record<string, unknown>[]>([]);
   const [previewCols, setPreviewCols] = useState<string[]>(allCols);
+  // Live column types from the recipe's Arrow result, so a parse-date op renders
+  // YYYY-MM-DD in the builder preview instead of raw epoch millis (display only).
+  const [previewColumnTypes, setPreviewColumnTypes] = useState<
+    Record<string, ColumnDataType>
+  >({});
+  // Static sidecar types, the fallback when a column is not in the live result map.
+  const staticColumnTypes = useMemo(() => {
+    const m: Record<string, ColumnDataType> = {};
+    for (const c of sidecar.schema) m[c.name] = c.type;
+    return m;
+  }, [sidecar.schema]);
   const [resultCount, setResultCount] = useState<number | null>(null);
   const [stepCounts, setStepCounts] = useState<(number | null)[]>([]);
   const [previewError, setPreviewError] = useState<string | null>(null);
@@ -1659,7 +1672,13 @@ export default function TransformBuilder({
       try {
         // Result column list (a derive adds a column, a select narrows).
         const resultColumns = await recipeResultColumns(handle, currentPipe);
-        const rows = await readRowWindow(handle, 0, PREVIEW_ROWS, [], currentPipe);
+        const { rows, columnTypes: liveTypes } = await readRowWindow(
+          handle,
+          0,
+          PREVIEW_ROWS,
+          [],
+          currentPipe,
+        );
         const total = await countRows(handle, currentPipe);
         // Per-step affected counts: count rows after each prefix of the pipeline.
         const counts: (number | null)[] = [];
@@ -1674,6 +1693,7 @@ export default function TransformBuilder({
         if (seq !== runSeqRef.current) return;
         setPreviewCols(resultColumns);
         setPreviewRows(rows);
+        setPreviewColumnTypes(liveTypes);
         setResultCount(total);
         setStepCounts(counts);
       } catch (e) {
@@ -1954,12 +1974,16 @@ export default function TransformBuilder({
                       <tr key={ri}>
                         {previewCols.map((c) => {
                           const v = r[c];
+                          const type =
+                            previewColumnTypes[c] ??
+                            staticColumnTypes[c] ??
+                            "text";
                           return (
                             <td
                               key={c}
                               className="border-b border-r border-border-soft px-2 py-1 text-right text-foreground"
                             >
-                              {v === null || v === undefined ? "" : String(v)}
+                              {formatPreviewCell(v, type)}
                             </td>
                           );
                         })}

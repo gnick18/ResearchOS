@@ -16,8 +16,15 @@
 
 import { describe, expect, it, vi } from "vitest";
 
+// A mutable Arrow-like result the query() mock returns. Tests set MOCK_RESULT to a
+// table whose schema marks columns with Arrow type objects (typeId) or strings.
+let MOCK_RESULT: {
+  toArray: () => Record<string, unknown>[];
+  schema: { fields: { name: string; type?: unknown }[] };
+} = { toArray: () => [], schema: { fields: [] } };
+
 vi.mock("../duckdb-client", () => ({
-  query: vi.fn(async () => ({ toArray: () => [], schema: { fields: [] } })),
+  query: vi.fn(async () => MOCK_RESULT),
   init: vi.fn(async () => {}),
   registerParquetBuffer: vi.fn(async () => {}),
   dropFileBuffer: vi.fn(async () => {}),
@@ -37,7 +44,24 @@ vi.mock("@/lib/file-system/file-service", () => ({
   },
 }));
 
-import { formatPreviewCell } from "../dataset-view";
+import {
+  formatPreviewCell,
+  arrowTypeToColumnDataType,
+  readRowWindow,
+  type OpenDatasetHandle,
+} from "../dataset-view";
+
+// Arrow Type enum ids (the positive base ids a concrete DataType reports).
+const ARROW = {
+  Int: 2,
+  Float: 3,
+  Decimal: 7,
+  Date: 8,
+  Time: 9,
+  Timestamp: 10,
+  Utf8: 5,
+  Bool: 6,
+} as const;
 
 describe("formatPreviewCell (date preview formatting)", () => {
   it("formats epoch millis on a date column as YYYY-MM-DD", () => {
@@ -83,5 +107,72 @@ describe("formatPreviewCell (date preview formatting)", () => {
 
   it("falls back to String() for an unparseable date cell (never blanks or throws)", () => {
     expect(formatPreviewCell("not-a-date", "date")).toBe("not-a-date");
+  });
+});
+
+describe("arrowTypeToColumnDataType (live Arrow type -> Data Hub type)", () => {
+  it("maps Date / Time / Timestamp typeIds to 'date'", () => {
+    expect(arrowTypeToColumnDataType({ typeId: ARROW.Date })).toBe("date");
+    expect(arrowTypeToColumnDataType({ typeId: ARROW.Time })).toBe("date");
+    expect(arrowTypeToColumnDataType({ typeId: ARROW.Timestamp })).toBe("date");
+  });
+
+  it("maps Int / Float / Decimal typeIds to 'number'", () => {
+    expect(arrowTypeToColumnDataType({ typeId: ARROW.Int })).toBe("number");
+    expect(arrowTypeToColumnDataType({ typeId: ARROW.Float })).toBe("number");
+    expect(arrowTypeToColumnDataType({ typeId: ARROW.Decimal })).toBe("number");
+  });
+
+  it("maps other typeIds (Utf8 / Bool) to 'text'", () => {
+    expect(arrowTypeToColumnDataType({ typeId: ARROW.Utf8 })).toBe("text");
+    expect(arrowTypeToColumnDataType({ typeId: ARROW.Bool })).toBe("text");
+  });
+
+  it("falls back to the type STRING form when no typeId is present", () => {
+    expect(arrowTypeToColumnDataType("Timestamp<MILLISECOND>")).toBe("date");
+    expect(arrowTypeToColumnDataType("Date32<DAY>")).toBe("date");
+    expect(arrowTypeToColumnDataType("Time64<MICROSECOND>")).toBe("date");
+    expect(arrowTypeToColumnDataType("Int64")).toBe("number");
+    expect(arrowTypeToColumnDataType("Float64")).toBe("number");
+    expect(arrowTypeToColumnDataType("Decimal128")).toBe("number");
+    expect(arrowTypeToColumnDataType("Utf8")).toBe("text");
+  });
+});
+
+describe("readRowWindow (surfaces LIVE Arrow column types)", () => {
+  const handle: OpenDatasetHandle = {
+    id: "ds1",
+    fileName: "dataset_ds1.parquet",
+    owner: "me",
+    columnNames: ["run_date", "n"],
+  };
+
+  it("types a column 'date' from the live Arrow schema even when the static schema says text", async () => {
+    // The recipe parsed run_date to a TIMESTAMP. DuckDB returns it as epoch millis
+    // with an Arrow Timestamp type, even though the source column was text.
+    MOCK_RESULT = {
+      toArray: () => [{ run_date: 1793491200000, n: 3 }],
+      schema: {
+        fields: [
+          { name: "run_date", type: { typeId: ARROW.Timestamp } },
+          { name: "n", type: { typeId: ARROW.Int } },
+        ],
+      },
+    };
+    const { rows, columnTypes } = await readRowWindow(handle, 0, 25);
+    expect(rows).toEqual([{ run_date: 1793491200000, n: 3 }]);
+    expect(columnTypes.run_date).toBe("date");
+    expect(columnTypes.n).toBe("number");
+    // And the live date type feeds formatPreviewCell to a readable date.
+    expect(formatPreviewCell(rows[0].run_date, columnTypes.run_date)).toBe(
+      "2026-11-01",
+    );
+  });
+
+  it("returns an empty columnTypes map when the result schema has no fields", async () => {
+    MOCK_RESULT = { toArray: () => [], schema: { fields: [] } };
+    const { rows, columnTypes } = await readRowWindow(handle, 0, 25);
+    expect(rows).toEqual([]);
+    expect(columnTypes).toEqual({});
   });
 });

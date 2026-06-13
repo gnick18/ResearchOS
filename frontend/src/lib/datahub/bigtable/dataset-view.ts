@@ -113,6 +113,79 @@ export function formatPreviewCell(
 }
 
 /**
+ * Map a LIVE Apache Arrow column type to the Data Hub data type, so a preview
+ * formats off the TRUE type the query returned, not the (possibly stale) static
+ * sidecar schema. A `parse date` / `astype`->date / `todate` op makes DuckDB
+ * return that column as a TIMESTAMP / DATE / TIME even while the sidecar still
+ * types it text, so the static schema would print raw epoch millis. The Arrow
+ * result schema carries the post-recipe truth.
+ *
+ * We read Arrow's numeric `typeId` first (the stable identity: Int=2, Float=3,
+ * Decimal=7, Date=8, Time=9, Timestamp=10; a concrete DateMillisecond / Date32
+ * still reports the base Date id), and fall back to the type's string form
+ * ("Timestamp<MILLISECOND>", "Date32<DAY>", "Int64", "Float64") when no typeId is
+ * present (e.g. a plain mock). Date / Time / Timestamp -> "date"; Int / Float /
+ * Decimal -> "number"; everything else -> "text". This is the SAME coarse model
+ * the editable lane uses, extended with the "date" display type.
+ */
+export function arrowTypeToColumnDataType(arrowType: unknown): ColumnDataType {
+  // Arrow Type enum ids (positive base ids reported by a concrete DataType).
+  const ARROW_INT = 2;
+  const ARROW_FLOAT = 3;
+  const ARROW_DECIMAL = 7;
+  const ARROW_DATE = 8;
+  const ARROW_TIME = 9;
+  const ARROW_TIMESTAMP = 10;
+
+  const typeId =
+    arrowType && typeof arrowType === "object"
+      ? (arrowType as { typeId?: unknown }).typeId
+      : undefined;
+  if (typeof typeId === "number") {
+    if (typeId === ARROW_DATE || typeId === ARROW_TIME || typeId === ARROW_TIMESTAMP) {
+      return "date";
+    }
+    if (typeId === ARROW_INT || typeId === ARROW_FLOAT || typeId === ARROW_DECIMAL) {
+      return "number";
+    }
+    return "text";
+  }
+
+  // No typeId: fall back to the type's string form.
+  const t = String(arrowType).toLowerCase();
+  if (t.includes("timestamp") || t.includes("date") || t.startsWith("time")) {
+    return "date";
+  }
+  if (
+    t.includes("int") ||
+    t.includes("float") ||
+    t.includes("double") ||
+    t.includes("decimal")
+  ) {
+    return "number";
+  }
+  return "text";
+}
+
+/**
+ * Read the LIVE column types off an Arrow result schema as a column name ->
+ * ColumnDataType map. Lazy and free: it inspects the SAME Arrow table the caller
+ * already fetched, no extra query. Used to feed formatPreviewCell the TRUE
+ * post-recipe type so a parsed date renders YYYY-MM-DD even when the static
+ * sidecar schema lags.
+ */
+function liveColumnTypes(table: {
+  schema?: { fields?: { name: string; type?: unknown }[] };
+}): Record<string, ColumnDataType> {
+  const out: Record<string, ColumnDataType> = {};
+  const fields = table.schema?.fields ?? [];
+  for (const f of fields) {
+    out[f.name] = arrowTypeToColumnDataType(f.type);
+  }
+  return out;
+}
+
+/**
  * Coerce a date-column cell into a Date, or null when it does not parse. Handles a
  * JS Date, epoch milliseconds (number / BigInt), and a string the Date parser
  * accepts (an already-formatted ISO date passes straight back). Reads everything
@@ -209,14 +282,26 @@ export function fromSource(handle: OpenDatasetHandle, recipe?: TransformOp[]): s
  * (spec section 5). With a recipe the recipe runs on demand against the source
  * Parquet and only the window is materialized. Row objects are keyed by COLUMN
  * NAME, matching the result schema the grid renders.
+ *
+ * Returns the LIVE column types alongside the rows, read off the SAME Arrow result
+ * schema (no extra query). Both preview surfaces feed these to formatPreviewCell so
+ * a recipe-derived DATE / TIMESTAMP column renders YYYY-MM-DD even when the static
+ * sidecar schema still types it text. This is DISPLAY ONLY; stored values and every
+ * computed statistic read raw arrays through dataset-columns, never this.
  */
+export interface RowWindow {
+  rows: Record<string, unknown>[];
+  /** Column name -> live Data Hub type from the Arrow result schema. */
+  columnTypes: Record<string, ColumnDataType>;
+}
+
 export async function readRowWindow(
   handle: OpenDatasetHandle,
   offset: number,
   limit: number,
   columns: string[] = [],
   recipe?: TransformOp[],
-): Promise<Record<string, unknown>[]> {
+): Promise<RowWindow> {
   const projection =
     columns.length > 0 ? columns.map(quoteIdent).join(", ") : "*";
   const sql = `SELECT ${projection} FROM ${fromSource(handle, recipe)} LIMIT ${Math.max(
@@ -226,7 +311,8 @@ export async function readRowWindow(
   const table = await query(sql);
   // toArray() yields one plain object per row, keyed by column name. We map to a
   // shallow copy so nothing holds a reference into the Arrow batch memory.
-  return table.toArray().map((r) => ({ ...(r as Record<string, unknown>) }));
+  const rows = table.toArray().map((r) => ({ ...(r as Record<string, unknown>) }));
+  return { rows, columnTypes: liveColumnTypes(table) };
 }
 
 /**

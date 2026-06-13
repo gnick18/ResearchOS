@@ -246,6 +246,36 @@ describe("dataset-plots: validation-gate parity for figure numbers", () => {
     expect(groups[1].stats.sd ?? NaN).toBeCloseTo(eb.sd ?? NaN, 12);
   });
 
+  it("(a2) a SCATTER split by a label produces one PlotGroup per label (parity with bar)", async () => {
+    // Same grouped fixture as (a), but rendered as a columnScatter with a group
+    // column. The split path is shared with the bar, so a scatter must also yield
+    // one PlotGroup per label (A, B), each with its own engine stats on its FULL
+    // column. Regression guard for the reported "single pooled group" defect.
+    const a = [5, 6, 7, 6, 5];
+    const b = [12, 11, 13, 14, 12];
+    FIXTURE = {
+      columns: ["value", "group"],
+      rows: [
+        ...a.map((v) => [v, "A"] as Cell[]),
+        ...b.map((v) => [v, "B"] as Cell[]),
+      ],
+    };
+    const { groups } = await buildDatasetPlotGroups(
+      HANDLE,
+      scatterSpec(),
+      sidecar([{ name: "value" }, { name: "group", type: "text" }]),
+      { valueColumn: "value", groupByColumn: "group" },
+    );
+    expect(groups.map((g) => g.name)).toEqual(["A", "B"]);
+    const ea = computeGroupStats(editableColumn("A", a), "c0");
+    const eb = computeGroupStats(editableColumn("B", b), "c0");
+    expect(groups[0].stats.mean ?? NaN).toBeCloseTo(ea.mean ?? NaN, 12);
+    expect(groups[1].stats.mean ?? NaN).toBeCloseTo(eb.mean ?? NaN, 12);
+    // Each group keeps its own dots (its full small array, under the cap).
+    expect(groups[0].values).toEqual(a);
+    expect(groups[1].values).toEqual(b);
+  });
+
   it("(b) a SCATTER samples its dots but keeps stats on the FULL column", async () => {
     // 1000 values, cap to 50 dots. The sample is thinned, the stats are not.
     const values = Array.from({ length: 1000 }, (_, i) => i + 1);

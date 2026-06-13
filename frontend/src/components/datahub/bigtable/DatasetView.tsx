@@ -99,6 +99,11 @@ export default function DatasetView({
 
   const rowCacheRef = useRef<RowCache>(new Map());
   const pendingPagesRef = useRef<Set<number>>(new Set());
+  // Live column types learned from the Arrow result schema of a fetched page. They
+  // override the static sidecar type for display, so a saved derived dataset whose
+  // schema lagged (a date column still typed text) still renders as a date. Held in
+  // a ref because they arrive per page fetch; a rerender picks them up.
+  const liveColumnTypesRef = useRef<Record<string, ColumnDataType>>({});
   const [, forceTick] = useState(0);
   const rerender = useCallback(() => forceTick((t) => t + 1), []);
 
@@ -113,6 +118,7 @@ export default function DatasetView({
     setOpenError(null);
     rowCacheRef.current = new Map();
     pendingPagesRef.current = new Set();
+    liveColumnTypesRef.current = {};
     setShowExplainer(!isExplainerDismissed(sidecar.id));
     setShowFullRender(false);
     setSelected(columnTier(sidecar.colCount) === "c" ? [] : sidecar.schema.map((c) => c.name));
@@ -154,13 +160,18 @@ export default function DatasetView({
       if (rowCacheRef.current.has(start)) return;
       pendingPagesRef.current.add(page);
       try {
-        const rows = await readRowWindow(
+        const { rows, columnTypes: liveTypes } = await readRowWindow(
           handle,
           start,
           PAGE_SIZE,
           visibleColumns,
         );
         rows.forEach((r, i) => rowCacheRef.current.set(start + i, r));
+        // Merge the live Arrow types over what we already learned (display only).
+        liveColumnTypesRef.current = {
+          ...liveColumnTypesRef.current,
+          ...liveTypes,
+        };
         rerender();
       } catch {
         // A failed page leaves those rows as placeholders; scrolling retries.
@@ -420,7 +431,9 @@ export default function DatasetView({
                               ? ""
                               : formatPreviewCell(
                                   v,
-                                  columnTypes.get(name) ?? "text",
+                                  liveColumnTypesRef.current[name] ??
+                                    columnTypes.get(name) ??
+                                    "text",
                                 )}
                           </div>
                         );
