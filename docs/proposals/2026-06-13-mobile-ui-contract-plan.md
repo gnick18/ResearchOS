@@ -19,9 +19,9 @@ MERGED + EMULATOR-VERIFIED:
 - Polish: Notebook live-pulse connection badge; calc-custom de-duped title; splash-hide effect deps fix.
 
 REMAINING (not pure restyle / need data or are net-new, NOT done autonomously):
-- The 10 METHOD READERS (PCR profile, plate grid, LC chart, qPCR, mass-spec, etc.): need published method fixture data on a paired device to render/verify; build the per-type renderers to 03b then verify with seeded data.
-- SCAN FLOW + SMART-MATCH: scan needs a real camera (emulator camera limited); smart-match is a NET-NEW feature (own-data match + GS1/barcode parse + external lookup + Vercel proxy), not a restyle.
-- ACTIVE-EXPERIMENTS BAND: integrate the companion lane's HELD branch fields at build time (Today panel + Home glance), keep recordSnapshotGeneratedAt liveness wiring.
+- The 10 METHOD READERS (PCR profile, plate grid, LC chart, qPCR, mass-spec, etc.): NOW UNBLOCKED. The demo-seed merge (main `88a57f2ef`) ships one full `MethodProjection` per type in `mobile/lib/method-library.ts` (`DEMO_METHOD_DETAILS`), resolvable offline via `/method-detail?demo=<uid>`, so the readers can be built + verified against seeded data with no paired device. BUILT so far: only `PcrView`, `LcView`, `CompoundView` in `mobile/app/method-detail.tsx`; every other type (plate/cell_culture, mass_spec, qpcr_analysis, coding_workflow, pdf, western, staining, cloning, extraction, markdown) still falls back to the generic body renderer. Build the rest to `docs/mockups/mobile-contract/03b-method-read-modes.html`, then device-shot-verify against each demo seed. NEEDS the emulator running for the verify loop.
+- SCAN FLOW + SMART-MATCH: scan needs a real camera (emulator camera limited); smart-match is a NET-NEW feature (own-data match + GS1/barcode parse + external lookup + Vercel proxy), not a restyle. Blocked on Grant's external barcode-API choice (UPCitemdb / Barcode Lookup / Digit-Eyes + GS1 GEPIR) + a thin Vercel proxy.
+- ACTIVE-EXPERIMENTS BAND: DONE for the Today panel (cherry-picked `624a0f64f` -> main `3d883f287`; `recordSnapshotGeneratedAt` liveness wiring + demo `DEMO_METHOD_SNAPSHOT` both preserved through the `snapshots.ts` auto-merge). STILL TODO: the Home hub glance variant of the band (line "TodayPanel and the Home hub glance" in the cross-lane note) was not part of that commit.
 - Minor polish: richer capture tiles (2-line sublabel + icon tile) to fully match the mockup.
 
 HARNESS: worktree metro on :8082 -> emulator (emulator-5554) + `mobile/scripts/device-shot.sh`; deep-link nav via `adb shell am start -d researchos://<route>`. Grant's Samsung untouched on :8081.
@@ -101,6 +101,7 @@ The old loop (build -> run -> load on phone -> photograph with a 2nd phone -> ai
 - TODO Motion and microinteraction spec (transitions, haptics, success bursts)
 - TODO Empty states, skeleton loaders, error/offline banners
 - TODO The rainbow edge treatment and BeakerBot placement rules
+- BRAND SYNC (2026-06-13, from brand/header lane, web main 680b83c50 + 17070b362): three-ramp rainbow model now in `mobile/lib/design.ts` as rainbowPastel / rainbowVivid / rainbowLuminous. RULE for the RN dark pass: dark surfaces use LUMINOUS for any rainbow accent or clipped text (vivid goes murky on near-black); light decoration + the BeakerBot mascot liquid stay PASTEL regardless of theme; VIVID is gradient text on light surfaces only. Wordmark is split "Research" (text color) + "OS" (rainbow, vivid on light / luminous on dark); web header dropped the BeakerBot mark (wordmark-only) — match if the app ever renders the wordmark/header chrome.
 
 ## Navigation (the big decision, research-driven)
 
