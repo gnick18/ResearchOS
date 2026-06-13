@@ -79,6 +79,8 @@ import { ConnectionStatusChip } from '@/components/ui/ConnectionStatusChip';
 import {
   recordSyncSuccess,
   recordSyncFailure,
+  useLaptopLiveness,
+  relativeSyncTime,
 } from '@/lib/connection-status';
 import {
   hapticImpact,
@@ -1372,6 +1374,12 @@ function ConnectionCard({
   onUnpair: () => void;
 }) {
   const { surface } = useTheme();
+  // Liveness reads the newest snapshot publish time (generatedAt). The laptop
+  // republishes every minute or so while open, so a fresh publish means it is
+  // actively syncing now; otherwise we show when it last did. The pairing badge
+  // above stays put regardless, since pairing is a durable binding.
+  const { live, publishedAt } = useLaptopLiveness();
+  const rel = relativeSyncTime(publishedAt);
   return (
     <View style={styles.connCard}>
       <View style={styles.connBadge}>
@@ -1381,9 +1389,18 @@ function ConnectionCard({
         <ThemedText style={[styles.connName, { color: surface.text }]}>
           {labName}
         </ThemedText>
-        <ThemedText style={[styles.connSub, { color: surface.muted }]}>
-          Connected
-        </ThemedText>
+        {live ? (
+          <View style={styles.connStatusRow}>
+            <View style={styles.liveDot} />
+            <ThemedText style={[styles.connSub, { color: palette.success }]}>
+              Live
+            </ThemedText>
+          </View>
+        ) : (
+          <ThemedText style={[styles.connSub, { color: surface.muted }]}>
+            {rel ? `Last synced ${rel}` : 'Connected'}
+          </ThemedText>
+        )}
       </View>
       <Pressable onPress={onUnpair} hitSlop={8} accessibilityRole="button">
         <ThemedText style={[styles.unpairLabel, { color: palette.sky }]}>
@@ -1616,6 +1633,13 @@ const styles = StyleSheet.create({
   connText: { flex: 1 },
   connName: { fontSize: 14, fontWeight: '600', lineHeight: 20 },
   connSub: { fontSize: 12, lineHeight: 18 },
+  connStatusRow: { flexDirection: 'row', alignItems: 'center', gap: 5 },
+  liveDot: {
+    width: 7,
+    height: 7,
+    borderRadius: 999,
+    backgroundColor: palette.success,
+  },
   unpairLabel: { fontSize: 13, fontWeight: '600' },
 
   // Quick-capture action row

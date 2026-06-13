@@ -70,6 +70,46 @@ export function getLastSyncAt(): number | null {
   return lastSuccessAt;
 }
 
+// ---- Laptop liveness (publish freshness, from snapshot generatedAt) --------
+//
+// Distinct from fetch freshness above, and more honest about whether the laptop
+// is open RIGHT NOW. A successful fetch only means the relay answered; the relay
+// keeps serving the last snapshot the laptop published even hours after the
+// laptop closes, so a 200 alone is not "the laptop is awake". The real signal is
+// the newest generatedAt across the snapshots we fetch (every laptop publisher
+// stamps it at publish time). The laptop publishes on a short cadence (~60s)
+// while open, so a generatedAt inside LIVE_WINDOW_MS means it is actively
+// syncing; older than that, we show "Last synced <relative>".
+//
+// We deliberately track only LAPTOP-published snapshots here. The
+// notifications-pending lane is written by the relay while the laptop is closed,
+// so it carries no generatedAt and never counts toward liveness.
+
+const LIVE_WINDOW_MS = 2 * 60 * 1000;
+
+let latestGeneratedAt: number | null = null;
+
+/** Record a snapshot's publish time (its generatedAt, an ISO string). Keeps the
+ *  newest across all snapshots fetched this session. No-ops on a missing or
+ *  unparseable value, so an older laptop shape never disturbs the indicator.
+ *  Best-effort, module-level, no persistence. */
+export function recordSnapshotGeneratedAt(
+  generatedAt: string | null | undefined,
+): void {
+  if (!generatedAt) return;
+  const t = Date.parse(generatedAt);
+  if (Number.isNaN(t)) return;
+  if (latestGeneratedAt == null || t > latestGeneratedAt) {
+    latestGeneratedAt = t;
+    notify();
+  }
+}
+
+/** The newest snapshot publish time (ms epoch) seen this session, or null. */
+export function getLatestGeneratedAt(): number | null {
+  return latestGeneratedAt;
+}
+
 function isFresh(now: number): boolean {
   if (lastSuccessAt == null) return false;
   return now - lastSuccessAt <= FRESHNESS_WINDOW_MS;
@@ -153,4 +193,42 @@ export function relativeSyncTime(at: number | null, now: number = Date.now()): s
   if (hr < 24) return `${hr} hr ago`;
   const day = Math.floor(hr / 24);
   return day === 1 ? '1 day ago' : `${day} days ago`;
+}
+
+export interface LaptopLiveness {
+  /** True when the newest snapshot publish is inside the live window, so the
+   *  laptop is open and actively syncing right now. */
+  live: boolean;
+  /** ms-epoch of the newest snapshot publish, or null if nothing seen yet. */
+  publishedAt: number | null;
+}
+
+/**
+ * useLaptopLiveness. Reads the newest snapshot generatedAt (recorded by the
+ * fetch sites via recordSnapshotGeneratedAt) and reports whether the laptop is
+ * publishing right now. Re-renders on each record event and on a short tick so
+ * "Live" decays to "Last synced" on its own once the window passes, with no new
+ * fetch needed. The tick is faster than the connection chip's because the live
+ * window is only two minutes.
+ */
+export function useLaptopLiveness(): LaptopLiveness {
+  const [, setTick] = useState(0);
+
+  useEffect(() => {
+    const fn = () => setTick((t) => t + 1);
+    listeners.add(fn);
+    return () => {
+      listeners.delete(fn);
+    };
+  }, []);
+
+  useEffect(() => {
+    const id = setInterval(() => setTick((t) => t + 1), 20 * 1000);
+    return () => clearInterval(id);
+  }, []);
+
+  const live =
+    latestGeneratedAt != null &&
+    Date.now() - latestGeneratedAt <= LIVE_WINDOW_MS;
+  return { live, publishedAt: latestGeneratedAt };
 }
