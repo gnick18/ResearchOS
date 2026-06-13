@@ -213,7 +213,12 @@ const GUARD_MESSAGE =
 // destructive hard-stop still overrides it). In STEP mode planState.approved does
 // NOT skip a confirm, every step is reviewed. It is an object, not a bare boolean,
 // so the gate can mutate it in place across calls within one run.
-type GateDeps = {
+//
+// Exported so the macro runner can reuse the same gate (see macro-runner.ts). A
+// macro run constructs these deps with reviewMode "plan" and planState.approved
+// true, so routine steps replay without re-asking while the destructive hard-stop
+// in gateToolCall still fires per step.
+export type GateDeps = {
   getReviewMode: () => BeakerBotReviewMode;
   requestApproval?: (request: ApprovalRequest) => Promise<ApprovalDecision>;
   planState: { approved: boolean };
@@ -382,7 +387,7 @@ async function handleAskUser(
 //     instant previewable tool in plan mode)
 //   - { proceed: false, result } do NOT run, feed `result` back to the model so
 //     it can respond gracefully (the user skipped, or there is no approver)
-async function gateToolCall(
+export async function gateToolCall(
   tool: AiTool,
   args: Record<string, unknown>,
   deps: GateDeps,
