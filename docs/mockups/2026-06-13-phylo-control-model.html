@@ -1,0 +1,252 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Tree Studio control model: layers vs toggle wall</title>
+<style>
+  :root{ --bg:#f7f9fc; --panel:#fff; --ink:#1f2937; --muted:#64748b; --border:#e2e8f0;
+    --sky:#1AA0E6; --indigo:#5B47D6; --hover:#f1f5f9; --sel:#e0f2fe; }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 -apple-system,Inter,system-ui,sans-serif}
+  header{padding:18px 26px 6px}
+  h1{font-size:19px;margin:0 0 4px}
+  .sub{color:var(--muted);max-width:74ch}
+  .seg{display:inline-flex;border:1px solid var(--border);border-radius:9px;overflow:hidden;margin-top:8px}
+  .seg button{border:0;background:#fff;padding:7px 14px;font:inherit;font-size:13px;cursor:pointer;color:var(--muted)}
+  .seg button.on{background:var(--sky);color:#fff}
+  .wrap{display:grid;grid-template-columns:1fr 360px;gap:18px;padding:14px 26px 40px;align-items:start}
+  .stage{background:var(--panel);border:1px solid var(--border);border-radius:14px;min-height:520px;display:flex;align-items:center;justify-content:center;padding:10px}
+  .ctrl{background:var(--panel);border:1px solid var(--border);border-radius:14px;padding:14px;position:sticky;top:14px}
+  .ctrl h2{font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin:0 0 8px}
+  /* toggle wall */
+  .wall .row{display:flex;justify-content:space-between;align-items:center;padding:6px 2px;border-bottom:1px solid var(--border)}
+  .sw{position:relative;width:36px;height:21px;border-radius:999px;background:#cbd5e1;cursor:pointer;flex:0 0 auto}
+  .sw.on{background:var(--sky)} .sw::after{content:"";position:absolute;top:2px;left:2px;width:17px;height:17px;border-radius:50%;background:#fff;transition:left .12s}
+  .sw.on::after{left:17px}
+  .wallnote{margin-top:12px;font-size:12.5px;color:#b45309;background:#fff7ed;border:1px solid #fed7aa;border-radius:8px;padding:8px 10px}
+  /* layers */
+  .topbar{display:flex;gap:8px;margin-bottom:10px}
+  .btn{border:1px solid var(--border);background:#fff;border-radius:9px;padding:7px 11px;font:inherit;font-size:13px;cursor:pointer;display:inline-flex;align-items:center;gap:6px}
+  .btn.primary{background:var(--sky);color:#fff;border-color:var(--sky)}
+  .layer{border:1px solid var(--border);border-radius:10px;margin-bottom:7px;overflow:hidden;background:#fff}
+  .layer.sel{border-color:var(--sky);box-shadow:0 0 0 2px #e0f2fe}
+  .lhead{display:flex;align-items:center;gap:8px;padding:8px 9px;cursor:pointer}
+  .lhead:hover{background:var(--hover)}
+  .grip{color:#cbd5e1;cursor:grab;font-size:14px;letter-spacing:-2px}
+  .eye{width:22px;height:22px;border:1px solid var(--border);border-radius:6px;display:grid;place-items:center;cursor:pointer;font-size:12px;color:var(--muted);background:#fff}
+  .eye.off{opacity:.4}
+  .lname{flex:1;font-size:14px}
+  .ltype{font-size:11px;color:var(--muted)}
+  .chev{color:var(--muted);transition:transform .12s}
+  .layer.open .chev{transform:rotate(90deg)}
+  .inspector{padding:4px 11px 12px;border-top:1px solid var(--border);background:#fbfdff;display:none}
+  .layer.open .inspector{display:block}
+  .field{display:flex;justify-content:space-between;align-items:center;padding:5px 0;font-size:13px}
+  .field select,.field input{font:inherit;font-size:13px;padding:4px 6px;border:1px solid var(--border);border-radius:7px;background:#fff;max-width:170px}
+  .swatchrow{display:flex;gap:4px;margin-top:4px}
+  .sample{height:12px;border-radius:3px;flex:1}
+  /* add menu */
+  .menu{position:relative}
+  .menupop{position:absolute;top:38px;left:0;width:300px;background:#fff;border:1px solid var(--border);border-radius:12px;box-shadow:0 12px 30px rgba(2,6,23,.14);padding:8px;z-index:20;display:none}
+  .menupop.open{display:block}
+  .menupop input{width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:9px;font:inherit;font-size:13px;margin-bottom:8px}
+  .cat{font-size:10.5px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin:8px 4px 3px}
+  .item{padding:7px 9px;border-radius:8px;cursor:pointer;font-size:13.5px;display:flex;justify-content:space-between;align-items:center}
+  .item:hover{background:var(--sel)} .item small{color:var(--muted);font-size:11px}
+  .tmpl{font-size:12.5px;color:var(--muted);margin-bottom:12px}
+  .tmpl select{font:inherit;font-size:13px;padding:5px 7px;border:1px solid var(--border);border-radius:8px}
+  text{font-family:-apple-system,Inter,system-ui,sans-serif}
+</style>
+</head>
+<body>
+<header>
+  <h1>Tree Studio control model</h1>
+  <p class="sub">The question: how do we expose every ggtree-class plotting option without a toggle wall that
+  becomes impossible to scan. Proposal: the figure is a stack of LAYERS you add, reorder, and configure in an
+  inspector, the way ggplot, Figma, and Illustrator work. Toggle "Today vs Proposed" to feel the difference as
+  the feature count grows. Design mockup, not the live app.</p>
+  <div class="seg" id="modeSeg"><button data-m="proposed" class="on">Proposed (layers)</button><button data-m="today">Today (toggle wall)</button></div>
+</header>
+<div class="wrap">
+  <div class="stage"><svg id="fig" viewBox="0 0 460 460" width="100%" style="max-width:460px"></svg></div>
+  <div class="ctrl" id="ctrl"></div>
+</div>
+
+<script>
+const SITE_COLORS=["#0891b2","#dc2626","#7c3aed"], CLADE_COLORS=["#1AA0E6","#5B47D6","#16a34a","#b45309"];
+const VIRIDIS=["#440154","#414487","#2a788e","#22a884","#7ad151","#fde725"], BLUES=["#f7fbff","#9ecae1","#4292c6","#08519c"];
+const COLUMNS=["clade","body site","abundance","viral load","host age","collection year","replicate mean"];
+// layer catalog for the Add menu
+const CATALOG=[
+  {cat:"Tip decorations",items:[
+    {kind:"labels",name:"Tip labels",desc:"taxon names"},
+    {kind:"points",name:"Tip points",desc:"colored dot per tip"},
+    {kind:"strip",name:"Color strip",desc:"categorical band"}]},
+  {cat:"Aligned data panels",items:[
+    {kind:"heat",name:"Heatmap",desc:"value matrix, continuous"},
+    {kind:"bars",name:"Bar panel",desc:"numeric, aligned"},
+    {kind:"dots",name:"Dot panel",desc:"numeric points"},
+    {kind:"box",name:"Boxplot (Data Hub)",desc:"per-tip distribution"},
+    {kind:"violin",name:"Violin (Data Hub)",desc:"per-tip density"}]},
+  {cat:"Highlights",items:[
+    {kind:"clade",name:"Clade highlight",desc:"shade a subtree"},
+    {kind:"support",name:"Support values",desc:"bootstrap labels"}]},
+  {cat:"Alignment",items:[
+    {kind:"msa",name:"Sequence alignment",desc:"MSA track"}]},
+];
+const KIND_LABEL=Object.fromEntries(CATALOG.flatMap(c=>c.items.map(i=>[i.kind,i.name])));
+const isData=k=>["heat","bars","dots","box","violin"].includes(k);
+const isColored=k=>["points","strip","heat","bars","dots"].includes(k);
+
+// state: an ordered layer stack (this IS the panels[] data model)
+let layers=[
+  {id:1,kind:"labels",visible:true},
+  {id:2,kind:"strip",visible:true,column:"clade",scale:"categorical",legend:true},
+  {id:3,kind:"heat",visible:true,column:"abundance",scale:"viridis",legend:true},
+  {id:4,kind:"bars",visible:true,column:"viral load",scale:"viridis",legend:false},
+];
+let nextId=5, selId=2, mode="proposed";
+const ctrl=document.getElementById("ctrl"), fig=document.getElementById("fig"), NS="http://www.w3.org/2000/svg";
+function eln(t,a,k){const e=document.createElementNS(NS,t);for(const x in a)e.setAttribute(x,a[x]);(k||[]).forEach(c=>e.appendChild(c));return e;}
+
+// ---------- figure (simple radial tree + a ring per visible data/strip layer) ----------
+function drawFig(){
+  fig.innerHTML=""; const cx=200,cy=230,R=120,N=20;
+  const ang=i=>(-90+360/N*i)*Math.PI/180, pol=(r,a)=>[cx+r*Math.cos(a),cy+r*Math.sin(a)];
+  for(let i=0;i<N;i++){const a=ang(i);const[x,y]=pol(R,a);fig.appendChild(eln("line",{x1:cx,y1:cy,x2:x,y2:y,stroke:"#dde5ee","stroke-width":1}));}
+  let r=R+6;
+  const ring=(layer)=>{
+    const sel = layer.id===selId;
+    for(let i=0;i<N;i++){const a=ang(i),span=360/N*Math.PI/180*0.9;
+      let fill="#cbd5e1";
+      if(layer.kind==="strip"||layer.kind==="points")fill=CLADE_COLORS[i%4];
+      else if(isData(layer.kind)){const t=(i*37%100)/100; fill=(layer.scale==="blues"?ramp(BLUES,t):layer.scale==="categorical"?CLADE_COLORS[Math.floor(t*4)]:ramp(VIRIDIS,t));}
+      if(layer.kind==="points"){const[x,y]=pol(R,a);fig.appendChild(eln("circle",{cx:x,cy:y,r:3.2,fill:SITE_COLORS[i%3]}));return;}
+      fig.appendChild(arc(cx,cy,r,r+ (layer.kind==="bars"? 6+18*((i*37%100)/100):14),a-span/2,a+span/2,fill,sel));
+    }
+  };
+  layers.filter(l=>l.visible&&l.kind!=="labels"&&l.kind!=="support"&&l.kind!=="clade"&&l.kind!=="msa").forEach(l=>{
+    if(l.kind==="points"){ring(l);return;} ring(l); r+= (l.kind==="bars"?26:18);
+  });
+  // selection hint label
+  if(selId){const s=layers.find(l=>l.id===selId); if(s){const t=eln("text",{x:cx,y:cy+4,"text-anchor":"middle","font-size":10,fill:"#94a3b8"});t.textContent="editing: "+(KIND_LABEL[s.kind]||s.kind);fig.appendChild(t);}}
+}
+function arc(cx,cy,r0,r1,a0,a1,fill,sel){const p=(r,a)=>[cx+r*Math.cos(a),cy+r*Math.sin(a)];
+  const[x0,y0]=p(r0,a0),[x1,y1]=p(r1,a0),[x2,y2]=p(r1,a1),[x3,y3]=p(r0,a1);
+  return eln("path",{d:`M${x0},${y0} L${x1},${y1} A${r1},${r1} 0 0 1 ${x2},${y2} L${x3},${y3} A${r0},${r0} 0 0 0 ${x0},${y0} Z`,fill,stroke:sel?"#1AA0E6":"#fff","stroke-width":sel?1.3:.5});}
+function hx(c){c=c.replace('#','');return[parseInt(c.substr(0,2),16),parseInt(c.substr(2,2),16),parseInt(c.substr(4,2),16)];}
+function ramp(s,t){t=Math.max(0,Math.min(1,t));const x=t*(s.length-1),i=Math.floor(x),f=x-i;if(i>=s.length-1)return s[s.length-1];const a=hx(s[i]),b=hx(s[i+1]);return`rgb(${Math.round(a[0]+(b[0]-a[0])*f)},${Math.round(a[1]+(b[1]-a[1])*f)},${Math.round(a[2]+(b[2]-a[2])*f)})`;}
+
+// ---------- control panel ----------
+function render(){
+  if(mode==="today") return renderWall();
+  renderLayers(); drawFig();
+}
+function renderWall(){
+  // contrast: a flat wall with EVERY catalog option as a persistent toggle
+  const all=CATALOG.flatMap(c=>c.items);
+  ctrl.innerHTML=`<h2>Tracks</h2><div class="wall" id="wall"></div>
+    <div class="wallnote">This is every feature as a persistent toggle. At 7 it is fine; at 14 it is a wall;
+    at the ggtree-scale catalog (dozens of panel types, each with its own column + scale + options) it is
+    unscannable, and there is nowhere to put per-panel settings.</div>`;
+  const w=ctrl.querySelector("#wall");
+  all.concat(all.slice(0,5)).forEach((it,idx)=>{ // pad to show the wall growing
+    const row=document.createElement("div");row.className="row";
+    row.innerHTML=`<span>${it.name}${idx>=all.length?" (2)":""}</span>`;
+    const sw=document.createElement("div");sw.className="sw"+(idx%3?" on":"");sw.onclick=()=>sw.classList.toggle("on");
+    row.appendChild(sw);w.appendChild(row);
+  });
+  drawFig();
+}
+function renderLayers(){
+  ctrl.innerHTML=`
+    <div class="tmpl">Start from a template:
+      <select id="tmpl">
+        <option value="">(current figure)</option>
+        <option value="ggtreeExtra">ggtreeExtra multi-ring</option>
+        <option value="gheatmap">gheatmap matrix</option>
+        <option value="basic">Basic phylogram</option>
+      </select></div>
+    <div class="topbar">
+      <div class="menu">
+        <button class="btn primary" id="addBtn">+ Add panel</button>
+        <div class="menupop" id="menupop"></div>
+      </div>
+      <button class="btn" id="cmdBtn" title="power users: type to add">/ add by name</button>
+    </div>
+    <h2>Layers (draw order, inner to outer)</h2>
+    <div id="layers"></div>`;
+  const host=ctrl.querySelector("#layers");
+  // tree base layer (always present)
+  host.appendChild(baseLayerRow());
+  layers.forEach(l=>host.appendChild(layerRow(l)));
+  ctrl.querySelector("#addBtn").onclick=toggleMenu;
+  ctrl.querySelector("#cmdBtn").onclick=toggleMenu;
+  ctrl.querySelector("#tmpl").onchange=e=>applyTemplate(e.target.value);
+  buildMenu();
+}
+function baseLayerRow(){const d=document.createElement("div");d.className="layer";
+  d.innerHTML=`<div class="lhead"><span class="grip">⋮⋮</span><div class="eye">●</div><span class="lname">Tree<span class="ltype"> · phylogram, circular</span></span></div>`;return d;}
+function layerRow(l){
+  const d=document.createElement("div");d.className="layer"+(l.id===selId?" sel open":"");
+  const head=document.createElement("div");head.className="lhead";
+  head.innerHTML=`<span class="grip">⋮⋮</span>`;
+  const eye=document.createElement("div");eye.className="eye"+(l.visible?"":" off");eye.textContent=l.visible?"●":"○";
+  eye.onclick=e=>{e.stopPropagation();l.visible=!l.visible;render();};
+  const name=document.createElement("span");name.className="lname";
+  name.innerHTML=`${KIND_LABEL[l.kind]||l.kind}${l.column?`<span class="ltype"> · ${l.column}</span>`:""}`;
+  const chev=document.createElement("span");chev.className="chev";chev.textContent="▸";
+  const del=document.createElement("span");del.style.cssText="color:#cbd5e1;cursor:pointer;padding:0 4px";del.textContent="✕";
+  del.onclick=e=>{e.stopPropagation();layers=layers.filter(x=>x.id!==l.id);if(selId===l.id)selId=null;render();};
+  head.append(eye,name,chev,del);
+  head.onclick=()=>{selId=(selId===l.id?null:l.id);render();};
+  d.appendChild(head);
+  d.appendChild(inspector(l));
+  return d;
+}
+function inspector(l){
+  const ins=document.createElement("div");ins.className="inspector";
+  let html="";
+  if(isColored(l.kind)){
+    html+=field("Column",sel("column",COLUMNS,l.column));
+    html+=field("Scale",sel("scale",["viridis","blues","categorical"],l.scale||"viridis"));
+    html+=`<div class="swatchrow">${(l.scale==="categorical"?CLADE_COLORS:(l.scale==="blues"?BLUES:VIRIDIS)).map(c=>`<span class="sample" style="background:${c}"></span>`).join("")}</div>`;
+    html+=field("Legend",`<span class="sw ${l.legend?"on":""}" data-leg="1" style="transform:scale(.85)"></span>`);
+  }
+  if(l.kind==="box"||l.kind==="violin")html+=field("Source","<span class='ltype'>Data Hub plot, per-tip rows</span>");
+  if(l.kind==="bars")html+=field("Width",`<input type="range" min="20" max="120" value="80" style="width:120px">`);
+  if(l.kind==="labels")html+=field("Italic",`<span class="sw on" style="transform:scale(.85)"></span>`)+field("Font size",`<input type="number" value="9" style="width:56px">`);
+  if(l.kind==="support")html+=field("Show if",`<input value="≥ 70" style="width:64px">`);
+  if(!html)html=`<div class="ltype">No options for this layer.</div>`;
+  ins.innerHTML=html;
+  ins.querySelectorAll("select[data-k]").forEach(s=>s.onchange=()=>{l[s.dataset.k]=s.value;render();});
+  ins.querySelectorAll("[data-leg]").forEach(s=>s.onclick=()=>{l.legend=!l.legend;render();});
+  return ins;
+}
+function field(label,inner){return `<div class="field"><span>${label}</span>${inner}</div>`;}
+function sel(key,opts,val){return `<select data-k="${key}">${opts.map(o=>`<option ${o===val?"selected":""}>${o}</option>`).join("")}</select>`;}
+
+function buildMenu(){
+  const pop=ctrl.querySelector("#menupop");
+  pop.innerHTML=`<input placeholder="Search panels..." id="msearch">`+
+    CATALOG.map(c=>`<div class="cat">${c.cat}</div>`+c.items.map(i=>`<div class="item" data-kind="${i.kind}">${i.name}<small>${i.desc}</small></div>`).join("")).join("");
+  pop.querySelectorAll(".item").forEach(it=>it.onclick=()=>addLayer(it.dataset.kind));
+  const s=pop.querySelector("#msearch");
+  s.oninput=()=>{const q=s.value.toLowerCase();pop.querySelectorAll(".item").forEach(it=>it.style.display=it.textContent.toLowerCase().includes(q)?"flex":"none");pop.querySelectorAll(".cat").forEach(c=>c.style.display=q?"none":"block");};
+}
+function toggleMenu(){const p=ctrl.querySelector("#menupop");p.classList.toggle("open");if(p.classList.contains("open")){const s=p.querySelector("#msearch");if(s)s.focus();}}
+function addLayer(kind){const l={id:nextId++,kind,visible:true};if(isColored(kind)){l.column=COLUMNS[2];l.scale="viridis";l.legend=true;}layers.push(l);selId=l.id;render();}
+function applyTemplate(t){
+  if(t==="ggtreeExtra")layers=[{id:1,kind:"points",visible:true,column:"body site",scale:"categorical"},{id:2,kind:"strip",visible:true,column:"clade",scale:"categorical",legend:true},{id:3,kind:"heat",visible:true,column:"abundance",scale:"viridis",legend:true},{id:4,kind:"bars",visible:true,column:"viral load",scale:"viridis",legend:false}];
+  else if(t==="gheatmap")layers=[{id:1,kind:"labels",visible:true},{id:2,kind:"heat",visible:true,column:"abundance",scale:"viridis",legend:true}];
+  else if(t==="basic")layers=[{id:1,kind:"labels",visible:true},{id:2,kind:"support",visible:true},{id:3,kind:"clade",visible:true}];
+  if(t){nextId=layers.length+1;selId=layers[layers.length-1].id;} render();
+}
+document.getElementById("modeSeg").onclick=e=>{if(!e.target.dataset.m)return;mode=e.target.dataset.m;
+  document.querySelectorAll("#modeSeg button").forEach(b=>b.classList.remove("on"));e.target.classList.add("on");render();};
+document.addEventListener("click",e=>{const p=ctrl.querySelector("#menupop");if(p&&p.classList.contains("open")&&!e.target.closest(".menu")&&!e.target.closest("#cmdBtn"))p.classList.remove("open");});
+render();
+</script>
+</body>
+</html>
