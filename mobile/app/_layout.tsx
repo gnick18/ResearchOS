@@ -178,6 +178,7 @@ export default function RootLayout() {
     <ThemeProvider value={navTheme}>
       <View style={styles.root}>
         <Stack>
+          <Stack.Screen name="index" options={{ headerShown: false }} />
           <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
           <Stack.Screen name="pair" options={{ headerShown: false }} />
           <Stack.Screen name="note" options={{ headerShown: false }} />
