@@ -214,6 +214,31 @@ export function buildPanelScales(
   return { scale, domain };
 }
 
+/**
+ * Move the panel at `from` to `to`, returning a NEW array (the layers list's
+ * drag-reorder commit). Pure so the Studio reorder + a regression test share one
+ * implementation; out-of-range / no-op indices return the array unchanged.
+ */
+export function reorderPanels(
+  panels: AlignedPanel[],
+  from: number,
+  to: number,
+): AlignedPanel[] {
+  if (
+    from === to ||
+    from < 0 ||
+    to < 0 ||
+    from >= panels.length ||
+    to >= panels.length
+  ) {
+    return panels;
+  }
+  const next = panels.slice();
+  const [moved] = next.splice(from, 1);
+  next.splice(to, 0, moved);
+  return next;
+}
+
 /** Whether a column reads numeric (continuous) given the bound metadata. Thin
  *  re-export so callers do not import color-scale directly for one helper. */
 export function panelColumnIsNumeric(
