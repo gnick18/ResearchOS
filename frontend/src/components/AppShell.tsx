@@ -208,14 +208,19 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   // In demo / wiki-capture mode the contained org demo stands in for a real admin
   // account, so the entry shows (still behind the tier flag) for the showcase.
   const orgDemo = isDemoOrWikiCapture();
-  const isDeptAdmin =
-    DEPT_TIER_ENABLED && (orgDemo || !!useDeptAdminOf(currentUser ?? null));
+  // Hooks must run unconditionally on every render and in the same order, so the
+  // settings reads happen up front. The tier flags / demo stand-in then gate only
+  // the boolean, never the hook call (a hook inside the `&&`/`||` short-circuit
+  // would be skipped whenever the flag is off or the demo stands in, which trips
+  // React's rules of hooks -- it surfaced as a Fast-Refresh hook-order error).
+  const deptAdminOf = useDeptAdminOf(currentUser ?? null);
+  const institutionAdminOf = useInstitutionAdminOf(currentUser ?? null);
+  const isDeptAdmin = DEPT_TIER_ENABLED && (orgDemo || !!deptAdminOf);
 
   // Institution tier: an institution admin gets an "Institution" nav entry (dark
   // unless the tier flag is on). Same pattern as the dept admin entry, one tier up.
   const isInstitutionAdmin =
-    INSTITUTION_TIER_ENABLED &&
-    (orgDemo || !!useInstitutionAdminOf(currentUser ?? null));
+    INSTITUTION_TIER_ENABLED && (orgDemo || !!institutionAdminOf);
 
   // The dashboard ("/") is always shown so the user has a guaranteed safe
   // landing tab even if they hide everything else (or if Settings was
