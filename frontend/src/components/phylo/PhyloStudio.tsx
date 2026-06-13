@@ -15,11 +15,23 @@
 //
 // No em-dashes, no emojis, no mid-sentence colons.
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 
 import { Icon } from "@/components/icons";
 import Tooltip from "@/components/Tooltip";
 import { phyloApi } from "@/lib/phylo/api";
+import { PhyloCollectionRail } from "@/components/phylo/PhyloCollectionRail";
+import {
+  SequenceOperationsRail,
+  type RailOperation,
+} from "@/components/sequences/SequenceOperationsRail";
+import {
+  clampListWidth,
+  DEFAULT_LIST_WIDTH,
+  LIST_MIN_WIDTH,
+  LIST_MAX_WIDTH,
+} from "@/lib/sequences/split-layout";
 import { getDemoMode } from "@/lib/file-system/wiki-capture-mock";
 import type { PhyloMeta } from "@/lib/phylo/types";
 import {
@@ -70,6 +82,14 @@ import {
 
 const FIG_W = 620;
 const FIG_H = 460;
+
+// Per-page key for the persisted left-rail width (the shared split shell, keyed
+// per page exactly as Sequences/Chemistry do).
+const LIST_WIDTH_KEY = "researchos:phylo:listWidth";
+
+// The right action-rail operations, in order. Each becomes a tab + flyout via
+// SequenceOperationsRail (recycled). The panels are built in the component.
+type PhyloOpId = "layers" | "setup" | "export" | "code";
 
 const SAMPLE_TREE =
   "(((A. fumigatus:0.5,A. fischeri:0.5)100:0.3,(((A. flavus:0.45,A. oryzae:0.45)96:0.25,(A. nidulans:0.55,(A. niger:0.4,P. chrysogenum:0.6)90:0.2)85:0.18)80:0.15));";
@@ -193,14 +213,25 @@ export function PhyloStudio({ initialTreeId }: { initialTreeId?: string } = {}) 
   const [metaColumns, setMetaColumns] = useState<string[]>([]);
   const [tipColumn, setTipColumn] = useState<string>("");
 
-  const [showCode, setShowCode] = useState(false);
   const [copyState, setCopyState] = useState<"idle" | "image" | "text">("idle");
   const [savedMsg, setSavedMsg] = useState<string | null>(null);
-  const [saved, setSaved] = useState<PhyloMeta[]>([]);
+
+  // The open action-rail tab (Layers / Setup / Export / Code), null = collapsed.
+  // Defaults to Layers so the layer stack shows on open, as it always did.
+  const [activeOp, setActiveOp] = useState<PhyloOpId | null>("layers");
+
+  const queryClient = useQueryClient();
 
   const fileRef = useRef<HTMLInputElement>(null);
   const csvFileRef = useRef<HTMLInputElement>(null);
   const alnFileRef = useRef<HTMLInputElement>(null);
+
+  // The shared split shell (resizable + collapse-to-focus + persisted width),
+  // copy-adapted from /sequences + /chemistry via the shared clamp math.
+  const splitRef = useRef<HTMLDivElement>(null);
+  const draggingRef = useRef(false);
+  const [listWidth, setListWidth] = useState(DEFAULT_LIST_WIDTH);
+  const [listCollapsed, setListCollapsed] = useState(false);
 
   // Load saved trees for the "From a saved tree" picker. In a demo session, open
   // the showcase tree straight away so the Studio lands on a populated, real
@@ -210,7 +241,6 @@ export function PhyloStudio({ initialTreeId }: { initialTreeId?: string } = {}) 
     phyloApi
       .list()
       .then((list) => {
-        setSaved(list);
         if (getDemoMode() && !autoOpenedRef.current && list.length > 0) {
           autoOpenedRef.current = true;
           // Lowest id is the Candida auris circular showcase tree.
@@ -218,8 +248,10 @@ export function PhyloStudio({ initialTreeId }: { initialTreeId?: string } = {}) 
           void onPickSaved(showcase.id);
         }
       })
-      .catch(() => setSaved([]));
-    // onPickSaved is stable for this mount; demo auto-open runs once.
+      .catch(() => {});
+    // onPickSaved is stable for this mount; demo auto-open runs once. The rail
+    // owns the live saved-trees list now (its own query), so we no longer mirror
+    // it into local state.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -242,6 +274,65 @@ export function PhyloStudio({ initialTreeId }: { initialTreeId?: string } = {}) 
     // onPickSaved is stable for this mount; the deep link is consumed once.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initialTreeId]);
+
+  // ---- split shell (resizable left rail) ----
+
+  // Restore + persist the dragged rail width (shared clamp math, per-page key).
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const raw = window.localStorage.getItem(LIST_WIDTH_KEY);
+    const parsed = raw ? Number.parseFloat(raw) : NaN;
+    const w = splitRef.current?.getBoundingClientRect().width ?? 0;
+    if (Number.isFinite(parsed)) setListWidth(clampListWidth(parsed, w));
+  }, []);
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    window.localStorage.setItem(LIST_WIDTH_KEY, String(Math.round(listWidth)));
+  }, [listWidth]);
+
+  const onDividerDown = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
+    if (e.button !== 0) return;
+    e.preventDefault();
+    draggingRef.current = true;
+    (e.target as HTMLElement).setPointerCapture?.(e.pointerId);
+    document.body.style.userSelect = "none";
+    document.body.style.cursor = "col-resize";
+  }, []);
+  const onDividerMove = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
+    if (!draggingRef.current) return;
+    const rect = splitRef.current?.getBoundingClientRect();
+    if (!rect) return;
+    setListWidth(clampListWidth(e.clientX - rect.left, rect.width));
+  }, []);
+  const onDividerUp = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
+    if (!draggingRef.current) return;
+    draggingRef.current = false;
+    (e.target as HTMLElement).releasePointerCapture?.(e.pointerId);
+    document.body.style.userSelect = "";
+    document.body.style.cursor = "";
+  }, []);
+  const onDividerKeyDown = useCallback(
+    (e: React.KeyboardEvent<HTMLDivElement>) => {
+      if (e.key !== "ArrowLeft" && e.key !== "ArrowRight") return;
+      e.preventDefault();
+      const step = e.shiftKey ? 48 : 16;
+      const w = splitRef.current?.getBoundingClientRect().width ?? 0;
+      setListWidth((cur) =>
+        clampListWidth(cur + (e.key === "ArrowLeft" ? -step : step), w),
+      );
+    },
+    [],
+  );
+  // Restore the page cursor / selection if unmounted mid-drag.
+  useEffect(() => {
+    return () => {
+      if (draggingRef.current) {
+        document.body.style.userSelect = "";
+        document.body.style.cursor = "";
+        draggingRef.current = false;
+      }
+    };
+  }, []);
 
   // The metadata match (tip ids -> rows), recomputed when the binding changes.
   const match: MetadataMatch | null = useMemo(() => {
@@ -567,7 +658,8 @@ export function PhyloStudio({ initialTreeId }: { initialTreeId?: string } = {}) 
     setOpenTreeId(created.meta.id);
     setSavedMsg("Saved to your trees");
     setTimeout(() => setSavedMsg(null), 2200);
-    phyloApi.list().then(setSaved);
+    // The rail owns the live list; tell it to re-fetch so the new tree appears.
+    void queryClient.invalidateQueries({ queryKey: ["phylo", "list"] });
   };
 
   // Copy a note / chat reference to this saved tree. The clipboard gets the embed
@@ -593,215 +685,180 @@ export function PhyloStudio({ initialTreeId }: { initialTreeId?: string } = {}) 
 
   // ---- render ----
 
-  if (!tree) {
-    return (
-      <ImportPanel
-        importMode={importMode}
-        setImportMode={setImportMode}
-        pasteText={pasteText}
-        setPasteText={setPasteText}
-        parseError={parseError}
-        saved={saved}
-        fileRef={fileRef}
-        onUploadFile={onUploadFile}
-        onPickSaved={onPickSaved}
-        onLoadPaste={() => loadTreeText(pasteText, "Pasted tree")}
-        onSample={() => loadTreeText(SAMPLE_TREE, "Aspergillus sample")}
-      />
-    );
-  }
+  const tips = tree ? leaves(tree) : [];
 
-  const tips = leaves(tree);
-
-  return (
-    <div className="grid grid-cols-1 lg:grid-cols-[240px_minmax(0,1fr)_250px] gap-3.5 items-start pb-20">
-      {/* Left rail: tree + metadata */}
-      <div className="space-y-3.5">
-        <Panel title="Tree">
-          <div className="text-sm text-foreground-muted mb-2 truncate">
-            {treeName} ({tips.length} tips)
-          </div>
-          <div className="flex flex-wrap gap-1.5">
-            <GhostBtn onClick={() => setTree(null)}>Change tree</GhostBtn>
-            <GhostBtn onClick={doLadderize}>Ladderize</GhostBtn>
-            <GhostBtn onClick={() => reroot("midpoint")}>Midpoint root</GhostBtn>
-          </div>
-          <RerootPicker tips={tips} onReroot={(id) => reroot("outgroup", id)} />
-        </Panel>
-
-        <Panel title="Metadata">
-          <p className="text-xs text-foreground-muted mb-2">
-            Drop a table, then bind its columns to layers in the inspector.
-            Unmatched tips are shown, never dropped.
-          </p>
-          <div className="flex flex-wrap gap-1.5">
-            <GhostBtn onClick={() => csvFileRef.current?.click()}>
-              Drop CSV
-            </GhostBtn>
-            <GhostBtn onClick={() => loadCsvText(SAMPLE_CSV)}>
-              Sample table
-            </GhostBtn>
-          </div>
-          <input
-            ref={csvFileRef}
-            type="file"
-            accept=".csv,.tsv,text/csv"
-            className="hidden"
-            onChange={(e) =>
-              e.target.files?.[0] && onUploadCsv(e.target.files[0])
-            }
-          />
-          {metaColumns.length > 0 && (
-            <div className="mt-3 space-y-2">
-              <ColumnSelect
-                label="Tip id column"
-                value={tipColumn}
-                options={metaColumns}
-                onChange={setTipColumn}
-              />
-            </div>
-          )}
-          {match && (
-            <div
-              className={`mt-2 text-xs font-medium ${
-                match.unmatchedTips.length === 0
-                  ? "text-emerald-600"
-                  : "text-foreground-muted"
-              }`}
-            >
-              Matched {match.matched.size} of{" "}
-              {match.matched.size + match.unmatchedTips.length} tips on{" "}
-              {tipColumn}
-            </div>
-          )}
-          {match && match.unmatchedTips.length > 0 && (
-            <div className="mt-2 text-xs text-amber-600">
-              {match.unmatchedTips.length} tip
-              {match.unmatchedTips.length === 1 ? "" : "s"} with no metadata:{" "}
-              {match.unmatchedTips.slice(0, 3).join(", ")}
-              {match.unmatchedTips.length > 3 ? "..." : ""}
-            </div>
-          )}
-          {match && match.unmatchedRows.length > 0 && (
-            <div className="mt-1 text-xs text-amber-600">
-              {match.unmatchedRows.length} metadata row
-              {match.unmatchedRows.length === 1 ? "" : "s"} matched no tip.
-            </div>
-          )}
-        </Panel>
-
-        <Panel title="Alignment">
-          <p className="text-xs text-foreground-muted mb-2">
-            Drop an aligned FASTA to add a sequence-alignment track. Sequences
-            join to tips by label, the same way metadata does.
-          </p>
-          <div className="flex flex-wrap gap-1.5">
-            <GhostBtn onClick={() => alnFileRef.current?.click()}>
-              Drop FASTA
-            </GhostBtn>
-            <GhostBtn onClick={() => loadAlignmentText(SAMPLE_ALIGNMENT)}>
-              Sample alignment
-            </GhostBtn>
-          </div>
-          <input
-            ref={alnFileRef}
-            type="file"
-            accept=".fasta,.fa,.fas,.aln,.afa,.mfa,.txt,text/plain"
-            className="hidden"
-            onChange={(e) =>
-              e.target.files?.[0] && onUploadAlignment(e.target.files[0])
-            }
-          />
-          {alignment && alnMatch && (
-            <div
-              className={`mt-2 text-xs font-medium ${
-                alnMatch.unmatchedTips.length === 0
-                  ? "text-emerald-600"
-                  : "text-foreground-muted"
-              }`}
-            >
-              Matched {alnMatch.matched.size} of{" "}
-              {alnMatch.matched.size + alnMatch.unmatchedTips.length} tips,{" "}
-              {alnMatch.binned.sourceColumns} columns
-              {alnMatch.binned.binSize > 1
-                ? ` (binned to ${alnMatch.binned.blocks})`
-                : ""}
-            </div>
-          )}
-          {alignment && alnMatch && alnMatch.unmatchedRecords.length > 0 && (
-            <div className="mt-1 text-xs text-amber-600">
-              {alnMatch.unmatchedRecords.length} sequence
-              {alnMatch.unmatchedRecords.length === 1 ? "" : "s"} matched no tip.
-            </div>
-          )}
-          {alignment && (
-            <button
-              onClick={() => {
-                setAlignment(null);
-                setPanels((prev) => prev.filter((p) => p.kind !== "msa"));
-              }}
-              className="mt-2 text-xs font-semibold text-accent hover:underline"
-            >
-              Remove alignment
-            </button>
-          )}
-        </Panel>
-      </div>
-
-      {/* Center: the live canvas */}
-      <div className="border border-border rounded-2xl bg-surface-raised p-3">
-        <div className="flex flex-wrap items-center gap-2 mb-2">
-          <Seg
-            value={layout}
-            options={[
-              ["rectangular", "Rectangular"],
-              ["circular", "Circular"],
-            ]}
-            onChange={setLayout}
-          />
-          <span className="grow" />
-          <Seg
-            value={phylogram ? "phylo" : "clado"}
-            options={[
-              ["phylo", "Phylogram"],
-              ["clado", "Cladogram"],
-            ]}
-            onChange={(v) => setPhylogram(v === "phylo")}
-          />
-        </div>
-        {/* The renderer string is the single source of SVG; injected here. A wide
-            figure scrolls within this column instead of overflowing the page (which
-            would push the right rail past the window edge). */}
-        <div
-          className="w-full overflow-x-auto"
-          dangerouslySetInnerHTML={{ __html: svgMarkup }}
+  // The right action-rail operations (recycled SequenceOperationsRail): Layers,
+  // Setup (the tree / metadata / alignment controls that used to live on the
+  // left), Export, and the ggtree Code. Built only when a tree is open.
+  const railOperations: RailOperation[] = [
+    {
+      id: "layers",
+      label: "Layers",
+      title: "Layers",
+      sub: "Draw order, inner to outer",
+      icon: <Icon name="layer" className="h-5 w-5" />,
+      panel: (
+        <PhyloLayersControl
+          panels={panels}
+          selectedId={selectedLayerId}
+          columns={metaColumns.filter((c) => c !== tipColumn)}
+          treeSummary={`${phylogram ? "phylogram" : "cladogram"}, ${layout}`}
+          appliedTemplate={appliedTemplate}
+          onChange={editPanels}
+          onSelect={setSelectedLayerId}
+          onApplyTemplate={onApplyTemplate}
         />
-      </div>
+      ),
+    },
+    {
+      id: "setup",
+      label: "Setup",
+      title: "Tree setup",
+      sub: "Tree, metadata, and alignment",
+      icon: <Icon name="database" className="h-5 w-5" />,
+      panel: (
+        <div className="space-y-3.5">
+          <Panel title="Tree">
+            <div className="text-sm text-foreground-muted mb-2 truncate">
+              {treeName} ({tips.length} tips)
+            </div>
+            <div className="flex flex-wrap gap-1.5">
+              <GhostBtn onClick={() => setTree(null)}>Change tree</GhostBtn>
+              <GhostBtn onClick={doLadderize}>Ladderize</GhostBtn>
+              <GhostBtn onClick={() => reroot("midpoint")}>Midpoint root</GhostBtn>
+            </div>
+            <RerootPicker tips={tips} onReroot={(id) => reroot("outgroup", id)} />
+          </Panel>
 
-      {/* Right rail: the layer stack + export. The Layers panel is its own
-          bounded, independently-scrollable region so a long stack (and a newly
-          added bottom layer's inspector) is always reachable without scrolling
-          the whole page, and it never clips at the window edge. */}
-      <div className="space-y-3.5 lg:sticky lg:top-3.5">
-        <div className="border border-border rounded-2xl bg-surface-raised p-3.5 flex flex-col max-h-[calc(100vh-2rem)]">
-          <h3 className="text-sm font-bold text-foreground mb-2 shrink-0">
-            Layers
-          </h3>
-          <div className="overflow-y-auto -mx-1 px-1 grow min-h-0">
-            <PhyloLayersControl
-              panels={panels}
-              selectedId={selectedLayerId}
-              columns={metaColumns.filter((c) => c !== tipColumn)}
-              treeSummary={`${phylogram ? "phylogram" : "cladogram"}, ${layout}`}
-              appliedTemplate={appliedTemplate}
-              onChange={editPanels}
-              onSelect={setSelectedLayerId}
-              onApplyTemplate={onApplyTemplate}
+          <Panel title="Metadata">
+            <p className="text-xs text-foreground-muted mb-2">
+              Drop a table, then bind its columns to layers in the inspector.
+              Unmatched tips are shown, never dropped.
+            </p>
+            <div className="flex flex-wrap gap-1.5">
+              <GhostBtn onClick={() => csvFileRef.current?.click()}>
+                Drop CSV
+              </GhostBtn>
+              <GhostBtn onClick={() => loadCsvText(SAMPLE_CSV)}>
+                Sample table
+              </GhostBtn>
+            </div>
+            <input
+              ref={csvFileRef}
+              type="file"
+              accept=".csv,.tsv,text/csv"
+              className="hidden"
+              onChange={(e) =>
+                e.target.files?.[0] && onUploadCsv(e.target.files[0])
+              }
             />
-          </div>
-        </div>
+            {metaColumns.length > 0 && (
+              <div className="mt-3 space-y-2">
+                <ColumnSelect
+                  label="Tip id column"
+                  value={tipColumn}
+                  options={metaColumns}
+                  onChange={setTipColumn}
+                />
+              </div>
+            )}
+            {match && (
+              <div
+                className={`mt-2 text-xs font-medium ${
+                  match.unmatchedTips.length === 0
+                    ? "text-emerald-600"
+                    : "text-foreground-muted"
+                }`}
+              >
+                Matched {match.matched.size} of{" "}
+                {match.matched.size + match.unmatchedTips.length} tips on{" "}
+                {tipColumn}
+              </div>
+            )}
+            {match && match.unmatchedTips.length > 0 && (
+              <div className="mt-2 text-xs text-amber-600">
+                {match.unmatchedTips.length} tip
+                {match.unmatchedTips.length === 1 ? "" : "s"} with no metadata:{" "}
+                {match.unmatchedTips.slice(0, 3).join(", ")}
+                {match.unmatchedTips.length > 3 ? "..." : ""}
+              </div>
+            )}
+            {match && match.unmatchedRows.length > 0 && (
+              <div className="mt-1 text-xs text-amber-600">
+                {match.unmatchedRows.length} metadata row
+                {match.unmatchedRows.length === 1 ? "" : "s"} matched no tip.
+              </div>
+            )}
+          </Panel>
 
-        <Panel title="Export">
+          <Panel title="Alignment">
+            <p className="text-xs text-foreground-muted mb-2">
+              Drop an aligned FASTA to add a sequence-alignment track. Sequences
+              join to tips by label, the same way metadata does.
+            </p>
+            <div className="flex flex-wrap gap-1.5">
+              <GhostBtn onClick={() => alnFileRef.current?.click()}>
+                Drop FASTA
+              </GhostBtn>
+              <GhostBtn onClick={() => loadAlignmentText(SAMPLE_ALIGNMENT)}>
+                Sample alignment
+              </GhostBtn>
+            </div>
+            <input
+              ref={alnFileRef}
+              type="file"
+              accept=".fasta,.fa,.fas,.aln,.afa,.mfa,.txt,text/plain"
+              className="hidden"
+              onChange={(e) =>
+                e.target.files?.[0] && onUploadAlignment(e.target.files[0])
+              }
+            />
+            {alignment && alnMatch && (
+              <div
+                className={`mt-2 text-xs font-medium ${
+                  alnMatch.unmatchedTips.length === 0
+                    ? "text-emerald-600"
+                    : "text-foreground-muted"
+                }`}
+              >
+                Matched {alnMatch.matched.size} of{" "}
+                {alnMatch.matched.size + alnMatch.unmatchedTips.length} tips,{" "}
+                {alnMatch.binned.sourceColumns} columns
+                {alnMatch.binned.binSize > 1
+                  ? ` (binned to ${alnMatch.binned.blocks})`
+                  : ""}
+              </div>
+            )}
+            {alignment && alnMatch && alnMatch.unmatchedRecords.length > 0 && (
+              <div className="mt-1 text-xs text-amber-600">
+                {alnMatch.unmatchedRecords.length} sequence
+                {alnMatch.unmatchedRecords.length === 1 ? "" : "s"} matched no
+                tip.
+              </div>
+            )}
+            {alignment && (
+              <button
+                onClick={() => {
+                  setAlignment(null);
+                  setPanels((prev) => prev.filter((p) => p.kind !== "msa"));
+                }}
+                className="mt-2 text-xs font-semibold text-accent hover:underline"
+              >
+                Remove alignment
+              </button>
+            )}
+          </Panel>
+        </div>
+      ),
+    },
+    {
+      id: "export",
+      label: "Export",
+      title: "Export",
+      sub: "SVG, PNG, save, reference",
+      icon: <Icon name="export" className="h-5 w-5" />,
+      panel: (
+        <div>
           <div className="flex flex-wrap gap-1.5">
             <Tooltip label="Vector SVG, infinitely scalable">
               <button onClick={onExportSvg} className={GHOST_CLASS}>
@@ -823,12 +880,6 @@ export function PhyloStudio({ initialTreeId }: { initialTreeId?: string } = {}) 
               </button>
             </Tooltip>
           </div>
-          <button
-            onClick={() => setShowCode((s) => !s)}
-            className="mt-2 w-full px-3 py-1.5 rounded-lg font-bold text-sm bg-accent-soft text-accent hover:opacity-90"
-          >
-            {showCode ? "Hide ggtree code" : "ggtree code"}
-          </button>
           <button
             onClick={onSave}
             className="mt-2 w-full px-3 py-1.5 rounded-lg font-bold text-sm border border-border text-foreground hover:border-accent flex items-center justify-center gap-1.5"
@@ -852,15 +903,20 @@ export function PhyloStudio({ initialTreeId }: { initialTreeId?: string } = {}) 
               {savedMsg}
             </div>
           )}
-        </Panel>
-      </div>
-
-      {/* The ggtree code panel spans the full width below the studio. */}
-      {showCode && (
-        <div className="lg:col-span-3 border border-border rounded-2xl bg-surface-raised p-4">
-          <div className="flex items-start gap-2 mb-3 p-2.5 rounded-lg bg-amber-50 border border-amber-200">
+        </div>
+      ),
+    },
+    {
+      id: "code",
+      label: "Code",
+      title: "ggtree code",
+      sub: "Reproduce this figure in R",
+      icon: <Icon name="file" className="h-5 w-5" />,
+      panel: (
+        <div>
+          <div className="flex items-start gap-2 mb-3 p-2.5 rounded-lg bg-amber-50 border border-amber-200 dark:bg-amber-900/30 dark:border-amber-800">
             <Icon name="alert" className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
-            <p className="text-xs text-amber-800">
+            <p className="text-xs text-amber-800 dark:text-amber-300">
               <span className="font-bold">Heads up. </span>
               {GGTREE_CAVEAT}
             </p>
@@ -869,7 +925,134 @@ export function PhyloStudio({ initialTreeId }: { initialTreeId?: string } = {}) 
             {ggtreeCode}
           </pre>
         </div>
+      ),
+    },
+  ];
+
+  return (
+    <div
+      ref={splitRef}
+      className="relative flex h-full min-h-0 gap-0 px-4 pb-4"
+    >
+      {/* Re-open pill, shown only when the rail is collapsed. */}
+      {listCollapsed ? (
+        <Tooltip label="Show the tree list">
+          <button
+            type="button"
+            onClick={() => setListCollapsed(false)}
+            aria-label="Show the tree list"
+            className="mr-2 mt-1 flex h-9 w-7 shrink-0 items-center justify-center self-start rounded-md border border-border bg-surface-raised text-foreground-muted hover:text-foreground hover:bg-surface-sunken"
+          >
+            <Icon name="chevronRight" className="w-4 h-4" />
+          </button>
+        </Tooltip>
+      ) : null}
+
+      {/* LEFT RAIL: the saved-trees collection (recycled from Sequence/Chemistry). */}
+      <aside
+        className={`flex shrink-0 flex-col overflow-hidden rounded-lg border border-border bg-surface-raised transition-[width] duration-200 ${
+          listCollapsed ? "pointer-events-none border-0" : ""
+        }`}
+        style={{ width: listCollapsed ? 0 : listWidth }}
+        aria-hidden={listCollapsed}
+      >
+        <PhyloCollectionRail
+          selectedId={openTreeId}
+          onPick={(id) => void onPickSaved(id)}
+          onNew={() => {
+            setTree(null);
+            setOpenTreeId(null);
+          }}
+          onCollapse={() => setListCollapsed(true)}
+          onOpenCleared={() => {
+            setTree(null);
+            setOpenTreeId(null);
+          }}
+        />
+      </aside>
+
+      {/* DIVIDER (hidden when the rail is collapsed). */}
+      {listCollapsed ? null : (
+        <Tooltip label="Drag to resize (or use arrow keys)">
+          <div
+            role="separator"
+            aria-orientation="vertical"
+            aria-label="Resize the tree list"
+            aria-valuenow={Math.round(listWidth)}
+            aria-valuemin={LIST_MIN_WIDTH}
+            aria-valuemax={LIST_MAX_WIDTH}
+            tabIndex={0}
+            onPointerDown={onDividerDown}
+            onPointerMove={onDividerMove}
+            onPointerUp={onDividerUp}
+            onPointerCancel={onDividerUp}
+            onKeyDown={onDividerKeyDown}
+            className="group relative mx-1 flex w-2 shrink-0 cursor-col-resize touch-none items-center justify-center focus:outline-none"
+          >
+            <span className="h-12 w-1 rounded-full bg-border transition-colors group-hover:bg-brand-action group-focus:bg-brand-action" />
+          </div>
+        </Tooltip>
       )}
+
+      {/* MAIN: the canvas + the right action rail. */}
+      <section className="flex min-w-0 flex-1 overflow-hidden rounded-lg border border-border bg-surface-raised">
+        <div className="flex min-w-0 flex-1 flex-col">
+          {tree ? (
+            <>
+              <div className="flex flex-wrap items-center gap-2 border-b border-border px-3 py-2">
+                <Seg
+                  value={layout}
+                  options={[
+                    ["rectangular", "Rectangular"],
+                    ["circular", "Circular"],
+                  ]}
+                  onChange={setLayout}
+                />
+                <span className="grow" />
+                <Seg
+                  value={phylogram ? "phylo" : "clado"}
+                  options={[
+                    ["phylo", "Phylogram"],
+                    ["clado", "Cladogram"],
+                  ]}
+                  onChange={(v) => setPhylogram(v === "phylo")}
+                />
+              </div>
+              {/* The renderer string is the single source of SVG; injected here. */}
+              <div
+                className="min-h-0 flex-1 overflow-auto p-3"
+                dangerouslySetInnerHTML={{ __html: svgMarkup }}
+              />
+            </>
+          ) : (
+            <div className="min-h-0 flex-1 overflow-auto p-4">
+              <ImportPanel
+                importMode={importMode}
+                setImportMode={setImportMode}
+                pasteText={pasteText}
+                setPasteText={setPasteText}
+                parseError={parseError}
+                fileRef={fileRef}
+                onUploadFile={onUploadFile}
+                onLoadPaste={() => loadTreeText(pasteText, "Pasted tree")}
+                onSample={() => loadTreeText(SAMPLE_TREE, "Aspergillus sample")}
+              />
+            </div>
+          )}
+        </div>
+
+        {/* The tabbed action rail only when a tree is open (nothing to act on
+            otherwise; the import panel fills the canvas). */}
+        {tree ? (
+          <SequenceOperationsRail
+            operations={railOperations}
+            activeId={activeOp}
+            onPick={(id) =>
+              setActiveOp((cur) => (cur === id ? null : (id as PhyloOpId)))
+            }
+          />
+        ) : null}
+      </section>
     </div>
   );
 }
@@ -884,10 +1067,8 @@ function ImportPanel(props: {
   pasteText: string;
   setPasteText: (s: string) => void;
   parseError: string | null;
-  saved: PhyloMeta[];
   fileRef: React.RefObject<HTMLInputElement | null>;
   onUploadFile: (f: File) => void;
-  onPickSaved: (id: string) => void;
   onLoadPaste: () => void;
   onSample: () => void;
 }) {
@@ -897,10 +1078,8 @@ function ImportPanel(props: {
     pasteText,
     setPasteText,
     parseError,
-    saved,
     fileRef,
     onUploadFile,
-    onPickSaved,
     onLoadPaste,
     onSample,
   } = props;
@@ -929,13 +1108,6 @@ function ImportPanel(props: {
           >
             <Icon name="paste" className="w-4 h-4" /> Paste
           </GhostBtn>
-          <GhostBtn
-            onClick={() =>
-              setImportMode(importMode === "saved" ? null : "saved")
-            }
-          >
-            <Icon name="library" className="w-4 h-4" /> From a saved tree
-          </GhostBtn>
           <GhostBtn onClick={onSample}>Try a sample</GhostBtn>
         </div>
         <input
@@ -955,33 +1127,6 @@ function ImportPanel(props: {
               className="w-full h-28 text-sm font-mono border border-border rounded-lg p-2 bg-surface text-foreground"
             />
             <GhostBtn onClick={onLoadPaste}>Load this tree</GhostBtn>
-          </div>
-        )}
-
-        {importMode === "saved" && (
-          <div className="mt-4">
-            {saved.length === 0 ? (
-              <p className="text-sm text-foreground-muted">
-                No saved trees yet. Upload or paste one to get started.
-              </p>
-            ) : (
-              <div className="grid grid-cols-2 gap-2">
-                {saved.map((t) => (
-                  <button
-                    key={t.id}
-                    onClick={() => onPickSaved(t.id)}
-                    className="text-left border border-border rounded-lg p-2.5 hover:border-accent"
-                  >
-                    <div className="font-semibold text-sm text-foreground truncate">
-                      {t.name}
-                    </div>
-                    <div className="text-xs text-foreground-muted">
-                      {t.tip_count ?? "?"} tips
-                    </div>
-                  </button>
-                ))}
-              </div>
-            )}
           </div>
         )}
 

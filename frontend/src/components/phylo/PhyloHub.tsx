@@ -1,15 +1,12 @@
 "use client";
 
 // The Phylogenetics hub (phylo Phase 1). The landing for the /phylo tab: two
-// entry cards (Build a tree, Open the studio) and a per-project library of saved
-// trees, mirroring the Chemistry and Sequences hubs. Matches the approved mockup
-// (docs/mockups/2026-06-12-phylogenetics-page.html).
-
-import { useQuery } from "@tanstack/react-query";
+// entry cards (Build a tree, Open the studio). The saved-trees library moved into
+// the Tree Studio's collection rail (phylo v3, 2026-06-13), so it lives in exactly
+// one place and the Hub is a pure launcher.
 
 import { Icon } from "@/components/icons";
 import type { IconName } from "@/components/icons";
-import { phyloApi } from "@/lib/phylo/api";
 
 export type PhyloView = "hub" | "builder" | "studio";
 
@@ -18,11 +15,6 @@ export function PhyloHub({
 }: {
   onNavigate: (view: PhyloView) => void;
 }) {
-  const { data: trees = [] } = useQuery({
-    queryKey: ["phylo", "list"],
-    queryFn: () => phyloApi.list(),
-  });
-
   return (
     <div>
       <div className="flex items-end gap-3 mb-5">
@@ -53,36 +45,6 @@ export function PhyloHub({
           tag="The iTOL alternative"
           onClick={() => onNavigate("studio")}
         />
-      </div>
-
-      <div className="mt-6">
-        <h3 className="text-sm font-bold text-foreground mb-2">Your trees</h3>
-        {trees.length === 0 ? (
-          <div className="border border-dashed border-border rounded-xl p-8 text-center text-foreground-muted text-sm">
-            No saved trees yet. Open the studio to import a tree, or build one
-            first.
-          </div>
-        ) : (
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-            {trees.map((t) => (
-              <button
-                key={t.id}
-                onClick={() => onNavigate("studio")}
-                className="text-left border border-border rounded-xl p-3 bg-surface-raised hover:border-accent transition-colors"
-              >
-                <div className="h-20 rounded-lg bg-surface border border-border grid place-items-center mb-2">
-                  <Icon name="tree" className="w-8 h-8 text-foreground-muted" />
-                </div>
-                <div className="font-semibold text-foreground text-sm truncate">
-                  {t.name}
-                </div>
-                <div className="text-xs text-foreground-muted">
-                  {t.tip_count ?? "?"} tips
-                </div>
-              </button>
-            ))}
-          </div>
-        )}
       </div>
     </div>
   );

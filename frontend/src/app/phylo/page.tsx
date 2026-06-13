@@ -73,35 +73,55 @@ export default function PhyloPage() {
     );
   }
 
+  const tabBar = (
+    <>
+      <div className="text-sm text-foreground-muted mb-1">Phylogenetics</div>
+      <div className="inline-flex gap-0.5 p-0.5 border border-border rounded-xl bg-surface-raised">
+        {(
+          [
+            ["hub", "Hub"],
+            ["builder", "Tree Builder"],
+            ["studio", "Tree Studio"],
+          ] as [PhyloView, string][]
+        ).map(([v, label]) => (
+          <button
+            key={v}
+            onClick={() => setView(v)}
+            className={`px-4 py-1.5 rounded-lg font-bold text-sm transition-colors ${
+              view === v
+                ? "bg-accent-soft text-accent"
+                : "text-foreground-muted hover:text-foreground"
+            }`}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+    </>
+  );
+
+  // The Studio fills the full main height (its split shell + rail need a height
+  // context), so it gets a flex column with the tabs as a fixed header rather
+  // than the scrolling max-width box the Hub / Builder use.
+  if (view === "studio") {
+    return (
+      <AppShell>
+        <div className="flex h-full min-h-0 flex-col">
+          <div className="shrink-0 px-4 pt-5 pb-3">{tabBar}</div>
+          <div className="min-h-0 flex-1">
+            <PhyloStudio initialTreeId={docId ?? undefined} />
+          </div>
+        </div>
+      </AppShell>
+    );
+  }
+
   return (
     <AppShell>
       <div className="max-w-[1180px] mx-auto px-4 py-6">
-        <div className="text-sm text-foreground-muted mb-1">Phylogenetics</div>
-        <div className="inline-flex gap-0.5 p-0.5 border border-border rounded-xl bg-surface-raised mb-6">
-          {(
-            [
-              ["hub", "Hub"],
-              ["builder", "Tree Builder"],
-              ["studio", "Tree Studio"],
-            ] as [PhyloView, string][]
-          ).map(([v, label]) => (
-            <button
-              key={v}
-              onClick={() => setView(v)}
-              className={`px-4 py-1.5 rounded-lg font-bold text-sm transition-colors ${
-                view === v
-                  ? "bg-accent-soft text-accent"
-                  : "text-foreground-muted hover:text-foreground"
-              }`}
-            >
-              {label}
-            </button>
-          ))}
-        </div>
-
+        <div className="mb-6">{tabBar}</div>
         {view === "hub" && <PhyloHub onNavigate={setView} />}
         {view === "builder" && <PhyloBuilder />}
-        {view === "studio" && <PhyloStudio initialTreeId={docId ?? undefined} />}
       </div>
     </AppShell>
   );
