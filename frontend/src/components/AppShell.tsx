@@ -244,11 +244,20 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
     // that justified hiding it was deleted with the canvas, so a PI needs
     // the /purchases nav entry back.
     if (isLabHead) {
-      return filtered.map((item) =>
-        item.href === HOME_HREF
-          ? { ...item, href: "/lab-overview", label: "Lab Overview" }
-          : item,
-      );
+      // PI-Mode People surface (PE-1): a first-class PI-only tab, inserted right
+      // after Lab Overview to match the approved PI nav lineup. Kept OUT of the
+      // shared NAV_ITEMS so it never appears for members or in the drag-customize
+      // visibleTabs set; the full PI nav reorder (NAV-1) lands separately.
+      const out: NavItem[] = [];
+      for (const item of filtered) {
+        if (item.href === HOME_HREF) {
+          out.push({ href: "/lab-overview", label: "Lab Overview" });
+          out.push({ href: "/people", label: "People" });
+        } else {
+          out.push(item);
+        }
+      }
+      return out;
     }
     return filtered.filter((item) => item.href !== HOME_HREF);
   }, [filtered, isLabHead]);

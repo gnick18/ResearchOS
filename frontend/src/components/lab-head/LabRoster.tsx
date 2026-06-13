@@ -2,16 +2,15 @@
 
 import { useState } from "react";
 import LivingPopup from "@/components/ui/LivingPopup";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { discoverUsers } from "@/lib/file-system/user-discovery";
-import { readUserSettings, type AccountType } from "@/lib/settings/user-settings";
-import { readOnboarding } from "@/lib/onboarding/sidecar";
+import { useQueryClient } from "@tanstack/react-query";
 import { archiveUser, restoreUser } from "@/lib/lab/user-archive";
-import { readSharingIdentity } from "@/lib/sharing/identity/sidecar";
-import { idpsApi } from "@/lib/local-api";
-import { useFileSystem } from "@/lib/file-system/file-system-context";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { useIsLabHead } from "@/hooks/useIsLabHead";
+import {
+  useLabRosterRows,
+  LAB_ROSTER_QUERY_KEY,
+  type RosterRow,
+} from "@/hooks/useLabRoster";
 import UserAvatar from "@/components/UserAvatar";
 import Tooltip from "@/components/Tooltip";
 import { Icon } from "@/components/icons";
@@ -42,26 +41,8 @@ import type { EditMenuItem } from "@/components/sequences/SequenceEditMenu";
  * the PI edit-mode feature; being a lab head is now sufficient.
  */
 
-interface RosterRow {
-  username: string;
-  displayName: string | null;
-  account_type: AccountType;
-  archived: boolean;
-  archived_at: string | null;
-  archived_by: string | null;
-  // D5/D6 (cross-boundary sharing): whether this member has published a
-  // global sharing identity (a `_sharing_identity.json` sidecar exists).
-  // READ-ONLY signal. A lab head may SEE who has an identity but has no
-  // power over it. The sidecar survives archiving, so this can be true for
-  // archived members too.
-  hasSharingIdentity: boolean;
-  // Check-ins Phase 4 (NSF compliance surface): whether the member has an IDP
-  // on file, and when it was last updated. CONTENTS-FREE. The PI sees only that
-  // a plan exists (the NIH/NSF expectation), never the plan itself. Sourced from
-  // `idpsApi.getStatusForMember`, which returns only {exists, updated_at}.
-  idpExists: boolean;
-  idpUpdatedAt: string | null;
-}
+// RosterRow + the loader query now live in @/hooks/useLabRoster (shared with the
+// PI-Mode People page). This file renders + owns the archive/restore actions.
 
 // D5/D6 read-only badge icon. A small "person plus link" mark for the
 // "has sharing identity" pill. Inline SVG (the project ships no icon-font
@@ -84,8 +65,6 @@ function SharingIdentityIcon({ className }: { className?: string }) {
     </svg>
   );
 }
-
-const LAB_ROSTER_QUERY_KEY = ["lab-roster"] as const;
 
 /**
  * PI capability revamp Phase 2 pass 2 (sharing + collaboration manager,
@@ -137,7 +116,6 @@ export function buildRosterRowMenuItems(args: {
 }
 
 export default function LabRoster() {
-  const { isConnected } = useFileSystem();
   const { currentUser } = useCurrentUser();
   const queryClient = useQueryClient();
   const { openMenu } = useContextMenu();
@@ -147,96 +125,9 @@ export default function LabRoster() {
   // boolean for the menu-builder prop below.
   const isLabHead = useIsLabHead(currentUser) === true;
 
-  // The Lab Roster is the only surface that needs per-user archive
-  // state alongside display name + account_type. `useLabUserProfileMap`
-  // pulls displayName + account_type but not archive state; we re-fan
-  // here so the roster has a single coherent read. The cost is small
-  // (N user dirs, N sidecar reads); the simplicity wins.
-  const { data: rows = [], isLoading } = useQuery({
-    queryKey: LAB_ROSTER_QUERY_KEY,
-    queryFn: async (): Promise<RosterRow[]> => {
-      // Use `discoverUsers()` (rather than `Object.keys(readAllUserMetadata())`)
-      // so the roster auto-inherits tombstone filtering, sentinel filtering
-      // (`lab`, `public`, `_no_user_`, etc.), and any future filters added
-      // to that helper. The previous direct-read path leaked every historical
-      // username (including soft-deleted users whose `users/<u>/` directory
-      // had been hard-deleted years ago and a literal `"undefined"` key
-      // polluted by an upstream bad caller). See lab-roster ghost cleanup
-      // 2026-05-26.
-      const usernames = await discoverUsers();
-      const out = await Promise.all(
-        usernames.map(async (username): Promise<RosterRow> => {
-          let displayName: string | null = null;
-          let account_type: AccountType = "member";
-          try {
-            const settings = await readUserSettings(username);
-            displayName = settings.displayName;
-            account_type = settings.account_type;
-          } catch {
-            // Stay on safe defaults.
-          }
-          let archived = false;
-          let archived_at: string | null = null;
-          let archived_by: string | null = null;
-          try {
-            const sidecar = await readOnboarding(username);
-            archived = sidecar.archived === true;
-            archived_at = sidecar.archived_at ?? null;
-            archived_by = sidecar.archived_by ?? null;
-          } catch {
-            // Stay on non-archived default.
-          }
-          // D5/D6: best-effort read of the member's published sharing
-          // identity sidecar. Wrapped in try/catch like the reads above, so
-          // a missing or unreadable sidecar simply yields `false` (no
-          // badge). This is read-only and informational; the lab head never
-          // gains any control over the member's global identity.
-          let hasSharingIdentity = false;
-          try {
-            const side = await readSharingIdentity(username);
-            hasSharingIdentity = side !== null;
-          } catch {
-            // Stay on "no identity" default.
-          }
-          // Check-ins Phase 4: contents-free IDP status. Best-effort like the
-          // reads above; a failure simply yields "no IDP on file". This NEVER
-          // reads the plan contents, only whether one exists and its timestamp.
-          let idpExists = false;
-          let idpUpdatedAt: string | null = null;
-          try {
-            const status = await idpsApi.getStatusForMember(username);
-            idpExists = status.exists;
-            idpUpdatedAt = status.updated_at;
-          } catch {
-            // Stay on "no IDP" default.
-          }
-          return {
-            username,
-            displayName,
-            account_type,
-            archived,
-            archived_at,
-            archived_by,
-            hasSharingIdentity,
-            idpExists,
-            idpUpdatedAt,
-          };
-        }),
-      );
-      // Sort: active first, then archived; within each, lab_head first,
-      // then alphabetical. Mirrors the login-screen sort so the visual
-      // ordering carries across surfaces.
-      return out.sort((a, b) => {
-        if (a.archived !== b.archived) return a.archived ? 1 : -1;
-        if (a.account_type !== b.account_type) {
-          return a.account_type === "lab_head" ? -1 : 1;
-        }
-        return a.username.localeCompare(b.username);
-      });
-    },
-    enabled: isConnected,
-    staleTime: 30_000,
-  });
+  // The shared roster loader (one read of every member with display + archive +
+  // sharing + IDP status), now also used by the PI-Mode People page.
+  const { data: rows = [], isLoading } = useLabRosterRows();
 
   // Pending action state. Drives the confirmation dialog.
   const [pendingAction, setPendingAction] = useState<
