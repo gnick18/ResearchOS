@@ -22,19 +22,24 @@ OUT="${1:-$HOME/Desktop/FinalRecords/companion-raw.mp4}"
 FLOW=".maestro/07-companion-marketing.yaml"
 DEVICE_PATH="/sdcard/companion-clip.mp4"
 
-command -v adb >/dev/null     || { echo "adb not on PATH (Android SDK platform-tools)"; exit 1; }
-command -v maestro >/dev/null || { echo "maestro not on PATH (curl -Ls https://get.maestro.mobile.dev | bash)"; exit 1; }
+# Resolve adb: prefer PATH, else fall back to the standard SDK location.
+ADB="$(command -v adb || true)"
+for cand in "$ANDROID_HOME/platform-tools/adb" "$ANDROID_SDK_ROOT/platform-tools/adb" "$HOME/Library/Android/sdk/platform-tools/adb" "$HOME/Android/Sdk/platform-tools/adb"; do
+  [ -z "$ADB" ] && [ -x "$cand" ] && ADB="$cand"
+done
+[ -n "$ADB" ]                 || { echo "adb not found (install Android SDK platform-tools)"; exit 1; }
+command -v maestro >/dev/null || { echo "maestro not on PATH (curl -Ls https://get.maestro.mobile.dev | bash; then add ~/.maestro/bin to PATH)"; exit 1; }
 
-if ! adb get-state >/dev/null 2>&1; then
+if ! "$ADB" get-state >/dev/null 2>&1; then
   echo "No emulator/device visible to adb. Start an AVD (Android Studio) and check 'adb devices'."; exit 1
 fi
 
 mkdir -p "$(dirname "$OUT")"
-adb shell rm -f "$DEVICE_PATH" >/dev/null 2>&1 || true
+"$ADB" shell rm -f "$DEVICE_PATH" >/dev/null 2>&1 || true
 
 echo "Starting screen capture on device..."
 # High bitrate for a crisp marketing clip. screenrecord caps at 180s (plenty).
-adb shell screenrecord --bit-rate 12000000 "$DEVICE_PATH" &
+"$ADB" shell screenrecord --bit-rate 12000000 "$DEVICE_PATH" &
 SR_PID=$!
 sleep 1.5
 
@@ -43,15 +48,15 @@ maestro test "$FLOW" || echo "(flow reported a non-zero exit; continuing to save
 sleep 1
 
 echo "Stopping capture (graceful SIGINT so the mp4 finalizes)..."
-adb shell pkill -INT screenrecord >/dev/null 2>&1 || true
+"$ADB" shell pkill -INT screenrecord >/dev/null 2>&1 || true
 # Give the device a moment to flush the moov atom, then detach the local adb proc.
 sleep 2.5
 kill "$SR_PID" >/dev/null 2>&1 || true
 wait "$SR_PID" 2>/dev/null || true
 
 echo "Pulling the clip..."
-adb pull "$DEVICE_PATH" "$OUT"
-adb shell rm -f "$DEVICE_PATH" >/dev/null 2>&1 || true
+"$ADB" pull "$DEVICE_PATH" "$OUT"
+"$ADB" shell rm -f "$DEVICE_PATH" >/dev/null 2>&1 || true
 
 echo ""
 echo "Saved: $OUT"
