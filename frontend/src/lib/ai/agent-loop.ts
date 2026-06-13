@@ -78,9 +78,11 @@ export type ModelResponse = {
 // The function the loop calls to talk to the model. Injected, so tests pass a fake
 // and production passes the proxy-backed caller. It receives the full message
 // history and the provider-facing tool definitions and returns the parsed JSON.
+// An optional AbortSignal lets the caller cancel an in-flight request cleanly.
 export type ModelCaller = (
   messages: LoopMessage[],
   tools: ReturnType<typeof toToolDefinition>[],
+  signal?: AbortSignal,
 ) => Promise<ModelResponse>;
 
 // Lightweight status the panel renders while the loop runs. "thinking" is a model
@@ -115,6 +117,10 @@ export type RunAgentLoopOptions = {
   // default (never act without an approver), so a misconfigured caller cannot
   // silently click.
   requestApproval?: (request: ApprovalRequest) => Promise<ApprovalDecision>;
+  // Optional abort signal. When signalled, the loop stops cleanly after the
+  // current operation and returns whatever partial state it has. An AbortError
+  // from the model caller is treated as a clean stop, not a crash.
+  signal?: AbortSignal;
 };
 
 export type RunAgentLoopResult = {
@@ -523,12 +529,32 @@ export async function runAgentLoop(
     planState: { approved: false },
   };
 
+  const signal = options.signal;
+
   let iterations = 0;
   while (iterations < maxIterations) {
+    // Check for abort before each model call, so a stop() that arrived while a
+    // tool was running takes effect on the next iteration boundary.
+    if (signal?.aborted) {
+      return { answer: "", iterations, stoppedOnGuard: false, messages };
+    }
+
     iterations += 1;
     options.onStatus?.({ phase: "thinking" });
 
-    const response = await options.callModel(messages, toolDefs);
+    let response: ModelResponse;
+    try {
+      response = await options.callModel(messages, toolDefs, signal);
+    } catch (err) {
+      // An AbortError means the user cancelled cleanly. Return an empty answer
+      // so the caller can remove the placeholder bubble without showing an error.
+      if (err instanceof Error && err.name === "AbortError") {
+        return { answer: "", iterations, stoppedOnGuard: false, messages };
+      }
+      // Any other error propagates to the caller (the catch in send()).
+      throw err;
+    }
+
     const message = response.choices?.[0]?.message;
     const toolCalls = message?.tool_calls ?? [];
 
@@ -549,6 +575,11 @@ export async function runAgentLoop(
     });
 
     for (const call of toolCalls) {
+      // Check for abort before each tool call so a stop() received mid-batch
+      // takes effect immediately, not after the rest of the batch finishes.
+      if (signal?.aborted) {
+        return { answer: "", iterations, stoppedOnGuard: false, messages };
+      }
       options.onStatus?.({ phase: "tool", toolName: call.function.name });
       const result = await runToolCall(call, toolMap, gateDeps);
       messages.push({
