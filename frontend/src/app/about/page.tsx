@@ -6,7 +6,6 @@ import MarketingFooter from "@/components/MarketingFooter";
 import MarketingNav from "@/components/MarketingNav";
 import MarketingBackdrop from "@/components/marketing/MarketingBackdrop";
 import Reveal from "@/components/marketing/Reveal";
-import { Icon } from "@/components/icons";
 
 /**
  * Public `/about` company page. The origin story and the "real, accountable
@@ -84,15 +83,17 @@ export default function AboutPage() {
               alternatives, and the goal is not just cheaper, it is better.
             </p>
           </div>
-          {/* Founder portrait. Rainbow-framed; placeholder until the headshot
-              lands (a clear, eyes-visible shot reads best as the hero). */}
+          {/* Founder photo, rainbow-framed. */}
           <div className="mx-auto w-full max-w-[300px]">
             <div className="brand-rainbow-bg rounded-[20px] p-[3px] shadow-[0_26px_60px_-34px_rgba(15,40,80,0.5)]">
-              <div className="flex aspect-[4/5] flex-col items-center justify-center gap-2 rounded-[17px] bg-surface-raised text-foreground-muted">
-                <Icon name="camera" className="h-7 w-7" />
-                <span className="text-meta font-semibold">Founder portrait</span>
-                <span className="text-[11px]">coming soon</span>
-              </div>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src="/about/grant-field.jpg"
+                alt="Dr. Grant Nickles"
+                width={800}
+                height={1100}
+                className="block aspect-[4/5] w-full rounded-[17px] object-cover object-[center_28%]"
+              />
             </div>
           </div>
         </Reveal>
@@ -106,19 +107,7 @@ export default function AboutPage() {
             <h2 className="mt-3 max-w-[24ch] text-heading font-extrabold tracking-tight text-foreground">
               Why one researcher built this
             </h2>
-            <div className="mt-6 grid items-center gap-9 md:grid-cols-[0.85fr_1.15fr]">
-              <div className="mx-auto w-full max-w-[320px]">
-                <div className="brand-rainbow-bg rounded-[20px] p-[3px] shadow-[0_26px_60px_-34px_rgba(15,40,80,0.5)]">
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
-                    src="/about/grant-field.jpg"
-                    alt="Dr. Grant Nickles in the field"
-                    width={800}
-                    height={1100}
-                    className="block aspect-[8/11] w-full rounded-[17px] object-cover"
-                  />
-                </div>
-              </div>
+            <div className="mt-6 max-w-[68ch]">
               <div>
                 <p className="text-title leading-relaxed text-foreground-muted">
                   I came up through genetics at Iowa State, then did my PhD at
