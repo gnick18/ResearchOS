@@ -55,10 +55,9 @@ URLs resolve:
 - `datahub-trimmed.mp4` -> **data-hub.mp4** (+ data-hub.poster.jpg)
 - `purchase-trimmed.mp4` -> **purchases.mp4** (+ purchases.poster.jpg)
 - `seq-trimmed.mp4` -> OVERWRITE the existing **sequence-editor-a.mp4** (+ sequence-editor-a.poster.jpg) — that slot (FeatureRow 5) is unchanged in code, so overwriting the Blob swaps in the new richer-plasmid/Gibson clip.
+- `ncbi-trimmed.mp4` -> **sequence-ncbi.mp4** (+ sequence-ncbi.poster.jpg) — NOW WIRED (next session): the sequence FeatureRow 5 visual is a stacked two-up, Gibson/editor clip on top + this guided-NCBI-import clip below, with a 4th bullet ("Pull any published sequence straight from NCBI by gene name"). Upload under this exact name and both sequence clips resolve.
 Poster gen (per clip): `ffmpeg -i X-trimmed.mp4 -frames:v 1 -q:v 3 X.poster.jpg`.
-NO SLOT YET (layout follow-up): `ncbi-trimmed.mp4` (Grant wants both seq clips),
-`chem-trimmed.mp4` (caffeine, deprioritized vs gliotoxin), the `checkins` clip,
-and the NL-query placeholder at WelcomePage ~1171 (no clip recorded for it).
+STILL NO SLOT (layout follow-up): `chem-trimmed.mp4` (caffeine, deprioritized vs gliotoxin), the `checkins` clip (the check-ins FeatureRow 6.5 uses the div-based `CheckinsVisual`, not a video), and the NL-query placeholder at WelcomePage ~1177 (no clip recorded for it).
 
 ## BUILD FIX THAT MUST BE PUSHED
 `d071e4fc7` fixes the prod build (it FAILED on commit 79e2aa4): the AI-helper

@@ -1005,14 +1005,24 @@ export default function WelcomePage({
               bubble="whoa!"
               size="h-24 w-24"
             >
-              <RainbowFrame>
-                <DemoLoop
-                  src="https://tkqei2x7bdmdvg7v.public.blob.vercel-storage.com/sequence-editor-a.mp4"
-                  poster="https://tkqei2x7bdmdvg7v.public.blob.vercel-storage.com/sequence-editor-a.poster.jpg"
-                  label="A circular plasmid map rendering in the ResearchOS sequence editor, with annotated feature arcs"
-                  preload="metadata"
-                />
-              </RainbowFrame>
+              <div className="grid gap-4">
+                <RainbowFrame>
+                  <DemoLoop
+                    src="https://tkqei2x7bdmdvg7v.public.blob.vercel-storage.com/sequence-editor-a.mp4"
+                    poster="https://tkqei2x7bdmdvg7v.public.blob.vercel-storage.com/sequence-editor-a.poster.jpg"
+                    label="A circular plasmid map rendering in the ResearchOS sequence editor, with annotated feature arcs, then a Gibson assembly designing its own junction primers"
+                    preload="metadata"
+                  />
+                </RainbowFrame>
+                <RainbowFrame>
+                  <DemoLoop
+                    src="https://tkqei2x7bdmdvg7v.public.blob.vercel-storage.com/sequence-ncbi.mp4"
+                    poster="https://tkqei2x7bdmdvg7v.public.blob.vercel-storage.com/sequence-ncbi.poster.jpg"
+                    label="The guided NCBI import wizard finding a gene in a reference genome by name and importing a windowed sequence into the ResearchOS library"
+                    preload="metadata"
+                  />
+                </RainbowFrame>
+              </div>
             </BeakerBotPeek>
           }
         >
@@ -1028,6 +1038,11 @@ export default function WelcomePage({
             <li className="flex items-start gap-2.5 text-body leading-snug text-[#0f1b2e]">
               <CheckGlyph />
               Auto-designed junction primers with a copyable oligo order.
+            </li>
+            <li className="flex items-start gap-2.5 text-body leading-snug text-[#0f1b2e]">
+              <CheckGlyph />
+              Pull any published sequence straight from NCBI by gene name, no
+              accession hunting.
             </li>
           </ul>
         </FeatureRow>
