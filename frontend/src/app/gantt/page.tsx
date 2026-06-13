@@ -1,10 +1,12 @@
 "use client";
 
-import { useCallback, useMemo, useState, useEffect } from "react";
+import { useCallback, useMemo, useRef, useState, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { goalsApi, dependenciesApi, fetchAllTasksIncludingShared, fetchAllProjectsIncludingShared } from "@/lib/local-api";
+import { goalsApi, dependenciesApi, fetchAllTasksIncludingShared, fetchAllProjectsIncludingShared, labApi } from "@/lib/local-api";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
+import { useIsLabHead } from "@/hooks/useIsLabHead";
+import { usePiViewMode } from "@/hooks/usePiViewMode";
 import { useAppStore } from "@/lib/store";
 import AppShell from "@/components/AppShell";
 import GanttChart from "@/components/GanttChart";
@@ -16,7 +18,7 @@ import HighLevelGoalModal from "@/components/HighLevelGoalModal";
 import HighLevelGoalSidebar from "@/components/HighLevelGoalSidebar";
 import { matchesAnyProjectFilter } from "@/lib/search/filterKey";
 import { taskKey } from "@/lib/types";
-import type { HighLevelGoal, Project } from "@/lib/types";
+import type { HighLevelGoal, Project, Task } from "@/lib/types";
 import { useGanttBeakerSource } from "./useGanttBeakerSource";
 
 // Composite key for project lookups: shared and own projects can share a
@@ -49,6 +51,13 @@ export default function Home() {
   // from the URL immediately so a refresh does not re-highlight.
   const [highlightTaskKeys, setHighlightTaskKeys] = useState<string[]>([]);
 
+  // RS-2: the task opened from the lab rollup (read-only, owner-routed). Kept
+  // separate from editingTaskKey because lab tasks live outside the personal
+  // allTasks set the editingTaskKey lookup uses.
+  const [labTaskOpen, setLabTaskOpen] = useState<
+    (Task & { username?: string }) | null
+  >(null);
+
   useEffect(() => {
     const raw = searchParams?.get("highlightTasks");
     if (!raw) return;
@@ -67,10 +76,52 @@ export default function Home() {
   const { currentUser: providerCurrentUser } = useCurrentUser();
   const currentUser = providerCurrentUser ?? "";
 
-  const { data: projects = [] } = useQuery({
+  // RS-2: a PI can view the lab-wide rollup (every member's tasks on one
+  // timeline) and flip back to their own. Defaults to the lab view once, when the
+  // lab lens resolves (ref-guarded so it never fights a manual switch). The lab
+  // view is READ-ONLY: GanttChart's lab mode disables every drag/resize handler,
+  // and a click opens the task read-only (edit-as-lab-head lives in the popup).
+  const isLabHead = useIsLabHead(currentUser || null) === true;
+  const { mode: piViewMode } = usePiViewMode();
+  const labLensDefault = isLabHead && piViewMode === "lab";
+  const [ganttScope, setGanttScope] = useState<"mine" | "lab">("mine");
+  const appliedLabScope = useRef(false);
+  useEffect(() => {
+    if (labLensDefault && !appliedLabScope.current) {
+      appliedLabScope.current = true;
+      setGanttScope("lab");
+    }
+  }, [labLensDefault]);
+  const labMode = isLabHead && ganttScope === "lab";
+
+  // Personal data (own + shared-with-me), the default source.
+  const { data: personalProjects = [] } = useQuery({
     queryKey: ["projects", currentUser],
     queryFn: fetchAllProjectsIncludingShared,
   });
+  // Lab-wide full tasks/projects/users, fetched only in the lab rollup.
+  const { data: labProjectsFull = [] } = useQuery({
+    queryKey: ["lab", "gantt-projects-full"],
+    queryFn: () => labApi.getProjectsFull(),
+    enabled: labMode,
+  });
+  const { data: labTasksFull = [] } = useQuery({
+    queryKey: ["lab", "gantt-tasks-full"],
+    queryFn: () => labApi.getTasksFull(),
+    enabled: labMode,
+  });
+  const { data: labUsersData } = useQuery({
+    queryKey: ["lab", "users"],
+    queryFn: labApi.getUsers,
+    enabled: labMode,
+  });
+  const labUserColors = useMemo(() => {
+    const m = new Map<string, string>();
+    for (const u of labUsersData?.users ?? []) m.set(u.username, u.color);
+    return m;
+  }, [labUsersData]);
+
+  const projects = labMode ? labProjectsFull : personalProjects;
 
   const { data: goals = [] } = useQuery({
     queryKey: ["goals", currentUser],
@@ -88,10 +139,13 @@ export default function Home() {
   // result when the user navigates back from one of those pages. The key still
   // begins with "tasks" so existing `invalidateQueries({ queryKey: ["tasks"] })`
   // calls elsewhere will continue to invalidate it via prefix match.
-  const { data: allTasks = [] } = useQuery({
+  const { data: personalTasks = [] } = useQuery({
     queryKey: ["tasks", "with-shared", currentUser],
     queryFn: fetchAllTasksIncludingShared,
   });
+  // The lab rollup swaps in every member's full tasks; the existing activeTasks /
+  // projectColors memos below operate on whichever source is chosen.
+  const allTasks: Task[] = labMode ? labTasksFull : personalTasks;
 
   useEffect(() => {
     console.log("[Gantt] Data loaded:", {
@@ -145,10 +199,13 @@ export default function Home() {
     return tasks;
   }, [allTasks, projects, showShared]);
 
-  const { data: dependencies = [] } = useQuery({
+  const { data: personalDependencies = [] } = useQuery({
     queryKey: ["dependencies", currentUser],
     queryFn: () => dependenciesApi.list(),
   });
+  // Dependency arrows are a within-owner planning detail; the lab rollup is a
+  // cross-member timeline overview, so it shows none (v1).
+  const dependencies = labMode ? [] : personalDependencies;
 
   // Filter dependencies to only include those between active tasks
   const activeDependencies = useMemo(() => {
@@ -266,57 +323,130 @@ export default function Home() {
 
   return (
     <AppShell>
-      <Toolbar
-        projects={activeProjects}
-        allTags={allTags}
-        onCreateTask={handleCreateTask}
-        onCreateGoal={handleCreateGoal}
-        projectColors={projectColors}
-      />
-
-      <div className="flex flex-1 overflow-hidden">
-        <GanttChart
-          tasks={filteredTasks}
-          dependencies={activeDependencies}
-          projectColors={projectColors}
-          projects={activeProjects}
-          goals={goals}
-          onTaskClick={handleTaskClick}
-          onGoalClick={(goal) => setEditingGoal(goal)}
-          highlightTaskKeys={highlightTaskKeys}
-          onHighlightDone={() => setHighlightTaskKeys([])}
-        />
-        <HighLevelGoalSidebar
-          goals={goals}
-          onEditGoal={(goal) => setEditingGoal(goal)}
-          onDeleteGoal={handleDeleteGoal}
-        />
-      </div>
-
-      <BulkMoveModal />
-      <TaskModal projects={activeProjects} />
-
-      {/* Task Detail Popup when a task is selected */}
-      {editingTask && (
-        <TaskDetailPopup
-          task={editingTask}
-          project={editingProject}
-          onClose={() => setEditingTaskKey(null)}
-          readOnly={editingTask.is_shared_with_me === true && editingTask.shared_permission !== "edit"}
-          username={editingTask.is_shared_with_me ? editingTask.owner : undefined}
-        />
+      {/* RS-2 scope toggle: a PI flips the Gantt between their own timeline and
+          the lab-wide rollup. Members never see it. */}
+      {isLabHead && (
+        <div className="flex items-center gap-2 border-b border-border bg-surface-raised px-4 py-2">
+          <span className="text-meta font-medium text-foreground-muted">
+            View
+          </span>
+          <div
+            className="flex items-center gap-0.5 rounded-full border border-border bg-surface px-0.5 py-0.5"
+            role="group"
+            aria-label="Gantt scope"
+          >
+            {(
+              [
+                ["mine", "My timeline"],
+                ["lab", "Lab rollup"],
+              ] as const
+            ).map(([value, label]) => (
+              <button
+                key={value}
+                type="button"
+                onClick={() => setGanttScope(value)}
+                aria-pressed={ganttScope === value}
+                data-testid={`gantt-scope-${value}`}
+                className={`rounded-full px-2.5 py-1 text-meta font-medium transition ${
+                  ganttScope === value
+                    ? "bg-brand-action text-white"
+                    : "text-foreground-muted hover:text-foreground"
+                }`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+        </div>
       )}
 
-      {/* High-Level Goal Modal */}
-      {(isCreatingGoal || editingGoal) && (
-        <HighLevelGoalModal
-          projects={activeProjects}
-          onClose={() => {
-            setIsCreatingGoal(false);
-            setEditingGoal(null);
-          }}
-          editingGoal={editingGoal}
-          onDeleteGoal={handleDeleteGoal}
+      {labMode ? (
+        // Read-only lab rollup: every member's tasks on one timeline, color-coded
+        // by member. Drags are disabled by GanttChart's isLabMode; a click opens
+        // the task read-only.
+        <div className="flex flex-1 overflow-hidden">
+          <GanttChart
+            tasks={activeTasks}
+            dependencies={[]}
+            projectColors={projectColors}
+            projects={activeProjects}
+            goals={[]}
+            onTaskClick={() => {}}
+            onGoalClick={() => {}}
+            isLabMode
+            userColors={labUserColors}
+            onTaskClickLab={(t) => setLabTaskOpen(t)}
+            highlightTaskKeys={[]}
+            onHighlightDone={() => {}}
+          />
+        </div>
+      ) : (
+        <>
+          <Toolbar
+            projects={activeProjects}
+            allTags={allTags}
+            onCreateTask={handleCreateTask}
+            onCreateGoal={handleCreateGoal}
+            projectColors={projectColors}
+          />
+
+          <div className="flex flex-1 overflow-hidden">
+            <GanttChart
+              tasks={filteredTasks}
+              dependencies={activeDependencies}
+              projectColors={projectColors}
+              projects={activeProjects}
+              goals={goals}
+              onTaskClick={handleTaskClick}
+              onGoalClick={(goal) => setEditingGoal(goal)}
+              highlightTaskKeys={highlightTaskKeys}
+              onHighlightDone={() => setHighlightTaskKeys([])}
+            />
+            <HighLevelGoalSidebar
+              goals={goals}
+              onEditGoal={(goal) => setEditingGoal(goal)}
+              onDeleteGoal={handleDeleteGoal}
+            />
+          </div>
+
+          <BulkMoveModal />
+          <TaskModal projects={activeProjects} />
+
+          {/* Task Detail Popup when a task is selected */}
+          {editingTask && (
+            <TaskDetailPopup
+              task={editingTask}
+              project={editingProject}
+              onClose={() => setEditingTaskKey(null)}
+              readOnly={editingTask.is_shared_with_me === true && editingTask.shared_permission !== "edit"}
+              username={editingTask.is_shared_with_me ? editingTask.owner : undefined}
+            />
+          )}
+
+          {/* High-Level Goal Modal */}
+          {(isCreatingGoal || editingGoal) && (
+            <HighLevelGoalModal
+              projects={activeProjects}
+              onClose={() => {
+                setIsCreatingGoal(false);
+                setEditingGoal(null);
+              }}
+              editingGoal={editingGoal}
+              onDeleteGoal={handleDeleteGoal}
+            />
+          )}
+        </>
+      )}
+
+      {/* Lab rollup task popup (read-only, owner-routed; edit-as-lab-head lives
+          inside the popup). */}
+      {labTaskOpen && (
+        <TaskDetailPopup
+          task={labTaskOpen}
+          readOnly
+          username={labTaskOpen.owner ?? labTaskOpen.username}
+          onClose={() => setLabTaskOpen(null)}
+          onNavigateToTask={(t) => setLabTaskOpen(t as Task & { username?: string })}
         />
       )}
     </AppShell>
