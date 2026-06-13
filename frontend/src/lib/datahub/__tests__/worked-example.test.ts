@@ -202,17 +202,20 @@ describe("workedExample", () => {
 });
 
 describe("learnMoreTopic", () => {
-  it("labels the link per analysis type and points at /transparency", () => {
+  it("labels the link per analysis type and points at the matching /wiki/stats page", () => {
     expect(learnMoreTopic(ttest())).toEqual({
       label: "Learn more about effect sizes",
-      href: "/transparency",
+      href: "/wiki/stats/effect-sizes",
     });
     expect(
       learnMoreTopic({ kind: "coxRegression" } as NormalizedResult),
-    ).toEqual({ label: "Learn more about hazard ratios", href: "/transparency" });
+    ).toEqual({
+      label: "Learn more about hazard ratios",
+      href: "/wiki/stats/survival#hazard-ratios",
+    });
     expect(learnMoreTopic({ kind: "correlation" } as NormalizedResult)).toEqual({
       label: "Learn more about correlation",
-      href: "/transparency",
+      href: "/wiki/stats/correlation-and-regression",
     });
   });
 });

@@ -794,37 +794,83 @@ export function workedExample(result: NormalizedResult): string | null {
 
 /**
  * The per-analysis "Learn more about <topic>" link shown at the bottom of the
- * BeakerBot interpretation box. The href points at /transparency for every type
- * today (the in-app explainer of how each test is computed). Returns null for
- * the kinds with no dedicated explainer topic.
+ * BeakerBot interpretation box. The href points at the matching plain-English
+ * explainer under /wiki/stats (with a #anchor when the concept is a sub-section
+ * of a broader page), so the reader lands on a guide to that specific test
+ * rather than the generic /transparency validation page. Returns null for the
+ * kinds with no dedicated explainer topic.
  */
 export function learnMoreTopic(
   result: NormalizedResult,
 ): { label: string; href: string } | null {
-  const TOPIC_BY_KIND: Partial<Record<NormalizedResult["kind"], string>> = {
-    anova: "ANOVA and post-hoc tests",
-    rmAnova: "repeated-measures ANOVA",
-    mixedModel: "mixed models",
-    correlation: "correlation",
-    regression: "linear regression",
-    logisticRegression: "odds ratios",
-    rocCurve: "ROC curves and AUC",
-    multipleRegression: "multiple regression",
-    doseResponse: "dose-response curves",
-    modelComparison: "model comparison",
-    globalFit: "global curve fits",
-    twoWayAnova: "two-way ANOVA",
-    survival: "survival curves",
-    coxRegression: "hazard ratios",
-    grubbsOutlier: "outlier tests",
-    contingency: "contingency tables",
-    nestedTTest: "nested designs",
-    nestedOneWayAnova: "nested designs",
-    ttest: "effect sizes",
+  const TOPIC_BY_KIND: Partial<
+    Record<NormalizedResult["kind"], { topic: string; href: string }>
+  > = {
+    anova: { topic: "ANOVA and post-hoc tests", href: "/wiki/stats/anova" },
+    twoWayAnova: {
+      topic: "two-way ANOVA",
+      href: "/wiki/stats/anova#two-way",
+    },
+    rmAnova: {
+      topic: "repeated-measures ANOVA",
+      href: "/wiki/stats/repeated-measures",
+    },
+    mixedModel: {
+      topic: "mixed models",
+      href: "/wiki/stats/repeated-measures#mixed-models",
+    },
+    nestedTTest: {
+      topic: "nested designs",
+      href: "/wiki/stats/repeated-measures#nested",
+    },
+    nestedOneWayAnova: {
+      topic: "nested designs",
+      href: "/wiki/stats/repeated-measures#nested",
+    },
+    correlation: {
+      topic: "correlation",
+      href: "/wiki/stats/correlation-and-regression",
+    },
+    regression: {
+      topic: "linear regression",
+      href: "/wiki/stats/correlation-and-regression",
+    },
+    multipleRegression: {
+      topic: "multiple regression",
+      href: "/wiki/stats/correlation-and-regression#multiple",
+    },
+    doseResponse: {
+      topic: "dose-response curves",
+      href: "/wiki/stats/dose-response",
+    },
+    modelComparison: {
+      topic: "model comparison",
+      href: "/wiki/stats/dose-response#model-comparison",
+    },
+    globalFit: {
+      topic: "global curve fits",
+      href: "/wiki/stats/dose-response#global-fits",
+    },
+    survival: { topic: "survival curves", href: "/wiki/stats/survival" },
+    coxRegression: {
+      topic: "hazard ratios",
+      href: "/wiki/stats/survival#hazard-ratios",
+    },
+    logisticRegression: {
+      topic: "odds ratios",
+      href: "/wiki/stats/contingency#odds-ratios",
+    },
+    contingency: {
+      topic: "contingency tables",
+      href: "/wiki/stats/contingency",
+    },
+    rocCurve: { topic: "ROC curves and AUC", href: "/wiki/stats/roc-auc" },
+    grubbsOutlier: { topic: "outlier tests", href: "/wiki/stats/outliers" },
+    ttest: { topic: "effect sizes", href: "/wiki/stats/effect-sizes" },
   };
-  const topic = TOPIC_BY_KIND[result.kind];
-  if (!topic) return null;
-  return { label: `Learn more about ${topic}`, href: "/transparency" };
+  const entry = TOPIC_BY_KIND[result.kind];
+  if (!entry) return null;
+  return { label: `Learn more about ${entry.topic}`, href: entry.href };
 }
 
 /**

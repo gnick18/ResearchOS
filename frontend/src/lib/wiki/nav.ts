@@ -432,6 +432,58 @@ export const WIKI_NAV: WikiNode[] = [
     ],
   },
   {
+    href: "/wiki/stats",
+    label: "Reading your statistics",
+    blurb: "Plain-English guides to the numbers the Data Hub gives you: effect sizes, ANOVA, regression, survival, and more.",
+    children: [
+      {
+        href: "/wiki/stats/effect-sizes",
+        label: "Effect sizes and confidence intervals",
+        blurb: "Why the size of a difference and its range matter more than a bare p-value. The foundation page.",
+      },
+      {
+        href: "/wiki/stats/anova",
+        label: "ANOVA, post-hoc, and two-way",
+        blurb: "Compare three or more groups, find which pairs differ, and handle two factors at once.",
+      },
+      {
+        href: "/wiki/stats/repeated-measures",
+        label: "Repeated measures and nested designs",
+        blurb: "Repeated-measures ANOVA, mixed models, and why cells-within-mice are not your sample size.",
+      },
+      {
+        href: "/wiki/stats/correlation-and-regression",
+        label: "Correlation and regression",
+        blurb: "How tightly two variables track, fitting a line with a slope you can read, and multiple predictors.",
+      },
+      {
+        href: "/wiki/stats/dose-response",
+        label: "Dose-response curves",
+        blurb: "EC50 and IC50, the 4PL and 5PL fits, the Hill slope, model comparison, and global fits.",
+      },
+      {
+        href: "/wiki/stats/survival",
+        label: "Survival curves and hazard ratios",
+        blurb: "Kaplan-Meier curves, the log-rank test, and the Cox hazard ratio for time-to-event data.",
+      },
+      {
+        href: "/wiki/stats/contingency",
+        label: "Contingency tables and odds ratios",
+        blurb: "Chi-square vs Fisher exact, odds ratios (including logistic regression), and relative risk.",
+      },
+      {
+        href: "/wiki/stats/roc-auc",
+        label: "ROC curves and AUC",
+        blurb: "How well a measurement separates two groups: sensitivity, specificity, AUC, and a cut point.",
+      },
+      {
+        href: "/wiki/stats/outliers",
+        label: "Outlier tests",
+        blurb: "The Grubbs test, and the honest caution that removing a data point needs a real reason.",
+      },
+    ],
+  },
+  {
     href: "/wiki/integrations",
     label: "Integrations",
     children: [

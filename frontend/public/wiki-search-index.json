@@ -1,6 +1,6 @@
 {
-  "generatedAt": "2026-06-11T17:33:29.367Z",
-  "pageCount": 79,
+  "generatedAt": "2026-06-13T03:48:45.034Z",
+  "pageCount": 89,
   "categories": [
     {
       "id": "start-here",
@@ -21,6 +21,10 @@
     {
       "id": "features",
       "label": "Features"
+    },
+    {
+      "id": "stats",
+      "label": "Reading your statistics"
     },
     {
       "id": "integrations",
@@ -250,7 +254,7 @@
         "The simplest way. No setup, works with any chat AI, and nothing leaves your machine except the text you choose to paste.",
         "The more powerful way. An agentic tool with read access to your data folder can work across your whole notebook at once, no copy-paste. Give it the AI Helper prompt plus access to the folder and it can draft entries, fill in notes, and cross-reference protocols alongside you.",
         "This works with any tool that can read a local folder, for example:",
-        "An AI can read anything in the folder you give it access to, and draft content for you to place. Whether it can write files depends on the tool: a paste-flow chat AI only suggests text you copy back, while a folder-access agent can write files directly if you let it. Treat age...",
+        "An AI can read anything in the folder you give it access to, and draft content for you to place. Whether it can write files depends on the tool. A paste-flow chat AI only suggests text you copy back, while a folder-access agent can write files directly if you let it. Treat age...",
         "Minimal (around 6k tokens) is for tiny windows or small local models.",
         "Lean (around 21k tokens) fits most chat windows.",
         "Full (around 42k tokens) is best for drafting on big-context models like Claude, GPT-5, or Gemini 2.5 Pro.",
@@ -336,15 +340,7 @@
         "The molecule library",
         "Getting molecules into the library",
         "The molecule detail view",
-        "Drawing and editing structures",
-        "Literature and patents",
-        "How identity is computed",
-        "Connection to the rest of the app",
-        "What it is built on",
-        "Where molecules are stored",
-        "Deleting a molecule is immediate",
-        "What the free search does and does not cover",
-        "Your structures stay on your machine"
+        "Where molecules are stored"
       ],
       "bodySnippets": [
         "The Chemistry workbench is where you draw structures, build a molecule library, and find the papers and patents that mention a compound, all in the browser and all filed alongside your projects.",
@@ -352,25 +348,15 @@
         "The reason it works without a backend is that the chemistry itself runs in your browser. The drawing surface, the structure cleanup, the molecular formula and weight, the canonical SMILES and InChIKey, all of it is computed locally by chemistry libraries compiled to run in the...",
         "The left rail of the workbench is your molecule library. It lists every molecule in your folder, each row carrying a small rendered structure thumbnail, the name, and the molecular formula and average weight. This is the same signature left-rail layout the Sequences and Data H...",
         "A collection selector at the top of the rail groups molecules by project, so you can narrow the list to one project, view the molecules not yet filed under any project, or open the library to everything at once. Each option carries a live count. Below the selector, a search bo...",
+        "Search by structure. Beyond the name filter, a search-by-structure mode finds molecules in your own library by chemistry rather than text. You draw a fragment to match every molecule that contains that substructure, or rank the library by similarity to a reference structure, s...",
+        "Right-click and bulk actions. Right-clicking a molecule in the rail opens quick actions to rename it, duplicate it, send it to a note, experiment, or method, or delete it. Selecting several rows with their checkboxes lets you delete a batch or file it all under a project at once.",
         "There are three ways to add a molecule, surfaced as the New, PubChem, and Import actions at the top of the library rail.",
         "Draw a new structure. The New action opens the structure editor on a blank canvas. You draw the molecule with bonds, rings, templates, and the periodic table, then save it to the library. The editor is the same surface described under Drawing and editing structures below.",
         "Import from PubChem. The PubChem action opens a search box. Type a compound name and the search returns a grid of candidate compounds from PubChem, each with its structure, formula, and weight, so you can pick the right one rather than guessing from a name alone. Importing a c...",
         "Import a structure file. The Import action accepts MDL Molfiles (.mol), SDF files (.sdf, where each record lands as its own molecule), and SMILES files (.smi, .smiles). Everything is parsed in your browser, so the file never leaves your machine. A single-molecule import drops ...",
         "Clicking a molecule in the rail opens its detail view. This is the fast browse surface, and it does not load the heavy editor, so moving between molecules is instant. At the top is a large rendered depiction of the structure. Below it is an identity table with the molecular fo...",
-        "Quick copy actions put the canonical SMILES, the InChIKey, or a reference to the molecule on your clipboard. The molecule reference pastes into a note as a chip that links back to this molecule, so a synthesis note can point directly at the compound it describes. A linked-proj...",
-        "The structure editor opens in a panel over the workbench, launched by the New action or the Edit structure button. It is a full molecular drawing surface with bond and ring tools, a template library of common scaffolds and functional groups, the periodic table for any element,...",
-        "When you save, the structure is written to your folder as a Molfile and the identity facts are recomputed from what you drew, so the formula, weight, SMILES, and InChIKey always match the structure on the canvas. The editor is a heavier surface than the detail view because it ...",
-        "The literature search is the free answer to the feature chemists pay SciFinder for. You pick a compound or draw a fragment, and it shows the papers and patents that mention it. It is assembled entirely in your browser from three public, no-key sources, so there is no server in...",
-        "The per-molecule view lives in the detail panel. Opening the literature panel for a molecule pulls its linked PubMed papers and patent identifiers from PubChem, and its full-text chemical mentions from Europe PMC, the open European biomedical literature index. Each paper links...",
-        "The Literature action in the library rail opens the same search as a standalone surface, so you can look up a compound by name without first adding it to your library. Below the name search sits a substructure patent search powered by SureChEMBL, which indexes compounds extrac...",
-        "Every molecule carries a set of identity facts, the molecular formula, the average molecular weight, the canonical SMILES, and the InChIKey. These are not taken on faith from the source of the structure. They are computed locally from the Molfile by RDKit running in your brows...",
-        "Molecules participate in the shared folder structure alongside notes, experiments, and sequences. A molecule is filed under a project through the linked-projects control in its detail view, and each project surface carries a Molecules section listing the structures linked to t...",
-        "Because a molecule has its own reference, you can mention it from a note. The molecule reference pastes as a chip that deep-links back to the structure, opening it in the workbench when clicked, the same way a note can reference a sequence or an experiment. This keeps the stru...",
-        "The Chemistry workbench stands on open-source chemistry. The drawing surface is Ketcher from EPAM, the structure perception and identity calculations are RDKit, and the literature search draws on PubChem, Europe PMC, and SureChEMBL. All of it runs in your browser against publi...",
+        "Quick copy actions put the canonical SMILES, the InChIKey, or a reference to the molecule on your clipboard, and a Send to action pushes the molecule straight into a note, experiment, or method. The molecule reference pastes into a note as a chip that links back to this molecu...",
         "Each molecule is written to your folder as a Molfile (the source of truth) next to a small sidecar holding the name, the source, the project links, and the computed identity. The Molfile is a standard format, so your structures stay readable by ChemDraw, RDKit, Open Babel, and...",
-        "The Delete action in the detail view asks for confirmation and then removes the molecule's files from your folder. Unlike notes and sequences, molecules do not go to the Trash , so there is no 30-day recovery window. The confirmation step lands focus on Cancel so the destructi...",
-        "These sources are the free 90 percent, not a replacement for the curated databases. PubChem links are depositor and co-occurrence data, Europe PMC mines open-access and Creative Commons full text plus abstracts rather than every paywalled paper, and SureChEMBL indexes specific...",
-        "Drawing, editing, and identity calculation all happen in the browser, so a structure you draw never leaves your computer on its own. The only time anything about a molecule is sent anywhere is when you run a literature or patent search, which sends the compound name or the dra...",
         "The Chemistry workbench. The molecule library sits on the left, and the selected molecule opens in the detail view on the right.",
         "The Chemistry workbench showing the molecule library rail on the left, a list of molecules with structure thumbnails, and a selected molecule's detail view on the right with its structure depiction and identity facts.",
         "The collection selector scopes the library to one project, to the unfiled molecules, or to everything at once.",
@@ -378,15 +364,7 @@
         "PubChem import returns a grid of candidates so you can choose the right compound, not just the first name match.",
         "The PubChem import dialog with the word caffeine typed in the search box and a grid of candidate compounds below, each showing a rendered structure, name, formula, and molecular weight.",
         "The detail view. Identity facts are computed locally from the structure; the copy actions put the SMILES, InChIKey, or a note reference on your clipboard.",
-        "The molecule detail view showing a large structure depiction on the left, an identity table with formula, average molecular weight, canonical SMILES, and InChIKey on the right, copy actions beneath, and a linked-projects section.",
-        "The structure editor. Draw with bonds, rings, and templates, or paste a SMILES or Molfile onto the canvas.",
-        "The structure editor open over the workbench, showing a drawing canvas with a molecule, a vertical bond and template toolbar on the left, and Save and Cancel actions.",
-        "Papers and patents for a molecule, drawn live from PubChem and Europe PMC. Each result links out to its source.",
-        "The literature panel for a molecule, with a Papers section listing article titles from Europe PMC and a Patents section listing patent numbers, each linking out, and a total count at the top of each list.",
-        "Substructure patent search. Draw a fragment and SureChEMBL returns patent compounds that contain it.",
-        "The substructure patent search showing a small drawn fragment on the left and a list of SureChEMBL patent-compound hits on the right, each linking to its SureChEMBL chemical page.",
-        "The Molecules section on a project surface. Each entry links back to the molecule in the Chemistry workbench.",
-        "A project surface with a Molecules section showing structure thumbnails and names for the molecules linked to that project, each linking back into the Chemistry workbench."
+        "The molecule detail view showing a large structure depiction on the left, an identity table with formula, average molecular weight, canonical SMILES, and InChIKey on the right, copy actions beneath, and a linked-projects section."
       ]
     },
     {
@@ -462,7 +440,7 @@
         "The cloud does not hold your research. It holds only the optional copies used for the three paths below, which is why the storage limits are a limit on cloud copies, not on how much research you can do.",
         "Each path is different, so it is worth being precise about what uploads and how it is protected.",
         "The cloud copies count against a free allowance, and the key fact is that a lab shares one allowance no matter how many members join. Only the lab head pays. It is not per-person.",
-        "The local-first core is free and open source under the AGPLv3, with every feature included. It is supported by a UW-Madison RISE fellowship and by voluntary contributions. Cloud storage above the free pool comes as flat-price plans. Individuals and labs pay only what it costs ...",
+        "The local-first core is free and open source under the AGPLv3, with every feature included. It is supported by a UW Distinguished Research Fellowship at UW-Madison and by voluntary contributions. Cloud storage above the free pool comes as flat-price plans. Individuals and labs...",
         "The plans are flat, not metered per gigabyte, so the bill is a known monthly number with no surprises. If a lab leans on the cloud heavily, the lab head can move the lab to a larger plan. Specific plan prices are still being set from real usage, so they are not published yet.",
         "If you want to support the project beyond your own use, the best way is to buy only the storage you actually use and to support us through GitHub Sponsors. A sponsorship is a direct contribution that funds development, and a donation is not subject to sales tax the way a produ...",
         "Reaching the cap means paused, not charged. If a lab fills its pool, cloud sync pauses and nobody is billed by surprise. The local-first app keeps working against the folder on each person's disk, and sync resumes once space is freed or the lab head moves to a larger plan. You...",
@@ -778,7 +756,7 @@
         "The Experiments tab",
         "The Notes tab",
         "The Lists tab",
-        "Opening an experiment: the four-tab popup",
+        "Opening an experiment, the four-tab popup",
         "Lab Notes and Results",
         "Attach a method (or a PCR protocol)",
         "Variation Notes and per-run PCR tweaks",
@@ -1181,6 +1159,7 @@
       "headings": [
         "What the lab calculators are",
         "The calculators",
+        "Build your own calculator",
         "Scientific",
         "Molarity",
         "Dilution",
@@ -1189,8 +1168,15 @@
         "DNA / RNA",
         "Protein properties",
         "Buffer recipe",
+        "How you build one",
+        "Start from a template",
+        "Inputs, formulas, and guidance",
+        "Sharing and your phone",
+        "Submitting to the public library",
         "Nothing here is saved",
-        "The math is validated, not approximated"
+        "The math is validated, not approximated",
+        "Built once, available everywhere",
+        "The same validated engine"
       ],
       "bodySnippets": [
         "A floating beaker button opens a set of everyday bench calculators. Every one computes live in your browser, and nothing you type is saved.",
@@ -1205,12 +1191,29 @@
         "Two nucleic-acid conversions in one tab. The mass-to-moles section turns a mass and a length into an amount, choosing the right average molecular weight for double-stranded DNA, single-stranded DNA, or RNA. The A260 section turns a spectrophotometer reading and a dilution fact...",
         "Paste an amino-acid sequence and it reports the same physico-chemical properties the ExPASy ProtParam tool reports, including the average molecular weight, the isoelectric point (pI), the molar extinction coefficient at 280 nm and the corresponding absorbance of a 0.1 percent ...",
         "Build a multi-component buffer. Set the total volume, then add a row per component with its final concentration and its stock concentration. For each component it gives the volume of stock to add, using volume = (final concentration x total volume) / stock concentration, and i...",
+        "The calculators above are fixed, and the math you do in them is scratch. Plenty of bench math is too specific to ship for everyone, though. A spore suspension from five hemocytometer counts, a master mix scaled to your reaction count, a dosing volume from an animal's weight. S...",
+        "Open the Lab calculators modal and, alongside the built-in tabs, you will find your own calculators, a Build your own button, and a template library. A calculator you build is just inputs and a formula. You name the things you measure, you write the answer as a formula using t...",
+        "The first time, a short wizard walks you through it one plain question at a time. What does this work out, what do you measure, what is the formula, any warnings to add, and what is the answer called. It assembles the calculator for you, with the answer updating live on the fo...",
+        "Once you have built one, Build your own opens a single form instead, with the same pieces laid out together. You can switch between the wizard and the form at any time, and your work carries across. The form keeps the simple case simple, the optional pieces (intermediate steps...",
+        "You rarely need to start from a blank page. The template library carries ready-made calculators grouped by field, including spore concentration, CFU per mL from plate counts, OD600 to cell density, qPCR amplification efficiency, and doubling time. Open the closest one, change ...",
+        "An input is a box you type a measurement into. You name it in plain words and the builder gives it a short name to use in formulas, so labelling one Average spore count lets you reference it as avgCount. An input can be a single number, a dropdown of choices, or a replicate li...",
+        "Guidance is the optional safety net. You write a condition and a message, and the message only appears when the condition is true. A spore calculator can warn you when the count is too low to be reliable, a qPCR calculator can flag an efficiency outside the accepted range. The...",
+        "A calculator you build is yours until you share it. Share it with your lab and everyone in your lab folder can run it as a live reference, so they always see your latest and you stay the only editor. Share it with someone outside your folder and a copy travels to them over the...",
+        "If you build a calculator others would find useful, you can submit it to the public template library. It opens a pre-filled submission on our GitHub for a maintainer to review, and accepted calculators ship in a later release for everyone to start from. It is reviewed rather t...",
         "The calculators are a scratchpad. They run entirely in your browser, they do not touch your data folder, and they keep no history. When you close the modal, the values are gone. If you want a number on the record, copy it into a note, an experiment, or a method protocol.",
         "The bench calculators are checked against exact algebra and cited reference constants, so the numbers are not estimates. The Primer Tm tab is a faithful port of Biopython's nearest-neighbor model (validated against Biopython directly), and the Protein properties tab is a faith...",
+        "Build a calculator on your laptop and it is in your folder, on your paired phone, and (if you share it) in your labmates' libraries, with no extra steps. Fix a formula once and the fix reaches everyone who has the lab-shared version, because they read your copy rather than hol...",
+        "Your calculators run on the same expression engine the built-in tabs use, so the math is the hardened, tested layer rather than a loose evaluator. The engine, and how our calculations reproduce reference values and published results, is shown on the Transparency page .",
         "The Lab calculators modal. Tabs across the top switch calculators; results update live as you type. Nothing here is saved.",
         "The Lab calculators modal open over the app, showing a row of tabs (Scientific, Molarity, Dilution, Serial dilution, Primer Tm, DNA / RNA, Protein properties, Buffer recipe) and the Molarity calculator's input fields and result card below.",
         "The Lab calculators modal. A tab row across the top switches between the bench calculators, and a footer reminds you that everything computes live and nothing is saved.",
-        "The Lab calculators modal open over the workbench, with a tab row across the top (Scientific, Molarity, Dilution, Serial dilution, Primer Tm, DNA / RNA, Protein properties, Buffer recipe) and the scientific calculator keypad showing."
+        "The Lab calculators modal open over the workbench, with a tab row across the top (Scientific, Molarity, Dilution, Serial dilution, Primer Tm, DNA / RNA, Protein properties, Buffer recipe) and the scientific calculator keypad showing.",
+        "First time through, a wizard asks one plain question at a time and assembles the calculator for you.",
+        "The build-your-own calculator wizard asking one plain-language question, with a live answer shown below the formula field.",
+        "The form view. Name your inputs, write the result formula (the chips above it drop a variable in), and the result computes live.",
+        "The build-your-own calculator form, with named inputs, clickable variable chips above the result formula, a live result, and an Advanced section for steps and guidance.",
+        "The template library. Start from a proven calculator and make it yours.",
+        "The calculator template library, a gallery of ready-made calculators grouped by field with a Use this action on each card."
       ]
     },
     {
@@ -1762,6 +1765,7 @@
         "The point is twofold. First comes speed. You should not have to retype a standard agarose-gel procedure or rebuild a colony-PCR program from memory every time. Second, and just as important, comes fidelity . A transcribed protocol from a known source is less error-prone than o...",
         "The library ships 91 templates grouped by the kind of lab task they cover. Each one targets a specific method type, so it opens in the right editor with the right fields the moment you use it.",
         "This is what makes these templates trustworthy and not only convenient. A growing subset of the library, 52 of the 91 templates today and rolling out further, bundles the actual vendor document the protocol was transcribed from, whether that is the kit insert, the manufacturer...",
+        "Two buttons in the template detail make that comparison one click each. View full protocol opens the complete extracted method rendered the way it will look once it is in your library, the full reagent table and cycling program rather than the compact summary the preview shows...",
         "Templates live one step away from your own Methods library . You browse them, preview them, and pull the one you want into your library as an editable method.",
         "Plate-layout templates are not just a picture of a grid. They are an interactive, annotated layout for the exact plate format you work in, including 384-well plates (16 rows A through P by 24 columns). The 384-well viability template, for example, ships with the blank, vehicle...",
         "A few of the LC-MS templates are combinations , packaging a liquid-chromatography gradient and a mass spec acquisition method into one attachable unit, because in practice the two are run together and the parameters are tuned as a pair. Three of these LC-MS combination templat...",
@@ -1773,7 +1777,7 @@
         "Plate layouts are ready-to-annotate 96- and 384-well grids for dose-response and assay work.",
         "Protein biochemistry, cell biology, analytical chemistry, and a general blank-protocol skeleton round out the set.",
         "From the Methods library, open the template browser. Use the segmented control to switch between your method types and the template catalog, and the category filter and search box (by name, type, or tag) to narrow the list.",
-        "Select a template to preview it in the detail pane, where you see the full protocol body, the structured fields, and, for the 52 with a bundled document, the source PDF you can open and read.",
+        "Select a template to preview it in the detail pane. A compact preview shows the shape of the protocol, and two buttons open the full view, View full protocol for the complete rendered method and (for the 52 with a bundled document) View vendor PDF for the original.",
         "Pick a destination category for where the new method should land in your library (the detail pane shows \"Will be added to\" so there is no surprise), then click Use template .",
         "The template is copied into your Methods library as a brand-new method you own. Edit it freely, attach it to experiments, and share it with the lab if you like. None of that touches the original template.",
         "Transcription can introduce errors, and a protocol you cannot check is a protocol you have to trust blindly. With the bundled PDF one click away, you can confirm an annealing temperature, a reagent volume, or a primer concentration against the manufacturer's own insert before ...",
@@ -1882,7 +1886,7 @@
         "With one or more rows selected, right-click any selected row (or click the ⋯ button) to open a context menu. The top two items read Send to task... and Send to note... for a single row, or Send N items to task... / Send N items to note... when multiple are selected. Picking ei...",
         "If any filename in the batch collides with an existing image in the destination task, the duplicate-resolution dialog pops up for each collision so you can Rename , Replace , or Cancel per item. Non-colliding items go through without interruption. When the batch finishes, a gr...",
         "The moment a new photo arrives in your inbox, a toast appears in the bottom-right corner with a thumbnail, the caption, and a one-click action. If an experiment popup is open, the action is File here , which moves the photo straight into that experiment. If nothing's open, the...",
-        "Toasts auto-dismiss after about 12 seconds, and any photo you file or delete elsewhere also drops out of the toast queue automatically. The small ✕ on a toast just dismisses the notification, the photo stays in the inbox until you act on it.",
+        "Toasts auto-dismiss after about 12 seconds, and any photo you file or delete elsewhere also drops out of the toast queue automatically. The small close button on a toast just dismisses the notification, the photo stays in the inbox until you act on it.",
         "The bell handles things you need to acknowledge directly, including the @-mentions and lab notifications above. The broader comment stream lives in a separate surface, the Lab Inbox . The two are kept separate on purpose.",
         "The split is by urgency. A direct @-mention lands in the bell so you do not miss a callout, while general comments on records you can read stay in the Lab Inbox only. See Comments for the threading and mention model.",
         "Reminders are a single setting that applies to every timed event on your calendar. Open the Calendar page and click Reminders at the top of the left sidebar. The popup holds three things.",
@@ -2001,7 +2005,7 @@
         "Move a step in or out of the cycle. When a block inside the cycled rectangle is selected, a red Remove from Cycle button appears next to the arrows. When a block outside the cycle is selected, a purple Add to Cycle button appears with a dropdown listing each cycle by position ...",
         "Adjust the repeat count. Click the purple badge above the cycled rectangle to open the Edit Cycle Repeats popup. Type a new number (1–100) and save.",
         "Add or remove blocks. The toolbar has + Add Step (opens a StepEditPopup pre-populated with \"New Step\", 60 °C, 30 sec, where the block only lands in the gradient after you click Save ) and + Add Cycle (opens an Add Empty Cycle confirmation modal with Cancel and Add buttons, whe...",
-        "Hit ✓ Done Editing to leave editing mode. The jiggle stops and the toolbar collapses.",
+        "Hit Done Editing to leave editing mode. The jiggle stops and the toolbar collapses.",
         "Scroll down to Reaction Recipe . Fill in each row with a stock concentration (e.g. 10x ) and a per-reaction volume in microliters. Use + Add Row at the bottom of the table to add ingredients, and the x on each row to remove one. The Total row at the bottom is a manual entry. T...",
         "Type any free-text Notes (lot numbers, master mix quirks, the day's primer pair). Click Create Method . The card appears in your protocol library and shows up in the Attach a method picker on any experiment.",
         "Same model as Methods. When a PCR protocol is attached to an experiment, any edits to volumes, temperatures, or cycle counts apply only to that run. The library copy stays untouched for the next person who attaches it.",
@@ -2433,7 +2437,7 @@
         "Most of the Lab Mode cards (audit trail, retention, purchase routing) are PI-only and stay hidden for members, but a member in a lab still sees the tab so they can read the roster and reach the Account type picker.",
         "Living in the Lab Mode tab, this is the Member vs PI role picker that decides what the rest of the app shows you. Member is the default. PI adds the fixed, curated Lab Overview page, audit logging, and purchase approval. Because the switch reshapes your nav and widgets, clicki...",
         "The first two cards handle the basics of where you are. The Data folder card shows the folder this app is currently reading and writing, with a Connect or switch folder button. Switching only re-points the app, it never moves or deletes files. The Account card shows who you're...",
-        "Near the top of the page, after the Data folder and Account cards, a small pointer card sends you to your Profile page . Your display name, avatar color, ORCID, researcher profile, and your account and keys all live there now, so this card is just a doorway with a Go to your P...",
+        "Near the top of the page, after the Data folder and Account cards, a small pointer card sends you to your Profile section . Your display name, avatar color, ORCID, researcher profile, and your account and keys all live there now, so this card is just a doorway with a Go to you...",
         "One switch for a quieter workspace. Turning it on silences the three playful surfaces at once, the streak badge, the per-task animation, and BeakerBot. Turning it back off doesn't flip those back automatically, so you re-enable whichever ones you want from their own panels.",
         "A two-column grid of checkboxes for every tab in the header (Home, Workbench, GANTT, Methods, Purchases, Calendar, Search, Lab Links). Uncheck a tab to hide it from your header. Home is grayed out with an \"always on\" tag so you can't accidentally hide every tab at once.",
         "Below the grid, the Default landing tab dropdown picks where ResearchOS opens when you load the app. The dropdown only lists tabs you have visible (plus Home), so you can't land somewhere you've hidden.",
@@ -2468,7 +2472,7 @@
         "Off by default in the hosted beta"
       ],
       "bodySnippets": [
-        "Every shareable record in ResearchOS (a method, a note, a task, a project, a high-level goal) carries one sharing field: shared_with, an array of small objects pairing a username with a permission level. That field plus a single sentinel value for 'the whole lab' is the entire...",
+        "Every shareable record in ResearchOS (a method, a note, a task, a project, a high-level goal) carries one sharing field, shared_with, an array of small objects pairing a username with a permission level. That field plus a single sentinel value for 'the whole lab' is the entire...",
         "Every shareable record carries a field. Here is its TypeScript signature.",
         "Each entry pairs a recipient with the level of access they get on this record. An empty array means \"private to me\", since the owner is implicit and never appears in their own list. Adding an entry grants that user the chosen level. Removing the entry revokes access entirely. ...",
         "Inspecting your JSON folder, you will see the objects on disk. Here is a method shared with two members at different levels.",
@@ -2782,7 +2786,7 @@
         "If multiple people in your lab should share one folder, put the folder inside OneDrive, Google Drive, Dropbox, or iCloud, and follow Shared Lab Accounts . The critical step is making sure the folder is always available offline on every member's laptop.",
         "The Link a folder card in the center : one card, titled Link a folder . It holds a short description, a drag-and-drop zone, and the Choose a folder button. This is the whole folder flow. Link an existing folder or a brand-new empty one through the same card.",
         "BeakerBot in the upper-right : a small sky-blue beaker mascot waving at you. Below the mascot is a white speech bubble that explains the optional walkthrough, plus a button labeled Take the 3-minute walkthrough . Skip past it entirely if you already know what you want to do.",
-        "The RISE credentials stamp in the bottom-right : a small badge that names the academic project this app was built under (a UW-Madison RISE grant). Pure authority signal; nothing to click.",
+        "The funding credentials stamp in the bottom-right : a small badge that names the academic project this app was built under (a UW Distinguished Research Fellowship at UW-Madison). Pure authority signal; nothing to click.",
         "Welcome. BeakerBot waves and gives you a two-sentence pitch for ResearchOS. There is also a small heart easter egg if you click the mascot.",
         "Data security. The core promise is that your data NEVER leaves your computer. No upload, no central server, no telemetry on your research. See Security for the full story.",
         "Folder choice. Local (recommended for solo) or cloud-synced (for cross-device or multi-person lab). Local skips the next beat and closes the modal; cloud advances to beat 4.",
@@ -2799,8 +2803,8 @@
         "If you've used ResearchOS before, point it at the same folder you used last time. Your projects, tasks, methods, and notes will load exactly as you left them.",
         "Skip the folder picker and visit Demo Mode instead. It opens the app at with a seeded fake yeast lab you can click around in. No folder, no install, edits disappear on reload.",
         "If you clear the site's data (e.g., browser settings → clear data), the folder handle is wiped. Your data on disk is untouched. You just have to pick the folder again next time you open ResearchOS.",
-        "The first screen you see on a fresh install. One centered Link a folder card, BeakerBot's optional walkthrough nudge in the upper-right, and the RISE credentials stamp pinned bottom-right.",
-        "The folder-link screen with a single Link a folder card in the center, BeakerBot waving from the upper-right with a Take the 3-minute walkthrough button, an Explore demo in browser link below the card, and the RISE credentials stamp in the bottom-right corner."
+        "The first screen you see on a fresh install. One centered Link a folder card, BeakerBot's optional walkthrough nudge in the upper-right, and the funding credentials stamp pinned bottom-right.",
+        "The folder-link screen with a single Link a folder card in the center, BeakerBot waving from the upper-right with a Take the 3-minute walkthrough button, an Explore demo in browser link below the card, and the funding credentials stamp in the bottom-right corner."
       ]
     },
     {
@@ -3372,7 +3376,7 @@
         "Verify the folder is local",
         "Pitfalls to avoid",
         "Want to feel out the shared model first?",
-        "The one rule: keep the folder available offline",
+        "The one rule, keep the folder available offline",
         "The PI sees the lab roll-up"
       ],
       "bodySnippets": [
@@ -3642,6 +3646,338 @@
       ]
     },
     {
+      "href": "/wiki/stats",
+      "title": "Reading your statistics",
+      "breadcrumbs": [
+        "Reading your statistics"
+      ],
+      "categoryId": "stats",
+      "headings": [
+        "Start here",
+        "Comparing groups",
+        "Relationships",
+        "Curves",
+        "Survival and time-to-event",
+        "Counts and categories",
+        "Screening and data quality",
+        "How to use this section",
+        "Every number is checked"
+      ],
+      "bodySnippets": [
+        "When the Data Hub runs a test, it hands back numbers and a one-line plain-language verdict. These pages explain what those numbers mean in the language a working scientist actually uses, so you can read your own result, write it up honestly, and know when to trust it. You do n...",
+        "Almost every result in the Data Hub reports a p-value , a number that tells you how surprising your data would be if nothing were really going on. A small p-value is a useful flag, but it does not tell you how big an effect is or whether it matters. For that you need the effec...",
+        "These tests answer \"are these groups really different, and by how much?\" Reach for them when you have a measured outcome (a fluorescence reading, a growth rate, a concentration) split across two or more conditions.",
+        "These answer \"do these two things move together, and can I predict one from the other?\" Reach for them when both of your variables are measured numbers rather than groups.",
+        "Some biology is not a straight line. A drug saturates, a binding curve plateaus, an enzyme runs out of substrate. These pages cover fitting a shaped curve and reading the parameters that summarize it.",
+        "When your outcome is \"how long until something happens,\" and some subjects have not had it happen yet, you need methods built for that. Reach for these for time to relapse, time to death, or time to any defined event.",
+        "When your data are counts in categories (responded or did not, mutant or wild type) rather than measured numbers, you compare proportions instead of means.",
+        "Two practical tools that sit alongside the rest, one for judging how well a measurement separates two groups, one for the honest question of whether a stray point is really an error.",
+        "Effect sizes and confidence intervals , why the size of a difference matters more than a bare p-value, and how to read a 95% confidence interval.",
+        "ANOVA, post-hoc tests, and two-way ANOVA , comparing three or more groups at once, then finding which specific pairs differ.",
+        "Repeated measures, mixed models, and nested designs , for when the same subjects are measured more than once, or your replicates are cells within mice rather than independent samples.",
+        "Correlation and regression , measuring how tightly two variables track each other, and fitting a line you can read a slope off of.",
+        "Dose-response curves , covering EC50 and IC50, the 4PL and 5PL sigmoid fits, the Hill slope, and comparing or sharing fits across datasets.",
+        "Survival curves and hazard ratios , covering Kaplan-Meier curves, the log-rank test, and the Cox hazard ratio.",
+        "Contingency tables, odds ratios, and relative risk , covering chi-square and Fisher exact tests, plus the odds ratio that logistic regression also reports.",
+        "ROC curves and AUC , how well a continuous measurement tells two groups apart, with sensitivity, specificity, and a cut point.",
+        "Outlier tests , the Grubbs test, and the honest caution that removing a data point needs a real reason.",
+        "Each page starts with what the test is and when a lab actually reaches for it, then shows you how to read the exact fields the Data Hub reports, with a worked example that turns the numbers into a sentence. Start with effect sizes and confidence intervals if you read only one....",
+        "Every test in these pages is validated against the tools labs already trust (scipy, statsmodels, and R) on the transparency page , which reruns the same inputs through those packages and shows the numbers line up. The result you read in the Data Hub is the same one those packa..."
+      ]
+    },
+    {
+      "href": "/wiki/stats/anova",
+      "title": "ANOVA, post-hoc tests, and two-way ANOVA",
+      "breadcrumbs": [
+        "Reading your statistics",
+        "ANOVA, post-hoc, and two-way"
+      ],
+      "categoryId": "stats",
+      "headings": [
+        "What ANOVA is",
+        "When a lab reaches for it",
+        "How to read the result",
+        "Post-hoc tests: which pairs differ",
+        "Two-way ANOVA: two factors at once",
+        "A worked example",
+        "Read the post-hoc intervals, not just the stars",
+        "Related designs"
+      ],
+      "bodySnippets": [
+        "A t-test compares two groups. The moment you have three or more, you need ANOVA, which asks whether any of the groups differ before you go hunting for which ones. This page covers the one-way ANOVA, the post-hoc tests that find the specific pairs that differ, and the two-way A...",
+        "ANOVA stands for analysis of variance. Despite the name, the question it answers is about means. Given three or more groups, it asks \"is at least one of these group means different from the rest, more than chance alone would produce?\" It does this by comparing how much the gro...",
+        "Why not just run a t-test on every pair? Because each test carries a chance of a false positive, and running many of them stacks those chances up until a \"significant\" result is likely somewhere by luck alone. ANOVA asks the single overall question once, with one controlled er...",
+        "You have a dose series (vehicle, low, medium, high) and one readout, and you want to know whether dose changes the readout at all. Or you have cells from four genotypes and a single growth measurement. Any time the design is \"one measured outcome split across three or more con...",
+        "The Data Hub reports an F statistic , its degrees of freedom , and an overall p-value . The F statistic is the ratio of between-group spread to within-group spread, so a large F with a small p-value means the groups really do differ somewhere. A non-significant ANOVA is a stop...",
+        "A significant ANOVA tells you that some group differs, not which . The post-hoc tests answer that, by comparing each pair of groups while correcting for the fact that you are making many comparisons at once. The Data Hub reports, for each pair, the difference in means , its 95...",
+        "The common correction (Tukey) compares every group to every other. Others compare each treatment only to a single control, which is the right choice when that is genuinely the only comparison you planned. The verdict tells you which pairs cleared the bar in plain words.",
+        "A two-way ANOVA is for when two things vary together. Say you cross genotype (wild type vs mutant) with treatment (drug vs vehicle). Now there are three questions, and the two-way ANOVA answers all three.",
+        "The result reports an F statistic and p-value for each of the three rows. Read the interaction first. If it is significant, the two main effects are no longer the whole story and you interpret each combination on its own, often with post-hoc comparisons of the specific cells.",
+        "Three media give colony counts averaging 50, 65, and 80. The one-way ANOVA returns F = 14.2, p = 0.0003, so the media differ somewhere. The Tukey post-hoc shows medium vs rich differs by 15 colonies (95% CI 6 to 24, adjusted p = 0.002) while minimal vs medium does not clear th...",
+        "ResearchOS validates one-way and two-way ANOVA and the post-hoc corrections against statsmodels and R on the transparency page .",
+        "The main effect of genotype : averaging over treatment, do the genotypes differ?",
+        "The main effect of treatment : averaging over genotype, does the drug do anything?",
+        "The interaction : does the drug's effect depend on the genotype? This is usually the interesting one. A significant interaction means you cannot describe the drug with a single number, its effect is different in the mutant than in the wild type.",
+        "A pair can clear significance with a difference that is still tiny. As on the effect sizes page, the confidence interval on each pairwise difference tells you the size and the precision, which is what you actually report.",
+        "If the same subjects are measured under every condition, or your replicates are not independent, you want a repeated-measures or nested design instead, which accounts for that structure rather than treating every point as a fresh independent sample."
+      ]
+    },
+    {
+      "href": "/wiki/stats/contingency",
+      "title": "Contingency tables, odds ratios, and relative risk",
+      "breadcrumbs": [
+        "Reading your statistics",
+        "Contingency tables and odds ratios"
+      ],
+      "categoryId": "stats",
+      "headings": [
+        "What a contingency table is",
+        "Chi-square versus Fisher exact",
+        "Odds ratios",
+        "Relative risk, and when to use which",
+        "A worked example",
+        "This is also what logistic regression reports"
+      ],
+      "bodySnippets": [
+        "When your data are counts in categories rather than measured numbers, responded or did not, mutant or wild type, survived or died, you compare proportions. A contingency table lays those counts out, and a handful of tests and effect sizes tell you whether the categories are li...",
+        "A contingency table is a grid of counts. The simplest is two-by-two, two groups down the side, two outcomes across the top, with the number of subjects in each cell. The question is whether the outcome depends on the group, or whether the rows and columns are independent and a...",
+        "Two tests answer that same question, and the only real choice between them is sample size.",
+        "Both report a p-value for whether the categories are associated. As elsewhere, that tells you whether there is a link, not how strong it is. For strength, you want the effect sizes below.",
+        "The odds ratio is the workhorse effect size for two-by-two data. Odds are a count ratio, the number with the outcome divided by the number without it. The odds ratio compares the odds in one group against the odds in the other.",
+        "The Data Hub reports the odds ratio with its 95% confidence interval . If the interval excludes 1, the association is statistically clear, the same call the test's p-value makes, and the interval's width tells you the precision.",
+        "Relative risk compares the actual probability of the outcome between groups, not the odds. A relative risk of 2 means the outcome was twice as likely in one group. It is often the more intuitive number, and it is the right one when you sampled groups and then watched for outco...",
+        "Of 50 treated patients, 10 relapsed; of 50 controls, 25 relapsed. Fisher's exact test gives p = 0.002. The odds ratio is 0.27 (95% CI 0.11 to 0.64) and the relative risk is 0.40. You would write \"relapse was less frequent on treatment, 20% versus 50% (relative risk 0.40, odds ...",
+        "ResearchOS validates the chi-square and Fisher exact tests, the odds ratio, and logistic regression against scipy and statsmodels on the transparency page .",
+        "The chi-square test compares the counts you observed against the counts you would expect if the rows and columns were independent. It is fast and standard, and it is reliable when the expected count in every cell is reasonably large (a common rule of thumb is at least 5).",
+        "Fisher's exact test computes the probability directly rather than approximating, so it stays accurate when counts are small. With any sparse cell, Fisher exact is the safe choice, and the Data Hub leans on it automatically for small tables.",
+        "An odds ratio of 1 means the outcome is equally likely in both groups, no association.",
+        "Above 1 means higher odds in the first group. An odds ratio of 3 means the exposed group had three times the odds of the outcome.",
+        "Below 1 means lower odds, a protective association.",
+        "Logistic regression predicts a yes/no outcome from one or more predictors, and it reports each predictor's effect as an odds ratio, read exactly as above. The difference from a plain contingency table is that logistic regression can hold several predictors constant at once, so..."
+      ]
+    },
+    {
+      "href": "/wiki/stats/correlation-and-regression",
+      "title": "Correlation and regression",
+      "breadcrumbs": [
+        "Reading your statistics",
+        "Correlation and regression"
+      ],
+      "categoryId": "stats",
+      "headings": [
+        "What correlation measures",
+        "Fitting a line with simple linear regression",
+        "A worked example",
+        "Multiple regression: several predictors at once",
+        "Correlation is not causation, and r is only for straight lines",
+        "Watch for predictors that move together",
+        "Related pages"
+      ],
+      "bodySnippets": [
+        "When both of your variables are measured numbers, you usually want to know whether they move together and whether you can predict one from the other. Correlation measures how tightly two things track. Regression fits an actual line you can read a slope off of and use to predic...",
+        "Correlation measures how consistently two variables rise and fall together. The common measure is Pearson's r , which runs from -1 to +1. An r near +1 means that when one goes up the other reliably goes up; near -1 means one goes up as the other goes down; near 0 means no stra...",
+        "The Data Hub reports r , its 95% confidence interval , a p-value for whether the correlation differs from zero, and often r squared , the fraction of the variation in one variable that tracks with the other. An r of 0.7 gives an r squared of about 0.49, so roughly half the var...",
+        "Where correlation gives a single number for tightness, linear regression fits the actual line and hands you its equation. It is the right tool when one variable plausibly drives the other and you want to predict or quantify the relationship, the absorbance you expect at a give...",
+        "The result reports the slope with its confidence interval and p-value , the intercept , and r squared for how well the line fits. The slope is the headline, it is how much the outcome changes for each one-unit change in the predictor, in real units. A slope whose confidence in...",
+        "You plot fluorescence against protein concentration and fit a line. The slope is 1,250 units per microgram (95% CI 1,180 to 1,320, p 0.0001), with r squared = 0.98. You would write \"fluorescence rose 1,250 units per microgram of protein (95% CI 1,180 to 1,320, p 0.0001), and t...",
+        "Multiple regression predicts one outcome from two or more predictors together. Its real value is that each predictor's effect is estimated while holding the others constant . If yield depends on both temperature and pH, multiple regression tells you the effect of temperature a...",
+        "The result reports, for each predictor, a coefficient with its confidence interval and p-value , plus an overall r squared and a model-level p-value. Read each coefficient as \"the change in the outcome per unit of this predictor, with the other predictors held fixed.\" A predic...",
+        "ResearchOS validates correlation, simple regression, and multiple regression against scipy and statsmodels on the transparency page .",
+        "A strong r says two things track together, not that one causes the other, a lurking third variable can drive both. And Pearson's r only sees straight-line relationships. A perfect U-shaped curve can have an r near zero. Always look at the scatter plot, not just the number.",
+        "When two predictors are themselves strongly correlated (temperature and pressure that always rise together in your setup), the model struggles to credit the effect to one or the other, and their individual coefficients get wide, unstable intervals. The fix is more varied data ...",
+        "If your outcome is a yes/no category rather than a number, you want logistic regression and its odds ratios, covered on the contingency page . If the relationship is a saturating curve rather than a line, see dose-response curves . The slope and its interval are read the same ..."
+      ]
+    },
+    {
+      "href": "/wiki/stats/dose-response",
+      "title": "Dose-response curves",
+      "breadcrumbs": [
+        "Reading your statistics",
+        "Dose-response curves"
+      ],
+      "categoryId": "stats",
+      "headings": [
+        "What a dose-response curve is",
+        "EC50 and IC50, the halfway dose",
+        "The Hill slope and the models",
+        "Comparing models",
+        "Global fits: sharing parameters across datasets",
+        "A worked example",
+        "Report the EC50 with its interval, on the log scale"
+      ],
+      "bodySnippets": [
+        "A lot of biology is a saturating S-curve, not a straight line. A drug has little effect at low doses, a steep response through the middle, and a plateau once the system is maxed out. A dose-response fit captures that shape and boils it down to a few numbers you can compare acr...",
+        "You plot response against dose, almost always with dose on a log scale , and fit a smooth S-shaped curve through the points. The curve summarizes the whole experiment with a handful of parameters, the bottom plateau, the top plateau, the dose at the halfway point, and how stee...",
+        "The single most-used number is the dose that produces a half-maximal response. When the response goes up with dose, that is the EC50 (half-maximal effective concentration). When the response goes down, an inhibition, it is the IC50 (half-maximal inhibitory concentration). A lo...",
+        "The Hill slope describes how steep the climb is through the middle of the curve. A slope near 1 is the standard simple case; a steeper slope means the response switches on over a narrow dose range, which can hint at cooperative binding. The Data Hub reports it as a fitted para...",
+        "The shape comes from a model. The 4PL (four-parameter logistic) fits the bottom plateau, the top plateau, the EC50, and the Hill slope, and is the default for a symmetric S-curve. The 5PL adds a fifth parameter for asymmetry, for curves that approach their two plateaus at diff...",
+        "Should you use the simpler 4PL or the more flexible 5PL? A more complex model will always fit your particular points at least slightly better, just by having an extra knob to turn, so a bare improvement in fit is not a good reason to prefer it. Model comparison asks the sharpe...",
+        "The Data Hub reports a comparison (an F test or an information criterion such as AIC) that weighs the gain in fit against the added complexity, and states which model is preferred. The honest default is the simpler model unless the data clearly call for more. A multi-effect co...",
+        "Often several curves should share something. Three compounds tested the same day plausibly share the same top and bottom plateau, they differ only in potency. A global fit fits all the curves at once with some parameters shared and others left free per curve. Sharing the plate...",
+        "The result reports the shared parameters once, the free parameters per dataset, and the confidence intervals throughout. The headline is usually the ratio of EC50s between curves, with its interval, which answers \"is compound A genuinely more potent than compound B?\"",
+        "You fit an inhibition curve and get an IC50 of 120 nM (95% CI 95 to 150), a Hill slope of 1.1, and r squared = 0.99. A second compound gives an IC50 of 480 nM (95% CI 410 to 560). The intervals do not overlap, so you would write \"compound A was about four-fold more potent than...",
+        "ResearchOS validates the 4PL and 5PL fits, the EC50 and IC50 estimates, and the model comparisons against scipy and R on the transparency page .",
+        "Because dose is fitted on a log scale, the EC50's uncertainty is not symmetric in plain units. The Data Hub reports its confidence interval, and that interval is what tells you whether two compounds genuinely differ in potency, as on the effect sizes page."
+      ]
+    },
+    {
+      "href": "/wiki/stats/effect-sizes",
+      "title": "Effect sizes and confidence intervals",
+      "breadcrumbs": [
+        "Reading your statistics",
+        "Effect sizes and confidence intervals"
+      ],
+      "categoryId": "stats",
+      "headings": [
+        "What a p-value actually says",
+        "What an effect size is",
+        "What a confidence interval is",
+        "How to read it in the Data Hub",
+        "A worked example",
+        "A quick read on the interval",
+        "Where this shows up next"
+      ],
+      "bodySnippets": [
+        "A p-value tells you whether a difference is likely to be real. It does not tell you how big that difference is, or whether it is big enough to care about. The effect size answers the size question, and the confidence interval tells you how precisely you have pinned it down. Th...",
+        "A p-value is the probability of seeing a difference at least as large as yours, if the groups were really identical and only chance produced the gap. A small p-value (by long convention, below 0.05) means \"this would be a surprising amount of noise,\" so you treat the differenc...",
+        "The catch is that the p-value mixes together two things you care about separately, how big the effect is and how much data you collected. With a large enough sample, a difference far too small to matter biologically can still earn a tiny p-value. With a small sample, a real an...",
+        "An effect size is the answer to \"how big is the difference?\" in units you can reason about. There are two flavors you will meet.",
+        "Your effect size is an estimate from one sample. Run the experiment again and you would get a slightly different number. A 95% confidence interval is the range that captures that wobble. Read it as \"the true effect is plausibly anywhere in this range, and our single best guess...",
+        "When you run a two-group comparison (a t-test), the result reports the mean of each group , the difference between the means with its 95% confidence interval , the p-value , and Cohen's d as the standardized effect size. The plain-language verdict above the table already state...",
+        "Suppose a treated group averages 42 units and a control averages 30, a difference of 12 units with a 95% confidence interval of 7 to 17, a p-value of 0.001, and a Cohen's d of 1.3. You would write that as \"the treatment raised the readout by 12 units (95% CI 7 to 17, p = 0.001...",
+        "ResearchOS validates the t-test, Cohen's d, and the confidence interval against scipy and statsmodels on the transparency page , which reruns the same inputs through those packages so you can see the numbers match.",
+        "A raw effect size is the difference in the units you measured. Two micromolar, fifteen percent more colonies, a 0.4 hour shorter doubling time. This is usually the most honest thing to report, because anyone in your field can judge whether it matters.",
+        "A standardized effect size rescales the difference by how spread out the data are, so it has no units. The common one for two groups is Cohen's d , which measures the gap between two means in units of standard deviation. A d of 0.2 is small, 0.5 is medium, and 0.8 or more is l...",
+        "For a difference between two groups, look at whether the 95% interval includes zero. If it does not, the difference is statistically clear, the same call the p-value makes. But the interval tells you more, it shows the smallest and largest difference still consistent with your...",
+        "Every other test reports its own version of this trio. A correlation has an r and its interval , a survival analysis has a hazard ratio and its interval , a contingency table has an odds ratio and its interval . Once you can read a confidence interval here, you can read all of..."
+      ]
+    },
+    {
+      "href": "/wiki/stats/outliers",
+      "title": "Outlier tests",
+      "breadcrumbs": [
+        "Reading your statistics",
+        "Outlier tests"
+      ],
+      "categoryId": "stats",
+      "headings": [
+        "What an outlier test does",
+        "When a lab reaches for it",
+        "How to read the result",
+        "The honest rule for removing data",
+        "A worked example",
+        "A flag is not a license to delete",
+        "Related reading"
+      ],
+      "bodySnippets": [
+        "Now and then a data point sits far from the rest and you wonder whether it is a genuine result or a mistake, a mispipette, a bubble, a transcription slip. An outlier test gives you a principled way to flag a point as statistically extreme. But flagging is the easy part. The ho...",
+        "An outlier test asks whether the most extreme point in your sample is farther from the others than you would expect from the normal spread of the data. The common one is the Grubbs test , which takes the single most extreme value, measures how many standard deviations it sits ...",
+        "You run an assay in triplicate and one well reads wildly off from the other two. Before you average, you want a defensible way to ask whether that well is an aberration rather than real biology. The Grubbs test is built for exactly this, a single suspected outlier in an otherw...",
+        "The Data Hub reports the suspected value , the Grubbs statistic (how many standard deviations it lies from the mean), and a p-value . A p-value below your threshold means the point is statistically extreme. The Grubbs test is designed to flag one outlier at a time; if you susp...",
+        "The defensible reason to drop a point is a documented problem with that measurement, not its value. A note that the well had a visible bubble, an instrument error logged at that timestamp, a sample you know was compromised. That reason should exist independently of how the num...",
+        "Triplicate readings come back as 4.9, 5.1, and 9.8. Grubbs flags 9.8 (G = 1.15, p = 0.03). On its own that is not permission to delete it. You check the run log, find that well was flagged for a pipetting error, and on that documented basis you exclude it, reporting \"one of th...",
+        "ResearchOS validates the Grubbs test against scipy and R on the transparency page .",
+        "Statistical extremeness tells you a point is unusual. It cannot tell you why . Removing a point because it is inconvenient, with no independent reason, is how real effects get erased and how noise gets polished into a false result. A flagged point is a prompt to investigate, n...",
+        "If your spread is wide because the data are genuinely variable rather than because of an error, the better path is to report the variation honestly with a confidence interval , which already accounts for how noisy the measurement is."
+      ]
+    },
+    {
+      "href": "/wiki/stats/repeated-measures",
+      "title": "Repeated measures, mixed models, and nested designs",
+      "breadcrumbs": [
+        "Reading your statistics",
+        "Repeated measures and nested designs"
+      ],
+      "categoryId": "stats",
+      "headings": [
+        "The problem these designs solve",
+        "Repeated-measures ANOVA",
+        "Mixed models",
+        "Nested designs and the replicate trap",
+        "A worked example",
+        "Technical replicates are not your sample size",
+        "When the design is simpler"
+      ],
+      "bodySnippets": [
+        "Ordinary ANOVA assumes every data point is an independent sample. Real experiments often break that assumption. You measure the same animal before and after, or you read three wells from the same dish, or you count cells within mice within litters. These designs share structur...",
+        "Independence is the quiet assumption behind most simple tests. Two measurements are independent when knowing one tells you nothing about the other. The moment they share a source, a subject, a dish, an animal, they are correlated, and treating them as independent makes your sa...",
+        "Use a repeated-measures ANOVA when the same subjects are measured under every condition. A classic case is a crossover, the same ten patients receive drug and placebo in turn, or the same cell line is read at four timepoints. Because each subject acts as its own control, the a...",
+        "The result reports an F statistic and p-value for the within-subject factor, much like an ordinary ANOVA, but computed against the right within-subject error so the subject-to-subject baseline does not drown the signal.",
+        "A mixed model is the flexible generalization. The name comes from mixing two kinds of effect. A fixed effect is the thing you care about and chose deliberately, the drug, the genotype, the dose. A random effect is a source of variation you are sampling from rather than studyin...",
+        "Mixed models earn their keep when the design is unbalanced or has gaps, a patient missed a visit, a well failed. Repeated-measures ANOVA gets awkward with missing cells; a mixed model handles them gracefully because it works from the data you have rather than requiring a perfe...",
+        "This is the one that quietly invalidates a lot of published work, so it is worth being plain about. A nested design is when your observations sit inside a hierarchy. You image 30 cells, but those cells come from 3 mice, 10 cells each.",
+        "The honest analysis respects the nesting. Either you summarize each animal to one number and compare animals, or you use a nested t-test or nested ANOVA (a mixed model with animal as a random effect) that pools the cell-level data while still counting animals as the unit of re...",
+        "The nested result reports the effect estimated at the group level (the difference between conditions across animals), its confidence interval , and a p-value based on the number of animals. The within-animal spread is used to weight the estimate, not to inflate the sample size.",
+        "You treat 4 mice with a drug and 4 with vehicle, imaging 25 cells per mouse. A naive t-test on all 200 cells gives p 0.0001, which looks spectacular and is wrong. The nested analysis, counting mice as the unit, returns a mean difference of 8% (95% CI -2 to 18, p = 0.10). You w...",
+        "ResearchOS validates repeated-measures ANOVA, the mixed-model fits, and the nested tests against statsmodels and R on the transparency page .",
+        "Counting 30 cells as n = 30 is the mistake. The cells within one mouse are technical replicates , they tell you about that one mouse measured precisely, not about mice in general. Your real independent unit, the biological replicate , is the mouse. Your n is 3, not 30. Treatin...",
+        "If every measurement really is independent and you just have three or more groups, the plain one-way ANOVA is the right tool. If you have two groups, see effect sizes for the t-test. These structured designs are for when independence does not hold."
+      ]
+    },
+    {
+      "href": "/wiki/stats/roc-auc",
+      "title": "ROC curves and AUC",
+      "breadcrumbs": [
+        "Reading your statistics",
+        "ROC curves and AUC"
+      ],
+      "categoryId": "stats",
+      "headings": [
+        "The problem a ROC curve solves",
+        "Sensitivity and specificity",
+        "AUC, one number for separation",
+        "Choosing a cut point",
+        "A worked example",
+        "The best cut point depends on the cost of each mistake"
+      ],
+      "bodySnippets": [
+        "Suppose you have a continuous measurement, a biomarker level, an assay readout, and you want to use it to tell two groups apart, diseased from healthy, responder from non-responder. A ROC curve shows how well that single measurement separates the two groups across every possib...",
+        "A continuous marker rarely separates two groups perfectly, the distributions overlap. Wherever you set a threshold to call a sample positive, you make two kinds of mistake, and they trade off. Set the threshold low and you catch almost every true positive but also flag many ne...",
+        "The two axes are the two things you are trading.",
+        "Each point on the ROC curve is one possible threshold, plotting the sensitivity and false-positive rate you would get if you drew the line there. A curve that bows up toward the top-left corner is a good separator, it is achieving high sensitivity without paying much in false ...",
+        "The AUC is the area under the ROC curve, a single number from 0.5 to 1. An AUC of 0.5 means the marker has no discriminating power, the diagonal. An AUC of 1.0 is perfect separation. A useful plain reading, the AUC is the probability that a randomly chosen positive scores high...",
+        "The Data Hub reports the AUC with its 95% confidence interval . An interval whose lower end stays well above 0.5 means the marker genuinely separates the groups, and its width tells you how sure you are, read it as on the effect sizes page.",
+        "The ROC curve shows every threshold, but eventually you have to pick one to actually use. A common, balanced choice is the Youden cut point , the threshold that maximizes sensitivity plus specificity minus one, which is the point on the curve sitting farthest above the diagona...",
+        "A blood marker separating responders from non-responders gives an AUC of 0.82 (95% CI 0.74 to 0.90). The Youden cut point sits at 3.1 ng/mL, where sensitivity is 0.78 and specificity is 0.80. You would write \"the marker discriminated responders from non-responders with an AUC ...",
+        "ResearchOS validates the ROC curve, the AUC and its interval, and the cut point against scikit-learn and R's pROC package on the transparency page .",
+        "Sensitivity is the fraction of true positives the test catches. High sensitivity means few missed cases. It is on the vertical axis.",
+        "Specificity is the fraction of true negatives the test correctly clears. High specificity means few false alarms. The horizontal axis is one minus specificity, the false-positive rate.",
+        "The Youden point treats a missed case and a false alarm as equally bad. Often they are not. A cheap confirmatory test downstream argues for high sensitivity even at the cost of false positives; an invasive or costly follow-up argues for high specificity. Use the Youden point a..."
+      ]
+    },
+    {
+      "href": "/wiki/stats/survival",
+      "title": "Survival curves and hazard ratios",
+      "breadcrumbs": [
+        "Reading your statistics",
+        "Survival curves and hazard ratios"
+      ],
+      "categoryId": "stats",
+      "headings": [
+        "Why time-to-event data is special",
+        "Kaplan-Meier curves",
+        "The log-rank test",
+        "Hazard ratios and the Cox model",
+        "A worked example",
+        "The log-rank says whether, not how much"
+      ],
+      "bodySnippets": [
+        "When your outcome is how long until something happens, time to relapse, time to death, time to a tumor reaching a size, you need methods built for time-to-event data. The reason ordinary tests fall short is that some subjects have not had the event yet when the study ends, and...",
+        "The defining feature is censoring . A patient who is still alive at the last follow-up has not had the event, but you do not know when, or if, they will. That is real information, they survived at least this long, and survival methods use it rather than throwing it away. Avera...",
+        "The Kaplan-Meier estimate is the survival curve itself, a stepped line showing the fraction of subjects still event-free over time. It steps down at each event and accounts for censored subjects by dropping them out of the at-risk pool without counting them as events. Reading ...",
+        "The Data Hub reports the curve plus the median survival for each group, the time by which half the subjects have had the event, with its confidence interval. Median survival is often the cleanest single summary, \"median time to relapse was 14 months in the treated arm versus 9...",
+        "The log-rank test asks whether two (or more) Kaplan-Meier curves differ more than chance would explain. It compares the whole curves over the entire follow-up, not just a single timepoint, so it uses all the event timing. The result is a p-value . A small one means the surviva...",
+        "The hazard ratio is the effect size for survival data. The hazard is the instantaneous risk of the event at any moment among those still at risk. The Cox regression model estimates how a factor multiplies that risk, and reports it as a ratio.",
+        "The result reports the hazard ratio , its 95% confidence interval , and a p-value . Read the interval exactly as on the effect sizes page, if it does not include 1, the effect is statistically clear, and its width tells you how precisely you have pinned the risk change down. T...",
+        "A trial reports median time to progression of 14 months on treatment versus 9 on control, a log-rank p = 0.004, and a Cox hazard ratio of 0.62 (95% CI 0.45 to 0.85). You would write \"treatment extended median time to progression from 9 to 14 months and reduced the hazard of pr...",
+        "ResearchOS validates the Kaplan-Meier estimate, the log-rank test, and the Cox model against the lifelines package and R's survival library on the transparency page .",
+        "A hazard ratio of 1 means no difference in risk.",
+        "Below 1 means lower risk. A hazard ratio of 0.6 for the treatment means treated subjects had 60% the event risk of controls at any given moment, a protective effect.",
+        "Above 1 means higher risk. A hazard ratio of 1.8 means 80% more risk.",
+        "Like an ANOVA p-value, the log-rank test flags a difference but does not size it. For the size of the effect, the gap in median survival and the hazard ratio below are what you report."
+      ]
+    },
+    {
       "href": "/wiki/trust",
       "title": "Trust",
       "breadcrumbs": [
@@ -3664,7 +4000,7 @@
         "ResearchOS reads and writes a folder you pick on your own computer. There is no database we control, so there is nothing for us to lose, sell, or get breached. The Security section is the full plain-English version of that claim, including the narrow exceptions and how to veri...",
         "Every sequence and lab calculation ResearchOS performs is checked, on every commit, against the peer-reviewed reference tools the field already relies on (Biopython, primer3, pydna). The numbers cannot silently drift, because a drift fails the build. Method validation explains...",
         "ResearchOS is licensed under AGPLv3, which means a lab can read the whole thing, fork it, and self-host it. The project also credits and thanks the open-source work it builds on. Open source and license covers what the license gives you and where the credits live.",
-        "ResearchOS is grant-funded through a UW-Madison RISE fellowship, not venture-backed. Every feature is free with no per-seat fees, a deliberate choice to keep the tool reachable for low-resource labs. The only optional paid part is cloud storage for labs that use a lot of it, p...",
+        "ResearchOS is grant-funded through a UW Distinguished Research Fellowship at UW-Madison, not venture-backed. Every feature is free with no per-seat fees, a deliberate choice to keep the tool reachable for low-resource labs. The only optional paid part is cloud storage for labs...",
         "Your data stays with you, the math is checked against the references your field trusts, the code is open for anyone to read or run, and the money behind the project does not depend on locking you in."
       ]
     },
@@ -3685,7 +4021,7 @@
       ],
       "bodySnippets": [
         "Who pays for a tool shapes who it serves. ResearchOS is grant-funded, not venture-backed, and that single fact is why it can stay free and open for labs that could never afford a per-seat subscription.",
-        "ResearchOS is funded by a UW-Madison RISE fellowship. It is not backed by venture capital, it is not chasing an acquisition, and it does not answer to investors who need the user base monetized. The work is paid for as research infrastructure, which is a fundamentally differen...",
+        "ResearchOS is funded by a UW Distinguished Research Fellowship at the University of Wisconsin-Madison, supported through the Office of the Vice Chancellor for Research with funding from the Wisconsin Alumni Research Foundation. It is not backed by venture capital, it is not ch...",
         "Because the funding does not depend on extracting payment from the people using the tool, ResearchOS does not have the usual levers a commercial ELN reaches for.",
         "A per-seat ELN subscription is a real barrier. For a small lab, a teaching lab, a lab at an under-resourced institution, or a researcher in a setting where the field's standard tools are out of budget, the price is often the reason good data management never happens. Grant fun...",
         "It would be easy, and dishonest, to promise the project will never cost anything under any circumstances. No one can guarantee the funding landscape years out. What ResearchOS can say plainly is the commitment behind the design. The project is built to stay free and open for t...",
@@ -3706,6 +4042,7 @@
       "headings": [
         "The concept",
         "What it is checked against",
+        "Reproducing published results",
         "Why the numbers cannot silently drift",
         "What this does not claim",
         "See it for yourself"
@@ -3716,6 +4053,8 @@
         "The answer is that ResearchOS does not ask you to take its math on faith. For each capability, it compares its own output against a peer-reviewed reference implementation that the field already trusts. These are not numbers we invented. They come from the same tools working sc...",
         "The reference tools, called oracles in the code, are the established names in computational biology.",
         "For every showcase case, ResearchOS records its own value, the pinned oracle value, the exact tool version, the specific function called, and the committed script that re-derives the reference number. A reader can follow that trail and reproduce it.",
+        "Matching a reference tool shows ResearchOS computes the same thing another program computes. A stronger check is reproducing what the literature itself reports, so the same validation now includes cases drawn straight from primary sources. ResearchOS translates a gene and repr...",
+        "Where our result and a familiar figure differ for a real reason, we show the real one and explain it rather than matching the textbook out of habit. The lambda HindIII digest is the clean example. The deposited sequence yields seven fragments, not the eight bands of the classi...",
         "The honest part is not just that ResearchOS matches these tools once. It is that the match is re-checked automatically and can never quietly fall out of agreement. The public Method validation page and the test that gates the build both call the exact same function, in . The p...",
         "That gating test, , runs on every commit. If a future change to a ResearchOS calculation pushes its output past the agreed tolerance for any case, the comparison fails, the test fails, and the build fails before the change can reach you. A documented, explained difference (for...",
         "Matching a reference tool means ResearchOS computes the same thing the reference computes, faithfully. It does not mean the underlying method is the only valid one, and it does not replace your own judgment about which method fits your experiment. The point is narrower and mor...",

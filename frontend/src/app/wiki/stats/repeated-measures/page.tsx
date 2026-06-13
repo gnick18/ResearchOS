@@ -1,0 +1,120 @@
+import Link from "next/link";
+import WikiPage from "@/components/wiki/WikiPage";
+import Callout from "@/components/wiki/Callout";
+
+export default function RepeatedMeasuresPage() {
+  return (
+    <WikiPage
+      title="Repeated measures, mixed models, and nested designs"
+      intro="Ordinary ANOVA assumes every data point is an independent sample. Real experiments often break that assumption. You measure the same animal before and after, or you read three wells from the same dish, or you count cells within mice within litters. These designs share structure that you have to account for, otherwise you fool yourself into thinking you have far more independent data than you really do. This page covers the three common cases."
+    >
+      <h2>The problem these designs solve</h2>
+      <p>
+        Independence is the quiet assumption behind most simple tests. Two
+        measurements are independent when knowing one tells you nothing about the
+        other. The moment they share a source, a subject, a dish, an animal, they
+        are correlated, and treating them as independent makes your sample look
+        bigger and your p-values look smaller than they should. The fix is not to
+        throw data away. It is to use a method that knows about the structure.
+      </p>
+
+      <h2>Repeated-measures ANOVA</h2>
+      <p>
+        Use a <strong>repeated-measures ANOVA</strong> when the same subjects are
+        measured under every condition. A classic case is a crossover, the same
+        ten patients receive drug and placebo in turn, or the same cell line is
+        read at four timepoints. Because each subject acts as its own control,
+        the analysis can subtract out the steady differences between subjects (one
+        patient just runs high across the board) and look only at how each subject
+        <em> moves</em> across conditions. That makes the test more sensitive than
+        treating the measurements as unrelated groups.
+      </p>
+      <p>
+        The result reports an <strong>F statistic</strong> and{" "}
+        <strong>p-value</strong> for the within-subject factor, much like an
+        ordinary ANOVA, but computed against the right within-subject error so
+        the subject-to-subject baseline does not drown the signal.
+      </p>
+
+      <h2 id="mixed-models">Mixed models</h2>
+      <p>
+        A <strong>mixed model</strong> is the flexible generalization. The name
+        comes from mixing two kinds of effect. A <strong>fixed effect</strong> is
+        the thing you care about and chose deliberately, the drug, the genotype,
+        the dose. A <strong>random effect</strong> is a source of variation you
+        are sampling from rather than studying, the particular animals, the
+        particular plates, the particular days. The model estimates your fixed
+        effect while explicitly accounting for the wobble each random effect adds.
+      </p>
+      <p>
+        Mixed models earn their keep when the design is unbalanced or has gaps, a
+        patient missed a visit, a well failed. Repeated-measures ANOVA gets
+        awkward with missing cells; a mixed model handles them gracefully because
+        it works from the data you have rather than requiring a perfect grid. The
+        result reports, for each fixed effect, an{" "}
+        <strong>estimate</strong> with its <strong>standard error</strong>,{" "}
+        <strong>confidence interval</strong>, and <strong>p-value</strong>, plus
+        a summary of how much variance each random effect soaked up.
+      </p>
+
+      <h2 id="nested">Nested designs and the replicate trap</h2>
+      <p>
+        This is the one that quietly invalidates a lot of published work, so it
+        is worth being plain about. A <strong>nested design</strong> is when your
+        observations sit inside a hierarchy. You image 30 cells, but those cells
+        come from 3 mice, 10 cells each.
+      </p>
+      <Callout variant="warning" title="Technical replicates are not your sample size">
+        Counting 30 cells as n = 30 is the mistake. The cells within one mouse
+        are <strong>technical replicates</strong>, they tell you about that one
+        mouse measured precisely, not about mice in general. Your real
+        independent unit, the <strong>biological replicate</strong>, is the
+        mouse. Your n is 3, not 30. Treating the 30 cells as independent inflates
+        your significance dramatically, because most of those points are not
+        adding new information, they are just remeasuring the same three animals.
+      </Callout>
+      <p>
+        The honest analysis respects the nesting. Either you summarize each
+        animal to one number and compare animals, or you use a{" "}
+        <strong>nested t-test</strong> or <strong>nested ANOVA</strong> (a mixed
+        model with animal as a random effect) that pools the cell-level data while
+        still counting animals as the unit of replication. The Data Hub frames the
+        verdict for a nested test at the biological-replicate level on purpose, so
+        the conclusion is about your mice, not your microscope.
+      </p>
+      <p>
+        The nested result reports the effect estimated at the{" "}
+        <strong>group level</strong> (the difference between conditions across
+        animals), its <strong>confidence interval</strong>, and a{" "}
+        <strong>p-value</strong> based on the number of animals. The within-animal
+        spread is used to weight the estimate, not to inflate the sample size.
+      </p>
+
+      <h2>A worked example</h2>
+      <p>
+        You treat 4 mice with a drug and 4 with vehicle, imaging 25 cells per
+        mouse. A naive t-test on all 200 cells gives p {"<"} 0.0001, which looks
+        spectacular and is wrong. The nested analysis, counting mice as the unit,
+        returns a mean difference of 8% (95% CI -2 to 18, p = 0.10). You would
+        report the nested result and say the effect is suggestive but not
+        statistically clear with four animals per arm, which is the truth. The
+        first p-value was an artifact of pretending 200 cells were 200 mice.
+      </p>
+
+      <Callout variant="info" title="When the design is simpler">
+        If every measurement really is independent and you just have three or
+        more groups, the plain{" "}
+        <Link href="/wiki/stats/anova">one-way ANOVA</Link> is the right tool. If
+        you have two groups, see{" "}
+        <Link href="/wiki/stats/effect-sizes">effect sizes</Link> for the t-test.
+        These structured designs are for when independence does not hold.
+      </Callout>
+
+      <p>
+        ResearchOS validates repeated-measures ANOVA, the mixed-model fits, and
+        the nested tests against statsmodels and R on the{" "}
+        <Link href="/transparency">transparency page</Link>.
+      </p>
+    </WikiPage>
+  );
+}
