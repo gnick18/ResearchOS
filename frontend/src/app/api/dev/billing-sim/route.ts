@@ -25,6 +25,7 @@ import { ownerKeyForEmail } from "@/lib/billing/owner";
 import { isBillingEnabled } from "@/lib/billing/config";
 import {
   activityAllowanceForOwner,
+  ensureBillingSchema,
   quotaBytesForOwner,
   setPlan,
 } from "@/lib/billing/db";
@@ -97,6 +98,10 @@ export async function POST(req: Request): Promise<Response> {
 
   try {
     await ensureLabSchema();
+    // The sim writes billing rows (setPlan -> plan_id) too, so forward-migrate
+    // the billing schema as well; without this a dev DB on the old schema 500s
+    // with "column plan_id does not exist".
+    await ensureBillingSchema();
 
     if (action === "scenario") {
       const piEmail = String(body.piEmail ?? "").trim();
