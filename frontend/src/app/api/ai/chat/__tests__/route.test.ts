@@ -188,6 +188,7 @@ describe("POST /api/ai/chat", () => {
     const [, init] = fetchMock.mock.calls[0] as unknown as [string, RequestInit];
     const sent = JSON.parse(init.body as string) as {
       stream: boolean;
+      stream_options?: unknown;
       tools: Array<{ function: { name: string; execute?: unknown } }>;
     };
     // stream:false forwarded, tools forwarded as definitions only.
@@ -197,6 +198,12 @@ describe("POST /api/ai/chat", () => {
     // The smuggled execute field was stripped at the proxy.
     expect(sent.tools[0].function.execute).toBeUndefined();
     expect(init.body as string).not.toContain("function-string");
+    // REGRESSION GUARD: stream_options must NEVER be sent on a non-streaming
+    // request. OpenAI-compatible providers (Fireworks) hard-reject it with a
+    // 400 ("stream_options is only valid when stream=true"), which previously
+    // broke every BeakerBot agent-loop turn. Non-streaming gets usage natively.
+    expect(sent.stream_options).toBeUndefined();
+    expect(init.body as string).not.toContain("stream_options");
 
     // The provider JSON comes straight back, the key never appears in it.
     const text = await res.text();

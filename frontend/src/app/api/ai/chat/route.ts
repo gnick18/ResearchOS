@@ -354,17 +354,16 @@ export async function POST(request: Request): Promise<Response> {
         model,
         messages: cleanMessages,
         stream,
-        // Ask the provider to include a usage block so the client can display a
-        // live token count (non-streaming) and the metering branch can record it
-        // (streaming with billing on). Providers that do not understand
-        // stream_options ignore the field harmlessly. Two cases:
-        //   - non-streaming (stream:false, the agent loop): always include usage
-        //     so the status line gets a token count even without billing enabled.
-        //   - streaming with billing on: include so the server metering branch
-        //     can read the final cumulative chunk.
-        // Streaming without billing: no billing, skip the field to stay
-        // byte-identical to the original path and avoid confusing old providers.
-        ...(!stream || (billingOn && stream)
+        // stream_options is ONLY valid when stream:true. OpenAI-compatible
+        // providers (Fireworks) hard-reject it with a 400 on a non-streaming
+        // request, which broke every agent-loop turn (the loop runs
+        // stream:false to read tool_calls from one complete response). The
+        // non-streaming path does not need it anyway: the completion JSON
+        // carries a `usage` block natively, so the status line still gets its
+        // token count. Include stream_options only when streaming AND billing
+        // is on (the metering branch reads the final cumulative usage chunk).
+        // Streaming without billing stays byte-identical to the original path.
+        ...(stream && billingOn
           ? { stream_options: { include_usage: true } }
           : {}),
         ...(cleanTools ? { tools: cleanTools } : {}),
