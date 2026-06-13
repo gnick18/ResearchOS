@@ -279,7 +279,14 @@ function barRange(root: TreeNode, spec: RenderSpec): { min: number; max: number 
 
 function isTruthy(raw: string): boolean {
   const v = raw.trim().toLowerCase();
-  return v === "1" || v === "yes" || v === "true" || v === "y" || v === "present";
+  return (
+    v === "1" ||
+    v === "yes" ||
+    v === "true" ||
+    v === "y" ||
+    v === "present" ||
+    v === "resistant"
+  );
 }
 
 /** A round-ish scale-bar tick at roughly a quarter of the tree depth. */

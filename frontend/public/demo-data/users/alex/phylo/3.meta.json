@@ -1,0 +1,25 @@
+{
+  "id": "3",
+  "name": "HPV58 phylogeny",
+  "project_ids": [
+    "3"
+  ],
+  "added_at": "2026-05-15T11:00:00.000Z",
+  "format": "newick",
+  "source": "upload",
+  "tip_count": 90,
+  "figure": {
+    "layout": "rectangular",
+    "branchLengths": true,
+    "tracks": {
+      "labels": true,
+      "labelsItalic": false,
+      "points": false,
+      "strip": false,
+      "bars": false,
+      "heat": false,
+      "clade": true,
+      "support": true
+    }
+  }
+}

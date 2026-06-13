@@ -21,5 +21,6 @@
   "storage_nodes": 3,
   "sequences": 9,
   "datahub": 3,
+  "phylo": 3,
   "molecules": 4
 }
