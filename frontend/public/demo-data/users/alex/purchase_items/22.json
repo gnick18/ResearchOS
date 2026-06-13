@@ -1,0 +1,16 @@
+{
+  "id": 22,
+  "task_id": 31,
+  "item_name": "Lab coffee + whiteboard markers (ad-hoc)",
+  "quantity": 1,
+  "link": null,
+  "cas": null,
+  "price_per_unit": 38,
+  "shipping_fees": 0,
+  "total_price": 38,
+  "notes": null,
+  "funding_string": "DEMO-Internal-Bridge",
+  "vendor": null,
+  "category": "Miscellaneous",
+  "order_status": "received"
+}

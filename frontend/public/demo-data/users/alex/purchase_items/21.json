@@ -1,0 +1,16 @@
+{
+  "id": 21,
+  "task_id": 31,
+  "item_name": "Conference registration (Midwest Synthetic Biology 2026)",
+  "quantity": 1,
+  "link": null,
+  "cas": null,
+  "price_per_unit": 450,
+  "shipping_fees": 0,
+  "total_price": 450,
+  "notes": "Demo miscellaneous purchase, not tied to a project.",
+  "funding_string": "DEMO-Internal-Bridge",
+  "vendor": null,
+  "category": "Miscellaneous",
+  "order_status": "needs_ordering"
+}

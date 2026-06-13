@@ -4203,6 +4203,35 @@ function buildEntries() {
     }
   }
 
+  // A demo "Miscellaneous" purchase (one order in the hidden _misc_purchases
+  // project) so the Purchases category filter (Project vs All) actually narrows
+  // on camera. Without a non-project order, Project and All show the same list.
+  // Appended via push so it does not depend on the project/task helper lists.
+  out.push([
+    "users/alex/projects/5.json",
+    { id: 5, name: "_misc_purchases", weekend_active: false, tags: [], color: "#9ca3af", created_at: "2026-02-01T00:00:00Z", sort_order: 999999, is_archived: false, archived_at: null, owner: "alex", shared_with: [], funding_account_id: null, is_hidden: true },
+  ]);
+  out.push([
+    "users/alex/tasks/31.json",
+    { id: 31, project_id: 5, name: "Conference travel + ad-hoc lab supplies", start_date: "2026-05-15", duration_days: 1, end_date: "2026-05-15", is_high_level: false, is_complete: false, task_type: "purchase", weekend_override: null, method_id: null, method_ids: [], deviation_log: null, tags: null, sort_order: 31, experiment_color: null, sub_tasks: null, pcr_gradient: null, pcr_ingredients: null, method_attachments: [], owner: "alex", shared_with: [], external_project: null, comments: [] },
+  ]);
+  out.push([
+    "users/alex/purchase_items/21.json",
+    { id: 21, task_id: 31, item_name: "Conference registration (Midwest Synthetic Biology 2026)", quantity: 1, link: null, cas: null, price_per_unit: 450, shipping_fees: 0, total_price: 450, notes: "Demo miscellaneous purchase, not tied to a project.", funding_string: "DEMO-Internal-Bridge", vendor: null, category: "Miscellaneous", order_status: "needs_ordering" },
+  ]);
+  out.push([
+    "users/alex/purchase_items/22.json",
+    { id: 22, task_id: 31, item_name: "Lab coffee + whiteboard markers (ad-hoc)", quantity: 1, link: null, cas: null, price_per_unit: 38, shipping_fees: 0, total_price: 38, notes: null, funding_string: "DEMO-Internal-Bridge", vendor: null, category: "Miscellaneous", order_status: "received" },
+  ]);
+  // Bump alex's counters so the new ids never collide with a fresh create.
+  for (const [p, obj] of out) {
+    if (p === "users/alex/_counters.json" && obj && typeof obj === "object") {
+      obj.projects = Math.max(obj.projects ?? 0, 5);
+      obj.tasks = Math.max(obj.tasks ?? 0, 31);
+      obj.purchase_items = Math.max(obj.purchase_items ?? 0, 22);
+    }
+  }
+
   return out;
 }
 
@@ -4580,6 +4609,48 @@ function methodJson(owner, id, name, folder) {
 
 // ─── Output writers ───────────────────────────────────────────────────────────
 
+// Build a per-user results index so the wiki-capture mock knows exactly which
+// task writeups exist on disk instead of probing every task id 1..N blindly.
+// `/demo-data/` is not directory-listable from the browser, so without this
+// the mock fetches notes.md + results.md for every task and most of those 404
+// (the app handles the miss fine, but the browser still logs each failed
+// request, burying real console errors on /demo load).
+//
+// Shape, one file per user at `users/<user>/results/_index.json`:
+//   { "tasks": { "2": ["notes.md", "results.md"], "8": ["notes.md", ... ] } }
+// Only tasks with at least one on-disk markdown body are listed, and only the
+// files that actually exist (an empty results.md still counts, it is created,
+// not missing). The mock fetches this first and fetches only the listed files,
+// so the steady state is zero 404s. Images/ and Files/ siblings stay out of
+// the index on purpose, the markdown body remains the index for those.
+function buildResultsIndexEntries(entries) {
+  const RESULT_MD_RE = /^users\/([^/]+)\/results\/task-(\d+)\/(notes\.md|results\.md)$/;
+  // user -> taskId -> Set of md file names
+  const byUser = new Map();
+  for (const [relPath] of entries) {
+    const m = RESULT_MD_RE.exec(relPath);
+    if (!m) continue;
+    const [, user, taskId, fileName] = m;
+    if (!byUser.has(user)) byUser.set(user, new Map());
+    const tasks = byUser.get(user);
+    if (!tasks.has(taskId)) tasks.set(taskId, new Set());
+    tasks.get(taskId).add(fileName);
+  }
+
+  const out = [];
+  for (const [user, tasks] of byUser) {
+    // Sort task ids numerically and file names alphabetically so the written
+    // index is stable across runs (clean diffs, no churn).
+    const taskMap = {};
+    const sortedIds = Array.from(tasks.keys()).sort((a, b) => Number(a) - Number(b));
+    for (const taskId of sortedIds) {
+      taskMap[taskId] = Array.from(tasks.get(taskId)).sort();
+    }
+    out.push([`users/${user}/results/_index.json`, { tasks: taskMap }]);
+  }
+  return out;
+}
+
 function writeDemoTree(entries) {
   if (fs.existsSync(DEMO_DIR)) {
     fs.rmSync(DEMO_DIR, { recursive: true, force: true });
@@ -4594,6 +4665,16 @@ function writeDemoTree(entries) {
     } else {
       fs.writeFileSync(abs, JSON.stringify(content, null, 2) + "\n", "utf8");
     }
+  }
+
+  // Drop the per-user results index alongside the writeups now that every
+  // task body is on disk. Network-fetched by the wiki-capture mock, never
+  // embedded in the static fixture, so it is written here rather than added
+  // to `entries`.
+  for (const [relPath, content] of buildResultsIndexEntries(entries)) {
+    const abs = path.join(DEMO_DIR, relPath);
+    fs.mkdirSync(path.dirname(abs), { recursive: true });
+    fs.writeFileSync(abs, JSON.stringify(content, null, 2) + "\n", "utf8");
   }
 }
 

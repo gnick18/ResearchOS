@@ -1,6 +1,6 @@
 {
-  "projects": 4,
-  "tasks": 30,
+  "projects": 5,
+  "tasks": 31,
   "methods": 12,
   "events": 4,
   "goals": 3,
@@ -11,7 +11,7 @@
   "mass_spec_methods": 1,
   "coding_workflows": 1,
   "qpcr_analyses": 1,
-  "purchase_items": 20,
+  "purchase_items": 22,
   "lab_links": 6,
   "notes": 7,
   "dependencies": 8,
