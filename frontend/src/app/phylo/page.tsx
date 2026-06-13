@@ -29,13 +29,28 @@ export default function PhyloPage() {
   // flashes the not-enabled notice. Same pattern as /chemistry.
   const [isDemo, setIsDemo] = useState(false);
   const [mounted, setMounted] = useState(false);
+  // A `?doc=<id>` deep link (the form a phylo object reference / embed builds via
+  // objectDeepLink("phylo", ...)) opens that tree in the Tree Studio. The param is
+  // read client-side after mount, like the demo signal, so the static export never
+  // trips on useSearchParams. Captured once into state and handed to the Studio as
+  // its initial tree.
+  const [docId, setDocId] = useState<string | null>(null);
   useEffect(() => {
     const demo = getDemoMode();
     setIsDemo(demo);
     setMounted(true);
-    // The demo seeds three populated trees, so land straight in the Tree Studio
-    // on the showcase figure rather than the empty Hub.
-    if (demo) setView("studio");
+    let doc: string | null = null;
+    if (typeof window !== "undefined") {
+      doc = new URLSearchParams(window.location.search).get("doc");
+    }
+    // A deep-linked tree lands in the Studio (overriding the Hub default and the
+    // demo showcase auto-open); otherwise the demo seeds land in the Studio.
+    if (doc) {
+      setDocId(doc);
+      setView("studio");
+    } else if (demo) {
+      setView("studio");
+    }
   }, []);
   const surfaceEnabled = PHYLO_ENABLED || isDemo;
 
@@ -86,7 +101,7 @@ export default function PhyloPage() {
 
         {view === "hub" && <PhyloHub onNavigate={setView} />}
         {view === "builder" && <PhyloBuilder />}
-        {view === "studio" && <PhyloStudio />}
+        {view === "studio" && <PhyloStudio initialTreeId={docId ?? undefined} />}
       </div>
     </AppShell>
   );

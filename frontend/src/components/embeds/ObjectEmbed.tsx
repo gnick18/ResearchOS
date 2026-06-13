@@ -77,6 +77,7 @@ const EMBED_RENDERERS: Partial<
 > = {
   molecule: lazy(() => import("./MoleculeEmbed")),
   datahub: lazy(() => import("./DataHubEmbed")),
+  phylo: lazy(() => import("./PhyloEmbed")),
   sequence: lazy(() => import("./SequenceEmbed")),
   note: lazy(() => import("./NoteEmbed")),
   method: lazy(() => import("./MethodEmbed")),
@@ -101,6 +102,7 @@ const TYPE_ICON: Record<ObjectRefType, IconName> = {
   project: "folder",
   molecule: "vial",
   datahub: "chart",
+  phylo: "tree",
   task: "today",
   experiment: "list",
 };
@@ -114,6 +116,7 @@ const TYPE_LABEL: Record<ObjectRefType, string> = {
   project: "Project",
   molecule: "Molecule",
   datahub: "Data Hub",
+  phylo: "Phylogenetic tree",
   task: "Task",
   experiment: "Experiment",
 };

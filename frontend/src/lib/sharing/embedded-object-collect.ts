@@ -417,6 +417,12 @@ export async function collectEmbeddedObjects(
         case "datahub":
           obj = await collectDataHub(dep, fullDataHrefs.has(dep.href));
           break;
+        case "phylo":
+          // Phylo trees are not yet packaged into a cross-boundary share bundle.
+          // The embed + deep link work in-library now; bundling the .tree + sidecar
+          // is a later sharing pass. Skip rather than fail the whole collect.
+          skipCount += 1;
+          continue;
         default: {
           // TypeScript exhaustiveness guard. Treat unknown types as missing.
           const exhaustive: never = dep.type;

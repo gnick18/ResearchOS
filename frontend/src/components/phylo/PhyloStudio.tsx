@@ -38,10 +38,19 @@ import {
 } from "@/lib/phylo/layout";
 import {
   renderTreeSvg,
-  buildCategoryColors,
   type RenderSpec,
   type FigureTracks,
 } from "@/lib/phylo/render";
+import {
+  figureToRenderSpec,
+  figureInputsFromStored,
+  DEFAULT_FIGURE_TRACKS,
+} from "@/lib/phylo/figure-to-render";
+import {
+  objectDeepLink,
+  objectEmbedMarkdown,
+  DEFAULT_EMBED_VIEW,
+} from "@/lib/references";
 import { generateGgtreeCode, GGTREE_CAVEAT } from "@/lib/phylo/ggtree-code";
 import {
   downloadSvg,
@@ -67,21 +76,20 @@ const SAMPLE_CSV = [
 
 type ImportMode = "upload" | "paste" | "saved" | null;
 
-const DEFAULT_TRACKS: FigureTracks = {
-  labels: true,
-  labelsItalic: true,
-  points: true,
-  strip: true,
-  bars: false,
-  heat: false,
-  clade: false,
-  support: false,
-};
+// The track defaults live in the shared adapter so the Studio and the embed start
+// from the same baseline; aliased here for the local reset paths.
+const DEFAULT_TRACKS: FigureTracks = DEFAULT_FIGURE_TRACKS;
 
-export function PhyloStudio() {
+export function PhyloStudio({ initialTreeId }: { initialTreeId?: string } = {}) {
   // The working tree (immutable, edits replace it). Null until a tree is brought in.
   const [tree, setTree] = useState<TreeNode | null>(null);
   const [treeName, setTreeName] = useState("Untitled tree");
+  // The id of the saved tree currently open, when one was opened from the library
+  // (saved picker, demo auto-open, or a ?doc= deep link). Drives Copy reference,
+  // which can only point at a tree that already lives in the store. Null for a
+  // freshly imported / pasted tree that has not been saved yet.
+  const [openTreeId, setOpenTreeId] = useState<string | null>(null);
+  const [copiedRef, setCopiedRef] = useState(false);
   const [parseError, setParseError] = useState<string | null>(null);
   const [importMode, setImportMode] = useState<ImportMode>(null);
   const [pasteText, setPasteText] = useState("");
@@ -131,35 +139,51 @@ export function PhyloStudio() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // A `?doc=<id>` deep link (the form a phylo object reference / embed builds via
+  // objectDeepLink("phylo", ...)) opens that tree in the Studio on first load.
+  // Read after mount and once only, mirroring the Data Hub page, so the static
+  // export never trips on useSearchParams and a later manual pick is not yanked
+  // back. The id wins over the demo auto-open above (a deliberate link beats the
+  // showcase default).
+  const deepLinkOpenedRef = useRef(false);
+  useEffect(() => {
+    if (deepLinkOpenedRef.current) return;
+    if (!initialTreeId) {
+      deepLinkOpenedRef.current = true;
+      return;
+    }
+    deepLinkOpenedRef.current = true;
+    autoOpenedRef.current = true; // suppress the demo auto-open, the link wins
+    void onPickSaved(initialTreeId);
+    // onPickSaved is stable for this mount; the deep link is consumed once.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialTreeId]);
+
   // The metadata match (tip ids -> rows), recomputed when the binding changes.
   const match: MetadataMatch | null = useMemo(() => {
     if (!tree || !metaRows || !tipColumn) return null;
     return matchMetadataToTips(tree, metaRows, tipColumn);
   }, [tree, metaRows, tipColumn]);
 
-  const categoryColors = useMemo(
-    () => buildCategoryColors(tree ?? blankTree(), match?.matched, categoryColumn),
-    [tree, match, categoryColumn],
-  );
-
-  // The single figure spec the renderer + the ggtree exporter both read.
+  // The single figure spec the renderer + the ggtree exporter both read, built by
+  // the shared figure -> RenderSpec adapter so the Studio canvas, the export, and
+  // an embedded card all map the same figure to the same spec (one mapping).
   const spec: RenderSpec | null = useMemo(() => {
     if (!tree) return null;
-    return {
-      layout,
-      phylogram,
-      tracks,
-      columns: {
-        category: categoryColumn || undefined,
-        bar: barColumn || undefined,
-        heat: heatColumns.length > 0 ? heatColumns : undefined,
+    return figureToRenderSpec(
+      tree,
+      {
+        layout,
+        phylogram,
+        tracks,
+        categoryColumn,
+        barColumn,
+        heatColumns,
+        metaRows,
+        tipColumn,
       },
-      width: FIG_W,
-      height: FIG_H,
-      metadata: match?.matched,
-      categoryColors,
-      cladeHighlight: tracks.clade ? firstCladeHighlight(tree) : null,
-    };
+      { width: FIG_W, height: FIG_H },
+    );
   }, [
     tree,
     layout,
@@ -168,8 +192,8 @@ export function PhyloStudio() {
     categoryColumn,
     barColumn,
     heatColumns,
-    match,
-    categoryColors,
+    metaRows,
+    tipColumn,
   ]);
 
   const svgMarkup = useMemo(
@@ -191,6 +215,9 @@ export function PhyloStudio() {
       setParseError(null);
       setImportMode(null);
       setPasteText("");
+      // A freshly imported / pasted tree has no stored id yet; onPickSaved and
+      // onSave set it back when the tree is opened from or written to the store.
+      setOpenTreeId(null);
     } catch (err) {
       setParseError(
         err instanceof TreeParseError
@@ -210,6 +237,8 @@ export function PhyloStudio() {
     if (!raw) return;
     loadTreeText(raw.tree, raw.meta.name);
     restoreSavedFigure(raw.meta);
+    // This tree lives in the store, so Copy reference can point at it.
+    setOpenTreeId(id);
   }
 
   /**
@@ -219,21 +248,21 @@ export function PhyloStudio() {
    * lands looking like its last save instead of a bare cladogram.
    */
   function restoreSavedFigure(meta: PhyloMeta) {
-    const fig = meta.figure;
-    if (fig) {
-      setLayout(fig.layout === "circular" ? "circular" : "rectangular");
-      setPhylogram(fig.branchLengths);
-      setTracks({ ...DEFAULT_TRACKS, ...(fig.tracks as Partial<FigureTracks>) });
-    }
-    const md = meta.metadata;
-    if (md?.rows) {
-      setMetaRows(md.rows);
-      const cols = md.rows.length > 0 ? Object.keys(md.rows[0]) : [];
+    // Resolve the stored figure + metadata through the shared adapter so the
+    // Studio reopens a saved tree from the same mapping an embed renders it with.
+    const inputs = figureInputsFromStored(meta.figure, meta.metadata);
+    setLayout(inputs.layout);
+    setPhylogram(inputs.phylogram);
+    setTracks(inputs.tracks);
+    if (inputs.metaRows) {
+      setMetaRows(inputs.metaRows);
+      const cols =
+        inputs.metaRows.length > 0 ? Object.keys(inputs.metaRows[0]) : [];
       setMetaColumns(cols);
-      setTipColumn(md.tipColumn || cols[0] || "");
-      setCategoryColumn(md.categoryColumn ?? cols[1] ?? "");
-      setBarColumn(md.barColumn ?? "");
-      setHeatColumns(md.heatColumns ?? []);
+      setTipColumn(inputs.tipColumn ?? cols[0] ?? "");
+      setCategoryColumn(inputs.categoryColumn ?? "");
+      setBarColumn(inputs.barColumn ?? "");
+      setHeatColumns(inputs.heatColumns ?? []);
     } else {
       setMetaRows(null);
       setMetaColumns([]);
@@ -329,7 +358,7 @@ export function PhyloStudio() {
             heatColumns: heatColumns.length > 0 ? heatColumns : undefined,
           }
         : undefined;
-    await phyloApi.create(serializeNewick(tree), {
+    const created = await phyloApi.create(serializeNewick(tree), {
       name: treeName || "Untitled tree",
       project_ids: [],
       format: "newick",
@@ -337,9 +366,32 @@ export function PhyloStudio() {
       figure,
       metadata,
     });
+    // The tree now lives in the store, so Copy reference can point at it.
+    setOpenTreeId(created.meta.id);
     setSavedMsg("Saved to your trees");
     setTimeout(() => setSavedMsg(null), 2200);
     phyloApi.list().then(setSaved);
+  };
+
+  // Copy a note / chat reference to this saved tree. The clipboard gets the embed
+  // markdown (a `#ros=` figure view, so a note renders the live tree card) on the
+  // first line and the bare deep link on the second, so a paste target that strips
+  // markdown still keeps a working link. Only offered once the tree is in the store
+  // (openTreeId set), the same rule molecules and Data Hub docs follow.
+  const onCopyReference = async () => {
+    if (!openTreeId) return;
+    const name = treeName || "Untitled tree";
+    const embed = objectEmbedMarkdown("phylo", openTreeId, name, {
+      view: DEFAULT_EMBED_VIEW.phylo,
+    });
+    const link = objectDeepLink("phylo", openTreeId);
+    try {
+      await navigator.clipboard?.writeText(`${embed}\n${link}`);
+      setCopiedRef(true);
+      setTimeout(() => setCopiedRef(false), 1800);
+    } catch {
+      setCopiedRef(false);
+    }
   };
 
   // ---- render ----
@@ -525,6 +577,17 @@ export function PhyloStudio() {
             <Icon name="save" className="w-4 h-4" />
             Save to my trees
           </button>
+          {openTreeId && (
+            <Tooltip label="Copy a link that renders this tree as a figure in a note">
+              <button
+                onClick={onCopyReference}
+                className="mt-2 w-full px-3 py-1.5 rounded-lg font-bold text-sm border border-border text-foreground hover:border-accent flex items-center justify-center gap-1.5"
+              >
+                <Icon name="reference" className="w-4 h-4" />
+                {copiedRef ? "Reference copied" : "Copy reference for a note"}
+              </button>
+            </Tooltip>
+          )}
           {savedMsg && (
             <div className="mt-1 text-xs text-brand-sky font-semibold">
               {savedMsg}
@@ -825,23 +888,9 @@ function RerootPicker({
 // Helpers.
 // ---------------------------------------------------------------------------
 
-/** An empty tree used as a stable placeholder for memo deps before a tree loads. */
-function blankTree(): TreeNode {
-  return { id: -1, name: "", branchLength: null, support: null, children: [] };
-}
-
-/** The deepest first clade with at least two tips, the default highlight target. */
-function firstCladeHighlight(
-  tree: TreeNode,
-): { nodeId: number; label: string; color: string } | null {
-  const internal = tree.children.find((c) => c.children.length >= 2);
-  if (!internal) return null;
-  return {
-    nodeId: internal.id,
-    label: internal.name || `${leaves(internal).length} tips`,
-    color: "#1AA0E6",
-  };
-}
+// blankTree + firstCladeHighlight moved into the shared figure -> RenderSpec
+// adapter (lib/phylo/figure-to-render.ts) so the Studio and the embed map a
+// figure to the same spec from one place.
 
 /** Serialize a tree back to Newick for persistence (round-trips the edits). */
 function serializeNewick(node: TreeNode): string {

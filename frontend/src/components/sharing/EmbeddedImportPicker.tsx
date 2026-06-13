@@ -49,6 +49,7 @@ const TYPE_ICON: Record<ObjectRefType, IconName> = {
   project: "folder",
   molecule: "vial",
   datahub: "chart",
+  phylo: "tree",
   task: "today",
   experiment: "list",
 };
@@ -62,6 +63,7 @@ const TYPE_LABEL: Record<ObjectRefType, string> = {
   project: "Project",
   molecule: "Molecule",
   datahub: "Data Hub",
+  phylo: "Phylogenetic tree",
   task: "Task",
   experiment: "Experiment",
 };
