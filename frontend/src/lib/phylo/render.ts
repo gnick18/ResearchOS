@@ -105,6 +105,9 @@ export interface RenderSpec {
   cladeHighlight?: { nodeId: number; label: string; color: string } | null;
   /** Branch color overrides, node id -> color. */
   branchColors?: Record<number, string>;
+  /** The metadata column branches are colored by, so the legend can draw its key
+   *  (the adapter populates branchColors from it). Absent = no branch coloring. */
+  branchColorColumn?: string;
   /**
    * Per-track sequential-palette overrides for numeric columns (Phase 0). Absent
    * means the per-kind defaults (Viridis for numeric, brand for categorical), so
@@ -356,6 +359,16 @@ function renderFromPanels(
   const legendItems = legendOn
     ? collectPanelLegends(root, spec, [...aligned, ...coloredPoints])
     : [];
+  // Branch coloring is a tree decoration, not an aligned panel, so its color key
+  // is collected separately (only when a column is bound and a table is linked).
+  if (legendOn && spec.branchColorColumn && spec.metadata) {
+    legendItems.push({
+      title: spec.branchColorColumn,
+      scale: buildColorScale(root, spec.metadata, spec.branchColorColumn, {
+        categoryColors: spec.categoryColors,
+      }),
+    });
+  }
   // Reserve one legend sub-column normally; when the stacked legends would run
   // past the canvas height, reserve enough sub-columns to hold them side by side
   // (capped) so they never overlap the figure or each other (multi-panel polish).

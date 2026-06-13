@@ -211,6 +211,8 @@ export function PhyloStudio({ initialTreeId }: { initialTreeId?: string } = {}) 
   );
   const [metaColumns, setMetaColumns] = useState<string[]>([]);
   const [tipColumn, setTipColumn] = useState<string>("");
+  // Color tree branches by this column (ggtree aes(color=trait)); "" = off.
+  const [branchColorColumn, setBranchColorColumn] = useState<string>("");
 
   const [copyState, setCopyState] = useState<"idle" | "image" | "text">("idle");
   const [savedMsg, setSavedMsg] = useState<string | null>(null);
@@ -310,6 +312,7 @@ export function PhyloStudio({ initialTreeId }: { initialTreeId?: string } = {}) 
         tipColumn,
         panels,
         alignment,
+        branchColorColumn,
       },
       { width: FIG_W, height: FIG_H },
     );
@@ -322,6 +325,7 @@ export function PhyloStudio({ initialTreeId }: { initialTreeId?: string } = {}) 
     tipColumn,
     panels,
     alignment,
+    branchColorColumn,
   ]);
 
   // The alignment-to-tips match (for the "matched X of Y" indicator + auto-adding
@@ -353,6 +357,7 @@ export function PhyloStudio({ initialTreeId }: { initialTreeId?: string } = {}) 
       setPanels(defaultPanels(leaves(parsed).length));
       setSelectedLayerId(null);
       setAppliedTemplate("");
+      setBranchColorColumn("");
       // A new tree drops any previously imported alignment (it was joined to the
       // old tips); the user re-imports an alignment for the new tree.
       setAlignment(null);
@@ -413,6 +418,7 @@ export function PhyloStudio({ initialTreeId }: { initialTreeId?: string } = {}) 
     setPanels(restored);
     setSelectedLayerId(null);
     setAppliedTemplate("");
+    setBranchColorColumn(inputs.branchColorColumn ?? "");
     if (inputs.metaRows) {
       setMetaRows(inputs.metaRows);
       const cols =
@@ -570,6 +576,7 @@ export function PhyloStudio({ initialTreeId }: { initialTreeId?: string } = {}) 
       tracks: derived.tracks,
       legend: true,
       panels,
+      branchColorColumn: branchColorColumn || undefined,
     };
     const metadata =
       metaRows && tipColumn
@@ -664,6 +671,16 @@ export function PhyloStudio({ initialTreeId }: { initialTreeId?: string } = {}) 
               <GhostBtn onClick={() => reroot("midpoint")}>Midpoint root</GhostBtn>
             </div>
             <RerootPicker tips={tips} onReroot={(id) => reroot("outgroup", id)} />
+            {metaColumns.length > 0 && (
+              <div className="mt-3">
+                <ColumnSelect
+                  label="Branch color by"
+                  value={branchColorColumn}
+                  options={["", ...metaColumns.filter((c) => c !== tipColumn)]}
+                  onChange={setBranchColorColumn}
+                />
+              </div>
+            )}
           </Panel>
 
           <Panel title="Metadata">

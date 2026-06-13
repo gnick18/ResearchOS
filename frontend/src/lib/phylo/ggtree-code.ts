@@ -216,6 +216,11 @@ function generateFromPanels(spec: RenderSpec, panels: AlignedPanel[]): string {
       ? `p <- ggtree(tree, layout = ${rstr(layout)}) %<+% meta`
       : `p <- ggtree(tree, layout = ${rstr(layout)})`,
   );
+  if (spec.branchColorColumn) {
+    lines.push(
+      `p <- p + aes(color = ${rNameKey(spec.branchColorColumn)})   # color branches by trait`,
+    );
+  }
 
   let offset = 0.05;
   for (const panel of panels) {

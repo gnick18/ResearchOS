@@ -59,6 +59,14 @@ export interface PhyloFigureSpec {
    * array to emit one geom per panel.
    */
   panels?: AlignedPanel[];
+  /**
+   * Color tree branches by a metadata column (ggtree `aes(color = trait)`).
+   * Optional + additive (an older record omits it and branches draw in the
+   * default ink). A branch is colored only where its whole descendant clade
+   * shares one value (monophyletic), so transitions stay neutral; we do not
+   * claim ancestral-state reconstruction.
+   */
+  branchColorColumn?: string;
 }
 
 /** The geom catalog a layer can be, grows over phases. */

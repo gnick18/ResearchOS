@@ -311,6 +311,58 @@ describe("tip-label options (Wave 1: geom_tiplab / geom_label parity)", () => {
   });
 });
 
+describe("branch coloring by trait (Wave 2: aes(color=...))", () => {
+  // (A,B) share grp X, (C,D) share grp Y: each clade is monophyletic for grp, so
+  // its branches color; the root transition between them stays the default ink.
+  const ROWS = [
+    { tip: "A", grp: "X" },
+    { tip: "B", grp: "X" },
+    { tip: "C", grp: "Y" },
+    { tip: "D", grp: "Y" },
+  ];
+  function bcSpec(branchColorColumn: string): RenderSpec {
+    return figureToRenderSpec(
+      TREE,
+      {
+        layout: "rectangular",
+        phylogram: true,
+        tracks: {
+          labels: false,
+          labelsItalic: false,
+          points: false,
+          strip: false,
+          bars: false,
+          heat: false,
+          clade: false,
+          support: false,
+        },
+        metaRows: ROWS,
+        tipColumn: "tip",
+        branchColorColumn,
+      },
+      { width: 700, height: 480 },
+    );
+  }
+  const branchStrokes = (svg: string): Set<string> =>
+    new Set(
+      Array.from(
+        svg.matchAll(
+          /<path d="M[^"]*"[^>]*stroke="(#[0-9a-fA-F]+)" stroke-width="1\.5"/g,
+        ),
+      ).map((m) => m[1]),
+    );
+
+  it("no column leaves every branch the default ink", () => {
+    expect(branchStrokes(renderTreeSvg(TREE, bcSpec(""))).size).toBe(1);
+  });
+
+  it("a bound column paints the monophyletic clades (multiple branch colors)", () => {
+    expect(
+      branchStrokes(renderTreeSvg(TREE, bcSpec("grp"))).size,
+    ).toBeGreaterThan(1);
+  });
+});
+
 describe("template-apply idempotence (flicker fix)", () => {
   // The flicker fix makes the apply atomic + pure: rendering the SAME applied
   // layer stack twice must produce byte-identical markup (no transient state).

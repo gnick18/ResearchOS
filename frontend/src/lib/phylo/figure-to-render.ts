@@ -22,6 +22,7 @@ import {
   type RenderSpec,
 } from "./render";
 import { projectTracksToPanels } from "./panels";
+import { buildColorScale } from "./color-scale";
 import type { AlignedPanel } from "./types";
 
 /** The track defaults a fresh figure starts from. A persisted figure overrides
@@ -76,6 +77,50 @@ export interface FigureInputs {
    * persisted panels[] field, so a saved figure is unchanged.
    */
   alignment?: Alignment | null;
+  /** Color branches by this metadata column (ggtree aes(color=trait)). A branch
+   *  is colored only where its whole descendant clade shares one value. */
+  branchColorColumn?: string;
+}
+
+/**
+ * Paint branch colors from a metadata column: a node's incoming branch is colored
+ * only when its ENTIRE descendant clade shares one value (monophyletic), so a
+ * transition branch stays the default ink. Honest discrete-trait painting, not
+ * ancestral-state reconstruction. Returns a node-id -> color map, or undefined.
+ */
+function computeBranchColors(
+  tree: TreeNode,
+  matched: Map<number, Record<string, string>> | undefined,
+  column: string | undefined,
+): Record<number, string> | undefined {
+  if (!column || !matched) return undefined;
+  const scale = buildColorScale(tree, matched, column, {});
+  const map: Record<number, string> = {};
+  // Post-order: returns the shared value of the subtree, or null when mixed/empty.
+  const visit = (n: TreeNode): string | null => {
+    let shared: string | null;
+    if (n.children.length === 0) {
+      const v = matched.get(n.id)?.[column];
+      shared = v && v.trim() !== "" ? v : null;
+    } else {
+      let acc: string | null = null;
+      let started = false;
+      let mixed = false;
+      for (const c of n.children) {
+        const cv = visit(c);
+        if (cv === null) mixed = true;
+        else if (!started) {
+          acc = cv;
+          started = true;
+        } else if (cv !== acc) mixed = true;
+      }
+      shared = mixed || !started ? null : acc;
+    }
+    if (shared !== null) map[n.id] = scale.colorFor(shared);
+    return shared;
+  };
+  visit(tree);
+  return Object.keys(map).length > 0 ? map : undefined;
 }
 
 /** The deepest first clade with at least two tips, the default highlight target.
@@ -163,6 +208,12 @@ export function figureToRenderSpec(
     metadata: match?.matched,
     categoryColors,
     cladeHighlight: inputs.tracks.clade ? firstCladeHighlight(tree) : null,
+    branchColors: computeBranchColors(
+      tree,
+      match?.matched,
+      inputs.branchColorColumn,
+    ),
+    branchColorColumn: inputs.branchColorColumn || undefined,
     scales: inputs.scales,
     legend: inputs.legend,
   };
@@ -182,6 +233,8 @@ interface StoredFigure {
   /** The ordered layer stack (Phase 1, optional). Absent on a pre-Phase-1 record,
    *  which is why the adapter projects panels from tracks when this is missing. */
   panels?: AlignedPanel[];
+  /** Color branches by this metadata column (optional, additive). */
+  branchColorColumn?: string;
 }
 interface StoredMetadata {
   tipColumn?: string;
@@ -212,8 +265,18 @@ export function figureInputsFromStored(
   // Pass stored panels through when the record has them (Phase 1+); a pre-Phase-1
   // record has none, so figureToRenderSpec projects them from tracks.
   const panels = figure?.panels;
+  const branchColorColumn = figure?.branchColorColumn;
   if (!metadata?.rows) {
-    return { layout, phylogram, tracks, metaRows: null, scales, legend, panels };
+    return {
+      layout,
+      phylogram,
+      tracks,
+      metaRows: null,
+      scales,
+      legend,
+      panels,
+      branchColorColumn,
+    };
   }
   const cols = metadata.rows.length > 0 ? Object.keys(metadata.rows[0]) : [];
   return {
@@ -228,5 +291,6 @@ export function figureInputsFromStored(
     scales,
     legend,
     panels,
+    branchColorColumn,
   };
 }
