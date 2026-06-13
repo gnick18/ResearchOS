@@ -74,7 +74,8 @@ import {
   openSealed,
   sealUnderOneTimeKey,
 } from "@/lib/sharing/encryption";
-import { decodePublicKey } from "@/lib/sharing/identity/keys";
+import { decodePublicKey, encodePublicKey } from "@/lib/sharing/identity/keys";
+import { notifyRecipient } from "@/lib/mobile-relay/client";
 import { loadIdentity } from "@/lib/sharing/identity/storage";
 import { trackShareSent } from "@/lib/analytics/events";
 
@@ -282,6 +283,20 @@ export async function sendShare(
     identity.keys.signing.privateKey,
   );
   await postJson<{ ok: true }>("/api/relay/confirm", confirmBody);
+
+  // Best-effort phone push P2: ask the relay to buzz the recipient about this
+  // share even if their laptop is closed. Fire-and-forget, never blocks or fails
+  // the share. The relay gates on the recipient's OWN synced phone prefs + quiet
+  // hours and sends only a generic, content-free push. lookup.ed25519PublicKey is
+  // the recipient identity key the relay's CaptureInbox DO is addressed by.
+  void notifyRecipient(
+    {
+      ed25519PublicKeyHex: encodePublicKey(identity.keys.signing.publicKey),
+      ed25519PrivateKey: identity.keys.signing.privateKey,
+    },
+    lookup.ed25519PublicKey,
+    "shared",
+  ).catch(() => {});
 
   // sendShare is the RO-Crate note path; experiments/methods/etc. go via
   // sendRawShare. Anonymous feature counter only, no recipient or content.
