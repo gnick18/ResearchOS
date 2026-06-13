@@ -1,12 +1,15 @@
 // @vitest-environment jsdom
 // Coverage for the pin path in the ObjectEmbed dispatcher (markdown embed hybrid
 // P7-1a + P7-1b). With a pin context AND a stored pin, the embed renders the FROZEN
-// snapshot plus the "pinned <date>" badge instead of the live renderer. With the
+// snapshot plus the "frozen <date>" badge instead of the live renderer. With the
 // pin missing (sidecar gone or id removed) it falls back to live, gracefully.
 //
 // P7-1b adds the staleness check: when the live source's portable identity differs
-// from the pin's stored identity, a "source changed since you pinned this" badge
-// shows with View-current (view-only) and Re-pin (editor-only) actions.
+// from the pin's stored identity, a "source changed since you froze this" badge
+// shows with View-current (view-only) and Re-freeze (editor-only) actions.
+//
+// Also covers the Edit markdown button (Change 1): it appears only when
+// onEditMarkdown is supplied (editor context) and fires the callback on click.
 
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, waitFor, fireEvent } from "@testing-library/react";
@@ -72,7 +75,7 @@ beforeEach(() => {
 });
 
 describe("ObjectEmbed pin path", () => {
-  it("renders the frozen snapshot and a pinned badge when a pin is found", async () => {
+  it("renders the frozen snapshot and a frozen badge when a pin is found", async () => {
     getPinMock.mockResolvedValue(frozenPin);
     render(
       <ObjectEmbed
@@ -85,8 +88,8 @@ describe("ObjectEmbed pin path", () => {
     await waitFor(() =>
       expect(screen.getByText("Resveratrol (frozen)")).toBeInTheDocument(),
     );
-    // The pinned badge renders (localized date prefix "pinned ...").
-    expect(screen.getByText(/^pinned/)).toBeInTheDocument();
+    // The frozen badge renders (localized date prefix "frozen ...").
+    expect(screen.getByText(/^frozen/)).toBeInTheDocument();
     // The live renderer is NOT mounted.
     expect(screen.queryByTestId("live-molecule")).toBeNull();
     // getPin was asked for the right id.
@@ -110,7 +113,7 @@ describe("ObjectEmbed pin path", () => {
       expect(screen.getByTestId("live-molecule")).toBeInTheDocument(),
     );
     // No frozen badge.
-    expect(screen.queryByText(/^pinned/)).toBeNull();
+    expect(screen.queryByText(/^frozen/)).toBeNull();
   });
 
   it("renders live with no pin control when there is no pin context", async () => {
@@ -120,12 +123,12 @@ describe("ObjectEmbed pin path", () => {
       expect(screen.getByTestId("live-molecule")).toBeInTheDocument(),
     );
     expect(getPinMock).not.toHaveBeenCalled();
-    expect(screen.queryByText(/^pinned/)).toBeNull();
-    // No Pin / Unpin button without onPin / onUnpin closures.
-    expect(screen.queryByRole("button", { name: /Pin|Unpin/ })).toBeNull();
+    expect(screen.queryByText(/^frozen/)).toBeNull();
+    // No Freeze / Unfreeze button without onPin / onUnpin closures.
+    expect(screen.queryByRole("button", { name: /Freeze|Unfreeze/ })).toBeNull();
   });
 
-  it("offers a Pin control on a live embed when onPin is supplied", async () => {
+  it("offers a Freeze control on a live embed when onPin is supplied", async () => {
     getPinMock.mockResolvedValue(null);
     const onPin = vi.fn();
     render(
@@ -138,12 +141,12 @@ describe("ObjectEmbed pin path", () => {
     await waitFor(() =>
       expect(screen.getByTestId("live-molecule")).toBeInTheDocument(),
     );
-    expect(screen.getByRole("button", { name: "Pin" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Freeze" })).toBeInTheDocument();
   });
 });
 
 const SIDECAR = "users/alex/notes/3/notes.ros-embeds.json";
-const STALE_TEXT = /source changed since you pinned this/;
+const STALE_TEXT = /source changed since you froze this/;
 
 describe("ObjectEmbed staleness (P7-1b)", () => {
   it("shows the stale badge when the live identity differs from the pin", async () => {
@@ -220,7 +223,7 @@ describe("ObjectEmbed staleness (P7-1b)", () => {
   });
 });
 
-describe("ObjectEmbed View current + Re-pin (P7-1b)", () => {
+describe("ObjectEmbed View current + Re-freeze (P7-1b)", () => {
   it("View current toggles to the live renderer and back without touching the pin", async () => {
     getPinMock.mockResolvedValue(frozenPin);
     liveIdentityMock.mockResolvedValue("MOVED-ON-INCHI");
@@ -245,18 +248,18 @@ describe("ObjectEmbed View current + Re-pin (P7-1b)", () => {
     // Pin was never modified by viewing current.
     expect(updatePinMock).not.toHaveBeenCalled();
 
-    // Show pinned -> back to the frozen snapshot.
-    fireEvent.click(screen.getByRole("button", { name: "Show pinned" }));
+    // Show frozen -> back to the frozen snapshot.
+    fireEvent.click(screen.getByRole("button", { name: "Show frozen" }));
     await waitFor(() =>
       expect(screen.getByText("Resveratrol (frozen)")).toBeInTheDocument(),
     );
     expect(screen.queryByTestId("live-molecule")).toBeNull();
   });
 
-  it("View current works in read-only preview but Re-pin does NOT show there", async () => {
+  it("View current works in read-only preview but Re-freeze does NOT show there", async () => {
     // sidecarPath present but no onPin / onUnpin = read-only preview host. View
-    // current is view-only state, so it must still work; Re-pin (an editing action)
-    // must NOT show.
+    // current is view-only state, so it must still work; Re-freeze (an editing
+    // action) must NOT show.
     getPinMock.mockResolvedValue(frozenPin);
     liveIdentityMock.mockResolvedValue("MOVED-ON-INCHI");
     render(
@@ -268,10 +271,10 @@ describe("ObjectEmbed View current + Re-pin (P7-1b)", () => {
     );
     await waitFor(() => expect(screen.getByText(STALE_TEXT)).toBeInTheDocument());
     expect(screen.getByRole("button", { name: "View current" })).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Re-pin" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Re-freeze" })).toBeNull();
   });
 
-  it("Re-pin shows in an editor host (onUnpin closure present)", async () => {
+  it("Re-freeze shows in an editor host (onUnpin closure present)", async () => {
     getPinMock.mockResolvedValue(frozenPin);
     liveIdentityMock.mockResolvedValue("MOVED-ON-INCHI");
     render(
@@ -282,17 +285,17 @@ describe("ObjectEmbed View current + Re-pin (P7-1b)", () => {
       />,
     );
     await waitFor(() => expect(screen.getByText(STALE_TEXT)).toBeInTheDocument());
-    expect(screen.getByRole("button", { name: "Re-pin" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Re-freeze" })).toBeInTheDocument();
   });
 
-  it("Re-pin recaptures the snapshot, updates the SAME id, and clears the badge", async () => {
+  it("Re-freeze recaptures the snapshot, updates the SAME id, and clears the badge", async () => {
     getPinMock.mockResolvedValue(frozenPin);
     liveIdentityMock.mockResolvedValue("MOVED-ON-INCHI");
     const refreshed: EmbedPin = {
       ...frozenPin,
       pinnedAt: "2026-06-13T00:00:00.000Z",
       identity: "MOVED-ON-INCHI",
-      snapshot: { ...frozenPin.snapshot, title: "Resveratrol (re-pinned)" } as EmbedPin["snapshot"],
+      snapshot: { ...frozenPin.snapshot, title: "Resveratrol (re-frozen)" } as EmbedPin["snapshot"],
     };
     buildPinMock.mockResolvedValue(refreshed);
     updatePinMock.mockResolvedValue();
@@ -306,7 +309,7 @@ describe("ObjectEmbed View current + Re-pin (P7-1b)", () => {
     );
     await waitFor(() => expect(screen.getByText(STALE_TEXT)).toBeInTheDocument());
 
-    fireEvent.click(screen.getByRole("button", { name: "Re-pin" }));
+    fireEvent.click(screen.getByRole("button", { name: "Re-freeze" }));
 
     // updatePin called with the SAME short id from the fragment (s_abc123).
     await waitFor(() =>
@@ -316,6 +319,63 @@ describe("ObjectEmbed View current + Re-pin (P7-1b)", () => {
 
     // The badge clears and the refreshed frozen snapshot now shows.
     await waitFor(() => expect(screen.queryByText(STALE_TEXT)).toBeNull());
-    expect(screen.getByText("Resveratrol (re-pinned)")).toBeInTheDocument();
+    expect(screen.getByText("Resveratrol (re-frozen)")).toBeInTheDocument();
+  });
+});
+
+describe("ObjectEmbed Edit markdown button (Change 1)", () => {
+  it("Edit markdown button does NOT appear when onEditMarkdown is not supplied", async () => {
+    getPinMock.mockResolvedValue(null);
+    render(
+      <ObjectEmbed
+        descriptor={{ ...pinnedDescriptor, opts: {} }}
+        caption="Resveratrol"
+      />,
+    );
+    await waitFor(() =>
+      expect(screen.getByTestId("live-molecule")).toBeInTheDocument(),
+    );
+    // The button must be absent in a read-only / preview context.
+    expect(
+      screen.queryByRole("button", { name: /Edit markdown/ }),
+    ).toBeNull();
+  });
+
+  it("Edit markdown button appears and fires the callback when onEditMarkdown is supplied", async () => {
+    getPinMock.mockResolvedValue(null);
+    const onEditMarkdown = vi.fn();
+    render(
+      <ObjectEmbed
+        descriptor={{ ...pinnedDescriptor, opts: {} }}
+        caption="Resveratrol"
+        onEditMarkdown={onEditMarkdown}
+      />,
+    );
+    await waitFor(() =>
+      expect(screen.getByTestId("live-molecule")).toBeInTheDocument(),
+    );
+    const btn = screen.getByRole("button", { name: /Edit markdown/i });
+    expect(btn).toBeInTheDocument();
+    fireEvent.click(btn);
+    expect(onEditMarkdown).toHaveBeenCalledTimes(1);
+  });
+
+  it("Edit markdown button appears even on a frozen embed (editor context)", async () => {
+    getPinMock.mockResolvedValue(frozenPin);
+    const onEditMarkdown = vi.fn();
+    render(
+      <ObjectEmbed
+        descriptor={pinnedDescriptor}
+        caption="Resveratrol"
+        pinContext={{ sidecarPath: SIDECAR }}
+        onEditMarkdown={onEditMarkdown}
+      />,
+    );
+    await waitFor(() =>
+      expect(screen.getByText("Resveratrol (frozen)")).toBeInTheDocument(),
+    );
+    expect(
+      screen.getByRole("button", { name: /Edit markdown/i }),
+    ).toBeInTheDocument();
   });
 });
