@@ -20,7 +20,7 @@ import { useEffect, useRef } from "react";
 import { useFileSystem } from "@/lib/file-system/file-system-context";
 import { readUserSettings } from "@/lib/settings/user-settings";
 import { loadUserCaptureKeys } from "@/lib/mobile-relay/keys";
-import { publishTodayToAllDevices } from "@/lib/mobile-relay/today-snapshot";
+import { publishTodayToAllDevices, classifyToday } from "@/lib/mobile-relay/today-snapshot";
 import { publishInventoryToAllDevices } from "@/lib/mobile-relay/inventory-snapshot";
 import { publishNotebooksToAllDevices } from "@/lib/mobile-relay/notebooks-snapshot";
 import { publishCalculatorsToAllDevices } from "@/lib/mobile-relay/calculators-snapshot";
@@ -28,6 +28,8 @@ import {
   buildLibrarySnapshot,
   publishLibrarySnapshot,
 } from "@/lib/mobile-relay/library-snapshot";
+import { publishMethodToAllDevices } from "@/lib/mobile-relay/method-snapshot";
+import { fetchAllTasks } from "@/lib/local-api";
 import { publishTimersToAllDevices } from "@/lib/mobile-relay/timers-snapshot";
 import { publishNotificationsToAllDevices } from "@/lib/mobile-relay/notifications-snapshot";
 import { publishNotifyConfig } from "@/lib/mobile-relay/client";
@@ -52,12 +54,21 @@ const MIN_GAP_MS = 30_000;
 const LIBRARY_PASS_EVERY = 5; // ~ every 5 minutes at the 60s base cadence
 let lastLibraryVersion: string | null = null;
 
+// The active-experiment method snapshot runs on the same slow cadence as the
+// library publisher (every Nth pass, staggered by 1 so the two heavy passes
+// do not overlap in the same minute). Content is hash-gated: a stable focused
+// experiment is a cheap no-op because taskId + owner together uniquely identify
+// the snapshot content (the snapshot itself is stable when the focused task does
+// not change; a changed method attachment will be picked up on the next pass).
+// "Focused" = the earliest-starting active experiment that has at least one
+// method attachment, breaking ties by lowest task id.
+const METHOD_PASS_EVERY = 5; // ~ every 5 minutes, staggered 1 pass after library
+// Module-scoped so it survives effect re-runs within one tab session.
+let lastMethodKey: string | null = null;
+
 export default function TodaySnapshotPublisher() {
   const { currentUser, isConnected } = useFileSystem();
 
-  // A run-lock so overlapping triggers (interval + focus) don't double-publish.
-  const runningRef = useRef(false);
-  const lastRunRef = useRef(0);
   // Counts publish passes so the heavier library snapshot runs on a slower
   // cadence (every LIBRARY_PASS_EVERY passes) rather than every minute.
   const passCountRef = useRef(0);
@@ -66,13 +77,20 @@ export default function TodaySnapshotPublisher() {
     if (!isConnected || !currentUser) return;
 
     let cancelled = false;
+    // The run-lock and throttle are EFFECT-LOCAL (not component refs) so a
+    // torn-down effect can never wedge the next one. In demo the fixture
+    // install churns currentUser/isConnected, which re-runs this effect; a
+    // component-scoped lock stamped before the async identity load would leave
+    // the re-mounted run blocked by the throttle / run-lock and the publisher
+    // would never publish. Local state resets cleanly on every remount.
+    let running = false;
+    let lastRun = 0;
 
     const runOnce = async () => {
-      if (cancelled || runningRef.current) return;
+      if (cancelled || running) return;
       const now = Date.now();
-      if (now - lastRunRef.current < MIN_GAP_MS) return;
-      runningRef.current = true;
-      lastRunRef.current = now;
+      if (now - lastRun < MIN_GAP_MS) return;
+      running = true;
       try {
         const keys = await loadUserCaptureKeys();
         // No unlocked identity on hand here (needs-restore state): stay dark.
@@ -84,6 +102,10 @@ export default function TodaySnapshotPublisher() {
         // still resolves; this gate is the data snapshots only.
         const settings = await readUserSettings(currentUser);
         if (cancelled || !settings.autoPublishSnapshotsToPhones) return;
+        // Stamp the throttle only now that we are actually publishing, so a run
+        // that bailed early (no identity yet, kill switch off, or torn down
+        // mid-load) does not block the next trigger for MIN_GAP_MS.
+        lastRun = now;
         const { published, skipped } = await publishTodayToAllDevices(keys);
         if (published > 0 || skipped > 0) {
           console.info(
@@ -146,6 +168,78 @@ export default function TodaySnapshotPublisher() {
             console.warn("[library-publisher] publish failed (will retry)", err);
           }
         }
+        // Active-experiment method snapshot: automatically publish the "focused"
+        // experiment's method to paired phones so the companion app's
+        // recommendations band populates without requiring a manual button press.
+        //
+        // Focused = the earliest-starting active experiment (start_date <= today
+        // <= end_date, not complete, task_type "experiment") that has at least
+        // one method attachment. Ties on start_date broken by lowest task id.
+        // Runs on METHOD_PASS_EVERY cadence (staggered 1 pass after library so
+        // the two heavy passes do not overlap in the same minute). Content-gated
+        // by a "taskId:owner" key so an unchanged focus is a cheap no-op.
+        // When no qualifying experiment exists, nothing is published (the phone
+        // band correctly hides when the snapshot is absent or empty).
+        if (cancelled) return;
+        if (passCountRef.current % METHOD_PASS_EVERY === 2) {
+          try {
+            const today = (() => {
+              const now = new Date();
+              const y = now.getFullYear();
+              const mo = String(now.getMonth() + 1).padStart(2, "0");
+              const d = String(now.getDate()).padStart(2, "0");
+              return `${y}-${mo}-${d}`;
+            })();
+            const allTasks = await fetchAllTasks();
+            if (!cancelled) {
+              const { active } = classifyToday(
+                allTasks as unknown as Parameters<typeof classifyToday>[0],
+                today,
+              );
+              // Filter to experiments that have at least one method attachment.
+              const candidates = active.filter(
+                (t) =>
+                  (t as { task_type?: string }).task_type === "experiment" &&
+                  Array.isArray((t as { method_attachments?: unknown[] }).method_attachments) &&
+                  ((t as { method_attachments?: unknown[] }).method_attachments?.length ?? 0) > 0,
+              );
+              // Deterministic pick: earliest start_date, then lowest numeric id.
+              candidates.sort((a, b) => {
+                const dateCmp = a.start_date.localeCompare(b.start_date);
+                if (dateCmp !== 0) return dateCmp;
+                return Number(a.id) - Number(b.id);
+              });
+              const focused = candidates[0] as
+                | (Parameters<typeof classifyToday>[0][number] & {
+                    id: number;
+                    owner: string;
+                    task_type: string;
+                    method_attachments: unknown[];
+                  })
+                | undefined;
+              if (focused) {
+                const methodKey = `${focused.id}:${focused.owner}`;
+                if (methodKey !== lastMethodKey) {
+                  const meth = await publishMethodToAllDevices(
+                    keys,
+                    focused.id as number,
+                    focused.owner as string,
+                  );
+                  lastMethodKey = methodKey;
+                  if (meth.published > 0 || meth.skipped > 0) {
+                    console.info(
+                      `[method-publisher] published to ${meth.published} device(s), skipped ${meth.skipped} (task ${focused.id})`,
+                    );
+                  }
+                }
+              }
+            }
+          } catch (err) {
+            // Non-fatal: a missed method publish only means the band stays stale
+            // until the next slow-cadence pass.
+            console.warn("[method-publisher] publish failed (will retry)", err);
+          }
+        }
         // Timers snapshot: the laptop's own running timers so they mirror onto
         // the phone. Also published on change (the effect below) for near-instant
         // propagation; this periodic pass is the fallback + re-seal for late
@@ -192,7 +286,7 @@ export default function TodaySnapshotPublisher() {
       } catch (err) {
         console.warn("[today-publisher] publish failed (will retry)", err);
       } finally {
-        runningRef.current = false;
+        running = false;
       }
     };
 
