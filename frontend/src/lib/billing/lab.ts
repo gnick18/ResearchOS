@@ -57,7 +57,17 @@ export interface LabMemberRecord {
    * already possesses these addresses, this just remembers them.
    */
   label: string | null;
+  /**
+   * How the row was created. 'directory' means it was reconciled from the lab's
+   * DO membership roster (the member has real folder/data access). 'invite' means
+   * the PI sponsored them by email through /api/billing/lab/members with no data
+   * lab membership (an outside collaborator). The unified PI roster uses this to
+   * separate true lab members from sponsored-only collaborators.
+   */
+  source: LabMemberSource;
 }
+
+export type LabMemberSource = "directory" | "invite";
 
 type MemberRow = {
   lab_owner_key: string;
@@ -65,6 +75,7 @@ type MemberRow = {
   status: string;
   usage_visible: boolean | null;
   label: string | null;
+  source: string | null;
 };
 
 function rowToMember(r: MemberRow): LabMemberRecord {
@@ -74,6 +85,7 @@ function rowToMember(r: MemberRow): LabMemberRecord {
     status: r.status as LabMemberStatus,
     usageVisible: r.usage_visible === true,
     label: r.label ?? null,
+    source: r.source === "directory" ? "directory" : "invite",
   };
 }
 
@@ -205,7 +217,7 @@ export async function listLabMembers(
 ): Promise<LabMemberRecord[]> {
   const sql = getSql();
   const rows = (await sql`
-    SELECT lab_owner_key, member_owner_key, status, usage_visible, label
+    SELECT lab_owner_key, member_owner_key, status, usage_visible, label, source
     FROM billing_lab_members
     WHERE lab_owner_key = ${labOwnerKey} AND status <> 'declined'
     ORDER BY status, created_at
@@ -219,7 +231,7 @@ export async function listInvitesForMember(
 ): Promise<LabMemberRecord[]> {
   const sql = getSql();
   const rows = (await sql`
-    SELECT lab_owner_key, member_owner_key, status, usage_visible, label
+    SELECT lab_owner_key, member_owner_key, status, usage_visible, label, source
     FROM billing_lab_members
     WHERE member_owner_key = ${memberOwnerKey} AND status = 'invited'
     ORDER BY created_at
@@ -331,5 +343,118 @@ export async function reconcileLabMembers(
       await removeMember(labOwnerKey, row.member_owner_key);
     }
   }
+}
+
+// ---------------------------------------------------------------------------
+// Unified PI roster classification (the one-roster-with-billing-chip view).
+//
+// The PI's lab has two memberships that live on different planes: data/folder
+// access (the head-signed DO membership log, keyed by Ed25519 pubkey) and the
+// billing pool (this table, keyed by email hash). The unified roster shows the
+// DATA-lab members as the primary list, each annotated with a billing chip, and
+// surfaces billing-only rows (sponsored outside collaborators with no data
+// access) as a separate group. The keyspaces meet at the directory binding
+// (pubkey -> email hash), resolved by the caller before this pure step.
+// ---------------------------------------------------------------------------
+
+/** A member's billing state relative to the PI's pool. */
+export type LabBillingStatus =
+  // An active paid/pooled seat in this lab.
+  | "active"
+  // Invited to the billing pool but not yet accepted (billing-only path).
+  | "pending"
+  // Has a directory identity but no billing row yet (e.g. reconcile has not run,
+  // or billing is off). They will enroll on the next roster sync.
+  | "unbilled"
+  // In the data lab but no directory binding yet, so not billable at all until
+  // their auto-bind lands on a future login (the timing-race case).
+  | "no_identity";
+
+/** A data-lab member, annotated with their billing status. */
+export interface UnifiedLabMember {
+  /** Display username from the DO roster. */
+  username: string | null;
+  /** Ed25519 pubkey (the DO roster identity). */
+  pubkey: string;
+  /** The resolved billing key (email hash), or null when unbound. */
+  memberKey: string | null;
+  billingStatus: LabBillingStatus;
+  /** Whether the member opted into per-member usage visibility (billing rows). */
+  usageVisible: boolean;
+}
+
+/** A billing-only sponsored collaborator (no data-lab membership). */
+export interface SponsoredCollaborator {
+  memberKey: string;
+  label: string | null;
+  status: LabMemberStatus;
+  usageVisible: boolean;
+}
+
+export interface ClassifiedRoster {
+  /** Data-lab members with their billing chip. */
+  members: UnifiedLabMember[];
+  /** Billing seats with no data-lab membership (outside collaborators). */
+  sponsored: SponsoredCollaborator[];
+}
+
+/**
+ * Pure join of the data-lab roster against the billing rows. The caller resolves
+ * each DO roster member's pubkey to its directory binding email hash first
+ * (null when unbound) and passes the billing rows from listLabMembers. No I/O,
+ * so it is unit-testable.
+ *
+ * - members: every data-lab member, billing chip derived from a matching active/
+ *   invited row, else unbilled (bound) or no_identity (unbound).
+ * - sponsored: billing rows whose email hash is NOT a data-lab member, i.e. the
+ *   PI sponsored them by email with no folder access (outside collaborators).
+ *   Declined rows are already filtered out upstream by listLabMembers.
+ */
+export function classifyLabRoster(
+  dataMembers: {
+    pubkey: string;
+    username: string | null;
+    memberKey: string | null;
+  }[],
+  billingRows: LabMemberRecord[],
+): ClassifiedRoster {
+  const rowByKey = new Map(billingRows.map((r) => [r.memberOwnerKey, r]));
+  const dataMemberKeys = new Set<string>();
+
+  const members: UnifiedLabMember[] = dataMembers.map((dm) => {
+    if (dm.memberKey) dataMemberKeys.add(dm.memberKey);
+    const row = dm.memberKey ? rowByKey.get(dm.memberKey) : undefined;
+    let billingStatus: LabBillingStatus;
+    if (!dm.memberKey) {
+      billingStatus = "no_identity";
+    } else if (row?.status === "active") {
+      billingStatus = "active";
+    } else if (row?.status === "invited") {
+      billingStatus = "pending";
+    } else {
+      billingStatus = "unbilled";
+    }
+    return {
+      username: dm.username,
+      pubkey: dm.pubkey,
+      memberKey: dm.memberKey,
+      billingStatus,
+      usageVisible: row?.usageVisible === true,
+    };
+  });
+
+  // Sponsored-only collaborators: any billing row that is not one of the data
+  // members. These were added through the billing-only email-invite path and
+  // have a seat without folder access.
+  const sponsored: SponsoredCollaborator[] = billingRows
+    .filter((r) => !dataMemberKeys.has(r.memberOwnerKey))
+    .map((r) => ({
+      memberKey: r.memberOwnerKey,
+      label: r.label,
+      status: r.status,
+      usageVisible: r.usageVisible,
+    }));
+
+  return { members, sponsored };
 }
 
