@@ -59,6 +59,9 @@ export type LabDigest = {
   purchases: {
     made: number;
     totalSpend: number;
+    /** Pre-formatted total spend string, e.g. "$6,966.00". Echo this verbatim
+     *  when narrating the purchase spend. Never re-type the number yourself. */
+    totalSpendDisplay: string;
     pending: number;
   };
   /** What is scheduled next, lifted from the projects rollup (overdue project
@@ -151,6 +154,7 @@ export function composeLabDigest(
     purchases: {
       made: pur.count,
       totalSpend: pur.totalSpend,
+      totalSpendDisplay: pur.totalSpendDisplay,
       pending: pur.pendingVsReceived.pending,
     },
     scheduled: {
@@ -174,8 +178,9 @@ export const labDigestTool: AiTool = {
     "Assemble a cross-type digest of the lab's activity over a date window, the experiments run / finished / overdue and finishing this week, the notes written and their entry count, the purchases made with the deterministic total spend and the pending count, and what is scheduled next (projects with overdue work, the soonest upcoming task start). " +
     "Call this for a week-in-review or status roundup, for example \"what did the lab do this week\", \"give me a digest of last month\", \"summarize everything since April 1\". " +
     "Read-only, it changes nothing and runs straight away with no approval step. It COMPOSES the per-type summary tools, so every count and the total spend come straight from those deterministic aggregates. You NEVER count, total, or add anything yourself, you relay the composed digest exactly and never interpret it into a finding or a verdict about how the week went. " +
+    "VERBATIM ECHO RULE: the purchases block carries totalSpendDisplay (e.g. \"$6,966.00\"). When you state the purchase spend, COPY that string CHARACTER FOR CHARACTER. Never re-type, re-sum, round, or recompute it. " +
     "Pass absolute YYYY-MM-DD dates for since / until; resolve relative phrasing (\"this week\", \"last month\") to absolute dates yourself using the current date in the context line first. Pass owners (usernames) to scope to members; the whole lab is the default (own plus everything shared with the user, never a member's private work). " +
-    "Returns { ok, digest } where digest echoes the window and carries experiments, notes, purchases, and scheduled blocks. When a block is all zeros, say plainly that nothing happened in that area for the window.",
+    "Returns { ok, digest } where digest echoes the window and carries experiments, notes, purchases (with totalSpend and totalSpendDisplay), and scheduled blocks. When a block is all zeros, say plainly that nothing happened in that area for the window.",
   parameters: {
     type: "object",
     properties: {

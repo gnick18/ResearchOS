@@ -493,6 +493,7 @@ const realProjTasks = summarizeProjectsDeps.listTasks;
 const realInvItems = summarizeInventoryDeps.listItems;
 const realInvStocks = summarizeInventoryDeps.listStocks;
 const realExpLister = summarizeExperimentsDeps.listExperiments;
+const realExpProjList = summarizeExperimentsDeps.listProjects;
 const realPurLister = summarizePurchasesDeps.listPurchases;
 
 afterEach(() => {
@@ -502,6 +503,7 @@ afterEach(() => {
   summarizeInventoryDeps.listItems = realInvItems;
   summarizeInventoryDeps.listStocks = realInvStocks;
   summarizeExperimentsDeps.listExperiments = realExpLister;
+  summarizeExperimentsDeps.listProjects = realExpProjList;
   summarizePurchasesDeps.listPurchases = realPurLister;
 });
 
@@ -559,6 +561,7 @@ describe("labDigestTool.execute", () => {
   it("composes a digest from the stubbed per-type loaders", async () => {
     Object.assign(summarizeExperimentsDeps, {
       listExperiments: async () => [makeTask({ id: 1, is_complete: true })],
+      listProjects: async (): Promise<Project[]> => [],
     });
     Object.assign(summarizePurchasesDeps, {
       listPurchases: async () => [],

@@ -22,19 +22,23 @@ import {
   type ArtifactBrief,
   type ArtifactFilter,
 } from "@/lib/ai/artifact-index";
-import { fetchAllTasksIncludingShared } from "@/lib/local-api";
-import type { Task } from "@/lib/types";
+import { fetchAllProjectsIncludingShared, fetchAllTasksIncludingShared } from "@/lib/local-api";
+import type { Project, Task } from "@/lib/types";
 import type { AiTool } from "./types";
 
 // ---------------------------------------------------------------------------
 // Injectable deps seam (mirrors artifactIndexDeps / readArtifactDeps). A test
-// stubs listExperiments with fixture tasks and never touches a real folder.
+// stubs listExperiments and listProjects with fixtures and never touches a
+// real folder.
 // ---------------------------------------------------------------------------
 
 export type SummarizeExperimentsDeps = {
   /** Load every experiment Task the current user may see (own + shared-in),
    *  ACL-enforced by fetchAllTasksIncludingShared upstream. */
   listExperiments: () => Promise<Task[]>;
+  /** Load all projects visible to the current user (own + shared), used to
+   *  resolve project ids to human-readable names in the byProject breakdown. */
+  listProjects: () => Promise<Project[]>;
 };
 
 export const summarizeExperimentsDeps: SummarizeExperimentsDeps = {
@@ -42,6 +46,7 @@ export const summarizeExperimentsDeps: SummarizeExperimentsDeps = {
     const all = await fetchAllTasksIncludingShared();
     return all.filter((t) => t.task_type === "experiment");
   },
+  listProjects: () => fetchAllProjectsIncludingShared(),
 };
 
 // ---------------------------------------------------------------------------
@@ -57,6 +62,10 @@ export type ExperimentSummaryItem = {
   startDate: string | null;
   endDate: string | null;
   projectId: string | null;
+  /** Resolved human-readable project name. Narrate this, not the raw id. Falls
+   *  back to the id string if no project record exists for that id. Null when
+   *  the experiment has no project. */
+  projectName: string | null;
   owner: string | null;
   deepLink: string;
 };
@@ -75,8 +84,11 @@ export type ExperimentSummary = {
     overdue: number;
     upcoming: number;
   };
-  /** Count per project id (only projects with at least one match appear). */
-  byProject: Record<string, number>;
+  /** Count per project, resolved to a human name. Only projects with at least
+   *  one match appear. The model MUST narrate the projectName, never the raw
+   *  projectId. Falls back to the id string only when no project record exists
+   *  for that id. */
+  byProject: Array<{ projectId: string; projectName: string; count: number }>;
   /** Count per owning member (only owners with at least one match appear). */
   byOwner: Record<string, number>;
   /** Count per calendar month (YYYY-MM) by start date, plus an "undated" bucket
@@ -122,12 +134,18 @@ function addDays(day: string, days: number): string {
  * "today". Pure and deterministic, so a test passes a fixture + a frozen today
  * and asserts the exact counts. The runtime tool resolves `today` from the real
  * Date; the test pins it.
+ *
+ * Pass `projectNames` (a Map from project id string to project name) to
+ * resolve byProject buckets to human names. The runtime tool builds this map
+ * from the project list returned by the deps seam. Tests that do not care about
+ * name resolution may omit it (defaults to an empty map, falling back to ids).
  */
 export function aggregateExperiments(
   tasks: Task[],
   filter: ArtifactFilter,
   today: string,
   cap: number = DEFAULT_ITEM_CAP,
+  projectNames: Map<string, string> = new Map(),
 ): ExperimentSummary {
   // Convert to briefs (carrying owner) and keep a brief.id -> task map so we
   // aggregate from the REAL records of only the briefs that pass the filter.
@@ -145,7 +163,7 @@ export function aggregateExperiments(
     .filter((x): x is { brief: ArtifactBrief; task: Task } => x !== undefined);
 
   const byStatus = { complete: 0, active: 0, overdue: 0, upcoming: 0 };
-  const byProject: Record<string, number> = {};
+  const byProjectCounts = new Map<string, number>();
   const byOwner: Record<string, number> = {};
   const monthCounts = new Map<string, number>();
   const weekEnd = addDays(today, 7);
@@ -165,7 +183,7 @@ export function aggregateExperiments(
     byStatus[status] += 1;
 
     const projectId = task.project_id ? String(task.project_id) : null;
-    if (projectId) byProject[projectId] = (byProject[projectId] ?? 0) + 1;
+    if (projectId) byProjectCounts.set(projectId, (byProjectCounts.get(projectId) ?? 0) + 1);
 
     const owner = task.owner || null;
     if (owner) byOwner[owner] = (byOwner[owner] ?? 0) + 1;
@@ -194,16 +212,28 @@ export function aggregateExperiments(
     return db.localeCompare(da);
   });
 
-  const items: ExperimentSummaryItem[] = sorted.slice(0, cap).map(({ brief, task }) => ({
-    id: brief.id,
-    title: brief.title,
-    status: statusOf(task),
-    startDate: dayOf(task.start_date),
-    endDate: dayOf(task.end_date),
-    projectId: task.project_id ? String(task.project_id) : null,
-    owner: task.owner || null,
-    deepLink: brief.deepLink,
+  // Resolve byProject id map to named buckets. Fall back to the id string only
+  // when no project record exists (e.g. the project was deleted after sharing).
+  const byProject = Array.from(byProjectCounts.entries()).map(([projectId, count]) => ({
+    projectId,
+    projectName: projectNames.get(projectId) ?? projectId,
+    count,
   }));
+
+  const items: ExperimentSummaryItem[] = sorted.slice(0, cap).map(({ brief, task }) => {
+    const projectId = task.project_id ? String(task.project_id) : null;
+    return {
+      id: brief.id,
+      title: brief.title,
+      status: statusOf(task),
+      startDate: dayOf(task.start_date),
+      endDate: dayOf(task.end_date),
+      projectId,
+      projectName: projectId ? (projectNames.get(projectId) ?? projectId) : null,
+      owner: task.owner || null,
+      deepLink: brief.deepLink,
+    };
+  });
 
   return {
     filter,
@@ -257,7 +287,7 @@ export const summarizeExperimentsTool: AiTool = {
     "THE TOOL owns every count, status, and total; you NEVER count records, derive a status, or invent a date yourself. You only relay the numbers it returns and never interpret them into a finding. " +
     "Pass absolute YYYY-MM-DD dates for since / until; resolve relative phrasing (\"this quarter\", \"last month\") to absolute dates yourself using the current date in the context line first. " +
     "Pass owners (usernames) to scope to one or more members; the whole lab is the default (own plus everything shared with the user, never a member's private work). Pass projectIds to scope to projects, status to scope to complete / active / overdue / upcoming, and keywords for a free-text match. " +
-    "Returns { ok, summary } where summary echoes the filter and carries total, byStatus, byProject, byOwner, byMonth, finishingThisWeek, asOf, and a capped items list (flagged truncated). If nothing matches, summary.total is 0, say so plainly.",
+    "Returns { ok, summary } where summary echoes the filter and carries total, byStatus, byProject (an array of { projectId, projectName, count } objects), byOwner, byMonth, finishingThisWeek, asOf, and a capped items list (flagged truncated). Each byProject entry and each item now carries a projectName field; always narrate the projectName, never the raw projectId. If nothing matches, summary.total is 0, say so plainly.",
   parameters: {
     type: "object",
     properties: {
@@ -299,8 +329,14 @@ export const summarizeExperimentsTool: AiTool = {
   },
   execute: async (args) => {
     const filter = parseFilter(args);
-    const tasks = await summarizeExperimentsDeps.listExperiments();
-    const summary = aggregateExperiments(tasks, filter, todayString());
+    const [tasks, projects] = await Promise.all([
+      summarizeExperimentsDeps.listExperiments(),
+      summarizeExperimentsDeps.listProjects(),
+    ]);
+    const projectNames = new Map(
+      projects.map((p) => [String(p.id), p.name || "Untitled project"]),
+    );
+    const summary = aggregateExperiments(tasks, filter, todayString(), DEFAULT_ITEM_CAP, projectNames);
     return { ok: true as const, summary };
   },
 };

@@ -108,10 +108,27 @@ describe("aggregateExperiments (deterministic counts)", () => {
     expect(s.byStatus).toEqual({ complete: 1, active: 2, overdue: 1, upcoming: 1 });
   });
 
-  it("counts by project and by owner", () => {
+  it("counts by project (resolved name) and by owner", () => {
+    // Without a projectNames map the fallback is the id string.
     const s = aggregateExperiments(experimentSet(), { types: ["experiment"] }, TODAY);
-    expect(s.byProject).toEqual({ "4": 3, "9": 2 });
+    // byProject is now an array of { projectId, projectName, count }.
+    // Sorted order is insertion order of the Map (first seen).
+    const byProjectMap = Object.fromEntries(s.byProject.map((b) => [b.projectId, b.count]));
+    expect(byProjectMap).toEqual({ "4": 3, "9": 2 });
+    // Without a names map the projectName falls back to the id string.
+    const names = Object.fromEntries(s.byProject.map((b) => [b.projectId, b.projectName]));
+    expect(names).toEqual({ "4": "4", "9": "9" });
     expect(s.byOwner).toEqual({ grant: 3, alice: 2 });
+  });
+
+  it("resolves project ids to names when a projectNames map is provided", () => {
+    const nameMap = new Map([["4", "cyp51A"], ["9", "abc1"]]);
+    const s = aggregateExperiments(experimentSet(), { types: ["experiment"] }, TODAY, 15, nameMap);
+    const names = Object.fromEntries(s.byProject.map((b) => [b.projectId, b.projectName]));
+    expect(names).toEqual({ "4": "cyp51A", "9": "abc1" });
+    // Items also carry the resolved name.
+    const itemWithProject = s.items.find((i) => i.projectId === "4");
+    expect(itemWithProject?.projectName).toBe("cyp51A");
   });
 
   it("builds a month histogram by start date, sorted ascending", () => {
@@ -190,28 +207,35 @@ describe("aggregatePurchases (deterministic money)", () => {
 
   it("computes spend by vendor, descending, with an Unknown bucket", () => {
     const s = aggregatePurchases(purchaseSet(), { types: ["purchase"] });
-    expect(s.byVendor).toEqual([
+    // Check the numeric and key fields; spendDisplay is checked separately.
+    expect(s.byVendor.map(({ key, count, spend }) => ({ key, count, spend }))).toEqual([
       { key: "NEB", count: 2, spend: 215.25 },
       { key: "IDT", count: 1, spend: 42.5 },
       { key: "Unknown vendor", count: 1, spend: 30 },
     ]);
+    // Each bucket must carry a pre-formatted spendDisplay string.
+    expect(s.byVendor[0].spendDisplay).toBe("$215.25");
+    expect(s.byVendor[1].spendDisplay).toBe("$42.50");
+    expect(s.byVendor[2].spendDisplay).toBe("$30.00");
   });
 
   it("computes spend by category with an Uncategorized bucket", () => {
     const s = aggregatePurchases(purchaseSet(), { types: ["purchase"] });
-    expect(s.byCategory).toEqual([
+    expect(s.byCategory.map(({ key, count, spend }) => ({ key, count, spend }))).toEqual([
       { key: "reagents", count: 2, spend: 215.25 },
       { key: "oligos", count: 1, spend: 42.5 },
       { key: "Uncategorized", count: 1, spend: 30 },
     ]);
+    expect(s.byCategory[0].spendDisplay).toBe("$215.25");
   });
 
   it("computes spend by month from last_edited_at, ascending", () => {
     const s = aggregatePurchases(purchaseSet(), { types: ["purchase"] });
-    expect(s.byMonth).toEqual([
+    expect(s.byMonth.map(({ key, count, spend }) => ({ key, count, spend }))).toEqual([
       { key: "2026-05", count: 1, spend: 120.25 },
       { key: "2026-06", count: 3, spend: 167.5 },
     ]);
+    expect(s.byMonth[0].spendDisplay).toBe("$120.25");
   });
 
   it("tallies status and the pending vs received split", () => {
@@ -281,6 +305,7 @@ describe("aggregatePurchases (deterministic money)", () => {
 // ---------------------------------------------------------------------------
 
 const realExpLister = summarizeExperimentsDeps.listExperiments;
+const realExpProjLister = summarizeExperimentsDeps.listProjects;
 const realPurchaseLister = summarizePurchasesDeps.listPurchases;
 
 function stubExperiments(overrides: Partial<SummarizeExperimentsDeps>): void {
@@ -292,31 +317,43 @@ function stubPurchases(overrides: Partial<SummarizePurchasesDeps>): void {
 
 afterEach(() => {
   summarizeExperimentsDeps.listExperiments = realExpLister;
+  summarizeExperimentsDeps.listProjects = realExpProjLister;
   summarizePurchasesDeps.listPurchases = realPurchaseLister;
 });
 
 describe("summarizeExperimentsTool.execute", () => {
-  it("loads, filters, and returns a summary", async () => {
+  it("loads, filters, and returns a summary with resolved project names", async () => {
     stubExperiments({
       listExperiments: async () => [
-        makeExperiment({ id: 1, owner: "grant", is_complete: true }),
-        makeExperiment({ id: 2, owner: "alice", is_complete: false }),
+        makeExperiment({ id: 1, owner: "grant", is_complete: true, project_id: 4 }),
+        makeExperiment({ id: 2, owner: "alice", is_complete: false, project_id: 9 }),
+      ],
+      listProjects: async () => [
+        { id: 4, name: "cyp51A", owner: "grant", weekend_active: false, tags: null, color: null, created_at: "2026-01-01T00:00:00Z", sort_order: 0, is_archived: false, archived_at: null, shared_with: [] },
+        { id: 9, name: "abc1", owner: "grant", weekend_active: false, tags: null, color: null, created_at: "2026-01-01T00:00:00Z", sort_order: 0, is_archived: false, archived_at: null, shared_with: [] },
       ],
     });
     const out = (await summarizeExperimentsTool.execute({ owners: ["grant"] })) as {
       ok: true;
-      summary: { total: number; byOwner: Record<string, number>; filter: unknown };
+      summary: {
+        total: number;
+        byOwner: Record<string, number>;
+        byProject: Array<{ projectId: string; projectName: string; count: number }>;
+        filter: unknown;
+      };
     };
     expect(out.ok).toBe(true);
     expect(out.summary.total).toBe(1);
     expect(out.summary.byOwner).toEqual({ grant: 1 });
+    // byProject resolves the name even though alice's experiment is filtered out.
+    expect(out.summary.byProject).toEqual([{ projectId: "4", projectName: "cyp51A", count: 1 }]);
     // The filter is echoed back with the experiment type pinned.
     expect(out.summary.filter).toMatchObject({ types: ["experiment"], owners: ["grant"] });
   });
 });
 
 describe("summarizePurchasesTool.execute", () => {
-  it("loads, filters, and returns a money summary", async () => {
+  it("loads, filters, and returns a money summary with display strings", async () => {
     stubPurchases({
       listPurchases: async () => [
         makePurchase({ id: 1, total_price: 100, owner: "grant" }),
@@ -325,11 +362,103 @@ describe("summarizePurchasesTool.execute", () => {
     });
     const out = (await summarizePurchasesTool.execute({})) as {
       ok: true;
-      summary: { count: number; totalSpend: number; filter: unknown };
+      summary: {
+        count: number;
+        totalSpend: number;
+        totalSpendDisplay: string;
+        filter: unknown;
+        byVendor: Array<{ key: string; spendDisplay: string }>;
+        largestItems: Array<{ totalPriceDisplay: string }>;
+      };
     };
     expect(out.ok).toBe(true);
     expect(out.summary.count).toBe(2);
     expect(out.summary.totalSpend).toBe(150);
+    // The display string must be pre-formatted and match the numeric total.
+    expect(out.summary.totalSpendDisplay).toBe("$150.00");
+    // Each vendor bucket carries a spendDisplay.
+    expect(out.summary.byVendor[0].spendDisplay).toMatch(/^\$[\d,]+\.\d{2}$/);
+    // Each largestItems entry carries a totalPriceDisplay.
+    expect(out.summary.largestItems[0].totalPriceDisplay).toMatch(/^\$[\d,]+\.\d{2}$/);
     expect(out.summary.filter).toMatchObject({ types: ["purchase"] });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Demo fixture ground-truth test. Verifies the tool's aggregation against the
+// known demo purchase set so the test fails the moment the aggregation drifts
+// from the real numbers the Purchases dashboard displays.
+//
+// Ground truth: the demo session visible to "alex" (own 22 items + 14 shared
+// via morgan's project 1 and two direct task shares) totals 36 items at
+// $6,966.00. All total_price values here are taken verbatim from the fixture
+// JSON files under frontend/public/demo-data/users/{alex,morgan}/purchase_items/.
+// ---------------------------------------------------------------------------
+
+describe("aggregatePurchases (demo fixture ground truth)", () => {
+  // Alex's own 22 items. total_price copied verbatim from fixture JSON.
+  const ALEX_ITEMS: OwnedPurchase[] = [
+    makePurchase({ id: 1, task_id: 7, item_name: "DemoStrain DADE2 (fake yeast collection)", quantity: 1, price_per_unit: 220, shipping_fees: 25, total_price: 245, vendor: null, category: null, order_status: "received", owner: "alex" }),
+    makePurchase({ id: 2, task_id: 7, item_name: "FakeYeast genotyping primers (IDT)", quantity: 4, price_per_unit: 14, shipping_fees: 5, total_price: 61, vendor: "IDT", category: "Reagents", order_status: "received", owner: "alex" }),
+    makePurchase({ id: 3, task_id: 7, item_name: "Phusion polymerase (demo)", quantity: 1, price_per_unit: 285, shipping_fees: 0, total_price: 285, vendor: "NEB", category: "Reagents", order_status: "received", owner: "alex" }),
+    makePurchase({ id: 4, task_id: 15, item_name: "LC-MS grade acetonitrile (demo)", quantity: 2, price_per_unit: 95, shipping_fees: 10, total_price: 200, vendor: "Sigma-Aldrich", category: "Reagents", order_status: "needs_ordering", owner: "alex" }),
+    makePurchase({ id: 5, task_id: 24, item_name: "SD-Ura selection plates", quantity: 5, price_per_unit: 40, shipping_fees: 0, total_price: 200, vendor: "Internal supply", category: "Plasticware", order_status: "received", owner: "alex" }),
+    makePurchase({ id: 6, task_id: 24, item_name: "Restriction enzyme set", quantity: 1, price_per_unit: 295, shipping_fees: 20, total_price: 315, vendor: "NEB", category: "Reagents", order_status: "received", owner: "alex" }),
+    makePurchase({ id: 7, task_id: 24, item_name: "pYES2 backbone vector (demo)", quantity: 1, price_per_unit: 180, shipping_fees: 0, total_price: 180, vendor: null, category: "Reagents", order_status: "received", owner: "alex" }),
+    makePurchase({ id: 8, task_id: 25, item_name: "Gibson assembly master mix", quantity: 2, price_per_unit: 245, shipping_fees: 20, total_price: 510, vendor: "NEB", category: "Reagents", order_status: "ordered", owner: "alex" }),
+    makePurchase({ id: 9, task_id: 25, item_name: "96-well PCR plates", quantity: 5, price_per_unit: 48, shipping_fees: 15, total_price: 255, vendor: "Thermo", category: "Plasticware", order_status: "ordered", owner: "alex" }),
+    makePurchase({ id: 10, task_id: 25, item_name: "Filter pipette tips (P200, racked)", quantity: 10, price_per_unit: 32, shipping_fees: 0, total_price: 320, vendor: "Sigma-Aldrich", category: "Consumables", order_status: "ordered", owner: "alex" }),
+    makePurchase({ id: 11, task_id: 26, item_name: "Sorbitol (1 kg, biology-grade)", quantity: 2, price_per_unit: 58, shipping_fees: 0, total_price: 116, vendor: "Sigma-Aldrich", category: "Reagents", order_status: "ordered", owner: "alex" }),
+    makePurchase({ id: 12, task_id: 26, item_name: "NaCl (1 kg, ACS-grade)", quantity: 1, price_per_unit: 32, shipping_fees: 0, total_price: 32, vendor: "Sigma-Aldrich", category: "Reagents", order_status: "ordered", owner: "alex" }),
+    makePurchase({ id: 13, task_id: 26, item_name: "384-well clear-bottom assay plates", quantity: 4, price_per_unit: 76, shipping_fees: 12, total_price: 316, vendor: "Thermo", category: "Plasticware", order_status: "ordered", owner: "alex" }),
+    makePurchase({ id: 14, task_id: 26, item_name: "gBlocks for stress-response reporters", quantity: 8, price_per_unit: 32, shipping_fees: 0, total_price: 256, vendor: "IDT", category: "Reagents", order_status: "ordered", owner: "alex" }),
+    makePurchase({ id: 15, task_id: 27, item_name: "Sequencing-screen primer set", quantity: 6, price_per_unit: 14, shipping_fees: 5, total_price: 89, vendor: "IDT", category: "Reagents", order_status: "needs_ordering", owner: "alex" }),
+    makePurchase({ id: 16, task_id: 27, item_name: "T7 RNA polymerase (demo)", quantity: 1, price_per_unit: 172, shipping_fees: 0, total_price: 172, vendor: "Thermo", category: "Reagents", order_status: "needs_ordering", owner: "alex" }),
+    makePurchase({ id: 17, task_id: 27, item_name: "50 mL conical tubes (sleeve)", quantity: 4, price_per_unit: 24, shipping_fees: 0, total_price: 96, vendor: "Sigma-Aldrich", category: "Consumables", order_status: "needs_ordering", owner: "alex" }),
+    makePurchase({ id: 18, task_id: 15, item_name: "LC-MS column hardware service kit", quantity: 1, price_per_unit: 450, shipping_fees: 25, total_price: 475, vendor: "Thermo", category: "Service", order_status: "needs_ordering", owner: "alex" }),
+    makePurchase({ id: 19, task_id: 15, item_name: "Solvent waste disposal bottles", quantity: 6, price_per_unit: 18, shipping_fees: 0, total_price: 108, vendor: "Sigma-Aldrich", category: "Consumables", order_status: "needs_ordering", owner: "alex" }),
+    makePurchase({ id: 20, task_id: 11, item_name: "Pipette tip refills (P1000)", quantity: 2, price_per_unit: 48, shipping_fees: 0, total_price: 96, vendor: null, category: "Consumables", order_status: "needs_ordering", owner: "alex" }),
+    makePurchase({ id: 21, task_id: 31, item_name: "Conference registration", quantity: 1, price_per_unit: 450, shipping_fees: 0, total_price: 450, vendor: null, category: "Miscellaneous", order_status: "needs_ordering", owner: "alex" }),
+    makePurchase({ id: 22, task_id: 31, item_name: "Lab coffee + whiteboard markers", quantity: 1, price_per_unit: 38, shipping_fees: 0, total_price: 38, vendor: null, category: "Miscellaneous", order_status: "received", owner: "alex" }),
+  ];
+
+  // Morgan's 14 items visible to alex via project 1 and direct task shares.
+  // task ids 1-12 covered by morgan's project 1 tasks that alex can see.
+  const MORGAN_SHARED_ITEMS: OwnedPurchase[] = [
+    makePurchase({ id: 1, task_id: 1, item_name: "96-well black-walled plates (demo)", quantity: 2, price_per_unit: 48, shipping_fees: 8, total_price: 104, vendor: "Thermo", category: "Plasticware", order_status: "needs_ordering", owner: "morgan" }),
+    makePurchase({ id: 2, task_id: 2, item_name: "GFP recombinant standard (demo)", quantity: 1, price_per_unit: 175, shipping_fees: 0, total_price: 175, vendor: "Sigma-Aldrich", category: "Reagents", order_status: "needs_ordering", owner: "morgan" }),
+    makePurchase({ id: 3, task_id: 6, item_name: "GFP fluorescence calibration kit (demo)", quantity: 1, price_per_unit: 320, shipping_fees: 12, total_price: 332, vendor: "Thermo", category: "Reagents", order_status: "received", owner: "morgan" }),
+    makePurchase({ id: 4, task_id: 6, item_name: "384-well black-walled plates", quantity: 1, price_per_unit: 98, shipping_fees: 0, total_price: 98, vendor: "Sigma-Aldrich", category: "Plasticware", order_status: "received", owner: "morgan" }),
+    makePurchase({ id: 5, task_id: 6, item_name: "HEPES buffer (1 L, lab-prepared)", quantity: 2, price_per_unit: 42, shipping_fees: 0, total_price: 84, vendor: "Internal supply", category: "Reagents", order_status: "received", owner: "morgan" }),
+    makePurchase({ id: 6, task_id: 10, item_name: "Reading-buffer custom mix", quantity: 2, price_per_unit: 58, shipping_fees: 0, total_price: 116, vendor: null, category: null, order_status: "ordered", owner: "morgan" }),
+    makePurchase({ id: 7, task_id: 10, item_name: "Sterile reservoir basins", quantity: 6, price_per_unit: 14, shipping_fees: 0, total_price: 84, vendor: "Sigma-Aldrich", category: "Plasticware", order_status: "ordered", owner: "morgan" }),
+    makePurchase({ id: 8, task_id: 10, item_name: "Multichannel pipette calibration service", quantity: 1, price_per_unit: 215, shipping_fees: 0, total_price: 215, vendor: null, category: "Service", order_status: "ordered", owner: "morgan" }),
+    makePurchase({ id: 9, task_id: 10, item_name: "Filter pipette tips (P10, racked)", quantity: 6, price_per_unit: 34, shipping_fees: 0, total_price: 204, vendor: "Thermo", category: "Consumables", order_status: "ordered", owner: "morgan" }),
+    makePurchase({ id: 13, task_id: 12, item_name: "PCR primers gal80 verification set", quantity: 8, price_per_unit: 14, shipping_fees: 5, total_price: 117, vendor: "IDT", category: "Reagents", order_status: "needs_ordering", owner: "morgan" }),
+    makePurchase({ id: 14, task_id: 12, item_name: "Reverse-transcription kit (24 rxns)", quantity: 1, price_per_unit: 185, shipping_fees: 0, total_price: 185, vendor: "NEB", category: "Reagents", order_status: "needs_ordering", owner: "morgan" }),
+    makePurchase({ id: 15, task_id: 12, item_name: "SYBR qPCR master mix (2x, 5 mL)", quantity: 1, price_per_unit: 245, shipping_fees: 0, total_price: 245, vendor: "Thermo", category: "Reagents", order_status: "needs_ordering", owner: "morgan" }),
+    makePurchase({ id: 16, task_id: 12, item_name: "Falcon tubes (15 mL, sleeve of 50)", quantity: 4, price_per_unit: 22, shipping_fees: 0, total_price: 88, vendor: "Thermo", category: "Consumables", order_status: "needs_ordering", owner: "morgan" }),
+    makePurchase({ id: 17, task_id: 12, item_name: "96-well qPCR plates (skirted)", quantity: 2, price_per_unit: 52, shipping_fees: 0, total_price: 104, vendor: "IDT", category: "Plasticware", order_status: "needs_ordering", owner: "morgan" }),
+  ];
+
+  it("aggregates 36 items to exactly $6,966.00 (demo session ground truth)", () => {
+    const allItems = [...ALEX_ITEMS, ...MORGAN_SHARED_ITEMS];
+    expect(allItems).toHaveLength(36);
+
+    const s = aggregatePurchases(allItems, { types: ["purchase"] });
+
+    // Ground truth: the Purchases dashboard shows $6,966.00 across 36 items.
+    // All prices derive verbatim from fixture JSON files.
+    expect(s.count).toBe(36);
+    expect(s.totalSpend).toBe(6966.00);
+    // The pre-formatted display string must match exactly.
+    expect(s.totalSpendDisplay).toBe("$6,966.00");
+    // The byVendor bucket spends must also carry correctly formatted display strings.
+    for (const bucket of s.byVendor) {
+      expect(bucket.spendDisplay).toMatch(/^\$[\d,]+\.\d{2}$/);
+    }
+    // The byVendor buckets must sum to the same total (no rounding drift).
+    const vendorSum = s.byVendor.reduce((acc, b) => acc + b.spend, 0);
+    expect(Math.round(vendorSum * 100) / 100).toBe(6966.00);
   });
 });
