@@ -79,6 +79,7 @@ import { ConnectionStatusChip } from '@/components/ui/ConnectionStatusChip';
 import {
   recordSyncSuccess,
   recordSyncFailure,
+  relativeSyncTime,
 } from '@/lib/connection-status';
 import {
   hapticImpact,
@@ -989,6 +990,9 @@ export default function NotebookScreen() {
         {/* Connection card (always paired here, the gate above handles unpaired) */}
         <ConnectionCard
           labName={pairing?.labName ?? 'Paired with your lab'}
+          generatedAt={snapshot?.generatedAt}
+          syncing={snapshotLoading}
+          onSync={loadSnapshot}
           onUnpair={onUnpair}
         />
 
@@ -1363,17 +1367,67 @@ export default function NotebookScreen() {
   );
 }
 
-// Connection card: shows lab name + Unpair when paired.
+// How recently the laptop must have published for the card to read "Live". The
+// laptop republishes the today snapshot every ~60s while it is open, stamping a
+// fresh generatedAt each pass, so a publish inside this window is a reliable
+// "laptop is awake and pushing right now" signal. Pairing itself is durable and
+// survives a closed laptop, so an older generatedAt just falls back to the
+// relative "Last synced" line, never to an unpaired state.
+const LIVE_WINDOW_MS = 2 * 60 * 1000;
+
+// Connection card: shows lab name, a live freshness line driven by the laptop's
+// last publish, and Unpair. Tapping the card forces an immediate snapshot
+// re-fetch (an honest "pull the latest now", not a live socket). generatedAt is
+// the ISO publish time carried on the today snapshot.
 function ConnectionCard({
   labName,
+  generatedAt,
+  syncing,
+  onSync,
   onUnpair,
 }: {
   labName: string;
+  generatedAt?: string;
+  syncing: boolean;
+  onSync: () => void;
   onUnpair: () => void;
 }) {
   const { surface } = useTheme();
+
+  // A slow local tick so the freshness line ages on its own (the green Live dot
+  // turns off and "2 min ago" advances) without waiting for the next fetch. A
+  // 20s tick is tight enough for the 2-minute Live window without being busy.
+  const [now, setNow] = useState(Date.now());
+  useEffect(() => {
+    const id = setInterval(() => setNow(Date.now()), 20 * 1000);
+    return () => clearInterval(id);
+  }, []);
+
+  const generatedMs = generatedAt ? Date.parse(generatedAt) : NaN;
+  const haveGenerated = !Number.isNaN(generatedMs);
+  const isLive = !syncing && haveGenerated && now - generatedMs <= LIVE_WINDOW_MS;
+
+  let subLabel: string;
+  if (syncing) {
+    subLabel = 'Syncing...';
+  } else if (isLive) {
+    subLabel = 'Live';
+  } else if (haveGenerated) {
+    subLabel = `Last synced ${relativeSyncTime(generatedMs, now) ?? 'recently'}`;
+  } else {
+    // Paired but the laptop has not published a snapshot we can time yet.
+    subLabel = 'Connected';
+  }
+
   return (
-    <View style={styles.connCard}>
+    <Pressable
+      onPress={onSync}
+      disabled={syncing}
+      accessibilityRole="button"
+      accessibilityLabel="Sync now"
+      accessibilityHint="Fetches the latest from your laptop"
+      style={({ pressed }) => [styles.connCard, { opacity: pressed ? 0.9 : 1 }]}
+    >
       <View style={styles.connBadge}>
         <Ionicons name="checkmark" size={16} color={palette.white} />
       </View>
@@ -1381,16 +1435,30 @@ function ConnectionCard({
         <ThemedText style={[styles.connName, { color: surface.text }]}>
           {labName}
         </ThemedText>
-        <ThemedText style={[styles.connSub, { color: surface.muted }]}>
-          Connected
-        </ThemedText>
+        <View style={styles.connSubRow}>
+          {syncing ? (
+            <ActivityIndicator size="small" color={palette.sky} />
+          ) : isLive ? (
+            <View style={styles.liveDot} />
+          ) : null}
+          <ThemedText
+            style={[
+              styles.connSub,
+              { color: isLive ? palette.success : surface.muted },
+            ]}
+          >
+            {subLabel}
+          </ThemedText>
+        </View>
       </View>
+      {/* Nested Pressable: a tap on Unpair is captured here and does not bubble
+          to the card's sync press. */}
       <Pressable onPress={onUnpair} hitSlop={8} accessibilityRole="button">
         <ThemedText style={[styles.unpairLabel, { color: palette.sky }]}>
           Unpair
         </ThemedText>
       </Pressable>
-    </View>
+    </Pressable>
   );
 }
 
@@ -1615,7 +1683,21 @@ const styles = StyleSheet.create({
   },
   connText: { flex: 1 },
   connName: { fontSize: 14, fontWeight: '600', lineHeight: 20 },
+  connSubRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    minHeight: 18,
+  },
   connSub: { fontSize: 12, lineHeight: 18 },
+  // Small green dot shown only while the laptop is actively publishing (the
+  // generatedAt is inside the Live window).
+  liveDot: {
+    width: 7,
+    height: 7,
+    borderRadius: 999,
+    backgroundColor: palette.success,
+  },
   unpairLabel: { fontSize: 13, fontWeight: '600' },
 
   // Quick-capture action row
