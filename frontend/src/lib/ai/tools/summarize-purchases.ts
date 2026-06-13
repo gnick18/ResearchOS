@@ -64,6 +64,9 @@ export type PurchaseSummaryItem = {
   category: string | null;
   quantity: number;
   totalPrice: number;
+  /** Pre-formatted total price string, e.g. "$315.00". Echo this verbatim when
+   *  narrating the item price. Never re-type the number yourself. */
+  totalPriceDisplay: string;
   orderStatus: "needs_ordering" | "ordered" | "received";
   owner: string | null;
   deepLink: string;
@@ -74,6 +77,9 @@ export type SpendBucket = {
   key: string;
   count: number;
   spend: number;
+  /** Pre-formatted spend string, e.g. "$1,234.56". Echo this verbatim when
+   *  narrating the bucket spend. Never re-type the number yourself. */
+  spendDisplay: string;
 };
 
 export type PurchaseSummary = {
@@ -83,14 +89,20 @@ export type PurchaseSummary = {
   count: number;
   /** Total spend across all matched items (the tool's sum, never the model's). */
   totalSpend: number;
+  /** Pre-formatted total spend string, e.g. "$6,966.00". ALWAYS echo this
+   *  string verbatim when stating the total. Never re-type, re-sum, round, or
+   *  recompute the figure. If this field is present, use it. */
+  totalSpendDisplay: string;
   /** Spend + count per vendor, descending by spend. "Unknown vendor" collects
-   *  items with no vendor. */
+   *  items with no vendor. Each bucket carries a spendDisplay field; echo it
+   *  verbatim, never re-type the spend. */
   byVendor: SpendBucket[];
   /** Spend + count per category, descending by spend. "Uncategorized" collects
-   *  items with no category. */
+   *  items with no category. Each bucket carries spendDisplay. */
   byCategory: SpendBucket[];
   /** Spend + count per calendar month (YYYY-MM by the item's last_edited_at),
-   *  ascending by month. "undated" collects items with no usable date. */
+   *  ascending by month. "undated" collects items with no usable date. Each
+   *  bucket carries spendDisplay. */
   byMonth: SpendBucket[];
   /** Count of items by ordering stage. */
   byStatus: {
@@ -114,6 +126,14 @@ export type PurchaseSummary = {
 // ---------------------------------------------------------------------------
 
 const DEFAULT_ITEM_CAP = 10;
+
+/** Shared US dollar formatter. Produces strings like "$1,234.56". Used for
+ *  every pre-formatted *Display field so the model never has to reformat a
+ *  number and cannot mangle it. */
+const USD_FORMATTER = new Intl.NumberFormat("en-US", {
+  style: "currency",
+  currency: "USD",
+});
 
 /** The YYYY-MM-DD day prefix of an ISO-ish string, or null. Kept local so the
  *  aggregator owns its date handling. */
@@ -161,21 +181,24 @@ export function aggregatePurchases(
   filter: ArtifactFilter,
   cap: number = DEFAULT_ITEM_CAP,
 ): PurchaseSummary {
-  // Convert to briefs (carrying owner) and keep a brief.id -> purchase map so we
-  // aggregate from the REAL records of the briefs that pass the filter. Purchase
-  // briefs key on the numeric id as a string; collisions across owners are not a
-  // concern for the spend roll-up because each matched brief maps back to one
-  // record loaded in this call.
-  const byId = new Map<string, OwnedPurchase>();
+  // Convert to briefs (carrying owner) and keep a compound-key map
+  // (owner + ":" + id) so purchases from different owners that share the same
+  // numeric id never collide. Each brief carries a unique synthetic compound key
+  // in its id field so filterArtifacts can route back to exactly one record.
+  const byCompoundKey = new Map<string, OwnedPurchase>();
   const briefs: ArtifactBrief[] = [];
   for (const item of purchases) {
     const brief = purchaseToBrief(item);
-    briefs.push(brief);
-    byId.set(brief.id, item);
+    const compoundKey = `${item.owner ?? ""}:${item.id}`;
+    // Override the brief id with the compound key so filterArtifacts routes
+    // back to the right record even when two owners share a numeric id.
+    const compoundBrief: ArtifactBrief = { ...brief, id: compoundKey };
+    briefs.push(compoundBrief);
+    byCompoundKey.set(compoundKey, item);
   }
 
   const matched = filterArtifacts(briefs, filter)
-    .map((b) => byId.get(b.id))
+    .map((b) => byCompoundKey.get(b.id))
     .filter((x): x is OwnedPurchase => x !== undefined);
 
   let totalSpend = 0;
@@ -212,11 +235,15 @@ export function aggregatePurchases(
     map: Map<string, { count: number; spend: number }>,
     sort: "spend" | "key",
   ): SpendBucket[] => {
-    const arr: SpendBucket[] = Array.from(map.entries()).map(([key, v]) => ({
-      key,
-      count: v.count,
-      spend: round2(v.spend),
-    }));
+    const arr: SpendBucket[] = Array.from(map.entries()).map(([key, v]) => {
+      const spend = round2(v.spend);
+      return {
+        key,
+        count: v.count,
+        spend,
+        spendDisplay: USD_FORMATTER.format(spend),
+      };
+    });
     if (sort === "spend") {
       arr.sort((a, b) => b.spend - a.spend || a.key.localeCompare(b.key));
     } else {
@@ -228,22 +255,28 @@ export function aggregatePurchases(
   const largestItems: PurchaseSummaryItem[] = [...matched]
     .sort((a, b) => itemTotal(b) - itemTotal(a))
     .slice(0, cap)
-    .map((item) => ({
-      id: String(item.id),
-      name: item.item_name || "Untitled purchase",
-      vendor: item.vendor ?? null,
-      category: item.category ?? null,
-      quantity: item.quantity,
-      totalPrice: round2(itemTotal(item)),
-      orderStatus: statusOf(item),
-      owner: item.owner || null,
-      deepLink: "/purchases",
-    }));
+    .map((item) => {
+      const price = round2(itemTotal(item));
+      return {
+        id: String(item.id),
+        name: item.item_name || "Untitled purchase",
+        vendor: item.vendor ?? null,
+        category: item.category ?? null,
+        quantity: item.quantity,
+        totalPrice: price,
+        totalPriceDisplay: USD_FORMATTER.format(price),
+        orderStatus: statusOf(item),
+        owner: item.owner || null,
+        deepLink: "/purchases",
+      };
+    });
 
+  const totalSpendRounded = round2(totalSpend);
   return {
     filter,
     count: matched.length,
-    totalSpend: round2(totalSpend),
+    totalSpend: totalSpendRounded,
+    totalSpendDisplay: USD_FORMATTER.format(totalSpendRounded),
     byVendor: toBuckets(vendorMap, "spend"),
     byCategory: toBuckets(categoryMap, "spend"),
     byMonth: toBuckets(monthMap, "key"),
@@ -289,9 +322,10 @@ export const summarizePurchasesTool: AiTool = {
     "Call this when the user asks you to summarize, total, or review purchases over a scope, for example \"summarize my purchases this month\", \"how much did we spend on Sigma this quarter\", \"what is still pending\". " +
     "Read-only, it changes nothing and runs straight away with no approval step. " +
     "THE TOOL owns every count and every dollar total; you NEVER add money, sum a spend, round a price, or invent a total yourself. You only relay the figures it returns, exactly as given, and never interpret them. " +
+    "VERBATIM ECHO RULE: every dollar amount has a pre-formatted *Display field (totalSpendDisplay on the summary, spendDisplay on each byVendor / byCategory / byMonth bucket, totalPriceDisplay on each largestItems entry). When you state any dollar figure, COPY that Display string CHARACTER FOR CHARACTER. Never re-type the number, never re-sum, never round, never reformat. If a Display field exists, that string is what you say. " +
     "Pass absolute YYYY-MM-DD dates for since / until; resolve relative phrasing yourself using the current date in the context line first. The date window and the month timeline use each item's last edited date. " +
     "Pass owners (usernames) to scope to members; the whole lab is the default (own plus everything shared with the user, never a member's private purchases). Pass keywords for a free-text match on item name / vendor / category, and status to scope to needs_ordering / ordered / received. " +
-    "Returns { ok, summary } where summary echoes the filter and carries count, totalSpend, byVendor, byCategory, byMonth, byStatus, pendingVsReceived, and a capped largestItems list (flagged truncated). If nothing matches, summary.count is 0 and totalSpend is 0, say so plainly.",
+    "Returns { ok, summary } where summary echoes the filter and carries count, totalSpend, totalSpendDisplay, byVendor (each with spendDisplay), byCategory (each with spendDisplay), byMonth (each with spendDisplay), byStatus, pendingVsReceived, and a capped largestItems list (each with totalPriceDisplay, flagged truncated). If nothing matches, summary.count is 0 and totalSpend is 0, say so plainly.",
   parameters: {
     type: "object",
     properties: {
