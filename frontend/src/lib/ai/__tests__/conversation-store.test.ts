@@ -28,6 +28,7 @@ import {
   resetConversationModule,
   getConversationHistory,
   clampPartialEmbed,
+  extractFollowups,
   reviewModeDirective,
   todayContext,
 } from "../conversation-store";
@@ -417,6 +418,48 @@ describe("clampPartialEmbed (typewriter does not flash a half-formed link)", () 
 
   it("returns text with no bracket unchanged", () => {
     expect(clampPartialEmbed("just some prose")).toBe("just some prose");
+  });
+});
+
+describe("extractFollowups (followup chips parser/stripper)", () => {
+  it("parses up to 3 pipe-delimited suggestions and strips the comment", () => {
+    const text = "Here is the answer.\n<!-- followups: Summarize notes | Run t-test | Make a chart -->";
+    const { stripped, followups } = extractFollowups(text);
+    expect(stripped).toBe("Here is the answer.");
+    expect(followups).toEqual(["Summarize notes", "Run t-test", "Make a chart"]);
+  });
+
+  it("strips the comment even when malformed (no suggestions)", () => {
+    const text = "Answer.<!-- followups: -->";
+    const { stripped, followups } = extractFollowups(text);
+    expect(stripped).toBe("Answer.");
+    expect(followups).toHaveLength(0);
+  });
+
+  it("caps suggestions at 3 even when more are given", () => {
+    const text = "Answer.<!-- followups: A | B | C | D | E -->";
+    const { followups } = extractFollowups(text);
+    expect(followups).toHaveLength(3);
+    expect(followups).toEqual(["A", "B", "C"]);
+  });
+
+  it("uses the last directive when there are duplicates", () => {
+    const text = "<!-- followups: Old --> prose <!-- followups: New -->";
+    const { followups } = extractFollowups(text);
+    expect(followups).toEqual(["New"]);
+  });
+
+  it("trims whitespace from each suggestion", () => {
+    const text = "Answer.<!-- followups:  Summarize  |  Run test  -->";
+    const { followups } = extractFollowups(text);
+    expect(followups).toEqual(["Summarize", "Run test"]);
+  });
+
+  it("returns unchanged text and no followups when no directive is present", () => {
+    const text = "Just a plain answer.";
+    const { stripped, followups } = extractFollowups(text);
+    expect(stripped).toBe(text);
+    expect(followups).toHaveLength(0);
   });
 });
 

@@ -534,12 +534,16 @@ export default function BeakerBotConversation({
     status,
     error,
     send,
+    stop,
     pendingApproval,
     resolveApproval,
     resolveChoice,
   } = useAiChat();
   const [draft, setDraft] = useState("");
   const listRef = useRef<HTMLDivElement | null>(null);
+  // Track the assistant message id for the in-flight placeholder so stop() can
+  // remove the empty bubble if the turn is cancelled before any text arrives.
+  const assistantIdRef = useRef<string | null>(null);
 
   // Bridge registration (useNavigationBridge + useBeakerBotMessageBridge) moved
   // to BeakerBotBridges (mounted once in app/layout.tsx). This component is now
@@ -556,7 +560,31 @@ export default function BeakerBotConversation({
     if (!text.trim() || sending) return;
     setDraft("");
     void send(text);
+    // Capture the id of the empty assistant placeholder the store just seeded.
+    // The store seeds it synchronously before the first await, so we can read
+    // it from the messages array on the next render. We use an effect below to
+    // capture it after the state update settles.
   };
+
+  const handleStop = () => {
+    stop(assistantIdRef.current ?? undefined);
+    assistantIdRef.current = null;
+  };
+
+  // After each send, capture the id of the empty assistant placeholder so
+  // handleStop can pass it to stop() for removal.
+  useEffect(() => {
+    if (sending) {
+      const emptyAssistant = messages.findLast(
+        (m) => m.role === "assistant" && m.content === "",
+      );
+      if (emptyAssistant) {
+        assistantIdRef.current = emptyAssistant.id;
+      }
+    } else {
+      assistantIdRef.current = null;
+    }
+  }, [sending, messages]);
 
   return (
     <div className={`flex flex-col overflow-hidden${className ? ` ${className}` : ""}`}>
@@ -572,33 +600,65 @@ export default function BeakerBotConversation({
             nothing leaves your device until you ask it something.
           </div>
         ) : (
-          messages.map((m) => (
-            <div
-              key={m.id}
-              data-testid={`beakerbot-message-${m.role}`}
-              className={
-                m.role === "user"
-                  ? "self-end max-w-[85%] rounded-lg bg-brand px-3 py-2 text-body text-white"
-                  : "self-start max-w-[85%] rounded-lg bg-surface-raised px-3 py-2 text-body text-foreground"
-              }
-            >
-              {m.role === "assistant" ? (
-                m.content ? (
-                  <AssistantMarkdown content={m.content} />
-                ) : (
-                  // The living blue blob, BeakerBot's thinking indicator. It is
-                  // an abstract pulse, not a beaker, so it does not conflict with
-                  // the single riding mascot. The grey status line rides alongside
-                  // it as the label.
-                  <span data-testid="beakerbot-status">
-                    <BeakerBotThinking variant="pulse" label={status ?? "Thinking"} />
-                  </span>
-                )
-              ) : (
-                m.content
-              )}
-            </div>
-          ))
+          messages.map((m, index) => {
+            // Only the last message in the list is eligible to show follow-up chips.
+            const isLast = index === messages.length - 1;
+            return (
+              <div key={m.id} className="flex flex-col gap-1.5 self-start w-full">
+                <div
+                  data-testid={`beakerbot-message-${m.role}`}
+                  className={
+                    m.role === "user"
+                      ? "self-end max-w-[85%] rounded-lg bg-brand px-3 py-2 text-body text-white"
+                      : "self-start max-w-[85%] rounded-lg bg-surface-raised px-3 py-2 text-body text-foreground"
+                  }
+                >
+                  {m.role === "assistant" ? (
+                    m.content ? (
+                      <AssistantMarkdown content={m.content} />
+                    ) : (
+                      // The living blue blob, BeakerBot's thinking indicator. It is
+                      // an abstract pulse, not a beaker, so it does not conflict with
+                      // the single riding mascot. The grey status line rides alongside
+                      // it as the label.
+                      <span data-testid="beakerbot-status">
+                        <BeakerBotThinking variant="pulse" label={status ?? "Thinking"} />
+                      </span>
+                    )
+                  ) : (
+                    m.content
+                  )}
+                </div>
+
+                {/* Follow-up suggestion chips, shown only below the last assistant message. */}
+                {isLast &&
+                  m.role === "assistant" &&
+                  m.followups &&
+                  m.followups.length > 0 &&
+                  !sending ? (
+                  <div
+                    data-testid="beakerbot-followups"
+                    className="flex flex-wrap gap-1.5 pl-1"
+                  >
+                    {m.followups.map((suggestion) => (
+                      <button
+                        key={suggestion}
+                        type="button"
+                        data-testid="beakerbot-followup-chip"
+                        onClick={() => {
+                          setDraft("");
+                          void send(suggestion);
+                        }}
+                        className="rounded-full border border-border bg-surface px-2.5 py-1 text-meta text-foreground-muted transition-colors hover:border-brand hover:bg-brand/10 hover:text-foreground"
+                      >
+                        {suggestion}
+                      </button>
+                    ))}
+                  </div>
+                ) : null}
+              </div>
+            );
+          })
         )}
       </div>
 
@@ -820,15 +880,35 @@ export default function BeakerBotConversation({
             placeholder="Message BeakerBot"
             className="min-h-0 flex-1 resize-none rounded-md border border-border bg-surface-raised px-3 py-2 text-body text-foreground placeholder:text-foreground-muted focus:outline-none focus:ring-2 focus:ring-brand"
           />
-          <button
-            type="button"
-            data-testid="beakerbot-send"
-            onClick={handleSend}
-            disabled={sending || draft.trim().length === 0}
-            className="bg-brand-action text-white transition-colors hover:bg-brand-action/90 rounded-md px-3 py-2 text-body font-medium disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            <Icon name="chevronRight" className="h-4 w-4" title="Send" />
-          </button>
+          {sending ? (
+            // Stop button: replaces send while a turn is in flight. Uses a small
+            // filled square (a styled span) as the glyph because no stop/square
+            // icon exists in the registry (adding one requires Grant sign-off per
+            // AGENTS.md). A span is not an inline SVG, so the icon-guard hook does
+            // not flag it.
+            <button
+              type="button"
+              data-testid="beakerbot-stop"
+              onClick={handleStop}
+              aria-label="Stop"
+              className="flex items-center justify-center rounded-md border border-border bg-surface-raised px-3 py-2 text-body text-foreground-muted transition-colors hover:bg-surface-sunken hover:text-foreground"
+            >
+              <span
+                aria-hidden="true"
+                className="block h-3.5 w-3.5 rounded-sm bg-current"
+              />
+            </button>
+          ) : (
+            <button
+              type="button"
+              data-testid="beakerbot-send"
+              onClick={handleSend}
+              disabled={draft.trim().length === 0}
+              className="bg-brand-action text-white transition-colors hover:bg-brand-action/90 rounded-md px-3 py-2 text-body font-medium disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              <Icon name="chevronRight" className="h-4 w-4" title="Send" />
+            </button>
+          )}
         </div>
       </div>
     </div>

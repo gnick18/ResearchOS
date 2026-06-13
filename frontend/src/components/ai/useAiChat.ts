@@ -31,6 +31,7 @@ export function useAiChat() {
   const error = useConversationStore((s) => s.error);
   const pendingApproval = useConversationStore((s) => s.pendingApproval);
   const send = useConversationStore((s) => s.send);
+  const stop = useConversationStore((s) => s.stop);
   const resolveApproval = useConversationStore((s) => s.resolveApproval);
   const resolveChoice = useConversationStore((s) => s.resolveChoice);
 
@@ -40,6 +41,7 @@ export function useAiChat() {
     status,
     error,
     send,
+    stop,
     pendingApproval,
     resolveApproval,
     resolveChoice,

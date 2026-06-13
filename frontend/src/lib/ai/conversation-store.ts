@@ -68,6 +68,10 @@ export type ChatMessage = {
   id: string;
   role: ChatRole;
   content: string;
+  // Optional follow-up suggestion chips parsed from the model's hidden directive.
+  // Only the most recent assistant message surfaces these; older ones are cleared
+  // on each new send so chips never pile up across turns.
+  followups?: string[];
 };
 
 // The pending approval the UI renders while the loop is paused on the user.
@@ -103,6 +107,10 @@ let counterStore = 0;
 // module scope so it persists across remounts.
 let pendingApprovalRef: PendingApproval | null = null;
 
+// The AbortController for the currently in-flight send. Null when idle.
+// stop() aborts this, send() creates a fresh one each time.
+let abortControllerRef: AbortController | null = null;
+
 // ---- Zustand store (reactive state + actions) ---------------------------------
 
 interface ConversationState {
@@ -121,6 +129,13 @@ interface ConversationState {
 
 interface ConversationActions {
   send: (text: string) => Promise<void>;
+  /**
+   * Abort the currently in-flight send. Clears the sending/loading state and
+   * removes the empty assistant placeholder bubble so it does not hang on
+   * "Thinking" forever. If a pending approval promise is in flight, it is
+   * resolved with "skip" so nothing is left dangling. Safe to call when idle.
+   */
+  stop: (placeholderAssistantId?: string) => void;
   resolveApproval: (decision: ApprovalDecision) => void;
   resolveChoice: (selected: string[], cancelled: boolean) => void;
   /** Reset the conversation to an empty state (clear messages + history). */
@@ -188,6 +203,40 @@ export function clampPartialEmbed(text: string): string {
     return text.slice(0, open);
   }
   return text;
+}
+
+// Parse and strip the optional follow-up suggestions directive the model may
+// append to a reply. The directive form is:
+//   <!-- followups: First suggestion | Second suggestion | Third -->
+// Only the LAST occurrence is used (in case the model produced malformed
+// duplicates earlier in a long reply). The comment is stripped regardless of
+// whether the suggestions are valid so the user never sees the raw directive.
+// Returns at most 3 trimmed, non-empty suggestions.
+//
+// Exported pure for unit tests.
+export function extractFollowups(text: string): {
+  stripped: string;
+  followups: string[];
+} {
+  // Match the last occurrence, stripping all whitespace around the delimiter.
+  const pattern = /<!--\s*followups\s*:([\s\S]*?)-->/g;
+  let lastMatch: RegExpExecArray | null = null;
+  let m: RegExpExecArray | null;
+  while ((m = pattern.exec(text)) !== null) {
+    lastMatch = m;
+  }
+  if (!lastMatch) {
+    return { stripped: text, followups: [] };
+  }
+  // Strip the comment from the displayed text even when no valid suggestions exist.
+  const stripped = text.slice(0, lastMatch.index) + text.slice(lastMatch.index + lastMatch[0].length);
+  const raw = lastMatch[1] ?? "";
+  const followups = raw
+    .split("|")
+    .map((s) => s.trim())
+    .filter((s) => s.length > 0)
+    .slice(0, 3);
+  return { stripped: stripped.trimEnd(), followups };
 }
 
 // The one-line directive injected into each turn's context note so the model
@@ -264,10 +313,41 @@ export const useConversationStore = create<ConversationStore>((set, get) => ({
   currentThreadId: null,
   currentTitle: null,
 
+  stop: (placeholderAssistantId?: string) => {
+    // Guard: nothing to abort when idle.
+    if (!abortControllerRef) return;
+    // Abort the in-flight request. The loop's catch block treats AbortError as a
+    // clean stop and returns an empty answer, which the send() finally block then
+    // handles via the normal cleanup path. We also do a proactive cleanup here so
+    // the UI responds immediately even before the async chain settles.
+    abortControllerRef.abort();
+    abortControllerRef = null;
+    // If a pending approval promise is in flight, resolve it with "skip" so the
+    // loop's await does not dangle forever waiting for user input that will never
+    // arrive.
+    if (pendingApprovalRef) {
+      pendingApprovalRef.resolve("skip");
+      // pendingApprovalRef is cleared by the resolve wrapper above.
+    }
+    // Remove the empty assistant placeholder (the "Thinking" bubble) if the
+    // caller passed its id. We only remove it when it is still empty, so a
+    // partial typewriter reveal is never wiped.
+    set((state) => ({
+      sending: false,
+      status: null,
+      messages: placeholderAssistantId
+        ? state.messages.filter(
+            (m) => !(m.id === placeholderAssistantId && m.content === ""),
+          )
+        : state.messages,
+    }));
+  },
+
   clearConversation: () => {
     historyStore = [];
     counterStore = 0;
     pendingApprovalRef = null;
+    abortControllerRef = null;
     set({
       messages: [],
       sending: false,
@@ -337,6 +417,15 @@ export const useConversationStore = create<ConversationStore>((set, get) => ({
     if (!trimmed || get().sending) return;
 
     set({ error: null });
+
+    // Create a fresh controller for this send. Guard against a stale ref from a
+    // previous turn that was not cleaned up (belt-and-suspenders).
+    if (abortControllerRef) {
+      abortControllerRef.abort();
+    }
+    const controller = new AbortController();
+    abortControllerRef = controller;
+
     const userMessage: ChatMessage = {
       id: nextId(),
       role: "user",
@@ -351,12 +440,15 @@ export const useConversationStore = create<ConversationStore>((set, get) => ({
     const wasFresh = get().currentThreadId === null;
 
     // Seed an empty assistant bubble so the status line and the revealed answer
-    // have a visible target right away.
+    // have a visible target right away. Clear followups from all existing
+    // messages so only the most recent reply shows chips.
     set((state) => ({
       messages: [
-        ...state.messages,
+        ...state.messages.map((m) =>
+          m.followups ? { ...m, followups: undefined } : m,
+        ),
         userMessage,
-        { id: assistantId, role: "assistant", content: "" },
+        { id: assistantId, role: "assistant" as ChatRole, content: "" },
       ],
       sending: true,
       status: "thinking",
@@ -438,6 +530,7 @@ export const useConversationStore = create<ConversationStore>((set, get) => ({
         // mid-conversation takes effect on the next step.
         getReviewMode: getReviewMode,
         requestApproval,
+        signal: controller.signal,
       });
 
       // Persist the full loop history (including tool turns) for the next send,
@@ -447,14 +540,33 @@ export const useConversationStore = create<ConversationStore>((set, get) => ({
       historyStore = result.messages.filter((m) => m !== contextMessage);
       set({ status: null });
 
-      if (result.answer.length === 0) {
+      // A stopped (aborted) run returns an empty answer. Remove the placeholder
+      // and return quietly, no error banner needed.
+      if (controller.signal.aborted || result.answer.length === 0) {
         set((state) => ({
           messages: state.messages.filter((m) => m.id !== assistantId),
-          error: "BeakerBot returned an empty reply. Try again.",
+          // Show an error only for a genuine empty reply, not a user-initiated stop.
+          ...(result.answer.length === 0 && !controller.signal.aborted
+            ? { error: "BeakerBot returned an empty reply. Try again." }
+            : {}),
         }));
         return;
       }
-      await revealAnswer(assistantId, result.answer);
+
+      // Parse and strip the optional follow-up suggestions directive before
+      // revealing the answer, so the typewriter never shows the raw comment.
+      const { stripped: displayAnswer, followups } = extractFollowups(result.answer);
+      await revealAnswer(assistantId, displayAnswer);
+
+      // Stamp the followups onto the assistant message after the reveal, so
+      // chips appear once the answer is fully typed rather than mid-reveal.
+      if (followups.length > 0) {
+        set((state) => ({
+          messages: state.messages.map((m) =>
+            m.id === assistantId ? { ...m, followups } : m,
+          ),
+        }));
+      }
 
       // Persist the completed turn. We save the post-strip historyStore (the
       // per-turn context message was already removed above) plus the full
@@ -478,6 +590,11 @@ export const useConversationStore = create<ConversationStore>((set, get) => ({
         messages: state.messages.filter((m) => m.id !== assistantId),
       }));
     } finally {
+      // Clear the controller ref if it is still pointing at this send's controller.
+      // If stop() already replaced it with null, leave it alone.
+      if (abortControllerRef === controller) {
+        abortControllerRef = null;
+      }
       set({ sending: false });
     }
   },
@@ -543,11 +660,12 @@ export function getConversationHistory(): LoopMessage[] {
   return historyStore;
 }
 
-/** Resets module-level state (history, counter, approval ref). For tests. */
+/** Resets module-level state (history, counter, approval ref, abort ref). For tests. */
 export function resetConversationModule(): void {
   historyStore = [];
   counterStore = 0;
   pendingApprovalRef = null;
+  abortControllerRef = null;
   useConversationStore.setState({
     messages: [],
     sending: false,
