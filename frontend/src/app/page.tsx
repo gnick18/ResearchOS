@@ -14,6 +14,7 @@ import UserLoginScreen from "@/components/UserLoginScreen";
 import { useFileSystem } from "@/lib/file-system/file-system-context";
 import { useAppStore } from "@/lib/store";
 import { useIsLabHead } from "@/hooks/useIsLabHead";
+import { getPiViewMode } from "@/hooks/usePiViewMode";
 import { decideLandingRedirect } from "./page-landing-redirect";
 import type { Task } from "@/lib/types";
 import { taskKey } from "@/lib/types";
@@ -62,6 +63,7 @@ export default function HomePage() {
       defaultLandingTab,
       fromRedirect: searchParams?.get("from") ?? null,
       tourActive: false,
+      piViewMode: getPiViewMode(),
     });
     if (decision.kind === "replace") {
       router.replace(decision.to);

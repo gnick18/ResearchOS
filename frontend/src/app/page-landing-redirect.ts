@@ -36,6 +36,10 @@ export interface LandingRedirectInput {
    *  phase pushes the browser to "/" and the landing bounce would kick the
    *  user off "/" mid-tour, breaking the walkthrough. */
   tourActive: boolean;
+  /** A lab head's PI view mode (NAV-1/2/3). "lab" (default) lands a PI on
+   *  /lab-overview; "my-work" lands them on their personal /workbench, the same
+   *  as a member. Ignored for non-lab-heads. Absent is treated as "lab". */
+  piViewMode?: "lab" | "my-work";
 }
 
 /** What the redirect effect should do with the sampled inputs. */
@@ -111,8 +115,11 @@ export function decideLandingRedirect(
   // `?from=` sentinel only matters here as a loop guard: a non-PI bounced
   // off /lab-overview lands on /workbench (the role default already differs
   // from /lab-overview, so there is no ping-pong).
-  const roleDefault =
-    input.isLabHead ? "/lab-overview" : "/workbench";
+  const roleDefault = input.isLabHead
+    ? input.piViewMode === "my-work"
+      ? "/workbench"
+      : "/lab-overview"
+    : "/workbench";
   if (input.fromRedirect && `/${input.fromRedirect}` === roleDefault) {
     // Defensive: the bounce-source equals our role default. Stay on "/"
     // to break the loop (no current caller hits this, but it keeps the
