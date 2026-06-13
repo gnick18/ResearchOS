@@ -133,6 +133,17 @@ existing sender-side call sites (`addReceiverShare`, `assignTask`,
 6. Phase 2.5 email rides the same route with channel "email" (needs the recipient
    email synced too, same non-sensitive config sync as Decision A1).
 
+## Decisions locked (Grant, 2026-06-13)
+
+- **A1**: sync the recipient's routing config (matrix + quiet hours, no research
+  content) to the relay and gate server-side. The only way to honor the rule.
+- **B1**: a separate relay-owned `notifications-pending` snapshot lane the phone
+  merges, so the relay never clobbers the laptop's full list.
+- **C1**: the relay synthesizes a generic per-category line in the sealed
+  snapshot; no sender-supplied detail text reaches the recipient device.
+- **Scope**: build + verify phone P2 first, add phase 2.5 email on the same
+  route as a fast-follow.
+
 ## What this is not
 
 Not a server-side re-derivation of the recipient's local data (the relay only
