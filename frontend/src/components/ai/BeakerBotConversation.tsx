@@ -41,7 +41,8 @@ import ComposerMentionPicker, {
   entryToRef,
 } from "./ComposerMentionPicker";
 import type { GlobalIndexEntry } from "@/components/beaker-search/global-index";
-import ComposerSlashMenu from "./ComposerSlashMenu";
+import ComposerSlashMenu, { type MacroMenuItem } from "./ComposerSlashMenu";
+import { listMacros, type StoredMacro } from "@/lib/ai/beaker-macros-store";
 import {
   parseSlashQuery,
   filterSlashCommands,
@@ -723,6 +724,7 @@ export default function BeakerBotConversation({
     attachedRefs,
     addAttachedRef,
     removeAttachedRef,
+    runStoredMacro,
   } = useAiChat();
   const [draft, setDraft] = useState("");
   const listRef = useRef<HTMLDivElement | null>(null);
@@ -802,12 +804,52 @@ export default function BeakerBotConversation({
   const slashCommands: SlashCommand[] =
     slashQuery !== null ? filterSlashCommands(slashQuery) : [];
 
+  // The user's saved workflow macros, shown in the / menu below the curated
+  // commands. Loaded from disk when the menu opens so a just-created macro shows
+  // without a reload. Empty (and the group hidden) when none exist or no folder
+  // is connected (listMacros returns [] safely).
+  const [macros, setMacros] = useState<StoredMacro[]>([]);
+  const slashActive = slashQuery !== null;
+  useEffect(() => {
+    if (!slashActive) return;
+    let live = true;
+    void listMacros().then((all) => {
+      if (live) setMacros(all);
+    });
+    return () => {
+      live = false;
+    };
+  }, [slashActive]);
+
+  // Filter macros by the / query, prefix-first then substring on the name, the
+  // same ranking the curated commands use.
+  const filteredMacros: MacroMenuItem[] = (() => {
+    if (slashQuery === null) return [];
+    const q = slashQuery.trim().toLowerCase();
+    const items = macros.map((m) => ({
+      id: m.id,
+      name: m.name,
+      description: m.description,
+    }));
+    if (!q) return items;
+    const prefix = items.filter((m) => m.name.toLowerCase().startsWith(q));
+    const substring = items.filter(
+      (m) => !m.name.toLowerCase().startsWith(q) && m.name.toLowerCase().includes(q),
+    );
+    return [...prefix, ...substring];
+  })();
+
   // The container mounts whenever an "@" mention is being typed; it owns the
   // index hook and reports results up. pickerOpen (keyboard-active) additionally
   // requires at least one result row to be showing.
   const pickerMounted = atQuery !== null;
   const pickerOpen = pickerMounted && mentionResults.length > 0;
-  const slashOpen = slashQuery !== null && slashCommands.length > 0;
+  const slashOpen =
+    slashQuery !== null &&
+    (slashCommands.length > 0 || filteredMacros.length > 0);
+  // The number of rows the keyboard navigates in the slash menu, commands then
+  // macros, so one arrow path moves through both groups.
+  const slashRowCount = slashCommands.length + filteredMacros.length;
 
   // When the @ mention is dismissed, drop any stale results so a reopened picker
   // does not flash the previous query's rows before the hook recomputes.
@@ -898,6 +940,19 @@ export default function BeakerBotConversation({
       });
     },
     [closeOverlays],
+  );
+
+  // Pick a macro from the / menu. Unlike a curated command it does NOT pre-fill
+  // prose, the steps are already fixed, so it clears the draft and stages the run
+  // (runStoredMacro raises the one Run-card approval and replays the steps).
+  const handleMacroSelect = useCallback(
+    (item: MacroMenuItem) => {
+      const macro = macros.find((m) => m.id === item.id);
+      closeOverlays();
+      setDraft("");
+      if (macro) void runStoredMacro(macro);
+    },
+    [macros, closeOverlays, runStoredMacro],
   );
 
   // Bridge registration (useNavigationBridge + useBeakerBotMessageBridge) moved
@@ -1705,8 +1760,10 @@ export default function BeakerBotConversation({
             {slashOpen ? (
               <ComposerSlashMenu
                 commands={slashCommands}
+                macros={filteredMacros}
                 activeIndex={activeIndex}
                 onSelect={handleSlashSelect}
+                onSelectMacro={handleMacroSelect}
               />
             ) : null}
 
@@ -1778,7 +1835,7 @@ export default function BeakerBotConversation({
                 const overlayOpen = pickerOpen || slashOpen;
                 const count = pickerOpen
                   ? mentionResults.length
-                  : slashCommands.length;
+                  : slashRowCount;
                 if (overlayOpen) {
                   if (e.key === "ArrowDown") {
                     e.preventDefault();
@@ -1799,8 +1856,12 @@ export default function BeakerBotConversation({
                     e.preventDefault();
                     if (pickerOpen) {
                       handleMentionSelect(entryToRef(mentionResults[activeIndex]));
-                    } else {
+                    } else if (activeIndex < slashCommands.length) {
                       handleSlashSelect(slashCommands[activeIndex]);
+                    } else {
+                      handleMacroSelect(
+                        filteredMacros[activeIndex - slashCommands.length],
+                      );
                     }
                     return;
                   }

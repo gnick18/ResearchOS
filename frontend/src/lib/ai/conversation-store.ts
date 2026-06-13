@@ -62,6 +62,8 @@ function getModelCaller(): ModelCaller {
 }
 import { DEFAULT_TOOLS } from "@/lib/ai/tools/registry";
 import { BEAKERBOT_SYSTEM_PROMPT } from "@/lib/ai/system-prompt";
+import { runMacro, summarizeMacroRun } from "@/lib/ai/macro-runner";
+import type { StoredMacro } from "@/lib/ai/beaker-macros-store";
 import { getReviewMode, type BeakerBotReviewMode } from "@/lib/ai/review-mode-store";
 import {
   getBeakerContext,
@@ -293,6 +295,15 @@ export type ToolStep = {
 
 interface ConversationActions {
   send: (text: string) => Promise<void>;
+  /**
+   * Run a saved workflow macro. Raises one Run-card approval (the same plan
+   * approval UI), and on approval replays the macro's steps deterministically via
+   * runMacro, reusing the same approval bridge so a destructive step still
+   * self-confirms mid-run. No model is called on the happy path. Posts a /command
+   * user line and a one-line result, and reuses the live steps panel. A no-op when
+   * a turn is already in flight.
+   */
+  runStoredMacro: (macro: StoredMacro) => Promise<void>;
   /** Stage a base64 data URL image for the next send. Gated on the vision flag in the UI; the store accepts it regardless so tests can call it directly. */
   addPendingImage: (dataUrl: string) => void;
   /** Remove a staged image by its data URL. */
@@ -1287,6 +1298,181 @@ export const useConversationStore = create<ConversationStore>((set, get) => ({
           if (conversationEpoch === epochAtSettle) get().send(next);
         });
       }
+    }
+  },
+
+  runStoredMacro: async (macro: StoredMacro) => {
+    // A macro run is a turn, so it respects the same single-turn guard as send.
+    // Unlike a typed message it is not queued, the user can re-run it after.
+    if (get().sending) return;
+
+    set({ error: null });
+
+    if (abortControllerRef) {
+      abortControllerRef.abort();
+    }
+    const controller = new AbortController();
+    abortControllerRef = controller;
+
+    const enabledSteps = macro.steps.filter((s) => s.enabled !== false);
+
+    // The display turn. The user line is the /command they invoked, the assistant
+    // bubble is seeded empty so the steps panel and the result line have a target.
+    const userMessage: ChatMessage = {
+      id: nextId(),
+      role: "user",
+      content: `/${macro.name}`,
+    };
+    const assistantId = nextId();
+    const wasFresh = get().currentThreadId === null;
+    const turnStartedAt = Date.now();
+    set((state) => ({
+      messages: [
+        ...state.messages.map((m) =>
+          m.followups ? { ...m, followups: undefined } : m,
+        ),
+        userMessage,
+        { id: assistantId, role: "assistant" as ChatRole, content: "" },
+      ],
+      sending: true,
+      status: "thinking",
+      turnStartedAt,
+      turnElapsedMs: 0,
+      turnTokens: null,
+      runningToolCount: 0,
+      turnToolSteps: [],
+    }));
+
+    // Seed the system prompt once so a thread opened from a macro run is a valid
+    // conversation the user can keep typing into afterwards.
+    if (historyStore.length === 0) {
+      historyStore = [{ role: "system", content: BEAKERBOT_SYSTEM_PROMPT }];
+    }
+
+    if (wasFresh) {
+      const title = `/${macro.name}`;
+      const created = await createChat({
+        title,
+        messages: [userMessage],
+        history: historyStore,
+      });
+      if (created) {
+        set({ currentThreadId: created.id, currentTitle: created.title });
+      } else {
+        set({ currentTitle: title });
+      }
+    }
+
+    let boundThreadId = get().currentThreadId;
+
+    try {
+      // The single Run-card approval, reusing the plan approval UI. The labels are
+      // the steps the user will see, the summary is the macro's description.
+      const decision = await requestApproval({
+        kind: "plan",
+        toolName: `/${macro.name}`,
+        steps: enabledSteps.map((s) => s.label),
+        ...(macro.description ? { summary: macro.description } : {}),
+      });
+
+      if (decision !== "allow") {
+        set({ status: null, runningToolCount: 0 });
+        await revealAnswer(
+          assistantId,
+          `Cancelled /${macro.name}. Nothing ran.`,
+        );
+        boundThreadId = boundThreadId ?? get().currentThreadId;
+        if (boundThreadId !== null) {
+          await saveChat(boundThreadId, {
+            messages: get().messages,
+            history: historyStore,
+          });
+        }
+        return;
+      }
+
+      // Replay the steps. runMacro reuses the agent-loop gate with the run
+      // pre-approved, so routine steps run free and a destructive step still
+      // raises its own confirm through the same requestApproval bridge.
+      const result = await runMacro({
+        macro,
+        tools: DEFAULT_TOOLS,
+        requestApproval,
+        signal: controller.signal,
+        onStep: (event) => {
+          set((state) => {
+            // Flip any running step to done before reacting to this event.
+            const settled = state.turnToolSteps.map((step) =>
+              step.status === "running"
+                ? { ...step, status: "done" as const }
+                : step,
+            );
+            if (event.status === "running") {
+              return {
+                status: `Running ${event.step.label}`,
+                runningToolCount: 1,
+                turnToolSteps: [
+                  ...settled,
+                  { toolName: event.step.label, status: "running" as const },
+                ],
+              };
+            }
+            // Terminal event (done, skipped, skipped-dangling, failed). The step
+            // panel marks it done, the result detail is carried in the summary
+            // line below so the panel stays simple.
+            return { runningToolCount: 0, turnToolSteps: settled };
+          });
+        },
+      });
+
+      const turnElapsedMs = Date.now() - turnStartedAt;
+      set((state) => ({
+        status: null,
+        runningToolCount: 0,
+        turnElapsedMs,
+        turnToolSteps: state.turnToolSteps.map((step) =>
+          step.status === "running"
+            ? { ...step, status: "done" as const }
+            : step,
+        ),
+      }));
+
+      // A user-initiated stop returns aborted, remove the placeholder quietly.
+      if (controller.signal.aborted) {
+        set((state) => ({
+          messages: state.messages.filter((m) => m.id !== assistantId),
+        }));
+        return;
+      }
+
+      await revealAnswer(assistantId, summarizeMacroRun(macro.name, result));
+
+      set((state) => ({
+        settledTurns: [
+          ...state.settledTurns,
+          { assistantId, elapsedMs: turnElapsedMs, tokens: 0 },
+        ],
+      }));
+
+      boundThreadId = boundThreadId ?? get().currentThreadId;
+      if (boundThreadId !== null) {
+        await saveChat(boundThreadId, {
+          messages: get().messages,
+          history: historyStore,
+        });
+      }
+    } catch (err) {
+      set({ status: null });
+      console.warn("[conversation-store] runStoredMacro failed", err);
+      set((state) => ({
+        error: "Something went wrong running the macro. Try again.",
+        messages: state.messages.filter((m) => m.id !== assistantId),
+      }));
+    } finally {
+      if (abortControllerRef === controller) {
+        abortControllerRef = null;
+      }
+      set({ sending: false, queuedText: null, turnStartedAt: null });
     }
   },
 }));

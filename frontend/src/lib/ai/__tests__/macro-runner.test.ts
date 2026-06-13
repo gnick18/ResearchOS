@@ -10,7 +10,7 @@
 // House style, no em-dashes, no emojis, no mid-sentence colons.
 
 import { describe, it, expect, vi } from "vitest";
-import { runMacro, type MacroStepEvent } from "../macro-runner";
+import { runMacro, summarizeMacroRun, type MacroStepEvent } from "../macro-runner";
 import type { AiTool } from "../tools/types";
 import type { MacroStep } from "../beaker-macros-store";
 
@@ -183,5 +183,51 @@ describe("runMacro dangling / failed / disabled / abort", () => {
     expect(ran).not.toHaveBeenCalled();
     expect(res.aborted).toBe(true);
     expect(res.completed).toBe(false);
+  });
+});
+
+describe("summarizeMacroRun", () => {
+  it("reports a clean run with the done count", async () => {
+    const res = await runMacro({
+      macro: { name: "rollup", steps: [step("a"), step("b")] },
+      tools: [makeTool("a", { action: true }), makeTool("b", { action: true })],
+    });
+    expect(summarizeMacroRun("rollup", res)).toBe("Ran /rollup. 2 steps done.");
+  });
+
+  it("notes skipped steps and singular wording", async () => {
+    const res = await runMacro({
+      macro: { name: "m", steps: [step("known"), step("gone")] },
+      tools: [makeTool("known", { action: true })],
+    });
+    expect(summarizeMacroRun("m", res)).toBe("Ran /m. 1 step done, 1 skipped.");
+  });
+
+  it("reports a failed step with its label, reason, and the count that ran before", async () => {
+    const res = await runMacro({
+      macro: { name: "m", steps: [step("ok"), step("boom"), step("after")] },
+      tools: [
+        makeTool("ok", { action: true }),
+        makeTool("boom", { action: true, throws: true }),
+        makeTool("after", { action: true }),
+      ],
+    });
+    const msg = summarizeMacroRun("m", res);
+    expect(msg).toContain('stopped at "boom"');
+    expect(msg).toContain("boom blew up");
+    expect(msg).toContain("1 step ran before it");
+  });
+
+  it("reports an aborted run", async () => {
+    const controller = new AbortController();
+    controller.abort();
+    const res = await runMacro({
+      macro: { name: "m", steps: [step("a")] },
+      tools: [makeTool("a", { action: true })],
+      signal: controller.signal,
+    });
+    expect(summarizeMacroRun("m", res)).toBe(
+      "Stopped /m early. 0 steps ran before you stopped it.",
+    );
   });
 });

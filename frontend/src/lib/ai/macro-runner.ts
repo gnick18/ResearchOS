@@ -187,3 +187,34 @@ export async function runMacro(
     aborted,
   };
 }
+
+// Build the one-line assistant message that BeakerBot posts after a macro run.
+// Pure, so the wording is unit-tested and the store action just renders it.
+// Counts come from the terminal outcomes, the tool counts deterministically and
+// the message only narrates, never invents a number (the no-interpretation rule).
+export function summarizeMacroRun(
+  macroName: string,
+  result: RunMacroResult,
+): string {
+  const token = `/${macroName}`;
+  const done = result.outcomes.filter((o) => o.status === "done").length;
+  const skipped = result.outcomes.filter(
+    (o) => o.status === "skipped" || o.status === "skipped-dangling",
+  ).length;
+
+  const stepWord = (n: number) => `${n} step${n === 1 ? "" : "s"}`;
+
+  if (result.aborted) {
+    return `Stopped ${token} early. ${stepWord(done)} ran before you stopped it.`;
+  }
+
+  if (result.failedAt !== null) {
+    const failed = result.outcomes.find((o) => o.status === "failed");
+    const label = failed?.step.label ?? `step ${result.failedAt + 1}`;
+    const reason = failed?.error ? `, it failed (${failed.error})` : "";
+    return `Ran ${token} and stopped at "${label}"${reason}. ${stepWord(done)} ran before it.`;
+  }
+
+  const tail = skipped > 0 ? `, ${skipped} skipped` : "";
+  return `Ran ${token}. ${stepWord(done)} done${tail}.`;
+}

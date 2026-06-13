@@ -36,6 +36,7 @@ export function useAiChat() {
   const pendingApproval = useConversationStore((s) => s.pendingApproval);
   const queuedText = useConversationStore((s) => s.queuedText);
   const send = useConversationStore((s) => s.send);
+  const runStoredMacro = useConversationStore((s) => s.runStoredMacro);
   const stop = useConversationStore((s) => s.stop);
   const clearQueue = useConversationStore((s) => s.clearQueue);
   const resolveApproval = useConversationStore((s) => s.resolveApproval);
@@ -71,6 +72,7 @@ export function useAiChat() {
     status,
     error,
     send,
+    runStoredMacro,
     stop,
     clearQueue,
     pendingApproval,
