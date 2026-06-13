@@ -47,6 +47,10 @@ import { readArchivedSet } from "./user-archive";
 import { PURCHASE_LORO_ENABLED } from "@/lib/loro/config";
 import { writePurchaseUpdateThroughLoro } from "@/lib/loro/purchase-write-through";
 import type { PurchaseItem, PurchaseItemUpdate } from "@/lib/types";
+import { notificationCategory } from "@/lib/notifications/preferences";
+import { readSharingIdentity } from "@/lib/sharing/identity/sidecar";
+import { loadUserCaptureKeys } from "@/lib/mobile-relay/keys";
+import { notifyRecipient } from "@/lib/mobile-relay/client";
 
 // Purchase items on Loro (docs/proposals/PURCHASE_LORO.md) chunk 3 = WRITE
 // routing for the lab-head approval / decline / flag writes. The pre-read +
@@ -183,6 +187,35 @@ function enqueueNotificationWrite<T>(
     }
   });
   return next;
+}
+
+/**
+ * Best-effort phone push P2 for an in-folder lab action. Resolves the folder
+ * co-member's Ed25519 identity key from their sharing-identity sidecar
+ * (users/<username>/_sharing_identity.json) and asks the relay to buzz their
+ * phone, fire-and-forget. The relay gates on the recipient's OWN per-category
+ * phone toggle + quiet hours, so a category they muted never buzzes; a recipient
+ * with no account (no sidecar) or no paired phone simply never buzzes. The
+ * category is derived from the notification type so it matches the recipient's
+ * routing matrix exactly. Never throws; a missed buzz must not break the action.
+ */
+async function buzzRecipientPhone(
+  recipientUsername: string,
+  notifType: string,
+): Promise<void> {
+  try {
+    const senderKeys = await loadUserCaptureKeys();
+    if (!senderKeys) return;
+    const sidecar = await readSharingIdentity(recipientUsername);
+    if (!sidecar?.ed25519PublicKey) return;
+    await notifyRecipient(
+      senderKeys,
+      sidecar.ed25519PublicKey,
+      notificationCategory(notifType),
+    );
+  } catch {
+    // Best-effort. A failed resolve/send is never surfaced.
+  }
 }
 
 async function appendNotification(
@@ -367,6 +400,7 @@ export async function dispatchAnnouncementNotifications(args: {
         read: false,
       };
       await appendNotification(receiver, notif);
+      void buzzRecipientPhone(receiver, "lab_announcement");
     }),
   );
 }
@@ -460,6 +494,7 @@ export async function assignTask(args: AssignTaskArgs): Promise<PiActionResult<A
   // Skip self-notify (PI assigning their own task to themselves).
   if (args.assignee !== args.actor) {
     await appendNotification(args.assignee, notif);
+    void buzzRecipientPhone(args.assignee, "lab_task_assignment");
   }
 
   // 3. Audit entry. Failures propagate as a "audit" reason so the caller
@@ -584,6 +619,7 @@ export async function setPurchaseApproval(
       read: false,
     };
     await appendNotification(args.targetOwner, notif);
+    void buzzRecipientPhone(args.targetOwner, "lab_purchase_approval");
   }
 
   try {
@@ -808,6 +844,7 @@ export async function setFlagForReview(
       read: false,
     };
     await appendNotification(args.targetOwner, notif);
+    void buzzRecipientPhone(args.targetOwner, "lab_flag_for_review");
   }
 
   try {
