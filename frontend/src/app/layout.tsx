@@ -1,6 +1,5 @@
 import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
-import { Suspense } from "react";
 import "./globals.css";
 import { Providers } from "@/lib/providers";
 import OfflineGatedAnalytics from "@/components/OfflineGatedAnalytics";
@@ -101,12 +100,18 @@ export default function RootLayout({
               message bridge (ai palette-morph bot, 2026-06-11). Registering here
               (instead of inside BeakerBotConversation) means the bridges are
               always exactly one instance whether the conversation is rendering in
-              the dock, the palette, or both simultaneously. Wrapped in Suspense
-              because useNavigationBridge uses useSearchParams, which requires a
-              Suspense boundary for static export in Next.js 16. */}
-          <Suspense fallback={null}>
-            <BeakerBotBridges />
-          </Suspense>
+              the dock, the palette, or both simultaneously.
+
+              No Suspense boundary here anymore (app-shell stability bot,
+              2026-06-12). It used to be wrapped because useNavigationBridge read
+              useSearchParams, which forces a Suspense boundary at this root mount.
+              Under rapid BeakerBot navigation an aborted in-flight server render
+              throws its abort reason (a bare `undefined` in Next 16.1.6) into that
+              boundary and crashes Next's own error handler, taking the dev server
+              down. The bridge now reads the capture param Suspense-free from
+              window.location at navigation time, so no boundary is needed and the
+              shared shell has no useSearchParams-forced Suspense to abort into. */}
+          <BeakerBotBridges />
           <ObjectPopupHost />
         </Providers>
         {/* Post-disconnect confirmation for a labmate self-export. Mounted at the
