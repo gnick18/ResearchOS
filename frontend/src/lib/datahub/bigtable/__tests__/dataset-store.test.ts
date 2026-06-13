@@ -64,6 +64,8 @@ import {
   readDatasetSidecar,
   saveDatasetAnalysis,
   removeSavedAnalysis,
+  saveDatasetPlot,
+  removeSavedPlot,
   sidecarFromJson,
   writeDatasetSidecar,
 } from "../dataset-store";
@@ -213,6 +215,73 @@ describe("savedAnalyses round-trip (Phase 3a, additive)", () => {
       unknown
     >;
     expect("savedAnalyses" in onDisk).toBe(false);
+  });
+});
+
+describe("savedPlots round-trip (Phase 3b, additive)", () => {
+  it("a sidecar with no saved plots serializes WITHOUT the field", async () => {
+    const s = buildSidecar({
+      id: "30",
+      name: "x",
+      schema,
+      rowCount: 100,
+      source: { kind: "paste" },
+    });
+    await writeDatasetSidecar("alice", s);
+    const onDisk = jsonFiles.get("users/alice/datahub/30/dataset.json") as Record<
+      string,
+      unknown
+    >;
+    expect("savedPlots" in onDisk).toBe(false);
+    const back = await readDatasetSidecar("alice", "30");
+    expect(back!.savedPlots).toBeUndefined();
+  });
+
+  it("saveDatasetPlot adds, replaces by id, and removeSavedPlot drops the field when empty", async () => {
+    const s = buildSidecar({
+      id: "31",
+      name: "x",
+      schema,
+      rowCount: 100,
+      source: { kind: "paste" },
+    });
+    await writeDatasetSidecar("alice", s);
+
+    const p1 = {
+      id: "pl-1",
+      kind: "columnBar",
+      style: { kind: "columnBar", errorBar: "sem" } as Record<string, unknown>,
+      source: { datasetId: "31", valueColumn: "ct" },
+      resultStale: false,
+      created_at: "2026-06-13T00:00:00.000Z",
+    };
+    let updated = await saveDatasetPlot("alice", "31", p1);
+    expect(updated!.savedPlots).toHaveLength(1);
+    expect(updated!.savedPlots![0]).toEqual(p1);
+
+    // Replace by id (restyle).
+    const p1b = { ...p1, kind: "columnScatter", style: { kind: "columnScatter" } };
+    updated = await saveDatasetPlot("alice", "31", p1b);
+    expect(updated!.savedPlots).toHaveLength(1);
+    expect(updated!.savedPlots![0].kind).toBe("columnScatter");
+
+    // A second figure appends.
+    const p2 = { ...p1, id: "pl-2", kind: "groupedBar" };
+    updated = await saveDatasetPlot("alice", "31", p2);
+    expect(updated!.savedPlots).toHaveLength(2);
+
+    const back = await readDatasetSidecar("alice", "31");
+    expect(back!.savedPlots).toHaveLength(2);
+
+    await removeSavedPlot("alice", "31", "pl-1");
+    const after1 = await readDatasetSidecar("alice", "31");
+    expect(after1!.savedPlots).toHaveLength(1);
+    await removeSavedPlot("alice", "31", "pl-2");
+    const onDisk = jsonFiles.get("users/alice/datahub/31/dataset.json") as Record<
+      string,
+      unknown
+    >;
+    expect("savedPlots" in onDisk).toBe(false);
   });
 });
 

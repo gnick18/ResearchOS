@@ -35,6 +35,7 @@ import DatasetStatusChip from "./DatasetStatusChip";
 import ColumnManager from "./ColumnManager";
 import FullRenderWarning from "./FullRenderWarning";
 import DatasetAnalysisDialog from "./DatasetAnalysisDialog";
+import DatasetPlotDialog from "./DatasetPlotDialog";
 import Tooltip from "@/components/Tooltip";
 import { isBigTableEnabled } from "@/lib/datahub/config";
 
@@ -81,8 +82,9 @@ export default function DatasetView({
   const [showFullRender, setShowFullRender] = useState(false);
   const [jumpValue, setJumpValue] = useState("");
   const [showAnalyze, setShowAnalyze] = useState(false);
-  // The analysis entry point stays behind the lane flag, like every other surface
-  // in this lane. The dialog runs analyses through the validated engine.
+  const [showGraph, setShowGraph] = useState(false);
+  // The analysis + graph entry points stay behind the lane flag, like every other
+  // surface in this lane. Both run through the validated engine / plot path.
   const analyzeEnabled = isBigTableEnabled();
 
   const rowCacheRef = useRef<RowCache>(new Map());
@@ -230,6 +232,26 @@ export default function DatasetView({
             >
               <Icon name="results" className="h-3.5 w-3.5" />
               Analyze
+            </button>
+          </Tooltip>
+        )}
+        {analyzeEnabled && (
+          <Tooltip
+            label={
+              handle === null
+                ? "The dataset is still opening"
+                : "Draw a figure from this dataset"
+            }
+          >
+            <button
+              type="button"
+              onClick={() => setShowGraph(true)}
+              disabled={handle === null}
+              className="inline-flex items-center gap-1.5 rounded-md border border-border px-2.5 py-1 text-meta font-medium text-foreground transition-colors hover:bg-surface-sunken disabled:opacity-50"
+              data-testid="bigtable-open-graph"
+            >
+              <Icon name="chart" className="h-3.5 w-3.5" />
+              Graph
             </button>
           </Tooltip>
         )}
@@ -408,6 +430,16 @@ export default function DatasetView({
           sidecar={sidecar}
           handle={handle}
           onClose={() => setShowAnalyze(false)}
+        />
+      )}
+
+      {analyzeEnabled && (
+        <DatasetPlotDialog
+          open={showGraph}
+          owner={owner}
+          sidecar={sidecar}
+          handle={handle}
+          onClose={() => setShowGraph(false)}
         />
       )}
     </div>

@@ -123,9 +123,68 @@ export interface DatasetSidecar {
    * for the rail; the SOURCE OF TRUTH is the spec, re-run against the live Parquet.
    */
   savedAnalyses?: SavedDatasetAnalysis[];
+  /**
+   * Saved figures on this dataset (Phase 3b, plots). OPTIONAL and ADDITIVE: absent
+   * on every sidecar written before this field existed, and sidecarFromJson
+   * defaults it absent, so an old dataset.json reads back byte-identical. Each
+   * entry mirrors the editable lane's PlotSpec (kind + style + source) plus the
+   * dataset-specific column names + the scatter sample cap, so the dataset lane
+   * re-renders deterministically through the SAME validated plot path. The figure's
+   * SUMMARY NUMBERS are always recomputed on the live Parquet via the validated
+   * engine; only the scatter DOTS are a sample.
+   */
+  savedPlots?: SavedDatasetPlot[];
   /** ISO timestamps. */
   created_at: string;
   updated_at: string;
+}
+
+/**
+ * One saved figure on a dataset (an entry in DatasetSidecar.savedPlots). Mirrors
+ * the editable-lane PlotSpec (id / name / kind / style) plus the dataset-specific
+ * source (SCHEMA COLUMN NAMES, since a dataset has no editable column-id space) and
+ * the scatter sample cap.
+ *
+ * THE VALIDATION GATE. A figure's summary numbers (a bar's mean, an error bar's SD
+ * / SEM) are NOT stored as truth here; they are recomputed on the live Parquet via
+ * the validated engine on every re-render (see dataset-plots.ts). `resultStale`
+ * flags that the data may have changed since the figure was last drawn.
+ */
+export interface SavedDatasetPlot {
+  /** Stable id for this saved figure within the dataset. */
+  id: string;
+  /** Optional user-given display name; absent shows the computed kind label. */
+  name?: string;
+  /** The plot kind (e.g. "columnScatter", "columnBar", "groupedBar", "xyScatter"). */
+  kind: string;
+  /** Full styling (colors, axes, error bars, fonts), the editable PlotStyle shape. */
+  style: Record<string, unknown>;
+  /**
+   * Which dataset columns the figure draws, by SCHEMA COLUMN NAME (resolved against
+   * the live schema on re-render so a rename / schema change is caught).
+   */
+  source: {
+    /** The dataset id this figure draws. */
+    datasetId: string;
+    /** The numeric value column (bar / scatter Y / grouped value). */
+    valueColumn?: string;
+    /** The X numeric column for an xyScatter. */
+    xColumn?: string;
+    /** A categorical column whose categories become the comparison groups. */
+    groupByColumn?: string;
+    /** The row-factor categorical column for a groupedBar (x-axis clusters). */
+    rowFactorColumn?: string;
+    /** The series categorical column for a groupedBar (bars within a cluster). */
+    seriesColumn?: string;
+    /** A linked saved-analysis id whose comparisons feed significance brackets. */
+    linkedAnalysisId?: string | null;
+  };
+  /** The cap on rendered scatter dots (absent uses the default). */
+  pointSampleCount?: number;
+  /** True when the data may have changed since the figure was last drawn. */
+  resultStale: boolean;
+  /** ISO timestamp the figure was created. */
+  created_at: string;
 }
 
 /**
