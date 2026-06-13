@@ -1,0 +1,455 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Welcome page, trim + restructure (before / after)</title>
+<style>
+  /* Brand tokens from frontend/src/app/globals.css + the welcome page.
+     House voice: no em-dashes, no emojis, no mid-sentence colons, state the why.
+     Comment harness verbatim from the pricing-page review mockup. */
+  :root {
+    --surface: #f8fafc;
+    --surface-raised: #ffffff;
+    --surface-overlay: #ffffff;
+    --surface-sunken: #f1f5f9;
+    --foreground: #171717;
+    --foreground-muted: #6b7280;
+    --border: #e5e7eb;
+    --page-bg: #e2e8f0;
+    --brand-sky: #1AA0E6;
+    --brand-action: #1283C9;
+    --brand-ink: #111827;
+    --brand-purple: #5B47D6;
+    --ok: #16a34a;
+    --pin: #e11d48;
+    --warn: #d97706;
+    --rainbow: linear-gradient(90deg,#ffd2b0 0%,#fff1a8 25%,#b7ebb1 50%,#a6d2f4 75%,#d6b5f0 100%);
+  }
+  html[data-theme="dark"] {
+    --surface: #0a0e1a;
+    --surface-raised: #1c2638;
+    --surface-overlay: #28344c;
+    --surface-sunken: #0d1424;
+    --foreground: #f1f5f9;
+    --foreground-muted: #b4bfd0;
+    --border: rgba(255, 255, 255, 0.16);
+    --page-bg: #060a13;
+    --brand-ink: #f1f5f9;
+    --pin: #fb7185;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; background: var(--page-bg); color: var(--foreground); transition: background 0.2s; }
+  .topbar { position: sticky; top: 0; z-index: 30; display: flex; align-items: center; gap: 12px; padding: 12px 22px; background: var(--surface-raised); border-bottom: 1px solid var(--border); flex-wrap: wrap; }
+  .topbar h1 { font-size: 15px; margin: 0; font-weight: 800; }
+  .topbar p { margin: 0; font-size: 12px; color: var(--foreground-muted); }
+  .spacer { flex: 1; }
+  .btn { appearance: none; cursor: pointer; border: 1px solid var(--border); background: var(--surface-sunken); color: var(--foreground); border-radius: 8px; padding: 7px 12px; font-size: 12.5px; font-weight: 600; }
+  .btn:hover { border-color: var(--foreground-muted); }
+  .btn.on { background: var(--brand-action); border-color: var(--brand-action); color: #fff; }
+  .btn.danger { color: var(--pin); }
+  .wrap { max-width: 1180px; margin: 0 auto; padding: 22px; }
+  .lead { font-size: 13.5px; color: var(--foreground-muted); line-height: 1.6; max-width: 86ch; margin: 4px 0 18px; }
+  .lead b { color: var(--foreground); }
+
+  /* proposed-changes strip (one verdict per change) */
+  .changes { display: grid; grid-template-columns: repeat(auto-fill, minmax(330px, 1fr)); gap: 10px; margin-bottom: 24px; }
+  .change { border: 1px solid var(--border); background: var(--surface-raised); border-radius: 12px; padding: 12px 14px; display: flex; flex-direction: column; gap: 8px; }
+  .change.approved { border-color: var(--ok); box-shadow: inset 3px 0 0 var(--ok); }
+  .change.disapproved { border-color: var(--pin); box-shadow: inset 3px 0 0 var(--pin); }
+  .ctitle { font-weight: 700; font-size: 13px; }
+  .ctitle .tag { font-size: 10px; font-weight: 700; color: var(--brand-action); background: var(--surface-sunken); border-radius: 5px; padding: 1px 5px; margin-right: 6px; }
+  .cdesc { font-size: 12px; color: var(--foreground-muted); line-height: 1.55; }
+  .verdict { display: flex; align-items: center; gap: 8px; }
+  .vbtn { appearance: none; cursor: pointer; border: 1px solid var(--border); background: var(--surface-sunken); color: var(--foreground); border-radius: 7px; padding: 5px 10px; font-size: 11.5px; font-weight: 700; }
+  .vbtn.app.on { background: var(--ok); border-color: var(--ok); color: #fff; }
+  .vbtn.dis.on { background: var(--pin); border-color: var(--pin); color: #fff; }
+  .vclear { appearance: none; cursor: pointer; border: none; background: none; color: var(--foreground-muted); font-size: 11px; text-decoration: underline; }
+
+  h2.grp { font-size: 14px; font-weight: 800; color: var(--brand-ink); margin: 26px 0 12px; padding-bottom: 6px; border-bottom: 2px solid var(--border); }
+
+  /* the section-order outline (before vs after, two columns) */
+  .orderwrap { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  @media (max-width: 760px) { .orderwrap { grid-template-columns: 1fr; } }
+  .col { border: 1px solid var(--border); border-radius: 14px; background: var(--surface-raised); padding: 14px 16px; }
+  .col h3 { font-size: 12px; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase; color: var(--foreground-muted); margin: 0 0 10px; }
+  .col.after h3 { color: var(--brand-action); }
+  .row { display: flex; align-items: center; gap: 9px; padding: 7px 9px; border-radius: 9px; font-size: 12.5px; }
+  .row + .row { margin-top: 3px; }
+  .row .lab { font-weight: 600; }
+  .row .meta { margin-left: auto; font-size: 10.5px; font-weight: 700; padding: 1px 7px; border-radius: 999px; }
+  .row.keep { background: var(--surface-sunken); }
+  .row.cut { background: color-mix(in srgb, var(--pin) 11%, transparent); text-decoration: line-through; color: var(--foreground-muted); }
+  .row.cond { background: color-mix(in srgb, var(--warn) 13%, transparent); }
+  .row.new { background: color-mix(in srgb, var(--ok) 13%, transparent); }
+  .row.vid .lab::before { content: "▶ "; color: var(--brand-action); font-size: 10px; }
+  .m-keep { background: var(--surface-raised); color: var(--foreground-muted); border: 1px solid var(--border); }
+  .m-cut { background: var(--pin); color: #fff; }
+  .m-cond { background: var(--warn); color: #fff; }
+  .m-new { background: var(--ok); color: #fff; }
+  .legend { display: flex; gap: 14px; flex-wrap: wrap; font-size: 11.5px; color: var(--foreground-muted); margin: 10px 2px 0; }
+  .legend span { display: inline-flex; align-items: center; gap: 5px; }
+  .dot { width: 10px; height: 10px; border-radius: 3px; display: inline-block; }
+
+  /* before/after detail blocks */
+  .ba { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 8px; }
+  @media (max-width: 760px) { .ba { grid-template-columns: 1fr; } }
+  .baside { border: 1px solid var(--border); border-radius: 13px; background: var(--surface-raised); padding: 16px; position: relative; }
+  .baside.before { opacity: 0.92; }
+  .baside.after { box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--brand-sky) 32%, transparent); }
+  .batag { font-size: 10px; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; color: var(--foreground-muted); margin-bottom: 9px; }
+  .baside.after .batag { color: var(--brand-action); }
+  .kick { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 11px; font-weight: 700; color: var(--brand-action); }
+  .secttl { font-size: 16px; font-weight: 800; color: var(--brand-ink); margin: 4px 0 8px; line-height: 1.15; }
+  .body { font-size: 12.5px; color: var(--foreground-muted); line-height: 1.6; }
+  .body.full { color: var(--foreground); }
+
+  /* mini comparison tables */
+  table.mini { width: 100%; border-collapse: collapse; font-size: 11.5px; margin-top: 8px; }
+  table.mini th, table.mini td { text-align: left; padding: 5px 7px; border-bottom: 1px solid var(--border); }
+  table.mini thead th { font-size: 10px; color: var(--foreground-muted); font-weight: 700; }
+  table.mini .us { background: color-mix(in srgb, var(--brand-sky) 9%, transparent); font-weight: 700; color: var(--brand-action); }
+  .ghost { color: color-mix(in srgb, var(--foreground-muted) 70%, transparent); }
+
+  /* video frame stand-in (rainbow border like RainbowFrame) */
+  .vframe { border-radius: 12px; padding: 3px; background-image: var(--rainbow); margin-top: 8px; }
+  .vframe > div { aspect-ratio: 16/10; border-radius: 9px; background: linear-gradient(135deg,#eaf2fb,#dce9f7); display: flex; align-items: center; justify-content: center; gap: 8px; color: var(--brand-action); font-size: 12px; font-weight: 700; }
+  .vframe.stack > div + div { margin-top: 7px; }
+  .play { width: 30px; height: 30px; border-radius: 999px; background: #fff; display: inline-flex; align-items: center; justify-content: center; box-shadow: 0 2px 8px rgba(15,40,80,0.18); }
+  .play svg { width: 14px; height: 14px; color: var(--brand-action); }
+  .pills { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 9px; }
+  .pill { font-size: 10.5px; font-weight: 700; color: var(--brand-action); background: var(--surface-sunken); border: 1px solid var(--border); border-radius: 999px; padding: 3px 9px; }
+  .note { font-size: 11.5px; color: var(--warn); font-weight: 600; margin-top: 9px; }
+  .note.ok { color: var(--ok); }
+
+  /* comment harness pieces (verbatim) */
+  body.cmt-on .cmt { cursor: crosshair; }
+  body.cmt-on .cmt:hover { box-shadow: inset 0 0 0 2px var(--brand-sky); }
+  .pin { position: absolute; top: 8px; right: 8px; min-width: 19px; height: 19px; padding: 0 4px; border-radius: 999px; background: var(--pin); color: #fff; font-size: 11px; font-weight: 800; display: inline-flex; align-items: center; justify-content: center; z-index: 6; cursor: pointer; box-shadow: 0 1px 3px rgba(0,0,0,0.3); }
+  .pin.hl { animation: pop 0.6s ease; }
+  @keyframes pop { 0%,100% { transform: scale(1); } 50% { transform: scale(1.5); } }
+  .panel { position: fixed; right: 16px; bottom: 16px; width: 320px; max-height: 70vh; display: flex; flex-direction: column; background: var(--surface-overlay); border: 1px solid var(--border); border-radius: 13px; box-shadow: 0 12px 40px rgba(0,0,0,0.25); z-index: 40; overflow: hidden; }
+  .panel.collapsed .panelBody, .panel.collapsed .panelFoot { display: none; }
+  .panelHead { display: flex; align-items: center; gap: 8px; padding: 11px 13px; border-bottom: 1px solid var(--border); cursor: pointer; font-size: 13px; }
+  .panelHead .cnt { color: var(--foreground-muted); font-size: 12px; }
+  .panelBody { overflow-y: auto; padding: 6px; }
+  .panelFoot { display: flex; gap: 8px; padding: 9px 11px; border-top: 1px solid var(--border); }
+  .empty { color: var(--foreground-muted); font-size: 12px; padding: 16px; text-align: center; }
+  .citem { display: flex; gap: 8px; align-items: flex-start; padding: 8px; border-radius: 9px; cursor: pointer; }
+  .citem:hover { background: var(--surface-sunken); }
+  .citem .num { flex: 0 0 20px; height: 20px; border-radius: 999px; background: var(--pin); color: #fff; font-size: 11px; font-weight: 800; display: inline-flex; align-items: center; justify-content: center; }
+  .citem .tgt { font-size: 11px; color: var(--foreground-muted); font-weight: 600; }
+  .citem .txt { font-size: 12.5px; color: var(--foreground); margin-top: 1px; }
+  .citem .x { margin-left: auto; appearance: none; border: none; background: none; color: var(--foreground-muted); font-size: 16px; cursor: pointer; line-height: 1; }
+  .vbadge { font-size: 9.5px; font-weight: 800; letter-spacing: 0.04em; }
+  .editor { position: fixed; width: 272px; background: var(--surface-overlay); border: 1px solid var(--border); border-radius: 12px; box-shadow: 0 14px 44px rgba(0,0,0,0.32); z-index: 60; padding: 11px; }
+  .editor .lbl { font-size: 11px; color: var(--foreground-muted); font-weight: 700; margin-bottom: 6px; }
+  .editor textarea { width: 100%; min-height: 64px; resize: vertical; border: 1px solid var(--border); border-radius: 8px; background: var(--surface-sunken); color: var(--foreground); font: inherit; font-size: 12.5px; padding: 8px; }
+  .editor .vchoice { display: flex; gap: 6px; margin: 8px 0; }
+  .editor .acts { display: flex; gap: 6px; align-items: center; }
+  .toast { position: fixed; left: 50%; bottom: 22px; transform: translateX(-50%) translateY(20px); background: var(--brand-ink); color: #fff; font-size: 12.5px; font-weight: 600; padding: 9px 16px; border-radius: 999px; opacity: 0; pointer-events: none; transition: all 0.25s; z-index: 70; }
+  html[data-theme="dark"] .toast { background: var(--surface-overlay); border: 1px solid var(--border); }
+  .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+</style>
+</head>
+<body>
+  <div class="topbar">
+    <div>
+      <h1>Welcome page, trim + restructure</h1>
+      <p>Set a verdict per change, click any block to pin a note, Export and paste back.</p>
+    </div>
+    <span class="spacer"></span>
+    <button class="btn" id="themeToggle">Switch to dark</button>
+    <button class="btn" id="commentToggle">Comment mode: off</button>
+    <button class="btn" id="exportBtn">Export (copy)</button>
+    <button class="btn" id="downloadBtn">Download .md</button>
+    <button class="btn danger" id="clearBtn">Clear notes</button>
+  </div>
+
+  <div class="wrap">
+    <p class="lead">
+      The page runs long, and a couple of recorded clips have no home. The plan, <b>condense the §2 comparison table to three rows</b> (you picked this), <b>put the recorded check-ins clip into the existing §6.5</b> so it stops being a flat div, <b>trim the §11 mission</b> to two sentences and lean on /about for the rest, <b>tighten §7 companion</b> and replace the empty placeholder phone, and <b>drop the caffeine clip</b> (gliotoxin already owns chemistry). The NCBI clip is already wired into the §5 two-up. Net effect, a shorter page where every video earns its spot. Turn on Comment mode and click any block, or set Approve / Disapprove per change above.
+    </p>
+
+    <div class="changes" id="changes"></div>
+
+    <h2 class="grp">Section order, before and after</h2>
+    <div class="orderwrap">
+      <div class="col before">
+        <h3>Current order</h3>
+        <div class="row keep"><span class="lab">Hero</span><span class="meta m-keep">keep</span></div>
+        <div class="row keep"><span class="lab">§1 Cost table</span><span class="meta m-keep">keep</span></div>
+        <div class="row keep"><span class="lab">§2 Honest comparison (4-way, 7 rows)</span><span class="meta m-cond">condense</span></div>
+        <div class="row keep vid"><span class="lab">§3 Chemistry (gliotoxin)</span><span class="meta m-keep">keep</span></div>
+        <div class="row keep vid"><span class="lab">§4 Data Hub</span><span class="meta m-keep">keep</span></div>
+        <div class="row keep vid"><span class="lab">§5 Sequence editor (+ NCBI two-up)</span><span class="meta m-keep">keep</span></div>
+        <div class="row keep vid"><span class="lab">§6 Purchases</span><span class="meta m-keep">keep</span></div>
+        <div class="row keep"><span class="lab">§6.5 Check-ins (static div tree)</span><span class="meta m-cond">+video</span></div>
+        <div class="row keep"><span class="lab">§7 Companion (empty placeholder phone)</span><span class="meta m-cond">tighten</span></div>
+        <div class="row keep vid"><span class="lab">§8 AI / BeakerBot (placeholder)</span><span class="meta m-keep">keep</span></div>
+        <div class="row keep"><span class="lab">§10 How it works</span><span class="meta m-keep">keep</span></div>
+        <div class="row keep"><span class="lab">§11 Mission (long paragraph)</span><span class="meta m-cond">trim</span></div>
+        <div class="row keep vid"><span class="lab">§12 NIH + Zenodo</span><span class="meta m-keep">keep</span></div>
+        <div class="row keep"><span class="lab">§13 Trust band</span><span class="meta m-keep">keep</span></div>
+        <div class="row keep"><span class="lab">§14 Final CTA</span><span class="meta m-keep">keep</span></div>
+      </div>
+      <div class="col after">
+        <h3>Proposed order</h3>
+        <div class="row keep"><span class="lab">Hero</span><span class="meta m-keep">keep</span></div>
+        <div class="row keep"><span class="lab">§1 Cost table</span><span class="meta m-keep">keep</span></div>
+        <div class="row cond"><span class="lab">§2 Comparison, 3 rows</span><span class="meta m-cond">condensed</span></div>
+        <div class="row keep vid"><span class="lab">§3 Chemistry (gliotoxin)</span><span class="meta m-keep">keep</span></div>
+        <div class="row keep vid"><span class="lab">§4 Data Hub</span><span class="meta m-keep">keep</span></div>
+        <div class="row keep vid"><span class="lab">§5 Sequence editor + NCBI</span><span class="meta m-keep">keep</span></div>
+        <div class="row keep vid"><span class="lab">§6 Purchases</span><span class="meta m-keep">keep</span></div>
+        <div class="row new vid"><span class="lab">§6.5 Check-ins, now with the clip</span><span class="meta m-new">+video</span></div>
+        <div class="row cond"><span class="lab">§7 Companion, tightened</span><span class="meta m-cond">tighter</span></div>
+        <div class="row keep vid"><span class="lab">§8 AI / BeakerBot</span><span class="meta m-keep">keep</span></div>
+        <div class="row keep"><span class="lab">§10 How it works</span><span class="meta m-keep">keep</span></div>
+        <div class="row cond"><span class="lab">§11 Mission, 2 sentences</span><span class="meta m-cond">trim</span></div>
+        <div class="row keep vid"><span class="lab">§12 NIH + Zenodo</span><span class="meta m-keep">keep</span></div>
+        <div class="row keep"><span class="lab">§13 Trust band</span><span class="meta m-keep">keep</span></div>
+        <div class="row keep"><span class="lab">§14 Final CTA</span><span class="meta m-keep">keep</span></div>
+        <div class="row cut"><span class="lab">Caffeine clip (no slot)</span><span class="meta m-cut">drop</span></div>
+      </div>
+    </div>
+    <div class="legend">
+      <span><span class="dot" style="background:var(--surface-sunken);border:1px solid var(--border)"></span> keep</span>
+      <span><span class="dot" style="background:color-mix(in srgb,var(--warn) 40%,transparent)"></span> condense / trim</span>
+      <span><span class="dot" style="background:color-mix(in srgb,var(--ok) 45%,transparent)"></span> new video</span>
+      <span><span class="dot" style="background:color-mix(in srgb,var(--pin) 45%,transparent)"></span> cut</span>
+      <span>▶ = has a real recorded clip</span>
+    </div>
+
+    <h2 class="grp">Change 1 &middot; §2 comparison table, condense to three rows</h2>
+    <div class="ba">
+      <div class="baside before cmt" data-clabel="§2 before, full 4-way table">
+        <div class="batag">Before</div>
+        <div class="kick">// a full lab suite vs the point tools</div>
+        <div class="secttl">Honest about where each one wins</div>
+        <div class="body">LabArchives is a common cloud notebook, SnapGene is the sequence tool a lot of labs also pay for, and Quartzy is where many order reagents. Here is the honest four-way.</div>
+        <table class="mini">
+          <thead><tr><th></th><th>ResearchOS</th><th class="ghost">LabArch.</th><th class="ghost">SnapGene</th><th class="ghost">Quartzy</th></tr></thead>
+          <tbody>
+            <tr><td>Price</td><td class="us">Free, OSS</td><td class="ghost">Paid</td><td class="ghost">Paid</td><td class="ghost">Freemium</td></tr>
+            <tr><td>Data lives</td><td class="us">Your disk</td><td class="ghost">Their cloud</td><td class="ghost">Your files</td><td class="ghost">Their cloud</td></tr>
+            <tr><td>Full suite</td><td class="us">All in one</td><td class="ghost">+widgets</td><td class="ghost">Seq only</td><td class="ghost">Ordering</td></tr>
+            <tr><td>Sequence/cloning</td><td>Yes</td><td class="ghost">No</td><td class="ghost">Deepest</td><td class="ghost">No</td></tr>
+            <tr><td>Inventory/ordering</td><td>Yes</td><td class="ghost">No</td><td class="ghost">No</td><td class="ghost">Biggest</td></tr>
+            <tr><td>Live collab</td><td class="us">Yes</td><td class="ghost">Yes</td><td class="ghost">No</td><td class="ghost">Yes</td></tr>
+            <tr><td>Version history</td><td class="us">Built in</td><td class="ghost">Yes</td><td class="ghost">No</td><td class="ghost">No</td></tr>
+          </tbody>
+        </table>
+        <div class="note">7 rows + 2 paragraphs, the second big "vs others" block right after the cost table.</div>
+      </div>
+      <div class="baside after cmt" data-clabel="§2 after, 3-row highlight">
+        <div class="batag">After</div>
+        <div class="kick">// a full lab suite vs the point tools</div>
+        <div class="secttl">Honest about where each one wins</div>
+        <div class="body">One workspace instead of three subscriptions. The honest short version, with the full breakdown a click away.</div>
+        <table class="mini">
+          <thead><tr><th></th><th>ResearchOS</th><th class="ghost">LabArch.</th><th class="ghost">SnapGene</th><th class="ghost">Quartzy</th></tr></thead>
+          <tbody>
+            <tr><td>Price</td><td class="us">Free, open source</td><td class="ghost">Paid per seat</td><td class="ghost">Paid per seat</td><td class="ghost">Freemium</td></tr>
+            <tr><td>Where your data lives</td><td class="us">A folder you own</td><td class="ghost">Their cloud</td><td class="ghost">Your files</td><td class="ghost">Their cloud</td></tr>
+            <tr><td>A full lab suite</td><td class="us">All in one</td><td class="ghost">Notebook only</td><td class="ghost">Sequences only</td><td class="ghost">Ordering only</td></tr>
+          </tbody>
+        </table>
+        <div class="body" style="margin-top:9px"><a href="/pricing" style="color:var(--brand-action);font-weight:700;text-decoration:none">See the full four-way &rarr;</a></div>
+        <div class="note ok">3 rows, the strongest contrasts. Detail moves to /pricing. Frees the most vertical space on the page.</div>
+      </div>
+    </div>
+
+    <h2 class="grp">Change 2 &middot; §6.5 check-ins, swap the static tree for the recorded clip</h2>
+    <div class="ba">
+      <div class="baside before cmt" data-clabel="§6.5 before, static CheckinsVisual">
+        <div class="batag">Before</div>
+        <div class="kick">// not corporate one-on-ones</div>
+        <div class="secttl">Mentorship and check-ins, built for how labs run</div>
+        <div class="vframe"><div style="background:linear-gradient(135deg,#eef4fb,#e2ecf8);color:var(--foreground-muted);font-weight:600">Static div mentorship tree (CheckinsVisual)</div></div>
+        <div class="note">No motion. Sits among five real video sections looking flat.</div>
+      </div>
+      <div class="baside after cmt" data-clabel="§6.5 after, checkins clip">
+        <div class="batag">After</div>
+        <div class="kick">// not corporate one-on-ones</div>
+        <div class="secttl">Mentorship and check-ins, built for how labs run</div>
+        <div class="vframe"><div><span class="play"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M9 7l9 5-9 5V7Z"/></svg></span> checkins clip (mentorship tree, IDP, rotation)</div></div>
+        <div class="pills"><span class="pill">Career-stage IDPs</span><span class="pill">Lab meeting rotation</span><span class="pill">Mentorship tree</span></div>
+        <div class="note ok">Recorded clip already exists. Gives the orphan check-ins clip a home, no new section. Blob name, check-ins.mp4 + poster.</div>
+      </div>
+    </div>
+
+    <h2 class="grp">Change 3 &middot; §11 mission, trim to two sentences</h2>
+    <div class="ba">
+      <div class="baside before cmt" data-clabel="§11 before, long paragraph">
+        <div class="batag">Before</div>
+        <div class="kick">// why we built this</div>
+        <div class="secttl">Research software should be accessible and better, not expensive and locked</div>
+        <div class="body full">ResearchOS is an open-source company (AGPLv3) that grew out of a research fellowship at UW-Madison. The tools labs depend on are overpriced, and they hold your data hostage in someone else's cloud. We build free, open, local-first alternatives, and the goal is not just cheaper, it is better. You own your data, the science is validated in public, and a real, accountable business stands behind it. Good research tooling should be a public good, inspectable, ownable, and free.</div>
+        <div class="note">~90 words mid-page, slows momentum between the product clips and the closing sections.</div>
+      </div>
+      <div class="baside after cmt" data-clabel="§11 after, two sentences">
+        <div class="batag">After</div>
+        <div class="kick">// why we built this</div>
+        <div class="secttl">Accessible and better, not expensive and locked</div>
+        <div class="body full">The tools labs depend on are overpriced and hold your data hostage in someone else's cloud, so we build free, open, local-first alternatives that aim to be genuinely better, not just cheaper. ResearchOS is an open-source company (AGPLv3) out of a fellowship at UW-Madison, with a real business behind it. <a href="/about" style="color:var(--brand-action);font-weight:700;text-decoration:none">Read the story &rarr;</a></div>
+        <div class="note ok">Keeps the founder byline + Built in Madison line below it. The rest lives on /about.</div>
+      </div>
+    </div>
+
+    <h2 class="grp">Change 4 &middot; §7 companion, tighten and replace the empty phone</h2>
+    <div class="ba">
+      <div class="baside before cmt" data-clabel="§7 before, empty placeholder phone">
+        <div class="batag">Before</div>
+        <div class="kick">// your lab, in your pocket</div>
+        <div class="secttl">The companion app brings ResearchOS to the bench</div>
+        <div class="body">A phone frame that just says "Companion app demo" (no recorded clip), plus a 2x2 capability grid. Tall dark band.</div>
+        <div class="vframe"><div style="background:#0d1424;color:#8fb7d9"><span class="play"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M9 7l9 5-9 5V7Z"/></svg></span> empty "Companion app demo" placeholder</div></div>
+        <div class="note">The empty placeholder reads as unfinished next to real clips.</div>
+      </div>
+      <div class="baside after cmt" data-clabel="§7 after, tightened">
+        <div class="batag">After</div>
+        <div class="kick">// your lab, in your pocket</div>
+        <div class="secttl">The companion app brings ResearchOS to the bench</div>
+        <div class="body">Replace the empty phone with a clean static poster (a real screen, no broken play button), tighten the copy, and drop the band's vertical padding. Keep the 2x2 grid (it is strong).</div>
+        <div class="pills"><span class="pill">Snap a photo in</span><span class="pill">Scan notes to text</span><span class="pill">Barcode inventory</span><span class="pill">Methods at the bench</span></div>
+        <div class="note ok">Open question, swap in a real companion clip later once recorded (Maestro flows exist). For now, a static poster, not an empty placeholder.</div>
+      </div>
+    </div>
+
+    <h2 class="grp">Change 5 &middot; caffeine clip, no slot</h2>
+    <div class="ba">
+      <div class="baside after cmt" data-clabel="caffeine drop decision" style="grid-column:1 / -1">
+        <div class="batag">Decision</div>
+        <div class="secttl">Drop the caffeine chemistry clip from the welcome page</div>
+        <div class="body full">Gliotoxin already owns the chemistry section (§3), and you preferred it. A second chemistry clip would be redundant and add length, the opposite of the goal here. The caffeine clip stays in the demo library and could surface on a feature page or the wiki later, just not on the welcome page. Disapprove this if you want a chemistry two-up instead.</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="panel" id="panel">
+    <div class="panelHead" id="panelHead"><b>Notes</b><span class="cnt">(<span id="cCount">0</span>)</span><span class="spacer"></span><span class="cnt" id="chev">hide</span></div>
+    <div class="panelBody" id="panelBody"></div>
+    <div class="panelFoot"><button class="btn" id="exportBtn2">Copy</button><button class="btn" id="downloadBtn2">.md</button></div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+<script>
+  function esc(s) { return (s || "").replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c])); }
+
+  const STORE = "ros-welcome-trim-comments-v1";
+  let comments = [];
+  try { comments = JSON.parse(localStorage.getItem(STORE) || "[]"); } catch { comments = []; }
+  function save() { try { localStorage.setItem(STORE, JSON.stringify(comments)); } catch {} }
+
+  function renderPins() {
+    document.querySelectorAll(".pin").forEach(p => p.remove());
+    const byTarget = {};
+    comments.forEach((c, i) => { (byTarget[c.target] = byTarget[c.target] || []).push(i + 1); });
+    document.querySelectorAll(".cmt").forEach(el => {
+      const lbl = el.getAttribute("data-clabel"); const nums = byTarget[lbl]; if (!nums) return;
+      const pin = document.createElement("span"); pin.className = "pin"; pin.textContent = nums.join(",");
+      pin.addEventListener("click", ev => { ev.stopPropagation(); const first = comments.findIndex(c => c.target === lbl); if (first >= 0) openEditor(el, first, ev); });
+      el.appendChild(pin);
+    });
+  }
+  function flashPin(target) { document.querySelectorAll(".pin").forEach(p => { const el = p.closest(".cmt"); if (el && el.getAttribute("data-clabel") === target) { p.classList.add("hl"); setTimeout(() => p.classList.remove("hl"), 700); } }); }
+  function renderPanel() {
+    const body = document.getElementById("panelBody");
+    document.getElementById("cCount").textContent = comments.length;
+    if (!comments.length) { body.innerHTML = '<div class="empty">No notes yet. Turn on Comment mode and click any block.</div>'; return; }
+    const vtag = v => v === "approve" ? '<span class="vbadge" style="color:var(--ok)">APPROVE</span> ' : v === "disapprove" ? '<span class="vbadge" style="color:var(--pin)">DISAPPROVE</span> ' : "";
+    body.innerHTML = comments.map((c, i) => `<div class="citem" data-i="${i}"><span class="num">${i + 1}</span><div style="flex:1"><div class="tgt">${vtag(c.verdict)}${esc(c.target)}</div><div class="txt">${esc(c.text) || "<i>no text</i>"}</div></div><button class="x" data-del="${i}">&times;</button></div>`).join("");
+    body.querySelectorAll("[data-del]").forEach(b => b.addEventListener("click", e => { e.stopPropagation(); comments.splice(+b.dataset.del, 1); save(); renderAll(); }));
+    body.querySelectorAll(".citem").forEach(it => it.addEventListener("click", e => { if (e.target.closest("[data-del]")) return; const i = +it.dataset.i; const el = [...document.querySelectorAll(".cmt")].find(x => x.getAttribute("data-clabel") === comments[i].target); if (el) { el.scrollIntoView({ block: "center", behavior: "smooth" }); flashPin(comments[i].target); } }));
+  }
+  function renderAll() { renderPins(); renderPanel(); }
+
+  const CHANGES = [
+    { id: "s2", tag: "1", title: "§2 comparison, condense to 3 rows", desc: "Keep price / where data lives / full suite, drop the other four rows and the second paragraph, link to /pricing for the full four-way. The biggest single length win. (You picked condense over cut.)" },
+    { id: "checkins", tag: "2", title: "§6.5 check-ins, swap in the recorded clip", desc: "Replace the static div CheckinsVisual with the recorded check-ins clip. Gives the orphan clip a home, no new section, net length-neutral. Needs Blob upload as check-ins.mp4 + poster." },
+    { id: "mission", tag: "3", title: "§11 mission, trim to two sentences", desc: "Cut the ~90-word paragraph to two sentences, keep the founder byline + Built in Madison line, push the rest to /about." },
+    { id: "companion", tag: "4", title: "§7 companion, tighten + replace empty phone", desc: "Swap the empty 'Companion app demo' placeholder for a clean static poster, tighten copy, reduce the band's vertical padding. Keep the 2x2 grid. (A real companion clip can replace the poster later.)" },
+    { id: "caffeine", tag: "5", title: "Caffeine clip, drop (no slot)", desc: "Do not slot caffeine on the welcome page, gliotoxin already owns chemistry. Disapprove if you want a chemistry two-up instead." },
+  ];
+  const VSTORE = "ros-welcome-trim-verdicts-v1";
+  let verdicts = {};
+  try { verdicts = JSON.parse(localStorage.getItem(VSTORE) || "{}"); } catch { verdicts = {}; }
+  function saveVerdicts() { try { localStorage.setItem(VSTORE, JSON.stringify(verdicts)); } catch {} }
+  function renderChanges() {
+    const wrap = document.getElementById("changes");
+    wrap.innerHTML = CHANGES.map(c => {
+      const v = verdicts[c.id] || ""; const cls = v === "approve" ? "approved" : v === "disapprove" ? "disapproved" : "";
+      return `<div class="change ${cls}"><div><div class="ctitle"><span class="tag">${c.tag}</span>${esc(c.title)}</div><div class="cdesc">${esc(c.desc)}</div></div><div class="verdict"><button class="vbtn app ${v === "approve" ? "on" : ""}" data-c="${c.id}" data-v="approve">Approve</button><button class="vbtn dis ${v === "disapprove" ? "on" : ""}" data-c="${c.id}" data-v="disapprove">Disapprove</button>${v ? `<button class="vclear" data-c="${c.id}" data-v="clear">clear</button>` : ""}</div></div>`;
+    }).join("");
+    wrap.querySelectorAll("[data-v]").forEach(b => b.addEventListener("click", () => {
+      const id = b.dataset.c, v = b.dataset.v;
+      if (v === "clear") delete verdicts[id]; else verdicts[id] = verdicts[id] === v ? undefined : v;
+      if (!verdicts[id]) delete verdicts[id];
+      saveVerdicts(); renderChanges();
+    }));
+  }
+
+  let editorEl = null;
+  function closeEditor() { if (editorEl) { editorEl.remove(); editorEl = null; } }
+  function openEditor(targetEl, existingIndex, ev) {
+    closeEditor();
+    const target = targetEl.getAttribute("data-clabel") || "Page";
+    const existing = existingIndex != null ? comments[existingIndex] : null;
+    let pv = existing ? (existing.verdict || "") : "";
+    const ed = document.createElement("div"); ed.className = "editor";
+    ed.innerHTML = `<div class="lbl">${esc(target)}</div><textarea placeholder="Note, suggestion, or change request">${existing ? esc(existing.text) : ""}</textarea><div class="vchoice"><button class="vbtn" data-vc="note">Note</button><button class="vbtn app" data-vc="approve">Approve</button><button class="vbtn dis" data-vc="disapprove">Disapprove</button></div><div class="acts">${existing ? '<button class="btn danger" data-act="del">Delete</button>' : ""}<span class="spacer"></span><button class="btn" data-act="cancel">Cancel</button><button class="btn on" data-act="save">Save</button></div>`;
+    document.body.appendChild(ed); editorEl = ed;
+    const paint = () => ed.querySelectorAll("[data-vc]").forEach(b => b.classList.toggle("on", (b.dataset.vc === "note" && !pv) || b.dataset.vc === pv));
+    ed.querySelectorAll("[data-vc]").forEach(b => b.addEventListener("click", () => { pv = b.dataset.vc === "note" ? "" : b.dataset.vc; paint(); }));
+    paint();
+    const x = ev ? ev.clientX : targetEl.getBoundingClientRect().left;
+    const y = ev ? ev.clientY : targetEl.getBoundingClientRect().bottom;
+    ed.style.left = Math.min(Math.max(8, x - 20), window.innerWidth - 288) + "px";
+    ed.style.top = Math.min(y + 10, window.innerHeight - 210) + "px";
+    ed.querySelector("textarea").focus();
+    ed.querySelectorAll("[data-act]").forEach(b => b.addEventListener("click", () => {
+      const act = b.dataset.act;
+      if (act === "cancel") return closeEditor();
+      if (act === "del") { if (existingIndex != null) { comments.splice(existingIndex, 1); save(); renderAll(); } return closeEditor(); }
+      if (act === "save") { const text = ed.querySelector("textarea").value.trim(); if (!text && !pv) return closeEditor(); if (existing) { existing.text = text; existing.verdict = pv; } else comments.push({ target, text, verdict: pv }); save(); renderAll(); closeEditor(); }
+    }));
+    ed.addEventListener("keydown", e => { if (e.key === "Escape") closeEditor(); if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) ed.querySelector('[data-act="save"]').click(); });
+  }
+  document.addEventListener("click", e => {
+    if (!document.body.classList.contains("cmt-on")) return;
+    if (e.target.closest(".editor") || e.target.closest(".panel") || e.target.closest(".topbar") || e.target.closest(".pin") || e.target.closest(".changes")) return;
+    const cmt = e.target.closest(".cmt"); if (!cmt) return;
+    e.preventDefault(); openEditor(cmt, null, e);
+  });
+
+  const cBtn = document.getElementById("commentToggle");
+  cBtn.addEventListener("click", () => { const on = document.body.classList.toggle("cmt-on"); cBtn.classList.toggle("on", on); cBtn.textContent = "Comment mode: " + (on ? "on" : "off"); if (!on) closeEditor(); });
+  const tBtn = document.getElementById("themeToggle");
+  tBtn.addEventListener("click", () => { const dark = document.documentElement.getAttribute("data-theme") === "dark"; document.documentElement.setAttribute("data-theme", dark ? "light" : "dark"); tBtn.textContent = dark ? "Switch to dark" : "Switch to light"; });
+  document.getElementById("panelHead").addEventListener("click", () => { const p = document.getElementById("panel"); const col = p.classList.toggle("collapsed"); document.getElementById("chev").textContent = col ? "show" : "hide"; });
+
+  function buildMarkdown() {
+    let out = "Welcome page trim + restructure, feedback\n\n";
+    out += "Verdicts\n";
+    CHANGES.forEach(c => { const v = verdicts[c.id]; out += `- ${c.title}: ${v === "approve" ? "APPROVE" : v === "disapprove" ? "DISAPPROVE" : "undecided"}\n`; });
+    out += "\nNotes\n";
+    if (!comments.length) out += "- none\n";
+    comments.forEach((c, i) => { const tag = c.verdict === "approve" ? "[APPROVE] " : c.verdict === "disapprove" ? "[DISAPPROVE] " : ""; out += `${i + 1}. ${tag}[${c.target}] ${c.text}\n`; });
+    return out;
+  }
+  function toast(msg) { const t = document.getElementById("toast"); t.textContent = msg; t.classList.add("show"); setTimeout(() => t.classList.remove("show"), 1500); }
+  async function doCopy() { const md = buildMarkdown(); try { await navigator.clipboard.writeText(md); toast("Feedback copied, paste it back to me"); } catch { window.prompt("Copy your feedback", md); } }
+  function doDownload() { const blob = new Blob([buildMarkdown()], { type: "text/markdown" }); const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = "welcome-trim-feedback.md"; a.click(); URL.revokeObjectURL(a.href); }
+  document.getElementById("exportBtn").addEventListener("click", doCopy);
+  document.getElementById("exportBtn2").addEventListener("click", doCopy);
+  document.getElementById("downloadBtn").addEventListener("click", doDownload);
+  document.getElementById("downloadBtn2").addEventListener("click", doDownload);
+  document.getElementById("clearBtn").addEventListener("click", () => { if (comments.length && !confirm("Delete all notes?")) return; comments = []; save(); renderAll(); });
+
+  renderChanges();
+  renderAll();
+</script>
+</body>
+</html>

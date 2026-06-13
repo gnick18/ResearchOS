@@ -1,0 +1,430 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Welcome page, AI showpiece (living BeakerSearch)</title>
+<style>
+  /* Brand tokens from frontend/src/app/globals.css. House voice, no em-dashes,
+     no emojis, no mid-sentence colons. Comment harness from the pricing mockup.
+     The AI band is the new thing, a full-bleed beaker-blue showpiece with a
+     self-running BeakerSearch animation. */
+  :root {
+    --surface: #f8fafc; --surface-raised: #ffffff; --surface-overlay: #ffffff; --surface-sunken: #f1f5f9;
+    --foreground: #171717; --foreground-muted: #6b7280; --border: #e5e7eb; --page-bg: #e2e8f0;
+    --brand-sky: #1AA0E6; --brand-action: #1283C9; --brand-ink: #111827; --brand-purple: #5B47D6;
+    --ok: #16a34a; --pin: #e11d48; --warn: #d97706;
+    --rainbow: linear-gradient(90deg,#ffd2b0 0%,#fff1a8 25%,#b7ebb1 50%,#a6d2f4 75%,#d6b5f0 100%);
+  }
+  html[data-theme="dark"] {
+    --surface: #0a0e1a; --surface-raised: #1c2638; --surface-overlay: #28344c; --surface-sunken: #0d1424;
+    --foreground: #f1f5f9; --foreground-muted: #b4bfd0; --border: rgba(255,255,255,0.16); --page-bg: #060a13;
+    --brand-ink: #f1f5f9; --pin: #fb7185;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; background: var(--page-bg); color: var(--foreground); }
+  .topbar { position: sticky; top: 0; z-index: 30; display: flex; align-items: center; gap: 12px; padding: 12px 22px; background: var(--surface-raised); border-bottom: 1px solid var(--border); flex-wrap: wrap; }
+  .topbar h1 { font-size: 15px; margin: 0; font-weight: 800; }
+  .topbar p { margin: 0; font-size: 12px; color: var(--foreground-muted); }
+  .spacer { flex: 1; }
+  .btn { appearance: none; cursor: pointer; border: 1px solid var(--border); background: var(--surface-sunken); color: var(--foreground); border-radius: 8px; padding: 7px 12px; font-size: 12.5px; font-weight: 600; }
+  .btn:hover { border-color: var(--foreground-muted); }
+  .btn.on { background: var(--brand-action); border-color: var(--brand-action); color: #fff; }
+  .btn.danger { color: var(--pin); }
+  .wrap { max-width: 1180px; margin: 0 auto; padding: 22px; }
+  .lead { font-size: 13.5px; color: var(--foreground-muted); line-height: 1.6; max-width: 86ch; margin: 4px 0 18px; }
+  .lead b { color: var(--foreground); }
+
+  .changes { display: grid; grid-template-columns: repeat(auto-fill, minmax(330px, 1fr)); gap: 10px; margin-bottom: 22px; }
+  .change { border: 1px solid var(--border); background: var(--surface-raised); border-radius: 12px; padding: 12px 14px; display: flex; flex-direction: column; gap: 8px; }
+  .change.approved { border-color: var(--ok); box-shadow: inset 3px 0 0 var(--ok); }
+  .change.disapproved { border-color: var(--pin); box-shadow: inset 3px 0 0 var(--pin); }
+  .ctitle { font-weight: 700; font-size: 13px; }
+  .ctitle .tag { font-size: 10px; font-weight: 700; color: var(--brand-action); background: var(--surface-sunken); border-radius: 5px; padding: 1px 5px; margin-right: 6px; }
+  .cdesc { font-size: 12px; color: var(--foreground-muted); line-height: 1.55; }
+  .verdict { display: flex; align-items: center; gap: 8px; }
+  .vbtn { appearance: none; cursor: pointer; border: 1px solid var(--border); background: var(--surface-sunken); color: var(--foreground); border-radius: 7px; padding: 5px 10px; font-size: 11.5px; font-weight: 700; }
+  .vbtn.app.on { background: var(--ok); border-color: var(--ok); color: #fff; }
+  .vbtn.dis.on { background: var(--pin); border-color: var(--pin); color: #fff; }
+  .vclear { appearance: none; cursor: pointer; border: none; background: none; color: var(--foreground-muted); font-size: 11px; text-decoration: underline; }
+  h2.grp { font-size: 14px; font-weight: 800; color: var(--brand-ink); margin: 24px 0 6px; }
+  .hint { font-size: 12px; color: var(--foreground-muted); margin: 0 0 12px; }
+
+  /* page frame, full-bleed band breaks out of the wrap */
+  .page { border: 1px solid var(--border); border-radius: 16px; overflow: hidden; background: var(--surface-raised); }
+  .ctx { padding: 22px 26px; }
+  .ctx .kick { font-family: ui-monospace, Menlo, monospace; font-size: 11px; font-weight: 700; color: var(--brand-action); }
+  .ctx h3 { font-size: 17px; font-weight: 800; color: var(--brand-ink); margin: 5px 0 0; }
+  .ctx p { font-size: 12.5px; color: var(--foreground-muted); margin: 4px 0 0; }
+  .ctxcost { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
+  .ctxcost .cell { flex: 1; min-width: 120px; border: 1px solid var(--border); border-radius: 10px; padding: 9px 11px; background: var(--surface-sunken); font-size: 11.5px; color: var(--foreground-muted); }
+  .ctxcost .cell b { display: block; color: var(--brand-ink); font-size: 13px; }
+
+  /* ====== THE AI SHOWPIECE BAND (full bleed, beaker blue) ====== */
+  .aiband {
+    position: relative; overflow: hidden; color: #eaf6ff;
+    padding: 54px 32px 60px;
+    background:
+      radial-gradient(120% 120% at 12% 0%, #38c0f5 0%, rgba(56,192,245,0) 55%),
+      radial-gradient(120% 130% at 92% 12%, #2aa2e6 0%, rgba(42,162,230,0) 50%),
+      linear-gradient(135deg, #1AA0E6 0%, #1283C9 52%, #0c6bb0 100%);
+  }
+  @media (max-width: 760px) { .aiband { padding: 38px 18px 44px; } }
+  .aiband .grain { position: absolute; inset: 0; background-image: radial-gradient(rgba(255,255,255,0.16) 1px, transparent 1px); background-size: 22px 22px; opacity: 0.5; pointer-events: none; }
+  .bubble { position: absolute; bottom: -40px; border-radius: 999px; background: radial-gradient(circle at 35% 30%, rgba(255,255,255,0.55), rgba(255,255,255,0.07) 60%, transparent 72%); box-shadow: inset 0 0 6px rgba(255,255,255,0.25); pointer-events: none; animation: rise linear infinite; }
+  @keyframes rise { 0% { transform: translateY(0) scale(0.7); opacity: 0; } 12% { opacity: 0.7; } 80% { opacity: 0.55; } 100% { transform: translateY(-120vh) scale(1.05); opacity: 0; } }
+
+  .aigrid { position: relative; z-index: 2; max-width: 1080px; margin: 0 auto; display: grid; grid-template-columns: 0.92fr 1.08fr; gap: 34px; align-items: center; }
+  @media (max-width: 860px) { .aigrid { grid-template-columns: 1fr; gap: 26px; } }
+
+  .aieyebrow { display: inline-flex; align-items: center; gap: 8px; font-size: 11.5px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: #d4eeff; background: rgba(255,255,255,0.14); border: 1px solid rgba(255,255,255,0.28); border-radius: 999px; padding: 5px 13px; }
+  .aih2 { font-size: 33px; line-height: 1.08; font-weight: 800; color: #fff; margin: 16px 0 12px; max-width: 16ch; letter-spacing: -0.01em; }
+  @media (max-width: 760px) { .aih2 { font-size: 26px; } }
+  .aip { font-size: 14.5px; line-height: 1.6; color: #d8eefc; max-width: 46ch; margin: 0; }
+  .gift { margin-top: 18px; border: 1px solid rgba(255,255,255,0.3); background: rgba(255,255,255,0.12); border-radius: 14px; padding: 13px 16px; backdrop-filter: blur(3px); }
+  .gift b { font-size: 18px; font-weight: 800; color: #fff; display: block; }
+  .gift span { font-size: 12px; color: #cfe9fb; }
+  .aictas { margin-top: 18px; display: flex; gap: 10px; flex-wrap: wrap; }
+  .aicta { cursor: pointer; appearance: none; border-radius: 11px; padding: 11px 18px; font-size: 13.5px; font-weight: 800; border: 1px solid rgba(255,255,255,0.4); }
+  .aicta.primary { background: #fff; color: var(--brand-action); border-color: #fff; }
+  .aicta.ghost { background: rgba(255,255,255,0.08); color: #fff; }
+
+  /* the living search stage */
+  .stage { position: relative; }
+  .glass { position: relative; border-radius: 18px; background: rgba(255,255,255,0.97); box-shadow: 0 30px 70px rgba(5,40,80,0.42), 0 2px 0 rgba(255,255,255,0.5) inset; padding: 16px; color: var(--foreground); }
+  html[data-theme="dark"] .glass { background: #11203a; color: #eaf2fb; }
+  .bbrow { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
+  .bbavatar { width: 40px; height: 40px; flex: 0 0 40px; }
+  .bbname { font-size: 12.5px; font-weight: 800; color: var(--brand-ink); }
+  html[data-theme="dark"] .bbname { color: #eaf2fb; }
+  .bbstate { font-size: 11px; color: var(--foreground-muted); transition: color 0.2s; }
+
+  .sbar { display: flex; align-items: center; gap: 10px; border: 1.5px solid #d3e2f1; border-radius: 13px; padding: 12px 14px; background: var(--surface-sunken); position: relative; overflow: hidden; transition: border-color 0.25s, box-shadow 0.25s; }
+  html[data-theme="dark"] .sbar { background: #0d1830; border-color: #2a3c5a; }
+  .sbar.thinking { border-color: var(--brand-sky); box-shadow: 0 0 0 4px rgba(26,160,230,0.16); }
+  .sbar .mag { width: 17px; height: 17px; color: var(--brand-action); flex: 0 0 17px; }
+  .sbar .q { font-size: 14px; font-weight: 600; color: var(--brand-ink); white-space: nowrap; overflow: hidden; }
+  html[data-theme="dark"] .sbar .q { color: #eaf2fb; }
+  .sbar .q.ph { color: var(--foreground-muted); font-weight: 500; }
+  .caret { display: inline-block; width: 1.5px; height: 16px; background: var(--brand-action); margin-left: 1px; vertical-align: -3px; animation: blink 1s steps(1) infinite; }
+  @keyframes blink { 50% { opacity: 0; } }
+  .askbtn { margin-left: auto; flex: 0 0 auto; font-size: 12px; font-weight: 800; color: #fff; background: var(--brand-action); border-radius: 9px; padding: 7px 13px; transition: transform 0.15s, opacity 0.2s; }
+  .askbtn.press { transform: scale(0.93); }
+  /* thinking shimmer sweep */
+  .sbar .sweep { position: absolute; inset: 0; background: linear-gradient(100deg, transparent 30%, rgba(26,160,230,0.22) 50%, transparent 70%); transform: translateX(-100%); opacity: 0; }
+  .sbar.thinking .sweep { animation: sweep 1.1s ease-in-out infinite; opacity: 1; }
+  @keyframes sweep { 100% { transform: translateX(100%); } }
+
+  /* the answer panel morphs open below the bar */
+  .answer { margin-top: 0; max-height: 0; opacity: 0; overflow: hidden; transition: max-height 0.55s cubic-bezier(0.22,1,0.36,1), opacity 0.4s, margin-top 0.4s; }
+  .answer.open { max-height: 420px; opacity: 1; margin-top: 12px; }
+  .verdict { font-size: 13px; font-weight: 700; color: var(--brand-ink); display: flex; align-items: center; gap: 7px; min-height: 18px; }
+  html[data-theme="dark"] .verdict { color: #eaf2fb; }
+  .verdict .vdot { width: 8px; height: 8px; border-radius: 999px; background: var(--ok); flex: 0 0 8px; }
+  .rescards { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 11px; }
+  @media (max-width: 520px) { .rescards { grid-template-columns: 1fr; } }
+  .rcard { border: 1px solid var(--border); border-radius: 10px; padding: 9px 11px; background: var(--surface-raised); opacity: 0; transform: translateY(8px); transition: opacity 0.35s, transform 0.35s; }
+  html[data-theme="dark"] .rcard { background: #16253f; border-color: #2a3c5a; }
+  .rcard.in { opacity: 1; transform: none; }
+  .rcard .rt { font-size: 11.5px; font-weight: 800; color: var(--brand-ink); }
+  html[data-theme="dark"] .rcard .rt { color: #eaf2fb; }
+  .rcard .rs { font-size: 10.5px; color: var(--foreground-muted); margin-top: 2px; }
+  .rcard .badge { font-size: 9px; font-weight: 800; color: var(--pin); background: color-mix(in srgb, var(--pin) 13%, transparent); border-radius: 5px; padding: 1px 5px; }
+  /* the mini chart that draws itself */
+  .chartcard { grid-column: 1 / -1; border: 1px solid var(--border); border-radius: 10px; padding: 11px; background: var(--surface-raised); opacity: 0; transform: translateY(8px); transition: opacity 0.35s, transform 0.35s; }
+  html[data-theme="dark"] .chartcard { background: #16253f; border-color: #2a3c5a; }
+  .chartcard.in { opacity: 1; transform: none; }
+  .chartcard .clbl { font-size: 10.5px; color: var(--foreground-muted); font-weight: 700; margin-bottom: 7px; }
+  .bars { display: flex; align-items: flex-end; gap: 8px; height: 76px; }
+  .bar { flex: 1; border-radius: 5px 5px 0 0; height: 0; background: linear-gradient(180deg, #4db8f0, #1283C9); transition: height 0.6s cubic-bezier(0.22,1,0.36,1); }
+  .bar.fail { background: linear-gradient(180deg, #fb7185, #e11d48); }
+
+  /* comment harness */
+  body.cmt-on .cmt { cursor: crosshair; }
+  body.cmt-on .cmt:hover { box-shadow: inset 0 0 0 2px var(--brand-sky); }
+  .pin { position: absolute; top: 8px; right: 8px; min-width: 19px; height: 19px; padding: 0 4px; border-radius: 999px; background: var(--pin); color: #fff; font-size: 11px; font-weight: 800; display: inline-flex; align-items: center; justify-content: center; z-index: 8; cursor: pointer; box-shadow: 0 1px 3px rgba(0,0,0,0.3); }
+  .pin.hl { animation: pop 0.6s ease; }
+  @keyframes pop { 0%,100% { transform: scale(1); } 50% { transform: scale(1.5); } }
+  .panel { position: fixed; right: 16px; bottom: 16px; width: 320px; max-height: 70vh; display: flex; flex-direction: column; background: var(--surface-overlay); border: 1px solid var(--border); border-radius: 13px; box-shadow: 0 12px 40px rgba(0,0,0,0.25); z-index: 40; overflow: hidden; }
+  .panel.collapsed .panelBody, .panel.collapsed .panelFoot { display: none; }
+  .panelHead { display: flex; align-items: center; gap: 8px; padding: 11px 13px; border-bottom: 1px solid var(--border); cursor: pointer; font-size: 13px; }
+  .panelHead .cnt { color: var(--foreground-muted); font-size: 12px; }
+  .panelBody { overflow-y: auto; padding: 6px; }
+  .panelFoot { display: flex; gap: 8px; padding: 9px 11px; border-top: 1px solid var(--border); }
+  .empty { color: var(--foreground-muted); font-size: 12px; padding: 16px; text-align: center; }
+  .citem { display: flex; gap: 8px; align-items: flex-start; padding: 8px; border-radius: 9px; cursor: pointer; }
+  .citem:hover { background: var(--surface-sunken); }
+  .citem .num { flex: 0 0 20px; height: 20px; border-radius: 999px; background: var(--pin); color: #fff; font-size: 11px; font-weight: 800; display: inline-flex; align-items: center; justify-content: center; }
+  .citem .tgt { font-size: 11px; color: var(--foreground-muted); font-weight: 600; }
+  .citem .txt { font-size: 12.5px; color: var(--foreground); margin-top: 1px; }
+  .citem .x { margin-left: auto; appearance: none; border: none; background: none; color: var(--foreground-muted); font-size: 16px; cursor: pointer; line-height: 1; }
+  .vbadge { font-size: 9.5px; font-weight: 800; }
+  .editor { position: fixed; width: 272px; background: var(--surface-overlay); border: 1px solid var(--border); border-radius: 12px; box-shadow: 0 14px 44px rgba(0,0,0,0.32); z-index: 60; padding: 11px; }
+  .editor .lbl { font-size: 11px; color: var(--foreground-muted); font-weight: 700; margin-bottom: 6px; }
+  .editor textarea { width: 100%; min-height: 64px; resize: vertical; border: 1px solid var(--border); border-radius: 8px; background: var(--surface-sunken); color: var(--foreground); font: inherit; font-size: 12.5px; padding: 8px; }
+  .editor .vchoice { display: flex; gap: 6px; margin: 8px 0; }
+  .editor .acts { display: flex; gap: 6px; align-items: center; }
+  .toast { position: fixed; left: 50%; bottom: 22px; transform: translateX(-50%) translateY(20px); background: var(--brand-ink); color: #fff; font-size: 12.5px; font-weight: 600; padding: 9px 16px; border-radius: 999px; opacity: 0; pointer-events: none; transition: all 0.25s; z-index: 70; }
+  .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+</style>
+</head>
+<body>
+  <div class="topbar">
+    <div>
+      <h1>Welcome page, AI showpiece</h1>
+      <p>A full-bleed beaker-blue band with a self-running BeakerSearch. Set verdicts, click to pin notes, Export.</p>
+    </div>
+    <span class="spacer"></span>
+    <button class="btn on" id="replayBtn">Replay animation</button>
+    <button class="btn" id="themeToggle">Switch to dark</button>
+    <button class="btn" id="commentToggle">Comment mode: off</button>
+    <button class="btn" id="exportBtn">Export (copy)</button>
+    <button class="btn danger" id="clearBtn">Clear notes</button>
+  </div>
+
+  <div class="wrap">
+    <p class="lead">
+      Your direction, move BeakerBot <b>way up</b> (right under the cost section), make it a <b>full-bleed beaker-blue band, wall to wall</b>, and make it feel alive with a real, looping search. This is one motion concept built for real so you can feel it. The search box <b>types its own question, thinks, then morphs open into an answer</b> with result cards and a chart that draws itself, then loops. Bubbles rise in the blue behind it. Watch it run, then set verdicts on the calls below or pin notes on anything.
+    </p>
+
+    <div class="changes" id="changes"></div>
+
+    <h2 class="grp">The section, in context</h2>
+    <p class="hint">Showing the tail of the cost section above it, so you can judge the new placement and the wall-to-wall color break.</p>
+
+    <div class="page">
+      <!-- context: end of cost section, light -->
+      <div class="ctx cmt" data-clabel="Placement, cost section above">
+        <div class="kick">// what your lab pays for now</div>
+        <h3>One free app replaces a shelf of expensive software</h3>
+        <p>The licenses stack up and renew every year, per person. ResearchOS does all of it, free, in a folder on your own machine.</p>
+        <div class="ctxcost">
+          <div class="cell"><b>LabArchives</b> notebook, paid per seat</div>
+          <div class="cell"><b>SnapGene</b> sequences, paid per seat</div>
+          <div class="cell"><b>Quartzy</b> ordering, freemium</div>
+          <div class="cell" style="background:color-mix(in srgb,var(--brand-sky) 11%,transparent);border-color:color-mix(in srgb,var(--brand-sky) 30%,transparent)"><b style="color:var(--brand-action)">ResearchOS</b> all of it, free</div>
+        </div>
+      </div>
+
+      <!-- THE AI BAND -->
+      <section class="aiband cmt" data-clabel="AI band, full-bleed beaker blue">
+        <div class="grain"></div>
+        <div id="bubbles"></div>
+        <div class="aigrid">
+          <div class="aicopy cmt" data-clabel="AI band copy + gift + CTAs">
+            <span class="aieyebrow"><span style="width:7px;height:7px;border-radius:999px;background:#bfe9ff;display:inline-block"></span> Your data, your AI</span>
+            <h2 class="aih2">Ask your own research a question</h2>
+            <p class="aip">BeakerBot runs over the notes and results you already own. Ask in plain English, it finds the records, makes the plot, and writes it up. Always your data, never mined.</p>
+            <div class="gift">
+              <b>About 750,000 free tokens to start</b>
+              <span>a one-time gift, around 20 to 25 full analyses, no card needed</span>
+            </div>
+            <div class="aictas">
+              <button class="aicta primary">Start your notebook</button>
+              <button class="aicta ghost">See what BeakerBot can do</button>
+            </div>
+          </div>
+
+          <div class="stage cmt" data-clabel="The living search animation">
+            <div class="glass">
+              <div class="bbrow">
+                <svg class="bbavatar" viewBox="0 0 48 48" aria-hidden>
+                  <defs><linearGradient id="bb" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#5cc6f5"/><stop offset="1" stop-color="#1283C9"/></linearGradient></defs>
+                  <path d="M19 7h10v2h-2v9.5l8.5 16A5 5 0 0 1 31 41H17a5 5 0 0 1-4.5-6.5L21 18.5V9h-2V7Z" fill="url(#bb)" stroke="#0c6bb0" stroke-width="1.2" stroke-linejoin="round"/>
+                  <circle cx="20.5" cy="30" r="1.6" fill="#fff"/><circle cx="27.5" cy="30" r="1.6" fill="#fff"/>
+                  <path d="M21 34c1.6 1.4 4.4 1.4 6 0" stroke="#fff" stroke-width="1.3" fill="none" stroke-linecap="round"/>
+                  <circle cx="16.5" cy="26" r="1.1" fill="#bfe9ff"/><circle cx="31" cy="29" r="1.3" fill="#bfe9ff"/>
+                </svg>
+                <div>
+                  <div class="bbname">BeakerBot</div>
+                  <div class="bbstate" id="bbstate">ready when you are</div>
+                </div>
+              </div>
+
+              <div class="sbar" id="sbar">
+                <svg class="mag" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.2-3.2" stroke-linecap="round"/></svg>
+                <span class="q ph" id="q">Ask across your own notes and results</span>
+                <span class="askbtn" id="askbtn">Ask</span>
+                <span class="sweep"></span>
+              </div>
+
+              <div class="answer" id="answer">
+                <div class="verdict"><span class="vdot"></span><span id="verdict"></span></div>
+                <div class="rescards" id="rescards">
+                  <div class="rcard" data-d="0"><div class="rt">PCR-2026-118 <span class="badge">failed</span></div><div class="rs">cyp51A amplicon, low yield, May 6</div></div>
+                  <div class="rcard" data-d="1"><div class="rt">PCR-2026-131 <span class="badge">failed</span></div><div class="rs">gel image attached, May 19</div></div>
+                  <div class="chartcard" data-d="2">
+                    <div class="clbl">Runs last month, failures highlighted</div>
+                    <div class="bars" id="bars">
+                      <div class="bar" data-h="46"></div><div class="bar fail" data-h="70"></div><div class="bar" data-h="38"></div>
+                      <div class="bar fail" data-h="66"></div><div class="bar" data-h="52"></div><div class="bar fail" data-h="74"></div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- context: next section starts, light again -->
+      <div class="ctx" style="border-top:1px solid var(--border)">
+        <div class="kick">// no ChemDraw or SciFinder license</div>
+        <h3>Draw and search chemistry, built in</h3>
+        <p>...the rest of the page continues from here (chemistry, data hub, sequences).</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="panel" id="panel">
+    <div class="panelHead" id="panelHead"><b>Notes</b><span class="cnt">(<span id="cCount">0</span>)</span><span class="spacer"></span><span class="cnt" id="chev">hide</span></div>
+    <div class="panelBody" id="panelBody"></div>
+    <div class="panelFoot"><button class="btn" id="exportBtn2">Copy</button></div>
+  </div>
+  <div class="toast" id="toast"></div>
+
+<script>
+  /* ---------- bubbles ---------- */
+  (function () {
+    const host = document.getElementById("bubbles");
+    const seeds = [[8,16,15],[20,9,22],[33,13,12],[47,20,18],[59,11,26],[71,17,14],[83,10,20],[92,15,16],[14,7,10],[64,8,9]];
+    seeds.forEach(([left, dur, size], i) => {
+      const b = document.createElement("span"); b.className = "bubble";
+      b.style.left = left + "%"; b.style.width = size + "px"; b.style.height = size + "px";
+      b.style.animationDuration = (dur + 6) + "s"; b.style.animationDelay = (-(i * 1.7)) + "s";
+      host.appendChild(b);
+    });
+  })();
+
+  /* ---------- the living search timeline ---------- */
+  const sleep = ms => new Promise(r => setTimeout(r, ms));
+  const QUERY = "Show my PCR runs that failed last month";
+  let runToken = 0;
+  const el = id => document.getElementById(id);
+
+  async function runDemo() {
+    const myToken = ++runToken;
+    const alive = () => myToken === runToken;
+    const q = el("q"), sbar = el("sbar"), answer = el("answer"), askbtn = el("askbtn");
+    const state = el("bbstate"), verdict = el("verdict");
+    // reset
+    sbar.classList.remove("thinking"); answer.classList.remove("open");
+    document.querySelectorAll(".rcard, .chartcard").forEach(c => c.classList.remove("in"));
+    document.querySelectorAll(".bar").forEach(b => b.style.height = "0");
+    verdict.textContent = ""; q.textContent = "Ask across your own notes and results"; q.className = "q ph";
+    state.textContent = "ready when you are";
+    await sleep(900); if (!alive()) return;
+
+    // type the query
+    q.className = "q"; q.textContent = "";
+    state.textContent = "listening";
+    for (let i = 0; i < QUERY.length; i++) {
+      if (!alive()) return;
+      q.innerHTML = QUERY.slice(0, i + 1) + '<span class="caret"></span>';
+      await sleep(38 + (QUERY[i] === " " ? 30 : 0));
+    }
+    q.textContent = QUERY;
+    await sleep(360); if (!alive()) return;
+
+    // ask pressed -> thinking
+    askbtn.classList.add("press"); await sleep(140); askbtn.classList.remove("press");
+    sbar.classList.add("thinking"); state.textContent = "reading your notes and results...";
+    await sleep(1500); if (!alive()) return;
+    sbar.classList.remove("thinking"); state.textContent = "found it";
+
+    // morph open + verdict types
+    answer.classList.add("open");
+    await sleep(280); if (!alive()) return;
+    const V = "Found 4 of your 11 runs last month that failed. Here they are, with the gel images.";
+    for (let i = 0; i < V.length; i++) { if (!alive()) return; verdict.textContent = V.slice(0, i + 1); await sleep(15); }
+
+    // stagger result cards in
+    const cards = [...document.querySelectorAll(".rcard, .chartcard")].sort((a, b) => (+a.dataset.d) - (+b.dataset.d));
+    for (const c of cards) { if (!alive()) return; c.classList.add("in"); await sleep(180); }
+    // draw the chart bars
+    await sleep(120);
+    document.querySelectorAll(".bar").forEach((b, i) => setTimeout(() => { if (alive()) b.style.height = b.dataset.h + "px"; }, i * 90));
+
+    await sleep(3200); if (!alive()) return;
+    // collapse + loop
+    answer.classList.remove("open");
+    state.textContent = "ask another";
+    await sleep(1100); if (!alive()) return;
+    runDemo();
+  }
+  el("replayBtn").addEventListener("click", () => runDemo());
+  runDemo();
+
+  /* ---------- comment harness ---------- */
+  function esc(s){return (s||"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));}
+  const STORE="ros-welcome-ai-comments-v1"; let comments=[];
+  try{comments=JSON.parse(localStorage.getItem(STORE)||"[]");}catch{comments=[];}
+  function save(){try{localStorage.setItem(STORE,JSON.stringify(comments));}catch{}}
+  function renderPins(){
+    document.querySelectorAll(".pin").forEach(p=>p.remove());
+    const byT={}; comments.forEach((c,i)=>{(byT[c.target]=byT[c.target]||[]).push(i+1);});
+    document.querySelectorAll(".cmt").forEach(elm=>{const lbl=elm.getAttribute("data-clabel");const nums=byT[lbl];if(!nums)return;const pin=document.createElement("span");pin.className="pin";pin.textContent=nums.join(",");pin.addEventListener("click",ev=>{ev.stopPropagation();const f=comments.findIndex(c=>c.target===lbl);if(f>=0)openEditor(elm,f,ev);});elm.appendChild(pin);});
+  }
+  function renderPanel(){
+    const body=el("panelBody"); el("cCount").textContent=comments.length;
+    if(!comments.length){body.innerHTML='<div class="empty">No notes yet. Turn on Comment mode and click any block.</div>';return;}
+    const vt=v=>v==="approve"?'<span class="vbadge" style="color:var(--ok)">APPROVE</span> ':v==="disapprove"?'<span class="vbadge" style="color:var(--pin)">DISAPPROVE</span> ':"";
+    body.innerHTML=comments.map((c,i)=>`<div class="citem" data-i="${i}"><span class="num">${i+1}</span><div style="flex:1"><div class="tgt">${vt(c.verdict)}${esc(c.target)}</div><div class="txt">${esc(c.text)||"<i>no text</i>"}</div></div><button class="x" data-del="${i}">&times;</button></div>`).join("");
+    body.querySelectorAll("[data-del]").forEach(b=>b.addEventListener("click",e=>{e.stopPropagation();comments.splice(+b.dataset.del,1);save();renderAll();}));
+  }
+  function renderAll(){renderPins();renderPanel();}
+
+  const CHANGES=[
+    {id:"placement",tag:"1",title:"Move BeakerBot way up, under the cost section",desc:"AI becomes the second beat after the cost lead, before chemistry/data hub/sequences. It is the most-special thing, so it sells early."},
+    {id:"fullbleed",tag:"2",title:"Full-bleed beaker-blue band, wall to wall",desc:"Breaks the white rhythm with an edge-to-edge brand-blue band (radial highlights + gradient), the visual anchor of the page."},
+    {id:"living",tag:"3",title:"Self-running BeakerSearch animation",desc:"Types its own question, thinks (shimmer), morphs open into an answer, staggers result cards, draws a chart, types a deterministic 'found 4 of 11' line, loops. Rising bubbles behind it for the living feel. Respects the no-interpretation rule (it relays counts + records, never concludes)."},
+    {id:"morph",tag:"4",title:"The bar morphs open into the answer",desc:"Instead of a separate results box, the search bar expands downward into the panel (height morph). Alternative idea, have it physically translate across the band, or BeakerBot 'pours' the blue answer in. Tell me which feel you want."},
+    {id:"copy",tag:"5",title:"Copy + the 750k free-token gift on the band",desc:"Headline, one short paragraph, the free-token gift card, two CTAs. White on blue. The old §8 AI copy condensed."},
+  ];
+  const VSTORE="ros-welcome-ai-verdicts-v1"; let verdicts={};
+  try{verdicts=JSON.parse(localStorage.getItem(VSTORE)||"{}");}catch{verdicts={};}
+  function saveV(){try{localStorage.setItem(VSTORE,JSON.stringify(verdicts));}catch{}}
+  function renderChanges(){
+    const wrap=el("changes");
+    wrap.innerHTML=CHANGES.map(c=>{const v=verdicts[c.id]||"";const cls=v==="approve"?"approved":v==="disapprove"?"disapproved":"";return `<div class="change ${cls}"><div><div class="ctitle"><span class="tag">${c.tag}</span>${esc(c.title)}</div><div class="cdesc">${esc(c.desc)}</div></div><div class="verdict"><button class="vbtn app ${v==="approve"?"on":""}" data-c="${c.id}" data-v="approve">Approve</button><button class="vbtn dis ${v==="disapprove"?"on":""}" data-c="${c.id}" data-v="disapprove">Disapprove</button>${v?`<button class="vclear" data-c="${c.id}" data-v="clear">clear</button>`:""}</div></div>`;}).join("");
+    wrap.querySelectorAll("[data-v]").forEach(b=>b.addEventListener("click",()=>{const id=b.dataset.c,v=b.dataset.v;if(v==="clear")delete verdicts[id];else verdicts[id]=verdicts[id]===v?undefined:v;if(!verdicts[id])delete verdicts[id];saveV();renderChanges();}));
+  }
+  let editorEl=null;
+  function closeEditor(){if(editorEl){editorEl.remove();editorEl=null;}}
+  function openEditor(targetEl,existingIndex,ev){
+    closeEditor();
+    const target=targetEl.getAttribute("data-clabel")||"Page";
+    const existing=existingIndex!=null?comments[existingIndex]:null;
+    let pv=existing?(existing.verdict||""):"";
+    const ed=document.createElement("div");ed.className="editor";
+    ed.innerHTML=`<div class="lbl">${esc(target)}</div><textarea placeholder="Note, suggestion, or change request">${existing?esc(existing.text):""}</textarea><div class="vchoice"><button class="vbtn" data-vc="note">Note</button><button class="vbtn app" data-vc="approve">Approve</button><button class="vbtn dis" data-vc="disapprove">Disapprove</button></div><div class="acts">${existing?'<button class="btn danger" data-act="del">Delete</button>':""}<span class="spacer"></span><button class="btn" data-act="cancel">Cancel</button><button class="btn on" data-act="save">Save</button></div>`;
+    document.body.appendChild(ed);editorEl=ed;
+    const paint=()=>ed.querySelectorAll("[data-vc]").forEach(b=>b.classList.toggle("on",(b.dataset.vc==="note"&&!pv)||b.dataset.vc===pv));
+    ed.querySelectorAll("[data-vc]").forEach(b=>b.addEventListener("click",()=>{pv=b.dataset.vc==="note"?"":b.dataset.vc;paint();}));
+    paint();
+    const x=ev?ev.clientX:targetEl.getBoundingClientRect().left, y=ev?ev.clientY:targetEl.getBoundingClientRect().bottom;
+    ed.style.left=Math.min(Math.max(8,x-20),window.innerWidth-288)+"px";
+    ed.style.top=Math.min(y+10,window.innerHeight-210)+"px";
+    ed.querySelector("textarea").focus();
+    ed.querySelectorAll("[data-act]").forEach(b=>b.addEventListener("click",()=>{const act=b.dataset.act;if(act==="cancel")return closeEditor();if(act==="del"){if(existingIndex!=null){comments.splice(existingIndex,1);save();renderAll();}return closeEditor();}if(act==="save"){const text=ed.querySelector("textarea").value.trim();if(!text&&!pv)return closeEditor();if(existing){existing.text=text;existing.verdict=pv;}else comments.push({target,text,verdict:pv});save();renderAll();closeEditor();}}));
+    ed.addEventListener("keydown",e=>{if(e.key==="Escape")closeEditor();if(e.key==="Enter"&&(e.metaKey||e.ctrlKey))ed.querySelector('[data-act="save"]').click();});
+  }
+  document.addEventListener("click",e=>{
+    if(!document.body.classList.contains("cmt-on"))return;
+    if(e.target.closest(".editor")||e.target.closest(".panel")||e.target.closest(".topbar")||e.target.closest(".pin")||e.target.closest(".changes"))return;
+    const cmt=e.target.closest(".cmt");if(!cmt)return;e.preventDefault();openEditor(cmt,null,e);
+  });
+  const cBtn=el("commentToggle");
+  cBtn.addEventListener("click",()=>{const on=document.body.classList.toggle("cmt-on");cBtn.classList.toggle("on",on);cBtn.textContent="Comment mode: "+(on?"on":"off");if(!on)closeEditor();});
+  el("themeToggle").addEventListener("click",function(){const dark=document.documentElement.getAttribute("data-theme")==="dark";document.documentElement.setAttribute("data-theme",dark?"light":"dark");this.textContent=dark?"Switch to dark":"Switch to light";});
+  el("panelHead").addEventListener("click",()=>{const p=el("panel");const col=p.classList.toggle("collapsed");el("chev").textContent=col?"show":"hide";});
+  function buildMarkdown(){let out="Welcome AI showpiece, feedback\n\nVerdicts\n";CHANGES.forEach(c=>{const v=verdicts[c.id];out+=`- ${c.title}: ${v==="approve"?"APPROVE":v==="disapprove"?"DISAPPROVE":"undecided"}\n`;});out+="\nNotes\n";if(!comments.length)out+="- none\n";comments.forEach((c,i)=>{const t=c.verdict==="approve"?"[APPROVE] ":c.verdict==="disapprove"?"[DISAPPROVE] ":"";out+=`${i+1}. ${t}[${c.target}] ${c.text}\n`;});return out;}
+  function toast(m){const t=el("toast");t.textContent=m;t.classList.add("show");setTimeout(()=>t.classList.remove("show"),1500);}
+  async function doCopy(){const md=buildMarkdown();try{await navigator.clipboard.writeText(md);toast("Feedback copied, paste it back to me");}catch{window.prompt("Copy your feedback",md);}}
+  el("exportBtn").addEventListener("click",doCopy);
+  el("exportBtn2").addEventListener("click",doCopy);
+  el("clearBtn").addEventListener("click",()=>{if(comments.length&&!confirm("Delete all notes?"))return;comments=[];save();renderAll();});
+  renderChanges();renderAll();
+</script>
+</body>
+</html>
