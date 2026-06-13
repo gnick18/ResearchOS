@@ -15,10 +15,11 @@ import {
 import type { Notification as RosNotification } from "@/lib/types";
 
 /**
- * Phase 1c of the notification-preferences feature: turn a NEW notification into
- * a real laptop desktop pop-up (the browser Notification API), gated on the
- * user's per-category "laptop" preference, quiet hours, and the granted
- * permission. Headless; mounted once in AppShell.
+ * The push-channel dispatcher for the notification-preferences feature: turn a
+ * NEW notification into a real laptop desktop pop-up (the browser Notification
+ * API, phase 1c) and/or an email to the user's own inbox (phase 2, account
+ * users), gated on the per-category preference, quiet hours, and (for laptop)
+ * the granted permission. Headless; mounted once in AppShell.
  *
  * It rides the same cadence as the bell (a 30s poll plus the
  * ros-notifications-changed event). On first read after mount it SEEDS the seen
@@ -96,13 +97,24 @@ export default function NotificationDesktopWatcher() {
         // ones already read.
         if (firstSeed || n.read) continue;
         const ch = pushChannelsForNotification(prefs, n.type, now, hasAccount);
+        if (!ch.laptop && !ch.email) continue;
+        const { title, body } = desktopText(n);
         if (ch.laptop && Notification.permission === "granted") {
-          const { title, body } = desktopText(n);
           try {
             new Notification(title, { body, tag: n.id });
           } catch {
             // Some browsers throw if invoked outside a user gesture / SW; ignore.
           }
+        }
+        if (ch.email && prefs.email) {
+          // The recipient emails their OWN address (set in Settings, account
+          // users only). Fire and forget; a delivery failure must never break
+          // the watcher loop.
+          void fetch("/api/notify-email", {
+            method: "POST",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify({ to: prefs.email, title, body }),
+          }).catch(() => {});
         }
       }
       seeded.current = true;
