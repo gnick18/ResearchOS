@@ -48,6 +48,11 @@ export function useAiChat() {
   const runningToolCount = useConversationStore((s) => s.runningToolCount);
   const settledTurns = useConversationStore((s) => s.settledTurns);
   const turnToolSteps = useConversationStore((s) => s.turnToolSteps);
+  // Vision image attachment (gated on NEXT_PUBLIC_BEAKERBOT_VISION in the UI).
+  const pendingImages = useConversationStore((s) => s.pendingImages);
+  const addPendingImage = useConversationStore((s) => s.addPendingImage);
+  const removePendingImage = useConversationStore((s) => s.removePendingImage);
+  const clearPendingImages = useConversationStore((s) => s.clearPendingImages);
 
   return {
     messages,
@@ -71,5 +76,10 @@ export function useAiChat() {
     runningToolCount,
     settledTurns,
     turnToolSteps,
+    // Vision image attachment.
+    pendingImages,
+    addPendingImage,
+    removePendingImage,
+    clearPendingImages,
   };
 }

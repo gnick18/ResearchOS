@@ -98,6 +98,13 @@ export type ChatMessage = {
   // Only the most recent assistant message surfaces these; older ones are cleared
   // on each new send so chips never pile up across turns.
   followups?: string[];
+  // Base64 data URLs of images attached to this message (vision feature, gated
+  // on NEXT_PUBLIC_BEAKERBOT_VISION). Stored on the DISPLAY message for rendering
+  // only. The persisted historyStore collapses these to a "[image attached]" text
+  // marker so images are NOT re-sent on every subsequent turn (multimodal providers
+  // charge per-image per-turn). The display message keeps .images so the user still
+  // sees the thumbnails after sending.
+  images?: string[];
 };
 
 // The pending approval the UI renders while the loop is paused on the user.
@@ -214,6 +221,13 @@ interface ConversationState {
   //   "done" when a subsequent thinking or different-tool phase arrives. Reset
   //   to [] on each new turn.
   turnToolSteps: ToolStep[];
+
+  // ---- Vision / image attachment state (gated on NEXT_PUBLIC_BEAKERBOT_VISION) --
+  //
+  // pendingImages: base64 data URLs the user has staged for the NEXT send. The
+  //   composer reads this to show removable thumbnails. Cleared on every send()
+  //   and on clearConversation/newChat.
+  pendingImages: string[];
 }
 
 // A single tool call entry in the live steps panel.
@@ -225,6 +239,12 @@ export type ToolStep = {
 
 interface ConversationActions {
   send: (text: string) => Promise<void>;
+  /** Stage a base64 data URL image for the next send. Gated on the vision flag in the UI; the store accepts it regardless so tests can call it directly. */
+  addPendingImage: (dataUrl: string) => void;
+  /** Remove a staged image by its data URL. */
+  removePendingImage: (dataUrl: string) => void;
+  /** Clear all staged images without sending. */
+  clearPendingImages: () => void;
   /**
    * Abort the currently in-flight send. Clears the sending/loading state and
    * removes the empty assistant placeholder bubble so it does not hang on
@@ -452,6 +472,8 @@ export const useConversationStore = create<ConversationStore>((set, get) => ({
   runningToolCount: 0,
   settledTurns: [],
   turnToolSteps: [],
+  // Vision attachment state.
+  pendingImages: [],
 
   stop: (placeholderAssistantId?: string) => {
     // Guard: nothing to abort when idle.
@@ -490,6 +512,20 @@ export const useConversationStore = create<ConversationStore>((set, get) => ({
     }));
   },
 
+  addPendingImage: (dataUrl: string) => {
+    set((state) => ({ pendingImages: [...state.pendingImages, dataUrl] }));
+  },
+
+  removePendingImage: (dataUrl: string) => {
+    set((state) => ({
+      pendingImages: state.pendingImages.filter((u) => u !== dataUrl),
+    }));
+  },
+
+  clearPendingImages: () => {
+    set({ pendingImages: [] });
+  },
+
   clearQueue: () => {
     pendingQueuedText = null;
     set({ queuedText: null });
@@ -520,6 +556,8 @@ export const useConversationStore = create<ConversationStore>((set, get) => ({
       runningToolCount: 0,
       settledTurns: [],
       turnToolSteps: [],
+      // Clear any staged images when starting fresh.
+      pendingImages: [],
     });
   },
 
@@ -572,6 +610,8 @@ export const useConversationStore = create<ConversationStore>((set, get) => ({
       runningToolCount: 0,
       settledTurns: [],
       turnToolSteps: [],
+      // Discard any staged images when switching threads.
+      pendingImages: [],
     });
   },
 
@@ -692,10 +732,20 @@ export const useConversationStore = create<ConversationStore>((set, get) => ({
     const controller = new AbortController();
     abortControllerRef = controller;
 
+    // Snapshot and clear the staged images atomically with the send. Any images
+    // the user staged before pressing Send are consumed on this turn only; the
+    // store slot is emptied so they do not carry over to the next turn.
+    const capturedImages = get().pendingImages;
+    set({ pendingImages: [] });
+
     const userMessage: ChatMessage = {
       id: nextId(),
       role: "user",
       content: trimmed,
+      // Attach the display-only images. The thread render uses these for
+      // thumbnails. They are NOT persisted to historyStore verbatim (see the
+      // cost-collapse below).
+      ...(capturedImages.length > 0 ? { images: capturedImages } : {}),
     };
     const assistantId = nextId();
 
@@ -800,12 +850,55 @@ export const useConversationStore = create<ConversationStore>((set, get) => ({
       ? { role: "system", content: memoryContent }
       : null;
 
+    // Build the user turn for the loop. When images are staged, content is a
+    // LoopContentBlock array so the vision router in the API proxy selects the
+    // vision model. The text block is omitted when the message is image-only
+    // (trimmed is empty). When no images are staged, content stays a plain
+    // string so non-vision turns reach the standard model unchanged.
+    //
+    // COST-COLLAPSE: the image blocks appear only in the live turn sent to the
+    // model. The historyStore entry that persists for subsequent turns uses the
+    // text content plus a short "[image attached]" marker so the image data URL
+    // is NOT re-sent on every later turn (multimodal providers charge per image
+    // per turn). The DISPLAY message keeps .images for thumbnails.
+    //
+    // The collapseMessage is held by reference (like contextMessage) so the
+    // identity-filter after runAgentLoop can strip it from result.messages
+    // before persisting to historyStore. We then push a collapsed version in
+    // its place.
+    let userLoopMessage: LoopMessage;
+    let collapseMessage: LoopMessage | null = null;
+    if (capturedImages.length > 0) {
+      // The image_url block goes to the model on this turn.
+      const imageBlocks = capturedImages.map((url) => ({
+        type: "image_url" as const,
+        image_url: { url },
+      }));
+      const textBlock = trimmed
+        ? [{ type: "text" as const, text: trimmed }]
+        : [];
+      userLoopMessage = {
+        role: "user",
+        content: [...textBlock, ...imageBlocks],
+      };
+      // The collapsed version stored in historyStore for subsequent turns.
+      // Images are replaced with a terse marker. The model reads this on later
+      // turns so it knows an image was present without re-paying the per-image
+      // token cost.
+      const collapseText = trimmed
+        ? `${trimmed} [image attached]`
+        : "[image attached]";
+      collapseMessage = { role: "user", content: collapseText };
+    } else {
+      userLoopMessage = { role: "user", content: trimmed };
+    }
+
     const loopInput: LoopMessage[] = [
       historyStore[0], // base system prompt
       contextMessage, // fresh per-turn review mode + context
       ...(memoryMessage ? [memoryMessage] : []), // per-turn user preferences
       ...historyStore.slice(1), // rest of persisted history
-      { role: "user", content: trimmed },
+      userLoopMessage, // this turn's user message (may be multimodal)
     ];
 
     // Snapshot the thread id now. A concurrent newChat() or loadThread() call
@@ -863,9 +956,22 @@ export const useConversationStore = create<ConversationStore>((set, get) => ({
       // Persisting any of them would let a stale line accumulate, one extra system
       // message per send. Both contextMessage and memoryMessage (when present) are
       // filtered by the same identity check.
-      historyStore = result.messages.filter(
+      //
+      // COST-COLLAPSE: when images were attached on this turn, userLoopMessage
+      // carries the full image_url blocks. We replace that exact reference with
+      // collapseMessage (plain text + "[image attached]") so the image data is NOT
+      // re-sent on every subsequent turn. The display ChatMessage.images still
+      // holds the thumbnails for rendering; only the historyStore entry is collapsed.
+      const filteredMessages = result.messages.filter(
         (m) => m !== contextMessage && m !== memoryMessage,
       );
+      if (collapseMessage !== null) {
+        historyStore = filteredMessages.map((m) =>
+          m === userLoopMessage ? collapseMessage! : m,
+        );
+      } else {
+        historyStore = filteredMessages;
+      }
       // Settle the turn. Compute the final elapsed time from the start timestamp
       // captured before the loop, then clear the running-tool count.
       const turnEndedAt = Date.now();
@@ -1090,5 +1196,6 @@ export function resetConversationModule(): void {
     runningToolCount: 0,
     settledTurns: [],
     turnToolSteps: [],
+    pendingImages: [],
   });
 }
