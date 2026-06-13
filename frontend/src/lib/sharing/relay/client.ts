@@ -393,6 +393,18 @@ export async function sendRawShare(
   );
   await postJson<{ ok: true }>("/api/relay/confirm", confirmBody);
 
+  // Best-effort phone push P2 (same as sendShare): buzz the recipient about this
+  // share even if their laptop is closed. Fire-and-forget; the relay gates on the
+  // recipient's own phone prefs + quiet hours and sends a generic content-free push.
+  void notifyRecipient(
+    {
+      ed25519PublicKeyHex: encodePublicKey(identity.keys.signing.publicKey),
+      ed25519PrivateKey: identity.keys.signing.privateKey,
+    },
+    lookup.ed25519PublicKey,
+    "shared",
+  ).catch(() => {});
+
   // Anonymous feature counter only, no recipient or content. kind is optional.
   trackShareSent(params.kind ?? "other", "existing_user");
   return { bundleId: reserved.bundleId, expiresAt: reserved.expiresAt };

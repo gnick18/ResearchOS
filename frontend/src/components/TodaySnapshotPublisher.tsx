@@ -121,21 +121,23 @@ export default function TodaySnapshotPublisher() {
             `[notifications-publisher] published to ${notif.published} device(s), skipped ${notif.skipped}`,
           );
         }
-        // Mirror the routing config to the relay (phone push P2) so a sender can
-        // buzz this user while their laptop is closed and the relay can still
-        // honor this user's per-category + quiet-hours gate. No research content,
-        // only channel toggles + a time window + the tz offset for local time.
+        // Mirror the routing config to the relay (phone push P2 + sender-email
+        // phase 2.5) so a sender can reach this user while their laptop is closed
+        // and the relay can still honor this user's per-category + quiet-hours
+        // gate. No research content, only channel toggles + a time window + the
+        // tz offset for local time + this user's own notification email.
         if (cancelled) return;
         try {
           await publishNotifyConfig(keys, {
             channels: Object.fromEntries(
               Object.entries(prefs.channels).map(([cat, ch]) => [
                 cat,
-                { phone: !!ch.phone },
+                { phone: !!ch.phone, email: !!ch.email },
               ]),
             ),
             quietHours: prefs.quietHours,
             tzOffsetMinutes: new Date().getTimezoneOffset(),
+            ...(prefs.email ? { email: prefs.email } : {}),
           });
         } catch (err) {
           // Non-fatal: a missed config publish only means P2 falls back to
