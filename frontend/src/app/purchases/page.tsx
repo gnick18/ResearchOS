@@ -1,12 +1,11 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { tasksApi, purchasesApi, labApi, fetchAllProjectsIncludingShared, fetchAllTasksIncludingShared } from "@/lib/local-api";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { useAccountType } from "@/hooks/useAccountType";
 import { useIsLabMode } from "@/hooks/useIsLabMode";
-import { usePiViewMode } from "@/hooks/usePiViewMode";
 import { useAppStore } from "@/lib/store";
 import AppShell from "@/components/AppShell";
 import NewPurchaseModal from "@/components/NewPurchaseModal";
@@ -158,22 +157,11 @@ function PurchasesPageContent() {
   // Approval is a lab concept (a member submits, a lab head approves). In a
   // solo folder there is no approver, so hide the awaiting-approval filter.
   const showApprovalFilter = useIsLabMode() === true;
-
-  // RS-4: a PI in the lab lens lands on the (lab-wide) pending-approval queue by
-  // default, so reviewing the lab's pending orders is the first thing they see.
-  // /purchases is the live purchasing page when inventory is disabled; the same
-  // default also ships on /supplies for when inventory is on. Applied once when
-  // the lab lens + approval filter resolve, ref-guarded so it never fights a chip
-  // the PI then clicks.
-  const { mode: piViewMode } = usePiViewMode();
-  const labLens = isLabHead && piViewMode === "lab";
-  const appliedApprovalsDefault = useRef(false);
-  useEffect(() => {
-    if (labLens && showApprovalFilter && !appliedApprovalsDefault.current) {
-      appliedApprovalsDefault.current = true;
-      setCategoryFilter("awaiting_approval");
-    }
-  }, [labLens, showApprovalFilter]);
+  // NOTE: /purchases is the PI's PERSONAL purchases page; the lab-wide pending
+  // queue lives on the Approvals tab + the Supplies "Awaiting approval" lens, not
+  // here. (An earlier RS-4 default that landed this page on "Pending approval"
+  // was reverted: it showed the PI's empty personal queue + a banner, not the
+  // lab-wide data RS-4 intends.)
 
   // /purchases is the ONLY surface that needs the hidden
   // `_misc_purchases` project to render — pass `includeHidden: true` so

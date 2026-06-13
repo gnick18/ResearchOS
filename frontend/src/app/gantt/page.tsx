@@ -110,16 +110,20 @@ export default function Home() {
     queryFn: () => labApi.getTasksFull(),
     enabled: labMode,
   });
-  const { data: labUsersData } = useQuery({
+  // MUST match the canonical ["lab","users"] shape (an array): useLabData +
+  // useGanttBeakerSource read this key and call .filter on it. Returning the raw
+  // { users } object (what labApi.getUsers gives) poisoned the shared cache and
+  // crashed the Gantt with "labUsers.filter is not a function".
+  const { data: labUsers = [] } = useQuery({
     queryKey: ["lab", "users"],
-    queryFn: labApi.getUsers,
+    queryFn: () => labApi.getUsers().then((r) => r.users),
     enabled: labMode,
   });
   const labUserColors = useMemo(() => {
     const m = new Map<string, string>();
-    for (const u of labUsersData?.users ?? []) m.set(u.username, u.color);
+    for (const u of labUsers) m.set(u.username, u.color);
     return m;
-  }, [labUsersData]);
+  }, [labUsers]);
 
   const projects = labMode ? labProjectsFull : personalProjects;
 
