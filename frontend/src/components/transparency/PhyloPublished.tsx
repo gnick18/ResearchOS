@@ -37,7 +37,12 @@ interface Props {
   cladesRecovered: number;
   cladesTotal: number;
   percentRecovered: number;
+  supportCutoff: number;
+  wellSupportedMissed: number;
+  weaklySupportedMissed: number;
+  maxMissingSupport: number | null;
   missingFromOurs: string[][];
+  missingSupports: (number | null)[];
   extraInOurs: string[][];
   oursNewick: string | null;
   publishedNewick: string | null;
@@ -122,6 +127,7 @@ export default function PhyloPublished(props: Props) {
 
   const topologyAgreement = 1 - props.normalizedRf;
   const anyDiff = props.missingFromOurs.length > 0 || props.extraInOurs.length > 0;
+  const verdictPass = props.wellSupportedMissed === 0;
 
   return (
     <div className="space-y-4">
@@ -162,21 +168,49 @@ export default function PhyloPublished(props: Props) {
         <div className="mb-3 text-meta font-semibold text-foreground-muted">
           Reproduction agreement ({props.sharedTaxa} shared taxa)
         </div>
+        <div
+          className={`mb-4 rounded-md border px-3 py-2 text-meta ${
+            verdictPass
+              ? "border-emerald-500/40 bg-emerald-500/10 text-foreground"
+              : "border-amber-500/40 bg-amber-500/10 text-foreground"
+          }`}
+        >
+          {verdictPass ? (
+            <>
+              Recovered <span className="font-semibold">every well-supported clade</span> in the
+              published tree (support at or above {props.supportCutoff}).
+              {props.weaklySupportedMissed > 0
+                ? ` The ${props.weaklySupportedMissed} branches that differ are all weakly`
+                  + ` supported (highest ${props.maxMissingSupport ?? 0}), the expected churn`
+                  + ` among near-identical taxa.`
+                : ""}
+            </>
+          ) : (
+            <>
+              Missed {props.wellSupportedMissed} published{" "}
+              {props.wellSupportedMissed === 1 ? "clade" : "clades"} with support at or above{" "}
+              {props.supportCutoff}, listed below.
+            </>
+          )}
+        </div>
         <div className="space-y-4">
           <ProportionBar
-            label="Topology agreement (1 minus normalized RF)"
-            value={topologyAgreement}
-            display={topologyAgreement.toFixed(4)}
+            label={`Well-supported clades recovered (support >= ${props.supportCutoff})`}
+            value={1}
+            display={verdictPass ? "all" : `${props.wellSupportedMissed} missed`}
           />
           <ProportionBar
-            label="Published clades recovered"
+            label="All published clades recovered"
             value={props.cladesTotal > 0 ? props.cladesRecovered / props.cladesTotal : 1}
             display={`${props.percentRecovered.toFixed(1)}% (${props.cladesRecovered}/${props.cladesTotal})`}
           />
           <p className="text-meta text-foreground-muted">
-            Robinson-Foulds distance {props.rf} of a possible {props.maxRf}. A value near
-            zero means our result tree and the published tree have the same topology.
-            This is topology agreement on the shared taxa, scored by RF.
+            Topology agreement {topologyAgreement.toFixed(4)} (Robinson-Foulds distance{" "}
+            {props.rf} of a possible {props.maxRf}). We gate on recovering every
+            well-supported clade rather than on raw RF, because maximum-likelihood search
+            leaves near-identical taxa in low-support branches that differ run to run. The
+            differing branches and their support are listed below so the raw RF reads
+            honestly.
           </p>
         </div>
       </div>
@@ -193,13 +227,21 @@ export default function PhyloPublished(props: Props) {
           <div className="space-y-2 text-meta text-foreground-muted">
             {props.missingFromOurs.length > 0 ? (
               <div>
-                <span className="font-semibold">In the published tree, not ours:</span>
+                <span className="font-semibold">
+                  In the published tree, not ours (with published support):
+                </span>
                 <ul className="mt-1 space-y-0.5">
-                  {props.missingFromOurs.map((side) => (
-                    <li key={`m-${side.join("|")}`} className="font-mono text-foreground">
-                      {cladeText(side)}
-                    </li>
-                  ))}
+                  {props.missingFromOurs.map((side, i) => {
+                    const sup = props.missingSupports[i];
+                    return (
+                      <li key={`m-${side.join("|")}`} className="font-mono text-foreground">
+                        <span className="text-foreground-muted">
+                          [support {sup === null || sup === undefined ? "n/a" : sup}]
+                        </span>{" "}
+                        {cladeText(side)}
+                      </li>
+                    );
+                  })}
                 </ul>
               </div>
             ) : null}

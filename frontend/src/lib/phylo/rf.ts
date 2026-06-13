@@ -40,6 +40,15 @@ export interface RfResult {
   percentRecovered: number;
   /** Published clades absent from ours, each as the canonical sorted tip-name side. */
   missingFromOurs: string[][];
+  /**
+   * The support value on each missing published clade's branch, aligned index for
+   * index with missingFromOurs (null when the published tree carries no support on
+   * that branch). This is what lets a caller apply the "differences confined to
+   * weakly supported branches" rule: a missing clade with low support is expected
+   * disagreement among near-identical taxa, a missing clade with high support is a
+   * real miss.
+   */
+  missingFromOursSupport: (number | null)[];
   /** Clades present in ours but not the published tree, same canonical form. */
   extraInOurs: string[][];
 }
@@ -181,6 +190,44 @@ function bipartitions(root: TreeNode): Map<string, string[]> {
 }
 
 /**
+ * The support value on each nontrivial bipartition's edge, keyed by the same
+ * canonical bipartition string bipartitions() uses, so a caller can look up the
+ * support of a clade it found by symmetric difference. A branch with no support
+ * annotation maps to null. Mirrors bipartitions(), it just records node.support
+ * instead of the side.
+ */
+function bipartitionSupport(root: TreeNode): Map<string, number | null> {
+  const allTipsArr: string[] = [];
+  tipNamesUnder(root, allTipsArr);
+  const n = allTipsArr.length;
+  const support = new Map<string, number | null>();
+
+  function visit(node: TreeNode, isRoot: boolean): string[] {
+    let under: string[];
+    if (node.children.length === 0) {
+      under = [node.name];
+    } else {
+      under = [];
+      for (const c of node.children) under = under.concat(visit(c, false));
+    }
+    if (!isRoot) {
+      const sideSize = under.length;
+      const otherSize = n - sideSize;
+      if (sideSize >= 2 && otherSize >= 2) {
+        const { key } = canonicalBipartition(under, allTipsArr);
+        if (!support.has(key)) {
+          support.set(key, typeof node.support === "number" ? node.support : null);
+        }
+      }
+    }
+    return under;
+  }
+
+  visit(root, true);
+  return support;
+}
+
+/**
  * Compare our tree against a published tree by Robinson-Foulds over the shared
  * taxa. See RfResult for the returned fields.
  */
@@ -200,10 +247,13 @@ export function compareTrees(ours: TreeNode, published: TreeNode): RfResult {
 
   const oursSplits = emptyEdge || !oursPruned ? new Map<string, string[]>() : bipartitions(oursPruned);
   const pubSplits = emptyEdge || !pubPruned ? new Map<string, string[]>() : bipartitions(pubPruned);
+  const pubSupport =
+    emptyEdge || !pubPruned ? new Map<string, number | null>() : bipartitionSupport(pubPruned);
 
   // Symmetric difference for RF, and the directed differences for the lists.
   let rf = 0;
   const missingFromOurs: string[][] = [];
+  const missingFromOursSupport: (number | null)[] = [];
   const extraInOurs: string[][] = [];
   let cladesRecovered = 0;
 
@@ -213,6 +263,7 @@ export function compareTrees(ours: TreeNode, published: TreeNode): RfResult {
     } else {
       rf++;
       missingFromOurs.push(side);
+      missingFromOursSupport.push(pubSupport.get(key) ?? null);
     }
   }
   for (const [key, side] of oursSplits) {
@@ -236,6 +287,7 @@ export function compareTrees(ours: TreeNode, published: TreeNode): RfResult {
     cladesTotal,
     percentRecovered,
     missingFromOurs,
+    missingFromOursSupport,
     extraInOurs,
   };
 }

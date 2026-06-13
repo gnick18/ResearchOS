@@ -94,4 +94,30 @@ describe("compareTrees", () => {
     expect(r.rf).toBe(0);
     expect(r.percentRecovered).toBe(100);
   });
+
+  it("reports the published support on each missing clade, aligned with missingFromOurs", () => {
+    // published groups (A,B) with support 88 and (E,F) with support 42; ours
+    // breaks both groupings, so both are missing and carry their support values.
+    const published = parseNewick("(((A,B)88,(C,D)),((E,F)42,G));");
+    const ours = parseNewick("(((A,C),(B,D)),((E,G),F));");
+    const r = compareTrees(ours, published);
+    expect(r.missingFromOurs.length).toBe(r.missingFromOursSupport.length);
+    expect(r.missingFromOurs.length).toBeGreaterThan(0);
+    // Every missing clade reports a number or null, never undefined.
+    for (const s of r.missingFromOursSupport) {
+      expect(s === null || typeof s === "number").toBe(true);
+    }
+    // The (A,B) split (support 88) was missed, so 88 appears among the supports.
+    const ab = r.missingFromOurs.findIndex((side) => side.join(",") === "A,B");
+    expect(ab).toBeGreaterThanOrEqual(0);
+    expect(r.missingFromOursSupport[ab]).toBe(88);
+  });
+
+  it("emits an empty support list when topologies match", () => {
+    const a = parseNewick("((A,B)90,(C,D)70);");
+    const r = compareTrees(a, parseNewick("((A,B)90,(C,D)70);"));
+    expect(r.rf).toBe(0);
+    expect(r.missingFromOurs).toHaveLength(0);
+    expect(r.missingFromOursSupport).toHaveLength(0);
+  });
 });

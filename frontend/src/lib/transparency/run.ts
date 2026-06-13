@@ -136,10 +136,10 @@ import {
   PHYLO_PUBLISHED_CASES,
   anyCaseReady,
   caseIsReady,
-  comparePublishedCase,
   pendingReason,
   publishedTipCount,
   recipeSummary,
+  reproductionVerdict,
 } from "./datasets/phylo-published";
 import { TM_CASES } from "./datasets/tm";
 import { TRANSLATE_CASES } from "./datasets/translation";
@@ -1975,19 +1975,24 @@ function buildPhyloDomain(): DomainReport {
  * commit its own tighter or looser band (PhyloPublishedCase.tolerance), which
  * overrides this default.
  */
-const PHYLO_RF: Tolerance = {
-  pass: 0.05,
-  warn: 0.15,
-  unit: "normalized RF",
-  kind: "loose",
+const PHYLO_SUPPORT: Tolerance = {
+  pass: 0,
+  warn: 0,
+  unit: "well-supported clades missed",
+  kind: "tight",
   rationale:
-    "Maximum-likelihood tree search is stochastic and we run the generated "
-    + "recipe on the paper's own alignment, not its exact tool versions, so a "
-    + "bit-for-bit identical topology would be an unrealistic claim. We allow a "
-    + "small Robinson-Foulds distance and show exactly which branches differ with "
-    + "their support, so a small RF reads as agreement except at a few weakly "
-    + "supported nodes, not as a silent miss. A real failure (a wrong deep split) "
-    + "drives the normalized RF well past the warn line.",
+    "Maximum-likelihood tree search is stochastic and we run the generated recipe "
+    + "on the paper's own alignment, not its exact tool versions, so a bit-for-bit "
+    + "identical topology would be an unrealistic claim. The honest test is whether "
+    + "we recover every clade the published study was confident about. A "
+    + "reproduction passes when it misses NO published clade with bootstrap support "
+    + "at or above 70, the field-standard well-supported bar (Hillis and Bull 1993, "
+    + "Syst Biol 42:182, where 70 percent bootstrap corresponds to about a 95 "
+    + "percent probability the clade is real). Near-identical taxa leave many "
+    + "low-support branches unresolved, so disagreement confined to those is "
+    + "expected; we list every differing branch with its support so the reader sees "
+    + "the raw Robinson-Foulds is concentrated there. Missing even one "
+    + "well-supported clade fails the gate.",
 };
 
 /** Cap the differing-branch lists shown on the page, with a clear truncation note. */
@@ -1999,10 +2004,9 @@ function buildPhyloPublishedDomain(): DomainReport {
   // exactly the number of ready cases.
   const cases: CaseResult[] = PHYLO_PUBLISHED_CASES.map((pc) => {
     const summary = recipeSummary(pc.options);
-    const ready = caseIsReady(pc);
-    const rf = ready ? comparePublishedCase(pc) : null;
+    const verdict = caseIsReady(pc) ? reproductionVerdict(pc) : null;
 
-    if (!ready || !rf) {
+    if (!verdict) {
       return {
         id: pc.id,
         label: pc.label,
@@ -2024,7 +2028,12 @@ function buildPhyloPublishedDomain(): DomainReport {
           cladesRecovered: 0,
           cladesTotal: publishedTipCount(pc),
           percentRecovered: 0,
+          supportCutoff: pc.supportCutoff ?? 70,
+          wellSupportedMissed: 0,
+          weaklySupportedMissed: 0,
+          maxMissingSupport: null,
           missingFromOurs: [],
+          missingSupports: [],
           extraInOurs: [],
           oursNewick: null,
           publishedNewick: pc.publishedNewick,
@@ -2032,27 +2041,30 @@ function buildPhyloPublishedDomain(): DomainReport {
       };
     }
 
-    const band: Tolerance = pc.tolerance
-      ? { ...PHYLO_RF, pass: pc.tolerance.pass, warn: pc.tolerance.warn }
-      : PHYLO_RF;
+    const { rf, cutoff, wellSupportedMissed, weaklySupportedMissed, maxMissingSupport } = verdict;
     const normalizedRf = round(rf.normalizedRf, 6);
-    const status: Status = classify(normalizedRf, band);
+    // The GATED metric is well-supported clades missed (must be zero). Normalized
+    // RF is reported as context, not gated, since stochastic low-support churn is
+    // expected. delta = wellSupportedMissed against a zero-tolerance band.
+    const status: Status = classify(wellSupportedMissed, PHYLO_SUPPORT);
 
     return {
       id: pc.id,
       label: pc.label,
       input:
         `${pc.source}. ${summary}. Compared on ${rf.sharedTaxa} shared taxa: `
-        + `normalized RF ${normalizedRf.toFixed(4)}, `
-        + `${rf.cladesRecovered}/${rf.cladesTotal} published clades recovered.`,
+        + `${rf.cladesRecovered}/${rf.cladesTotal} published clades recovered `
+        + `(normalized RF ${normalizedRf.toFixed(4)}); `
+        + `${wellSupportedMissed} clades at or above support ${cutoff} missed, `
+        + `${weaklySupportedMissed} weakly supported clades differ.`,
       comparisons: [
         {
           oracleId: PUBLISHED_TREE.id,
-          metric: "normalized Robinson-Foulds",
-          ours: normalizedRf,
+          metric: `well-supported clades missed (support >= ${cutoff})`,
+          ours: wellSupportedMissed,
           theirs: 0,
-          delta: normalizedRf,
-          tolerance: band,
+          delta: wellSupportedMissed,
+          tolerance: PHYLO_SUPPORT,
           status,
         },
       ],
@@ -2072,7 +2084,12 @@ function buildPhyloPublishedDomain(): DomainReport {
         cladesRecovered: rf.cladesRecovered,
         cladesTotal: rf.cladesTotal,
         percentRecovered: round(rf.percentRecovered, 2),
+        supportCutoff: cutoff,
+        wellSupportedMissed,
+        weaklySupportedMissed,
+        maxMissingSupport,
         missingFromOurs: rf.missingFromOurs.slice(0, MAX_DIFF_BRANCHES),
+        missingSupports: rf.missingFromOursSupport.slice(0, MAX_DIFF_BRANCHES),
         extraInOurs: rf.extraInOurs.slice(0, MAX_DIFF_BRANCHES),
         oursNewick: pc.result.oursNewick,
         publishedNewick: pc.publishedNewick,
@@ -2091,16 +2108,18 @@ function buildPhyloPublishedDomain(): DomainReport {
     summary:
       "The /phylo Tree Builder generates a tree-building recipe, it never runs one. "
       + "To show that recipe is trustworthy we run it (offline, once) on a real "
-      + "paper's own input and check that it recovers that paper's published tree, "
-      + "scored by the Robinson-Foulds distance over the shared taxa plus the "
-      + "percent of published clades recovered. The claim is deliberately not "
-      + "bit-for-bit identity, since maximum-likelihood search is stochastic and we "
-      + "use the paper's alignment rather than its exact tool versions. What we "
-      + "prove is that a modern best-practice pipeline recovers the published "
-      + "topology, with any differences confined to weakly supported branches, "
-      + "which we list. The result trees are produced offline by a committed helper "
-      + "(run-phylo-published-case.sh), exactly like the ggtree reference, so this "
-      + "page reads honestly and the gate stays pure."
+      + "paper's own input and check that it recovers that paper's published tree. "
+      + "The claim is deliberately not bit-for-bit identity, since maximum-likelihood "
+      + "search is stochastic and we use the paper's alignment rather than its exact "
+      + "tool versions. The honest test is whether we recover the clades the study "
+      + "was confident about, so a case PASSES when it misses no published clade with "
+      + "bootstrap support at or above 70 (the field-standard well-supported bar, "
+      + "Hillis and Bull 1993). We also report the raw Robinson-Foulds distance and "
+      + "the percent of published clades recovered, and list every differing branch "
+      + "with its support, so a high raw RF reads honestly as low-support churn among "
+      + "near-identical taxa rather than a hidden miss. The result trees are produced "
+      + "offline by a committed helper (run-phylo-published-case.sh), exactly like "
+      + "the ggtree reference, so this page reads honestly and the gate stays pure."
       + (ready
         ? ""
         : " No offline run has landed yet, so every case below is shown as pending "

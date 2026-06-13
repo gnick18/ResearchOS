@@ -220,7 +220,7 @@ export type CaseVisual =
       rf: number;
       /** Maximum possible RF for this many shared taxa. */
       maxRf: number;
-      /** rf / maxRf, in [0, 1]. The gated headline metric (lower is better). */
+      /** rf / maxRf, in [0, 1]. Reported context, NOT the gated metric (lower is better). */
       normalizedRf: number;
       /** Published clades our result also recovers. */
       cladesRecovered: number;
@@ -228,8 +228,18 @@ export type CaseVisual =
       cladesTotal: number;
       /** 100 * cladesRecovered / cladesTotal. */
       percentRecovered: number;
+      /** The "well-supported" cutoff applied (e.g. 70, Hillis and Bull 1993). */
+      supportCutoff: number;
+      /** Published clades at or above the cutoff that we missed. ZERO is the gated pass condition. */
+      wellSupportedMissed: number;
+      /** Missed clades below the cutoff (or unsupported), the expected stochastic noise. */
+      weaklySupportedMissed: number;
+      /** Highest support among the missed clades, or null when none were missed. */
+      maxMissingSupport: number | null;
       /** Published clades our result missed, canonical sorted tip-name side, capped for display. */
       missingFromOurs: string[][];
+      /** Support on each missing published clade, aligned with missingFromOurs (null = no value). */
+      missingSupports: (number | null)[];
       /** Clades in our result not in the published tree, same form, capped for display. */
       extraInOurs: string[][];
       /** Our result tree as Newick for the side-by-side render, or null while pending. */

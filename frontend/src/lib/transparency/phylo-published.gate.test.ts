@@ -5,8 +5,8 @@ import {
   PHYLO_PUBLISHED_CASES,
   anyCaseReady,
   caseIsReady,
-  comparePublishedCase,
   readyCases,
+  reproductionVerdict,
 } from "./datasets/phylo-published";
 
 /**
@@ -84,14 +84,20 @@ describePublished("Published-tree reproduction validated by Robinson-Foulds", ()
   // Per-case assertion so a failure names the exact case and its RF.
   for (const pc of PHYLO_PUBLISHED_CASES) {
     if (!caseIsReady(pc)) continue;
-    it(`${pc.id} reproduces its published topology within tolerance`, () => {
-      const rf = comparePublishedCase(pc);
-      expect(rf, `no RF result for ready case ${pc.id}`).not.toBeNull();
-      if (!rf) return;
+    it(`${pc.id} recovers every well-supported published clade`, () => {
+      const v = reproductionVerdict(pc);
+      expect(v, `no verdict for ready case ${pc.id}`).not.toBeNull();
+      if (!v) return;
       // A ready case must actually share taxa with its published tree, otherwise
       // the labels did not line up and the score is meaningless.
-      expect(rf.sharedTaxa, `${pc.id}: no shared taxa with the published tree`)
+      expect(v.rf.sharedTaxa, `${pc.id}: no shared taxa with the published tree`)
         .toBeGreaterThanOrEqual(4);
+      // The locked pass criterion: no well-supported published clade is missed.
+      expect(
+        v.wellSupportedMissed,
+        `${pc.id}: missed ${v.wellSupportedMissed} clades at or above support ${v.cutoff} `
+          + `(max missing support ${v.maxMissingSupport})`,
+      ).toBe(0);
 
       expect(domain).toBeDefined();
       if (!domain) return;
@@ -102,7 +108,7 @@ describePublished("Published-tree reproduction validated by Robinson-Foulds", ()
       expect(cmp.oracleId).toBe("published-tree");
       expect(
         cmp.delta,
-        `${pc.id}: normalized RF ${cmp.ours} exceeds tolerance ${cmp.tolerance.warn}`,
+        `${pc.id}: ${cmp.ours} well-supported clades missed`,
       ).toBeLessThanOrEqual(cmp.tolerance.warn);
       expect(cmp.status).not.toBe("fail");
     });

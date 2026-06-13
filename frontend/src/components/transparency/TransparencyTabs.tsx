@@ -165,7 +165,12 @@ function CaseVisualCard({ domain, c }: { domain: DomainReport; c: CaseResult }) 
           cladesRecovered={v.cladesRecovered}
           cladesTotal={v.cladesTotal}
           percentRecovered={v.percentRecovered}
+          supportCutoff={v.supportCutoff}
+          wellSupportedMissed={v.wellSupportedMissed}
+          weaklySupportedMissed={v.weaklySupportedMissed}
+          maxMissingSupport={v.maxMissingSupport}
           missingFromOurs={v.missingFromOurs}
+          missingSupports={v.missingSupports}
           extraInOurs={v.extraInOurs}
           oursNewick={v.oursNewick}
           publishedNewick={v.publishedNewick}

@@ -74,14 +74,22 @@ export interface PhyloPublishedCase {
   /** The committed offline-run result, or the pending placeholder. */
   result: PublishedRunResult;
   /**
-   * Per-case normalized-RF tolerance (Grant locked: each case commits its own).
-   * A case passes when normalized RF <= pass, warns up to <= warn, fails above.
-   * Omitted while a case is inactive; set it WITH the result when activating, so
-   * the committed tolerance reflects the actual reproduction. Falls back to the
-   * domain default band until then.
+   * Per-case "well-supported" cutoff. A case passes when no published clade at or
+   * above this support is missed (Grant's locked decision: differences must be
+   * confined to weakly supported branches). Defaults to WELL_SUPPORTED_CUTOFF.
+   * Set it per case only if a study's support scale warrants a different bar.
    */
-  tolerance?: { pass: number; warn: number };
+  supportCutoff?: number;
 }
+
+/**
+ * The "well-supported" bootstrap cutoff. 70 is the field standard, anchored by
+ * Hillis & Bull 1993 (Syst Biol 42:182): bootstrap proportions at or above 70%
+ * correspond to roughly a 95% probability the clade is real. We judge the
+ * PUBLISHED tree's clades against this, since the published trees we score
+ * against carry standard-bootstrap-scale support.
+ */
+export const WELL_SUPPORTED_CUTOFF = 70;
 
 /**
  * The published-tree reproduction cases. v1 spans the three data types: a
@@ -174,6 +182,50 @@ export function comparePublishedCase(c: PhyloPublishedCase): RfResult | null {
   const ours: TreeNode = parseTree(c.result.oursNewick);
   const published: TreeNode = parseTree(c.publishedNewick);
   return compareTrees(ours, published);
+}
+
+/** The support-aware verdict for a ready case (Grant's locked pass criterion). */
+export interface ReproductionVerdict {
+  /** The full RF comparison. */
+  rf: RfResult;
+  /** The cutoff applied (default WELL_SUPPORTED_CUTOFF). */
+  cutoff: number;
+  /**
+   * Published clades we missed whose support is at or above the cutoff. ZERO is a
+   * pass: every confidently-supported clade was recovered. Any well-supported miss
+   * is a real failure.
+   */
+  wellSupportedMissed: number;
+  /** Missed clades below the cutoff (or with no support value), the expected noise. */
+  weaklySupportedMissed: number;
+  /** The highest support among the missed clades, or null when none were missed. */
+  maxMissingSupport: number | null;
+}
+
+/**
+ * Apply Grant's locked pass criterion to a case: a reproduction passes when no
+ * well-supported published clade is missed (differences confined to weakly
+ * supported branches). A missing clade with no support annotation is treated as
+ * weakly supported, since the published study did not assert confidence in it.
+ * Returns null when the case is not ready.
+ */
+export function reproductionVerdict(c: PhyloPublishedCase): ReproductionVerdict | null {
+  const rf = comparePublishedCase(c);
+  if (!rf) return null;
+  const cutoff = c.supportCutoff ?? WELL_SUPPORTED_CUTOFF;
+  let wellSupportedMissed = 0;
+  let weaklySupportedMissed = 0;
+  let maxMissingSupport: number | null = null;
+  for (const s of rf.missingFromOursSupport) {
+    if (s !== null) {
+      maxMissingSupport = maxMissingSupport === null ? s : Math.max(maxMissingSupport, s);
+      if (s >= cutoff) wellSupportedMissed++;
+      else weaklySupportedMissed++;
+    } else {
+      weaklySupportedMissed++;
+    }
+  }
+  return { rf, cutoff, wellSupportedMissed, weaklySupportedMissed, maxMissingSupport };
 }
 
 /** Tip count of a case's published tree, or 0 when it is not sourced yet. */
