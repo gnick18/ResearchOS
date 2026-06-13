@@ -101,6 +101,12 @@ import {
   replicateToRemove,
 } from "@/lib/datahub/grouped-grid-crud";
 import { buildEmptySurvivalTable } from "@/lib/datahub/survival-table";
+import { buildEmptyContingencyTable } from "@/lib/datahub/contingency-table";
+import {
+  buildEmptyNestedTable,
+  nestedGroupColumns,
+  DEFAULT_NESTED_SUBGROUPS,
+} from "@/lib/datahub/nested-table";
 import { runAnalysis } from "@/lib/datahub/run-analysis";
 import { coerceParam } from "@/lib/datahub/analysis-params";
 import {
@@ -121,6 +127,7 @@ import XYTableGrid from "@/components/datahub/XYTableGrid";
 import GroupedTableGrid from "@/components/datahub/GroupedTableGrid";
 import SurvivalTableGrid from "@/components/datahub/SurvivalTableGrid";
 import ContingencyTableGrid from "@/components/datahub/ContingencyTableGrid";
+import NestedTableGrid from "@/components/datahub/NestedTableGrid";
 import NewTableDialog, {
   type NewTableSubmit,
 } from "@/components/datahub/NewTableDialog";
@@ -681,6 +688,37 @@ export default function DataHubPage() {
       return;
     }
 
+    // A Nested table adds a whole new top-level group: one datasetId with the
+    // same subgroup count as the existing groups (or the default), each subgroup a
+    // role-"y" column carrying the new group's groupName, backfilled null.
+    if (tableType === "nested") {
+      const groups = nestedGroupColumns(openContent);
+      const subCount =
+        groups[0]?.subgroupColumnIds.length ?? DEFAULT_NESTED_SUBGROUPS;
+      const datasetId = `grp-${stamp}`;
+      const groupName = `Group ${groups.length + 1}`;
+      const newColIds: string[] = [];
+      for (let s = 0; s < subCount; s++) {
+        const colId = `${datasetId}-s${s + 1}`;
+        newColIds.push(colId);
+        addColumnToDoc(handle.doc, {
+          id: colId,
+          name: `S${s + 1}`,
+          role: "y",
+          dataType: "number",
+          datasetId,
+          subcolumnKind: "replicate",
+          groupName,
+        });
+      }
+      for (const row of openContent.rows) {
+        for (const colId of newColIds) setCell(handle.doc, row.id, colId, null);
+      }
+      void handle.commit();
+      setOpenContent(getDataHubContent(handle.doc, openIdRef.current));
+      return;
+    }
+
     const isXY = tableType === "xy";
     const colId = `col-${stamp}`;
     if (isXY) {
@@ -778,6 +816,21 @@ export default function DataHubPage() {
       if (!handle || !openContent || openIdRef.current == null) return;
       const trimmed = name.trim();
       if (trimmed === "") return;
+      // A Nested table carries the top-level group name on each subgroup column's
+      // groupName field (the column `name` is the subgroup label, which must NOT
+      // change here), so the rename writes groupName, not name.
+      if (openContent.meta.table_type === "nested") {
+        const group = nestedGroupColumns(openContent).find(
+          (g) => g.datasetId === datasetId,
+        );
+        if (!group) return;
+        for (const colId of group.subgroupColumnIds) {
+          updateColumnInDoc(handle.doc, colId, { groupName: trimmed });
+        }
+        void handle.commit();
+        setOpenContent(getDataHubContent(handle.doc, openIdRef.current));
+        return;
+      }
       const group = groupDatasets(openContent).find(
         (g) => g.datasetId === datasetId,
       );
@@ -785,6 +838,21 @@ export default function DataHubPage() {
       for (const colId of group.replicateColumnIds) {
         updateColumnInDoc(handle.doc, colId, { name: trimmed });
       }
+      void handle.commit();
+      setOpenContent(getDataHubContent(handle.doc, openIdRef.current));
+    },
+    [openContent],
+  );
+
+  // Rename one subgroup column on a Nested table: the column's own `name` is the
+  // subgroup label (a biological replicate), so a rename writes just that column.
+  const handleRenameSubgroup = useCallback(
+    (columnId: string, name: string) => {
+      const handle = handleRef.current;
+      if (!handle || !openContent || openIdRef.current == null) return;
+      const trimmed = name.trim();
+      if (trimmed === "") return;
+      updateColumnInDoc(handle.doc, columnId, { name: trimmed });
       void handle.commit();
       setOpenContent(getDataHubContent(handle.doc, openIdRef.current));
     },
@@ -1056,7 +1124,11 @@ export default function DataHubPage() {
               ? buildEmptyGroupedTable()
               : data.tableType === "survival"
                 ? buildEmptySurvivalTable()
-                : { columns: [], rows: [] };
+                : data.tableType === "contingency"
+                  ? buildEmptyContingencyTable()
+                  : data.tableType === "nested"
+                    ? buildEmptyNestedTable()
+                    : { columns: [], rows: [] };
       const created = await dataHubApi.create({
         name: data.name,
         table_type: data.tableType,
@@ -1803,7 +1875,12 @@ export default function DataHubPage() {
       if (!summary) {
         addGroup.push({
           icon: "plus",
-          label: type === "survival" ? "Add subject" : "Add row",
+          label:
+            type === "survival"
+              ? "Add subject"
+              : type === "nested"
+                ? "Add replicate"
+                : "Add row",
           onClick: handleAddRow,
           testId: "datahub-toolbar-add-row",
         });
@@ -2182,6 +2259,8 @@ export default function DataHubPage() {
                               ? "Survival table. Each row is a subject with a time, an event indicator (1 or 0), and an optional group for Kaplan-Meier and the log-rank test."
                               : openContent.meta.table_type === "contingency"
                                 ? "Contingency table. An R x C grid of counts, one row per category of the first factor and one count column per category of the second, for the chi-square test and a 2x2 Fisher exact test with relative risk and odds ratio."
+                                : openContent.meta.table_type === "nested"
+                                ? "Nested table. Each group is a treatment, each subgroup column a biological replicate, each row a technical replicate, for the nested t-test and nested one-way ANOVA."
                                 : isSummaryFormat(openContent.meta.entryFormat)
                                 ? `Column table, summary entry. Each column is a group, and you enter its mean, ${spreadKindOf(entryFormatOf(openContent)).toUpperCase()}, and n directly. Graphs and the summary-compatible tests draw from those numbers.`
                                 : "Column table. Each column is a treatment group, each row a replicate."}
@@ -2226,6 +2305,19 @@ export default function DataHubPage() {
                         onToggleExclusion={handleToggleExclusion}
                         onAddRow={handleAddRow}
                         onAddColumn={handleAddColumn}
+                        crud={gridCrud}
+                        hideAddControls
+                        readOnly={!!derivedInfo}
+                      />
+                    ) : openContent.meta.table_type === "nested" ? (
+                      <NestedTableGrid
+                        content={openContent}
+                        onCellCommit={handleCellCommit}
+                        onToggleExclusion={handleToggleExclusion}
+                        onAddRow={handleAddRow}
+                        onAddColumn={handleAddColumn}
+                        onRenameGroup={handleRenameGroup}
+                        onRenameSubgroup={handleRenameSubgroup}
                         crud={gridCrud}
                         hideAddControls
                         readOnly={!!derivedInfo}

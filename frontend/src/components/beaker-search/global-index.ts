@@ -296,6 +296,8 @@ export function buildDataHubEntry(
     : doc.table_type === "column" ? "Column table"
     : doc.table_type === "grouped" ? "Grouped table"
     : doc.table_type === "survival" ? "Survival table"
+    : doc.table_type === "contingency" ? "Contingency table"
+    : doc.table_type === "nested" ? "Nested table"
     : "Data table";
   const meta = tableTypeLabel;
   return {

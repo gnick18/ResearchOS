@@ -44,10 +44,13 @@ export function columnNoun(type: DataHubTableType): string {
 
 /**
  * The user-facing noun for a ROW of a given table type. A survival table row is
- * a subject; every other type calls a row a "row".
+ * a subject, a nested table row is a replicate; every other type calls a row a
+ * "row".
  */
 export function rowNoun(type: DataHubTableType): string {
-  return type === "survival" ? "subject" : "row";
+  if (type === "survival") return "subject";
+  if (type === "nested") return "replicate";
+  return "row";
 }
 
 /**

@@ -173,6 +173,18 @@ const TYPE_META: Record<
       "Test whether two categorical factors are associated. Reports the chi-square test of independence and, for a 2x2 table, Fisher's exact p plus the relative risk and odds ratio with 95% intervals.",
     groupCount: "all",
   },
+  nestedTTest: {
+    label: "Nested t-test",
+    blurb:
+      "Compare two groups with subgroups (technical replicates nested within biological replicates). A random-intercept mixed model tests the group difference against the subgroup variation, so the technical replicates are not pseudo-replicated. Reports the difference, its 95% interval, and the variance components.",
+    groupCount: "all",
+  },
+  nestedOneWayAnova: {
+    label: "Nested one-way ANOVA",
+    blurb:
+      "Compare three or more groups with subgroups. Tests the group effect against the subgroup-to-subgroup variation (the exact balanced nested-ANOVA F, or a mixed model for an unbalanced design). Reports F, the variance components, and the subgroup and replicate counts.",
+    groupCount: "all",
+  },
 };
 
 export default function NewAnalysisDialog({
@@ -203,7 +215,8 @@ export default function NewAnalysisDialog({
   const isGrouped = content?.meta.table_type === "grouped";
   const isSurvival = content?.meta.table_type === "survival";
   const isContingency = content?.meta.table_type === "contingency";
-  const wholeTable = isGrouped || isSurvival || isContingency;
+  const isNested = content?.meta.table_type === "nested";
+  const wholeTable = isGrouped || isSurvival || isContingency || isNested;
   const groups = useMemo(
     () => (content ? groupColumns(content) : []),
     [content],
@@ -339,7 +352,9 @@ export default function NewAnalysisDialog({
                   ? "Enter a Time and an Event (1 or 0) for at least one subject before running a survival analysis."
                   : isContingency
                     ? "Enter at least one count in the contingency table before running the test."
-                    : "Add at least two groups with numbers before running an analysis."}
+                    : isNested
+                      ? "Enter at least one replicate in the nested table before running the test."
+                      : "Add at least two groups with numbers before running an analysis."}
           </p>
         ) : (
           <>
@@ -388,6 +403,13 @@ export default function NewAnalysisDialog({
                 Reads every row and every count column on this table as the
                 count matrix. A 2x2 table also reports Fisher's exact p, the
                 relative risk, and the odds ratio. No column picking needed.
+              </p>
+            ) : isNested ? (
+              <p className="mt-4 rounded-md border border-border bg-surface-raised px-3 py-2 text-meta text-foreground-muted">
+                Reads every group, its subgroups, and their replicates on this
+                table. The test treats each subgroup as the unit of replication,
+                so the technical replicates are not pseudo-replicated. No column
+                picking needed.
               </p>
             ) : isGlobalFit ? (
               <div className="mt-4 flex flex-col gap-3">

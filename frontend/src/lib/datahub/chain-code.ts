@@ -507,6 +507,8 @@ function labelForAnalysis(analysis: AnalysisSpec): string {
     coxRegression: "Cox proportional hazards regression",
     grubbsOutlier: "Grubbs outlier test",
     contingency: "chi-square test of independence",
+    nestedTTest: "nested t-test",
+    nestedOneWayAnova: "nested one-way ANOVA",
   };
   return map[analysis.type] ?? "analysis";
 }

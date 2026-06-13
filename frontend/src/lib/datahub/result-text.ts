@@ -513,6 +513,66 @@ export function resultToText(result: NormalizedResult): string {
       }
       break;
     }
+    case "nestedTTest": {
+      lines.push(
+        row("Test", result.test),
+        row(`Mean (${result.groupNames[0]})`, n(result.groupMeans[0], 4)),
+        row(`Mean (${result.groupNames[1]})`, n(result.groupMeans[1], 4)),
+        row(
+          `Difference (${result.groupNames[1]} minus ${result.groupNames[0]})`,
+          n(result.estimate, 4),
+        ),
+        row("Standard error", n(result.standardError, 4)),
+        row("z", n(result.z, 4)),
+        row("p", formatP(result.pValue)),
+        row("95% CI of difference", ci(result.ci95)),
+        "",
+        row("Between-subgroup variance (sigma_u^2)", n(result.subgroupVariance, 6)),
+        row("Within-subgroup variance (sigma_e^2)", n(result.residualVariance, 6)),
+        row("REML log-likelihood", n(result.remlLogLikelihood, 4)),
+        row("Subgroups", n(result.subgroups, 0)),
+        row("Replicate observations", n(result.observations, 0)),
+      );
+      break;
+    }
+    case "nestedOneWayAnova": {
+      lines.push(
+        row("Test", result.test),
+        row(
+          "Route",
+          result.balanced
+            ? "Balanced classic random-effects F"
+            : "Unbalanced random-intercept mixed model",
+        ),
+        row("F", n(result.f, 4)),
+        row("df (groups)", n(result.dfBetween, 0)),
+        row("df (subgroups within groups)", n(result.dfSubgroups, 0)),
+        row("p", formatP(result.pValue)),
+        "",
+        row("Source", "SS", "df", "MS", "F", "p"),
+      );
+      for (const r of result.table) {
+        lines.push(
+          row(
+            r.source,
+            Number.isFinite(r.ss) ? n(r.ss, 4) : "",
+            r.df,
+            Number.isFinite(r.ms) ? n(r.ms, 4) : "",
+            r.f === null ? "" : n(r.f, 4),
+            r.pValue === null ? "" : formatP(r.pValue),
+          ),
+        );
+      }
+      lines.push(
+        "",
+        row("Between-subgroup variance", n(result.subgroupVariance, 6)),
+        row("Within-subgroup variance (residual)", n(result.residualVariance, 6)),
+        row("Groups", result.groupNames.join(", ")),
+        row("Subgroups", n(result.subgroups, 0)),
+        row("Replicate observations", n(result.observations, 0)),
+      );
+      break;
+    }
     default: {
       // t-test family (parametric and rank tests).
       const statLabel = result.nonparametric

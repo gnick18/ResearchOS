@@ -25,6 +25,8 @@ import type {
   NormalizedCoxRegression,
   NormalizedGrubbsOutlier,
   NormalizedContingency,
+  NormalizedNestedTTest,
+  NormalizedNestedAnova,
   NormalizedTTest,
   NormalizedTwoWayAnova,
 } from "@/lib/datahub/run-analysis";
@@ -552,6 +554,40 @@ function contingencySummary(r: NormalizedContingency): string {
   return head + tail + caveat;
 }
 
+function nestedTTestSummary(r: NormalizedNestedTTest): string {
+  const [a, b] = r.groupNames;
+  const head = `nested t-test treating each of the ${r.subgroups} subgroups as the unit of replication (${r.observations} replicate observations), fit by REML`;
+  const stat = `difference = ${num(r.estimate, 2)}, z = ${num(
+    r.z,
+    2,
+  )}, ${formatP(r.pValue)}`;
+  if (r.pValue < ALPHA) {
+    const higher = r.estimate >= 0 ? b : a;
+    const lower = r.estimate >= 0 ? a : b;
+    return `${higher} is higher than ${lower} on average once the subgroup-to-subgroup variation is accounted for (${head}; ${stat}). The technical replicates are not pseudo-replicated, so this difference rests on the ${r.subgroups} biological replicates, not the raw cell count.`;
+  }
+  return `${a} and ${b} look the same once the subgroup-to-subgroup variation is accounted for (${head}; ${stat}). There is not enough evidence of a group difference at the biological-replicate level.`;
+}
+
+function nestedAnovaSummary(r: NormalizedNestedAnova): string {
+  const names = r.groupNames;
+  const list =
+    names.length <= 2
+      ? names.join(" and ")
+      : `${names.slice(0, -1).join(", ")}, and ${names[names.length - 1]}`;
+  const route = r.balanced
+    ? `balanced nested ANOVA, F(${num(r.dfBetween, 0)}, ${num(
+        r.dfSubgroups,
+        0,
+      )}) = ${num(r.f, 2)}, ${formatP(r.pValue)}`
+    : `unbalanced nested mixed-model omnibus, ${formatP(r.pValue)}`;
+  const tail = ` The group effect is tested against the subgroup-to-subgroup variation, so the technical replicates are not pseudo-replicated.`;
+  if (r.pValue < ALPHA) {
+    return `At least one of ${list} differs at the group level (${route}).${tail}`;
+  }
+  return `${list} look the same at the group level (${route}). There is not enough evidence of a group effect once the subgroup variation is accounted for.${tail}`;
+}
+
 /**
  * The one-sentence (or two-sentence) plain-language verdict for a normalized
  * result. The ResultsSheet renders this above the stats table.
@@ -575,5 +611,7 @@ export function plainLanguageSummary(result: NormalizedResult): string {
   if (result.kind === "coxRegression") return coxSummary(result);
   if (result.kind === "grubbsOutlier") return grubbsSummary(result);
   if (result.kind === "contingency") return contingencySummary(result);
+  if (result.kind === "nestedTTest") return nestedTTestSummary(result);
+  if (result.kind === "nestedOneWayAnova") return nestedAnovaSummary(result);
   return ttestSummary(result);
 }

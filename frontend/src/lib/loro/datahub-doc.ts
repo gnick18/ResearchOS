@@ -160,6 +160,10 @@ function writeColumn(map: LoroMap, col: ColumnDef): void {
   // or not a given column omits them.
   map.set("datasetId", col.datasetId ?? null);
   map.set("subcolumnKind", col.subcolumnKind ?? null);
+  // groupName is the Nested table's top-level group label. It is written ONLY
+  // when present, so a column that never carries it (every non-nested table)
+  // stays byte-identical to a document written before this field existed.
+  if (col.groupName !== undefined) map.set("groupName", col.groupName);
 }
 
 /**
@@ -330,6 +334,8 @@ function projectColumns(doc: LoroDoc): ColumnDef[] {
     if (datasetId !== null) col.datasetId = datasetId;
     const subKind = asString(map.get("subcolumnKind"));
     if (subKind !== null) col.subcolumnKind = subKind as SubcolumnKind;
+    const groupName = asString(map.get("groupName"));
+    if (groupName !== null) col.groupName = groupName;
     out.push(col);
   }
   return out;
@@ -622,6 +628,7 @@ export function updateColumn(
   if (patch.datasetId !== undefined) map.set("datasetId", patch.datasetId ?? null);
   if (patch.subcolumnKind !== undefined)
     map.set("subcolumnKind", patch.subcolumnKind ?? null);
+  if (patch.groupName !== undefined) map.set("groupName", patch.groupName);
 }
 
 /** Delete a column by id. No-op when absent. Does NOT commit. Note: this does

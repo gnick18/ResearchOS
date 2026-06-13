@@ -44,13 +44,26 @@ import type {
 /** A subject's complete-case measurements across the k conditions, in order. */
 type SubjectRow = number[];
 
-interface LongRow {
+/**
+ * One long-form observation the random-intercept REML fitter consumes: a response
+ * value, a fixed-effect design row (length p, the intercept plus treatment
+ * dummies), and the index of the random-intercept group it belongs to (a subject
+ * for the repeated-measures reshape, a subgroup for the nested reshape). This is
+ * the generic interface the nested model reuses, so the two designs share one
+ * solver instead of forking the REML machinery.
+ */
+export interface LongRow {
   /** Response value. */
   y: number;
   /** Fixed-effect design row, length p (intercept + dummies). */
   x: number[];
-  /** Group (subject) index. */
+  /** Random-intercept group index (subject or subgroup), 0-based and contiguous. */
   group: number;
+}
+
+/** One fixed-effect coefficient with its name, from a generic long-form fit. */
+export interface LongFixedEffectInput {
+  name: string;
 }
 
 /**
@@ -375,5 +388,105 @@ export function randomInterceptModel(
     groups: nSubjects,
     observations: N,
     conditionLabels: labels,
+  };
+}
+
+/** The fitted output of the generic long-form random-intercept REML fit. */
+export interface LongRandomInterceptFit {
+  /** One fixed effect per design column, in design order. */
+  fixedEffects: MixedModelFixedEffect[];
+  /** Random-intercept (between-group) variance sigma_u^2. */
+  groupVariance: number;
+  /** Residual variance sigma_e^2. */
+  residualVariance: number;
+  /** Restricted (REML) log-likelihood at the optimum. */
+  remlLogLikelihood: number;
+  /** Number of random-intercept groups and total observations. */
+  groups: number;
+  observations: number;
+}
+
+/**
+ * Fit a random-intercept linear mixed model by REML from PRE-BUILT long-form
+ * rows. This is the generic core the repeated-measures reshape and the NESTED
+ * reshape both feed. The caller supplies the long rows (each a response, a
+ * fixed-effect design row of length p, and a 0-based contiguous random-group
+ * index), the per-group observation counts, the fixed-effect design width p, and
+ * the fixed-effect names in design order. The same profiled-REML 1-D
+ * golden-section search the column reshape uses applies unchanged, so the nested
+ * design reuses one validated solver rather than a second REML implementation.
+ *
+ * Unlike randomInterceptModel (which assumes every subject carries all k
+ * conditions, a balanced block), this accepts UNBALANCED group sizes, which the
+ * Sherman-Morrison block identity already handles per block, so a nested design
+ * with a different replicate count per subgroup fits without a special case.
+ */
+export function fitRandomInterceptLong(
+  rows: LongRow[],
+  groupSizes: number[],
+  p: number,
+  fixedEffectNames: string[],
+): EngineResult<LongRandomInterceptFit> {
+  const nGroups = groupSizes.length;
+  if (nGroups < 2) {
+    return { ok: false, error: "Need at least 2 random-effect groups." };
+  }
+  const N = rows.length;
+  if (N - p <= 0) {
+    return { ok: false, error: "Not enough observations to fit the model." };
+  }
+  if (fixedEffectNames.length !== p) {
+    return { ok: false, error: "Fixed-effect name count must match the design width." };
+  }
+
+  const objective = (theta: number): number => {
+    const core = profiledNeg2RemlCore(rows, groupSizes, theta, p, N);
+    return core ? core.neg2 : Number.POSITIVE_INFINITY;
+  };
+  const thetaHat = goldenSectionMin(objective, 0, 1e4, 1e-10, 500);
+
+  const core = profiledNeg2RemlCore(rows, groupSizes, thetaHat, p, N);
+  if (!core) {
+    return { ok: false, error: "The mixed model failed to converge." };
+  }
+  const { beta, s2, invXtVinvX, logDetVw, logDetXtVinvX } = core;
+
+  const residualVariance = s2;
+  const groupVariance = thetaHat * s2;
+
+  const fixedEffects: MixedModelFixedEffect[] = [];
+  for (let i = 0; i < p; i++) {
+    const se = Math.sqrt(Math.max(0, s2 * invXtVinvX[i][i]));
+    const est = beta[i];
+    const z = se > 0 ? est / se : NaN;
+    const pValue = Number.isFinite(z) ? 2 * (1 - normalCdf(Math.abs(z))) : NaN;
+    const half = 1.959963984540054 * se; // z_{0.975}
+    fixedEffects.push({
+      name: fixedEffectNames[i],
+      estimate: est,
+      standardError: se,
+      z,
+      pValue,
+      ciLow: est - half,
+      ciHigh: est + half,
+    });
+  }
+
+  const dfResid = N - p;
+  const remlLogLikelihood =
+    -0.5 *
+    (dfResid * Math.log(2 * Math.PI * s2) +
+      dfResid +
+      logDetVw +
+      logDetXtVinvX);
+
+  return {
+    ok: true,
+    fixedEffects,
+    groupVariance,
+    residualVariance,
+    remlLogLikelihood,
+    groups: nGroups,
+    observations: N,
   };
 }
