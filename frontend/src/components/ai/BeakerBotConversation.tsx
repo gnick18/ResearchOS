@@ -627,6 +627,55 @@ const REF_TYPE_ICON: Record<AttachedRef["type"], IconName> = {
   purchase: "receipt",
 };
 
+// Per-type chip tint. The mockup locked colored @ mention chips, one quiet tint
+// per object type so a glance reads the kind. There is no canonical app-wide
+// object-type color map to reuse (the global index carries no color), so these
+// follow the house tint convention used across components (bg-{c}-100 /
+// dark:bg-{c}-500/15, border-{c}-300 / dark:border-{c}-700, text-{c}-700 /
+// dark:text-{c}-300). Low-saturation on purpose, these sit above the composer
+// and should read as calm tags, not loud badges. `x` is the close-button hover
+// (a touch stronger so the affordance reads). Each `{`-quoted full class string
+// is kept whole so Tailwind's JIT sees every utility (no dynamic interpolation).
+type RefChipTint = { chip: string; x: string };
+const REF_TYPE_TINT: Record<AttachedRef["type"], RefChipTint> = {
+  task: {
+    chip: "border-sky-300 bg-sky-50 text-sky-700 dark:border-sky-700 dark:bg-sky-500/15 dark:text-sky-300",
+    x: "text-sky-500 hover:text-sky-700 dark:text-sky-400 dark:hover:text-sky-200",
+  },
+  project: {
+    chip: "border-amber-300 bg-amber-50 text-amber-700 dark:border-amber-700 dark:bg-amber-500/15 dark:text-amber-300",
+    x: "text-amber-500 hover:text-amber-700 dark:text-amber-400 dark:hover:text-amber-200",
+  },
+  method: {
+    chip: "border-violet-300 bg-violet-50 text-violet-700 dark:border-violet-700 dark:bg-violet-500/15 dark:text-violet-300",
+    x: "text-violet-500 hover:text-violet-700 dark:text-violet-400 dark:hover:text-violet-200",
+  },
+  sequence: {
+    chip: "border-emerald-300 bg-emerald-50 text-emerald-700 dark:border-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300",
+    x: "text-emerald-500 hover:text-emerald-700 dark:text-emerald-400 dark:hover:text-emerald-200",
+  },
+  inventory: {
+    chip: "border-teal-300 bg-teal-50 text-teal-700 dark:border-teal-700 dark:bg-teal-500/15 dark:text-teal-300",
+    x: "text-teal-500 hover:text-teal-700 dark:text-teal-400 dark:hover:text-teal-200",
+  },
+  note: {
+    chip: "border-slate-300 bg-slate-100 text-slate-700 dark:border-slate-600 dark:bg-slate-500/15 dark:text-slate-300",
+    x: "text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200",
+  },
+  datahub: {
+    chip: "border-indigo-300 bg-indigo-50 text-indigo-700 dark:border-indigo-700 dark:bg-indigo-500/15 dark:text-indigo-300",
+    x: "text-indigo-500 hover:text-indigo-700 dark:text-indigo-400 dark:hover:text-indigo-200",
+  },
+  molecule: {
+    chip: "border-cyan-300 bg-cyan-50 text-cyan-700 dark:border-cyan-700 dark:bg-cyan-500/15 dark:text-cyan-300",
+    x: "text-cyan-500 hover:text-cyan-700 dark:text-cyan-400 dark:hover:text-cyan-200",
+  },
+  purchase: {
+    chip: "border-rose-300 bg-rose-50 text-rose-700 dark:border-rose-700 dark:bg-rose-500/15 dark:text-rose-300",
+    x: "text-rose-500 hover:text-rose-700 dark:text-rose-400 dark:hover:text-rose-200",
+  },
+};
+
 /** Small leading glyph for an attached-ref chip. Reuses the verified icon set. */
 function ObjectChipGlyph({ type }: { type: AttachedRef["type"] }) {
   return (
@@ -1048,10 +1097,17 @@ export default function BeakerBotConversation({
       data-testid="beakerbot-surface"
       className={`relative flex overflow-hidden${className ? ` ${className}` : ""}`}
     >
-      {/* Chat column. Flexes to fill the surface, or narrows when Canvas docks. */}
+      {/* Chat column. Flexes to fill the surface, or narrows when Canvas docks.
+          When Canvas docks it keeps a usable floor (min-w-[20rem]) so the
+          composer textarea, the ref chips, and the send button never collapse
+          to a sliver. The surface widens to fit both (the palette shell grows
+          when Canvas is docked). Undocked it stays min-w-0 so it flexes to the
+          full surface as before. */}
       <div
         data-testid="beakerbot-chat-column"
-        className="relative flex min-w-0 flex-1 flex-col overflow-hidden"
+        className={`relative flex flex-1 flex-col overflow-hidden ${
+          canvasDocked ? "min-w-[20rem]" : "min-w-0"
+        }`}
       >
       {/* Revert confirm overlay. Covers the whole panel so the user cannot interact
           with the conversation while the confirm is open. */}
@@ -1660,11 +1716,13 @@ export default function BeakerBotConversation({
                 data-testid="beakerbot-ref-chips"
                 className="mb-1.5 flex flex-wrap gap-1.5"
               >
-                {attachedRefs.map((ref) => (
+                {attachedRefs.map((ref) => {
+                  const tint = REF_TYPE_TINT[ref.type];
+                  return (
                   <span
                     key={ref.id}
                     data-testid="beakerbot-ref-chip"
-                    className="inline-flex items-center gap-1 rounded border border-brand/35 bg-brand/10 px-1.5 py-0.5 text-meta font-medium text-brand"
+                    className={`inline-flex items-center gap-1 rounded border px-1.5 py-0.5 text-meta font-medium ${tint.chip}`}
                   >
                     <ObjectChipGlyph type={ref.type} />
                     <span className="max-w-[150px] truncate">{ref.name}</span>
@@ -1674,13 +1732,14 @@ export default function BeakerBotConversation({
                         data-testid="beakerbot-remove-ref"
                         aria-label={`Remove ${ref.name}`}
                         onClick={() => removeAttachedRef(ref.id)}
-                        className="ml-0.5 flex-none text-brand/70 hover:text-brand"
+                        className={`ml-0.5 flex-none ${tint.x}`}
                       >
                         <Icon name="close" className="h-2.5 w-2.5" title="Remove" />
                       </button>
                     </Tooltip>
                   </span>
-                ))}
+                  );
+                })}
               </div>
             ) : null}
 

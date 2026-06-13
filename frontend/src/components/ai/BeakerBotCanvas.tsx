@@ -258,6 +258,8 @@ export default function BeakerBotCanvas() {
           value={activeTab.buffer}
           onChange={(v) => setBuffer(activeTab.id, v)}
           showToolbar={false}
+          showShortcutsHelper={false}
+          hideAttachments
           hideSaveButton
           autoStartEditing
           disabled={isSettled}
