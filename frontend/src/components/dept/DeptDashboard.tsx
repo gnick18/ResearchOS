@@ -11,6 +11,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { deriveDeptRate, centsToUsd, DEPT_RATE } from "@/lib/dept/plan";
+import PayMethodChoice from "@/components/billing/PayMethodChoice";
 
 interface AccountUsage {
   memberKey: string;
@@ -46,7 +47,10 @@ const GB = 1e9;
 interface BillingResponse {
   billingEnabled?: boolean;
   status?: string;
+  method?: "invoice" | "automatic";
   monthlyCents?: number;
+  /** Present when an automatic setup needs the admin to finish Stripe Checkout. */
+  url?: string;
 }
 
 export default function DeptDashboard() {
@@ -56,8 +60,9 @@ export default function DeptDashboard() {
   const [labs, setLabs] = useState(1);
   const [storageGb, setStorageGb] = useState(50);
   const [seeded, setSeeded] = useState(false);
-  // Billing state (the send-invoice procurement subscription).
+  // Billing state. method = how the dept pays (emailed invoice vs auto-charge).
   const [billing, setBilling] = useState<BillingResponse | null>(null);
+  const [method, setMethod] = useState<"invoice" | "automatic">("invoice");
   const [poNumber, setPoNumber] = useState("");
   const [saving, setSaving] = useState(false);
   const [saveMsg, setSaveMsg] = useState<string | null>(null);
@@ -69,7 +74,9 @@ export default function DeptDashboard() {
         const res = await fetch("/api/dept/billing");
         if (!res.ok) return;
         const data = (await res.json()) as BillingResponse;
-        if (!cancelled) setBilling(data);
+        if (cancelled) return;
+        setBilling(data);
+        if (data.method) setMethod(data.method);
       } catch {
         /* best effort */
       }
@@ -86,17 +93,26 @@ export default function DeptDashboard() {
       const res = await fetch("/api/dept/billing", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ labs, storageGb, poNumber: poNumber || undefined }),
+        body: JSON.stringify({
+          labs,
+          storageGb,
+          method,
+          poNumber: method === "invoice" && poNumber ? poNumber : undefined,
+        }),
       });
       const data = (await res.json()) as BillingResponse & { error?: string };
       if (!res.ok) {
         setSaveMsg(data.error ?? "Could not set up billing.");
+      } else if (data.status === "pending_checkout" && data.url) {
+        // Automatic setup: send the admin to Stripe to add a card or bank.
+        window.location.href = data.url;
+        return;
       } else {
-        setBilling({ billingEnabled: true, status: data.status, monthlyCents: data.monthlyCents });
+        setBilling({ billingEnabled: true, status: data.status, method, monthlyCents: data.monthlyCents });
         setSaveMsg(
-          data.status === "active"
+          method === "invoice"
             ? "Plan active. Stripe will email the invoice."
-            : "Plan saved.",
+            : "Plan active. The card or bank on file is charged each cycle.",
         );
       }
     } catch {
@@ -174,24 +190,30 @@ export default function DeptDashboard() {
           <div className="mt-4 border-t border-brand-action/30 pt-3">
             {billing.status === "active" ? (
               <p className="text-meta text-foreground">
-                Billing active at{" "}
-                <b>{centsToUsd(billing.monthlyCents ?? 0)}/mo</b>. Stripe emails the
-                invoice with net 30 terms. Adjust the plan above and update any time.
+                Billing active at <b>{centsToUsd(billing.monthlyCents ?? 0)}/mo</b>
+                {billing.method === "automatic"
+                  ? ", auto-charged to the card or bank on file."
+                  : ", invoiced to your email on net 30 terms."}{" "}
+                Adjust the plan above and update any time.
               </p>
             ) : (
               <p className="text-meta text-foreground-muted">
-                Activate the plan to start a monthly invoice (sent to your email,
-                net 30, PO and ACH or card). The first invoice covers this cycle.
+                Choose how to pay, then activate. The first charge covers this cycle.
               </p>
             )}
+
+            <PayMethodChoice method={method} onChange={setMethod} />
+
             <div className="mt-2 flex flex-wrap items-center gap-2">
-              <input
-                type="text"
-                value={poNumber}
-                onChange={(e) => setPoNumber(e.target.value)}
-                placeholder="PO number (optional)"
-                className="h-8 rounded-lg border border-border bg-surface px-2 text-meta text-foreground"
-              />
+              {method === "invoice" && (
+                <input
+                  type="text"
+                  value={poNumber}
+                  onChange={(e) => setPoNumber(e.target.value)}
+                  placeholder="PO number (optional)"
+                  className="h-8 rounded-lg border border-border bg-surface px-2 text-meta text-foreground"
+                />
+              )}
               <button
                 type="button"
                 onClick={activatePlan}
@@ -202,7 +224,9 @@ export default function DeptDashboard() {
                   ? "Saving…"
                   : billing.status === "active"
                     ? "Update plan"
-                    : "Activate billing"}
+                    : method === "automatic"
+                      ? "Add a card or bank"
+                      : "Activate billing"}
               </button>
               {saveMsg && <span className="text-meta text-foreground-muted">{saveMsg}</span>}
             </div>

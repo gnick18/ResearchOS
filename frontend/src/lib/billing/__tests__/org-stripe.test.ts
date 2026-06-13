@@ -1,12 +1,14 @@
 // Phase 3 org billing, the procurement subscription orchestration. No live Stripe,
 // no Neon: the Stripe client and the org-billing persistence are mocked, so these
-// pin the control flow.
-//   - a zero-derived rate persists the plan + marks inactive, and never calls
-//     Stripe (no empty subscription is created);
-//   - a positive rate with no existing subscription creates a send_invoice
-//     subscription with net terms and records the ids active;
-//   - a positive rate with an existing subscription UPDATES the item price in
-//     place rather than creating a second subscription.
+// pin the control flow for both payment methods.
+//   - a zero-derived rate persists the plan + marks inactive, never touches Stripe;
+//   - invoice, no existing sub: creates a send_invoice subscription (net terms),
+//     no payment method collected, marks active;
+//   - invoice, existing sub: updates the item price in place, no second sub;
+//   - automatic, no existing sub: returns a Checkout URL + pending_checkout (the
+//     admin adds a card or bank), no subscription created server-side;
+//   - automatic, existing automatic sub: updates the price in place;
+//   - the tax seam is off unless ORG_BILLING_TAX_ENABLED.
 //
 // No emojis, no em-dashes, no mid-sentence colons.
 
@@ -18,6 +20,7 @@ const {
   subsCreateMock,
   subsUpdateMock,
   subsCancelMock,
+  checkoutCreateMock,
   getOrgBillingMock,
   setOrgPlanMock,
   setOrgCustomerMock,
@@ -28,6 +31,7 @@ const {
   subsCreateMock: vi.fn(),
   subsUpdateMock: vi.fn(),
   subsCancelMock: vi.fn(),
+  checkoutCreateMock: vi.fn(),
   getOrgBillingMock: vi.fn(),
   setOrgPlanMock: vi.fn(async () => {}),
   setOrgCustomerMock: vi.fn(async () => {}),
@@ -43,6 +47,7 @@ vi.mock("@/lib/billing/stripe", () => ({
       update: subsUpdateMock,
       cancel: subsCancelMock,
     },
+    checkout: { sessions: { create: checkoutCreateMock } },
   }),
 }));
 
@@ -53,12 +58,15 @@ vi.mock("@/lib/billing/org-billing", () => ({
   setOrgSubscription: setOrgSubscriptionMock,
 }));
 
-import {
-  provisionOrgSubscription,
-  cancelOrgSubscription,
-} from "../org-stripe";
+import { setupOrgBilling, cancelOrgSubscription } from "../org-stripe";
 
 const INFO = { name: "Chemistry Dept", email: "admin@uni.edu" };
+const BASE = {
+  tier: "department" as const,
+  entityId: "dept_x",
+  info: INFO,
+  returnOrigin: "https://app.test",
+};
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -68,39 +76,35 @@ beforeEach(() => {
   pricesCreateMock.mockResolvedValue({ id: "price_1" });
   subsCreateMock.mockResolvedValue({ id: "sub_1", items: { data: [{ id: "si_1" }] } });
   subsUpdateMock.mockResolvedValue({ id: "sub_1", items: { data: [{ id: "si_1" }] } });
+  checkoutCreateMock.mockResolvedValue({ id: "cs_1", url: "https://stripe.test/cs_1" });
 });
 
 afterEach(() => {
   vi.clearAllMocks();
 });
 
-describe("provisionOrgSubscription", () => {
+describe("setupOrgBilling", () => {
   it("a zero rate persists the plan inactive and never touches Stripe", async () => {
-    const sub = await provisionOrgSubscription({
-      tier: "department",
-      entityId: "dept_x",
-      info: INFO,
+    const r = await setupOrgBilling({
+      ...BASE,
       planInputs: { labs: 0, storageGb: 0 },
       monthlyCents: 0,
+      method: "invoice",
     });
-    expect(sub).toBeNull();
-    expect(setOrgPlanMock).toHaveBeenCalledWith("department", "dept_x", { labs: 0, storageGb: 0 }, 0);
-    expect(setOrgSubscriptionMock).toHaveBeenCalledWith("department", "dept_x", null, null, "inactive");
-    expect(customersCreateMock).not.toHaveBeenCalled();
+    expect(r.status).toBe("inactive");
+    expect(setOrgPlanMock).toHaveBeenCalledWith("department", "dept_x", { labs: 0, storageGb: 0 }, 0, "invoice");
     expect(subsCreateMock).not.toHaveBeenCalled();
+    expect(checkoutCreateMock).not.toHaveBeenCalled();
   });
 
-  it("a positive rate with no existing sub creates a send_invoice subscription", async () => {
-    await provisionOrgSubscription({
-      tier: "department",
-      entityId: "dept_x",
-      info: INFO,
+  it("invoice, no existing sub: creates a send_invoice subscription", async () => {
+    const r = await setupOrgBilling({
+      ...BASE,
       planInputs: { labs: 3, storageGb: 200 },
       monthlyCents: 12345,
+      method: "invoice",
     });
-    expect(pricesCreateMock).toHaveBeenCalledWith(
-      expect.objectContaining({ currency: "usd", unit_amount: 12345 }),
-    );
+    expect(r).toEqual({ status: "active" });
     expect(subsCreateMock).toHaveBeenCalledWith(
       expect.objectContaining({
         customer: "cus_1",
@@ -109,10 +113,11 @@ describe("provisionOrgSubscription", () => {
         metadata: expect.objectContaining({ orgTier: "department", orgId: "dept_x" }),
       }),
     );
+    expect(checkoutCreateMock).not.toHaveBeenCalled();
     expect(setOrgSubscriptionMock).toHaveBeenCalledWith("department", "dept_x", "sub_1", "si_1", "active");
   });
 
-  it("updates the existing subscription item in place instead of creating a second", async () => {
+  it("invoice, existing sub: updates the item price in place", async () => {
     getOrgBillingMock.mockResolvedValue({
       tier: "department",
       entityId: "dept_x",
@@ -121,45 +126,91 @@ describe("provisionOrgSubscription", () => {
       stripeItemId: "si_1",
       monthlyCents: 1000,
       planInputs: {},
+      method: "invoice",
       status: "active",
     });
-    await provisionOrgSubscription({
-      tier: "department",
-      entityId: "dept_x",
-      info: INFO,
+    const r = await setupOrgBilling({
+      ...BASE,
       planInputs: { labs: 5, storageGb: 400 },
       monthlyCents: 22222,
+      method: "invoice",
     });
+    expect(r).toEqual({ status: "active" });
     expect(subsUpdateMock).toHaveBeenCalledWith(
       "sub_1",
-      expect.objectContaining({ items: [{ id: "si_1", price: "price_1" }] }),
+      expect.objectContaining({
+        items: [{ id: "si_1", price: "price_1" }],
+        collection_method: "send_invoice",
+      }),
     );
     expect(subsCreateMock).not.toHaveBeenCalled();
   });
 
-  it("omits automatic_tax unless ORG_BILLING_TAX_ENABLED is set", async () => {
-    await provisionOrgSubscription({
-      tier: "institution",
-      entityId: "inst_y",
-      info: INFO,
-      planInputs: { labs: 16, storageGb: 500 },
-      monthlyCents: 50000,
+  it("automatic, no existing sub: returns a Checkout URL + pending_checkout", async () => {
+    const r = await setupOrgBilling({
+      ...BASE,
+      planInputs: { labs: 4, storageGb: 300 },
+      monthlyCents: 33333,
+      method: "automatic",
     });
-    const args = subsCreateMock.mock.calls[0][0];
-    expect(args.automatic_tax).toBeUndefined();
+    expect(r.status).toBe("pending_checkout");
+    expect(r.url).toBe("https://stripe.test/cs_1");
+    expect(checkoutCreateMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        mode: "subscription",
+        payment_method_types: ["card", "us_bank_account"],
+        metadata: expect.objectContaining({ orgTier: "department", orgId: "dept_x" }),
+      }),
+    );
+    expect(subsCreateMock).not.toHaveBeenCalled();
+    expect(setOrgSubscriptionMock).toHaveBeenCalledWith("department", "dept_x", null, null, "pending_checkout");
+  });
+
+  it("automatic, existing automatic sub: updates the price in place (charge_automatically)", async () => {
+    getOrgBillingMock.mockResolvedValue({
+      tier: "department",
+      entityId: "dept_x",
+      stripeCustomerId: "cus_1",
+      stripeSubscriptionId: "sub_1",
+      stripeItemId: "si_1",
+      monthlyCents: 1000,
+      planInputs: {},
+      method: "automatic",
+      status: "active",
+    });
+    const r = await setupOrgBilling({
+      ...BASE,
+      planInputs: { labs: 6, storageGb: 500 },
+      monthlyCents: 44444,
+      method: "automatic",
+    });
+    expect(r).toEqual({ status: "active" });
+    expect(subsUpdateMock).toHaveBeenCalledWith(
+      "sub_1",
+      expect.objectContaining({ collection_method: "charge_automatically" }),
+    );
+    expect(checkoutCreateMock).not.toHaveBeenCalled();
+  });
+
+  it("omits automatic_tax unless ORG_BILLING_TAX_ENABLED is set", async () => {
+    await setupOrgBilling({
+      ...BASE,
+      planInputs: { labs: 2, storageGb: 100 },
+      monthlyCents: 5000,
+      method: "invoice",
+    });
+    expect(subsCreateMock.mock.calls[0][0].automatic_tax).toBeUndefined();
   });
 
   it("includes automatic_tax when the tax flag is on", async () => {
     process.env.ORG_BILLING_TAX_ENABLED = "true";
-    await provisionOrgSubscription({
-      tier: "institution",
-      entityId: "inst_y",
-      info: INFO,
-      planInputs: { labs: 16, storageGb: 500 },
-      monthlyCents: 50000,
+    await setupOrgBilling({
+      ...BASE,
+      planInputs: { labs: 2, storageGb: 100 },
+      monthlyCents: 5000,
+      method: "invoice",
     });
-    const args = subsCreateMock.mock.calls[0][0];
-    expect(args.automatic_tax).toEqual({ enabled: true });
+    expect(subsCreateMock.mock.calls[0][0].automatic_tax).toEqual({ enabled: true });
   });
 });
 
@@ -173,6 +224,7 @@ describe("cancelOrgSubscription", () => {
       stripeItemId: "si_1",
       monthlyCents: 1000,
       planInputs: {},
+      method: "invoice",
       status: "active",
     });
     subsCancelMock.mockResolvedValue({});

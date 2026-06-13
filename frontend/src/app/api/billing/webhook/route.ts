@@ -159,11 +159,22 @@ export async function POST(request: Request): Promise<Response> {
           const subId =
             typeof s.subscription === "string" ? s.subscription : s.subscription.id;
           const sub = await getStripe().subscriptions.retrieve(subId);
-          // Carry the session's owner key onto the subscription if missing.
-          if (!sub.metadata?.ownerKey && s.metadata?.ownerKey) {
-            sub.metadata = { ...sub.metadata, ownerKey: s.metadata.ownerKey };
+          // An org (dept/institution) automatic-method checkout completing: sync
+          // onto its org_billing row. Otherwise it is an individual/lab checkout.
+          const orgTier = orgTierOf(sub);
+          if (orgTier) {
+            // Carry the org keys from the session if the subscription lacks them.
+            if (!sub.metadata?.orgId && s.metadata?.orgId) {
+              sub.metadata = { ...sub.metadata, ...s.metadata };
+            }
+            await syncOrgSubscription(sub, orgTier);
+          } else {
+            // Carry the session's owner key onto the subscription if missing.
+            if (!sub.metadata?.ownerKey && s.metadata?.ownerKey) {
+              sub.metadata = { ...sub.metadata, ownerKey: s.metadata.ownerKey };
+            }
+            await syncSubscription(sub);
           }
-          await syncSubscription(sub);
         }
         break;
       }

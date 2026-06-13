@@ -21,12 +21,10 @@ import { ensureBusinessSchema, getEntity } from "@/lib/business/db";
 import {
   ensureOrgBillingSchema,
   getOrgBilling,
+  type OrgBillingMethod,
   type OrgTier,
 } from "@/lib/billing/org-billing";
-import {
-  provisionOrgSubscription,
-  cancelOrgSubscription,
-} from "@/lib/billing/org-stripe";
+import { setupOrgBilling } from "@/lib/billing/org-stripe";
 
 /** A resolved org entity the caller administers. */
 export interface ResolvedOrgEntity {
@@ -81,6 +79,7 @@ export async function handleOrgBillingGet(spec: OrgBillingSpec): Promise<Respons
       billingEnabled: isBillingEnabled(),
       entity,
       status: row?.status ?? "inactive",
+      method: row?.method ?? "invoice",
       monthlyCents: row?.monthlyCents ?? 0,
       planInputs: row?.planInputs ?? {},
     });
@@ -120,6 +119,16 @@ export async function runOrgBillingPost(
     typeof body.poNumber === "string" && body.poNumber.trim()
       ? body.poNumber.trim()
       : null;
+  // The payment method the admin chose: an emailed invoice (net terms) or
+  // auto-charge a card/bank. Defaults to invoice, the procurement-canonical path.
+  const method: OrgBillingMethod = body.method === "automatic" ? "automatic" : "invoice";
+
+  let returnOrigin: string;
+  try {
+    returnOrigin = process.env.BILLING_RETURN_ORIGIN ?? new URL(request.url).origin;
+  } catch {
+    returnOrigin = process.env.BILLING_RETURN_ORIGIN ?? "http://localhost:3000";
+  }
 
   try {
     await ensureOrgBillingSchema();
@@ -131,20 +140,17 @@ export async function runOrgBillingPost(
 
     const monthlyCents = spec.deriveMonthlyCents(inputs);
 
-    if (monthlyCents <= 0) {
-      await cancelOrgSubscription(spec.tier, entity.entityId);
-      return json(200, { ok: true, status: "inactive", monthlyCents: 0 });
-    }
-
-    await provisionOrgSubscription({
+    const result = await setupOrgBilling({
       tier: spec.tier,
       entityId: entity.entityId,
       info: { name: entity.name, email },
       planInputs: inputs,
       monthlyCents,
+      method,
       poNumber,
+      returnOrigin,
     });
-    return json(200, { ok: true, status: "active", monthlyCents });
+    return json(200, { ok: true, monthlyCents, method, ...result });
   } catch {
     return json(500, { error: "billing setup failed" });
   }
