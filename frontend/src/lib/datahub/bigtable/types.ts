@@ -113,9 +113,56 @@ export interface DatasetSidecar {
   project_ids: string[];
   /** Subfolder organization within a project, or null for the project root. */
   folder_path: string | null;
+  /**
+   * Saved statistical analyses on this dataset (Phase 3a, spec section 3 "saved
+   * analyses"). OPTIONAL and ADDITIVE: absent on every sidecar written before this
+   * field existed, and sidecarFromJson defaults it absent, so an old dataset.json
+   * reads back byte-identical. Each entry mirrors the editable lane's AnalysisSpec
+   * (the CHOICE plus a cached result) so the dataset lane re-runs deterministically
+   * through the same validated engine. The cached result is a convenience snapshot
+   * for the rail; the SOURCE OF TRUTH is the spec, re-run against the live Parquet.
+   */
+  savedAnalyses?: SavedDatasetAnalysis[];
   /** ISO timestamps. */
   created_at: string;
   updated_at: string;
+}
+
+/**
+ * One saved analysis on a dataset (an entry in DatasetSidecar.savedAnalyses).
+ * Mirrors the editable-lane AnalysisSpec shape (id / name / type / params /
+ * inputs / resultCache / resultStale) so the dataset lane re-runs it through the
+ * SAME runAnalysis the editable lane uses, plus the one dataset-specific field
+ * (`groupByColumn`) for the tidy / long group-by mode.
+ *
+ * `inputs.columnIds` holds dataset SCHEMA COLUMN NAMES (a dataset has no editable
+ * column-id space), resolved against the live schema on re-run so a later rename
+ * or a schema change is caught. `resultCache` is an opaque snapshot the rail can
+ * show without re-querying DuckDB; it is re-stamped on every live re-run.
+ */
+export interface SavedDatasetAnalysis {
+  /** Stable id for this saved analysis within the dataset. */
+  id: string;
+  /** Optional user-given display name; absent shows the computed type label. */
+  name?: string;
+  /** The engine analysis identifier (e.g. "unpairedTTest", "oneWayAnova"). */
+  type: string;
+  /** Analysis-specific parameters (tails, post-hoc method, alpha, etc.). */
+  params: Record<string, unknown>;
+  /** Inputs: inputs.columnIds are SCHEMA COLUMN NAMES, in analysis order. */
+  inputs: Record<string, unknown>;
+  /**
+   * The categorical group-by column NAME for the tidy / long mode (the spec's
+   * first input is the value column, this column's categories are the groups).
+   * Absent means the wide mode (the chosen columns ARE the groups).
+   */
+  groupByColumn?: string;
+  /** The last computed normalized result, or null when never run. */
+  resultCache: unknown | null;
+  /** True when the data may have changed since resultCache was computed. */
+  resultStale: boolean;
+  /** ISO timestamp the analysis was created. */
+  created_at: string;
 }
 
 /**

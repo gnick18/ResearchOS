@@ -47,7 +47,7 @@ export interface NewAnalysisSubmit {
   params?: Record<string, unknown>;
 }
 
-const TYPE_META: Record<
+export const TYPE_META: Record<
   AnalysisType,
   {
     label: string;

@@ -62,6 +62,8 @@ import {
   persistDataset,
   readDatasetParquet,
   readDatasetSidecar,
+  saveDatasetAnalysis,
+  removeSavedAnalysis,
   sidecarFromJson,
   writeDatasetSidecar,
 } from "../dataset-store";
@@ -140,6 +142,77 @@ describe("dataset sidecar round-trip", () => {
 
   it("read returns null when absent", async () => {
     await expect(readDatasetSidecar("alice", "nope")).resolves.toBeNull();
+  });
+});
+
+describe("savedAnalyses round-trip (Phase 3a, additive)", () => {
+  it("a sidecar with no saved analyses serializes WITHOUT the field", async () => {
+    const s = buildSidecar({
+      id: "20",
+      name: "x",
+      schema,
+      rowCount: 100,
+      source: { kind: "paste" },
+    });
+    await writeDatasetSidecar("alice", s);
+    const onDisk = jsonFiles.get("users/alice/datahub/20/dataset.json") as Record<
+      string,
+      unknown
+    >;
+    expect("savedAnalyses" in onDisk).toBe(false);
+    const back = await readDatasetSidecar("alice", "20");
+    expect(back!.savedAnalyses).toBeUndefined();
+  });
+
+  it("saveDatasetAnalysis adds, replaces by id, and removeSavedAnalysis drops the field when empty", async () => {
+    const s = buildSidecar({
+      id: "21",
+      name: "x",
+      schema,
+      rowCount: 100,
+      source: { kind: "paste" },
+    });
+    await writeDatasetSidecar("alice", s);
+
+    const a1 = {
+      id: "an-1",
+      type: "unpairedTTest",
+      params: { tail: "two-sided" },
+      inputs: { columnIds: ["weight"] },
+      groupByColumn: "group",
+      resultCache: null,
+      resultStale: false,
+      created_at: "2026-06-13T00:00:00.000Z",
+    };
+    let updated = await saveDatasetAnalysis("alice", "21", a1);
+    expect(updated!.savedAnalyses).toHaveLength(1);
+    expect(updated!.savedAnalyses![0]).toEqual(a1);
+
+    // Replace by id (re-run with new params).
+    const a1b = { ...a1, params: { tail: "greater" }, resultCache: { p: 0.01 } };
+    updated = await saveDatasetAnalysis("alice", "21", a1b);
+    expect(updated!.savedAnalyses).toHaveLength(1);
+    expect(updated!.savedAnalyses![0].params).toEqual({ tail: "greater" });
+
+    // A second analysis appends.
+    const a2 = { ...a1, id: "an-2", type: "oneWayAnova" };
+    updated = await saveDatasetAnalysis("alice", "21", a2);
+    expect(updated!.savedAnalyses).toHaveLength(2);
+
+    // Round-trips through disk.
+    const back = await readDatasetSidecar("alice", "21");
+    expect(back!.savedAnalyses).toHaveLength(2);
+
+    // Removing the last entry drops the field entirely (back to pre-3a shape).
+    await removeSavedAnalysis("alice", "21", "an-1");
+    const after1 = await readDatasetSidecar("alice", "21");
+    expect(after1!.savedAnalyses).toHaveLength(1);
+    await removeSavedAnalysis("alice", "21", "an-2");
+    const onDisk = jsonFiles.get("users/alice/datahub/21/dataset.json") as Record<
+      string,
+      unknown
+    >;
+    expect("savedAnalyses" in onDisk).toBe(false);
   });
 });
 
