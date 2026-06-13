@@ -15,13 +15,23 @@
 // Voice in comments and copy, no em-dashes, no en-dashes, no emojis, no
 // mid-sentence colons.
 
+import { useEffect, useState } from "react";
+
 import BeakerBot from "@/components/BeakerBot";
 import Tooltip from "@/components/Tooltip";
 import { useBeakerSearch } from "./BeakerSearchProvider";
+import { isRecordingMode } from "@/lib/file-system/wiki-capture-mock";
 
 /** The app-chrome front door for BeakerSearch. Opens the shared palette. */
 export default function BeakerSearchPill() {
   const { openPalette } = useBeakerSearch();
+  // Hidden in marketing-video record mode (?record=1) so demo clips feature the
+  // new bottom-center BeakerSearch bar, not this legacy top-nav pill. Read
+  // client-only after mount to stay hydration-safe. (This pill is slated for
+  // removal once the nav-slimming migration lands; see the AppShell TODO.)
+  const [hideForRecording, setHideForRecording] = useState(false);
+  useEffect(() => setHideForRecording(isRecordingMode()), []);
+  if (hideForRecording) return null;
   return (
     <Tooltip label="Search every tool (Cmd K)" placement="bottom">
       <button

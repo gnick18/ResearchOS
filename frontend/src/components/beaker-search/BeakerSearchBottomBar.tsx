@@ -15,16 +15,13 @@
 // existing BeakerSearchPill uses. The provider (BeakerSearchProvider) owns the
 // open state and renders the one shared CommandPalette.
 //
-// Record + capture hiding. The bar is app chrome, so it must be invisible under
-// the marketing-video record mode (`?record=1`) and the wiki-screenshot capture
-// (`?wikiCapture=1`), exactly like the bottom-right floating dock and the
-// BeakerBot summon flask already are. We mirror BOTH existing mechanisms.
-//   - The `data-floating-dock` attribute hooks the existing CSS rule
-//     `body.recording-mode [data-floating-dock] { display: none }` (globals.css),
-//     the same rule that hides the dock and flask under record mode.
-//   - A hydration-safe `hidden` flag (mounted-then-read, mirroring AppShell's
-//     showDevDock / isDemo pattern) also drops the bar under record mode AND
-//     wiki / demo capture, so capture surfaces never flash it.
+// Capture hiding. BeakerSearch is a flagship PRODUCT surface, not dev chrome, so
+// it STAYS VISIBLE in marketing-video record mode (`?record=1`) on purpose, so
+// demo clips can feature it. It is hidden only in the wiki-screenshot capture
+// (`?wikiCapture=1`) via the hydration-safe `hidden` flag below (mounted-then-
+// read, mirroring AppShell's showDevDock / isDemo pattern). It is deliberately
+// NOT tagged `data-floating-dock`, so the record-mode CSS hide that strips the
+// floating dock + BeakerBot flask does not touch it.
 //
 // Collision. The bar is centered (left-1/2, translate-x). The Calculators /
 // Report-bug utility cluster stays bottom-right and is untouched. On the dense
@@ -40,33 +37,28 @@ import { useEffect, useState } from "react";
 import BeakerBot from "@/components/BeakerBot";
 import { Icon } from "@/components/icons";
 import { useBeakerSearch } from "./BeakerSearchProvider";
-import {
-  isRecordingMode,
-  isWikiCaptureMode,
-} from "@/lib/file-system/wiki-capture-mock";
+import { isWikiCaptureMode } from "@/lib/file-system/wiki-capture-mock";
 
 /** The permanent bottom-center ask bar. Opens the shared BeakerSearch surface. */
 export default function BeakerSearchBottomBar() {
   const { openPalette } = useBeakerSearch();
 
-  // Hydration-safe capture hide. The capture signals read sessionStorage /
-  // window.location (client-only), so we default to NOT hidden on the server
-  // and first client render, then re-check after mount. Mirrors AppShell's
-  // showDevDock / isDemo pattern. The `data-floating-dock` attribute below is
-  // the belt-and-suspenders CSS path for record mode.
+  // Hydration-safe capture hide. Hidden only in wiki-screenshot capture
+  // (?wikiCapture=1). It STAYS VISIBLE in marketing-video record mode
+  // (?record=1) so demo clips can showcase BeakerSearch, the flagship surface.
+  // Read client-only after mount (mirrors AppShell's showDevDock / isDemo).
   const [hidden, setHidden] = useState(false);
   useEffect(() => {
-    setHidden(isRecordingMode() || isWikiCaptureMode());
+    setHidden(isWikiCaptureMode());
   }, []);
 
   if (hidden) return null;
 
   return (
     <div
-      // `data-floating-dock` reuses the existing record-mode CSS hide, the same
-      // hook the dock and flask use. Centered, so it never overlaps the
-      // bottom-right cluster.
-      data-floating-dock
+      // Centered, so it never overlaps the bottom-right cluster. Intentionally
+      // NOT tagged data-floating-dock: record mode keeps BeakerSearch visible so
+      // demo clips can feature it (only the dev dock + flask get stripped).
       className="fixed bottom-5 left-1/2 z-40 w-[460px] max-w-[calc(100%-9rem)] -translate-x-1/2"
     >
       <button

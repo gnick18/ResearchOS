@@ -7,8 +7,9 @@ import { render, screen, fireEvent, cleanup } from "@testing-library/react";
 //   1. It renders the resting affordance (placeholder + Cmd K hint).
 //   2. Clicking it calls the SAME open path the top-nav pill uses
 //      (useBeakerSearch().openPalette), not a forked surface.
-//   3. It hides under record mode (`?record=1`) and wiki capture
-//      (`?wikiCapture=1`), the way app chrome must.
+//   3. It STAYS VISIBLE under marketing-video record mode (`?record=1`) so demo
+//      clips can feature it, but hides under wiki-screenshot capture
+//      (`?wikiCapture=1`).
 
 // The shared trigger. We inject a spy openPalette so the test can assert the
 // click reuses the one open path.
@@ -56,10 +57,10 @@ describe("BeakerSearchBottomBar", () => {
     expect(openPalette).toHaveBeenCalledTimes(1);
   });
 
-  it("hides under record mode", () => {
+  it("stays visible under record mode (demo clips feature it)", () => {
     isRecordingMode.mockReturnValue(true);
     render(<BeakerSearchBottomBar />);
-    expect(screen.queryByTestId("beakersearch-bottom-bar")).toBeNull();
+    expect(screen.queryByTestId("beakersearch-bottom-bar")).not.toBeNull();
   });
 
   it("hides under wiki capture", () => {
