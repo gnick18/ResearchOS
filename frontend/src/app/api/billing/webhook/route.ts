@@ -24,6 +24,13 @@ import {
 import { getPlan } from "@/lib/billing/plans";
 import { packTokens, type AiPack } from "@/lib/billing/ai-config";
 import { creditTokens } from "@/lib/billing/ai-ledger";
+import {
+  ensureOrgBillingSchema,
+  getOrgBillingBySubId,
+  setOrgSubscription,
+  type OrgBillingStatus,
+  type OrgTier,
+} from "@/lib/billing/org-billing";
 import { getStripe, getWebhookSecret } from "@/lib/billing/stripe";
 import { formatUSD } from "@/lib/business/calc";
 import {
@@ -46,6 +53,40 @@ function ownerKeyOf(sub: Stripe.Subscription): string | null {
 /** Guards the metadata.aiPack value to the three known top-up tiers. */
 function isAiPack(value: string): value is AiPack {
   return value === "10" || value === "25" || value === "50";
+}
+
+/** The org tier this subscription bills, if it is an org (dept/institution)
+ *  procurement subscription rather than an individual/lab one. */
+function orgTierOf(sub: Stripe.Subscription): OrgTier | null {
+  const t = sub.metadata?.orgTier;
+  return t === "department" || t === "institution" ? t : null;
+}
+
+/** Maps Stripe's subscription status onto the org billing lifecycle. A sent
+ *  invoice that lapses shows as past_due; the cost circuit breaker can read this
+ *  to pause cloud writes for the sponsored labs (local-first keeps working). */
+function normalizeOrgStatus(raw: string): OrgBillingStatus {
+  if (raw === "active" || raw === "trialing") return "active";
+  if (raw === "past_due" || raw === "unpaid") return "past_due";
+  if (raw === "canceled" || raw === "incomplete_expired") return "canceled";
+  return "inactive";
+}
+
+/** Syncs an org (dept/institution) subscription onto its org_billing row. */
+async function syncOrgSubscription(
+  sub: Stripe.Subscription,
+  tier: OrgTier,
+): Promise<void> {
+  const entityId = sub.metadata?.orgId;
+  if (!entityId) return; // cannot attribute, skip
+  await ensureOrgBillingSchema();
+  await setOrgSubscription(
+    tier,
+    entityId,
+    sub.id,
+    sub.items.data[0]?.id ?? null,
+    normalizeOrgStatus(sub.status),
+  );
 }
 
 async function syncSubscription(sub: Stripe.Subscription): Promise<void> {
@@ -129,7 +170,12 @@ export async function POST(request: Request): Promise<Response> {
       case "customer.subscription.created":
       case "customer.subscription.updated":
       case "customer.subscription.deleted": {
-        await syncSubscription(event.data.object as Stripe.Subscription);
+        const sub = event.data.object as Stripe.Subscription;
+        // An org (dept/institution) procurement subscription syncs onto its
+        // org_billing row; everything else is an individual/lab subscription.
+        const orgTier = orgTierOf(sub);
+        if (orgTier) await syncOrgSubscription(sub, orgTier);
+        else await syncSubscription(sub);
         break;
       }
       case "invoice.paid":
@@ -143,21 +189,35 @@ export async function POST(request: Request): Promise<Response> {
           const subRef = inv.subscription;
           const subId =
             typeof subRef === "string" ? subRef : subRef?.id ?? null;
-          const owner = subId ? await getSubscriptionByStripeId(subId) : null;
+          // An org procurement invoice attributes to its entity; otherwise it is
+          // an individual/lab storage payment. Both land in the LLC ledger.
+          const org = subId ? await getOrgBillingBySubId(subId) : null;
+          const owner =
+            !org && subId ? await getSubscriptionByStripeId(subId) : null;
           const date = new Date().toISOString().slice(0, 10);
+          const category = org
+            ? org.tier === "institution"
+              ? "Institution subscription"
+              : "Department subscription"
+            : "Storage subscription";
+          const note = org
+            ? `${org.tier} ${org.entityId.slice(0, 12)}...`
+            : owner
+              ? `owner ${owner.ownerKey.slice(0, 12)}...`
+              : "storage payment";
           await addLedgerEntry({
             date,
             direction: "in",
-            category: "Storage subscription",
+            category,
             amountCents,
-            note: owner ? `owner ${owner.ownerKey.slice(0, 12)}...` : "storage payment",
+            note,
             source: "storage-payment",
           });
           await recordBusinessEmail({
             kind: "storage-receipt",
             toEmail: inv.customer_email ?? "",
-            subject: `Storage subscription payment received, ${formatUSD(amountCents)}`,
-            body: `A storage subscription payment of ${formatUSD(amountCents)} was received on ${date}. Stripe sends the customer-facing receipt; this is the LLC record.`,
+            subject: `${category} payment received, ${formatUSD(amountCents)}`,
+            body: `A ${category.toLowerCase()} payment of ${formatUSD(amountCents)} was received on ${date}. Stripe sends the customer-facing receipt; this is the LLC record.`,
           });
         }
         break;

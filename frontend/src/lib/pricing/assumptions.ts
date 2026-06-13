@@ -72,6 +72,12 @@ export const AVG_MEMBERS_PER_LAB = 6;
  *  tiny fraction of competitor per-seat pricing. FLAGGED placeholder. */
 export const SUSTAIN_PER_LAB = 12;
 
+/** Per-active-department sustaining contribution above bare cost, in dollars per
+ *  month. Institutions pay this for each member department, the tier above the
+ *  per-lab sustaining contribution. A department is a container of several labs,
+ *  so this sits above SUSTAIN_PER_LAB. FLAGGED placeholder. */
+export const SUSTAIN_PER_DEPT = 50;
+
 /** A conservative heavy-share estimate of optional cloud cost per person per
  *  year, in dollars. The competitor-savings tool subtracts this so the "you
  *  save" figure reflects ResearchOS's real possible cost instead of claiming

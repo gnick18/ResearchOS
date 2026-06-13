@@ -4,6 +4,22 @@
 
 import { describe, it, expect } from "vitest";
 import { deriveDeptRate, DEPT_RATE, centsToUsd } from "../plan";
+import {
+  BLENDED_PER_GB_MO,
+  BUFFER,
+  SUSTAIN_PER_LAB,
+} from "@/lib/pricing/assumptions";
+
+describe("dept rate constants derive from pricing assumptions", () => {
+  it("per-lab sustaining is SUSTAIN_PER_LAB dollars in cents", () => {
+    expect(DEPT_RATE.perLabSustainCents).toBe(SUSTAIN_PER_LAB * 100);
+  });
+  it("storage per TB derives from the blended per-GB cost plus the buffer", () => {
+    expect(DEPT_RATE.storagePerTbCents).toBe(
+      Math.round(BLENDED_PER_GB_MO * (1 + BUFFER) * 1024 * 100),
+    );
+  });
+});
 
 describe("deriveDeptRate", () => {
   it("rate = storage cost recovery + per-lab sustaining", () => {

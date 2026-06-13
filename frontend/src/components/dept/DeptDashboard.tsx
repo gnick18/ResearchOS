@@ -43,13 +43,68 @@ function fmtBytes(b: number): string {
 }
 const TB = 1e12;
 
+interface BillingResponse {
+  billingEnabled?: boolean;
+  status?: string;
+  monthlyCents?: number;
+}
+
 export default function DeptDashboard() {
   const [usage, setUsage] = useState<UsageResponse | null>(null);
   const [open, setOpen] = useState<Set<string>>(new Set());
-  // Plan builder inputs (rate preview only; charging is Phase 3).
+  // Plan builder inputs (also the inputs the procurement invoice derives from).
   const [labs, setLabs] = useState(1);
   const [storageTb, setStorageTb] = useState(1);
   const [seeded, setSeeded] = useState(false);
+  // Billing state (the send-invoice procurement subscription).
+  const [billing, setBilling] = useState<BillingResponse | null>(null);
+  const [poNumber, setPoNumber] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [saveMsg, setSaveMsg] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch("/api/dept/billing");
+        if (!res.ok) return;
+        const data = (await res.json()) as BillingResponse;
+        if (!cancelled) setBilling(data);
+      } catch {
+        /* best effort */
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  async function activatePlan() {
+    setSaving(true);
+    setSaveMsg(null);
+    try {
+      const res = await fetch("/api/dept/billing", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ labs, storageTb, poNumber: poNumber || undefined }),
+      });
+      const data = (await res.json()) as BillingResponse & { error?: string };
+      if (!res.ok) {
+        setSaveMsg(data.error ?? "Could not set up billing.");
+      } else {
+        setBilling({ billingEnabled: true, status: data.status, monthlyCents: data.monthlyCents });
+        setSaveMsg(
+          data.status === "active"
+            ? "Plan active. Stripe will email the invoice."
+            : "Plan saved.",
+        );
+      }
+    } catch {
+      setSaveMsg("Could not reach the billing service.");
+    } finally {
+      setSaving(false);
+    }
+  }
 
   useEffect(() => {
     let cancelled = false;
@@ -94,7 +149,7 @@ export default function DeptDashboard() {
         <p className="mt-1 text-meta text-foreground-muted">
           No fixed tiers. Set your labs and pooled storage; the monthly rate derives
           (cost recovery plus a per-active-lab sustaining contribution). Adjustable
-          any month. Charging arrives with billing (Phase 3); this is a preview.
+          any month, no lock-in.
         </p>
         <div className="mt-3 flex flex-wrap gap-5">
           <Stepper label="Active labs" value={labs} onChange={(d) => setLabs((v) => Math.max(0, v + d))} />
@@ -110,6 +165,49 @@ export default function DeptDashboard() {
           {centsToUsd(rate.totalCents)}
           <span className="text-body font-medium text-foreground-muted">/mo</span>
         </p>
+
+        {billing?.billingEnabled ? (
+          <div className="mt-4 border-t border-brand-action/30 pt-3">
+            {billing.status === "active" ? (
+              <p className="text-meta text-foreground">
+                Billing active at{" "}
+                <b>{centsToUsd(billing.monthlyCents ?? 0)}/mo</b>. Stripe emails the
+                invoice with net 30 terms. Adjust the plan above and update any time.
+              </p>
+            ) : (
+              <p className="text-meta text-foreground-muted">
+                Activate the plan to start a monthly invoice (sent to your email,
+                net 30, PO and ACH or card). The first invoice covers this cycle.
+              </p>
+            )}
+            <div className="mt-2 flex flex-wrap items-center gap-2">
+              <input
+                type="text"
+                value={poNumber}
+                onChange={(e) => setPoNumber(e.target.value)}
+                placeholder="PO number (optional)"
+                className="h-8 rounded-lg border border-border bg-surface px-2 text-meta text-foreground"
+              />
+              <button
+                type="button"
+                onClick={activatePlan}
+                disabled={saving}
+                className="h-8 rounded-lg bg-brand-action px-3 text-meta font-semibold text-white disabled:opacity-60"
+              >
+                {saving
+                  ? "Saving…"
+                  : billing.status === "active"
+                    ? "Update plan"
+                    : "Activate billing"}
+              </button>
+              {saveMsg && <span className="text-meta text-foreground-muted">{saveMsg}</span>}
+            </div>
+          </div>
+        ) : (
+          <p className="mt-3 text-meta text-foreground-muted">
+            Billing is off during the beta; this is a live preview of your rate.
+          </p>
+        )}
       </div>
 
       {/* Usage by lab. */}
