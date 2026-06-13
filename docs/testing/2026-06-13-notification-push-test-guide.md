@@ -20,16 +20,27 @@ crypto. It proves the parts that cannot be unit-tested:
 
 Run it:
 
+Run it (ONE command, boots the relay + runs the smoke + tears down):
+
 ```
 cd relay
-npx wrangler dev --port 8787 --var NOTIFY_COOLDOWN_MS:4000 --var REMINDER_STALE_MS:0
-# in another shell:
-BASE_URL=http://127.0.0.1:8787 npm run smoke:notify
+npm run test:notify
 ```
 
-The two `--var` overrides relax the 30s cooldown / 3-min dead-man's-switch so the
-test does not have to wait (prod uses the real constants; the overrides are unset
-there). Expected: `ALL PASS: 10 passed, 0 failed`. Verified passing 2026-06-13.
+Expected: `ALL PASS: 10 passed, 0 failed`. Verified passing 2026-06-13.
+
+`test:notify` runs `scripts/smoke-notify-local.sh`, which starts `wrangler dev`
+with stdin DETACHED. That matters: wrangler's interactive mode reads single
+keystrokes, so pasting anything into its terminal (even a comment line) can hit a
+hotkey that opens a public cloudflared tunnel and spams "tunnel" errors -- the
+local server is fine, but the noise is alarming. Detaching stdin avoids it. The
+two `--var` overrides relax the 30s cooldown / 3-min dead-man's-switch so the test
+does not wait (prod uses the real constants; the overrides are unset there).
+
+Manual two-terminal fallback (a relay you can poke at by hand): run
+`npx wrangler dev --port 8787 --var NOTIFY_COOLDOWN_MS:4000 --var REMINDER_STALE_MS:0`
+in one terminal and DO NOT type or paste into it, then in a SECOND terminal run
+`BASE_URL=http://127.0.0.1:8787 npm run smoke:notify`.
 
 The ONE thing this cannot prove is the real OS buzz (Expo -> APNs/FCM -> a
 device); it sends to a placeholder Expo token, which Expo accepts then drops.
