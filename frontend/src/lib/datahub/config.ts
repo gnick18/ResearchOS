@@ -30,10 +30,18 @@ export const DATAHUB_ENABLED =
 // in-flight capability flag, flipped by a deliberate code change once the lane is
 // built and verified, not something dogfooders toggle. Default OFF.
 //
-// Increment 1 (this commit) wires the storage + detection + ingest seam behind
-// it; Increment 2 wires the UI (preview grid, status chip, manual switch). The
-// whole lane is dark on main until BIGTABLE_ENABLED flips to true.
-export const BIGTABLE_ENABLED = false;
+// Increment 1 wired the storage + detection + ingest seam behind it; Increment 2
+// wires the UI (preview grid, status chip, manual switch). The whole lane stays
+// dark on main until this flips to true.
+//
+// Default OFF as a plain code const, so it stays dark on main and in prod. It is
+// ALSO openable via NEXT_PUBLIC_DATAHUB_BIGTABLE=1 purely so an in-flight dev
+// server (and the verification harness) can exercise the lane without a code
+// edit. NEXT_PUBLIC_* is inlined at build, default unset, so this changes nothing
+// on main where the env var is absent.
+export const BIGTABLE_ENABLED =
+  process.env.NEXT_PUBLIC_DATAHUB_BIGTABLE === "1" ||
+  process.env.NEXT_PUBLIC_DATAHUB_BIGTABLE === "true";
 
 /** True only when BOTH the Data Hub tab and the big-table lane are enabled. */
 export function isBigTableEnabled(): boolean {

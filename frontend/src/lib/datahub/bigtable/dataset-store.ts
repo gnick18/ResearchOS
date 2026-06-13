@@ -36,6 +36,23 @@ import type { TransformOp } from "@/lib/datahub/transform/pipeline";
 // Paths
 // ---------------------------------------------------------------------------
 
+/**
+ * Allocate the next id for a dataset from the owner's `_counters.json`, sharing
+ * the SAME "datahub" counter the editable lane mints from (api.ts nextDataHubId),
+ * so a dataset and an editable table never collide on an id. Mirrored here (not
+ * imported) because api.ts keeps nextDataHubId private; this reads / bumps the
+ * exact same counter key.
+ */
+export async function nextDatasetId(owner: string): Promise<string> {
+  const path = `users/${owner}/_counters.json`;
+  const counters =
+    (await fileService.readJson<Record<string, number>>(path)) ?? {};
+  const current = (counters.datahub || 0) + 1;
+  counters.datahub = current;
+  await fileService.writeJson(path, counters);
+  return String(current);
+}
+
 /** The per-dataset directory: users/<owner>/datahub/<id>/. */
 export function datasetDir(owner: string, id: string): string {
   return `${dataHubDir(owner)}/${id}`;
@@ -201,4 +218,25 @@ export async function persistDataset(
 /** Remove a dataset's entire directory (sidecar + parquet + original). */
 export async function deleteDataset(owner: string, id: string): Promise<boolean> {
   return fileService.deleteDirectory(datasetDir(owner, id));
+}
+
+/**
+ * List every dataset sidecar for one owner. A dataset lives in its own DIRECTORY
+ * under the datahub dir (`<id>/`), distinct from the editable lane's top-level
+ * `<id>.json` mirror files, so we enumerate sub-directories and open the sidecar
+ * inside each. Directories without a readable dataset.json are skipped (a half
+ * written or non-dataset dir), so the catalog never lists a broken entry.
+ *
+ * Increment 2 wiring: the Data Hub rail and the dataset-view opener read this to
+ * show datasets alongside editable-lane tables. Owner-scoped, mirroring
+ * dataHubApi's per-owner mirror reads.
+ */
+export async function listDatasets(owner: string): Promise<DatasetSidecar[]> {
+  const dirs = await fileService.listDirectories(dataHubDir(owner));
+  const out: DatasetSidecar[] = [];
+  for (const id of dirs) {
+    const sidecar = await readDatasetSidecar(owner, id);
+    if (sidecar) out.push(sidecar);
+  }
+  return out;
 }

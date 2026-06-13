@@ -130,6 +130,10 @@ RUNTIME DEPENDENCIES
   License: MIT
   Source:  https://github.com/TanStack/query
 
+@tanstack/react-virtual@3.14.2
+  License: MIT
+  Source:  https://github.com/TanStack/virtual
+
 @upstash/ratelimit@v2.0.8
   License: MIT
 
