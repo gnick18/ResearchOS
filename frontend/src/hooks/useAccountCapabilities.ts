@@ -32,6 +32,16 @@ import {
 import { EXTERNAL_COLLAB_ENABLED } from "@/lib/loro/config";
 import { isBillingEnabled } from "@/lib/billing/config";
 
+// DEV-ONLY escape so BeakerBot AI can be exercised in the demo / sample lab
+// (the richest fixture data) without a real account. HARD-gated on a non-production
+// build, so it can NEVER relax the account-only lock for real users, even if the
+// flag is set in a deployed env. Set NEXT_PUBLIC_DEV_AI_IN_DEMO=1 in .env.local and
+// restart the dev server. Mirrors the AUTH_DEV_MOCK pattern in lib/sharing/auth.ts.
+const DEV_AI_IN_DEMO =
+  process.env.NODE_ENV !== "production" &&
+  (process.env.NEXT_PUBLIC_DEV_AI_IN_DEMO === "1" ||
+    process.env.NEXT_PUBLIC_DEV_AI_IN_DEMO === "true");
+
 // The coarse headline ("the one var"). Set it and the screen changes; the
 // fine-grained canX flags below derive from this plus the feature flags.
 //   solo    = identity status "none"          (no account here, fully local)
@@ -114,7 +124,9 @@ export function useAccountCapabilities(): AccountCapabilities {
       canPublishProfile: isAccount && isPublished,
 
       // BeakerBot AI is ACCOUNT-ONLY (Grant's lock) and still needs the flag.
-      canUseAI: aiEnabled && isAccount,
+      // DEV_AI_IN_DEMO is a non-production-only escape so the AI can be tested in
+      // the demo lab; it cannot relax the lock for real users (prod-gated).
+      canUseAI: aiEnabled && (isAccount || DEV_AI_IN_DEMO),
 
       // Cross-boundary collaboration needs the build flag, real sharing wired,
       // an account, AND a directory listing to send/receive against. This is the
