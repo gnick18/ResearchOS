@@ -8,7 +8,6 @@
  * (docs/mockups/2026-06-13-companion-unified-header.html):
  *
  *   [ Title .......................... (bell) (today) (settings) ]
- *   [ ConnectionBanner (only when offline / laptop-asleep) .... ]
  *
  * The three buttons are the MAIN buttons and are ALL rendered in the brand
  * accent (palette.sky) as Ionicons, ~24px, consistent on every tab:
@@ -18,8 +17,8 @@
  *
  * The Today button only renders when onToday is provided, so tabs without a
  * Today (or an unpaired / Show-Today-off Notebook) simply pass nothing and the
- * button is hidden. The connection cue lives in the ConnectionBanner under the
- * title, which is itself self-hiding when synced.
+ * button is hidden. The single connection cue lives on the Notebook pairing
+ * card (live / last-synced / offline + tap to Sync now), not in this header.
  *
  * House style: no em-dashes, no emojis, no mid-sentence colons.
  */
@@ -30,7 +29,6 @@ import { useRouter } from 'expo-router';
 
 import { ThemedText } from '@/components/themed-text';
 import { palette } from '@/lib/design';
-import { ConnectionBanner } from '@/components/ui/ConnectionBanner';
 
 export interface TabHeaderProps {
   /** The tab title, shown at the app-wide large-title scale. */
@@ -119,9 +117,6 @@ export function TabHeader({
           </Pressable>
         </View>
       </View>
-
-      {/* App-wide connection cue, self-hiding when synced. */}
-      <ConnectionBanner />
     </View>
   );
 }

@@ -77,6 +77,7 @@ import {
   recordSyncFailure,
   useLaptopLiveness,
   relativeSyncTime,
+  useConnectionStatus,
 } from '@/lib/connection-status';
 import {
   hapticImpact,
@@ -1284,6 +1285,10 @@ function ConnectionCard({
   // pairing is a durable binding that survives a closed laptop.
   const { live, publishedAt } = useLaptopLiveness();
   const rel = relativeSyncTime(publishedAt);
+  // Offline (no network) is distinct from a closed laptop, and it takes priority
+  // in this one cue: if the phone has no network the captures queue locally, so
+  // we say so instead of showing a stale "last synced" line.
+  const offline = useConnectionStatus().state === 'offline';
   return (
     <Pressable
       onPress={onSync}
@@ -1305,6 +1310,13 @@ function ConnectionCard({
             <ActivityIndicator size="small" color={palette.sky} />
             <ThemedText style={[styles.connSub, { color: surface.muted }]}>
               Syncing...
+            </ThemedText>
+          </View>
+        ) : offline ? (
+          <View style={styles.connStatusRow}>
+            <Ionicons name="cloud-offline-outline" size={13} color={palette.danger} />
+            <ThemedText style={[styles.connSub, { color: palette.danger }]}>
+              Offline, captures queued
             </ThemedText>
           </View>
         ) : live ? (

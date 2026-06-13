@@ -32,8 +32,9 @@ export function ScreenHeader({ title }: { title?: string }) {
       {title ? (
         <ThemedText style={[styles.title, { color: surface.text }]}>{title}</ThemedText>
       ) : null}
-      {/* The app-wide sync/connection cue now lives in the TabHeader's
-          ConnectionBanner, so pushed stack screens no longer carry a chip. */}
+      {/* The single sync/connection cue lives on the Notebook pairing card
+          (live / last-synced / offline + tap to Sync now), so pushed stack
+          screens carry no connection chip. */}
       <View style={styles.spacer} />
     </View>
   );
