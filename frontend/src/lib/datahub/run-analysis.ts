@@ -53,6 +53,10 @@ import {
   contingencyTest,
   type ContingencyResult,
   type RatioMeasure,
+  nestedTTest,
+  nestedOneWayAnova,
+  type NestedTTestResult,
+  type NestedAnovaResult,
   shapiroWilk,
   grubbsTest,
   type GrubbsResult,
@@ -113,6 +117,11 @@ import {
   contingencyMatrix,
   hasContingencyData,
 } from "@/lib/datahub/contingency-table";
+import {
+  nestedGroups,
+  nestedGroupNames,
+  hasNestedData,
+} from "@/lib/datahub/nested-table";
 
 /** The analysis types this slice can run. */
 export type AnalysisType =
@@ -137,7 +146,9 @@ export type AnalysisType =
   | "multipleRegression"
   | "grubbsOutlier"
   | "rocCurve"
-  | "contingency";
+  | "contingency"
+  | "nestedTTest"
+  | "nestedOneWayAnova";
 
 /** The analysis types that read a Survival table (time + event + group). */
 export const SURVIVAL_ANALYSIS_TYPES: AnalysisType[] = [
@@ -147,6 +158,16 @@ export const SURVIVAL_ANALYSIS_TYPES: AnalysisType[] = [
 
 /** The analysis types that read a Contingency table (R x C count matrix). */
 export const CONTINGENCY_ANALYSIS_TYPES: AnalysisType[] = ["contingency"];
+
+/**
+ * The analysis types that read a Nested table (groups of subgroups of replicates).
+ * The nested t-test needs exactly 2 top-level groups; the nested one-way ANOVA
+ * needs 3 or more, so validAnalysisTypes gates them by the group count.
+ */
+export const NESTED_ANALYSIS_TYPES: AnalysisType[] = [
+  "nestedTTest",
+  "nestedOneWayAnova",
+];
 
 /**
  * The analysis types that read an XY table. Most pair the single X with ONE Y;
@@ -859,6 +880,90 @@ export interface NormalizedContingency {
   cellConvention: string;
 }
 
+/**
+ * A normalized nested t-test result (exactly 2 top-level groups). The group
+ * difference is tested by a random-intercept mixed model, value ~ group +
+ * (1 | subgroup), fit by REML, the modern GraphPad nested-t-test definition that
+ * treats the subgroup as the unit of biological replication. The estimate is
+ * group B minus group A (group A is the reference); the SE / z / two-sided p / 95%
+ * CI are the nested t-test. The two variance components (the between-subgroup
+ * random-intercept variance and the within-subgroup residual variance) come from
+ * the REML optimum. The group names + means and the subgroup / replicate counts
+ * are carried for the readout.
+ */
+/**
+ * The resolved nested hierarchy carried on a nested result so the Show-the-code
+ * snippet and the export can rebuild the exact long-form data. One entry per
+ * top-level group, each with its subgroups and their finite replicate values.
+ */
+export interface NestedResolvedGroup {
+  name: string;
+  subgroups: { name: string; values: number[] }[];
+}
+
+export interface NormalizedNestedTTest {
+  kind: "nestedTTest";
+  type: "nestedTTest";
+  test: string;
+  /** The resolved hierarchy (groups -> subgroups -> replicate values). */
+  data: NestedResolvedGroup[];
+  /** Group A (reference) and group B names. */
+  groupNames: [string, string];
+  /** Group A and group B replicate-weighted means. */
+  groupMeans: [number, number];
+  /** Group B minus group A, the nested-t-test estimate. */
+  estimate: number;
+  standardError: number;
+  z: number;
+  pValue: number;
+  ci95: [number, number];
+  /** Between-subgroup variance sigma_u^2 (random intercept). */
+  subgroupVariance: number;
+  /** Within-subgroup residual variance sigma_e^2. */
+  residualVariance: number;
+  remlLogLikelihood: number;
+  /** Total subgroups across both groups, and total replicate observations. */
+  subgroups: number;
+  observations: number;
+}
+
+/**
+ * A normalized nested one-way ANOVA result (3 or more top-level groups). A
+ * balanced design takes the EXACT classic random-effects F (group mean square
+ * over the subgroup-within-group mean square); an unbalanced design falls back to
+ * the REML mixed-model omnibus, flagged in `method`. The omnibus F, its two df,
+ * and p test the group effect against the subgroup-level variation, so the
+ * technical replicates are not pseudo-replicated. The classic nested-ANOVA table
+ * (Groups, Subgroups within groups, Replicates within subgroups), the two
+ * variance components, the group names, and the subgroup / replicate counts are
+ * carried for the readout.
+ */
+export interface NormalizedNestedAnova {
+  kind: "nestedOneWayAnova";
+  type: "nestedOneWayAnova";
+  test: string;
+  /** The resolved hierarchy (groups -> subgroups -> replicate values). */
+  data: NestedResolvedGroup[];
+  /** Which route produced the omnibus, "classic-f" (balanced) or "mixed-model". */
+  method: "classic-f" | "mixed-model";
+  /** True when the design is balanced (classic F is exact). */
+  balanced: boolean;
+  f: number;
+  /** Numerator df (groups - 1) and denominator df (subgroups - groups). */
+  dfBetween: number;
+  dfSubgroups: number;
+  pValue: number;
+  /** The classic nested-ANOVA table rows (SS fields NaN for the mixed route). */
+  table: NestedAnovaResult["table"];
+  /** Between-subgroup variance component. */
+  subgroupVariance: number;
+  /** Within-subgroup residual variance component. */
+  residualVariance: number;
+  groupNames: string[];
+  subgroups: number;
+  observations: number;
+}
+
 export type NormalizedResult =
   | NormalizedTTest
   | NormalizedAnova
@@ -876,7 +981,9 @@ export type NormalizedResult =
   | NormalizedSurvival
   | NormalizedCoxRegression
   | NormalizedGrubbsOutlier
-  | NormalizedContingency;
+  | NormalizedContingency
+  | NormalizedNestedTTest
+  | NormalizedNestedAnova;
 
 /** A failed run carries the engine (or resolver) reason so the UI can show it. */
 export interface RunFailure {
@@ -959,6 +1066,16 @@ export function validAnalysisTypes(content: DataHubDocContent): AnalysisType[] {
   }
   if (content.meta.table_type === "contingency") {
     return hasContingencyData(content) ? [...CONTINGENCY_ANALYSIS_TYPES] : [];
+  }
+  if (content.meta.table_type === "nested") {
+    if (!hasNestedData(content)) return [];
+    // The nested t-test reads exactly 2 top-level groups; the nested one-way
+    // ANOVA reads 3 or more. Offer the one the group count supports so a
+    // researcher never picks a test the design cannot run.
+    const g = nestedGroupNames(content).length;
+    if (g === 2) return ["nestedTTest"];
+    if (g >= 3) return ["nestedOneWayAnova"];
+    return [];
   }
   // A Column table in a summary entry format offers only the summary-compatible
   // tests, gated by the number of entered groups (2+ for the unpaired t, 3+ for
@@ -1740,6 +1857,91 @@ function runContingencyAnalysis(
   };
 }
 
+/**
+ * Drop empty subgroups (no finite replicates) and empty groups from a resolved
+ * nested hierarchy, matching exactly what the engine cleans internally, so the
+ * baked-in show-code data reproduces the run.
+ */
+function cleanNestedData(
+  groups: { name: string; subgroups: { name: string; values: number[] }[] }[],
+): NestedResolvedGroup[] {
+  return groups
+    .map((g) => ({
+      name: g.name,
+      subgroups: g.subgroups
+        .map((s) => ({
+          name: s.name,
+          values: s.values.filter((v) => Number.isFinite(v)),
+        }))
+        .filter((s) => s.values.length > 0),
+    }))
+    .filter((g) => g.subgroups.length > 0);
+}
+
+/**
+ * Run the nested t-test on a Nested table. Resolves the grid into the hierarchy
+ * (groups -> subgroups -> replicates) and runs the engine's nestedTTest, which
+ * fits the random-intercept mixed model and reads the group fixed effect as the
+ * nested t-test. Exactly 2 top-level groups.
+ */
+function runNestedTTest(content: DataHubDocContent): RunOutcome {
+  const groups = nestedGroups(content);
+  const r = nestedTTest(groups);
+  if (!r.ok) return { ok: false, error: r.error };
+  const res = r as NestedTTestResult & { ok: true };
+  return {
+    ok: true,
+    kind: "nestedTTest",
+    type: "nestedTTest",
+    test: res.test,
+    data: cleanNestedData(groups),
+    groupNames: res.groupNames,
+    groupMeans: res.groupMeans,
+    estimate: res.estimate,
+    standardError: res.standardError,
+    z: res.z,
+    pValue: res.pValue,
+    ci95: [res.ciLow, res.ciHigh],
+    subgroupVariance: res.subgroupVariance,
+    residualVariance: res.residualVariance,
+    remlLogLikelihood: res.remlLogLikelihood,
+    subgroups: res.subgroups,
+    observations: res.observations,
+  };
+}
+
+/**
+ * Run the nested one-way ANOVA on a Nested table. Resolves the grid into the
+ * hierarchy and runs the engine's nestedOneWayAnova, which uses the exact classic
+ * random-effects F for a balanced design and the REML mixed-model omnibus for an
+ * unbalanced one. 3 or more top-level groups.
+ */
+function runNestedAnova(content: DataHubDocContent): RunOutcome {
+  const groups = nestedGroups(content);
+  const r = nestedOneWayAnova(groups);
+  if (!r.ok) return { ok: false, error: r.error };
+  const res = r as NestedAnovaResult & { ok: true };
+  return {
+    ok: true,
+    kind: "nestedOneWayAnova",
+    type: "nestedOneWayAnova",
+    test: res.test,
+    data: cleanNestedData(groups),
+    method: res.method,
+    balanced: res.balanced,
+    f: res.f,
+    dfBetween: res.dfBetween,
+    dfSubgroups: res.dfSubgroups,
+    pValue: res.pValue,
+    table: res.table,
+    subgroupVariance: res.subgroupVariance,
+    residualVariance: res.residualVariance,
+    groupNames: res.groupNames,
+    subgroups: res.subgroups,
+    observations: res.observations,
+  };
+}
+
 /** Run a two-way ANOVA on a Grouped table's flattened observations. */
 function runTwoWayAnalysis(
   content: DataHubDocContent,
@@ -2005,6 +2207,14 @@ export function runAnalysis(
 
   if (type === "contingency") {
     return runContingencyAnalysis(content, spec);
+  }
+
+  if (type === "nestedTTest") {
+    return runNestedTTest(content);
+  }
+
+  if (type === "nestedOneWayAnova") {
+    return runNestedAnova(content);
   }
 
   if (type === "multipleRegression") {

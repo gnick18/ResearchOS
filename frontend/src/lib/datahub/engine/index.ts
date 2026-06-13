@@ -37,8 +37,28 @@ export {
 } from "./anova";
 
 // Random-intercept linear mixed model (REML), the within-subject design's
-// regression cousin to repeated-measures ANOVA.
-export { randomInterceptModel } from "./mixed-model";
+// regression cousin to repeated-measures ANOVA. fitRandomInterceptLong is the
+// generic long-form solver the nested analyses reuse.
+export {
+  randomInterceptModel,
+  fitRandomInterceptLong,
+  type LongRow,
+  type LongRandomInterceptFit,
+} from "./mixed-model";
+
+// Nested (hierarchical) analyses: the nested t-test and nested one-way ANOVA,
+// for technical replicates nested within biological replicates. Both reuse the
+// random-intercept REML solver; the balanced nested ANOVA also has an exact
+// classic-F route.
+export {
+  nestedTTest,
+  nestedOneWayAnova,
+  type NestedGroup,
+  type NestedSubgroup,
+  type NestedTTestResult,
+  type NestedAnovaResult,
+  type NestedAnovaRow,
+} from "./nested";
 
 // Correlation.
 export { pearson, spearman } from "./correlation";

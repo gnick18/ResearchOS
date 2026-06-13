@@ -42,6 +42,8 @@ import {
   type NormalizedCoxRegression,
   type NormalizedGrubbsOutlier,
   type NormalizedContingency,
+  type NormalizedNestedTTest,
+  type NormalizedNestedAnova,
   type NormalizedTTest,
   type NormalizedTwoWayAnova,
 } from "@/lib/datahub/run-analysis";
@@ -283,6 +285,135 @@ function MixedModelTable({ r }: { r: NormalizedMixedModel }) {
         their own baseline, so the between-subject variance is the spread of those
         baselines and the residual variance is the leftover within-subject scatter.
         Fit by REML, the same method statsmodels MixedLM uses.
+      </p>
+    </>
+  );
+}
+
+/**
+ * Nested t-test table. The group contrast (the second group minus the first) is
+ * the nested t-test, with its SE / z / p / 95% interval, plus the group means and
+ * the two variance components. The verdict rests on the subgroups as the unit of
+ * replication, so the technical replicates are not pseudo-replicated.
+ */
+function NestedTTestTable({ r }: { r: NormalizedNestedTTest }) {
+  const [a, b] = r.groupNames;
+  return (
+    <>
+      <KeyValueTable
+        testid="results-nested-ttest-table"
+        rows={[
+          { label: `Mean (${a})`, value: num(r.groupMeans[0], 4) },
+          { label: `Mean (${b})`, value: num(r.groupMeans[1], 4) },
+          {
+            label: `Difference (${b} minus ${a})`,
+            value: num(r.estimate, 4),
+          },
+          { label: "Standard error", value: num(r.standardError, 4) },
+          { label: "z", value: num(r.z, 3) },
+          { label: "p", value: formatP(r.pValue) },
+          { label: "95% CI of difference", value: ciText(r.ci95) },
+        ]}
+      />
+      <KeyValueTable
+        testid="results-nested-ttest-variance-table"
+        rows={[
+          {
+            label: "Between-subgroup variance (sigma_u^2)",
+            value: num(r.subgroupVariance, 4),
+          },
+          {
+            label: "Within-subgroup variance (sigma_e^2)",
+            value: num(r.residualVariance, 4),
+          },
+          { label: "REML log-likelihood", value: num(r.remlLogLikelihood, 3) },
+          { label: "Subgroups", value: num(r.subgroups, 0) },
+          { label: "Replicate observations", value: num(r.observations, 0) },
+        ]}
+      />
+      <p className="mt-2 max-w-xl text-meta text-foreground-muted">
+        The difference is tested by a random-intercept mixed model, so the
+        subgroup-to-subgroup variation is accounted for and the technical
+        replicates are not pseudo-replicated. The between-subgroup variance is the
+        spread of subgroup baselines; the within-subgroup variance is the leftover
+        scatter among replicates. Fit by REML, the same method statsmodels MixedLM
+        uses.
+      </p>
+    </>
+  );
+}
+
+/**
+ * Nested one-way ANOVA table. The classic nested-ANOVA table (Groups, Subgroups
+ * within groups, Replicates within subgroups) with the group F tested against the
+ * subgroup-within-group mean square, plus the two variance components. A balanced
+ * design uses the exact classic F; an unbalanced one falls back to the mixed model
+ * (flagged below the table).
+ */
+function NestedAnovaTable({ r }: { r: NormalizedNestedAnova }) {
+  return (
+    <>
+      <table
+        className="w-full border-collapse text-body tabular-nums"
+        data-testid="results-nested-anova-table"
+      >
+        <thead>
+          <tr className="text-meta uppercase tracking-wide text-foreground-muted">
+            <th className="border-b border-border px-3 py-1.5 text-left">Source</th>
+            <th className="border-b border-border px-3 py-1.5 text-right">SS</th>
+            <th className="border-b border-border px-3 py-1.5 text-right">df</th>
+            <th className="border-b border-border px-3 py-1.5 text-right">MS</th>
+            <th className="border-b border-border px-3 py-1.5 text-right">F</th>
+            <th className="border-b border-border px-3 py-1.5 text-right">p</th>
+          </tr>
+        </thead>
+        <tbody>
+          {r.table.map((row) => (
+            <tr key={row.source}>
+              <td className="border-b border-border px-3 py-1.5 text-foreground">
+                {row.source}
+              </td>
+              <td className="border-b border-border px-3 py-1.5 text-right">
+                {Number.isFinite(row.ss) ? num(row.ss, 2) : "-"}
+              </td>
+              <td className="border-b border-border px-3 py-1.5 text-right">
+                {row.df}
+              </td>
+              <td className="border-b border-border px-3 py-1.5 text-right">
+                {Number.isFinite(row.ms) ? num(row.ms, 2) : "-"}
+              </td>
+              <td className="border-b border-border px-3 py-1.5 text-right">
+                {row.f === null ? "" : num(row.f, 2)}
+              </td>
+              <td className="border-b border-border px-3 py-1.5 text-right">
+                {row.pValue === null ? "" : formatP(row.pValue)}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      <KeyValueTable
+        testid="results-nested-anova-variance-table"
+        rows={[
+          {
+            label: "Between-subgroup variance",
+            value: num(r.subgroupVariance, 4),
+          },
+          {
+            label: "Within-subgroup variance (residual)",
+            value: num(r.residualVariance, 4),
+          },
+          { label: "Subgroups", value: num(r.subgroups, 0) },
+          { label: "Replicate observations", value: num(r.observations, 0) },
+        ]}
+      />
+      <p className="mt-2 max-w-xl text-meta text-foreground-muted">
+        The group effect is tested against the subgroup-to-subgroup mean square,
+        not the replicate scatter, so the technical replicates are not
+        pseudo-replicated.{" "}
+        {r.balanced
+          ? "This balanced design uses the exact classic random-effects F."
+          : "This unbalanced design falls back to a random-intercept mixed model, where the classic balanced F is not exact."}
       </p>
     </>
   );
@@ -1669,6 +1800,22 @@ function resultTabs(result: NormalizedResult): {
           id: "tabular",
           label: "Tabular results",
           render: () => <ContingencyTables r={result} />,
+        },
+      ];
+    case "nestedTTest":
+      return [
+        {
+          id: "tabular",
+          label: "Tabular results",
+          render: () => <NestedTTestTable r={result} />,
+        },
+      ];
+    case "nestedOneWayAnova":
+      return [
+        {
+          id: "tabular",
+          label: "Tabular results",
+          render: () => <NestedAnovaTable r={result} />,
         },
       ];
     default:

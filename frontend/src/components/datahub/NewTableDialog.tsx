@@ -60,6 +60,13 @@ const TABLE_TYPES: {
       "Counts in an R x C grid of two categorical factors, for the chi-square test and a 2x2 Fisher exact test with relative risk and odds ratio.",
     enabled: true,
   },
+  {
+    type: "nested",
+    label: "Nested",
+    blurb:
+      "Technical replicates nested within biological replicates (cells within a mouse, mice within a treatment), for the nested t-test and nested one-way ANOVA.",
+    enabled: true,
+  },
 ];
 
 export default function NewTableDialog({

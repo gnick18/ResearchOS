@@ -28,13 +28,21 @@ import type { TransformOp } from "@/lib/datahub/transform/pipeline";
  * headers and column headers are both editable text labels (the two factors), and
  * the cells hold counts. The engine runs a chi-square test of independence and,
  * for a 2x2 layout, Fisher's exact test plus relative-risk / odds-ratio measures.
+ *
+ * A "nested" table is a hierarchical design. Each top-level GROUP (a treatment)
+ * holds SUBGROUPS (biological replicates, e.g. animals), each holding REPLICATE
+ * values (technical replicates, e.g. cells). The engine runs the nested t-test (2
+ * groups) and the nested one-way ANOVA (3 or more groups), treating the subgroup
+ * as the unit of biological replication so the technical replicates are not
+ * pseudo-replicated.
  */
 export type DataHubTableType =
   | "column"
   | "xy"
   | "grouped"
   | "survival"
-  | "contingency";
+  | "contingency"
+  | "nested";
 
 /**
  * The role a column plays in the table. Prism groups replicate subcolumns under
@@ -153,6 +161,17 @@ export interface ColumnDef {
   datasetId?: string;
   /** What this column holds when it is a subcolumn of a Y dataset. */
   subcolumnKind?: SubcolumnKind;
+  /**
+   * The top-level GROUP display name, for a NESTED table only. Optional and
+   * additive. A nested table models each top-level group (a treatment) as a
+   * datasetId-keyed family of SUBGROUP columns (one column per biological
+   * replicate, e.g. a mouse); the subgroup label lives on the column `name`, and
+   * the parent group's display name is carried here, repeated on every subgroup
+   * column of that group (the same way the Grouped table repeats a group name on
+   * its replicate columns). Absent for every other table type, so a document
+   * written before this field existed reads back byte-identical.
+   */
+  groupName?: string;
 }
 
 /** A cell value as stored in a row. */

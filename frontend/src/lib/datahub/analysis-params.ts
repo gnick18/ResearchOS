@@ -316,6 +316,10 @@ export const ANALYSIS_PARAM_SCHEMA: Record<string, ParamField[]> = {
   globalFit: [GLOBAL_FIT_MODEL_FIELD, GLOBAL_FIT_SHARE_FIELD],
   grubbsOutlier: [GRUBBS_ALPHA_FIELD, GRUBBS_MODE_FIELD],
   contingency: [CONTINGENCY_YATES_FIELD],
+  // The nested tests read the whole table and take no editable options (the
+  // balanced-vs-unbalanced route is chosen automatically from the design).
+  nestedTTest: [],
+  nestedOneWayAnova: [],
 };
 
 /**

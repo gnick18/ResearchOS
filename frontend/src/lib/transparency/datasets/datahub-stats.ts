@@ -22,7 +22,11 @@
  * deterministic. No em-dashes, no emojis, no mid-sentence colons.
  */
 
-import type { SurvivalObservation, TwoWayCell } from "@/lib/datahub/engine";
+import type {
+  SurvivalObservation,
+  TwoWayCell,
+  NestedGroup,
+} from "@/lib/datahub/engine";
 
 /* --------------------------------------------------------- the fixed dataset */
 
@@ -128,6 +132,51 @@ export const TWOWAY: TwoWayCell[] = (
     ["High", "PM", 15.2], ["High", "PM", 14.8], ["High", "PM", 15.6],
   ] as [string, string, number][]
 ).map(([factorA, factorB, value]) => ({ factorA, factorB, value }));
+
+/**
+ * Balanced nested designs. Top-level groups (treatments) each hold subgroups
+ * (biological replicates, e.g. animals), each holding replicate values (technical
+ * replicates, e.g. cells). Both are FULLY BALANCED (same subgroup count per group,
+ * same replicate count per subgroup) so the classic nested-ANOVA F is exact and
+ * the mixed-model fixed effects pin tight. Mirrored verbatim in the generator.
+ *
+ * NESTED_T: 2 groups x 3 subgroups x 4 replicates, for the nested t-test.
+ */
+export const NESTED_T: NestedGroup[] = [
+  {
+    name: "Control",
+    subgroups: [
+      { name: "C1", values: [5.1, 5.3, 4.9, 5.2] },
+      { name: "C2", values: [5.5, 5.7, 5.4, 5.6] },
+      { name: "C3", values: [4.7, 4.9, 4.6, 4.8] },
+    ],
+  },
+  {
+    name: "Drug",
+    subgroups: [
+      { name: "D1", values: [6.2, 6.4, 6.1, 6.3] },
+      { name: "D2", values: [6.8, 7.0, 6.7, 6.9] },
+      { name: "D3", values: [5.9, 6.1, 5.8, 6.0] },
+    ],
+  },
+];
+
+/**
+ * NESTED_ANOVA: 3 groups x 3 subgroups x 4 replicates, for the nested one-way
+ * ANOVA. The first two groups are the same as NESTED_T; a third group sits
+ * between them so the omnibus is significant but not extreme.
+ */
+export const NESTED_ANOVA: NestedGroup[] = [
+  ...NESTED_T,
+  {
+    name: "Vehicle",
+    subgroups: [
+      { name: "V1", values: [5.6, 5.8, 5.5, 5.7] },
+      { name: "V2", values: [6.0, 6.2, 5.9, 6.1] },
+      { name: "V3", values: [5.2, 5.4, 5.1, 5.3] },
+    ],
+  },
+];
 
 const surv = (rows: [number, number][]): SurvivalObservation[] =>
   rows.map(([time, event]) => ({ time, event }));
@@ -416,6 +465,38 @@ export const STAT_PINS: StatPin[] = [
   { id: "lmm_group_var", metric: "Linear mixed model, between-subject variance (sigma_u^2)", reference: 0.086325, oracleId: "statsmodels", tol: 5e-3, warn: 1e-2, unit: "variance" },
   { id: "lmm_residual_var", metric: "Linear mixed model, residual variance (sigma_e^2)", reference: 0.006334, oracleId: "statsmodels", tol: 5e-3, warn: 1e-2, unit: "variance" },
   { id: "lmm_reml_loglike", metric: "Linear mixed model, REML log-likelihood", reference: 4.654847, oracleId: "statsmodels", tol: 1e-2, warn: 5e-2, unit: "logLik" },
+
+  // --- nested t-test (statsmodels MixedLM, REML) on NESTED_T -------------------
+  // value ~ group + (1 | subgroup), the modern GraphPad nested-t-test definition.
+  // The group fixed effect (Drug minus Control) IS the nested t-test. The
+  // fixed-effect estimate / SE / z / p / CI are well-conditioned and stable across
+  // implementations, so they pin TIGHT. The variance components and the REML
+  // log-likelihood come from a numeric optimum, so they pin on an HONEST looser
+  // band (the same convention the linearMixedModel pins use above).
+  { id: "nested_t_estimate", metric: "Nested t-test, group difference estimate (Drug minus Control)", reference: 1.208333, oracleId: "statsmodels", tol: 1e-3, warn: 5e-3, unit: "estimate" },
+  { id: "nested_t_se", metric: "Nested t-test, group difference SE", reference: 0.351272, oracleId: "statsmodels", tol: 1e-3, warn: 5e-3, unit: "SE" },
+  { id: "nested_t_z", metric: "Nested t-test, Wald z", reference: 3.439876, oracleId: "statsmodels", tol: 1e-3, warn: 5e-3, unit: "z" },
+  { id: "nested_t_p", metric: "Nested t-test, two-sided p", reference: 0.000582, oracleId: "statsmodels", tol: 1e-4, warn: 5e-4, unit: "p" },
+  { id: "nested_t_ci_low", metric: "Nested t-test, 95% CI lower bound", reference: 0.519852, oracleId: "statsmodels", tol: 1e-3, warn: 5e-3, unit: "CI" },
+  { id: "nested_t_ci_high", metric: "Nested t-test, 95% CI upper bound", reference: 1.896814, oracleId: "statsmodels", tol: 1e-3, warn: 5e-3, unit: "CI" },
+  { id: "nested_t_subgroup_var", metric: "Nested t-test, between-subgroup variance (sigma_u^2)", reference: 0.180401, oracleId: "statsmodels", tol: 5e-3, warn: 1e-2, unit: "variance" },
+  { id: "nested_t_residual_var", metric: "Nested t-test, within-subgroup variance (sigma_e^2)", reference: 0.01875, oracleId: "statsmodels", tol: 5e-3, warn: 1e-2, unit: "variance" },
+  { id: "nested_t_reml_loglike", metric: "Nested t-test, REML log-likelihood", reference: 2.688584, oracleId: "statsmodels", tol: 1e-2, warn: 5e-2, unit: "logLik" },
+
+  // --- nested one-way ANOVA (exact balanced classic F) on NESTED_ANOVA --------
+  // The balanced random-effects nested ANOVA F = MS_groups / MS_subgroups-within-
+  // groups, computed from the sums of squares by hand. The whole decomposition is
+  // EXACT for a balanced design (no optimizer involved), so the F, its p, the sums
+  // of squares, and the method-of-moments variance components all pin TIGHT
+  // against the hand computation (cross-checked by statsmodels MixedLM for the
+  // variance components). p = scipy.stats.f.sf(F, 2, 6).
+  { id: "nested_anova_f", metric: "Nested one-way ANOVA, F (group MS over subgroup-within-group MS)", reference: 6.247937, oracleId: "scipy", tol: 1e-3, warn: 5e-3, unit: "F" },
+  { id: "nested_anova_p", metric: "Nested one-way ANOVA, p", reference: 0.034137, oracleId: "scipy", tol: 1e-4, warn: 5e-4, unit: "p" },
+  { id: "nested_anova_ss_groups", metric: "Nested one-way ANOVA, SS groups", reference: 8.833889, oracleId: "scipy", tol: 1e-3, warn: 5e-3, unit: "SS" },
+  { id: "nested_anova_ss_subgroups", metric: "Nested one-way ANOVA, SS subgroups within groups", reference: 4.241667, oracleId: "scipy", tol: 1e-3, warn: 5e-3, unit: "SS" },
+  { id: "nested_anova_ss_error", metric: "Nested one-way ANOVA, SS replicates within subgroups", reference: 0.4875, oracleId: "scipy", tol: 1e-3, warn: 5e-3, unit: "SS" },
+  { id: "nested_anova_subgroup_var", metric: "Nested one-way ANOVA, between-subgroup variance component", reference: 0.172222, oracleId: "scipy", tol: 1e-3, warn: 5e-3, unit: "variance" },
+  { id: "nested_anova_residual_var", metric: "Nested one-way ANOVA, within-subgroup variance (residual)", reference: 0.018056, oracleId: "scipy", tol: 1e-3, warn: 5e-3, unit: "variance" },
 
   // --- correlation + regression (scipy.stats.pearsonr / spearmanr / linregress) ---
   { id: "pearson_r", metric: "Pearson correlation, r", reference: 0.999419, oracleId: "scipy", tol: 1e-4, warn: 5e-4, unit: "r" },

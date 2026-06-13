@@ -30,6 +30,8 @@ import type {
   NormalizedCoxRegression,
   NormalizedGrubbsOutlier,
   NormalizedContingency,
+  NormalizedNestedTTest,
+  NormalizedNestedAnova,
   NormalizedTTest,
   NormalizedTwoWayAnova,
   RunGroup,
@@ -1141,6 +1143,125 @@ for label in labels:
 }
 
 /**
+ * Emit the nested hierarchy as a Python dict literal: group name -> list of
+ * subgroup replicate lists. Baked in so the snippet rebuilds the exact long form.
+ */
+function nestedDataLiteral(
+  data: { name: string; subgroups: { name: string; values: number[] }[] }[],
+): string {
+  const groups = data
+    .map((g) => {
+      const subs = g.subgroups.map((s) => `        ${pyList(s.values)},`).join("\n");
+      return `    ${pyStr(g.name.trim())}: [\n${subs}\n    ],`;
+    })
+    .join("\n");
+  return `{\n${groups}\n}`;
+}
+
+/**
+ * The shared long-form reshape + the statsmodels MixedLM fit for both nested
+ * tests. The fixed effect treatment-codes the top-level group (the first group is
+ * the reference); the random intercept groups by subgroup. value ~ group +
+ * (1 | subgroup), fit by REML, is the modern GraphPad nested-test definition.
+ */
+function nestedLongFormPreamble(literal: string): string {
+  return `import numpy as np
+import pandas as pd
+import statsmodels.api as sm
+from scipy import stats
+
+# groups -> subgroups -> replicate values (technical replicates nested within
+# biological replicates). Each subgroup is one biological replicate.
+design = ${literal}
+
+# Reshape to long form: one row per replicate, tagged with its group and a globally
+# unique subgroup index (the random-intercept unit).
+labels = list(design.keys())
+rows = []
+sub_index = 0
+for gname in labels:
+    for sub in design[gname]:
+        for v in sub:
+            rows.append({"group": gname, "subgroup": sub_index, "value": v})
+        sub_index += 1
+df = pd.DataFrame(rows)
+# Treatment-code group with the first label as the reference.
+df["group"] = pd.Categorical(df["group"], categories=labels)`;
+}
+
+/**
+ * Nested t-test. value ~ group + (1 | subgroup) fit by REML; the group fixed
+ * effect IS the nested t-test (the modern GraphPad definition). Reproduces the
+ * estimate / SE / z / p / CI and the variance components on screen.
+ */
+function nestedTTestCode(r: NormalizedNestedTTest): string {
+  return `${nestedLongFormPreamble(nestedDataLiteral(r.data))}
+
+# Random-intercept mixed model. The single group fixed effect (the second group
+# minus the first) is the nested t-test, accounting for the subgroup-to-subgroup
+# variation so the technical replicates are not pseudo-replicated.
+md = sm.MixedLM.from_formula(
+    "value ~ C(group)", groups="subgroup", re_formula="1", data=df
+)
+mdf = md.fit(reml=True, method="lbfgs")
+print(mdf.summary())
+
+# The group contrast row is the nested t-test (estimate, SE, z, p, 95% CI).
+print(f"between-subgroup variance = {mdf.cov_re.iloc[0, 0]:.6g}")
+print(f"residual variance = {mdf.scale:.6g}")
+print(f"REML log-likelihood = {mdf.llf:.6g}")`;
+}
+
+/**
+ * Nested one-way ANOVA. For a BALANCED design the exact classic random-effects F
+ * = MS_groups / MS_subgroups-within-groups is computed from the sums of squares by
+ * hand (the textbook nested ANOVA); the snippet also fits the MixedLM for the
+ * variance components. For an UNBALANCED design the engine uses the mixed-model
+ * route, which this snippet mirrors with the MixedLM omnibus.
+ */
+function nestedAnovaCode(r: NormalizedNestedAnova): string {
+  const balancedBlock = `
+# Balanced classic random-effects nested ANOVA. With a groups, b subgroups each,
+# and n replicates each, F = MS_groups / MS_subgroups-within-groups tested on
+# (a - 1, a(b - 1)) degrees of freedom.
+a = len(labels)
+b = len(design[labels[0]])
+n = len(design[labels[0]][0])
+all_vals = np.array([v for g in labels for sub in design[g] for v in sub])
+grand = all_vals.mean()
+group_means = {g: np.array([v for sub in design[g] for v in sub]).mean() for g in labels}
+ss_groups = sum(b * n * (group_means[g] - grand) ** 2 for g in labels)
+ss_sub = 0.0
+ss_err = 0.0
+for g in labels:
+    for sub in design[g]:
+        sm_ = np.array(sub).mean()
+        ss_sub += n * (sm_ - group_means[g]) ** 2
+        ss_err += sum((v - sm_) ** 2 for v in sub)
+df_groups, df_sub, df_err = a - 1, a * (b - 1), a * b * (n - 1)
+ms_groups, ms_sub, ms_err = ss_groups / df_groups, ss_sub / df_sub, ss_err / df_err
+F = ms_groups / ms_sub
+p = stats.f.sf(F, df_groups, df_sub)
+print(f"F({df_groups}, {df_sub}) = {F:.6g}, p = {p:.6g}")
+print(f"residual variance = {ms_err:.6g}")
+print(f"between-subgroup variance = {max(0.0, (ms_sub - ms_err) / n):.6g}")
+`;
+  const mixedBlock = `
+# Unbalanced design: test the group effect through the random-intercept mixed
+# model instead (the classic balanced F is not exact when counts differ).
+md = sm.MixedLM.from_formula(
+    "value ~ C(group)", groups="subgroup", re_formula="1", data=df
+)
+mdf = md.fit(reml=True, method="lbfgs")
+print(mdf.summary())
+print(f"between-subgroup variance = {mdf.cov_re.iloc[0, 0]:.6g}")
+print(f"residual variance = {mdf.scale:.6g}")
+`;
+  return `${nestedLongFormPreamble(nestedDataLiteral(r.data))}
+${r.balanced ? balancedBlock : mixedBlock}`;
+}
+
+/**
  * The reproducible Python snippet for a normalized analysis result, with the
  * real group names and values baked in so it reproduces the on-screen numbers.
  */
@@ -1163,5 +1284,7 @@ export function showCode(result: NormalizedResult): string {
   if (result.kind === "coxRegression") return coxRegressionCode(result);
   if (result.kind === "grubbsOutlier") return grubbsCode(result);
   if (result.kind === "contingency") return contingencyCode(result);
+  if (result.kind === "nestedTTest") return nestedTTestCode(result);
+  if (result.kind === "nestedOneWayAnova") return nestedAnovaCode(result);
   return ttestCode(result);
 }

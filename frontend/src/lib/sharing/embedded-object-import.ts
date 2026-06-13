@@ -333,7 +333,7 @@ async function importDataHub(
   const metaBlock = (content.meta ?? {}) as Record<string, unknown>;
   const name = typeof metaBlock.name === "string" ? metaBlock.name : obj.name;
   // Default to "column" table type if the stored value is not recognized.
-  const allowedTableTypes = ["column", "xy", "grouped", "survival"] as const;
+  const allowedTableTypes = ["column", "xy", "grouped", "survival", "contingency", "nested"] as const;
   type TableType = typeof allowedTableTypes[number];
   const rawTableType = typeof metaBlock.table_type === "string" ? metaBlock.table_type : "column";
   const tableType: TableType = allowedTableTypes.includes(rawTableType as TableType)

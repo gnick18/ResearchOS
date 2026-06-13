@@ -31,6 +31,8 @@ import {
   friedman,
   repeatedMeasuresAnova,
   randomInterceptModel,
+  nestedTTest,
+  nestedOneWayAnova,
   pearson,
   spearman,
   linearRegression,
@@ -105,6 +107,8 @@ import {
   MLR_X1,
   MLR_X2,
   MLR_Y,
+  NESTED_T,
+  NESTED_ANOVA,
   OUTLIER_SAMPLE,
   PAIR_X,
   PAIR_Y,
@@ -1253,6 +1257,27 @@ function runDatahubEngine(): Record<string, number> {
   const lmmQ = lmm.fixedEffects[1];
   const lmmR = lmm.fixedEffects[2];
 
+  // Nested t-test on the balanced NESTED_T design (2 groups x 3 subgroups x 4
+  // replicates). value ~ group + (1 | subgroup), fit by REML; the group fixed
+  // effect (Drug minus Control) is the nested t-test, cross-checking statsmodels
+  // MixedLM. The fixed effect + SE + CI pin tight; the variance components and the
+  // REML log-likelihood pin on an honest looser band (optimizer-sensitive).
+  const nestT = need(nestedTTest(NESTED_T), "nested t-test");
+  // Nested one-way ANOVA on the balanced NESTED_ANOVA design (3 groups x 3
+  // subgroups x 4 replicates). The exact classic random-effects F = MS_groups /
+  // MS_subgroups-within-groups, cross-checking the hand computation in the
+  // generator. Every quantity here is exact for a balanced design, so they pin
+  // tight (no optimizer wobble). The Groups, Subgroups, and Replicates rows carry
+  // the sums of squares.
+  const nestA = need(nestedOneWayAnova(NESTED_ANOVA), "nested one-way ANOVA");
+  const nestAGroups = nestA.table.find((t) => t.source === "Groups")!;
+  const nestASub = nestA.table.find(
+    (t) => t.source === "Subgroups within groups",
+  )!;
+  const nestAErr = nestA.table.find(
+    (t) => t.source === "Replicates within subgroups",
+  )!;
+
   const pear = need(pearson(XY_X, XY_Y), "Pearson correlation");
   const spear = need(spearman(XY_X, XY_Y), "Spearman correlation");
   const reg = need(linearRegression(XY_X, XY_Y), "linear regression");
@@ -1557,6 +1582,24 @@ function runDatahubEngine(): Record<string, number> {
     lmm_residual_var: lmm.residualVariance,
     lmm_reml_loglike: lmm.remlLogLikelihood,
 
+    nested_t_estimate: nestT.estimate,
+    nested_t_se: nestT.standardError,
+    nested_t_z: nestT.z,
+    nested_t_p: nestT.pValue,
+    nested_t_ci_low: nestT.ciLow,
+    nested_t_ci_high: nestT.ciHigh,
+    nested_t_subgroup_var: nestT.subgroupVariance,
+    nested_t_residual_var: nestT.residualVariance,
+    nested_t_reml_loglike: nestT.remlLogLikelihood,
+
+    nested_anova_f: nestA.f,
+    nested_anova_p: nestA.pValue,
+    nested_anova_ss_groups: nestAGroups.ss,
+    nested_anova_ss_subgroups: nestASub.ss,
+    nested_anova_ss_error: nestAErr.ss,
+    nested_anova_subgroup_var: nestA.subgroupVariance,
+    nested_anova_residual_var: nestA.residualVariance,
+
     pearson_r: pear.coefficient,
     pearson_p: pear.pValue,
     spearman_rho: spear.coefficient,
@@ -1766,7 +1809,11 @@ function buildDatahubStatsDomain(): DomainReport {
       + "survival with the log-rank test, and the chi-square test of independence on "
       + "a contingency table (with the Yates correction, Fisher's exact test, and the "
       + "relative-risk / odds-ratio measures for a 2x2 table, against "
-      + "scipy.stats.chi2_contingency and fisher_exact). The diagnostic figures are validated on "
+      + "scipy.stats.chi2_contingency and fisher_exact). It runs the nested t-test and the "
+      + "nested one-way ANOVA on hierarchical designs (technical replicates nested within "
+      + "biological replicates), the t-test through a random-intercept mixed model against "
+      + "statsmodels MixedLM and the balanced ANOVA through the exact classic random-effects F. "
+      + "The diagnostic figures are validated on "
       + "their plotted positions too, the normal QQ plot's theoretical quantiles and "
       + "reference line against scipy.stats.probplot and the residual plot's residuals "
       + "against statsmodels OLS. It also validates the estimation layer that "

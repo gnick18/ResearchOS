@@ -199,6 +199,42 @@ CONTINGENCY = [
     [25, 15, 20],
 ]
 
+# Nested (hierarchical) designs. Top-level groups (treatments) each hold
+# subgroups (biological replicates, e.g. animals), each holding replicate values
+# (technical replicates, e.g. cells). Both designs below are FULLY BALANCED (same
+# subgroup count per group, same replicate count per subgroup) so the classic
+# nested-ANOVA F is exact and the mixed-model fixed effects pin tight.
+#
+# NESTED_T: 2 groups x 3 subgroups x 4 replicates, for the nested t-test. The two
+# groups differ at the group level; within each group the subgroups carry their
+# own baseline offset (the random intercept). Mirrored verbatim in datahub-stats.ts.
+NESTED_T = {
+    "Control": [
+        [5.1, 5.3, 4.9, 5.2],
+        [5.5, 5.7, 5.4, 5.6],
+        [4.7, 4.9, 4.6, 4.8],
+    ],
+    "Drug": [
+        [6.2, 6.4, 6.1, 6.3],
+        [6.8, 7.0, 6.7, 6.9],
+        [5.9, 6.1, 5.8, 6.0],
+    ],
+}
+
+# NESTED_ANOVA: 3 groups x 3 subgroups x 4 replicates, for the nested one-way
+# ANOVA. The first two groups are the SAME as NESTED_T; a third group sits between
+# them so the omnibus is significant but not extreme. Mirrored verbatim in
+# datahub-stats.ts.
+NESTED_ANOVA = {
+    "Control": NESTED_T["Control"],
+    "Drug": NESTED_T["Drug"],
+    "Vehicle": [
+        [5.6, 5.8, 5.5, 5.7],
+        [6.0, 6.2, 5.9, 6.1],
+        [5.2, 5.4, 5.1, 5.3],
+    ],
+}
+
 # --- Fixed inputs for the estimation layer (E1 / E3 / E4) ---
 # E3 power is a DESIGN scenario, not a statistic of the dataset above.
 POWER_TWO_SAMPLE_N = 26      # per-group n
@@ -1305,6 +1341,131 @@ def ref_bootstrap():
     }
 
 
+def ref_nested():
+    # Nested (hierarchical) analyses on the balanced NESTED_T (2 groups) and
+    # NESTED_ANOVA (3 groups) designs.
+    #
+    # NESTED T-TEST. value ~ group + (1 | subgroup), fit by statsmodels MixedLM
+    # (REML, the modern GraphPad nested-t-test definition). The single group
+    # fixed-effect coefficient (Drug minus Control) is the nested t-test, with its
+    # SE / z / p / 95% CI. The fixed effect pins tight; the variance components and
+    # the REML log-likelihood are optimizer-sensitive and pin on an honest band.
+    #
+    # NESTED ONE-WAY ANOVA (balanced). The exact classic random-effects F is
+    # F = MS_groups / MS_subgroups-within-groups, computed here from the balanced
+    # sums of squares by hand (a groups, b subgroups, n replicates). The variance
+    # components are the method-of-moments inversion of the expected mean squares.
+    # We also report the MixedLM variance components for cross-reference.
+    import pandas as pd
+
+    def long_frame(design):
+        rows = []
+        sub_index = 0
+        for gname, subs in design.items():
+            for sub in subs:
+                for v in sub:
+                    rows.append({"group": gname, "subgroup": sub_index, "value": v})
+                sub_index += 1
+        return pd.DataFrame(rows)
+
+    # --- nested t-test via MixedLM on NESTED_T ---
+    groups_t = list(NESTED_T.keys())  # ["Control", "Drug"], Control the reference
+    df_t = long_frame(NESTED_T)
+    df_t["group"] = pd.Categorical(df_t["group"], categories=groups_t, ordered=False)
+    md_t = sm.MixedLM.from_formula(
+        "value ~ C(group)", groups="subgroup", re_formula="1", data=df_t
+    )
+    mdf_t = md_t.fit(reml=True, method="lbfgs")
+    # The group contrast term name is "C(group)[T.Drug]".
+    contrast_name = [n for n in mdf_t.fe_params.index if n != "Intercept"][0]
+    est = float(mdf_t.fe_params[contrast_name])
+    se = float(mdf_t.bse_fe[contrast_name])
+    z = float(mdf_t.tvalues[contrast_name])
+    p = float(mdf_t.pvalues[contrast_name])
+    ci_t = mdf_t.conf_int()
+    lo = float(ci_t.loc[contrast_name][0])
+    hi = float(ci_t.loc[contrast_name][1])
+    t_group_var = float(mdf_t.cov_re.iloc[0, 0])
+    t_resid_var = float(mdf_t.scale)
+    t_loglike = float(mdf_t.llf)
+
+    nested_t = {
+        "estimate": r4(est),
+        "se": r4(se),
+        "z": r4(z),
+        "p": r4(p),
+        "ci_low": r4(lo),
+        "ci_high": r4(hi),
+        "subgroup_var": r4(t_group_var),
+        "residual_var": r4(t_resid_var),
+        "reml_loglike": r4(t_loglike),
+        "subgroups": int(df_t["subgroup"].nunique()),
+        "observations": int(len(df_t)),
+    }
+
+    # --- nested one-way ANOVA: exact balanced classic F on NESTED_ANOVA ---
+    design = NESTED_ANOVA
+    a = len(design)                                  # groups
+    b = len(next(iter(design.values())))             # subgroups per group
+    n = len(next(iter(design.values()))[0])          # replicates per subgroup
+    all_vals = np.array([v for subs in design.values() for sub in subs for v in sub])
+    grand = all_vals.mean()
+    group_means = {g: np.array([v for sub in subs for v in sub]).mean()
+                   for g, subs in design.items()}
+    ss_groups = sum(b * n * (group_means[g] - grand) ** 2 for g in design)
+    ss_sub = 0.0
+    ss_err = 0.0
+    for g, subs in design.items():
+        gm = group_means[g]
+        for sub in subs:
+            sm_ = np.array(sub).mean()
+            ss_sub += n * (sm_ - gm) ** 2
+            for v in sub:
+                ss_err += (v - sm_) ** 2
+    df_groups = a - 1
+    df_sub = a * (b - 1)
+    df_err = a * b * (n - 1)
+    ms_groups = ss_groups / df_groups
+    ms_sub = ss_sub / df_sub
+    ms_err = ss_err / df_err
+    f = ms_groups / ms_sub
+    p_f = float(st.f.sf(f, df_groups, df_sub))
+    resid_var = ms_err
+    subgroup_var = max(0.0, (ms_sub - ms_err) / n)
+
+    # MixedLM variance components on the same design, for cross-reference.
+    groups_a = list(design.keys())
+    df_a = long_frame(design)
+    df_a["group"] = pd.Categorical(df_a["group"], categories=groups_a, ordered=False)
+    md_a = sm.MixedLM.from_formula(
+        "value ~ C(group)", groups="subgroup", re_formula="1", data=df_a
+    )
+    mdf_a = md_a.fit(reml=True, method="lbfgs")
+    mm_group_var = float(mdf_a.cov_re.iloc[0, 0])
+    mm_resid_var = float(mdf_a.scale)
+
+    nested_anova = {
+        "f": r4(f),
+        "df_between": df_groups,
+        "df_subgroups": df_sub,
+        "p": r4(p_f),
+        "ss_groups": r4(ss_groups),
+        "ss_subgroups": r4(ss_sub),
+        "ss_error": r4(ss_err),
+        "ms_groups": r4(ms_groups),
+        "ms_subgroups": r4(ms_sub),
+        "ms_error": r4(ms_err),
+        "subgroup_var": r4(subgroup_var),
+        "residual_var": r4(resid_var),
+        "mm_subgroup_var": r4(mm_group_var),
+        "mm_residual_var": r4(mm_resid_var),
+        "subgroups": a * b,
+        "observations": int(len(all_vals)),
+    }
+
+    return {"nested_t_test": nested_t, "nested_anova": nested_anova}
+
+
 PROVENANCE = {
     "scipy": scipy.__version__,
     "statsmodels": statsmodels.__version__,
@@ -1343,6 +1504,8 @@ PROVENANCE = {
         "levene_mean": "scipy.stats.levene(A, B, C, center='mean')  [our levene()]",
         "levene_median": "scipy.stats.levene(A, B, C, center='median')  [our brownForsythe()]",
         "grubbs": "Grubbs G = max|x-mean|/sd; G_crit from scipy.stats.t.ppf(1-alpha/(2n), n-2) by hand (no scipy.stats.grubbs)",
+        "nested.nested_t_test": "statsmodels MixedLM value ~ C(group), groups=subgroup, re_formula='1', REML; group contrast coef/SE/z/p/CI = the nested t-test",
+        "nested.nested_anova": "balanced classic random-effects nested ANOVA F = MS_groups/MS_subgroups by hand (a groups, b subgroups, n reps); p = scipy.stats.f.sf(F, a-1, a(b-1)); variance components by method-of-moments; mm_* = statsmodels MixedLM cross-reference",
         "km_treat": "lifelines.KaplanMeierFitter.fit / .predict / .median_survival_time_",
         "logrank": "lifelines.statistics.logrank_test",
         "chi_square.two_by_two": "scipy.stats.chi2_contingency(table, correction=True/False) for Yates and uncorrected chi2; scipy.stats.fisher_exact(table, alternative='two-sided') for Fisher p; relative risk and odds ratio with 95% log-method CIs in closed form (z=1.959964)",
@@ -1370,6 +1533,7 @@ def main():
     refs.update({"kruskal_friedman": ref_kruskal_friedman()})
     refs.update({"rm_anova": ref_rm_anova()})
     refs.update({"mixed_model": ref_mixed_model()})
+    refs.update({"nested": ref_nested()})
     refs.update({"correlation_regression": ref_correlation_regression()})
     refs.update({"logistic_regression": ref_logistic_regression()})
     refs.update({"roc": ref_roc()})
@@ -1409,6 +1573,8 @@ def main():
         "GLOBAL_FIT_YA": GLOBAL_FIT_YA,
         "GLOBAL_FIT_YB": GLOBAL_FIT_YB,
         "TWOWAY": TWOWAY,
+        "NESTED_T": NESTED_T,
+        "NESTED_ANOVA": NESTED_ANOVA,
         "SURV_TREAT": SURV_TREAT,
         "SURV_CONTROL": SURV_CONTROL,
         "KM_READ_TIMES": KM_READ_TIMES,
