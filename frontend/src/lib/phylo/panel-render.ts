@@ -23,6 +23,12 @@ import { niceTicks } from "@/lib/datahub/plot-spec";
 import type { AlignedPanel, AlignedPanelKind, PhyloErrorKind } from "./types";
 import type { TipAxis, TipSlot } from "./layout";
 import { EMPTY_FILL, type ColorScale } from "./color-scale";
+import {
+  residueColor,
+  residueLegend,
+  type AlignmentKind,
+  type ResidueLegendItem,
+} from "./msa";
 
 const ACCENT = "#1AA0E6"; // brand-sky
 const MUTED = "#64748b";
@@ -57,6 +63,18 @@ export interface PanelValues {
    * is "none" or no error source is bound.
    */
   pointStats?: Map<number, { mean: number; error: number }>;
+  /**
+   * The per-tip residue row for the msa geom: tip id -> the (already binned)
+   * residue string, one character per drawn block. Resolved by the caller from
+   * the matched alignment (lib/phylo/msa.ts matchAlignmentToTips), so the
+   * renderer only places + colors cells. `msaKind` picks the residue palette and
+   * `msaNote` carries the downsample note when the alignment was binned.
+   */
+  msa?: Map<number, string>;
+  /** Residue alphabet for the msa palette (nucleotide vs amino-acid). */
+  msaKind?: AlignmentKind;
+  /** A short note drawn above a binned msa panel (empty when full resolution). */
+  msaNote?: string;
 }
 
 /** The scales a panel reads, one per data column (matrix uses `multi`). */
@@ -105,9 +123,10 @@ export function panelBandThickness(panel: AlignedPanel): number {
 /**
  * Render one aligned panel against the shared TipAxis. Returns the SVG plus the
  * thickness it drew so a stack advances cleanly. The panel kinds that are NOT
- * aligned columns (labels / points / clade / support / msa) return empty here,
+ * aligned columns (labels / points / clade / support) return empty here,
  * render.ts draws those on the tree itself; this function owns the geom_fruit
- * panels: strip, heat (single + matrix), bars, dots, box. Works in both layouts.
+ * panels (strip, heat, bars, dots, box, violin, point, scatter) AND the msa
+ * alignment matrix. Works in both layouts.
  */
 export function renderPanel(
   panel: AlignedPanel,
@@ -133,6 +152,8 @@ export function renderPanel(
       return renderPoint(panel, axis, values);
     case "scatter":
       return renderScatter(panel, axis, values);
+    case "msa":
+      return renderMsa(panel, axis, values);
     default:
       return { svg: "", thickness: 0 };
   }
@@ -850,6 +871,120 @@ function renderScatter(
     }
   }
   return { svg: parts.join(""), thickness: thick + GAP };
+}
+
+// ---------------------------------------------------------------------------
+// MSA: an aligned residue matrix, one cell per drawn alignment block per tip,
+// colored by residue. Rectangular draws a column block (cells march left to
+// right across the band); circular draws an outer ring band (cells march out by
+// radius along each tip spoke). The per-tip residue row is pre-binned by the
+// caller (lib/phylo/msa.ts), so a wide alignment is already downsampled to a
+// drawable block count; this only places + colors. A binned panel draws the
+// downsample note above the matrix so the binning is never silent.
+// ---------------------------------------------------------------------------
+
+/** The widest an msa column block (rect) / ring depth (circular) ever grows. */
+const MSA_MAX_THICKNESS = 320;
+/** The narrowest a single residue cell shrinks to before the band just caps. */
+const MSA_MIN_CELL = 0.6;
+
+function renderMsa(
+  panel: AlignedPanel,
+  axis: TipAxis,
+  values: PanelValues,
+): PanelRender {
+  const rows = values.msa;
+  const kind = values.msaKind ?? "nucleotide";
+  if (!rows || rows.size === 0) return { svg: "", thickness: 0 };
+  // Block count = the residue-row length (every row is the same binned length).
+  const blocks = Math.max(...Array.from(rows.values(), (r) => r.length), 0);
+  if (blocks === 0) return { svg: "", thickness: 0 };
+
+  // The band thickness: the panel's own width when pinned, else a sensible default
+  // scaled to the block count but capped so a 600-block alignment still fits.
+  const requested = panel.width && panel.width > 0 ? panel.width : 120;
+  const thick = Math.min(MSA_MAX_THICKNESS, Math.max(40, requested));
+  const cellW = Math.max(MSA_MIN_CELL, thick / blocks);
+  const noteH = values.msaNote ? 11 : 0;
+
+  const parts: string[] = [];
+  if (axis.layout === "rectangular") {
+    const h = Math.min(axis.bandHeight, 16);
+    if (values.msaNote) {
+      parts.push(
+        `<text x="${axis.panelStartX}" y="${msaNoteY(axis) - 2}" font-size="8" fill="${MUTED}">${esc(values.msaNote)}</text>`,
+      );
+    }
+    for (const slot of axis.tips) {
+      const row = rows.get(slot.id);
+      if (!row) continue;
+      for (let b = 0; b < row.length; b++) {
+        const fill = residueColor(row[b], kind);
+        parts.push(
+          `<rect x="${(axis.panelStartX + b * cellW).toFixed(2)}" y="${(slot.y - h / 2).toFixed(2)}" width="${cellW.toFixed(2)}" height="${h}" fill="${fill}"/>`,
+        );
+      }
+    }
+  } else {
+    const ringDepth = Math.min(MSA_MAX_THICKNESS, Math.max(40, requested));
+    const blockR = Math.max(MSA_MIN_CELL, ringDepth / blocks);
+    if (values.msaNote) {
+      parts.push(
+        `<text x="${axis.cx}" y="${axis.cy - axis.ringStartR - 3}" font-size="8" fill="${MUTED}" text-anchor="middle">${esc(values.msaNote)}</text>`,
+      );
+    }
+    for (const slot of axis.tips) {
+      const row = rows.get(slot.id);
+      if (!row) continue;
+      for (let b = 0; b < row.length; b++) {
+        const r0 = axis.ringStartR + b * blockR;
+        const fill = residueColor(row[b], kind);
+        parts.push(
+          annulusWedge(axis.cx, axis.cy, r0, r0 + blockR, slot.angle, axis.halfAngle, fill),
+        );
+      }
+    }
+    return { svg: parts.join(""), thickness: ringDepth + GAP };
+  }
+  return { svg: parts.join(""), thickness: thick + noteH + GAP };
+}
+
+/** The y the rectangular msa downsample note sits at (just above the first row). */
+function msaNoteY(axis: TipAxis): number {
+  const top = axis.tips.length ? Math.min(...axis.tips.map((t) => t.y)) : 0;
+  return top - axis.bandHeight / 2;
+}
+
+/**
+ * The residue legend for an msa panel: labeled swatches for the residue key
+ * (the nucleotide A/C/G/T scheme or the amino-acid property groups). Drawn in
+ * the same right-edge column as the data-panel legends, so the caller stacks it
+ * with renderPanelLegend's output. Returns the markup + consumed height.
+ */
+export function renderMsaLegend(
+  title: string,
+  kind: AlignmentKind,
+  x: number,
+  y: number,
+  maxY: number,
+): { svg: string; height: number } {
+  const items: ResidueLegendItem[] = residueLegend(kind);
+  const parts: string[] = [];
+  let cur = y;
+  parts.push(
+    `<text x="${x}" y="${cur}" font-size="11" font-weight="700" fill="${FG}">${esc(truncate(title, 16))}</text>`,
+  );
+  cur += 14;
+  for (const item of items) {
+    if (cur > maxY) break;
+    parts.push(
+      `<rect x="${x}" y="${cur - 8}" width="11" height="11" rx="2" fill="${item.color}" stroke="${BORDER}" stroke-width="0.5"/>`,
+      `<text x="${x + 16}" y="${cur + 1}" font-size="10" fill="${FG}">${esc(truncate(item.label, 14))}</text>`,
+    );
+    cur += 16;
+  }
+  cur += 8;
+  return { svg: parts.join(""), height: cur - y };
 }
 
 // ---------------------------------------------------------------------------

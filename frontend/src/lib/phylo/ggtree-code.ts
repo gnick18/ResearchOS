@@ -321,6 +321,14 @@ function generateFromPanels(spec: RenderSpec, panels: AlignedPanel[]): string {
         );
         offset += 0.1;
         break;
+      case "msa":
+        lines.push(
+          "# A sequence-alignment track. ggtree draws an aligned FASTA next to the",
+          "# tree with msaplot (the tip labels must match the FASTA headers):",
+          `#   p <- msaplot(p, fasta = "alignment.fasta", offset = ${offset.toFixed(2)}, width = 2)`,
+        );
+        offset += 0.3;
+        break;
       default:
         break;
     }

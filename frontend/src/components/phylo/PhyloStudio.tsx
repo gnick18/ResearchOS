@@ -47,6 +47,11 @@ import {
 } from "@/lib/phylo/figure-to-render";
 import { projectTracksToPanels } from "@/lib/phylo/panels";
 import { classifyColumn } from "@/lib/phylo/color-scale";
+import {
+  parseAlignment,
+  matchAlignmentToTips,
+  type Alignment,
+} from "@/lib/phylo/msa";
 import type { AlignedPanel } from "@/lib/phylo/types";
 import {
   PhyloLayersControl,
@@ -78,6 +83,25 @@ const SAMPLE_CSV = [
   "A. nidulans,Nidulantes,30.1,no",
   "A. niger,Nigri,34.0,yes",
   "P. chrysogenum,Outgroup,32.2,no",
+].join("\n");
+
+// A tiny aligned FASTA over the sample tree's tips, so "Sample alignment" shows
+// the msa track without a file. Gaps are intentional (a real alignment has them).
+const SAMPLE_ALIGNMENT = [
+  ">A. fumigatus",
+  "ATGCATGC-TAGCTAGCATCG",
+  ">A. fischeri",
+  "ATGCATGC-TAGCTAGCATGG",
+  ">A. flavus",
+  "ATGCATGCATAGCT-GCATCG",
+  ">A. oryzae",
+  "ATGCATGCATAGCT-GCATCG",
+  ">A. nidulans",
+  "ATGGATGCATA-CTAGCATCG",
+  ">A. niger",
+  "ATGCATGCATAGCTAGCAT-G",
+  ">P. chrysogenum",
+  "TTGCATGCATAGCTAGCATCA",
 ].join("\n");
 
 type ImportMode = "upload" | "paste" | "saved" | null;
@@ -144,6 +168,23 @@ export function PhyloStudio({ initialTreeId }: { initialTreeId?: string } = {}) 
   // layers control edits it directly and the renderer + exporter walk it.
   const [panels, setPanels] = useState<AlignedPanel[]>(defaultPanels);
   const [selectedLayerId, setSelectedLayerId] = useState<string | null>(null);
+  // The template id currently applied (drives the picker so it does not snap back
+  // to the placeholder after an apply, the template-apply flicker fix). Cleared to
+  // "" whenever the layers are edited by hand, so the placeholder returns.
+  const [appliedTemplate, setAppliedTemplate] = useState("");
+
+  // Edit the layer stack by hand. Any manual change clears the applied-template
+  // marker so the picker no longer claims a template (the figure is now custom).
+  const editPanels = (next: AlignedPanel[]) => {
+    setPanels(next);
+    setAppliedTemplate("");
+  };
+
+  // The alignment import-state (phylo Phase 3). The parsed aligned FASTA lives
+  // here as live figure state (NOT a persisted panels[] field), the same way the
+  // metadata table does, so a saved figure is unchanged. The msa panel reads it
+  // through the shared figure -> RenderSpec adapter.
+  const [alignment, setAlignment] = useState<Alignment | null>(null);
 
   // Metadata binding.
   const [metaRows, setMetaRows] = useState<Record<string, string>[] | null>(
@@ -159,6 +200,7 @@ export function PhyloStudio({ initialTreeId }: { initialTreeId?: string } = {}) 
 
   const fileRef = useRef<HTMLInputElement>(null);
   const csvFileRef = useRef<HTMLInputElement>(null);
+  const alnFileRef = useRef<HTMLInputElement>(null);
 
   // Load saved trees for the "From a saved tree" picker. In a demo session, open
   // the showcase tree straight away so the Studio lands on a populated, real
@@ -240,6 +282,7 @@ export function PhyloStudio({ initialTreeId }: { initialTreeId?: string } = {}) 
         metaRows,
         tipColumn,
         panels,
+        alignment,
       },
       { width: FIG_W, height: FIG_H },
     );
@@ -251,7 +294,16 @@ export function PhyloStudio({ initialTreeId }: { initialTreeId?: string } = {}) 
     metaRows,
     tipColumn,
     panels,
+    alignment,
   ]);
+
+  // The alignment-to-tips match (for the "matched X of Y" indicator + auto-adding
+  // an msa panel on import). Recomputed when the tree or the imported alignment
+  // changes. Mirrors the metadata match indicator.
+  const alnMatch = useMemo(() => {
+    if (!tree || !alignment || alignment.records.length === 0) return null;
+    return matchAlignmentToTips(tree, alignment);
+  }, [tree, alignment]);
 
   const svgMarkup = useMemo(
     () => (tree && spec ? renderTreeSvg(tree, spec) : ""),
@@ -273,6 +325,10 @@ export function PhyloStudio({ initialTreeId }: { initialTreeId?: string } = {}) 
       // A saved tree overrides this immediately via restoreSavedFigure.
       setPanels(defaultPanels(leaves(parsed).length));
       setSelectedLayerId(null);
+      setAppliedTemplate("");
+      // A new tree drops any previously imported alignment (it was joined to the
+      // old tips); the user re-imports an alignment for the new tree.
+      setAlignment(null);
       setParseError(null);
       setImportMode(null);
       setPasteText("");
@@ -329,6 +385,7 @@ export function PhyloStudio({ initialTreeId }: { initialTreeId?: string } = {}) 
       });
     setPanels(restored);
     setSelectedLayerId(null);
+    setAppliedTemplate("");
     if (inputs.metaRows) {
       setMetaRows(inputs.metaRows);
       const cols =
@@ -374,6 +431,39 @@ export function PhyloStudio({ initialTreeId }: { initialTreeId?: string } = {}) 
     loadCsvText(await file.text());
   }
 
+  // ---- alignment import (phylo Phase 3) ----
+
+  // Parse an aligned FASTA into figure import-state, and ensure an msa panel
+  // exists so the matrix draws immediately (mirrors the CSV import auto-binding a
+  // color layer). The alignment lives only in component state; the join to tips
+  // happens in the shared adapter on every render.
+  function loadAlignmentText(text: string) {
+    const parsed = parseAlignment(text);
+    if (parsed.records.length === 0) return;
+    setAlignment(parsed);
+    setPanels((prev) => {
+      if (prev.some((p) => p.kind === "msa")) return prev;
+      // Insert the msa panel just before any labels layer (so labels stay
+      // outermost), else append it as the outer-most data panel.
+      const msaPanel: AlignedPanel = {
+        id: `msa-${Date.now().toString(36)}`,
+        kind: "msa",
+        visible: true,
+        legend: true,
+      };
+      const labelIdx = prev.findIndex((p) => p.kind === "labels");
+      if (labelIdx === -1) return [...prev, msaPanel];
+      const next = prev.slice();
+      next.splice(labelIdx, 0, msaPanel);
+      return next;
+    });
+    setAppliedTemplate("");
+  }
+
+  async function onUploadAlignment(file: File) {
+    loadAlignmentText(await file.text());
+  }
+
   // ---- editing ----
 
   const reroot = (mode: "midpoint" | "outgroup", nodeId?: number) => {
@@ -395,8 +485,12 @@ export function PhyloStudio({ initialTreeId }: { initialTreeId?: string } = {}) 
     // binding it to a strip / points / heat produces a per-tip legend (300+ rows
     // on a big tree) and bunched dots. Templates bind to real demo metadata only.
     const bindable = metaColumns.filter((c) => c !== tipColumn);
+    // Commit the full next state in ONE batch (panels + cleared selection + the
+    // applied-template marker), so there is no transient render where the panels
+    // changed but the picker still showed the placeholder (the apply flicker).
     setPanels(buildTemplate(id, bindable, numericColumns));
     setSelectedLayerId(null);
+    setAppliedTemplate(id);
   };
 
   // ---- export ----
@@ -595,6 +689,63 @@ export function PhyloStudio({ initialTreeId }: { initialTreeId?: string } = {}) 
             </div>
           )}
         </Panel>
+
+        <Panel title="Alignment">
+          <p className="text-xs text-foreground-muted mb-2">
+            Drop an aligned FASTA to add a sequence-alignment track. Sequences
+            join to tips by label, the same way metadata does.
+          </p>
+          <div className="flex flex-wrap gap-1.5">
+            <GhostBtn onClick={() => alnFileRef.current?.click()}>
+              Drop FASTA
+            </GhostBtn>
+            <GhostBtn onClick={() => loadAlignmentText(SAMPLE_ALIGNMENT)}>
+              Sample alignment
+            </GhostBtn>
+          </div>
+          <input
+            ref={alnFileRef}
+            type="file"
+            accept=".fasta,.fa,.fas,.aln,.afa,.mfa,.txt,text/plain"
+            className="hidden"
+            onChange={(e) =>
+              e.target.files?.[0] && onUploadAlignment(e.target.files[0])
+            }
+          />
+          {alignment && alnMatch && (
+            <div
+              className={`mt-2 text-xs font-medium ${
+                alnMatch.unmatchedTips.length === 0
+                  ? "text-emerald-600"
+                  : "text-foreground-muted"
+              }`}
+            >
+              Matched {alnMatch.matched.size} of{" "}
+              {alnMatch.matched.size + alnMatch.unmatchedTips.length} tips,{" "}
+              {alnMatch.binned.sourceColumns} columns
+              {alnMatch.binned.binSize > 1
+                ? ` (binned to ${alnMatch.binned.blocks})`
+                : ""}
+            </div>
+          )}
+          {alignment && alnMatch && alnMatch.unmatchedRecords.length > 0 && (
+            <div className="mt-1 text-xs text-amber-600">
+              {alnMatch.unmatchedRecords.length} sequence
+              {alnMatch.unmatchedRecords.length === 1 ? "" : "s"} matched no tip.
+            </div>
+          )}
+          {alignment && (
+            <button
+              onClick={() => {
+                setAlignment(null);
+                setPanels((prev) => prev.filter((p) => p.kind !== "msa"));
+              }}
+              className="mt-2 text-xs font-semibold text-accent hover:underline"
+            >
+              Remove alignment
+            </button>
+          )}
+        </Panel>
       </div>
 
       {/* Center: the live canvas */}
@@ -640,7 +791,8 @@ export function PhyloStudio({ initialTreeId }: { initialTreeId?: string } = {}) 
               selectedId={selectedLayerId}
               columns={metaColumns.filter((c) => c !== tipColumn)}
               treeSummary={`${phylogram ? "phylogram" : "cladogram"}, ${layout}`}
-              onChange={setPanels}
+              appliedTemplate={appliedTemplate}
+              onChange={editPanels}
               onSelect={setSelectedLayerId}
               onApplyTemplate={onApplyTemplate}
             />

@@ -63,7 +63,7 @@ export const PANEL_CATALOG: CatalogGroup[] = [
   {
     cat: "Alignment",
     items: [
-      { kind: "msa", name: "Sequence alignment", desc: "MSA track (coming soon)" },
+      { kind: "msa", name: "Sequence alignment", desc: "aligned residue matrix" },
     ],
   },
 ];
@@ -141,6 +141,7 @@ export function PhyloLayersControl({
   selectedId,
   columns,
   treeSummary,
+  appliedTemplate,
   onChange,
   onSelect,
   onApplyTemplate,
@@ -149,6 +150,9 @@ export function PhyloLayersControl({
   selectedId: string | null;
   columns: string[];
   treeSummary: string;
+  /** The template id currently applied (drives the picker so it never snaps back
+   *  to the placeholder after an apply, the flicker fix). "" when none / edited. */
+  appliedTemplate: string;
   onChange: (next: AlignedPanel[]) => void;
   onSelect: (id: string | null) => void;
   onApplyTemplate: (id: string) => void;
@@ -174,7 +178,7 @@ export function PhyloLayersControl({
 
   return (
     <div className="space-y-3">
-      <TemplatePicker onApply={onApplyTemplate} />
+      <TemplatePicker applied={appliedTemplate} onApply={onApplyTemplate} />
       <div className="relative">
         <button
           onClick={() => setMenuOpen((o) => !o)}
@@ -519,7 +523,10 @@ function Inspector({
         </Field>
       )}
 
-      {(isData || panel.kind === "points" || panel.kind === "strip") && (
+      {(isData ||
+        panel.kind === "points" ||
+        panel.kind === "strip" ||
+        panel.kind === "msa") && (
         <Field label="Legend">
           <ToggleInput
             on={panel.legend !== false}
@@ -539,9 +546,21 @@ function Inspector({
         </p>
       )}
       {panel.kind === "msa" && (
-        <p className="text-xs text-foreground-muted">
-          A multiple-sequence-alignment track. Lands in a later phase.
-        </p>
+        <>
+          <p className="text-xs text-foreground-muted">
+            Draws the imported alignment as a residue matrix, joined to tips by
+            label. Import an aligned FASTA in the Alignment panel on the left. A
+            wide alignment is binned to a drawable width (noted on the figure).
+          </p>
+          <Field label="Track width">
+            <RangeInput
+              value={Number(panel.width ?? 120)}
+              min={60}
+              max={320}
+              onChange={(n) => onUpdate({ width: n })}
+            />
+          </Field>
+        </>
       )}
     </div>
   );
@@ -702,12 +721,24 @@ export const TEMPLATE_IDS = [
 ] as const;
 export type TemplateId = (typeof TEMPLATE_IDS)[number];
 
-function TemplatePicker({ onApply }: { onApply: (id: string) => void }) {
+function TemplatePicker({
+  applied,
+  onApply,
+}: {
+  applied: string;
+  onApply: (id: string) => void;
+}) {
+  // The picker reflects the applied template (controlled by `applied`) rather than
+  // snapping back to a fixed placeholder, so an apply does not flash the selection
+  // back to "(keep current figure)" for a render (the template-apply flicker fix).
+  // Editing the layers afterward clears `applied` back to "", and the placeholder
+  // returns. Re-picking the same value is a no-op (value unchanged), so we key the
+  // apply off the selected id, not a transient reset.
   return (
     <label className="block text-xs">
       <span className="text-foreground-muted">Start from a template</span>
       <select
-        value=""
+        value={applied}
         onChange={(e) => e.target.value && onApply(e.target.value)}
         className="mt-1 w-full text-sm border border-border rounded-lg px-2 py-1.5 bg-surface text-foreground"
       >
