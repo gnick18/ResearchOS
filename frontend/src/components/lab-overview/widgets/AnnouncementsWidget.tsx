@@ -143,7 +143,7 @@ interface ComposerProps {
   onPosted: () => void;
 }
 
-function Composer({ username, onPosted }: ComposerProps) {
+export function Composer({ username, onPosted }: ComposerProps) {
   const [text, setText] = useState("");
   const [pinned, setPinned] = useState(false);
   const [posting, setPosting] = useState(false);

@@ -109,8 +109,8 @@ const RECENT_ACTIONS_CAP = 5;
 export interface UseLabOverviewBeakerSourceArgs {
   /** Open the New project modal (the page's NewProjectButton flow). */
   openProjectCreate: () => void;
-  /** Scroll to / focus the embedded lab roster section. */
-  scrollToRoster: () => void;
+  /** Scroll to / focus the inline announcement composer on the overview. */
+  scrollToComposer: () => void;
   router: { push: (href: string) => void };
 }
 
@@ -406,11 +406,11 @@ export function useLabOverviewBeakerSource(
         });
       },
 
-      openAnnouncementComposer: () => args.scrollToRoster(),
+      openAnnouncementComposer: () => args.scrollToComposer(),
       editAnnouncement: (an) => {
         // Editing the body needs the inline card editor; the palette routes the
-        // PI to the Announcements section where the editor lives.
-        args.scrollToRoster();
+        // PI to the announcement composer on the overview.
+        args.scrollToComposer();
         void an;
       },
       togglePinAnnouncement: (an) => {
@@ -465,7 +465,7 @@ export function useLabOverviewBeakerSource(
         });
         setSelected(null);
       },
-      openRoster: () => args.scrollToRoster(),
+      openRoster: () => args.router.push("/people"),
 
       openProjectCreate: () => args.openProjectCreate(),
 
