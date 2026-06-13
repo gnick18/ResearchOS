@@ -329,12 +329,36 @@ export async function fetchCalculatorsSnapshot(
 
 /** Typed convenience over fetchSnapshot for the "notifications" snapshot.
  *  Returns null when the laptop has not published yet. In demo mode a fixture is
- *  returned so the notifications screen shows sample rows. */
+ *  returned so the notifications screen shows sample rows.
+ *
+ *  Phone push P2: also fetches the relay-written "notifications-pending" lane (the
+ *  generic content-free rows the relay seals when a sender buzzes this user while
+ *  the laptop is closed) and merges it with the laptop's full list, newest first,
+ *  deduped by id. When the laptop comes back online it republishes the full list
+ *  and clears pending, so pending is only ever a stand-in during the offline gap. */
 export async function fetchNotificationsSnapshot(
   pairing: Pairing,
   deviceSign: (message: string) => Promise<string>,
 ): Promise<NotificationsSnapshot | null> {
-  return (await fetchSnapshot('notifications', pairing, deviceSign)) as
-    | NotificationsSnapshot
-    | null;
+  const [main, pending] = await Promise.all([
+    fetchSnapshot('notifications', pairing, deviceSign) as Promise<NotificationsSnapshot | null>,
+    // Pending is best-effort: a fetch error must never blank the main list.
+    (fetchSnapshot('notifications-pending', pairing, deviceSign) as Promise<NotificationsSnapshot | null>).catch(
+      () => null,
+    ),
+  ]);
+  const pendingRows = Array.isArray(pending?.notifications) ? pending!.notifications : [];
+  if (pendingRows.length === 0) return main;
+
+  const mainRows = Array.isArray(main?.notifications) ? main!.notifications : [];
+  const seen = new Set(mainRows.map((n) => n.id));
+  const merged = [...mainRows];
+  for (const row of pendingRows) {
+    if (!seen.has(row.id)) {
+      seen.add(row.id);
+      merged.push(row);
+    }
+  }
+  merged.sort((a, b) => (b.createdAt ?? '').localeCompare(a.createdAt ?? ''));
+  return { generatedAt: main?.generatedAt, notifications: merged };
 }

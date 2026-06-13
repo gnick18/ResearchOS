@@ -228,6 +228,84 @@ export async function revokeDevice(
   if (!res.ok) throw new Error(`revokeDevice failed: ${res.status}`);
 }
 
+// ---- Notify (phone push P2) -----------------------------------------------
+// Canonical signed strings MUST stay byte-identical to worker.ts
+// (notifyConfigMessage / notifyRecipientMessage). If you change one, change both.
+
+function notifyConfigMessage(u: string, ts: string, sha256hex: string): string {
+  return `researchos-notify-config\nu=${u}\nts=${ts}\nsha256=${sha256hex}`;
+}
+function notifyRecipientMessage(
+  recipient: string,
+  sender: string,
+  category: string,
+  ts: string,
+): string {
+  return `researchos-notify-recipient\nu=${recipient}\nsender=${sender}\ncategory=${category}\nts=${ts}`;
+}
+
+/** The recipient routing config mirrored to the relay (phone push P2). Carries
+ *  NO research content, only channel toggles + a quiet-hours window + the tz
+ *  offset so the relay can resolve the recipient's local time for the gate. */
+export interface RelayNotifyConfig {
+  channels: Record<string, { phone?: boolean }>;
+  quietHours: {
+    enabled: boolean;
+    start: string;
+    end: string;
+    weekendsQuiet: boolean;
+  };
+  /** Date.getTimezoneOffset() on the recipient's machine (minutes; local = UTC - offset). */
+  tzOffsetMinutes: number;
+}
+
+/** PUBLISH this user's notify-routing config to its own CaptureInbox DO so the
+ *  relay can gate a sender-triggered offline push. User-signed. */
+export async function publishNotifyConfig(
+  keys: UserCaptureKeys,
+  config: RelayNotifyConfig,
+  relayUrl = captureRelayUrl(),
+): Promise<void> {
+  const u = keys.ed25519PublicKeyHex;
+  const ts = nowIso();
+  const json = JSON.stringify(config);
+  const sha = await sha256Hex(new TextEncoder().encode(json));
+  const sig = sign(notifyConfigMessage(u, ts, sha), keys.ed25519PrivateKey);
+  const res = await fetch(`${relayUrl}/capture/notify-config?u=${u}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ u, config: json, ts, sig }),
+  });
+  if (!res.ok) throw new Error(`publishNotifyConfig failed: ${res.status}`);
+}
+
+/** Ask the relay to buzz a RECIPIENT about a cross-user event (phone push P2).
+ *  Sender-signed; the relay runs the recipient's own gate + seals a generic
+ *  content-free pending snapshot + sends a generic push. Fire-and-forget at the
+ *  call site (a failed buzz must never block the share/assign/flag action). */
+export async function notifyRecipient(
+  senderKeys: UserCaptureKeys,
+  recipientPubkeyHex: string,
+  category: string,
+  relayUrl = captureRelayUrl(),
+): Promise<void> {
+  const sender = senderKeys.ed25519PublicKeyHex;
+  const ts = nowIso();
+  const sig = sign(
+    notifyRecipientMessage(recipientPubkeyHex, sender, category, ts),
+    senderKeys.ed25519PrivateKey,
+  );
+  const res = await fetch(
+    `${relayUrl}/capture/notify-recipient?u=${recipientPubkeyHex}`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ u: recipientPubkeyHex, sender, category, ts, sig }),
+    },
+  );
+  if (!res.ok) throw new Error(`notifyRecipient failed: ${res.status}`);
+}
+
 // ---- Inbox ----------------------------------------------------------------
 
 export interface PendingCapture {
