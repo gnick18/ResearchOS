@@ -22,6 +22,12 @@ import {
   validAnalysisTypes,
   type AnalysisType,
 } from "@/lib/datahub/run-analysis";
+import {
+  recipesApi,
+  type AnalysisRecipe,
+} from "@/lib/datahub/recipes-store";
+import { Icon } from "@/components/icons";
+import Tooltip from "@/components/Tooltip";
 import BeakerBot from "@/components/BeakerBot";
 import { AI_ASSISTANT_ENABLED } from "@/lib/ai/config";
 import { useBeakerSearch } from "@/components/beaker-search/BeakerSearchProvider";
@@ -31,6 +37,14 @@ export interface NewAnalysisSubmit {
   type: AnalysisType;
   /** The ordered group column ids that feed the analysis. */
   columnIds: string[];
+  /**
+   * Optional Test-options bag to seed the analysis with. Carried when the
+   * researcher started from a saved recipe, so the new analysis re-runs with the
+   * recipe's params (tails, post-hoc family, alpha, reference group, etc.).
+   * Absent on a plain pick, in which case the page seeds an empty params bag (the
+   * engine defaults), byte-identical to the pre-recipe behavior.
+   */
+  params?: Record<string, unknown>;
 }
 
 const TYPE_META: Record<
@@ -238,6 +252,16 @@ export default function NewAnalysisDialog({
   const [regYColumn, setRegYColumn] = useState<string>("");
   const [regPredictors, setRegPredictors] = useState<string[]>([]);
 
+  // The saved analysis recipes for this user, loaded when the dialog opens. A
+  // recipe applies when its tableType matches the open table AND its analysis is
+  // valid for the current data (validTypes), so the picker never offers a recipe
+  // the table cannot run. Managing a recipe (rename / delete) happens inline.
+  const [recipes, setRecipes] = useState<AnalysisRecipe[]>([]);
+  const [renamingId, setRenamingId] = useState<string | null>(null);
+  const [renameDraft, setRenameDraft] = useState<string>("");
+
+  const tableType = content?.meta.table_type ?? null;
+
   // Reset the form each open: default to the first valid type and the first two
   // groups (or the first Y column for an XY table) so the common case is one
   // click away.
@@ -253,6 +277,33 @@ export default function NewAnalysisDialog({
     setRegYColumn(groups[0]?.id ?? "");
     setRegPredictors(groups.slice(1).map((g) => g.id));
   }, [open, validTypes, groups, ys]);
+
+  // Load the saved recipes each time the dialog opens, so a recipe saved in
+  // another session shows up without a remount. Reset the inline-rename state on
+  // every open so the list never opens mid-edit.
+  useEffect(() => {
+    if (!open) return;
+    let alive = true;
+    setRenamingId(null);
+    void recipesApi.list().then((list) => {
+      if (alive) setRecipes(list);
+    });
+    return () => {
+      alive = false;
+    };
+  }, [open]);
+
+  // The recipes that fit the open table: same table type, and an analysis the
+  // current data can actually run (validTypes). The tableType filter is the
+  // primary fit gate; validTypes guards the edge where the table is the right
+  // KIND but the data is too thin for that specific test.
+  const matchedRecipes = useMemo(() => {
+    if (!tableType) return [];
+    const validSet = new Set<string>(validTypes);
+    return recipes.filter(
+      (r) => r.tableType === tableType && validSet.has(r.analysisType),
+    );
+  }, [recipes, tableType, validTypes]);
 
   // Escape closes.
   useEffect(() => {
@@ -315,6 +366,70 @@ export default function NewAnalysisDialog({
     onSubmit({ type, columnIds });
   };
 
+  // Resolve the input column ids for an analysis type the SAME way submit does,
+  // but for applying a recipe (where the type comes from the recipe, not the
+  // selected radio). Whole-table / screen / global-fit types auto-resolve from
+  // the table; the column-picking types fall back to the dialog's current picks
+  // (the reset effect defaults them to the first groups / first Y / all-but-Y
+  // predictors), so applying a recipe runs on a sensible default selection the
+  // researcher can then re-graph or re-pick. Returns null when the table cannot
+  // supply the columns the type needs (guarded, since matchedRecipes already
+  // filters by validTypes).
+  const columnIdsForRecipe = (recipeType: AnalysisType): string[] | null => {
+    const count = TYPE_META[recipeType].groupCount;
+    if (wholeTable) return [];
+    if (count === "screen") return groups.length >= 1 ? groups.map((g) => g.id) : null;
+    if (count === "globalFit")
+      return xCol && ys.length >= 2 ? ys.map((y) => y.id) : null;
+    if (isXY) {
+      const y = yColumn || ys[0]?.id || "";
+      return y && xCol ? [y] : null;
+    }
+    if (count === "regression") {
+      const y = regYColumn || groups[0]?.id || "";
+      const preds = (regPredictors.length ? regPredictors : groups.slice(1).map((g) => g.id))
+        .filter((id) => id !== y);
+      return y && preds.length >= 2 ? [y, ...preds] : null;
+    }
+    if (count === "two") {
+      const a = groupA || groups[0]?.id || "";
+      const b = groupB || groups[1]?.id || "";
+      return a && b && a !== b ? [a, b] : null;
+    }
+    // "all" on a non-whole-table column table compares every group.
+    return groups.length >= 3 ? groups.map((g) => g.id) : null;
+  };
+
+  const applyRecipe = (recipe: AnalysisRecipe) => {
+    const columnIds = columnIdsForRecipe(recipe.analysisType as AnalysisType);
+    if (columnIds === null) return;
+    onSubmit({
+      type: recipe.analysisType as AnalysisType,
+      columnIds,
+      params: recipe.params,
+    });
+  };
+
+  const startRename = (recipe: AnalysisRecipe) => {
+    setRenamingId(recipe.id);
+    setRenameDraft(recipe.name);
+  };
+
+  const commitRename = async (id: string) => {
+    const name = renameDraft.trim();
+    setRenamingId(null);
+    if (!name) return;
+    const updated = await recipesApi.rename(id, name);
+    if (updated) {
+      setRecipes((prev) => prev.map((r) => (r.id === id ? updated : r)));
+    }
+  };
+
+  const removeRecipe = async (id: string) => {
+    const ok = await recipesApi.remove(id);
+    if (ok) setRecipes((prev) => prev.filter((r) => r.id !== id));
+  };
+
   const togglePredictor = (id: string) => {
     setRegPredictors((prev) =>
       prev.includes(id) ? prev.filter((p) => p !== id) : [...prev, id],
@@ -358,6 +473,91 @@ export default function NewAnalysisDialog({
           </p>
         ) : (
           <>
+            {matchedRecipes.length > 0 && (
+              <div className="mt-4" data-testid="datahub-recipe-list">
+                <label className="block text-meta font-medium uppercase tracking-wide text-foreground-muted">
+                  Saved recipes
+                </label>
+                <p className="mt-0.5 text-meta text-foreground-muted">
+                  Re-run a saved test on this table with the same options.
+                </p>
+                <div className="mt-1.5 flex flex-col gap-1.5">
+                  {matchedRecipes.map((recipe) => {
+                    const meta = TYPE_META[recipe.analysisType as AnalysisType];
+                    const isRenaming = renamingId === recipe.id;
+                    return (
+                      <div
+                        key={recipe.id}
+                        className="flex items-center gap-1.5 rounded-md border border-border bg-surface-raised px-2 py-1.5"
+                        data-testid="datahub-recipe-row"
+                      >
+                        {isRenaming ? (
+                          <input
+                            autoFocus
+                            value={renameDraft}
+                            onChange={(e) => setRenameDraft(e.target.value)}
+                            onBlur={() => void commitRename(recipe.id)}
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter") void commitRename(recipe.id);
+                              if (e.key === "Escape") setRenamingId(null);
+                            }}
+                            className="min-w-0 flex-1 rounded border border-sky-400 bg-surface-overlay px-1.5 py-0.5 text-body text-foreground focus:outline-none"
+                            data-testid="datahub-recipe-rename-input"
+                          />
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => applyRecipe(recipe)}
+                            className="flex min-w-0 flex-1 items-center gap-2 text-left"
+                            data-testid="datahub-recipe-apply"
+                          >
+                            <Icon
+                              name="book"
+                              className="h-4 w-4 shrink-0 text-foreground-muted"
+                            />
+                            <span className="min-w-0 flex-1">
+                              <span className="block truncate text-body font-medium text-foreground">
+                                {recipe.name}
+                              </span>
+                              <span className="block truncate text-meta text-foreground-muted">
+                                {meta?.label ?? recipe.analysisType}
+                              </span>
+                            </span>
+                          </button>
+                        )}
+                        {!isRenaming && (
+                          <>
+                            <Tooltip label="Rename this recipe">
+                              <button
+                                type="button"
+                                onClick={() => startRename(recipe)}
+                                className="shrink-0 rounded p-1 text-foreground-muted hover:bg-surface-sunken hover:text-foreground"
+                                data-testid="datahub-recipe-rename"
+                                aria-label="Rename recipe"
+                              >
+                                <Icon name="pencil" className="h-3.5 w-3.5" />
+                              </button>
+                            </Tooltip>
+                            <Tooltip label="Delete this recipe">
+                              <button
+                                type="button"
+                                onClick={() => void removeRecipe(recipe.id)}
+                                className="shrink-0 rounded p-1 text-foreground-muted hover:bg-surface-sunken hover:text-foreground"
+                                data-testid="datahub-recipe-delete"
+                                aria-label="Delete recipe"
+                              >
+                                <Icon name="trash" className="h-3.5 w-3.5" />
+                              </button>
+                            </Tooltip>
+                          </>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+                <div className="mt-3 border-t border-border" />
+              </div>
+            )}
             <label className="mt-4 block text-meta font-medium uppercase tracking-wide text-foreground-muted">
               Analysis
             </label>

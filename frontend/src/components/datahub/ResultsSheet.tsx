@@ -1984,6 +1984,7 @@ export default function ResultsSheet({
   onGraphResult,
   onChangeAnalysis,
   onParamChange,
+  onSaveRecipe,
   resolveContent,
 }: {
   spec: AnalysisSpec;
@@ -2007,12 +2008,24 @@ export default function ResultsSheet({
   /** Persist one editable parameter (tail, variance, post-hoc) and re-run. When
    *  absent, the Parameters affordance is hidden. */
   onParamChange?: (key: string, value: string) => void;
+  /**
+   * Save this analysis as a reusable recipe under the given name. The recipe
+   * captures this analysis's type + params + the open table's type, so it can be
+   * re-run on another table from the New analysis dialog. When absent, the Save
+   * as recipe affordance is hidden.
+   */
+  onSaveRecipe?: (name: string) => void;
 }) {
   const [showingCode, setShowingCode] = useState(false);
   const [showingParams, setShowingParams] = useState(false);
   const [activeTab, setActiveTab] = useState(0);
   // Transient "Copied" flash for the Export action.
   const [copied, setCopied] = useState(false);
+  // The inline "Save as recipe" name prompt. Open holds the draft name; null is
+  // closed. An inline row (not window.prompt) keeps the flow inside the surface.
+  const [recipeName, setRecipeName] = useState<string | null>(null);
+  // Transient "Saved" flash after a recipe is saved.
+  const [recipeSaved, setRecipeSaved] = useState(false);
 
   // The editable options for this analysis type. Some types (correlation,
   // regression, Kruskal-Wallis) have none, in which case the Parameters
@@ -2131,6 +2144,21 @@ export default function ResultsSheet({
           "Show the open-source code that reproduces this result, so you can rerun it in a notebook.",
         testId: "datahub-results-code",
       },
+      ...(onSaveRecipe
+        ? [
+            {
+              icon: "book" as const,
+              label: recipeSaved ? "Saved" : "Save as recipe",
+              onClick: () => {
+                setRecipeSaved(false);
+                setRecipeName(title);
+              },
+              tooltip:
+                "Save this test and its options as a recipe, so you can re-run the same analysis on another table.",
+              testId: "datahub-results-save-recipe",
+            },
+          ]
+        : []),
       ...(onChangeAnalysis
         ? [
             {
@@ -2160,6 +2188,64 @@ export default function ResultsSheet({
       </div>
     ) : null;
 
+  // The inline name prompt for "Save as recipe". Rendered under the toolbar in
+  // both the success and failure paths so the action is always reachable and
+  // never a soft-lock (Cancel and Escape both back out). Commit calls onSaveRecipe
+  // with the trimmed name, flashes "Saved", and closes.
+  const commitRecipe = (name: string) => {
+    const trimmed = name.trim();
+    setRecipeName(null);
+    if (!trimmed || !onSaveRecipe) return;
+    onSaveRecipe(trimmed);
+    setRecipeSaved(true);
+    setTimeout(() => setRecipeSaved(false), 1800);
+  };
+  const recipePrompt =
+    recipeName !== null && onSaveRecipe ? (
+      <div
+        className="border-b border-border bg-surface-raised px-5 py-2.5"
+        data-testid="results-save-recipe-prompt"
+      >
+        <label className="block text-meta font-medium uppercase tracking-wide text-foreground-muted">
+          Name this recipe
+        </label>
+        <div className="mt-1 flex items-center gap-2">
+          <input
+            autoFocus
+            value={recipeName}
+            onChange={(e) => setRecipeName(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") commitRecipe(recipeName);
+              if (e.key === "Escape") setRecipeName(null);
+            }}
+            placeholder="One-sided Welch t-test"
+            className="min-w-0 flex-1 rounded-md border border-sky-400 bg-surface-overlay px-2 py-1 text-body text-foreground focus:outline-none"
+            data-testid="results-save-recipe-input"
+          />
+          <button
+            type="button"
+            onClick={() => commitRecipe(recipeName)}
+            disabled={recipeName.trim() === ""}
+            className="bg-brand-action text-white transition-colors hover:bg-brand-action/90 rounded-md px-3 py-1 text-body font-medium disabled:opacity-50"
+            data-testid="results-save-recipe-confirm"
+          >
+            Save
+          </button>
+          <button
+            type="button"
+            onClick={() => setRecipeName(null)}
+            className="rounded-md border border-border px-3 py-1 text-body font-medium text-foreground-muted hover:bg-surface-sunken"
+          >
+            Cancel
+          </button>
+        </div>
+        <p className="mt-1 text-meta text-foreground-muted">
+          Saves this test and its options. Apply it to another table from New
+          analysis.
+        </p>
+      </div>
+    ) : null;
+
   if (!outcome.ok) {
     return (
       <div className="flex min-h-0 flex-1 flex-col" data-testid="datahub-results-sheet">
@@ -2169,6 +2255,7 @@ export default function ResultsSheet({
           <h1 className="text-title font-semibold text-foreground">{title}</h1>
         </div>
         <WorkspaceToolbar testId="datahub-results-toolbar" groups={toolbarGroups} />
+        {recipePrompt}
         <div className="min-h-0 flex-1 overflow-auto px-5 pb-5 pt-4">
           {paramsPanel}
           {outcome.needsRaw ? (
@@ -2238,6 +2325,7 @@ export default function ResultsSheet({
       </div>
 
       <WorkspaceToolbar testId="datahub-results-toolbar" groups={toolbarGroups} />
+      {recipePrompt}
 
       <div className="min-h-0 flex-1 overflow-auto px-5 pb-5 pt-4">
         {paramsPanel}
