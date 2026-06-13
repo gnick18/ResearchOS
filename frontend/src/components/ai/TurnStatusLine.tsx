@@ -195,10 +195,7 @@ function RunningStatusLine({
   const hasTokens = turnTokens !== null && turnTokens > 0;
 
   return (
-    <div
-      data-testid="beakerbot-status-line-running"
-      className="border-t border-border bg-surface"
-    >
+    <div data-testid="beakerbot-status-line-running">
       {/* Collapsed bar */}
       <div className="flex items-center gap-0 px-3 py-1.5 text-xs text-foreground-muted">
         <StatusGlyph />
@@ -293,7 +290,7 @@ function SettledStatusLine({ summary }: { summary: TurnSummary }) {
     <div
       data-testid="beakerbot-status-line-settled"
       style={{ opacity, transition: `opacity ${SETTLED_FADE_MS}ms linear` }}
-      className="flex items-center gap-0 border-t border-border bg-surface-sunken px-3 py-1 text-xs text-foreground-muted"
+      className="flex items-center gap-0 px-3 py-1 text-xs text-foreground-muted"
     >
       <StatusGlyph />
       <span className="ml-2">{elapsedStr}</span>
