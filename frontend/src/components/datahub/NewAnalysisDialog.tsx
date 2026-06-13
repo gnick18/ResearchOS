@@ -29,8 +29,8 @@ import {
 import { Icon } from "@/components/icons";
 import Tooltip from "@/components/Tooltip";
 import BeakerBot from "@/components/BeakerBot";
-import { AI_ASSISTANT_ENABLED } from "@/lib/ai/config";
 import { useBeakerSearch } from "@/components/beaker-search/BeakerSearchProvider";
+import { useAccountCapabilities } from "@/hooks/useAccountCapabilities";
 import { sendToBeakerBot } from "@/components/ai/message-bridge";
 
 export interface NewAnalysisSubmit {
@@ -214,6 +214,10 @@ export default function NewAnalysisDialog({
   onSubmit: (data: NewAnalysisSubmit) => void;
 }) {
   const { openBeakerBot } = useBeakerSearch();
+  // BeakerBot AI is ACCOUNT-ONLY (Grant's lock). "Help me choose" is a deep
+  // in-flow control, so it HIDES when the AI capability is off rather than
+  // offering a button that goes nowhere. (capabilities bot, 2026-06-13)
+  const { canUseAI } = useAccountCapabilities();
 
   // Hand the test choice off to BeakerBot when the researcher is not sure which
   // analysis fits. The bot resolves "this table" through its own context bridge,
@@ -759,7 +763,7 @@ export default function NewAnalysisDialog({
         </div>
 
         <div className="flex flex-none items-center justify-between gap-2 border-t border-border px-5 py-4">
-          {AI_ASSISTANT_ENABLED ? (
+          {canUseAI ? (
             <button
               type="button"
               onClick={handleHelpMeChoose}

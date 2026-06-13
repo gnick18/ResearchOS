@@ -38,6 +38,12 @@ vi.mock("@/hooks/useLabUserProfiles", () => ({
 vi.mock("@/hooks/useArchivedUsers", () => ({
   useArchivedUsers: () => new Set<string>(),
 }));
+// External-collab is gated through the ONE capability (capabilities bot). These
+// tab tests do not exercise the ExternalCollabSection, so default it off,
+// matching the prior flags-off behavior, without a FileSystemProvider.
+vi.mock("@/hooks/useAccountCapabilities", () => ({
+  useAccountCapabilities: () => ({ canCollabExternally: false }),
+}));
 
 vi.mock("../ShareDialogAdapter", () => ({
   default: () => <div data-testid="lab-tab-body">lab</div>,

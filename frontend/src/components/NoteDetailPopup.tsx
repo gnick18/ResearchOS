@@ -42,6 +42,7 @@ import { fileEvents } from "@/lib/attachments/file-events";
 import { checkForDuplicates } from "@/lib/attachments/duplicate-check";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { useSharingIdentity } from "@/hooks/useSharingIdentity";
+import { useAccountCapabilities } from "@/hooks/useAccountCapabilities";
 import { useDraftPersistence } from "@/hooks/useDraftPersistence";
 import { useUnsavedChangesGuard } from "@/hooks/useUnsavedChangesGuard";
 import { useAccountType } from "@/hooks/useAccountType";
@@ -265,6 +266,10 @@ export default function NoteDetailPopup({
   // owner; the server rejects anything that is not a bound directory email.
   // Null when this device has no sharing identity (collab then stays live-only).
   const { email: myDirectoryEmail } = useSharingIdentity();
+  // Account-capability gate (capabilities bot, 2026-06-13). Share is a deep
+  // in-flow control, so it HIDES for solo/locked users rather than walling them
+  // inside the share dialog with an account prompt.
+  const { canShare } = useAccountCapabilities();
 
   // Publish the device's directory email to the lazy collab signer (store.ts and
   // the sync hooks read it when they sign Neon requests). Reactive so the email
@@ -1962,7 +1967,9 @@ export default function NoteDetailPopup({
             <div className="mt-3 flex flex-wrap items-center gap-2">
               {/* One Share button opens the two-tab UnifiedShareDialog (lab ACL
                   + cross-boundary send), replacing the old Private / Shared
-                  toggle AND the separate "Share outside this folder" button. */}
+                  toggle AND the separate "Share outside this folder" button.
+                  Hidden for solo/locked accounts (capabilities bot). */}
+              {canShare && (
               <Tooltip label="Share" placement="top">
                 <button
                   onClick={() => {
@@ -1993,6 +2000,7 @@ export default function NoteDetailPopup({
                   Share
                 </button>
               </Tooltip>
+              )}
 
               {/* Loro Phase 3, chunk 4: live-collab session control.
                   Only rendered when LORO_PILOT_ENABLED and the Loro handle is

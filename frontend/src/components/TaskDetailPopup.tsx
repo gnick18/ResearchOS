@@ -107,6 +107,7 @@ import { getCollabDocId } from "@/lib/collab/client/doc-id";
 import { grantCollabOnShare } from "@/lib/collab/client/grant-on-share";
 import { setCollabSignerEmail } from "@/lib/collab/client/current-email";
 import { useSharingIdentity } from "@/hooks/useSharingIdentity";
+import { useAccountCapabilities } from "@/hooks/useAccountCapabilities";
 
 interface TaskDetailPopupProps {
   task: Task;
@@ -187,6 +188,10 @@ export default function TaskDetailPopup({
   const [isExpanded, setIsExpanded] = useState(false);
   const [animationPosition, setAnimationPosition] = useState<{ x: number; y: number } | null>(null);
   const [showSharePopup, setShowSharePopup] = useState(false);
+  // Account-capability gate (capabilities bot, 2026-06-13). Share is a deep
+  // in-flow control, so it HIDES for solo/locked users (per Grant's lock) rather
+  // than showing a dead button that walls them inside the dialog.
+  const { canShare } = useAccountCapabilities();
   // R1 fix-pass: pending-enter-edit handshake between the header Edit
   // button and DetailsTab. The header click sets this flag (after
   // selectTab("details") if needed); DetailsTab consumes it on mount /
@@ -1494,7 +1499,7 @@ export default function TaskDetailPopup({
                   </svg>
                 </button>
               </Tooltip>
-              {!readOnly && !task.is_shared_with_me && (
+              {!readOnly && !task.is_shared_with_me && canShare && (
                 <Tooltip label="Share" placement="bottom">
                   <button
                     onClick={() => setShowSharePopup(true)}

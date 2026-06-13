@@ -33,6 +33,14 @@ vi.mock("@/lib/file-system/wiki-capture-mock", () => ({
   isWikiCaptureMode: () => isWikiCaptureMode(),
 }));
 
+// Account capabilities. The bar is the primary BeakerBot entry, so it shows an
+// ask bar for accounts (canUseAI true) and an upsell for solo/locked. Default
+// to true so the existing ask-bar assertions hold; the upsell case flips it.
+const canUseAI = vi.fn(() => true);
+vi.mock("@/hooks/useAccountCapabilities", () => ({
+  useAccountCapabilities: () => ({ canUseAI: canUseAI() }),
+}));
+
 import BeakerSearchBottomBar from "../BeakerSearchBottomBar";
 
 describe("BeakerSearchBottomBar", () => {
@@ -40,6 +48,7 @@ describe("BeakerSearchBottomBar", () => {
     openPalette.mockClear();
     isRecordingMode.mockReturnValue(false);
     isWikiCaptureMode.mockReturnValue(false);
+    canUseAI.mockReturnValue(true);
   });
   afterEach(() => cleanup());
 
@@ -67,5 +76,15 @@ describe("BeakerSearchBottomBar", () => {
     isWikiCaptureMode.mockReturnValue(true);
     render(<BeakerSearchBottomBar />);
     expect(screen.queryByTestId("beakersearch-bottom-bar")).toBeNull();
+  });
+
+  it("shows the account upsell instead of the ask bar when AI is off (solo)", () => {
+    canUseAI.mockReturnValue(false);
+    render(<BeakerSearchBottomBar />);
+    // The ask bar is gone; the discovery upsell takes its spot.
+    expect(screen.queryByTestId("beakersearch-bottom-bar")).toBeNull();
+    const upsell = screen.getByTestId("beakersearch-bottom-bar-upsell");
+    expect(upsell).toBeTruthy();
+    expect(upsell.textContent).toContain("free account");
   });
 });

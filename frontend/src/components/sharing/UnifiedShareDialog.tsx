@@ -39,8 +39,7 @@ import MethodSendOutsideDialog from "@/components/sharing/MethodSendOutsideDialo
 import ProjectSendOutsideDialog from "@/components/sharing/ProjectSendOutsideDialog";
 import SequenceSendOutsideDialog from "@/components/sharing/SequenceSendOutsideDialog";
 import ExternalCollabSection from "@/components/sharing/ExternalCollabSection";
-import { EXTERNAL_COLLAB_ENABLED } from "@/lib/loro/config";
-import { isRealSharingEnabled } from "@/lib/sharing/oauth-availability";
+import { useAccountCapabilities } from "@/hooks/useAccountCapabilities";
 import { useLabUserProfileMap } from "@/hooks/useLabUserProfiles";
 import { useArchivedUsers } from "@/hooks/useArchivedUsers";
 import SharingServerCopyNotice from "@/components/sharing/SharingServerCopyNotice";
@@ -342,6 +341,12 @@ function OutsideTabBody({
   target: ShareTarget;
   onClose: () => void;
 }) {
+  // External collaboration is gated through the ONE capability now, replacing
+  // the hand-rolled `isRealSharingEnabled() && EXTERNAL_COLLAB_ENABLED` that
+  // diverged from SharedWithMeTab's `status === "ready" && email`.
+  // (capabilities bot, 2026-06-13)
+  const { canCollabExternally } = useAccountCapabilities();
+
   switch (target.kind) {
     case "note":
       return (
@@ -352,7 +357,7 @@ function OutsideTabBody({
             ownerUsername={target.owner}
             onClose={onClose}
           />
-          {isRealSharingEnabled() && EXTERNAL_COLLAB_ENABLED ? (
+          {canCollabExternally ? (
             <div className="mt-4">
               <ExternalCollabSection
                 note={target.note}

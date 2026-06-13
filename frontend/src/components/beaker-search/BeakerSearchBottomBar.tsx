@@ -38,10 +38,19 @@ import BeakerBot from "@/components/BeakerBot";
 import { Icon } from "@/components/icons";
 import { useBeakerSearch } from "./BeakerSearchProvider";
 import { isWikiCaptureMode } from "@/lib/file-system/wiki-capture-mock";
+import { useAccountCapabilities } from "@/hooks/useAccountCapabilities";
+import { AccountUpsell } from "@/components/account/Capability";
 
 /** The permanent bottom-center ask bar. Opens the shared BeakerSearch surface. */
 export default function BeakerSearchBottomBar() {
   const { openPalette } = useBeakerSearch();
+
+  // BeakerBot AI is ACCOUNT-ONLY (Grant's lock). This bar is the PRIMARY
+  // BeakerBot entry, a discovery surface, so a solo/locked user sees a gentle
+  // upsell here instead of an ask bar that cannot ask. Search still has its own
+  // home (the Cmd K palette and the /search page), so nothing is lost.
+  // (capabilities bot, 2026-06-13)
+  const { canUseAI } = useAccountCapabilities();
 
   // Hydration-safe capture hide. Hidden only in wiki-screenshot capture
   // (?wikiCapture=1). It STAYS VISIBLE in marketing-video record mode
@@ -53,6 +62,20 @@ export default function BeakerSearchBottomBar() {
   }, []);
 
   if (hidden) return null;
+
+  // Solo/locked accounts cannot ask BeakerBot (AI is account-only). Show the
+  // gentle account upsell in the bar's spot instead of an ask bar that walls
+  // them at the first message.
+  if (!canUseAI) {
+    return (
+      <div
+        className="fixed bottom-5 left-1/2 z-40 max-w-[calc(100%-9rem)] -translate-x-1/2"
+        data-testid="beakersearch-bottom-bar-upsell"
+      >
+        <AccountUpsell feature="BeakerBot, the AI assistant," />
+      </div>
+    );
+  }
 
   return (
     <div

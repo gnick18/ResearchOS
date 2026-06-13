@@ -58,6 +58,7 @@ import { CHEMISTRY_ENABLED } from "@/lib/chemistry/config";
 import { EditProjectModal } from "@/components/project-surface/ProjectRoute";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { useAccountType } from "@/hooks/useAccountType";
+import { useAccountCapabilities } from "@/hooks/useAccountCapabilities";
 import { RESTORE_ENABLED, canonicalize } from "@/lib/history";
 import {
   useVersionRestore,
@@ -288,6 +289,9 @@ export default function ProjectDetailPopup({
   const [view, setView] = useState<InnerView>("home");
   const [showSharePopup, setShowSharePopup] = useState(false);
   const [showDepositDialog, setShowDepositDialog] = useState(false);
+  // Account-capability gate (capabilities bot, 2026-06-13). Share is a deep
+  // in-flow control, so it HIDES for solo/locked accounts.
+  const { canShare } = useAccountCapabilities();
   const [showEditModal, setShowEditModal] = useState(false);
   const [showArchiveConfirm, setShowArchiveConfirm] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
@@ -714,7 +718,7 @@ export default function ProjectDetailPopup({
               <section>
                 <h3 className="text-title font-semibold text-foreground mb-2">Actions</h3>
                 <div className="flex flex-wrap gap-2">
-                  {!project.is_shared_with_me && (
+                  {!project.is_shared_with_me && canShare && (
                     <ActionButton
                       label="Share"
                       onClick={() => setShowSharePopup(true)}

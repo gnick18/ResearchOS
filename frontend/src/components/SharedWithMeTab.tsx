@@ -72,7 +72,7 @@ import { fileService } from "@/lib/file-system/file-service";
 import { projectsApi } from "@/lib/local-api";
 import type { Note, Project } from "@/lib/types";
 import type { ImportResult } from "@/lib/import/types";
-import { EXTERNAL_COLLAB_ENABLED } from "@/lib/loro/config";
+import { useAccountCapabilities } from "@/hooks/useAccountCapabilities";
 import {
   listInvites,
   dismissInvite,
@@ -320,6 +320,11 @@ interface SharedWithMeTabProps {
 export default function SharedWithMeTab({ onCountChange }: SharedWithMeTabProps) {
   const { currentUser } = useCurrentUser();
   const { status, email, refresh: refreshIdentity } = useSharingIdentity();
+  // External-collab is gated through the ONE capability now, replacing the
+  // hand-rolled `EXTERNAL_COLLAB_ENABLED && status === "ready" && !!email` that
+  // diverged from UnifiedShareDialog. The status-based empty states above stay
+  // as genuine identity UX. (capabilities bot, 2026-06-13)
+  const { canCollabExternally } = useAccountCapabilities();
 
   const [wizardOpen, setWizardOpen] = useState(false);
   const [items, setItems] = useState<InboxItem[]>([]);
@@ -459,7 +464,7 @@ export default function SharedWithMeTab({ onCountChange }: SharedWithMeTabProps)
     <>
       <div className="flex-1 overflow-y-auto p-4">
         <PendingCollabInvites
-          enabled={EXTERNAL_COLLAB_ENABLED && status === "ready" && !!email}
+          enabled={canCollabExternally}
           currentUser={currentUser}
           onAccepted={(title) =>
             setToast(`Added ${title}. Open it to start collaborating.`)

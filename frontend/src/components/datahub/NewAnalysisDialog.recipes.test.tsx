@@ -38,6 +38,13 @@ vi.mock("@/components/beaker-search/BeakerSearchProvider", () => ({
   useBeakerSearch: () => ({ openBeakerBot: vi.fn() }),
 }));
 
+// BeakerBot AI is account-only (capabilities bot). The recipes tests do not
+// exercise the "Help me choose" hand-off, so just satisfy the hook without a
+// FileSystemProvider (canUseAI true keeps the dialog's full surface mounted).
+vi.mock("@/hooks/useAccountCapabilities", () => ({
+  useAccountCapabilities: () => ({ canUseAI: true }),
+}));
+
 vi.mock("@/components/ai/message-bridge", () => ({
   sendToBeakerBot: vi.fn(async () => undefined),
 }));
