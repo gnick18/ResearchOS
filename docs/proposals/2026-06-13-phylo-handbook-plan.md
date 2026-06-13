@@ -77,17 +77,18 @@ em-dashes/emojis/mid-sentence-colons), a worked recipe (which example dataset, t
 layers to add, the bindings), and at least one annotated screenshot from fixture
 mode. A page is not done until its feature exists AND its screenshot is captured.
 
-## Sequencing (ships with the features)
+## Sequencing (DEFERRED, this is a final-final step)
 
-- NOW (parallel to Phase 1 build): scaffold the handbook section + the IA + the
-  concept/styling/tip-decoration/scales pages whose features already exist
-  (Phase 0 shipped continuous scales + legends + value heatmaps). Capture those
-  screenshots.
-- As Phase 1 lands: the layers-model + aligned-data-panels chapters (the big one),
-  with screenshots of the multi-panel figures.
-- As Phase 2/3 land: the Data Hub linkage + msaplot + gallery chapters.
-- Each phase's merge includes its handbook page + screenshot, not a separate
-  later docs pass.
+Grant's call (2026-06-13): do NOT start the handbook now. It is a known TODO, on
+the radar, but it waits until the build-out phases are WELL along, ideally near the
+end. Writing pages + capturing screenshots against a UI that is still changing
+across Phases 1 to 3 would be churn. Build the capability first; document it once
+it is stable.
+
+When it IS time (a late/final step): scaffold the wiki section, commit the curated
+attributed fixtures, and capture screenshots chapter by chapter against the
+then-stable Studio. This doc + the curated-set list are the parked plan to pick up
+then.
 
 ## Gallery (the show-off)
 
