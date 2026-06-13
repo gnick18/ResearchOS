@@ -17,7 +17,7 @@
  * setup-q feature-gating audit manager, 2026-05-27.
  */
 import { describe, expect, it, vi } from "vitest";
-import { render } from "@testing-library/react";
+import { act, render } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import type { FeaturePicks } from "@/lib/onboarding/sidecar";
 
@@ -121,7 +121,14 @@ function renderShellWithPicks(picks: FeaturePicks | null) {
 
 function navHrefs(container: HTMLElement): string[] {
   // Collect every nav-item href (anchors when not gated; data-tour-nav-item
-  // when buttons). The visibility check is href-set-based.
+  // when buttons). The visibility check is href-set-based and zone-agnostic:
+  // the slim AppNavBar parks lower-priority tabs (e.g. /purchases, /links)
+  // behind a More overflow menu, so open it first to bring its items into the
+  // DOM. A tab counts as "visible" if it is reachable from the nav at all.
+  const moreBtn = container.querySelector<HTMLButtonElement>(
+    'nav button[aria-haspopup="menu"]',
+  );
+  if (moreBtn) act(() => moreBtn.click());
   const items: string[] = [];
   container.querySelectorAll("nav a[href]").forEach((el) => {
     const href = (el as HTMLAnchorElement).getAttribute("href");

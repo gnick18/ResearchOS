@@ -139,6 +139,14 @@ export default function AppNavBar({
         setVisibleInlineCount(0);
         return;
       }
+      // No layout to measure against (SSR/first paint, or jsdom in tests where
+      // clientWidth is always 0): show every inline tab rather than collapsing
+      // all but Home into More. Real browsers report a real width on the next
+      // ResizeObserver tick and the responsive split below takes over.
+      if (navEl.clientWidth === 0) {
+        setVisibleInlineCount(inline.length);
+        return;
+      }
       // Available width for the tab strip = the nav element width minus the
       // More button (reserve a fixed allowance so its presence never causes a
       // flip-flop). We sum measured tab widths until we run out of room.
