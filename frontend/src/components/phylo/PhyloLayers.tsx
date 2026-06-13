@@ -692,18 +692,27 @@ function CladeInspector({
           </div>
           <div className="flex items-center justify-between gap-2 text-sm">
             <span className="text-foreground-muted">Style</span>
-            <select
-              value={c.style ?? "highlight"}
-              onChange={(e) =>
-                patchClade(c.id, {
-                  style: e.target.value === "label" ? "label" : "highlight",
-                })
-              }
-              className="text-sm border border-border rounded-lg px-2 py-1 bg-surface text-foreground"
-            >
-              <option value="highlight">Highlight</option>
-              <option value="label">Bracket</option>
-            </select>
+            <div className="inline-flex gap-0.5 p-0.5 border border-border rounded-lg bg-surface">
+              {(
+                [
+                  ["highlight", "Highlight"],
+                  ["label", "Bracket"],
+                ] as const
+              ).map(([val, lab]) => (
+                <button
+                  key={val}
+                  type="button"
+                  onClick={() => patchClade(c.id, { style: val })}
+                  className={`px-2.5 py-1 rounded-md text-xs font-bold transition-colors ${
+                    (c.style ?? "highlight") === val
+                      ? "bg-accent-soft text-accent"
+                      : "text-foreground-muted hover:text-foreground"
+                  }`}
+                >
+                  {lab}
+                </button>
+              ))}
+            </div>
           </div>
           <Field label="Collapse to triangle">
             <ToggleInput
@@ -1071,7 +1080,12 @@ export function MultiColumnField({
   label?: string;
   onChange: (cols: string[]) => void;
 }) {
+  const [filter, setFilter] = useState("");
   const available = columns.filter((c) => !selected.includes(c));
+  const q = filter.trim().toLowerCase();
+  const shown = q
+    ? available.filter((c) => c.toLowerCase().includes(q))
+    : available;
   return (
     <div className="text-sm">
       <span className="text-foreground-muted">{label}</span>
@@ -1085,6 +1099,7 @@ export function MultiColumnField({
               {c}
               <Tooltip label={`Remove ${c}`}>
                 <button
+                  type="button"
                   onClick={() => onChange(selected.filter((x) => x !== c))}
                   className="hover:text-foreground"
                   aria-label={`Remove ${c}`}
@@ -1096,19 +1111,38 @@ export function MultiColumnField({
           ))}
         </div>
       )}
+      {/* Click-driven, not a native <select>: option overlays can't be driven by
+          synthetic events or the browser test extension, and a synthetic select
+          commit silently no-ops. Buttons + a filter input both commit reliably. */}
       {available.length > 0 && (
-        <select
-          value=""
-          onChange={(e) => e.target.value && onChange([...selected, e.target.value])}
-          className="mt-1 w-full text-sm border border-border rounded-lg px-2 py-1 bg-surface text-foreground"
-        >
-          <option value="">Add a column...</option>
-          {available.map((c) => (
-            <option key={c} value={c}>
-              {c}
-            </option>
-          ))}
-        </select>
+        <div className="mt-1">
+          {columns.length > 8 && (
+            <input
+              type="text"
+              value={filter}
+              onChange={(e) => setFilter(e.target.value)}
+              placeholder="Filter..."
+              aria-label={`Filter ${label}`}
+              className="mb-1 w-full text-sm border border-border rounded-lg px-2 py-1 bg-surface text-foreground"
+            />
+          )}
+          <div className="flex flex-wrap gap-1 max-h-40 overflow-auto">
+            {shown.map((c) => (
+              <button
+                key={c}
+                type="button"
+                onClick={() => onChange([...selected, c])}
+                aria-label={`Add ${c}`}
+                className="inline-flex items-center gap-0.5 px-2 py-0.5 rounded-full border border-border text-xs font-medium text-foreground hover:border-accent hover:text-accent"
+              >
+                <Icon name="plus" className="w-3 h-3" /> {c}
+              </button>
+            ))}
+            {shown.length === 0 && (
+              <span className="text-xs text-foreground-muted">No matches</span>
+            )}
+          </div>
+        </div>
       )}
     </div>
   );
