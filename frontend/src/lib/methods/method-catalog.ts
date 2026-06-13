@@ -621,15 +621,25 @@ export interface InstantiateTemplateDeps {
   fetchTemplate?: (slug: string) => Promise<MethodCatalogTemplate>;
 }
 
-const DEFAULT_DEPS: InstantiateTemplateDeps = {
-  methodsApi,
-  pcrApi,
-  lcGradientApi,
-  plateApi,
-  cellCultureApi,
-  massSpecApi,
-  filesApi,
-};
+/** Resolve the real local-api singletons lazily, at call time, instead of in a
+ *  module-level literal. Reading these bindings during module initialization
+ *  couples every importer of this module (and its dependents, e.g.
+ *  experiment-tools.ts) to the full `@/lib/local-api` surface. A test that
+ *  factory-mocks `@/lib/local-api` with only a partial surface would otherwise
+ *  trip vitest's "no <export> defined on the mock" guard the moment this file is
+ *  imported, even when no template is ever instantiated. Deferring the read to
+ *  call time keeps import-time side-effect-free. */
+function defaultInstantiateDeps(): InstantiateTemplateDeps {
+  return {
+    methodsApi,
+    pcrApi,
+    lcGradientApi,
+    plateApi,
+    cellCultureApi,
+    massSpecApi,
+    filesApi,
+  };
+}
 
 /** Marker tag stamped on an orphaned child when a COMPOUND combination fails
  *  partway: by Grant-locked decision the loader does NOT roll back the children
@@ -646,7 +656,7 @@ export const INCOMPLETE_KIT_TAG = "incomplete-kit";
 export async function instantiateMethodFromTemplate(
   template: MethodCatalogTemplate,
   options: InstantiateTemplateOptions = {},
-  deps: InstantiateTemplateDeps = DEFAULT_DEPS,
+  deps: InstantiateTemplateDeps = defaultInstantiateDeps(),
   customFetch?: FetchLike,
 ): Promise<Method> {
   const name = (options.name ?? template.title).trim();

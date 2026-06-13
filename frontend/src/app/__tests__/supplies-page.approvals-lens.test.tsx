@@ -77,6 +77,12 @@ vi.mock("@/hooks/useIsLabHead", () => ({
   useIsLabHead: () => isLabHeadValue.v,
 }));
 
+// The page reads a `filter` query param via useSearchParams; give it an empty
+// URLSearchParams so the initial filter falls back to its default.
+vi.mock("next/navigation", () => ({
+  useSearchParams: () => new URLSearchParams(),
+}));
+
 vi.mock("@/hooks/useCurrentUser", () => ({
   useCurrentUser: () => ({ currentUser: "mira" }),
 }));
@@ -112,6 +118,13 @@ vi.mock("@/components/FundingAccountsManager", () => ({
 // The detail panel + cart review are imported by the page but only render on
 // interaction we don't exercise here; stub them so their module graphs stay out
 // of this suite.
+// The page registers itself as a BeakerSearch source via this side-effect-only
+// hook (no return value consumed). It needs a BeakerSearchProvider we don't
+// mount and is orthogonal to the approvals lens, so stub it to a no-op.
+vi.mock("../supplies/useSuppliesBeakerSource", () => ({
+  useSuppliesBeakerSource: () => {},
+}));
+
 vi.mock("@/components/supplies/SupplyDetailPanel", () => ({
   default: () => null,
 }));
