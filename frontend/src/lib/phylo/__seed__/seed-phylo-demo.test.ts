@@ -120,9 +120,12 @@ const SEEDS: SeedSpec[] = [
         support: false,
       },
     },
+    // "year" is numeric, so it renders as a CONTINUOUS Viridis gradient ring
+    // (Phase 0), alongside the categorical FCZ / AMB / MCF resistance rings, so
+    // the demo exercises both a continuous and a categorical heat scale at once.
     binding: {
       categoryColumn: "CLADE",
-      heatColumns: ["FCZ", "AMB", "MCF"],
+      heatColumns: ["year", "FCZ", "AMB", "MCF"],
     },
   },
 

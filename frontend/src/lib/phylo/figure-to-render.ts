@@ -16,6 +16,7 @@ import { matchMetadataToTips } from "./layout";
 import { leaves, type TreeNode } from "./parse";
 import {
   buildCategoryColors,
+  type FigureScales,
   type FigureTracks,
   type RenderSpec,
 } from "./render";
@@ -48,6 +49,14 @@ export interface FigureInputs {
   metaRows?: Record<string, string>[] | null;
   /** The metadata column whose values match tree tip labels. */
   tipColumn?: string;
+  /**
+   * Optional per-track sequential-palette overrides for numeric columns (Phase 0).
+   * Absent means the per-kind defaults (Viridis numeric, brand categorical), so an
+   * older figure with no scales renders exactly as before.
+   */
+  scales?: FigureScales;
+  /** Draw legends for the colored tracks. Defaults ON when omitted. */
+  legend?: boolean;
 }
 
 /** The deepest first clade with at least two tips, the default highlight target.
@@ -100,6 +109,8 @@ export function figureToRenderSpec(
     metadata: match?.matched,
     categoryColors,
     cladeHighlight: inputs.tracks.clade ? firstCladeHighlight(tree) : null,
+    scales: inputs.scales,
+    legend: inputs.legend,
   };
 }
 
@@ -110,6 +121,10 @@ interface StoredFigure {
   layout?: string;
   branchLengths?: boolean;
   tracks?: Record<string, boolean>;
+  /** Per-track sequential-palette overrides (Phase 0, optional). */
+  scales?: FigureScales;
+  /** Legend toggle (Phase 0, optional, defaults ON). */
+  legend?: boolean;
 }
 interface StoredMetadata {
   tipColumn?: string;
@@ -135,8 +150,10 @@ export function figureInputsFromStored(
     ...DEFAULT_FIGURE_TRACKS,
     ...((figure?.tracks ?? {}) as Partial<FigureTracks>),
   };
+  const scales = figure?.scales;
+  const legend = figure?.legend;
   if (!metadata?.rows) {
-    return { layout, phylogram, tracks, metaRows: null };
+    return { layout, phylogram, tracks, metaRows: null, scales, legend };
   }
   const cols = metadata.rows.length > 0 ? Object.keys(metadata.rows[0]) : [];
   return {
@@ -148,5 +165,7 @@ export function figureInputsFromStored(
     categoryColumn: metadata.categoryColumn ?? cols[1] ?? "",
     barColumn: metadata.barColumn ?? "",
     heatColumns: metadata.heatColumns ?? [],
+    scales,
+    legend,
   };
 }

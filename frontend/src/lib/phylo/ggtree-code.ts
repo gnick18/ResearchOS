@@ -20,6 +20,26 @@ import type { RenderSpec } from "./render";
 export const GGTREE_CAVEAT =
   "This script is generated from your figure. The ggtree output is close but not 100% pixel-identical to the Studio canvas, ggtree uses a different layout engine.";
 
+/**
+ * True when every non-blank value of a column (across the matched tips) parses to
+ * a finite number, so the figure colored it as a continuous scale and the R script
+ * should emit a continuous scale too. Mirrors color-scale.ts classifyColumn but
+ * reads the same metadata Map the exporter already has, no tree needed.
+ */
+function isNumericColumn(
+  metadata: Map<number, Record<string, string>>,
+  column: string,
+): boolean {
+  let sawValue = false;
+  for (const row of metadata.values()) {
+    const raw = row[column];
+    if (raw === undefined || raw.trim() === "") continue;
+    sawValue = true;
+    if (!Number.isFinite(Number(raw.trim()))) return false;
+  }
+  return sawValue;
+}
+
 /** Map a Studio layout to the ggtree layout string. */
 function ggtreeLayout(spec: RenderSpec): string {
   if (spec.layout === "circular") return "circular";
@@ -114,6 +134,12 @@ export function generateGgtreeCode(spec: RenderSpec): string {
     );
   }
   // Heatmap panel.
+  // TODO(phylo Phase 0): the native renderer scales each heat column on its own
+  // (numeric -> a continuous gradient, categorical -> categorical colors). gheatmap
+  // applies one fill scale to the whole matrix, so a per-column continuous scale is
+  // not emitted here yet. The presence / absence matrix below is the honest
+  // approximation; a faithful multi-scale export would need one geom_fruit tile
+  // layer per column with its own scale.
   if (t.heat && cols.heat && cols.heat.length > 0) {
     lines.push(
       `gene_matrix <- meta[, c(${cols.heat.map((c) => rstr(c)).join(", ")})]`,
@@ -122,19 +148,28 @@ export function generateGgtreeCode(spec: RenderSpec): string {
       "p <- gheatmap(p, gene_matrix, width = 0.3, colnames_angle = 90)   # presence / absence panel",
     );
   }
-  // Color scale.
-  if (
-    (t.points || t.strip) &&
-    cols.category &&
-    spec.categoryColors &&
-    Object.keys(spec.categoryColors).length > 0
-  ) {
-    lines.push(
-      `p <- p + scale_color_manual(values = ${rNamedColors(spec.categoryColors)})`,
-    );
-    lines.push(
-      `p <- p + scale_fill_manual(values = ${rNamedColors(spec.categoryColors)})`,
-    );
+  // Color scale. A numeric category column is a CONTINUOUS Viridis scale (the
+  // native renderer's Phase 0 default), a categorical column the manual named
+  // values. The chosen sequential palette id rides spec.scales when overridden.
+  if ((t.points || t.strip) && cols.category) {
+    const numeric =
+      spec.metadata &&
+      isNumericColumn(spec.metadata, cols.category);
+    if (numeric) {
+      lines.push(
+        "p <- p + scale_color_viridis_c() + scale_fill_viridis_c()   # continuous scale (numeric column)",
+      );
+    } else if (
+      spec.categoryColors &&
+      Object.keys(spec.categoryColors).length > 0
+    ) {
+      lines.push(
+        `p <- p + scale_color_manual(values = ${rNamedColors(spec.categoryColors)})`,
+      );
+      lines.push(
+        `p <- p + scale_fill_manual(values = ${rNamedColors(spec.categoryColors)})`,
+      );
+    }
   }
   // Theme + scale bar.
   lines.push("p + theme_tree() + geom_treescale()");
