@@ -84,7 +84,7 @@ describePublished("Published-tree reproduction validated by Robinson-Foulds", ()
   // Per-case assertion so a failure names the exact case and its RF.
   for (const pc of PHYLO_PUBLISHED_CASES) {
     if (!caseIsReady(pc)) continue;
-    it(`${pc.id} reproduces its published tree (${pc.rfTolerance !== undefined ? "RF" : "support"} criterion)`, () => {
+    it(`${pc.id} reproduces its published tree (${pc.recoveryFloor !== undefined ? "recovery" : "support"} criterion)`, () => {
       const v = reproductionVerdict(pc);
       expect(v, `no verdict for ready case ${pc.id}`).not.toBeNull();
       if (!v) return;
@@ -99,7 +99,8 @@ describePublished("Published-tree reproduction validated by Robinson-Foulds", ()
         v.mode === "support"
           ? `${pc.id}: missed ${v.wellSupportedMissed} clades at or above support ${v.cutoff} `
             + `(max missing support ${v.maxMissingSupport})`
-          : `${pc.id}: normalized RF ${v.rf.normalizedRf.toFixed(4)} exceeds tolerance ${v.rfTolerance}`,
+          : `${pc.id}: recovered ${v.rf.cladesRecovered}/${v.rf.cladesTotal} published clades, `
+            + `below floor ${v.recoveryFloor}`,
       ).toBe(true);
 
       expect(domain).toBeDefined();

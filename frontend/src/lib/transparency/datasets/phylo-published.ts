@@ -92,13 +92,17 @@ export interface PhyloPublishedCase {
    */
   supportCutoff?: number;
   /**
-   * Per-case normalized-RF tolerance, for a published tree that carries NO branch
-   * support (so the support-aware rule cannot apply). When set, the case passes
-   * when its normalized Robinson-Foulds distance is at or below this bound. A case
-   * declares EITHER a supportCutoff (support-bearing tree) or an rfTolerance
-   * (support-less tree); rfTolerance takes precedence when both are somehow set.
+   * Per-case recovery floor, for a published tree that carries NO branch support
+   * (so the support-aware rule cannot apply). A fraction in (0, 1]. When set, the
+   * case passes when at least this fraction of the published tree's clades are
+   * recovered. This is the support-less analog of the support-aware rule: it asks
+   * "did we recover the published groupings", and unlike symmetric Robinson-Foulds
+   * it does NOT penalize our tree for resolving polytomies the published tree left
+   * unresolved (those show up as extra clades, not missed ones). A case declares
+   * EITHER a supportCutoff (support-bearing tree) or a recoveryFloor (support-less
+   * tree); recoveryFloor takes precedence when both are somehow set.
    */
-  rfTolerance?: number;
+  recoveryFloor?: number;
 }
 
 /**
@@ -148,10 +152,12 @@ export const PHYLO_PUBLISHED_CASES: PhyloPublishedCase[] = [
     options: craugastorOptions as BuilderOptions,
     result: craugastorResult as PublishedRunResult,
     // The published Fig. 2 tree is a topology with no branch support, so this case
-    // is scored by a normalized-RF tolerance, not the support-aware rule. The bound
-    // is provisional until the offline run lands; tighten or loosen it to match the
-    // honest reproduction at activation.
-    rfTolerance: 0.15,
+    // is scored by clade recovery, not the support-aware rule. The offline run
+    // recovered 33/34 published clades (97.1%), missing 1, while resolving 11 nodes
+    // the published tree left as polytomies (those are extra clades, not misses, so
+    // symmetric RF would unfairly penalize them). A 0.9 floor passes that
+    // comfortably and is robust to re-run stochasticity.
+    recoveryFloor: 0.9,
   },
   {
     id: "firefly_opsin",
@@ -211,12 +217,15 @@ export function comparePublishedCase(c: PhyloPublishedCase): RfResult | null {
  * The verdict for a ready case. A case is judged one of two honest ways. A
  * support-bearing published tree uses the SUPPORT mode (Grant's locked rule: no
  * well-supported clade missed). A support-less published tree (topology only)
- * uses the RF mode (normalized Robinson-Foulds at or below a committed bound),
- * since there is no support to confine differences to.
+ * uses the RECOVERY mode (at least a committed fraction of the published clades
+ * recovered), which asks "did we recover the published groupings" without
+ * penalizing our tree for resolving polytomies the published tree left
+ * unresolved (those are extra clades, not misses, so symmetric RF would be
+ * unfair).
  */
 export interface ReproductionVerdict {
   /** Which criterion judged this case. */
-  mode: "support" | "rf";
+  mode: "support" | "recovery";
   /** The full RF comparison. */
   rf: RfResult;
   /** True when the case passes its criterion. */
@@ -225,21 +234,22 @@ export interface ReproductionVerdict {
   cutoff: number;
   /**
    * Published clades we missed whose support is at or above the cutoff. ZERO is a
-   * support-mode pass. Always 0 in RF mode (a support-less tree has none).
+   * support-mode pass. Always 0 in recovery mode (a support-less tree has none).
    */
   wellSupportedMissed: number;
   /** Missed clades below the cutoff (or with no support value), the expected noise. */
   weaklySupportedMissed: number;
   /** The highest support among the missed clades, or null when none were missed. */
   maxMissingSupport: number | null;
-  /** The normalized-RF bound applied in RF mode, or null in support mode. */
-  rfTolerance: number | null;
+  /** The recovery floor applied in recovery mode (fraction in (0,1]), or null in support mode. */
+  recoveryFloor: number | null;
 }
 
 /**
- * Judge a ready case. RF mode when the case declares an rfTolerance (its
- * published tree carries no support); otherwise support mode (no published clade
- * at or above the cutoff may be missed, a missing clade with no support value is
+ * Judge a ready case. RECOVERY mode when the case declares a recoveryFloor (its
+ * published tree carries no support): pass when the fraction of published clades
+ * recovered is at or above the floor. Otherwise SUPPORT mode: no published clade
+ * at or above the cutoff may be missed (a missing clade with no support value is
  * treated as weakly supported). Returns null when the case is not ready.
  */
 export function reproductionVerdict(c: PhyloPublishedCase): ReproductionVerdict | null {
@@ -258,16 +268,17 @@ export function reproductionVerdict(c: PhyloPublishedCase): ReproductionVerdict 
       weaklySupportedMissed++;
     }
   }
-  if (c.rfTolerance !== undefined) {
+  if (c.recoveryFloor !== undefined) {
+    const recoveredFraction = rf.cladesTotal > 0 ? rf.cladesRecovered / rf.cladesTotal : 1;
     return {
-      mode: "rf",
+      mode: "recovery",
       rf,
-      pass: rf.normalizedRf <= c.rfTolerance,
+      pass: recoveredFraction >= c.recoveryFloor,
       cutoff,
       wellSupportedMissed: 0,
       weaklySupportedMissed: rf.missingFromOurs.length,
       maxMissingSupport,
-      rfTolerance: c.rfTolerance,
+      recoveryFloor: c.recoveryFloor,
     };
   }
   return {
@@ -278,7 +289,7 @@ export function reproductionVerdict(c: PhyloPublishedCase): ReproductionVerdict 
     wellSupportedMissed,
     weaklySupportedMissed,
     maxMissingSupport,
-    rfTolerance: null,
+    recoveryFloor: null,
   };
 }
 

@@ -37,9 +37,9 @@ interface Props {
   cladesRecovered: number;
   cladesTotal: number;
   percentRecovered: number;
-  mode: "support" | "rf";
+  mode: "support" | "recovery";
   pass: boolean;
-  rfTolerance: number | null;
+  recoveryFloor: number | null;
   supportCutoff: number;
   wellSupportedMissed: number;
   weaklySupportedMissed: number;
@@ -198,15 +198,20 @@ export default function PhyloPublished(props: Props) {
             )
           ) : verdictPass ? (
             <>
-              Recovered the <span className="font-semibold">published topology</span> within
-              tolerance (normalized RF {props.normalizedRf.toFixed(4)} at or below{" "}
-              {props.rfTolerance}). This tree carries no branch support, so the case is scored
-              by Robinson-Foulds distance rather than the support-aware rule.
+              Recovered <span className="font-semibold">{props.percentRecovered.toFixed(1)}% of the
+              published clades</span> ({props.cladesRecovered}/{props.cladesTotal}, floor{" "}
+              {Math.round((props.recoveryFloor ?? 0) * 100)}%).
+              {props.extraInOurs.length > 0
+                ? ` Our ML tree additionally resolved ${props.extraInOurs.length} ${props.extraInOurs.length === 1 ? "node" : "nodes"} the published tree left as polytomies.`
+                : ""}{" "}
+              This tree carries no branch support, so the case is scored by clade recovery rather
+              than the support-aware rule.
             </>
           ) : (
             <>
-              Normalized RF {props.normalizedRf.toFixed(4)} exceeds this case&apos;s tolerance of{" "}
-              {props.rfTolerance}; the differing branches are listed below.
+              Recovered only {props.percentRecovered.toFixed(1)}% of the published clades
+              ({props.cladesRecovered}/{props.cladesTotal}), below this case&apos;s floor of{" "}
+              {Math.round((props.recoveryFloor ?? 0) * 100)}%; the missed clades are listed below.
             </>
           )}
         </div>
@@ -219,23 +224,25 @@ export default function PhyloPublished(props: Props) {
             />
           ) : (
             <ProportionBar
-              label={`Topology agreement (1 minus normalized RF, tolerance ${props.rfTolerance})`}
-              value={topologyAgreement}
-              display={topologyAgreement.toFixed(4)}
+              label={`Published clades recovered (floor ${Math.round((props.recoveryFloor ?? 0) * 100)}%)`}
+              value={props.cladesTotal > 0 ? props.cladesRecovered / props.cladesTotal : 1}
+              display={`${props.percentRecovered.toFixed(1)}% (${props.cladesRecovered}/${props.cladesTotal})`}
             />
           )}
-          <ProportionBar
-            label="All published clades recovered"
-            value={props.cladesTotal > 0 ? props.cladesRecovered / props.cladesTotal : 1}
-            display={`${props.percentRecovered.toFixed(1)}% (${props.cladesRecovered}/${props.cladesTotal})`}
-          />
+          {props.mode === "support" ? (
+            <ProportionBar
+              label="All published clades recovered"
+              value={props.cladesTotal > 0 ? props.cladesRecovered / props.cladesTotal : 1}
+              display={`${props.percentRecovered.toFixed(1)}% (${props.cladesRecovered}/${props.cladesTotal})`}
+            />
+          ) : null}
           <p className="text-meta text-foreground-muted">
             Topology agreement {topologyAgreement.toFixed(4)} (Robinson-Foulds distance{" "}
             {props.rf} of a possible {props.maxRf}).{" "}
             {props.mode === "support"
               ? "We gate on recovering every well-supported clade rather than on raw RF, because maximum-likelihood search leaves near-identical taxa in low-support branches that differ run to run."
-              : "We gate on the normalized RF against a committed tolerance, because this published tree carries no branch support to confine differences to."}{" "}
-            The differing branches are listed below so the raw RF reads honestly.
+              : "We gate on the percent of published clades recovered, not raw RF, because this published tree has polytomies our resolved ML tree splits, which raw RF would unfairly count against us."}{" "}
+            The differing branches are listed below so the raw numbers read honestly.
           </p>
         </div>
       </div>

@@ -167,7 +167,7 @@ function CaseVisualCard({ domain, c }: { domain: DomainReport; c: CaseResult }) 
           percentRecovered={v.percentRecovered}
           mode={v.mode}
           pass={v.pass}
-          rfTolerance={v.rfTolerance}
+          recoveryFloor={v.recoveryFloor}
           supportCutoff={v.supportCutoff}
           wellSupportedMissed={v.wellSupportedMissed}
           weaklySupportedMissed={v.weaklySupportedMissed}

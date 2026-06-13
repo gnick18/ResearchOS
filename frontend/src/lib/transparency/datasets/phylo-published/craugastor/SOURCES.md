@@ -33,11 +33,16 @@ The study's published tree (TreeBASE tree "Fig._2", the figure-2 topology), pull
 from the SAME TreeBASE submission so its 47 tips carry the exact same taxon labels
 as the matrix (no relabeling needed). It is committed inline as
 `CRAUGASTOR_PUBLISHED_NWK` in `../phylo-published.ts`. The tree carries the
-topology only, no branch support values, so this case is scored by a normalized
-Robinson-Foulds tolerance rather than the support-aware criterion (see the case's
-`rfTolerance` in `phylo-published.ts`). The numeric tip ids in the TreeBASE tree
-were substituted with their labels using the submission's own TRANSLATE table, a
-mechanical lookup, never a hand-drawn topology.
+topology only, no branch support values, AND it has polytomies (unresolved
+multifurcations), so this case is scored by CLADE RECOVERY (the fraction of
+published clades recovered, see the case's `recoveryFloor` in
+`phylo-published.ts`) rather than the support-aware criterion or symmetric
+Robinson-Foulds. Symmetric RF would unfairly penalize our resolved ML tree for
+splitting the published polytomies (those show up as extra clades, not missed
+ones). The offline run recovered 33/34 published clades (97.1%), missing 1 and
+additionally resolving 11 polytomy nodes; the floor is 0.9. The numeric tip ids in
+the TreeBASE tree were substituted with their labels using the submission's own
+TRANSLATE table, a mechanical lookup, never a hand-drawn topology.
 
 ## BuilderOptions
 
@@ -52,5 +57,5 @@ scripts/run-phylo-published-case.sh craugastor
 ```
 
 (set `PHYLO_THREADS` to a fixed number, the alignment is small so -T AUTO is
-slow.) Then commit the rewritten `result.json`, and set this case's `rfTolerance`
+slow.) Then commit the rewritten `result.json`, and set this case's `recoveryFloor`
 in `phylo-published.ts` to match the honest reproduction.
