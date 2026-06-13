@@ -147,19 +147,25 @@ export function aggregateExperiments(
   cap: number = DEFAULT_ITEM_CAP,
   projectNames: Map<string, string> = new Map(),
 ): ExperimentSummary {
-  // Convert to briefs (carrying owner) and keep a brief.id -> task map so we
-  // aggregate from the REAL records of only the briefs that pass the filter.
-  const byId = new Map<string, { brief: ArtifactBrief; task: Task }>();
+  // Convert to briefs (carrying owner) and keep a compound-key map (owner + ":"
+  // + id) so experiments from different owners that share the same per-user
+  // numeric id never collide. Each brief carries the synthetic compound key in
+  // its id field so filterArtifacts routes back to exactly one record; the map
+  // value keeps the REAL-id brief for downstream display. A plain-id map kept the
+  // total count right but double-counted one owner's experiment and dropped the
+  // other in the byStatus / byProject / byOwner breakdowns.
+  const byCompoundKey = new Map<string, { brief: ArtifactBrief; task: Task }>();
   const briefs: ArtifactBrief[] = [];
   for (const task of tasks) {
     if (task.task_type !== "experiment") continue;
     const brief = experimentToBrief(task);
-    briefs.push(brief);
-    byId.set(brief.id, { brief, task });
+    const compoundKey = `${task.owner ?? ""}:${brief.id}`;
+    briefs.push({ ...brief, id: compoundKey });
+    byCompoundKey.set(compoundKey, { brief, task });
   }
 
   const matched = filterArtifacts(briefs, filter)
-    .map((b) => byId.get(b.id))
+    .map((b) => byCompoundKey.get(b.id))
     .filter((x): x is { brief: ArtifactBrief; task: Task } => x !== undefined);
 
   const byStatus = { complete: 0, active: 0, overdue: 0, upcoming: 0 };

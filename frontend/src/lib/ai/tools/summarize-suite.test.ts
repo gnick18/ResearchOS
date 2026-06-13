@@ -223,6 +223,19 @@ describe("aggregateNotes (structural counts)", () => {
     expect(s.truncated).toBe(false);
   });
 
+  it("does not collide notes from different owners sharing a numeric id", () => {
+    // grant's note id 1 and alice's note id 1 share the same per-user numeric id.
+    // A plain-id map dropped one of them; the compound owner:id key keeps both.
+    const notes = [
+      makeNote({ id: 1, owner: "grant", username: "grant", updated_at: "2026-06-10T10:00:00Z", entries: [makeEntry("A")] }),
+      makeNote({ id: 1, owner: "alice", username: "alice", updated_at: "2026-06-09T10:00:00Z", entries: [makeEntry("B")] }),
+    ];
+    const s = aggregateNotes(notes, { types: ["note"] });
+    expect(s.total).toBe(2);
+    expect(s.byOwner).toEqual({ grant: 1, alice: 1 });
+    expect(s.totalEntries).toBe(2);
+  });
+
   it("caps the items list and flags truncation", () => {
     const many = Array.from({ length: 20 }, (_, i) =>
       makeNote({ id: i + 1, updated_at: `2026-06-${String((i % 28) + 1).padStart(2, "0")}T10:00:00Z` }),

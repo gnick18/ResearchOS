@@ -182,6 +182,22 @@ describe("aggregateExperiments (deterministic counts)", () => {
     const s = aggregateExperiments(tasks, { types: ["experiment"] }, TODAY);
     expect(s.total).toBe(1);
   });
+
+  it("does not collide experiments from different owners sharing a numeric id", () => {
+    // grant's experiment id 1 and alice's experiment id 1 are distinct records
+    // that share the same per-user numeric id. A plain-id map double-counted one
+    // and dropped the other in the breakdowns; the compound owner:id key keeps
+    // both. The total was always right, the breakdowns were not.
+    const tasks = [
+      makeExperiment({ id: 1, owner: "grant", project_id: 4, is_complete: true }),
+      makeExperiment({ id: 1, owner: "alice", project_id: 9, is_complete: false, start_date: "2026-06-20", end_date: "2026-06-22" }),
+    ];
+    const s = aggregateExperiments(tasks, { types: ["experiment"] }, TODAY);
+    expect(s.total).toBe(2);
+    expect(s.byOwner).toEqual({ grant: 1, alice: 1 });
+    const projCounts = Object.fromEntries(s.byProject.map((b) => [b.projectId, b.count]));
+    expect(projCounts).toEqual({ "4": 1, "9": 1 });
+  });
 });
 
 // ---------------------------------------------------------------------------

@@ -115,18 +115,23 @@ export function aggregateNotes(
   filter: ArtifactFilter,
   cap: number = DEFAULT_ITEM_CAP,
 ): NoteSummary {
-  // Build owner-decorated briefs and keep a brief.id -> note map so we aggregate
-  // from the REAL records of the briefs that pass the filter.
-  const byId = new Map<string, OwnedNote>();
+  // Build owner-decorated briefs and keep a compound-key map (owner + ":" + id)
+  // so notes from different owners that share the same per-user numeric id never
+  // collide. Each brief carries the synthetic compound key in its id field so
+  // filterArtifacts routes back to exactly one record. A plain-id map kept the
+  // total count right but double-counted one owner's note and dropped the other
+  // in the byOwner / month / entry breakdowns.
+  const byCompoundKey = new Map<string, OwnedNote>();
   const briefs: ArtifactBrief[] = [];
   for (const note of notes) {
     const brief: ArtifactBrief = { ...noteToBrief(note), owner: note.owner || undefined };
-    briefs.push(brief);
-    byId.set(brief.id, note);
+    const compoundKey = `${note.owner ?? ""}:${brief.id}`;
+    briefs.push({ ...brief, id: compoundKey });
+    byCompoundKey.set(compoundKey, note);
   }
 
   const matched = filterArtifacts(briefs, filter)
-    .map((b) => byId.get(b.id))
+    .map((b) => byCompoundKey.get(b.id))
     .filter((x): x is OwnedNote => x !== undefined);
 
   const byOwner: Record<string, number> = {};
