@@ -17,6 +17,7 @@ import { useTheme, palette, spacing } from '@/lib/design';
 import { useMascotPrefs } from '@/lib/mascot-prefs';
 import { useInteractionPrefs } from '@/lib/interaction-prefs';
 import { useTodayPrefs } from '@/lib/today-prefs';
+import { useAppLockPrefs, getBiometricCapability } from '@/lib/app-lock';
 import { usePairing, clearPairing } from '@/lib/pairing';
 import { getDevicePubHex } from '@/lib/device-identity';
 
@@ -35,7 +36,26 @@ export default function SettingsScreen() {
   const [mascot, setMascot] = useMascotPrefs();
   const [interaction, setInteraction] = useInteractionPrefs();
   const [today, setToday] = useTodayPrefs();
+  const [appLock, setAppLock] = useAppLockPrefs();
   const { pairing, refresh } = usePairing();
+
+  // Whether this phone can use a biometric or screen lock. Until we know, treat
+  // it as unavailable so we never offer a toggle that cannot work. Re-checked
+  // whenever the screen gains focus, in case the user just set up a screen lock.
+  const [biometricReady, setBiometricReady] = useState<boolean | null>(null);
+  useEffect(() => {
+    let active = true;
+    getBiometricCapability()
+      .then((cap) => {
+        if (active) setBiometricReady(cap.canUse);
+      })
+      .catch(() => {
+        if (active) setBiometricReady(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
 
   const [deviceId, setDeviceId] = useState<string | null>(null);
   useEffect(() => {
@@ -153,6 +173,30 @@ export default function SettingsScreen() {
 
         <SectionHeader title="Alerts" />
         <AlarmSettingsCard />
+
+        <SectionHeader title="Security" />
+        <Card>
+          <View style={styles.row}>
+            <View style={styles.rowText}>
+              <ThemedText style={[styles.rowTitle, { color: surface.text }]}>
+                Require Face ID or fingerprint to open
+              </ThemedText>
+              <ThemedText style={[styles.rowSub, { color: surface.muted }]}>
+                {biometricReady === false
+                  ? 'Set up a screen lock on this phone first.'
+                  : 'Lock the app behind your biometric on launch and after a short time away. Your captures and notes are unpublished research, so this keeps them yours.'}
+              </ThemedText>
+            </View>
+            <Switch
+              value={appLock.enabled && biometricReady === true}
+              disabled={biometricReady !== true}
+              onValueChange={(on) => setAppLock({ enabled: on })}
+              trackColor={{ true: palette.sky, false: surface.border }}
+              thumbColor={palette.white}
+              accessibilityLabel="Require Face ID or fingerprint to open"
+            />
+          </View>
+        </Card>
 
         <SectionHeader title="Device and lab" />
         <Card>

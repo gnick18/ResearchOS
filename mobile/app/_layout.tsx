@@ -10,12 +10,19 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
 import { AppSplash } from '@/components/AppSplash';
+import { AppLockGate } from '@/components/AppLockGate';
 import { RainbowBar } from '@/components/ui/RainbowBar';
 import { SuccessBurst } from '@/components/SuccessBurst';
 import { HeaderMascot } from '@/components/HeaderMascot';
 import { LabAlarm, LabAlarmWatcher } from '@/components/LabAlarm';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useMascotPrefs } from '@/lib/mascot-prefs';
+import {
+  addQuickActionListener,
+  getInitialQuickAction,
+  registerQuickActions,
+  routeForQuickAction,
+} from '@/lib/quick-actions';
 
 // Keep the native splash up until JS is ready so there is no white flash before
 // the branded AppSplash overlay takes over. Called at module load, before render.
@@ -53,10 +60,25 @@ export default function RootLayout() {
   // this just gates whether it renders. Toggle lives on the Settings screen.
   const [mascotPrefs] = useMascotPrefs();
 
-  // Phone push P1 tap-to-open. A generic wake-and-fetch buzz carries only
-  // data.kind = "notifications" (never content); tapping it opens the
-  // notifications screen, which fetches + locally decrypts the sealed snapshot.
-  // Guarded so a missing native module never breaks startup.
+  // Phone push tap-to-open routing.
+  //
+  // Push payload contract (the laptop publisher sends this in the notification
+  // data; the relay carries it opaque, never any research content). All routing
+  // happens here on the phone, so the publisher only has to set the right kind
+  // (and a uid where noted). Back-compatible: anything unknown, missing, or the
+  // legacy generic wake buzz falls through to the notifications screen.
+  //
+  //   { kind: 'notifications' }            -> /notifications  (legacy default)
+  //   { kind: 'method', uid: string }      -> /method-detail?uid=...
+  //   { kind: 'timer' }                    -> /(tabs)/timers
+  //   { kind: 'experiment', uid?: string } -> /notebook (with optional uid passthrough)
+  //   { kind: 'capture' }                  -> /scan
+  //   default / unknown                    -> /notifications
+  //
+  // The wake-and-fetch design holds: the generic buzz still carries only
+  // data.kind, never content; richer kinds add a uid at most so the target screen
+  // can fetch + locally decrypt the sealed object. Guarded so a missing native
+  // module never breaks startup.
   useEffect(() => {
     let Notifications: typeof import('expo-notifications') | null = null;
     try {
@@ -68,11 +90,55 @@ export default function RootLayout() {
     if (!Notifications) return;
     const sub = Notifications.addNotificationResponseReceivedListener((response) => {
       const data = response?.notification?.request?.content?.data as
-        | { kind?: unknown }
+        | { kind?: unknown; uid?: unknown }
         | undefined;
-      if (data?.kind === 'notifications') {
-        router.push('/notifications');
+      const kind = typeof data?.kind === 'string' ? data.kind : undefined;
+      const uid = typeof data?.uid === 'string' ? data.uid : undefined;
+      switch (kind) {
+        case 'method':
+          if (uid) {
+            router.push({ pathname: '/method-detail', params: { uid } });
+          } else {
+            router.push('/notifications');
+          }
+          break;
+        case 'timer':
+          router.push('/(tabs)/timers');
+          break;
+        case 'experiment':
+          router.push(
+            uid
+              ? { pathname: '/(tabs)/notebook', params: { uid } }
+              : '/(tabs)/notebook',
+          );
+          break;
+        case 'capture':
+          router.push('/scan');
+          break;
+        case 'notifications':
+        default:
+          router.push('/notifications');
+          break;
       }
+    });
+    return () => sub.remove();
+  }, [router]);
+
+  // Home-screen quick actions (long-press the app icon). Register the shortcuts,
+  // route the action that cold-started the app, and listen for actions chosen
+  // while running. Guarded inside the lib so a missing native module is a no-op.
+  useEffect(() => {
+    void registerQuickActions();
+
+    const initial = getInitialQuickAction();
+    const initialRoute = routeForQuickAction(initial);
+    if (initialRoute) {
+      router.push(initialRoute);
+    }
+
+    const sub = addQuickActionListener((action) => {
+      const route = routeForQuickAction(action);
+      if (route) router.push(route);
     });
     return () => sub.remove();
   }, [router]);
@@ -151,6 +217,11 @@ export default function RootLayout() {
         {Platform.OS !== 'web' ? <LabAlarm /> : null}
       </View>
       {splashVisible && Platform.OS !== 'web' ? <AppSplash onFinish={handleSplashFinish} /> : null}
+      {/* Biometric app lock. Opt-in (default off), so this renders null and adds
+          nothing for current users. When armed it covers the whole app on cold
+          start and on a long-enough return from background. Sits above the splash
+          so the bench is never briefly visible behind the lock. Native only. */}
+      {Platform.OS !== 'web' ? <AppLockGate /> : null}
       <StatusBar style="auto" />
     </ThemeProvider>
     </SafeAreaProvider>

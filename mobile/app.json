@@ -46,6 +46,12 @@
         }
       ],
       "expo-audio",
+      [
+        "expo-local-authentication",
+        {
+          "faceIDPermission": "ResearchOS uses Face ID to keep your captures and notes private to you."
+        }
+      ],
       "expo-notifications",
       [
         "react-native-document-scanner-plugin",
@@ -53,7 +59,8 @@
           "cameraPermission": "ResearchOS uses the camera to scan and clean up your handwritten notes."
         }
       ],
-      "expo-asset"
+      "expo-asset",
+      "expo-quick-actions"
     ],
     "experiments": {
       "typedRoutes": true,
