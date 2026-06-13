@@ -212,7 +212,7 @@ export default function InstitutionDashboard() {
   return (
     <div className="space-y-5">
       {/* Plan builder (rate preview). */}
-      <div className="rounded-xl border border-dashed border-brand-action/50 bg-brand-action/5 p-4">
+      <div className="rounded-xl border border-border bg-surface-raised p-4 shadow-sm">
         <p className="text-meta font-semibold uppercase tracking-wide text-brand-action">
           Build your plan
         </p>
@@ -259,7 +259,7 @@ export default function InstitutionDashboard() {
         </p>
 
         {billing?.billingEnabled ? (
-          <div className="mt-4 border-t border-brand-action/30 pt-3">
+          <div className="mt-4 border-t border-border pt-3">
             {billing.status === "active" ? (
               <p className="text-meta text-foreground">
                 Billing active at <b>{centsToUsd(billing.monthlyCents ?? 0)}/mo</b>
