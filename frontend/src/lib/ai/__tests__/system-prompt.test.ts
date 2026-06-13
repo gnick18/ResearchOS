@@ -1,5 +1,10 @@
 import { describe, expect, it, vi } from "vitest";
 import { BEAKERBOT_SYSTEM_PROMPT } from "../system-prompt";
+// Hoisted to module top so the (now large) agent-loop + system-prompt module
+// graph is evaluated once at load time, not lazily inside the test where its
+// cost would count against the 5s per-test timeout and flake under full-suite load.
+import { runAgentLoop } from "../agent-loop";
+import type { LoopMessage, ModelResponse } from "../agent-loop";
 
 // The system prompt is the only place voice and the hard data-integrity rule are
 // stated, so these pins guard against silent drift, the identity, the
@@ -103,9 +108,6 @@ describe("BEAKERBOT_SYSTEM_PROMPT", () => {
 // reaches the model unchanged on turn 1.
 describe("system prompt reaches the model", () => {
   it("is passed through as the first message to the model caller", async () => {
-    const { runAgentLoop } = await import("../agent-loop");
-    type LoopMessage = import("../agent-loop").LoopMessage;
-    type ModelResponse = import("../agent-loop").ModelResponse;
     const callModel = vi.fn<
       (m: LoopMessage[], t: unknown[]) => Promise<ModelResponse>
     >(async () => ({
@@ -124,5 +126,5 @@ describe("system prompt reaches the model", () => {
     const sent = callModel.mock.calls[0][0];
     expect(sent[0].role).toBe("system");
     expect(sent[0].content).toBe(BEAKERBOT_SYSTEM_PROMPT);
-  });
+  }, 15000);
 });
