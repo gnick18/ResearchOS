@@ -269,7 +269,11 @@ export default function ReferencePicker({ onPick, onClose }: ReferencePickerProp
             (m.method_type ?? "").toLowerCase().includes(q),
         )
         .map((m) => ({
-          key: `method-${m.id}`,
+          // Private and public method stores have overlapping id-spaces, so a
+          // private method id 1 and a public method id 1 both exist. Key on the
+          // public flag too, or the two collide and React throws a duplicate-key
+          // error (and can drop/duplicate rows).
+          key: `method-${m.is_public ? "pub" : "priv"}-${m.id}`,
           label: m.name,
           sublabel: m.method_type ?? undefined,
           markdown: objectReferenceMarkdown("method", String(m.id), m.name),
