@@ -4,7 +4,6 @@ import ReferencePicker from "./ReferencePicker";
 
 // jsdom has no scrollIntoView; the picker calls it on highlight/keyboard nav.
 beforeEach(() => {
-  // @ts-expect-error jsdom stub
   Element.prototype.scrollIntoView = vi.fn();
 });
 
@@ -48,7 +47,7 @@ describe("ReferencePicker duplicate-key guard", () => {
       expect(screen.getByText("Public protocol")).toBeTruthy();
     });
     // React would log "Encountered two children with the same key" on a collision.
-    const dupKeyError = errSpy.mock.calls.some((args) =>
+    const dupKeyError = errSpy.mock.calls.some((args: unknown[]) =>
       String(args[0] ?? "").includes("same key"),
     );
     expect(dupKeyError).toBe(false);
