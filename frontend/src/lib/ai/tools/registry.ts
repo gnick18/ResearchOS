@@ -74,7 +74,12 @@ import { summarizeInventoryTool } from "./summarize-inventory";
 import { labDigestTool } from "./lab-digest";
 import { listLabMembersTool } from "./lab-members";
 import { searchLiteratureTool } from "./search-literature";
-import { listPhyloTreesTool, readPhyloTreeTool, generateTreeTool } from "./phylo-tools";
+import {
+  listPhyloTreesTool,
+  readPhyloTreeTool,
+  generateTreeTool,
+  matchFigureStyleTool,
+} from "./phylo-tools";
 import {
   createExperimentTool,
   rescheduleExperimentTool,
@@ -294,6 +299,14 @@ export const READ_ONLY_TOOLS: AiTool[] = [
   listPhyloTreesTool,
   readPhyloTreeTool,
   generateTreeTool,
+  // match_figure_style (PDF-reproduce Output 4) is non-gated for the same reason
+  // as make_datahub_graph: it writes a reversible figure-style spec the user
+  // explicitly asked for onto the user's OWN tree (a saved tree or pasted Newick),
+  // then navigates the user to Tree Studio hydrated with that style. It emits ONLY
+  // the visual style the model read off the attached figure image, never the tree
+  // itself, the user's Newick is the source of truth. The user edits everything
+  // else in the Studio it lands in, so a draft card would be redundant friction.
+  matchFigureStyleTool,
   // Cloning coworker READ tools. list_sequences gives the model real sequence ids
   // + feature names; read_sequence_features returns one sequence's full annotation
   // list (with coordinates + strand) so the model can pick a region to extract.

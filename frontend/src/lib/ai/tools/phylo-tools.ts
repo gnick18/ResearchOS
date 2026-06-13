@@ -22,6 +22,15 @@
 
 import { phyloApi, type PhyloMeta } from "@/lib/phylo/api";
 import { requestNavigation } from "@/components/ai/navigation-bridge";
+import type { RawPhyloFiles } from "@/lib/phylo/phylo-store";
+import type {
+  PhyloFigureSpec,
+  PhyloLayout,
+  PhyloFormat,
+  PhyloMetadataBinding,
+  AlignedPanel,
+  AlignedPanelKind,
+} from "@/lib/phylo/types";
 import type { AiTool } from "./types";
 import {
   DEFAULT_OPTIONS,
@@ -62,11 +71,33 @@ export function treeCardEmbed(meta: { id: string; name: string }): string {
 export type PhyloToolsDeps = {
   listTrees: () => Promise<PhyloMeta[]>;
   navigate: (path: string) => void;
+  /** Create a new stored tree from Newick / Nexus / PhyloXML text. Wraps
+   *  phyloApi.create. Returns the raw files so the caller reads the new id from
+   *  files.meta.id. */
+  createTree: (
+    tree: string,
+    meta: {
+      name: string;
+      project_ids: string[];
+      format: PhyloFormat;
+      source: "upload" | "paste" | "builder";
+      figure?: PhyloFigureSpec;
+      metadata?: PhyloMetadataBinding;
+    },
+  ) => Promise<RawPhyloFiles>;
+  /** Patch a saved tree's sidecar metadata (the figure + optional column
+   *  bindings). Wraps phyloApi.updateMeta. */
+  updateTreeMeta: (
+    id: string,
+    patch: { figure?: PhyloFigureSpec; metadata?: PhyloMetadataBinding },
+  ) => Promise<PhyloMeta | null>;
 };
 
 export const phyloToolsDeps: PhyloToolsDeps = {
   listTrees: () => phyloApi.list(),
   navigate: requestNavigation,
+  createTree: (tree, meta) => phyloApi.create(tree, meta),
+  updateTreeMeta: (id, patch) => phyloApi.updateMeta(id, patch),
 };
 
 /** Resolve a tree reference (a stable string id or a case-insensitive name) to a
@@ -472,5 +503,341 @@ export const generateTreeTool: AiTool = {
       const msg = err instanceof Error ? err.message : String(err);
       return { ok: false as const, error: `Recipe generation failed: ${msg}` };
     }
+  },
+};
+
+// ---------------------------------------------------------------------------
+// match_figure_style (PDF-reproduce Output 4)
+// ---------------------------------------------------------------------------
+//
+// Output 4 of the reproduce-from-PDF flow. The user attaches a paper FIGURE and
+// wants their OWN tree to match its visual style. The model SEES the figure
+// (vision is available behind the router), reads ONLY its visual style off the
+// image (overall layout, phylogram vs cladogram, tip-label italics, support
+// values shown, color palette, aligned tracks as columns vs rings), and drafts a
+// PhyloFigureSpec describing that style. This tool sanitizes the draft, writes it
+// onto the user's tree (a saved tree via updateMeta, or a freshly-created tree
+// from pasted Newick via create), and navigates to Tree Studio hydrated with the
+// style so the user edits everything else.
+//
+// HARD SCOPE (confirmed by the Phylo lane, and BeakerBot's no-interpretation
+// rule): this emits ONLY visual style read off the figure image. It NEVER
+// re-derives topology, tip names, or data values from the figure. The user
+// supplies the real tree (Newick text is the source of truth). The tool never
+// invents tips, branches, or data values.
+//
+// Contract (Phylo lane, locked + additive):
+//   - Target type is PhyloFigureSpec (NOT RenderSpec, NOT FigureInputs). Per-layer
+//     style (tip-label italic / size / alignment, support cutoff, bar width,
+//     palette) lives in each AlignedPanel.options (stable-but-untyped). Column ->
+//     track bindings live in PhyloMetadataBinding, not the figure.
+//   - Hydration goes through phyloApi only (never PhyloStudio internals, which are
+//     mid-refactor). create() for pasted Newick, updateMeta() for a saved tree.
+//   - Open Tree Studio via the deep link /phylo?doc=<id>#ros=studio. PhyloStudio
+//     hydrates from meta.figure + meta.metadata automatically via its ?doc path.
+//
+// Mirrors generate_tree's convention: navigate straight, no draft-approval card.
+// Deterministic in the sense that the model only supplies the style spec it read
+// off the figure; the tool writes + navigates; the user edits the rest in Studio.
+
+/** The four valid Studio layouts, for sanitizing the model's loose layout value. */
+const PHYLO_LAYOUTS: readonly PhyloLayout[] = [
+  "rectangular",
+  "circular",
+  "slanted",
+  "unrooted",
+];
+
+/** The geom catalog an AlignedPanel can be, mirrored from types.ts so the
+ *  sanitizer can guard the kind without importing a runtime value (the type is
+ *  type-only). Kept in sync with AlignedPanelKind. */
+const ALIGNED_PANEL_KINDS: readonly AlignedPanelKind[] = [
+  "labels",
+  "points",
+  "strip",
+  "heat",
+  "bars",
+  "dots",
+  "box",
+  "violin",
+  "point",
+  "scatter",
+  "clade",
+  "support",
+  "msa",
+];
+
+function isRecord(v: unknown): v is Record<string, unknown> {
+  return typeof v === "object" && v !== null && !Array.isArray(v);
+}
+
+/** Coerce one loosely-typed panel object into a clean AlignedPanel, or null when
+ *  it is too malformed to keep (no usable kind). AlignedPanel.options is
+ *  Record<string, unknown> by contract, so options pass through as-is (the
+ *  "thin adapter on our side" Phylo recommended); we only guard the surrounding
+ *  shape. */
+function sanitizePanel(input: unknown, index: number): AlignedPanel | null {
+  if (!isRecord(input)) return null;
+  const kind = input.kind;
+  if (typeof kind !== "string" || !ALIGNED_PANEL_KINDS.includes(kind as AlignedPanelKind)) {
+    return null;
+  }
+  const id =
+    typeof input.id === "string" && input.id.trim() ? input.id : `layer-${index}`;
+  const panel: AlignedPanel = {
+    id,
+    kind: kind as AlignedPanelKind,
+    // Hidden unless the model explicitly marks it visible false; default visible.
+    visible: typeof input.visible === "boolean" ? input.visible : true,
+  };
+  if (typeof input.column === "string") panel.column = input.column;
+  if (Array.isArray(input.columns)) {
+    panel.columns = input.columns.filter((c): c is string => typeof c === "string");
+  }
+  if (typeof input.errorColumn === "string") panel.errorColumn = input.errorColumn;
+  if (isRecord(input.scale)) {
+    const k = input.scale.kind;
+    if (k === "continuous" || k === "categorical") {
+      panel.scale = {
+        kind: k,
+        ...(typeof input.scale.paletteId === "string"
+          ? { paletteId: input.scale.paletteId }
+          : {}),
+      };
+    }
+  }
+  if (typeof input.legend === "boolean") panel.legend = input.legend;
+  if (typeof input.width === "number" && Number.isFinite(input.width)) {
+    panel.width = input.width;
+  }
+  // options is the stable-but-untyped per-layer style bag. Pass through as-is when
+  // it is a plain object (tip-label italic / size / alignment, support cutoff, bar
+  // width, palette, ...), guarding only that it is an object so the renderer never
+  // chokes on a stray scalar.
+  if (isRecord(input.options)) panel.options = input.options;
+  return panel;
+}
+
+/**
+ * Coerce the model's loosely-typed object into a clean PhyloFigureSpec. Pure.
+ *
+ *   - layout must be one of the four enum values, otherwise "rectangular".
+ *   - branchLengths must be a boolean, otherwise true (phylogram default).
+ *   - tracks must be a Record<string, boolean>, otherwise {} (bad entries dropped).
+ *   - legend / scales / panels pass through when present and well-formed.
+ *
+ * Because AlignedPanel.options is Record<string, unknown> by contract, panel
+ * options pass through as-is (only the array + per-panel shape is guarded). This
+ * is the thin adapter on BeakerBot's side that the Phylo lane recommended.
+ */
+export function sanitizeFigureSpec(input: unknown): PhyloFigureSpec {
+  const src = isRecord(input) ? input : {};
+
+  const layout: PhyloLayout =
+    typeof src.layout === "string" && PHYLO_LAYOUTS.includes(src.layout as PhyloLayout)
+      ? (src.layout as PhyloLayout)
+      : "rectangular";
+
+  const branchLengths =
+    typeof src.branchLengths === "boolean" ? src.branchLengths : true;
+
+  const tracks: Record<string, boolean> = {};
+  if (isRecord(src.tracks)) {
+    for (const [key, value] of Object.entries(src.tracks)) {
+      if (typeof value === "boolean") tracks[key] = value;
+    }
+  }
+
+  const spec: PhyloFigureSpec = { layout, branchLengths, tracks };
+
+  if (typeof src.legend === "boolean") spec.legend = src.legend;
+
+  if (isRecord(src.scales)) {
+    const scales: NonNullable<PhyloFigureSpec["scales"]> = {};
+    if (typeof src.scales.category === "string") scales.category = src.scales.category;
+    if (typeof src.scales.bar === "string") scales.bar = src.scales.bar;
+    if (isRecord(src.scales.heat)) {
+      const heat: Record<string, string> = {};
+      for (const [k, v] of Object.entries(src.scales.heat)) {
+        if (typeof v === "string") heat[k] = v;
+      }
+      if (Object.keys(heat).length > 0) scales.heat = heat;
+    }
+    if (Object.keys(scales).length > 0) spec.scales = scales;
+  }
+
+  if (Array.isArray(src.panels)) {
+    const panels: AlignedPanel[] = [];
+    src.panels.forEach((p, i) => {
+      const panel = sanitizePanel(p, i);
+      if (panel) panels.push(panel);
+    });
+    // Only attach panels when at least one survived, so a garbage array does not
+    // overwrite the load path's default layer projection with an empty stack.
+    if (panels.length > 0) spec.panels = panels;
+  }
+
+  return spec;
+}
+
+/** Sanitize a loosely-typed metadata binding (column -> track bindings) into a
+ *  clean PhyloMetadataBinding, or null when there is no usable tip column. Pure.
+ *  Only attached to the write when the figure showed column tracks. */
+export function sanitizeMetadataBinding(input: unknown): PhyloMetadataBinding | null {
+  if (!isRecord(input)) return null;
+  if (typeof input.tipColumn !== "string" || !input.tipColumn.trim()) return null;
+  const binding: PhyloMetadataBinding = { tipColumn: input.tipColumn };
+  if (Array.isArray(input.rows)) {
+    const rows = input.rows.filter(isRecord).map((r) => {
+      const row: Record<string, string> = {};
+      for (const [k, v] of Object.entries(r)) {
+        if (typeof v === "string") row[k] = v;
+      }
+      return row;
+    });
+    if (rows.length > 0) binding.rows = rows;
+  }
+  if (typeof input.datahubTableId === "string") binding.datahubTableId = input.datahubTableId;
+  if (typeof input.categoryColumn === "string") binding.categoryColumn = input.categoryColumn;
+  if (typeof input.barColumn === "string") binding.barColumn = input.barColumn;
+  if (Array.isArray(input.heatColumns)) {
+    const cols = input.heatColumns.filter((c): c is string => typeof c === "string");
+    if (cols.length > 0) binding.heatColumns = cols;
+  }
+  return binding;
+}
+
+/** The valid tree-text formats, for sanitizing the model's loose format value. */
+const PHYLO_FORMATS: readonly PhyloFormat[] = ["newick", "nexus", "phyloxml"];
+
+export const matchFigureStyleTool: AiTool = {
+  name: "match_figure_style",
+  description:
+    "Match the VISUAL STYLE of an attached paper figure onto the user's OWN phylogenetic tree, then open it in Tree Studio hydrated with that style for the user to edit. This is Output 4 of the reproduce-from-PDF flow, and it is vision-driven, so call it only after you have LOOKED at the attached figure. Pass `figure`, a PhyloFigureSpec describing ONLY the visual style you can SEE in the image, the overall layout (rectangular, circular, slanted, or unrooted), whether it is a phylogram (branchLengths true, branch lengths to scale) or a cladogram (branchLengths false), whether tip labels are italic, whether support values are shown, the color palette, and any aligned tracks as columns or rings. You MUST supply the user's OWN tree, either `treeRef` (a saved tree id or name) or `treeText` (Newick the user pasted). Exactly one of the two. If you have neither, do NOT call this, ASK the user for their tree first. NEVER read topology, tip names, or data values off the figure image, and NEVER invent a tree, a tip, a branch, or a data value, the figure gives you STYLE only and the user's Newick is the only source of the tree itself. On success the tool writes the style onto the tree and navigates the user to Tree Studio, so do not call go_to_page after it. End your reply with the returned embed on its own line, the markdown [<name>](/phylo?doc=<id>#ros=studio). The user edits everything else in the Studio.",
+  parameters: {
+    type: "object",
+    properties: {
+      figure: {
+        type: "object",
+        description:
+          "The PhyloFigureSpec you drafted from the figure's APPEARANCE. Shape: { layout: 'rectangular' | 'circular' | 'slanted' | 'unrooted'; branchLengths: boolean (true = phylogram with branch lengths to scale, false = cladogram with uniform depths); tracks: an object of trackKey -> boolean; legend?: boolean; scales?: { category?: string; bar?: string; heat?: object }; panels?: an ordered array of layer objects, inner (near the tips) to outer, each { id: string; kind: 'labels' | 'strip' | 'heat' | 'bars' | 'support' | ... ; visible: boolean; column?: string; columns?: string[]; legend?: boolean; width?: number; options?: object } }. Per-layer style (tip-label italic / size / alignment, support cutoff, bar width, palette) goes in each panel's `options` object. Describe ONLY what you can SEE in the figure, never topology or data values.",
+        additionalProperties: true,
+      },
+      treeRef: {
+        type: "string",
+        description:
+          "An existing saved tree to restyle, by its stable id or its name (from list_phylo_trees). Supply this OR treeText, not both. The style is written onto this tree's sidecar.",
+      },
+      treeText: {
+        type: "string",
+        description:
+          "Newick text the user supplied for a NEW tree to create and then style. Supply this OR treeRef, not both. This is the only source of the tree's topology and tip names, never read those off the figure.",
+      },
+      name: {
+        type: "string",
+        description:
+          "A name for a newly created tree (only used with treeText). Defaults to 'Reproduced figure'.",
+      },
+      format: {
+        type: "string",
+        enum: ["newick", "nexus", "phyloxml"],
+        description:
+          "The tree-text format of treeText. Defaults to newick. Only used when creating from treeText.",
+      },
+      metadata: {
+        type: "object",
+        description:
+          "Optional column -> track bindings, ONLY when the figure showed aligned column tracks (color strips, heat columns, bar panels) and the user's tree carries a metadata table. Shape: { tipColumn: string; rows?: object[]; datahubTableId?: string; categoryColumn?: string; barColumn?: string; heatColumns?: string[] }. Omit it when the figure is just a styled tree with no data columns.",
+        additionalProperties: true,
+      },
+    },
+    additionalProperties: false,
+  },
+  // No `action` or `previewable` flag: like generate_tree / make_datahub_graph it
+  // navigates straight to the result the user explicitly asked for. The user edits
+  // everything in the Studio it lands in, so a draft card would be redundant.
+  execute: async (args) => {
+    const figure = sanitizeFigureSpec(args.figure);
+    const metadata = sanitizeMetadataBinding(args.metadata);
+
+    const treeRef = typeof args.treeRef === "string" ? args.treeRef.trim() : "";
+    const treeText = typeof args.treeText === "string" ? args.treeText.trim() : "";
+
+    if (!treeRef && !treeText) {
+      return {
+        ok: false as const,
+        error:
+          "I need your own tree to apply this style to. Ask the user for it, a saved tree by name or pasted Newick text. Do not invent a tree.",
+      };
+    }
+
+    // Restyle a saved tree.
+    if (treeRef) {
+      let trees: PhyloMeta[];
+      try {
+        trees = await phyloToolsDeps.listTrees();
+      } catch {
+        return {
+          ok: false as const,
+          error: "I could not read your saved trees. A folder may not be connected.",
+        };
+      }
+      const meta = resolveTree(trees, treeRef);
+      if (!meta) {
+        const names = trees.map((t) => `"${t.name}"`).join(", ");
+        return {
+          ok: false as const,
+          error: `I could not find a tree called "${treeRef}". Your trees are: ${names || "(none yet)"}. Ask the user which saved tree to style, or for pasted Newick, do not invent one.`,
+        };
+      }
+      try {
+        await phyloToolsDeps.updateTreeMeta(meta.id, {
+          figure,
+          ...(metadata ? { metadata } : {}),
+        });
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        return { ok: false as const, error: `I could not save the figure style: ${msg}` };
+      }
+      phyloToolsDeps.navigate(`/phylo?doc=${meta.id}#ros=studio`);
+      return {
+        ok: true as const,
+        id: meta.id,
+        name: meta.name || "Tree",
+        embed: treeCardEmbed(meta),
+      };
+    }
+
+    // Create a new tree from the user's pasted Newick, then style it.
+    const format: PhyloFormat =
+      typeof args.format === "string" && PHYLO_FORMATS.includes(args.format as PhyloFormat)
+        ? (args.format as PhyloFormat)
+        : "newick";
+    const name =
+      typeof args.name === "string" && args.name.trim() ? args.name.trim() : "Reproduced figure";
+
+    let files: RawPhyloFiles;
+    try {
+      files = await phyloToolsDeps.createTree(treeText, {
+        name,
+        project_ids: [],
+        format,
+        source: "paste",
+        figure,
+        ...(metadata ? { metadata } : {}),
+      });
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      return { ok: false as const, error: `I could not create the tree: ${msg}` };
+    }
+
+    const id = files.meta.id;
+    phyloToolsDeps.navigate(`/phylo?doc=${id}#ros=studio`);
+    return {
+      ok: true as const,
+      id,
+      name: files.meta.name || name,
+      embed: treeCardEmbed({ id, name: files.meta.name || name }),
+    };
   },
 };
