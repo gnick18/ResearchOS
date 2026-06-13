@@ -123,8 +123,8 @@ export default function AboutPage() {
                   just wasn&apos;t affordable.
                 </p>
                 <p className="mt-4 text-title leading-relaxed text-foreground-muted">
-                  I&apos;ve always been a builder. I co-ran a swim-lesson business
-                  with my mom through college and spent a summer doing R&amp;D at a
+                  I&apos;ve always been a builder. I co-founded a swim-lesson
+                  business with family through college and spent a summer doing R&amp;D at a
                   food-security startup, so when the tooling kept getting in the
                   way of the science, I built the thing I wished I had instead.
                   That&apos;s ResearchOS. It&apos;s free, it&apos;s open, and
