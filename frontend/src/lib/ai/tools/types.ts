@@ -207,7 +207,28 @@ export type StepApprovalRequest = Extract<ApprovalRequest, { kind: "step" }>;
 // instead, the option(s) the user picked, or a cancelled flag when they dismissed
 // without choosing, so the model continues with the real selection rather than a
 // yes / no.
-export type ApprovalDecision = "allow" | "skip" | ChoiceDecision;
+export type ApprovalDecision = "allow" | "skip" | ChoiceDecision | DraftSaveDecision;
+
+// The answer to a DRAFT request when the user saves from Canvas. Canvas is the
+// editable surface over the model's proposed draft content, so Save carries the
+// user's EDITED text (which may equal the original when they did not change it).
+// Saving IS the consent that replaces the old Approve. The draft gate, on this
+// decision, calls the tool's draft.applyEdit(args, content) to write the edited
+// string into that tool's own content arg, then proceeds so execute writes the
+// user's text rather than the model's original. A "skip" decision (Discard) is
+// the reject path, nothing is written.
+export type DraftSaveDecision = {
+  kind: "draft-save";
+  /** The edited draft content the user chose to save. */
+  content: string;
+};
+
+/** Type guard, narrow an ApprovalDecision to a draft-save decision. */
+export function isDraftSaveDecision(
+  decision: ApprovalDecision,
+): decision is DraftSaveDecision {
+  return typeof decision === "object" && decision.kind === "draft-save";
+}
 
 // The answer to a choice request. `selected` carries the picked option strings
 // (exactly one for "one", one or more for "multiple"). `cancelled` is true when
@@ -274,6 +295,17 @@ export type AiTool = {
       mode: "create" | "append";
       title?: string;
       noteTitle?: string;
+      /**
+       * Write the user's Canvas-edited content back into the tool's OWN args so
+       * execute() writes the edited text instead of the model's original draft.
+       * The draft gate calls this with (args, editedContent) BEFORE proceed when
+       * the user saves from Canvas. Each tool knows which arg its execute reads
+       * (for example content / draftContent), or sets a reserved override arg the
+       * execute prefers when the content is composed from structured inputs.
+       * Mutates args in place. Optional, when absent the gate falls back to the
+       * model's original draft content (older draft tools keep working unchanged).
+       */
+      applyEdit?: (args: Record<string, unknown>, editedContent: string) => void;
     };
     /**
      * When present, the gate raises a `kind:"transform"` block-card approval

@@ -443,6 +443,16 @@ async function gateToolCall(
       ...(draft.title ? { title: draft.title } : {}),
       ...(draft.noteTitle ? { noteTitle: draft.noteTitle } : {}),
     });
+    // Canvas Save resolves with the user's EDITED content. Write it back into
+    // the tool's own args via applyEdit, so execute() persists exactly what the
+    // user saved. When applyEdit is absent (older draft tools), the args already
+    // carry the model's original draft content, so execute writes that, no
+    // regression. Saving is the consent, so we proceed.
+    if (typeof decision === "object" && decision.kind === "draft-save") {
+      draft.applyEdit?.(args, decision.content);
+      return { proceed: true };
+    }
+    // Legacy/non-Canvas Approve still proceeds with the original content.
     if (decision === "allow") return { proceed: true };
     return {
       proceed: false,
