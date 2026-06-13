@@ -33,9 +33,11 @@ import {
  *  - the RDKit wasm (~2 MB) the import "compute properties" + substructure beats
  *    block on (getRdkit is an idempotent singleton, so this is just a head start);
  *  - the live network: PubChem search "caffeine" (searchCompounds q,8) -> top
- *    candidate's SDF -> literature (europePmcPapers q,6 + pubchemLinks cid).
- * The network half mirrors PubChemImportDialog + MoleculeLiterature (maxPapers=6)
- * call-for-call so the warmed URLs match exactly.
+ *    candidate's SDF -> literature (europePmcPapers q,200 + pubchemLinks cid).
+ * The literature warm MUST match MoleculeLiterature's default maxPapers (200, the
+ * size the molecule detail's Papers panel + the inline explorer fetch) call-for-
+ * call, or the URL differs and the on-camera fetch misses the cache and stalls
+ * (~20s for a well-studied compound). 200 here keeps the explorer instant.
  */
 async function warmChemistryFor(q: string): Promise<void> {
   // Kick off the wasm immediately; don't gate the network warm on it.
@@ -44,7 +46,7 @@ async function warmChemistryFor(q: string): Promise<void> {
   const top = compounds[0];
   await Promise.allSettled([
     top ? fetchSdf(top.cid) : Promise.resolve(""),
-    europePmcPapers(q, 6),
+    europePmcPapers(q, 200),
     (async () => {
       const cid = top?.cid ?? (await resolveNameToCid(q).catch(() => null));
       if (cid != null) await pubchemLinks(cid);
