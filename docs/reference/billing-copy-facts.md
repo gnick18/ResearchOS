@@ -63,6 +63,13 @@ editing slows to periodic sync (a throttle), it does not generate a surprise bil
 - Billing is an auto recurring Stripe invoice to the procurement office, net terms, ACH or
   card, adjustable any month, no lock-in. GitHub Sponsors cannot invoice a university, so the
   invoice is the institutional channel (and why Sponsors stays an individuals path).
+- The admin picks how they pay. Default is the emailed net-30 invoice (procurement, PO). A
+  smaller department or a PI can instead auto-charge a card or bank account on file each cycle,
+  set up through a quick Stripe Checkout.
+- International payers can pay too (card everywhere, local bank debits where supported). Stripe
+  charges us more on an international card and for currency conversion, so that real extra cost
+  is passed through as a small international processing line on the rate, not subsidized by US
+  labs. Same cost-recovery principle as the rest.
 - Institutions get a self-serve trust packet (pre-filled HECVAT, security one-pager, the
   open-source code, a standard agreement). Lean on local-first + E2E + Entra SSO as the
   easy-review edge, we hold almost none of their data.

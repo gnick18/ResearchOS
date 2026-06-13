@@ -86,6 +86,15 @@ placeholder for Grant to set before launch.
   terms, payable by ACH or card, adjustable any month, no lock-in, no annual
   contract. GitHub Sponsors CANNOT invoice a university, so the invoice is the
   only institutional channel (this is also why Sponsors stays an individuals path).
+- The admin picks how they pay. The default is that emailed net-30 invoice for a
+  procurement office that needs a purchase order. A smaller department or a PI
+  fronting the cost can instead **auto-charge a card or bank account on file**,
+  charged each cycle, set up through a quick Stripe Checkout.
+- **International payers** can pay too (card everywhere, plus local bank debits
+  where supported). Because Stripe charges us more on an international card and
+  for currency conversion, that real extra cost is passed through as a small
+  international processing line on the rate, so a US lab is not subsidizing it.
+  Same cost-recovery principle as everything else.
 - Institutions get a **self-serve trust packet** (a pre-filled HECVAT, a security
   one-pager, the open-source code, a standard agreement). Lean on local-first +
   end-to-end-encryption + Entra SSO as the easy-review edge, we hold almost none
