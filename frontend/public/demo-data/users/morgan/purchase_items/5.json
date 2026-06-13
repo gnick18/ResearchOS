@@ -11,5 +11,6 @@
   "notes": "Demo internal stock.",
   "funding_string": null,
   "vendor": "Internal supply",
-  "category": "Reagents"
+  "category": "Reagents",
+  "order_status": "received"
 }

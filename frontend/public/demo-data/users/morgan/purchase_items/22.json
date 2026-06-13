@@ -1,0 +1,16 @@
+{
+  "id": 22,
+  "task_id": 14,
+  "item_name": "Microscopy workshop registration",
+  "quantity": 1,
+  "link": null,
+  "cas": null,
+  "price_per_unit": 325,
+  "shipping_fees": 0,
+  "total_price": 325,
+  "notes": "Demo miscellaneous purchase, not tied to a project.",
+  "funding_string": "DEMO-Internal-Bridge",
+  "vendor": null,
+  "category": "Miscellaneous",
+  "order_status": "needs_ordering"
+}

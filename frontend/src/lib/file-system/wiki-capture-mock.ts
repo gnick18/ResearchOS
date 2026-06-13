@@ -972,18 +972,24 @@ export async function installWikiCaptureFixture(
   // cloning to do here anymore.)
 
   // Pull the on-disk experiment writeups + their inline images for each
-  // demo user. Two-phase per user:
+  // demo user. Index-first so the browser console stays clean:
   //
-  //   1. For every task id `1..N` (N = the user's `_counters.json` task
-  //      count, already seeded by the static fixture above), try to fetch
-  //      `notes.md` and `results.md`. 404s are normal — many tasks have
-  //      no writeup yet.
+  //   1. Fetch `users/<user>/results/_index.json` (written by
+  //      scripts/generate-demo-data.mjs) for the exact set of task ids that
+  //      have a notes.md / results.md on disk, plus which of the two each
+  //      task has. `/demo-data/` is not directory-listable from the browser,
+  //      so without this index the only option is to probe every task id
+  //      `1..N` and eat a 404 on every miss. The app handles the miss fine
+  //      (it just skips the file), but the browser still logs every failed
+  //      request, and most tasks have no writeup, so /demo load used to
+  //      flood the console with red 404s that bury real errors. When the
+  //      index is absent (an older demo bundle) we fall back to the legacy
+  //      `1..taskCount` probe so it still degrades safely.
   //   2. For each fetched markdown body, parse `![alt](Images/<name>.png)`
-  //      refs and fetch each referenced PNG into the sibling `Images/`
-  //      folder. `/demo-data/` isn't directory-listable from the browser,
-  //      so the markdown body is the index — anything not referenced
-  //      stays unfetched (acceptable: those PNGs aren't rendered anywhere
-  //      either).
+  //      and `[label](Files/<name>)` refs and fetch each referenced sibling
+  //      asset. The markdown body stays the index for those siblings, so
+  //      anything not referenced stays unfetched (acceptable: those assets
+  //      aren't rendered anywhere either).
   //
   // Replaces the previous `DEMO_MD_SEEDS` + experiment-PNG entries in
   // `DEMO_PNG_PATHS`, which were hardcoded and silently shadowed the
@@ -994,19 +1000,49 @@ export async function installWikiCaptureFixture(
   // for Files/ refs). Image refs point at Images/, not Files/, so this never
   // collides with the `![..](Images/..)` matches above.
   const FILE_REF_RE = /\[[^\]]*\]\(Files\/([^)]+)\)/g;
+
+  // Phase A: resolve which task writeups exist per user, index-first with a
+  // legacy fallback. Done up front so the per-task fetch loop below stays flat.
+  const resultsTaskPlan = await Promise.all(
+    DEMO_RESULTS_USERS.map(async (user) => {
+      let tasks: Array<{ taskId: number; names: string[] }> | undefined;
+      try {
+        const idxRes = await fetch(`/demo-data/users/${user}/results/_index.json`);
+        if (idxRes.ok) {
+          const idx = (await idxRes.json()) as {
+            tasks?: Record<string, string[]>;
+          };
+          tasks = Object.entries(idx.tasks ?? {}).map(([id, names]) => ({
+            taskId: Number(id),
+            names,
+          }));
+        }
+      } catch {
+        // Network / parse error falls through to the legacy probe below.
+      }
+      if (!tasks) {
+        // No index on disk. Probe every task id 1..N (the old behavior) so an
+        // older demo bundle still loads, at the cost of some 404 noise.
+        const counters = files.get(normalizePath(`users/${user}/_counters.json`)) as
+          | { tasks?: number }
+          | undefined;
+        const taskCount = counters?.tasks ?? 0;
+        tasks = Array.from({ length: taskCount }, (_, i) => ({
+          taskId: i + 1,
+          names: ["notes.md", "results.md"],
+        }));
+      }
+      return { user, tasks };
+    }),
+  );
+
   await Promise.all(
-    DEMO_RESULTS_USERS.flatMap((user) => {
-      const counters = files.get(normalizePath(`users/${user}/_counters.json`)) as
-        | { tasks?: number }
-        | undefined;
-      const taskCount = counters?.tasks ?? 0;
-      const taskIds = Array.from({ length: taskCount }, (_, i) => i + 1);
-      return taskIds.map(async (taskId) => {
+    resultsTaskPlan.flatMap(({ user, tasks }) =>
+      tasks.map(async ({ taskId, names }) => {
         const taskBase = `users/${user}/results/task-${taskId}`;
-        const mdNames = ["notes.md", "results.md"];
         const fetchedTexts: string[] = [];
         await Promise.all(
-          mdNames.map(async (name) => {
+          names.map(async (name) => {
             const relPath = `${taskBase}/${name}`;
             try {
               const res = await fetch(`/demo-data/${relPath}`);
@@ -1093,8 +1129,8 @@ export async function installWikiCaptureFixture(
             }
           }),
         );
-      });
-    }),
+      }),
+    ),
   );
 
   // Optional URL-driven sidecar seed for the wizard-screenshot capture

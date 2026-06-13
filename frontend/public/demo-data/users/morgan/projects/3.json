@@ -1,0 +1,15 @@
+{
+  "id": 3,
+  "name": "_misc_purchases",
+  "weekend_active": false,
+  "tags": [],
+  "color": "#9ca3af",
+  "created_at": "2026-02-01T00:00:00Z",
+  "sort_order": 999999,
+  "is_archived": false,
+  "archived_at": null,
+  "owner": "morgan",
+  "shared_with": [],
+  "funding_account_id": null,
+  "is_hidden": true
+}

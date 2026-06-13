@@ -1,0 +1,20 @@
+{
+  "tasks": {
+    "1": [
+      "notes.md",
+      "results.md"
+    ],
+    "2": [
+      "notes.md",
+      "results.md"
+    ],
+    "3": [
+      "notes.md",
+      "results.md"
+    ],
+    "7": [
+      "notes.md",
+      "results.md"
+    ]
+  }
+}

@@ -1,0 +1,16 @@
+{
+  "id": 23,
+  "task_id": 14,
+  "item_name": "Shared bench label printer tape",
+  "quantity": 2,
+  "link": null,
+  "cas": null,
+  "price_per_unit": 19,
+  "shipping_fees": 0,
+  "total_price": 38,
+  "notes": null,
+  "funding_string": "DEMO-Internal-Bridge",
+  "vendor": null,
+  "category": "Miscellaneous",
+  "order_status": "received"
+}

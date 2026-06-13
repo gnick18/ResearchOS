@@ -11,5 +11,6 @@
   "notes": null,
   "funding_string": null,
   "vendor": null,
-  "category": "Consumables"
+  "category": "Consumables",
+  "order_status": "received"
 }

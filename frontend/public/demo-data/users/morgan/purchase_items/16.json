@@ -11,5 +11,6 @@
   "notes": null,
   "funding_string": "DEMO-Internal-Bridge",
   "vendor": "Thermo",
-  "category": "Consumables"
+  "category": "Consumables",
+  "order_status": "needs_ordering"
 }

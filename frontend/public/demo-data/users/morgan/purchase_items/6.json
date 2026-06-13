@@ -11,5 +11,6 @@
   "notes": "Custom recipe — vendor TBD on next reorder.",
   "funding_string": "DEMO-DOE-EERE",
   "vendor": null,
-  "category": null
+  "category": null,
+  "order_status": "ordered"
 }

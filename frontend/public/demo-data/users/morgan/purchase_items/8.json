@@ -11,5 +11,6 @@
   "notes": "Annual calibration — demo.",
   "funding_string": "DEMO-NIH-GM999999",
   "vendor": null,
-  "category": "Service"
+  "category": "Service",
+  "order_status": "ordered"
 }

@@ -4232,6 +4232,39 @@ function buildEntries() {
     }
   }
 
+  // Same purchase seeding for morgan so a lab-head (Mira) lab-wide purchases view
+  // or a recorded-as-morgan view shows spread stages + a misc order, not a flat
+  // all-"needs ordering" list.
+  const MORGAN_PURCHASE_STAGE = { 6: "received", 13: "received", 10: "ordered", 11: "ordered", 12: "needs_ordering" };
+  for (const [p, obj] of out) {
+    if (typeof p === "string" && p.startsWith("users/morgan/purchase_items/") && obj && typeof obj === "object" && MORGAN_PURCHASE_STAGE[obj.task_id]) {
+      obj.order_status = MORGAN_PURCHASE_STAGE[obj.task_id];
+    }
+  }
+  out.push([
+    "users/morgan/projects/3.json",
+    {"id":3,"name":"_misc_purchases","weekend_active":false,"tags":[],"color":"#9ca3af","created_at":"2026-02-01T00:00:00Z","sort_order":999999,"is_archived":false,"archived_at":null,"owner":"morgan","shared_with":[],"funding_account_id":null,"is_hidden":true},
+  ]);
+  out.push([
+    "users/morgan/tasks/14.json",
+    {"id":14,"project_id":3,"name":"Travel + shared lab supplies","start_date":"2026-05-16","duration_days":1,"end_date":"2026-05-16","is_high_level":false,"is_complete":false,"task_type":"purchase","weekend_override":null,"method_id":null,"method_ids":[],"deviation_log":null,"tags":null,"sort_order":14,"experiment_color":null,"sub_tasks":null,"pcr_gradient":null,"pcr_ingredients":null,"method_attachments":[],"owner":"morgan","shared_with":[],"external_project":null,"comments":[]},
+  ]);
+  out.push([
+    "users/morgan/purchase_items/22.json",
+    {"id":22,"task_id":14,"item_name":"Microscopy workshop registration","quantity":1,"link":null,"cas":null,"price_per_unit":325,"shipping_fees":0,"total_price":325,"notes":"Demo miscellaneous purchase, not tied to a project.","funding_string":"DEMO-Internal-Bridge","vendor":null,"category":"Miscellaneous","order_status":"needs_ordering"},
+  ]);
+  out.push([
+    "users/morgan/purchase_items/23.json",
+    {"id":23,"task_id":14,"item_name":"Shared bench label printer tape","quantity":2,"link":null,"cas":null,"price_per_unit":19,"shipping_fees":0,"total_price":38,"notes":null,"funding_string":"DEMO-Internal-Bridge","vendor":null,"category":"Miscellaneous","order_status":"received"},
+  ]);
+  for (const [p, obj] of out) {
+    if (p === "users/morgan/_counters.json" && obj && typeof obj === "object") {
+      obj.projects = Math.max(obj.projects ?? 0, 3);
+      obj.tasks = Math.max(obj.tasks ?? 0, 14);
+      obj.purchase_items = Math.max(obj.purchase_items ?? 0, 23);
+    }
+  }
+
   return out;
 }
 

@@ -11,5 +11,6 @@
   "notes": "Need these by Tuesday so the rebuild slots into next week's reader run.",
   "funding_string": "DEMO-NIH-GM999999",
   "vendor": "IDT",
-  "category": "Reagents"
+  "category": "Reagents",
+  "order_status": "received"
 }

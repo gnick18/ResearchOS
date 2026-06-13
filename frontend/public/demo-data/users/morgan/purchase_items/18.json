@@ -11,5 +11,6 @@
   "notes": "Awaiting funding source — likely DOE renewal.",
   "funding_string": null,
   "vendor": "Sigma-Aldrich",
-  "category": "Reagents"
+  "category": "Reagents",
+  "order_status": "received"
 }
