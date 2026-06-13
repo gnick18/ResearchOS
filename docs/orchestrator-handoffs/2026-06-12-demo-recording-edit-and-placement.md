@@ -46,6 +46,20 @@ Originals (`*.mov`) untouched alongside. Editing recipe: `ffmpeg` freezedetect t
 find static head/tail + any frozen mid-gap, then trim/concat (frozen segments cut
 seamlessly because the frames are identical). Posters not yet generated.
 
+## WELCOME PAGE NOW WIRED (commit b9edcd90e) -> Grant uploads to Blob
+The three coming-soon `DemoLoopPlaceholder`s in `WelcomePage.tsx` are now real
+`DemoLoop`s pointing at Blob URLs. Upload each trimmed clip + a `.poster.jpg`
+(first frame) to the Vercel Blob bucket under EXACTLY these names so the wired
+URLs resolve:
+- `chem2_gliotoxin-trimmed.mp4` -> **chemistry-gliotoxin.mp4** (+ chemistry-gliotoxin.poster.jpg)
+- `datahub-trimmed.mp4` -> **data-hub.mp4** (+ data-hub.poster.jpg)
+- `purchase-trimmed.mp4` -> **purchases.mp4** (+ purchases.poster.jpg)
+- `seq-trimmed.mp4` -> OVERWRITE the existing **sequence-editor-a.mp4** (+ sequence-editor-a.poster.jpg) — that slot (FeatureRow 5) is unchanged in code, so overwriting the Blob swaps in the new richer-plasmid/Gibson clip.
+Poster gen (per clip): `ffmpeg -i X-trimmed.mp4 -frames:v 1 -q:v 3 X.poster.jpg`.
+NO SLOT YET (layout follow-up): `ncbi-trimmed.mp4` (Grant wants both seq clips),
+`chem-trimmed.mp4` (caffeine, deprioritized vs gliotoxin), the `checkins` clip,
+and the NL-query placeholder at WelcomePage ~1171 (no clip recorded for it).
+
 ## BUILD FIX THAT MUST BE PUSHED
 `d071e4fc7` fixes the prod build (it FAILED on commit 79e2aa4): the AI-helper
 privacy guard (`scripts/build-ai-helper.mjs` `ALLOWED_FIXTURE_OWNERS`) only allowed
