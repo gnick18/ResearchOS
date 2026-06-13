@@ -16,6 +16,7 @@ import Tooltip from "@/components/Tooltip";
 import CellCultureScheduleEditor from "@/components/CellCultureScheduleEditor";
 import { GlobeIcon, LockIcon } from "@/lib/utils/icons";
 import { useMethodPermissions } from "@/hooks/useMethodPermissions";
+import { useAccountCapabilities } from "@/hooks/useAccountCapabilities";
 import { isWholeLabShared } from "@/lib/sharing/unified";
 
 /**
@@ -62,6 +63,7 @@ export default function CellCultureViewer({
   // method record has neither `owner` nor `created_by` set.
   const queryClient = useQueryClient();
   const { canModifyMethod } = useMethodPermissions();
+  const { canShare } = useAccountCapabilities();
   const [currentMethod, setCurrentMethod] = useState(method);
   const [schedule, setSchedule] = useState<CellCultureSchedule | null>(null);
   const [loading, setLoading] = useState(true);
@@ -147,7 +149,7 @@ export default function CellCultureViewer({
             <p className="text-meta text-foreground-muted mt-0.5">Cell culture passaging</p>
           </div>
           <div className="flex items-center gap-2">
-            {canModify && !currentMethod.is_shared_with_me && (
+            {canModify && !currentMethod.is_shared_with_me && canShare && (
               <Tooltip label="Share method" placement="bottom">
                 <button
                   onClick={() => setShowSharePopup(true)}

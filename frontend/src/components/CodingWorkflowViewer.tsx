@@ -23,6 +23,7 @@ import CodingWorkflowEditor, { highlightHintFor } from "@/components/CodingWorkf
 import { GlobeIcon, LockIcon } from "@/lib/utils/icons";
 import { parseNotebook, type ParsedNbCell, type ParsedNbOutput } from "@/lib/methods/ipynb-parser";
 import { useMethodPermissions } from "@/hooks/useMethodPermissions";
+import { useAccountCapabilities } from "@/hooks/useAccountCapabilities";
 import { isWholeLabShared } from "@/lib/sharing/unified";
 
 export interface CodingWorkflowViewerProps {
@@ -61,6 +62,7 @@ export default function CodingWorkflowViewer({
 }: CodingWorkflowViewerProps) {
   const queryClient = useQueryClient();
   const { canModifyMethod } = useMethodPermissions();
+  const { canShare } = useAccountCapabilities();
   const meta = getMethodTypeMeta("coding_workflow");
   const [currentMethod, setCurrentMethod] = useState(method);
   const [protocol, setProtocol] = useState<CodingWorkflowProtocol | null>(null);
@@ -152,7 +154,7 @@ export default function CodingWorkflowViewer({
             <p className="text-meta text-foreground-muted mt-0.5">{meta.label}</p>
           </div>
           <div className="flex items-center gap-2">
-            {canModify && !currentMethod.is_shared_with_me && (
+            {canModify && !currentMethod.is_shared_with_me && canShare && (
               <Tooltip label="Share method" placement="bottom">
                 <button
                   onClick={() => setShowSharePopup(true)}

@@ -41,6 +41,7 @@ import ReceivedFromBadge from "@/components/ReceivedFromBadge";
 import RestoredBadge from "@/components/RestoredBadge";
 import ObjectBacklinks from "@/components/ObjectBacklinks";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
+import { useAccountCapabilities } from "@/hooks/useAccountCapabilities";
 import { sequencesApi, projectsApi } from "@/lib/local-api";
 import { emitSequenceDeleted } from "@/lib/sequences/delete-toast-bus";
 import {
@@ -398,6 +399,7 @@ export default function SequencesPage() {
 
   const queryClient = useQueryClient();
   const { currentUser } = useCurrentUser();
+  const { canShare } = useAccountCapabilities();
 
   // sequence editor master. The app-scoped taxonomy clipboard (separate from the
   // OS clipboard + the molecular bases clipboard), persisted to localStorage so a
@@ -969,7 +971,7 @@ export default function SequencesPage() {
         onRename: () =>
           setRenameTarget({ kind: "sequence", id: seq.id, name: seq.display_name }),
         onDuplicate: () => void handleDuplicateOne(seq),
-        onShare: () => handleShareRow(seq),
+        onShare: canShare ? () => handleShareRow(seq) : undefined,
         onCopyReference: () =>
           handleCopyReference({
             type: "sequence",
@@ -1637,6 +1639,7 @@ export default function SequencesPage() {
                           <Icon name="export" className="h-4 w-4" />
                         </button>
                       </Tooltip>
+                      {canShare && (
                       <Tooltip label="Share" placement="bottom">
                         <button
                           type="button"
@@ -1647,6 +1650,7 @@ export default function SequencesPage() {
                           <ShareIcon className="h-4 w-4" />
                         </button>
                       </Tooltip>
+                      )}
                       <Tooltip
                         label={
                           listCollapsed
@@ -1927,7 +1931,9 @@ export default function SequencesPage() {
                 </button>
                 {/* Bulk SEND outside the lab. Reuses the single-sequence send,
                     looped once per checked id (each lands as its own inbox item
-                    the recipient can sort independently). */}
+                    the recipient can sort independently). Hidden for solo/locked
+                    accounts (capabilities bot, phase 3). */}
+                {canShare && (
                 <button
                   type="button"
                   onClick={() => setBulkSendOpen(true)}
@@ -1937,6 +1943,7 @@ export default function SequencesPage() {
                   <ShareIcon className="h-3.5 w-3.5" />
                   {`Send ${checkedIds.size} selected`}
                 </button>
+                )}
                 <button
                   type="button"
                   onClick={handleDeleteChecked}

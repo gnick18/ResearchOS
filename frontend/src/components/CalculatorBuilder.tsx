@@ -50,6 +50,7 @@ import {
 import { EXTERNAL_COLLAB_ENABLED } from "@/lib/loro/config";
 import CalculatorSendOutsideDialog from "@/components/sharing/CalculatorSendOutsideDialog";
 import { useFileSystem } from "@/lib/file-system/file-system-context";
+import { useAccountCapabilities } from "@/hooks/useAccountCapabilities";
 
 // ── Shared field styling (mirrors CalculatorsButton's inputCls/selectCls) ─────
 
@@ -827,6 +828,7 @@ export function CalculatorEditView({
   // record's current snapshot), so it carries the saved CustomCalculator.
   const [externalCalc, setExternalCalc] = useState<CustomCalculator | null>(null);
   const { currentUser } = useFileSystem();
+  const { canShare } = useAccountCapabilities();
 
   // Live preview values, re-seeded whenever the input set changes shape.
   const [previewValues, setPreviewValues] = useState<CustomCalcInputValues>(() =>
@@ -1344,7 +1346,7 @@ export function CalculatorEditView({
         sharedWith={draft.shared_with}
         onChange={(next) => patch({ shared_with: next })}
         onSendExternal={
-          EXTERNAL_COLLAB_ENABLED
+          EXTERNAL_COLLAB_ENABLED && canShare
             ? () => {
                 // External send seals the SAVED snapshot. Only available for an
                 // already-saved calculator (existingId set); the tooltip + the

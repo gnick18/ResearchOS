@@ -7,6 +7,7 @@ import type { ProjectUpdate } from "@/lib/local-api";
 import ShareDialogAdapter from "@/components/sharing/ShareDialogAdapter";
 import { EditProjectModal } from "@/components/project-surface/ProjectRoute";
 import { useEscapeToClose } from "@/hooks/useEscapeToClose";
+import { useAccountCapabilities } from "@/hooks/useAccountCapabilities";
 import type { Project } from "@/lib/types";
 
 // Owner-routed mutation api: for shared projects with edit permission,
@@ -35,6 +36,7 @@ interface ProjectCardKebabProps {
  */
 export default function ProjectCardKebab({ project }: ProjectCardKebabProps) {
   const queryClient = useQueryClient();
+  const { canShare } = useAccountCapabilities();
   const [open, setOpen] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [showSharePopup, setShowSharePopup] = useState(false);
@@ -194,7 +196,7 @@ export default function ProjectCardKebab({ project }: ProjectCardKebabProps) {
           >
             Edit
           </button>
-          {!project.is_shared_with_me && (
+          {!project.is_shared_with_me && canShare && (
             <button
               role="menuitem"
               onClick={(e) => {

@@ -31,6 +31,7 @@ import { InteractiveGradientEditor } from "@/components/InteractiveGradientEdito
 import MethodExperimentsSidebar from "@/components/MethodExperimentsSidebar";
 import { useFileRenamePopup } from "@/components/FileRenamePopup";
 import UnifiedShareDialog from "@/components/sharing/UnifiedShareDialog";
+import { useAccountCapabilities } from "@/hooks/useAccountCapabilities";
 import ReceivedFromBadge from "@/components/ReceivedFromBadge";
 import Tooltip from "@/components/Tooltip";
 import ObjectBacklinks from "@/components/ObjectBacklinks";
@@ -1801,6 +1802,7 @@ function ViewMethodModal({
   // strip opens the two-tab UnifiedShareDialog (lab ACL + cross-boundary send),
   // replacing the standalone "Share outside this folder" send button.
   const [showShare, setShowShare] = useState(false);
+  const { canShare } = useAccountCapabilities();
   const queryClient = useQueryClient();
 
   // After wrapping the current method into a compound: close this viewer
@@ -1888,7 +1890,7 @@ function ViewMethodModal({
             {!method.is_shared_with_me && method.method_type !== "compound" && (
               <WrapAsCompoundAction method={method} onWrapped={handleWrapped} />
             )}
-            {!method.is_shared_with_me && (
+            {!method.is_shared_with_me && canShare && (
               <Tooltip label="Share" placement="bottom">
                 <button
                   type="button"
@@ -2111,6 +2113,7 @@ function MarkdownMethodViewer({
   const [showSharePopup, setShowSharePopup] = useState(false);
   const { requestRename, PopupComponent: FileRenamePopup } = useFileRenamePopup();
   const { canModifyMethod } = useMethodPermissions();
+  const { canShare } = useAccountCapabilities();
 
   const hasUnsavedChanges = content !== originalContent && !loading;
 
@@ -2303,7 +2306,7 @@ function MarkdownMethodViewer({
           <div className="flex items-center gap-2">
             {!editing ? (
               <>
-                {canModify && (
+                {canModify && canShare && (
                   <button
                     onClick={() => setShowSharePopup(true)}
                     className={`px-3 py-1.5 text-meta rounded-lg ${
@@ -2475,6 +2478,7 @@ function PdfViewer({
   const [loading, setLoading] = useState(true);
   const [showSharePopup, setShowSharePopup] = useState(false);
   const { canModifyMethod } = useMethodPermissions();
+  const { canShare } = useAccountCapabilities();
 
   // Owner-aware view: shared-with-edit methods route reads to the owner's dir.
   const scopedMethodsApi = useMemo(() => ownerScopedMethodsApi(currentMethod), [currentMethod]);
@@ -2529,7 +2533,7 @@ function PdfViewer({
             </p>
           </div>
           <div className="flex items-center gap-2">
-            {canModify && !currentMethod.is_shared_with_me && (
+            {canModify && !currentMethod.is_shared_with_me && canShare && (
               <Tooltip label="Share method" placement="bottom">
                 <button
                   onClick={() => setShowSharePopup(true)}
@@ -2634,6 +2638,7 @@ function PcrViewer({
   const [notes, setNotes] = useState("");
   const [editingRecipe, setEditingRecipe] = useState(false);
   const [showSharePopup, setShowSharePopup] = useState(false);
+  const { canShare } = useAccountCapabilities();
 
   // Owner-aware view: shared-with-edit methods route reads to the owner's dir.
   const scopedMethodsApi = useMemo(() => ownerScopedMethodsApi(currentMethod), [currentMethod]);
@@ -2734,7 +2739,7 @@ function PcrViewer({
             </p>
           </div>
           <div className="flex items-center gap-2">
-            {canModify && !currentMethod.is_shared_with_me && (
+            {canModify && !currentMethod.is_shared_with_me && canShare && (
               <Tooltip label="Share method" placement="bottom">
                 <button
                   onClick={() => setShowSharePopup(true)}

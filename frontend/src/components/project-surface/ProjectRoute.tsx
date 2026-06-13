@@ -19,6 +19,7 @@ import {
 import { listImagesInFolder } from "@/lib/attachments/image-folder";
 import { readProjectActivity } from "@/lib/project-activity/event-log";
 import UnifiedShareDialog from "@/components/sharing/UnifiedShareDialog";
+import { useAccountCapabilities } from "@/hooks/useAccountCapabilities";
 import ProjectDepositDialog from "@/components/ProjectDepositDialog";
 import Tooltip from "@/components/Tooltip";
 import { focusWithoutTooltip } from "@/components/tooltip-focus";
@@ -200,6 +201,7 @@ interface ProjectRouteProps {
 export default function ProjectRoute({ projectId, ownerHint }: ProjectRouteProps) {
   const router = useRouter();
   const queryClient = useQueryClient();
+  const { canShare } = useAccountCapabilities();
 
   // L11 gate: Goals section + jump anchor are conditional on the viewer's
   // own feature_picks.goals === "yes" (the wizard's Q4 outcome). undefined
@@ -654,7 +656,7 @@ export default function ProjectRoute({ projectId, ownerHint }: ProjectRouteProps
               {/* One Share button opens the two-tab UnifiedShareDialog (lab ACL
                   + cross-boundary send), replacing the separate "Share project"
                   and "Share outside this folder" buttons. */}
-              {!isMiscellaneousProject && !project.is_shared_with_me && (
+              {!isMiscellaneousProject && !project.is_shared_with_me && canShare && (
                 <Tooltip label="Share" placement="bottom">
                   <button
                     onClick={() => setShowSharePopup(true)}
