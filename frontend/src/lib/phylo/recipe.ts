@@ -241,6 +241,27 @@ function geneExt(o: BuilderOptions): string {
 function supermatrixLines(o: BuilderOptions): Line[] {
   const out: Line[] = [];
   out.push({ comment: `Concatenated supermatrix ${o.dataType} tree`, line: "" });
+
+  // If the user already has a concatenated alignment plus a partition file, skip
+  // the per-gene align/trim loop and the AMAS concatenation and infer directly.
+  // This is the published-matrix case (e.g. a TreeBASE supermatrix), where the
+  // matrix and its charset partition come as committed files.
+  if (o.have === "alignment") {
+    let directModel = o.model === "fixed" ? o.fixedModel : o.partScheme === "merge" ? "MFP+MERGE" : "MFP";
+    if (o.asc) directModel += "+ASC";
+    out.push(...threadsNote(o));
+    out.push({
+      comment:
+        "you already have the concatenated alignment and a partition file, so infer "
+        + "the partitioned ML tree directly (no per-gene alignment or AMAS step needed)",
+      line:
+        `iqtree2 -s input_alignment.fasta -${o.brlen} partitions.nex -m ${directModel}${mset(o)} ` +
+        `${iqtreeThreads(o)} --prefix tree${iqtreeSupport(o)}${outgroupFlag(o)}`,
+    });
+    out.push({ comment: "result: tree.treefile (open it in the Tree Studio)", line: "" });
+    return out;
+  }
+
   out.push(...perGeneLoop(o, []));
 
   const ext = geneExt(o);

@@ -10,7 +10,7 @@
   "fixedModel": "GTR+G",
   "infer": "iqtree",
   "support": "ufboot",
-  "outgroup": "protopterus,Xenopus",
+  "outgroup": "",
   "os": "mac",
   "bnni": true,
   "ufbootReps": 1000,

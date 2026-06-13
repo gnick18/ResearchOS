@@ -1995,6 +1995,30 @@ const PHYLO_SUPPORT: Tolerance = {
     + "well-supported clade fails the gate.",
 };
 
+/**
+ * Normalized-RF band for a case whose published tree carries NO branch support,
+ * so the support-aware rule cannot apply. The case commits its own tolerance
+ * (PhyloPublishedCase.rfTolerance), which overrides pass and warn here; this base
+ * only supplies the unit, kind, and rationale. A reproduction passes when its
+ * normalized Robinson-Foulds distance over the shared taxa is at or below that
+ * bound, which says the recipe recovered the published topology up to a small,
+ * declared amount of stochastic disagreement.
+ */
+const PHYLO_RF_BAND: Tolerance = {
+  pass: 0.1,
+  warn: 0.1,
+  unit: "normalized RF",
+  kind: "loose",
+  rationale:
+    "This published tree is a topology with no branch support, so there is no "
+    + "support to confine differences to and the support-aware rule does not apply. "
+    + "Instead the case commits a normalized Robinson-Foulds tolerance and passes "
+    + "when its distance to the published tree, over the shared taxa, is at or below "
+    + "it. Maximum-likelihood search is stochastic and we run on the paper's "
+    + "alignment rather than its exact tool versions, so a small distance is "
+    + "expected; the bound is committed per case to match the honest reproduction.",
+};
+
 /** Cap the differing-branch lists shown on the page, with a clear truncation note. */
 const MAX_DIFF_BRANCHES = 8;
 
@@ -2028,6 +2052,9 @@ function buildPhyloPublishedDomain(): DomainReport {
           cladesRecovered: 0,
           cladesTotal: publishedTipCount(pc),
           percentRecovered: 0,
+          mode: pc.rfTolerance !== undefined ? "rf" : "support",
+          pass: true,
+          rfTolerance: pc.rfTolerance ?? null,
           supportCutoff: pc.supportCutoff ?? 70,
           wellSupportedMissed: 0,
           weaklySupportedMissed: 0,
@@ -2041,33 +2068,54 @@ function buildPhyloPublishedDomain(): DomainReport {
       };
     }
 
-    const { rf, cutoff, wellSupportedMissed, weaklySupportedMissed, maxMissingSupport } = verdict;
+    const { mode, rf, pass, cutoff, wellSupportedMissed, weaklySupportedMissed, maxMissingSupport, rfTolerance } = verdict;
     const normalizedRf = round(rf.normalizedRf, 6);
-    // The GATED metric is well-supported clades missed (must be zero). Normalized
-    // RF is reported as context, not gated, since stochastic low-support churn is
-    // expected. delta = wellSupportedMissed against a zero-tolerance band.
-    const status: Status = classify(wellSupportedMissed, PHYLO_SUPPORT);
+    const status: Status = pass ? "pass" : "fail";
+
+    // The gated comparison depends on the mode. RF mode (support-less published
+    // tree) gates on normalized RF against the case's committed bound; support mode
+    // gates on well-supported clades missed (must be zero).
+    const comparison =
+      mode === "rf"
+        ? {
+            oracleId: PUBLISHED_TREE.id,
+            metric: "normalized Robinson-Foulds",
+            ours: normalizedRf,
+            theirs: 0,
+            delta: normalizedRf,
+            tolerance: {
+              ...PHYLO_RF_BAND,
+              pass: rfTolerance ?? PHYLO_RF_BAND.pass,
+              warn: rfTolerance ?? PHYLO_RF_BAND.warn,
+            },
+            status,
+          }
+        : {
+            oracleId: PUBLISHED_TREE.id,
+            metric: `well-supported clades missed (support >= ${cutoff})`,
+            ours: wellSupportedMissed,
+            theirs: 0,
+            delta: wellSupportedMissed,
+            tolerance: PHYLO_SUPPORT,
+            status,
+          };
+
+    const inputLine =
+      mode === "rf"
+        ? `${pc.source}. ${summary}. Compared on ${rf.sharedTaxa} shared taxa: `
+          + `${rf.cladesRecovered}/${rf.cladesTotal} published clades recovered, `
+          + `normalized RF ${normalizedRf.toFixed(4)} (tolerance ${rfTolerance}).`
+        : `${pc.source}. ${summary}. Compared on ${rf.sharedTaxa} shared taxa: `
+          + `${rf.cladesRecovered}/${rf.cladesTotal} published clades recovered `
+          + `(normalized RF ${normalizedRf.toFixed(4)}); `
+          + `${wellSupportedMissed} clades at or above support ${cutoff} missed, `
+          + `${weaklySupportedMissed} weakly supported clades differ.`;
 
     return {
       id: pc.id,
       label: pc.label,
-      input:
-        `${pc.source}. ${summary}. Compared on ${rf.sharedTaxa} shared taxa: `
-        + `${rf.cladesRecovered}/${rf.cladesTotal} published clades recovered `
-        + `(normalized RF ${normalizedRf.toFixed(4)}); `
-        + `${wellSupportedMissed} clades at or above support ${cutoff} missed, `
-        + `${weaklySupportedMissed} weakly supported clades differ.`,
-      comparisons: [
-        {
-          oracleId: PUBLISHED_TREE.id,
-          metric: `well-supported clades missed (support >= ${cutoff})`,
-          ours: wellSupportedMissed,
-          theirs: 0,
-          delta: wellSupportedMissed,
-          tolerance: PHYLO_SUPPORT,
-          status,
-        },
-      ],
+      input: inputLine,
+      comparisons: [comparison],
       status,
       visual: {
         kind: "phylo-published",
@@ -2084,6 +2132,9 @@ function buildPhyloPublishedDomain(): DomainReport {
         cladesRecovered: rf.cladesRecovered,
         cladesTotal: rf.cladesTotal,
         percentRecovered: round(rf.percentRecovered, 2),
+        mode,
+        pass,
+        rfTolerance,
         supportCutoff: cutoff,
         wellSupportedMissed,
         weaklySupportedMissed,

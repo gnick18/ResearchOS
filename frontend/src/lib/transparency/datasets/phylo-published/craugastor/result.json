@@ -1,0 +1,7 @@
+{
+  "pending": true,
+  "oursNewick": null,
+  "toolVersions": null,
+  "ranAt": null,
+  "note": "Placeholder. Run scripts/run-phylo-published-case.sh craugastor offline once, then this file is rewritten with the resulting tree (pending = false) to activate the gate."
+}

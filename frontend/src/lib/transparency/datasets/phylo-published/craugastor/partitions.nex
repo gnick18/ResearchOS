@@ -1,0 +1,7 @@
+#nexus
+begin sets;
+  charset 12S = 1-380;
+  charset 16S = 381-737;
+  charset CO1 = 738-1244;
+  charset c_myc = 1245-1658;
+end;

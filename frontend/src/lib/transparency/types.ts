@@ -228,6 +228,12 @@ export type CaseVisual =
       cladesTotal: number;
       /** 100 * cladesRecovered / cladesTotal. */
       percentRecovered: number;
+      /** Which criterion judged the case: support-aware, or a normalized-RF bound (support-less tree). */
+      mode: "support" | "rf";
+      /** Whether the case passes its criterion. */
+      pass: boolean;
+      /** The normalized-RF bound applied in RF mode, or null in support mode. */
+      rfTolerance: number | null;
       /** The "well-supported" cutoff applied (e.g. 70, Hillis and Bull 1993). */
       supportCutoff: number;
       /** Published clades at or above the cutoff that we missed. ZERO is the gated pass condition. */

@@ -116,6 +116,14 @@ describe("recipe generator: supermatrix", () => {
     );
   });
 
+  it("skips AMAS and infers directly when the supermatrix is already concatenated (have=alignment)", () => {
+    const c = generateCommands(opt({ analysis: "supermatrix", have: "alignment" }));
+    // No per-gene align/concat step; infer straight from the committed matrix + partition.
+    expect(c).not.toContain("AMAS.py concat");
+    expect(c).not.toContain("for f in genes/");
+    expect(c).toContain("iqtree2 -s input_alignment.fasta -p partitions.nex -m MFP");
+  });
+
   it("uses MFP+MERGE only for the merge scheme", () => {
     expect(generateCommands(opt({ analysis: "supermatrix", partScheme: "merge" }))).toContain(
       "-m MFP+MERGE",

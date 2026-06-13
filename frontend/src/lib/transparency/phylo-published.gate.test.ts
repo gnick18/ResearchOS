@@ -84,7 +84,7 @@ describePublished("Published-tree reproduction validated by Robinson-Foulds", ()
   // Per-case assertion so a failure names the exact case and its RF.
   for (const pc of PHYLO_PUBLISHED_CASES) {
     if (!caseIsReady(pc)) continue;
-    it(`${pc.id} recovers every well-supported published clade`, () => {
+    it(`${pc.id} reproduces its published tree (${pc.rfTolerance !== undefined ? "RF" : "support"} criterion)`, () => {
       const v = reproductionVerdict(pc);
       expect(v, `no verdict for ready case ${pc.id}`).not.toBeNull();
       if (!v) return;
@@ -92,12 +92,15 @@ describePublished("Published-tree reproduction validated by Robinson-Foulds", ()
       // the labels did not line up and the score is meaningless.
       expect(v.rf.sharedTaxa, `${pc.id}: no shared taxa with the published tree`)
         .toBeGreaterThanOrEqual(4);
-      // The locked pass criterion: no well-supported published clade is missed.
+      // The pass criterion (support mode: no well-supported clade missed; RF mode:
+      // normalized RF at or below the committed tolerance).
       expect(
-        v.wellSupportedMissed,
-        `${pc.id}: missed ${v.wellSupportedMissed} clades at or above support ${v.cutoff} `
-          + `(max missing support ${v.maxMissingSupport})`,
-      ).toBe(0);
+        v.pass,
+        v.mode === "support"
+          ? `${pc.id}: missed ${v.wellSupportedMissed} clades at or above support ${v.cutoff} `
+            + `(max missing support ${v.maxMissingSupport})`
+          : `${pc.id}: normalized RF ${v.rf.normalizedRf.toFixed(4)} exceeds tolerance ${v.rfTolerance}`,
+      ).toBe(true);
 
       expect(domain).toBeDefined();
       if (!domain) return;
@@ -108,7 +111,7 @@ describePublished("Published-tree reproduction validated by Robinson-Foulds", ()
       expect(cmp.oracleId).toBe("published-tree");
       expect(
         cmp.delta,
-        `${pc.id}: ${cmp.ours} well-supported clades missed`,
+        `${pc.id}: ${cmp.metric} = ${cmp.ours}, tolerance ${cmp.tolerance.warn}`,
       ).toBeLessThanOrEqual(cmp.tolerance.warn);
       expect(cmp.status).not.toBe("fail");
     });

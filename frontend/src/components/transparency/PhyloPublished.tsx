@@ -37,6 +37,9 @@ interface Props {
   cladesRecovered: number;
   cladesTotal: number;
   percentRecovered: number;
+  mode: "support" | "rf";
+  pass: boolean;
+  rfTolerance: number | null;
   supportCutoff: number;
   wellSupportedMissed: number;
   weaklySupportedMissed: number;
@@ -127,7 +130,7 @@ export default function PhyloPublished(props: Props) {
 
   const topologyAgreement = 1 - props.normalizedRf;
   const anyDiff = props.missingFromOurs.length > 0 || props.extraInOurs.length > 0;
-  const verdictPass = props.wellSupportedMissed === 0;
+  const verdictPass = props.pass;
 
   return (
     <div className="space-y-4">
@@ -175,30 +178,52 @@ export default function PhyloPublished(props: Props) {
               : "border-amber-500/40 bg-amber-500/10 text-foreground"
           }`}
         >
-          {verdictPass ? (
+          {props.mode === "support" ? (
+            verdictPass ? (
+              <>
+                Recovered <span className="font-semibold">every well-supported clade</span> in
+                the published tree (support at or above {props.supportCutoff}).
+                {props.weaklySupportedMissed > 0
+                  ? ` The ${props.weaklySupportedMissed} branches that differ are all weakly`
+                    + ` supported (highest ${props.maxMissingSupport ?? 0}), the expected churn`
+                    + ` among near-identical taxa.`
+                  : ""}
+              </>
+            ) : (
+              <>
+                Missed {props.wellSupportedMissed} published{" "}
+                {props.wellSupportedMissed === 1 ? "clade" : "clades"} with support at or above{" "}
+                {props.supportCutoff}, listed below.
+              </>
+            )
+          ) : verdictPass ? (
             <>
-              Recovered <span className="font-semibold">every well-supported clade</span> in the
-              published tree (support at or above {props.supportCutoff}).
-              {props.weaklySupportedMissed > 0
-                ? ` The ${props.weaklySupportedMissed} branches that differ are all weakly`
-                  + ` supported (highest ${props.maxMissingSupport ?? 0}), the expected churn`
-                  + ` among near-identical taxa.`
-                : ""}
+              Recovered the <span className="font-semibold">published topology</span> within
+              tolerance (normalized RF {props.normalizedRf.toFixed(4)} at or below{" "}
+              {props.rfTolerance}). This tree carries no branch support, so the case is scored
+              by Robinson-Foulds distance rather than the support-aware rule.
             </>
           ) : (
             <>
-              Missed {props.wellSupportedMissed} published{" "}
-              {props.wellSupportedMissed === 1 ? "clade" : "clades"} with support at or above{" "}
-              {props.supportCutoff}, listed below.
+              Normalized RF {props.normalizedRf.toFixed(4)} exceeds this case&apos;s tolerance of{" "}
+              {props.rfTolerance}; the differing branches are listed below.
             </>
           )}
         </div>
         <div className="space-y-4">
-          <ProportionBar
-            label={`Well-supported clades recovered (support >= ${props.supportCutoff})`}
-            value={1}
-            display={verdictPass ? "all" : `${props.wellSupportedMissed} missed`}
-          />
+          {props.mode === "support" ? (
+            <ProportionBar
+              label={`Well-supported clades recovered (support >= ${props.supportCutoff})`}
+              value={1}
+              display={verdictPass ? "all" : `${props.wellSupportedMissed} missed`}
+            />
+          ) : (
+            <ProportionBar
+              label={`Topology agreement (1 minus normalized RF, tolerance ${props.rfTolerance})`}
+              value={topologyAgreement}
+              display={topologyAgreement.toFixed(4)}
+            />
+          )}
           <ProportionBar
             label="All published clades recovered"
             value={props.cladesTotal > 0 ? props.cladesRecovered / props.cladesTotal : 1}
@@ -206,11 +231,11 @@ export default function PhyloPublished(props: Props) {
           />
           <p className="text-meta text-foreground-muted">
             Topology agreement {topologyAgreement.toFixed(4)} (Robinson-Foulds distance{" "}
-            {props.rf} of a possible {props.maxRf}). We gate on recovering every
-            well-supported clade rather than on raw RF, because maximum-likelihood search
-            leaves near-identical taxa in low-support branches that differ run to run. The
-            differing branches and their support are listed below so the raw RF reads
-            honestly.
+            {props.rf} of a possible {props.maxRf}).{" "}
+            {props.mode === "support"
+              ? "We gate on recovering every well-supported clade rather than on raw RF, because maximum-likelihood search leaves near-identical taxa in low-support branches that differ run to run."
+              : "We gate on the normalized RF against a committed tolerance, because this published tree carries no branch support to confine differences to."}{" "}
+            The differing branches are listed below so the raw RF reads honestly.
           </p>
         </div>
       </div>
