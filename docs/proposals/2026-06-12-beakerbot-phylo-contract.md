@@ -65,15 +65,20 @@ FigureColumns = { category?, bar?, heat?: string[] }
 
 So the render path for a card is: `renderTreeSvg(parseNewick(tree), spec)`. Note the STORED `PhyloFigureSpec` + `PhyloMetadataBinding` are the persisted form; `PhyloStudio.tsx` maps them into a `RenderSpec`. In Phase 5 I will extract that mapping into a shared `figure -> RenderSpec` helper so the embed renderer and the Studio share one adapter (you should call the shared helper, not re-derive it).
 
-## 4. Embed + deep-link — NOT BUILT, Phase 5 (phylo lane will build)
+## 4. Embed + deep-link — BUILT (2026-06-12, frozen)
 
-Today there is NO `phylo` `ObjectRefType` (references.ts has molecule, datahub, etc.) and NO `?doc=` route on `/phylo` (the page is internal-view-state only). PLANNED, mirroring Data Hub:
+Shipped on main. The `phylo` `ObjectRefType` exists, `/phylo?doc=<id>` opens that tree in the Studio, and `PhyloEmbed` renders the tree as a self-contained SVG card via the embed dispatcher (it loads `phyloApi.get(id)`, maps figure+metadata through the shared `figureToRenderSpec` adapter in `@/lib/phylo/figure-to-render`, and injects `renderTreeSvg` output). It auto-appears the same way Data Hub plots/results and molecules do.
 
-- ObjectRefType `"phylo"`, deep-link `/phylo?doc=<id>`, embed fragment `[name](/phylo?doc=<id>#ros=view)`.
-- A `/phylo?doc=<id>` route param that opens that tree in the Studio.
-- An ObjectEmbed renderer for `phylo` that loads `phyloApi.get(id)`, maps figure+metadata via the shared adapter, calls `renderTreeSvg`, and returns the SVG card, so it auto-appears in the embed dispatcher exactly like Data Hub plots/results and molecules.
+FROZEN descriptor for BeakerBot to emit:
 
-When these land I will relay the FROZEN type string + descriptor. Until then a tree figure cannot render as a chat card. Consume, do not duplicate.
+- Full tree CARD (renders the figure), on its own line:
+  `[Tree name](/phylo?doc=<id>#ros=studio)`
+- Inline CHIP (deep-links into the Studio, no card):
+  `[Tree name](/phylo?doc=<id>)`
+
+The default view is `studio`. Consume via the existing embed pipeline, do not reimplement the renderer.
+
+Deferred (later sharing pass, not blocking you): cross-boundary share-bundle packaging of a tree's `.tree` + sidecar. The embed + deep link work fully in-library now.
 
 ## 5. Constraints (what BeakerBot must NOT do)
 
