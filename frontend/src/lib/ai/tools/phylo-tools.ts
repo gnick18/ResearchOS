@@ -157,6 +157,29 @@ export const readPhyloTreeTool: AiTool = {
 // model can tell the user what changed. Free-text fields (outgroup, fixedModel,
 // threads) are accepted as-is; numeric fields (ufbootReps, bsReps) are coerced
 // to positive integers or replaced with the default.
+//
+// Catalog-miss notes: when a supplied value is out-of-catalog, a factual note
+// is produced in the tool result stating what the paper specified and what the
+// nearest supported catalog value is. These notes are purely descriptive, no
+// judgment or recommendation, per the BeakerBot no-interpretation rule.
+//
+// Substitution models (fixedModel): this field is a FREE STRING. The paper's
+// exact model string (e.g. "GTR+G+I", "LG+F+R4", "TVM+I+G4") passes through
+// to the BuilderOptions fixedModel field unchanged. IQ-TREE validates it at
+// runtime. We do NOT nearest-map model names onto a catalog enum; that would
+// silently alter a peer-reviewed pipeline choice.
+
+/** A single catalog-miss substitution note. Purely descriptive. */
+export interface CatalogMissNote {
+  /** The field name that was substituted (e.g. "align"). */
+  field: string;
+  /** The value the caller (or paper) supplied. */
+  supplied: string;
+  /** The catalog value the recipe will actually use (the nearest supported value). */
+  used: string;
+  /** The human-readable descriptive sentence for the tool result. */
+  note: string;
+}
 
 /** Validate one finite-union field against its catalog. Returns the coerced
  *  value plus a boolean indicating whether it was ACTIVELY rejected (i.e. the
@@ -191,17 +214,71 @@ function pickPositiveInt(candidate: unknown, fallback: number): { value: number;
   return { value: fallback, defaulted: true };
 }
 
+/** Human-readable field labels used in catalog-miss notes. */
+const FIELD_LABELS: Record<string, string> = {
+  dataType: "sequence data type",
+  analysis: "analysis type",
+  have: "input type",
+  align: "alignment tool",
+  trim: "trimming tool",
+  partScheme: "partition scheme",
+  brlen: "branch-length mode",
+  model: "model-selection strategy",
+  infer: "tree-inference tool",
+  support: "branch-support method",
+  os: "operating system",
+  ufbootReps: "UFBoot replicate count",
+  bsReps: "bootstrap replicate count",
+  threads: "thread count",
+};
+
+/** Build a descriptive catalog-miss note for one substitution.
+ *  The note states the supplied value and the nearest supported value as a
+ *  factual observation only, no judgment or recommendation. */
+function makeMissNote(field: string, supplied: string, used: string): CatalogMissNote {
+  const label = FIELD_LABELS[field] ?? field;
+  return {
+    field,
+    supplied,
+    used,
+    note: `The paper specifies ${label} "${supplied}"; the catalog's nearest supported value is "${used}".`,
+  };
+}
+
 /** Resolve args into a fully-validated BuilderOptions, overlaid on DEFAULT_OPTIONS.
- *  Returns the resolved options plus a list of field names that fell back to the
- *  default because the supplied value was out-of-catalog. Exported for tests. */
+ *  Returns the resolved options, a list of field names that fell back to the
+ *  default because the supplied value was out-of-catalog, and a list of
+ *  catalog-miss notes describing each substitution in plain language. Exported
+ *  for tests. */
 export function resolveBuilderOptions(args: Record<string, unknown>): {
   options: BuilderOptions;
   defaulted: string[];
+  catalogMissNotes: CatalogMissNote[];
 } {
   const defaulted: string[] = [];
+  const catalogMissNotes: CatalogMissNote[] = [];
 
-  function track<T>(field: string, result: { value: T; defaulted: boolean }): T {
-    if (result.defaulted) defaulted.push(field);
+  function track<T extends string>(
+    field: string,
+    result: { value: T; defaulted: boolean },
+  ): T {
+    if (result.defaulted) {
+      defaulted.push(field);
+      const supplied = typeof args[field] === "string" ? (args[field] as string) : String(args[field]);
+      catalogMissNotes.push(makeMissNote(field, supplied, String(result.value)));
+    }
+    return result.value;
+  }
+
+  function trackInt(
+    field: string,
+    result: { value: number; defaulted: boolean },
+  ): number {
+    if (result.defaulted) {
+      defaulted.push(field);
+      const supplied = String(args[field]);
+      catalogMissNotes.push(makeMissNote(field, supplied, String(result.value)));
+    }
     return result.value;
   }
 
@@ -237,6 +314,7 @@ export function resolveBuilderOptions(args: Record<string, unknown>): {
         threads = t;
       } else {
         defaulted.push("threads");
+        catalogMissNotes.push(makeMissNote("threads", t, DEFAULT_OPTIONS.threads));
       }
     }
   }
@@ -248,11 +326,11 @@ export function resolveBuilderOptions(args: Record<string, unknown>): {
     typeof args.restrictModels === "boolean" ? args.restrictModels : DEFAULT_OPTIONS.restrictModels;
 
   // Numeric rep counts.
-  const ufbootReps = track(
+  const ufbootReps = trackInt(
     "ufbootReps",
     pickPositiveInt(args.ufbootReps, DEFAULT_OPTIONS.ufbootReps),
   );
-  const bsReps = track(
+  const bsReps = trackInt(
     "bsReps",
     pickPositiveInt(args.bsReps, DEFAULT_OPTIONS.bsReps),
   );
@@ -279,12 +357,12 @@ export function resolveBuilderOptions(args: Record<string, unknown>): {
     threads,
   };
 
-  return { options, defaulted };
+  return { options, defaulted, catalogMissNotes };
 }
 
 export const generateTreeTool: AiTool = {
   name: "generate_tree",
-  description: `Generate a runnable phylogenetics analysis recipe from the user's chosen options. Call this when the user says things like "generate a tree-building pipeline", "what commands do I run to build a tree with IQ-TREE GTR+G and UFBoot", "make me a RAxML recipe", "build me a phylogenetics workflow", or "how do I run a coalescent species tree". It returns a complete recipe the user runs themselves on their own machine (no server compute, no tree is built here). The recipe includes the ordered shell commands, the OS-specific install steps (Miniforge + conda env), a conda environment.yml pinning every tool, a run.sh script, and a full markdown document combining all of the above. Surface the recipe's markdown and runScript to the user. You MUST NOT fabricate any command, flag, or model name. Only the generateRecipe generator is authoritative. This tool is read-only: it changes nothing in the user's folder.`,
+  description: `Generate a runnable phylogenetics analysis recipe from the user's chosen options. Call this when the user says things like "generate a tree-building pipeline", "what commands do I run to build a tree with IQ-TREE GTR+G and UFBoot", "make me a RAxML recipe", "build me a phylogenetics workflow", "how do I run a coalescent species tree", or "reproduce the pipeline from this paper". It returns a complete recipe the user runs themselves on their own machine (no server compute, no tree is built here). The recipe includes the ordered shell commands, the OS-specific install steps (Miniforge + conda env), a conda environment.yml pinning every tool, a run.sh script, and a full markdown document combining all of the above. Surface the recipe's markdown and runScript to the user. If catalogMissNotes is non-empty, surface each note verbatim to the user before the recipe; these are factual substitution notices (what the paper specified vs. what the catalog supports). You MUST NOT fabricate any command, flag, or model name. Only the generateRecipe generator is authoritative. This tool is read-only: it changes nothing in the user's folder.`,
   parameters: {
     type: "object",
     properties: {
@@ -326,11 +404,11 @@ export const generateTreeTool: AiTool = {
       model: {
         type: "string",
         enum: ["modelfinder", "fixed"],
-        description: "Model-selection strategy. modelfinder = IQ-TREE tests models and picks the best fit (-m MFP); fixed = use the model named in fixedModel. Default: modelfinder.",
+        description: "Model-selection strategy. modelfinder = IQ-TREE tests models and picks the best fit (-m MFP); fixed = use the model named in fixedModel. Set this to fixed and pass the exact model string in fixedModel whenever a paper specifies a model. Default: modelfinder.",
       },
       fixedModel: {
         type: "string",
-        description: "The substitution model to use when model is fixed. Common nucleotide presets: GTR+G, GTR+I+G, GTR+R4, HKY+G, TN93+G, K80+G, SYM+G, JC. Common protein presets: LG+G, LG+I+G, LG+G+F, WAG+G, JTT+G, Dayhoff+G, Blosum62+G, Q.pfam+G. Free text is accepted. Default: GTR+G.",
+        description: "The substitution model to use when model is fixed. Pass the paper's exact model string (e.g. GTR+G, GTR+I+G4, LG+F+R4, TVM+G). Free text is accepted and passed through to IQ-TREE unchanged, which validates it at runtime. Common nucleotide presets: GTR+G, GTR+I+G, HKY+G, JC. Common protein presets: LG+G, LG+I+G, WAG+G, JTT+G. Default: GTR+G.",
       },
       infer: {
         type: "string",
@@ -344,7 +422,7 @@ export const generateTreeTool: AiTool = {
       },
       outgroup: {
         type: "string",
-        description: "Taxon name to use as the outgroup for rooting (IQ-TREE and RAxML paths only). Pass an empty string or omit to skip outgroup rooting. Default: no outgroup.",
+        description: "Taxon name (or comma-separated names) to use as the outgroup for rooting (IQ-TREE and RAxML paths only). Pass an empty string or omit to skip outgroup rooting. Default: no outgroup.",
       },
       os: {
         type: "string",
@@ -381,13 +459,14 @@ export const generateTreeTool: AiTool = {
   // No `action` or `previewable` flag: this tool is purely read-only.
   execute: async (args) => {
     try {
-      const { options, defaulted } = resolveBuilderOptions(args);
+      const { options, defaulted, catalogMissNotes } = resolveBuilderOptions(args);
       const recipe = generateRecipe(options);
       return {
         ok: true as const,
         recipe,
         optionsUsed: options,
         defaulted,
+        catalogMissNotes,
       };
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
