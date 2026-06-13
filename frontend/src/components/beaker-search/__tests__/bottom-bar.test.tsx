@@ -2,14 +2,18 @@ import { describe, expect, it, vi, beforeEach, afterEach } from "vitest";
 import { render, screen, fireEvent, cleanup } from "@testing-library/react";
 
 // BeakerAI build. Tests for the permanent bottom-center ask bar
-// (BeakerSearchBottomBar). The bar is just a trigger over the shared
-// BeakerSearch surface, so the meaningful behavior is:
-//   1. It renders the resting affordance (placeholder + Cmd K hint).
+// (BeakerSearchBottomBar). The bar is ALWAYS functional as a search trigger
+// regardless of AI access. Meaningful behavior:
+//   1. It renders the resting affordance (placeholder + Cmd K hint) always.
 //   2. Clicking it calls the SAME open path the top-nav pill uses
 //      (useBeakerSearch().openPalette), not a forked surface.
 //   3. It STAYS VISIBLE under marketing-video record mode (`?record=1`) so demo
 //      clips can feature it, but hides under wiki-screenshot capture
 //      (`?wikiCapture=1`).
+//   4. When AI is locked (canUseAI false), the label changes to "Search your
+//      work..." so the user sees the right scope, but the bar never disappears
+//      and the button is always present. The discovery upsell lives inside the
+//      palette (CommandPalette + BeakerSearchProvider), not on the bar.
 
 // The shared trigger. We inject a spy openPalette so the test can assert the
 // click reuses the one open path.
@@ -33,9 +37,8 @@ vi.mock("@/lib/file-system/wiki-capture-mock", () => ({
   isWikiCaptureMode: () => isWikiCaptureMode(),
 }));
 
-// Account capabilities. The bar is the primary BeakerBot entry, so it shows an
-// ask bar for accounts (canUseAI true) and an upsell for solo/locked. Default
-// to true so the existing ask-bar assertions hold; the upsell case flips it.
+// Account capabilities. Default to true so the ask-label assertions hold.
+// The locked path flips it to false to verify the label change (bar stays up).
 const canUseAI = vi.fn(() => true);
 vi.mock("@/hooks/useAccountCapabilities", () => ({
   useAccountCapabilities: () => ({ canUseAI: canUseAI() }),
@@ -78,13 +81,17 @@ describe("BeakerSearchBottomBar", () => {
     expect(screen.queryByTestId("beakersearch-bottom-bar")).toBeNull();
   });
 
-  it("shows the account upsell instead of the ask bar when AI is off (solo)", () => {
+  it("shows a search-only label when AI is locked (bar stays functional)", () => {
     canUseAI.mockReturnValue(false);
     render(<BeakerSearchBottomBar />);
-    // The ask bar is gone; the discovery upsell takes its spot.
-    expect(screen.queryByTestId("beakersearch-bottom-bar")).toBeNull();
-    const upsell = screen.getByTestId("beakersearch-bottom-bar-upsell");
-    expect(upsell).toBeTruthy();
-    expect(upsell.textContent).toContain("free account");
+    // The bar must still be present and clickable (search is never blocked).
+    const bar = screen.getByTestId("beakersearch-bottom-bar");
+    expect(bar).toBeTruthy();
+    expect(bar.textContent).toContain("Search your work");
+    // The ask-flavored copy is gone.
+    expect(bar.textContent).not.toContain("Ask or search");
+    // Clicking still opens the palette (search still works).
+    fireEvent.click(bar);
+    expect(openPalette).toHaveBeenCalledTimes(1);
   });
 });
