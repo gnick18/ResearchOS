@@ -596,6 +596,10 @@ export default function NoteDetailPopup({
   // the freshest full-document string so the "Save note" button persists the
   // very latest edit even if the user never left the active block.
   const editorSaveRef = useRef<(() => string) | null>(null);
+  // P7-2 transclusion normalize. Wired to InlineMarkdownEditor via LiveMarkdownEditor.
+  // Awaited before persistEntryContent so the CM6 doc is rewritten BEFORE Loro flushes
+  // or the legacy writer runs, ensuring persisted bytes carry the portable embed links.
+  const editorNormalizeRef = useRef<(() => Promise<void>) | null>(null);
 
   // Seed / refresh the saved baseline whenever entries load (mount, add,
   // delete, or a successful save replaces the entries array). We only set a
@@ -640,6 +644,13 @@ export default function NoteDetailPopup({
       setSaving(true);
 
       try {
+        // P7-2 transclusion normalize: rewrite any ![[Note#Heading]] in the
+        // CM6 doc to the portable embed link BEFORE persisting, in both Loro
+        // and legacy modes. The normalize dispatch flows through LoroSyncPlugin
+        // so the CRDT doc reflects the rewritten content when flush() runs.
+        // Best-effort: a failure (no editor mounted, or list unavailable) is
+        // silently swallowed and the save proceeds with the raw text.
+        await editorNormalizeRef.current?.();
         // Loro pilot: when the CRDT owns content (flag on + handle ready) flush
         // the handle instead of writing content through the legacy API, so
         // notes/<id>.json is written ONCE (by the Loro mirror), not twice. The
@@ -812,6 +823,12 @@ export default function NoteDetailPopup({
         // Snapshot the entry ids whose content is about to be flushed so
         // we can drop their SPA-nav drafts after the write resolves.
         const flushedEntryIds = Array.from(unsavedContentRef.current.keys());
+        // P7-2 transclusion normalize: same contract as the explicit save.
+        // Normalize any ![[Note#Heading]] in the active CM6 doc to the portable
+        // embed link before flushing to Loro or the legacy writer. The dispatch
+        // flows through LoroSyncPlugin so the CRDT content is already normalized
+        // when flush() runs. Best-effort: a failure is silently ignored.
+        await editorNormalizeRef.current?.();
         // Loro pilot: when the CRDT owns content, flush the handle ONCE (its
         // doc already holds every entry's edits) instead of per-entry legacy
         // content writes. Flag-off / handle-not-ready keeps the parallel
@@ -2306,6 +2323,8 @@ export default function NoteDetailPopup({
                   collabUser={collabActive ? collabUser : undefined}
                   // Markdown embed hybrid P7-1a: per-note embed-pins sidecar.
                   embedPinContext={embedPinContext}
+                  // P7-2 transclusion normalize: awaited before persist.
+                  normalizeRef={editorNormalizeRef}
                   // Chemistry Phase 3: reference picker (molecule / sequence / method).
                   enableReferencePicker
                 />
@@ -2353,6 +2372,8 @@ export default function NoteDetailPopup({
                   collabUser={collabActive ? collabUser : undefined}
                   // Markdown embed hybrid P7-1a: per-note embed-pins sidecar.
                   embedPinContext={embedPinContext}
+                  // P7-2 transclusion normalize: awaited before persist.
+                  normalizeRef={editorNormalizeRef}
                   // Chemistry Phase 3: reference picker.
                   enableReferencePicker
                 />

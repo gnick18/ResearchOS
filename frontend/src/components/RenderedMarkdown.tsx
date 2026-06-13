@@ -18,6 +18,16 @@ import ObjectChip from "@/components/ObjectChip";
 import ObjectEmbed from "@/components/embeds/ObjectEmbed";
 import { lazy, Suspense } from "react";
 import { buildFigureNumberPlan } from "@/lib/embeds/figure-numbering";
+// P7-2 transclusion: raw ![[...]] resilience (Part A).
+import { notesApi } from "@/lib/local-api";
+import {
+  TransclusionProvider,
+  useTransclusionState,
+  MAX_TRANSCLUSION_DEPTH,
+} from "@/components/embeds/TransclusionContext";
+import { extractNoteSection } from "@/lib/embeds/markdown-section";
+import { objectDeepLink } from "@/lib/references";
+import type { Note } from "@/lib/types";
 
 const ExternalEmbed = lazy(() => import("@/components/embeds/ExternalEmbed"));
 
@@ -83,6 +93,207 @@ function loneEmbedFromParagraph(
   }
 
   return null;
+}
+
+// P7-2 transclusion Part A: detect a raw `![[Note Title#Heading]]` in a
+// paragraph whose sole meaningful child is a text node carrying that syntax.
+// Returns parsed title + heading when matched; null otherwise (so mid-sentence
+// occurrences are treated as literal text and are never silently eaten).
+const RAW_TRANSCLUSION_LONE_RE = /^!\[\[([^\]]+)\]\]$/;
+
+function loneRawTransclusion(
+  node: HastNode | undefined,
+): { title: string; heading: string } | null {
+  if (!node || !Array.isArray(node.children)) return null;
+  const meaningful = node.children.filter(
+    (c) => !(c.type === "text" && /^\s*$/.test(c.value ?? "")),
+  );
+  if (meaningful.length !== 1) return null;
+  const child = meaningful[0];
+  if (child.type !== "text") return null;
+  const m = (child.value ?? "").trim().match(RAW_TRANSCLUSION_LONE_RE);
+  if (!m) return null;
+  const inner = m[1];
+  const hashIdx = inner.indexOf("#");
+  const title = (hashIdx === -1 ? inner : inner.slice(0, hashIdx)).trim();
+  const heading = hashIdx === -1 ? "" : inner.slice(hashIdx + 1).trim();
+  return title ? { title, heading } : null;
+}
+
+// Load states for the by-title async resolve.
+type ByTitleState =
+  | { k: "loading" }
+  | { k: "missing" }
+  | { k: "ok"; note: Note };
+
+/** Renders a raw ![[Note Title#Heading]] transclusion by title in a read-only
+ *  surface. Resolves the title to a note id asynchronously, then delegates to
+ *  the same rendering logic TransclusionEmbed uses (load note, extract section,
+ *  render via RenderedMarkdown). Respects MAX_TRANSCLUSION_DEPTH and the
+ *  visited cycle guard from TransclusionContext.
+ *
+ *  Voice: no em-dashes, no emojis, no mid-sentence colons. */
+function RawTransclusionEmbed({
+  title,
+  heading,
+  basePath,
+}: {
+  title: string;
+  heading: string;
+  basePath?: string;
+}) {
+  const { depth, visited } = useTransclusionState();
+  const overDepth = depth >= MAX_TRANSCLUSION_DEPTH;
+
+  // Step 1: resolve title -> id from the notes list.
+  const [noteId, setNoteId] = useState<string | null | "loading">("loading");
+  useEffect(() => {
+    if (overDepth) return;
+    let cancelled = false;
+    setNoteId("loading");
+    notesApi
+      .list()
+      .then((all) => {
+        if (cancelled) return;
+        const key = title.trim().toLowerCase();
+        const found = all.find((n) => (n.title ?? "").trim().toLowerCase() === key);
+        setNoteId(found ? String(found.id) : null);
+      })
+      .catch(() => {
+        if (!cancelled) setNoteId(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [title, overDepth]);
+
+  // Step 2: load the note by id once resolved.
+  const [noteState, setNoteState] = useState<ByTitleState>({ k: "loading" });
+  useEffect(() => {
+    if (overDepth || noteId === "loading") return;
+    if (noteId === null) {
+      setNoteState({ k: "missing" });
+      return;
+    }
+    const cycle = visited.includes(noteId);
+    if (cycle) {
+      setNoteState({ k: "missing" });
+      return;
+    }
+    let cancelled = false;
+    setNoteState({ k: "loading" });
+    notesApi
+      .get(Number(noteId))
+      .then((n) => {
+        if (cancelled) return;
+        setNoteState(n ? { k: "ok", note: n } : { k: "missing" });
+      })
+      .catch(() => {
+        if (!cancelled) setNoteState({ k: "missing" });
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [noteId, overDepth, visited]);
+
+  if (overDepth) {
+    return (
+      <figure className="my-3 mx-0 overflow-hidden rounded-xl border border-border bg-surface-raised">
+        <div className="px-3 py-3">
+          <p className="text-meta text-foreground-muted">Transclusion depth limit reached.</p>
+        </div>
+      </figure>
+    );
+  }
+
+  if (noteState.k === "loading") {
+    return (
+      <figure className="my-3 mx-0 overflow-hidden rounded-xl border border-border bg-surface-raised">
+        <div className="flex items-center gap-3 px-4 py-3">
+          <span className="text-meta text-foreground-muted">Loading transclusion...</span>
+        </div>
+      </figure>
+    );
+  }
+
+  if (noteState.k === "missing") {
+    // Show the raw text so the user can fix it, rather than silently eating it.
+    return <span className="text-foreground-muted">{`![[${title}${heading ? `#${heading}` : ""}]]`}</span>;
+  }
+
+  const note = noteState.note;
+  const id = String(note.id);
+  const cycle = visited.includes(id);
+  if (cycle) {
+    return (
+      <figure className="my-3 mx-0 overflow-hidden rounded-xl border border-border bg-surface-raised">
+        <div className="px-3 py-3">
+          <p className="text-meta text-foreground-muted">Transclusion cycle detected.</p>
+        </div>
+      </figure>
+    );
+  }
+
+  const href = objectDeepLink("note", id);
+  const section = extractNoteSection(note, heading);
+
+  if (section == null) {
+    return (
+      <figure className="my-3 mx-0 overflow-hidden rounded-xl border border-border bg-surface-raised">
+        <div className="flex min-w-0 items-center gap-2 border-b border-border bg-surface-sunken px-3 py-2">
+          <span className="truncate text-meta text-foreground-muted">
+            Transcluded from{" "}
+            <span className="font-semibold text-foreground">{note.title}</span>
+          </span>
+          <span className="flex-1" />
+          <a
+            href={href}
+            aria-label={`Open source note ${note.title}`}
+            className="shrink-0 rounded-md px-2 py-0.5 text-meta font-semibold text-foreground-muted transition-colors hover:text-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-action"
+          >
+            Open
+          </a>
+        </div>
+        <div className="px-3 py-3">
+          <p className="text-meta text-foreground-muted">
+            Section{" "}
+            <span className="font-semibold text-foreground">{heading || "(whole note)"}</span>{" "}
+            not found in this note.
+          </p>
+        </div>
+      </figure>
+    );
+  }
+
+  return (
+    <figure className="my-3 mx-0 overflow-hidden rounded-xl border border-border bg-surface-raised">
+      <div className="flex min-w-0 items-center gap-2 border-b border-border bg-surface-sunken px-3 py-2">
+        <span className="truncate text-meta text-foreground-muted">
+          Transcluded from{" "}
+          <span className="font-semibold text-foreground">{note.title}</span>
+          {heading ? (
+            <>
+              {" › "}
+              <span className="font-semibold text-foreground">{heading}</span>
+            </>
+          ) : null}
+        </span>
+        <span className="flex-1" />
+        <a
+          href={href}
+          aria-label={`Open source note ${note.title}`}
+          className="shrink-0 rounded-md px-2 py-0.5 text-meta font-semibold text-foreground-muted transition-colors hover:text-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-action"
+        >
+          Open
+        </a>
+      </div>
+      <div className="px-3 py-2">
+        <TransclusionProvider value={{ depth: depth + 1, visited: [...visited, id] }}>
+          <RenderedMarkdown content={section} basePath={basePath} />
+        </TransclusionProvider>
+      </div>
+    </figure>
+  );
 }
 
 /** Payload passed to `onImageClick` when a rendered image is clicked. */
@@ -246,6 +457,21 @@ export default function RenderedMarkdown({
                   pinContext={
                     embedPinSidecar ? { sidecarPath: embedPinSidecar } : undefined
                   }
+                />
+              );
+            }
+            // P7-2 transclusion Part A: detect a lone raw `![[Note#Heading]]`
+            // text node (e.g. already-saved content that was never normalized,
+            // or a read-only preview surface). Render it as a live transclusion
+            // via by-title resolve. Only a LONE ![[]] in the paragraph triggers
+            // this; a ![[]] mid-sentence falls through to the normal <p>.
+            const rawTransclusion = loneRawTransclusion(node as unknown as HastNode);
+            if (rawTransclusion) {
+              return (
+                <RawTransclusionEmbed
+                  title={rawTransclusion.title}
+                  heading={rawTransclusion.heading}
+                  basePath={basePath}
                 />
               );
             }

@@ -235,6 +235,12 @@ interface LiveMarkdownEditorProps {
    *  surface that does not own a per-document embed sidecar, so those are
    *  byte-for-byte unchanged. */
   embedPinContext?: import("@/components/embeds/ObjectEmbed").EmbedPinContext;
+  /** P7-2 transclusion normalize. Forwarded to InlineMarkdownEditor. When set,
+   *  we publish an async normalizer that the host awaits before persisting, so
+   *  any ![[Note#Heading]] in the doc is rewritten to the portable embed link
+   *  before the save lands in Loro or on disk. Absent = no normalization (zero
+   *  change to every non-note surface that does not pass this). */
+  normalizeRef?: React.MutableRefObject<(() => Promise<void>) | null>;
 }
 
 /**
@@ -274,6 +280,7 @@ export default function LiveMarkdownEditor({
   collabUser,
   enableReferencePicker = false,
   embedPinContext,
+  normalizeRef,
 }: LiveMarkdownEditorProps) {
   // The markdown editor lets you annotate dropped/embedded images, so warm the
   // lazy annotator chunk on idle. ImageStrip isn't always mounted alongside this
@@ -2260,6 +2267,7 @@ export default function LiveMarkdownEditor({
                   collabEphemeral={collabEphemeral}
                   collabUser={collabUser}
                   embedPinContext={embedPinContext}
+                  normalizeRef={normalizeRef}
                   onRequestReference={enableReferencePicker ? () => setReferencePickerOpen(true) : undefined}
                 />
               </div>

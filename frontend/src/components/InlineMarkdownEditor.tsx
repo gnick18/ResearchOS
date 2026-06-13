@@ -14,6 +14,9 @@ import {
 } from "@/lib/markdown/cm-inline-reveal/code-languages";
 import { detectUnfence } from "@/lib/markdown/cm-inline-reveal/markdown-keymap";
 import { isBlockEmbedMarkdown } from "@/lib/references";
+// P7-2 transclusion normalize (normalizeRef wiring).
+import { normalizeTransclusions } from "@/lib/embeds/normalize-transclusions";
+import { notesApi } from "@/lib/local-api";
 
 /**
  * Read the seed markdown for a Loro-bound surface. A task surface exposes its
@@ -123,6 +126,20 @@ interface InlineMarkdownEditorProps {
    *  Style Guide rail in MarkdownShortcutsSidebar calls this to make its
    *  click-to-insert entries land in the inline editor. Cleared on unmount. */
   insertRef?: React.MutableRefObject<((syntax: string) => void) | null>;
+  /** P7-2 transclusion normalize. When set, we point it at an async function
+   *  that reads the current CM6 doc text, resolves note titles to ids from the
+   *  notes list, runs normalizeTransclusions, and if the content changed
+   *  dispatches a single CM6 replace so the normalized links flow through the
+   *  LoroSyncPlugin / onChange into storage. Callers await this BEFORE calling
+   *  persistEntryContent so the persisted bytes carry the portable links in
+   *  BOTH Loro and legacy modes. Unresolved ![[]] are left raw; a list-fetch
+   *  failure is swallowed and the content is left untouched. Cleared on unmount.
+   *
+   *  Works in both Loro and non-Loro modes: the dispatch goes through the CM6
+   *  updateListener so LoroSyncPlugin sees it (Loro mode) or onChange fires
+   *  normally (legacy mode). The double-normalize with the legacy
+   *  normalizeEntryContent in notesApi.updateEntry is idempotent and safe. */
+  normalizeRef?: React.MutableRefObject<(() => Promise<void>) | null>;
   /** Fired on an explicit save (Cmd/Ctrl+S) with the committed document so the
    *  parent can persist it to disk. NO autosave: this is the only push. */
   onExplicitSave?: (value: string) => void;
@@ -352,6 +369,7 @@ export default function InlineMarkdownEditor({
   collabEphemeral,
   collabUser,
   onRequestReference,
+  normalizeRef,
 }: InlineMarkdownEditorProps) {
   // loroActive is stable after mount: when a handle is provided, the editor is
   // in Loro mode for its entire lifetime. We compute it once from the prop
@@ -863,6 +881,66 @@ export default function InlineMarkdownEditor({
       if (insertRef) insertRef.current = null;
     };
   }, [insertRef]);
+
+  // P7-2 transclusion normalize. Publish an async function on normalizeRef that
+  // reads the current CM6 doc, resolves note titles via notesApi.list(), runs
+  // normalizeTransclusions, and (when something changed) dispatches a single
+  // full-doc CM6 replace so the change flows through LoroSyncPlugin / onChange
+  // into storage. The dispatch uses the same echoingRef guard that value-in
+  // reconciliation uses, so the updateListener treats it as an "accepted" edit
+  // (not a new user keystroke). A list-fetch failure is swallowed silently: the
+  // resolve function returns null for every title, normalizeTransclusions leaves
+  // every ![[]] raw, and changed is false so no dispatch fires.
+  //
+  // Works in both Loro and legacy modes: in Loro mode, LoroSyncPlugin intercepts
+  // the dispatch and writes it into the CRDT (then the Loro flush persists it);
+  // in legacy mode, onChange fires as with any user edit and the legacy writer
+  // picks it up.  Callers AWAIT normalizeRef.current() BEFORE persistEntryContent
+  // so the persisted content carries the portable links.
+  useEffect(() => {
+    if (!normalizeRef) return;
+    normalizeRef.current = async () => {
+      const view = viewRef.current;
+      if (!view) return;
+      const text = view.state.doc.toString();
+      if (!text.includes("![[")) return;
+      // Build the title->id resolver from the current notes list.
+      let all: Awaited<ReturnType<typeof notesApi.list>> = [];
+      try {
+        all = await notesApi.list();
+      } catch {
+        return; // List unavailable: leave every transclusion raw.
+      }
+      const byTitle = new Map<string, string>();
+      for (const n of all) {
+        const key = (n.title ?? "").trim().toLowerCase();
+        if (!key) continue;
+        if (!byTitle.has(key)) byTitle.set(key, String(n.id));
+      }
+      const { content: next, changed } = normalizeTransclusions(text, (title) => {
+        return byTitle.get(title.trim().toLowerCase()) ?? null;
+      });
+      if (!changed) return;
+      // Dispatch the normalized content as a full-doc replace. Use the echo guard
+      // so the updateListener recognises it as an accepted reconcile (not a raw
+      // user keystroke) and correctly updates lastAcceptedRef.
+      echoingRef.current = true;
+      try {
+        view.dispatch({
+          changes: { from: 0, to: view.state.doc.length, insert: next },
+        });
+      } finally {
+        echoingRef.current = false;
+      }
+      // Keep lastAccepted and onChange in sync: the echo guard suppresses the
+      // updateListener's own emit, so we push the new value manually.
+      lastAcceptedRef.current = next;
+      onChangeRef.current?.(next);
+    };
+    return () => {
+      if (normalizeRef) normalizeRef.current = null;
+    };
+  }, [normalizeRef]);
 
   // Value-in reconciliation: when the parent swaps `value` to something that
   // differs from what the editor last accepted (an EXTERNAL change, e.g. the
