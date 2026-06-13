@@ -39,7 +39,7 @@ export async function ensureBillingSchema(): Promise<void> {
       stripe_customer_id text,
       stripe_subscription_id text,
       stripe_item_id text,
-      cap_bytes bigint not null default ${FREE_ALLOWANCE_BYTES},
+      cap_bytes bigint not null default ${sql.unsafe(String(FREE_ALLOWANCE_BYTES))},
       status text not null default 'inactive',
       updated_at timestamptz default now()
     )
@@ -47,7 +47,7 @@ export async function ensureBillingSchema(): Promise<void> {
   // Forward-migrate dev tables that predate the metered columns (the old block
   // model had a `blocks` column instead). IF NOT EXISTS makes this idempotent.
   await sql`ALTER TABLE billing_subscriptions ADD COLUMN IF NOT EXISTS stripe_item_id text`;
-  await sql`ALTER TABLE billing_subscriptions ADD COLUMN IF NOT EXISTS cap_bytes bigint not null default ${FREE_ALLOWANCE_BYTES}`;
+  await sql`ALTER TABLE billing_subscriptions ADD COLUMN IF NOT EXISTS cap_bytes bigint not null default ${sql.unsafe(String(FREE_ALLOWANCE_BYTES))}`;
   // lab_billing marks a PI who sponsors their whole lab on one invoice (chunk 3).
   // The monthly report bills such an owner on the lab aggregate, not their own
   // usage, against the pooled free tier.
