@@ -6,7 +6,13 @@
 //            pairing surface, the ResearchOS Companion section) UNCHANGED.
 //   Info     what the companion app is + get-the-app (pre-launch placeholder).
 //   Settings two companion preferences (the home-button toggle + the
-//            auto-publish kill switch).
+//            auto-publish kill switch), plus an Advanced disclosure that
+//            mirrors the PHONE column of the main Notifications matrix so a
+//            user can control what buzzes their phone without leaving the
+//            companion. It reads and writes the SAME
+//            UserSettings.notificationPreferences, so it stays in lockstep
+//            with Settings -> Notifications. Phone is account-only, so a solo
+//            user never sees the Advanced section.
 //
 // Connect is the default tab so the pairing surface is never buried. The Connect
 // content itself is the orchestrator's; this component only hosts it.
@@ -24,10 +30,20 @@ import { useAppStore } from "@/lib/store";
 import { useFileSystem } from "@/lib/file-system/file-system-context";
 import { useSharingIdentity } from "@/hooks/useSharingIdentity";
 import { usePairedDevices } from "@/hooks/usePhonePaired";
+import { useAccountCapabilities } from "@/hooks/useAccountCapabilities";
 import {
   readUserSettings,
   patchUserSettings,
+  updateUserSettings,
+  onUserSettingsWritten,
 } from "@/lib/settings/user-settings";
+import {
+  DEFAULT_NOTIFICATION_PREFERENCES,
+  NOTIFICATION_CATEGORIES,
+  normalizeNotificationPreferences,
+  type NotificationCategory,
+  type NotificationPreferences,
+} from "@/lib/notifications/preferences";
 
 type Tab = "connect" | "info" | "settings";
 
@@ -155,15 +171,39 @@ function SettingsPanel() {
   const setShowCompanionButton = useAppStore((s) => s.setShowCompanionButton);
   const [autoPublish, setAutoPublish] = useState(true);
 
+  // Phone-channel routing mirrors the main Notifications matrix. Phone is an
+  // account-only channel, so a solo user never sees the Advanced section (same
+  // gate the matrix uses for its Phone column).
+  const { mode } = useAccountCapabilities();
+  const hasAccount = mode === "account";
+  const [prefs, setPrefs] = useState<NotificationPreferences>(
+    DEFAULT_NOTIFICATION_PREFERENCES,
+  );
+  const [advancedOpen, setAdvancedOpen] = useState(false);
+
   useEffect(() => {
     let active = true;
     if (!currentUser) return;
     void readUserSettings(currentUser).then((s) => {
-      if (active) setAutoPublish(s.autoPublishSnapshotsToPhones);
+      if (!active) return;
+      setAutoPublish(s.autoPublishSnapshotsToPhones);
+      setPrefs(normalizeNotificationPreferences(s.notificationPreferences));
     });
     return () => {
       active = false;
     };
+  }, [currentUser]);
+
+  // Stay in lockstep with Settings -> Notifications. When the matrix (or any
+  // other surface) writes settings, refresh our local copy so the same phone
+  // toggles read the same source of truth.
+  useEffect(() => {
+    if (!currentUser) return;
+    return onUserSettingsWritten(({ username, next }) => {
+      if (username !== currentUser) return;
+      setAutoPublish(next.autoPublishSnapshotsToPhones);
+      setPrefs(normalizeNotificationPreferences(next.notificationPreferences));
+    });
   }, [currentUser]);
 
   const onShowButton = (v: boolean) => {
@@ -181,6 +221,42 @@ function SettingsPanel() {
     }
   };
 
+  // Atomic read-modify-write so a phone toggle here never clobbers a concurrent
+  // change from the main matrix; both compose through the per-user queue.
+  const setPhone = (cat: NotificationCategory, on: boolean) => {
+    setPrefs((p) => ({
+      ...p,
+      channels: { ...p.channels, [cat]: { ...p.channels[cat], phone: on } },
+    }));
+    if (!currentUser) return;
+    void updateUserSettings(currentUser, (current) => {
+      const cur = normalizeNotificationPreferences(current.notificationPreferences);
+      return {
+        notificationPreferences: {
+          ...cur,
+          channels: {
+            ...cur.channels,
+            [cat]: { ...cur.channels[cat], phone: on },
+          },
+        },
+      };
+    });
+  };
+
+  const setQuiet = (patch: Partial<NotificationPreferences["quietHours"]>) => {
+    setPrefs((p) => ({ ...p, quietHours: { ...p.quietHours, ...patch } }));
+    if (!currentUser) return;
+    void updateUserSettings(currentUser, (current) => {
+      const cur = normalizeNotificationPreferences(current.notificationPreferences);
+      return {
+        notificationPreferences: {
+          ...cur,
+          quietHours: { ...cur.quietHours, ...patch },
+        },
+      };
+    });
+  };
+
   return (
     <div className="space-y-5">
       <Toggle
@@ -195,6 +271,91 @@ function SettingsPanel() {
         checked={autoPublish}
         onChange={onAutoPublish}
       />
+
+      {/* Advanced phone-routing disclosure. Account-only, because the phone
+          channel itself is account-only; a solo user has no phone column to
+          mirror. These controls write the SAME notificationPreferences as
+          Settings -> Notifications, so the two surfaces never drift. */}
+      {hasAccount ? (
+        <div className="rounded-xl border border-border bg-surface-sunken">
+          <button
+            type="button"
+            aria-expanded={advancedOpen}
+            onClick={() => setAdvancedOpen((v) => !v)}
+            className="flex w-full items-center gap-2 px-4 py-3 text-left"
+          >
+            <Icon
+              name={advancedOpen ? "chevronDown" : "chevronRight"}
+              className="w-4 h-4 flex-shrink-0 text-foreground-muted"
+            />
+            <span className="min-w-0">
+              <span className="block text-body font-medium text-foreground">
+                Advanced phone notifications
+              </span>
+              <span className="block text-meta text-foreground-muted mt-0.5 leading-relaxed">
+                Choose what buzzes your phone. These match the Phone column in
+                Settings, Notifications, so a change here shows up there too.
+              </span>
+            </span>
+          </button>
+
+          {advancedOpen ? (
+            <div className="border-t border-border px-4 py-4 space-y-5">
+              <div className="space-y-4">
+                {NOTIFICATION_CATEGORIES.map((cat) => (
+                  <Toggle
+                    key={cat.id}
+                    label={cat.title}
+                    description={cat.description}
+                    checked={prefs.channels[cat.id].phone}
+                    onChange={(v) => setPhone(cat.id, v)}
+                  />
+                ))}
+              </div>
+
+              {/* Quiet hours. Same window as the main matrix; while it is on,
+                  the phone stays silent and the in-app bell still collects. */}
+              <div className="border-t border-border pt-4">
+                <Toggle
+                  label="Quiet hours"
+                  description="Your phone stays silent in this window. The in-app bell still collects everything."
+                  checked={prefs.quietHours.enabled}
+                  onChange={(v) => setQuiet({ enabled: v })}
+                />
+                {prefs.quietHours.enabled ? (
+                  <div className="mt-3 flex flex-wrap items-center gap-2 text-meta text-foreground-muted">
+                    <span>From</span>
+                    <input
+                      type="time"
+                      value={prefs.quietHours.start}
+                      onChange={(e) => setQuiet({ start: e.target.value })}
+                      className="rounded-lg border border-border bg-surface-raised px-2 py-1 text-meta text-foreground"
+                    />
+                    <span>to</span>
+                    <input
+                      type="time"
+                      value={prefs.quietHours.end}
+                      onChange={(e) => setQuiet({ end: e.target.value })}
+                      className="rounded-lg border border-border bg-surface-raised px-2 py-1 text-meta text-foreground"
+                    />
+                    <label className="ml-1 inline-flex items-center gap-2 cursor-pointer select-none">
+                      Weekends fully quiet
+                      <input
+                        type="checkbox"
+                        checked={prefs.quietHours.weekendsQuiet}
+                        onChange={(e) =>
+                          setQuiet({ weekendsQuiet: e.target.checked })
+                        }
+                        className="h-4 w-4 accent-blue-600"
+                      />
+                    </label>
+                  </div>
+                ) : null}
+              </div>
+            </div>
+          ) : null}
+        </div>
+      ) : null}
     </div>
   );
 }
