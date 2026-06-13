@@ -50,6 +50,7 @@ import { getCurrentUserCached } from "@/lib/storage/json-store";
 import { groupColumns } from "@/lib/datahub/column-table";
 import { isXYTable, yColumns } from "@/lib/datahub/xy-table";
 import { survivalGroups, hasSurvivalData } from "@/lib/datahub/survival-table";
+import { hasContingencyData, isContingencyTable } from "@/lib/datahub/contingency-table";
 import { getModel, listModels } from "@/lib/datahub/engine";
 import { planAnalysis, type AnalysisIntent } from "@/lib/datahub/planner";
 import {
@@ -2094,6 +2095,194 @@ export const runCoxRegressionTool: AiTool = {
     }
     datahubAnalysisDeps.navigate(`/datahub?doc=${parsed.tableId}&analysis=${built.result.analysisId}`);
     return built.result satisfies CoxRegressionToolResult;
+  },
+};
+
+// ---------------------------------------------------------------------------
+// run_contingency (Contingency table, maps to the contingency engine type)
+// ---------------------------------------------------------------------------
+
+/** The model-supplied args for run_contingency. */
+export type ContingencyArgs = {
+  tableId: string;
+  /** The Yates continuity correction, only meaningful for a 2x2 table. The
+   *  engine reads spec.params.yates as the string "on" / "off" (default "on"),
+   *  matching every Data Hub string-valued param. */
+  yates?: "on" | "off";
+};
+
+/** The compact result run_contingency relays. The engine computed every number
+ *  here; the model only repeats them, never a chi-square, a p, or an odds ratio
+ *  of its own. */
+export type ContingencyToolResult =
+  | {
+      ok: true;
+      table: string;
+      n: number;
+      /** The full normalized contingency result (chi-square + p, df, and for a
+       *  2x2 the Yates + Fisher p and the RR / OR with CI, plus min expected). */
+      contingency: Extract<RunOutcome, { kind: "contingency" }>;
+      analysisId: string;
+    }
+  | { ok: false; error: string };
+
+/** Parse the loose args into typed ContingencyArgs. Pure. */
+export function parseContingencyArgs(args: Record<string, unknown>): ContingencyArgs {
+  return {
+    tableId: typeof args.tableId === "string" ? args.tableId : "",
+    yates: args.yates === "off" ? "off" : args.yates === "on" ? "on" : undefined,
+  };
+}
+
+/**
+ * Build a contingency spec and run it through the SAME runAnalysis path the
+ * wizard uses. Contingency reads a Contingency table (an R x C count matrix)
+ * directly, so there are no input column ids to resolve; the only knob is the
+ * Yates continuity correction (2x2 only), passed as the string param the engine
+ * reads. Pure given the content.
+ */
+export function buildContingency(
+  content: DataHubDocContent,
+  parsed: ContingencyArgs,
+):
+  | { ok: true; spec: AnalysisSpec; result: Extract<ContingencyToolResult, { ok: true }> }
+  | { ok: false; error: string } {
+  // Guard on BOTH the table type and the presence of counts. hasContingencyData
+  // alone only checks for positive counts, which any numeric Column table would
+  // also pass, so require the table to actually be a Contingency table first.
+  if (!isContingencyTable(content) || !hasContingencyData(content)) {
+    return {
+      ok: false,
+      error:
+        "A contingency analysis runs on a Contingency table (a row factor, a column factor, and a count in each cell), and that table has no contingency data. Pick a Contingency table with counts in its cells.",
+    };
+  }
+
+  const spec: AnalysisSpec = {
+    id: `analysis-${Date.now()}`,
+    type: "contingency",
+    // The engine reads spec.params.yates as "on" / "off" (default "on", 2x2
+    // only). Omit when "on" to keep the default; set it only to turn it off.
+    params: parsed.yates === "off" ? { yates: "off" } : {},
+    inputs: { columnIds: [] },
+    resultCache: null,
+    resultStale: false,
+  };
+
+  const outcome = runAnalysis(spec, content);
+  if (!outcome.ok) return { ok: false, error: outcome.error };
+  if (outcome.kind !== "contingency") {
+    return { ok: false, error: "The engine did not return a contingency analysis." };
+  }
+  spec.resultCache = outcome;
+
+  const result: Extract<ContingencyToolResult, { ok: true }> = {
+    ok: true,
+    table: content.meta.name,
+    n: outcome.n,
+    contingency: outcome,
+    analysisId: spec.id,
+  };
+  return { ok: true, spec, result };
+}
+
+/** Sync one-line preview for the step-review card, built from the args + cached
+ *  content without running the test. Mirrors the other analysis describers, and
+ *  emits a stepPayload even with no cached content. */
+export function describeContingency(args: Record<string, unknown>): {
+  summary: string;
+  stepPayload?: StepApprovalRequest;
+} {
+  const parsed = parseContingencyArgs(args);
+  const content = getCachedTableContent(parsed.tableId);
+  const yatesPhrase = parsed.yates === "off" ? " (no Yates correction)" : "";
+  if (!content) {
+    return {
+      summary: `run a contingency (chi-square) analysis on a Data Hub table${yatesPhrase}`,
+      stepPayload: stepPayloadFor({
+        toolName: "run_contingency",
+        iconName: "chart",
+        title: "Run a contingency analysis",
+        name: "Chi-square test of association",
+        blurb: "Test whether the row and column factors are independent.",
+        params: parsed.yates === "off" ? [{ label: "Yates", value: "off" }] : [],
+      }),
+    };
+  }
+  return {
+    summary: `contingency analysis on ${content.meta.name}${yatesPhrase}`,
+    stepPayload: stepPayloadFor({
+      toolName: "run_contingency",
+      iconName: "chart",
+      title: "Run a contingency analysis",
+      subtitle: `on ${content.meta.name}`,
+      name: "Chi-square test of association",
+      blurb: "Test whether the row and column factors are independent.",
+      params: [
+        ...(parsed.yates === "off" ? [{ label: "Yates", value: "off" }] : []),
+        { label: "Table", value: content.meta.name },
+      ],
+      previewLines: [
+        "Reports the chi-square, df, and p; for a 2x2 also the Yates and Fisher exact p and the odds ratio.",
+      ],
+    }),
+  };
+}
+
+export const runContingencyTool: AiTool = {
+  name: "run_contingency",
+  description:
+    "Run a contingency-table association test (Pearson chi-square, with Fisher's exact test and the odds ratio for a 2x2) on a Contingency table, store the result, and take the user to it. Use this when the user wants to test whether two categorical factors are associated or independent (for example \"is treatment associated with response\", \"chi-square test on this 2x2\", \"are these proportions different\"). The table must be a Contingency table (a row factor, a column factor, and a count in each cell). Call list_datahub_tables first to get the table id. Optionally pass yates (\"on\" the default, or \"off\") to control the Yates continuity correction, which only applies to a 2x2 table; omit to keep it on. The engine computes the chi-square, df, and p under independence, and for a 2x2 also the Yates-corrected chi-square + p, Fisher's exact two-sided p, and the relative risk and odds ratio with 95% CIs; it also reports the smallest expected count so you can flag the chi-square caveat when any expected count is below 5. You NEVER compute a chi-square, a p-value, an odds ratio, or an expected count, the engine does. This runs straight away, there is NO separate approval step, so do not call propose_plan for it. It saves the result as a version-controlled analysis, navigates the user to the Data Hub so they see it, and returns the result. After it returns, give ONE short line, the chi-square with df and p (and for a 2x2 the odds ratio with its CI and Fisher's p), and warn if the smallest expected count is below 5. Never invent a number, only repeat what this returns.",
+  parameters: {
+    type: "object",
+    properties: {
+      tableId: {
+        type: "string",
+        description: "The id of the Contingency Data Hub table to test, from a list_datahub_tables result.",
+      },
+      yates: {
+        type: "string",
+        description:
+          "Optional. The Yates continuity correction for a 2x2 table, \"on\" (the default) or \"off\". Ignored for larger tables. Omit to keep it on.",
+      },
+    },
+    required: ["tableId"],
+    additionalProperties: false,
+  },
+  // Previewable, not an action (see run_datahub_analysis). Step mode previews the
+  // test; plan mode runs it free, the write is a reversible, version-controlled
+  // analysis and the user's request is the consent.
+  previewable: true,
+  describeAction: describeContingency,
+  execute: async (args) => {
+    const parsed = parseContingencyArgs(args);
+    if (!parsed.tableId) {
+      return {
+        ok: false,
+        error: "No table was given. Call list_datahub_tables first and pass the Contingency table id.",
+      } satisfies ContingencyToolResult;
+    }
+    const content = await datahubAnalysisDeps.resolveContent(parsed.tableId);
+    if (!content) {
+      return {
+        ok: false,
+        error: "I could not open that table. It may have been deleted, or the id is wrong.",
+      } satisfies ContingencyToolResult;
+    }
+    cacheTableContent(parsed.tableId, content);
+
+    const built = buildContingency(content, parsed);
+    if (!built.ok) return { ok: false, error: built.error } satisfies ContingencyToolResult;
+
+    const stored = await datahubAnalysisDeps.persistAnalysis(parsed.tableId, built.spec);
+    if (!stored) {
+      return {
+        ok: false,
+        error: "The contingency analysis computed but could not be saved to the table. The result is not stored.",
+      } satisfies ContingencyToolResult;
+    }
+    datahubAnalysisDeps.navigate(`/datahub?doc=${parsed.tableId}&analysis=${built.result.analysisId}`);
+    return built.result satisfies ContingencyToolResult;
   },
 };
 

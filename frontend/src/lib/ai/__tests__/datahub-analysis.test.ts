@@ -52,6 +52,10 @@ import {
   buildCoxRegression,
   describeCoxRegression,
   runCoxRegressionTool,
+  parseContingencyArgs,
+  buildContingency,
+  describeContingency,
+  runContingencyTool,
   parseRocCurveArgs,
   buildRocCurve,
   describeRocCurve,
@@ -1433,6 +1437,115 @@ describe("run_cox_regression tool", () => {
 
   it("returns an error when no tableId is given", async () => {
     const result = (await runCoxRegressionTool.execute({})) as { ok: boolean };
+    expect(result.ok).toBe(false);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// run_contingency (Contingency table)
+// ---------------------------------------------------------------------------
+
+// A 2x2 Contingency table with a strong association: one role-x text row-label
+// column + two role-y count columns (the column factor).
+function contingencyContent(): DataHubDocContent {
+  return {
+    meta: meta({ id: "12", name: "Response by arm", table_type: "contingency" }),
+    columns: [
+      { id: "rowlabel", name: "Arm", role: "x", dataType: "text" },
+      { id: "resp", name: "Responded", role: "y", dataType: "number" },
+      { id: "noresp", name: "No response", role: "y", dataType: "number" },
+    ],
+    rows: [
+      { id: "r0", cells: { rowlabel: "Treated", resp: 30, noresp: 10 } },
+      { id: "r1", cells: { rowlabel: "Control", resp: 10, noresp: 30 } },
+    ],
+    analyses: [],
+    plots: [],
+  };
+}
+
+describe("parseContingencyArgs", () => {
+  it("reads the tableId and a yates of on / off, undefined otherwise", () => {
+    expect(parseContingencyArgs({ tableId: "12" })).toEqual({ tableId: "12", yates: undefined });
+    expect(parseContingencyArgs({ tableId: "12", yates: "off" }).yates).toBe("off");
+    expect(parseContingencyArgs({ tableId: "12", yates: "on" }).yates).toBe("on");
+    expect(parseContingencyArgs({ tableId: "12", yates: "garbage" }).yates).toBeUndefined();
+  });
+});
+
+describe("buildContingency", () => {
+  it("builds a contingency spec and relays the engine's chi-square + p", () => {
+    const content = contingencyContent();
+    const built = buildContingency(content, parseContingencyArgs({ tableId: "12" }));
+    expect(built.ok).toBe(true);
+    if (!built.ok) return;
+    expect(built.spec.type).toBe("contingency");
+    expect(built.result.contingency.kind).toBe("contingency");
+
+    const ref = runAnalysis(built.spec, content);
+    expect(ref.ok && ref.kind === "contingency").toBe(true);
+    if (!ref.ok || ref.kind !== "contingency") return;
+    expect(built.result.n).toBe(ref.n);
+    expect(built.result.contingency.chiSquare).toBe(ref.chiSquare);
+    expect(built.result.contingency.pValue).toBe(ref.pValue);
+    expect(built.result.contingency.fisherPValue).toBe(ref.fisherPValue);
+  });
+
+  it("omits yates by default and sets it only to turn the correction off", () => {
+    const on = buildContingency(contingencyContent(), parseContingencyArgs({ tableId: "12" }));
+    const off = buildContingency(contingencyContent(), parseContingencyArgs({ tableId: "12", yates: "off" }));
+    expect(on.ok && on.spec.params).toEqual({});
+    expect(off.ok && off.spec.params).toEqual({ yates: "off" });
+  });
+
+  it("rejects a table with no contingency data", () => {
+    const built = buildContingency(twoGroupContent(), parseContingencyArgs({ tableId: "1" }));
+    expect(built.ok).toBe(false);
+    if (built.ok) return;
+    expect(built.error).toMatch(/Contingency table/i);
+  });
+});
+
+describe("describeContingency", () => {
+  it("names the table when content is cached", () => {
+    cacheTableContent("12", contingencyContent());
+    const { summary, stepPayload } = describeContingency({ tableId: "12" });
+    expect(summary).toMatch(/contingency analysis/i);
+    expect(summary).toMatch(/Response by arm/);
+    expect(stepPayload).toBeDefined();
+  });
+
+  it("emits a stepPayload even when the table is NOT cached", () => {
+    const { summary, stepPayload } = describeContingency({ tableId: "999" });
+    expect(summary).toMatch(/contingency \(chi-square\)/i);
+    expect(stepPayload?.steps[0].kind).toBe("run_contingency");
+  });
+});
+
+describe("run_contingency tool", () => {
+  it("is previewable, not a gated action", () => {
+    expect(runContingencyTool.action).toBeFalsy();
+    expect(runContingencyTool.previewable).toBe(true);
+    expect(typeof runContingencyTool.describeAction).toBe("function");
+  });
+
+  it("stores the result and navigates the user to it", async () => {
+    vi.spyOn(datahubAnalysisDeps, "resolveContent").mockResolvedValue(contingencyContent());
+    const persist = vi.spyOn(datahubAnalysisDeps, "persistAnalysis").mockResolvedValue(true);
+    const navigate = vi.spyOn(datahubAnalysisDeps, "navigate").mockImplementation(() => {});
+    const result = (await runContingencyTool.execute({ tableId: "12" })) as {
+      ok: boolean;
+      analysisId?: string;
+    };
+    expect(result.ok).toBe(true);
+    expect(persist).toHaveBeenCalled();
+    expect(navigate).toHaveBeenCalledWith(
+      expect.stringContaining(`/datahub?doc=12&analysis=${(result as { analysisId: string }).analysisId}`),
+    );
+  });
+
+  it("returns an error when no tableId is given", async () => {
+    const result = (await runContingencyTool.execute({})) as { ok: boolean };
     expect(result.ok).toBe(false);
   });
 });
