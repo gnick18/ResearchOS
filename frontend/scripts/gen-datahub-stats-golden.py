@@ -183,7 +183,17 @@ SURV_CONTROL = [
 # Fixed times at which to read the Treatment-arm KM survival.
 KM_READ_TIMES = [7, 13, 23]
 
-# A 2 x 3 contingency table (rows = outcome, cols = group) for chi-square.
+# A 2 x 2 contingency table with a clear association (the headline case). The
+# layout is row 1 = exposed, row 2 = not exposed, col 1 = event, col 2 = no
+# event, so a = 30, b = 10, c = 12, d = 28. The relative risk and odds ratio read
+# off this layout. Exposure is associated with a much higher event rate here.
+CONTINGENCY_2X2 = [
+    [30, 10],
+    [12, 28],
+]
+
+# A 2 x 3 contingency table (rows = outcome, cols = group) for the larger-table
+# chi-square path (no Yates, no Fisher, no 2x2 effect measures).
 CONTINGENCY = [
     [10, 20, 30],
     [25, 15, 20],
@@ -1083,9 +1093,62 @@ def ref_survival():
 
 
 def ref_chi_square():
-    chi2, p, dof, _expected = st.chi2_contingency(np.array(CONTINGENCY),
-                                                  correction=False)
-    return {"contingency": {"chi2": r4(chi2), "df": int(dof), "p": r4(p)}}
+    # The headline 2x2 case. scipy.stats.chi2_contingency with and without the
+    # Yates continuity correction, scipy.stats.fisher_exact for the two-sided
+    # exact p, and the relative-risk / odds-ratio effect measures with 95% CIs by
+    # the log method (closed form, z = 1.959964). Layout a, b, c, d as documented
+    # on CONTINGENCY_2X2 (row 1 = exposed, col 1 = event).
+    t2 = np.array(CONTINGENCY_2X2)
+    chi2_yates, p_yates, dof2, exp2 = st.chi2_contingency(t2, correction=True)
+    chi2_raw, p_raw, _dof2b, _exp2b = st.chi2_contingency(t2, correction=False)
+    odds_ratio_sp, fisher_p = st.fisher_exact(t2, alternative="two-sided")
+
+    a, b = float(t2[0][0]), float(t2[0][1])
+    c, d = float(t2[1][0]), float(t2[1][1])
+    z = 1.959963984540054  # two-sided 95% normal quantile
+
+    rr = (a / (a + b)) / (c / (c + d))
+    se_log_rr = np.sqrt(1 / a - 1 / (a + b) + 1 / c - 1 / (c + d))
+    rr_lo = np.exp(np.log(rr) - z * se_log_rr)
+    rr_hi = np.exp(np.log(rr) + z * se_log_rr)
+
+    or_ = (a * d) / (b * c)
+    se_log_or = np.sqrt(1 / a + 1 / b + 1 / c + 1 / d)
+    or_lo = np.exp(np.log(or_) - z * se_log_or)
+    or_hi = np.exp(np.log(or_) + z * se_log_or)
+
+    min_expected_2x2 = float(np.min(exp2))
+
+    # The larger-table case: a 2x3 chi-square, uncorrected (Yates and the 2x2
+    # effect measures do not apply to a table larger than 2x2).
+    chi2_rc, p_rc, dof_rc, exp_rc = st.chi2_contingency(np.array(CONTINGENCY),
+                                                        correction=False)
+
+    return {
+        "two_by_two": {
+            "chi2": r4(chi2_raw),
+            "df": int(dof2),
+            "p": r4(p_raw),
+            "yates_chi2": r4(chi2_yates),
+            "yates_p": r4(p_yates),
+            "fisher_p": r4(fisher_p),
+            "min_expected": r4(min_expected_2x2),
+            "relative_risk": r4(rr),
+            "relative_risk_ci_low": r4(rr_lo),
+            "relative_risk_ci_high": r4(rr_hi),
+            "odds_ratio": r4(or_),
+            "odds_ratio_ci_low": r4(or_lo),
+            "odds_ratio_ci_high": r4(or_hi),
+            "n": int(t2.sum()),
+        },
+        "two_by_three": {
+            "chi2": r4(chi2_rc),
+            "df": int(dof_rc),
+            "p": r4(p_rc),
+            "min_expected": r4(float(np.min(exp_rc))),
+            "n": int(np.array(CONTINGENCY).sum()),
+        },
+    }
 
 
 def _solve_ncp(tobs, df, target):
@@ -1282,7 +1345,8 @@ PROVENANCE = {
         "grubbs": "Grubbs G = max|x-mean|/sd; G_crit from scipy.stats.t.ppf(1-alpha/(2n), n-2) by hand (no scipy.stats.grubbs)",
         "km_treat": "lifelines.KaplanMeierFitter.fit / .predict / .median_survival_time_",
         "logrank": "lifelines.statistics.logrank_test",
-        "contingency": "scipy.stats.chi2_contingency(table, correction=False)  [PENDING: no engine impl yet]",
+        "chi_square.two_by_two": "scipy.stats.chi2_contingency(table, correction=True/False) for Yates and uncorrected chi2; scipy.stats.fisher_exact(table, alternative='two-sided') for Fisher p; relative risk and odds ratio with 95% log-method CIs in closed form (z=1.959964)",
+        "chi_square.two_by_three": "scipy.stats.chi2_contingency(table, correction=False) on the 2x3 table (Yates and 2x2 effect measures do not apply)",
         "effect_sizes.unpaired": "pingouin.compute_effsize(A, B, eftype='cohen'|'hedges'); d CI via scipy.stats.nct inversion (Smithson 2001)",
         "effect_sizes.paired": "Cohen's dz = mean(diff)/sd(diff); dz CI via scipy.stats.nct inversion",
         "effect_sizes.oneway": "eta2 = SSb/SSt, omega2 = (SSb - dfb*MSw)/(SSt + MSw); eta2 CI via scipy.stats.ncf inversion",
@@ -1348,6 +1412,7 @@ def main():
         "SURV_TREAT": SURV_TREAT,
         "SURV_CONTROL": SURV_CONTROL,
         "KM_READ_TIMES": KM_READ_TIMES,
+        "CONTINGENCY_2X2": CONTINGENCY_2X2,
         "CONTINGENCY": CONTINGENCY,
         "POWER_TWO_SAMPLE_N": POWER_TWO_SAMPLE_N,
         "POWER_TWO_SAMPLE_D": POWER_TWO_SAMPLE_D,
