@@ -4,6 +4,28 @@ Goal: take the ResearchOS companion app from a 4-5/10 to a 9/10 on every surface
 
 This doc is the coverage checklist. The contract is not done until every surface below has an approved mockup. Status legend: TODO, MOCKED, APPROVED.
 
+## BUILD STATUS (2026-06-13, RN rebuild underway)
+
+Phase 1 (foundation) + most of Phase 2 are BUILT, verified on the Android emulator via the device-shot loop, and MERGED to main. Work happened on branch `mobile-redesign-foundation` (now merged).
+
+MERGED + EMULATOR-VERIFIED:
+- Design tokens ported to contract.css; Geist + Geist Mono loaded app-wide; flat canvas.
+- Floating 4-tab nav (Home/Notebook/Methods/Inventory) + center ＋ Capture; calc/timers/wiki in the Home hub launcher.
+- New Home hub screen.
+- All 4 tab roots migrated (Home, Notebook, Methods, Inventory).
+- Hub tools migrated (Calc/Timers/Wiki headers + bar clearance).
+- Core components on new tokens (Button/Card/ScreenHeader/ThemedText/FloatingTabBar).
+- Pushed screens INHERITED the new design via the shared components and verified on emulator: Settings, Notifications, Pair (BeakerBot mascot), Quick note, Add purchase, Reorder, Lab calculators, Method-detail (empty state).
+- Polish: Notebook live-pulse connection badge; calc-custom de-duped title; splash-hide effect deps fix.
+
+REMAINING (not pure restyle / need data or are net-new, NOT done autonomously):
+- The 10 METHOD READERS (PCR profile, plate grid, LC chart, qPCR, mass-spec, etc.): need published method fixture data on a paired device to render/verify; build the per-type renderers to 03b then verify with seeded data.
+- SCAN FLOW + SMART-MATCH: scan needs a real camera (emulator camera limited); smart-match is a NET-NEW feature (own-data match + GS1/barcode parse + external lookup + Vercel proxy), not a restyle.
+- ACTIVE-EXPERIMENTS BAND: integrate the companion lane's HELD branch fields at build time (Today panel + Home glance), keep recordSnapshotGeneratedAt liveness wiring.
+- Minor polish: richer capture tiles (2-line sublabel + icon tile) to fully match the mockup.
+
+HARNESS: worktree metro on :8082 -> emulator (emulator-5554) + `mobile/scripts/device-shot.sh`; deep-link nav via `adb shell am start -d researchos://<route>`. Grant's Samsung untouched on :8081.
+
 ## Locked direction (Grant, 2026-06-13)
 
 - BOLD REINVENTION, not just refinement. Fresh flagship design: new type scale, richer depth and motion, rethought navigation, distinctive BeakerBot moments. Keep the brand colors (sky #1AA0E6, the pastel-vs-vivid rainbow rule), everything else is on the table.
