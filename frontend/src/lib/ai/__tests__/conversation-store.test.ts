@@ -120,9 +120,23 @@ vi.mock("../beaker-chats-store", () => ({
   deriveChatTitle: (s: string) => s.slice(0, 60),
 }));
 
+// Stub user-memory so tests are not file-system-dependent. Default: no entries
+// (the memory message is absent, deterministic). Individual tests can override
+// getMemoryEntries via mockResolvedValueOnce to exercise the injection path.
+vi.mock("../user-memory", () => ({
+  getMemoryEntries: vi.fn(async () => []),
+  buildMemoryContext: vi.fn(
+    (entries: { text: string }[]) =>
+      entries.length > 0
+        ? `USER PREFERENCES (apply these by default, do not repeat them back unless asked):\n${entries.map((e) => `- ${e.text}`).join("\n")}`
+        : null,
+  ),
+}));
+
 // Import mocked modules for use in tests.
 import { callModelViaProxy } from "../proxy-client";
 import { runAgentLoop } from "../agent-loop";
+import { getMemoryEntries } from "../user-memory";
 
 // ---- helpers ----------------------------------------------------------------
 
@@ -636,5 +650,57 @@ describe("Bug 2 regression: message queue while streaming", () => {
     const texts = useConversationStore.getState().messages.map((m) => m.content);
     expect(texts.includes("later queued")).toBe(true);
     expect(texts.includes("early queued")).toBe(false);
+  });
+});
+
+// ---- Memory injection: no accumulation across sends -------------------------
+//
+// The memory system message is a per-turn inject that must be stripped from
+// historyStore before persist, exactly like contextMessage. This section pins
+// that guarantee: after N sends, historyStore must contain at most one memory
+// system message (the base prompt) and zero extra memory lines.
+
+describe("memory injection: memory system line does not accumulate in history", () => {
+  it("history has no leftover memory system line after two sends with memory", async () => {
+    // Make getMemoryEntries return one entry, so a memoryMessage IS injected.
+    vi.mocked(getMemoryEntries).mockResolvedValue([
+      { id: "m1", text: "I default to Phusion polymerase", createdAt: "2026-01-01" },
+    ]);
+
+    vi.mocked(callModelViaProxy)
+      .mockResolvedValueOnce(jsonChoices("first answer") as Awaited<ReturnType<typeof callModelViaProxy>>)
+      .mockResolvedValueOnce(jsonChoices("second answer") as Awaited<ReturnType<typeof callModelViaProxy>>);
+
+    await useConversationStore.getState().send("first question");
+    await flushAll();
+    await useConversationStore.getState().send("second question");
+    await flushAll();
+
+    const history = getConversationHistory();
+    // Count system messages in history that contain the memory marker string.
+    const memoryLines = history.filter(
+      (m) => m.role === "system" && typeof m.content === "string" && m.content.includes("USER PREFERENCES"),
+    );
+    // The memory message must have been stripped before persist. Zero copies.
+    expect(memoryLines).toHaveLength(0);
+  });
+
+  it("history has no leftover context system line after two sends with context", async () => {
+    // Memory stays empty for this test; we check the context line does not pile up.
+    vi.mocked(getMemoryEntries).mockResolvedValue([]);
+
+    vi.mocked(callModelViaProxy)
+      .mockResolvedValueOnce(jsonChoices("a1") as Awaited<ReturnType<typeof callModelViaProxy>>)
+      .mockResolvedValueOnce(jsonChoices("a2") as Awaited<ReturnType<typeof callModelViaProxy>>);
+
+    await useConversationStore.getState().send("q1");
+    await flushAll();
+    await useConversationStore.getState().send("q2");
+    await flushAll();
+
+    const history = getConversationHistory();
+    // There should be exactly one system message: the base prompt (index 0).
+    const systemMessages = history.filter((m) => m.role === "system");
+    expect(systemMessages).toHaveLength(1);
   });
 });

@@ -47,6 +47,7 @@ import {
   showSpotlight,
   dismissSpotlight,
 } from "@/components/ai/spotlight-controller";
+import { getMemoryEntries, buildMemoryContext } from "@/lib/ai/user-memory";
 import type {
   ApprovalRequest,
   ApprovalDecision,
@@ -550,9 +551,23 @@ export const useConversationStore = create<ConversationStore>((set, get) => ({
     // turns appended (it only pushes, never clones), so the SAME object identity
     // survives, and an identity filter strips exactly the one we injected.
     const contextMessage: LoopMessage = { role: "system", content: injectedContent };
+
+    // Inject the user's standing memory preferences as a second per-turn system
+    // line. Read fresh every send so a just-saved preference applies immediately.
+    // Held by reference for the same identity-filter-before-persist pattern as
+    // contextMessage: it is stripped from result.messages before historyStore is
+    // updated so it never accumulates (one stale copy per send is the bug to avoid).
+    // Silently skipped when no memory file exists or no folder is connected.
+    const memoryEntries = await getMemoryEntries();
+    const memoryContent = buildMemoryContext(memoryEntries);
+    const memoryMessage: LoopMessage | null = memoryContent
+      ? { role: "system", content: memoryContent }
+      : null;
+
     const loopInput: LoopMessage[] = [
       historyStore[0], // base system prompt
       contextMessage, // fresh per-turn review mode + context
+      ...(memoryMessage ? [memoryMessage] : []), // per-turn user preferences
       ...historyStore.slice(1), // rest of persisted history
       { role: "user", content: trimmed },
     ];
@@ -577,10 +592,13 @@ export const useConversationStore = create<ConversationStore>((set, get) => ({
       });
 
       // Persist the full loop history (including tool turns) for the next send,
-      // but strip the per-turn context message by reference so it never persists.
-      // Persisting it would let a stale context line accumulate, one extra system
-      // message per send.
-      historyStore = result.messages.filter((m) => m !== contextMessage);
+      // but strip ALL per-turn injected messages by reference so they never persist.
+      // Persisting any of them would let a stale line accumulate, one extra system
+      // message per send. Both contextMessage and memoryMessage (when present) are
+      // filtered by the same identity check.
+      historyStore = result.messages.filter(
+        (m) => m !== contextMessage && m !== memoryMessage,
+      );
       set({ status: null });
 
       // A stopped (aborted) run returns an empty answer. Remove the placeholder
