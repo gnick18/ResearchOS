@@ -154,6 +154,11 @@ const BORDER = "#e2e8f0";
 
 /** Width reserved on the right edge for the legend column, when any legend draws. */
 const LEGEND_WIDTH = 132;
+/** Width of one legend sub-column (the panel path columnizes into these when the
+ *  stacked legends would overflow the canvas height). */
+const LEGEND_COL_WIDTH = LEGEND_WIDTH;
+/** Most legend sub-columns we ever reserve (keeps the figure from collapsing). */
+const LEGEND_MAX_COLS = 3;
 
 /** Wrap a figure body + legend in the SVG document shell. The ONE place the
  *  opening svg tag is written, so both render paths share it (and the icon-guard
@@ -350,7 +355,14 @@ function renderFromPanels(
   const legendItems = legendOn
     ? collectPanelLegends(root, spec, [...aligned, ...coloredPoints])
     : [];
-  const legendW = legendItems.length > 0 ? LEGEND_WIDTH : 0;
+  // Reserve one legend sub-column normally; when the stacked legends would run
+  // past the canvas height, reserve enough sub-columns to hold them side by side
+  // (capped) so they never overlap the figure or each other (multi-panel polish).
+  const legendCols =
+    legendItems.length > 0
+      ? legendColumnCount(legendItems, spec.height)
+      : 0;
+  const legendW = legendCols * LEGEND_COL_WIDTH;
   const plotWidth = Math.max(120, spec.width - legendW);
 
   const room = alignedRoom(aligned);
@@ -421,7 +433,7 @@ function renderFromPanels(
   // Scale bar (rectangular phylogram only) is drawn inside drawRectTree.
   const legend =
     legendItems.length > 0
-      ? renderPanelLegendColumn(legendItems, plotWidth, spec.height)
+      ? renderPanelLegendColumn(legendItems, plotWidth, spec.height, legendCols)
       : "";
 
   return svgDocument(spec.width, spec.height, parts.join(""), legend);
@@ -681,48 +693,75 @@ function renderOneLegend(
   return { svg: "", height: 0 };
 }
 
+/** A cheap height estimate for one legend entry, used both to decide how many
+ *  sub-columns to reserve and to wrap during layout (kept in step with the real
+ *  renderers so the reserved width matches what draws). */
+function estimateLegendHeight(entry: LegendEntry): number {
+  const titleH = 14;
+  if (entry.residue) {
+    const rows = entry.residue === "nucleotide" ? 5 : 8;
+    return titleH + rows * 16 + 8;
+  }
+  if (entry.scale) {
+    if (entry.scale.kind === "numeric") return titleH + 56 + 16;
+    const cats = entry.scale.categories?.length ?? 1;
+    return titleH + cats * 16 + 8;
+  }
+  return 0;
+}
+
 /**
- * Render the stacked legends in the reserved right-edge area, columnizing when a
- * single column would overflow the canvas height (the multi-panel legend fix at
- * 4+ legends). Legends stack top to bottom; when the next legend would run past
- * the bottom, a new sub-column starts to the right within the reserved width, so
- * legends never overlap the figure or each other. A legend that still cannot fit
- * (more columns than the reserved width holds) is dropped cleanly rather than
- * drawn over the figure.
+ * How many side-by-side legend sub-columns the reserved area needs so the
+ * stacked legends fit within the canvas height without overflow. One column
+ * normally; more when the total legend height exceeds the usable height (the
+ * multi-panel legend fix at 4+ legends), capped at LEGEND_MAX_COLS.
+ */
+function legendColumnCount(entries: LegendEntry[], height: number): number {
+  const usable = Math.max(40, height - 34);
+  let cols = 1;
+  let y = 0;
+  for (const e of entries) {
+    const h = estimateLegendHeight(e);
+    if (y > 0 && y + h > usable) {
+      cols += 1;
+      y = 0;
+    }
+    y += h;
+  }
+  return Math.min(LEGEND_MAX_COLS, cols);
+}
+
+/**
+ * Render the stacked legends in the reserved right-edge area, columnizing across
+ * `cols` sub-columns so they fit the canvas height without overlapping the figure
+ * or each other (the multi-panel legend fix). Legends stack top to bottom; when
+ * the next legend would run past the bottom, the next sub-column starts. A legend
+ * that still cannot fit (beyond the last reserved column) is dropped cleanly
+ * rather than drawn over the figure.
  */
 function renderPanelLegendColumn(
   entries: LegendEntry[],
   plotWidth: number,
   height: number,
+  cols: number,
 ): string {
   const startX = plotWidth + 12;
   const topY = 22;
   const maxY = height - 12;
-  // Sub-column width within the reserved legend area. LEGEND_WIDTH holds at most
-  // two sub-columns comfortably; we keep them inside the reserved band.
-  const colW = 64;
-  const maxCols = Math.max(1, Math.floor((LEGEND_WIDTH - 8) / colW));
-
   const parts: string[] = [];
   let col = 0;
   let y = topY;
   for (const entry of entries) {
-    // Measure first (render at the candidate position), then place; if it would
-    // overflow this sub-column, wrap to the next one before committing.
-    let x = startX + col * colW;
-    if (y > topY) {
-      // Peek the height by rendering off to the side is wasteful; instead estimate
-      // by rendering at the candidate y and checking the consumed height.
-      const probe = renderOneLegend(entry, x, y, maxY);
-      if (y + probe.height > maxY && col < maxCols - 1) {
+    const h = estimateLegendHeight(entry);
+    if (y > topY && y + h > maxY) {
+      if (col < cols - 1) {
         col += 1;
         y = topY;
-        x = startX + col * colW;
-      } else if (y + probe.height > maxY) {
-        // No room in any remaining sub-column; stop cleanly.
-        break;
+      } else {
+        break; // no reserved column left, stop cleanly
       }
     }
+    const x = startX + col * LEGEND_COL_WIDTH;
     const r = renderOneLegend(entry, x, y, maxY);
     if (r.height === 0) continue;
     parts.push(r.svg);
