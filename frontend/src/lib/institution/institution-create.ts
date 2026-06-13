@@ -1,0 +1,36 @@
+// Institution tier Phase 4: client entry to create an institution + become admin.
+// Mirrors dept-create.ts one tier up.
+//
+// No emojis, no em-dashes, no mid-sentence colons.
+
+import { encodePublicKey } from "@/lib/sharing/identity/keys";
+import type { StoredIdentity } from "@/lib/sharing/identity/storage";
+
+export interface CreateInstitutionResult {
+  institutionId: string;
+  existing: boolean;
+}
+
+export async function createInstitutionForCurrentUser(params: {
+  identity: StoredIdentity;
+  name: string;
+  idImpl?: () => string;
+}): Promise<CreateInstitutionResult> {
+  const name = params.name.trim();
+  if (!name) throw new Error("createInstitutionForCurrentUser: a name is required");
+  const institutionId = (params.idImpl ?? (() => crypto.randomUUID()))();
+  const res = await fetch("/api/institution/create", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({
+      institutionId,
+      name,
+      adminEd25519Pub: encodePublicKey(params.identity.keys.signing.publicKey),
+    }),
+  });
+  if (!res.ok) {
+    throw new Error(`createInstitutionForCurrentUser: rejected (HTTP ${res.status})`);
+  }
+  const data = (await res.json()) as { institutionId?: string; existing?: boolean };
+  return { institutionId: data.institutionId ?? institutionId, existing: data.existing === true };
+}
