@@ -136,6 +136,37 @@ const OP_META: Record<TransformOp["kind"], { label: string; blurb: string }> = {
     blurb:
       "Express each value as a fraction or percent of its column, row, or the grand total.",
   },
+  fillna: {
+    label: "Fill empty cells",
+    blurb:
+      "Fill empty cells in a column with a value, the previous or next value, or the column mean or median.",
+  },
+  dropna: {
+    label: "Drop empty rows",
+    blurb: "Drop rows that are empty in any or all of the selected columns.",
+  },
+  "set-where": {
+    label: "Set value where",
+    blurb:
+      "Set a column to a value or a formula on the rows that match a condition, leaving the rest unchanged.",
+  },
+  "str-op": {
+    label: "Text operation",
+    blurb:
+      "Edit text in a column (slice, replace, extract, split, change case, trim, or concatenate columns).",
+  },
+  astype: {
+    label: "Cast type",
+    blurb: "Convert a column to a number, text, boolean, or date.",
+  },
+  "to-date": {
+    label: "Parse date",
+    blurb: "Parse a text column to a date using a format you give.",
+  },
+  "date-parts": {
+    label: "Extract date parts",
+    blurb: "Pull the year, month, day, weekday, or hour out of a date column into new columns.",
+  },
 };
 
 // The set of valid op kinds, derived from OP_META so the two never drift.

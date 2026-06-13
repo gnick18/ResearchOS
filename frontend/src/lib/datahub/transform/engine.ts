@@ -82,6 +82,13 @@ import type {
   AggFunc,
   AggSpec,
   SortKey,
+  FillNaOp,
+  DropNaOp,
+  SetWhereOp,
+  StrOp,
+  AsTypeOp,
+  ToDateOp,
+  DatePartsOp,
 } from "./pipeline";
 
 // ---------------------------------------------------------------------------
@@ -974,6 +981,347 @@ function applyColumnTransform(
 }
 
 // ---------------------------------------------------------------------------
+// Phase 2b-1 data-cleaning ops (the everyday "edit with code" set)
+// ---------------------------------------------------------------------------
+
+/** A cell as a string, or "" for an empty cell. Whole-number floats keep no
+ *  decimal (5 not "5.0") so string slicing on a numeric-typed column reads as the
+ *  user sees it. */
+function cellToStr(v: CellValue): string {
+  if (isEmpty(v)) return "";
+  return String(v);
+}
+
+function applyFillNa(table: InternalTable, op: FillNaOp): InternalTable | string {
+  if (!table.columns.includes(op.column))
+    return `fillna: column "${op.column}" not found`;
+
+  let fillConst: CellValue = op.value ?? null;
+  // Precompute mean / median over the whole column once.
+  if (op.method === "mean" || op.method === "median") {
+    const nums = table.rows
+      .map((r) => r[op.column])
+      .filter((v) => !isEmpty(v))
+      .map((v) => (typeof v === "number" ? v : Number(v)))
+      .filter((n) => Number.isFinite(n));
+    if (nums.length === 0) {
+      fillConst = null;
+    } else if (op.method === "mean") {
+      fillConst = nums.reduce((a, b) => a + b, 0) / nums.length;
+    } else {
+      fillConst = median(nums);
+    }
+  }
+
+  const rows = table.rows.map((r) => ({ ...r }));
+  if (op.method === "ffill") {
+    let last: CellValue = null;
+    for (const r of rows) {
+      if (isEmpty(r[op.column])) {
+        if (!isEmpty(last)) r[op.column] = last;
+      } else {
+        last = r[op.column];
+      }
+    }
+  } else if (op.method === "bfill") {
+    let next: CellValue = null;
+    for (let i = rows.length - 1; i >= 0; i--) {
+      if (isEmpty(rows[i][op.column])) {
+        if (!isEmpty(next)) rows[i][op.column] = next;
+      } else {
+        next = rows[i][op.column];
+      }
+    }
+  } else {
+    // constant / mean / median: fill every empty cell with fillConst.
+    for (const r of rows) {
+      if (isEmpty(r[op.column])) r[op.column] = fillConst;
+    }
+  }
+  return { columns: table.columns, rows };
+}
+
+function applyDropNa(table: InternalTable, op: DropNaOp): InternalTable | string {
+  const cols = op.columns && op.columns.length > 0 ? op.columns : table.columns;
+  for (const c of cols) {
+    if (!table.columns.includes(c)) return `dropna: column "${c}" not found`;
+  }
+  const rows = table.rows.filter((r) => {
+    const empties = cols.map((c) => isEmpty(r[c]));
+    // how "any": drop if any selected column is empty; "all": drop only if all are.
+    return op.how === "all" ? !empties.every(Boolean) : !empties.some(Boolean);
+  });
+  return { columns: table.columns, rows };
+}
+
+function applySetWhere(table: InternalTable, op: SetWhereOp): InternalTable | string {
+  if (!table.columns.includes(op.column))
+    return `set-where: column "${op.column}" not found`;
+  const rows = table.rows.map((r) => {
+    if (!evalFilterNode(r, op.where)) return r;
+    const next = { ...r };
+    if (op.valueKind === "formula") {
+      const formula = op.formula ?? "";
+      if (formula.trim() === "") {
+        next[op.column] = null;
+        return next;
+      }
+      const result = evaluateExpression(formula, deriveScope(r));
+      if (typeof result === "number") next[op.column] = Number.isFinite(result) ? result : null;
+      else if (typeof result === "string") next[op.column] = result === "" ? null : result;
+      else next[op.column] = null;
+    } else {
+      next[op.column] = op.value ?? null;
+    }
+    return next;
+  });
+  return { columns: table.columns, rows };
+}
+
+function titleCase(s: string): string {
+  // Capitalize the first letter of each run of letters, matching pandas .str.title.
+  return s.replace(/[A-Za-z]+/g, (w) => w[0].toUpperCase() + w.slice(1).toLowerCase());
+}
+
+function applyStrOp(table: InternalTable, op: StrOp): InternalTable | string {
+  // Validate the source column(s) exist.
+  if (op.mode === "cat") {
+    for (const c of op.columns) {
+      if (!table.columns.includes(c)) return `str cat: column "${c}" not found`;
+    }
+  } else if (!table.columns.includes(op.column)) {
+    return `str ${op.mode}: column "${op.column}" not found`;
+  }
+
+  // Modes that ADD new columns.
+  if (op.mode === "extract") {
+    const out = op.outputName;
+    const group = op.group ?? 1;
+    let re: RegExp;
+    try {
+      re = new RegExp(op.pattern);
+    } catch {
+      return `str extract: invalid regex "${op.pattern}"`;
+    }
+    const columns = table.columns.includes(out) ? table.columns : [...table.columns, out];
+    const rows = table.rows.map((r) => {
+      const m = re.exec(cellToStr(r[op.column]));
+      return { ...r, [out]: m && m[group] !== undefined ? m[group] : null };
+    });
+    return { columns, rows };
+  }
+
+  if (op.mode === "split") {
+    const prefix = op.outputPrefix ?? `${op.column}_part`;
+    const parts = Math.max(1, op.parts);
+    const newCols = Array.from({ length: parts }, (_, i) => `${prefix}_${i + 1}`);
+    const columns = [...table.columns];
+    for (const c of newCols) if (!columns.includes(c)) columns.push(c);
+    const rows = table.rows.map((r) => {
+      const pieces = cellToStr(r[op.column]).split(op.separator);
+      const next = { ...r };
+      for (let i = 0; i < parts; i++) {
+        next[newCols[i]] = pieces[i] !== undefined ? pieces[i] : null;
+      }
+      return next;
+    });
+    return { columns, rows };
+  }
+
+  if (op.mode === "cat") {
+    const out = op.outputName;
+    const columns = table.columns.includes(out) ? table.columns : [...table.columns, out];
+    const rows = table.rows.map((r) => {
+      // concat_ws semantics: skip empty cells, join the rest with the separator.
+      const parts = op.columns.map((c) => r[c]).filter((v) => !isEmpty(v)).map(cellToStr);
+      return { ...r, [out]: parts.join(op.separator) };
+    });
+    return { columns, rows };
+  }
+
+  // In-place modes: slice, replace, case, strip. Empty cells stay empty (null).
+  const transform = (raw: CellValue): CellValue => {
+    if (isEmpty(raw)) return raw;
+    const s = cellToStr(raw);
+    switch (op.mode) {
+      case "slice": {
+        if (op.sliceMode === "replaceFirst") {
+          const n = op.n ?? 0;
+          return (op.replacement ?? "") + s.slice(n);
+        }
+        const start = op.start ?? 0;
+        return op.end !== undefined ? s.slice(start, op.end) : s.slice(start);
+      }
+      case "replace": {
+        if (op.regex) {
+          try {
+            return s.replace(new RegExp(op.pattern, "g"), op.replacement);
+          } catch {
+            return s;
+          }
+        }
+        return s.split(op.pattern).join(op.replacement);
+      }
+      case "case":
+        return op.caseMode === "upper"
+          ? s.toUpperCase()
+          : op.caseMode === "lower"
+            ? s.toLowerCase()
+            : titleCase(s);
+      case "strip":
+        return op.stripMode === "left"
+          ? s.replace(/^\s+/, "")
+          : op.stripMode === "right"
+            ? s.replace(/\s+$/, "")
+            : s.trim();
+      default:
+        return s;
+    }
+  };
+  const col = op.column;
+  const rows = table.rows.map((r) => ({ ...r, [col]: transform(r[col]) }));
+  return { columns: table.columns, rows };
+}
+
+/** Parse a cell to a boolean, matching the SQL TRY_CAST(... AS BOOLEAN) plus the
+ *  common yes/no string spellings. */
+function toBoolean(v: CellValue): CellValue {
+  if (isEmpty(v)) return null;
+  if (typeof v === "number") return v !== 0 ? "true" : "false";
+  const s = String(v).trim().toLowerCase();
+  if (["true", "t", "1", "yes", "y"].includes(s)) return "true";
+  if (["false", "f", "0", "no", "n"].includes(s)) return "false";
+  return null;
+}
+
+function applyAsType(table: InternalTable, op: AsTypeOp): InternalTable | string {
+  if (!table.columns.includes(op.column))
+    return `astype: column "${op.column}" not found`;
+  const col = op.column;
+  const rows = table.rows.map((r) => {
+    const v = r[col];
+    let next: CellValue;
+    if (op.to === "number") {
+      const n = coerceToNumber(v);
+      next = Number.isFinite(n) ? n : null;
+    } else if (op.to === "text") {
+      next = isEmpty(v) ? null : cellToStr(v);
+    } else if (op.to === "boolean") {
+      next = toBoolean(v);
+    } else {
+      // date: parse to an ISO YYYY-MM-DD string using the default parser.
+      if (isEmpty(v)) next = null;
+      else {
+        const d = new Date(cellToStr(v));
+        next = Number.isNaN(d.getTime()) ? null : d.toISOString().slice(0, 10);
+      }
+    }
+    return { ...r, [col]: next };
+  });
+  return { columns: table.columns, rows };
+}
+
+/** Parse a string by an explicit strptime-style format into a Date, or null. Only
+ *  the common tokens %Y %m %d %H %M %S are honored, the shared subset of pandas
+ *  and DuckDB strptime. */
+function parseByFormat(s: string, format: string): Date | null {
+  const tokens: { token: string; key: string; len: number }[] = [];
+  // Build a regex from the format, capturing each token's digits.
+  let regexStr = "";
+  for (let i = 0; i < format.length; i++) {
+    if (format[i] === "%" && i + 1 < format.length) {
+      const t = format[i + 1];
+      const map: Record<string, { key: string; len: number }> = {
+        Y: { key: "Y", len: 4 },
+        m: { key: "m", len: 2 },
+        d: { key: "d", len: 2 },
+        H: { key: "H", len: 2 },
+        M: { key: "M", len: 2 },
+        S: { key: "S", len: 2 },
+      };
+      if (map[t]) {
+        tokens.push({ token: t, key: map[t].key, len: map[t].len });
+        regexStr += "(\\d{1," + map[t].len + "})";
+        i++;
+        continue;
+      }
+    }
+    regexStr += format[i].replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  }
+  const m = new RegExp("^" + regexStr + "$").exec(s.trim());
+  if (!m) return null;
+  const parts: Record<string, number> = {};
+  tokens.forEach((tk, i) => {
+    parts[tk.key] = Number(m[i + 1]);
+  });
+  if (parts.Y === undefined) return null;
+  const d = new Date(
+    Date.UTC(
+      parts.Y,
+      (parts.m ?? 1) - 1,
+      parts.d ?? 1,
+      parts.H ?? 0,
+      parts.M ?? 0,
+      parts.S ?? 0,
+    ),
+  );
+  return Number.isNaN(d.getTime()) ? null : d;
+}
+
+function applyToDate(table: InternalTable, op: ToDateOp): InternalTable | string {
+  if (!table.columns.includes(op.column))
+    return `to-date: column "${op.column}" not found`;
+  const col = op.column;
+  const rows = table.rows.map((r) => {
+    const v = r[col];
+    if (isEmpty(v)) return { ...r, [col]: null };
+    const d = parseByFormat(cellToStr(v), op.format);
+    return { ...r, [col]: d ? d.toISOString().slice(0, 10) : null };
+  });
+  return { columns: table.columns, rows };
+}
+
+function applyDateParts(table: InternalTable, op: DatePartsOp): InternalTable | string {
+  if (!table.columns.includes(op.column))
+    return `date-parts: column "${op.column}" not found`;
+  const newCols = op.parts.map((p) => `${op.column}_${p}`);
+  const columns = [...table.columns];
+  for (const c of newCols) if (!columns.includes(c)) columns.push(c);
+  const rows = table.rows.map((r) => {
+    const v = r[op.column];
+    const d = isEmpty(v) ? null : new Date(cellToStr(v));
+    const valid = d && !Number.isNaN(d.getTime());
+    const next = { ...r };
+    op.parts.forEach((p, i) => {
+      if (!valid) {
+        next[newCols[i]] = null;
+        return;
+      }
+      switch (p) {
+        case "year":
+          next[newCols[i]] = d!.getUTCFullYear();
+          break;
+        case "month":
+          next[newCols[i]] = d!.getUTCMonth() + 1;
+          break;
+        case "day":
+          next[newCols[i]] = d!.getUTCDate();
+          break;
+        case "weekday":
+          // ISO weekday: Monday=1 .. Sunday=7, matching DuckDB isodow.
+          next[newCols[i]] = ((d!.getUTCDay() + 6) % 7) + 1;
+          break;
+        case "hour":
+          next[newCols[i]] = d!.getUTCHours();
+          break;
+      }
+    });
+    return next;
+  });
+  return { columns, rows };
+}
+
+// ---------------------------------------------------------------------------
 // Pipeline executor
 // ---------------------------------------------------------------------------
 
@@ -1085,6 +1433,20 @@ function executeOp(
       return applyColumnTransform(table, (c) => removeBaseline(c, op.params));
     case "fraction-of-total":
       return applyColumnTransform(table, (c) => fractionOfTotal(c, op.params));
+    case "fillna":
+      return applyFillNa(table, op);
+    case "dropna":
+      return applyDropNa(table, op);
+    case "set-where":
+      return applySetWhere(table, op);
+    case "str-op":
+      return applyStrOp(table, op);
+    case "astype":
+      return applyAsType(table, op);
+    case "to-date":
+      return applyToDate(table, op);
+    case "date-parts":
+      return applyDateParts(table, op);
     default: {
       // TypeScript exhaustiveness guard. If a new op kind is added to
       // TransformOp without a case here, this will be a type error.

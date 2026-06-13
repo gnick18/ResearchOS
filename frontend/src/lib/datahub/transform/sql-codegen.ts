@@ -59,6 +59,13 @@ import type {
   FilterNode,
   FilterCondition,
   AggSpec,
+  FillNaOp,
+  DropNaOp,
+  SetWhereOp,
+  StrOp,
+  AsTypeOp,
+  ToDateOp,
+  DatePartsOp,
 } from "./pipeline";
 import type {
   TransformParams,
@@ -424,6 +431,21 @@ export function transformOpToSql(op: TransformOp, ctx: SqlCodegenContext): strin
     case "fraction-of-total":
       return fractionOfTotalSql(from, op, cols);
 
+    case "fillna":
+      return fillnaSql(from, op);
+    case "dropna":
+      return dropnaSql(from, op, cols);
+    case "set-where":
+      return setWhereSql(from, op, cols);
+    case "str-op":
+      return strOpSql(from, op);
+    case "astype":
+      return asTypeSql(from, op);
+    case "to-date":
+      return toDateSql(from, op);
+    case "date-parts":
+      return datePartsSql(from, op);
+
     default: {
       const _exhaustive: never = op;
       void _exhaustive;
@@ -580,6 +602,201 @@ function fractionOfTotalSql(
 }
 
 // ---------------------------------------------------------------------------
+// Phase 2b-1 data-cleaning ops -> SQL
+// ---------------------------------------------------------------------------
+
+/** Translate a plain-arithmetic formula to a DuckDB scalar expression, or null
+ *  when it is beyond plain arithmetic. Shared with the set-where value path so it
+ *  reads identically to a derive formula. */
+function plainArithToSql(formula: string, columnNames: string[]): string | null {
+  const plainArith = /^[\sA-Za-z0-9_.()+\-*/^]*$/.test(formula);
+  if (!plainArith || formula.trim() === "") return null;
+  const sorted = [...columnNames].sort((a, b) => b.length - a.length);
+  let expr = formula.replace(/\^/g, "**");
+  for (const name of sorted) {
+    if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(name)) continue;
+    const re = new RegExp(`\\b${name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`, "g");
+    expr = expr.replace(re, sqlIdent(name));
+  }
+  expr = expr.replace(/"((?:[^"]|"")+)"/g, (_m, inner) => `TRY_CAST("${inner}" AS DOUBLE)`);
+  return expr;
+}
+
+/** A column is "empty" in SQL when NULL or the empty string, matching the engine
+ *  and the filter is_empty predicate. */
+function sqlIsEmpty(ref: string): string {
+  return `(${ref} IS NULL OR CAST(${ref} AS VARCHAR) = '')`;
+}
+
+function fillnaSql(from: string, op: FillNaOp): string {
+  const ref = sqlIdent(op.column);
+  let fill: string;
+  switch (op.method) {
+    case "ffill":
+      // Last non-empty value carried forward by row order. Window over the implicit
+      // scan order (DuckDB has no inherent order, so this mirrors the JS engine's
+      // row-order ffill on the previewed window).
+      fill = `last_value(CASE WHEN ${sqlIsEmpty(ref)} THEN NULL ELSE ${ref} END IGNORE NULLS) OVER (ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW)`;
+      break;
+    case "bfill":
+      fill = `first_value(CASE WHEN ${sqlIsEmpty(ref)} THEN NULL ELSE ${ref} END IGNORE NULLS) OVER (ROWS BETWEEN CURRENT ROW AND UNBOUNDED FOLLOWING)`;
+      break;
+    case "mean":
+      fill = `avg(TRY_CAST(${ref} AS DOUBLE)) OVER ()`;
+      break;
+    case "median":
+      fill = `median(TRY_CAST(${ref} AS DOUBLE)) OVER ()`;
+      break;
+    case "constant":
+    default:
+      fill = sqlScalar(op.value);
+      break;
+  }
+  // REPLACE swaps the one column, keeping the rest with *.
+  return `SELECT * REPLACE (CASE WHEN ${sqlIsEmpty(ref)} THEN ${fill} ELSE ${ref} END AS ${ref}) FROM ${from}`;
+}
+
+function dropnaSql(from: string, op: DropNaOp, cols: string[]): string {
+  const target = op.columns && op.columns.length > 0 ? op.columns : cols;
+  if (target.length === 0) return `SELECT * FROM ${from}`;
+  const conds = target.map((c) => sqlIsEmpty(sqlIdent(c)));
+  // how "any": keep rows where NONE is empty; "all": drop only when ALL are empty.
+  const predicate =
+    op.how === "all"
+      ? `NOT (${conds.join(" AND ")})`
+      : conds.map((c) => `NOT ${c}`).join(" AND ");
+  return `SELECT * FROM ${from} WHERE ${predicate}`;
+}
+
+function setWhereSql(from: string, op: SetWhereOp, cols: string[]): string {
+  const ref = sqlIdent(op.column);
+  let val: string;
+  if (op.valueKind === "formula") {
+    const expr = plainArithToSql(op.formula ?? "", cols);
+    val = expr ?? `NULL /* adapt, not plain arithmetic */`;
+  } else {
+    val = sqlScalar(op.value);
+  }
+  return `SELECT * REPLACE (CASE WHEN ${predicateSql(op.where)} THEN ${val} ELSE ${ref} END AS ${ref}) FROM ${from}`;
+}
+
+function titleCaseSql(ref: string): string {
+  // DuckDB has no title() built-in; lower then upper-case each word start via
+  // regexp_replace with a back-reference and \U is unavailable, so use the
+  // initcap-like pattern. DuckDB does ship a title-cased result through
+  // regexp_replace plus upper on the captured first letter is not expressible in
+  // one pass, so we lean on DuckDB's built-in. DuckDB 0.9+ has no initcap; we
+  // approximate with upper of the whole and note the limit. Use lower + manual.
+  return `regexp_replace(lower(CAST(${ref} AS VARCHAR)), '(^|[^a-zA-Z])([a-z])', '\\1' || upper('\\2'), 'g')`;
+}
+
+function strOpSql(from: string, op: StrOp): string {
+  switch (op.mode) {
+    case "slice": {
+      const ref = `CAST(${sqlIdent(op.column)} AS VARCHAR)`;
+      if (op.sliceMode === "replaceFirst") {
+        const n = op.n ?? 0;
+        // Replacement text, then the original from position n+1 (1-based substr).
+        const expr = `${sqlStr(op.replacement ?? "")} || substr(${ref}, ${n + 1})`;
+        return `SELECT * REPLACE (${expr} AS ${sqlIdent(op.column)}) FROM ${from}`;
+      }
+      const start = op.start ?? 0;
+      const expr =
+        op.end !== undefined
+          ? `substr(${ref}, ${start + 1}, ${op.end - start})`
+          : `substr(${ref}, ${start + 1})`;
+      return `SELECT * REPLACE (${expr} AS ${sqlIdent(op.column)}) FROM ${from}`;
+    }
+    case "replace": {
+      const ref = `CAST(${sqlIdent(op.column)} AS VARCHAR)`;
+      const expr = op.regex
+        ? `regexp_replace(${ref}, ${sqlStr(op.pattern)}, ${sqlStr(op.replacement)}, 'g')`
+        : `replace(${ref}, ${sqlStr(op.pattern)}, ${sqlStr(op.replacement)})`;
+      return `SELECT * REPLACE (${expr} AS ${sqlIdent(op.column)}) FROM ${from}`;
+    }
+    case "extract": {
+      const ref = `CAST(${sqlIdent(op.column)} AS VARCHAR)`;
+      const group = op.group ?? 1;
+      const expr = `regexp_extract(${ref}, ${sqlStr(op.pattern)}, ${group})`;
+      return `SELECT *, ${expr} AS ${sqlIdent(op.outputName)} FROM ${from}`;
+    }
+    case "split": {
+      const ref = `CAST(${sqlIdent(op.column)} AS VARCHAR)`;
+      const prefix = op.outputPrefix ?? `${op.column}_part`;
+      const items = Array.from({ length: op.parts }, (_, i) => {
+        // str_split is 1-based; element i+1. Out-of-range index yields NULL.
+        return `str_split(${ref}, ${sqlStr(op.separator)})[${i + 1}] AS ${sqlIdent(`${prefix}_${i + 1}`)}`;
+      });
+      return `SELECT *, ${items.join(", ")} FROM ${from}`;
+    }
+    case "case": {
+      const ref = `CAST(${sqlIdent(op.column)} AS VARCHAR)`;
+      const expr =
+        op.caseMode === "upper"
+          ? `upper(${ref})`
+          : op.caseMode === "lower"
+            ? `lower(${ref})`
+            : titleCaseSql(sqlIdent(op.column));
+      return `SELECT * REPLACE (${expr} AS ${sqlIdent(op.column)}) FROM ${from}`;
+    }
+    case "strip": {
+      const ref = `CAST(${sqlIdent(op.column)} AS VARCHAR)`;
+      const expr =
+        op.stripMode === "left"
+          ? `ltrim(${ref})`
+          : op.stripMode === "right"
+            ? `rtrim(${ref})`
+            : `trim(${ref})`;
+      return `SELECT * REPLACE (${expr} AS ${sqlIdent(op.column)}) FROM ${from}`;
+    }
+    case "cat": {
+      const parts = op.columns.map((c) => `CAST(${sqlIdent(c)} AS VARCHAR)`).join(", ");
+      // concat_ws skips NULLs, matching the engine's "skip empty parts".
+      const expr = `concat_ws(${sqlStr(op.separator)}, ${parts})`;
+      return `SELECT *, ${expr} AS ${sqlIdent(op.outputName)} FROM ${from}`;
+    }
+    default:
+      return `SELECT * FROM ${from}`;
+  }
+}
+
+function asTypeSql(from: string, op: AsTypeOp): string {
+  const ref = sqlIdent(op.column);
+  const typeMap: Record<AsTypeOp["to"], string> = {
+    number: "DOUBLE",
+    text: "VARCHAR",
+    boolean: "BOOLEAN",
+    date: "DATE",
+  };
+  const expr = `TRY_CAST(${ref} AS ${typeMap[op.to]})`;
+  return `SELECT * REPLACE (${expr} AS ${ref}) FROM ${from}`;
+}
+
+function toDateSql(from: string, op: ToDateOp): string {
+  const ref = `CAST(${sqlIdent(op.column)} AS VARCHAR)`;
+  // strptime returns a TIMESTAMP; cast to DATE so it stores as YYYY-MM-DD. TRY_
+  // form keeps an unparseable cell NULL rather than erroring the whole query.
+  const expr = `TRY_CAST(strptime(${ref}, ${sqlStr(op.format)}) AS DATE)`;
+  return `SELECT * REPLACE (${expr} AS ${sqlIdent(op.column)}) FROM ${from}`;
+}
+
+function datePartsSql(from: string, op: DatePartsOp): string {
+  const src = `TRY_CAST(${sqlIdent(op.column)} AS TIMESTAMP)`;
+  const partFn: Record<string, string> = {
+    year: `date_part('year', ${src})`,
+    month: `date_part('month', ${src})`,
+    day: `date_part('day', ${src})`,
+    // isodow: Monday=1 .. Sunday=7, matching the engine's ISO weekday.
+    weekday: `date_part('isodow', ${src})`,
+    hour: `date_part('hour', ${src})`,
+  };
+  const items = op.parts.map(
+    (p) => `${partFn[p]} AS ${sqlIdent(`${op.column}_${p}`)}`,
+  );
+  return `SELECT *, ${items.join(", ")} FROM ${from}`;
+}
+
+// ---------------------------------------------------------------------------
 // A whole recipe -> one DuckDB query over a source relation
 // ---------------------------------------------------------------------------
 
@@ -675,9 +892,25 @@ function nextColumnNames(
         op.varName ?? "variable",
         op.valueName ?? "value",
       ];
+    case "str-op": {
+      if (op.mode === "extract" || op.mode === "cat") {
+        return current.includes(op.outputName) ? current : [...current, op.outputName];
+      }
+      if (op.mode === "split") {
+        const prefix = op.outputPrefix ?? `${op.column}_part`;
+        const names = Array.from({ length: op.parts }, (_, i) => `${prefix}_${i + 1}`);
+        return [...current, ...names.filter((n) => !current.includes(n))];
+      }
+      return current;
+    }
+    case "date-parts": {
+      const names = op.parts.map((p) => `${op.column}_${p}`);
+      return [...current, ...names.filter((n) => !current.includes(n))];
+    }
     // join / union add columns we cannot name from here; pivot's spread columns
     // are data-dependent; sort / filter / dedupe / transpose / the folded column
-    // transforms do not rename. Keep the current list.
+    // transforms / fillna / dropna / set-where / astype / to-date do not add or
+    // rename a column. Keep the current list.
     default:
       return current;
   }

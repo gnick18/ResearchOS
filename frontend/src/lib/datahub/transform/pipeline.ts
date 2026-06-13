@@ -315,6 +315,255 @@ export interface FractionOfTotalColumnOp {
   params: FractionOfTotalParams;
 }
 
+// ---------------------------------------------------------------------------
+// Phase 2b-1 data-cleaning ops (the "edit with code" everyday set)
+// ---------------------------------------------------------------------------
+//
+// These cover the spec's exact examples ("set empty cells to X", "rows where y
+// starts with sbc, replace the first three characters with dog") plus the rest
+// of the pandas missing-data / string / type-and-schema surface. Each maps to a
+// pandas one-liner (codegen.ts), a DuckDB SQL expression (sql-codegen.ts), and a
+// JS engine case (engine.ts). DuckDB function and pandas equivalent are noted at
+// each op so the show-the-code parity is traceable.
+
+/**
+ * Fill empty cells in one column (pandas Series.fillna / ffill / bfill).
+ *
+ *   - "constant": fill with a literal value (number or text).
+ *   - "ffill": carry the previous non-empty value forward.
+ *   - "bfill": carry the next non-empty value backward.
+ *   - "mean" / "median": fill with the column's mean / median over the
+ *     non-empty numeric cells (computed once over the whole column).
+ *
+ * "empty" means null, undefined, "", or NaN, matching the engine's isEmpty.
+ */
+export interface FillNaOp {
+  kind: "fillna";
+  column: string;
+  method: "constant" | "ffill" | "bfill" | "mean" | "median";
+  /** The fill literal for method "constant". Ignored for the others. */
+  value?: string | number;
+}
+
+/**
+ * Drop rows that are empty in the selected columns (pandas DataFrame.dropna).
+ *
+ *   - how "any": drop a row if ANY selected column is empty (pandas default).
+ *   - how "all": drop a row only if ALL selected columns are empty.
+ *
+ * columns defaults to ALL columns when absent or empty (pandas default).
+ */
+export interface DropNaOp {
+  kind: "dropna";
+  columns?: string[];
+  how: "any" | "all";
+}
+
+/**
+ * Set a column WHERE a predicate holds (the headline conditional edit). The new
+ * value is a constant OR a derive-style formula evaluated per row. Rows where the
+ * predicate is false keep their existing value.
+ *
+ *   pandas:  df.loc[mask, col] = <value-or-expr>
+ *   SQL:     col = CASE WHEN <pred> THEN <value-or-expr> ELSE col END
+ *
+ * The predicate reuses the filter vocabulary (FilterNode). When valueKind is
+ * "formula" the formula is the shared expr-eval language, translated the same way
+ * a derive formula is (plain arithmetic over columns).
+ */
+export interface SetWhereOp {
+  kind: "set-where";
+  column: string;
+  where: FilterNode;
+  valueKind: "constant" | "formula";
+  /** The literal to set for valueKind "constant". */
+  value?: string | number;
+  /** The expr-eval formula for valueKind "formula". */
+  formula?: string;
+}
+
+/**
+ * String operations on one column (the pandas .str accessor). A single op kind
+ * with a discriminated `mode` keeps the palette and codegen tidy. Some modes edit
+ * the column in place; "extract" and "split" write to NEW columns; "cat" writes
+ * a new column from several source columns.
+ */
+export type StrOp =
+  | StrSliceOp
+  | StrReplaceOp
+  | StrExtractOp
+  | StrSplitOp
+  | StrCaseOp
+  | StrStripOp
+  | StrCatOp;
+
+/**
+ * Replace the first N characters of a column with a replacement string, or take
+ * a substring. Covers "replace the first three characters with dog".
+ *
+ *   - "replaceFirst": replace characters [0, n) with `replacement`.
+ *   - "substring": keep characters [start, end), pandas str[start:end].
+ *
+ *   pandas:  s.str.slice_replace(0, n, repl) / s.str[start:end]
+ *   SQL:     repl || substr(s, n + 1)  /  substr(s, start + 1, end - start)
+ */
+export interface StrSliceOp {
+  kind: "str-op";
+  mode: "slice";
+  column: string;
+  sliceMode: "replaceFirst" | "substring";
+  /** replaceFirst: how many leading characters to replace. */
+  n?: number;
+  /** replaceFirst: the replacement text. */
+  replacement?: string;
+  /** substring: zero-based start (inclusive). Defaults to 0. */
+  start?: number;
+  /** substring: zero-based end (exclusive). Absent means to the end. */
+  end?: number;
+}
+
+/**
+ * Replace text in a column, literal or regex (pandas Series.str.replace).
+ *
+ *   pandas:  s.str.replace(pat, repl, regex=<bool>)
+ *   SQL:     replace(s, pat, repl)  /  regexp_replace(s, pat, repl, 'g')
+ */
+export interface StrReplaceOp {
+  kind: "str-op";
+  mode: "replace";
+  column: string;
+  pattern: string;
+  replacement: string;
+  regex?: boolean;
+}
+
+/**
+ * Extract a regex capture group into a NEW column (pandas Series.str.extract).
+ *
+ *   pandas:  df[out] = s.str.extract(r"(pat)")[group]
+ *   SQL:     regexp_extract(s, pat, group)
+ *
+ * group defaults to 1 (the first capture group), matching the common case.
+ */
+export interface StrExtractOp {
+  kind: "str-op";
+  mode: "extract";
+  column: string;
+  pattern: string;
+  /** Capture group index (1-based). Defaults to 1. */
+  group?: number;
+  /** Name of the new column. */
+  outputName: string;
+}
+
+/**
+ * Split a column by a delimiter into N new columns (pandas Series.str.split with
+ * expand). The new columns are named outputPrefix_1 .. outputPrefix_N.
+ *
+ *   pandas:  s.str.split(sep, n=N-1, expand=True)
+ *   SQL:     str_split(s, sep)[k]  per part
+ */
+export interface StrSplitOp {
+  kind: "str-op";
+  mode: "split";
+  column: string;
+  separator: string;
+  /** How many output columns to produce. */
+  parts: number;
+  /** Prefix for the new column names. Defaults to "<column>_part". */
+  outputPrefix?: string;
+}
+
+/**
+ * Change the case of a column in place (pandas .str.upper / lower / title).
+ *
+ *   SQL: upper(s) / lower(s) / a title-case expression built from regexp_replace.
+ */
+export interface StrCaseOp {
+  kind: "str-op";
+  mode: "case";
+  column: string;
+  caseMode: "upper" | "lower" | "title";
+}
+
+/**
+ * Trim whitespace from a column in place (pandas .str.strip / lstrip / rstrip).
+ *
+ *   SQL: trim(s) / ltrim(s) / rtrim(s)
+ */
+export interface StrStripOp {
+  kind: "str-op";
+  mode: "strip";
+  column: string;
+  stripMode: "both" | "left" | "right";
+}
+
+/**
+ * Concatenate several columns with a separator into a NEW column (pandas
+ * str.cat / DuckDB concat_ws). Empty cells are skipped by concat_ws, matching the
+ * engine which joins the non-empty parts.
+ *
+ *   SQL: concat_ws(sep, c1, c2, ...)
+ */
+export interface StrCatOp {
+  kind: "str-op";
+  mode: "cat";
+  columns: string[];
+  separator: string;
+  outputName: string;
+}
+
+/**
+ * Cast a column to a target type (pandas astype / DuckDB TRY_CAST).
+ *
+ *   - "number": numeric (DOUBLE). Non-numeric cells become null.
+ *   - "text": string.
+ *   - "boolean": truthy parse (true/1/"true"/"yes" -> true).
+ *   - "date": parse to an ISO date string (uses the default parser; use to-date
+ *     for an explicit format).
+ *
+ *   pandas:  pd.to_numeric / .astype("string") / .astype("boolean") / to_datetime
+ *   SQL:     TRY_CAST(col AS DOUBLE / VARCHAR / BOOLEAN / DATE)
+ */
+export interface AsTypeOp {
+  kind: "astype";
+  column: string;
+  to: "number" | "text" | "boolean" | "date";
+}
+
+/**
+ * Parse a text column to a date using an explicit format (pandas to_datetime with
+ * a format string, DuckDB strptime). The result is stored as an ISO date string
+ * (YYYY-MM-DD) so it round-trips through the cell store, matching how the editable
+ * lane keeps dates as text.
+ *
+ *   pandas:  pd.to_datetime(s, format=fmt)
+ *   SQL:     strptime(s, fmt)
+ *
+ * The format uses strptime tokens (%Y %m %d %H %M %S), shared by pandas and DuckDB.
+ */
+export interface ToDateOp {
+  kind: "to-date";
+  column: string;
+  /** A strptime format string, e.g. "%Y-%m-%d" or "%m/%d/%Y". */
+  format: string;
+}
+
+/**
+ * Extract date parts from a date / datetime column into NEW columns (pandas .dt
+ * accessor, DuckDB date_part). Each selected part becomes a column named
+ * "<column>_<part>".
+ *
+ *   pandas:  df[out] = pd.to_datetime(s).dt.<part>
+ *   SQL:     date_part('<part>', col)  (weekday uses isodow)
+ */
+export interface DatePartsOp {
+  kind: "date-parts";
+  column: string;
+  /** Which parts to extract, each into its own new column. */
+  parts: Array<"year" | "month" | "day" | "weekday" | "hour">;
+}
+
 /**
  * The full set of supported transform operations.
  */
@@ -335,7 +584,14 @@ export type TransformOp =
   | NormalizeColumnOp
   | TransposeColumnOp
   | RemoveBaselineColumnOp
-  | FractionOfTotalColumnOp;
+  | FractionOfTotalColumnOp
+  | FillNaOp
+  | DropNaOp
+  | SetWhereOp
+  | StrOp
+  | AsTypeOp
+  | ToDateOp
+  | DatePartsOp;
 
 // ---------------------------------------------------------------------------
 // Pipeline
