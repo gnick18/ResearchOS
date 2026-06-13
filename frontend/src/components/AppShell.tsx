@@ -39,10 +39,6 @@ import { useUserColors } from "@/hooks/useUserColor";
 import { useErrorReporting } from "@/hooks/useErrorReporting";
 import { useFeaturePicks } from "@/hooks/useFeaturePicks";
 import { useIsLabHead } from "@/hooks/useIsLabHead";
-import { useDeptAdminOf } from "@/hooks/useDeptAdminOf";
-import { DEPT_TIER_ENABLED } from "@/lib/dept/config";
-import { useInstitutionAdminOf } from "@/hooks/useInstitutionAdminOf";
-import { INSTITUTION_TIER_ENABLED } from "@/lib/institution/config";
 import { deriveVisibleTabs } from "@/lib/onboarding/feature-picks-tabs";
 import { usePrefetchOnHover } from "@/lib/perf/use-prefetch-on-hover";
 import { headerGradient, rainbowTheme } from "@/lib/colors";
@@ -202,25 +198,9 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   const { mode: piViewMode } = usePiViewMode();
   const labLens = isLabHead === true && piViewMode === "lab";
 
-  // Department tier: a dept admin gets a "Department" nav entry (dark unless the
-  // tier flag is on). Independent of lab role -- a PI who also runs a department
-  // sees it in both lenses; a non-PI dept admin sees it in their researcher nav.
-  // In demo / wiki-capture mode the contained org demo stands in for a real admin
-  // account, so the entry shows (still behind the tier flag) for the showcase.
-  const orgDemo = isDemoOrWikiCapture();
-  // Hooks must run unconditionally on every render and in the same order, so the
-  // settings reads happen up front. The tier flags / demo stand-in then gate only
-  // the boolean, never the hook call (a hook inside the `&&`/`||` short-circuit
-  // would be skipped whenever the flag is off or the demo stands in, which trips
-  // React's rules of hooks -- it surfaced as a Fast-Refresh hook-order error).
-  const deptAdminOf = useDeptAdminOf(currentUser ?? null);
-  const institutionAdminOf = useInstitutionAdminOf(currentUser ?? null);
-  const isDeptAdmin = DEPT_TIER_ENABLED && (orgDemo || !!deptAdminOf);
-
-  // Institution tier: an institution admin gets an "Institution" nav entry (dark
-  // unless the tier flag is on). Same pattern as the dept admin entry, one tier up.
-  const isInstitutionAdmin =
-    INSTITUTION_TIER_ENABLED && (orgDemo || !!institutionAdminOf);
+  // Department + Institution admin are no longer in-app nav entries. They live in
+  // their own standalone, sign-in-gated portals (/department, /institution via
+  // PortalShell), reached from the welcome page, not from inside the app shell.
 
   // The dashboard ("/") is always shown so the user has a guaranteed safe
   // landing tab even if they hide everything else (or if Settings was
@@ -288,18 +268,14 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
           out.push(item);
         }
       }
-      if (isDeptAdmin) out.push({ href: "/department", label: "Department" });
-      if (isInstitutionAdmin) out.push({ href: "/institution", label: "Institution" });
       return out;
     }
     // Member, OR a lab head in "My work" mode: the researcher tab set (Workbench
     // landing), with the PI-only tabs hidden. The "My work" toggle in the header
     // is the way back to the lab lens for a PI.
     const researcher = filtered.filter((item) => item.href !== HOME_HREF);
-    if (isDeptAdmin) researcher.push({ href: "/department", label: "Department" });
-    if (isInstitutionAdmin) researcher.push({ href: "/institution", label: "Institution" });
     return researcher;
-  }, [filtered, labLens, isDeptAdmin, isInstitutionAdmin]);
+  }, [filtered, labLens]);
 
   // Supplies hub (Supplies hub, 2026-06-07). When INVENTORY_ENABLED is on,
   // Inventory and Purchases collapse into ONE "Supplies" nav item pointing at

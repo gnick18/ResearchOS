@@ -1,0 +1,406 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Org admin portal, standalone vs in-app shell, mockup</title>
+<style>
+  :root{
+    --bg:#f6f7f9; --panel:#ffffff; --raised:#ffffff; --sunken:#eef1f5;
+    --ink:#111827; --muted:#6b7280; --faint:#9ca3af; --border:#e5e7eb;
+    --sky:#1AA0E6; --action:#1283C9; --amber:#F59E0B; --coral:#FF6F61;
+    --green:#16a34a; --red:#dc2626; --violet:#5B47D6; --chipbg:#eef2f7;
+    /* brand ramps, lifted verbatim from globals.css */
+    --rainbow-pastel:linear-gradient(90deg,#ffd2b0 0%,#fff1a8 25%,#b7ebb1 50%,#a6d2f4 75%,#d6b5f0 100%);
+    --rainbow-vivid:linear-gradient(95deg,#f97316 0%,#e8920b 22%,#16a34a 48%,#0284c7 72%,#9333ea 100%);
+  }
+  .dark{
+    --bg:#0a0e1a; --panel:#1c2638; --raised:#1c2638; --sunken:#141b2b;
+    --ink:#e7ecf3; --muted:#9aa6b8; --faint:#6b7890; --border:#2a3650; --chipbg:#28344c;
+    --rainbow-vivid:linear-gradient(95deg,#fb923c 0%,#fbbf24 25%,#4ade80 50%,#38bdf8 75%,#c084fc 100%);
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.5 -apple-system,Inter,system-ui,sans-serif}
+  header.bar{position:sticky;top:0;z-index:30;background:var(--panel);border-bottom:1px solid var(--border);padding:11px 20px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+  h1{font-size:16px;margin:0;font-weight:800;letter-spacing:-.2px}
+  .sub{color:var(--muted);font-size:12px;max-width:720px}
+  .spacer{margin-left:auto}
+  button.tool{background:var(--sunken);color:var(--ink);border:1px solid var(--border);border-radius:8px;padding:7px 12px;font-size:12px;font-weight:600;cursor:pointer}
+  button.tool:hover{border-color:var(--action)}
+  button.tool.primary{background:var(--action);color:#fff;border-color:var(--action)}
+  button.tool.on{background:var(--violet);color:#fff;border-color:var(--violet)}
+
+  /* view-mode segmented control */
+  .modebar{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:12px 20px 0}
+  .seg2{display:inline-flex;border:1px solid var(--border);border-radius:999px;overflow:hidden;font-size:12px;font-weight:700}
+  .seg2 button{border:none;background:var(--raised);color:var(--muted);padding:7px 15px;cursor:pointer}
+  .seg2 button.on{background:var(--action);color:#fff}
+  .subseg{display:inline-flex;gap:6px;align-items:center;font-size:12px;color:var(--muted)}
+  .subseg button{border:1px solid var(--border);background:var(--raised);color:var(--muted);border-radius:8px;padding:6px 11px;font-size:11.5px;font-weight:700;cursor:pointer}
+  .subseg button.on{background:var(--violet);color:#fff;border-color:var(--violet)}
+
+  .stage{position:relative;max-width:1120px;margin:14px auto 130px;padding:0 20px;min-height:560px}
+  .screen{display:none}
+  .screen.active{display:block}
+
+  /* ===== BEFORE: the in-app chrome (the problem) ===== */
+  .browser{border:1px solid var(--border);border-radius:14px;overflow:hidden;background:var(--panel);box-shadow:0 10px 40px rgba(0,0,0,.07)}
+  .chrome{display:flex;align-items:center;gap:8px;background:var(--sunken);padding:8px 12px;border-bottom:1px solid var(--border)}
+  .tl{display:flex;gap:6px}.tl i{width:11px;height:11px;border-radius:999px;background:#d1d5db}
+  .url{flex:1;background:var(--panel);border:1px solid var(--border);border-radius:7px;padding:5px 11px;font:11.5px ui-monospace,monospace;color:var(--muted)}
+  .appnav{display:flex;align-items:center;gap:9px;background:var(--panel);border-bottom:1px solid var(--border);padding:10px 14px;flex-wrap:wrap}
+  .brand{font-weight:800;font-size:14px;display:flex;align-items:center;gap:7px}
+  .beaker{width:16px;height:16px;border-radius:5px;background:var(--rainbow-pastel)}
+  .os{background:var(--rainbow-vivid);-webkit-background-clip:text;background-clip:text;color:transparent;font-weight:900}
+  .navset{display:flex;gap:3px;flex-wrap:wrap;margin-left:6px}
+  .navchip{font-size:11.5px;font-weight:600;color:var(--muted);padding:4px 10px;border-radius:8px;border:1px solid transparent;white-space:nowrap}
+  .navchip.on{background:var(--chipbg);color:var(--ink)}
+  .navchip.dept{outline:2px dashed var(--red);outline-offset:1px}
+  .icons{display:flex;gap:7px;margin-left:auto;align-items:center}
+  .ic{width:26px;height:26px;border-radius:999px;background:var(--sunken);border:1px solid var(--border);display:grid;place-items:center;font-size:12px;color:var(--muted)}
+  .appbody{padding:20px 18px;background:var(--bg)}
+
+  /* ===== AFTER: standalone branded portal ===== */
+  .portal{position:relative;border:1px solid var(--border);border-radius:16px;overflow:hidden;background:var(--panel);box-shadow:0 14px 50px rgba(0,0,0,.09);min-height:520px}
+  .backdrop{position:absolute;inset:0;z-index:0;overflow:hidden;background:var(--panel)}
+  .aurora{position:absolute;width:520px;height:520px;border-radius:50%;filter:blur(70px);opacity:.5}
+  .a1{background:#ffd2b0;top:-160px;left:-120px}
+  .a2{background:#a6d2f4;top:-90px;right:-140px;opacity:.45}
+  .a3{background:#d6b5f0;bottom:-200px;left:30%;opacity:.4}
+  .a4{background:#b7ebb1;bottom:-150px;right:-80px;opacity:.4}
+  .dotgrid{position:absolute;inset:0;background-image:radial-gradient(circle,rgba(18,131,201,.12) 1px,transparent 1px);background-size:24px 24px;-webkit-mask-image:radial-gradient(circle at 50% 35%,#000 25%,transparent 72%);mask-image:radial-gradient(circle at 50% 35%,#000 25%,transparent 72%)}
+  .dark .backdrop{background:#0a0e1a}
+  .dark .aurora{opacity:.32}
+  .portal .layer{position:relative;z-index:1}
+  .phead{display:flex;align-items:center;gap:12px;padding:14px 22px;border-bottom:1px solid rgba(125,125,125,.18);backdrop-filter:blur(6px)}
+  .phead .brand{font-size:15px}
+  .ptag{font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.07em;color:var(--violet);border:1px solid rgba(91,71,214,.3);border-radius:999px;padding:3px 10px;background:rgba(91,71,214,.08)}
+  .pacct{display:flex;align-items:center;gap:9px;margin-left:auto;font-size:12px;color:var(--muted)}
+  .pavatar{width:26px;height:26px;border-radius:999px;background:var(--violet);color:#fff;display:grid;place-items:center;font-size:10px;font-weight:800}
+  .pbody{padding:26px 22px 34px;max-width:760px;margin:0 auto}
+
+  /* sign-in gate */
+  .gate{max-width:430px;margin:30px auto;text-align:center}
+  .gate .glogo{font-size:30px;font-weight:900;letter-spacing:-.5px;margin-bottom:6px}
+  .gate h2{font-size:21px;font-weight:800;margin:14px 0 4px;letter-spacing:-.3px}
+  .gate p{color:var(--muted);font-size:13px;margin:0 auto 20px;max-width:360px}
+  .gcard{background:var(--panel);border:1px solid var(--border);border-radius:16px;padding:22px;box-shadow:0 10px 36px rgba(0,0,0,.08)}
+  .prov{display:flex;align-items:center;justify-content:center;gap:9px;width:100%;border:1px solid var(--border);border-radius:11px;padding:11px;font-size:13px;font-weight:700;background:var(--raised);color:var(--ink);cursor:pointer;margin-bottom:10px}
+  .prov:hover{border-color:var(--action)}
+  .prov.dev{border-style:dashed;color:var(--muted)}
+  .gnote{font-size:11px;color:var(--faint);margin-top:6px}
+
+  /* dashboard content (condensed; the dashboard itself is the already-approved one) */
+  .crumb{font-size:11.5px;color:var(--faint);margin:0 0 10px;font-weight:600}
+  .crumb .inst{color:var(--violet)}
+  .ptitle{font-size:22px;font-weight:800;letter-spacing:-.3px;margin:0}
+  .pdesc{color:var(--muted);font-size:13px;margin:3px 0 18px}
+  .card{background:var(--panel);border:1px solid var(--border);border-radius:14px;margin-bottom:14px;overflow:hidden}
+  .card>.ch{padding:11px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:9px;flex-wrap:wrap}
+  .card .ch h3{margin:0;font-size:14px;font-weight:800}
+  .card .ch .csub{font-size:11.5px;color:var(--faint)}
+  .card>.cb{padding:15px 16px}
+  .plabel{font-size:10.5px;text-transform:uppercase;letter-spacing:.06em;color:var(--faint);font-weight:700}
+  .bgrid{display:flex;gap:14px;flex-wrap:wrap;margin:8px 0 10px}
+  .bf{display:flex;flex-direction:column;gap:5px}
+  .bk{font-size:11px;font-weight:700;color:var(--muted)}
+  .stepper{display:flex;align-items:center;border:1px solid var(--border);border-radius:9px;overflow:hidden;width:max-content;background:var(--raised)}
+  .stepper button{border:none;background:var(--sunken);color:var(--ink);font-size:15px;font-weight:800;width:30px;height:30px;cursor:pointer}
+  .stepper .val{padding:0 14px;font-size:12.5px;font-weight:700;min-width:74px;text-align:center}
+  .brk{font-size:11.5px;color:var(--muted);background:var(--sunken);border-radius:8px;padding:7px 10px;margin-bottom:9px}
+  .brk b{color:var(--ink)}
+  .pbig{font-size:22px;font-weight:800;letter-spacing:-.3px}
+  .pbig small{font-size:13px;color:var(--muted);font-weight:600}
+  .pay{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-top:6px}
+  @media(max-width:680px){.pay{grid-template-columns:1fr}}
+  .payopt{border:1px solid var(--border);border-radius:11px;padding:11px;background:var(--raised);font-size:12px;cursor:pointer}
+  .payopt.on{border-color:var(--action);box-shadow:0 0 0 2px rgba(18,131,201,.15)}
+  .payopt b{font-size:12.5px}
+  .payopt .save{color:var(--green);font-weight:700;font-size:11px}
+  .actrow{display:flex;align-items:center;gap:10px;margin-top:12px;flex-wrap:wrap}
+  table{width:100%;border-collapse:collapse;font-size:12.5px}
+  th{text-align:left;font-size:10.5px;text-transform:uppercase;letter-spacing:.05em;color:var(--faint);font-weight:700;padding:6px 8px;border-bottom:1px solid var(--border)}
+  td{padding:8px;border-bottom:1px solid var(--border)}
+  tr:last-child td{border-bottom:none}
+  td.r{text-align:right;font-variant-numeric:tabular-nums}
+  .av{width:20px;height:20px;border-radius:999px;display:inline-grid;place-items:center;font-size:9px;font-weight:800;color:#fff;margin-right:6px}
+
+  /* welcome-page link preview */
+  .welcome{border:1px solid var(--border);border-radius:14px;overflow:hidden;background:var(--panel);box-shadow:0 10px 36px rgba(0,0,0,.07);max-width:760px;margin:0 auto}
+  .wtop{position:relative;padding:30px 24px;text-align:center;overflow:hidden}
+  .wtop .backdrop{border-radius:0}
+  .wtitle{position:relative;z-index:1;font-size:24px;font-weight:900;letter-spacing:-.4px}
+  .wsub{position:relative;z-index:1;color:var(--muted);font-size:13px;margin-top:4px}
+  .worg{position:relative;z-index:1;margin-top:20px;display:flex;gap:12px;justify-content:center;flex-wrap:wrap}
+  .worg a{display:flex;flex-direction:column;gap:3px;text-align:left;border:1px solid var(--border);border-radius:12px;padding:13px 16px;background:var(--panel);min-width:210px;text-decoration:none;color:inherit}
+  .worg a:hover{border-color:var(--action)}
+  .worg .wk{font-size:13px;font-weight:800}
+  .worg .wd{font-size:11.5px;color:var(--muted)}
+  .worg .arr{color:var(--action);font-weight:800}
+
+  .callout{font-size:12px;color:var(--muted);background:var(--sunken);border:1px solid var(--border);border-left:3px solid var(--action);border-radius:8px;padding:9px 12px;margin:0 auto 16px;max-width:760px}
+  .callout b{color:var(--ink)}
+  .bad{border-left-color:var(--red)}.bad b{color:var(--red)}
+  .good{border-left-color:var(--green)}.good b{color:var(--green)}
+
+  /* decisions drawer (same harness as the dept-dashboard mockup) */
+  #fab{position:fixed;right:20px;bottom:20px;z-index:40;background:var(--violet);color:#fff;border:none;border-radius:999px;padding:12px 18px;font-size:13px;font-weight:800;cursor:pointer;box-shadow:0 6px 20px rgba(0,0,0,.25)}
+  #drawer{position:fixed;top:0;right:0;height:100%;width:390px;max-width:92vw;background:var(--panel);border-left:1px solid var(--border);z-index:45;transform:translateX(100%);transition:transform .2s;display:flex;flex-direction:column}
+  #drawer.open{transform:translateX(0)}
+  #drawer .dh{padding:14px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px}
+  #drawer .dh h3{margin:0;font-size:14px;font-weight:800}
+  #drawer .db{flex:1;overflow:auto;padding:14px 16px}
+  #drawer .df{padding:12px 16px;border-top:1px solid var(--border);display:flex;gap:8px;align-items:center}
+  .dec{border:1px solid var(--border);border-radius:11px;padding:11px;margin-bottom:11px;background:var(--raised)}
+  .dec .dt{font-size:12.5px;font-weight:700}
+  .dec .dd{font-size:11.5px;color:var(--muted);margin:3px 0 8px}
+  .dec .rec{font-size:10px;font-weight:700;color:var(--action);text-transform:uppercase;letter-spacing:.04em}
+  .segd{display:flex;gap:6px;margin-bottom:7px}
+  .segd button{flex:1;border:1px solid var(--border);background:var(--sunken);color:var(--muted);border-radius:8px;padding:6px;font-size:11px;font-weight:700;cursor:pointer}
+  .segd button.on[data-v="approve"]{background:var(--green);color:#fff;border-color:var(--green)}
+  .segd button.on[data-v="reject"]{background:var(--red);color:#fff;border-color:var(--red)}
+  .dec textarea{width:100%;border:1px solid var(--border);border-radius:8px;padding:7px;font-size:11.5px;background:var(--panel);color:var(--ink);resize:vertical;min-height:34px}
+  .scrim{position:fixed;inset:0;background:rgba(0,0,0,.3);z-index:44;display:none}
+  .scrim.on{display:block}
+  .estat{font-size:11px;color:var(--muted)}
+</style>
+</head>
+<body>
+<header class="bar">
+  <div>
+    <h1>Org admin portal &middot; standalone vs in-app shell</h1>
+    <div class="sub">The Dept / Institution admin surfaces pulled out of the app shell into a self-contained, branded, sign-in-gated portal (no nav, no folder/file access). Toggle Before/After, the Dept/Institution portal, and the signed-out gate. Open Review to approve + comment, then Export.</div>
+  </div>
+  <span class="spacer"></span>
+  <button class="tool" id="darkBtn">Dark</button>
+</header>
+
+<div class="modebar">
+  <span class="seg2"><button class="on" data-mode="before">Before (in-app)</button><button data-mode="after">After (standalone portal)</button><button data-mode="welcome">Welcome-page link</button></span>
+  <span class="subseg" id="afterControls" style="display:none">
+    <span>Portal:</span>
+    <button class="on" data-tier="department">Department</button>
+    <button data-tier="institution">Institution</button>
+    <span style="margin-left:8px">State:</span>
+    <button class="on" data-state="in">Signed in</button>
+    <button data-state="out">Signed out (gate)</button>
+  </span>
+</div>
+
+<div class="stage">
+
+  <!-- ============ BEFORE ============ -->
+  <div class="screen active" id="s-before">
+    <div class="callout bad"><b>The problem.</b> Today <code>/department</code> renders inside the full app shell, so a billing-and-roster portal is wrapped in the whole research app: the GANTT / Methods / Data Hub nav, notification + inbox icons, and the folder/file-access context it never needs. The dashed-red <b>Department</b> nav tab is the only relevant entry on this whole bar.</div>
+    <div class="browser">
+      <div class="chrome"><span class="tl"><i></i><i></i><i></i></span><span class="url">localhost:3000/department</span></div>
+      <div class="appnav">
+        <span class="brand"><span class="beaker"></span>Research<span class="os">OS</span></span>
+        <span class="navset">
+          <span class="navchip on">Workbench</span><span class="navchip">GANTT</span><span class="navchip">Methods</span>
+          <span class="navchip">Data Hub</span><span class="navchip">Calendar</span><span class="navchip">More &#9662;</span>
+          <span class="navchip dept">Department</span>
+        </span>
+        <span class="icons"><span class="ic">&#128276;</span><span class="ic">&#9993;</span><span class="ic">&#9201;</span><span class="ic">&#128241;</span><span class="ic">?</span><span class="ic">B</span></span>
+      </div>
+      <div class="appbody">
+        <div class="crumb"><span class="inst">UW&ndash;Madison</span> &rsaquo; Diag Dept</div>
+        <h2 class="ptitle">Diag Dept</h2>
+        <p class="pdesc">0 lab heads in your department. Charging arrives with billing (Phase 3).</p>
+        <div class="card"><div class="ch"><h3>Build your plan</h3></div><div class="cb">
+          <span class="estat">Same dashboard as the After view, just buried under the app chrome above.</span>
+        </div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ AFTER (standalone portal) ============ -->
+  <div class="screen" id="s-after">
+    <div class="callout good"><b>The fix.</b> A fully self-contained portal on the brand stage (drifting pastel auroras + dot grid, rainbow <span class="os">OS</span> wordmark). No app nav, no folder/file access, works on any browser. Sign-in gated, and linkable straight from the welcome page.</div>
+    <div class="portal">
+      <div class="backdrop"><span class="aurora a1"></span><span class="aurora a2"></span><span class="aurora a3"></span><span class="aurora a4"></span><div class="dotgrid"></div></div>
+      <div class="layer">
+        <!-- portal header -->
+        <div class="phead">
+          <span class="brand"><span class="beaker"></span>Research<span class="os">OS</span></span>
+          <span class="ptag" id="ptag">Department admin</span>
+          <span class="pacct" id="pacct"><span class="pavatar">PV</span>pi@researchos.test &middot; <a href="#" style="color:var(--action)">Sign out</a></span>
+        </div>
+
+        <!-- SIGNED-IN dashboard -->
+        <div class="pbody" id="dashState">
+          <div class="crumb"><span class="inst" id="crumbInst">UW&ndash;Madison</span> &rsaquo; <span id="crumbName">Diag Dept</span></div>
+          <h2 class="ptitle" id="dashTitle">Diag Dept</h2>
+          <p class="pdesc" id="dashDesc">Sponsor your labs on one invoice. This portal manages the plan, roster, and billing, nothing else.</p>
+
+          <div class="card"><div class="ch"><h3>Build your plan</h3><span class="csub">No fixed tiers, the rate derives from your inputs</span></div><div class="cb">
+            <div class="bgrid">
+              <div class="bf"><span class="bk" id="lblA">Active labs</span><div class="stepper"><button onclick="bld('labs',-1)">&minus;</button><span class="val" id="b_labs">1</span><button onclick="bld('labs',1)">+</button></div></div>
+              <div class="bf"><span class="bk">Pooled storage</span><div class="stepper"><button onclick="bld('tb',-1)">&minus;</button><span class="val" id="b_tb">1 GB</span><button onclick="bld('tb',1)">+</button></div></div>
+            </div>
+            <div class="brk" id="brk"></div>
+            <div class="pbig" id="b_total">$12<small>/mo</small></div>
+            <div class="plabel" style="margin:14px 0 6px">Choose how to pay</div>
+            <div class="pay">
+              <div class="payopt" data-pay="invoice"><b>Emailed invoice</b><br><span class="estat">Net 30, PO number, ACH / check. For procurement.</span><br><span class="save">Save $0/mo</span></div>
+              <div class="payopt" data-pay="bank"><b>Auto-charge bank</b><br><span class="estat">A bank account on file, charged each cycle.</span><br><span class="save">Save $0/mo</span></div>
+              <div class="payopt on" data-pay="card"><b>Auto-charge card</b><br><span class="estat">A card on file, charged each cycle. Works anywhere.</span></div>
+            </div>
+            <div class="actrow"><button class="tool primary" id="payBtn">Add a card</button><span class="estat">Redirects to Stripe Checkout (real, no app chrome in the way).</span></div>
+          </div></div>
+
+          <div class="card"><div class="ch"><h3>Usage by lab</h3><span class="csub">Click a lab for its accounts</span><span class="spacer"></span><span class="estat" id="usageTot">No active labs yet</span></div>
+          <div class="cb" style="padding:0"><table><thead><tr><th id="thA" style="width:42%">Lab</th><th>Accounts</th><th class="r">Storage</th><th class="r">Activity/mo</th></tr></thead><tbody id="usageBody"></tbody></table></div></div>
+
+          <div class="card"><div class="ch"><h3 id="inviteH">Invite a lab head</h3><span class="csub">They enroll their own members</span></div><div class="cb">
+            <div class="actrow"><input class="tool" style="flex:1;min-width:200px;background:var(--raised);font-weight:400" placeholder="pi-email@wisc.edu (optional)"><button class="tool primary">Create invite link</button></div>
+          </div></div>
+        </div>
+
+        <!-- SIGNED-OUT gate -->
+        <div class="pbody gate" id="gateState" style="display:none">
+          <div class="glogo">Research<span class="os">OS</span></div>
+          <span class="ptag" id="gtag">Department admin portal</span>
+          <h2 id="gateH">Sign in to your department portal</h2>
+          <p id="gateP">Manage your department's plan, roster, and billing. No research data, no file access, just the org admin tools. Works in any browser.</p>
+          <div class="gcard">
+            <button class="prov">&#128273;&nbsp; Continue with Google</button>
+            <button class="prov">&#128273;&nbsp; Continue with Microsoft</button>
+            <button class="prov dev">&#9881;&nbsp; Dev mock sign-in (local testing)</button>
+            <div class="gnote">First sign-in provisions your admin identity. A resettable shared access code (the everyday door) + one root recovery account come with the full portal-login layer, designed, not yet built.</div>
+          </div>
+          <p class="estat" style="margin-top:14px">No "create a folder" gate, no app nav. A logged-out visitor lands here, not on the 401 create-form you hit earlier.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ WELCOME-PAGE LINK ============ -->
+  <div class="screen" id="s-welcome">
+    <div class="callout"><b>Entry point.</b> A "For departments &amp; institutions" band on the welcome page links straight into each portal. Researchers self-serve into the app; org admins click through to the standalone portal.</div>
+    <div class="welcome">
+      <div class="wtop">
+        <div class="backdrop"><span class="aurora a1"></span><span class="aurora a2"></span><span class="aurora a3"></span><span class="aurora a4"></span><div class="dotgrid"></div></div>
+        <div class="wtitle">Research<span class="os">OS</span></div>
+        <div class="wsub">The local-first research notebook + lab management platform.</div>
+        <div class="worg">
+          <a href="#"><span class="wk">Department admin <span class="arr">&rarr;</span></span><span class="wd">Sponsor your labs on one invoice. Plan, roster &amp; billing portal.</span></a>
+          <a href="#"><span class="wk">Institution admin <span class="arr">&rarr;</span></span><span class="wd">One tier up. Cover your departments, roll up usage &amp; cost.</span></a>
+        </div>
+      </div>
+    </div>
+    <p class="estat" style="text-align:center;margin-top:14px;max-width:620px;margin-left:auto;margin-right:auto">Exact placement (a footer row, a dedicated band, or a small "For institutions" link in the nav) is decision D5, mark your preference in Review.</p>
+  </div>
+
+</div>
+
+<button id="fab">Review design &middot; <span id="fabN">0/7</span></button>
+<div class="scrim" id="scrim"></div>
+<div id="drawer">
+  <div class="dh"><h3>Design decisions</h3><span class="spacer"></span><button class="tool" id="closeDrawer">Close</button></div>
+  <div class="db" id="decBody"></div>
+  <div class="df"><span class="estat" id="estat">No decisions yet</span><span class="spacer"></span><button class="tool primary" id="exportBtn">Export</button></div>
+</div>
+
+<script>
+// ---- view mode ----
+const screens={before:"s-before",after:"s-after",welcome:"s-welcome"};
+let tier="department",signedState="in";
+document.querySelectorAll(".seg2 button").forEach(b=>b.onclick=()=>{
+  document.querySelectorAll(".seg2 button").forEach(x=>x.classList.remove("on"));b.classList.add("on");
+  const m=b.dataset.mode;
+  Object.values(screens).forEach(id=>document.getElementById(id).classList.remove("active"));
+  document.getElementById(screens[m]).classList.add("active");
+  document.getElementById("afterControls").style.display=m==="after"?"inline-flex":"none";
+});
+document.querySelectorAll("#afterControls [data-tier]").forEach(b=>b.onclick=()=>{
+  document.querySelectorAll("#afterControls [data-tier]").forEach(x=>x.classList.remove("on"));b.classList.add("on");
+  tier=b.dataset.tier;applyTier();
+});
+document.querySelectorAll("#afterControls [data-state]").forEach(b=>b.onclick=()=>{
+  document.querySelectorAll("#afterControls [data-state]").forEach(x=>x.classList.remove("on"));b.classList.add("on");
+  signedState=b.dataset.state;
+  document.getElementById("dashState").style.display=signedState==="in"?"block":"none";
+  document.getElementById("gateState").style.display=signedState==="in"?"none":"block";
+  document.getElementById("pacct").style.display=signedState==="in"?"flex":"none";
+});
+
+// dept vs institution copy
+function applyTier(){
+  const dept=tier==="department";
+  document.getElementById("ptag").textContent=dept?"Department admin":"Institution admin";
+  document.getElementById("gtag").textContent=dept?"Department admin portal":"Institution admin portal";
+  document.getElementById("gateH").textContent=dept?"Sign in to your department portal":"Sign in to your institution portal";
+  document.getElementById("gateP").textContent=dept
+    ?"Manage your department's plan, roster, and billing. No research data, no file access, just the org admin tools. Works in any browser."
+    :"Manage your institution's plan, departments, and billing. No research data, no file access, just the org admin tools. Works in any browser.";
+  document.getElementById("dashTitle").textContent=dept?"Diag Dept":"State Lab University";
+  document.getElementById("crumbName").textContent=dept?"Diag Dept":"State Lab University";
+  document.getElementById("crumbInst").style.display=dept?"inline":"none";
+  document.getElementById("dashDesc").textContent=dept
+    ?"Sponsor your labs on one invoice. This portal manages the plan, roster, and billing, nothing else."
+    :"Cover your departments on one invoice. This portal manages the plan, departments, and billing, nothing else.";
+  document.getElementById("lblA").textContent=dept?"Active labs":"Active depts";
+  document.getElementById("thA").textContent=dept?"Lab":"Department";
+  document.getElementById("inviteH").textContent=dept?"Invite a lab head":"Invite a department admin";
+  document.getElementById("usageTot").textContent=dept?"No active labs yet":"No active departments yet";
+  document.getElementById("crumbInst").textContent="UW–Madison";
+  renderBuild();
+}
+
+// plan builder (illustrative; same shape as the real DeptDashboard)
+const RATE={perGb:0.012, perUnitSustain:12};
+const B={labs:1, gb:1};
+function renderBuild(){
+  if(!document.getElementById("b_labs"))return;
+  document.getElementById("b_labs").textContent=B.labs;
+  document.getElementById("b_tb").textContent=B.gb>=1024?(B.gb/1024)+" TB":B.gb+" GB";
+  const storage=Math.round(B.gb*RATE.perGb), sustain=B.labs*RATE.perUnitSustain, total=storage+sustain;
+  const unit=tier==="department"?"lab":"dept";
+  document.getElementById("brk").innerHTML=`Cost recovery (<b>${B.gb>=1024?(B.gb/1024)+" TB":B.gb+" GB"}</b>) $${storage} + Sustaining ($${RATE.perUnitSustain}/${unit} &times; ${B.labs}) $${sustain}`;
+  document.getElementById("b_total").innerHTML=`$${total}<small>/mo</small>`;
+}
+function bld(k,d){ if(k==='labs')B.labs=Math.max(1,B.labs+d); if(k==='tb')B.gb=Math.max(1,B.gb+(d>0?(B.gb>=1024?1024:1):(B.gb>1024?-1024:-1))); renderBuild(); }
+document.querySelectorAll(".payopt").forEach(p=>p.onclick=()=>{
+  document.querySelectorAll(".payopt").forEach(x=>x.classList.remove("on"));p.classList.add("on");
+  const c=p.dataset.pay;document.getElementById("payBtn").textContent=c==="card"?"Add a card":c==="bank"?"Add a bank account":"Activate billing";
+});
+document.getElementById("usageBody").innerHTML=`<tr><td colspan="4" style="text-align:center;color:var(--faint);padding:16px">No active labs yet. Invite a lab head; their usage appears here once they join.</td></tr>`;
+applyTier();
+
+// dark
+document.getElementById("darkBtn").onclick=function(){document.body.classList.toggle("dark");this.textContent=document.body.classList.contains("dark")?"Light":"Dark";};
+
+// ---- decisions ----
+const DECISIONS=[
+  {id:"D1",t:"Standalone portal, out of the app shell",rec:true,d:"Dept + Institution admin surfaces render in their own minimal shell, NOT AppShell. No app nav (Workbench/GANTT/Data Hub...), no notification/inbox icons, no folder/file-access context. The dashboards themselves are unchanged."},
+  {id:"D2",t:"Branded marketing aesthetic",rec:true,d:"Portal sits on the brand stage: drifting pastel-rainbow auroras + masked dot grid + the rainbow OS wordmark, matching welcome/pricing. Reads like a polished external product portal you link customers to. (Alternative was the plain app-surface look.)"},
+  {id:"D3",t:"Built-in sign-in gate (reuse existing providers)",rec:true,d:"Logged-out visitors get a clean 'sign in to your portal' card (Google / Microsoft / dev-mock), NOT the 401 create-form. Reuses the existing NextAuth providers now; the full portal login (one root OAuth recovery account + a resettable shared access code, already designed in the handoff doc) is a later layer on top."},
+  {id:"D4",t:"Remove the in-app Department/Institution nav entries",rec:true,d:"Since the portals are now separate, drop the 'Department'/'Institution' tabs AppShell adds for org admins (Phase 2c/4c). They are reached by link, not from inside the app. (Alternative: keep them as a link that opens the portal in a new tab.)"},
+  {id:"D5",t:"Welcome-page entry point",rec:true,d:"A 'For departments & institutions' band on the welcome page links to /department + /institution. Exact placement (dedicated band vs footer row vs a small nav link) is open, note your preference."},
+  {id:"D6",t:"Keep the /department + /institution routes",rec:true,d:"Reuse the existing routes (just swap AppShell for the portal shell) rather than moving to /portal/department etc. Keeps the join flow + any existing links intact. (Alternative: move under a /portal or /admin namespace.)"},
+  {id:"D7",t:"No folder / file-access dependency",rec:true,d:"The portal never touches the File System Access API or a connected folder (all dept/inst data is Neon-backed), so it opens on any browser, any machine, signed-in. Confirms your 'they dont need file read write' requirement."},
+];
+const KEY="org-portal-standalone-decisions-v1";
+const DEC=JSON.parse(localStorage.getItem(KEY)||"{}");
+const decBody=document.getElementById("decBody");
+function render(){
+  decBody.innerHTML=DECISIONS.map(x=>{const c=DEC[x.id]||{};return `<div class="dec"><div class="dt">${x.id} &middot; ${x.t} ${x.rec?'<span class="rec">rec</span>':''}</div><div class="dd">${x.d}</div><div class="segd"><button data-id="${x.id}" data-v="approve" class="${c.v==='approve'?'on':''}">Approve</button><button data-id="${x.id}" data-v="reject" class="${c.v==='reject'?'on':''}">Change</button></div><textarea data-id="${x.id}" placeholder="Notes / changes...">${c.note||""}</textarea></div>`;}).join("");
+  decBody.querySelectorAll(".segd button").forEach(b=>b.onclick=()=>{const id=b.dataset.id;DEC[id]=DEC[id]||{};DEC[id].v=b.dataset.v;persist();render();});
+  decBody.querySelectorAll("textarea").forEach(t=>t.oninput=()=>{const id=t.dataset.id;DEC[id]=DEC[id]||{};DEC[id].note=t.value;persist();});
+  stat();
+}
+function persist(){localStorage.setItem(KEY,JSON.stringify(DEC));}
+function stat(){const n=DECISIONS.filter(x=>DEC[x.id]&&DEC[x.id].v).length;document.getElementById("estat").textContent=n?`${n} of ${DECISIONS.length} decided`:"No decisions yet";document.getElementById("fabN").textContent=`${n}/${DECISIONS.length}`;}
+render();
+const drawer=document.getElementById("drawer"),scrim=document.getElementById("scrim");
+function openD(o){drawer.classList.toggle("open",o);scrim.classList.toggle("on",o);}
+document.getElementById("fab").onclick=()=>openD(true);document.getElementById("closeDrawer").onclick=()=>openD(false);scrim.onclick=()=>openD(false);
+document.getElementById("exportBtn").onclick=()=>{
+  const lines=["# Org admin portal, standalone shell, decisions","",`_Marked up ${new Date().toISOString().slice(0,10)}_`,""];
+  DECISIONS.forEach(x=>{const c=DEC[x.id]||{};lines.push(`## ${x.id} ${x.t}`);lines.push(`- Verdict: ${c.v==='approve'?'APPROVE':c.v==='reject'?'CHANGE':'(undecided)'}`);if(c.note&&c.note.trim())lines.push(`- Notes: ${c.note.trim()}`);lines.push("");});
+  const a=document.createElement("a");a.href=URL.createObjectURL(new Blob([lines.join("\n")],{type:"text/markdown"}));a.download="org-portal-standalone-decisions.md";a.click();
+};
+</script>
+</body>
+</html>
