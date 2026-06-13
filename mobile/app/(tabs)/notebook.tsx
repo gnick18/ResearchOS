@@ -1103,7 +1103,7 @@ export default function NotebookScreen() {
             variant="secondary"
             accent="sky"
             label="View method on phone"
-            onPress={() => router.push('/method')}
+            onPress={() => router.push('/method-detail')}
           />
         ) : null}
 
