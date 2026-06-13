@@ -58,7 +58,8 @@ import MarketingFooter from "@/components/MarketingFooter";
 import SponsorStrip from "@/components/SponsorStrip";
 import BeakerBotPeek from "@/components/welcome/BeakerBotPeek";
 import Wordmark from "@/components/Wordmark";
-import DemoLoop, { DemoLoopPlaceholder } from "@/components/welcome/DemoLoop";
+import DemoLoop from "@/components/welcome/DemoLoop";
+import BeakerSearchShowpiece from "@/components/welcome/BeakerSearchShowpiece";
 import Reveal from "@/components/marketing/Reveal";
 import MarketingBackdrop from "@/components/marketing/MarketingBackdrop";
 import Kicker from "@/components/marketing/Kicker";
@@ -98,202 +99,6 @@ function CheckGlyph() {
 
 // Kicker and RainbowFrame now live in @/components/marketing (shared across the
 // marketing pages); imported at the top of this file.
-
-/* ----------------------------------------------------------------------------
- * The mentorship-tree + IDP illustration for the check-ins feature row. A lab
- * tree (PI -> postdoc/grad -> undergrads) plus an IDP snapshot, framing the
- * feature as the academic mentorship structure, not generic 1:1s. Built from
- * plain divs with scoped styled-jsx connectors (no inline SVG, which the icon
- * guard blocks): a lone mentee gets a straight drop, two or more get a centered
- * bus. Light-only, matching the rest of the page.
- * -------------------------------------------------------------------------- */
-function CheckinsVisual() {
-  return (
-    <div className="ros-mtree bg-white p-[18px]">
-      <span className="tag">Check-ins and mentoring</span>
-      <div className="tree">
-        <div className="node pi">Dr. Nickles, PI</div>
-        <div className="trunk" />
-        <div className="children cols-3">
-          <div className="child">
-            <div className="subtree">
-              <div className="node">Postdoc, Ana</div>
-              <div className="trunk" />
-              <div className="children cols-2">
-                <div className="child">
-                  <div className="node sm">Undergrad</div>
-                </div>
-                <div className="child">
-                  <div className="node sm">Undergrad</div>
-                </div>
-              </div>
-            </div>
-          </div>
-          <div className="child">
-            <div className="subtree">
-              <div className="node">Grad, Mateo</div>
-              <div className="trunk" />
-              <div className="children cols-1">
-                <div className="child">
-                  <div className="node sm">Undergrad</div>
-                </div>
-              </div>
-            </div>
-          </div>
-          <div className="child">
-            <div className="node">Grad, Wei</div>
-          </div>
-        </div>
-      </div>
-      <div className="idp">
-        <div className="idp-h">Mateo, IDP, year 3</div>
-        <div className="meter">
-          <span className="brand-rainbow-bg" />
-        </div>
-        <div className="idp-sub">
-          Career goals private, skills shared with the PI. Next check-in Friday,
-          agenda carried forward.
-        </div>
-      </div>
-      <style jsx>{`
-        .tag {
-          font-family: ui-monospace, Menlo, monospace;
-          font-size: 11px;
-          font-weight: 700;
-          letter-spacing: 0.06em;
-          text-transform: uppercase;
-          color: #64748b;
-        }
-        .tree {
-          margin-top: 12px;
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          width: 100%;
-        }
-        .node {
-          border: 1px solid #dbe6f3;
-          background: #fbfcfe;
-          border-radius: 10px;
-          padding: 7px 12px;
-          font-size: 12.5px;
-          font-weight: 700;
-          color: #0f2350;
-        }
-        .node.pi {
-          background: linear-gradient(90deg, #3b8bff22, #a06bff22);
-          border-color: #3b8bff55;
-        }
-        .node.sm {
-          font-size: 11px;
-          padding: 5px 9px;
-          font-weight: 600;
-          color: #64748b;
-        }
-        .trunk {
-          width: 2px;
-          height: 16px;
-          background: #dbe6f3;
-        }
-        /* equal columns so each child is centered under its parent trunk;
-           align-items:start so a childless node (Wei) stays at its own tier. */
-        .children {
-          display: grid;
-          gap: 12px;
-          width: 100%;
-          align-items: start;
-        }
-        .cols-1 {
-          grid-template-columns: 1fr;
-        }
-        .cols-2 {
-          grid-template-columns: repeat(2, 1fr);
-        }
-        .cols-3 {
-          grid-template-columns: repeat(3, 1fr);
-        }
-        .child {
-          position: relative;
-          padding-top: 16px;
-          display: flex;
-          justify-content: center;
-        }
-        /* translateX(-50%) centers the 2px drop exactly on 50% so it is colinear
-           with the flex-centered trunk (one straight line, not stitched). */
-        .child::before {
-          content: "";
-          position: absolute;
-          top: 0;
-          left: 50%;
-          transform: translateX(-50%);
-          width: 2px;
-          height: 16px;
-          background: #dbe6f3;
-        }
-        .child::after {
-          content: "";
-          position: absolute;
-          top: 0;
-          height: 2px;
-          background: #dbe6f3;
-        }
-        .child:first-child::after {
-          left: 50%;
-          right: -6px;
-        }
-        .child:last-child::after {
-          left: -6px;
-          right: 50%;
-        }
-        .child:not(:first-child):not(:last-child)::after {
-          left: -6px;
-          right: -6px;
-        }
-        /* a lone child has no siblings, so no bus, just the drop. Specificity
-           must beat .child:last-child::after, hence .children.cols-1. */
-        .children.cols-1 .child::after {
-          display: none;
-        }
-        .subtree {
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          width: 100%;
-        }
-        .idp {
-          margin-top: 14px;
-          border: 1px solid #dbe6f3;
-          border-radius: 10px;
-          padding: 11px 13px;
-          background: #fbfcfe;
-        }
-        .idp-h {
-          font-size: 12.5px;
-          font-weight: 800;
-          color: #0f2350;
-        }
-        .meter {
-          height: 7px;
-          border-radius: 99px;
-          background: #dbe6f3;
-          margin-top: 7px;
-          overflow: hidden;
-        }
-        .meter span {
-          display: block;
-          height: 100%;
-          width: 62%;
-        }
-        .idp-sub {
-          font-size: 11px;
-          color: #64748b;
-          margin-top: 6px;
-          line-height: 1.5;
-        }
-      `}</style>
-    </div>
-  );
-}
 
 /* ----------------------------------------------------------------------------
  * A feature showcase row, the workhorse layout for sections 2 through 7 of the
@@ -837,6 +642,13 @@ export default function WelcomePage({
           </div>
         </section>
 
+        {/* ── AI SHOWPIECE (the second beat, full-bleed beaker blue) ──────
+            BeakerBot moved way up, right under the cost lead. A wall-to-wall
+            brand-blue band with a self-running BeakerSearch demo. Full-bleed:
+            it is a direct child of the no-max-width wrapper, like the dark
+            companion band below, so it breaks edge to edge. */}
+        <BeakerSearchShowpiece onGetStarted={goGetStarted} />
+
         {/* ── 2. HONEST COMPARISON (deep-dive after cost) ─────────────────
             The four-way table with BeakerBot cheering over the ResearchOS
             column. The natural companion to the cost lead. */}
@@ -847,10 +659,8 @@ export default function WelcomePage({
               Honest about where each one wins
             </h2>
             <p className="mt-3 max-w-[62ch] text-title leading-relaxed text-[#475569]">
-              LabArchives is a common cloud notebook, SnapGene is the sequence
-              tool a lot of labs also pay for, and Quartzy is where many order
-              reagents. ResearchOS folds the notebook, the sequence tool, and the
-              inventory tool into one place. Here is the honest four-way.
+              One workspace instead of three subscriptions. The honest short
+              version is below, with the full breakdown a click away.
             </p>
           </Reveal>
 
@@ -907,34 +717,6 @@ export default function WelcomePage({
                       snapgene={{ mark: "none", text: "Sequences only, not a notebook" }}
                       quartzy={{ mark: "none", text: "Ordering and inventory only" }}
                     />
-                    <ComparisonRow
-                      label="Sequence editing and cloning"
-                      us={{ mark: "have", text: "Import, edit, annotate, find sites, in-silico cloning" }}
-                      labarchives={{ mark: "none", text: "No native sequence editor" }}
-                      snapgene={{ mark: "win", text: "The deepest editor and visualization here" }}
-                      quartzy={{ mark: "none", text: "No sequence tools" }}
-                    />
-                    <ComparisonRow
-                      label="Inventory and ordering"
-                      us={{ mark: "have", text: "Track supplies and purchases inside the notebook" }}
-                      labarchives={{ mark: "none", text: "No native ordering" }}
-                      snapgene={{ mark: "none", text: "No inventory or ordering" }}
-                      quartzy={{ mark: "win", text: "The biggest vendor catalog and ordering workflow" }}
-                    />
-                    <ComparisonRow
-                      label="Live collaboration"
-                      us={{ mark: "win", text: "Real-time co-editing on shared notes" }}
-                      labarchives={{ mark: "have", text: "Shared cloud notebook" }}
-                      snapgene={{ mark: "none", text: "Single-user desktop tool" }}
-                      quartzy={{ mark: "have", text: "Shared lab ordering workspace" }}
-                    />
-                    <ComparisonRow
-                      label="Per-entry version history"
-                      us={{ mark: "win", text: "Full history with one-click restore, built in" }}
-                      labarchives={{ mark: "have", text: "Full revision history on every entry" }}
-                      snapgene={{ mark: "none", text: "Per-file saves, no notebook history" }}
-                      quartzy={{ mark: "none", text: "Order logs, not record history" }}
-                    />
                   </tbody>
                 </table>
               </div>
@@ -942,15 +724,15 @@ export default function WelcomePage({
           </BeakerBotPeek>
 
           <p className="mx-auto mt-6 max-w-[64ch] text-center text-body leading-relaxed text-[#64748b]">
-            SnapGene genuinely goes deeper on cloning, Quartzy has the bigger
-            vendor catalog, and SciFinder and Reaxys go deeper on curated
-            reaction databases. The chemistry workbench covers what most labs
-            actually open SciFinder for, searching the literature and patents by
-            structure, including substructure search across 28 million patents,
-            free. ResearchOS wins by folding the notebook, the sequence tool,
-            chemistry, and inventory into one free suite with your data on your
-            own disk. Two-way Quartzy sync is on the roadmap, so you can keep the
-            ordering tools your lab already uses.
+            The point tools go deeper in their one lane. ResearchOS wins by
+            folding the notebook, the sequence tool, chemistry, and inventory
+            into one free suite with your data on your own disk.{" "}
+            <a
+              href="/pricing"
+              className="font-bold text-brand-action transition-colors hover:text-brand-ink"
+            >
+              See the full four-way <span aria-hidden>&rarr;</span>
+            </a>
           </p>
         </section>
 
@@ -1080,14 +862,19 @@ export default function WelcomePage({
           ]}
           visual={
             <RainbowFrame>
-              <CheckinsVisual />
+              <DemoLoop
+                src="https://tkqei2x7bdmdvg7v.public.blob.vercel-storage.com/check-ins.mp4"
+                poster="https://tkqei2x7bdmdvg7v.public.blob.vercel-storage.com/check-ins.poster.jpg"
+                label="A lab mentorship tree, an individual development plan, and a lab-meeting presenter rotation in ResearchOS check-ins"
+                preload="metadata"
+              />
             </RainbowFrame>
           }
         />
 
         {/* ── 7. COMPANION APP SPOTLIGHT (dark band) ───────────────────── */}
         <section
-          className="px-6 py-20 text-[#eaf2fb] sm:px-12"
+          className="px-6 py-16 text-[#eaf2fb] sm:px-12"
           style={{
             background: "linear-gradient(160deg,#0e1830,#142a4a 58%,#10203c)",
           }}
@@ -1107,36 +894,56 @@ export default function WelcomePage({
                 The companion app brings ResearchOS to the bench
               </h2>
               <p className="mt-3 max-w-[64ch] text-title leading-relaxed text-[#b9cde6]">
-                Most of research happens standing at a bench, not sitting at a
-                desk. The companion app on your phone is the bench end of your
-                notebook, so the messy steps flow straight into the experiment
-                on your computer. Nothing to retype later.
+                Most of research happens standing at a bench, not at a desk. The
+                companion app is the bench end of your notebook, so the messy
+                steps flow straight into the experiment on your computer with
+                nothing to retype later.
               </p>
             </Reveal>
 
             <div className="mt-9 grid items-center gap-9 md:grid-cols-[0.78fr_1.22fr]">
-              {/* CSS phone frame holding a play-glyph placeholder. Leads the
-                  cascade, then the four capability cards follow it in. */}
+              {/* CSS phone frame holding a clean static poster screen: the
+                  BeakerBot mascot over a faux experiment note, so it reads as a
+                  finished product shot, not an empty play placeholder. Leads
+                  the cascade, then the four capability cards follow it in. */}
               <Reveal className="justify-self-center" delay={0}>
                 <div className="relative aspect-[9/19] w-[196px] overflow-hidden rounded-[30px] border-8 border-[#060d1c] bg-[#0d1424] shadow-[0_20px_54px_rgba(0,0,0,0.55)]">
                   <span
                     aria-hidden
                     className="absolute left-1/2 top-2.5 z-[2] h-1.5 w-[52px] -translate-x-1/2 rounded-full bg-[#060d1c]"
                   />
-                  <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 px-4 text-center text-meta font-semibold text-[#8fb7d9]">
-                    <span className="flex h-11 w-11 items-center justify-center rounded-full bg-white/[0.12]">
-                      <svg
-                        width="22"
-                        height="22"
-                        viewBox="0 0 24 24"
-                        fill="currentColor"
-                        className="text-[#cfe6fb]"
+                  {/* Static "app on a phone" poster, all CSS plus the BeakerBot
+                      mascot, no video and no play button. */}
+                  <div className="absolute inset-0 flex flex-col bg-gradient-to-b from-[#13243f] to-[#0c1730] px-3 pb-3 pt-6">
+                    <div className="flex items-center gap-2">
+                      <BeakerBot
+                        pose="idle"
+                        alive
+                        ariaLabel="BeakerBot"
+                        className="h-7 w-7 flex-none text-brand-sky"
+                      />
+                      <div className="min-w-0">
+                        <div className="truncate text-[10px] font-extrabold text-white">
+                          PCR-2026-118
+                        </div>
+                        <div className="truncate text-[8.5px] text-[#8fb7d9]">
+                          At the bench, just now
+                        </div>
+                      </div>
+                    </div>
+                    <div className="mt-2.5 flex-1 rounded-[10px] border border-white/10 bg-white/[0.05] p-2.5">
+                      <div className="h-1.5 w-3/4 rounded-full bg-white/20" />
+                      <div className="mt-1.5 h-1.5 w-full rounded-full bg-white/10" />
+                      <div className="mt-1.5 h-1.5 w-5/6 rounded-full bg-white/10" />
+                      <div
                         aria-hidden
-                      >
-                        <path d="M9 7l9 5-9 5V7Z" />
-                      </svg>
-                    </span>
-                    Companion app demo
+                        className="mt-3 aspect-[4/3] w-full rounded-[7px] bg-gradient-to-br from-[#1f4f7a] to-[#16304f]"
+                      />
+                      <div className="mt-2 h-1.5 w-2/3 rounded-full bg-white/10" />
+                    </div>
+                    <div className="mt-2.5 rounded-[9px] bg-brand-action py-1.5 text-center text-[9.5px] font-extrabold text-white">
+                      Save to experiment
+                    </div>
                   </div>
                 </div>
               </Reveal>
@@ -1172,62 +979,6 @@ export default function WelcomePage({
             </div>
           </div>
         </section>
-
-        {/* ── 8. AI ASSISTANT (the metered BeakerBot story) ────────────── */}
-        <FeatureRow
-          flip
-          kicker="// your data, your AI"
-          title="Meet BeakerBot, your AI over your own research"
-          body="Point BeakerBot at the data you own and ask a plain-English question across your notes and results. It runs the analysis, makes the plot, and writes it up, always with your approval. Your data, your assistant, not a vendor mining your work."
-          pills={["Natural language", "Over your own data", "You stay in control"]}
-          visual={
-            <BeakerBotPeek
-              anchor="top-right"
-              reactionPose="cheering"
-              restPose="idle"
-              bubble="on it!"
-              size="h-20 w-20"
-            >
-              <RainbowFrame>
-                <DemoLoopPlaceholder
-                  claim="Type a plain-English question like show my PCR runs that failed last month, and the answer pulls straight from your own notes."
-                  tag="AI assistant"
-                />
-              </RainbowFrame>
-            </BeakerBotPeek>
-          }
-        >
-          {/* The free-token gift, made the headline hook of this section. */}
-          <div className="mt-5 rounded-2xl border border-[#cfe0f3] bg-[#eef5fd] px-5 py-4">
-            <div className="text-xl font-extrabold tracking-tight text-brand-ink">
-              Start with about 750,000 free tokens
-            </div>
-            <p className="mt-1 text-body font-semibold text-[#475569]">
-              a one-time sign-up gift, about 20 to 25 full analyses or over 100
-              quick questions, no card needed
-            </p>
-          </div>
-          <p className="mt-4 max-w-[54ch] text-body leading-relaxed text-[#475569]">
-            BeakerBot is the one optional metered feature, priced near cost
-            because your data stays on your own machine instead of on our
-            servers. After the free tokens you buy a prepaid top-up, and since a
-            full analysis is about a penny of compute, it stays cheap. A lab or
-            institution can cover a shared pool so members never see a bill, and
-            during the beta it is free.{" "}
-            <a
-              href="/pricing"
-              className="font-bold text-brand-action transition-colors hover:text-brand-ink"
-            >
-              See how the tokens are priced <span aria-hidden>&rarr;</span>
-            </a>{" "}
-            <a
-              href="/ai"
-              className="font-bold text-brand-action transition-colors hover:text-brand-ink"
-            >
-              See everything BeakerBot can do <span aria-hidden>&rarr;</span>
-            </a>
-          </p>
-        </FeatureRow>
 
         {/* ── 10. HOW IT WORKS (local-first, three steps) ──────────────── */}
         <section className="px-6 py-16 sm:px-12">
@@ -1269,22 +1020,24 @@ export default function WelcomePage({
           <Reveal className="mx-auto max-w-[1080px]">
             <Kicker>// why we built this</Kicker>
             <h2 className="mt-2.5 max-w-[26ch] text-3xl font-extrabold leading-[1.1] tracking-tight text-brand-ink md:text-[36px]">
-              Research software should be accessible and better, not expensive and
-              locked
+              Accessible and better, not expensive and locked
             </h2>
             <p className="mt-5 max-w-[64ch] text-title leading-relaxed text-[#334155]">
+              The tools labs depend on are overpriced and hold your data hostage
+              in someone else&apos;s cloud, so we build free, open, local-first
+              alternatives that aim to be genuinely better, not just cheaper.
               ResearchOS is an{" "}
               <span className="font-semibold text-brand-ink">
                 open-source company
               </span>{" "}
-              (AGPLv3) that grew out of a research fellowship at UW-Madison. The
-              tools labs depend on are overpriced, and they hold your data
-              hostage in someone else&apos;s cloud. We build free, open,
-              local-first alternatives, and the goal is not just cheaper, it is{" "}
-              <span className="font-semibold text-brand-ink">better</span>. You
-              own your data, the science is validated in public, and a real,
-              accountable business stands behind it. Good research tooling should
-              be a public good, inspectable, ownable, and free.
+              (AGPLv3) out of a fellowship at UW-Madison, with a real business
+              behind it.{" "}
+              <a
+                href="/about"
+                className="font-bold text-brand-action transition-colors hover:text-brand-ink"
+              >
+                Read the story <span aria-hidden>&rarr;</span>
+              </a>
             </p>
             <div className="mt-5 text-body text-[#64748b]">
               Dr. Grant Nickles, founder &middot;{" "}
