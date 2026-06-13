@@ -13,6 +13,8 @@ import { useFocusEffect } from 'expo-router';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { ScreenFrame } from '@/components/ui/ScreenFrame';
+import { TabHeader } from '@/components/ui/TabHeader';
+import { useUnreadNotificationCount } from '@/lib/unread-notifications';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { SectionHeader } from '@/components/ui/SectionHeader';
@@ -51,6 +53,7 @@ export default function TimersScreen() {
   const { timers, refresh } = useTimers();
   const { pairing } = usePairing();
   const { surface, spacing, radii } = useTheme();
+  const unreadCount = useUnreadNotificationCount();
   // Up to six entered digits, read right-to-left as HHMMSS.
   const [digits, setDigits] = useState('');
   // null = not yet checked, true/false once we know the OS grant.
@@ -187,7 +190,7 @@ export default function TimersScreen() {
         contentContainerStyle={styles.scrollContent}
         keyboardShouldPersistTaps="handled"
       >
-          <ThemedText type="title">Timers</ThemedText>
+          <TabHeader title="Timers" unreadCount={unreadCount} />
           <ThemedText style={[styles.tagline, { color: surface.muted }]}>
             Start a countdown at the bench and get an alert when it finishes.
           </ThemedText>

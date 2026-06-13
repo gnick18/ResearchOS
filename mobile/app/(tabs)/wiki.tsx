@@ -26,6 +26,8 @@ import { Ionicons } from '@expo/vector-icons';
 
 import { ThemedText } from '@/components/themed-text';
 import { ScreenFrame } from '@/components/ui/ScreenFrame';
+import { TabHeader } from '@/components/ui/TabHeader';
+import { useUnreadNotificationCount } from '@/lib/unread-notifications';
 import { Card } from '@/components/ui/Card';
 import { useTheme, palette } from '@/lib/design';
 import {
@@ -73,6 +75,7 @@ function formatPulled(iso: string): string {
 export default function WikiBrowseScreen() {
   const { surface } = useTheme();
   const router = useRouter();
+  const unreadCount = useUnreadNotificationCount();
   const [query, setQuery] = useState('');
   const inputRef = useRef<TextInput>(null);
 
@@ -116,7 +119,7 @@ export default function WikiBrowseScreen() {
     <ScreenFrame>
       {/* Header matches every other tab: big title, muted tagline, then search. */}
       <View style={styles.headerArea}>
-        <ThemedText type="title">Wiki</ThemedText>
+        <TabHeader title="Wiki" unreadCount={unreadCount} />
         <ThemedText style={[styles.tagline, { color: surface.muted }]}>
           Guides and help, searchable across every page.
         </ThemedText>

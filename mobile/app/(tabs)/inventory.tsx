@@ -18,6 +18,8 @@ import { useFocusEffect, useRouter } from 'expo-router';
 
 import { ThemedText } from '@/components/themed-text';
 import { ScreenFrame } from '@/components/ui/ScreenFrame';
+import { TabHeader } from '@/components/ui/TabHeader';
+import { useUnreadNotificationCount } from '@/lib/unread-notifications';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { EmptyState } from '@/components/ui/EmptyState';
@@ -40,6 +42,7 @@ function stockIsLow(stock: TrackedStock): boolean {
 export default function InventoryScreen() {
   const router = useRouter();
   const { surface, spacing } = useTheme();
+  const unreadCount = useUnreadNotificationCount();
 
   const { pairing, loading: pairingLoading, refresh: refreshPairing } =
     usePairing();
@@ -109,7 +112,7 @@ export default function InventoryScreen() {
           />
         }
       >
-        <ThemedText type="title">Inventory</ThemedText>
+        <TabHeader title="Inventory" unreadCount={unreadCount} />
         <ThemedText style={[styles.tagline, { color: surface.muted }]}>
           Track stock and reorder from the bench.
         </ThemedText>

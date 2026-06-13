@@ -25,15 +25,11 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 // ScrollView comes from gesture-handler so the per-row swipe-to-delete
-// cooperates with vertical scrolling instead of fighting it. Gesture +
-// GestureDetector drive the Today pull-down affordance at the top.
+// cooperates with vertical scrolling instead of fighting it.
 import {
   Swipeable,
   ScrollView,
-  Gesture,
-  GestureDetector,
 } from 'react-native-gesture-handler';
-import { runOnJS } from 'react-native-reanimated';
 import { useFocusEffect, useRouter } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
 
@@ -75,7 +71,7 @@ import { NotebookChooser } from '@/components/NotebookChooser';
 import { fireSuccess } from '@/lib/success-burst';
 import { useTodayPrefs } from '@/lib/today-prefs';
 import { TodayPanel } from '@/components/TodayPanel';
-import { ConnectionStatusChip } from '@/components/ui/ConnectionStatusChip';
+import { TabHeader } from '@/components/ui/TabHeader';
 import {
   recordSyncSuccess,
   recordSyncFailure,
@@ -846,18 +842,6 @@ export default function NotebookScreen() {
     ? formatSynced(snapshot.generatedAt)
     : null;
 
-  // Pull-down affordance gesture. A short downward drag (or a tap) on the slim
-  // top handle opens the Today panel. We only need a one-shot open here; the
-  // panel itself owns the drag-to-dismiss + animation, so this gesture just
-  // detects intent and flips todayOpen on.
-  const openPan = Gesture.Pan()
-    .onEnd((e) => {
-      'worklet';
-      if (e.translationY > 12 || e.velocityY > 250) {
-        runOnJS(setTodayOpen)(true);
-      }
-    });
-
   // Connection gate: until the phone is paired, the Notebook does real work only
   // through the laptop, so it shows nothing but the pair CTA (capture now
   // requires pairing first). Calc / Timers / Wiki stay usable offline. Demo
@@ -871,21 +855,7 @@ export default function NotebookScreen() {
     return (
       <ScreenFrame>
         <View style={styles.scrollContent}>
-          <View style={styles.titleRow}>
-            <ThemedText type="title">Notebook</ThemedText>
-            <View style={styles.headerActions}>
-              <ConnectionStatusChip />
-              <Pressable
-                onPress={() => router.push('/modal')}
-                hitSlop={12}
-                accessibilityRole="button"
-                accessibilityLabel="Settings"
-                style={styles.settingsBtn}
-              >
-                <Ionicons name="settings-outline" size={24} color={palette.sky} />
-              </Pressable>
-            </View>
-          </View>
+          <TabHeader title="Notebook" unreadCount={unreadCount} />
           <Card style={{ gap: spacing.sm, marginTop: spacing.lg }}>
             <ThemedText style={[styles.cardTitle, { color: surface.text }]}>
               Pair this phone
@@ -925,44 +895,12 @@ export default function NotebookScreen() {
           />
         }
       >
-        <View style={styles.titleRow}>
-          <ThemedText type="title">Notebook</ThemedText>
-          <View style={styles.headerActions}>
-            {/* App-wide sync/connection cue, also surfaced on the Notebook's own
-                header (this tab does not use the shared ScreenHeader). */}
-            <ConnectionStatusChip />
-            <Pressable
-              testID="notebook-notifications"
-              onPress={() => router.push('/notifications')}
-              hitSlop={12}
-              accessibilityRole="button"
-              accessibilityLabel={
-                unreadCount > 0
-                  ? `Notifications, ${unreadCount} unread`
-                  : 'Notifications'
-              }
-              style={styles.settingsBtn}
-            >
-              <Ionicons name="notifications-outline" size={23} color={palette.sky} />
-              {unreadCount > 0 ? (
-                <View style={styles.bellBadge}>
-                  <ThemedText style={styles.bellBadgeText}>
-                    {unreadCount > 9 ? '9+' : String(unreadCount)}
-                  </ThemedText>
-                </View>
-              ) : null}
-            </Pressable>
-            <Pressable
-              onPress={() => router.push('/modal')}
-              hitSlop={12}
-              accessibilityRole="button"
-              accessibilityLabel="Settings"
-              style={styles.settingsBtn}
-            >
-              <Ionicons name="settings-outline" size={24} color={palette.sky} />
-            </Pressable>
-          </View>
-        </View>
+        <TabHeader
+          title="Notebook"
+          unreadCount={unreadCount}
+          onToday={pairing && todayPrefs.showToday ? openToday : undefined}
+          todayCount={tasks.length}
+        />
         <ThemedText style={[styles.tagline, { color: surface.muted }]}>
           {todayPrefs.showToday
             ? 'Capture the bench into your lab notebook, and see what is on today.'
@@ -996,52 +934,9 @@ export default function NotebookScreen() {
           onUnpair={onUnpair}
         />
 
-        {/* Header "Today" pill. Android reserves every screen edge for a system
-            gesture (top = notification shade, left/right = back, bottom = home),
-            so Today is opened by an in-app pill here, NOT an edge swipe. The pill
-            shows the live count at rest and opens the TodayPanel (the
-            Apple-Notification-Center-style overlay mounted as a sibling below) on
-            tap, or a short downward drag on the pill itself (safe, since the pill
-            sits below the status bar, not at the system edge). Only shown when
-            paired (the snapshot comes from the laptop) and the Settings "Show
-            Today" toggle is on, so the app is unchanged when it is off. */}
-        {pairing && todayPrefs.showToday ? (
-          <GestureDetector gesture={openPan}>
-            <Pressable
-              testID="notebook-today-pill"
-              onPress={openToday}
-              accessibilityRole="button"
-              accessibilityLabel="Open Today"
-              style={({ pressed }) => [
-                styles.todayPill,
-                {
-                  backgroundColor: surface.surface,
-                  borderColor: surface.border,
-                  opacity: pressed ? 0.85 : 1,
-                },
-              ]}
-            >
-              <View style={styles.todayPillBadge}>
-                <Ionicons name="today-outline" size={15} color={palette.white} />
-              </View>
-              <ThemedText style={[styles.todayPillTitle, { color: surface.text }]}>
-                Today
-              </ThemedText>
-              <ThemedText style={[styles.todayPillCount, { color: surface.muted }]}>
-                {tasks.length > 0 ? `${tasks.length} today` : 'Nothing today'}
-              </ThemedText>
-              {overdue > 0 ? (
-                <View style={styles.todayOverduePill}>
-                  <ThemedText style={styles.todayOverduePillText}>
-                    {overdue} overdue
-                  </ThemedText>
-                </View>
-              ) : null}
-              <View style={{ flex: 1 }} />
-              <Ionicons name="chevron-down" size={16} color={surface.muted} />
-            </Pressable>
-          </GestureDetector>
-        ) : null}
+        {/* Today now opens from the shared TabHeader's Today button (with a live
+            count badge); the old inline Today pill has been removed. The
+            TodayPanel overlay is still mounted as a sibling below. */}
 
         {/* Quick-capture action row (per mockup: side-by-side icon-over-label cards) */}
         {!previewUri ? (
@@ -1596,41 +1491,6 @@ const styles = StyleSheet.create({
     gap: 14,
   },
   tagline: { lineHeight: 22 },
-  titleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  headerActions: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 2,
-    marginRight: -6,
-  },
-  settingsBtn: {
-    width: 36,
-    height: 36,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  bellBadge: {
-    position: 'absolute',
-    top: 3,
-    right: 3,
-    minWidth: 16,
-    height: 16,
-    borderRadius: 999,
-    paddingHorizontal: 4,
-    backgroundColor: palette.coral,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  bellBadgeText: {
-    color: palette.white,
-    fontSize: 10,
-    fontWeight: '800',
-    lineHeight: 13,
-  },
   cardTitle: { fontSize: 16, fontWeight: '700', lineHeight: 22 },
 
   // Connection card (compact pill matching the mockup).
@@ -1773,46 +1633,6 @@ const styles = StyleSheet.create({
     gap: 3,
   },
   swipeDeleteLabel: { color: palette.white, fontSize: 12, fontWeight: '700' },
-
-  // Today pull-down affordance (slim handle at the top; opens TodayPanel).
-  todayPill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 9,
-    borderWidth: 1,
-    borderRadius: 14,
-    paddingVertical: 9,
-    paddingHorizontal: 12,
-    marginTop: 4,
-  },
-  todayPillBadge: {
-    width: 24,
-    height: 24,
-    borderRadius: 7,
-    backgroundColor: palette.sky,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  todayPillTitle: {
-    fontSize: 14,
-    fontWeight: '800',
-  },
-  todayPillCount: {
-    fontSize: 12.5,
-    fontWeight: '600',
-  },
-  todayOverduePill: {
-    backgroundColor: palette.dangerLight,
-    borderRadius: 999,
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    marginLeft: 4,
-  },
-  todayOverduePillText: {
-    fontSize: 10.5,
-    fontWeight: '700',
-    color: palette.danger,
-  },
 
   // Scan flagship card
   scanCard: {

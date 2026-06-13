@@ -33,6 +33,8 @@ import { useFocusEffect, useRouter } from 'expo-router';
 
 import { ThemedText } from '@/components/themed-text';
 import { ScreenFrame } from '@/components/ui/ScreenFrame';
+import { TabHeader } from '@/components/ui/TabHeader';
+import { useUnreadNotificationCount } from '@/lib/unread-notifications';
 import { useTheme, palette } from '@/lib/design';
 import { usePairing } from '@/lib/pairing';
 import { signWithDevice } from '@/lib/device-identity';
@@ -151,6 +153,7 @@ function MethodRow({
 export default function MethodLibraryScreen() {
   const router = useRouter();
   const { surface, radii } = useTheme();
+  const unreadCount = useUnreadNotificationCount();
   const { pairing } = usePairing();
   const isDemo = !!pairing?.demo;
 
@@ -362,11 +365,11 @@ export default function MethodLibraryScreen() {
   return (
     <ScreenFrame>
       <View style={[styles.head, { backgroundColor: surface.surface }]}>
-        <View style={styles.headRow}>
-          <ThemedText type="title" style={styles.title}>
-            Methods
-          </ThemedText>
-          {/* Offline status chip (real sync state). */}
+        {/* Shared tab header (title + bell / settings), consistent across tabs. */}
+        <TabHeader title="Methods" unreadCount={unreadCount} />
+
+        {/* Offline download status chip (real sync state), now below the header. */}
+        <View style={styles.offchipRow}>
           <Pressable
             onPress={onChipPress}
             style={[
@@ -584,8 +587,7 @@ export default function MethodLibraryScreen() {
 
 const styles = StyleSheet.create({
   head: { paddingHorizontal: 16, paddingTop: 8, paddingBottom: 8 },
-  headRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  title: { fontSize: 25 },
+  offchipRow: { flexDirection: 'row', alignItems: 'center', marginTop: 8 },
   offchip: { flexDirection: 'row', alignItems: 'center', gap: 6, borderRadius: 999, paddingHorizontal: 10, paddingVertical: 5, borderWidth: 1 },
   offdot: { width: 7, height: 7, borderRadius: 999 },
   offtxt: { fontSize: 10.5, fontWeight: '700' },

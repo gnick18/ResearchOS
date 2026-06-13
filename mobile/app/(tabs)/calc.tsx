@@ -40,7 +40,8 @@ import { fireSuccess } from '@/lib/success-burst';
 
 import { Card } from '@/components/ui/Card';
 import { ScreenFrame } from '@/components/ui/ScreenFrame';
-import { ThemedText } from '@/components/themed-text';
+import { TabHeader } from '@/components/ui/TabHeader';
+import { useUnreadNotificationCount } from '@/lib/unread-notifications';
 import { palette, radii, spacing, useTheme } from '@/lib/design';
 
 import {
@@ -99,10 +100,14 @@ const TABS: { id: TabId; label: string }[] = [
 export default function CalcScreen() {
   const [activeTab, setActiveTab] = useState<TabId>('scientific');
   const { spacing: sp } = useTheme();
+  const unreadCount = useUnreadNotificationCount();
 
   return (
     <ScreenFrame>
-      {/* Calculator header: large title + horizontal chip selector. */}
+      {/* Shared tab header, then the calculator chip selector below it. */}
+      <View style={styles.calcHeaderWrap}>
+        <TabHeader title="Calc" unreadCount={unreadCount} />
+      </View>
       <View style={styles.switcherWrap}>
         <CalcHeader active={activeTab} onChange={setActiveTab} />
       </View>
@@ -152,7 +157,6 @@ function CalcHeader({
   const { surface } = useTheme();
   return (
     <>
-      <ThemedText style={[styles.calcTitle, { color: surface.text }]}>Calc</ThemedText>
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
@@ -1236,15 +1240,8 @@ const styles = StyleSheet.create({
   fill: { flex: 1 },
 
   // Calculator header: large title + horizontal chip selector
-  switcherWrap: { paddingTop: spacing.lg, paddingBottom: spacing.sm },
-  calcTitle: {
-    fontSize: 34,
-    fontWeight: '800',
-    letterSpacing: -0.8,
-    lineHeight: 40,
-    marginHorizontal: spacing.lg,
-    marginBottom: spacing.md,
-  },
+  calcHeaderWrap: { paddingHorizontal: spacing.lg, paddingTop: spacing.lg },
+  switcherWrap: { paddingTop: spacing.sm, paddingBottom: spacing.sm },
   chipRow: { gap: 8, paddingHorizontal: spacing.lg, paddingVertical: 2 },
   calcChip: {
     paddingHorizontal: 14,
