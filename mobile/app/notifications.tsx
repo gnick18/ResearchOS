@@ -26,6 +26,7 @@ import { EmptyState } from '@/components/ui/EmptyState';
 import { useTheme, palette } from '@/lib/design';
 import { usePairing } from '@/lib/pairing';
 import { signWithDevice } from '@/lib/device-identity';
+import { registerPushToken } from '@/lib/push-token';
 import {
   fetchNotificationsSnapshot,
   type NotificationsSnapshot,
@@ -63,6 +64,10 @@ export default function NotificationsScreen() {
   const pairingKey = pairing ? `${pairing.u}:${pairing.relayUrl}` : 'none';
   useEffect(() => {
     void load();
+    // Refresh this device's push token whenever the notifications screen opens
+    // (phone push P1). Covers an Expo token rotation and an OS notification grant
+    // given after pairing. Fire and forget + demo-safe inside registerPushToken.
+    if (pairing) void registerPushToken(pairing);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pairingKey]);
 

@@ -96,19 +96,27 @@ export async function buildNotificationsSnapshot(
 /**
  * Seal + publish the notifications snapshot to every paired phone. A no-op (0/0)
  * when no phone is paired. Mirrors publishInventoryToAllDevices exactly.
+ *
+ * Also returns `pushTokens`, the Expo push tokens of the devices it actually
+ * published to (so phone push P1 can buzz exactly the phones that now hold the
+ * fresh sealed snapshot). A device with a token but no seal key is skipped from
+ * both lists: it could be woken but would have nothing it can decrypt, so a buzz
+ * would be pointless. The single listDevices round-trip is reused for both, so
+ * the caller does not list devices twice.
  */
 export async function publishNotificationsToAllDevices(
   keys: UserCaptureKeys,
   prefs: NotificationPreferences,
-): Promise<{ published: number; skipped: number }> {
+): Promise<{ published: number; skipped: number; pushTokens: string[] }> {
   const devices = await listDevices(keys);
-  if (devices.length === 0) return { published: 0, skipped: 0 };
+  if (devices.length === 0) return { published: 0, skipped: 0, pushTokens: [] };
 
   const snap = await buildNotificationsSnapshot(prefs);
   const plaintext = new TextEncoder().encode(JSON.stringify(snap));
 
   let published = 0;
   let skipped = 0;
+  const pushTokens: string[] = [];
   for (const device of devices) {
     if (!device.x25519Pubkey) {
       console.info(
@@ -120,6 +128,7 @@ export async function publishNotificationsToAllDevices(
     const sealed = sealToRecipient(plaintext, decodePublicKey(device.x25519Pubkey));
     await publishSnapshot(keys, "notifications", device.devicePubkey, sealed);
     published += 1;
+    if (device.pushToken) pushTokens.push(device.pushToken);
   }
-  return { published, skipped };
+  return { published, skipped, pushTokens };
 }

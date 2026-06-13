@@ -177,6 +177,10 @@ export interface BoundDevice {
   /** Hex-encoded device X25519 public key, used to seal snapshots to this phone.
    *  Null for devices registered before the DOWNLOAD path landed (no seal key). */
   x25519Pubkey: string | null;
+  /** The device's Expo push token (phone push P1), used to send a generic
+   *  wake-and-fetch buzz. Null when the phone never registered one (denied the OS
+   *  notification grant, or paired before push existed). */
+  pushToken: string | null;
 }
 
 /** GET /capture/devices. Lists the phones currently bound to this identity. */
@@ -200,6 +204,7 @@ export async function listDevices(
     label: d.label ?? null,
     boundAt: d.boundAt ?? null,
     x25519Pubkey: d.x25519Pubkey ?? null,
+    pushToken: d.pushToken ?? null,
   }));
 }
 

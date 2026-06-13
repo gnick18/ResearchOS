@@ -1607,6 +1607,19 @@ export class CaptureInbox {
     } catch {
       // Column already present (fresh table above, or a prior migration).
     }
+    // push_token (phone push, P1) is the device's Expo push token. It is a
+    // routing identifier the laptop reads back from /capture/devices to send a
+    // generic, content-free wake-and-fetch push via the Expo Push Service. Added
+    // idempotently for the same reason as x25519_pubkey above; a device that
+    // paired before push existed (or denied the OS notification grant) reads back
+    // null and simply never gets a buzz until it registers a token. The token is
+    // never lab content, so storing it plainly is consistent with the rest of the
+    // device record.
+    try {
+      this.sql().exec("ALTER TABLE devices ADD COLUMN push_token TEXT");
+    } catch {
+      // Column already present (fresh table above, or a prior migration).
+    }
     // The index of pending captures. blob_key is the R2 key (`<u>/<captureId>`);
     // the blob is deleted from R2 on ack alongside the row.
     this.sql().exec(
@@ -1733,6 +1746,7 @@ export class CaptureInbox {
       label?: unknown;
       devX25519?: unknown;
       userX25519PubHex?: unknown;
+      pushToken?: unknown;
     };
     try {
       body = await request.json();
@@ -1775,12 +1789,21 @@ export class CaptureInbox {
     // the binding; the laptop reads it back from /capture/devices to seal
     // snapshots to this device.
     const devX25519 = body.devX25519;
+    // pushToken (phone push P1) is OPTIONAL the same way devX25519 is: a phone
+    // that has not been granted the OS notification permission registers without
+    // one and simply never buzzes. We do NOT overwrite an existing token with
+    // null on a re-register that omits it, so a device-signed token refresh
+    // (POST /capture/devices/push-token) made between pairings survives a later
+    // bare re-pair. COALESCE keeps the stored token when the incoming value is
+    // null.
+    const pushToken = body.pushToken;
     this.sql().exec(
-      "INSERT INTO devices (device_pubkey, label, bound_at, x25519_pubkey) VALUES (?, ?, ?, ?) ON CONFLICT(device_pubkey) DO UPDATE SET label = excluded.label, bound_at = excluded.bound_at, x25519_pubkey = excluded.x25519_pubkey",
+      "INSERT INTO devices (device_pubkey, label, bound_at, x25519_pubkey, push_token) VALUES (?, ?, ?, ?, ?) ON CONFLICT(device_pubkey) DO UPDATE SET label = excluded.label, bound_at = excluded.bound_at, x25519_pubkey = excluded.x25519_pubkey, push_token = COALESCE(excluded.push_token, devices.push_token)",
       devicePubkey,
       typeof label === "string" ? label : null,
       new Date().toISOString(),
       typeof devX25519 === "string" ? devX25519 : null,
+      typeof pushToken === "string" && pushToken.trim() !== "" ? pushToken : null,
     );
 
     // Echo back the user's X25519 sealing public key (Phase 1 route-capture).
@@ -2039,8 +2062,9 @@ export class CaptureInbox {
         label: string | null;
         bound_at: string | null;
         x25519_pubkey: string | null;
+        push_token: string | null;
       }>(
-        "SELECT device_pubkey, label, bound_at, x25519_pubkey FROM devices ORDER BY bound_at ASC",
+        "SELECT device_pubkey, label, bound_at, x25519_pubkey, push_token FROM devices ORDER BY bound_at ASC",
       )
       .toArray();
 
@@ -2052,6 +2076,10 @@ export class CaptureInbox {
       // older device that paired before the sealing key existed; the laptop
       // skips those when publishing snapshots.
       x25519Pubkey: r.x25519_pubkey,
+      // The device's Expo push token (phone push P1). null when the phone never
+      // registered one (denied the OS grant, or paired before push existed); the
+      // laptop sends a generic wake-and-fetch buzz only to devices that have one.
+      pushToken: r.push_token,
     }));
 
     return this.json({ devices }, 200);
@@ -2106,6 +2134,60 @@ export class CaptureInbox {
       // Listing failed; leave the (sealed, unreadable) snapshots for lifecycle
       // cleanup. The binding is already gone, which is the security-relevant act.
     }
+
+    return this.json({ ok: true }, 200);
+  }
+
+  /** POST /capture/devices/push-token. DEVICE-key signed. Sets or refreshes the
+   *  bound device's Expo push token (phone push P1). Device-signed (not
+   *  user-signed) so the phone can refresh its own token on launch or rotation
+   *  without a fresh pairing grant. The OS notification grant can be given after
+   *  pairing, and Expo tokens rotate, so this is the durable path; the register
+   *  body carries the token only as the first-pair convenience. Storing null is
+   *  allowed (the phone clears it when the grant is revoked). */
+  private async handleSetPushToken(u: string, request: Request): Promise<Response> {
+    let body: {
+      u?: unknown;
+      device?: unknown;
+      pushToken?: unknown;
+      ts?: unknown;
+      sig?: unknown;
+    };
+    try {
+      body = await request.json();
+    } catch {
+      return this.json({ error: "invalid JSON body" }, 400);
+    }
+
+    const device = body.device;
+    const ts = body.ts;
+    const sig = body.sig;
+    // The token may be an empty string to clear it; only its presence as a string
+    // is required. The signed message binds the exact token bytes so the relay
+    // cannot be made to store a different token than the device authorized.
+    const pushToken = typeof body.pushToken === "string" ? body.pushToken : "";
+    if (
+      typeof body.u !== "string" ||
+      typeof device !== "string" ||
+      typeof ts !== "string" ||
+      typeof sig !== "string"
+    ) {
+      return this.json({ error: "malformed push-token" }, 400);
+    }
+
+    const denied = this.deviceGate(
+      device,
+      ts,
+      sig,
+      devicePushTokenMessage(u, device, pushToken, ts),
+    );
+    if (denied) return denied;
+
+    this.sql().exec(
+      "UPDATE devices SET push_token = ? WHERE device_pubkey = ?",
+      pushToken.trim() === "" ? null : pushToken,
+      device,
+    );
 
     return this.json({ ok: true }, 200);
   }
@@ -2454,6 +2536,10 @@ export class CaptureInbox {
     if (url.pathname === "/capture/devices/revoke") {
       if (request.method !== "POST") return this.json({ error: "method not allowed" }, 405);
       return this.handleRevoke(uBody.u, uBody.request);
+    }
+    if (url.pathname === "/capture/devices/push-token") {
+      if (request.method !== "POST") return this.json({ error: "method not allowed" }, 405);
+      return this.handleSetPushToken(uBody.u, uBody.request);
     }
     if (url.pathname === "/capture/inbox") {
       if (request.method !== "GET") return this.json({ error: "method not allowed" }, 405);
@@ -3535,6 +3621,19 @@ export function captureReadMessage(
 ): string {
   const base = `researchos-capture-${action}\nu=${userPubkeyHex}\nts=${tsIso}`;
   return extra ? `${base}\n${extra}` : base;
+}
+
+/** POST /capture/devices/push-token (phone push P1), signed by the bound DEVICE
+ *  Ed25519 key. The exact token bytes are bound into the signed message so the
+ *  relay stores only the token the device authorized. An empty token clears it.
+ *  MUST stay byte-identical to the mobile caller in mobile/lib/push-token.ts. */
+export function devicePushTokenMessage(
+  userPubkeyHex: string,
+  devicePubkeyHex: string,
+  pushToken: string,
+  tsIso: string,
+): string {
+  return `researchos-device-push-token\nu=${userPubkeyHex}\ndevice=${devicePubkeyHex}\ntoken=${pushToken}\nts=${tsIso}`;
 }
 
 /** Snapshot publish (mobile download path), signed by the USER identity key.
