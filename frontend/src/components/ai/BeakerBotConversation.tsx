@@ -32,6 +32,7 @@ import { Icon } from "@/components/icons";
 import Tooltip from "@/components/Tooltip";
 import { useAiChat } from "./useAiChat";
 import { BEAKERBOT_VISION_ENABLED } from "@/lib/ai/config";
+import { useVoiceInput, appendTranscript } from "@/lib/ai/useVoiceInput";
 import BeakerBotThinking from "./BeakerBotThinking";
 import { RunningStatusLine, SettledStatusLine } from "./TurnStatusLine";
 import ObjectChip from "@/components/ObjectChip";
@@ -633,6 +634,28 @@ export default function BeakerBotConversation({
   } = useAiChat();
   const [draft, setDraft] = useState("");
   const listRef = useRef<HTMLDivElement | null>(null);
+
+  // ---- Voice input (Web Speech API) ----------------------------------------
+  //
+  // NOTE for Grant: no "mic" or "microphone" glyph exists in the registry.
+  // The mic button currently reuses the "camera" icon (audio/media capture
+  // device) as the closest available match. Per the one-glyph-per-meaning
+  // rule this is a placeholder -- "camera" means photo attach, not voice. A
+  // dedicated mic glyph needs your sign-off before the button gets its own
+  // icon. When you approve, add the glyph to the registry and swap the name
+  // here.
+  const handleFinalTranscript = useCallback(
+    (text: string) => {
+      setDraft((prev) => appendTranscript(prev, text));
+    },
+    [],
+  );
+  const {
+    supported: voiceSupported,
+    listening,
+    start: startListening,
+    stop: stopListening,
+  } = useVoiceInput(handleFinalTranscript);
   // Track the assistant message id for the in-flight placeholder so stop() can
   // remove the empty bubble if the turn is cancelled before any text arrives.
   const assistantIdRef = useRef<string | null>(null);
@@ -765,6 +788,8 @@ export default function BeakerBotConversation({
     const hasImages = BEAKERBOT_VISION_ENABLED && pendingImages.length > 0;
     const hasPaper = attachedPaper !== null;
     if ((!text.trim() && !hasImages && !hasPaper) || sending) return;
+    // Stop dictation before sending so the session closes cleanly.
+    stopListening();
     setDraft("");
     void send(text);
     // Capture the id of the empty assistant placeholder the store just seeded.
@@ -1476,6 +1501,33 @@ export default function BeakerBotConversation({
                 className="flex items-center justify-center rounded-md border border-border bg-surface-raised px-2.5 py-2 text-foreground-muted transition-colors hover:bg-surface-sunken hover:text-foreground"
               >
                 <Icon name="camera" className="h-4 w-4" title="Attach image" />
+              </button>
+            </Tooltip>
+          ) : null}
+
+          {/* Mic button. Only rendered when the Web Speech API is available
+              (Chrome/Edge; hidden in Firefox/Brave). Toggles dictation on/off.
+              While listening the button pulses (ring-2 + animate-pulse) and the
+              aria-label / Tooltip change to "Stop dictation". Dictation also
+              stops automatically when the user sends. */}
+          {voiceSupported && !sending ? (
+            <Tooltip
+              label={listening ? "Stop dictation" : "Dictate your message"}
+              placement="top"
+            >
+              <button
+                type="button"
+                data-testid="beakerbot-mic"
+                aria-label={listening ? "Stop dictation" : "Dictate your message"}
+                aria-pressed={listening}
+                onClick={() => (listening ? stopListening() : startListening())}
+                className={`flex items-center justify-center rounded-md border px-2.5 py-2 transition-colors ${
+                  listening
+                    ? "border-brand bg-brand/10 text-brand ring-2 ring-brand/40 animate-pulse"
+                    : "border-border bg-surface-raised text-foreground-muted hover:bg-surface-sunken hover:text-foreground"
+                }`}
+              >
+                <Icon name="camera" className="h-4 w-4" title={listening ? "Stop dictation" : "Dictate"} />
               </button>
             </Tooltip>
           ) : null}
