@@ -15,7 +15,11 @@
 //
 // No emojis, no em-dashes, no mid-sentence colons.
 
-import { FREE_GB_PER_LAB, SUSTAIN_PER_LAB } from "@/lib/pricing/assumptions";
+import {
+  FREE_GB_PER_LAB,
+  INTL_PROCESSING_PCT,
+  SUSTAIN_PER_LAB,
+} from "@/lib/pricing/assumptions";
 import { computeCostRecovery } from "@/lib/pricing/cost-math";
 
 /** The sustaining contribution per active lab, cents per month. Exposed for the
@@ -31,6 +35,9 @@ export interface DeptRateInputs {
   activeLabs: number;
   /** Pooled storage across the department's lab pools, in GB. */
   storageGB: number;
+  /** Whether the payer is outside the US, so the higher international processing
+   *  cost is passed through. Defaults to false (domestic). */
+  international?: boolean;
 }
 
 export interface DeptRateBreakdown {
@@ -38,7 +45,9 @@ export interface DeptRateBreakdown {
   recoveryCents: number;
   /** Sustaining contribution (active labs times the per-lab rate), cents. */
   sustainCents: number;
-  /** The monthly rate, recovery + sustaining, cents. */
+  /** International processing passed through, cents per month (0 domestic). */
+  intlFeeCents: number;
+  /** The monthly rate, recovery + sustaining + international processing, cents. */
   totalCents: number;
 }
 
@@ -50,14 +59,16 @@ export interface DeptRateBreakdown {
 export function deriveDeptRate(inputs: DeptRateInputs): DeptRateBreakdown {
   const activeLabs = Math.max(0, Math.floor(inputs.activeLabs));
   const storageGB = Math.max(0, inputs.storageGB);
-  const { recovery, sustain, rate } = computeCostRecovery({
+  const { recovery, sustain, intlFee, rate } = computeCostRecovery({
     storageGB,
     freeGB: activeLabs * FREE_GB_PER_LAB,
     activeLabs,
+    intlPct: inputs.international ? INTL_PROCESSING_PCT : 0,
   });
   return {
     recoveryCents: Math.round(recovery * 100),
     sustainCents: Math.round(sustain * 100),
+    intlFeeCents: Math.round(intlFee * 100),
     totalCents: Math.round(rate * 100),
   };
 }

@@ -29,6 +29,10 @@ export interface CostRecoveryInput {
   freeGB: number;
   /** Number of active labs (used for the sustaining contribution). */
   activeLabs: number;
+  /** Extra processing cost passed through when the payer is international, as a
+   *  fraction of the charged amount (e.g. INTL_PROCESSING_PCT). Defaults to 0, so
+   *  a domestic rate is unchanged. */
+  intlPct?: number;
 }
 
 export interface CostRecoveryResult {
@@ -38,7 +42,9 @@ export interface CostRecoveryResult {
   recovery: number;
   /** Sustaining contribution, dollars per month. */
   sustain: number;
-  /** The monthly rate, recovery + sustain. */
+  /** Extra international processing passed through, dollars per month (0 domestic). */
+  intlFee: number;
+  /** The monthly rate, recovery + sustain + intlFee. */
   rate: number;
 }
 
@@ -46,6 +52,7 @@ export function computeCostRecovery({
   storageGB,
   freeGB,
   activeLabs,
+  intlPct = 0,
 }: CostRecoveryInput): CostRecoveryResult {
   const billableGB = Math.max(0, storageGB - freeGB);
   const raw = billableGB * BLENDED_PER_GB_MO;
@@ -53,7 +60,16 @@ export function computeCostRecovery({
   const recovery =
     billableGB <= 0 ? 0 : (pre + STRIPE_FIXED) / (1 - STRIPE_PCT);
   const sustain = Math.round(activeLabs) * SUSTAIN_PER_LAB;
-  return { billableGB, recovery, sustain, rate: recovery + sustain };
+  // The extra international fee applies to the whole charged amount (Stripe takes
+  // its cut of the full invoice), so it grosses up recovery + sustain.
+  const intlFee = Math.max(0, intlPct) * (recovery + sustain);
+  return {
+    billableGB,
+    recovery,
+    sustain,
+    intlFee,
+    rate: recovery + sustain + intlFee,
+  };
 }
 
 /** "$2.98" style, two decimals. Matches the mockup's usd() helper. */

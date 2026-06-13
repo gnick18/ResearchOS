@@ -35,11 +35,14 @@ const SPEC: OrgBillingSpec = {
     const storageGb = Number(body.storageGb);
     if (!Number.isFinite(labs) || !Number.isFinite(storageGb)) return null;
     if (labs < 0 || storageGb < 0) return null;
-    return { labs, storageGb };
+    return { labs, storageGb, international: body.international ? 1 : 0 };
   },
   deriveMonthlyCents: (inputs) =>
-    deriveDeptRate({ activeLabs: inputs.labs, storageGB: inputs.storageGb })
-      .totalCents,
+    deriveDeptRate({
+      activeLabs: inputs.labs,
+      storageGB: inputs.storageGb,
+      international: inputs.international === 1,
+    }).totalCents,
 };
 
 export async function GET(): Promise<Response> {

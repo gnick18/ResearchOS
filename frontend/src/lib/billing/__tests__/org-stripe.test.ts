@@ -155,13 +155,12 @@ describe("setupOrgBilling", () => {
     });
     expect(r.status).toBe("pending_checkout");
     expect(r.url).toBe("https://stripe.test/cs_1");
-    expect(checkoutCreateMock).toHaveBeenCalledWith(
-      expect.objectContaining({
-        mode: "subscription",
-        payment_method_types: ["card", "us_bank_account"],
-        metadata: expect.objectContaining({ orgTier: "department", orgId: "dept_x" }),
-      }),
-    );
+    // payment_method_types is intentionally omitted so Stripe presents every
+    // eligible method for the buyer (card + local bank debits per the Dashboard).
+    const checkoutArgs = checkoutCreateMock.mock.calls[0][0];
+    expect(checkoutArgs.mode).toBe("subscription");
+    expect(checkoutArgs.payment_method_types).toBeUndefined();
+    expect(checkoutArgs.metadata).toMatchObject({ orgTier: "department", orgId: "dept_x" });
     expect(subsCreateMock).not.toHaveBeenCalled();
     expect(setOrgSubscriptionMock).toHaveBeenCalledWith("department", "dept_x", null, null, "pending_checkout");
   });

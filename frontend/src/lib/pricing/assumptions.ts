@@ -45,6 +45,13 @@ export const STRIPE_PCT = 0.029;
 /** Stripe fixed fee per charge, in dollars. FLAGGED. */
 export const STRIPE_FIXED = 0.3;
 
+/** Extra Stripe processing cost when the payer is outside the US, as a fraction
+ *  added on top of STRIPE_PCT. Stripe charges roughly +1.5% for an international
+ *  card plus about +1% for currency conversion. We pass this real extra cost
+ *  through to international payers so a US buyer is not subsidizing it, the same
+ *  cost-recovery principle as the rest of the model. FLAGGED placeholder. */
+export const INTL_PROCESSING_PCT = 0.025;
+
 // ── Free pool + lab assumptions ─────────────────────────────────────────────
 
 /** Free shared-document storage per lab pool, in GB. The individual Free tier

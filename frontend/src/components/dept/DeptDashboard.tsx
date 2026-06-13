@@ -63,6 +63,8 @@ export default function DeptDashboard() {
   // Billing state. method = how the dept pays (emailed invoice vs auto-charge).
   const [billing, setBilling] = useState<BillingResponse | null>(null);
   const [method, setMethod] = useState<"invoice" | "automatic">("invoice");
+  // Billed outside the US: passes the higher international processing cost through.
+  const [international, setInternational] = useState(false);
   const [poNumber, setPoNumber] = useState("");
   const [saving, setSaving] = useState(false);
   const [saveMsg, setSaveMsg] = useState<string | null>(null);
@@ -97,6 +99,7 @@ export default function DeptDashboard() {
           labs,
           storageGb,
           method,
+          international,
           poNumber: method === "invoice" && poNumber ? poNumber : undefined,
         }),
       });
@@ -149,8 +152,8 @@ export default function DeptDashboard() {
   }, [seeded]);
 
   const rate = useMemo(
-    () => deriveDeptRate({ activeLabs: labs, storageGB: storageGb }),
-    [labs, storageGb],
+    () => deriveDeptRate({ activeLabs: labs, storageGB: storageGb, international }),
+    [labs, storageGb, international],
   );
 
   if (!usage) {
@@ -175,11 +178,26 @@ export default function DeptDashboard() {
           <Stepper label="Active labs" value={labs} onChange={(d) => setLabs((v) => Math.max(0, v + d))} />
           <Stepper label="Pooled storage" value={storageGb} suffix=" GB" onChange={(d) => setStorageGb((v) => Math.max(0, v + d * 50))} />
         </div>
+        <label className="mt-3 flex items-center gap-2 text-meta text-foreground-muted">
+          <input
+            type="checkbox"
+            checked={international}
+            onChange={(e) => setInternational(e.target.checked)}
+            className="h-3.5 w-3.5"
+          />
+          Billed outside the US (passes the higher international processing cost through)
+        </label>
         <div className="mt-3 rounded-lg bg-surface-sunken px-3 py-2 text-meta text-foreground-muted">
           Cost recovery (<b className="text-foreground">{storageGb} GB</b>){" "}
           {centsToUsd(rate.recoveryCents)} + Sustaining (
           {centsToUsd(DEPT_RATE.perLabSustainCents)}/lab &times; {labs}){" "}
           {centsToUsd(rate.sustainCents)}
+          {international && (
+            <>
+              {" "}
+              + International processing {centsToUsd(rate.intlFeeCents)}
+            </>
+          )}
         </div>
         <p className="mt-2 text-heading font-bold text-foreground">
           {centsToUsd(rate.totalCents)}

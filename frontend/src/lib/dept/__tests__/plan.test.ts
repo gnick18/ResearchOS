@@ -58,6 +58,17 @@ describe("deriveDeptRate", () => {
     expect(f.sustainCents).toBe(2 * DEPT_RATE.perLabSustainCents); // floored to 2
   });
 
+  it("international adds a processing fee on top, domestic has none", () => {
+    const dom = deriveDeptRate({ activeLabs: 5, storageGB: 800 });
+    const intl = deriveDeptRate({ activeLabs: 5, storageGB: 800, international: true });
+    expect(dom.intlFeeCents).toBe(0);
+    expect(intl.intlFeeCents).toBeGreaterThan(0);
+    expect(intl.recoveryCents).toBe(dom.recoveryCents);
+    expect(intl.sustainCents).toBe(dom.sustainCents);
+    expect(intl.totalCents).toBeGreaterThan(dom.totalCents);
+    expect(Math.abs(intl.totalCents - (dom.totalCents + intl.intlFeeCents))).toBeLessThanOrEqual(1);
+  });
+
   it("formats cents to whole-dollar USD", () => {
     expect(centsToUsd(42000)).toBe("$420");
     expect(centsToUsd(0)).toBe("$0");

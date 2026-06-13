@@ -178,11 +178,15 @@ export async function setupOrgBilling(args: {
   if (existing?.stripeSubscriptionId) {
     await cancelOrgSubscription(tier, entityId);
   }
+  // Omit payment_method_types so Stripe presents every recurring-capable method
+  // eligible for this customer and currency (card everywhere, plus local bank
+  // debits like ACH / SEPA / BACS where the Stripe Dashboard enables them). This
+  // lets international accounts pay without a code change per region; enabling a
+  // new method (or a new billing currency) is a Stripe Dashboard action.
   const session = await stripe.checkout.sessions.create({
     mode: "subscription",
     customer: customerId,
     line_items: [{ price: price.id, quantity: 1 }],
-    payment_method_types: ["card", "us_bank_account"],
     metadata,
     subscription_data: { metadata },
     success_url: `${args.returnOrigin}/${tier === "institution" ? "institution" : "department"}?billing=success`,
