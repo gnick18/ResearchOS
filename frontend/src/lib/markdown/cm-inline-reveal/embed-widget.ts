@@ -284,6 +284,11 @@ export class EmbedWidget extends WidgetType {
           onViewChange,
           pinContext: pinHandlers,
           onEditMarkdown,
+          // Stopgap: this is the CM6 EDITOR host. A live TransclusionEmbed mounted
+          // here loops ("Maximum update depth"), so render transclusions as an inert
+          // chip in the editor. Preview renders ObjectEmbed without this flag, so the
+          // live section still shows there. Remove once the loop is fixed at source.
+          inertTransclude: true,
         }),
       );
     } catch {
