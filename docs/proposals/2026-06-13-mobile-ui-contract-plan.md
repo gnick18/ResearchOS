@@ -50,6 +50,16 @@ All 6 batches + foundation built and approved, on one locked stylesheet (contrac
 - Grant reaction: "love them all".
 NEXT: the real React Native rebuild, screen by screen matched to these pages, then a paired-device test pass with the companion lane. Pull the held active-experiments branch fields at build time (see cross-lane note). Smart-scan needs an external barcode API choice + Vercel proxy.
 
+## BUILD HARNESS (proven 2026-06-13) — self-verifying visual loop, no phone photos
+
+The old loop (build -> run -> load on phone -> photograph with a 2nd phone -> airdrop -> send) is dead. PROVEN this session: a build agent can screenshot the LIVE app on the Android emulator via `adb exec-out screencap` and read the PNG directly (I captured the current Notebook screen). So the agent self-verifies against the contract mockups with no human in the loop.
+
+- adb lives at `~/Library/Android/sdk/platform-tools/adb`. An emulator (`emulator-5554`, sdk_gphone64_arm64) is/was running. A physical Samsung dev build is also available if USB debugging is authorized (would also appear in `adb devices`).
+- Emulator > Expo web for this: full native fidelity (Skia mascot/alarm/burst, camera viewfinder UI, all modules), AND adb can drive input (`adb shell input tap`, deep-links via `am start -a VIEW -d <url>`). So we DROP the Expo-web path (no @expo/metro-runtime, no web guards needed).
+- Helper: `mobile/scripts/device-shot.sh [outfile] [serial]` captures a screenshot in one command (verified working).
+- The loop: emulator runs the worktree's metro dev build (Fast Refresh on edits) -> navigate (deep-link/tap) -> device-shot -> compare to the matching docs/mockups/mobile-contract/ screen -> edit RN -> re-shot until it matches.
+- Containerize: each screen/area = its own background build agent in its own worktree (build in worktrees, merge when matched; never fight the shared mobile/ checkout). Native-only functional bits (push/FCM, real camera input, biometric hardware) get a final pass on the physical Samsung.
+
 ## Process
 
 1. Deep design research (running) drives the navigation decision and the polish bar.
