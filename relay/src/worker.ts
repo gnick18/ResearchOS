@@ -27,8 +27,12 @@
 
 import wasm from "loro-crdt/web/loro_wasm_bg.wasm";
 import { initSync, LoroDoc } from "loro-crdt/web/index.js";
-import { ed25519 } from "@noble/curves/ed25519.js";
+import { ed25519, x25519 } from "@noble/curves/ed25519.js";
 import { hexToBytes } from "@noble/curves/utils.js";
+import { hkdf } from "@noble/hashes/hkdf.js";
+import { sha256 } from "@noble/hashes/sha2.js";
+import { concatBytes, randomBytes, utf8ToBytes } from "@noble/hashes/utils.js";
+import { xchacha20poly1305 } from "@noble/ciphers/chacha.js";
 
 // Synchronous wasm init at module load, before any LoroDoc is constructed.
 initSync({ module: wasm });
@@ -1638,6 +1642,16 @@ export class CaptureInbox {
     this.sql().exec(
       "CREATE TABLE IF NOT EXISTS commands (command_id TEXT PRIMARY KEY, sealed TEXT, created_at TEXT)",
     );
+    // Notify config (phone push P2). A single-row mirror of this user's
+    // notification ROUTING config (the per-category channel matrix + quiet
+    // hours), published by the user's own laptop. It carries NO research
+    // content, only channel toggles and a time window, so the relay can run the
+    // recipient's phone gate server-side when a sender asks it to push the
+    // recipient (who may be offline). last_notify_at is a coarse per-DO cooldown
+    // so a burst of sender calls cannot machine-gun the recipient's phone.
+    this.sql().exec(
+      "CREATE TABLE IF NOT EXISTS notify_config (id INTEGER PRIMARY KEY CHECK (id = 1), config TEXT, updated_at TEXT, last_notify_at INTEGER)",
+    );
   }
 
   private sql(): SqlStorage {
@@ -2193,6 +2207,145 @@ export class CaptureInbox {
     return this.json({ ok: true }, 200);
   }
 
+  /** POST /capture/notify-config (phone push P2). USER-key signed. This user's
+   *  own laptop mirrors its notification routing config (the per-category channel
+   *  matrix + quiet hours + tz offset, NO research content) so the relay can run
+   *  the phone gate server-side when a sender asks it to buzz this (possibly
+   *  offline) user. Capped + single-row. */
+  private async handleNotifyConfig(u: string, request: Request): Promise<Response> {
+    let body: { u?: unknown; config?: unknown; ts?: unknown; sig?: unknown };
+    try {
+      body = await request.json();
+    } catch {
+      return this.json({ error: "invalid JSON body" }, 400);
+    }
+    const config = body.config;
+    const ts = body.ts;
+    const sig = body.sig;
+    if (
+      typeof body.u !== "string" ||
+      typeof config !== "string" ||
+      typeof ts !== "string" ||
+      typeof sig !== "string"
+    ) {
+      return this.json({ error: "malformed notify-config" }, 400);
+    }
+    if (config.length > 8192) {
+      return this.json({ error: "config too large" }, 413);
+    }
+    const sha = await sha256Hex(new TextEncoder().encode(config));
+    const denied = this.userGate(u, ts, sig, notifyConfigMessage(u, ts, sha));
+    if (denied) return denied;
+
+    this.sql().exec(
+      "INSERT INTO notify_config (id, config, updated_at, last_notify_at) VALUES (1, ?, ?, 0) ON CONFLICT(id) DO UPDATE SET config = excluded.config, updated_at = excluded.updated_at",
+      config,
+      new Date().toISOString(),
+    );
+    return this.json({ ok: true }, 200);
+  }
+
+  /** POST /capture/notify-recipient (phone push P2). SENDER-key signed. A sender
+   *  that just did a cross-user action (a share, a lab assignment/flag, an
+   *  announcement) asks the relay to buzz the RECIPIENT (this DO's user), who may
+   *  be offline. `sender` is a real ResearchOS identity (signature-verified);
+   *  cross-user authorization is implicit (the share itself established the
+   *  relationship, which the relay never sees) and the blast radius is bounded:
+   *  a GENERIC, content-free push, gated by the recipient's OWN synced
+   *  per-category phone toggle + quiet hours, coarsely rate-limited per DO. The
+   *  sealed pending snapshot the phone fetches carries only a generic per-category
+   *  line, never sender-supplied text (decision C1). */
+  private async handleNotifyRecipient(u: string, request: Request): Promise<Response> {
+    let body: {
+      u?: unknown;
+      sender?: unknown;
+      category?: unknown;
+      ts?: unknown;
+      sig?: unknown;
+    };
+    try {
+      body = await request.json();
+    } catch {
+      return this.json({ error: "invalid JSON body" }, 400);
+    }
+    const sender = body.sender;
+    const category = body.category;
+    const ts = body.ts;
+    const sig = body.sig;
+    if (
+      typeof body.u !== "string" ||
+      typeof sender !== "string" ||
+      typeof category !== "string" ||
+      typeof ts !== "string" ||
+      typeof sig !== "string"
+    ) {
+      return this.json({ error: "malformed notify-recipient" }, 400);
+    }
+    if (!this.isFreshIso(ts)) {
+      return this.json({ error: "stale ts" }, 401);
+    }
+    if (!this.verifySig(sig, notifyRecipientMessage(u, sender, category, ts), sender)) {
+      return this.json({ error: "bad signature" }, 401);
+    }
+    if (!(PHONE_PUSH_CATEGORIES as readonly string[]).includes(category)) {
+      return this.json({ ok: true, pushed: 0, reason: "unknown category" }, 200);
+    }
+
+    const rows = this.sql()
+      .exec<{ config: string | null; last_notify_at: number | null }>(
+        "SELECT config, last_notify_at FROM notify_config WHERE id = 1",
+      )
+      .toArray();
+    // No synced config means we cannot honor the recipient's gate, so fail safe
+    // (no buzz). The recipient still gets the notification on their own laptop.
+    if (rows.length === 0 || !rows[0].config) {
+      return this.json({ ok: true, pushed: 0, reason: "no config" }, 200);
+    }
+    const nowMs = Date.now();
+    const lastAt = rows[0].last_notify_at ?? 0;
+    if (nowMs - lastAt < NOTIFY_COOLDOWN_MS) {
+      return this.json({ ok: true, pushed: 0, reason: "cooldown" }, 200);
+    }
+    let config: NotifyConfig;
+    try {
+      config = JSON.parse(rows[0].config) as NotifyConfig;
+    } catch {
+      return this.json({ ok: true, pushed: 0, reason: "bad config" }, 200);
+    }
+    if (!shouldBuzzPhone(config, category, nowMs)) {
+      return this.json({ ok: true, pushed: 0, reason: "gated" }, 200);
+    }
+    // Stamp the cooldown up front so concurrent sender calls dedupe.
+    this.sql().exec("UPDATE notify_config SET last_notify_at = ? WHERE id = 1", nowMs);
+
+    const devices = this.sql()
+      .exec<{
+        device_pubkey: string;
+        x25519_pubkey: string | null;
+        push_token: string | null;
+      }>("SELECT device_pubkey, x25519_pubkey, push_token FROM devices")
+      .toArray();
+    const snap = buildPendingSnapshot(category, ts);
+    const plaintext = new TextEncoder().encode(JSON.stringify(snap));
+    const tokens: string[] = [];
+    for (const d of devices) {
+      if (!d.x25519_pubkey) continue;
+      try {
+        const sealed = sealToRecipient(plaintext, hexToBytes(d.x25519_pubkey));
+        await this.env.CAPTURES.put(
+          `${u}/snap/${d.device_pubkey}/notifications-pending`,
+          sealed,
+          { httpMetadata: { contentType: "application/octet-stream" } },
+        );
+        if (d.push_token) tokens.push(d.push_token);
+      } catch {
+        // Skip one device; the rest still get sealed + pushed.
+      }
+    }
+    const pushed = await sendExpoPush(tokens, category);
+    return this.json({ ok: true, pushed, sealed: tokens.length }, 200);
+  }
+
   /** POST /capture/snapshot/publish (mobile download path). multipart/form-data:
    *  a `blob` file field (the SEALED ciphertext) + a text `meta` JSON field
    *  `{ u, name, device, ts, sig }`. The USER identity key signs over
@@ -2541,6 +2694,14 @@ export class CaptureInbox {
     if (url.pathname === "/capture/devices/push-token") {
       if (request.method !== "POST") return this.json({ error: "method not allowed" }, 405);
       return this.handleSetPushToken(uBody.u, uBody.request);
+    }
+    if (url.pathname === "/capture/notify-config") {
+      if (request.method !== "POST") return this.json({ error: "method not allowed" }, 405);
+      return this.handleNotifyConfig(uBody.u, uBody.request);
+    }
+    if (url.pathname === "/capture/notify-recipient") {
+      if (request.method !== "POST") return this.json({ error: "method not allowed" }, 405);
+      return this.handleNotifyRecipient(uBody.u, uBody.request);
     }
     if (url.pathname === "/capture/inbox") {
       if (request.method !== "GET") return this.json({ error: "method not allowed" }, 405);
@@ -3687,6 +3848,188 @@ export function devicePushTokenMessage(
   tsIso: string,
 ): string {
   return `researchos-device-push-token\nu=${userPubkeyHex}\ndevice=${devicePubkeyHex}\ntoken=${pushToken}\nts=${tsIso}`;
+}
+
+/** POST /capture/notify-config (phone push P2), signed by the USER identity key.
+ *  sha256Hex is the lowercase hex sha256 of the config JSON string. */
+export function notifyConfigMessage(
+  userPubkeyHex: string,
+  tsIso: string,
+  sha256HexValue: string,
+): string {
+  return `researchos-notify-config\nu=${userPubkeyHex}\nts=${tsIso}\nsha256=${sha256HexValue}`;
+}
+
+/** POST /capture/notify-recipient (phone push P2), signed by the SENDER identity
+ *  key. `u` is the RECIPIENT pubkey (the DO this addresses); `sender` is the
+ *  signer. Binds the recipient + sender + coarse category + ts so the signature
+ *  cannot be replayed against a different recipient or category. */
+export function notifyRecipientMessage(
+  recipientPubkeyHex: string,
+  senderPubkeyHex: string,
+  category: string,
+  tsIso: string,
+): string {
+  return `researchos-notify-recipient\nu=${recipientPubkeyHex}\nsender=${senderPubkeyHex}\ncategory=${category}\nts=${tsIso}`;
+}
+
+// ---- Phone push P2 helpers (server-side seal + gate + Expo send) -----------
+// The relay buzzes a recipient whose laptop is closed, on a sender's request.
+// The push payload is GENERIC + content-free; the sealed pending snapshot it
+// wakes the phone to fetch carries only a generic per-category line.
+
+/** The five user-facing phone categories. A sender may only buzz one of these;
+ *  an unknown value is dropped. Matches NotificationCategory in
+ *  frontend/src/lib/notifications/preferences.ts. */
+const PHONE_PUSH_CATEGORIES = [
+  "shared",
+  "comments",
+  "lab",
+  "purchases",
+  "reminders",
+] as const;
+
+/** Coarse per-DO cooldown so a sender burst cannot machine-gun the phone. */
+const NOTIFY_COOLDOWN_MS = 30_000;
+
+/** Generic, content-FREE bodies keyed by category (same copy as the web
+ *  /api/send-push route). Never an item name or any notification text. */
+const GENERIC_PUSH_BODY: Record<string, string> = {
+  shared: "Something new was shared with you",
+  comments: "You have a new comment or mention",
+  lab: "New lab activity",
+  purchases: "An order update is waiting",
+  reminders: "You have a reminder",
+};
+const DEFAULT_PUSH_BODY = "New activity in your lab";
+
+/** A real Expo push token. Matches the web route's validation. */
+const EXPO_TOKEN_RE = /^Expo(nent)?PushToken\[[^\]]+\]$/;
+
+/** The recipient routing config the laptop mirrors to the relay (no research
+ *  content). channels is the per-category channel matrix; tzOffsetMinutes is the
+ *  recipient's Date.getTimezoneOffset() so the relay can resolve their LOCAL
+ *  time for quiet hours. */
+interface NotifyConfig {
+  channels?: Record<string, { phone?: boolean } | undefined>;
+  quietHours?: {
+    enabled?: boolean;
+    start?: string;
+    end?: string;
+    weekendsQuiet?: boolean;
+  };
+  tzOffsetMinutes?: number;
+}
+
+/** HKDF info string, byte-identical to frontend sealToRecipient (encryption.ts).
+ *  If you change the seal construction, change both. */
+const SEAL_INFO = utf8ToBytes("researchos.sharing.seal.v1");
+
+/** Seal a plaintext to a recipient X25519 public key. A byte-for-byte port of
+ *  frontend/src/lib/sharing/encryption.ts sealToRecipient (same @noble libs):
+ *  epk(32) || nonce(24) || XChaCha20-Poly1305(HKDF-SHA256(ECDH, salt=epk||rpk,
+ *  info=SEAL_INFO), nonce). The phone's openSealed/unsealSnapshot reads it. */
+function sealToRecipient(
+  plaintext: Uint8Array,
+  recipientX25519PublicKey: Uint8Array,
+): Uint8Array {
+  if (recipientX25519PublicKey.length !== 32) {
+    throw new Error("sealToRecipient: recipient public key must be 32 bytes");
+  }
+  const ephemeral = x25519.keygen();
+  const shared = x25519.getSharedSecret(
+    ephemeral.secretKey,
+    recipientX25519PublicKey,
+  );
+  const salt = concatBytes(ephemeral.publicKey, recipientX25519PublicKey);
+  const key = hkdf(sha256, shared, salt, SEAL_INFO, 32);
+  const nonce = randomBytes(24);
+  const ciphertext = xchacha20poly1305(key, nonce).encrypt(plaintext);
+  return concatBytes(ephemeral.publicKey, nonce, ciphertext);
+}
+
+/** True when the recipient's LOCAL time (UTC shifted by their tz offset) is
+ *  inside the quiet-hours window. Mirrors isQuietNow in preferences.ts. */
+function isQuietNow(
+  q: NotifyConfig["quietHours"],
+  nowMs: number,
+  tzOffsetMinutes: number,
+): boolean {
+  if (!q || !q.enabled) return false;
+  // getTimezoneOffset returns minutes where local = UTC - offset, so the
+  // recipient-local wall clock is UTC shifted back by the offset.
+  const local = new Date(nowMs - tzOffsetMinutes * 60_000);
+  const day = local.getUTCDay(); // 0 = Sun, 6 = Sat
+  if (q.weekendsQuiet && (day === 0 || day === 6)) return true;
+  const toMin = (hhmm: string | undefined): number => {
+    const [h, m] = String(hhmm ?? "").split(":").map(Number);
+    return (h || 0) * 60 + (m || 0);
+  };
+  const cur = local.getUTCHours() * 60 + local.getUTCMinutes();
+  const start = toMin(q.start);
+  const end = toMin(q.end);
+  if (start === end) return false;
+  return start < end ? cur >= start && cur < end : cur >= start || cur < end;
+}
+
+/** The recipient's own phone gate: the category is routed to the phone AND it is
+ *  not quiet hours. Account-tier is implicit (only paired account devices have a
+ *  seal key + push token to reach). */
+function shouldBuzzPhone(
+  config: NotifyConfig,
+  category: string,
+  nowMs: number,
+): boolean {
+  const ch = config.channels?.[category];
+  if (!ch || !ch.phone) return false;
+  return !isQuietNow(config.quietHours, nowMs, config.tzOffsetMinutes ?? 0);
+}
+
+/** Build the generic, content-free pending snapshot (one synthesized row). Shape
+ *  matches SnapshotNotification so the phone merges it with the laptop list. */
+function buildPendingSnapshot(category: string, tsIso: string) {
+  return {
+    kind: "notifications" as const,
+    version: 1 as const,
+    notifications: [
+      {
+        id: `relay-${category}-${tsIso}`,
+        category,
+        title: "ResearchOS",
+        body: GENERIC_PUSH_BODY[category] ?? DEFAULT_PUSH_BODY,
+        createdAt: tsIso,
+        read: false,
+      },
+    ],
+  };
+}
+
+/** Send a generic, content-free push to the Expo Push Service. Returns how many
+ *  tokens were sent to (0 on any failure; a missed buzz is never an error). */
+async function sendExpoPush(tokens: string[], category: string): Promise<number> {
+  const valid = Array.from(
+    new Set(tokens.filter((t) => EXPO_TOKEN_RE.test(t))),
+  ).slice(0, 20);
+  if (valid.length === 0) return 0;
+  const body = GENERIC_PUSH_BODY[category] ?? DEFAULT_PUSH_BODY;
+  const messages = valid.map((to) => ({
+    to,
+    title: "ResearchOS",
+    body,
+    sound: "default",
+    priority: "high",
+    data: { kind: "notifications", category },
+  }));
+  try {
+    const res = await fetch("https://exp.host/--/api/v2/push/send", {
+      method: "POST",
+      headers: { Accept: "application/json", "Content-Type": "application/json" },
+      body: JSON.stringify(messages),
+    });
+    return res.ok ? valid.length : 0;
+  } catch {
+    return 0;
+  }
 }
 
 /** Snapshot publish (mobile download path), signed by the USER identity key.
