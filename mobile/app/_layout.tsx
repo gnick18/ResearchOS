@@ -183,7 +183,7 @@ export default function RootLayout() {
     SplashScreen.hideAsync().catch(() => {
       // Native module missing or already hidden, ignore.
     });
-  }, [nativeHidden]);
+  }, [nativeHidden, fontsLoaded]);
 
   const handleSplashFinish = useCallback(() => {
     setSplashVisible(false);
