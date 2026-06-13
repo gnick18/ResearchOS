@@ -1,0 +1,430 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>Contract 03b — Method read modes</title>
+<link rel="stylesheet" href="contract.css">
+<style>
+/* per-type accent helper */
+.rt{--rt:var(--sky)}
+.rt .navhead .back{color:var(--rt)}
+.typebadge{display:inline-flex;align-items:center;gap:7px;padding:6px 12px;border-radius:var(--r-pill);font-size:12px;font-weight:700;background:color-mix(in srgb,var(--rt) 14%,transparent);color:var(--rt);margin-bottom:10px}
+.typebadge svg{width:14px;height:14px}
+.method-title{font-size:22px;font-weight:800;letter-spacing:-.02em;margin:2px 0 4px;line-height:1.15}
+.method-meta{font-size:12.5px;color:var(--muted);margin-bottom:16px;display:flex;gap:10px;align-items:center}
+/* data table */
+.dtable{width:100%;border-collapse:collapse;font-size:13px;margin:0 0 8px}
+.dtable th{text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--faint);font-weight:700;padding:8px 10px;border-bottom:1px solid var(--border)}
+.dtable td{padding:9px 10px;border-bottom:1px solid var(--hairline)}
+.dtable td.num{font-family:var(--mono);text-align:right}
+.dtable tr:last-child td{border-bottom:0}
+.kv{display:flex;justify-content:space-between;padding:9px 0;font-size:13.5px;border-bottom:1px solid var(--hairline)}
+.kv:last-child{border-bottom:0}
+.kv .k{color:var(--muted)} .kv .v{font-weight:600;font-family:var(--mono)}
+/* plate grid */
+.plate{display:grid;grid-template-columns:repeat(12,1fr);gap:3px}
+.well{aspect-ratio:1;border-radius:50%;background:var(--sunken);border:1px solid var(--border)}
+.well.s{background:var(--sky);border-color:var(--sky)}
+.well.c{background:var(--success);border-color:var(--success)}
+.well.b{background:var(--amber);border-color:var(--amber)}
+.legend{display:flex;gap:16px;margin-top:12px;font-size:12px;font-weight:600}
+.legend span{display:flex;align-items:center;gap:6px}
+.legend i{width:12px;height:12px;border-radius:50%;display:inline-block}
+/* timeline */
+.tl{position:relative;padding-left:22px}
+.tl::before{content:"";position:absolute;left:6px;top:4px;bottom:4px;width:2px;background:var(--border)}
+.tl .ev{position:relative;padding:0 0 16px}
+.tl .ev::before{content:"";position:absolute;left:-20px;top:3px;width:11px;height:11px;border-radius:50%;background:var(--rt);border:2px solid var(--surface);box-shadow:0 0 0 1px var(--rt)}
+.tl .ev .d{font-family:var(--mono);font-size:11px;color:var(--muted)}
+.tl .ev .x{font-size:13.5px;font-weight:600;margin-top:1px}
+/* pcr thermal profile (temp vs time line graph) */
+.profile{background:var(--sunken);border-radius:var(--r-md);padding:12px 10px 6px}
+.profile-phases{display:flex;gap:6px;margin-top:8px}
+.profile-phases .ph{flex:1;text-align:center;font-size:10px;color:var(--muted);font-weight:600;padding-top:6px;border-top:2px solid var(--border-strong)}
+.profile-phases .ph .pt{font-family:var(--mono);font-size:10.5px;color:var(--text);display:block}
+.profile-phases .ph.cyc{border-top-color:var(--rt)}
+/* recipe checklist (optional "check off as added" documentation) */
+.recipe-head{display:flex;justify-content:space-between;align-items:center;margin:18px 4px 9px;font-size:12px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--faint)}
+.recipe-head .opt{display:flex;align-items:center;gap:7px;text-transform:none;letter-spacing:0;color:var(--muted);font-weight:600;font-size:11.5px}
+.mini-toggle{width:38px;height:23px;border-radius:var(--r-pill);background:var(--sky);position:relative}
+.mini-toggle .k{position:absolute;top:3px;left:18px;width:17px;height:17px;border-radius:50%;background:#fff;box-shadow:var(--shadow-sm)}
+.ing{display:flex;align-items:center;gap:11px;padding:11px 4px}
+.ing+.ing{border-top:1px solid var(--hairline)}
+.ing .ck{width:22px;height:22px;border-radius:7px;border:2px solid var(--border-strong);flex:none}
+.ing .ck.done{background:var(--success);border-color:var(--success);display:grid;place-items:center}
+.ing .ck.done::after{content:"✓";color:#fff;font-size:13px;font-weight:800}
+.ing .inm{flex:1;font-size:14px;font-weight:550}
+.ing.done .inm{color:var(--muted)}
+.ing .ifv{font-family:var(--mono);font-size:12px;color:var(--faint);width:52px;text-align:right}
+.ing .ivol{font-family:var(--mono);font-size:14px;font-weight:600;width:42px;text-align:right}
+.added-count{text-align:right;margin-top:8px;font-family:var(--mono);font-size:11.5px;color:var(--success);font-weight:600}
+/* code */
+.code{background:#0d1117;border-radius:var(--r-md);padding:14px;font-family:var(--mono);font-size:12px;line-height:1.7;overflow:auto;color:#c9d4e0}
+.code .kw{color:#ff7b9c} .code .fn{color:#82d2ff} .code .st{color:#9ae6a4} .code .cm{color:#6b7785}
+.langtabs{display:flex;gap:6px;margin-bottom:10px}
+.langtab{font-size:12px;font-weight:600;padding:6px 12px;border-radius:var(--r-pill);background:var(--surface-2);border:1px solid var(--border);color:var(--muted)}
+.langtab.on{background:color-mix(in srgb,var(--rt) 14%,transparent);color:var(--rt);border-color:transparent}
+/* kit component card */
+.kit-item{display:flex;align-items:center;gap:12px;padding:13px;border:1px solid var(--border);border-radius:var(--r-md);background:var(--surface-2);margin-bottom:10px}
+.kit-item .ki{width:40px;height:40px;border-radius:11px;display:grid;place-items:center;flex:none;font-family:var(--mono);font-weight:700}
+/* mini chart */
+.chartbox{background:var(--sunken);border-radius:var(--r-md);padding:12px;margin-bottom:10px}
+.chartbox .ct{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--faint);margin-bottom:8px}
+.toolbar-bottom{padding:12px 16px;display:flex;gap:10px;border-top:1px solid var(--border);background:var(--surface)}
+.toolbar-bottom .btn{min-height:46px}
+/* pdf */
+.pdfpage{background:#fff;border:1px solid var(--border);border-radius:8px;box-shadow:var(--shadow-md);padding:20px;color:#1a1a1a;font-size:9px;line-height:1.5}
+.dark .pdfpage{color:#1a1a1a}
+.pdfpage h4{font-size:13px;margin:0 0 8px;color:#111}
+.pdfpage .ln{height:5px;background:#e3e3e3;border-radius:3px;margin-bottom:5px}
+.pdfbar{display:flex;align-items:center;justify-content:center;gap:14px;padding:10px;background:var(--surface);border-top:1px solid var(--border);font-size:12px;font-weight:600;color:var(--muted)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="studio-head">
+    <div class="studio-title"><span class="logo-dot"><svg viewBox="0 0 24 24" fill="none"><path d="M9 3h6M10 3v6L5.5 17a2.5 2.5 0 0 0 2.2 3.7h8.6A2.5 2.5 0 0 0 18.5 17L14 9V3" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></span>UI Contract</div>
+    <div class="toggle"><button id="tL" class="on" onclick="setMode('light')">☀︎ Light</button><button id="tD" onclick="setMode('dark')">☾ Dark</button></div>
+  </div>
+  <div class="crumbs">01 Tab roots · 02 Capture · <b>03b · Method read modes</b> · 04 Inventory · 05 System · 06 Notifications</div>
+  <p class="sec-kicker">03b · Method read modes</p>
+  <h2 class="sec-h">A designed reader for every method type</h2>
+  <p class="sec-d">All 10 types from the registry. Each is a pushed detail screen (back chevron, no floating bar), carries its type accent color, and renders its structured data natively, not as raw text. Read-only at the bench.</p>
+
+  <div class="gallery">
+
+    <!-- 1. MARKDOWN -->
+    <div class="phone-col">
+      <div class="phone"><div class="island"></div><div class="screen"><div class="rb-edge"></div>
+        <div class="statusbar"><span>9:41</span><span class="r">5G&nbsp;&nbsp;􀛨</span></div>
+        <div class="body rt" style="--rt:#6b7280">
+          <div class="navhead"><div class="back"><svg viewBox="0 0 24 24" fill="none"><path d="m15 6-6 6 6 6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg></div><div class="sp"></div><div class="iconbtn"><span class="star">★</span></div><div class="iconbtn"><svg viewBox="0 0 24 24" fill="none"><path d="M4 12v7a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-7M12 3v13M8 11l4 4 4-4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></div></div>
+          <div class="scroll nopad reader page">
+            <span class="typebadge"><svg viewBox="0 0 24 24" fill="none"><path d="M4 7h16M4 12h16M4 17h10" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>Markdown</span>
+            <div class="method-title">Western blot, standard</div>
+            <div class="method-meta">Protein · updated Tue · 6 min read</div>
+            <h3>Materials</h3>
+            <p>Transfer buffer (1x), PVDF membrane, blocking buffer (5% milk in TBST).</p>
+            <h3>Procedure</h3>
+            <ol>
+              <li>Activate the PVDF membrane in methanol for 30 s.</li>
+              <li>Assemble the transfer sandwich, run at 100 V for 60 min on ice.</li>
+              <li>Block 1 h at room temperature with gentle rocking.</li>
+            </ol>
+            <div class="codeblk">primary Ab 1:1000, overnight, 4 °C</div>
+            <p>Image on the ChemiDoc; expose 30 s to 2 min.</p>
+          </div>
+        </div>
+      </div></div>
+      <div class="phone-label">Markdown</div>
+      <div class="phone-cap">Rich protocol reader: headings, steps, callouts, images, tables.</div>
+    </div>
+
+    <!-- 2. PCR -->
+    <div class="phone-col">
+      <div class="phone"><div class="island"></div><div class="screen"><div class="rb-edge"></div>
+        <div class="statusbar"><span>9:41</span><span class="r">5G&nbsp;&nbsp;􀛨</span></div>
+        <div class="body rt" style="--rt:#7C5CE0">
+          <div class="navhead"><div class="back"><svg viewBox="0 0 24 24" fill="none"><path d="m15 6-6 6 6 6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg></div><div class="sp"></div><div class="iconbtn"><span class="star">★</span></div></div>
+          <div class="scroll nopad">
+            <span class="typebadge"><svg viewBox="0 0 24 24" fill="none"><path d="M4 6h16M7 6v12M17 6v12M4 18h16" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>PCR</span>
+            <div class="method-title">Colony PCR, Taq</div>
+            <div class="method-meta">35 cycles · ~1h 40m</div>
+            <div class="lbl" style="margin-top:4px">Thermal profile</div>
+            <div class="profile">
+              <svg viewBox="0 0 300 122" style="width:100%;display:block">
+                <!-- cycling band -->
+                <rect x="60" y="10" width="136" height="96" rx="7" fill="var(--rt)" fill-opacity="0.08"/>
+                <!-- temp gridlines -->
+                <line x1="24" y1="19" x2="288" y2="19" stroke="var(--border)" stroke-width="1" stroke-dasharray="2 4"/>
+                <line x1="24" y1="40" x2="288" y2="40" stroke="var(--border)" stroke-width="1" stroke-dasharray="2 4"/>
+                <line x1="24" y1="55" x2="288" y2="55" stroke="var(--border)" stroke-width="1" stroke-dasharray="2 4"/>
+                <text x="20" y="22" font-size="8" fill="var(--faint)" text-anchor="end">95</text>
+                <text x="20" y="43" font-size="8" fill="var(--faint)" text-anchor="end">72</text>
+                <text x="20" y="58" font-size="8" fill="var(--faint)" text-anchor="end">55</text>
+                <!-- profile: init -> 35 cycles (3 shown) -> final ext -> 4C hold -->
+                <polyline fill="none" stroke="var(--rt)" stroke-width="2.6" stroke-linejoin="round" stroke-linecap="round"
+                  points="24,99 44,19 60,19 66,19 74,55 84,55 90,40 100,40 104,19 110,19 118,55 128,55 134,40 144,40 148,19 154,19 162,55 172,55 178,40 188,40 192,19 198,40 230,40 244,99 288,99"/>
+                <text x="128" y="119" font-size="9" fill="var(--rt)" font-weight="700" text-anchor="middle">repeat ×35</text>
+              </svg>
+              <div class="profile-phases">
+                <div class="ph"><span class="pt">95° 3m</span>Initial</div>
+                <div class="ph cyc"><span class="pt">95/55/72</span>Cycling</div>
+                <div class="ph"><span class="pt">72° 5m</span>Final</div>
+                <div class="ph"><span class="pt">4° ∞</span>Hold</div>
+              </div>
+            </div>
+            <div class="recipe-head">Reaction mix · 25 µL <span class="opt">Check as added <span class="mini-toggle"><span class="k"></span></span></span></div>
+            <div class="card card-tight">
+              <div class="ing done"><span class="ck done"></span><span class="inm">2x Master Mix</span><span class="ifv">1x</span><span class="ivol">12.5</span></div>
+              <div class="ing done"><span class="ck done"></span><span class="inm">Primer F</span><span class="ifv">0.5 µM</span><span class="ivol">1.0</span></div>
+              <div class="ing"><span class="ck"></span><span class="inm">Primer R</span><span class="ifv">0.5 µM</span><span class="ivol">1.0</span></div>
+              <div class="ing"><span class="ck"></span><span class="inm">Template</span><span class="ifv">colony</span><span class="ivol">1.0</span></div>
+              <div class="ing"><span class="ck"></span><span class="inm">Nuclease-free water</span><span class="ifv">—</span><span class="ivol">9.5</span></div>
+            </div>
+            <div class="added-count">2 of 5 added</div>
+          </div>
+        </div>
+      </div></div>
+      <div class="phone-label">PCR</div>
+      <div class="phone-cap">Thermocycler profile as a real diagram + the reaction recipe.</div>
+    </div>
+
+    <!-- 3. LC GRADIENT -->
+    <div class="phone-col">
+      <div class="phone"><div class="island"></div><div class="screen"><div class="rb-edge"></div>
+        <div class="statusbar"><span>9:41</span><span class="r">5G&nbsp;&nbsp;􀛨</span></div>
+        <div class="body rt" style="--rt:#1AA0E6">
+          <div class="navhead"><div class="back"><svg viewBox="0 0 24 24" fill="none"><path d="m15 6-6 6 6 6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg></div><div class="sp"></div><div class="iconbtn"><span class="star">★</span></div></div>
+          <div class="scroll nopad">
+            <span class="typebadge"><svg viewBox="0 0 24 24" fill="none"><path d="M4 19 10 9l4 5 6-9" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>LC Gradient</span>
+            <div class="method-title">Reverse-phase, peptides</div>
+            <div class="method-meta">C18 · 0.300 mL/min · 30 min</div>
+            <div class="chartbox"><div class="ct">% B over time</div>
+              <svg viewBox="0 0 280 110" style="width:100%">
+                <line x1="20" y1="90" x2="270" y2="90" stroke="var(--border-strong)" stroke-width="1"/>
+                <line x1="20" y1="10" x2="20" y2="90" stroke="var(--border-strong)" stroke-width="1"/>
+                <polyline points="20,80 70,72 200,20 235,20 240,80 270,80" fill="none" stroke="var(--sky)" stroke-width="2.5" stroke-linejoin="round"/>
+                <text x="14" y="14" font-size="8" fill="var(--faint)" text-anchor="end">95</text>
+                <text x="14" y="92" font-size="8" fill="var(--faint)" text-anchor="end">5</text>
+                <text x="20" y="104" font-size="8" fill="var(--faint)">0</text>
+                <text x="262" y="104" font-size="8" fill="var(--faint)">30m</text>
+              </svg>
+            </div>
+            <div class="lbl">Gradient table</div>
+            <table class="dtable">
+              <tr><th>Time</th><th>% A</th><th>% B</th></tr>
+              <tr><td class="num">0.0</td><td class="num">95</td><td class="num">5</td></tr>
+              <tr><td class="num">2.0</td><td class="num">90</td><td class="num">10</td></tr>
+              <tr><td class="num">22.0</td><td class="num">5</td><td class="num">95</td></tr>
+              <tr><td class="num">25.0</td><td class="num">95</td><td class="num">5</td></tr>
+            </table>
+            <div class="card card-tight" style="margin-top:10px">
+              <div class="kv"><span class="k">Column</span><span class="v">C18, 2.1×100</span></div>
+              <div class="kv"><span class="k">Solvent A</span><span class="v">0.1% FA / H₂O</span></div>
+              <div class="kv"><span class="k">Solvent B</span><span class="v">0.1% FA / ACN</span></div>
+            </div>
+          </div>
+        </div>
+      </div></div>
+      <div class="phone-label">LC Gradient</div>
+      <div class="phone-cap">Gradient curve chart + the time table, column, and solvents.</div>
+    </div>
+
+    <!-- 4. PLATE -->
+    <div class="phone-col">
+      <div class="phone"><div class="island"></div><div class="screen"><div class="rb-edge"></div>
+        <div class="statusbar"><span>9:41</span><span class="r">5G&nbsp;&nbsp;􀛨</span></div>
+        <div class="body rt" style="--rt:#16a34a">
+          <div class="navhead"><div class="back"><svg viewBox="0 0 24 24" fill="none"><path d="m15 6-6 6 6 6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg></div><div class="sp"></div><div class="iconbtn"><span class="star">★</span></div></div>
+          <div class="scroll nopad">
+            <span class="typebadge"><svg viewBox="0 0 24 24" fill="none"><rect x="3" y="4" width="18" height="16" rx="2" stroke="currentColor" stroke-width="1.8"/><path d="M3 9h18M3 14h18M9 4v16M15 4v16" stroke="currentColor" stroke-width="1.4"/></svg>Plate Layout</span>
+            <div class="method-title">96-well, IC50 assay</div>
+            <div class="method-meta">8 × 12 · 1 plate</div>
+            <div class="card card-tight">
+              <div class="plate" id="plate"></div>
+              <div class="legend"><span><i style="background:var(--sky)"></i>Sample</span><span><i style="background:var(--success)"></i>Control</span><span><i style="background:var(--amber)"></i>Blank</span></div>
+            </div>
+            <div class="lbl">Wells</div>
+            <div class="card card-tight">
+              <div class="kv"><span class="k">Samples</span><span class="v">72</span></div>
+              <div class="kv"><span class="k">Controls</span><span class="v">12</span></div>
+              <div class="kv"><span class="k">Blanks</span><span class="v">12</span></div>
+            </div>
+          </div>
+        </div>
+      </div></div>
+      <div class="phone-label">Plate Layout</div>
+      <div class="phone-cap">The well-plate rendered as a real grid with a sample/control/blank legend.</div>
+    </div>
+
+    <!-- 5. CELL CULTURE -->
+    <div class="phone-col">
+      <div class="phone"><div class="island"></div><div class="screen"><div class="rb-edge"></div>
+        <div class="statusbar"><span>9:41</span><span class="r">5G&nbsp;&nbsp;􀛨</span></div>
+        <div class="body rt" style="--rt:#e5484d">
+          <div class="navhead"><div class="back"><svg viewBox="0 0 24 24" fill="none"><path d="m15 6-6 6 6 6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg></div><div class="sp"></div><div class="iconbtn"><span class="star">★</span></div></div>
+          <div class="scroll nopad">
+            <span class="typebadge"><svg viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="8" stroke="currentColor" stroke-width="1.8"/><circle cx="10" cy="10" r="1.6" fill="currentColor"/><circle cx="14" cy="14" r="1.6" fill="currentColor"/></svg>Cell culture</span>
+            <div class="method-title">HEK293T passaging</div>
+            <div class="method-meta">Passage 14 · split 1:8</div>
+            <div class="card card-tight">
+              <div class="kv"><span class="k">Cell line</span><span class="v">HEK293T</span></div>
+              <div class="kv"><span class="k">Media</span><span class="v">DMEM + 10% FBS</span></div>
+              <div class="kv"><span class="k">Schedule</span><span class="v">Mon / Thu</span></div>
+              <div class="kv"><span class="k">Confluency</span><span class="v">80-90%</span></div>
+            </div>
+            <div class="lbl">Passage history</div>
+            <div class="card card-tight"><div class="tl">
+              <div class="ev"><div class="d">Jun 13</div><div class="x">P14 · split 1:8, healthy</div></div>
+              <div class="ev"><div class="d">Jun 09</div><div class="x">P13 · split 1:8</div></div>
+              <div class="ev"><div class="d">Jun 06</div><div class="x">P12 · media change</div></div>
+            </div></div>
+          </div>
+        </div>
+      </div></div>
+      <div class="phone-label">Cell culture</div>
+      <div class="phone-cap">Line, media, schedule, plus the per-task passage history timeline.</div>
+    </div>
+
+    <!-- 6. MASS SPEC -->
+    <div class="phone-col">
+      <div class="phone"><div class="island"></div><div class="screen"><div class="rb-edge"></div>
+        <div class="statusbar"><span>9:41</span><span class="r">5G&nbsp;&nbsp;􀛨</span></div>
+        <div class="body rt" style="--rt:#7C5CE0">
+          <div class="navhead"><div class="back"><svg viewBox="0 0 24 24" fill="none"><path d="m15 6-6 6 6 6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg></div><div class="sp"></div><div class="iconbtn"><span class="star">★</span></div></div>
+          <div class="scroll nopad">
+            <span class="typebadge"><svg viewBox="0 0 24 24" fill="none"><path d="M4 20 8 6l4 9 3-5 5 10" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>Mass spec</span>
+            <div class="method-title">ESI+ scan, intact mass</div>
+            <div class="method-meta">Pairs with LC method · LC-MS</div>
+            <div class="chartbox"><div class="ct">Acquisition</div>
+              <svg viewBox="0 0 280 90" style="width:100%">
+                <line x1="14" y1="78" x2="272" y2="78" stroke="var(--border-strong)"/>
+                <line x1="60" y1="78" x2="60" y2="24" stroke="var(--violet)" stroke-width="2.5"/>
+                <line x1="120" y1="78" x2="120" y2="46" stroke="var(--violet)" stroke-width="2.5"/>
+                <line x1="150" y1="78" x2="150" y2="14" stroke="var(--violet)" stroke-width="2.5"/>
+                <line x1="210" y1="78" x2="210" y2="58" stroke="var(--violet)" stroke-width="2.5"/>
+                <text x="14" y="88" font-size="8" fill="var(--faint)">400</text>
+                <text x="250" y="88" font-size="8" fill="var(--faint)">2000 m/z</text>
+              </svg>
+            </div>
+            <div class="card card-tight">
+              <div class="kv"><span class="k">Ionization</span><span class="v">ESI positive</span></div>
+              <div class="kv"><span class="k">Scan range</span><span class="v">400-2000 m/z</span></div>
+              <div class="kv"><span class="k">Capillary</span><span class="v">3.5 kV</span></div>
+              <div class="kv"><span class="k">Source temp</span><span class="v">320 °C</span></div>
+              <div class="kv"><span class="k">Calibration</span><span class="v">NaFormate</span></div>
+            </div>
+          </div>
+        </div>
+      </div></div>
+      <div class="phone-label">Mass spec</div>
+      <div class="phone-cap">Ionization mode, source/scan params, calibration. Links its LC partner.</div>
+    </div>
+
+    <!-- 7. qPCR ANALYSIS -->
+    <div class="phone-col">
+      <div class="phone"><div class="island"></div><div class="screen"><div class="rb-edge"></div>
+        <div class="statusbar"><span>9:41</span><span class="r">5G&nbsp;&nbsp;􀛨</span></div>
+        <div class="body rt" style="--rt:#d97706">
+          <div class="navhead"><div class="back"><svg viewBox="0 0 24 24" fill="none"><path d="m15 6-6 6 6 6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg></div><div class="sp"></div><div class="iconbtn"><span class="star">★</span></div></div>
+          <div class="scroll nopad">
+            <span class="typebadge"><svg viewBox="0 0 24 24" fill="none"><path d="M4 18c4 0 4-10 8-10s4 6 8 6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>qPCR analysis</span>
+            <div class="method-title">GAPDH vs target, ΔΔCq</div>
+            <div class="method-meta">Triplicate · efficiency 98%</div>
+            <div class="chartbox"><div class="ct">Melt curve (Tm)</div>
+              <svg viewBox="0 0 280 80" style="width:100%">
+                <polyline points="14,70 90,66 150,18 175,18 200,64 272,68" fill="none" stroke="var(--amber)" stroke-width="2.5" stroke-linejoin="round"/>
+                <text x="150" y="14" font-size="8" fill="var(--faint)" text-anchor="middle">Tm 84.2°C</text>
+              </svg>
+            </div>
+            <div class="lbl">Fold change (2^-ΔΔCq)</div>
+            <table class="dtable">
+              <tr><th>Sample</th><th>Cq</th><th>Fold</th></tr>
+              <tr><td>Control</td><td class="num">24.1</td><td class="num">1.00</td></tr>
+              <tr><td>Treated A</td><td class="num">22.6</td><td class="num">2.83</td></tr>
+              <tr><td>Treated B</td><td class="num">21.9</td><td class="num">4.59</td></tr>
+            </table>
+          </div>
+        </div>
+      </div></div>
+      <div class="phone-label">qPCR analysis</div>
+      <div class="phone-cap">Cq table, melt-curve Tm, standard-curve efficiency, ΔΔCq fold-change.</div>
+    </div>
+
+    <!-- 8. CODING WORKFLOW -->
+    <div class="phone-col">
+      <div class="phone"><div class="island"></div><div class="screen"><div class="rb-edge"></div>
+        <div class="statusbar"><span>9:41</span><span class="r">5G&nbsp;&nbsp;􀛨</span></div>
+        <div class="body rt" style="--rt:#0891b2">
+          <div class="navhead"><div class="back"><svg viewBox="0 0 24 24" fill="none"><path d="m15 6-6 6 6 6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg></div><div class="sp"></div><div class="iconbtn"><svg viewBox="0 0 24 24" fill="none"><path d="M8 8H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2v-2" stroke="currentColor" stroke-width="1.8"/><rect x="8" y="4" width="12" height="12" rx="2" stroke="currentColor" stroke-width="1.8"/></svg></div></div>
+          <div class="scroll nopad">
+            <span class="typebadge"><svg viewBox="0 0 24 24" fill="none"><path d="m8 8-4 4 4 4M16 8l4 4-4 4M13 6l-2 12" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>Coding workflow</span>
+            <div class="method-title">ΔΔCq fold-change script</div>
+            <div class="method-meta">Python · pandas</div>
+            <div class="langtabs"><span class="langtab on">Python</span><span class="langtab">R</span><span class="langtab">Notebook</span></div>
+            <div class="code"><span class="cm"># compute 2^-ddCq</span>
+<span class="kw">import</span> pandas <span class="kw">as</span> pd
+df = pd.<span class="fn">read_csv</span>(<span class="st">"cq.csv"</span>)
+ref = df[df.gene==<span class="st">"GAPDH"</span>].cq
+dcq = df.cq - ref.values
+ddcq = dcq - dcq[<span class="st">"ctrl"</span>]
+df[<span class="st">"fold"</span>] = <span class="fn">pow</span>(2, -ddcq)</div>
+            <div class="note" style="margin-top:8px">Read-only at the bench. Tap copy to take it to your laptop.</div>
+          </div>
+          <div class="toolbar-bottom"><button class="btn btn-secondary"><svg viewBox="0 0 24 24" fill="none"><rect x="9" y="9" width="11" height="11" rx="2" stroke="currentColor" stroke-width="1.8"/><path d="M5 15V5a2 2 0 0 1 2-2h10" stroke="currentColor" stroke-width="1.8"/></svg>Copy code</button></div>
+        </div>
+      </div></div>
+      <div class="phone-label">Coding workflow</div>
+      <div class="phone-cap">Syntax-highlighted scripts and notebook cells, language tabs, copy.</div>
+    </div>
+
+    <!-- 9. KIT (COMPOUND) -->
+    <div class="phone-col">
+      <div class="phone"><div class="island"></div><div class="screen"><div class="rb-edge"></div>
+        <div class="statusbar"><span>9:41</span><span class="r">5G&nbsp;&nbsp;􀛨</span></div>
+        <div class="body rt" style="--rt:#6366f1">
+          <div class="navhead"><div class="back"><svg viewBox="0 0 24 24" fill="none"><path d="m15 6-6 6 6 6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg></div><div class="sp"></div><div class="iconbtn"><span class="star">★</span></div></div>
+          <div class="scroll nopad">
+            <span class="typebadge"><svg viewBox="0 0 24 24" fill="none"><path d="m12 3 8 4.5v9L12 21l-8-4.5v-9z" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/><path d="M12 12v9M4 7.5l8 4.5 8-4.5" stroke="currentColor" stroke-width="1.7"/></svg>Kit</span>
+            <div class="method-title">Full qPCR workflow</div>
+            <div class="method-meta">4 components · run in order</div>
+            <div class="lbl">Components</div>
+            <div class="kit-item"><div class="ki" style="background:var(--sky-dim);color:var(--sky)">1</div><div class="ti">RNA extraction<div class="sub">Protocol</div></div><svg class="chev" viewBox="0 0 24 24" fill="none"><path d="m9 6 6 6-6 6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></div>
+            <div class="kit-item"><div class="ki" style="background:var(--violet-dim);color:var(--violet)">2</div><div class="ti">Reverse transcription<div class="sub">PCR</div></div><svg class="chev" viewBox="0 0 24 24" fill="none"><path d="m9 6 6 6-6 6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></div>
+            <div class="kit-item"><div class="ki" style="background:var(--violet-dim);color:var(--violet)">3</div><div class="ti">qPCR cycling<div class="sub">PCR</div></div><svg class="chev" viewBox="0 0 24 24" fill="none"><path d="m9 6 6 6-6 6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></div>
+            <div class="kit-item"><div class="ki" style="background:var(--amber-dim);color:var(--amber)">4</div><div class="ti">ΔΔCq analysis<div class="sub">qPCR analysis</div></div><svg class="chev" viewBox="0 0 24 24" fill="none"><path d="m9 6 6 6-6 6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></div>
+          </div>
+        </div>
+      </div></div>
+      <div class="phone-label">Kit (compound)</div>
+      <div class="phone-cap">Bundled methods as ordered, openable component cards.</div>
+    </div>
+
+    <!-- 10. PDF -->
+    <div class="phone-col">
+      <div class="phone"><div class="island"></div><div class="screen"><div class="rb-edge"></div>
+        <div class="statusbar"><span>9:41</span><span class="r">5G&nbsp;&nbsp;􀛨</span></div>
+        <div class="body rt" style="--rt:#ea580c">
+          <div class="navhead"><div class="back"><svg viewBox="0 0 24 24" fill="none"><path d="m15 6-6 6 6 6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg></div><div class="ti" style="font-size:15px">Assay protocol</div><div class="sp"></div><div class="iconbtn"><svg viewBox="0 0 24 24" fill="none"><path d="M4 12v7a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-7M12 3v13M8 11l4 4 4-4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></div></div>
+          <div class="scroll" style="background:var(--sunken);padding:16px 16px 16px">
+            <span class="typebadge"><svg viewBox="0 0 24 24" fill="none"><path d="M6 3h8l4 4v14H6z" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/><path d="M14 3v4h4" stroke="currentColor" stroke-width="1.7"/></svg>PDF</span>
+            <div class="pdfpage">
+              <h4>Cytotoxicity assay, v3</h4>
+              <div class="ln" style="width:90%"></div><div class="ln" style="width:96%"></div><div class="ln" style="width:70%"></div>
+              <div style="height:8px"></div>
+              <div class="ln" style="width:40%;background:#cdd6df"></div>
+              <div class="ln" style="width:92%"></div><div class="ln" style="width:88%"></div><div class="ln" style="width:94%"></div><div class="ln" style="width:60%"></div>
+              <div style="height:8px"></div>
+              <div class="ln" style="width:80%"></div><div class="ln" style="width:90%"></div><div class="ln" style="width:50%"></div>
+            </div>
+          </div>
+          <div class="pdfbar"><svg viewBox="0 0 24 24" fill="none" style="width:16px;height:16px"><path d="m15 6-6 6 6 6" stroke="currentColor" stroke-width="2"/></svg>Page 1 of 4<svg viewBox="0 0 24 24" fill="none" style="width:16px;height:16px"><path d="m9 6 6 6-6 6" stroke="currentColor" stroke-width="2"/></svg></div>
+        </div>
+      </div></div>
+      <div class="phone-label">PDF</div>
+      <div class="phone-cap">Native page viewer with page chrome, paging, and download.</div>
+    </div>
+
+  </div>
+</div>
+<script>
+function setMode(m){document.documentElement.classList.toggle('dark',m==='dark');document.getElementById('tL').classList.toggle('on',m==='light');document.getElementById('tD').classList.toggle('on',m==='dark');}
+// build a plausible 96-well plate
+(function(){
+  const p=document.getElementById('plate'); if(!p) return;
+  let html='';
+  for(let i=0;i<96;i++){
+    const col=i%12;
+    let cls='well s';
+    if(col===0) cls='well c';      // control column
+    if(col===11) cls='well b';     // blank column
+    html+='<div class="'+cls+'"></div>';
+  }
+  p.innerHTML=html;
+})();
+</script>
+</body>
+</html>
+</content>

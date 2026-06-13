@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>ResearchOS Companion — UI Contract</title>
+<link rel="stylesheet" href="contract.css">
+<style>
+.idx{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:18px;margin-top:8px}
+.idx a{display:block;text-decoration:none;color:inherit;background:var(--surface);border:1px solid var(--border);border-radius:var(--r-lg);padding:20px;box-shadow:var(--shadow-sm);transition:transform .12s,box-shadow .12s}
+.idx a:hover{transform:translateY(-3px);box-shadow:var(--shadow-md)}
+.idx .n{font-size:11px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--sky)}
+.idx .t{font-size:18px;font-weight:800;margin:6px 0 6px;letter-spacing:-.01em}
+.idx .d{font-size:13px;color:var(--muted);line-height:1.5}
+.idx .c{font-size:11.5px;color:var(--faint);margin-top:10px;font-weight:600}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="studio-head">
+    <div class="studio-title"><span class="logo-dot"><svg viewBox="0 0 24 24" fill="none"><path d="M9 3h6M10 3v6L5.5 17a2.5 2.5 0 0 0 2.2 3.7h8.6A2.5 2.5 0 0 0 18.5 17L14 9V3" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></span>Companion UI Contract</div>
+    <div class="toggle"><button id="tL" class="on" onclick="setMode('light')">☀︎ Light</button><button id="tD" onclick="setMode('dark')">☾ Dark</button></div>
+  </div>
+  <p class="studio-sub">The final mobile UI design contract for the ResearchOS companion app. Every screen, popup, button, notification, and state, built on one locked design language (Geist + Geist Mono, flat canvas, 4-tab + center Capture navigation). The real React Native app is rebuilt to match these pages. Toggle light/dark on any page.</p>
+
+  <div class="idx">
+    <a href="01-tab-roots.html"><div class="n">01 · Tab roots</div><div class="t">Home · Notebook · Methods · Inventory</div><div class="d">The four persistent destinations and the floating ＋ Capture bar.</div><div class="c">4 screens</div></a>
+    <a href="02-capture.html"><div class="n">02 · Capture</div><div class="t">The ＋ action and its flows</div><div class="d">Capture sheet, photo preview, annotate, quick note, bulk upload, filing sheet.</div><div class="c">6 screens</div></a>
+    <a href="03-tools.html"><div class="n">03 · Tools</div><div class="t">Timers, calculators, wiki</div><div class="d">Timers, the 5 calculators, lab calcs, wiki browse + reader.</div><div class="c">9 screens</div></a>
+    <a href="03b-method-read-modes.html"><div class="n">03b · Read modes</div><div class="t">A reader for every method type</div><div class="d">Markdown, PDF, PCR, LC, plate, cell culture, mass spec, qPCR, code, kit.</div><div class="c">10 screens</div></a>
+    <a href="04-inventory.html"><div class="n">04 · Inventory deep</div><div class="t">Scan flow + smart match</div><div class="d">Barcode scan, smart match, deduct, new package, auto-fill, track, add purchase, reorder.</div><div class="c">9 screens</div></a>
+    <a href="05-system.html"><div class="n">05 · System &amp; popups</div><div class="t">Pair, settings, overlays</div><div class="d">Pair, settings, app-lock, splash, alarm, Today panel, dialogs, success.</div><div class="c">9 screens</div></a>
+    <a href="06-notifications-components.html"><div class="n">06 · Notifications &amp; components</div><div class="t">Notifications + the primitive set</div><div class="d">In-app list, OS push, connection states, and the full component reference.</div><div class="c">4 screens + reference</div></a>
+  </div>
+
+  <div class="callout" style="margin-top:30px;max-width:none"><b>Design language:</b> Geist / Geist Mono, brand sky #1AA0E6, flat canvas (Apple-style), 8pt grid, restrained color with the rainbow edge as signature. Source of truth: <span class="mono">contract.css</span>. Foundation reference: <span class="mono">../2026-06-13-mobile-redesign-foundation.html</span>.</div>
+</div>
+<script>
+function setMode(m){document.documentElement.classList.toggle('dark',m==='dark');document.getElementById('tL').classList.toggle('on',m==='light');document.getElementById('tD').classList.toggle('on',m==='dark');}
+</script>
+</body>
+</html>
+</content>

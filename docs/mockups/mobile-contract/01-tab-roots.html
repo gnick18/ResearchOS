@@ -1,0 +1,179 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>Contract 01 — Tab roots</title>
+<link rel="stylesheet" href="contract.css">
+</head>
+<body>
+<div class="wrap">
+  <div class="studio-head">
+    <div class="studio-title"><span class="logo-dot"><svg viewBox="0 0 24 24" fill="none"><path d="M9 3h6M10 3v6L5.5 17a2.5 2.5 0 0 0 2.2 3.7h8.6A2.5 2.5 0 0 0 18.5 17L14 9V3" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></span>UI Contract</div>
+    <div class="toggle"><button id="tL" class="on" onclick="setMode('light')">☀︎ Light</button><button id="tD" onclick="setMode('dark')">☾ Dark</button></div>
+  </div>
+  <div class="crumbs"><b>01 · Tab roots</b> &nbsp;·&nbsp; 02 Capture · 03 Tools · 04 Inventory · 05 System &amp; popups · 06 Notifications &amp; components</div>
+  <p class="sec-kicker">01 · Tab roots</p>
+  <h2 class="sec-h">The four persistent destinations</h2>
+  <p class="sec-d">Home, Notebook, Methods, Inventory. The floating bar persists on these; it slides away on pushed screens. The center ＋ opens the Capture sheet (see 02). Numbers render in Geist Mono.</p>
+
+  <div class="gallery">
+
+    <!-- HOME -->
+    <div class="phone-col">
+      <div class="phone"><div class="island"></div><div class="screen">
+        <div class="rb-edge"></div>
+        <div class="statusbar"><span>9:41</span><span class="r">5G&nbsp;&nbsp;􀛨</span></div>
+        <div class="body">
+          <div class="apphead"><div><div class="greet">Good morning, Grant</div><h1>Home</h1></div>
+            <div class="head-actions">
+              <div class="iconbtn"><span class="dot-badge">2</span><svg viewBox="0 0 24 24" fill="none"><path d="M6 9a6 6 0 0 1 12 0c0 7 3 8 3 8H3s3-1 3-8M9.5 21a2.5 2.5 0 0 0 5 0" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+              <div class="iconbtn"><svg viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="3.2" stroke="currentColor" stroke-width="1.7"/><path d="M12 4v2M12 18v2M4 12h2M18 12h2M6 6l1.5 1.5M16.5 16.5 18 18M18 6l-1.5 1.5M7.5 16.5 6 18" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg></div>
+            </div>
+          </div>
+          <div class="scroll">
+            <div class="statuscard"><div class="pulse"><span class="core"></span></div><div><div class="lab">Maple Lab · Live</div><div class="meta">Synced just now · 24 methods offline</div></div></div>
+            <div class="lbl">Running now</div>
+            <div class="timer-live"><div class="ring"><div class="in">⏱</div></div><div><div class="nm">PCR denaturation</div><div class="meta" style="font-size:12px;color:var(--muted)">Step 2 of 6</div></div><div class="cd">04:12</div></div>
+            <div class="lbl">Today <a>3 due</a></div>
+            <div class="card card-tight">
+              <div class="taskrow"><span class="checkbox due"></span><span class="t">Image the gel</span><span class="when over">Overdue</span></div>
+              <div class="taskrow"><span class="checkbox"></span><span class="t">Restock pipette tips</span><span class="when">2:00 PM</span></div>
+              <div class="taskrow"><span class="checkbox"></span><span class="t">1:1 with Priya</span><span class="when">4:30 PM</span></div>
+            </div>
+            <div class="lbl">Tools</div>
+            <div class="launch">
+              <div class="tile"><div class="ic amber"><svg viewBox="0 0 24 24" fill="none"><circle cx="12" cy="13" r="8" stroke="currentColor" stroke-width="1.8"/><path d="M12 13V9M9 2h6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></div><div class="nm">Timers</div></div>
+              <div class="tile"><div class="ic sky"><svg viewBox="0 0 24 24" fill="none"><rect x="4" y="3" width="16" height="18" rx="2.5" stroke="currentColor" stroke-width="1.8"/><path d="M8 7h8M8 11h3M8 15h3" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></div><div class="nm">Calc</div></div>
+              <div class="tile"><div class="ic violet"><svg viewBox="0 0 24 24" fill="none"><path d="M5 4h11l3 3v13H5z" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/><path d="M9 12h6M9 16h6" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg></div><div class="nm">Wiki</div></div>
+              <div class="tile"><div class="ic green"><svg viewBox="0 0 24 24" fill="none"><path d="M21 11.5a8.5 8.5 0 1 1-3-6.5M21 4v5h-5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></div><div class="nm">Sync</div></div>
+            </div>
+            <div class="lbl">Recent</div>
+            <div class="card card-tight row-list">
+              <div class="lrow"><div class="thumb"><svg viewBox="0 0 24 24" fill="none"><path d="M4 8h16v11H4z" stroke="currentColor" stroke-width="1.6"/><circle cx="9" cy="12" r="1.6" fill="currentColor"/></svg></div><div class="ti">Western blot, rep 2<div class="sub"><span class="status-dot sd-ok"></span>Filed to Gel imaging</div></div></div>
+            </div>
+          </div>
+          <div class="navwrap"><div class="navbar">
+            <button class="navitem active"><svg viewBox="0 0 24 24" fill="none"><path d="M3 10.5 12 3l9 7.5M5 9.5V20h14V9.5" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/></svg><span class="nl">Home</span></button>
+            <button class="navitem"><svg viewBox="0 0 24 24" fill="none"><path d="M6 3h11a2 2 0 0 1 2 2v15l-3-2-3 2-3-2-3 2V5a2 2 0 0 1 2-2Z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg><span class="nl">Notebook</span></button>
+            <button class="fab"><svg viewBox="0 0 24 24" fill="none"><path d="M12 5v14M5 12h14" stroke="#fff" stroke-width="2.4" stroke-linecap="round"/></svg></button>
+            <button class="navitem"><svg viewBox="0 0 24 24" fill="none"><path d="M4 5.5C4 4.7 4.7 4 5.5 4H11v16H5.5A1.5 1.5 0 0 1 4 18.5v-13ZM20 5.5C20 4.7 19.3 4 18.5 4H13v16h5.5a1.5 1.5 0 0 0 1.5-1.5v-13Z" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/></svg><span class="nl">Methods</span></button>
+            <button class="navitem"><svg viewBox="0 0 24 24" fill="none"><path d="m12 3 8 4.5v9L12 21l-8-4.5v-9L12 3Zm0 0v18M4 7.5l8 4.5 8-4.5" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/></svg><span class="nl">Inventory</span></button>
+          </div></div>
+        </div>
+      </div></div>
+      <div class="phone-label">Home</div>
+      <div class="phone-cap">The glance surface: sync status, live timers, Today, a tool launcher, and recents.</div>
+    </div>
+
+    <!-- NOTEBOOK -->
+    <div class="phone-col">
+      <div class="phone"><div class="island"></div><div class="screen">
+        <div class="rb-edge"></div>
+        <div class="statusbar"><span>9:41</span><span class="r">5G&nbsp;&nbsp;􀛨</span></div>
+        <div class="body">
+          <div class="apphead"><div><div class="greet">Maple Lab</div><h1>Notebook</h1></div></div>
+          <div class="scroll">
+            <div class="statuscard"><div class="pulse"><span class="core"></span></div><div><div class="lab">Live</div><div class="meta">Synced just now</div></div><div class="chiplink">Unpair</div></div>
+            <div class="cap2" style="margin-top:14px">
+              <div class="captile photo"><div class="blob"></div><div class="ci"><svg viewBox="0 0 24 24" fill="none"><path d="M4 8h3l1.5-2.2A1 1 0 0 1 9.3 5h5.4a1 1 0 0 1 .8.4L17 8h3a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9a1 1 0 0 1 1-1Z" stroke="#fff" stroke-width="1.8" stroke-linejoin="round"/><circle cx="12" cy="13" r="3.2" stroke="#fff" stroke-width="1.8"/></svg></div><div><div class="cl">Take a photo</div><div class="cs">Gel, plate, board</div></div></div>
+              <div class="captile note"><div class="blob"></div><div class="ci"><svg viewBox="0 0 24 24" fill="none"><path d="M5 19l1-4L16 5l3 3L9 18l-4 1Z" stroke="#fff" stroke-width="1.8" stroke-linejoin="round"/></svg></div><div><div class="cl">Quick note</div><div class="cs">Jot and send</div></div></div>
+            </div>
+            <div class="lbl">Inbox <a>Send all</a></div>
+            <div class="card card-tight row-list">
+              <div class="lrow"><div class="thumb"><svg viewBox="0 0 24 24" fill="none"><path d="M4 8h16v11H4z" stroke="currentColor" stroke-width="1.6"/><circle cx="9" cy="12" r="1.6" fill="currentColor"/></svg></div><div class="ti">Western blot, replicate 2<div class="sub"><span class="status-dot sd-sync"></span>Sending to lab…</div></div></div>
+              <div class="lrow"><div class="thumb"><svg viewBox="0 0 24 24" fill="none"><path d="M5 19l1-4L16 5l3 3L9 18l-4 1Z" stroke="currentColor" stroke-width="1.6"/></svg></div><div class="ti">Buffer prep note<div class="sub"><span class="status-dot sd-ok"></span>On your laptop</div></div></div>
+              <div class="lrow"><div class="thumb"><svg viewBox="0 0 24 24" fill="none"><path d="M4 8h16v11H4z" stroke="currentColor" stroke-width="1.6"/></svg></div><div class="ti">Colony plate, T5<div class="sub"><span class="status-dot sd-wait"></span>Waiting for connection</div></div></div>
+            </div>
+          </div>
+          <div class="navwrap"><div class="navbar">
+            <button class="navitem"><svg viewBox="0 0 24 24" fill="none"><path d="M3 10.5 12 3l9 7.5M5 9.5V20h14V9.5" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/></svg><span class="nl">Home</span></button>
+            <button class="navitem active"><svg viewBox="0 0 24 24" fill="none"><path d="M6 3h11a2 2 0 0 1 2 2v15l-3-2-3 2-3-2-3 2V5a2 2 0 0 1 2-2Z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg><span class="nl">Notebook</span></button>
+            <button class="fab"><svg viewBox="0 0 24 24" fill="none"><path d="M12 5v14M5 12h14" stroke="#fff" stroke-width="2.4" stroke-linecap="round"/></svg></button>
+            <button class="navitem"><svg viewBox="0 0 24 24" fill="none"><path d="M4 5.5C4 4.7 4.7 4 5.5 4H11v16H5.5A1.5 1.5 0 0 1 4 18.5v-13ZM20 5.5C20 4.7 19.3 4 18.5 4H13v16h5.5a1.5 1.5 0 0 0 1.5-1.5v-13Z" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/></svg><span class="nl">Methods</span></button>
+            <button class="navitem"><svg viewBox="0 0 24 24" fill="none"><path d="m12 3 8 4.5v9L12 21l-8-4.5v-9L12 3Zm0 0v18M4 7.5l8 4.5 8-4.5" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/></svg><span class="nl">Inventory</span></button>
+          </div></div>
+        </div>
+      </div></div>
+      <div class="phone-label">Notebook</div>
+      <div class="phone-cap">Capture inbox and outbox. Status per item, swipe to delete, send all.</div>
+    </div>
+
+    <!-- METHODS -->
+    <div class="phone-col">
+      <div class="phone"><div class="island"></div><div class="screen">
+        <div class="rb-edge"></div>
+        <div class="statusbar"><span>9:41</span><span class="r">5G&nbsp;&nbsp;􀛨</span></div>
+        <div class="body">
+          <div class="apphead"><div><div class="greet">24 offline</div><h1>Methods</h1></div></div>
+          <div class="scroll">
+            <div class="searchbar"><svg viewBox="0 0 24 24" fill="none"><circle cx="11" cy="11" r="7" stroke="currentColor" stroke-width="1.8"/><path d="m20 20-3-3" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg><span class="ph">Search protocols…</span></div>
+            <div class="chips" style="margin-top:14px"><span class="ch on">All</span><span class="ch">Protocol</span><span class="ch">Recipe</span><span class="ch">PCR</span></div>
+            <div class="lbl" style="margin-top:8px">For your active experiment</div>
+            <div class="card" style="border-color:var(--sky-border);background:linear-gradient(180deg,var(--sky-dim),var(--surface))">
+              <div class="row-list"><div class="lrow" style="padding:6px 2px"><span class="status-dot sd-ok" style="width:9px;height:9px"></span><div class="ti">Gibson assembly, 4-fragment<div class="sub">Cloning · 6 steps</div></div><svg class="chev" viewBox="0 0 24 24" fill="none"><path d="m9 6 6 6-6 6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></div></div>
+            </div>
+            <div class="lbl">Cloning</div>
+            <div class="card card-tight row-list">
+              <div class="lrow"><div class="thumb" style="background:var(--sky-dim);border-color:var(--sky-border)"><span class="mono" style="color:var(--sky)">P</span></div><div class="ti">Plasmid miniprep<div class="sub">Protocol · updated Tue</div></div><span class="star">★</span></div>
+              <div class="lrow"><div class="thumb" style="background:var(--amber-dim)"><span class="mono" style="color:var(--amber)">R</span></div><div class="ti">LB agar plates<div class="sub">Recipe</div></div></div>
+              <div class="lrow"><div class="thumb" style="background:var(--violet-dim)"><span class="mono" style="color:var(--violet)">P</span></div><div class="ti">Heat-shock transformation<div class="sub">Protocol</div></div></div>
+            </div>
+          </div>
+          <div class="navwrap"><div class="navbar">
+            <button class="navitem"><svg viewBox="0 0 24 24" fill="none"><path d="M3 10.5 12 3l9 7.5M5 9.5V20h14V9.5" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/></svg><span class="nl">Home</span></button>
+            <button class="navitem"><svg viewBox="0 0 24 24" fill="none"><path d="M6 3h11a2 2 0 0 1 2 2v15l-3-2-3 2-3-2-3 2V5a2 2 0 0 1 2-2Z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg><span class="nl">Notebook</span></button>
+            <button class="fab"><svg viewBox="0 0 24 24" fill="none"><path d="M12 5v14M5 12h14" stroke="#fff" stroke-width="2.4" stroke-linecap="round"/></svg></button>
+            <button class="navitem active"><svg viewBox="0 0 24 24" fill="none"><path d="M4 5.5C4 4.7 4.7 4 5.5 4H11v16H5.5A1.5 1.5 0 0 1 4 18.5v-13ZM20 5.5C20 4.7 19.3 4 18.5 4H13v16h5.5a1.5 1.5 0 0 0 1.5-1.5v-13Z" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/></svg><span class="nl">Methods</span></button>
+            <button class="navitem"><svg viewBox="0 0 24 24" fill="none"><path d="m12 3 8 4.5v9L12 21l-8-4.5v-9L12 3Zm0 0v18M4 7.5l8 4.5 8-4.5" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/></svg><span class="nl">Inventory</span></button>
+          </div></div>
+        </div>
+      </div></div>
+      <div class="phone-label">Methods</div>
+      <div class="phone-cap">Offline protocol library. Search, filter, favorites, and active-experiment recs.</div>
+    </div>
+
+    <!-- INVENTORY -->
+    <div class="phone-col">
+      <div class="phone"><div class="island"></div><div class="screen">
+        <div class="rb-edge"></div>
+        <div class="statusbar"><span>9:41</span><span class="r">5G&nbsp;&nbsp;􀛨</span></div>
+        <div class="body">
+          <div class="apphead"><div><div class="greet">Maple Lab</div><h1>Inventory</h1></div></div>
+          <div class="scroll">
+            <div class="card" style="background:linear-gradient(140deg,var(--sky),#39b4ff);border:0;color:#fff;display:flex;align-items:center;gap:14px;box-shadow:var(--shadow-md)">
+              <div style="width:48px;height:48px;border-radius:14px;background:rgba(255,255,255,.22);display:grid;place-items:center"><svg viewBox="0 0 24 24" fill="none" style="width:26px;height:26px"><path d="M4 7V5a1 1 0 0 1 1-1h2M20 7V5a1 1 0 0 0-1-1h-2M4 17v2a1 1 0 0 0 1 1h2M20 17v2a1 1 0 0 1-1 1h-2M3 12h18" stroke="#fff" stroke-width="1.9" stroke-linecap="round"/></svg></div>
+              <div><div style="font-weight:700;font-size:16px">Scan a package</div><div style="font-size:12.5px;opacity:.85">Receive, track, and reorder</div></div>
+              <svg viewBox="0 0 24 24" fill="none" style="width:20px;height:20px;margin-left:auto"><path d="m9 6 6 6-6 6" stroke="#fff" stroke-width="2.2" stroke-linecap="round"/></svg>
+            </div>
+            <div class="lbl">Tracked items <a>Reorder low</a></div>
+            <div class="card card-tight row-list">
+              <div class="lrow"><div class="thumb" style="background:var(--sky-dim);border-color:var(--sky-border)"><svg viewBox="0 0 24 24" fill="none" style="color:var(--sky)"><path d="m12 3 8 4.5v9L12 21l-8-4.5v-9z" stroke="currentColor" stroke-width="1.6"/></svg></div><div class="ti">Pipette tips, 200µL<div class="sub">8 of 10 racks left</div></div><span class="pill pill-ok">OK</span></div>
+              <div class="lrow"><div class="thumb" style="background:var(--danger-dim)"><svg viewBox="0 0 24 24" fill="none" style="color:var(--danger)"><path d="m12 3 8 4.5v9L12 21l-8-4.5v-9z" stroke="currentColor" stroke-width="1.6"/></svg></div><div class="ti">Agarose<div class="sub">1 of 12 bottles left</div></div><span class="pill pill-low">Low</span></div>
+            </div>
+            <div class="lbl">Purchase orders</div>
+            <div class="card card-tight row-list">
+              <div class="lrow"><div class="thumb"><svg viewBox="0 0 24 24" fill="none"><path d="M6 7h12l-1 13H7z" stroke="currentColor" stroke-width="1.6"/><path d="M9 7a3 3 0 0 1 6 0" stroke="currentColor" stroke-width="1.6"/></svg></div><div class="ti">Taq polymerase<div class="sub">NEB · ordered Jun 11</div></div><span class="pill pill-ordered">Ordered</span></div>
+            </div>
+          </div>
+          <div class="navwrap"><div class="navbar">
+            <button class="navitem"><svg viewBox="0 0 24 24" fill="none"><path d="M3 10.5 12 3l9 7.5M5 9.5V20h14V9.5" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/></svg><span class="nl">Home</span></button>
+            <button class="navitem"><svg viewBox="0 0 24 24" fill="none"><path d="M6 3h11a2 2 0 0 1 2 2v15l-3-2-3 2-3-2-3 2V5a2 2 0 0 1 2-2Z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg><span class="nl">Notebook</span></button>
+            <button class="fab"><svg viewBox="0 0 24 24" fill="none"><path d="M12 5v14M5 12h14" stroke="#fff" stroke-width="2.4" stroke-linecap="round"/></svg></button>
+            <button class="navitem"><svg viewBox="0 0 24 24" fill="none"><path d="M4 5.5C4 4.7 4.7 4 5.5 4H11v16H5.5A1.5 1.5 0 0 1 4 18.5v-13ZM20 5.5C20 4.7 19.3 4 18.5 4H13v16h5.5a1.5 1.5 0 0 0 1.5-1.5v-13Z" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/></svg><span class="nl">Methods</span></button>
+            <button class="navitem active"><svg viewBox="0 0 24 24" fill="none"><path d="m12 3 8 4.5v9L12 21l-8-4.5v-9L12 3Zm0 0v18M4 7.5l8 4.5 8-4.5" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/></svg><span class="nl">Inventory</span></button>
+          </div></div>
+        </div>
+      </div></div>
+      <div class="phone-label">Inventory</div>
+      <div class="phone-cap">Scan hero, tracked stock with OK/Low pills, and purchase orders.</div>
+    </div>
+
+  </div>
+</div>
+<script>
+function setMode(m){document.documentElement.classList.toggle('dark',m==='dark');document.getElementById('tL').classList.toggle('on',m==='light');document.getElementById('tD').classList.toggle('on',m==='dark');}
+</script>
+</body>
+</html>
+</content>

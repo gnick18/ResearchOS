@@ -1,0 +1,264 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>Contract 04 — Inventory deep</title>
+<link rel="stylesheet" href="contract.css">
+<style>
+.scanframe{width:230px;height:150px;position:relative;margin:0 auto}
+.scanframe .cnr{position:absolute;width:30px;height:30px;border:3px solid #fff;opacity:.95}
+.cnr.tl{top:0;left:0;border-right:0;border-bottom:0;border-radius:9px 0 0 0}
+.cnr.tr{top:0;right:0;border-left:0;border-bottom:0;border-radius:0 9px 0 0}
+.cnr.bl{bottom:0;left:0;border-right:0;border-top:0;border-radius:0 0 0 9px}
+.cnr.br{bottom:0;right:0;border-left:0;border-top:0;border-radius:0 0 9px 0}
+.scanline{position:absolute;left:7%;right:7%;top:50%;height:2px;background:var(--sky);box-shadow:0 0 14px 2px var(--sky)}
+.barcode{display:flex;gap:2px;align-items:stretch;justify-content:center;height:58px;opacity:.92}
+.barcode i{background:#fff;display:block}
+.bigcount{font-family:var(--mono);font-size:38px;font-weight:600;text-align:center;letter-spacing:-.02em}
+.stepper{display:flex;align-items:center;border:1px solid var(--border-strong);border-radius:var(--r-md);overflow:hidden;width:fit-content;margin:0 auto}
+.stepper button{width:50px;height:50px;border:0;background:var(--surface-2);font-size:22px;color:var(--sky);font-family:var(--mono);cursor:pointer}
+.stepper .val{width:70px;text-align:center;font-family:var(--mono);font-size:20px;font-weight:600}
+.success-check{width:84px;height:84px;border-radius:50%;background:var(--success-dim);display:grid;place-items:center;margin:0 auto 18px}
+.success-check svg{width:42px;height:42px;color:var(--success)}
+.glowline{height:2px;background:linear-gradient(90deg,transparent,var(--sky),#5ec8ff,var(--sky),transparent);box-shadow:0 0 12px 1px color-mix(in srgb,var(--sky) 70%,transparent)}
+.stockbar{height:10px;border-radius:var(--r-pill);background:var(--sunken);overflow:hidden}
+.stockbar .fill{height:100%;border-radius:var(--r-pill)}
+.fill.ok{background:linear-gradient(90deg,var(--success),#34d27b)}
+.fill.low{background:linear-gradient(90deg,var(--danger),#ff6b6f)}
+.srcpill{font-size:9px;font-weight:700;padding:3px 7px;border-radius:var(--r-pill);background:var(--sky-dim);color:var(--sky);text-transform:uppercase;letter-spacing:.04em}
+.srcpill.web{background:var(--amber-dim);color:var(--amber)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="studio-head">
+    <div class="studio-title"><span class="logo-dot"><svg viewBox="0 0 24 24" fill="none"><path d="M9 3h6M10 3v6L5.5 17a2.5 2.5 0 0 0 2.2 3.7h8.6A2.5 2.5 0 0 0 18.5 17L14 9V3" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></span>UI Contract</div>
+    <div class="toggle"><button id="tL" class="on" onclick="setMode('light')">☀︎ Light</button><button id="tD" onclick="setMode('dark')">☾ Dark</button></div>
+  </div>
+  <div class="crumbs">01 Tab roots · 02 Capture · 03 Tools · 03b Read modes · <b>04 · Inventory deep</b> · 05 System · 06 Notifications</div>
+  <p class="sec-kicker">04 · Inventory deep</p>
+  <h2 class="sec-h">The package scan flow, plus add purchase and reorder</h2>
+  <p class="sec-d">Reached from the ＋ Capture sheet ("Scan a package") or the Inventory scan hero. A focused state machine: scan, then deduct or set up tracking, then done.</p>
+
+  <div class="gallery">
+
+    <!-- 1. SCAN CAMERA -->
+    <div class="phone-col">
+      <div class="phone"><div class="island"></div><div class="screen cam"><div class="rb-edge"></div>
+        <div class="statusbar light"><span>9:41</span><span class="r">5G&nbsp;&nbsp;􀛨</span></div>
+        <div class="body">
+          <div class="navhead" style="color:#fff"><div class="back" style="color:#fff"><svg viewBox="0 0 24 24" fill="none"><path d="m15 6-6 6 6 6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg></div><div class="ti" style="color:#fff">Scan a package</div></div>
+          <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:24px;color:#fff">
+            <div class="scanframe">
+              <div class="cnr tl"></div><div class="cnr tr"></div><div class="cnr bl"></div><div class="cnr br"></div>
+              <div class="scanline"></div>
+              <div class="barcode" style="position:absolute;inset:30px 24px;top:40px;bottom:40px;opacity:.5">
+                <i style="width:3px"></i><i style="width:2px"></i><i style="width:5px"></i><i style="width:2px"></i><i style="width:3px"></i><i style="width:6px"></i><i style="width:2px"></i><i style="width:4px"></i><i style="width:2px"></i><i style="width:3px"></i><i style="width:5px"></i><i style="width:2px"></i><i style="width:2px"></i><i style="width:4px"></i><i style="width:3px"></i>
+              </div>
+            </div>
+            <div style="font-size:13.5px;font-weight:600;opacity:.9">Point at the package barcode</div>
+          </div>
+          <div class="toolbar-bottom" style="background:transparent;border:0"><button class="btn btn-secondary" style="background:rgba(255,255,255,.14);color:#fff;border-color:rgba(255,255,255,.25)">Enter code manually</button></div>
+        </div>
+      </div></div>
+      <div class="phone-label">Scan</div>
+      <div class="phone-cap">Barcode viewfinder with corner brackets + scanline, manual-entry fallback.</div>
+    </div>
+
+    <!-- 1b. SMART MATCH (after scan, matched a waiting PO) -->
+    <div class="phone-col">
+      <div class="phone"><div class="island"></div><div class="screen"><div class="rb-edge"></div>
+        <div class="statusbar"><span>9:41</span><span class="r">5G&nbsp;&nbsp;􀛨</span></div>
+        <div class="body">
+          <div class="navhead"><div class="back"><svg viewBox="0 0 24 24" fill="none"><path d="m15 6-6 6 6 6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg></div><div class="ti">Scanned</div></div>
+          <div class="scroll nopad">
+            <div class="callout" style="display:flex;align-items:center;gap:9px;margin-bottom:14px"><svg viewBox="0 0 24 24" fill="none" style="width:18px;height:18px;color:var(--sky);flex:none"><path d="M12 3l1.8 4.6L18.5 9l-4.7 1.4L12 15l-1.8-4.6L5.5 9l4.7-1.4L12 3Z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></svg><span><b>Possible match</b> from your purchase orders.</span></div>
+            <div class="card" style="border-color:var(--sky-border);padding:0;overflow:hidden">
+              <div style="background:linear-gradient(140deg,var(--sky),#39b4ff);padding:16px;color:#fff">
+                <div style="font-size:10.5px;font-weight:700;opacity:.85;text-transform:uppercase;letter-spacing:.08em">We think this is</div>
+                <div style="font-size:18px;font-weight:800;margin-top:3px">Taq polymerase, 500 U</div>
+                <div style="font-size:12px;opacity:.85;margin-top:2px;font-family:var(--mono)">NEB · M0273S</div>
+              </div>
+              <div class="glowline"></div>
+              <div style="padding:6px 15px 12px">
+                <div class="kv"><span class="k">Matched</span><span class="v" style="font-family:inherit;font-weight:600">Order awaiting arrival</span></div>
+                <div class="kv"><span class="k">Ordered</span><span class="v">Jun 11 · qty 2</span></div>
+              </div>
+            </div>
+            <button class="btn btn-primary" style="margin-top:14px"><svg viewBox="0 0 24 24" fill="none"><path d="M20 6 9 17l-5-5" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>Yes, mark it arrived</button>
+            <button class="btn btn-ghost" style="width:100%;margin-top:4px">Not this item</button>
+          </div>
+        </div>
+      </div></div>
+      <div class="phone-label">Smart match</div>
+      <div class="phone-cap">After scanning, a suggested match from your waiting purchase orders. One tap confirms arrival.</div>
+    </div>
+
+    <!-- 2. DEDUCT (tracked found) -->
+    <div class="phone-col">
+      <div class="phone"><div class="island"></div><div class="screen"><div class="rb-edge"></div>
+        <div class="statusbar"><span>9:41</span><span class="r">5G&nbsp;&nbsp;􀛨</span></div>
+        <div class="body">
+          <div class="navhead"><div class="back"><svg viewBox="0 0 24 24" fill="none"><path d="m15 6-6 6 6 6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg></div><div class="ti">Found in stock</div></div>
+          <div class="scroll nopad">
+            <div class="card" style="padding:0;overflow:hidden">
+              <div style="background:linear-gradient(140deg,var(--sky),#39b4ff);padding:17px 18px 15px;color:#fff;display:flex;align-items:center;gap:13px">
+                <div style="width:48px;height:48px;border-radius:13px;background:rgba(255,255,255,.22);display:grid;place-items:center;flex:none"><svg viewBox="0 0 24 24" fill="none" style="width:24px;height:24px;color:#fff"><path d="m12 3 8 4.5v9L12 21l-8-4.5v-9z" stroke="currentColor" stroke-width="1.7"/></svg></div>
+                <div style="min-width:0"><div style="font-weight:700;font-size:16.5px">Pipette tips, 200µL</div><div style="font-size:11.5px;opacity:.82;font-family:var(--mono)">EAN 4 047649 123456</div></div>
+              </div>
+              <div class="glowline"></div>
+              <div style="padding:15px 16px">
+                <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:9px"><span style="font-family:var(--mono);font-size:30px;font-weight:600;letter-spacing:-.02em">8<span style="font-size:14px;color:var(--muted);font-weight:500"> / 10 racks</span></span><span class="pill pill-ok">In stock</span></div>
+                <div class="stockbar"><div class="fill ok" style="width:80%"></div></div>
+              </div>
+            </div>
+            <div class="lbl">How many did you use?</div>
+            <div class="chips"><span class="ch on">1</span><span class="ch">2</span><span class="ch">3</span><span class="ch">5</span><span class="ch">Custom</span></div>
+            <button class="btn btn-primary" style="margin-top:18px">Deduct 1 rack</button>
+            <button class="btn btn-ghost" style="width:100%;margin-top:6px">Edit tracking</button>
+          </div>
+        </div>
+      </div></div>
+      <div class="phone-label">Deduct</div>
+      <div class="phone-cap">Color hero with the glowing line, a stock bar, and the count. Quick quantity chips, deduct.</div>
+    </div>
+
+    <!-- 3. NEW PACKAGE OPTIONS -->
+    <div class="phone-col">
+      <div class="phone"><div class="island"></div><div class="screen"><div class="rb-edge"></div>
+        <div class="statusbar"><span>9:41</span><span class="r">5G&nbsp;&nbsp;􀛨</span></div>
+        <div class="body">
+          <div class="navhead"><div class="back"><svg viewBox="0 0 24 24" fill="none"><path d="m15 6-6 6 6 6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg></div><div class="ti">New barcode</div></div>
+          <div class="scroll nopad">
+            <div class="callout amber" style="margin-bottom:16px"><b>Not recognized.</b> EAN 5 012345 678900. What is it?</div>
+            <div class="sheet-opt"><div class="si" style="background:var(--sky-dim);color:var(--sky)"><svg viewBox="0 0 24 24" fill="none"><path d="M6 7h12l-1 13H7zM9 7a3 3 0 0 1 6 0" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/></svg></div><div><div class="sl">Match a purchase order</div><div class="ss">Mark it arrived + start tracking</div></div></div>
+            <div class="sheet-opt"><div class="si" style="background:var(--violet-dim);color:var(--violet)"><svg viewBox="0 0 24 24" fill="none"><path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></div><div><div class="sl">Add a purchase item</div><div class="ss">Order and track at once</div></div></div>
+            <div class="sheet-opt"><div class="si" style="background:var(--success-dim);color:var(--success)"><svg viewBox="0 0 24 24" fill="none"><path d="m12 3 8 4.5v9L12 21l-8-4.5v-9z" stroke="currentColor" stroke-width="1.6"/></svg></div><div><div class="sl">Just track in stock</div><div class="ss">Add to inventory only</div></div></div>
+          </div>
+        </div>
+      </div></div>
+      <div class="phone-label">New package</div>
+      <div class="phone-cap">Unknown barcode: match a PO, add a purchase, or track-only.</div>
+    </div>
+
+    <!-- 3b. AUTO-FILL FROM BARCODE -->
+    <div class="phone-col">
+      <div class="phone"><div class="island"></div><div class="screen"><div class="rb-edge"></div>
+        <div class="statusbar"><span>9:41</span><span class="r">5G&nbsp;&nbsp;􀛨</span></div>
+        <div class="body">
+          <div class="navhead"><div class="back"><svg viewBox="0 0 24 24" fill="none"><path d="m15 6-6 6 6 6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg></div><div class="ti">New item</div></div>
+          <div class="scroll nopad">
+            <div class="callout" style="display:flex;align-items:flex-start;gap:9px;margin-bottom:14px"><svg viewBox="0 0 24 24" fill="none" style="width:18px;height:18px;color:var(--sky);flex:none;margin-top:1px"><path d="M12 3l1.8 4.6L18.5 9l-4.7 1.4L12 15l-1.8-4.6L5.5 9l4.7-1.4L12 3Z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></svg><span><b>We found a few details</b> for this barcode. Pick what to carry over.</span></div>
+            <div class="card card-tight">
+              <div class="ing done"><span class="ck done"></span><div class="inm">Brand <span style="color:var(--muted);font-weight:600">NEB</span></div><span class="srcpill">barcode</span></div>
+              <div class="ing done"><span class="ck done"></span><div class="inm">Catalog # <span style="color:var(--muted);font-weight:600;font-family:var(--mono)">M0273S</span></div><span class="srcpill">barcode</span></div>
+              <div class="ing done"><span class="ck done"></span><div class="inm">GTIN <span style="color:var(--muted);font-weight:600;font-family:var(--mono)">5012345678900</span></div><span class="srcpill">barcode</span></div>
+              <div class="ing"><span class="ck"></span><div class="inm">Name <span style="color:var(--muted);font-weight:600">Taq DNA Polymerase</span></div><span class="srcpill web">web · guess</span></div>
+            </div>
+            <div class="note" style="margin:10px 2px 0">Unchecked items are best guesses. You can edit everything on the next screen.</div>
+            <button class="btn btn-primary" style="margin-top:16px">Use 3 details</button>
+            <button class="btn btn-ghost" style="width:100%;margin-top:2px">Start blank</button>
+          </div>
+        </div>
+      </div></div>
+      <div class="phone-label">Auto-fill from barcode</div>
+      <div class="phone-cap">Choose which scanned/looked-up fields to carry into the new item. Web-guessed fields start unchecked.</div>
+    </div>
+
+    <!-- 4. TRACK SETUP -->
+    <div class="phone-col">
+      <div class="phone"><div class="island"></div><div class="screen"><div class="rb-edge"></div>
+        <div class="statusbar"><span>9:41</span><span class="r">5G&nbsp;&nbsp;􀛨</span></div>
+        <div class="body">
+          <div class="navhead"><div class="back"><svg viewBox="0 0 24 24" fill="none"><path d="m15 6-6 6 6 6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg></div><div class="ti">Track this item</div></div>
+          <div class="scroll nopad">
+            <div class="field"><label>Item name</label><div class="input focus">Agarose, molecular grade</div></div>
+            <div class="field"><label>Counts as</label><div class="chips"><span class="ch">reaction</span><span class="ch on">bottle</span><span class="ch">mL</span><span class="ch">well</span><span class="ch">use</span></div></div>
+            <div class="calc-row" style="display:flex;gap:10px"><div class="field" style="flex:1"><label>Per scan</label><div class="input">1</div></div><div class="field" style="flex:1"><label>Total in box</label><div class="input">12</div></div></div>
+            <div class="callout" style="margin-top:4px">Each scan deducts <b>1 bottle</b>. We will warn you when it runs low.</div>
+            <button class="btn btn-primary" style="margin-top:16px">Save tracking</button>
+          </div>
+        </div>
+      </div></div>
+      <div class="phone-label">Track setup</div>
+      <div class="phone-cap">Name, unit label, per-scan deduction, and total to start tracking.</div>
+    </div>
+
+    <!-- 5. DONE -->
+    <div class="phone-col">
+      <div class="phone"><div class="island"></div><div class="screen"><div class="rb-edge"></div>
+        <div class="statusbar"><span>9:41</span><span class="r">5G&nbsp;&nbsp;􀛨</span></div>
+        <div class="body">
+          <div class="navhead"><div class="sp"></div><div class="back"><svg viewBox="0 0 24 24" fill="none"><path d="M6 6l12 12M18 6 6 18" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg></div></div>
+          <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:0 24px 60px;text-align:center">
+            <div class="success-check"><svg viewBox="0 0 24 24" fill="none"><path d="M20 6 9 17l-5-5" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+            <div style="font-size:20px;font-weight:800">Tracking started</div>
+            <div class="note" style="margin-top:6px;max-width:240px">Agarose is in your inventory. Scan it again any time to deduct a bottle.</div>
+          </div>
+          <div class="toolbar-bottom" style="flex-direction:column;gap:9px">
+            <button class="btn btn-primary" style="width:100%">Scan another</button>
+            <button class="btn btn-ghost" style="width:100%">Done</button>
+          </div>
+        </div>
+      </div></div>
+      <div class="phone-label">Done</div>
+      <div class="phone-cap">Confirmation with scan-another or done. (Success burst plays on real device.)</div>
+    </div>
+
+    <!-- 6. ADD PURCHASE -->
+    <div class="phone-col">
+      <div class="phone"><div class="island"></div><div class="screen"><div class="rb-edge"></div>
+        <div class="statusbar"><span>9:41</span><span class="r">5G&nbsp;&nbsp;􀛨</span></div>
+        <div class="body">
+          <div class="navhead"><div class="back"><svg viewBox="0 0 24 24" fill="none"><path d="m15 6-6 6 6 6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg></div><div class="ti">Add a purchase</div></div>
+          <div class="scroll nopad">
+            <div class="field"><label>Item</label><div class="input focus">Taq polymerase, 500 U</div></div>
+            <div class="field"><label>Vendor</label><div class="input">NEB</div></div>
+            <div class="calc-row" style="display:flex;gap:10px"><div class="field" style="flex:1"><label>Catalog #</label><div class="input">M0273S</div></div><div class="field" style="flex:1"><label>Quantity</label><div class="input">2</div></div></div>
+            <div class="field"><label>Notes (optional)</label><div class="input ph">For the cloning project</div></div>
+            <div class="callout" style="margin-top:4px">Saves to purchase orders. Your PI can send it to the department from the laptop.</div>
+            <button class="btn btn-primary" style="margin-top:16px">Add purchase</button>
+          </div>
+        </div>
+      </div></div>
+      <div class="phone-label">Add purchase</div>
+      <div class="phone-cap">Item, vendor, catalog, quantity. Routes to purchase orders.</div>
+    </div>
+
+    <!-- 7. REORDER -->
+    <div class="phone-col">
+      <div class="phone"><div class="island"></div><div class="screen"><div class="rb-edge"></div>
+        <div class="statusbar"><span>9:41</span><span class="r">5G&nbsp;&nbsp;􀛨</span></div>
+        <div class="body">
+          <div class="navhead"><div class="back"><svg viewBox="0 0 24 24" fill="none"><path d="m15 6-6 6 6 6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg></div><div class="ti">Reorder</div></div>
+          <div class="scroll nopad">
+            <div class="card" style="display:flex;align-items:center;gap:12px">
+              <div class="thumb" style="width:46px;height:46px;background:var(--danger-dim);border-color:transparent"><svg viewBox="0 0 24 24" fill="none" style="color:var(--danger)"><path d="m12 3 8 4.5v9L12 21l-8-4.5v-9z" stroke="currentColor" stroke-width="1.6"/></svg></div>
+              <div style="flex:1"><div style="font-weight:700;font-size:15px">Agarose</div><div class="note">1 of 12 bottles left</div></div>
+              <span class="pill pill-low">Low</span>
+            </div>
+            <div class="card card-tight" style="margin-top:12px">
+              <div class="kv"><span class="k">Vendor</span><span class="v">Sigma</span></div>
+              <div class="kv"><span class="k">Catalog</span><span class="v">A9539</span></div>
+              <div class="kv"><span class="k">Last price</span><span class="v">$84.00</span></div>
+            </div>
+            <div class="lbl">Quantity</div>
+            <div class="stepper"><button>−</button><span class="val">2</span><button>+</button></div>
+            <button class="btn btn-primary" style="margin-top:18px"><svg viewBox="0 0 24 24" fill="none"><path d="M6 7h12l-1 13H7zM9 7a3 3 0 0 1 6 0" stroke="#fff" stroke-width="1.8" stroke-linejoin="round"/></svg>Reorder ASAP</button>
+            <div class="note" style="text-align:center;margin-top:10px">Flags it for your PI to order from the laptop.</div>
+          </div>
+        </div>
+      </div></div>
+      <div class="phone-label">Reorder</div>
+      <div class="phone-cap">Low-stock item, vendor details, quantity stepper, flag for the PI.</div>
+    </div>
+
+  </div>
+</div>
+<script>
+function setMode(m){document.documentElement.classList.toggle('dark',m==='dark');document.getElementById('tL').classList.toggle('on',m==='light');document.getElementById('tD').classList.toggle('on',m==='dark');}
+</script>
+</body>
+</html>
+</content>

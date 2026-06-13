@@ -1,0 +1,173 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>Contract 06 — Notifications &amp; components</title>
+<link rel="stylesheet" href="contract.css">
+<style>
+.comp-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(310px,1fr));gap:20px}
+.comp{background:var(--surface);border:1px solid var(--border);border-radius:var(--r-lg);padding:20px;box-shadow:var(--shadow-sm)}
+.comp h4{margin:0 0 15px;font-size:13px;font-weight:700;letter-spacing:.02em}
+.crow{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:12px}
+.comp .btn{width:auto;min-height:46px}
+.comp .btn-row{display:flex}
+.lockscreen{position:absolute;inset:0;border-radius:38px;background:radial-gradient(120% 70% at 50% 0%,#16203a,#05070d);display:flex;flex-direction:column;align-items:center;padding:74px 16px 0;color:#fff}
+.lockscreen .clock{font-size:60px;font-weight:700;letter-spacing:-.03em;line-height:1}
+.lockscreen .date{font-size:14px;opacity:.8;margin:6px 0 36px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="studio-head">
+    <div class="studio-title"><span class="logo-dot"><svg viewBox="0 0 24 24" fill="none"><path d="M9 3h6M10 3v6L5.5 17a2.5 2.5 0 0 0 2.2 3.7h8.6A2.5 2.5 0 0 0 18.5 17L14 9V3" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></span>UI Contract</div>
+    <div class="toggle"><button id="tL" class="on" onclick="setMode('light')">☀︎ Light</button><button id="tD" onclick="setMode('dark')">☾ Dark</button></div>
+  </div>
+  <div class="crumbs">01 Tab roots · 02 Capture · 03 Tools · 03b Read modes · 04 Inventory · 05 System · <b>06 · Notifications &amp; components</b></div>
+  <p class="sec-kicker">06 · Notifications</p>
+  <h2 class="sec-h">The notification surfaces</h2>
+  <p class="sec-d">In-app list, the empty state, and the content-free OS push (the buzz wakes the app to fetch the sealed snapshot, the push itself carries no lab data).</p>
+
+  <div class="gallery">
+
+    <!-- NOTIFICATIONS LIST -->
+    <div class="phone-col">
+      <div class="phone"><div class="island"></div><div class="screen"><div class="rb-edge"></div>
+        <div class="statusbar"><span>9:41</span><span class="r">5G&nbsp;&nbsp;􀛨</span></div>
+        <div class="body">
+          <div class="navhead"><div class="back"><svg viewBox="0 0 24 24" fill="none"><path d="m15 6-6 6 6 6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg></div><div class="ti">Notifications</div><div class="sp"></div><span style="color:var(--sky);font-weight:600;font-size:13.5px">Mark read</span></div>
+          <div class="scroll nopad">
+            <p class="note" style="margin:0 2px 8px">Routed to your phone in Settings. Your laptop sends these while it is open.</p>
+            <div class="card card-tight">
+              <div class="notif"><span class="nd"></span><div class="ni" style="background:var(--amber-dim)"><svg viewBox="0 0 24 24" fill="none" style="width:18px;height:18px;color:var(--amber)"><circle cx="12" cy="13" r="8" stroke="currentColor" stroke-width="1.8"/><path d="M12 13V9" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></div><div class="nt"><div class="nh">Reminder</div><div class="nb">Image the gel for exp 4</div><div class="nw">2 min ago</div></div></div>
+              <div class="notif"><span class="nd"></span><div class="ni" style="background:var(--sky-dim)"><svg viewBox="0 0 24 24" fill="none" style="width:18px;height:18px;color:var(--sky)"><path d="M4 12v.01M8 12h12M8 7h12M8 17h12" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></div><div class="nt"><div class="nh">Shared with you</div><div class="nb">Priya shared a method</div><div class="nw">25 min ago</div></div></div>
+              <div class="notif read"><span class="nd"></span><div class="ni" style="background:var(--success-dim)"><svg viewBox="0 0 24 24" fill="none" style="width:18px;height:18px;color:var(--success)"><path d="M6 7h12l-1 13H7z" stroke="currentColor" stroke-width="1.7"/><path d="M9 7a3 3 0 0 1 6 0" stroke="currentColor" stroke-width="1.7"/></svg></div><div class="nt"><div class="nh">Purchases</div><div class="nb">Taq polymerase was approved</div><div class="nw">Yesterday</div></div></div>
+              <div class="notif read"><span class="nd"></span><div class="ni" style="background:var(--violet-dim)"><svg viewBox="0 0 24 24" fill="none" style="width:18px;height:18px;color:var(--violet)"><path d="M3 11l9-7 9 7M5 10v10h14V10" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/></svg></div><div class="nt"><div class="nh">Lab</div><div class="nb">Lab meeting moved to 3pm</div><div class="nw">Yesterday</div></div></div>
+            </div>
+          </div>
+        </div>
+      </div></div>
+      <div class="phone-label">Notifications list</div>
+      <div class="phone-cap">Category icon + unread dot + one-line body + relative time. Pull to refresh.</div>
+    </div>
+
+    <!-- NOTIFICATIONS EMPTY -->
+    <div class="phone-col">
+      <div class="phone"><div class="island"></div><div class="screen"><div class="rb-edge"></div>
+        <div class="statusbar"><span>9:41</span><span class="r">5G&nbsp;&nbsp;􀛨</span></div>
+        <div class="body">
+          <div class="navhead"><div class="back"><svg viewBox="0 0 24 24" fill="none"><path d="m15 6-6 6 6 6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg></div><div class="ti">Notifications</div></div>
+          <div style="flex:1;display:grid;place-items:center;padding:0 24px 80px">
+            <div class="empty">
+              <div class="ei"><svg viewBox="0 0 24 24" fill="none"><path d="M6 9a6 6 0 0 1 12 0c0 7 3 8 3 8H3s3-1 3-8M9.5 21a2.5 2.5 0 0 0 5 0" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+              <div class="et">All caught up</div>
+              <div class="es">Notifications you route to your phone will show up here.</div>
+            </div>
+          </div>
+        </div>
+      </div></div>
+      <div class="phone-label">Notifications · empty</div>
+      <div class="phone-cap">Calm, branded empty state.</div>
+    </div>
+
+    <!-- OS PUSH (lock screen) -->
+    <div class="phone-col">
+      <div class="phone"><div class="island"></div>
+        <div class="lockscreen">
+          <div class="clock">9:41</div>
+          <div class="date">Saturday, June 13</div>
+          <div style="width:100%;padding:0 4px">
+            <div class="push"><div class="pa"><svg viewBox="0 0 24 24" fill="none"><path d="M9 3h6M10 3v6L5.5 17a2.5 2.5 0 0 0 2.2 3.7h8.6A2.5 2.5 0 0 0 18.5 17L14 9V3" stroke="#fff" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></div><div style="flex:1"><div class="ph2">ResearchOS <span class="pw">now</span></div><div class="pb">You have a new lab update. Tap to open.</div></div></div>
+          </div>
+        </div>
+      </div>
+      <div class="phone-label">OS push</div>
+      <div class="phone-cap">Content-free by design: the buzz wakes the app to fetch the sealed snapshot. No lab data in the push.</div>
+    </div>
+
+    <!-- CONNECTION STATES -->
+    <div class="phone-col">
+      <div class="phone"><div class="island"></div><div class="screen"><div class="rb-edge"></div>
+        <div class="statusbar"><span>9:41</span><span class="r">5G&nbsp;&nbsp;􀛨</span></div>
+        <div class="body">
+          <div class="apphead"><div><div class="greet">Reference</div><h1>Connection</h1></div></div>
+          <div class="scroll nopad">
+            <p class="note" style="margin:0 2px 12px">Always icon + word + color, never color alone.</p>
+            <div class="statuscard" style="margin-bottom:10px"><div class="pulse"><span class="core"></span></div><div><div class="lab">Live</div><div class="meta">Synced just now</div></div></div>
+            <div class="statuscard" style="margin-bottom:10px"><div class="pulse" style="background:var(--sky-dim)"><span class="spinner" style="border-color:var(--sky-dim);border-top-color:var(--sky)"></span></div><div><div class="lab">Syncing</div><div class="meta">Updating from your laptop</div></div></div>
+            <div class="statuscard" style="margin-bottom:10px"><div class="pulse" style="background:var(--sunken)"><svg viewBox="0 0 24 24" fill="none" style="width:18px;height:18px;color:var(--faint)"><circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="1.7"/><path d="M12 8v4l3 2" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg></div><div><div class="lab">Last synced 12m ago</div><div class="meta">Laptop is asleep</div></div></div>
+            <div class="statuscard"><div class="pulse off"><span class="core"></span></div><div><div class="lab">Offline, captures queued</div><div class="meta">They will send when you reconnect</div></div></div>
+          </div>
+        </div>
+      </div></div>
+      <div class="phone-label">Connection states</div>
+      <div class="phone-cap">Live / Syncing / Last synced / Offline. The full accessible cue set.</div>
+    </div>
+
+  </div>
+
+  <!-- COMPONENT REFERENCE -->
+  <div style="margin-top:54px">
+    <p class="sec-kicker">06 · Component reference</p>
+    <h2 class="sec-h">The full primitive set</h2>
+    <p class="sec-d">Canonical states for every building block. The real RN components are built to match these exactly.</p>
+    <div class="comp-grid">
+
+      <div class="comp"><h4>Buttons</h4>
+        <div class="crow"><button class="btn btn-primary"><svg viewBox="0 0 24 24" fill="none"><path d="M12 5v14M5 12h14" stroke="#fff" stroke-width="2.2" stroke-linecap="round"/></svg>Primary</button><button class="btn btn-secondary">Secondary</button></div>
+        <div class="crow"><button class="btn btn-ghost">Ghost</button><button class="btn btn-coral">Coral</button><button class="btn btn-danger">Discard</button></div>
+        <div class="crow"><button class="btn btn-primary" disabled>Disabled</button><button class="btn btn-primary"><span class="spinner"></span>Sending…</button></div>
+      </div>
+
+      <div class="comp"><h4>Inputs</h4>
+        <div class="field"><label>Default</label><div class="input">Buffer prep, 50 mL</div></div>
+        <div class="field"><label>Focused</label><div class="input focus">10x TBE…</div></div>
+        <div class="searchbar"><svg viewBox="0 0 24 24" fill="none"><circle cx="11" cy="11" r="7" stroke="currentColor" stroke-width="1.8"/><path d="m20 20-3-3" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg><span class="ph">Search…</span></div>
+      </div>
+
+      <div class="comp"><h4>Toggles &amp; chips</h4>
+        <div class="crow"><span style="font-size:13px;font-weight:600">On</span><div class="sw-toggle"><span class="knob"></span></div><span style="font-size:13px;font-weight:600;margin-left:8px">Off</span><div class="sw-toggle off"><span class="knob"></span></div></div>
+        <div class="chips" style="margin-bottom:12px"><span class="ch on">All</span><span class="ch">Protocol</span><span class="ch">Recipe</span></div>
+        <div class="seg"><button class="on">Molarity</button><button>Dilution</button><button>Buffer</button></div>
+      </div>
+
+      <div class="comp"><h4>Pills &amp; status</h4>
+        <div class="crow"><span class="pill pill-ok">In stock</span><span class="pill pill-low">Low</span><span class="pill pill-ordered">Ordered</span><span class="pill pill-sky">New</span></div>
+        <div class="crow" style="gap:16px"><span style="font-size:13px;font-weight:600;display:flex;align-items:center;gap:7px"><span class="status-dot sd-ok"></span>Live</span><span style="font-size:13px;font-weight:600;display:flex;align-items:center;gap:7px"><span class="status-dot sd-sync"></span>Syncing</span><span style="font-size:13px;font-weight:600;display:flex;align-items:center;gap:7px"><span class="status-dot sd-wait"></span>Offline</span></div>
+      </div>
+
+      <div class="comp"><h4>Badges</h4>
+        <div class="crow" style="gap:20px">
+          <div class="iconbtn"><span class="dot-badge">2</span><svg viewBox="0 0 24 24" fill="none"><path d="M6 9a6 6 0 0 1 12 0c0 7 3 8 3 8H3s3-1 3-8M9.5 21a2.5 2.5 0 0 0 5 0" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+          <div class="iconbtn"><span class="dot-badge amber">9+</span><svg viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="1.7"/><path d="M12 8v4l3 2" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg></div>
+          <span class="pill pill-low">3 low</span>
+        </div>
+      </div>
+
+      <div class="comp"><h4>Skeleton loading</h4>
+        <div class="skel" style="width:55%"></div><div class="skel"></div><div class="skel" style="width:85%"></div><div class="skel" style="width:38%"></div>
+        <p class="note" style="margin-top:4px">Content screens skeleton; only sub-second / button waits spin.</p>
+      </div>
+
+      <div class="comp"><h4>List row</h4>
+        <div class="row-list">
+          <div class="lrow"><div class="thumb"><svg viewBox="0 0 24 24" fill="none"><path d="M4 8h16v11H4z" stroke="currentColor" stroke-width="1.6"/><circle cx="9" cy="12" r="1.6" fill="currentColor"/></svg></div><div class="ti">Western blot, rep 2<div class="sub"><span class="status-dot sd-ok"></span>On your laptop</div></div><svg class="chev" viewBox="0 0 24 24" fill="none"><path d="m9 6 6 6-6 6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></div>
+        </div>
+      </div>
+
+      <div class="comp"><h4>Empty state</h4>
+        <div class="empty" style="padding:18px 8px"><div class="ei"><svg viewBox="0 0 24 24" fill="none"><path d="M4 7h16v13H4zM4 7l2-3h12l2 3M9 12h6" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/></svg></div><div class="et">No captures yet</div><div class="es">Tap ＋ to send your first.</div></div>
+      </div>
+
+    </div>
+  </div>
+
+  <div class="callout" style="margin-top:40px;max-width:none"><b>Contract complete.</b> Foundation + 6 batches cover every screen, popup, button, notification, and state. Next step is the real React Native rebuild, screen by screen, matched to these pages, then a paired-device test pass with the companion lane.</div>
+
+</div>
+<script>
+function setMode(m){document.documentElement.classList.toggle('dark',m==='dark');document.getElementById('tL').classList.toggle('on',m==='light');document.getElementById('tD').classList.toggle('on',m==='dark');}
+</script>
+</body>
+</html>
+</content>

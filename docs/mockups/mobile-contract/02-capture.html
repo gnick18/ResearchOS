@@ -1,0 +1,206 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>Contract 02 — Capture</title>
+<link rel="stylesheet" href="contract.css">
+<style>
+.photo-area{aspect-ratio:4/3;border-radius:var(--r-lg);position:relative;overflow:hidden;border:1px solid var(--border);box-shadow:var(--shadow-sm);
+  background:radial-gradient(120% 90% at 50% 0%,#39424f,#11161e)}
+.gel-band{position:absolute;left:12%;right:12%;height:7px;border-radius:3px;background:linear-gradient(90deg,transparent,#d6e2ec,#aebccb,#e8f0f6,transparent);opacity:.85}
+.anno-stroke{position:absolute;border:3px solid var(--coral);border-radius:50%}
+.anno-tag{position:absolute;background:var(--coral);color:#fff;font-size:10px;font-weight:700;padding:3px 7px;border-radius:6px}
+.hint-pill{position:absolute;bottom:10px;left:50%;transform:translateX(-50%);background:rgba(8,12,20,.6);color:#fff;font-size:11px;font-weight:600;padding:6px 12px;border-radius:var(--r-pill);backdrop-filter:blur(8px)}
+.bulk-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.bulk-cell{aspect-ratio:1;border-radius:12px;position:relative;overflow:hidden;border:1px solid var(--border);background:linear-gradient(135deg,#cfe0ee,#e7eef6)}
+.dark .bulk-cell{background:linear-gradient(135deg,#1c2433,#10161f)}
+.bulk-cell .chk{position:absolute;top:6px;right:6px;width:22px;height:22px;border-radius:50%;background:var(--sky);border:2px solid #fff;display:grid;place-items:center;color:#fff;font-size:13px;font-weight:800;box-shadow:var(--shadow-sm)}
+.bulk-cell .chk.off{background:rgba(255,255,255,.35);border-color:rgba(255,255,255,.85)}
+.bulk-cell .gico{position:absolute;inset:0;display:grid;place-items:center;color:var(--faint)}
+.bulk-cell .gico svg{width:24px;height:24px}
+.bulk-cell .prog{position:absolute;inset:0;background:rgba(8,12,20,.45);display:grid;place-items:center}
+.ringload{width:30px;height:30px;border-radius:50%;border:3px solid rgba(255,255,255,.4);border-top-color:#fff;animation:spin 1s linear infinite}
+.radio{width:22px;height:22px;border-radius:50%;border:2px solid var(--border-strong);flex:none}
+.radio.on{border-color:var(--sky);border-width:7px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="studio-head">
+    <div class="studio-title"><span class="logo-dot"><svg viewBox="0 0 24 24" fill="none"><path d="M9 3h6M10 3v6L5.5 17a2.5 2.5 0 0 0 2.2 3.7h8.6A2.5 2.5 0 0 0 18.5 17L14 9V3" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></span>UI Contract</div>
+    <div class="toggle"><button id="tL" class="on" onclick="setMode('light')">☀︎ Light</button><button id="tD" onclick="setMode('dark')">☾ Dark</button></div>
+  </div>
+  <div class="crumbs">01 Tab roots · <b>02 · Capture</b> · 03b Method read modes · 04 Inventory · 05 System · 06 Notifications</div>
+  <p class="sec-kicker">02 · Capture</p>
+  <h2 class="sec-h">The center ＋ action and everything it opens</h2>
+  <p class="sec-d">Capture is an action, not a tab. The center ＋ raises a sheet; each path is a focused pushed screen. Offline captures queue and sync, never block.</p>
+
+  <div class="gallery">
+
+    <!-- 1. CAPTURE SHEET -->
+    <div class="phone-col">
+      <div class="phone"><div class="island"></div><div class="screen"><div class="rb-edge"></div>
+        <div class="statusbar"><span>9:41</span><span class="r">5G&nbsp;&nbsp;􀛨</span></div>
+        <div class="body">
+          <div class="apphead"><div><div class="greet">Maple Lab</div><h1>Notebook</h1></div></div>
+          <div class="scroll" style="filter:blur(1px);opacity:.5">
+            <div class="statuscard"><div class="pulse"><span class="core"></span></div><div><div class="lab">Live</div><div class="meta">Synced just now</div></div></div>
+            <div class="cap2" style="margin-top:14px"><div class="captile photo" style="min-height:100px"></div><div class="captile note" style="min-height:100px"></div></div>
+          </div>
+          <!-- sheet -->
+          <div class="sheet-scrim">
+            <div class="sheet">
+              <div class="grab"></div>
+              <h3>Capture</h3>
+              <p class="sd">What are you adding to the lab?</p>
+              <div class="sheet-opt"><div class="si" style="background:var(--sky-dim);color:var(--sky)"><svg viewBox="0 0 24 24" fill="none"><path d="M4 8h3l1.5-2.2A1 1 0 0 1 9.3 5h5.4a1 1 0 0 1 .8.4L17 8h3a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9a1 1 0 0 1 1-1Z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><circle cx="12" cy="13" r="3.2" stroke="currentColor" stroke-width="1.8"/></svg></div><div><div class="sl">Take a photo</div><div class="ss">Gel, plate, whiteboard</div></div></div>
+              <div class="sheet-opt"><div class="si" style="background:var(--violet-dim);color:var(--violet)"><svg viewBox="0 0 24 24" fill="none"><path d="M4 6h16v12H4z" stroke="currentColor" stroke-width="1.7"/><path d="M7 10h7M7 14h5" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg></div><div><div class="sl">Scan a note</div><div class="ss">Handwritten page to text</div></div></div>
+              <div class="sheet-opt"><div class="si" style="background:var(--coral-dim);color:var(--coral)"><svg viewBox="0 0 24 24" fill="none"><path d="M5 19l1-4L16 5l3 3L9 18l-4 1Z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg></div><div><div class="sl">Quick note</div><div class="ss">Type and send</div></div></div>
+              <div class="sheet-opt"><div class="si" style="background:var(--amber-dim);color:var(--amber)"><svg viewBox="0 0 24 24" fill="none"><path d="M4 6v12M8 6v12M12 6v12M16 6v12M20 6v12" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></div><div><div class="sl">Scan a package</div><div class="ss">Barcode to inventory</div></div></div>
+            </div>
+          </div>
+        </div>
+      </div></div>
+      <div class="phone-label">＋ Capture sheet</div>
+      <div class="phone-cap">Raised from the center ＋. Four bench actions, each color-coded.</div>
+    </div>
+
+    <!-- 2. PHOTO PREVIEW -->
+    <div class="phone-col">
+      <div class="phone"><div class="island"></div><div class="screen"><div class="rb-edge"></div>
+        <div class="statusbar"><span>9:41</span><span class="r">5G&nbsp;&nbsp;􀛨</span></div>
+        <div class="body">
+          <div class="navhead"><div class="back"><svg viewBox="0 0 24 24" fill="none"><path d="m15 6-6 6 6 6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg></div><div class="ti">New photo</div><div class="sp"></div><div class="iconbtn"><svg viewBox="0 0 24 24" fill="none"><path d="M4 8h3l1.5-2.2A1 1 0 0 1 9.3 5h5.4a1 1 0 0 1 .8.4L17 8h3a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9a1 1 0 0 1 1-1Z" stroke="currentColor" stroke-width="1.7"/><circle cx="12" cy="13" r="3.2" stroke="currentColor" stroke-width="1.7"/></svg></div></div>
+          <div class="scroll nopad">
+            <div class="photo-area">
+              <div class="gel-band" style="top:24%"></div><div class="gel-band" style="top:38%;opacity:.6"></div><div class="gel-band" style="top:55%"></div><div class="gel-band" style="top:70%;opacity:.5"></div>
+              <div class="hint-pill">Tap Annotate to mark up</div>
+            </div>
+            <div class="field" style="margin-top:14px"><label>Caption</label><div class="input focus">Western blot, replicate 2</div></div>
+            <div class="lbl">Filing to</div>
+            <div class="card card-tight"><div class="row-list"><div class="lrow" style="padding:6px 2px"><div class="thumb" style="width:38px;height:38px;background:var(--sky-dim);border-color:var(--sky-border)"><svg viewBox="0 0 24 24" fill="none" style="color:var(--sky);width:16px;height:16px"><path d="M6 3h11a2 2 0 0 1 2 2v15l-3-2-3 2-3-2-3 2V5a2 2 0 0 1 2-2Z" stroke="currentColor" stroke-width="1.8"/></svg></div><div class="ti">Gel imaging, exp 4<div class="sub">Recommended</div></div><span style="color:var(--sky);font-weight:600;font-size:13px">Change</span></div></div></div>
+          </div>
+          <div class="toolbar-bottom" style="flex-direction:column;gap:9px">
+            <div class="btn-row" style="width:100%"><button class="btn btn-secondary"><svg viewBox="0 0 24 24" fill="none"><path d="M5 19l1-4L16 5l3 3L9 18l-4 1Z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg>Annotate</button><button class="btn btn-primary">Send to inbox</button></div>
+          </div>
+        </div>
+      </div></div>
+      <div class="phone-label">Photo preview</div>
+      <div class="phone-cap">Letterboxed photo, caption, recommended filing, annotate + send.</div>
+    </div>
+
+    <!-- 3. ANNOTATE -->
+    <div class="phone-col">
+      <div class="phone"><div class="island"></div><div class="screen cam"><div class="rb-edge"></div>
+        <div class="statusbar light"><span>9:41</span><span class="r">5G&nbsp;&nbsp;􀛨</span></div>
+        <div class="body">
+          <div class="navhead" style="color:#fff"><div class="back" style="color:#fff"><svg viewBox="0 0 24 24" fill="none"><path d="M6 6l12 12M18 6 6 18" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg></div><div class="ti" style="color:#fff">Annotate</div><div class="sp"></div><button class="btn btn-primary" style="width:auto;min-height:40px;padding:9px 18px">Save</button></div>
+          <div style="flex:1;display:grid;place-items:center;padding:0 16px">
+            <div class="photo-area" style="width:100%">
+              <div class="gel-band" style="top:24%"></div><div class="gel-band" style="top:38%;opacity:.6"></div><div class="gel-band" style="top:55%"></div><div class="gel-band" style="top:70%;opacity:.5"></div>
+              <div class="anno-stroke" style="left:30%;top:18%;width:60px;height:30px"></div>
+              <div class="anno-tag" style="left:30%;top:9%">target band</div>
+            </div>
+          </div>
+          <div class="anno-toolbar">
+            <div class="anno-tool on"><svg viewBox="0 0 24 24" fill="none"><path d="M5 19l1-4L16 5l3 3L9 18l-4 1Z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg></div>
+            <div class="anno-tool"><svg viewBox="0 0 24 24" fill="none"><path d="M5 16l9-9 3 3-9 9H5v-3Z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M14 7l3 3" stroke="currentColor" stroke-width="3"/></svg></div>
+            <div class="anno-tool"><svg viewBox="0 0 24 24" fill="none"><path d="M4 4h16v16H4z" stroke="currentColor" stroke-width="1.8"/></svg></div>
+            <span class="swatch-dot" style="background:var(--coral)"></span>
+            <span class="swatch-dot" style="background:var(--sky)"></span>
+            <span class="swatch-dot" style="background:var(--amber)"></span>
+            <div class="anno-tool"><svg viewBox="0 0 24 24" fill="none"><path d="M9 14 4 9l5-5M4 9h11a5 5 0 0 1 0 10h-3" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+            <div class="anno-tool"><svg viewBox="0 0 24 24" fill="none"><path d="M6 7h12l-1 13H7zM9 7V5a3 3 0 0 1 6 0v2" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/></svg></div>
+          </div>
+        </div>
+      </div></div>
+      <div class="phone-label">Annotate</div>
+      <div class="phone-cap">Full-focus canvas: pen, highlighter, shapes, color, undo, clear, Save.</div>
+    </div>
+
+    <!-- 4. QUICK NOTE -->
+    <div class="phone-col">
+      <div class="phone"><div class="island"></div><div class="screen"><div class="rb-edge"></div>
+        <div class="statusbar"><span>9:41</span><span class="r">5G&nbsp;&nbsp;􀛨</span></div>
+        <div class="body">
+          <div class="navhead"><div class="back"><svg viewBox="0 0 24 24" fill="none"><path d="m15 6-6 6 6 6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg></div><div class="ti">Quick note</div></div>
+          <div class="scroll nopad">
+            <div class="field"><label>Title (optional)</label><div class="input">Buffer prep, 50 mL</div></div>
+            <div class="field"><label>Note</label><div class="input focus tall">10x TBE stock, diluted to 1x. pH 8.3, stored at RT.<span style="display:inline-block;width:2px;height:18px;background:var(--sky);vertical-align:middle;margin-left:1px"></span></div></div>
+            <div class="callout"><b>Files to your inbox.</b> You can sort it into a notebook on send, or leave it unsorted for the laptop.</div>
+          </div>
+          <div class="toolbar-bottom" style="flex-direction:column;gap:9px">
+            <button class="btn btn-primary" style="width:100%">Send to lab</button>
+            <button class="btn btn-ghost" style="width:100%;color:var(--coral)">Discard</button>
+          </div>
+        </div>
+      </div></div>
+      <div class="phone-label">Quick note</div>
+      <div class="phone-cap">Title + body, autofocus, send-to-lab, discard. Filing happens on send.</div>
+    </div>
+
+    <!-- 5. BULK UPLOAD -->
+    <div class="phone-col">
+      <div class="phone"><div class="island"></div><div class="screen"><div class="rb-edge"></div>
+        <div class="statusbar"><span>9:41</span><span class="r">5G&nbsp;&nbsp;􀛨</span></div>
+        <div class="body">
+          <div class="navhead"><div class="back"><svg viewBox="0 0 24 24" fill="none"><path d="m15 6-6 6 6 6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg></div><div class="ti">From camera roll</div><div class="sp"></div><span style="color:var(--sky);font-weight:600;font-size:13.5px">Select all</span></div>
+          <div class="scroll nopad">
+            <div class="note" style="margin:0 2px 12px">3 of 9 selected · they will queue to your inbox.</div>
+            <div class="bulk-grid">
+              <div class="bulk-cell"><div class="gico"><svg viewBox="0 0 24 24" fill="none"><path d="M4 8h16v11H4z" stroke="currentColor" stroke-width="1.6"/><circle cx="9" cy="12" r="1.6" fill="currentColor"/></svg></div><div class="chk">✓</div></div>
+              <div class="bulk-cell"><div class="gico"><svg viewBox="0 0 24 24" fill="none"><path d="M4 8h16v11H4z" stroke="currentColor" stroke-width="1.6"/></svg></div><div class="chk off"></div></div>
+              <div class="bulk-cell"><div class="gico"><svg viewBox="0 0 24 24" fill="none"><path d="M4 8h16v11H4z" stroke="currentColor" stroke-width="1.6"/><circle cx="9" cy="12" r="1.6" fill="currentColor"/></svg></div><div class="chk">✓</div></div>
+              <div class="bulk-cell"><div class="gico"><svg viewBox="0 0 24 24" fill="none"><path d="M4 8h16v11H4z" stroke="currentColor" stroke-width="1.6"/></svg></div><div class="chk off"></div></div>
+              <div class="bulk-cell"><div class="gico"><svg viewBox="0 0 24 24" fill="none"><path d="M4 8h16v11H4z" stroke="currentColor" stroke-width="1.6"/></svg></div><div class="chk">✓</div></div>
+              <div class="bulk-cell"><div class="gico"><svg viewBox="0 0 24 24" fill="none"><path d="M4 8h16v11H4z" stroke="currentColor" stroke-width="1.6"/></svg></div><div class="chk off"></div></div>
+              <div class="bulk-cell"><div class="gico"><svg viewBox="0 0 24 24" fill="none"><path d="M4 8h16v11H4z" stroke="currentColor" stroke-width="1.6"/></svg></div><div class="chk off"></div></div>
+              <div class="bulk-cell"><div class="gico"><svg viewBox="0 0 24 24" fill="none"><path d="M4 8h16v11H4z" stroke="currentColor" stroke-width="1.6"/></svg></div><div class="chk off"></div></div>
+              <div class="bulk-cell"><div class="gico"><svg viewBox="0 0 24 24" fill="none"><path d="M4 8h16v11H4z" stroke="currentColor" stroke-width="1.6"/></svg></div><div class="chk off"></div></div>
+            </div>
+          </div>
+          <div class="toolbar-bottom"><button class="btn btn-primary" style="width:100%">Add 3 photos</button></div>
+        </div>
+      </div></div>
+      <div class="phone-label">Bulk upload</div>
+      <div class="phone-cap">Multi-select grid with count, select-all, queue to inbox.</div>
+    </div>
+
+    <!-- 6. NOTEBOOK CHOOSER -->
+    <div class="phone-col">
+      <div class="phone"><div class="island"></div><div class="screen"><div class="rb-edge"></div>
+        <div class="statusbar"><span>9:41</span><span class="r">5G&nbsp;&nbsp;􀛨</span></div>
+        <div class="body">
+          <div class="apphead"><div><div class="greet">Maple Lab</div><h1>Notebook</h1></div></div>
+          <div class="scroll" style="filter:blur(1px);opacity:.5"><div class="statuscard"><div class="pulse"><span class="core"></span></div><div><div class="lab">Live</div></div></div></div>
+          <div class="sheet-scrim">
+            <div class="sheet">
+              <div class="grab"></div>
+              <h3>File this capture</h3>
+              <p class="sd">Pick a notebook, or leave it in the inbox.</p>
+              <div class="lbl" style="margin:6px 2px 8px">Recommended</div>
+              <div class="sheet-opt" style="border-color:var(--sky-border);background:var(--sky-dim)"><div class="si" style="background:var(--sky);color:#fff"><svg viewBox="0 0 24 24" fill="none"><path d="M6 3h11a2 2 0 0 1 2 2v15l-3-2-3 2-3-2-3 2V5a2 2 0 0 1 2-2Z" stroke="currentColor" stroke-width="1.8"/></svg></div><div style="flex:1"><div class="sl">Gel imaging, exp 4</div><div class="ss">Your active experiment</div></div><span class="radio on"></span></div>
+              <div class="lbl" style="margin:10px 2px 8px">All notebooks</div>
+              <div class="card card-tight row-list" style="box-shadow:none">
+                <div class="lrow"><div class="thumb" style="width:38px;height:38px"><svg viewBox="0 0 24 24" fill="none"><path d="M6 3h11a2 2 0 0 1 2 2v15l-3-2-3 2-3-2-3 2V5a2 2 0 0 1 2-2Z" stroke="currentColor" stroke-width="1.6"/></svg></div><div class="ti">Cloning, exp 2</div><span class="radio"></span></div>
+                <div class="lrow"><div class="thumb" style="width:38px;height:38px"><svg viewBox="0 0 24 24" fill="none"><path d="M6 3h11a2 2 0 0 1 2 2v15l-3-2-3 2-3-2-3 2V5a2 2 0 0 1 2-2Z" stroke="currentColor" stroke-width="1.6"/></svg></div><div class="ti">Lab shared notebook</div><span class="radio"></span></div>
+                <div class="lrow"><div class="thumb" style="width:38px;height:38px;background:var(--sunken)"><svg viewBox="0 0 24 24" fill="none" style="color:var(--faint)"><path d="M4 8h16v11H4z" stroke="currentColor" stroke-width="1.6"/></svg></div><div class="ti">Unsorted (inbox)<div class="sub">Sort later on the laptop</div></div><span class="radio"></span></div>
+              </div>
+              <button class="btn btn-primary" style="width:100%;margin-top:14px">File here</button>
+            </div>
+          </div>
+        </div>
+      </div></div>
+      <div class="phone-label">Notebook chooser</div>
+      <div class="phone-cap">Filing sheet: recommended notebook, full list, or leave unsorted.</div>
+    </div>
+
+  </div>
+</div>
+<script>
+function setMode(m){document.documentElement.classList.toggle('dark',m==='dark');document.getElementById('tL').classList.toggle('on',m==='light');document.getElementById('tD').classList.toggle('on',m==='dark');}
+</script>
+</body>
+</html>
+</content>

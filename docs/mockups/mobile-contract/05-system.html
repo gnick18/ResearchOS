@@ -1,0 +1,255 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>Contract 05 — System &amp; popups</title>
+<link rel="stylesheet" href="contract.css">
+<style>
+.qrframe{width:200px;height:200px;position:relative;margin:0 auto}
+.qrframe .cnr{position:absolute;width:34px;height:34px;border:3px solid #fff}
+.cnr.tl{top:0;left:0;border-right:0;border-bottom:0;border-radius:10px 0 0 0}
+.cnr.tr{top:0;right:0;border-left:0;border-bottom:0;border-radius:0 10px 0 0}
+.cnr.bl{bottom:0;left:0;border-right:0;border-top:0;border-radius:0 0 0 10px}
+.cnr.br{bottom:0;right:0;border-left:0;border-top:0;border-radius:0 0 10px 0}
+.qr{position:absolute;inset:26px;background:
+  conic-gradient(from 0deg,#fff 25%,transparent 0) 0 0/14px 14px,
+  conic-gradient(from 180deg,#fff 25%,transparent 0) 7px 7px/14px 14px;opacity:.5;border-radius:6px}
+.topsheet-scrim{position:absolute;inset:0;background:rgba(8,12,20,.42);z-index:9;display:flex;flex-direction:column}
+.topsheet{background:var(--surface);border-radius:0 0 var(--r-xl) var(--r-xl);padding:8px 16px 16px;box-shadow:var(--shadow-lg);max-height:88%;overflow:auto}
+.topsheet .grab{width:40px;height:5px;border-radius:3px;background:var(--border-strong);margin:12px auto 6px}
+.exp-card{display:flex;align-items:center;gap:12px;padding:13px;border-radius:var(--r-md);background:linear-gradient(135deg,var(--violet-dim),var(--surface));border:1px solid var(--violet-dim);margin-bottom:10px}
+.exp-card .ei{width:40px;height:40px;border-radius:11px;background:var(--violet);display:grid;place-items:center;color:#fff;flex:none}
+.exp-card .ei svg{width:21px;height:21px}
+.exp-card .day{font-family:var(--mono);font-size:11.5px;color:var(--violet);font-weight:700;margin-top:2px}
+.lockwrap{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;text-align:center;padding:0 36px 60px}
+.bot{width:96px;height:96px;border-radius:28px;background:linear-gradient(150deg,var(--sky),#43c0ff);display:grid;place-items:center;box-shadow:var(--shadow-lg);position:relative}
+.bot svg{width:52px;height:52px}
+.bot .eye{position:absolute;width:8px;height:8px;border-radius:50%;background:#0a2a3d;top:40px}
+.splashscreen{position:absolute;inset:0;border-radius:38px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;
+  background:radial-gradient(120% 80% at 50% 30%,#43c0ff,var(--sky) 60%,#0f86c9)}
+.alarmscreen{position:absolute;inset:0;border-radius:38px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;color:#fff;
+  background:radial-gradient(120% 80% at 50% 30%,#ffc24d,var(--amber) 55%,#d9820a);text-align:center;padding:0 30px}
+.alarm-ring{width:150px;height:150px;border-radius:50%;border:5px solid rgba(255,255,255,.45);display:grid;place-items:center;margin-bottom:14px;box-shadow:0 0 0 14px rgba(255,255,255,.12)}
+.alarm-ring svg{width:62px;height:62px}
+.burst{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;text-align:center}
+.burst .ray{position:absolute;width:4px;height:26px;border-radius:3px;background:var(--amber);top:calc(50% - 120px);left:50%;transform-origin:50% 120px}
+.toast{position:absolute;left:16px;right:16px;top:54px;z-index:11;background:var(--surface);border:1px solid var(--border);border-radius:var(--r-md);padding:12px 14px;display:flex;align-items:center;gap:11px;box-shadow:var(--shadow-lg)}
+.toast .tc{width:30px;height:30px;border-radius:50%;background:var(--success-dim);display:grid;place-items:center;flex:none}
+.toast .tc svg{width:17px;height:17px;color:var(--success)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="studio-head">
+    <div class="studio-title"><span class="logo-dot"><svg viewBox="0 0 24 24" fill="none"><path d="M9 3h6M10 3v6L5.5 17a2.5 2.5 0 0 0 2.2 3.7h8.6A2.5 2.5 0 0 0 18.5 17L14 9V3" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></span>UI Contract</div>
+    <div class="toggle"><button id="tL" class="on" onclick="setMode('light')">☀︎ Light</button><button id="tD" onclick="setMode('dark')">☾ Dark</button></div>
+  </div>
+  <div class="crumbs">01 Tab roots · 02 Capture · 03 Tools · 03b Read modes · 04 Inventory · <b>05 · System &amp; popups</b> · 06 Notifications</div>
+  <p class="sec-kicker">05 · System &amp; popups</p>
+  <h2 class="sec-h">Pairing, settings, overlays, and system moments</h2>
+  <p class="sec-d">The frame around the app: pair flow, settings, the lock gate, splash, the timer alarm, the Today pull-down (with the active-experiments band), confirm dialogs, and the capture-sent moment.</p>
+
+  <div class="gallery">
+
+    <!-- 1. PAIR QR -->
+    <div class="phone-col">
+      <div class="phone"><div class="island"></div><div class="screen cam"><div class="rb-edge"></div>
+        <div class="statusbar light"><span>9:41</span><span class="r">5G&nbsp;&nbsp;􀛨</span></div>
+        <div class="body">
+          <div class="navhead" style="color:#fff"><div class="back" style="color:#fff"><svg viewBox="0 0 24 24" fill="none"><path d="m15 6-6 6 6 6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg></div><div class="ti" style="color:#fff">Pair this phone</div></div>
+          <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:22px;color:#fff;padding:0 24px;text-align:center">
+            <div class="qrframe"><div class="cnr tl"></div><div class="cnr tr"></div><div class="cnr bl"></div><div class="cnr br"></div><div class="qr"></div></div>
+            <div style="font-size:14px;font-weight:600">Open ResearchOS on your laptop, go to Settings, and scan the QR code there.</div>
+          </div>
+          <div class="toolbar-bottom" style="background:transparent;border:0;flex-direction:column;gap:9px">
+            <button class="btn btn-secondary" style="background:rgba(255,255,255,.14);color:#fff;border-color:rgba(255,255,255,.25)">Enter code manually</button>
+            <button class="btn btn-ghost" style="color:#ffd2cc">Try the demo instead</button>
+          </div>
+        </div>
+      </div></div>
+      <div class="phone-label">Pair · QR</div>
+      <div class="phone-cap">Scan the laptop QR. Manual entry + demo as escapes (no soft-lock).</div>
+    </div>
+
+    <!-- 2. PAIR MANUAL + ERROR -->
+    <div class="phone-col">
+      <div class="phone"><div class="island"></div><div class="screen"><div class="rb-edge"></div>
+        <div class="statusbar"><span>9:41</span><span class="r">5G&nbsp;&nbsp;􀛨</span></div>
+        <div class="body">
+          <div class="navhead"><div class="back"><svg viewBox="0 0 24 24" fill="none"><path d="m15 6-6 6 6 6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg></div><div class="ti">Enter code</div></div>
+          <div class="scroll nopad">
+            <p class="note" style="margin:0 2px 14px">Paste the pairing code shown in your laptop Settings.</p>
+            <div class="input tall" style="font-family:var(--mono);font-size:13px">ros-pair:eyJ1Ijoi…</div>
+            <div class="callout" style="margin-top:14px;background:var(--danger-dim);border-color:var(--danger-border)"><b style="color:var(--danger)">This code has expired.</b> Generate a fresh one on your laptop, codes last 5 minutes.</div>
+            <button class="btn btn-primary" style="margin-top:16px">Pair</button>
+            <button class="btn btn-ghost" style="width:100%;margin-top:2px">Back to QR scan</button>
+          </div>
+        </div>
+      </div></div>
+      <div class="phone-label">Pair · manual + error</div>
+      <div class="phone-cap">Paste fallback with a clear, recoverable error state.</div>
+    </div>
+
+    <!-- 3. SETTINGS -->
+    <div class="phone-col">
+      <div class="phone"><div class="island"></div><div class="screen"><div class="rb-edge"></div>
+        <div class="statusbar"><span>9:41</span><span class="r">5G&nbsp;&nbsp;􀛨</span></div>
+        <div class="body">
+          <div class="navhead"><div class="back"><svg viewBox="0 0 24 24" fill="none"><path d="M6 6l12 12M18 6 6 18" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg></div><div class="ti">Settings</div></div>
+          <div class="scroll nopad">
+            <div class="lbl" style="margin-top:2px">Appearance</div>
+            <div class="card card-tight">
+              <div class="setting-row"><div class="st"><div class="nm">Floating mascot</div><div class="ds">Show BeakerBot in the corner. Off by default.</div></div><div class="sw-toggle off"><span class="knob"></span></div></div>
+              <div class="setting-row"><div class="st"><div class="nm">Show Today</div><div class="ds">A glance at today's tasks on Home.</div></div><div class="sw-toggle"><span class="knob"></span></div></div>
+            </div>
+            <div class="lbl">Interaction</div>
+            <div class="card card-tight">
+              <div class="setting-row"><div class="st"><div class="nm">Haptics</div></div><div class="sw-toggle"><span class="knob"></span></div></div>
+              <div class="setting-row"><div class="st"><div class="nm">Reduce motion</div></div><div class="sw-toggle off"><span class="knob"></span></div></div>
+            </div>
+            <div class="lbl">Security</div>
+            <div class="card card-tight">
+              <div class="setting-row"><div class="st"><div class="nm">Require Face ID to open</div><div class="ds">Your captures are unpublished research, so this keeps them yours.</div></div><div class="sw-toggle off"><span class="knob"></span></div></div>
+            </div>
+            <div class="lbl">Device &amp; lab</div>
+            <div class="card card-tight">
+              <div class="kv"><span class="k">Lab</span><span class="v" style="font-family:inherit;font-weight:600">Maple Lab</span></div>
+              <div class="kv"><span class="k">This device</span><span class="v">a91f…3c2</span></div>
+            </div>
+            <button class="btn btn-danger" style="margin-top:12px">Unpair this phone</button>
+            <div class="note" style="text-align:center;margin-top:14px">ResearchOS · v1.4.0</div>
+          </div>
+        </div>
+      </div></div>
+      <div class="phone-label">Settings</div>
+      <div class="phone-cap">Grouped sections, toggle rows, device fingerprint, unpair, version.</div>
+    </div>
+
+    <!-- 4. APP LOCK -->
+    <div class="phone-col">
+      <div class="phone"><div class="island"></div><div class="screen"><div class="rb-edge"></div>
+        <div class="statusbar"><span>9:41</span><span class="r">5G&nbsp;&nbsp;􀛨</span></div>
+        <div class="body">
+          <div class="lockwrap">
+            <div class="bot"><svg viewBox="0 0 24 24" fill="none"><path d="M9 3h6M10 3v6L5.5 17a2.5 2.5 0 0 0 2.2 3.7h8.6A2.5 2.5 0 0 0 18.5 17L14 9V3" stroke="#fff" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+            <div><div style="font-size:19px;font-weight:800">ResearchOS is locked</div><div class="note" style="margin-top:5px">Unlock with Face ID to see your bench.</div></div>
+            <button class="btn btn-primary" style="width:auto;padding:13px 26px;margin-top:6px"><svg viewBox="0 0 24 24" fill="none"><rect x="5" y="11" width="14" height="9" rx="2" stroke="#fff" stroke-width="1.8"/><path d="M8 11V8a4 4 0 0 1 8 0v3" stroke="#fff" stroke-width="1.8"/></svg>Unlock</button>
+          </div>
+        </div>
+      </div></div>
+      <div class="phone-label">App-lock gate</div>
+      <div class="phone-cap">Biometric lock on launch / return. Optional, in Settings.</div>
+    </div>
+
+    <!-- 5. SPLASH -->
+    <div class="phone-col">
+      <div class="phone"><div class="island"></div>
+        <div class="splashscreen">
+          <div class="bot" style="width:104px;height:104px;background:rgba(255,255,255,.18);box-shadow:none"><svg viewBox="0 0 24 24" fill="none"><path d="M9 3h6M10 3v6L5.5 17a2.5 2.5 0 0 0 2.2 3.7h8.6A2.5 2.5 0 0 0 18.5 17L14 9V3" stroke="#fff" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+          <div style="color:#fff;text-align:center"><div style="font-size:24px;font-weight:800;letter-spacing:-.02em">ResearchOS</div><div style="font-size:13px;opacity:.85;margin-top:3px">Your bench companion</div></div>
+        </div>
+      </div>
+      <div class="phone-label">Splash</div>
+      <div class="phone-cap">Brand launch (scales down + fades to reveal the app). Once a day.</div>
+    </div>
+
+    <!-- 6. TIMER ALARM -->
+    <div class="phone-col">
+      <div class="phone"><div class="island"></div>
+        <div class="alarmscreen">
+          <div class="alarm-ring"><svg viewBox="0 0 24 24" fill="none"><circle cx="12" cy="13" r="8" stroke="#fff" stroke-width="1.8"/><path d="M12 13V9M9 2h6" stroke="#fff" stroke-width="1.8" stroke-linecap="round"/></svg></div>
+          <div style="font-size:13px;font-weight:700;opacity:.9;text-transform:uppercase;letter-spacing:.1em">Time's up</div>
+          <div style="font-size:24px;font-weight:800">PCR denaturation</div>
+          <div style="font-size:13px;opacity:.85;margin-bottom:24px">Step 2 of 6 · started 4m ago</div>
+          <button class="btn" style="background:#fff;color:var(--amber);width:auto;padding:14px 40px;font-size:16px">Stop</button>
+          <button class="btn btn-ghost" style="color:#fff;width:auto;margin-top:4px">Snooze 5 min</button>
+        </div>
+      </div>
+      <div class="phone-label">Timer alarm</div>
+      <div class="phone-cap">Full-screen, vivid, one big Stop. (Animation + sound on device.)</div>
+    </div>
+
+    <!-- 7. TODAY PANEL + ACTIVE EXPERIMENTS BAND -->
+    <div class="phone-col">
+      <div class="phone"><div class="island"></div><div class="screen"><div class="rb-edge"></div>
+        <div class="statusbar"><span>9:41</span><span class="r">5G&nbsp;&nbsp;􀛨</span></div>
+        <div class="body">
+          <div class="apphead" style="filter:blur(1px);opacity:.4"><div><div class="greet">Good morning</div><h1>Home</h1></div></div>
+          <div class="topsheet-scrim">
+            <div class="topsheet">
+              <div style="display:flex;align-items:baseline;justify-content:space-between"><h1 style="font-size:24px;font-weight:800;margin:2px 0">Today</h1><span class="note">Synced 1m ago</span></div>
+              <div class="lbl" style="color:var(--violet)">Active experiments</div>
+              <div class="exp-card"><div class="ei"><svg viewBox="0 0 24 24" fill="none"><path d="M6 3h11a2 2 0 0 1 2 2v15l-3-2-3 2-3-2-3 2V5a2 2 0 0 1 2-2Z" stroke="#fff" stroke-width="1.7"/></svg></div><div style="flex:1"><div style="font-weight:700;font-size:14.5px">Gibson assembly clone</div><div class="day">Day 3 of 5 · tap to open method</div></div><svg class="chev" viewBox="0 0 24 24" fill="none"><path d="m9 6 6 6-6 6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></div>
+              <div class="exp-card"><div class="ei"><svg viewBox="0 0 24 24" fill="none"><path d="M6 3h11a2 2 0 0 1 2 2v15l-3-2-3 2-3-2-3 2V5a2 2 0 0 1 2-2Z" stroke="#fff" stroke-width="1.7"/></svg></div><div style="flex:1"><div style="font-weight:700;font-size:14.5px">HEK transfection</div><div class="day">Day 1 of 3 · tap to open method</div></div><svg class="chev" viewBox="0 0 24 24" fill="none"><path d="m9 6 6 6-6 6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></div>
+              <div class="lbl">Tasks</div>
+              <div class="card card-tight" style="box-shadow:none">
+                <div class="taskrow"><span class="checkbox due"></span><span class="t">Image the gel</span><span class="when over">Overdue</span></div>
+                <div class="taskrow"><span class="checkbox"></span><span class="t">Change media, plate 2</span><span class="when">2:00 PM</span></div>
+                <div class="taskrow"><span class="checkbox done"></span><span class="t done">Restock tips</span><span class="when">Done</span></div>
+              </div>
+              <div class="grab"></div>
+            </div>
+          </div>
+        </div>
+      </div></div>
+      <div class="phone-label">Today panel</div>
+      <div class="phone-cap">Pull-down from Home. The purple active-experiments band (companion lane) sits above tasks; cards deep-link to the method read mode.</div>
+    </div>
+
+    <!-- 8. CONFIRM DIALOG -->
+    <div class="phone-col">
+      <div class="phone"><div class="island"></div><div class="screen"><div class="rb-edge"></div>
+        <div class="statusbar"><span>9:41</span><span class="r">5G&nbsp;&nbsp;􀛨</span></div>
+        <div class="body">
+          <div class="apphead" style="filter:blur(1px);opacity:.4"><div><div class="greet">Maple Lab</div><h1>Settings</h1></div></div>
+          <div class="dialog-scrim">
+            <div class="dialog">
+              <div class="di" style="background:var(--danger-dim)"><svg viewBox="0 0 24 24" fill="none" style="color:var(--danger)"><path d="M12 9v4M12 17h.01M10.3 4.3 2.5 18a2 2 0 0 0 1.7 3h15.6a2 2 0 0 0 1.7-3L13.7 4.3a2 2 0 0 0-3.4 0Z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg></div>
+              <h3>Unpair this phone?</h3>
+              <p>It will stop sending captures and notes to your lab. You can pair again any time from the Notebook screen.</p>
+              <div class="btn-row"><button class="btn btn-secondary">Cancel</button><button class="btn btn-coral">Unpair</button></div>
+            </div>
+          </div>
+        </div>
+      </div></div>
+      <div class="phone-label">Confirm dialog</div>
+      <div class="phone-cap">Styled destructive confirm. Cancel always present (no soft-lock).</div>
+    </div>
+
+    <!-- 9. CAPTURE SENT (success) -->
+    <div class="phone-col">
+      <div class="phone"><div class="island"></div><div class="screen"><div class="rb-edge"></div>
+        <div class="statusbar"><span>9:41</span><span class="r">5G&nbsp;&nbsp;􀛨</span></div>
+        <div class="body">
+          <div class="apphead"><div><div class="greet">Maple Lab</div><h1>Notebook</h1></div></div>
+          <div class="scroll" style="opacity:.5;filter:blur(1px)"><div class="statuscard"><div class="pulse"><span class="core"></span></div><div><div class="lab">Live</div></div></div></div>
+          <!-- success burst overlay -->
+          <div class="burst">
+            <div class="ray" style="transform:rotate(0deg)"></div><div class="ray" style="transform:rotate(45deg);background:var(--sky)"></div><div class="ray" style="transform:rotate(90deg);background:var(--coral)"></div><div class="ray" style="transform:rotate(135deg);background:var(--violet)"></div><div class="ray" style="transform:rotate(180deg);background:var(--amber)"></div><div class="ray" style="transform:rotate(225deg);background:var(--sky)"></div><div class="ray" style="transform:rotate(270deg);background:var(--success)"></div><div class="ray" style="transform:rotate(315deg);background:var(--coral)"></div>
+            <div class="success-check" style="width:88px;height:88px;margin:0 0 16px;background:var(--success)"><svg viewBox="0 0 24 24" fill="none" style="width:46px;height:46px;color:#fff"><path d="M20 6 9 17l-5-5" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+            <div style="font-size:19px;font-weight:800">Sent to Maple Lab</div>
+            <div class="note">On your laptop now</div>
+          </div>
+        </div>
+      </div></div>
+      <div class="phone-label">Capture sent</div>
+      <div class="phone-cap">The success-burst moment after a capture syncs. Brief, celebratory, brand-rainbow rays.</div>
+    </div>
+
+  </div>
+
+  <div style="margin-top:30px;max-width:none"><div class="callout"><b>Toasts.</b> Lighter confirmations (note sent, copied, queued offline) use a top toast instead of the full burst, shown below.</div>
+    <div style="display:flex;gap:24px;flex-wrap:wrap;margin-top:16px">
+      <div style="width:320px;background:var(--surface);border:1px solid var(--border);border-radius:var(--r-md);padding:12px 14px;display:flex;align-items:center;gap:11px;box-shadow:var(--shadow-md)"><div style="width:30px;height:30px;border-radius:50%;background:var(--success-dim);display:grid;place-items:center;flex:none"><svg viewBox="0 0 24 24" fill="none" style="width:17px;height:17px;color:var(--success)"><path d="M20 6 9 17l-5-5" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg></div><div style="font-size:14px;font-weight:600">Note sent to your inbox</div></div>
+      <div style="width:320px;background:var(--surface);border:1px solid var(--border);border-radius:var(--r-md);padding:12px 14px;display:flex;align-items:center;gap:11px;box-shadow:var(--shadow-md)"><div style="width:30px;height:30px;border-radius:50%;background:var(--amber-dim);display:grid;place-items:center;flex:none"><svg viewBox="0 0 24 24" fill="none" style="width:17px;height:17px;color:var(--amber)"><path d="M5 19l1-4L16 5l3 3L9 18l-4 1Z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg></div><div style="font-size:14px;font-weight:600">Queued offline, will send when online</div></div>
+    </div>
+  </div>
+
+</div>
+<script>
+function setMode(m){document.documentElement.classList.toggle('dark',m==='dark');document.getElementById('tL').classList.toggle('on',m==='light');document.getElementById('tD').classList.toggle('on',m==='dark');}
+</script>
+</body>
+</html>
+</content>

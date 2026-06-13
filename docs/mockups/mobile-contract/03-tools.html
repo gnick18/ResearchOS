@@ -1,0 +1,267 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>Contract 03 — Tools</title>
+<link rel="stylesheet" href="contract.css">
+<style>
+.unitsel{display:flex;align-items:center;gap:6px;border:1px solid var(--border-strong);background:var(--surface-2);border-radius:var(--r-md);padding:0 6px 0 0;overflow:hidden;min-width:0}
+.unitsel .uin{flex:1;min-width:0;width:0;border:0;background:transparent;font-family:var(--mono);font-size:16px;color:var(--text);padding:13px 12px}
+.unitsel .udd{flex:none;font-size:12.5px;font-weight:700;color:var(--sky);background:var(--sky-dim);padding:6px 10px;border-radius:var(--r-sm);display:flex;align-items:center;gap:3px;white-space:nowrap}
+.calcrow{display:flex;gap:10px;margin-bottom:11px}
+.calcrow>div{flex:1;min-width:0}
+.flbl{font-size:12px;font-weight:600;color:var(--muted);margin-bottom:6px}
+.compcard{border:1px solid var(--border);border-radius:var(--r-md);padding:12px;background:var(--surface-2);margin-bottom:10px;position:relative}
+.compcard .rm{position:absolute;top:10px;right:10px;color:var(--faint)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="studio-head">
+    <div class="studio-title"><span class="logo-dot"><svg viewBox="0 0 24 24" fill="none"><path d="M9 3h6M10 3v6L5.5 17a2.5 2.5 0 0 0 2.2 3.7h8.6A2.5 2.5 0 0 0 18.5 17L14 9V3" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></span>UI Contract</div>
+    <div class="toggle"><button id="tL" class="on" onclick="setMode('light')">☀︎ Light</button><button id="tD" onclick="setMode('dark')">☾ Dark</button></div>
+  </div>
+  <div class="crumbs">01 Tab roots · 02 Capture · 03b Method read modes · <b>03 · Tools</b> · 04 Inventory · 05 System · 06 Notifications</div>
+  <p class="sec-kicker">03 · Tools</p>
+  <h2 class="sec-h">Timers, calculators, and the wiki</h2>
+  <p class="sec-d">Reached from the Home hub launcher (pushed screens, back chevron). All numeric I/O in Geist Mono. The Buffer recipe uses the standard as-you-add checklist.</p>
+
+  <div class="gallery">
+
+    <!-- TIMERS -->
+    <div class="phone-col">
+      <div class="phone"><div class="island"></div><div class="screen"><div class="rb-edge"></div>
+        <div class="statusbar"><span>9:41</span><span class="r">5G&nbsp;&nbsp;􀛨</span></div>
+        <div class="body">
+          <div class="navhead"><div class="back"><svg viewBox="0 0 24 24" fill="none"><path d="m15 6-6 6 6 6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg></div><div class="ti">Timers</div><div class="sp"></div><div class="iconbtn"><svg viewBox="0 0 24 24" fill="none"><path d="M6 9a6 6 0 0 1 12 0c0 7 3 8 3 8H3s3-1 3-8M9.5 21a2.5 2.5 0 0 0 5 0" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg></div></div>
+          <div class="scroll nopad">
+            <div class="lbl" style="margin-top:2px">Running</div>
+            <div class="timer-live"><div class="ring"><div class="in">⏱</div></div><div><div class="nm">PCR denaturation</div><div class="note" style="font-size:12px">Step 2 of 6</div></div><div class="cd">04:12</div></div>
+            <div class="timer-live" style="margin-top:10px;background:linear-gradient(135deg,color-mix(in srgb,var(--sky) 12%,var(--surface)),var(--surface));border-color:var(--sky-border)"><div class="ring" style="background:conic-gradient(var(--sky) 120deg,var(--sky-dim) 0)"><div class="in">⏱</div></div><div><div class="nm">Gel run</div><div class="note" style="font-size:12px">From laptop</div></div><div class="cd" style="color:var(--sky)">18:40</div></div>
+            <div class="lbl">Quick start</div>
+            <div class="chips"><span class="ch">1m</span><span class="ch">5m</span><span class="ch on">10m</span><span class="ch">30m</span><span class="ch">1h</span></div>
+            <div class="lbl">Custom</div>
+            <div class="timer-display"><span class="z">00</span>:<span class="z">10</span>:<span>00</span></div>
+            <div class="note" style="text-align:center;margin:-4px 0 12px;font-family:var(--mono);font-size:10px;letter-spacing:.1em">HH : MM : SS</div>
+            <div class="keypad">
+              <div class="key">1</div><div class="key">2</div><div class="key">3</div>
+              <div class="key">4</div><div class="key">5</div><div class="key">6</div>
+              <div class="key">7</div><div class="key">8</div><div class="key">9</div>
+              <div class="key">00</div><div class="key">0</div><div class="key clr">⌫</div>
+            </div>
+            <button class="btn btn-primary" style="margin-top:14px">Start timer</button>
+          </div>
+        </div>
+      </div></div>
+      <div class="phone-label">Timers</div>
+      <div class="phone-cap">Running (incl. laptop-synced), quick-start presets, mono keypad, alarm in header.</div>
+    </div>
+
+    <!-- SCIENTIFIC -->
+    <div class="phone-col">
+      <div class="phone"><div class="island"></div><div class="screen"><div class="rb-edge"></div>
+        <div class="statusbar"><span>9:41</span><span class="r">5G&nbsp;&nbsp;􀛨</span></div>
+        <div class="body">
+          <div class="navhead"><div class="back"><svg viewBox="0 0 24 24" fill="none"><path d="m15 6-6 6 6 6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg></div><div class="ti">Calculators</div></div>
+          <div class="scroll nopad">
+            <div class="card card-tight" style="display:flex;align-items:center;gap:11px;margin-bottom:13px;border-color:var(--violet-dim);background:linear-gradient(180deg,var(--violet-dim),var(--surface))">
+              <div style="width:36px;height:36px;border-radius:10px;background:var(--violet);display:grid;place-items:center;flex:none"><svg viewBox="0 0 24 24" fill="none" style="width:19px;height:19px;color:#fff"><rect x="4" y="3" width="16" height="18" rx="2.5" stroke="currentColor" stroke-width="1.8"/><path d="M8 8h8M8 12h5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></div>
+              <div style="flex:1"><div style="font-weight:700;font-size:14px">Your lab calculators</div><div style="font-size:11.5px;color:var(--muted)">Built on the laptop, run here · 3</div></div>
+              <svg class="chev" viewBox="0 0 24 24" fill="none"><path d="m9 6 6 6-6 6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+            </div>
+            <div class="chips" style="margin-bottom:14px"><span class="ch on">Scientific</span><span class="ch">Molarity</span><span class="ch">Dilution</span><span class="ch">Serial</span><span class="ch">Buffer</span></div>
+            <div class="calc-display"><div class="expr">log(1000) × 6.022e23</div><div class="res">1.807e24</div></div>
+            <div class="fnstrip"><span class="fnkey">sin</span><span class="fnkey">cos</span><span class="fnkey">tan</span><span class="fnkey">√</span><span class="fnkey">x²</span><span class="fnkey">log</span><span class="fnkey">ln</span><span class="fnkey">π</span></div>
+            <div class="keypad calc">
+              <div class="key clr">AC</div><div class="key op">(</div><div class="key op">)</div><div class="key op">÷</div>
+              <div class="key">7</div><div class="key">8</div><div class="key">9</div><div class="key op">×</div>
+              <div class="key">4</div><div class="key">5</div><div class="key">6</div><div class="key op">−</div>
+              <div class="key">1</div><div class="key">2</div><div class="key">3</div><div class="key op">+</div>
+              <div class="key">0</div><div class="key">.</div><div class="key">EE</div><div class="key act">=</div>
+            </div>
+          </div>
+        </div>
+      </div></div>
+      <div class="phone-label">Calc · Scientific</div>
+      <div class="phone-cap">Dark display, scrollable function strip, mono keypad with accent operators.</div>
+    </div>
+
+    <!-- MOLARITY -->
+    <div class="phone-col">
+      <div class="phone"><div class="island"></div><div class="screen"><div class="rb-edge"></div>
+        <div class="statusbar"><span>9:41</span><span class="r">5G&nbsp;&nbsp;􀛨</span></div>
+        <div class="body">
+          <div class="navhead"><div class="back"><svg viewBox="0 0 24 24" fill="none"><path d="m15 6-6 6 6 6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg></div><div class="ti">Calculators</div></div>
+          <div class="scroll nopad">
+            <div class="chips" style="margin-bottom:14px"><span class="ch">Scientific</span><span class="ch on">Molarity</span><span class="ch">Dilution</span><span class="ch">Serial</span><span class="ch">Buffer</span></div>
+            <div class="callout" style="margin-bottom:14px"><b>n = m / MW</b> · C = n / V. Enter any three.</div>
+            <div class="flbl">Molecular weight</div>
+            <div class="unitsel" style="margin-bottom:11px"><input class="uin" value="58.44" readonly><span class="udd">g/mol</span></div>
+            <div class="calcrow"><div><div class="flbl">Concentration</div><div class="unitsel"><input class="uin" value="100" readonly><span class="udd">mM ▾</span></div></div><div><div class="flbl">Volume</div><div class="unitsel"><input class="uin" value="50" readonly><span class="udd">mL ▾</span></div></div></div>
+            <div class="lbl">Result</div>
+            <div class="resultcard">
+              <div class="rr"><span class="rk">Mass to weigh</span><span class="rv">292.2 mg</span></div>
+              <div class="rr"><span class="rk">Moles</span><span class="rv">5.00 mmol</span></div>
+            </div>
+            <button class="btn btn-secondary" style="margin-top:14px"><svg viewBox="0 0 24 24" fill="none"><path d="M12 3v12m0 0 4-4m-4 4-4-4M5 21h14" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>Send to notebook</button>
+          </div>
+        </div>
+      </div></div>
+      <div class="phone-label">Calc · Molarity</div>
+      <div class="phone-cap">Formula callout, inputs with unit dropdowns, result card, send to notebook.</div>
+    </div>
+
+    <!-- DILUTION -->
+    <div class="phone-col">
+      <div class="phone"><div class="island"></div><div class="screen"><div class="rb-edge"></div>
+        <div class="statusbar"><span>9:41</span><span class="r">5G&nbsp;&nbsp;􀛨</span></div>
+        <div class="body">
+          <div class="navhead"><div class="back"><svg viewBox="0 0 24 24" fill="none"><path d="m15 6-6 6 6 6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg></div><div class="ti">Calculators</div></div>
+          <div class="scroll nopad">
+            <div class="chips" style="margin-bottom:14px"><span class="ch">Scientific</span><span class="ch">Molarity</span><span class="ch on">Dilution</span><span class="ch">Serial</span><span class="ch">Buffer</span></div>
+            <div class="callout" style="margin-bottom:14px"><b>C₁V₁ = C₂V₂</b>. Find the stock volume to add.</div>
+            <div class="calcrow"><div><div class="flbl">Stock C₁</div><div class="unitsel"><input class="uin" value="10" readonly><span class="udd">M ▾</span></div></div><div><div class="flbl">Final C₂</div><div class="unitsel"><input class="uin" value="0.5" readonly><span class="udd">M ▾</span></div></div></div>
+            <div class="flbl">Final volume V₂</div>
+            <div class="unitsel" style="margin-bottom:4px"><input class="uin" value="100" readonly><span class="udd">mL ▾</span></div>
+            <div class="lbl">Result</div>
+            <div class="resultcard">
+              <div class="rr"><span class="rk">Stock to add (V₁)</span><span class="rv">5.00 mL</span></div>
+              <div class="rr"><span class="rk">Diluent to add</span><span class="rv">95.0 mL</span></div>
+            </div>
+            <button class="btn btn-secondary" style="margin-top:14px"><svg viewBox="0 0 24 24" fill="none"><path d="M12 3v12m0 0 4-4m-4 4-4-4M5 21h14" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>Send to notebook</button>
+          </div>
+        </div>
+      </div></div>
+      <div class="phone-label">Calc · Dilution</div>
+      <div class="phone-cap">C1V1=C2V2 with stock + diluent split.</div>
+    </div>
+
+    <!-- SERIAL -->
+    <div class="phone-col">
+      <div class="phone"><div class="island"></div><div class="screen"><div class="rb-edge"></div>
+        <div class="statusbar"><span>9:41</span><span class="r">5G&nbsp;&nbsp;􀛨</span></div>
+        <div class="body">
+          <div class="navhead"><div class="back"><svg viewBox="0 0 24 24" fill="none"><path d="m15 6-6 6 6 6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg></div><div class="ti">Calculators</div></div>
+          <div class="scroll nopad">
+            <div class="chips" style="margin-bottom:14px"><span class="ch">Scientific</span><span class="ch">Molarity</span><span class="ch">Dilution</span><span class="ch on">Serial</span><span class="ch">Buffer</span></div>
+            <div class="calcrow"><div><div class="flbl">Start conc</div><div class="unitsel"><input class="uin" value="1" readonly><span class="udd">M ▾</span></div></div><div><div class="flbl">Fold</div><div class="unitsel"><input class="uin" value="10" readonly><span class="udd">×</span></div></div></div>
+            <div class="calcrow"><div><div class="flbl">Vol per tube</div><div class="unitsel"><input class="uin" value="1" readonly><span class="udd">mL ▾</span></div></div><div><div class="flbl">Steps</div><div class="unitsel"><input class="uin" value="4" readonly><span class="udd">#</span></div></div></div>
+            <div class="lbl">Result</div>
+            <div class="card card-tight"><table class="dtable">
+              <tr><th>Tube</th><th>Conc</th><th>Sample</th><th>Diluent</th></tr>
+              <tr><td>1</td><td class="num">100 mM</td><td class="num">0.1</td><td class="num">0.9</td></tr>
+              <tr><td>2</td><td class="num">10 mM</td><td class="num">0.1</td><td class="num">0.9</td></tr>
+              <tr><td>3</td><td class="num">1 mM</td><td class="num">0.1</td><td class="num">0.9</td></tr>
+              <tr><td>4</td><td class="num">0.1 mM</td><td class="num">0.1</td><td class="num">0.9</td></tr>
+            </table></div>
+          </div>
+        </div>
+      </div></div>
+      <div class="phone-label">Calc · Serial</div>
+      <div class="phone-cap">Per-tube concentration, sample, and diluent volumes as a table.</div>
+    </div>
+
+    <!-- BUFFER (with checklist) -->
+    <div class="phone-col">
+      <div class="phone"><div class="island"></div><div class="screen"><div class="rb-edge"></div>
+        <div class="statusbar"><span>9:41</span><span class="r">5G&nbsp;&nbsp;􀛨</span></div>
+        <div class="body">
+          <div class="navhead"><div class="back"><svg viewBox="0 0 24 24" fill="none"><path d="m15 6-6 6 6 6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg></div><div class="ti">Calculators</div></div>
+          <div class="scroll nopad">
+            <div class="chips" style="margin-bottom:14px"><span class="ch">Scientific</span><span class="ch">Molarity</span><span class="ch">Dilution</span><span class="ch">Serial</span><span class="ch on">Buffer</span></div>
+            <div class="flbl">Total volume</div>
+            <div class="unitsel" style="margin-bottom:8px"><input class="uin" value="500" readonly><span class="udd">mL ▾</span></div>
+            <div class="recipe-head">Add as you go <span class="opt">Check off <span class="mini-toggle"><span class="k"></span></span></span></div>
+            <div class="card card-tight">
+              <div class="ing done"><span class="ck done"></span><span class="inm">Tris base</span><span class="ifv">50 mM</span><span class="ivol">3.0 g</span></div>
+              <div class="ing done"><span class="ck done"></span><span class="inm">NaCl</span><span class="ifv">150 mM</span><span class="ivol">4.4 g</span></div>
+              <div class="ing"><span class="ck"></span><span class="inm">EDTA</span><span class="ifv">1 mM</span><span class="ivol">0.19 g</span></div>
+              <div class="ing"><span class="ck"></span><span class="inm">Water, to volume</span><span class="ifv">—</span><span class="ivol">≈490</span></div>
+            </div>
+            <div class="added-count">2 of 4 added</div>
+            <button class="btn btn-secondary" style="margin-top:14px"><svg viewBox="0 0 24 24" fill="none"><path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>Add component</button>
+          </div>
+        </div>
+      </div></div>
+      <div class="phone-label">Calc · Buffer recipe</div>
+      <div class="phone-cap">Components computed to mass, with the standard check-as-added documentation list.</div>
+    </div>
+
+    <!-- LAB CALCULATORS -->
+    <div class="phone-col">
+      <div class="phone"><div class="island"></div><div class="screen"><div class="rb-edge"></div>
+        <div class="statusbar"><span>9:41</span><span class="r">5G&nbsp;&nbsp;􀛨</span></div>
+        <div class="body">
+          <div class="navhead"><div class="back"><svg viewBox="0 0 24 24" fill="none"><path d="m15 6-6 6 6 6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg></div><div class="ti">Lab calculators</div></div>
+          <div class="scroll nopad">
+            <div class="callout" style="margin-bottom:14px"><b>Built on the laptop.</b> Your lab's custom calculators, ready to run at the bench.</div>
+            <div class="card card-tight row-list">
+              <div class="lrow"><div class="thumb" style="background:var(--violet-dim);border-color:transparent"><svg viewBox="0 0 24 24" fill="none" style="color:var(--violet)"><rect x="4" y="3" width="16" height="18" rx="2.5" stroke="currentColor" stroke-width="1.7"/><path d="M8 8h8M8 12h5" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg></div><div class="ti">OD600 to cell count<div class="sub">2 inputs</div></div><svg class="chev" viewBox="0 0 24 24" fill="none"><path d="m9 6 6 6-6 6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></div>
+              <div class="lrow"><div class="thumb" style="background:var(--sky-dim);border-color:transparent"><svg viewBox="0 0 24 24" fill="none" style="color:var(--sky)"><rect x="4" y="3" width="16" height="18" rx="2.5" stroke="currentColor" stroke-width="1.7"/><path d="M8 8h8M8 12h5" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg></div><div class="ti">Transfection mix<div class="sub">4 inputs</div></div><svg class="chev" viewBox="0 0 24 24" fill="none"><path d="m9 6 6 6-6 6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></div>
+              <div class="lrow"><div class="thumb" style="background:var(--amber-dim);border-color:transparent"><svg viewBox="0 0 24 24" fill="none" style="color:var(--amber)"><rect x="4" y="3" width="16" height="18" rx="2.5" stroke="currentColor" stroke-width="1.7"/><path d="M8 8h8M8 12h5" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg></div><div class="ti">Antibiotic stock<div class="sub">3 inputs</div></div><svg class="chev" viewBox="0 0 24 24" fill="none"><path d="m9 6 6 6-6 6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></div>
+            </div>
+          </div>
+        </div>
+      </div></div>
+      <div class="phone-label">Lab calculators</div>
+      <div class="phone-cap">Custom calculators synced from the laptop, run read-only here.</div>
+    </div>
+
+    <!-- WIKI BROWSE -->
+    <div class="phone-col">
+      <div class="phone"><div class="island"></div><div class="screen"><div class="rb-edge"></div>
+        <div class="statusbar"><span>9:41</span><span class="r">5G&nbsp;&nbsp;􀛨</span></div>
+        <div class="body">
+          <div class="navhead"><div class="back"><svg viewBox="0 0 24 24" fill="none"><path d="m15 6-6 6 6 6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg></div><div class="ti">Wiki</div></div>
+          <div class="scroll nopad">
+            <div class="searchbar"><svg viewBox="0 0 24 24" fill="none"><circle cx="11" cy="11" r="7" stroke="currentColor" stroke-width="1.8"/><path d="m20 20-3-3" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg><span class="ph">Search the wiki…</span></div>
+            <div class="note" style="margin:10px 2px 0;display:flex;align-items:center;gap:6px"><svg viewBox="0 0 24 24" fill="none" style="width:14px;height:14px;color:var(--success)"><path d="M20 6 9 17l-5-5" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>Pulled from the web wiki on Jun 12</div>
+            <div class="lbl">Getting started</div>
+            <div class="card card-tight row-list">
+              <div class="lrow"><div class="thumb" style="background:var(--sky-dim);border-color:transparent;width:38px;height:38px"><svg viewBox="0 0 24 24" fill="none" style="color:var(--sky);width:18px;height:18px"><circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="1.7"/><path d="m9 12 2 2 4-5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></div><div class="ti">Overview<div class="sub">What the companion does</div></div><svg class="chev" viewBox="0 0 24 24" fill="none"><path d="m9 6 6 6-6 6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></div>
+              <div class="lrow"><div class="ti" style="margin-left:2px">Pairing your phone<div class="sub">Scan the QR from your laptop</div></div><svg class="chev" viewBox="0 0 24 24" fill="none"><path d="m9 6 6 6-6 6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></div>
+            </div>
+            <div class="lbl">At the bench</div>
+            <div class="card card-tight row-list">
+              <div class="lrow"><div class="ti" style="margin-left:2px">Capturing photos and notes<div class="sub">Inbox, filing, offline queue</div></div><svg class="chev" viewBox="0 0 24 24" fill="none"><path d="m9 6 6 6-6 6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></div>
+              <div class="lrow"><div class="ti" style="margin-left:2px">Reading methods offline<div class="sub">Download for no-signal use</div></div><svg class="chev" viewBox="0 0 24 24" fill="none"><path d="m9 6 6 6-6 6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></div>
+            </div>
+          </div>
+        </div>
+      </div></div>
+      <div class="phone-label">Wiki browse</div>
+      <div class="phone-cap">Search + sectioned page list, with last-pulled freshness.</div>
+    </div>
+
+    <!-- WIKI READER -->
+    <div class="phone-col">
+      <div class="phone"><div class="island"></div><div class="screen"><div class="rb-edge"></div>
+        <div class="statusbar"><span>9:41</span><span class="r">5G&nbsp;&nbsp;􀛨</span></div>
+        <div class="body">
+          <div class="navhead"><div class="back"><svg viewBox="0 0 24 24" fill="none"><path d="m15 6-6 6 6 6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg></div><div class="sp"></div><div class="iconbtn"><svg viewBox="0 0 24 24" fill="none"><circle cx="11" cy="11" r="7" stroke="currentColor" stroke-width="1.8"/><path d="m20 20-3-3" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></div></div>
+          <div class="scroll nopad reader page">
+            <div class="note" style="margin-bottom:6px">At the bench</div>
+            <h2>Capturing photos and notes</h2>
+            <div class="meta">Updated Jun 10 · 3 min read</div>
+            <p>The Notebook tab is your inbox. Anything you capture queues there and syncs to your laptop automatically when you are online.</p>
+            <h3>Take a photo</h3>
+            <p>Tap the center ＋ and choose Take a photo. Add a caption, optionally annotate, then send it to your inbox.</p>
+            <h3>Work offline</h3>
+            <p>No signal at the bench is fine. Captures wait in the inbox marked "Waiting for connection" and send themselves the moment you reconnect.</p>
+            <div class="callout">Filing happens on send. Pick a notebook, or leave it unsorted for the laptop.</div>
+          </div>
+        </div>
+      </div></div>
+      <div class="phone-label">Wiki page reader</div>
+      <div class="phone-cap">Shared reader styling with the markdown method type. Search in-page from the header.</div>
+    </div>
+
+  </div>
+</div>
+<script>
+function setMode(m){document.documentElement.classList.toggle('dark',m==='dark');document.getElementById('tL').classList.toggle('on',m==='light');document.getElementById('tD').classList.toggle('on',m==='dark');}
+</script>
+</body>
+</html>
+</content>

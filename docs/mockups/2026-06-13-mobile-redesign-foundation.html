@@ -1,0 +1,578 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>ResearchOS Companion — Redesign Foundation</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700;800&family=Geist+Mono:wght@500;600&family=Inter:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@500;600;700;800&family=Hanken+Grotesk:wght@500;600;700;800&display=swap" rel="stylesheet">
+<style>
+:root{
+  /* ===== BRAND ===== */
+  --sky:#1AA0E6; --sky-600:#1487c7; --sky-700:#0f6fa6;
+  --sky-tint:#E8F5FE; --sky-dim:rgba(26,160,230,.12); --sky-border:rgba(26,160,230,.30);
+  --coral:#FF6F61; --coral-dim:rgba(255,111,97,.12);
+  --amber:#F59E0B; --amber-dim:rgba(245,158,11,.14);
+  --success:#16a34a; --success-dim:rgba(22,163,74,.12);
+  --danger:#e5484d; --danger-dim:rgba(229,72,77,.12);
+  /* rainbow (pastel for decoration) */
+  --rb1:#FFB3A7; --rb2:#FFD79A; --rb3:#A9E6B8; --rb4:#A7D8F5; --rb5:#C9B8F0;
+
+  /* ===== LIGHT SURFACES ===== */
+  --bg:#EEF1F6; --bg-grad-1:#F4F6FB; --bg-grad-2:#E9EDF4;
+  --surface:#FFFFFF; --surface-2:#F7F9FC; --sunken:#EFF2F7;
+  --text:#0F1722; --muted:#5B6675; --faint:#939DAD;
+  --border:rgba(15,23,34,.08); --border-strong:rgba(15,23,34,.14);
+  --hairline:rgba(15,23,34,.06);
+  --shadow-sm:0 1px 2px rgba(15,23,34,.06), 0 1px 3px rgba(15,23,34,.05);
+  --shadow-md:0 2px 6px rgba(15,23,34,.07), 0 6px 18px rgba(15,23,34,.07);
+  --shadow-lg:0 8px 30px rgba(15,23,34,.12), 0 2px 8px rgba(15,23,34,.06);
+  --glass:rgba(255,255,255,.72);
+
+  /* ===== TOKENS ===== */
+  --r-sm:10px; --r-md:14px; --r-lg:20px; --r-xl:26px; --r-pill:999px;
+  --s1:4px; --s2:8px; --s3:12px; --s4:16px; --s5:20px; --s6:24px; --s7:32px; --s8:40px;
+  --font:"Geist","Inter",system-ui,sans-serif;
+  --mono:"Geist Mono",ui-monospace,monospace;
+}
+.dark{
+  --bg:#070A12; --bg-grad-1:#0B0F1A; --bg-grad-2:#05070D;
+  --surface:#121826; --surface-2:#0E1420; --sunken:#0A0F1A;
+  --text:#EAF0F7; --muted:#9AA6B6; --faint:#5E6B7D;
+  --border:rgba(255,255,255,.09); --border-strong:rgba(255,255,255,.16);
+  --hairline:rgba(255,255,255,.06);
+  --sky-tint:rgba(26,160,230,.16);
+  --shadow-sm:0 1px 2px rgba(0,0,0,.4);
+  --shadow-md:0 2px 8px rgba(0,0,0,.45), 0 8px 24px rgba(0,0,0,.4);
+  --shadow-lg:0 10px 40px rgba(0,0,0,.55);
+  --glass:rgba(18,24,38,.72);
+  --rb1:#F2724F; --rb2:#F5A623; --rb3:#3FBF6B; --rb4:#2E9BE6; --rb5:#7C5CE0;
+}
+*{box-sizing:border-box;-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility}
+html,body{margin:0}
+body{
+  font-family:var(--font); color:var(--text);
+  background:
+    radial-gradient(1200px 700px at 12% -8%, color-mix(in srgb,var(--sky) 12%, transparent), transparent 60%),
+    radial-gradient(1000px 600px at 100% 0%, color-mix(in srgb,#7C5CE0 9%, transparent), transparent 55%),
+    linear-gradient(180deg,var(--bg-grad-1),var(--bg-grad-2));
+  min-height:100vh; padding:38px 28px 80px;
+}
+.wrap{max-width:1380px;margin:0 auto}
+
+/* ---------- studio header ---------- */
+.studio-head{display:flex;align-items:center;justify-content:space-between;gap:20px;margin-bottom:8px;flex-wrap:wrap}
+.studio-title{font-weight:800;font-size:30px;letter-spacing:-.02em;display:flex;align-items:center;gap:14px}
+.logo-dot{width:36px;height:36px;border-radius:11px;background:linear-gradient(135deg,var(--sky),#43c0ff);display:grid;place-items:center;box-shadow:var(--shadow-md)}
+.logo-dot svg{width:22px;height:22px}
+.studio-sub{color:var(--muted);font-size:15px;margin:10px 0 30px;max-width:760px;line-height:1.55}
+.toggle{display:inline-flex;border:1px solid var(--border);background:var(--surface);border-radius:var(--r-pill);padding:4px;gap:2px;box-shadow:var(--shadow-sm)}
+.toggle button{border:0;background:transparent;color:var(--muted);font-family:inherit;font-weight:600;font-size:13px;padding:8px 16px;border-radius:var(--r-pill);cursor:pointer;display:flex;align-items:center;gap:7px}
+.toggle button.on{background:var(--text);color:var(--surface)}
+
+/* ---------- section scaffolding ---------- */
+.sec{margin:54px 0 0}
+.sec-kicker{font-size:12px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--sky);margin-bottom:8px}
+.sec-h{font-size:23px;font-weight:800;letter-spacing:-.02em;margin:0 0 6px}
+.sec-d{color:var(--muted);font-size:14.5px;max-width:720px;line-height:1.55;margin:0 0 24px}
+
+/* ---------- panels grid ---------- */
+.gallery{display:flex;gap:34px;flex-wrap:wrap;align-items:flex-start}
+.phone-col{display:flex;flex-direction:column;align-items:center;gap:14px}
+.phone-label{font-size:12.5px;font-weight:600;color:var(--muted)}
+
+/* ---------- phone frame ---------- */
+.phone{
+  width:340px;height:716px;border-radius:46px;background:var(--surface);
+  border:1px solid var(--border-strong);
+  box-shadow:var(--shadow-lg), 0 0 0 11px color-mix(in srgb,var(--text) 88%, transparent);
+  position:relative;overflow:hidden;flex:none;
+}
+.dark .phone{box-shadow:var(--shadow-lg), 0 0 0 11px #1a2030}
+.screen{position:absolute;inset:0;border-radius:38px;overflow:hidden;display:flex;flex-direction:column;background:
+  radial-gradient(600px 300px at 50% -10%, var(--sky-dim), transparent 60%),
+  linear-gradient(180deg,var(--bg-grad-1),var(--bg-grad-2));}
+/* rainbow top hairline */
+.rb-edge{height:3px;width:100%;flex:none;background:linear-gradient(90deg,var(--rb1),var(--rb2),var(--rb3),var(--rb4),var(--rb5))}
+/* status bar */
+.statusbar{height:46px;flex:none;display:flex;align-items:flex-end;justify-content:space-between;padding:0 24px 7px;font-size:13.5px;font-weight:600}
+.statusbar .r{display:flex;align-items:center;gap:6px}
+.island{position:absolute;top:11px;left:50%;transform:translateX(-50%);width:104px;height:30px;background:#05070d;border-radius:var(--r-pill);z-index:5}
+.dark .island{background:#000}
+
+.body{flex:1;overflow:hidden;position:relative;display:flex;flex-direction:column}
+.scroll{flex:1;overflow:hidden;padding:6px 16px 12px}
+
+/* ---------- app header (in-screen) ---------- */
+.apphead{padding:6px 16px 10px;display:flex;align-items:flex-end;justify-content:space-between}
+.apphead h1{font-size:27px;font-weight:800;letter-spacing:-.03em;margin:0;line-height:1}
+.apphead .greet{font-size:12.5px;color:var(--muted);font-weight:600;margin-bottom:5px}
+.head-actions{display:flex;gap:8px}
+.iconbtn{width:38px;height:38px;border-radius:12px;background:var(--surface);border:1px solid var(--border);display:grid;place-items:center;box-shadow:var(--shadow-sm);position:relative}
+.iconbtn svg{width:19px;height:19px;color:var(--text)}
+.dot-badge{position:absolute;top:-3px;right:-3px;min-width:17px;height:17px;padding:0 4px;border-radius:9px;background:var(--coral);color:#fff;font-size:10px;font-weight:700;display:grid;place-items:center;border:2px solid var(--surface)}
+
+/* ---------- cards ---------- */
+.card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r-lg);box-shadow:var(--shadow-sm);padding:16px}
+.card+.card{margin-top:12px}
+.card-tight{padding:13px 14px}
+
+/* status / connection */
+.statuscard{display:flex;align-items:center;gap:12px;padding:14px 15px;border-radius:var(--r-lg);
+  background:linear-gradient(180deg,var(--surface),var(--surface-2));border:1px solid var(--border);box-shadow:var(--shadow-sm)}
+.statuscard .pulse{width:42px;height:42px;border-radius:13px;background:var(--success-dim);display:grid;place-items:center;flex:none}
+.statuscard .pulse .core{width:11px;height:11px;border-radius:50%;background:var(--success);box-shadow:0 0 0 4px var(--success-dim)}
+.statuscard .lab{font-weight:700;font-size:15px}
+.statuscard .meta{font-size:12.5px;color:var(--muted);display:flex;align-items:center;gap:6px;margin-top:2px}
+.chiplink{margin-left:auto;font-size:12.5px;font-weight:600;color:var(--sky);background:var(--sky-dim);padding:7px 12px;border-radius:var(--r-pill)}
+
+/* section label */
+.lbl{font-size:12px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--faint);margin:18px 4px 9px;display:flex;justify-content:space-between;align-items:center}
+.lbl a{color:var(--sky);text-transform:none;letter-spacing:0;font-size:12.5px}
+
+/* today rows */
+.taskrow{display:flex;align-items:center;gap:11px;padding:11px 4px}
+.taskrow+.taskrow{border-top:1px solid var(--hairline)}
+.checkbox{width:21px;height:21px;border-radius:7px;border:2px solid var(--border-strong);flex:none}
+.checkbox.due{border-color:var(--amber)}
+.taskrow .t{font-size:14.5px;font-weight:550;flex:1}
+.taskrow .when{font-size:12px;font-weight:600;color:var(--muted)}
+.taskrow .when.over{color:var(--danger)}
+
+/* live timer */
+.timer-live{display:flex;align-items:center;gap:13px;padding:14px 15px;border-radius:var(--r-lg);
+  background:linear-gradient(135deg,color-mix(in srgb,var(--amber) 14%,var(--surface)),var(--surface));border:1px solid var(--amber-dim);box-shadow:var(--shadow-sm)}
+.timer-live .ring{width:44px;height:44px;border-radius:50%;flex:none;display:grid;place-items:center;
+  background:conic-gradient(var(--amber) 220deg, var(--amber-dim) 0);}
+.timer-live .ring .in{width:34px;height:34px;border-radius:50%;background:var(--surface);display:grid;place-items:center;font-size:11px}
+.timer-live .nm{font-weight:650;font-size:14.5px}
+.timer-live .cd{font-family:var(--mono);font-weight:600;font-size:22px;letter-spacing:-.02em;margin-left:auto;font-variant-numeric:tabular-nums}
+
+/* launcher grid */
+.launch{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
+.tile{background:var(--surface);border:1px solid var(--border);border-radius:var(--r-md);padding:13px 8px 11px;display:flex;flex-direction:column;align-items:center;gap:7px;box-shadow:var(--shadow-sm)}
+.tile .ic{width:40px;height:40px;border-radius:12px;display:grid;place-items:center}
+.tile .ic svg{width:21px;height:21px}
+.tile .nm{font-size:11.5px;font-weight:600;color:var(--muted)}
+.ic.sky{background:var(--sky-dim);color:var(--sky)}
+.ic.coral{background:var(--coral-dim);color:var(--coral)}
+.ic.amber{background:var(--amber-dim);color:var(--amber)}
+.ic.violet{background:rgba(124,92,224,.14);color:#7C5CE0}
+
+/* capture tiles (notebook) */
+.cap2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.captile{border-radius:var(--r-lg);padding:18px 16px;color:#fff;display:flex;flex-direction:column;gap:30px;box-shadow:var(--shadow-md);min-height:118px;position:relative;overflow:hidden}
+.captile .ci{width:40px;height:40px;border-radius:12px;background:rgba(255,255,255,.22);display:grid;place-items:center}
+.captile .ci svg{width:22px;height:22px;color:#fff}
+.captile .cl{font-weight:700;font-size:15px}
+.captile .cs{font-size:12px;opacity:.85;margin-top:2px;font-weight:500}
+.captile.photo{background:linear-gradient(150deg,var(--sky),#39b4ff)}
+.captile.note{background:linear-gradient(150deg,#FF6F61,#ff9182)}
+.captile .blob{position:absolute;right:-30px;bottom:-40px;width:120px;height:120px;border-radius:50%;background:rgba(255,255,255,.12)}
+
+/* inbox capture row */
+.inboxrow{display:flex;gap:11px;align-items:center;padding:10px 4px}
+.inboxrow+.inboxrow{border-top:1px solid var(--hairline)}
+.thumb{width:46px;height:46px;border-radius:11px;flex:none;background:linear-gradient(135deg,#cfe0ee,#e7eef6);border:1px solid var(--border);display:grid;place-items:center;overflow:hidden}
+.dark .thumb{background:linear-gradient(135deg,#1c2433,#10161f)}
+.thumb svg{width:18px;height:18px;color:var(--faint)}
+.inboxrow .ti{font-size:14px;font-weight:600;flex:1;min-width:0}
+.inboxrow .ti .sub{font-size:12px;color:var(--muted);font-weight:500;margin-top:2px;display:flex;align-items:center;gap:5px}
+.status-dot{width:7px;height:7px;border-radius:50%;flex:none}
+.sd-sync{background:var(--amber)} .sd-ok{background:var(--success)} .sd-wait{background:var(--faint)}
+
+/* ---------- floating bottom nav ---------- */
+.navwrap{position:absolute;left:0;right:0;bottom:0;padding:0 16px 22px;display:flex;justify-content:center;pointer-events:none}
+.navbar{pointer-events:auto;display:flex;align-items:center;gap:2px;background:var(--glass);backdrop-filter:blur(22px) saturate(1.4);-webkit-backdrop-filter:blur(22px) saturate(1.4);
+  border:1px solid var(--border);border-radius:var(--r-pill);padding:7px 9px;box-shadow:var(--shadow-lg);position:relative}
+.navitem{width:52px;height:46px;border-radius:16px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;color:var(--faint);cursor:pointer;border:0;background:transparent;font-family:inherit}
+.navitem svg{width:22px;height:22px}
+.navitem .nl{font-size:9.5px;font-weight:600}
+.navitem.active{color:var(--sky)}
+.navitem.active .nl{color:var(--sky)}
+.fab{width:54px;height:54px;border-radius:50%;background:linear-gradient(150deg,var(--sky),#39b4ff);display:grid;place-items:center;box-shadow:0 6px 18px rgba(26,160,230,.5);margin:0 4px;border:0;cursor:pointer}
+.fab svg{width:26px;height:26px;color:#fff}
+
+/* ================= DESIGN LANGUAGE PANELS ================= */
+.dpanel{background:var(--surface);border:1px solid var(--border);border-radius:var(--r-xl);padding:26px;box-shadow:var(--shadow-md)}
+.dgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:24px}
+.swatch-row{display:flex;flex-wrap:wrap;gap:10px}
+.sw{width:84px}
+.sw .chip{height:54px;border-radius:12px;border:1px solid var(--border);box-shadow:var(--shadow-sm)}
+.sw .nm{font-size:11.5px;font-weight:600;margin-top:6px}
+.sw .hx{font-size:10.5px;color:var(--muted);font-family:var(--mono)}
+.type-row{display:flex;align-items:baseline;gap:14px;padding:11px 0;border-bottom:1px solid var(--hairline)}
+.type-row .tk{font-size:11px;color:var(--faint);font-family:var(--mono);width:74px;flex:none}
+.fontcard{border:1px solid var(--border);border-radius:var(--r-md);padding:14px 16px;background:var(--surface-2)}
+.fontcard.pick{border-color:var(--sky);box-shadow:0 0 0 3px var(--sky-dim)}
+.fontcard .fn{font-size:12px;font-weight:700;color:var(--sky);display:flex;justify-content:space-between}
+.fontcard .demo{font-size:25px;font-weight:700;letter-spacing:-.02em;margin-top:4px}
+.fontcard .demo2{font-size:13px;color:var(--muted);margin-top:2px}
+.scale-bars{display:flex;align-items:flex-end;gap:8px;height:60px}
+.scale-bars .b{width:100%;background:var(--sky-dim);border-radius:6px 6px 0 0;border:1px solid var(--sky-border);border-bottom:0}
+.radii-row{display:flex;gap:14px;align-items:flex-end}
+.radii-row .rb{width:60px;height:60px;background:var(--sky-dim);border:1.5px solid var(--sky-border)}
+.elev{display:flex;gap:18px;flex-wrap:wrap}
+.elev .e{width:96px;height:64px;border-radius:14px;background:var(--surface);display:grid;place-items:center;font-size:11px;color:var(--muted);font-weight:600;border:1px solid var(--border)}
+
+/* ================= COMPONENT GALLERY ================= */
+.comp-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:20px}
+.comp{background:var(--surface);border:1px solid var(--border);border-radius:var(--r-lg);padding:20px;box-shadow:var(--shadow-sm)}
+.comp h4{margin:0 0 14px;font-size:13px;font-weight:700;letter-spacing:.02em}
+.row{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:10px}
+/* buttons */
+.btn{border:0;font-family:inherit;font-weight:650;font-size:14.5px;border-radius:var(--r-md);padding:13px 18px;cursor:pointer;display:inline-flex;align-items:center;gap:8px;min-height:46px}
+.btn svg{width:18px;height:18px}
+.btn-primary{background:linear-gradient(180deg,#28a9ec,var(--sky));color:#fff;box-shadow:0 2px 8px rgba(26,160,230,.35)}
+.btn-secondary{background:var(--surface);color:var(--text);border:1px solid var(--border-strong);box-shadow:var(--shadow-sm)}
+.btn-ghost{background:transparent;color:var(--sky)}
+.btn-coral{background:var(--coral);color:#fff}
+.btn-danger{background:var(--danger-dim);color:var(--danger)}
+.btn[disabled]{opacity:.4}
+.btn-sm{padding:9px 14px;min-height:auto;font-size:13px}
+.spinner{width:16px;height:16px;border-radius:50%;border:2px solid rgba(255,255,255,.4);border-top-color:#fff;display:inline-block;animation:spin 1s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+/* inputs */
+.field{margin-bottom:12px}
+.field label{font-size:12px;font-weight:600;color:var(--muted);display:block;margin-bottom:6px}
+.input{width:100%;border:1px solid var(--border-strong);background:var(--surface-2);border-radius:var(--r-md);padding:12px 14px;font-family:inherit;font-size:15px;color:var(--text)}
+.input.focus{border-color:var(--sky);box-shadow:0 0 0 3px var(--sky-dim);background:var(--surface)}
+/* chips */
+.chips{display:flex;gap:8px;flex-wrap:wrap}
+.ch{padding:8px 14px;border-radius:var(--r-pill);font-size:13px;font-weight:600;border:1px solid var(--border);background:var(--surface);color:var(--muted)}
+.ch.on{background:var(--sky);color:#fff;border-color:var(--sky)}
+/* toggle */
+.sw-toggle{width:46px;height:28px;border-radius:var(--r-pill);background:var(--sky);position:relative;flex:none}
+.sw-toggle.off{background:var(--border-strong)}
+.sw-toggle .knob{position:absolute;top:3px;left:21px;width:22px;height:22px;border-radius:50%;background:#fff;box-shadow:var(--shadow-sm)}
+.sw-toggle.off .knob{left:3px}
+/* pills */
+.pill{padding:5px 11px;border-radius:var(--r-pill);font-size:11.5px;font-weight:700}
+.pill-ok{background:var(--success-dim);color:var(--success)}
+.pill-low{background:var(--danger-dim);color:var(--danger)}
+.pill-ordered{background:var(--sunken);color:var(--muted)}
+/* segmented */
+.seg{display:flex;background:var(--sunken);border-radius:var(--r-md);padding:3px;gap:2px}
+.seg button{flex:1;border:0;background:transparent;font-family:inherit;font-weight:600;font-size:13px;color:var(--muted);padding:9px;border-radius:11px;cursor:pointer}
+.seg button.on{background:var(--surface);color:var(--text);box-shadow:var(--shadow-sm)}
+/* skeleton */
+.skel{height:14px;border-radius:7px;background:linear-gradient(90deg,var(--sunken),var(--surface-2),var(--sunken));background-size:200% 100%;animation:shimmer 1.4s infinite;margin-bottom:10px}
+@keyframes shimmer{to{background-position:-200% 0}}
+/* empty */
+.empty{text-align:center;padding:26px 10px;color:var(--muted)}
+.empty .ei{width:54px;height:54px;border-radius:16px;background:var(--sky-dim);display:grid;place-items:center;margin:0 auto 12px}
+.empty .ei svg{width:26px;height:26px;color:var(--sky)}
+.empty .et{font-weight:700;font-size:15px;color:var(--text)}
+.empty .es{font-size:13px;margin-top:5px}
+
+.note{font-size:12.5px;color:var(--muted);margin-top:10px;line-height:1.5}
+.callout{background:var(--sky-dim);border:1px solid var(--sky-border);border-radius:var(--r-md);padding:13px 15px;font-size:13px;color:var(--text);margin-top:18px;line-height:1.55}
+.callout b{color:var(--sky)}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="studio-head">
+    <div class="studio-title">
+      <span class="logo-dot"><svg viewBox="0 0 24 24" fill="none"><path d="M9 3h6M10 3v6L5.5 17a2.5 2.5 0 0 0 2.2 3.7h8.6A2.5 2.5 0 0 0 18.5 17L14 9V3" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+      Companion UI — Redesign Foundation
+    </div>
+    <div class="toggle">
+      <button id="tL" class="on" onclick="setMode('light')">☀︎ Light</button>
+      <button id="tD" onclick="setMode('dark')">☾ Dark</button>
+    </div>
+  </div>
+  <p class="studio-sub">The design contract foundation. This locks the navigation model, the design language (color, type, spacing, depth, motion), the component library, and two hero screens. Once approved, every remaining screen and popup gets built to this. Research-backed: ≤5 destinations, capability tabs, actions off-tab, 8pt grid, oversized bench targets, queue-and-sync offline.</p>
+
+  <!-- ============ NAVIGATION + HERO SCREENS ============ -->
+  <div class="sec">
+    <div class="sec-kicker">01 · Navigation &amp; hero screens</div>
+    <h2 class="sec-h">Four capability tabs, a center Capture action, anchored by Home</h2>
+    <p class="sec-d">Six tabs exceeded the ~5 ceiling (Apple HIG, NN/g, Material). New model: <b>Home · Notebook · ＋Capture · Methods · Inventory</b>. Timers, Calculators, Wiki and Settings move into the Home hub and header. Tap the bottom bar on the first phone to switch screens.</p>
+    <div class="gallery">
+
+      <!-- PHONE 1: HOME HUB (interactive) -->
+      <div class="phone-col">
+        <div class="phone">
+          <div class="island"></div>
+          <div class="screen">
+            <div class="rb-edge"></div>
+            <div class="statusbar"><span>9:41</span><span class="r">􀙇 􀺹 􀛨</span></div>
+            <div class="body">
+              <div id="screenHost" class="body" style="padding:0"></div>
+              <!-- floating nav -->
+              <div class="navwrap">
+                <div class="navbar">
+                  <button class="navitem active" data-s="home" onclick="nav('home',this)"><svg viewBox="0 0 24 24" fill="none"><path d="M3 10.5 12 3l9 7.5M5 9.5V20h14V9.5" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/></svg><span class="nl">Home</span></button>
+                  <button class="navitem" data-s="notebook" onclick="nav('notebook',this)"><svg viewBox="0 0 24 24" fill="none"><path d="M6 3h11a2 2 0 0 1 2 2v15l-3-2-3 2-3-2-3 2V5a2 2 0 0 1 2-2Z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg><span class="nl">Notebook</span></button>
+                  <button class="fab" onclick="alert('Capture sheet: Photo / Scan note / Quick note / Scan package')"><svg viewBox="0 0 24 24" fill="none"><path d="M12 5v14M5 12h14" stroke="#fff" stroke-width="2.4" stroke-linecap="round"/></svg></button>
+                  <button class="navitem" data-s="methods" onclick="nav('methods',this)"><svg viewBox="0 0 24 24" fill="none"><path d="M4 5.5C4 4.7 4.7 4 5.5 4H11v16H5.5A1.5 1.5 0 0 1 4 18.5v-13ZM20 5.5C20 4.7 19.3 4 18.5 4H13v16h5.5a1.5 1.5 0 0 0 1.5-1.5v-13Z" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/></svg><span class="nl">Methods</span></button>
+                  <button class="navitem" data-s="inventory" onclick="nav('inventory',this)"><svg viewBox="0 0 24 24" fill="none"><path d="m12 3 8 4.5v9L12 21l-8-4.5v-9L12 3Zm0 0v18M4 7.5l8 4.5 8-4.5" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/></svg><span class="nl">Inventory</span></button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="phone-label">Tap the bar — Home / Notebook / Methods / Inventory</div>
+      </div>
+
+      <!-- PHONE 2: NOTEBOOK static showcase -->
+      <div class="phone-col">
+        <div class="phone">
+          <div class="island"></div>
+          <div class="screen">
+            <div class="rb-edge"></div>
+            <div class="statusbar"><span>9:41</span><span class="r">􀙇 􀺹 􀛨</span></div>
+            <div class="body">
+              <div class="apphead"><div><div class="greet">Maple Lab</div><h1>Notebook</h1></div>
+                <div class="head-actions">
+                  <div class="iconbtn"><span class="dot-badge">2</span><svg viewBox="0 0 24 24" fill="none"><path d="M6 9a6 6 0 0 1 12 0c0 7 3 8 3 8H3s3-1 3-8M9.5 21a2.5 2.5 0 0 0 5 0" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+                  <div class="iconbtn"><svg viewBox="0 0 24 24" fill="none"><path d="M12 15.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7Z" stroke="currentColor" stroke-width="1.7"/><path d="M19.4 13a1.7 1.7 0 0 0 .3 1.9l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-2.9 1.2V21a2 2 0 1 1-4 0v-.2A1.7 1.7 0 0 0 7 19.5l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1A1.7 1.7 0 0 0 5 13a1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.2A1.7 1.7 0 0 0 5 6.6 1.7 1.7 0 0 0 4.6 4.7l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1A1.7 1.7 0 0 0 11 3V3" stroke="currentColor" stroke-width="1.5"/></svg></div>
+                </div>
+              </div>
+              <div class="scroll">
+                <div class="statuscard"><div class="pulse"><span class="core"></span></div><div><div class="lab">Live</div><div class="meta">Synced to your laptop just now</div></div><div class="chiplink">Unpair</div></div>
+                <div class="cap2" style="margin-top:14px">
+                  <div class="captile photo"><div class="blob"></div><div class="ci"><svg viewBox="0 0 24 24" fill="none"><path d="M4 8h3l1.5-2.2A1 1 0 0 1 9.3 5h5.4a1 1 0 0 1 .8.4L17 8h3a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9a1 1 0 0 1 1-1Z" stroke="#fff" stroke-width="1.8" stroke-linejoin="round"/><circle cx="12" cy="13" r="3.2" stroke="#fff" stroke-width="1.8"/></svg></div><div><div class="cl">Take a photo</div><div class="cs">Gel, plate, whiteboard</div></div></div>
+                  <div class="captile note"><div class="blob"></div><div class="ci"><svg viewBox="0 0 24 24" fill="none"><path d="M5 19l1-4L16 5l3 3L9 18l-4 1Z" stroke="#fff" stroke-width="1.8" stroke-linejoin="round"/></svg></div><div><div class="cl">Quick note</div><div class="cs">Jot and send</div></div></div>
+                </div>
+                <div class="lbl">Inbox <a>Send all</a></div>
+                <div class="card card-tight">
+                  <div class="inboxrow"><div class="thumb"><svg viewBox="0 0 24 24" fill="none"><path d="M4 8h16v11H4z" stroke="currentColor" stroke-width="1.6"/><circle cx="9" cy="12" r="1.6" fill="currentColor"/></svg></div><div class="ti">Western blot, replicate 2<div class="sub"><span class="status-dot sd-sync"></span>Sending to lab…</div></div></div>
+                  <div class="inboxrow"><div class="thumb"><svg viewBox="0 0 24 24" fill="none"><path d="M5 19l1-4L16 5l3 3L9 18l-4 1Z" stroke="currentColor" stroke-width="1.6"/></svg></div><div class="ti">Buffer prep note<div class="sub"><span class="status-dot sd-ok"></span>On your laptop</div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="phone-label">Notebook — capture + inbox</div>
+      </div>
+
+      <div style="flex:1;min-width:280px">
+        <div class="callout"><b>Why this model.</b> Tabs now name what the companion <i>is</i> (capture, reference, inventory) instead of dumping every feature. The center ＋ is the signature bench action and is reachable from any screen. Home is the glance surface, your live timers, today, sync state, and a launcher for the rest. Nothing lands in a discoverability-killing "More" bucket.</div>
+        <div class="callout"><b>Where the old tabs went.</b> Notebook → Notebook. Method → Methods. Inventory → Inventory. Calc + Timers + Wiki → Home hub launcher (timers also glance live on Home). Notifications + Settings → header icons. Capture actions (photo, note, scan) → the center ＋ sheet.</div>
+        <div class="callout"><b>Bench-tuned.</b> Primary actions are oversized well past the 44pt minimum for gloved, one-handed, in-motion use. Connection state always shows icon + label + color, never color alone. Offline captures queue and sync, never block.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ DESIGN LANGUAGE ============ -->
+  <div class="sec">
+    <div class="sec-kicker">02 · Design language</div>
+    <h2 class="sec-h">Color, type, spacing, depth — one token scale, no one-off values</h2>
+    <p class="sec-d">The single highest-leverage "looks designed" lever (Refactoring UI, Material): discrete predefined scales for everything. Brand sky stays; the rest is refined for depth and restraint.</p>
+    <div class="dgrid">
+      <div class="dpanel">
+        <h4 style="margin:0 0 16px;font-size:14px">Color</h4>
+        <div class="swatch-row">
+          <div class="sw"><div class="chip" style="background:#1AA0E6"></div><div class="nm">Sky</div><div class="hx">#1AA0E6</div></div>
+          <div class="sw"><div class="chip" style="background:#FF6F61"></div><div class="nm">Coral</div><div class="hx">#FF6F61</div></div>
+          <div class="sw"><div class="chip" style="background:#F59E0B"></div><div class="nm">Amber</div><div class="hx">#F59E0B</div></div>
+          <div class="sw"><div class="chip" style="background:#16a34a"></div><div class="nm">Success</div><div class="hx">#16a34a</div></div>
+          <div class="sw"><div class="chip" style="background:#e5484d"></div><div class="nm">Danger</div><div class="hx">#e5484d</div></div>
+          <div class="sw"><div class="chip" style="background:#7C5CE0"></div><div class="nm">Violet</div><div class="hx">#7C5CE0</div></div>
+        </div>
+        <div style="height:16px"></div>
+        <div class="swatch-row">
+          <div class="sw"><div class="chip" style="background:var(--bg)"></div><div class="nm">Canvas</div></div>
+          <div class="sw"><div class="chip" style="background:var(--surface)"></div><div class="nm">Surface</div></div>
+          <div class="sw"><div class="chip" style="background:var(--sunken)"></div><div class="nm">Sunken</div></div>
+          <div class="sw"><div class="chip" style="background:linear-gradient(90deg,var(--rb1),var(--rb2),var(--rb3),var(--rb4),var(--rb5))"></div><div class="nm">Rainbow</div></div>
+        </div>
+        <p class="note">Restraint rule: sky carries 90% of interactive weight; coral/amber/violet are accents, never two warm accents on one element. Rainbow is decorative-only (the signature edge), never a fill.</p>
+      </div>
+
+      <div class="dpanel">
+        <h4 style="margin:0 0 14px;font-size:14px">Typeface — proposed default: Geist + Geist Mono</h4>
+        <div class="fontcard pick" style="font-family:'Geist'"><div class="fn">Geist · default <span>✓ pick</span></div><div class="demo">Buffer prep, 9:41</div><div class="demo2">Clean, technical, flagship-tech. Tabular figures for counts and timers.</div></div>
+        <div style="height:10px"></div>
+        <div class="fontcard" style="font-family:'Plus Jakarta Sans'"><div class="fn">Plus Jakarta Sans</div><div class="demo">Buffer prep, 9:41</div><div class="demo2">Friendlier, geometric, rounder.</div></div>
+        <div style="height:10px"></div>
+        <div class="fontcard" style="font-family:'Hanken Grotesk'"><div class="fn">Hanken Grotesk</div><div class="demo">Buffer prep, 9:41</div><div class="demo2">Warm humanist grotesk, very legible.</div></div>
+        <p class="note">Numbers (timers, calculators, inventory counts) render in <span style="font-family:var(--mono)">Geist&nbsp;Mono</span> — the mono-for-data move is a strong premium signal.</p>
+      </div>
+
+      <div class="dpanel">
+        <h4 style="margin:0 0 14px;font-size:14px">Type scale (mobile, ~1.7:1 head/body)</h4>
+        <div class="type-row"><span class="tk">display 32</span><span style="font-size:32px;font-weight:800;letter-spacing:-.03em">Notebook</span></div>
+        <div class="type-row"><span class="tk">title 27</span><span style="font-size:27px;font-weight:800;letter-spacing:-.02em">Methods</span></div>
+        <div class="type-row"><span class="tk">h 20</span><span style="font-size:20px;font-weight:700">Section header</span></div>
+        <div class="type-row"><span class="tk">body 16</span><span style="font-size:16px">Body copy at the bench</span></div>
+        <div class="type-row"><span class="tk">sub 14</span><span style="font-size:14px;color:var(--muted)">Secondary line</span></div>
+        <div class="type-row" style="border:0"><span class="tk">meta 12</span><span style="font-size:12px;color:var(--faint);font-weight:600;text-transform:uppercase;letter-spacing:.08em">Label</span></div>
+      </div>
+
+      <div class="dpanel">
+        <h4 style="margin:0 0 14px;font-size:14px">Spacing — 8pt grid, 4px substep</h4>
+        <div class="scale-bars">
+          <div class="b" style="height:8%"></div><div class="b" style="height:16%"></div><div class="b" style="height:24%"></div><div class="b" style="height:33%"></div><div class="b" style="height:41%"></div><div class="b" style="height:54%"></div><div class="b" style="height:75%"></div><div class="b" style="height:100%"></div>
+        </div>
+        <p class="note" style="font-family:var(--mono);font-size:11px">4 · 8 · 12 · 16 · 20 · 24 · 32 · 40</p>
+        <h4 style="margin:18px 0 12px;font-size:14px">Corner radii</h4>
+        <div class="radii-row">
+          <div style="text-align:center"><div class="rb" style="border-radius:10px"></div><div class="note">sm 10</div></div>
+          <div style="text-align:center"><div class="rb" style="border-radius:14px"></div><div class="note">md 14</div></div>
+          <div style="text-align:center"><div class="rb" style="border-radius:20px"></div><div class="note">lg 20</div></div>
+          <div style="text-align:center"><div class="rb" style="border-radius:26px"></div><div class="note">xl 26</div></div>
+        </div>
+        <h4 style="margin:18px 0 12px;font-size:14px">Elevation</h4>
+        <div class="elev"><div class="e" style="box-shadow:var(--shadow-sm)">sm</div><div class="e" style="box-shadow:var(--shadow-md)">md</div><div class="e" style="box-shadow:var(--shadow-lg)">lg</div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ COMPONENT LIBRARY ============ -->
+  <div class="sec">
+    <div class="sec-kicker">03 · Component library</div>
+    <h2 class="sec-h">Every primitive, every state</h2>
+    <p class="sec-d">The building blocks for the full contract. Buttons, inputs, chips, toggles, pills, segmented controls, status cues, skeletons, and empty states.</p>
+    <div class="comp-grid">
+
+      <div class="comp"><h4>Buttons — variants</h4>
+        <div class="row"><button class="btn btn-primary"><svg viewBox="0 0 24 24" fill="none"><path d="M12 5v14M5 12h14" stroke="#fff" stroke-width="2.2" stroke-linecap="round"/></svg>Primary</button><button class="btn btn-secondary">Secondary</button></div>
+        <div class="row"><button class="btn btn-ghost">Ghost</button><button class="btn btn-coral">Coral</button><button class="btn btn-danger">Discard</button></div>
+        <div class="row"><button class="btn btn-primary" disabled>Disabled</button><button class="btn btn-primary"><span class="spinner"></span>Sending…</button></div>
+      </div>
+
+      <div class="comp"><h4>Inputs</h4>
+        <div class="field"><label>Title (optional)</label><div class="input">Buffer prep, 50 mL</div></div>
+        <div class="field"><label>Body</label><div class="input focus">10x TBE, pH 8.3…</div></div>
+        <div class="row" style="margin-top:6px"><span style="font-size:13px;font-weight:600">Show Today</span><div class="sw-toggle"><span class="knob"></span></div><span style="font-size:13px;font-weight:600;margin-left:10px">Haptics</span><div class="sw-toggle off"><span class="knob"></span></div></div>
+      </div>
+
+      <div class="comp"><h4>Chips &amp; segmented</h4>
+        <div class="chips" style="margin-bottom:14px"><span class="ch on">All</span><span class="ch">Protocol</span><span class="ch">Markdown</span><span class="ch">Recipe</span></div>
+        <div class="seg"><button class="on">Molarity</button><button>Dilution</button><button>Buffer</button></div>
+      </div>
+
+      <div class="comp"><h4>Status &amp; pills</h4>
+        <div class="row"><span class="pill pill-ok">In stock</span><span class="pill pill-low">Low</span><span class="pill pill-ordered">Ordered</span></div>
+        <div class="row" style="gap:14px"><span style="font-size:13px;font-weight:600;display:flex;align-items:center;gap:7px"><span class="status-dot sd-ok"></span>Live</span><span style="font-size:13px;font-weight:600;display:flex;align-items:center;gap:7px"><span class="status-dot sd-sync"></span>Syncing</span><span style="font-size:13px;font-weight:600;display:flex;align-items:center;gap:7px"><span class="status-dot sd-wait"></span>Offline, queued</span></div>
+        <p class="note">Connectivity always pairs a dot with a word, per accessibility guidance (never color alone).</p>
+      </div>
+
+      <div class="comp"><h4>Skeleton loading</h4>
+        <div class="skel" style="width:60%"></div><div class="skel"></div><div class="skel" style="width:85%"></div><div class="skel" style="width:40%"></div>
+        <p class="note">Content screens skeleton-load; only sub-second and button waits use a spinner.</p>
+      </div>
+
+      <div class="comp"><h4>Empty state</h4>
+        <div class="empty"><div class="ei"><svg viewBox="0 0 24 24" fill="none"><path d="M4 7h16v13H4zM4 7l2-3h12l2 3M9 12h6" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/></svg></div><div class="et">No captures yet</div><div class="es">Tap ＋ to send your first photo or note to the lab.</div></div>
+      </div>
+
+    </div>
+  </div>
+
+  <div class="callout" style="margin-top:40px;max-width:none">
+    <b>Next once you approve this foundation.</b> I build the full contract on this language: every tab screen, all 12 stack screens, every sheet and popup (NotebookChooser, TodayPanel, download prompt, confirm dialogs, app-lock, splash, alarm), notifications, and the component states not shown here. Then the real RN app is rebuilt to match.
+  </div>
+
+</div>
+
+<script>
+function setMode(m){document.documentElement.classList.toggle('dark',m==='dark');document.getElementById('tL').classList.toggle('on',m==='light');document.getElementById('tD').classList.toggle('on',m==='dark');}
+
+/* ---- Home hub screen markup, injected so phone 1 can switch ---- */
+const screens = {
+  home: `
+    <div class="apphead"><div><div class="greet">Good morning, Grant</div><h1>Home</h1></div>
+      <div class="head-actions">
+        <div class="iconbtn"><span class="dot-badge">2</span><svg viewBox="0 0 24 24" fill="none"><path d="M6 9a6 6 0 0 1 12 0c0 7 3 8 3 8H3s3-1 3-8M9.5 21a2.5 2.5 0 0 0 5 0" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+        <div class="iconbtn"><svg viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="3.4" stroke="currentColor" stroke-width="1.7"/><path d="M19.4 13a1.7 1.7 0 0 0 .3 1.9 2 2 0 1 1-2.8 2.8 1.7 1.7 0 0 0-2.9 1.2V21a2 2 0 1 1-4 0 1.7 1.7 0 0 0-2.9-1.2 2 2 0 1 1-2.8-2.8A1.7 1.7 0 0 0 4.6 13 1.7 1.7 0 0 0 3 11.3a2 2 0 1 1 0-4 1.7 1.7 0 0 0 1.6-2.9A2 2 0 1 1 7.4 4.6 1.7 1.7 0 0 0 9.6 3 2 2 0 1 1 13.6 3" stroke="currentColor" stroke-width="1.5"/></svg></div>
+      </div>
+    </div>
+    <div class="scroll" style="padding-bottom:96px">
+      <div class="statuscard"><div class="pulse"><span class="core"></span></div><div><div class="lab">Maple Lab · Live</div><div class="meta">Synced just now · 24 methods offline</div></div></div>
+      <div class="lbl">Running now</div>
+      <div class="timer-live"><div class="ring"><div class="in">⏱</div></div><div><div class="nm">PCR denaturation</div><div class="meta" style="font-size:12px;color:var(--muted)">Step 2 of 6</div></div><div class="cd">04:12</div></div>
+      <div class="lbl">Today <a>3 due</a></div>
+      <div class="card card-tight">
+        <div class="taskrow"><span class="checkbox due"></span><span class="t">Image the gel</span><span class="when over">Overdue</span></div>
+        <div class="taskrow"><span class="checkbox"></span><span class="t">Restock pipette tips</span><span class="when">2:00 PM</span></div>
+        <div class="taskrow"><span class="checkbox"></span><span class="t">1:1 with Priya</span><span class="when">4:30 PM</span></div>
+      </div>
+      <div class="lbl">Tools</div>
+      <div class="launch">
+        <div class="tile"><div class="ic amber"><svg viewBox="0 0 24 24" fill="none"><circle cx="12" cy="13" r="8" stroke="currentColor" stroke-width="1.8"/><path d="M12 13V8.5M12 2h0M9 2h6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></div><div class="nm">Timers</div></div>
+        <div class="tile"><div class="ic sky"><svg viewBox="0 0 24 24" fill="none"><rect x="4" y="3" width="16" height="18" rx="2.5" stroke="currentColor" stroke-width="1.8"/><path d="M8 7h8M8 11h3M8 15h3" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></div><div class="nm">Calc</div></div>
+        <div class="tile"><div class="ic violet"><svg viewBox="0 0 24 24" fill="none"><path d="M5 4h11l3 3v13H5z" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/><path d="M9 12h6M9 16h6" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg></div><div class="nm">Wiki</div></div>
+        <div class="tile"><div class="ic coral"><svg viewBox="0 0 24 24" fill="none"><path d="M21 11.5a8.5 8.5 0 1 1-3-6.5M21 4v5h-5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></div><div class="nm">Sync</div></div>
+      </div>
+      <div class="lbl">Recent</div>
+      <div class="card card-tight">
+        <div class="inboxrow"><div class="thumb"><svg viewBox="0 0 24 24" fill="none"><path d="M4 8h16v11H4z" stroke="currentColor" stroke-width="1.6"/><circle cx="9" cy="12" r="1.6" fill="currentColor"/></svg></div><div class="ti">Western blot, rep 2<div class="sub"><span class="status-dot sd-ok"></span>Filed to Gel imaging</div></div></div>
+      </div>
+    </div>`,
+  notebook: `
+    <div class="apphead"><div><div class="greet">Maple Lab</div><h1>Notebook</h1></div></div>
+    <div class="scroll" style="padding-bottom:96px">
+      <div class="statuscard"><div class="pulse"><span class="core"></span></div><div><div class="lab">Live</div><div class="meta">Synced just now</div></div><div class="chiplink">Unpair</div></div>
+      <div class="cap2" style="margin-top:14px">
+        <div class="captile photo"><div class="blob"></div><div class="ci"><svg viewBox="0 0 24 24" fill="none"><path d="M4 8h3l1.5-2.2A1 1 0 0 1 9.3 5h5.4a1 1 0 0 1 .8.4L17 8h3a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9a1 1 0 0 1 1-1Z" stroke="#fff" stroke-width="1.8" stroke-linejoin="round"/><circle cx="12" cy="13" r="3.2" stroke="#fff" stroke-width="1.8"/></svg></div><div><div class="cl">Take a photo</div><div class="cs">Gel, plate, board</div></div></div>
+        <div class="captile note"><div class="blob"></div><div class="ci"><svg viewBox="0 0 24 24" fill="none"><path d="M5 19l1-4L16 5l3 3L9 18l-4 1Z" stroke="#fff" stroke-width="1.8" stroke-linejoin="round"/></svg></div><div><div class="cl">Quick note</div><div class="cs">Jot and send</div></div></div>
+      </div>
+      <div class="lbl">Inbox <a>Send all</a></div>
+      <div class="card card-tight">
+        <div class="inboxrow"><div class="thumb"><svg viewBox="0 0 24 24" fill="none"><path d="M4 8h16v11H4z" stroke="currentColor" stroke-width="1.6"/><circle cx="9" cy="12" r="1.6" fill="currentColor"/></svg></div><div class="ti">Western blot, replicate 2<div class="sub"><span class="status-dot sd-sync"></span>Sending to lab…</div></div></div>
+        <div class="inboxrow"><div class="thumb"><svg viewBox="0 0 24 24" fill="none"><path d="M5 19l1-4L16 5l3 3L9 18l-4 1Z" stroke="currentColor" stroke-width="1.6"/></svg></div><div class="ti">Buffer prep note<div class="sub"><span class="status-dot sd-ok"></span>On your laptop</div></div></div>
+        <div class="inboxrow"><div class="thumb"><svg viewBox="0 0 24 24" fill="none"><path d="M4 8h16v11H4z" stroke="currentColor" stroke-width="1.6"/></svg></div><div class="ti">Colony plate, T5<div class="sub"><span class="status-dot sd-wait"></span>Waiting for connection</div></div></div>
+      </div>
+    </div>`,
+  methods: `
+    <div class="apphead"><div><div class="greet">24 offline</div><h1>Methods</h1></div></div>
+    <div class="scroll" style="padding-bottom:96px">
+      <div class="input focus" style="display:flex;align-items:center;gap:9px;padding:11px 14px"><svg viewBox="0 0 24 24" fill="none" style="width:18px;height:18px;color:var(--faint)"><circle cx="11" cy="11" r="7" stroke="currentColor" stroke-width="1.8"/><path d="m20 20-3-3" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg><span style="color:var(--faint)">Search protocols…</span></div>
+      <div class="chips" style="margin-top:14px"><span class="ch on">All</span><span class="ch">Protocol</span><span class="ch">Recipe</span><span class="ch">PCR</span></div>
+      <div class="lbl" style="margin-top:8px">For your active experiment</div>
+      <div class="card" style="border-color:var(--sky-border);background:linear-gradient(180deg,var(--sky-dim),var(--surface))">
+        <div class="inboxrow" style="padding:6px 2px"><span class="status-dot sd-ok" style="width:9px;height:9px"></span><div class="ti">Gibson assembly, 4-fragment<div class="sub">Cloning · 6 steps</div></div><svg viewBox="0 0 24 24" fill="none" style="width:18px;height:18px;color:var(--faint)"><path d="m9 6 6 6-6 6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></div>
+      </div>
+      <div class="lbl">Cloning</div>
+      <div class="card card-tight">
+        <div class="inboxrow"><div class="thumb" style="background:var(--sky-dim);border-color:var(--sky-border)"><span style="font-family:var(--mono);font-weight:600;color:var(--sky);font-size:13px">P</span></div><div class="ti">Plasmid miniprep<div class="sub">Protocol · updated Tue</div></div><span style="color:var(--amber)">★</span></div>
+        <div class="inboxrow"><div class="thumb" style="background:var(--amber-dim)"><span style="font-family:var(--mono);font-weight:600;color:var(--amber);font-size:13px">R</span></div><div class="ti">LB agar plates<div class="sub">Recipe</div></div></div>
+      </div>
+    </div>`,
+  inventory: `
+    <div class="apphead"><div><div class="greet">Maple Lab</div><h1>Inventory</h1></div></div>
+    <div class="scroll" style="padding-bottom:96px">
+      <div class="card" style="background:linear-gradient(140deg,var(--sky),#39b4ff);border:0;color:#fff;display:flex;align-items:center;gap:14px;box-shadow:var(--shadow-md)">
+        <div style="width:48px;height:48px;border-radius:14px;background:rgba(255,255,255,.22);display:grid;place-items:center"><svg viewBox="0 0 24 24" fill="none" style="width:26px;height:26px"><path d="M4 7V5a1 1 0 0 1 1-1h2M20 7V5a1 1 0 0 0-1-1h-2M4 17v2a1 1 0 0 0 1 1h2M20 17v2a1 1 0 0 1-1 1h-2M3 12h18" stroke="#fff" stroke-width="1.9" stroke-linecap="round"/></svg></div>
+        <div><div style="font-weight:700;font-size:16px">Scan a package</div><div style="font-size:12.5px;opacity:.85">Receive, track, and reorder</div></div>
+        <svg viewBox="0 0 24 24" fill="none" style="width:20px;height:20px;margin-left:auto"><path d="m9 6 6 6-6 6" stroke="#fff" stroke-width="2.2" stroke-linecap="round"/></svg>
+      </div>
+      <div class="lbl">Tracked items <a>Reorder low</a></div>
+      <div class="card card-tight">
+        <div class="inboxrow"><div class="thumb" style="background:var(--sky-dim);border-color:var(--sky-border)"><svg viewBox="0 0 24 24" fill="none" style="color:var(--sky)"><path d="m12 3 8 4.5v9L12 21l-8-4.5v-9z" stroke="currentColor" stroke-width="1.6"/></svg></div><div class="ti">Pipette tips, 200µL<div class="sub">8 of 10 racks left</div></div><span class="pill pill-ok">OK</span></div>
+        <div class="inboxrow"><div class="thumb" style="background:var(--danger-dim)"><svg viewBox="0 0 24 24" fill="none" style="color:var(--danger)"><path d="m12 3 8 4.5v9L12 21l-8-4.5v-9z" stroke="currentColor" stroke-width="1.6"/></svg></div><div class="ti">Agarose<div class="sub">1 of 12 bottles left</div></div><span class="pill pill-low">Low</span></div>
+      </div>
+      <div class="lbl">Purchase orders</div>
+      <div class="card card-tight">
+        <div class="inboxrow"><div class="thumb"><svg viewBox="0 0 24 24" fill="none"><path d="M6 7h12l-1 13H7z" stroke="currentColor" stroke-width="1.6"/><path d="M9 7a3 3 0 0 1 6 0" stroke="currentColor" stroke-width="1.6"/></svg></div><div class="ti">Taq polymerase<div class="sub">NEB · ordered Jun 11</div></div><span class="pill pill-ordered">Ordered</span></div>
+      </div>
+    </div>`
+};
+function nav(s,el){
+  document.querySelectorAll('.phone .navitem').forEach(n=>n.classList.remove('active'));
+  el.classList.add('active');
+  document.getElementById('screenHost').innerHTML = screens[s] + document.querySelector('.navwrap').outerHTML;
+  // re-bind nav after re-render
+  rebind();
+}
+function rebind(){
+  const host=document.getElementById('screenHost');
+  host.querySelectorAll('.navitem').forEach(n=>{
+    n.onclick=()=>nav(n.dataset.s,n);
+  });
+  const fab=host.querySelector('.fab'); if(fab) fab.onclick=()=>alert('Capture sheet: Photo / Scan note / Quick note / Scan package');
+}
+// initial render of home into host
+document.getElementById('screenHost').innerHTML = screens.home + document.querySelector('.navwrap').outerHTML;
+rebind();
+</script>
+</body>
+</html>
+</content>
+</invoke>
