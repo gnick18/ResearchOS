@@ -610,7 +610,8 @@ export default function CalcCustomScreen() {
 
   return (
     <ScreenFrame>
-      <ScreenHeader title={open ? '' : 'Lab calculators'} />
+      {/* Chevron only; the large in-content title avoids a doubled header. */}
+      <ScreenHeader />
       <ScrollView
         style={styles.fill}
         contentContainerStyle={styles.scrollContent}
