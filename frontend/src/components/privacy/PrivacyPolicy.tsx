@@ -27,6 +27,7 @@ import Link from "next/link";
 
 import MarketingFooter from "@/components/MarketingFooter";
 import MarketingNav from "@/components/MarketingNav";
+import Kicker from "@/components/marketing/Kicker";
 
 const EFFECTIVE_DATE = "June 4, 2026";
 const CONTACT_EMAIL = "gnickles@wisc.edu";
@@ -54,14 +55,15 @@ function Section({
 export default function PrivacyPolicy() {
   return (
     <div className="flex min-h-screen flex-col bg-surface-sunken text-foreground">
+      <div aria-hidden className="brand-rainbow-bg h-2 w-full" />
       <MarketingNav />
 
       <main className="mx-auto w-full max-w-3xl flex-1 px-6 py-12">
         {/* Intro */}
         <section className="mb-12">
-          <p className="mb-3 text-body font-semibold uppercase tracking-wide text-sky-600 dark:text-sky-300">
-            Privacy policy
-          </p>
+          <div className="mb-4">
+            <Kicker>Privacy policy</Kicker>
+          </div>
           <h1 className="mb-6 text-display font-bold tracking-tight text-foreground sm:text-4xl">
             Your research stays yours
           </h1>
@@ -74,13 +76,13 @@ export default function PrivacyPolicy() {
               place it changes, the optional feature that lets you share with
               researchers outside your folder.
             </p>
-            <p className="rounded-lg border border-amber-200 dark:border-amber-500/30 bg-amber-50 dark:bg-amber-500/15 px-4 py-3 text-body text-amber-800 dark:text-amber-300">
+            <p className="rounded-lg border border-brand-action/30 bg-brand-action/[0.06] px-4 py-3 text-body text-foreground">
               Effective {EFFECTIVE_DATE}. ResearchOS is free and open-source
               software written by a researcher at the University of
               Wisconsin-Madison. If anything here is unclear, write to{" "}
               <a
                 href={`mailto:${CONTACT_EMAIL}`}
-                className="font-semibold underline underline-offset-2"
+                className="font-semibold text-brand-action underline underline-offset-2"
               >
                 {CONTACT_EMAIL}
               </a>
