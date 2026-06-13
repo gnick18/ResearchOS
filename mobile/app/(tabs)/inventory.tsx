@@ -24,7 +24,7 @@ import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { SectionHeader } from '@/components/ui/SectionHeader';
-import { useTheme, palette } from '@/lib/design';
+import { useTheme, palette, fonts } from '@/lib/design';
 import { usePairing } from '@/lib/pairing';
 import { signWithDevice } from '@/lib/device-identity';
 import { fetchSnapshot } from '@/lib/snapshots';
@@ -100,7 +100,13 @@ export default function InventoryScreen() {
   const shownStocks = lowOnly ? trackedStocks.filter(stockIsLow) : trackedStocks;
 
   return (
-    <ScreenFrame>
+    <ScreenFrame edges={['top']}>
+      <View style={styles.head}>
+        <ThemedText style={[styles.greet, { color: surface.muted }]}>
+          {pairing?.labName ?? 'Your lab'}
+        </ThemedText>
+        <ThemedText type="title">Inventory</ThemedText>
+      </View>
       <ScrollView
         style={styles.fill}
         contentContainerStyle={styles.scrollContent}
@@ -112,10 +118,6 @@ export default function InventoryScreen() {
           />
         }
       >
-        <TabHeader title="Inventory" unreadCount={unreadCount} />
-        <ThemedText style={[styles.tagline, { color: surface.muted }]}>
-          Track stock and reorder from the bench.
-        </ThemedText>
 
         {/* Not paired prompt */}
         {!pairing && (pairingLoading || !loaded) ? (
@@ -372,10 +374,12 @@ function formatShortDate(value?: string | null): string {
 
 const styles = StyleSheet.create({
   fill: { flex: 1 },
+  head: { paddingHorizontal: 16, paddingTop: 6, paddingBottom: 10 },
+  greet: { fontSize: 12.5, fontFamily: fonts.semibold, marginBottom: 5 },
   scrollContent: {
-    paddingHorizontal: 24,
-    paddingTop: 16,
-    paddingBottom: 40,
+    paddingHorizontal: 16,
+    paddingTop: 2,
+    paddingBottom: 112,
     gap: 14,
   },
   tagline: { lineHeight: 22 },
