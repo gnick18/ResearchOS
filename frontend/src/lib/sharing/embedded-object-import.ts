@@ -333,7 +333,7 @@ async function importDataHub(
   const metaBlock = (content.meta ?? {}) as Record<string, unknown>;
   const name = typeof metaBlock.name === "string" ? metaBlock.name : obj.name;
   // Default to "column" table type if the stored value is not recognized.
-  const allowedTableTypes = ["column", "xy", "grouped", "survival", "contingency", "nested", "partsOfWhole"] as const;
+  const allowedTableTypes = ["column", "xy", "grouped", "survival", "contingency", "nested", "partsOfWhole", "info"] as const;
   type TableType = typeof allowedTableTypes[number];
   const rawTableType = typeof metaBlock.table_type === "string" ? metaBlock.table_type : "column";
   const tableType: TableType = allowedTableTypes.includes(rawTableType as TableType)
@@ -348,6 +348,12 @@ async function importDataHub(
     rows: Array.isArray(content.rows) ? content.rows as never[] : [],
     analyses: Array.isArray(content.analyses) ? content.analyses as never[] : [],
     plots: Array.isArray(content.plots) ? content.plots as never[] : [],
+    // An Info sheet carries its documentation here rather than in the grid, so
+    // pass it through when present so an imported Info sheet keeps its body +
+    // constants. Absent on every grid table, which leaves the create unchanged.
+    ...(content.info && typeof content.info === "object"
+      ? { info: content.info as never }
+      : {}),
   });
   return String(created.id);
 }

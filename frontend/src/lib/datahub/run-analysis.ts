@@ -1083,6 +1083,11 @@ export function validAnalysisTypes(content: DataHubDocContent): AnalysisType[] {
     // is no inferential statistic, so it offers no analysis.
     return [];
   }
+  if (content.meta.table_type === "info") {
+    // An Info sheet is documentation (a markdown body plus named constants), not
+    // data. It runs no statistic and draws no figure, so it offers no analysis.
+    return [];
+  }
   // A Column table in a summary entry format offers only the summary-compatible
   // tests, gated by the number of entered groups (2+ for the unpaired t, 3+ for
   // the one-way ANOVA). The paired and rank-based tests need raw replicates.

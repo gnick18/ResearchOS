@@ -56,6 +56,8 @@ import type {
   DataHubTableType,
   DerivedFrom,
   EntryFormat,
+  InfoConstant,
+  InfoContent,
   PlotSpec,
   RowRecord,
   SubcolumnKind,
@@ -89,6 +91,17 @@ export const DERIVED_FROM_KEY = "derived_from";
  * set travels with the doc through the CRDT and the mirror like the other meta.
  */
 export const EXCLUDED_CELLS_KEY = "excluded_cells";
+/**
+ * The meta key holding an Info sheet's documentation, JSON-serialized (the
+ * { body, constants } shape is non-scalar, so it is stored as a string the way
+ * the derived link and the excluded set are). Absent means this is NOT an Info
+ * sheet, so the seed only writes the key when an info payload is present and
+ * every grid table carries no key, keeping it byte-identical to before this
+ * field existed. The documentation travels with the doc through the CRDT and the
+ * mirror like the other meta. An Info sheet leaves columns / rows / analyses /
+ * plots empty and lives entirely in this one key.
+ */
+export const INFO_KEY = "info";
 export const COLUMNS_KEY = "columns";
 export const ROWS_KEY = "rows";
 export const ANALYSES_KEY = "analyses";
@@ -144,6 +157,33 @@ function parseJson<T>(raw: unknown, fallback: T): T {
 function asCell(v: unknown): CellValue {
   if (typeof v === "number" || typeof v === "string") return v;
   return null;
+}
+
+/**
+ * Normalize an Info sheet's documentation into a canonical { body, constants }
+ * shape, dropping anything malformed, so the seed and the projection agree on the
+ * exact bytes written (a constant with a missing name / value coerces to "", and
+ * the optional note is kept only when it is a non-empty string). Returns null
+ * when there is nothing meaningful to store (no body and no constants), which is
+ * how a fresh-but-empty Info sheet still seeds the key so it round-trips as an
+ * Info sheet rather than reading back as a bare table.
+ */
+function normalizeInfo(info: InfoContent | undefined | null): InfoContent | null {
+  if (!info || typeof info !== "object") return null;
+  const body = typeof info.body === "string" ? info.body : "";
+  const constants: InfoConstant[] = Array.isArray(info.constants)
+    ? info.constants
+        .filter((c): c is InfoConstant => !!c && typeof c === "object")
+        .map((c) => {
+          const out: InfoConstant = {
+            name: typeof c.name === "string" ? c.name : "",
+            value: typeof c.value === "string" ? c.value : "",
+          };
+          if (typeof c.note === "string" && c.note !== "") out.note = c.note;
+          return out;
+        })
+    : [];
+  return { body, constants };
 }
 
 // ---------------------------------------------------------------------------
@@ -257,6 +297,15 @@ export function seedDataHubDoc(content: DataHubDocContent): Uint8Array {
     if (sorted.length > 0) {
       meta.set(EXCLUDED_CELLS_KEY, JSON.stringify(sorted));
     }
+  }
+  // info is written ONLY when the content carries an info payload (an Info
+  // sheet), so every grid table seeds byte-identically to before this field
+  // existed. JSON-serialized because the { body, constants } shape is non-scalar,
+  // and normalized first so two devices seeding the same info produce byte-equal
+  // output. The key is written even for an empty body + no constants so a fresh
+  // Info sheet round-trips as an Info sheet rather than reading back as a table.
+  if (content.info) {
+    meta.set(INFO_KEY, JSON.stringify(normalizeInfo(content.info) ?? { body: "", constants: [] }));
   }
   meta.set("created_at", content.meta.created_at ?? "");
 
@@ -473,12 +522,21 @@ export function getDataHubContent(doc: LoroDoc, id = ""): DataHubDocContent {
     const keys = excluded.filter((k): k is string => typeof k === "string");
     if (keys.length > 0) docMeta.excludedCells = keys;
   }
+  // Only emit info when the serialized key is present, so a grid table projects
+  // without it (back-compat byte-identity). Normalized so a corrupt / partial
+  // value reads back as an empty Info sheet rather than crashing the projection.
+  const infoRaw = parseJson<InfoContent | null>(meta.get(INFO_KEY), null);
+  const info =
+    meta.get(INFO_KEY) !== undefined
+      ? normalizeInfo(infoRaw) ?? { body: "", constants: [] }
+      : null;
   return {
     meta: docMeta,
     columns: projectColumns(doc),
     rows: projectRows(doc),
     analyses: projectAnalyses(doc),
     plots: projectPlots(doc),
+    ...(info ? { info } : {}),
   };
 }
 
@@ -794,4 +852,17 @@ export function setExcludedCells(doc: LoroDoc, keys: string[]): void {
   } else if (meta.get(EXCLUDED_CELLS_KEY) !== undefined) {
     meta.delete(EXCLUDED_CELLS_KEY);
   }
+}
+
+/**
+ * Set an Info sheet's documentation (body + constants) in meta. Does NOT commit.
+ * Normalized + JSON-serialized so it round-trips through the projection and two
+ * devices writing the same content converge. This is the persistence sibling of
+ * the Info-sheet editor edits (the editor builds the next InfoContent, calls this,
+ * then commits). The key is always written for an Info sheet (even when blank),
+ * which keeps the doc reading back as an Info sheet rather than a bare table.
+ */
+export function setInfoContent(doc: LoroDoc, info: InfoContent): void {
+  const meta = getDataHubMeta(doc);
+  meta.set(INFO_KEY, JSON.stringify(normalizeInfo(info) ?? { body: "", constants: [] }));
 }
