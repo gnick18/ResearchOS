@@ -414,10 +414,11 @@ describe("BeakerBotConversation", () => {
     });
   });
 
-  it("renders a write_note draft preview with Approve / Reject and writes on Approve", async () => {
-    // Turn 1, the model drafts a note and calls write_note. The panel pauses on a
-    // DRAFT preview, the proposed content rendered as markdown, with Approve and
-    // Reject. Tapping Approve writes the note and the loop produces the answer.
+  it("opens a write_note draft in Canvas (pointer line, not a read-only card) and writes on Save", async () => {
+    // Turn 1, the model drafts a note and calls write_note. The chat shows a
+    // compact "Drafted in Canvas" pointer line (NOT a read-only Approve / Reject
+    // card), and the Canvas panel docks with the draft. Save is the consent,
+    // tapping it writes the note and the loop produces the answer.
     const fetchMock = vi
       .fn()
       .mockResolvedValueOnce(
@@ -441,19 +442,19 @@ describe("BeakerBotConversation", () => {
     });
     fireEvent.click(screen.getByTestId("beakerbot-send"));
 
-    // The draft preview appears with the proposed content rendered as real HTML
-    // (a <strong> means the markdown was parsed, not shown raw), plus the
-    // Approve / Reject controls. The one-line action confirm is NOT shown.
-    const draft = await screen.findByTestId("beakerbot-approval-draft");
-    expect(draft).toHaveTextContent("Significant");
-    const preview = screen.getByTestId("beakerbot-draft-preview");
-    expect(preview.querySelector("strong")?.textContent).toBe("Significant");
-    expect(screen.getByTestId("beakerbot-draft-approve")).toBeInTheDocument();
-    expect(screen.getByTestId("beakerbot-draft-reject")).toBeInTheDocument();
-    expect(screen.queryByTestId("beakerbot-approval")).toBeNull();
+    // The chat shows the Canvas pointer line, and the docked Canvas panel opens
+    // with the draft title and a Save button. The OLD read-only draft card and
+    // its Approve / Reject buttons are gone.
+    await screen.findByTestId("beakerbot-canvas-pointer");
+    expect(screen.queryByTestId("beakerbot-approval-draft")).toBeNull();
+    expect(screen.queryByTestId("beakerbot-draft-approve")).toBeNull();
+    const canvas = screen.getByTestId("beakerbot-canvas");
+    expect(canvas).toHaveTextContent("qPCR summary");
+    expect(screen.getByTestId("beakerbot-canvas-save")).toBeInTheDocument();
+    expect(screen.getByTestId("beakerbot-canvas-discard")).toBeInTheDocument();
 
-    // Approving writes the note and the loop continues to the final answer.
-    fireEvent.click(screen.getByTestId("beakerbot-draft-approve"));
+    // Save is the consent, it writes the note and the loop continues.
+    fireEvent.click(screen.getByTestId("beakerbot-canvas-save"));
     await waitFor(() => {
       expect(
         screen.getByText("Added the summary to a new note."),
@@ -462,7 +463,7 @@ describe("BeakerBotConversation", () => {
     expect(fetchMock).toHaveBeenCalledTimes(2);
   });
 
-  it("rejects a write_note draft gracefully without writing", async () => {
+  it("discards a Canvas draft gracefully without writing", async () => {
     const fetchMock = vi
       .fn()
       .mockResolvedValueOnce(
@@ -486,8 +487,11 @@ describe("BeakerBotConversation", () => {
     });
     fireEvent.click(screen.getByTestId("beakerbot-send"));
 
-    await screen.findByTestId("beakerbot-approval-draft");
-    fireEvent.click(screen.getByTestId("beakerbot-draft-reject"));
+    // The Canvas panel docks. Discard asks for a confirm (a draft can hold real
+    // edits), then throws the draft away and the loop continues.
+    await screen.findByTestId("beakerbot-canvas");
+    fireEvent.click(screen.getByTestId("beakerbot-canvas-discard"));
+    fireEvent.click(screen.getByTestId("beakerbot-canvas-discard-confirm-btn"));
     await waitFor(() => {
       expect(
         screen.getByText("No problem, I will not write it."),

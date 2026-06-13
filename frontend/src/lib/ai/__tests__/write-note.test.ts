@@ -297,6 +297,47 @@ describe("write_note gate (draft approval)", () => {
     expect(appendSpy).not.toHaveBeenCalled();
   });
 
+  it("on a Canvas Save (draft-save decision), execute writes the user's EDITED content", async () => {
+    // The user edited the draft in Canvas and saved. The decision carries the
+    // edited buffer, and the gate routes it via applyEdit into the content arg,
+    // so createNote receives the edited text, not the model's original draft.
+    const requestApproval = vi.fn(
+      async (): Promise<ApprovalDecision> => ({
+        kind: "draft-save",
+        content: "## Results\nEdited to 2.41x in Canvas.",
+      }),
+    );
+    const callModel = vi
+      .fn<(m: LoopMessage[], t: unknown[]) => Promise<ModelResponse>>()
+      .mockResolvedValueOnce(
+        assistantWithToolCall("write_note", {
+          target: "new",
+          title: "qPCR summary",
+          content: "## Results\nOriginal 2.4x draft.",
+          mode: "create",
+        }),
+      )
+      .mockResolvedValueOnce(assistantFinal("Saved your edits."));
+
+    try {
+      await runAgentLoop({
+        messages: [USER_MESSAGE],
+        tools: [writeNoteTool],
+        callModel,
+        getReviewMode: () => "step",
+        requestApproval,
+      });
+    } finally {
+      writeNoteDeps.createNote = originalCreate;
+      writeNoteDeps.appendEntry = originalAppend;
+    }
+
+    expect(createSpy).toHaveBeenCalledTimes(1);
+    expect(createSpy.mock.calls[0][0]).toMatchObject({
+      content: "## Results\nEdited to 2.41x in Canvas.",
+    });
+  });
+
   it("on Approve, execute appends to the existing note via addEntry", async () => {
     const requestApproval = vi.fn(async (): Promise<ApprovalDecision> => "allow");
     const callModel = vi
