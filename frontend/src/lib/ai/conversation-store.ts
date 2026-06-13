@@ -34,8 +34,32 @@ import {
   runAgentLoop,
   type LoopMessage,
   type TokenUsage,
+  type ModelCaller,
 } from "@/lib/ai/agent-loop";
 import { callModelViaProxy, ProxyError } from "@/lib/ai/proxy-client";
+
+// ---- Dev-only model-caller override seam ------------------------------------
+//
+// The production ModelCaller (callModelViaProxy) is used by default. A dev page
+// can inject a mock by calling setModelCallerOverride(mockFn), and restore the
+// original by calling setModelCallerOverride(null). Null by default so production
+// behavior is completely unaffected.
+
+let modelCallerOverride: ModelCaller | null = null;
+
+/**
+ * Replace the model caller used inside send(). Pass null to restore
+ * callModelViaProxy. For dev pages only; has no effect in production builds
+ * when no dev page calls this.
+ */
+export function setModelCallerOverride(fn: ModelCaller | null): void {
+  modelCallerOverride = fn;
+}
+
+/** Returns the active model caller: the override when set, otherwise the real proxy. */
+function getModelCaller(): ModelCaller {
+  return modelCallerOverride ?? callModelViaProxy;
+}
 import { DEFAULT_TOOLS } from "@/lib/ai/tools/registry";
 import { BEAKERBOT_SYSTEM_PROMPT } from "@/lib/ai/system-prompt";
 import { getReviewMode, type BeakerBotReviewMode } from "@/lib/ai/review-mode-store";
@@ -794,7 +818,7 @@ export const useConversationStore = create<ConversationStore>((set, get) => ({
       const result = await runAgentLoop({
         messages: loopInput,
         tools: DEFAULT_TOOLS,
-        callModel: callModelViaProxy,
+        callModel: getModelCaller(),
         onStatus: (s) => {
           // Update the friendly status label for the existing "Thinking" text.
           // Also update the running-tool count and the steps panel list.

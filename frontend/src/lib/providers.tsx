@@ -538,6 +538,21 @@ function AppContent({ children }: { children: ReactNode }) {
     );
   }
 
+  // The BeakerBot dev play page works without a connected folder (it uses a
+  // mock model caller). Bypass the folder gate and provide the minimum context
+  // it needs: a query client (so BeakerSearchProvider's useQueryClient call
+  // does not crash) and BeakerSearchProvider (so openBeakerBot is available).
+  // The page itself installs the mock caller and opens the palette on mount.
+  if (pathname === "/dev/beakerbot") {
+    return (
+      <QueryClientProvider client={queryClient}>
+        <BeakerSearchProvider>
+          {children}
+        </BeakerSearchProvider>
+      </QueryClientProvider>
+    );
+  }
+
   // Fixture-backed modes (wiki-capture signed-in variant on localhost, or
   // the public /demo route in any environment): FileSystemProvider has
   // seeded the in-memory fixture and set state to connected. Skip every
