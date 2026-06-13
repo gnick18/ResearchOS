@@ -48,7 +48,13 @@ const TYPES_PATH = "frontend/src/lib/types.ts";
 const NAV_PATH = "frontend/src/lib/wiki/nav.ts";
 const FIXTURE_ROOT = "frontend/public/demo-data";
 
-const ALLOWED_FIXTURE_OWNERS = new Set(["alex", "morgan", "mira", "sam", "public", "lab"]);
+const ALLOWED_FIXTURE_OWNERS = new Set([
+  "alex", "morgan", "mira", "sam", "public", "lab",
+  // Additional seeded demo lab members (mentorship tree + check-ins): the
+  // rotation student and the extra members other demo surfaces added. All are
+  // fictional demo personas in frontend/public/demo-data, not real users.
+  "remy", "nia", "theo", "ivy",
+]);
 const ALLOWED_FIXTURE_PATH_PREFIX = "frontend/public/demo-data/";
 // Whole-lab sharing sentinel from frontend/src/lib/sharing/unified.ts — appears
 // as `shared_with[].username` and is not a real username, so the content scan

@@ -4060,7 +4060,7 @@ Source: `frontend/public/demo-data/users/alex/projects/1.json`
 ```json
 {
   "id": 1,
-  "name": "Engineer FakeYeast for biofuel",
+  "name": "DEMO: Engineer FakeYeast for biofuel",
   "weekend_active": false,
   "tags": [
     "demo",
@@ -4097,7 +4097,7 @@ Source: `frontend/public/demo-data/users/alex/tasks/2.json`
   "method_ids": [
     1
   ],
-  "deviation_log": "Heat-shock ran 38 min instead of 40 (interrupted by timer reset). Noted for the colony count.",
+  "deviation_log": "Demo: heat-shock ran 38 min instead of 40 (interrupted by timer reset). Noted for the colony count.",
   "tags": null,
   "sort_order": 2,
   "experiment_color": "#3b82f6",
@@ -4147,7 +4147,7 @@ Source: `frontend/public/demo-data/users/alex/tasks/7.json`
 {
   "id": 7,
   "project_id": 2,
-  "name": "Order FakeStrain ΔADE2 reagents",
+  "name": "Order DemoStrain ΔADE2 reagents",
   "start_date": "2026-05-06",
   "duration_days": 1,
   "end_date": "2026-05-06",
@@ -4233,7 +4233,7 @@ Source: `frontend/public/demo-data/users/alex/methods/1.json` — method_type="m
 ```json
 {
   "id": 1,
-  "name": "Yeast transformation (LiAc)",
+  "name": "[Demo protocol] Yeast transformation (LiAc)",
   "source_path": "users/alex/methods/1.md",
   "method_type": "markdown",
   "folder_path": "Strains",
@@ -4253,7 +4253,7 @@ Source: `frontend/public/demo-data/users/alex/methods/5.json` — method_type="p
 ```json
 {
   "id": 5,
-  "name": "qPCR fakeGFP expression",
+  "name": "[Demo protocol] qPCR fakeGFP expression",
   "source_path": "pcr://protocol/1",
   "method_type": "pcr",
   "folder_path": "qPCR",
@@ -4275,7 +4275,7 @@ Source: `frontend/public/demo-data/users/alex/methods/6.json` — method_type="l
 ```json
 {
   "id": 6,
-  "name": "Reverse-phase HPLC — flbA peptide quantification",
+  "name": "[Demo protocol] Reverse-phase HPLC — flbA peptide quantification",
   "source_path": "lc_gradient://protocol/1",
   "method_type": "lc_gradient",
   "folder_path": "LC-MS",
@@ -4298,7 +4298,7 @@ Source: `frontend/public/demo-data/users/alex/methods/7.json` — method_type="p
 ```json
 {
   "id": 7,
-  "name": "96-well bacterial growth curve (FakeStrain inducer titration)",
+  "name": "[Demo protocol] 96-well bacterial growth curve (DemoStrain inducer titration)",
   "source_path": "plate://protocol/1",
   "method_type": "plate",
   "folder_path": "Screening",
@@ -4321,7 +4321,7 @@ Source: `frontend/public/demo-data/users/alex/methods/8.json` — method_type="c
 ```json
 {
   "id": 8,
-  "name": "HeLa passaging — weekly 1:5 split",
+  "name": "[Demo protocol] HeLa passaging — weekly 1:5 split",
   "source_path": "cell_culture://protocol/1",
   "method_type": "cell_culture",
   "folder_path": "Cell culture",
@@ -4344,7 +4344,7 @@ Source: `frontend/public/demo-data/users/alex/methods/9.json` — method_type="c
 ```json
 {
   "id": 9,
-  "name": "Growth-curve QC analysis",
+  "name": "[Demo protocol] Growth-curve QC analysis",
   "source_path": "coding_workflow://protocol/1",
   "method_type": "coding_workflow",
   "folder_path": "Analysis",
@@ -4367,7 +4367,7 @@ Source: `frontend/public/demo-data/users/alex/methods/10.json` — method_type="
 ```json
 {
   "id": 10,
-  "name": "LC-MS detection — flbA peptides (ESI+ Q-Exactive)",
+  "name": "[Demo protocol] LC-MS detection — flbA peptides (ESI+ Q-Exactive)",
   "source_path": "mass_spec://protocol/1",
   "method_type": "mass_spec",
   "folder_path": "LC-MS",
@@ -4391,7 +4391,7 @@ Source: `frontend/public/demo-data/users/alex/methods/11.json` — method_type="
 ```json
 {
   "id": 11,
-  "name": "flbA expression vs control (ΔΔCq)",
+  "name": "[Demo protocol] flbA expression vs control (ΔΔCq)",
   "source_path": "qpcr_analysis://protocol/1",
   "method_type": "qpcr_analysis",
   "folder_path": "qPCR",
@@ -4414,7 +4414,7 @@ Source: `frontend/public/demo-data/users/alex/methods/12.json` — method_type="
 ```json
 {
   "id": 12,
-  "name": "Yeast growth-curve full kit",
+  "name": "[Demo kit] Yeast growth-curve full kit",
   "source_path": null,
   "method_type": "compound",
   "folder_path": "Screening",
@@ -4434,7 +4434,7 @@ Source: `frontend/public/demo-data/users/alex/methods/12.json` — method_type="
       "method_id": 7,
       "owner": null,
       "ordering": 0,
-      "label": "Plate layout (96-well FakeStrain titration)"
+      "label": "Plate layout (96-well DemoStrain titration)"
     },
     {
       "method_id": 2,
@@ -4453,7 +4453,7 @@ Source: `frontend/public/demo-data/users/alex/pcr_protocols/1.json`
 ```json
 {
   "id": 1,
-  "name": "qPCR fakeGFP expression",
+  "name": "[Demo protocol] qPCR fakeGFP expression",
   "gradient": {
     "initial": [
       {
@@ -4520,7 +4520,7 @@ Source: `frontend/public/demo-data/users/alex/pcr_protocols/1.json`
       "amount_per_reaction": "20"
     }
   ],
-  "notes": "use ACT1 as housekeeping reference. Public version available at users/public.",
+  "notes": "Demo qPCR — use ACT1 as housekeeping reference. Public version available at users/public.",
   "tags": [
     "demo",
     "qPCR",
@@ -4540,8 +4540,8 @@ Source: `frontend/public/demo-data/users/alex/lc_gradients/1.json`
 ```json
 {
   "id": 1,
-  "name": "Reverse-phase HPLC — flbA peptide quantification",
-  "description": "HPLC method — separates fake-flbA tryptic peptides on a C18 column. Expected retention for the target peptide: 12.4 min.",
+  "name": "[Demo protocol] Reverse-phase HPLC — flbA peptide quantification",
+  "description": "Demo HPLC method — separates fake-flbA tryptic peptides on a C18 column. Expected retention for the target peptide: 12.4 min (demo number).",
   "gradient_steps": [
     {
       "time_min": 0,
@@ -4582,7 +4582,7 @@ Source: `frontend/public/demo-data/users/alex/lc_gradients/1.json`
   ],
   "column": {
     "manufacturer": "Waters",
-    "model": "ACQUITY UPLC BEH C18",
+    "model": "ACQUITY UPLC BEH C18 (demo)",
     "length_mm": 150,
     "inner_diameter_mm": 2.1,
     "particle_size_um": 1.7
@@ -4625,8 +4625,8 @@ Source: `frontend/public/demo-data/users/alex/plate_layouts/1.json`
 ```json
 {
   "id": 1,
-  "name": "96-well bacterial growth curve (FakeStrain inducer titration)",
-  "description": "FakeStrain ΔADE2 growth curve in YPD vs. fake-inducer concentration series. Column 1 = media blanks, columns 2-7 = sample wells (5 inducer concentrations + carrier control), columns 8-12 = negative controls.",
+  "name": "[Demo protocol] 96-well bacterial growth curve (DemoStrain inducer titration)",
+  "description": "Demo plate template — DemoStrain ΔADE2 growth curve in YPD vs. fake-inducer concentration series. Column 1 = media blanks, columns 2-7 = sample wells (5 inducer concentrations + carrier control), columns 8-12 = negative controls.",
   "plate_size": 96,
   "region_labels": [
     {
@@ -4643,7 +4643,7 @@ Source: `frontend/public/demo-data/users/alex/plate_layouts/1.json`
       "col_start": 1,
       "col_end": 6,
       "role": "sample",
-      "notes": "FakeStrain ΔADE2 + fake-inducer titration"
+      "notes": "DemoStrain ΔADE2 + fake-inducer titration"
     },
     {
       "row_start": 0,
@@ -4651,7 +4651,7 @@ Source: `frontend/public/demo-data/users/alex/plate_layouts/1.json`
       "col_start": 7,
       "col_end": 11,
       "role": "control",
-      "notes": "Wild-type FakeStrain (no inducer)"
+      "notes": "Wild-type DemoStrain (no inducer)"
     }
   ],
   "created_at": "2026-04-22T00:00:00Z",
@@ -4670,13 +4670,13 @@ Source: `frontend/public/demo-data/users/alex/cell_culture_schedules/1.json`
 ```json
 {
   "id": 1,
-  "name": "HeLa passaging — weekly 1:5 split",
-  "description": "Passaging schedule for HeLa cells. Feed every 2 days, observe day 6, split 1:5 on day 7. Mid-execution actual events logged per experiment.",
+  "name": "[Demo protocol] HeLa passaging — weekly 1:5 split",
+  "description": "Demo passaging schedule for HeLa cells. Feed every 2 days, observe day 6, split 1:5 on day 7. Mid-execution actual events logged per experiment.",
   "cell_line": {
-    "name": "HeLa",
+    "name": "HeLa (demo)",
     "species": "Homo sapiens",
     "tissue": "Cervix (adenocarcinoma)",
-    "notes": "Strain (fake ATCC ref). Mycoplasma-negative."
+    "notes": "Demo strain — fake ATCC ref. Mycoplasma-negative."
   },
   "media": {
     "base_medium": "DMEM (high glucose, 4.5 g/L)",
@@ -4737,17 +4737,18 @@ Source: `frontend/public/demo-data/users/alex/purchase_items/1.json`
 {
   "id": 1,
   "task_id": 7,
-  "item_name": "FakeStrain ΔADE2 (fake yeast collection)",
+  "item_name": "DemoStrain ΔADE2 (fake yeast collection)",
   "quantity": 1,
   "link": "https://example.org/demo-strain-catalog",
   "cas": null,
   "price_per_unit": 220,
   "shipping_fees": 25,
   "total_price": 245,
-  "notes": "Engineered strain (fake), replaces nothing real.",
-  "funding_string": "DOE-EERE-0009431",
+  "notes": "Demo strain — replaces nothing real.",
+  "funding_string": "DEMO-DOE-EERE",
   "vendor": null,
-  "category": null
+  "category": null,
+  "order_status": "received"
 }
 ```
 
@@ -4801,7 +4802,7 @@ Source: `frontend/public/demo-data/users/alex/goals/1.json`
 {
   "id": 1,
   "project_id": 1,
-  "name": "Publish FakeYeast biofuel paper",
+  "name": "DEMO: Publish FakeYeast biofuel paper",
   "start_date": "2026-04-01",
   "end_date": "2026-08-31",
   "color": "#3b82f6",
@@ -4847,13 +4848,13 @@ Source: `frontend/public/demo-data/users/alex/events/1.json`
 ```json
 {
   "id": 1,
-  "title": "Lab meeting — strain design review",
+  "title": "Demo lab meeting — strain design review",
   "event_type": "meeting",
   "start_date": "2026-05-18",
   "end_date": "2026-05-18",
   "start_time": "11:00",
   "end_time": "12:00",
-  "location": "Bio 4203",
+  "location": "Bio 4203 (demo)",
   "url": null,
   "notes": "Bring transformation gel images.",
   "color": "#3b82f6"
@@ -4871,9 +4872,9 @@ Source: `frontend/public/demo-data/users/alex/lab_links/1.json`
 ```json
 {
   "id": 1,
-  "title": "Benchling",
+  "title": "Benchling (demo workspace)",
   "url": "https://example.org/demo-benchling",
-  "description": "Cloning notebook for the lab.",
+  "description": "Cloning notebook for the demo lab.",
   "category": "Bioinformatics tools",
   "color": "#3b82f6",
   "preview_image_url": null,
@@ -5431,9 +5432,9 @@ Flat index of every wiki page (extracted from `WIKI_NAV` in `frontend/src/lib/wi
 ## §11 Build metadata
 
 - **Variant:** `full`
-- **Helper version:** `21`
+- **Helper version:** `22`
 - **Schema hash:** `c4e7e2607df88fe03a59ecd4fc6abbd0ce23bda8ee3740bb6d82a9495580a395`
-- **Built at:** `2026-06-12T07:30:14.046Z`
-- **Built from commit:** `72dfd0e738a3d9763833711a4e2e57557ec4259a`
+- **Built at:** `2026-06-13T03:36:54.248Z`
+- **Built from commit:** `d72e58425566528dc97d47fd34e9666a047b4309`
 
 _Generated by `scripts/build-ai-helper.mjs`. Do not edit by hand — run `npm run --prefix frontend ai-helper:refresh` to rebuild and commit._
