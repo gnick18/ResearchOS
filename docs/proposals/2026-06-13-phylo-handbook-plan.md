@@ -22,16 +22,27 @@ fixture data only, never real user data. They are committed PNGs under
 `frontend/public/wiki/screenshots/phylo-handbook/`, captured the same way the Data
 Hub stats screenshots were.
 
-DECISION NEEDED (see the question I will ask): what example data backs the
-committed handbook figures.
-- Option A: reuse the existing committed demo seed (Candida auris, HMP, HPV58,
-  already attributed treedata-book examples). Lowest footprint, but 3 trees limit
-  how many distinct features we can show cleanly.
-- Option B (recommended): curate a small, attributed handbook-fixtures set (the
-  seed + a few more small example datasets, each with a SOURCES note), sized to
-  cover every feature with a natural example. Consistent with how we already
-  committed the 3 seed trees with attribution. This is what lets the handbook
-  "show off everything".
+DECIDED (Grant, 2026-06-13): Option B, curate a small, attributed
+handbook-fixtures set, each dataset with a SOURCES note, sized to cover every
+feature with a natural example. Consistent with how we committed the 3 seed trees.
+
+### Curated set (candidates, all small + attributable)
+The committed handbook fixtures live separate from the demo seed (e.g.
+`frontend/public/wiki/example-data/phylo/`), each with a SOURCES file. Final
+location/format is locked to Phase 1's import path before committing.
+- Candida auris (already seeded) — circular epidemiology: clade strip + continuous
+  resistance/abundance heatmap. The multi-ring chapter.
+- HMP (already seeded) — gheatmap matrix (tip x body-site abundance), continuous.
+- HPV58 (already seeded) — phylogram + support + clade highlight. The basics.
+- ggtreeExtra geom_fruit example (HCMC, 230 tips: discrete ring + continuous ring
+  + bar + tippoint). The canonical geom_fruit multi-ring. Attribution: ggtreeExtra
+  (Xu et al. 2021), example data redistributed by YuLab-SMU.
+- anole + svl (continuous body-size trait) — rectangular aligned panel
+  (geom_facet). Attribution: treedata-book / the Anolis dataset.
+- a small per-tip replicate dataset (synthesized on a small tree, documented as
+  synthetic) — the Data Hub boxplot/distribution linkage chapter (Phase 2).
+All are MIT/Artistic-licensed redistributions (ggtree/ggtreeExtra/treedata-book)
+or clearly-labeled synthetic, attributed per dataset, same standard as the seed.
 
 ## Information architecture (mirrors the treedata-book, for our Studio)
 
