@@ -39,6 +39,24 @@ FEATURES             Location/Qualifiers
                      /organism="Cloning vector pEGFP-N1"
                      /mol_type="genomic DNA"
                      /db_xref="taxon:47945"
+     regulatory      61..364
+                     /regulatory_class="enhancer"
+                     /label="CMV enhancer"
+                     /note="human cytomegalovirus immediate early enhancer"
+     regulatory      365..568
+                     /regulatory_class="promoter"
+                     /label="CMV promoter"
+                     /note="human cytomegalovirus immediate early promoter"
+                     /ApEinfo_fwdcolor="#fbbf24"
+     primer_bind     371..391
+                     /label="CMV-fwd"
+                     /note="CMV forward sequencing primer (anneals in the CMV
+                     promoter, just upstream of the MCS)"
+     misc_feature    592..672
+                     /label="MCS"
+                     /note="multiple cloning site (Nhe I, Bgl II, EcoR I, Pst I,
+                     Sal I, Acc I, Sma I, BamH I, Xho I, Hind III, Kpn I, Sac I,
+                     EcoR I, Bgl II ... upstream of EGFP)"
      gene            679..1398
                      /gene="egfp"
      CDS             679..1398
@@ -52,6 +70,35 @@ FEATURES             Location/Qualifiers
                      DDGNYKTRAEVKFEGDTLVNRIELKGIDFKEDGNILGHKLEYNYNSHNVYIMADKQKN
                      GIKVNFKIRHNIEDGSVQLADHYQQNTPIGDGPVLLPDNHYLSTQSALSKDPNEKRDH
                      MVLLEFVTAAGITLGMDELYK"
+     primer_bind     complement(1376..1397)
+                     /label="EGFP-N"
+                     /note="EGFP, reverse sequencing primer (anneals at the 3'
+                     end of the EGFP coding sequence)"
+     regulatory      1620..1741
+                     /regulatory_class="terminator"
+                     /label="SV40 poly(A) signal"
+                     /note="SV40 early polyadenylation signal downstream of EGFP"
+                     /ApEinfo_fwdcolor="#cbd5e1"
+     primer_bind     complement(1657..1676)
+                     /label="SV40pA-R"
+                     /note="SV40 polyA, reverse sequencing primer"
+     protein_bind    1779..1804
+                     /label="lox"
+                     /bound_moiety="Cre recombinase"
+                     /note="loxP-like recombination element"
+     rep_origin      1927..2382
+                     /label="f1 ori"
+                     /direction=right
+                     /note="f1 bacteriophage origin of replication; arrow
+                     indicates direction of (+) strand synthesis"
+                     /ApEinfo_fwdcolor="#93c5fd"
+     regulatory      2406..2735
+                     /regulatory_class="promoter"
+                     /label="SV40 promoter"
+                     /note="SV40 early promoter driving NeoR/KanR"
+     rep_origin      2586..2721
+                     /label="SV40 ori"
+                     /note="SV40 origin of replication"
      CDS             2629..3423
                      /codon_start=1
                      /transl_table=11
@@ -62,6 +109,21 @@ FEATURES             Location/Qualifiers
                      LSSHLAPAEKVSIMADAMRRLHTLDPATCPFDHQAKHRIERARTRMEAGLVDQDDLDE
                      EHQGLAPAELFARLKASMPDGEDLVVTHGDACLPNIMVENGRFSGFIDCGRLGVADRY
                      QDIALATRDIAEELGGEWADRFLVLYGIAAPDSQRIAFYRLLDEFF"
+     regulatory      3645..3692
+                     /regulatory_class="terminator"
+                     /label="HSV TK poly(A) signal"
+                     /note="herpes simplex virus thymidine kinase
+                     polyadenylation signal downstream of NeoR/KanR"
+                     /ApEinfo_fwdcolor="#cbd5e1"
+     misc_feature    3978..4017
+                     /label="bom"
+                     /note="basis of mobility region from pBR322"
+     rep_origin      4060..4566
+                     /label="ori"
+                     /direction=right
+                     /note="high-copy-number pUC/pMB1 ColE1 origin of
+                     replication"
+                     /ApEinfo_fwdcolor="#93c5fd"
 ORIGIN      
         1 tagttattaa tagtaatcaa ttacggggtc attagttcat agcccatata tggagttccg
        61 cgttacataa cttacggtaa atggcccgcc tggctgaccg cccaacgacc cccgcccatt

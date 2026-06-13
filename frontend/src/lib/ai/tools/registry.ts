@@ -68,6 +68,10 @@ import { listNotesTool, writeNoteTool } from "./write-note";
 import { searchMyWorkTool } from "./search-my-work";
 import { summarizeExperimentsTool } from "./summarize-experiments";
 import { summarizePurchasesTool } from "./summarize-purchases";
+import { summarizeNotesTool } from "./summarize-notes";
+import { summarizeProjectsTool } from "./summarize-projects";
+import { summarizeInventoryTool } from "./summarize-inventory";
+import { labDigestTool } from "./lab-digest";
 import { searchLiteratureTool } from "./search-literature";
 import { listPhyloTreesTool, readPhyloTreeTool } from "./phylo-tools";
 import {
@@ -210,6 +214,18 @@ export const READ_ONLY_TOOLS: AiTool[] = [
   // summarizing the lab never reads a member's private work.
   summarizeExperimentsTool,
   summarizePurchasesTool,
+  // Same suite, the remaining per-type aggregators plus the cross-type rollup.
+  // summarize_notes is STRUCTURAL ONLY (counts, dates, titles, the first entry
+  // heading), never a model-extracted finding. summarize_projects rolls up the
+  // per-project task counts / percent complete / next due deterministically.
+  // summarize_inventory flags low / out / expiring from the real low_at_count +
+  // expiration_date fields. lab_digest COMPOSES the per-type aggregates over one
+  // window, it never recomputes a count or a total. Every one is read-only, runs
+  // straight away, owns its own arithmetic, and respects the shared-only ACL.
+  summarizeNotesTool,
+  summarizeProjectsTool,
+  summarizeInventoryTool,
+  labDigestTool,
   // Layer 2 (read-by-id): one read tool per artifact type. Each accepts an id from
   // a search_my_work brief and returns a trimmed projection of that artifact's
   // content. Trimmed to protect the context window. All read-only, none navigates.

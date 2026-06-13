@@ -195,7 +195,42 @@ const sequences: DemoStep[] = [
   // Beat 6: open the Gibson / cloning assembly workspace.
   { action: "moveTo", target: { text: "Assemble" }, durationMs: 800 },
   { action: "click", target: { text: "Assemble" }, durationMs: 350 },
+  // The workspace opens on the Overlap (Gibson) method by default, with the
+  // library topology filter on "linear" so the two designed Gibson pieces
+  // (fragment A id 4, fragment B id 5) are listed. The library list is loaded by
+  // a react-query fetch on open; give it room before targeting a row.
   { action: "wait", ms: 1800 },
+  // Beat 7: confirm the Overlap (Gibson) chemistry pill (it is the default, but
+  // clicking it makes the chosen method explicit on camera).
+  { action: "moveTo", target: { testid: "clone-method-overlap" }, durationMs: 600 },
+  { action: "click", target: { testid: "clone-method-overlap" }, durationMs: 350 },
+  { action: "wait", ms: 700 },
+  // Beat 8: add the two linear fragments IN ORDER (A then B) from the library.
+  // These two demo pieces (2360 bp + 2373 bp) carry designed 25 bp homology
+  // overlaps and reassemble into the 4733 bp pEGFP-N1 plasmid. Adding a library
+  // fragment kicks a per-fragment bases+features resolve (react-query); the
+  // Review button stays disabled until both resolve, so wait between + after.
+  { action: "moveTo", target: { testid: "clone-fragment-row-4" }, durationMs: 700 },
+  { action: "click", target: { testid: "clone-fragment-row-4" }, durationMs: 350 },
+  { action: "wait", ms: 1100 },
+  { action: "moveTo", target: { testid: "clone-fragment-row-5" }, durationMs: 700 },
+  { action: "click", target: { testid: "clone-fragment-row-5" }, durationMs: 350 },
+  // Both fragments must finish resolving before "Review junctions" enables.
+  // COMPUTE-TIMING beat: bump this wait if the resolve query is slow at record.
+  { action: "wait", ms: 1600 },
+  // Beat 9: review the assembled product (runs the pure overlap engine, builds
+  // the product map + junction primers). Click enables only once both bases are in.
+  { action: "moveTo", target: { testid: "clone-review" }, durationMs: 700 },
+  { action: "click", target: { testid: "clone-review" }, durationMs: 350 },
+  // The review step builds the SeqViz product map + the primer table. Give it
+  // time to render before saving. COMPUTE-TIMING beat.
+  { action: "wait", ms: 2200 },
+  // Beat 10: save the assembled construct to the library.
+  { action: "moveTo", target: { testid: "clone-save-product" }, durationMs: 800 },
+  { action: "click", target: { testid: "clone-save-product" }, durationMs: 350 },
+  // The save creates the sequence + closes the workspace, selecting the new
+  // construct in the library. Pause on the saved product. COMPUTE-TIMING beat.
+  { action: "wait", ms: 2400 },
 ];
 
 // --- Purchases + Inventory: order list -> filter chips -> expand an order's

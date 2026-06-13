@@ -746,6 +746,7 @@ export default function CloningWorkspace({ open, onClose, activeProjectIds, onSa
             type="button"
             onClick={() => switchMethod(m)}
             aria-current={method === m ? "true" : undefined}
+            data-testid={`clone-method-${m}`}
             className={`rounded-md px-3 py-1.5 text-meta font-medium ${
               method === m
                 ? "bg-sky-100 dark:bg-sky-500/15 text-sky-700 dark:text-sky-300"
@@ -1088,7 +1089,7 @@ export default function CloningWorkspace({ open, onClose, activeProjectIds, onSa
                 <ul>
                   {filteredLibrary.map((s) => (
                     <li key={s.id}>
-                      <button type="button" onClick={() => addLibrary(s)} className="flex w-full items-center justify-between gap-2 border-b border-border px-4 py-2 text-left hover:bg-sky-50 dark:hover:bg-sky-500/20">
+                      <button type="button" onClick={() => addLibrary(s)} data-testid={`clone-fragment-row-${s.id}`} className="flex w-full items-center justify-between gap-2 border-b border-border px-4 py-2 text-left hover:bg-sky-50 dark:hover:bg-sky-500/20">
                         <span className="min-w-0">
                           <span className="block truncate text-body font-medium text-foreground">{s.display_name}</span>
                           <span className="block text-meta text-foreground-muted">{s.length.toLocaleString()} bp{s.circular ? " · circular" : ""}</span>
@@ -1108,6 +1109,7 @@ export default function CloningWorkspace({ open, onClose, activeProjectIds, onSa
                   type="button"
                   onClick={() => setStep("review")}
                   disabled={!canReview}
+                  data-testid="clone-review"
                   className="w-full rounded-md bg-brand-action px-3 py-2 text-body font-medium text-white hover:bg-brand-action/90 disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   {method === "overlap"

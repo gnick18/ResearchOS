@@ -5474,6 +5474,48 @@ function backfillNoteSourceUuid(note: Note, ownerOverride?: string): Note {
   return { ...note, source_uuid: uuid };
 }
 
+/**
+ * Own + shared NOTES union (BeakerAI lane, 2026-06-12). Mirrors
+ * `fetchAllInventoryItemsIncludingShared` / `labLinksApi.list`: walk every member's
+ * notes dir, heal the legacy share, then gate each cross-user record through the
+ * unified `canRead(record, viewer)` so a private note from another member is NEVER
+ * returned. The viewer's OWN notes always pass. `owner` is back-filled from
+ * `note.username` (the author stamp) or the directory the record was read from, so
+ * the summary tools can scope by member without re-reading. No de-dupe needed,
+ * note ids are per-user namespaced. Read-only, no on-disk write.
+ */
+export const fetchAllNotesIncludingShared = async (): Promise<
+  Array<Note & { owner: string }>
+> => {
+  const viewer = await buildCurrentViewer();
+  const currentUser = viewer.username;
+  const usernames = await discoverUsers();
+  const out: Array<Note & { owner: string }> = [];
+  for (const username of usernames) {
+    let userNotes: Note[];
+    try {
+      userNotes = await notesStore.listAllForUser(username);
+    } catch {
+      // One member's unreadable notes dir never breaks the whole-lab roll-up.
+      continue;
+    }
+    for (const raw of userNotes) {
+      const note = healLegacyNoteShare(raw);
+      const owner = note.username || username;
+      // Own notes always pass; cross-user records MUST clear canRead (owner /
+      // explicit username / "*" sentinel / lab_head view-all).
+      if (owner === currentUser) {
+        out.push({ ...note, owner });
+        continue;
+      }
+      const shareable = { owner, shared_with: note.shared_with ?? [] };
+      if (!canRead(shareable, viewer)) continue;
+      out.push({ ...note, owner });
+    }
+  }
+  return out;
+};
+
 export const notesApi = {
   list: async (): Promise<Note[]> => {
     return (await notesStore.listAll()).map(healLegacyNoteShare).map((n) => backfillNoteSourceUuid(n));
