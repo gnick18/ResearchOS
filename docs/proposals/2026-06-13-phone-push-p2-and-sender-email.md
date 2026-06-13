@@ -150,3 +150,58 @@ Not a server-side re-derivation of the recipient's local data (the relay only
 ever forwards what the sender supplies + the recipient's own synced routing
 config). Not a change to the synced-list default. The account-only gating is
 unchanged.
+
+## P3: scheduled buzz (the two reminders-category types)
+
+The `reminders` category has two sources, and they split:
+
+- **`shift_alert` (a shared task moved): BUILT as P3a 2026-06-13** (commit
+  64a16b1c5). NOT scheduled at all, it has an ONLINE actor (the shifter).
+  `recordShiftAlerts` already runs on the shifter's laptop at shift time; it now
+  also collects the set of users each shifted task is shared with (minus the
+  shifter) and fires the existing P2 `notify-recipient` route per recipient with
+  category `reminders` (resolving each recipient's Ed25519 from their
+  `_sharing_identity.json` sidecar). No relay change. Fire-and-forget.
+
+- **`event_reminder` (a calendar reminder is due): the true scheduled case,
+  P3b, designed below, not yet built.** Calendar reminders are computed purely on
+  the recipient's OWN laptop (`use-event-reminders.ts` walks local events + ICS
+  feeds + the lead-time pref and queues setTimeouts; the tab must be open). There
+  is no online actor and the server has no view of the user's calendar, so the
+  only E2E-preserving mechanism is: the laptop PRE-REGISTERS upcoming due times,
+  and a server scheduler fires the ones that come due while the laptop is closed.
+
+### P3b mechanism (recommended, smallest viable)
+
+1. The laptop, when it computes upcoming reminders (the existing 24h horizon),
+   publishes a CONTENT-FREE schedule to the relay over a new user-signed
+   `POST /capture/register-reminders`: a capped list of `{ id, fireAt }` (an
+   opaque id + a timestamp, no event name). It republishes the full upcoming set
+   each cadence (REPLACE, not append) and stamps `remindersRegisteredAt = now`.
+2. The `CaptureInbox` DO sets a single Durable Object alarm (the same
+   `state.storage.setAlarm` pattern CollabRoom uses for backups) to the NEAREST
+   future `fireAt`. On `alarm()` it finds due entries, delivers, deletes them, and
+   reschedules to the next-nearest. One alarm per DO, rescheduled forward.
+3. Delivery reuses the P2/2.5 path (the recipient's own `reminders` gate + quiet
+   hours, seal a generic content-free pending snapshot, generic push, + email if
+   routed). Refactor the post-gate body of `handleNotifyRecipient` into a shared
+   `deliverToRecipient(category)` the alarm also calls.
+
+### The one real P3b decision: avoiding a double-buzz
+
+When the laptop is OPEN it fires the reminder locally and the P1 watcher already
+buzzes the phone; if the relay alarm ALSO fired, the phone would buzz twice.
+Resolution = a DEAD-MAN'S SWITCH: the alarm delivers a reminder only when
+`remindersRegisteredAt` is STALE (the laptop has not re-registered in ~3 min, so
+it has gone offline). Laptop online -> laptop + P1 handle it, alarm stands down;
+laptop offline -> alarm delivers. Cost: a reminder coming due in the ~3 min window
+right after the laptop closes fires via neither path until the laptop reopens (it
+is still in the synced list). That tradeoff is the thing to confirm before build.
+
+### Why P3b is held
+
+P3b is the one piece that adds NEW server infra (a DO alarm + a registration sync
+surface) that cannot be orchestrator-verified without a live relay / miniflare,
+and the whole lane is already inert pending the relay redeploy + EAS dev build. So
+it is designed here and held for an explicit go, ideally after the already-built
+P1 / P2 / phase-2.5 / P3a are device-verified.
