@@ -111,6 +111,14 @@ let pendingApprovalRef: PendingApproval | null = null;
 // stop() aborts this, send() creates a fresh one each time.
 let abortControllerRef: AbortController | null = null;
 
+// Single-slot queue for a message typed while a turn is in flight (Bug 2 fix).
+// send() while sending=true stores the trimmed text here instead of silently
+// dropping it. The turn's finally block picks it up and fires a new send().
+// stop() clears it so an explicit user cancel does not auto-fire the queued
+// message. Single-slot design: if the user types a second queued message before
+// the first fires, the newer text replaces the older one.
+let pendingQueuedText: string | null = null;
+
 // ---- Zustand store (reactive state + actions) ---------------------------------
 
 interface ConversationState {
@@ -125,6 +133,10 @@ interface ConversationState {
   // The title of the bound thread, mirrored into reactive state so the header
   // can show which chat the user is in.
   currentTitle: string | null;
+  // Reactive mirror of the single-slot queue so the composer can show a
+  // "queued" chip. Null when no message is queued. Set whenever
+  // pendingQueuedText changes so the UI re-renders.
+  queuedText: string | null;
 }
 
 interface ConversationActions {
@@ -134,8 +146,15 @@ interface ConversationActions {
    * removes the empty assistant placeholder bubble so it does not hang on
    * "Thinking" forever. If a pending approval promise is in flight, it is
    * resolved with "skip" so nothing is left dangling. Safe to call when idle.
+   * Also discards any queued message so an explicit cancel does not auto-fire
+   * the next message.
    */
   stop: (placeholderAssistantId?: string) => void;
+  /**
+   * Discard the queued message without cancelling the current turn. Used by
+   * the queued-indicator chip's Discard button.
+   */
+  clearQueue: () => void;
   resolveApproval: (decision: ApprovalDecision) => void;
   resolveChoice: (selected: string[], cancelled: boolean) => void;
   /** Reset the conversation to an empty state (clear messages + history). */
@@ -312,6 +331,7 @@ export const useConversationStore = create<ConversationStore>((set, get) => ({
   pendingApproval: null,
   currentThreadId: null,
   currentTitle: null,
+  queuedText: null,
 
   stop: (placeholderAssistantId?: string) => {
     // Guard: nothing to abort when idle.
@@ -322,6 +342,9 @@ export const useConversationStore = create<ConversationStore>((set, get) => ({
     // the UI responds immediately even before the async chain settles.
     abortControllerRef.abort();
     abortControllerRef = null;
+    // Discard any queued message. An explicit user cancel means "stop everything",
+    // not "stop and then fire the next thing I typed while waiting".
+    pendingQueuedText = null;
     // If a pending approval promise is in flight, resolve it with "skip" so the
     // loop's await does not dangle forever waiting for user input that will never
     // arrive.
@@ -335,6 +358,7 @@ export const useConversationStore = create<ConversationStore>((set, get) => ({
     set((state) => ({
       sending: false,
       status: null,
+      queuedText: null,
       messages: placeholderAssistantId
         ? state.messages.filter(
             (m) => !(m.id === placeholderAssistantId && m.content === ""),
@@ -343,11 +367,17 @@ export const useConversationStore = create<ConversationStore>((set, get) => ({
     }));
   },
 
+  clearQueue: () => {
+    pendingQueuedText = null;
+    set({ queuedText: null });
+  },
+
   clearConversation: () => {
     historyStore = [];
     counterStore = 0;
     pendingApprovalRef = null;
     abortControllerRef = null;
+    pendingQueuedText = null;
     set({
       messages: [],
       sending: false,
@@ -356,6 +386,7 @@ export const useConversationStore = create<ConversationStore>((set, get) => ({
       pendingApproval: null,
       currentThreadId: null,
       currentTitle: null,
+      queuedText: null,
     });
   },
 
@@ -413,8 +444,16 @@ export const useConversationStore = create<ConversationStore>((set, get) => ({
 
   send: async (text: string) => {
     const trimmed = text.trim();
-    // Guard: discard empty input or a concurrent send (only one loop at a time).
-    if (!trimmed || get().sending) return;
+    // Guard: discard empty input.
+    if (!trimmed) return;
+    // If a turn is already in flight, store the message in the single-slot
+    // queue instead of silently dropping it. The running turn's finally block
+    // will pick it up. Later queued calls replace an earlier one (last-wins).
+    if (get().sending) {
+      pendingQueuedText = trimmed;
+      set({ queuedText: trimmed });
+      return;
+    }
 
     set({ error: null });
 
@@ -468,9 +507,7 @@ export const useConversationStore = create<ConversationStore>((set, get) => ({
         // the reply lands leaves a recoverable user-only chat, never an empty
         // assistant bubble that reopens as a stuck "Thinking". The completed
         // assistant turn is written by the saveChat after revealAnswer below.
-        messages: get().messages.filter(
-          (m) => !(m.role === "assistant" && m.content === ""),
-        ),
+        messages: [userMessage],
         history: historyStore,
       });
       if (created) {
@@ -520,6 +557,12 @@ export const useConversationStore = create<ConversationStore>((set, get) => ({
       { role: "user", content: trimmed },
     ];
 
+    // Snapshot the thread id now. A concurrent newChat() or loadThread() call
+    // during the async loop or typewriter could clear currentThreadId in the
+    // store; we keep the id we got here so saveChat always targets the right
+    // record regardless of what the UI does while we are awaiting.
+    let boundThreadId = get().currentThreadId;
+
     try {
       const result = await runAgentLoop({
         messages: loopInput,
@@ -541,7 +584,9 @@ export const useConversationStore = create<ConversationStore>((set, get) => ({
       set({ status: null });
 
       // A stopped (aborted) run returns an empty answer. Remove the placeholder
-      // and return quietly, no error banner needed.
+      // and return quietly, no error banner needed. We still save the user message
+      // to disk (it was already seeded in createChat for fresh threads, but an
+      // existing thread's user message must be written so it is not lost on reload).
       if (controller.signal.aborted || result.answer.length === 0) {
         set((state) => ({
           messages: state.messages.filter((m) => m.id !== assistantId),
@@ -550,6 +595,19 @@ export const useConversationStore = create<ConversationStore>((set, get) => ({
             ? { error: "BeakerBot returned an empty reply. Try again." }
             : {}),
         }));
+        // Re-read boundThreadId in case it was assigned during an awaited createChat
+        // that completed just before the abort check. Only persist the user message
+        // (no assistant reply) so the thread is at least recoverable on reload.
+        boundThreadId = boundThreadId ?? get().currentThreadId;
+        if (boundThreadId !== null && !controller.signal.aborted) {
+          const existingMessages = get().messages.filter(
+            (m) => !(m.role === "assistant" && m.content === ""),
+          );
+          await saveChat(boundThreadId, {
+            messages: existingMessages,
+            history: historyStore,
+          });
+        }
         return;
       }
 
@@ -568,14 +626,19 @@ export const useConversationStore = create<ConversationStore>((set, get) => ({
         }));
       }
 
+      // Snapshot the completed messages before any further async. This guards
+      // against a concurrent newChat() that clears get().messages between the
+      // revealAnswer resolve and the saveChat write. We capture BOTH the thread
+      // id and the message snapshot here so the save is fully self-contained.
+      const savedMessages = get().messages;
+
       // Persist the completed turn. We save the post-strip historyStore (the
       // per-turn context message was already removed above) plus the full
       // display transcript, and bump updatedAt. Resilient, a failed write logs
       // a warn inside saveChat and never throws into the loop.
-      const threadId = get().currentThreadId;
-      if (threadId !== null) {
-        await saveChat(threadId, {
-          messages: get().messages,
+      if (boundThreadId !== null) {
+        await saveChat(boundThreadId, {
+          messages: savedMessages,
           history: historyStore,
         });
       }
@@ -600,7 +663,18 @@ export const useConversationStore = create<ConversationStore>((set, get) => ({
       if (abortControllerRef === controller) {
         abortControllerRef = null;
       }
-      set({ sending: false });
+      set({ sending: false, queuedText: null });
+      // If a message was queued while this turn ran, fire it now. The queue slot
+      // is cleared first so a stop() during the queued send can cancel that turn
+      // without re-queuing.
+      const next = pendingQueuedText;
+      pendingQueuedText = null;
+      if (next) {
+        // Defer one tick so the sending=false state settles before re-entering
+        // send(). Without the deferral the sending guard would still see true
+        // in synchronous code that executes within the same microtask.
+        void Promise.resolve().then(() => get().send(next));
+      }
     }
   },
 }));
@@ -665,12 +739,18 @@ export function getConversationHistory(): LoopMessage[] {
   return historyStore;
 }
 
-/** Resets module-level state (history, counter, approval ref, abort ref). For tests. */
+/** Returns the current single-slot queued text. For tests. */
+export function getPendingQueuedText(): string | null {
+  return pendingQueuedText;
+}
+
+/** Resets module-level state (history, counter, approval ref, abort ref, queue). For tests. */
 export function resetConversationModule(): void {
   historyStore = [];
   counterStore = 0;
   pendingApprovalRef = null;
   abortControllerRef = null;
+  pendingQueuedText = null;
   useConversationStore.setState({
     messages: [],
     sending: false,
@@ -679,5 +759,6 @@ export function resetConversationModule(): void {
     pendingApproval: null,
     currentThreadId: null,
     currentTitle: null,
+    queuedText: null,
   });
 }

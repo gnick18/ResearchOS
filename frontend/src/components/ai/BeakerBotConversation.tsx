@@ -538,6 +538,8 @@ export default function BeakerBotConversation({
     pendingApproval,
     resolveApproval,
     resolveChoice,
+    queuedText,
+    clearQueue,
   } = useAiChat();
   const [draft, setDraft] = useState("");
   const listRef = useRef<HTMLDivElement | null>(null);
@@ -859,6 +861,27 @@ export default function BeakerBotConversation({
           count={pendingApproval.request.count}
           onResolve={resolveChoice}
         />
+      ) : null}
+
+      {/* Queued message indicator: shown when a message was typed during an
+          in-flight turn and is waiting to auto-send once the reply finishes. */}
+      {queuedText ? (
+        <div
+          data-testid="beakerbot-queued"
+          className="mx-4 mb-2 flex items-center gap-2 rounded-md border border-border bg-surface-raised px-3 py-1.5 text-meta text-foreground-muted"
+        >
+          <span className="truncate flex-1">
+            Queued: {queuedText}
+          </span>
+          <button
+            type="button"
+            aria-label="Discard queued message"
+            onClick={clearQueue}
+            className="flex-none text-[10px] hover:text-foreground"
+          >
+            Discard
+          </button>
+        </div>
       ) : null}
 
       {/* Composer */}

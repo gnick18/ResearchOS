@@ -27,6 +27,7 @@ import {
   useConversationStore,
   resetConversationModule,
   getConversationHistory,
+  getPendingQueuedText,
   clampPartialEmbed,
   extractFollowups,
   reviewModeDirective,
@@ -218,8 +219,8 @@ describe("send: empty input is ignored", () => {
   });
 });
 
-describe("send: concurrent guard", () => {
-  it("blocks a second send while the first is in flight", async () => {
+describe("send: concurrent guard now queues instead of dropping", () => {
+  it("queues a second send while the first is in flight", async () => {
     let resolveFirst!: (v: unknown) => void;
     const firstPromise = new Promise<unknown>((r) => { resolveFirst = r; });
 
@@ -230,11 +231,14 @@ describe("send: concurrent guard", () => {
 
     const firstSend = useConversationStore.getState().send("first message");
 
-    // While the first loop hangs, send a second — should be blocked.
+    // While the first loop hangs, send a second -- it should be queued, not dropped.
     await useConversationStore.getState().send("second message");
 
-    // Only the first message pair was added.
+    // Only the first message pair is in the visible transcript right now.
     expect(useConversationStore.getState().messages).toHaveLength(2);
+    // The second message is queued.
+    expect(getPendingQueuedText()).toBe("second message");
+    expect(useConversationStore.getState().queuedText).toBe("second message");
 
     resolveFirst(null);
     await firstSend;
@@ -490,5 +494,147 @@ describe("todayContext (the model is told today's date + weekday)", () => {
   it("zero-pads month and day", () => {
     const c = todayContext(new Date(2026, 0, 5));
     expect(c).toContain("2026-01-05");
+  });
+});
+
+// ---- Bug 2 regression: queue-while-streaming --------------------------------
+//
+// send() while sending=true must queue the text and auto-fire it once the
+// running turn finishes. stop() must discard the queue so an explicit cancel
+// does not trigger the queued send.
+
+// Helper: make a loop mock that hangs until a barrier promise resolves, then
+// returns a fixed answer string. Does NOT use callModelViaProxy so results are
+// independent of that mock's queue state.
+type LoopMsg = import("../agent-loop").LoopMessage;
+function makeBarrierLoop(barrier: Promise<void>, answer: string) {
+  return vi.fn(async (opts: Parameters<typeof import("../agent-loop").runAgentLoop>[0]) => {
+    await barrier;
+    return {
+      answer,
+      messages: [...(opts.messages as LoopMsg[]), { role: "assistant" as const, content: answer }],
+      iterations: 1,
+      stoppedOnGuard: false,
+    };
+  });
+}
+
+function makeInstantLoop(answer: string) {
+  return vi.fn(async (opts: Parameters<typeof import("../agent-loop").runAgentLoop>[0]) => ({
+    answer,
+    messages: [...(opts.messages as LoopMsg[]), { role: "assistant" as const, content: answer }],
+    iterations: 1,
+    stoppedOnGuard: false,
+  }));
+}
+
+describe("Bug 2 regression: message queue while streaming", () => {
+  it("queues a message sent during an in-flight turn and fires it after", async () => {
+    let resolveFirst!: () => void;
+    const firstLoopBarrier = new Promise<void>((r) => { resolveFirst = r; });
+
+    // First loop hangs until we release it, second fires immediately.
+    vi.mocked(runAgentLoop)
+      .mockImplementationOnce(makeBarrierLoop(firstLoopBarrier, "first reply"))
+      .mockImplementationOnce(makeInstantLoop("second reply"));
+
+    // Start the first send (will hang at the loop barrier).
+    const firstSend = useConversationStore.getState().send("first question");
+
+    // Queue a second message while the first is in flight.
+    await useConversationStore.getState().send("queued question");
+
+    // The second message should be in the queue, not yet in the transcript.
+    expect(getPendingQueuedText()).toBe("queued question");
+    expect(useConversationStore.getState().queuedText).toBe("queued question");
+    // Only the first user message and its empty assistant bubble are visible.
+    expect(useConversationStore.getState().messages).toHaveLength(2);
+
+    // Release the first loop.
+    resolveFirst();
+    await firstSend;
+    // Wait for the queued send to auto-fire and complete.
+    await flushAll(600);
+
+    // Both turns should now be in the transcript.
+    const finalMessages = useConversationStore.getState().messages;
+    expect(finalMessages.length).toBe(4);
+    expect(finalMessages[0].content).toBe("first question");
+    expect(finalMessages[1].content).toBe("first reply");
+    expect(finalMessages[2].content).toBe("queued question");
+    expect(finalMessages[3].content).toBe("second reply");
+
+    // Queue must be clear after the auto-fire.
+    expect(getPendingQueuedText()).toBeNull();
+    expect(useConversationStore.getState().queuedText).toBeNull();
+  });
+
+  it("stop() discards the queue so the queued send does not auto-fire", async () => {
+    let resolveFirst!: () => void;
+    const firstLoopBarrier = new Promise<void>((r) => { resolveFirst = r; });
+
+    // The first loop hangs; when released it sees the abort signal and will
+    // return an empty answer (simulating how runAgentLoop handles abort).
+    vi.mocked(runAgentLoop).mockImplementationOnce(async (opts) => {
+      await firstLoopBarrier;
+      // Simulate the loop detecting the abort: return empty answer.
+      return {
+        answer: "",
+        messages: [...(opts.messages as LoopMsg[])],
+        iterations: 1,
+        stoppedOnGuard: false,
+      };
+    });
+
+    const firstSend = useConversationStore.getState().send("first question");
+
+    // Queue a message while the first is in flight.
+    await useConversationStore.getState().send("queued question");
+    expect(getPendingQueuedText()).toBe("queued question");
+
+    // User clicks Stop -- this must discard the queue.
+    const emptyAssistantId = useConversationStore
+      .getState()
+      .messages.find((m) => m.role === "assistant" && m.content === "")?.id;
+    useConversationStore.getState().stop(emptyAssistantId);
+    expect(getPendingQueuedText()).toBeNull();
+    expect(useConversationStore.getState().queuedText).toBeNull();
+
+    // Release the first loop.
+    resolveFirst();
+    await firstSend;
+    await flushAll(400);
+
+    // The queued send must NOT have fired.
+    const finalMessages = useConversationStore.getState().messages;
+    const queuedFired = finalMessages.some((m) => m.content === "queued question");
+    expect(queuedFired).toBe(false);
+    // runAgentLoop should only have been called once.
+    expect(vi.mocked(runAgentLoop)).toHaveBeenCalledTimes(1);
+  });
+
+  it("latest queued text replaces earlier queued text (single-slot)", async () => {
+    let resolveFirst!: () => void;
+    const barrier = new Promise<void>((r) => { resolveFirst = r; });
+
+    vi.mocked(runAgentLoop)
+      .mockImplementationOnce(makeBarrierLoop(barrier, "ok"))
+      .mockImplementationOnce(makeInstantLoop("ok2"));
+
+    const firstSend = useConversationStore.getState().send("first");
+    // Queue two messages in succession -- second replaces first.
+    await useConversationStore.getState().send("early queued");
+    await useConversationStore.getState().send("later queued");
+
+    expect(getPendingQueuedText()).toBe("later queued");
+
+    resolveFirst();
+    await firstSend;
+    await flushAll(600);
+
+    // Only "later queued" should have fired, not "early queued".
+    const texts = useConversationStore.getState().messages.map((m) => m.content);
+    expect(texts.includes("later queued")).toBe(true);
+    expect(texts.includes("early queued")).toBe(false);
   });
 });

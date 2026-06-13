@@ -84,7 +84,14 @@ vi.mock("../beaker-chats-store", () => ({
     records.set(id, rec);
     return rec;
   }),
-  saveChat: vi.fn(async () => null),
+  saveChat: vi.fn(async (id: number, patch: { messages: unknown; history: unknown; title?: string }) => {
+    const rec = records.get(id) as Record<string, unknown> | undefined;
+    if (!rec) return null;
+    rec.messages = patch.messages;
+    rec.history = patch.history;
+    if (patch.title !== undefined) rec.title = patch.title;
+    return rec;
+  }),
   getChat: vi.fn(async (id: number) => records.get(id) ?? null),
   listChats: vi.fn(async () => [...records.values()]),
   renameChat: vi.fn(async (id: number, title: string) => {
@@ -111,6 +118,7 @@ import {
   deleteThread,
 } from "../conversation-store";
 import * as chatsStore from "../beaker-chats-store";
+import { callModelViaProxy } from "../proxy-client";
 
 async function flushAll(ms = 300) {
   await new Promise<void>((resolve) => setTimeout(resolve, ms));
@@ -255,5 +263,79 @@ describe("management wrappers", () => {
 
     expect(records.has(50)).toBe(false);
     expect(useConversationStore.getState().currentThreadId).toBe(openId);
+  });
+});
+
+// ---- Regression: Bug 1 -- two-thread reload (blank transcript) ---------------
+//
+// Repro: create chat 1, start a new chat, create chat 2, then simulate a reload
+// by calling loadThread on each. Both chats must restore their full user +
+// assistant messages (the blank-transcript bug occurred because the second
+// chat's saveChat was never called or received an empty messages snapshot).
+
+describe("Bug 1 regression: both threads restore fully after two-chat scenario", () => {
+  it("chat 1 and chat 2 each restore user + assistant messages via loadThread", async () => {
+    vi.mocked(callModelViaProxy).mockResolvedValue({
+      choices: [{ message: { content: "Answer A" } }],
+    } as Awaited<ReturnType<typeof callModelViaProxy>>);
+
+    // Create chat 1.
+    await useConversationStore.getState().send("Question for chat 1");
+    await flushAll();
+
+    const id1 = useConversationStore.getState().currentThreadId;
+    expect(id1).not.toBeNull();
+
+    // Simulate the user clicking "New Chat".
+    useConversationStore.getState().newChat();
+    expect(useConversationStore.getState().currentThreadId).toBeNull();
+
+    // Create chat 2 with a different model answer.
+    vi.mocked(callModelViaProxy).mockResolvedValue({
+      choices: [{ message: { content: "Answer B" } }],
+    } as Awaited<ReturnType<typeof callModelViaProxy>>);
+
+    await useConversationStore.getState().send("Question for chat 2");
+    await flushAll();
+
+    const id2 = useConversationStore.getState().currentThreadId;
+    expect(id2).not.toBeNull();
+    expect(id2).not.toBe(id1);
+
+    // Both records must have been saved with full transcripts (user + assistant).
+    const rec1 = records.get(id1 as number) as { messages: { role: string; content: string }[] };
+    const rec2 = records.get(id2 as number) as { messages: { role: string; content: string }[] };
+
+    expect(rec1).toBeTruthy();
+    expect(rec2).toBeTruthy();
+
+    // Each record must have at least a user message and an assistant message.
+    const userMsg1 = rec1.messages.find((m) => m.role === "user");
+    const assistantMsg1 = rec1.messages.find((m) => m.role === "assistant");
+    expect(userMsg1?.content).toBe("Question for chat 1");
+    expect(assistantMsg1?.content).toBe("Answer A");
+
+    const userMsg2 = rec2.messages.find((m) => m.role === "user");
+    const assistantMsg2 = rec2.messages.find((m) => m.role === "assistant");
+    expect(userMsg2?.content).toBe("Question for chat 2");
+    expect(assistantMsg2?.content).toBe("Answer B");
+
+    // Simulate a page reload: reset in-memory state, then loadThread for each.
+    resetConversationModule();
+
+    await useConversationStore.getState().loadThread(id1 as number);
+    const state1 = useConversationStore.getState();
+    expect(state1.messages).toHaveLength(2);
+    expect(state1.messages[0].content).toBe("Question for chat 1");
+    expect(state1.messages[1].content).toBe("Answer A");
+
+    resetConversationModule();
+
+    await useConversationStore.getState().loadThread(id2 as number);
+    const state2 = useConversationStore.getState();
+    // The second chat must NOT show a blank transcript.
+    expect(state2.messages).toHaveLength(2);
+    expect(state2.messages[0].content).toBe("Question for chat 2");
+    expect(state2.messages[1].content).toBe("Answer B");
   });
 });
