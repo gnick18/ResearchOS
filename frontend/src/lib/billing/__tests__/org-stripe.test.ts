@@ -161,11 +161,27 @@ describe("setupOrgBilling", () => {
   });
 
   it("changing the pay class on an automatic sub forces a fresh Checkout", async () => {
-    getOrgBillingMock.mockResolvedValue({
+    // STATEFUL mock: setOrgPlan writes method/payClass and getOrgBilling reflects
+    // it, catching the read-after-write ordering bug. The switch must be detected
+    // from the PRIOR row (read BEFORE setOrgPlan). If the code reads existing after
+    // the write, row.payClass is already "bank", no switch is seen, an in-place
+    // update runs, and this test fails.
+    let row: Record<string, unknown> = {
       tier: "department", entityId: "dept_x",
       stripeCustomerId: "cus_1", stripeSubscriptionId: "sub_1", stripeItemId: "si_1",
       monthlyCents: 1000, planInputs: {}, method: "automatic", payClass: "card", status: "active",
-    });
+    };
+    getOrgBillingMock.mockImplementation(async () => row);
+    setOrgPlanMock.mockImplementation((async (
+      _t: unknown,
+      _e: unknown,
+      _pi: unknown,
+      _c: unknown,
+      m: unknown,
+      pc: unknown,
+    ) => {
+      row = { ...row, method: m as string, payClass: pc as string };
+    }) as unknown as () => Promise<void>);
     subsCancelMock.mockResolvedValue({});
     const r = await setupOrgBilling({
       ...BASE,

@@ -112,6 +112,14 @@ export async function setupOrgBilling(args: {
   const international = planInputs.international === 1;
   const chargeCents = priceForMethod(monthlyCents, payClass, international);
 
+  // Snapshot the PRIOR row BEFORE setOrgPlan overwrites method/payClass. The
+  // pay-method-switch check below must compare against the previous choice; if we
+  // read after the write it always sees the new values and never opens a fresh
+  // Checkout, leaving a charge_automatically subscription with no card on file.
+  // setOrgPlan does not touch the Stripe ids, so this snapshot is also correct for
+  // the in-place-update path.
+  const existing = await getOrgBilling(tier, entityId);
+
   // Store the charged amount as the row's monthly_cents (what they actually pay).
   await setOrgPlan(tier, entityId, planInputs, chargeCents, method, payClass);
 
@@ -122,7 +130,6 @@ export async function setupOrgBilling(args: {
   }
 
   const customerId = await ensureOrgCustomer(tier, entityId, info);
-  const existing = await getOrgBilling(tier, entityId);
 
   // A standalone monthly Price reflecting the charged amount, referenced by id by
   // every path (the subscription-item update type does not accept inline
