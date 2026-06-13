@@ -133,16 +133,17 @@ const PALETTE: { group: string; ops: PaletteEntry[] }[] = [
 ];
 
 // Category -> registry glyph. The icon lives ONLY on the category card header
-// (per the Option C review, do not stamp it on every op row). Strings reuses
-// `align` as a placeholder until a real text/string glyph is signed off.
+// (per the Option C review, do not stamp it on every op row). The category
+// glyphs were signed off 2026-06-13 (Strings = text/Aa, Missing data = empty
+// set, Reshape = pivot arrows, all new registry glyphs).
 const GROUP_ICON: Record<string, IconName> = {
   "Filter & select": "filter",
   "Edit values": "pencil",
-  "Missing data": "dropletLow",
-  Strings: "align",
+  "Missing data": "emptySet",
+  Strings: "text",
   Compute: "calculator",
   "Type & schema": "database",
-  "Reshape & summarize": "table",
+  "Reshape & summarize": "pivot",
 };
 
 const VERB: Record<string, string> = {
