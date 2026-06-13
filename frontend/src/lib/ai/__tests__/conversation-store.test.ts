@@ -897,3 +897,177 @@ describe("status-line: graceful when provider returns no usage", () => {
     expect(useConversationStore.getState().turnTokens).toBeNull();
   });
 });
+
+// ---- regenerate() (STAGE 2, 2026-06-13) --------------------------------------
+//
+// regenerate() drops the last assistant turn from both messages and historyStore,
+// then re-sends the last user message through the normal send() path.
+
+describe("regenerate: re-runs the last user turn with a fresh reply", () => {
+  it("removes the last assistant message from messages and historyStore, then re-sends", async () => {
+    // Use explicit loop mocks (not callModelViaProxy) so the test is immune to
+    // any unconsumed mockImplementationOnce values from earlier tests.
+    vi.mocked(runAgentLoop)
+      .mockImplementationOnce(makeInstantLoop("first reply"))
+      .mockImplementationOnce(makeInstantLoop("regenerated reply"));
+
+    await useConversationStore.getState().send("my question");
+    await flushAll();
+
+    const afterFirst = useConversationStore.getState().messages;
+    expect(afterFirst).toHaveLength(2);
+    expect(afterFirst[1].content).toBe("first reply");
+
+    // historyStore must include the assistant turn.
+    const histAfterFirst = getConversationHistory();
+    const hadAssistant = histAfterFirst.some(
+      (m) => m.role === "assistant" && m.content === "first reply",
+    );
+    expect(hadAssistant).toBe(true);
+
+    // regenerate() drops the last user+assistant pair and re-sends.
+    await useConversationStore.getState().regenerate();
+    await flushAll();
+
+    const afterRegen = useConversationStore.getState().messages;
+    // Still two messages (user + fresh assistant reply).
+    expect(afterRegen).toHaveLength(2);
+    expect(afterRegen[0].content).toBe("my question");
+    expect(afterRegen[1].content).toBe("regenerated reply");
+
+    // historyStore must no longer contain "first reply".
+    const histAfterRegen = getConversationHistory();
+    const oldAssistantStillPresent = histAfterRegen.some(
+      (m) => m.role === "assistant" && m.content === "first reply",
+    );
+    expect(oldAssistantStillPresent).toBe(false);
+  });
+
+  it("is a no-op when sending is true", async () => {
+    // Set sending to true to simulate an in-flight turn.
+    useConversationStore.setState({ sending: true });
+    // Should not throw and should not call runAgentLoop.
+    await useConversationStore.getState().regenerate();
+    expect(vi.mocked(runAgentLoop)).not.toHaveBeenCalled();
+    useConversationStore.setState({ sending: false });
+  });
+
+  it("is a no-op when there is no settled assistant reply", async () => {
+    // Empty conversation: no messages at all.
+    await useConversationStore.getState().regenerate();
+    expect(vi.mocked(runAgentLoop)).not.toHaveBeenCalled();
+  });
+});
+
+// ---- revertToHere() (STAGE 2, 2026-06-13) ------------------------------------
+//
+// revertToHere(messageId) keeps messages up to and including the target user
+// message and discards everything after it (the assistant reply plus any later
+// turns). historyStore is trimmed to the same point.
+
+describe("revertToHere: truncates messages and historyStore to the right point", () => {
+  it("removes the assistant reply and all later turns from messages and historyStore", async () => {
+    // Two-turn conversation. Use loop mocks so tests are immune to callModelViaProxy queue leakage.
+    vi.mocked(runAgentLoop)
+      .mockImplementationOnce(makeInstantLoop("reply to turn 1"))
+      .mockImplementationOnce(makeInstantLoop("reply to turn 2"));
+
+    await useConversationStore.getState().send("turn 1 question");
+    await flushAll();
+    await useConversationStore.getState().send("turn 2 question");
+    await flushAll();
+
+    const afterTwo = useConversationStore.getState().messages;
+    expect(afterTwo).toHaveLength(4);
+    // [user1, assistant1, user2, assistant2]
+    const user1Id = afterTwo[0].id;
+
+    // Revert to the first user message: keeps user1, discards assistant1, user2, assistant2.
+    useConversationStore.getState().revertToHere(user1Id);
+
+    const afterRevert = useConversationStore.getState().messages;
+    expect(afterRevert).toHaveLength(1);
+    expect(afterRevert[0].role).toBe("user");
+    expect(afterRevert[0].content).toBe("turn 1 question");
+
+    // historyStore must not contain either assistant reply or turn-2 content.
+    const hist = getConversationHistory();
+    expect(hist.some((m) => m.role === "assistant")).toBe(false);
+    expect(hist.some((m) => m.content === "turn 2 question")).toBe(false);
+  });
+
+  it("keeps messages and historyStore in sync after revert", async () => {
+    vi.mocked(runAgentLoop).mockImplementationOnce(makeInstantLoop("the answer"));
+
+    await useConversationStore.getState().send("the question");
+    await flushAll();
+
+    const msgs = useConversationStore.getState().messages;
+    expect(msgs).toHaveLength(2);
+    const userId = msgs[0].id;
+
+    useConversationStore.getState().revertToHere(userId);
+
+    // messages: one user message kept.
+    expect(useConversationStore.getState().messages).toHaveLength(1);
+
+    // historyStore: the assistant entry is gone; only the user entry remains
+    // (plus the system prompt at index 0).
+    const hist = getConversationHistory();
+    const assistantEntries = hist.filter((m) => m.role === "assistant");
+    expect(assistantEntries).toHaveLength(0);
+    const userEntries = hist.filter((m) => m.role === "user");
+    expect(userEntries).toHaveLength(1);
+    expect(userEntries[0].content).toBe("the question");
+  });
+
+  it("is a no-op when the messageId does not exist", async () => {
+    vi.mocked(runAgentLoop).mockImplementationOnce(makeInstantLoop("answer"));
+    await useConversationStore.getState().send("question");
+    await flushAll();
+
+    const before = useConversationStore.getState().messages.length;
+    useConversationStore.getState().revertToHere("nonexistent-id");
+    expect(useConversationStore.getState().messages).toHaveLength(before);
+  });
+
+  it("is a no-op when sending is true", async () => {
+    useConversationStore.setState({ sending: true });
+    useConversationStore.getState().revertToHere("some-id");
+    // messages still empty (sending was forced to true on a blank state).
+    expect(useConversationStore.getState().messages).toHaveLength(0);
+    useConversationStore.setState({ sending: false });
+  });
+
+  it("the removed-count matches the number of messages removed", async () => {
+    // The confirm dialog shows how many messages will be removed. This test pins
+    // the arithmetic the component uses: messages after the target index.
+    vi.mocked(runAgentLoop)
+      .mockImplementationOnce(makeInstantLoop("a1"))
+      .mockImplementationOnce(makeInstantLoop("a2"))
+      .mockImplementationOnce(makeInstantLoop("a3"));
+
+    await useConversationStore.getState().send("q1");
+    await flushAll();
+    await useConversationStore.getState().send("q2");
+    await flushAll();
+    await useConversationStore.getState().send("q3");
+    await flushAll();
+
+    // 6 messages: u1 a1 u2 a2 u3 a3. Reverting to u2 (index 2) removes 3 messages.
+    const msgs = useConversationStore.getState().messages;
+    expect(msgs).toHaveLength(6);
+    const u2Id = msgs[2].id;
+    // The UI computes removedCount as: messages.length - (targetIndex + 1)
+    // = 6 - (2 + 1) = 3. revertToHere keeps u2, so it removes msgs at
+    // indices 3, 4, 5 = 3 messages.
+    const targetIndex = 2;
+    const removedCount = msgs.length - (targetIndex + 1);
+    expect(removedCount).toBe(3);
+
+    useConversationStore.getState().revertToHere(u2Id);
+
+    // After revert: u1 a1 u2 = 3 messages kept, 3 removed.
+    expect(useConversationStore.getState().messages).toHaveLength(3);
+  });
+});

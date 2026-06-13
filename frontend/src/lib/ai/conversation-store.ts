@@ -227,6 +227,35 @@ interface ConversationActions {
   newChat: () => void;
   /** Reopen a persisted chat, restoring its transcript and full loop history. */
   loadThread: (id: number) => Promise<void>;
+  /**
+   * Re-run the most recent user turn to get a fresh assistant reply.
+   *
+   * The last assistant message is dropped from both the reactive messages array
+   * and the historyStore (leaving the history at the point just after the last
+   * user message was appended but before the assistant replied). The last user
+   * message text is then re-sent via the normal send() path.
+   *
+   * Guard: only valid when the last settled assistant reply exists and no send
+   * is currently in flight. No-op otherwise.
+   */
+  regenerate: () => Promise<void>;
+  /**
+   * Rewind the conversation to a given user message, discarding all turns that
+   * came after it.
+   *
+   * What is kept: every message up to AND INCLUDING the identified user message.
+   * What is removed: the assistant reply to that user message and every message
+   * after it (later user turns and their replies).
+   *
+   * Both the reactive messages array and historyStore are truncated to the same
+   * point so they remain in sync. conversationEpoch is bumped so any queued
+   * deferred send that was queued before the revert cannot fire into the rewound
+   * conversation.
+   *
+   * Guard: only valid when the target message exists with role "user" and no
+   * send is currently in flight. No-op otherwise.
+   */
+  revertToHere: (messageId: string) => void;
 }
 
 type ConversationStore = ConversationState & ConversationActions;
@@ -529,6 +558,91 @@ export const useConversationStore = create<ConversationStore>((set, get) => ({
   resolveChoice: (selected: string[], cancelled: boolean) => {
     const decision: ChoiceDecision = { kind: "choice", selected, cancelled };
     pendingApprovalRef?.resolve(decision);
+  },
+
+  regenerate: async () => {
+    const state = get();
+    // Guard: nothing to regenerate while a turn is in flight.
+    if (state.sending) return;
+    const msgs = state.messages;
+    if (msgs.length === 0) return;
+
+    // Find the last assistant message. It must be a settled (non-empty) reply.
+    const lastAssistant = [...msgs].reverse().find(
+      (m) => m.role === "assistant" && m.content.trim().length > 0,
+    );
+    if (!lastAssistant) return;
+
+    // Find the user message that preceded the last assistant reply.
+    const lastAssistantIndex = msgs.findIndex((m) => m.id === lastAssistant.id);
+    if (lastAssistantIndex < 1) return;
+    const lastUser = msgs[lastAssistantIndex - 1];
+    if (!lastUser || lastUser.role !== "user") return;
+
+    // Drop both the last user message and the last assistant message from the
+    // reactive transcript. send() will re-append the user message and a fresh
+    // assistant placeholder, so removing both keeps the count correct.
+    const nextMessages = msgs.slice(0, lastAssistantIndex - 1);
+    set({ messages: nextMessages });
+
+    // Drop the last assistant reply (and the user turn before it) from
+    // historyStore. The historyStore contains system turns, tool turns, and the
+    // user/assistant text turns. Strip from the last matching user message
+    // onward so the history is at the state it was BEFORE the user sent this
+    // turn. send() will re-inject the user message as a fresh LoopMessage.
+    const lastUserContent = lastUser.content;
+    const lastHistUserIdx = [...historyStore]
+      .reverse()
+      .findIndex(
+        (m) => m.role === "user" && m.content === lastUserContent,
+      );
+    if (lastHistUserIdx !== -1) {
+      const forwardIndex = historyStore.length - 1 - lastHistUserIdx;
+      // Trim to just before the last user message.
+      historyStore = historyStore.slice(0, forwardIndex);
+    }
+
+    // Re-send the last user message through the normal path. send() will seed a
+    // fresh assistant placeholder and run the full loop.
+    await get().send(lastUser.content);
+  },
+
+  revertToHere: (messageId: string) => {
+    const state = get();
+    // Guard: cannot revert while a send is in flight.
+    if (state.sending) return;
+
+    const msgs = state.messages;
+    const targetIndex = msgs.findIndex((m) => m.id === messageId);
+    if (targetIndex === -1) return;
+    const target = msgs[targetIndex];
+    if (!target || target.role !== "user") return;
+
+    // Keep everything up to and including the target user message.
+    // Remove: the assistant reply to this user message and every message after
+    // it. The chat is left ready for the user to re-ask or continue from here.
+    const keptMessages = msgs.slice(0, targetIndex + 1);
+    set({ messages: keptMessages });
+
+    // Trim historyStore to the same logical point. The target user message in
+    // historyStore is the last LoopMessage with role "user" and content
+    // matching the target. Everything after it (tool calls, assistant reply,
+    // subsequent turns) is discarded.
+    const targetContent = target.content;
+    const lastHistUserIndex = [...historyStore]
+      .reverse()
+      .findIndex(
+        (m) => m.role === "user" && m.content === targetContent,
+      );
+    if (lastHistUserIndex !== -1) {
+      const forwardIndex = historyStore.length - 1 - lastHistUserIndex;
+      // Keep through and including this user message; drop what follows.
+      historyStore = historyStore.slice(0, forwardIndex + 1);
+    }
+
+    // Bump the epoch so any deferred queued send cannot fire into the rewound
+    // conversation.
+    conversationEpoch += 1;
   },
 
   send: async (text: string) => {
