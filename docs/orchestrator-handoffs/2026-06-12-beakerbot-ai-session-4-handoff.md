@@ -68,17 +68,19 @@ ancestors of it (verified intact).
      (totalSpendDisplay, spendDisplay, totalPriceDisplay); the prompt tells the
      model to copy them char-for-char and never re-type or re-sum a figure.
 
-## In flight at pause
+## Bot C: MERGED (the last loose thread is closed)
 
-- Bot C (reopen-blank chat + queue-while-streaming): RUNNING in worktree
-  `.claude/worktrees/agent-a6b207d8dcbcbde07`, UNCOMMITTED (not finished). Two
-  tasks: (1) a reopened chat rendered a BLANK transcript for one of two threads
-  after reload (root-cause the thread persistence/load path; every saved thread
-  must reopen with its full transcript); (2) a message typed while BeakerBot is
-  streaming is silently dropped, Grant chose QUEUE-and-auto-send (discard the
-  queue on an explicit Stop). It is off the STALE anchor and edits
-  `conversation-store.ts`, so CHERRY-PICK it (not merge --no-ff) and grep to
-  confirm Build 1's `stop`/`extractFollowups`/`abortControllerRef` survive.
+- Bot C (reopen-blank chat + queue-while-streaming) is now on main as
+  `b3e9494f9` (cherry-picked off the stale anchor, Build 1's stop/followups
+  verified intact, tsc 0 + 39 conversation tests green). Root cause of the blank
+  reopen: a race between `revealAnswer` and `saveChat` where a concurrent
+  new-chat/`stop()` nulled `currentThreadId`, so the `threadId !== null` guard
+  skipped `saveChat` and the on-disk file kept only the user message. Fix
+  snapshots `boundThreadId` + `savedMessages` right after the reveal. Queue is a
+  single-slot last-wins design (`pendingQueuedText` + reactive `queuedText` +
+  `clearQueue`), auto-fires one tick after the turn settles, and an explicit
+  `stop()` discards it. A queued-message indicator chip with a Discard button is
+  in `BeakerBotConversation`.
 
 ## Queued (in order)
 
