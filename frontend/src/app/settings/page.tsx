@@ -85,6 +85,7 @@ import SettingsShell, {
 import ProfileSettingsContent from "@/components/profile/ProfileSettingsContent";
 import AiUsageSection from "@/components/settings/sections/AiUsageSection";
 import CloudStorageUsageSection from "@/components/settings/sections/CloudStorageUsageSection";
+import { AccountBenefitsUpsell } from "@/components/settings/sections/AccountBenefitsUpsell";
 import NotificationsSection from "@/components/settings/sections/NotificationsSection";
 
 const GANTT_VIEW_OPTIONS: { value: UserSettings["defaultGanttViewMode"]; label: string }[] = [
@@ -358,6 +359,14 @@ function SettingsBodyInner({
   // (isLabMode), and each lab-head-only section keeps its own account_type gate.
   const isLabHead = shouldShowLabHeadAuditTrail(settings);
 
+  // Solo users (no sharing account) lose the cloud-tier features: BeakerBot AI,
+  // cloud storage, the email + phone notification channels, companion pairing,
+  // and sharing. We hide the pages they do not have (the Usage and billing
+  // group) and show one gentle "what an account adds" callout instead, so the
+  // surface is tuned to what they can actually use. `status === "ready"` is the
+  // same has-an-account signal NotificationsSection + DevicesSection gate on.
+  const hasAccount = sharing.status === "ready";
+
   const groups: SettingsGroupDef[] = [
     {
       label: "You",
@@ -398,33 +407,56 @@ function SettingsBodyInner({
             </>
           ),
         },
+        // Solo-only gentle upsell. Replaces the discovery the hidden Usage and
+        // billing group would have given, so a solo user still learns what a
+        // free account adds and where to add it, without any locked dead pages.
+        ...(!hasAccount
+          ? [
+              {
+                id: "account-benefits",
+                group: "You",
+                title: "Add a free account",
+                icon: "cloud" as const,
+                keywords:
+                  "account sign up cloud sharing collaborate beakerbot ai email phone notifications companion pairing storage sync unlock free",
+                render: () => <AccountBenefitsUpsell />,
+              },
+            ]
+          : []),
       ],
     },
-    {
-      label: "Usage & billing",
-      sections: [
-        {
-          id: "ai",
-          group: "Usage & billing",
-          title: "AI usage",
-          icon: "bolt",
-          flag: "new",
-          keywords:
-            "beakerbot tokens balance buy prepaid trial metered cost analysis figure question write-up billing pricing",
-          render: () => <AiUsageSection />,
-        },
-        {
-          id: "storage",
-          group: "Usage & billing",
-          title: "Cloud storage",
-          icon: "cloud",
-          flag: "new",
-          keywords:
-            "cloud storage used cap GB plan inbox shares sync billing pricing beta",
-          render: () => <CloudStorageUsageSection />,
-        },
-      ],
-    },
+    // Usage and billing is account-only (BeakerBot tokens + cloud storage both
+    // need a cloud account). Hidden entirely for solo users so they never land
+    // on an empty or locked billing page.
+    ...(hasAccount
+      ? [
+          {
+            label: "Usage & billing",
+            sections: [
+              {
+                id: "ai",
+                group: "Usage & billing",
+                title: "AI usage",
+                icon: "bolt" as const,
+                flag: "new" as const,
+                keywords:
+                  "beakerbot tokens balance buy prepaid trial metered cost analysis figure question write-up billing pricing",
+                render: () => <AiUsageSection />,
+              },
+              {
+                id: "storage",
+                group: "Usage & billing",
+                title: "Cloud storage",
+                icon: "cloud" as const,
+                flag: "new" as const,
+                keywords:
+                  "cloud storage used cap GB plan inbox shares sync billing pricing beta",
+                render: () => <CloudStorageUsageSection />,
+              },
+            ],
+          } satisfies SettingsGroupDef,
+        ]
+      : []),
     {
       label: "Workspace",
       sections: [
