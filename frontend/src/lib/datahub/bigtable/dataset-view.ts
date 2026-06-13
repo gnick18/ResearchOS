@@ -124,7 +124,7 @@ export async function closeDataset(handle: OpenDatasetHandle): Promise<void> {
  * `SELECT ... FROM (<recipe>) LIMIT n OFFSET m` and the full result is never
  * materialized for the preview.
  */
-function fromSource(handle: OpenDatasetHandle, recipe?: TransformOp[]): string {
+export function fromSource(handle: OpenDatasetHandle, recipe?: TransformOp[]): string {
   const base = `read_parquet('${handle.fileName}')`;
   if (!recipe || recipe.length === 0) return base;
   const sql = recipeToSql(recipe, base, { columnNames: handle.columnNames });

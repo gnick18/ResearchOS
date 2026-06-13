@@ -29,6 +29,7 @@ import {
   type DatasetColumn,
   type DatasetSidecar,
   type DatasetSource,
+  type SavedDatasetAnalysis,
 } from "./types";
 import type { TransformOp } from "@/lib/datahub/transform/pipeline";
 
@@ -88,6 +89,8 @@ export interface BuildSidecarInput {
   recipe?: TransformOp[];
   project_ids?: string[];
   folder_path?: string | null;
+  /** Saved analyses (Phase 3a). Optional and additive; absent stays absent. */
+  savedAnalyses?: SavedDatasetAnalysis[];
   created_at?: string;
   updated_at?: string;
 }
@@ -110,6 +113,11 @@ export function buildSidecar(input: BuildSidecarInput): DatasetSidecar {
     recipe: input.recipe ?? [],
     project_ids: input.project_ids ?? [],
     folder_path: input.folder_path ?? null,
+    // Only carry savedAnalyses when present, so a sidecar without any analyses
+    // serializes byte-identical to the pre-Phase-3a shape (the field is absent).
+    ...(input.savedAnalyses && input.savedAnalyses.length > 0
+      ? { savedAnalyses: input.savedAnalyses }
+      : {}),
     created_at: input.created_at ?? now,
     updated_at: input.updated_at ?? now,
   };
@@ -137,6 +145,11 @@ export function sidecarFromJson(raw: unknown): DatasetSidecar | null {
     recipe: Array.isArray(o.recipe) ? (o.recipe as TransformOp[]) : [],
     project_ids: Array.isArray(o.project_ids) ? o.project_ids : [],
     folder_path: typeof o.folder_path === "string" ? o.folder_path : null,
+    // Additive: keep savedAnalyses only when the parsed object carries a non-empty
+    // array, so a sidecar written before Phase 3a reads back with the field absent.
+    ...(Array.isArray(o.savedAnalyses) && o.savedAnalyses.length > 0
+      ? { savedAnalyses: o.savedAnalyses as SavedDatasetAnalysis[] }
+      : {}),
     created_at: typeof o.created_at === "string" ? o.created_at : "",
     updated_at: typeof o.updated_at === "string" ? o.updated_at : "",
   };
@@ -152,6 +165,56 @@ export async function writeDatasetSidecar(
   sidecar: DatasetSidecar,
 ): Promise<void> {
   await fileService.writeJson(datasetSidecarPath(owner, sidecar.id), sidecar);
+}
+
+/**
+ * Persist (add or replace) a saved analysis on a dataset's sidecar, in place. Read
+ * the current sidecar, upsert the entry by id, bump updated_at, write it back.
+ * Additive: a sidecar with no prior savedAnalyses gains the field; replacing the
+ * only entry with nothing is handled by removeSavedAnalysis. Returns the updated
+ * sidecar, or null when the dataset is missing.
+ */
+export async function saveDatasetAnalysis(
+  owner: string,
+  id: string,
+  analysis: SavedDatasetAnalysis,
+): Promise<DatasetSidecar | null> {
+  const sidecar = await readDatasetSidecar(owner, id);
+  if (!sidecar) return null;
+  const prior = sidecar.savedAnalyses ?? [];
+  const idx = prior.findIndex((a) => a.id === analysis.id);
+  const next =
+    idx >= 0
+      ? prior.map((a) => (a.id === analysis.id ? analysis : a))
+      : [...prior, analysis];
+  const updated: DatasetSidecar = {
+    ...sidecar,
+    savedAnalyses: next,
+    updated_at: new Date().toISOString(),
+  };
+  await writeDatasetSidecar(owner, updated);
+  return updated;
+}
+
+/**
+ * Remove a saved analysis by id from a dataset's sidecar. When the last entry is
+ * removed the savedAnalyses field is dropped so the sidecar serializes back to the
+ * pre-Phase-3a shape. Returns the updated sidecar, or null when the dataset is
+ * missing.
+ */
+export async function removeSavedAnalysis(
+  owner: string,
+  id: string,
+  analysisId: string,
+): Promise<DatasetSidecar | null> {
+  const sidecar = await readDatasetSidecar(owner, id);
+  if (!sidecar) return null;
+  const next = (sidecar.savedAnalyses ?? []).filter((a) => a.id !== analysisId);
+  const updated: DatasetSidecar = { ...sidecar, updated_at: new Date().toISOString() };
+  if (next.length > 0) updated.savedAnalyses = next;
+  else delete updated.savedAnalyses;
+  await writeDatasetSidecar(owner, updated);
+  return updated;
 }
 
 /** Read the dataset.json sidecar, or null when absent / unrecognizable. */
