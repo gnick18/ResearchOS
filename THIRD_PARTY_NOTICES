@@ -261,6 +261,10 @@ nspell@2.1.5
   License: MIT
   Source:  https://github.com/wooorm/nspell
 
+pdfjs-dist@6.0.227
+  License: Apache-2.0
+  Source:  https://github.com/mozilla/pdf.js
+
 qrcode@1.5.4
   License: MIT
   Source:  https://github.com/soldair/node-qrcode
