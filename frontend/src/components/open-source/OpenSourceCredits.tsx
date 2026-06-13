@@ -25,6 +25,7 @@ import Link from "next/link";
 import MarketingFooter from "@/components/MarketingFooter";
 import MarketingNav from "@/components/MarketingNav";
 import Kicker from "@/components/marketing/Kicker";
+import Reveal from "@/components/marketing/Reveal";
 
 /* ───────────── data shape (mirrors credits.json) ───────────────────────── */
 
@@ -222,7 +223,7 @@ export default function OpenSourceCredits() {
             </section>
 
             {/* ── Curated highlights by area ── */}
-            <section className="mb-14">
+            <Reveal as="section" className="mb-14">
               <h2 className="mb-2 text-heading font-semibold text-foreground">
                 What powers each part of the app
               </h2>
@@ -230,22 +231,33 @@ export default function OpenSourceCredits() {
                 A few of the projects we rely on most, grouped by where you
                 meet them.
               </p>
-              <div className="space-y-8">
+              <div className="grid gap-5 md:grid-cols-2">
                 {credits.highlightGroups.map((group) => (
-                  <div key={group.id}>
-                    <h3 className="text-title font-semibold text-foreground">
-                      {group.title}
-                    </h3>
-                    <p className="mb-3 text-body text-foreground-muted">{group.blurb}</p>
-                    <ul className="divide-y divide-border overflow-hidden rounded-xl border border-border bg-surface-raised">
+                  <div
+                    key={group.id}
+                    className="rounded-2xl border border-border bg-surface-raised p-5"
+                  >
+                    <div className="flex items-center gap-2.5">
+                      <span
+                        aria-hidden
+                        className="brand-rainbow-bg h-[3px] w-6 flex-none rounded-full"
+                      />
+                      <h3 className="text-title font-semibold text-foreground">
+                        {group.title}
+                      </h3>
+                    </div>
+                    <p className="mt-1.5 text-meta text-foreground-muted">
+                      {group.blurb}
+                    </p>
+                    <ul className="mt-3 divide-y divide-border border-t border-border">
                       {group.items.map((item) => (
                         <li
                           key={item.name}
-                          className="flex flex-col gap-1 px-4 py-3 sm:flex-row sm:items-center sm:justify-between"
+                          className="flex flex-col gap-1 py-2.5 sm:flex-row sm:items-center sm:justify-between"
                         >
                           <div className="min-w-0">
                             <PackageLink name={item.name} repo={item.repo} />
-                            <p className="mt-0.5 text-body text-foreground-muted">
+                            <p className="mt-0.5 text-meta text-foreground-muted">
                               {item.note}
                             </p>
                           </div>
@@ -261,7 +273,7 @@ export default function OpenSourceCredits() {
                   </div>
                 ))}
               </div>
-            </section>
+            </Reveal>
 
             {/* ── Code we recycle (vendored / ported) ── */}
             <section className="mb-14">

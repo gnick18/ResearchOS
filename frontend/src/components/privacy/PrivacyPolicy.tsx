@@ -28,6 +28,7 @@ import Link from "next/link";
 import MarketingFooter from "@/components/MarketingFooter";
 import MarketingNav from "@/components/MarketingNav";
 import Kicker from "@/components/marketing/Kicker";
+import Reveal from "@/components/marketing/Reveal";
 
 const EFFECTIVE_DATE = "June 4, 2026";
 const CONTACT_EMAIL = "gnickles@wisc.edu";
@@ -44,10 +45,12 @@ function Section({
 }) {
   return (
     <section id={id} className="mb-12 scroll-mt-24">
-      <h2 className="mb-3 text-heading font-semibold text-foreground">{title}</h2>
-      <div className="space-y-4 text-body leading-relaxed text-foreground">
-        {children}
-      </div>
+      <Reveal>
+        <h2 className="mb-3 text-heading font-semibold text-foreground">{title}</h2>
+        <div className="space-y-4 text-body leading-relaxed text-foreground">
+          {children}
+        </div>
+      </Reveal>
     </section>
   );
 }
