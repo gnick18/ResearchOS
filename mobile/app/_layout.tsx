@@ -177,21 +177,13 @@ export default function RootLayout() {
     <SafeAreaProvider>
     <ThemeProvider value={navTheme}>
       <View style={styles.root}>
-        <Stack>
-          <Stack.Screen name="index" options={{ headerShown: false }} />
-          <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-          <Stack.Screen name="pair" options={{ headerShown: false }} />
-          <Stack.Screen name="note" options={{ headerShown: false }} />
-          <Stack.Screen name="reorder" options={{ headerShown: false }} />
-          <Stack.Screen name="scan" options={{ headerShown: false }} />
-          <Stack.Screen name="bulk" options={{ headerShown: false }} />
-          <Stack.Screen name="annotate" options={{ headerShown: false }} />
-          <Stack.Screen name="add-purchase" options={{ headerShown: false }} />
-          <Stack.Screen name="notifications" options={{ headerShown: false }} />
-          <Stack.Screen name="method-detail" options={{ headerShown: false }} />
-          <Stack.Screen name="calc-custom" options={{ headerShown: false }} />
-          <Stack.Screen name="wiki/[slug]" options={{ headerShown: false }} />
-          <Stack.Screen name="modal" options={{ presentation: 'modal', headerShown: false }} />
+        {/* Every screen uses its own in-content ScreenHeader (back chevron +
+            large title), never the native stack header, so the native header is
+            hidden by DEFAULT here. A new route is safe without remembering to
+            opt out; only screens that need extra options (e.g. modal
+            presentation) declare a Stack.Screen. */}
+        <Stack screenOptions={{ headerShown: false }}>
+          <Stack.Screen name="modal" options={{ presentation: 'modal' }} />
         </Stack>
         {/* The signature rainbow lives at the true top and bottom EDGES of the
             screen (over the status-bar zone and below the tab bar), as fixed
