@@ -46,6 +46,10 @@ RUNTIME DEPENDENCIES
   License: MIT
   Source:  https://code.haverbeke.berlin/codemirror/view
 
+@duckdb/duckdb-wasm@1.29.0
+  License: MIT
+  Source:  https://github.com/duckdb/duckdb-wasm
+
 @lezer/common@1.5.2
   License: MIT
   Source:  https://github.com/lezer-parser/common
@@ -126,6 +130,10 @@ RUNTIME DEPENDENCIES
   License: MIT
   Source:  https://github.com/TanStack/query
 
+@tanstack/react-virtual@3.14.2
+  License: MIT
+  Source:  https://github.com/TanStack/virtual
+
 @upstash/ratelimit@v2.0.8
   License: MIT
 
@@ -136,6 +144,10 @@ RUNTIME DEPENDENCIES
 @vercel/analytics@2.0.1
   License: MIT
   Source:  https://github.com/vercel/analytics
+
+apache-arrow@21.1.0
+  License: Apache-2.0
+  Source:  https://github.com/apache/arrow-js
 
 d3-hierarchy@3.1.2
   License: ISC

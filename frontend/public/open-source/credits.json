@@ -1,10 +1,10 @@
 {
-  "generatedAt": "2026-06-13T16:11:19.797Z",
+  "generatedAt": "2026-06-13T17:14:19.433Z",
   "appVersion": "0.75.0",
-  "dependencyCount": 80,
+  "dependencyCount": 83,
   "licenseCounts": {
-    "Apache-2.0": 16,
-    "MIT": 51,
+    "Apache-2.0": 17,
+    "MIT": 53,
     "BSD-3-Clause": 2,
     "ISC": 8,
     "(MIT AND BSD)": 1,
@@ -292,6 +292,12 @@
       "repo": "https://code.haverbeke.berlin/codemirror/view"
     },
     {
+      "name": "@duckdb/duckdb-wasm",
+      "version": "1.29.0",
+      "license": "MIT",
+      "repo": "https://github.com/duckdb/duckdb-wasm"
+    },
+    {
       "name": "@lezer/common",
       "version": "1.5.2",
       "license": "MIT",
@@ -412,6 +418,12 @@
       "repo": "https://github.com/TanStack/query"
     },
     {
+      "name": "@tanstack/react-virtual",
+      "version": "3.14.2",
+      "license": "MIT",
+      "repo": "https://github.com/TanStack/virtual"
+    },
+    {
       "name": "@upstash/ratelimit",
       "version": "v2.0.8",
       "license": "MIT",
@@ -428,6 +440,12 @@
       "version": "2.0.1",
       "license": "MIT",
       "repo": "https://github.com/vercel/analytics"
+    },
+    {
+      "name": "apache-arrow",
+      "version": "21.1.0",
+      "license": "Apache-2.0",
+      "repo": "https://github.com/apache/arrow-js"
     },
     {
       "name": "d3-hierarchy",

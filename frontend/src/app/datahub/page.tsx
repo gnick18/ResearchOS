@@ -20,7 +20,16 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 
 import AppShell from "@/components/AppShell";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
-import { DATAHUB_ENABLED } from "@/lib/datahub/config";
+import { DATAHUB_ENABLED, isBigTableEnabled } from "@/lib/datahub/config";
+import {
+  isLargeTable,
+  listDatasets,
+  nextDatasetId,
+  readDatasetSidecar,
+  type DatasetSidecar,
+} from "@/lib/datahub/bigtable";
+import { ingestToDatasetLane } from "@/lib/datahub/bigtable/ingest";
+import DatasetView from "@/components/datahub/bigtable/DatasetView";
 import { getDemoMode } from "@/lib/file-system/wiki-capture-mock";
 import { dataHubApi } from "@/lib/datahub/api";
 import { recipesApi } from "@/lib/datahub/recipes-store";
@@ -239,6 +248,15 @@ export default function DataHubPage() {
 
   const [collection, setCollection] = useState<Collection>("all");
   const [selectedTableId, setSelectedTableId] = useState<string | null>(null);
+  // The selected LARGE-DATASET (dataset lane), separate from the editable-lane
+  // selectedTableId. When set, the main panel renders the DatasetView (preview,
+  // status chip, column tiers) instead of the cell grid. Gated by the bigtable
+  // sub-capability flag; null whenever the lane is off.
+  const [selectedDatasetId, setSelectedDatasetId] = useState<string | null>(
+    null,
+  );
+  const [openDatasetSidecar, setOpenDatasetSidecar] =
+    useState<DatasetSidecar | null>(null);
   const [newTableOpen, setNewTableOpen] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
   // The selected analysis in the Results section (null means the data grid is
@@ -306,6 +324,32 @@ export default function DataHubPage() {
     queryFn: () => dataHubApi.list(),
     enabled: surfaceEnabled,
   });
+
+  // Large-dataset-lane catalog (owner-scoped). Only loaded when the bigtable
+  // sub-capability is on; otherwise an empty list, so the lane is fully inert.
+  const bigTableOn = isBigTableEnabled();
+  const { data: datasets = [] } = useQuery({
+    queryKey: ["datahub", "datasets", currentUser],
+    queryFn: () => (currentUser ? listDatasets(currentUser) : Promise.resolve([])),
+    enabled: surfaceEnabled && bigTableOn && !!currentUser,
+  });
+
+  // Load the selected dataset's sidecar when the dataset selection changes. A
+  // dataset selection takes the main panel; selecting an editable table clears
+  // it (handled at the rail / open seams).
+  useEffect(() => {
+    if (!bigTableOn || !currentUser || selectedDatasetId == null) {
+      setOpenDatasetSidecar(null);
+      return;
+    }
+    let cancelled = false;
+    void readDatasetSidecar(currentUser, selectedDatasetId).then((sc) => {
+      if (!cancelled) setOpenDatasetSidecar(sc);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [bigTableOn, currentUser, selectedDatasetId]);
 
   // Filter the catalog by the active collection.
   const tablesInCollection = useMemo<DataHubDocument[]>(() => {
@@ -1186,6 +1230,37 @@ export default function DataHubPage() {
   const handleImport = useCallback(
     async (data: ImportTableSubmit) => {
       setImportOpen(false);
+
+      // AUTO-DETECTION (spec section 2). When the lane is enabled and the import
+      // crosses the size threshold, route to the dataset lane BEFORE a single row
+      // reaches the cell store, then open the dataset view. Below the threshold,
+      // or with the lane off, the existing editable-lane path runs unchanged.
+      if (
+        bigTableOn &&
+        currentUser &&
+        isLargeTable(data.rows.length, data.columns.length)
+      ) {
+        const owner = currentUser;
+        const id = await nextDatasetId(owner);
+        await ingestToDatasetLane(owner, id, {
+          name: data.name,
+          columns: data.columns.map((c) => ({
+            id: c.id,
+            name: c.name,
+            dataType: c.dataType,
+          })),
+          rows: data.rows.map((r) => ({ id: r.id, cells: r.cells })),
+          source: { kind: "paste" },
+          project_ids: data.collectionId ? [data.collectionId] : [],
+        });
+        await queryClient.invalidateQueries({
+          queryKey: ["datahub", "datasets", owner],
+        });
+        setSelectedTableId(null);
+        setSelectedDatasetId(id);
+        return;
+      }
+
       const created = await dataHubApi.create({
         name: data.name,
         table_type: "column",
@@ -1205,7 +1280,7 @@ export default function DataHubPage() {
         setSelectedTableId(created.id);
       }
     },
-    [collection, queryClient],
+    [collection, queryClient, bigTableOn, currentUser],
   );
 
   // Create + run an analysis: dispatch the chosen type + columns to the engine,
@@ -2088,7 +2163,20 @@ export default function DataHubPage() {
           onSelectTable={(id) => {
             setSelectedAnalysisId(null);
             setSelectedPlotId(null);
+            setSelectedDatasetId(null);
             setSelectedTableId(id);
+          }}
+          datasets={datasets.map((d) => ({
+            id: d.id,
+            name: d.name,
+            rowCount: d.rowCount,
+          }))}
+          selectedDatasetId={selectedDatasetId}
+          onSelectDataset={(id) => {
+            setSelectedAnalysisId(null);
+            setSelectedPlotId(null);
+            setSelectedTableId(null);
+            setSelectedDatasetId(id);
           }}
           onNewTable={() => setNewTableOpen(true)}
           onNewFolder={() => setNewTableOpen(true)}
@@ -2130,12 +2218,19 @@ export default function DataHubPage() {
 
         <section
           className={`flex min-w-0 flex-1 flex-col rounded-lg border border-border bg-surface-raised ${
-            selectedMeta && openContent
+            (selectedMeta && openContent) ||
+            (selectedDatasetId && openDatasetSidecar)
               ? "overflow-hidden"
               : "overflow-auto p-5"
           }`}
         >
-          {tablesInCollection.length === 0 ? (
+          {selectedDatasetId && openDatasetSidecar && currentUser ? (
+            // Large-dataset lane: the DatasetView owns the panel (preview grid,
+            // status chip, explainer, column tiers, full-render warning). It
+            // takes precedence over the editable-lane grid when a dataset is the
+            // active selection.
+            <DatasetView owner={currentUser} sidecar={openDatasetSidecar} />
+          ) : tablesInCollection.length === 0 && datasets.length === 0 ? (
             <div className="flex flex-1 flex-col items-center justify-center gap-3 text-center">
               <h1 className="text-heading font-semibold text-foreground">
                 No data tables yet

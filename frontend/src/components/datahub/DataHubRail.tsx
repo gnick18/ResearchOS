@@ -285,6 +285,9 @@ export default function DataHubRail({
   onCollectionChange,
   selectedTableId,
   onSelectTable,
+  datasets = [],
+  selectedDatasetId = null,
+  onSelectDataset,
   onNewTable,
   onNewFolder,
   onImport,
@@ -321,6 +324,12 @@ export default function DataHubRail({
   onCollectionChange: (c: Collection) => void;
   selectedTableId: string | null;
   onSelectTable: (id: string) => void;
+  /** Large-dataset-lane entries (DataHub-largetables lane), optional so a rail
+   *  rendered without the lane shows none. Listed in their own section below the
+   *  editable tables. */
+  datasets?: { id: string; name: string; rowCount: number }[];
+  selectedDatasetId?: string | null;
+  onSelectDataset?: (id: string) => void;
   onNewTable: () => void;
   onNewFolder: () => void;
   /** Opens the import dialog (paste from Excel / pick a CSV into a new table). */
@@ -936,6 +945,39 @@ export default function DataHubRail({
                 </div>
               );
             })}
+          </div>
+        )}
+
+        {datasets.length > 0 && (
+          <div className="mt-3 border-t border-border pt-2" data-testid="datahub-rail-datasets">
+            <div className="flex items-center gap-1.5 px-1 pb-1 text-meta font-semibold uppercase tracking-wide text-foreground-muted">
+              <Icon name="database" className="h-3.5 w-3.5 shrink-0" />
+              Large datasets
+            </div>
+            <div className="flex flex-col gap-0.5">
+              {datasets.map((d) => {
+                const active = d.id === selectedDatasetId;
+                return (
+                  <button
+                    key={d.id}
+                    type="button"
+                    onClick={() => onSelectDataset?.(d.id)}
+                    className={`flex w-full items-center gap-1.5 rounded-md px-2 py-1 text-meta transition-colors ${
+                      active
+                        ? "bg-brand-action/15 font-semibold text-brand-action"
+                        : "text-foreground hover:bg-surface-raised"
+                    }`}
+                  >
+                    <span className="min-w-0 flex-1 truncate text-left">
+                      {d.name}
+                    </span>
+                    <span className="shrink-0 text-[10px] opacity-70">
+                      {d.rowCount.toLocaleString()}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
           </div>
         )}
       </div>
