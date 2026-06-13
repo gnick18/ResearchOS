@@ -19,7 +19,8 @@
 // No em-dashes, no emojis, no mid-sentence colons.
 
 import { quantileSorted } from "@/lib/datahub/engine/util";
-import type { AlignedPanel, AlignedPanelKind } from "./types";
+import { niceTicks } from "@/lib/datahub/plot-spec";
+import type { AlignedPanel, AlignedPanelKind, PhyloErrorKind } from "./types";
 import type { TipAxis, TipSlot } from "./layout";
 import { EMPTY_FILL, type ColorScale } from "./color-scale";
 
@@ -49,6 +50,13 @@ export interface PanelValues {
   single?: Map<number, string>;
   matrix?: Map<number, string[]>;
   replicates?: Map<number, number[]>;
+  /**
+   * Per-tip mean + error magnitude for the point (lollipop) geom, resolved by the
+   * caller from either the replicate `columns[]` (mean / sd / sem) or a value
+   * `column` + an explicit `errorColumn`. `error` is 0 when the panel's error kind
+   * is "none" or no error source is bound.
+   */
+  pointStats?: Map<number, { mean: number; error: number }>;
 }
 
 /** The scales a panel reads, one per data column (matrix uses `multi`). */
@@ -78,6 +86,9 @@ const DEFAULT_THICKNESS: Record<AlignedPanelKind, number> = {
   bars: 70,
   dots: 36,
   box: 40,
+  violin: 40,
+  point: 48,
+  scatter: 40,
   clade: 0,
   support: 0,
   msa: 0,
@@ -116,6 +127,12 @@ export function renderPanel(
       return renderDots(panel, axis, values, scales);
     case "box":
       return renderBox(panel, axis, values);
+    case "violin":
+      return renderViolin(panel, axis, values);
+    case "point":
+      return renderPoint(panel, axis, values);
+    case "scatter":
+      return renderScatter(panel, axis, values);
     default:
       return { svg: "", thickness: 0 };
   }
@@ -473,6 +490,363 @@ function renderBox(
         ).replace('fill="', 'opacity="0.25" fill="'),
         `<circle cx="${mx}" cy="${my}" r="2.4" fill="${BOX_MEDIAN}"/>`,
       );
+    }
+  }
+  return { svg: parts.join(""), thickness: thick + GAP };
+}
+
+// ---------------------------------------------------------------------------
+// Shared helpers for the distribution / value-axis geoms (phylo Phase 2). These
+// panels (violin / point+error / scatter) all map a numeric value to a position
+// along the panel band against ONE domain shared across every tip, so the panels
+// are comparable, and carry a readable value axis ticked by the Data Hub niceTicks
+// primitive (reused read-only). The position math mirrors the box geom.
+// ---------------------------------------------------------------------------
+
+const AXIS_TICK = "#cbd5e1";
+
+/** The combined [min, max] of every tip's replicate values, null when empty. */
+function sharedDomain(
+  reps: Map<number, number[]> | undefined,
+): { lo: number; hi: number } | null {
+  if (!reps || reps.size === 0) return null;
+  let lo = Infinity;
+  let hi = -Infinity;
+  for (const arr of reps.values()) {
+    for (const v of arr) {
+      if (!Number.isFinite(v)) continue;
+      if (v < lo) lo = v;
+      if (v > hi) hi = v;
+    }
+  }
+  if (!Number.isFinite(lo) || !Number.isFinite(hi)) return null;
+  return { lo, hi };
+}
+
+/** Mean of finite numbers, or NaN when none. */
+function mean(xs: number[]): number {
+  const f = xs.filter((n) => Number.isFinite(n));
+  if (f.length === 0) return NaN;
+  return f.reduce((s, v) => s + v, 0) / f.length;
+}
+
+/** Sample standard deviation of finite numbers (n - 1), or 0 when under two. */
+function stddev(xs: number[]): number {
+  const f = xs.filter((n) => Number.isFinite(n));
+  if (f.length < 2) return 0;
+  const m = mean(f);
+  const ss = f.reduce((s, v) => s + (v - m) * (v - m), 0);
+  return Math.sqrt(ss / (f.length - 1));
+}
+
+/**
+ * Draw a faint value axis along the panel's leading edge: a tick label at each
+ * niceTicks value, positioned by the same fraction the geom uses. Rectangular
+ * lays the ticks under the panel; circular draws a single ring guide (an
+ * uncluttered radial axis would overlap the wedges, so we keep it minimal).
+ */
+function valueAxis(
+  axis: TipAxis,
+  panelStart: number,
+  thick: number,
+  lo: number,
+  hi: number,
+): string {
+  const { values } = niceTicks(lo, hi, 4);
+  const span = hi - lo;
+  const frac = (v: number): number => (span > 0 ? (v - lo) / span : 0.5);
+  const parts: string[] = [];
+  if (axis.layout === "rectangular") {
+    const ys = axis.tips.map((t) => t.y);
+    const yBottom = (ys.length ? Math.max(...ys) : 0) + axis.bandHeight * 0.6 + 4;
+    for (const v of values) {
+      if (v < lo - 1e-9 || v > hi + 1e-9) continue;
+      const x = panelStart + frac(v) * thick;
+      parts.push(
+        `<line x1="${x}" y1="${yBottom - 3}" x2="${x}" y2="${yBottom}" stroke="${AXIS_TICK}" stroke-width="1"/>`,
+        `<text x="${x}" y="${yBottom + 9}" font-size="7.5" fill="${MUTED}" text-anchor="middle">${esc(axisLabel(v))}</text>`,
+      );
+    }
+  } else {
+    // A single dashed guide ring at the panel's inner radius marks the axis start
+    // (the value-by-radius scale is shared, so one labeled ring reads cleanly).
+    parts.push(
+      `<circle cx="${axis.cx}" cy="${axis.cy}" r="${panelStart}" fill="none" stroke="${AXIS_TICK}" stroke-width="0.5" stroke-dasharray="2 3"/>`,
+    );
+  }
+  return parts.join("");
+}
+
+/** A compact axis tick label (shared formatting with the legend ticks). */
+function axisLabel(n: number): string {
+  if (!Number.isFinite(n)) return "";
+  const abs = Math.abs(n);
+  return abs !== 0 && (abs >= 1e5 || abs < 1e-3)
+    ? n.toExponential(1)
+    : String(Number(n.toFixed(2)));
+}
+
+/** Whether a panel's options request the value axis (default ON). */
+function axisOn(panel: AlignedPanel): boolean {
+  return panel.options?.axis !== false;
+}
+
+/** The point geom's error kind from its options (default sd). */
+function errorKindOf(panel: AlignedPanel): PhyloErrorKind {
+  const k = panel.options?.errorKind;
+  return k === "sem" || k === "none" ? k : "sd";
+}
+
+// ---------------------------------------------------------------------------
+// Violin: a per-tip distribution drawn as a symmetric density silhouette around
+// the tip row (rectangular) / spoke (circular), the box geom's sibling. Density
+// is a light Gaussian-kernel estimate over the tip's replicates, sampled along
+// the shared value domain so every tip's violin is comparable. Reuses the box's
+// replicate binding (columns[]).
+// ---------------------------------------------------------------------------
+
+/** A small fixed-bandwidth kernel density estimate sampled at `steps` points
+ *  spanning [lo, hi], returned as normalized heights in [0, 1]. */
+function densityProfile(
+  reps: number[],
+  lo: number,
+  hi: number,
+  steps: number,
+): number[] {
+  const xs = reps.filter((n) => Number.isFinite(n));
+  if (xs.length === 0) return new Array(steps).fill(0);
+  const span = hi - lo || 1;
+  // Silverman-ish bandwidth, floored so a tight cluster still shows a lobe.
+  const sd = stddev(xs) || span * 0.08;
+  const bw = Math.max(span * 0.04, 1.06 * sd * Math.pow(xs.length, -0.2));
+  const out: number[] = [];
+  let peak = 0;
+  for (let i = 0; i < steps; i++) {
+    const x = lo + (i / (steps - 1)) * span;
+    let d = 0;
+    for (const v of xs) {
+      const u = (x - v) / bw;
+      d += Math.exp(-0.5 * u * u);
+    }
+    out.push(d);
+    if (d > peak) peak = d;
+  }
+  return peak > 0 ? out.map((d) => d / peak) : out;
+}
+
+const VIOLIN_FILL = "#1AA0E6";
+const DENSITY_STEPS = 24;
+
+function renderViolin(
+  panel: AlignedPanel,
+  axis: TipAxis,
+  values: PanelValues,
+): PanelRender {
+  const thick = panelBandThickness(panel);
+  const reps = values.replicates;
+  const dom = sharedDomain(reps);
+  if (!reps || !dom) return { svg: "", thickness: 0 };
+  const { lo, hi } = dom;
+  const span = hi - lo;
+  const frac = (v: number): number => (span > 0 ? (v - lo) / span : 0.5);
+
+  const parts: string[] = [];
+  if (axis.layout === "rectangular") {
+    const halfH = Math.min(axis.bandHeight * 0.42, 9);
+    if (axisOn(panel)) parts.push(valueAxis(axis, axis.panelStartX, thick, lo, hi));
+    for (const slot of axis.tips) {
+      const prof = densityProfile(reps.get(slot.id) ?? [], lo, hi, DENSITY_STEPS);
+      if (prof.every((d) => d === 0)) continue;
+      const x = (i: number) =>
+        axis.panelStartX + (i / (DENSITY_STEPS - 1)) * thick;
+      const top: string[] = [];
+      const bot: string[] = [];
+      for (let i = 0; i < DENSITY_STEPS; i++) {
+        const w = prof[i] * halfH;
+        top.push(`${x(i)} ${slot.y - w}`);
+        bot.push(`${x(i)} ${slot.y + w}`);
+      }
+      const d = `M${top.join(" L")} L${bot.reverse().join(" L")} Z`;
+      parts.push(
+        `<path d="${d}" fill="${VIOLIN_FILL}" opacity="0.35" stroke="${VIOLIN_FILL}" stroke-width="0.8"/>`,
+      );
+      // Median dot for a reading anchor.
+      const xs = (reps.get(slot.id) ?? []).filter((n) => Number.isFinite(n)).sort((a, b) => a - b);
+      if (xs.length > 0) {
+        const med = quantileSorted(xs, 0.5);
+        parts.push(
+          `<circle cx="${axis.panelStartX + frac(med) * thick}" cy="${slot.y}" r="2" fill="${BOX_MEDIAN}"/>`,
+        );
+      }
+    }
+  } else {
+    if (axisOn(panel)) parts.push(valueAxis(axis, axis.ringStartR, thick, lo, hi));
+    for (const slot of axis.tips) {
+      const prof = densityProfile(reps.get(slot.id) ?? [], lo, hi, DENSITY_STEPS);
+      if (prof.every((d) => d === 0)) continue;
+      const r = (i: number) =>
+        axis.ringStartR + (i / (DENSITY_STEPS - 1)) * thick;
+      const upper: string[] = [];
+      const lower: string[] = [];
+      for (let i = 0; i < DENSITY_STEPS; i++) {
+        const aw = prof[i] * axis.halfAngle * 0.85;
+        const [ux, uy] = polarPointAng(axis.cx, axis.cy, r(i), slot.angle - aw);
+        const [lx, ly] = polarPointAng(axis.cx, axis.cy, r(i), slot.angle + aw);
+        upper.push(`${ux} ${uy}`);
+        lower.push(`${lx} ${ly}`);
+      }
+      const d = `M${upper.join(" L")} L${lower.reverse().join(" L")} Z`;
+      parts.push(
+        `<path d="${d}" fill="${VIOLIN_FILL}" opacity="0.35" stroke="${VIOLIN_FILL}" stroke-width="0.8"/>`,
+      );
+    }
+  }
+  return { svg: parts.join(""), thickness: thick + GAP };
+}
+
+/** A point at radius r along a tip's spoke at an explicit angle (violin edges). */
+function polarPointAng(
+  cx: number,
+  cy: number,
+  r: number,
+  angle: number,
+): [number, number] {
+  return [
+    cx + r * Math.cos(angle - Math.PI / 2),
+    cy + r * Math.sin(angle - Math.PI / 2),
+  ];
+}
+
+// ---------------------------------------------------------------------------
+// Point + error (lollipop): one point per tip at the mean with an SD / SEM
+// whisker. The mean + error come pre-resolved on values.pointStats (from the
+// replicate columns OR a value + error column pair), so the renderer only places
+// them against the shared domain. Error kind "none" draws a bare point.
+// ---------------------------------------------------------------------------
+
+const POINT_FILL = "#1AA0E6";
+
+function renderPoint(
+  panel: AlignedPanel,
+  axis: TipAxis,
+  values: PanelValues,
+): PanelRender {
+  const thick = panelBandThickness(panel);
+  const stats = values.pointStats;
+  if (!stats || stats.size === 0) return { svg: "", thickness: 0 };
+  // Shared domain across every tip's mean +/- error, so points are comparable.
+  let lo = Infinity;
+  let hi = -Infinity;
+  for (const { mean: m, error } of stats.values()) {
+    if (!Number.isFinite(m)) continue;
+    lo = Math.min(lo, m - error);
+    hi = Math.max(hi, m + error);
+  }
+  if (!Number.isFinite(lo) || !Number.isFinite(hi)) return { svg: "", thickness: 0 };
+  if (lo === hi) {
+    hi += 1;
+    lo -= 1;
+  }
+  const span = hi - lo;
+  const frac = (v: number): number => (span > 0 ? (v - lo) / span : 0.5);
+
+  const parts: string[] = [];
+  if (axis.layout === "rectangular") {
+    if (axisOn(panel)) parts.push(valueAxis(axis, axis.panelStartX, thick, lo, hi));
+    const cap = Math.min(axis.bandHeight * 0.3, 4);
+    for (const slot of axis.tips) {
+      const st = stats.get(slot.id);
+      if (!st || !Number.isFinite(st.mean)) continue;
+      const cx = axis.panelStartX + frac(st.mean) * thick;
+      const y = slot.y;
+      if (st.error > 0) {
+        const x0 = axis.panelStartX + frac(st.mean - st.error) * thick;
+        const x1 = axis.panelStartX + frac(st.mean + st.error) * thick;
+        parts.push(
+          `<line x1="${x0}" y1="${y}" x2="${x1}" y2="${y}" stroke="${BOX_WHISKER}" stroke-width="1.2"/>`,
+          `<line x1="${x0}" y1="${y - cap}" x2="${x0}" y2="${y + cap}" stroke="${BOX_WHISKER}" stroke-width="1.2"/>`,
+          `<line x1="${x1}" y1="${y - cap}" x2="${x1}" y2="${y + cap}" stroke="${BOX_WHISKER}" stroke-width="1.2"/>`,
+        );
+      }
+      parts.push(`<circle cx="${cx}" cy="${y}" r="3.4" fill="${POINT_FILL}"/>`);
+    }
+  } else {
+    if (axisOn(panel)) parts.push(valueAxis(axis, axis.ringStartR, thick, lo, hi));
+    for (const slot of axis.tips) {
+      const st = stats.get(slot.id);
+      if (!st || !Number.isFinite(st.mean)) continue;
+      const rMean = axis.ringStartR + frac(st.mean) * thick;
+      const [px, py] = polarPoint(axis.cx, axis.cy, rMean, slot.angle);
+      if (st.error > 0) {
+        const r0 = axis.ringStartR + frac(st.mean - st.error) * thick;
+        const r1 = axis.ringStartR + frac(st.mean + st.error) * thick;
+        const [ax0, ay0] = polarPoint(axis.cx, axis.cy, r0, slot.angle);
+        const [ax1, ay1] = polarPoint(axis.cx, axis.cy, r1, slot.angle);
+        parts.push(
+          `<line x1="${ax0}" y1="${ay0}" x2="${ax1}" y2="${ay1}" stroke="${BOX_WHISKER}" stroke-width="1.3"/>`,
+        );
+      }
+      parts.push(`<circle cx="${px}" cy="${py}" r="3" fill="${POINT_FILL}"/>`);
+    }
+  }
+  return { svg: parts.join(""), thickness: thick + GAP };
+}
+
+// ---------------------------------------------------------------------------
+// Scatter (jitter strip): every individual replicate point per tip along the
+// value band, optionally jittered across the band so overlapping replicates
+// separate. The column-scatter analog. Reuses the box's replicate binding.
+// ---------------------------------------------------------------------------
+
+const SCATTER_FILL = "#1AA0E6";
+
+/** A deterministic pseudo-jitter in [-0.5, 0.5] from a tip id + replicate index,
+ *  so a re-render is stable (no Math.random churn in the SVG). */
+function jitterFrac(seed: number, i: number): number {
+  const x = Math.sin(seed * 12.9898 + i * 78.233) * 43758.5453;
+  return (x - Math.floor(x)) - 0.5;
+}
+
+function renderScatter(
+  panel: AlignedPanel,
+  axis: TipAxis,
+  values: PanelValues,
+): PanelRender {
+  const thick = panelBandThickness(panel);
+  const reps = values.replicates;
+  const dom = sharedDomain(reps);
+  if (!reps || !dom) return { svg: "", thickness: 0 };
+  const { lo, hi } = dom;
+  const span = hi - lo;
+  const frac = (v: number): number => (span > 0 ? (v - lo) / span : 0.5);
+  const jitterOn = panel.options?.jitter !== false;
+
+  const parts: string[] = [];
+  if (axis.layout === "rectangular") {
+    if (axisOn(panel)) parts.push(valueAxis(axis, axis.panelStartX, thick, lo, hi));
+    const jitH = Math.min(axis.bandHeight * 0.34, 7);
+    for (const slot of axis.tips) {
+      const vals = (reps.get(slot.id) ?? []).filter((n) => Number.isFinite(n));
+      vals.forEach((v, i) => {
+        const cx = axis.panelStartX + frac(v) * thick;
+        const cy = slot.y + (jitterOn ? jitterFrac(slot.id, i) * 2 * jitH : 0);
+        parts.push(
+          `<circle cx="${cx}" cy="${cy}" r="1.8" fill="${SCATTER_FILL}" opacity="0.7"/>`,
+        );
+      });
+    }
+  } else {
+    if (axisOn(panel)) parts.push(valueAxis(axis, axis.ringStartR, thick, lo, hi));
+    for (const slot of axis.tips) {
+      const vals = (reps.get(slot.id) ?? []).filter((n) => Number.isFinite(n));
+      vals.forEach((v, i) => {
+        const r = axis.ringStartR + frac(v) * thick;
+        const aw = jitterOn ? jitterFrac(slot.id, i) * axis.halfAngle * 1.4 : 0;
+        const [px, py] = polarPointAng(axis.cx, axis.cy, r, slot.angle + aw);
+        parts.push(
+          `<circle cx="${px}" cy="${py}" r="1.7" fill="${SCATTER_FILL}" opacity="0.7"/>`,
+        );
+      });
     }
   }
   return { svg: parts.join(""), thickness: thick + GAP };

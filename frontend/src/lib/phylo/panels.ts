@@ -126,7 +126,9 @@ export function extractPanelValues(
   metadata: Map<number, Record<string, string>> | undefined,
 ): PanelValues {
   const tips = leaves(root);
-  if (panel.kind === "box") {
+  // The distribution geoms (box / violin / scatter) all read the same per-tip
+  // replicate values from the bound columns[].
+  if (panel.kind === "box" || panel.kind === "violin" || panel.kind === "scatter") {
     const cols = panel.columns ?? (panel.column ? [panel.column] : []);
     const replicates = new Map<number, number[]>();
     for (const tip of tips) {
@@ -139,6 +141,52 @@ export function extractPanelValues(
       if (vals.length > 0) replicates.set(tip.id, vals);
     }
     return { replicates };
+  }
+  // The point (lollipop) geom resolves a per-tip mean + error magnitude. Two
+  // sources, in priority order: a value `column` + an explicit `errorColumn`
+  // (the error read straight from the table), else the replicate `columns[]`
+  // (mean + sd / sem of the replicates). The error kind decides sd vs sem vs
+  // none. Resolved here so the renderer stays pure of the join + the stats.
+  if (panel.kind === "point") {
+    const kind =
+      panel.options?.errorKind === "sem" || panel.options?.errorKind === "none"
+        ? (panel.options.errorKind as "sem" | "none")
+        : "sd";
+    const pointStats = new Map<number, { mean: number; error: number }>();
+    const hasValueCol = !!panel.column;
+    const cols = hasValueCol ? [panel.column as string] : panel.columns ?? [];
+    for (const tip of tips) {
+      const row = metadata?.get(tip.id);
+      if (!row) continue;
+      let m = NaN;
+      let error = 0;
+      if (hasValueCol) {
+        m = Number(row[panel.column as string]);
+        if (!Number.isFinite(m)) continue;
+        if (kind !== "none" && panel.errorColumn) {
+          const e = Number(row[panel.errorColumn]);
+          // An explicit error column carries the chosen magnitude directly, so a
+          // table that already stores SEM is honored as-is (we never re-derive).
+          if (Number.isFinite(e)) error = Math.abs(e);
+        }
+      } else {
+        const vals: number[] = [];
+        for (const c of cols) {
+          const n = Number(row[c]);
+          if (Number.isFinite(n)) vals.push(n);
+        }
+        if (vals.length === 0) continue;
+        m = vals.reduce((s, v) => s + v, 0) / vals.length;
+        if (kind !== "none" && vals.length >= 2) {
+          const sd = Math.sqrt(
+            vals.reduce((s, v) => s + (v - m) * (v - m), 0) / (vals.length - 1),
+          );
+          error = kind === "sem" ? sd / Math.sqrt(vals.length) : sd;
+        }
+      }
+      pointStats.set(tip.id, { mean: m, error });
+    }
+    return { pointStats };
   }
   if (panel.kind === "heat" && panel.columns && panel.columns.length > 0) {
     const matrix = new Map<number, string[]>();
