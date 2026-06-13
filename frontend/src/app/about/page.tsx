@@ -7,6 +7,8 @@ import MarketingNav from "@/components/MarketingNav";
 import MarketingBackdrop from "@/components/marketing/MarketingBackdrop";
 import Reveal from "@/components/marketing/Reveal";
 import Kicker from "@/components/marketing/Kicker";
+import { Icon } from "@/components/icons";
+import type { IconName } from "@/components/icons/registry";
 
 /**
  * Public `/about` company page. The origin story and the "real, accountable
@@ -32,13 +34,28 @@ export const metadata: Metadata = {
     "ResearchOS is an open-source company that grew out of a research fellowship at UW-Madison. It builds free, local-first alternatives to the expensive tools labs depend on, so researchers own their data and can verify the science in public. A registered Wisconsin LLC stands behind it.",
 };
 
-// The founder's path, rendered as the rainbow-connected bubble rail in the hero
-// (replaces the portrait). Each is a true beat from the origin story below.
-const JOURNEY: { label: string; sub: string }[] = [
-  { label: "Swim lessons", sub: "A business I co-ran with my mom" },
-  { label: "Iowa State", sub: "B.S. in genetics" },
-  { label: "UW-Madison", sub: "PhD mining fungal genomes" },
-  { label: "UW Fellow", sub: "Distinguished Research Fellowship" },
+// The founder's path, rendered as a rainbow-connected rail beside the story.
+// Each is a true beat from the origin story below. The mark is the school
+// monogram (ISU / UW) for the academic stops and a registry glyph for the
+// bookends, in the schools' own colors. These are plain letter marks, not the
+// trademarked logos (no ISU asset exists and the official UW crest display is
+// pending OVCR sign-off), so they are safe to ship.
+type JourneyStep = {
+  label: string;
+  sub: string;
+  /** Monogram text, e.g. "ISU". Mutually exclusive with icon. */
+  mono?: string;
+  /** Registry glyph name, e.g. "dropletLow". Mutually exclusive with mono. */
+  icon?: IconName;
+  /** Chip background + foreground (school colors; off-brand on purpose). */
+  bg: string;
+  fg: string;
+};
+const JOURNEY: JourneyStep[] = [
+  { label: "Swim lessons", sub: "A business I co-ran with my mom", icon: "dropletLow", bg: "#0EA5E9", fg: "#FFFFFF" },
+  { label: "Iowa State", sub: "B.S. in genetics", mono: "ISU", bg: "#C8102E", fg: "#F1BE48" },
+  { label: "UW-Madison", sub: "PhD mining fungal genomes", mono: "UW", bg: "#C5050C", fg: "#FFFFFF" },
+  { label: "UW Fellow", sub: "Distinguished Research Fellowship", mono: "UW", bg: "#C5050C", fg: "#FFFFFF" },
 ];
 
 const ONWARD: { href: string; title: string; sub: string; external?: boolean }[] = [
@@ -57,69 +74,38 @@ export default function AboutPage() {
       {/* ── Hero ──────────────────────────────────────────────────────── */}
       <header className="relative isolate overflow-hidden border-b border-border">
         <MarketingBackdrop tone="soft" />
-        <Reveal className="relative z-10 mx-auto grid w-full max-w-[1120px] items-center gap-10 px-6 py-16 md:grid-cols-[1.25fr_0.75fr]">
-          <div>
+        <Reveal className="relative z-10 mx-auto w-full max-w-[860px] px-6 py-16 text-center">
+          <div className="flex justify-center">
             <Kicker>about ResearchOS</Kicker>
-            <h1 className="mt-4 max-w-[18ch] text-display font-extrabold leading-[1.08] tracking-tight text-brand-ink dark:text-foreground sm:text-5xl">
-              Research software should be accessible and{" "}
-              <span
-                style={{
-                  background: RAINBOW_TEXT,
-                  WebkitBackgroundClip: "text",
-                  backgroundClip: "text",
-                  color: "transparent",
-                }}
-              >
-                better
-              </span>
-              , not expensive and locked
-            </h1>
-            <p className="mt-5 max-w-[52ch] text-title leading-relaxed text-foreground-muted">
-              ResearchOS grew out of a research fellowship at UW-Madison. The
-              tools labs depend on are overpriced and hold your data hostage in
-              someone else&apos;s cloud. We build free, open, local-first
-              alternatives, and the goal is not just cheaper, it is better.
-            </p>
           </div>
-          {/* Founder journey, a rainbow-connected bubble rail (replaces the
-              portrait). Pure divs + brand tokens, no inline SVG, so it themes
-              with the rest and clears the icon guard. */}
-          <div className="mx-auto w-full max-w-[330px]">
-            <p className="mb-5 text-meta font-semibold text-foreground-muted">
-              From the pool deck to a research fellowship
-            </p>
-            <ol className="relative space-y-4">
-              {/* The connecting rainbow line, behind the bubbles. */}
-              <span
-                aria-hidden
-                className="absolute left-[19px] top-5 bottom-5 w-[2px] rounded-full bg-gradient-to-b from-brand-action via-brand-purple to-brand-action opacity-60"
-              />
-              {JOURNEY.map((step, i) => (
-                <li key={step.label} className="relative flex items-center gap-4">
-                  <span className="brand-rainbow-bg relative z-10 grid h-10 w-10 shrink-0 place-items-center rounded-full p-[2.5px] shadow-[0_10px_24px_-12px_rgba(15,40,80,0.6)]">
-                    <span className="grid h-full w-full place-items-center rounded-full bg-surface-raised text-body font-extrabold text-foreground">
-                      {i + 1}
-                    </span>
-                  </span>
-                  <span className="flex-1 rounded-xl border border-border bg-surface-raised px-4 py-2.5 transition-transform duration-200 hover:-translate-y-0.5 hover:border-brand-action/40">
-                    <span className="block text-body font-extrabold text-foreground">
-                      {step.label}
-                    </span>
-                    <span className="block text-[11.5px] leading-snug text-foreground-muted">
-                      {step.sub}
-                    </span>
-                  </span>
-                </li>
-              ))}
-            </ol>
-          </div>
+          <h1 className="mx-auto mt-4 max-w-[22ch] text-display font-extrabold leading-[1.08] tracking-tight text-brand-ink dark:text-foreground sm:text-5xl">
+            Research software should be accessible and{" "}
+            <span
+              style={{
+                background: RAINBOW_TEXT,
+                WebkitBackgroundClip: "text",
+                backgroundClip: "text",
+                color: "transparent",
+              }}
+            >
+              better
+            </span>
+            , not expensive and locked
+          </h1>
+          <p className="mx-auto mt-5 max-w-[58ch] text-title leading-relaxed text-foreground-muted">
+            ResearchOS grew out of a research fellowship at UW-Madison. The
+            tools labs depend on are overpriced and hold your data hostage in
+            someone else&apos;s cloud. We build free, open, local-first
+            alternatives, and the goal is not just cheaper, it is better.
+          </p>
         </Reveal>
       </header>
 
       <main className="flex-1">
         {/* ── The story (human anchor) ────────────────────────────────── */}
         <section className="border-b border-border">
-          <Reveal className="mx-auto w-full max-w-[1120px] px-6 py-14">
+          <Reveal className="mx-auto grid w-full max-w-[1120px] gap-10 px-6 py-14 md:grid-cols-[1.5fr_0.85fr] md:items-start">
+            <div>
             <Kicker>the story</Kicker>
             <h2 className="mt-3 max-w-[24ch] text-heading font-extrabold tracking-tight text-foreground">
               Why one researcher built this
@@ -156,6 +142,44 @@ export default function AboutPage() {
                   Dr. Grant Nickles, founder
                 </p>
               </div>
+            </div>
+            </div>
+            {/* Founder journey, a rainbow-connected rail of school monogram
+                chips. Marks are plain letter monograms (ISU / UW) + a registry
+                glyph, in school colors, not the trademarked logos. */}
+            <div className="md:pt-1">
+              <p className="mb-5 text-meta font-semibold text-foreground-muted">
+                From the pool deck to a research fellowship
+              </p>
+              <ol className="relative space-y-4">
+                {/* The connecting rainbow line, behind the chips. */}
+                <span
+                  aria-hidden
+                  className="absolute left-[21px] top-6 bottom-6 w-[2px] rounded-full bg-gradient-to-b from-brand-action via-brand-purple to-brand-action opacity-60"
+                />
+                {JOURNEY.map((step) => (
+                  <li key={step.label} className="relative flex items-center gap-4">
+                    <span
+                      className="relative z-10 grid h-11 w-11 shrink-0 place-items-center rounded-xl text-[12px] font-extrabold tracking-tight shadow-[0_10px_24px_-14px_rgba(15,40,80,0.7)]"
+                      style={{ background: step.bg, color: step.fg }}
+                    >
+                      {step.mono ? (
+                        step.mono
+                      ) : (
+                        <Icon name={step.icon ?? "more"} className="h-5 w-5" />
+                      )}
+                    </span>
+                    <span className="flex-1 rounded-xl border border-border bg-surface-raised px-4 py-2.5 transition-transform duration-200 hover:-translate-y-0.5 hover:border-brand-action/40">
+                      <span className="block text-body font-extrabold text-foreground">
+                        {step.label}
+                      </span>
+                      <span className="block text-[11.5px] leading-snug text-foreground-muted">
+                        {step.sub}
+                      </span>
+                    </span>
+                  </li>
+                ))}
+              </ol>
             </div>
           </Reveal>
         </section>
