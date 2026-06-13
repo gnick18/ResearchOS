@@ -80,6 +80,8 @@ export default function FolderConnectGate({
   const {
     connect,
     connectWithHandle,
+    reconnectWithStoredHandle,
+    lastConnectedFolder,
     disconnect,
     isLoading,
     error,
@@ -126,6 +128,17 @@ export default function FolderConnectGate({
     if (!ok && !systemFolderHintDismissed) {
       setShowSystemFolderHint(true);
     }
+  };
+
+  // One-click reconnect to the last folder. Chrome drops the readwrite grant on
+  // a page reload (it reverts to "prompt"), so the silent queryPermission path
+  // in FileSystemProvider.initialize cannot re-attach and the gate falls back to
+  // here. This button re-permissions the STORED handle with a single user
+  // gesture (requestPermission needs a gesture, which the click supplies) so the
+  // user reconnects their remembered folder without re-picking it from the OS
+  // picker. Falls through to the normal browse path on any failure.
+  const handleReconnect = async () => {
+    await reconnectWithStoredHandle();
   };
 
   const handleDragEnter = (e: React.DragEvent<HTMLDivElement>) => {
@@ -313,6 +326,42 @@ export default function FolderConnectGate({
             Take the 3-minute walkthrough
           </button>
         </div>
+
+        {/* One-click reconnect to the remembered folder. Shown when a previous
+            folder is on record (e.g. after a reload, where Chrome drops the
+            readwrite grant so the silent reconnect cannot re-attach). The click
+            is a user gesture, which is what requestPermission needs, so this
+            re-permissions the stored handle without the OS picker. The
+            drag/browse card below stays as the path to a different folder. */}
+        {lastConnectedFolder && (
+          <div className="max-w-xl mx-auto mb-5">
+            <div className="rounded-2xl border border-blue-400/40 bg-blue-500/10 dark:bg-blue-500/15 px-5 py-4 text-center">
+              <p className="text-body text-foreground">
+                You were last connected to{" "}
+                <span className="font-semibold">{lastConnectedFolder}</span>.
+              </p>
+              <button
+                onClick={handleReconnect}
+                disabled={isLoading}
+                data-testid="gate-reconnect-folder"
+                className="mt-3 inline-flex items-center justify-center gap-2 rounded-lg btn-brand px-5 py-2.5 text-body font-semibold text-white transition-all disabled:opacity-50"
+              >
+                {isLoading ? (
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white" />
+                ) : (
+                  <>
+                    <Icon name="folder" className="h-4 w-4" />
+                    Reconnect {lastConnectedFolder}
+                  </>
+                )}
+              </button>
+              <p className="mt-2 text-meta text-foreground-muted">
+                Chrome asks you to allow access again after a reload. No need to
+                find the folder, just choose Allow.
+              </p>
+            </div>
+          </div>
+        )}
 
         <div className="max-w-xl mx-auto">
           <div

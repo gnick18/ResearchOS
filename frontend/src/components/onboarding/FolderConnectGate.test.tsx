@@ -17,12 +17,14 @@ const mocks = vi.hoisted(() => {
   return {
     connect: vi.fn().mockResolvedValue(true),
     connectWithHandle: vi.fn().mockResolvedValue(true),
+    reconnectWithStoredHandle: vi.fn().mockResolvedValue(true),
     initializeFolder: vi.fn().mockResolvedValue(true),
   };
 });
 
 const fsState = vi.hoisted(() => ({
   needsInitialization: false as boolean,
+  lastConnectedFolder: null as string | null,
 }));
 
 vi.mock("@/lib/file-system/file-system-context", () => ({
@@ -32,6 +34,7 @@ vi.mock("@/lib/file-system/file-system-context", () => ({
     isLoading: false,
     error: null,
     needsInitialization: fsState.needsInitialization,
+    lastConnectedFolder: fsState.lastConnectedFolder,
     directoryName: "test-folder",
   }),
 }));
@@ -68,7 +71,10 @@ beforeEach(() => {
   mocks.connect.mockClear();
   mocks.connect.mockResolvedValue(true);
   mocks.connectWithHandle.mockClear();
+  mocks.reconnectWithStoredHandle.mockClear();
+  mocks.reconnectWithStoredHandle.mockResolvedValue(true);
   fsState.needsInitialization = false;
+  fsState.lastConnectedFolder = null;
 });
 
 function makeDataTransfer(
@@ -303,6 +309,35 @@ describe("FolderConnectGate initialize-empty-folder surface", () => {
       screen.getByRole("button", { name: /Initialize Folder/i }),
     );
     expect(mocks.initializeFolder).toHaveBeenCalledTimes(1);
+  });
+});
+
+// Reload drops Chrome's readwrite grant, so the silent reconnect in
+// FileSystemProvider.initialize cannot re-attach and the user lands on this
+// gate. When a previous folder is on record we offer a one-click reconnect that
+// re-permissions the STORED handle (requestPermission, which the click gesture
+// supplies) instead of forcing a fresh OS-picker pick.
+describe("FolderConnectGate reconnect quick action", () => {
+  it("does not render the reconnect card when no folder is remembered", () => {
+    fsState.lastConnectedFolder = null;
+    renderGate();
+    expect(screen.queryByTestId("gate-reconnect-folder")).toBeNull();
+  });
+
+  it("renders a Reconnect button naming the remembered folder", () => {
+    fsState.lastConnectedFolder = "smithlab-data";
+    renderGate();
+    const btn = screen.getByTestId("gate-reconnect-folder");
+    expect(btn.textContent).toContain("Reconnect smithlab-data");
+  });
+
+  it("calls reconnectWithStoredHandle when the Reconnect button is clicked", () => {
+    fsState.lastConnectedFolder = "smithlab-data";
+    renderGate();
+    fireEvent.click(screen.getByTestId("gate-reconnect-folder"));
+    expect(mocks.reconnectWithStoredHandle).toHaveBeenCalledTimes(1);
+    // The browse-for-a-folder fallback stays available alongside it.
+    expect(mocks.connect).not.toHaveBeenCalled();
   });
 });
 
