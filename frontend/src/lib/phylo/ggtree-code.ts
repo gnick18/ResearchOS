@@ -244,7 +244,11 @@ function generateFromPanels(spec: RenderSpec, panels: AlignedPanel[]): string {
               typeof c.node === "number"
                 ? String(c.node)
                 : `MRCA(tree, c(${(c.tips ?? []).map((t) => rstr(t)).join(", ")}))`;
-            if (c.style === "label") {
+            if (c.collapsed) {
+              lines.push(
+                `p <- collapse(p, node = ${node}, mode = "max", fill = ${rstr(c.color || "#1AA0E6")})${c.label ? `   # ${c.label}` : ""}`,
+              );
+            } else if (c.style === "label") {
               lines.push(
                 `p <- p + geom_cladelab(node = ${node}, label = ${rstr(c.label || "")}, barcolour = ${rstr(c.color || "#1AA0E6")})`,
               );

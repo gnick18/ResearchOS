@@ -33,6 +33,7 @@ import {
   rectTipAxis,
   circularTipAxis,
   mrca,
+  collapseClade,
   type TipAxis,
 } from "./layout";
 import {
@@ -338,11 +339,15 @@ function alignedRoom(panels: AlignedPanel[]): number {
 const PANEL_GAP = 8;
 
 function renderFromPanels(
-  root: TreeNode,
+  rootRaw: TreeNode,
   spec: RenderSpec,
   panels: AlignedPanel[],
 ): string {
   const meta = spec.metadata;
+  // Collapse any clade marked collapsed to a single leaf before layout; the rest
+  // of the render then treats the collapsed tree as the tree, and the draw fns
+  // paint a triangle where each collapsed clade was.
+  const { root, collapsed } = applyCollapses(rootRaw, panels);
   const aligned = panels.filter(
     (p) => p.visible && ALIGNED_KINDS.has(p.kind),
   );
@@ -399,12 +404,12 @@ function renderFromPanels(
 
   if (spec.layout === "circular") {
     const layout = layoutCircular(root, opts);
-    drawCircularTree(parts, root, layout, spec, panels);
+    drawCircularTree(parts, root, layout, spec, panels, collapsed);
     axis = circularTipAxis(root, layout, layout.radius + 6);
     panelStart = axis.ringStartR;
   } else {
     const layout = layoutRectangular(root, opts);
-    const plotRight = drawRectTree(parts, root, layout, spec, panels);
+    const plotRight = drawRectTree(parts, root, layout, spec, panels, collapsed);
     axis = rectTipAxis(root, layout, plotRight + 8);
     panelStart = axis.panelStartX;
   }
@@ -510,6 +515,7 @@ function drawRectTree(
   layout: RectLayout,
   spec: RenderSpec,
   panels: AlignedPanel[],
+  collapsed: Map<number, CollapsedNode> = new Map(),
 ): number {
   const byId = new Map(layout.nodes.map((p) => [p.node.id, p]));
   const plotRight = Math.max(...layout.nodes.map((p) => p.x));
@@ -569,12 +575,17 @@ function drawRectTree(
           })
         : null;
     for (const tip of leaves(root)) {
+      if (collapsed.has(tip.id)) continue; // a collapsed clade shows a triangle
       const p = byId.get(tip.id)!;
       const fill = scale
         ? scale.colorFor(spec.metadata?.get(tip.id)?.[pointsPanel.column ?? ""])
         : MUTED;
       parts.push(`<circle cx="${p.x + 6}" cy="${p.y}" r="4" fill="${fill}"/>`);
     }
+  }
+  for (const [id, info] of collapsed) {
+    const ln = byId.get(id);
+    if (ln) parts.push(collapsedTriangleRect(ln.x, ln.y, info));
   }
   if (spec.phylogram && layout.unitsPerPx) {
     const tick = niceTick(layout.maxDepth);
@@ -596,7 +607,27 @@ function drawCircularTree(
   layout: CircularLayout,
   spec: RenderSpec,
   panels: AlignedPanel[],
+  collapsed: Map<number, CollapsedNode> = new Map(),
 ): void {
+  // Collapsed clades render as wedge triangles fanning out from the node.
+  if (collapsed.size > 0) {
+    const byId = new Map(layout.nodes.map((p) => [p.node.id, p]));
+    for (const [id, info] of collapsed) {
+      const ln = byId.get(id);
+      if (!ln) continue;
+      const r1 = ln.radius + 22;
+      const dA = Math.min(0.14, 0.03 + info.tipCount * 0.004);
+      const pt = (a: number): [number, number] => [
+        layout.cx + r1 * Math.cos(a - Math.PI / 2),
+        layout.cy + r1 * Math.sin(a - Math.PI / 2),
+      ];
+      const [b0x, b0y] = pt(ln.angle - dA);
+      const [b1x, b1y] = pt(ln.angle + dA);
+      parts.push(
+        `<path d="M${ln.x.toFixed(1)} ${ln.y.toFixed(1)} L${b0x.toFixed(1)} ${b0y.toFixed(1)} L${b1x.toFixed(1)} ${b1y.toFixed(1)} Z" fill="${info.color}" opacity="0.45" stroke="${info.color}" stroke-width="0.6"/>`,
+      );
+    }
+  }
   // Clade highlights as annulus bands, drawn under the spine. Circular clade
   // highlighting was deferred in Phase 1; it lands here with the multi-clade /
   // MRCA model so a named clade highlights in either layout.
@@ -671,6 +702,7 @@ function drawCircularTree(
           })
         : null;
     for (const tip of leaves(root)) {
+      if (collapsed.has(tip.id)) continue; // a collapsed clade shows a wedge
       const p = byId.get(tip.id)!;
       const fill = scale
         ? scale.colorFor(spec.metadata?.get(tip.id)?.[pointsPanel.column ?? ""])
@@ -960,6 +992,7 @@ function resolveCladeHighlights(
   if (clades && clades.length > 0) {
     const out: ResolvedClade[] = [];
     for (const c of clades) {
+      if (c.collapsed) continue; // collapsed clades render as triangles, not bands
       const nodeId =
         typeof c.node === "number" ? c.node : mrca(root, c.tips ?? []);
       if (nodeId == null) continue;
@@ -1005,6 +1038,74 @@ function arcBand(
   const [ix1, iy1] = pt(r0, a1);
   const [ix0, iy0] = pt(r0, a0);
   return `<path d="M${ox0.toFixed(1)} ${oy0.toFixed(1)} A ${r1.toFixed(1)} ${r1.toFixed(1)} 0 ${large} 1 ${ox1.toFixed(1)} ${oy1.toFixed(1)} L ${ix1.toFixed(1)} ${iy1.toFixed(1)} A ${r0.toFixed(1)} ${r0.toFixed(1)} 0 ${large} 0 ${ix0.toFixed(1)} ${iy0.toFixed(1)} Z" fill="${fill}" opacity="0.12"/>`;
+}
+
+/** Per-collapsed-node draw info (the triangle's color + the subtree size). */
+interface CollapsedNode {
+  color: string;
+  tipCount: number;
+}
+
+function findNodeById(n: TreeNode, id: number): TreeNode | null {
+  if (n.id === id) return n;
+  for (const c of n.children) {
+    const r = findNodeById(c, id);
+    if (r) return r;
+  }
+  return null;
+}
+
+/** Rename one node (immutable clone) so a collapsed clade's leaf shows the
+ *  annotation label rather than its raw internal name / support value. */
+function renameNode(n: TreeNode, id: number, name: string): TreeNode {
+  if (n.id === id) return { ...n, name };
+  return { ...n, children: n.children.map((c) => renameNode(c, id, name)) };
+}
+
+/**
+ * Collapse any clade marked `collapsed` in the clade layer to a single leaf (the
+ * existing collapseClade primitive), keeping the node id so the renderer can draw
+ * a triangle in its place. The clade is resolved on the ORIGINAL tree (by MRCA of
+ * its tip names) before the tree is reshaped. Returns the reshaped tree plus a
+ * map of collapsed node id -> draw info.
+ */
+function applyCollapses(
+  root: TreeNode,
+  panels: AlignedPanel[],
+): { root: TreeNode; collapsed: Map<number, CollapsedNode> } {
+  const cladePanel = panels.find((p) => p.visible && p.kind === "clade");
+  const clades =
+    (cladePanel?.options?.clades as CladeAnnotation[] | undefined) ?? [];
+  const toCollapse = clades.filter((c) => c.collapsed);
+  if (toCollapse.length === 0) return { root, collapsed: new Map() };
+  const collapsed = new Map<number, CollapsedNode>();
+  let acc = root;
+  for (const c of toCollapse) {
+    const nodeId =
+      typeof c.node === "number" ? c.node : mrca(root, c.tips ?? []);
+    if (nodeId == null) continue;
+    const sub = findNodeById(root, nodeId);
+    if (!sub || sub.children.length === 0) continue;
+    collapsed.set(nodeId, {
+      color: c.color || "#1AA0E6",
+      tipCount: leaves(sub).length,
+    });
+    acc = collapseClade(acc, nodeId);
+    if (c.label) acc = renameNode(acc, nodeId, c.label);
+  }
+  return { root: acc, collapsed };
+}
+
+/** A collapsed-clade triangle (rectangular): apex at the node, fanning out by a
+ *  fixed depth, its base height scaled to the collapsed tip count. */
+function collapsedTriangleRect(
+  x: number,
+  y: number,
+  info: CollapsedNode,
+): string {
+  const W = 24;
+  const H = Math.min(30, 8 + Math.sqrt(info.tipCount) * 4);
+  return `<path d="M${x.toFixed(1)} ${y.toFixed(1)} L${(x + W).toFixed(1)} ${(y - H / 2).toFixed(1)} L${(x + W).toFixed(1)} ${(y + H / 2).toFixed(1)} Z" fill="${info.color}" opacity="0.45" stroke="${info.color}" stroke-width="0.6"/>`;
 }
 
 // ---------------------------------------------------------------------------

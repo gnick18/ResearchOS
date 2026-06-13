@@ -705,6 +705,12 @@ function CladeInspector({
               <option value="label">Bracket</option>
             </select>
           </div>
+          <Field label="Collapse to triangle">
+            <ToggleInput
+              on={!!c.collapsed}
+              onClick={() => patchClade(c.id, { collapsed: !c.collapsed })}
+            />
+          </Field>
           <MultiColumnField
             columns={tipNames}
             selected={c.tips ?? []}

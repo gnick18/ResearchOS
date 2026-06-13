@@ -440,6 +440,25 @@ describe("multi-clade highlights by MRCA (Wave 2: geom_hilight)", () => {
     expect(svg).toContain('stroke="#ff0000" stroke-width="1.5"'); // the bracket
     expect(svg).toContain("AB");
   });
+
+  it("collapse: replaces a clade subtree with a triangle (fewer branches)", () => {
+    const branches = (s: string) => (s.match(/<path d="M[^"]*V/g) || []).length;
+    const open = renderTreeSvg(
+      TREE,
+      cladeSpec("rectangular", [
+        { id: "a", tips: ["A", "B"], color: "#ff0000", label: "AB" },
+      ]),
+    );
+    const collapsed = renderTreeSvg(
+      TREE,
+      cladeSpec("rectangular", [
+        { id: "a", tips: ["A", "B"], color: "#ff0000", label: "AB", collapsed: true },
+      ]),
+    );
+    // (A,B) is folded to one leaf, so its sub-branches are gone.
+    expect(branches(collapsed)).toBeLessThan(branches(open));
+    expect(collapsed).toContain('opacity="0.45"'); // the triangle
+  });
 });
 
 describe("template-apply idempotence (flicker fix)", () => {
