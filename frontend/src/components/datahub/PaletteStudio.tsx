@@ -99,7 +99,7 @@ function NameInput({
         <button
           type="button"
           onClick={onConfirm}
-          className="flex h-6 w-6 items-center justify-center rounded-md border border-accent bg-accent text-white transition-colors hover:opacity-90"
+          className="flex h-6 w-6 items-center justify-center rounded-md border border-brand-action bg-brand-action text-white transition-colors hover:opacity-90"
           aria-label={confirmLabel}
         >
           <Icon name="check" className="h-3 w-3" />
@@ -380,7 +380,7 @@ export default function PaletteStudio({
   // are naming. Rendered in both the compact dock and the full modal.
   const saveNameBody = pendingSave ? (
     <div
-      className="mb-2 rounded-md border border-accent bg-accent-soft p-2"
+      className="mb-2 rounded-md border border-brand-action bg-brand-action-soft p-2"
       data-testid="palette-save-name"
     >
       <p className="mb-1.5 text-[10px] font-semibold text-foreground-muted">
@@ -462,7 +462,7 @@ export default function PaletteStudio({
               onClick={() => setPrintOnly((v) => !v)}
               className={`rounded-md border px-2 py-1 text-[10px] font-semibold transition-colors ${
                 printOnly
-                  ? "border-accent bg-accent text-white"
+                  ? "border-brand-action bg-brand-action text-white"
                   : "border-border bg-surface-raised text-foreground-muted hover:bg-surface-sunken"
               }`}
             >
@@ -701,7 +701,7 @@ export default function PaletteStudio({
             <button
               type="button"
               onClick={applyGenerated}
-              className="rounded-md border border-accent bg-accent px-2 py-1 text-[11px] font-medium text-white transition-colors hover:opacity-90"
+              className="rounded-md border border-brand-action bg-brand-action px-2 py-1 text-[11px] font-medium text-white transition-colors hover:opacity-90"
             >
               Apply to figure
             </button>

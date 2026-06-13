@@ -9,7 +9,7 @@
 //
 // The toolbar is generic. It takes an array of GROUPS, each a list of buttons,
 // and renders the groups left to right with a thin vertical divider between them.
-// A button can be primary (accent btn-brand styling), disabled, or icon-only (it
+// A button can be primary (accent bg-brand-action text-white transition-colors hover:bg-brand-action/90 styling), disabled, or icon-only (it
 // gets a Tooltip so the action is still legible). Every button can carry a
 // tooltip; icon-only buttons require one so they are never a mystery glyph.
 //
@@ -43,7 +43,7 @@ function ToolbarAction({ btn }: { btn: ToolbarButton }) {
   const base =
     "flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-meta font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-40";
   const tone = btn.primary
-    ? "btn-brand"
+    ? "bg-brand-action text-white transition-colors hover:bg-brand-action/90"
     : btn.danger
       ? "border border-border bg-surface-raised text-rose-700 dark:text-rose-300 hover:bg-rose-50 dark:hover:bg-rose-500/10"
       : "border border-border bg-surface-raised text-foreground hover:bg-surface-sunken";

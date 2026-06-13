@@ -303,7 +303,7 @@ export default function PlotColorEditor({
                 onSaveColorsAsPalette?.(popover.name.trim() || "My palette");
                 setPopover(null);
               }}
-              className="flex h-6 w-6 items-center justify-center rounded-md border border-accent bg-accent text-white transition-colors hover:opacity-90"
+              className="flex h-6 w-6 items-center justify-center rounded-md border border-brand-action bg-brand-action text-white transition-colors hover:opacity-90"
               aria-label="Save palette"
             >
               <Icon name="check" className="h-3 w-3" />

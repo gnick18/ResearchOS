@@ -18,7 +18,7 @@
 // workbook brings in its numbers and the user re-creates the graph in Data Hub.
 //
 // House style: a popup reads as a contained surface (bg-surface-overlay + border),
-// the primary CTA uses .btn-brand, <Icon> only, no emojis / em-dashes /
+// the primary CTA uses .bg-brand-action text-white transition-colors hover:bg-brand-action/90, <Icon> only, no emojis / em-dashes /
 // mid-sentence colons.
 
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -455,7 +455,7 @@ export default function ImportTableDialog({
             type="button"
             onClick={submit}
             disabled={!canSubmit}
-            className="btn-brand rounded-md px-3 py-1.5 text-body font-medium disabled:opacity-50"
+            className="bg-brand-action text-white transition-colors hover:bg-brand-action/90 rounded-md px-3 py-1.5 text-body font-medium disabled:opacity-50"
             data-testid="datahub-import-create"
           >
             Create table

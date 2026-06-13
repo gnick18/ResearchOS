@@ -38,27 +38,20 @@ import {
   defaultConversationTitle,
 } from "@/lib/ai/conversation-to-markdown";
 import ExportConversationPicker from "@/components/references/ExportConversationPicker";
-import BeakerChatHistoryPanel from "@/components/ai/BeakerChatHistoryPanel";
 
 export default function BeakerSearchAskHeader({
   onBack,
-  onNewChat,
 }: {
   onBack: () => void;
-  onNewChat: () => void;
 }) {
   const reviewMode = useBeakerBotReviewMode((s) => s.mode);
   const toggleReviewMode = useBeakerBotReviewMode((s) => s.toggle);
 
   // The transcript has nothing to save until there is at least one message. We
   // read the count reactively so the Save-to control enables as soon as the
-  // first turn lands.
+  // first turn lands. Which chat is open + past chats now live in the left rail
+  // (BeakerChatRail), so the header no longer carries a title or a history clock.
   const messageCount = useConversationStore((s) => s.messages.length);
-  // The title of the open thread, mirrored into reactive state by the store so
-  // the header can show which chat the user is in.
-  const currentTitle = useConversationStore((s) => s.currentTitle);
-  // Whether the past-chats panel is open. It replaces the header row in place.
-  const [historyOpen, setHistoryOpen] = useState(false);
   // Export picker state. payload is captured at click time so the picker pushes
   // a stable snapshot even if the conversation keeps streaming behind it.
   const [exportPayload, setExportPayload] = useState<{
@@ -102,11 +95,7 @@ export default function BeakerSearchAskHeader({
           {toast.message}
         </div>
       ) : null}
-      {historyOpen ? (
-        <BeakerChatHistoryPanel onClose={() => setHistoryOpen(false)} />
-      ) : (
-        renderHeader()
-      )}
+      {renderHeader()}
     </>
   );
 
@@ -144,15 +133,6 @@ export default function BeakerSearchAskHeader({
             AI
           </span>
         </span>
-        {currentTitle ? (
-          <span
-            data-testid="beakersearch-current-title"
-            className="min-w-0 truncate text-meta text-foreground-muted"
-            title={currentTitle}
-          >
-            {currentTitle}
-          </span>
-        ) : null}
       </span>
 
       {/* Save the conversation to a note or experiment */}
@@ -173,32 +153,6 @@ export default function BeakerSearchAskHeader({
           className="flex h-7 w-7 flex-none items-center justify-center rounded-md border border-transparent text-foreground-muted hover:border-border hover:bg-surface-sunken hover:text-foreground disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:border-transparent disabled:hover:bg-transparent"
         >
           <Icon name="export" className="h-4 w-4" title="Save to" />
-        </button>
-      </Tooltip>
-
-      {/* Past chats. Opens the History panel in place of this header row. */}
-      <Tooltip label="Past chats" placement="bottom">
-        <button
-          type="button"
-          data-testid="beakersearch-history"
-          aria-label="Past chats"
-          onClick={() => setHistoryOpen(true)}
-          className="flex h-7 w-7 flex-none items-center justify-center rounded-md border border-transparent text-foreground-muted hover:border-border hover:bg-surface-sunken hover:text-foreground"
-        >
-          <Icon name="history" className="h-4 w-4" title="History" />
-        </button>
-      </Tooltip>
-
-      {/* New chat */}
-      <Tooltip label="New chat" placement="bottom">
-        <button
-          type="button"
-          data-testid="beakersearch-new-chat"
-          aria-label="Start a new chat"
-          onClick={onNewChat}
-          className="flex h-7 w-7 flex-none items-center justify-center rounded-md border border-transparent text-foreground-muted hover:border-border hover:bg-surface-sunken hover:text-foreground"
-        >
-          <Icon name="plus" className="h-4 w-4" title="New chat" />
         </button>
       </Tooltip>
 

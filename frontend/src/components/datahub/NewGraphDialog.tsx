@@ -12,7 +12,7 @@
 // surface reads as "more coming" without being clickable.
 //
 // House style: a popup reads as a contained surface (bg-surface-overlay + border),
-// the primary CTA uses .btn-brand, <Icon> only, no emojis / em-dashes /
+// the primary CTA uses .bg-brand-action text-white transition-colors hover:bg-brand-action/90, <Icon> only, no emojis / em-dashes /
 // mid-sentence colons.
 
 import { useEffect, useMemo, useState } from "react";
@@ -534,7 +534,7 @@ export default function NewGraphDialog({
             type="button"
             onClick={submit}
             disabled={!canSubmit}
-            className="btn-brand rounded-md px-3 py-1.5 text-body font-medium disabled:opacity-50"
+            className="bg-brand-action text-white transition-colors hover:bg-brand-action/90 rounded-md px-3 py-1.5 text-body font-medium disabled:opacity-50"
           >
             Create graph
           </button>

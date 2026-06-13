@@ -49,15 +49,19 @@ const chemistry: DemoStep[] = [
   // Beat 2: glide over the computed properties (cLogP, TPSA, Lipinski).
   { action: "moveTo", target: { testid: "mol-detail-props" }, durationMs: 900 },
   { action: "wait", ms: 1200 },
-  // Beat 3: structure search — find caffeine by its purine scaffold (local RDKit,
-  // no network). "Search by structure" toggle is an exact-text button.
+  // Beat 3: substructure search of the local library (local RDKit, no network).
+  // Query a benzene ring; it matches Resveratrol in the demo library. NOTE: do
+  // NOT query an aromatic purine for caffeine here -- caffeine is a xanthine
+  // (its six-membered ring carbons are carbonyls, not aromatic), so a fully
+  // aromatic purine substructure correctly matches nothing. "Search by
+  // structure" toggle is an exact-text button.
   { action: "click", target: { textContains: "Search by structure" }, durationMs: 750 },
   { action: "wait", ms: 400 },
   {
     action: "type",
     target: { testid: "chem-structure-query-input" },
-    text: "cn1cnc2c1ncnc2",
-    cadenceMs: 80,
+    text: "c1ccccc1",
+    cadenceMs: 90,
     clear: true,
   },
   { action: "wait", ms: 1400 },

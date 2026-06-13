@@ -7,7 +7,7 @@
 // disabled so the surface reads as "more coming" without being clickable.
 //
 // House style: a popup reads as a contained surface (bg-surface-overlay + border),
-// the primary CTA uses .btn-brand, no emojis / em-dashes / mid-sentence colons.
+// the primary CTA uses .bg-brand-action text-white transition-colors hover:bg-brand-action/90, no emojis / em-dashes / mid-sentence colons.
 
 import { useEffect, useState } from "react";
 import type { Project } from "@/lib/types";
@@ -193,7 +193,7 @@ export default function NewTableDialog({
             type="button"
             onClick={submit}
             disabled={!canSubmit}
-            className="btn-brand rounded-md px-3 py-1.5 text-body font-medium disabled:opacity-50"
+            className="bg-brand-action text-white transition-colors hover:bg-brand-action/90 rounded-md px-3 py-1.5 text-body font-medium disabled:opacity-50"
           >
             Create table
           </button>

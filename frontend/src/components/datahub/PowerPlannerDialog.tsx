@@ -15,7 +15,7 @@
 // stated in plain language so the design decision is legible at a glance.
 //
 // House style: a popup reads as a contained surface (bg-surface-overlay + border),
-// the primary CTA uses .btn-brand, <Icon> only, no emojis / em-dashes /
+// the primary CTA uses .bg-brand-action text-white transition-colors hover:bg-brand-action/90, <Icon> only, no emojis / em-dashes /
 // mid-sentence colons.
 
 import { useEffect, useMemo, useState } from "react";
@@ -394,7 +394,7 @@ export default function PowerPlannerDialog({
           <button
             type="button"
             onClick={onCancel}
-            className="btn-brand rounded-md px-3 py-1.5 text-body font-medium"
+            className="bg-brand-action text-white transition-colors hover:bg-brand-action/90 rounded-md px-3 py-1.5 text-body font-medium"
           >
             Done
           </button>
