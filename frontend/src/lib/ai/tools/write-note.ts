@@ -260,6 +260,11 @@ export const writeNoteTool: AiTool = {
         content: parsed.content,
         mode: parsed.mode,
         ...(parsed.title ? { title: parsed.title } : {}),
+        // Canvas Save writes the user's edited markdown back into the content
+        // arg execute() reads, so the saved text is what gets written.
+        applyEdit: (a, edited) => {
+          a.content = edited;
+        },
       },
     };
   },

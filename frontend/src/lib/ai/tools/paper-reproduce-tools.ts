@@ -183,6 +183,11 @@ export const draftPaperSummaryTool: AiTool = {
         content,
         mode: "create",
         title,
+        // Canvas Save writes the user's edited markdown back into draftContent,
+        // which execute() reads.
+        applyEdit: (a, edited) => {
+          a.draftContent = edited;
+        },
       },
     };
   },
@@ -326,6 +331,14 @@ export const extractPaperMethodTool: AiTool = {
         content: previewContent,
         mode: "create",
         title: name,
+        // The preview is the FULL body (draft method + appended source passage),
+        // and the user edits all of it in Canvas. execute() normally re-appends
+        // the source passage to draftContent, so for an edited save we stash the
+        // edited full body on a reserved arg and have execute use it verbatim
+        // instead of recomposing (otherwise the source block would double up).
+        applyEdit: (a, edited) => {
+          a.__editedBody = edited;
+        },
       },
     };
   },
@@ -376,8 +389,12 @@ export const extractPaperMethodTool: AiTool = {
     const sourcePath = `methods/${slug}-${timestamp}/method.md`;
 
     // The persisted file includes the verbatim source passage at the end so
-    // the approved artifact always carries its grounding text.
-    const fullBody = rawContent + formatSourcePassage(sourcePassage);
+    // the approved artifact always carries its grounding text. When the user
+    // saved an edited body from Canvas, use that verbatim (it already contains
+    // the source passage block the preview showed), so we do not re-append it.
+    const editedBody =
+      typeof args.__editedBody === "string" ? args.__editedBody.trim() : "";
+    const fullBody = editedBody || rawContent + formatSourcePassage(sourcePassage);
 
     await paperReproduceDeps.writeFile(
       sourcePath,

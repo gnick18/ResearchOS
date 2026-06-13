@@ -56,6 +56,8 @@ import type {
 } from "@/lib/ai/tools/types";
 import type { IconName } from "@/components/icons";
 import type { AttachedRef } from "@/lib/ai/conversation-store";
+import BeakerBotCanvas from "./BeakerBotCanvas";
+import { useCanvasStore } from "@/lib/ai/canvas-store";
 
 // Lightweight markdown renderer for assistant replies only. Scoped to this
 // component. Uses standard semantic elements styled by the app's Tailwind prose
@@ -677,6 +679,17 @@ export default function BeakerBotConversation({
   const listRef = useRef<HTMLDivElement | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
 
+  // Canvas (docked editable draft panel) hooks. The pointer line that replaces
+  // the old draft card focuses the panel + the pending draft's tab. The panel
+  // itself is BeakerBotCanvas, docked to the right of the chat column below.
+  const focusCanvasTab = useCanvasStore((s) => s.focusTab);
+  const openCanvasPanel = useCanvasStore((s) => s.openPanel);
+  const canvasOpen = useCanvasStore((s) => s.open);
+  const canvasTabs = useCanvasStore((s) => s.tabs);
+  // The tab holding the in-flight draft approval (the last not-yet-settled tab).
+  const pendingCanvasTabId =
+    [...canvasTabs].reverse().find((t) => t.settled === null)?.id ?? null;
+
   // ---- Voice input (Web Speech API) ----------------------------------------
   //
   // The mic button uses the dedicated "mic" registry glyph (Grant approved a
@@ -1025,8 +1038,21 @@ export default function BeakerBotConversation({
         })()
       : null;
 
+  // When a Canvas draft panel is docked open, the chat column narrows to make
+  // room for it (the mockup's split-win, chat + Canvas). When collapsed, the
+  // chat occupies the full surface as before.
+  const canvasDocked = canvasOpen && canvasTabs.length > 0;
+
   return (
-    <div className={`relative flex flex-col overflow-hidden${className ? ` ${className}` : ""}`}>
+    <div
+      data-testid="beakerbot-surface"
+      className={`relative flex overflow-hidden${className ? ` ${className}` : ""}`}
+    >
+      {/* Chat column. Flexes to fill the surface, or narrows when Canvas docks. */}
+      <div
+        data-testid="beakerbot-chat-column"
+        className="relative flex min-w-0 flex-1 flex-col overflow-hidden"
+      >
       {/* Revert confirm overlay. Covers the whole panel so the user cannot interact
           with the conversation while the confirm is open. */}
       {revertPending ? (
@@ -1329,57 +1355,42 @@ export default function BeakerBotConversation({
         </div>
       ) : null}
 
-      {/* Draft preview (write_note). Review + Approve or Reject before writing. */}
+      {/* Draft pointer line. A drafted note / method opens in the Canvas side
+          panel (editable), not a read-only Approve / Reject card. This compact
+          line replaces the old card, it names the draft and focuses the panel +
+          that tab. Save / Discard live in Canvas, so there are no Approve /
+          Reject buttons here. The pointer line is the visible way back when the
+          panel is collapsed (no soft-lock). */}
       {pendingApproval && pendingApproval.request.kind === "draft" ? (
-        <div
-          data-testid="beakerbot-approval-draft"
-          className="mx-4 mb-2 rounded-md border border-brand bg-brand/5 px-3 py-2"
+        <button
+          type="button"
+          data-testid="beakerbot-canvas-pointer"
+          onClick={() => {
+            const tabId = pendingCanvasTabId;
+            if (tabId) focusCanvasTab(tabId);
+            else openCanvasPanel();
+          }}
+          className="mx-4 mb-2 flex w-[calc(100%-2rem)] items-start gap-2 rounded-md border border-brand bg-brand/5 px-3 py-2 text-left transition-colors hover:bg-brand/10"
         >
-          <div className="mb-2 flex items-start gap-2">
-            <span className="text-brand">
-              <Icon name="pencil" className="h-5 w-5" title="Draft" />
+          <span className="mt-0.5 text-brand">
+            <Icon name="file" className="h-4 w-4" title="Canvas" />
+          </span>
+          <span className="min-w-0 flex-1">
+            <span className="block text-meta font-semibold text-brand">
+              Drafted in Canvas
             </span>
-            <p className="text-meta text-foreground">
-              {pendingApproval.request.mode === "create"
-                ? `I drafted a note${
-                    pendingApproval.request.title
-                      ? ` "${pendingApproval.request.title}"`
-                      : ""
-                  }. Review it before I write it.`
-                : `I drafted a section to add${
-                    pendingApproval.request.noteTitle
-                      ? ` to "${pendingApproval.request.noteTitle}"`
-                      : " to your note"
-                  }. Review it before I write it.`}
-            </p>
-          </div>
-          <div
-            data-testid="beakerbot-draft-preview"
-            className="mb-2 max-h-60 overflow-y-auto rounded border border-border bg-surface px-2 py-1.5"
-          >
-            <AssistantMarkdown content={pendingApproval.request.content} />
-          </div>
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              data-testid="beakerbot-draft-approve"
-              onClick={() => resolveApproval("allow")}
-              className="bg-brand-action text-white transition-colors hover:bg-brand-action/90 flex items-center gap-1 rounded-md px-3 py-1.5 text-meta font-medium"
-            >
-              <Icon name="check" className="h-3.5 w-3.5" title="Approve" />
-              Approve
-            </button>
-            <button
-              type="button"
-              data-testid="beakerbot-draft-reject"
-              onClick={() => resolveApproval("skip")}
-              className="flex items-center gap-1 rounded-md border border-border px-3 py-1.5 text-meta font-medium text-foreground-muted transition-colors hover:bg-surface-sunken hover:text-foreground"
-            >
-              <Icon name="close" className="h-3.5 w-3.5" title="Reject" />
-              Reject
-            </button>
-          </div>
-        </div>
+            <span className="block truncate text-meta text-foreground-muted">
+              {pendingApproval.request.title ??
+                pendingApproval.request.noteTitle ??
+                "Untitled draft"}
+              , tweak then save
+            </span>
+          </span>
+          <span className="mt-0.5 flex flex-none items-center gap-0.5 text-meta font-medium text-brand">
+            Open Canvas
+            <Icon name="chevronRight" className="h-3.5 w-3.5" title="Open Canvas" />
+          </span>
+        </button>
       ) : null}
 
       {/* Transform block card (transform_table). Step block(s) with param pills
@@ -1860,6 +1871,11 @@ export default function BeakerBotConversation({
           )}
         </div>
       </div>
+      </div>
+      {/* Docked Canvas panel. Renders itself only when a draft is open (it reads
+          the Canvas store), so it sits to the right of the chat column whenever
+          canvasDocked is true. */}
+      {canvasDocked ? <BeakerBotCanvas /> : null}
     </div>
   );
 }

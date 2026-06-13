@@ -695,6 +695,14 @@ export const saveSummaryAsNoteTool: AiTool = {
         content,
         mode: parsed.mode,
         title: parsed.noteTitle,
+        // The note body is composed from the structured summary plus narration,
+        // so there is no single content arg to write back. Canvas Save stashes
+        // the edited markdown on a reserved arg and execute() uses it verbatim
+        // instead of recomposing, so the user's edits are exactly what gets
+        // written.
+        applyEdit: (a, edited) => {
+          a.__editedContent = edited;
+        },
       },
     };
   },
@@ -718,12 +726,19 @@ export const saveSummaryAsNoteTool: AiTool = {
     }
 
     const today = localTodayIso();
-    const content = composeSummaryNote(
-      parsed.summary,
-      parsed.narration,
-      parsed.noteTitle,
-      today,
-    );
+    // When the user saved an edited body from Canvas, write that verbatim
+    // instead of recomposing from the structured summary plus narration.
+    const editedContent =
+      typeof args.__editedContent === "string" ? args.__editedContent : "";
+    const content =
+      editedContent.trim().length > 0
+        ? editedContent
+        : composeSummaryNote(
+            parsed.summary,
+            parsed.narration,
+            parsed.noteTitle,
+            today,
+          );
 
     if (parsed.mode === "create") {
       const note = await summaryArtifactDeps.createNote({

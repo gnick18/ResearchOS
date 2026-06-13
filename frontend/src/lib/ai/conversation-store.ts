@@ -79,6 +79,7 @@ import type {
   ChoiceDecision,
 } from "@/lib/ai/tools/types";
 import { statusLabel } from "@/components/ai/thinking-status";
+import { useCanvasStore } from "@/lib/ai/canvas-store";
 import {
   createChat,
   saveChat,
@@ -396,6 +397,25 @@ function requestApproval(
     };
     pendingApprovalRef = pending;
     useConversationStore.setState({ pendingApproval: pending });
+
+    // A DRAFT request is editable, so it opens in Canvas (the docked side panel)
+    // instead of a read-only Approve / Reject card in the chat. The chat renders
+    // a compact "Drafted in Canvas" pointer line off pendingApproval; the actual
+    // consent (Save) and rejection (Discard) happen in Canvas. We hand Canvas the
+    // SAME pending.resolve, so Save resolves a draft-save decision (the edited
+    // buffer) and Discard resolves "skip" through the one guarded resolver. The
+    // pointer line carries no buttons, so Canvas is the only path that resolves.
+    if (request.kind === "draft") {
+      useCanvasStore.getState().openDraft({
+        id: `draft-${counterStore}-${Date.now()}`,
+        toolName: request.toolName,
+        title: request.title ?? request.noteTitle ?? "",
+        mode: request.mode,
+        ...(request.noteTitle ? { noteTitle: request.noteTitle } : {}),
+        content: request.content,
+        resolve: pending.resolve,
+      });
+    }
   });
 }
 
@@ -561,6 +581,10 @@ export const useConversationStore = create<ConversationStore>((set, get) => ({
       pendingApprovalRef.resolve("skip");
       // pendingApprovalRef is cleared by the resolve wrapper above.
     }
+    // Tear down any open Canvas drafts so a stopped turn does not leave a stale
+    // pending draft panel. reset() resolves any still-pending tab "skip" too (a
+    // belt-and-suspenders no-op when stop already resolved the shared resolver).
+    useCanvasStore.getState().reset();
     // Remove the empty assistant placeholder (the "Thinking" bubble) if the
     // caller passed its id. We only remove it when it is still empty, so a
     // partial typewriter reveal is never wiped.
@@ -630,6 +654,9 @@ export const useConversationStore = create<ConversationStore>((set, get) => ({
     pendingApprovalRef = null;
     abortControllerRef = null;
     pendingQueuedText = null;
+    // Tear down any open Canvas drafts on a fresh chat. reset() resolves any
+    // still-pending tab "skip" so a paused agent loop does not dangle.
+    useCanvasStore.getState().reset();
     // Invalidate any in-flight deferred queued-send so it cannot fire into the
     // fresh conversation (the stale "Queued: ..." re-trigger on new chat).
     conversationEpoch += 1;
@@ -690,6 +717,8 @@ export const useConversationStore = create<ConversationStore>((set, get) => ({
     }
     counterStore = maxN;
     pendingApprovalRef = null;
+    // Tear down any open Canvas drafts when switching threads.
+    useCanvasStore.getState().reset();
     set({
       messages: restoredMessages,
       sending: false,
@@ -1334,6 +1363,7 @@ export function resetConversationModule(): void {
   pendingApprovalRef = null;
   abortControllerRef = null;
   pendingQueuedText = null;
+  useCanvasStore.getState().reset();
   useConversationStore.setState({
     messages: [],
     sending: false,

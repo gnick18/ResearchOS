@@ -306,6 +306,37 @@ describe("extractPaperMethodTool.describeAction", () => {
     expect(result.draft?.content).toContain("58 C");
     expect(result.draft?.content).toContain("35 cycles");
   });
+
+  it("applyEdit routes the Canvas-edited full body so execute writes it verbatim (no double source block)", async () => {
+    const args: Record<string, unknown> = {
+      paperText: FIXTURE_PAPER_TEXT,
+      sourcePassage: FIXTURE_METHODS_PASSAGE,
+      methodName: "CYP51A PCR",
+      draftContent: FIXTURE_METHOD_DRAFT,
+    };
+    const result = extractPaperMethodTool.describeAction!(args);
+    expect(result.draft?.applyEdit).toBeDefined();
+    // The preview body is the full draft + source passage; the user edits all of
+    // it in Canvas. applyEdit stashes the edited full body so execute uses it
+    // verbatim instead of re-appending the source passage (which would double it).
+    const editedFullBody = `${result.draft!.content}\n\nExtra reviewer note.`;
+    result.draft!.applyEdit!(args, editedFullBody);
+
+    let writtenBody = "";
+    stubDeps({
+      writeFile: async (_path, content) => {
+        writtenBody = content;
+        return { path: "methods/test/method.md", sha: "abc" };
+      },
+      createMethod: async (data) =>
+        makeMethod({ name: data.name, source_path: data.source_path }),
+    });
+    await extractPaperMethodTool.execute(args);
+    expect(writtenBody).toBe(editedFullBody);
+    // The source-passage label appears exactly once (not doubled by execute).
+    const occurrences = writtenBody.split("Source passage (verify against paper)").length - 1;
+    expect(occurrences).toBe(1);
+  });
 });
 
 describe("extractPaperMethodTool.execute", () => {

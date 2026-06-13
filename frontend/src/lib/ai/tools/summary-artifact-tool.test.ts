@@ -782,6 +782,33 @@ describe("saveSummaryAsNoteTool.describeAction", () => {
     expect(result.draft!.title).toBe("Experiments June 2026");
   });
 
+  it("applyEdit routes the Canvas-edited body so execute writes it verbatim (not recomposed)", async () => {
+    // The user edited the composed note body in Canvas and saved. applyEdit
+    // stashes the edited string on the args, and execute writes it verbatim
+    // instead of recomposing from the structured summary.
+    const args: Record<string, unknown> = {
+      summary: EXPERIMENT_SUMMARY,
+      narration: "Seven experiments ran.",
+      noteTitle: "Experiments June 2026",
+      target: "new",
+    };
+    const result = saveSummaryAsNoteTool.describeAction!(args);
+    expect(result.draft!.applyEdit).toBeDefined();
+    result.draft!.applyEdit!(args, "# My edited body\n\nFixed a number to 2.41x.");
+
+    let capturedContent = "";
+    stubDeps({
+      createNote: async ({ content, title }) => {
+        capturedContent = content;
+        return { id: 1, title };
+      },
+    });
+    await saveSummaryAsNoteTool.execute(args);
+    expect(capturedContent).toBe("# My edited body\n\nFixed a number to 2.41x.");
+    // The recomposed narration is NOT present, the edited body fully replaced it.
+    expect(capturedContent).not.toContain("Colony PCR screen");
+  });
+
   it("sets mode to append when target is a note id", () => {
     const result = saveSummaryAsNoteTool.describeAction!({
       summary: EXPERIMENT_SUMMARY,
