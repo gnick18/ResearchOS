@@ -48,6 +48,13 @@ import type {
   FilterCondition,
   AggSpec,
   SortKey,
+  FillNaOp,
+  DropNaOp,
+  SetWhereOp,
+  StrOp,
+  AsTypeOp,
+  ToDateOp,
+  DatePartsOp,
 } from "./pipeline";
 import type {
   TransformParams,
@@ -655,6 +662,230 @@ function unpivotPandas(df: string, op: UnpivotOp): { code: string; comment: stri
 }
 
 // ---------------------------------------------------------------------------
+// Phase 2b-1 data-cleaning ops -> pandas
+// ---------------------------------------------------------------------------
+
+/** Translate a plain-arithmetic formula (the shared expr-eval subset) to a pandas
+ *  vectorized expression over the df, or null when it is beyond plain arithmetic.
+ *  Shared by derive and set-where so both read the formula identically. */
+function plainArithToPandas(
+  df: string,
+  formula: string,
+  columnNames: string[],
+): string | null {
+  const plainArith = /^[\sA-Za-z0-9_.()+\-*/^]*$/.test(formula);
+  if (!plainArith || formula.trim() === "") return null;
+  const sorted = [...columnNames].sort((a, b) => b.length - a.length);
+  let expr = formula.replace(/\^/g, "**");
+  for (const name of sorted) {
+    if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(name)) continue;
+    const re = new RegExp(`\\b${name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`, "g");
+    expr = expr.replace(re, colRef(df, name));
+  }
+  return expr;
+}
+
+function fillnaPandas(df: string, op: FillNaOp): { code: string; comment: string } {
+  const col = colRef(df, op.column);
+  let rhs: string;
+  let label: string;
+  switch (op.method) {
+    case "ffill":
+      rhs = `${col}.ffill()`;
+      label = "carrying the previous value forward";
+      break;
+    case "bfill":
+      rhs = `${col}.bfill()`;
+      label = "carrying the next value backward";
+      break;
+    case "mean":
+      rhs = `${col}.fillna(pd.to_numeric(${col}, errors="coerce").mean())`;
+      label = "the column mean";
+      break;
+    case "median":
+      rhs = `${col}.fillna(pd.to_numeric(${col}, errors="coerce").median())`;
+      label = "the column median";
+      break;
+    case "constant":
+    default:
+      rhs = `${col}.fillna(${pyCell((op.value ?? null) as CellValue)})`;
+      label = `the value ${op.value ?? "(none)"}`;
+      break;
+  }
+  return {
+    code: `${col} = ${rhs}`,
+    comment: `Fill empty cells in ${op.column} with ${label}.`,
+  };
+}
+
+function dropnaPandas(df: string, op: DropNaOp): { code: string; comment: string } {
+  const subset =
+    op.columns && op.columns.length > 0 ? `subset=${pyStrList(op.columns)}, ` : "";
+  const how = pyStr(op.how);
+  const on = op.columns && op.columns.length > 0 ? op.columns.join(", ") : "any column";
+  return {
+    code: `${df} = ${df}.dropna(${subset}how=${how}).reset_index(drop=True)`,
+    comment: `Drop rows empty in ${op.how === "all" ? "all of" : "any of"} ${on}.`,
+  };
+}
+
+function setWherePandas(
+  df: string,
+  op: SetWhereOp,
+  columnNames: string[],
+): { code: string; comment: string } {
+  const mask = maskExpr(df, op.where);
+  let rhs: string;
+  if (op.valueKind === "formula") {
+    const expr = plainArithToPandas(df, op.formula ?? "", columnNames);
+    rhs = expr ? `(${expr})[mask]` : `None  # TODO adapt: ${op.formula ?? ""}`;
+  } else {
+    rhs = pyCell((op.value ?? null) as CellValue);
+  }
+  const col = colRef(df, op.column);
+  const code = [`mask = ${mask}`, `${df}.loc[mask, ${pyStr(op.column)}] = ${rhs}`].join("\n");
+  void col;
+  return {
+    code,
+    comment: `Set ${op.column} where ${describeNode(op.where)}.`,
+  };
+}
+
+function strOpPandas(
+  df: string,
+  op: StrOp,
+): { code: string; comment: string } {
+  switch (op.mode) {
+    case "slice": {
+      const s = `${colRef(df, op.column)}.astype("string")`;
+      if (op.sliceMode === "replaceFirst") {
+        const n = op.n ?? 0;
+        return {
+          code: `${colRef(df, op.column)} = ${s}.str.slice_replace(0, ${n}, ${pyStr(op.replacement ?? "")})`,
+          comment: `Replace the first ${n} characters of ${op.column} with ${pyStr(op.replacement ?? "")}.`,
+        };
+      }
+      const start = op.start ?? 0;
+      const end = op.end !== undefined ? String(op.end) : "None";
+      return {
+        code: `${colRef(df, op.column)} = ${s}.str.slice(${start}, ${end})`,
+        comment: `Take the substring of ${op.column}.`,
+      };
+    }
+    case "replace": {
+      const s = `${colRef(df, op.column)}.astype("string")`;
+      return {
+        code: `${colRef(df, op.column)} = ${s}.str.replace(${pyStr(op.pattern)}, ${pyStr(op.replacement)}, regex=${op.regex ? "True" : "False"})`,
+        comment: `Replace ${op.regex ? "the pattern" : "the text"} ${pyStr(op.pattern)} in ${op.column}.`,
+      };
+    }
+    case "extract": {
+      const s = `${colRef(df, op.column)}.astype("string")`;
+      const group = (op.group ?? 1) - 1;
+      return {
+        code: `${colRef(df, op.outputName)} = ${s}.str.extract(${pyStr("(" + op.pattern + ")")})[${group}]`,
+        comment: `Extract a regex group from ${op.column} into ${op.outputName}.`,
+      };
+    }
+    case "split": {
+      const s = `${colRef(df, op.column)}.astype("string")`;
+      const prefix = op.outputPrefix ?? `${op.column}_part`;
+      const names = Array.from({ length: op.parts }, (_, i) => `${prefix}_${i + 1}`);
+      const code = [
+        `__parts = ${s}.str.split(${pyStr(op.separator)}, n=${op.parts - 1}, expand=True)`,
+        `${df}[${pyStrList(names)}] = __parts.reindex(columns=range(${op.parts}))`,
+      ].join("\n");
+      return {
+        code,
+        comment: `Split ${op.column} on ${pyStr(op.separator)} into ${op.parts} columns.`,
+      };
+    }
+    case "case": {
+      const s = `${colRef(df, op.column)}.astype("string")`;
+      const fn = op.caseMode === "upper" ? "upper" : op.caseMode === "lower" ? "lower" : "title";
+      return {
+        code: `${colRef(df, op.column)} = ${s}.str.${fn}()`,
+        comment: `Convert ${op.column} to ${op.caseMode} case.`,
+      };
+    }
+    case "strip": {
+      const s = `${colRef(df, op.column)}.astype("string")`;
+      const fn = op.stripMode === "left" ? "lstrip" : op.stripMode === "right" ? "rstrip" : "strip";
+      return {
+        code: `${colRef(df, op.column)} = ${s}.str.${fn}()`,
+        comment: `Trim whitespace from ${op.column}.`,
+      };
+    }
+    case "cat": {
+      const parts = op.columns
+        .map((c) => `${colRef(df, c)}.astype("string")`)
+        .join(`.str.cat(`);
+      // pandas str.cat with sep, skipping NA. Build a clean concat over the columns.
+      const others = op.columns
+        .slice(1)
+        .map((c) => `${colRef(df, c)}.astype("string")`)
+        .join(", ");
+      void parts;
+      const code = `${colRef(df, op.outputName)} = ${colRef(df, op.columns[0])}.astype("string").str.cat([${others}], sep=${pyStr(op.separator)}, na_rep="")`;
+      return {
+        code,
+        comment: `Concatenate ${op.columns.join(", ")} into ${op.outputName}.`,
+      };
+    }
+    default:
+      return { code: "# (unrecognized string op)", comment: "" };
+  }
+}
+
+function asTypePandas(df: string, op: AsTypeOp): { code: string; comment: string } {
+  const col = colRef(df, op.column);
+  let code: string;
+  switch (op.to) {
+    case "number":
+      code = `${col} = pd.to_numeric(${col}, errors="coerce")`;
+      break;
+    case "text":
+      code = `${col} = ${col}.astype("string")`;
+      break;
+    case "boolean":
+      code = `${col} = ${col}.astype("boolean")`;
+      break;
+    case "date":
+    default:
+      code = `${col} = pd.to_datetime(${col}, errors="coerce")`;
+      break;
+  }
+  return { code, comment: `Cast ${op.column} to ${op.to}.` };
+}
+
+function toDatePandas(df: string, op: ToDateOp): { code: string; comment: string } {
+  const col = colRef(df, op.column);
+  return {
+    code: `${col} = pd.to_datetime(${col}, format=${pyStr(op.format)}, errors="coerce")`,
+    comment: `Parse ${op.column} to a date with format ${op.format}.`,
+  };
+}
+
+function datePartsPandas(df: string, op: DatePartsOp): { code: string; comment: string } {
+  const src = `pd.to_datetime(${colRef(df, op.column)}, errors="coerce")`;
+  const dtAttr: Record<string, string> = {
+    year: "year",
+    month: "month",
+    day: "day",
+    weekday: "isocalendar().day",
+    hour: "hour",
+  };
+  const lines = op.parts.map((p) => {
+    const out = `${op.column}_${p}`;
+    return `${colRef(df, out)} = ${src}.dt.${dtAttr[p]}`;
+  });
+  return {
+    code: lines.join("\n"),
+    comment: `Extract ${op.parts.join(", ")} from ${op.column}.`,
+  };
+}
+
+// ---------------------------------------------------------------------------
 // One op -> pandas (the public per-op entry point)
 // ---------------------------------------------------------------------------
 
@@ -724,6 +955,20 @@ export function transformOpToPandas(
       return removeBaselinePandas(df, op);
     case "fraction-of-total":
       return fractionOfTotalPandas(df, op);
+    case "fillna":
+      return fillnaPandas(df, op);
+    case "dropna":
+      return dropnaPandas(df, op);
+    case "set-where":
+      return setWherePandas(df, op, ctx.columnNames ?? []);
+    case "str-op":
+      return strOpPandas(df, op);
+    case "astype":
+      return asTypePandas(df, op);
+    case "to-date":
+      return toDatePandas(df, op);
+    case "date-parts":
+      return datePartsPandas(df, op);
     default: {
       // Exhaustiveness guard. A new op kind without a case here is a type error;
       // at runtime it emits a clear no-op comment instead of crashing the export.
@@ -924,9 +1169,26 @@ function nextColumnNames(
         op.varName ?? "variable",
         op.valueName ?? "value",
       ];
-    // pivot, sort, filter, dedupe, transpose, and the folded column transforms
-    // do not rename columns in a way a later derive formula relies on (pivot's
-    // spread names are data-dependent), so we keep the current list.
+    case "str-op": {
+      if (op.mode === "extract" || op.mode === "cat") {
+        return current.includes(op.outputName) ? current : [...current, op.outputName];
+      }
+      if (op.mode === "split") {
+        const prefix = op.outputPrefix ?? `${op.column}_part`;
+        const names = Array.from({ length: op.parts }, (_, i) => `${prefix}_${i + 1}`);
+        const add = names.filter((n) => !current.includes(n));
+        return [...current, ...add];
+      }
+      return current;
+    }
+    case "date-parts": {
+      const names = op.parts.map((p) => `${op.column}_${p}`);
+      const add = names.filter((n) => !current.includes(n));
+      return [...current, ...add];
+    }
+    // pivot, sort, filter, dedupe, transpose, the folded column transforms,
+    // fillna, dropna, set-where, astype, to-date do not add or rename a column a
+    // later derive formula relies on, so we keep the current list.
     default:
       return current;
   }

@@ -72,8 +72,7 @@ const PALETTE: { group: string; ops: PaletteEntry[] }[] = [
   {
     group: "Edit values",
     ops: [
-      { kind: "setwhere", label: "set value where", ready: false },
-      { kind: "replace", label: "replace value", ready: false },
+      { kind: "setwhere", label: "set value where", ready: true },
       { kind: "clip", label: "clip to range", ready: false },
       { kind: "round", label: "round", ready: false },
       { kind: "map", label: "map via lookup", ready: false },
@@ -82,27 +81,27 @@ const PALETTE: { group: string; ops: PaletteEntry[] }[] = [
   {
     group: "Missing data",
     ops: [
-      { kind: "fillna", label: "fill empty with", ready: false },
-      { kind: "dropna", label: "drop empty rows", ready: false },
+      { kind: "fillna", label: "fill empty with", ready: true },
+      { kind: "dropna", label: "drop empty rows", ready: true },
       { kind: "interpolate", label: "interpolate", ready: false },
     ],
   },
   {
     group: "Strings",
     ops: [
-      { kind: "str_slice", label: "slice characters", ready: false },
-      { kind: "str_replace", label: "replace text / regex", ready: false },
-      { kind: "str_extract", label: "extract regex group", ready: false },
-      { kind: "str_case", label: "upper / lower / title", ready: false },
-      { kind: "str_strip", label: "trim whitespace", ready: false },
-      { kind: "str_cat", label: "concatenate columns", ready: false },
+      { kind: "str_slice", label: "slice characters", ready: true },
+      { kind: "str_replace", label: "replace text / regex", ready: true },
+      { kind: "str_extract", label: "extract regex group", ready: true },
+      { kind: "str_split", label: "split into columns", ready: true },
+      { kind: "str_case", label: "upper / lower / title", ready: true },
+      { kind: "str_strip", label: "trim whitespace", ready: true },
+      { kind: "str_cat", label: "concatenate columns", ready: true },
     ],
   },
   {
     group: "Compute",
     ops: [
       { kind: "derive", label: "new column from formula", ready: true },
-      { kind: "conditional", label: "if / else column", ready: false },
       { kind: "bin", label: "bin into categories", ready: false },
       { kind: "rank", label: "rank", ready: false },
       { kind: "lag", label: "shift / diff / pct change", ready: false },
@@ -112,9 +111,9 @@ const PALETTE: { group: string; ops: PaletteEntry[] }[] = [
     group: "Type & schema",
     ops: [
       { kind: "rename", label: "rename column", ready: true },
-      { kind: "astype", label: "cast type", ready: false },
-      { kind: "todate", label: "parse date", ready: false },
-      { kind: "dateparts", label: "extract date parts", ready: false },
+      { kind: "astype", label: "cast type", ready: true },
+      { kind: "todate", label: "parse date", ready: true },
+      { kind: "dateparts", label: "extract date parts", ready: true },
     ],
   },
   {
@@ -138,6 +137,13 @@ const VERB: Record<string, string> = {
   sort: "Sort",
   dedupe: "Dedupe",
   groupby: "Group + agg",
+  fillna: "Fill empty",
+  dropna: "Drop empty rows",
+  "set-where": "Set where",
+  "str-op": "Text",
+  astype: "Cast type",
+  "to-date": "Parse date",
+  "date-parts": "Date parts",
 };
 
 // ---------------------------------------------------------------------------
@@ -187,6 +193,65 @@ function defaultOp(kind: string, cols: string[], numericCols: string[]): Transfo
         by: [first],
         aggregations: [{ column: firstNum, func: "mean", outputName: `${firstNum}_mean` }],
       };
+    case "fillna":
+      return { kind: "fillna", column: firstNum, method: "constant", value: 0 };
+    case "dropna":
+      return { kind: "dropna", columns: [first], how: "any" };
+    case "setwhere":
+      return {
+        kind: "set-where",
+        column: firstNum,
+        where: { type: "condition", condition: { column: firstNum, op: "is_empty" } },
+        valueKind: "constant",
+        value: 1,
+      };
+    case "str_slice":
+      return {
+        kind: "str-op",
+        mode: "slice",
+        column: first,
+        sliceMode: "replaceFirst",
+        n: 3,
+        replacement: "dog",
+      };
+    case "str_replace":
+      return { kind: "str-op", mode: "replace", column: first, pattern: "", replacement: "", regex: false };
+    case "str_extract":
+      return {
+        kind: "str-op",
+        mode: "extract",
+        column: first,
+        pattern: "(\\d+)",
+        group: 1,
+        outputName: `${first}_extract`,
+      };
+    case "str_split":
+      return {
+        kind: "str-op",
+        mode: "split",
+        column: first,
+        separator: "_",
+        parts: 2,
+        outputPrefix: `${first}_part`,
+      };
+    case "str_case":
+      return { kind: "str-op", mode: "case", column: first, caseMode: "upper" };
+    case "str_strip":
+      return { kind: "str-op", mode: "strip", column: first, stripMode: "both" };
+    case "str_cat":
+      return {
+        kind: "str-op",
+        mode: "cat",
+        columns: cols.slice(0, Math.min(2, cols.length)),
+        separator: "_",
+        outputName: "combined",
+      };
+    case "astype":
+      return { kind: "astype", column: first, to: "number" };
+    case "todate":
+      return { kind: "to-date", column: first, format: "%Y-%m-%d" };
+    case "dateparts":
+      return { kind: "date-parts", column: first, parts: ["year", "month"] };
     default:
       return null;
   }
@@ -444,6 +509,438 @@ function OpParams({
         >
           {colOptions}
         </select>
+      </>
+    );
+  }
+
+  if (op.kind === "fillna") {
+    return (
+      <>
+        <Pill>in</Pill>
+        <select
+          className={selectCls()}
+          value={op.column}
+          onChange={(e) => onChange({ ...op, column: e.target.value })}
+        >
+          {colOptions}
+        </select>
+        <Pill>fill empties with</Pill>
+        <select
+          className={selectCls()}
+          value={op.method}
+          onChange={(e) => onChange({ ...op, method: e.target.value as typeof op.method })}
+        >
+          <option value="constant">a value</option>
+          <option value="ffill">previous value</option>
+          <option value="bfill">next value</option>
+          <option value="mean">column mean</option>
+          <option value="median">column median</option>
+        </select>
+        {op.method === "constant" && (
+          <input
+            className={`${inputCls()} w-24`}
+            value={String(op.value ?? "")}
+            onChange={(e) => {
+              const raw = e.target.value;
+              const n = Number(raw);
+              onChange({ ...op, value: raw !== "" && Number.isFinite(n) ? n : raw });
+            }}
+          />
+        )}
+      </>
+    );
+  }
+
+  if (op.kind === "dropna") {
+    return (
+      <>
+        <Pill>drop rows empty in</Pill>
+        <select
+          className={selectCls()}
+          value={op.how}
+          onChange={(e) => onChange({ ...op, how: e.target.value as "any" | "all" })}
+        >
+          <option value="any">any of</option>
+          <option value="all">all of</option>
+        </select>
+        <input
+          className={`${inputCls()} w-56`}
+          placeholder="all columns"
+          value={(op.columns ?? []).join(", ")}
+          onChange={(e) => {
+            const c = e.target.value.split(",").map((s) => s.trim()).filter(Boolean);
+            onChange({ ...op, columns: c.length ? c : undefined });
+          }}
+        />
+      </>
+    );
+  }
+
+  if (op.kind === "set-where") {
+    const w = op.where.type === "condition" ? op.where.condition : null;
+    return (
+      <>
+        <Pill>set</Pill>
+        <select
+          className={selectCls()}
+          value={op.column}
+          onChange={(e) => onChange({ ...op, column: e.target.value })}
+        >
+          {colOptions}
+        </select>
+        <Pill>where</Pill>
+        {w && (
+          <>
+            <select
+              className={selectCls()}
+              value={w.column}
+              onChange={(e) =>
+                onChange({ ...op, where: { type: "condition", condition: { ...w, column: e.target.value } } })
+              }
+            >
+              {colOptions}
+            </select>
+            <select
+              className={selectCls()}
+              value={w.op}
+              onChange={(e) =>
+                onChange({
+                  ...op,
+                  where: { type: "condition", condition: { ...w, op: e.target.value as typeof w.op } },
+                })
+              }
+            >
+              {PRED_OPTIONS.map((p) => (
+                <option key={p.value} value={p.value}>
+                  {p.label}
+                </option>
+              ))}
+            </select>
+            {w.op !== "is_empty" && (
+              <input
+                className={`${inputCls()} w-20`}
+                value={String(w.value ?? "")}
+                onChange={(e) => {
+                  const raw = e.target.value;
+                  const n = Number(raw);
+                  onChange({
+                    ...op,
+                    where: {
+                      type: "condition",
+                      condition: { ...w, value: raw !== "" && Number.isFinite(n) ? n : raw },
+                    },
+                  });
+                }}
+              />
+            )}
+          </>
+        )}
+        <Pill>to</Pill>
+        <select
+          className={selectCls()}
+          value={op.valueKind}
+          onChange={(e) => onChange({ ...op, valueKind: e.target.value as "constant" | "formula" })}
+        >
+          <option value="constant">a value</option>
+          <option value="formula">a formula</option>
+        </select>
+        {op.valueKind === "formula" ? (
+          <input
+            className={`${inputCls()} w-40 font-mono`}
+            placeholder="e.g. a + b"
+            value={op.formula ?? ""}
+            onChange={(e) => onChange({ ...op, formula: e.target.value })}
+          />
+        ) : (
+          <input
+            className={`${inputCls()} w-24`}
+            value={String(op.value ?? "")}
+            onChange={(e) => {
+              const raw = e.target.value;
+              const n = Number(raw);
+              onChange({ ...op, value: raw !== "" && Number.isFinite(n) ? n : raw });
+            }}
+          />
+        )}
+      </>
+    );
+  }
+
+  if (op.kind === "str-op") {
+    const colSelect = (value: string, onCol: (c: string) => void) => (
+      <select className={selectCls()} value={value} onChange={(e) => onCol(e.target.value)}>
+        {colOptions}
+      </select>
+    );
+    if (op.mode === "slice") {
+      return (
+        <>
+          <Pill>in</Pill>
+          {colSelect(op.column, (c) => onChange({ ...op, column: c }))}
+          <select
+            className={selectCls()}
+            value={op.sliceMode}
+            onChange={(e) => onChange({ ...op, sliceMode: e.target.value as "replaceFirst" | "substring" })}
+          >
+            <option value="replaceFirst">replace first N chars</option>
+            <option value="substring">keep substring</option>
+          </select>
+          {op.sliceMode === "replaceFirst" ? (
+            <>
+              <Pill>N</Pill>
+              <input
+                className={`${inputCls()} w-14`}
+                value={String(op.n ?? 0)}
+                onChange={(e) => onChange({ ...op, n: Number(e.target.value) || 0 })}
+              />
+              <Pill>with</Pill>
+              <input
+                className={`${inputCls()} w-24`}
+                value={op.replacement ?? ""}
+                onChange={(e) => onChange({ ...op, replacement: e.target.value })}
+              />
+            </>
+          ) : (
+            <>
+              <Pill>from</Pill>
+              <input
+                className={`${inputCls()} w-14`}
+                value={String(op.start ?? 0)}
+                onChange={(e) => onChange({ ...op, start: Number(e.target.value) || 0 })}
+              />
+              <Pill>to</Pill>
+              <input
+                className={`${inputCls()} w-14`}
+                value={op.end === undefined ? "" : String(op.end)}
+                placeholder="end"
+                onChange={(e) => {
+                  const v = e.target.value.trim();
+                  onChange({ ...op, end: v === "" ? undefined : Number(v) });
+                }}
+              />
+            </>
+          )}
+        </>
+      );
+    }
+    if (op.mode === "replace") {
+      return (
+        <>
+          <Pill>in</Pill>
+          {colSelect(op.column, (c) => onChange({ ...op, column: c }))}
+          <Pill>replace</Pill>
+          <input
+            className={`${inputCls()} w-28`}
+            value={op.pattern}
+            onChange={(e) => onChange({ ...op, pattern: e.target.value })}
+          />
+          <Pill>with</Pill>
+          <input
+            className={`${inputCls()} w-28`}
+            value={op.replacement}
+            onChange={(e) => onChange({ ...op, replacement: e.target.value })}
+          />
+          <label className="inline-flex items-center gap-1 text-meta text-foreground-muted">
+            <input
+              type="checkbox"
+              checked={!!op.regex}
+              onChange={(e) => onChange({ ...op, regex: e.target.checked })}
+            />
+            regex
+          </label>
+        </>
+      );
+    }
+    if (op.mode === "extract") {
+      return (
+        <>
+          <Pill>from</Pill>
+          {colSelect(op.column, (c) => onChange({ ...op, column: c }))}
+          <Pill>regex</Pill>
+          <input
+            className={`${inputCls()} w-32 font-mono`}
+            value={op.pattern}
+            onChange={(e) => onChange({ ...op, pattern: e.target.value })}
+          />
+          <Pill>group</Pill>
+          <input
+            className={`${inputCls()} w-12`}
+            value={String(op.group ?? 1)}
+            onChange={(e) => onChange({ ...op, group: Number(e.target.value) || 1 })}
+          />
+          <Pill>into</Pill>
+          <input
+            className={`${inputCls()} w-32`}
+            value={op.outputName}
+            onChange={(e) => onChange({ ...op, outputName: e.target.value })}
+          />
+        </>
+      );
+    }
+    if (op.mode === "split") {
+      return (
+        <>
+          <Pill>split</Pill>
+          {colSelect(op.column, (c) => onChange({ ...op, column: c }))}
+          <Pill>on</Pill>
+          <input
+            className={`${inputCls()} w-16`}
+            value={op.separator}
+            onChange={(e) => onChange({ ...op, separator: e.target.value })}
+          />
+          <Pill>into</Pill>
+          <input
+            className={`${inputCls()} w-12`}
+            value={String(op.parts)}
+            onChange={(e) => onChange({ ...op, parts: Math.max(1, Number(e.target.value) || 1) })}
+          />
+          <Pill>columns</Pill>
+        </>
+      );
+    }
+    if (op.mode === "case") {
+      return (
+        <>
+          <Pill>set</Pill>
+          {colSelect(op.column, (c) => onChange({ ...op, column: c }))}
+          <Pill>to</Pill>
+          <select
+            className={selectCls()}
+            value={op.caseMode}
+            onChange={(e) => onChange({ ...op, caseMode: e.target.value as "upper" | "lower" | "title" })}
+          >
+            <option value="upper">UPPER</option>
+            <option value="lower">lower</option>
+            <option value="title">Title</option>
+          </select>
+        </>
+      );
+    }
+    if (op.mode === "strip") {
+      return (
+        <>
+          <Pill>trim</Pill>
+          {colSelect(op.column, (c) => onChange({ ...op, column: c }))}
+          <select
+            className={selectCls()}
+            value={op.stripMode}
+            onChange={(e) => onChange({ ...op, stripMode: e.target.value as "both" | "left" | "right" })}
+          >
+            <option value="both">both sides</option>
+            <option value="left">left</option>
+            <option value="right">right</option>
+          </select>
+        </>
+      );
+    }
+    if (op.mode === "cat") {
+      return (
+        <>
+          <Pill>join</Pill>
+          <input
+            className={`${inputCls()} w-48`}
+            value={op.columns.join(", ")}
+            onChange={(e) =>
+              onChange({
+                ...op,
+                columns: e.target.value.split(",").map((s) => s.trim()).filter(Boolean),
+              })
+            }
+          />
+          <Pill>with</Pill>
+          <input
+            className={`${inputCls()} w-16`}
+            value={op.separator}
+            onChange={(e) => onChange({ ...op, separator: e.target.value })}
+          />
+          <Pill>into</Pill>
+          <input
+            className={`${inputCls()} w-32`}
+            value={op.outputName}
+            onChange={(e) => onChange({ ...op, outputName: e.target.value })}
+          />
+        </>
+      );
+    }
+  }
+
+  if (op.kind === "astype") {
+    return (
+      <>
+        <Pill>cast</Pill>
+        <select
+          className={selectCls()}
+          value={op.column}
+          onChange={(e) => onChange({ ...op, column: e.target.value })}
+        >
+          {colOptions}
+        </select>
+        <Pill>to</Pill>
+        <select
+          className={selectCls()}
+          value={op.to}
+          onChange={(e) => onChange({ ...op, to: e.target.value as typeof op.to })}
+        >
+          <option value="number">number</option>
+          <option value="text">text</option>
+          <option value="boolean">boolean</option>
+          <option value="date">date</option>
+        </select>
+      </>
+    );
+  }
+
+  if (op.kind === "to-date") {
+    return (
+      <>
+        <Pill>parse</Pill>
+        <select
+          className={selectCls()}
+          value={op.column}
+          onChange={(e) => onChange({ ...op, column: e.target.value })}
+        >
+          {colOptions}
+        </select>
+        <Pill>format</Pill>
+        <input
+          className={`${inputCls()} w-32 font-mono`}
+          value={op.format}
+          onChange={(e) => onChange({ ...op, format: e.target.value })}
+        />
+      </>
+    );
+  }
+
+  if (op.kind === "date-parts") {
+    const PARTS: Array<"year" | "month" | "day" | "weekday" | "hour"> = [
+      "year",
+      "month",
+      "day",
+      "weekday",
+      "hour",
+    ];
+    const toggle = (p: (typeof PARTS)[number]) =>
+      onChange({
+        ...op,
+        parts: op.parts.includes(p) ? op.parts.filter((x) => x !== p) : [...op.parts, p],
+      });
+    return (
+      <>
+        <Pill>from</Pill>
+        <select
+          className={selectCls()}
+          value={op.column}
+          onChange={(e) => onChange({ ...op, column: e.target.value })}
+        >
+          {colOptions}
+        </select>
+        <Pill>extract</Pill>
+        {PARTS.map((p) => (
+          <label key={p} className="inline-flex items-center gap-1 text-meta text-foreground-muted">
+            <input type="checkbox" checked={op.parts.includes(p)} onChange={() => toggle(p)} />
+            {p}
+          </label>
+        ))}
       </>
     );
   }
@@ -858,6 +1355,21 @@ function nextNames(current: string[], op: TransformOp): string[] {
       ];
     case "derive":
       return current.includes(op.outputName) ? current : [...current, op.outputName];
+    case "str-op": {
+      if (op.mode === "extract" || op.mode === "cat") {
+        return current.includes(op.outputName) ? current : [...current, op.outputName];
+      }
+      if (op.mode === "split") {
+        const prefix = op.outputPrefix ?? `${op.column}_part`;
+        const names = Array.from({ length: op.parts }, (_, i) => `${prefix}_${i + 1}`);
+        return [...current, ...names.filter((n) => !current.includes(n))];
+      }
+      return current;
+    }
+    case "date-parts": {
+      const names = op.parts.map((p) => `${op.column}_${p}`);
+      return [...current, ...names.filter((n) => !current.includes(n))];
+    }
     default:
       return current;
   }
