@@ -23,6 +23,7 @@
     --pkr-gold: #FFB81C;
     --rainbow: linear-gradient(90deg,#ffd2b0 0%,#fff1a8 25%,#b7ebb1 50%,#a6d2f4 75%,#d6b5f0 100%);
     --rainbow-vivid: linear-gradient(95deg,#f97316 0%,#e8920b 22%,#16a34a 48%,#0284c7 72%,#9333ea 100%);
+    --rainbow-luminous: linear-gradient(95deg,#fb923c 0%,#fbbf24 25%,#4ade80 50%,#38bdf8 75%,#c084fc 100%);
   }
   * { box-sizing: border-box; }
   html { scroll-behavior: smooth; scroll-snap-type: y proximity; }
@@ -216,7 +217,7 @@
           <path d="M11 12 L29 12"/><circle cx="17" cy="18" r="1.2" fill="#1AA0E6" stroke="none"/><circle cx="23" cy="18" r="1.2" fill="#1AA0E6" stroke="none"/>
           <path d="M18 22 Q 20 24, 22 22"/><path d="M14 26 L15.5 26"/><path d="M24.5 26 L26 26"/>
         </svg>
-        <p class="sublabel">The signature rainbow liquid is our most ownable visual. Pastel <code class="mono">--brand-rainbow</code> for decoration in light mode (ribbons, frames, fills). Vivid <code class="mono">--brand-rainbow-vivid</code> for gradient TEXT (the pastel is too light to read as type) and as the whole-surface rainbow in dark mode. Never a generic red or pink rainbow.</p>
+        <p class="sublabel">The signature rainbow liquid is our most ownable visual. Three ramps, by surface. Pastel <code class="mono">--brand-rainbow</code> for decoration on light surfaces (ribbons, frames, fills). Vivid <code class="mono">--brand-rainbow-vivid</code> for gradient TEXT on light, where the pastel is too washed out to read as type. On DARK surfaces, the luminous <code class="mono">--brand-rainbow-luminous</code> (brighter Tailwind-400 hues) is the preferred rainbow for both fills and text, because vivid goes murky on near-black and pastel washes out. Two carve-outs that always stay pastel: the BeakerBot mascot, and anything sitting on a white backdrop. Never a generic red or pink rainbow.</p>
       </div>
     </div>
   </div>
@@ -229,7 +230,7 @@
     <h2>The wordmark</h2>
     <div class="grid2">
       <div>
-        <p>The wordmark is <b>ResearchOS</b> set in Geist 800 with tight tracking (about -0.03em). "Research" sits in ink <code class="mono">#111827</code> (near-white on dark surfaces), and "OS" carries the brand rainbow, theme-aware for legibility (the vivid ramp on light backgrounds, a brighter luminous ramp on dark via <code class="mono">--brand-rainbow-wordmark</code>). The lockup can pair the BeakerBot mark with the wordmark, though the app header now runs wordmark-only because BeakerBot lives permanently on the search palette.</p>
+        <p>The wordmark is <b>ResearchOS</b> set in Geist 800 with tight tracking (about -0.03em). "Research" sits in ink <code class="mono">#111827</code> (near-white on dark surfaces), and "OS" carries the brand rainbow, theme-aware for legibility via the <code class="mono">--brand-rainbow-legible</code> token (the vivid ramp on light backgrounds, the brighter luminous ramp on dark). The lockup can pair the BeakerBot mark with the wordmark, though the app header now runs wordmark-only because BeakerBot lives permanently on the search palette.</p>
         <ul class="clean">
           <li>Mark plus wordmark for banners and headers.</li>
           <li>Wordmark alone where the mark is shown nearby.</li>
@@ -238,15 +239,21 @@
           <li>Never stretch or distort the wordmark. The brand rainbow on "OS" is the only sanctioned color treatment; do not recolor "Research" or add other effects.</li>
         </ul>
       </div>
-      <div class="card" style="display:flex;align-items:center;justify-content:center;gap:14px;">
-        <svg style="width:54px" viewBox="8 3 24 31" fill="none" stroke="#1AA0E6" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-          <defs><linearGradient id="liq3" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#FFD2B0"/><stop offset="25%" stop-color="#FFF1A8"/><stop offset="50%" stop-color="#B7EBB1"/><stop offset="75%" stop-color="#A6D2F4"/><stop offset="100%" stop-color="#D6B5F0"/></linearGradient></defs>
-          <path d="M 12 12 L 12 24 C 12 30, 16 32, 20 32 C 24 32, 28 30, 28 24 L 28 12 Z" fill="white" stroke="none"/>
-          <path d="M 12 19 Q 14 17.8, 16 19 T 20 19 T 24 19 T 28 19 L 28 24 C 28 30, 24 32, 20 32 C 16 32, 12 30, 12 24 L 12 19 Z" fill="url(#liq3)" stroke="none"/>
-          <path d="M22 8 C 22 6, 24 4, 26 6"/><path d="M12 12 L12 24 C 12 30, 16 32, 20 32 C 24 32, 28 30, 28 24 L28 12"/><path d="M11 12 L29 12"/>
-          <circle cx="17" cy="18" r="1.2" fill="#1AA0E6" stroke="none"/><circle cx="23" cy="18" r="1.2" fill="#1AA0E6" stroke="none"/><path d="M18 22 Q 20 24, 22 22"/><path d="M14 26 L15.5 26"/><path d="M24.5 26 L26 26"/>
-        </svg>
-        <span style="font-size:38px;font-weight:800;letter-spacing:-0.03em;color:#111827;">Research<span style="background:linear-gradient(95deg,#f97316 0%,#e8920b 22%,#16a34a 48%,#0284c7 72%,#9333ea 100%);-webkit-background-clip:text;background-clip:text;color:transparent;">OS</span></span>
+      <div style="display:flex;flex-direction:column;gap:12px;">
+        <div class="card" style="display:flex;align-items:center;justify-content:center;gap:14px;">
+          <svg style="width:54px" viewBox="8 3 24 31" fill="none" stroke="#1AA0E6" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <defs><linearGradient id="liq3" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#FFD2B0"/><stop offset="25%" stop-color="#FFF1A8"/><stop offset="50%" stop-color="#B7EBB1"/><stop offset="75%" stop-color="#A6D2F4"/><stop offset="100%" stop-color="#D6B5F0"/></linearGradient></defs>
+            <path d="M 12 12 L 12 24 C 12 30, 16 32, 20 32 C 24 32, 28 30, 28 24 L 28 12 Z" fill="white" stroke="none"/>
+            <path d="M 12 19 Q 14 17.8, 16 19 T 20 19 T 24 19 T 28 19 L 28 24 C 28 30, 24 32, 20 32 C 16 32, 12 30, 12 24 L 12 19 Z" fill="url(#liq3)" stroke="none"/>
+            <path d="M22 8 C 22 6, 24 4, 26 6"/><path d="M12 12 L12 24 C 12 30, 16 32, 20 32 C 24 32, 28 30, 28 24 L28 12"/><path d="M11 12 L29 12"/>
+            <circle cx="17" cy="18" r="1.2" fill="#1AA0E6" stroke="none"/><circle cx="23" cy="18" r="1.2" fill="#1AA0E6" stroke="none"/><path d="M18 22 Q 20 24, 22 22"/><path d="M14 26 L15.5 26"/><path d="M24.5 26 L26 26"/>
+          </svg>
+          <span style="font-size:38px;font-weight:800;letter-spacing:-0.03em;color:#111827;">Research<span style="background:linear-gradient(95deg,#f97316 0%,#e8920b 22%,#16a34a 48%,#0284c7 72%,#9333ea 100%);-webkit-background-clip:text;background-clip:text;color:transparent;">OS</span></span>
+        </div>
+        <div class="card" style="display:flex;align-items:center;justify-content:center;gap:14px;background:#0f1729;border-color:rgba(255,255,255,.1);">
+          <span style="font-size:38px;font-weight:800;letter-spacing:-0.03em;color:#f3f4f6;">Research<span style="background:linear-gradient(95deg,#fb923c 0%,#fbbf24 25%,#4ade80 50%,#38bdf8 75%,#c084fc 100%);-webkit-background-clip:text;background-clip:text;color:transparent;">OS</span></span>
+        </div>
+        <p class="sublabel" style="text-align:center;">Light surface, vivid "OS". Dark surface, luminous "OS". The mascot's liquid stays pastel either way.</p>
       </div>
     </div>
   </div>
@@ -267,8 +274,9 @@
 
     <h3 style="margin-top:26px;">Signature rainbow</h3>
     <div class="grid2">
-      <div><div class="swatch" style="background:var(--rainbow);"><span class="hex">pastel - light mode</span></div><div class="sublabel">peach #ffd2b0 - yellow #fff1a8 - mint #b7ebb1 - sky #a6d2f4 - lavender #d6b5f0</div></div>
-      <div><div class="swatch dark" style="background:var(--rainbow-vivid);"><span class="hex">vivid - dark mode</span></div><div class="sublabel">#f97316 - #e8920b - #16a34a - #0284c7 - #9333ea</div></div>
+      <div><div class="swatch" style="background:var(--rainbow);"><span class="hex">pastel - light decoration + mascot</span></div><div class="sublabel">peach #ffd2b0 - yellow #fff1a8 - mint #b7ebb1 - sky #a6d2f4 - lavender #d6b5f0</div></div>
+      <div><div class="swatch dark" style="background:var(--rainbow-vivid);"><span class="hex">vivid - light text</span></div><div class="sublabel">#f97316 - #e8920b - #16a34a - #0284c7 - #9333ea</div></div>
+      <div><div class="swatch dark" style="background:var(--rainbow-luminous);"><span class="hex">luminous - dark surfaces</span></div><div class="sublabel">#fb923c - #fbbf24 - #4ade80 - #38bdf8 - #c084fc</div></div>
     </div>
 
     <h3 style="margin-top:26px;">Surface tokens (use tokens, not raw hex, in product)</h3>

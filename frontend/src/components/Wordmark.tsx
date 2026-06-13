@@ -117,8 +117,8 @@ export default function Wordmark({
           data-testid={textTestId}
           className={`${s.text} font-extrabold tracking-tight ${textClassName}`}
         >
-          {/* "OS" carries the brand rainbow (theme-aware via
-              --brand-rainbow-wordmark: vivid on light, luminous on dark);
+          {/* "OS" carries the brand rainbow (theme-aware via the
+              --brand-rainbow-legible token, vivid on light, luminous on dark);
               "Research" stays in the lockup's text color. */}
           Research<span className="brand-rainbow-wordmark">OS</span>
         </TextTag>

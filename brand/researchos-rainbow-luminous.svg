@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 200" width="1024" height="200">
+  <!-- ResearchOS DARK-SURFACE rainbow signature: the luminous 5-stop ramp
+       (bright Tailwind-400 hues). On dark surfaces the vivid ramp goes murky
+       and the pastel ramp washes out, so dark mode uses this brighter ramp for
+       both fills/accents and clipped text (the wordmark "OS", headline words).
+       Two carve-outs stay pastel: the BeakerBot mascot and anything on a white
+       backdrop. Same hue order as the pastel and vivid ramps. -->
+  <defs>
+    <linearGradient id="luminous" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#FB923C" /><stop offset="25%" stop-color="#FBBF24" />
+      <stop offset="50%" stop-color="#4ADE80" /><stop offset="75%" stop-color="#38BDF8" />
+      <stop offset="100%" stop-color="#C084FC" />
+    </linearGradient>
+  </defs>
+  <rect width="1024" height="200" fill="url(#luminous)" />
+</svg>

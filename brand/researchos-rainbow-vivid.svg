@@ -1,8 +1,8 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 200" width="1024" height="200">
-  <!-- ResearchOS DARK-MODE rainbow signature: the saturated 5-stop ramp. The
-       pastel liquid ramp goes muddy on a dark surface, so dark mode uses this
-       vivid ramp (as a fill on avatars/swatches, and as a low-opacity glow on
-       large surfaces like the loading screen). Same hue order as the pastel. -->
+  <!-- ResearchOS LIGHT-TEXT rainbow signature: the saturated 5-stop ramp used
+       for gradient TEXT on light surfaces (the pastel liquid ramp washes out as
+       type on white). On DARK surfaces use researchos-rainbow-luminous.svg
+       instead, where this vivid ramp goes murky. Same hue order as the pastel. -->
   <defs>
     <linearGradient id="vivid" x1="0" y1="0" x2="1" y2="0">
       <stop offset="0%" stop-color="#F97316" /><stop offset="25%" stop-color="#E8920B" />
