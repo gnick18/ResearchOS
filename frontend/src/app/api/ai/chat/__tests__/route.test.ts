@@ -8,6 +8,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 //     auth header and stream: true, and streams the upstream body back;
 //   - the key value is never returned to the client (no leak).
 // The provider call is mocked, so no network and no real key are involved.
+//
+// Also includes unit tests for the pure vision router helpers hasImageContent
+// and selectModel (vision routing, 2026-06-13).
 
 const ORIGINAL_ENV = { ...process.env };
 
@@ -260,3 +263,8 @@ describe("POST /api/ai/chat", () => {
     expect(data.error).not.toContain("test-key-should-not-leak");
   });
 });
+
+// Vision router helpers are tested in their own file (vision-router.test.ts)
+// to avoid pulling in next-auth/Next.js server modules that fail in the
+// COW-cloned worktree node_modules. The route re-exports them for callers who
+// import from route directly, but tests go through vision-router directly.

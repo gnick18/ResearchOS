@@ -39,11 +39,22 @@
 //     and we record the turn's token usage AFTER. A free or unbilled model call
 //     can never happen with the switch on.
 //
+// Vision router (BeakerBot vision, 2026-06-13). Turns that contain an image_url
+// content block are routed to a separate vision model (AI_VISION_MODEL). Text-only
+// turns continue to use the text model (AI_MODEL). When AI_VISION_MODEL is unset,
+// the router falls back to AI_MODEL so the feature is inert until Grant sets the
+// env, and no image is ever sent to a model that has not been configured.
+//
 // House style: no em-dashes, no emojis, no mid-sentence colons.
 
 import { auth } from "@/lib/sharing/auth";
 import { ownerKeyForEmail } from "@/lib/billing/owner";
 import { getOrGrantBalance, recordUsage } from "@/lib/billing/ai-ledger";
+import { hasImageContent, selectModel } from "./vision-router";
+
+// Re-export so the existing route tests (which import directly from route) can
+// continue to test the helpers without change.
+export { hasImageContent, selectModel };
 
 export const runtime = "nodejs";
 
@@ -68,14 +79,23 @@ const DEFAULT_MODEL = "accounts/fireworks/models/gpt-oss-120b";
 // A forwarded message. Beyond the foundation slice's { role, content }, the agent
 // loop needs tool plumbing, an assistant message that only calls tools carries
 // content:null plus tool_calls, and a tool result carries tool_call_id + name.
+// Content may also be a block array for multimodal user turns (image_url blocks
+// are forwarded verbatim to the provider in the OpenAI vision format).
 type ToolCall = {
   id: string;
   type: "function";
   function: { name: string; arguments: string };
 };
+// A single block in a multimodal content array. Only the two known shapes are
+// forwarded; the proxy rejects unknown block types by dropping them in the
+// cleaning step so the browser cannot smuggle unexpected provider parameters.
+type ContentBlock =
+  | { type: "text"; text: string }
+  | { type: "image_url"; image_url: { url: string } };
+
 type ChatMessage = {
   role: string;
-  content: string | null;
+  content: string | ContentBlock[] | null;
   tool_calls?: ToolCall[];
   tool_call_id?: string;
   name?: string;
@@ -168,29 +188,63 @@ export async function POST(request: Request): Promise<Response> {
   // parameters through the proxy. We allow the tool plumbing fields (tool_calls,
   // tool_call_id, name) because the agent loop needs them, but nothing else.
   // role is required, content may be null (an assistant message that only calls
-  // tools), so we keep a message when it has a valid role AND either a string
-  // content or tool_calls.
+  // tools), or a ContentBlock array for multimodal user turns. A message is kept
+  // when it has a valid role AND (a string content, a block-array content, or
+  // tool_calls). Unknown shapes are dropped.
   const cleanMessages: ChatMessage[] = messages
     .filter(
       (m): m is Record<string, unknown> =>
         typeof m === "object" && m !== null && typeof (m as { role?: unknown }).role === "string",
     )
     .map((m) => {
-      const out: ChatMessage = {
-        role: m.role as string,
-        content:
-          typeof m.content === "string"
-            ? (m.content as string)
-            : m.content === null
-              ? null
-              : "",
-      };
+      // Sanitise a content block array so the browser cannot forward arbitrary
+      // block shapes. Only text and image_url blocks are forwarded; any other
+      // type is silently dropped. An image_url block is only forwarded when its
+      // url field is a non-empty string (the base64 data URL the client sends).
+      let content: string | ContentBlock[] | null;
+      if (typeof m.content === "string") {
+        content = m.content;
+      } else if (m.content === null) {
+        content = null;
+      } else if (Array.isArray(m.content)) {
+        const blocks: ContentBlock[] = [];
+        for (const b of m.content as unknown[]) {
+          if (typeof b !== "object" || b === null) continue;
+          const block = b as Record<string, unknown>;
+          if (block.type === "text" && typeof block.text === "string") {
+            blocks.push({ type: "text", text: block.text });
+          } else if (
+            block.type === "image_url" &&
+            typeof block.image_url === "object" &&
+            block.image_url !== null &&
+            typeof (block.image_url as Record<string, unknown>).url === "string" &&
+            ((block.image_url as Record<string, unknown>).url as string).length > 0
+          ) {
+            blocks.push({
+              type: "image_url",
+              image_url: { url: (block.image_url as Record<string, unknown>).url as string },
+            });
+          }
+          // Unknown block types are silently dropped.
+        }
+        content = blocks.length > 0 ? blocks : null;
+      } else {
+        // Any other shape (number, boolean, object) is treated as empty.
+        content = null;
+      }
+
+      const out: ChatMessage = { role: m.role as string, content };
       if (Array.isArray(m.tool_calls)) out.tool_calls = m.tool_calls as ToolCall[];
       if (typeof m.tool_call_id === "string") out.tool_call_id = m.tool_call_id;
       if (typeof m.name === "string") out.name = m.name;
       return out;
     })
-    .filter((m) => typeof m.content === "string" || Array.isArray(m.tool_calls));
+    .filter(
+      (m) =>
+        typeof m.content === "string" ||
+        Array.isArray(m.content) ||
+        Array.isArray(m.tool_calls),
+    );
 
   if (cleanMessages.length === 0) {
     return jsonError(400, "No valid messages were provided.");
@@ -278,7 +332,13 @@ export async function POST(request: Request): Promise<Response> {
     /\/+$/,
     "",
   );
-  const model = process.env.AI_MODEL || DEFAULT_MODEL;
+  // Vision router. selectModel inspects cleanMessages and picks the vision model
+  // when at least one image_url block is present, falling back to the text model
+  // when AI_VISION_MODEL is unset. Until Grant sets AI_VISION_MODEL, this is
+  // identical to the original single-model path.
+  const textModel = process.env.AI_MODEL || DEFAULT_MODEL;
+  const visionModel = process.env.AI_VISION_MODEL || undefined;
+  const model = selectModel(cleanMessages, { textModel, visionModel });
   const endpoint = `${baseUrl}/chat/completions`;
 
   let upstream: Response;
