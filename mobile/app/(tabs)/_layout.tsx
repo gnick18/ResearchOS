@@ -11,6 +11,7 @@
 
 import { Tabs } from 'expo-router';
 import React from 'react';
+import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { HapticTab } from '@/components/haptic-tab';
@@ -76,6 +77,13 @@ export default function TabLayout() {
           tabBarIcon: ({ color }) => (
             <IconSymbol size={26} name="shippingbox.fill" color={color} />
           ),
+        }}
+      />
+      <Tabs.Screen
+        name="method"
+        options={{
+          title: 'Method',
+          tabBarIcon: ({ color }) => <Ionicons name="flask" size={24} color={color} />,
         }}
       />
       <Tabs.Screen

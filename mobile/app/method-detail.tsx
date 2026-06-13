@@ -16,13 +16,15 @@
 import { useCallback, useState } from 'react';
 import {
   ActivityIndicator,
+  Pressable,
   RefreshControl,
   ScrollView,
   StyleSheet,
   TextInput,
   View,
 } from 'react-native';
-import { useFocusEffect } from 'expo-router';
+import { useFocusEffect, useLocalSearchParams } from 'expo-router';
+import { Ionicons } from '@expo/vector-icons';
 
 import { ThemedText } from '@/components/themed-text';
 import { ScreenFrame } from '@/components/ui/ScreenFrame';
@@ -31,6 +33,7 @@ import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { SectionHeader } from '@/components/ui/SectionHeader';
+import { MethodReadMode } from '@/components/method/MethodReadMode';
 import { useTheme, palette } from '@/lib/design';
 import { usePairing } from '@/lib/pairing';
 import { signWithDevice } from '@/lib/device-identity';
@@ -266,10 +269,12 @@ function MethodCard({
   method,
   onAddVariation,
   variationBusy,
+  onEnterRead,
 }: {
   method: MethodProjection;
   onAddVariation: (methodId: number | undefined, text: string) => Promise<void>;
   variationBusy: boolean;
+  onEnterRead: () => void;
 }) {
   const { surface, spacing, radii } = useTheme();
   const [variationText, setVariationText] = useState('');
@@ -293,6 +298,18 @@ function MethodCard({
       {typeLabel ? (
         <ThemedText style={[styles.methodType, { color: surface.muted }]}>{typeLabel}</ThemedText>
       ) : null}
+
+      {/* Prominent full-screen big-text read mode (NYT-cooking-style). The
+          method already lives here; read mode is an enhanced presentation. */}
+      <Pressable
+        onPress={onEnterRead}
+        accessibilityRole="button"
+        accessibilityLabel="Open read mode"
+        style={[styles.readBtn, { backgroundColor: palette.sky, borderRadius: radii.lg }]}
+      >
+        <Ionicons name="play" size={18} color={palette.white} />
+        <ThemedText style={styles.readBtnTxt}>Read mode</ThemedText>
+      </Pressable>
 
       <KeyParamRow params={method.keyParams} />
 
@@ -367,6 +384,9 @@ type VariationStatus = { kind: 'idle' } | { kind: 'sent' } | { kind: 'failed' };
 export default function MethodScreen() {
   const { surface } = useTheme();
   const { pairing } = usePairing();
+  // The library tab can deep-link with ?read=1 to open read mode straight away
+  // for the (single) published method.
+  const params = useLocalSearchParams<{ read?: string }>();
 
   const [snapshot, setSnapshot] = useState<MethodSnapshot | null>(null);
   const [loaded, setLoaded] = useState(false);
@@ -374,6 +394,8 @@ export default function MethodScreen() {
   const [error, setError] = useState<string | null>(null);
   const [variationBusy, setVariationBusy] = useState(false);
   const [variationStatus, setVariationStatus] = useState<VariationStatus>({ kind: 'idle' });
+  // Index of the method shown full-screen in read mode, or null for the list.
+  const [readIndex, setReadIndex] = useState<number | null>(null);
 
   const load = useCallback(async () => {
     if (!pairing) {
@@ -428,6 +450,30 @@ export default function MethodScreen() {
 
   const paired = !!pairing;
   const methods = snapshot?.methods ?? [];
+
+  // Open read mode for the published method when deep-linked with ?read=1.
+  useFocusEffect(
+    useCallback(() => {
+      if (params.read && methods.length > 0) setReadIndex(0);
+      // We only auto-open once per focus when the flag is present.
+    }, [params.read, methods.length]),
+  );
+
+  // Full-screen read mode takes over the whole screen (no header, no tab chrome
+  // since this is a pushed stack screen). expo-keep-awake fires inside it.
+  if (readIndex != null && methods[readIndex]) {
+    return (
+      <ScreenFrame edges={['top', 'bottom']}>
+        <MethodReadMode
+          method={methods[readIndex]}
+          experimentName={snapshot?.experimentName}
+          onClose={() => setReadIndex(null)}
+          onAddVariation={onAddVariation}
+          variationBusy={variationBusy}
+        />
+      </ScreenFrame>
+    );
+  }
 
   return (
     <ScreenFrame>
@@ -499,6 +545,7 @@ export default function MethodScreen() {
                 method={m}
                 onAddVariation={onAddVariation}
                 variationBusy={variationBusy}
+                onEnterRead={() => setReadIndex(i)}
               />
             ))}
           </>
@@ -523,6 +570,15 @@ const styles = StyleSheet.create({
   statusCard: { borderWidth: 1 },
   statusText: { fontSize: 15, fontWeight: '600', lineHeight: 20 },
   methodCard: { gap: 8 },
+  readBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 9,
+    paddingVertical: 14,
+    marginTop: 4,
+  },
+  readBtnTxt: { fontSize: 16, fontWeight: '800', color: '#ffffff' },
   methodName: { fontSize: 20 },
   methodType: { fontSize: 13, textTransform: 'uppercase', letterSpacing: 0.5 },
   chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 4 },
