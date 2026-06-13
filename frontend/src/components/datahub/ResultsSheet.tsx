@@ -47,7 +47,14 @@ import {
   type NormalizedTTest,
   type NormalizedTwoWayAnova,
 } from "@/lib/datahub/run-analysis";
-import { formatP, plainLanguageSummary } from "@/lib/datahub/plain-language";
+import {
+  formatP,
+  plainLanguageSummary,
+  workedExample,
+  learnMoreTopic,
+} from "@/lib/datahub/plain-language";
+import Link from "next/link";
+import { BeakerBotMark } from "@/components/animations/BeakerBotMark";
 import { showCode } from "@/lib/datahub/show-code";
 import { chainCode, type ContentResolver } from "@/lib/datahub/chain-code";
 import { resultToText } from "@/lib/datahub/result-text";
@@ -2205,6 +2212,12 @@ export default function ResultsSheet({
   // flashes empty.
   const code = chainSource || showCode(result);
   const current = tabs[safeTab];
+  // BeakerBot's interpretation box. The verdict is always present; the worked
+  // example and the learn-more link are additive and only render when they have
+  // something to say (workedExample / learnMoreTopic return null otherwise), so
+  // the box never shows an empty green callout or a dangling link.
+  const worked = workedExample(result);
+  const learnMore = learnMoreTopic(result);
 
   return (
     <div className="flex min-h-0 flex-1 flex-col" data-testid="datahub-results-sheet">
@@ -2229,10 +2242,47 @@ export default function ResultsSheet({
       <div className="min-h-0 flex-1 overflow-auto px-5 pb-5 pt-4">
         {paramsPanel}
         <div
-          className="rounded-lg border border-accent/30 bg-accent-soft px-4 py-3 text-body text-foreground"
+          className="rounded-lg border border-accent/30 bg-accent-soft px-4 py-3"
           data-testid="results-verdict"
         >
-          {plainLanguageSummary(result)}
+          {/* Header bar: BeakerBot mark + "BeakerBot's read on this result", so
+              the interpretation reads as a tip from the mascot rather than an
+              anonymous box. The box keeps its sky accent. */}
+          <div
+            className="mb-2 flex items-center gap-1.5 text-meta font-semibold text-accent"
+            data-testid="results-verdict-header"
+          >
+            <BeakerBotMark className="h-4 w-4 shrink-0" />
+            BeakerBot&apos;s read on this result
+          </div>
+
+          <p className="text-body text-foreground">
+            {plainLanguageSummary(result)}
+          </p>
+
+          {worked ? (
+            // The "for your numbers" callout, a soft success tint with a left
+            // border so it reads as a concrete worked example distinct from the
+            // verdict above. Only renders when workedExample returns a sentence.
+            <p
+              className="mt-3 rounded-r border-l-2 border-green-600/50 bg-green-500/10 px-3 py-2 text-meta text-foreground"
+              data-testid="results-worked-example"
+            >
+              <span className="font-semibold">For your numbers: </span>
+              {worked}
+            </p>
+          ) : null}
+
+          {learnMore ? (
+            <Link
+              href={learnMore.href}
+              className="mt-3 inline-flex items-center gap-0.5 text-meta font-semibold text-accent hover:underline"
+              data-testid="results-learn-more"
+            >
+              {learnMore.label}
+              <Icon name="chevronRight" className="h-3.5 w-3.5" />
+            </Link>
+          ) : null}
         </div>
 
         {/* Underline tab row (mockup style). Only tabs with content render, so a
