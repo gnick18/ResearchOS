@@ -3,6 +3,7 @@
 import { useState } from "react";
 
 import type { UserSettings } from "@/lib/settings/user-settings";
+import { sharingApi } from "@/lib/local-api";
 import { useAccountCapabilities } from "@/hooks/useAccountCapabilities";
 import {
   DEFAULT_NOTIFICATION_PREFERENCES,
@@ -117,6 +118,45 @@ export default function NotificationsSection({
     setPermission(p);
   };
 
+  // Send a sample notification so a user can confirm their setup actually
+  // reaches them. It rides the SAME path a real reminder takes: it creates a
+  // reminders-category notification, which the headless watcher then fans out
+  // to whatever channels the user routed reminders to (bell always, plus laptop
+  // pop-up / phone / email per the matrix below). We also pop a laptop
+  // Notification directly for instant feedback when permission is granted.
+  const [testState, setTestState] = useState<"idle" | "sending" | "sent" | "error">("idle");
+  const sendTest = async () => {
+    setTestState("sending");
+    try {
+      const start = new Date(Date.now() + 15 * 60 * 1000);
+      const localDate = `${start.getFullYear()}-${String(start.getMonth() + 1).padStart(2, "0")}-${String(start.getDate()).padStart(2, "0")}`;
+      await sharingApi.createEventReminder({
+        event_id: `test-${Date.now()}`,
+        event_kind: "native",
+        event_title: "Test notification",
+        event_start_iso: start.toISOString(),
+        event_date: localDate,
+        event_location: "Notification test",
+        offset_minutes: 15,
+      });
+      window.dispatchEvent(new CustomEvent("ros-notifications-changed"));
+      if (typeof Notification !== "undefined" && Notification.permission === "granted") {
+        try {
+          new Notification("Test notification", {
+            body: "If you can see this, your laptop pop-ups are working.",
+            tag: "ros-test-notif",
+          });
+        } catch {
+          // Some browsers throw outside a user gesture / service worker; ignore.
+        }
+      }
+      setTestState("sent");
+      setTimeout(() => setTestState("idle"), 6000);
+    } catch {
+      setTestState("error");
+    }
+  };
+
   return (
     <div className="max-w-2xl">
       <p className="text-body leading-relaxed text-foreground-muted">
@@ -216,6 +256,41 @@ export default function NotificationsSection({
               />
             </div>
           </>
+        ) : null}
+
+        <div className="flex items-center gap-3 border-t border-border pt-3">
+          <div className="flex-1">
+            <div className="text-meta font-bold text-foreground">
+              Send a test notification
+            </div>
+            <div className="text-[11.5px] text-foreground-muted">
+              Fires a sample so you can confirm it reaches you, through whatever
+              channels you turned on for reminders below.
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={sendTest}
+            disabled={testState === "sending"}
+            className="rounded-lg border border-brand-action px-3 py-1.5 text-meta font-bold text-brand-action transition-colors hover:bg-brand-action/[0.06] disabled:opacity-50"
+          >
+            {testState === "sending"
+              ? "Sending..."
+              : testState === "sent"
+                ? "Sent"
+                : "Send test"}
+          </button>
+        </div>
+        {testState === "sent" ? (
+          <p className="mt-2 text-[11.5px] text-foreground-muted">
+            Sent. Watch the bell now, plus any channel you enabled for reminders
+            (laptop pop-up, phone, email).
+          </p>
+        ) : null}
+        {testState === "error" ? (
+          <p className="mt-2 text-[11.5px] text-red-600 dark:text-red-400">
+            Could not send the test. Check the browser console.
+          </p>
         ) : null}
       </div>
 
