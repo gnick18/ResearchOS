@@ -42,7 +42,8 @@ import { Card } from '@/components/ui/Card';
 import { ScreenFrame } from '@/components/ui/ScreenFrame';
 import { TabHeader } from '@/components/ui/TabHeader';
 import { useUnreadNotificationCount } from '@/lib/unread-notifications';
-import { palette, radii, spacing, useTheme } from '@/lib/design';
+import { fonts, palette, radii, spacing, useTheme } from '@/lib/design';
+import { ThemedText } from '@/components/themed-text';
 
 import {
   evaluateExpression,
@@ -99,14 +100,17 @@ const TABS: { id: TabId; label: string }[] = [
 
 export default function CalcScreen() {
   const [activeTab, setActiveTab] = useState<TabId>('scientific');
-  const { spacing: sp } = useTheme();
+  const { spacing: sp, surface } = useTheme();
   const unreadCount = useUnreadNotificationCount();
 
   return (
     <ScreenFrame>
-      {/* Shared tab header, then the calculator chip selector below it. */}
+      {/* Contract title header, then the calculator chip selector below it. */}
       <View style={styles.calcHeaderWrap}>
-        <TabHeader title="Calc" unreadCount={unreadCount} />
+        <ThemedText style={{ fontSize: 12.5, fontFamily: fonts.semibold, color: surface.muted, marginBottom: 4 }}>
+          Bench math
+        </ThemedText>
+        <ThemedText type="title">Calculators</ThemedText>
       </View>
       <View style={styles.switcherWrap}>
         <CalcHeader active={activeTab} onChange={setActiveTab} />

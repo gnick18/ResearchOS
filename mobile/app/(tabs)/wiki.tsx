@@ -29,7 +29,7 @@ import { ScreenFrame } from '@/components/ui/ScreenFrame';
 import { TabHeader } from '@/components/ui/TabHeader';
 import { useUnreadNotificationCount } from '@/lib/unread-notifications';
 import { Card } from '@/components/ui/Card';
-import { useTheme, palette } from '@/lib/design';
+import { useTheme, palette, fonts } from '@/lib/design';
 import {
   getBundledContent,
   loadWikiContent,
@@ -119,10 +119,10 @@ export default function WikiBrowseScreen() {
     <ScreenFrame>
       {/* Header matches every other tab: big title, muted tagline, then search. */}
       <View style={styles.headerArea}>
-        <TabHeader title="Wiki" unreadCount={unreadCount} />
-        <ThemedText style={[styles.tagline, { color: surface.muted }]}>
-          Guides and help, searchable across every page.
+        <ThemedText style={{ fontSize: 12.5, fontFamily: fonts.semibold, color: surface.muted, marginBottom: 4 }}>
+          Guides and help
         </ThemedText>
+        <ThemedText type="title">Wiki</ThemedText>
         <View style={styles.searchWrap}>
           <SearchBar
             value={query}
