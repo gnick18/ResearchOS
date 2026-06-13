@@ -637,13 +637,8 @@ export default function BeakerBotConversation({
 
   // ---- Voice input (Web Speech API) ----------------------------------------
   //
-  // NOTE for Grant: no "mic" or "microphone" glyph exists in the registry.
-  // The mic button currently reuses the "camera" icon (audio/media capture
-  // device) as the closest available match. Per the one-glyph-per-meaning
-  // rule this is a placeholder -- "camera" means photo attach, not voice. A
-  // dedicated mic glyph needs your sign-off before the button gets its own
-  // icon. When you approve, add the glyph to the registry and swap the name
-  // here.
+  // The mic button uses the dedicated "mic" registry glyph (Grant approved a
+  // microphone icon, distinct from the "camera" image-attach button beside it).
   const handleFinalTranscript = useCallback(
     (text: string) => {
       setDraft((prev) => appendTranscript(prev, text));
@@ -1527,7 +1522,7 @@ export default function BeakerBotConversation({
                     : "border-border bg-surface-raised text-foreground-muted hover:bg-surface-sunken hover:text-foreground"
                 }`}
               >
-                <Icon name="camera" className="h-4 w-4" title={listening ? "Stop dictation" : "Dictate"} />
+                <Icon name="mic" className="h-4 w-4" title={listening ? "Stop dictation" : "Dictate"} />
               </button>
             </Tooltip>
           ) : null}
