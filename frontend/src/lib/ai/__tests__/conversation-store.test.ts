@@ -123,15 +123,19 @@ vi.mock("../beaker-chats-store", () => ({
 // Stub user-memory so tests are not file-system-dependent. Default: no entries
 // (the memory message is absent, deterministic). Individual tests can override
 // getMemoryEntries via mockResolvedValueOnce to exercise the injection path.
-vi.mock("../user-memory", () => ({
-  getMemoryEntries: vi.fn(async () => []),
-  buildMemoryContext: vi.fn(
-    (entries: { text: string }[]) =>
-      entries.length > 0
-        ? `USER PREFERENCES (apply these by default, do not repeat them back unless asked):\n${entries.map((e) => `- ${e.text}`).join("\n")}`
-        : null,
-  ),
-}));
+vi.mock("../user-memory", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("../user-memory")>();
+  return {
+    ...actual,
+    getMemoryEntries: vi.fn(async () => []),
+    buildMemoryContext: vi.fn(
+      (entries: { text: string }[]) =>
+        entries.length > 0
+          ? `USER PREFERENCES (apply these by default, do not repeat them back unless asked):\n${entries.map((e) => `- ${e.text}`).join("\n")}`
+          : null,
+    ),
+  };
+});
 
 // Import mocked modules for use in tests.
 import { callModelViaProxy } from "../proxy-client";
@@ -676,11 +680,15 @@ describe("memory injection: memory system line does not accumulate in history", 
     await useConversationStore.getState().send("second question");
     await flushAll();
 
+    // Skip index 0 (the base system prompt). The base prompt itself mentions the
+    // phrase USER PREFERENCES when it tells the model how the injected note looks,
+    // so only a leaked INJECTED line would be a system message after the base.
     const history = getConversationHistory();
-    // Count system messages in history that contain the memory marker string.
-    const memoryLines = history.filter(
-      (m) => m.role === "system" && typeof m.content === "string" && m.content.includes("USER PREFERENCES"),
-    );
+    const memoryLines = history
+      .slice(1)
+      .filter(
+        (m) => m.role === "system" && typeof m.content === "string" && m.content.includes("USER PREFERENCES"),
+      );
     // The memory message must have been stripped before persist. Zero copies.
     expect(memoryLines).toHaveLength(0);
   });

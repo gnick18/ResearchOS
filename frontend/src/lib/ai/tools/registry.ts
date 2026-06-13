@@ -82,6 +82,15 @@ import {
 } from "./experiment-tools";
 import { setupExperimentTool } from "./setup-experiment";
 import {
+  draftPaperSummaryTool,
+  extractPaperMethodTool,
+} from "./paper-reproduce-tools";
+import { saveSummaryAsNoteTool } from "./summary-artifact-tool";
+import {
+  rememberPreferenceTool,
+  forgetPreferenceTool,
+} from "./user-memory-tools";
+import {
   createTaskTool,
   rescheduleTaskTool,
   updateTaskTool,
@@ -332,6 +341,23 @@ export const READ_ONLY_TOOLS: AiTool[] = [
 export const ACTION_TOOLS: AiTool[] = [
   clickElementTool,
   writeNoteTool,
+  // draft_paper_summary and extract_paper_method are Outputs 1 and 2 of the
+  // PDF-reproduce flow (spec docs/proposals/beakerbot-pdf-reproduce-analysis.md).
+  // Both are gated writes raising a draft preview so the user reviews the proposed
+  // note or method before anything writes. The paper text is already-extracted (PDF
+  // ingestion is a separate task). HARD RULE: these tools are pure transcription
+  // vehicles; the model never interprets, judges, ranks, or concludes about the paper.
+  draftPaperSummaryTool,
+  extractPaperMethodTool,
+  // save_summary_as_note assembles a structured note from a summary-suite result and
+  // writes it via the draft-preview gate. Numbers come verbatim from the summary tool,
+  // the model only supplies the narration paragraph.
+  saveSummaryAsNoteTool,
+  // Memory coworker tools (action: true, isDestructive false). remember_preference
+  // saves a standing user preference to _beakerbot_memory.json, reversible via
+  // forget_preference. Both are low-stakes local writes the user explicitly asked for.
+  rememberPreferenceTool,
+  forgetPreferenceTool,
   createExperimentTool,
   rescheduleExperimentTool,
   createExperimentChainTool,
