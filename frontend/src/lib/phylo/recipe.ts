@@ -55,6 +55,28 @@ function iqtreeThreads(o: BuilderOptions): string {
   return `-T ${o.threads}`;
 }
 
+/**
+ * A warning note for -T AUTO. IQ-TREE re-measures the optimal thread count for
+ * every model ModelFinder tries, so on a small alignment AUTO can dominate the
+ * whole run (a tiny test alignment has spent over 30 minutes on the measurement
+ * alone). We keep AUTO as the default because it is right for large alignments,
+ * but the recipe says so and offers the fixed-core alternative. Empty when the
+ * user already picked a fixed thread count.
+ */
+function threadsNote(o: BuilderOptions): Line[] {
+  if (o.threads !== "AUTO") return [];
+  return [
+    {
+      comment:
+        "note: -T AUTO re-measures the best thread count for every model ModelFinder "
+        + "tries, which is slow on small alignments (a tiny one can spend many minutes "
+        + "just measuring). For a small alignment, replace -T AUTO with a fixed core "
+        + "count, e.g. -T 4.",
+      line: "",
+    },
+  ];
+}
+
 /** RAxML-NG thread flag (lower-case auto). */
 function raxmlThreads(o: BuilderOptions): string {
   return `--threads ${o.threads === "AUTO" ? "auto" : o.threads}`;
@@ -128,6 +150,7 @@ function singleLines(o: BuilderOptions): Line[] {
     const s =
       `iqtree2 -s ${inferInput} -m ${modelString(o)}${mset(o)} ` +
       `${iqtreeThreads(o)} --prefix tree${iqtreeSupport(o)}${outgroupFlag(o)}`;
+    out.push(...threadsNote(o));
     out.push({
       comment:
         o.model === "modelfinder"
@@ -230,6 +253,7 @@ function supermatrixLines(o: BuilderOptions): Line[] {
 
   let partModel = o.model === "fixed" ? o.fixedModel : o.partScheme === "merge" ? "MFP+MERGE" : "MFP";
   if (o.asc) partModel += "+ASC";
+  out.push(...threadsNote(o));
   out.push({
     comment: "partitioned ML tree (IQ-TREE gives the best per-partition support)",
     line:
@@ -264,6 +288,15 @@ function coalescentLines(o: BuilderOptions): Line[] {
   if (o.infer === "mrbayes") {
     out.push({
       comment: "MrBayes is impractical per-gene, using IQ-TREE for the gene trees",
+      line: "",
+    });
+  }
+  if (useTool === "iqtree") {
+    out.push({
+      comment:
+        "note: per-gene alignments are small, so -T AUTO below spends most of its time "
+        + "measuring threads rather than building trees. Replace -T AUTO with a fixed "
+        + "core count, e.g. -T 4, for a much faster per-gene loop.",
       line: "",
     });
   }

@@ -228,6 +228,27 @@ describe("recipe generator: install + run.sh + markdown", () => {
   });
 });
 
+describe("recipe generator: -T AUTO warning", () => {
+  it("warns about -T AUTO and suggests a fixed -T when threads is AUTO", () => {
+    const c = generateCommands(opt({ threads: "AUTO" }));
+    expect(c).toContain("re-measures");
+    expect(c).toContain("-T 4");
+  });
+  it("omits the warning when the user picked a fixed thread count", () => {
+    const c = generateCommands(opt({ threads: "8" }));
+    expect(c).not.toContain("re-measures");
+    expect(c).toContain("-T 8");
+  });
+  it("warns on the supermatrix pipeline too when AUTO", () => {
+    const c = generateCommands(opt({ analysis: "supermatrix", threads: "AUTO" }));
+    expect(c).toContain("re-measures");
+  });
+  it("warns on the coalescent per-gene loop (always small alignments)", () => {
+    const c = generateCommands(opt({ analysis: "coalescent" }));
+    expect(c).toContain("per-gene alignments are small");
+  });
+});
+
 describe("newick tip counter", () => {
   it("counts bifurcating and multifurcating trees", () => {
     expect(countNewickTips("(A,B);")).toBe(2);
