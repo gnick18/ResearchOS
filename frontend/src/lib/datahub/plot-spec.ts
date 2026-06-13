@@ -570,6 +570,12 @@ export function buildPlotSpec(args: {
 }): PlotSpec {
   const style = defaultPlotStyle();
   style.kind = args.kind;
+  // Parts-of-whole figures read better led by a color than by Okabe-Ito's
+  // leading black (a black first wedge looks off in a pie), so default them to
+  // a colorblind-safe color-first palette. Bars and scatter keep Okabe-Ito.
+  if (args.kind === "pie" || args.kind === "donut" || args.kind === "stackedBar") {
+    style.palette = "tol-bright";
+  }
   if (args.yTitle !== undefined) style.yTitle = args.yTitle;
   if (args.xTitle !== undefined) style.xTitle = args.xTitle;
   if (args.title !== undefined) style.title = args.title;
