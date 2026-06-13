@@ -130,6 +130,12 @@ import {
   digestLigateTool,
 } from "./cloning-tools";
 import { assembleTreeFastaTool } from "./assemble-tree-fasta";
+import {
+  addInventoryItemTool,
+  adjustInventoryStockTool,
+} from "./inventory-tools";
+import { listCalculatorsTool, runCalculatorTool } from "./calculator-tools";
+import { createPurchaseTool } from "./purchase-tools";
 import type { AiTool } from "./types";
 
 // The read-only toolset, read-only with respect to the user's data. Exported on
@@ -241,6 +247,12 @@ export const READ_ONLY_TOOLS: AiTool[] = [
   // Lab roster, so the summary wizard's whose-step can offer real member names
   // and resolve a typed name to a real owner. Read-only.
   listLabMembersTool,
+  // Custom calculator tools. list_calculators surfaces every available calculator
+  // (own + shared) with its input descriptors; run_calculator validates inputs and
+  // delegates entirely to evaluateCustomCalculator. The engine owns every number,
+  // the model only relays the pre-formatted display strings. Read-only, non-gated.
+  listCalculatorsTool,
+  runCalculatorTool,
   // Layer 2 (read-by-id): one read tool per artifact type. Each accepts an id from
   // a search_my_work brief and returns a trimmed projection of that artifact's
   // content. Trimmed to protect the context window. All read-only, none navigates.
@@ -381,6 +393,11 @@ export const ACTION_TOOLS: AiTool[] = [
   rescheduleTaskTool,
   updateTaskTool,
   linkTasksTool,
+  // create_purchase logs an order (action: true, isDestructive false). The preview
+  // shows vendor, item, quantity, price, and project before anything writes. Two-step
+  // write: a parent Task with task_type "purchase", then the linked PurchaseItem.
+  // Project resolved by name or id, money display strings are pre-formatted verbatim.
+  createPurchaseTool,
   createSequenceTool,
   createMoleculeTool,
   importMoleculeTool,
@@ -411,6 +428,12 @@ export const ACTION_TOOLS: AiTool[] = [
   // download in the Allow-gesture window so the user can run a generate_tree
   // recipe on it. Reads sequences, never writes them; the download is reversible.
   assembleTreeFastaTool,
+  // Inventory write tools (action: true, isDestructive false). add_inventory_item
+  // creates a catalog record; adjust_inventory_stock restocks, consumes, or
+  // corrects the count of an existing item resolved by name. Both preview before
+  // writing; neither deletes, so neither forces the destructive hard-stop.
+  addInventoryItemTool,
+  adjustInventoryStockTool,
 ];
 
 // The coordination toolset. These tools neither read the user's data nor act on
