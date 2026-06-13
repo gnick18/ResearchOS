@@ -68,6 +68,13 @@ export type ArtifactBrief = {
   date?: string;
   /** Project ids this artifact belongs to (empty array when unlinked). */
   projectIds?: string[];
+  /** The owning lab member's username, when the source record carries one (tasks,
+   *  purchases). Set by the converters from the record's `owner` field so the
+   *  per-member ("whose") summary filter can scope by owner WITHOUT re-reading the
+   *  record. Absent on types with no owner concept (Data Hub tables, molecules in
+   *  v1). The ACL is enforced upstream by the fetchAll*IncludingShared loaders, so
+   *  an owner that appears here is one the current user is already allowed to see. */
+  owner?: string;
   /** The in-app path that opens this artifact. Built by objectDeepLink where supported. */
   deepLink: string;
   /** Extra tokens beyond the title that improve search hit rate. Derived from a
@@ -113,6 +120,10 @@ export function experimentToBrief(task: Task): ArtifactBrief {
     subtitle: task.is_complete ? "complete" : "active",
     date: task.start_date,
     projectIds: task.project_id ? [String(task.project_id)] : [],
+    // Carry the owning member so the "whose" summary filter can scope to one
+    // person. The shared-task loader backfills owner on every task it returns,
+    // so this is the real owner the current user is allowed to see.
+    owner: task.owner || undefined,
     deepLink: objectDeepLink("experiment", taskKey(task)),
     keywords: dedupe(keywords),
   };
@@ -192,8 +203,13 @@ export function projectToBrief(project: Project): ArtifactBrief {
   };
 }
 
-/** Map one PurchaseItem to an ArtifactBrief. Pure, no I/O. */
-export function purchaseToBrief(item: PurchaseItem): ArtifactBrief {
+/** Map one PurchaseItem to an ArtifactBrief. Pure, no I/O.
+ *
+ * The base PurchaseItem carries no `owner`, but the shared-view loader
+ * (purchasesApi.listAllIncludingShared) decorates each item with `owner`, so the
+ * parameter widens to accept that optional decoration and the brief carries the
+ * owner through for the "whose" summary filter. */
+export function purchaseToBrief(item: PurchaseItem & { owner?: string }): ArtifactBrief {
   const keywords: string[] = tokenize(item.item_name);
   if (item.vendor) keywords.push(...tokenize(item.vendor));
   if (item.category) keywords.push(...tokenize(item.category));
@@ -205,8 +221,14 @@ export function purchaseToBrief(item: PurchaseItem): ArtifactBrief {
     id: String(item.id),
     title: item.item_name || "Untitled purchase",
     subtitle: item.vendor ?? item.category ?? undefined,
-    // Purchase items have no date field of their own; leave date unset so
-    // the scorer sorts them last when the query is empty.
+    // Purchase items have no purchase-date field, but they DO carry
+    // last_edited_at once touched. Surface it as the brief date so a date-
+    // windowed summary ("purchases this month") can place the item, and so the
+    // search scorer has a real recency signal. A pre-feature purchase that was
+    // never edited has no last_edited_at and stays dateless (so a date-bounded
+    // search still drops it, the documented behavior).
+    date: item.last_edited_at,
+    owner: item.owner || undefined,
     deepLink: "/purchases",
     keywords: dedupe(keywords),
   };
@@ -491,4 +513,118 @@ export async function searchMyWork(
   });
 
   return scored.slice(0, limit).map((s) => s.brief);
+}
+
+// ---------------------------------------------------------------------------
+// filterArtifacts (Layer 1 of the summary suite): a pure, shared filter over
+// ArtifactBriefs. The summary tools convert their records to briefs, run this
+// filter, then aggregate the survivors deterministically. The cross-type index
+// work (project_beakerbot_context_index Layers 1+2) reuses the same filter, so
+// it is built once here.
+// ---------------------------------------------------------------------------
+
+/**
+ * The shared filter the summary tools (and the future cross-type index) apply
+ * to a list of ArtifactBriefs. Every field is optional and ANDs with the rest,
+ * so an empty filter keeps everything. A field with an empty array also keeps
+ * everything for that dimension (an empty `types: []` is "no type restriction",
+ * not "match nothing"), so a caller never has to special-case the empty case.
+ *
+ * - `types`: which artifact kinds to keep (the brief.type discriminants).
+ * - `since` / `until`: inclusive, day-granular date window (compared with
+ *   dayPrefix, exactly like searchMyWork). A brief with no usable date is
+ *   dropped by a date-bounded filter, because it cannot be placed in the window.
+ * - `owners`: which lab members to keep, matched on brief.owner. A brief with
+ *   no owner is dropped when an owners filter is present. The owners themselves
+ *   come from records the current user is already allowed to see (the
+ *   fetchAll*IncludingShared loaders enforce the ACL upstream), so this never
+ *   widens access, it only narrows an already-permitted set.
+ * - `projectIds`: which projects to keep, matched on brief.projectIds (a brief
+ *   in ANY of the listed projects survives). A brief with no projectIds is
+ *   dropped when a project filter is present.
+ * - `status`: a per-type status label to keep. v1 understands the experiment
+ *   statuses ("complete" / "active") that experimentToBrief writes into
+ *   brief.subtitle; an unrecognized status simply matches the subtitle string.
+ *   The summarize tools own the richer overdue / upcoming derivation against the
+ *   real Date, so the filter stays simple here.
+ * - `keywords`: a free-text token query scored by the existing scoreBrief. A
+ *   brief survives when it scores above zero. An empty / whitespace keyword
+ *   string is treated as no keyword restriction.
+ */
+export type ArtifactFilter = {
+  types?: string[];
+  since?: string;
+  until?: string;
+  owners?: string[];
+  projectIds?: string[];
+  status?: string;
+  keywords?: string;
+};
+
+/**
+ * Apply an ArtifactFilter to a list of briefs. Pure, no I/O, fully deterministic.
+ * Returns a NEW array of the briefs that pass every active dimension. The order
+ * of the input is preserved (the summary tools re-sort by date themselves).
+ *
+ * This is the single source of truth for "which records are in scope" across the
+ * summary tools. The tools then COUNT and TOTAL the survivors, never the model.
+ */
+export function filterArtifacts(
+  items: ArtifactBrief[],
+  filter: ArtifactFilter,
+): ArtifactBrief[] {
+  const typeSet =
+    filter.types && filter.types.length > 0 ? new Set(filter.types) : null;
+  const ownerSet =
+    filter.owners && filter.owners.length > 0 ? new Set(filter.owners) : null;
+  const projectSet =
+    filter.projectIds && filter.projectIds.length > 0
+      ? new Set(filter.projectIds.map((p) => String(p)))
+      : null;
+  const sinceDay = dayPrefix(filter.since);
+  const untilDay = dayPrefix(filter.until);
+  const hasDateBound = sinceDay !== null || untilDay !== null;
+  const statusWanted = filter.status?.trim().toLowerCase() || null;
+  const keywordTokens = tokenize(filter.keywords);
+  const hasKeywords = keywordTokens.length > 0;
+
+  return items.filter((brief) => {
+    // Type.
+    if (typeSet && !typeSet.has(brief.type)) return false;
+
+    // Owner. A brief with no owner cannot satisfy a member filter.
+    if (ownerSet) {
+      if (!brief.owner || !ownerSet.has(brief.owner)) return false;
+    }
+
+    // Project. The brief survives when it is in ANY of the requested projects.
+    if (projectSet) {
+      const ids = brief.projectIds ?? [];
+      if (ids.length === 0) return false;
+      if (!ids.some((id) => projectSet.has(String(id)))) return false;
+    }
+
+    // Date window. Day-granular, inclusive. A brief with no usable date is
+    // excluded by a date-bounded filter rather than guessed into the window.
+    if (hasDateBound) {
+      const day = dayPrefix(brief.date);
+      if (day === null) return false;
+      if (sinceDay !== null && day < sinceDay) return false;
+      if (untilDay !== null && day > untilDay) return false;
+    }
+
+    // Status. Matched against the brief's subtitle string (where
+    // experimentToBrief writes "complete" / "active"). Case-insensitive.
+    if (statusWanted) {
+      const sub = (brief.subtitle ?? "").toLowerCase();
+      if (!sub.includes(statusWanted)) return false;
+    }
+
+    // Keywords. Token-overlap via the shared scorer; survives when score > 0.
+    if (hasKeywords) {
+      if (scoreBrief(brief, keywordTokens) <= 0) return false;
+    }
+
+    return true;
+  });
 }

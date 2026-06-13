@@ -16,6 +16,7 @@ import {
   experimentToBrief,
   searchMyWork,
   dayPrefix,
+  filterArtifacts,
   type ArtifactBrief,
   type ArtifactIndexDeps,
 } from "../artifact-index";
@@ -534,5 +535,171 @@ describe("dayPrefix", () => {
     expect(dayPrefix(undefined)).toBeNull();
     expect(dayPrefix("")).toBeNull();
     expect(dayPrefix("last week")).toBeNull();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// filterArtifacts (Layer 1 of the summary suite). Pure, exercised directly
+// against a small mixed brief set covering every filter dimension, the empty
+// filter, the no-match path, and the empty-array "no restriction" semantics.
+// ---------------------------------------------------------------------------
+
+describe("filterArtifacts", () => {
+  // A small mixed corpus with explicit owners, projects, dates, statuses.
+  function corpus(): ArtifactBrief[] {
+    return [
+      {
+        type: "experiment",
+        id: "self:6",
+        title: "Colony PCR screen",
+        subtitle: "active",
+        date: "2026-06-10",
+        projectIds: ["4"],
+        owner: "grant",
+        deepLink: "/?openTask=self:6",
+        keywords: ["pcr", "screening"],
+      },
+      {
+        type: "experiment",
+        id: "alice:7",
+        title: "Western blot",
+        subtitle: "complete",
+        date: "2026-04-02",
+        projectIds: ["9"],
+        owner: "alice",
+        deepLink: "/?openTask=alice:7",
+        keywords: ["western", "blot"],
+      },
+      {
+        type: "purchase",
+        id: "5",
+        title: "Gibson Assembly Master Mix",
+        subtitle: "NEB",
+        // No date on purpose: a date-bounded filter must drop it.
+        owner: "grant",
+        deepLink: "/purchases",
+        keywords: ["gibson", "neb", "reagents"],
+      },
+      {
+        type: "note",
+        id: "1",
+        title: "CRISPR cloning protocol",
+        date: "2026-05-20",
+        // No owner: an owners filter must drop it.
+        deepLink: "/notes/1",
+        keywords: ["crispr", "cloning"],
+      },
+    ];
+  }
+
+  it("an empty filter keeps every brief", () => {
+    const items = corpus();
+    expect(filterArtifacts(items, {})).toHaveLength(items.length);
+  });
+
+  it("treats empty arrays as no restriction (not match-nothing)", () => {
+    const items = corpus();
+    expect(filterArtifacts(items, { types: [], owners: [], projectIds: [] })).toHaveLength(
+      items.length,
+    );
+  });
+
+  it("filters by type", () => {
+    const out = filterArtifacts(corpus(), { types: ["experiment"] });
+    expect(out.map((b) => b.id).sort()).toEqual(["alice:7", "self:6"]);
+  });
+
+  it("filters by multiple types", () => {
+    const out = filterArtifacts(corpus(), { types: ["purchase", "note"] });
+    expect(out.map((b) => b.id).sort()).toEqual(["1", "5"]);
+  });
+
+  it("filters by owner and drops briefs with no owner", () => {
+    const out = filterArtifacts(corpus(), { owners: ["grant"] });
+    // self:6 (grant experiment) + 5 (grant purchase). alice:7 is alice; note 1
+    // has no owner and is dropped.
+    expect(out.map((b) => b.id).sort()).toEqual(["5", "self:6"]);
+  });
+
+  it("filters by multiple owners", () => {
+    const out = filterArtifacts(corpus(), { owners: ["grant", "alice"] });
+    expect(out.map((b) => b.id).sort()).toEqual(["5", "alice:7", "self:6"].sort());
+  });
+
+  it("filters by project id and drops briefs not in any listed project", () => {
+    const out = filterArtifacts(corpus(), { projectIds: ["4"] });
+    expect(out.map((b) => b.id)).toEqual(["self:6"]);
+  });
+
+  it("filters by an inclusive since date and drops undated briefs", () => {
+    const out = filterArtifacts(corpus(), { since: "2026-05-01" });
+    // self:6 (06-10) + note 1 (05-20). alice:7 (04-02) is before; purchase 5 has
+    // no date so a date-bounded filter excludes it.
+    expect(out.map((b) => b.id).sort()).toEqual(["1", "self:6"]);
+  });
+
+  it("filters by an inclusive until date", () => {
+    const out = filterArtifacts(corpus(), { until: "2026-05-31" });
+    expect(out.map((b) => b.id).sort()).toEqual(["1", "alice:7"]);
+  });
+
+  it("filters by a since/until window (boundaries inclusive)", () => {
+    const out = filterArtifacts(corpus(), { since: "2026-04-02", until: "2026-05-20" });
+    expect(out.map((b) => b.id).sort()).toEqual(["1", "alice:7"]);
+  });
+
+  it("filters by status against the subtitle", () => {
+    expect(filterArtifacts(corpus(), { status: "complete" }).map((b) => b.id)).toEqual([
+      "alice:7",
+    ]);
+    expect(filterArtifacts(corpus(), { status: "active" }).map((b) => b.id)).toEqual([
+      "self:6",
+    ]);
+  });
+
+  it("filters by keywords via the scorer", () => {
+    const out = filterArtifacts(corpus(), { keywords: "gibson" });
+    expect(out.map((b) => b.id)).toEqual(["5"]);
+  });
+
+  it("ANDs multiple dimensions together", () => {
+    // grant + experiment + since April should keep only self:6.
+    const out = filterArtifacts(corpus(), {
+      owners: ["grant"],
+      types: ["experiment"],
+      since: "2026-04-01",
+    });
+    expect(out.map((b) => b.id)).toEqual(["self:6"]);
+  });
+
+  it("returns an empty array when nothing matches", () => {
+    expect(filterArtifacts(corpus(), { owners: ["nobody"] })).toEqual([]);
+    expect(filterArtifacts(corpus(), { keywords: "nonexistentxyz" })).toEqual([]);
+    expect(filterArtifacts(corpus(), { projectIds: ["999"] })).toEqual([]);
+  });
+
+  it("does not mutate the input array", () => {
+    const items = corpus();
+    const before = items.length;
+    filterArtifacts(items, { types: ["experiment"] });
+    expect(items).toHaveLength(before);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// owner threading on the converters that carry it (experiment + purchase).
+// ---------------------------------------------------------------------------
+
+describe("owner on briefs", () => {
+  it("experimentToBrief carries the task owner", () => {
+    expect(experimentToBrief(makeExperiment({ owner: "kritika" })).owner).toBe("kritika");
+  });
+
+  it("purchaseToBrief carries the decorated owner when present", () => {
+    expect(purchaseToBrief({ ...makePurchase(), owner: "kritika" }).owner).toBe("kritika");
+  });
+
+  it("purchaseToBrief leaves owner undefined on an undecorated item", () => {
+    expect(purchaseToBrief(makePurchase()).owner).toBeUndefined();
   });
 });
