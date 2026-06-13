@@ -7,6 +7,9 @@ import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { readPrefs, type NotificationPrefs } from "./notification-prefs-store";
 import { useExternalEvents } from "./use-external-events";
 import type { Event, ExternalEvent } from "@/lib/types";
+import { loadUserCaptureKeys } from "@/lib/mobile-relay/keys";
+import { publishReminderSchedule } from "@/lib/mobile-relay/client";
+import { readUserSettings } from "@/lib/settings/user-settings";
 
 /**
  * Schedule and fire calendar event reminders.
@@ -181,6 +184,27 @@ export function useEventReminders() {
 
     const now = Date.now();
     const fireables = collectReminders(events, externalEvents, prefs, now);
+
+    // Phone push P3b: mirror the upcoming reminder schedule (content-free, just
+    // opaque ids + fire times) to the relay so it can buzz the phone for the ones
+    // that come due while the laptop is closed. REPLACE each pass. Gated by the
+    // same autoPublishSnapshotsToPhones kill switch as the snapshot publisher; off
+    // publishes an empty schedule to clear any prior. Fire-and-forget + account
+    // only (no keys -> no-op). The relay's dead-man's-switch keeps it from
+    // double-buzzing while this tab is open (it fires the reminder locally below).
+    void (async () => {
+      try {
+        const keys = await loadUserCaptureKeys();
+        if (!keys) return;
+        const settings = await readUserSettings(currentUser);
+        const schedule = settings.autoPublishSnapshotsToPhones
+          ? fireables.map((r) => ({ id: r.eventId, fireAt: r.fireAt }))
+          : [];
+        await publishReminderSchedule(keys, schedule);
+      } catch {
+        // Best-effort; a missed registration only delays an offline reminder buzz.
+      }
+    })();
 
     for (const r of fireables) {
       const delay = Math.max(0, r.fireAt - now);

@@ -1652,6 +1652,19 @@ export class CaptureInbox {
     this.sql().exec(
       "CREATE TABLE IF NOT EXISTS notify_config (id INTEGER PRIMARY KEY CHECK (id = 1), config TEXT, updated_at TEXT, last_notify_at INTEGER)",
     );
+    // Scheduled reminders (phone push P3b). The user's laptop pre-registers its
+    // upcoming due reminder times here (content-free: an opaque id + a fire_at
+    // epoch-ms, no event name); a Durable Object alarm fires the ones that come
+    // due while the laptop is closed. reminder_meta holds the last registration
+    // time (for the dead-man's-switch that stands the alarm down while the laptop
+    // is online) and this user's pubkey (the DO does not otherwise know its own
+    // name, which the alarm needs for the R2 snapshot key).
+    this.sql().exec(
+      "CREATE TABLE IF NOT EXISTS reminders (id TEXT PRIMARY KEY, fire_at INTEGER)",
+    );
+    this.sql().exec(
+      "CREATE TABLE IF NOT EXISTS reminder_meta (id INTEGER PRIMARY KEY CHECK (id = 1), registered_at INTEGER, user_pubkey TEXT)",
+    );
   }
 
   private sql(): SqlStorage {
@@ -2325,6 +2338,24 @@ export class CaptureInbox {
     // Stamp the cooldown up front so concurrent sender calls dedupe.
     this.sql().exec("UPDATE notify_config SET last_notify_at = ? WHERE id = 1", nowMs);
 
+    const r = await this.deliverToRecipient(u, category, ts, config, phoneOn, emailOn);
+    return this.json({ ok: true, ...r }, 200);
+  }
+
+  /** Shared offline-delivery for a recipient (this DO's user). Seals a generic
+   *  content-free pending snapshot to each device with a seal key + sends a
+   *  generic Expo push (when phoneOn), and sends a generic email to the
+   *  recipient's own address (when emailOn). The caller has already run the gate
+   *  + cooldown. Reused by notify-recipient (P2/2.5, sender-triggered) and the
+   *  reminder alarm (P3b, scheduled). `u` is the recipient pubkey (the R2 key). */
+  private async deliverToRecipient(
+    u: string,
+    category: string,
+    tsIso: string,
+    config: NotifyConfig,
+    phoneOn: boolean,
+    emailOn: boolean,
+  ): Promise<{ pushed: number; sealed: number; emailed: number }> {
     let pushed = 0;
     let sealedCount = 0;
     if (phoneOn) {
@@ -2335,7 +2366,7 @@ export class CaptureInbox {
           push_token: string | null;
         }>("SELECT device_pubkey, x25519_pubkey, push_token FROM devices")
         .toArray();
-      const snap = buildPendingSnapshot(category, ts);
+      const snap = buildPendingSnapshot(category, tsIso);
       const plaintext = new TextEncoder().encode(JSON.stringify(snap));
       const tokens: string[] = [];
       for (const d of devices) {
@@ -2363,9 +2394,173 @@ export class CaptureInbox {
       // + IP rate limit). Generic content-free body, same as the push.
       emailed = await sendNotifyEmail(this.env.APP_BASE_URL, config.email, category);
     }
-
-    return this.json({ ok: true, pushed, sealed: sealedCount, emailed }, 200);
+    return { pushed, sealed: sealedCount, emailed };
   }
+
+  /** POST /capture/register-reminders (phone push P3b). USER-key signed. The
+   *  user's own laptop mirrors its upcoming due reminder times here (content-free:
+   *  an opaque id + a fire_at epoch-ms), REPLACING the prior set. A DO alarm fires
+   *  the ones that come due while the laptop is closed. Stamps the registration
+   *  time (the dead-man's-switch) + this user's pubkey (for the alarm's R2 key). */
+  private async handleRegisterReminders(u: string, request: Request): Promise<Response> {
+    let body: { u?: unknown; reminders?: unknown; ts?: unknown; sig?: unknown };
+    try {
+      body = await request.json();
+    } catch {
+      return this.json({ error: "invalid JSON body" }, 400);
+    }
+    const ts = body.ts;
+    const sig = body.sig;
+    const rawList = Array.isArray(body.reminders) ? body.reminders : null;
+    if (
+      typeof body.u !== "string" ||
+      !rawList ||
+      typeof ts !== "string" ||
+      typeof sig !== "string"
+    ) {
+      return this.json({ error: "malformed register-reminders" }, 400);
+    }
+    // Validate + cap. Each entry is { id: string, fireAt: number(ms) }.
+    const list = rawList
+      .filter(
+        (r): r is { id: string; fireAt: number } =>
+          !!r &&
+          typeof (r as { id?: unknown }).id === "string" &&
+          typeof (r as { fireAt?: unknown }).fireAt === "number" &&
+          Number.isFinite((r as { fireAt: number }).fireAt),
+      )
+      .slice(0, 200);
+    // The signed message binds the exact list bytes so the relay stores only what
+    // the user authorized.
+    const json = JSON.stringify(body.reminders);
+    const sha = await sha256Hex(new TextEncoder().encode(json));
+    const denied = this.userGate(u, ts, sig, registerRemindersMessage(u, ts, sha));
+    if (denied) return denied;
+
+    // REPLACE the schedule wholesale (the laptop sends the full upcoming set).
+    this.sql().exec("DELETE FROM reminders");
+    for (const r of list) {
+      this.sql().exec(
+        "INSERT INTO reminders (id, fire_at) VALUES (?, ?) ON CONFLICT(id) DO UPDATE SET fire_at = excluded.fire_at",
+        r.id,
+        Math.floor(r.fireAt),
+      );
+    }
+    this.sql().exec(
+      "INSERT INTO reminder_meta (id, registered_at, user_pubkey) VALUES (1, ?, ?) ON CONFLICT(id) DO UPDATE SET registered_at = excluded.registered_at, user_pubkey = excluded.user_pubkey",
+      Date.now(),
+      u,
+    );
+    await this.armReminderAlarm();
+    return this.json({ ok: true, scheduled: list.length }, 200);
+  }
+
+  /** Arm the DO alarm to the nearest future reminder fire time (or clear it when
+   *  none remain). One alarm per DO; the alarm() handler reschedules forward. */
+  private async armReminderAlarm(): Promise<void> {
+    const rows = this.sql()
+      .exec<{ next: number | null }>(
+        "SELECT MIN(fire_at) AS next FROM reminders WHERE fire_at > ?",
+        Date.now(),
+      )
+      .toArray();
+    const next = rows[0]?.next ?? null;
+    // Also consider already-due entries (fire_at <= now) so a just-registered
+    // past-due reminder fires promptly rather than waiting for a future one.
+    const due = this.sql()
+      .exec<{ n: number }>(
+        "SELECT COUNT(*) AS n FROM reminders WHERE fire_at <= ?",
+        Date.now(),
+      )
+      .toArray();
+    if ((due[0]?.n ?? 0) > 0) {
+      await this.state.storage.setAlarm(Date.now() + 1000);
+      return;
+    }
+    if (next !== null) {
+      await this.state.storage.setAlarm(next);
+    }
+  }
+
+  /** DO alarm (phone push P3b). Fires due reminders for an OFFLINE recipient.
+   *  Dead-man's-switch: if the laptop re-registered recently it is online and the
+   *  laptop + the P1 watcher already handle reminders, so the alarm stands down
+   *  (reschedules, does not deliver or delete). When the laptop has gone silent it
+   *  delivers ONE batched generic buzz for all due reminders, then deletes them. */
+  async alarm(): Promise<void> {
+    const nowMs = Date.now();
+    const meta = this.sql()
+      .exec<{ registered_at: number | null; user_pubkey: string | null }>(
+        "SELECT registered_at, user_pubkey FROM reminder_meta WHERE id = 1",
+      )
+      .toArray();
+    if (meta.length === 0 || !meta[0].user_pubkey) return;
+    const u = meta[0].user_pubkey;
+    const registeredAt = meta[0].registered_at ?? 0;
+
+    const due = this.sql()
+      .exec<{ id: string }>("SELECT id FROM reminders WHERE fire_at <= ?", nowMs)
+      .toArray();
+
+    const laptopOnline = nowMs - registeredAt < REMINDER_STALE_MS;
+    if (due.length > 0 && !laptopOnline) {
+      // Gate on the recipient's own reminders routing + quiet hours + cooldown.
+      const cfgRows = this.sql()
+        .exec<{ config: string | null; last_notify_at: number | null }>(
+          "SELECT config, last_notify_at FROM notify_config WHERE id = 1",
+        )
+        .toArray();
+      const cooled =
+        cfgRows.length > 0 &&
+        nowMs - (cfgRows[0].last_notify_at ?? 0) >= NOTIFY_COOLDOWN_MS;
+      if (cfgRows.length > 0 && cfgRows[0].config && cooled) {
+        try {
+          const config = JSON.parse(cfgRows[0].config) as NotifyConfig;
+          const phoneOn = shouldBuzzPhone(config, "reminders", nowMs);
+          const emailOn = shouldEmail(config, "reminders", nowMs);
+          if (phoneOn || emailOn) {
+            this.sql().exec(
+              "UPDATE notify_config SET last_notify_at = ? WHERE id = 1",
+              nowMs,
+            );
+            await this.deliverToRecipient(
+              u,
+              "reminders",
+              new Date(nowMs).toISOString(),
+              config,
+              phoneOn,
+              emailOn,
+            );
+          }
+        } catch {
+          // A bad config or delivery failure must not strand the alarm; the due
+          // entries are still deleted below so we never busy-loop on them.
+        }
+      }
+      // Delete the due entries whether or not they buzzed (gated-off reminders
+      // are still in the laptop's synced list); this prevents re-firing.
+      for (const d of due) {
+        this.sql().exec("DELETE FROM reminders WHERE id = ?", d.id);
+      }
+    }
+
+    // Reschedule to the next future reminder (if any). When the laptop is online
+    // we leave the due entries in place for the laptop to replace on re-register.
+    const nextRows = this.sql()
+      .exec<{ next: number | null }>(
+        "SELECT MIN(fire_at) AS next FROM reminders WHERE fire_at > ?",
+        nowMs,
+      )
+      .toArray();
+    const next = nextRows[0]?.next ?? null;
+    if (next !== null) {
+      await this.state.storage.setAlarm(next);
+    }
+  }
+
+  /** POST /capture/snapshot/publish (mobile download path). multipart/form-data:
+   *  a `blob` file field (the SEALED ciphertext) + a text `meta` JSON field
+   *  `{ u, name, device, ts, sig }`. The USER identity key signs over
 
   /** POST /capture/snapshot/publish (mobile download path). multipart/form-data:
    *  a `blob` file field (the SEALED ciphertext) + a text `meta` JSON field
@@ -2723,6 +2918,10 @@ export class CaptureInbox {
     if (url.pathname === "/capture/notify-recipient") {
       if (request.method !== "POST") return this.json({ error: "method not allowed" }, 405);
       return this.handleNotifyRecipient(uBody.u, uBody.request);
+    }
+    if (url.pathname === "/capture/register-reminders") {
+      if (request.method !== "POST") return this.json({ error: "method not allowed" }, 405);
+      return this.handleRegisterReminders(uBody.u, uBody.request);
     }
     if (url.pathname === "/capture/inbox") {
       if (request.method !== "GET") return this.json({ error: "method not allowed" }, 405);
@@ -3881,6 +4080,16 @@ export function notifyConfigMessage(
   return `researchos-notify-config\nu=${userPubkeyHex}\nts=${tsIso}\nsha256=${sha256HexValue}`;
 }
 
+/** POST /capture/register-reminders (phone push P3b), signed by the USER identity
+ *  key. sha256HexValue is over the reminders JSON array. */
+export function registerRemindersMessage(
+  userPubkeyHex: string,
+  tsIso: string,
+  sha256HexValue: string,
+): string {
+  return `researchos-register-reminders\nu=${userPubkeyHex}\nts=${tsIso}\nsha256=${sha256HexValue}`;
+}
+
 /** POST /capture/notify-recipient (phone push P2), signed by the SENDER identity
  *  key. `u` is the RECIPIENT pubkey (the DO this addresses); `sender` is the
  *  signer. Binds the recipient + sender + coarse category + ts so the signature
@@ -3912,6 +4121,13 @@ const PHONE_PUSH_CATEGORIES = [
 
 /** Coarse per-DO cooldown so a sender burst cannot machine-gun the phone. */
 const NOTIFY_COOLDOWN_MS = 30_000;
+
+/** Phone push P3b dead-man's-switch. The reminder alarm delivers only when the
+ *  laptop has NOT re-registered within this window (i.e. it has gone offline). A
+ *  laptop online inside this window is fired locally + buzzed by the P1 watcher,
+ *  so the alarm stands down to avoid a double-buzz. The laptop republishes its
+ *  schedule on the ~60s snapshot cadence, so 3 minutes is several missed ticks. */
+const REMINDER_STALE_MS = 3 * 60_000;
 
 /** Generic, content-FREE bodies keyed by category (same copy as the web
  *  /api/send-push route). Never an item name or any notification text. */
