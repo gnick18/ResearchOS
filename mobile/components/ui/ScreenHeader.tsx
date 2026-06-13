@@ -13,7 +13,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 
 import { ThemedText } from '@/components/themed-text';
-import { useTheme, palette } from '@/lib/design';
+import { useTheme, palette, fonts } from '@/lib/design';
 
 export function ScreenHeader({ title }: { title?: string }) {
   const router = useRouter();
@@ -59,5 +59,5 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     marginLeft: -6,
   },
-  title: { fontSize: 17, fontWeight: '700' },
+  title: { fontSize: 18, fontFamily: fonts.bold, fontWeight: '700' },
 });

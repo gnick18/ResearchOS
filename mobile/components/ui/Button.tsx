@@ -1,6 +1,10 @@
 /**
- * Button primitive. Two variants: Primary (solid sky) and Secondary (outline).
- * Supports disabled state and an optional leading icon (any React node).
+ * Button primitive (UI contract).
+ *
+ * Variants: primary (solid accent, white label), secondary (surface card +
+ * border, neutral label), ghost (transparent, accent label), soft (accent-dim
+ * fill, accent label). Accent tints the relevant surface/label. Geist label,
+ * 50pt min height, contract radius. Supports loading + leading icon.
  *
  * House style: no em-dashes, no emojis, no mid-sentence colons.
  */
@@ -16,26 +20,28 @@ import {
   type StyleProp,
   type ViewStyle,
 } from 'react-native';
-import { useTheme, palette, radii as globalRadii, spacing as globalSpacing } from '@/lib/design';
+import { useTheme, palette, fonts, radii as globalRadii, spacing as globalSpacing } from '@/lib/design';
 import { useMascotKeepOut } from '@/lib/mascot-avoid';
 
-export type ButtonVariant = 'primary' | 'secondary' | 'ghost';
-export type ButtonAccent = 'sky' | 'coral' | 'amber';
+export type ButtonVariant = 'primary' | 'secondary' | 'ghost' | 'soft';
+export type ButtonAccent = 'sky' | 'coral' | 'amber' | 'danger' | 'success';
 
-const ACCENT_COLOR: Record<ButtonAccent, string> = {
-  sky: palette.sky,
-  coral: palette.coral,
-  amber: palette.amber,
+const ACCENT: Record<ButtonAccent, { solid: string; dim: string; on: string }> = {
+  sky: { solid: palette.sky, dim: palette.skyDim, on: palette.sky },
+  coral: { solid: palette.coral, dim: palette.coralDim, on: palette.coral },
+  amber: { solid: palette.amber, dim: palette.amberDim, on: palette.amber },
+  danger: { solid: palette.danger, dim: palette.dangerDim, on: palette.danger },
+  success: { solid: palette.success, dim: palette.successDim, on: palette.success },
 };
 
 export interface ButtonProps extends Omit<PressableProps, 'style'> {
   variant?: ButtonVariant;
-  /** Tints the secondary/ghost label (and a secondary button's border). Default sky. */
+  /** Tints the fill (primary/soft) or the label (secondary/ghost). Default sky. */
   accent?: ButtonAccent;
   label: string;
-  /** Optional leading icon node (e.g. an IconSymbol). */
+  /** Optional leading icon node. */
   icon?: React.ReactNode;
-  /** Show a spinner instead of the label. Useful during async operations. */
+  /** Show a spinner instead of the label. */
   loading?: boolean;
   style?: StyleProp<ViewStyle>;
 }
@@ -50,11 +56,14 @@ export function Button({
   style,
   ...rest
 }: ButtonProps) {
-  const { surface } = useTheme();
+  const { surface, shadow } = useTheme();
+  const a = ACCENT[accent];
   const isDisabled = disabled || loading;
-  // Register this button as a keep-out zone so the floating BeakerBot never
-  // parks on top of it. Automatic for every Button, no per-screen wiring.
+  // Register as a keep-out zone so the floating BeakerBot never parks on a button.
   const keepOut = useMascotKeepOut();
+
+  const labelColor =
+    variant === 'primary' ? palette.white : variant === 'secondary' ? surface.text : a.on;
 
   return (
     <Pressable
@@ -62,26 +71,15 @@ export function Button({
       onLayout={keepOut.onLayout}
       style={({ pressed }) => [
         styles.base,
-        variant === 'primary' && {
-          backgroundColor: palette.sky,
-          borderWidth: 0,
-        },
+        variant === 'primary' && { backgroundColor: a.solid },
+        variant === 'soft' && { backgroundColor: a.dim },
         variant === 'secondary' && {
-          // Elevated white card so secondary actions read clearly on the
-          // sky-tinted canvas instead of fading into it.
-          backgroundColor: palette.white,
+          backgroundColor: surface.surface,
           borderWidth: 1,
-          borderColor: palette.elevatedBorder,
-          shadowColor: '#101828',
-          shadowOpacity: 0.1,
-          shadowRadius: 6,
-          shadowOffset: { width: 0, height: 2 },
-          elevation: 2,
+          borderColor: surface.borderStrong,
+          ...shadow.sm,
         },
-        variant === 'ghost' && {
-          backgroundColor: 'transparent',
-          borderWidth: 0,
-        },
+        variant === 'ghost' && { backgroundColor: 'transparent' },
         pressed && !isDisabled && styles.pressed,
         isDisabled && styles.disabled,
         style,
@@ -91,23 +89,11 @@ export function Button({
       {...rest}
     >
       {loading ? (
-        <ActivityIndicator
-          color={variant === 'primary' ? palette.white : ACCENT_COLOR[accent]}
-          size="small"
-        />
+        <ActivityIndicator color={variant === 'primary' ? palette.white : a.on} size="small" />
       ) : (
         <View style={styles.inner}>
-          {icon ? <View style={styles.iconWrap}>{icon}</View> : null}
-          <Text
-            style={[
-              styles.label,
-              variant === 'primary' && styles.labelPrimary,
-              variant === 'secondary' && { color: ACCENT_COLOR[accent] },
-              variant === 'ghost' && { color: surface.muted },
-            ]}
-          >
-            {label}
-          </Text>
+          {icon ? <View>{icon}</View> : null}
+          <Text style={[styles.label, { color: labelColor }]}>{label}</Text>
         </View>
       )}
     </Pressable>
@@ -117,35 +103,14 @@ export function Button({
 const styles = StyleSheet.create({
   base: {
     borderRadius: globalRadii.md,
-    paddingVertical: 13,
+    paddingVertical: 14,
     paddingHorizontal: globalSpacing.lg,
     alignItems: 'center',
     justifyContent: 'center',
-    minHeight: 48,
+    minHeight: 50,
   },
-  inner: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  iconWrap: {
-    // keeps the icon vertically centered with the label
-  },
-  label: {
-    fontSize: 16,
-    fontWeight: '600',
-    lineHeight: 20,
-  },
-  labelPrimary: {
-    color: palette.white,
-  },
-  labelSecondary: {
-    color: palette.sky,
-  },
-  pressed: {
-    opacity: 0.82,
-  },
-  disabled: {
-    opacity: 0.38,
-  },
+  inner: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  label: { fontSize: 15, fontFamily: fonts.semibold, lineHeight: 20 },
+  pressed: { opacity: 0.85 },
+  disabled: { opacity: 0.4 },
 });

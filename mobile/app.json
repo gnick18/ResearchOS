@@ -60,7 +60,8 @@
         }
       ],
       "expo-asset",
-      "expo-quick-actions"
+      "expo-quick-actions",
+      "expo-font"
     ],
     "experiments": {
       "typedRoutes": true,

@@ -115,7 +115,7 @@ export default function CalcScreen() {
       {/* Tab body */}
       <ScrollView
         style={styles.fill}
-        contentContainerStyle={[styles.body, { paddingBottom: sp.xxl + 16 }]}
+        contentContainerStyle={[styles.body, { paddingBottom: sp.xxl + 90 }]}
         keyboardShouldPersistTaps="handled"
       >
         {/* Synced custom + lab calculators (the ones built on the laptop). Only

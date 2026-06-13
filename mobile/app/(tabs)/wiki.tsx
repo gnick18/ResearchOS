@@ -229,7 +229,7 @@ function SearchResults({
     <SectionList
       sections={sections}
       keyExtractor={(item) => item.entry.slug}
-      contentContainerStyle={[styles.searchListContent, { paddingBottom: 40 }]}
+      contentContainerStyle={[styles.searchListContent, { paddingBottom: 112 }]}
       renderSectionHeader={({ section }) => (
         <View style={[styles.sectionHeader, { backgroundColor: surface.bg }]}>
           <ThemedText style={[styles.sectionLabel, { color: surface.muted }]}>
@@ -473,6 +473,7 @@ const styles = StyleSheet.create({
   browseContent: {
     paddingHorizontal: 24,
     paddingTop: 4,
+    paddingBottom: 112,
     gap: 18,
   },
   sectionBlock: { gap: 8 },

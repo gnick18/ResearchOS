@@ -35,7 +35,7 @@ import { ThemedText } from '@/components/themed-text';
 import { ScreenFrame } from '@/components/ui/ScreenFrame';
 import { TabHeader } from '@/components/ui/TabHeader';
 import { useUnreadNotificationCount } from '@/lib/unread-notifications';
-import { useTheme, palette } from '@/lib/design';
+import { useTheme, palette, fonts } from '@/lib/design';
 import { usePairing } from '@/lib/pairing';
 import { signWithDevice } from '@/lib/device-identity';
 import {
@@ -365,8 +365,9 @@ export default function MethodLibraryScreen() {
   return (
     <ScreenFrame>
       <View style={[styles.head, { backgroundColor: surface.surface }]}>
-        {/* Shared tab header (title + bell / settings), consistent across tabs. */}
-        <TabHeader title="Methods" unreadCount={unreadCount} />
+        {/* Contract title header. Notifications + settings live on Home. */}
+        <ThemedText style={[styles.greet, { color: surface.muted }]}>Protocol library</ThemedText>
+        <ThemedText type="title">Methods</ThemedText>
 
         {/* Offline download status chip (real sync state), now below the header. */}
         <View style={styles.offchipRow}>
@@ -586,7 +587,8 @@ export default function MethodLibraryScreen() {
 }
 
 const styles = StyleSheet.create({
-  head: { paddingHorizontal: 16, paddingTop: 8, paddingBottom: 8 },
+  head: { paddingHorizontal: 16, paddingTop: 6, paddingBottom: 8 },
+  greet: { fontSize: 12.5, fontFamily: fonts.semibold, marginBottom: 4 },
   offchipRow: { flexDirection: 'row', alignItems: 'center', marginTop: 8 },
   offchip: { flexDirection: 'row', alignItems: 'center', gap: 6, borderRadius: 999, paddingHorizontal: 10, paddingVertical: 5, borderWidth: 1 },
   offdot: { width: 7, height: 7, borderRadius: 999 },
@@ -601,7 +603,7 @@ const styles = StyleSheet.create({
   cnt: { fontSize: 11, fontWeight: '600' },
   sortTxt: { fontSize: 11.5, fontWeight: '700' },
   list: { flex: 1 },
-  listContent: { paddingHorizontal: 14, paddingTop: 6, paddingBottom: 24 },
+  listContent: { paddingHorizontal: 14, paddingTop: 6, paddingBottom: 112 },
   reccard: { padding: 12, marginTop: 8, marginBottom: 4, borderWidth: 1 },
   reclblRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 9 },
   reclbl: { fontSize: 10.5, fontWeight: '800', textTransform: 'uppercase', letterSpacing: 0.6 },
