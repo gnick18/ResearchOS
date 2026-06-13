@@ -29,7 +29,7 @@
 ## frontend/src/lib/transparency/datasets/phylo-published/ (hpv58, turtle,
 ## firefly_opsin). Required tools on PATH (conda-first, the same set the wizard's
 ## environment.yml pins): iqtree2, and for a raw single-locus case mafft + trimal.
-## jq and python3 are used to read and write JSON.
+## python3 (standard library only) is used to read and write JSON, no jq needed.
 ##
 ## No em-dashes, no emojis, no mid-sentence colons.
 
@@ -58,20 +58,30 @@ if [[ ! -f "$CASE_DIR/input.fasta" ]]; then
   exit 2
 fi
 
-# Read the options we act on.
-ANALYSIS=$(jq -r '.analysis' "$OPTS")
-HAVE=$(jq -r '.have' "$OPTS")
-ALIGN=$(jq -r '.align' "$OPTS")
-TRIM=$(jq -r '.trim' "$OPTS")
-MODEL=$(jq -r '.model' "$OPTS")
-FIXED=$(jq -r '.fixedModel' "$OPTS")
-SUPPORT=$(jq -r '.support' "$OPTS")
-UFBOOT=$(jq -r '.ufbootReps' "$OPTS")
-BSREPS=$(jq -r '.bsReps' "$OPTS")
-BNNI=$(jq -r '.bnni' "$OPTS")
-THREADS=$(jq -r '.threads' "$OPTS")
-OUTGROUP=$(jq -r '.outgroup' "$OPTS")
-BRLEN=$(jq -r '.brlen' "$OPTS")
+# Read the options we act on. Parsed with python3 (no jq dependency) into shell
+# KEY=value lines we eval, so the only tools this script needs are python3 plus
+# the bioinformatics binaries (iqtree2, and mafft + trimal for a raw case).
+eval "$(python3 - "$OPTS" <<'PY'
+import json, sys
+o = json.load(open(sys.argv[1]))
+def b(v): return "true" if v is True else ("false" if v is False else str(v))
+keys = {
+    "ANALYSIS": "analysis", "HAVE": "have", "ALIGN": "align", "TRIM": "trim",
+    "MODEL": "model", "FIXED": "fixedModel", "SUPPORT": "support",
+    "UFBOOT": "ufbootReps", "BSREPS": "bsReps", "BNNI": "bnni",
+    "THREADS": "threads", "OUTGROUP": "outgroup", "BRLEN": "brlen",
+}
+for var, key in keys.items():
+    val = b(o.get(key, ""))
+    # Single-quote for the shell, escaping any embedded single quote.
+    print(f"{var}='" + val.replace("'", "'\\''") + "'")
+PY
+)"
+
+# Thread override. -T AUTO is pathological on small alignments (IQ-TREE re-measures
+# the thread count for every ModelFinder model), so set PHYLO_THREADS to a small
+# fixed number to skip that, e.g. PHYLO_THREADS=4 ... run-phylo-published-case.sh hpv58.
+THREADS="${PHYLO_THREADS:-$THREADS}"
 
 # Work in a per-case scratch dir so reruns are clean and the repo stays tidy.
 WORK="$CASE_DIR/_run"
