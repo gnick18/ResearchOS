@@ -216,6 +216,13 @@ export interface SavedDatasetAnalysis {
    * Absent means the wide mode (the chosen columns ARE the groups).
    */
   groupByColumn?: string;
+  /**
+   * For a two-group test (unpaired t, Mann-Whitney) on a group-by column with
+   * three or more levels, the chosen [Group A, Group B] labels to compare. Absent
+   * means every level is used (a two-level column, or a 3+ group test like
+   * ANOVA). Lets the saved analysis re-run against the SAME pair the user picked.
+   */
+  groupPair?: [string, string];
   /** The last computed normalized result, or null when never run. */
   resultCache: unknown | null;
   /** True when the data may have changed since resultCache was computed. */

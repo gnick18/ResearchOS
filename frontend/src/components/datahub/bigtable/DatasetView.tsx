@@ -23,8 +23,10 @@ import {
   openDataset,
   closeDataset,
   readRowWindow,
+  formatPreviewCell,
   type OpenDatasetHandle,
 } from "@/lib/datahub/bigtable/dataset-view";
+import type { ColumnDataType } from "@/lib/datahub/model/types";
 import { columnTier } from "@/lib/datahub/bigtable/column-tiers";
 import {
   isExplainerDismissed,
@@ -64,6 +66,14 @@ export default function DatasetView({
     () => sidecar.schema.map((c) => c.name),
     [sidecar.schema],
   );
+  // Column name -> Data Hub data type, so the preview formats a date/timestamp
+  // column as a readable date instead of raw epoch millis (display only; the
+  // stored value and every computed statistic are untouched).
+  const columnTypes = useMemo(() => {
+    const m = new Map<string, ColumnDataType>();
+    for (const c of sidecar.schema) m.set(c.name, c.type);
+    return m;
+  }, [sidecar.schema]);
   const tier = columnTier(sidecar.colCount);
 
   // Selected columns to project. Tier A / B default to all columns (capped for A
@@ -408,9 +418,10 @@ export default function DatasetView({
                           >
                             {row === undefined
                               ? ""
-                              : v === null || v === undefined
-                                ? ""
-                                : String(v)}
+                              : formatPreviewCell(
+                                  v,
+                                  columnTypes.get(name) ?? "text",
+                                )}
                           </div>
                         );
                       })}

@@ -33,6 +33,7 @@ import {
   buildDatasetAnalysisContent,
   validDatasetAnalysisTypes,
 } from "@/lib/datahub/bigtable/dataset-analyses";
+import { readDistinctLabels } from "@/lib/datahub/bigtable/dataset-columns";
 import { saveDatasetAnalysis } from "@/lib/datahub/bigtable/dataset-store";
 
 /** A two-group test takes exactly two columns; the rest take all chosen. */
@@ -87,6 +88,12 @@ export default function DatasetAnalysisDialog({
   // GROUP-BY picks.
   const [valueColumn, setValueColumn] = useState("");
   const [groupColumn, setGroupColumn] = useState("");
+  // The distinct levels of the chosen group-by column, loaded on demand so a
+  // two-group test on a 3+ level column can ask which two levels to compare. Null
+  // while loading / not yet needed.
+  const [groupLevels, setGroupLevels] = useState<string[] | null>(null);
+  const [groupA, setGroupA] = useState("");
+  const [groupB, setGroupB] = useState("");
 
   // The run result + the synthetic content ResultsSheet recomputes against.
   const [running, setRunning] = useState(false);
@@ -113,8 +120,39 @@ export default function DatasetAnalysisDialog({
     setMultiCols(numericNames);
     setValueColumn(numericNames[0] ?? "");
     setGroupColumn(categoricalNames[0] ?? "");
+    setGroupLevels(null);
+    setGroupA("");
+    setGroupB("");
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, mode]);
+
+  // Load the group-by column's distinct levels when a TWO-GROUP test is selected
+  // in group-by mode, so the user can pick exactly which two levels to compare on
+  // a 3+ level column (instead of the runner silently taking the first two). The
+  // group column moving or the type changing reloads; switching away clears.
+  const needsGroupLevels =
+    mode === "groupBy" && type !== null && isTwoGroup(type) && groupColumn !== "";
+  useEffect(() => {
+    if (!open || !needsGroupLevels || handle === null) {
+      setGroupLevels(null);
+      return;
+    }
+    let cancelled = false;
+    setGroupLevels(null);
+    void readDistinctLabels(handle, groupColumn, sidecar.recipe)
+      .then((levels) => {
+        if (cancelled) return;
+        setGroupLevels(levels);
+        setGroupA(levels[0] ?? "");
+        setGroupB(levels[1] ?? "");
+      })
+      .catch(() => {
+        if (!cancelled) setGroupLevels([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [open, needsGroupLevels, handle, groupColumn, sidecar.recipe]);
 
   // Escape closes.
   useEffect(() => {
@@ -129,11 +167,18 @@ export default function DatasetAnalysisDialog({
   if (!open) return null;
 
   const cleanMulti = multiCols.filter((n) => numericNames.includes(n));
+  // A two-group test on a group-by column with 3+ levels asks which two levels to
+  // compare. Below that (2 levels, still loading, or a 3+ group test) the runner
+  // uses every level as before.
+  const showGroupPair =
+    needsGroupLevels && groupLevels !== null && groupLevels.length > 2;
   const canRun =
     handle !== null &&
     type !== null &&
     (mode === "groupBy"
-      ? valueColumn !== "" && groupColumn !== ""
+      ? valueColumn !== "" &&
+        groupColumn !== "" &&
+        (!showGroupPair || (groupA !== "" && groupB !== "" && groupA !== groupB))
       : isTwoGroup(type)
         ? columnA !== "" && columnB !== "" && columnA !== columnB
         : isScreen(type)
@@ -146,6 +191,16 @@ export default function DatasetAnalysisDialog({
     if (mode === "groupBy") return [valueColumn];
     if (isTwoGroup(t)) return [columnA, columnB];
     return cleanMulti;
+  };
+
+  // The dataset-analysis options shared by run + save: the group-by column, plus
+  // the chosen [Group A, Group B] pair when a two-group test runs on a 3+ level
+  // column (so the runner compares the chosen levels, not the first two).
+  const buildOpts = () => {
+    if (mode !== "groupBy") return {};
+    return showGroupPair
+      ? { groupByColumn: groupColumn, groupPair: [groupA, groupB] as [string, string] }
+      : { groupByColumn: groupColumn };
   };
 
   const buildSpec = (t: AnalysisType): AnalysisSpec => ({
@@ -164,7 +219,7 @@ export default function DatasetAnalysisDialog({
     setSaved(false);
     try {
       const spec = buildSpec(type);
-      const opts = mode === "groupBy" ? { groupByColumn: groupColumn } : {};
+      const opts = buildOpts();
       const outcome = await runAnalysisOnDataset(handle, spec, sidecar, opts);
       const built = await buildDatasetAnalysisContent(handle, spec, sidecar, opts);
       if (!built) {
@@ -189,6 +244,7 @@ export default function DatasetAnalysisDialog({
         params: {},
         inputs: { columnIds: resolveColumnIds(type) },
         ...(mode === "groupBy" ? { groupByColumn: groupColumn } : {}),
+        ...(showGroupPair ? { groupPair: [groupA, groupB] as [string, string] } : {}),
         resultCache: result.outcome.ok ? result.outcome : null,
         resultStale: false,
         created_at: new Date().toISOString(),
@@ -304,40 +360,93 @@ export default function DatasetAnalysisDialog({
 
                   {/* Column pickers */}
                   {mode === "groupBy" ? (
-                    <div className="mt-4 grid grid-cols-2 gap-3">
-                      <div>
-                        <label className="block text-meta font-medium uppercase tracking-wide text-foreground-muted">
-                          Value column
-                        </label>
-                        <select
-                          value={valueColumn}
-                          onChange={(e) => setValueColumn(e.target.value)}
-                          className="mt-1 w-full rounded-md border border-border bg-surface-raised px-2 py-1.5 text-body text-foreground focus:border-sky-400 focus:outline-none"
-                        >
-                          {numericNames.map((n) => (
-                            <option key={n} value={n}>
-                              {n}
-                            </option>
-                          ))}
-                        </select>
+                    <>
+                      <div className="mt-4 grid grid-cols-2 gap-3">
+                        <div>
+                          <label className="block text-meta font-medium uppercase tracking-wide text-foreground-muted">
+                            Value column
+                          </label>
+                          <select
+                            value={valueColumn}
+                            onChange={(e) => setValueColumn(e.target.value)}
+                            className="mt-1 w-full rounded-md border border-border bg-surface-raised px-2 py-1.5 text-body text-foreground focus:border-sky-400 focus:outline-none"
+                          >
+                            {numericNames.map((n) => (
+                              <option key={n} value={n}>
+                                {n}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                        <div>
+                          <label className="block text-meta font-medium uppercase tracking-wide text-foreground-muted">
+                            Group-by column
+                          </label>
+                          <select
+                            value={groupColumn}
+                            onChange={(e) => setGroupColumn(e.target.value)}
+                            className="mt-1 w-full rounded-md border border-border bg-surface-raised px-2 py-1.5 text-body text-foreground focus:border-sky-400 focus:outline-none"
+                          >
+                            {categoricalNames.map((n) => (
+                              <option key={n} value={n}>
+                                {n}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
                       </div>
-                      <div>
-                        <label className="block text-meta font-medium uppercase tracking-wide text-foreground-muted">
-                          Group-by column
-                        </label>
-                        <select
-                          value={groupColumn}
-                          onChange={(e) => setGroupColumn(e.target.value)}
-                          className="mt-1 w-full rounded-md border border-border bg-surface-raised px-2 py-1.5 text-body text-foreground focus:border-sky-400 focus:outline-none"
-                        >
-                          {categoricalNames.map((n) => (
-                            <option key={n} value={n}>
-                              {n}
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-                    </div>
+                      {/* A two-group test on a 3+ level column compares the chosen
+                          pair, not the first two levels seen. */}
+                      {showGroupPair && groupLevels && (
+                        <div className="mt-3">
+                          <p className="text-meta text-foreground-muted">
+                            This column has {groupLevels.length} groups. Pick the two
+                            to compare.
+                          </p>
+                          <div className="mt-1 grid grid-cols-2 gap-3">
+                            <div>
+                              <label className="block text-meta font-medium uppercase tracking-wide text-foreground-muted">
+                                Group A
+                              </label>
+                              <select
+                                value={groupA}
+                                onChange={(e) => setGroupA(e.target.value)}
+                                className="mt-1 w-full rounded-md border border-border bg-surface-raised px-2 py-1.5 text-body text-foreground focus:border-sky-400 focus:outline-none"
+                                data-testid="dataset-analysis-group-a"
+                              >
+                                {groupLevels.map((n) => (
+                                  <option key={n} value={n}>
+                                    {n}
+                                  </option>
+                                ))}
+                              </select>
+                            </div>
+                            <div>
+                              <label className="block text-meta font-medium uppercase tracking-wide text-foreground-muted">
+                                Group B
+                              </label>
+                              <select
+                                value={groupB}
+                                onChange={(e) => setGroupB(e.target.value)}
+                                className="mt-1 w-full rounded-md border border-border bg-surface-raised px-2 py-1.5 text-body text-foreground focus:border-sky-400 focus:outline-none"
+                                data-testid="dataset-analysis-group-b"
+                              >
+                                {groupLevels.map((n) => (
+                                  <option key={n} value={n}>
+                                    {n}
+                                  </option>
+                                ))}
+                              </select>
+                            </div>
+                            {groupA === groupB && (
+                              <p className="col-span-2 text-meta text-amber-600">
+                                Pick two different groups to compare.
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                      )}
+                    </>
                   ) : type && isTwoGroup(type) ? (
                     <div className="mt-4 grid grid-cols-2 gap-3">
                       <div>

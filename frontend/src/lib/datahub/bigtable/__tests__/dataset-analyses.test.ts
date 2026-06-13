@@ -380,6 +380,147 @@ describe("dataset-lane parity with the editable lane (validation gate)", () => {
     expect(dr.fStatistic as number).toBeCloseTo(er.fStatistic as number, 10);
   });
 
+  it("Pearson correlation: WIDE mode pairs the two columns by row, matching the editable XY run", async () => {
+    // Correlation is row-aligned (complete-case): a row contributes a pair only
+    // when BOTH columns are finite in it. The fixture includes a row with a null
+    // in X and a non-numeric in Y so both lanes drop the same rows, and the
+    // dataset r must equal the editable XY r to many digits.
+    const xv = [1.0, 2.0, 3.0, 4.0, 5.0, 6.5, 7.2];
+    const yv = [2.1, 3.9, 6.2, 7.8, 10.1, 13.0, 14.4];
+    FIXTURE = {
+      columns: ["x", "y"],
+      rows: [
+        ...xv.map((v, i) => [v, yv[i]] as Cell[]),
+        [null, 9.9], // dropped: X missing
+        [3.3, "nope"], // dropped: Y non-numeric
+      ],
+    };
+
+    const datasetOutcome = await runAnalysisOnDataset(
+      HANDLE,
+      spec("correlationPearson", ["x", "y"]),
+      sidecar(["x", "y"]),
+    );
+
+    // The editable lane reads correlation off an XY table (one role-x, one
+    // role-y column), complete-case paired by row.
+    const editableXY: DataHubDocContent = {
+      meta: {
+        id: "t1",
+        name: "T",
+        project_ids: [],
+        folder_path: null,
+        table_type: "xy",
+        created_at: "",
+      },
+      columns: [
+        { id: "cx", name: "x", role: "x", dataType: "number" },
+        { id: "cy", name: "y", role: "y", dataType: "number" },
+      ],
+      rows: xv.map((v, i) => ({
+        id: `r${i}`,
+        cells: { cx: v, cy: yv[i] } as Record<string, CellValue>,
+      })),
+      analyses: [],
+      plots: [],
+    };
+    const editableOutcome = runAnalysis(spec("correlationPearson", ["cy"]), editableXY);
+
+    expect(datasetOutcome.ok).toBe(true);
+    expect(editableOutcome.ok).toBe(true);
+    const d = datasetOutcome as unknown as Record<string, unknown>;
+    const e = editableOutcome as unknown as Record<string, unknown>;
+    // Row-aligned / complete-case: exactly the 7 finite pairs survive in both.
+    expect(d.n).toBe(7);
+    expect(d.n).toBe(e.n);
+    expect(d.coefficient as number).toBeCloseTo(e.coefficient as number, 12);
+    expect(d.pValue as number).toBeCloseTo(e.pValue as number, 12);
+    expect(d.statistic as number).toBeCloseTo(e.statistic as number, 12);
+  });
+
+  it("group-pair selection: a two-group test on a 3-level column compares exactly the chosen pair", async () => {
+    // Control vs DrugA on a column that also has DrugB. Without a pair the runner
+    // would take the first two seen (Control, DrugA here); we assert the engine
+    // actually receives Control and DrugA and NOT DrugB, and that the result
+    // equals the editable two-column run on exactly those two groups.
+    const control = [10, 12, 11, 9, 13];
+    const drugA = [18, 20, 19, 17, 21];
+    const drugB = [30, 31, 29, 32, 28];
+    FIXTURE = {
+      columns: ["resp", "arm"],
+      rows: [
+        ...control.map((v) => [v, "Control"] as Cell[]),
+        ...drugA.map((v) => [v, "DrugA"] as Cell[]),
+        ...drugB.map((v) => [v, "DrugB"] as Cell[]),
+      ],
+    };
+
+    const datasetOutcome = await runAnalysisOnDataset(
+      HANDLE,
+      spec("unpairedTTest", ["resp"]),
+      sidecar(["resp", "arm"]),
+      { groupByColumn: "arm", groupPair: ["Control", "DrugA"] },
+    );
+
+    // The editable lane on JUST Control + DrugA (DrugB excluded entirely).
+    const editableOutcome = runAnalysis(
+      spec("unpairedTTest", ["c0", "c1"]),
+      editableWide([
+        { name: "Control", values: control },
+        { name: "DrugA", values: drugA },
+      ]),
+    );
+
+    expect(datasetOutcome.ok).toBe(true);
+    expect(editableOutcome.ok).toBe(true);
+    // The groups the engine compared are exactly Control + DrugA, in order.
+    const dr = datasetOutcome as unknown as { groups?: { name: string }[] };
+    expect(dr.groups?.map((g) => g.name)).toEqual(["Control", "DrugA"]);
+    const d = statsOf(datasetOutcome);
+    const e = statsOf(editableOutcome);
+    expect(d.statistic).toBeCloseTo(e.statistic, 10);
+    expect(d.pValue).toBeCloseTo(e.pValue, 10);
+    expect(d.df).toBeCloseTo(e.df, 10);
+  });
+
+  it("group-pair selection: choosing the OTHER pair changes which levels are compared", async () => {
+    // Same fixture, pair = Control vs DrugB. The compared groups and the result
+    // must differ from the Control vs DrugA run, proving the pair actually steers
+    // the comparison rather than always taking the first two levels.
+    const control = [10, 12, 11, 9, 13];
+    const drugA = [18, 20, 19, 17, 21];
+    const drugB = [30, 31, 29, 32, 28];
+    FIXTURE = {
+      columns: ["resp", "arm"],
+      rows: [
+        ...control.map((v) => [v, "Control"] as Cell[]),
+        ...drugA.map((v) => [v, "DrugA"] as Cell[]),
+        ...drugB.map((v) => [v, "DrugB"] as Cell[]),
+      ],
+    };
+
+    const outcome = await runAnalysisOnDataset(
+      HANDLE,
+      spec("unpairedTTest", ["resp"]),
+      sidecar(["resp", "arm"]),
+      { groupByColumn: "arm", groupPair: ["Control", "DrugB"] },
+    );
+    expect(outcome.ok).toBe(true);
+    const dr = outcome as unknown as { groups?: { name: string }[] };
+    expect(dr.groups?.map((g) => g.name)).toEqual(["Control", "DrugB"]);
+
+    const editable = runAnalysis(
+      spec("unpairedTTest", ["c0", "c1"]),
+      editableWide([
+        { name: "Control", values: control },
+        { name: "DrugB", values: drugB },
+      ]),
+    );
+    const d = statsOf(outcome);
+    const e = statsOf(editable);
+    expect(d.statistic).toBeCloseTo(e.statistic, 10);
+  });
+
   it("rejects a row-paired analysis in group-by mode (no soft data trap)", async () => {
     FIXTURE = { columns: ["value", "group"], rows: [[1, "A"], [2, "B"]] };
     const outcome = await runAnalysisOnDataset(

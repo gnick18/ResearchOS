@@ -35,6 +35,7 @@ import {
 } from "./duckdb-client";
 import { recipeToSql } from "@/lib/datahub/transform/sql-codegen";
 import type { TransformOp } from "@/lib/datahub/transform/pipeline";
+import type { ColumnDataType } from "@/lib/datahub/model/types";
 import {
   readDatasetParquet,
   buildSidecar,
@@ -66,6 +67,76 @@ export interface OpenDatasetHandle {
  */
 export function quoteIdent(name: string): string {
   return `"${String(name).replace(/"/g, '""')}"`;
+}
+
+/**
+ * Format ONE preview cell value for DISPLAY, keyed off the column's schema data
+ * type. This is COSMETIC ONLY: it never changes the stored value and never
+ * touches a computed statistic (analyses read raw arrays through dataset-columns,
+ * not this). It exists because a parsed / cast DATE or TIMESTAMP column comes back
+ * from DuckDB as raw epoch millis (e.g. 1794268800000), which is unreadable in the
+ * grid. For a "date" column we render YYYY-MM-DD, adding the time only when the
+ * value carries a non-zero time-of-day (so a pure date stays a date and a
+ * timestamp keeps its clock). Numbers and text fall through to String() unchanged.
+ *
+ * Recognized date encodings: a JS Date, epoch milliseconds (number or BigInt),
+ * and an already-formatted ISO / date string (passed through). Anything that does
+ * not parse to a real instant falls back to String(value), so a bad cell is never
+ * blanked or thrown.
+ */
+export function formatPreviewCell(
+  value: unknown,
+  dataType: ColumnDataType,
+): string {
+  if (value === null || value === undefined) return "";
+  if (dataType !== "date") return String(value);
+
+  const d = toDisplayDate(value);
+  if (!d) return String(value);
+
+  const yyyy = d.getUTCFullYear().toString().padStart(4, "0");
+  const mm = (d.getUTCMonth() + 1).toString().padStart(2, "0");
+  const dd = d.getUTCDate().toString().padStart(2, "0");
+  const datePart = `${yyyy}-${mm}-${dd}`;
+
+  const hasTime =
+    d.getUTCHours() !== 0 ||
+    d.getUTCMinutes() !== 0 ||
+    d.getUTCSeconds() !== 0 ||
+    d.getUTCMilliseconds() !== 0;
+  if (!hasTime) return datePart;
+
+  const hh = d.getUTCHours().toString().padStart(2, "0");
+  const min = d.getUTCMinutes().toString().padStart(2, "0");
+  const ss = d.getUTCSeconds().toString().padStart(2, "0");
+  return `${datePart} ${hh}:${min}:${ss}`;
+}
+
+/**
+ * Coerce a date-column cell into a Date, or null when it does not parse. Handles a
+ * JS Date, epoch milliseconds (number / BigInt), and a string the Date parser
+ * accepts (an already-formatted ISO date passes straight back). Reads everything
+ * in UTC so a pure DATE (midnight UTC) is not shifted across a day boundary by the
+ * viewer's local zone.
+ */
+function toDisplayDate(value: unknown): Date | null {
+  if (value instanceof Date) {
+    return Number.isFinite(value.getTime()) ? value : null;
+  }
+  if (typeof value === "bigint") {
+    const ms = Number(value);
+    return Number.isFinite(ms) ? new Date(ms) : null;
+  }
+  if (typeof value === "number") {
+    return Number.isFinite(value) ? new Date(value) : null;
+  }
+  if (typeof value === "string") {
+    const t = value.trim();
+    if (t === "") return null;
+    const ms = Date.parse(t);
+    return Number.isFinite(ms) ? new Date(ms) : null;
+  }
+  return null;
 }
 
 /**

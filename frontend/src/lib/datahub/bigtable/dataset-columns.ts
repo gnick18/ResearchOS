@@ -131,6 +131,45 @@ export async function readColumnAligned(
   return out;
 }
 
+/**
+ * Read the DISTINCT non-empty labels of a (usually categorical) column, in
+ * FIRST-SEEN order, capped. This drives the group-pair picker on the dataset
+ * analysis dialog: when a two-group test (unpaired t, Mann-Whitney) runs on a
+ * grouping column with three or more levels, the user must choose WHICH two
+ * levels to compare instead of the runner silently taking the first two. The cap
+ * keeps a high-cardinality column from flooding the dropdown (the picker is for a
+ * handful of levels, not an id column). Labels are stringified the same way
+ * readColumnByGroup stringifies a group label, so the chosen pair matches the
+ * partition labels exactly.
+ *
+ * SCOPE (validation gate). This query only PROJECTS the column and pages it; the
+ * distinct + first-seen bucketing is plain JS, no SQL aggregate, no statistic.
+ */
+export async function readDistinctLabels(
+  handle: OpenDatasetHandle,
+  columnName: string,
+  recipe?: TransformOp[],
+  cap = 200,
+): Promise<string[]> {
+  const sql = `SELECT ${quoteIdent(columnName)} AS g FROM ${fromSource(
+    handle,
+    recipe,
+  )}`;
+  const table = await query(sql);
+  const seen = new Set<string>();
+  const order: string[] = [];
+  for (const row of table.toArray()) {
+    const g = (row as { g: unknown }).g;
+    if (g === null || g === undefined) continue;
+    const label = String(typeof g === "bigint" ? g.toString() : g).trim();
+    if (label === "" || seen.has(label)) continue;
+    seen.add(label);
+    order.push(label);
+    if (order.length >= cap) break;
+  }
+  return order;
+}
+
 /** One partition of a value column, keyed by a grouping column's category. */
 export interface GroupedColumnValues {
   /** The grouping-column category label (stringified), in first-seen order. */

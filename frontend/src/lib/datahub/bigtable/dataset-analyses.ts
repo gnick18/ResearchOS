@@ -92,6 +92,12 @@ export function validDatasetAnalysisTypes(
   if (numericColumns >= 1) wide.push("grubbsOutlier");
   if (numericColumns >= 2) {
     wide.push("unpairedTTest", "pairedTTest", "mannWhitneyU", "wilcoxonSignedRank");
+    // Correlation is a two-column, row-aligned (complete-case) analysis, exactly
+    // like the editable lane's XY correlation (one X column, one Y column). The
+    // editable lane offers it once an XY pairing exists (validAnalysisTypes), so
+    // the dataset lane offers it once two numeric columns are chosen, the first
+    // as X and the second as Y.
+    wide.push("correlationPearson", "correlationSpearman");
   }
   if (numericColumns >= 3) {
     wide.push(
@@ -128,9 +134,43 @@ export function analysisIsRowAligned(type: AnalysisType): boolean {
   );
 }
 
+/**
+ * True when the analysis is a two-column correlation. Correlation reads an XY
+ * table in the editable lane (xColumn + one Y column) and pairs the two columns
+ * by ROW, complete-case (xyPairs drops a row whose X or Y is not finite). It is
+ * GENUINELY row-aligned, but it builds a different synthetic shape (an XY table,
+ * not a Column table) than the repeated-measures / mixed-model / regression
+ * row-aligned types, so it is handled on its own branch rather than folded into
+ * analysisIsRowAligned. The dataset lane extracts the two chosen columns aligned
+ * by row (readColumnAligned) so the dataset r equals the editable r on the same
+ * data.
+ */
+export function analysisIsCorrelation(type: AnalysisType): boolean {
+  return type === "correlationPearson" || type === "correlationSpearman";
+}
+
 /** Stable synthetic ids so the synthetic content is deterministic. */
 function synthColumnId(i: number): string {
   return `dscol-${i}`;
+}
+
+/**
+ * Restrict read partitions to a chosen [Group A, Group B] pair, in that order,
+ * for a two-group test on a 3+ level grouping column. Returns the two matching
+ * partitions or null when the pair is malformed (not two distinct labels, or a
+ * label that is not present in the read partitions), so the caller can surface an
+ * honest error instead of silently comparing the wrong levels.
+ */
+function selectGroupPair<T extends { label: string }>(
+  groups: T[],
+  pair: [string, string],
+): [T, T] | null {
+  const [a, b] = pair;
+  if (a === b) return null;
+  const ga = groups.find((g) => g.label === a);
+  const gb = groups.find((g) => g.label === b);
+  if (!ga || !gb) return null;
+  return [ga, gb];
 }
 
 /**
@@ -206,6 +246,48 @@ function contentFromAligned(
 }
 
 /**
+ * Wrap two row-ALIGNED columns into a synthetic XY-table content for correlation.
+ * The editable lane's correlation reads an XY table (one role-"x" column, one
+ * role-"y" column) and pairs them by row complete-case. Here the first chosen
+ * column becomes the X column and the second becomes the Y column, and every row
+ * is already complete (readColumnAligned dropped any row missing either value),
+ * so xyPairs reads exactly these pairs. resolveXY reads inputs.columnIds[0] as the
+ * Y column id, so the spec must point at the synthetic Y id (synthColumnId(1)).
+ */
+function contentFromAlignedXY(
+  name: string,
+  xName: string,
+  yName: string,
+  rowsMatrix: number[][],
+): DataHubDocContent {
+  const colDefs: ColumnDef[] = [
+    { id: synthColumnId(0), name: xName, role: "x", dataType: "number" },
+    { id: synthColumnId(1), name: yName, role: "y", dataType: "number" },
+  ];
+  const rows: RowRecord[] = rowsMatrix.map((vals, r) => ({
+    id: `dsrow-${r}`,
+    cells: { [synthColumnId(0)]: vals[0], [synthColumnId(1)]: vals[1] },
+  }));
+  return {
+    meta: { ...synthMeta(name), table_type: "xy" },
+    columns: colDefs,
+    rows,
+    analyses: [],
+    plots: [],
+  };
+}
+
+/**
+ * The spec for a synthetic XY correlation. resolveXY resolves the X column live
+ * (the single role-"x" column) and reads inputs.columnIds[0] as the Y column id,
+ * so the spec must carry the synthetic Y id (synthColumnId(1)) as its single
+ * input.
+ */
+function specForSyntheticXY(spec: AnalysisSpec): AnalysisSpec {
+  return { ...spec, inputs: { ...spec.inputs, columnIds: [synthColumnId(1)] } };
+}
+
+/**
  * Re-point a spec's input column ids onto the synthetic column ids, preserving
  * order (multiple regression reads inputs[0] as Y, the rest as predictors, so
  * order MUST be preserved). The synthetic content's columns are built in the same
@@ -229,6 +311,21 @@ export interface DatasetAnalysisOptions {
    * editable lane where each chosen column is a group.
    */
   groupByColumn?: string;
+  /**
+   * For a TWO-GROUP test (unpaired t, Mann-Whitney) in group-by mode on a column
+   * with three or more levels, the exact two labels to compare, in [Group A,
+   * Group B] order. When set, the runner keeps ONLY these two partitions (in this
+   * order) before building the two arrays, so the test compares the levels the
+   * user chose rather than the first two seen. Ignored for three-or-more-group
+   * tests (ANOVA, Kruskal-Wallis), which always use every level. Each label must
+   * match a readColumnByGroup partition label exactly (same stringification).
+   */
+  groupPair?: [string, string];
+}
+
+/** A two-group test compares exactly two partitions (unpaired t, Mann-Whitney). */
+function analysisIsTwoGroup(type: AnalysisType): boolean {
+  return type === "unpairedTTest" || type === "mannWhitneyU";
 }
 
 /**
@@ -280,21 +377,35 @@ export async function runAnalysisOnDataset(
     if (!valueColumn) {
       return { ok: false, error: "Pick a numeric value column to analyze." };
     }
-    if (analysisIsRowAligned(type)) {
+    if (analysisIsRowAligned(type) || analysisIsCorrelation(type)) {
       return {
         ok: false,
         error:
-          "A row-paired analysis cannot run on a single value column split by a group. Pick the wide column mode.",
+          "This analysis pairs two columns by row and cannot run on a single value column split by a group. Pick the wide column mode.",
       };
     }
-    const groups = await readColumnByGroup(
+    const allGroups = await readColumnByGroup(
       handle,
       valueColumn,
       opts.groupByColumn,
       recipe,
     );
-    if (groups.length === 0) {
+    if (allGroups.length === 0) {
       return { ok: false, error: "The group-by column produced no groups." };
+    }
+    // A two-group test on a 3+ level column compares the chosen pair, not the
+    // first two levels. When no pair is given (back-compat, or a 2-level column),
+    // every level is passed and the engine's group-count check applies.
+    let groups = allGroups;
+    if (opts.groupPair && analysisIsTwoGroup(type) && allGroups.length > 2) {
+      const picked = selectGroupPair(allGroups, opts.groupPair);
+      if (!picked) {
+        return {
+          ok: false,
+          error: "Pick two different existing groups to compare.",
+        };
+      }
+      groups = picked;
     }
     const content = contentFromColumns(
       sidecar.name,
@@ -308,6 +419,19 @@ export async function runAnalysisOnDataset(
   const names = resolveDatasetColumnNames(spec, sidecar);
   if (names.length === 0) {
     return { ok: false, error: "Pick at least one column to analyze." };
+  }
+
+  // CORRELATION: two columns paired by row, complete-case, into a synthetic XY
+  // table (first column X, second column Y). Row-aligned extraction guarantees
+  // the dataset r equals the editable r on the same data.
+  if (analysisIsCorrelation(type)) {
+    if (names.length < 2) {
+      return { ok: false, error: "Pick two numeric columns to correlate." };
+    }
+    const pair = names.slice(0, 2);
+    const rowsMatrix = await readColumnAligned(handle, pair, recipe);
+    const content = contentFromAlignedXY(sidecar.name, pair[0], pair[1], rowsMatrix);
+    return runAnalysis(specForSyntheticXY(spec), content);
   }
 
   if (analysisIsRowAligned(type)) {
@@ -343,14 +467,21 @@ export async function buildDatasetAnalysisContent(
 
   if (opts.groupByColumn) {
     const valueColumn = resolveDatasetColumnNames(spec, sidecar)[0];
-    if (!valueColumn || analysisIsRowAligned(type)) return null;
-    const groups = await readColumnByGroup(
+    if (!valueColumn || analysisIsRowAligned(type) || analysisIsCorrelation(type))
+      return null;
+    const allGroups = await readColumnByGroup(
       handle,
       valueColumn,
       opts.groupByColumn,
       recipe,
     );
-    if (groups.length === 0) return null;
+    if (allGroups.length === 0) return null;
+    let groups = allGroups;
+    if (opts.groupPair && analysisIsTwoGroup(type) && allGroups.length > 2) {
+      const picked = selectGroupPair(allGroups, opts.groupPair);
+      if (!picked) return null;
+      groups = picked;
+    }
     const content = contentFromColumns(
       sidecar.name,
       groups.map((g) => ({ name: g.label, values: g.values })),
@@ -360,6 +491,14 @@ export async function buildDatasetAnalysisContent(
 
   const names = resolveDatasetColumnNames(spec, sidecar);
   if (names.length === 0) return null;
+
+  if (analysisIsCorrelation(type)) {
+    if (names.length < 2) return null;
+    const pair = names.slice(0, 2);
+    const rowsMatrix = await readColumnAligned(handle, pair, recipe);
+    const content = contentFromAlignedXY(sidecar.name, pair[0], pair[1], rowsMatrix);
+    return { content, spec: specForSyntheticXY(spec) };
+  }
 
   if (analysisIsRowAligned(type)) {
     const rowsMatrix = await readColumnAligned(handle, names, recipe);
