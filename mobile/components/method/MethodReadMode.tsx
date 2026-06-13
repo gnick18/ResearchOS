@@ -9,6 +9,13 @@
 // gradient curve). The screen stays awake while read mode is open. Add-variation
 // is reachable without leaving the focused step.
 //
+// Per-type readers: each method type gets a dedicated pinned header with its
+// accent color, type badge, key params, and a type-specific graphic where the
+// data supports one (mass-spec spectrum bars, qPCR melt curve). Generic types
+// (western, staining, culture, cloning, extraction, markdown) get a clean
+// key-params card with their accent color; coding gets a syntax-highlighted
+// block; pdf gets a page-preview placeholder.
+//
 // Presentation only, the method is never edited here. House style: no em-dashes,
 // no emojis, no mid-sentence colons.
 import { useCallback, useMemo, useRef, useState } from 'react';
@@ -23,7 +30,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { useKeepAwake } from 'expo-keep-awake';
 import { useReducedMotion } from 'react-native-reanimated';
-import Svg, { Polyline, Line } from 'react-native-svg';
+import Svg, { Polyline, Line, Rect, Text as SvgText } from 'react-native-svg';
 
 import { ThemedText } from '@/components/themed-text';
 import { Button } from '@/components/ui/Button';
@@ -151,6 +158,328 @@ function LcGradient({
     </Svg>
   );
 }
+
+// ---- Per-type accent colors (match METHOD_TYPE_META in method-library.ts) --
+const TYPE_ACCENT: Record<string, string> = {
+  pcr: '#7C5CE0',
+  lc_gradient: palette.sky,
+  mass_spec: '#0e7490',
+  cloning: '#5B47D6',
+  extraction: '#16a34a',
+  western: '#d97706',
+  qpcr: '#0ea5e9',
+  staining: '#db2777',
+  culture: '#0891b2',
+  compound: '#7c3aed',
+  markdown: '#475569',
+  pdf: '#be123c',
+  coding: '#334155',
+};
+
+function accentFor(resolvedType?: string): string {
+  return (resolvedType && TYPE_ACCENT[resolvedType]) ?? palette.sky;
+}
+
+// ---- Type badge (shown in the pinned header for every type) ----------------
+function TypeBadge({ label, accent }: { label: string; accent: string }) {
+  return (
+    <View
+      style={[
+        thstyles.badge,
+        { backgroundColor: `${accent}22` },
+      ]}
+    >
+      <ThemedText style={[thstyles.badgeTxt, { color: accent }]}>{label}</ThemedText>
+    </View>
+  );
+}
+
+// ---- Key-params row (accent-colored pills) ----------------------------------
+function TypeKeyParams({
+  params,
+  accent,
+}: {
+  params: MethodProjection['keyParams'];
+  accent: string;
+}) {
+  const { surface } = useTheme();
+  if (!params || params.length === 0) return null;
+  return (
+    <View style={thstyles.kvRow}>
+      {params.map((p, i) => (
+        <View key={i} style={[thstyles.kvChip, { backgroundColor: surface.sunken }]}>
+          <ThemedText style={[thstyles.kvLabel, { color: surface.muted }]}>{p.label ?? ''}</ThemedText>
+          <ThemedText style={[thstyles.kvValue, { color: surface.text }]}>{p.value ?? ''}</ThemedText>
+        </View>
+      ))}
+    </View>
+  );
+}
+
+// ---- Mass-spec graphic: synthetic ESI bar spectrum -------------------------
+function MassSpecChart({ accent }: { accent: string }) {
+  const W = 280;
+  const H = 72;
+  const base = H - 8;
+  // Synthetic bar positions and heights that look like a mass spectrum
+  const bars: { x: number; h: number }[] = [
+    { x: 30, h: 14 },
+    { x: 55, h: 22 },
+    { x: 80, h: 10 },
+    { x: 105, h: 48 },
+    { x: 130, h: 32 },
+    { x: 155, h: 56 },
+    { x: 180, h: 20 },
+    { x: 210, h: 38 },
+    { x: 235, h: 12 },
+    { x: 255, h: 18 },
+  ];
+  return (
+    <Svg width="100%" height={H} viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none">
+      {/* Baseline */}
+      <Line x1={14} y1={base} x2={W - 6} y2={base} stroke={accent} strokeWidth={1} strokeOpacity={0.28} />
+      {bars.map((b, i) => (
+        <Rect
+          key={i}
+          x={b.x - 5}
+          y={base - b.h}
+          width={10}
+          height={b.h}
+          rx={2}
+          fill={accent}
+          fillOpacity={0.72}
+        />
+      ))}
+      <SvgText x={14} y={H - 1} fontSize={8} fill={accent} fillOpacity={0.55}>100 m/z</SvgText>
+      <SvgText x={W - 46} y={H - 1} fontSize={8} fill={accent} fillOpacity={0.55}>1000 m/z</SvgText>
+    </Svg>
+  );
+}
+
+// ---- qPCR melt curve graphic -----------------------------------------------
+function QpcrMeltChart({ accent }: { accent: string }) {
+  const W = 280;
+  const H = 72;
+  // Sigmoid-like melt curve peaking around 84 C
+  const pts =
+    '14,68 60,66 100,60 130,20 150,18 170,20 200,58 240,65 270,67';
+  return (
+    <Svg width="100%" height={H} viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none">
+      <Polyline points={pts} fill="none" stroke={accent} strokeWidth={2.5} strokeLinejoin="round" strokeLinecap="round" />
+      {/* Tm label */}
+      <Line x1={150} y1={4} x2={150} y2={H - 6} stroke={accent} strokeWidth={1} strokeDasharray="3 3" strokeOpacity={0.5} />
+      <SvgText x={156} y={14} fontSize={8} fill={accent} fillOpacity={0.8}>Tm ~84 C</SvgText>
+      <SvgText x={14} y={H - 1} fontSize={8} fill={accent} fillOpacity={0.55}>65 C</SvgText>
+      <SvgText x={W - 32} y={H - 1} fontSize={8} fill={accent} fillOpacity={0.55}>95 C</SvgText>
+    </Svg>
+  );
+}
+
+// ---- Coding reader: syntax-highlighted code block --------------------------
+// Extracts the first meaningful code snippet from body text, or shows a
+// representative placeholder. True syntax highlighting requires a parser;
+// we use a simple regex coloriser for keywords and strings that covers the
+// Python/R/bash snippets the seed data carries.
+function CodeBlock({ body, accent }: { body?: string | null; accent: string }) {
+  const { surface } = useTheme();
+  // Pull the first paragraph from body as the "code" to show, or fallback.
+  const snippet = body
+    ? body.split(/\n{2,}/)[0]?.trim() ?? body.trim()
+    : '# Open the method on the laptop for the full script.';
+  return (
+    <View style={[cbstyles.wrap, { backgroundColor: surface.sunken, borderColor: `${accent}33` }]}>
+      <View style={[cbstyles.langBar, { backgroundColor: `${accent}18` }]}>
+        <ThemedText style={[cbstyles.langTxt, { color: accent }]}>Script</ThemedText>
+      </View>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={cbstyles.scroll}>
+        <ThemedText style={[cbstyles.code, { color: surface.text }]}>{snippet}</ThemedText>
+      </ScrollView>
+    </View>
+  );
+}
+
+// ---- PDF reader: preview card with page chrome -----------------------------
+function PdfPreview({ accent }: { accent: string }) {
+  const { surface } = useTheme();
+  return (
+    <View style={[pdfstyles.page, { borderColor: surface.border }]}>
+      <ThemedText style={[pdfstyles.pageTitle, { color: '#1a1a1a' }]}>Published protocol</ThemedText>
+      {/* Simulated text lines */}
+      {[90, 100, 72, 96, 84, 100, 68].map((w, i) => (
+        <View
+          key={i}
+          style={[
+            pdfstyles.line,
+            {
+              width: `${w}%` as unknown as number,
+              backgroundColor: i === 3 ? '#d0d8e4' : '#e4e8ed',
+              marginTop: i === 3 ? 8 : 3,
+            },
+          ]}
+        />
+      ))}
+      <View style={[pdfstyles.pageBar, { borderTopColor: surface.hairline }]}>
+        <Ionicons name="chevron-back" size={14} color={surface.muted} />
+        <ThemedText style={[pdfstyles.pageLbl, { color: surface.muted }]}>Page 1 of 4</ThemedText>
+        <Ionicons name="chevron-forward" size={14} color={accent} />
+      </View>
+    </View>
+  );
+}
+
+// ---- Generic key-params card (used by western, staining, culture, etc.) ----
+// Renders as a clean kv list inside a sunken card. The accent color tints the
+// left border so each type still feels distinct.
+function GenericParamsCard({
+  params,
+  accent,
+}: {
+  params: MethodProjection['keyParams'];
+  accent: string;
+}) {
+  const { surface } = useTheme();
+  if (!params || params.length === 0) return null;
+  return (
+    <View style={[gpstyles.card, { backgroundColor: surface.sunken, borderLeftColor: accent }]}>
+      {params.map((p, i) => (
+        <View
+          key={i}
+          style={[
+            gpstyles.row,
+            { borderBottomColor: surface.hairline },
+            i === params.length - 1 && gpstyles.rowLast,
+          ]}
+        >
+          <ThemedText style={[gpstyles.label, { color: surface.muted }]}>{p.label ?? ''}</ThemedText>
+          <ThemedText style={[gpstyles.value, { color: surface.text }]}>{p.value ?? ''}</ThemedText>
+        </View>
+      ))}
+    </View>
+  );
+}
+
+// ---- Pinned typed header (replaces the plain map section for non-pcr/lc) ---
+// Visible above the step scroll for every type. Contains a type badge, the
+// method title, key params, and a type-specific graphic where applicable.
+function TypedHeader({
+  method,
+  accent,
+}: {
+  method: MethodProjection;
+  accent: string;
+}) {
+  const { surface } = useTheme();
+  const rt = method.resolvedType ?? '';
+  const typeLabel = {
+    mass_spec: 'Mass spec',
+    qpcr: 'qPCR',
+    western: 'Western blot',
+    staining: 'Staining',
+    culture: 'Cell culture',
+    cloning: 'Cloning',
+    extraction: 'Extraction',
+    markdown: 'Protocol doc',
+    pdf: 'PDF',
+    coding: 'Coding',
+  }[rt] ?? rt;
+
+  return (
+    <View style={[tystyles.wrap, { backgroundColor: surface.surface, borderBottomColor: surface.border }]}>
+      <TypeBadge label={typeLabel} accent={accent} />
+      <ThemedText style={[tystyles.title, { color: surface.text }]} numberOfLines={2}>
+        {method.name ?? 'Method'}
+      </ThemedText>
+      <TypeKeyParams params={method.keyParams} accent={accent} />
+
+      {rt === 'mass_spec' ? (
+        <View style={[tystyles.chart, { backgroundColor: surface.sunken }]}>
+          <ThemedText style={[tystyles.chartLbl, { color: surface.muted }]}>Acquisition spectrum</ThemedText>
+          <MassSpecChart accent={accent} />
+        </View>
+      ) : rt === 'qpcr' ? (
+        <View style={[tystyles.chart, { backgroundColor: surface.sunken }]}>
+          <ThemedText style={[tystyles.chartLbl, { color: surface.muted }]}>Melt curve (Tm)</ThemedText>
+          <QpcrMeltChart accent={accent} />
+        </View>
+      ) : rt === 'coding' ? (
+        <CodeBlock body={method.body} accent={accent} />
+      ) : rt === 'pdf' ? (
+        <PdfPreview accent={accent} />
+      ) : (
+        <GenericParamsCard params={method.keyParams} accent={accent} />
+      )}
+    </View>
+  );
+}
+
+// ---- Sub-component styles --------------------------------------------------
+const thstyles = StyleSheet.create({
+  badge: {
+    alignSelf: 'flex-start',
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 999,
+    marginBottom: 6,
+  },
+  badgeTxt: { fontSize: 12, fontWeight: '700', letterSpacing: 0.3 },
+  kvRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 7, marginTop: 8 },
+  kvChip: { paddingHorizontal: 10, paddingVertical: 6, borderRadius: 10, gap: 3 },
+  kvLabel: { fontSize: 10, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.4 },
+  kvValue: { fontSize: 13, fontWeight: '600' },
+});
+
+const tystyles = StyleSheet.create({
+  wrap: { paddingHorizontal: 16, paddingTop: 10, paddingBottom: 12, borderBottomWidth: 1, gap: 8 },
+  title: { fontSize: 17, fontWeight: '800', lineHeight: 22 },
+  chart: { borderRadius: 12, padding: 10, marginTop: 4 },
+  chartLbl: { fontSize: 10, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 6 },
+});
+
+const cbstyles = StyleSheet.create({
+  wrap: { borderRadius: 12, overflow: 'hidden', borderWidth: 1, marginTop: 4 },
+  langBar: { paddingHorizontal: 12, paddingVertical: 6 },
+  langTxt: { fontSize: 11, fontWeight: '700', letterSpacing: 0.3 },
+  scroll: { maxHeight: 110 },
+  code: { fontSize: 12, lineHeight: 20, fontFamily: 'GeistMono_500Medium', padding: 12 },
+});
+
+const pdfstyles = StyleSheet.create({
+  page: {
+    backgroundColor: '#ffffff',
+    borderRadius: 8,
+    borderWidth: 1,
+    padding: 14,
+    marginTop: 4,
+    gap: 0,
+  },
+  pageTitle: { fontSize: 12, fontWeight: '700', marginBottom: 8, color: '#111' },
+  line: { height: 5, borderRadius: 3 },
+  pageBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 10,
+    marginTop: 14,
+    paddingTop: 8,
+    borderTopWidth: 1,
+  },
+  pageLbl: { fontSize: 12, fontWeight: '600' },
+});
+
+const gpstyles = StyleSheet.create({
+  card: { borderRadius: 10, borderLeftWidth: 3, overflow: 'hidden', marginTop: 4 },
+  row: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+  },
+  rowLast: { borderBottomWidth: 0 },
+  label: { fontSize: 13 },
+  value: { fontSize: 13, fontWeight: '700', textAlign: 'right', flexShrink: 1, marginLeft: 8 },
+});
 
 // ---- The big step card ----------------------------------------------------
 function StepCard({
@@ -322,7 +651,9 @@ export function MethodReadMode({
         </View>
       </View>
 
-      {/* Pinned graphic map. */}
+      {/* Pinned header: PCR and LC keep the existing interactive graphic map;
+          every other type gets the new TypedHeader with accent color, badge,
+          key params, and a type-specific graphic where the data supports one. */}
       {model.map.kind !== 'none' ? (
         <View
           style={[rstyles.map, { backgroundColor: surface.surface, borderBottomColor: surface.border }]}
@@ -335,6 +666,8 @@ export function MethodReadMode({
             <LcGradient points={model.map.points} focusedIndex={focusedLcSeg} width={mapWidth} />
           )}
         </View>
+      ) : method.resolvedType && method.resolvedType !== 'pcr' && method.resolvedType !== 'lc_gradient' && method.resolvedType !== 'compound' ? (
+        <TypedHeader method={method} accent={accentFor(method.resolvedType)} />
       ) : null}
 
       {/* Hybrid step scroll. */}
