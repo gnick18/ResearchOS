@@ -10,12 +10,12 @@ import Kicker from "@/components/marketing/Kicker";
 
 /**
  * Public `/about` company page. The origin story and the "real, accountable
- * business" signal, where Dr. Grant Nickles is named as the founder. Rebuilt to
- * the approved mockup (docs/mockups/2026-06-12-about-redesign.html): a brand
- * hero with a founder portrait, the founder story paired with a candid field
- * photo, branded section blocks, and the Built-in-Madison credibility. Same
- * premium chrome as the welcome and pricing pages (rainbow ribbon, brand
- * backdrop, Reveal scroll-ins, pastel-rainbow kickers).
+ * business" signal, where Dr. Grant Nickles is named as the founder. Brand hero
+ * with a rainbow-connected founder-journey rail (swim lessons to a research
+ * fellowship) in place of a portrait, the founder story, branded section blocks,
+ * and the Built-in-Madison credibility. Same premium chrome as the welcome and
+ * pricing pages (rainbow ribbon, brand backdrop, Reveal scroll-ins, pastel
+ * rainbow kickers).
  *
  * Marketing page, rendered without the AppShell or a connected folder so anyone
  * can read it. Mission and positioning copy inherited from the welcome page and
@@ -31,6 +31,15 @@ export const metadata: Metadata = {
   description:
     "ResearchOS is an open-source company that grew out of a research fellowship at UW-Madison. It builds free, local-first alternatives to the expensive tools labs depend on, so researchers own their data and can verify the science in public. A registered Wisconsin LLC stands behind it.",
 };
+
+// The founder's path, rendered as the rainbow-connected bubble rail in the hero
+// (replaces the portrait). Each is a true beat from the origin story below.
+const JOURNEY: { label: string; sub: string }[] = [
+  { label: "Swim lessons", sub: "A business I co-ran with my mom" },
+  { label: "Iowa State", sub: "B.S. in genetics" },
+  { label: "UW-Madison", sub: "PhD mining fungal genomes" },
+  { label: "UW Fellow", sub: "Distinguished Research Fellowship" },
+];
 
 const ONWARD: { href: string; title: string; sub: string; external?: boolean }[] = [
   { href: "/pricing", title: "Pricing", sub: "Every number, the real cost math" },
@@ -72,18 +81,37 @@ export default function AboutPage() {
               alternatives, and the goal is not just cheaper, it is better.
             </p>
           </div>
-          {/* Founder photo, rainbow-framed. */}
-          <div className="mx-auto w-full max-w-[300px]">
-            <div className="brand-rainbow-bg rounded-[20px] p-[3px] shadow-[0_26px_60px_-34px_rgba(15,40,80,0.5)]">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src="/about/grant-field.jpg"
-                alt="Dr. Grant Nickles"
-                width={800}
-                height={1100}
-                className="block aspect-[4/5] w-full rounded-[17px] object-cover object-[center_28%]"
+          {/* Founder journey, a rainbow-connected bubble rail (replaces the
+              portrait). Pure divs + brand tokens, no inline SVG, so it themes
+              with the rest and clears the icon guard. */}
+          <div className="mx-auto w-full max-w-[330px]">
+            <p className="mb-5 text-meta font-semibold text-foreground-muted">
+              From the pool deck to a research fellowship
+            </p>
+            <ol className="relative space-y-4">
+              {/* The connecting rainbow line, behind the bubbles. */}
+              <span
+                aria-hidden
+                className="absolute left-[19px] top-5 bottom-5 w-[2px] rounded-full bg-gradient-to-b from-brand-action via-brand-purple to-brand-action opacity-60"
               />
-            </div>
+              {JOURNEY.map((step, i) => (
+                <li key={step.label} className="relative flex items-center gap-4">
+                  <span className="brand-rainbow-bg relative z-10 grid h-10 w-10 shrink-0 place-items-center rounded-full p-[2.5px] shadow-[0_10px_24px_-12px_rgba(15,40,80,0.6)]">
+                    <span className="grid h-full w-full place-items-center rounded-full bg-surface-raised text-body font-extrabold text-foreground">
+                      {i + 1}
+                    </span>
+                  </span>
+                  <span className="flex-1 rounded-xl border border-border bg-surface-raised px-4 py-2.5 transition-transform duration-200 hover:-translate-y-0.5 hover:border-brand-action/40">
+                    <span className="block text-body font-extrabold text-foreground">
+                      {step.label}
+                    </span>
+                    <span className="block text-[11.5px] leading-snug text-foreground-muted">
+                      {step.sub}
+                    </span>
+                  </span>
+                </li>
+              ))}
+            </ol>
           </div>
         </Reveal>
       </header>
