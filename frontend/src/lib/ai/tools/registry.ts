@@ -69,6 +69,7 @@ import { searchMyWorkTool } from "./search-my-work";
 import { summarizeExperimentsTool } from "./summarize-experiments";
 import { summarizePurchasesTool } from "./summarize-purchases";
 import { searchLiteratureTool } from "./search-literature";
+import { listPhyloTreesTool, readPhyloTreeTool } from "./phylo-tools";
 import {
   createExperimentTool,
   rescheduleExperimentTool,
@@ -239,6 +240,13 @@ export const READ_ONLY_TOOLS: AiTool[] = [
   // can cite or, on a separate user-approved write_note, pull into a note. The
   // model only relays what Europe PMC returns and never invents a paper or a DOI.
   searchLiteratureTool,
+  // Phylogenetics READ tools. list_phylo_trees / read_phylo_tree surface the
+  // user's saved trees by name or id and hand the model the embed markdown to
+  // SHOW one as a chat card (the /phylo embed pipeline is built + frozen by the
+  // Phylogenetics lane). Read-only, the model never invents a tree or a tip
+  // count, and building a tree stays navigate + guide for now.
+  listPhyloTreesTool,
+  readPhyloTreeTool,
   // Cloning coworker READ tools. list_sequences gives the model real sequence ids
   // + feature names; read_sequence_features returns one sequence's full annotation
   // list (with coordinates + strand) so the model can pick a region to extract.
