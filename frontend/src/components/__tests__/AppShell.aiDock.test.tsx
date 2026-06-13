@@ -96,6 +96,7 @@ vi.mock("@/components/FeedbackButton", () => ({ default: () => null }));
 vi.mock("@/components/beaker-search/BeakerSearchPill", () => ({
   default: () => null,
 }));
+vi.mock("@/components/beaker-search/BeakerSearchBottomBar", () => ({ default: () => null }));
 vi.mock("@/components/BetaDonationButton", () => ({ default: () => null }));
 vi.mock("@/components/DevTestNotificationButton", () => ({
   default: () => null,

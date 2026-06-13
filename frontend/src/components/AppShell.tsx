@@ -58,9 +58,6 @@ import SharingClaimResume from "@/components/sharing/SharingClaimResume";
 import LabInviteResume from "@/components/lab/LabInviteResume";
 import LabCreateResume from "@/components/lab/LabCreateResume";
 import { LabSessionMount } from "@/components/lab/LabSessionMount";
-// BeakerSearch step 2a, the app-chrome front-door pill. Visible on every app
-// page, opens the always-present global Cmd-K palette.
-import BeakerSearchPill from "@/components/beaker-search/BeakerSearchPill";
 import BeakerSearchBottomBar from "@/components/beaker-search/BeakerSearchBottomBar";
 import AppNavBar from "@/components/AppNavBar";
 import type { NavItem } from "@/lib/nav";
@@ -375,16 +372,10 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         />
 
         <div className="flex items-center gap-2">
-          {/* BeakerSearch step 2a, the app-wide front door. Leads the action
-              cluster so the Cmd-K palette is discoverable on every page; the
-              Sequences toolbar keeps its own pill (minor redundancy is fine). */}
-          {/* TODO(beakerai): remove top-nav BeakerSearchPill once nav-slimming
-              coordinates. BeakerSearch's permanent home is now the bottom-center
-              ask bar (BeakerSearchBottomBar, rendered below). The pill stays for
-              now so removing it from this contended top-nav surface is sequenced
-              with the global-nav-slimming session, not done head-on. Both open
-              the same surface in the meantime, which is fine. */}
-          <BeakerSearchPill />
+          {/* Top-nav BeakerSearch pill removed 2026-06-12 (the nav-slimming it
+              was sequenced behind has shipped). BeakerSearch's home is the
+              bottom-center ask bar (BeakerSearchBottomBar, rendered below) plus
+              the Cmd-K palette; the redundant top-nav button is gone. */}
           <NotificationBadge pill={tinted} />
           <InboxBadge />
           {/* Timers button. Opens the Timers popup (running countdowns + new

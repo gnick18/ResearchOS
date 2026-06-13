@@ -49,6 +49,17 @@ if (typeof window !== "undefined" && typeof window.matchMedia !== "function") {
     }) as MediaQueryList;
 }
 
+// jsdom does not implement ResizeObserver. The slim AppNavBar measures its tab
+// row with one to lay out the inline / More overflow split, so any test that
+// renders AppShell needs a no-op stub or the layout effect throws.
+if (typeof globalThis.ResizeObserver === "undefined") {
+  globalThis.ResizeObserver = class {
+    observe() {}
+    unobserve() {}
+    disconnect() {}
+  } as unknown as typeof ResizeObserver;
+}
+
 afterEach(() => {
   cleanup();
 });
