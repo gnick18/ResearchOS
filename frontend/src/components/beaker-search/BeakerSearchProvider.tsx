@@ -236,6 +236,16 @@ export function BeakerSearchProvider({ children }: { children: ReactNode }) {
   // and switches into Ask mode; the search body cross-fades to the
   // conversation. The query is seeded via the message bridge. Back-to-search
   // returns to search mode without clearing the conversation.
+  //
+  // On the "duplicate chat from one send" dev report (2026-06-13): this is an
+  // event callback, so it fires once per Enter/click and React StrictMode (on
+  // by default in dev, off in prod) does NOT double-invoke it. The send layer
+  // is idempotent under a StrictMode bridge double-mount too: message-bridge's
+  // flushQueue clears the queued message before delivering, and store send()
+  // guards concurrent calls and binds the thread on the first message only. One
+  // escalation always creates exactly one thread, verified in a prod build and
+  // pinned by beakerbot-escalation-single-thread.test.tsx (StrictMode + cold
+  // queue cases). The dev report was a double-submit, not a code double-fire.
   const escalateToBeakerBot = useCallback((q: string) => {
     setAskMode("ask");
     void sendToBeakerBot(q.trim());
