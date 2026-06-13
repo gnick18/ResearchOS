@@ -371,7 +371,7 @@ export default function AccountPasswordPopup({
                 className={`flex-1 py-2 text-body rounded-lg font-medium disabled:opacity-50 ${
                   mode === "remove"
                     ? "bg-red-600 hover:bg-red-700 text-white"
-                    : "bg-blue-600 hover:bg-blue-700 text-white"
+                    : "bg-brand-action hover:bg-brand-action/90 text-white"
                 }`}
               >
                 {busy

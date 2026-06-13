@@ -35,7 +35,7 @@ import {
 type Phase = "idle" | "working" | "sent" | "entering" | "pending" | "error";
 
 const primaryBtn =
-  "w-full rounded-md bg-sky-600 px-4 py-3 text-body font-medium text-white hover:bg-sky-500 disabled:opacity-50 disabled:cursor-not-allowed";
+  "w-full rounded-md bg-brand-action px-4 py-3 text-body font-medium text-white hover:bg-brand-action/90 disabled:opacity-50 disabled:cursor-not-allowed";
 const secondaryBtn =
   "w-full rounded-md border border-border bg-surface px-4 py-3 text-meta font-medium text-foreground hover:bg-surface-hover disabled:opacity-50 disabled:cursor-not-allowed";
 

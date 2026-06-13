@@ -2235,7 +2235,7 @@ export default function NoteDetailPopup({
                 disabled={saving || readOnly || (!hasUnsavedChanges && !editorDirty)}
                 className={`px-3 py-1.5 text-meta font-medium rounded-lg transition-colors ${
                   (hasUnsavedChanges || editorDirty) && !saving
-                    ? "text-white bg-blue-600 hover:bg-blue-700"
+                    ? "text-white bg-brand-action hover:bg-brand-action/90"
                     : "text-foreground-muted bg-surface-sunken cursor-not-allowed"
                 }`}
               >

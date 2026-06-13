@@ -137,7 +137,7 @@ function NewTimer() {
             key={p.sec}
             type="button"
             onClick={() => add("", p.sec)}
-            className="text-body font-bold text-sky-500 bg-surface-raised border border-border rounded-full px-3.5 py-1.5 hover:bg-sky-500/10"
+            className="text-body font-bold text-sky-500 bg-surface-raised border border-border rounded-full px-3.5 py-1.5 hover:bg-brand-action/10"
           >
             {p.label}
           </button>

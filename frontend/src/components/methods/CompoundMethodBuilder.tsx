@@ -396,7 +396,7 @@ export function CompoundMethodBuilder({
           <button
             onClick={handleSave}
             disabled={saving || !name.trim() || !validation.ok}
-            className="px-4 py-2 text-body text-white bg-blue-600 hover:bg-blue-700 rounded-lg disabled:opacity-50"
+            className="px-4 py-2 text-body text-white bg-brand-action hover:bg-brand-action/90 rounded-lg disabled:opacity-50"
           >
             {saving ? "Saving..." : "Save changes"}
           </button>

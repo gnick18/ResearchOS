@@ -975,7 +975,7 @@ export function CalculatorEditView({
             type="button"
             onClick={save}
             disabled={!canSave}
-            className="btn-brand inline-flex items-center gap-1.5 px-4 py-1.5 text-meta font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
+            className="bg-brand-action text-white transition-colors hover:bg-brand-action/90 inline-flex items-center gap-1.5 px-4 py-1.5 text-meta font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <Icon name="save" className="w-4 h-4" />
             {saving ? "Saving" : "Save"}
@@ -1698,7 +1698,7 @@ export function CalculatorLibraryView({
                 <button
                   type="button"
                   onClick={() => onUseTemplate(t)}
-                  className="self-start inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-sky-200 text-meta font-semibold text-sky-700 dark:text-sky-300 hover:bg-sky-50 dark:hover:bg-sky-500/15 transition-colors"
+                  className="self-start inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-sky-200 text-meta font-semibold text-sky-700 dark:text-sky-300 hover:bg-sky-50 dark:hover:bg-brand-action/15 transition-colors"
                 >
                   <Icon name="import" className="w-4 h-4" />
                   Use this

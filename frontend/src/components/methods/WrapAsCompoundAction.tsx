@@ -93,7 +93,7 @@ export function WrapAsCompoundAction({
         disabled={busy}
         className={
           className ??
-          "inline-flex items-center gap-1.5 px-2.5 py-1 text-meta text-indigo-700 dark:text-indigo-300 bg-indigo-50 dark:bg-indigo-500/10 hover:bg-indigo-100 dark:hover:bg-indigo-500/20 border border-indigo-200 rounded-lg disabled:opacity-50"
+          "inline-flex items-center gap-1.5 px-2.5 py-1 text-meta text-indigo-700 dark:text-indigo-300 bg-indigo-50 dark:bg-brand-action/10 hover:bg-indigo-100 dark:hover:bg-brand-action/20 border border-indigo-200 rounded-lg disabled:opacity-50"
         }
       >
         <span aria-hidden="true">+</span>

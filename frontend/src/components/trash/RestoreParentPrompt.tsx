@@ -199,7 +199,7 @@ export function RestoreParentPromptHost() {
               type="button"
               data-restore-default
               onClick={() => resolve?.("restore-both")}
-              className="w-full px-4 py-2 text-body font-medium rounded-md bg-blue-600 text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+              className="w-full px-4 py-2 text-body font-medium rounded-md bg-brand-action text-white hover:bg-brand-action/90 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
             >
               Restore both
             </button>

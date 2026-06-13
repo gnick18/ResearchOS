@@ -237,7 +237,7 @@ function SharingIdentitySection({
           <button
             type="button"
             onClick={onSetUp}
-            className="px-3 py-2 text-body bg-blue-600 hover:bg-blue-700 text-white rounded-lg whitespace-nowrap"
+            className="px-3 py-2 text-body bg-brand-action hover:bg-brand-action/90 text-white rounded-lg whitespace-nowrap"
           >
             Set up sharing
           </button>
@@ -494,7 +494,7 @@ function NeedsRestoreIdentity({
         <button
           type="button"
           onClick={onRestore}
-          className="px-3 py-2 text-body bg-blue-600 hover:bg-blue-700 text-white rounded-lg"
+          className="px-3 py-2 text-body bg-brand-action hover:bg-brand-action/90 text-white rounded-lg"
         >
           Restore with recovery words
         </button>
@@ -552,7 +552,7 @@ function InboxStorageSection({
             <button
               type="button"
               onClick={onSetUp}
-              className="px-3 py-2 text-body bg-blue-600 hover:bg-blue-700 text-white rounded-lg whitespace-nowrap"
+              className="px-3 py-2 text-body bg-brand-action hover:bg-brand-action/90 text-white rounded-lg whitespace-nowrap"
             >
               Publish a profile
             </button>
@@ -566,7 +566,7 @@ function InboxStorageSection({
               <button
                 type="button"
                 onClick={onSetUp}
-                className="px-3 py-2 text-body bg-blue-600 hover:bg-blue-700 text-white rounded-lg whitespace-nowrap"
+                className="px-3 py-2 text-body bg-brand-action hover:bg-brand-action/90 text-white rounded-lg whitespace-nowrap"
               >
                 Set up sharing
               </button>
@@ -1076,7 +1076,7 @@ export function ProfileEditorCard() {
           <button
             type="button"
             onClick={openEdit}
-            className="px-3 py-2 text-body bg-blue-600 hover:bg-blue-700 text-white rounded-lg whitespace-nowrap"
+            className="px-3 py-2 text-body bg-brand-action hover:bg-brand-action/90 text-white rounded-lg whitespace-nowrap"
           >
             Add your name
           </button>
@@ -1264,7 +1264,7 @@ export function ProfileEditorCard() {
               type="button"
               onClick={save}
               disabled={busy}
-              className="flex-1 px-3 py-2 text-body bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium disabled:opacity-50"
+              className="flex-1 px-3 py-2 text-body bg-brand-action hover:bg-brand-action/90 text-white rounded-lg font-medium disabled:opacity-50"
             >
               {busy ? "Saving…" : "Save profile"}
             </button>
@@ -1662,7 +1662,7 @@ export function RestoreIdentityPopup({
             type="button"
             onClick={sendCode}
             disabled={busy}
-            className="w-full py-2 text-body rounded-lg font-medium bg-blue-600 hover:bg-blue-700 text-white disabled:opacity-50"
+            className="w-full py-2 text-body rounded-lg font-medium bg-brand-action hover:bg-brand-action/90 text-white disabled:opacity-50"
           >
             {busy ? "Sending code…" : "Continue"}
           </button>
@@ -1730,7 +1730,7 @@ export function RestoreIdentityPopup({
             type="button"
             onClick={restoreFromKit}
             disabled={busy || !kit}
-            className="w-full py-2 text-body rounded-lg font-medium bg-blue-600 hover:bg-blue-700 text-white disabled:opacity-50 inline-flex items-center justify-center gap-2"
+            className="w-full py-2 text-body rounded-lg font-medium bg-brand-action hover:bg-brand-action/90 text-white disabled:opacity-50 inline-flex items-center justify-center gap-2"
           >
             <UploadIcon className="w-4 h-4" />
             Restore my key
@@ -1765,7 +1765,7 @@ export function RestoreIdentityPopup({
             type="button"
             onClick={verify}
             disabled={busy || otp.length !== 6}
-            className="w-full py-2 text-body rounded-lg font-medium bg-blue-600 hover:bg-blue-700 text-white disabled:opacity-50"
+            className="w-full py-2 text-body rounded-lg font-medium bg-brand-action hover:bg-brand-action/90 text-white disabled:opacity-50"
           >
             Restore my key
           </button>
@@ -1797,7 +1797,7 @@ export function RestoreIdentityPopup({
           <button
             type="button"
             onClick={onClose}
-            className="w-full py-2 text-body rounded-lg font-medium bg-blue-600 hover:bg-blue-700 text-white"
+            className="w-full py-2 text-body rounded-lg font-medium bg-brand-action hover:bg-brand-action/90 text-white"
           >
             Done
           </button>
@@ -1978,7 +1978,7 @@ export function RotateIdentityPopup({
             <button
               type="button"
               onClick={() => setStep("generating")}
-              className="flex-1 py-2 text-body rounded-lg font-medium bg-blue-600 hover:bg-blue-700 text-white"
+              className="flex-1 py-2 text-body rounded-lg font-medium bg-brand-action hover:bg-brand-action/90 text-white"
             >
               Rotate key
             </button>
@@ -2055,7 +2055,7 @@ export function RotateIdentityPopup({
             type="button"
             onClick={publish}
             disabled={!recoverySaved}
-            className="w-full py-2 text-body rounded-lg font-medium bg-blue-600 hover:bg-blue-700 text-white disabled:opacity-50"
+            className="w-full py-2 text-body rounded-lg font-medium bg-brand-action hover:bg-brand-action/90 text-white disabled:opacity-50"
           >
             Publish my new key
           </button>
@@ -2079,7 +2079,7 @@ export function RotateIdentityPopup({
           <button
             type="button"
             onClick={onClose}
-            className="w-full py-2 text-body rounded-lg font-medium bg-blue-600 hover:bg-blue-700 text-white"
+            className="w-full py-2 text-body rounded-lg font-medium bg-brand-action hover:bg-brand-action/90 text-white"
           >
             Done
           </button>

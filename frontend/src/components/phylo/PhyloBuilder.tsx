@@ -131,7 +131,7 @@ export function PhyloBuilder() {
           </pre>
 
           <div className="flex flex-wrap gap-2 mt-2.5 items-center">
-            <button onClick={saveNote} className="btn-brand px-3.5 py-1.5 rounded-lg text-sm font-bold">
+            <button onClick={saveNote} className="bg-brand-action text-white transition-colors hover:bg-brand-action/90 px-3.5 py-1.5 rounded-lg text-sm font-bold">
               Save as a note
             </button>
             <GhostBtn onClick={copyActive} icon="copy">Copy</GhostBtn>

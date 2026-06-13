@@ -309,7 +309,7 @@ export default function MarkdownMethodTabContent({
                     <button
                       onClick={handleSave}
                       disabled={saving || !hasUnsavedChanges}
-                      className="px-3 py-1.5 text-meta text-white bg-blue-600 hover:bg-blue-700 rounded-lg disabled:opacity-50"
+                      className="px-3 py-1.5 text-meta text-white bg-brand-action hover:bg-brand-action/90 rounded-lg disabled:opacity-50"
                     >
                       {saving ? "Saving…" : "Save Changes"}
                     </button>
@@ -332,7 +332,7 @@ export default function MarkdownMethodTabContent({
                     <button
                       onClick={() => setIsEditing(true)}
                       disabled={saving}
-                      className="px-3 py-1.5 text-meta text-white bg-blue-600 hover:bg-blue-700 rounded-lg disabled:opacity-50"
+                      className="px-3 py-1.5 text-meta text-white bg-brand-action hover:bg-brand-action/90 rounded-lg disabled:opacity-50"
                     >
                       Edit body
                     </button>

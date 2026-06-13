@@ -160,7 +160,7 @@ export default function RehydrateMissingImagesModal({
               type="button"
               onClick={handleApply}
               disabled={stagedOkCount === 0 || applyState.kind === "applying"}
-              className="px-4 py-2 text-body bg-blue-600 hover:bg-blue-700 text-white rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
+              className="px-4 py-2 text-body bg-brand-action hover:bg-brand-action/90 text-white rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {applyState.kind === "applying"
                 ? "Applying…"

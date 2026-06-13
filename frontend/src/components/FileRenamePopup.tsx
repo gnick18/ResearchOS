@@ -167,7 +167,7 @@ export default function FileRenamePopup({
             <button
               onClick={handleConfirm}
               disabled={!newName.trim()}
-              className="px-4 py-2 text-body text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              className="px-4 py-2 text-body text-white bg-brand-action hover:bg-brand-action/90 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               Rename & Upload
             </button>

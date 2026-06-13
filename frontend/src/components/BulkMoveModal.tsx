@@ -85,7 +85,7 @@ export default function BulkMoveModal() {
           </button>
           <button
             onClick={handleConfirm}
-            className="px-4 py-2 text-body text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors"
+            className="px-4 py-2 text-body text-white bg-brand-action hover:bg-brand-action/90 rounded-lg transition-colors"
           >
             Confirm
           </button>

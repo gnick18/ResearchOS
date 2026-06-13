@@ -412,7 +412,7 @@ export default function CellCultureScheduleEditor(props: CellCultureScheduleEdit
           {editable && (
             <button
               onClick={addSupplement}
-              className="w-full py-2 text-meta text-blue-600 dark:text-blue-300 hover:bg-blue-50 dark:hover:bg-blue-500/10 border-t border-border"
+              className="w-full py-2 text-meta text-blue-600 dark:text-blue-300 hover:bg-blue-50 dark:hover:bg-brand-action/10 border-t border-border"
             >
               + Add supplement
             </button>
@@ -549,7 +549,7 @@ export default function CellCultureScheduleEditor(props: CellCultureScheduleEdit
           {editable && (
             <button
               onClick={addEvent}
-              className="w-full py-2 text-meta text-blue-600 dark:text-blue-300 hover:bg-blue-50 dark:hover:bg-blue-500/10 border-t border-border"
+              className="w-full py-2 text-meta text-blue-600 dark:text-blue-300 hover:bg-blue-50 dark:hover:bg-brand-action/10 border-t border-border"
             >
               + Add planned event
             </button>

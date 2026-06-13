@@ -230,7 +230,7 @@ export default function SendToTaskPicker({
                       onClick={() =>
                         onPick({ id: t.id, owner: t.owner, name: t.name }, subTab)
                       }
-                      className="w-full text-left px-3 py-2 rounded-md hover:bg-blue-50 dark:hover:bg-blue-500/20 focus:bg-blue-50 dark:focus:bg-blue-500/20 focus:outline-none flex items-center gap-3"
+                      className="w-full text-left px-3 py-2 rounded-md hover:bg-blue-50 dark:hover:bg-brand-action/20 focus:bg-blue-50 dark:focus:bg-brand-action/20 focus:outline-none flex items-center gap-3"
                     >
                       <span
                         className="inline-block w-2 h-2 rounded-full flex-shrink-0"

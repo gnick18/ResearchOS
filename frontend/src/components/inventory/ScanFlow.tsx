@@ -443,7 +443,7 @@ function ConsumeCard({
         <button
           type="button"
           onClick={onDone}
-          className="btn-brand rounded-lg px-4 py-2 text-body"
+          className="bg-brand-action text-white transition-colors hover:bg-brand-action/90 rounded-lg px-4 py-2 text-body"
         >
           Done
         </button>

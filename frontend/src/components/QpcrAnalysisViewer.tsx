@@ -177,7 +177,7 @@ export default function QpcrAnalysisViewer({
             <button
               onClick={handleSaveAll}
               disabled={saving || loading || qpcrId === null}
-              className="px-3 py-1.5 text-meta text-white bg-blue-600 hover:bg-blue-700 rounded-lg disabled:opacity-50"
+              className="px-3 py-1.5 text-meta text-white bg-brand-action hover:bg-brand-action/90 rounded-lg disabled:opacity-50"
             >
               {saving ? "Saving…" : "Save"}
             </button>

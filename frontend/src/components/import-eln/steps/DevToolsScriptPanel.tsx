@@ -91,7 +91,7 @@ export default function DevToolsScriptPanel({
           <button
             type="button"
             onClick={handleCopy}
-            className="text-meta px-2.5 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded-md"
+            className="text-meta px-2.5 py-1 bg-brand-action hover:bg-brand-action/90 text-white rounded-md"
           >
             {copyState === "copied"
               ? "Copied!"

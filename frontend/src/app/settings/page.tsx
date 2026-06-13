@@ -963,7 +963,7 @@ function DataFolderSection({
         <button
           type="button"
           onClick={onConnectOrSwitch}
-          className="px-3 py-2 text-body bg-blue-600 hover:bg-blue-700 text-white rounded-lg whitespace-nowrap"
+          className="px-3 py-2 text-body bg-brand-action hover:bg-brand-action/90 text-white rounded-lg whitespace-nowrap"
         >
           Connect or switch folder
         </button>
@@ -1019,7 +1019,7 @@ function AccountSection({
           type="button"
           onClick={onSwitchUser}
           data-tour-target="user-picker-button"
-          className="px-3 py-2 text-body bg-blue-600 hover:bg-blue-700 text-white rounded-lg whitespace-nowrap"
+          className="px-3 py-2 text-body bg-brand-action hover:bg-brand-action/90 text-white rounded-lg whitespace-nowrap"
         >
           Switch user
         </button>
@@ -1473,7 +1473,7 @@ function PurchaseRoutingSection({ settings, update }: SectionProps) {
           type="button"
           onClick={save}
           disabled={saving}
-          className="rounded-lg bg-blue-600 px-3 py-1.5 text-body font-medium text-white hover:bg-blue-700 disabled:opacity-50"
+          className="rounded-lg bg-brand-action px-3 py-1.5 text-body font-medium text-white hover:bg-brand-action/90 disabled:opacity-50"
         >
           {saving ? "Saving..." : "Save routing settings"}
         </button>
@@ -1569,7 +1569,7 @@ function LabAgreementSection({ settings, update }: SectionProps) {
           type="button"
           onClick={save}
           disabled={saving}
-          className="rounded-lg bg-blue-600 px-3 py-1.5 text-body font-medium text-white hover:bg-blue-700 disabled:opacity-50"
+          className="rounded-lg bg-brand-action px-3 py-1.5 text-body font-medium text-white hover:bg-brand-action/90 disabled:opacity-50"
         >
           {saving ? "Saving..." : "Save agreement"}
         </button>
@@ -1791,7 +1791,7 @@ function RetentionRegistrySection({ currentUser }: { currentUser: string }) {
         type="button"
         onClick={add}
         disabled={busy || !form.member.trim()}
-        className="mt-3 rounded-lg bg-blue-600 px-3 py-1.5 text-body font-medium text-white hover:bg-blue-700 disabled:opacity-50"
+        className="mt-3 rounded-lg bg-brand-action px-3 py-1.5 text-body font-medium text-white hover:bg-brand-action/90 disabled:opacity-50"
       >
         {busy ? "Recording..." : "Record retention"}
       </button>
@@ -2439,7 +2439,7 @@ function DataInventorySection() {
             type="button"
             onClick={() => void runScan()}
             disabled={scanning}
-            className="px-3 py-2 text-body bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-lg whitespace-nowrap"
+            className="px-3 py-2 text-body bg-brand-action hover:bg-brand-action/90 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-lg whitespace-nowrap"
           >
             {scanning ? "Scanning…" : "Refresh"}
           </button>
@@ -2680,7 +2680,7 @@ function ConvertToSoloRow({ onOpen }: { onOpen: () => void }) {
         <button
           type="button"
           onClick={onOpen}
-          className="px-3 py-2 text-body bg-blue-600 hover:bg-blue-700 text-white rounded-lg whitespace-nowrap"
+          className="px-3 py-2 text-body bg-brand-action hover:bg-brand-action/90 text-white rounded-lg whitespace-nowrap"
         >
           Convert...
         </button>
@@ -2709,7 +2709,7 @@ function ImportRow({ onOpen }: { onOpen: () => void }) {
       <button
         type="button"
         onClick={onOpen}
-        className="px-3 py-2 text-body bg-blue-600 hover:bg-blue-700 text-white rounded-lg whitespace-nowrap"
+        className="px-3 py-2 text-body bg-brand-action hover:bg-brand-action/90 text-white rounded-lg whitespace-nowrap"
       >
         Import .zip
       </button>
@@ -2760,7 +2760,7 @@ function LabArchivesSection() {
           <button
             type="button"
             onClick={() => setElnImportOpen(true)}
-            className="px-3 py-2 text-body bg-blue-600 hover:bg-blue-700 text-white rounded-lg whitespace-nowrap"
+            className="px-3 py-2 text-body bg-brand-action hover:bg-brand-action/90 text-white rounded-lg whitespace-nowrap"
           >
             Open import…
           </button>
@@ -3217,7 +3217,7 @@ function AIHelperSection() {
             onClick={handleCopy}
             disabled={!promptReady}
             data-tour-target="settings-ai-helper-copy"
-            className="px-4 py-2 text-body bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-lg"
+            className="px-4 py-2 text-body bg-brand-action hover:bg-brand-action/90 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-lg"
           >
             {loadingSize === selectedSize
               ? "Loading prompt…"
@@ -3474,7 +3474,7 @@ function SecuritySection({
         <button
           type="button"
           onClick={onOpen}
-          className="px-3 py-2 text-body bg-blue-600 hover:bg-blue-700 text-white rounded-lg whitespace-nowrap"
+          className="px-3 py-2 text-body bg-brand-action hover:bg-brand-action/90 text-white rounded-lg whitespace-nowrap"
         >
           {pwExists ? "Change password" : "Set password"}
         </button>

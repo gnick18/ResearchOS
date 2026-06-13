@@ -235,7 +235,7 @@ function PendingCollabInvites({
                     type="button"
                     onClick={() => void handleAccept(inv)}
                     disabled={working || !currentUser}
-                    className="px-3 py-1.5 text-meta font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-md transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                    className="px-3 py-1.5 text-meta font-medium text-white bg-brand-action hover:bg-brand-action/90 rounded-md transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
                   >
                     {working && state.label !== "Declining…"
                       ? state.label
@@ -426,7 +426,7 @@ export default function SharedWithMeTab({ onCountChange }: SharedWithMeTabProps)
           <button
             type="button"
             onClick={() => setWizardOpen(true)}
-            className="px-4 py-2 text-meta font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-md transition-colors"
+            className="px-4 py-2 text-meta font-medium text-white bg-brand-action hover:bg-brand-action/90 rounded-md transition-colors"
           >
             Set up sharing
           </button>
@@ -487,7 +487,7 @@ export default function SharedWithMeTab({ onCountChange }: SharedWithMeTabProps)
             {items.map((item) => (
               <li
                 key={item.bundleId}
-                className="flex items-center gap-3 p-3 rounded-lg border border-border bg-surface-raised hover:border-blue-200 hover:bg-blue-50/30 dark:hover:bg-blue-500/15 transition-colors"
+                className="flex items-center gap-3 p-3 rounded-lg border border-border bg-surface-raised hover:border-blue-200 hover:bg-blue-50/30 dark:hover:bg-brand-action/15 transition-colors"
               >
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 mb-0.5">
@@ -534,7 +534,7 @@ export default function SharedWithMeTab({ onCountChange }: SharedWithMeTabProps)
                   <button
                     type="button"
                     onClick={() => setReviewItem(item)}
-                    className="px-3 py-1.5 text-meta font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-md transition-colors"
+                    className="px-3 py-1.5 text-meta font-medium text-white bg-brand-action hover:bg-brand-action/90 rounded-md transition-colors"
                   >
                     Review
                   </button>
@@ -1401,7 +1401,7 @@ function ReviewImportModal({
                   ? !calculatorPayload
                   : !preview)
             }
-            className="px-4 py-1.5 text-meta font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-md transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+            className="px-4 py-1.5 text-meta font-medium text-white bg-brand-action hover:bg-brand-action/90 rounded-md transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
           >
             {importing
               ? kind === "sequence" || kind === "calculator"

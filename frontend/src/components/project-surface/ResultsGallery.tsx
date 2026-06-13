@@ -220,7 +220,7 @@ export default function ResultsGallery({ project }: ResultsGalleryProps) {
           <button
             type="button"
             onClick={createExperiment}
-            className="mt-4 rounded-lg bg-blue-600 px-4 py-2 text-meta font-semibold text-white hover:bg-blue-700"
+            className="mt-4 rounded-lg bg-brand-action px-4 py-2 text-meta font-semibold text-white hover:bg-brand-action/90"
           >
             + New experiment
           </button>

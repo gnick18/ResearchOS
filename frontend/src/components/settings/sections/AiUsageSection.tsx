@@ -207,7 +207,7 @@ export default function AiUsageSection() {
           disabled={buying}
           aria-disabled={buying}
           onClick={() => void buyPack(PACKS[selectedPack]?.pack ?? "10")}
-          className="w-full mt-3 px-3 py-2 text-body font-medium bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+          className="w-full mt-3 px-3 py-2 text-body font-medium bg-brand-action hover:bg-brand-action/90 text-white rounded-lg transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
         >
           {buying
             ? "Starting checkout..."

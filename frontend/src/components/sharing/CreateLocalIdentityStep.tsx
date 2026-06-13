@@ -240,7 +240,7 @@ export default function CreateLocalIdentityStep({
                 type="button"
                 onClick={() => void handleAcceptAgreement()}
                 disabled={!agreementAccepted}
-                className="w-full py-2.5 text-body rounded-lg font-medium bg-blue-600 hover:bg-blue-700 text-white disabled:opacity-50"
+                className="w-full py-2.5 text-body rounded-lg font-medium bg-brand-action hover:bg-brand-action/90 text-white disabled:opacity-50"
                 data-testid="agreement-continue"
               >
                 Accept and continue
@@ -325,7 +325,7 @@ export default function CreateLocalIdentityStep({
                 type="button"
                 onClick={() => void handleContinueFromRecovery()}
                 disabled={!recoverySaved}
-                className="w-full py-2.5 text-body rounded-lg font-medium bg-blue-600 hover:bg-blue-700 text-white disabled:opacity-50"
+                className="w-full py-2.5 text-body rounded-lg font-medium bg-brand-action hover:bg-brand-action/90 text-white disabled:opacity-50"
                 data-testid="create-local-identity-continue"
               >
                 Continue

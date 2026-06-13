@@ -158,7 +158,7 @@ export function StepEditPopup({ step, onSave, onClose, isNew = false }: StepEdit
           <button
             onClick={handleSave}
             data-tour-target="pcr-step-save"
-            className="flex-1 px-4 py-2 text-body text-white bg-blue-600 hover:bg-blue-700 rounded-lg"
+            className="flex-1 px-4 py-2 text-body text-white bg-brand-action hover:bg-brand-action/90 rounded-lg"
           >
             Save
           </button>
@@ -233,7 +233,7 @@ export function CycleEditPopup({ repeats, onSave, onClose }: CycleEditPopupProps
           </button>
           <button
             onClick={() => onSave(newRepeats)}
-            className="flex-1 px-4 py-2 text-body text-white bg-blue-600 hover:bg-blue-700 rounded-lg"
+            className="flex-1 px-4 py-2 text-body text-white bg-brand-action hover:bg-brand-action/90 rounded-lg"
           >
             Save
           </button>
@@ -345,7 +345,7 @@ function StepBlock({
               disabled={!canMoveLeft}
               className={`w-6 h-6 rounded-full flex items-center justify-center text-meta font-bold transition-colors ${
                 canMoveLeft
-                  ? "bg-blue-500 text-white hover:bg-blue-600"
+                  ? "bg-brand-action text-white hover:bg-brand-action/90"
                   : "bg-foreground-muted/15 text-foreground-muted cursor-not-allowed"
               }`}
             >
@@ -361,7 +361,7 @@ function StepBlock({
               disabled={!canMoveRight}
               className={`w-6 h-6 rounded-full flex items-center justify-center text-meta font-bold transition-colors ${
                 canMoveRight
-                  ? "bg-blue-500 text-white hover:bg-blue-600"
+                  ? "bg-brand-action text-white hover:bg-brand-action/90"
                   : "bg-foreground-muted/15 text-foreground-muted cursor-not-allowed"
               }`}
             >
@@ -688,7 +688,7 @@ export function EditingToolbar({
         data-tour-target="pcr-edit-toggle"
         className={`px-3 py-1.5 text-meta font-medium rounded-lg transition-colors ${
           isEditing
-            ? "bg-blue-600 text-white hover:bg-blue-700"
+            ? "bg-brand-action text-white hover:bg-brand-action/90"
             : "bg-surface-sunken text-foreground hover:bg-foreground-muted/15"
         }`}
       >

@@ -142,7 +142,7 @@ export default function SharedNotebookView({ notebook }: SharedNotebookViewProps
                 onClick={() => void handleAddNote(false)}
                 disabled={busy}
                 data-testid="notebook-add-note"
-                className="btn-brand flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-body font-medium disabled:opacity-40"
+                className="bg-brand-action text-white transition-colors hover:bg-brand-action/90 flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-body font-medium disabled:opacity-40"
               >
                 <Icon name="plus" className="h-4 w-4" />
                 Note

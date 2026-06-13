@@ -1143,7 +1143,7 @@ export default function PurchaseEditor({
             <button
               onClick={() => handleOverwriteChoice("new")}
               disabled={saving}
-              className="px-3 py-1.5 text-meta bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
+              className="px-3 py-1.5 text-meta bg-brand-action text-white rounded-lg hover:bg-brand-action/90 disabled:cursor-not-allowed disabled:opacity-50"
             >
               Save as new item
             </button>
@@ -1749,7 +1749,7 @@ export default function PurchaseEditor({
                         <button
                           key={cat.id}
                           onClick={() => handleSelectSuggestion(cat)}
-                          className="w-full text-left px-3 py-2 hover:bg-blue-50 dark:hover:bg-blue-500/10 border-b border-border last:border-b-0"
+                          className="w-full text-left px-3 py-2 hover:bg-blue-50 dark:hover:bg-brand-action/10 border-b border-border last:border-b-0"
                         >
                           <p className="text-body font-medium text-foreground">
                             {cat.item_name}

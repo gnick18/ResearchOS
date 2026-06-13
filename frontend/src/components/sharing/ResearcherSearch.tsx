@@ -126,7 +126,7 @@ function ResultCard({ result }: { result: ProfileSearchResult }) {
   }, [result.fingerprint]);
 
   return (
-    <div className="relative flex items-start gap-3 rounded-xl border border-border bg-surface-raised p-4 transition-colors hover:border-sky-200 hover:bg-sky-50 dark:hover:bg-sky-500/10">
+    <div className="relative flex items-start gap-3 rounded-xl border border-border bg-surface-raised p-4 transition-colors hover:border-sky-200 hover:bg-sky-50 dark:hover:bg-brand-action/10">
       {/* Stretched trigger: covers the whole card so clicking anywhere (except
           the copy button, which sits above it) opens the profile popup over the
           current page, animating out from the click point. */}

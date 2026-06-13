@@ -231,7 +231,7 @@ export default function StartSharedNotebookDialog({
             onClick={() => void handleCreate()}
             disabled={!selected || creating}
             data-testid="notebook-create-confirm"
-            className="btn-brand rounded-lg px-4 py-2 text-body font-medium disabled:opacity-40"
+            className="bg-brand-action text-white transition-colors hover:bg-brand-action/90 rounded-lg px-4 py-2 text-body font-medium disabled:opacity-40"
           >
             {creating ? "Creating…" : "Create notebook"}
           </button>

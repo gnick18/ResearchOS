@@ -164,7 +164,7 @@ export default function ImageResizePopover({
               className={`flex items-center gap-2 px-2 py-1 rounded text-left text-meta transition-colors ${
                 isCurrent
                   ? "bg-blue-50 dark:bg-blue-500/15 text-blue-700 dark:text-blue-300 font-medium"
-                  : "text-foreground hover:bg-blue-50 dark:hover:bg-blue-500/20"
+                  : "text-foreground hover:bg-blue-50 dark:hover:bg-brand-action/20"
               }`}
             >
               <span className="w-3 h-3 inline-flex items-center justify-center rounded-full border border-border">
@@ -213,7 +213,7 @@ export default function ImageResizePopover({
             <button
               type="button"
               onClick={applyCustom}
-              className="ml-auto px-2 py-0.5 text-meta rounded bg-blue-50 dark:bg-blue-500/15 text-blue-700 dark:text-blue-300 font-medium hover:bg-blue-100 dark:hover:bg-blue-500/20 transition-colors"
+              className="ml-auto px-2 py-0.5 text-meta rounded bg-blue-50 dark:bg-brand-action/15 text-blue-700 dark:text-blue-300 font-medium hover:bg-blue-100 dark:hover:bg-brand-action/20 transition-colors"
             >
               Set
             </button>
@@ -223,7 +223,7 @@ export default function ImageResizePopover({
           <button
             type="button"
             onClick={() => onSelect(null)}
-            className="flex items-center gap-2 px-2 py-1 mt-1 pt-1.5 rounded text-left text-meta text-foreground hover:bg-blue-50 dark:hover:bg-blue-500/20 border-t border-border transition-colors"
+            className="flex items-center gap-2 px-2 py-1 mt-1 pt-1.5 rounded text-left text-meta text-foreground hover:bg-blue-50 dark:hover:bg-brand-action/20 border-t border-border transition-colors"
           >
             <span className="w-3 h-3 inline-flex items-center justify-center rounded-full border border-border" />
             <span>Remove width</span>
@@ -233,7 +233,7 @@ export default function ImageResizePopover({
           <button
             type="button"
             onClick={onAnnotate}
-            className="flex items-center gap-2 px-2 py-1.5 mt-1 pt-1.5 rounded text-left text-meta font-medium text-blue-700 dark:text-blue-300 hover:bg-blue-50 dark:hover:bg-blue-500/20 border-t border-border transition-colors"
+            className="flex items-center gap-2 px-2 py-1.5 mt-1 pt-1.5 rounded text-left text-meta font-medium text-blue-700 dark:text-blue-300 hover:bg-blue-50 dark:hover:bg-brand-action/20 border-t border-border transition-colors"
           >
             {/* Pencil icon (custom inline SVG, no icon library). */}
             <svg

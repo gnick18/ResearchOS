@@ -1367,7 +1367,7 @@ export default function TaskDetailPopup({
                       setPendingEnterEdit(true);
                     }}
                     data-tour-target="task-popup-edit-button"
-                    className="text-foreground-muted hover:text-blue-600 dark:hover:text-blue-300 hover:bg-blue-50 dark:hover:bg-blue-500/10 p-1.5 rounded-lg transition-colors"
+                    className="text-foreground-muted hover:text-blue-600 dark:hover:text-blue-300 hover:bg-blue-50 dark:hover:bg-brand-action/10 p-1.5 rounded-lg transition-colors"
                     aria-label="Edit properties"
                   >
                     <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
@@ -2083,7 +2083,7 @@ function SimpleTaskChecklist({
             <button
               onClick={handleAddSubTask}
               disabled={!newSubTaskText.trim() || saving}
-              className="px-3 py-2 text-body bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="px-3 py-2 text-body bg-brand-action text-white rounded-lg hover:bg-brand-action/90 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               +
             </button>
@@ -3033,7 +3033,7 @@ function DetailsTab({
               <div className="flex gap-2 mt-3">
                 <button
                   onClick={() => setDuplicateWarning(null)}
-                  className="px-3 py-1.5 text-meta font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors"
+                  className="px-3 py-1.5 text-meta font-medium text-white bg-brand-action hover:bg-brand-action/90 rounded-lg transition-colors"
                 >
                   Change name
                 </button>
@@ -3209,7 +3209,7 @@ function DetailsTab({
             <button
               onClick={handleAddSubTask}
               disabled={!newSubTaskText.trim() || saving}
-              className="px-3 py-1.5 text-body bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="px-3 py-1.5 text-body bg-brand-action text-white rounded-lg hover:bg-brand-action/90 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               Add
             </button>
@@ -3327,7 +3327,7 @@ function DetailsTab({
                             className={`relative px-4 py-2 rounded-lg text-body transition-all ${
                               isCurrentTask
                                 ? "bg-blue-50 dark:bg-blue-500/20 text-blue-700 dark:text-blue-100 font-medium ring-1 ring-blue-200 dark:ring-blue-400/50"
-                                : "bg-surface-raised text-foreground border border-border hover:border-blue-400 hover:shadow-md cursor-pointer hover:bg-blue-50 dark:hover:bg-blue-500/10"
+                                : "bg-surface-raised text-foreground border border-border hover:border-blue-400 hover:shadow-md cursor-pointer hover:bg-blue-50 dark:hover:bg-brand-action/10"
                             }`}
                             onClick={() => {
                               if (!isCurrentTask && onNavigateToTask) {
@@ -3486,7 +3486,7 @@ function DetailsTab({
                   data-tour-target="task-popup-save-button"
                   className={`px-3 py-1.5 text-meta font-medium rounded-lg transition-colors ${
                     hasUnsavedChanges && !saving
-                      ? "text-white bg-blue-600 hover:bg-blue-700"
+                      ? "text-white bg-brand-action hover:bg-brand-action/90"
                       : "text-foreground-muted bg-surface-sunken cursor-not-allowed"
                   }`}
                 >
@@ -3878,7 +3878,7 @@ function DetailsTab({
                 type="button"
                 disabled={sharingIntoProject}
                 onClick={handleConfirmShareIntoProject}
-                className="px-4 py-2 text-body font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors disabled:opacity-50"
+                className="px-4 py-2 text-body font-medium text-white bg-brand-action hover:bg-brand-action/90 rounded-lg transition-colors disabled:opacity-50"
               >
                 {sharingIntoProject ? "Sharing..." : "Share into project"}
               </button>
@@ -4655,7 +4655,7 @@ function LabNotesTab({ task, readOnly = false, ownerUsername, onRegisterFlushSav
           disabled={saving || (!hasUnsavedChanges && !editorDirty)}
           className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-meta font-medium rounded-lg transition-colors ${
             (hasUnsavedChanges || editorDirty) && !saving
-              ? "text-white bg-blue-600 hover:bg-blue-700"
+              ? "text-white bg-brand-action hover:bg-brand-action/90"
               : "text-foreground-muted bg-surface-sunken cursor-not-allowed"
           }`}
         >
@@ -5524,7 +5524,7 @@ function ResultsTab({ task, readOnly = false, ownerUsername, onRegisterFlushSave
           disabled={saving || (!hasUnsavedChanges && !editorDirty)}
           className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-meta font-medium rounded-lg transition-colors ${
             (hasUnsavedChanges || editorDirty) && !saving
-              ? "text-white bg-blue-600 hover:bg-blue-700"
+              ? "text-white bg-brand-action hover:bg-brand-action/90"
               : "text-foreground-muted bg-surface-sunken cursor-not-allowed"
           }`}
         >

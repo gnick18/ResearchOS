@@ -218,7 +218,7 @@ export function MethodTypeDetail({
                 <button
                   type="button"
                   onClick={() => onOpenTemplate(t)}
-                  className="group flex w-full items-center justify-between gap-2 rounded-lg px-2 py-1.5 text-left text-body text-blue-700 dark:text-blue-300 hover:bg-blue-50 dark:hover:bg-blue-500/10"
+                  className="group flex w-full items-center justify-between gap-2 rounded-lg px-2 py-1.5 text-left text-body text-blue-700 dark:text-blue-300 hover:bg-blue-50 dark:hover:bg-brand-action/10"
                 >
                   <span className="truncate">{t.title}</span>
                   <svg
@@ -453,7 +453,7 @@ export function SingleTemplateDetail({
               type="button"
               onClick={onUse}
               disabled={anyUsing}
-              className="w-full px-4 py-2.5 text-body font-medium bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
+              className="w-full px-4 py-2.5 text-body font-medium bg-brand-action text-white rounded-lg hover:bg-brand-action/90 disabled:opacity-50"
             >
               {isUsing ? "Adding..." : "Use template"}
             </button>
@@ -471,7 +471,7 @@ export function SingleTemplateDetail({
             <button
               type="button"
               onClick={onEnableType}
-              className="w-full px-4 py-2.5 text-body font-medium border border-blue-600 text-blue-700 dark:text-blue-300 rounded-lg hover:bg-blue-50 dark:hover:bg-blue-500/10"
+              className="w-full px-4 py-2.5 text-body font-medium border border-blue-600 text-blue-700 dark:text-blue-300 rounded-lg hover:bg-blue-50 dark:hover:bg-brand-action/10"
             >
               Enable {meta.label}
             </button>
@@ -629,7 +629,7 @@ export function CompoundTemplateDetail({
               type="button"
               onClick={onUse}
               disabled={anyUsing}
-              className="w-full px-4 py-2.5 text-body font-medium bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
+              className="w-full px-4 py-2.5 text-body font-medium bg-brand-action text-white rounded-lg hover:bg-brand-action/90 disabled:opacity-50"
             >
               {isUsing ? "Adding..." : "Use kit"}
             </button>
@@ -655,7 +655,7 @@ export function CompoundTemplateDetail({
                     key={t}
                     type="button"
                     onClick={() => onEnableType?.(t)}
-                    className="w-full px-4 py-2 text-body font-medium border border-blue-600 text-blue-700 dark:text-blue-300 rounded-lg hover:bg-blue-50 dark:hover:bg-blue-500/10"
+                    className="w-full px-4 py-2 text-body font-medium border border-blue-600 text-blue-700 dark:text-blue-300 rounded-lg hover:bg-blue-50 dark:hover:bg-brand-action/10"
                   >
                     Enable {meta.label}
                   </button>

@@ -29,7 +29,7 @@ function errMsg(e: unknown): string {
 }
 
 const primaryBtn =
-  "rounded-md bg-sky-600 px-3 py-2 text-meta font-medium text-white hover:bg-sky-500 disabled:opacity-50 disabled:cursor-not-allowed";
+  "rounded-md bg-brand-action px-3 py-2 text-meta font-medium text-white hover:bg-brand-action/90 disabled:opacity-50 disabled:cursor-not-allowed";
 const secondaryBtn =
   "rounded-md border border-border bg-surface px-3 py-2 text-meta font-medium text-foreground hover:bg-surface-hover disabled:opacity-50 disabled:cursor-not-allowed";
 

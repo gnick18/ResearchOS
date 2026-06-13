@@ -550,7 +550,7 @@ export default function NotesPanel({
         <p className="text-red-500 mb-4">Failed to load notes</p>
         <button
           onClick={() => queryClient.invalidateQueries({ queryKey: ["notes"] })}
-          className="btn-brand rounded-lg px-4 py-2"
+          className="bg-brand-action text-white transition-colors hover:bg-brand-action/90 rounded-lg px-4 py-2"
         >
           Retry
         </button>
@@ -910,7 +910,7 @@ export default function NotesPanel({
               aria-haspopup="menu"
               aria-expanded={showNewNoteDropdown}
               aria-label="New Note"
-              className="btn-brand rounded-lg px-4 py-2 flex items-center gap-2 text-body"
+              className="bg-brand-action text-white transition-colors hover:bg-brand-action/90 rounded-lg px-4 py-2 flex items-center gap-2 text-body"
             >
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />

@@ -217,7 +217,7 @@ export default function StreakBadge({ username }: StreakBadgeProps) {
           aria-label={`Streak: ${count} ${count === 1 ? "day" : "days"}. Click for details.`}
           onClick={() => setPopoverOpen((o) => !o)}
           data-testid="streak-badge"
-          className="inline-flex items-center gap-1 bg-sky-50 dark:bg-sky-500/15 border border-sky-200 dark:border-sky-500/30 rounded-full px-2 py-0.5 hover:bg-sky-100 dark:hover:bg-sky-500/20 transition-colors"
+          className="inline-flex items-center gap-1 bg-sky-50 dark:bg-brand-action/15 border border-sky-200 dark:border-sky-500/30 rounded-full px-2 py-0.5 hover:bg-sky-100 dark:hover:bg-brand-action/20 transition-colors"
         >
           <FlameIcon className="w-3.5 h-3.5 text-sky-500" />
           <span className="text-meta font-semibold text-sky-700 dark:text-sky-300 tabular-nums">

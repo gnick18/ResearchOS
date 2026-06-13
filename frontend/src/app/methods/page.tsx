@@ -1206,7 +1206,7 @@ export default function MethodsPage() {
       {showCreate && (
         <button
           onClick={() => setCreating(true)}
-          className="px-4 py-2 text-body bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+          className="px-4 py-2 text-body bg-brand-action text-white rounded-lg hover:bg-brand-action/90"
         >
           + New Method
         </button>
@@ -1307,7 +1307,7 @@ export default function MethodsPage() {
             <button
               onClick={() => setCreating(true)}
               data-tour-target="methods-new-method-button"
-              className="px-3 py-1.5 text-body bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+              className="px-3 py-1.5 text-body bg-brand-action text-white rounded-lg hover:bg-brand-action/90"
             >
               + New Method
             </button>
@@ -1629,7 +1629,7 @@ function ForkMethodModal({
           <button
             onClick={() => trimmed && onConfirm(trimmed)}
             disabled={!trimmed || busy}
-            className="px-4 py-2 text-body text-white bg-blue-600 hover:bg-blue-700 rounded-lg disabled:opacity-50"
+            className="px-4 py-2 text-body text-white bg-brand-action hover:bg-brand-action/90 rounded-lg disabled:opacity-50"
           >
             {busy ? "Forking..." : "Create variant"}
           </button>
@@ -1723,7 +1723,7 @@ function CreateCategoryModal({
           <button
             onClick={() => handleCreate(true)}
             disabled={!categoryName.trim()}
-            className="px-4 py-2 text-body text-white bg-blue-600 hover:bg-blue-700 rounded-lg disabled:opacity-50"
+            className="px-4 py-2 text-body text-white bg-brand-action hover:bg-brand-action/90 rounded-lg disabled:opacity-50"
           >
             Create & Add Method
           </button>
@@ -2033,7 +2033,7 @@ function MethodNameEditor({
         <button
           onClick={handleSaveName}
           disabled={saving || !name.trim()}
-          className="px-2 py-1 text-meta text-white bg-blue-600 rounded hover:bg-blue-700 disabled:opacity-50"
+          className="px-2 py-1 text-meta text-white bg-brand-action rounded hover:bg-brand-action/90 disabled:opacity-50"
         >
           {saving ? "..." : "Save"}
         </button>
@@ -2332,7 +2332,7 @@ function MarkdownMethodViewer({
                   disabled={saving || (!hasUnsavedChanges && !editorDirty)}
                   className={`px-3 py-1.5 text-meta rounded-lg transition-colors ${
                     (hasUnsavedChanges || editorDirty) && !saving
-                      ? "text-white bg-blue-600 hover:bg-blue-700"
+                      ? "text-white bg-brand-action hover:bg-brand-action/90"
                       : "text-foreground-muted bg-foreground-muted/15 cursor-not-allowed"
                   } disabled:opacity-50`}
                 >
@@ -2792,7 +2792,7 @@ function PcrViewer({
                       <button
                         onClick={handleSaveRecipe}
                         disabled={saving}
-                        className="px-3 py-1.5 text-meta text-white bg-blue-600 hover:bg-blue-700 rounded-lg disabled:opacity-50"
+                        className="px-3 py-1.5 text-meta text-white bg-brand-action hover:bg-brand-action/90 rounded-lg disabled:opacity-50"
                       >
                         {saving ? "Saving..." : "Save Recipe"}
                       </button>
@@ -2911,7 +2911,7 @@ function PcrViewer({
                           ]);
                         }
                       }}
-                      className="w-full py-2 text-meta text-blue-600 dark:text-blue-300 hover:bg-blue-50 dark:hover:bg-blue-500/10 border-t border-border"
+                      className="w-full py-2 text-meta text-blue-600 dark:text-blue-300 hover:bg-blue-50 dark:hover:bg-brand-action/10 border-t border-border"
                     >
                       + Add Ingredient
                     </button>
@@ -3059,7 +3059,7 @@ function CompoundViewer({
           {canModify && (
             <button
               onClick={onEdit}
-              className="px-3 py-1.5 text-meta bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+              className="px-3 py-1.5 text-meta bg-brand-action text-white rounded-lg hover:bg-brand-action/90"
             >
               Edit components
             </button>

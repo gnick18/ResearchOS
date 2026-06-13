@@ -221,7 +221,7 @@ export default function MethodCard({
         "inline-flex items-center gap-1 rounded-md px-2 py-1 text-meta font-medium transition-colors",
         isAttached
           ? "cursor-default bg-blue-50 dark:bg-blue-500/10 text-blue-600 dark:text-blue-300 ring-1 ring-blue-200"
-          : "bg-blue-600 text-white hover:bg-blue-700",
+          : "bg-brand-action text-white hover:bg-brand-action/90",
       ].join(" ")}
     >
       {isAttached ? (

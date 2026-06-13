@@ -403,7 +403,7 @@ function Footer({
   }
 
   const primaryCls =
-    "px-4 py-2 text-body bg-blue-600 hover:bg-blue-700 text-white rounded-lg disabled:opacity-50 disabled:cursor-not-allowed";
+    "px-4 py-2 text-body bg-brand-action hover:bg-brand-action/90 text-white rounded-lg disabled:opacity-50 disabled:cursor-not-allowed";
   const secondaryCls = "px-3 py-2 text-body text-foreground hover:text-foreground";
   const ghostCls =
     "px-3 py-2 text-body bg-surface-sunken hover:bg-surface-sunken text-foreground rounded-lg";

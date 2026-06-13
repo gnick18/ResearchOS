@@ -735,7 +735,7 @@ export default function ImageAnnotatorModal({
             type="button"
             onClick={() => void handleSave()}
             disabled={saving || !img}
-            className="btn-brand px-4 py-2 text-body font-medium rounded-lg disabled:opacity-50"
+            className="bg-brand-action text-white transition-colors hover:bg-brand-action/90 px-4 py-2 text-body font-medium rounded-lg disabled:opacity-50"
           >
             {saving ? "Saving..." : "Save"}
           </button>

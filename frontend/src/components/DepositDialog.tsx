@@ -451,7 +451,7 @@ export default function DepositDialog({
                 type="button"
                 disabled={loading || !hasContent}
                 onClick={() => setStep("metadata")}
-                className="px-4 py-1.5 text-body font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
+                className="px-4 py-1.5 text-body font-medium text-white bg-brand-action hover:bg-brand-action/90 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 Next: metadata
               </button>
@@ -460,7 +460,7 @@ export default function DepositDialog({
                 type="button"
                 disabled={!handoffReady}
                 onClick={() => setStep("handoff")}
-                className="px-4 py-1.5 text-body font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
+                className="px-4 py-1.5 text-body font-medium text-white bg-brand-action hover:bg-brand-action/90 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
                 data-testid="deposit-to-handoff"
               >
                 Next: hand off
@@ -470,7 +470,7 @@ export default function DepositDialog({
                 type="button"
                 disabled={building}
                 onClick={handleBuild}
-                className="inline-flex items-center gap-2 px-4 py-1.5 text-body font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
+                className="inline-flex items-center gap-2 px-4 py-1.5 text-body font-medium text-white bg-brand-action hover:bg-brand-action/90 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
                 data-testid="deposit-build-bundle"
               >
                 {building ? <Spinner /> : null}
@@ -481,7 +481,7 @@ export default function DepositDialog({
                 href={repo.uploadUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-flex items-center gap-1.5 px-4 py-1.5 text-body font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg"
+                className="inline-flex items-center gap-1.5 px-4 py-1.5 text-body font-medium text-white bg-brand-action hover:bg-brand-action/90 rounded-lg"
               >
                 Open {repo.name}
                 <ExternalLinkIcon />
@@ -490,7 +490,7 @@ export default function DepositDialog({
               <button
                 type="button"
                 onClick={onClose}
-                className="px-4 py-1.5 text-body font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg"
+                className="px-4 py-1.5 text-body font-medium text-white bg-brand-action hover:bg-brand-action/90 rounded-lg"
               >
                 Done
               </button>

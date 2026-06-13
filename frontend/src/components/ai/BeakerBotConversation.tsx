@@ -198,7 +198,7 @@ function ChoicePrompt({
               }}
               className={`rounded-md border px-2.5 py-1 text-meta font-medium transition-colors ${
                 multiple && isPicked
-                  ? "btn-brand border-transparent"
+                  ? "bg-brand-action text-white transition-colors hover:bg-brand-action/90 border-transparent"
                   : "border-border text-foreground hover:border-brand hover:bg-brand/10"
               }`}
             >
@@ -222,7 +222,7 @@ function ChoicePrompt({
             data-testid="beakerbot-choice-confirm"
             disabled={!confirmValid}
             onClick={() => onResolve(picked, false)}
-            className="btn-brand flex items-center gap-1 rounded-md px-3 py-1.5 text-meta font-medium disabled:cursor-not-allowed disabled:opacity-50"
+            className="bg-brand-action text-white transition-colors hover:bg-brand-action/90 flex items-center gap-1 rounded-md px-3 py-1.5 text-meta font-medium disabled:cursor-not-allowed disabled:opacity-50"
           >
             <Icon name="check" className="h-3.5 w-3.5" title="Confirm" />
             Confirm
@@ -378,7 +378,7 @@ function TransformApprovalCard({
           type="button"
           data-testid="beakerbot-transform-approve"
           onClick={onApprove}
-          className="btn-brand flex items-center gap-1 rounded-md px-3 py-1.5 text-meta font-medium"
+          className="bg-brand-action text-white transition-colors hover:bg-brand-action/90 flex items-center gap-1 rounded-md px-3 py-1.5 text-meta font-medium"
         >
           <Icon name="check" className="h-3.5 w-3.5" title="Approve" />
           Approve
@@ -501,7 +501,7 @@ function StepApprovalCard({
           type="button"
           data-testid="beakerbot-step-approve"
           onClick={onApprove}
-          className="btn-brand flex items-center gap-1 rounded-md px-3 py-1.5 text-meta font-medium"
+          className="bg-brand-action text-white transition-colors hover:bg-brand-action/90 flex items-center gap-1 rounded-md px-3 py-1.5 text-meta font-medium"
         >
           <Icon name="check" className="h-3.5 w-3.5" title="Approve" />
           Approve and run
@@ -636,7 +636,7 @@ export default function BeakerBotConversation({
               type="button"
               data-testid="beakerbot-approval-approve"
               onClick={() => resolveApproval("allow")}
-              className="btn-brand flex items-center gap-1 rounded-md px-3 py-1.5 text-meta font-medium"
+              className="bg-brand-action text-white transition-colors hover:bg-brand-action/90 flex items-center gap-1 rounded-md px-3 py-1.5 text-meta font-medium"
             >
               <Icon name="check" className="h-3.5 w-3.5" title="Approve" />
               Approve
@@ -691,7 +691,7 @@ export default function BeakerBotConversation({
               type="button"
               data-testid="beakerbot-approval-allow"
               onClick={() => resolveApproval("allow")}
-              className="btn-brand flex items-center gap-1 rounded-md px-3 py-1.5 text-meta font-medium"
+              className="bg-brand-action text-white transition-colors hover:bg-brand-action/90 flex items-center gap-1 rounded-md px-3 py-1.5 text-meta font-medium"
             >
               <Icon name="check" className="h-3.5 w-3.5" title="Allow" />
               Allow
@@ -744,7 +744,7 @@ export default function BeakerBotConversation({
               type="button"
               data-testid="beakerbot-draft-approve"
               onClick={() => resolveApproval("allow")}
-              className="btn-brand flex items-center gap-1 rounded-md px-3 py-1.5 text-meta font-medium"
+              className="bg-brand-action text-white transition-colors hover:bg-brand-action/90 flex items-center gap-1 rounded-md px-3 py-1.5 text-meta font-medium"
             >
               <Icon name="check" className="h-3.5 w-3.5" title="Approve" />
               Approve
@@ -823,7 +823,7 @@ export default function BeakerBotConversation({
             data-testid="beakerbot-send"
             onClick={handleSend}
             disabled={sending || draft.trim().length === 0}
-            className="btn-brand rounded-md px-3 py-2 text-body font-medium disabled:cursor-not-allowed disabled:opacity-50"
+            className="bg-brand-action text-white transition-colors hover:bg-brand-action/90 rounded-md px-3 py-2 text-body font-medium disabled:cursor-not-allowed disabled:opacity-50"
           >
             <Icon name="chevronRight" className="h-4 w-4" title="Send" />
           </button>

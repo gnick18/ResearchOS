@@ -109,7 +109,7 @@ export default function ViewMethodOnPhoneButton({
         type="button"
         onClick={onClick}
         disabled={state === "publishing"}
-        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-meta font-medium text-blue-700 dark:text-blue-300 bg-blue-50 dark:bg-blue-500/10 hover:bg-blue-100 dark:hover:bg-blue-500/20 transition-colors disabled:opacity-60"
+        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-meta font-medium text-blue-700 dark:text-blue-300 bg-blue-50 dark:bg-brand-action/10 hover:bg-blue-100 dark:hover:bg-brand-action/20 transition-colors disabled:opacity-60"
       >
         {/* Phone glyph from the verified icon registry (icon-guard requires
             <Icon>, never a raw inline svg, for new product UI). */}

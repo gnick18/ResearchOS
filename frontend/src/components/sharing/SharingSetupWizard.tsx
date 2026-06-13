@@ -850,7 +850,7 @@ function EmailEnterStep({
           type="button"
           onClick={onSubmit}
           disabled={busy}
-          className="flex-1 py-2 text-body rounded-lg font-medium bg-blue-600 hover:bg-blue-700 text-white disabled:opacity-50"
+          className="flex-1 py-2 text-body rounded-lg font-medium bg-brand-action hover:bg-brand-action/90 text-white disabled:opacity-50"
         >
           {busy ? "Sending…" : "Send code"}
         </button>
@@ -929,7 +929,7 @@ function EmailCodeStep({
           type="button"
           onClick={onSubmit}
           disabled={!ready}
-          className="flex-1 py-2 text-body rounded-lg font-medium bg-blue-600 hover:bg-blue-700 text-white disabled:opacity-50"
+          className="flex-1 py-2 text-body rounded-lg font-medium bg-brand-action hover:bg-brand-action/90 text-white disabled:opacity-50"
         >
           Continue
         </button>
@@ -1091,7 +1091,7 @@ function GenerateStep({
         type="button"
         onClick={onContinue}
         disabled={!recoverySaved}
-        className="w-full py-2 text-body rounded-lg font-medium bg-blue-600 hover:bg-blue-700 text-white disabled:opacity-50"
+        className="w-full py-2 text-body rounded-lg font-medium bg-brand-action hover:bg-brand-action/90 text-white disabled:opacity-50"
       >
         Publish my keys
       </button>
@@ -1153,7 +1153,7 @@ function PublishExistingStep({
       <button
         type="button"
         onClick={onContinue}
-        className="w-full py-2 text-body rounded-lg font-medium bg-blue-600 hover:bg-blue-700 text-white"
+        className="w-full py-2 text-body rounded-lg font-medium bg-brand-action hover:bg-brand-action/90 text-white"
       >
         Publish my profile
       </button>
@@ -1234,7 +1234,7 @@ function DoneStep({
       <button
         type="button"
         onClick={onClose}
-        className="w-full py-2 text-body rounded-lg font-medium bg-blue-600 hover:bg-blue-700 text-white"
+        className="w-full py-2 text-body rounded-lg font-medium bg-brand-action hover:bg-brand-action/90 text-white"
       >
         Done
       </button>

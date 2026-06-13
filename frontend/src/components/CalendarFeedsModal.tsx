@@ -441,7 +441,7 @@ export default function CalendarFeedsModal({ open, onClose }: Props) {
                 <button
                   onClick={handleAdd}
                   disabled={testing || !draftUrl.trim()}
-                  className="px-4 py-2 text-body text-white bg-blue-600 hover:bg-blue-700 rounded-lg disabled:opacity-50"
+                  className="px-4 py-2 text-body text-white bg-brand-action hover:bg-brand-action/90 rounded-lg disabled:opacity-50"
                 >
                   {testing ? "Testing…" : "Add Calendar"}
                 </button>

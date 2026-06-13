@@ -832,7 +832,7 @@ function CodeEntryBody({
         type="button"
         onClick={onSubmit}
         disabled={value.trim().length === 0}
-        className="w-full py-2 text-body rounded-lg font-medium bg-blue-600 hover:bg-blue-700 text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+        className="w-full py-2 text-body rounded-lg font-medium bg-brand-action hover:bg-brand-action/90 text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
       >
         Open the shared item
       </button>
@@ -982,7 +982,7 @@ function ReadyBody({
           <button
             type="button"
             onClick={onSetUpSharing}
-            className="w-full py-2 text-body rounded-lg font-medium bg-blue-600 hover:bg-blue-700 text-white transition-colors"
+            className="w-full py-2 text-body rounded-lg font-medium bg-brand-action hover:bg-brand-action/90 text-white transition-colors"
           >
             Set up sharing and save the note
           </button>
@@ -992,7 +992,7 @@ function ReadyBody({
           type="button"
           onClick={onImport}
           disabled={imp.phase === "importing" || !canFile}
-          className="w-full py-2 text-body rounded-lg font-medium bg-blue-600 hover:bg-blue-700 text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          className="w-full py-2 text-body rounded-lg font-medium bg-brand-action hover:bg-brand-action/90 text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
         >
           {imp.phase === "importing" ? "Saving…" : "Save to my notes"}
         </button>
@@ -1092,7 +1092,7 @@ function ImportItemBody({
           <button
             type="button"
             onClick={onSetUpSharing}
-            className="w-full py-2 text-body rounded-lg font-medium bg-blue-600 hover:bg-blue-700 text-white transition-colors"
+            className="w-full py-2 text-body rounded-lg font-medium bg-brand-action hover:bg-brand-action/90 text-white transition-colors"
           >
             Set up sharing and save the {noun}
           </button>
@@ -1101,7 +1101,7 @@ function ImportItemBody({
         <button
           type="button"
           onClick={onSave}
-          className="w-full py-2 text-body rounded-lg font-medium bg-blue-600 hover:bg-blue-700 text-white transition-colors"
+          className="w-full py-2 text-body rounded-lg font-medium bg-brand-action hover:bg-brand-action/90 text-white transition-colors"
         >
           Review and save this {noun}
         </button>
@@ -1218,7 +1218,7 @@ function SequenceBody({
           <button
             type="button"
             onClick={onSetUpSharing}
-            className="w-full py-2 text-body rounded-lg font-medium bg-blue-600 hover:bg-blue-700 text-white transition-colors"
+            className="w-full py-2 text-body rounded-lg font-medium bg-brand-action hover:bg-brand-action/90 text-white transition-colors"
           >
             Set up sharing and save the sequence
           </button>
@@ -1284,7 +1284,7 @@ function SequenceBody({
             type="button"
             onClick={onSave}
             disabled={imp.phase === "importing" || !sequence}
-            className="w-full py-2 text-body rounded-lg font-medium bg-blue-600 hover:bg-blue-700 text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            className="w-full py-2 text-body rounded-lg font-medium bg-brand-action hover:bg-brand-action/90 text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {imp.phase === "importing" ? "Saving…" : "Save to my library"}
           </button>
@@ -1396,7 +1396,7 @@ function CalculatorBody({
           <button
             type="button"
             onClick={onSetUpSharing}
-            className="w-full py-2 text-body rounded-lg font-medium bg-blue-600 hover:bg-blue-700 text-white transition-colors"
+            className="w-full py-2 text-body rounded-lg font-medium bg-brand-action hover:bg-brand-action/90 text-white transition-colors"
           >
             Set up sharing and save the calculator
           </button>
@@ -1406,7 +1406,7 @@ function CalculatorBody({
           type="button"
           onClick={onSave}
           disabled={imp.phase === "importing" || !calculator}
-          className="w-full py-2 text-body rounded-lg font-medium bg-blue-600 hover:bg-blue-700 text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          className="w-full py-2 text-body rounded-lg font-medium bg-brand-action hover:bg-brand-action/90 text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
         >
           {imp.phase === "importing" ? "Saving…" : "Save to my calculators"}
         </button>

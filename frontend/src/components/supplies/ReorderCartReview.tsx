@@ -229,7 +229,7 @@ export default function ReorderCartReview({ onClose }: { onClose: () => void }) 
             type="button"
             onClick={handleSubmit}
             disabled={submitting || lines.length === 0}
-            className="btn-brand inline-flex items-center gap-1.5 rounded-lg px-4 py-2 text-body disabled:opacity-50 disabled:cursor-not-allowed"
+            className="bg-brand-action text-white transition-colors hover:bg-brand-action/90 inline-flex items-center gap-1.5 rounded-lg px-4 py-2 text-body disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <Icon name="check" className="h-4 w-4" />
             {submitting ? "Submitting..." : "Submit order"}

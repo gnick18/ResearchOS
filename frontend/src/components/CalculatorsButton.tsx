@@ -413,7 +413,7 @@ function CalculatorsModalWithBuilder({ onClose }: { onClose: () => void }) {
                 <button
                   type="button"
                   onClick={onBuildYourOwn}
-                  className="w-full inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-body font-medium text-sky-700 dark:text-sky-300 hover:bg-sky-50 dark:hover:bg-sky-500/15 transition-colors"
+                  className="w-full inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-body font-medium text-sky-700 dark:text-sky-300 hover:bg-sky-50 dark:hover:bg-brand-action/15 transition-colors"
                 >
                   <Icon name="plus" className="w-4 h-4" />
                   Build your own
@@ -632,8 +632,8 @@ function CalcKey({
   const variants: Record<KeyVariant, string> = {
     digit: "bg-surface-sunken text-foreground hover:bg-surface-sunken",
     fn: "bg-surface-raised text-foreground-muted border border-border hover:bg-surface-sunken",
-    op: "bg-sky-50 dark:bg-sky-500/15 text-sky-700 dark:text-sky-300 hover:bg-sky-100 dark:hover:bg-sky-500/20",
-    accent: "bg-sky-600 text-white hover:bg-sky-700",
+    op: "bg-sky-50 dark:bg-brand-action/15 text-sky-700 dark:text-sky-300 hover:bg-sky-100 dark:hover:bg-brand-action/20",
+    accent: "bg-brand-action text-white hover:bg-brand-action/90",
     muted: "bg-surface-sunken text-foreground-muted hover:bg-surface-sunken",
   };
   return (

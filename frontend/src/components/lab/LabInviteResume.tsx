@@ -66,7 +66,7 @@ export default function LabInviteResume() {
         <button
           type="button"
           onClick={() => router.push("/lab/join")}
-          className="rounded-md bg-sky-600 px-3 py-2 text-meta font-medium text-white hover:bg-sky-500"
+          className="rounded-md bg-brand-action px-3 py-2 text-meta font-medium text-white hover:bg-brand-action/90"
         >
           Join
         </button>

@@ -162,7 +162,7 @@ export default function InboxToast() {
                     type="button"
                     onClick={() => void fileToActive(item)}
                     disabled={filing}
-                    className="px-2 py-1 text-meta text-white bg-blue-600 hover:bg-blue-700 rounded-md transition-colors disabled:opacity-50"
+                    className="px-2 py-1 text-meta text-white bg-brand-action hover:bg-brand-action/90 rounded-md transition-colors disabled:opacity-50"
                   >
                     {filing ? "Filing…" : "File here"}
                   </button>
@@ -170,7 +170,7 @@ export default function InboxToast() {
                   <button
                     type="button"
                     onClick={() => setPanelOpen(true)}
-                    className="px-2 py-1 text-meta text-blue-700 dark:text-blue-300 bg-blue-50 dark:bg-blue-500/15 hover:bg-blue-100 dark:hover:bg-blue-500/20 rounded-md transition-colors"
+                    className="px-2 py-1 text-meta text-blue-700 dark:text-blue-300 bg-blue-50 dark:bg-brand-action/15 hover:bg-blue-100 dark:hover:bg-brand-action/20 rounded-md transition-colors"
                   >
                     Open inbox
                   </button>

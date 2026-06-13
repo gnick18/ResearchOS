@@ -1570,7 +1570,7 @@ export default function GanttChart({
               <button
                 onClick={() => handleCreateDependency("SS")}
                 data-tour-target="gantt-dep-picker-start-same"
-                className="w-full text-left px-4 py-3 bg-blue-50 dark:bg-blue-500/10 border border-blue-200 rounded-lg hover:bg-blue-100 dark:hover:bg-blue-500/20 transition-colors"
+                className="w-full text-left px-4 py-3 bg-blue-50 dark:bg-brand-action/10 border border-blue-200 rounded-lg hover:bg-blue-100 dark:hover:bg-brand-action/20 transition-colors"
               >
                 <p className="text-body font-medium text-blue-900 dark:text-blue-200">Start at same time</p>
                 <p className="text-meta text-blue-600 dark:text-blue-300">Both tasks begin on the same day</p>

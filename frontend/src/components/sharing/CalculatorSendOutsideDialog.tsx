@@ -162,7 +162,7 @@ function NoIdentityBody({ onSetUp }: { onSetUp: () => void }) {
       <button
         type="button"
         onClick={onSetUp}
-        className="btn-brand w-full py-2 text-body font-medium"
+        className="bg-brand-action text-white transition-colors hover:bg-brand-action/90 w-full py-2 text-body font-medium"
       >
         Set up sharing
       </button>
@@ -343,7 +343,7 @@ function SendForm({
           <button
             type="button"
             onClick={handleInvite}
-            className="btn-brand flex-1 py-2 text-body font-medium"
+            className="bg-brand-action text-white transition-colors hover:bg-brand-action/90 flex-1 py-2 text-body font-medium"
           >
             Invite and share
           </button>
@@ -385,7 +385,7 @@ function SendForm({
         <button
           type="button"
           onClick={onClose}
-          className="btn-brand w-full py-2 text-body font-medium"
+          className="bg-brand-action text-white transition-colors hover:bg-brand-action/90 w-full py-2 text-body font-medium"
         >
           Done
         </button>
@@ -411,7 +411,7 @@ function SendForm({
         <button
           type="button"
           onClick={onClose}
-          className="btn-brand w-full py-2 text-body font-medium"
+          className="bg-brand-action text-white transition-colors hover:bg-brand-action/90 w-full py-2 text-body font-medium"
         >
           Done
         </button>
@@ -481,7 +481,7 @@ function SendForm({
           type="button"
           onClick={handleSend}
           disabled={!canSend}
-          className="btn-brand flex-1 py-2 text-body font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+          className="bg-brand-action text-white transition-colors hover:bg-brand-action/90 flex-1 py-2 text-body font-medium disabled:opacity-50 disabled:cursor-not-allowed"
         >
           {sending ? "Sending…" : "Send"}
         </button>

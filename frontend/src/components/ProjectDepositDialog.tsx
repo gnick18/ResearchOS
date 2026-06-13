@@ -488,7 +488,7 @@ export default function ProjectDepositDialog({
                 type="button"
                 disabled={loading || !hasSelection}
                 onClick={() => setStep("metadata")}
-                className="px-4 py-1.5 text-body font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
+                className="px-4 py-1.5 text-body font-medium text-white bg-brand-action hover:bg-brand-action/90 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
                 data-testid="project-deposit-to-metadata"
               >
                 Next: metadata ({selectionCount})
@@ -498,7 +498,7 @@ export default function ProjectDepositDialog({
                 type="button"
                 disabled={!handoffReady}
                 onClick={() => setStep("handoff")}
-                className="px-4 py-1.5 text-body font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
+                className="px-4 py-1.5 text-body font-medium text-white bg-brand-action hover:bg-brand-action/90 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
                 data-testid="project-deposit-to-handoff"
               >
                 Next: hand off
@@ -508,7 +508,7 @@ export default function ProjectDepositDialog({
                 type="button"
                 disabled={building}
                 onClick={handleBuild}
-                className="inline-flex items-center gap-2 px-4 py-1.5 text-body font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
+                className="inline-flex items-center gap-2 px-4 py-1.5 text-body font-medium text-white bg-brand-action hover:bg-brand-action/90 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
                 data-testid="project-deposit-build-bundle"
               >
                 {building ? <Spinner /> : null}
@@ -519,7 +519,7 @@ export default function ProjectDepositDialog({
                 href={repo.uploadUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-flex items-center gap-1.5 px-4 py-1.5 text-body font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg"
+                className="inline-flex items-center gap-1.5 px-4 py-1.5 text-body font-medium text-white bg-brand-action hover:bg-brand-action/90 rounded-lg"
               >
                 Open {repo.name}
                 <ExternalLinkIcon />
@@ -528,7 +528,7 @@ export default function ProjectDepositDialog({
               <button
                 type="button"
                 onClick={onClose}
-                className="px-4 py-1.5 text-body font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg"
+                className="px-4 py-1.5 text-body font-medium text-white bg-brand-action hover:bg-brand-action/90 rounded-lg"
               >
                 Done
               </button>

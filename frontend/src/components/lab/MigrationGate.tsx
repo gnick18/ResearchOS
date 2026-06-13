@@ -173,7 +173,7 @@ export default function MigrationGate() {
               >
                 Keep it shared for now
               </button>
-              <button type="button" onClick={() => setMode("convert")} className="btn-brand px-4 py-2 text-body rounded-lg">
+              <button type="button" onClick={() => setMode("convert")} className="bg-brand-action text-white transition-colors hover:bg-brand-action/90 px-4 py-2 text-body rounded-lg">
                 Convert this folder to mine
               </button>
             </div>
@@ -196,7 +196,7 @@ export default function MigrationGate() {
               >
                 Keep working here for now
               </button>
-              <button type="button" onClick={() => setMode("selfexport")} className="btn-brand px-4 py-2 text-body rounded-lg">
+              <button type="button" onClick={() => setMode("selfexport")} className="bg-brand-action text-white transition-colors hover:bg-brand-action/90 px-4 py-2 text-body rounded-lg">
                 Take my data to my own folder
               </button>
             </div>

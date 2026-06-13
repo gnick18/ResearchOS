@@ -267,7 +267,7 @@ export default function CalendarPage() {
             <CalendarFeedsButton />
             <button
               onClick={() => setCreating(true)}
-              className="px-3 py-1.5 text-body bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+              className="px-3 py-1.5 text-body bg-brand-action text-white rounded-lg hover:bg-brand-action/90"
             >
               + New Event
             </button>
@@ -322,7 +322,7 @@ export default function CalendarPage() {
             </Tooltip>
             <button
               onClick={goToToday}
-              className="ml-2 px-3 py-1 text-meta text-blue-600 dark:text-blue-300 hover:bg-blue-50 dark:hover:bg-blue-500/10 rounded-lg"
+              className="ml-2 px-3 py-1 text-meta text-blue-600 dark:text-blue-300 hover:bg-blue-50 dark:hover:bg-brand-action/10 rounded-lg"
             >
               Today
             </button>
@@ -889,7 +889,7 @@ function EventModal({
               <button
                 onClick={handleSave}
                 disabled={endBeforeStart}
-                className="px-4 py-2 text-body text-white bg-blue-600 hover:bg-blue-700 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
+                className="px-4 py-2 text-body text-white bg-brand-action hover:bg-brand-action/90 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 Save
               </button>
@@ -899,7 +899,7 @@ function EventModal({
               <button onClick={onDelete} className="px-4 py-2 text-body text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 rounded-lg">
                 Delete
               </button>
-              <button onClick={onEdit} className="px-4 py-2 text-body text-white bg-blue-600 hover:bg-blue-700 rounded-lg">
+              <button onClick={onEdit} className="px-4 py-2 text-body text-white bg-brand-action hover:bg-brand-action/90 rounded-lg">
                 Edit
               </button>
             </>
@@ -1128,7 +1128,7 @@ function CreateEventModal({
           <button
             onClick={handleCreate}
             disabled={!title.trim()}
-            className="px-4 py-2 text-body text-white bg-blue-600 hover:bg-blue-700 rounded-lg disabled:opacity-50"
+            className="px-4 py-2 text-body text-white bg-brand-action hover:bg-brand-action/90 rounded-lg disabled:opacity-50"
           >
             Create Event
           </button>

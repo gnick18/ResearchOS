@@ -959,7 +959,7 @@ export function CreateMethodModal({
                 </label>
                 <div
                   onClick={() => pdfInputRef.current?.click()}
-                  className="border-2 border-dashed border-border rounded-lg p-8 text-center cursor-pointer hover:border-blue-400 hover:bg-blue-50 dark:hover:bg-blue-500/10 transition-colors"
+                  className="border-2 border-dashed border-border rounded-lg p-8 text-center cursor-pointer hover:border-blue-400 hover:bg-blue-50 dark:hover:bg-brand-action/10 transition-colors"
                 >
                   {pdfFile ? (
                     <div>
@@ -1279,7 +1279,7 @@ export function CreateMethodModal({
                           ]);
                         }
                       }}
-                      className="w-full py-2 text-meta text-blue-600 dark:text-blue-300 hover:bg-blue-50 dark:hover:bg-blue-500/10 border-t border-border"
+                      className="w-full py-2 text-meta text-blue-600 dark:text-blue-300 hover:bg-blue-50 dark:hover:bg-brand-action/10 border-t border-border"
                     >
                       + Add Ingredient
                     </button>
@@ -1332,7 +1332,7 @@ export function CreateMethodModal({
                   (uploadType === "pdf" && !pdfFile) ||
                   (uploadType === "markdown" && !(mdContent.trim() || editorDirty))
                 }
-                className="px-4 py-2 text-body text-indigo-700 dark:text-indigo-300 bg-indigo-50 dark:bg-indigo-500/10 hover:bg-indigo-100 dark:hover:bg-indigo-500/20 border border-indigo-200 rounded-lg disabled:opacity-50"
+                className="px-4 py-2 text-body text-indigo-700 dark:text-indigo-300 bg-indigo-50 dark:bg-brand-action/10 hover:bg-indigo-100 dark:hover:bg-brand-action/20 border border-indigo-200 rounded-lg disabled:opacity-50"
               >
                 {savingMode === "extend" ? "Creating & bundling…" : "Create & extend into kit"}
               </button>
@@ -1347,7 +1347,7 @@ export function CreateMethodModal({
               (uploadType === "markdown" && !(mdContent.trim() || editorDirty))
             }
             data-tour-target="methods-create-submit"
-            className="px-4 py-2 text-body text-white bg-blue-600 hover:bg-blue-700 rounded-lg disabled:opacity-50"
+            className="px-4 py-2 text-body text-white bg-brand-action hover:bg-brand-action/90 rounded-lg disabled:opacity-50"
           >
             {savingMode === "save" ? "Saving..." : "Create Method"}
           </button>

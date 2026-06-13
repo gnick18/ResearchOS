@@ -526,7 +526,7 @@ function InventoryPageContent() {
             <button
               type="button"
               onClick={() => setItemDialog({ mode: "add" })}
-              className="btn-brand inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-body"
+              className="bg-brand-action text-white transition-colors hover:bg-brand-action/90 inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-body"
             >
               <Icon name="plus" className="h-4 w-4" />
               Add item
@@ -1107,7 +1107,7 @@ function EmptyState({
           <button
             type="button"
             onClick={onAdd}
-            className="btn-brand inline-flex items-center gap-1.5 rounded-lg px-4 py-2 text-body"
+            className="bg-brand-action text-white transition-colors hover:bg-brand-action/90 inline-flex items-center gap-1.5 rounded-lg px-4 py-2 text-body"
           >
             <Icon name="plus" className="h-4 w-4" />
             Add your first item

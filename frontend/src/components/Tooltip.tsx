@@ -358,7 +358,7 @@ export default function Tooltip({
                       e.stopPropagation();
                       onPrimaryAction();
                     }}
-                    className="text-meta font-medium text-sky-700 dark:text-sky-300 hover:text-sky-900 bg-sky-50 dark:bg-sky-500/15 hover:bg-sky-100 dark:hover:bg-sky-500/20 px-2 py-0.5 rounded transition-colors"
+                    className="text-meta font-medium text-sky-700 dark:text-sky-300 hover:text-sky-900 bg-sky-50 dark:bg-brand-action/15 hover:bg-sky-100 dark:hover:bg-brand-action/20 px-2 py-0.5 rounded transition-colors"
                   >
                     Got it
                   </button>

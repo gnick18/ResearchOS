@@ -1000,7 +1000,7 @@ export default function TaskModal({ projects }: TaskModalProps) {
                 ? "bg-green-600 hover:bg-green-700"
                 : taskType === "purchase"
                 ? "bg-amber-600 hover:bg-amber-700"
-                : "bg-blue-600 hover:bg-blue-700"
+                : "bg-brand-action hover:bg-brand-action/90"
             }`}
           >
             {isCheckingDuplicate ? "Checking..." : `Create ${taskType === "experiment" ? "Experiment" : taskType === "purchase" ? "Purchase" : "List"}`}
@@ -1042,7 +1042,7 @@ export default function TaskModal({ projects }: TaskModalProps) {
             <div className="flex gap-3 justify-end">
               <button
                 onClick={() => setDuplicateWarning(null)}
-                className="px-4 py-2 text-body text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors"
+                className="px-4 py-2 text-body text-white bg-brand-action hover:bg-brand-action/90 rounded-lg transition-colors"
               >
                 Change Name
               </button>

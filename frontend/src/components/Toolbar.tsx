@@ -566,7 +566,7 @@ export default function Toolbar({
       <button
         onClick={onCreateTask}
         data-tour-target="gantt-new-task-button"
-        className="px-3 py-1.5 text-body bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+        className="px-3 py-1.5 text-body bg-brand-action text-white rounded-lg hover:bg-brand-action/90 transition-colors"
       >
         + Task
       </button>

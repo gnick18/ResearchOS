@@ -410,7 +410,7 @@ function FeaturedCard({
       href={href}
       target="_blank"
       rel="noopener noreferrer"
-      className="group block rounded-xl border border-sky-100 bg-sky-50/60 p-5 transition-colors hover:border-sky-200 hover:bg-sky-50 dark:hover:bg-sky-500/20"
+      className="group block rounded-xl border border-sky-100 bg-sky-50/60 p-5 transition-colors hover:border-sky-200 hover:bg-sky-50 dark:hover:bg-brand-action/20"
     >
       <div className="mb-2 flex items-center gap-2">
         <span className="text-title font-semibold text-foreground group-hover:text-sky-800">

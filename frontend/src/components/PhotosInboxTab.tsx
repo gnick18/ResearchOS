@@ -621,7 +621,7 @@ export default function PhotosInboxTab() {
         className={`group flex items-center gap-3 p-2 rounded-lg border cursor-pointer transition-colors ${
           isSelected
             ? "border-blue-400 bg-blue-50 dark:bg-blue-500/10 ring-2 ring-blue-200"
-            : "border-border bg-surface-raised hover:border-blue-200 dark:border-blue-500/30 hover:bg-blue-50 dark:hover:bg-blue-500/10"
+            : "border-border bg-surface-raised hover:border-blue-200 dark:border-blue-500/30 hover:bg-blue-50 dark:hover:bg-brand-action/10"
         }`}
         onClick={(e) => handleRowClick(e, entry)}
         onContextMenu={(e) => handleRowContextMenu(e, entry)}
@@ -788,7 +788,7 @@ export default function PhotosInboxTab() {
               setContextMenu(null);
               setPickerOpen(true);
             }}
-            className="w-full text-left px-3 py-1.5 text-body text-foreground hover:bg-blue-50 dark:hover:bg-blue-500/10"
+            className="w-full text-left px-3 py-1.5 text-body text-foreground hover:bg-blue-50 dark:hover:bg-brand-action/10"
           >
             {sendMenuLabel}
           </button>
@@ -801,7 +801,7 @@ export default function PhotosInboxTab() {
               setContextMenu(null);
               setNotePickerOpen(true);
             }}
-            className="w-full text-left px-3 py-1.5 text-body text-foreground hover:bg-blue-50 dark:hover:bg-blue-500/10"
+            className="w-full text-left px-3 py-1.5 text-body text-foreground hover:bg-blue-50 dark:hover:bg-brand-action/10"
           >
             {sendNoteMenuLabel}
           </button>
@@ -813,7 +813,7 @@ export default function PhotosInboxTab() {
               setContextMenu(null);
               void moveToActive(contextMenu.anchorEntry, activeTask);
             }}
-            className="w-full text-left px-3 py-1.5 text-body text-foreground hover:bg-blue-50 dark:hover:bg-blue-500/10 disabled:opacity-40 disabled:cursor-not-allowed"
+            className="w-full text-left px-3 py-1.5 text-body text-foreground hover:bg-blue-50 dark:hover:bg-brand-action/10 disabled:opacity-40 disabled:cursor-not-allowed"
           >
             {activeTask ? `Move to active (${activeTask.name})` : "Move to active"}
           </button>
@@ -828,7 +828,7 @@ export default function PhotosInboxTab() {
                 setContextMenu(null);
                 void moveToActiveNote(contextMenu.anchorEntry, activeNote);
               }}
-              className="w-full text-left px-3 py-1.5 text-body text-foreground hover:bg-blue-50 dark:hover:bg-blue-500/10"
+              className="w-full text-left px-3 py-1.5 text-body text-foreground hover:bg-blue-50 dark:hover:bg-brand-action/10"
             >
               {`Move to active note (${activeNote.title})`}
             </button>
@@ -981,7 +981,7 @@ function MoveToActiveControl({
         type="button"
         disabled
         title="Open an experiment or a note first"
-        className="px-3 py-1.5 text-meta text-white bg-blue-600 hover:bg-blue-700 rounded-md transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+        className="px-3 py-1.5 text-meta text-white bg-brand-action hover:bg-brand-action/90 rounded-md transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
       >
         Move to active
       </button>
@@ -996,7 +996,7 @@ function MoveToActiveControl({
         disabled={busy}
         onClick={() => onMoveToTask(activeTask)}
         title={`Move to Experiment ${activeTask.id} (${activeTask.name})`}
-        className="px-3 py-1.5 text-meta text-white bg-blue-600 hover:bg-blue-700 rounded-md transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+        className="px-3 py-1.5 text-meta text-white bg-brand-action hover:bg-brand-action/90 rounded-md transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
       >
         Move to active
       </button>
@@ -1011,7 +1011,7 @@ function MoveToActiveControl({
         disabled={busy}
         onClick={() => onMoveToNote(activeNote)}
         title={`Move to note "${activeNote.title}"`}
-        className="px-3 py-1.5 text-meta text-white bg-blue-600 hover:bg-blue-700 rounded-md transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+        className="px-3 py-1.5 text-meta text-white bg-brand-action hover:bg-brand-action/90 rounded-md transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
       >
         Move to active note
       </button>
@@ -1035,7 +1035,7 @@ function MoveToActiveControl({
         aria-haspopup="menu"
         aria-expanded={dropdownOpen}
         title="Move to active…"
-        className="px-3 py-1.5 text-meta text-white bg-blue-600 hover:bg-blue-700 rounded-md transition-colors disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-1"
+        className="px-3 py-1.5 text-meta text-white bg-brand-action hover:bg-brand-action/90 rounded-md transition-colors disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-1"
       >
         <span>Move to active</span>
         <span aria-hidden className="text-meta leading-none">▾</span>
@@ -1050,7 +1050,7 @@ function MoveToActiveControl({
             type="button"
             role="menuitem"
             onClick={() => onMoveToTask(activeTask)}
-            className="w-full text-left px-3 py-1.5 text-meta text-foreground hover:bg-blue-50 dark:hover:bg-blue-500/10"
+            className="w-full text-left px-3 py-1.5 text-meta text-foreground hover:bg-blue-50 dark:hover:bg-brand-action/10"
           >
             <span className="block text-meta uppercase tracking-wide text-foreground-muted">
               Experiment
@@ -1061,7 +1061,7 @@ function MoveToActiveControl({
             type="button"
             role="menuitem"
             onClick={() => onMoveToNote(activeNote)}
-            className="w-full text-left px-3 py-1.5 text-meta text-foreground hover:bg-blue-50 dark:hover:bg-blue-500/10"
+            className="w-full text-left px-3 py-1.5 text-meta text-foreground hover:bg-blue-50 dark:hover:bg-brand-action/10"
           >
             <span className="block text-meta uppercase tracking-wide text-foreground-muted">
               Note

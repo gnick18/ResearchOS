@@ -113,7 +113,7 @@ function DevEphemeralSessionInner() {
             ? "Wipe and restart the ephemeral session with fresh seed data"
             : "Start a throwaway in-browser session, preloaded with sample data"
         }
-        className="pointer-events-auto rounded-full bg-sky-500 px-4 py-2 text-meta font-semibold text-white shadow-lg transition-all hover:scale-[1.03] hover:bg-sky-600 disabled:opacity-60"
+        className="pointer-events-auto rounded-full bg-brand-action px-4 py-2 text-meta font-semibold text-white shadow-lg transition-all hover:scale-[1.03] hover:bg-brand-action/90 disabled:opacity-60"
       >
         {busy
           ? restart

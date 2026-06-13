@@ -419,7 +419,7 @@ export default function HighLevelGoalModal({
                 type="button"
                 onClick={handleAddSmartGoal}
                 disabled={!newSmartGoalText.trim()}
-                className="px-3 py-2 text-body text-white bg-blue-600 hover:bg-blue-700 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
+                className="px-3 py-2 text-body text-white bg-brand-action hover:bg-brand-action/90 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 Add
               </button>

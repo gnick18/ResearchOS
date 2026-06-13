@@ -1815,7 +1815,7 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
                   <button
                     onClick={handleSubmitRecovery}
                     disabled={unlocking || !recoveryInput}
-                    className="flex-1 py-2 text-body bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg disabled:opacity-50"
+                    className="flex-1 py-2 text-body bg-brand-action hover:bg-brand-action/90 text-white font-medium rounded-lg disabled:opacity-50"
                     data-testid="unlock-recovery-submit"
                   >
                     {unlocking ? "Unlocking…" : "Unlock"}
@@ -1953,7 +1953,7 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
                   setShowSharedFolderWarn(false);
                   void handleCreateUser();
                 }}
-                className="flex-1 py-2 text-body font-semibold text-white bg-sky-600 hover:bg-sky-500 rounded-lg"
+                className="flex-1 py-2 text-body font-semibold text-white bg-brand-action hover:bg-brand-action/90 rounded-lg"
                 data-testid="shared-folder-warn-continue"
               >
                 Continue
@@ -2015,7 +2015,7 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
                   await setCurrentUser(u);
                   setProfileStep({ username: u });
                 }}
-                className="w-full py-2 text-body bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg"
+                className="w-full py-2 text-body bg-brand-action hover:bg-brand-action/90 text-white font-medium rounded-lg"
                 data-testid="recovery-continue"
               >
                 I saved it, continue

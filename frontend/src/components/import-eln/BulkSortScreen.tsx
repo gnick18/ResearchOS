@@ -239,7 +239,7 @@ export default function BulkSortScreen({ result, onDone }: BulkSortScreenProps) 
         <button
           type="button"
           onClick={onDone}
-          className="px-4 py-2 text-body bg-blue-600 hover:bg-blue-700 text-white rounded-lg whitespace-nowrap"
+          className="px-4 py-2 text-body bg-brand-action hover:bg-brand-action/90 text-white rounded-lg whitespace-nowrap"
         >
           Done
         </button>

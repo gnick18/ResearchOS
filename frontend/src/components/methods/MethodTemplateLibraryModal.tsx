@@ -542,7 +542,7 @@ export function ProtocolTemplateCard({
               e.stopPropagation();
               onViewKit?.();
             }}
-            className="px-3 py-1.5 text-meta border border-blue-600 text-blue-700 dark:text-blue-300 rounded-lg hover:bg-blue-50 dark:hover:bg-blue-500/10"
+            className="px-3 py-1.5 text-meta border border-blue-600 text-blue-700 dark:text-blue-300 rounded-lg hover:bg-blue-50 dark:hover:bg-brand-action/10"
           >
             View kit
           </button>
@@ -566,7 +566,7 @@ export function ProtocolTemplateCard({
                   onUse();
                 }}
                 disabled={anyUsing}
-                className="px-3 py-1.5 text-meta bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
+                className="px-3 py-1.5 text-meta bg-brand-action text-white rounded-lg hover:bg-brand-action/90 disabled:opacity-50"
               >
                 {isUsing ? "Adding..." : "Use template"}
               </button>
@@ -577,7 +577,7 @@ export function ProtocolTemplateCard({
                   e.stopPropagation();
                   onEnableType();
                 }}
-                className="px-3 py-1.5 text-meta border border-blue-600 text-blue-700 dark:text-blue-300 rounded-lg hover:bg-blue-50 dark:hover:bg-blue-500/10"
+                className="px-3 py-1.5 text-meta border border-blue-600 text-blue-700 dark:text-blue-300 rounded-lg hover:bg-blue-50 dark:hover:bg-brand-action/10"
               >
                 Enable {meta.label}
               </button>
