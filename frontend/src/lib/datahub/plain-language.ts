@@ -588,6 +588,245 @@ function nestedAnovaSummary(r: NormalizedNestedAnova): string {
   return `${list} look the same at the group level (${route}). There is not enough evidence of a group effect once the subgroup variation is accounted for.${tail}`;
 }
 
+// ---------------------------------------------------------------------------
+// Worked example: turn THIS result's actual numbers into one concrete sentence a
+// non-statistician can act on. This is BeakerBot's "for your numbers" callout,
+// additive to the verdict above. Returns null where a worked example would just
+// restate the verdict (descriptive summaries, parts-of-whole), so the callout
+// only renders when it earns its space.
+//
+// House voice applies here too: no em-dashes, no emojis, no mid-sentence colons.
+
+/** Round to a sensible inline precision and drop a trailing ".0". */
+function tidy(x: number, digits = 2): string {
+  if (!Number.isFinite(x)) return "n/a";
+  return Number(x.toFixed(digits)).toString();
+}
+
+function ttestExample(r: NormalizedTTest): string | null {
+  // The rank tests report a rank-biserial-style effect, not a Cohen's d in
+  // standard-deviation units, so the "standard deviations apart" reading does
+  // not apply. Skip the worked example there; the verdict already explains the
+  // shift in plain terms.
+  if (r.nonparametric || !Number.isFinite(r.effectSize)) return null;
+  const d = Math.abs(r.effectSize);
+  const band =
+    d >= 0.8 ? "large" : d >= 0.5 ? "medium" : d >= 0.2 ? "small" : "negligible";
+  const label = r.effectSizeLabel || "Cohen's d";
+  return `A ${label} of ${tidy(d)} is a ${band} effect, the two group means are about ${tidy(
+    d,
+  )} standard deviations apart.`;
+}
+
+function correlationExample(r: NormalizedCorrelation): string | null {
+  if (!Number.isFinite(r.coefficient)) return null;
+  const r2 = r.rSquared;
+  const pct = Math.round(r2 * 100);
+  return `An ${r.coefficientLabel} of ${tidy(
+    r.coefficient,
+  )} means about ${pct} percent of the variation in ${r.yName} tracks with ${r.xName} (r-squared ${tidy(
+    r2,
+  )}).`;
+}
+
+function regressionExample(r: NormalizedRegression): string | null {
+  if (!Number.isFinite(r.slope)) return null;
+  const dir = r.slope >= 0 ? "rises" : "falls";
+  const pct = Math.round(r.rSquared * 100);
+  return `Add 1 to ${r.xName} and ${r.yName} ${dir} by about ${tidy(
+    Math.abs(r.slope),
+    3,
+  )} on average; the line accounts for ${pct} percent of the spread in ${r.yName}.`;
+}
+
+function anovaExample(r: NormalizedAnova): string | null {
+  if (r.pValue >= ALPHA) return null;
+  const sig = r.comparisons.filter((c) => c.significant).length;
+  if (sig > 0) {
+    const noun = sig === 1 ? "pair" : "pairs";
+    return `At least one group mean differs; ${sig} ${noun} in the post-hoc table show which ones.`;
+  }
+  return `At least one group mean differs; the post-hoc table shows which pairs.`;
+}
+
+function rocExample(r: NormalizedRocAuc): string | null {
+  if (!Number.isFinite(r.auc)) return null;
+  const pct = Math.round(r.auc * 100);
+  return `An AUC of ${tidy(
+    r.auc,
+  )} means that for a random positive and negative ${r.yName} pair, ${r.xName} scores the positive one higher about ${pct} percent of the time.`;
+}
+
+function contingencyExample(r: NormalizedContingency): string | null {
+  // The odds ratio is the most concrete "for your numbers" reading, but it only
+  // exists for a 2x2. Larger tables fall back to null (the verdict carries it).
+  if (!r.oddsRatio || !Number.isFinite(r.oddsRatio.estimate)) return null;
+  return `An odds ratio of ${tidy(
+    r.oddsRatio.estimate,
+  )} means the odds of the first-column outcome are ${tidy(
+    r.oddsRatio.estimate,
+  )}x as high in the first row's group.`;
+}
+
+function logisticExample(r: NormalizedLogisticRegression): string | null {
+  if (!Number.isFinite(r.oddsRatio)) return null;
+  return `An odds ratio of ${tidy(
+    r.oddsRatio,
+  )} means each one-unit rise in ${r.xName} multiplies the odds of ${r.yName} by about ${tidy(
+    r.oddsRatio,
+  )}.`;
+}
+
+function doseResponseExample(r: NormalizedDoseResponse): string | null {
+  if (!Number.isFinite(r.ec50)) return null;
+  return `Half of the maximum response lands at a ${r.xName} of about ${concText(
+    r.ec50,
+  )}, so that is the dose to anchor on when comparing potencies.`;
+}
+
+function coxExample(r: NormalizedCoxRegression): string | null {
+  const arm = r.coefficients[0];
+  if (!arm || !Number.isFinite(arm.hazardRatio) || arm.hazardRatio <= 0) {
+    return null;
+  }
+  const hr = arm.hazardRatio;
+  const flipped = 1 / hr;
+  if (hr >= 1) {
+    return `HR ${tidy(
+      hr,
+    )} means a ${arm.name} subject is about ${tidy(hr, 1)}x as likely to have the event next as a reference subject. Flip the reference arm to read the protective HR of about ${tidy(
+      flipped,
+      2,
+    )}.`;
+  }
+  return `HR ${tidy(
+    hr,
+  )} means a ${arm.name} subject is about ${tidy(
+    flipped,
+    2,
+  )}x LESS likely to have the event next than the reference. Flip the reference arm to read the matching HR of about ${tidy(
+    flipped,
+    1,
+  )}.`;
+}
+
+function survivalExample(r: NormalizedSurvival): string | null {
+  if (!r.logRank || r.groups.length < 2) return null;
+  const withMedian = r.groups.filter((g) => g.median !== null);
+  if (withMedian.length < 2) return null;
+  const longest = withMedian.reduce((best, g) =>
+    (g.median ?? 0) > (best.median ?? 0) ? g : best,
+  );
+  const shortest = withMedian.reduce((best, g) =>
+    (g.median ?? Infinity) < (best.median ?? Infinity) ? g : best,
+  );
+  if (longest.name === shortest.name) return null;
+  return `Half of ${longest.name} subjects are still event-free at ${num(
+    longest.median as number,
+    1,
+  )}, versus ${num(
+    shortest.median as number,
+    1,
+  )} for ${shortest.name}, the gap between the arms at the median.`;
+}
+
+function grubbsExample(r: NormalizedGrubbsOutlier): string | null {
+  if (r.totalOutliers === 0) return null;
+  const flaggedCols = r.columns.filter((c) => c.result.outlierValues.length > 0);
+  const first = flaggedCols[0];
+  if (!first || first.result.outlierValues.length === 0) return null;
+  const value = first.result.outlierValues[0];
+  return `The most extreme value (${num(
+    value,
+    2,
+  )}) is flagged as an outlier at alpha ${num(
+    r.alpha,
+    2,
+  )}; the rest are within range, so review it against the experiment before removing it.`;
+}
+
+/**
+ * A concrete, numbers-in-hand sentence for THIS result, or null when a worked
+ * example would only repeat the verdict. The ResultsSheet renders it as a
+ * "for your numbers" callout below the plain-language verdict.
+ */
+export function workedExample(result: NormalizedResult): string | null {
+  switch (result.kind) {
+    case "anova":
+      return anovaExample(result);
+    case "correlation":
+      return correlationExample(result);
+    case "regression":
+      return regressionExample(result);
+    case "logisticRegression":
+      return logisticExample(result);
+    case "rocCurve":
+      return rocExample(result);
+    case "doseResponse":
+      return doseResponseExample(result);
+    case "coxRegression":
+      return coxExample(result);
+    case "survival":
+      return survivalExample(result);
+    case "grubbsOutlier":
+      return grubbsExample(result);
+    case "contingency":
+      return contingencyExample(result);
+    case "ttest":
+      return ttestExample(result);
+    case "nestedTTest":
+    case "nestedOneWayAnova":
+      // The verdict already frames these at the biological-replicate level; a
+      // worked example would just restate it, so there is none.
+      return null;
+    case "rmAnova":
+    case "mixedModel":
+    case "twoWayAnova":
+    case "multipleRegression":
+    case "modelComparison":
+    case "globalFit":
+      // Multi-effect designs have no single number to act on, so no worked line.
+      return null;
+    default:
+      return null;
+  }
+}
+
+/**
+ * The per-analysis "Learn more about <topic>" link shown at the bottom of the
+ * BeakerBot interpretation box. The href points at /transparency for every type
+ * today (the in-app explainer of how each test is computed). Returns null for
+ * the kinds with no dedicated explainer topic.
+ */
+export function learnMoreTopic(
+  result: NormalizedResult,
+): { label: string; href: string } | null {
+  const TOPIC_BY_KIND: Partial<Record<NormalizedResult["kind"], string>> = {
+    anova: "ANOVA and post-hoc tests",
+    rmAnova: "repeated-measures ANOVA",
+    mixedModel: "mixed models",
+    correlation: "correlation",
+    regression: "linear regression",
+    logisticRegression: "odds ratios",
+    rocCurve: "ROC curves and AUC",
+    multipleRegression: "multiple regression",
+    doseResponse: "dose-response curves",
+    modelComparison: "model comparison",
+    globalFit: "global curve fits",
+    twoWayAnova: "two-way ANOVA",
+    survival: "survival curves",
+    coxRegression: "hazard ratios",
+    grubbsOutlier: "outlier tests",
+    contingency: "contingency tables",
+    nestedTTest: "nested designs",
+    nestedOneWayAnova: "nested designs",
+    ttest: "effect sizes",
+  };
+  const topic = TOPIC_BY_KIND[result.kind];
+  if (!topic) return null;
+  return { label: `Learn more about ${topic}`, href: "/transparency" };
+}
+
 /**
  * The one-sentence (or two-sentence) plain-language verdict for a normalized
  * result. The ResultsSheet renders this above the stats table.
