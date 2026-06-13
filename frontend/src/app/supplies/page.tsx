@@ -65,6 +65,7 @@ import OrdersApprovalsLens, {
   isPendingApproval,
   type LabPurchaseItem,
 } from "@/components/supplies/OrdersApprovalsLens";
+import LabInventoryLens from "@/components/supplies/LabInventoryLens";
 import SpendingDashboard from "@/components/SpendingDashboard";
 import FundingAccountsManager from "@/components/FundingAccountsManager";
 import { buildPurchaseAuditCsv } from "@/lib/purchases/audit-export";
@@ -247,6 +248,13 @@ function SuppliesPageInner() {
   const fundingAccountsQuery = useQuery({
     queryKey: ["funding-accounts", currentUser],
     queryFn: purchasesApi.listFundingAccounts,
+    enabled: INVENTORY_ENABLED && isLabHead,
+  });
+  // RS-4: lab-wide inventory (every member's items) for the PI's lab inventory
+  // browse. Lab-head only, like the other lab-wide reads above.
+  const labInventoryQuery = useQuery({
+    queryKey: ["lab", "inventory-items-full"],
+    queryFn: () => labApi.getInventoryItemsFull(),
     enabled: INVENTORY_ENABLED && isLabHead,
   });
 
@@ -482,11 +490,13 @@ function SuppliesPageInner() {
     purchasesQuery.isLoading ||
     nodesQuery.isLoading;
 
+  const labInventoryItems = labInventoryQuery.data ?? [];
   const chips: { key: SupplyFilter; label: string; count: number }[] = [
     { key: "all", label: "All", count: counts.all },
     { key: "attention", label: "Needs attention", count: counts.attention },
     { key: "onorder", label: "On order", count: counts.onorder },
-    // Lab-head-only: the order-grouped approval queue. Members never see it.
+    // Lab-head-only: the order-grouped approval queue + the lab-wide inventory
+    // browse. Members never see either.
     ...(isLabHead
       ? [
           {
@@ -494,16 +504,24 @@ function SuppliesPageInner() {
             label: "Awaiting approval",
             count: pendingApprovalCount,
           },
+          {
+            key: "lab_inventory" as const,
+            label: "Lab inventory",
+            count: labInventoryItems.length,
+          },
         ]
       : []),
   ];
 
-  // Defend against a stale filter if the role read flips to member after the
+  // Defend against a stale filter if the role read flips to member after a
   // lens chip was selected (e.g. a user switch). Fall back to the per-supply
-  // default so a member can never land in the lab-head lens.
+  // default so a member can never land in a lab-head lens.
   const activeFilter: SupplyFilter =
-    filter === "awaiting_approval" && !isLabHead ? "all" : filter;
+    (filter === "awaiting_approval" || filter === "lab_inventory") && !isLabHead
+      ? "all"
+      : filter;
   const showApprovalLens = activeFilter === "awaiting_approval";
+  const showLabInventoryLens = activeFilter === "lab_inventory";
 
   return (
     <AppShell>
@@ -638,6 +656,14 @@ function SuppliesPageInner() {
                 void labPurchaseItemsQuery.refetch();
               }}
             />
+          )
+        ) : showLabInventoryLens ? (
+          labInventoryQuery.isLoading ? (
+            <p className="py-12 text-center text-body text-foreground-muted">
+              Loading lab inventory&hellip;
+            </p>
+          ) : (
+            <LabInventoryLens items={labInventoryItems} query={query} />
           )
         ) : isLoading ? (
           <p className="py-12 text-center text-body text-foreground-muted">Loading supplies&hellip;</p>
