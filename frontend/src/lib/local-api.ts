@@ -15,6 +15,9 @@ import type { HistoryEditKind } from "./history";
 import { LORO_PILOT_ENABLED, PURCHASE_LORO_ENABLED } from "./loro/config";
 import { getCurrentUser, getMainUser, storeCurrentUser, storeMainUser, clearCurrentUser, clearMainUser } from "./file-system/indexeddb-store";
 import { shiftTask } from "./engine/shift";
+import { readSharingIdentity } from "./sharing/identity/sidecar";
+import { loadUserCaptureKeys } from "./mobile-relay/keys";
+import { notifyRecipient } from "./mobile-relay/client";
 import { formatDate, parseDate } from "./engine/dates";
 import { readStreak } from "./streak/streak-sidecar";
 import { canonicalEndDate, computeTaskEndDate } from "./tasks/end-date";
@@ -7942,6 +7945,11 @@ async function recordShiftAlerts(
 
     const entries: ShiftedAlertEntry[] = [];
     const shiftedAtIso = new Date().toISOString();
+    // Phone push P3a: the users this shift actually alerts (everyone a shifted
+    // task is shared with). Collected here so an offline recipient can be buzzed
+    // about it; the shifter is online now and drives the relay (sender-triggered,
+    // same path as P2). Excludes the shifter themselves below.
+    const recipientUsernames = new Set<string>();
 
     for (const affected of shiftResult.affected_tasks) {
       const onDisk = await tasksStore.getForUser(affected.task_id, owner);
@@ -7952,6 +7960,7 @@ async function recordShiftAlerts(
         // weekend-skip). Don't surface as an alert.
         continue;
       }
+      for (const u of onDisk.shared_with) recipientUsernames.add(u.username);
       entries.push({
         id: newAlertId(),
         task_id: affected.task_id,
@@ -7991,11 +8000,50 @@ async function recordShiftAlerts(
     }
     file.alerts.push(...entries);
     await writeShiftedAlerts(owner, file);
+
+    // Phone push P3a (sender-triggered): buzz the offline recipients of this
+    // shift. Fire-and-forget; never blocks or fails the shift. The relay gates on
+    // each recipient's OWN reminders-category toggle + quiet hours.
+    void notifyShiftRecipients(recipientUsernames, shiftedByUser ?? owner);
   } catch (err) {
     // Sidecar writes are best-effort. Surfacing the error here would
     // mask a successful shift behind a notification-system bug, which
     // is worse than the missed alert.
     console.warn("[shift-alerts] failed to record alerts:", err);
+  }
+}
+
+/**
+ * Phone push P3a helper: ask the relay to buzz each user a shift alerted (their
+ * shared task moved), so they hear about it even with their laptop closed. The
+ * shifter is the sender; we skip notifying the shifter themselves. Resolves each
+ * recipient's Ed25519 identity from their `_sharing_identity.json` sidecar and
+ * fires the P2 notify-recipient route with category "reminders" (which is where
+ * shift_alert routes). Fully best-effort; a recipient with no account/sidecar or
+ * no paired phone simply never buzzes, and any failure is swallowed.
+ */
+async function notifyShiftRecipients(
+  recipientUsernames: Set<string>,
+  actor: string,
+): Promise<void> {
+  try {
+    const targets = [...recipientUsernames].filter((u) => u !== actor);
+    if (targets.length === 0) return;
+    const senderKeys = await loadUserCaptureKeys();
+    if (!senderKeys) return;
+    await Promise.all(
+      targets.map(async (username) => {
+        try {
+          const sidecar = await readSharingIdentity(username);
+          if (!sidecar?.ed25519PublicKey) return;
+          await notifyRecipient(senderKeys, sidecar.ed25519PublicKey, "reminders");
+        } catch {
+          // Best-effort per recipient.
+        }
+      }),
+    );
+  } catch {
+    // Best-effort.
   }
 }
 
