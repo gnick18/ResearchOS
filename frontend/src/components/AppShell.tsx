@@ -41,6 +41,8 @@ import { useFeaturePicks } from "@/hooks/useFeaturePicks";
 import { useIsLabHead } from "@/hooks/useIsLabHead";
 import { useDeptAdminOf } from "@/hooks/useDeptAdminOf";
 import { DEPT_TIER_ENABLED } from "@/lib/dept/config";
+import { useInstitutionAdminOf } from "@/hooks/useInstitutionAdminOf";
+import { INSTITUTION_TIER_ENABLED } from "@/lib/institution/config";
 import { deriveVisibleTabs } from "@/lib/onboarding/feature-picks-tabs";
 import { usePrefetchOnHover } from "@/lib/perf/use-prefetch-on-hover";
 import { headerGradient, rainbowTheme } from "@/lib/colors";
@@ -205,6 +207,11 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   // sees it in both lenses; a non-PI dept admin sees it in their researcher nav.
   const isDeptAdmin = DEPT_TIER_ENABLED && !!useDeptAdminOf(currentUser ?? null);
 
+  // Institution tier: an institution admin gets an "Institution" nav entry (dark
+  // unless the tier flag is on). Same pattern as the dept admin entry, one tier up.
+  const isInstitutionAdmin =
+    INSTITUTION_TIER_ENABLED && !!useInstitutionAdminOf(currentUser ?? null);
+
   // The dashboard ("/") is always shown so the user has a guaranteed safe
   // landing tab even if they hide everything else (or if Settings was
   // wiped). Settings itself is rendered as a gear icon, never as part of
@@ -272,6 +279,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         }
       }
       if (isDeptAdmin) out.push({ href: "/department", label: "Department" });
+      if (isInstitutionAdmin) out.push({ href: "/institution", label: "Institution" });
       return out;
     }
     // Member, OR a lab head in "My work" mode: the researcher tab set (Workbench
@@ -279,8 +287,9 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
     // is the way back to the lab lens for a PI.
     const researcher = filtered.filter((item) => item.href !== HOME_HREF);
     if (isDeptAdmin) researcher.push({ href: "/department", label: "Department" });
+    if (isInstitutionAdmin) researcher.push({ href: "/institution", label: "Institution" });
     return researcher;
-  }, [filtered, labLens, isDeptAdmin]);
+  }, [filtered, labLens, isDeptAdmin, isInstitutionAdmin]);
 
   // Supplies hub (Supplies hub, 2026-06-07). When INVENTORY_ENABLED is on,
   // Inventory and Purchases collapse into ONE "Supplies" nav item pointing at
