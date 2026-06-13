@@ -45,4 +45,12 @@ describe("resolvePageHints", () => {
     expect(hints.length).toBeGreaterThan(0);
     expect(hints[0].page).toBe("/methods");
   });
+
+  it("routes a phylogenetic tree request to /phylo via the supplemental hint", () => {
+    // The phylo page has no generated tour anchors yet, so SUPPLEMENTAL_ANCHORS
+    // (merged into the default set) carries the routing.
+    expect(resolvePageHints("build a phylogenetic tree")[0]?.page).toBe("/phylo");
+    expect(resolvePageHints("open the phylogenetics page")[0]?.page).toBe("/phylo");
+    expect(resolvePageHints("phylogeny tree studio")[0]?.page).toBe("/phylo");
+  });
 });

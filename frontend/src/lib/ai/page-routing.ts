@@ -74,6 +74,20 @@ function scoreAnchor(anchor: UiAnchor, queryTokens: string[]): number {
   return score;
 }
 
+// Supplemental page hints for routes that do not yet carry generated
+// data-tour-target anchors (the manifest's source). Phylogenetics is the newest
+// tab and has none yet, so these synthetic anchors let go_to_page route a
+// tree-building request to /phylo until that page grows its own tour anchors.
+// Same UiAnchor shape, merged into the default scoring set below.
+export const SUPPLEMENTAL_ANCHORS: UiAnchor[] = [
+  // Labels carry both the singular and plural forms (phylogenetic / phylogenetics
+  // / phylogeny) plus tree, so a query token matches a label token exactly rather
+  // than only as a weak substring.
+  { id: "phylo-tree-builder", label: "Phylogenetic phylogenetics phylogeny tree builder (Phylogenetics)", page: "/phylo" },
+  { id: "phylo-tree-studio", label: "Phylogenetic phylogenetics tree figure studio styling (Phylogenetics)", page: "/phylo" },
+  { id: "phylo-tree-newick", label: "Phylogenetic phylogenetics tree from sequences Newick (Phylogenetics)", page: "/phylo" },
+];
+
 export type PageHint = {
   // The route to navigate to.
   page: string;
@@ -89,7 +103,7 @@ export type PageHint = {
  *  then perceives the page to find the actual element. */
 export function resolvePageHints(
   query: string,
-  anchors: UiAnchor[] = UI_ANCHORS,
+  anchors: UiAnchor[] = [...UI_ANCHORS, ...SUPPLEMENTAL_ANCHORS],
   limit = 3,
 ): PageHint[] {
   const seen = new Set<string>();
