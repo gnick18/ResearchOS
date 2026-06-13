@@ -632,6 +632,15 @@ export default function LiveMarkdownEditor({
   // Separate set for file refs so a `Files/foo.pdf` scan never collides with
   // a same-named image src in the image-only processed set above.
   const processedBrokenFileSrcsRef = useRef<Set<string>>(new Set());
+  // Latest onChange identity, kept in a ref so effects that call onChange can
+  // read it without listing onChange in their dep arrays. Listing onChange in
+  // an effect that itself calls onChange is a self-feeding loop. A new onChange
+  // identity re-runs the effect, the effect calls onChange, the parent re-
+  // renders and hands back a fresh onChange, and around it goes. The broken-
+  // image scan reads through this ref instead so a changed onChange identity
+  // alone can never re-fire it.
+  const onChangeRef = useRef(onChange);
+  onChangeRef.current = onChange;
   // Click-to-resize popover state (preview-mode click on rendered image)
   const [imageResize, setImageResize] = useState<{
     imageSrc: string;
@@ -922,11 +931,14 @@ export default function LiveMarkdownEditor({
           return [...prev, { originalSrc: src, alt, kind: "image", element: null }];
         });
       }
-      if (mutated) onChange(nextValue);
+      // Read onChange through the ref so a changed onChange identity can't be
+      // what re-runs this effect. The mutated guard keeps it idempotent, we
+      // only fire when the scan actually rewrote a recovered ref.
+      if (mutated) onChangeRef.current(nextValue);
     };
 
     checkImages();
-  }, [previewMode, value, disabled, extractImageSources, checkImageExists, imageBasePath, onChange]);
+  }, [previewMode, value, disabled, extractImageSources, checkImageExists, imageBasePath]);
 
   /**
    * Extract `[text](Files/…)` and `<a href="Files/…">text</a>` references

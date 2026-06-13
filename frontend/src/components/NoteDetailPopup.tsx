@@ -2346,11 +2346,14 @@ export default function NoteDetailPopup({
                   // Remount (re-seed from the Loro doc) after a restore/undo.
                   key={`note-editor-${loroEditorRemountKey}`}
                   value={entries[0].content}
-                  onChange={(content) => {
-                    if (entries[0]) {
-                      updateEntryContent(content);
-                    }
-                  }}
+                  // Pass the stable updateEntryContent identity straight through
+                  // rather than a fresh inline arrow each render. A new onChange
+                  // identity every render is the feed for an infinite-render
+                  // loop in the editor's broken-image scan. updateEntryContent
+                  // already early-returns when activeTab is empty, so the old
+                  // entries[0] guard was redundant. The running-log branch above
+                  // already forwards it the same way.
+                  onChange={updateEntryContent}
                   placeholder="Write your meeting notes in Markdown..."
                   disabled={readOnly}
                   allowAnyFileType={true}
