@@ -1,0 +1,849 @@
+"use client";
+
+// TransformBuilder (DataHub-largetables lane, Phase 2a).
+//
+// The "edit by rule" builder for the large-dataset lane (mockup surface 1, spec
+// section 6). It is the Data Hub's EXISTING pandas-matched transform engine
+// (lib/datahub/transform) given a full operation menu and a live code preview,
+// running in the background DuckDB engine on the whole dataset. A recipe is a
+// pipeline of ops, each one verb plus params, previewed live on the dataset with
+// an affected-row estimate, and reflected in both the pandas and SQL code. The
+// same recipe runs in JS for a small editable table or compiles to one DuckDB
+// query for a huge one, so a rule reads identically at any size (spec section 6).
+//
+// PHASE 2a SCOPE. Only the ops the engine already runs are wired with editable
+// params here (filter, derive, sort, select, drop, rename, dedupe, groupby). The
+// Phase 2b gap ops (string accessors, fillna, conditional-set, cast, bin, ...)
+// appear in the palette as a clearly-marked "coming soon" seam, disabled, so the
+// vocabulary is visible but only the supported half is buildable. Pivot / unpivot
+// compile but are left off the palette here (they reshape the result, handled
+// with the wide-column tooling later).
+//
+// Until the user Saves as a new dataset, the recipe is an EPHEMERAL live query:
+// nothing is cached, the preview runs the recipe on demand against the source
+// Parquet and materializes only the visible window (spec section 9).
+//
+// House style: <Icon> only, Tooltip component, no emojis / em-dashes /
+// mid-sentence colons.
+
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Icon } from "@/components/icons";
+import Tooltip from "@/components/Tooltip";
+import type { DatasetSidecar } from "@/lib/datahub/bigtable";
+import type { TransformOp } from "@/lib/datahub/transform/pipeline";
+import { transformOpToPandas } from "@/lib/datahub/transform/codegen";
+import { transformOpToSql, recipeToSql } from "@/lib/datahub/transform/sql-codegen";
+import {
+  openDataset,
+  closeDataset,
+  readRowWindow,
+  countRows,
+  recipeResultColumns,
+  saveRecipeAsDataset,
+  type OpenDatasetHandle,
+} from "@/lib/datahub/bigtable/dataset-view";
+
+const PREVIEW_ROWS = 25;
+
+// ---------------------------------------------------------------------------
+// Op palette. Grouped by the spec's operation surface (section 6). `ready` marks
+// the Phase 2a wired ops; the rest are the Phase 2b seam (visible, disabled).
+// ---------------------------------------------------------------------------
+
+interface PaletteEntry {
+  kind: string;
+  label: string;
+  ready: boolean;
+}
+
+const PALETTE: { group: string; ops: PaletteEntry[] }[] = [
+  {
+    group: "Filter & select",
+    ops: [
+      { kind: "filter", label: "keep rows where", ready: true },
+      { kind: "select", label: "keep columns", ready: true },
+      { kind: "drop", label: "drop columns", ready: true },
+      { kind: "isin", label: "keep rows in set", ready: false },
+      { kind: "between", label: "keep rows between", ready: false },
+      { kind: "topn", label: "top N by column", ready: false },
+      { kind: "sample", label: "random sample", ready: false },
+    ],
+  },
+  {
+    group: "Edit values",
+    ops: [
+      { kind: "setwhere", label: "set value where", ready: false },
+      { kind: "replace", label: "replace value", ready: false },
+      { kind: "clip", label: "clip to range", ready: false },
+      { kind: "round", label: "round", ready: false },
+      { kind: "map", label: "map via lookup", ready: false },
+    ],
+  },
+  {
+    group: "Missing data",
+    ops: [
+      { kind: "fillna", label: "fill empty with", ready: false },
+      { kind: "dropna", label: "drop empty rows", ready: false },
+      { kind: "interpolate", label: "interpolate", ready: false },
+    ],
+  },
+  {
+    group: "Strings",
+    ops: [
+      { kind: "str_slice", label: "slice characters", ready: false },
+      { kind: "str_replace", label: "replace text / regex", ready: false },
+      { kind: "str_extract", label: "extract regex group", ready: false },
+      { kind: "str_case", label: "upper / lower / title", ready: false },
+      { kind: "str_strip", label: "trim whitespace", ready: false },
+      { kind: "str_cat", label: "concatenate columns", ready: false },
+    ],
+  },
+  {
+    group: "Compute",
+    ops: [
+      { kind: "derive", label: "new column from formula", ready: true },
+      { kind: "conditional", label: "if / else column", ready: false },
+      { kind: "bin", label: "bin into categories", ready: false },
+      { kind: "rank", label: "rank", ready: false },
+      { kind: "lag", label: "shift / diff / pct change", ready: false },
+    ],
+  },
+  {
+    group: "Type & schema",
+    ops: [
+      { kind: "rename", label: "rename column", ready: true },
+      { kind: "astype", label: "cast type", ready: false },
+      { kind: "todate", label: "parse date", ready: false },
+      { kind: "dateparts", label: "extract date parts", ready: false },
+    ],
+  },
+  {
+    group: "Reshape & summarize",
+    ops: [
+      { kind: "sort", label: "sort", ready: true },
+      { kind: "dedupe", label: "drop duplicates", ready: true },
+      { kind: "groupby", label: "group + aggregate", ready: true },
+      { kind: "valuecounts", label: "value counts", ready: false },
+      { kind: "describe", label: "describe", ready: false },
+    ],
+  },
+];
+
+const VERB: Record<string, string> = {
+  filter: "Filter",
+  select: "Keep cols",
+  drop: "Drop cols",
+  derive: "Derive",
+  rename: "Rename",
+  sort: "Sort",
+  dedupe: "Dedupe",
+  groupby: "Group + agg",
+};
+
+// ---------------------------------------------------------------------------
+// Op factory: a sensible default op of each wired kind, seeded with the first
+// suitable column from the dataset schema.
+// ---------------------------------------------------------------------------
+
+function defaultOp(kind: string, cols: string[], numericCols: string[]): TransformOp | null {
+  const firstNum = numericCols[0] ?? cols[0] ?? "column";
+  const first = cols[0] ?? "column";
+  switch (kind) {
+    case "filter":
+      return {
+        kind: "filter",
+        node: { type: "condition", condition: { column: firstNum, op: "lt", value: 0.05 } },
+      };
+    case "select":
+      return { kind: "select", columns: cols.slice(0, Math.min(3, cols.length)) };
+    case "drop":
+      return { kind: "drop", columns: [cols[cols.length - 1] ?? first] };
+    case "derive":
+      return { kind: "derive", outputName: "new_column", formula: `${firstNum} * 1` };
+    case "rename":
+      return { kind: "rename", mapping: { [first]: `${first}_renamed` } };
+    case "sort":
+      return { kind: "sort", by: [{ column: firstNum, direction: "desc" }] };
+    case "dedupe":
+      return { kind: "dedupe" };
+    case "groupby":
+      return {
+        kind: "groupby",
+        by: [first],
+        aggregations: [{ column: firstNum, func: "mean", outputName: `${firstNum}_mean` }],
+      };
+    default:
+      return null;
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Per-op param editors. Inline, mirroring the mockup. Only the wired ops.
+// ---------------------------------------------------------------------------
+
+const PRED_OPTIONS: { value: string; label: string }[] = [
+  { value: "lt", label: "<" },
+  { value: "gt", label: ">" },
+  { value: "le", label: "<=" },
+  { value: "ge", label: ">=" },
+  { value: "eq", label: "=" },
+  { value: "ne", label: "is not" },
+  { value: "contains", label: "contains" },
+  { value: "is_empty", label: "is empty" },
+];
+
+function Pill({ children }: { children: React.ReactNode }) {
+  return <span className="text-meta font-medium text-foreground-muted">{children}</span>;
+}
+
+function selectCls() {
+  return "rounded-md border border-border bg-surface px-2 py-1 text-meta text-foreground focus:border-sky-400 focus:outline-none";
+}
+function inputCls() {
+  return "rounded-md border border-border bg-surface px-2 py-1 text-meta text-foreground focus:border-sky-400 focus:outline-none";
+}
+
+function OpParams({
+  op,
+  cols,
+  onChange,
+}: {
+  op: TransformOp;
+  cols: string[];
+  onChange: (next: TransformOp) => void;
+}) {
+  const colOptions = cols.map((c) => (
+    <option key={c} value={c}>
+      {c}
+    </option>
+  ));
+
+  if (op.kind === "filter" && op.node.type === "condition") {
+    const c = op.node.condition;
+    const setCond = (patch: Partial<typeof c>) =>
+      onChange({ ...op, node: { type: "condition", condition: { ...c, ...patch } } });
+    return (
+      <>
+        <Pill>in</Pill>
+        <select
+          className={selectCls()}
+          value={c.column}
+          onChange={(e) => setCond({ column: e.target.value })}
+        >
+          {colOptions}
+        </select>
+        <Pill>where</Pill>
+        <select
+          className={selectCls()}
+          value={c.op}
+          onChange={(e) => setCond({ op: e.target.value as typeof c.op })}
+        >
+          {PRED_OPTIONS.map((p) => (
+            <option key={p.value} value={p.value}>
+              {p.label}
+            </option>
+          ))}
+        </select>
+        {c.op !== "is_empty" && (
+          <input
+            className={`${inputCls()} w-24`}
+            value={String(c.value ?? "")}
+            onChange={(e) => {
+              const raw = e.target.value;
+              const n = Number(raw);
+              setCond({ value: raw !== "" && Number.isFinite(n) ? n : raw });
+            }}
+          />
+        )}
+      </>
+    );
+  }
+
+  if (op.kind === "select") {
+    return (
+      <>
+        <Pill>keep</Pill>
+        <input
+          className={`${inputCls()} w-64`}
+          value={op.columns.join(", ")}
+          onChange={(e) =>
+            onChange({
+              ...op,
+              columns: e.target.value.split(",").map((s) => s.trim()).filter(Boolean),
+            })
+          }
+        />
+      </>
+    );
+  }
+
+  if (op.kind === "drop") {
+    return (
+      <>
+        <Pill>drop</Pill>
+        <input
+          className={`${inputCls()} w-64`}
+          value={op.columns.join(", ")}
+          onChange={(e) =>
+            onChange({
+              ...op,
+              columns: e.target.value.split(",").map((s) => s.trim()).filter(Boolean),
+            })
+          }
+        />
+      </>
+    );
+  }
+
+  if (op.kind === "derive") {
+    return (
+      <>
+        <Pill>new column</Pill>
+        <input
+          className={`${inputCls()} w-32`}
+          value={op.outputName}
+          onChange={(e) => onChange({ ...op, outputName: e.target.value })}
+        />
+        <Pill>=</Pill>
+        <input
+          className={`${inputCls()} w-48 font-mono`}
+          value={op.formula}
+          onChange={(e) => onChange({ ...op, formula: e.target.value })}
+        />
+      </>
+    );
+  }
+
+  if (op.kind === "rename") {
+    const [from, to] = Object.entries(op.mapping)[0] ?? ["", ""];
+    return (
+      <>
+        <Pill>rename</Pill>
+        <select
+          className={selectCls()}
+          value={from}
+          onChange={(e) => onChange({ ...op, mapping: { [e.target.value]: to } })}
+        >
+          {colOptions}
+        </select>
+        <Pill>to</Pill>
+        <input
+          className={`${inputCls()} w-36`}
+          value={to}
+          onChange={(e) => onChange({ ...op, mapping: { [from]: e.target.value } })}
+        />
+      </>
+    );
+  }
+
+  if (op.kind === "sort") {
+    const key = op.by[0] ?? { column: cols[0] ?? "", direction: "desc" as const };
+    return (
+      <>
+        <Pill>by</Pill>
+        <select
+          className={selectCls()}
+          value={key.column}
+          onChange={(e) => onChange({ ...op, by: [{ ...key, column: e.target.value }] })}
+        >
+          {colOptions}
+        </select>
+        <select
+          className={selectCls()}
+          value={key.direction}
+          onChange={(e) =>
+            onChange({ ...op, by: [{ ...key, direction: e.target.value as "asc" | "desc" }] })
+          }
+        >
+          <option value="desc">descending</option>
+          <option value="asc">ascending</option>
+        </select>
+      </>
+    );
+  }
+
+  if (op.kind === "dedupe") {
+    return (
+      <>
+        <Pill>on</Pill>
+        <input
+          className={`${inputCls()} w-64`}
+          placeholder="all columns"
+          value={(op.subset ?? []).join(", ")}
+          onChange={(e) => {
+            const subset = e.target.value.split(",").map((s) => s.trim()).filter(Boolean);
+            onChange({ ...op, subset: subset.length ? subset : undefined });
+          }}
+        />
+      </>
+    );
+  }
+
+  if (op.kind === "groupby") {
+    const agg = op.aggregations[0] ?? { column: cols[0] ?? "", func: "mean" as const };
+    const by = op.by[0] ?? cols[0] ?? "";
+    return (
+      <>
+        <Pill>by</Pill>
+        <select
+          className={selectCls()}
+          value={by}
+          onChange={(e) => onChange({ ...op, by: [e.target.value] })}
+        >
+          {colOptions}
+        </select>
+        <select
+          className={selectCls()}
+          value={agg.func}
+          onChange={(e) =>
+            onChange({
+              ...op,
+              aggregations: [
+                {
+                  ...agg,
+                  func: e.target.value as typeof agg.func,
+                  outputName: `${agg.column}_${e.target.value}`,
+                },
+              ],
+            })
+          }
+        >
+          {["mean", "sum", "count", "median", "min", "max"].map((f) => (
+            <option key={f} value={f}>
+              {f}
+            </option>
+          ))}
+        </select>
+        <Pill>of</Pill>
+        <select
+          className={selectCls()}
+          value={agg.column}
+          onChange={(e) =>
+            onChange({
+              ...op,
+              aggregations: [
+                { ...agg, column: e.target.value, outputName: `${e.target.value}_${agg.func}` },
+              ],
+            })
+          }
+        >
+          {colOptions}
+        </select>
+      </>
+    );
+  }
+
+  return <Pill>parameters for {VERB[op.kind] ?? op.kind}</Pill>;
+}
+
+// ---------------------------------------------------------------------------
+// The builder
+// ---------------------------------------------------------------------------
+
+export default function TransformBuilder({
+  owner,
+  sidecar,
+  onClose,
+  onSaved,
+  mintId,
+}: {
+  owner: string;
+  sidecar: DatasetSidecar;
+  onClose: () => void;
+  /** Called with the new derived sidecar after Save as new dataset. */
+  onSaved: (saved: DatasetSidecar) => void;
+  /** Mint a fresh dataset id (shares the datahub counter). */
+  mintId: () => Promise<string>;
+}) {
+  const allCols = useMemo(() => sidecar.schema.map((c) => c.name), [sidecar.schema]);
+  const numericCols = useMemo(
+    () => sidecar.schema.filter((c) => c.type === "number").map((c) => c.name),
+    [sidecar.schema],
+  );
+
+  const [pipe, setPipe] = useState<TransformOp[]>(sidecar.recipe ?? []);
+  const [codeTab, setCodeTab] = useState<"pandas" | "sql">("sql");
+  const [handle, setHandle] = useState<OpenDatasetHandle | null>(null);
+  const [previewRows, setPreviewRows] = useState<Record<string, unknown>[]>([]);
+  const [previewCols, setPreviewCols] = useState<string[]>(allCols);
+  const [resultCount, setResultCount] = useState<number | null>(null);
+  const [stepCounts, setStepCounts] = useState<(number | null)[]>([]);
+  const [previewError, setPreviewError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [saveName, setSaveName] = useState(`${sidecar.name} (transformed)`);
+  const [showSave, setShowSave] = useState(false);
+
+  const runSeqRef = useRef(0);
+
+  // Open the source dataset into DuckDB once.
+  useEffect(() => {
+    let cancelled = false;
+    let opened: OpenDatasetHandle | null = null;
+    void (async () => {
+      try {
+        const h = await openDataset(owner, sidecar);
+        if (cancelled) {
+          await closeDataset(h);
+          return;
+        }
+        opened = h;
+        setHandle(h);
+      } catch (e) {
+        if (!cancelled) {
+          setPreviewError(e instanceof Error ? e.message : "Could not open the dataset.");
+        }
+      }
+    })();
+    return () => {
+      cancelled = true;
+      if (opened) void closeDataset(opened);
+    };
+  }, [owner, sidecar]);
+
+  // Recompute the live preview + per-step affected-row estimates whenever the
+  // pipeline or the handle changes. The recipe runs on demand against the source
+  // Parquet, materializing only the preview window (spec section 9).
+  const recompute = useCallback(
+    async (currentPipe: TransformOp[]) => {
+      if (!handle) return;
+      const seq = ++runSeqRef.current;
+      setBusy(true);
+      setPreviewError(null);
+      try {
+        // Result column list (a derive adds a column, a select narrows).
+        const resultColumns = await recipeResultColumns(handle, currentPipe);
+        const rows = await readRowWindow(handle, 0, PREVIEW_ROWS, [], currentPipe);
+        const total = await countRows(handle, currentPipe);
+        // Per-step affected counts: count rows after each prefix of the pipeline.
+        const counts: (number | null)[] = [];
+        for (let i = 0; i < currentPipe.length; i++) {
+          try {
+            const c = await countRows(handle, currentPipe.slice(0, i + 1));
+            counts.push(c);
+          } catch {
+            counts.push(null);
+          }
+        }
+        if (seq !== runSeqRef.current) return;
+        setPreviewCols(resultColumns);
+        setPreviewRows(rows);
+        setResultCount(total);
+        setStepCounts(counts);
+      } catch (e) {
+        if (seq !== runSeqRef.current) return;
+        setPreviewError(
+          e instanceof Error ? e.message : "Could not run this recipe on the engine.",
+        );
+      } finally {
+        if (seq === runSeqRef.current) setBusy(false);
+      }
+    },
+    [handle],
+  );
+
+  useEffect(() => {
+    void recompute(pipe);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [handle, pipe]);
+
+  const addOp = (kind: string) => {
+    const op = defaultOp(kind, allCols, numericCols);
+    if (!op) return;
+    setPipe((p) => [...p, op]);
+  };
+  const updateOp = (i: number, next: TransformOp) =>
+    setPipe((p) => p.map((o, idx) => (idx === i ? next : o)));
+  const removeOp = (i: number) => setPipe((p) => p.filter((_, idx) => idx !== i));
+
+  // The code panel. pandas via transformOpToPandas (the editable lane's
+  // generator), SQL via transformOpToSql, both per op so the panel reads as the
+  // ordered recipe (data-load inlining is omitted here, this is the rule list).
+  const codeText = useMemo(() => {
+    if (pipe.length === 0) {
+      return codeTab === "pandas"
+        ? "# add operations to see the pandas equivalent"
+        : "-- add operations to see the SQL equivalent";
+    }
+    if (codeTab === "pandas") {
+      let names = [...allCols];
+      return pipe
+        .map((op) => {
+          const { code } = transformOpToPandas(op, { columnNames: names });
+          names = nextNames(names, op);
+          return code;
+        })
+        .join("\n");
+    }
+    // SQL: show the full compiled query, the one the engine actually runs.
+    return recipeToSql(pipe, "read_parquet('<this dataset>')", { columnNames: allCols });
+  }, [pipe, codeTab, allCols]);
+
+  const handleSave = async () => {
+    if (!handle || pipe.length === 0) return;
+    setSaving(true);
+    try {
+      const id = await mintId();
+      const saved = await saveRecipeAsDataset(handle, id, saveName.trim() || sidecar.name, pipe, {
+        project_ids: sidecar.project_ids,
+        folder_path: sidecar.folder_path,
+      });
+      onSaved(saved);
+    } catch (e) {
+      setPreviewError(e instanceof Error ? e.message : "Could not save the derived dataset.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="flex h-full min-h-0 flex-col gap-3 p-4" data-testid="bigtable-transform-builder">
+      {/* Header */}
+      <div className="flex flex-wrap items-center gap-2">
+        <Icon name="transform" className="h-4 w-4 text-brand-action" />
+        <h2 className="text-heading font-semibold text-foreground">Transform builder</h2>
+        <span className="text-meta text-foreground-muted">{sidecar.name}</span>
+        <div className="ml-auto flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setShowSave((s) => !s)}
+            disabled={pipe.length === 0}
+            className="bg-brand-action text-white transition-colors hover:bg-brand-action/90 inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-meta font-semibold disabled:opacity-50"
+            data-testid="bigtable-builder-save-open"
+          >
+            <Icon name="save" className="h-3.5 w-3.5" />
+            Save as new dataset
+          </button>
+          <Tooltip label="Close the builder and return to the dataset preview.">
+            <button
+              type="button"
+              onClick={onClose}
+              className="rounded-md border border-border px-2.5 py-1.5 text-meta font-medium text-foreground transition-colors hover:bg-surface-sunken"
+              data-testid="bigtable-builder-close"
+            >
+              <Icon name="x" className="h-3.5 w-3.5" />
+            </button>
+          </Tooltip>
+        </div>
+      </div>
+
+      {showSave && (
+        <div className="flex flex-wrap items-center gap-2 rounded-lg border border-border bg-surface-raised p-3">
+          <span className="text-meta text-foreground-muted">
+            Materialize this recipe to a new dataset on disk. The recipe stays the lineage.
+          </span>
+          <input
+            className={`${inputCls()} ml-auto w-64`}
+            value={saveName}
+            onChange={(e) => setSaveName(e.target.value)}
+            data-testid="bigtable-builder-save-name"
+          />
+          <button
+            type="button"
+            onClick={handleSave}
+            disabled={saving || pipe.length === 0}
+            className="bg-brand-action text-white transition-colors hover:bg-brand-action/90 rounded-md px-3 py-1.5 text-meta font-semibold disabled:opacity-60"
+            data-testid="bigtable-builder-save-confirm"
+          >
+            {saving ? "Saving..." : "Save"}
+          </button>
+        </div>
+      )}
+
+      <div className="grid min-h-0 flex-1 grid-cols-[200px_1fr] gap-3">
+        {/* Palette */}
+        <div
+          className="overflow-auto rounded-lg border border-border bg-surface-raised p-2"
+          data-testid="bigtable-builder-palette"
+        >
+          {PALETTE.map((g) => (
+            <div key={g.group}>
+              <div className="mt-2 px-1 text-[10px] font-bold uppercase tracking-wide text-foreground-muted first:mt-0">
+                {g.group}
+              </div>
+              {g.ops.map((o) =>
+                o.ready ? (
+                  <button
+                    key={o.kind}
+                    type="button"
+                    onClick={() => addOp(o.kind)}
+                    className="block w-full rounded-md px-2 py-1 text-left text-meta text-foreground transition-colors hover:bg-brand-action/10 hover:text-brand-action"
+                    data-testid={`bigtable-builder-op-${o.kind}`}
+                  >
+                    {o.label}
+                  </button>
+                ) : (
+                  <Tooltip key={o.kind} label="More operations are coming in the next phase.">
+                    <span className="block w-full cursor-not-allowed px-2 py-1 text-left text-meta text-foreground-muted/50">
+                      {o.label}
+                    </span>
+                  </Tooltip>
+                ),
+              )}
+            </div>
+          ))}
+        </div>
+
+        {/* Stage */}
+        <div className="flex min-h-0 flex-col gap-3 overflow-auto">
+          {/* Pipeline */}
+          <div>
+            <div className="mb-1.5 text-[10px] font-bold uppercase tracking-wide text-foreground-muted">
+              Pipeline
+            </div>
+            <div className="flex flex-col gap-2">
+              {pipe.length === 0 ? (
+                <div className="rounded-lg border border-dashed border-border p-4 text-center text-meta text-foreground-muted">
+                  No operations yet. Pick from the menu on the left. Try Filter, then
+                  Derive, then Sort.
+                </div>
+              ) : (
+                pipe.map((op, i) => (
+                  <div
+                    key={i}
+                    className="rounded-lg border border-border bg-surface p-2.5"
+                    data-testid={`bigtable-builder-step-${i}`}
+                  >
+                    <div className="flex items-center gap-2 text-meta font-semibold">
+                      <span className="text-brand-action">{VERB[op.kind] ?? op.kind}</span>
+                      <button
+                        type="button"
+                        onClick={() => removeOp(i)}
+                        className="ml-auto rounded p-0.5 text-foreground-muted transition-colors hover:text-foreground"
+                        aria-label="Remove step"
+                      >
+                        <Icon name="x" className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
+                    <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                      <OpParams op={op} cols={allCols} onChange={(next) => updateOp(i, next)} />
+                    </div>
+                    <div className="mt-1.5 text-meta text-foreground-muted">
+                      {stepCounts[i] != null ? (
+                        <>
+                          result after this step{" "}
+                          <b className="text-brand-action">
+                            {stepCounts[i]!.toLocaleString()}
+                          </b>{" "}
+                          rows
+                        </>
+                      ) : (
+                        <span className="opacity-60">estimating...</span>
+                      )}
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+
+          {/* Live preview */}
+          <div className="overflow-hidden rounded-lg border border-border">
+            <div className="flex items-center gap-2 border-b border-border-soft bg-surface-raised px-3 py-1.5 text-meta font-semibold text-foreground">
+              Live preview, first rows of {sidecar.rowCount.toLocaleString()}
+              {resultCount != null && pipe.length > 0 && (
+                <span className="text-foreground-muted">
+                  result {resultCount.toLocaleString()} rows
+                </span>
+              )}
+              {busy && (
+                <span className="ml-auto inline-flex items-center gap-1 text-foreground-muted">
+                  <Icon name="refresh" className="h-3 w-3 animate-spin" />
+                  running on the engine
+                </span>
+              )}
+            </div>
+            {previewError ? (
+              <div className="p-3 text-meta text-foreground">
+                This recipe could not run. {previewError}
+              </div>
+            ) : (
+              <div className="max-h-64 overflow-auto">
+                <table className="w-full border-collapse text-meta tabular-nums">
+                  <thead>
+                    <tr>
+                      {previewCols.map((c) => (
+                        <th
+                          key={c}
+                          className="sticky top-0 border-b border-r border-border-soft bg-surface-raised px-2 py-1 text-right font-semibold"
+                        >
+                          {c}
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {previewRows.map((r, ri) => (
+                      <tr key={ri}>
+                        {previewCols.map((c) => {
+                          const v = r[c];
+                          return (
+                            <td
+                              key={c}
+                              className="border-b border-r border-border-soft px-2 py-1 text-right text-foreground"
+                            >
+                              {v === null || v === undefined ? "" : String(v)}
+                            </td>
+                          );
+                        })}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+
+          {/* Code panel */}
+          <div className="overflow-hidden rounded-lg border border-border">
+            <div className="flex items-center gap-0 border-b border-border-soft bg-surface-raised">
+              {(["pandas", "sql"] as const).map((m) => (
+                <button
+                  key={m}
+                  type="button"
+                  onClick={() => setCodeTab(m)}
+                  className={`px-3.5 py-1.5 text-meta font-bold transition-colors ${
+                    codeTab === m
+                      ? "text-brand-action shadow-[inset_0_-2px_0_var(--color-brand-action,#1283C9)]"
+                      : "text-foreground-muted"
+                  }`}
+                  data-testid={`bigtable-builder-code-${m}`}
+                >
+                  {m === "pandas" ? "pandas" : "SQL"}
+                </button>
+              ))}
+              <span className="ml-auto px-3 text-meta text-foreground-muted">
+                show-the-code parity, both export
+              </span>
+            </div>
+            <pre className="max-h-48 overflow-auto bg-[#0d1830] px-3 py-2.5 font-mono text-[11px] leading-relaxed text-[#cfe6ff]">
+              {codeText}
+            </pre>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/** Mirror codegen.ts nextColumnNames for the pandas-tab running column list, so a
+ *  later derive formula resolves the right names in the displayed code. */
+function nextNames(current: string[], op: TransformOp): string[] {
+  switch (op.kind) {
+    case "select":
+      return [...op.columns];
+    case "drop":
+      return current.filter((c) => !op.columns.includes(c));
+    case "rename":
+      return current.map((c) => op.mapping[c] ?? c);
+    case "groupby":
+      return [
+        ...op.by,
+        ...op.aggregations.map((a) => a.outputName ?? `${a.column}_${a.func}`),
+      ];
+    case "derive":
+      return current.includes(op.outputName) ? current : [...current, op.outputName];
+    default:
+      return current;
+  }
+}

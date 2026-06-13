@@ -30,6 +30,8 @@ import {
 } from "@/lib/datahub/bigtable";
 import { ingestToDatasetLane } from "@/lib/datahub/bigtable/ingest";
 import DatasetView from "@/components/datahub/bigtable/DatasetView";
+import TransformBuilder from "@/components/datahub/bigtable/TransformBuilder";
+import ManualSwitchControl from "@/components/datahub/bigtable/ManualSwitchControl";
 import { getDemoMode } from "@/lib/file-system/wiki-capture-mock";
 import { dataHubApi } from "@/lib/datahub/api";
 import { recipesApi } from "@/lib/datahub/recipes-store";
@@ -257,6 +259,12 @@ export default function DataHubPage() {
   );
   const [openDatasetSidecar, setOpenDatasetSidecar] =
     useState<DatasetSidecar | null>(null);
+  // Transform builder (Phase 2a) open state, for the selected dataset. The
+  // builder takes the main panel over the DatasetView when open.
+  const [datasetBuilderOpen, setDatasetBuilderOpen] = useState(false);
+  // True while the manual "Switch to large-dataset mode" conversion runs (the
+  // engine is loading + the table is being re-materialized to a dataset).
+  const [manualSwitchBusy, setManualSwitchBusy] = useState(false);
   const [newTableOpen, setNewTableOpen] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
   // The selected analysis in the Results section (null means the data grid is
@@ -338,6 +346,8 @@ export default function DataHubPage() {
   // dataset selection takes the main panel; selecting an editable table clears
   // it (handled at the rail / open seams).
   useEffect(() => {
+    // A dataset switch closes the builder (it is bound to one dataset).
+    setDatasetBuilderOpen(false);
     if (!bigTableOn || !currentUser || selectedDatasetId == null) {
       setOpenDatasetSidecar(null);
       return;
@@ -1353,6 +1363,38 @@ export default function DataHubPage() {
     [allTables, selectedTableId],
   );
 
+  // Manual "Switch to large-dataset mode" (spec section 2, mockup surface 3).
+  // Re-materialize the OPEN editable table's current rows into a dataset via the
+  // SAME ingestToDatasetLane path the auto-trip uses, then open the dataset view.
+  // The cell store is left intact (a sub-threshold table can switch back), so this
+  // is additive and non-destructive. Warned first by ManualSwitchControl.
+  const handleManualSwitch = useCallback(async () => {
+    if (!bigTableOn || !currentUser || !openContent || !selectedMeta) return;
+    setManualSwitchBusy(true);
+    try {
+      const owner = currentUser;
+      const id = await nextDatasetId(owner);
+      await ingestToDatasetLane(owner, id, {
+        name: selectedMeta.name,
+        columns: openContent.columns.map((c) => ({
+          id: c.id,
+          name: c.name,
+          dataType: c.dataType,
+        })),
+        rows: openContent.rows.map((r) => ({ id: r.id, cells: r.cells })),
+        source: { kind: "paste" },
+        project_ids: selectedMeta.project_ids ?? [],
+      });
+      await queryClient.invalidateQueries({
+        queryKey: ["datahub", "datasets", owner],
+      });
+      setSelectedTableId(null);
+      setSelectedDatasetId(id);
+    } finally {
+      setManualSwitchBusy(false);
+    }
+  }, [bigTableOn, currentUser, openContent, selectedMeta, queryClient]);
+
   // The derived-table banner inputs. When the open table is derived, resolve its
   // source meta from the catalog so the banner can name it and offer a jump to
   // it. isDerived comes from the open content's link (the recompute path sets it),
@@ -2225,11 +2267,31 @@ export default function DataHubPage() {
           }`}
         >
           {selectedDatasetId && openDatasetSidecar && currentUser ? (
-            // Large-dataset lane: the DatasetView owns the panel (preview grid,
-            // status chip, explainer, column tiers, full-render warning). It
-            // takes precedence over the editable-lane grid when a dataset is the
-            // active selection.
-            <DatasetView owner={currentUser} sidecar={openDatasetSidecar} />
+            // Large-dataset lane. The TransformBuilder takes the panel when open
+            // (Phase 2a, mockup surface 1); otherwise the DatasetView owns it
+            // (preview grid, status chip, explainer, column tiers, full-render
+            // warning). Both take precedence over the editable-lane grid.
+            datasetBuilderOpen ? (
+              <TransformBuilder
+                owner={currentUser}
+                sidecar={openDatasetSidecar}
+                mintId={() => nextDatasetId(currentUser)}
+                onClose={() => setDatasetBuilderOpen(false)}
+                onSaved={(saved) => {
+                  setDatasetBuilderOpen(false);
+                  void queryClient.invalidateQueries({
+                    queryKey: ["datahub", "datasets", currentUser],
+                  });
+                  setSelectedDatasetId(saved.id);
+                }}
+              />
+            ) : (
+              <DatasetView
+                owner={currentUser}
+                sidecar={openDatasetSidecar}
+                onOpenTransform={() => setDatasetBuilderOpen(true)}
+              />
+            )
           ) : tablesInCollection.length === 0 && datasets.length === 0 ? (
             <div className="flex flex-1 flex-col items-center justify-center gap-3 text-center">
               <h1 className="text-heading font-semibold text-foreground">
@@ -2353,6 +2415,27 @@ export default function DataHubPage() {
               )}
 
               <WorkspaceToolbar testId="datahub-table-toolbar" groups={tableToolbarGroups} />
+
+              {/* Manual switch into the large-dataset lane (spec section 2). Any
+                  normal (non-derived, non-Info) table can opt into the heavy lane
+                  for speed and the rule builder. Warns about load time first. */}
+              {bigTableOn &&
+                !derivedInfo &&
+                openContent.meta.table_type !== "info" && (
+                  <div className="border-b border-border px-5 py-2">
+                    <ManualSwitchControl
+                      rowCount={openContent.rows.length}
+                      reversible={
+                        !isLargeTable(
+                          openContent.rows.length,
+                          openContent.columns.length,
+                        )
+                      }
+                      busy={manualSwitchBusy}
+                      onConfirm={() => void handleManualSwitch()}
+                    />
+                  </div>
+                )}
 
               {confirmDeleteTableId === selectedMeta.id && (
                 <div
