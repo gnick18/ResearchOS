@@ -15,6 +15,7 @@ import { getSessionIdentity } from "@/lib/sharing/identity/session-key";
 import { patchUserSettings } from "@/lib/settings/user-settings";
 import { Icon } from "@/components/icons";
 import { createDeptForCurrentUser } from "@/lib/dept/dept-create";
+import DeptDashboard from "@/components/dept/DeptDashboard";
 import {
   mintInviteForDeptAdmin,
   loadDeptRoster,
@@ -147,8 +148,14 @@ export default function DeptAdminPanel() {
       </h1>
       <p className="mt-1 text-meta text-foreground-muted">
         {active.length} {active.length === 1 ? "lab head" : "lab heads"} in your
-        department. The full usage + billing dashboard lands in Phase 2.
+        department. Charging arrives with billing (Phase 3).
       </p>
+
+      {/* Phase 2: the usage + cost dashboard (plan builder, usage by lab,
+          over-time), reading /api/dept/usage. */}
+      <div className="mt-5">
+        <DeptDashboard />
+      </div>
 
       <div className="mt-5 rounded-xl border border-border bg-surface p-4">
         <h2 className="text-body font-medium text-foreground">Invite a lab head</h2>
