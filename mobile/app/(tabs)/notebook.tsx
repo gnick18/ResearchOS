@@ -991,6 +991,8 @@ export default function NotebookScreen() {
         {/* Connection card (always paired here, the gate above handles unpaired) */}
         <ConnectionCard
           labName={pairing?.labName ?? 'Paired with your lab'}
+          syncing={snapshotLoading}
+          onSync={loadSnapshot}
           onUnpair={onUnpair}
         />
 
@@ -1365,23 +1367,37 @@ export default function NotebookScreen() {
   );
 }
 
-// Connection card: shows lab name + Unpair when paired.
+// Connection card: shows lab name, a live freshness line driven by the laptop's
+// last publish, and Unpair. Tapping the card forces an immediate snapshot
+// re-fetch (an honest "pull the latest now", not a live socket).
 function ConnectionCard({
   labName,
+  syncing,
+  onSync,
   onUnpair,
 }: {
   labName: string;
+  syncing: boolean;
+  onSync: () => void;
   onUnpair: () => void;
 }) {
   const { surface } = useTheme();
-  // Liveness reads the newest snapshot publish time (generatedAt). The laptop
-  // republishes every minute or so while open, so a fresh publish means it is
-  // actively syncing now; otherwise we show when it last did. The pairing badge
-  // above stays put regardless, since pairing is a durable binding.
+  // Liveness reads the newest snapshot publish time (generatedAt), tracked
+  // app-wide by the fetch sites. The laptop republishes every minute or so while
+  // open, so a fresh publish means it is actively syncing now; otherwise we show
+  // when it last did. The pairing badge above stays put regardless, since
+  // pairing is a durable binding that survives a closed laptop.
   const { live, publishedAt } = useLaptopLiveness();
   const rel = relativeSyncTime(publishedAt);
   return (
-    <View style={styles.connCard}>
+    <Pressable
+      onPress={onSync}
+      disabled={syncing}
+      accessibilityRole="button"
+      accessibilityLabel="Sync now"
+      accessibilityHint="Fetches the latest from your laptop"
+      style={({ pressed }) => [styles.connCard, { opacity: pressed ? 0.9 : 1 }]}
+    >
       <View style={styles.connBadge}>
         <Ionicons name="checkmark" size={16} color={palette.white} />
       </View>
@@ -1389,7 +1405,14 @@ function ConnectionCard({
         <ThemedText style={[styles.connName, { color: surface.text }]}>
           {labName}
         </ThemedText>
-        {live ? (
+        {syncing ? (
+          <View style={styles.connStatusRow}>
+            <ActivityIndicator size="small" color={palette.sky} />
+            <ThemedText style={[styles.connSub, { color: surface.muted }]}>
+              Syncing...
+            </ThemedText>
+          </View>
+        ) : live ? (
           <View style={styles.connStatusRow}>
             <View style={styles.liveDot} />
             <ThemedText style={[styles.connSub, { color: palette.success }]}>
@@ -1402,12 +1425,14 @@ function ConnectionCard({
           </ThemedText>
         )}
       </View>
+      {/* Nested Pressable: a tap on Unpair is captured here and does not bubble
+          to the card's sync press. */}
       <Pressable onPress={onUnpair} hitSlop={8} accessibilityRole="button">
         <ThemedText style={[styles.unpairLabel, { color: palette.sky }]}>
           Unpair
         </ThemedText>
       </Pressable>
-    </View>
+    </Pressable>
   );
 }
 
@@ -1633,7 +1658,11 @@ const styles = StyleSheet.create({
   connText: { flex: 1 },
   connName: { fontSize: 14, fontWeight: '600', lineHeight: 20 },
   connSub: { fontSize: 12, lineHeight: 18 },
+  // Row holding the Live dot (or the Syncing spinner) plus its label, so the
+  // freshness line aligns its icon with the text.
   connStatusRow: { flexDirection: 'row', alignItems: 'center', gap: 5 },
+  // Small green dot shown only while the laptop is actively publishing (the
+  // generatedAt is inside the Live window).
   liveDot: {
     width: 7,
     height: 7,
