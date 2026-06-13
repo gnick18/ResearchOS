@@ -1,0 +1,827 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>BeakerBot @ mentions and / commands, composer review</title>
+<style>
+  :root {
+    --bg:#eef1f5; --surface:#fff; --sunken:#f4f7f9;
+    --text:#1a2530; --text-2:#5a6b78; --text-3:#8a98a4;
+    --border:rgba(26,37,48,0.12); --border-2:rgba(26,37,48,0.22);
+    --sky:#38bdf8; --sky-deep:#15679c; --sky-soft:rgba(56,189,248,0.09); --sky-chip:rgba(56,189,248,0.14);
+    --ok:#1d7a3e; --ok-bg:#e7f6ec; --warn:#b45309; --warn-bg:#fef3e2;
+    --r:12px; --rm:8px; --sans:ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;background:var(--bg);color:var(--text);font-family:var(--sans);}
+
+  /* top bar */
+  .topbar{position:sticky;top:0;z-index:60;display:flex;align-items:center;gap:16px;padding:11px 20px;background:var(--surface);border-bottom:1px solid var(--border-2);}
+  .topbar .title{font-size:15px;font-weight:600;}
+  .topbar .sum{margin-left:auto;font-size:12px;color:var(--text-2);}
+  .btn{font-family:inherit;font-size:13px;border:1px solid var(--border-2);background:var(--surface);color:var(--text);border-radius:var(--rm);padding:7px 13px;cursor:pointer;}
+  .btn.primary{background:var(--sky);border-color:var(--sky);color:#06243a;font-weight:600;}
+  .btn:hover{background:var(--sunken);} .btn.primary:hover{filter:brightness(0.97);}
+  .howto{background:#0f172a;color:#cfe8fb;font-size:13px;padding:10px 20px;display:flex;align-items:center;gap:8px;}
+  .howto b{color:#fff;}
+
+  /* layout */
+  .wrap{max-width:820px;margin:0 auto;padding:22px 22px 160px;}
+  .rs{margin-bottom:38px;}
+  .rs > header{display:flex;align-items:center;gap:12px;margin-bottom:10px;}
+  .rs h3{margin:0;font-size:14px;font-weight:600;flex:1;}
+  .note{font-size:12px;color:var(--text-2);margin:8px 2px 0;line-height:1.5;}
+
+  /* approve segment */
+  .seg{display:inline-flex;border:1px solid var(--border-2);border-radius:999px;overflow:hidden;font-size:11px;}
+  .seg button{font-family:inherit;border:0;background:transparent;color:var(--text-2);padding:4px 11px;cursor:pointer;}
+  .seg button.on-ok{background:var(--ok-bg);color:var(--ok);font-weight:600;}
+  .seg button.on-warn{background:var(--warn-bg);color:var(--warn);font-weight:600;}
+
+  /* mock frame */
+  .mockwrap{position:relative;}
+  .hint{position:absolute;top:8px;right:8px;z-index:4;display:inline-flex;align-items:center;gap:5px;font-size:11px;color:var(--sky-deep);background:var(--sky-chip);border:1px solid rgba(56,189,248,0.4);border-radius:999px;padding:3px 9px;pointer-events:none;}
+  .mock{position:relative;background:var(--surface);border:1px solid var(--border-2);border-radius:var(--r);overflow:hidden;cursor:crosshair;}
+  .mock *{pointer-events:none;}
+
+  /* comment pins */
+  .pin{position:absolute;width:24px;height:24px;border-radius:999px;background:var(--sky);color:#06243a;font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center;transform:translate(-50%,-50%);box-shadow:0 1px 5px rgba(0,0,0,.35);z-index:6;cursor:pointer;pointer-events:auto;border:2px solid #fff;}
+  .editor{position:absolute;z-index:8;width:230px;background:#fff;border:1px solid var(--border-2);border-radius:var(--rm);box-shadow:0 8px 24px rgba(0,0,0,.22);padding:9px;pointer-events:auto;}
+  .editor textarea{width:100%;border:1px solid var(--border);border-radius:6px;padding:6px;font-family:inherit;font-size:12px;resize:vertical;min-height:54px;}
+  .editor .erow{display:flex;gap:6px;margin-top:7px;}
+  .editor .esave{flex:1;background:var(--sky);border:0;color:#06243a;font-weight:600;font-size:12px;border-radius:6px;padding:6px;cursor:pointer;}
+  .editor .edel{background:none;border:1px solid var(--border-2);color:var(--text-2);font-size:12px;border-radius:6px;padding:6px 9px;cursor:pointer;}
+
+  /* shared SVG icon helper */
+  svg.icon{stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;}
+
+  /* ──────────────────────────────────────────────
+     MOCK SHARED COMPONENTS
+  ────────────────────────────────────────────── */
+
+  /* BeakerBot panel container */
+  .bb-panel{width:320px;background:var(--surface);border:1px solid var(--border-2);border-radius:var(--r);overflow:visible;box-shadow:0 4px 20px rgba(0,0,0,.12);}
+  .bb-head{display:flex;align-items:center;gap:9px;padding:11px 13px;border-bottom:1px solid var(--border);}
+  .bb-avatar{width:26px;height:26px;border-radius:7px;background:var(--sky-chip);color:var(--sky-deep);display:inline-flex;align-items:center;justify-content:center;flex:none;}
+  .bb-name{font-size:14px;font-weight:600;flex:1;}
+  .bb-toggle{display:inline-flex;border:1px solid var(--border-2);border-radius:7px;overflow:hidden;font-size:11px;}
+  .bb-toggle span{padding:3px 8px;color:var(--text-3);}
+  .bb-toggle .bb-ton{background:var(--sky-chip);color:var(--sky-deep);}
+  .bb-body{padding:10px 12px;display:flex;flex-direction:column;gap:9px;min-height:80px;}
+
+  /* chat bubbles */
+  .um{align-self:flex-end;max-width:90%;padding:7px 10px;border-radius:7px;background:var(--sunken);font-size:12px;line-height:1.5;display:flex;align-items:baseline;flex-wrap:wrap;gap:4px;}
+  .bm{font-size:12px;color:var(--text-2);line-height:1.6;}
+
+  /* context chip inside a message bubble */
+  .ctx-chip{display:inline-flex;align-items:center;gap:4px;padding:2px 7px;border-radius:5px;background:var(--sky-chip);border:1px solid rgba(56,189,248,0.35);color:var(--sky-deep);font-size:11px;font-weight:500;white-space:nowrap;vertical-align:middle;}
+  .ctx-chip .ty-glyph{width:11px;height:11px;flex:none;}
+  .ctx-chip .x-btn{margin-left:2px;color:var(--sky-deep);opacity:0.6;font-size:10px;line-height:1;}
+
+  /* command prefix chip */
+  .cmd-chip{display:inline-flex;align-items:center;gap:4px;padding:2px 7px;border-radius:5px;background:#f0fdf4;border:1px solid #bbf7d0;color:#166534;font-size:11px;font-weight:600;white-space:nowrap;vertical-align:middle;}
+
+  /* composer row */
+  .composer{display:flex;align-items:flex-end;gap:8px;padding:10px 12px;border-top:1px solid var(--border);background:var(--surface);}
+  .composer-inner{flex:1;border:1px solid var(--border-2);border-radius:var(--rm);overflow:visible;position:relative;}
+  .composer-chips{display:flex;flex-wrap:wrap;gap:4px;padding:6px 8px 0;min-height:0;}
+  .composer-chips:empty{padding:0;}
+  .composer-input{width:100%;border:0;outline:none;font-family:inherit;font-size:13px;color:var(--text);background:transparent;padding:6px 8px 7px;resize:none;min-height:32px;}
+  .send-btn{width:30px;height:30px;border-radius:7px;background:var(--sky);border:0;color:#06243a;display:inline-flex;align-items:center;justify-content:center;flex:none;cursor:pointer;}
+  .meter{padding:7px 12px;border-top:1px solid var(--border);font-size:11px;color:var(--text-3);display:flex;gap:6px;}
+  .meter .bal{margin-left:auto;color:var(--text-2);}
+
+  /* @ picker dropdown */
+  .at-picker{position:absolute;bottom:calc(100% + 4px);left:0;right:0;background:var(--surface);border:1px solid var(--border-2);border-radius:var(--rm);box-shadow:0 8px 28px rgba(0,0,0,.22);overflow:hidden;z-index:20;}
+  .at-picker .apsearch{display:flex;align-items:center;gap:7px;padding:9px 11px;border-bottom:1px solid var(--border);}
+  .at-picker .apsearch .q{flex:1;font-size:13px;color:var(--text);}
+  .at-picker .apsearch .q .cur{color:var(--text-3);}
+  .at-grp{font-size:10px;letter-spacing:.05em;text-transform:uppercase;color:var(--text-3);padding:7px 11px 3px;}
+  .at-row{display:flex;align-items:center;gap:9px;padding:7px 11px;cursor:pointer;}
+  .at-row.sel{background:var(--sky-soft);}
+  .at-row .ic{width:18px;height:18px;flex:none;color:var(--text-3);}
+  .at-row .at-name{flex:1;font-size:12px;color:var(--text);}
+  .at-row .at-ty{font-size:10px;color:var(--text-3);background:var(--sunken);border-radius:4px;padding:1px 5px;}
+  .at-foot{padding:6px 11px;border-top:1px solid var(--border);font-size:10px;color:var(--text-3);display:flex;gap:10px;}
+
+  /* / command menu */
+  .slash-menu{position:absolute;bottom:calc(100% + 4px);left:0;right:0;background:var(--surface);border:1px solid var(--border-2);border-radius:var(--rm);box-shadow:0 8px 28px rgba(0,0,0,.22);overflow:hidden;z-index:20;}
+  .slash-menu .smtitle{font-size:10px;letter-spacing:.05em;text-transform:uppercase;color:var(--text-3);padding:8px 11px 4px;}
+  .slash-row{display:flex;align-items:center;gap:10px;padding:8px 11px;}
+  .slash-row.sel{background:var(--sky-soft);}
+  .slash-row .s-name{font-size:13px;font-weight:600;color:var(--sky-deep);width:90px;flex:none;}
+  .slash-row .s-desc{font-size:12px;color:var(--text-2);flex:1;line-height:1.4;}
+  .slash-foot{padding:6px 11px;border-top:1px solid var(--border);font-size:10px;color:var(--text-3);display:flex;gap:10px;}
+
+  /* before/after split */
+  .ba-split{display:grid;grid-template-columns:1fr 1fr;gap:14px;}
+  .ba-col{display:flex;flex-direction:column;gap:7px;}
+  .ba-label{font-size:11px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;padding:5px 9px;border-radius:6px;}
+  .ba-label.before{background:#fff7ed;color:#b45309;}
+  .ba-label.after{background:var(--ok-bg);color:var(--ok);}
+  .ba-card{background:var(--surface);border:1px solid var(--border-2);border-radius:var(--rm);overflow:hidden;}
+  .ba-card .ba-msg{padding:9px 11px;font-size:12px;color:var(--text);line-height:1.5;}
+  .ba-card .ba-meta{padding:5px 11px 8px;font-size:11px;color:var(--text-3);border-top:1px dashed var(--border);}
+
+  /* ambiguity warning callout */
+  .callout{display:flex;align-items:flex-start;gap:9px;padding:9px 11px;background:#fff7ed;border:1px solid #fed7aa;border-radius:var(--rm);font-size:12px;color:#92400e;line-height:1.5;}
+  .callout .c-icon{width:16px;height:16px;flex:none;margin-top:1px;}
+  .callout-ok{background:var(--ok-bg);border-color:#86efac;color:#14532d;}
+
+  /* type icon colors */
+  .ic-note{color:#7c3aed;}
+  .ic-exp{color:#d97706;}
+  .ic-method{color:#0891b2;}
+  .ic-seq{color:#16a34a;}
+  .ic-table{color:#dc2626;}
+  .ic-project{color:#4f46e5;}
+  .ic-purchase{color:#be185d;}
+  .ic-mol{color:#0369a1;}
+</style>
+</head>
+<body>
+
+<!-- hidden SVG defs -->
+<svg width="0" height="0" aria-hidden="true" style="position:absolute"><defs>
+<linearGradient id="bbliq" x1="0" y1="0" x2="0" y2="1">
+  <stop offset="0%" stop-color="#FFD2B0"/><stop offset="25%" stop-color="#FFF1A8"/>
+  <stop offset="50%" stop-color="#B7EBB1"/><stop offset="75%" stop-color="#A6D2F4"/>
+  <stop offset="100%" stop-color="#D6B5F0"/>
+</linearGradient>
+<symbol id="bbmark" viewBox="8 3 24 31">
+  <path d="M 12 12 L 12 24 C 12 30, 16 32, 20 32 C 24 32, 28 30, 28 24 L 28 12 Z" fill="#fff" stroke="none"/>
+  <path d="M 12 19 Q 14 17.8, 16 19 T 20 19 T 24 19 T 28 19 L 28 24 C 28 30, 24 32, 20 32 C 16 32, 12 30, 12 24 L 12 19 Z" fill="url(#bbliq)" stroke="none"/>
+  <path d="M22 8 C 22 6, 24 4, 26 6" stroke="currentColor"/>
+  <path d="M12 12 L12 24 C 12 30, 16 32, 20 32 C 24 32, 28 30, 28 24 L28 12" stroke="currentColor"/>
+  <path d="M11 12 L29 12" stroke="currentColor"/>
+  <circle cx="17" cy="18" r="1.2" fill="currentColor" stroke="none"/>
+  <circle cx="23" cy="18" r="1.2" fill="currentColor" stroke="none"/>
+  <path d="M18 22 Q 20 24, 22 22" stroke="currentColor"/>
+  <path d="M14 26 L15.5 26" stroke="currentColor"/>
+  <path d="M24.5 26 L26 26" stroke="currentColor"/>
+</symbol>
+
+<!-- type icons -->
+<symbol id="ic-note" viewBox="0 0 24 24"><path d="M6 3h9l3 3v15H6z"/><path d="M9 9h6M9 13h6M9 17h3"/></symbol>
+<symbol id="ic-exp" viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="2"/><path d="M9 12l2 2 4-4"/></symbol>
+<symbol id="ic-method" viewBox="0 0 24 24"><path d="M9 3H5a2 2 0 0 0-2 2v4m6-6h10a2 2 0 0 1 2 2v4M9 3v18m0 0h10a2 2 0 0 0 2-2V9M9 21H5a2 2 0 0 1-2-2V9m0 0h18"/></symbol>
+<symbol id="ic-seq" viewBox="0 0 24 24"><path d="M7 4c5 4 5 12 10 16M17 4c-5 4-5 12-10 16"/></symbol>
+<symbol id="ic-table" viewBox="0 0 24 24"><path d="M4 20V10M10 20V4M16 20v-7M21 20H3"/></symbol>
+<symbol id="ic-project" viewBox="0 0 24 24"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></symbol>
+<symbol id="ic-purchase" viewBox="0 0 24 24"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><path d="M3 6h18M16 10a4 4 0 0 1-8 0"/></symbol>
+<symbol id="ic-mol" viewBox="0 0 24 24"><path d="M12 3l7 4v8l-7 4-7-4V7z"/><path d="M12 7v10M5 11l7 4 7-4"/></symbol>
+<symbol id="ic-send" viewBox="0 0 24 24"><path d="M22 2 11 13M22 2 15 22l-4-9-9-4 20-7z"/></symbol>
+<symbol id="ic-warn" viewBox="0 0 24 24"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></symbol>
+<symbol id="ic-check" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></symbol>
+</defs></svg>
+
+<div class="topbar">
+  <span class="title">BeakerBot @ mentions and / commands, composer review</span>
+  <span class="sum" id="sum">0 approved &middot; 0 needs work &middot; 0 comments</span>
+  <button class="btn primary" id="exportBtn">Export feedback</button>
+</div>
+<div class="howto">
+  <b>To comment:</b> click anywhere on a mockup and a note box opens right there. Set <b>Approve</b> or <b>Needs work</b> per section. Then <b>Export</b>.
+</div>
+
+<div class="wrap" id="wrap">
+
+  <!-- ──────────────────────────────────────────────
+       SECTION 1: @ mention picker
+  ────────────────────────────────────────────── -->
+  <section class="rs" data-name="@ mention picker">
+    <header>
+      <h3>1. The @ mention picker</h3>
+      <div class="seg" data-approve>
+        <button data-v="ok">Approve</button>
+        <button data-v="warn">Needs work</button>
+      </div>
+    </header>
+
+    <div class="mockwrap"><span class="hint">click to comment</span>
+    <div class="mock" style="padding:18px;background:var(--sunken);display:flex;justify-content:center;overflow:visible;min-height:360px;">
+
+      <!-- panel with @ picker open -->
+      <div class="bb-panel" style="position:relative;">
+        <div class="bb-head">
+          <span class="bb-avatar"><svg class="icon" width="15" height="15" viewBox="0 0 24 24"><use href="#bbmark"/></svg></span>
+          <span class="bb-name">BeakerBot</span>
+          <span class="bb-toggle"><span class="bb-ton">Ask</span><span>Auto</span></span>
+        </div>
+        <div class="bb-body">
+          <div class="um">What were the results of my last</div>
+          <div class="bm">On it. Let me check your recent experiments.</div>
+        </div>
+
+        <!-- composer with @ picker open -->
+        <div class="composer">
+          <div class="composer-inner">
+
+            <!-- @ picker dropdown, anchored above -->
+            <div class="at-picker">
+              <div class="apsearch">
+                <span style="font-size:13px;font-weight:600;color:var(--sky-deep);">@</span>
+                <span class="q">qpcr<span class="cur"> |</span></span>
+              </div>
+
+              <div class="at-grp">Experiments</div>
+              <div class="at-row sel">
+                <svg class="icon ic at-row-ic ic-exp" width="16" height="16" viewBox="0 0 24 24"><use href="#ic-exp"/></svg>
+                <span class="at-name">qPCR, fakeGFP expression vs control</span>
+                <span class="at-ty">experiment</span>
+              </div>
+
+              <div class="at-grp">Tables</div>
+              <div class="at-row">
+                <svg class="icon ic at-row-ic ic-table" width="16" height="16" viewBox="0 0 24 24"><use href="#ic-table"/></svg>
+                <span class="at-name">fakeGFP qPCR expression</span>
+                <span class="at-ty">table</span>
+              </div>
+
+              <div class="at-grp">Methods</div>
+              <div class="at-row">
+                <svg class="icon ic at-row-ic ic-method" width="16" height="16" viewBox="0 0 24 24"><use href="#ic-method"/></svg>
+                <span class="at-name">qPCR analysis, Cq + standard curve</span>
+                <span class="at-ty">method</span>
+              </div>
+              <div class="at-row">
+                <svg class="icon ic at-row-ic ic-note" width="16" height="16" viewBox="0 0 24 24"><use href="#ic-note"/></svg>
+                <span class="at-name">qPCR optimization, 2026-05-14</span>
+                <span class="at-ty">note</span>
+              </div>
+
+              <div class="at-foot">
+                <span>&#8593;&#8595; navigate</span>
+                <span>&#8629; attach</span>
+                <span>esc close</span>
+              </div>
+            </div>
+
+            <!-- input text -->
+            <div class="composer-input" style="color:var(--text-3);">Summarize <span style="color:var(--text);font-weight:500;">@qpcr</span><span style="color:var(--text-3);border-left:1.5px solid var(--text-3);margin-left:1px;">&nbsp;</span></div>
+          </div>
+          <button class="send-btn">
+            <svg class="icon" width="14" height="14" viewBox="0 0 24 24"><use href="#ic-send"/></svg>
+          </button>
+        </div>
+        <div class="meter">Index: 47 objects <span class="bal">$8.40 credit</span></div>
+      </div>
+
+    </div></div>
+    <p class="note">Typing "@" opens the picker instantly, filtered by whatever follows. Results come from the same cross-type index that powers BeakerSearch, so the user sees their own notes, experiments, methods, sequences, tables, projects, purchases, and molecules, all in one list. Arrow keys navigate; Enter attaches. The currently-highlighted row (sky-blue tint) is the experiment. Choosing one inserts a context chip into the input.</p>
+  </section>
+
+  <!-- ──────────────────────────────────────────────
+       SECTION 2: composed message with chips
+  ────────────────────────────────────────────── -->
+  <section class="rs" data-name="Composed message with context chips">
+    <header>
+      <h3>2. Composed message with inserted context chips</h3>
+      <div class="seg" data-approve>
+        <button data-v="ok">Approve</button>
+        <button data-v="warn">Needs work</button>
+      </div>
+    </header>
+
+    <div class="mockwrap"><span class="hint">click to comment</span>
+    <div class="mock" style="padding:18px;background:var(--sunken);display:flex;justify-content:center;">
+
+      <div class="bb-panel">
+        <div class="bb-head">
+          <span class="bb-avatar"><svg class="icon" width="15" height="15" viewBox="0 0 24 24"><use href="#bbmark"/></svg></span>
+          <span class="bb-name">BeakerBot</span>
+          <span class="bb-toggle"><span class="bb-ton">Ask</span><span>Auto</span></span>
+        </div>
+        <div class="bb-body">
+          <!-- earlier exchange -->
+          <div class="um" style="font-size:12px;flex-direction:row;align-items:center;flex-wrap:wrap;gap:4px;">
+            Compare
+            <span class="ctx-chip">
+              <svg class="icon ty-glyph ic-exp" width="11" height="11" viewBox="0 0 24 24"><use href="#ic-exp"/></svg>
+              fakeGFP qPCR expression
+              <span class="x-btn">x</span>
+            </span>
+            with last week's run
+          </div>
+          <div class="bm">I found one matching experiment from last week (2026-06-06). Running a t-test now.</div>
+        </div>
+
+        <!-- composer with two chips already inserted -->
+        <div class="composer">
+          <div class="composer-inner">
+            <div class="composer-chips">
+              <span class="ctx-chip">
+                <svg class="icon ty-glyph ic-exp" width="11" height="11" viewBox="0 0 24 24"><use href="#ic-exp"/></svg>
+                fakeGFP qPCR, June 6
+                <span class="x-btn">x</span>
+              </span>
+              <span class="ctx-chip">
+                <svg class="icon ty-glyph ic-note" width="11" height="11" viewBox="0 0 24 24"><use href="#ic-note"/></svg>
+                PCR optimization note, 2026-05-14
+                <span class="x-btn">x</span>
+              </span>
+            </div>
+            <div class="composer-input">Also check the annealing temperature used</div>
+          </div>
+          <button class="send-btn">
+            <svg class="icon" width="14" height="14" viewBox="0 0 24 24"><use href="#ic-send"/></svg>
+          </button>
+        </div>
+        <div class="meter">2 objects attached <span class="bal">$8.40 credit</span></div>
+      </div>
+
+    </div></div>
+    <p class="note">Each selected object becomes a chip inside the composer, sitting above the text input. Two chips are attached here: an experiment and a note. The "x" on each chip lets the user remove it before sending. The chip is visually distinct from the typed text and tells BeakerBot precisely which objects to act on, rather than the bot guessing what "it" or "the result" means. The meter row updates to show how many objects are attached.</p>
+  </section>
+
+  <!-- ──────────────────────────────────────────────
+       SECTION 3: / command menu
+  ────────────────────────────────────────────── -->
+  <section class="rs" data-name="/ command menu">
+    <header>
+      <h3>3. The / command menu</h3>
+      <div class="seg" data-approve>
+        <button data-v="ok">Approve</button>
+        <button data-v="warn">Needs work</button>
+      </div>
+    </header>
+
+    <div class="mockwrap"><span class="hint">click to comment</span>
+    <div class="mock" style="padding:18px;background:var(--sunken);display:flex;justify-content:center;overflow:visible;min-height:360px;">
+
+      <div class="bb-panel">
+        <div class="bb-head">
+          <span class="bb-avatar"><svg class="icon" width="15" height="15" viewBox="0 0 24 24"><use href="#bbmark"/></svg></span>
+          <span class="bb-name">BeakerBot</span>
+          <span class="bb-toggle"><span class="bb-ton">Ask</span><span>Auto</span></span>
+        </div>
+        <div class="bb-body">
+          <div class="bm">Ready. Try "/" to pick an action, then "@" to attach an object.</div>
+        </div>
+
+        <!-- composer with slash menu open -->
+        <div class="composer">
+          <div class="composer-inner" style="overflow:visible;">
+
+            <!-- / menu anchored above input -->
+            <div class="slash-menu">
+              <div class="smtitle">Commands</div>
+
+              <div class="slash-row sel">
+                <span class="s-name">/summarize</span>
+                <span class="s-desc">Summarize an object or date range. BeakerBot counts; model narrates.</span>
+              </div>
+              <div class="slash-row">
+                <span class="s-name">/plot</span>
+                <span class="s-desc">Make a chart from a table or result set in the Data Hub.</span>
+              </div>
+              <div class="slash-row">
+                <span class="s-name">/cite</span>
+                <span class="s-desc">Generate a formatted citation for a method, note, or sequence.</span>
+              </div>
+              <div class="slash-row">
+                <span class="s-name">/digest</span>
+                <span class="s-desc">Cross-type lab digest: experiments + purchases + notes for a period.</span>
+              </div>
+              <div class="slash-row">
+                <span class="s-name">/setup</span>
+                <span class="s-desc">Create an experiment from a method, schedule tasks, link a note, one step.</span>
+              </div>
+              <div class="slash-row">
+                <span class="s-name">/draft</span>
+                <span class="s-desc">Draft a note or summary to review before BeakerBot writes it.</span>
+              </div>
+
+              <div class="slash-foot">
+                <span>&#8593;&#8595; navigate</span>
+                <span>&#8629; select</span>
+                <span>esc close</span>
+              </div>
+            </div>
+
+            <div class="composer-input"><span style="color:#166534;font-weight:600;">/</span><span style="color:var(--text-3);border-left:1.5px solid var(--text-3);margin-left:1px;">&nbsp;</span></div>
+          </div>
+          <button class="send-btn">
+            <svg class="icon" width="14" height="14" viewBox="0 0 24 24"><use href="#ic-send"/></svg>
+          </button>
+        </div>
+        <div class="meter">Index: 47 objects <span class="bal">$8.40 credit</span></div>
+      </div>
+
+    </div></div>
+    <p class="note">Typing "/" at the start of the input opens this command list. Each entry maps to a real BeakerBot tool that already exists (summarize_*, make_datahub_graph, the citation surface, lab_digest, setup_experiment, the draft-preview gate). This is the input affordance, not new backend. The highlighted row is /summarize. Selecting it pre-fills the input intent and leaves the cursor ready for an @object.</p>
+  </section>
+
+  <!-- ──────────────────────────────────────────────
+       SECTION 4: composed / + @ combined
+  ────────────────────────────────────────────── -->
+  <section class="rs" data-name="Combined / command + @ mention">
+    <header>
+      <h3>4. Combined usage: /summarize @Q2 experiments</h3>
+      <div class="seg" data-approve>
+        <button data-v="ok">Approve</button>
+        <button data-v="warn">Needs work</button>
+      </div>
+    </header>
+
+    <div class="mockwrap"><span class="hint">click to comment</span>
+    <div class="mock" style="padding:18px;background:var(--sunken);display:flex;justify-content:center;">
+
+      <div class="bb-panel">
+        <div class="bb-head">
+          <span class="bb-avatar"><svg class="icon" width="15" height="15" viewBox="0 0 24 24"><use href="#bbmark"/></svg></span>
+          <span class="bb-name">BeakerBot</span>
+          <span class="bb-toggle"><span class="bb-ton">Ask</span><span>Auto</span></span>
+        </div>
+        <div class="bb-body">
+          <!-- show message already sent and response -->
+          <div class="um" style="flex-direction:row;align-items:center;flex-wrap:wrap;gap:4px;">
+            <span class="cmd-chip">/summarize</span>
+            <span class="ctx-chip">
+              <svg class="icon ty-glyph ic-project" width="11" height="11" viewBox="0 0 24 24"><use href="#ic-project"/></svg>
+              cyp51A project
+              <span class="x-btn">x</span>
+            </span>
+            Q2
+          </div>
+          <div class="bm">Found 14 experiments and 3 purchases in the cyp51A project during Q2. Here is the breakdown:</div>
+          <div style="font-size:11px;border:1px solid var(--border);border-radius:7px;overflow:hidden;">
+            <div style="display:flex;align-items:center;justify-content:space-between;padding:5px 9px;background:var(--sunken);border-bottom:1px solid var(--border);font-weight:600;color:var(--text);">cyp51A project, Q2 summary</div>
+            <div style="padding:7px 9px;color:var(--text-2);line-height:1.7;">
+              Experiments: 14 total, 11 complete, 3 in progress.<br>
+              Purchases: 3 orders, $412 total.<br>
+              Notes: 8 lab notes written.
+            </div>
+            <div style="padding:5px 9px;border-top:1px solid var(--border);display:flex;gap:7px;">
+              <span style="font-size:11px;color:var(--sky-deep);cursor:pointer;">Save as note</span>
+              <span style="font-size:11px;color:var(--sky-deep);cursor:pointer;">Open cyp51A project</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- ready for next input -->
+        <div class="composer">
+          <div class="composer-inner">
+            <div class="composer-input" style="color:var(--text-3);">Ask something, or type @ to attach an object...</div>
+          </div>
+          <button class="send-btn">
+            <svg class="icon" width="14" height="14" viewBox="0 0 24 24"><use href="#ic-send"/></svg>
+          </button>
+        </div>
+        <div class="meter">Last: 29k tokens <span class="bal">$7.90 credit</span></div>
+      </div>
+
+    </div></div>
+    <p class="note">The result of a /summarize + @project message. The command chip and context chip are shown inside the sent bubble so the user can see exactly what they issued. The response shows the summary card with real numbers from the deterministic tool; the model only narrates. "Save as note" and "Open project" are provenance chips that link back to the source object.</p>
+  </section>
+
+  <!-- ──────────────────────────────────────────────
+       SECTION 5: before / after ambiguity comparison
+  ────────────────────────────────────────────── -->
+  <section class="rs" data-name="Before vs after ambiguity comparison">
+    <header>
+      <h3>5. Before vs after: removing the "this" guessing</h3>
+      <div class="seg" data-approve>
+        <button data-v="ok">Approve</button>
+        <button data-v="warn">Needs work</button>
+      </div>
+    </header>
+
+    <div class="mockwrap"><span class="hint">click to comment</span>
+    <div class="mock" style="padding:20px;background:var(--sunken);">
+
+      <div class="ba-split">
+
+        <!-- BEFORE -->
+        <div class="ba-col">
+          <div class="ba-label before">Today (no @ or /)</div>
+
+          <div class="ba-card">
+            <div class="ba-msg">make a chart of this</div>
+            <div class="ba-meta">BeakerBot has to guess what "this" means from context clues in the conversation.</div>
+          </div>
+
+          <div class="callout">
+            <svg class="icon c-icon" width="16" height="16" viewBox="0 0 24 24"><use href="#ic-warn"/></svg>
+            The context bridge reads the page state, recent messages, and the open object to infer what "this" points to. It can be wrong, especially mid-conversation or when multiple objects are visible.
+          </div>
+
+          <div class="ba-card">
+            <div class="ba-msg">summarize the results from last week's run, the qPCR one</div>
+            <div class="ba-meta">Phrase must spell out enough detail for the bot to resolve the right experiment, often across multiple tries.</div>
+          </div>
+
+          <div class="ba-card">
+            <div class="ba-msg">compare those two experiments for me</div>
+            <div class="ba-meta">"Those two" requires the model to hold conversation state and map it to specific objects, which fails after a few messages.</div>
+          </div>
+        </div>
+
+        <!-- AFTER -->
+        <div class="ba-col">
+          <div class="ba-label after">With @ mentions and / commands</div>
+
+          <div class="ba-card">
+            <div class="ba-msg" style="display:flex;align-items:center;flex-wrap:wrap;gap:5px;">
+              <span class="cmd-chip">/plot</span>
+              <span class="ctx-chip">
+                <svg class="icon ty-glyph ic-table" width="11" height="11" viewBox="0 0 24 24"><use href="#ic-table"/></svg>
+                fakeGFP expression table
+                <span class="x-btn">x</span>
+              </span>
+            </div>
+            <div class="ba-meta">Unambiguous. The table ID is sent directly. BeakerBot never guesses.</div>
+          </div>
+
+          <div class="callout callout-ok">
+            <svg class="icon c-icon" width="16" height="16" viewBox="0 0 24 24"><use href="#ic-check"/></svg>
+            The context bridge still runs in the background (so free-text still works). @ and / are an opt-in power mode for users who want zero ambiguity. They do not replace the bridge, they short-circuit it.
+          </div>
+
+          <div class="ba-card">
+            <div class="ba-msg" style="display:flex;align-items:center;flex-wrap:wrap;gap:5px;">
+              <span class="cmd-chip">/summarize</span>
+              <span class="ctx-chip">
+                <svg class="icon ty-glyph ic-exp" width="11" height="11" viewBox="0 0 24 24"><use href="#ic-exp"/></svg>
+                fakeGFP qPCR, June 6
+                <span class="x-btn">x</span>
+              </span>
+            </div>
+            <div class="ba-meta">One command chip, one object chip. No prose needed.</div>
+          </div>
+
+          <div class="ba-card">
+            <div class="ba-msg" style="display:flex;align-items:center;flex-wrap:wrap;gap:5px;">
+              Compare
+              <span class="ctx-chip">
+                <svg class="icon ty-glyph ic-exp" width="11" height="11" viewBox="0 0 24 24"><use href="#ic-exp"/></svg>
+                fakeGFP qPCR, June 6
+                <span class="x-btn">x</span>
+              </span>
+              and
+              <span class="ctx-chip">
+                <svg class="icon ty-glyph ic-exp" width="11" height="11" viewBox="0 0 24 24"><use href="#ic-exp"/></svg>
+                fakeGFP qPCR, May 30
+                <span class="x-btn">x</span>
+              </span>
+            </div>
+            <div class="ba-meta">Two explicit chips. Conversation state does not matter; each object carries its own ID.</div>
+          </div>
+        </div>
+
+      </div>
+    </div></div>
+    <p class="note">The core value proposition: @ and / remove the "this"/"the result" guessing the context bridge currently has to do. Free-text still works (the bridge still runs), so no user is penalized for not using them. Power users and repeat-task workflows benefit most.</p>
+  </section>
+
+  <!-- ──────────────────────────────────────────────
+       SECTION 6: type glyph legend
+  ────────────────────────────────────────────── -->
+  <section class="rs" data-name="Type glyph legend">
+    <header>
+      <h3>6. Object type glyphs in the picker</h3>
+      <div class="seg" data-approve>
+        <button data-v="ok">Approve</button>
+        <button data-v="warn">Needs work</button>
+      </div>
+    </header>
+
+    <div class="mockwrap"><span class="hint">click to comment</span>
+    <div class="mock" style="padding:20px;background:var(--sunken);">
+
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;">
+
+        <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--rm);padding:12px;display:flex;flex-direction:column;align-items:center;gap:7px;">
+          <svg class="icon ic-note" width="22" height="22" viewBox="0 0 24 24"><use href="#ic-note"/></svg>
+          <span style="font-size:11px;color:var(--text-2);font-weight:600;">note</span>
+          <span class="ctx-chip" style="font-size:10px;">
+            <svg class="icon ty-glyph ic-note" width="10" height="10" viewBox="0 0 24 24"><use href="#ic-note"/></svg>
+            PCR note
+          </span>
+        </div>
+
+        <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--rm);padding:12px;display:flex;flex-direction:column;align-items:center;gap:7px;">
+          <svg class="icon ic-exp" width="22" height="22" viewBox="0 0 24 24"><use href="#ic-exp"/></svg>
+          <span style="font-size:11px;color:var(--text-2);font-weight:600;">experiment</span>
+          <span class="ctx-chip" style="font-size:10px;">
+            <svg class="icon ty-glyph ic-exp" width="10" height="10" viewBox="0 0 24 24"><use href="#ic-exp"/></svg>
+            fakeGFP qPCR
+          </span>
+        </div>
+
+        <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--rm);padding:12px;display:flex;flex-direction:column;align-items:center;gap:7px;">
+          <svg class="icon ic-method" width="22" height="22" viewBox="0 0 24 24"><use href="#ic-method"/></svg>
+          <span style="font-size:11px;color:var(--text-2);font-weight:600;">method</span>
+          <span class="ctx-chip" style="font-size:10px;">
+            <svg class="icon ty-glyph ic-method" width="10" height="10" viewBox="0 0 24 24"><use href="#ic-method"/></svg>
+            qPCR analysis
+          </span>
+        </div>
+
+        <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--rm);padding:12px;display:flex;flex-direction:column;align-items:center;gap:7px;">
+          <svg class="icon ic-seq" width="22" height="22" viewBox="0 0 24 24"><use href="#ic-seq"/></svg>
+          <span style="font-size:11px;color:var(--text-2);font-weight:600;">sequence</span>
+          <span class="ctx-chip" style="font-size:10px;">
+            <svg class="icon ty-glyph ic-seq" width="10" height="10" viewBox="0 0 24 24"><use href="#ic-seq"/></svg>
+            fakeGFP-V5
+          </span>
+        </div>
+
+        <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--rm);padding:12px;display:flex;flex-direction:column;align-items:center;gap:7px;">
+          <svg class="icon ic-table" width="22" height="22" viewBox="0 0 24 24"><use href="#ic-table"/></svg>
+          <span style="font-size:11px;color:var(--text-2);font-weight:600;">table</span>
+          <span class="ctx-chip" style="font-size:10px;">
+            <svg class="icon ty-glyph ic-table" width="10" height="10" viewBox="0 0 24 24"><use href="#ic-table"/></svg>
+            expression data
+          </span>
+        </div>
+
+        <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--rm);padding:12px;display:flex;flex-direction:column;align-items:center;gap:7px;">
+          <svg class="icon ic-project" width="22" height="22" viewBox="0 0 24 24"><use href="#ic-project"/></svg>
+          <span style="font-size:11px;color:var(--text-2);font-weight:600;">project</span>
+          <span class="ctx-chip" style="font-size:10px;">
+            <svg class="icon ty-glyph ic-project" width="10" height="10" viewBox="0 0 24 24"><use href="#ic-project"/></svg>
+            cyp51A project
+          </span>
+        </div>
+
+        <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--rm);padding:12px;display:flex;flex-direction:column;align-items:center;gap:7px;">
+          <svg class="icon ic-purchase" width="22" height="22" viewBox="0 0 24 24"><use href="#ic-purchase"/></svg>
+          <span style="font-size:11px;color:var(--text-2);font-weight:600;">purchase</span>
+          <span class="ctx-chip" style="font-size:10px;">
+            <svg class="icon ty-glyph ic-purchase" width="10" height="10" viewBox="0 0 24 24"><use href="#ic-purchase"/></svg>
+            Sigma, June 3
+          </span>
+        </div>
+
+        <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--rm);padding:12px;display:flex;flex-direction:column;align-items:center;gap:7px;">
+          <svg class="icon ic-mol" width="22" height="22" viewBox="0 0 24 24"><use href="#ic-mol"/></svg>
+          <span style="font-size:11px;color:var(--text-2);font-weight:600;">molecule</span>
+          <span class="ctx-chip" style="font-size:10px;">
+            <svg class="icon ty-glyph ic-mol" width="10" height="10" viewBox="0 0 24 24"><use href="#ic-mol"/></svg>
+            Fluconazole
+          </span>
+        </div>
+
+      </div>
+
+    </div></div>
+    <p class="note">Each object type has a distinct icon and accent color, reusing the same glyph set that BeakerSearch already uses. The color difference is the primary signal inside the chip (the glyph is small), so each type needs a distinct hue. These are the eight current types. Question for Grant: do the colors here conflict with anything in the existing icon system, or should they all defer to the same sky-blue chip and rely on the glyph alone?</p>
+  </section>
+
+  <!-- ──────────────────────────────────────────────
+       SECTION 7: design questions
+  ────────────────────────────────────────────── -->
+  <section class="rs" data-name="Open design questions">
+    <header>
+      <h3>7. Open design questions for Grant</h3>
+      <div class="seg" data-approve>
+        <button data-v="ok">Approve</button>
+        <button data-v="warn">Needs work</button>
+      </div>
+    </header>
+
+    <div class="mockwrap"><span class="hint">click to comment</span>
+    <div class="mock" style="padding:20px;background:var(--sunken);">
+
+      <div style="display:flex;flex-direction:column;gap:12px;">
+
+        <div style="background:var(--surface);border:1px solid var(--border-2);border-radius:var(--rm);overflow:hidden;">
+          <div style="padding:9px 12px;font-size:12px;font-weight:600;border-bottom:1px solid var(--border);background:var(--sunken);">Q1. Fixed command list vs extensible</div>
+          <div style="padding:9px 12px;font-size:12px;color:var(--text-2);line-height:1.6;">
+            The six commands above (/summarize, /plot, /cite, /digest, /setup, /draft) map 1:1 to real BeakerBot tools. Option A is keep it curated and tight: users trust a short fixed list more than a sprawling one, and each command maps to a real tool with no guessing. Option B is make it extensible: let the list grow as new composite tools land, or eventually let PIs define custom lab macros (the "reusable named workflows" item in the backlog). The mockup shows Option A. Which way?
+          </div>
+        </div>
+
+        <div style="background:var(--surface);border:1px solid var(--border-2);border-radius:var(--rm);overflow:hidden;">
+          <div style="padding:9px 12px;font-size:12px;font-weight:600;border-bottom:1px solid var(--border);background:var(--sunken);">Q2. Chip removal: inline x button vs backspace</div>
+          <div style="padding:9px 12px;font-size:12px;color:var(--text-2);line-height:1.6;">
+            The mockup shows a small "x" on each chip. Alternative: pressing Backspace at the start of the text input pops the last chip off (Slack / Linear pattern). A third path is to do both. The "x" is more discoverable; backspace is faster for keyboard-heavy users. The current sketch defaults to "x" only. Any preference?
+          </div>
+        </div>
+
+        <div style="background:var(--surface);border:1px solid var(--border-2);border-radius:var(--rm);overflow:hidden;">
+          <div style="padding:9px 12px;font-size:12px;font-weight:600;border-bottom:1px solid var(--border);background:var(--sunken);">Q3. Type chip colors: multi-color vs uniform sky-blue</div>
+          <div style="padding:9px 12px;font-size:12px;color:var(--text-2);line-height:1.6;">
+            Section 6 shows each type with its own accent color. The existing BeakerSearch palette uses a uniform sky-blue for all rows. Keeping chips uniform (all sky-blue) is simpler and avoids a new color system. Using per-type colors makes it easier to scan a mixed-type chip list at a glance. Call it.
+          </div>
+        </div>
+
+        <div style="background:var(--surface);border:1px solid var(--border-2);border-radius:var(--rm);overflow:hidden;">
+          <div style="padding:9px 12px;font-size:12px;font-weight:600;border-bottom:1px solid var(--border);background:var(--sunken);">Q4. @ picker trigger: only "@" or also "[[" like Notion</div>
+          <div style="padding:9px 12px;font-size:12px;color:var(--text-2);line-height:1.6;">
+            The mockup triggers the picker on "@". Some lab apps (and Notion) use "[[" to mean "link an object". Since "@" is the standard in chat UIs, the mockup defaults there. Mention it in case there is a reason to prefer the bracket pattern.
+          </div>
+        </div>
+
+      </div>
+
+    </div></div>
+    <p class="note">These are the four decisions that need a call before the build starts. Marking this section "Approve" means the questions have been answered (use the comment pins to leave the answers inline).</p>
+  </section>
+
+</div>
+
+<script>
+(function(){
+  var comments = []; var counter = 0;
+  var sections = [].slice.call(document.querySelectorAll('.rs'));
+
+  sections.forEach(function(sec){
+    var seg = sec.querySelector('[data-approve]');
+    seg.querySelectorAll('button').forEach(function(b){
+      b.addEventListener('click', function(){
+        var v = b.getAttribute('data-v');
+        var already = b.classList.contains('on-' + v);
+        seg.querySelectorAll('button').forEach(function(x){
+          x.classList.remove('on-ok', 'on-warn');
+        });
+        if (!already){ b.classList.add('on-' + v); sec.dataset.state = v; }
+        else { delete sec.dataset.state; }
+        renderSum();
+      });
+    });
+  });
+
+  document.querySelectorAll('.mock').forEach(function(mock){
+    mock.addEventListener('click', function(e){
+      if (e.target.closest('.pin') || e.target.closest('.editor')) return;
+      var rect = mock.getBoundingClientRect();
+      var x = ((e.clientX - rect.left) / rect.width) * 100;
+      var y = ((e.clientY - rect.top) / rect.height) * 100;
+      counter++;
+      var c = { id: counter, section: mock.closest('.rs').getAttribute('data-name'), text: '', x: x, y: y, mock: mock };
+      comments.push(c);
+      var pin = document.createElement('div');
+      pin.className = 'pin';
+      pin.textContent = c.id;
+      pin.style.left = x + '%';
+      pin.style.top = y + '%';
+      pin.addEventListener('click', function(ev){ ev.stopPropagation(); openEditor(c, pin); });
+      mock.appendChild(pin);
+      c.pin = pin;
+      openEditor(c, pin);
+      renderSum();
+    });
+  });
+
+  function openEditor(c, pin){
+    document.querySelectorAll('.editor').forEach(function(e){ e.remove(); });
+    var ed = document.createElement('div');
+    ed.className = 'editor';
+    var left = Math.min(c.x, 72);
+    var top = Math.min(c.y + 4, 80);
+    ed.style.left = left + '%';
+    ed.style.top = top + '%';
+    ed.innerHTML = '<textarea placeholder="Your note on this..."></textarea><div class="erow"><button class="esave">Save</button><button class="edel">Delete</button></div>';
+    var ta = ed.querySelector('textarea');
+    ta.value = c.text;
+    ta.addEventListener('input', function(){ c.text = ta.value; renderSum(); });
+    ed.querySelector('.esave').addEventListener('click', function(){ c.text = ta.value; ed.remove(); renderSum(); });
+    ed.querySelector('.edel').addEventListener('click', function(){
+      if (c.pin && c.pin.parentNode) c.pin.parentNode.removeChild(c.pin);
+      comments = comments.filter(function(x){ return x.id !== c.id; });
+      ed.remove();
+      renderSum();
+    });
+    c.mock.appendChild(ed);
+    setTimeout(function(){ ta.focus(); }, 0);
+  }
+
+  function renderSum(){
+    var ok = 0, warn = 0;
+    sections.forEach(function(s){
+      if (s.dataset.state === 'ok') ok++;
+      else if (s.dataset.state === 'warn') warn++;
+    });
+    var withText = comments.filter(function(c){ return c.text.trim(); }).length;
+    document.getElementById('sum').innerHTML =
+      ok + ' approved &middot; ' + warn + ' needs work &middot; ' + withText + ' comments';
+  }
+
+  document.getElementById('exportBtn').addEventListener('click', function(){
+    var lines = ['# BeakerBot @ mentions and / commands, composer review feedback', '', 'Date: ' + new Date().toString(), ''];
+    sections.forEach(function(s){
+      var name = s.getAttribute('data-name');
+      var state = s.dataset.state === 'ok' ? 'APPROVED' : s.dataset.state === 'warn' ? 'NEEDS WORK' : 'undecided';
+      lines.push('## ' + name + '  [' + state + ']');
+      var mine = comments.filter(function(c){ return c.section === name && c.text.trim(); });
+      if (!mine.length) lines.push('(no comments)');
+      else mine.forEach(function(c){ lines.push('- #' + c.id + ': ' + c.text.trim()); });
+      lines.push('');
+    });
+    var blob = new Blob([lines.join('\n')], { type: 'text/markdown' });
+    var a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'beakerbot-mentions-commands-feedback.md';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+  });
+
+  renderSum();
+})();
+</script>
+</body>
+</html>

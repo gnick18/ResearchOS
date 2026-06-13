@@ -1,0 +1,603 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>BeakerBot Canvas, editable draft artifacts</title>
+<style>
+:root {
+  --bg:#eef1f5; --surface:#fff; --sunken:#f4f7f9;
+  --text:#1a2530; --text-2:#5a6b78; --text-3:#8a98a4;
+  --border:rgba(26,37,48,0.12); --border-2:rgba(26,37,48,0.22);
+  --sky:#38bdf8; --sky-deep:#15679c; --sky-soft:rgba(56,189,248,0.09); --sky-chip:rgba(56,189,248,0.14);
+  --ok:#1d7a3e; --ok-bg:#e7f6ec; --warn:#b45309; --warn-bg:#fef3e2;
+  --err:#b91c1c; --err-bg:#fef2f2;
+  --r:12px; --rm:8px; --sans:ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+}
+*{box-sizing:border-box;}
+body{margin:0;background:var(--bg);color:var(--text);font-family:var(--sans);}
+
+/* topbar */
+.topbar{position:sticky;top:0;z-index:60;display:flex;align-items:center;gap:16px;padding:11px 20px;background:var(--surface);border-bottom:1px solid var(--border-2);}
+.topbar .title{font-size:15px;font-weight:600;}
+.topbar .sum{margin-left:auto;font-size:12px;color:var(--text-2);}
+.btn{font-family:inherit;font-size:13px;border:1px solid var(--border-2);background:var(--surface);color:var(--text);border-radius:var(--rm);padding:7px 13px;cursor:pointer;}
+.btn.primary{background:var(--sky);border-color:var(--sky);color:#06243a;font-weight:600;}
+.btn:hover{background:var(--sunken);} .btn.primary:hover{filter:brightness(0.97);}
+
+/* how-to bar */
+.howto{background:#0f172a;color:#cfe8fb;font-size:13px;padding:10px 20px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
+.howto b{color:#fff;}
+
+/* page wrap */
+.wrap{max-width:860px;margin:0 auto;padding:24px 22px 180px;}
+
+/* review section */
+.rs{margin-bottom:38px;}
+.rs > header{display:flex;align-items:center;gap:12px;margin-bottom:10px;}
+.rs h3{margin:0;font-size:14px;font-weight:600;flex:1;}
+.seg{display:inline-flex;border:1px solid var(--border-2);border-radius:999px;overflow:hidden;font-size:11px;}
+.seg button{font-family:inherit;border:0;background:transparent;color:var(--text-2);padding:4px 11px;cursor:pointer;}
+.seg button.on-ok{background:var(--ok-bg);color:var(--ok);font-weight:600;}
+.seg button.on-warn{background:var(--warn-bg);color:var(--warn);font-weight:600;}
+.note{font-size:12px;color:var(--text-2);margin:8px 2px 0;line-height:1.6;}
+.note strong{color:var(--text);}
+
+/* mock wrapper */
+.mockwrap{position:relative;}
+.hint{position:absolute;top:8px;right:8px;z-index:4;display:inline-flex;align-items:center;gap:5px;font-size:11px;color:var(--sky-deep);background:var(--sky-chip);border:1px solid rgba(56,189,248,0.4);border-radius:999px;padding:3px 9px;pointer-events:none;}
+.mock{position:relative;background:var(--surface);border:1px solid var(--border-2);border-radius:var(--r);overflow:hidden;cursor:crosshair;}
+.mock *{pointer-events:none;}
+
+/* comment pins */
+.pin{position:absolute;width:24px;height:24px;border-radius:999px;background:var(--sky);color:#06243a;font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center;transform:translate(-50%,-50%);box-shadow:0 1px 5px rgba(0,0,0,.35);z-index:6;cursor:pointer;pointer-events:auto;border:2px solid #fff;}
+.editor{position:absolute;z-index:8;width:230px;background:#fff;border:1px solid var(--border-2);border-radius:var(--rm);box-shadow:0 8px 24px rgba(0,0,0,.22);padding:9px;pointer-events:auto;}
+.editor textarea{width:100%;border:1px solid var(--border);border-radius:6px;padding:6px;font-family:inherit;font-size:12px;resize:vertical;min-height:54px;}
+.editor .erow{display:flex;gap:6px;margin-top:7px;}
+.editor .esave{flex:1;background:var(--sky);border:0;color:#06243a;font-weight:600;font-size:12px;border-radius:6px;padding:6px;cursor:pointer;}
+.editor .edel{background:none;border:1px solid var(--border-2);color:var(--text-2);font-size:12px;border-radius:6px;padding:6px 9px;cursor:pointer;}
+
+/* shared chat pieces */
+.chat-win{display:flex;flex-direction:column;background:var(--surface);border:1px solid var(--border-2);border-radius:var(--r);overflow:hidden;max-width:400px;}
+.chat-head{display:flex;align-items:center;gap:9px;padding:11px 14px;border-bottom:1px solid var(--border);}
+.chat-av{width:28px;height:28px;border-radius:8px;background:var(--sky-chip);color:var(--sky-deep);display:inline-flex;align-items:center;justify-content:center;flex:none;}
+.chat-name{font-size:14px;font-weight:600;}
+.chat-credit{margin-left:auto;font-size:11px;color:var(--text-3);}
+.chat-body{padding:14px;display:flex;flex-direction:column;gap:10px;}
+.user-msg{align-self:flex-end;max-width:82%;padding:8px 11px;border-radius:8px;background:var(--sunken);border:1px solid var(--border);font-size:12px;line-height:1.5;}
+.bot-msg{font-size:12px;color:var(--text-2);line-height:1.6;}
+.chat-foot{padding:10px 14px;border-top:1px solid var(--border);font-size:11px;color:var(--text-3);}
+
+/* draft approval card (BEFORE) */
+.draft-card{border:1px solid var(--sky);border-radius:var(--rm);overflow:hidden;font-size:12px;max-width:340px;}
+.draft-head{display:flex;align-items:center;gap:8px;padding:9px 12px;background:var(--sky-soft);border-bottom:1px solid var(--border);font-weight:600;font-size:12px;}
+.draft-readonly{padding:11px 13px;background:#fff;font-size:12px;color:var(--text);line-height:1.7;max-height:130px;overflow:hidden;}
+.draft-readonly p{margin:0 0 6px;}
+.draft-readonly strong{font-weight:600;}
+.draft-lock{display:flex;align-items:center;gap:5px;padding:7px 13px;border-top:1px solid var(--border);font-size:11px;color:var(--text-3);background:var(--sunken);}
+.draft-acts{display:flex;gap:8px;padding:9px 12px;border-top:1px solid var(--border);background:#fff;}
+.draft-approve{flex:1;text-align:center;padding:7px;border-radius:7px;background:var(--sky);color:#06243a;font-size:12px;font-weight:600;}
+.draft-reject{flex:1;text-align:center;padding:7px;border-radius:7px;border:1px solid var(--border-2);color:var(--text-2);font-size:12px;}
+
+/* limitation callout */
+.callout{border:1px solid rgba(180,83,9,0.3);border-radius:var(--rm);padding:11px 14px;background:var(--warn-bg);font-size:12px;color:#92400e;line-height:1.6;max-width:400px;}
+.callout strong{font-weight:600;color:#78350f;}
+
+/* AFTER: split window */
+.split-win{display:flex;border:1px solid var(--border-2);border-radius:var(--r);overflow:hidden;max-width:740px;min-height:340px;}
+
+/* chat half */
+.split-chat{width:290px;flex:none;border-right:1px solid var(--border);display:flex;flex-direction:column;background:var(--surface);}
+.sc-head{display:flex;align-items:center;gap:8px;padding:10px 13px;border-bottom:1px solid var(--border);}
+.sc-av{width:26px;height:26px;border-radius:7px;background:var(--sky-chip);color:var(--sky-deep);display:inline-flex;align-items:center;justify-content:center;flex:none;}
+.sc-name{font-size:13px;font-weight:600;}
+.sc-credit{margin-left:auto;font-size:10px;color:var(--text-3);}
+.sc-body{flex:1;padding:12px;display:flex;flex-direction:column;gap:9px;}
+.sc-um{align-self:flex-end;max-width:84%;padding:7px 10px;border-radius:7px;background:var(--sunken);border:1px solid var(--border);font-size:11px;line-height:1.5;}
+.sc-bm{font-size:11px;color:var(--text-2);line-height:1.6;}
+.canvas-notice{display:flex;align-items:flex-start;gap:7px;padding:9px 11px;border-radius:8px;background:var(--sky-soft);border:1px solid rgba(56,189,248,0.3);font-size:11px;color:var(--sky-deep);}
+.cn-label{font-weight:600;color:var(--sky-deep);}
+.cn-sub{color:var(--text-2);font-size:10px;margin-top:2px;}
+.cn-open{margin-top:5px;font-size:10px;color:var(--sky-deep);text-decoration:underline;}
+.sc-chips{display:flex;flex-wrap:wrap;gap:6px;padding:2px 0;}
+.sc-chip{font-size:10px;border:1px solid var(--border-2);border-radius:999px;padding:4px 10px;color:var(--text-2);}
+.sc-foot{padding:8px 12px;border-top:1px solid var(--border);font-size:10px;color:var(--text-3);}
+
+/* canvas half */
+.canvas-panel{flex:1;display:flex;flex-direction:column;background:var(--sunken);}
+.cp-head{display:flex;align-items:center;gap:8px;padding:10px 13px;border-bottom:1px solid var(--border);background:var(--surface);}
+.cp-title{font-size:12px;font-weight:600;}
+.cp-badge{font-size:10px;background:var(--sky-chip);color:var(--sky-deep);border-radius:999px;padding:2px 8px;font-weight:600;}
+.cp-close{margin-left:auto;width:20px;height:20px;border-radius:5px;background:var(--sunken);display:inline-flex;align-items:center;justify-content:center;color:var(--text-3);font-size:12px;}
+.cp-toolbar{display:flex;align-items:center;gap:6px;padding:7px 11px;border-bottom:1px solid var(--border);background:var(--surface);}
+.cp-tb-btn{font-size:11px;color:var(--text-3);border:1px solid var(--border);border-radius:5px;padding:3px 8px;background:transparent;}
+.cp-tb-sep{width:1px;height:14px;background:var(--border-2);margin:0 2px;}
+.cp-tabs{display:inline-flex;border:1px solid var(--border-2);border-radius:6px;overflow:hidden;font-size:10px;margin-left:auto;}
+.cp-tabs span{padding:3px 9px;color:var(--text-3);}
+.cp-tabs .active{background:var(--sky-chip);color:var(--sky-deep);font-weight:600;}
+.cp-editor{flex:1;padding:13px;font-size:12px;color:var(--text);line-height:1.8;font-family:ui-monospace,monospace;white-space:pre-wrap;background:#fff;min-height:180px;}
+.cursor-blink{display:inline-block;width:2px;height:13px;background:var(--sky-deep);vertical-align:text-bottom;animation:blink 1s step-end infinite;}
+@keyframes blink{0%,100%{opacity:1;}50%{opacity:0;}}
+.cp-foot{display:flex;align-items:center;gap:8px;padding:9px 12px;border-top:1px solid var(--border);background:var(--surface);}
+.cp-save{padding:6px 14px;border-radius:7px;background:var(--sky);border:0;color:#06243a;font-size:12px;font-weight:600;}
+.cp-discard{padding:6px 12px;border-radius:7px;border:1px solid var(--border-2);background:transparent;color:var(--text-2);font-size:12px;}
+.cp-hint{flex:1;font-size:10px;color:var(--text-3);}
+
+/* flow diagram */
+.flow-wrap{display:flex;flex-direction:column;gap:12px;max-width:600px;padding:18px;}
+.flow-row{display:flex;align-items:center;gap:10px;}
+.flow-box{border:1px solid var(--border-2);border-radius:var(--rm);padding:10px 14px;font-size:12px;line-height:1.5;flex:1;}
+.flow-box.tool{background:var(--sky-soft);border-color:rgba(56,189,248,0.4);}
+.flow-box.canvas{background:#f0fdf4;border-color:rgba(29,122,62,0.35);}
+.flow-box.action{background:var(--surface);}
+.flow-box.destruct{background:var(--warn-bg);border-color:rgba(180,83,9,0.35);}
+.flow-label{font-size:10px;font-weight:600;letter-spacing:.04em;color:var(--text-3);text-transform:uppercase;margin-bottom:3px;}
+.flow-arrow{font-size:18px;color:var(--text-3);flex:none;}
+.flow-div{border-top:1px solid var(--border-2);margin:4px 0;}
+
+/* open questions grid */
+.oq-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;max-width:700px;}
+.oq-card{border:1px solid var(--border-2);border-radius:var(--rm);overflow:hidden;background:var(--surface);}
+.oq-head{padding:10px 13px;background:var(--sky-soft);border-bottom:1px solid var(--border);font-size:12px;font-weight:600;color:var(--sky-deep);}
+.oq-body{padding:12px 13px;display:flex;flex-direction:column;gap:9px;}
+.oq-opt{border:1px solid var(--border);border-radius:var(--rm);padding:9px 11px;font-size:11px;color:var(--text);line-height:1.5;}
+.oq-opt .opt-label{font-weight:600;font-size:10px;text-transform:uppercase;letter-spacing:.05em;color:var(--text-3);margin-bottom:3px;}
+.oq-opt .opt-pro{font-size:10px;color:var(--ok);margin-top:3px;}
+.oq-opt .opt-con{font-size:10px;color:var(--warn);margin-top:1px;}
+</style>
+</head>
+<body>
+
+<!-- BeakerBot flask SVG symbol + gradient -->
+<svg width="0" height="0" aria-hidden="true" style="position:absolute"><defs>
+<linearGradient id="bbliq" x1="0" y1="0" x2="0" y2="1">
+<stop offset="0%" stop-color="#FFD2B0"/><stop offset="25%" stop-color="#FFF1A8"/>
+<stop offset="50%" stop-color="#B7EBB1"/><stop offset="75%" stop-color="#A6D2F4"/>
+<stop offset="100%" stop-color="#D6B5F0"/>
+</linearGradient>
+</defs>
+<symbol id="bbmark" viewBox="8 3 24 31">
+<path d="M 12 12 L 12 24 C 12 30, 16 32, 20 32 C 24 32, 28 30, 28 24 L 28 12 Z" fill="#fff" stroke="none"/>
+<path d="M 12 19 Q 14 17.8, 16 19 T 20 19 T 24 19 T 28 19 L 28 24 C 28 30, 24 32, 20 32 C 16 32, 12 30, 12 24 L 12 19 Z" fill="url(#bbliq)" stroke="none"/>
+<path d="M22 8 C 22 6, 24 4, 26 6" stroke="currentColor"/>
+<path d="M12 12 L12 24 C 12 30, 16 32, 20 32 C 24 32, 28 30, 28 24 L28 12" stroke="currentColor"/>
+<path d="M11 12 L29 12" stroke="currentColor"/>
+<circle cx="17" cy="18" r="1.2" fill="currentColor" stroke="none"/>
+<circle cx="23" cy="18" r="1.2" fill="currentColor" stroke="none"/>
+<path d="M18 22 Q 20 24, 22 22" stroke="currentColor"/>
+<path d="M14 26 L15.5 26" stroke="currentColor"/>
+<path d="M24.5 26 L26 26" stroke="currentColor"/>
+</symbol>
+</svg>
+
+<div class="topbar">
+  <span class="title">BeakerBot Canvas, editable draft artifacts</span>
+  <span class="sum" id="sum"></span>
+  <button class="btn primary" id="exportBtn">Export feedback</button>
+</div>
+<div class="howto">
+  <b>How to review:</b> click anywhere on a mockup to leave a comment pin. Set <b>Approve</b> or <b>Needs work</b> per section. Then <b>Export</b> to download your notes as markdown.
+</div>
+
+<div class="wrap" id="wrap">
+
+  <!-- ================================================================
+       SECTION 1: BEFORE
+       ================================================================ -->
+  <section class="rs" data-name="BEFORE: current one-shot draft card">
+    <header>
+      <h3>1. BEFORE: the current one-shot draft card</h3>
+      <div class="seg" data-approve>
+        <button data-v="ok">Approve</button>
+        <button data-v="warn">Needs work</button>
+      </div>
+    </header>
+    <div class="mockwrap"><span class="hint">click to comment</span>
+    <div class="mock" style="padding:20px;background:var(--sunken);display:flex;gap:20px;align-items:flex-start;flex-wrap:wrap;">
+
+      <div class="chat-win">
+        <div class="chat-head">
+          <span class="chat-av"><svg width="16" height="16" viewBox="0 0 24 24"><use href="#bbmark"/></svg></span>
+          <span class="chat-name">BeakerBot</span>
+          <span class="chat-credit">$4.10 credit</span>
+        </div>
+        <div class="chat-body">
+          <div class="user-msg">Summarize today's qPCR results and add as a note.</div>
+          <div class="bot-msg">Found 3 results from today's run. Here is the draft note. Review before I write it:</div>
+
+          <div class="draft-card">
+            <div class="draft-head">
+              <span style="width:18px;height:18px;display:inline-flex;color:var(--sky-deep);flex:none;">
+                <svg viewBox="0 0 24 24" width="18" height="18"><use href="#bbmark"/></svg>
+              </span>
+              Draft note, save_summary_as_note
+            </div>
+            <div class="draft-readonly">
+              <p><strong>qPCR summary, 2026-06-13</strong></p>
+              <p>Three runs completed. FakeYeast-001 showed 2.4x higher fakeGFP vs WT control (p&nbsp;=&nbsp;4.2e-5). FakeYeast-002 was not significantly different (p&nbsp;=&nbsp;0.31). Standard curves R2&nbsp;&gt;&nbsp;0.99 on all runs.</p>
+            </div>
+            <div class="draft-lock">
+              <svg width="12" height="12" viewBox="0 0 24 24" style="stroke:currentColor;fill:none;stroke-width:2;flex:none;"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>
+              Read-only. Approve to write, Reject to discard.
+            </div>
+            <div class="draft-acts">
+              <span class="draft-approve">Approve</span>
+              <span class="draft-reject">Reject</span>
+            </div>
+          </div>
+
+          <div class="callout">
+            <strong>The problem:</strong> if the wording is close but a number or heading is wrong, the only option is Reject and re-ask. There is no way to fix "2.4x" to "2.41x" before it writes. Reject-and-redo is a full round-trip: another token spend, another wait, another card to approve.
+          </div>
+        </div>
+        <div class="chat-foot">last task 31k tokens</div>
+      </div>
+
+    </div></div>
+    <p class="note">
+      The current flow for <code>write_note</code>, <code>save_summary_as_note</code>, <code>draft_paper_summary</code>, and <code>extract_paper_method</code>.
+      The content area is read-only. Approve writes it as-is; Reject discards it entirely.
+      <strong>A wrong number or a stale heading forces a full reject-and-redo cycle.</strong>
+    </p>
+  </section>
+
+  <!-- ================================================================
+       SECTION 2: AFTER — Canvas docked side panel
+       ================================================================ -->
+  <section class="rs" data-name="AFTER: Canvas editable side panel">
+    <header>
+      <h3>2. AFTER: Canvas, editable side panel beside the chat</h3>
+      <div class="seg" data-approve>
+        <button data-v="ok">Approve</button>
+        <button data-v="warn">Needs work</button>
+      </div>
+    </header>
+    <div class="mockwrap"><span class="hint">click to comment</span>
+    <div class="mock" style="padding:16px;background:var(--sunken);">
+
+      <div class="split-win">
+
+        <!-- LEFT: chat column -->
+        <div class="split-chat">
+          <div class="sc-head">
+            <span class="sc-av"><svg width="15" height="15" viewBox="0 0 24 24"><use href="#bbmark"/></svg></span>
+            <span class="sc-name">BeakerBot</span>
+            <span class="sc-credit">$4.10</span>
+          </div>
+          <div class="sc-body">
+            <div class="sc-um">Summarize today's qPCR and save as a note.</div>
+            <div class="sc-bm">Found 3 results from today's run. Draft is ready in Canvas. Fix anything before you save.</div>
+
+            <div class="canvas-notice">
+              <svg width="14" height="14" viewBox="0 0 24 24" style="stroke:var(--sky-deep);fill:none;stroke-width:2;flex:none;margin-top:1px;"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M8 12h8M12 8v8"/></svg>
+              <div>
+                <div class="cn-label">Drafted in Canvas</div>
+                <div class="cn-sub">qPCR summary, 2026-06-13 &mdash; tweak then save</div>
+                <div class="cn-open">Open / focus Canvas &rsaquo;</div>
+              </div>
+            </div>
+
+            <div class="sc-chips">
+              <span class="sc-chip">Add a chart</span>
+              <span class="sc-chip">Save as method</span>
+            </div>
+          </div>
+          <div class="sc-foot">last 31k tokens</div>
+        </div>
+
+        <!-- RIGHT: Canvas panel -->
+        <div class="canvas-panel">
+          <div class="cp-head">
+            <svg width="14" height="14" viewBox="0 0 24 24" style="stroke:var(--sky-deep);fill:none;stroke-width:2;flex:none;"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M8 12h8M12 8v8"/></svg>
+            <span class="cp-title">Canvas</span>
+            <span class="cp-badge">qPCR summary, 2026-06-13</span>
+            <span class="cp-close">&#x2715;</span>
+          </div>
+          <div class="cp-toolbar">
+            <span class="cp-tb-btn"><b>B</b></span>
+            <span class="cp-tb-btn"><i>I</i></span>
+            <span class="cp-tb-btn">H1</span>
+            <span class="cp-tb-sep"></span>
+            <span class="cp-tb-btn">Link</span>
+            <div class="cp-tabs">
+              <span class="active">Edit</span>
+              <span>Preview</span>
+            </div>
+          </div>
+
+          <div class="cp-editor"># qPCR summary, 2026-06-13
+
+Three runs completed today.
+
+**FakeYeast-001** showed 2.4x higher fakeGFP
+expression vs WT control (p&nbsp;=&nbsp;4.2e-5).<span class="cursor-blink"></span>
+
+FakeYeast-002 was not significantly different
+(p&nbsp;=&nbsp;0.31). Standard curves R2&nbsp;&gt;&nbsp;0.99.</div>
+
+          <div class="cp-foot">
+            <span class="cp-hint">Reuses the existing notes editor. Edit, then save to Notes.</span>
+            <span class="cp-discard">Discard</span>
+            <span class="cp-save">Save to Notes</span>
+          </div>
+        </div>
+
+      </div>
+
+    </div></div>
+    <p class="note">
+      Canvas replaces the read-only card with a compact "Drafted in Canvas" line in the chat.
+      The right panel opens with the draft in <strong>the existing markdown notes editor</strong> (no new editor to build).
+      The user fixes a word, a number, or a heading, then clicks <strong>Save to Notes</strong>.
+      Discard throws the draft away without writing anything.
+      <strong>The WHY:</strong> the edit-then-save IS the consent, so Approve / Reject buttons disappear for draft-write tools.
+      Saving without editing is fine; one click if the draft is correct as-is.
+    </p>
+  </section>
+
+  <!-- ================================================================
+       SECTION 3: Flow diagram
+       ================================================================ -->
+  <section class="rs" data-name="Draft flow: which tools use Canvas vs keep a confirm">
+    <header>
+      <h3>3. Draft flow: which tools use Canvas and which keep a confirm</h3>
+      <div class="seg" data-approve>
+        <button data-v="ok">Approve</button>
+        <button data-v="warn">Needs work</button>
+      </div>
+    </header>
+    <div class="mockwrap"><span class="hint">click to comment</span>
+    <div class="mock" style="padding:20px;background:var(--sunken);">
+
+      <div class="flow-wrap">
+
+        <div class="flow-row">
+          <div class="flow-box tool">
+            <div class="flow-label">Draft-write tool</div>
+            <strong>write_note, save_summary_as_note,<br>draft_paper_summary, extract_paper_method</strong><br>
+            <span style="font-size:10px;color:var(--text-3);">Outputs a complete text artifact the user will save</span>
+          </div>
+          <div class="flow-arrow">&#8594;</div>
+          <div class="flow-box canvas">
+            <div class="flow-label">Canvas opens</div>
+            Draft appears in editable panel.
+            User tweaks (or not), then clicks <strong>Save</strong>.
+            Saving is the consent; no separate Approve card.
+          </div>
+        </div>
+
+        <div style="padding-left:200px;font-size:18px;color:var(--text-3);">&#8595;</div>
+
+        <div class="flow-row" style="padding-left:220px;">
+          <div class="flow-box action" style="max-width:260px;">
+            <div class="flow-label">Save clicked</div>
+            BeakerBot writes the (possibly edited) content to Notes.
+            Chat shows a provenance chip linking to the new note.
+          </div>
+        </div>
+
+        <div class="flow-div"></div>
+
+        <div class="flow-row">
+          <div class="flow-box destruct">
+            <div class="flow-label">Destructive or outward tool</div>
+            <strong>delete_note, send_email, submit_to_zenodo,<br>share_with_member</strong><br>
+            <span style="font-size:10px;color:var(--text-3);">Actions that are hard or impossible to undo</span>
+          </div>
+          <div class="flow-arrow">&#8594;</div>
+          <div class="flow-box action">
+            <div class="flow-label">Existing confirm card remains</div>
+            These keep the current Approve / Cancel card.
+            Canvas does not replace confirm for destructive actions.
+          </div>
+        </div>
+
+        <div class="flow-div"></div>
+
+        <div class="flow-row">
+          <div class="flow-box action" style="border-color:var(--border);">
+            <div class="flow-label">Read or analysis tool</div>
+            <strong>summarize_experiments, run_ttest, get_note, list_tasks ...</strong><br>
+            <span style="font-size:10px;color:var(--text-3);">No artifact to edit, results appear inline in chat</span>
+          </div>
+          <div class="flow-arrow">&#8594;</div>
+          <div class="flow-box action">
+            <div class="flow-label">No change</div>
+            Result text in chat, follow-up chips, provenance links.
+            Canvas does not open.
+          </div>
+        </div>
+
+      </div>
+
+    </div></div>
+    <p class="note">
+      Canvas replaces the read-only approve card <strong>only for draft-write tools</strong> whose output is a complete text artifact.
+      Destructive or outward-facing tools (deletes, sends, external submissions) keep their own final confirm card.
+      Pure analysis and read tools never open Canvas; their output is chat text with provenance chips.
+    </p>
+  </section>
+
+  <!-- ================================================================
+       SECTION 4: Open design questions
+       ================================================================ -->
+  <section class="rs" data-name="Open design questions: docked vs overlay, queue, consent model, editor mode">
+    <header>
+      <h3>4. Open design questions for Grant to decide</h3>
+      <div class="seg" data-approve>
+        <button data-v="ok">Approve</button>
+        <button data-v="warn">Needs work</button>
+      </div>
+    </header>
+    <div class="mockwrap"><span class="hint">click to comment</span>
+    <div class="mock" style="padding:20px;background:var(--sunken);">
+
+      <div class="oq-grid">
+
+        <div class="oq-card">
+          <div class="oq-head">Q1: docked right panel vs overlay?</div>
+          <div class="oq-body">
+            <div class="oq-opt">
+              <div class="opt-label">Option A: docked right panel (mockup above)</div>
+              Canvas lives beside the chat whenever a draft is open. Chat narrows to make room.
+              <div class="opt-pro">Pro: always visible, no layer to manage. Matches VS Code / Cursor canvas pattern.</div>
+              <div class="opt-con">Con: narrows the chat on smaller screens. Competes with the main app area behind the BeakerBot panel.</div>
+            </div>
+            <div class="oq-opt">
+              <div class="opt-label">Option B: overlay sheet</div>
+              A wide sheet slides in from the right (or up) when a draft arrives. Chat is still visible behind it.
+              <div class="opt-pro">Pro: full width for the editor, no layout reflow.</div>
+              <div class="opt-con">Con: hides the chat context the user just sent. Must remember to dismiss before continuing.</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="oq-card">
+          <div class="oq-head">Q2: multiple drafts, queue as tabs or one at a time?</div>
+          <div class="oq-body">
+            <div class="oq-opt">
+              <div class="opt-label">Option A: one at a time (simpler)</div>
+              Only one draft in Canvas at once. A new draft replaces the current one (with a "save or discard first" guard).
+              <div class="opt-pro">Pro: simple, always clear what is being edited.</div>
+              <div class="opt-con">Con: in Auto mode, BeakerBot may fire several write tools in one plan. The first draft gets pushed out before the user reviews it.</div>
+            </div>
+            <div class="oq-opt">
+              <div class="opt-label">Option B: tabs in the Canvas header</div>
+              Multiple drafts queue as tabs. The user switches between them and saves each.
+              <div class="opt-pro">Pro: holds multiple drafts from a single Auto-mode plan.</div>
+              <div class="opt-con">Con: tabs add complexity. Easy to miss an unsaved tab and close Canvas thinking you are done.</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="oq-card">
+          <div class="oq-head">Q3: fully replace the approve card, or keep a thin card too?</div>
+          <div class="oq-body">
+            <div class="oq-opt">
+              <div class="opt-label">Option A: Canvas fully replaces approve card (mockup above)</div>
+              The chat line only says "Drafted in Canvas." No read-only card in chat. Saving = consent.
+              <div class="opt-pro">Pro: cleaner chat. Only one path to act on a draft.</div>
+              <div class="opt-con">Con: if the panel is collapsed and the user misses the notice, the draft sits unacted-on with no visible fallback in chat.</div>
+            </div>
+            <div class="oq-opt">
+              <div class="opt-label">Option B: thin approve card in chat too</div>
+              A collapsed preview card stays in the chat with an "Open Canvas" link and a quick Approve-as-is shortcut.
+              <div class="opt-pro">Pro: nothing is lost if the panel is collapsed. Power users can Approve-as-is without opening Canvas.</div>
+              <div class="opt-con">Con: two paths to the same action. Risks users always approving in chat and never using Canvas.</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="oq-card">
+          <div class="oq-head">Q4: raw markdown edit or live-preview split?</div>
+          <div class="oq-body">
+            <div class="oq-opt">
+              <div class="opt-label">Option A: raw markdown only</div>
+              Mount the existing notes editor as-is. Toolbar generates markdown syntax.
+              <div class="opt-pro">Pro: zero new editor code. Consistent with how notes look in editing mode.</div>
+              <div class="opt-con">Con: researchers who do not know markdown syntax may not know how to fix bold or headings without the toolbar.</div>
+            </div>
+            <div class="oq-opt">
+              <div class="opt-label">Option B: Edit + Preview tabs (mockup above)</div>
+              Edit tab shows raw markdown; Preview tab renders it. Toolbar (B, I, H1) inserts syntax for the user.
+              <div class="opt-pro">Pro: approachable for non-markdown users. Preview confirms the output before saving.</div>
+              <div class="opt-con">Con: Preview is a rendering pass on top of the existing editor. Slight extra build work.</div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+    </div></div>
+    <p class="note">
+      These four questions drive the build scope.
+      Q1 (docked vs overlay) affects layout architecture and whether the BeakerBot panel needs a split-pane mode.
+      Q2 (tabs vs one-at-a-time) affects Canvas state management when BeakerBot fires multiple write tools inside an Auto-mode plan.
+      Q3 (replace vs alongside) is the consent model; the mockup shows full replacement.
+      Q4 (raw vs split-preview) determines whether the existing notes editor can drop in unchanged.
+      Click on a card to leave a comment pin, or use Approve / Needs work on the section header.
+    </p>
+  </section>
+
+</div>
+
+<script>
+(function(){
+  var comments=[]; var counter=0;
+  var sections=[].slice.call(document.querySelectorAll('.rs'));
+
+  sections.forEach(function(sec){
+    var seg=sec.querySelector('[data-approve]');
+    seg.querySelectorAll('button').forEach(function(b){
+      b.addEventListener('click',function(){
+        var v=b.getAttribute('data-v');
+        var already=b.classList.contains('on-'+v);
+        seg.querySelectorAll('button').forEach(function(x){x.classList.remove('on-ok','on-warn');});
+        if(!already){b.classList.add('on-'+v);sec.dataset.state=v;} else {delete sec.dataset.state;}
+        renderSum();
+      });
+    });
+  });
+
+  document.querySelectorAll('.mock').forEach(function(mock){
+    mock.addEventListener('click',function(e){
+      if(e.target.closest('.pin')||e.target.closest('.editor')) return;
+      var rect=mock.getBoundingClientRect();
+      var x=((e.clientX-rect.left)/rect.width)*100;
+      var y=((e.clientY-rect.top)/rect.height)*100;
+      counter++;
+      var c={id:counter, section:mock.closest('.rs').getAttribute('data-name'), text:'', x:x, y:y, mock:mock};
+      comments.push(c);
+      var pin=document.createElement('div');
+      pin.className='pin'; pin.textContent=c.id; pin.style.left=x+'%'; pin.style.top=y+'%';
+      pin.addEventListener('click',function(ev){ev.stopPropagation();openEditor(c,pin);});
+      mock.appendChild(pin); c.pin=pin;
+      openEditor(c,pin);
+      renderSum();
+    });
+  });
+
+  function openEditor(c,pin){
+    document.querySelectorAll('.editor').forEach(function(e){e.remove();});
+    var ed=document.createElement('div'); ed.className='editor';
+    var left=Math.min(c.x,72); var top=Math.min(c.y+4,80);
+    ed.style.left=left+'%'; ed.style.top=top+'%';
+    ed.innerHTML='<textarea placeholder="Your note on this..."></textarea><div class="erow"><button class="esave">Save</button><button class="edel">Delete</button></div>';
+    var ta=ed.querySelector('textarea'); ta.value=c.text;
+    ta.addEventListener('input',function(){c.text=ta.value;renderSum();});
+    ed.querySelector('.esave').addEventListener('click',function(){c.text=ta.value;ed.remove();renderSum();});
+    ed.querySelector('.edel').addEventListener('click',function(){
+      if(c.pin&&c.pin.parentNode)c.pin.parentNode.removeChild(c.pin);
+      comments=comments.filter(function(x){return x.id!==c.id;}); ed.remove(); renderSum();
+    });
+    c.mock.appendChild(ed); setTimeout(function(){ta.focus();},0);
+  }
+
+  function renderSum(){
+    var ok=0,warn=0;
+    sections.forEach(function(s){if(s.dataset.state==='ok')ok++;else if(s.dataset.state==='warn')warn++;});
+    var withText=comments.filter(function(c){return c.text.trim();}).length;
+    document.getElementById('sum').innerHTML=ok+' approved &middot; '+warn+' needs work &middot; '+withText+' comments';
+  }
+
+  document.getElementById('exportBtn').addEventListener('click',function(){
+    var lines=['# BeakerBot Canvas feedback','','Date: '+new Date().toString(),''];
+    sections.forEach(function(s){
+      var name=s.getAttribute('data-name');
+      var state=s.dataset.state==='ok'?'APPROVED':s.dataset.state==='warn'?'NEEDS WORK':'undecided';
+      lines.push('## '+name+'  ['+state+']');
+      var mine=comments.filter(function(c){return c.section===name&&c.text.trim();});
+      if(!mine.length)lines.push('(no comments)');
+      else mine.forEach(function(c){lines.push('- #'+c.id+': '+c.text.trim());});
+      lines.push('');
+    });
+    var blob=new Blob([lines.join('\n')],{type:'text/markdown'});
+    var a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='beakerbot-canvas-feedback.md';
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  });
+
+  renderSum();
+})();
+</script>
+</body>
+</html>
