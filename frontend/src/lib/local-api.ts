@@ -3442,6 +3442,8 @@ export const sequencesApi = {
     if (data.organism !== undefined) metaPatch.organism = data.organism;
     if (data.tax_id !== undefined) metaPatch.tax_id = data.tax_id;
     if (data.tax_lineage !== undefined) metaPatch.tax_lineage = data.tax_lineage;
+    // Canonical figure-map style (the publication look), persisted to the sidecar.
+    if (data.figure !== undefined) metaPatch.figure = data.figure;
     let meta = await sequenceStore.updateMeta(id, metaPatch, username);
     if (!meta) {
       const raw = await sequenceStore.getRawForUser(id, username);

@@ -109,6 +109,13 @@ export interface FigureSource {
    * no styling omits this and gets no style controls.
    */
   styleTargets?(id: string): Promise<StyleTarget[]>;
+  /**
+   * Optional: persist a panel's style as the object's CANONICAL default (saved on
+   * the object, so it becomes the starting point for any future figure of it).
+   * When present, the composer offers a "Save as default" action. A source with no
+   * canonical-style store omits this.
+   */
+  saveDefaultStyle?(id: string, style: PanelStyle): Promise<void>;
 }
 
 // Module-level registry. Surfaces register once at startup (registerSources()).
