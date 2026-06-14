@@ -1,9 +1,11 @@
-// Institution tier Phase 4: a department admin accepts an institution invite.
-// POST /api/institution/join  body { invite: InstitutionInvitePayload }
+// Institution tier: a department admin accepts an institution invite (unified
+// server-token invites).
+//
+// POST /api/institution/join  body { token }
 //   The accepter must run a department (they are its admin); accepting links THAT
-//   department to the institution. We verify the invite signer is the institution's
-//   admin + the signature + expiry, resolve the accepter's department, then enroll
-//   it active. Org only (no charging in Phase 4).
+//   department to the institution. We atomically validate + single-use-redeem the
+//   opaque token for layer "institution" (server is the trust anchor), resolve the
+//   accepter's department, then enroll it active. Org only (no charging here).
 //
 // Dark unless INSTITUTION_TIER_ENABLED. Sign-in required.
 //
@@ -20,29 +22,12 @@ import {
 } from "@/lib/billing/institution";
 import { ensureDeptSchema, getDepartmentByAdmin } from "@/lib/billing/dept";
 import {
-  verifyInstitutionInviteSignature,
-  isInstitutionInviteExpired,
-  type InstitutionInvitePayload,
-} from "@/lib/institution/institution-invite";
+  ensureInviteSchema,
+  redeemInvite,
+  redeemErrorMessage,
+} from "@/lib/invites/invite-tokens";
 
 export const runtime = "nodejs";
-
-function asInvite(raw: unknown): InstitutionInvitePayload | null {
-  if (!raw || typeof raw !== "object") return null;
-  const p = raw as Partial<InstitutionInvitePayload>;
-  if (
-    typeof p.institutionId !== "string" ||
-    typeof p.adminEd25519Pub !== "string" ||
-    typeof p.nonce !== "string" ||
-    typeof p.sig !== "string" ||
-    typeof p.expiresAt !== "number" ||
-    typeof p.institutionName !== "string" ||
-    typeof p.adminUsername !== "string"
-  ) {
-    return null;
-  }
-  return p as InstitutionInvitePayload;
-}
 
 export async function POST(request: Request): Promise<Response> {
   if (!INSTITUTION_TIER_ENABLED) return json(404, { error: "not found" });
@@ -53,31 +38,21 @@ export async function POST(request: Request): Promise<Response> {
   const callerKey = ownerKeyForEmailSafe(email);
   if (!callerKey) return json(503, { error: "billing identity unavailable" });
 
-  let body: { invite?: unknown };
+  let body: { token?: unknown };
   try {
-    body = (await request.json()) as { invite?: unknown };
+    body = (await request.json()) as { token?: unknown };
   } catch {
     return json(400, { error: "invalid json" });
   }
-  const invite = asInvite(body.invite);
-  if (!invite) return json(400, { error: "malformed invite" });
+  const token = typeof body.token === "string" ? body.token.trim() : "";
+  if (!token) return json(400, { error: "missing invite token" });
 
   try {
+    await ensureInviteSchema();
     await ensureInstitutionSchema();
     await ensureDeptSchema();
 
-    const inst = await getInstitution(invite.institutionId);
-    if (!inst) return json(404, { error: "institution not found" });
-    if (invite.adminEd25519Pub !== inst.adminEd25519Pub) {
-      return json(403, { error: "invite was not signed by this institution's admin" });
-    }
-    if (!verifyInstitutionInviteSignature(invite)) {
-      return json(403, { error: "invalid invite signature" });
-    }
-    if (isInstitutionInviteExpired(invite, Date.now())) {
-      return json(410, { error: "this invite has expired" });
-    }
-    // The accepter must run a department; that department joins the institution.
+    // The accepter must run a department FIRST; check before spending the token.
     const dept = await getDepartmentByAdmin(callerKey);
     if (!dept) {
       return json(409, {
@@ -85,7 +60,19 @@ export async function POST(request: Request): Promise<Response> {
         needsDepartment: true,
       });
     }
-    await enrollDeptActive(invite.institutionId, dept.deptId, dept.name);
+    const redeemed = await redeemInvite({
+      token,
+      layer: "institution",
+      usedBy: callerKey,
+    });
+    if (!redeemed.ok) {
+      const status =
+        redeemed.reason === "expired" || redeemed.reason === "already_used" ? 410 : 400;
+      return json(status, { error: redeemErrorMessage(redeemed.reason) });
+    }
+    const inst = await getInstitution(redeemed.entityId);
+    if (!inst) return json(404, { error: "institution not found" });
+    await enrollDeptActive(redeemed.entityId, dept.deptId, dept.name);
     return json(200, { ok: true, institutionName: inst.name, deptName: dept.name });
   } catch {
     return json(500, { error: "could not join the institution" });

@@ -3,33 +3,30 @@
 //
 // No emojis, no em-dashes, no mid-sentence colons.
 
-import { encodePublicKey } from "@/lib/sharing/identity/keys";
-import type { StoredIdentity } from "@/lib/sharing/identity/storage";
 import { isDemoOrWikiCapture } from "@/lib/file-system/wiki-capture-mock";
-import {
-  mintInstitutionInvite,
-  encodeInstitutionInviteLink,
-  DEFAULT_INSTITUTION_INVITE_TTL_MS,
-  type InstitutionInvitePayload,
-} from "./institution-invite";
 
-export function mintInviteForInstitutionAdmin(params: {
+/**
+ * Mints an institution invite via the server (unified opaque-token invites) and
+ * returns the shareable /institution/join#<token> link. No local signing key, so
+ * it works folderless; the server authorizes the caller as the institution admin.
+ *
+ * @throws if the API rejects the mint.
+ */
+export async function mintInviteForInstitutionAdmin(params: {
   institutionId: string;
-  institutionName: string;
-  username: string;
-  identity: StoredIdentity;
   origin: string;
-  ttlMs?: number;
-}): { invite: InstitutionInvitePayload; link: string } {
-  const invite = mintInstitutionInvite({
-    institutionId: params.institutionId,
-    institutionName: params.institutionName,
-    adminUsername: params.username,
-    adminEd25519Pub: encodePublicKey(params.identity.keys.signing.publicKey),
-    adminEd25519Priv: params.identity.keys.signing.privateKey,
-    expiresAt: Date.now() + (params.ttlMs ?? DEFAULT_INSTITUTION_INVITE_TTL_MS),
+}): Promise<{ link: string }> {
+  const res = await fetch("/api/institution/invite", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ institutionId: params.institutionId }),
   });
-  return { invite, link: encodeInstitutionInviteLink(params.origin, invite) };
+  if (!res.ok) {
+    throw new Error(`mintInviteForInstitutionAdmin: mint rejected (HTTP ${res.status})`);
+  }
+  const data = (await res.json()) as { token?: string };
+  if (!data.token) throw new Error("mintInviteForInstitutionAdmin: no token returned");
+  return { link: `${params.origin}/institution/join#${data.token}` };
 }
 
 export interface InstitutionRosterDept {

@@ -1,28 +1,26 @@
 "use client";
 
-// Institution tier Phase 4: the department admin's accept screen for an
-// institution invite link.
+// Institution tier: the department admin's accept screen for an institution
+// invite link.
 //
-// The institution admin shares /institution/join#<payload>. This page decodes the
-// payload, shows the deal plainly (the institution pays for the department's labs;
-// the institution admin sees dept + lab + account names and usage totals, never
-// research data; the dept admin keeps control + can leave), and on Accept posts to
-// /api/institution/join. The invite is stashed in sessionStorage so it survives a
-// sign-in round trip (the hash fragment can be dropped on an OAuth redirect).
+// The institution admin shares /institution/join#<token> (an opaque server-issued
+// invite token). This page PEEKS the token (GET /api/institution/invite) to show
+// the institution name + the deal plainly (the institution pays for the
+// department's labs; the institution admin sees dept + lab + account names and
+// usage totals, never research data; the dept admin keeps control + can leave),
+// and on Accept redeems it (POST /api/institution/join). The token is stashed in
+// sessionStorage so it survives a sign-in round trip.
 //
 // No emojis, no em-dashes, no mid-sentence colons.
 
 import { useEffect, useState } from "react";
 import { getSession, signIn } from "next-auth/react";
-import {
-  decodeInstitutionInviteFragment,
-  type InstitutionInvitePayload,
-} from "@/lib/institution/institution-invite";
 
 const STASH = "institution-invite-pending";
 
 export default function InstitutionJoinPage() {
-  const [invite, setInvite] = useState<InstitutionInvitePayload | null>(null);
+  const [token, setToken] = useState<string | null>(null);
+  const [institutionName, setInstitutionName] = useState<string>("");
   const [state, setState] = useState<
     "loading" | "ready" | "working" | "done" | "error" | "bad" | "needsDept"
   >("loading");
@@ -30,34 +28,61 @@ export default function InstitutionJoinPage() {
 
   useEffect(() => {
     // Prefer the live fragment; fall back to a stash left before a sign-in hop.
-    let p = decodeInstitutionInviteFragment(window.location.hash || "");
-    if (!p) {
+    let t = window.location.hash.replace(/^#/, "").trim();
+    if (!t) {
       try {
-        const raw = sessionStorage.getItem(STASH);
-        if (raw) p = JSON.parse(raw) as InstitutionInvitePayload;
+        t = sessionStorage.getItem(STASH) ?? "";
       } catch {
         /* ignore */
       }
     }
-    if (!p) {
+    if (!t) {
       setState("bad");
       return;
     }
     try {
-      sessionStorage.setItem(STASH, JSON.stringify(p));
+      sessionStorage.setItem(STASH, t);
     } catch {
       /* ignore */
     }
-    setInvite(p);
-    setState("ready");
+    setToken(t);
+    void (async () => {
+      try {
+        const res = await fetch(
+          `/api/institution/invite?token=${encodeURIComponent(t)}`,
+        );
+        const data = (await res.json().catch(() => ({}))) as {
+          ok?: boolean;
+          institutionName?: string;
+          expired?: boolean;
+          used?: boolean;
+        };
+        if (!res.ok || !data.ok || !data.institutionName) {
+          setState("bad");
+          return;
+        }
+        setInstitutionName(data.institutionName);
+        if (data.used) {
+          setMsg("This invite link has already been used. Ask the admin for a fresh one.");
+          setState("error");
+        } else if (data.expired) {
+          setMsg("This invite link has expired. Ask the admin for a fresh one.");
+          setState("error");
+        } else {
+          setState("ready");
+        }
+      } catch {
+        setState("bad");
+      }
+    })();
   }, []);
 
   const accept = async () => {
-    if (!invite) return;
+    if (!token) return;
     setState("working");
     const session = await getSession();
     if (!session?.user?.email) {
-      // Sign in, then come back here; the stash carries the invite across.
+      // Sign in, then come back here; the stash carries the token across.
       await signIn(undefined, { callbackUrl: "/institution/join" });
       return;
     }
@@ -65,7 +90,7 @@ export default function InstitutionJoinPage() {
       const res = await fetch("/api/institution/join", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ invite }),
+        body: JSON.stringify({ token }),
       });
       const data = (await res.json().catch(() => ({}))) as {
         ok?: boolean;
@@ -80,7 +105,7 @@ export default function InstitutionJoinPage() {
         } catch {
           /* ignore */
         }
-        setMsg(data.institutionName ?? invite.institutionName);
+        setMsg(data.institutionName ?? institutionName);
         setState("done");
       } else if (data.needsDepartment) {
         setState("needsDept");
@@ -105,14 +130,14 @@ export default function InstitutionJoinPage() {
         <div className={`${card} p-6`}>
           <h1 className="text-title font-semibold">Invalid invitation</h1>
           <p className="mt-2 text-meta text-foreground-muted">
-            This institution invite link is malformed or incomplete. Ask the
-            institution admin to send you a fresh link.
+            This institution invite link is not valid. Ask the institution admin to
+            send you a fresh link.
           </p>
         </div>
       </div>
     );
   }
-  if (state === "loading" || !invite) {
+  if (state === "loading") {
     return (
       <div className={wrap}>
         <p className="text-meta text-foreground-muted">Loading invitation&hellip;</p>
@@ -129,7 +154,7 @@ export default function InstitutionJoinPage() {
           <p className="mt-2 text-meta text-foreground-muted">
             An institution sponsors departments, and each department sponsors its
             labs. Set up your department, then reopen this link to join{" "}
-            {invite.institutionName}.
+            {institutionName || "the institution"}.
           </p>
           <a
             href="/department"
@@ -172,13 +197,13 @@ export default function InstitutionJoinPage() {
             Institution invitation
           </p>
           <h1 className="mt-1 text-title font-bold text-foreground">
-            Join {invite.institutionName}
+            Join {institutionName || "this institution"}
           </h1>
         </div>
         <div className="px-6 py-5">
           <p className="text-body">
-            {invite.adminUsername} invited <b>your department</b> to be sponsored by
-            the institution.
+            You have been invited for <b>your department</b> to be sponsored by the
+            institution.
           </p>
           <ul className="mt-3 list-disc space-y-1.5 pl-5 text-meta text-foreground-muted">
             <li>
