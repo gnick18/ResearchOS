@@ -33,8 +33,6 @@ import { useFocusEffect, useRouter } from 'expo-router';
 
 import { ThemedText } from '@/components/themed-text';
 import { ScreenFrame } from '@/components/ui/ScreenFrame';
-import { TabHeader } from '@/components/ui/TabHeader';
-import { useUnreadNotificationCount } from '@/lib/unread-notifications';
 import { useTheme, palette, fonts } from '@/lib/design';
 import { usePairing } from '@/lib/pairing';
 import { signWithDevice } from '@/lib/device-identity';
@@ -92,17 +90,40 @@ function entryType(m: LibraryMethodEntry): string {
   return resolved;
 }
 
-// ---- Type-colored icon badge ----------------------------------------------
-function TypeIcon({ type, size = 34 }: { type: string; size?: number }) {
+// Dim wash of a #rrggbb type color, for the thumbnail background (contract
+// .thumb uses a type-dim fill with a colored mono glyph, not a solid fill).
+function dimColor(hex: string, alpha = 0.14): string {
+  const m = /^#?([0-9a-f]{6})$/i.exec(hex.trim());
+  if (!m) return 'rgba(71,85,105,0.14)';
+  const n = parseInt(m[1], 16);
+  return `rgba(${(n >> 16) & 255}, ${(n >> 8) & 255}, ${n & 255}, ${alpha})`;
+}
+
+// ---- Type thumbnail (contract .thumb): dim type-color tile + mono glyph -----
+function TypeIcon({
+  type,
+  size = 46,
+  borderColor,
+}: {
+  type: string;
+  size?: number;
+  borderColor: string;
+}) {
   const meta = typeMeta(type);
   return (
     <View
       style={[
         styles.tico,
-        { width: size, height: size, borderRadius: 9, backgroundColor: meta.color },
+        {
+          width: size,
+          height: size,
+          borderRadius: 11,
+          backgroundColor: dimColor(meta.color),
+          borderColor,
+        },
       ]}
     >
-      <ThemedText style={styles.ticoTxt}>{meta.label[0]}</ThemedText>
+      <ThemedText style={[styles.ticoTxt, { color: meta.color }]}>{meta.label[0]}</ThemedText>
     </View>
   );
 }
@@ -110,10 +131,12 @@ function TypeIcon({ type, size = 34 }: { type: string; size?: number }) {
 // ---- A library row ---------------------------------------------------------
 function MethodRow({
   m,
+  first,
   onPress,
   onToggleFav,
 }: {
   m: Row;
+  first: boolean;
   onPress: () => void;
   onToggleFav: () => void;
 }) {
@@ -122,11 +145,15 @@ function MethodRow({
   return (
     <Pressable
       onPress={onPress}
-      style={[styles.mrow, { backgroundColor: surface.surface, borderColor: surface.border }]}
+      style={({ pressed }) => [
+        styles.mrow,
+        !first && { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: surface.hairline },
+        pressed && { backgroundColor: surface.pressed },
+      ]}
       accessibilityRole="button"
       accessibilityLabel={`Open ${m.name}`}
     >
-      <TypeIcon type={m.type} />
+      <TypeIcon type={m.type} borderColor={surface.border} />
       <View style={styles.mrowBody}>
         <ThemedText numberOfLines={1} style={[styles.mrowName, { color: surface.text }]}>
           {m.name}
@@ -141,8 +168,8 @@ function MethodRow({
       >
         <Ionicons
           name={m.favorite ? 'star' : 'star-outline'}
-          size={16}
-          color={m.favorite ? palette.amber : surface.muted}
+          size={17}
+          color={m.favorite ? palette.amber : surface.faint}
         />
       </Pressable>
       {m.onPhone ? <Ionicons name="checkmark-circle" size={16} color={palette.success} /> : null}
@@ -152,8 +179,7 @@ function MethodRow({
 
 export default function MethodLibraryScreen() {
   const router = useRouter();
-  const { surface, radii } = useTheme();
-  const unreadCount = useUnreadNotificationCount();
+  const { surface, radii, shadow } = useTheme();
   const { pairing } = usePairing();
   const isDemo = !!pairing?.demo;
 
@@ -364,7 +390,7 @@ export default function MethodLibraryScreen() {
 
   return (
     <ScreenFrame>
-      <View style={[styles.head, { backgroundColor: surface.surface }]}>
+      <View style={styles.head}>
         {/* Contract title header. Notifications + settings live on Home. */}
         <ThemedText style={[styles.greet, { color: surface.muted }]}>Protocol library</ThemedText>
         <ThemedText type="title">Methods</ThemedText>
@@ -410,8 +436,14 @@ export default function MethodLibraryScreen() {
         </View>
 
         {/* Live search. */}
-        <View style={[styles.search, { backgroundColor: surface.sunken, borderColor: surface.border, borderRadius: radii.md }]}>
-          <Ionicons name="search" size={17} color={surface.muted} />
+        <View
+          style={[
+            styles.search,
+            shadow.sm,
+            { backgroundColor: surface.surface, borderColor: surface.borderStrong, borderRadius: radii.md },
+          ]}
+        >
+          <Ionicons name="search" size={18} color={surface.faint} />
           <TextInput
             value={query}
             onChangeText={setQuery}
@@ -431,7 +463,7 @@ export default function MethodLibraryScreen() {
 
       {/* Horizontal type filter chips. */}
       {filterChips.length > 1 ? (
-        <View style={[styles.filtersWrap, { backgroundColor: surface.surface }]}>
+        <View style={styles.filtersWrap}>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filters}>
             {filterChips.map((t) => {
               const on = filter === t;
@@ -442,7 +474,7 @@ export default function MethodLibraryScreen() {
                   onPress={() => setFilter(t)}
                   style={[
                     styles.fchip,
-                    { borderColor: surface.border, backgroundColor: surface.sunken },
+                    { borderColor: surface.border, backgroundColor: surface.surface },
                     on && { backgroundColor: palette.sky, borderColor: palette.sky },
                   ]}
                 >
@@ -457,8 +489,8 @@ export default function MethodLibraryScreen() {
       ) : null}
 
       {/* Count + sort. */}
-      <View style={[styles.sortRow, { backgroundColor: surface.surface, borderBottomColor: surface.border }]}>
-        <ThemedText style={[styles.cnt, { color: surface.muted }]}>
+      <View style={styles.sortRow}>
+        <ThemedText style={[styles.cnt, { color: surface.faint }]}>
           {rows.length} of {total} methods
         </ThemedText>
         <Pressable onPress={() => setSort((s) => nextSort(s))} hitSlop={8} accessibilityRole="button" accessibilityLabel="Change sort">
@@ -488,12 +520,16 @@ export default function MethodLibraryScreen() {
                 <Pressable
                   key={m.methodId ?? i}
                   onPress={openRec}
-                  style={[styles.recmeth, { backgroundColor: surface.surface, borderColor: surface.border }]}
+                  style={({ pressed }) => [
+                    styles.recmeth,
+                    { backgroundColor: surface.surface, borderColor: surface.border },
+                    pressed && { backgroundColor: surface.pressed },
+                  ]}
                   accessibilityRole="button"
                   accessibilityLabel={`Open ${m.name ?? 'method'}`}
                 >
                   <View style={[styles.activedot, { backgroundColor: palette.success }]} />
-                  <TypeIcon type={t} size={32} />
+                  <TypeIcon type={t} size={36} borderColor={surface.border} />
                   <View style={styles.mrowBody}>
                     <ThemedText numberOfLines={1} style={[styles.mrowName, { color: surface.text }]}>
                       {m.name ?? 'Method'}
@@ -534,18 +570,27 @@ export default function MethodLibraryScreen() {
           grouped.map((g, gi) => (
             <View key={g.type ?? `grp-${gi}`}>
               {g.type ? (
-                <ThemedText style={[styles.grphdr, { color: surface.muted, backgroundColor: surface.bg }]}>
+                <ThemedText style={[styles.grphdr, { color: surface.faint }]}>
                   {typeMeta(g.type).label}
                 </ThemedText>
               ) : null}
-              {g.items.map((m) => (
-                <MethodRow
-                  key={m.uid}
-                  m={m}
-                  onPress={() => openLibraryRow(m.uid)}
-                  onToggleFav={() => void onToggleFav(m.uid)}
-                />
-              ))}
+              <View
+                style={[
+                  styles.groupCard,
+                  shadow.sm,
+                  { backgroundColor: surface.surface, borderColor: surface.border, borderRadius: radii.lg },
+                ]}
+              >
+                {g.items.map((m, ri) => (
+                  <MethodRow
+                    key={m.uid}
+                    m={m}
+                    first={ri === 0}
+                    onPress={() => openLibraryRow(m.uid)}
+                    onToggleFav={() => void onToggleFav(m.uid)}
+                  />
+                ))}
+              </View>
             </View>
           ))
         )}
@@ -593,30 +638,31 @@ const styles = StyleSheet.create({
   offchip: { flexDirection: 'row', alignItems: 'center', gap: 6, borderRadius: 999, paddingHorizontal: 10, paddingVertical: 5, borderWidth: 1 },
   offdot: { width: 7, height: 7, borderRadius: 999 },
   offtxt: { fontSize: 10.5, fontWeight: '700' },
-  search: { flexDirection: 'row', alignItems: 'center', gap: 9, borderWidth: 1, paddingHorizontal: 13, paddingVertical: 11, marginTop: 11 },
-  searchInput: { flex: 1, fontSize: 15, padding: 0 },
-  filtersWrap: { paddingVertical: 4 },
-  filters: { gap: 7, paddingHorizontal: 16, paddingVertical: 7 },
-  fchip: { borderRadius: 999, paddingHorizontal: 12, paddingVertical: 6, borderWidth: 1 },
-  fchipTxt: { fontSize: 12, fontWeight: '700' },
-  sortRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingTop: 8, paddingBottom: 6, borderBottomWidth: 1 },
-  cnt: { fontSize: 11, fontWeight: '600' },
-  sortTxt: { fontSize: 11.5, fontWeight: '700' },
+  search: { flexDirection: 'row', alignItems: 'center', gap: 9, borderWidth: 1, paddingHorizontal: 14, paddingVertical: 11, marginTop: 12 },
+  searchInput: { flex: 1, fontSize: 15, fontFamily: fonts.ui, padding: 0 },
+  filtersWrap: { paddingTop: 14 },
+  filters: { gap: 8, paddingHorizontal: 16, paddingVertical: 2 },
+  fchip: { borderRadius: 999, paddingHorizontal: 14, paddingVertical: 8, borderWidth: 1 },
+  fchipTxt: { fontSize: 13, fontFamily: fonts.semibold, fontWeight: '600' },
+  sortRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 18, paddingTop: 16, paddingBottom: 4 },
+  cnt: { fontSize: 12, fontFamily: fonts.bold, fontWeight: '700', letterSpacing: 0.6, textTransform: 'uppercase' },
+  sortTxt: { fontSize: 12.5, fontFamily: fonts.semibold, fontWeight: '600' },
   list: { flex: 1 },
-  listContent: { paddingHorizontal: 14, paddingTop: 6, paddingBottom: 112 },
-  reccard: { padding: 12, marginTop: 8, marginBottom: 4, borderWidth: 1 },
+  listContent: { paddingHorizontal: 16, paddingTop: 6, paddingBottom: 112 },
+  reccard: { padding: 14, marginTop: 8, marginBottom: 4, borderWidth: 1 },
   reclblRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 9 },
-  reclbl: { fontSize: 10.5, fontWeight: '800', textTransform: 'uppercase', letterSpacing: 0.6 },
-  recexp: { fontSize: 11, fontWeight: '700', marginBottom: 6, marginLeft: 2 },
-  recmeth: { flexDirection: 'row', alignItems: 'center', gap: 10, borderRadius: 11, padding: 10, marginBottom: 6, borderWidth: 1 },
+  reclbl: { fontSize: 11, fontFamily: fonts.extrabold, fontWeight: '800', textTransform: 'uppercase', letterSpacing: 0.7 },
+  recexp: { fontSize: 11.5, fontFamily: fonts.bold, fontWeight: '700', marginBottom: 8, marginLeft: 2 },
+  recmeth: { flexDirection: 'row', alignItems: 'center', gap: 10, borderRadius: 14, paddingVertical: 11, paddingHorizontal: 12, marginBottom: 8, borderWidth: 1 },
   activedot: { width: 8, height: 8, borderRadius: 999 },
-  tico: { alignItems: 'center', justifyContent: 'center' },
-  ticoTxt: { fontSize: 13, fontWeight: '800', color: '#ffffff' },
-  mrow: { flexDirection: 'row', alignItems: 'center', gap: 11, borderRadius: 12, padding: 11, marginBottom: 7, borderWidth: 1 },
+  tico: { alignItems: 'center', justifyContent: 'center', borderWidth: 1 },
+  ticoTxt: { fontSize: 14, fontFamily: fonts.monoSemibold, fontWeight: '600' },
+  groupCard: { paddingHorizontal: 14, paddingVertical: 2, borderWidth: 1, marginBottom: 4 },
+  mrow: { flexDirection: 'row', alignItems: 'center', gap: 11, paddingVertical: 11, paddingHorizontal: 2 },
   mrowBody: { flex: 1, minWidth: 0 },
-  mrowName: { fontSize: 14, fontWeight: '700' },
-  mrowSub: { fontSize: 11, marginTop: 1 },
-  grphdr: { fontSize: 10.5, fontWeight: '800', letterSpacing: 0.5, textTransform: 'uppercase', paddingVertical: 6, paddingHorizontal: 4, marginTop: 6 },
+  mrowName: { fontSize: 14, fontFamily: fonts.semibold, fontWeight: '600' },
+  mrowSub: { fontSize: 12, fontFamily: fonts.medium, marginTop: 2 },
+  grphdr: { fontSize: 12, fontFamily: fonts.bold, fontWeight: '700', letterSpacing: 0.8, textTransform: 'uppercase', paddingTop: 16, paddingBottom: 8, paddingHorizontal: 4 },
   noResult: { textAlign: 'center', fontSize: 13, paddingVertical: 40, paddingHorizontal: 20 },
   emptyWrap: { alignItems: 'center', paddingVertical: 48, paddingHorizontal: 28, gap: 10 },
   emptyTtl: { fontSize: 16, fontWeight: '800', textAlign: 'center' },
