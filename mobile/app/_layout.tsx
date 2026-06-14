@@ -122,9 +122,13 @@ export default function RootLayout() {
       switch (kind) {
         case 'method':
           if (uid) {
+            // Library deep-link: open one cached method by owner-namespaced uid.
             router.push({ pathname: '/method-detail', params: { uid } });
           } else {
-            router.push('/notifications');
+            // "View on phone" auto-open: no uid means the laptop just published
+            // the focused experiment's method snapshot, so open its read mode
+            // directly (?read=1) rather than dropping the user on notifications.
+            router.push({ pathname: '/method-detail', params: { read: '1' } });
           }
           break;
         case 'timer':
