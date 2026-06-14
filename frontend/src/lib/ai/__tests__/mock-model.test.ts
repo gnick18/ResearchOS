@@ -46,10 +46,13 @@ vi.mock("../proxy-client", () => {
       this.name = "ProxyError";
     }
   };
+  const callModelViaProxy = vi.fn(async () => ({
+    choices: [{ message: { content: "proxy-answer" } }],
+  }));
   return {
-    callModelViaProxy: vi.fn(async () => ({
-      choices: [{ message: { content: "proxy-answer" } }],
-    })),
+    callModelViaProxy,
+    // f824505eb metering: send() binds a per-task proxy caller via proxyCallerForTask.
+    proxyCallerForTask: vi.fn(() => callModelViaProxy),
     ProxyError,
   };
 });

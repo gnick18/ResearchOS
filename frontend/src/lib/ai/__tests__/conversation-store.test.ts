@@ -74,10 +74,14 @@ vi.mock("../proxy-client", () => {
       this.name = "ProxyError";
     }
   };
+  const callModelViaProxy = vi.fn(async () => ({
+    choices: [{ message: { content: "default answer" } }],
+  }));
   return {
-    callModelViaProxy: vi.fn(async () => ({
-      choices: [{ message: { content: "default answer" } }],
-    })),
+    callModelViaProxy,
+    // f824505eb metering: send() binds the proxy caller to a per-task id via
+    // proxyCallerForTask. Return the same mock so per-case overrides still drive it.
+    proxyCallerForTask: vi.fn(() => callModelViaProxy),
     ProxyError,
   };
 });
