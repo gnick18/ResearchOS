@@ -33,6 +33,7 @@ const ImageAnnotatorModal = dynamic(() => import("./ImageAnnotatorModal"), {
 });
 import ImageStrip from "./ImageStrip";
 import Tooltip from "./Tooltip";
+import { Icon } from "./icons";
 import FileStrip, { FILE_STRIP_DRAG_MIME } from "./FileStrip";
 import ImageTrashDropZone from "./ImageTrashDropZone";
 import FileTrashDropZone from "./FileTrashDropZone";
@@ -524,6 +525,12 @@ export default function LiveMarkdownEditor({
   } | null>(null);
   const [showAttachmentStrip, setShowAttachmentStrip] = useState(true);
   const [activeAttachmentTab, setActiveAttachmentTab] = useState<"images" | "files">("images");
+  // L1 quiet toolbar: the secondary insert actions (Add File / Browse / Insert
+  // ref / Number figures) collapse behind a single "＋" overflow menu so the
+  // docked toolbar reads as a calm contextual strip. This tracks whether that
+  // menu is open. Closing on outside-click / Escape is wired below.
+  const [insertMenuOpen, setInsertMenuOpen] = useState(false);
+  const insertMenuRef = useRef<HTMLDivElement>(null);
   // Native-file drag affordance: light up the editor (or the surrounding popup)
   // while the user is dragging a file from Finder over it. Counter handles
   // child-element bubbling — dragenter/leave fire on every nested element the
@@ -532,6 +539,26 @@ export default function LiveMarkdownEditor({
   const dragCounterRef = useRef(0);
   const wrapperRef = useRef<HTMLDivElement>(null);
   const editorContentRef = useRef<HTMLDivElement>(null);
+
+  // Close the quiet toolbar's "＋" insert overflow menu on an outside click or
+  // Escape, so it behaves like a normal popover and never traps focus.
+  useEffect(() => {
+    if (!insertMenuOpen) return;
+    const onPointerDown = (e: PointerEvent) => {
+      if (!insertMenuRef.current?.contains(e.target as Node)) {
+        setInsertMenuOpen(false);
+      }
+    };
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setInsertMenuOpen(false);
+    };
+    document.addEventListener("pointerdown", onPointerDown, true);
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("pointerdown", onPointerDown, true);
+      document.removeEventListener("keydown", onKeyDown);
+    };
+  }, [insertMenuOpen]);
   // Forward-reference to the LabArchives Form-B drop interceptor (defined
   // further down once its callback deps — value/onChange/etc — are in
   // scope). The capture-phase native drop listener below reads through this
@@ -1838,12 +1865,20 @@ export default function LiveMarkdownEditor({
           §6: hide Add File / Browse / Strip, keep a compact Hybrid / Preview
           toggle + Attachments toggle + Save + Exit). */}
       {showToolbar && !focusModeActive && (
-        <div className="flex items-center gap-2 px-4 py-2 border-b border-border bg-surface-sunken/50">
+        // L1 quiet contextual toolbar. The heavy permanent toolbar collapses
+        // into a calm, low-contrast strip: Edit / Preview + Focus stay visible;
+        // the secondary insert actions (Add File / Browse / Insert ref / Number
+        // figures) fold into a single "＋" overflow menu; the Attachments
+        // (strip) toggle and Focus enter button are quiet icon buttons. EVERY
+        // original action + behavior is preserved — only the presentation is
+        // quieted (Phase A). No hard border / sunken fill so it reads as part
+        // of the writing room.
+        <div className="flex items-center gap-1.5 px-3 py-1.5">
           {/* Two-way mode toggle: Edit | Preview. The inline CodeMirror 6
               surface is now the sole editor ("Edit"); Hybrid was retired from
               the UI (its code stays as a dormant fallback). The Edit pill maps
               to the "inline" EditorMode. */}
-          <div className="flex items-center bg-surface-sunken rounded-md p-0.5">
+          <div className="flex items-center bg-surface-sunken/70 rounded-lg p-0.5">
             <Tooltip
               label="Write in a single live editing surface"
               placement="bottom"
@@ -1853,7 +1888,7 @@ export default function LiveMarkdownEditor({
                 data-testid="editor-mode-inline"
                 onClick={() => setMode("inline")}
                 disabled={disabled}
-                className={`px-2.5 py-1 text-meta rounded transition-colors ${
+                className={`px-2.5 py-1 text-meta rounded-md transition-colors ${
                   currentMode !== "preview"
                     ? "bg-surface-raised text-foreground font-medium shadow-sm"
                     : "text-foreground-muted hover:text-foreground"
@@ -1867,7 +1902,7 @@ export default function LiveMarkdownEditor({
                 type="button"
                 onClick={() => setMode("preview")}
                 disabled={disabled}
-                className={`px-2.5 py-1 text-meta rounded transition-colors ${
+                className={`px-2.5 py-1 text-meta rounded-md transition-colors ${
                   currentMode === "preview"
                     ? "bg-surface-raised text-foreground font-medium shadow-sm"
                     : "text-foreground-muted hover:text-foreground"
@@ -1877,10 +1912,152 @@ export default function LiveMarkdownEditor({
               </button>
             </Tooltip>
           </div>
+
+          {/* Quiet divider between the primary toggle and the contextual icons. */}
+          <div
+            aria-hidden="true"
+            className="w-px h-4 bg-border mx-0.5"
+          />
+
+          {/* ＋ Insert overflow menu. Collapses the four secondary insert
+              actions (Add File / Add Image, Browse, Insert ref, Number figures)
+              behind a single quiet "＋" so the strip stays calm. Each row keeps
+              its EXACT original handler + behavior; only the presentation moved
+              from inline buttons into this menu. Outside-click / Escape close it
+              (wired via the insertMenuOpen effect above). */}
+          <div className="relative" ref={insertMenuRef}>
+            <Tooltip label="Insert" placement="bottom">
+              <button
+                type="button"
+                aria-label="Insert"
+                aria-haspopup="menu"
+                aria-expanded={insertMenuOpen}
+                onClick={() => setInsertMenuOpen((v) => !v)}
+                disabled={disabled}
+                className={`p-1.5 rounded-lg transition-colors disabled:opacity-50 ${
+                  insertMenuOpen
+                    ? "bg-brand-action/12 text-brand-action"
+                    : "text-foreground-muted hover:bg-foreground-muted/15 hover:text-foreground"
+                }`}
+              >
+                <Icon name="plus" className="w-4 h-4" />
+              </button>
+            </Tooltip>
+            {insertMenuOpen && (
+              <div
+                role="menu"
+                className="absolute left-0 top-full mt-1 z-30 min-w-[11rem] py-1 rounded-lg border border-border bg-surface-overlay shadow-lg"
+              >
+                {/* Add File / Add Image */}
+                <button
+                  type="button"
+                  role="menuitem"
+                  onClick={() => {
+                    setInsertMenuOpen(false);
+                    handleAddImageClick();
+                  }}
+                  disabled={disabled}
+                  className="w-full flex items-center gap-2 px-3 py-1.5 text-left text-meta text-foreground hover:bg-foreground-muted/10 transition-colors disabled:opacity-50"
+                >
+                  <Icon name="plus" className="w-4 h-4 text-foreground-muted" />
+                  {allowAnyFileType ? "Add File" : "Add Image"}
+                </button>
+
+                {/* Browse Images */}
+                {onBrowseImages && (
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={() => {
+                      setInsertMenuOpen(false);
+                      onBrowseImages();
+                    }}
+                    disabled={disabled}
+                    className="w-full flex items-center gap-2 px-3 py-1.5 text-left text-meta text-foreground hover:bg-foreground-muted/10 transition-colors disabled:opacity-50"
+                  >
+                    <Icon name="search" className="w-4 h-4 text-foreground-muted" />
+                    Browse
+                  </button>
+                )}
+
+                {/* Insert reference (molecule / sequence / method). */}
+                {enableReferencePicker && !disabled && (
+                  <button
+                    type="button"
+                    role="menuitem"
+                    aria-label="Insert reference"
+                    onClick={() => {
+                      setInsertMenuOpen(false);
+                      setReferencePickerOpen(true);
+                    }}
+                    className="w-full flex items-center gap-2 px-3 py-1.5 text-left text-meta text-foreground hover:bg-foreground-muted/10 transition-colors"
+                  >
+                    <Icon name="reference" className="w-4 h-4 text-foreground-muted" />
+                    Insert ref
+                  </button>
+                )}
+
+                {/* Number figures directive toggle (per-document). Keeps the
+                    exact insert/remove logic; the active state shows a check. */}
+                {enableReferencePicker && !disabled && (
+                  <button
+                    type="button"
+                    role="menuitemcheckbox"
+                    aria-checked={FIGURE_DIRECTIVE.test(value)}
+                    aria-label="Number figures"
+                    onClick={() => {
+                      const on = FIGURE_DIRECTIVE.test(value);
+                      const next = on
+                        ? value.replace(/^[^\n]*<!--\s*ros:number-figures\s*-->[^\n]*\n?/m, "")
+                        : `<!-- ros:number-figures -->\n${value}`;
+                      onChange(next);
+                      setInsertMenuOpen(false);
+                    }}
+                    className="w-full flex items-center gap-2 px-3 py-1.5 text-left text-meta text-foreground hover:bg-foreground-muted/10 transition-colors"
+                  >
+                    <Icon
+                      name={FIGURE_DIRECTIVE.test(value) ? "check" : "list"}
+                      className={`w-4 h-4 ${FIGURE_DIRECTIVE.test(value) ? "text-brand-action" : "text-foreground-muted"}`}
+                    />
+                    Number figures
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* Attachment Strip toggle (kept quiet). Shows / hides the
+              scrollable strip of every image OR non-image file attached to this
+              experiment along the bottom. Same showAttachmentStrip handler.
+              Rendered as a quiet text control (matching the focus-mode bar's
+              "Attachments" label) so the strip needs no new registry glyph. */}
+          <Tooltip
+            label={
+              showAttachmentStrip
+                ? "Hide the attachments strip"
+                : "Show every image and file attached to this experiment along the bottom - drag a tile into the body to insert it"
+            }
+            placement="bottom"
+          >
+            <button
+              type="button"
+              aria-label="Toggle attachments strip"
+              aria-pressed={showAttachmentStrip}
+              onClick={() => setShowAttachmentStrip((v) => !v)}
+              className={`px-2.5 py-1 text-meta rounded-lg transition-colors ${
+                showAttachmentStrip
+                  ? "bg-brand-action/12 text-brand-action font-medium"
+                  : "text-foreground-muted hover:bg-foreground-muted/15 hover:text-foreground"
+              }`}
+            >
+              Attachments
+            </button>
+          </Tooltip>
+
           {/* Writing Focus Mode enter button (FOCUS_WRITING_MODE_DESIGN.md
-              §6). Sits next to the Edit / Preview toggle. Inline SVG
-              "expand" glyph (no emoji), project Tooltip (never native
-              title=), data-tour-target for the walkthrough's enter beat. */}
+              §6). Inline SVG "expand" glyph (no emoji), project Tooltip (never
+              native title=), data-tour-target for the walkthrough's enter beat.
+              Stays visible on the quiet strip. */}
           <Tooltip label="Focus mode (Cmd+Shift+F)" placement="bottom">
             <button
               type="button"
@@ -1889,7 +2066,7 @@ export default function LiveMarkdownEditor({
               onClick={() => toggleFocusMode(true)}
               disabled={disabled}
               aria-label="Enter writing focus mode"
-              className="p-1.5 text-foreground-muted rounded hover:bg-foreground-muted/15 hover:text-foreground transition-colors disabled:opacity-50"
+              className="p-1.5 text-foreground-muted rounded-lg hover:bg-foreground-muted/15 hover:text-foreground transition-colors disabled:opacity-50"
             >
               <svg
                 className="w-4 h-4"
@@ -1907,112 +2084,7 @@ export default function LiveMarkdownEditor({
               </svg>
             </button>
           </Tooltip>
-          <Tooltip
-            label={allowAnyFileType ? "Click to upload any file from your computer" : "Click to upload an image file from your computer"}
-            placement="bottom"
-          >
-            <button
-              type="button"
-              onClick={handleAddImageClick}
-              disabled={disabled}
-              className="px-2.5 py-1 text-meta bg-surface-sunken text-foreground-muted rounded hover:bg-foreground-muted/15 transition-colors disabled:opacity-50"
-            >
-              {allowAnyFileType ? "Add File" : "Add Image"}
-            </button>
-          </Tooltip>
-          
-          {/* Browse Images Button */}
-          {onBrowseImages && (
-            <Tooltip label={`Browse images already attached to this ${recordType}`} placement="bottom">
-              <button
-                type="button"
-                onClick={onBrowseImages}
-                disabled={disabled}
-                className="px-2.5 py-1 text-meta bg-surface-sunken text-foreground-muted rounded hover:bg-foreground-muted/15 transition-colors disabled:opacity-50"
-              >
-                Browse
-              </button>
-            </Tooltip>
-          )}
 
-          {/* Insert Reference (Chemistry Phase 3). Only shown when the host
-              opts in via enableReferencePicker. Opens the tabbed picker for
-              Molecules / Sequences / Methods; the chosen row inserts the
-              objectReferenceMarkdown at the CM6 caret via insertRef. */}
-          {enableReferencePicker && !disabled && (
-            <Tooltip label="Insert reference (molecule, sequence, or method)" placement="bottom">
-              <button
-                type="button"
-                aria-label="Insert reference"
-                onClick={() => setReferencePickerOpen(true)}
-                className="px-2.5 py-1 text-meta bg-surface-sunken text-foreground-muted rounded hover:bg-foreground-muted/15 transition-colors"
-              >
-                Insert ref
-              </button>
-            </Tooltip>
-          )}
-
-          {/* Number figures toggle. Inserts / removes the portable
-              `<!-- ros:number-figures -->` directive (hidden in the editor, kept
-              in the saved .md) so embedded figures + tables get "Figure N" /
-              "Table N" labels in this document. Per-document, no global setting. */}
-          {enableReferencePicker && !disabled && (
-            <Tooltip
-              label={
-                FIGURE_DIRECTIVE.test(value)
-                  ? "Stop numbering figures and tables in this document"
-                  : "Number the figures and tables in this document (Figure 1, Table 2)"
-              }
-              placement="bottom"
-            >
-              <button
-                type="button"
-                aria-pressed={FIGURE_DIRECTIVE.test(value)}
-                aria-label="Number figures"
-                onClick={() => {
-                  const on = FIGURE_DIRECTIVE.test(value);
-                  const next = on
-                    ? value.replace(/^[^\n]*<!--\s*ros:number-figures\s*-->[^\n]*\n?/m, "")
-                    : `<!-- ros:number-figures -->\n${value}`;
-                  onChange(next);
-                }}
-                className={`px-2.5 py-1 text-meta rounded transition-colors ${
-                  FIGURE_DIRECTIVE.test(value)
-                    ? "bg-blue-100 dark:bg-blue-500/20 text-blue-700 dark:text-blue-300"
-                    : "bg-surface-sunken text-foreground-muted hover:bg-foreground-muted/15"
-                }`}
-              >
-                Number figures
-              </button>
-            </Tooltip>
-          )}
-
-          {/* Attachment Strip Toggle — shows a scrollable strip of every
-              image OR non-image file attached to this experiment along the
-              bottom. A small Images / Files tab bar above the strip switches
-              between the two. Drag a thumbnail into the body to insert a
-              reference at the drop point. */}
-          <Tooltip
-            label={
-              showAttachmentStrip
-                ? "Hide the attachments strip"
-                : "Show every image and file attached to this experiment along the bottom - drag a tile into the body to insert it"
-            }
-            placement="bottom"
-          >
-            <button
-              type="button"
-              onClick={() => setShowAttachmentStrip((v) => !v)}
-              className={`px-2.5 py-1 text-meta rounded transition-colors ${
-                showAttachmentStrip
-                  ? "bg-blue-100 dark:bg-blue-500/20 text-blue-700 dark:text-blue-300"
-                  : "bg-surface-sunken text-foreground-muted hover:bg-foreground-muted/15"
-              }`}
-            >
-              Strip
-            </button>
-          </Tooltip>
-          
           <input
             ref={fileInputRef}
             type="file"
@@ -2037,7 +2109,14 @@ export default function LiveMarkdownEditor({
       {/* Main content area with helper panel and editor */}
       <div
         ref={editorContentRef}
-        className="flex flex-1 min-h-0"
+        className={
+          // L1 calm editor atom: the DOCKED (non-focus) content zone becomes a
+          // warm "writing room" (calm paper + writing-room type via the scoped
+          // `.ros-editor-room` rules in globals.css). Focus mode relocates this
+          // same subtree to a body portal WITHOUT this class, so the focus
+          // overlay keeps its own treatment untouched (Phase A guardrail).
+          `flex flex-1 min-h-0${focusModeActive ? "" : " ros-editor-room"}`
+        }
         onDragOver={(e) => {
           const types = Array.from(e.dataTransfer.types);
           if (
@@ -2212,7 +2291,7 @@ export default function LiveMarkdownEditor({
             <div className="p-4 h-full overflow-y-auto">
               {previewValue.trim() ? (
                 <div
-                  className={`light-scope prose prose-sm prose-gray ${measureClass} px-6 py-4 rounded-md border border-border bg-surface-raised`}
+                  className={`ros-editor-preview-card light-scope prose prose-sm prose-gray ${measureClass} px-6 py-4 rounded-md border border-border bg-surface-raised`}
                   style={{ lineHeight: "1.7" }}
                 >
                   {/* Preview render path: RenderedMarkdown handles object
