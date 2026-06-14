@@ -7,16 +7,13 @@
 // no emojis, no mid-sentence colons.
 import { useCallback, useEffect, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from 'expo-router';
+import { LinearGradient } from 'expo-linear-gradient';
+import { Ionicons } from '@expo/vector-icons';
 
 import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
 import { ScreenFrame } from '@/components/ui/ScreenFrame';
-import { TabHeader } from '@/components/ui/TabHeader';
-import { useUnreadNotificationCount } from '@/lib/unread-notifications';
 import { Button } from '@/components/ui/Button';
-import { Card } from '@/components/ui/Card';
 import { SectionHeader } from '@/components/ui/SectionHeader';
 import { AlarmSettingsCard } from '@/components/AlarmSettingsCard';
 import { useTheme, palette, fonts } from '@/lib/design';
@@ -40,20 +37,33 @@ import {
 // Keypad layout, read right-to-left as HHMMSS like a bench timer.
 const KEYS = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '00', '0', 'back'];
 
-// One-tap quick-start presets (the common bench durations).
+// HH:MM:SS display glyphs. place 0..5 maps to a HHMMSS digit (filled at render),
+// place -1 is a literal colon separator. "#" is a digit placeholder.
+const DISPLAY_GLYPHS: { ch: string; place: number }[] = [
+  { ch: '#', place: 0 },
+  { ch: '#', place: 1 },
+  { ch: ':', place: -1 },
+  { ch: '#', place: 2 },
+  { ch: '#', place: 3 },
+  { ch: ':', place: -1 },
+  { ch: '#', place: 4 },
+  { ch: '#', place: 5 },
+];
+
+// One-tap quick-start presets (the common bench durations). Compact labels to
+// match the contract chip row (1m / 5m / 10m / 30m / 1h).
 const PRESETS = [
-  { label: '1 min', sec: 60 },
-  { label: '5 min', sec: 300 },
-  { label: '10 min', sec: 600 },
-  { label: '30 min', sec: 1800 },
-  { label: '1 hr', sec: 3600 },
+  { label: '1m', sec: 60 },
+  { label: '5m', sec: 300 },
+  { label: '10m', sec: 600 },
+  { label: '30m', sec: 1800 },
+  { label: '1h', sec: 3600 },
 ];
 
 export default function TimersScreen() {
   const { timers, refresh } = useTimers();
   const { pairing } = usePairing();
   const { surface, spacing, radii } = useTheme();
-  const unreadCount = useUnreadNotificationCount();
   // Up to six entered digits, read right-to-left as HHMMSS.
   const [digits, setDigits] = useState('');
   // null = not yet checked, true/false once we know the OS grant.
@@ -190,7 +200,7 @@ export default function TimersScreen() {
         contentContainerStyle={styles.scrollContent}
         keyboardShouldPersistTaps="handled"
       >
-          <ThemedText style={{ fontSize: 12.5, fontFamily: fonts.semibold, color: surface.muted, marginBottom: 4 }}>
+          <ThemedText style={[styles.kicker, { color: surface.muted }]}>
             Bench timers
           </ThemedText>
           <ThemedText type="title">Timers</ThemedText>
@@ -208,9 +218,9 @@ export default function TimersScreen() {
 
           {/* New-timer composer sits directly on the canvas (no wrapping card),
               so only a running timer gets a grouped card above. */}
-          <View style={{ gap: spacing.md }}>
+          <View style={{ gap: spacing.lg }}>
             <View>
-              <ThemedText style={[styles.subLabel, { color: surface.muted }]}>
+              <ThemedText style={[styles.lbl, { color: surface.faint }]}>
                 QUICK START
               </ThemedText>
               <View style={styles.presetRow}>
@@ -219,11 +229,10 @@ export default function TimersScreen() {
                     key={p.sec}
                     testID={`timer-preset-${p.label.replace(/\s+/g, '')}`}
                     style={({ pressed }) => [
-                      styles.preset,
+                      styles.chip,
                       {
-                        borderRadius: radii.pill,
-                        backgroundColor: pressed ? palette.amber : palette.white,
-                        borderColor: pressed ? palette.amber : palette.elevatedBorder,
+                        backgroundColor: pressed ? palette.sky : surface.surface,
+                        borderColor: pressed ? palette.sky : surface.border,
                       },
                     ]}
                     onPress={() => startPreset(p.sec)}
@@ -231,7 +240,9 @@ export default function TimersScreen() {
                     accessibilityLabel={`Start ${p.label} timer`}
                   >
                     {({ pressed }) => (
-                      <ThemedText style={[styles.presetText, { color: pressed ? palette.white : palette.sky }]}>
+                      <ThemedText
+                        style={[styles.chipText, { color: pressed ? palette.white : surface.muted }]}
+                      >
                         {p.label}
                       </ThemedText>
                     )}
@@ -240,55 +251,83 @@ export default function TimersScreen() {
               </View>
             </View>
 
-            <ThemedText style={[styles.subLabel, { color: surface.muted }]}>
-              OR SET A CUSTOM TIME
-            </ThemedText>
+            <View>
+              <ThemedText style={[styles.lbl, { color: surface.faint }]}>
+                CUSTOM
+              </ThemedText>
 
-            <View style={styles.displayWrap}>
-              <ThemedText
-                style={[
-                  styles.display,
-                  { color: palette.sky },
-                  duration <= 0 && styles.displayDim,
-                ]}
-              >
-                {hh}:{mm}:{ss}
-              </ThemedText>
-              <ThemedText style={[styles.displayHint, { color: palette.faint }]}>
-                HOURS : MIN : SEC
-              </ThemedText>
+              {/* Mono display. Leading zero-pad digits read faint (contract .z),
+                  the entered digits in full text color, matching .timer-display.
+                  Each glyph is a place index 0..5; a place is "pad" while it sits
+                  left of the entered digits (digits fill right-to-left). */}
+              <View style={styles.displayWrap}>
+                <ThemedText style={styles.display}>
+                  {DISPLAY_GLYPHS.map(({ ch, place }, i) => {
+                    const isPad = place < 0 || place < 6 - digits.length;
+                    return (
+                      <ThemedText
+                        key={i}
+                        style={[
+                          styles.displayChar,
+                          { color: isPad ? surface.faint : surface.text },
+                        ]}
+                      >
+                        {ch === '#' ? `${hh}${mm}${ss}`[place] : ch}
+                      </ThemedText>
+                    );
+                  })}
+                </ThemedText>
+                <ThemedText style={[styles.displayHint, { color: surface.faint }]}>
+                  HH : MM : SS
+                </ThemedText>
+              </View>
             </View>
 
             <View style={styles.keypad}>
-              {KEYS.map((key) => (
-                <Pressable
-                  key={key}
-                  style={({ pressed }) => [
-                    styles.key,
-                    {
-                      borderColor: surface.border,
-                      borderRadius: radii.sm,
-                    },
-                    pressed && {
-                      backgroundColor: palette.skyDim,
-                      borderColor: palette.sky,
-                    },
-                  ]}
-                  onPress={() => pushKey(key)}
-                  accessibilityRole="button"
-                  accessibilityLabel={key === 'back' ? 'delete' : key}
-                >
-                  <ThemedText style={[styles.keyText, { color: surface.text }]}>
-                    {key === 'back' ? 'del' : key}
-                  </ThemedText>
-                </Pressable>
-              ))}
+              {KEYS.map((key) => {
+                const isClear = key === 'back';
+                return (
+                  <Pressable
+                    key={key}
+                    style={({ pressed }) => [
+                      styles.key,
+                      {
+                        backgroundColor: isClear ? palette.coralDim : surface.surface,
+                        borderColor: isClear ? palette.coralBorder : surface.border,
+                        borderRadius: radii.md,
+                      },
+                      !isClear && styles.keyShadow,
+                      pressed &&
+                        (isClear
+                          ? { backgroundColor: palette.coral }
+                          : { backgroundColor: palette.skyDim, borderColor: palette.sky }),
+                    ]}
+                    onPress={() => pushKey(key)}
+                    accessibilityRole="button"
+                    accessibilityLabel={isClear ? 'delete' : key}
+                  >
+                    {({ pressed }) =>
+                      isClear ? (
+                        <Ionicons
+                          name="backspace-outline"
+                          size={23}
+                          color={pressed ? palette.white : palette.coral}
+                        />
+                      ) : (
+                        <ThemedText style={[styles.keyText, { color: surface.text }]}>
+                          {key}
+                        </ThemedText>
+                      )
+                    }
+                  </Pressable>
+                );
+              })}
             </View>
 
             <Button
               testID="timer-start"
               variant="primary"
-              label={duration > 0 ? `Start timer (${formatClock(duration)})` : 'Enter a time'}
+              label={duration > 0 ? `Start timer (${formatClock(duration)})` : 'Start timer'}
               onPress={onStart}
               disabled={duration <= 0}
             />
@@ -328,59 +367,92 @@ function TimerRow({
   timer: Timer;
   onCancel: (id: string) => void;
 }) {
-  const { surface } = useTheme();
+  const { surface, dark } = useTheme();
   const isRunning = timer.status === 'running';
+  const fromLaptop = timer.origin === 'laptop';
   // Remaining seconds, clamped at zero. Recomputed every render, the 1s tick in
   // useTimers drives the re-render.
   const remainingSec = Math.max(0, Math.ceil((timer.endsAt - Date.now()) / 1000));
 
-  const pillBg =
-    timer.status === 'done' ? palette.successLight : palette.skyDim;
-  const pillColor =
-    timer.status === 'done' ? palette.success : surface.muted;
+  // Running cards follow the contract .timer-live: a soft accent-tinted gradient
+  // card with a conic-style ring + stopwatch glyph, name, note, and a mono
+  // countdown. Laptop-mirrored timers take the sky accent, on-device take amber.
+  if (isRunning) {
+    const accent = fromLaptop ? palette.sky : palette.amber;
+    const accentDim = fromLaptop ? palette.skyDim : palette.amberDim;
+    const accentBorder = fromLaptop ? palette.skyBorder : palette.amberBorder;
+    const tint = fromLaptop ? palette.skyDim : palette.amberDim;
+    return (
+      <View style={[styles.liveWrap, { borderColor: accentBorder, ...shadowSm(dark) }]}>
+        <LinearGradient
+          colors={[tint, surface.surface]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={StyleSheet.absoluteFill}
+        />
+        <View style={styles.liveBody}>
+          {/* Ring: an accent annulus (the gradient ring) with an inner surface
+              disc holding the stopwatch glyph. */}
+          <View style={[styles.ring, { backgroundColor: accentDim, borderColor: accent }]}>
+            <View style={[styles.ringInner, { backgroundColor: surface.surface }]}>
+              <Ionicons name="stopwatch-outline" size={17} color={accent} />
+            </View>
+          </View>
+          <View style={styles.liveText}>
+            <ThemedText style={[styles.liveName, { color: surface.text }]} numberOfLines={1}>
+              {timer.label.length > 0 ? timer.label : 'Lab timer'}
+            </ThemedText>
+            <View style={styles.liveMetaRow}>
+              <ThemedText style={[styles.liveNote, { color: surface.muted }]}>
+                {fromLaptop ? 'From laptop' : 'On this phone'}
+              </ThemedText>
+              <ThemedText style={[styles.liveNote, { color: surface.faint }]}>·</ThemedText>
+              <Pressable onPress={() => onCancel(timer.id)} accessibilityRole="button" hitSlop={8}>
+                <ThemedText style={[styles.liveCancel, { color: palette.coral }]}>Cancel</ThemedText>
+              </Pressable>
+            </View>
+          </View>
+          <ThemedText style={[styles.countdown, { color: accent }]}>
+            {formatClock(remainingSec)}
+          </ThemedText>
+        </View>
+      </View>
+    );
+  }
 
+  // Finished / cancelled timers keep a quiet plain card with a status pill.
+  const pillBg = timer.status === 'done' ? palette.successLight : palette.skyDim;
+  const pillColor = timer.status === 'done' ? palette.success : surface.muted;
   return (
-    <Card compact style={styles.timerRow}>
+    <View
+      style={[
+        styles.doneRow,
+        { backgroundColor: surface.surface, borderColor: surface.border, ...shadowSm(dark) },
+      ]}
+    >
       <View style={styles.rowBody}>
         <ThemedText style={[styles.rowTitle, { color: surface.text }]} numberOfLines={2}>
           {timer.label.length > 0 ? timer.label : 'Lab timer'}
         </ThemedText>
-        {isRunning ? (
-          <ThemedText style={[styles.countdown, { color: palette.amber }]}>
-            {formatClock(remainingSec)}
-          </ThemedText>
-        ) : (
-          <ThemedText style={[styles.rowMeta, { color: surface.muted }]}>
-            {formatClock(timer.durationSec)} total
-          </ThemedText>
-        )}
-        {timer.origin === 'laptop' ? (
-          <ThemedText style={[styles.rowMeta, { color: surface.muted }]}>
-            from laptop
-          </ThemedText>
-        ) : null}
+        <ThemedText style={[styles.rowMeta, { color: surface.muted }]}>
+          {formatClock(timer.durationSec)} total{fromLaptop ? ' · from laptop' : ''}
+        </ThemedText>
       </View>
-      <View style={styles.rowActions}>
-        {isRunning ? (
-          <Pressable
-            onPress={() => onCancel(timer.id)}
-            accessibilityRole="button"
-            hitSlop={8}
-          >
-            <ThemedText style={[styles.actionText, { color: palette.coral }]}>
-              Cancel
-            </ThemedText>
-          </Pressable>
-        ) : (
-          <View style={[styles.pill, { backgroundColor: pillBg }]}>
-            <ThemedText style={[styles.pillText, { color: pillColor }]}>
-              {timer.status === 'done' ? 'Done' : 'Cancelled'}
-            </ThemedText>
-          </View>
-        )}
+      <View style={[styles.pill, { backgroundColor: pillBg }]}>
+        <ThemedText style={[styles.pillText, { color: pillColor }]}>
+          {timer.status === 'done' ? 'Done' : 'Cancelled'}
+        </ThemedText>
       </View>
-    </Card>
+    </View>
   );
+}
+
+// Soft contract shadow-sm, theme-aware. Hook-free helper so TimerRow stays a
+// plain function but still gets the right elevation per scheme.
+function shadowSm(dark: boolean) {
+  return dark
+    ? { shadowColor: '#000000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.4, shadowRadius: 3, elevation: 2 }
+    : { shadowColor: '#0F1722', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.06, shadowRadius: 3, elevation: 2 };
 }
 
 // Render seconds as HH:MM:SS when an hour or more, else MM:SS.
@@ -396,104 +468,163 @@ function formatClock(totalSec: number): string {
 
 const styles = StyleSheet.create({
   fill: { flex: 1 },
-  container: { flex: 1 },
-  safe: { flex: 1 },
   scrollContent: {
     paddingHorizontal: 24,
     paddingTop: 16,
     paddingBottom: 112,
     gap: 16,
   },
-  tagline: {
-    lineHeight: 22,
+  kicker: {
+    fontSize: 12.5,
+    fontFamily: fonts.semibold,
+    marginBottom: 4,
   },
-  cardSectionTitle: {
-    fontSize: 16,
-    fontWeight: '700',
-    lineHeight: 22,
-  },
-  subLabel: {
+  // Section label, contract .lbl: 12px, 700, .08em tracking, faint, uppercase.
+  lbl: {
     fontSize: 12,
-    fontWeight: '700',
-    letterSpacing: 0.4,
-    marginBottom: 8,
+    fontFamily: fonts.bold,
+    letterSpacing: 0.96,
+    textTransform: 'uppercase',
+    marginBottom: 9,
+    marginLeft: 2,
   },
   presetRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 8,
   },
-  preset: {
-    paddingHorizontal: 15,
-    paddingVertical: 9,
-    borderWidth: 1,
-    shadowColor: '#101828',
-    shadowOpacity: 0.08,
-    shadowRadius: 3,
-    shadowOffset: { width: 0, height: 1 },
-    elevation: 1,
-  },
-  presetText: {
-    fontSize: 14,
-    fontWeight: '700',
-  },
-  input: {
-    borderWidth: 1,
+  // Contract .ch: pill, surface bg, 1px border, muted text. Pressed -> sky fill.
+  chip: {
     paddingHorizontal: 14,
-    paddingVertical: 12,
-    fontSize: 16,
-    minHeight: 48,
+    paddingVertical: 8,
+    borderRadius: 999,
+    borderWidth: 1,
+  },
+  chipText: {
+    fontSize: 13,
+    fontFamily: fonts.semibold,
   },
   displayWrap: {
     alignItems: 'center',
     gap: 2,
-    paddingVertical: 6,
+    paddingVertical: 4,
   },
+  // Contract .timer-display: Geist Mono, 46px, tabular, slight negative tracking.
   display: {
-    fontSize: 52,
-    lineHeight: 60,
-    fontWeight: '700',
-    fontVariant: ['tabular-nums'],
+    flexDirection: 'row',
   },
-  displayDim: {
-    opacity: 0.35,
+  displayChar: {
+    fontSize: 46,
+    lineHeight: 54,
+    fontFamily: fonts.monoSemibold,
+    fontVariant: ['tabular-nums'],
+    letterSpacing: -0.9,
   },
   displayHint: {
-    fontSize: 12,
-    letterSpacing: 1,
-    // Android floors text-view width without the trailing letter-spacing, which
-    // clips the last glyph. Symmetric padding keeps this centered hint centered.
-    paddingHorizontal: 2,
+    fontSize: 10,
+    fontFamily: fonts.mono,
+    letterSpacing: 1.6,
+    marginTop: 2,
+    // Android floors text-view width without trailing tracking; pad both sides.
+    paddingHorizontal: 3,
   },
+  // Contract .keypad: 3-col grid, 10px gutters.
   keypad: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     justifyContent: 'space-between',
     rowGap: 10,
   },
+  // Contract .key: 58px tall, r-md, surface card with hairline border + sm shadow.
   key: {
-    width: '31%',
-    aspectRatio: 1.9,
+    width: '31.5%',
+    height: 58,
     borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
   },
+  keyShadow: {
+    shadowColor: '#0F1722',
+    shadowOpacity: 0.06,
+    shadowRadius: 3,
+    shadowOffset: { width: 0, height: 1 },
+    elevation: 2,
+  },
+  // Contract .key text: Geist Mono, 21px, 600.
   keyText: {
-    fontSize: 24,
-    fontWeight: '600',
+    fontSize: 21,
+    fontFamily: fonts.monoSemibold,
     fontVariant: ['tabular-nums'],
   },
   permNote: {
     fontSize: 13,
     lineHeight: 18,
   },
-  cardHint: {
-    lineHeight: 20,
+  // Running timer card, contract .timer-live.
+  liveWrap: {
+    borderRadius: 20,
+    borderWidth: 1,
+    overflow: 'hidden',
   },
-  timerRow: {
+  liveBody: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 13,
+    paddingHorizontal: 15,
+    paddingVertical: 14,
+  },
+  ring: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    borderWidth: 3,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  ringInner: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  liveText: {
+    flex: 1,
+    gap: 3,
+  },
+  liveName: {
+    fontSize: 14.5,
+    fontFamily: fonts.semibold,
+  },
+  liveMetaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  liveNote: {
+    fontSize: 12,
+    fontFamily: fonts.ui,
+  },
+  liveCancel: {
+    fontSize: 12,
+    fontFamily: fonts.semibold,
+  },
+  // Contract .timer-live .cd: mono, 22px, tabular, slight negative tracking.
+  countdown: {
+    fontSize: 22,
+    fontFamily: fonts.monoSemibold,
+    fontVariant: ['tabular-nums'],
+    letterSpacing: -0.4,
+  },
+  // Quiet finished/cancelled card.
+  doneRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
+    borderRadius: 20,
+    borderWidth: 1,
+    paddingHorizontal: 14,
+    paddingVertical: 13,
   },
   rowBody: {
     flex: 1,
@@ -501,26 +632,13 @@ const styles = StyleSheet.create({
   },
   rowTitle: {
     fontSize: 15,
-    fontWeight: '600',
+    fontFamily: fonts.semibold,
     lineHeight: 20,
   },
   rowMeta: {
     fontSize: 13,
+    fontFamily: fonts.ui,
     lineHeight: 18,
-  },
-  countdown: {
-    fontSize: 34,
-    lineHeight: 42,
-    fontWeight: '700',
-    fontVariant: ['tabular-nums'],
-    paddingVertical: 2,
-  },
-  rowActions: {
-    alignItems: 'flex-end',
-  },
-  actionText: {
-    fontWeight: '600',
-    fontSize: 14,
   },
   pill: {
     paddingHorizontal: 10,
@@ -529,6 +647,6 @@ const styles = StyleSheet.create({
   },
   pillText: {
     fontSize: 12,
-    fontWeight: '600',
+    fontFamily: fonts.semibold,
   },
 });
