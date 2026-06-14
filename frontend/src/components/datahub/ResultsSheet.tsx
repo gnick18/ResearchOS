@@ -58,6 +58,11 @@ import { BeakerBotMark } from "@/components/animations/BeakerBotMark";
 import { showCode } from "@/lib/datahub/show-code";
 import { chainCode, type ContentResolver } from "@/lib/datahub/chain-code";
 import { resultToText } from "@/lib/datahub/result-text";
+import {
+  methodsParagraph,
+  resultsParagraph,
+  referencesText,
+} from "@/lib/datahub/analysis-writeup";
 import CodePanel from "@/components/datahub/CodePanel";
 import StyledSelect from "@/components/datahub/StyledSelect";
 import {
@@ -2026,6 +2031,7 @@ export default function ResultsSheet({
   onSaveRecipe?: (name: string) => void;
 }) {
   const [showingCode, setShowingCode] = useState(false);
+  const [showingMethods, setShowingMethods] = useState(false);
   const [showingParams, setShowingParams] = useState(false);
   const [activeTab, setActiveTab] = useState(0);
   // Transient "Copied" flash for the Export action.
@@ -2085,6 +2091,20 @@ export default function ResultsSheet({
   // Clamp the active tab so a data edit that drops a tab (e.g. comparisons
   // disappearing) never strands the selection past the end of the list.
   const safeTab = Math.min(activeTab, Math.max(tabs.length - 1, 0));
+
+  // The paste-ready Methods + Results paragraphs and the reference list, built
+  // from THIS analysis (engine numbers verbatim, the citations curated). Computed
+  // only when the panel is open. Empty when the analysis failed.
+  const writeup = useMemo(() => {
+    if (!showingMethods || !outcome.ok) {
+      return { methods: "", results: "", references: "" };
+    }
+    return {
+      methods: methodsParagraph(outcome),
+      results: resultsParagraph(outcome),
+      references: referencesText(outcome),
+    };
+  }, [showingMethods, outcome]);
 
   // Copy the visible result tables as tab-separated text, the same data the
   // tables show. Pastes cleanly into a spreadsheet or a note.
@@ -2152,6 +2172,14 @@ export default function ResultsSheet({
         tooltip:
           "Show the open-source code that reproduces this result, so you can rerun it in a notebook.",
         testId: "datahub-results-code",
+      },
+      {
+        icon: "book" as const,
+        label: showingMethods ? "Hide methods" : "Methods text",
+        onClick: () => setShowingMethods((v) => !v),
+        tooltip:
+          "Generate the Methods and Results paragraphs plus the citations for this analysis, ready to paste into a paper.",
+        testId: "datahub-results-methods",
       },
       ...(onSaveRecipe
         ? [
@@ -2420,6 +2448,40 @@ export default function ResultsSheet({
               caption="This reproduces the result from the base table, loading the data and running every transform before the analysis, so you can paste it into a notebook and get the same numbers rather than trust a black box."
               testId="results-code-panel"
             />
+          </div>
+        )}
+        {showingMethods && (
+          <div className="mt-5 space-y-4" data-testid="results-methods">
+            <div>
+              <p className="pb-1 text-meta font-semibold uppercase tracking-wide text-foreground-muted">
+                Methods
+              </p>
+              <CodePanel
+                code={writeup.methods}
+                caption="Paste this into your Methods section. It names each test and cites the canonical paper for it; the numbers themselves stay in the Results text and the tables above."
+                testId="results-methods-methods"
+              />
+            </div>
+            <div>
+              <p className="pb-1 text-meta font-semibold uppercase tracking-wide text-foreground-muted">
+                Results
+              </p>
+              <CodePanel
+                code={writeup.results}
+                caption="Paste this into your Results section. The statistics are the same engine-computed numbers shown in the tables above, never re-derived."
+                testId="results-methods-results"
+              />
+            </div>
+            <div>
+              <p className="pb-1 text-meta font-semibold uppercase tracking-wide text-foreground-muted">
+                References to cite
+              </p>
+              <CodePanel
+                code={writeup.references}
+                caption="The primary papers for the methods used, plus the open-source software this analysis ran on. Spot-check each against the source before submission."
+                testId="results-methods-references"
+              />
+            </div>
           </div>
         )}
       </div>
