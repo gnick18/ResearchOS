@@ -68,6 +68,10 @@ export interface CalmPopupFooter {
   onDone?: () => void;
   /** Optional data-testid on the Done button (automation parity). */
   doneTestId?: string;
+  /** Optional data-tour-target on the Done button (cursor/spotlight parity for
+   *  types whose primary footer action is a known UI anchor, e.g. the New
+   *  Purchase Save button). */
+  doneTourTarget?: string;
   /** Optional right-aligned count (e.g. "412 words"). */
   count?: React.ReactNode;
   /** Optional extra left-side ambient content (rare; most callers omit). */
@@ -482,6 +486,7 @@ export default function CalmPopupShell({
                   <button
                     type="button"
                     data-testid={footer.doneTestId}
+                    data-tour-target={footer.doneTourTarget}
                     onClick={handleDone}
                     className="px-3 py-1.5 text-meta font-medium rounded-lg bg-surface-sunken text-foreground hover:bg-foreground-muted/15 transition-colors"
                   >

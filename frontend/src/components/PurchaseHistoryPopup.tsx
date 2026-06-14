@@ -19,7 +19,7 @@
  */
 
 import { useCallback, useMemo, useRef, useState } from "react";
-import LivingPopup from "@/components/ui/LivingPopup";
+import CalmPopupShell from "@/components/ui/CalmPopupShell";
 import EntityVersionHistorySidebar, {
   type VersionPreview,
 } from "@/components/history/EntityVersionHistorySidebar";
@@ -97,15 +97,21 @@ export default function PurchaseHistoryPopup({
   );
 
   return (
-    <LivingPopup
+    // Unified Popup Chrome (UNIFIED_POPUP_CHROME_SPEC.md §4): the read-style
+    // history surface adopts the shared shell so its frame matches every other
+    // popup (transparent header, one meta line, ⤢ + ✕, ambient footer). It is a
+    // single-view object, so no tab row. The Restore affordance lives inside the
+    // generic EntityVersionHistorySidebar (keyed to its own selection state and
+    // shared across every entity type, so it is NOT lifted out here); the footer
+    // carries the always-reachable Close exit.
+    <CalmPopupShell
       open={open}
       onClose={handleClose}
       origin={origin}
       label="Purchase item history"
-      widthClassName="max-w-5xl"
-      blur
-      fillHeight
-      showClose
+      title="Purchase item history"
+      dockedWidthClassName="max-w-5xl"
+      footer={{ doneLabel: "Close", onDone: handleClose }}
     >
       <div className="flex h-full min-h-0" data-testid="purchase-history-popup">
         {/* In-place read-only diff column. */}
@@ -129,7 +135,9 @@ export default function PurchaseHistoryPopup({
         {/* The generic version-history sidebar, driven by the purchase engine +
             adapter. We pass NO headCanonical: the Loro engine reconstructs via
             doc.checkout() and never consults it (genesis is the seed commit, not
-            a bare anchor). */}
+            a bare anchor). It owns its own sticky Restore footer (gated by
+            canRestore + onRestore), kept here so its selection-keyed restore is
+            preserved exactly. */}
         <EntityVersionHistorySidebar
           entityType="purchase_items"
           id={itemId}
@@ -142,6 +150,6 @@ export default function PurchaseHistoryPopup({
           onRestore={handleRestore}
         />
       </div>
-    </LivingPopup>
+    </CalmPopupShell>
   );
 }
