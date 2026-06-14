@@ -24,7 +24,7 @@
 import { bytesToHex } from '@noble/curves/utils.js';
 import { utf8ToBytes } from '@noble/hashes/utils.js';
 import { sealToUser } from '@/lib/device-identity';
-import { postCommand } from '@/lib/focus-context';
+import { sendOrQueueCommand } from '@/lib/command-outbox';
 
 /**
  * Builds, seals, and posts an add-variation command to the relay.
@@ -34,9 +34,12 @@ import { postCommand } from '@/lib/focus-context';
  * method when the experiment has several; omit it (pass undefined) to let the
  * laptop fall back to the experiment's first method.
  *
- * Returns true when the command was posted, false on a no-op (missing user key,
- * empty text, or a sealing failure) so the caller can show the right status.
+ * Returns 'sent' when the relay accepted it, 'queued' when the phone was offline
+ * and it was stored to sync on reconnect, and 'noop' on a no-op (missing user
+ * key, empty text, or a sealing failure) so the caller can show the right status.
  */
+export type VariationResult = 'sent' | 'queued' | 'noop';
+
 export async function postAddVariation(
   taskId: number,
   owner: string,
@@ -44,12 +47,12 @@ export async function postAddVariation(
   userX25519PubHex: string,
   methodId?: number,
   relayUrl?: string,
-): Promise<boolean> {
+): Promise<VariationResult> {
   // Guard: no-op when the user X25519 pubkey is not yet available (pairing gap)
   // or there is nothing to send.
-  if (!userX25519PubHex) return false;
+  if (!userX25519PubHex) return 'noop';
   const trimmed = text.trim();
-  if (!trimmed) return false;
+  if (!trimmed) return 'noop';
 
   const command: {
     type: 'add-variation';
@@ -75,9 +78,9 @@ export async function postAddVariation(
   } catch {
     // Sealing failed (bad key format, etc.). Fail silently so the viewer is not
     // affected.
-    return false;
+    return 'noop';
   }
 
-  await postCommand(bytesToHex(sealed), relayUrl);
-  return true;
+  // Post now, or queue for the reconnect flush if the phone is offline.
+  return sendOrQueueCommand(bytesToHex(sealed), 'add-variation', relayUrl);
 }
