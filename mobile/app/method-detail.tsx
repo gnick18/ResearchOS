@@ -41,6 +41,8 @@ import { fetchSnapshot, type MethodSnapshot, type MethodProjection } from '@/lib
 import { getCachedMethod } from '@/lib/method-library-store';
 import { getDemoMethod } from '@/lib/method-library';
 import { postAddVariation } from '@/lib/add-variation';
+import { postMethodChecks } from '@/lib/add-method-check';
+import type { CheckMap } from '@/lib/method-checks';
 
 // ── Per-type read renderers ──────────────────────────────────────────────────
 
@@ -493,6 +495,24 @@ export default function MethodScreen() {
     [pairing, snapshot?.taskId, snapshot?.owner],
   );
 
+  // Sync the gathered checklist state to the laptop's attached method (rides the
+  // offline outbox, last-write-wins). No-op until paired with a real experiment.
+  const onSyncChecks = useCallback(
+    (methodId: number | undefined, checks: CheckMap, total: number) => {
+      if (!pairing || !snapshot?.taskId || !snapshot?.owner) return;
+      void postMethodChecks(
+        snapshot.taskId,
+        snapshot.owner,
+        pairing.userX25519PubHex ?? '',
+        checks,
+        total,
+        methodId,
+        pairing.relayUrl,
+      );
+    },
+    [pairing, snapshot?.taskId, snapshot?.owner],
+  );
+
   const paired = !!pairing;
   const methods = snapshot?.methods ?? [];
 
@@ -581,6 +601,7 @@ export default function MethodScreen() {
           experimentName={snapshot?.experimentName}
           onClose={() => setReadIndex(null)}
           onAddVariation={onAddVariation}
+          onSyncChecks={onSyncChecks}
           variationBusy={variationBusy}
         />
       </ScreenFrame>
