@@ -18,6 +18,17 @@ import Svg, {
 } from 'react-native-svg';
 
 import { docToSvgElements, type AnnotationDoc, type SvgElementSpec } from '@/lib/annotations';
+import { fonts } from '@/lib/design';
+
+// Text labels are stored with the generic web family ('sans-serif'). Map that
+// to the contract UI typeface (Geist) so markup text reads in the app's own
+// voice instead of the platform default, on both the passive preview and the
+// editor, which share this renderer for zero display/edit drift. An explicitly
+// chosen family (future) is respected as-is.
+function resolveFontFamily(family: string | undefined): string {
+  if (!family || family === 'sans-serif') return fonts.ui;
+  return family;
+}
 
 export function AnnotationOverlay({ doc }: { doc: AnnotationDoc }) {
   if (!doc || doc.imageW <= 0 || doc.imageH <= 0) return null;
@@ -92,7 +103,7 @@ export function renderSpec(spec: SvgElementSpec) {
           y={a.y as number}
           fill={a.fill as string}
           fontSize={a['font-size'] as number}
-          fontFamily={a['font-family'] as string}
+          fontFamily={resolveFontFamily(a['font-family'] as string | undefined)}
         >
           {spec.text}
         </SvgText>
