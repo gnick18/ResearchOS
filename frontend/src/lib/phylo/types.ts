@@ -126,7 +126,8 @@ export type AlignedPanelKind =
   | "clade"
   | "support"
   | "nodepoints"
-  | "msa";
+  | "msa"
+  | "datahubPlot";
 
 /**
  * Error-whisker kind for the point (lollipop) geom, mirroring the Data Hub

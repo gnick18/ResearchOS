@@ -53,6 +53,17 @@ import {
   buildPanelScales,
 } from "./panels";
 import type { AlignedPanel, CladeAnnotation } from "./types";
+import {
+  renderPlot,
+  type GroupedLegendItem,
+  type AlignedGroupedBarGeometry,
+} from "@/lib/datahub/plot-spec";
+import type {
+  PlotSpec,
+  AnalysisSpec,
+  DataHubDocContent,
+} from "@/lib/datahub/model/types";
+import { tipAxisToAlignedAxis } from "./datahub-panel";
 
 export { CATEGORY_PALETTE } from "./render-palette";
 
@@ -154,6 +165,23 @@ export interface RenderSpec {
     /** A short downsample note when the alignment was binned, else empty. */
     note: string;
   };
+  /**
+   * Resolved Data Hub render inputs for each `datahubPlot` panel, keyed by panel
+   * id (phylo Phase 4 tip-aligned plots). Carried on the render spec the same way
+   * `msaTrack` + `metadata` are: the Studio / embed loads the table + plot from the
+   * Data Hub store and supplies them here, and render.ts hands the tree's
+   * alignedAxis to the Data Hub renderPlot (the shared seam). A datahubPlot panel
+   * with no entry here draws nothing, so a saved figure that stored only the
+   * reference is not a breaking change.
+   */
+  datahubPanels?: Record<
+    string,
+    {
+      plotSpec: PlotSpec;
+      content: DataHubDocContent;
+      analysis: AnalysisSpec | null;
+    }
+  >;
 }
 
 const FG = "#1f2937";
@@ -313,6 +341,7 @@ const ALIGNED_KINDS = new Set([
   "point",
   "scatter",
   "msa",
+  "datahubPlot",
 ]);
 
 /** Default thickness an msa panel occupies when it does not pin its own width
@@ -340,6 +369,41 @@ function alignedRoom(panels: AlignedPanel[]): number {
 
 /** Inter-panel spacing (px) reserved so stacked rings / columns stay distinct. */
 const PANEL_GAP = 8;
+
+/**
+ * Draw one tip-aligned Data Hub plot panel (phylo Phase 4). Resolves the panel's
+ * pre-loaded { plotSpec, content, analysis } off the render spec and hands the
+ * tree's alignedAxis to the shared Data Hub renderPlot seam, then translates the
+ * returned panel-local fragment to the panel's start cursor. Returns the fragment,
+ * its thickness, and its series legend (the tree owns the legend column). v1 is
+ * rectangular only (the adapter throws on a circular axis), so a circular layout
+ * skips it. LAYOUT ONLY: every figure number is the Data Hub engine's; this just
+ * decides WHERE the panel draws.
+ */
+function renderDatahubPanel(
+  panel: AlignedPanel,
+  axis: TipAxis,
+  spec: RenderSpec,
+): { svg: string; thickness: number; legend: GroupedLegendItem[] } | null {
+  if (spec.layout === "circular") return null; // circular rings: polar fast-follow
+  const resolved = spec.datahubPanels?.[panel.id];
+  if (!resolved) return null;
+  const thickness = panelBandThickness(panel);
+  let alignedAxis: ReturnType<typeof tipAxisToAlignedAxis>;
+  try {
+    alignedAxis = tipAxisToAlignedAxis(axis, thickness);
+  } catch {
+    return null;
+  }
+  const r = renderPlot(resolved.plotSpec, resolved.content, resolved.analysis, {
+    alignedAxis,
+  });
+  const geom = r.geometry as AlignedGroupedBarGeometry;
+  // renderPlot returns a panel-local <g> fragment: X runs 0..length, Y is already
+  // in tree space via the alignedAxis positions, so only X needs the start shift.
+  const svg = `<g transform="translate(${axis.panelStartX}, 0)">${r.svg}</g>`;
+  return { svg, thickness, legend: geom.legend ?? [] };
+}
 
 function renderFromPanels(
   rootRaw: TreeNode,
@@ -427,6 +491,17 @@ function renderFromPanels(
       spec.layout === "circular"
         ? { ...axis, ringStartR: cursor }
         : { ...axis, panelStartX: cursor };
+    // A datahubPlot panel delegates its draw to the Data Hub renderPlot seam
+    // (a self-contained fragment placed at the cursor), not the metadata path.
+    if (panel.kind === "datahubPlot") {
+      const drawn = renderDatahubPanel(panel, localAxis, spec);
+      if (drawn) {
+        parts.push(panelTitle(panel, localAxis, spec, root, meta));
+        parts.push(drawn.svg);
+        cursor += drawn.thickness + PANEL_GAP;
+      }
+      continue;
+    }
     // The msa panel reads its per-tip residue rows from the alignment track on the
     // spec (not from the bound metadata); every other panel reads the metadata.
     const values: PanelValues =

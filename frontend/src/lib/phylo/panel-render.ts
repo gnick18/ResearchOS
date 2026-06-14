@@ -111,6 +111,7 @@ const DEFAULT_THICKNESS: Record<AlignedPanelKind, number> = {
   support: 0,
   nodepoints: 0, // glyphs sit on the internal nodes, no own band
   msa: 0,
+  datahubPlot: 120, // a tip-aligned Data Hub plot panel (renderPlot owns the draw)
 };
 
 const GAP = 4; // trailing gap after each drawn panel
