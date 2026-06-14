@@ -66,6 +66,10 @@ import {
   renderDiagnosticSvg,
   type DiagnosticGeometry,
 } from "@/lib/datahub/diagnostic-plot";
+// Type-only import (the artboard lib imports VALUES from this module, so a value
+// import here would create a runtime cycle). The consumer normalizes the raw
+// stored value with readArtboardState; PlotStyle just carries it through.
+import type { ArtboardState } from "@/lib/figure/artboard";
 import {
   layoutPartsOfWhole,
   renderPartsOfWholeSvg,
@@ -230,6 +234,13 @@ export interface PlotStyle {
    * reads back byte-identical and only a donut figure carries it.
    */
   donutHoleRatio?: number;
+  /**
+   * The publication page-frame (artboard) config for this figure. Optional and
+   * additive, so a spec written before this feature reads back as absent, which
+   * the artboard treats as disabled (the figure renders exactly as before). The
+   * raw stored value is normalized with readArtboardState at the consumer.
+   */
+  artboard?: ArtboardState;
 }
 
 /** The unit a figure's width / height is typed in (and stored as). */
@@ -528,6 +539,13 @@ export function readPlotStyle(spec: PlotSpec): PlotStyle {
       s.donutHoleRatio < 0.9
         ? s.donutHoleRatio
         : d.donutHoleRatio,
+    // Artboard config. Carried through as the raw stored object (absent => the
+    // artboard is disabled); the consumer fully validates it with
+    // readArtboardState before use, so a malformed value cannot reach the render.
+    artboard:
+      s.artboard && typeof s.artboard === "object"
+        ? (s.artboard as ArtboardState)
+        : undefined,
   };
 }
 

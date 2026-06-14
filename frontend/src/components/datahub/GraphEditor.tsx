@@ -55,6 +55,16 @@ import {
   addUserPalette,
   newUserPaletteId,
 } from "@/lib/datahub/user-palettes";
+import {
+  FigureArtboard,
+  FigureArtboardControls,
+} from "@/components/figure/FigureArtboard";
+import {
+  readArtboardState,
+  pageDims,
+  fitFigureToPage,
+  type ArtboardState,
+} from "@/lib/figure/artboard";
 
 /** The fitted-curve choices the XY style panel offers, labeled for scientists. */
 const FIT_MODEL_OPTIONS: { value: FitModelId; label: string }[] = [
@@ -576,6 +586,28 @@ export default function GraphEditor({
     onStyleChange({ palette: id, colorOverrides: {} });
   };
 
+  // The publication page-frame config for this figure (normalized from the spec;
+  // absent => disabled, so an old figure renders exactly as before).
+  const artboard = useMemo(
+    () => readArtboardState(style.artboard),
+    [style.artboard],
+  );
+  const onArtboardChange = (patch: Partial<ArtboardState>) =>
+    onStyleChange({ artboard: { ...artboard, ...patch } });
+  // Fit the figure to the page (largest centered figure that keeps the aspect),
+  // writing the size in inches onto the versioned style.
+  const onFitToPage = () => {
+    const page = pageDims(artboard);
+    const aspect =
+      frame.exportInchesH > 0 ? frame.exportInchesW / frame.exportInchesH : 1;
+    const fit = fitFigureToPage(page, aspect);
+    onStyleChange({
+      sizeUnit: "in",
+      width: roundForUnit(fit.figWIn, "in"),
+      height: roundForUnit(fit.figHIn, "in"),
+    });
+  };
+
   const onExportSvg = () => downloadFigureSvg(svg, frame, fileStem);
   const onExportPng = async () => {
     setBusy(true);
@@ -633,24 +665,35 @@ export default function GraphEditor({
           </Tooltip>
         </div>
 
-        <div className="flex flex-1 items-center justify-center overflow-auto bg-surface-sunken p-6">
-          <div className="rounded-lg border border-border bg-white p-3 shadow-sm">
-            <FigureResizeFrame
-              style={style}
-              frameWidthPx={frame.screenWidth}
-              frameHeightPx={frame.screenHeight}
-              onStyleChange={onStyleChange}
-            >
-              <PlotColorEditor
-                svg={svg}
+        {artboard.enabled ? (
+          // Publication page-frame view: the figure on a real paper sheet at true
+          // scale. Color editing lives in the standard (artboard-off) view.
+          <FigureArtboard
+            figureSvg={svg}
+            figWIn={frame.exportInchesW}
+            figHIn={frame.exportInchesH}
+            state={artboard}
+          />
+        ) : (
+          <div className="flex flex-1 items-center justify-center overflow-auto bg-surface-sunken p-6">
+            <div className="rounded-lg border border-border bg-white p-3 shadow-sm">
+              <FigureResizeFrame
                 style={style}
-                resolvedColors={seriesInfo.colors}
+                frameWidthPx={frame.screenWidth}
+                frameHeightPx={frame.screenHeight}
                 onStyleChange={onStyleChange}
-                onSaveColorsAsPalette={onSaveColorsAsPalette}
-              />
-            </FigureResizeFrame>
+              >
+                <PlotColorEditor
+                  svg={svg}
+                  style={style}
+                  resolvedColors={seriesInfo.colors}
+                  onStyleChange={onStyleChange}
+                  onSaveColorsAsPalette={onSaveColorsAsPalette}
+                />
+              </FigureResizeFrame>
+            </div>
           </div>
-        </div>
+        )}
       </div>
 
       {/* Right dock. Fixed-width full-height column with its own scroll, so the
@@ -831,6 +874,17 @@ export default function GraphEditor({
 
         <Section title="Figure size" icon="ruler">
           <FigureSizeControls style={style} onStyleChange={onStyleChange} />
+        </Section>
+
+        <Section title="Page artboard" icon="ruler">
+          <FigureArtboardControls
+            state={artboard}
+            onChange={onArtboardChange}
+            figWIn={frame.exportInchesW}
+            figHIn={frame.exportInchesH}
+            dpi={frame.dpi}
+            onFitToPage={onFitToPage}
+          />
         </Section>
 
         <Section title="Labels and text">
