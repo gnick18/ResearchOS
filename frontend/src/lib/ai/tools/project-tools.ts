@@ -139,8 +139,9 @@ export const createProjectTool: AiTool = {
       };
     }
 
-    projectToolsDeps.navigate(objectDeepLink("project", project.id));
-
+    // Deliberately NO navigate here (Grant 2026-06-14): creating a project should
+    // NOT yank the user to the (near-empty) project page. The chat reply renders a
+    // project card with an Open button, which is enough; let them choose to open it.
     return {
       ok: true as const,
       id: project.id,

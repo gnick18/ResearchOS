@@ -84,7 +84,7 @@ describe("create_project tool", () => {
     expect(summary).toContain("fumigatus, resistance");
   });
 
-  it("creates with the name + parsed tags and navigates to the project", async () => {
+  it("creates with the name + parsed tags and does NOT auto-open the project", async () => {
     const createProject = vi
       .spyOn(projectToolsDeps, "createProject")
       .mockResolvedValue(makeProject({ id: 7, name: "Imaging", tags: ["microscopy"] }));
@@ -98,7 +98,8 @@ describe("create_project tool", () => {
     expect(result.ok).toBe(true);
     expect(result.id).toBe(7);
     expect(createProject).toHaveBeenCalledWith({ name: "Imaging", tags: ["microscopy"] });
-    expect(navigate).toHaveBeenCalledWith("/workbench/projects/7");
+    // Create deliberately does NOT navigate (the chat card's Open button is enough).
+    expect(navigate).not.toHaveBeenCalled();
   });
 
   it("omits tags when none are given", async () => {
