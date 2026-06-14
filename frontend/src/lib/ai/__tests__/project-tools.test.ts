@@ -24,6 +24,7 @@ import {
   ownProjectNames,
   createProjectTool,
   updateProjectTool,
+  deleteProjectTool,
 } from "../tools/project-tools";
 import type { Project } from "@/lib/types";
 
@@ -195,5 +196,30 @@ describe("update_project tool", () => {
     };
     expect(result.ok).toBe(false);
     expect(result.error).toContain("Cloning");
+  });
+});
+
+describe("delete_project tool", () => {
+  it("is a destructive gated action (hard-stop confirm)", () => {
+    expect(deleteProjectTool.action).toBe(true);
+    expect(deleteProjectTool.isDestructive?.({})).toBe(true);
+  });
+  it("soft-deletes the resolved project and warns about tasks in the summary", () => {
+    const { summary } = deleteProjectTool.describeAction!({ project: "Cloning" });
+    expect(summary).toContain("tasks");
+    expect(summary).toContain("Trash");
+  });
+  it("deletes the resolved project", async () => {
+    vi.spyOn(projectToolsDeps, "listProjects").mockResolvedValue([makeProject({ id: 3, name: "Cloning" })]);
+    const del = vi.spyOn(projectToolsDeps, "deleteProject").mockResolvedValue(undefined);
+    const r = (await deleteProjectTool.execute({ project: "cloning" })) as { ok: boolean };
+    expect(r.ok).toBe(true);
+    expect(del).toHaveBeenCalledWith(3);
+  });
+  it("errors with real names when the ref misses", async () => {
+    vi.spyOn(projectToolsDeps, "listProjects").mockResolvedValue([makeProject({ id: 3, name: "Cloning" })]);
+    const r = (await deleteProjectTool.execute({ project: "Nope" })) as { ok: boolean; error: string };
+    expect(r.ok).toBe(false);
+    expect(r.error).toContain("Cloning");
   });
 });

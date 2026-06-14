@@ -100,9 +100,19 @@ import {
   rescheduleTaskTool,
   updateTaskTool,
   linkTasksTool,
+  deleteTaskTool,
 } from "./task-tools";
-import { createMethodTool, updateMethodTool, editMethodTool } from "./method-tools";
-import { createProjectTool, updateProjectTool } from "./project-tools";
+import {
+  createMethodTool,
+  updateMethodTool,
+  editMethodTool,
+  deleteMethodTool,
+} from "./method-tools";
+import {
+  createProjectTool,
+  updateProjectTool,
+  deleteProjectTool,
+} from "./project-tools";
 import {
   updateSequenceTool,
   updateMoleculeTool,
@@ -111,6 +121,10 @@ import {
   editNoteTool,
   editSequenceTool,
   editMoleculeStructureTool,
+  deleteSequenceTool,
+  deleteNoteTool,
+  deleteMoleculeTool,
+  deletePurchaseTool,
 } from "./edit-tools";
 import {
   readNoteTool,
@@ -496,6 +510,17 @@ export const ACTION_TOOLS: AiTool[] = [
   // writing; neither deletes, so neither forces the destructive hard-stop.
   addInventoryItemTool,
   adjustInventoryStockTool,
+  // Delete coworker tools (action: true, isDestructive TRUE). Every delete is a
+  // soft-delete (moves the object to _trash, recoverable), but it always forces the
+  // destructive hard-stop confirm in both review modes. Own objects only.
+  // delete_task also covers experiments (task records).
+  deleteMethodTool,
+  deleteProjectTool,
+  deleteTaskTool,
+  deleteNoteTool,
+  deleteSequenceTool,
+  deleteMoleculeTool,
+  deletePurchaseTool,
 ];
 
 // The coordination toolset. These tools neither read the user's data nor act on

@@ -32,6 +32,7 @@ import {
   rescheduleTaskTool,
   updateTaskTool,
   linkTasksTool,
+  deleteTaskTool,
 } from "../tools/task-tools";
 import type { Project, Task, ShiftResult } from "@/lib/types";
 
@@ -476,5 +477,26 @@ describe("link_tasks tool", () => {
     });
     expect(d.summary).toContain("run PCR");
     expect(d.summary).toContain("order primers");
+  });
+});
+
+describe("delete_task tool", () => {
+  it("is a destructive gated action (hard-stop confirm)", () => {
+    expect(deleteTaskTool.action).toBe(true);
+    expect(deleteTaskTool.isDestructive?.({})).toBe(true);
+  });
+  it("soft-deletes the resolved own task (covers experiments)", async () => {
+    vi.spyOn(taskToolsDeps, "listTasks").mockResolvedValue([makeTask({ id: 10, name: "Order primers" })]);
+    const del = vi.spyOn(taskToolsDeps, "deleteTask").mockResolvedValue(undefined);
+    const r = (await deleteTaskTool.execute({ task: "order primers" })) as { ok: boolean };
+    expect(r.ok).toBe(true);
+    expect(del).toHaveBeenCalledWith(10);
+  });
+  it("never deletes a shared-with-me task", async () => {
+    vi.spyOn(taskToolsDeps, "listTasks").mockResolvedValue([makeTask({ id: 11, name: "Shared", is_shared_with_me: true })]);
+    const del = vi.spyOn(taskToolsDeps, "deleteTask");
+    const r = (await deleteTaskTool.execute({ task: 11 })) as { ok: boolean };
+    expect(r.ok).toBe(false);
+    expect(del).not.toHaveBeenCalled();
   });
 });

@@ -54,6 +54,8 @@ export type MethodToolsDeps = {
     data: MethodUpdate,
     owner?: string,
   ) => Promise<Method | null>;
+  /** Soft-delete a method (moves it to _trash, recoverable). */
+  deleteMethod: (id: number) => Promise<void>;
   /** Write the markdown body file for a method (create or content edit). */
   writeFile: (path: string, content: string, message?: string) => Promise<unknown>;
   /** Read a method's current body file (for an append/edit). Returns "" when the
@@ -67,6 +69,7 @@ export const methodToolsDeps: MethodToolsDeps = {
   listMethods: () => fetchAllMethodsIncludingShared(),
   createMethod: (data) => methodsApi.create(data),
   updateMethod: (id, data, owner) => methodsApi.update(id, data, owner),
+  deleteMethod: (id) => methodsApi.delete(id),
   writeFile: (path, content, message) => filesApi.writeFile(path, content, message),
   readFile: async (path) => {
     try {
@@ -538,5 +541,60 @@ export const editMethodTool: AiTool = {
     methodToolsDeps.navigate(objectDeepLink("method", method.id));
 
     return { ok: true as const, id: method.id, name: method.name, mode };
+  },
+};
+
+// ---------------------------------------------------------------------------
+// delete_method (soft-delete, recoverable from Trash)
+// ---------------------------------------------------------------------------
+
+export const deleteMethodTool: AiTool = {
+  name: "delete_method",
+  description:
+    "Delete one of the user's methods. Use this only when the user clearly asks to delete or remove a method. The delete is RECOVERABLE, it moves the method to Trash, it is not a permanent erase. The app shows a destructive confirm card before anything happens (this is a hard-stop, it always confirms). After it is deleted, say in one short sentence that it was moved to Trash and can be restored. Own methods only.",
+  parameters: {
+    type: "object",
+    properties: {
+      method: {
+        type: "string",
+        description: "The method to delete, by its name (case-insensitive) or numeric id.",
+      },
+    },
+    required: ["method"],
+    additionalProperties: false,
+  },
+  action: true,
+  // Deleting is destructive: always hard-stop for a confirm, in both review modes.
+  isDestructive: () => true,
+  describeAction: (args) => {
+    const ref =
+      typeof args.method === "string" || typeof args.method === "number"
+        ? String(args.method)
+        : "?";
+    return { summary: `delete method "${ref}" (recoverable from Trash)` };
+  },
+  execute: async (args) => {
+    const ref =
+      typeof args.method === "string" || typeof args.method === "number"
+        ? (args.method as string | number)
+        : undefined;
+    const methods = await methodToolsDeps.listMethods();
+    const method = resolveMethod(methods, ref);
+    if (!method) {
+      const names = ownMethodNames(methods);
+      return {
+        ok: false as const,
+        error: `I could not find one of your methods called "${ref}". Your methods are: ${names.length ? names.map((n) => `"${n}"`).join(", ") : "(none yet)"}.`,
+      };
+    }
+    try {
+      await methodToolsDeps.deleteMethod(method.id);
+    } catch (err) {
+      return {
+        ok: false as const,
+        error: `Could not delete the method. ${err instanceof Error ? err.message : String(err)}`,
+      };
+    }
+    return { ok: true as const, id: method.id, name: method.name, trashed: true };
   },
 };

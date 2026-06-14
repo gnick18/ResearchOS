@@ -32,6 +32,10 @@ import {
   editNoteTool,
   editSequenceTool,
   editMoleculeStructureTool,
+  deleteSequenceTool,
+  deleteNoteTool,
+  deleteMoleculeTool,
+  deletePurchaseTool,
 } from "../tools/edit-tools";
 import type { SequenceRecord, SequenceDetail, Note, PurchaseItem } from "@/lib/types";
 import type { MoleculeMeta } from "@/lib/chemistry/api";
@@ -280,5 +284,55 @@ describe("update_purchase", () => {
     expect(r.ok).toBe(false);
     expect(r.error).toMatch(/nothing to update/i);
     expect(update).not.toHaveBeenCalled();
+  });
+});
+
+describe("delete_* tools (sequence / note / molecule / purchase)", () => {
+  it("all are destructive gated actions (hard-stop confirm)", () => {
+    for (const t of [deleteSequenceTool, deleteNoteTool, deleteMoleculeTool, deletePurchaseTool]) {
+      expect(t.action).toBe(true);
+      expect(t.isDestructive?.({})).toBe(true);
+    }
+  });
+
+  it("delete_sequence soft-deletes the resolved sequence", async () => {
+    vi.spyOn(editToolsDeps, "listSequences").mockResolvedValue([seq({ id: 5, display_name: "pUC19" })]);
+    const del = vi.spyOn(editToolsDeps, "deleteSequence").mockResolvedValue(true);
+    const r = (await deleteSequenceTool.execute({ sequence: "pUC19" })) as { ok: boolean };
+    expect(r.ok).toBe(true);
+    expect(del).toHaveBeenCalledWith(5);
+  });
+
+  it("delete_note soft-deletes the resolved note", async () => {
+    vi.spyOn(editToolsDeps, "listNotes").mockResolvedValue([note({ id: 3, title: "Gel run" })]);
+    const del = vi.spyOn(editToolsDeps, "deleteNote").mockResolvedValue(undefined);
+    const r = (await deleteNoteTool.execute({ note: "gel run" })) as { ok: boolean };
+    expect(r.ok).toBe(true);
+    expect(del).toHaveBeenCalledWith(3);
+  });
+
+  it("delete_molecule soft-deletes by string id", async () => {
+    vi.spyOn(editToolsDeps, "listMolecules").mockResolvedValue([mol()]);
+    const del = vi.spyOn(editToolsDeps, "deleteMolecule").mockResolvedValue(true);
+    const r = (await deleteMoleculeTool.execute({ molecule: "aspirin" })) as { ok: boolean };
+    expect(r.ok).toBe(true);
+    expect(del).toHaveBeenCalledWith("m1");
+  });
+
+  it("delete_purchase soft-deletes the resolved order", async () => {
+    vi.spyOn(editToolsDeps, "listPurchases").mockResolvedValue([buy({ id: 7 })]);
+    const del = vi.spyOn(editToolsDeps, "deletePurchase").mockResolvedValue(undefined);
+    const r = (await deletePurchaseTool.execute({ purchase: "p1000 tips" })) as { ok: boolean };
+    expect(r.ok).toBe(true);
+    expect(del).toHaveBeenCalledWith(7);
+  });
+
+  it("errors with real names when the ref misses (no delete call)", async () => {
+    vi.spyOn(editToolsDeps, "listNotes").mockResolvedValue([note({ id: 3, title: "Gel run" })]);
+    const del = vi.spyOn(editToolsDeps, "deleteNote");
+    const r = (await deleteNoteTool.execute({ note: "zzz" })) as { ok: boolean; error: string };
+    expect(r.ok).toBe(false);
+    expect(r.error).toContain("Gel run");
+    expect(del).not.toHaveBeenCalled();
   });
 });

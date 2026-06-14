@@ -38,6 +38,8 @@ export type ProjectToolsDeps = {
   createProject: (data: ProjectCreate) => Promise<Project>;
   /** Update a project's fields. Returns null when the id is not found. */
   updateProject: (id: number, data: ProjectUpdate) => Promise<Project | null>;
+  /** Soft-delete a project (moves it + its tasks to _trash, recoverable). */
+  deleteProject: (id: number) => Promise<void>;
   /** Navigate the user to an internal path after a successful write. */
   navigate: (path: string) => void;
 };
@@ -46,6 +48,7 @@ export const projectToolsDeps: ProjectToolsDeps = {
   listProjects: () => fetchAllProjectsIncludingShared(),
   createProject: (data) => projectsApi.create(data),
   updateProject: (id, data) => projectsApi.update(id, data),
+  deleteProject: (id) => projectsApi.delete(id),
   navigate: requestNavigation,
 };
 
@@ -267,5 +270,59 @@ export const updateProjectTool: AiTool = {
       tags: updated.tags ?? [],
       isArchived: updated.is_archived,
     };
+  },
+};
+
+// ---------------------------------------------------------------------------
+// delete_project (soft-delete, recoverable; cascades to the project's tasks)
+// ---------------------------------------------------------------------------
+
+export const deleteProjectTool: AiTool = {
+  name: "delete_project",
+  description:
+    "Delete one of the user's projects. Use this only when the user clearly asks to delete or remove a project. This also removes the project's TASKS, and it is RECOVERABLE (the project and its tasks move to Trash, not a permanent erase). The app shows a destructive confirm card first (a hard-stop, it always confirms). After it is deleted, say in one short sentence that the project and its tasks moved to Trash and can be restored. Own projects only.",
+  parameters: {
+    type: "object",
+    properties: {
+      project: {
+        type: "string",
+        description: "The project to delete, by its name (case-insensitive) or numeric id.",
+      },
+    },
+    required: ["project"],
+    additionalProperties: false,
+  },
+  action: true,
+  isDestructive: () => true,
+  describeAction: (args) => {
+    const ref =
+      typeof args.project === "string" || typeof args.project === "number"
+        ? String(args.project)
+        : "?";
+    return { summary: `delete project "${ref}" and its tasks (recoverable from Trash)` };
+  },
+  execute: async (args) => {
+    const ref =
+      typeof args.project === "string" || typeof args.project === "number"
+        ? (args.project as string | number)
+        : undefined;
+    const projects = await projectToolsDeps.listProjects();
+    const project = resolveOwnProject(projects, ref);
+    if (!project) {
+      const names = ownProjectNames(projects);
+      return {
+        ok: false as const,
+        error: `I could not find one of your projects called "${ref}". Your projects are: ${names.length ? names.map((n) => `"${n}"`).join(", ") : "(none yet)"}.`,
+      };
+    }
+    try {
+      await projectToolsDeps.deleteProject(project.id);
+    } catch (err) {
+      return {
+        ok: false as const,
+        error: `Could not delete the project. ${err instanceof Error ? err.message : String(err)}`,
+      };
+    }
+    return { ok: true as const, id: project.id, name: project.name, trashed: true };
   },
 };

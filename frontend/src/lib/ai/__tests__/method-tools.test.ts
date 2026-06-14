@@ -30,6 +30,7 @@ import {
   createMethodTool,
   updateMethodTool,
   editMethodTool,
+  deleteMethodTool,
 } from "../tools/method-tools";
 import type { Method } from "@/lib/types";
 
@@ -362,5 +363,30 @@ describe("edit_method tool", () => {
     };
     expect(result.ok).toBe(false);
     expect(result.error).toContain("Colony PCR");
+  });
+});
+
+describe("delete_method tool", () => {
+  it("is a destructive gated action (hard-stop confirm)", () => {
+    expect(deleteMethodTool.action).toBe(true);
+    expect(deleteMethodTool.isDestructive?.({})).toBe(true);
+  });
+
+  it("soft-deletes the resolved method", async () => {
+    vi.spyOn(methodToolsDeps, "listMethods").mockResolvedValue([makeMethod({ id: 5, name: "Colony PCR" })]);
+    const del = vi.spyOn(methodToolsDeps, "deleteMethod").mockResolvedValue(undefined);
+    const r = (await deleteMethodTool.execute({ method: "colony pcr" })) as { ok: boolean; trashed: boolean };
+    expect(r.ok).toBe(true);
+    expect(r.trashed).toBe(true);
+    expect(del).toHaveBeenCalledWith(5);
+  });
+
+  it("errors with the user's real names when the ref misses", async () => {
+    vi.spyOn(methodToolsDeps, "listMethods").mockResolvedValue([makeMethod({ id: 5, name: "Colony PCR" })]);
+    const del = vi.spyOn(methodToolsDeps, "deleteMethod");
+    const r = (await deleteMethodTool.execute({ method: "zzz" })) as { ok: boolean; error: string };
+    expect(r.ok).toBe(false);
+    expect(r.error).toContain("Colony PCR");
+    expect(del).not.toHaveBeenCalled();
   });
 });

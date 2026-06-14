@@ -85,6 +85,11 @@ export type EditToolsDeps = {
   smilesToMolblock: (smiles: string) => Promise<string>;
   /** Replace a molecule's structure with a new molblock. */
   setMoleculeMolfile: (id: string, molfile: string) => Promise<MoleculeMeta | null>;
+  /** Soft-deletes (move to _trash, recoverable). */
+  deleteSequence: (id: number) => Promise<boolean>;
+  deleteNote: (id: number) => Promise<void>;
+  deleteMolecule: (id: string) => Promise<boolean>;
+  deletePurchase: (id: number) => Promise<void>;
   navigate: (path: string) => void;
 };
 
@@ -107,6 +112,10 @@ export const editToolsDeps: EditToolsDeps = {
   setSequenceGenbank: (id, genbank) => sequencesApi.update(id, { genbank }),
   smilesToMolblock: (smiles) => toMolblock(smiles),
   setMoleculeMolfile: (id, molfile) => moleculesApi.update(id, { molfile }),
+  deleteSequence: (id) => sequencesApi.delete(id),
+  deleteNote: (id) => notesApi.delete(id),
+  deleteMolecule: (id) => moleculesApi.remove(id),
+  deletePurchase: (id) => purchasesApi.delete(id),
   navigate: requestNavigation,
 };
 
@@ -653,5 +662,134 @@ export const updatePurchaseTool: AiTool = {
       vendor: current.vendor ?? null,
       orderStatus: current.order_status ?? null,
     };
+  },
+};
+
+// ---------------------------------------------------------------------------
+// delete_sequence / delete_note / delete_molecule / delete_purchase
+// (soft-deletes, recoverable from Trash; always hard-stop confirm)
+// ---------------------------------------------------------------------------
+
+export const deleteSequenceTool: AiTool = {
+  name: "delete_sequence",
+  description:
+    "Delete one of the user's sequences. Only when the user clearly asks to delete or remove a sequence. RECOVERABLE (moves to Trash). The app shows a destructive confirm first (hard-stop). After, say it moved to Trash and can be restored. Own sequences only.",
+  parameters: {
+    type: "object",
+    properties: {
+      sequence: { type: "string", description: "The sequence to delete, by name (case-insensitive) or numeric id." },
+    },
+    required: ["sequence"],
+    additionalProperties: false,
+  },
+  action: true,
+  isDestructive: () => true,
+  describeAction: (args) => ({ summary: `delete sequence "${String(args.sequence ?? "?")}" (recoverable from Trash)` }),
+  execute: async (args) => {
+    const seqs = await editToolsDeps.listSequences();
+    const seq = resolveSequence(seqs, args.sequence as string | number | undefined);
+    if (!seq) {
+      const names = seqs.map((s) => s.display_name);
+      return { ok: false as const, error: `I could not find one of your sequences called "${args.sequence}". Your sequences are: ${names.length ? names.map((n) => `"${n}"`).join(", ") : "(none yet)"}.` };
+    }
+    try {
+      await editToolsDeps.deleteSequence(seq.id);
+    } catch (err) {
+      return { ok: false as const, error: `Could not delete the sequence. ${err instanceof Error ? err.message : String(err)}` };
+    }
+    return { ok: true as const, id: seq.id, name: seq.display_name, trashed: true };
+  },
+};
+
+export const deleteNoteTool: AiTool = {
+  name: "delete_note",
+  description:
+    "Delete one of the user's notes. Only when the user clearly asks to delete or remove a note. RECOVERABLE (moves to Trash). The app shows a destructive confirm first (hard-stop). After, say it moved to Trash and can be restored. Own notes only.",
+  parameters: {
+    type: "object",
+    properties: {
+      note: { type: "string", description: "The note to delete, by title (case-insensitive) or numeric id." },
+    },
+    required: ["note"],
+    additionalProperties: false,
+  },
+  action: true,
+  isDestructive: () => true,
+  describeAction: (args) => ({ summary: `delete note "${String(args.note ?? "?")}" (recoverable from Trash)` }),
+  execute: async (args) => {
+    const notes = await editToolsDeps.listNotes();
+    const note = resolveNote(notes, args.note as string | number | undefined);
+    if (!note) {
+      const names = notes.map((n) => n.title);
+      return { ok: false as const, error: `I could not find one of your notes called "${args.note}". Your notes are: ${names.length ? names.map((n) => `"${n}"`).join(", ") : "(none yet)"}.` };
+    }
+    try {
+      await editToolsDeps.deleteNote(note.id);
+    } catch (err) {
+      return { ok: false as const, error: `Could not delete the note. ${err instanceof Error ? err.message : String(err)}` };
+    }
+    return { ok: true as const, id: note.id, title: note.title, trashed: true };
+  },
+};
+
+export const deleteMoleculeTool: AiTool = {
+  name: "delete_molecule",
+  description:
+    "Delete one of the user's molecules. Only when the user clearly asks to delete or remove a molecule. RECOVERABLE (moves to Trash). The app shows a destructive confirm first (hard-stop). After, say it moved to Trash and can be restored.",
+  parameters: {
+    type: "object",
+    properties: {
+      molecule: { type: "string", description: "The molecule to delete, by name (case-insensitive) or id." },
+    },
+    required: ["molecule"],
+    additionalProperties: false,
+  },
+  action: true,
+  isDestructive: () => true,
+  describeAction: (args) => ({ summary: `delete molecule "${String(args.molecule ?? "?")}" (recoverable from Trash)` }),
+  execute: async (args) => {
+    const mols = await editToolsDeps.listMolecules();
+    const mol = resolveMolecule(mols, args.molecule as string | number | undefined);
+    if (!mol) {
+      const names = mols.map((m) => m.name);
+      return { ok: false as const, error: `I could not find one of your molecules called "${args.molecule}". Your molecules are: ${names.length ? names.map((n) => `"${n}"`).join(", ") : "(none yet)"}.` };
+    }
+    try {
+      await editToolsDeps.deleteMolecule(mol.id);
+    } catch (err) {
+      return { ok: false as const, error: `Could not delete the molecule. ${err instanceof Error ? err.message : String(err)}` };
+    }
+    return { ok: true as const, id: mol.id, name: mol.name, trashed: true };
+  },
+};
+
+export const deletePurchaseTool: AiTool = {
+  name: "delete_purchase",
+  description:
+    "Delete one of the user's purchase orders. Only when the user clearly asks to delete or remove an order. RECOVERABLE (moves to Trash). The app shows a destructive confirm first (hard-stop). After, say it moved to Trash and can be restored.",
+  parameters: {
+    type: "object",
+    properties: {
+      purchase: { type: "string", description: "The order to delete, by item name (case-insensitive) or numeric id." },
+    },
+    required: ["purchase"],
+    additionalProperties: false,
+  },
+  action: true,
+  isDestructive: () => true,
+  describeAction: (args) => ({ summary: `delete order "${String(args.purchase ?? "?")}" (recoverable from Trash)` }),
+  execute: async (args) => {
+    const items = await editToolsDeps.listPurchases();
+    const item = resolvePurchase(items, args.purchase as string | number | undefined);
+    if (!item) {
+      const names = items.map((p) => p.item_name);
+      return { ok: false as const, error: `I could not find an order called "${args.purchase}". Your orders are: ${names.length ? names.map((n) => `"${n}"`).join(", ") : "(none yet)"}.` };
+    }
+    try {
+      await editToolsDeps.deletePurchase(item.id);
+    } catch (err) {
+      return { ok: false as const, error: `Could not delete the order. ${err instanceof Error ? err.message : String(err)}` };
+    }
+    return { ok: true as const, id: item.id, itemName: item.item_name, trashed: true };
   },
 };
