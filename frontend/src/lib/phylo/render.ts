@@ -306,10 +306,21 @@ export function renderTreeSvg(root: TreeNode, spec: RenderSpec): string {
  * scale bar apply to an unrooted tree.
  */
 function renderUnrooted(root: TreeNode, spec: RenderSpec): string {
+  const labelsOn =
+    spec.panels?.some((pp) => pp.visible && pp.kind === "labels") ??
+    !!spec.tracks?.labels;
+  // Reserve room for the tip labels: they extend radially OUTWARD past each tip,
+  // so the node cloud must be inset by roughly the longest label's length, or a
+  // tip near the edge gets its label clipped at the canvas. ~5.4px per char at
+  // font-size 9, plus the label offset and a margin.
+  const longestName = labelsOn
+    ? Math.max(0, ...leaves(root).map((t) => t.name.length))
+    : 0;
+  const labelRoom = labelsOn ? longestName * 5.4 + 16 : 24;
   const layout = layoutUnrooted(root, {
     width: spec.width,
     height: spec.height,
-    padding: 24,
+    padding: Math.max(24, labelRoom),
     phylogram: spec.phylogram,
   });
   const parts: string[] = [];
@@ -319,9 +330,6 @@ function renderUnrooted(root: TreeNode, spec: RenderSpec): string {
       `<path d="M${p.parentX.toFixed(1)} ${p.parentY.toFixed(1)} L${p.x.toFixed(1)} ${p.y.toFixed(1)}" fill="none" stroke="${colorForBranch(spec, p.node.id)}" stroke-width="1.4"/>`,
     );
   }
-  const labelsOn =
-    spec.panels?.some((pp) => pp.visible && pp.kind === "labels") ??
-    !!spec.tracks?.labels;
   for (const p of layout.nodes) {
     if (p.node.children.length > 0) continue;
     parts.push(
