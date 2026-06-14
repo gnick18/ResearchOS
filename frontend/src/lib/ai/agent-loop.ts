@@ -435,6 +435,10 @@ async function handleAskUser(
 //   - NOT action AND NOT previewable -> PROCEED (pure read-only).
 //   - DESTRUCTIVE -> ALWAYS require a confirm, in BOTH modes, even if a plan was
 //     approved. The hard-stop is never bypassed.
+//   - IMMUTABLE (and not destructive) -> PROCEED in BOTH modes. A navigation /
+//     show-around action changes nothing in the user's data, so it never asks,
+//     not even in step-by-step. Only a destructive-looking target (caught above)
+//     confirms.
 //   - reviewMode === "step" -> require a confirm for EVERY action OR previewable
 //     call. planState.approved does NOT skip it, each step is reviewed.
 //   - reviewMode === "plan":
@@ -466,6 +470,12 @@ export async function gateToolCall(
   // ALWAYS confirms in both modes even inside an approved plan, so we only look
   // for a free pass when the step is not destructive.
   if (!destructive) {
+    // Immutable actions (navigation, clicking a nav link or tab, showing the user
+    // where something is) change nothing in the user's data, so they NEVER need a
+    // per-step confirm in either review mode. This is what keeps step-by-step
+    // usable, BeakerBot does not ask permission to click to a page or point at a
+    // button. A destructive-looking target was already caught above and skips this.
+    if (tool.immutable) return { proceed: true };
     if (reviewMode === "plan") {
       // Whole-plan. An instant previewable tool that is not an action runs free
       // (today's behavior). A plan-approved action also runs free.

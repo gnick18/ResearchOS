@@ -601,6 +601,22 @@ export default function NoteDetailPopup({
   // the freshest full-document string so the "Save note" button persists the
   // very latest edit even if the user never left the active block.
   const editorSaveRef = useRef<(() => string) | null>(null);
+  // Unified editor surface (UNIFIED_EDITOR_SURFACE_DESIGN.md §3B / §9, U2).
+  // The note popup MODAL GROWS in place — same DOM, a CSS size transition on
+  // the card (transition-all duration-300). Single-doc surface, so there is no
+  // tab row to keep navigable. This single toggle is shared by the header
+  // fullscreen button and the editor's own Focus button (via onRequestExpand).
+  // It flushes the editor's in-flight buffer BEFORE growing (editorSaveRef
+  // commits the CM6 block buffer + fires onChange) so no in-flight text is lost
+  // across the size transition, and never remounts the editor subtree.
+  const toggleExpanded = useCallback(() => {
+    try {
+      editorSaveRef.current?.();
+    } catch {
+      // Best-effort flush; the editor keeps its own buffer if this throws.
+    }
+    setIsExpanded((prev) => !prev);
+  }, []);
   // P7-2 transclusion normalize. Wired to InlineMarkdownEditor via LiveMarkdownEditor.
   // Awaited before persistEntryContent so the CM6 doc is rewritten BEFORE Loro flushes
   // or the legacy writer runs, ensuring persisted bytes carry the portable embed links.
@@ -1874,7 +1890,7 @@ export default function NoteDetailPopup({
               </Tooltip>
               <Tooltip label={isExpanded ? "Exit fullscreen" : "Fullscreen"} placement="bottom">
                 <button
-                  onClick={() => setIsExpanded(!isExpanded)}
+                  onClick={() => toggleExpanded()}
                   className="p-2 text-foreground-muted hover:text-foreground-muted hover:bg-surface-sunken rounded-lg transition-colors"
                 >
                   {isExpanded ? (
@@ -2320,6 +2336,13 @@ export default function NoteDetailPopup({
                   saveRef={editorSaveRef}
                   onExplicitSave={(v) => { if (activeTab) void saveEntryContent(activeTab, v); }}
                   onDirtyChange={setEditorDirty}
+                  // Unified editor surface (UNIFIED_EDITOR_SURFACE_DESIGN.md §9,
+                  // U2): the editor's Focus button grows the POPUP (same DOM,
+                  // CSS size transition) instead of teleporting into its own
+                  // body-level overlay. The popup flushes the editor buffer
+                  // (editorSaveRef) before growing.
+                  onRequestExpand={toggleExpanded}
+                  expanded={isExpanded}
                   // Loro pilot props (forwarded to InlineMarkdownEditor; absent = no-op).
                   loroHandle={LORO_PILOT_ENABLED ? (loroHandle ?? undefined) : undefined}
                   loroEntryIndex={LORO_PILOT_ENABLED ? entries.findIndex((e) => e.id === activeTab) : undefined}
@@ -2374,6 +2397,13 @@ export default function NoteDetailPopup({
                   saveRef={editorSaveRef}
                   onExplicitSave={(v) => { if (activeTab) void saveEntryContent(activeTab, v); }}
                   onDirtyChange={setEditorDirty}
+                  // Unified editor surface (UNIFIED_EDITOR_SURFACE_DESIGN.md §9,
+                  // U2): the editor's Focus button grows the POPUP (same DOM,
+                  // CSS size transition) instead of teleporting into its own
+                  // body-level overlay. The popup flushes the editor buffer
+                  // (editorSaveRef) before growing.
+                  onRequestExpand={toggleExpanded}
+                  expanded={isExpanded}
                   // Loro pilot props (forwarded to InlineMarkdownEditor; absent = no-op).
                   loroHandle={LORO_PILOT_ENABLED ? (loroHandle ?? undefined) : undefined}
                   loroEntryIndex={LORO_PILOT_ENABLED ? 0 : undefined}
