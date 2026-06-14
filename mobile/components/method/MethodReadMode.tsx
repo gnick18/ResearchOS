@@ -481,6 +481,8 @@ function StepCard({
   const { surface, radii } = useTheme();
   // Reduced motion: no scale change, just the focus border/opacity.
   const scale = reduceMotion ? 1 : focused ? 1 : 0.98;
+  // Ephemeral tick state so reagents can be checked off as they are gathered.
+  const [ticked, setTicked] = useState<Record<number, boolean>>({});
   return (
     <Pressable onPress={onPress} onLayout={onLayout}>
       <View
@@ -510,18 +512,52 @@ function StepCard({
           <ThemedText style={[rstyles.detail, { color: surface.muted }]}>{step.detail}</ThemedText>
         ) : null}
         {step.checks
-          ? step.checks.map((c, i) => (
+          ? step.checks.map((c, i) => {
+              const on = !!ticked[i];
+              return (
+                <Pressable
+                  key={i}
+                  onPress={() => setTicked((t) => ({ ...t, [i]: !t[i] }))}
+                  accessibilityRole="checkbox"
+                  accessibilityState={{ checked: on }}
+                  style={[
+                    rstyles.check,
+                    { borderBottomColor: surface.border },
+                    i === step.checks!.length - 1 && { borderBottomWidth: 0 },
+                  ]}
+                >
+                  <View
+                    style={[
+                      rstyles.checkBox,
+                      { borderColor: on ? palette.success : surface.border, backgroundColor: on ? palette.success : 'transparent' },
+                    ]}
+                  >
+                    {on ? <Ionicons name="checkmark" size={12} color="#ffffff" /> : null}
+                  </View>
+                  <ThemedText
+                    style={[
+                      rstyles.checkName,
+                      { color: on ? surface.muted : surface.text },
+                      on && rstyles.checkNameDone,
+                    ]}
+                  >
+                    {c.name}
+                  </ThemedText>
+                  <ThemedText style={[rstyles.checkAmt, { color: surface.muted }]}>{c.amount}</ThemedText>
+                </Pressable>
+              );
+            })
+          : null}
+        {step.figures?.length
+          ? step.figures.map((alt, i) => (
               <View
-                key={i}
-                style={[
-                  rstyles.check,
-                  { borderBottomColor: surface.border },
-                  i === step.checks!.length - 1 && { borderBottomWidth: 0 },
-                ]}
+                key={`fig-${i}`}
+                style={[rstyles.figPlaceholder, { backgroundColor: surface.sunken, borderColor: surface.border }]}
               >
-                <View style={[rstyles.checkBox, { borderColor: surface.border }]} />
-                <ThemedText style={[rstyles.checkName, { color: surface.text }]}>{c.name}</ThemedText>
-                <ThemedText style={[rstyles.checkAmt, { color: surface.text }]}>{c.amount}</ThemedText>
+                <Ionicons name="image-outline" size={18} color={surface.muted} />
+                <ThemedText style={[rstyles.figLbl, { color: surface.muted }]} numberOfLines={2}>
+                  {alt || 'Figure'}
+                </ThemedText>
               </View>
             ))
           : null}
@@ -864,9 +900,22 @@ const rstyles = StyleSheet.create({
   tempBig: { fontSize: 44, fontWeight: '900', marginTop: 4 },
   detail: { fontSize: 17, lineHeight: 24, marginTop: 8 },
   check: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 9, borderBottomWidth: 1 },
-  checkBox: { width: 24, height: 24, borderRadius: 7, borderWidth: 2 },
+  checkBox: { width: 24, height: 24, borderRadius: 7, borderWidth: 2, alignItems: 'center', justifyContent: 'center' },
   checkName: { fontSize: 18, flex: 1 },
-  checkAmt: { fontSize: 18, fontWeight: '800' },
+  checkNameDone: { textDecorationLine: 'line-through' },
+  checkAmt: { fontSize: 18, fontWeight: '800', fontFamily: 'GeistMono_500Medium' },
+  figPlaceholder: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    marginTop: 10,
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderStyle: 'dashed',
+  },
+  figLbl: { fontSize: 13, flex: 1 },
   foot: { borderTopWidth: 1, paddingHorizontal: 14, paddingTop: 10, paddingBottom: 16 },
   dots: { flexDirection: 'row', justifyContent: 'center', gap: 6, marginBottom: 9 },
   dot: { height: 7, borderRadius: 999 },
