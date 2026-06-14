@@ -947,8 +947,11 @@ export default function NotebookScreen() {
               ]}
               accessibilityRole="button"
             >
-              <Ionicons name="camera-outline" size={24} color={palette.white} />
+              <View style={styles.actionIconTile}>
+                <Ionicons name="camera-outline" size={22} color={palette.white} />
+              </View>
               <ThemedText style={styles.actionLabel}>Take a photo</ThemedText>
+              <ThemedText style={styles.actionSub}>Gel, plate, whiteboard</ThemedText>
             </Pressable>
             <Pressable
               testID="notebook-quick-note"
@@ -967,8 +970,11 @@ export default function NotebookScreen() {
               ]}
               accessibilityRole="button"
             >
-              <Ionicons name="create-outline" size={24} color={palette.white} />
+              <View style={styles.actionIconTile}>
+                <Ionicons name="create-outline" size={22} color={palette.white} />
+              </View>
               <ThemedText style={styles.actionLabel}>Quick note</ThemedText>
+              <ThemedText style={styles.actionSub}>Type and send</ThemedText>
             </Pressable>
           </View>
         ) : null}
@@ -1563,10 +1569,25 @@ const styles = StyleSheet.create({
   },
   actionCard: {
     flex: 1,
-    paddingVertical: 16,
+    paddingVertical: 15,
     paddingHorizontal: 12,
     alignItems: 'center',
-    gap: 9,
+    gap: 7,
+  },
+  actionIconTile: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    backgroundColor: 'rgba(255,255,255,0.18)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 1,
+  },
+  actionSub: {
+    fontSize: 11.5,
+    fontWeight: '500',
+    color: 'rgba(255,255,255,0.82)',
+    textAlign: 'center',
   },
   actionPrimary: {
     backgroundColor: palette.sky,
