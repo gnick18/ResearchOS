@@ -506,6 +506,45 @@
   border-top: 0;
 }
 
+/* Embedded version-history panel: the shared EntityVersionHistorySidebar hosted
+ * inside a CalmPopupShell (e.g. the purchase history popup). The calm surface
+ * has no seams, so a hard color line reintroduces the card edge we removed; the
+ * column reads as its own plane through DEPTH instead. A soft shadow cast onto
+ * the diff column + a quiet hairline + a whisper of raised paper differentiate
+ * it without adding new hues. Gated on .ros-history-panel so the standalone
+ * notes sidebar (its own raised-white card) is untouched. */
+.ros-calm-surface .ros-history-panel {
+  border-left: 1px solid var(--border-subtle);
+  background: color-mix(in srgb, var(--foreground) 2.5%, transparent);
+  box-shadow: -20px 0 40px -26px rgba(15, 23, 42, 0.32);
+}
+[data-theme="dark"] .ros-calm-surface .ros-history-panel {
+  background: color-mix(in srgb, #ffffff 4%, transparent);
+  box-shadow: -20px 0 44px -26px rgba(0, 0, 0, 0.62);
+}
+/* The compare toolbar reads as a quiet raised strip over the scrolling rows: a
+ * slightly firmer raised fill + a soft drop shadow in place of the washed-out
+ * hairline. */
+.ros-calm-surface .ros-history-panel .ros-history-toolbar {
+  border-bottom-color: transparent;
+  background: color-mix(in srgb, var(--foreground) 5%, transparent);
+  box-shadow: 0 6px 10px -9px rgba(15, 23, 42, 0.28);
+}
+[data-theme="dark"] .ros-calm-surface .ros-history-panel .ros-history-toolbar {
+  background: color-mix(in srgb, #ffffff 7%, transparent);
+  box-shadow: 0 6px 12px -9px rgba(0, 0, 0, 0.5);
+}
+/* The sticky day header keeps its near-opaque fill (it has to occlude rows
+ * scrolling under it) but trades the washed hairline for a soft drop shadow so
+ * it floats over the list as it sticks. */
+.ros-calm-surface .ros-history-panel .ros-history-dayhead {
+  border-bottom-color: transparent;
+  box-shadow: 0 6px 10px -9px rgba(15, 23, 42, 0.28);
+}
+[data-theme="dark"] .ros-calm-surface .ros-history-panel .ros-history-dayhead {
+  box-shadow: 0 6px 12px -9px rgba(0, 0, 0, 0.5);
+}
+
 /* Ghost icon button — the calm header glyph treatment (Focus / Close / the
  * overflow trigger). Low-contrast at rest, action-tinted on hover. The shell
  * also applies Tailwind hover utilities; this is the resting ghost fill so the

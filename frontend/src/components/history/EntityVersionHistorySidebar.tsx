@@ -435,7 +435,7 @@ export default function EntityVersionHistorySidebar<P extends EntityProjection>(
     <div
       className={`w-80 flex-shrink-0 flex flex-col h-full ${
         embedded
-          ? "border-l border-border/50"
+          ? "ros-history-panel"
           : "border-l border-border bg-surface-raised"
       }`}
       role="dialog"
@@ -491,7 +491,7 @@ export default function EntityVersionHistorySidebar<P extends EntityProjection>(
 
       {/* Compare toggle */}
       {!isEmpty && (
-        <div className="px-4 py-2 border-b border-border flex items-center gap-2 flex-shrink-0">
+        <div className="ros-history-toolbar px-4 py-2 border-b border-border flex items-center gap-2 flex-shrink-0">
           <span className="text-meta text-foreground-muted">Compare against</span>
           <div className="inline-flex rounded-lg bg-surface-sunken p-0.5 text-meta">
             <button
@@ -551,7 +551,7 @@ export default function EntityVersionHistorySidebar<P extends EntityProjection>(
 
         {model?.days.map((day) => (
           <div key={day.dayKey}>
-            <div className="sticky top-0 bg-surface-sunken/95 backdrop-blur px-4 py-1.5 text-meta font-semibold uppercase tracking-wide text-foreground-muted border-b border-border">
+            <div className="ros-history-dayhead sticky top-0 bg-surface-sunken/95 backdrop-blur px-4 py-1.5 text-meta font-semibold uppercase tracking-wide text-foreground-muted border-b border-border">
               {day.label}
             </div>
             {day.sessions.map((session, si) => {
