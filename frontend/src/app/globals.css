@@ -474,6 +474,64 @@
   --accent: #39a7e6;
 }
 
+/* ── Calm popup chrome anatomy (UNIFIED_POPUP_CHROME_SPEC.md §2/§4) ───────────
+ * The canonical header / tabs / footer treatment every CalmPopupShell renders,
+ * promoted from docs/mockups/2026-06-13-unified-focus-surface.html. The shell
+ * carries `.ros-calm-surface` at BOTH sizes (decision D1), so these slots are
+ * transparent with NO band and NO divider at every size (gap fix C1). The shell
+ * also lays out spacing with Tailwind utilities; these rules only own the
+ * "one continuous surface, no seams" treatment + the doze transitions so the
+ * chrome reads identically across every object type. */
+
+/* Header sits flush on the surface, no band, no bottom divider, at any size. */
+.ros-calm-surface .s-head {
+  background: transparent;
+  border-bottom: 0;
+  transition: padding 0.5s cubic-bezier(0.5, 0.05, 0.2, 1);
+}
+.ros-calm-surface .s-title {
+  letter-spacing: -0.01em;
+  transition: font-size 0.5s cubic-bezier(0.5, 0.05, 0.2, 1);
+}
+
+/* Quiet tab row — transparent, no divider, present at both sizes (C1). */
+.ros-calm-surface .s-tabs {
+  background: transparent;
+  border-bottom: 0;
+}
+
+/* Footer — transparent ambient autosave line, no top divider. */
+.ros-calm-surface .s-foot {
+  background: transparent;
+  border-top: 0;
+}
+
+/* Ghost icon button — the calm header glyph treatment (Focus / Close / the
+ * overflow trigger). Low-contrast at rest, action-tinted on hover. The shell
+ * also applies Tailwind hover utilities; this is the resting ghost fill so the
+ * three glyphs read as one quiet cluster on the surface. */
+.ros-calm-surface .iconbtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+/* Action-tinted hover (mockup `.iconbtn:hover{color:var(--action)…}`). Higher
+ * specificity than the shell's Tailwind hover utilities, so the glyph turns
+ * accent + the fill gets the same tint — the three glyphs read as one cluster. */
+.ros-calm-surface .iconbtn:hover {
+  color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 13%, transparent);
+}
+
+/* Floating centered editing pill + insert rail wrappers doze with the chrome at
+ * fullscreen. The host composes their contents; the doze timing lives with the
+ * editor. These hooks exist so the spec's `.s-float` / `.s-rail` anatomy maps to
+ * real classes when the editor types opt in. */
+.ros-calm-surface .s-float,
+.ros-calm-surface .s-rail {
+  transition: opacity 0.4s ease, transform 0.4s ease;
+}
+
 /* Focus dimming (UNIFIED_EDITOR_SURFACE_DESIGN.md §3A, U5 toggle, default off).
  * The CM6 focusDimmingExtension adds `.cm-ros-dimmed` to every non-active LINE,
  * but ONLY while the editor is focused (it clears the set on blur), so this rule
