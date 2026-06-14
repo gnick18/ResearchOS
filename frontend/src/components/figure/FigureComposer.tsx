@@ -26,6 +26,7 @@ import {
   listFigureSources,
   type FigureRef,
 } from "@/lib/figure/figure-source";
+import { buildPickerView, type GroupBy } from "@/lib/figure/picker-view";
 import {
   readFigurePage,
   saveFigurePage,
@@ -351,9 +352,19 @@ export default function FigureComposer({ pageId }: { pageId: string }) {
         <AddFigurePicker
           collectionId={page.collectionId}
           onClose={() => setPickerOpen(false)}
-          onPick={(ref) => {
-            const panelId = `p${page.id}-${Date.now().toString(36)}`;
-            mutate((p) => addPanel(p, { type: ref.type, id: ref.id }, panelId), true);
+          onPickMany={(refs) => {
+            if (refs.length === 0) {
+              setPickerOpen(false);
+              return;
+            }
+            const stamp = Date.now().toString(36);
+            mutate((p) => {
+              let next = p;
+              refs.forEach((ref, i) => {
+                next = addPanel(next, { type: ref.type, id: ref.id }, `p${page.id}-${stamp}-${i}`);
+              });
+              return next;
+            }, true);
             setPickerOpen(false);
           }}
         />
@@ -362,28 +373,43 @@ export default function FigureComposer({ pageId }: { pageId: string }) {
   );
 }
 
+const refKey = (r: { type: string; id: string }) => `${r.type}:${r.id}`;
+/** Size (inches) the source renders a picker thumbnail / preview at. */
+const THUMB_IN = { widthIn: 1.4, heightIn: 1.05 };
+const PREVIEW_IN = { widthIn: 4.4, heightIn: 3.3 };
+
 function AddFigurePicker({
   collectionId,
   onClose,
-  onPick,
+  onPickMany,
 }: {
   collectionId: string | null;
   onClose: () => void;
-  onPick: (ref: FigureRef) => void;
+  onPickMany: (refs: FigureRef[]) => void;
 }) {
-  const [groups, setGroups] = useState<{ label: string; refs: FigureRef[] }[]>([]);
+  const [allRefs, setAllRefs] = useState<FigureRef[]>([]);
   const [loading, setLoading] = useState(true);
+  const [query, setQuery] = useState("");
+  const [kindFilter, setKindFilter] = useState<string | null>(null);
+  const [groupBy, setGroupBy] = useState<GroupBy>("table");
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [active, setActive] = useState<string | null>(null);
+  const [thumbs, setThumbs] = useState<Map<string, string>>(new Map());
+  const [preview, setPreview] = useState<string | null>(null);
+  const inflight = useRef<Set<string>>(new Set());
 
+  // Load every source once, baking the source label as each ref's group fallback
+  // so a ref with no group still lands in a sensible "Group by table" bucket.
   useEffect(() => {
     let live = true;
     void (async () => {
-      const out: { label: string; refs: FigureRef[] }[] = [];
+      const out: FigureRef[] = [];
       for (const src of listFigureSources()) {
         const refs = await src.list({ collectionId });
-        if (refs.length > 0) out.push({ label: src.label, refs });
+        for (const r of refs) out.push({ ...r, group: r.group ?? src.label });
       }
       if (live) {
-        setGroups(out);
+        setAllRefs(out);
         setLoading(false);
       }
     })();
@@ -391,6 +417,80 @@ function AddFigurePicker({
       live = false;
     };
   }, [collectionId]);
+
+  const view = useMemo(
+    () => buildPickerView(allRefs, { kindFilter, groupBy, query, sourceLabel: "" }),
+    [allRefs, kindFilter, groupBy, query],
+  );
+
+  const visibleRefs = useMemo(() => view.groups.flatMap((g) => g.refs), [view]);
+  const visibleKeys = visibleRefs.map(refKey).join("|");
+
+  // Keep a valid active selection as the filter/search changes.
+  useEffect(() => {
+    if (visibleRefs.length === 0) {
+      setActive(null);
+      return;
+    }
+    setActive((cur) => (cur && visibleRefs.some((r) => refKey(r) === cur) ? cur : refKey(visibleRefs[0])));
+  }, [visibleKeys]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Lazily render thumbnails for the visible rows (cached, never re-fetched).
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      for (const r of visibleRefs) {
+        const key = refKey(r);
+        if (thumbs.has(key) || inflight.current.has(key)) continue;
+        const src = getFigureSource(r.type);
+        if (!src) continue;
+        inflight.current.add(key);
+        try {
+          const out = await src.render(r.id, { ...THUMB_IN, dpi: SCREEN_DPI, theme: "light" });
+          if (!cancelled) setThumbs((prev) => new Map(prev).set(key, out.svg));
+        } catch {
+          // leave it blank; the row shows a neutral placeholder
+        }
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [visibleKeys]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Render the larger preview for the active figure.
+  useEffect(() => {
+    if (!active) {
+      setPreview(null);
+      return;
+    }
+    const r = allRefs.find((x) => refKey(x) === active);
+    if (!r) return;
+    const src = getFigureSource(r.type);
+    if (!src) return;
+    let cancelled = false;
+    setPreview(null);
+    void src
+      .render(r.id, { ...PREVIEW_IN, dpi: SCREEN_DPI, theme: "light" })
+      .then((out) => {
+        if (!cancelled) setPreview(out.svg);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [active, allRefs]);
+
+  const toggle = (key: string) =>
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+
+  const activeRef = active ? allRefs.find((r) => refKey(r) === active) ?? null : null;
+  const confirm = () => onPickMany(allRefs.filter((r) => selected.has(refKey(r))));
 
   return (
     <div
@@ -400,39 +500,206 @@ function AddFigurePicker({
       <div
         role="dialog"
         aria-modal="true"
-        className="max-h-[80vh] w-[440px] overflow-auto rounded-2xl border border-border bg-surface-raised p-5"
+        aria-label="Add figures"
+        className="flex h-[560px] max-h-[85vh] w-[760px] max-w-full flex-col overflow-hidden rounded-2xl border border-border bg-surface-raised"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="mb-3 flex items-center justify-between">
-          <h2 className="text-body font-bold">Add a figure</h2>
-          <button type="button" onClick={onClose} aria-label="Close">
-            <Icon name="x" className="h-4 w-4" />
-          </button>
+        <div className="flex items-center justify-between border-b border-border px-4 py-3">
+          <h2 className="text-body font-bold">Add figures</h2>
+          <div className="flex items-center gap-3">
+            <span className="text-meta text-foreground-muted">{selected.size} selected</span>
+            <button type="button" onClick={onClose} aria-label="Close">
+              <Icon name="x" className="h-4 w-4" />
+            </button>
+          </div>
         </div>
-        {loading && <p className="text-body text-foreground-muted">Loading figures...</p>}
-        {!loading && groups.length === 0 && (
-          <p className="text-body text-foreground-muted">
-            No saved figures in this collection yet. Make a graph in the Data Hub first.
-          </p>
-        )}
-        {groups.map((g) => (
-          <div key={g.label} className="mb-4">
-            <p className="mb-1 text-meta font-semibold uppercase tracking-wide text-foreground-faint">{g.label}</p>
-            <div className="space-y-1">
-              {g.refs.map((r) => (
-                <button
-                  key={`${r.type}:${r.id}`}
-                  type="button"
-                  onClick={() => onPick(r)}
-                  className="block w-full rounded-lg border border-border px-3 py-2 text-left text-body hover:border-brand-action"
-                >
-                  {r.name}
-                </button>
+
+        <div className="grid min-h-0 flex-1 grid-cols-[260px_1fr]">
+          <div className="flex min-h-0 flex-col border-r border-border">
+            <div className="space-y-2.5 p-3">
+              <div className="relative">
+                <Icon
+                  name="search"
+                  className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-foreground-faint"
+                />
+                <input
+                  type="text"
+                  value={query}
+                  onChange={(e) => setQuery(e.target.value)}
+                  placeholder="Search figures"
+                  aria-label="Search figures"
+                  className="w-full rounded-lg border border-border bg-surface py-1.5 pl-8 pr-2 text-meta"
+                />
+              </div>
+              <div className="flex items-start gap-2">
+                <Icon name="filter" className="mt-1 h-3.5 w-3.5 shrink-0 text-foreground-faint" />
+                <div className="flex flex-wrap gap-1.5">
+                  <FilterChip label="All" on={kindFilter === null} onClick={() => setKindFilter(null)} />
+                  {view.kinds.map((k) => (
+                    <FilterChip
+                      key={k}
+                      label={k}
+                      on={kindFilter === k}
+                      onClick={() => setKindFilter(kindFilter === k ? null : k)}
+                    />
+                  ))}
+                </div>
+              </div>
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="text-meta text-foreground-faint">Group by</span>
+                <div className="inline-flex overflow-hidden rounded-md border border-border-strong">
+                  {(["table", "type", "none"] as GroupBy[]).map((g) => (
+                    <button
+                      key={g}
+                      type="button"
+                      onClick={() => setGroupBy(g)}
+                      className={`px-2.5 py-1 text-meta capitalize ${groupBy === g ? "bg-brand-action text-white" : "text-foreground-muted"}`}
+                    >
+                      {g}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            <div className="min-h-0 flex-1 overflow-y-auto px-2 pb-3">
+              {loading && <p className="px-2 py-3 text-meta text-foreground-muted">Loading figures...</p>}
+              {!loading && allRefs.length === 0 && (
+                <p className="px-2 py-3 text-meta text-foreground-muted">
+                  No saved figures yet. Make a graph in the Data Hub first.
+                </p>
+              )}
+              {!loading && allRefs.length > 0 && view.count === 0 && (
+                <p className="px-2 py-3 text-meta text-foreground-muted">No figures match.</p>
+              )}
+              {view.groups.map((g) => (
+                <div key={g.label || "_all"} className="mb-2">
+                  {g.label && (
+                    <p className="px-2 pb-1 pt-2 text-meta font-semibold uppercase tracking-wide text-foreground-faint">
+                      {g.label}
+                    </p>
+                  )}
+                  {g.refs.map((r) => {
+                    const key = refKey(r);
+                    const isSel = selected.has(key);
+                    return (
+                      <div
+                        key={key}
+                        onClick={() => setActive(key)}
+                        className={`flex cursor-pointer items-center gap-2.5 rounded-lg border p-1.5 ${active === key ? "border-border-strong bg-surface" : "border-transparent hover:bg-surface"}`}
+                        data-testid="picker-row"
+                      >
+                        <div
+                          className="h-[30px] w-[42px] shrink-0 overflow-hidden rounded border border-border bg-white [&>svg]:h-full [&>svg]:w-full"
+                          dangerouslySetInnerHTML={{ __html: thumbs.get(key) ?? "" }}
+                        />
+                        <div className="min-w-0 flex-1">
+                          <div className="truncate text-meta text-foreground">{r.name}</div>
+                          {groupBy !== "table" && r.group && (
+                            <div className="truncate text-[11px] text-foreground-faint">{r.group}</div>
+                          )}
+                        </div>
+                        <button
+                          type="button"
+                          aria-label={isSel ? "Deselect" : "Select"}
+                          aria-pressed={isSel}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            toggle(key);
+                          }}
+                          className={`flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-[5px] border ${isSel ? "border-brand-action bg-brand-action text-white" : "border-border-strong"}`}
+                        >
+                          {isSel && <Icon name="check" className="h-3 w-3" />}
+                        </button>
+                      </div>
+                    );
+                  })}
+                </div>
               ))}
             </div>
           </div>
-        ))}
+
+          <div className="flex min-h-0 flex-col bg-surface-sunken">
+            <div className="flex min-h-0 flex-1 items-center justify-center p-5">
+              {activeRef ? (
+                preview ? (
+                  <div
+                    className="max-h-full max-w-full [&>svg]:max-h-full [&>svg]:max-w-full"
+                    dangerouslySetInnerHTML={{ __html: preview }}
+                  />
+                ) : (
+                  <p className="text-meta text-foreground-faint">Rendering preview...</p>
+                )
+              ) : (
+                <p className="text-meta text-foreground-faint">Select a figure to preview it.</p>
+              )}
+            </div>
+            {activeRef && (
+              <div className="flex items-center gap-3 border-t border-border px-4 py-2.5">
+                {activeRef.kind && (
+                  <span className="rounded-md bg-brand-action/10 px-2 py-0.5 text-[11px] text-brand-action">
+                    {activeRef.kind}
+                  </span>
+                )}
+                <div className="min-w-0 flex-1">
+                  <div className="truncate text-meta font-semibold text-foreground">{activeRef.name}</div>
+                  {activeRef.group && (
+                    <div className="truncate text-[11px] text-foreground-faint">{activeRef.group}</div>
+                  )}
+                </div>
+                <button
+                  type="button"
+                  onClick={() => toggle(active!)}
+                  className={`rounded-lg border px-2.5 py-1 text-meta font-medium ${selected.has(active!) ? "border-brand-action text-brand-action" : "border-border-strong hover:border-brand-action"}`}
+                >
+                  {selected.has(active!) ? "Selected" : "Select"}
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+
+        <div className="flex items-center justify-between border-t border-border px-4 py-3">
+          <button
+            type="button"
+            onClick={() => setSelected(new Set())}
+            disabled={selected.size === 0}
+            className="text-meta font-medium text-foreground-muted hover:underline disabled:opacity-40"
+          >
+            Clear selection
+          </button>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={onClose}
+              className="rounded-lg border border-border-strong px-3 py-1.5 text-meta font-semibold hover:border-brand-action"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              onClick={confirm}
+              disabled={selected.size === 0}
+              className="rounded-lg bg-brand-action px-3 py-1.5 text-meta font-semibold text-white disabled:opacity-40"
+              data-testid="picker-add"
+            >
+              Add {selected.size} figure{selected.size === 1 ? "" : "s"}
+            </button>
+          </div>
+        </div>
       </div>
     </div>
+  );
+}
+
+function FilterChip({ label, on, onClick }: { label: string; on: boolean; onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`rounded-full border px-2.5 py-0.5 text-[11px] ${on ? "border-brand-action bg-brand-action/10 text-brand-action" : "border-border text-foreground-muted hover:border-border-strong"}`}
+    >
+      {label}
+    </button>
   );
 }

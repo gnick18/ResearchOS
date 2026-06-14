@@ -17,6 +17,17 @@ export interface FigureRef {
   /** The source type, matching FigureSource.type. */
   type: string;
   name: string;
+  /**
+   * Optional sub-group the figure belongs to within its source, for the picker's
+   * "Group by" view (e.g. the Data Hub document / table it came from). Absent =
+   * the source's own label is used.
+   */
+  group?: string;
+  /**
+   * Optional short plot-type label for the picker's "Filter" chips + "Group by
+   * type" view (e.g. "XY", "bar", "column scatter"). Absent = "Other".
+   */
+  kind?: string;
   /** Optional small preview for the add-figure picker. */
   thumbnailSvg?: string;
 }

@@ -72,10 +72,17 @@ export const dataHubFigureSource: FigureSource = {
       const content = await dataHubApi.getContent(doc.id);
       if (!content) continue;
       for (const plot of content.plots ?? []) {
+        const kind = kindLabel(plot);
+        const title = readPlotStyle(plot).title?.trim();
         refs.push({
           id: `${doc.id}:${plot.id}`,
           type: "datahub",
-          name: `${doc.name} (${kindLabel(plot)})`,
+          // The plot's own title when it has one, else the table name + kind.
+          name: title || `${doc.name} (${kind})`,
+          // The table / document the plot lives in, for "Group by table".
+          group: doc.name,
+          // The plot style, for the filter chips + "Group by type".
+          kind,
         });
       }
     }
