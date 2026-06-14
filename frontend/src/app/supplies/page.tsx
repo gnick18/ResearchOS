@@ -49,6 +49,7 @@ import {
 import { CATEGORY_LABEL, statusChipClass } from "@/components/inventory/inventory-ui";
 import { normalizeSharedWith, WHOLE_LAB_SENTINEL } from "@/lib/sharing/unified";
 import { buildSupplies, type Supply } from "@/lib/supplies/supply-model";
+import { setBeakerContext } from "@/components/ai/context-bridge";
 import { seedFromSupply } from "@/lib/supplies/reorder";
 import ItemFormDialog from "@/components/inventory/ItemFormDialog";
 import ScanFlow from "@/components/inventory/ScanFlow";
@@ -323,6 +324,33 @@ function SuppliesPageInner() {
     }
     return { all: supplies.length, attention, onorder };
   }, [supplies]);
+
+  // Publish the open supply to the BeakerBot context bridge so the model can
+  // resolve "this", "this supply", or "this item" to what the user has open. Only
+  // a supply with a backing inventory item (a real numeric item id read_inventory
+  // can resolve) is published; an order-only supply is skipped. Mirrors the Data
+  // Hub publisher: rebuilt when the selection changes, cleared on deselect and on
+  // unmount so the model never inherits a stale selection.
+  useEffect(() => {
+    const sel = selectedKey != null ? supplies.find((s) => s.key === selectedKey) : null;
+    const backingItemId = sel?.onHand?.itemIds[0] ?? null;
+    if (!sel || backingItemId == null) {
+      setBeakerContext(null);
+      return;
+    }
+    setBeakerContext({
+      route: "/supplies",
+      pageLabel: "Supplies",
+      selection: {
+        type: "inventory",
+        id: String(backingItemId),
+        name: sel.identity.name || "Untitled item",
+      },
+    });
+    return () => {
+      setBeakerContext(null);
+    };
+  }, [selectedKey, supplies]);
 
   const visible = useMemo(() => {
     const q = query.trim().toLowerCase();

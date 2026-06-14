@@ -29,12 +29,14 @@ import { supplyKeyFor } from "@/lib/supplies/supply-model";
 import type { DataHubDocument } from "@/lib/datahub/model/types";
 import type { Molecule } from "@/lib/chemistry/api";
 import type { PurchaseItem } from "@/lib/types";
+import { objectDeepLink } from "@/lib/references";
+import type { PhyloMeta } from "@/lib/phylo/api";
 
 /** The uniform record the global source ranks and renders. One per core record.
  *  Ranking and rendering branch only on `type`, `iconName`, and `open`, never on
  *  the source record shape, so chunk 2 stays type-agnostic. */
 export interface GlobalIndexEntry {
-  type: "task" | "project" | "method" | "sequence" | "inventory" | "note" | "datahub" | "molecule" | "purchase";
+  type: "task" | "project" | "method" | "sequence" | "inventory" | "note" | "datahub" | "molecule" | "purchase" | "phylo";
   /** Composite identity, taskKey() / `${owner}:${id}` / the sequence id as a
    *  string. The dedup key AND the carrier of the owner into the jump. */
   key: string;
@@ -91,6 +93,9 @@ export interface GlobalIndexInput {
    *  an owner field by listAllIncludingShared; without it we fall back to the
    *  currentUser so own items always have a key. */
   purchaseItems?: Array<PurchaseItem & { owner?: string }>;
+  /** Saved phylogenetic trees (PhyloMeta). Optional for the same backward-compat
+   *  reason as datahubDocs, so existing callers / tests build the same index. */
+  phyloTrees?: PhyloMeta[];
 }
 
 /** Parse an ISO stamp to epoch ms, 0 when absent or unparseable, so a missing
@@ -372,6 +377,28 @@ export function buildPurchaseEntry(
   };
 }
 
+/** Map a saved phylogenetic tree (PhyloMeta) to a GlobalIndexEntry. Exported for
+ *  unit tests. Uses the "tree" glyph (the rooted-cladogram phylo icon). The deep
+ *  link is the canonical /phylo?doc=<id> Tree Studio route via objectDeepLink, the
+ *  same route the AI index (phyloToBrief) uses, so a found tree opens from any
+ *  page. Trees are per-user library records keyed by their string id. */
+export function buildPhyloEntry(meta: PhyloMeta): GlobalIndexEntry {
+  const tipLabel =
+    typeof meta.tip_count === "number" ? `${meta.tip_count} tips` : "Phylogenetic tree";
+  const meta_ = meta.format ? `${tipLabel}, ${String(meta.format)}` : tipLabel;
+  return {
+    type: "phylo",
+    key: `phylo:${meta.id}`,
+    label: meta.name || "Untitled tree",
+    meta: meta_,
+    haystack: buildHaystack([meta.name, meta.format ? String(meta.format) : null]),
+    recencyAt: toEpoch(meta.added_at),
+    iconName: "tree" as IconName,
+    href: objectDeepLink("phylo", meta.id),
+    enabled: true,
+  };
+}
+
 /** Map the core record sets into one flat index. Pure and O(n) over the
  *  arrays, the project-name lookup is built once so the task subline does
  *  not re-scan. The merged loaders already dedup own vs shared by composite key,
@@ -389,6 +416,7 @@ export function buildGlobalIndex(input: GlobalIndexInput): GlobalIndexEntry[] {
     datahubDocs = [],
     molecules = [],
     purchaseItems = [],
+    phyloTrees = [],
   } = input;
 
   const projectNameByKey = new Map<string, string>();
@@ -408,5 +436,6 @@ export function buildGlobalIndex(input: GlobalIndexInput): GlobalIndexEntry[] {
   for (const doc of datahubDocs) entries.push(buildDataHubEntry(doc, currentUser));
   for (const mol of molecules) entries.push(buildMoleculeEntry(mol));
   for (const item of purchaseItems) entries.push(buildPurchaseEntry(item, currentUser));
+  for (const tree of phyloTrees) entries.push(buildPhyloEntry(tree));
   return entries;
 }

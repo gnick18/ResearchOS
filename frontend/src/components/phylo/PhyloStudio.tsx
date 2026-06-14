@@ -21,6 +21,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { Icon } from "@/components/icons";
 import Tooltip from "@/components/Tooltip";
 import { phyloApi } from "@/lib/phylo/api";
+import { setBeakerContext } from "@/components/ai/context-bridge";
 import { SAMPLE_TREE, SAMPLE_CSV, SAMPLE_ALIGNMENT } from "@/lib/phylo/sample";
 import { PhyloCollectionRail } from "@/components/phylo/PhyloCollectionRail";
 import { PhyloBuilder } from "@/components/phylo/PhyloBuilder";
@@ -179,6 +180,31 @@ export function PhyloStudio({ initialTreeId }: { initialTreeId?: string } = {}) 
   const [openTreeId, setOpenTreeId] = useState<string | null>(null);
   const [copiedRef, setCopiedRef] = useState(false);
   const [parseError, setParseError] = useState<string | null>(null);
+
+  // Publish the open SAVED tree to the BeakerBot context bridge so the model can
+  // resolve "this", "this tree", or "this phylogeny" to what the user has open in
+  // the Studio. Only a saved tree (openTreeId set) is published, since that is the
+  // id read_phylo_tree can resolve; a freshly imported / unsaved tree is skipped.
+  // Mirrors the Data Hub publisher: cleared when no saved tree is open and on
+  // unmount so the model never inherits a stale selection.
+  useEffect(() => {
+    if (!openTreeId) {
+      setBeakerContext(null);
+      return;
+    }
+    setBeakerContext({
+      route: "/phylo",
+      pageLabel: "Tree Studio",
+      selection: {
+        type: "phylo",
+        id: openTreeId,
+        name: treeName || "Untitled tree",
+      },
+    });
+    return () => {
+      setBeakerContext(null);
+    };
+  }, [openTreeId, treeName]);
   const [importMode, setImportMode] = useState<ImportMode>(null);
   const [pasteText, setPasteText] = useState("");
 

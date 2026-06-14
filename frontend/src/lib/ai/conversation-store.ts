@@ -306,7 +306,7 @@ export type ActivePlan = {
 /** One user-selected object attached via the @ mention picker. */
 export type AttachedRef = {
   /** The canonical object type from the global index. */
-  type: "task" | "project" | "method" | "sequence" | "inventory" | "note" | "datahub" | "molecule" | "purchase";
+  type: "task" | "project" | "method" | "sequence" | "inventory" | "note" | "datahub" | "molecule" | "purchase" | "phylo";
   /** The composite key (e.g. "note-gnickles:42"), unique within the index. */
   id: string;
   /** Display name shown on the chip and injected into the per-turn note. */
