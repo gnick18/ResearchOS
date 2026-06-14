@@ -16,6 +16,10 @@ import {
   isDemoOrWikiCapture,
 } from "@/lib/file-system/wiki-capture-mock";
 import FolderConnectGate from "@/components/onboarding/FolderConnectGate";
+import AccountFirstRedirect, {
+  useHasCloudSession,
+} from "@/components/account/AccountFirstRedirect";
+import { isAccountFirstEnabled } from "@/lib/account/account-first";
 import WelcomePage from "@/components/welcome/WelcomePage";
 import { signIn } from "next-auth/react";
 import ImportELNDialog from "@/components/import-eln/ImportELNDialog";
@@ -414,6 +418,12 @@ function AppContent({ children }: { children: ReactNode }) {
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
 
+  // Account-first (cloud-accounts Phase 1, Chunk C): read the cloud (NextAuth)
+  // session once so a signed-in, folderless visitor can be routed to /account
+  // instead of the folder wall. Only consulted when the flag is on; the hook runs
+  // unconditionally (rules of hooks) but is cheap and inert otherwise.
+  const hasCloudSession = useHasCloudSession();
+
   useEffect(() => {
     if (currentUser) {
       queryClient.invalidateQueries();
@@ -638,6 +648,39 @@ function AppContent({ children }: { children: ReactNode }) {
         <WelcomePage unsupported />
       </QueryClientProvider>
     );
+  }
+
+  // Account-first (cloud-accounts Phase 1, Chunk C). When NEXT_PUBLIC_ACCOUNT_FIRST
+  // is on, a SIGNED-IN visitor with no folder belongs on the folderless /account
+  // home, not the folder-connect wall (this is the break in the OAuth->folder
+  // fusion: today a fresh OAuth sign-in falls through to FolderConnectGate). A
+  // logged-out visitor falls through to the normal front door below. Default-off,
+  // so this whole branch is inert and the current flow is untouched unless the
+  // flag is set. While the session check is in flight we hold briefly so a
+  // signed-in user does not flash the front door before the redirect.
+  if (
+    isAccountFirstEnabled() &&
+    !isConnected &&
+    !currentUser &&
+    !isDemoOrWikiCapture() &&
+    !signInInFlight
+  ) {
+    if (hasCloudSession === null) {
+      return (
+        <QueryClientProvider client={queryClient}>
+          <div className="flex min-h-screen items-center justify-center text-meta text-foreground-muted">
+            Loading&hellip;
+          </div>
+        </QueryClientProvider>
+      );
+    }
+    if (hasCloudSession === true) {
+      return (
+        <QueryClientProvider client={queryClient}>
+          <AccountFirstRedirect />
+        </QueryClientProvider>
+      );
+    }
   }
 
 
