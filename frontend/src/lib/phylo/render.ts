@@ -53,7 +53,12 @@ import {
   extractPanelValues,
   buildPanelScales,
 } from "./panels";
-import type { AlignedPanel, CladeAnnotation, PhyloLayout } from "./types";
+import type {
+  AlignedPanel,
+  CladeAnnotation,
+  PhyloLayout,
+  TaxaLink,
+} from "./types";
 import {
   renderPlot,
   type AlignedAxis,
@@ -816,6 +821,25 @@ function drawRectTree(
     const ln = byId.get(id);
     if (ln) parts.push(collapsedTriangleRect(ln.x, ln.y, info));
   }
+  // Tip-to-tip links (ggtree geom_taxalink): a curve between two named tips,
+  // bowing to the right of the tree so it does not cross the spine.
+  const links = resolveTaxaLinks(panels);
+  if (links.length > 0) {
+    const byName = new Map(leaves(root).map((t) => [t.name, byId.get(t.id)!]));
+    for (const link of links) {
+      const a = byName.get(link.from);
+      const b = byName.get(link.to);
+      if (!a || !b) continue;
+      const x0 = Math.max(a.x, b.x);
+      // Bow outward (right) proportional to how far apart the tips are.
+      const bow = 24 + Math.abs(a.y - b.y) * 0.35;
+      const cx = x0 + bow;
+      const cy = (a.y + b.y) / 2;
+      parts.push(
+        `<path d="M${a.x.toFixed(1)} ${a.y.toFixed(1)} Q${cx.toFixed(1)} ${cy.toFixed(1)} ${b.x.toFixed(1)} ${b.y.toFixed(1)}" fill="none" stroke="${link.color || "#7C3AED"}" stroke-width="1.5" stroke-dasharray="4 3" opacity="0.9"/>`,
+      );
+    }
+  }
   if (spec.phylogram && spec.scaleBar !== false && layout.unitsPerPx) {
     const tick = niceTick(layout.maxDepth);
     const px = tick / layout.unitsPerPx;
@@ -969,6 +993,28 @@ function drawCircularTree(
         ? scale.colorFor(spec.metadata?.get(tip.id)?.[pointsPanel.column ?? ""])
         : MUTED;
       parts.push(`<circle cx="${p.x}" cy="${p.y}" r="3.5" fill="${fill}"/>`);
+    }
+  }
+  // Tip-to-tip links (ggtree geom_taxalink): a curve between two named tips,
+  // bowing through the inside of the ring (control pulled toward the center).
+  const links = resolveTaxaLinks(panels);
+  if (links.length > 0) {
+    const byName = new Map(
+      layout.nodes
+        .filter((p) => p.node.children.length === 0)
+        .map((p) => [p.node.name, p]),
+    );
+    for (const link of links) {
+      const a = byName.get(link.from);
+      const b = byName.get(link.to);
+      if (!a || !b) continue;
+      const mx = (a.x + b.x) / 2;
+      const my = (a.y + b.y) / 2;
+      const cx = mx + (layout.cx - mx) * 0.7;
+      const cy = my + (layout.cy - my) * 0.7;
+      parts.push(
+        `<path d="M${a.x.toFixed(1)} ${a.y.toFixed(1)} Q${cx.toFixed(1)} ${cy.toFixed(1)} ${b.x.toFixed(1)} ${b.y.toFixed(1)}" fill="none" stroke="${link.color || "#7C3AED"}" stroke-width="1.5" stroke-dasharray="4 3" opacity="0.9"/>`,
+      );
     }
   }
 }
@@ -1330,6 +1376,16 @@ function resolveCladeHighlights(
         },
       ]
     : [];
+}
+
+/** All tip-to-tip links across every visible taxalink layer (ggtree
+ *  geom_taxalink). Links are stored by tip NAME on the loose options seam, so an
+ *  older figure with no taxalink layer simply gets none. */
+function resolveTaxaLinks(panels: AlignedPanel[]): TaxaLink[] {
+  return panels
+    .filter((p) => p.visible && p.kind === "taxalink")
+    .flatMap((p) => (p.options?.links as TaxaLink[] | undefined) ?? [])
+    .filter((l) => l && l.from && l.to);
 }
 
 /** An annulus-sector band over an angular + radial span, for a circular clade

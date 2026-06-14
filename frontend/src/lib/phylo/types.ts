@@ -117,6 +117,24 @@ export interface CladeAnnotation {
   collapsed?: boolean;
 }
 
+/**
+ * One curved tip-to-tip link, stored in the taxalink layer's `options.links`
+ * (ggtree geom_taxalink). Defined BY TIP NAME so it survives a re-layout, the
+ * renderer resolves each name to a tip position and draws a curve between them
+ * (bowing right in the rectangular tree, through the inside of a circular tree).
+ * Carried on the loose `AlignedPanel.options` seam, so no new on-disk field.
+ */
+export interface TaxaLink {
+  /** Stable id within the figure (React key + edit target). */
+  id: string;
+  /** Source tip NAME. */
+  from: string;
+  /** Target tip NAME. */
+  to: string;
+  /** Curve stroke color. */
+  color: string;
+}
+
 /** The geom catalog a layer can be, grows over phases. */
 export type AlignedPanelKind =
   | "labels"
@@ -130,6 +148,7 @@ export type AlignedPanelKind =
   | "point"
   | "scatter"
   | "clade"
+  | "taxalink"
   | "support"
   | "nodepoints"
   | "msa"

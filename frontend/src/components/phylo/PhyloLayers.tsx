@@ -24,6 +24,7 @@ import type {
   AlignedPanel,
   AlignedPanelKind,
   CladeAnnotation,
+  TaxaLink,
 } from "@/lib/phylo/types";
 
 /** The Add-panel catalog, categorized for the searchable menu (mockup parity). */
@@ -61,6 +62,7 @@ export const PANEL_CATALOG: CatalogGroup[] = [
     cat: "Highlights",
     items: [
       { kind: "clade", name: "Clade highlight", desc: "shade a subtree" },
+      { kind: "taxalink", name: "Tip links", desc: "curve between two tips" },
       { kind: "support", name: "Support values", desc: "bootstrap labels" },
       { kind: "nodepoints", name: "Node points", desc: "glyph at each internal node" },
     ],
@@ -650,6 +652,13 @@ function Inspector({
       {panel.kind === "clade" && (
         <CladeInspector panel={panel} tipNames={tipNames} onUpdate={onUpdate} />
       )}
+      {panel.kind === "taxalink" && (
+        <TaxaLinkInspector
+          panel={panel}
+          tipNames={tipNames}
+          onUpdate={onUpdate}
+        />
+      )}
       {panel.kind === "msa" && (
         <>
           <p className="text-xs text-foreground-muted">
@@ -792,6 +801,98 @@ function CladeInspector({
         className="inline-flex items-center gap-1 rounded-lg border border-border px-2.5 py-1 text-sm font-semibold text-foreground hover:border-accent"
       >
         <Icon name="plus" className="h-3.5 w-3.5" /> Add clade
+      </button>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// The tip-link inspector (ggtree geom_taxalink). Each link names a FROM tip and a
+// TO tip; the renderer draws a curve between them (bowing right in a rectangular
+// tree, through the inside of a circular one). Links are named by tip so they
+// survive a re-layout. Multiple links, each a color.
+// ---------------------------------------------------------------------------
+
+function TaxaLinkInspector({
+  panel,
+  tipNames,
+  onUpdate,
+}: {
+  panel: AlignedPanel;
+  tipNames: string[];
+  onUpdate: (patch: Partial<AlignedPanel>) => void;
+}) {
+  const links = (panel.options?.links as TaxaLink[] | undefined) ?? [];
+  const setLinks = (next: TaxaLink[]) =>
+    onUpdate({ options: { ...panel.options, links: next } });
+  const addLink = () =>
+    setLinks([
+      ...links,
+      {
+        id: `link-${links.length}-${tipNames.length}`,
+        from: tipNames[0] ?? "",
+        to: tipNames[1] ?? tipNames[0] ?? "",
+        color: CLADE_PALETTE[(links.length + 3) % CLADE_PALETTE.length],
+      },
+    ]);
+  const patchLink = (id: string, patch: Partial<TaxaLink>) =>
+    setLinks(links.map((l) => (l.id === id ? { ...l, ...patch } : l)));
+  const removeLink = (id: string) =>
+    setLinks(links.filter((l) => l.id !== id));
+
+  return (
+    <div className="space-y-2">
+      <p className="text-xs text-foreground-muted">
+        Draw a curve between two tips (a co-occurrence, a transfer, a host link).
+        Works in the rectangular and circular layouts.
+      </p>
+      {links.map((l) => (
+        <div
+          key={l.id}
+          className="rounded-lg border border-border p-2 space-y-1.5 bg-surface-raised"
+        >
+          <div className="flex items-center gap-2">
+            <input
+              type="color"
+              value={l.color}
+              onChange={(e) => patchLink(l.id, { color: e.target.value })}
+              aria-label="Link color"
+              className="h-6 w-6 shrink-0 cursor-pointer rounded border border-border bg-transparent p-0"
+            />
+            <span className="flex-1 text-xs text-foreground-muted">
+              Tip link
+            </span>
+            <button
+              type="button"
+              onClick={() => removeLink(l.id)}
+              aria-label="Remove link"
+              className="shrink-0 rounded p-1 text-foreground-muted hover:text-red-500"
+            >
+              <Icon name="trash" className="h-3.5 w-3.5" />
+            </button>
+          </div>
+          <Field label="From tip">
+            <SelectInput
+              value={l.from}
+              options={tipNames}
+              onChange={(v) => patchLink(l.id, { from: v })}
+            />
+          </Field>
+          <Field label="To tip">
+            <SelectInput
+              value={l.to}
+              options={tipNames}
+              onChange={(v) => patchLink(l.id, { to: v })}
+            />
+          </Field>
+        </div>
+      ))}
+      <button
+        type="button"
+        onClick={addLink}
+        className="inline-flex items-center gap-1 rounded-lg border border-border px-2.5 py-1 text-sm font-semibold text-foreground hover:border-accent"
+      >
+        <Icon name="plus" className="h-3.5 w-3.5" /> Add link
       </button>
     </div>
   );
