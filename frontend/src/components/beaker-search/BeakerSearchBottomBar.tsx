@@ -43,6 +43,7 @@
 import { useEffect, useState } from "react";
 import BeakerBot from "@/components/BeakerBot";
 import { Icon } from "@/components/icons";
+import Tooltip from "@/components/Tooltip";
 import { useBeakerSearch } from "./BeakerSearchProvider";
 import { isWikiCaptureMode } from "@/lib/file-system/wiki-capture-mock";
 import { useAccountCapabilities } from "@/hooks/useAccountCapabilities";
@@ -110,19 +111,17 @@ export default function BeakerSearchBottomBar() {
         {/* Cmd J opens BeakerBot straight in Ask mode (account-only AI), shown
             beside the Cmd K search hint so the shortcut is discoverable. */}
         {canUseAI && (
-          <kbd
-            title="Open BeakerBot AI"
-            className="beakerbot-ai-shimmer flex-none rounded-md border border-border bg-surface-sunken px-1.5 py-0.5 text-[11px] font-semibold"
-          >
-            Cmd J
-          </kbd>
+          <Tooltip label="Open BeakerBot AI" placement="top">
+            <kbd className="beakerbot-ai-shimmer flex-none rounded-md border border-border bg-surface-sunken px-1.5 py-0.5 text-[11px] font-semibold">
+              Cmd J
+            </kbd>
+          </Tooltip>
         )}
-        <kbd
-          title="Open BeakerSearch"
-          className="flex-none rounded-md border border-border bg-surface-sunken px-1.5 py-0.5 text-[11px] font-semibold text-foreground-muted"
-        >
-          Cmd K
-        </kbd>
+        <Tooltip label="Open BeakerSearch" placement="top">
+          <kbd className="flex-none rounded-md border border-border bg-surface-sunken px-1.5 py-0.5 text-[11px] font-semibold text-foreground-muted">
+            Cmd K
+          </kbd>
+        </Tooltip>
       </button>
     </div>
   );
