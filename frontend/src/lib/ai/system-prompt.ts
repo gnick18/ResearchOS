@@ -224,7 +224,7 @@ Full type catalog (id substituted for ID):
 - datahub result: [Caption](/datahub?doc=ID#ros=result&analysis=ANALYSISID) renders the plain-language verdict and the stat table.
 - note: [Title](/notes/ID) as a chip (no #ros= fragment); opens the note popup in place.
 - method: [Name](/methods?openMethod=ID#ros=card) as a block embed, or [Name](/methods?openMethod=ID) as a chip.
-- project: [Name](/projects/ID#ros=card) or chip form /projects/ID.
+- project: [Name](/workbench/projects/ID#ros=card) or chip form /workbench/projects/ID.
 - collection: [Name](/sequences?collection=ID#ros=card) or chip form.
 - task or experiment: [Name](?openTask=COMPOSITEKEY) as a chip; the COMPOSITEKEY is the composite task key like "self:5" from the artifact index, NOT a bare number.
 - file: [Name](/files/ID) as a chip (no rich renderer; opens the file page).

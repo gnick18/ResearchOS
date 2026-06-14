@@ -82,9 +82,15 @@ const OBJECT_ROUTES: Record<ObjectRefType, RouteShape> = {
     build: (id) => `/files/${encodeURIComponent(id)}`,
     match: (pathname) => idFromSegmentRoute(pathname, "/files/"),
   },
+  // A project opens at /workbench/projects/<id> (projects/[id]/page.tsx), which
+  // renders the Workbench Projects view and AUTO-OPENS the project detail popup
+  // for that id. The old bare /projects/<id> build produced a 404 dead link (no
+  // such route exists), the same class of bug as the method ?openMethod fix: a
+  // chip click navigated to a 404 and lost the BeakerBot conversation. The real
+  // route lives under /workbench, not at the app root.
   project: {
-    build: (id) => `/projects/${encodeURIComponent(id)}`,
-    match: (pathname) => idFromSegmentRoute(pathname, "/projects/"),
+    build: (id) => `/workbench/projects/${encodeURIComponent(id)}`,
+    match: (pathname) => idFromSegmentRoute(pathname, "/workbench/projects/"),
   },
   // The chemistry workbench opens a molecule via a query param (the editor is a
   // popup over the hub, not its own route), so this is a query-param route like

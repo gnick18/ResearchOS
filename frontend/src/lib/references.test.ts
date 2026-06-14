@@ -45,7 +45,7 @@ describe("objectDeepLink", () => {
   it("builds the reserved segment routes", () => {
     expect(objectDeepLink("note", "n1")).toBe("/notes/n1");
     expect(objectDeepLink("file", "f1")).toBe("/files/f1");
-    expect(objectDeepLink("project", "p1")).toBe("/projects/p1");
+    expect(objectDeepLink("project", "p1")).toBe("/workbench/projects/p1");
   });
   it("builds the task route (openTask query param, own task)", () => {
     expect(objectDeepLink("task", "self:42")).toBe("/?openTask=self%3A42");
