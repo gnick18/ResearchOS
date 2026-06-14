@@ -11,15 +11,18 @@
 // House style: no em-dashes, no emojis, no mid-sentence colons.
 
 /**
- * PLACEHOLDER, Grant sets this from the live Fireworks gpt-oss-120b rates before
- * go-live (see docs/proposals/beakerbot-pricing-analysis.md, "Re-pull Fireworks
- * rates at lock time"). It is pinned here so the starter-grant math lands on a
- * round 750,000-token gift, i.e. a one-time grant worth about 25 cents of
- * inference. Concretely 0.25 dollars divided across 750,000 tokens, about
- * 3.33e-7 dollars per token. Every other number in this file derives from it, so
- * changing this one constant retunes the whole token economy and nothing else.
+ * LOCKED for beta go-live (2026-06-14). Set to the Fireworks gpt-oss-120b
+ * standard-tier OUTPUT rate, $0.60 per 1M tokens (input is cheaper at $0.15/1M;
+ * verified live at docs.fireworks.ai/serverless/pricing). We bill total tokens at
+ * one blended rate, so pricing at the output rate is the safe never-undercharge
+ * choice across any input:output mix: worst case we break even on output-heavy
+ * turns, and the margin on the (likely input-heavy) real traffic is what absorbs
+ * Stripe fees (~2.9% + $0.30/txn), infra, and the free starter grants. Refine
+ * DOWN after instrumenting the first real turns if the measured blended cost is
+ * well under this. Every other number in this file derives from it, so changing
+ * this one constant retunes the whole token economy and nothing else.
  */
-export const AI_TOKEN_PRICE_USD = 0.25 / 750_000;
+export const AI_TOKEN_PRICE_USD = 0.6 / 1_000_000;
 
 /** Micro-dollars (millionths of a USD) per token, the integer unit we store in
  *  the ledger so token-to-dollar accounting never drifts on floats. */
@@ -28,7 +31,7 @@ export const USD_MICROS_PER_USD = 1_000_000;
 /**
  * The one-time sign-up gift, in tokens. Granted once per owner on FIRST use
  * (LOCKED decision), keyed to the owner so it can never be re-minted. Worth about
- * 25 cents of inference at the placeholder rate above, which is dozens of real
+ * 25 cents of inference at the rate above (~416k tokens), which is dozens of real
  * tasks, enough to genuinely try BeakerBot before deciding to spend. A one-time
  * trial, NOT a recurring monthly allowance (a recurring free pool would be an
  * unbounded liability, Grant 2026-06-11).

@@ -10,12 +10,12 @@ import {
 } from "../ai-config";
 
 describe("ai-config token math", () => {
-  it("the starter grant is the round 750,000-token gift", () => {
-    expect(STARTER_GRANT_TOKENS).toBe(750_000);
+  it("the starter grant is ~25 cents of inference at the locked rate (416,667 tokens)", () => {
+    expect(STARTER_GRANT_TOKENS).toBe(416_667);
   });
 
-  it("the per-token price is the placeholder 25 cents over 750k tokens", () => {
-    expect(AI_TOKEN_PRICE_USD).toBeCloseTo(0.25 / 750_000, 12);
+  it("the per-token price is the locked Fireworks output rate, $0.60 per 1M", () => {
+    expect(AI_TOKEN_PRICE_USD).toBeCloseTo(0.6 / 1_000_000, 12);
   });
 
   it("the starter grant is worth about 25 cents (250,000 micro-dollars)", () => {
@@ -29,8 +29,8 @@ describe("ai-config token math", () => {
   });
 
   it("usdMicrosForTokens scales linearly with the rate", () => {
-    // 1,500,000 tokens is two grants, so about 50 cents.
-    expect(usdMicrosForTokens(1_500_000)).toBe(500_000);
+    // 1,500,000 tokens at $0.60 per 1M is $0.90 (900,000 micro-dollars).
+    expect(usdMicrosForTokens(1_500_000)).toBe(900_000);
   });
 
   it("packs convert dollars to tokens at the current rate", () => {
@@ -42,7 +42,7 @@ describe("ai-config token math", () => {
     expect(PACK_TOKENS[50]).toBeGreaterThan(PACK_TOKENS[25]);
   });
 
-  it("a $10 pack is 40 starter grants of tokens (30,000,000)", () => {
-    expect(PACK_TOKENS[10]).toBe(30_000_000);
+  it("a $10 pack is 16,666,667 tokens at the locked $0.60 per 1M rate", () => {
+    expect(PACK_TOKENS[10]).toBe(16_666_667);
   });
 });
