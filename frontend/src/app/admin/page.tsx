@@ -1,31 +1,37 @@
 import type { Metadata } from "next";
 
-import AdminMetrics from "@/components/admin/AdminMetrics";
+import OperatorShell from "@/components/admin/OperatorShell";
 import LightOnly from "@/components/LightOnly";
 
 /**
- * Standalone `/admin` route: the operator metrics dashboard.
+ * Standalone `/admin` route: the unified operator console.
+ *
+ * Merges the old operator metrics dashboard and the LLC business tracker into
+ * one left-rail shell (OperatorShell): Overview / Metrics / Finances / Modeling
+ * / Comms. The old `/business` and `/admin/business` routes redirect here so
+ * existing bookmarks land in the one console.
  *
  * Grant-only. The page is just a shell; the data is gated by the
- * /api/admin/metrics endpoint (ADMIN_EMAILS), which returns 404 to anyone not
- * on the allow-list, so loading the page leaks nothing. Like /open-source it
- * renders without the AppShell or a connected folder, and is excluded from the
- * wiki-coverage map (it is an operator tool, not a documented user feature).
+ * /api/admin/metrics and /api/admin/business endpoints (ADMIN_EMAILS), which
+ * return 404 to anyone not on the allow-list, so loading the page leaks
+ * nothing. Like /open-source it renders without the AppShell or a connected
+ * folder, and is excluded from the wiki-coverage map (an operator tool, not a
+ * documented user feature).
  *
- * Pinned to light mode (Grant 2026-06-11): the operator surfaces (sign-in,
- * metrics, billing) always read in the light palette regardless of the user's
- * theme. The full-height bg-surface-sunken root covers the viewport, so the
- * LightOnly scope leaves no dark peek behind it.
+ * Pinned to light mode (Grant 2026-06-11): the operator surfaces always read in
+ * the light palette regardless of the user's theme. The full-height
+ * bg-surface-sunken root covers the viewport, so the LightOnly scope leaves no
+ * dark peek behind it.
  */
 export const metadata: Metadata = {
-  title: "Operator metrics | ResearchOS",
+  title: "Operator console | ResearchOS",
   robots: { index: false, follow: false },
 };
 
 export default function AdminPage() {
   return (
     <LightOnly>
-      <AdminMetrics />
+      <OperatorShell />
     </LightOnly>
   );
 }

@@ -19,8 +19,6 @@ import AppFooter from "@/components/AppFooter";
 import CostBreakerPanel from "@/components/admin/CostBreakerPanel";
 import GiftPoolsPanel from "@/components/admin/GiftPoolsPanel";
 import SpendByCategoryPanel from "@/components/admin/SpendByCategoryPanel";
-import PriceModelingModal from "@/components/admin/PriceModelingModal";
-import { Icon } from "@/components/icons";
 import {
   computeReimbursement,
   computeSummary,
@@ -51,7 +49,7 @@ import {
 } from "@/lib/business/tax-categories";
 import type { InfraCostEstimate } from "@/lib/sharing/capacity-shared";
 
-interface BusinessData {
+export interface BusinessData {
   entity: EntityConfig;
   ledger: LedgerEntry[];
   tasks: BusinessTask[];
@@ -63,11 +61,13 @@ interface BusinessData {
   infraEstimate: InfraCostEstimate;
 }
 
-type State =
+export type BusinessState =
   | { phase: "loading" }
   | { phase: "denied" }
   | { phase: "error" }
   | { phase: "ready"; data: BusinessData };
+
+type State = BusinessState;
 
 function Shell({ children }: { children: React.ReactNode }) {
   return (
@@ -99,7 +99,7 @@ function Shell({ children }: { children: React.ReactNode }) {
   );
 }
 
-function StatCard({
+export function BusinessStatCard({
   label,
   value,
   tone = "default",
@@ -148,7 +148,7 @@ function deadlineTone(daysUntil: number): { box: string; text: string; chip: str
   };
 }
 
-function DeadlineStrip({ deadlines }: { deadlines: Deadline[] }) {
+export function DeadlineStrip({ deadlines }: { deadlines: Deadline[] }) {
   if (!deadlines.length) {
     return (
       <p className="text-body text-foreground-muted">
@@ -179,7 +179,7 @@ function DeadlineStrip({ deadlines }: { deadlines: Deadline[] }) {
 
 // --- editable entity card ---
 
-function EntityCard({
+export function EntityCard({
   entity,
   onSave,
 }: {
@@ -448,7 +448,7 @@ const EMPTY_ENTRY = {
   paidWith: "" as string,
 };
 
-function Ledger({
+export function Ledger({
   ledger,
   methods,
   onAdd,
@@ -687,7 +687,7 @@ function Ledger({
   );
 }
 
-function Checklist({
+export function Checklist({
   tasks,
   onAdd,
   onToggle,
@@ -770,7 +770,7 @@ function Checklist({
   );
 }
 
-function Correspondence({
+export function Correspondence({
   emails,
   entityName,
 }: {
@@ -840,7 +840,7 @@ function Correspondence({
   );
 }
 
-function SalesTaxBanner({
+export function SalesTaxBanner({
   status,
   note,
 }: {
@@ -884,7 +884,7 @@ function SalesTaxBanner({
 
 /** Year-end tax summary: expenses grouped by Schedule C category, plus a CSV
  *  export of the year's ledger to hand to self-file tax software. */
-function TaxSummaryPanel({ ledger }: { ledger: LedgerEntry[] }) {
+export function TaxSummaryPanel({ ledger }: { ledger: LedgerEntry[] }) {
   const years = Array.from(
     new Set(ledger.map((e) => e.date.slice(0, 4)).filter(Boolean)),
   ).sort((a, b) => b.localeCompare(a));
@@ -1127,14 +1127,14 @@ function PaymentMethodRow({
   );
 }
 
-interface NewMethod {
+export interface NewMethod {
   label: string;
   last4: string;
   kind: PaymentMethodKind;
   status: string;
 }
 
-function PaymentMethods({
+export function PaymentMethods({
   methods,
   onAdd,
   onUpdate,
@@ -1253,7 +1253,7 @@ function PaymentMethods({
 
 // --- reimbursement / owner-fronted view (block 3) ---
 
-function ReimbursementPanel({
+export function ReimbursementPanel({
   ledger,
   methods,
   onRecord,
@@ -1330,7 +1330,7 @@ function ReimbursementPanel({
 
 // --- recurring subscriptions (block 4) ---
 
-interface NewSub {
+export interface NewSub {
   label: string;
   amountCents: number;
   cadence: SubscriptionCadence;
@@ -1445,7 +1445,7 @@ function SubscriptionRow({
   );
 }
 
-function RecurringSubscriptions({
+export function RecurringSubscriptions({
   subscriptions,
   methods,
   onAdd,
@@ -1590,7 +1590,7 @@ function RecurringSubscriptions({
   );
 }
 
-function SectionTitle({ children, sub }: { children: React.ReactNode; sub?: string }) {
+export function SectionTitle({ children, sub }: { children: React.ReactNode; sub?: string }) {
   return (
     <div className="mb-3 mt-10 first:mt-0">
       <h2 className="text-title font-semibold text-foreground">{children}</h2>
@@ -1599,10 +1599,121 @@ function SectionTitle({ children, sub }: { children: React.ReactNode; sub?: stri
   );
 }
 
+/** "Where things stand" money stat cards, shared by the page and the shell. */
+export function WhereThingsStandStats({
+  summary,
+  reservePct,
+}: {
+  summary: BusinessSummary;
+  reservePct: number;
+}) {
+  return (
+    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+      <BusinessStatCard label="Money in" value={formatUSD(summary.moneyInCents)} />
+      <BusinessStatCard label="Money out" value={formatUSD(summary.moneyOutCents)} />
+      <BusinessStatCard label="Net" value={formatUSD(summary.netCents)} />
+      <BusinessStatCard
+        label={`Tax reserve (${reservePct}%)`}
+        value={formatUSD(summary.reserveCents)}
+        tone="reserve"
+      />
+      <BusinessStatCard
+        label="Safe to draw"
+        value={formatUSD(summary.safeToDrawCents)}
+        tone="good"
+      />
+    </div>
+  );
+}
+
+/** Estimated monthly infra cost + the "record to ledger" action. */
+export function InfraCostPanel({
+  infraEstimate,
+  onRecord,
+}: {
+  infraEstimate: InfraCostEstimate;
+  onRecord: (cents: number) => Promise<void> | void;
+}) {
+  return (
+    <div className="flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-border bg-surface-raised p-5">
+      <div>
+        <p className="text-meta font-medium uppercase tracking-wide text-foreground-muted">
+          Estimated this month
+        </p>
+        <p className="mt-1 text-display font-bold tracking-tight text-foreground">
+          {formatUSD(infraEstimate.totalCents)}
+        </p>
+        <p className="mt-1 text-meta text-foreground-muted">
+          Fixed base {formatUSD(infraEstimate.fixedBaseCents)} (Workers $5 +
+          Vercel Pro $20) + Durable Objects {formatUSD(infraEstimate.doCents)} +
+          R2 {formatUSD(infraEstimate.r2Cents)}
+        </p>
+      </div>
+      <button
+        type="button"
+        disabled={infraEstimate.totalCents <= 0}
+        onClick={() => onRecord(infraEstimate.totalCents)}
+        className="rounded-lg border border-border px-4 py-2 text-body font-semibold text-foreground hover:bg-surface-sunken disabled:opacity-40"
+      >
+        Record to ledger
+      </button>
+    </div>
+  );
+}
+
+/** The static infrastructure-tiers table + caveat note. */
+export function InfraTiersPanel() {
+  return (
+    <>
+      <div className="overflow-hidden rounded-2xl border border-border bg-surface-raised">
+        <div className="overflow-x-auto">
+          <table className="w-full text-left text-meta">
+            <thead>
+              <tr className="border-b border-border bg-surface-sunken text-foreground-muted">
+                <th className="px-3 py-2 font-semibold">Service</th>
+                <th className="px-3 py-2 font-semibold">Free tier</th>
+                <th className="px-3 py-2 font-semibold">Paid upgrade</th>
+                <th className="px-3 py-2 font-semibold">When to upgrade</th>
+              </tr>
+            </thead>
+            <tbody>
+              {INFRA_TIERS.map((t) => (
+                <tr
+                  key={t.service}
+                  className={`border-b border-border align-top last:border-0 ${
+                    t.actionNow ? "bg-amber-50" : ""
+                  }`}
+                >
+                  <td className="px-3 py-2">
+                    <div className="font-medium text-foreground">{t.service}</div>
+                    <div className="mt-0.5 text-foreground-muted">{t.role}</div>
+                  </td>
+                  <td className="px-3 py-2 text-foreground-muted">{t.free}</td>
+                  <td className="px-3 py-2 text-foreground-muted">{t.paid}</td>
+                  <td
+                    className={`px-3 py-2 ${
+                      t.actionNow ? "font-medium text-amber-700" : "text-foreground-muted"
+                    }`}
+                  >
+                    {t.upgradeWhen}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+      <p className="mt-2 rounded-xl border border-border bg-surface-sunken px-4 py-3 text-meta text-foreground-muted leading-relaxed">
+        {INFRA_TIERS_NOTE}
+      </p>
+    </>
+  );
+}
+
 /** DEV-ONLY convenience panel for the Accountant inbox bot. One click into the
  *  business Gmail, plus a self-test that proves the booking path really works.
  *  Renders nothing in production. */
-function DevAccountantPanel() {
+export function DevAccountantPanel() {
   const [busy, setBusy] = useState(false);
   const [result, setResult] = useState<{
     ok: boolean;
@@ -1699,9 +1810,42 @@ async function fetchBusiness(): Promise<State> {
   }
 }
 
-export default function BusinessTracker() {
+/** All mutating actions the business surfaces call. Shared so the standalone
+ *  BusinessTracker page and the unified OperatorShell drive the identical
+ *  ledger writes and refetch behavior. */
+export interface BusinessActions {
+  reload: () => Promise<void>;
+  saveEntity: (entity: EntityConfig) => Promise<void>;
+  addEntry: (entry: {
+    date: string;
+    direction: LedgerDirection;
+    category: string;
+    amountCents: number;
+    note: string;
+    taxCategory: string;
+    paidWith?: number | null;
+  }) => Promise<void>;
+  deleteEntry: (id: number) => Promise<void>;
+  updateEntryTax: (id: number, taxCategory: string) => Promise<void>;
+  recordInfra: (cents: number) => Promise<void>;
+  addTask: (label: string) => Promise<void>;
+  toggleTask: (id: number, done: boolean) => Promise<void>;
+  deleteTask: (id: number) => Promise<void>;
+  addPaymentMethod: (method: NewMethod) => Promise<void>;
+  updatePaymentMethod: (id: number, method: NewMethod) => Promise<void>;
+  deletePaymentMethod: (id: number) => Promise<void>;
+  setEntryPaidWith: (id: number, paidWith: number | null) => Promise<void>;
+  recordReimbursement: (mode: "capital" | "draw") => Promise<void>;
+  addSubscription: (subscription: NewSub) => Promise<void>;
+  updateSubscription: (id: number, subscription: NewSub) => Promise<void>;
+  deleteSubscription: (id: number) => Promise<void>;
+}
+
+/** Loads the business data and exposes every mutating action. The action
+ *  bodies are lifted verbatim from the old BusinessTracker so behavior (the
+ *  optimistic entity recompute, the refetch-after-write) is unchanged. */
+export function useBusinessData(): { state: BusinessState; actions: BusinessActions } {
   const [state, setState] = useState<State>({ phase: "loading" });
-  const [priceModelOpen, setPriceModelOpen] = useState(false);
 
   const load = useCallback(async () => {
     setState(await fetchBusiness());
@@ -1820,6 +1964,78 @@ export default function BusinessTracker() {
   const deleteSubscription = (id: number) =>
     postAction({ action: "deleteSubscription", id });
 
+  return {
+    state,
+    actions: {
+      reload: load,
+      saveEntity,
+      addEntry,
+      deleteEntry,
+      updateEntryTax,
+      recordInfra,
+      addTask,
+      toggleTask,
+      deleteTask,
+      addPaymentMethod,
+      updatePaymentMethod,
+      deletePaymentMethod,
+      setEntryPaidWith,
+      recordReimbursement,
+      addSubscription,
+      updateSubscription,
+      deleteSubscription,
+    },
+  };
+}
+
+/** Operator-gate panels, reused by the shell so it shows the identical denied/
+ *  error messaging as the standalone page. */
+export function BusinessDeniedPanel() {
+  return (
+    <>
+      <p className="text-body text-foreground-muted leading-relaxed">
+        Not authorized. This page is for operator accounts on the ADMIN_EMAILS
+        allow-list, and it is dark unless sharing is enabled on this deployment.
+      </p>
+      <OperatorSignIn />
+    </>
+  );
+}
+
+export function BusinessErrorPanel() {
+  return (
+    <>
+      <p className="text-body text-foreground-muted leading-relaxed">
+        Could not load the business data right now. If you are not signed in as
+        an operator, sign in below, otherwise try again in a moment.
+      </p>
+      <OperatorSignIn />
+    </>
+  );
+}
+
+export default function BusinessTracker() {
+  const { state, actions } = useBusinessData();
+
+  const {
+    saveEntity,
+    addEntry,
+    deleteEntry,
+    updateEntryTax,
+    recordInfra,
+    addTask,
+    toggleTask,
+    deleteTask,
+    addPaymentMethod,
+    updatePaymentMethod,
+    deletePaymentMethod,
+    setEntryPaidWith,
+    recordReimbursement,
+    addSubscription,
+    updateSubscription,
+    deleteSubscription,
+  } = actions;
+
   if (state.phase === "loading") {
     return (
       <Shell>
@@ -1830,22 +2046,14 @@ export default function BusinessTracker() {
   if (state.phase === "denied") {
     return (
       <Shell>
-        <p className="text-body text-foreground-muted leading-relaxed">
-          Not authorized. This page is for operator accounts on the ADMIN_EMAILS
-          allow-list, and it is dark unless sharing is enabled on this deployment.
-        </p>
-        <OperatorSignIn />
+        <BusinessDeniedPanel />
       </Shell>
     );
   }
   if (state.phase === "error") {
     return (
       <Shell>
-        <p className="text-body text-foreground-muted leading-relaxed">
-          Could not load the business data right now. If you are not signed in as
-          an operator, sign in below, otherwise try again in a moment.
-        </p>
-        <OperatorSignIn />
+        <BusinessErrorPanel />
       </Shell>
     );
   }
@@ -1855,24 +2063,14 @@ export default function BusinessTracker() {
 
   return (
     <Shell>
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <h1 className="text-heading font-bold tracking-tight text-foreground">
-            LLC business
-          </h1>
-          <p className="mt-1 text-meta text-foreground-muted leading-relaxed">
-            Private operations and finances for the ResearchOS LLC. Aggregate,
-            operator-only, never shown to any user.
-          </p>
-        </div>
-        <button
-          type="button"
-          onClick={() => setPriceModelOpen(true)}
-          className="inline-flex shrink-0 items-center gap-2 rounded-xl border border-border bg-surface-raised px-3.5 py-2 text-meta font-medium text-foreground transition-colors hover:bg-surface-sunken"
-        >
-          <Icon name="calculator" className="h-4 w-4" />
-          Price modeling
-        </button>
+      <div>
+        <h1 className="text-heading font-bold tracking-tight text-foreground">
+          LLC business
+        </h1>
+        <p className="mt-1 text-meta text-foreground-muted leading-relaxed">
+          Private operations and finances for the ResearchOS LLC. Aggregate,
+          operator-only, never shown to any user.
+        </p>
       </div>
 
       <div className="mt-6">
@@ -1921,21 +2119,7 @@ export default function BusinessTracker() {
             <SectionTitle sub="Money in minus money out, then the tax reserve held back, then what is safe to draw.">
               Where things stand
             </SectionTitle>
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-              <StatCard label="Money in" value={formatUSD(summary.moneyInCents)} />
-              <StatCard label="Money out" value={formatUSD(summary.moneyOutCents)} />
-              <StatCard label="Net" value={formatUSD(summary.netCents)} />
-              <StatCard
-                label={`Tax reserve (${entity.reservePct}%)`}
-                value={formatUSD(summary.reserveCents)}
-                tone="reserve"
-              />
-              <StatCard
-                label="Safe to draw"
-                value={formatUSD(summary.safeToDrawCents)}
-                tone="good"
-              />
-            </div>
+            <WhereThingsStandStats summary={summary} reservePct={entity.reservePct} />
           </div>
         </div>
 
@@ -1944,29 +2128,7 @@ export default function BusinessTracker() {
             <SectionTitle sub="Estimated monthly infra cost at the current usage. The fixed base (Workers Paid + Vercel Pro) is what you pay at any user count; Durable Objects and R2 storage are charged only above their free tiers, so they read $0 until a real user base fills them. Storage + base only, no compute or bandwidth.">
               Infrastructure cost
             </SectionTitle>
-      <div className="flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-border bg-surface-raised p-5">
-        <div>
-          <p className="text-meta font-medium uppercase tracking-wide text-foreground-muted">
-            Estimated this month
-          </p>
-          <p className="mt-1 text-display font-bold tracking-tight text-foreground">
-            {formatUSD(infraEstimate.totalCents)}
-          </p>
-          <p className="mt-1 text-meta text-foreground-muted">
-            Fixed base {formatUSD(infraEstimate.fixedBaseCents)} (Workers $5 +
-            Vercel Pro $20) + Durable Objects {formatUSD(infraEstimate.doCents)} +
-            R2 {formatUSD(infraEstimate.r2Cents)}
-          </p>
-        </div>
-        <button
-          type="button"
-          disabled={infraEstimate.totalCents <= 0}
-          onClick={() => recordInfra(infraEstimate.totalCents)}
-          className="rounded-lg border border-border px-4 py-2 text-body font-semibold text-foreground hover:bg-surface-sunken disabled:opacity-40"
-        >
-          Record to ledger
-        </button>
-      </div>
+            <InfraCostPanel infraEstimate={infraEstimate} onRecord={recordInfra} />
           </div>
 
           <div>
@@ -1975,47 +2137,7 @@ export default function BusinessTracker() {
             >
               Infrastructure tiers
             </SectionTitle>
-      <div className="overflow-hidden rounded-2xl border border-border bg-surface-raised">
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-meta">
-            <thead>
-              <tr className="border-b border-border bg-surface-sunken text-foreground-muted">
-                <th className="px-3 py-2 font-semibold">Service</th>
-                <th className="px-3 py-2 font-semibold">Free tier</th>
-                <th className="px-3 py-2 font-semibold">Paid upgrade</th>
-                <th className="px-3 py-2 font-semibold">When to upgrade</th>
-              </tr>
-            </thead>
-            <tbody>
-              {INFRA_TIERS.map((t) => (
-                <tr
-                  key={t.service}
-                  className={`border-b border-border align-top last:border-0 ${
-                    t.actionNow ? "bg-amber-50" : ""
-                  }`}
-                >
-                  <td className="px-3 py-2">
-                    <div className="font-medium text-foreground">{t.service}</div>
-                    <div className="mt-0.5 text-foreground-muted">{t.role}</div>
-                  </td>
-                  <td className="px-3 py-2 text-foreground-muted">{t.free}</td>
-                  <td className="px-3 py-2 text-foreground-muted">{t.paid}</td>
-                  <td
-                    className={`px-3 py-2 ${
-                      t.actionNow ? "font-medium text-amber-700" : "text-foreground-muted"
-                    }`}
-                  >
-                    {t.upgradeWhen}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
-      <p className="mt-2 rounded-xl border border-border bg-surface-sunken px-4 py-3 text-meta text-foreground-muted leading-relaxed">
-        {INFRA_TIERS_NOTE}
-      </p>
+            <InfraTiersPanel />
           </div>
 
           <div>
@@ -2093,11 +2215,6 @@ export default function BusinessTracker() {
         to stay on top of dates and cash, and have an accountant set the reserve
         percentage and handle the filings.
       </p>
-
-      <PriceModelingModal
-        open={priceModelOpen}
-        onClose={() => setPriceModelOpen(false)}
-      />
     </Shell>
   );
 }

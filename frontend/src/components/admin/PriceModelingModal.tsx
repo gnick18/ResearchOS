@@ -146,7 +146,7 @@ const SCENARIOS = [
   { n: "Power / automated", gb: 4, a: 8 },
 ];
 
-function PerSubscriberTab({ active }: { active: boolean }) {
+export function PerSubscriberTab({ active }: { active: boolean }) {
   const [model, setModel] = useState<PricingModel>("storage");
   const [tierId, setTierId] = useState<string>("free");
   const [gb, setGb] = useState(3);
@@ -615,7 +615,7 @@ function PerSubscriberTab({ active }: { active: boolean }) {
 // Tab 2: sustainability at scale
 // ============================================================================
 
-function SustainabilityTab({ active }: { active: boolean }) {
+export function SustainabilityTab({ active }: { active: boolean }) {
   const [freeUsers, setFreeUsers] = useState(10000);
   const [lightPct, setLightPct] = useState(70);
   const [typicalPct, setTypicalPct] = useState(25);
