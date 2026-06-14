@@ -39,7 +39,10 @@
   .tool { font: inherit; font-size: 12.5px; font-weight: 600; padding: 6px 11px; border-radius: 8px; border: 1px solid var(--border-strong); background: var(--surface); color: var(--fg); cursor: pointer; display: inline-flex; align-items: center; gap: 6px; }
   .tool:hover { border-color: var(--brand-action); }
   .tool.armed { background: var(--brand-action); border-color: var(--brand-action); color: #fff; }
-  .tool .gl { font-size: 14px; line-height: 1; }
+  .tool .ic { width: 17px; height: 15px; display: block; color: currentColor; }
+  .tool .ic path, .tool .ic line { fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+  .tool .ic .fill { fill: currentColor; stroke: none; }
+  .tool .ic text { fill: currentColor; stroke: none; }
   .sep { width: 1px; align-self: stretch; background: var(--border); margin: 2px 4px; }
   .hint { font-size: 12px; color: var(--fg-faint); margin-left: auto; }
 
@@ -120,13 +123,13 @@
     <button class="tool" id="addFig"><span class="gl">+</span> Add figure</button>
     <div class="sep"></div>
     <span class="grouplbl">Annotate</span>
-    <button class="tool" data-ann="text"><span class="gl">T</span> Text</button>
-    <button class="tool" data-ann="arrow"><span class="gl">&#8599;</span> Arrow</button>
-    <button class="tool" data-ann="line"><span class="gl">&#9472;</span> Line</button>
-    <button class="tool" data-ann="bracket"><span class="gl">&#9697;</span> Bracket</button>
-    <button class="tool" data-ann="sig"><span class="gl">&#10033;</span> Significance</button>
+    <button class="tool" data-ann="text"><svg class="ic" viewBox="0 0 17 15"><path d="M3 4h11"/><path d="M8.5 4v9"/></svg> Text</button>
+    <button class="tool" data-ann="arrow"><svg class="ic" viewBox="0 0 17 15"><path d="M3 13 L13 4"/><path d="M13 4 H8.5 M13 4 V8.5"/></svg> Arrow</button>
+    <button class="tool" data-ann="line"><svg class="ic" viewBox="0 0 17 15"><path d="M3 12 L14 4"/></svg> Line</button>
+    <button class="tool" data-ann="bracket"><svg class="ic" viewBox="0 0 17 15"><path d="M3 12 V9 Q3 7 5 7 Q7 7 8.5 5 Q10 7 12 7 Q14 7 14 9 V12"/></svg> Bracket</button>
+    <button class="tool" data-ann="sig"><svg class="ic" viewBox="0 0 17 15"><path d="M3 11 H14 M3 11 V8 M14 11 V8"/><text x="8.5" y="5.5" font-size="7" text-anchor="middle">&#42;&#42;</text></svg> Significance</button>
     <div class="sep"></div>
-    <button class="tool armed" data-ann="select" id="selectTool"><span class="gl">&#9099;</span> Select</button>
+    <button class="tool armed" data-ann="select" id="selectTool"><svg class="ic" viewBox="0 0 17 15"><path class="fill" d="M4 2 L4 13 L7 10 L9 14 L11 13 L9 9 L13 9 Z"/></svg> Select</button>
     <span class="hint" id="toolHint">Drag a panel to move it. Click a panel to select.</span>
   </div>
 
