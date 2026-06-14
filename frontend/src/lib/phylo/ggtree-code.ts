@@ -43,7 +43,9 @@ function isNumericColumn(
 
 /** Map a Studio layout to the ggtree layout string. */
 function ggtreeLayout(spec: RenderSpec): string {
-  if (spec.layout === "circular") return "circular";
+  if (spec.layout === "circular" || spec.layout === "inwardCircular")
+    return "circular";
+  if (spec.layout === "fan") return "fan";
   if (spec.layout === "slanted") return "slanted";
   if (spec.layout === "unrooted") return "daylight";
   return "rectangular";

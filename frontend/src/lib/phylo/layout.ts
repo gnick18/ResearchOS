@@ -74,6 +74,12 @@ export interface LayoutOptions {
    * so an unannotated circular tree, and every rectangular caller, are unchanged.
    */
   circularRingRoom?: number;
+  /**
+   * Angular spread (degrees) for a circular / fan layout. The default 330 leaves
+   * a small open gap (the rooted-fan look); a smaller value (e.g. 180) makes an
+   * open fan. Ignored by the rectangular layout.
+   */
+  sweepDegrees?: number;
 }
 
 /** Sum of branch lengths from the root to each node. Treats missing lengths as 0. */
@@ -189,8 +195,9 @@ export function layoutCircular(
   );
   const innerR = 18;
 
-  // Spread tips over a 330 degree fan (the open gap reads as a rooted fan).
-  const sweep = Math.PI * (330 / 180);
+  // Spread tips over the requested fan angle (default 330 degrees, whose open gap
+  // reads as a rooted fan; a smaller value like 180 makes an open fan layout).
+  const sweep = Math.PI * ((opts.sweepDegrees ?? 330) / 180);
   const startA = -sweep / 2 - Math.PI / 2;
   const angleOf = (y: number) => startA + (y / aMax) * sweep;
   const radiusOf = (d: number) => innerR + (d / maxDepth) * (radius - innerR);

@@ -20,7 +20,13 @@ export type PhyloFormat = "newick" | "nexus" | "phyloxml";
 export type PhyloSource = "upload" | "paste" | "builder";
 
 /** Studio layout shapes. */
-export type PhyloLayout = "rectangular" | "circular" | "slanted" | "unrooted";
+export type PhyloLayout =
+  | "rectangular"
+  | "circular"
+  | "slanted"
+  | "unrooted"
+  | "fan"
+  | "inwardCircular";
 
 /**
  * The Studio figure spec, read by both the native SVG renderer and the ggtree

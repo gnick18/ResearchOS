@@ -259,11 +259,14 @@ export function figureInputsFromStored(
   figure: StoredFigure | undefined,
   metadata: StoredMetadata | undefined,
 ): FigureInputs {
+  const stored = figure?.layout;
   const layout: PhyloLayout =
-    figure?.layout === "circular" ||
-    figure?.layout === "slanted" ||
-    figure?.layout === "unrooted"
-      ? figure.layout
+    stored === "circular" ||
+    stored === "slanted" ||
+    stored === "unrooted" ||
+    stored === "fan" ||
+    stored === "inwardCircular"
+      ? stored
       : "rectangular";
   const phylogram = figure?.branchLengths ?? true;
   const scaleBar = figure?.scaleBar;

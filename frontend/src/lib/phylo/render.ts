@@ -342,6 +342,26 @@ function renderUnrooted(root: TreeNode, spec: RenderSpec): string {
   return svgDocument(spec.width, spec.height, parts.join(""), "");
 }
 
+/** True for the circular family (circular, fan, inward-circular). All three share
+ *  the polar layout, the ring panels, and drawCircularTree; only the fan sweep
+ *  angle and the tip-label orientation differ. */
+function isCircular(layout: PhyloLayout): boolean {
+  return (
+    layout === "circular" || layout === "fan" || layout === "inwardCircular"
+  );
+}
+
+/** The fan sweep (degrees) for a layout: an open fan for "fan", else the near-full
+ *  circle the rooted circular tree uses. Ignored by the rectangular layout. */
+function sweepFor(layout: PhyloLayout): number {
+  return layout === "fan" ? 180 : 330;
+}
+
+/** Whether the circular tip labels face inward (toward the center). */
+function labelsInward(layout: PhyloLayout): boolean {
+  return layout === "inwardCircular";
+}
+
 /** The Phase 0 track-driven render path (kept for a hand-built spec with no
  *  panels). figure-to-render always supplies panels, so the live app + embeds
  *  take renderFromPanels; this path serves only legacy / test specs. */
@@ -358,13 +378,12 @@ function renderFromTracks(root: TreeNode, spec: RenderSpec): string {
     rightInset: rightInsetFor(root, spec),
     padding: 16,
     phylogram: spec.phylogram,
-    circularRingRoom:
-      spec.layout === "circular" ? circularRingRoom(spec) : 0,
+    circularRingRoom: isCircular(spec.layout) ? circularRingRoom(spec) : 0,
+    sweepDegrees: sweepFor(spec.layout),
   };
-  const body =
-    spec.layout === "circular"
-      ? renderCircular(root, layoutCircular(root, opts), spec, scales)
-      : renderRectangular(root, layoutRectangular(root, opts), spec, scales);
+  const body = isCircular(spec.layout)
+    ? renderCircular(root, layoutCircular(root, opts), spec, scales)
+    : renderRectangular(root, layoutRectangular(root, opts), spec, scales);
   const legend =
     legendItems.length > 0
       ? renderLegends(legendItems, plotWidth, spec.height)
@@ -433,7 +452,7 @@ function renderDatahubPanel(
   axis: TipAxis,
   spec: RenderSpec,
 ): { svg: string; thickness: number; legend: GroupedLegendItem[] } | null {
-  if (spec.layout === "circular") return null; // circular rings: polar fast-follow
+  if (isCircular(spec.layout)) return null; // circular rings: polar fast-follow
   const resolved = spec.datahubPanels?.[panel.id];
   if (!resolved) return null;
   const thickness = panelBandThickness(panel);
@@ -466,7 +485,7 @@ function datahubPanelLegend(
   spec: RenderSpec,
   root: TreeNode,
 ): GroupedLegendItem[] {
-  if (spec.layout === "circular") return [];
+  if (isCircular(spec.layout)) return [];
   const resolved = spec.datahubPanels?.[panel.id];
   if (!resolved) return [];
   const tips = leaves(root);
@@ -541,17 +560,18 @@ function renderFromPanels(
     width: plotWidth,
     height: spec.height,
     rightInset:
-      spec.layout === "circular" ? 0 : room + labelRoom + 8,
+      isCircular(spec.layout) ? 0 : room + labelRoom + 8,
     padding: 16,
     phylogram: spec.phylogram,
-    circularRingRoom: spec.layout === "circular" ? room + 4 : 0,
+    circularRingRoom: isCircular(spec.layout) ? room + 4 : 0,
+    sweepDegrees: sweepFor(spec.layout),
   };
 
   const parts: string[] = [];
   let axis: TipAxis;
   let panelStart: number; // x cursor (rect) / radius cursor (circular)
 
-  if (spec.layout === "circular") {
+  if (isCircular(spec.layout)) {
     const layout = layoutCircular(root, opts);
     drawCircularTree(parts, root, layout, spec, panels, collapsed);
     axis = circularTipAxis(root, layout, layout.radius + 6);
@@ -570,7 +590,7 @@ function renderFromPanels(
   let cursor = panelStart;
   for (const panel of aligned) {
     const localAxis: TipAxis =
-      spec.layout === "circular"
+      isCircular(spec.layout)
         ? { ...axis, ringStartR: cursor }
         : { ...axis, panelStartX: cursor };
     // A datahubPlot panel delegates its draw to the Data Hub renderPlot seam
@@ -1001,7 +1021,9 @@ function drawLabels(
         );
       }
       const deg = ((slot.angle - Math.PI / 2) * 180) / Math.PI;
-      const flip = ca < 0;
+      // Inward-circular mirrors the reading direction so labels face the center
+      // (still seated just outside the rim, the symmetric inverse of outward).
+      const flip = labelsInward(spec.layout) ? ca >= 0 : ca < 0;
       parts.push(
         `<text x="${lx.toFixed(1)}" y="${ly.toFixed(1)}" font-size="${fs}"${styleAttr} fill="${fillFor(slot.id)}" transform="rotate(${(flip ? deg + 180 : deg).toFixed(1)} ${lx.toFixed(1)} ${ly.toFixed(1)})" text-anchor="${flip ? "end" : "start"}">${esc(slot.name)}</text>`,
       );
@@ -1195,7 +1217,7 @@ function renderPanelLegendColumn(
 
 /** Reserve horizontal room on the right for the active tracks + labels. */
 function rightInsetFor(root: TreeNode, spec: RenderSpec): number {
-  if (spec.layout === "circular") return 0;
+  if (isCircular(spec.layout)) return 0;
   let inset = 16;
   if (spec.tracks.strip) inset += 16;
   if (spec.tracks.bars) inset += 78;
