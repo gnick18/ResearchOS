@@ -14,9 +14,12 @@ import {
 } from "@/lib/auth/account-store";
 import { type UnlockedKeys } from "@/lib/auth/local-identity";
 import {
+  createLocalIdentity,
   saveIdentity,
   unlockIdentityWithRecovery,
 } from "@/lib/sharing/identity/storage";
+import { isAccountFirstEnabled } from "@/lib/account/account-first";
+import { deriveWorkspaceUsername } from "@/lib/account/workspace-username";
 import { decodePublicKey } from "@/lib/sharing/identity/keys";
 import { generateDeviceSalt } from "@/lib/sharing/identity/backup";
 import { deleteSharingIdentity } from "@/lib/sharing/identity/sidecar";
@@ -93,6 +96,14 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
   const queryClient = useQueryClient();
   const [loading, setLoading] = useState(true);
   const [users, setUsers] = useState<string[]>([]);
+  // Account-first auto-provision (2026-06-14): true while we silently mint the
+  // first workspace user (record + E2E keypair) from the signed-in cloud account
+  // on a fresh, empty folder, so the user never sees the redundant "create a
+  // user" screen. Shows a brief "Setting up your workspace" spinner. The ref
+  // gates the attempt to exactly once so a re-render (or StrictMode double-fire)
+  // cannot double-create; a failure falls back to the manual picker.
+  const [autoProvisioning, setAutoProvisioning] = useState(false);
+  const autoProvisionAttempted = useRef(false);
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [newUsername, setNewUsername] = useState("");
   // Quick-confirm for a one-user folder on a fresh connect, "Continue as <user>?"
@@ -582,6 +593,115 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
       setLoggingIn(null);
     }
   };
+
+  // Account-first auto-provision. A signed-in cloud account that connects a
+  // FRESH, empty folder already carries everything the first workspace user
+  // needs (a claimed display name + @handle, plus the verified session email),
+  // so the "No users yet, create one" screen is pure friction. We silently mint
+  // that first user from the account profile: create the user record, give it a
+  // stable palette color, and mint the E2E identity keypair (createLocalIdentity
+  // writes the sidecar AND parks the unlocked key in the session), then sign in.
+  //
+  // The keypair mint is the SAME provisioning the manual create-user gate does,
+  // and is exactly what the lab-create resume (LabCreateResume -> getSessionIdentity)
+  // expects to already exist, so a PI who lands here can immediately create a lab.
+  // We do NOT surface the recovery code here (this is the silent path); the user
+  // can save/rotate it later from Settings -> Sharing, where the unconfirmed
+  // recovery state is surfaced. DEVICE_KEY_V2 is off, so this device-local
+  // keypair is the canonical identity for this folder.
+  const autoProvisionFromAccount = async () => {
+    setAutoProvisioning(true);
+    setError(null);
+    try {
+      // Resolve the human name + @handle from the claimed profile. A missing or
+      // failed profile read just leaves us to fall back to the session name /
+      // email below, so a transient API hiccup never blocks provisioning.
+      let displayName: string | null = null;
+      let handle: string | null = null;
+      try {
+        const res = await fetch("/api/account/profile", {
+          headers: { accept: "application/json" },
+        });
+        if (res.ok) {
+          const data = (await res.json()) as {
+            profile?: { displayName?: string | null; handle?: string | null } | null;
+          };
+          displayName = data?.profile?.displayName ?? null;
+          handle = data?.profile?.handle ?? null;
+        }
+      } catch {
+        // Fall through to the session name / email.
+      }
+
+      const username = deriveWorkspaceUsername({
+        displayName,
+        sessionName: session?.user?.name ?? null,
+        handle,
+        email: session?.user?.email ?? null,
+      });
+
+      // No usable name anywhere — drop back to the manual screen rather than
+      // invent one. autoProvisionAttempted stays true so we do not loop.
+      if (!username) {
+        setAutoProvisioning(false);
+        return;
+      }
+
+      // 1. Create the workspace user (writes the user dir + curated settings and
+      //    sets it as the current user).
+      await usersApi.create(username);
+      await setCurrentUser(username);
+
+      // 2. Give it a stable palette color so avatars render consistently (the
+      //    manual path does this via the color picker). Best-effort.
+      try {
+        const meta = await readAllUserMetadata();
+        const others = await otherUsersOnlyAsync(meta, username);
+        await createUserMetadataEntry(
+          username,
+          suggestInitialColorForNewUser(username, others),
+          null,
+        );
+        queryClient.invalidateQueries({ queryKey: USER_COLOR_QUERY_KEY });
+      } catch {
+        // A missing color just falls back to the username-hash swatch.
+      }
+
+      // 3. Mint the E2E identity keypair silently (sidecar at rest + unlocked key
+      //    in the session). This is the provisioning the manual create-user gate
+      //    performs and the lab-create flow relies on.
+      await createLocalIdentity(username);
+
+      // 4. Enter the app.
+      await performLogin(username);
+    } catch (err) {
+      console.error("[UserLoginScreen] account-first auto-provision failed:", err);
+      setError(
+        "We could not finish setting up your workspace. Create a user to continue.",
+      );
+      setAutoProvisioning(false);
+    }
+  };
+
+  // Trigger the auto-provision exactly once when a signed-in, account-first
+  // visitor lands on a connected folder that has NO local users yet. Every other
+  // case (offline / not signed in, a folder that already has users, demo/wiki
+  // fixtures, a switch-user with someone already active, or a failed user-list
+  // read) falls through to the normal picker untouched.
+  useEffect(() => {
+    if (autoProvisionAttempted.current) return;
+    if (loading) return; // user list not ready
+    if (error) return; // a failed loadUsers would look like an empty folder
+    if (sessionStatus === "loading") return; // session check still in flight
+    if (!isAccountFirstEnabled()) return;
+    if (isDemoOrWikiCapture()) return;
+    if (sessionStatus !== "authenticated" || !session?.user) return;
+    if (users.length !== 0) return; // only a fresh, empty folder
+    if (contextCurrentUser) return; // not a switch-user case
+    autoProvisionAttempted.current = true;
+    void autoProvisionFromAccount();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loading, error, sessionStatus, session, users, contextCurrentUser]);
 
   // Close the optional profile step and enter the app. Used by the step's
   // "Skip for now" button and by the wizard's onComplete (after setup the user
@@ -1112,6 +1232,16 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
           {loading ? (
             <div className="flex items-center justify-center py-12">
               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-foreground-muted"></div>
+            </div>
+          ) : autoProvisioning ? (
+            <div className="flex flex-col items-center justify-center py-12 px-6 text-center">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-foreground-muted"></div>
+              <p className="text-body text-foreground-muted mt-4 font-medium">
+                Setting up your workspace
+              </p>
+              <p className="text-meta text-foreground-muted mt-1 leading-relaxed">
+                This only happens once and can take a few seconds.
+              </p>
             </div>
           ) : showQuickConfirm && soleUser ? (
             <div className="p-6 text-center space-y-5">

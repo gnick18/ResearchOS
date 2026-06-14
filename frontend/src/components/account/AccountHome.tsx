@@ -10,6 +10,7 @@
 // No emojis, no em-dashes, no mid-sentence colons.
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { getSession } from "next-auth/react";
 import { useFileSystem } from "@/lib/file-system/file-system-context";
 import { isDeviceKeyV2Enabled } from "@/lib/sharing/identity/device-key-v2";
@@ -45,8 +46,14 @@ const LINKS: QuickLink[] = [
 ];
 
 export default function AccountHome() {
-  const { isConnected, connect, lastConnectedFolder, reconnectWithStoredHandle } =
-    useFileSystem();
+  const {
+    isConnected,
+    connect,
+    lastConnectedFolder,
+    reconnectWithStoredHandle,
+    initializeFolder,
+  } = useFileSystem();
+  const router = useRouter();
   const [connecting, setConnecting] = useState(false);
   // Set when a folder-requiring surface bounced the user here (account-first).
   const [fromRoute, setFromRoute] = useState<string | null>(null);
@@ -261,12 +268,35 @@ export default function AccountHome() {
     try {
       // A returning user with a remembered folder re-attaches via the stored
       // handle (one click, no re-pick); otherwise open the OS folder picker.
-      if (lastConnectedFolder) {
-        await reconnectWithStoredHandle();
-      } else {
-        await connect();
+      const ok = lastConnectedFolder
+        ? await reconnectWithStoredHandle()
+        : await connect();
+      if (ok) {
+        // Client-side nav, NOT a hard reload: a freshly-granted File System
+        // Access handle's permission is "prompt" again after a full reload
+        // (cannot silently re-attach without a gesture), so window.location.assign
+        // dropped the just-made connection and the account-first guard bounced
+        // back to /account. router.push keeps the in-memory connection alive so
+        // isConnected survives and the user lands in the app.
+        router.push("/");
+        return;
       }
-      window.location.assign("/");
+      // connect()/reconnect also resolve false for a brand-new, empty folder,
+      // where finishConnect attaches the handle but leaves it un-validated and flips
+      // needsInitialization. That is the launch-onboarding path (first folder),
+      // and it must NOT bounce back here. Write the ResearchOS structure now,
+      // then navigate in. initializeFolder is a no-op (returns false) when the
+      // picker was cancelled and no handle is attached, so a cancel just lets the
+      // user retry. initializeFolder flips isConnected, so the account-first
+      // guard at "/" no longer redirects.
+      const initialized = await initializeFolder();
+      if (initialized) {
+        router.push("/");
+        return;
+      }
+      // Cancelled picker or a failed connect: drop the spinner and let the user
+      // try again, rather than navigating into a bounce.
+      setConnecting(false);
     } catch {
       setConnecting(false);
     }
@@ -428,12 +458,13 @@ export default function AccountHome() {
               Your research data folder is attached on this computer. Jump back
               into your work.
             </p>
-            <a
-              href="/"
+            <button
+              type="button"
+              onClick={() => router.push("/")}
               className="mt-3 inline-block rounded-lg bg-brand-action px-4 py-2 text-meta font-semibold text-white"
             >
               Open ResearchOS
-            </a>
+            </button>
           </>
         ) : (
           <>

@@ -391,6 +391,7 @@ function AppContent({ children }: { children: ReactNode }) {
     connect,
     reconnectWithStoredHandle,
     disconnect,
+    needsInitialization,
   } = useFileSystem();
   const pendingSignInProvider = useSignInProvider();
   const signInInFlight = pendingSignInProvider !== null;
@@ -688,6 +689,11 @@ function AppContent({ children }: { children: ReactNode }) {
     hasCloudSession === true &&
     !isConnected &&
     !currentUser &&
+    // A brand-new empty folder is attached but not yet validated: finishConnect
+    // flipped needsInitialization. Do NOT bounce to /account here (that loops the
+    // first-folder onboarding path) — fall through to FolderConnectGate's
+    // "Initialize New Folder" prompt below.
+    !needsInitialization &&
     !isDemoOrWikiCapture() &&
     !signInInFlight
   ) {
