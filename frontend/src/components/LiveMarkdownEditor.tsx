@@ -2268,69 +2268,14 @@ export default function LiveMarkdownEditor({
             </Tooltip>
           )}
 
-          {/* Fullscreen expand button (UNIFIED_EDITOR_SURFACE_DESIGN.md §9).
-              Rendered ONLY when the host popup can expand (it passes
-              onRequestExpand). The non-popup mounts (methods page, the method
-              create / compound / variation panels, the BeakerBot Canvas) have no
-              host to grow, so they show no button. Clicking it grows the host
-              popup to fullscreen (and reads as a collapse toggle when already
-              expanded). Inline SVG glyph (no emoji), project Tooltip (never
-              native title=), data-tour-target for the walkthrough's enter beat. */}
-          {onRequestExpand && (
-            <Tooltip
-              label={
-                expanded
-                  ? "Exit fullscreen (Cmd+Shift+F)"
-                  : "Expand to fullscreen (Cmd+Shift+F)"
-              }
-              placement="bottom"
-            >
-              <button
-                type="button"
-                data-tour-target="hybrid-editor-focus-toggle"
-                data-testid="hybrid-editor-focus-toggle"
-                onClick={() => requestExpandToggle()}
-                disabled={disabled}
-                aria-pressed={expanded}
-                aria-label={
-                  expanded
-                    ? "Exit fullscreen editing"
-                    : "Expand to fullscreen editing"
-                }
-                className={`p-1.5 rounded-lg transition-colors disabled:opacity-50 ${
-                  expanded
-                    ? "bg-foreground-muted/15 text-foreground"
-                    : "text-foreground-muted hover:bg-foreground-muted/15 hover:text-foreground"
-                }`}
-              >
-                <svg
-                  className="w-4 h-4"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                  aria-hidden="true"
-                >
-                  {expanded ? (
-                    // Collapse glyph (inward arrows) when the host is expanded.
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M9 9V4m0 5H4m5 0L4 4m11 5h5m-5 0V4m0 5l5-5M9 15v5m0-5H4m5 0l-5 5m11-5h5m-5 0v5m0-5l5 5"
-                    />
-                  ) : (
-                    // Expand glyph (outward arrows).
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4"
-                    />
-                  )}
-                </svg>
-              </button>
-            </Tooltip>
-          )}
+          {/* Focus (expand) affordance lives in the HOST popup header now, not
+              here (UNIFIED_EDITOR_SURFACE_DESIGN.md §9, "one focus control").
+              The editor no longer renders its own Focus button — focus is driven
+              by the header's expand/collapse control (click) plus the
+              Cmd/Ctrl+Shift+F shortcut (keyboard), which still routes through
+              `onRequestExpand`. The `expanded` prop continues to drive in-editor
+              focus state (typewriter / dimming gating, width control, chrome
+              doze). */}
 
           {/* "/" discoverability hint (L1 Phase B, design §3A). Quiet,
               low-contrast text so it teaches without shouting. Shown only when

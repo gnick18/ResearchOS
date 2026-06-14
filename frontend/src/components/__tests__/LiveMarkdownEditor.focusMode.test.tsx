@@ -1,79 +1,44 @@
 import { describe, expect, it, vi } from "vitest";
-import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, render, screen, waitFor } from "@testing-library/react";
 import LiveMarkdownEditor from "../LiveMarkdownEditor";
 
 /**
- * Unified editor surface: fullscreen-expand affordance coverage
- * (UNIFIED_EDITOR_SURFACE_DESIGN.md §9, unify U3/U5/U6).
+ * Unified editor surface: focus-expand affordance coverage
+ * (UNIFIED_EDITOR_SURFACE_DESIGN.md §9, "one focus control").
  *
  * The sealed single-doc focus OVERLAY (body-level portal + focus trap +
- * buffer-flip) was retired. Focus is now the HOST popup growing itself in
- * place; the editor renders inline at every size and asks the host to expand
- * via the optional `onRequestExpand` prop.
+ * buffer-flip) was retired, AND the editor's own toolbar Focus button was
+ * collapsed away: there is now exactly ONE focus affordance, the HOST popup
+ * header's expand/collapse control (labeled "Focus"). The editor renders
+ * inline at every size and asks the host to grow itself via the optional
+ * `onRequestExpand` prop, driven by the header control (click) and the
+ * Cmd/Ctrl+Shift+F shortcut (keyboard).
  *
  * These tests pin the new model:
- *   1. The Focus button renders ONLY when a host supplies `onRequestExpand`;
- *      the non-popup mounts (no such prop) show no Focus button.
- *   2. Clicking the Focus button calls `onRequestExpand` (it asks the host to
- *      grow) and never renders an overlay dialog / portal.
- *   3. Cmd/Ctrl+Shift+F routes through the same path: it calls
- *      `onRequestExpand` when a host owns expand, and is a no-op otherwise.
- *   4. The in-flight buffer is flushed BEFORE the host expands, so no typing is
- *      lost across the grow / shrink (the saveRef flush runs first).
- *   5. The `expanded` prop drives the button's expand <-> collapse affordance.
+ *   1. The editor renders NO visible Focus button, with or without a host
+ *      `onRequestExpand` — focus lives in the host header now.
+ *   2. Cmd/Ctrl+Shift+F routes through `onRequestExpand` when a host owns
+ *      expand, and never renders an overlay dialog / portal.
+ *   3. Cmd/Ctrl+Shift+F is a no-op (no crash) on the non-popup mounts that
+ *      pass no `onRequestExpand`.
+ *   4. Flipping the `expanded` prop (the host growing / shrinking) does not
+ *      remount the editor subtree, so the in-flight buffer is never lost.
  *
  * All tests drive the inline (CodeMirror 6) editor, which is the sole editing
  * surface.
  */
 
-describe("LiveMarkdownEditor: fullscreen expand affordance", () => {
-  it("renders the Focus button only when the host supplies onRequestExpand", () => {
+describe("LiveMarkdownEditor: focus expand affordance", () => {
+  it("renders NO editor-toolbar Focus button (focus lives in the host header)", () => {
     // No host expand: no Focus button (the non-popup mounts).
     const { rerender } = render(
       <LiveMarkdownEditor value="hello" onChange={vi.fn()} />,
     );
     expect(screen.queryByTestId("hybrid-editor-focus-toggle")).toBeNull();
 
-    // Host supplies onRequestExpand: the Focus button appears.
+    // Even WITH a host that owns expand, the editor renders no Focus button of
+    // its own — the single control is the host popup header's "Focus" toggle.
     rerender(
-      <LiveMarkdownEditor
-        value="hello"
-        onChange={vi.fn()}
-        onRequestExpand={vi.fn()}
-      />,
-    );
-    expect(
-      screen.getByTestId("hybrid-editor-focus-toggle"),
-    ).toBeInTheDocument();
-  });
-
-  it("clicking the Focus button asks the host to expand and never renders an overlay dialog or portal", () => {
-    const onRequestExpand = vi.fn();
-    render(
-      <LiveMarkdownEditor
-        value="hello"
-        onChange={vi.fn()}
-        onRequestExpand={onRequestExpand}
-      />,
-    );
-
-    // No overlay dialog before or after the click (the portal is gone).
-    expect(screen.queryByRole("dialog")).toBeNull();
-
-    act(() => {
-      fireEvent.click(screen.getByTestId("hybrid-editor-focus-toggle"));
-    });
-
-    // The host was asked to grow; the editor did not mount its own overlay.
-    expect(onRequestExpand).toHaveBeenCalledTimes(1);
-    expect(screen.queryByRole("dialog")).toBeNull();
-    // No retired exit/save chrome from the old overlay either.
-    expect(screen.queryByTestId("hybrid-editor-focus-exit")).toBeNull();
-    expect(screen.queryByTestId("hybrid-editor-focus-save")).toBeNull();
-  });
-
-  it("the Focus button reflects the host's expanded state (expand <-> collapse)", () => {
-    const { rerender } = render(
       <LiveMarkdownEditor
         value="hello"
         onChange={vi.fn()}
@@ -81,10 +46,9 @@ describe("LiveMarkdownEditor: fullscreen expand affordance", () => {
         expanded={false}
       />,
     );
-    const collapsed = screen.getByTestId("hybrid-editor-focus-toggle");
-    expect(collapsed).toHaveAttribute("aria-pressed", "false");
-    expect(collapsed).toHaveAttribute("aria-label", "Expand to fullscreen editing");
+    expect(screen.queryByTestId("hybrid-editor-focus-toggle")).toBeNull();
 
+    // ...and likewise once the host has expanded.
     rerender(
       <LiveMarkdownEditor
         value="hello"
@@ -93,12 +57,10 @@ describe("LiveMarkdownEditor: fullscreen expand affordance", () => {
         expanded
       />,
     );
-    const expanded = screen.getByTestId("hybrid-editor-focus-toggle");
-    expect(expanded).toHaveAttribute("aria-pressed", "true");
-    expect(expanded).toHaveAttribute("aria-label", "Exit fullscreen editing");
+    expect(screen.queryByTestId("hybrid-editor-focus-toggle")).toBeNull();
   });
 
-  it("Cmd/Ctrl+Shift+F routes through onRequestExpand when a host owns expand", () => {
+  it("Cmd/Ctrl+Shift+F asks the host to expand and never renders an overlay dialog or portal", () => {
     const onRequestExpand = vi.fn();
     render(
       <LiveMarkdownEditor
@@ -107,6 +69,9 @@ describe("LiveMarkdownEditor: fullscreen expand affordance", () => {
         onRequestExpand={onRequestExpand}
       />,
     );
+
+    // No overlay dialog before or after the shortcut (the portal is gone).
+    expect(screen.queryByRole("dialog")).toBeNull();
 
     // jsdom navigator.platform is empty -> the editor takes the ctrl branch.
     // Focus is on document.body (nothing editable focused), which the shortcut
@@ -126,7 +91,45 @@ describe("LiveMarkdownEditor: fullscreen expand affordance", () => {
       );
     });
 
+    // The host was asked to grow; the editor did not mount its own overlay.
     expect(onRequestExpand).toHaveBeenCalledTimes(1);
+    expect(screen.queryByRole("dialog")).toBeNull();
+    // No retired exit/save chrome from the old overlay either.
+    expect(screen.queryByTestId("hybrid-editor-focus-exit")).toBeNull();
+    expect(screen.queryByTestId("hybrid-editor-focus-save")).toBeNull();
+  });
+
+  it("Cmd/Ctrl+Shift+F still toggles focus once the host is expanded (keyboard exit)", () => {
+    const onRequestExpand = vi.fn();
+    render(
+      <LiveMarkdownEditor
+        value="hello"
+        onChange={vi.fn()}
+        onRequestExpand={onRequestExpand}
+        expanded
+      />,
+    );
+
+    act(() => {
+      (document.activeElement as HTMLElement | null)?.blur?.();
+    });
+    act(() => {
+      document.dispatchEvent(
+        new KeyboardEvent("keydown", {
+          key: "F",
+          ctrlKey: true,
+          shiftKey: true,
+          bubbles: true,
+          cancelable: true,
+        }),
+      );
+    });
+
+    // Same path while expanded: the shortcut asks the host to shrink. No
+    // visible editor Focus button is needed for the keyboard exit, and no
+    // overlay is involved.
+    expect(onRequestExpand).toHaveBeenCalledTimes(1);
+    expect(screen.queryByTestId("hybrid-editor-focus-toggle")).toBeNull();
     expect(screen.queryByRole("dialog")).toBeNull();
   });
 
@@ -207,8 +210,8 @@ describe("LiveMarkdownEditor: fullscreen expand affordance", () => {
     // onRequestExpand(). The inline editor owns its own CM6 history and leaves
     // commitBufferRef null (nothing to flush; no remount means nothing is at
     // risk), so the guard is a safe no-op there. The contract under test is that
-    // clicking expand always reaches onRequestExpand without throwing on the
-    // optional flush, in every wiring.
+    // the keyboard shortcut always reaches onRequestExpand without throwing on
+    // the optional flush, in every wiring.
     const onRequestExpand = vi.fn();
     render(
       <LiveMarkdownEditor
@@ -220,7 +223,18 @@ describe("LiveMarkdownEditor: fullscreen expand affordance", () => {
     );
 
     act(() => {
-      fireEvent.click(screen.getByTestId("hybrid-editor-focus-toggle"));
+      (document.activeElement as HTMLElement | null)?.blur?.();
+    });
+    act(() => {
+      document.dispatchEvent(
+        new KeyboardEvent("keydown", {
+          key: "F",
+          ctrlKey: true,
+          shiftKey: true,
+          bubbles: true,
+          cancelable: true,
+        }),
+      );
     });
     expect(onRequestExpand).toHaveBeenCalledTimes(1);
   });
