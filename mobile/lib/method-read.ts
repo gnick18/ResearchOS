@@ -32,6 +32,8 @@ export type ReadStep = {
   isTemp: boolean; // render `big` as the giant temperature, else normal big text
   detail?: string; // supporting line under the headline
   checks?: ReadCheck[]; // big reagent checklist (reaction mix / mobile phase)
+  figures?: string[]; // figure alt texts referenced by this step (placeholders in
+  // Phase 1; the real images render inline once the snapshot ships them)
   pcrSeg?: PcrSegId; // PCR map block this step lights up
   lcSeg?: number; // LC gradient point index this step lights up
 };
@@ -224,8 +226,167 @@ function buildLc(method: MethodProjection): ReadModel {
   };
 }
 
+// ---- Deterministic markdown -> steps parser (Phase 1 reformatter) ----------
+// Segments and labels a free-form protocol body into structured read steps
+// WITHOUT rewriting the user's text. It only decides where steps, checklists,
+// and figures begin; every number, unit, and reagent is carried verbatim. So a
+// real markdown / pdf / kit method stops rendering as one flat wall of text.
+//   - numbered lists (1. / 1)) each become a step,
+//   - markdown headings and standalone bold lines become the phase in the kicker,
+//   - bullet lists become the tickable reagent checklist,
+//   - sub-steps (a/b, i/ii) fold into the step detail,
+//   - image refs become figure placeholders (real images ship in Phase 2),
+//   - plain prose falls back to one step per blank-line paragraph.
+// House style: no em-dashes, no emojis, no mid-sentence colons.
+
+const RE_NUM = /^\s*\d+[.)]\s+(.*)$/;
+const RE_SUB = /^\s{0,8}(?:[a-z]|[ivx]{1,4})[.)]\s+(.*)$/i;
+const RE_BULLET = /^\s*[-*•]\s+(.*)$/;
+const RE_HEADING = /^\s*#{1,6}\s+(.*?)\s*#*$/;
+const RE_BOLDLINE = /^\s*\*\*(.+?)\*\*\s*:?\s*$/;
+const RE_IMAGE = /!\[([^\]]*)\]\([^)]*\)/g;
+
+// Pull any markdown image refs out of a line into `into`, return the rest.
+function stripImages(line: string, into: string[]): string {
+  return line
+    .replace(RE_IMAGE, (_m, alt) => {
+      into.push((alt || 'Figure').trim());
+      return '';
+    })
+    .trim();
+}
+
+// Split a reagent line into name + amount by peeling a trailing parenthetical
+// only, so name + amount reconstruct the original text (no value is rewritten).
+function splitReagent(text: string): ReadCheck {
+  const t = text.trim();
+  const m = t.match(/^(.*\S)\s*(\([^()]*\))$/);
+  if (m && m[1].trim().length > 0) return { name: m[1].trim(), amount: m[2] };
+  return { name: t, amount: '' };
+}
+
+// Choose a punchy headline: the first sentence if there is a clean break (period
+// then a capital, never inside a decimal like 0.45), else the line itself, else a
+// word-boundary head with the remainder kept as detail. Both pieces are verbatim.
+function splitHeadline(text: string): { big: string; rest: string } {
+  const t = text.replace(/\s+/g, ' ').trim();
+  const m = t.match(/^(.{12,90}?[a-z0-9)])\.\s+(?=[A-Z(])/);
+  if (m) return { big: m[1].trim(), rest: t.slice(m[0].length).trim() };
+  if (t.length <= 90) return { big: t, rest: '' };
+  const head = t.slice(0, 84);
+  const sp = head.lastIndexOf(' ');
+  const at = sp > 40 ? sp : 84;
+  return { big: t.slice(0, at).trim(), rest: t.slice(at).trim() };
+}
+
+type StepDraft = {
+  phase?: string;
+  kind: 'num' | 'para' | 'checklist';
+  headline: string;
+  detail: string[];
+  checks: ReadCheck[];
+  figures: string[];
+};
+
+function draftToStep(d: StepDraft): ReadStep {
+  if (d.kind === 'checklist') {
+    const detail = d.detail.join(' ').trim();
+    return {
+      kicker: d.phase ?? 'Materials',
+      big: d.phase ?? 'Materials',
+      tone: 'none',
+      isTemp: false,
+      detail: detail || undefined,
+      checks: d.checks.length ? d.checks : undefined,
+      figures: d.figures.length ? d.figures : undefined,
+    };
+  }
+  const { big, rest } = splitHeadline(d.headline);
+  const detailParts = [rest, ...d.detail].map((s) => s.trim()).filter(Boolean);
+  return {
+    kicker: d.phase ?? 'Step',
+    big: big || d.phase || 'Step',
+    tone: 'none',
+    isTemp: false,
+    detail: detailParts.length ? detailParts.join('\n') : undefined,
+    checks: d.checks.length ? d.checks : undefined,
+    figures: d.figures.length ? d.figures : undefined,
+  };
+}
+
+function parseBodyToSteps(body: string): ReadStep[] {
+  const lines = body.replace(/\r\n/g, '\n').split('\n');
+  const steps: ReadStep[] = [];
+  let phase: string | undefined;
+  let cur: StepDraft | null = null;
+  const flush = () => {
+    if (cur) {
+      steps.push(draftToStep(cur));
+      cur = null;
+    }
+  };
+
+  for (const raw of lines) {
+    const line = raw.replace(/\s+$/, '');
+    if (line.trim() === '') {
+      // A blank line ends a prose paragraph; list and checklist steps continue.
+      if (cur && cur.kind === 'para') flush();
+      continue;
+    }
+
+    const heading = line.match(RE_HEADING) ?? line.match(RE_BOLDLINE);
+    if (heading) {
+      flush();
+      phase = heading[1].trim();
+      continue;
+    }
+
+    const num = line.match(RE_NUM);
+    if (num) {
+      flush();
+      const figs: string[] = [];
+      const text = stripImages(num[1], figs);
+      cur = { phase, kind: 'num', headline: text, detail: [], checks: [], figures: figs };
+      continue;
+    }
+
+    const bullet = line.match(RE_BULLET);
+    if (bullet) {
+      const figs: string[] = [];
+      const text = stripImages(bullet[1], figs);
+      if (!cur) cur = { phase, kind: 'checklist', headline: phase ?? 'Materials', detail: [], checks: [], figures: [] };
+      if (text) cur.checks.push(splitReagent(text));
+      cur.figures.push(...figs);
+      continue;
+    }
+
+    const sub = line.match(RE_SUB);
+    if (sub && cur) {
+      const figs: string[] = [];
+      const text = stripImages(sub[1], figs);
+      if (text) cur.detail.push(text);
+      cur.figures.push(...figs);
+      continue;
+    }
+
+    // A plain line: continuation of the current step, or the start of a new
+    // prose-paragraph step when nothing is open.
+    const figs: string[] = [];
+    const text = stripImages(line, figs);
+    if (cur) {
+      if (text) cur.detail.push(text);
+      cur.figures.push(...figs);
+    } else if (text || figs.length) {
+      cur = { phase, kind: 'para', headline: text, detail: [], checks: [], figures: figs };
+    }
+  }
+  flush();
+  return steps;
+}
+
 // Generic body / compound fallback: a sensible big-text steps view, no bespoke
-// map. Splits the body into paragraph-sized steps; a compound kit lists children.
+// map. A compound kit lists its children; any other body is run through the
+// deterministic parser above so real protocols read as structured steps.
 function buildGeneric(method: MethodProjection): ReadModel {
   const steps: ReadStep[] = [];
 
@@ -241,24 +402,7 @@ function buildGeneric(method: MethodProjection): ReadModel {
       });
     });
   } else if (method.body) {
-    const chunks = method.body
-      .split(/\n{2,}/)
-      .map((c) => c.trim())
-      .filter(Boolean);
-    const list = chunks.length > 0 ? chunks : [method.body];
-    list.forEach((chunk) => {
-      // First line as the big headline, the rest as detail.
-      const lines = chunk.split('\n');
-      const head = lines[0].trim();
-      const rest = lines.slice(1).join('\n').trim();
-      steps.push({
-        kicker: 'Step',
-        big: head.length > 80 ? head.slice(0, 77) + '...' : head,
-        tone: 'none',
-        isTemp: false,
-        detail: rest || (head.length > 80 ? head : undefined),
-      });
-    });
+    steps.push(...parseBodyToSteps(method.body));
   }
 
   if (steps.length === 0) {
