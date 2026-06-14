@@ -678,7 +678,7 @@ export default function NewPurchaseModal({
                 }
               }}
               placeholder="e.g. 12-well plates"
-              className="w-full px-3 py-2 border border-border rounded-lg text-body focus:outline-none focus:ring-2 focus:ring-amber-500"
+              className="w-full px-3 py-2 border border-border rounded-lg text-body focus:outline-none focus:ring-2 focus:ring-amber-500 bg-surface-raised"
               autoFocus
               data-tour-target="purchases-form-name"
             />
@@ -716,7 +716,7 @@ export default function NewPurchaseModal({
               value={form.vendor}
               onChange={(e) => handleField("vendor", e.target.value)}
               placeholder="e.g. Sigma-Aldrich"
-              className="w-full px-3 py-2 border border-border rounded-lg text-body focus:outline-none focus:ring-2 focus:ring-amber-500"
+              className="w-full px-3 py-2 border border-border rounded-lg text-body focus:outline-none focus:ring-2 focus:ring-amber-500 bg-surface-raised"
               data-tour-target="purchases-form-vendor"
             />
           </div>
@@ -759,7 +759,7 @@ export default function NewPurchaseModal({
                 value={form.price}
                 onChange={(e) => handleField("price", e.target.value)}
                 placeholder="0.00"
-                className="w-full px-3 py-2 border border-border rounded-lg text-body focus:outline-none focus:ring-2 focus:ring-amber-500"
+                className="w-full px-3 py-2 border border-border rounded-lg text-body focus:outline-none focus:ring-2 focus:ring-amber-500 bg-surface-raised"
                 data-tour-target="purchases-form-price"
               />
             </div>
@@ -773,7 +773,7 @@ export default function NewPurchaseModal({
                 value={form.quantity}
                 onChange={(e) => handleField("quantity", e.target.value)}
                 placeholder="1"
-                className="w-full px-3 py-2 border border-border rounded-lg text-body focus:outline-none focus:ring-2 focus:ring-amber-500"
+                className="w-full px-3 py-2 border border-border rounded-lg text-body focus:outline-none focus:ring-2 focus:ring-amber-500 bg-surface-raised"
                 data-tour-target="purchases-form-quantity"
               />
             </div>
@@ -794,7 +794,7 @@ export default function NewPurchaseModal({
                 handleField("fundingString", e.target.value);
               }}
               placeholder="e.g. NIH-R01-12345"
-              className="w-full px-3 py-2 border border-border rounded-lg text-body focus:outline-none focus:ring-2 focus:ring-amber-500"
+              className="w-full px-3 py-2 border border-border rounded-lg text-body focus:outline-none focus:ring-2 focus:ring-amber-500 bg-surface-raised"
               data-tour-target="purchases-form-funding"
             />
             <datalist id={FUNDING_DATALIST_ID}>
