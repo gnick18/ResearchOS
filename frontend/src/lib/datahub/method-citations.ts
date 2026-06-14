@@ -280,7 +280,9 @@ export const SOFTWARE_CITATIONS: Reference[] = [
 
 /** Format a reference as a single plain-text line (author-year-title-venue). */
 export function formatReference(r: Reference): string {
-  const base = `${r.authors} (${r.year}). ${r.title}. ${r.venue}.`;
+  // A title that already ends in a period (e.g. "2nd ed.") must not double up.
+  const title = r.title.endsWith(".") ? r.title : `${r.title}.`;
+  const base = `${r.authors} (${r.year}). ${title} ${r.venue}.`;
   return r.doi ? `${base} https://doi.org/${r.doi}` : base;
 }
 

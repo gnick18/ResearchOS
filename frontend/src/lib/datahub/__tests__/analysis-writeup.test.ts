@@ -51,6 +51,10 @@ describe("analysis-writeup: Methods paragraph", () => {
     expect(m).toContain("Welch 1947");
     expect(m).toContain("Cohen 1988");
     expect(m).toContain("ResearchOS Data Hub");
+    // The citation sentence ends with a period so the software sentence does not
+    // run on (regression: "1981) Statistical" with no period).
+    expect(m).toContain("1981). Statistical analyses");
+    expect(m).not.toMatch(/\d\) Statistical/);
   });
 
   it("switches to Student's t-test when equal variance is assumed", () => {
@@ -90,5 +94,8 @@ describe("analysis-writeup: Results paragraph + references", () => {
     expect(text.startsWith("1. ")).toBe(true);
     expect(text).toContain("Welch BL (1947)");
     expect(text).toContain("Biometrika");
+    // No double period when a title already ends in one ("2nd ed.").
+    expect(text).not.toContain("..");
+    expect(text).toContain("2nd ed. Lawrence Erlbaum");
   });
 });

@@ -31,11 +31,15 @@ interface MethodDescription {
   refIds: string[];
 }
 
-/** Append an in-text "(Author year)" citation for each existing reference id. */
+/**
+ * Append an in-text "(Author year)" citation for each existing reference id, and
+ * terminate the sentence with a period. The input sentence carries no trailing
+ * period (the citation goes before it), so the following sentence does not run on.
+ */
 function withCites(sentence: string, refIds: string[]): string {
   const cited = refIds.filter((id) => REFERENCES[id]).map((id) => inTextCite(REFERENCES[id]));
-  if (cited.length === 0) return sentence;
-  return `${sentence} (${cited.join("; ")})`;
+  if (cited.length === 0) return `${sentence}.`;
+  return `${sentence} (${cited.join("; ")}).`;
 }
 
 /**
