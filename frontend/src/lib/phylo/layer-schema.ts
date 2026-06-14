@@ -134,3 +134,87 @@ export function errorBarControl(panel: AlignedPanel): "verbatim" | "replicate" {
 export function usesScaleKindSelect(kind: AlignedPanelKind): boolean {
   return kind === "points" || kind === "strip" || kind === "heat";
 }
+
+// --- Smart Add constraint-awareness (Phase 1) ---------------------------------
+// What a kind needs before it can render anything, so the Add menu can grey out
+// overlays the current tree has no data for and say why.
+
+export type LayerRequirement =
+  | "numericColumn"
+  | "anyColumn"
+  | "alignment"
+  | "annotations"
+  | "datahubTable";
+
+/** What the current figure can supply, used to gate the Add menu. */
+export interface LayerCapabilities {
+  hasNumericColumn: boolean;
+  hasAnyColumn: boolean;
+  hasAlignment: boolean;
+  hasAnnotations: boolean;
+  hasDatahubTable: boolean;
+}
+
+const NEEDS: Partial<Record<AlignedPanelKind, LayerRequirement>> = {
+  heat: "numericColumn",
+  bars: "numericColumn",
+  dots: "numericColumn",
+  box: "numericColumn",
+  violin: "numericColumn",
+  scatter: "numericColumn",
+  point: "numericColumn",
+  strip: "anyColumn",
+  msa: "alignment",
+  noderange: "annotations",
+  datahubPlot: "datahubTable",
+};
+
+/** The data a kind requires, or null if it can always be added (tree elements +
+ *  highlights that only need the tree itself). */
+export function kindNeeds(kind: AlignedPanelKind): LayerRequirement | null {
+  return NEEDS[kind] ?? null;
+}
+
+/** Whether a kind can be added given what the figure currently supplies. */
+export function kindAvailable(
+  kind: AlignedPanelKind,
+  caps: LayerCapabilities,
+): boolean {
+  switch (kindNeeds(kind)) {
+    case null:
+      return true;
+    case "numericColumn":
+      return caps.hasNumericColumn;
+    case "anyColumn":
+      return caps.hasAnyColumn;
+    case "alignment":
+      return caps.hasAlignment;
+    case "annotations":
+      return caps.hasAnnotations;
+    case "datahubTable":
+      return caps.hasDatahubTable;
+  }
+}
+
+/** A short reason a kind is unavailable (shown greyed in the Add menu), or null
+ *  when it is available. */
+export function unmetReason(
+  kind: AlignedPanelKind,
+  caps: LayerCapabilities,
+): string | null {
+  if (kindAvailable(kind, caps)) return null;
+  switch (kindNeeds(kind)) {
+    case "numericColumn":
+      return "needs a numeric column";
+    case "anyColumn":
+      return "needs a metadata column";
+    case "alignment":
+      return "needs an aligned FASTA";
+    case "annotations":
+      return "needs a timed tree";
+    case "datahubTable":
+      return "needs a Data Hub table";
+    default:
+      return null;
+  }
+}

@@ -24,9 +24,12 @@ import {
   columnFilterFor,
   errorBarControl,
   filterColumns,
+  kindAvailable,
   kindDrawsLegend,
+  unmetReason,
   usesScaleKindSelect,
   type ColumnFilter,
+  type LayerCapabilities,
 } from "@/lib/phylo/layer-schema";
 import type {
   AlignedPanel,
@@ -66,6 +69,7 @@ export const PANEL_CATALOG: CatalogGroup[] = [
       { kind: "violin", name: "Violin", desc: "per-tip density" },
       { kind: "point", name: "Point + error", desc: "mean with SD / SEM whisker" },
       { kind: "scatter", name: "Jitter scatter", desc: "individual replicates" },
+      { kind: "datahubPlot", name: "Data Hub plot", desc: "a Data Hub figure, aligned to tips" },
     ],
   },
   {
@@ -161,6 +165,9 @@ export function PhyloLayersControl({
   selectedId,
   columns,
   columnKinds,
+  capabilities,
+  datahubTables,
+  onAddDatahub,
   tipNames = [],
   annotationKeys = [],
   treeSummary,
@@ -175,6 +182,12 @@ export function PhyloLayersControl({
   /** Each bindable metadata column classified numeric vs categorical, so the
    *  inspector offers only type-appropriate columns per field (Phase 0). */
   columnKinds?: Record<string, ColumnFilter>;
+  /** What the figure can supply, to grey unavailable overlays in Add (Phase 1). */
+  capabilities?: LayerCapabilities;
+  /** Available Data Hub tables, for the inline picker when adding a Data Hub plot. */
+  datahubTables?: { id: string; name: string }[];
+  /** Add a Data Hub plot bound to a table (best join column auto-chosen). */
+  onAddDatahub?: (tableId: string) => void;
   /** Every tip name in the tree, for naming clade members (MRCA picker). */
   tipNames?: string[];
   /** Every [&...] annotation key present in the tree, for the geom_range picker. */
@@ -217,7 +230,16 @@ export function PhyloLayersControl({
           <Icon name="plus" className="w-4 h-4" /> Add panel
         </button>
         {menuOpen && (
-          <AddPanelMenu onAdd={add} onClose={() => setMenuOpen(false)} />
+          <AddPanelMenu
+            onAdd={add}
+            onClose={() => setMenuOpen(false)}
+            capabilities={capabilities}
+            datahubTables={datahubTables}
+            onAddDatahub={(tableId) => {
+              onAddDatahub?.(tableId);
+              setMenuOpen(false);
+            }}
+          />
         )}
       </div>
 
@@ -837,6 +859,24 @@ function Inspector({
           </Field>
         </>
       )}
+      {panel.kind === "datahubPlot" && (
+        <>
+          <p className="text-xs text-foreground-muted">
+            A Data Hub figure aligned to the tips
+            {panel.options?.title ? ` (${String(panel.options.title)})` : ""},
+            joined on {(panel.options?.joinColumn as string) || "—"}. The bar mode
+            lives in Setup, under Data Hub plot.
+          </p>
+          <Field label="Panel width">
+            <RangeInput
+              value={Number(panel.width ?? 120)}
+              min={80}
+              max={320}
+              onChange={(n) => onUpdate({ width: n })}
+            />
+          </Field>
+        </>
+      )}
     </div>
   );
 }
@@ -1435,68 +1475,181 @@ function PointInspector({
 function AddPanelMenu({
   onAdd,
   onClose,
+  capabilities,
+  datahubTables = [],
+  onAddDatahub,
 }: {
   onAdd: (kind: AlignedPanelKind) => void;
   onClose: () => void;
+  /** What the figure can supply, to grey out overlays whose data is missing. */
+  capabilities?: LayerCapabilities;
+  /** Available Data Hub tables, for the inline picker when adding a Data Hub plot. */
+  datahubTables?: { id: string; name: string }[];
+  /** Add a Data Hub plot bound to a table (best join column auto-chosen). */
+  onAddDatahub?: (tableId: string) => void;
 }) {
   const [query, setQuery] = useState("");
+  // When the user picks "Data Hub plot", expand an inline table picker instead of
+  // adding immediately (a Data Hub plot needs a table + join, unlike other kinds).
+  const [pickingDatahub, setPickingDatahub] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
+  const caps: LayerCapabilities = capabilities ?? {
+    hasNumericColumn: true,
+    hasAnyColumn: true,
+    hasAlignment: true,
+    hasAnnotations: true,
+    hasDatahubTable: true,
+  };
+
   const groups = useMemo(() => {
     const q = query.trim().toLowerCase();
-    if (!q) return PANEL_CATALOG;
-    return PANEL_CATALOG.map((g) => ({
+    const filtered = !q
+      ? PANEL_CATALOG
+      : PANEL_CATALOG.map((g) => ({
+          ...g,
+          items: g.items.filter(
+            (i) =>
+              i.name.toLowerCase().includes(q) ||
+              i.desc.toLowerCase().includes(q) ||
+              i.kind.includes(q),
+          ),
+        })).filter((g) => g.items.length > 0);
+    // Available kinds sort above unavailable ones within each group, so the
+    // things you CAN add are always at the top of their category.
+    return filtered.map((g) => ({
       ...g,
-      items: g.items.filter(
-        (i) =>
-          i.name.toLowerCase().includes(q) ||
-          i.desc.toLowerCase().includes(q) ||
-          i.kind.includes(q),
+      items: [...g.items].sort(
+        (a, b) =>
+          Number(kindAvailable(b.kind, caps)) -
+          Number(kindAvailable(a.kind, caps)),
       ),
-    })).filter((g) => g.items.length > 0);
-  }, [query]);
+    }));
+  }, [query, caps]);
+
+  // The first available item across the (filtered) list — Enter adds it (add by
+  // name: type a few letters, press Enter).
+  const topAvailable = useMemo(() => {
+    for (const g of groups)
+      for (const i of g.items) if (kindAvailable(i.kind, caps)) return i.kind;
+    return null;
+  }, [groups, caps]);
+
+  const choose = (kind: AlignedPanelKind) => {
+    if (kind === "datahubPlot") {
+      setPickingDatahub(true);
+      return;
+    }
+    onAdd(kind);
+  };
 
   return (
     <>
       <div className="fixed inset-0 z-10" onClick={onClose} aria-hidden />
       <div className="absolute z-20 top-11 left-0 w-[300px] max-w-full bg-surface-raised border border-border rounded-xl shadow-xl p-2">
-        <div className="relative mb-2">
-          <Icon
-            name="search"
-            className="w-3.5 h-3.5 text-foreground-muted absolute left-2.5 top-2.5"
-          />
-          <input
-            ref={inputRef}
-            autoFocus
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search panels..."
-            className="w-full pl-8 pr-2 py-2 border border-border rounded-lg text-sm bg-surface text-foreground"
-          />
-        </div>
-        <div className="max-h-72 overflow-y-auto">
-          {groups.map((g) => (
-            <div key={g.cat}>
-              <div className="text-[10px] uppercase tracking-wide text-foreground-muted px-1 pt-2 pb-1">
-                {g.cat}
-              </div>
-              {g.items.map((i) => (
-                <button
-                  key={i.kind}
-                  onClick={() => onAdd(i.kind)}
-                  className="w-full flex items-center justify-between px-2 py-1.5 rounded-lg hover:bg-accent-soft text-left"
-                >
-                  <span className="text-sm text-foreground">{i.name}</span>
-                  <span className="text-xs text-foreground-muted">{i.desc}</span>
-                </button>
-              ))}
+        {pickingDatahub ? (
+          <div>
+            <button
+              onClick={() => setPickingDatahub(false)}
+              className="text-xs text-foreground-muted hover:text-foreground mb-1 px-1"
+            >
+              ← Back
+            </button>
+            <div className="text-[10px] uppercase tracking-wide text-foreground-muted px-1 pb-1">
+              Data Hub plot · pick a table
             </div>
-          ))}
-          {groups.length === 0 && (
-            <p className="text-xs text-foreground-muted px-1 py-3">
-              No panel matches that.
-            </p>
-          )}
-        </div>
+            <div className="max-h-72 overflow-y-auto">
+              {datahubTables.length === 0 ? (
+                <p className="text-xs text-foreground-muted px-1 py-3">
+                  No Data Hub tables yet. Create one in Data Hub first.
+                </p>
+              ) : (
+                datahubTables.map((t) => (
+                  <button
+                    key={t.id}
+                    onClick={() => {
+                      onAddDatahub?.(t.id);
+                      onClose();
+                    }}
+                    className="w-full flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-accent-soft text-left"
+                  >
+                    <Icon
+                      name="chart"
+                      className="w-3.5 h-3.5 text-foreground-muted shrink-0"
+                    />
+                    <span className="text-sm text-foreground truncate">
+                      {t.name}
+                    </span>
+                  </button>
+                ))
+              )}
+            </div>
+          </div>
+        ) : (
+          <>
+            <div className="relative mb-2">
+              <Icon
+                name="search"
+                className="w-3.5 h-3.5 text-foreground-muted absolute left-2.5 top-2.5"
+              />
+              <input
+                ref={inputRef}
+                autoFocus
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && topAvailable) choose(topAvailable);
+                }}
+                placeholder="Search overlays, or type to add by name..."
+                className="w-full pl-8 pr-2 py-2 border border-border rounded-lg text-sm bg-surface text-foreground"
+              />
+            </div>
+            <div className="max-h-72 overflow-y-auto">
+              {groups.map((g) => (
+                <div key={g.cat}>
+                  <div className="text-[10px] uppercase tracking-wide text-foreground-muted px-1 pt-2 pb-1">
+                    {g.cat}
+                  </div>
+                  {g.items.map((i) => {
+                    const reason = unmetReason(i.kind, caps);
+                    if (reason) {
+                      return (
+                        <div
+                          key={i.kind}
+                          className="w-full flex items-center justify-between px-2 py-1.5 rounded-lg opacity-45 cursor-default"
+                          title={`${i.name} — ${reason}`}
+                        >
+                          <span className="text-sm text-foreground">
+                            {i.name}
+                          </span>
+                          <span className="text-xs text-foreground-muted">
+                            {reason}
+                          </span>
+                        </div>
+                      );
+                    }
+                    return (
+                      <button
+                        key={i.kind}
+                        onClick={() => choose(i.kind)}
+                        className="w-full flex items-center justify-between px-2 py-1.5 rounded-lg hover:bg-accent-soft text-left"
+                      >
+                        <span className="text-sm text-foreground">{i.name}</span>
+                        <span className="text-xs text-foreground-muted">
+                          {i.desc}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              ))}
+              {groups.length === 0 && (
+                <p className="text-xs text-foreground-muted px-1 py-3">
+                  No panel matches that.
+                </p>
+              )}
+            </div>
+          </>
+        )}
       </div>
     </>
   );

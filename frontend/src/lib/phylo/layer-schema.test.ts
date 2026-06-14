@@ -12,6 +12,10 @@ import {
   kindDrawsLegend,
   errorBarControl,
   usesScaleKindSelect,
+  kindNeeds,
+  kindAvailable,
+  unmetReason,
+  type LayerCapabilities,
 } from "./layer-schema";
 
 const panel = (kind: AlignedPanelKind, extra: Partial<AlignedPanel> = {}): AlignedPanel => ({
@@ -123,5 +127,50 @@ describe("usesScaleKindSelect", () => {
   it("bars/dots do not (numeric-only color => a toggle instead)", () => {
     expect(usesScaleKindSelect("bars")).toBe(false);
     expect(usesScaleKindSelect("dots")).toBe(false);
+  });
+});
+
+describe("Smart Add constraints", () => {
+  const none: LayerCapabilities = {
+    hasNumericColumn: false,
+    hasAnyColumn: false,
+    hasAlignment: false,
+    hasAnnotations: false,
+    hasDatahubTable: false,
+  };
+  const all: LayerCapabilities = {
+    hasNumericColumn: true,
+    hasAnyColumn: true,
+    hasAlignment: true,
+    hasAnnotations: true,
+    hasDatahubTable: true,
+  };
+
+  it("tree elements + highlights need nothing", () => {
+    for (const k of ["labels", "points", "support", "nodepoints", "clade", "taxalink", "taxastrip", "nodepie"] as AlignedPanelKind[]) {
+      expect(kindNeeds(k)).toBeNull();
+      expect(kindAvailable(k, none)).toBe(true);
+      expect(unmetReason(k, none)).toBeNull();
+    }
+  });
+
+  it("data panels need a numeric column", () => {
+    for (const k of ["heat", "bars", "dots", "box", "violin", "scatter", "point"] as AlignedPanelKind[]) {
+      expect(kindNeeds(k)).toBe("numericColumn");
+      expect(kindAvailable(k, none)).toBe(false);
+      expect(unmetReason(k, none)).toBe("needs a numeric column");
+      expect(kindAvailable(k, all)).toBe(true);
+    }
+  });
+
+  it("strip needs any column, msa an alignment, noderange annotations, datahubPlot a table", () => {
+    expect(kindAvailable("strip", { ...none, hasAnyColumn: true })).toBe(true);
+    expect(unmetReason("strip", none)).toBe("needs a metadata column");
+    expect(kindAvailable("msa", { ...none, hasAlignment: true })).toBe(true);
+    expect(unmetReason("msa", none)).toBe("needs an aligned FASTA");
+    expect(kindAvailable("noderange", { ...none, hasAnnotations: true })).toBe(true);
+    expect(unmetReason("noderange", none)).toBe("needs a timed tree");
+    expect(kindAvailable("datahubPlot", { ...none, hasDatahubTable: true })).toBe(true);
+    expect(unmetReason("datahubPlot", none)).toBe("needs a Data Hub table");
   });
 });

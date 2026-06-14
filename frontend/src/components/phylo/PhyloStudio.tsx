@@ -342,6 +342,19 @@ export function PhyloStudio({ initialTreeId }: { initialTreeId?: string } = {}) 
     return out;
   }, [tree, match, metaColumns, tipColumn]);
 
+  // What the figure can currently supply, so the Add menu greys overlays whose
+  // data is missing and says why (Phase 1 constraint-aware Smart Add).
+  const layerCapabilities = useMemo(
+    () => ({
+      hasNumericColumn: numericColumns.length > 0,
+      hasAnyColumn: metaColumns.filter((c) => c !== tipColumn).length > 0,
+      hasAlignment: !!alignment,
+      hasAnnotations: tree ? collectAnnotationKeys(tree).length > 0 : false,
+      hasDatahubTable: dhTables.length > 0,
+    }),
+    [numericColumns, metaColumns, tipColumn, alignment, tree, dhTables],
+  );
+
   // The primary category column for the pinned categorical hues, taken from the
   // first points / strip layer so points + strip + legend agree (as in Phase 0).
   const categoryColumn = useMemo(() => {
@@ -533,6 +546,45 @@ export function PhyloStudio({ initialTreeId }: { initialTreeId?: string } = {}) 
       if (labelIdx === -1) return [...prev, panel];
       return [...prev.slice(0, labelIdx), panel, ...prev.slice(labelIdx)];
     });
+  }
+
+  // Add a Data Hub plot straight from the Layers Add menu (the first-class entry,
+  // Phase 1) — load the table, auto-pick the join column that matches the most
+  // tips, and insert the panel. Mirrors addDatahubPanel but parameterized by a
+  // table id (the menu picks the table; the join is automatic, editable later).
+  async function addDatahubFromTable(tableId: string) {
+    if (!tree) return;
+    const content = await dataHubApi.getContent(tableId);
+    if (!content) return;
+    const seed =
+      content.columns.find((c) => c.role === "x")?.id ??
+      content.columns[0]?.id ??
+      "";
+    let best = seed;
+    let bestRate = seed ? datahubJoinRate(content, seed, tree) : 0;
+    for (const col of content.columns) {
+      const rate = datahubJoinRate(content, col.id, tree);
+      if (rate > bestRate) {
+        bestRate = rate;
+        best = col.id;
+      }
+    }
+    if (!best) return;
+    const tableName =
+      dhTables.find((t) => t.id === tableId)?.name ?? "Data Hub plot";
+    const panel: AlignedPanel = {
+      id: `dhplot-${Date.now().toString(36)}`,
+      kind: "datahubPlot",
+      visible: true,
+      legend: true,
+      options: { datahubTableId: tableId, joinColumn: best, title: tableName },
+    };
+    setPanels((prev) => {
+      const labelIdx = prev.findIndex((p) => p.kind === "labels");
+      if (labelIdx === -1) return [...prev, panel];
+      return [...prev.slice(0, labelIdx), panel, ...prev.slice(labelIdx)];
+    });
+    setSelectedLayerId(panel.id);
   }
 
   // Change a datahubPlot panel's bar mode (dodge / stack / stack100); the
@@ -898,6 +950,9 @@ export function PhyloStudio({ initialTreeId }: { initialTreeId?: string } = {}) 
           selectedId={selectedLayerId}
           columns={metaColumns.filter((c) => c !== tipColumn)}
           columnKinds={columnKinds}
+          capabilities={layerCapabilities}
+          datahubTables={dhTables}
+          onAddDatahub={addDatahubFromTable}
           tipNames={tips.map((t) => t.name)}
           annotationKeys={tree ? collectAnnotationKeys(tree) : []}
           treeSummary={`${phylogram ? "phylogram" : "cladogram"}, ${layout}`}
