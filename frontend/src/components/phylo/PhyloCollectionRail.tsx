@@ -27,6 +27,7 @@ export function PhyloCollectionRail({
   selectedId,
   onPick,
   onNew,
+  onBuild,
   onCollapse,
   onOpenCleared,
 }: {
@@ -36,6 +37,8 @@ export function PhyloCollectionRail({
   onPick: (id: string) => void;
   /** Start a new tree (parent shows the import panel in the canvas). */
   onNew: () => void;
+  /** Open the Tree Builder recipe wizard (parent shows it as an overlay). */
+  onBuild: () => void;
   /** Collapse the rail to focus the canvas. */
   onCollapse: () => void;
   /** The open tree was deleted, so the canvas should clear. */
@@ -282,6 +285,14 @@ export function PhyloCollectionRail({
             <Icon name="plus" className="w-3.5 h-3.5" />
             New tree
           </button>
+          <button
+            type="button"
+            onClick={onBuild}
+            className="inline-flex items-center gap-1.5 rounded-md border border-border px-2.5 py-1.5 text-meta font-semibold text-foreground transition-colors hover:border-accent hover:text-accent"
+          >
+            <Icon name="align" className="w-3.5 h-3.5" />
+            Build a tree
+          </button>
         </div>
       </div>
 
@@ -358,7 +369,7 @@ export function PhyloCollectionRail({
         ) : shown.length === 0 ? (
           <p className="px-3 py-6 text-meta text-foreground-muted">
             {trees.length === 0
-              ? "No trees yet. Start one with New tree, or build one in Tree Builder."
+              ? "No trees yet. Start one with New tree, or generate the build scripts with Build a tree."
               : query.trim()
                 ? `No trees match "${query}".`
                 : "No trees in this collection."}

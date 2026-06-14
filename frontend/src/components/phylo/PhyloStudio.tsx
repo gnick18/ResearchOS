@@ -23,6 +23,8 @@ import Tooltip from "@/components/Tooltip";
 import { phyloApi } from "@/lib/phylo/api";
 import { SAMPLE_TREE, SAMPLE_CSV, SAMPLE_ALIGNMENT } from "@/lib/phylo/sample";
 import { PhyloCollectionRail } from "@/components/phylo/PhyloCollectionRail";
+import { PhyloBuilder } from "@/components/phylo/PhyloBuilder";
+import LivingPopup from "@/components/ui/LivingPopup";
 import {
   SequenceOperationsRail,
   type RailOperation,
@@ -193,6 +195,9 @@ export function PhyloStudio({ initialTreeId }: { initialTreeId?: string } = {}) 
   // The open action-rail tab (Layers / Setup / Export / Code), null = collapsed.
   // Defaults to Layers so the layer stack shows on open, as it always did.
   const [activeOp, setActiveOp] = useState<PhyloOpId | null>("layers");
+  // The Tree Builder recipe wizard opens as an overlay from the rail's "Build a
+  // tree" button (phylo v3 unified layout: no top mode-switch bar).
+  const [builderOpen, setBuilderOpen] = useState(false);
 
   const queryClient = useQueryClient();
 
@@ -909,6 +914,7 @@ export function PhyloStudio({ initialTreeId }: { initialTreeId?: string } = {}) 
             setTree(null);
             setOpenTreeId(null);
           }}
+          onBuild={() => setBuilderOpen(true)}
           onCollapse={() => shell.setCollapsed(true)}
           onOpenCleared={() => {
             setTree(null);
@@ -979,6 +985,25 @@ export function PhyloStudio({ initialTreeId }: { initialTreeId?: string } = {}) 
           />
         ) : null}
       </section>
+      {/* Tree Builder overlay, opened from the rail's "Build a tree" button. */}
+      <LivingPopup
+        open={builderOpen}
+        onClose={() => setBuilderOpen(false)}
+        label="Build a tree"
+        widthClassName="max-w-4xl"
+        padded
+      >
+        <div className="max-h-[80vh] overflow-auto">
+          <h2 className="text-title font-bold text-foreground mb-1">
+            Build a tree
+          </h2>
+          <p className="text-meta text-foreground-muted mb-4">
+            Generate the exact tree-building scripts. Nothing runs on our
+            servers.
+          </p>
+          <PhyloBuilder />
+        </div>
+      </LivingPopup>
     </div>
   );
 }
