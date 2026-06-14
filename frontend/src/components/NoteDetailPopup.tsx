@@ -1963,10 +1963,10 @@ export default function NoteDetailPopup({
                     <button
                       key={entry.id}
                       onClick={() => switchToTab(entry.id)}
-                      className={`px-3 py-1.5 rounded-lg text-body whitespace-nowrap transition-colors ${
+                      className={`px-3 py-1.5 rounded-lg text-body whitespace-nowrap border transition-colors ${
                         activeTab === entry.id
-                          ? "bg-emerald-100 dark:bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 font-medium"
-                          : "bg-surface-sunken text-foreground-muted hover:bg-foreground-muted/15"
+                          ? "bg-emerald-100 dark:bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 font-medium border-emerald-300 dark:border-emerald-500/40"
+                          : "bg-surface-raised text-foreground border-border hover:bg-surface-sunken hover:border-foreground-muted/40"
                       }`}
                     >
                       {entry.title}
@@ -1977,7 +1977,7 @@ export default function NoteDetailPopup({
                 {!readOnly && (
                   <button
                     onClick={() => setShowNewEntryForm(true)}
-                    className="px-3 py-1.5 rounded-lg text-body bg-surface-sunken text-foreground-muted hover:bg-foreground-muted/15 transition-colors flex items-center gap-1"
+                    className="px-3 py-1.5 rounded-lg text-body border border-dashed border-border text-foreground-muted hover:text-foreground hover:bg-surface-sunken hover:border-foreground-muted/40 transition-colors flex items-center gap-1"
                   >
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
