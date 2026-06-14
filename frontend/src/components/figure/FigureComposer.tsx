@@ -30,11 +30,14 @@ import {
   makeTextAnnotation,
   makeArrowAnnotation,
   makeBracketAnnotation,
+  setPanelStyle,
+  setPanelTarget,
 } from "@/lib/figure/figure-page";
 import {
   getFigureSource,
   listFigureSources,
   type FigureRef,
+  type StyleTarget,
 } from "@/lib/figure/figure-source";
 import { buildPickerView, type GroupBy } from "@/lib/figure/picker-view";
 import {
@@ -56,7 +59,7 @@ function renderSignature(page: FigurePage): string {
   return page.panels
     .map(
       (p) =>
-        `${p.panelId}:${p.ref.type}:${p.ref.id}:${p.wIn.toFixed(3)}x${p.hIn.toFixed(3)}:${p.overrides?.hideTitle ?? true}`,
+        `${p.panelId}:${p.ref.type}:${p.ref.id}:${p.wIn.toFixed(3)}x${p.hIn.toFixed(3)}:${p.overrides?.hideTitle ?? true}:${JSON.stringify(p.style ?? {})}`,
     )
     .join("|");
 }
@@ -70,6 +73,7 @@ export default function FigureComposer({ pageId }: { pageId: string }) {
   const [loadState, setLoadState] = useState<"loading" | "ready" | "missing">("loading");
   const [tool, setTool] = useState<null | "text" | "arrow" | "bracket">(null);
   const [selectedAnn, setSelectedAnn] = useState<string | null>(null);
+  const [styleTargets, setStyleTargets] = useState<StyleTarget[]>([]);
   const stageRef = useRef<HTMLDivElement>(null);
   const annDrag = useRef<null | { id: string; sx: number; sy: number }>(null);
   const router = useRouter();
@@ -116,6 +120,7 @@ export default function FigureComposer({ pageId }: { pageId: string }) {
             theme: "light",
             // Composed panels hide the plot's own title by default (per-panel toggle).
             overrides: { hideTitle: p.overrides?.hideTitle ?? true, hideLegend: p.overrides?.hideLegend },
+            style: p.style,
           });
           next.set(p.panelId, r.svg);
         } catch {
@@ -129,6 +134,29 @@ export default function FigureComposer({ pageId }: { pageId: string }) {
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sig]);
+
+  // Load the selected panel's styleable elements (features, ...) for the style inspector.
+  const selectedRef = selected
+    ? page?.panels.find((p) => p.panelId === selected)?.ref
+    : undefined;
+  useEffect(() => {
+    if (!selectedRef) {
+      setStyleTargets([]);
+      return;
+    }
+    const src = getFigureSource(selectedRef.type);
+    if (!src?.styleTargets) {
+      setStyleTargets([]);
+      return;
+    }
+    let live = true;
+    void src.styleTargets(selectedRef.id).then((t) => {
+      if (live) setStyleTargets(t);
+    });
+    return () => {
+      live = false;
+    };
+  }, [selectedRef?.type, selectedRef?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const mutate = useCallback(
     (fn: (p: FigurePage) => FigurePage, recordUndo = false) => {
@@ -540,6 +568,94 @@ export default function FigureComposer({ pageId }: { pageId: string }) {
                   />
                   Show plot title
                 </label>
+
+                {styleTargets.length > 0 && (
+                  <div className="space-y-2 border-t border-border pt-2.5">
+                    <p className="text-meta font-semibold text-foreground-muted">Style</p>
+                    <div className="max-h-44 space-y-1 overflow-y-auto pr-1">
+                      {styleTargets.map((t) => {
+                        const ov = sp?.style?.targets?.[t.key];
+                        const color = ov?.color ?? t.color ?? "#888888";
+                        const hidden = ov?.hidden === true;
+                        return (
+                          <div key={t.key} className="flex items-center gap-2">
+                            <input
+                              type="color"
+                              value={/^#[0-9a-fA-F]{6}$/.test(color) ? color : "#888888"}
+                              onChange={(e) =>
+                                mutate((p) => setPanelTarget(p, selected, t.key, { color: e.target.value }))
+                              }
+                              className="h-5 w-5 shrink-0 cursor-pointer rounded border border-border bg-transparent p-0"
+                              aria-label={`Color of ${t.label}`}
+                            />
+                            <span
+                              className={`flex-1 truncate text-meta ${hidden ? "text-foreground-faint line-through" : "text-foreground"}`}
+                            >
+                              {t.label}
+                            </span>
+                            <button
+                              type="button"
+                              aria-label={hidden ? `Show ${t.label}` : `Hide ${t.label}`}
+                              onClick={() =>
+                                mutate((p) => setPanelTarget(p, selected, t.key, { hidden: !hidden }), true)
+                              }
+                              className="shrink-0 text-foreground-faint hover:text-foreground"
+                            >
+                              <Icon name={hidden ? "eyeOff" : "eye"} className="h-3.5 w-3.5" />
+                            </button>
+                          </div>
+                        );
+                      })}
+                    </div>
+                    {sp?.ref.type === "sequence" && (
+                      <div className="space-y-1.5 pt-1">
+                        <label className="flex items-center justify-between gap-2 text-meta text-foreground-muted">
+                          <span>Thickness</span>
+                          <input
+                            type="range"
+                            min={0.5}
+                            max={2}
+                            step={0.1}
+                            value={(sp?.style?.options?.featureScale as number) ?? 1}
+                            onChange={(e) =>
+                              mutate((p) =>
+                                setPanelStyle(p, selected, { options: { featureScale: Number(e.target.value) } }),
+                              )
+                            }
+                            className="w-28"
+                          />
+                        </label>
+                        <label className="flex items-center gap-2 text-meta text-foreground-muted">
+                          <input
+                            type="checkbox"
+                            checked={sp?.style?.options?.showTicks !== false}
+                            onChange={(e) =>
+                              mutate(
+                                (p) => setPanelStyle(p, selected, { options: { showTicks: e.target.checked } }),
+                                true,
+                              )
+                            }
+                          />
+                          Coordinate ruler
+                        </label>
+                        <label className="flex items-center gap-2 text-meta text-foreground-muted">
+                          <input
+                            type="checkbox"
+                            checked={sp?.style?.options?.showLabels !== false}
+                            onChange={(e) =>
+                              mutate(
+                                (p) => setPanelStyle(p, selected, { options: { showLabels: e.target.checked } }),
+                                true,
+                              )
+                            }
+                          />
+                          Feature labels
+                        </label>
+                      </div>
+                    )}
+                  </div>
+                )}
+
                 <button
                   type="button"
                   onClick={() => {

@@ -38,6 +38,30 @@ export interface FigureScope {
   collectionId: string | null;
 }
 
+/**
+ * A styleable element inside a figure (a sequence feature, later a plot series, a
+ * tree clade...), for the composer's per-panel style inspector. Surface-agnostic.
+ */
+export interface StyleTarget {
+  /** Stable key the source recognizes in PanelStyle.targets. */
+  key: string;
+  /** Human label shown in the style list. */
+  label: string;
+  /** The current color, so the inspector can seed its swatch. */
+  color?: string;
+}
+
+/**
+ * Composition-local style a panel carries, written by the composer's style
+ * inspector and interpreted by the source. Generic so every source can opt in:
+ *  - `targets`: per-element overrides (recolor / hide), keyed by StyleTarget.key.
+ *  - `options`: source-specific scalar options (e.g. thickness, ring/label toggles).
+ */
+export interface PanelStyle {
+  targets?: Record<string, { color?: string; hidden?: boolean }>;
+  options?: Record<string, unknown>;
+}
+
 /** What the composer asks a source to render a panel at. */
 export interface RenderOpts {
   /** Target size in real publication units (inches), so the panel is exact. */
@@ -53,6 +77,8 @@ export interface RenderOpts {
    * + figure caption carry it); a source applies these when it can.
    */
   overrides?: { hideTitle?: boolean; hideLegend?: boolean };
+  /** Per-panel style written by the composer's style inspector (recolor, hide, options). */
+  style?: PanelStyle;
 }
 
 /** A rendered panel: a self-contained SVG plus its natural aspect for fitting. */
@@ -77,6 +103,12 @@ export interface FigureSource {
   render(id: string, opts: RenderOpts): Promise<RenderedFigure>;
   /** Where to open the figure's own editor (double-click a panel to edit it). */
   editHref(id: string): string;
+  /**
+   * Optional: the styleable elements of a figure (e.g. its features), so the
+   * composer's per-panel style inspector can offer recolor / hide. A source with
+   * no styling omits this and gets no style controls.
+   */
+  styleTargets?(id: string): Promise<StyleTarget[]>;
 }
 
 // Module-level registry. Surfaces register once at startup (registerSources()).

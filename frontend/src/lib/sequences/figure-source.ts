@@ -12,14 +12,35 @@
 import { sequenceStore } from "@/lib/sequences/sequence-store";
 import { genbankToDetail } from "@/lib/sequences/parse";
 import { documentFromDetail } from "@/lib/sequences/edit-model";
-import { renderSequenceMapSvg } from "@/lib/sequences/map-render";
+import { renderSequenceMapSvg, featureKey, type SequenceMapStyle } from "@/lib/sequences/map-render";
+import { resolveFeatureColor } from "@/lib/sequences/feature-colors";
 import {
   registerFigureSource,
   missingPanelSvg,
   type FigureSource,
   type FigureRef,
   type RenderedFigure,
+  type StyleTarget,
+  type PanelStyle,
 } from "@/lib/figure/figure-source";
+
+/** Translate the composer's generic PanelStyle into a SequenceMapStyle. */
+function toMapStyle(style: PanelStyle | undefined): SequenceMapStyle {
+  return {
+    perFeature: style?.targets,
+    featureScale: style?.options?.featureScale as number | undefined,
+    showTicks: style?.options?.showTicks as boolean | undefined,
+    showLabels: style?.options?.showLabels as boolean | undefined,
+  };
+}
+
+/** Load + parse a sequence into its editable document, or null if unavailable. */
+async function loadDoc(id: string) {
+  const raw = await sequenceStore.getRaw(Number(id));
+  if (!raw) return null;
+  const detail = genbankToDetail(raw.genbank, raw.meta);
+  return detail ? documentFromDetail(detail) : null;
+}
 
 export const sequenceFigureSource: FigureSource = {
   type: "sequence",
@@ -39,21 +60,32 @@ export const sequenceFigureSource: FigureSource = {
   },
 
   async render(id, opts): Promise<RenderedFigure> {
-    const raw = await sequenceStore.getRaw(Number(id));
-    if (!raw) return missingPanelSvg(opts.widthIn, opts.heightIn);
     try {
-      const detail = genbankToDetail(raw.genbank, raw.meta);
-      if (!detail) return missingPanelSvg(opts.widthIn, opts.heightIn);
-      const doc = documentFromDetail(detail);
-      const svg = renderSequenceMapSvg(doc, {
-        width: Math.max(1, Math.round(opts.widthIn * opts.dpi)),
-        height: Math.max(1, Math.round(opts.heightIn * opts.dpi)),
-      });
+      const doc = await loadDoc(id);
+      if (!doc) return missingPanelSvg(opts.widthIn, opts.heightIn);
+      const svg = renderSequenceMapSvg(
+        doc,
+        {
+          width: Math.max(1, Math.round(opts.widthIn * opts.dpi)),
+          height: Math.max(1, Math.round(opts.heightIn * opts.dpi)),
+        },
+        toMapStyle(opts.style),
+      );
       // Plasmid maps read square; linear maps read wide.
       return { svg, naturalAspect: doc.circular ? 1.0 : 1.8 };
     } catch {
       return missingPanelSvg(opts.widthIn, opts.heightIn);
     }
+  },
+
+  async styleTargets(id): Promise<StyleTarget[]> {
+    const doc = await loadDoc(id);
+    if (!doc) return [];
+    return doc.features.map((f) => ({
+      key: featureKey(f),
+      label: f.name,
+      color: resolveFeatureColor(f),
+    }));
   },
 
   editHref(id) {

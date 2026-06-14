@@ -17,6 +17,7 @@ import {
   DEFAULT_ARTBOARD_STATE,
   pageDims,
 } from "@/lib/figure/artboard";
+import type { PanelStyle } from "@/lib/figure/figure-source";
 
 /** How panels are tagged for the figure caption. User-pickable per page. */
 export type LabelStyle = "ABC" | "abc" | "123" | "none";
@@ -39,6 +40,8 @@ export interface FigurePanel {
   /** Explicit label override; when absent the label is auto-assigned by order. */
   label?: string;
   overrides?: PanelOverride;
+  /** Per-panel content style (recolor / hide elements, source-specific options). */
+  style?: PanelStyle;
 }
 
 /** The 3-tool annotation set (Text, Arrow with head toggle, Bracket with label). */
@@ -171,6 +174,47 @@ export function addPanel(
 /** Remove a panel by id. */
 export function removePanel(page: FigurePage, panelId: string): FigurePage {
   return { ...page, panels: page.panels.filter((p) => p.panelId !== panelId) };
+}
+
+/** Deep-merge a partial style patch into one panel's style (recolor / hide / options). */
+export function setPanelStyle(page: FigurePage, panelId: string, patch: PanelStyle): FigurePage {
+  return {
+    ...page,
+    panels: page.panels.map((p) => {
+      if (p.panelId !== panelId) return p;
+      const prev = p.style ?? {};
+      return {
+        ...p,
+        style: {
+          targets: { ...prev.targets, ...patch.targets },
+          options: { ...prev.options, ...patch.options },
+        },
+      };
+    }),
+  };
+}
+
+/** Patch ONE target's override (recolor / hide) within a panel's style. */
+export function setPanelTarget(
+  page: FigurePage,
+  panelId: string,
+  key: string,
+  patch: { color?: string; hidden?: boolean },
+): FigurePage {
+  return {
+    ...page,
+    panels: page.panels.map((p) => {
+      if (p.panelId !== panelId) return p;
+      const prevTargets = p.style?.targets ?? {};
+      return {
+        ...p,
+        style: {
+          ...p.style,
+          targets: { ...prevTargets, [key]: { ...prevTargets[key], ...patch } },
+        },
+      };
+    }),
+  };
 }
 
 /**
