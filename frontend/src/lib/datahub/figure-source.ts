@@ -17,12 +17,14 @@ import {
   readPlotSource,
   withStyle,
 } from "@/lib/datahub/plot-spec";
+import { PALETTES } from "@/lib/datahub/palettes";
 import {
   registerFigureSource,
   missingPanelSvg,
   type FigureSource,
   type FigureRef,
   type RenderedFigure,
+  type StyleOption,
 } from "@/lib/figure/figure-source";
 
 const DEFAULT_ASPECT = 430 / 340; // the Data Hub FIG default (w / h)
@@ -98,6 +100,9 @@ export const dataHubFigureSource: FigureSource = {
     const aspect = plotNaturalAspect(plot);
     // Size the figure to the panel's real-inch box, then render with the SAME
     // path the editor uses (so the panel matches the figure exactly).
+    // A per-panel palette override (composer Style inspector) recolors the whole
+    // figure without mutating the saved plot. Absent = the plot's stored palette.
+    const palette = opts.style?.options?.palette;
     const sized = withStyle(plot, {
       width: opts.widthIn,
       height: opts.heightIn,
@@ -105,6 +110,7 @@ export const dataHubFigureSource: FigureSource = {
       // A composed panel hides the plot's own title by default (the figure's
       // panel letter + caption carry it); an empty title hides it in renderPlot.
       ...(opts.overrides?.hideTitle ? { title: "" } : {}),
+      ...(typeof palette === "string" && palette ? { palette } : {}),
     });
     const source = readPlotSource(sized);
     const analysis = source.analysisId
@@ -112,6 +118,22 @@ export const dataHubFigureSource: FigureSource = {
       : null;
     const { svg } = renderPlot(sized, content, analysis);
     return { svg, naturalAspect: aspect };
+  },
+
+  styleSchema(): StyleOption[] {
+    return [
+      {
+        kind: "select",
+        key: "palette",
+        label: "Color palette",
+        // Empty default = "keep the plot's stored palette" (no override).
+        default: "",
+        choices: [
+          { value: "", label: "Plot default" },
+          ...PALETTES.map((p) => ({ value: p.id, label: p.name })),
+        ],
+      },
+    ];
   },
 
   editHref(id) {

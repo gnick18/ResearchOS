@@ -46,4 +46,17 @@ describe("data hub figure source", () => {
     expect(src?.label).toBe("Data Hub plot");
     expect(src?.editHref("d1:p1")).toBe("/datahub?doc=d1");
   });
+
+  it("declares a palette select (Phase 3 style schema) with a plot-default escape", () => {
+    registerDataHubFigureSource();
+    const schema = getFigureSource("datahub")?.styleSchema?.() ?? [];
+    const palette = schema.find((o) => o.key === "palette");
+    expect(palette?.kind).toBe("select");
+    // The first choice keeps the plot's stored palette (empty value = no override).
+    if (palette?.kind === "select") {
+      expect(palette.default).toBe("");
+      expect(palette.choices[0]).toEqual({ value: "", label: "Plot default" });
+      expect(palette.choices.length).toBeGreaterThan(1);
+    }
+  });
 });

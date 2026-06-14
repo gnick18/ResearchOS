@@ -62,6 +62,38 @@ export interface PanelStyle {
   options?: Record<string, unknown>;
 }
 
+/**
+ * One source-specific option control the composer's Style inspector should
+ * render (a slider, a checkbox, a dropdown). A source declares these via
+ * `styleSchema()` so the composer offers them generically, keyed by `key` into
+ * PanelStyle.options, with NO per-source special-casing. `default` is the value
+ * the source uses when the option is unset, so the control shows the live state.
+ */
+export type StyleOption =
+  | {
+      kind: "toggle";
+      key: string;
+      label: string;
+      /** The value used when PanelStyle.options[key] is unset. */
+      default: boolean;
+    }
+  | {
+      kind: "range";
+      key: string;
+      label: string;
+      min: number;
+      max: number;
+      step: number;
+      default: number;
+    }
+  | {
+      kind: "select";
+      key: string;
+      label: string;
+      choices: { value: string; label: string }[];
+      default: string;
+    };
+
 /** What the composer asks a source to render a panel at. */
 export interface RenderOpts {
   /** Target size in real publication units (inches), so the panel is exact. */
@@ -109,6 +141,14 @@ export interface FigureSource {
    * no styling omits this and gets no style controls.
    */
   styleTargets?(id: string): Promise<StyleTarget[]>;
+  /**
+   * Optional: the source-specific OPTION controls (sliders / toggles / dropdowns)
+   * the composer should render in the Style inspector, written into
+   * PanelStyle.options. Declarative so the composer offers them with no
+   * per-source special-casing. A source with no scalar options omits this. The
+   * schema is static per source, so it takes no figure id.
+   */
+  styleSchema?(): StyleOption[];
   /**
    * Optional: persist a panel's style as the object's CANONICAL default (saved on
    * the object, so it becomes the starting point for any future figure of it).
