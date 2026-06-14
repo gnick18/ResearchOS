@@ -23,6 +23,11 @@ export function toneForTemp(tempC?: number): TempTone {
 // A reagent line for the big checklist.
 export type ReadCheck = { name: string; amount: string };
 
+// A figure referenced by a step. `uri` is present once the snapshot ships the
+// image inline as a data URI (or an http url); when absent the reader shows a
+// labelled placeholder with the alt text.
+export type ReadFigure = { alt: string; uri?: string };
+
 // One big-text read step. `seg` ties the step to a highlighted block on the
 // pinned graphic map (PCR profile segment id, or LC gradient point index).
 export type ReadStep = {
@@ -32,8 +37,8 @@ export type ReadStep = {
   isTemp: boolean; // render `big` as the giant temperature, else normal big text
   detail?: string; // supporting line under the headline
   checks?: ReadCheck[]; // big reagent checklist (reaction mix / mobile phase)
-  figures?: string[]; // figure alt texts referenced by this step (placeholders in
-  // Phase 1; the real images render inline once the snapshot ships them)
+  figures?: ReadFigure[]; // figures referenced by this step; render inline when a
+  // uri is present (snapshot shipped the image), else a labelled placeholder
   pcrSeg?: PcrSegId; // PCR map block this step lights up
   lcSeg?: number; // LC gradient point index this step lights up
 };
@@ -244,7 +249,7 @@ const RE_SUB = /^\s{0,8}(?:[a-z]|[ivx]{1,4})[.)]\s+(.*)$/i;
 const RE_BULLET = /^\s*[-*•]\s+(.*)$/;
 const RE_HEADING = /^\s*#{1,6}\s+(.*?)\s*#*$/;
 const RE_BOLDLINE = /^\s*\*\*(.+?)\*\*\s*:?\s*$/;
-const RE_IMAGE = /!\[([^\]]*)\]\([^)]*\)/g;
+const RE_IMAGE = /!\[([^\]]*)\]\(([^)]*)\)/g;
 const RE_TABLE_ROW = /^\s*\|(.+)\|\s*$/;
 const RE_TABLE_SEP = /^\s*\|?[\s:|-]*-[\s:|-]*\|?\s*$/;
 
@@ -261,11 +266,13 @@ function inlineText(s: string): string {
     .trim();
 }
 
-// Pull any markdown image refs out of a line into `into`, then clean inline
-// markdown from what remains.
-function lineText(line: string, into: string[]): string {
-  const noImg = line.replace(RE_IMAGE, (_m, alt) => {
-    into.push(inlineText(alt || 'Figure'));
+// Pull any markdown image refs out of a line into `into` (alt + uri), then clean
+// inline markdown from what remains. The uri is kept verbatim so a shipped data
+// URI renders inline; a plain path that the snapshot did not inline stays a
+// labelled placeholder.
+function lineText(line: string, into: ReadFigure[]): string {
+  const noImg = line.replace(RE_IMAGE, (_m, alt, uri) => {
+    into.push({ alt: inlineText(alt || 'Figure'), uri: uri ? String(uri).trim() : undefined });
     return '';
   });
   return inlineText(noImg);
@@ -307,7 +314,7 @@ type StepDraft = {
   headline: string;
   detail: string[];
   checks: ReadCheck[];
-  figures: string[];
+  figures: ReadFigure[];
 };
 
 function draftToStep(d: StepDraft): ReadStep {
@@ -390,7 +397,7 @@ function parseBodyToSteps(body: string): ReadStep[] {
     const num = line.match(RE_NUM);
     if (num) {
       flush();
-      const figs: string[] = [];
+      const figs: ReadFigure[] = [];
       const text = lineText(num[1], figs);
       cur = { phase, kind: 'num', headline: text, detail: [], checks: [], figures: figs };
       continue;
@@ -398,7 +405,7 @@ function parseBodyToSteps(body: string): ReadStep[] {
 
     const bullet = line.match(RE_BULLET);
     if (bullet) {
-      const figs: string[] = [];
+      const figs: ReadFigure[] = [];
       const text = lineText(bullet[1], figs);
       if (!cur) cur = { phase, kind: 'checklist', headline: phase ?? 'Materials', detail: [], checks: [], figures: [] };
       if (text) cur.checks.push(splitReagent(text));
@@ -408,7 +415,7 @@ function parseBodyToSteps(body: string): ReadStep[] {
 
     const sub = line.match(RE_SUB);
     if (sub && cur) {
-      const figs: string[] = [];
+      const figs: ReadFigure[] = [];
       const text = lineText(sub[1], figs);
       if (text) cur.detail.push(text);
       cur.figures.push(...figs);
@@ -417,7 +424,7 @@ function parseBodyToSteps(body: string): ReadStep[] {
 
     // A plain line: continuation of the current step, or the start of a new
     // prose-paragraph step when nothing is open.
-    const figs: string[] = [];
+    const figs: ReadFigure[] = [];
     const text = lineText(line, figs);
     if (cur) {
       if (text) cur.detail.push(text);
