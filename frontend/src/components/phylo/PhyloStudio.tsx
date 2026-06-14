@@ -95,7 +95,18 @@ import {
   PhyloLayersControl,
   MultiColumnField,
   buildTemplate,
+  makePanel,
 } from "@/components/phylo/PhyloLayers";
+import {
+  SmartDataWizard,
+  type OverlaySelection,
+} from "@/components/phylo/SmartDataWizard";
+import {
+  rankJoinCandidates,
+  mergeTableColumnsIntoMetadata,
+  type JoinCandidate,
+  type CandidateTable,
+} from "@/lib/phylo/smart-binding";
 import {
   objectDeepLink,
   objectEmbedMarkdown,
@@ -257,6 +268,14 @@ export function PhyloStudio({ initialTreeId }: { initialTreeId?: string } = {}) 
   const [datahubResolved, setDatahubResolved] = useState<
     RenderSpec["datahubPanels"]
   >({});
+
+  // Smart Data Binding (phylo Phase 4): the auto-detected joinable tables for the
+  // open tree, the wizard's open state, and a per-tree banner dismissal. The
+  // engine (rankJoinCandidates) computes the candidates; the wizard widget drives
+  // the add; addSmartOverlays does the merge + makePanel app operation.
+  const [smartCandidates, setSmartCandidates] = useState<JoinCandidate[]>([]);
+  const [smartOpen, setSmartOpen] = useState(false);
+  const [smartDismissed, setSmartDismissed] = useState(false);
 
   // Publication page-frame (artboard) state for the figure. Disabled by default
   // (the canvas renders exactly as before). The figure's width in inches is its
@@ -611,6 +630,82 @@ export function PhyloStudio({ initialTreeId }: { initialTreeId?: string } = {}) 
       return [...prev.slice(0, labelIdx), panel, ...prev.slice(labelIdx)];
     });
     setSelectedLayerId(panel.id);
+  }
+
+  // Smart Data Binding: scan the collection's Data Hub tables for ones that join
+  // the open tree's tips and rank them (the engine drops zero-join / key-only
+  // tables). Drives the "N tables can overlay this tree" banner + the wizard.
+  // getContent is a local read (local-first), so loading every table's content is
+  // cheap; recomputed when the tree or the table list changes.
+  useEffect(() => {
+    let cancelled = false;
+    if (!tree || dhTables.length === 0) {
+      setSmartCandidates([]);
+      return;
+    }
+    (async () => {
+      const loaded: CandidateTable[] = [];
+      for (const t of dhTables) {
+        const content = await dataHubApi.getContent(t.id);
+        if (content) loaded.push({ id: t.id, name: t.name, content });
+      }
+      if (cancelled) return;
+      setSmartCandidates(rankJoinCandidates(tree, loaded));
+    })().catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [tree, dhTables]);
+
+  // Re-arm the banner when a different SAVED tree is opened (not on every edit,
+  // which would re-nag). An imported / unsaved tree clears openTreeId, which also
+  // re-arms it; the "Find data" button stays available after a dismissal anyway.
+  useEffect(() => {
+    setSmartDismissed(false);
+    setSmartOpen(false);
+  }, [openTreeId]);
+
+  // The wizard's add step: merge the chosen table columns into the tree's tip-
+  // keyed metadata (the engine), then append one overlay panel per selection
+  // (makePanel) just inside any labels layer. The model never runs this; the
+  // wizard collects the selections and the engine + app do the work.
+  async function addSmartOverlays(args: {
+    tableId: string;
+    tableName: string;
+    joinColumnId: string;
+    selections: OverlaySelection[];
+  }) {
+    if (!tree) return;
+    const content = await dataHubApi.getContent(args.tableId);
+    if (!content) return;
+    const columnIds = Array.from(new Set(args.selections.map((s) => s.columnId)));
+    const merged = mergeTableColumnsIntoMetadata({
+      tree,
+      existing: metaRows && tipColumn ? { rows: metaRows, tipColumn } : null,
+      tableName: args.tableName,
+      content,
+      joinColumnId: args.joinColumnId,
+      columnIds,
+    });
+    setMetaRows(merged.rows);
+    setTipColumn(merged.tipColumn);
+    // metaColumns drives the inspector pickers: tip-id column first, then the rest.
+    const others = new Set<string>();
+    for (const r of merged.rows)
+      for (const k of Object.keys(r)) if (k !== merged.tipColumn) others.add(k);
+    setMetaColumns([merged.tipColumn, ...others]);
+    const nameFor = new Map(merged.addedColumns.map((a) => [a.columnId, a.name]));
+    const newPanels: AlignedPanel[] = [];
+    for (const s of args.selections) {
+      const name = nameFor.get(s.columnId);
+      if (name) newPanels.push(makePanel(s.geom, [name]));
+    }
+    setPanels((prev) => {
+      const labelIdx = prev.findIndex((p) => p.kind === "labels");
+      if (labelIdx === -1) return [...prev, ...newPanels];
+      return [...prev.slice(0, labelIdx), ...newPanels, ...prev.slice(labelIdx)];
+    });
+    setAppliedTemplate("");
   }
 
   // ---- tree import ----
@@ -1110,22 +1205,69 @@ export function PhyloStudio({ initialTreeId }: { initialTreeId?: string } = {}) 
       sub: "Draw order, inner to outer",
       icon: <Icon name="layer" className="h-5 w-5" />,
       panel: (
-        <PhyloLayersControl
-          panels={panels}
-          selectedId={selectedLayerId}
-          columns={metaColumns.filter((c) => c !== tipColumn)}
-          columnKinds={columnKinds}
-          capabilities={layerCapabilities}
-          datahubTables={dhTables}
-          onAddDatahub={addDatahubFromTable}
-          tipNames={tips.map((t) => t.name)}
-          annotationKeys={tree ? collectAnnotationKeys(tree) : []}
-          treeSummary={`${phylogram ? "phylogram" : "cladogram"}, ${layout}`}
-          appliedTemplate={appliedTemplate}
-          onChange={editPanels}
-          onSelect={setSelectedLayerId}
-          onApplyTemplate={onApplyTemplate}
-        />
+        <div className="space-y-3">
+          {tree && (
+            <div>
+              {smartCandidates.length > 0 && !smartDismissed && (
+                <div className="flex items-start gap-2.5 px-3 py-2.5 mb-2 rounded-xl border border-accent bg-accent-soft">
+                  <Icon
+                    name="bolt"
+                    className="w-4 h-4 text-accent shrink-0 mt-0.5"
+                  />
+                  <div className="min-w-0">
+                    <button
+                      type="button"
+                      onClick={() => setSmartOpen(true)}
+                      className="block text-left text-sm font-semibold text-accent hover:underline"
+                    >
+                      {smartCandidates.length} table
+                      {smartCandidates.length === 1 ? "" : "s"} can overlay this
+                      tree
+                    </button>
+                    <p className="text-xs text-accent/80 mt-0.5">
+                      Put your data on the tree as heatmaps, bars, or color
+                      strips.
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setSmartDismissed(true)}
+                    aria-label="Dismiss"
+                    className="ml-auto text-accent/70 hover:text-accent shrink-0"
+                  >
+                    <Icon name="x" className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              )}
+              {(smartCandidates.length === 0 || smartDismissed) && (
+                <button
+                  type="button"
+                  onClick={() => setSmartOpen(true)}
+                  className="flex items-center gap-1.5 text-xs font-medium text-foreground-muted hover:text-accent mb-1"
+                >
+                  <Icon name="bolt" className="w-3.5 h-3.5" />
+                  Find data for this tree
+                </button>
+              )}
+            </div>
+          )}
+          <PhyloLayersControl
+            panels={panels}
+            selectedId={selectedLayerId}
+            columns={metaColumns.filter((c) => c !== tipColumn)}
+            columnKinds={columnKinds}
+            capabilities={layerCapabilities}
+            datahubTables={dhTables}
+            onAddDatahub={addDatahubFromTable}
+            tipNames={tips.map((t) => t.name)}
+            annotationKeys={tree ? collectAnnotationKeys(tree) : []}
+            treeSummary={`${phylogram ? "phylogram" : "cladogram"}, ${layout}`}
+            appliedTemplate={appliedTemplate}
+            onChange={editPanels}
+            onSelect={setSelectedLayerId}
+            onApplyTemplate={onApplyTemplate}
+          />
+        </div>
       ),
     },
     {
@@ -1549,6 +1691,22 @@ export function PhyloStudio({ initialTreeId }: { initialTreeId?: string } = {}) 
           <PhyloBuilder />
         </div>
       </LivingPopup>
+      {/* Smart Data Binding wizard (phylo Phase 4). Own card chrome, so it is a
+          plain centered overlay rather than a LivingPopup frame. */}
+      {smartOpen && tree && (
+        <div
+          className="fixed inset-0 z-50 grid place-items-center bg-black/30 p-4"
+          onClick={() => setSmartOpen(false)}
+        >
+          <div onClick={(e) => e.stopPropagation()}>
+            <SmartDataWizard
+              candidates={smartCandidates}
+              onAddOverlays={addSmartOverlays}
+              onClose={() => setSmartOpen(false)}
+            />
+          </div>
+        </div>
+      )}
     </div>
   );
 }
