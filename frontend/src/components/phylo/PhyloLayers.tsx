@@ -20,6 +20,14 @@ import { useMemo, useRef, useState } from "react";
 import { Icon } from "@/components/icons";
 import Tooltip from "@/components/Tooltip";
 import { reorderPanels } from "@/lib/phylo/panels";
+import {
+  columnFilterFor,
+  errorBarControl,
+  filterColumns,
+  kindDrawsLegend,
+  usesScaleKindSelect,
+  type ColumnFilter,
+} from "@/lib/phylo/layer-schema";
 import type {
   AlignedPanel,
   AlignedPanelKind,
@@ -84,7 +92,9 @@ const KIND_LABEL: Record<string, string> = Object.fromEntries(
   PANEL_CATALOG.flatMap((g) => g.items.map((i) => [i.kind, i.name])),
 );
 
-/** Which kinds bind a metadata column (show the column / scale fields). */
+/** Which kinds bind a metadata column (show the column / scale fields). The
+ *  legend + error-bar + scale-kind rules now live in lib/phylo/layer-schema.ts;
+ *  this set only gates the shared single-column binding field. */
 const COLORED_KINDS = new Set<AlignedPanelKind>([
   "points",
   "strip",
@@ -92,8 +102,6 @@ const COLORED_KINDS = new Set<AlignedPanelKind>([
   "bars",
   "dots",
 ]);
-/** Which kinds carry an aligned numeric / value panel scale + legend. */
-const DATA_KINDS = new Set<AlignedPanelKind>(["heat", "bars", "dots", "box"]);
 
 /** Sequential ramps offered in the inspector (Data Hub palette ids). */
 const SEQUENTIAL_PALETTES: { id: string; label: string }[] = [
@@ -152,6 +160,7 @@ export function PhyloLayersControl({
   panels,
   selectedId,
   columns,
+  columnKinds,
   tipNames = [],
   annotationKeys = [],
   treeSummary,
@@ -163,6 +172,9 @@ export function PhyloLayersControl({
   panels: AlignedPanel[];
   selectedId: string | null;
   columns: string[];
+  /** Each bindable metadata column classified numeric vs categorical, so the
+   *  inspector offers only type-appropriate columns per field (Phase 0). */
+  columnKinds?: Record<string, ColumnFilter>;
   /** Every tip name in the tree, for naming clade members (MRCA picker). */
   tipNames?: string[];
   /** Every [&...] annotation key present in the tree, for the geom_range picker. */
@@ -218,6 +230,7 @@ export function PhyloLayersControl({
           panels={panels}
           selectedId={selectedId}
           columns={columns}
+          columnKinds={columnKinds}
           tipNames={tipNames}
           annotationKeys={annotationKeys}
           onSelect={onSelect}
@@ -252,6 +265,7 @@ function LayerList({
   panels,
   selectedId,
   columns,
+  columnKinds,
   tipNames,
   annotationKeys,
   onSelect,
@@ -262,6 +276,7 @@ function LayerList({
   panels: AlignedPanel[];
   selectedId: string | null;
   columns: string[];
+  columnKinds?: Record<string, ColumnFilter>;
   tipNames: string[];
   annotationKeys: string[];
   onSelect: (id: string | null) => void;
@@ -392,6 +407,7 @@ function LayerList({
               <Inspector
                 panel={panel}
                 columns={columns}
+                columnKinds={columnKinds}
                 tipNames={tipNames}
                 annotationKeys={annotationKeys}
                 onUpdate={(patch) => onUpdate(panel.id, patch)}
@@ -411,19 +427,38 @@ function LayerList({
 function Inspector({
   panel,
   columns,
+  columnKinds,
   tipNames,
   annotationKeys,
   onUpdate,
 }: {
   panel: AlignedPanel;
   columns: string[];
+  columnKinds?: Record<string, ColumnFilter>;
   tipNames: string[];
   annotationKeys: string[];
   onUpdate: (patch: Partial<AlignedPanel>) => void;
 }) {
   const colored = COLORED_KINDS.has(panel.kind);
-  const isData = DATA_KINDS.has(panel.kind);
   const continuous = panel.scale?.kind === "continuous";
+  // Type-appropriate column options per field (Phase 0): a "Size by" never lists
+  // a categorical column, a numeric value field never lists a text column, etc.
+  // The active binding is always kept so an existing figure never loses it.
+  const colsFor = (field: string, current?: string) =>
+    filterColumns(columns, columnKinds, columnFilterFor(panel.kind, field), current);
+  // Multi-select variant: type-filter but keep every already-selected column so
+  // an existing binding is never hidden out from under the figure.
+  const multiColsFor = (field: string, selected: string[]) => {
+    const filter = columnFilterFor(panel.kind, field);
+    if (filter === "any" || !columnKinds || Object.keys(columnKinds).length === 0)
+      return columns;
+    return columns.filter(
+      (c) =>
+        columnKinds[c] === undefined ||
+        columnKinds[c] === filter ||
+        selected.includes(c),
+    );
+  };
 
   return (
     <div className="px-3 pb-3 pt-1 border-t border-border bg-surface space-y-2">
@@ -431,7 +466,7 @@ function Inspector({
         <Field label="Column">
           <SelectInput
             value={panel.column ?? ""}
-            options={["", ...columns]}
+            options={["", ...colsFor("column", panel.column)]}
             onChange={(v) => onUpdate({ column: v })}
           />
         </Field>
@@ -439,7 +474,7 @@ function Inspector({
 
       {panel.kind === "heat" && (
         <MultiColumnField
-          columns={columns}
+          columns={multiColsFor("columns", panel.columns ?? [])}
           selected={panel.columns ?? []}
           onChange={(cols) => onUpdate({ columns: cols })}
         />
@@ -449,7 +484,7 @@ function Inspector({
         panel.kind === "violin" ||
         panel.kind === "scatter") && (
         <MultiColumnField
-          columns={columns}
+          columns={multiColsFor("columns", panel.columns ?? [])}
           selected={panel.columns ?? []}
           label="Replicate columns"
           onChange={(cols) => onUpdate({ columns: cols })}
@@ -457,7 +492,12 @@ function Inspector({
       )}
 
       {panel.kind === "point" && (
-        <PointInspector panel={panel} columns={columns} onUpdate={onUpdate} />
+        <PointInspector
+          panel={panel}
+          columns={columns}
+          columnKinds={columnKinds}
+          onUpdate={onUpdate}
+        />
       )}
 
       {panel.kind === "points" && (
@@ -465,7 +505,10 @@ function Inspector({
           <Field label="Size by">
             <SelectInput
               value={(panel.options?.sizeColumn as string) ?? ""}
-              options={["", ...columns]}
+              options={[
+                "",
+                ...colsFor("sizeColumn", panel.options?.sizeColumn as string),
+              ]}
               onChange={(v) =>
                 onUpdate({
                   options: { ...panel.options, sizeColumn: v || undefined },
@@ -476,7 +519,10 @@ function Inspector({
           <Field label="Shape by">
             <SelectInput
               value={(panel.options?.shapeColumn as string) ?? ""}
-              options={["", ...columns]}
+              options={[
+                "",
+                ...colsFor("shapeColumn", panel.options?.shapeColumn as string),
+              ]}
               onChange={(v) =>
                 onUpdate({
                   options: { ...panel.options, shapeColumn: v || undefined },
@@ -521,7 +567,7 @@ function Inspector({
         </Field>
       )}
 
-      {(colored || panel.kind === "bars" || panel.kind === "dots") && (
+      {usesScaleKindSelect(panel.kind) && (
         <Field label="Scale">
           <SelectInput
             value={continuous ? "continuous" : "categorical"}
@@ -535,6 +581,27 @@ function Inspector({
                         paletteId: panel.scale?.paletteId ?? "viridis",
                       }
                     : { kind: "categorical" },
+              })
+            }
+          />
+        </Field>
+      )}
+
+      {(panel.kind === "bars" || panel.kind === "dots") && (
+        // bars/dots encode value by length and only honor a numeric color scale
+        // (a categorical scale was a no-op flat fill), so this is a plain on/off
+        // for the value gradient rather than the misleading categorical select.
+        <Field label="Color by value">
+          <ToggleInput
+            on={continuous}
+            onClick={() =>
+              onUpdate({
+                scale: continuous
+                  ? { kind: "categorical" }
+                  : {
+                      kind: "continuous",
+                      paletteId: panel.scale?.paletteId ?? "viridis",
+                    },
               })
             }
           />
@@ -629,10 +696,7 @@ function Inspector({
         </>
       )}
 
-      {(isData ||
-        panel.kind === "points" ||
-        panel.kind === "strip" ||
-        panel.kind === "msa") && (
+      {kindDrawsLegend(panel.kind) && (
         <Field label="Legend">
           <ToggleInput
             on={panel.legend !== false}
@@ -1273,21 +1337,37 @@ const ERROR_KINDS: { id: string; label: string }[] = [
 function PointInspector({
   panel,
   columns,
+  columnKinds,
   onUpdate,
 }: {
   panel: AlignedPanel;
   columns: string[];
+  columnKinds?: Record<string, ColumnFilter>;
   onUpdate: (patch: Partial<AlignedPanel>) => void;
 }) {
-  const errorKind =
-    (panel.options?.errorKind as string | undefined) ?? "sd";
-  const valueMode = !!panel.column;
+  const errorKind = (panel.options?.errorKind as string | undefined) ?? "sd";
+  // "verbatim" = a value column is set, so the error column is taken as-is and
+  // sd vs sem is meaningless (only show/hide matters). "replicate" = error is
+  // derived from replicate columns, where sd vs sem IS meaningful.
+  const mode = errorBarControl(panel);
+  const numCols = (current?: string) =>
+    filterColumns(columns, columnKinds, "numeric", current);
+  const repCols = (() => {
+    const selected = panel.columns ?? [];
+    if (!columnKinds || Object.keys(columnKinds).length === 0) return columns;
+    return columns.filter(
+      (c) =>
+        columnKinds[c] === undefined ||
+        columnKinds[c] === "numeric" ||
+        selected.includes(c),
+    );
+  })();
   return (
     <>
       <Field label="Value column">
         <SelectInput
           value={panel.column ?? ""}
-          options={["", ...columns]}
+          options={["", ...numCols(panel.column)]}
           onChange={(v) =>
             // A value column engages the value+error mode; clearing it (none)
             // hands back to the replicate columns below.
@@ -1295,34 +1375,55 @@ function PointInspector({
           }
         />
       </Field>
-      {valueMode ? (
-        errorKind !== "none" && (
-          <Field label="Error column">
-            <SelectInput
-              value={panel.errorColumn ?? ""}
-              options={["", ...columns]}
-              onChange={(v) => onUpdate({ errorColumn: v || undefined })}
+      {mode === "verbatim" ? (
+        <>
+          <Field label="Show error bars">
+            <ToggleInput
+              on={errorKind !== "none"}
+              onClick={() =>
+                onUpdate({
+                  options: {
+                    ...panel.options,
+                    // the magnitude comes from the error column verbatim, so the
+                    // only meaningful states are show (sd) and hide (none).
+                    errorKind: errorKind === "none" ? "sd" : "none",
+                  },
+                })
+              }
             />
           </Field>
-        )
+          {errorKind !== "none" && (
+            <Field label="Error column">
+              <SelectInput
+                value={panel.errorColumn ?? ""}
+                options={["", ...numCols(panel.errorColumn)]}
+                onChange={(v) => onUpdate({ errorColumn: v || undefined })}
+              />
+            </Field>
+          )}
+        </>
       ) : (
-        <MultiColumnField
-          columns={columns}
-          selected={panel.columns ?? []}
-          label="Replicate columns"
-          onChange={(cols) => onUpdate({ columns: cols })}
-        />
+        <>
+          <MultiColumnField
+            columns={repCols}
+            selected={panel.columns ?? []}
+            label="Replicate columns"
+            onChange={(cols) => onUpdate({ columns: cols })}
+          />
+          <Field label="Error bar">
+            <SelectInput
+              value={errorKind}
+              options={ERROR_KINDS.map((e) => e.id)}
+              labels={Object.fromEntries(
+                ERROR_KINDS.map((e) => [e.id, e.label]),
+              )}
+              onChange={(v) =>
+                onUpdate({ options: { ...panel.options, errorKind: v } })
+              }
+            />
+          </Field>
+        </>
       )}
-      <Field label="Error bar">
-        <SelectInput
-          value={errorKind}
-          options={ERROR_KINDS.map((e) => e.id)}
-          labels={Object.fromEntries(ERROR_KINDS.map((e) => [e.id, e.label]))}
-          onChange={(v) =>
-            onUpdate({ options: { ...panel.options, errorKind: v } })
-          }
-        />
-      </Field>
     </>
   );
 }

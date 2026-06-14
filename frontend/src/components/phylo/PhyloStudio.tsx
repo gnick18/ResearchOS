@@ -329,6 +329,19 @@ export function PhyloStudio({ initialTreeId }: { initialTreeId?: string } = {}) 
     );
   }, [tree, match, metaColumns, tipColumn]);
 
+  // Each bindable column classified numeric vs categorical, so the layer
+  // inspector offers only type-appropriate columns per field (size-by numeric,
+  // shape-by categorical, etc. — Phase 0 contextual settings).
+  const columnKinds = useMemo(() => {
+    const out: Record<string, "numeric" | "categorical"> = {};
+    if (!tree || !match) return out;
+    for (const c of metaColumns) {
+      if (c === tipColumn) continue;
+      out[c] = classifyColumn(tree, match.matched, c);
+    }
+    return out;
+  }, [tree, match, metaColumns, tipColumn]);
+
   // The primary category column for the pinned categorical hues, taken from the
   // first points / strip layer so points + strip + legend agree (as in Phase 0).
   const categoryColumn = useMemo(() => {
@@ -884,6 +897,7 @@ export function PhyloStudio({ initialTreeId }: { initialTreeId?: string } = {}) 
           panels={panels}
           selectedId={selectedLayerId}
           columns={metaColumns.filter((c) => c !== tipColumn)}
+          columnKinds={columnKinds}
           tipNames={tips.map((t) => t.name)}
           annotationKeys={tree ? collectAnnotationKeys(tree) : []}
           treeSummary={`${phylogram ? "phylogram" : "cladogram"}, ${layout}`}
