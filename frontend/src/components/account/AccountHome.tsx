@@ -10,6 +10,7 @@
 // No emojis, no em-dashes, no mid-sentence colons.
 
 import { useEffect, useState } from "react";
+import { getSession } from "next-auth/react";
 import { useFileSystem } from "@/lib/file-system/file-system-context";
 
 interface AccountProfile {
@@ -31,10 +32,13 @@ const LINKS: QuickLink[] = [
 ];
 
 export default function AccountHome() {
-  const { isConnected, connect } = useFileSystem();
+  const { isConnected, connect, lastConnectedFolder, reconnectWithStoredHandle } =
+    useFileSystem();
   const [connecting, setConnecting] = useState(false);
   // Set when a folder-requiring surface bounced the user here (account-first).
   const [fromRoute, setFromRoute] = useState<string | null>(null);
+  // The signed-in name (from the profile or the session), for the welcome-back.
+  const [sessionName, setSessionName] = useState<string | null>(null);
 
   useEffect(() => {
     try {
@@ -43,6 +47,10 @@ export default function AccountHome() {
     } catch {
       /* ignore */
     }
+    void getSession().then((s) => {
+      const n = s?.user?.name || s?.user?.email?.split("@")[0] || null;
+      setSessionName(n);
+    });
   }, []);
 
   const [profile, setProfile] = useState<AccountProfile | null>(null);
@@ -113,12 +121,23 @@ export default function AccountHome() {
   const onConnect = async () => {
     setConnecting(true);
     try {
-      await connect();
+      // A returning user with a remembered folder re-attaches via the stored
+      // handle (one click, no re-pick); otherwise open the OS folder picker.
+      if (lastConnectedFolder) {
+        await reconnectWithStoredHandle();
+      } else {
+        await connect();
+      }
       window.location.assign("/");
     } catch {
       setConnecting(false);
     }
   };
+
+  // Returning = they have used ResearchOS before (a cloud profile or a remembered
+  // folder on this device), so the folderless state is "reconnect", not "set up".
+  const isReturning = Boolean(profile) || Boolean(lastConnectedFolder);
+  const welcomeName = profile?.displayName ?? sessionName ?? null;
 
   const initial = (profile?.displayName ?? profile?.handle ?? "?").slice(0, 1).toUpperCase();
   const inputCls =
@@ -244,14 +263,18 @@ export default function AccountHome() {
             {fromRoute && (
               <p className="mb-2 rounded-lg bg-amber-50 px-3 py-2 text-meta text-amber-800 dark:bg-amber-500/15 dark:text-amber-300">
                 <b>{fromRoute}</b> needs your data, which lives in a folder on your
-                computer. Connect it below to continue.
+                computer. Point us to it below to continue.
               </p>
             )}
-            <h2 className="text-body font-bold text-foreground">Connect your data folder</h2>
+            <h2 className="text-body font-bold text-foreground">
+              {isReturning
+                ? `Welcome back${welcomeName ? `, ${welcomeName}` : ""}`
+                : "Connect your data folder"}
+            </h2>
             <p className="mt-1 text-meta text-foreground-muted">
-              Your notes, experiments, and files live in a folder on this computer,
-              never on our servers. Connect one to start working. You can do this
-              any time, from any device that has your data.
+              {isReturning
+                ? "You are signed in. Your research data lives in a folder on your computer, not on our servers. Point us to it to pick up where you left off."
+                : "Your notes, experiments, and files live in a folder on this computer, never on our servers. Connect one to start working. You can do this any time, from any device that has your data."}
             </p>
             <button
               type="button"
@@ -259,7 +282,13 @@ export default function AccountHome() {
               disabled={connecting}
               className="mt-3 rounded-lg bg-brand-action px-4 py-2 text-meta font-semibold text-white disabled:opacity-60"
             >
-              {connecting ? "Opening…" : "Connect a data folder"}
+              {connecting
+                ? "Opening…"
+                : isReturning && lastConnectedFolder
+                  ? "Open my ResearchOS folder"
+                  : isReturning
+                    ? "Point us to your folder"
+                    : "Connect a data folder"}
             </button>
           </>
         )}
