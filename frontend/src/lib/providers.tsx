@@ -597,6 +597,20 @@ function AppContent({ children }: { children: ReactNode }) {
     );
   }
 
+  // The popup-chrome before/after review gallery is a folderless dev harness.
+  // It mounts the OLD (pre-CalmPopupShell) and NEW (migrated) object popups side
+  // by side so the migrated chrome can be signed off per type, with no real data.
+  // It must render without the File System Access gate, so bypass the folder
+  // wall and supply just a query client (the popups call useQueryClient /
+  // useQuery; the always-mounted FileSystemProvider above already gives them a
+  // null currentUser cleanly). The popups read empty / missing data and show
+  // their own empty states, which is exactly what we want for a chrome review.
+  if (pathname === "/dev/popup-chrome") {
+    return (
+      <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+    );
+  }
+
   // Fixture-backed modes (wiki-capture signed-in variant on localhost, or
   // the public /demo route in any environment): FileSystemProvider has
   // seeded the in-memory fixture and set state to connected. Skip every
