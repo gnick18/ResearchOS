@@ -2460,7 +2460,10 @@ export function layoutAlignedGroupedBar(
     return { id: level, cy, bars };
   });
 
-  const tickStep = niceTicks(0, valueMax).step;
+  const rawStep = niceTicks(0, valueMax).step;
+  // Never advance by a non-positive step (a degenerate niceTicks return would
+  // otherwise spin forever); fall back to a single span tick.
+  const tickStep = rawStep > 0 ? rawStep : valueMax;
   const ticks: { value: number; x: number }[] = [];
   for (let v = 0; v <= valueMax + tickStep * 1e-6; v += tickStep) {
     const value = Math.round(v * 1e6) / 1e6;

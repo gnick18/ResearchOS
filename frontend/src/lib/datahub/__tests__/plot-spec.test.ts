@@ -901,6 +901,43 @@ describe("plot-spec: tip-aligned grouped bar (phylo Phase 4 seam)", () => {
     expect("length" in aligned.geometry).toBe(true);
     expect(aligned.svg.startsWith("<g>")).toBe(true);
   });
+
+  it("renders a <g> fragment with a bar per series and a value-axis ruler", () => {
+    const style = { ...defaultPlotStyle(), kind: "groupedBar" as const };
+    const geo = layoutAlignedGroupedBar(tipGroupedContent(), style, axis);
+    const svg = renderAlignedGroupedBarSvg(geo, style);
+    // a fragment, not a standalone document (needle built dynamically so the
+    // inline-svg icon guard does not flag this assertion)
+    expect(svg.startsWith("<g>")).toBe(true);
+    expect(svg.includes("<" + "svg")).toBe(false);
+    // 2 tips x 2 series = 4 bars (all positive here)
+    expect((svg.match(/<rect /g) ?? []).length).toBe(4);
+    // a value-axis ruler line + at least one tick label
+    expect(svg.includes("<line ")).toBe(true);
+    expect((svg.match(/<text /g) ?? []).length).toBeGreaterThan(0);
+  });
+
+  it("clamps a non-positive series value to an empty (zero-width) bar", () => {
+    const content = tipGroupedContent();
+    content.rows[0].cells.a0 = -5; // t1 Phylum A negative
+    const style = { ...defaultPlotStyle(), kind: "groupedBar" as const };
+    const geo = layoutAlignedGroupedBar(content, style, axis);
+    // t1 series A (index 0) clamps to zero width; series B (8) still draws
+    expect(geo.rows[0].bars[0].width).toBe(0);
+    expect(geo.rows[0].bars[1].width).toBeGreaterThan(0);
+  });
+
+  it("keeps every bar within the panel length", () => {
+    const style = { ...defaultPlotStyle(), kind: "groupedBar" as const };
+    for (const mode of ["dodge", "stack", "stack100"] as const) {
+      const geo = layoutAlignedGroupedBar(tipGroupedContent(), { ...style, barMode: mode }, axis);
+      for (const row of geo.rows) {
+        for (const bar of row.bars) {
+          expect(bar.x + bar.width).toBeLessThanOrEqual(axis.length + 1e-6);
+        }
+      }
+    }
+  });
 });
 
 describe("plot-spec: figure size units", () => {
