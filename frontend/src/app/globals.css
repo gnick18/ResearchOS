@@ -514,16 +514,59 @@
  * it without adding new hues. Gated on .ros-history-panel so the standalone
  * notes sidebar (its own raised-white card) is untouched. */
 .ros-calm-surface .ros-history-panel {
+  position: relative;
   border-left: 1px solid var(--border-subtle);
-  background: color-mix(in srgb, var(--foreground) 3%, transparent);
-  /* Small offset, near-zero spread: the blur actually reads as a soft band on
-   * the diff column. (A large negative spread collapses the shadow to nothing,
-   * however high the alpha.) */
-  box-shadow: -8px 0 18px -4px rgba(15, 23, 42, 0.18);
+  /* Raised paper, faded in/out at the top + bottom so the tint rectangle has no
+   * hard horizontal edge against the surface above the toolbar / below the
+   * footer. */
+  background: linear-gradient(
+    to bottom,
+    transparent 0,
+    color-mix(in srgb, var(--foreground) 3%, transparent) 28px,
+    color-mix(in srgb, var(--foreground) 3%, transparent) calc(100% - 28px),
+    transparent 100%
+  );
+}
+/* Soft seam shadow cast onto the diff column. A box-shadow on the rectangle
+ * caps the shadow with a hard horizontal nub at the top + bottom corners; a
+ * masked gradient strip casts ONLY horizontally (transparent -> shadow toward
+ * the seam) and is faded at the top + bottom by the vertical mask, so it dies
+ * out cleanly instead of hard-cutting. */
+.ros-calm-surface .ros-history-panel::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: -26px;
+  width: 26px;
+  pointer-events: none;
+  background: linear-gradient(to right, transparent, rgba(15, 23, 42, 0.16));
+  -webkit-mask-image: linear-gradient(
+    to bottom,
+    transparent 0,
+    #000 40px,
+    #000 calc(100% - 40px),
+    transparent 100%
+  );
+  mask-image: linear-gradient(
+    to bottom,
+    transparent 0,
+    #000 40px,
+    #000 calc(100% - 40px),
+    transparent 100%
+  );
 }
 [data-theme="dark"] .ros-calm-surface .ros-history-panel {
-  background: color-mix(in srgb, #ffffff 5%, transparent);
-  box-shadow: -8px 0 20px -4px rgba(0, 0, 0, 0.55);
+  background: linear-gradient(
+    to bottom,
+    transparent 0,
+    color-mix(in srgb, #ffffff 5%, transparent) 28px,
+    color-mix(in srgb, #ffffff 5%, transparent) calc(100% - 28px),
+    transparent 100%
+  );
+}
+[data-theme="dark"] .ros-calm-surface .ros-history-panel::before {
+  background: linear-gradient(to right, transparent, rgba(0, 0, 0, 0.5));
 }
 /* The compare toolbar reads as a quiet raised strip over the scrolling rows: a
  * slightly firmer raised fill + a soft drop shadow in place of the washed-out
