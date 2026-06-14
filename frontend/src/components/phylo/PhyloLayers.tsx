@@ -24,12 +24,15 @@ import {
   columnFilterFor,
   errorBarControl,
   filterColumns,
+  isRemovableLayer,
   kindAvailable,
   kindDrawsLegend,
+  layerCategory,
   unmetReason,
   usesScaleKindSelect,
   type ColumnFilter,
   type LayerCapabilities,
+  type LayerCategory,
 } from "@/lib/phylo/layer-schema";
 import type {
   AlignedPanel,
@@ -95,6 +98,46 @@ export const PANEL_CATALOG: CatalogGroup[] = [
 const KIND_LABEL: Record<string, string> = Object.fromEntries(
   PANEL_CATALOG.flatMap((g) => g.items.map((i) => [i.kind, i.name])),
 );
+
+// Typed-row treatment (Phase 3): each layer category reads differently at a
+// glance — tree elements recede (neutral, a "style" pill, non-removable), added
+// data overlays carry a data-source chip (the binding), highlights get an amber
+// accent + a count of their annotations.
+const CATEGORY_ACCENT: Record<LayerCategory, string> = {
+  "tree-element": "border-l-border",
+  "data-overlay": "border-l-brand-sky",
+  highlight: "border-l-amber-500",
+};
+const CATEGORY_SWATCH: Record<LayerCategory, string> = {
+  "tree-element": "bg-foreground-muted",
+  "data-overlay": "bg-brand-sky",
+  highlight: "bg-amber-500",
+};
+
+/** The data-source chip text for an added overlay (the binding it carries), or
+ *  null for tree elements which bind nothing. */
+function dataSourceLabel(panel: AlignedPanel): string | null {
+  if (panel.kind === "datahubPlot")
+    return String(panel.options?.title ?? "Data Hub");
+  if (panel.kind === "msa") return "alignment";
+  if (panel.columns?.length)
+    return panel.columns.length <= 2
+      ? panel.columns.join(", ")
+      : `${panel.columns.length} cols`;
+  if (panel.column) return panel.column;
+  return null;
+}
+
+/** How many annotations a highlight container layer holds (clades, links,
+ *  strips, pies), or null for non-container kinds. */
+function annotationCount(panel: AlignedPanel): number | null {
+  const o = panel.options ?? {};
+  if (panel.kind === "clade") return (o.clades as unknown[] | undefined)?.length ?? 0;
+  if (panel.kind === "taxalink") return (o.links as unknown[] | undefined)?.length ?? 0;
+  if (panel.kind === "taxastrip") return (o.strips as unknown[] | undefined)?.length ?? 0;
+  if (panel.kind === "nodepie") return (o.pies as unknown[] | undefined)?.length ?? 0;
+  return null;
+}
 
 /** Which kinds bind a metadata column (show the column / scale fields). The
  *  legend + error-bar + scale-kind rules now live in lib/phylo/layer-schema.ts;
@@ -261,6 +304,67 @@ export function PhyloLayersControl({
           onReorder={reorder}
         />
       </div>
+
+      <LegendsAndKeys panels={panels} onUpdate={update} />
+    </div>
+  );
+}
+
+/** Contextual legend manager: lists only the keys CURRENTLY on the figure (a
+ *  visible data layer that can draw a legend), with a per-key show/hide. Empties
+ *  to a hint when nothing is on the figure, so the controls never sit dead. */
+function LegendsAndKeys({
+  panels,
+  onUpdate,
+}: {
+  panels: AlignedPanel[];
+  onUpdate: (id: string, patch: Partial<AlignedPanel>) => void;
+}) {
+  const keyed = panels.filter(
+    (p) =>
+      p.visible &&
+      kindDrawsLegend(p.kind) &&
+      (!!p.column || !!p.columns?.length || p.kind === "msa"),
+  );
+  return (
+    <div>
+      <h3 className="text-[11px] uppercase tracking-wide text-foreground-muted font-semibold mb-2">
+        Legends &amp; keys
+        <span className="ml-1.5 font-normal normal-case opacity-70">
+          only what&apos;s on the figure
+        </span>
+      </h3>
+      {keyed.length === 0 ? (
+        <p className="text-xs text-foreground-muted px-1">
+          No data layers visible — no keys to place.
+        </p>
+      ) : (
+        <div className="space-y-1">
+          {keyed.map((p) => {
+            const on = p.legend !== false;
+            return (
+              <div
+                key={p.id}
+                className="flex items-center gap-2 text-xs px-2 py-1 rounded-md border border-border bg-surface"
+              >
+                <span className="w-2 h-2 rounded-sm bg-brand-sky shrink-0" />
+                <span className="text-foreground truncate">
+                  {KIND_LABEL[p.kind] ?? p.kind} key
+                </span>
+                <span className="text-foreground-muted truncate">
+                  {dataSourceLabel(p) ?? ""}
+                </span>
+                <button
+                  onClick={() => onUpdate(p.id, { legend: on ? false : true })}
+                  className={`ml-auto shrink-0 ${on ? "text-brand-sky" : "text-foreground-muted"}`}
+                >
+                  {on ? "Shown" : "Hidden"}
+                </button>
+              </div>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }
@@ -363,13 +467,19 @@ function LayerList({
         const sel = panel.id === selectedId;
         const dragging = dragIndex === index;
         const over = overIndex === index && dragIndex !== null && !dragging;
+        const cat = layerCategory(panel.kind);
+        const removable = isRemovableLayer(panel.kind);
+        const source = dataSourceLabel(panel);
+        const count = annotationCount(panel);
         return (
           <div
             key={panel.id}
             ref={(el) => {
               rowRefs.current[index] = el;
             }}
-            className={`border rounded-lg mb-1.5 bg-surface-raised overflow-hidden transition-shadow ${
+            className={`border border-l-2 ${CATEGORY_ACCENT[cat]} rounded-lg mb-1.5 overflow-hidden transition-shadow ${
+              cat === "tree-element" ? "bg-surface" : "bg-surface-raised"
+            } ${
               sel ? "border-brand-sky ring-2 ring-sky-100" : "border-border"
             } ${over ? "border-t-2 border-t-brand-sky" : ""} ${
               dragging ? "opacity-60" : ""
@@ -401,29 +511,45 @@ function LayerList({
                   />
                 </button>
               </Tooltip>
+              <span
+                className={`w-2.5 h-2.5 rounded-sm shrink-0 ${CATEGORY_SWATCH[cat]}`}
+                aria-hidden
+              />
               <button
                 onClick={() => onSelect(sel ? null : panel.id)}
-                className="flex-1 text-left min-w-0"
+                className="flex-1 text-left min-w-0 flex items-center gap-1.5"
               >
-                <span className="text-sm text-foreground">
+                <span className="text-sm text-foreground truncate">
                   {KIND_LABEL[panel.kind] ?? panel.kind}
                 </span>
-                {(panel.column || panel.columns?.length) && (
-                  <span className="text-xs text-foreground-muted truncate">
-                    {" · "}
-                    {panel.column ?? panel.columns?.join(", ")}
+                {cat === "data-overlay" && source && (
+                  <span className="inline-flex items-center gap-1 shrink-0 text-[10px] text-brand-sky bg-sky-50 dark:bg-sky-900/30 rounded px-1.5 py-0.5 truncate">
+                    <Icon name="database" className="w-2.5 h-2.5" />
+                    {source}
+                  </span>
+                )}
+                {cat === "tree-element" && (
+                  <span className="shrink-0 text-[10px] text-foreground-muted border border-border rounded px-1.5 py-0.5">
+                    style
+                  </span>
+                )}
+                {cat === "highlight" && count != null && (
+                  <span className="shrink-0 text-[10px] text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-900/30 rounded px-1.5 py-0.5">
+                    {count} {count === 1 ? "item" : "items"}
                   </span>
                 )}
               </button>
-              <Tooltip label="Delete layer">
-                <button
-                  onClick={() => onRemove(panel.id)}
-                  className="text-border hover:text-red-500 px-0.5"
-                  aria-label="Delete layer"
-                >
-                  <Icon name="trash" className="w-3.5 h-3.5" />
-                </button>
-              </Tooltip>
+              {removable && (
+                <Tooltip label="Delete layer">
+                  <button
+                    onClick={() => onRemove(panel.id)}
+                    className="text-border hover:text-red-500 px-0.5"
+                    aria-label="Delete layer"
+                  >
+                    <Icon name="trash" className="w-3.5 h-3.5" />
+                  </button>
+                </Tooltip>
+              )}
             </div>
             {sel && (
               <Inspector
