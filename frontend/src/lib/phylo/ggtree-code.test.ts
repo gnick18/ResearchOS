@@ -85,6 +85,38 @@ describe("generateGgtreeCode", () => {
     expect(code).toContain("aes(x = genome)");
   });
 
+  it("emits a geom_fruit template for a datahubPlot panel, position by barMode", () => {
+    const dodge = generateGgtreeCode(
+      spec({
+        panels: [
+          {
+            id: "d1",
+            kind: "datahubPlot",
+            visible: true,
+            options: { title: "Abundance" },
+          },
+        ],
+      }),
+    );
+    expect(dodge).toContain("geom_fruit(data = dat, geom = geom_col");
+    expect(dodge).toContain("position = position_dodge2()");
+    expect(dodge).toContain("Abundance");
+
+    const relative = generateGgtreeCode(
+      spec({
+        panels: [
+          {
+            id: "d1",
+            kind: "datahubPlot",
+            visible: true,
+            options: { barMode: "stack100" },
+          },
+        ],
+      }),
+    );
+    expect(relative).toContain("position = position_fill()");
+  });
+
   it("emits gheatmap with the selected gene columns", () => {
     const code = generateGgtreeCode(
       spec({

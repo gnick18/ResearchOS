@@ -384,6 +384,27 @@ function generateFromPanels(spec: RenderSpec, panels: AlignedPanel[]): string {
         );
         offset += 0.3;
         break;
+      case "datahubPlot": {
+        // A tip-aligned Data Hub grouped-bar figure. The data is a separate table
+        // (not the metadata df), so emit an honest geom_fruit template from a LONG
+        // per-tip table; the bar position mirrors the panel's barMode.
+        const mode = String(panel.options?.barMode ?? "dodge");
+        const position =
+          mode === "stack100"
+            ? "position_fill()"
+            : mode === "stack"
+              ? "position_stack()"
+              : "position_dodge2()";
+        const title = String(panel.options?.title ?? "Data Hub plot");
+        lines.push(
+          `# A tip-aligned Data Hub figure (${title}). ggtreeExtra draws it from a`,
+          "# LONG per-tip table (one row per tip x series, with a value column),",
+          "# where the tip column matches the tree tip ids. With that table as 'dat':",
+          `#   p <- p + geom_fruit(data = dat, geom = geom_col, mapping = aes(x = value, fill = series), position = ${position}, offset = ${offset.toFixed(2)})`,
+        );
+        offset += 0.2;
+        break;
+      }
       default:
         break;
     }
