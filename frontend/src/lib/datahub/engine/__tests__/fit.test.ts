@@ -89,6 +89,79 @@ suite("4-parameter logistic dose-response (EC50)", () => {
   });
 });
 
+suite("4PL noisy-data regression: no mirror / degenerate optimum", () => {
+  // The 4PL has an exact mirror degeneracy, (Bottom, Top, Hill) and
+  // (Top, Bottom, -Hill) describe the SAME curve, plus a starting guess that used
+  // to fix the Hill sign to +1. On a DECREASING (inhibition) curve that wrong-sign
+  // seed stranded the optimizer in a degenerate optimum: it reported Top < Bottom,
+  // a Hill of the wrong sign, and a half-max (EC50) decades outside the tested
+  // doses, sometimes with a wrecked R-squared. Regression guards both the fix
+  // (trend-aware Hill seed + logEC50 bound) and the canonical-orientation guard
+  // (always report Top >= Bottom). x is log10(dose); the deterministic noise array
+  // makes the fit reproducible.
+  const BOTTOM = 5;
+  const TOP = 95;
+  const LOG_EC50 = 1; // EC50 = 10
+  const xs = [-1, -0.5, 0, 0.5, 1, 1.5, 2, 2.5, 3];
+  // Fixed pseudo-noise, so the dataset is "known" and the assertions stable.
+  const noise = [2.1, -1.7, 3.0, -2.4, 1.2, -0.8, 2.6, -1.1, 0.5];
+  const fourPLAt = (x: number, hill: number) =>
+    BOTTOM + (TOP - BOTTOM) / (1 + Math.pow(10, (LOG_EC50 - x) * hill));
+
+  it("recovers a steep DECREASING curve (true Hill -3) instead of a wrecked fit", () => {
+    // This is the case that previously collapsed to R-squared ~0.22.
+    const ys = xs.map((x, i) => fourPLAt(x, -3) + noise[i]);
+    const r = fitModel("logistic4pl", xs, ys);
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    // Canonical orientation: Top is reported above Bottom regardless of direction.
+    expect(r.values.Top).toBeGreaterThan(r.values.Bottom);
+    // Direction is carried by the Hill sign (negative for a decreasing curve).
+    expect(r.values.HillSlope).toBeLessThan(0);
+    // EC50 lands near the truth (10), inside the tested dose range, NOT at ~1e8.
+    expect(r.values.logEC50).toBeCloseTo(LOG_EC50, 1);
+    expect(r.derived?.EC50).toBeGreaterThan(3);
+    expect(r.derived?.EC50).toBeLessThan(30);
+    // The fit is good now, not the old degenerate near-flat optimum.
+    expect(r.rSquared).toBeGreaterThan(0.95);
+  });
+
+  it("recovers a shallow DECREASING curve with canonical Top >= Bottom", () => {
+    const ys = xs.map((x, i) => fourPLAt(x, -1) + noise[i]);
+    const r = fitModel("logistic4pl", xs, ys);
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    expect(r.values.Top).toBeGreaterThan(r.values.Bottom);
+    expect(r.values.HillSlope).toBeLessThan(0);
+    expect(r.derived?.EC50).toBeGreaterThan(3);
+    expect(r.derived?.EC50).toBeLessThan(30);
+    expect(r.rSquared).toBeGreaterThan(0.95);
+  });
+
+  it("still fits an INCREASING noisy curve correctly (no regression)", () => {
+    const ys = xs.map((x, i) => fourPLAt(x, 1) + noise[i]);
+    const r = fitModel("logistic4pl", xs, ys);
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    expect(r.values.Top).toBeGreaterThan(r.values.Bottom);
+    expect(r.values.HillSlope).toBeGreaterThan(0);
+    expect(r.derived?.EC50).toBeGreaterThan(3);
+    expect(r.derived?.EC50).toBeLessThan(30);
+    expect(r.rSquared).toBeGreaterThan(0.95);
+  });
+
+  it("the logEC50 bound keeps the half-max inside a sane multiple of the data range", () => {
+    const ys = xs.map((x, i) => fourPLAt(x, -3) + noise[i]);
+    const r = fitModel("logistic4pl", xs, ys);
+    if (!r.ok) throw new Error("expected ok");
+    // x spans [-1, 3] (span 4); the bound is +/- 3*span, so logEC50 must stay
+    // within [-13, 15]. The old failure put logEC50 at ~8.1 (EC50 1.3e8) which,
+    // with a wider seed, could escape entirely; assert it is well inside.
+    expect(r.values.logEC50).toBeGreaterThan(-13);
+    expect(r.values.logEC50).toBeLessThan(15);
+  });
+});
+
 suite("5-parameter logistic dose-response (asymmetric, EC50)", () => {
   // Self-consistency, the same noise-free check used for the 4PL. Data generated
   // from known 5PL parameters must be recovered, and the reported EC50 must be the

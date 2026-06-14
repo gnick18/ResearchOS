@@ -22,12 +22,44 @@ export interface NonlinearModel {
     x: number[],
     y: number[],
   ) => { min: number[]; max: number[] };
+  /**
+   * Optional canonical-orientation transform applied to the converged parameters
+   * before reporting. Used to collapse a model's sign/mirror degeneracy (two
+   * parameter sets describing the SAME curve) to one conventional form, so the
+   * reported parameters are stable regardless of which equivalent optimum the
+   * solver landed on. Must return a parameter set whose curve is identical.
+   */
+  canonicalize?: (params: number[]) => number[];
   /** Optional derived readouts (e.g. EC50) from fitted params. */
   derived?: (params: number[]) => Record<string, number>;
 }
 
 function range(y: number[]): { lo: number; hi: number } {
   return { lo: Math.min(...y), hi: Math.max(...y) };
+}
+
+/** Min/max of an array via a single pass (safe for large inputs, no spread). */
+function minMax(v: number[]): { lo: number; hi: number } {
+  let lo = Infinity;
+  let hi = -Infinity;
+  for (const n of v) {
+    if (n < lo) lo = n;
+    if (n > hi) hi = n;
+  }
+  return { lo, hi };
+}
+
+/**
+ * Sign of the response trend across x: +1 when y rises with x, -1 when it falls,
+ * from the sign of the x-y covariance. Returns +1 on flat or degenerate input so
+ * the default matches the historical increasing-curve seed.
+ */
+function trendSign(x: number[], y: number[]): number {
+  const mx = meanOf(x);
+  const my = meanOf(y);
+  let cov = 0;
+  for (let i = 0; i < x.length; i++) cov += (x[i] - mx) * (y[i] - my);
+  return cov < 0 ? -1 : 1;
 }
 
 /**
@@ -46,7 +78,8 @@ const fourPL: NonlinearModel = {
       bottom + (top - bottom) / (1 + Math.pow(10, (logEC50 - x) * hill)),
   initialGuess: (x, y) => {
     const { lo, hi } = range(y);
-    // logEC50 guessed at the x where y is midway between lo and hi.
+    // logEC50 guessed at the x where y is midway between lo and hi (the half-max
+    // crossing).
     const mid = (lo + hi) / 2;
     let bestX = x[Math.floor(x.length / 2)];
     let bestDist = Infinity;
@@ -57,8 +90,33 @@ const fourPL: NonlinearModel = {
         bestX = x[i];
       }
     }
-    return [lo, hi, bestX, 1];
+    // Seed Bottom / Top from the response min / max (canonical Top >= Bottom) and
+    // the Hill SIGN from the data trend: a rising response is an increasing curve
+    // (positive Hill), a falling one is decreasing (negative Hill). Without this,
+    // a fixed positive seed strands a decreasing curve in the mirror optimum
+    // (Top < Bottom, EC50 far outside the data) instead of the true inflection.
+    return [lo, hi, bestX, trendSign(x, y)];
   },
+  defaultBounds: (x) => {
+    // Keep logEC50 within a generous multiple of the tested dose range so the
+    // optimizer cannot wander to a half-max decades outside the data (the 1e8
+    // EC50 failure). Bottom / Top / Hill stay unbounded.
+    const { lo, hi } = minMax(x);
+    const span = hi - lo || 1;
+    const pad = 3 * span;
+    return {
+      min: [-Infinity, -Infinity, lo - pad, -Infinity],
+      max: [Infinity, Infinity, hi + pad, Infinity],
+    };
+  },
+  // The 4PL has an exact mirror degeneracy: (Bottom, Top, Hill) and
+  // (Top, Bottom, -Hill) describe the SAME curve (logEC50 is invariant under the
+  // swap). Collapse it to the conventional Top >= Bottom form, with the Hill sign
+  // carrying direction, so the reported parameters are one stable answer.
+  canonicalize: ([bottom, top, logEC50, hill]) =>
+    top >= bottom
+      ? [bottom, top, logEC50, hill]
+      : [top, bottom, logEC50, -hill],
   derived: ([, , logEC50]) => ({
     EC50: Math.pow(10, logEC50),
     IC50: Math.pow(10, logEC50),

@@ -137,10 +137,15 @@ export function fitModel(
     };
   }
 
-  const params = lm.parameterValues;
+  let params = lm.parameterValues;
   if (!params.every((v) => Number.isFinite(v))) {
     return { ok: false, error: "Fit produced non-finite parameters." };
   }
+  // Collapse any model sign/mirror degeneracy to the conventional orientation so
+  // the reported parameters (and their SEs / CIs, computed below) are one stable
+  // answer regardless of which equivalent optimum the solver reached. The
+  // transform returns an identical curve, so residuals / R-squared are unchanged.
+  if (model.canonicalize) params = model.canonicalize(params);
 
   // Residuals + SSR + R-squared.
   const fn = model.fn(params);
