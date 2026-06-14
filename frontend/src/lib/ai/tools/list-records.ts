@@ -23,7 +23,7 @@ import {
   type ListSortBy,
 } from "@/lib/ai/artifact-index";
 import { fetchAllProjectsIncludingShared, usersApi } from "@/lib/local-api";
-import { attachRecordSetIfBig, briefToRow, RECORD_SET_UI_CAP } from "@/lib/ai/record-set";
+import { attachRecordSetIfBig, briefToRow } from "@/lib/ai/record-set";
 import type { Project } from "@/lib/types";
 import type { AiTool } from "./types";
 
@@ -156,27 +156,21 @@ export const listRecordsTool: AiTool = {
     const order: ListOrder = args.order === "asc" ? "asc" : "desc";
     const limit = typeof args.limit === "number" && args.limit > 0 ? Math.min(args.limit, 50) : 10;
 
-    // Fetch up to the UI cap ONCE so the widget gets the full match set, then slice
-    // the requested limit for the model. The model still receives only `limit`
-    // items (its existing shape); the full set rides out-of-band under _ui, which
-    // the agent loop strips before the result reaches the model.
-    const uiLimit = Math.max(limit, RECORD_SET_UI_CAP);
-    const { total, items: fullItems } = await listRecordsDeps.list({
-      filter,
-      sortBy,
-      order,
-      limit: uiLimit,
-    });
-    const items = fullItems.slice(0, limit);
+    // list_records is a deterministic TOP-N: the requested `limit` IS the answer, so
+    // the widget shows exactly what was asked for, never the whole table. (Unlike a
+    // search or summary, where the widget carries the full match set.) Fetch `limit`
+    // once and feed the SAME items to both the model and the widget. _ui.total is the
+    // shown count so the widget header reads "3 matches", not "3 of 13"; the model
+    // still gets the real `total` for its narration ("showing 3 of 13").
+    const { total, items } = await listRecordsDeps.list({ filter, sortBy, order, limit });
 
-    // The full match set for the widget. attachRecordSetIfBig gates it on the ">4"
-    // rule, so a small list (4 or fewer) returns the result unchanged and the reply
-    // shows inline chips instead of a widget.
-    const rows = fullItems.slice(0, RECORD_SET_UI_CAP).map(briefToRow);
+    // attachRecordSetIfBig gates on the set floor, so a single result returns the
+    // result unchanged (a lone inline chip) and 2+ render the widget.
+    const rows = items.map(briefToRow);
     return attachRecordSetIfBig(
       { ok: true as const, total, count: items.length, sortBy, order, items },
       rows,
-      { kind: "list_records", title: "Records", total },
+      { kind: "list_records", title: "Records", total: items.length },
     );
   },
 };

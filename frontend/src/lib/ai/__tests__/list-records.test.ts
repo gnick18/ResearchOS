@@ -36,36 +36,37 @@ describe("list_records tool", () => {
     };
     expect(r.ok).toBe(true);
     expect(r.total).toBe(42);
-    // The model-facing count is the requested limit (2), even though the tool now
-    // fetches up to the UI cap (500) once so the inline record-set widget gets the
-    // full match set. items is sliced to the limit for the model.
     expect(r.count).toBe(2);
     expect(r.sortBy).toBe("title");
     expect(r.order).toBe("asc");
-    // deps.list is asked for the UI cap, not the model limit, so the widget set is
-    // complete in one pass; sortBy/order still flow through unchanged.
+    // list_records is a deterministic top-N, so the lister is asked for exactly the
+    // requested limit (not a wider UI cap); the widget shows what was asked for.
     expect(listSpy).toHaveBeenCalledWith(
-      expect.objectContaining({ sortBy: "title", order: "asc", limit: 500 }),
+      expect.objectContaining({ sortBy: "title", order: "asc", limit: 2 }),
     );
   });
 
-  it("attaches the full match set as a UI-only record-set under _ui when >4 match", async () => {
+  it("the widget set respects the requested limit (top-N), not the whole table", async () => {
+    // The lister returns the limit-capped page (3) plus the real total (13).
     vi.spyOn(listRecordsDeps, "list").mockResolvedValue({
-      total: 5,
-      items: [brief("1", "A"), brief("2", "B"), brief("3", "C"), brief("4", "D"), brief("5", "E")],
+      total: 13,
+      items: [brief("1", "A"), brief("2", "B"), brief("3", "C")],
     });
     vi.spyOn(listRecordsDeps, "listMemberUsernames").mockResolvedValue([]);
     vi.spyOn(listRecordsDeps, "listProjects").mockResolvedValue([]);
 
-    const r = (await listRecordsTool.execute({ limit: 1 })) as {
+    const r = (await listRecordsTool.execute({ limit: 3 })) as {
       count: number;
+      total: number;
       _ui?: { kind: string; total: number; items: Array<{ id: string }> };
     };
-    // Model sees only the requested 1 item; the widget set carries all 5.
-    expect(r.count).toBe(1);
+    // The model learns the real total (13), but the widget shows only the 3 asked
+    // for, with its header count matching the shown rows (not "3 of 13").
+    expect(r.count).toBe(3);
+    expect(r.total).toBe(13);
     expect(r._ui?.kind).toBe("list_records");
-    expect(r._ui?.total).toBe(5);
-    expect(r._ui?.items.map((i) => i.id)).toEqual(["1", "2", "3", "4", "5"]);
+    expect(r._ui?.items.map((i) => i.id)).toEqual(["1", "2", "3"]);
+    expect(r._ui?.total).toBe(3);
   });
 
   it("does NOT attach _ui for a lone match (1 item stays an inline chip)", async () => {

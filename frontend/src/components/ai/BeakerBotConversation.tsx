@@ -1252,9 +1252,16 @@ export default function BeakerBotConversation({
                   data-testid={`beakerbot-message-${m.role}`}
                   // Beaker speaks Hanken (--font-ai, set at the panel root); the USER
                   // speaks the app font. A user bubble is the user's own words, so it
-                  // drops back to --font-sans (Geist). Inline to override the inherited
-                  // panel-root --font-ai; assistant bubbles inherit Hanken untouched.
-                  style={m.role === "user" ? { fontFamily: "var(--font-sans)" } : undefined}
+                  // drops back to the app body chain. Use the FULL chain (not bare
+                  // var(--font-sans), which resolves to an unloaded Geist var and so
+                  // falls back to the inherited Hanken) so the user voice is visibly
+                  // non-Hanken whether or not Geist is loaded. Assistant bubbles inherit
+                  // Hanken untouched.
+                  style={
+                    m.role === "user"
+                      ? { fontFamily: "var(--font-geist-sans), system-ui, -apple-system, sans-serif" }
+                      : undefined
+                  }
                   className={
                     m.role === "user"
                       ? "self-end max-w-[85%] rounded-lg bg-brand px-3 py-2 text-body text-white"
@@ -1985,11 +1992,13 @@ export default function BeakerBotConversation({
               placeholder="Message BeakerBot, or @ to attach, / for a command"
               // The panel root reads in Beaker's signature typeface (--font-ai,
               // Hanken) because that font is BEAKER'S voice. The composer is where
-              // the USER writes, not Beaker, so it drops back to the app font
-              // (--font-sans, Geist). Inline so it overrides the inherited inline
-              // --font-ai from the panel root; covers both the typed text and the
-              // placeholder.
-              style={{ fontFamily: "var(--font-sans)" }}
+              // the USER writes, not Beaker, so it drops to the app body font chain.
+              // Use the FULL chain (bare var(--font-sans) resolves to an unloaded
+              // Geist var and falls back to the inherited Hanken); this keeps the
+              // composer visibly non-Hanken whether or not Geist is loaded. Inline so
+              // it overrides the inherited inline --font-ai; covers the typed text and
+              // the placeholder.
+              style={{ fontFamily: "var(--font-geist-sans), system-ui, -apple-system, sans-serif" }}
               className="min-h-0 w-full resize-none rounded-md border border-border bg-surface-raised px-3 py-2 text-body text-foreground placeholder:text-foreground-muted focus:outline-none focus:ring-2 focus:ring-brand"
             />
           </div>
