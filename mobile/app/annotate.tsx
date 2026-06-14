@@ -18,7 +18,6 @@ import {
   Modal,
   PanResponder,
   Pressable,
-  ScrollView,
   StyleSheet,
   TextInput,
   View,
@@ -28,6 +27,8 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
+import { StatusBar } from 'expo-status-bar';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import Svg from 'react-native-svg';
 
 import { ThemedText } from '@/components/themed-text';
@@ -35,7 +36,7 @@ import { renderSpec } from '@/components/AnnotationOverlay';
 import { Button } from '@/components/ui/Button';
 import { ScreenFrame } from '@/components/ui/ScreenFrame';
 import { ScreenHeader } from '@/components/ui/ScreenHeader';
-import { useTheme, palette } from '@/lib/design';
+import { useTheme, palette, fonts } from '@/lib/design';
 import {
   ANNOTATION_SCHEMA_VERSION,
   docToSvgElements,
@@ -75,12 +76,27 @@ const TOOLS: { tool: Tool; icon: keyof typeof Ionicons.glyphMap; label: string }
   { tool: 'text', icon: 'text', label: 'Text' },
 ];
 
+// The Annotate screen is the one deliberate deviation from the flat app canvas:
+// a dark full-focus markup studio (contract .screen.cam = #0a0d12), so the photo
+// reads first and the chrome recedes. These dark tokens are local to this screen.
+const CAM = {
+  bg: '#0a0d12',
+  // Toolbar surface sits one step up from the canvas so the controls read as a
+  // panel, with a hairline top edge. Mirrors the contract anno-toolbar/.anno-tool.
+  panel: '#11161f',
+  toolBg: 'rgba(255,255,255,0.05)',
+  toolBorder: 'rgba(255,255,255,0.10)',
+  border: 'rgba(255,255,255,0.09)',
+  text: '#EAF0F7',
+  muted: 'rgba(234,240,247,0.55)',
+} as const;
+
 // The rendered image box, in screen px, captured via onLayout.
 type Box = { width: number; height: number };
 
 export default function AnnotateScreen() {
   const router = useRouter();
-  const { surface, spacing, radii } = useTheme();
+  const { surface, radii, shadow } = useTheme();
 
   // The target uri stashed by the caller before navigating here. Taken once on
   // mount so a back-and-forward does not re-open a stale target.
@@ -310,24 +326,44 @@ export default function AnnotateScreen() {
     );
   }
 
+  const hasShapes = shapes.length > 0;
+  const activeTool = TOOLS.find((t) => t.tool === tool);
+
   return (
-    <ScreenFrame>
-      <ScreenHeader />
-      <View style={styles.fill}>
-        <ScrollView
-          style={styles.fill}
-          contentContainerStyle={styles.scroll}
-          keyboardShouldPersistTaps="handled"
-          // Drawing happens inside the image box, not the scroll view, so the
-          // scroll view should not steal the gesture.
-          scrollEnabled={false}
-        >
-          {/* Image + SVG overlay. onLayout on the wrapper gives the rendered box.
-              The Svg matches the box and uses a natural-pixel viewBox. */}
+    <View style={styles.cam}>
+      {/* The studio is intentionally dark, so force light status-bar glyphs. */}
+      <StatusBar style="light" />
+      <SafeAreaView style={styles.fill} edges={['top', 'bottom']}>
+        {/* Dark nav header (contract .navhead over .cam): back X, title, inline
+            Save pill. The pushed-screen back is an X here, not a chevron, because
+            Save is the commit and the X is "leave without saving". */}
+        <View style={styles.camHead}>
+          <Pressable
+            onPress={onCancel}
+            hitSlop={14}
+            style={styles.camBack}
+            accessibilityRole="button"
+            accessibilityLabel="Close without saving"
+          >
+            <Ionicons name="close" size={24} color={palette.white} />
+          </Pressable>
+          <ThemedText style={styles.camTitle}>Annotate</ThemedText>
+          <View style={styles.fill} />
+          <Button
+            variant="primary"
+            label="Save"
+            onPress={onSave}
+            style={styles.savePill}
+          />
+        </View>
+
+        {/* Photo stage. The image is centered and letterboxed against the dark
+            canvas, framed by the contract photo-area (radius, hairline border). */}
+        <View style={styles.stage}>
           <View
             style={[
               styles.imageWrap,
-              { borderRadius: radii.md },
+              { borderRadius: radii.lg, borderColor: CAM.border },
               boxHeight ? { height: boxHeight } : { aspectRatio: natural ? natural.w / natural.h : 1 },
             ]}
             onLayout={onBoxLayout}
@@ -343,13 +379,23 @@ export default function AnnotateScreen() {
                 {specs.map(renderSpec)}
               </Svg>
             ) : null}
-          </View>
-        </ScrollView>
 
-        {/* Toolbar pinned at the bottom. */}
-        <View style={[styles.toolbar, { backgroundColor: surface.surface, borderColor: surface.border }]}>
-          {/* Tool picker */}
-          <View style={styles.row}>
+            {/* Floating hint while the canvas is still blank (contract .hint-pill). */}
+            {!hasShapes && !draft ? (
+              <View style={styles.hintPill} pointerEvents="none">
+                <Ionicons name="hand-left-outline" size={13} color={palette.white} />
+                <ThemedText style={styles.hintText}>
+                  {tool === 'text' ? 'Tap to drop a label' : `Drag to ${activeTool?.label.toLowerCase() ?? 'draw'}`}
+                </ThemedText>
+              </View>
+            ) : null}
+          </View>
+        </View>
+
+        {/* Toolbar panel, pinned at the bottom (contract .anno-toolbar). */}
+        <View style={[styles.toolbar, { borderTopColor: CAM.border }]}>
+          {/* Tool picker: contract .anno-tool tiles, sky fill when on. */}
+          <View style={styles.toolRow}>
             {TOOLS.map((t) => {
               const on = tool === t.tool;
               return (
@@ -357,102 +403,112 @@ export default function AnnotateScreen() {
                   key={t.tool}
                   onPress={() => setTool(t.tool)}
                   style={[
-                    styles.toolChip,
-                    { backgroundColor: on ? palette.sky : surface.sunken, borderRadius: radii.sm },
+                    styles.annoTool,
+                    {
+                      backgroundColor: on ? palette.sky : CAM.toolBg,
+                      borderColor: on ? palette.sky : CAM.toolBorder,
+                    },
                   ]}
                   accessibilityRole="button"
+                  accessibilityLabel={t.label}
+                  accessibilityState={{ selected: on }}
                 >
-                  <Ionicons name={t.icon} size={18} color={on ? palette.white : surface.muted} />
-                  <ThemedText style={[styles.toolLabel, { color: on ? palette.white : surface.muted }]}>
-                    {t.label}
-                  </ThemedText>
+                  <Ionicons name={t.icon} size={20} color={on ? palette.white : CAM.text} />
                 </Pressable>
               );
             })}
+
+            <View style={styles.toolDivider} />
+
+            {/* Undo / clear live in the same strip, as in the contract. */}
+            <Pressable
+              onPress={onUndo}
+              disabled={!hasShapes}
+              style={[styles.annoTool, { backgroundColor: CAM.toolBg, borderColor: CAM.toolBorder, opacity: hasShapes ? 1 : 0.35 }]}
+              accessibilityRole="button"
+              accessibilityLabel="Undo"
+            >
+              <Ionicons name="arrow-undo" size={19} color={CAM.text} />
+            </Pressable>
+            <Pressable
+              onPress={onClear}
+              disabled={!hasShapes}
+              style={[styles.annoTool, { backgroundColor: CAM.toolBg, borderColor: CAM.toolBorder, opacity: hasShapes ? 1 : 0.35 }]}
+              accessibilityRole="button"
+              accessibilityLabel="Clear all"
+            >
+              <Ionicons name="trash-outline" size={19} color={palette.coral} />
+            </Pressable>
           </View>
 
-          {/* Color row */}
-          <View style={styles.row}>
+          {/* Color swatches (contract .swatch-dot) + stroke-width picker. */}
+          <View style={styles.swatchRow}>
             {COLORS.map((c) => {
               const on = color === c;
               return (
                 <Pressable
                   key={c}
                   onPress={() => setColor(c)}
+                  style={styles.swatchWrap}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Color ${c}`}
+                  accessibilityState={{ selected: on }}
+                >
+                  {/* Selected ring matches the brand sky; dot keeps a hairline so
+                      white reads on the dark panel (contract swatch-dot ring). */}
+                  <View
+                    style={[
+                      styles.swatchDot,
+                      { backgroundColor: c },
+                      on && styles.swatchDotOn,
+                    ]}
+                  />
+                </Pressable>
+              );
+            })}
+
+            <View style={styles.toolDivider} />
+
+            {STROKES.map((s) => {
+              const on = stroke === s.name;
+              return (
+                <Pressable
+                  key={s.name}
+                  onPress={() => setStroke(s.name)}
                   style={[
-                    styles.swatch,
-                    { backgroundColor: c, borderColor: on ? palette.sky : surface.border, borderWidth: on ? 3 : 1 },
+                    styles.strokeChip,
+                    {
+                      backgroundColor: on ? palette.skyDim : CAM.toolBg,
+                      borderColor: on ? palette.skyBorder : CAM.toolBorder,
+                    },
                   ]}
                   accessibilityRole="button"
-                />
+                  accessibilityLabel={`${s.name} stroke`}
+                  accessibilityState={{ selected: on }}
+                >
+                  <View
+                    style={{
+                      width: 20,
+                      height: s.width,
+                      borderRadius: s.width,
+                      backgroundColor: on ? palette.sky : CAM.muted,
+                    }}
+                  />
+                </Pressable>
               );
             })}
           </View>
-
-          {/* Stroke width + actions */}
-          <View style={styles.rowBetween}>
-            <View style={styles.row}>
-              {STROKES.map((s) => {
-                const on = stroke === s.name;
-                return (
-                  <Pressable
-                    key={s.name}
-                    onPress={() => setStroke(s.name)}
-                    style={[
-                      styles.strokeChip,
-                      { backgroundColor: on ? palette.skyDim : surface.sunken, borderRadius: radii.sm },
-                    ]}
-                    accessibilityRole="button"
-                  >
-                    <View
-                      style={{
-                        width: 22,
-                        height: s.width,
-                        borderRadius: s.width,
-                        backgroundColor: on ? palette.sky : surface.muted,
-                      }}
-                    />
-                  </Pressable>
-                );
-              })}
-            </View>
-            <View style={styles.row}>
-              <Pressable
-                onPress={onUndo}
-                disabled={shapes.length === 0}
-                style={[styles.iconBtn, { opacity: shapes.length === 0 ? 0.4 : 1 }]}
-                accessibilityRole="button"
-              >
-                <Ionicons name="arrow-undo" size={20} color={surface.text} />
-              </Pressable>
-              <Pressable
-                onPress={onClear}
-                disabled={shapes.length === 0}
-                style={[styles.iconBtn, { opacity: shapes.length === 0 ? 0.4 : 1 }]}
-                accessibilityRole="button"
-              >
-                <Ionicons name="trash-outline" size={20} color={surface.text} />
-              </Pressable>
-            </View>
-          </View>
-
-          {/* Save / Cancel */}
-          <View style={styles.actions}>
-            <View style={styles.actionItem}>
-              <Button variant="secondary" label="Cancel" onPress={onCancel} />
-            </View>
-            <View style={styles.actionItem}>
-              <Button variant="primary" label="Save" onPress={onSave} />
-            </View>
-          </View>
         </View>
-      </View>
+      </SafeAreaView>
 
-      {/* Text entry modal, cross-platform. */}
+      {/* Text entry modal (contract .dialog over a dark scrim). */}
       <Modal visible={textModal !== null} transparent animationType="fade" onRequestClose={() => setTextModal(null)}>
         <Pressable style={styles.modalBackdrop} onPress={() => setTextModal(null)}>
           <Pressable
-            style={[styles.modalCard, { backgroundColor: surface.surface, borderRadius: radii.lg }]}
+            style={[
+              styles.modalCard,
+              { backgroundColor: surface.surface, borderRadius: radii.lg, borderColor: surface.border, ...shadow.lg },
+            ]}
             onPress={(e) => e.stopPropagation()}
           >
             <ThemedText style={[styles.modalTitle, { color: surface.text }]}>Add a label</ThemedText>
@@ -464,7 +520,7 @@ export default function AnnotateScreen() {
               autoFocus
               style={[
                 styles.modalInput,
-                { backgroundColor: surface.surface, borderColor: surface.border, borderRadius: radii.md, color: surface.text },
+                { backgroundColor: surface.surface2, borderColor: palette.sky, borderRadius: radii.md, color: surface.text },
               ]}
               onSubmitEditing={onConfirmText}
               returnKeyType="done"
@@ -480,7 +536,7 @@ export default function AnnotateScreen() {
           </Pressable>
         </Pressable>
       </Modal>
-    </ScreenFrame>
+    </View>
   );
 }
 
@@ -524,49 +580,119 @@ const styles = StyleSheet.create({
   fill: { flex: 1 },
   centered: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 16, padding: 24 },
   sub: { fontSize: 14, lineHeight: 20, textAlign: 'center' },
-  scroll: { padding: 16, flexGrow: 1, justifyContent: 'center' },
-  imageWrap: { width: '100%', overflow: 'hidden', backgroundColor: '#000000' },
 
+  // Dark full-focus studio canvas (contract .screen.cam).
+  cam: { flex: 1, backgroundColor: CAM.bg },
+
+  // Header (contract .navhead over .cam): X, title, inline Save pill.
+  camHead: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingHorizontal: 14,
+    paddingTop: 4,
+    paddingBottom: 10,
+  },
+  camBack: {
+    width: 38,
+    height: 38,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginLeft: -4,
+  },
+  camTitle: { fontSize: 18, fontFamily: fonts.bold, fontWeight: '700', color: palette.white },
+  savePill: { minHeight: 40, paddingVertical: 9, paddingHorizontal: 18 },
+
+  // Photo stage: centered + letterboxed against the dark canvas.
+  stage: { flex: 1, justifyContent: 'center', paddingHorizontal: 16 },
+  imageWrap: {
+    width: '100%',
+    overflow: 'hidden',
+    borderWidth: 1,
+    backgroundColor: '#05070d',
+  },
+
+  // Floating hint pill over a blank canvas (contract .hint-pill).
+  hintPill: {
+    position: 'absolute',
+    bottom: 12,
+    alignSelf: 'center',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: 'rgba(8,12,20,0.66)',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 999,
+  },
+  hintText: { fontSize: 11.5, fontFamily: fonts.semibold, fontWeight: '600', color: palette.white },
+
+  // Toolbar panel (contract .anno-toolbar).
   toolbar: {
+    backgroundColor: CAM.panel,
     borderTopWidth: StyleSheet.hairlineWidth,
-    paddingHorizontal: 16,
+    paddingHorizontal: 14,
     paddingTop: 12,
-    paddingBottom: 8,
-    gap: 10,
+    paddingBottom: 6,
+    gap: 12,
   },
-  row: { flexDirection: 'row', alignItems: 'center', gap: 8, flexWrap: 'wrap' },
-  rowBetween: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  toolChip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 5,
-    paddingHorizontal: 10,
-    paddingVertical: 8,
-  },
-  toolLabel: { fontSize: 13, fontWeight: '600' },
-  swatch: { width: 28, height: 28, borderRadius: 14 },
-  strokeChip: {
-    width: 40,
-    height: 34,
+  toolRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, flexWrap: 'wrap' },
+  swatchRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, flexWrap: 'wrap' },
+  toolDivider: { width: 1, height: 24, backgroundColor: CAM.border, marginHorizontal: 2 },
+
+  // Tool tile (contract .anno-tool: 42x42, radius 12, hairline border).
+  annoTool: {
+    width: 42,
+    height: 42,
+    borderRadius: 12,
+    borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  iconBtn: { padding: 8 },
+
+  // Color swatch (contract .swatch-dot: 26 circle with a ring).
+  swatchWrap: { padding: 2, alignItems: 'center', justifyContent: 'center' },
+  swatchDot: {
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    borderWidth: 2,
+    borderColor: 'rgba(255,255,255,0.5)',
+  },
+  swatchDotOn: {
+    borderColor: palette.sky,
+    borderWidth: 3,
+  },
+
+  // Stroke-width picker, sized like a compact tool tile.
+  strokeChip: {
+    width: 42,
+    height: 34,
+    borderRadius: 12,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+
   actions: { flexDirection: 'row', gap: 12, marginTop: 2 },
   actionItem: { flex: 1 },
 
   modalBackdrop: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.45)',
+    backgroundColor: 'rgba(8,12,20,0.6)',
     alignItems: 'center',
     justifyContent: 'center',
     padding: 24,
   },
-  modalCard: { width: '100%', maxWidth: 420, padding: 20, gap: 14 },
-  modalTitle: { fontSize: 16, fontWeight: '700' },
-  modalInput: { borderWidth: 1, paddingHorizontal: 14, paddingVertical: 12, fontSize: 16, minHeight: 48 },
+  modalCard: { width: '100%', maxWidth: 420, padding: 20, gap: 14, borderWidth: 1 },
+  modalTitle: { fontSize: 17, fontFamily: fonts.extrabold, fontWeight: '800' },
+  modalInput: {
+    borderWidth: 1,
+    paddingHorizontal: 14,
+    paddingVertical: 13,
+    fontSize: 16,
+    fontFamily: fonts.ui,
+    minHeight: 48,
+  },
 });
