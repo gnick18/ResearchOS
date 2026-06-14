@@ -111,13 +111,13 @@ export default function BeakerSearchBottomBar() {
         {/* Cmd J opens BeakerBot straight in Ask mode (account-only AI), shown
             beside the Cmd K search hint so the shortcut is discoverable. */}
         {canUseAI && (
-          <Tooltip label="Open BeakerBot AI" placement="top">
+          <Tooltip label="Ask BeakerBot AI (⌘J)" placement="top">
             <kbd className="beakerbot-ai-shimmer flex-none rounded-md border border-border bg-surface-sunken px-1.5 py-0.5 text-[11px] font-semibold">
               Cmd J
             </kbd>
           </Tooltip>
         )}
-        <Tooltip label="Open BeakerSearch" placement="top">
+        <Tooltip label="Search your work (⌘K)" placement="top">
           <kbd className="flex-none rounded-md border border-border bg-surface-sunken px-1.5 py-0.5 text-[11px] font-semibold text-foreground-muted">
             Cmd K
           </kbd>
