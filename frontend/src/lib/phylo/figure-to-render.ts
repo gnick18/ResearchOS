@@ -45,6 +45,8 @@ export const DEFAULT_FIGURE_TRACKS: FigureTracks = {
 export interface FigureInputs {
   layout: "rectangular" | "circular";
   phylogram: boolean;
+  /** Show the phylogram scale bar (default on; absent = on). */
+  scaleBar?: boolean;
   tracks: FigureTracks;
   categoryColumn?: string;
   barColumn?: string;
@@ -194,6 +196,7 @@ export function figureToRenderSpec(
     msaTrack,
     layout: inputs.layout,
     phylogram: inputs.phylogram,
+    scaleBar: inputs.scaleBar,
     tracks: inputs.tracks,
     columns: {
       category: inputs.categoryColumn || undefined,
@@ -225,6 +228,8 @@ export function figureToRenderSpec(
 interface StoredFigure {
   layout?: string;
   branchLengths?: boolean;
+  /** Phylogram scale-bar toggle (optional, additive, defaults ON). */
+  scaleBar?: boolean;
   tracks?: Record<string, boolean>;
   /** Per-track sequential-palette overrides (Phase 0, optional). */
   scales?: FigureScales;
@@ -256,6 +261,7 @@ export function figureInputsFromStored(
 ): FigureInputs {
   const layout = figure?.layout === "circular" ? "circular" : "rectangular";
   const phylogram = figure?.branchLengths ?? true;
+  const scaleBar = figure?.scaleBar;
   const tracks: FigureTracks = {
     ...DEFAULT_FIGURE_TRACKS,
     ...((figure?.tracks ?? {}) as Partial<FigureTracks>),
@@ -270,6 +276,7 @@ export function figureInputsFromStored(
     return {
       layout,
       phylogram,
+      scaleBar,
       tracks,
       metaRows: null,
       scales,
@@ -282,6 +289,7 @@ export function figureInputsFromStored(
   return {
     layout,
     phylogram,
+    scaleBar,
     tracks,
     metaRows: metadata.rows,
     tipColumn: metadata.tipColumn || cols[0] || "",

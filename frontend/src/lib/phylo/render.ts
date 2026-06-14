@@ -95,6 +95,9 @@ export interface FigureScales {
 export interface RenderSpec {
   layout: "rectangular" | "circular";
   phylogram: boolean;
+  /** Show the branch-length scale bar on a phylogram (geom_treescale). Default
+   *  on; absent = on (back-compat). Only meaningful for a rectangular phylogram. */
+  scaleBar?: boolean;
   tracks: FigureTracks;
   columns: FigureColumns;
   width: number;
@@ -610,7 +613,7 @@ function drawRectTree(
     const ln = byId.get(id);
     if (ln) parts.push(collapsedTriangleRect(ln.x, ln.y, info));
   }
-  if (spec.phylogram && layout.unitsPerPx) {
+  if (spec.phylogram && spec.scaleBar !== false && layout.unitsPerPx) {
     const tick = niceTick(layout.maxDepth);
     const px = tick / layout.unitsPerPx;
     const y = spec.height - 6;
@@ -1296,7 +1299,7 @@ function renderRectangular(
   }
 
   // Scale bar (phylogram only).
-  if (spec.phylogram && layout.unitsPerPx) {
+  if (spec.phylogram && spec.scaleBar !== false && layout.unitsPerPx) {
     const tick = niceTick(layout.maxDepth);
     const px = tick / layout.unitsPerPx;
     const y = spec.height - 6;
