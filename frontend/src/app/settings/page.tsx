@@ -783,6 +783,16 @@ function SettingsBodyInner({
       : []),
   ];
 
+  // A lab head runs the lab, so the Lab group leads their rail instead of
+  // sitting last below the personal + workspace settings. Members and solo
+  // users keep the default You -> Workspace -> Data (-> Lab) order.
+  const orderedGroups: SettingsGroupDef[] = isLabHead
+    ? [
+        ...groups.filter((g) => g.label === "Lab"),
+        ...groups.filter((g) => g.label !== "Lab"),
+      ]
+    : groups;
+
   // key={currentUser} on the shell resets each section's local draft state when
   // the lab user switches mid-session, so we never show user A's half-typed
   // draft to user B (the same guard the old scroll-wall had).
@@ -790,7 +800,7 @@ function SettingsBodyInner({
     <div className="min-h-0 flex-1 flex flex-col bg-surface-sunken">
       <SettingsShell
         key={currentUser}
-        groups={groups}
+        groups={orderedGroups}
         currentUser={currentUser}
         initialSectionId={initialSectionId}
         roleLabel={
