@@ -4,7 +4,7 @@ Canonical reference for anyone writing marketing, pricing, or FAQ copy about
 what ResearchOS charges for. Keep this current as billing changes, it is the
 single source the branding work pulls from.
 
-Last updated 2026-06-14 (added the BeakerBot AI meter with real spend-test numbers, locked rates).
+Last updated 2026-06-14 (added the BeakerBot AI meter with real spend-test numbers, locked rates; documented the operator price-modeling tool and locked the assumptions as deliberate research, see "Where the numbers live" at the bottom).
 
 House voice applies to everything written from this file: no em-dashes, no
 emojis, no mid-sentence colons, always state the why, no AI-speak.
@@ -183,3 +183,21 @@ is metered. Numbers locked 2026-06-14 from a real spend test, not a guess.
   now.
 - Do not promise "free forever" for cloud storage. The LOCAL notebook is free
   forever. Cloud storage is the optional paid part.
+
+## Where the numbers live (do not override)
+
+- Every tunable price/cost number has ONE home, `frontend/src/lib/pricing/assumptions.ts`
+  (storage cost split, activity cost per million writes, Stripe fees, the
+  per-active-lab sustaining rate, free pools, competitor list prices). The public
+  `/pricing` page and the operator price-modeling tool both derive from it, so the
+  math stays honest, change a number there and everything moves with it.
+- The **operator price-modeling tool** (internal only, `/admin` -> Modeling section)
+  is where Grant tunes the economics. It reads `assumptions.ts` + `plans.ts` LIVE
+  (never a frozen copy) and has two modes, Simulation (illustrative what-if) and
+  Actuals (seeds the customer counts from the real operator metrics). It exposes raw
+  cost economics, so it is operator-gated and never shown on a public surface.
+- The BeakerBot AI-meter rates are LOCKED from a real spend test (see the AI section
+  above). Treat the values in `assumptions.ts`, `plans.ts`, and the AI rates as
+  DELIBERATE RESEARCH DECISIONS. Do NOT overwrite, round, "simplify", or revert any
+  of them without Grant's explicit say-so. To change pricing, edit `assumptions.ts`
+  (and this file), never hardcode a price anywhere else.
