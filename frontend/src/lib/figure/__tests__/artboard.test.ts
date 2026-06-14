@@ -15,6 +15,8 @@ import {
   fitFigureToPage,
   rulerTicks,
   artboardExportSvg,
+  artboardInitial,
+  loadArtboardPrefs,
   type ArtboardState,
 } from "../artboard";
 
@@ -47,6 +49,20 @@ describe("presets + state reading", () => {
       .toMatchObject({ enabled: true, paperId: "a4", orientation: "landscape" });
     // garbage orientation falls back to portrait
     expect(readArtboardState({ orientation: "sideways" }).orientation).toBe("portrait");
+  });
+});
+
+describe("artboardInitial + prefs", () => {
+  it("reads a figure's own stored artboard when present (authoritative)", () => {
+    expect(artboardInitial({ enabled: true, paperId: "a4" })).toMatchObject({
+      enabled: true,
+      paperId: "a4",
+    });
+  });
+  it("falls back to the disabled default for a fresh figure (no storage in node)", () => {
+    // No window in the node test env, so prefs are empty and the default wins.
+    expect(artboardInitial(undefined)).toEqual(DEFAULT_ARTBOARD_STATE);
+    expect(loadArtboardPrefs()).toEqual({});
   });
 });
 

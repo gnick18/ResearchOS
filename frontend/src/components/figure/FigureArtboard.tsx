@@ -46,6 +46,13 @@ export interface FigureArtboardProps {
   state: ArtboardState;
   /** Largest stage edge in px the page is scaled into (default 460). */
   maxStagePx?: number;
+  /**
+   * Optional interactive figure renderer. When provided, it is rendered in the
+   * figure box (sized to the given px) instead of injecting figureSvg as static
+   * markup, so a consumer can keep direct-on-figure editing (color clicks) inside
+   * the page view. Size the figure SVG to box.wPx x box.hPx so it fills exactly.
+   */
+  renderFigure?: (box: { wPx: number; hPx: number }) => React.ReactNode;
 }
 
 /**
@@ -58,12 +65,15 @@ export function FigureArtboard({
   figHIn,
   state,
   maxStagePx = DEFAULT_MAX_STAGE_PX,
+  renderFigure,
 }: FigureArtboardProps) {
   const page = pageDims(state);
   const scale = pageScale(page, maxStagePx);
   const pageWpx = page.wIn * scale;
   const pageHpx = page.hIn * scale;
   const place = placeFigureCentered(page, figWIn, figHIn);
+  const figWpx = figWIn * scale;
+  const figHpx = figHIn * scale;
 
   const topTicks = state.rulers ? rulerTicks(page.wIn, state.rulerUnit) : [];
   const leftTicks = state.rulers ? rulerTicks(page.hIn, state.rulerUnit) : [];
@@ -131,12 +141,16 @@ export function FigureArtboard({
           >
             {round1(figWIn)} x {round1(figHIn)} in
           </span>
-          <div
-            className="h-full w-full [&>svg]:h-full [&>svg]:w-full"
-            // The SVG is built by the figure serializer from the user's own data
-            // (no user HTML), so injecting it here is safe.
-            dangerouslySetInnerHTML={{ __html: figureSvg }}
-          />
+          {renderFigure ? (
+            renderFigure({ wPx: figWpx, hPx: figHpx })
+          ) : (
+            <div
+              className="h-full w-full [&>svg]:h-full [&>svg]:w-full"
+              // The SVG is built by the figure serializer from the user's own data
+              // (no user HTML), so injecting it here is safe.
+              dangerouslySetInnerHTML={{ __html: figureSvg }}
+            />
+          )}
         </div>
       </div>
     </div>

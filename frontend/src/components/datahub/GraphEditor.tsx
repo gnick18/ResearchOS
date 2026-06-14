@@ -40,6 +40,8 @@ import {
   downloadFigureSvg,
   downloadFigurePng,
   copyFigure,
+  downloadSvg,
+  withRootSize,
   convertUnit,
   fromDesignPx,
   FIG,
@@ -60,9 +62,12 @@ import {
   FigureArtboardControls,
 } from "@/components/figure/FigureArtboard";
 import {
-  readArtboardState,
+  artboardInitial,
+  saveArtboardPrefs,
   pageDims,
+  placeFigureCentered,
   fitFigureToPage,
+  artboardExportSvg,
   type ArtboardState,
 } from "@/lib/figure/artboard";
 
@@ -589,11 +594,16 @@ export default function GraphEditor({
   // The publication page-frame config for this figure (normalized from the spec;
   // absent => disabled, so an old figure renders exactly as before).
   const artboard = useMemo(
-    () => readArtboardState(style.artboard),
+    () => artboardInitial(style.artboard),
     [style.artboard],
   );
-  const onArtboardChange = (patch: Partial<ArtboardState>) =>
-    onStyleChange({ artboard: { ...artboard, ...patch } });
+  const onArtboardChange = (patch: Partial<ArtboardState>) => {
+    const next = { ...artboard, ...patch };
+    onStyleChange({ artboard: next });
+    // Remember the paper / orientation / ruler-unit so the next new figure starts
+    // on the same page.
+    saveArtboardPrefs(next);
+  };
   // Fit the figure to the page (largest centered figure that keeps the aspect),
   // writing the size in inches onto the versioned style.
   const onFitToPage = () => {
@@ -609,6 +619,23 @@ export default function GraphEditor({
   };
 
   const onExportSvg = () => downloadFigureSvg(svg, frame, fileStem);
+  // Export the whole page sheet (the figure centered on the chosen paper, at true
+  // inches). Available only when the artboard is on.
+  const onExportPage = () => {
+    const page = pageDims(artboard);
+    const figWIn = frame.exportInchesW;
+    const figHIn = frame.exportInchesH;
+    const placement = placeFigureCentered(page, figWIn, figHIn);
+    const markup = artboardExportSvg({
+      figureSvg: svg,
+      figWIn,
+      figHIn,
+      mode: "page",
+      page,
+      placement,
+    });
+    downloadSvg(markup, `${fileStem}-page`);
+  };
   const onExportPng = async () => {
     setBusy(true);
     try {
@@ -673,6 +700,17 @@ export default function GraphEditor({
             figWIn={frame.exportInchesW}
             figHIn={frame.exportInchesH}
             state={artboard}
+            renderFigure={({ wPx, hPx }) => (
+              // Size the figure SVG to the page box so direct-on-figure color
+              // editing keeps working inside the artboard view.
+              <PlotColorEditor
+                svg={withRootSize(svg, `${Math.round(wPx)}px`, `${Math.round(hPx)}px`)}
+                style={style}
+                resolvedColors={seriesInfo.colors}
+                onStyleChange={onStyleChange}
+                onSaveColorsAsPalette={onSaveColorsAsPalette}
+              />
+            )}
           />
         ) : (
           <div className="flex flex-1 items-center justify-center overflow-auto bg-surface-sunken p-6">
@@ -967,6 +1005,17 @@ export default function GraphEditor({
               {copyState === "idle" ? "Copy" : copyLabel}
             </button>
           </div>
+          {artboard.enabled && (
+            <button
+              type="button"
+              onClick={onExportPage}
+              className="mt-2 flex w-full items-center justify-center gap-1.5 rounded-md border border-border px-2 py-1.5 text-meta font-medium text-foreground transition-colors hover:bg-surface-sunken"
+              data-testid="datahub-export-page"
+            >
+              <Icon name="download" className="h-3.5 w-3.5" />
+              Export page (full sheet)
+            </button>
+          )}
           <p className="mt-2 text-[11px] text-foreground-muted">
             SVG stays an infinitely-scalable vector for a paper. PNG renders at 3x
             for a crisp slide. Copy drops a PNG straight into a doc.

@@ -75,11 +75,13 @@ import {
 } from "@/components/figure/FigureArtboard";
 import {
   readArtboardState,
+  artboardInitial,
+  saveArtboardPrefs,
   pageDims,
+  placeFigureCentered,
   fitFigureToPage,
   artboardExportSvg,
   pxAtDpi,
-  DEFAULT_ARTBOARD_STATE,
   type ArtboardState,
 } from "@/lib/figure/artboard";
 import {
@@ -204,13 +206,17 @@ export function PhyloStudio({ initialTreeId }: { initialTreeId?: string } = {}) 
   // (the canvas renders exactly as before). The figure's width in inches is its
   // own state since Tree Studio has no other figure-size control; the height
   // follows the fixed tree aspect (FIG_H / FIG_W).
-  const [artboard, setArtboard] = useState<ArtboardState>(() => ({
-    ...DEFAULT_ARTBOARD_STATE,
-  }));
+  const [artboard, setArtboard] = useState<ArtboardState>(() =>
+    artboardInitial(undefined),
+  );
   const [figWIn, setFigWIn] = useState<number>(FIG_W / 96);
   const figHIn = figWIn * (FIG_H / FIG_W);
   const onArtboardChange = (patch: Partial<ArtboardState>) =>
-    setArtboard((s) => ({ ...s, ...patch }));
+    setArtboard((s) => {
+      const next = { ...s, ...patch };
+      saveArtboardPrefs(next);
+      return next;
+    });
   const onFitToPage = () => {
     const fit = fitFigureToPage(pageDims(artboard), FIG_W / FIG_H);
     setFigWIn(fit.figWIn);
@@ -562,6 +568,22 @@ export function PhyloStudio({ initialTreeId }: { initialTreeId?: string } = {}) 
 
   const onExportSvg = () =>
     svgMarkup && downloadSvg(exportSvgMarkup(), treeName || "tree");
+  // Export the whole page sheet (the tree centered on the chosen paper at true
+  // inches). Only meaningful when the artboard is on.
+  const onExportPage = () => {
+    if (!svgMarkup) return;
+    const page = pageDims(artboard);
+    const placement = placeFigureCentered(page, figWIn, figHIn);
+    const markup = artboardExportSvg({
+      figureSvg: svgMarkup,
+      figWIn,
+      figHIn,
+      mode: "page",
+      page,
+      placement,
+    });
+    downloadSvg(markup, `${treeName || "tree"}-page`);
+  };
   const onExportPng = async () => {
     if (!svgMarkup) return;
     const [w, h, scale] = pngDims();
@@ -895,6 +917,13 @@ export function PhyloStudio({ initialTreeId }: { initialTreeId?: string } = {}) 
                     : "Copy"}
               </button>
             </Tooltip>
+            {artboard.enabled && (
+              <Tooltip label="Export the whole page sheet with the tree placed on it">
+                <button onClick={onExportPage} className={GHOST_CLASS}>
+                  Page
+                </button>
+              </Tooltip>
+            )}
           </div>
           <button
             onClick={onSave}

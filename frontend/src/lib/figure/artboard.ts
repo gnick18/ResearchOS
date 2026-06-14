@@ -102,6 +102,67 @@ export function getPreset(id: string): PaperPreset | undefined {
   return PAPER_PRESETS.find((p) => p.id === id);
 }
 
+// ---------------------------------------------------------------------------
+// Cross-figure DEFAULT preferences (paper / orientation / ruler unit), so a NEW
+// figure starts on the paper the user last reached for. The per-figure spec stays
+// the source of truth once a figure has its own stored artboard; these prefs only
+// seed a fresh one. Stored in localStorage, guarded for SSR / no-storage.
+// ---------------------------------------------------------------------------
+
+const PREFS_KEY = "figure-artboard-prefs-v1";
+
+export interface ArtboardPrefs {
+  paperId?: string;
+  orientation?: Orientation;
+  rulerUnit?: RulerUnit;
+}
+
+/** Read the saved default paper / orientation / ruler-unit prefs (empty if none). */
+export function loadArtboardPrefs(): ArtboardPrefs {
+  if (typeof window === "undefined") return {};
+  try {
+    const raw = window.localStorage.getItem(PREFS_KEY);
+    if (!raw) return {};
+    const p = JSON.parse(raw) as Record<string, unknown>;
+    const out: ArtboardPrefs = {};
+    if (typeof p.paperId === "string") out.paperId = p.paperId;
+    if (p.orientation === "portrait" || p.orientation === "landscape") {
+      out.orientation = p.orientation;
+    }
+    if (p.rulerUnit === "in" || p.rulerUnit === "cm") out.rulerUnit = p.rulerUnit;
+    return out;
+  } catch {
+    return {};
+  }
+}
+
+/** Remember the paper / orientation / ruler-unit of the current artboard. */
+export function saveArtboardPrefs(state: ArtboardState): void {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.setItem(
+      PREFS_KEY,
+      JSON.stringify({
+        paperId: state.paperId,
+        orientation: state.orientation,
+        rulerUnit: state.rulerUnit,
+      }),
+    );
+  } catch {
+    // ignore a storage write failure (private mode, quota); prefs are best-effort.
+  }
+}
+
+/**
+ * The initial artboard state for a figure: its OWN stored value when present
+ * (authoritative), otherwise the disabled default seeded with the user's last-used
+ * paper / orientation / ruler-unit prefs so a fresh figure feels familiar.
+ */
+export function artboardInitial(stored: unknown): ArtboardState {
+  if (stored && typeof stored === "object") return readArtboardState(stored);
+  return { ...DEFAULT_ARTBOARD_STATE, ...loadArtboardPrefs() };
+}
+
 /**
  * Read an unknown stored value into a valid ArtboardState, filling defaults for
  * any missing / malformed field. A spec written before this feature returns the
