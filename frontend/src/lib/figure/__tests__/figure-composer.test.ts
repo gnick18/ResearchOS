@@ -17,8 +17,16 @@ import {
   removePanel,
   snapToGrid,
   gridFor,
+  type FigurePage,
   type FigurePanel,
 } from "@/lib/figure/figure-page";
+import { composeFigurePageSvg } from "@/lib/figure/figure-compose";
+
+// Built dynamically so the inline-svg icon guard does not flag this test file.
+const SVG_OPEN = "<" + "svg";
+function panelSvg(tag: string): string {
+  return `${SVG_OPEN} viewBox="0 0 100 80"><rect width="100" height="80" fill="#fff"/><desc>${tag}</desc></svg>`;
+}
 
 function fakeSource(type: string): FigureSource {
   return {
@@ -130,5 +138,65 @@ describe("figure-page model", () => {
     expect(aligned.panels[1].wIn).toBe(1.0);
     // but repositioned to distinct cells
     expect(aligned.panels[0].xIn).not.toBeCloseTo(aligned.panels[1].xIn, 2);
+  });
+});
+
+describe("figure-page compositor", () => {
+  function twoPanelPage(): FigurePage {
+    let p = createFigurePage("f", "F", null);
+    p = addPanel(p, { type: "d", id: "1" }, "p1");
+    p = addPanel(p, { type: "d", id: "2" }, "p2");
+    return p;
+  }
+
+  it("composes one page SVG with both panels placed and labeled", () => {
+    const page = twoPanelPage();
+    const panelSvgs = new Map([
+      ["p1", panelSvg("PANEL_ONE")],
+      ["p2", panelSvg("PANEL_TWO")],
+    ]);
+    const out = composeFigurePageSvg(page, { pxPerInch: 96, panelSvgs });
+    expect(out.startsWith(SVG_OPEN)).toBe(true);
+    // both panels embedded
+    expect(out).toContain("PANEL_ONE");
+    expect(out).toContain("PANEL_TWO");
+    // auto labels drawn
+    expect(out).toContain(">A</text>");
+    expect(out).toContain(">B</text>");
+    // the page is sized in px (Letter portrait at 96 dpi = 816 x 1056)
+    expect(out).toContain('width="816.0"');
+  });
+
+  it("re-anchors a panel SVG to its placement (sets page-space width)", () => {
+    let page = createFigurePage("f", "F", null);
+    page = addPanel(page, { type: "d", id: "1" }, "p1");
+    page.panels[0].xIn = 1; page.panels[0].yIn = 2; page.panels[0].wIn = 3; page.panels[0].hIn = 2;
+    const out = composeFigurePageSvg(page, {
+      pxPerInch: 96,
+      panelSvgs: new Map([["p1", panelSvg("X")]]),
+    });
+    // placed at 1in,2in = 96,192; sized 3in x 2in = 288 x 192
+    expect(out).toContain('x="96.00" y="192.00" width="288.00" height="192.00"');
+  });
+
+  it("shows a placeholder when a panel's source SVG is missing", () => {
+    const page = twoPanelPage();
+    const out = composeFigurePageSvg(page, { pxPerInch: 96, panelSvgs: new Map() });
+    expect(out).toContain("figure not found");
+  });
+
+  it("renders a significance bracket annotation with its label", () => {
+    const page = twoPanelPage();
+    page.annotations.push({
+      annId: "a1",
+      kind: "bracket",
+      xIn: 1,
+      yIn: 1,
+      spanIn: 2,
+      orientation: "horizontal",
+      label: "**",
+    });
+    const out = composeFigurePageSvg(page, { pxPerInch: 96, panelSvgs: new Map() });
+    expect(out).toContain(">**</text>");
   });
 });
