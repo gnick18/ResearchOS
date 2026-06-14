@@ -10,7 +10,7 @@
 //
 // House style: no em-dashes, no emojis, no mid-sentence colons. Inline SVG.
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
 import Link from "next/link";
 import AppFooter from "@/components/AppFooter";
@@ -91,13 +91,34 @@ export type MetricsState =
 /** Shared loader for the operator metrics endpoint. Used by both the standalone
  *  AdminMetrics page and the unified OperatorShell. Aggregate only; the endpoint
  *  is gated on ADMIN_EMAILS so a non-operator just gets the "denied" phase. */
-export function useAdminMetrics(): MetricsState {
+export function useAdminMetrics(): MetricsState & {
+  reload: () => Promise<void>;
+} {
   const [state, setState] = useState<MetricsState>({ phase: "loading" });
+
+  const reload = useCallback(async () => {
+    try {
+      const res = await fetch("/api/admin/metrics");
+      if (res.status === 404 || res.status === 401) {
+        setState({ phase: "denied" });
+        return;
+      }
+      if (!res.ok) {
+        setState({ phase: "error" });
+        return;
+      }
+      const data = (await res.json()) as Metrics;
+      setState({ phase: "ready", data });
+    } catch {
+      setState({ phase: "error" });
+    }
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
-    fetch("/api/admin/metrics")
-      .then(async (res) => {
+    void (async () => {
+      try {
+        const res = await fetch("/api/admin/metrics");
         if (cancelled) return;
         if (res.status === 404 || res.status === 401) {
           setState({ phase: "denied" });
@@ -109,16 +130,16 @@ export function useAdminMetrics(): MetricsState {
         }
         const data = (await res.json()) as Metrics;
         setState({ phase: "ready", data });
-      })
-      .catch(() => {
+      } catch {
         if (!cancelled) setState({ phase: "error" });
-      });
+      }
+    })();
     return () => {
       cancelled = true;
     };
   }, []);
 
-  return state;
+  return { ...state, reload };
 }
 
 export { humanBytes };

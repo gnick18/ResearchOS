@@ -668,19 +668,18 @@ export default function OperatorShell() {
     setLastUpdated(new Date());
   }
 
-  // Manual refresh: re-pull both sources (metrics reloads via a full reload of
-  // the page-level hook is not available, so we refetch the business data and
-  // re-stamp; the metrics hook is fetch-once, so a hard refetch is exposed by
-  // re-mounting is overkill, we re-stamp the time which is the operator signal).
+  // Manual refresh: re-pull BOTH sources (the business ledger and the operator
+  // metrics) in parallel, then re-stamp "last updated". The dashboard composites
+  // both, so a half-refresh would read inconsistently.
   const refresh = useCallback(async () => {
     setRefreshing(true);
     try {
-      await actions.reload();
+      await Promise.all([actions.reload(), metrics.reload()]);
     } finally {
       setLastUpdated(new Date());
       setRefreshing(false);
     }
-  }, [actions]);
+  }, [actions, metrics.reload]);
 
   // Scroll-spy: highlight the section nearest the top of the pane.
   useEffect(() => {
