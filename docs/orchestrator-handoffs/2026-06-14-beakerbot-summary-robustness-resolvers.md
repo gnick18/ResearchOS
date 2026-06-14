@@ -83,5 +83,25 @@ engine (deterministic body scan), `periodToDateRange` (relative window → dates
   lives in the summarize tools' `largestItems` (briefs carry no amount).
 - Body-search covers notes + methods; sequences (bases aren't prose) and thin tasks
   were skipped on purpose.
-- None of this is browser-verified with a live model yet (logic + unit-tested only).
-  A Chrome pass over the new resolvers is the natural next check before launch.
+- ~~None of this is browser-verified with a live model yet~~ DONE. Grant ran all 7
+  Chrome checks live against the seeded demo lab (2026-06-14):
+  `docs/handoffs/CHROME_VERIFY_BEAKERBOT_RESOLVERS.md`. Result: **7/7, every hard
+  guardrail intact** (no refusals on doable summaries, tool-owned counts/windows,
+  name+fuzzy resolution, never-widen on unknown names, confirm-first body search,
+  correct top-N ordering, zero interpretation). Two SOFT deviations, both on the
+  graceful-degradation side (not safety):
+    - **Check 4 (FIX QUEUED):** an unresolvable owner name ("Zxqv") returns a $0
+      summary indistinguishable from a real-but-empty member. Root: when
+      `resolveOwnerRefsToUsernames` returns [] the summarize tools fall back to
+      filtering by the raw string (`resolvedOwners.length > 0 ? resolvedOwners :
+      rawOwners`), which matches nobody. Never-widen held; the gap is signal. FIX
+      (deferred, lands AFTER the record-set widget merges since it edits the same
+      summarize-tool files): when refs were given but none resolved, return a
+      distinct `unresolvedOwners` signal so the model says "no member named X" /
+      asks, instead of rendering $0. Touches summarize-experiments/notes/purchases
+      + list_records.
+    - **Check 7 (FIXED `af5ea3d1c`):** an impossible dimension ("color tag" on
+      experiments) was applied as a literal filter -> empty result, instead of
+      degrading to the project-only summary. Tool can't know the dimension is
+      impossible, so the fix is a system-prompt degrade rule (drop the one
+      un-honorable dimension, run the closest doable summary, say what was ignored).
