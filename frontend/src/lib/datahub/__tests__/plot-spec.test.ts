@@ -36,6 +36,8 @@ import {
   logTicks,
   layoutXYPlot,
   layoutGroupedBar,
+  layoutAlignedGroupedBar,
+  renderAlignedGroupedBarSvg,
   renderXYPlotSvg,
   toDesignPx,
   toInches,
@@ -805,6 +807,136 @@ describe("plot-spec: grouped bar modes", () => {
     const geo = layoutGroupedBar(groupedContent(), style);
     expect(geo.yMax).toBe(20);
     expect(geo.ticks.map((t) => t.value)).toEqual([0, 5, 10, 15, 20]);
+  });
+});
+
+describe("plot-spec: tip-aligned grouped bar (phylo Phase 4 seam)", () => {
+  // Two tips, two series (Phylum A / B). t1 = A2 B8, t2 = A6 B6.
+  function tipGroupedContent(): DataHubDocContent {
+    return {
+      meta: {
+        id: "tg",
+        name: "Abundance",
+        project_ids: [],
+        folder_path: null,
+        table_type: "grouped",
+        created_at: "2026-06-10T00:00:00.000Z",
+      },
+      columns: [
+        { id: "rowlabel", name: "Tip", role: "x", dataType: "text" },
+        { id: "a0", name: "Phylum A", role: "y", dataType: "number", datasetId: "d0", subcolumnKind: "replicate" },
+        { id: "b0", name: "Phylum B", role: "y", dataType: "number", datasetId: "d1", subcolumnKind: "replicate" },
+      ],
+      rows: [
+        { id: "r0", cells: { rowlabel: "t1", a0: 2, b0: 8 } },
+        { id: "r1", cells: { rowlabel: "t2", a0: 6, b0: 6 } },
+      ],
+      analyses: [],
+      plots: [],
+    };
+  }
+  const axis = {
+    order: ["t1", "t2"],
+    positions: [100, 200],
+    band: 40,
+    orientation: "rows" as const,
+    length: 120,
+  };
+
+  it("dodge: one row per tip at its position, bars from x=0 stacked within the band", () => {
+    const style = { ...defaultPlotStyle(), kind: "groupedBar" as const };
+    const geo = layoutAlignedGroupedBar(tipGroupedContent(), style, axis);
+    expect(geo.rows.map((r) => r.id)).toEqual(["t1", "t2"]);
+    expect(geo.rows[0].cy).toBe(100);
+    expect(geo.rows[1].cy).toBe(200);
+    const r0 = geo.rows[0].bars;
+    expect(r0).toHaveLength(2);
+    // both grow from the zero baseline; wider bar is the larger mean (B=8 > A=2)
+    expect(r0[0].x).toBe(0);
+    expect(r0[1].x).toBe(0);
+    expect(r0[1].width).toBeGreaterThan(r0[0].width);
+    // the two series occupy different vertical sub-bands within the tip
+    expect(r0[1].y).toBeGreaterThan(r0[0].y);
+  });
+
+  it("stack: segments run cumulatively along X within one band", () => {
+    const style = { ...defaultPlotStyle(), kind: "groupedBar" as const, barMode: "stack" as const };
+    const geo = layoutAlignedGroupedBar(tipGroupedContent(), style, axis);
+    const r0 = geo.rows[0].bars;
+    // second segment starts where the first ends
+    expect(r0[1].x).toBeCloseTo(r0[0].x + r0[0].width, 3);
+    // both share the tip band (same y / height)
+    expect(r0[1].y).toBeCloseTo(r0[0].y, 6);
+  });
+
+  it("stack100: each tip's segments fill the full length, proportional to composition", () => {
+    const style = { ...defaultPlotStyle(), kind: "groupedBar" as const, barMode: "stack100" as const };
+    const geo = layoutAlignedGroupedBar(tipGroupedContent(), style, axis);
+    expect(geo.valueMax).toBe(1);
+    const r0 = geo.rows[0].bars; // t1 = A2 B8 -> 0.2 / 0.8
+    const total = r0[0].width + r0[1].width;
+    expect(total).toBeCloseTo(120, 3);
+    expect(r0[0].width / total).toBeCloseTo(0.2, 3);
+    expect(r0[1].width / total).toBeCloseTo(0.8, 3);
+  });
+
+  it("a tip with no value keeps an empty slot rather than dropping out", () => {
+    const style = { ...defaultPlotStyle(), kind: "groupedBar" as const };
+    const axis3 = { ...axis, order: ["t1", "t2", "tGhost"], positions: [100, 200, 300] };
+    const geo = layoutAlignedGroupedBar(tipGroupedContent(), style, axis3);
+    expect(geo.rows).toHaveLength(3);
+    expect(geo.rows[2].id).toBe("tGhost");
+    expect(geo.rows[2].bars.every((b) => b.width === 0)).toBe(true);
+  });
+
+  it("renderPlot dispatches to the aligned path only when an alignedAxis is given", () => {
+    const spec = buildPlotSpec({ id: "p", kind: "groupedBar", tableId: "tg" });
+    const content = tipGroupedContent();
+    const plain = renderPlot(spec, content, null);
+    const aligned = renderPlot(spec, content, null, { alignedAxis: axis });
+    // back-compat: no opts -> the vertical grouped-bar geometry (clusters)
+    expect("clusters" in plain.geometry).toBe(true);
+    // opts -> the tip-aligned geometry (rows + length), fragment markup
+    expect("rows" in aligned.geometry).toBe(true);
+    expect("length" in aligned.geometry).toBe(true);
+    expect(aligned.svg.startsWith("<g>")).toBe(true);
+  });
+
+  it("renders a <g> fragment with a bar per series and a value-axis ruler", () => {
+    const style = { ...defaultPlotStyle(), kind: "groupedBar" as const };
+    const geo = layoutAlignedGroupedBar(tipGroupedContent(), style, axis);
+    const svg = renderAlignedGroupedBarSvg(geo, style);
+    // a fragment, not a standalone document (needle built dynamically so the
+    // inline-svg icon guard does not flag this assertion)
+    expect(svg.startsWith("<g>")).toBe(true);
+    expect(svg.includes("<" + "svg")).toBe(false);
+    // 2 tips x 2 series = 4 bars (all positive here)
+    expect((svg.match(/<rect /g) ?? []).length).toBe(4);
+    // a value-axis ruler line + at least one tick label
+    expect(svg.includes("<line ")).toBe(true);
+    expect((svg.match(/<text /g) ?? []).length).toBeGreaterThan(0);
+  });
+
+  it("clamps a non-positive series value to an empty (zero-width) bar", () => {
+    const content = tipGroupedContent();
+    content.rows[0].cells.a0 = -5; // t1 Phylum A negative
+    const style = { ...defaultPlotStyle(), kind: "groupedBar" as const };
+    const geo = layoutAlignedGroupedBar(content, style, axis);
+    // t1 series A (index 0) clamps to zero width; series B (8) still draws
+    expect(geo.rows[0].bars[0].width).toBe(0);
+    expect(geo.rows[0].bars[1].width).toBeGreaterThan(0);
+  });
+
+  it("keeps every bar within the panel length", () => {
+    const style = { ...defaultPlotStyle(), kind: "groupedBar" as const };
+    for (const mode of ["dodge", "stack", "stack100"] as const) {
+      const geo = layoutAlignedGroupedBar(tipGroupedContent(), { ...style, barMode: mode }, axis);
+      for (const row of geo.rows) {
+        for (const bar of row.bars) {
+          expect(bar.x + bar.width).toBeLessThanOrEqual(axis.length + 1e-6);
+        }
+      }
+    }
   });
 });
 
