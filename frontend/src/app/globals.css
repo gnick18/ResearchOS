@@ -512,6 +512,23 @@
   --cm-list: #cbd5e1;
   --cm-meta: #9fb0c8;
 }
+/* CRITICAL: the CM edit host `.cm-inline-editor` carries its OWN `.light-scope`,
+ * which is a CLOSER ancestor of `.cm-content` than `.ros-editor-room` — so the
+ * room-level `--cm-*` above gets overridden back to DARK text, leaving the editor
+ * unreadable (dark-on-dark) on the dark room. Re-assert the dark CM palette here
+ * (`.ros-editor-room .cm-inline-editor` = 2 classes beats `.light-scope` = 1) so
+ * the edit text reads on the dark room. */
+[data-theme="dark"] .ros-editor-room .cm-inline-editor {
+  --cm-text: #e7eefb;
+  --cm-caret: #eaf2fb;
+  --cm-selection: rgba(57, 167, 230, 0.28);
+  --cm-active-line: rgba(255, 255, 255, 0.04);
+  --cm-link: #39a7e6;
+  --cm-mono: #c084fc;
+  --cm-quote: #9fb0c8;
+  --cm-list: #cbd5e1;
+  --cm-meta: #9fb0c8;
+}
 /* The Preview (read) card carries its OWN `light-scope`, which would force its
  * prose dark on the dark room. These higher-specificity rules (3 classes beats
  * the `.light-scope .prose` 2 classes) flip it to light text + dark-appropriate
