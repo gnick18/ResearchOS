@@ -646,6 +646,15 @@ function LogisticRegressionTable({
 }) {
   return (
     <>
+      {r.method === "firth" && (
+        <p
+          className="mb-3 rounded-md border border-border bg-surface-sunken px-3 py-2 text-meta text-foreground-muted"
+          data-testid="results-logistic-firth-note"
+        >
+          Firth penalized fit (bias-reduced, used because the data are
+          separable).
+        </p>
+      )}
       <table
         className="w-full border-collapse text-body tabular-nums"
         data-testid="results-logistic-coefficients-table"
