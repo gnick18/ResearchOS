@@ -171,7 +171,7 @@ export function SplashBeaker({
           // droplet spills off the lip each cycle; the water settles to the
           // natural line on the first pass, then holds. Loops until unmount.
           const loopStart = performance.now();
-          const CYCLE = 1500;
+          const CYCLE = 900;
           const pour = (t2: number) => {
             const elapsed = t2 - loopStart;
             const phase = (elapsed % CYCLE) / CYCLE;
