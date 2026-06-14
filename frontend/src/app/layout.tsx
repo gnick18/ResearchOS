@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Geist, Geist_Mono, Hanken_Grotesk } from "next/font/google";
 import "./globals.css";
 import { Providers } from "@/lib/providers";
 import OfflineGatedAnalytics from "@/components/OfflineGatedAnalytics";
@@ -14,6 +14,16 @@ const geistSans = Geist({
 
 const geistMono = Geist_Mono({
   variable: "--font-geist-mono",
+  subsets: ["latin"],
+});
+
+// BeakerBot's reading voice. Only the AI's reply text is set in Hanken Grotesk so
+// the assistant reads as its own voice (the way Claude uses a distinct face for AI
+// replies), while every other surface stays on Geist. Exposed as --font-ai and
+// applied on the AssistantMarkdown container in BeakerBotConversation. Font study
+// docs/mockups/2026-06-13-beakersearch-font-study.html, Grant picked this combo.
+const hankenGrotesk = Hanken_Grotesk({
+  variable: "--font-ai",
   subsets: ["latin"],
 });
 
@@ -87,7 +97,7 @@ export default function RootLayout({
         <link rel="stylesheet" href="/frappe-gantt.css" />
       </head>
       <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
+        className={`${geistSans.variable} ${geistMono.variable} ${hankenGrotesk.variable} antialiased`}
       >
         <Providers>
           {children}
