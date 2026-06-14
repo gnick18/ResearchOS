@@ -22,11 +22,13 @@ import {
   resolveMolecule,
   resolveNote,
   resolvePurchase,
+  resolveNoteEntry,
   parseOrderStatus,
   updateSequenceTool,
   updateMoleculeTool,
   updateNoteTool,
   updatePurchaseTool,
+  editNoteTool,
 } from "../tools/edit-tools";
 import type { SequenceRecord, Note, PurchaseItem } from "@/lib/types";
 import type { MoleculeMeta } from "@/lib/chemistry/api";
@@ -108,6 +110,71 @@ describe("update_sequence / update_molecule / update_note (rename)", () => {
     const r = (await updateSequenceTool.execute({ sequence: "zzz", name: "x" })) as { ok: boolean; error: string };
     expect(r.ok).toBe(false);
     expect(r.error).toContain("pUC19");
+  });
+});
+
+describe("resolveNoteEntry", () => {
+  const entries = [
+    { id: "a", title: "Day 1", date: "2026-06-10", content: "old1" },
+    { id: "b", title: "Day 2", date: "2026-06-12", content: "old2" },
+  ];
+  it("picks the named entry", () => {
+    expect(resolveNoteEntry(entries, "day 1")?.id).toBe("a");
+  });
+  it("picks the latest entry when no name", () => {
+    expect(resolveNoteEntry(entries, undefined)?.id).toBe("b");
+  });
+  it("returns null for an empty list or a missing name", () => {
+    expect(resolveNoteEntry([], undefined)).toBeNull();
+    expect(resolveNoteEntry(entries, "Day 9")).toBeNull();
+  });
+});
+
+describe("edit_note", () => {
+  const noteWithEntries = (over: Partial<Note> = {}) =>
+    ({
+      id: 1,
+      title: "Gel run",
+      description: "",
+      entries: [
+        { id: "a", title: "Day 1", date: "2026-06-10", content: "first", created_at: "", updated_at: "" },
+        { id: "b", title: "Day 2", date: "2026-06-12", content: "second", created_at: "", updated_at: "" },
+      ],
+      ...over,
+    }) as Note;
+
+  it("replaces the latest entry's content by default", async () => {
+    vi.spyOn(editToolsDeps, "listNotes").mockResolvedValue([note({ id: 1 })]);
+    vi.spyOn(editToolsDeps, "getNote").mockResolvedValue(noteWithEntries());
+    const setEntry = vi.spyOn(editToolsDeps, "setNoteEntryContent").mockResolvedValue(note({ id: 1 }));
+    vi.spyOn(editToolsDeps, "navigate").mockImplementation(() => {});
+
+    const r = (await editNoteTool.execute({ note: "Gel run", content: "rewritten" })) as { ok: boolean };
+    expect(r.ok).toBe(true);
+    // Latest entry is "b"; replace mode passes the new content as-is.
+    expect(setEntry).toHaveBeenCalledWith(1, "b", "rewritten");
+  });
+
+  it("appends to a named entry", async () => {
+    vi.spyOn(editToolsDeps, "listNotes").mockResolvedValue([note({ id: 1 })]);
+    vi.spyOn(editToolsDeps, "getNote").mockResolvedValue(noteWithEntries());
+    const setEntry = vi.spyOn(editToolsDeps, "setNoteEntryContent").mockResolvedValue(note({ id: 1 }));
+    vi.spyOn(editToolsDeps, "navigate").mockImplementation(() => {});
+
+    await editNoteTool.execute({ note: 1, entry: "Day 1", content: "more", mode: "append" });
+    expect(setEntry).toHaveBeenCalledWith(1, "a", "first\n\nmore");
+  });
+
+  it("edits the description for an entry-less note", async () => {
+    vi.spyOn(editToolsDeps, "listNotes").mockResolvedValue([note({ id: 1 })]);
+    vi.spyOn(editToolsDeps, "getNote").mockResolvedValue(
+      ({ id: 1, title: "Bare", description: "old", entries: [] }) as unknown as Note,
+    );
+    const setDesc = vi.spyOn(editToolsDeps, "setNoteDescription").mockResolvedValue(note({ id: 1 }));
+    vi.spyOn(editToolsDeps, "navigate").mockImplementation(() => {});
+
+    await editNoteTool.execute({ note: 1, content: "new body" });
+    expect(setDesc).toHaveBeenCalledWith(1, "new body");
   });
 });
 

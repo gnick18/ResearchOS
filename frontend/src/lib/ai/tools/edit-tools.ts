@@ -49,6 +49,16 @@ export type EditToolsDeps = {
   renameMolecule: (id: string, name: string) => Promise<MoleculeMeta | null>;
   listNotes: () => Promise<Note[]>;
   renameNote: (id: number, title: string) => Promise<Note | null>;
+  /** Fetch a note WITH its entries (the list projection may be lean). */
+  getNote: (id: number) => Promise<Note | null>;
+  /** Replace one entry's content (the running-log edit path). */
+  setNoteEntryContent: (
+    noteId: number,
+    entryId: string,
+    content: string,
+  ) => Promise<Note | null>;
+  /** Replace the note's top-level description (for an entry-less note). */
+  setNoteDescription: (id: number, description: string) => Promise<Note | null>;
   listPurchases: () => Promise<PurchaseItem[]>;
   updatePurchase: (id: number, data: PurchaseItemUpdate) => Promise<PurchaseItem | null>;
   setPurchaseStatus: (
@@ -66,6 +76,10 @@ export const editToolsDeps: EditToolsDeps = {
   renameMolecule: (id, name) => moleculesApi.update(id, { name }),
   listNotes: () => notesApi.list(),
   renameNote: (id, title) => notesApi.update(id, { title }),
+  getNote: (id) => notesApi.get(id),
+  setNoteEntryContent: (noteId, entryId, content) =>
+    notesApi.updateEntry(noteId, entryId, { content }),
+  setNoteDescription: (id, description) => notesApi.update(id, { description }),
   listPurchases: () => purchasesApi.listAll(),
   updatePurchase: (id, data) => purchasesApi.update(id, data),
   setPurchaseStatus: (id, status) => purchasesApi.setOrderStatus(id, status),
@@ -126,6 +140,22 @@ export function resolvePurchase(
   ref: string | number | undefined,
 ): PurchaseItem | null {
   return resolveBy(items, ref, (p) => p.id, (p) => p.item_name, () => false);
+}
+
+/** Resolve which note entry to edit: by its title (case-insensitive) when given,
+ *  otherwise the most recent entry (latest date, falling back to the last in the
+ *  array). Returns null when there are no entries or the named one is not found. */
+export function resolveNoteEntry<T extends { id: string; title: string; date: string }>(
+  entries: T[],
+  ref: string | undefined,
+): T | null {
+  if (!entries.length) return null;
+  if (ref && ref.trim()) {
+    const name = ref.trim().toLowerCase();
+    return entries.find((e) => (e.title ?? "").trim().toLowerCase() === name) ?? null;
+  }
+  // Latest: max by date string (ISO sorts lexically), fall back to last element.
+  return entries.reduce((best, e) => (e.date > best.date ? e : best), entries[entries.length - 1]);
 }
 
 /** Map a free-form status word the user might say to the canonical order status,
@@ -292,6 +322,94 @@ export const updateNoteTool: AiTool = {
     if (!updated) return { ok: false as const, error: `Note ${note.id} disappeared during the update.` };
     editToolsDeps.navigate(objectDeepLink("note", updated.id));
     return { ok: true as const, id: updated.id, title: updated.title };
+  },
+};
+
+// ---------------------------------------------------------------------------
+// edit_note (edit the CONTENT of a note)
+// ---------------------------------------------------------------------------
+
+export const editNoteTool: AiTool = {
+  name: "edit_note",
+  description:
+    "Edit the CONTENT of an existing note (not just its title). Use this when the user asks to fix, rewrite, or change text already in a note. To ADD a brand-new dated section use write_note instead. By default this REPLACES the content of the note's most recent entry; pass an entry title to target a specific one, or mode \"append\" to add to that entry. Call list_notes (or read_note) first. The app shows a one-line preview before anything writes. NO INTERPRETATION: write the user's OWN words, never invent findings or conclusions. Own notes only.",
+  parameters: {
+    type: "object",
+    properties: {
+      note: {
+        type: "string",
+        description: "The note to edit, by its title (case-insensitive) or numeric id.",
+      },
+      entry: {
+        type: "string",
+        description:
+          "The title of the specific entry to edit. Optional; omit to edit the note's most recent entry.",
+      },
+      content: { type: "string", description: "The new content (the user's own words)." },
+      mode: {
+        type: "string",
+        enum: ["replace", "append"],
+        description:
+          "\"replace\" overwrites the entry content (default). \"append\" adds to the end of that entry.",
+      },
+    },
+    required: ["note", "content"],
+    additionalProperties: false,
+  },
+  action: true,
+  isDestructive: () => false,
+  describeAction: (args) => {
+    const ref = String(args.note ?? "?");
+    const mode = args.mode === "append" ? "add to" : "rewrite";
+    const target =
+      typeof args.entry === "string" && args.entry.trim()
+        ? ` entry "${args.entry.trim()}"`
+        : " the latest entry";
+    return { summary: `${mode}${target} in note "${ref}"` };
+  },
+  execute: async (args) => {
+    const content = typeof args.content === "string" ? args.content.trim() : "";
+    if (!content) return { ok: false as const, error: "The new content is required." };
+    const mode = args.mode === "append" ? "append" : "replace";
+
+    const notes = await editToolsDeps.listNotes();
+    const found = resolveNote(notes, args.note as string | number | undefined);
+    if (!found) {
+      const names = notes.map((n) => n.title);
+      return {
+        ok: false as const,
+        error: `I could not find one of your notes called "${args.note}". Your notes are: ${names.length ? names.map((n) => `"${n}"`).join(", ") : "(none yet)"}.`,
+      };
+    }
+    // Fetch the full note so we have its entries (the list projection may be lean).
+    const note = (await editToolsDeps.getNote(found.id)) ?? found;
+    const entryRef = typeof args.entry === "string" ? args.entry : undefined;
+
+    let updated: Note | null;
+    try {
+      if (note.entries && note.entries.length > 0) {
+        const entry = resolveNoteEntry(note.entries, entryRef);
+        if (!entry) {
+          const titles = note.entries.map((e) => `"${e.title}"`).join(", ");
+          return {
+            ok: false as const,
+            error: `That note has no entry called "${entryRef}". Its entries are: ${titles}.`,
+          };
+        }
+        const next = mode === "append" ? `${entry.content.trimEnd()}\n\n${content}` : content;
+        updated = await editToolsDeps.setNoteEntryContent(note.id, entry.id, next);
+      } else {
+        // Entry-less note: edit the top-level description body.
+        const next = mode === "append" ? `${(note.description ?? "").trimEnd()}\n\n${content}` : content;
+        updated = await editToolsDeps.setNoteDescription(note.id, next);
+      }
+    } catch (err) {
+      return { ok: false as const, error: `Could not edit the note. ${err instanceof Error ? err.message : String(err)}` };
+    }
+    if (!updated) return { ok: false as const, error: `Note ${note.id} disappeared during the update.` };
+
+    editToolsDeps.navigate(objectDeepLink("note", note.id));
+    return { ok: true as const, id: note.id, title: updated.title, mode };
   },
 };
 

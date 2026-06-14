@@ -108,6 +108,7 @@ import {
   updateMoleculeTool,
   updateNoteTool,
   updatePurchaseTool,
+  editNoteTool,
 } from "./edit-tools";
 import {
   readNoteTool,
@@ -442,6 +443,10 @@ export const ACTION_TOOLS: AiTool[] = [
   updateMoleculeTool,
   updateNoteTool,
   updatePurchaseTool,
+  // edit_note edits the CONTENT of a note (rewrite or append to an existing entry,
+  // or the description for an entry-less note), distinct from write_note's append
+  // of a NEW entry. NO-INTERPRETATION: the user's own words.
+  editNoteTool,
   // create_purchase logs an order (action: true, isDestructive false). The preview
   // shows vendor, item, quantity, price, and project before anything writes. Two-step
   // write: a parent Task with task_type "purchase", then the linked PurchaseItem.
