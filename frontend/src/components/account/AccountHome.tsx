@@ -210,25 +210,43 @@ export default function AccountHome() {
         )}
       </div>
 
-      {/* Connect-your-data CTA (the optional, post-login folder attach). */}
-      {!isConnected && (
-        <div className="rounded-2xl border border-brand-action/30 bg-brand-action/5 p-5">
-          <h2 className="text-body font-bold text-foreground">Connect your data folder</h2>
-          <p className="mt-1 text-meta text-foreground-muted">
-            Your notes, experiments, and files live in a folder on this computer,
-            never on our servers. Connect one to start working. You can do this any
-            time, from any device that has your data.
-          </p>
-          <button
-            type="button"
-            onClick={() => void onConnect()}
-            disabled={connecting}
-            className="mt-3 rounded-lg bg-brand-action px-4 py-2 text-meta font-semibold text-white disabled:opacity-60"
-          >
-            {connecting ? "Opening…" : "Connect a data folder"}
-          </button>
-        </div>
-      )}
+      {/* Your data: connect a folder (folderless) or open the app (connected).
+          The account is the cloud part; the data folder is the optional local
+          part, and this card is the bridge to it in both states. */}
+      <div className="rounded-2xl border border-brand-action/30 bg-brand-action/5 p-5">
+        {isConnected ? (
+          <>
+            <h2 className="text-body font-bold text-foreground">Your data is connected</h2>
+            <p className="mt-1 text-meta text-foreground-muted">
+              Your research data folder is attached on this computer. Jump back
+              into your work.
+            </p>
+            <a
+              href="/"
+              className="mt-3 inline-block rounded-lg bg-brand-action px-4 py-2 text-meta font-semibold text-white"
+            >
+              Open ResearchOS
+            </a>
+          </>
+        ) : (
+          <>
+            <h2 className="text-body font-bold text-foreground">Connect your data folder</h2>
+            <p className="mt-1 text-meta text-foreground-muted">
+              Your notes, experiments, and files live in a folder on this computer,
+              never on our servers. Connect one to start working. You can do this
+              any time, from any device that has your data.
+            </p>
+            <button
+              type="button"
+              onClick={() => void onConnect()}
+              disabled={connecting}
+              className="mt-3 rounded-lg bg-brand-action px-4 py-2 text-meta font-semibold text-white disabled:opacity-60"
+            >
+              {connecting ? "Opening…" : "Connect a data folder"}
+            </button>
+          </>
+        )}
+      </div>
 
       {/* Account-level surfaces that need no folder. */}
       <div>
