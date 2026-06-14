@@ -40,6 +40,9 @@ export function useAiChat() {
   const captureMacroDraftFromLastRun = useConversationStore(
     (s) => s.captureMacroDraftFromLastRun,
   );
+  const activePlan = useConversationStore((s) => s.activePlan);
+  const resumePlan = useConversationStore((s) => s.resumePlan);
+  const dismissPlan = useConversationStore((s) => s.dismissPlan);
   const stop = useConversationStore((s) => s.stop);
   const clearQueue = useConversationStore((s) => s.clearQueue);
   const resolveApproval = useConversationStore((s) => s.resolveApproval);
@@ -77,6 +80,9 @@ export function useAiChat() {
     send,
     runStoredMacro,
     captureMacroDraftFromLastRun,
+    activePlan,
+    resumePlan,
+    dismissPlan,
     stop,
     clearQueue,
     pendingApproval,

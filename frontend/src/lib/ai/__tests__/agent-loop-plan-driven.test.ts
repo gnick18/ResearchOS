@@ -164,6 +164,43 @@ describe("driven plan: resume after interruption", () => {
   });
 });
 
+describe("driven plan: resume from a stopped step", () => {
+  it("continues from the seeded index without a fresh approval and finishes", async () => {
+    const { tool, execute } = actionTool();
+    const requestApproval = vi.fn(async (): Promise<ApprovalDecision> => "allow");
+    const progress: PlanProgress[] = [];
+
+    // Resume a 3-step plan from step 2 (index 1). The caller injects the step-2
+    // directive; the loop seeds planRun + treats the plan as already approved.
+    const callModel = vi
+      .fn<(m: LoopMessage[], t: unknown[]) => Promise<ModelResponse>>()
+      .mockResolvedValueOnce(withToolCall("do_thing", {}, "r2"))
+      .mockResolvedValueOnce(finalText("Step two done."))
+      .mockResolvedValueOnce(withToolCall("do_thing", {}, "r3"))
+      .mockResolvedValueOnce(finalText("Step three done."));
+
+    const result = await runAgentLoop({
+      messages: [
+        { role: "user", content: 'Resume the plan. Do step 2 of 3: "Step two".' },
+      ],
+      tools: [proposePlanTool, tool],
+      callModel,
+      getReviewMode: () => "plan",
+      requestApproval,
+      drivePlanPerStep: true,
+      initialPlanRun: { steps: ["Step one", "Step two", "Step three"], index: 1, active: true },
+      onPlanProgress: (p) => progress.push(p),
+    });
+
+    // No fresh approval (it was approved the first time), routine steps ran free.
+    expect(requestApproval).not.toHaveBeenCalled();
+    expect(execute).toHaveBeenCalledTimes(2);
+    // Advanced from step 2 to step 3, then done.
+    expect(progress.map((p) => `${p.index}:${p.status}`)).toEqual(["2:running", "3:done"]);
+    expect(result.planRun?.active).toBe(false);
+  });
+});
+
 describe("driven plan: destructive hard-stop still fires", () => {
   it("confirms a destructive step inside a driven plan", async () => {
     const { tool, execute } = actionTool(true);

@@ -188,6 +188,12 @@ export type RunAgentLoopOptions = {
   // Fired as the driven plan advances, so the panel can tick the live plan card.
   // Only called when drivePlanPerStep is on and a plan was approved.
   onPlanProgress?: (progress: PlanProgress) => void;
+  // Resume a paused per-step plan from a given point, WITHOUT a fresh propose_plan
+  // approval. The caller seeds the remaining-steps state (steps + the index to
+  // continue from) and injects a directive message for that step into `messages`;
+  // the loop treats the plan as already approved and keeps advancing from here.
+  // Requires drivePlanPerStep. Absent on a normal run.
+  initialPlanRun?: PlanRunState;
 };
 
 // The live state of a per-step-driven plan. `index` is the 0-based step being run
@@ -686,9 +692,13 @@ export async function runAgentLoop(
           return options.requestApproval!(request);
         }
       : undefined,
-    planState: { approved: false },
+    // A resumed plan starts already approved (the user approved it the first time),
+    // so routine steps run free from the resume point.
+    planState: { approved: Boolean(options.initialPlanRun) },
     drivePerStep: options.drivePlanPerStep,
-    planRun: null,
+    planRun: options.initialPlanRun
+      ? { ...options.initialPlanRun, active: true }
+      : null,
     onPlanProgress: options.onPlanProgress,
   };
 

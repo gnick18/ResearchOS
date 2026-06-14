@@ -35,7 +35,10 @@ import {
   type LoopMessage,
   type TokenUsage,
   type ModelCaller,
+  type PlanProgress,
+  type PlanRunState,
 } from "@/lib/ai/agent-loop";
+import { BEAKERBOT_PLAN_STEPS_ENABLED } from "@/lib/ai/config";
 import { callModelViaProxy, ProxyError } from "@/lib/ai/proxy-client";
 
 // ---- Dev-only model-caller override seam ------------------------------------
@@ -258,7 +261,25 @@ interface ConversationState {
   //   pattern so it is NOT re-sent on every later turn) and on
   //   clearConversation/newChat.
   attachedRefs: AttachedRef[];
+
+  // ---- Resumable plan card (2026-06-13) -----------------------------------------
+  //
+  // The live state of a per-step-driven plan, gated on BEAKERBOT_PLAN_STEPS_ENABLED.
+  // Set from runAgentLoop's onPlanProgress while a plan runs, flipped to "paused"
+  // on settle when the run stopped with steps remaining (so the card can offer
+  // Resume). Null when no plan is active. Persisted with the thread so a paused
+  // plan survives a reload.
+  activePlan: ActivePlan | null;
 }
+
+// The plan shown in the live plan card. `index` is the current/last step run;
+// `status` drives the card (running ticks, paused offers Resume, done collapses).
+export type ActivePlan = {
+  steps: string[];
+  index: number;
+  status: "running" | "paused" | "done";
+  summary?: string;
+};
 
 // ---- Attached object refs (@ mentions) ----------------------------------------
 //
@@ -320,6 +341,16 @@ interface ConversationActions {
    * meaningful tools), the editor takes it from there. Pure read, no side effect.
    */
   captureMacroDraftFromLastRun: () => MacroStep[];
+  /**
+   * Resume a paused per-step plan from where it stopped. Re-enters the agent loop
+   * with the remaining steps seeded as already-approved (no re-approval), injecting
+   * a directive for the current step. No-op unless an activePlan is paused and no
+   * turn is in flight.
+   */
+  resumePlan: () => Promise<void>;
+  /** Dismiss the active plan card (Cancel the rest). Clears activePlan, does not
+   *  undo steps already done. */
+  dismissPlan: () => void;
   /** Stage a base64 data URL image for the next send. Gated on the vision flag in the UI; the store accepts it regardless so tests can call it directly. */
   addPendingImage: (dataUrl: string) => void;
   /** Remove a staged image by its data URL. */
@@ -588,6 +619,8 @@ export const useConversationStore = create<ConversationStore>((set, get) => ({
   attachedPaper: null,
   // @ mention attached refs.
   attachedRefs: [],
+  // Resumable plan card.
+  activePlan: null,
 
   stop: (placeholderAssistantId?: string) => {
     // Guard: nothing to abort when idle.
@@ -709,6 +742,8 @@ export const useConversationStore = create<ConversationStore>((set, get) => ({
       attachedPaper: null,
       // Clear any attached refs when starting fresh.
       attachedRefs: [],
+      // Clear any active plan card when starting fresh.
+      activePlan: null,
     });
   },
 
@@ -1147,6 +1182,18 @@ export const useConversationStore = create<ConversationStore>((set, get) => ({
         getReviewMode: getReviewMode,
         requestApproval,
         signal: controller.signal,
+        // Resumable plan card (flag-gated): drive an approved plan one step at a
+        // time and mirror each tick into activePlan for the live card.
+        drivePlanPerStep: BEAKERBOT_PLAN_STEPS_ENABLED,
+        onPlanProgress: (p: PlanProgress) => {
+          set({
+            activePlan: {
+              steps: p.steps,
+              index: p.index,
+              status: p.status,
+            },
+          });
+        },
         // Update the reactive token total after each model iteration so the
         // status line ticks live. The loop fires this only when the provider
         // reports non-zero usage, so a zero here is always a real zero.
@@ -1157,6 +1204,23 @@ export const useConversationStore = create<ConversationStore>((set, get) => ({
           });
         },
       });
+
+      // Resumable plan card: if the driven plan stopped with steps remaining
+      // (abort, guard, error), mark it paused so the card offers Resume from the
+      // in-progress step. A completed plan already reported "done" via onPlanProgress.
+      if (result.planRun && result.planRun.active) {
+        set((state) =>
+          state.activePlan
+            ? {
+                activePlan: {
+                  ...state.activePlan,
+                  index: result.planRun!.index,
+                  status: "paused",
+                },
+              }
+            : {},
+        );
+      }
 
       // Persist the full loop history (including tool turns) for the next send,
       // but strip ALL per-turn injected messages by reference so they never persist.
@@ -1508,6 +1572,162 @@ export const useConversationStore = create<ConversationStore>((set, get) => ({
     };
     const invocations = invocationsFromHistory(historyStore, describeLabel);
     return captureMacroSteps(invocations);
+  },
+
+  dismissPlan: () => {
+    set({ activePlan: null });
+  },
+
+  resumePlan: async () => {
+    const plan = get().activePlan;
+    if (get().sending) return;
+    if (!plan || plan.status !== "paused") return;
+
+    set({ error: null });
+    if (abortControllerRef) abortControllerRef.abort();
+    const controller = new AbortController();
+    abortControllerRef = controller;
+
+    const assistantId = nextId();
+    const turnStartedAt = Date.now();
+    set((state) => ({
+      messages: [
+        ...state.messages.map((m) =>
+          m.followups ? { ...m, followups: undefined } : m,
+        ),
+        { id: assistantId, role: "assistant" as ChatRole, content: "" },
+      ],
+      sending: true,
+      status: "thinking",
+      turnStartedAt,
+      turnElapsedMs: 0,
+      turnTokens: null,
+      runningToolCount: 0,
+      turnToolSteps: [],
+      activePlan: { ...plan, status: "running" },
+    }));
+
+    if (historyStore.length === 0) {
+      historyStore = [{ role: "system", content: BEAKERBOT_SYSTEM_PROMPT }];
+    }
+
+    // The directive for the step we resume on. The loop drives the rest from the
+    // seeded plan, treating it as already approved (no re-approval).
+    const directive: LoopMessage = {
+      role: "user",
+      content: `Resume the approved plan. Do ONLY step ${plan.index + 1} of ${plan.steps.length}: "${plan.steps[plan.index]}". Do just this one step, then stop and say in one short sentence that it is done.`,
+    };
+    const loopInput: LoopMessage[] = [...historyStore, directive];
+
+    let boundThreadId = get().currentThreadId;
+    try {
+      const result = await runAgentLoop({
+        messages: loopInput,
+        tools: DEFAULT_TOOLS,
+        callModel: getModelCaller(),
+        getReviewMode: getReviewMode,
+        requestApproval,
+        signal: controller.signal,
+        drivePlanPerStep: true,
+        initialPlanRun: {
+          steps: plan.steps,
+          index: plan.index,
+          active: true,
+        },
+        onPlanProgress: (p: PlanProgress) => {
+          set({
+            activePlan: { steps: p.steps, index: p.index, status: p.status },
+          });
+        },
+        onStatus: (s) => {
+          const label = statusLabel(s);
+          const isToolPhase = s.phase === "tool";
+          set((state) => {
+            const prevSteps = state.turnToolSteps.map((step) =>
+              step.status === "running"
+                ? { ...step, status: "done" as const }
+                : step,
+            );
+            const nextSteps = isToolPhase
+              ? [
+                  ...prevSteps,
+                  {
+                    toolName: (s as { toolName: string }).toolName,
+                    status: "running" as const,
+                  },
+                ]
+              : prevSteps;
+            return {
+              status: label,
+              runningToolCount: isToolPhase ? 1 : 0,
+              turnToolSteps: nextSteps,
+            };
+          });
+        },
+        onUsage: (cumulative: TokenUsage) => {
+          set({
+            turnTokens: cumulative.promptTokens + cumulative.completionTokens,
+          });
+        },
+      });
+
+      // Strip the per-turn directive before persisting so it does not accumulate.
+      historyStore = result.messages.filter((m) => m !== directive);
+
+      const turnElapsedMs = Date.now() - turnStartedAt;
+      set((state) => ({
+        status: null,
+        runningToolCount: 0,
+        turnElapsedMs,
+        turnToolSteps: state.turnToolSteps.map((step) =>
+          step.status === "running" ? { ...step, status: "done" as const } : step,
+        ),
+      }));
+
+      if (result.planRun && result.planRun.active) {
+        set((state) =>
+          state.activePlan
+            ? {
+                activePlan: {
+                  ...state.activePlan,
+                  index: result.planRun!.index,
+                  status: "paused",
+                },
+              }
+            : {},
+        );
+      }
+
+      if (controller.signal.aborted || result.answer.length === 0) {
+        set((state) => ({
+          messages: state.messages.filter((m) => m.id !== assistantId),
+        }));
+        return;
+      }
+
+      const { stripped: displayAnswer } = extractFollowups(result.answer);
+      await revealAnswer(assistantId, displayAnswer);
+
+      boundThreadId = boundThreadId ?? get().currentThreadId;
+      if (boundThreadId !== null) {
+        await saveChat(boundThreadId, {
+          messages: get().messages,
+          history: historyStore,
+        });
+      }
+    } catch (err) {
+      set({ status: null });
+      console.warn("[conversation-store] resumePlan failed", err);
+      set((state) => ({
+        error: "Something went wrong resuming the plan. Try again.",
+        messages: state.messages.filter((m) => m.id !== assistantId),
+      }));
+    } finally {
+      if (abortControllerRef === controller) {
+        abortControllerRef = null;
+      }
+      set({ sending: false, queuedText: null, turnStartedAt: null });
+    }
   },
 }));
 
