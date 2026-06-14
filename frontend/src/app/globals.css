@@ -583,6 +583,47 @@
     rgba(0, 0, 0, 0.6) 100%
   );
 }
+/* Matching top-edge shadow. The popup body clips overflow, so the shadow can't
+ * cast UP into the header; instead it sits just inside the panel's top edge and
+ * fades down, reading as the same soft depth as the left seam. The horizontal
+ * mask fades the ends so it meets the left seam at the corner without a nub. */
+.ros-calm-surface .ros-history-panel::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 16px;
+  pointer-events: none;
+  background: linear-gradient(
+    to bottom,
+    rgba(15, 23, 42, 0.13) 0%,
+    rgba(15, 23, 42, 0.04) 50%,
+    transparent 100%
+  );
+  -webkit-mask-image: linear-gradient(
+    to right,
+    transparent 0,
+    #000 14px,
+    #000 calc(100% - 14px),
+    transparent 100%
+  );
+  mask-image: linear-gradient(
+    to right,
+    transparent 0,
+    #000 14px,
+    #000 calc(100% - 14px),
+    transparent 100%
+  );
+}
+[data-theme="dark"] .ros-calm-surface .ros-history-panel::after {
+  background: linear-gradient(
+    to bottom,
+    rgba(0, 0, 0, 0.4) 0%,
+    rgba(0, 0, 0, 0.12) 50%,
+    transparent 100%
+  );
+}
 /* The compare toolbar reads as a quiet raised strip over the scrolling rows: a
  * slightly firmer raised fill + a soft drop shadow in place of the washed-out
  * hairline. */
