@@ -12,6 +12,13 @@
 import { useEffect, useState } from "react";
 import { getSession } from "next-auth/react";
 import { useFileSystem } from "@/lib/file-system/file-system-context";
+import { isDeviceKeyV2Enabled } from "@/lib/sharing/identity/device-key-v2";
+import { loadKeysAtRest } from "@/lib/sharing/identity/device-vault";
+import { getSessionIdentity } from "@/lib/sharing/identity/session-key";
+import {
+  hasCloudBackup,
+  recoverDeviceKeyFromCloud,
+} from "@/lib/sharing/identity/cloud-restore";
 
 interface AccountProfile {
   handle: string;
@@ -115,6 +122,62 @@ export default function AccountHome() {
       setError("Network error. Try again.");
     } finally {
       setSaving(false);
+    }
+  };
+
+  // Phase 2 Chunk 2A: folderless cross-device key restore. The "Unlock your data
+  // on this device" card shows ONLY when the flag is on, this browser has NO
+  // local key (no session AND nothing in the at-rest vault), and the account has
+  // a published backup blob to restore from. All probes run client-side after
+  // mount so this stays dark in SSR and when the flag is off.
+  const [showUnlock, setShowUnlock] = useState(false);
+  const [recoveryInput, setRecoveryInput] = useState("");
+  const [unlocking, setUnlocking] = useState(false);
+  const [unlockError, setUnlockError] = useState<string | null>(null);
+  const [unlocked, setUnlocked] = useState(false);
+
+  useEffect(() => {
+    if (!isDeviceKeyV2Enabled()) return;
+    let alive = true;
+    void (async () => {
+      // Already have a key on this device (session or vault)? Nothing to unlock.
+      if (getSessionIdentity()) return;
+      const atRest = await loadKeysAtRest();
+      if (!alive || atRest) return;
+      // Only offer the unlock when there is actually a blob to restore.
+      const hasBackup = await hasCloudBackup();
+      if (alive && hasBackup) setShowUnlock(true);
+    })();
+    return () => {
+      alive = false;
+    };
+  }, []);
+
+  const onUnlock = async () => {
+    if (!recoveryInput.trim()) return;
+    setUnlockError(null);
+    setUnlocking(true);
+    // Yield a frame so the spinner paints before the heavy Argon2id unwrap runs.
+    await new Promise((r) => setTimeout(r, 0));
+    try {
+      const result = await recoverDeviceKeyFromCloud(recoveryInput.trim());
+      if (result.ok) {
+        setUnlocked(true);
+        setShowUnlock(false);
+        setRecoveryInput("");
+      } else if (result.reason === "wrong-words") {
+        setUnlockError(
+          "Those recovery words did not match. Check for typos and try again.",
+        );
+      } else if (result.reason === "no-blob") {
+        setUnlockError("There is no saved key for this account to restore.");
+      } else if (result.reason === "unauthorized") {
+        setUnlockError("Your sign-in expired. Sign in again, then retry.");
+      } else {
+        setUnlockError("Could not reach the server. Check your connection.");
+      }
+    } finally {
+      setUnlocking(false);
     }
   };
 
@@ -293,6 +356,55 @@ export default function AccountHome() {
           </>
         )}
       </div>
+
+      {/* Phase 2 Chunk 2A: folderless cross-device key restore. Shown only when
+          the flag is on, this browser holds no key, and a published backup
+          exists. Lets a signed-in user bring their end-to-end keys to a new
+          device with their recovery words, no data folder needed. */}
+      {unlocked && (
+        <div className="rounded-2xl border border-emerald-500/30 bg-emerald-500/5 p-5">
+          <h2 className="text-body font-bold text-foreground">
+            Your data is unlocked on this device
+          </h2>
+          <p className="mt-1 text-meta text-foreground-muted">
+            Your keys are live for this session. Connect your data folder above to
+            pick up your work.
+          </p>
+        </div>
+      )}
+      {showUnlock && !unlocked && (
+        <div className="rounded-2xl border border-brand-purple/30 bg-brand-purple/5 p-5">
+          <h2 className="text-body font-bold text-foreground">
+            Unlock your data on this device
+          </h2>
+          <p className="mt-1 text-meta text-foreground-muted">
+            This browser does not have your encryption keys yet. Enter your
+            recovery words to unlock your shared and encrypted data here. Your keys
+            are restored on this device only and never leave it.
+          </p>
+          <textarea
+            className={`${inputCls} mt-3 font-mono`}
+            value={recoveryInput}
+            onChange={(e) => setRecoveryInput(e.target.value)}
+            placeholder="Enter your recovery words or recovery code"
+            rows={2}
+            autoCapitalize="none"
+            spellCheck={false}
+            disabled={unlocking}
+          />
+          {unlockError && (
+            <p className="mt-2 text-meta text-rose-600">{unlockError}</p>
+          )}
+          <button
+            type="button"
+            onClick={() => void onUnlock()}
+            disabled={unlocking || !recoveryInput.trim()}
+            className="mt-3 rounded-lg bg-brand-purple px-4 py-2 text-meta font-semibold text-white disabled:opacity-60"
+          >
+            {unlocking ? "Unlocking…" : "Unlock my data"}
+          </button>
+        </div>
+      )}
 
       {/* Account-level surfaces that need no folder. */}
       <div>

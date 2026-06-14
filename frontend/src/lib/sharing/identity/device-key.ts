@@ -5,6 +5,7 @@
 // are the single unlock path. storage.ts persists a WrappedDeviceKey and unlocks
 // it into session-key.ts. See docs/proposals/IDENTITY_OAUTH_ONLY.md.
 
+import { ed25519, x25519 } from "@noble/curves/ed25519.js";
 import { concatBytes } from "@noble/hashes/utils.js";
 
 import {
@@ -149,6 +150,42 @@ export function unlockDeviceKeyWithRecovery(
   try {
     const bundle = unwrapUnderRecovery(wrapped.recoveryBlob, mnemonic);
     return reassemble(bundle, wrapped.x25519PublicKey, wrapped.ed25519PublicKey);
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Unlocks a keypair from a bare recovery BackupBlob, WITHOUT the public keys.
+ *
+ * The folderless cross-device restore (Phase 2 Chunk 2A) fetches only the
+ * directory's opaque key_backup_blob (the mnemonic-wrapped private bundle), it
+ * does NOT carry the public keys alongside. Since the unwrapped bundle is the two
+ * private keys, the matching public keys are re-derived from them on the curve
+ * (X25519 and Ed25519 both derive a public key from the secret key), so no
+ * separately-stored public material is needed. Returns null on an invalid secret
+ * or a tampered blob (the Poly1305 tag enforces this).
+ */
+export function unlockKeysFromRecoveryBlob(
+  recoveryBlob: BackupBlob,
+  codeOrWords: string,
+): IdentityKeys | null {
+  const mnemonic = normalizeRecoveryInput(codeOrWords);
+  if (!mnemonic) return null;
+  try {
+    const bundle = unwrapUnderRecovery(recoveryBlob, mnemonic);
+    const encPriv = bundle.slice(0, X25519_PRIVATE_BYTES);
+    const sigPriv = bundle.slice(X25519_PRIVATE_BYTES);
+    return {
+      encryption: {
+        publicKey: x25519.getPublicKey(encPriv),
+        privateKey: encPriv,
+      },
+      signing: {
+        publicKey: ed25519.getPublicKey(sigPriv),
+        privateKey: sigPriv,
+      },
+    };
   } catch {
     return null;
   }
