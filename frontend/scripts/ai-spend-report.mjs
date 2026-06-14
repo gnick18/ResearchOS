@@ -52,7 +52,8 @@ let totalIn = 0;
 let totalOut = 0;
 let totalTurns = 0;
 
-console.log(`\n=== Per-task usage (last ${hours}h) ===`);
+console.log(`\n=== Per-task usage (last ${hours}h, newest first) ===`);
+console.log(`  time      task              turns   in        out      total     cost`);
 for (const r of rows) {
   const inT = Number(r.in_tok || 0);
   const outT = Number(r.out_tok || 0);
@@ -61,8 +62,9 @@ for (const r of rows) {
   totalIn += inT;
   totalOut += outT;
   totalTurns += Number(r.turns || 0);
+  const time = r.last_at ? new Date(r.last_at).toTimeString().slice(0, 8) : "--:--:--";
   console.log(
-    `  ${String(r.task_id).slice(0, 18).padEnd(18)}  in ${fmt(inT).padStart(9)}  out ${fmt(outT).padStart(8)}  total ${fmt(tot).padStart(9)}  cost $${cost.toFixed(4)}  (${r.turns} turns)`,
+    `  ${time}  ${String(r.task_id).slice(0, 16).padEnd(16)}  ${String(r.turns).padStart(3)}    ${fmt(inT).padStart(8)}  ${fmt(outT).padStart(7)}  ${fmt(tot).padStart(8)}  $${cost.toFixed(4)}`,
   );
 }
 
@@ -92,3 +94,9 @@ console.log(`  org rate (2.0x):        ${per1m(org)}`);
 console.log(`  starter grant (25c @ indiv): ${fmt(0.25 / indiv)} tokens`);
 console.log(`  packs $10/$25/$50: ${fmt(10 / indiv)} / ${fmt(25 / indiv)} / ${fmt(50 / indiv)} tokens`);
 console.log(`  (vs current packs at $0.84/1M: 11,904,762 / 29,761,905 / 59,523,810)\n`);
+
+console.log(
+  "Tip: for per-tier pricing copy, paste this output and tell me which tasks were\n" +
+    "light / medium / heavy (by time or order); I will compute per-tier averages\n" +
+    "(tokens + cost per task) for the pricing page.\n",
+);
