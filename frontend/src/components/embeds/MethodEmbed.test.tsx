@@ -37,7 +37,7 @@ describe("MethodEmbed", () => {
     render(<MethodEmbed descriptor={descriptor} caption="" basePath="" />);
     await waitFor(() => expect(screen.getByText("Gibson Assembly Protocol")).toBeInTheDocument());
     expect(screen.getByText("Markdown")).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: /^Open/ })).toHaveAttribute("href", "/methods/12");
+    expect(screen.getByRole("link", { name: /^Open/ })).toHaveAttribute("href", "/methods?openMethod=12");
   });
 
   it("shows the unavailable card when the method is gone", async () => {

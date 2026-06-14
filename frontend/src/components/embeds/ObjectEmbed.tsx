@@ -16,6 +16,7 @@
 // Voice: no em-dashes, no emojis, no mid-sentence colons.
 
 import { lazy, Suspense, useEffect, useState, type ComponentType } from "react";
+import { openObjectRef } from "@/components/ai/object-popup-bridge";
 import { Icon } from "@/components/icons";
 import type { IconName } from "@/components/icons";
 import Tooltip from "@/components/Tooltip";
@@ -179,11 +180,18 @@ export function ObjectEmbedCard({
           {loading ? " · loading…" : ""}
         </p>
       </div>
-      {/* The Open link points at the object deep link, which is known from the
-          descriptor immediately, so it stays clickable even while the object
-          data is still loading (no reason to hide a working link). */}
+      {/* Kept an <a href> for a11y, middle-click-to-new-tab, and the known deep
+          link. But a normal left-click opens IN PLACE via openObjectRef (a popup
+          for popup-capable types, a soft bridge navigation otherwise) instead of a
+          hard reload that would close an open BeakerBot chat. */}
       <a
         href={href}
+        onClick={(e) => {
+          // Let modified clicks (new tab / new window) use the native href.
+          if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+          e.preventDefault();
+          openObjectRef({ type: descriptor.type, id: descriptor.id });
+        }}
         aria-label={`Open ${TYPE_LABEL[descriptor.type]} ${label}`}
         className="shrink-0 rounded-md border border-border px-2.5 py-1 text-meta font-semibold text-foreground-muted transition-colors hover:border-brand-action hover:text-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-action"
       >

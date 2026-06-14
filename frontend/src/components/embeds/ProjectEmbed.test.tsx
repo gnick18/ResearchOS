@@ -35,7 +35,7 @@ describe("ProjectEmbed", () => {
     });
     render(<ProjectEmbed descriptor={descriptor} caption="" basePath="" />);
     await waitFor(() => expect(screen.getByText("Protein Crystallization")).toBeInTheDocument());
-    expect(screen.getByRole("link", { name: /^Open/ })).toHaveAttribute("href", "/projects/3");
+    expect(screen.getByRole("link", { name: /^Open/ })).toHaveAttribute("href", "/workbench/projects/3");
   });
 
   it("shows the unavailable card when the project is gone", async () => {

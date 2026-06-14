@@ -13,6 +13,7 @@ import { useEffect, useState } from "react";
 import { methodsApi, filesApi } from "@/lib/local-api";
 import type { Method } from "@/lib/types";
 import { objectDeepLink, splitMethodRefId } from "@/lib/references";
+import { openObjectRef } from "@/components/ai/object-popup-bridge";
 import { deriveExcerptFromMarkdown } from "@/lib/methods/excerpt";
 import { ObjectEmbedCard, UnavailableEmbedCard, type EmbedRendererProps } from "./ObjectEmbed";
 
@@ -111,8 +112,16 @@ export default function MethodEmbed({ descriptor, caption }: EmbedRendererProps)
           </span>
         ) : null}
         <span className="flex-1" />
+        {/* <a href> for a11y + new-tab, but a normal click opens IN PLACE via
+            openObjectRef (the methods-page detail popup) so the root-mounted
+            BeakerBot chat persists instead of a hard reload closing it. */}
         <a
           href={href}
+          onClick={(e) => {
+            if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+            e.preventDefault();
+            openObjectRef({ type: "method", id: descriptor.id });
+          }}
           aria-label={`Open method ${title}`}
           className="shrink-0 rounded-md px-2 py-0.5 text-meta font-semibold text-foreground-muted transition-colors hover:text-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-action"
         >

@@ -20,12 +20,39 @@ import { useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import type { ObjectRefType } from "@/lib/references";
 import { objectDeepLink } from "@/lib/references";
+import { requestNavigation } from "@/components/ai/navigation-bridge";
 
 // -----------------------------------------------------------------------
 // Types
 // -----------------------------------------------------------------------
 
 export type ObjectRef = { type: ObjectRefType; id: string };
+
+/** The object types that open as a real in-place popup via the root
+ *  ObjectPopupHost. Every other type navigates to its deep link. Single source of
+ *  truth, imported by ObjectChip, ObjectPopupHost, and the embed Open buttons so
+ *  the three can never drift. */
+export const POPUP_CAPABLE_TYPES: ReadonlySet<ObjectRefType> = new Set<ObjectRefType>([
+  "note",
+  "task",
+  "experiment",
+]);
+
+/** Open an object ref the way a chip click does: an in-place popup for the
+ *  popup-capable types (note/task/experiment), otherwise a SOFT client-side
+ *  navigation to its deep link through the navigation bridge. Never use a raw
+ *  `<a href>` to open an object, a plain anchor hard-reloads the page, which
+ *  closes an open BeakerBot chat / palette. The bridge's root-registered handler
+ *  does a soft router.push, so the chat persists (and for a method it opens the
+ *  methods-page detail popup over the persisting chat). No useRouter needed, so
+ *  this is safe to call from any component without a router context. */
+export function openObjectRef(ref: ObjectRef): void {
+  if (POPUP_CAPABLE_TYPES.has(ref.type)) {
+    openObjectPopup(ref);
+    return;
+  }
+  requestNavigation(objectDeepLink(ref.type, ref.id));
+}
 
 /** The handler the root host registers. It is called with the ref to open. */
 type PopupHandler = (ref: ObjectRef) => void;
