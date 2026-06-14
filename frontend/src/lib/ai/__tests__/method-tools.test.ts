@@ -26,6 +26,7 @@ import {
   ownMethodNames,
   parseTags,
   uniqueMethodSlug,
+  syncBodyH1,
   createMethodTool,
   updateMethodTool,
   editMethodTool,
@@ -100,6 +101,20 @@ describe("parseTags", () => {
     expect(parseTags("")).toEqual([]);
     expect(parseTags(undefined)).toEqual([]);
     expect(parseTags(42)).toEqual([]);
+  });
+});
+
+describe("syncBodyH1", () => {
+  it("rewrites the first single-# H1 (after a stamp block) to the new title", () => {
+    const body = "2026-06-14\nproject: x\n\n# Old Title\n\n1. step\n## Section";
+    const out = syncBodyH1(body, "New Title");
+    expect(out).toContain("# New Title");
+    expect(out).not.toContain("# Old Title");
+    // A deeper section header is untouched.
+    expect(out).toContain("## Section");
+  });
+  it("leaves a body with no H1 unchanged (never invents one)", () => {
+    expect(syncBodyH1("just text\n## sub", "T")).toBe("just text\n## sub");
   });
 });
 
@@ -218,6 +233,9 @@ describe("update_method tool", () => {
       .spyOn(methodToolsDeps, "updateMethod")
       .mockResolvedValue(makeMethod({ id: 5, name: "Colony PCR v2", tags: ["qpcr"], folder_path: "Cloning" }));
     const navigate = vi.spyOn(methodToolsDeps, "navigate").mockImplementation(() => {});
+    // Rename now also syncs the body H1, so stub the body read/write.
+    vi.spyOn(methodToolsDeps, "readFile").mockResolvedValue("stamp\n\n# Colony PCR\n\n1. step");
+    const writeFile = vi.spyOn(methodToolsDeps, "writeFile").mockResolvedValue({ path: "x", sha: "y" });
 
     const result = (await updateMethodTool.execute({
       method: "colony pcr",
@@ -232,6 +250,19 @@ describe("update_method tool", () => {
     expect(id).toBe(5);
     expect(data).toEqual({ name: "Colony PCR v2", tags: ["qpcr"], folder_path: "Cloning" });
     expect(navigate).toHaveBeenCalledWith("/methods?openMethod=5");
+    // The body H1 was rewritten to the new title (step 4 fix).
+    const [, syncedBody] = writeFile.mock.calls[0];
+    expect(syncedBody).toContain("# Colony PCR v2");
+    expect(syncedBody).not.toContain("# Colony PCR\n");
+  });
+
+  it("does NOT rewrite the body when only tags/folder change (no rename)", async () => {
+    vi.spyOn(methodToolsDeps, "listMethods").mockResolvedValue([makeMethod({ id: 5 })]);
+    vi.spyOn(methodToolsDeps, "updateMethod").mockResolvedValue(makeMethod({ id: 5 }));
+    vi.spyOn(methodToolsDeps, "navigate").mockImplementation(() => {});
+    const writeFile = vi.spyOn(methodToolsDeps, "writeFile").mockResolvedValue({ path: "x", sha: "y" });
+    await updateMethodTool.execute({ method: 5, tags: "x" });
+    expect(writeFile).not.toHaveBeenCalled();
   });
 
   it("clears tags and folder on an explicit empty string", async () => {

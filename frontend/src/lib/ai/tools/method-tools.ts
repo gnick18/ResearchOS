@@ -136,6 +136,23 @@ export function parseTags(raw: unknown): string[] {
   return out;
 }
 
+/** Rewrite the FIRST markdown H1 (`# ...`) in a body to a new title, so a renamed
+ *  method's protocol header tracks its name. Only the first H1 is touched; if the
+ *  body has no H1, it is returned unchanged (we never invent a header). Pure. */
+export function syncBodyH1(body: string, title: string): string {
+  const lines = body.split("\n");
+  for (let i = 0; i < lines.length; i += 1) {
+    // The title is the first single-# H1. `^#\s+` matches "# x" but not "## x"
+    // (the second # is not whitespace), so section headers are never rewritten.
+    // Method files carry a stamp block before the H1, so we scan the whole body.
+    if (/^#\s+/.test(lines[i])) {
+      lines[i] = `# ${title}`;
+      return lines.join("\n");
+    }
+  }
+  return body;
+}
+
 /** Choose a method directory slug that does not collide with an existing method's
  *  `methods/<slug>/` directory, by bumping a numeric suffix. Pure given the set of
  *  existing source paths. A fresh title slug wins; "qpcr" -> "qpcr-2" -> "qpcr-3". */
@@ -377,6 +394,25 @@ export const updateMethodTool: AiTool = {
         ok: false as const,
         error: `Method ${method.id} disappeared during the update.`,
       };
+    }
+
+    // Rename should also track the protocol's H1 header, so the body title does not
+    // drift from the record name. Markdown methods only; best-effort (a failed body
+    // write leaves the record rename intact). Only when the name actually changed.
+    if (data.name && method.method_type === "markdown" && method.source_path) {
+      try {
+        const body = await methodToolsDeps.readFile(method.source_path);
+        const synced = syncBodyH1(body, data.name);
+        if (synced !== body) {
+          await methodToolsDeps.writeFile(
+            method.source_path,
+            synced,
+            `Rename method: ${data.name}`,
+          );
+        }
+      } catch {
+        // Non-fatal: the record rename already landed.
+      }
     }
 
     methodToolsDeps.navigate(objectDeepLink("method", updated.id));
