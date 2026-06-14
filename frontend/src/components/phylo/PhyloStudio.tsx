@@ -1339,6 +1339,20 @@ export function PhyloStudio({ initialTreeId }: { initialTreeId?: string } = {}) 
                     Scale bar
                   </button>
                 )}
+                <button
+                  type="button"
+                  onClick={() =>
+                    onArtboardChange({ enabled: !artboard.enabled })
+                  }
+                  title="Show the figure on a publication page (artboard). Page size + fit live under Export."
+                  className={`inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1 text-xs font-bold transition-colors ${
+                    artboard.enabled
+                      ? "border-accent bg-accent-soft text-accent"
+                      : "border-border text-foreground-muted hover:text-foreground"
+                  }`}
+                >
+                  Page frame
+                </button>
               </div>
               {/* The renderer string is the single source of SVG. The artboard
                   frames it on a real page when enabled; otherwise it injects
