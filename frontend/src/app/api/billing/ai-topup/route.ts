@@ -64,6 +64,13 @@ export async function POST(request: Request): Promise<Response> {
       mode: "payment",
       line_items: [{ price: priceId, quantity: 1 }],
       customer_email: email,
+      // Stripe Tax computes sales tax per the buyer's location and our product
+      // tax category (Software as a service). It collects ONLY where we are
+      // registered and the product is taxable, so this is $0 in Wisconsin and
+      // anywhere we are not registered. Tax calc needs the buyer's address, so
+      // require it at checkout.
+      automatic_tax: { enabled: true },
+      billing_address_collection: "required",
       // Carry owner + pack so the webhook can credit the right tokens to the
       // right owner exactly once.
       metadata: { ownerKey, aiPack: pack },
