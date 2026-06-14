@@ -20,6 +20,7 @@
 // no emojis, no mid-sentence colons.
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
+  Image,
   LayoutChangeEvent,
   Pressable,
   ScrollView,
@@ -554,17 +555,39 @@ function StepCard({
             })
           : null}
         {step.figures?.length
-          ? step.figures.map((alt, i) => (
-              <View
-                key={`fig-${i}`}
-                style={[rstyles.figPlaceholder, { backgroundColor: surface.sunken, borderColor: surface.border }]}
-              >
-                <Ionicons name="image-outline" size={18} color={surface.muted} />
-                <ThemedText style={[rstyles.figLbl, { color: surface.muted }]} numberOfLines={2}>
-                  {alt || 'Figure'}
-                </ThemedText>
-              </View>
-            ))
+          ? step.figures.map((fig, i) => {
+              const renderable = !!fig.uri && /^(data:image\/|https?:)/.test(fig.uri);
+              if (renderable) {
+                // The snapshot shipped the image inline; render it full width.
+                return (
+                  <View key={`fig-${i}`} style={rstyles.figImageWrap}>
+                    <Image
+                      source={{ uri: fig.uri! }}
+                      style={[rstyles.figImage, { backgroundColor: surface.sunken }]}
+                      resizeMode="contain"
+                      accessibilityLabel={fig.alt || 'Figure'}
+                    />
+                    {fig.alt ? (
+                      <ThemedText style={[rstyles.figCaption, { color: surface.muted }]} numberOfLines={2}>
+                        {fig.alt}
+                      </ThemedText>
+                    ) : null}
+                  </View>
+                );
+              }
+              // No image shipped: a labelled placeholder.
+              return (
+                <View
+                  key={`fig-${i}`}
+                  style={[rstyles.figPlaceholder, { backgroundColor: surface.sunken, borderColor: surface.border }]}
+                >
+                  <Ionicons name="image-outline" size={18} color={surface.muted} />
+                  <ThemedText style={[rstyles.figLbl, { color: surface.muted }]} numberOfLines={2}>
+                    {fig.alt || 'Figure'}
+                  </ThemedText>
+                </View>
+              );
+            })
           : null}
       </View>
     </Pressable>
@@ -969,6 +992,9 @@ const rstyles = StyleSheet.create({
     borderStyle: 'dashed',
   },
   figLbl: { fontSize: 13, flex: 1 },
+  figImageWrap: { marginTop: 10, gap: 6 },
+  figImage: { width: '100%', height: 220, borderRadius: 12 },
+  figCaption: { fontSize: 12, textAlign: 'center' },
   foot: { borderTopWidth: 1, paddingHorizontal: 14, paddingTop: 10, paddingBottom: 16 },
   dots: { flexDirection: 'row', justifyContent: 'center', gap: 6, marginBottom: 9 },
   dot: { height: 7, borderRadius: 999 },
