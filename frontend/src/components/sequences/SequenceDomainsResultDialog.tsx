@@ -8,6 +8,7 @@
 // sentence colons, dark-mode tokens.
 
 import { Icon } from "@/components/icons";
+import Tooltip from "@/components/Tooltip";
 import LivingPopup from "@/components/ui/LivingPopup";
 import type { DomainsArtifactResult } from "@/lib/sequences/artifacts";
 
@@ -56,14 +57,16 @@ export default function SequenceDomainsResultDialog({
               {SOURCE_LABEL[result.source]}. Saved result, viewing only.
             </p>
           </div>
-          <button
-            type="button"
-            onClick={onClose}
-            aria-label="Close"
-            className="rounded-md p-1.5 text-foreground-muted transition-colors hover:bg-surface-sunken"
-          >
-            <Icon name="close" className="h-5 w-5" />
-          </button>
+          <Tooltip label="Close">
+            <button
+              type="button"
+              onClick={onClose}
+              aria-label="Close"
+              className="rounded-md p-1.5 text-foreground-muted transition-colors hover:bg-surface-sunken"
+            >
+              <Icon name="close" className="h-5 w-5" />
+            </button>
+          </Tooltip>
         </div>
 
         {/* Stale banner */}
