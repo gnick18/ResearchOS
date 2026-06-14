@@ -22,6 +22,7 @@ import { useCallback, useMemo, useRef, useState } from "react";
 import CalmPopupShell from "@/components/ui/CalmPopupShell";
 import EntityVersionHistorySidebar, {
   type VersionPreview,
+  type VersionHistorySource,
 } from "@/components/history/EntityVersionHistorySidebar";
 import VersionDiffView from "@/components/history/VersionDiffView";
 import type { OpenOrigin } from "@/lib/ui/create-popup-store";
@@ -47,6 +48,13 @@ export interface PurchaseHistoryPopupProps {
   currentUser?: string;
   /** Called after a successful restore so the editor can refresh its list. */
   onRestored?: () => void;
+  /**
+   * Dev/review only: inject a pre-seeded history engine (the `/dev/popup-chrome`
+   * gallery passes a fixture engine so the popup renders with a populated version
+   * list + real diffs instead of the no-folder empty state). Omitted in the real
+   * app, where the Loro engine is built from the on-disk sidecar below.
+   */
+  engineOverride?: VersionHistorySource;
 }
 
 export default function PurchaseHistoryPopup({
@@ -58,6 +66,7 @@ export default function PurchaseHistoryPopup({
   canRestore,
   currentUser,
   onRestored,
+  engineOverride,
 }: PurchaseHistoryPopupProps) {
   const [preview, setPreview] = useState<VersionPreview | null>(null);
   const busyRef = useRef(false);
@@ -65,8 +74,8 @@ export default function PurchaseHistoryPopup({
   // One engine instance per (owner, itemId). The sidebar captures it in a stable
   // ref, so a new object on re-render is harmless, but memoizing keeps it clean.
   const engine = useMemo(
-    () => makeLoroPurchaseHistoryEngine(owner, itemId),
-    [owner, itemId],
+    () => engineOverride ?? makeLoroPurchaseHistoryEngine(owner, itemId),
+    [engineOverride, owner, itemId],
   );
 
   const handleClose = useCallback(() => {

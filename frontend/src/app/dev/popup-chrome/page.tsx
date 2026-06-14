@@ -24,13 +24,19 @@
 //
 // House style, no em-dashes, no emojis, no mid-sentence colons.
 
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
 import NewPurchaseModalAfter from "@/components/NewPurchaseModal";
 import PurchaseHistoryPopupAfter from "@/components/PurchaseHistoryPopup";
 import NewPurchaseModalBefore from "./_legacy/NewPurchaseModal.legacy";
 import PurchaseHistoryPopupBefore from "./_legacy/PurchaseHistoryPopup.legacy";
 import PopupErrorBoundary from "./PopupErrorBoundary";
+import type { VersionHistorySource } from "@/components/history/EntityVersionHistorySidebar";
+import {
+  makeSeededPurchaseHistoryEngine,
+  FIXTURE_OWNER,
+  FIXTURE_PURCHASE_ID,
+} from "./fixtures";
 
 // Which variant of a given popup is currently mounted. "none" = closed.
 type Variant = "none" | "before" | "after";
@@ -43,15 +49,17 @@ type Variant = "none" | "before" | "after";
 // open and degrade to empty lists with no folder, so the form renders with no
 // existing items, exactly the empty-state we want to review.
 //
-// PurchaseHistoryPopup hosts the generic version-history sidebar driven by a
-// Loro engine for one purchase item. With no folder there is no sidecar, so the
-// engine yields no versions and the body shows its "Select a version" empty
-// state plus an empty sidebar. We pass a stub owner + itemId and disable restore
-// so nothing tries to write.
+// PurchaseHistoryPopup hosts the generic version-history sidebar. In the real
+// app it reads an on-disk Loro sidecar; here there is no folder, so we inject a
+// pre-seeded fixture engine (fixtures.ts) holding a four-version purchase chain.
+// That lets the popup render with a populated version list + real reconstructed
+// diffs, so the de-banded sidebar chrome is judgeable with content. canRestore
+// is true so the restore footer renders too (its de-band is part of the review);
+// a restore click is a harmless no-op on this folderless route.
 const HISTORY_PROPS = {
-  owner: "dev",
-  itemId: 1,
-  canRestore: false,
+  owner: FIXTURE_OWNER,
+  itemId: FIXTURE_PURCHASE_ID,
+  canRestore: true,
   currentUser: "dev",
   origin: null,
 } as const;
@@ -116,6 +124,20 @@ export default function PopupChromeReviewPage() {
   const [purchaseVariant, setPurchaseVariant] = useState<Variant>("none");
   // Purchase history popup: which variant is open.
   const [historyVariant, setHistoryVariant] = useState<Variant>("none");
+  // Pre-seeded fixture engine so the history popup renders with real content.
+  const [historyEngine, setHistoryEngine] = useState<VersionHistorySource | null>(
+    null,
+  );
+
+  useEffect(() => {
+    let cancelled = false;
+    void makeSeededPurchaseHistoryEngine().then((engine) => {
+      if (!cancelled) setHistoryEngine(engine);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const toggleTheme = useCallback(() => {
     setTheme((prev) => {
@@ -158,10 +180,11 @@ export default function PopupChromeReviewPage() {
       <div className="mx-auto max-w-3xl space-y-6 p-8">
         <p className="rounded-lg border border-border bg-surface-raised p-4 text-meta text-foreground-muted">
           Both variants of each popup get identical props, so the only thing that
-          changes between before and after is the chrome. The bodies render with
-          empty / minimal data on purpose (no folder is connected here); the
-          review target is the frame, not the content. Flip the theme above to
-          check the calm dark room.
+          changes between before and after is the chrome. Bodies that read from a
+          folder are seeded with fixture content here (the history popup gets a
+          four-version purchase chain with real diffs) so you can judge populated
+          chrome, not empty states. Flip the theme above to check the calm dark
+          room.
         </p>
 
         {/* New Purchase modal: a create form. Light mock props (empty existing
@@ -189,19 +212,29 @@ export default function PopupChromeReviewPage() {
             history with no folder, so the body shows its empty state. */}
         <SectionRow
           title="PurchaseHistoryPopup"
-          note="Version history surface. With no folder the version list is empty, so the body shows its empty state. The review target is the header / footer / surface chrome around it."
+          note="Version history surface, seeded with a four-version purchase chain. Pick a version to see its reconstructed diff. The de-banded sidebar should read on the calm surface (no second card, no nested close, no white footer band)."
           variant={historyVariant}
           onOpenBefore={() => setHistoryVariant("before")}
           onOpenAfter={() => setHistoryVariant("after")}
         >
           {historyVariant === "before" && (
             <PopupErrorBoundary label="PurchaseHistoryPopup (before)" onReset={closeHistory}>
-              <PurchaseHistoryPopupBefore open onClose={closeHistory} {...HISTORY_PROPS} />
+              <PurchaseHistoryPopupBefore
+                open
+                onClose={closeHistory}
+                engineOverride={historyEngine ?? undefined}
+                {...HISTORY_PROPS}
+              />
             </PopupErrorBoundary>
           )}
           {historyVariant === "after" && (
             <PopupErrorBoundary label="PurchaseHistoryPopup (after)" onReset={closeHistory}>
-              <PurchaseHistoryPopupAfter open onClose={closeHistory} {...HISTORY_PROPS} />
+              <PurchaseHistoryPopupAfter
+                open
+                onClose={closeHistory}
+                engineOverride={historyEngine ?? undefined}
+                {...HISTORY_PROPS}
+              />
             </PopupErrorBoundary>
           )}
         </SectionRow>
