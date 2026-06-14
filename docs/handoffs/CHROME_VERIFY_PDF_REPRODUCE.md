@@ -15,13 +15,13 @@ Source of truth for what shipped:
 1. Open **http://localhost:3000/demo** (seeded lab data so writes land in a real folder),
    OR your own connected folder. Wait for the workbench to load.
 2. Have ready:
-   - **A real paper PDF** — ideally a phylogenetics methods paper (so Outputs 3 & 4 have
-     something real to chew on). Any paper works for Outputs 1 & 2.
-   - **A figure image** for Output 4: a screenshot/crop of ONE tree figure from that paper,
-     saved as a PNG/JPG (Output 4 is vision-driven and takes the figure as an *attached
-     image*, NOT auto-extracted from the PDF — see note at the bottom).
+   - **A real paper PDF** — ideally a phylogenetics methods paper with a tree figure (so
+     Outputs 3 & 4 have something real to chew on). Any paper works for Outputs 1 & 2.
    - For Output 3: at least a couple of **sequences** in your library (or be ready to paste
      Newick) and, for Output 4, **a saved tree** (or paste Newick).
+   - Output 4's figure now comes straight from the PDF via the **"Pick figure"** button on
+     the paper chip (renders the pages, you crop the figure), so no separate image file is
+     needed. NEXT_PUBLIC_BEAKERBOT_VISION must be `true`.
 3. Open **BeakerBot**. Start a fresh conversation per numbered check so context doesn't leak.
 
 > Confirm the named tool fired via the tool chip / thinking panel where visible; otherwise
@@ -105,13 +105,18 @@ judges the paper's choices.
 
 ---
 
-## Check 5 — Output 4: figure → tree style (vision)
-Attach your **figure image** (the tree figure crop) via the image-attach button, and supply
-your own tree.
+## Check 5 — Output 4: figure → tree style (the picker + vision)
+With the paper attached, click **"Pick figure"** on the paper chip. EXPECT a modal of
+**page thumbnails**; click the page with the tree figure, then **drag a box** around the
+figure (a brand-colored selection rectangle should track your drag) and click **"Use this
+figure"** (or "Use whole page"). The cropped figure should appear in the **pending-image
+strip** above the composer. Then supply your own tree and send.
 
 **Prompt:** `Match this figure's style on my <saved tree name>.` (or paste Newick)
 
 **EXPECT:**
+- The picker renders pages locally (no console errors, no upload), the crop box tracks the
+  drag, and the cropped figure stages as a pending image.
 - BeakerBot **looks at the figure** and calls `match_figure_style` with a style-only spec
   (layout rectangular/circular/slanted/unrooted, phylogram vs cladogram, italic tip labels,
   support values shown, palette, aligned tracks).
@@ -148,10 +153,11 @@ or it invents tips/branches.
 - Output 4 reads the tree off the image / no vision → `matchFigureStyleTool` +
   `NEXT_PUBLIC_BEAKERBOT_VISION` (must be `true`)
 
-## Architecture note worth knowing (not a bug)
-PDF extraction is **text-only** (`pdf-extract.ts`, commit `1b7cd7137` "vision-free").
-Output 4's figure therefore is **not** auto-pulled from the PDF — the user attaches the tree
-figure as a **separate image**. Auto-rendering PDF page regions to images for the vision step
-was a deferred nicety in the proposal (§Architecture/Ingestion); v1 takes the figure as an
-attached image. If the end-to-end "attach one PDF, get all four" feel is wanted, that
-page-region-to-image renderer is the follow-up.
+## Architecture note worth knowing
+PDF text extraction is **text-only** (`pdf-extract.ts`, "vision-free"). The figure reaches
+the vision model through the **"Pick figure" picker** (`pdf-render.ts` +
+`PdfFigurePicker.tsx`, commit `ccdb0f9d5`), which renders the PDF's pages client-side, lets
+the user crop the figure region, and stages the cropped high-res PNG into the existing
+pending-image vision path. So the figure IS pulled from the attached PDF now (no separate
+image file), closing the gap where Output 4 had no image. The picker fail-soft path (PDF that
+will not render) still lets the user attach any image directly.
