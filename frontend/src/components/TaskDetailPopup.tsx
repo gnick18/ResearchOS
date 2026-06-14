@@ -27,6 +27,7 @@ import { Icon } from "@/components/icons";
 import { usePhonePaired } from "@/hooks/usePhonePaired";
 import { focusWithoutTooltip } from "./tooltip-focus";
 import LivingPopup from "@/components/ui/LivingPopup";
+import HeaderOverflowMenu, { HeaderOverflowLabel } from "@/components/ui/HeaderOverflowMenu";
 import { useAppStore } from "@/lib/store";
 import { taskKey } from "@/lib/types";
 import type { Task, Project, ShiftResult, SubTask, SharedUser } from "@/lib/types";
@@ -1354,8 +1355,11 @@ export default function TaskDetailPopup({
             {/* Phone-paired indicator. When a phone companion is linked, show
                 in the header that a snapped photo routes to this open experiment
                 and which tab it lands on (follows the active editor tab). Hidden
-                when no phone is paired. */}
-            {phonePaired && !isPurchase && (
+                when no phone is paired.
+                L3 declutter: docked-only. In the expanded calm shell it folds
+                into the "..." overflow menu as a quiet "Phone linked" status
+                row, so it doesn't clutter the editorial title. */}
+            {phonePaired && !isPurchase && !isExpanded && (
               <Tooltip
                 label={`Paired phone will send photos to ${
                   activeTab === "results" ? "Results" : "Lab Notes"
@@ -1372,8 +1376,14 @@ export default function TaskDetailPopup({
             {/* Completion pill — single combined affordance that doubles as
                 status + toggle. Replaces the old "Mark as complete →" hint
                 + raw checkmark icon (chief offender on the "looks janky"
-                complaint). */}
-            {!readOnly ? (
+                complaint).
+                L3 declutter: docked-only. The expanded calm shell already
+                surfaces completion in the "status . owner . sharing" subline, so
+                the prominent pill is folded away there to keep the header calm.
+                The toggle remains reachable: collapse with the fullscreen toggle
+                (always in the header) to mark complete via this pill, or use the
+                Details tab's own status control. */}
+            {!readOnly && !isExpanded ? (
               <Tooltip
                 label={task.is_complete ? "Mark as incomplete" : "Mark as complete"}
                 placement="bottom"
@@ -1417,7 +1427,7 @@ export default function TaskDetailPopup({
                   {task.is_complete ? "Complete" : "Mark complete"}
                 </button>
               </Tooltip>
-            ) : task.is_complete ? (
+            ) : readOnly && task.is_complete ? (
               <span className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-meta font-medium bg-emerald-50 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 ring-1 ring-emerald-200">
                 <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                   <path d="M20 6L9 17l-5-5" />
@@ -1438,8 +1448,15 @@ export default function TaskDetailPopup({
                   Details first. Uses a parent-state "pending enter edit"
                   flag (not a CustomEvent) so DetailsTab consumes the
                   signal once it mounts after the tab swap. Preserves the
-                  `task-popup-edit-button` tour target. */}
-              {!readOnly && (
+                  `task-popup-edit-button` tour target.
+
+                  L3 declutter (2026-06-14): in the EXPANDED calm shell this and
+                  the other secondary actions fold into the single "..." overflow
+                  menu below; the DOCKED header keeps them inline exactly as
+                  before. The button stays mounted with its handler +
+                  data-tour-target in both states (here when docked, in the menu
+                  when expanded) so tour scripts and automation still find it. */}
+              {!readOnly && !isExpanded && (
                 <Tooltip label="Edit properties" placement="bottom">
                   <button
                     type="button"
@@ -1458,14 +1475,17 @@ export default function TaskDetailPopup({
                   </button>
                 </Tooltip>
               )}
-              {isExperiment && <TaskExportButton task={task} />}
-              {isExperiment && <TaskDepositButton task={task} />}
+              {isExperiment && !isExpanded && <TaskExportButton task={task} />}
+              {isExperiment && !isExpanded && <TaskDepositButton task={task} />}
               {/* VC Phase 3 (Task): "Undo restore" header button. Visible (flag
                   ON) while a 24h undo window is live for this task. Enabled for
                   the owner / PI-with-unlock; DISABLED with an unlock Tooltip for
                   a PI who could unlock but has not; HIDDEN for a read-only shared
-                  viewer. Render-gated on expiry. Mirrors NoteDetailPopup. */}
+                  viewer. Render-gated on expiry. Mirrors NoteDetailPopup.
+                  L3 declutter: docked-only; the expanded shell shows it in the
+                  overflow menu. */}
               {RESTORE_ENABLED &&
+                !isExpanded &&
                 undoWindowActive &&
                 (canRestore || restoreNeedsUnlock) && (
                   <Tooltip
@@ -1510,7 +1530,10 @@ export default function TaskDetailPopup({
               {/* VC Phase 3 (Task): version-history entry button. Shown to
                   anyone with read access (the popup only opens on readable
                   tasks). Toggles the right-sidebar version viewer; opening flips
-                  the body to a read-only diff preview. Mirrors NoteDetailPopup. */}
+                  the body to a read-only diff preview. Mirrors NoteDetailPopup.
+                  Comments stays primary (visible in both docked + expanded); only
+                  the docked icon-rail history button is gated here, the expanded
+                  one moves into the overflow menu. */}
               {isExperiment && (
                 <Tooltip label="Comments" placement="bottom">
                   <button
@@ -1540,42 +1563,44 @@ export default function TaskDetailPopup({
                   </button>
                 </Tooltip>
               )}
-              <Tooltip label="Version history" placement="bottom">
-                <button
-                  ref={historyTriggerRef}
-                  onClick={() => {
-                    if (historyOpen) {
-                      closeHistory();
-                    } else {
-                      setCommentsOpen(false);
-                      setHistoryOpen(true);
-                    }
-                  }}
-                  data-testid="task-history-button"
-                  aria-pressed={historyOpen}
-                  className={`p-1.5 rounded-lg transition-colors ${
-                    historyOpen
-                      ? "text-emerald-600 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-500/10"
-                      : "text-foreground-muted hover:text-foreground-muted hover:bg-surface-sunken"
-                  }`}
-                >
-                  <svg
-                    className="w-4 h-4"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth={2}
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    aria-hidden="true"
+              {!isExpanded && (
+                <Tooltip label="Version history" placement="bottom">
+                  <button
+                    ref={historyTriggerRef}
+                    onClick={() => {
+                      if (historyOpen) {
+                        closeHistory();
+                      } else {
+                        setCommentsOpen(false);
+                        setHistoryOpen(true);
+                      }
+                    }}
+                    data-testid="task-history-button"
+                    aria-pressed={historyOpen}
+                    className={`p-1.5 rounded-lg transition-colors ${
+                      historyOpen
+                        ? "text-emerald-600 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-500/10"
+                        : "text-foreground-muted hover:text-foreground-muted hover:bg-surface-sunken"
+                    }`}
                   >
-                    <path d="M3 3v5h5" />
-                    <path d="M3.05 13A9 9 0 1 0 6 5.3L3 8" />
-                    <path d="M12 7v5l3 2" />
-                  </svg>
-                </button>
-              </Tooltip>
-              {!readOnly && !task.is_shared_with_me && canShare && (
+                    <svg
+                      className="w-4 h-4"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth={2}
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      aria-hidden="true"
+                    >
+                      <path d="M3 3v5h5" />
+                      <path d="M3.05 13A9 9 0 1 0 6 5.3L3 8" />
+                      <path d="M12 7v5l3 2" />
+                    </svg>
+                  </button>
+                </Tooltip>
+              )}
+              {!readOnly && !task.is_shared_with_me && canShare && !isExpanded && (
                 <Tooltip label="Share" placement="bottom">
                   <button
                     onClick={() => setShowSharePopup(true)}
@@ -1592,6 +1617,92 @@ export default function TaskDetailPopup({
                     </svg>
                   </button>
                 </Tooltip>
+              )}
+              {/* L3 declutter (2026-06-14): the single "..." overflow menu, shown
+                  ONLY in the expanded calm shell. It folds the SECONDARY header
+                  actions (Edit properties, Export, Deposit, Version history,
+                  Undo restore, Share) plus the quiet "Phone linked" status into
+                  one dismissable menu (Esc + outside-click close, no focus trap)
+                  so they stop competing with the editorial title. Each row keeps
+                  its EXACT handler + data-testid / data-tour-target. The always-
+                  reachable exits (Done, the fullscreen toggle, the X) and the
+                  primary Comments button stay OUTSIDE the menu, so folding actions
+                  in here can never soft-lock the shell. */}
+              {isExpanded && (
+                <HeaderOverflowMenu label="More actions" testId="task-header-overflow">
+                  {!readOnly && (
+                    <button
+                      type="button"
+                      role="menuitem"
+                      onClick={() => {
+                        if (activeTab !== "details") selectTab("details");
+                        setPendingEnterEdit(true);
+                      }}
+                      data-tour-target="task-popup-edit-button"
+                      className="flex w-full items-center gap-2.5 px-3 py-1.5 text-left text-body text-foreground hover:bg-surface-sunken transition-colors"
+                    >
+                      <Icon name="pencil" className="w-4 h-4 text-foreground-muted" />
+                      <span>Edit properties</span>
+                    </button>
+                  )}
+                  {isExperiment && <TaskExportButton task={task} menuRow />}
+                  {isExperiment && <TaskDepositButton task={task} menuRow />}
+                  <button
+                    type="button"
+                    role="menuitem"
+                    ref={historyTriggerRef}
+                    onClick={() => {
+                      if (historyOpen) {
+                        closeHistory();
+                      } else {
+                        setCommentsOpen(false);
+                        setHistoryOpen(true);
+                      }
+                    }}
+                    data-testid="task-history-button"
+                    aria-pressed={historyOpen}
+                    className="flex w-full items-center gap-2.5 px-3 py-1.5 text-left text-body text-foreground hover:bg-surface-sunken transition-colors"
+                  >
+                    <Icon name="history" className="w-4 h-4 text-foreground-muted" />
+                    <span>Version history</span>
+                  </button>
+                  {RESTORE_ENABLED &&
+                    undoWindowActive &&
+                    (canRestore || restoreNeedsUnlock) && (
+                      <button
+                        type="button"
+                        role="menuitem"
+                        onClick={
+                          canRestore && !restoreBusy ? handleUndoRestore : undefined
+                        }
+                        disabled={!canRestore || restoreBusy}
+                        data-testid="task-undo-restore-button"
+                        className="flex w-full items-center gap-2.5 px-3 py-1.5 text-left text-body text-amber-700 dark:text-amber-300 hover:bg-amber-50 dark:hover:bg-amber-500/10 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                      >
+                        <Icon name="undo" className="w-4 h-4" />
+                        <span>{restoreBusy ? "Undoing..." : "Undo restore"}</span>
+                      </button>
+                    )}
+                  {!readOnly && !task.is_shared_with_me && canShare && (
+                    <button
+                      type="button"
+                      role="menuitem"
+                      onClick={() => setShowSharePopup(true)}
+                      data-tour-target="task-popup-share-button"
+                      className="flex w-full items-center gap-2.5 px-3 py-1.5 text-left text-body text-foreground hover:bg-surface-sunken transition-colors"
+                    >
+                      <Icon name="share" className="w-4 h-4 text-foreground-muted" />
+                      <span>Share</span>
+                    </button>
+                  )}
+                  {phonePaired && !isPurchase && (
+                    <HeaderOverflowLabel
+                      icon={<Icon name="phone" className="h-3.5 w-3.5" />}
+                    >
+                      Phone linked
+                    </HeaderOverflowLabel>
+                  )}
+                </HeaderOverflowMenu>
               )}
               {/* L3 ambient save state + plain Done. Only in the expanded
                   (fullscreen) shell. The indicator is HONEST: it reflects the
@@ -5874,7 +5985,15 @@ function ResultsTab({ task, readOnly = false, ownerUsername, onRegisterFlushSave
 
 // ── Task Export Button Component ───────────────────────────────────────────────
 
-function TaskExportButton({ task }: { task: Task }) {
+function TaskExportButton({
+  task,
+  menuRow = false,
+}: {
+  task: Task;
+  /** L3 declutter: render as a full-width overflow-menu row (icon + label)
+   *  instead of the bare header icon-button. Same handler + dialog either way. */
+  menuRow?: boolean;
+}) {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [exporting, setExporting] = useState(false);
   const { currentUser } = useCurrentUser();
@@ -5900,54 +6019,71 @@ function TaskExportButton({ task }: { task: Task }) {
     [task, currentUser]
   );
 
+  const exportGlyph = exporting ? (
+    <svg
+      className="animate-spin w-4 h-4"
+      xmlns="http://www.w3.org/2000/svg"
+      fill="none"
+      viewBox="0 0 24 24"
+      aria-hidden
+    >
+      <circle
+        className="opacity-25"
+        cx="12"
+        cy="12"
+        r="10"
+        stroke="currentColor"
+        strokeWidth="4"
+      />
+      <path
+        className="opacity-75"
+        fill="currentColor"
+        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+      />
+    </svg>
+  ) : (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      width="16"
+      height="16"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden
+    >
+      <path d="M12 4v10M8 10l4 4 4-4" />
+      <path d="M5 19h14" />
+    </svg>
+  );
+
   return (
     <>
-      <Tooltip label="Export experiment" placement="bottom">
+      {menuRow ? (
         <button
+          role="menuitem"
           aria-label="Export experiment"
           onClick={() => setDialogOpen(true)}
           disabled={exporting}
-          className="text-foreground-muted hover:text-foreground-muted p-1 disabled:opacity-50"
+          className="flex w-full items-center gap-2.5 px-3 py-1.5 text-left text-body text-foreground hover:bg-surface-sunken disabled:opacity-50 transition-colors"
         >
-          {exporting ? (
-            <svg
-              className="animate-spin w-4 h-4"
-              xmlns="http://www.w3.org/2000/svg"
-              fill="none"
-              viewBox="0 0 24 24"
-            >
-              <circle
-                className="opacity-25"
-                cx="12"
-                cy="12"
-                r="10"
-                stroke="currentColor"
-                strokeWidth="4"
-              />
-              <path
-                className="opacity-75"
-                fill="currentColor"
-                d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-              />
-            </svg>
-          ) : (
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              width="16"
-              height="16"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            >
-              <path d="M12 4v10M8 10l4 4 4-4" />
-              <path d="M5 19h14" />
-            </svg>
-          )}
+          <span className="text-foreground-muted">{exportGlyph}</span>
+          <span>{exporting ? "Exporting..." : "Export"}</span>
         </button>
-      </Tooltip>
+      ) : (
+        <Tooltip label="Export experiment" placement="bottom">
+          <button
+            aria-label="Export experiment"
+            onClick={() => setDialogOpen(true)}
+            disabled={exporting}
+            className="text-foreground-muted hover:text-foreground-muted p-1 disabled:opacity-50"
+          >
+            {exportGlyph}
+          </button>
+        </Tooltip>
+      )}
 
       {/* Format picker — hidden during the actual export so the
           ProgressEntertainer takes over the screen (Grant brief on
@@ -5989,40 +6125,65 @@ function TaskExportButton({ task }: { task: Task }) {
  * own web upload page. Phase 1 is the GUIDED path; no API calls, no DOI is
  * minted here.
  */
-function TaskDepositButton({ task }: { task: Task }) {
+function TaskDepositButton({
+  task,
+  menuRow = false,
+}: {
+  task: Task;
+  /** L3 declutter: render as a full-width overflow-menu row instead of the
+   *  bare header icon-button. Same handler + dialog + testid either way. */
+  menuRow?: boolean;
+}) {
   const [open, setOpen] = useState(false);
   const { currentUser } = useCurrentUser();
 
+  // Repository / archive-with-upload-arrow glyph (inline SVG; no icon library,
+  // no emoji).
+  const depositGlyph = (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      width="16"
+      height="16"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden
+    >
+      <path d="M21 8v13H3V8" />
+      <rect x="1" y="3" width="22" height="5" rx="1" />
+      <path d="M12 17V11" />
+      <polyline points="9 14 12 11 15 14" />
+    </svg>
+  );
+
   return (
     <>
-      <Tooltip label="Deposit to a repository" placement="bottom">
+      {menuRow ? (
         <button
+          role="menuitem"
           aria-label="Deposit to a repository"
           onClick={() => setOpen(true)}
           data-testid="task-deposit-button"
-          className="text-foreground-muted hover:text-foreground-muted p-1"
+          className="flex w-full items-center gap-2.5 px-3 py-1.5 text-left text-body text-foreground hover:bg-surface-sunken transition-colors"
         >
-          {/* Repository / archive-with-upload-arrow glyph (inline SVG; no
-              icon library, no emoji). */}
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            width="16"
-            height="16"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            aria-hidden
-          >
-            <path d="M21 8v13H3V8" />
-            <rect x="1" y="3" width="22" height="5" rx="1" />
-            <path d="M12 17V11" />
-            <polyline points="9 14 12 11 15 14" />
-          </svg>
+          <span className="text-foreground-muted">{depositGlyph}</span>
+          <span>Deposit to a repository</span>
         </button>
-      </Tooltip>
+      ) : (
+        <Tooltip label="Deposit to a repository" placement="bottom">
+          <button
+            aria-label="Deposit to a repository"
+            onClick={() => setOpen(true)}
+            data-testid="task-deposit-button"
+            className="text-foreground-muted hover:text-foreground-muted p-1"
+          >
+            {depositGlyph}
+          </button>
+        </Tooltip>
+      )}
 
       <DepositDialog
         isOpen={open}

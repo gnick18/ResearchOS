@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import LivingPopup from "@/components/ui/LivingPopup";
+import HeaderOverflowMenu, { HeaderOverflowLabel } from "@/components/ui/HeaderOverflowMenu";
 import type { Note, NoteEntry, NoteRestorePayload, Notebook } from "@/lib/types";
 import MoveToNotebookMenu from "./notebooks/MoveToNotebookMenu";
 import { Icon } from "@/components/icons";
@@ -1616,8 +1617,11 @@ export default function NoteDetailPopup({
 
               {/* Phone-paired indicator. Mirrors the experiment popup so the
                   user can see a phone companion is linked. Hidden when no phone
-                  is paired. */}
-              {phonePaired && (
+                  is paired.
+                  L3 declutter: docked-only. In the expanded calm shell it folds
+                  into the "..." overflow menu as a quiet "Phone linked" status
+                  row. */}
+              {phonePaired && !isExpanded && (
                 <Tooltip label="Phone companion is paired" placement="bottom">
                   <span className="mt-1 inline-flex w-fit items-center gap-1.5 rounded-full bg-amber-50 px-2.5 py-1 text-meta font-medium text-amber-700 dark:bg-amber-500/15 dark:text-amber-300">
                     <Icon name="phone" className="h-3.5 w-3.5" />
@@ -1783,7 +1787,7 @@ export default function NoteDetailPopup({
               {/* Move-to-notebook (notebooks-gen Phase 2). Personal mode only:
                   the parent wires `onMoveToNotebook` and the notebook lists.
                   Hidden in Lab Mode / read-only contexts (no callback). */}
-              {onMoveToNotebook && !readOnly && (
+              {onMoveToNotebook && !readOnly && !isExpanded && (
                 <Tooltip label="Move to notebook" placement="bottom">
                   <button
                     type="button"
@@ -1808,7 +1812,7 @@ export default function NoteDetailPopup({
                   read-only AND (owner OR an active PI Phase 5 unlock). Calls
                   the existing handleDeleteNote, so the soft-delete (move to
                   `users/<owner>/_trash/notes/`) + Undo toast are preserved. */}
-              {canDeleteNote && (
+              {canDeleteNote && !isExpanded && (
                 <Tooltip label="Delete note" placement="bottom">
                   <button
                     onClick={handleDeleteNote}
@@ -1835,6 +1839,7 @@ export default function NoteDetailPopup({
                   `expires_at` passes, undoWindowActive is false and the button
                   drops with no background timer. */}
               {RESTORE_ENABLED &&
+                !isExpanded &&
                 undoWindowActive &&
                 (canRestore || restoreNeedsUnlock) && (
                   <Tooltip
@@ -1915,41 +1920,132 @@ export default function NoteDetailPopup({
                   ) : null}
                 </button>
               </Tooltip>
-              <Tooltip label="Version history" placement="bottom">
-                <button
-                  ref={historyTriggerRef}
-                  onClick={() => {
-                    if (historyOpen) {
-                      closeHistory();
-                    } else {
-                      setCommentsOpen(false);
-                      setHistoryOpen(true);
-                    }
-                  }}
-                  data-testid="note-history-button"
-                  aria-pressed={historyOpen}
-                  className={`p-2 rounded-lg transition-colors ${
-                    historyOpen
-                      ? "text-emerald-600 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-500/10"
-                      : "text-foreground-muted hover:text-foreground-muted hover:bg-surface-sunken"
-                  }`}
-                >
-                  <svg
-                    className="w-5 h-5"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth={2}
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    aria-hidden="true"
+              {!isExpanded && (
+                <Tooltip label="Version history" placement="bottom">
+                  <button
+                    ref={historyTriggerRef}
+                    onClick={() => {
+                      if (historyOpen) {
+                        closeHistory();
+                      } else {
+                        setCommentsOpen(false);
+                        setHistoryOpen(true);
+                      }
+                    }}
+                    data-testid="note-history-button"
+                    aria-pressed={historyOpen}
+                    className={`p-2 rounded-lg transition-colors ${
+                      historyOpen
+                        ? "text-emerald-600 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-500/10"
+                        : "text-foreground-muted hover:text-foreground-muted hover:bg-surface-sunken"
+                    }`}
                   >
-                    <path d="M3 3v5h5" />
-                    <path d="M3.05 13A9 9 0 1 0 6 5.3L3 8" />
-                    <path d="M12 7v5l3 2" />
-                  </svg>
-                </button>
-              </Tooltip>
+                    <svg
+                      className="w-5 h-5"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth={2}
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      aria-hidden="true"
+                    >
+                      <path d="M3 3v5h5" />
+                      <path d="M3.05 13A9 9 0 1 0 6 5.3L3 8" />
+                      <path d="M12 7v5l3 2" />
+                    </svg>
+                  </button>
+                </Tooltip>
+              )}
+              {/* L3 declutter (2026-06-14): the single "..." overflow menu, shown
+                  ONLY in the expanded calm shell. Mirrors the experiment popup:
+                  it folds the SECONDARY note header actions (Version history,
+                  Undo restore, Move to notebook, Delete) plus the quiet "Phone
+                  linked" status into one dismissable menu (Esc + outside-click
+                  close, no focus trap). Each row keeps its EXACT handler +
+                  data-testid. The always-reachable exits (Done, the fullscreen
+                  toggle, the X) and the primary Comments button stay OUTSIDE the
+                  menu, so folding actions in here can never soft-lock the shell. */}
+              {isExpanded && (
+                <HeaderOverflowMenu
+                  label="More actions"
+                  testId="note-header-overflow"
+                  buttonClassName="p-2 rounded-lg text-foreground-muted hover:text-foreground hover:bg-surface-sunken transition-colors"
+                >
+                  <button
+                    type="button"
+                    role="menuitem"
+                    ref={historyTriggerRef}
+                    onClick={() => {
+                      if (historyOpen) {
+                        closeHistory();
+                      } else {
+                        setCommentsOpen(false);
+                        setHistoryOpen(true);
+                      }
+                    }}
+                    data-testid="note-history-button"
+                    aria-pressed={historyOpen}
+                    className="flex w-full items-center gap-2.5 px-3 py-1.5 text-left text-body text-foreground hover:bg-surface-sunken transition-colors"
+                  >
+                    <Icon name="history" className="w-4 h-4 text-foreground-muted" />
+                    <span>Version history</span>
+                  </button>
+                  {RESTORE_ENABLED &&
+                    undoWindowActive &&
+                    (canRestore || restoreNeedsUnlock) && (
+                      <button
+                        type="button"
+                        role="menuitem"
+                        onClick={
+                          canRestore && !activeRestoreBusy ? activeHandleUndoRestore : undefined
+                        }
+                        disabled={!canRestore || activeRestoreBusy}
+                        data-testid="note-undo-restore-button"
+                        className="flex w-full items-center gap-2.5 px-3 py-1.5 text-left text-body text-amber-700 dark:text-amber-300 hover:bg-amber-50 dark:hover:bg-amber-500/10 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                      >
+                        <Icon name="undo" className="w-4 h-4" />
+                        <span>{activeRestoreBusy ? "Undoing..." : "Undo restore"}</span>
+                      </button>
+                    )}
+                  {onMoveToNotebook && !readOnly && (
+                    <button
+                      type="button"
+                      role="menuitem"
+                      onClick={(e) => {
+                        const rect = (
+                          e.currentTarget as HTMLElement
+                        ).getBoundingClientRect();
+                        setMoveMenuAnchor({ x: rect.left, y: rect.bottom });
+                      }}
+                      data-testid="note-header-move-notebook"
+                      className="flex w-full items-center gap-2.5 px-3 py-1.5 text-left text-body text-foreground hover:bg-surface-sunken transition-colors"
+                    >
+                      <Icon name="book" className="w-4 h-4 text-foreground-muted" />
+                      <span>Move to notebook</span>
+                    </button>
+                  )}
+                  {canDeleteNote && (
+                    <button
+                      type="button"
+                      role="menuitem"
+                      onClick={handleDeleteNote}
+                      data-testid="note-header-delete"
+                      className="flex w-full items-center gap-2.5 px-3 py-1.5 text-left text-body text-red-600 dark:text-red-300 hover:bg-red-50 dark:hover:bg-red-500/10 transition-colors"
+                    >
+                      <Icon name="trash" className="w-4 h-4" />
+                      <span>Delete note</span>
+                    </button>
+                  )}
+                  {phonePaired && (
+                    <HeaderOverflowLabel
+                      icon={<Icon name="phone" className="h-3.5 w-3.5" />}
+                    >
+                      Phone linked
+                    </HeaderOverflowLabel>
+                  )}
+                </HeaderOverflowMenu>
+              )}
               {/* L3 ambient save state + plain Done. Only in the expanded
                   (fullscreen) shell — the docked popup keeps its existing save
                   bar. The indicator is HONEST: it reads "Saved" only when there
