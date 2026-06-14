@@ -36,6 +36,7 @@ import type {
   Task,
   TaskCreate,
   TaskUpdate,
+  MethodGatheredChecks,
   TaskMoveRequest,
   Dependency,
   DependencyCreate,
@@ -1888,6 +1889,25 @@ export const tasksApi = {
       }
       return a;
     });
+
+    return updateTaskForCaller(taskId, { method_attachments: attachments }, owner);
+  },
+
+  // Overwrite the gathered-reagent checklist state for one attached method. The
+  // companion phone syncs the FULL map each time, so this replaces (last write
+  // wins), never merges. Mirrors saveVariationNote.
+  saveGatheredChecks: async (
+    taskId: number,
+    methodId: number,
+    gathered: MethodGatheredChecks,
+    owner?: string
+  ): Promise<Task | null> => {
+    const task = await getTaskForCaller(taskId, owner);
+    if (!task) return null;
+
+    const attachments = (task.method_attachments || []).map((a) =>
+      a.method_id === methodId ? { ...a, gathered_checks: gathered } : a
+    );
 
     return updateTaskForCaller(taskId, { method_attachments: attachments }, owner);
   },

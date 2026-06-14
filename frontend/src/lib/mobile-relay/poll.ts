@@ -361,6 +361,33 @@ interface AddVariationCommand {
 }
 
 /**
+ * A method-check command (2026-06-13). The phone seals this when the researcher
+ * ticks reagents off a method's checklist at the bench. The laptop overwrites
+ * the matching attachment's gathered_checks with the FULL map (last-write-wins,
+ * so retries and out-of-order delivery are harmless and no dedup is needed). It
+ * shows up as a "N of M gathered" indicator on the experiment's method view.
+ * Like add-variation, this writes the per-experiment attachment, never the
+ * source method.
+ */
+interface MethodCheckCommand {
+  type: "method-check";
+  /** Numeric task id (matches the focused experiment). */
+  taskId: number;
+  /** Owner username (matches the focused experiment's owner). */
+  owner: string;
+  /** Which attached method's gathered state to set. Optional (first method). */
+  methodId?: number;
+  /** Full ticked map, keyed by `${stepIndex}:${checkIndex}`. */
+  checks: Record<string, boolean>;
+  /** How many checks are ticked, precomputed by the phone. */
+  gatheredCount: number;
+  /** Total checks the method has, for the "N of M" display. */
+  total: number;
+  /** ISO timestamp of the phone tick that produced this state. */
+  at: string;
+}
+
+/**
  * A timer command (Phase 3). The phone seals this when it starts or dismisses a
  * timer so the laptop mirrors it. op "create" carries the full timer; op
  * "dismiss" carries only the id. "done" is never sent (each device flips to done
@@ -854,6 +881,9 @@ export async function runCaptureInboxPoll(
   // Add-variation commands (View method on phone). Applied after captures so the
   // variation write does not race route-map construction; each is independent.
   const addVariationQueue: Array<{ cmd: AddVariationCommand; commandId: string }> = [];
+  // Method-check commands (gathered reagents). Applied after captures; each
+  // overwrites its attachment's gathered_checks (last-write-wins).
+  const methodCheckQueue: Array<{ cmd: MethodCheckCommand; commandId: string }> = [];
 
   // Load the user's X25519 private key for unsealing commands. The relay
   // seals each command to the user's identity encryption key, which is
@@ -969,6 +999,24 @@ export async function runCaptureInboxPoll(
               );
             } else {
               console.warn(`${LOG_PREFIX} add-variation command ${cmd.commandId} has invalid fields, skipping`);
+            }
+          } else if (parsed.type === "method-check") {
+            // Gathered reagents synced from read mode. Queue it for after the
+            // capture pass; the handler overwrites the attachment's
+            // gathered_checks (last-write-wins). checks must be an object.
+            const mc = parsed as MethodCheckCommand;
+            if (
+              typeof mc.taskId === "number" &&
+              mc.owner &&
+              mc.checks &&
+              typeof mc.checks === "object"
+            ) {
+              methodCheckQueue.push({ cmd: mc, commandId: cmd.commandId });
+              console.info(
+                `${LOG_PREFIX} method-check command queued: task ${mc.owner}/${mc.taskId} methodId=${mc.methodId ?? "first"} ${mc.gatheredCount ?? "?"}/${mc.total ?? "?"} gathered`,
+              );
+            } else {
+              console.warn(`${LOG_PREFIX} method-check command ${cmd.commandId} has invalid fields, skipping`);
             }
           } else if (parsed.type === "timer") {
             // Phase 3: a timer started or dismissed on the phone. No dependency
@@ -1885,6 +1933,102 @@ export async function runCaptureInboxPoll(
     }
   }
   // ── end add-variation processing ────────────────────────────────────────
+
+  // ── method-check processing ─────────────────────────────────────────────
+  // Apply any method-check commands. Each OVERWRITES the target attachment's
+  // gathered_checks with the full map the phone sent (last-write-wins), so the
+  // experiment's method view can show "N of M gathered". Same task lookup +
+  // edit-access gate + methodId resolution as add-variation.
+  for (const { cmd, commandId } of methodCheckQueue) {
+    try {
+      const task = await tasksApi.get(cmd.taskId, cmd.owner);
+      if (!task) {
+        console.warn(
+          `${LOG_PREFIX} method-check: task ${cmd.owner}/${cmd.taskId} not found, skipping`,
+        );
+        try {
+          await ackCommands(keys, [commandId]);
+        } catch {
+          // best-effort
+        }
+        continue;
+      }
+
+      const viewer = await buildCurrentViewer();
+      const writable = canWriteIgnoringPiRole(
+        { owner: task.owner, shared_with: task.shared_with ?? [] },
+        viewer,
+      );
+      if (!writable) {
+        console.warn(
+          `${LOG_PREFIX} method-check: ${currentUser} has no edit access to task ${cmd.owner}/${cmd.taskId}, skipping`,
+        );
+        try {
+          await ackCommands(keys, [commandId]);
+        } catch {
+          // best-effort
+        }
+        continue;
+      }
+
+      const attachments = task.method_attachments ?? [];
+      if (attachments.length === 0) {
+        console.warn(
+          `${LOG_PREFIX} method-check: task ${cmd.owner}/${cmd.taskId} has no methods attached, skipping`,
+        );
+        try {
+          await ackCommands(keys, [commandId]);
+        } catch {
+          // best-effort
+        }
+        continue;
+      }
+      const targetAttachment =
+        (typeof cmd.methodId === "number"
+          ? attachments.find((a) => a.method_id === cmd.methodId)
+          : undefined) ?? attachments[0];
+      const targetMethodId = targetAttachment.method_id;
+
+      // Normalize the gathered state from the (untrusted) command. Recompute the
+      // count from the map so it cannot disagree with the booleans, and clamp.
+      const checks = cmd.checks ?? {};
+      const gatheredCount = Object.values(checks).filter(Boolean).length;
+      const total =
+        typeof cmd.total === "number" && cmd.total >= gatheredCount
+          ? cmd.total
+          : gatheredCount;
+      const gathered = {
+        checks,
+        gatheredCount,
+        total,
+        at: typeof cmd.at === "string" ? cmd.at : new Date().toISOString(),
+      };
+
+      await tasksApi.saveGatheredChecks(cmd.taskId, targetMethodId, gathered, cmd.owner);
+      console.info(
+        `${LOG_PREFIX} method-check: set ${gatheredCount}/${total} gathered on task ${cmd.owner}/${cmd.taskId} method ${targetMethodId}`,
+      );
+
+      try {
+        await ackCommands(keys, [commandId]);
+        console.info(`${LOG_PREFIX} acked method-check command ${commandId}`);
+      } catch (ackErr) {
+        console.warn(
+          `${LOG_PREFIX} failed to ack method-check command ${commandId}`,
+          ackErr instanceof Error ? ackErr.message : String(ackErr),
+        );
+      }
+
+      pulled += 1;
+    } catch (methodCheckErr) {
+      errors += 1;
+      console.warn(
+        `${LOG_PREFIX} failed to apply method-check command ${commandId}`,
+        methodCheckErr instanceof Error ? methodCheckErr.message : String(methodCheckErr),
+      );
+    }
+  }
+  // ── end method-check processing ─────────────────────────────────────────
 
   // The poller writes notes/images straight through the API + file-service layer,
   // which does NOT run the React Query mutation hooks that normally refresh open

@@ -495,6 +495,18 @@ export interface SubTask {
 
 // ── Task Method Attachments ───────────────────────────────────────────────────
 
+// Gathered-reagent checklist state, synced from the companion phone read mode.
+// `checks` is keyed by `${stepIndex}:${checkIndex}` (the phone's parsed reagent
+// checklist), so the count is authoritative even though the laptop does not
+// re-parse the method into the same checks. `total` is how many checks the
+// method has, for a "gatheredCount of total" display.
+export interface MethodGatheredChecks {
+  checks: Record<string, boolean>;
+  gatheredCount: number;
+  total: number;
+  at: string; // ISO timestamp of the last phone sync
+}
+
 export interface TaskMethodAttachment {
   method_id: number;
   // Explicit owner of the referenced method. `null` = same user as the task
@@ -530,6 +542,13 @@ export interface TaskMethodAttachment {
   cell_culture_schedule: string | null;
   // Variation notes - markdown content documenting method variations for this experiment
   variation_notes: string | null;  // Markdown string with timestamped entries
+  // Gathered-reagent checklist state synced from the companion phone. The phone
+  // ticks reagents off as they are gathered at the bench and syncs the FULL map
+  // (last-write-wins), so this is overwritten, never merged. Lives on the
+  // attachment like the other per-experiment snapshots, never on the source
+  // method. Optional so existing attachments without it read as "nothing
+  // gathered yet". See MethodGatheredChecks.
+  gathered_checks?: MethodGatheredChecks | null;
   // Compound method per-child snapshot bundle - JSON string of
   // CompoundSnapshotPayload (only meaningful when the attached method's
   // method_type === "compound"). Bundles per-child snapshot blobs keyed by
