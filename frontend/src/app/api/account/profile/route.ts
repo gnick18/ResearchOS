@@ -49,7 +49,12 @@ export async function POST(request: Request): Promise<Response> {
   const ownerKey = ownerKeyForEmailSafe(email);
   if (!ownerKey) return json(503, { error: "account identity unavailable" });
 
-  let body: { handle?: unknown; displayName?: unknown; affiliation?: unknown };
+  let body: {
+    handle?: unknown;
+    displayName?: unknown;
+    affiliation?: unknown;
+    avatarUrl?: unknown;
+  };
   try {
     body = (await request.json()) as typeof body;
   } catch {
@@ -62,9 +67,24 @@ export async function POST(request: Request): Promise<Response> {
     typeof body.affiliation === "string" ? body.affiliation.trim() || null : null;
   if (!handle) return json(400, { error: "a handle is required" });
 
+  // Phase 3 Chunk 3A: the avatar is optional. Omit the key to leave the existing
+  // avatar untouched; send a data URL to set it, or null to clear it. The cap +
+  // MIME check are enforced authoritatively in upsertAccountProfile.
+  const hasAvatar = Object.prototype.hasOwnProperty.call(body, "avatarUrl");
+  const avatarUrl = hasAvatar
+    ? typeof body.avatarUrl === "string"
+      ? body.avatarUrl
+      : null
+    : undefined;
+
   try {
     await ensureAccountProfileSchema();
-    const result = await upsertAccountProfile(ownerKey, { handle, displayName, affiliation });
+    const result = await upsertAccountProfile(ownerKey, {
+      handle,
+      displayName,
+      affiliation,
+      ...(hasAvatar ? { avatarUrl } : {}),
+    });
     if (!result.ok) return json(409, { error: result.error });
     return json(200, { ok: true, profile: result.profile });
   } catch {

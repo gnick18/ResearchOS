@@ -12,11 +12,13 @@ import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import MarketingBackdrop from "@/components/marketing/MarketingBackdrop";
 import Wordmark from "@/components/Wordmark";
+import ProfileAvatar from "@/components/account/ProfileAvatar";
 
 interface PublicProfile {
   handle: string;
   displayName: string | null;
   affiliation: string | null;
+  avatarUrl: string | null;
 }
 
 export default function HandleProfilePage() {
@@ -54,8 +56,6 @@ export default function HandleProfilePage() {
     };
   }, [handle]);
 
-  const initial = (profile?.displayName ?? profile?.handle ?? "?").slice(0, 1).toUpperCase();
-
   return (
     <div className="relative min-h-screen overflow-hidden bg-surface">
       <MarketingBackdrop tone="soft" />
@@ -77,9 +77,12 @@ export default function HandleProfilePage() {
             </div>
           ) : (
             <div className="mx-auto w-full rounded-2xl border border-border bg-surface p-8 text-center shadow-lg">
-              <div className="mx-auto grid h-16 w-16 place-items-center rounded-full bg-brand-purple text-2xl font-extrabold text-white">
-                {initial}
-              </div>
+              <ProfileAvatar
+                avatarUrl={profile?.avatarUrl ?? null}
+                name={profile?.displayName ?? profile?.handle}
+                sizePx={64}
+                className="mx-auto"
+              />
               <h1 className="mt-4 text-heading font-extrabold tracking-tight text-foreground">
                 {profile?.displayName ?? `@${profile?.handle}`}
               </h1>

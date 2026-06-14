@@ -22,11 +22,14 @@ import {
 import { provisionDeviceKeyForAccount } from "@/lib/sharing/identity/provision";
 import { markRecoveryConfirmed } from "@/lib/sharing/identity/recovery-confirm";
 import RecoveryKitModal from "@/components/sharing/RecoveryKitModal";
+import ProfileAvatar from "@/components/account/ProfileAvatar";
+import { fileToAvatarDataUrl } from "@/lib/account/avatar-image";
 
 interface AccountProfile {
   handle: string;
   displayName: string | null;
   affiliation: string | null;
+  avatarUrl: string | null;
 }
 
 interface QuickLink {
@@ -69,6 +72,11 @@ export default function AccountHome() {
   const [handle, setHandle] = useState("");
   const [displayName, setDisplayName] = useState("");
   const [affiliation, setAffiliation] = useState("");
+  // Phase 3 Chunk 3A avatar. undefined means "unchanged on save"; a string sets
+  // it, null clears it. Kept separate from the saved profile so the edit form can
+  // preview a freshly picked image before it is persisted.
+  const [avatarDraft, setAvatarDraft] = useState<string | null | undefined>(undefined);
+  const [avatarError, setAvatarError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -101,14 +109,29 @@ export default function AccountHome() {
     };
   }, []);
 
+  const onPickAvatar = async (file: File | null | undefined) => {
+    setAvatarError(null);
+    if (!file) return;
+    try {
+      const dataUrl = await fileToAvatarDataUrl(file);
+      setAvatarDraft(dataUrl);
+    } catch (e) {
+      setAvatarError(e instanceof Error ? e.message : "Could not read that image.");
+    }
+  };
+
   const save = async () => {
     setError(null);
     setSaving(true);
     try {
+      // Only send avatarUrl when the user touched it this edit (avatarDraft set),
+      // so an unrelated save leaves the existing avatar untouched on the server.
+      const body: Record<string, unknown> = { handle, displayName, affiliation };
+      if (avatarDraft !== undefined) body.avatarUrl = avatarDraft;
       const res = await fetch("/api/account/profile", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ handle, displayName, affiliation }),
+        body: JSON.stringify(body),
       });
       const data = (await res.json().catch(() => ({}))) as {
         ok?: boolean;
@@ -117,6 +140,8 @@ export default function AccountHome() {
       };
       if (res.ok && data.ok && data.profile) {
         setProfile(data.profile);
+        setAvatarDraft(undefined);
+        setAvatarError(null);
         setEditing(false);
       } else {
         setError(data.error ?? `Could not save (HTTP ${res.status})`);
@@ -252,7 +277,6 @@ export default function AccountHome() {
   const isReturning = Boolean(profile) || Boolean(lastConnectedFolder);
   const welcomeName = profile?.displayName ?? sessionName ?? null;
 
-  const initial = (profile?.displayName ?? profile?.handle ?? "?").slice(0, 1).toUpperCase();
   const inputCls =
     "w-full rounded-lg border border-border bg-surface-sunken px-3 py-2 text-body text-foreground placeholder:text-foreground-muted focus:outline-none focus:ring-2 focus:ring-brand-action";
 
@@ -267,6 +291,44 @@ export default function AccountHome() {
             <h2 className="text-body font-bold text-foreground">
               {profile ? "Edit your profile" : "Claim your handle"}
             </h2>
+            {/* Phase 3 Chunk 3A: avatar picker. Resized + capped client-side, the
+                server caps it again authoritatively on save. */}
+            <div className="flex items-center gap-4">
+              <ProfileAvatar
+                avatarUrl={
+                  avatarDraft !== undefined ? avatarDraft : profile?.avatarUrl ?? null
+                }
+                name={displayName || handle}
+                sizePx={56}
+              />
+              <div className="flex flex-col gap-1">
+                <label className="cursor-pointer rounded-lg border border-border bg-surface px-3 py-1.5 text-meta font-semibold text-foreground hover:border-brand-action">
+                  Choose photo
+                  <input
+                    type="file"
+                    accept="image/png,image/jpeg,image/webp"
+                    className="hidden"
+                    onChange={(e) => {
+                      void onPickAvatar(e.target.files?.[0]);
+                      e.target.value = "";
+                    }}
+                  />
+                </label>
+                {(avatarDraft ?? profile?.avatarUrl) && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setAvatarDraft(null);
+                      setAvatarError(null);
+                    }}
+                    className="text-left text-meta font-medium text-foreground-muted hover:text-rose-600"
+                  >
+                    Remove photo
+                  </button>
+                )}
+              </div>
+            </div>
+            {avatarError && <p className="text-meta text-rose-600">{avatarError}</p>}
             <label className="block">
               <span className="text-meta font-semibold text-foreground-muted">Handle</span>
               <div className="mt-1 flex items-center gap-1">
@@ -325,9 +387,11 @@ export default function AccountHome() {
           </div>
         ) : (
           <div className="flex items-center gap-4">
-            <div className="grid h-12 w-12 flex-none place-items-center rounded-full bg-brand-purple text-lg font-extrabold text-white">
-              {initial}
-            </div>
+            <ProfileAvatar
+              avatarUrl={profile?.avatarUrl ?? null}
+              name={profile?.displayName ?? profile?.handle}
+              sizePx={48}
+            />
             <div className="min-w-0 flex-1">
               <div className="truncate text-title font-bold text-foreground">
                 {profile?.displayName ?? `@${profile?.handle}`}
