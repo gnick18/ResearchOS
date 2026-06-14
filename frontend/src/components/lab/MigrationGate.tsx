@@ -29,7 +29,11 @@ import LivingPopup from "@/components/ui/LivingPopup";
 import { Icon } from "@/components/icons";
 import { usePathname } from "next/navigation";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
-import { useIsLabMode, LAB_MODE_QUERY_KEY } from "@/hooks/useIsLabMode";
+import { LAB_MODE_QUERY_KEY } from "@/hooks/useIsLabMode";
+import {
+  useIsMultiUserFolder,
+  MULTI_USER_FOLDER_QUERY_KEY,
+} from "@/hooks/useIsMultiUserFolder";
 import { useFileSystem } from "@/lib/file-system/file-system-context";
 import { isOperatorSurface } from "@/lib/routes/operator-surface";
 import { getDemoMode } from "@/lib/file-system/wiki-capture-mock";
@@ -55,7 +59,10 @@ function readDismissed(folder: string | null | undefined): boolean {
 
 export default function MigrationGate() {
   const { currentUser, mainUser } = useCurrentUser();
-  const isLabMode = useIsLabMode() ?? false;
+  // Multi-user, NOT lab-mode: a solo lab head (one user, account_type lab_head)
+  // is in lab mode but has no other users to migrate out, so the gate must not
+  // fire for them. Only a folder that genuinely holds 2+ users needs splitting.
+  const isMultiUser = useIsMultiUserFolder() ?? false;
   const pathname = usePathname();
   const { directoryName, disconnect } = useFileSystem();
   const queryClient = useQueryClient();
@@ -80,24 +87,26 @@ export default function MigrationGate() {
     dismiss();
     setMode(null);
     // The migration changed the folder's user count and/or cleared the
-    // lab-head role, so the cached lab-mode answer (staleTime Infinity) is now
-    // wrong. Invalidate it so the gate's `isLabMode` recomputes to solo and the
-    // popup stays closed without needing a hard reload.
+    // lab-head role, so the cached multi-user + lab-mode answers (staleTime
+    // Infinity) are now wrong. Invalidate both so the gate's `isMultiUser`
+    // recomputes to solo and the popup stays closed without a hard reload.
+    void queryClient.invalidateQueries({ queryKey: MULTI_USER_FOLDER_QUERY_KEY });
     void queryClient.invalidateQueries({ queryKey: LAB_MODE_QUERY_KEY });
   };
 
   // Operator surfaces (admin + LLC business) are carved out from every gate.
   if (isOperatorSurface(pathname)) return null;
 
-  // Never in demo mode. The demo fixture is a multi-user lab, so isLabMode is
-  // true, but a visitor exploring /demo must not be nagged to migrate the
+  // Never in demo mode. The demo fixture is a multi-user lab, so it is
+  // multi-user, but a visitor exploring /demo must not be nagged to migrate the
   // fixture. The demo overrides the real linked folder; the gate reappears once
   // they leave demo (this component re-renders on pathname change). Reading
   // getDemoMode() here, not usePathname, also catches the sticky in-tab flag.
   if (getDemoMode()) return null;
 
-  // Only for a real, signed-in user in a multi-user folder.
-  if (!currentUser || !isLabMode) return null;
+  // Only for a real, signed-in user in a genuinely multi-user folder. A solo
+  // lab head (one user) is deliberately excluded, see useIsMultiUserFolder.
+  if (!currentUser || !isMultiUser) return null;
 
   // A chosen flow takes over (its own confirm + progress + result).
   if (mode === "convert") {
