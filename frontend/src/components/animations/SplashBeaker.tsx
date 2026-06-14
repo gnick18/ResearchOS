@@ -238,6 +238,11 @@ export function SplashBeaker({
         <path data-draw d="M22 8 C 22 6, 24 4, 26 6" />
         <path data-draw d="M12 12 L12 24 C 12 30, 16 32, 20 32 C 24 32, 28 30, 28 24 L28 12" />
         <path data-draw d="M11 12 L29 12" />
+        {/* BeakerBot's little arms (left + right side stubs) — part of the
+            canonical mascot (IntroBeaker.tsx:63-64); the redesign dropped
+            them, draw them on with the rest of the outline. */}
+        <path data-draw d="M14 26 L15.5 26" />
+        <path data-draw d="M24.5 26 L26 26" />
       </g>
 
       {/* Face wakes after the outline lands */}
