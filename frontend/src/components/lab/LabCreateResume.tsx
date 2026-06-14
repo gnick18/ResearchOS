@@ -36,7 +36,11 @@ import { getSession } from "next-auth/react";
 import { LAB_TIER_ENABLED } from "@/lib/lab/config";
 import { useFileSystem } from "@/lib/file-system/file-system-context";
 import { getSessionIdentity } from "@/lib/sharing/identity/session-key";
-import { createLabForCurrentUser } from "@/lib/lab/lab-create";
+import { createLabLocal } from "@/lib/lab/lab-create";
+import {
+  publishPendingGenesis,
+  readPendingGenesis,
+} from "@/lib/lab/lab-genesis-pending";
 import {
   patchUserSettings,
   readUserSettings,
@@ -98,12 +102,18 @@ export default function LabCreateResume() {
       if (!currentUser) return;
 
       // Idempotency: if the user already has a lab_id, do not create a second
-      // lab. Just ensure account_type reflects lab_head and finish.
+      // lab. Just ensure account_type reflects lab_head and finish. If a prior
+      // genesis publish never landed (lab_pending_genesis is still set), kick
+      // off a best-effort background publish so the relay catches up.
       const current = await readUserSettings(currentUser);
       if (current.lab_id) {
         if (current.account_type !== "lab_head") {
           await patchUserSettings(currentUser, { account_type: "lab_head" });
           appQueryClient.invalidateQueries();
+        }
+        const pending = await readPendingGenesis(currentUser);
+        if (pending) {
+          void publishPendingGenesis(currentUser, pending);
         }
         consumeLabCreateMarker();
         ran.current = true;
@@ -116,31 +126,45 @@ export default function LabCreateResume() {
       // double-create.
       ran.current = true;
 
-      try {
-        const { labId } = await createLabForCurrentUser({
-          username: currentUser,
-          identity,
-          oauthEmail,
-        });
+      // Build the lab LOCALLY and promote the user to lab_head IMMEDIATELY,
+      // before any relay round-trip. Being a PI is a local account-type
+      // property, so the PI UI lens must render whether or not the relay is
+      // reachable. createLabLocal is pure (it only throws on a missing OAuth
+      // email, which we have already validated upstream), so this cannot leave
+      // the user un-promoted on a network failure.
+      const { labId, created } = createLabLocal({
+        username: currentUser,
+        identity,
+        oauthEmail,
+      });
 
-        // Persist the lab_id and promote the account_type.
-        await patchUserSettings(currentUser, {
-          account_type: "lab_head",
-          lab_id: labId,
-        });
+      // Persist lab_id + account_type AND the genesis artifacts in one write.
+      // The persisted record + envelope let LabGenesisPublishRetry retry the
+      // publish across reloads, and let openLabKey re-derive the lab key offline
+      // so the head is never locked out.
+      await patchUserSettings(currentUser, {
+        account_type: "lab_head",
+        lab_id: labId,
+        lab_pending_genesis: {
+          labId,
+          record: created.record,
+          envelope: created.envelope,
+        },
+      });
 
-        // Invalidate queries so LabSessionMount re-reads settings and engages.
-        appQueryClient.invalidateQueries();
+      // Invalidate queries so LabSessionMount re-reads settings and engages.
+      appQueryClient.invalidateQueries();
 
-        console.log("[LabCreateResume] lab created:", labId);
-      } catch (err) {
-        console.error("[LabCreateResume] lab creation failed:", err);
-        // On failure, clear ran so the user can retry after resolving the
-        // issue (e.g. network unavailable). We do NOT clear the marker so the
-        // next page load retries.
-        ran.current = false;
-        return;
-      }
+      console.log("[LabCreateResume] lab created locally:", labId);
+
+      // Fire-and-forget the relay publish. A failure here does NOT un-promote
+      // the user: LabGenesisPublishRetry + a reload retry from the persisted
+      // pending genesis handle the eventual publish.
+      void publishPendingGenesis(currentUser, {
+        labId,
+        record: created.record,
+        envelope: created.envelope,
+      });
 
       consumeLabCreateMarker();
       setNeedEmail(false);

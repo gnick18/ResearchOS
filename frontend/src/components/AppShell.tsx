@@ -57,6 +57,7 @@ import { usePhonePaired } from "@/hooks/usePhonePaired";
 import SharingClaimResume from "@/components/sharing/SharingClaimResume";
 import LabInviteResume from "@/components/lab/LabInviteResume";
 import LabCreateResume from "@/components/lab/LabCreateResume";
+import LabGenesisPublishRetry from "@/components/lab/LabGenesisPublishRetry";
 import { LabSessionMount } from "@/components/lab/LabSessionMount";
 import BeakerSearchBottomBar from "@/components/beaker-search/BeakerSearchBottomBar";
 import AppNavBar from "@/components/AppNavBar";
@@ -657,6 +658,12 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
           Self-gates on sessionStorage "researchos:lab-create" + live session
           + connected user + unlocked identity. Inert otherwise. */}
       <LabCreateResume />
+      {/* Retries the relay genesis publish for a lab created locally whose
+          publish has not landed yet, and shows a small "Lab sync pending"
+          banner while outstanding. The PI is already a full lab head locally;
+          this only catches the server up. Self-gates on LAB_TIER_ENABLED + a
+          connected user. */}
+      <LabGenesisPublishRetry />
       <LabInviteResume />
       <ReminderRunner />
       <NotificationDesktopWatcher />

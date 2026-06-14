@@ -50,6 +50,8 @@ import {
 } from "@/lib/sharing/identity/session-key";
 import { restoreSessionFromStore } from "@/lib/sharing/identity/storage";
 import { getLabRemote, resyncLabRemote } from "./lab-do-client";
+import type { GetLabResult } from "./lab-do-client";
+import { readPendingGenesis } from "./lab-genesis-pending";
 import { openLabKeyCopy } from "./lab-key";
 import { verifyMemberEmailBinding } from "./lab-binding";
 import { autoBindLabProfile } from "./lab-profile-auto-bind";
@@ -202,8 +204,23 @@ export function createLabSessionEffects(params: {
       }
       const x25519Priv = id.keys.encryption.privateKey;
 
-      // Step 2: fetch the lab record from the relay.
-      const result = await getLabRemote(labId);
+      // Step 2: fetch the lab record from the relay. If the relay does not have
+      // the lab yet (the genesis publish has not landed) OR returns no envelopes,
+      // fall back to the head's locally-persisted pending genesis so the head is
+      // never locked out of a lab they just created offline. The lab key is
+      // re-derived from the persisted sealed envelope below, exactly as it would
+      // be from the relay copy.
+      let result = await getLabRemote(labId);
+      if (!result || result.envelopes.length === 0) {
+        const pending = await readPendingGenesis(username);
+        if (pending && pending.labId === labId) {
+          const local: GetLabResult = {
+            record: pending.record,
+            envelopes: [pending.envelope],
+          };
+          result = local;
+        }
+      }
       if (!result) {
         throw new Error("lab session: lab not found on relay");
       }

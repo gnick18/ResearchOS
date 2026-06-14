@@ -337,6 +337,12 @@ export interface UserSettings {
   /** Lab-tier: the lab this user belongs to (head or member). Absent for solo users. */
   lab_id?: string;
 
+  /** Lab-tier: genesis artifacts for a lab created locally whose relay publish
+   *  has not yet succeeded. Present => LabGenesisPublishRetry keeps retrying the
+   *  publish; cleared on success. Lets a PI be a lab head instantly without the
+   *  relay, and lets openLabKey re-derive the key offline. */
+  lab_pending_genesis?: import("@/lib/lab/lab-membership").PendingLabGenesis;
+
   /** Department tier Phase 1: the dept_id this user ADMINISTERS, if any. Set when
    *  they create a department or accept an institution's dept-admin invite. An
    *  additive org relationship, NOT a mutually-exclusive account_type, so a PI can

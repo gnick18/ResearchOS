@@ -27,6 +27,7 @@
 // No emojis, no em-dashes, no mid-sentence colons.
 
 import { createLab, generateLabKey } from "./lab-key";
+import type { CreatedLab } from "./lab-key";
 import { sealMemberEmailHash } from "./lab-binding";
 import { createLabRemote } from "./lab-do-client";
 import type { LabMember } from "./lab-membership";
@@ -74,23 +75,27 @@ export interface CreateLabResult {
   labKey: Uint8Array;
 }
 
+/** The local half of lab creation, the labId plus the in-memory CreatedLab. */
+export interface CreateLabLocalResult {
+  labId: string;
+  created: CreatedLab;
+}
+
 /**
- * Creates a brand-new lab for the current user and publishes the genesis record
- * to the Lab Record DO. The caller becomes the sole head member.
+ * The PURE, network-free half of lab creation. Validates the OAuth email,
+ * generates the labId + lab key, builds the head LabMember, and runs createLab
+ * to produce the genesis record + sealed envelope + lab key in memory. Does NOT
+ * touch the network, so the caller can promote the user to lab_head and persist
+ * the genesis artifacts INSTANTLY, before any relay round-trip. The relay
+ * publish is a separate, retryable step (publishLabRemote).
  *
- * The function is intentionally pure and network-ignorant beyond the one relay
- * POST: it takes the username and identity as parameters rather than reading
- * them from global state, so it can be tested without browser APIs.
- *
- * @throws if the relay rejects the create request (non-2xx HTTP status).
+ * @throws if no OAuth-verified email is supplied (the head cannot be bound).
  */
-export async function createLabForCurrentUser(
-  params: CreateLabParams,
-): Promise<CreateLabResult> {
+export function createLabLocal(params: CreateLabParams): CreateLabLocalResult {
   const { username, identity, oauthEmail } = params;
   if (!oauthEmail || !oauthEmail.trim()) {
     throw new Error(
-      "createLabForCurrentUser: an OAuth-verified email is required to bind the head membership",
+      "createLabLocal: an OAuth-verified email is required to bind the head membership",
     );
   }
   const labId = (params.idImpl ?? (() => crypto.randomUUID()))();
@@ -118,32 +123,74 @@ export async function createLabForCurrentUser(
     { labKey },
   );
 
+  return { labId, created };
+}
+
+/**
+ * The NETWORK half of lab creation, a retryable background publish. POSTs the
+ * head-signed genesis entry + sealed envelope to the relay, then best-effort
+ * upserts a directory row. Separated from createLabLocal so a PI is a lab head
+ * locally the instant they commit, independent of whether the relay is
+ * reachable. The genesis artifacts (created.record + created.envelope) are
+ * fully JSON-serializable, so the caller can persist them and retry this until
+ * it lands.
+ *
+ * @throws if the relay rejects the create request (non-2xx HTTP status). The
+ *   directory upsert failure is swallowed (best-effort).
+ */
+export async function publishLabRemote(
+  labId: string,
+  created: CreatedLab,
+  opts?: {
+    labName?: string;
+    institution?: string | null;
+    piDisplayName?: string;
+  },
+): Promise<void> {
   const res = await createLabRemote(labId, created);
   if (!res.ok) {
     throw new Error(
-      `createLabForCurrentUser: relay rejected lab create (HTTP ${res.status})`,
+      `publishLabRemote: relay rejected lab create (HTTP ${res.status})`,
     );
   }
 
   // Best-effort: publish a directory row (listed=false) so the lab can later
   // be opted into the listing by the PI. A failure here must never block lab
   // creation -- we simply skip the upsert and the PI can trigger it later.
-  if (params.labName?.trim()) {
+  if (opts?.labName?.trim()) {
     try {
       await fetch("/api/directory/labs/publish", {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
           labId,
-          name: params.labName.trim(),
-          institution: params.institution ?? null,
-          piDisplayName: username,
+          name: opts.labName.trim(),
+          institution: opts.institution ?? null,
+          piDisplayName: opts.piDisplayName ?? "",
         }),
       });
     } catch {
       // Intentionally swallowed: directory upsert is best-effort.
     }
   }
+}
 
+/**
+ * Creates a brand-new lab for the current user and publishes the genesis record
+ * to the Lab Record DO. The caller becomes the sole head member. A thin
+ * backward-compatible wrapper over createLabLocal + publishLabRemote, preserved
+ * so existing tests and callers keep their exact signature and behavior.
+ *
+ * @throws if no OAuth email is supplied, or if the relay rejects the create.
+ */
+export async function createLabForCurrentUser(
+  params: CreateLabParams,
+): Promise<CreateLabResult> {
+  const { labId, created } = createLabLocal(params);
+  await publishLabRemote(labId, created, {
+    labName: params.labName,
+    institution: params.institution,
+    piDisplayName: params.username,
+  });
   return { labId, labKey: created.labKey };
 }
