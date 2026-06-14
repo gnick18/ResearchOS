@@ -1,12 +1,11 @@
-// Department tier Phase 1: a lab head accepts a dept invite link.
+// Department tier: a lab head accepts a dept invite (unified server-token).
 //
-// POST /api/dept/join  body { invite: DeptInvitePayload }
-//   The lab head is authenticated (their owner key is derived server-side from
-//   the session email). We verify the invite is real: the signer pubkey must
-//   match the department record's admin, the signature must verify, and it must
-//   not be expired. Then we enroll the lab head as active (org membership; no
-//   charging in Phase 1). Idempotent, so a replayed link just re-confirms the
-//   same authenticated lab head.
+// POST /api/dept/join  body { token }
+//   The lab head is authenticated (owner key derived server-side from the
+//   session email). We atomically validate + single-use-redeem the opaque token
+//   for layer "dept" (the server is the trust anchor, no client signature), then
+//   enroll the lab head as active. A spent or expired token returns a precise
+//   error so the accept screen can ask for a fresh link.
 //
 // Dark unless DEPT_TIER_ENABLED. Sign-in required.
 //
@@ -18,29 +17,12 @@ import { ownerKeyForEmailSafe } from "@/lib/billing/owner";
 import { DEPT_TIER_ENABLED } from "@/lib/dept/config";
 import { ensureDeptSchema, getDepartment, enrollLabHeadActive } from "@/lib/billing/dept";
 import {
-  verifyDeptInviteSignature,
-  isDeptInviteExpired,
-  type DeptInvitePayload,
-} from "@/lib/dept/dept-invite";
+  ensureInviteSchema,
+  redeemInvite,
+  redeemErrorMessage,
+} from "@/lib/invites/invite-tokens";
 
 export const runtime = "nodejs";
-
-function asInvite(raw: unknown): DeptInvitePayload | null {
-  if (!raw || typeof raw !== "object") return null;
-  const p = raw as Partial<DeptInvitePayload>;
-  if (
-    typeof p.deptId !== "string" ||
-    typeof p.adminEd25519Pub !== "string" ||
-    typeof p.nonce !== "string" ||
-    typeof p.sig !== "string" ||
-    typeof p.expiresAt !== "number" ||
-    typeof p.deptName !== "string" ||
-    typeof p.adminUsername !== "string"
-  ) {
-    return null;
-  }
-  return p as DeptInvitePayload;
-}
 
 export async function POST(request: Request): Promise<Response> {
   if (!DEPT_TIER_ENABLED) return json(404, { error: "not found" });
@@ -51,32 +33,29 @@ export async function POST(request: Request): Promise<Response> {
   const labHeadOwnerKey = ownerKeyForEmailSafe(email);
   if (!labHeadOwnerKey) return json(503, { error: "billing identity unavailable" });
 
-  let body: { invite?: unknown };
+  let body: { token?: unknown };
   try {
-    body = (await request.json()) as { invite?: unknown };
+    body = (await request.json()) as { token?: unknown };
   } catch {
     return json(400, { error: "invalid json" });
   }
-  const invite = asInvite(body.invite);
-  if (!invite) return json(400, { error: "malformed invite" });
+  const token = typeof body.token === "string" ? body.token.trim() : "";
+  if (!token) return json(400, { error: "missing invite token" });
 
   try {
+    await ensureInviteSchema();
     await ensureDeptSchema();
-    const dept = await getDepartment(invite.deptId);
+    const redeemed = await redeemInvite({ token, layer: "dept", usedBy: labHeadOwnerKey });
+    if (!redeemed.ok) {
+      const status =
+        redeemed.reason === "expired" || redeemed.reason === "already_used" ? 410 : 400;
+      return json(status, { error: redeemErrorMessage(redeemed.reason) });
+    }
+    const dept = await getDepartment(redeemed.entityId);
     if (!dept) return json(404, { error: "department not found" });
-    // Cross-check the signer against the real admin pubkey, THEN verify the sig.
-    if (invite.adminEd25519Pub !== dept.adminEd25519Pub) {
-      return json(403, { error: "invite was not signed by this department's admin" });
-    }
-    if (!verifyDeptInviteSignature(invite)) {
-      return json(403, { error: "invalid invite signature" });
-    }
-    if (isDeptInviteExpired(invite, Date.now())) {
-      return json(410, { error: "this invite has expired" });
-    }
     // Label with the lab head's own email so the admin's roster is readable (the
     // dept admin is the payer; per the locked visibility model they see names).
-    await enrollLabHeadActive(invite.deptId, labHeadOwnerKey, email);
+    await enrollLabHeadActive(redeemed.entityId, labHeadOwnerKey, email);
     return json(200, { ok: true, deptName: dept.name });
   } catch {
     return json(500, { error: "could not join the department" });

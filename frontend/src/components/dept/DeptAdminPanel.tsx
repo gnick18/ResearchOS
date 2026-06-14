@@ -12,7 +12,6 @@
 import { useEffect, useState } from "react";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { isDemoOrWikiCapture } from "@/lib/file-system/wiki-capture-mock";
-import { getSessionIdentity } from "@/lib/sharing/identity/session-key";
 import { patchUserSettings } from "@/lib/settings/user-settings";
 import { Icon } from "@/components/icons";
 import { createDeptForCurrentUser } from "@/lib/dept/dept-create";
@@ -46,23 +45,17 @@ export default function DeptAdminPanel() {
     void refresh();
   }, []);
 
-  const requireIdentity = () => {
-    const id = getSessionIdentity();
-    if (!id) throw new Error("Your identity is locked. Reload and sign in first.");
-    return id;
-  };
-
   const createDept = async () => {
-    if (!name.trim() || !currentUser) return;
+    if (!name.trim()) return;
     setError(null);
     setBusy(true);
     try {
-      const { deptId } = await createDeptForCurrentUser({
-        identity: requireIdentity(),
-        name,
-      });
-      // Record the org relationship locally (the Department lens reads this).
-      await patchUserSettings(currentUser, { dept_admin_of: deptId });
+      // The dept is created server-side off the authenticated session; no local
+      // device identity needed (the portal works folderless).
+      const { deptId } = await createDeptForCurrentUser({ name });
+      // Record the org relationship locally ONLY when a folder is connected (the
+      // in-app Department lens reads it). Folderless portal use skips this.
+      if (currentUser) await patchUserSettings(currentUser, { dept_admin_of: deptId });
       await refresh();
     } catch (e) {
       setError(errMsg(e));
@@ -71,23 +64,19 @@ export default function DeptAdminPanel() {
     }
   };
 
-  const makeInviteLink = () => {
+  const makeInviteLink = async () => {
     if (!roster?.department) return;
     setError(null);
-    // Demo mode has no identity to sign with; show a representative link so the
-    // invite flow is visible without minting a real signed invite.
+    // Demo mode has no session; show a representative link so the invite flow is
+    // visible without minting a real token.
     if (isDemoOrWikiCapture()) {
       setLink(`${window.location.origin}/dept/join#demo-invite-link`);
       setCopied(false);
       return;
     }
-    if (!currentUser) return;
     try {
-      const { link: l } = mintInviteForDeptAdmin({
+      const { link: l } = await mintInviteForDeptAdmin({
         deptId: roster.department.deptId,
-        deptName: roster.department.name,
-        username: currentUser,
-        identity: requireIdentity(),
         origin: window.location.origin,
       });
       setLink(l);
@@ -175,7 +164,7 @@ export default function DeptAdminPanel() {
           email.
         </p>
         <div className="mt-3 flex flex-wrap items-center gap-2">
-          <button type="button" className={primaryBtn} onClick={makeInviteLink}>
+          <button type="button" className={primaryBtn} onClick={() => void makeInviteLink()}>
             Create invite link
           </button>
           {link && (
