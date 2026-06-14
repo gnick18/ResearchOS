@@ -2345,7 +2345,13 @@ export default function LiveMarkdownEditor({
                 <div
                   role="menu"
                   data-testid="hybrid-editor-focus-popover"
-                  className="absolute right-0 top-full mt-1 z-30 min-w-[15rem] p-1.5 rounded-lg border border-border bg-surface-overlay shadow-lg"
+                  // Solid, isolated panel: the parent fullscreen pill has
+                  // `backdrop-blur` + a translucent fill, whose compositing group
+                  // otherwise bleeds the document through this menu. An explicit
+                  // opaque `--surface-overlay` fill + `isolation:isolate` give it
+                  // its own stacking context so it paints solid over the room.
+                  style={{ backgroundColor: "var(--surface-overlay)", isolation: "isolate" }}
+                  className="absolute right-0 top-full mt-1 z-50 min-w-[15rem] p-1.5 rounded-lg border border-border bg-surface-overlay shadow-lg"
                 >
                   <FocusToggleRow
                     icon="align"
