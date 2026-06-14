@@ -2,11 +2,17 @@
 // Fields: product name (required), vendor, catalog number, quantity (stepper,
 // default 1). On save calls createPurchase() from lib/scan.ts and shows a
 // sent/queued confirmation, then goes back. Disabled when not paired; the
-// pairing card prompts to pair first. House style: no em-dashes, no emojis,
-// no mid-sentence colons.
+// pairing card prompts to pair first.
+//
+// Polished to UI contract 04 (add-purchase frame): contract .field labels,
+// .input.focus sky ring (focusRing, matching scan.tsx + note.tsx), a side by
+// side .calc-row for catalog + quantity, a bordered segmented .stepper with sky
+// symbols, a sky .callout routing note, and a contract .success-check done
+// state. The screen identity is purchase-violet (matches the scan flow's
+// "Add a purchase item" sheet-opt + Capture scan tile). House style: no
+// em-dashes, no emojis, no mid-sentence colons.
 import { useCallback, useState } from 'react';
 import {
-  ActivityIndicator,
   Alert,
   Pressable,
   ScrollView,
@@ -14,6 +20,7 @@ import {
   TextInput,
   View,
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect, useRouter } from 'expo-router';
 
 import { ThemedText } from '@/components/themed-text';
@@ -21,14 +28,26 @@ import { ScreenFrame } from '@/components/ui/ScreenFrame';
 import { ScreenHeader } from '@/components/ui/ScreenHeader';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
-import { useTheme, palette } from '@/lib/design';
+import { useTheme, palette, fonts } from '@/lib/design';
 import { usePairing } from '@/lib/pairing';
 import { signWithDevice } from '@/lib/device-identity';
 import { createPurchase } from '@/lib/scan';
 
+// Contract .input.focus: sky border + soft sky glow. Spread onto a focused
+// input. Reads a touch hotter on dark, matching scan.tsx / note.tsx.
+function focusRing(dark: boolean) {
+  return {
+    shadowColor: palette.sky,
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: dark ? 0.5 : 0.28,
+    shadowRadius: 6,
+    elevation: 0,
+  } as const;
+}
+
 export default function AddPurchaseScreen() {
   const router = useRouter();
-  const { surface, spacing, radii } = useTheme();
+  const { surface, spacing, radii, dark } = useTheme();
   const { pairing, refresh: refreshPairing } = usePairing();
 
   const [productName, setProductName] = useState('');
@@ -37,6 +56,11 @@ export default function AddPurchaseScreen() {
   const [quantity, setQuantity] = useState(1);
   const [saving, setSaving] = useState(false);
   const [sent, setSent] = useState(false);
+
+  // Which field owns the sky focus ring.
+  const [focusField, setFocusField] = useState<
+    'name' | 'vendor' | 'catalog' | null
+  >(null);
 
   useFocusEffect(
     useCallback(() => {
@@ -78,24 +102,50 @@ export default function AddPurchaseScreen() {
     router.back();
   }, [router]);
 
+  // Done state (contract .success-check): a soft violet badge, the queued
+  // headline, a muted note, and a primary Done.
   if (sent) {
     return (
       <ScreenFrame>
         <ScreenHeader />
         <ScrollView
           style={styles.fill}
-          contentContainerStyle={styles.scrollContent}
+          contentContainerStyle={styles.doneContent}
         >
-          <ThemedText type="title">Purchase queued</ThemedText>
-          <ThemedText style={[styles.tagline, { color: surface.muted }]}>
-            The purchase item has been sent to your lab. It will appear in
-            ResearchOS on your laptop shortly.
+          <View style={styles.successCheck}>
+            <Ionicons name="checkmark" size={42} color={palette.violet} />
+          </View>
+          <ThemedText type="title" style={styles.center}>
+            Purchase queued
           </ThemedText>
-          <Button variant="primary" label="Done" onPress={onDone} />
+          <ThemedText
+            style={[styles.tagline, styles.center, { color: surface.muted }]}
+          >
+            Saved to your purchase orders. Your PI can send it to the department
+            from the laptop.
+          </ThemedText>
+          <View style={styles.stretch}>
+            <Button variant="primary" label="Done" onPress={onDone} />
+          </View>
         </ScrollView>
       </ScreenFrame>
     );
   }
+
+  // Shared input style builder so every field carries the same focus ring.
+  const inputStyle = (field: 'name' | 'vendor' | 'catalog') => {
+    const on = focusField === field;
+    return [
+      styles.input,
+      {
+        backgroundColor: on ? surface.surface : surface.surface2,
+        borderColor: on ? palette.sky : surface.borderStrong,
+        borderRadius: radii.md,
+        color: surface.text,
+      },
+      on ? focusRing(dark) : null,
+    ];
+  };
 
   return (
     <ScreenFrame>
@@ -105,10 +155,17 @@ export default function AddPurchaseScreen() {
         contentContainerStyle={styles.scrollContent}
         keyboardShouldPersistTaps="handled"
       >
-        <ThemedText type="title">Add purchase</ThemedText>
+        {/* Purchase-violet identity chip + title (matches the scan flow). */}
+        <View style={styles.titleRow}>
+          <View style={styles.titleIcon}>
+            <Ionicons name="add" size={22} color={palette.violet} />
+          </View>
+          <ThemedText type="title">Add a purchase</ThemedText>
+        </View>
+
         {!pairing ? (
           <Card style={{ gap: spacing.sm }}>
-            <ThemedText style={[styles.fieldLabel, { color: surface.text }]}>
+            <ThemedText style={[styles.fieldLabelLg, { color: surface.text }]}>
               Not paired
             </ThemedText>
             <ThemedText style={[styles.tagline, { color: surface.muted }]}>
@@ -123,141 +180,140 @@ export default function AddPurchaseScreen() {
           </Card>
         ) : null}
 
-        {/* Product name (required) */}
-        <View style={styles.fieldGroup}>
-          <ThemedText style={[styles.fieldLabel, { color: surface.text }]}>
-            Product name
+        {/* Item (required) */}
+        <View style={styles.field}>
+          <ThemedText style={[styles.fieldLabel, { color: surface.muted }]}>
+            Item
           </ThemedText>
           <TextInput
             value={productName}
             onChangeText={setProductName}
+            onFocus={() => setFocusField('name')}
+            onBlur={() => setFocusField((f) => (f === 'name' ? null : f))}
             placeholder="e.g. Q5 High-Fidelity Polymerase"
             placeholderTextColor={surface.placeholder}
-            style={[
-              styles.input,
-              {
-                borderColor: surface.border,
-                borderRadius: radii.md,
-                color: surface.text,
-                backgroundColor: surface.surface,
-              },
-            ]}
+            style={inputStyle('name')}
             editable={!saving}
             returnKeyType="next"
           />
         </View>
 
         {/* Vendor */}
-        <View style={styles.fieldGroup}>
-          <ThemedText style={[styles.fieldLabel, { color: surface.text }]}>
+        <View style={styles.field}>
+          <ThemedText style={[styles.fieldLabel, { color: surface.muted }]}>
             Vendor
           </ThemedText>
           <TextInput
             value={vendor}
             onChangeText={setVendor}
+            onFocus={() => setFocusField('vendor')}
+            onBlur={() => setFocusField((f) => (f === 'vendor' ? null : f))}
             placeholder="e.g. NEB"
             placeholderTextColor={surface.placeholder}
-            style={[
-              styles.input,
-              {
-                borderColor: surface.border,
-                borderRadius: radii.md,
-                color: surface.text,
-                backgroundColor: surface.surface,
-              },
-            ]}
+            style={inputStyle('vendor')}
             editable={!saving}
             returnKeyType="next"
           />
         </View>
 
-        {/* Catalog number */}
-        <View style={styles.fieldGroup}>
-          <ThemedText style={[styles.fieldLabel, { color: surface.text }]}>
-            Catalog number
-          </ThemedText>
-          <TextInput
-            value={catalog}
-            onChangeText={setCatalog}
-            placeholder="e.g. M0491S"
-            placeholderTextColor={surface.placeholder}
-            style={[
-              styles.input,
-              {
-                borderColor: surface.border,
-                borderRadius: radii.md,
-                color: surface.text,
-                backgroundColor: surface.surface,
-              },
-            ]}
-            editable={!saving}
-            returnKeyType="next"
-          />
-        </View>
-
-        {/* Quantity stepper */}
-        <View style={styles.fieldGroup}>
-          <ThemedText style={[styles.fieldLabel, { color: surface.text }]}>
-            Quantity
-          </ThemedText>
-          <View style={styles.stepper}>
-            <Pressable
-              onPress={() => setQuantity((q) => Math.max(1, q - 1))}
-              disabled={saving || quantity <= 1}
-              style={({ pressed }) => [
-                styles.stepBtn,
-                {
-                  borderColor: surface.border,
-                  borderRadius: radii.md,
-                  opacity: quantity <= 1 || saving ? 0.4 : pressed ? 0.7 : 1,
-                  backgroundColor: surface.surface,
-                },
-              ]}
-              accessibilityRole="button"
-              accessibilityLabel="Decrease quantity"
-            >
-              <ThemedText style={[styles.stepSymbol, { color: surface.text }]}>
-                -
-              </ThemedText>
-            </Pressable>
-            <ThemedText style={[styles.stepValue, { color: surface.text }]}>
-              {quantity}
+        {/* Catalog # + Quantity, side by side (contract .calc-row) */}
+        <View style={styles.calcRow}>
+          <View style={styles.fieldFlex}>
+            <ThemedText style={[styles.fieldLabel, { color: surface.muted }]}>
+              Catalog #
             </ThemedText>
-            <Pressable
-              onPress={() => setQuantity((q) => q + 1)}
-              disabled={saving}
-              style={({ pressed }) => [
-                styles.stepBtn,
-                {
-                  borderColor: surface.border,
-                  borderRadius: radii.md,
-                  opacity: saving ? 0.4 : pressed ? 0.7 : 1,
-                  backgroundColor: surface.surface,
-                },
+            <TextInput
+              value={catalog}
+              onChangeText={setCatalog}
+              onFocus={() => setFocusField('catalog')}
+              onBlur={() => setFocusField((f) => (f === 'catalog' ? null : f))}
+              placeholder="M0491S"
+              placeholderTextColor={surface.placeholder}
+              style={[...inputStyle('catalog'), styles.mono]}
+              editable={!saving}
+              autoCapitalize="characters"
+              autoCorrect={false}
+              returnKeyType="done"
+            />
+          </View>
+          <View style={styles.fieldFlex}>
+            <ThemedText style={[styles.fieldLabel, { color: surface.muted }]}>
+              Quantity
+            </ThemedText>
+            {/* Bordered segmented stepper (contract .stepper): sky symbols, a
+                mono value, hairline-divided cells. */}
+            <View
+              style={[
+                styles.stepperBox,
+                { borderColor: surface.borderStrong, borderRadius: radii.md },
               ]}
-              accessibilityRole="button"
-              accessibilityLabel="Increase quantity"
             >
-              <ThemedText style={[styles.stepSymbol, { color: surface.text }]}>
-                +
+              <Pressable
+                onPress={() => setQuantity((q) => Math.max(1, q - 1))}
+                disabled={saving || quantity <= 1}
+                style={({ pressed }) => [
+                  styles.stepBtn,
+                  {
+                    backgroundColor: surface.surface2,
+                    borderRightWidth: 1,
+                    borderRightColor: surface.border,
+                    opacity: quantity <= 1 || saving ? 0.4 : pressed ? 0.7 : 1,
+                  },
+                ]}
+                accessibilityRole="button"
+                accessibilityLabel="Decrease quantity"
+              >
+                <Ionicons name="remove" size={18} color={palette.sky} />
+              </Pressable>
+              <ThemedText style={[styles.stepVal, { color: surface.text }]}>
+                {quantity}
               </ThemedText>
-            </Pressable>
+              <Pressable
+                onPress={() => setQuantity((q) => q + 1)}
+                disabled={saving}
+                style={({ pressed }) => [
+                  styles.stepBtn,
+                  {
+                    backgroundColor: surface.surface2,
+                    borderLeftWidth: 1,
+                    borderLeftColor: surface.border,
+                    opacity: saving ? 0.4 : pressed ? 0.7 : 1,
+                  },
+                ]}
+                accessibilityRole="button"
+                accessibilityLabel="Increase quantity"
+              >
+                <Ionicons name="add" size={18} color={palette.sky} />
+              </Pressable>
+            </View>
           </View>
         </View>
 
-        {/* Save button */}
-        <View style={styles.saveRow}>
-          {saving ? (
-            <ActivityIndicator color={palette.sky} />
-          ) : (
-            <Button
-              variant="primary"
-              label="Save purchase"
-              onPress={onSave}
-              disabled={!canSave}
-            />
-          )}
+        {/* Routing note (contract .callout, sky). */}
+        <View
+          style={[
+            styles.callout,
+            {
+              backgroundColor: palette.skyDim,
+              borderColor: palette.skyBorder,
+              borderRadius: radii.md,
+            },
+          ]}
+        >
+          <ThemedText style={[styles.calloutText, { color: surface.text }]}>
+            Saves to your purchase orders. Your PI can send it to the department
+            from the laptop.
+          </ThemedText>
         </View>
+
+        {/* Save */}
+        <Button
+          variant="primary"
+          label="Add purchase"
+          onPress={onSave}
+          loading={saving}
+          disabled={!canSave}
+        />
       </ScrollView>
     </ScreenFrame>
   );
@@ -266,34 +322,93 @@ export default function AddPurchaseScreen() {
 const styles = StyleSheet.create({
   fill: { flex: 1 },
   scrollContent: {
-    paddingHorizontal: 24,
-    paddingTop: 20,
+    paddingHorizontal: 20,
+    paddingTop: 16,
     paddingBottom: 40,
-    gap: 20,
+    gap: 16,
   },
-  tagline: { lineHeight: 22 },
-  fieldGroup: { gap: 8 },
-  fieldLabel: { fontSize: 15, fontWeight: '600', lineHeight: 20 },
-  input: {
-    borderWidth: 1,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    fontSize: 16,
-    minHeight: 48,
-  },
-  stepper: {
-    flexDirection: 'row',
+  doneContent: {
+    flexGrow: 1,
+    paddingHorizontal: 24,
+    paddingTop: 48,
+    paddingBottom: 40,
     alignItems: 'center',
     gap: 16,
   },
-  stepBtn: {
-    width: 44,
-    height: 44,
-    borderWidth: 1,
+  center: { textAlign: 'center' },
+  stretch: { alignSelf: 'stretch', marginTop: 4 },
+  tagline: { fontSize: 14, fontFamily: fonts.ui, lineHeight: 21, maxWidth: 280 },
+  mono: { fontFamily: fonts.mono },
+
+  // Title row with a purchase-violet identity tile.
+  titleRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  titleIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    backgroundColor: palette.violetDim,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  stepSymbol: { fontSize: 22, fontWeight: '400', lineHeight: 26 },
-  stepValue: { fontSize: 18, fontWeight: '700', minWidth: 32, textAlign: 'center' },
-  saveRow: { marginTop: 4 },
+
+  // Fields (contract .field): small muted label, surface-2 input, sky focus.
+  field: { gap: 7 },
+  fieldFlex: { flex: 1, gap: 7 },
+  fieldLabel: {
+    fontSize: 12,
+    fontFamily: fonts.semibold,
+    fontWeight: '600',
+    lineHeight: 16,
+  },
+  fieldLabelLg: {
+    fontSize: 15,
+    fontFamily: fonts.semibold,
+    fontWeight: '600',
+    lineHeight: 20,
+  },
+  input: {
+    borderWidth: 1,
+    paddingHorizontal: 14,
+    paddingVertical: 13,
+    fontSize: 15,
+    fontFamily: fonts.ui,
+    minHeight: 48,
+  },
+  calcRow: { flexDirection: 'row', gap: 12 },
+
+  // Stepper (contract .stepper): bordered, segmented, sky symbols, mono value.
+  stepperBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1,
+    overflow: 'hidden',
+    height: 48,
+  },
+  stepBtn: { width: 44, height: 48, alignItems: 'center', justifyContent: 'center' },
+  stepVal: {
+    flex: 1,
+    textAlign: 'center',
+    fontSize: 18,
+    fontFamily: fonts.monoSemibold,
+    fontWeight: '600',
+  },
+
+  // Routing note (contract .callout).
+  callout: {
+    borderWidth: 1,
+    paddingHorizontal: 15,
+    paddingVertical: 13,
+  },
+  calloutText: { fontSize: 13, fontFamily: fonts.ui, lineHeight: 19 },
+
+  // Done state (contract .success-check), violet-tinted for purchase identity.
+  successCheck: {
+    width: 84,
+    height: 84,
+    borderRadius: 42,
+    backgroundColor: palette.violetDim,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 4,
+  },
 });
