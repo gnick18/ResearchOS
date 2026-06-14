@@ -244,3 +244,69 @@ export function snapToGrid(page: FigurePage, mode: "align" | "resize"): FigurePa
   // Preserve original array order, updated in place.
   return { ...page, panels: page.panels.map((p) => byId.get(p.panelId)!) };
 }
+
+// ── Annotations (the 3-tool layer: text, arrow, bracket) ──────────────────────
+
+/** Append an annotation to the page. */
+export function addAnnotation(page: FigurePage, ann: Annotation): FigurePage {
+  return { ...page, annotations: [...page.annotations, ann] };
+}
+
+/** Patch one annotation by id (shallow merge within its kind). */
+export function updateAnnotation(
+  page: FigurePage,
+  annId: string,
+  patch: Partial<Annotation>,
+): FigurePage {
+  return {
+    ...page,
+    annotations: page.annotations.map((a) =>
+      a.annId === annId ? ({ ...a, ...patch } as Annotation) : a,
+    ),
+  };
+}
+
+/** Remove one annotation by id. */
+export function removeAnnotation(page: FigurePage, annId: string): FigurePage {
+  return { ...page, annotations: page.annotations.filter((a) => a.annId !== annId) };
+}
+
+/** Translate an annotation by a delta in inches (moves all of its anchor points). */
+export function moveAnnotation(
+  page: FigurePage,
+  annId: string,
+  dxIn: number,
+  dyIn: number,
+): FigurePage {
+  return {
+    ...page,
+    annotations: page.annotations.map((a) => {
+      if (a.annId !== annId) return a;
+      if (a.kind === "arrow") {
+        return {
+          ...a,
+          x1In: Math.max(0, a.x1In + dxIn),
+          y1In: Math.max(0, a.y1In + dyIn),
+          x2In: Math.max(0, a.x2In + dxIn),
+          y2In: Math.max(0, a.y2In + dyIn),
+        };
+      }
+      return { ...a, xIn: Math.max(0, a.xIn + dxIn), yIn: Math.max(0, a.yIn + dyIn) };
+    }),
+  };
+}
+
+/** A new text annotation anchored at a click point (real inches). */
+export function makeTextAnnotation(annId: string, xIn: number, yIn: number): Annotation {
+  return { annId, kind: "text", xIn, yIn, text: "Text", fontPt: 12 };
+}
+
+/** A new arrow (1 head) starting at the click point, pointing right. */
+export function makeArrowAnnotation(annId: string, xIn: number, yIn: number): Annotation {
+  return { annId, kind: "arrow", x1In: xIn, y1In: yIn, x2In: xIn + 1.2, y2In: yIn, heads: 1 };
+}
+
+/** A new horizontal significance bracket anchored at the click point. */
+export function makeBracketAnnotation(annId: string, xIn: number, yIn: number): Annotation {
+  return { annId, kind: "bracket", xIn, yIn, spanIn: 1.5, orientation: "horizontal", label: "" };
+}

@@ -235,7 +235,7 @@
   "lib/export/bake-embeds.ts": 1,
   "lib/figure/__tests__/artboard.test.ts": 2,
   "lib/figure/artboard.ts": 6,
-  "lib/figure/figure-compose.ts": 7,
+  "lib/figure/figure-compose.ts": 8,
   "lib/figure/figure-source.ts": 1,
   "lib/methods/method-type-icons.tsx": 10,
   "lib/phylo/render.ts": 1,
