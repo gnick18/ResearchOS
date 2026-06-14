@@ -39,7 +39,7 @@ import {
   type PlanRunState,
 } from "@/lib/ai/agent-loop";
 import { BEAKERBOT_PLAN_STEPS_ENABLED } from "@/lib/ai/config";
-import { callModelViaProxy, ProxyError } from "@/lib/ai/proxy-client";
+import { callModelViaProxy, proxyCallerForTask, ProxyError } from "@/lib/ai/proxy-client";
 
 // ---- Dev-only model-caller override seam ------------------------------------
 //
@@ -59,9 +59,12 @@ export function setModelCallerOverride(fn: ModelCaller | null): void {
   modelCallerOverride = fn;
 }
 
-/** Returns the active model caller: the override when set, otherwise the real proxy. */
-function getModelCaller(): ModelCaller {
-  return modelCallerOverride ?? callModelViaProxy;
+/** Returns the active model caller: the override when set, otherwise the real
+ *  proxy. When a taskId is given (one per BeakerBot task), the proxy caller is
+ *  bound to it so every turn of the task meters under one task_id in the ledger. */
+function getModelCaller(taskId?: string): ModelCaller {
+  if (modelCallerOverride) return modelCallerOverride;
+  return taskId ? proxyCallerForTask(taskId) : callModelViaProxy;
 }
 import { DEFAULT_TOOLS } from "@/lib/ai/tools/registry";
 import { BEAKERBOT_SYSTEM_PROMPT } from "@/lib/ai/system-prompt";
@@ -1159,11 +1162,13 @@ export const useConversationStore = create<ConversationStore>((set, get) => ({
     // record regardless of what the UI does while we are awaiting.
     let boundThreadId = get().currentThreadId;
 
+    // One id per task so the billing ledger groups every turn of this task.
+    const taskId = crypto.randomUUID();
     try {
       const result = await runAgentLoop({
         messages: loopInput,
         tools: DEFAULT_TOOLS,
-        callModel: getModelCaller(),
+        callModel: getModelCaller(taskId),
         onStatus: (s) => {
           // Update the friendly status label for the existing "Thinking" text.
           // Also update the running-tool count and the steps panel list.
@@ -1643,11 +1648,13 @@ export const useConversationStore = create<ConversationStore>((set, get) => ({
     const loopInput: LoopMessage[] = [...historyStore, directive];
 
     let boundThreadId = get().currentThreadId;
+    // One id per task so the billing ledger groups every turn of this task.
+    const taskId = crypto.randomUUID();
     try {
       const result = await runAgentLoop({
         messages: loopInput,
         tools: DEFAULT_TOOLS,
-        callModel: getModelCaller(),
+        callModel: getModelCaller(taskId),
         getReviewMode: getReviewMode,
         requestApproval,
         signal: controller.signal,
