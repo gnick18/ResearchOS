@@ -444,6 +444,17 @@
   background: transparent;
   border-top: 0;
 }
+/* Details tab: the Properties card dissolves into the calm surface at fullscreen
+ * (transparent bg + border, and its inner header divider) so Details reads as
+ * part of the one continuous canvas, like the editor cards in the room — instead
+ * of a boxed card floating on it. Docked keeps the card (no .ros-calm-surface). */
+.ros-calm-surface .ros-detail-card {
+  background: transparent;
+  border-color: transparent;
+}
+.ros-calm-surface .ros-detail-card > div {
+  border-color: transparent;
+}
 /* Dark mode: the whole popup becomes the dark room (matching the editor body),
  * re-asserting the dark tokens for the popup subtree (it is otherwise
  * .light-scope = white paper + dark text, which would vanish on the dark room). */

@@ -3535,7 +3535,7 @@ function DetailsTab({
           read↔edit transition reads as a state change on the same fields,
           not a layout swap (the old "Edit / Exit edit mode" pattern flipped
           the whole layout out from under the user). */}
-      <section className="bg-surface-raised border border-border rounded-xl overflow-hidden">
+      <section className="ros-detail-card bg-surface-raised border border-border rounded-xl overflow-hidden">
         {/* R1 fix-pass (experiments fix-pass R1 manager, 2026-05-23):
             Dropped the "Name, project, schedule, and other fields" subtitle
             — "Properties" already says that. Surface the completion-status
