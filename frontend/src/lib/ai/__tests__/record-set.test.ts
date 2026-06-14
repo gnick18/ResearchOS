@@ -13,10 +13,21 @@ import {
   stripRecordSetUi,
   recordSetFromResult,
   briefToRow,
+  maybeRecordSet,
+  attachRecordSetIfBig,
   RECORD_SET_UI_KEY,
+  RECORD_SET_MIN_ITEMS,
   type RecordSet,
+  type RecordSetRow,
 } from "@/lib/ai/record-set";
 import type { ArtifactBrief } from "@/lib/ai/artifact-index";
+
+const rows = (n: number): RecordSetRow[] =>
+  Array.from({ length: n }, (_, i) => ({
+    type: "note" as const,
+    id: String(i + 1),
+    title: `Row ${i + 1}`,
+  }));
 
 const SAMPLE_SET: RecordSet = {
   kind: "list_records",
@@ -79,6 +90,56 @@ describe("recordSetFromResult", () => {
     expect(recordSetFromResult("x")).toBeNull();
     expect(recordSetFromResult({ _ui: { kind: "x" } })).toBeNull(); // no items array
     expect(recordSetFromResult({ _ui: { items: [] } })).toBeNull(); // no kind
+  });
+});
+
+describe("the >4 threshold rule (RECORD_SET_MIN_ITEMS)", () => {
+  it("RECORD_SET_MIN_ITEMS is 5 (more than 4 items shows the widget)", () => {
+    expect(RECORD_SET_MIN_ITEMS).toBe(5);
+  });
+
+  describe("maybeRecordSet", () => {
+    it("returns null at exactly 4 rows (4 or fewer stays inline chips)", () => {
+      expect(maybeRecordSet(rows(4), { kind: "k", title: "T" })).toBeNull();
+    });
+
+    it("returns a set at exactly 5 rows", () => {
+      const set = maybeRecordSet(rows(5), { kind: "k", title: "T" });
+      expect(set).not.toBeNull();
+      expect(set?.total).toBe(5);
+      expect(set?.items).toHaveLength(5);
+    });
+
+    it("returns null for an empty list", () => {
+      expect(maybeRecordSet([], { kind: "k", title: "T" })).toBeNull();
+    });
+
+    it("honors an explicit total and carries the query", () => {
+      const set = maybeRecordSet(rows(6), { kind: "k", title: "T", total: 42, query: "cyp51A" });
+      expect(set?.total).toBe(42);
+      expect(set?.query).toBe("cyp51A");
+    });
+  });
+
+  describe("attachRecordSetIfBig", () => {
+    it("attaches _ui only when the list clears the threshold", () => {
+      const small = attachRecordSetIfBig({ ok: true }, rows(4), { kind: "k", title: "T" }) as {
+        _ui?: unknown;
+      };
+      expect(small._ui).toBeUndefined();
+
+      const big = attachRecordSetIfBig({ ok: true }, rows(5), { kind: "k", title: "T" }) as {
+        _ui?: RecordSet;
+      };
+      expect(big._ui?.kind).toBe("k");
+      expect(big._ui?.items).toHaveLength(5);
+    });
+
+    it("returns the model-facing fields untouched either way", () => {
+      const result = { ok: true, count: 3, items: [1, 2, 3] };
+      const out = attachRecordSetIfBig(result, rows(2), { kind: "k", title: "T" });
+      expect(out).toEqual(result);
+    });
   });
 });
 

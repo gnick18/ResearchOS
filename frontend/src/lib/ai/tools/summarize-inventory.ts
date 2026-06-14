@@ -35,6 +35,7 @@ import {
   fetchAllInventoryItemsIncludingShared,
   fetchAllInventoryStocksIncludingShared,
 } from "@/lib/local-api";
+import { attachRecordSetIfBig, type RecordSetRow } from "@/lib/ai/record-set";
 import type { InventoryItem, InventoryStock } from "@/lib/types";
 import type { AiTool } from "./types";
 
@@ -354,6 +355,42 @@ export const summarizeInventoryTool: AiTool = {
       todayString(),
       expiringWithinDays ? { expiringWithinDays } : undefined,
     );
-    return { ok: true as const, summary };
+
+    // Widget rows are the FLAGGED items the user acts on (out, low, expiring,
+    // expired), deduped by id with the most urgent flag winning, since one item can
+    // be both low and expiring. Inventory has no embed and no per-id route, so the
+    // widget shows a calm fallback card and Open full goes to /inventory. The qty /
+    // status the tool already computed becomes the subtitle, the flag the meta.
+    const flagOrder: Array<{ flag: string; list: typeof summary.out }> = [
+      { flag: "out", list: summary.out },
+      { flag: "low", list: summary.low },
+      { flag: "expiring", list: summary.expiringSoon },
+      { flag: "expired", list: summary.expired },
+    ];
+    const seen = new Set<string>();
+    const rows: RecordSetRow[] = [];
+    for (const { flag, list } of flagOrder) {
+      for (const it of list) {
+        if (seen.has(it.id)) continue;
+        seen.add(it.id);
+        const qty = `${it.totalContainers} ${it.totalContainers === 1 ? "container" : "containers"}`;
+        rows.push({
+          type: "inventory",
+          id: it.id,
+          title: it.name,
+          subtitle: it.category ? `${it.category}, ${qty}` : qty,
+          ...(it.soonestExpiry ? { date: it.soonestExpiry } : {}),
+          meta: flag,
+        });
+      }
+    }
+
+    // attachRecordSetIfBig gates the inline widget on the ">4" rule, so 4 or fewer
+    // flagged items show inline chips and 5 or more render the browser.
+    return attachRecordSetIfBig({ ok: true as const, summary }, rows, {
+      kind: "summarize_inventory",
+      title: "Inventory to watch",
+      total: rows.length,
+    });
   },
 };

@@ -48,6 +48,7 @@ const TYPE_ICON: Record<RecordSetRowType, IconName> = {
   task: "today",
   experiment: "list",
   purchase: "receipt",
+  inventory: "box",
 };
 
 const TYPE_LABEL: Record<RecordSetRowType, string> = {
@@ -64,6 +65,7 @@ const TYPE_LABEL: Record<RecordSetRowType, string> = {
   task: "Task",
   experiment: "Experiment",
   purchase: "Purchase",
+  inventory: "Inventory item",
 };
 
 // Below this widget width the two columns collapse to a single column with a
@@ -79,15 +81,25 @@ function descriptorForRow(row: RecordSetRow & { type: ObjectRefType }): EmbedDes
   return { type: row.type, id: row.id, view, isEmbed: true, opts: {} };
 }
 
-/** Open the row's full object the way an embed Open button does. Purchases have no
- *  per-id route, so they navigate to the /purchases page; every other type goes
- *  through openObjectRef (popup for popup-capable types, soft navigation otherwise). */
+// Row types with no embed route and no per-id deep link. They open the owning page
+// as a whole (a calm fallback preview, a page-level Open full) rather than through
+// the embed pipeline or openObjectRef.
+const PAGELESS_ROUTE: Partial<Record<RecordSetRowType, string>> = {
+  purchase: "/purchases",
+  inventory: "/inventory",
+};
+
+/** Open the row's full object the way an embed Open button does. Purchases and
+ *  inventory items have no per-id route, so they navigate to their page as a whole;
+ *  every other type goes through openObjectRef (popup for popup-capable types, soft
+ *  navigation otherwise). */
 function openRowFull(row: RecordSetRow): void {
-  if (row.type === "purchase") {
-    requestNavigation("/purchases");
+  const route = PAGELESS_ROUTE[row.type];
+  if (route) {
+    requestNavigation(route);
     return;
   }
-  openObjectRef({ type: row.type, id: row.id });
+  openObjectRef({ type: row.type as ObjectRefType, id: row.id });
 }
 
 /** A single left-rail row button. Icon + title (truncated) + a small second line
@@ -130,13 +142,13 @@ function RowButton({
  *  (or its calm fallback card), with the row's snippet shown above when present and
  *  an Open full button below. */
 function RecordPreview({ row }: { row: RecordSetRow }) {
-  // Purchases have no embed route, so they show a calm summary card built from the
-  // row fields rather than an ObjectEmbed. Every other type renders through the
-  // embed pipeline (rich renderer or its fallback card).
-  const isPurchase = row.type === "purchase";
+  // Purchases and inventory items have no embed route, so they show a calm summary
+  // card built from the row fields rather than an ObjectEmbed. Every other type
+  // renders through the embed pipeline (rich renderer or its fallback card).
+  const isPageless = row.type in PAGELESS_ROUTE;
   const descriptor = useMemo(
-    () => (isPurchase ? null : descriptorForRow(row as RecordSetRow & { type: ObjectRefType })),
-    [row, isPurchase],
+    () => (isPageless ? null : descriptorForRow(row as RecordSetRow & { type: ObjectRefType })),
+    [row, isPageless],
   );
   return (
     <div className="flex h-full flex-col">

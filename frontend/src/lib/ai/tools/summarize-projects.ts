@@ -25,6 +25,7 @@ import {
   fetchAllTasksIncludingShared,
   projectsApi,
 } from "@/lib/local-api";
+import { attachRecordSetIfBig, type RecordSetRow } from "@/lib/ai/record-set";
 import type { Project, Task } from "@/lib/types";
 import type { AiTool } from "./types";
 
@@ -256,6 +257,30 @@ export const summarizeProjectsTool: AiTool = {
       includeShared,
       includeArchived,
     });
-    return { ok: true as const, summary };
+
+    // One widget row per project. Subtitle is a short status the summary already
+    // computed (percent complete, or the done/total task split when there are
+    // tasks); the overdue flag rides in meta. attachRecordSetIfBig gates the inline
+    // widget on the ">4" rule, so 4 or fewer projects show inline chips.
+    const rows = summary.projects.map((p): RecordSetRow => {
+      const subtitle =
+        p.totalTasks > 0
+          ? `${p.byStatus.complete}/${p.totalTasks} tasks, ${p.percentComplete}% complete`
+          : "no tasks";
+      return {
+        type: "project",
+        id: p.id,
+        title: p.name,
+        subtitle,
+        ...(p.nextDueDate ? { date: p.nextDueDate } : {}),
+        ...(p.overdue ? { meta: "overdue" } : {}),
+      };
+    });
+
+    return attachRecordSetIfBig({ ok: true as const, summary }, rows, {
+      kind: "summarize_projects",
+      title: "Projects",
+      total: summary.totalProjects,
+    });
   },
 };

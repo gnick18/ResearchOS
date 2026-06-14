@@ -23,7 +23,7 @@ import {
   type ListSortBy,
 } from "@/lib/ai/artifact-index";
 import { fetchAllProjectsIncludingShared, usersApi } from "@/lib/local-api";
-import { withRecordSetUi, briefToRow, RECORD_SET_UI_CAP, type RecordSet } from "@/lib/ai/record-set";
+import { attachRecordSetIfBig, briefToRow, RECORD_SET_UI_CAP } from "@/lib/ai/record-set";
 import type { Project } from "@/lib/types";
 import type { AiTool } from "./types";
 
@@ -169,16 +169,14 @@ export const listRecordsTool: AiTool = {
     });
     const items = fullItems.slice(0, limit);
 
-    const set: RecordSet = {
-      kind: "list_records",
-      title: "Records",
-      total,
-      items: fullItems.slice(0, RECORD_SET_UI_CAP).map(briefToRow),
-    };
-
-    return withRecordSetUi(
+    // The full match set for the widget. attachRecordSetIfBig gates it on the ">4"
+    // rule, so a small list (4 or fewer) returns the result unchanged and the reply
+    // shows inline chips instead of a widget.
+    const rows = fullItems.slice(0, RECORD_SET_UI_CAP).map(briefToRow);
+    return attachRecordSetIfBig(
       { ok: true as const, total, count: items.length, sortBy, order, items },
-      set,
+      rows,
+      { kind: "list_records", title: "Records", total },
     );
   },
 };

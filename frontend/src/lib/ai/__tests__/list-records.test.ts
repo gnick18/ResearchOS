@@ -49,10 +49,10 @@ describe("list_records tool", () => {
     );
   });
 
-  it("attaches the full match set as a UI-only record-set under _ui", async () => {
+  it("attaches the full match set as a UI-only record-set under _ui when >4 match", async () => {
     vi.spyOn(listRecordsDeps, "list").mockResolvedValue({
-      total: 3,
-      items: [brief("1", "A"), brief("2", "B"), brief("3", "C")],
+      total: 5,
+      items: [brief("1", "A"), brief("2", "B"), brief("3", "C"), brief("4", "D"), brief("5", "E")],
     });
     vi.spyOn(listRecordsDeps, "listMemberUsernames").mockResolvedValue([]);
     vi.spyOn(listRecordsDeps, "listProjects").mockResolvedValue([]);
@@ -61,11 +61,27 @@ describe("list_records tool", () => {
       count: number;
       _ui?: { kind: string; total: number; items: Array<{ id: string }> };
     };
-    // Model sees only the requested 1 item; the widget set carries all 3.
+    // Model sees only the requested 1 item; the widget set carries all 5.
     expect(r.count).toBe(1);
     expect(r._ui?.kind).toBe("list_records");
-    expect(r._ui?.total).toBe(3);
-    expect(r._ui?.items.map((i) => i.id)).toEqual(["1", "2", "3"]);
+    expect(r._ui?.total).toBe(5);
+    expect(r._ui?.items.map((i) => i.id)).toEqual(["1", "2", "3", "4", "5"]);
+  });
+
+  it("does NOT attach _ui when 4 or fewer match (>4 rule, inline chips instead)", async () => {
+    vi.spyOn(listRecordsDeps, "list").mockResolvedValue({
+      total: 4,
+      items: [brief("1", "A"), brief("2", "B"), brief("3", "C"), brief("4", "D")],
+    });
+    vi.spyOn(listRecordsDeps, "listMemberUsernames").mockResolvedValue([]);
+    vi.spyOn(listRecordsDeps, "listProjects").mockResolvedValue([]);
+
+    const r = (await listRecordsTool.execute({ limit: 10 })) as {
+      count: number;
+      _ui?: unknown;
+    };
+    expect(r.count).toBe(4);
+    expect(r._ui).toBeUndefined();
   });
 
   it("resolves a relative period into a date filter", async () => {

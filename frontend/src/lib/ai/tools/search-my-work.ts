@@ -22,6 +22,7 @@
 // House style, no em-dashes, no emojis, no mid-sentence colons.
 
 import { searchMyWork } from "@/lib/ai/artifact-index";
+import { attachRecordSetIfBig, briefToRow } from "@/lib/ai/record-set";
 import type { AiTool } from "./types";
 
 export const searchMyWorkTool: AiTool = {
@@ -83,6 +84,16 @@ export const searchMyWorkTool: AiTool = {
     const until =
       typeof args.until === "string" && args.until.trim() ? args.until.trim() : undefined;
     const results = await searchMyWork(query, { types, limit, since, until });
-    return { count: results.length, results };
+    // The ranked briefs become widget rows (each keyed by its real type), gated on
+    // the ">4" rule by attachRecordSetIfBig. The model-facing { count, results } is
+    // unchanged; the rows ride out-of-band under _ui. This is the "find the thing
+    // when you do not know it by name" front door, so the browser matters most here.
+    const rows = results.map(briefToRow);
+    return attachRecordSetIfBig({ count: results.length, results }, rows, {
+      kind: "search_my_work",
+      title: query.trim() ? `Search for "${query.trim()}"` : "Recent work",
+      total: results.length,
+      ...(query.trim() ? { query: query.trim() } : {}),
+    });
   },
 };

@@ -74,4 +74,24 @@ describe("search_full_text tool", () => {
     expect(bad.ok).toBe(false);
     expect(bad.error).toMatch(/not a valid regular expression/i);
   });
+
+  it("attaches a record-set under _ui when >4 records match, none for 4 or fewer", async () => {
+    const fiveNotes = [1, 2, 3, 4, 5].map((id) => note(id, `Note ${id}`, "cyp51A here"));
+    vi.spyOn(searchFullTextDeps, "listNotes").mockResolvedValue(fiveNotes);
+    vi.spyOn(searchFullTextDeps, "listMethods").mockResolvedValue([]);
+    const big = (await searchFullTextTool.execute({ query: "cyp51A" })) as {
+      _ui?: { kind: string; total: number; query: string; items: Array<{ type: string }> };
+    };
+    expect(big._ui?.kind).toBe("search_full_text");
+    expect(big._ui?.total).toBe(5);
+    expect(big._ui?.query).toBe("cyp51A");
+    expect(big._ui?.items.every((i) => i.type === "note")).toBe(true);
+
+    vi.restoreAllMocks();
+    const fourNotes = [1, 2, 3, 4].map((id) => note(id, `Note ${id}`, "cyp51A here"));
+    vi.spyOn(searchFullTextDeps, "listNotes").mockResolvedValue(fourNotes);
+    vi.spyOn(searchFullTextDeps, "listMethods").mockResolvedValue([]);
+    const small = (await searchFullTextTool.execute({ query: "cyp51A" })) as { _ui?: unknown };
+    expect(small._ui).toBeUndefined();
+  });
 });
