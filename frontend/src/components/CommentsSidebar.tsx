@@ -2,6 +2,8 @@
 
 import type { ReactNode } from "react";
 
+import Tooltip from "@/components/Tooltip";
+
 /**
  * Docked right-rail chrome for the Lab comments thread, mirroring the version-
  * history sidebar pattern in the note + task popups. It supplies the rail header
@@ -37,16 +39,18 @@ export default function CommentsSidebar({
             </span>
           ) : null}
         </span>
-        <button
-          type="button"
-          onClick={onClose}
-          aria-label="Close comments"
-          className="rounded-md p-1 text-foreground-muted hover:bg-surface-sunken hover:text-foreground"
-        >
-          <svg className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24" aria-hidden="true">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M6 18 18 6M6 6l12 12" />
-          </svg>
-        </button>
+        <Tooltip label="Close">
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Close comments"
+            className="rounded-md p-1 text-foreground-muted hover:bg-surface-sunken hover:text-foreground"
+          >
+            <svg className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24" aria-hidden="true">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18 18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </Tooltip>
       </div>
       <div className="min-h-0 flex-1 overflow-y-auto">{children}</div>
     </aside>

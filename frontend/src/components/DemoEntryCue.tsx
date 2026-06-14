@@ -8,6 +8,7 @@ import {
   isWikiCaptureMode,
 } from "@/lib/file-system/wiki-capture-mock";
 import { Icon } from "@/components/icons";
+import Tooltip from "@/components/Tooltip";
 
 /**
  * Soft demo-entry cue. One quiet, dismissible line at the top of the public
@@ -66,14 +67,16 @@ export default function DemoEntryCue() {
           You are exploring a sample lab. The data is fictional and lives only
           in this tab.
         </span>
-        <button
-          type="button"
-          onClick={dismiss}
-          aria-label="Dismiss demo notice"
-          className="ml-0.5 rounded-full p-0.5 text-foreground-muted transition-colors hover:bg-surface-sunken hover:text-foreground"
-        >
-          <Icon name="x" className="h-3.5 w-3.5" />
-        </button>
+        <Tooltip label="Dismiss">
+          <button
+            type="button"
+            onClick={dismiss}
+            aria-label="Dismiss demo notice"
+            className="ml-0.5 rounded-full p-0.5 text-foreground-muted transition-colors hover:bg-surface-sunken hover:text-foreground"
+          >
+            <Icon name="x" className="h-3.5 w-3.5" />
+          </button>
+        </Tooltip>
       </div>
     </div>
   );

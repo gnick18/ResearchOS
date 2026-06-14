@@ -14,6 +14,7 @@
 import { useEffect, type ReactNode } from "react";
 
 import LivingPopup from "@/components/ui/LivingPopup";
+import Tooltip from "@/components/Tooltip";
 
 /* -------------------------------------------------------------------------- */
 /* Status badge config                                                         */
@@ -266,25 +267,27 @@ function ShippedChip({ label }: { label: string }) {
 
 function CloseButton({ onClick }: { onClick: () => void }) {
   return (
-    <button
-      type="button"
-      onClick={onClick}
-      aria-label="Close roadmap"
-      className="flex h-8 w-8 flex-none items-center justify-center rounded-lg text-[#8593a8] transition-colors hover:bg-[#eef4fb] hover:text-[#0e1726]"
-    >
-      <svg
-        width="16"
-        height="16"
-        viewBox="0 0 16 16"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="2"
-        strokeLinecap="round"
-        aria-hidden
+    <Tooltip label="Close">
+      <button
+        type="button"
+        onClick={onClick}
+        aria-label="Close roadmap"
+        className="flex h-8 w-8 flex-none items-center justify-center rounded-lg text-[#8593a8] transition-colors hover:bg-[#eef4fb] hover:text-[#0e1726]"
       >
-        <path d="M3 3l10 10M13 3L3 13" />
-      </svg>
-    </button>
+        <svg
+          width="16"
+          height="16"
+          viewBox="0 0 16 16"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+          aria-hidden
+        >
+          <path d="M3 3l10 10M13 3L3 13" />
+        </svg>
+      </button>
+    </Tooltip>
   );
 }
 
