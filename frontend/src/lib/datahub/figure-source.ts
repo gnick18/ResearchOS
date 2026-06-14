@@ -102,6 +102,9 @@ export const dataHubFigureSource: FigureSource = {
       width: opts.widthIn,
       height: opts.heightIn,
       sizeUnit: "in",
+      // A composed panel hides the plot's own title by default (the figure's
+      // panel letter + caption carry it); an empty title hides it in renderPlot.
+      ...(opts.overrides?.hideTitle ? { title: "" } : {}),
     });
     const source = readPlotSource(sized);
     const analysis = source.analysisId
