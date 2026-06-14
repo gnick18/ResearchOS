@@ -1297,30 +1297,35 @@ body.recording-mode * {
   }
 }
 .beakerbot-ai-shimmer {
+  /* Subtle by design: the text sits at the SAME muted color as the plain Cmd K
+     chip, and only a soft PASTEL rainbow glint (the --brand-rainbow ramp, not the
+     vivid one) sweeps through, as a narrow band. So the chip blends with the bar
+     at rest and just catches a gentle rainbow shimmer as it passes. */
   background-image: linear-gradient(
     100deg,
-    var(--accent) 0%,
-    var(--accent) 36%,
-    #fbbf24 44%,
-    #4ade80 48%,
-    #38bdf8 52%,
-    #c084fc 56%,
-    var(--accent) 64%,
-    var(--accent) 100%
+    var(--foreground-muted) 0%,
+    var(--foreground-muted) 42%,
+    #ffd2b0 47%,
+    #b7ebb1 50%,
+    #a6d2f4 53%,
+    #d6b5f0 56%,
+    var(--foreground-muted) 60%,
+    var(--foreground-muted) 100%
   );
-  background-size: 250% auto;
+  background-size: 260% auto;
   -webkit-background-clip: text;
   background-clip: text;
   -webkit-text-fill-color: transparent;
   color: transparent;
-  animation: beakerbot-ai-shimmer 3.6s linear infinite;
+  animation: beakerbot-ai-shimmer 4.2s linear infinite;
 }
 @media (prefers-reduced-motion: reduce) {
   .beakerbot-ai-shimmer {
-    /* Settle on a calm brand-action fill when motion is reduced. */
+    /* Settle on the calm muted fill (identical to the Cmd K chip) when motion is
+       reduced. */
     animation: none;
     background-image: none;
-    -webkit-text-fill-color: var(--accent);
-    color: var(--accent);
+    -webkit-text-fill-color: var(--foreground-muted);
+    color: var(--foreground-muted);
   }
 }

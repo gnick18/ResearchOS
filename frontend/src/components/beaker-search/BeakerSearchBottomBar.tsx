@@ -112,7 +112,7 @@ export default function BeakerSearchBottomBar() {
         {canUseAI && (
           <kbd
             title="Open BeakerBot AI"
-            className="beakerbot-ai-shimmer flex-none rounded-md border border-brand-action/30 bg-surface-sunken px-1.5 py-0.5 text-[11px] font-semibold"
+            className="beakerbot-ai-shimmer flex-none rounded-md border border-border bg-surface-sunken px-1.5 py-0.5 text-[11px] font-semibold"
           >
             Cmd J
           </kbd>
