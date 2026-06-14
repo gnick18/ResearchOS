@@ -2,6 +2,7 @@
   "app/accept/[inviteId]/page.tsx": 1,
   "app/calendar/page.tsx": 2,
   "app/dev/annotate-demo/page.tsx": 1,
+  "app/dev/popup-chrome/_legacy/NewPurchaseModal.legacy.tsx": 1,
   "app/links/page.tsx": 8,
   "app/maintenance/page.tsx": 2,
   "app/methods/page.tsx": 2,

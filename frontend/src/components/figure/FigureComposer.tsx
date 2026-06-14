@@ -74,6 +74,7 @@ export default function FigureComposer({ pageId }: { pageId: string }) {
   const [tool, setTool] = useState<null | "text" | "arrow" | "bracket">(null);
   const [selectedAnn, setSelectedAnn] = useState<string | null>(null);
   const [styleTargets, setStyleTargets] = useState<StyleTarget[]>([]);
+  const [defaultSaved, setDefaultSaved] = useState(false);
   const stageRef = useRef<HTMLDivElement>(null);
   const annDrag = useRef<null | { id: string; sx: number; sy: number }>(null);
   const router = useRouter();
@@ -140,6 +141,7 @@ export default function FigureComposer({ pageId }: { pageId: string }) {
     ? page?.panels.find((p) => p.panelId === selected)?.ref
     : undefined;
   useEffect(() => {
+    setDefaultSaved(false);
     if (!selectedRef) {
       setStyleTargets([]);
       return;
@@ -652,6 +654,23 @@ export default function FigureComposer({ pageId }: { pageId: string }) {
                           Feature labels
                         </label>
                       </div>
+                    )}
+                    {getFigureSource(sp?.ref.type ?? "")?.saveDefaultStyle && (
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          if (!sp) return;
+                          await getFigureSource(sp.ref.type)?.saveDefaultStyle?.(
+                            sp.ref.id,
+                            sp.style ?? {},
+                          );
+                          setDefaultSaved(true);
+                        }}
+                        className="mt-1 flex items-center gap-1 text-meta font-medium text-brand-action hover:underline"
+                      >
+                        {defaultSaved && <Icon name="check" className="h-3 w-3" />}
+                        {defaultSaved ? "Saved as default" : "Save as this sequence's default"}
+                      </button>
                     )}
                   </div>
                 )}

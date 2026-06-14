@@ -1,3 +1,7 @@
+// The canonical sequence figure-style spec lives in a neutral leaf module so this
+// declarations file stays cycle-free (figure-style imports nothing).
+import type { SequenceMapStyle } from "./sequences/figure-style";
+
 // ── Shared Access Types ─────────────────────────────────────────────────────
 
 /**
@@ -3595,6 +3599,12 @@ export interface SequenceMeta {
   added_at: string;
   /** Molecule kind, derived from the GenBank LOCUS on create. */
   seq_type: SeqType;
+  /**
+   * Canonical figure-map style for this sequence (the publication look used in
+   * the figure composer). Additive + optional, mirrors PhyloMeta.figure. Absent =
+   * the renderer's defaults; a figure panel can still override per-panel on top.
+   */
+  figure?: SequenceMapStyle;
 
   // Cross-boundary provenance. Additive + optional, set ONLY on a sequence that
   // arrived through a cross-boundary share (sequence-transfer.ts importSequence).
@@ -3755,6 +3765,8 @@ export interface SequenceUpdate {
   organism?: string;
   tax_id?: string;
   tax_lineage?: SequenceTaxonNode[];
+  /** Canonical figure-map style; persisted to the meta sidecar. */
+  figure?: SequenceMapStyle;
 }
 
 // ── Custom Calculator Builder (Phase 1, 2026-06-10) ──────────────────────────

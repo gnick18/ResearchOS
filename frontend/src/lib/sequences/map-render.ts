@@ -13,22 +13,14 @@
 
 import type { SeqDocument, EditFeature } from "./edit-model";
 import { resolveFeatureColor } from "./feature-colors";
+import { featureKey, type SequenceMapStyle } from "./figure-style";
+
+// Re-export so existing importers (the adapter) keep importing from map-render.
+export { featureKey, type SequenceMapStyle };
 
 export interface MapSize {
   width: number;
   height: number;
-}
-
-/** Composition-local styling, applied at render so a panel can be perfected. */
-export interface SequenceMapStyle {
-  /** Block thickness multiplier (arc width / arrow height). Default 1. */
-  featureScale?: number;
-  /** Draw the bp coordinate ring (circular) / ruler ticks (linear). Default true. */
-  showTicks?: boolean;
-  /** Draw feature labels. Default true. */
-  showLabels?: boolean;
-  /** Per-feature overrides, keyed by featureKey(f). */
-  perFeature?: Record<string, { color?: string; hidden?: boolean }>;
 }
 
 const INK = "#0f172a";
@@ -46,11 +38,6 @@ function esc(s: string): string {
 
 function truncate(s: string, n: number): string {
   return s.length > n ? s.slice(0, n - 1) + "…" : s;
-}
-
-/** A stable key for a feature, used to address per-feature style overrides. */
-export function featureKey(f: { name: string; start: number; end: number }): string {
-  return `${f.name}:${f.start}:${f.end}`;
 }
 
 /** Feature sweep in bp, handling a feature that wraps the circular origin. */

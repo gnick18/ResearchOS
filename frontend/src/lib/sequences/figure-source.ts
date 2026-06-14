@@ -9,10 +9,12 @@
 //
 // No em-dashes, no emojis, no mid-sentence colons.
 
+import { sequencesApi } from "@/lib/local-api";
 import { sequenceStore } from "@/lib/sequences/sequence-store";
 import { genbankToDetail } from "@/lib/sequences/parse";
-import { documentFromDetail } from "@/lib/sequences/edit-model";
+import { documentFromDetail, type SeqDocument } from "@/lib/sequences/edit-model";
 import { renderSequenceMapSvg, featureKey, type SequenceMapStyle } from "@/lib/sequences/map-render";
+import { mergeMapStyle } from "@/lib/sequences/figure-style";
 import { resolveFeatureColor } from "@/lib/sequences/feature-colors";
 import {
   registerFigureSource,
@@ -34,12 +36,15 @@ function toMapStyle(style: PanelStyle | undefined): SequenceMapStyle {
   };
 }
 
-/** Load + parse a sequence into its editable document, or null if unavailable. */
-async function loadDoc(id: string) {
+/** Load a sequence's parsed document + its saved canonical figure style. */
+async function loadDoc(
+  id: string,
+): Promise<{ doc: SeqDocument; canonical: SequenceMapStyle | undefined } | null> {
   const raw = await sequenceStore.getRaw(Number(id));
   if (!raw) return null;
   const detail = genbankToDetail(raw.genbank, raw.meta);
-  return detail ? documentFromDetail(detail) : null;
+  if (!detail) return null;
+  return { doc: documentFromDetail(detail), canonical: raw.meta.figure };
 }
 
 export const sequenceFigureSource: FigureSource = {
@@ -61,31 +66,40 @@ export const sequenceFigureSource: FigureSource = {
 
   async render(id, opts): Promise<RenderedFigure> {
     try {
-      const doc = await loadDoc(id);
-      if (!doc) return missingPanelSvg(opts.widthIn, opts.heightIn);
+      const loaded = await loadDoc(id);
+      if (!loaded) return missingPanelSvg(opts.widthIn, opts.heightIn);
+      // Canonical style (saved on the sequence) is the base; the panel's own
+      // override layers on top.
+      const style = mergeMapStyle(loaded.canonical, toMapStyle(opts.style));
       const svg = renderSequenceMapSvg(
-        doc,
+        loaded.doc,
         {
           width: Math.max(1, Math.round(opts.widthIn * opts.dpi)),
           height: Math.max(1, Math.round(opts.heightIn * opts.dpi)),
         },
-        toMapStyle(opts.style),
+        style,
       );
       // Plasmid maps read square; linear maps read wide.
-      return { svg, naturalAspect: doc.circular ? 1.0 : 1.8 };
+      return { svg, naturalAspect: loaded.doc.circular ? 1.0 : 1.8 };
     } catch {
       return missingPanelSvg(opts.widthIn, opts.heightIn);
     }
   },
 
   async styleTargets(id): Promise<StyleTarget[]> {
-    const doc = await loadDoc(id);
-    if (!doc) return [];
-    return doc.features.map((f) => ({
+    const loaded = await loadDoc(id);
+    if (!loaded) return [];
+    return loaded.doc.features.map((f) => ({
       key: featureKey(f),
       label: f.name,
-      color: resolveFeatureColor(f),
+      // Seed the swatch from the canonical override if set, else the editor color.
+      color: loaded.canonical?.perFeature?.[featureKey(f)]?.color ?? resolveFeatureColor(f),
     }));
+  },
+
+  async saveDefaultStyle(id, style): Promise<void> {
+    // Promote a panel's style to the sequence's canonical figure style (sidecar).
+    await sequencesApi.update(Number(id), { figure: toMapStyle(style) });
   },
 
   editHref(id) {
