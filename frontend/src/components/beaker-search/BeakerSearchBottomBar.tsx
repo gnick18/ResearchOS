@@ -107,7 +107,20 @@ export default function BeakerSearchBottomBar() {
         <span className="flex-1 truncate text-body text-foreground-muted">
           {canUseAI ? "Ask or search your work..." : "Search your work..."}
         </span>
-        <kbd className="flex-none rounded-md border border-border bg-surface-sunken px-1.5 py-0.5 text-[11px] font-semibold text-foreground-muted">
+        {/* Cmd J opens BeakerBot straight in Ask mode (account-only AI), shown
+            beside the Cmd K search hint so the shortcut is discoverable. */}
+        {canUseAI && (
+          <kbd
+            title="Open BeakerBot AI"
+            className="flex-none rounded-md border border-border bg-surface-sunken px-1.5 py-0.5 text-[11px] font-semibold text-foreground-muted"
+          >
+            Cmd J
+          </kbd>
+        )}
+        <kbd
+          title="Open BeakerSearch"
+          className="flex-none rounded-md border border-border bg-surface-sunken px-1.5 py-0.5 text-[11px] font-semibold text-foreground-muted"
+        >
           Cmd K
         </kbd>
       </button>
