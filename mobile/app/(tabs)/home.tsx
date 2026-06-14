@@ -15,6 +15,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ScreenFrame } from '@/components/ui/ScreenFrame';
 import { useTheme, fonts, spacing, radii } from '@/lib/design';
+import { usePairing } from '@/lib/pairing';
 
 const Ic = ({ d, color, size = 21, sw = 1.8 }: { d: string; color: string; size?: number; sw?: number }) => (
   <Svg width={size} height={size} viewBox="0 0 24 24">
@@ -22,11 +23,38 @@ const Ic = ({ d, color, size = 21, sw = 1.8 }: { d: string; color: string; size?
   </Svg>
 );
 
+// "Good morning" before noon, "Good afternoon" before 6pm, "Good evening" after.
+function timeOfDayGreeting(hour: number): string {
+  if (hour < 12) return 'Good morning';
+  if (hour < 18) return 'Good afternoon';
+  return 'Good evening';
+}
+
+// Reduce a stored display name to a friendly first name for the greeting. Strips
+// a leading honorific (Dr, Prof, Mr, Mrs, Ms, Mx) then takes the first token, so
+// "Dr. Grant Nickles" greets as "Grant". Returns null when there is no usable
+// name so the caller can greet by time of day alone.
+function firstNameOf(name?: string): string | null {
+  if (!name) return null;
+  const cleaned = name.trim().replace(/^(dr|prof|mr|mrs|ms|mx)\.?\s+/i, '');
+  const first = cleaned.split(/\s+/)[0] ?? '';
+  return first.length > 0 ? first : null;
+}
+
 export default function HomeScreen() {
   const t = useTheme();
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const s = t.surface;
+  const { pairing } = usePairing();
+
+  // Greet by time of day, adding the paired user's first name when the grant
+  // carried one. Computed at render; the home tab remounts on focus so the
+  // morning/afternoon/evening label stays current without a ticking clock.
+  const first = firstNameOf(pairing?.userName);
+  const greeting = first
+    ? `${timeOfDayGreeting(new Date().getHours())}, ${first}`
+    : timeOfDayGreeting(new Date().getHours());
 
   const Label = ({ children, action }: { children: string; action?: string }) => (
     <View style={styles.lblRow}>
@@ -49,7 +77,7 @@ export default function HomeScreen() {
       {/* header */}
       <View style={styles.head}>
         <View>
-          <Text style={[styles.greet, { color: s.muted }]}>Good morning, Grant</Text>
+          <Text style={[styles.greet, { color: s.muted }]}>{greeting}</Text>
           <Text style={[styles.title, { color: s.text }]}>Home</Text>
         </View>
         <View style={styles.headActions}>

@@ -172,6 +172,10 @@ export default function PairScreen() {
           typeof (grant as { labName?: unknown }).labName === 'string'
             ? (grant as unknown as { labName: string }).labName
             : undefined;
+        const userName =
+          typeof (grant as { userName?: unknown }).userName === 'string'
+            ? (grant as unknown as { userName: string }).userName
+            : undefined;
         // Prefer the key echoed by the relay register response; fall back to
         // the value carried in the scanned grant so pairing still records the
         // sealing key if the relay omits it. Without this key the phone falls
@@ -185,6 +189,7 @@ export default function PairScreen() {
           relayUrl: base,
           devicePubkey: device.devicePubHex,
           labName,
+          userName,
           userX25519PubHex: userX25519FromResponse,
         });
         // Register this phone's Expo push token so phone-routed notifications can
