@@ -13,6 +13,7 @@ import { useEffect, useState } from "react";
 import { methodsApi, filesApi } from "@/lib/local-api";
 import type { Method } from "@/lib/types";
 import { objectDeepLink, splitMethodRefId } from "@/lib/references";
+import { deriveExcerptFromMarkdown } from "@/lib/methods/excerpt";
 import { ObjectEmbedCard, UnavailableEmbedCard, type EmbedRendererProps } from "./ObjectEmbed";
 
 type LoadState =
@@ -60,14 +61,16 @@ export default function MethodEmbed({ descriptor, caption }: EmbedRendererProps)
           return;
         }
 
-        // For markdown methods, try to read the first ~140 chars of the body
-        // as a preview excerpt. Failure is non-fatal, we just show no excerpt.
-        let bodyExcerpt: string | null = null;
-        if (m.method_type === "markdown" && m.source_path) {
+        // Preview excerpt: prefer the method's stamped excerpt (already stripped
+        // of the stamp scaffold + H1). Otherwise derive it from the body the SAME
+        // way (deriveExcerptFromMarkdown), so the invisible stamp comments
+        // (<!-- stamp:start --> ...) and the title H1 NEVER leak into the card.
+        // Reading raw file.content.slice() was the bug that surfaced them.
+        let bodyExcerpt: string | null = m.excerpt?.trim() || null;
+        if (!bodyExcerpt && m.method_type === "markdown" && m.source_path) {
           try {
             const file = await filesApi.readFile(m.source_path);
-            const text = file.content?.trim() ?? "";
-            if (text) bodyExcerpt = text.slice(0, 140);
+            bodyExcerpt = deriveExcerptFromMarkdown(file.content) || null;
           } catch {
             // Non-fatal, excerpt stays null.
           }
