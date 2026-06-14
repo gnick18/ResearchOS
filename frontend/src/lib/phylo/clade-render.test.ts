@@ -78,3 +78,19 @@ describe("clade highlight with a prior empty clade panel (HPV58 restore repro)",
     expect(renderTreeSvg(TREE, spec)).toContain('opacity="0.10"');
   });
 });
+
+describe("clade collapse with a prior empty clade panel (two-panel)", () => {
+  it("collapses the populated clade even when an empty clade panel precedes it", () => {
+    const empty: AlignedPanel = { id: "tracks-clade", kind: "clade", visible: true };
+    const collapsed: AlignedPanel = {
+      id: "added", kind: "clade", visible: true,
+      options: { clades: [{ id: "k", tips: MEMBERS, collapsed: true, color: "#1AA0E6" }] },
+    };
+    const spec = figureToRenderSpec(
+      TREE,
+      { layout: "rectangular", phylogram: true, tracks: EMPTY_TRACKS, panels: [empty, collapsed] },
+      { width: 700, height: 480 },
+    );
+    expect(renderTreeSvg(TREE, spec)).toContain('opacity="0.45"');
+  });
+});
