@@ -37,10 +37,17 @@ export interface PortalShellProps {
   title: string;
   /** One-line description of what the portal manages, shown on the sign-in gate. */
   tagline: string;
+  /** Override the gate heading. Defaults to "Sign in to your <title> portal". */
+  gateHeading?: string;
   children: ReactNode;
 }
 
-export default function PortalShell({ title, tagline, children }: PortalShellProps) {
+export default function PortalShell({
+  title,
+  tagline,
+  gateHeading,
+  children,
+}: PortalShellProps) {
   const [auth, setAuth] = useState<AuthState>("loading");
   const [email, setEmail] = useState<string | null>(null);
 
@@ -97,7 +104,12 @@ export default function PortalShell({ title, tagline, children }: PortalShellPro
               Loading your portal&hellip;
             </div>
           ) : auth === "out" ? (
-            <SignInGate title={title} tagline={tagline} onProvider={onProvider} />
+            <SignInGate
+              title={title}
+              tagline={tagline}
+              gateHeading={gateHeading}
+              onProvider={onProvider}
+            />
           ) : (
             children
           )}
@@ -110,20 +122,22 @@ export default function PortalShell({ title, tagline, children }: PortalShellPro
 function SignInGate({
   title,
   tagline,
+  gateHeading,
   onProvider,
 }: {
   title: string;
   tagline: string;
+  gateHeading?: string;
   onProvider: (p: SharingProvider) => void;
 }) {
   return (
     <div className="mx-auto max-w-md py-10 text-center">
       <Wordmark size="lg" animated={false} className="justify-center" />
       <span className="mt-4 inline-block rounded-full border border-brand-purple/30 bg-brand-purple/10 px-2.5 py-1 text-meta font-bold uppercase tracking-wide text-brand-purple">
-        {title} portal
+        {title}
       </span>
       <h1 className="mt-4 text-heading font-extrabold tracking-tight text-foreground">
-        Sign in to your {title.replace(/ admin$/i, "")} portal
+        {gateHeading ?? `Sign in to your ${title.replace(/ admin$/i, "")} portal`}
       </h1>
       <p className="mx-auto mt-1 max-w-sm text-body text-foreground-muted">{tagline}</p>
 

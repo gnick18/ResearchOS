@@ -355,6 +355,19 @@ function AppContent({ children }: { children: ReactNode }) {
     pathname === "/privacy" ||
     pathname === "/terms";
 
+  // Folderless, session-authenticated routes: the org admin portals + their
+  // accept pages, the account home, and public @handle profiles. These run off
+  // the NextAuth session and Neon, need NO data folder, and must render in any
+  // browser, so they bypass the File System Access + folder-connect gate exactly
+  // like the operator and marketing routes do (cloud-accounts Phase 1: data is
+  // local, the account is cloud).
+  const isFolderlessAccountRoute =
+    pathname === "/account" ||
+    pathname?.startsWith("/department") ||
+    pathname?.startsWith("/institution") ||
+    pathname?.startsWith("/dept/") ||
+    pathname?.startsWith("/u/");
+
   // QueryClient is a module-level singleton (see `appQueryClient` below)
   // so non-React-tree consumers (e.g. the onboarding-v4 cursor scripts
   // that fire programmatic API calls outside the component tree) can
@@ -522,6 +535,16 @@ function AppContent({ children }: { children: ReactNode }) {
   // so links to them from the landing actually open the page (the /pricing bounce
   // bug). They bring their own chrome and need nothing from the app shell.
   if (isPublicMarketingRoute) {
+    return (
+      <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+    );
+  }
+
+  // Folderless, session-authenticated routes (org portals, accept pages, account
+  // home, @handle profiles) render directly off the session in any browser, no
+  // folder gate. FileSystemProvider context is still inherited from Providers
+  // (currentUser is simply null when no folder is connected).
+  if (isFolderlessAccountRoute) {
     return (
       <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
     );
