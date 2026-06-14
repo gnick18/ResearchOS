@@ -804,6 +804,12 @@ export const useConversationStore = create<ConversationStore>((set, get) => ({
       attachedPaper: null,
       // Discard any attached refs when switching threads.
       attachedRefs: [],
+      // Restore a paused plan so the reopened thread offers Resume (only paused
+      // plans are persisted; a running one was in-flight and is not resumed blind).
+      activePlan:
+        stored.activePlan && stored.activePlan.status === "paused"
+          ? stored.activePlan
+          : null,
     });
   },
 
@@ -1288,6 +1294,8 @@ export const useConversationStore = create<ConversationStore>((set, get) => ({
           await saveChat(boundThreadId, {
             messages: existingMessages,
             history: historyStore,
+            activePlan:
+              get().activePlan?.status === "paused" ? get().activePlan : null,
           });
         }
         return;
@@ -1335,6 +1343,8 @@ export const useConversationStore = create<ConversationStore>((set, get) => ({
         await saveChat(boundThreadId, {
           messages: savedMessages,
           history: historyStore,
+          activePlan:
+            get().activePlan?.status === "paused" ? get().activePlan : null,
         });
       }
     } catch (err) {
@@ -1713,6 +1723,8 @@ export const useConversationStore = create<ConversationStore>((set, get) => ({
         await saveChat(boundThreadId, {
           messages: get().messages,
           history: historyStore,
+          activePlan:
+            get().activePlan?.status === "paused" ? get().activePlan : null,
         });
       }
     } catch (err) {
