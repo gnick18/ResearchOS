@@ -2266,7 +2266,7 @@ function PropertyGrid({
           <dt className="text-meta font-medium text-foreground-muted uppercase tracking-wide mb-1.5">
             Deviation log
           </dt>
-          <div className="prose prose-sm prose-gray max-w-none bg-amber-50 dark:bg-amber-500/10 border border-amber-100 dark:border-amber-500/25 rounded-lg p-3">
+          <div className="prose prose-sm prose-gray max-w-none bg-surface-sunken border border-border rounded-lg p-3">
             <ReactMarkdown remarkPlugins={[remarkGfm, remarkUnderline]} rehypePlugins={[rehypeRaw, [rehypeSanitize, markdownSanitizeSchema]]}>
               {task.deviation_log}
             </ReactMarkdown>
