@@ -17,6 +17,8 @@ const ReferencePicker = dynamic(
   () => import("./references/ReferencePicker"),
   { ssr: false },
 );
+import type { ReferencePickerTab } from "./references/ReferencePicker";
+import type { IconName } from "./icons/registry";
 import type { EditorLoroHandle } from "@/lib/loro/editor-handle";
 import type { Note } from "@/lib/types";
 import MarkdownShortcutsSidebar from "./MarkdownShortcutsSidebar";
@@ -322,6 +324,23 @@ export default function LiveMarkdownEditor({
   // so the toolbar button and the InlineMarkdownEditor slash callback both toggle
   // the same modal. Only active when enableReferencePicker is true.
   const [referencePickerOpen, setReferencePickerOpen] = useState(false);
+  // L1 Phase B: the slim insert rail's typed entries (Sequence / Molecule /
+  // Data Hub table / Plot) open the SAME picker pre-targeted to a tab. Null =
+  // open on the picker's own default tab (the generic "Insert ref" entry / the
+  // "/" trigger). Reset to null on close so the next plain open is unbiased.
+  const [referencePickerTab, setReferencePickerTab] =
+    useState<ReferencePickerTab | null>(null);
+  // Open the reference picker, optionally pre-targeted to a tab. Shared by the
+  // ＋ overflow menu, the slim insert rail, and the "/" trigger (which passes
+  // no tab). Closes the overflow menu so the two never stack.
+  const openReferencePicker = useCallback(
+    (tab?: ReferencePickerTab) => {
+      setReferencePickerTab(tab ?? null);
+      setReferencePickerOpen(true);
+      setInsertMenuOpen(false);
+    },
+    [],
+  );
 
   // Buffer-safety bridge (FOCUS_WRITING_MODE_DESIGN.md §7). Wired for
   // belt-and-suspenders safety across the focus-mode portal flip. Element
@@ -540,6 +559,34 @@ export default function LiveMarkdownEditor({
   const wrapperRef = useRef<HTMLDivElement>(null);
   const editorContentRef = useRef<HTMLDivElement>(null);
 
+  // ── Slim insert rail: measured never-overlap rule (L1 Phase B, design §3A) ──
+  // The rail floats in the editor's RIGHT gutter and must NEVER overlap the
+  // document text. We measure the REAL empty gutter every resize:
+  //   gutter = (containerWidth - writingColumnWidth) / 2
+  // and only render the rail when that gutter is >= RAIL_MIN_GUTTER_PX. The
+  // writing column width is read off a visually-hidden probe that carries the
+  // SAME `measureClass` (w-full max-w-[Nch] mx-auto), so its measured width is
+  // exactly the column's: min(containerWidth, Nch). At the Full-bleed preset the
+  // probe fills the container, gutter -> ~0, and the rail hides entirely (per
+  // design). When the gutter is too narrow (small laptop / split-screen /
+  // docked popup) the rail also hides and its tools stay reachable in the ＋
+  // overflow menu. `colRef` is the relatively-positioned host the rail is
+  // absolutely placed within.
+  const railColRef = useRef<HTMLDivElement>(null);
+  const railProbeRef = useRef<HTMLDivElement>(null);
+  const [railGutterPx, setRailGutterPx] = useState(0);
+  const measureRailGutter = useCallback(() => {
+    const host = railColRef.current;
+    const probe = railProbeRef.current;
+    if (!host || !probe) return;
+    const containerWidth = host.clientWidth;
+    const columnWidth = probe.clientWidth;
+    // Half the leftover horizontal space is one gutter. Clamp at 0 so a probe
+    // wider than its host (shouldn't happen) never reads negative.
+    const gutter = Math.max(0, (containerWidth - columnWidth) / 2);
+    setRailGutterPx((prev) => (Math.abs(prev - gutter) > 0.5 ? gutter : prev));
+  }, []);
+
   // Close the quiet toolbar's "＋" insert overflow menu on an outside click or
   // Escape, so it behaves like a normal popover and never traps focus.
   useEffect(() => {
@@ -559,6 +606,22 @@ export default function LiveMarkdownEditor({
       document.removeEventListener("keydown", onKeyDown);
     };
   }, [insertMenuOpen]);
+
+  // Keep the never-overlap gutter measurement live. A single ResizeObserver on
+  // the rail host re-measures whenever the editor column resizes (popup resize,
+  // split-screen, rail collapse, width-preset change). measureClass is in the
+  // dep list so changing the writing width (which changes the column cap, and
+  // therefore the gutter) re-measures immediately rather than waiting on a
+  // resize. Cheap: it reads two clientWidths and skips state churn under 0.5px.
+  useLayoutEffect(() => {
+    const host = railColRef.current;
+    if (!host || typeof ResizeObserver === "undefined") return;
+    measureRailGutter();
+    const ro = new ResizeObserver(() => measureRailGutter());
+    ro.observe(host);
+    return () => ro.disconnect();
+  }, [measureRailGutter, measureClass, currentMode]);
+
   // Forward-reference to the LabArchives Form-B drop interceptor (defined
   // further down once its callback deps — value/onChange/etc — are in
   // scope). The capture-phase native drop listener below reads through this
@@ -1834,6 +1897,43 @@ export default function LiveMarkdownEditor({
     };
   }, []);
 
+  // ── Slim insert rail config (L1 Phase B) ──────────────────────────────────
+  // Minimum REAL empty gutter (px) before the rail may render. Below this the
+  // rail would crowd or overlap the text, so it hides and folds into the ＋
+  // overflow menu instead. ~76px matches the design's measured threshold and
+  // comfortably clears the ~44px rail (8px chrome + 32px hit area + insets).
+  const RAIL_MIN_GUTTER_PX = 76;
+  // Each entry drops a live embed at the caret through the EXISTING pipeline:
+  // typed object inserts open the ReferencePicker pre-targeted to a tab (which
+  // calls insertRef on pick), and Image routes through the same Add Image flow
+  // as the toolbar. No new embed syntax is introduced. Reference / table / plot
+  // / sequence / molecule need the picker; Image always works. The whole rail
+  // is gated on enableReferencePicker (the insert-pipeline capability) so it
+  // only appears on surfaces that opted in, and never on the constrained mounts
+  // (BeakerBot Canvas, the method create / compound / variation panels).
+  const railInsertItems: {
+    key: string;
+    label: string;
+    icon: IconName;
+    onClick: () => void;
+  }[] = [
+    { key: "reference", label: "Reference", icon: "reference", onClick: () => openReferencePicker() },
+    { key: "table", label: "Data Hub table", icon: "table", onClick: () => openReferencePicker("datahub") },
+    { key: "plot", label: "Plot or figure", icon: "chart", onClick: () => openReferencePicker("datahub") },
+    { key: "sequence", label: "Sequence", icon: "sequence", onClick: () => openReferencePicker("sequences") },
+    { key: "molecule", label: "Molecule", icon: "moleculeCircular", onClick: () => openReferencePicker("molecules") },
+    { key: "image", label: "Image or file", icon: "attach", onClick: () => { setInsertMenuOpen(false); handleAddImageClick(); } },
+  ];
+  // The never-overlap gate: opted-in surface, edit mode (insert-at-caret has no
+  // meaning in Preview / read-only), and a measured gutter wide enough to clear
+  // the text. Full-bleed collapses the gutter to ~0 so railVisible is false and
+  // the rail hides entirely, exactly as the design specifies.
+  const railVisible =
+    enableReferencePicker &&
+    !disabled &&
+    currentMode !== "preview" &&
+    railGutterPx >= RAIL_MIN_GUTTER_PX;
+
   // The editor subtree, rendered ONCE. In focus mode it is relocated into a
   // body-level portal via createPortal below; React preserves component
   // state (the CM6 editor's state + undo refs) when only the portal
@@ -1980,21 +2080,32 @@ export default function LiveMarkdownEditor({
                   </button>
                 )}
 
-                {/* Insert reference (molecule / sequence / method). */}
+                {/* Typed insert entries (L1 Phase B). These mirror the slim
+                    insert rail one-for-one so the SAME tools stay reachable
+                    when the rail is hidden (narrow gutter / split-screen /
+                    full-bleed) — the "fold into the floating chrome" half of
+                    the never-overlap rule. Each opens the ReferencePicker
+                    pre-targeted to a tab; Image routes through the Add Image
+                    flow above, so it is not repeated here. */}
                 {enableReferencePicker && !disabled && (
-                  <button
-                    type="button"
-                    role="menuitem"
-                    aria-label="Insert reference"
-                    onClick={() => {
-                      setInsertMenuOpen(false);
-                      setReferencePickerOpen(true);
-                    }}
-                    className="w-full flex items-center gap-2 px-3 py-1.5 text-left text-meta text-foreground hover:bg-foreground-muted/10 transition-colors"
-                  >
-                    <Icon name="reference" className="w-4 h-4 text-foreground-muted" />
-                    Insert ref
-                  </button>
+                  <>
+                    <div className="my-1 h-px bg-border" aria-hidden="true" />
+                    {railInsertItems
+                      .filter((item) => item.key !== "image")
+                      .map((item) => (
+                        <button
+                          key={item.key}
+                          type="button"
+                          role="menuitem"
+                          aria-label={item.label}
+                          onClick={item.onClick}
+                          className="w-full flex items-center gap-2 px-3 py-1.5 text-left text-meta text-foreground hover:bg-foreground-muted/10 transition-colors"
+                        >
+                          <Icon name={item.icon} className="w-4 h-4 text-foreground-muted" />
+                          {item.label}
+                        </button>
+                      ))}
+                  </>
                 )}
 
                 {/* Number figures directive toggle (per-document). Keeps the
@@ -2029,8 +2140,8 @@ export default function LiveMarkdownEditor({
           {/* Attachment Strip toggle (kept quiet). Shows / hides the
               scrollable strip of every image OR non-image file attached to this
               experiment along the bottom. Same showAttachmentStrip handler.
-              Rendered as a quiet text control (matching the focus-mode bar's
-              "Attachments" label) so the strip needs no new registry glyph. */}
+              Carries the paperclip glyph (Grant-approved, L1 Phase B) beside
+              the quiet label. */}
           <Tooltip
             label={
               showAttachmentStrip
@@ -2044,12 +2155,13 @@ export default function LiveMarkdownEditor({
               aria-label="Toggle attachments strip"
               aria-pressed={showAttachmentStrip}
               onClick={() => setShowAttachmentStrip((v) => !v)}
-              className={`px-2.5 py-1 text-meta rounded-lg transition-colors ${
+              className={`flex items-center gap-1.5 px-2.5 py-1 text-meta rounded-lg transition-colors ${
                 showAttachmentStrip
                   ? "bg-brand-action/12 text-brand-action font-medium"
                   : "text-foreground-muted hover:bg-foreground-muted/15 hover:text-foreground"
               }`}
             >
+              <Icon name="attach" className="w-3.5 h-3.5" />
               Attachments
             </button>
           </Tooltip>
@@ -2084,6 +2196,26 @@ export default function LiveMarkdownEditor({
               </svg>
             </button>
           </Tooltip>
+
+          {/* "/" discoverability hint (L1 Phase B, design §3A). Quiet,
+              low-contrast text so it teaches without shouting. Shown only when
+              the slash-insert pipeline is actually wired (enableReferencePicker)
+              and not in read-only / preview, so it never advertises an action
+              the surface can't perform. Hidden on very narrow strips so it
+              never crowds the trailing controls. The styling mirrors BeakerBot's
+              composer slash affordance (a `/` token + muted copy) so users
+              learn one "/" mental model. */}
+          {enableReferencePicker && !disabled && currentMode !== "preview" && (
+            <span
+              data-testid="editor-slash-hint"
+              className="hidden md:inline-flex items-center gap-1 pl-1 text-meta text-foreground-muted/70 select-none"
+            >
+              <span className="rounded border border-border px-1 font-semibold text-foreground-muted">
+                /
+              </span>
+              to insert
+            </span>
+          )}
 
           <input
             ref={fileInputRef}
@@ -2347,6 +2479,7 @@ export default function LiveMarkdownEditor({
                 />
               )}
               <div
+                ref={railColRef}
                 className="relative flex-1 flex flex-col min-h-0 h-full"
                 data-tour-target="inline-editor-surface"
               >
@@ -2368,8 +2501,55 @@ export default function LiveMarkdownEditor({
                   collabUser={collabUser}
                   embedPinContext={embedPinContext}
                   normalizeRef={normalizeRef}
-                  onRequestReference={enableReferencePicker ? () => setReferencePickerOpen(true) : undefined}
+                  onRequestReference={enableReferencePicker ? () => openReferencePicker() : undefined}
                 />
+
+                {/* Never-overlap probe (L1 Phase B). A zero-height, invisible
+                    twin of the writing column: same `measureClass` (w-full
+                    max-w-[Nch] mx-auto), so its measured width IS the column's.
+                    measureRailGutter reads it to compute the real gutter. It is
+                    aria-hidden + pointer-events-none so it never affects layout
+                    height, scroll, or assistive tech. The p-4 padding mirrors
+                    the editor's own scroll-pane padding so the gutter math
+                    matches what the user sees. */}
+                <div
+                  aria-hidden="true"
+                  className="absolute inset-x-0 top-0 h-0 overflow-hidden pointer-events-none px-4"
+                >
+                  <div ref={railProbeRef} className={measureClass} />
+                </div>
+
+                {/* Slim insert rail (L1 Phase B, design §3A). Floats in the
+                    editor's RIGHT gutter and drops a live embed at the caret
+                    via the existing ReferencePicker / insertRef pipeline (no new
+                    embed syntax). HARD never-overlap rule: renders ONLY when the
+                    measured empty gutter is wide enough to clear the text; when
+                    too narrow (split-screen / docked popup) OR full-bleed it
+                    hides and its tools stay reachable in the ＋ overflow menu.
+                    Edit-mode + non-disabled only (insert-at-caret has no meaning
+                    in Preview / read-only). */}
+                {railVisible && (
+                  <div
+                    data-testid="editor-insert-rail"
+                    className="absolute right-3 top-1/2 -translate-y-1/2 z-[4] flex flex-col gap-1 rounded-2xl border border-border bg-surface-overlay/85 px-1.5 py-2 shadow-lg backdrop-blur"
+                  >
+                    <span className="px-1 pb-0.5 text-center text-[8px] font-extrabold uppercase tracking-[0.08em] text-foreground-muted">
+                      Insert
+                    </span>
+                    {railInsertItems.map((item) => (
+                      <Tooltip key={item.key} label={item.label} placement="left">
+                        <button
+                          type="button"
+                          aria-label={item.label}
+                          onClick={item.onClick}
+                          className="flex h-8 w-8 items-center justify-center rounded-lg text-foreground-muted transition-colors hover:bg-brand-action/12 hover:text-brand-action"
+                        >
+                          <Icon name={item.icon} className="h-4 w-4" />
+                        </button>
+                      </Tooltip>
+                    ))}
+                  </div>
+                )}
               </div>
             </div>
           )}
@@ -2761,16 +2941,18 @@ export default function LiveMarkdownEditor({
           </div>
 
           {/* Single collapsed Attachments toggle: re-shows the existing
-              Images / Files tray (reuses showAttachmentStrip). */}
+              Images / Files tray (reuses showAttachmentStrip). Carries the same
+              paperclip glyph as the docked toolbar for consistency (L1 Phase B). */}
           <button
             type="button"
             onClick={() => setShowAttachmentStrip((v) => !v)}
-            className={`px-2.5 py-1 text-meta rounded transition-colors ${
+            className={`flex items-center gap-1.5 px-2.5 py-1 text-meta rounded transition-colors ${
               showAttachmentStrip
                 ? "bg-blue-100 dark:bg-blue-500/20 text-blue-700 dark:text-blue-300"
                 : "bg-surface-sunken text-foreground-muted hover:bg-foreground-muted/15"
             }`}
           >
+            <Icon name="attach" className="w-3.5 h-3.5" />
             Attachments
           </button>
 
@@ -2916,10 +3098,14 @@ export default function LiveMarkdownEditor({
           the existing insertRef. */}
       {enableReferencePicker && referencePickerOpen && (
         <ReferencePicker
+          initialTab={referencePickerTab ?? undefined}
           onPick={(markdown) => {
             insertRef.current?.(markdown);
           }}
-          onClose={() => setReferencePickerOpen(false)}
+          onClose={() => {
+            setReferencePickerOpen(false);
+            setReferencePickerTab(null);
+          }}
         />
       )}
     </>

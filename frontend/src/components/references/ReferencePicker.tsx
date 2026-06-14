@@ -76,6 +76,10 @@ async function loadData(): Promise<{
 
 type Tab = "molecules" | "sequences" | "methods" | "datahub" | "datasets";
 
+/** The picker's tab union, re-exported so callers (the editor's slim insert
+ *  rail) can request a pre-selected tab via the `initialTab` prop. */
+export type ReferencePickerTab = Tab;
+
 const defaultTab: Tab = CHEMISTRY_ENABLED ? "molecules" : "sequences";
 
 /** A flattened, render-ready item, so the list + keyboard nav are uniform
@@ -99,6 +103,12 @@ interface ReferencePickerProps {
    *  then the picker closes automatically via onClose. */
   onPick: (markdown: string) => void;
   onClose: () => void;
+  /** Pre-select a tab on open (L1 Phase B slim insert rail). The rail's typed
+   *  entries (Sequence / Molecule / Data Hub table) open the picker already on
+   *  the matching tab. Ignored when the requested tab is not available in this
+   *  deployment (flag off), falling back to the normal default. Absent = the
+   *  existing default tab, so the toolbar / "/" open is byte-identical. */
+  initialTab?: Tab;
 }
 
 /** A single item row in the picker list. */
@@ -138,8 +148,8 @@ function PickerRow({
   );
 }
 
-export default function ReferencePicker({ onPick, onClose }: ReferencePickerProps) {
-  const [tab, setTab] = useState<Tab>(defaultTab);
+export default function ReferencePicker({ onPick, onClose, initialTab }: ReferencePickerProps) {
+  const [tab, setTab] = useState<Tab>(initialTab ?? defaultTab);
   const [mode, setMode] = useState<InsertMode>("embed");
   const [query, setQuery] = useState("");
   const [loading, setLoading] = useState(true);
@@ -362,6 +372,14 @@ export default function ReferencePicker({ onPick, onClose }: ReferencePickerProp
     datahub: "Data Hub",
     datasets: "Datasets",
   };
+
+  // If the rail seeded a tab that this deployment has flagged off, fall back to
+  // the first available tab so the picker never opens on an empty/hidden tab.
+  useEffect(() => {
+    if (!availableTabs.includes(tab) && availableTabs.length > 0) {
+      setTab(availableTabs[0]);
+    }
+  }, [availableTabs, tab]);
 
   // Reset the highlight whenever the visible list changes (tab or query).
   useEffect(() => {
