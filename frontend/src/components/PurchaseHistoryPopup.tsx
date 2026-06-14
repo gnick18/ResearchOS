@@ -148,6 +148,7 @@ export default function PurchaseHistoryPopup({
           onPreviewChange={setPreview}
           canRestore={canRestore}
           onRestore={handleRestore}
+          embedded
         />
       </div>
     </CalmPopupShell>
