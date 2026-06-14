@@ -187,8 +187,13 @@ function generateFromTracks(spec: RenderSpec): string {
       );
     }
   }
-  // Theme + scale bar.
-  lines.push("p + theme_tree() + geom_treescale()");
+  // Theme + scale bar (or a reversed time axis when requested).
+  if (spec.timeAxis) {
+    lines.push("p <- revts(p)   # tips at age 0, root in the past");
+    lines.push("p + theme_tree2() + scale_x_continuous(labels = abs)");
+  } else {
+    lines.push("p + theme_tree() + geom_treescale()");
+  }
   return lines.join("\n");
 }
 
@@ -443,7 +448,12 @@ function generateFromPanels(spec: RenderSpec, panels: AlignedPanel[]): string {
         break;
     }
   }
-  lines.push("p + theme_tree() + geom_treescale()");
+  if (spec.timeAxis) {
+    lines.push("p <- revts(p)   # tips at age 0, root in the past");
+    lines.push("p + theme_tree2() + scale_x_continuous(labels = abs)");
+  } else {
+    lines.push("p + theme_tree() + geom_treescale()");
+  }
   return lines.join("\n");
 }
 

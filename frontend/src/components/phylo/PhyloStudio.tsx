@@ -186,6 +186,8 @@ export function PhyloStudio({ initialTreeId }: { initialTreeId?: string } = {}) 
   // Show the branch-length scale bar on a phylogram (geom_treescale). Default on.
   const [scaleBar, setScaleBar] = useState(true);
   const [rootEdge, setRootEdge] = useState(false);
+  // Draw a full-width time axis (age before present) instead of the scale bar.
+  const [timeAxis, setTimeAxis] = useState(false);
   // The ordered LAYER stack (phylo Phase 1). This IS the persisted panels[]; the
   // layers control edits it directly and the renderer + exporter walk it.
   const [panels, setPanels] = useState<AlignedPanel[]>(defaultPanels);
@@ -348,6 +350,7 @@ export function PhyloStudio({ initialTreeId }: { initialTreeId?: string } = {}) 
         phylogram,
         scaleBar,
         rootEdge,
+        timeAxis,
         tracks: EMPTY_TRACKS,
         categoryColumn,
         metaRows,
@@ -367,6 +370,7 @@ export function PhyloStudio({ initialTreeId }: { initialTreeId?: string } = {}) 
     phylogram,
     scaleBar,
     rootEdge,
+    timeAxis,
     categoryColumn,
     metaRows,
     tipColumn,
@@ -595,6 +599,7 @@ export function PhyloStudio({ initialTreeId }: { initialTreeId?: string } = {}) 
     setPhylogram(inputs.phylogram);
     setScaleBar(inputs.scaleBar ?? true);
     setRootEdge(inputs.rootEdge ?? false);
+    setTimeAxis(inputs.timeAxis ?? false);
     // Stored panels win; else project the layer stack from the Phase 0 fields.
     const restored =
       inputs.panels ??
@@ -803,6 +808,7 @@ export function PhyloStudio({ initialTreeId }: { initialTreeId?: string } = {}) 
       branchLengths: phylogram,
       scaleBar,
       rootEdge,
+      timeAxis,
       tracks: derived.tracks,
       legend: true,
       panels,
@@ -1356,6 +1362,20 @@ export function PhyloStudio({ initialTreeId }: { initialTreeId?: string } = {}) 
                 >
                   Root edge
                 </button>
+                {phylogram && (
+                  <button
+                    type="button"
+                    onClick={() => setTimeAxis((s) => !s)}
+                    title="Full-width time axis, tips at age 0 (theme_tree2)"
+                    className={`inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1 text-xs font-bold transition-colors ${
+                      timeAxis
+                        ? "border-accent bg-accent-soft text-accent"
+                        : "border-border text-foreground-muted hover:text-foreground"
+                    }`}
+                  >
+                    Time axis
+                  </button>
+                )}
                 <button
                   type="button"
                   onClick={() =>

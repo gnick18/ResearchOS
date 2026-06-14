@@ -119,6 +119,10 @@ export interface RenderSpec {
   scaleBar?: boolean;
   /** Draw a short stub branch below the root (ggtree geom_rootedge). Default off. */
   rootEdge?: boolean;
+  /** Draw a full-width time axis (age before present) under a rectangular
+   *  phylogram, with the tips at age 0 (ggtree theme_tree2). Default off.
+   *  Replaces the compact scale bar when on. */
+  timeAxis?: boolean;
   tracks: FigureTracks;
   columns: FigureColumns;
   width: number;
@@ -863,7 +867,30 @@ function drawRectTree(
       }
     }
   }
-  if (spec.phylogram && spec.scaleBar !== false && layout.unitsPerPx) {
+  // Time axis (ggtree theme_tree2): a full-width ruler in age-before-present, the
+  // tips at age 0 and the root at the maximum depth. Replaces the compact scale
+  // bar when on. Only meaningful for a rectangular phylogram.
+  if (spec.phylogram && spec.timeAxis && layout.unitsPerPx) {
+    const upp = layout.unitsPerPx;
+    const rootNode = layout.nodes.find((p) => p.parentX === null);
+    const rootX = rootNode ? rootNode.x : 16;
+    const maxDepth = layout.maxDepth;
+    const step = niceAxisStep(maxDepth / 5);
+    const y = spec.height - 16;
+    const xForAge = (age: number) => rootX + (maxDepth - age) / upp;
+    const x0 = xForAge(maxDepth); // oldest (root end)
+    const x1 = xForAge(0); // present (tip end)
+    parts.push(
+      `<line x1="${x0.toFixed(1)}" y1="${y}" x2="${x1.toFixed(1)}" y2="${y}" stroke="${MUTED}" stroke-width="1"/>`,
+    );
+    for (let age = 0; age <= maxDepth + 1e-9; age += step) {
+      const x = xForAge(age);
+      parts.push(
+        `<line x1="${x.toFixed(1)}" y1="${(y - 3).toFixed(1)}" x2="${x.toFixed(1)}" y2="${(y + 3).toFixed(1)}" stroke="${MUTED}" stroke-width="1"/>`,
+        `<text x="${x.toFixed(1)}" y="${(y + 13).toFixed(1)}" font-size="8.5" fill="${MUTED}" text-anchor="middle">${formatAxisTick(age)}</text>`,
+      );
+    }
+  } else if (spec.phylogram && spec.scaleBar !== false && layout.unitsPerPx) {
     const tick = niceTick(layout.maxDepth);
     const px = tick / layout.unitsPerPx;
     const y = spec.height - 6;
@@ -873,6 +900,21 @@ function drawRectTree(
     );
   }
   return plotRight;
+}
+
+/** A 1/2/5 x 10^n "nice" step at or below the target, for axis ticks. */
+function niceAxisStep(target: number): number {
+  if (!(target > 0)) return 1;
+  const pow = Math.pow(10, Math.floor(Math.log10(target)));
+  const f = target / pow;
+  const nice = f < 1.5 ? 1 : f < 3 ? 2 : f < 7 ? 5 : 10;
+  return nice * pow;
+}
+
+/** Trim a tick value to a short label (no trailing zeros). */
+function formatAxisTick(v: number): string {
+  if (Math.abs(v) < 1e-9) return "0";
+  return Number(v.toFixed(4)).toString();
 }
 
 /** Draw the circular tree spine + points (clade / support are deferred in the

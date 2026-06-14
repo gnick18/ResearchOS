@@ -49,6 +49,9 @@ export interface FigureInputs {
   scaleBar?: boolean;
   /** Draw a root edge stub (default off). */
   rootEdge?: boolean;
+  /** Draw a full-width time axis (age before present) instead of the scale bar
+   *  (default off). */
+  timeAxis?: boolean;
   tracks: FigureTracks;
   categoryColumn?: string;
   barColumn?: string;
@@ -200,6 +203,7 @@ export function figureToRenderSpec(
     phylogram: inputs.phylogram,
     scaleBar: inputs.scaleBar,
     rootEdge: inputs.rootEdge,
+    timeAxis: inputs.timeAxis,
     tracks: inputs.tracks,
     columns: {
       category: inputs.categoryColumn || undefined,
@@ -235,6 +239,8 @@ interface StoredFigure {
   scaleBar?: boolean;
   /** Root-edge stub toggle (optional, additive, defaults off). */
   rootEdge?: boolean;
+  /** Time-axis toggle (optional, additive, defaults off). */
+  timeAxis?: boolean;
   tracks?: Record<string, boolean>;
   /** Per-track sequential-palette overrides (Phase 0, optional). */
   scales?: FigureScales;
@@ -276,6 +282,7 @@ export function figureInputsFromStored(
   const phylogram = figure?.branchLengths ?? true;
   const scaleBar = figure?.scaleBar;
   const rootEdge = figure?.rootEdge;
+  const timeAxis = figure?.timeAxis;
   const tracks: FigureTracks = {
     ...DEFAULT_FIGURE_TRACKS,
     ...((figure?.tracks ?? {}) as Partial<FigureTracks>),
@@ -292,6 +299,7 @@ export function figureInputsFromStored(
       phylogram,
       scaleBar,
       rootEdge,
+      timeAxis,
       tracks,
       metaRows: null,
       scales,
@@ -306,6 +314,7 @@ export function figureInputsFromStored(
     phylogram,
     scaleBar,
     rootEdge,
+    timeAxis,
     tracks,
     metaRows: metadata.rows,
     tipColumn: metadata.tipColumn || cols[0] || "",
