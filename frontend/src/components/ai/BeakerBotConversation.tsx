@@ -1246,6 +1246,11 @@ export default function BeakerBotConversation({
               >
                 <div
                   data-testid={`beakerbot-message-${m.role}`}
+                  // Beaker speaks Hanken (--font-ai, set at the panel root); the USER
+                  // speaks the app font. A user bubble is the user's own words, so it
+                  // drops back to --font-sans (Geist). Inline to override the inherited
+                  // panel-root --font-ai; assistant bubbles inherit Hanken untouched.
+                  style={m.role === "user" ? { fontFamily: "var(--font-sans)" } : undefined}
                   className={
                     m.role === "user"
                       ? "self-end max-w-[85%] rounded-lg bg-brand px-3 py-2 text-body text-white"
@@ -1960,6 +1965,13 @@ export default function BeakerBotConversation({
               }}
               onPaste={BEAKERBOT_VISION_ENABLED ? handlePaste : undefined}
               placeholder="Message BeakerBot, or @ to attach, / for a command"
+              // The panel root reads in Beaker's signature typeface (--font-ai,
+              // Hanken) because that font is BEAKER'S voice. The composer is where
+              // the USER writes, not Beaker, so it drops back to the app font
+              // (--font-sans, Geist). Inline so it overrides the inherited inline
+              // --font-ai from the panel root; covers both the typed text and the
+              // placeholder.
+              style={{ fontFamily: "var(--font-sans)" }}
               className="min-h-0 w-full resize-none rounded-md border border-border bg-surface-raised px-3 py-2 text-body text-foreground placeholder:text-foreground-muted focus:outline-none focus:ring-2 focus:ring-brand"
             />
           </div>
