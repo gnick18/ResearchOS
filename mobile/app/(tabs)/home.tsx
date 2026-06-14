@@ -215,9 +215,9 @@ export default function HomeScreen() {
     <ScreenFrame edges={['top']}>
       {/* header */}
       <View style={styles.head}>
-        <View>
-          <Text style={[styles.greet, { color: s.muted }]}>{greeting}</Text>
-          <Text style={[styles.title, { color: s.text }]}>Home</Text>
+        <View style={styles.headText}>
+          <Text style={[styles.greet, { color: s.muted }]} numberOfLines={1}>{greeting}</Text>
+          <Text style={[styles.title, { color: s.text }]} numberOfLines={1}>Home</Text>
         </View>
         <View style={styles.headActions}>
           <Pressable style={[styles.iconBtn, { backgroundColor: s.surface, borderColor: s.border }, t.shadow.sm]} onPress={() => router.push('/notifications')}>
@@ -356,7 +356,8 @@ export default function HomeScreen() {
 }
 
 const styles = StyleSheet.create({
-  head: { paddingHorizontal: spacing.lg, paddingTop: 6, paddingBottom: 10, flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between' },
+  head: { paddingHorizontal: spacing.lg, paddingTop: 6, paddingBottom: 10, flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between', gap: 10 },
+  headText: { flex: 1, minWidth: 0 },
   greet: { fontSize: 12.5, fontFamily: fonts.semibold, marginBottom: 5 },
   title: { fontSize: 27, fontFamily: fonts.extrabold, letterSpacing: -0.8, lineHeight: 30 },
   headActions: { flexDirection: 'row', gap: 8 },
@@ -368,7 +369,7 @@ const styles = StyleSheet.create({
   statusLab: { fontSize: 15, fontFamily: fonts.bold },
   statusMeta: { fontSize: 12.5, fontFamily: fonts.ui, marginTop: 2 },
   lblRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 18, marginBottom: 9, marginHorizontal: 4 },
-  lbl: { fontSize: 12, fontFamily: fonts.bold, letterSpacing: 1, textTransform: 'uppercase' },
+  lbl: { fontSize: 12, fontFamily: fonts.bold, letterSpacing: 1, textTransform: 'uppercase', paddingRight: 2 },
   lblAction: { fontSize: 12.5, fontFamily: fonts.semibold },
   timerLive: { flexDirection: 'row', alignItems: 'center', gap: 13, padding: 14, borderRadius: radii.lg, borderWidth: 1, backgroundColor: 'rgba(245,158,11,0.06)' },
   ring: { width: 44, height: 44, borderRadius: 22, borderWidth: 3, alignItems: 'center', justifyContent: 'center' },

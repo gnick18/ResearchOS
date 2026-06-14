@@ -972,7 +972,7 @@ const pstyles = StyleSheet.create({
   cycRow: { flexDirection: 'row', alignItems: 'flex-end', gap: 5 },
   barCell: { alignItems: 'center', justifyContent: 'flex-end', gap: 2 },
   barTemp: { fontSize: 10, fontWeight: '800', marginBottom: 2 },
-  caption: { fontSize: 9 },
+  caption: { fontSize: 10 },
 });
 
 const rstyles = StyleSheet.create({
@@ -991,7 +991,7 @@ const rstyles = StyleSheet.create({
   topExp: { fontSize: 11 },
   awake: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   awakeDot: { width: 6, height: 6, borderRadius: 999 },
-  awakeTxt: { fontSize: 9.5, fontWeight: '700' },
+  awakeTxt: { fontSize: 10, fontWeight: '700' },
   map: { paddingHorizontal: 14, paddingVertical: 12, borderBottomWidth: 1 },
   mapHeadRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 },
   mapLbl: { fontSize: 10, fontWeight: '800', textTransform: 'uppercase', letterSpacing: 0.6 },

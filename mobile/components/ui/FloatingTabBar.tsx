@@ -133,7 +133,9 @@ const styles = StyleSheet.create({
     gap: 3,
   },
   label: {
-    fontSize: 9.5,
+    // 10 is the floor: Geist clips its last glyph below ~10px when Android
+    // rasterizes at small ppem (verified on-device), so never go under 10 here.
+    fontSize: 10,
     fontFamily: fonts.semibold,
   },
   fab: {

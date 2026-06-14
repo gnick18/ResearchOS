@@ -461,6 +461,9 @@ const styles = StyleSheet.create({
   displayHint: {
     fontSize: 12,
     letterSpacing: 1,
+    // Android floors text-view width without the trailing letter-spacing, which
+    // clips the last glyph. Symmetric padding keeps this centered hint centered.
+    paddingHorizontal: 2,
   },
   keypad: {
     flexDirection: 'row',

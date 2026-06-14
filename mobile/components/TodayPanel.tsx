@@ -754,5 +754,5 @@ const styles = StyleSheet.create({
     paddingBottom: 3,
   },
   grabBar: { width: 42, height: 5, borderRadius: 999 },
-  grabLabel: { fontSize: 9.5, fontWeight: '700' },
+  grabLabel: { fontSize: 10, fontWeight: '700' },
 });

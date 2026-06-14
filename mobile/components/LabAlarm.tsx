@@ -371,6 +371,9 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '800',
     letterSpacing: 2,
+    // Android floors the text-view width without counting the trailing
+    // letter-spacing, clipping the last glyph. Pad by >= letterSpacing.
+    paddingRight: 2,
     marginBottom: 6,
   },
   title: {
