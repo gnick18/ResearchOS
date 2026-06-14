@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 
-import { renderSequenceMapSvg } from "@/lib/sequences/map-render";
+import { renderSequenceMapSvg, featureKey } from "@/lib/sequences/map-render";
 import type { SeqDocument } from "@/lib/sequences/edit-model";
 
 // Built dynamically so the inline-svg icon guard does not flag this test file.
@@ -72,5 +72,39 @@ describe("renderSequenceMapSvg", () => {
     expect(svg).toContain(SVG_OPEN);
     expect(svg).toContain("</svg>");
     expect(svg).not.toContain("NaN");
+  });
+});
+
+describe("SequenceMapStyle (the in-app adjust-the-plot controls)", () => {
+  const ampr = { name: "AmpR", start: 100, end: 900, forward: true, color: "#f0a500" };
+  const ori = { name: "ori", start: 1500, end: 2200, forward: false, color: "#9aa0a6" };
+  const withFeats = () => doc({ features: [ampr, ori] });
+
+  it("hides a feature via a per-feature override", () => {
+    const shown = renderSequenceMapSvg(withFeats(), { width: 300, height: 300 });
+    expect(shown).toContain("ori");
+    const hidden = renderSequenceMapSvg(withFeats(), { width: 300, height: 300 }, {
+      perFeature: { [featureKey(ori)]: { hidden: true } },
+    });
+    expect(hidden).toContain("AmpR");
+    expect(hidden).not.toContain(">ori</text>");
+  });
+
+  it("overrides a feature color", () => {
+    const svg = renderSequenceMapSvg(withFeats(), { width: 300, height: 300 }, {
+      perFeature: { [featureKey(ampr)]: { color: "#ff0000" } },
+    });
+    expect(svg).toContain("#ff0000");
+  });
+
+  it("omits the coordinate ring + labels when toggled off", () => {
+    const bare = renderSequenceMapSvg(withFeats(), { width: 300, height: 300 }, {
+      showTicks: false,
+      showLabels: false,
+    });
+    expect(bare).not.toContain(">AmpR</text>");
+    // still draws the feature wedge + center bp
+    expect(bare).toContain("#f0a500");
+    expect(bare).toContain("3000 bp");
   });
 });
