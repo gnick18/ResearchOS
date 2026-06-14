@@ -986,10 +986,14 @@ function resolveCladeHighlights(
   panels: AlignedPanel[],
   spec: RenderSpec,
 ): ResolvedClade[] {
-  const cladePanel = panels.find((p) => p.visible && p.kind === "clade");
-  if (!cladePanel) return [];
-  const clades = cladePanel.options?.clades as CladeAnnotation[] | undefined;
-  if (clades && clades.length > 0) {
+  // Aggregate clades across EVERY visible clade panel, not just the first. A
+  // restored figure can carry a tracks-projected empty clade panel, and the user
+  // then adds another; finding only the first would silently drop the populated
+  // one (the ggtree exporter already walks all clade panels, so this matches it).
+  const clades = panels
+    .filter((p) => p.visible && p.kind === "clade")
+    .flatMap((p) => (p.options?.clades as CladeAnnotation[] | undefined) ?? []);
+  if (clades.length > 0) {
     const out: ResolvedClade[] = [];
     for (const c of clades) {
       if (c.collapsed) continue; // collapsed clades render as triangles, not bands
@@ -1073,9 +1077,11 @@ function applyCollapses(
   root: TreeNode,
   panels: AlignedPanel[],
 ): { root: TreeNode; collapsed: Map<number, CollapsedNode> } {
-  const cladePanel = panels.find((p) => p.visible && p.kind === "clade");
-  const clades =
-    (cladePanel?.options?.clades as CladeAnnotation[] | undefined) ?? [];
+  // Same aggregation as resolveCladeHighlights: collapse settings can live on any
+  // visible clade panel, not only the first one.
+  const clades = panels
+    .filter((p) => p.visible && p.kind === "clade")
+    .flatMap((p) => (p.options?.clades as CladeAnnotation[] | undefined) ?? []);
   const toCollapse = clades.filter((c) => c.collapsed);
   if (toCollapse.length === 0) return { root, collapsed: new Map() };
   const collapsed = new Map<number, CollapsedNode>();

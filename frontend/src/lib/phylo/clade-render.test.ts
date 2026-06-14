@@ -58,3 +58,23 @@ describe("Wave 2 clade decoration render", () => {
     expect(render({ collapsed: true })).toContain('opacity="0.45"');
   });
 });
+
+describe("clade highlight with a prior empty clade panel (HPV58 restore repro)", () => {
+  // The HPV58 demo figure stores tracks.clade=true with no panels[], so opening
+  // it projects an EMPTY clade panel; adding a Clade-highlight layer makes two.
+  // resolveCladeHighlights/applyCollapses must aggregate ALL clade panels, not
+  // just the first, or the populated one never paints.
+  it("paints the populated clade even when an empty clade panel precedes it", () => {
+    const empty: AlignedPanel = { id: "tracks-clade", kind: "clade", visible: true };
+    const populated: AlignedPanel = {
+      id: "added", kind: "clade", visible: true,
+      options: { clades: [{ id: "k", tips: MEMBERS, color: "#1AA0E6", label: "" }] },
+    };
+    const spec = figureToRenderSpec(
+      TREE,
+      { layout: "rectangular", phylogram: true, tracks: EMPTY_TRACKS, panels: [empty, populated] },
+      { width: 700, height: 480 },
+    );
+    expect(renderTreeSvg(TREE, spec)).toContain('opacity="0.10"');
+  });
+});
