@@ -403,6 +403,23 @@ export interface UserSettings {
   // the same first-paint pattern as editorWidthPreset. Absent = off.
   spellCheckInEditor?: boolean;
 
+  // Markdown editor focus behaviors (UNIFIED_EDITOR_SURFACE_DESIGN.md §3A, U5
+  // toggles). DATA-SHAPE CHANGE: additive + optional, BOTH default OFF (the
+  // design's "amber decision"). They engage ONLY at the fullscreen (expanded)
+  // editor scale, never in the docked editor or BeakerBotCanvas. Mirrored to
+  // localStorage (`ros.editor.typewriter` / `ros.editor.dimming`) so the editor
+  // reads them synchronously at mount, the same first-paint pattern as
+  // editorWidthPreset / spellCheckInEditor; settings.json is the durable
+  // per-user record. Absent = off.
+  //
+  // editorTypewriterScroll: hold the active line at ~42% of the viewport so the
+  // caret stops chasing down the page.
+  editorTypewriterScroll?: boolean;
+  // editorFocusDimming: fade every line except the active paragraph to ~30%
+  // opacity, ONLY while the editor is focused (removed on blur so the resting
+  // note is full-contrast).
+  editorFocusDimming?: boolean;
+
   // LEGACY (dashboard-unification build, 2026-05-29): superseded by
   // `dashboard_layout` above. Kept READABLE for one release so the
   // one-time migration can seed `dashboard_layout` from it for an

@@ -60,6 +60,12 @@ import {
   readStoredEditorWidthPreset,
   writeStoredEditorWidthPreset,
 } from "@/lib/markdown/editor-width-preset";
+import {
+  readStoredTypewriterScroll,
+  writeStoredTypewriterScroll,
+  readStoredFocusDimming,
+  writeStoredFocusDimming,
+} from "@/lib/markdown/editor-focus-prefs";
 import { useOptionalCurrentUser } from "@/lib/file-system/file-system-context";
 import { patchUserSettings, readUserSettings } from "@/lib/settings/user-settings";
 
@@ -435,6 +441,83 @@ export default function LiveMarkdownEditor({
   );
   const measureClass = editorWidthMeasureClass(widthPreset);
 
+  // Focus behaviors (UNIFIED_EDITOR_SURFACE_DESIGN.md §3A, U5 toggles). Two
+  // per-user, default-OFF writing-comfort behaviors that engage ONLY at the
+  // fullscreen scale. Seeded synchronously from localStorage for an immediate
+  // first-paint decision (mirroring widthPreset); the durable per-account record
+  // lives in settings.json (`editorTypewriterScroll` / `editorFocusDimming`),
+  // reconciled below. Resolved (pref AND expanded) before passing to the editor.
+  const [typewriterPref, setTypewriterPref] = useState<boolean>(() =>
+    readStoredTypewriterScroll(),
+  );
+  const [dimmingPref, setDimmingPref] = useState<boolean>(() =>
+    readStoredFocusDimming(),
+  );
+  // Reconcile both prefs from durable settings on connect / user-switch, same
+  // shape as the width-preset reconcile. Absent on disk = keep the local mirror
+  // (a fresh account stays at the default-off rather than being forced).
+  useEffect(() => {
+    if (!currentUser) return;
+    let cancelled = false;
+    void (async () => {
+      try {
+        const settings = await readUserSettings(currentUser);
+        if (cancelled) return;
+        if (settings.editorTypewriterScroll !== undefined) {
+          const v = settings.editorTypewriterScroll === true;
+          setTypewriterPref(v);
+          writeStoredTypewriterScroll(v);
+        }
+        if (settings.editorFocusDimming !== undefined) {
+          const v = settings.editorFocusDimming === true;
+          setDimmingPref(v);
+          writeStoredFocusDimming(v);
+        }
+      } catch {
+        // Disk read failed (not connected / transient): keep the local mirror.
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [currentUser]);
+  // Apply + persist a focus-behavior toggle: update state, mirror to localStorage
+  // synchronously, and best-effort write the durable settings record.
+  const applyTypewriterPref = useCallback(
+    (next: boolean) => {
+      setTypewriterPref(next);
+      writeStoredTypewriterScroll(next);
+      if (currentUser) {
+        void patchUserSettings(currentUser, {
+          editorTypewriterScroll: next,
+        }).catch(() => {
+          // Not connected / write failed: the localStorage mirror still holds.
+        });
+      }
+    },
+    [currentUser],
+  );
+  const applyDimmingPref = useCallback(
+    (next: boolean) => {
+      setDimmingPref(next);
+      writeStoredFocusDimming(next);
+      if (currentUser) {
+        void patchUserSettings(currentUser, {
+          editorFocusDimming: next,
+        }).catch(() => {
+          // Not connected / write failed: the localStorage mirror still holds.
+        });
+      }
+    },
+    [currentUser],
+  );
+  // Resolved flags handed to InlineMarkdownEditor: the behavior runs only when
+  // (its pref is on) AND (the host popup is expanded / fullscreen). This is the
+  // double-gate — the docked editor (expanded=false) and BeakerBotCanvas (never
+  // expanded) always resolve to false, so they are unaffected by these prefs.
+  const typewriterActive = typewriterPref && expanded;
+  const dimmingActive = dimmingPref && expanded;
+
   // Use controlled mode (from prop) or internal mode
   const currentMode = onModeChange ? mode : internalMode;
   
@@ -505,6 +588,11 @@ export default function LiveMarkdownEditor({
   // menu is open. Closing on outside-click / Escape is wired below.
   const [insertMenuOpen, setInsertMenuOpen] = useState(false);
   const insertMenuRef = useRef<HTMLDivElement>(null);
+  // U5 focus-behaviors popover: a small quiet menu (next to the width control,
+  // fullscreen only) holding the Typewriter scroll + Focus dimming toggles. Open
+  // state + outside-click/Escape close mirror the ＋ insert menu below.
+  const [focusMenuOpen, setFocusMenuOpen] = useState(false);
+  const focusMenuRef = useRef<HTMLDivElement>(null);
   // Native-file drag affordance: light up the editor (or the surrounding popup)
   // while the user is dragging a file from Finder over it. Counter handles
   // child-element bubbling — dragenter/leave fire on every nested element the
@@ -561,6 +649,26 @@ export default function LiveMarkdownEditor({
       document.removeEventListener("keydown", onKeyDown);
     };
   }, [insertMenuOpen]);
+
+  // Close the U5 focus-behaviors popover on an outside click or Escape (same
+  // shape as the ＋ insert menu above), so it never traps focus.
+  useEffect(() => {
+    if (!focusMenuOpen) return;
+    const onPointerDown = (e: PointerEvent) => {
+      if (!focusMenuRef.current?.contains(e.target as Node)) {
+        setFocusMenuOpen(false);
+      }
+    };
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setFocusMenuOpen(false);
+    };
+    document.addEventListener("pointerdown", onPointerDown, true);
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("pointerdown", onPointerDown, true);
+      document.removeEventListener("keydown", onKeyDown);
+    };
+  }, [focusMenuOpen]);
 
   // Keep the never-overlap gutter measurement live. A single ResizeObserver on
   // the rail host re-measures whenever the editor column resizes (popup resize,
@@ -2148,6 +2256,60 @@ export default function LiveMarkdownEditor({
             </div>
           )}
 
+          {/* Focus behaviors (UNIFIED_EDITOR_SURFACE_DESIGN.md §3A, U5 toggles).
+              A small quiet popover next to the width control, shown ONLY when the
+              host popup is EXPANDED (fullscreen) — these comfort behaviors only
+              matter at the dedicated writing scale, and they are double-gated
+              (pref AND expanded) before reaching the editor. Each toggle persists
+              immediately (localStorage mirror + durable settings) and takes
+              effect live via the editor's reconfigure compartment. Both default
+              off (the design's amber decision). */}
+          {expanded && (
+            <div ref={focusMenuRef} className="relative">
+              <Tooltip label="Writing focus" placement="bottom">
+                <button
+                  type="button"
+                  data-testid="hybrid-editor-focus-menu"
+                  aria-haspopup="menu"
+                  aria-expanded={focusMenuOpen}
+                  aria-label="Writing focus options"
+                  onClick={() => setFocusMenuOpen((v) => !v)}
+                  className={`p-1.5 rounded-md transition-colors ${
+                    focusMenuOpen || typewriterPref || dimmingPref
+                      ? "bg-surface-raised text-foreground shadow-sm"
+                      : "text-foreground-muted hover:text-foreground"
+                  }`}
+                >
+                  <Icon name="focus" className="h-4 w-4" />
+                </button>
+              </Tooltip>
+              {focusMenuOpen && (
+                <div
+                  role="menu"
+                  data-testid="hybrid-editor-focus-popover"
+                  className="absolute right-0 top-full mt-1 z-30 min-w-[15rem] p-1.5 rounded-lg border border-border bg-surface-overlay shadow-lg"
+                >
+                  <FocusToggleRow
+                    icon="align"
+                    label="Typewriter scroll"
+                    description="Hold the active line near the middle of the screen."
+                    checked={typewriterPref}
+                    testId="hybrid-editor-typewriter-toggle"
+                    onChange={applyTypewriterPref}
+                  />
+                  <FocusToggleRow
+                    icon="focus"
+                    label="Dim other lines"
+                    description="Fade everything except the line you're writing, while focused."
+                    checked={dimmingPref}
+                    testId="hybrid-editor-dimming-toggle"
+                    onChange={applyDimmingPref}
+                  />
+                </div>
+              )}
+            </div>
+          )}
+
           <input
             ref={fileInputRef}
             type="file"
@@ -2437,6 +2599,10 @@ export default function LiveMarkdownEditor({
                   embedPinContext={embedPinContext}
                   normalizeRef={normalizeRef}
                   onRequestReference={enableReferencePicker ? () => openReferencePicker() : undefined}
+                  // U5 focus behaviors: already double-gated (pref AND expanded)
+                  // so the docked editor / Canvas always pass false.
+                  typewriterScroll={typewriterActive}
+                  focusDimming={dimmingActive}
                 />
 
                 {/* Never-overlap probe (L1 Phase B). A zero-height, invisible
@@ -2866,6 +3032,58 @@ function WidthPresetGlyph({ preset }: { preset: EditorWidthPreset }) {
         d={`M${x1} 9h${x2 - x1}M${x1} 12h${x2 - x1}M${x1} 15h${x2 - x1}`}
       />
     </svg>
+  );
+}
+
+/**
+ * One row in the U5 focus-behaviors popover: an icon + label + one-line
+ * description, with a small click-to-toggle pill on the right. A plain button
+ * (role=menuitemcheckbox) rather than a heavy switch, to keep the popover quiet;
+ * the brand-action fill signals the on state. The whole row is clickable.
+ */
+function FocusToggleRow({
+  icon,
+  label,
+  description,
+  checked,
+  testId,
+  onChange,
+}: {
+  icon: IconName;
+  label: string;
+  description: string;
+  checked: boolean;
+  testId: string;
+  onChange: (next: boolean) => void;
+}) {
+  return (
+    <button
+      type="button"
+      role="menuitemcheckbox"
+      aria-checked={checked}
+      data-testid={testId}
+      onClick={() => onChange(!checked)}
+      className="flex w-full items-start gap-2.5 rounded-md px-2 py-1.5 text-left transition-colors hover:bg-surface-sunken/70"
+    >
+      <Icon
+        name={icon}
+        className={`mt-0.5 h-4 w-4 shrink-0 ${
+          checked ? "text-brand-action" : "text-foreground-muted"
+        }`}
+      />
+      <span className="flex-1 min-w-0">
+        <span className="block text-sm font-medium text-foreground">{label}</span>
+        <span className="block text-xs text-foreground-muted">{description}</span>
+      </span>
+      <span
+        aria-hidden="true"
+        className={`mt-0.5 flex h-4 w-7 shrink-0 items-center rounded-full px-0.5 transition-colors ${
+          checked ? "justify-end bg-brand-action" : "justify-start bg-surface-sunken"
+        }`}
+      >
+        <span className="h-3 w-3 rounded-full bg-surface-overlay shadow-sm" />
+      </span>
+    </button>
   );
 }
 
