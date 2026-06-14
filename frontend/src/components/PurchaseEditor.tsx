@@ -167,7 +167,7 @@ function PurchaseDocsRow({
   const [sendTo, setSendTo] = useState(routing?.contacts[0]?.email ?? "");
   if (!editing && attachments.length === 0) return null;
   return (
-    <tr className="border-b border-border bg-surface-sunken/40">
+    <tr className="border-b border-border/40 bg-surface-sunken/40">
       <td colSpan={colSpan} className="px-2 py-1.5">
         <div className="flex flex-wrap items-center gap-2">
           <span className="inline-flex items-center gap-1 text-meta text-foreground-muted">
@@ -1173,61 +1173,67 @@ export default function PurchaseEditor({
       {/* Table */}
       <div className="overflow-x-auto">
         <table className="w-full text-body">
+          {/* Unified Popup Chrome (POPUP_CHROME_ROLLOUT_PROPOSALS.md §1 Purchase
+              body): the column heads de-band into a quiet caption row — no solid
+              header bar / heavy bottom border, lighter weight + uppercase
+              tracking — so the table reads on the one calm surface instead of a
+              banded strip. The amber in-edit row, the Documents sub-row and the
+              totals tfoot are unchanged. */}
           <thead>
-            <tr className="border-b border-border">
-              <th className="text-left py-2 px-2 text-meta font-semibold text-foreground-muted w-48">
+            <tr>
+              <th className="text-left pb-2 px-2 text-meta font-medium uppercase tracking-wide text-foreground-muted w-48">
                 Item Name
               </th>
-              <th className="text-left py-2 px-2 text-meta font-semibold text-foreground-muted w-16">
+              <th className="text-left pb-2 px-2 text-meta font-medium uppercase tracking-wide text-foreground-muted w-16">
                 Qty
               </th>
-              <th className="text-left py-2 px-2 text-meta font-semibold text-foreground-muted w-40">
+              <th className="text-left pb-2 px-2 text-meta font-medium uppercase tracking-wide text-foreground-muted w-40">
                 Link
               </th>
-              <th className="text-left py-2 px-2 text-meta font-semibold text-foreground-muted w-32">
+              <th className="text-left pb-2 px-2 text-meta font-medium uppercase tracking-wide text-foreground-muted w-32">
                 CAS / Accession
               </th>
-              <th className="text-right py-2 px-2 text-meta font-semibold text-foreground-muted w-24">
+              <th className="text-right pb-2 px-2 text-meta font-medium uppercase tracking-wide text-foreground-muted w-24">
                 Price/Unit
               </th>
-              <th className="text-right py-2 px-2 text-meta font-semibold text-foreground-muted w-24">
+              <th className="text-right pb-2 px-2 text-meta font-medium uppercase tracking-wide text-foreground-muted w-24">
                 Shipping
               </th>
-              <th className="text-right py-2 px-2 text-meta font-semibold text-foreground-muted w-24">
+              <th className="text-right pb-2 px-2 text-meta font-medium uppercase tracking-wide text-foreground-muted w-24">
                 Total
               </th>
-              <th className="text-left py-2 px-2 text-meta font-semibold text-foreground-muted w-28">
+              <th className="text-left pb-2 px-2 text-meta font-medium uppercase tracking-wide text-foreground-muted w-28">
                 Funding String
               </th>
-              <th className="text-left py-2 px-2 text-meta font-semibold text-foreground-muted w-28">
+              <th className="text-left pb-2 px-2 text-meta font-medium uppercase tracking-wide text-foreground-muted w-28">
                 Vendor
               </th>
               {/* Vendor ordering / catalog number (audit fix, additive-fields):
                   the reorder id a user types back into the vendor site. */}
-              <th className="text-left py-2 px-2 text-meta font-semibold text-foreground-muted w-28">
+              <th className="text-left pb-2 px-2 text-meta font-medium uppercase tracking-wide text-foreground-muted w-28">
                 Catalog #
               </th>
-              <th className="text-left py-2 px-2 text-meta font-semibold text-foreground-muted w-28">
+              <th className="text-left pb-2 px-2 text-meta font-medium uppercase tracking-wide text-foreground-muted w-28">
                 Category
               </th>
-              <th className="text-left py-2 px-2 text-meta font-semibold text-foreground-muted w-32">
+              <th className="text-left pb-2 px-2 text-meta font-medium uppercase tracking-wide text-foreground-muted w-32">
                 Notes
               </th>
               {/* Lab-manager ordering workflow (purchases-assignee fix,
                   2026-05-29): who was asked to place this order. */}
-              <th className="text-left py-2 px-2 text-meta font-semibold text-foreground-muted w-32">
+              <th className="text-left pb-2 px-2 text-meta font-medium uppercase tracking-wide text-foreground-muted w-32">
                 Assigned to
               </th>
               {/* Per-item ordering status (purchases-ordered-stage,
                   2026-05-29): the real Needs ordering / Ordered / Received
                   stage. */}
-              <th className="text-left py-2 px-2 text-meta font-semibold text-foreground-muted w-40">
+              <th className="text-left pb-2 px-2 text-meta font-medium uppercase tracking-wide text-foreground-muted w-40">
                 Order status
               </th>
               {/* PI Phase 3 (PI Phase 3 manager, 2026-05-23):
                   approval + flag column. Always rendered so list rows
                   line up consistently regardless of view. */}
-              <th className="text-left py-2 px-2 text-meta font-semibold text-foreground-muted w-28">
+              <th className="text-left pb-2 px-2 text-meta font-medium uppercase tracking-wide text-foreground-muted w-28">
                 PI status
               </th>
               <th className="w-8"></th>
@@ -1240,7 +1246,7 @@ export default function PurchaseEditor({
                 // Edit mode row
                 <Fragment key={item.id}>
                 <tr
-                  className="border-b border-border bg-amber-50 dark:bg-amber-500/10"
+                  className="border-b border-border/40 bg-amber-50 dark:bg-amber-500/10"
                 >
                   <td className="py-2 px-2 relative" ref={editSuggestionsRef}>
                     <input
@@ -1438,7 +1444,7 @@ export default function PurchaseEditor({
                 // View mode row
                 <Fragment key={item.id}>
                 <tr
-                  className={`border-b border-border ${!writesDisabled || piGate.isPiEdit ? "hover:bg-surface-sunken cursor-pointer" : ""}`}
+                  className={`border-b border-border/40 ${!writesDisabled || piGate.isPiEdit ? "hover:bg-surface-sunken cursor-pointer" : ""}`}
                   onClick={
                     !writesDisabled || piGate.isPiEdit
                       ? () => handleRowClick(item)
@@ -1731,7 +1737,10 @@ export default function PurchaseEditor({
                 would be visual noise without explaining why, and the
                 view-mode row gate above already prevents click-to-edit. */}
             {!writesDisabled && (
-              <tr className="bg-blue-50 dark:bg-blue-500/10">
+              // The add-new line stays the last table row (not a separate band):
+              // the heavy blue fill de-bands to a faint tint so it reads on the
+              // calm surface while still cueing the "add an item" affordance.
+              <tr className="bg-blue-500/[0.04] dark:bg-blue-500/10">
                 <td className="py-2 px-2 relative" ref={suggestionsRef}>
                   <input
                     type="text"
@@ -1904,7 +1913,9 @@ export default function PurchaseEditor({
             )}
           </tbody>
           <tfoot>
-            <tr className="border-t-2 border-border">
+            {/* Totals row kept, de-banded from a heavy 2px rule to a quiet hair
+                divider so it sits on the calm surface. */}
+            <tr className="border-t border-border/50">
               <td colSpan={6} className="py-2 px-2 text-right text-meta font-semibold text-foreground-muted">
                 Order Total:
               </td>
