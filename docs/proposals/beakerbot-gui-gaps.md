@@ -60,17 +60,21 @@ record-set widget, Canvas, memory, @/commands), not a chat line.
 
 The A/B/C catch-up is done. These are the live targets, roughly by leverage.
 
-1. **One-front-door BeakerSearch.** [PHASE 1 DONE 2026-06-14, merge `1f0d748b1`]
-   Phase 1 (additive completeness) shipped: the 3 missing Layer 2 read tools
-   (`read_task`, `read_inventory`, `read_datahub`), phylo trees in the GUI palette
-   (also @-mentionable now), and context-bridge publishers on
-   sequences/methods/chemistry/phylo/supplies. **Phase 2 (open):** unify the two
-   indices, the GUI palette reads `GlobalIndexEntry` and the AI `search_my_work` reads
-   `ArtifactBrief`, same types but separate code paths that can drift. One shared index
-   is the true "one front door". Higher risk (touches the working instant palette), do
-   it as a careful, separately-reviewed step. Also deferred from Phase 1: context-bridge
-   on purchases (no 1:1 PurchaseItem id) and notes/projects (selection lives in panels,
-   no clean page-level state), revisit if those become resolvable.
+1. **One-front-door BeakerSearch.** [DONE 2026-06-14] Phase 1 (merge `1f0d748b1`):
+   the 3 missing Layer 2 read tools (`read_task`, `read_inventory`, `read_datahub`),
+   phylo in the GUI palette (also @-mentionable), context-bridge publishers on
+   sequences/methods/chemistry/phylo/supplies. Phase 2 (merge `4fc0dc00d`): index
+   unification done the SAFE way, the investigation found a full single-index merge
+   inadvisable (the GUI must be instant/prebuilt + fuzzy-ranked, the AI runs outside
+   React on-demand + token-ranked), so instead a shared per-type adapter layer + one
+   type registry (`src/lib/index/indexed-types.ts`) with per-side exhaustiveness guards
+   means a new artifact type can't land in only one index (compile error). Closed the
+   inventory gap (AI index now covers inventory). Scorers, build strategies, key/href
+   formats deliberately untouched, behavior-preserving (1683 tests green). The two
+   indices stay separate at runtime by design, they just can't drift anymore.
+   Still deferred (low value): context-bridge on purchases (no 1:1 PurchaseItem id) and
+   notes/projects (selection lives in panels); the optional future single-runtime-index
+   merge is explicitly NOT recommended.
 2. **PDF-reproduce-from-paper.** [PARTIAL] Outputs 1 and 2 (draft_paper_summary,
    extract_paper_method) shipped. Open: the ingestion UI (attach a PDF, pdf.js text
    extraction) that feeds the draft tools, plus outputs 3 and 4 (pipeline -> generate_tree,
