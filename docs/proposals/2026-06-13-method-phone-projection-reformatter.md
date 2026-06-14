@@ -67,9 +67,9 @@ The reformatter is a single module (`reformatMethodToSteps(body) -> MethodProjec
 
 ## Phases
 
-1. **Deterministic parser** (free, offline). Ship the numbered-list / heading / paragraph parser + the `MethodProjection.steps` output + the faithful-subset validator. Real markdown methods stop dumping flat. No AI, no billing dependency, lands immediately.
-2. **LLM layer** (paid, opt-in). The "Make phone-friendly" action, the cached-on-save pipeline, the staleness cue. Gated behind the AI billing wiring (no free AI in beta).
-3. **Reuse + seeds**. Point PDF-reproduce at the same engine; regenerate the demo seeds through it.
+1. **Deterministic parser** (free, offline). DONE, merged to main `56f1852d7` (2026-06-13). Built on the phone side in `mobile/lib/method-read.ts` (`parseBodyToSteps`, consumed by `buildGeneric`), so every body-type method (markdown, pdf, kit, coding, etc.) now reads as proper steps instead of a flat wall of text, with no projection-shape or relay change and fully offline. It parses numbered lists into steps, markdown headings and standalone bold lines into the step phase, bullet lists into a tickable reagent checklist (amount peeled from a trailing parenthetical, verbatim), sub-steps (a/b, i/ii) folded into the detail, and image refs into figure placeholders. The headline is a verbatim first-sentence split that does not break on decimals or units. Reagent checks are tickable (gather as you go). It only segments and labels, never rewrites a value. Verified on the emulator against raw markdown (headings, bullets, numbered steps, sub-step, image, parenthetical amounts). NOTE: figure placeholders show a dashed box with the alt text; the real images render once the snapshot ships them (part of the figures-inline decision, a relay change for a later phase).
+2. **LLM layer** (paid, opt-in). The "Make phone-friendly" action, the just-in-time phone popup, the cached-on-save pipeline, the staleness cue, the verbatim faithful-subset validator. Gated behind the AI billing wiring (no free AI in beta).
+3. **Reuse + seeds + figures shipping**. Point PDF-reproduce at the same engine; ship + render figure images inline (relay change); regenerate the demo seeds through the parser.
 
 ## Validated against a real SOP (2026-06-13)
 
