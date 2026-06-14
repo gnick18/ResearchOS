@@ -19,6 +19,8 @@ import AppFooter from "@/components/AppFooter";
 import CostBreakerPanel from "@/components/admin/CostBreakerPanel";
 import GiftPoolsPanel from "@/components/admin/GiftPoolsPanel";
 import SpendByCategoryPanel from "@/components/admin/SpendByCategoryPanel";
+import PriceModelingModal from "@/components/admin/PriceModelingModal";
+import { Icon } from "@/components/icons";
 import {
   computeReimbursement,
   computeSummary,
@@ -1699,6 +1701,7 @@ async function fetchBusiness(): Promise<State> {
 
 export default function BusinessTracker() {
   const [state, setState] = useState<State>({ phase: "loading" });
+  const [priceModelOpen, setPriceModelOpen] = useState(false);
 
   const load = useCallback(async () => {
     setState(await fetchBusiness());
@@ -1852,13 +1855,25 @@ export default function BusinessTracker() {
 
   return (
     <Shell>
-      <h1 className="text-heading font-bold tracking-tight text-foreground">
-        LLC business
-      </h1>
-      <p className="mt-1 text-meta text-foreground-muted leading-relaxed">
-        Private operations and finances for the ResearchOS LLC. Aggregate,
-        operator-only, never shown to any user.
-      </p>
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <h1 className="text-heading font-bold tracking-tight text-foreground">
+            LLC business
+          </h1>
+          <p className="mt-1 text-meta text-foreground-muted leading-relaxed">
+            Private operations and finances for the ResearchOS LLC. Aggregate,
+            operator-only, never shown to any user.
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={() => setPriceModelOpen(true)}
+          className="inline-flex shrink-0 items-center gap-2 rounded-xl border border-border bg-surface-raised px-3.5 py-2 text-meta font-medium text-foreground transition-colors hover:bg-surface-sunken"
+        >
+          <Icon name="calculator" className="h-4 w-4" />
+          Price modeling
+        </button>
+      </div>
 
       <div className="mt-6">
         <SalesTaxBanner status={entity.salesTaxStatus} note={entity.salesTaxNote} />
@@ -2078,6 +2093,11 @@ export default function BusinessTracker() {
         to stay on top of dates and cash, and have an accountant set the reserve
         percentage and handle the filings.
       </p>
+
+      <PriceModelingModal
+        open={priceModelOpen}
+        onClose={() => setPriceModelOpen(false)}
+      />
     </Shell>
   );
 }

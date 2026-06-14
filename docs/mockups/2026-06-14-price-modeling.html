@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>ResearchOS price modeling</title>
+<style>
+  :root{--bg:#0d1117;--panel:#161b22;--ink:#e6edf3;--muted:#9aa7b4;--line:#2a3340;--accent:#4f9cf9;font-family:ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,sans-serif;}
+  *{box-sizing:border-box;} body{margin:0;background:var(--bg);color:var(--ink);}
+  header{position:sticky;top:0;z-index:5;background:rgba(13,17,23,0.92);backdrop-filter:blur(6px);border-bottom:1px solid var(--line);padding:14px 20px;}
+  .row{max-width:1100px;margin:0 auto;display:flex;align-items:center;gap:16px;flex-wrap:wrap;}
+  h1{font-size:18px;margin:0;letter-spacing:-0.01em;}
+  .sub{color:var(--muted);font-size:13px;margin:2px 0 0;}
+  .tabs{display:inline-flex;border:1px solid var(--line);border-radius:10px;overflow:hidden;margin-left:auto;}
+  .tabs button{background:#1c2230;color:var(--muted);border:0;padding:9px 16px;font-size:13.5px;cursor:pointer;font-weight:600;}
+  .tabs button.on{background:var(--accent);color:#07101f;font-weight:700;}
+  iframe{display:block;width:100%;border:0;background:var(--bg);}
+  .frameWrap{max-width:1140px;margin:0 auto;}
+</style>
+</head>
+<body>
+<header>
+  <div class="row">
+    <div>
+      <h1>ResearchOS price modeling</h1>
+      <p class="sub">Living model of the storage pricing economics. Numbers are placeholders from assumptions.ts.</p>
+    </div>
+    <div class="tabs" id="tabs">
+      <button data-f="sub" class="on">Per-subscriber economics</button>
+      <button data-f="scale">Sustainability at scale</button>
+    </div>
+  </div>
+</header>
+<div class="frameWrap">
+  <iframe id="f-sub" src="2026-06-14-storage-pricing-models.html" title="Per-subscriber economics"></iframe>
+  <iframe id="f-scale" src="2026-06-14-sustainability-model.html" title="Sustainability at scale" hidden></iframe>
+</div>
+<script>
+  // Size each iframe to its content, and tab between the two models.
+  function fit(f){ try{ f.style.height = (f.contentWindow.document.body.scrollHeight + 24) + 'px'; }catch(e){} }
+  const fs = { sub: document.getElementById('f-sub'), scale: document.getElementById('f-scale') };
+  Object.values(fs).forEach(f=> f.addEventListener('load', ()=>fit(f)) );
+  window.addEventListener('resize', ()=>Object.values(fs).forEach(f=>{ if(!f.hidden) fit(f); }));
+  document.querySelectorAll('#tabs button').forEach(b=> b.onclick=()=>{
+    document.querySelectorAll('#tabs button').forEach(x=>x.classList.remove('on')); b.classList.add('on');
+    const sel=b.dataset.f;
+    Object.entries(fs).forEach(([k,f])=>{ f.hidden = k!==sel; });
+    fit(fs[sel]);
+  });
+</script>
+</body>
+</html>
