@@ -38,5 +38,21 @@ The Figma/Illustrator gesture model, Grant-tuned via mockup `docs/mockups/2026-0
 - **`fitView`/`focus` toolbar glyphs** (earlier this session) — Fit-to-view = figure-in-brackets, Fullscreen = arrows-outward (`focus`), `scan` stays the barcode glyph. Committed + Grant-approved.
 - Mockups for reference: `docs/mockups/2026-06-14-phylo-tree-studio-redesign.html` (full page), `2026-06-14-pan-zoom-feel.html` (gesture reference, matches shipped).
 
+## NEXT BIG IDEA — auto-detected joinable tables + an add-data wizard (Grant 2026-06-14, NOT built)
+The big unlock on top of this redesign: **the hub should proactively find data that can go on the tree, not make the user hunt for it.**
+
+1. **Auto-detect joinable tables.** When a tree is open, scan the tables in the SAME collection for any column whose values overlap the tree's tip labels. Partial coverage is fine — it does NOT need 100% of tips matched or 100% of table rows used; surface the join rate (e.g. "joins 42 of 50 tips"). Any table with a usable join column COULD be overlaid.
+2. **Suggest tables + the overlays each enables.** For a joinable table, suggest WHICH overlays its columns can drive (numeric column → heatmap / bars / point+error; categorical → color strip / node pies; the table itself → a Data Hub grouped-bar panel). Auto-suggest the highest-coverage tables on tree open ("3 tables in this collection can overlay this tree").
+3. **Add-data wizard / "possible plots" gallery.** A guided flow: pick a table → pick which other columns to overlay → a page that shows the DIFFERENT overlays possible from that table's data (each rendered as a live preview thumbnail) → the user picks one OR several → all added at once.
+
+**Most of the plumbing already exists** (this is wiring, not new infra):
+- `datahubJoinRate(content, col, tree)` (in `lib/datahub/`) already computes tip-coverage for a table column — run it across every column of every collection table to rank joinability.
+- Phase 1's `addDatahubFromTable(tableId)` (PhyloStudio) already loads a table, auto-picks the best join column, and inserts the panel — the wizard's "add" step.
+- `dataHubApi.list()` + the doc's collection/folder metadata give the candidate tables in the same collection.
+- `layer-schema.ts` (`kindNeeds` / `columnFilterFor` / `kindAvailable`) + `classifyColumn` (numeric vs categorical) already say which overlay kinds a given column can drive — that IS the "possible plots" logic.
+- Pattern to mirror for the chooser UI: Data Hub `NewAnalysisDialog` (constraint-aware "only what fits this data") + the Universal Figure Composer's gallery picker (multi-select + live preview thumbnails).
+
+Frame it as **Phase 4 of the redesign** (or a standalone "smart data binding"). Design/mockup-first per Grant's norm. NOT started.
+
 ## Gate to re-run before any change here
 `cd frontend && npx tsc --noEmit` (0) + `npx vitest run src/lib/phylo` (301) + icon-guard. ZoomPanCanvas is interaction code with no unit tests — verify gestures MANUALLY (a Chrome agent can't synthesize trackpad pinch/two-finger); restart the dev server (not just HMR) when changing its native wheel/key listeners.
