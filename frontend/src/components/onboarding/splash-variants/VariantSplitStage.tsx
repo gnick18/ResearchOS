@@ -98,8 +98,12 @@ export function VariantSplitStage({
 
   const handleFill = () => {
     if (reduced) return;
-    window.setTimeout(() => setLeaving(true), 450);
-    window.setTimeout(finish, 450 + 620);
+    // Hold for two full pour cycles (CYCLE=600ms in SplashBeaker) before the
+    // lift-and-fade, so the viewer watches a couple of complete pours and the
+    // exit always fires when the beaker is back upright, never mid-tip.
+    const HOLD = 1200;
+    window.setTimeout(() => setLeaving(true), HOLD);
+    window.setTimeout(finish, HOLD + 620);
   };
 
   return (

@@ -82,9 +82,13 @@ export function VariantAurora({
   const handleFill = () => {
     if (reduced) return;
     setFilled(true);
-    window.setTimeout(() => setSweeping(true), 900);
-    window.setTimeout(() => setFaded(true), 900 + 950);
-    window.setTimeout(finish, 900 + 1550);
+    // Hold for two full pour cycles (CYCLE=600ms in SplashBeaker) before the
+    // curtain sweep, so the viewer watches a couple of complete pours and the
+    // sweep always begins when the beaker is back upright, never mid-tip.
+    const HOLD = 1200;
+    window.setTimeout(() => setSweeping(true), HOLD);
+    window.setTimeout(() => setFaded(true), HOLD + 950);
+    window.setTimeout(finish, HOLD + 1550);
   };
 
   return (

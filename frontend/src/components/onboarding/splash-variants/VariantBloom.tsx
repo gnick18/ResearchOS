@@ -92,9 +92,13 @@ export function VariantBloom({
 
   const handleFill = () => {
     if (reduced) return;
-    window.setTimeout(() => setBlooming(true), 220);
-    window.setTimeout(() => setBloomFade(true), 220 + 700);
-    window.setTimeout(finish, 220 + 700 + 520);
+    // Hold for two full pour cycles (CYCLE=600ms in SplashBeaker) before the
+    // bloom, so the viewer watches a couple of complete pours and the bloom
+    // expands from an upright beaker rather than cutting off a tip.
+    const HOLD = 1200;
+    window.setTimeout(() => setBlooming(true), HOLD);
+    window.setTimeout(() => setBloomFade(true), HOLD + 700);
+    window.setTimeout(finish, HOLD + 700 + 520);
   };
 
   // wordmark paint: a vertical gradient that reveals rainbow from the bottom up
