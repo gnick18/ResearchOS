@@ -68,6 +68,8 @@ import {
 } from "@/lib/markdown/editor-focus-prefs";
 import { useOptionalCurrentUser } from "@/lib/file-system/file-system-context";
 import { patchUserSettings, readUserSettings } from "@/lib/settings/user-settings";
+import { listSectionHeadings } from "@/lib/embeds/markdown-section";
+import { useOptionalBeakerSearch } from "./beaker-search/BeakerSearchProvider";
 
 // Type for editor mode. "inline" is the CodeMirror 6 Typora-style surface
 // (now the sole editor). "preview" is the read-only ReactMarkdown render.
@@ -580,8 +582,27 @@ export default function LiveMarkdownEditor({
     resolvedPath: string;
     kind: FileViewerKind;
   } | null>(null);
-  const [showAttachmentStrip, setShowAttachmentStrip] = useState(true);
   const [activeAttachmentTab, setActiveAttachmentTab] = useState<"images" | "files">("images");
+  // ── Right Context rail (focus-mode gutter rails, design 2026-06-13) ──
+  // The right gutter holds a quiet Context rail with four icon tabs, each
+  // popping a flyout anchored to the rail (never over the text column):
+  //   outline   — the doc's headings, click to jump
+  //   embeds    — the live embeds placed in the doc, click to jump
+  //   files     — Attachments (the NEW home of the former bottom Images/Files
+  //               strip: same ImageStrip / FileStrip + tab bar, relocated)
+  //   bot       — summon BeakerBot (only when the provider is present)
+  // `contextFlyout` is which flyout is open (null = closed). The Attachments
+  // flyout replaces the retired bottom strip; the toolbar "Attachments" toggle
+  // and the rail's Attachments tab both open contextFlyout="files".
+  const [contextFlyout, setContextFlyout] = useState<
+    "outline" | "embeds" | "files" | "bot" | null
+  >(null);
+  const contextFlyoutRef = useRef<HTMLDivElement>(null);
+  // Non-throwing BeakerSearch access: this editor mounts on surfaces WITHOUT
+  // the app shell (BeakerBot Canvas, method create / compound / variation
+  // panels), so we read the context optionally and only offer the BeakerBot
+  // tab when a provider is genuinely above us.
+  const beakerSearch = useOptionalBeakerSearch();
   // L1 quiet toolbar: the secondary insert actions (Add File / Browse / Insert
   // ref / Number figures) collapse behind a single "＋" overflow menu so the
   // docked toolbar reads as a calm contextual strip. This tracks whether that
@@ -617,6 +638,10 @@ export default function LiveMarkdownEditor({
   // absolutely placed within.
   const railColRef = useRef<HTMLDivElement>(null);
   const railProbeRef = useRef<HTMLDivElement>(null);
+  // The right Context rail element, so the flyout's outside-click guard can
+  // tell a click on a rail tab (which owns its own toggle) from a true outside
+  // click.
+  const contextRailRef = useRef<HTMLDivElement>(null);
   const [railGutterPx, setRailGutterPx] = useState(0);
   const measureRailGutter = useCallback(() => {
     const host = railColRef.current;
@@ -669,6 +694,29 @@ export default function LiveMarkdownEditor({
       document.removeEventListener("keydown", onKeyDown);
     };
   }, [focusMenuOpen]);
+
+  // Close the right Context-rail flyout on an outside click or Escape, so it
+  // behaves like a normal popover and never traps focus. The check ignores
+  // clicks on the rail itself (the rail buttons own their own toggle) and on
+  // the flyout body; everything else dismisses.
+  useEffect(() => {
+    if (!contextFlyout) return;
+    const onPointerDown = (e: PointerEvent) => {
+      const target = e.target as Node;
+      if (contextFlyoutRef.current?.contains(target)) return;
+      if (contextRailRef.current?.contains(target)) return;
+      setContextFlyout(null);
+    };
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setContextFlyout(null);
+    };
+    document.addEventListener("pointerdown", onPointerDown, true);
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("pointerdown", onPointerDown, true);
+      document.removeEventListener("keydown", onKeyDown);
+    };
+  }, [contextFlyout]);
 
   // Keep the never-overlap gutter measurement live. A single ResizeObserver on
   // the rail host re-measures whenever the editor column resizes (popup resize,
@@ -788,6 +836,45 @@ export default function LiveMarkdownEditor({
     },
     []
   );
+  // Scroll the rendered editor body to the first element whose visible text
+  // begins with `text` (best-effort, mirrors handleJumpToImage's DOM scan).
+  // Used by the Outline / Embeds flyouts to jump to a heading or a placed embed
+  // without coupling to CodeMirror internals. A brief ring flash marks the
+  // target. No-op when nothing matches (e.g. the line is scrolled out of the
+  // virtualized CM viewport); never throws.
+  const handleJumpToText = useCallback((text: string) => {
+    const needle = text.trim().toLowerCase();
+    if (!needle) return;
+    const scroll = () => {
+      const root = editorContentRef.current;
+      if (!root) return;
+      const candidates = Array.from(
+        root.querySelectorAll<HTMLElement>(
+          "h1,h2,h3,h4,h5,h6,a,p,li,div,span",
+        ),
+      );
+      const target = candidates.find((el) =>
+        (el.textContent ?? "").trim().toLowerCase().startsWith(needle),
+      );
+      if (!target) return;
+      target.scrollIntoView({ behavior: "smooth", block: "center" });
+      target.classList.add(
+        "ring-2",
+        "ring-brand-action",
+        "ring-offset-2",
+        "rounded",
+        "transition-shadow",
+      );
+      window.setTimeout(() => {
+        target.classList.remove(
+          "ring-2",
+          "ring-brand-action",
+          "ring-offset-2",
+        );
+      }, 1400);
+    };
+    requestAnimationFrame(scroll);
+  }, []);
   const processedBrokenSrcsRef = useRef<Set<string>>(new Set());
   // Separate set for file refs so a `Files/foo.pdf` scan never collides with
   // a same-named image src in the image-only processed set above.
@@ -1887,6 +1974,54 @@ export default function LiveMarkdownEditor({
     currentMode !== "preview" &&
     railGutterPx >= RAIL_MIN_GUTTER_PX;
 
+  // ── Right Context rail config (gutter rails L/R, 2026-06-13) ──────────────
+  // The right gutter holds a quiet Context rail mirroring the design mockup:
+  // Outline / Embeds / Attachments / BeakerBot, each an icon tab that pops a
+  // flyout anchored to the rail. It obeys the SAME measured never-overlap rule
+  // as the insert rail (a wide-enough gutter, edit mode, not full-bleed), so it
+  // never sits on the text and never appears on the constrained non-popup
+  // mounts. When the gutter is too narrow the tools fold into a single "≡"
+  // chrome control and the flyout re-anchors below the toolbar instead of over
+  // the gutter (never on the words).
+  const contextRailVisible =
+    enableReferencePicker &&
+    !disabled &&
+    currentMode !== "preview" &&
+    railGutterPx >= RAIL_MIN_GUTTER_PX;
+  // The doc outline: every ATX heading, in order, reused from the shared
+  // section parser so it matches transclusion section matching exactly.
+  const docOutline = listSectionHeadings(value);
+  // Placed embeds: markdown links that point at a ResearchOS object view (a
+  // `#ros=` fragment, or an internal object route). This is a read-only listing
+  // for the Embeds flyout's jump targets; it never rewrites the body. The label
+  // is the link text; the kind is inferred from the href for the leading glyph.
+  const docEmbeds: { label: string; href: string; icon: IconName }[] = [];
+  {
+    const LINK_RE = /\[([^\]]+)\]\(([^)\s]+)\)/g;
+    const seen = new Set<string>();
+    let m: RegExpExecArray | null;
+    while ((m = LINK_RE.exec(value)) !== null) {
+      const label = m[1].trim();
+      const href = m[2].trim();
+      const isEmbed =
+        href.includes("#ros=") ||
+        /^\/(sequences|molecules|notes|methods|experiments|datahub|data-hub|trees|phylo)\b/.test(
+          href,
+        );
+      if (!isEmbed) continue;
+      const key = `${label}::${href}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      let icon: IconName = "reference";
+      if (/sequences/.test(href)) icon = "sequence";
+      else if (/molecules/.test(href)) icon = "moleculeCircular";
+      else if (/(datahub|data-hub)/.test(href)) icon = "table";
+      else if (/(trees|phylo)/.test(href)) icon = "labTree";
+      else if (/notes|methods|experiments/.test(href)) icon = "reference";
+      docEmbeds.push({ label, href, icon });
+    }
+  }
+
   // The editor subtree, rendered inline at EVERY size (no portal, no overlay).
   // The host popup grows / shrinks itself around this same DOM, so the editor
   // never remounts and no in-flight typing is lost across the size transition
@@ -2099,34 +2234,39 @@ export default function LiveMarkdownEditor({
             )}
           </div>
 
-          {/* Attachment Strip toggle (kept quiet). Shows / hides the
-              scrollable strip of every image OR non-image file attached to this
-              experiment along the bottom. Same showAttachmentStrip handler.
-              Carries the paperclip glyph (Grant-approved, L1 Phase B) beside
-              the quiet label. */}
-          <Tooltip
-            label={
-              showAttachmentStrip
-                ? "Hide the attachments strip"
-                : "Show every image and file attached to this experiment along the bottom - drag a tile into the body to insert it"
-            }
-            placement="bottom"
-          >
-            <button
-              type="button"
-              aria-label="Toggle attachments strip"
-              aria-pressed={showAttachmentStrip}
-              onClick={() => setShowAttachmentStrip((v) => !v)}
-              className={`flex items-center gap-1.5 px-2.5 py-1 text-meta rounded-lg transition-colors ${
-                showAttachmentStrip
-                  ? "bg-brand-action/12 text-brand-action font-medium"
-                  : "text-foreground-muted hover:bg-foreground-muted/15 hover:text-foreground"
-              }`}
+          {/* Attachments toggle (kept quiet). Opens the Attachments flyout in
+              the right Context rail, which is the NEW home of the former bottom
+              Images / Files strip: same ImageStrip / FileStrip + tab bar, just
+              relocated off the bottom edge and into the gutter. Carries the
+              paperclip glyph (Grant-approved) beside the quiet label. Hidden
+              when the surface suppresses attachments (hideAttachments). */}
+          {!hideAttachments && (
+            <Tooltip
+              label={
+                contextFlyout === "files"
+                  ? "Hide attachments"
+                  : "Every image and file attached to this experiment - drag a tile into the body to insert it"
+              }
+              placement="bottom"
             >
-              <Icon name="attach" className="w-3.5 h-3.5" />
-              Attachments
-            </button>
-          </Tooltip>
+              <button
+                type="button"
+                aria-label="Toggle attachments"
+                aria-pressed={contextFlyout === "files"}
+                onClick={() =>
+                  setContextFlyout((v) => (v === "files" ? null : "files"))
+                }
+                className={`flex items-center gap-1.5 px-2.5 py-1 text-meta rounded-lg transition-colors ${
+                  contextFlyout === "files"
+                    ? "bg-brand-action/12 text-brand-action font-medium"
+                    : "text-foreground-muted hover:bg-foreground-muted/15 hover:text-foreground"
+                }`}
+              >
+                <Icon name="attach" className="w-3.5 h-3.5" />
+                Attachments
+              </button>
+            </Tooltip>
+          )}
 
           {/* Fullscreen expand button (UNIFIED_EDITOR_SURFACE_DESIGN.md §9).
               Rendered ONLY when the host popup can expand (it passes
@@ -2620,25 +2760,27 @@ export default function LiveMarkdownEditor({
                   <div ref={railProbeRef} className={measureClass} />
                 </div>
 
-                {/* Slim insert rail (L1 Phase B, design §3A). Floats in the
-                    editor's RIGHT gutter and drops a live embed at the caret
-                    via the existing ReferencePicker / insertRef pipeline (no new
-                    embed syntax). HARD never-overlap rule: renders ONLY when the
-                    measured empty gutter is wide enough to clear the text; when
-                    too narrow (split-screen / docked popup) OR full-bleed it
-                    hides and its tools stay reachable in the ＋ overflow menu.
-                    Edit-mode + non-disabled only (insert-at-caret has no meaning
-                    in Preview / read-only). */}
+                {/* Slim Insert rail — LEFT gutter (gutter rails L/R, design
+                    2026-06-13). Floats in the editor's LEFT gutter and drops a
+                    live embed at the caret via the existing ReferencePicker /
+                    insertRef pipeline (no new embed syntax). HARD never-overlap
+                    rule: renders ONLY when the measured empty gutter is wide
+                    enough to clear the text; when too narrow (split-screen /
+                    docked popup) OR full-bleed it hides and its tools stay
+                    reachable in the ＋ overflow menu. Dozes with the chrome at
+                    fullscreen (chromeDozing). Edit-mode + non-disabled only. */}
                 {railVisible && (
                   <div
                     data-testid="editor-insert-rail"
-                    className="absolute right-3 top-1/2 -translate-y-1/2 z-[4] flex flex-col gap-1 rounded-2xl border border-border bg-surface-overlay/85 px-1.5 py-2 shadow-lg backdrop-blur"
+                    className={`absolute left-3 top-1/2 -translate-y-1/2 z-[4] flex flex-col gap-1 rounded-2xl border border-border bg-surface-overlay/85 px-1.5 py-2 shadow-lg backdrop-blur transition-opacity duration-500 ${
+                      chromeDozing ? "opacity-0 pointer-events-none" : "opacity-100"
+                    }`}
                   >
                     <span className="px-1 pb-0.5 text-center text-[8px] font-extrabold uppercase tracking-[0.08em] text-foreground-muted">
                       Insert
                     </span>
                     {railInsertItems.map((item) => (
-                      <Tooltip key={item.key} label={item.label} placement="left">
+                      <Tooltip key={item.key} label={item.label} placement="right">
                         <button
                           type="button"
                           aria-label={item.label}
@@ -2651,20 +2793,236 @@ export default function LiveMarkdownEditor({
                     ))}
                   </div>
                 )}
+
+                {/* Context rail — RIGHT gutter (gutter rails L/R, design
+                    2026-06-13). Four quiet icon tabs, each popping a flyout
+                    anchored to the rail (never over the text column): Outline,
+                    placed Embeds, Attachments (the new home of the retired
+                    bottom strip), and BeakerBot. Same measured never-overlap
+                    gate as the Insert rail; dozes with the chrome. The BeakerBot
+                    tab only renders when a BeakerSearch provider is present
+                    above us (it stays inert on the constrained mounts). */}
+                {contextRailVisible && (
+                  <div
+                    ref={contextRailRef}
+                    data-testid="editor-context-rail"
+                    className={`absolute right-3 top-1/2 -translate-y-1/2 z-[4] flex flex-col gap-1 rounded-2xl border border-border bg-surface-overlay/85 px-1.5 py-2 shadow-lg backdrop-blur transition-opacity duration-500 ${
+                      chromeDozing ? "opacity-0 pointer-events-none" : "opacity-100"
+                    }`}
+                  >
+                    <span className="px-1 pb-0.5 text-center text-[8px] font-extrabold uppercase tracking-[0.08em] text-foreground-muted">
+                      Doc
+                    </span>
+                    {(
+                      [
+                        { key: "outline", label: "Outline", icon: "list" },
+                        { key: "embeds", label: "Embeds", icon: "layer" },
+                        ...(!hideAttachments
+                          ? [{ key: "files", label: "Attachments", icon: "attach" }]
+                          : []),
+                        ...(beakerSearch
+                          ? [{ key: "bot", label: "BeakerBot", icon: "ask" }]
+                          : []),
+                      ] as { key: typeof contextFlyout; label: string; icon: IconName }[]
+                    ).map((tab) => (
+                      <Tooltip key={tab.key} label={tab.label} placement="left">
+                        <button
+                          type="button"
+                          data-testid={`editor-context-tab-${tab.key}`}
+                          aria-label={tab.label}
+                          aria-pressed={contextFlyout === tab.key}
+                          onClick={() => {
+                            if (tab.key === "bot") {
+                              // BeakerBot summons the app's existing surface
+                              // (no inline panel built into the editor); close
+                              // any open flyout so the two never stack.
+                              setContextFlyout(null);
+                              beakerSearch?.openBeakerBot();
+                              return;
+                            }
+                            setContextFlyout((v) => (v === tab.key ? null : tab.key));
+                          }}
+                          className={`flex h-8 w-8 items-center justify-center rounded-lg transition-colors ${
+                            contextFlyout === tab.key
+                              ? "bg-brand-action/16 text-brand-action"
+                              : "text-foreground-muted hover:bg-brand-action/12 hover:text-brand-action"
+                          }`}
+                        >
+                          <Icon name={tab.icon} className="h-4 w-4" />
+                        </button>
+                      </Tooltip>
+                    ))}
+                  </div>
+                )}
+
+                {/* Context-rail flyout. Anchored to the RIGHT rail, opening into
+                    the gutter / outside the text column so it never sits on the
+                    writing. Dismisses on Esc + outside-click (wired above);
+                    does not trap focus. Only rendered alongside a visible
+                    Context rail, so it inherits the same never-overlap gate. */}
+                {contextRailVisible && contextFlyout && contextFlyout !== "bot" && (
+                  <div
+                    ref={contextFlyoutRef}
+                    data-testid="editor-context-flyout"
+                    role="dialog"
+                    aria-label={
+                      contextFlyout === "outline"
+                        ? "Outline"
+                        : contextFlyout === "embeds"
+                          ? "Embeds in this note"
+                          : "Attachments"
+                    }
+                    className={`absolute right-16 top-1/2 -translate-y-1/2 z-[5] flex max-h-[78%] w-64 flex-col overflow-hidden rounded-2xl border border-border bg-surface-overlay/95 shadow-xl backdrop-blur transition-opacity duration-500 ${
+                      chromeDozing ? "opacity-0 pointer-events-none" : "opacity-100"
+                    }`}
+                  >
+                    {contextFlyout === "outline" && (
+                      <div className="overflow-auto p-2">
+                        <h4 className="px-2 pb-1.5 text-[10px] font-extrabold uppercase tracking-[0.05em] text-foreground-muted">
+                          Outline
+                        </h4>
+                        {docOutline.length === 0 && docEmbeds.length === 0 ? (
+                          <p className="px-2 py-1.5 text-meta text-foreground-muted">
+                            No headings yet. Add a # heading to build an outline.
+                          </p>
+                        ) : (
+                          <>
+                            {docOutline.map((h, i) => (
+                              <button
+                                key={`h-${i}-${h.text}`}
+                                type="button"
+                                onClick={() => handleJumpToText(h.text)}
+                                className="block w-full truncate rounded-lg px-2 py-1.5 text-left text-meta text-foreground transition-colors hover:bg-brand-action/12"
+                                style={{ paddingLeft: `${8 + (h.level - 1) * 12}px` }}
+                              >
+                                {h.text}
+                              </button>
+                            ))}
+                            {docEmbeds.length > 0 && (
+                              <>
+                                <div className="my-1 h-px bg-border" aria-hidden="true" />
+                                {docEmbeds.map((e, i) => (
+                                  <button
+                                    key={`oe-${i}-${e.href}`}
+                                    type="button"
+                                    onClick={() => handleJumpToText(e.label)}
+                                    className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-meta text-foreground-muted transition-colors hover:bg-brand-action/12"
+                                  >
+                                    <Icon name={e.icon} className="h-3.5 w-3.5 shrink-0" />
+                                    <span className="truncate">{e.label}</span>
+                                  </button>
+                                ))}
+                              </>
+                            )}
+                          </>
+                        )}
+                      </div>
+                    )}
+
+                    {contextFlyout === "embeds" && (
+                      <div className="overflow-auto p-2">
+                        <h4 className="px-2 pb-1.5 text-[10px] font-extrabold uppercase tracking-[0.05em] text-foreground-muted">
+                          Embeds in this note
+                        </h4>
+                        {docEmbeds.length === 0 ? (
+                          <p className="px-2 py-1.5 text-meta text-foreground-muted">
+                            None yet. Add one from the left Insert rail.
+                          </p>
+                        ) : (
+                          docEmbeds.map((e, i) => (
+                            <button
+                              key={`e-${i}-${e.href}`}
+                              type="button"
+                              onClick={() => handleJumpToText(e.label)}
+                              className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-meta text-foreground transition-colors hover:bg-brand-action/12"
+                            >
+                              <Icon name={e.icon} className="h-4 w-4 shrink-0 text-brand-action" />
+                              <span className="truncate">{e.label}</span>
+                            </button>
+                          ))
+                        )}
+                      </div>
+                    )}
+
+                    {contextFlyout === "files" && !hideAttachments && (
+                      // Attachments flyout = the new home of the retired bottom
+                      // strip. The SAME Images / Files tab bar + ImageStrip /
+                      // FileStrip + add affordance + drag-to-insert, just lifted
+                      // off the bottom edge into the gutter. Nothing lost.
+                      <div className="flex min-h-0 flex-col">
+                        <div className="flex items-center gap-1 border-b border-border px-2 pt-2">
+                          <button
+                            type="button"
+                            onClick={() => setActiveAttachmentTab("images")}
+                            className={`rounded-t px-2.5 py-1 text-meta transition-colors ${
+                              activeAttachmentTab === "images"
+                                ? "border border-b-transparent border-border bg-surface-raised font-medium text-foreground"
+                                : "text-foreground-muted hover:text-foreground"
+                            }`}
+                          >
+                            Images
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setActiveAttachmentTab("files")}
+                            className={`rounded-t px-2.5 py-1 text-meta transition-colors ${
+                              activeAttachmentTab === "files"
+                                ? "border border-b-transparent border-border bg-surface-raised font-medium text-foreground"
+                                : "text-foreground-muted hover:text-foreground"
+                            }`}
+                          >
+                            Files
+                          </button>
+                          <button
+                            type="button"
+                            aria-label="Add attachment"
+                            onClick={() => handleAddImageClick()}
+                            className="ml-auto flex h-6 w-6 items-center justify-center rounded text-foreground-muted transition-colors hover:bg-brand-action/12 hover:text-brand-action"
+                          >
+                            <Icon name="plus" className="h-3.5 w-3.5" />
+                          </button>
+                        </div>
+                        <div className="min-h-0 overflow-auto">
+                          {activeAttachmentTab === "images" ? (
+                            <ImageStrip
+                              content={value}
+                              basePath={imageBasePath}
+                              legacyPdfsDir={legacyAttachmentsDir}
+                              onJumpToImage={handleJumpToImage}
+                              recordType={recordType}
+                              onBodyChange={disabled ? undefined : onChange}
+                            />
+                          ) : (
+                            <FileStrip
+                              content={value}
+                              basePath={imageBasePath}
+                              legacyPdfsDir={legacyAttachmentsDir}
+                              recordType={recordType}
+                              onBodyChange={disabled ? undefined : onChange}
+                            />
+                          )}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
             </div>
           )}
         </div>
       </div>
 
-      {/* Attachment Strip — every image or non-image file attached to this
-          experiment, as scrollable thumbnails / tiles. A small Images |
-          Files tab bar switches between the two strips. Drag one into the
-          markdown to insert at the drop point, or (images only) drop on the
-          trash zone (rendered while an image drag is in progress) to delete
-          from disk and strip references. */}
-      {!hideAttachments && showAttachmentStrip && (
-        <div className="sticky bottom-0 z-10">
+      {/* Attachments fallback panel (never-overlap fold). The Attachments flyout
+          normally lives in the right Context rail, but the rail only shows when
+          the gutter is wide enough and we are in edit mode. When the rail is
+          hidden (narrow window / split-screen / Full-bleed / Preview) but the
+          user still asks for Attachments via the toolbar toggle, we surface the
+          SAME Images / Files strip docked at the bottom edge instead. It sits
+          BELOW the writing column (a sticky strip), so it never overlaps the
+          text either way. Same ImageStrip / FileStrip + tab bar + add affordance
+          + drag-to-insert: nothing is lost, only relocated. */}
+      {!hideAttachments && contextFlyout === "files" && !contextRailVisible && (
+        <div className="sticky bottom-0 z-10" data-testid="editor-attachments-fallback">
           <div className="flex items-center gap-1 px-3 pt-2 bg-surface-sunken border-t border-border">
             <button
               type="button"
@@ -2687,6 +3045,14 @@ export default function LiveMarkdownEditor({
               }`}
             >
               Files
+            </button>
+            <button
+              type="button"
+              aria-label="Hide attachments"
+              onClick={() => setContextFlyout(null)}
+              className="ml-auto flex h-6 w-6 items-center justify-center rounded text-foreground-muted transition-colors hover:bg-foreground-muted/15 hover:text-foreground"
+            >
+              <Icon name="close" className="h-3.5 w-3.5" />
             </button>
           </div>
           {activeAttachmentTab === "images" ? (

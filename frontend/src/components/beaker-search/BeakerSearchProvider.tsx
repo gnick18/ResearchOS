@@ -381,6 +381,16 @@ export function useBeakerSearch(): BeakerSearchApi {
   return ctx;
 }
 
+/** Non-throwing variant for surfaces that may mount WITHOUT the app shell (e.g.
+ *  the LiveMarkdownEditor renders inside the BeakerBot Canvas and the method
+ *  create / compound / variation panels, which are not always under the
+ *  provider). Returns null instead of throwing so a "summon BeakerBot" control
+ *  can render only when the provider is genuinely present and stay inert
+ *  otherwise. */
+export function useOptionalBeakerSearch(): BeakerSearchApi | null {
+  return useContext(BeakerSearchApiContext);
+}
+
 /** The registry hook, used by useBeakerSearchSource. Throws when used outside
  *  the provider, since a page that registers a source must live under the app
  *  shell. */
