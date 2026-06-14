@@ -18,6 +18,7 @@
 // mid-sentence colons.
 
 import { Icon } from "@/components/icons";
+import Tooltip from "@/components/Tooltip";
 import { isLargeTable } from "@/lib/datahub/bigtable/detection";
 
 export default function DatasetExplainerCard({
@@ -75,14 +76,16 @@ export default function DatasetExplainerCard({
             </button>
           </div>
         </div>
-        <button
-          type="button"
-          onClick={onDismiss}
-          aria-label="Dismiss explainer"
-          className="flex-none rounded-md p-1 text-foreground-muted transition-colors hover:bg-surface-sunken"
-        >
-          <Icon name="close" className="h-4 w-4" title="Dismiss" />
-        </button>
+        <Tooltip label="Dismiss">
+          <button
+            type="button"
+            onClick={onDismiss}
+            aria-label="Dismiss explainer"
+            className="flex-none rounded-md p-1 text-foreground-muted transition-colors hover:bg-surface-sunken"
+          >
+            <Icon name="close" className="h-4 w-4" title="Dismiss" />
+          </button>
+        </Tooltip>
       </div>
     </div>
   );

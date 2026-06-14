@@ -1903,14 +1903,16 @@ export default function TransformBuilder({
                   >
                     <div className="flex items-center gap-2 text-meta font-semibold">
                       <span className="text-brand-action">{VERB[op.kind] ?? op.kind}</span>
-                      <button
-                        type="button"
-                        onClick={() => removeOp(i)}
-                        className="ml-auto rounded p-0.5 text-foreground-muted transition-colors hover:text-foreground"
-                        aria-label="Remove step"
-                      >
-                        <Icon name="x" className="h-3.5 w-3.5" />
-                      </button>
+                      <Tooltip label="Remove step">
+                        <button
+                          type="button"
+                          onClick={() => removeOp(i)}
+                          className="ml-auto rounded p-0.5 text-foreground-muted transition-colors hover:text-foreground"
+                          aria-label="Remove step"
+                        >
+                          <Icon name="x" className="h-3.5 w-3.5" />
+                        </button>
+                      </Tooltip>
                     </div>
                     <div className="mt-2 flex flex-wrap items-center gap-1.5">
                       <OpParams op={op} cols={allCols} onChange={(next) => updateOp(i, next)} />
