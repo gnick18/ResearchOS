@@ -58,6 +58,38 @@ Glance at the conversation.
 **EXPECT:** your composer text and your sent bubbles read in the app font (Geist);
 Beaker's replies, and this widget's chrome, read in Beaker's signature font (Hanken).
 
+## v2 checks (Option-D compact layout, >=2 rule, new tools)
+
+## Check 8 — compact layout for a small set (2 to 4)
+**Prompt:** `List my 3 most recent experiments.`
+**EXPECT:** a compact widget (`data-layout="compact"`): a row of selectable chip
+TABS across the top (one per result) + ONE shared preview pane below. Clicking a tab
+swaps the preview. No search box, no left rail (that is the 5+ layout). This is the
+"Option D" mini master-detail.
+
+## Check 9 — lone result stays a chip (the floor)
+**Prompt:** `What is my single most recent note?` (or any query that returns 1)
+**EXPECT:** NO widget. A single inline chip in the reply. The widget only appears at
+2 or more.
+
+## Check 10 — the layout switches at 5
+Ask for 4, then 5, of the same type.
+**EXPECT:** 4 → compact (chip tabs); 5 → full (search box + type rail). One mental
+model, two sizes.
+
+## Check 11 — the newly wired tools
+- `Summarize my projects.` → widget of PROJECT rows (preview = project card).
+- `What inventory is low or expiring?` → widget of INVENTORY rows (fallback card,
+  Open-full goes to /inventory).
+- `Give me a lab digest for this month.` → ONE widget mixing types (Notes /
+  Experiments / Purchases chips filter it).
+- `Search my work for cyp51A.` → widget of mixed-type search hits.
+EXPECT each renders the widget (compact or full by count) and previews correctly.
+
+## Check 12 — Beaker does not also prose-list the set
+On any of the above, EXPECT the reply gives a COUNT + one-line headline and lets the
+widget show the items. It should NOT also paste the list of names in prose.
+
 ## What "pass" looks like
 Widget renders on every record-returning tool, previews swap in place without popups,
 search + type chips filter correctly, full-text shows all matches with snippets/counts,
