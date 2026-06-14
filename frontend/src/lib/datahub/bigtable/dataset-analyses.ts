@@ -72,6 +72,13 @@ export const DATASET_ANALYSIS_TYPES: AnalysisType[] = [
   "repeatedMeasuresAnova",
   "linearMixedModel",
   "multipleRegression",
+  // Single-Y XY family (synthetic XY table path).
+  "correlationPearson",
+  "correlationSpearman",
+  "linearRegression",
+  "doseResponse",
+  "logisticRegression",
+  "rocCurve",
 ];
 
 /**
@@ -98,6 +105,15 @@ export function validDatasetAnalysisTypes(
     // the dataset lane offers it once two numeric columns are chosen, the first
     // as X and the second as Y.
     wide.push("correlationPearson", "correlationSpearman");
+    // The rest of the single-Y XY family routes through the SAME synthetic XY path
+    // (first chosen column X, second Y): linear / logistic regression, dose-response
+    // (engine defaults to a 4PL), and the ROC curve (X score, Y a 0/1 label).
+    wide.push(
+      "linearRegression",
+      "doseResponse",
+      "logisticRegression",
+      "rocCurve",
+    );
   }
   if (numericColumns >= 3) {
     wide.push(
@@ -147,6 +163,28 @@ export function analysisIsRowAligned(type: AnalysisType): boolean {
  */
 export function analysisIsCorrelation(type: AnalysisType): boolean {
   return type === "correlationPearson" || type === "correlationSpearman";
+}
+
+/**
+ * True when the analysis reads a SINGLE-Y XY table in the editable lane (one
+ * role-"x" column, one role-"y" column, paired by row complete-case). This is the
+ * whole XY family the dataset lane can express by extracting two row-aligned
+ * columns into a synthetic XY table: correlation (Pearson / Spearman), linear
+ * regression, dose-response (the engine defaults to a 4PL when no model param is
+ * set), logistic regression, and the ROC curve (X = score, Y = a 0/1 label the
+ * engine itself filters to). They all dispatch through runXYAnalysis off the same
+ * xColumn + columnIds[0] resolution, so ONE synthetic XY path (contentFromAlignedXY
+ * + specForSyntheticXY) serves every one. globalFit is excluded (it needs several
+ * Y columns) and is handled in a later wave.
+ */
+export function analysisIsXY(type: AnalysisType): boolean {
+  return (
+    analysisIsCorrelation(type) ||
+    type === "linearRegression" ||
+    type === "doseResponse" ||
+    type === "logisticRegression" ||
+    type === "rocCurve"
+  );
 }
 
 /** Stable synthetic ids so the synthetic content is deterministic. */
@@ -377,7 +415,7 @@ export async function runAnalysisOnDataset(
     if (!valueColumn) {
       return { ok: false, error: "Pick a numeric value column to analyze." };
     }
-    if (analysisIsRowAligned(type) || analysisIsCorrelation(type)) {
+    if (analysisIsRowAligned(type) || analysisIsXY(type)) {
       return {
         ok: false,
         error:
@@ -421,12 +459,13 @@ export async function runAnalysisOnDataset(
     return { ok: false, error: "Pick at least one column to analyze." };
   }
 
-  // CORRELATION: two columns paired by row, complete-case, into a synthetic XY
-  // table (first column X, second column Y). Row-aligned extraction guarantees
-  // the dataset r equals the editable r on the same data.
-  if (analysisIsCorrelation(type)) {
+  // XY: two columns paired by row, complete-case, into a synthetic XY table (first
+  // column X, second column Y). Serves correlation, linear / logistic regression,
+  // dose-response, and ROC. Row-aligned extraction guarantees the dataset result
+  // equals the editable XY result on the same data.
+  if (analysisIsXY(type)) {
     if (names.length < 2) {
-      return { ok: false, error: "Pick two numeric columns to correlate." };
+      return { ok: false, error: "Pick an X column and a Y column." };
     }
     const pair = names.slice(0, 2);
     const rowsMatrix = await readColumnAligned(handle, pair, recipe);
@@ -467,7 +506,7 @@ export async function buildDatasetAnalysisContent(
 
   if (opts.groupByColumn) {
     const valueColumn = resolveDatasetColumnNames(spec, sidecar)[0];
-    if (!valueColumn || analysisIsRowAligned(type) || analysisIsCorrelation(type))
+    if (!valueColumn || analysisIsRowAligned(type) || analysisIsXY(type))
       return null;
     const allGroups = await readColumnByGroup(
       handle,
@@ -492,7 +531,7 @@ export async function buildDatasetAnalysisContent(
   const names = resolveDatasetColumnNames(spec, sidecar);
   if (names.length === 0) return null;
 
-  if (analysisIsCorrelation(type)) {
+  if (analysisIsXY(type)) {
     if (names.length < 2) return null;
     const pair = names.slice(0, 2);
     const rowsMatrix = await readColumnAligned(handle, pair, recipe);

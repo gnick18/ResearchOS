@@ -32,6 +32,7 @@ import {
   runAnalysisOnDataset,
   buildDatasetAnalysisContent,
   validDatasetAnalysisTypes,
+  analysisIsXY,
 } from "@/lib/datahub/bigtable/dataset-analyses";
 import { readDistinctLabels } from "@/lib/datahub/bigtable/dataset-columns";
 import { saveDatasetAnalysis } from "@/lib/datahub/bigtable/dataset-store";
@@ -451,7 +452,7 @@ export default function DatasetAnalysisDialog({
                     <div className="mt-4 grid grid-cols-2 gap-3">
                       <div>
                         <label className="block text-meta font-medium uppercase tracking-wide text-foreground-muted">
-                          First column
+                          {analysisIsXY(type) ? "X column" : "First column"}
                         </label>
                         <select
                           value={columnA}
@@ -467,7 +468,11 @@ export default function DatasetAnalysisDialog({
                       </div>
                       <div>
                         <label className="block text-meta font-medium uppercase tracking-wide text-foreground-muted">
-                          Second column
+                          {analysisIsXY(type)
+                            ? type === "rocCurve" || type === "logisticRegression"
+                              ? "Y column (0/1 outcome)"
+                              : "Y column"
+                            : "Second column"}
                         </label>
                         <select
                           value={columnB}

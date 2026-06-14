@@ -438,6 +438,132 @@ describe("dataset-lane parity with the editable lane (validation gate)", () => {
     expect(d.statistic as number).toBeCloseTo(e.statistic as number, 12);
   });
 
+  // --- Single-Y XY family parity (linear / logistic regression, dose-response,
+  //     ROC), all through the synthetic XY path. For each, the dataset-lane outcome
+  //     must be numbers-identical to an editable XY run on the same pairs. ---
+
+  /** An editable XY table (one role-x, one role-y) over the given pairs. */
+  function editableXY(xv: number[], yv: number[]): DataHubDocContent {
+    return {
+      meta: {
+        id: "t1",
+        name: "T",
+        project_ids: [],
+        folder_path: null,
+        table_type: "xy",
+        created_at: "",
+      },
+      columns: [
+        { id: "cx", name: "x", role: "x", dataType: "number" },
+        { id: "cy", name: "y", role: "y", dataType: "number" },
+      ],
+      rows: xv.map((v, i) => ({
+        id: `r${i}`,
+        cells: { cx: v, cy: yv[i] } as Record<string, CellValue>,
+      })),
+      analyses: [],
+      plots: [],
+    };
+  }
+
+  /** Flatten every finite numeric leaf of a result, keyed by path. */
+  function numericLeaves(
+    o: unknown,
+    prefix = "",
+    out: Record<string, number> = {},
+  ): Record<string, number> {
+    if (typeof o === "number") {
+      if (Number.isFinite(o)) out[prefix] = o;
+      return out;
+    }
+    if (Array.isArray(o)) {
+      o.forEach((v, i) => numericLeaves(v, `${prefix}[${i}]`, out));
+      return out;
+    }
+    if (o && typeof o === "object") {
+      for (const [k, v] of Object.entries(o))
+        numericLeaves(v, prefix ? `${prefix}.${k}` : k, out);
+    }
+    return out;
+  }
+
+  /** Assert two outcomes carry numbers-identical results (same engine, same data). */
+  function expectSameNumbers(dataset: unknown, editable: unknown) {
+    const d = numericLeaves(dataset);
+    const e = numericLeaves(editable);
+    const common = Object.keys(d).filter((k) => k in e);
+    expect(common.length).toBeGreaterThan(2);
+    for (const k of common) expect(d[k]).toBeCloseTo(e[k], 10);
+  }
+
+  it("linear regression: WIDE XY matches the editable XY run", async () => {
+    const xv = [1, 2, 3, 4, 5, 6.5, 7.2];
+    const yv = [2.1, 3.9, 6.2, 7.8, 10.1, 13.0, 14.4];
+    FIXTURE = {
+      columns: ["x", "y"],
+      rows: [
+        ...xv.map((v, i) => [v, yv[i]] as Cell[]),
+        [null, 9.9],
+        [3.3, "nope"],
+      ],
+    };
+    const dataset = await runAnalysisOnDataset(
+      HANDLE,
+      spec("linearRegression", ["x", "y"]),
+      sidecar(["x", "y"]),
+    );
+    const editable = runAnalysis(spec("linearRegression", ["cy"]), editableXY(xv, yv));
+    expect(dataset.ok).toBe(true);
+    expect(editable.ok).toBe(true);
+    expectSameNumbers(dataset, editable);
+  });
+
+  it("dose-response: WIDE XY matches the editable XY run (defaults to 4PL)", async () => {
+    // A monotone sigmoid-ish dose / response so the 4PL fit converges.
+    const xv = [0.01, 0.03, 0.1, 0.3, 1, 3, 10, 30, 100];
+    const yv = [2, 5, 12, 28, 50, 72, 88, 95, 98];
+    FIXTURE = { columns: ["dose", "resp"], rows: xv.map((v, i) => [v, yv[i]] as Cell[]) };
+    const dataset = await runAnalysisOnDataset(
+      HANDLE,
+      spec("doseResponse", ["dose", "resp"]),
+      sidecar(["dose", "resp"]),
+    );
+    const editable = runAnalysis(spec("doseResponse", ["cy"]), editableXY(xv, yv));
+    expect(dataset.ok).toBe(true);
+    expect(editable.ok).toBe(true);
+    expectSameNumbers(dataset, editable);
+  });
+
+  it("logistic regression: WIDE XY (binary Y) matches the editable XY run", async () => {
+    const xv = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
+    const yv = [0, 0, 0, 0, 1, 0, 1, 1, 1, 1];
+    FIXTURE = { columns: ["x", "y"], rows: xv.map((v, i) => [v, yv[i]] as Cell[]) };
+    const dataset = await runAnalysisOnDataset(
+      HANDLE,
+      spec("logisticRegression", ["x", "y"]),
+      sidecar(["x", "y"]),
+    );
+    const editable = runAnalysis(spec("logisticRegression", ["cy"]), editableXY(xv, yv));
+    expect(dataset.ok).toBe(true);
+    expect(editable.ok).toBe(true);
+    expectSameNumbers(dataset, editable);
+  });
+
+  it("ROC curve: WIDE XY (score + 0/1 label) matches the editable XY run", async () => {
+    const xv = [0.1, 0.4, 0.35, 0.8, 0.2, 0.9, 0.55, 0.7, 0.3, 0.6];
+    const yv = [0, 0, 1, 1, 0, 1, 1, 1, 0, 0];
+    FIXTURE = { columns: ["score", "label"], rows: xv.map((v, i) => [v, yv[i]] as Cell[]) };
+    const dataset = await runAnalysisOnDataset(
+      HANDLE,
+      spec("rocCurve", ["score", "label"]),
+      sidecar(["score", "label"]),
+    );
+    const editable = runAnalysis(spec("rocCurve", ["cy"]), editableXY(xv, yv));
+    expect(dataset.ok).toBe(true);
+    expect(editable.ok).toBe(true);
+    expectSameNumbers(dataset, editable);
+  });
+
   it("group-pair selection: a two-group test on a 3-level column compares exactly the chosen pair", async () => {
     // Control vs DrugA on a column that also has DrugB. Without a pair the runner
     // would take the first two seen (Control, DrugA here); we assert the engine
