@@ -67,6 +67,7 @@ import { makeDataHubGraphTool } from "./datahub-graph";
 import { listNotesTool, writeNoteTool } from "./write-note";
 import { searchMyWorkTool } from "./search-my-work";
 import { searchFullTextTool } from "./search-full-text";
+import { listRecordsTool } from "./list-records";
 import { summarizeExperimentsTool } from "./summarize-experiments";
 import { summarizePurchasesTool } from "./summarize-purchases";
 import { summarizeNotesTool } from "./summarize-notes";
@@ -255,6 +256,10 @@ export const READ_ONLY_TOOLS: AiTool[] = [
   // confirms the exact term via ask_user first (system-prompt). Snippets + match
   // counts only, no body crosses as a finding.
   searchFullTextTool,
+  // list_records is the deterministic top-N / sorted-list resolver (listArtifacts):
+  // the tool sorts by date/title and slices the top N, so the model never eyeballs
+  // records to decide which are newest/first. Briefs only, read-only.
+  listRecordsTool,
   // Summary suite Layer 2 (artifact-index filterArtifacts + deterministic
   // aggregates). summarize_experiments and summarize_purchases aggregate ACROSS
   // many records over a shared filter (types / dates / owners / projects /

@@ -433,6 +433,63 @@ export const artifactIndexDeps: ArtifactIndexDeps = {
  *   granular; drops briefs after it and briefs with no date.
  * @param deps - Injectable seam for testing without a real folder.
  */
+/**
+ * Build briefs for EVERY artifact type the current user can see, concurrently and
+ * fault-tolerantly (one type's list() throwing is skipped, never fatal). Shared by
+ * searchMyWork (which then scores by query) and listArtifacts (which then sorts by
+ * a field), so the per-type adapter wiring lives in exactly one place. No type
+ * filtering here, the callers narrow with their own filter. */
+export async function buildAllBriefs(
+  deps: ArtifactIndexDeps = artifactIndexDeps,
+): Promise<ArtifactBrief[]> {
+  const [
+    notesResult,
+    methodsResult,
+    sequencesResult,
+    dataHubResult,
+    projectsResult,
+    purchasesResult,
+    experimentsResult,
+    moleculesResult,
+    phyloResult,
+  ] = await Promise.allSettled([
+    deps.listNotes(),
+    deps.listMethods(),
+    deps.listSequences(),
+    deps.listDataHub(),
+    deps.listProjects(),
+    deps.listPurchases(),
+    deps.listExperiments(),
+    deps.listMolecules(),
+    deps.listPhylo(),
+  ]);
+
+  const allBriefs: ArtifactBrief[] = [];
+  function addBriefs<T>(
+    result: PromiseSettledResult<T[]>,
+    toBrief: (item: T) => ArtifactBrief,
+  ): void {
+    if (result.status === "rejected") return;
+    for (const item of result.value) {
+      try {
+        allBriefs.push(toBrief(item));
+      } catch {
+        // A corrupt record is skipped so it cannot block the rest of the type.
+      }
+    }
+  }
+  addBriefs(notesResult, noteToBrief);
+  addBriefs(methodsResult, methodToBrief);
+  addBriefs(sequencesResult, sequenceToBrief);
+  addBriefs(dataHubResult, dataHubToBrief);
+  addBriefs(projectsResult, projectToBrief);
+  addBriefs(purchasesResult, purchaseToBrief);
+  addBriefs(experimentsResult, experimentToBrief);
+  addBriefs(moleculesResult, moleculeToBrief);
+  addBriefs(phyloResult, phyloToBrief);
+  return allBriefs;
+}
+
 export async function searchMyWork(
   query: string,
   opts?: { types?: string[]; limit?: number; since?: string; until?: string },
@@ -458,65 +515,8 @@ export async function searchMyWork(
     return true;
   };
 
-  // Run all list() calls concurrently. Per-type failure is silently skipped.
-  const [
-    notesResult,
-    methodsResult,
-    sequencesResult,
-    dataHubResult,
-    projectsResult,
-    purchasesResult,
-    experimentsResult,
-    moleculesResult,
-    phyloResult,
-  ] = await Promise.allSettled([
-    deps.listNotes(),
-    deps.listMethods(),
-    deps.listSequences(),
-    deps.listDataHub(),
-    deps.listProjects(),
-    deps.listPurchases(),
-    deps.listExperiments(),
-    deps.listMolecules(),
-    deps.listPhylo(),
-  ]);
-
-  // Collect all briefs from settled (fulfilled) results.
-  const allBriefs: ArtifactBrief[] = [];
-
-  function addBriefs<T>(
-    result: PromiseSettledResult<T[]>,
-    toBrief: (item: T) => ArtifactBrief,
-    typeName: string,
-  ): void {
-    if (result.status === "rejected") {
-      // One type's failure is silently skipped. The search continues with the
-      // remaining types so a missing molecule store does not break note search.
-      return;
-    }
-    const filtered =
-      typeFilter && !typeFilter.has(typeName)
-        ? []
-        : result.value;
-    for (const item of filtered) {
-      try {
-        allBriefs.push(toBrief(item));
-      } catch {
-        // Adapter failure on one record is skipped so a corrupt record does
-        // not block the rest of the type.
-      }
-    }
-  }
-
-  addBriefs(notesResult, noteToBrief, "note");
-  addBriefs(methodsResult, methodToBrief, "method");
-  addBriefs(sequencesResult, sequenceToBrief, "sequence");
-  addBriefs(dataHubResult, dataHubToBrief, "datahub");
-  addBriefs(projectsResult, projectToBrief, "project");
-  addBriefs(purchasesResult, purchaseToBrief, "purchase");
-  addBriefs(experimentsResult, experimentToBrief, "experiment");
-  addBriefs(moleculesResult, moleculeToBrief, "molecule");
-  addBriefs(phyloResult, phyloToBrief, "phylo");
+  const builtBriefs = await buildAllBriefs(deps);
+  const allBriefs = typeFilter ? builtBriefs.filter((b) => typeFilter.has(b.type)) : builtBriefs;
 
   // Apply the optional date window before scoring, so a "from last week" search
   // ranks only the in-window briefs (and never spends a result slot on one that
@@ -786,4 +786,42 @@ export function filterArtifacts(
 
     return true;
   });
+}
+
+// ---------------------------------------------------------------------------
+// listArtifacts: the deterministic top-N / sorted-list resolver. The model passes
+// a structured query (type, sort field, order, limit, filter) and the TOOL sorts
+// and slices, so "my 5 most recent experiments" or "oldest open tasks" never asks
+// the model to eyeball records and rank them. Sorts by date or title; price-based
+// "biggest" lives in the summarize tools' largestItems (briefs carry no amount).
+// ---------------------------------------------------------------------------
+
+export type ListSortBy = "date" | "title";
+export type ListOrder = "asc" | "desc";
+
+/** Build, filter, deterministically sort, and cap a list of briefs. Returns the
+ *  full pre-cap total alongside the capped items, so the caller can say "showing
+ *  10 of 42". Pure given the deps seam. */
+export async function listArtifacts(
+  opts: {
+    filter?: ArtifactFilter;
+    sortBy?: ListSortBy;
+    order?: ListOrder;
+    limit?: number;
+  },
+  deps: ArtifactIndexDeps = artifactIndexDeps,
+): Promise<{ total: number; items: ArtifactBrief[] }> {
+  const briefs = await buildAllBriefs(deps);
+  const filtered = opts.filter ? filterArtifacts(briefs, opts.filter) : briefs;
+  const sortBy = opts.sortBy ?? "date";
+  const order = opts.order ?? "desc";
+  const sorted = [...filtered].sort((a, b) => {
+    const cmp =
+      sortBy === "title"
+        ? (a.title ?? "").localeCompare(b.title ?? "")
+        : (a.date ?? "").localeCompare(b.date ?? "");
+    return order === "asc" ? cmp : -cmp;
+  });
+  const limit = opts.limit && opts.limit > 0 ? Math.min(opts.limit, 50) : 10;
+  return { total: filtered.length, items: sorted.slice(0, limit) };
 }

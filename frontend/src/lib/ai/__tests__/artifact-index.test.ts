@@ -21,6 +21,7 @@ import {
   resolveProjectRefsToIds,
   resolveOwnerRefsToUsernames,
   periodToDateRange,
+  listArtifacts,
   type ArtifactBrief,
   type ArtifactIndexDeps,
 } from "../artifact-index";
@@ -767,6 +768,56 @@ describe("resolveOwnerRefsToUsernames", () => {
   it("returns [] for empty / missing input", () => {
     expect(resolveOwnerRefsToUsernames(undefined, members)).toEqual([]);
     expect(resolveOwnerRefsToUsernames([], members)).toEqual([]);
+  });
+});
+
+describe("listArtifacts", () => {
+  // Only notes; every other type empty, so we control the ordering precisely.
+  const onlyNotes = (notes: Note[]) =>
+    makeStubDeps({
+      listNotes: async () => notes,
+      listMethods: async () => [],
+      listSequences: async () => [],
+      listDataHub: async () => [],
+      listProjects: async () => [],
+      listPurchases: async () => [],
+      listExperiments: async () => [],
+      listMolecules: async () => [],
+      listPhylo: async () => [],
+    });
+
+  const deps = () =>
+    onlyNotes([
+      makeNote({ id: 1, title: "Banana", updated_at: "2026-06-01T00:00:00.000Z" }),
+      makeNote({ id: 2, title: "Apple", updated_at: "2026-06-10T00:00:00.000Z" }),
+      makeNote({ id: 3, title: "Cherry", updated_at: "2026-05-01T00:00:00.000Z" }),
+    ]);
+
+  it("sorts by date descending (newest first) by default", async () => {
+    const { total, items } = await listArtifacts({}, deps());
+    expect(total).toBe(3);
+    expect(items.map((i) => i.id)).toEqual(["2", "1", "3"]);
+  });
+
+  it("sorts by date ascending (oldest first)", async () => {
+    const { items } = await listArtifacts({ order: "asc" }, deps());
+    expect(items.map((i) => i.id)).toEqual(["3", "1", "2"]);
+  });
+
+  it("sorts by title A-Z", async () => {
+    const { items } = await listArtifacts({ sortBy: "title", order: "asc" }, deps());
+    expect(items.map((i) => i.title)).toEqual(["Apple", "Banana", "Cherry"]);
+  });
+
+  it("caps to limit but reports the full total", async () => {
+    const { total, items } = await listArtifacts({ limit: 2 }, deps());
+    expect(total).toBe(3);
+    expect(items.map((i) => i.id)).toEqual(["2", "1"]);
+  });
+
+  it("applies the filter (type restriction) before sorting", async () => {
+    const { total } = await listArtifacts({ filter: { types: ["method"] } }, deps());
+    expect(total).toBe(0); // the deps expose only notes
   });
 });
 
