@@ -250,6 +250,12 @@ export interface PlotStyle {
    */
   xScaleType?: AxisScaleType;
   yScaleType?: AxisScaleType;
+  /**
+   * Grouped-bar arrangement (dodge / stack / stack100). Optional and additive,
+   * absent means "dodge", so an old grouped figure reads back byte-identical.
+   * Read only by the grouped bar; other kinds ignore it.
+   */
+  barMode?: BarMode;
 }
 
 /** The unit a figure's width / height is typed in (and stored as). */
@@ -257,6 +263,15 @@ export type SizeUnit = "px" | "in" | "cm";
 
 /** An axis value scale. "log" is base-10 (XY figures only, positive data). */
 export type AxisScaleType = "linear" | "log";
+
+/**
+ * How a grouped bar chart arranges the bars within a row-factor cluster. "dodge"
+ * is side-by-side (the default). "stack" stacks them (absolute magnitudes sum).
+ * "stack100" stacks and normalizes each cluster to 1 (relative composition, the
+ * 100-percent bar). Stacking treats a non-positive cell as zero and draws no
+ * per-segment error bar.
+ */
+export type BarMode = "dodge" | "stack" | "stack100";
 
 /** How a resize changes the figure (re-layout the axes vs zoom the whole image). */
 export type ResizeMode = "relayout" | "scale";
@@ -562,6 +577,11 @@ export function readPlotStyle(spec: PlotSpec): PlotStyle {
     // so an old spec (or any non-XY figure) is byte-identical.
     xScaleType: s.xScaleType === "log" ? "log" : undefined,
     yScaleType: s.yScaleType === "log" ? "log" : undefined,
+    // Grouped-bar arrangement. Absent / unknown reads as dodge.
+    barMode:
+      s.barMode === "stack" || s.barMode === "stack100"
+        ? (s.barMode as BarMode)
+        : undefined,
   };
 }
 
@@ -1970,28 +1990,51 @@ export function layoutGroupedBar(
     return style.errorBar === "sd" ? s.sd : s.sd / Math.sqrt(s.n);
   };
 
-  // Data max over (mean + error) to frame the Y axis.
-  let dataMax = 0;
-  let any = false;
-  for (const level of levels) {
-    for (const g of groups) {
-      const s = stat(level, g.datasetId);
-      if (s.mean === null) continue;
-      any = true;
-      const e = errFor(s) ?? 0;
-      const top = s.mean + e;
-      if (top > dataMax) dataMax = top;
-    }
-  }
+  const mode: BarMode = style.barMode ?? "dodge";
+  const stacked = mode === "stack" || mode === "stack100";
+  // The positive part of a cell mean (stacking treats non-positive as zero).
+  const posMean = (level: string, datasetId: string): number => {
+    const m = stat(level, datasetId).mean;
+    return m !== null && m > 0 ? m : 0;
+  };
+  const clusterSum = (level: string): number =>
+    groups.reduce((acc, g) => acc + posMean(level, g.datasetId), 0);
+
+  // Frame the Y axis. dodge = max(mean + error); stack = max cluster total;
+  // stack100 = 1 (each cluster normalized to a full bar).
   let yMax: number;
   let step: number;
-  if (!any || dataMax <= 0) {
+  if (mode === "stack100") {
     yMax = 1;
-    step = 0.5;
+    step = 0.25;
   } else {
-    const t = niceTicks(0, dataMax * 1.1);
-    yMax = t.hi;
-    step = t.step;
+    let dataMax = 0;
+    let any = false;
+    if (mode === "stack") {
+      for (const level of levels) {
+        const total = clusterSum(level);
+        if (total > 0) any = true;
+        if (total > dataMax) dataMax = total;
+      }
+    } else {
+      for (const level of levels) {
+        for (const g of groups) {
+          const s = stat(level, g.datasetId);
+          if (s.mean === null) continue;
+          any = true;
+          const top = s.mean + (errFor(s) ?? 0);
+          if (top > dataMax) dataMax = top;
+        }
+      }
+    }
+    if (!any || dataMax <= 0) {
+      yMax = 1;
+      step = 0.5;
+    } else {
+      const t = niceTicks(0, dataMax * 1.1);
+      yMax = t.hi;
+      step = t.step;
+    }
   }
 
   const yScale = scaleLinear().domain([0, yMax]).range([y0, y1]);
@@ -2016,6 +2059,32 @@ export function layoutGroupedBar(
 
   const clusters: GroupedCluster[] = levels.map((level, li) => {
     const cx = x0 + clusterW * (li + 0.5);
+    if (stacked) {
+      // One band per cluster; segments stack from the baseline up. stack100
+      // normalizes the segments to the full bar. No per-segment error bar.
+      const left = cx - bandW / 2;
+      const segW = bandW * 0.86;
+      const total = mode === "stack100" ? clusterSum(level) : 0;
+      let cum = 0;
+      const bars: GroupedBar[] = groups.map((g, gi) => {
+        const color = groupColors[gi] ?? "#000000";
+        const raw = posMean(level, g.datasetId);
+        const val = mode === "stack100" ? (total > 0 ? raw / total : 0) : raw;
+        const vBottom = cum;
+        const vTop = cum + val;
+        cum = vTop;
+        const yTop = Y(vTop);
+        return {
+          x: left,
+          y: yTop,
+          width: segW,
+          height: Y(vBottom) - yTop,
+          color,
+          error: null,
+        };
+      });
+      return { label: level, labelX: cx, bars };
+    }
     const left = cx - bandW / 2;
     const bars: GroupedBar[] = groups.map((g, gi) => {
       const s = stat(level, g.datasetId);

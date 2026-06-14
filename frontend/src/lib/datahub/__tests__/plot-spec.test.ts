@@ -35,6 +35,7 @@ import {
   niceTicks,
   logTicks,
   layoutXYPlot,
+  layoutGroupedBar,
   renderXYPlotSvg,
   toDesignPx,
   toInches,
@@ -661,6 +662,71 @@ describe("plot-spec: logTicks", () => {
   it("always spans at least one decade and rejects non-positive input", () => {
     expect(logTicks(5, 5).values.length).toBeGreaterThanOrEqual(2);
     expect(logTicks(-1, 10)).toEqual({ lo: 1, hi: 10, step: 1, values: [1, 10] });
+  });
+});
+
+describe("plot-spec: grouped bar modes", () => {
+  // One row-level, two groups (G1 mean 2, G2 mean 8) so totals are easy.
+  function groupedContent(): DataHubDocContent {
+    return {
+      meta: {
+        id: "g1",
+        name: "G",
+        project_ids: [],
+        folder_path: null,
+        table_type: "grouped",
+        created_at: "2026-06-10T00:00:00.000Z",
+      },
+      columns: [
+        { id: "rowlabel", name: "Level", role: "x", dataType: "text" },
+        { id: "a0", name: "G1", role: "y", dataType: "number", datasetId: "d0", subcolumnKind: "replicate" },
+        { id: "b0", name: "G2", role: "y", dataType: "number", datasetId: "d1", subcolumnKind: "replicate" },
+      ],
+      rows: [{ id: "r0", cells: { rowlabel: "L1", a0: 2, b0: 8 } }],
+      analyses: [],
+      plots: [],
+    };
+  }
+
+  it("dodge places two bars side by side framed to the tallest", () => {
+    const style = { ...defaultPlotStyle(), kind: "groupedBar" as const };
+    const geo = layoutGroupedBar(groupedContent(), style);
+    const bars = geo.clusters[0].bars;
+    expect(bars).toHaveLength(2);
+    // side by side -> different x
+    expect(bars[0].x).not.toBeCloseTo(bars[1].x, 3);
+    // framed to include the taller bar (8)
+    expect(geo.yMax).toBeGreaterThanOrEqual(8);
+  });
+
+  it("stack frames to the cluster total and stacks segments", () => {
+    const style = { ...defaultPlotStyle(), kind: "groupedBar" as const, barMode: "stack" as const };
+    const geo = layoutGroupedBar(groupedContent(), style);
+    const bars = geo.clusters[0].bars;
+    // both segments share the same x (one band), no error bars
+    expect(bars[0].x).toBeCloseTo(bars[1].x, 6);
+    expect(bars[0].error).toBeNull();
+    // framed to the total (10), so yMax >= 10
+    expect(geo.yMax).toBeGreaterThanOrEqual(10);
+    // first segment sits on the baseline (y0), second stacks above it
+    expect(bars[0].y + bars[0].height).toBeCloseTo(geo.y0, 3);
+    expect(bars[1].y + bars[1].height).toBeCloseTo(bars[0].y, 3);
+  });
+
+  it("stack100 normalizes the cluster to a full bar", () => {
+    const style = { ...defaultPlotStyle(), kind: "groupedBar" as const, barMode: "stack100" as const };
+    const geo = layoutGroupedBar(groupedContent(), style);
+    const bars = geo.clusters[0].bars;
+    expect(geo.yMax).toBe(1);
+    // the two segments together fill the whole axis (baseline y0 to top y1)
+    const bottom = bars[0].y + bars[0].height;
+    const top = bars[1].y;
+    expect(bottom).toBeCloseTo(geo.y0, 3);
+    expect(top).toBeCloseTo(geo.y1, 3);
+    // G1 is 2/10 of the bar, G2 is 8/10
+    const totalPx = geo.y0 - geo.y1;
+    expect(bars[0].height / totalPx).toBeCloseTo(0.2, 2);
+    expect(bars[1].height / totalPx).toBeCloseTo(0.8, 2);
   });
 });
 

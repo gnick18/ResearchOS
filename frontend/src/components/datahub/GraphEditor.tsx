@@ -51,6 +51,7 @@ import {
   type ErrorBarKind,
   type FitModelId,
   type AxisScaleType,
+  type BarMode,
 } from "@/lib/datahub/plot-spec";
 import { plotCode } from "@/lib/datahub/plot-code";
 import { chainCode, type ContentResolver } from "@/lib/datahub/chain-code";
@@ -785,17 +786,32 @@ export default function GraphEditor({
               </Ctl>
             </>
           ) : isGrouped ? (
-            <Ctl label="Error bars">
-              <Seg<ErrorBarKind>
-                value={style.errorBar}
-                options={[
-                  { value: "sem", label: "SEM" },
-                  { value: "sd", label: "SD" },
-                  { value: "none", label: "None" },
-                ]}
-                onChange={(v) => onStyleChange({ errorBar: v })}
-              />
-            </Ctl>
+            <>
+              <Ctl label="Bars">
+                <Seg<BarMode>
+                  value={style.barMode ?? "dodge"}
+                  options={[
+                    { value: "dodge", label: "Dodge" },
+                    { value: "stack", label: "Stack" },
+                    { value: "stack100", label: "100%" },
+                  ]}
+                  onChange={(v) =>
+                    onStyleChange({ barMode: v === "dodge" ? undefined : v })
+                  }
+                />
+              </Ctl>
+              <Ctl label="Error bars">
+                <Seg<ErrorBarKind>
+                  value={style.errorBar}
+                  options={[
+                    { value: "sem", label: "SEM" },
+                    { value: "sd", label: "SD" },
+                    { value: "none", label: "None" },
+                  ]}
+                  onChange={(v) => onStyleChange({ errorBar: v })}
+                />
+              </Ctl>
+            </>
           ) : isSurvival ? (
             <p className="text-[11px] text-foreground-muted">
               A survival curve has no per-bar style. Tune colors and labels in the
