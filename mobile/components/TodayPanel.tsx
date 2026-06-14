@@ -451,8 +451,9 @@ function ExperimentCard({
   );
 }
 
-/** The full "ACTIVE EXPERIMENTS" band, rendered only when >= 1 experiment. */
-function ActiveExperimentsBand({
+/** The full "ACTIVE EXPERIMENTS" band, rendered only when >= 1 experiment.
+ *  Exported so the Home hub can show the same glance above its Today section. */
+export function ActiveExperimentsBand({
   experiments,
   dark,
   onPress,
@@ -525,7 +526,9 @@ function GroupLabel({ text, color }: { text: string; color: string }) {
 }
 
 // A compact, color-ticked task row (contained, not a full-height card).
-function TaskRow({
+/** A single Today/Overdue/Coming-up row. Exported so the Home hub renders its
+ *  live Today section with the exact same row as the Today pull-down panel. */
+export function TaskRow({
   task,
   tone,
 }: {

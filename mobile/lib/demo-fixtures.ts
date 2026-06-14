@@ -36,6 +36,17 @@ export const DEMO_TODAY_SNAPSHOT: TodaySnapshot = {
   generatedAt: NOW_ISO,
   tasks: [
     {
+      // Experiment-typed task: drives the active-experiments band (Home hub +
+      // Today panel). Carries a linked method so the band card shows it.
+      id: 'demo-exp-1',
+      name: 'fakeGFP expression (chapter 2)',
+      start_date: yesterdayStr,
+      end_date: twoDaysOutStr,
+      task_type: 'experiment',
+      linkedMethodName: 'Colony PCR, GoTaq',
+      linkedMethodType: 'pcr',
+    },
+    {
       id: 'demo-task-1',
       name: 'Split HEK293 cells (passage 18)',
       start_date: todayStr,

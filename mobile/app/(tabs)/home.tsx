@@ -1,21 +1,33 @@
 /**
  * Home hub — the glance surface and anchor destination (UI contract 01).
- * Sync status, live timers, Today, a tool launcher (Timers/Calc/Wiki), and
- * recent captures. First pass uses representative content; live snapshot data
- * is wired when the data layer screens are migrated.
+ * Wired to live data: pairing + connection freshness drive the status card, the
+ * today snapshot drives the active-experiments band and the Today section, the
+ * local timers store drives the running-timer card, and the capture outbox
+ * drives Recent. Data-backed cards hide when empty, so nothing shows mock
+ * content (the running-timer and Recent cards simply do not render with no data).
  *
  * House style: no em-dashes, no emojis, no mid-sentence colons.
  */
 
-import React from 'react';
+import React, { useCallback, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import Svg, { Path, Circle } from 'react-native-svg';
-import { useRouter } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ScreenFrame } from '@/components/ui/ScreenFrame';
+import { ActiveExperimentsBand } from '@/components/TodayPanel';
 import { useTheme, fonts, spacing, radii } from '@/lib/design';
 import { usePairing } from '@/lib/pairing';
+import { fetchSnapshot, type TodaySnapshot } from '@/lib/snapshots';
+import { signWithDevice } from '@/lib/device-identity';
+import {
+  useConnectionStatus,
+  recordSyncSuccess,
+  recordSyncFailure,
+} from '@/lib/connection-status';
+import { useTimers } from '@/lib/timers';
+import { listCaptures, type Capture } from '@/lib/captures';
 
 const Ic = ({ d, color, size = 21, sw = 1.8 }: { d: string; color: string; size?: number; sw?: number }) => (
   <Svg width={size} height={size} viewBox="0 0 24 24">
@@ -41,25 +53,132 @@ function firstNameOf(name?: string): string | null {
   return first.length > 0 ? first : null;
 }
 
+// Compact "last synced" label from an epoch-ms timestamp.
+function relTime(ms?: number | null): string {
+  if (!ms) return '';
+  const delta = Date.now() - ms;
+  if (delta < 60_000) return 'just now';
+  const m = Math.floor(delta / 60_000);
+  if (m < 60) return `${m}m ago`;
+  const h = Math.floor(m / 60);
+  if (h < 24) return `${h}h ago`;
+  return `${Math.floor(h / 24)}d ago`;
+}
+
+// mm:ss countdown from a remaining-ms value.
+function fmtCountdown(ms: number): string {
+  const total = Math.max(0, Math.round(ms / 1000));
+  const m = Math.floor(total / 60);
+  const sec = total % 60;
+  return `${String(m).padStart(2, '0')}:${String(sec).padStart(2, '0')}`;
+}
+
+// Short date like "Jun 16" from an ISO/date string.
+function shortDate(value?: string): string {
+  if (!value) return '';
+  const ms = Date.parse(value);
+  if (Number.isNaN(ms)) return '';
+  return new Date(ms).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+}
+
 export default function HomeScreen() {
   const t = useTheme();
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const s = t.surface;
+  const p = t.palette;
   const { pairing } = usePairing();
+  const conn = useConnectionStatus();
+  const { timers } = useTimers();
 
-  // Greet by time of day, adding the paired user's first name when the grant
-  // carried one. Computed at render; the home tab remounts on focus so the
-  // morning/afternoon/evening label stays current without a ticking clock.
+  const [today, setToday] = useState<TodaySnapshot | null>(null);
+  const [captures, setCaptures] = useState<Capture[]>([]);
+
+  // Pull the today snapshot on focus (the laptop publishes it; demo mode returns
+  // the bundled fixture). Record sync freshness so the status card stays honest.
+  const loadToday = useCallback(async () => {
+    if (!pairing) {
+      setToday(null);
+      return;
+    }
+    try {
+      const data = (await fetchSnapshot('today', pairing, signWithDevice)) as TodaySnapshot | null;
+      setToday(data);
+      recordSyncSuccess();
+    } catch {
+      recordSyncFailure();
+    }
+  }, [pairing]);
+
+  const loadCaptures = useCallback(async () => {
+    try {
+      setCaptures(await listCaptures());
+    } catch {
+      // Best-effort glance; a read failure just leaves Recent empty.
+    }
+  }, []);
+
+  useFocusEffect(
+    useCallback(() => {
+      void loadToday();
+      void loadCaptures();
+    }, [loadToday, loadCaptures]),
+  );
+
+  // Greet by time of day, adding the paired user's first name when present.
   const first = firstNameOf(pairing?.userName);
   const greeting = first
     ? `${timeOfDayGreeting(new Date().getHours())}, ${first}`
     : timeOfDayGreeting(new Date().getHours());
 
+  // Status card: lab label + live connection state + last-synced freshness.
+  const labName = pairing?.labName ?? 'Your lab';
+  const connLabel = !pairing
+    ? 'Not connected'
+    : conn.state === 'synced'
+      ? 'Live'
+      : conn.state === 'offline'
+        ? 'Offline'
+        : 'Idle';
+  const dotColor = !pairing
+    ? s.faint
+    : conn.state === 'synced'
+      ? p.success
+      : conn.state === 'offline'
+        ? p.danger
+        : p.amber;
+  const dotDim = !pairing
+    ? s.sunken
+    : conn.state === 'synced'
+      ? p.successDim
+      : conn.state === 'offline'
+        ? p.dangerLight ?? s.sunken
+        : p.amberDim;
+  const synced = relTime(conn.lastSyncAt);
+  const statusMeta = !pairing
+    ? 'Connect a laptop to sync'
+    : synced
+      ? `Synced ${synced}`
+      : 'Waiting for first sync';
+
+  // Today snapshot, partitioned the same way the Today panel does it.
+  const allTasks = today?.tasks ?? [];
+  const experiments = allTasks.filter((task) => task.task_type === 'experiment');
+  const todayTasks = allTasks.filter((task) => task.task_type !== 'experiment');
+  const overdueTasks = today?.overdueTasks ?? [];
+  const upcomingTasks = today?.upcomingTasks ?? [];
+  const dueCount = todayTasks.length + overdueTasks.length;
+  const hasAnyToday = todayTasks.length + overdueTasks.length + upcomingTasks.length > 0;
+
+  // Running timer (local store, ticks once a second). Hidden when none.
+  const running = timers.find((tm) => tm.status === 'running');
+
+  const recent = captures.slice(0, 3);
+
   const Label = ({ children, action }: { children: string; action?: string }) => (
     <View style={styles.lblRow}>
       <Text style={[styles.lbl, { color: s.faint }]}>{children}</Text>
-      {action ? <Text style={[styles.lblAction, { color: t.palette.sky }]}>{action}</Text> : null}
+      {action ? <Text style={[styles.lblAction, { color: p.sky }]}>{action}</Text> : null}
     </View>
   );
 
@@ -72,6 +191,26 @@ export default function HomeScreen() {
     </Pressable>
   );
 
+  // One Today/Overdue/Coming-up row in the Home card style.
+  const taskRow = (
+    name: string | undefined,
+    rightLabel: string,
+    tone: 'today' | 'over' | 'soon',
+    key: string,
+    first: boolean,
+  ) => {
+    const tickColor = tone === 'over' ? p.danger : tone === 'soon' ? p.amber : p.sky;
+    return (
+      <View key={key} style={[styles.taskRow, !first && { borderTopWidth: 1, borderTopColor: s.hairline }]}>
+        <View style={[styles.checkbox, { borderColor: tickColor }]} />
+        <Text style={[styles.taskT, { color: tone === 'over' ? p.danger : s.text }]} numberOfLines={1}>
+          {name && name.length > 0 ? name : 'Untitled task'}
+        </Text>
+        <Text style={[styles.taskW, { color: tone === 'over' ? p.danger : s.muted }]}>{rightLabel}</Text>
+      </View>
+    );
+  };
+
   return (
     <ScreenFrame edges={['top']}>
       {/* header */}
@@ -82,9 +221,6 @@ export default function HomeScreen() {
         </View>
         <View style={styles.headActions}>
           <Pressable style={[styles.iconBtn, { backgroundColor: s.surface, borderColor: s.border }, t.shadow.sm]} onPress={() => router.push('/notifications')}>
-            <View style={[styles.badge, { backgroundColor: t.palette.coral, borderColor: s.surface }]}>
-              <Text style={styles.badgeTxt}>2</Text>
-            </View>
             <Ic d="M6 9a6 6 0 0 1 12 0c0 7 3 8 3 8H3s3-1 3-8M9.5 21a2.5 2.5 0 0 0 5 0" color={s.text} size={19} sw={1.7} />
           </Pressable>
           <Pressable style={[styles.iconBtn, { backgroundColor: s.surface, borderColor: s.border }, t.shadow.sm]} onPress={() => router.push('/modal')}>
@@ -99,69 +235,121 @@ export default function HomeScreen() {
       <ScrollView style={styles.scroll} contentContainerStyle={{ paddingHorizontal: spacing.lg, paddingBottom: insets.bottom + 96 }} showsVerticalScrollIndicator={false}>
         {/* status */}
         <View style={[styles.statusCard, { backgroundColor: s.surface, borderColor: s.border }, t.shadow.sm]}>
-          <View style={[styles.pulse, { backgroundColor: t.palette.successDim }]}>
-            <View style={[styles.pulseCore, { backgroundColor: t.palette.success }]} />
-          </View>
-          <View>
-            <Text style={[styles.statusLab, { color: s.text }]}>Maple Lab · Live</Text>
-            <Text style={[styles.statusMeta, { color: s.muted }]}>Synced just now · 24 methods offline</Text>
-          </View>
-        </View>
-
-        {/* running timer */}
-        <Label>Running now</Label>
-        <View style={[styles.timerLive, { borderColor: t.palette.amberDim }, t.shadow.sm]}>
-          <View style={[styles.ring, { borderColor: t.palette.amber }]}>
-            <Ic d="M12 13V9M9 2h6M12 22a8 8 0 1 0 0-16 8 8 0 0 0 0 16Z" color={t.palette.amber} size={20} />
+          <View style={[styles.pulse, { backgroundColor: dotDim }]}>
+            <View style={[styles.pulseCore, { backgroundColor: dotColor }]} />
           </View>
           <View style={{ flex: 1 }}>
-            <Text style={[styles.timerNm, { color: s.text }]}>PCR denaturation</Text>
-            <Text style={[styles.timerSub, { color: s.muted }]}>Step 2 of 6</Text>
+            <Text style={[styles.statusLab, { color: s.text }]} numberOfLines={1}>{`${labName} · ${connLabel}`}</Text>
+            <Text style={[styles.statusMeta, { color: s.muted }]}>{statusMeta}</Text>
           </View>
-          <Text style={[styles.timerCd, { color: s.text }]}>04:12</Text>
         </View>
 
+        {/* active experiments (hidden when none) */}
+        {experiments.length > 0 ? (
+          <View style={{ marginTop: 14 }}>
+            <ActiveExperimentsBand
+              experiments={experiments}
+              dark={t.dark}
+              onPress={() => router.push('/method-detail?read=1')}
+            />
+          </View>
+        ) : null}
+
+        {/* running timer (hidden when nothing is running) */}
+        {running ? (
+          <>
+            <Label>Running now</Label>
+            <Pressable
+              style={[styles.timerLive, { borderColor: p.amberDim }, t.shadow.sm]}
+              onPress={() => router.push('/(tabs)/timers')}
+            >
+              <View style={[styles.ring, { borderColor: p.amber }]}>
+                <Ic d="M12 13V9M9 2h6M12 22a8 8 0 1 0 0-16 8 8 0 0 0 0 16Z" color={p.amber} size={20} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={[styles.timerNm, { color: s.text }]} numberOfLines={1}>
+                  {running.label && running.label.length > 0 ? running.label : 'Timer'}
+                </Text>
+                <Text style={[styles.timerSub, { color: s.muted }]}>Running</Text>
+              </View>
+              <Text style={[styles.timerCd, { color: s.text }]}>{fmtCountdown(running.endsAt - Date.now())}</Text>
+            </Pressable>
+          </>
+        ) : null}
+
         {/* today */}
-        <Label action="3 due">Today</Label>
-        <View style={[styles.card, { backgroundColor: s.surface, borderColor: s.border }, t.shadow.sm]}>
-          {[
-            { t: 'Image the gel', w: 'Overdue', over: true, due: true },
-            { t: 'Restock pipette tips', w: '2:00 PM', over: false, due: false },
-            { t: '1:1 with Priya', w: '4:30 PM', over: false, due: false },
-          ].map((row, i) => (
-            <View key={row.t} style={[styles.taskRow, i > 0 && { borderTopWidth: 1, borderTopColor: s.hairline }]}>
-              <View style={[styles.checkbox, { borderColor: row.due ? t.palette.amber : s.borderStrong }]} />
-              <Text style={[styles.taskT, { color: s.text }]}>{row.t}</Text>
-              <Text style={[styles.taskW, { color: row.over ? t.palette.danger : s.muted }]}>{row.w}</Text>
-            </View>
-          ))}
-        </View>
+        <Label action={dueCount > 0 ? `${dueCount} due` : undefined}>Today</Label>
+        {hasAnyToday ? (
+          <View style={[styles.card, { backgroundColor: s.surface, borderColor: s.border }, t.shadow.sm]}>
+            {overdueTasks.map((task, i) =>
+              taskRow(task.name, 'Overdue', 'over', task.id ?? `over-${i}`, i === 0),
+            )}
+            {todayTasks.map((task, i) =>
+              taskRow(
+                task.name,
+                task.task_type ?? 'Today',
+                'today',
+                task.id ?? `today-${i}`,
+                overdueTasks.length === 0 && i === 0,
+              ),
+            )}
+            {upcomingTasks.map((task, i) =>
+              taskRow(
+                task.name,
+                shortDate(task.start_date) || 'Soon',
+                'soon',
+                task.id ?? `soon-${i}`,
+                overdueTasks.length === 0 && todayTasks.length === 0 && i === 0,
+              ),
+            )}
+          </View>
+        ) : (
+          <View style={[styles.card, styles.emptyCard, { backgroundColor: s.surface, borderColor: s.border }, t.shadow.sm]}>
+            <Text style={[styles.emptyTxt, { color: s.muted }]}>
+              {pairing ? 'Nothing scheduled for today.' : 'Connect a laptop to see your schedule.'}
+            </Text>
+          </View>
+        )}
 
         {/* tools launcher */}
         <Label>Tools</Label>
         <View style={styles.launch}>
-          {tile('timers', 'Timers', t.palette.amberDim, t.palette.amber, 'M12 13V9M9 2h6M12 22a8 8 0 1 0 0-16 8 8 0 0 0 0 16Z', () => router.push('/(tabs)/timers'))}
-          {tile('calc', 'Calc', t.palette.skyDim, t.palette.sky, 'M6 3h12a1 1 0 0 1 1 1v16a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1ZM8 7h8M8 11h3M8 15h3', () => router.push('/(tabs)/calc'))}
-          {tile('wiki', 'Wiki', t.palette.violetDim, t.palette.violet, 'M5 4h11l3 3v13H5zM9 12h6M9 16h6', () => router.push('/(tabs)/wiki'))}
-          {tile('sync', 'Sync', t.palette.successDim, t.palette.success, 'M21 11.5a8.5 8.5 0 1 1-3-6.5M21 4v5h-5', () => {})}
+          {tile('timers', 'Timers', p.amberDim, p.amber, 'M12 13V9M9 2h6M12 22a8 8 0 1 0 0-16 8 8 0 0 0 0 16Z', () => router.push('/(tabs)/timers'))}
+          {tile('calc', 'Calc', p.skyDim, p.sky, 'M6 3h12a1 1 0 0 1 1 1v16a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1ZM8 7h8M8 11h3M8 15h3', () => router.push('/(tabs)/calc'))}
+          {tile('wiki', 'Wiki', p.violetDim, p.violet, 'M5 4h11l3 3v13H5zM9 12h6M9 16h6', () => router.push('/(tabs)/wiki'))}
+          {tile('sync', 'Sync', p.successDim, p.success, 'M21 11.5a8.5 8.5 0 1 1-3-6.5M21 4v5h-5', () => { void loadToday(); void loadCaptures(); })}
         </View>
 
-        {/* recent */}
-        <Label>Recent</Label>
-        <View style={[styles.card, { backgroundColor: s.surface, borderColor: s.border }, t.shadow.sm]}>
-          <View style={styles.lrow}>
-            <View style={[styles.thumb, { backgroundColor: s.sunken, borderColor: s.border }]}>
-              <Ic d="M4 8h16v11H4z" color={s.faint} size={18} sw={1.6} />
+        {/* recent (hidden when no captures) */}
+        {recent.length > 0 ? (
+          <>
+            <Label>Recent</Label>
+            <View style={[styles.card, { backgroundColor: s.surface, borderColor: s.border }, t.shadow.sm]}>
+              {recent.map((c, i) => {
+                const statusText =
+                  c.status === 'sent' ? 'Sent' : c.status === 'failed' ? 'Failed' : c.status === 'sending' ? 'Sending' : 'Queued';
+                const statusColor =
+                  c.status === 'sent' ? p.success : c.status === 'failed' ? p.danger : p.amber;
+                return (
+                  <View key={c.id} style={[styles.lrow, i > 0 && { borderTopWidth: 1, borderTopColor: s.hairline }]}>
+                    <View style={[styles.thumb, { backgroundColor: s.sunken, borderColor: s.border }]}>
+                      <Ic d="M4 8h16v11H4z" color={s.faint} size={18} sw={1.6} />
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Text style={[styles.lrowT, { color: s.text }]} numberOfLines={1}>
+                        {c.caption && c.caption.length > 0 ? c.caption : 'Photo capture'}
+                      </Text>
+                      <View style={styles.lrowSub}>
+                        <View style={[styles.dot, { backgroundColor: statusColor }]} />
+                        <Text style={[styles.lrowSubT, { color: s.muted }]}>{statusText}</Text>
+                      </View>
+                    </View>
+                  </View>
+                );
+              })}
             </View>
-            <View style={{ flex: 1 }}>
-              <Text style={[styles.lrowT, { color: s.text }]}>Western blot, rep 2</Text>
-              <View style={styles.lrowSub}>
-                <View style={[styles.dot, { backgroundColor: t.palette.success }]} />
-                <Text style={[styles.lrowSubT, { color: s.muted }]}>Filed to Gel imaging</Text>
-              </View>
-            </View>
-          </View>
-        </View>
+          </>
+        ) : null}
       </ScrollView>
     </ScreenFrame>
   );
@@ -173,8 +361,6 @@ const styles = StyleSheet.create({
   title: { fontSize: 27, fontFamily: fonts.extrabold, letterSpacing: -0.8, lineHeight: 30 },
   headActions: { flexDirection: 'row', gap: 8 },
   iconBtn: { width: 38, height: 38, borderRadius: 12, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
-  badge: { position: 'absolute', top: -3, right: -3, minWidth: 17, height: 17, paddingHorizontal: 4, borderRadius: 9, borderWidth: 2, alignItems: 'center', justifyContent: 'center', zIndex: 2 },
-  badgeTxt: { color: '#fff', fontSize: 10, fontFamily: fonts.bold },
   scroll: { flex: 1 },
   statusCard: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 14, borderRadius: radii.lg, borderWidth: 1 },
   pulse: { width: 42, height: 42, borderRadius: 13, alignItems: 'center', justifyContent: 'center' },
@@ -190,6 +376,8 @@ const styles = StyleSheet.create({
   timerSub: { fontSize: 12, fontFamily: fonts.ui, marginTop: 1 },
   timerCd: { fontSize: 22, fontFamily: fonts.monoSemibold, letterSpacing: -0.4 },
   card: { borderRadius: radii.lg, borderWidth: 1, paddingHorizontal: 14, paddingVertical: 2 },
+  emptyCard: { paddingVertical: 16, alignItems: 'center' },
+  emptyTxt: { fontSize: 13, fontFamily: fonts.ui },
   taskRow: { flexDirection: 'row', alignItems: 'center', gap: 11, paddingVertical: 11 },
   checkbox: { width: 21, height: 21, borderRadius: 7, borderWidth: 2 },
   taskT: { flex: 1, fontSize: 14.5, fontFamily: fonts.medium },
