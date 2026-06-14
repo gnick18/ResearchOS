@@ -21,6 +21,7 @@ import QpcrAnalysisMethodTabContent from "./methods/QpcrAnalysisMethodTabContent
 import { WrapAsCompoundAction } from "./methods/WrapAsCompoundAction";
 import { ForkToLibraryAction } from "./methods/ForkToLibraryAction";
 import ViewMethodOnPhoneButton from "./methods/ViewMethodOnPhoneButton";
+import VariationNotesPanel from "./methods/VariationNotesPanel";
 import { Icon, type IconName } from "@/components/icons";
 
 interface MethodTabsProps {
@@ -345,6 +346,7 @@ export default function MethodTabs({ task, onTaskUpdate, readOnly = false, piAct
                     methodId={activeMethodId}
                     attachment={activeAttachment}
                     onTaskUpdate={onTaskUpdate}
+                    hideVariationNotes
                     readOnly={readOnly}
                     piActor={piActor}
                   />
@@ -357,6 +359,7 @@ export default function MethodTabs({ task, onTaskUpdate, readOnly = false, piAct
                     methodId={activeMethodId}
                     attachment={activeAttachment}
                     onTaskUpdate={onTaskUpdate}
+                    hideVariationNotes
                     readOnly={readOnly}
                     piActor={piActor}
                   />
@@ -369,6 +372,7 @@ export default function MethodTabs({ task, onTaskUpdate, readOnly = false, piAct
                     methodId={activeMethodId}
                     attachment={activeAttachment}
                     onTaskUpdate={onTaskUpdate}
+                    hideVariationNotes
                     readOnly={readOnly}
                     piActor={piActor}
                   />
@@ -381,6 +385,7 @@ export default function MethodTabs({ task, onTaskUpdate, readOnly = false, piAct
                     methodId={activeMethodId}
                     attachment={activeAttachment}
                     onTaskUpdate={onTaskUpdate}
+                    hideVariationNotes
                     readOnly={readOnly}
                     piActor={piActor}
                   />
@@ -393,6 +398,7 @@ export default function MethodTabs({ task, onTaskUpdate, readOnly = false, piAct
                     methodId={activeMethodId}
                     attachment={activeAttachment}
                     onTaskUpdate={onTaskUpdate}
+                    hideVariationNotes
                     readOnly={readOnly}
                     piActor={piActor}
                   />
@@ -405,6 +411,7 @@ export default function MethodTabs({ task, onTaskUpdate, readOnly = false, piAct
                     methodId={activeMethodId}
                     attachment={activeAttachment}
                     onTaskUpdate={onTaskUpdate}
+                    hideVariationNotes
                     readOnly={readOnly}
                   />
                 );
@@ -416,6 +423,7 @@ export default function MethodTabs({ task, onTaskUpdate, readOnly = false, piAct
                     methodId={activeMethodId}
                     attachment={activeAttachment}
                     onTaskUpdate={onTaskUpdate}
+                    hideVariationNotes
                     readOnly={readOnly}
                   />
                 );
@@ -427,6 +435,7 @@ export default function MethodTabs({ task, onTaskUpdate, readOnly = false, piAct
                     methodId={activeMethodId}
                     attachment={activeAttachment}
                     onTaskUpdate={onTaskUpdate}
+                    hideVariationNotes
                     readOnly={readOnly}
                     onSwitchActiveMethod={(nextId) =>
                       setActiveAttachmentKey(
@@ -449,6 +458,7 @@ export default function MethodTabs({ task, onTaskUpdate, readOnly = false, piAct
                     methodId={activeMethodId}
                     attachment={activeAttachment}
                     onTaskUpdate={onTaskUpdate}
+                    hideVariationNotes
                     readOnly={readOnly}
                   />
                 );
@@ -461,6 +471,7 @@ export default function MethodTabs({ task, onTaskUpdate, readOnly = false, piAct
                     methodId={activeMethodId}
                     attachment={activeAttachment}
                     onTaskUpdate={onTaskUpdate}
+                    hideVariationNotes
                     readOnly={readOnly}
                     piActor={piActor}
                   />
@@ -501,6 +512,26 @@ export default function MethodTabs({ task, onTaskUpdate, readOnly = false, piAct
           </div>
         )}
       </div>
+
+      {/* Variation Notes — hoisted out of the per-type viewers into a shared
+          full-height right column (rail | content | variations). Reads the
+          active attachment's notes; the per-type viewers are told to hide
+          their own copy via `hideVariationNotes`. Only shown when a method
+          component is actually open. */}
+      {activeAttachmentKey !== null && activeMethod && activeAttachment && (
+        <VariationNotesPanel
+          task={task}
+          methodId={activeAttachment.method_id}
+          variationNotes={activeAttachment.variation_notes}
+          onSaved={(updatedTask) => {
+            if (updatedTask) onTaskUpdate?.(updatedTask);
+            queryClient.refetchQueries({ queryKey: ["tasks"] });
+            queryClient.refetchQueries({ queryKey: ["allTasks"] });
+          }}
+          readOnly={readOnly}
+          piActor={piActor}
+        />
+      )}
     </div>
   );
 }
