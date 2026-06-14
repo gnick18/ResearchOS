@@ -11,18 +11,43 @@
 // House style: no em-dashes, no emojis, no mid-sentence colons.
 
 /**
- * LOCKED for beta go-live (2026-06-14). Set to the Fireworks gpt-oss-120b
- * standard-tier OUTPUT rate, $0.60 per 1M tokens (input is cheaper at $0.15/1M;
- * verified live at docs.fireworks.ai/serverless/pricing). We bill total tokens at
- * one blended rate, so pricing at the output rate is the safe never-undercharge
- * choice across any input:output mix: worst case we break even on output-heavy
- * turns, and the margin on the (likely input-heavy) real traffic is what absorbs
- * Stripe fees (~2.9% + $0.30/txn), infra, and the free starter grants. Refine
- * DOWN after instrumenting the first real turns if the measured blended cost is
- * well under this. Every other number in this file derives from it, so changing
- * this one constant retunes the whole token economy and nothing else.
+ * The bare inference cost basis, LOCKED for beta go-live (2026-06-14). Set to the
+ * Fireworks gpt-oss-120b standard-tier OUTPUT rate, $0.60 per 1M tokens (input is
+ * cheaper at $0.15/1M; verified live at docs.fireworks.ai/serverless/pricing). We
+ * debit total tokens at one rate, so using the output rate as the cost basis is the
+ * safe never-undercharge choice across any input:output mix (worst case, an
+ * all-output turn, is still covered). Real blended cost is lower because BeakerBot
+ * is input-heavy, so this can be refined DOWN after instrumenting real tasks.
+ * Every billing rate derives from this, so changing this one constant retunes the
+ * whole token economy and nothing else.
  */
-export const AI_TOKEN_PRICE_USD = 0.6 / 1_000_000;
+export const AI_BARE_COST_USD_PER_TOKEN = 0.6 / 1_000_000;
+
+/**
+ * The confirmed AI markups over bare cost (Grant 2026-06-11, see
+ * docs/proposals/beakerbot-pricing-analysis.md "The markup"). The multipliers are
+ * locked; the bare-cost dollars stay tunable. Individuals and labs pay 1.4x bare
+ * (cost-recovery plus a thin buffer for Stripe on the block and the proxy
+ * invocation, not profit). Departments and institutions pay 2.0x bare; that ~0.6x
+ * gap is the sustaining surplus that funds the free individual sign-up trials and
+ * AI development, the same solidarity logic as the storage tiers.
+ */
+export const AI_INDIVIDUAL_MARKUP = 1.4;
+export const AI_ORG_MARKUP = 2.0;
+
+/**
+ * The individual/lab billing rate, what a user's prepaid dollars buy and what the
+ * balance debits at. This is THE rate the packs, the balance, and the ledger use.
+ * Bare cost times the 1.4x individual markup, about $0.84 per 1M tokens.
+ */
+export const AI_TOKEN_PRICE_USD = AI_BARE_COST_USD_PER_TOKEN * AI_INDIVIDUAL_MARKUP;
+
+/**
+ * The department/institution pool billing rate, bare cost times the 2.0x org
+ * markup, about $1.20 per 1M tokens. Defined here so the rate lives in one place;
+ * the org AI invoice line that consumes it is a later phase and is not wired yet.
+ */
+export const AI_ORG_TOKEN_PRICE_USD = AI_BARE_COST_USD_PER_TOKEN * AI_ORG_MARKUP;
 
 /** Micro-dollars (millionths of a USD) per token, the integer unit we store in
  *  the ledger so token-to-dollar accounting never drifts on floats. */
@@ -30,11 +55,13 @@ export const USD_MICROS_PER_USD = 1_000_000;
 
 /**
  * The one-time sign-up gift, in tokens. Granted once per owner on FIRST use
- * (LOCKED decision), keyed to the owner so it can never be re-minted. Worth about
- * 25 cents of inference at the rate above (~416k tokens), which is dozens of real
- * tasks, enough to genuinely try BeakerBot before deciding to spend. A one-time
- * trial, NOT a recurring monthly allowance (a recurring free pool would be an
- * unbounded liability, Grant 2026-06-11).
+ * (LOCKED decision), keyed to the owner so it can never be re-minted. Sized at 25
+ * cents of value at the individual billing rate (~298k tokens); because the basis
+ * is the conservative output-rate cost, our actual worst-case exposure on an
+ * all-output trial is under 18 cents, so the free liability is firmly capped. That
+ * is dozens of real tasks, enough to genuinely try BeakerBot before deciding to
+ * spend. A one-time trial, NOT a recurring monthly allowance (a recurring free pool
+ * would be an unbounded liability, Grant 2026-06-11).
  */
 export const STARTER_GRANT_TOKENS = Math.round(0.25 / AI_TOKEN_PRICE_USD);
 
