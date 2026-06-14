@@ -77,6 +77,7 @@ import {
   FigureArtboard,
   FigureArtboardControls,
 } from "@/components/figure/FigureArtboard";
+import ZoomPanCanvas from "@/components/figure/ZoomPanCanvas";
 import {
   readArtboardState,
   artboardInitial,
@@ -1344,18 +1345,38 @@ export function PhyloStudio({ initialTreeId }: { initialTreeId?: string } = {}) 
                   directly, exactly as before. */}
               {artboard.enabled ? (
                 <div className="min-h-0 flex-1">
-                  <FigureArtboard
-                    figureSvg={svgMarkup}
-                    figWIn={figWIn}
-                    figHIn={figHIn}
-                    state={artboard}
-                  />
+                  <ZoomPanCanvas
+                    contentWidth={pageDims(artboard).wIn * 96}
+                    contentHeight={pageDims(artboard).hIn * 96}
+                    minimap={
+                      <FigureArtboard
+                        figureSvg={svgMarkup}
+                        figWIn={figWIn}
+                        figHIn={figHIn}
+                        state={artboard}
+                      />
+                    }
+                  >
+                    <FigureArtboard
+                      figureSvg={svgMarkup}
+                      figWIn={figWIn}
+                      figHIn={figHIn}
+                      state={artboard}
+                    />
+                  </ZoomPanCanvas>
                 </div>
               ) : (
-                <div
-                  className="min-h-0 flex-1 overflow-auto p-3"
-                  dangerouslySetInnerHTML={{ __html: svgMarkup }}
-                />
+                <div className="min-h-0 flex-1">
+                  <ZoomPanCanvas
+                    contentWidth={FIG_W}
+                    contentHeight={FIG_H}
+                    minimap={
+                      <div dangerouslySetInnerHTML={{ __html: svgMarkup }} />
+                    }
+                  >
+                    <div dangerouslySetInnerHTML={{ __html: svgMarkup }} />
+                  </ZoomPanCanvas>
+                </div>
               )}
             </>
           ) : (
