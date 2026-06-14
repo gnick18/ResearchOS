@@ -21,6 +21,33 @@ import {
   type LabInvitePayload,
 } from "./lab-invite";
 
+/**
+ * Phase 4B. Mints a lab invite via the server (unified opaque-token invites) and
+ * returns the shareable /lab/join#<token> link. No local signing key, so it works
+ * in a folderless browser; the server records the signed-in head as the lab's
+ * billing owner. This is the centralized membership path that mirrors dept +
+ * institution. It mints MEMBERSHIP only; the lab DATA KEY is sealed later (4A),
+ * client side, and never reaches the server.
+ *
+ * @throws if the API rejects the mint.
+ */
+export async function mintLabTokenForHead(params: {
+  labId: string;
+  origin: string;
+}): Promise<{ link: string }> {
+  const res = await fetch("/api/lab/invite", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ labId: params.labId }),
+  });
+  if (!res.ok) {
+    throw new Error(`mintLabTokenForHead: mint rejected (HTTP ${res.status})`);
+  }
+  const data = (await res.json()) as { token?: string };
+  if (!data.token) throw new Error("mintLabTokenForHead: no token returned");
+  return { link: `${params.origin}/lab/join#${data.token}` };
+}
+
 /** Mints a head invite and returns the payload + the shareable join link. */
 export function mintInviteForHead(params: {
   labId: string;

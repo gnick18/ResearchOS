@@ -145,13 +145,19 @@ export async function peekInvite(token: string): Promise<InviteRecord | null> {
 }
 
 export type RedeemResult =
-  | { ok: true; entityId: string; role: string | null }
+  | { ok: true; entityId: string; role: string | null; createdBy: string }
   | { ok: false; reason: "not_found" | "wrong_layer" | "expired" | "already_used" };
 
 /**
  * Atomically validates + single-use-redeems a token for the expected layer. The
  * UPDATE itself enforces not-expired + not-used in one statement (no read-then-
  * write race); on a miss we read back once to report a precise reason.
+ *
+ * createdBy (the admin who minted the token) rides back on success. The lab tier
+ * uses it as the lab's billing owner key so the joining member can be enrolled
+ * without a second lookup (the lab is addressed cryptographically by entityId =
+ * labId, but billing membership is keyed by the head's owner key). The org tiers
+ * ignore it.
  */
 export async function redeemInvite(params: {
   token: string;
@@ -166,10 +172,15 @@ export async function redeemInvite(params: {
       AND layer = ${params.layer}
       AND used_at IS NULL
       AND expires_at > now()
-    RETURNING entity_id, role
-  `) as Array<{ entity_id: string; role: string | null }>;
+    RETURNING entity_id, role, created_by
+  `) as Array<{ entity_id: string; role: string | null; created_by: string }>;
   if (claimed[0]) {
-    return { ok: true, entityId: claimed[0].entity_id, role: claimed[0].role };
+    return {
+      ok: true,
+      entityId: claimed[0].entity_id,
+      role: claimed[0].role,
+      createdBy: claimed[0].created_by,
+    };
   }
   // Classify the miss for a useful message.
   const peeked = await peekInvite(params.token);
