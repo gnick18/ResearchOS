@@ -2236,6 +2236,33 @@ export default function LiveMarkdownEditor({
                   </>
                 )}
 
+                {/* Attachments (docked home). The standalone Attachments toolbar
+                    button now only renders at fullscreen (the pill's paperclip);
+                    docked, Attachments folds in here as a menu item so the bar
+                    stays slim (Edit|Preview · ＋ · / to insert). Same handler as
+                    the toolbar button — opens the Attachments flyout in the
+                    Context rail. Honors hideAttachments. Keeps the same
+                    aria-label ("Toggle attachments") as the fullscreen pill
+                    button so name-based queries resolve, plus a docked-specific
+                    testid (editor-insert-attachments). */}
+                {!hideAttachments && (
+                  <button
+                    type="button"
+                    role="menuitem"
+                    data-testid="editor-insert-attachments"
+                    aria-label="Toggle attachments"
+                    aria-pressed={contextFlyout === "files"}
+                    onClick={() => {
+                      setInsertMenuOpen(false);
+                      setContextFlyout((v) => (v === "files" ? null : "files"));
+                    }}
+                    className="w-full flex items-center gap-2 px-3 py-1.5 text-left text-meta text-foreground hover:bg-foreground-muted/10 transition-colors"
+                  >
+                    <Icon name="attach" className="w-4 h-4 text-foreground-muted" />
+                    Attachments
+                  </button>
+                )}
+
                 {/* Number figures directive toggle (per-document). Keeps the
                     exact insert/remove logic; the active state shows a check. */}
                 {enableReferencePicker && !disabled && (
@@ -2270,8 +2297,14 @@ export default function LiveMarkdownEditor({
               Images / Files strip: same ImageStrip / FileStrip + tab bar, just
               relocated off the bottom edge and into the gutter. Carries the
               paperclip glyph (Grant-approved) beside the quiet label. Hidden
-              when the surface suppresses attachments (hideAttachments). */}
-          {!hideAttachments && (
+              when the surface suppresses attachments (hideAttachments).
+
+              DOCKED SLIMMING (2026-06-14): this standalone button now renders
+              ONLY at fullscreen (`expanded`) — it stays the Writing-Room pill's
+              📎 paperclip. Docked, Attachments folds into the ＋ insert menu
+              above (data-testid editor-insert-attachments) so the docked bar is
+              just Edit|Preview · ＋ · / to insert. */}
+          {!hideAttachments && expanded && (
             <Tooltip
               label={
                 contextFlyout === "files"
@@ -2294,11 +2327,11 @@ export default function LiveMarkdownEditor({
                 }`}
               >
                 <Icon name="attach" className="w-3.5 h-3.5" />
-                {/* Fullscreen-only: icon-only (drop the "Attachments" label) to
-                    match the Writing-Room pill's ▢ glyph. The Tooltip label,
-                    handler, and aria all stay, so the toggle is unchanged for
-                    a11y; docked keeps the text. */}
-                {!expanded && "Attachments"}
+                {/* Icon-only at fullscreen to match the Writing-Room pill's
+                    glyph row. The Tooltip label, handler, and aria all stay, so
+                    the toggle is unchanged for a11y. (This button now only
+                    renders when `expanded`; docked, Attachments lives in the ＋
+                    insert menu — editor-insert-attachments.) */}
               </button>
             </Tooltip>
           )}
