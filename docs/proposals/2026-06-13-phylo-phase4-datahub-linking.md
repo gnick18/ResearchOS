@@ -26,25 +26,36 @@ category axis is "one value or distribution per row" map to "one per tip". The
 relationship / curve / diagnostic families do not (they are one figure per
 dataset, not per tip).
 
-Data Hub `PlotKind` mapped to tip-alignment:
+Data Hub `PlotKind` mapped to tip-alignment (CORRECTED 2026-06-13 after checking
+the renderers; the first draft mis-mapped `stackedBar`):
 
+- THE TRAP: Data Hub `stackedBar` is the parts-of-whole renderer = a SINGLE
+  100-percent column showing the composition of ONE whole. It has no category
+  axis to align, so it does NOT fit the alignedAxis seam. The phylo "microbiome
+  ring" is the opposite figure: ONE stacked bar PER TIP (N stacked bars on a
+  category axis). So the headline ring is NOT parts-of-whole; it is the
+  column/bar path. Same for `pie` / `donut` (parts-of-whole, one whole).
 - Maps per-tip AND is a NEW capability (the real prize):
-  - `stackedBar` -> per-tip stacked column / arc (the microbiome relative-
-    abundance ring, the single most iconic ggtreeExtra figure).
-  - `groupedBar` -> per-tip grouped bars (multiple series per tip).
-  - `pie` / `donut` -> a mini composition glyph per tip (ggtreeExtra does this
-    occasionally; lower priority, tiny in circular).
+  - `groupedBar` -> a real category axis (groups) with multiple series per group;
+    category = tips gives multiple bars per tip. The genuine new win. BUT it is
+    DODGE ONLY today (no stack mode; stacking lives only in parts-of-whole). The
+    iconic stacked-per-tip ring therefore needs a STACK / 100-percent position
+    mode added to groupedBar (a Data Hub engine change), after which the SAME
+    seam delivers both dodge and stacked per-tip.
 - Maps per-tip but we ALREADY have a native phylo panel (do NOT duplicate):
   - `columnBar` ~= native `bars` / `point` (point+error).
   - `columnScatter` ~= native `scatter` / `dots`.
   - distributions ~= native `box` / `violin`.
 - Does NOT map per-tip (leave out of scope; one figure per dataset):
-  - `xyScatter` (X vs Y relationship), `survivalCurve`, `estimationGardnerAltman`
-    / `estimationCumming`, `qqPlot` / `residualPlot` / `rocCurve`.
+  - `xyScatter`, `survivalCurve`, `estimationGardnerAltman` / `estimationCumming`,
+    `qqPlot` / `residualPlot` / `rocCurve`, and (per the trap above) the
+    parts-of-whole `pie` / `donut` / `stackedBar`.
 
-So the deliverable is: stacked bar, grouped bar, and pie/donut AT THE TIPS, in
-both layouts, via a single seam. That closes the headline ggtreeExtra gap
-(compositional rings) and the seam means future category-axis kinds are free.
+So the deliverable is grouped bars at the tips (dodge first), then stacked /
+100-percent bars per tip once groupedBar gains a stack mode (the microbiome ring).
+The seam reaches the COLUMN/BAR geometry path (`PlotGeometry` /
+`GroupedBarGeometry`), never the parts-of-whole renderer. Future category-axis
+kinds are then free.
 
 ## The seam (the question out to the Data optimizer lane)
 
@@ -114,12 +125,17 @@ code (keep the export honest, per the standing phylo rule).
 
 ## Phasing
 
-- 4a: the seam (or their seam) + the adapter + `stackedBar` end-to-end in both
-  layouts, with a legend. The iconic figure first.
-- 4b: `groupedBar`, then `pie` / `donut`.
-- 4c: ggtree-code export + reseed the HMP demo with a genuine multi-ring figure
-  (tip points by phylum + abundance stacked-bar ring by body site), so the demo
-  SHOWS the compositional ring.
+- 4a: the Data Hub seam (Data optimizer) + the phylo adapter + `groupedBar`
+  (DODGE) tip-aligned, RECTANGULAR, with a legend. Real new capability, no new
+  geometry, just the seam. Unblocks me as soon as the seam lands.
+- 4b: the STACKED / 100-percent per-tip ring (the iconic microbiome figure), once
+  groupedBar gains a stack position mode (Data Hub engine change). Same seam +
+  adapter, one new mode.
+- 4c: ggtree-code export (`geom_fruit(geom = geom_col, position = "stack"|"dodge")`)
+  + reseed the HMP demo with a genuine rectangular multi-panel figure (tip points
+  by phylum + an abundance stacked-bar panel by body site).
+- Fast-follow (separate, co-designed): CIRCULAR rings. Needs a real polar render
+  mode in the engine OR a phylo-native ring re-render. No SVG-warping. Out of v1.
 
 ## Edge cases / notes
 
