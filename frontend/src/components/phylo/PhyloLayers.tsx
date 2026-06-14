@@ -569,6 +569,19 @@ function Inspector({
               }
             />
           </Field>
+          <Field label="Align labels">
+            <ToggleInput
+              on={(panel.options?.align ?? true) as boolean}
+              onClick={() =>
+                onUpdate({
+                  options: {
+                    ...panel.options,
+                    align: !(panel.options?.align ?? true),
+                  },
+                })
+              }
+            />
+          </Field>
         </>
       )}
 

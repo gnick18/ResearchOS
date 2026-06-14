@@ -742,30 +742,55 @@ function drawLabels(
       : null;
   const fillFor = (id: number): string =>
     scale ? scale.colorFor(spec.metadata?.get(id)?.[colorColumn]) : FG;
+  // align (default on): every label shares an outer x / radius, with a faint
+  // dotted leader from each branch tip to its label (ggtree geom_tiplab
+  // align=TRUE). Off: each label sits at its own branch tip (ragged, the ggtree
+  // default look). Leaders only draw where there is a real gap (phylograms).
+  const align = (opts.align ?? true) as boolean;
+  const leader = (x1: number, y1: number, x2: number, y2: number): string =>
+    `<line x1="${x1.toFixed(1)}" y1="${y1.toFixed(1)}" x2="${x2.toFixed(1)}" y2="${y2.toFixed(1)}" stroke="${MUTED}" stroke-width="0.5" stroke-dasharray="1 2" opacity="0.55"/>`;
 
   if (axis.layout === "rectangular") {
     const fs = Number(opts.fontSize) || 11;
-    const tx = cursor + 4 + (boxed ? 3 : 0);
+    const boxPad = boxed ? 3 : 0;
     for (const slot of axis.tips) {
       const fill = fillFor(slot.id);
+      const baseX = align ? cursor : slot.x;
+      const tx = baseX + 4 + boxPad;
+      if (align && baseX - slot.x > 4) {
+        parts.push(leader(slot.x, slot.y, baseX + 2, slot.y));
+      }
       if (boxed) {
         const w = Math.max(8, slot.name.length * fs * 0.6) + 8;
         parts.push(
-          `<rect x="${tx - 4}" y="${(slot.y - fs / 2 - 3).toFixed(1)}" width="${w.toFixed(1)}" height="${fs + 6}" rx="3" fill="#ffffff" stroke="${fill}" stroke-width="0.75"/>`,
+          `<rect x="${(tx - 4).toFixed(1)}" y="${(slot.y - fs / 2 - 3).toFixed(1)}" width="${w.toFixed(1)}" height="${fs + 6}" rx="3" fill="#ffffff" stroke="${fill}" stroke-width="0.75"/>`,
         );
       }
       parts.push(
-        `<text x="${tx}" y="${(slot.y + fs * 0.36).toFixed(1)}" font-size="${fs}"${styleAttr} fill="${fill}">${esc(slot.name)}</text>`,
+        `<text x="${tx.toFixed(1)}" y="${(slot.y + fs * 0.36).toFixed(1)}" font-size="${fs}"${styleAttr} fill="${fill}">${esc(slot.name)}</text>`,
       );
     }
   } else {
     const fs = Number(opts.fontSize) || 10;
-    const lr = cursor + 4;
     for (const slot of axis.tips) {
-      const lx = axis.cx + lr * Math.cos(slot.angle - Math.PI / 2);
-      const ly = axis.cy + lr * Math.sin(slot.angle - Math.PI / 2);
+      const baseR = align ? cursor : slot.radius;
+      const lr = baseR + 4;
+      const ca = Math.cos(slot.angle - Math.PI / 2);
+      const sa = Math.sin(slot.angle - Math.PI / 2);
+      const lx = axis.cx + lr * ca;
+      const ly = axis.cy + lr * sa;
+      if (align && baseR - slot.radius > 4) {
+        parts.push(
+          leader(
+            axis.cx + slot.radius * ca,
+            axis.cy + slot.radius * sa,
+            axis.cx + (baseR + 2) * ca,
+            axis.cy + (baseR + 2) * sa,
+          ),
+        );
+      }
       const deg = ((slot.angle - Math.PI / 2) * 180) / Math.PI;
-      const flip = Math.cos(slot.angle - Math.PI / 2) < 0;
+      const flip = ca < 0;
       parts.push(
         `<text x="${lx.toFixed(1)}" y="${ly.toFixed(1)}" font-size="${fs}"${styleAttr} fill="${fillFor(slot.id)}" transform="rotate(${(flip ? deg + 180 : deg).toFixed(1)} ${lx.toFixed(1)} ${ly.toFixed(1)})" text-anchor="${flip ? "end" : "start"}">${esc(slot.name)}</text>`,
       );

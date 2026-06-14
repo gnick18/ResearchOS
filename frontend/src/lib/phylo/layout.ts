@@ -247,6 +247,8 @@ export interface TipSlot {
   // Rectangular fields (NaN in circular).
   /** Vertical center of the tip row (rectangular). */
   y: number;
+  /** Branch-end x of the tip (rectangular), for label alignment leader lines. */
+  x: number;
   // Circular fields (NaN in rectangular).
   /** Angle of the tip spoke in radians, 0 = up, clockwise (circular). */
   angle: number;
@@ -287,7 +289,7 @@ export function rectTipAxis(
   const lv = leaves(root);
   const tips: TipSlot[] = lv.map((t) => {
     const p = byId.get(t.id)!;
-    return { id: t.id, name: t.name, y: p.y, angle: NaN, radius: NaN };
+    return { id: t.id, name: t.name, y: p.y, x: p.x, angle: NaN, radius: NaN };
   });
   // Band height = the spacing between adjacent tip rows (uniform by construction).
   const ys = tips.map((t) => t.y).sort((a, b) => a - b);
@@ -317,7 +319,7 @@ export function circularTipAxis(
   const lv = leaves(root);
   const tips: TipSlot[] = lv.map((t) => {
     const p = byId.get(t.id)!;
-    return { id: t.id, name: t.name, y: NaN, angle: p.angle, radius: p.radius };
+    return { id: t.id, name: t.name, y: NaN, x: NaN, angle: p.angle, radius: p.radius };
   });
   // Half the angular spacing between neighboring tips, so wedges meet without overlap.
   const half =
