@@ -14,7 +14,7 @@ import React from 'react';
 import { StyleSheet, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { ThemedText } from '@/components/themed-text';
-import { palette } from '@/lib/design';
+import { palette, useTheme } from '@/lib/design';
 import { Card } from './Card';
 
 // We use Ionicons (bundled with @expo/vector-icons, already a dep). The icon
@@ -29,10 +29,20 @@ export interface EmptyStateProps {
 }
 
 export function EmptyState({ icon, text }: EmptyStateProps) {
+  const { palette: p, radii } = useTheme();
   return (
     <Card>
       <View style={styles.inner}>
-        <Ionicons name={icon} size={28} color={palette.faint} />
+        {/* Contract .empty .ei: a sky-tinted rounded chip carrying a sky glyph,
+            so an empty list still reads as branded and calm, not just grey. */}
+        <View
+          style={[
+            styles.iconChip,
+            { backgroundColor: p.skyDim, borderRadius: radii.lg },
+          ]}
+        >
+          <Ionicons name={icon} size={27} color={p.sky} />
+        </View>
         <ThemedText style={[styles.text, { color: palette.faint }]}>
           {text}
         </ThemedText>
@@ -44,12 +54,19 @@ export function EmptyState({ icon, text }: EmptyStateProps) {
 const styles = StyleSheet.create({
   inner: {
     alignItems: 'center',
-    gap: 8,
-    paddingVertical: 4,
+    gap: 12,
+    paddingVertical: 18,
+  },
+  iconChip: {
+    width: 56,
+    height: 56,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   text: {
     fontSize: 14,
-    lineHeight: 20,
+    lineHeight: 21,
     textAlign: 'center',
+    maxWidth: 240,
   },
 });

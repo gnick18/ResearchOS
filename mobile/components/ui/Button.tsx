@@ -20,7 +20,7 @@ import {
   type StyleProp,
   type ViewStyle,
 } from 'react-native';
-import { useTheme, palette, fonts, radii as globalRadii, spacing as globalSpacing } from '@/lib/design';
+import { useTheme, palette, fonts, radii as globalRadii } from '@/lib/design';
 import { useMascotKeepOut } from '@/lib/mascot-avoid';
 
 export type ButtonVariant = 'primary' | 'secondary' | 'ghost' | 'soft';
@@ -71,7 +71,16 @@ export function Button({
       onLayout={keepOut.onLayout}
       style={({ pressed }) => [
         styles.base,
-        variant === 'primary' && { backgroundColor: a.solid },
+        variant === 'primary' && {
+          backgroundColor: a.solid,
+          // Contract .btn-primary carries a soft accent-tinted drop so the
+          // primary action lifts off the canvas (box-shadow 0 2px 8px /.35).
+          shadowColor: a.solid,
+          shadowOffset: { width: 0, height: 2 },
+          shadowOpacity: 0.35,
+          shadowRadius: 8,
+          elevation: 4,
+        },
         variant === 'soft' && { backgroundColor: a.dim },
         variant === 'secondary' && {
           backgroundColor: surface.surface,
@@ -104,7 +113,7 @@ const styles = StyleSheet.create({
   base: {
     borderRadius: globalRadii.md,
     paddingVertical: 14,
-    paddingHorizontal: globalSpacing.lg,
+    paddingHorizontal: 18, // contract .btn padding 14px 18px
     alignItems: 'center',
     justifyContent: 'center',
     minHeight: 50,

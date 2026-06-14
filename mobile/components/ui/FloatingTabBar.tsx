@@ -70,7 +70,9 @@ export function FloatingTabBar({ state, navigation, onCapture }: BottomTabBarPro
         accessibilityLabel={cfg.label}
       >
         <TabIcon name={cfg.name} color={color} />
-        <Text style={[styles.label, { color }]}>{cfg.label}</Text>
+        <Text style={[styles.label, { color }]} numberOfLines={1}>
+          {cfg.label}
+        </Text>
       </Pressable>
     );
   };
@@ -125,9 +127,14 @@ const styles = StyleSheet.create({
     borderWidth: 1,
   },
   item: {
-    width: 52,
+    // minWidth (not a fixed width) so longer labels ("Notebook", "Inventory")
+    // size to their content and are never horizontally clipped by the item box
+    // (RN clips overflowing text, unlike the CSS contract where it overflows).
+    // The icon stays centered; padding keeps a consistent touch target.
+    minWidth: 52,
     height: 46,
     borderRadius: 16,
+    paddingHorizontal: 6,
     alignItems: 'center',
     justifyContent: 'center',
     gap: 3,
@@ -136,6 +143,7 @@ const styles = StyleSheet.create({
     // 10 is the floor: Geist clips its last glyph below ~10px when Android
     // rasterizes at small ppem (verified on-device), so never go under 10 here.
     fontSize: 10,
+    lineHeight: 13,
     fontFamily: fonts.semibold,
   },
   fab: {
