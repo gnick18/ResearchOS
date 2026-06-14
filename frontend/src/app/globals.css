@@ -540,19 +540,29 @@
   left: -26px;
   width: 26px;
   pointer-events: none;
-  background: linear-gradient(to right, transparent, rgba(15, 23, 42, 0.16));
+  /* Concentrate the shadow near the seam (right edge) so it reads as dense as
+   * the box-shadow it replaces, not a thin wash. */
+  background: linear-gradient(
+    to right,
+    transparent 0%,
+    rgba(15, 23, 42, 0.05) 55%,
+    rgba(15, 23, 42, 0.22) 100%
+  );
+  /* Short end-fade only: the shadow runs nearly full height (matching the
+   * middle) and just softens at the very top + bottom corners, so it neither
+   * hard-cuts nor goes missing there. */
   -webkit-mask-image: linear-gradient(
     to bottom,
     transparent 0,
-    #000 40px,
-    #000 calc(100% - 40px),
+    #000 14px,
+    #000 calc(100% - 14px),
     transparent 100%
   );
   mask-image: linear-gradient(
     to bottom,
     transparent 0,
-    #000 40px,
-    #000 calc(100% - 40px),
+    #000 14px,
+    #000 calc(100% - 14px),
     transparent 100%
   );
 }
@@ -566,7 +576,12 @@
   );
 }
 [data-theme="dark"] .ros-calm-surface .ros-history-panel::before {
-  background: linear-gradient(to right, transparent, rgba(0, 0, 0, 0.5));
+  background: linear-gradient(
+    to right,
+    transparent 0%,
+    rgba(0, 0, 0, 0.18) 55%,
+    rgba(0, 0, 0, 0.6) 100%
+  );
 }
 /* The compare toolbar reads as a quiet raised strip over the scrolling rows: a
  * slightly firmer raised fill + a soft drop shadow in place of the washed-out
