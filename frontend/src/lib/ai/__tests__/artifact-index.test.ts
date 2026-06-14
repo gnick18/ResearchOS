@@ -300,7 +300,7 @@ describe("methodToBrief", () => {
     expect(brief.id).toBe("2");
     expect(brief.title).toBe("Tm melting curve");
     expect(brief.subtitle).toBe("markdown");
-    expect(brief.deepLink).toMatch(/\/methods\/2/);
+    expect(brief.deepLink).toMatch(/\/methods\?openMethod=2/);
   });
 
   it("includes tags as keywords", () => {
@@ -314,7 +314,7 @@ describe("methodToBrief", () => {
     // deep link a reference is written from must carry the public scope.
     const brief = methodToBrief(makeMethod({ is_public: true }));
     expect(brief.id).toBe("2");
-    expect(brief.deepLink).toBe("/methods/public%3A2");
+    expect(brief.deepLink).toBe("/methods?openMethod=public%3A2");
   });
 });
 
