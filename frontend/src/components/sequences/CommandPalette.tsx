@@ -996,6 +996,14 @@ export function CommandPalette({
 
   const onKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
+      // In ask mode the BeakerBot conversation is rendered INSIDE this container
+      // and fully owns keyboard input (its composer handles Enter to send, the
+      // slash and mention menus handle Arrow and Enter). A keypress there bubbles
+      // up to this handler, so without this guard a composer Enter re-fires the
+      // palette's escalation with the stale search query, queueing a phantom
+      // message behind the in-flight turn. The palette's search-mode key handling
+      // is irrelevant once we are in a conversation, so bail entirely.
+      if (askMode === "ask") return;
       if (e.key === "ArrowDown") {
         e.preventDefault();
         moveHighlight(1);
@@ -1046,6 +1054,7 @@ export function CommandPalette({
       }
     },
     [
+      askMode,
       onClose,
       moveHighlight,
       runItem,
