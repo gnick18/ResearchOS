@@ -37,10 +37,13 @@ import { PAPER_PRESETS } from "@/lib/figure/artboard";
 
 const SCREEN_DPI = 96;
 
-/** A signature of what affects a panel's RENDER (ref + size, not position). */
+/** A signature of what affects a panel's RENDER (ref + size + title, not position). */
 function renderSignature(page: FigurePage): string {
   return page.panels
-    .map((p) => `${p.panelId}:${p.ref.type}:${p.ref.id}:${p.wIn.toFixed(3)}x${p.hIn.toFixed(3)}`)
+    .map(
+      (p) =>
+        `${p.panelId}:${p.ref.type}:${p.ref.id}:${p.wIn.toFixed(3)}x${p.hIn.toFixed(3)}:${p.overrides?.hideTitle ?? true}`,
+    )
     .join("|");
 }
 
@@ -79,6 +82,8 @@ export default function FigureComposer({ pageId }: { pageId: string }) {
             heightIn: p.hIn,
             dpi: SCREEN_DPI,
             theme: "light",
+            // Composed panels hide the plot's own title by default (per-panel toggle).
+            overrides: { hideTitle: p.overrides?.hideTitle ?? true, hideLegend: p.overrides?.hideLegend },
           });
           next.set(p.panelId, r.svg);
         } catch {
@@ -204,7 +209,7 @@ export default function FigureComposer({ pageId }: { pageId: string }) {
             return (
               <div
                 key={p.panelId}
-                className={`absolute ${sel ? "outline outline-2 outline-brand-action" : "outline outline-1 outline-transparent hover:outline-border-strong"}`}
+                className={`absolute overflow-hidden ${sel ? "outline outline-2 outline-brand-action" : "outline outline-1 outline-transparent hover:outline-border-strong"}`}
                 style={{
                   left: p.xIn * scale,
                   top: p.yIn * scale,
@@ -216,7 +221,7 @@ export default function FigureComposer({ pageId }: { pageId: string }) {
                 data-testid="figure-panel"
               >
                 <div
-                  className="pointer-events-none h-full w-full"
+                  className="pointer-events-none h-full w-full [&>svg]:h-full [&>svg]:w-full"
                   dangerouslySetInnerHTML={{
                     __html: panelSvgs.get(p.panelId) ?? "",
                   }}
@@ -316,21 +321,49 @@ export default function FigureComposer({ pageId }: { pageId: string }) {
           </div>
         </div>
 
-        {selected && (
-          <div className="rounded-xl border border-border p-3">
-            <h3 className="mb-2 text-meta font-bold uppercase tracking-wide text-foreground-faint">Selected panel</h3>
-            <button
-              type="button"
-              onClick={() => {
-                mutate((p) => removePanel(p, selected), true);
-                setSelected(null);
-              }}
-              className="text-meta font-medium text-pin hover:underline"
-            >
-              Remove from page
-            </button>
-          </div>
-        )}
+        {selected &&
+          (() => {
+            const sp = page.panels.find((x) => x.panelId === selected);
+            const titleShown = sp?.overrides?.hideTitle === false;
+            return (
+              <div className="space-y-2.5 rounded-xl border border-border p-3">
+                <h3 className="text-meta font-bold uppercase tracking-wide text-foreground-faint">
+                  Selected panel
+                </h3>
+                <label className="flex items-center gap-2 text-meta text-foreground-muted">
+                  <input
+                    type="checkbox"
+                    checked={titleShown}
+                    onChange={(e) => {
+                      const show = e.target.checked;
+                      mutate(
+                        (pg) => ({
+                          ...pg,
+                          panels: pg.panels.map((pp) =>
+                            pp.panelId === selected
+                              ? { ...pp, overrides: { ...pp.overrides, hideTitle: !show } }
+                              : pp,
+                          ),
+                        }),
+                        true,
+                      );
+                    }}
+                  />
+                  Show plot title
+                </label>
+                <button
+                  type="button"
+                  onClick={() => {
+                    mutate((p) => removePanel(p, selected), true);
+                    setSelected(null);
+                  }}
+                  className="block text-meta font-medium text-pin hover:underline"
+                >
+                  Remove from page
+                </button>
+              </div>
+            );
+          })()}
 
         <div className="rounded-xl border border-border p-3">
           <h3 className="mb-2 text-meta font-bold uppercase tracking-wide text-foreground-faint">Export</h3>
@@ -446,7 +479,12 @@ function AddFigurePicker({
         if (!src) continue;
         inflight.current.add(key);
         try {
-          const out = await src.render(r.id, { ...THUMB_IN, dpi: SCREEN_DPI, theme: "light" });
+          const out = await src.render(r.id, {
+            ...THUMB_IN,
+            dpi: SCREEN_DPI,
+            theme: "light",
+            overrides: { hideTitle: true },
+          });
           if (!cancelled) setThumbs((prev) => new Map(prev).set(key, out.svg));
         } catch {
           // leave it blank; the row shows a neutral placeholder

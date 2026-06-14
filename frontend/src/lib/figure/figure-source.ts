@@ -47,6 +47,12 @@ export interface RenderOpts {
   dpi: number;
   /** The page theme, so every panel renders consistently in one document. */
   theme: "light" | "dark";
+  /**
+   * Composition-local tweaks that never mutate the source figure. A composed
+   * multi-panel figure hides each plot's own title by default (the panel letter
+   * + figure caption carry it); a source applies these when it can.
+   */
+  overrides?: { hideTitle?: boolean; hideLegend?: boolean };
 }
 
 /** A rendered panel: a self-contained SVG plus its natural aspect for fitting. */
