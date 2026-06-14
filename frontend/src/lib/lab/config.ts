@@ -9,8 +9,13 @@
 // No emojis, no em-dashes, no mid-sentence colons.
 
 /**
- * Gates the lab tier (cross-folder group with a PI-co-owned lab key). Default
- * false. Phase 1 ships the crypto core dark behind this, so none of it can run
- * in the app until a later phase flips it on.
+ * Gates the lab tier (cross-folder group with a PI-co-owned lab key). Env-driven
+ * so it is controllable from Vercel without a code change. Default false (unset),
+ * so prod stays dark until NEXT_PUBLIC_LAB_TIER_ENABLED is set to "1" or "true".
+ * NEXT_PUBLIC so both the client components and the server routes read the same
+ * value (it bakes at build, so a change needs a redeploy). Set it in
+ * frontend/.env.local for local dev.
  */
-export const LAB_TIER_ENABLED = true; // LOCAL TEST ONLY — do not commit/push; origin/main stays false until launch
+export const LAB_TIER_ENABLED =
+  process.env.NEXT_PUBLIC_LAB_TIER_ENABLED === "1" ||
+  process.env.NEXT_PUBLIC_LAB_TIER_ENABLED === "true";
