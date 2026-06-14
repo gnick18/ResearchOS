@@ -50,6 +50,7 @@ import {
   type ResizeMode,
   type ErrorBarKind,
   type FitModelId,
+  type AxisScaleType,
 } from "@/lib/datahub/plot-spec";
 import { plotCode } from "@/lib/datahub/plot-code";
 import { chainCode, type ContentResolver } from "@/lib/datahub/chain-code";
@@ -742,21 +743,47 @@ export default function GraphEditor({
       >
         <Section title="Graph style">
           {isXY ? (
-            <Ctl label="Fitted curve">
-              <div className="max-w-[150px]" data-testid="datahub-style-fitmodel">
-                <StyledSelect
-                  value={style.fitModel}
-                  options={FIT_MODEL_OPTIONS.map((o) => ({
-                    value: o.value,
-                    label: o.label,
-                  }))}
+            <>
+              <Ctl label="Fitted curve">
+                <div className="max-w-[150px]" data-testid="datahub-style-fitmodel">
+                  <StyledSelect
+                    value={style.fitModel}
+                    options={FIT_MODEL_OPTIONS.map((o) => ({
+                      value: o.value,
+                      label: o.label,
+                    }))}
+                    onChange={(v) =>
+                      onStyleChange({ fitModel: v as FitModelId })
+                    }
+                    ariaLabel="Fitted curve"
+                  />
+                </div>
+              </Ctl>
+              <Ctl label="X axis">
+                <Seg<AxisScaleType>
+                  value={style.xScaleType ?? "linear"}
+                  options={[
+                    { value: "linear", label: "Linear" },
+                    { value: "log", label: "Log" },
+                  ]}
                   onChange={(v) =>
-                    onStyleChange({ fitModel: v as FitModelId })
+                    onStyleChange({ xScaleType: v === "log" ? "log" : undefined })
                   }
-                  ariaLabel="Fitted curve"
                 />
-              </div>
-            </Ctl>
+              </Ctl>
+              <Ctl label="Y axis">
+                <Seg<AxisScaleType>
+                  value={style.yScaleType ?? "linear"}
+                  options={[
+                    { value: "linear", label: "Linear" },
+                    { value: "log", label: "Log" },
+                  ]}
+                  onChange={(v) =>
+                    onStyleChange({ yScaleType: v === "log" ? "log" : undefined })
+                  }
+                />
+              </Ctl>
+            </>
           ) : isGrouped ? (
             <Ctl label="Error bars">
               <Seg<ErrorBarKind>

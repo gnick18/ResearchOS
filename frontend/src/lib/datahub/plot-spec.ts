@@ -30,7 +30,7 @@
 //
 // No em-dashes, no emojis, no mid-sentence colons.
 
-import { scaleLinear } from "d3-scale";
+import { scaleLinear, scaleLog } from "d3-scale";
 import type {
   AnalysisSpec,
   DataHubDocContent,
@@ -241,10 +241,22 @@ export interface PlotStyle {
    * raw stored value is normalized with readArtboardState at the consumer.
    */
   artboard?: ArtboardState;
+  /**
+   * Axis value scale for an XY figure (relationship plots). "log" is base-10 and
+   * applies only when the data on that axis is strictly positive (it falls back to
+   * linear otherwise). Optional and additive, absent means linear, so every other
+   * figure reads back byte-identical. Bars are excluded by nature (a zero baseline
+   * has no log position).
+   */
+  xScaleType?: AxisScaleType;
+  yScaleType?: AxisScaleType;
 }
 
 /** The unit a figure's width / height is typed in (and stored as). */
 export type SizeUnit = "px" | "in" | "cm";
+
+/** An axis value scale. "log" is base-10 (XY figures only, positive data). */
+export type AxisScaleType = "linear" | "log";
 
 /** How a resize changes the figure (re-layout the axes vs zoom the whole image). */
 export type ResizeMode = "relayout" | "scale";
@@ -546,6 +558,10 @@ export function readPlotStyle(spec: PlotSpec): PlotStyle {
       s.artboard && typeof s.artboard === "object"
         ? (s.artboard as ArtboardState)
         : undefined,
+    // Axis scales for an XY figure. Absent / anything but "log" reads as linear,
+    // so an old spec (or any non-XY figure) is byte-identical.
+    xScaleType: s.xScaleType === "log" ? "log" : undefined,
+    yScaleType: s.yScaleType === "log" ? "log" : undefined,
   };
 }
 
@@ -1642,6 +1658,26 @@ export function niceTicks(
 }
 
 /**
+ * Base-10 log-axis ticks spanning the data: lo / hi snap OUT to the enclosing
+ * powers of ten, and the ticks are the powers of ten in that span. Shares the
+ * niceTicks return shape (step is the decade count, unused by the renderer). The
+ * caller guarantees min is strictly positive before choosing a log axis.
+ */
+export function logTicks(
+  min: number,
+  max: number,
+): { lo: number; hi: number; step: number; values: number[] } {
+  if (!Number.isFinite(min) || !Number.isFinite(max) || min <= 0 || max <= 0) {
+    return { lo: 1, hi: 10, step: 1, values: [1, 10] };
+  }
+  const loE = Math.floor(Math.log10(min));
+  const hiE = Math.max(loE + 1, Math.ceil(Math.log10(max)));
+  const values: number[] = [];
+  for (let e = loE; e <= hiE; e++) values.push(Math.pow(10, e));
+  return { lo: Math.pow(10, loE), hi: Math.pow(10, hiE), step: 1, values };
+}
+
+/**
  * Resolve a fitted curve for the (x, y) pairs under a chosen model. Returns the
  * predictor function (fitted parameters baked in) plus a short note, or null
  * when no curve is requested / the fit cannot run. The engine does the math
@@ -1710,13 +1746,21 @@ export function layoutXYPlot(
   let yMinData = yvals.length ? Math.min(...yvals) : 0;
   let yMaxData = yvals.length ? Math.max(...yvals) : 1;
 
+  // Log axes only when requested AND the data on that axis is strictly positive
+  // (a log scale has no position for zero / negatives), else fall back to linear.
+  const xLog = style.xScaleType === "log" && xMinData > 0;
+
   // Sample the fitted curve across the X data range to both draw it and let it
-  // influence the Y frame (a curve can overshoot the points).
+  // influence the Y frame (a curve can overshoot the points). On a log X the
+  // samples are spaced in log space so the curve stays smooth across decades.
   const SAMPLES = 96;
   const rawFit: { x: number; y: number }[] = [];
   if (fit && xs.length > 0) {
+    const lx0 = xLog ? Math.log10(xMinData) : xMinData;
+    const lx1 = xLog ? Math.log10(xMaxData) : xMaxData;
     for (let i = 0; i <= SAMPLES; i++) {
-      const xv = xMinData + ((xMaxData - xMinData) * i) / SAMPLES;
+      const t = lx0 + ((lx1 - lx0) * i) / SAMPLES;
+      const xv = xLog ? Math.pow(10, t) : t;
       const yv = fit.predict(xv);
       if (Number.isFinite(yv)) {
         rawFit.push({ x: xv, y: yv });
@@ -1726,11 +1770,18 @@ export function layoutXYPlot(
     }
   }
 
-  const xAxis = niceTicks(xMinData, xMaxData);
-  const yAxis = niceTicks(yMinData, yMaxData);
+  // Y log decided after the fit, since the curve can widen the Y extent below 0.
+  const yLog = style.yScaleType === "log" && yMinData > 0;
 
-  const xScale = scaleLinear().domain([xAxis.lo, xAxis.hi]).range([x0, x1]);
-  const yScale = scaleLinear().domain([yAxis.lo, yAxis.hi]).range([y0, y1]);
+  const xAxis = xLog ? logTicks(xMinData, xMaxData) : niceTicks(xMinData, xMaxData);
+  const yAxis = yLog ? logTicks(yMinData, yMaxData) : niceTicks(yMinData, yMaxData);
+
+  const xScale = (xLog ? scaleLog() : scaleLinear())
+    .domain([xAxis.lo, xAxis.hi])
+    .range([x0, x1]);
+  const yScale = (yLog ? scaleLog() : scaleLinear())
+    .domain([yAxis.lo, yAxis.hi])
+    .range([y0, y1]);
   const X = (v: number) => xScale(v);
   const Y = (v: number) => yScale(v);
 

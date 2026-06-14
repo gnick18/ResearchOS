@@ -33,6 +33,7 @@ import {
   renderPlot,
   figureFileStem,
   niceTicks,
+  logTicks,
   layoutXYPlot,
   renderXYPlotSvg,
   toDesignPx,
@@ -588,6 +589,78 @@ describe("plot-spec: XY scatter + fitted curve", () => {
     expect(svg.startsWith("<" + "svg")).toBe(true);
     expect(svg).toContain("<circle");
     expect(svg).not.toContain("<path");
+  });
+
+  // Log-spaced concentration data, the dose-response use case for a log X axis.
+  function logContent(): DataHubDocContent {
+    const xs = [0.01, 0.1, 1, 10, 100, 1000];
+    return {
+      meta: XY_META,
+      columns: [
+        { id: "x", name: "Conc", role: "x", dataType: "number" },
+        { id: "y1", name: "Signal", role: "y", dataType: "number" },
+      ],
+      rows: xs.map((x, i) => ({ id: `r${i}`, cells: { x, y1: 10 + i * 10 } })),
+      analyses: [],
+      plots: [],
+    };
+  }
+
+  it("a log X axis snaps to powers of ten and keeps points in frame", () => {
+    const content = logContent();
+    const style = {
+      ...defaultPlotStyle(),
+      kind: "xyScatter" as const,
+      fitModel: "none" as const,
+      xScaleType: "log" as const,
+    };
+    const geo = layoutXYPlot(content, style, "y1");
+    // X ticks are powers of ten spanning the data (0.01 .. 1000).
+    expect(geo.xTicks.map((t) => t.value)).toEqual([0.01, 0.1, 1, 10, 100, 1000]);
+    expect(geo.xMin).toBeCloseTo(0.01, 9);
+    expect(geo.xMax).toBeCloseTo(1000, 6);
+    expect(geo.points).toHaveLength(6);
+    for (const p of geo.points) {
+      expect(p.x).toBeGreaterThanOrEqual(geo.x0 - 1);
+      expect(p.x).toBeLessThanOrEqual(geo.x1 + 1);
+    }
+  });
+
+  it("a log axis falls back to linear when the data is not strictly positive", () => {
+    // y includes a non-positive value path is not triggered here; instead verify
+    // that x with a zero would fall back. Build x starting at 0.
+    const content: DataHubDocContent = {
+      meta: XY_META,
+      columns: [
+        { id: "x", name: "X", role: "x", dataType: "number" },
+        { id: "y1", name: "Y", role: "y", dataType: "number" },
+      ],
+      rows: [0, 1, 2, 3].map((x, i) => ({ id: `r${i}`, cells: { x, y1: x + 1 } })),
+      analyses: [],
+      plots: [],
+    };
+    const style = {
+      ...defaultPlotStyle(),
+      kind: "xyScatter" as const,
+      fitModel: "none" as const,
+      xScaleType: "log" as const,
+    };
+    const geo = layoutXYPlot(content, style, "y1");
+    // Min data is 0, so log is refused and linear ticks (not powers of ten) appear.
+    expect(geo.xMin).toBe(0);
+  });
+});
+
+describe("plot-spec: logTicks", () => {
+  it("snaps lo/hi out to the enclosing powers of ten and lists the decades", () => {
+    const t = logTicks(0.03, 250);
+    expect(t.lo).toBeCloseTo(0.01, 9);
+    expect(t.hi).toBeCloseTo(1000, 6);
+    expect(t.values).toEqual([0.01, 0.1, 1, 10, 100, 1000]);
+  });
+  it("always spans at least one decade and rejects non-positive input", () => {
+    expect(logTicks(5, 5).values.length).toBeGreaterThanOrEqual(2);
+    expect(logTicks(-1, 10)).toEqual({ lo: 1, hi: 10, step: 1, values: [1, 10] });
   });
 });
 
