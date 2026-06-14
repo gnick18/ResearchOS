@@ -25,6 +25,15 @@
 export const AI_BARE_COST_USD_PER_TOKEN = 0.2 / 1_000_000;
 
 /**
+ * Our MEASURED real inference cost, $0.153 per 1M tokens (the 23-task spend test,
+ * 2026-06-14). This is what BeakerBot actually costs us, distinct from the pricing
+ * basis above (which carries a safety margin). Used ONLY to size the free starter
+ * grant by our true exposure, so "we give you 25 cents of free AI" means it costs
+ * us 25 cents, full stop. Billing rates derive from the basis, not this.
+ */
+export const AI_MEASURED_BARE_COST_USD_PER_TOKEN = 0.153 / 1_000_000;
+
+/**
  * The confirmed AI markups over bare cost (Grant 2026-06-11, see
  * docs/proposals/beakerbot-pricing-analysis.md "The markup"). The multipliers are
  * locked; the bare-cost dollars stay tunable. Individuals and labs pay 1.4x bare
@@ -56,16 +65,17 @@ export const USD_MICROS_PER_USD = 1_000_000;
 
 /**
  * The one-time sign-up gift, in tokens. Granted once per owner on FIRST use
- * (LOCKED decision), keyed to the owner so it can never be re-minted. Sized at 25
- * cents of value at the individual billing rate (~893k tokens). Our real cost to
- * mint it is only about 14 cents (the measured $0.153/1M blend, since BeakerBot is
- * 99.4% input), so the free liability stays small. In real terms that is roughly a
- * dozen tasks (around 10 typical multi-step tasks or ~18 quick questions), enough
- * to genuinely try BeakerBot before deciding to spend. A one-time trial, NOT a
- * recurring monthly allowance (a recurring free pool would be an unbounded
- * liability, Grant 2026-06-11).
+ * (LOCKED decision), keyed to the owner so it can never be re-minted. Sized by our
+ * MEASURED cost at 25 cents (~1.63M tokens): it costs us a clean 25 cents per
+ * signup, so "we give you 25 cents of free AI" is literally true. To the user that
+ * is ~46 cents of value at our prices, roughly 17 typical multi-step tasks or ~33
+ * quick questions, a real trial. A one-time trial, NOT a recurring monthly
+ * allowance (a recurring free pool would be an unbounded liability, Grant
+ * 2026-06-11).
  */
-export const STARTER_GRANT_TOKENS = Math.round(0.25 / AI_TOKEN_PRICE_USD);
+export const STARTER_GRANT_TOKENS = Math.round(
+  0.25 / AI_MEASURED_BARE_COST_USD_PER_TOKEN,
+);
 
 /**
  * Prepaid top-up packs, dollars to tokens at the current rate. Defined now for

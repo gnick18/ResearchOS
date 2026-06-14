@@ -5,6 +5,7 @@ import { describe, expect, it } from "vitest";
 import {
   AI_BARE_COST_USD_PER_TOKEN,
   AI_INDIVIDUAL_MARKUP,
+  AI_MEASURED_BARE_COST_USD_PER_TOKEN,
   AI_ORG_MARKUP,
   AI_ORG_TOKEN_PRICE_USD,
   AI_TOKEN_PRICE_USD,
@@ -31,12 +32,18 @@ describe("ai-config token math", () => {
     expect(AI_ORG_TOKEN_PRICE_USD).toBeCloseTo(0.4 / 1_000_000, 12);
   });
 
-  it("the starter grant is ~25 cents of value at the individual rate (892,857 tokens)", () => {
-    expect(STARTER_GRANT_TOKENS).toBe(892_857);
+  it("the starter grant is sized by measured cost (1,633,987 tokens)", () => {
+    expect(STARTER_GRANT_TOKENS).toBe(1_633_987);
   });
 
-  it("the starter grant is worth about 25 cents (250,000 micro-dollars)", () => {
-    expect(usdMicrosForTokens(STARTER_GRANT_TOKENS)).toBe(250_000);
+  it("the starter grant costs us a clean 25 cents at measured cost", () => {
+    expect(
+      STARTER_GRANT_TOKENS * AI_MEASURED_BARE_COST_USD_PER_TOKEN,
+    ).toBeCloseTo(0.25, 3);
+  });
+
+  it("the starter grant is worth about 46 cents of value at our price", () => {
+    expect(usdMicrosForTokens(STARTER_GRANT_TOKENS)).toBe(457_516);
   });
 
   it("usdMicrosForTokens is zero or non-positive-safe", () => {
