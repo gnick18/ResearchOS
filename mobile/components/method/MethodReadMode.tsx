@@ -35,7 +35,8 @@ import Svg, { Polyline, Line, Rect, Text as SvgText } from 'react-native-svg';
 
 import { ThemedText } from '@/components/themed-text';
 import { Button } from '@/components/ui/Button';
-import { useTheme, palette } from '@/lib/design';
+import { useTheme, palette, fonts } from '@/lib/design';
+import { typeMeta } from '@/lib/method-library';
 import type { MethodProjection } from '@/lib/snapshots';
 import { checkKey, loadMethodChecks, saveMethodChecks, type CheckMap } from '@/lib/method-checks';
 import {
@@ -171,10 +172,12 @@ function LcGradient({
   points,
   focusedIndex,
   width,
+  accent,
 }: {
   points: { timeMin: number; percentB: number }[];
   focusedIndex?: number;
   width: number;
+  accent: string;
 }) {
   const W = Math.max(120, width);
   const H = 84;
@@ -187,46 +190,59 @@ function LcGradient({
   const cx = x(cursorT);
   return (
     <Svg width="100%" height={H} viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none">
-      <Polyline points={poly} fill="none" stroke={palette.sky} strokeWidth={3} strokeLinejoin="round" />
+      <Polyline points={poly} fill="none" stroke={accent} strokeWidth={3} strokeLinejoin="round" />
       <Line x1={cx} y1={0} x2={cx} y2={H} stroke={palette.amber} strokeWidth={2} strokeDasharray="4 3" />
     </Svg>
   );
 }
 
-// ---- Per-type accent colors (match METHOD_TYPE_META in method-library.ts) --
-const TYPE_ACCENT: Record<string, string> = {
-  pcr: '#7C5CE0',
-  lc_gradient: palette.sky,
-  mass_spec: '#0e7490',
-  cloning: '#5B47D6',
-  extraction: '#16a34a',
-  western: '#d97706',
-  qpcr: '#0ea5e9',
-  staining: '#db2777',
-  culture: '#0891b2',
-  compound: '#7c3aed',
-  markdown: '#475569',
-  pdf: '#be123c',
-  coding: '#334155',
-};
-
+// ---- Per-type accent color -------------------------------------------------
+// One source of truth: the SAME METHOD_TYPE_META colors the method library list
+// paints its rows with, so a type reads identically across the library, its
+// read mode, and the contract's per-type accent. Drives the type badge, key
+// params, charts, kicker, focus ring, progress, and the Next button.
 function accentFor(resolvedType?: string): string {
-  return (resolvedType && TYPE_ACCENT[resolvedType]) ?? palette.sky;
+  if (!resolvedType) return palette.sky;
+  return typeMeta(resolvedType).color;
+}
+
+// A translucent wash of any #rrggbb accent, for tinted backgrounds (badge fill,
+// chart panel, soft buttons) that stay readable in light AND dark.
+function accentWash(hex: string, alpha = 0.14): string {
+  const m = /^#?([0-9a-f]{6})$/i.exec(hex.trim());
+  if (!m) return `rgba(26,160,230,${alpha})`;
+  const n = parseInt(m[1], 16);
+  return `rgba(${(n >> 16) & 255}, ${(n >> 8) & 255}, ${n & 255}, ${alpha})`;
 }
 
 // ---- Type badge (shown in the pinned header for every type) ----------------
-function TypeBadge({ label, accent }: { label: string; accent: string }) {
+// Contract .typebadge: a small accent-washed pill carrying the type accent, an
+// optional Ionicon glyph, and a 700-weight uppercase-feeling label.
+function TypeBadge({ label, accent, icon }: { label: string; accent: string; icon?: keyof typeof Ionicons.glyphMap }) {
   return (
-    <View
-      style={[
-        thstyles.badge,
-        { backgroundColor: `${accent}22` },
-      ]}
-    >
+    <View style={[thstyles.badge, { backgroundColor: accentWash(accent, 0.14) }]}>
+      {icon ? <Ionicons name={icon} size={13} color={accent} style={thstyles.badgeIcon} /> : null}
       <ThemedText style={[thstyles.badgeTxt, { color: accent }]}>{label}</ThemedText>
     </View>
   );
 }
+
+// Per-type badge glyph, matching the contract's typebadge icons by meaning.
+const TYPE_ICON: Record<string, keyof typeof Ionicons.glyphMap> = {
+  pcr: 'thermometer-outline',
+  lc_gradient: 'analytics-outline',
+  mass_spec: 'pulse-outline',
+  qpcr: 'pulse-outline',
+  cloning: 'git-branch-outline',
+  extraction: 'flask-outline',
+  western: 'layers-outline',
+  staining: 'color-fill-outline',
+  culture: 'cellular-outline',
+  compound: 'cube-outline',
+  markdown: 'document-text-outline',
+  pdf: 'document-outline',
+  coding: 'code-slash-outline',
+};
 
 // ---- Key-params row (accent-colored pills) ----------------------------------
 function TypeKeyParams({
@@ -241,8 +257,11 @@ function TypeKeyParams({
   return (
     <View style={thstyles.kvRow}>
       {params.map((p, i) => (
-        <View key={i} style={[thstyles.kvChip, { backgroundColor: surface.sunken }]}>
-          <ThemedText style={[thstyles.kvLabel, { color: surface.muted }]}>{p.label ?? ''}</ThemedText>
+        <View
+          key={i}
+          style={[thstyles.kvChip, { backgroundColor: surface.sunken, borderColor: accentWash(accent, 0.18) }]}
+        >
+          <ThemedText style={[thstyles.kvLabel, { color: surface.faint }]}>{p.label ?? ''}</ThemedText>
           <ThemedText style={[thstyles.kvValue, { color: surface.text }]}>{p.value ?? ''}</ThemedText>
         </View>
       ))}
@@ -315,18 +334,22 @@ function QpcrMeltChart({ accent }: { accent: string }) {
 // we use a simple regex coloriser for keywords and strings that covers the
 // Python/R/bash snippets the seed data carries.
 function CodeBlock({ body, accent }: { body?: string | null; accent: string }) {
-  const { surface } = useTheme();
   // Pull the first paragraph from body as the "code" to show, or fallback.
   const snippet = body
     ? body.split(/\n{2,}/)[0]?.trim() ?? body.trim()
     : '# Open the method on the laptop for the full script.';
+  // Contract .code: an always-dark editor surface (#0d1117) with a light mono
+  // body, regardless of theme, so a script reads like a real terminal at the
+  // bench. The language chip carries the type accent.
   return (
-    <View style={[cbstyles.wrap, { backgroundColor: surface.sunken, borderColor: `${accent}33` }]}>
-      <View style={[cbstyles.langBar, { backgroundColor: `${accent}18` }]}>
-        <ThemedText style={[cbstyles.langTxt, { color: accent }]}>Script</ThemedText>
+    <View style={[cbstyles.wrap, { borderColor: accentWash(accent, 0.4) }]}>
+      <View style={cbstyles.langBar}>
+        <View style={[cbstyles.langChip, { backgroundColor: accentWash(accent, 0.22) }]}>
+          <ThemedText style={[cbstyles.langTxt, { color: accent }]}>Script</ThemedText>
+        </View>
       </View>
       <ScrollView horizontal showsHorizontalScrollIndicator={false} style={cbstyles.scroll}>
-        <ThemedText style={[cbstyles.code, { color: surface.text }]}>{snippet}</ThemedText>
+        <ThemedText style={cbstyles.code}>{snippet}</ThemedText>
       </ScrollView>
     </View>
   );
@@ -401,7 +424,7 @@ function TypedHeader({
         style={tystyles.headRow}
       >
         <View style={tystyles.headLeft}>
-          <TypeBadge label={typeLabel} accent={accent} />
+          <TypeBadge label={typeLabel} accent={accent} icon={TYPE_ICON[rt]} />
           <ThemedText style={[tystyles.title, { color: surface.text }]} numberOfLines={collapsed ? 1 : 2}>
             {method.name ?? 'Method'}
           </ThemedText>
@@ -421,13 +444,13 @@ function TypedHeader({
           <TypeKeyParams params={method.keyParams} accent={accent} />
 
           {rt === 'mass_spec' ? (
-            <View style={[tystyles.chart, { backgroundColor: surface.sunken }]}>
-              <ThemedText style={[tystyles.chartLbl, { color: surface.muted }]}>Acquisition spectrum</ThemedText>
+            <View style={[tystyles.chart, { backgroundColor: surface.sunken, borderColor: surface.border }]}>
+              <ThemedText style={[tystyles.chartLbl, { color: surface.faint }]}>Acquisition spectrum</ThemedText>
               <MassSpecChart accent={accent} />
             </View>
           ) : rt === 'qpcr' ? (
-            <View style={[tystyles.chart, { backgroundColor: surface.sunken }]}>
-              <ThemedText style={[tystyles.chartLbl, { color: surface.muted }]}>Melt curve (Tm)</ThemedText>
+            <View style={[tystyles.chart, { backgroundColor: surface.sunken, borderColor: surface.border }]}>
+              <ThemedText style={[tystyles.chartLbl, { color: surface.faint }]}>Melt curve (Tm)</ThemedText>
               <QpcrMeltChart accent={accent} />
             </View>
           ) : rt === 'coding' ? (
@@ -445,16 +468,20 @@ function TypedHeader({
 const thstyles = StyleSheet.create({
   badge: {
     alignSelf: 'flex-start',
-    paddingHorizontal: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 11,
     paddingVertical: 5,
     borderRadius: 999,
-    marginBottom: 6,
+    marginBottom: 7,
   },
-  badgeTxt: { fontSize: 12, fontWeight: '700', letterSpacing: 0.3 },
+  badgeIcon: { marginLeft: -1 },
+  badgeTxt: { fontSize: 12, fontFamily: fonts.bold, fontWeight: '700', letterSpacing: 0.2 },
   kvRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 7, marginTop: 8 },
-  kvChip: { paddingHorizontal: 10, paddingVertical: 6, borderRadius: 10, gap: 3 },
-  kvLabel: { fontSize: 10, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.4 },
-  kvValue: { fontSize: 13, fontWeight: '600' },
+  kvChip: { paddingHorizontal: 11, paddingVertical: 7, borderRadius: 11, gap: 3, borderWidth: 1 },
+  kvLabel: { fontSize: 9.5, fontFamily: fonts.bold, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.5 },
+  kvValue: { fontSize: 13.5, fontFamily: fonts.mono, fontWeight: '600' },
 });
 
 const tystyles = StyleSheet.create({
@@ -462,17 +489,18 @@ const tystyles = StyleSheet.create({
   headRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   headLeft: { flex: 1, gap: 6 },
   headChevron: { marginLeft: 4 },
-  title: { fontSize: 17, fontWeight: '800', lineHeight: 22 },
-  chart: { borderRadius: 12, padding: 10, marginTop: 4 },
-  chartLbl: { fontSize: 10, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 6 },
+  title: { fontSize: 18, fontFamily: fonts.extrabold, fontWeight: '800', lineHeight: 23, letterSpacing: -0.3 },
+  chart: { borderRadius: 14, padding: 12, marginTop: 4, borderWidth: 1 },
+  chartLbl: { fontSize: 10, fontFamily: fonts.bold, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 8 },
 });
 
 const cbstyles = StyleSheet.create({
-  wrap: { borderRadius: 12, overflow: 'hidden', borderWidth: 1, marginTop: 4 },
-  langBar: { paddingHorizontal: 12, paddingVertical: 6 },
-  langTxt: { fontSize: 11, fontWeight: '700', letterSpacing: 0.3 },
-  scroll: { maxHeight: 110 },
-  code: { fontSize: 12, lineHeight: 20, fontFamily: 'GeistMono_500Medium', padding: 12 },
+  wrap: { borderRadius: 14, overflow: 'hidden', borderWidth: 1, marginTop: 4, backgroundColor: '#0d1117' },
+  langBar: { flexDirection: 'row', paddingHorizontal: 12, paddingTop: 11, paddingBottom: 2 },
+  langChip: { paddingHorizontal: 11, paddingVertical: 5, borderRadius: 999 },
+  langTxt: { fontSize: 11, fontFamily: fonts.bold, fontWeight: '700', letterSpacing: 0.3 },
+  scroll: { maxHeight: 150 },
+  code: { fontSize: 12.5, lineHeight: 21, fontFamily: fonts.mono, color: '#c9d4e0', paddingHorizontal: 14, paddingTop: 8, paddingBottom: 14 },
 });
 
 const pdfstyles = StyleSheet.create({
@@ -506,6 +534,7 @@ function StepCard({
   onToggleCheck,
   focused,
   reduceMotion,
+  accent,
   onPress,
   onLayout,
 }: {
@@ -515,6 +544,7 @@ function StepCard({
   onToggleCheck: (stepIndex: number, checkIndex: number) => void;
   focused: boolean;
   reduceMotion: boolean;
+  accent: string;
   onPress: () => void;
   onLayout: (e: LayoutChangeEvent) => void;
 }) {
@@ -528,15 +558,15 @@ function StepCard({
           rstyles.step,
           {
             backgroundColor: surface.surface,
-            borderColor: focused ? palette.sky : surface.border,
+            borderColor: focused ? accent : surface.border,
             borderRadius: radii.xl,
             opacity: focused ? 1 : 0.5,
             transform: [{ scale }],
           },
-          focused && rstyles.stepFocusedShadow,
+          focused && { shadowColor: accent, ...rstyles.stepFocusedShadow },
         ]}
       >
-        <ThemedText style={[rstyles.kicker, { color: palette.sky }]}>{step.kicker}</ThemedText>
+        <ThemedText style={[rstyles.kicker, { color: accent }]}>{step.kicker}</ThemedText>
         {step.isTemp ? (
           <ThemedText style={[rstyles.tempBig, { color: TONE_COLOR[step.tone] }]}>
             {step.big}
@@ -650,6 +680,10 @@ export function MethodReadMode({
 
   const model = useMemo(() => buildReadModel(method), [method]);
   const steps = model.steps;
+  // The type accent threads through every focal cue (kicker, focus ring,
+  // progress, Next, the graphic map stroke) so the whole reader carries one
+  // type color, exactly like the contract's per-type accent.
+  const accent = accentFor(method.resolvedType);
   const [focus, setFocus] = useState(0);
   const [composerOpen, setComposerOpen] = useState(false);
   const [variationText, setVariationText] = useState('');
@@ -798,6 +832,9 @@ export function MethodReadMode({
           <ThemedText style={[rstyles.awakeTxt, { color: palette.success }]}>SCREEN ON</ThemedText>
         </View>
       </View>
+      {/* A hairline of the type accent carries the reader's type color edge to
+          edge, the way the contract's per-type pushed header does. */}
+      <View style={[rstyles.accentRule, { backgroundColor: accent }]} />
 
       {/* Pinned header: PCR and LC keep the existing interactive graphic map;
           every other type gets the new TypedHeader with accent color, badge,
@@ -822,7 +859,7 @@ export function MethodReadMode({
             model.map.kind === 'pcr' ? (
               <PcrProfile blocks={model.map.blocks} focusedSeg={focusedPcrSeg} onSelectSeg={selectPcrSeg} />
             ) : (
-              <LcGradient points={model.map.points} focusedIndex={focusedLcSeg} width={mapWidth} />
+              <LcGradient points={model.map.points} focusedIndex={focusedLcSeg} width={mapWidth} accent={accent} />
             )
           ) : null}
         </View>
@@ -852,6 +889,7 @@ export function MethodReadMode({
             onToggleCheck={toggleCheck}
             focused={i === focus}
             reduceMotion={reduceMotion}
+            accent={accent}
             onPress={() => goTo(i)}
             onLayout={(e) => onStepLayout(i, e)}
           />
@@ -908,7 +946,7 @@ export function MethodReadMode({
                   key={i}
                   style={[
                     rstyles.dot,
-                    { backgroundColor: i === focus ? palette.sky : surface.border, width: i === focus ? 18 : 7 },
+                    { backgroundColor: i === focus ? accent : surface.border, width: i === focus ? 18 : 7 },
                   ]}
                 />
               ))}
@@ -933,7 +971,7 @@ export function MethodReadMode({
               </Pressable>
               <Pressable
                 onPress={() => (atEnd ? onClose() : goTo(focus + 1))}
-                style={[rstyles.navNext, { backgroundColor: palette.sky }]}
+                style={[rstyles.navNext, { backgroundColor: accent }]}
                 accessibilityRole="button"
                 accessibilityLabel={atEnd ? 'Done' : 'Next step'}
               >
@@ -985,31 +1023,31 @@ const rstyles = StyleSheet.create({
     paddingVertical: 10,
     borderBottomWidth: 1,
   },
+  accentRule: { height: 2, width: '100%' },
   closeBtn: { width: 34, height: 34, borderRadius: 999, alignItems: 'center', justifyContent: 'center' },
   topName: { flex: 1, minWidth: 0 },
-  topN: { fontSize: 15, fontWeight: '800' },
-  topExp: { fontSize: 11 },
+  topN: { fontSize: 15, fontFamily: fonts.extrabold, fontWeight: '800' },
+  topExp: { fontSize: 11, fontFamily: fonts.medium },
   awake: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   awakeDot: { width: 6, height: 6, borderRadius: 999 },
-  awakeTxt: { fontSize: 10, fontWeight: '700' },
+  awakeTxt: { fontSize: 10, fontFamily: fonts.bold, fontWeight: '700', letterSpacing: 0.4 },
   map: { paddingHorizontal: 14, paddingVertical: 12, borderBottomWidth: 1 },
   mapHeadRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 },
-  mapLbl: { fontSize: 10, fontWeight: '800', textTransform: 'uppercase', letterSpacing: 0.6 },
+  mapLbl: { fontSize: 10, fontFamily: fonts.extrabold, fontWeight: '800', textTransform: 'uppercase', letterSpacing: 0.6 },
   steps: { flex: 1 },
   stepsContent: { paddingHorizontal: 16, paddingTop: 14, paddingBottom: 140 },
   step: { borderWidth: 1, padding: 16, marginBottom: 12 },
   stepFocusedShadow: {
-    shadowColor: palette.sky,
     shadowOffset: { width: 0, height: 10 },
     shadowOpacity: 0.18,
     shadowRadius: 18,
     elevation: 6,
   },
-  kicker: { fontSize: 11, fontWeight: '800', textTransform: 'uppercase', letterSpacing: 0.6 },
-  big: { fontSize: 24, fontWeight: '800', lineHeight: 32, marginTop: 6 },
+  kicker: { fontSize: 11, fontFamily: fonts.extrabold, fontWeight: '800', textTransform: 'uppercase', letterSpacing: 0.6 },
+  big: { fontSize: 24, fontFamily: fonts.extrabold, fontWeight: '800', lineHeight: 32, marginTop: 6, letterSpacing: -0.3 },
   bigFocused: { fontSize: 28, lineHeight: 38 },
-  tempBig: { fontSize: 44, fontWeight: '900', lineHeight: 56, marginTop: 4 },
-  detail: { fontSize: 17, lineHeight: 24, marginTop: 8 },
+  tempBig: { fontSize: 44, fontFamily: fonts.extrabold, fontWeight: '900', lineHeight: 56, marginTop: 4, letterSpacing: -0.5 },
+  detail: { fontSize: 17, lineHeight: 25, marginTop: 8 },
   check: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 9, borderBottomWidth: 1 },
   checkBox: { width: 24, height: 24, borderRadius: 7, borderWidth: 2, alignItems: 'center', justifyContent: 'center' },
   checkName: { fontSize: 18, flex: 1 },
@@ -1035,10 +1073,10 @@ const rstyles = StyleSheet.create({
   dot: { height: 7, borderRadius: 999 },
   navRow: { flexDirection: 'row', gap: 9, alignItems: 'center' },
   navPrev: { width: 70, borderRadius: 13, paddingVertical: 14, alignItems: 'center' },
-  navPrevTxt: { fontSize: 16, fontWeight: '800' },
+  navPrevTxt: { fontSize: 16, fontFamily: fonts.extrabold, fontWeight: '800' },
   varBtn: { width: 52, borderRadius: 13, paddingVertical: 14, alignItems: 'center', borderWidth: 1 },
   navNext: { flex: 1, borderRadius: 13, paddingVertical: 14, alignItems: 'center' },
-  navNextTxt: { fontSize: 16, fontWeight: '800', color: palette.white },
+  navNextTxt: { fontSize: 16, fontFamily: fonts.extrabold, fontWeight: '800', color: palette.white },
   composerInput: { borderWidth: 1, paddingHorizontal: 14, paddingVertical: 12, fontSize: 16, minHeight: 88 },
   composerActions: { flexDirection: 'row', justifyContent: 'flex-end' },
 });

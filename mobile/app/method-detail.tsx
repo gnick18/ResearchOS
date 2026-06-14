@@ -34,7 +34,8 @@ import { Card } from '@/components/ui/Card';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { SectionHeader } from '@/components/ui/SectionHeader';
 import { MethodReadMode } from '@/components/method/MethodReadMode';
-import { useTheme, palette } from '@/lib/design';
+import { useTheme, palette, fonts } from '@/lib/design';
+import { typeMeta } from '@/lib/method-library';
 import { usePairing } from '@/lib/pairing';
 import { signWithDevice } from '@/lib/device-identity';
 import { fetchSnapshot, type MethodSnapshot, type MethodProjection } from '@/lib/snapshots';
@@ -46,6 +47,51 @@ import type { CheckMap } from '@/lib/method-checks';
 
 // ── Per-type read renderers ──────────────────────────────────────────────────
 
+// One source of truth for type color: the SAME METHOD_TYPE_META the library list
+// paints rows with, so the card carries the type's accent consistently.
+function accentFor(method: MethodProjection): string {
+  const t = method.resolvedType ?? method.methodType ?? undefined;
+  return t ? typeMeta(t).color : palette.sky;
+}
+
+// A translucent wash of a #rrggbb accent, readable on light AND dark.
+function accentWash(hex: string, alpha = 0.14): string {
+  const m = /^#?([0-9a-f]{6})$/i.exec(hex.trim());
+  if (!m) return `rgba(26,160,230,${alpha})`;
+  const n = parseInt(m[1], 16);
+  return `rgba(${(n >> 16) & 255}, ${(n >> 8) & 255}, ${n & 255}, ${alpha})`;
+}
+
+const TYPE_ICON: Record<string, keyof typeof Ionicons.glyphMap> = {
+  pcr: 'thermometer-outline',
+  lc_gradient: 'analytics-outline',
+  mass_spec: 'pulse-outline',
+  qpcr: 'pulse-outline',
+  cloning: 'git-branch-outline',
+  extraction: 'flask-outline',
+  western: 'layers-outline',
+  staining: 'color-fill-outline',
+  culture: 'cellular-outline',
+  compound: 'cube-outline',
+  markdown: 'document-text-outline',
+  pdf: 'document-outline',
+  coding: 'code-slash-outline',
+};
+
+// Contract .typebadge: an accent-washed pill with the type accent, a glyph, and
+// a 700-weight label. Shown above the method title on the card.
+function TypeBadge({ method, accent }: { method: MethodProjection; accent: string }) {
+  const t = method.resolvedType ?? method.methodType ?? undefined;
+  const label = t ? typeMeta(t).label : 'Method';
+  const icon = t ? TYPE_ICON[t] : undefined;
+  return (
+    <View style={[styles.badge, { backgroundColor: accentWash(accent, 0.14) }]}>
+      {icon ? <Ionicons name={icon} size={13} color={accent} /> : null}
+      <ThemedText style={[styles.badgeTxt, { color: accent }]}>{label}</ThemedText>
+    </View>
+  );
+}
+
 function KeyParamRow({ params }: { params: MethodProjection['keyParams'] }) {
   const { surface, spacing, radii } = useTheme();
   if (!params || params.length === 0) return null;
@@ -56,10 +102,10 @@ function KeyParamRow({ params }: { params: MethodProjection['keyParams'] }) {
           key={i}
           style={[
             styles.chip,
-            { backgroundColor: surface.sunken, borderRadius: radii.sm, paddingHorizontal: spacing.sm },
+            { backgroundColor: surface.sunken, borderColor: surface.border, borderRadius: radii.sm, paddingHorizontal: spacing.md },
           ]}
         >
-          <ThemedText style={[styles.chipLabel, { color: surface.muted }]}>
+          <ThemedText style={[styles.chipLabel, { color: surface.faint }]}>
             {p.label ?? ''}
           </ThemedText>
           <ThemedText style={[styles.chipValue, { color: surface.text }]}>
@@ -99,7 +145,7 @@ function PcrView({ method }: { method: MethodProjection }) {
     <View style={styles.section}>
       {pcr.initial && pcr.initial.length > 0 ? (
         <>
-          <ThemedText style={[styles.subhead, { color: surface.muted }]}>Initial</ThemedText>
+          <ThemedText style={[styles.subhead, { color: surface.faint }]}>Initial</ThemedText>
           {pcr.initial.map((s, i) => (
             <PcrStepLine key={`init-${i}`} label={s.name ?? 'Step'} temperature={s.temperature} duration={s.duration} />
           ))}
@@ -108,7 +154,7 @@ function PcrView({ method }: { method: MethodProjection }) {
 
       {(pcr.cycles ?? []).map((cycle, ci) => (
         <View key={`cyc-${ci}`} style={styles.cycleBlock}>
-          <ThemedText style={[styles.subhead, { color: surface.muted }]}>
+          <ThemedText style={[styles.subhead, { color: surface.faint }]}>
             {`Cycle x${cycle.repeats ?? 1}`}
           </ThemedText>
           {(cycle.steps ?? []).map((s, i) => (
@@ -119,7 +165,7 @@ function PcrView({ method }: { method: MethodProjection }) {
 
       {pcr.final && pcr.final.length > 0 ? (
         <>
-          <ThemedText style={[styles.subhead, { color: surface.muted }]}>Final</ThemedText>
+          <ThemedText style={[styles.subhead, { color: surface.faint }]}>Final</ThemedText>
           {pcr.final.map((s, i) => (
             <PcrStepLine key={`fin-${i}`} label={s.name ?? 'Step'} temperature={s.temperature} duration={s.duration} />
           ))}
@@ -128,14 +174,14 @@ function PcrView({ method }: { method: MethodProjection }) {
 
       {pcr.hold ? (
         <>
-          <ThemedText style={[styles.subhead, { color: surface.muted }]}>Hold</ThemedText>
+          <ThemedText style={[styles.subhead, { color: surface.faint }]}>Hold</ThemedText>
           <PcrStepLine label={pcr.hold.name ?? 'Hold'} temperature={pcr.hold.temperature} duration={pcr.hold.duration} />
         </>
       ) : null}
 
       {pcr.ingredients && pcr.ingredients.length > 0 ? (
         <>
-          <ThemedText style={[styles.subhead, { color: surface.muted }]}>Reaction mix</ThemedText>
+          <ThemedText style={[styles.subhead, { color: surface.faint }]}>Reaction mix</ThemedText>
           {pcr.ingredients.map((ing, i) => (
             <View key={`ing-${i}`} style={styles.stepLine}>
               <ThemedText style={[styles.stepName, { color: surface.text }]}>
@@ -174,7 +220,7 @@ function LcView({ method }: { method: MethodProjection }) {
     <View style={styles.section}>
       {lc.steps && lc.steps.length > 0 ? (
         <>
-          <ThemedText style={[styles.subhead, { color: surface.muted }]}>Gradient</ThemedText>
+          <ThemedText style={[styles.subhead, { color: surface.faint }]}>Gradient</ThemedText>
           <View style={styles.stepLine}>
             <ThemedText style={[styles.stepDetail, { color: surface.muted, flex: 1 }]}>min</ThemedText>
             <ThemedText style={[styles.stepDetail, { color: surface.muted, flex: 1 }]}>%A</ThemedText>
@@ -194,7 +240,7 @@ function LcView({ method }: { method: MethodProjection }) {
 
       {colParts || colDims ? (
         <>
-          <ThemedText style={[styles.subhead, { color: surface.muted }]}>Column</ThemedText>
+          <ThemedText style={[styles.subhead, { color: surface.faint }]}>Column</ThemedText>
           {colParts ? (
             <ThemedText style={[styles.bodyText, { color: surface.text }]}>{colParts}</ThemedText>
           ) : null}
@@ -206,7 +252,7 @@ function LcView({ method }: { method: MethodProjection }) {
 
       {lc.ingredients && lc.ingredients.length > 0 ? (
         <>
-          <ThemedText style={[styles.subhead, { color: surface.muted }]}>Mobile phase</ThemedText>
+          <ThemedText style={[styles.subhead, { color: surface.faint }]}>Mobile phase</ThemedText>
           {lc.ingredients.map((ing, i) => (
             <View key={`lci-${i}`} style={styles.stepLine}>
               <ThemedText style={[styles.stepName, { color: surface.text }]}>
@@ -228,24 +274,38 @@ function LcView({ method }: { method: MethodProjection }) {
   );
 }
 
-function CompoundView({ method }: { method: MethodProjection }) {
+function CompoundView({ method, accent }: { method: MethodProjection; accent: string }) {
   const { surface } = useTheme();
   const children = method.compound?.children ?? [];
   if (children.length === 0) return null;
   return (
     <View style={styles.section}>
-      <ThemedText style={[styles.subhead, { color: surface.muted }]}>Steps in this kit</ThemedText>
-      {children.map((child, i) => (
-        <View key={`child-${i}`} style={styles.stepLine}>
-          <ThemedText style={[styles.stepName, { color: surface.text }]}>
-            {`${i + 1}. ${child.label ?? 'Step'}`}
-          </ThemedText>
-          <ThemedText style={[styles.stepDetail, { color: surface.muted }]}>
-            {child.methodType ?? ''}
-          </ThemedText>
-        </View>
-      ))}
-      <ThemedText style={[styles.bodyText, { color: surface.muted }]}>
+      <ThemedText style={[styles.subhead, { color: surface.faint }]}>Components</ThemedText>
+      {/* Contract .kit-item: each bundled method is an ordered, openable card with
+          an accent-tinted step number, the step type, and a chevron affordance. */}
+      {children.map((child, i) => {
+        const childType = child.methodType ?? undefined;
+        const childAccent = childType ? typeMeta(childType).color : accent;
+        const childLabel = childType ? typeMeta(childType).label : 'Step';
+        return (
+          <View
+            key={`child-${i}`}
+            style={[styles.kitItem, { backgroundColor: surface.surface2, borderColor: surface.border }]}
+          >
+            <View style={[styles.kitNum, { backgroundColor: accentWash(childAccent, 0.14) }]}>
+              <ThemedText style={[styles.kitNumTxt, { color: childAccent }]}>{i + 1}</ThemedText>
+            </View>
+            <View style={styles.kitBody}>
+              <ThemedText numberOfLines={1} style={[styles.kitName, { color: surface.text }]}>
+                {child.label ?? 'Step'}
+              </ThemedText>
+              <ThemedText style={[styles.kitSub, { color: surface.muted }]}>{childLabel}</ThemedText>
+            </View>
+            <Ionicons name="chevron-forward" size={18} color={surface.faint} />
+          </View>
+        );
+      })}
+      <ThemedText style={[styles.kitNote, { color: surface.muted }]}>
         Open the kit on the laptop for each step's full recipe.
       </ThemedText>
     </View>
@@ -292,24 +352,28 @@ function MethodCard({
     setComposerOpen(false);
   }, [variationText, method.methodId, onAddVariation]);
 
-  const typeLabel = method.methodType ?? method.resolvedType ?? '';
+  const accent = accentFor(method);
 
   return (
     <Card style={styles.methodCard}>
+      {/* Contract masthead: type badge, then the big method title. */}
+      <TypeBadge method={method} accent={accent} />
       <ThemedText type="title" style={styles.methodName}>
         {method.name ?? 'Method'}
       </ThemedText>
-      {typeLabel ? (
-        <ThemedText style={[styles.methodType, { color: surface.muted }]}>{typeLabel}</ThemedText>
-      ) : null}
 
       {/* Prominent full-screen big-text read mode (NYT-cooking-style). The
-          method already lives here; read mode is an enhanced presentation. */}
+          method already lives here; read mode is an enhanced presentation. It
+          carries the type accent so the entry point matches the reader. */}
       <Pressable
         onPress={onEnterRead}
         accessibilityRole="button"
         accessibilityLabel="Open read mode"
-        style={[styles.readBtn, { backgroundColor: palette.sky, borderRadius: radii.lg }]}
+        style={({ pressed }) => [
+          styles.readBtn,
+          { backgroundColor: accent, borderRadius: radii.lg },
+          pressed && { opacity: 0.9 },
+        ]}
       >
         <Ionicons name="play" size={18} color={palette.white} />
         <ThemedText style={styles.readBtnTxt}>Read mode</ThemedText>
@@ -322,7 +386,7 @@ function MethodCard({
       ) : method.resolvedType === 'lc_gradient' ? (
         <LcView method={method} />
       ) : method.resolvedType === 'compound' ? (
-        <CompoundView method={method} />
+        <CompoundView method={method} accent={accent} />
       ) : (
         <BodyView method={method} />
       )}
@@ -710,29 +774,47 @@ const styles = StyleSheet.create({
   statusCard: { borderWidth: 1 },
   statusText: { fontSize: 15, fontWeight: '600', lineHeight: 20 },
   methodCard: { gap: 8 },
+  badge: {
+    alignSelf: 'flex-start',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 11,
+    paddingVertical: 5,
+    borderRadius: 999,
+    marginBottom: 2,
+  },
+  badgeTxt: { fontSize: 12, fontFamily: fonts.bold, fontWeight: '700', letterSpacing: 0.2 },
   readBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 9,
     paddingVertical: 14,
-    marginTop: 4,
+    marginTop: 6,
   },
-  readBtnTxt: { fontSize: 16, fontWeight: '800', color: '#ffffff' },
+  readBtnTxt: { fontSize: 16, fontFamily: fonts.extrabold, fontWeight: '800', color: '#ffffff' },
   methodName: { fontSize: 20 },
-  methodType: { fontSize: 13, textTransform: 'uppercase', letterSpacing: 0.5 },
   chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 4 },
-  chip: { paddingVertical: 6, alignItems: 'center', flexDirection: 'row', gap: 6 },
-  chipLabel: { fontSize: 12 },
-  chipValue: { fontSize: 14, fontWeight: '700' },
-  section: { gap: 6, marginTop: 4 },
-  subhead: { fontSize: 13, fontWeight: '700', marginTop: 8, textTransform: 'uppercase', letterSpacing: 0.4 },
+  chip: { paddingVertical: 7, alignItems: 'center', flexDirection: 'row', gap: 6, borderWidth: 1, borderColor: 'transparent' },
+  chipLabel: { fontSize: 11.5, fontFamily: fonts.medium },
+  chipValue: { fontSize: 14, fontFamily: fonts.monoSemibold, fontWeight: '700' },
+  section: { gap: 6, marginTop: 6 },
+  subhead: { fontSize: 12, fontFamily: fonts.bold, fontWeight: '700', marginTop: 10, marginBottom: 2, textTransform: 'uppercase', letterSpacing: 0.6 },
   cycleBlock: { gap: 6 },
   stepLine: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline', gap: 8 },
   stepName: { fontSize: 16, flex: 1 },
   stepDetail: { fontSize: 15 },
   cellText: { fontSize: 15, flex: 1 },
   bodyText: { fontSize: 16, lineHeight: 24, marginTop: 4 },
+  // Contract .kit-item: ordered, openable component cards.
+  kitItem: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 12, borderRadius: 14, borderWidth: 1, marginTop: 8 },
+  kitNum: { width: 40, height: 40, borderRadius: 11, alignItems: 'center', justifyContent: 'center' },
+  kitNumTxt: { fontSize: 16, fontFamily: fonts.monoSemibold, fontWeight: '700' },
+  kitBody: { flex: 1, minWidth: 0 },
+  kitName: { fontSize: 15, fontFamily: fonts.semibold, fontWeight: '600' },
+  kitSub: { fontSize: 12, fontFamily: fonts.medium, marginTop: 2 },
+  kitNote: { fontSize: 13, lineHeight: 19, marginTop: 12 },
   composer: { gap: 10, marginTop: 4 },
   composerInput: { borderWidth: 1, paddingHorizontal: 14, paddingVertical: 12, fontSize: 16, minHeight: 96 },
   composerActions: { flexDirection: 'row', justifyContent: 'flex-end' },
