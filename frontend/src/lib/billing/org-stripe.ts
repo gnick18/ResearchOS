@@ -140,6 +140,10 @@ export async function setupOrgBilling(args: {
     currency: "usd",
     unit_amount: chargeCents,
     recurring: { interval: "month" },
+    // Required once automatic_tax is on: tax is added on top of this rate
+    // (US-standard exclusive), never baked in. Without it Stripe rejects the
+    // tax calculation on this dynamically-created price.
+    tax_behavior: "exclusive",
     product_data: { name: `${TIER_PRODUCT_LABEL[tier]} (${info.name})` },
   });
   const metadata: Stripe.MetadataParam = { orgTier: tier, orgId: entityId };
