@@ -55,7 +55,7 @@ describe("scanBacklinks", () => {
     ]);
     readText.mockResolvedValue("dosed with [Resveratrol](/chemistry?molecule=9)");
     const r = await scanBacklinks("molecule", "9");
-    expect(r).toEqual([{ type: "method", id: "3", title: "Gibson", href: "/methods/3" }]);
+    expect(r).toEqual([{ type: "method", id: "3", title: "Gibson", href: "/methods?openMethod=3" }]);
   });
 
   it("scans experiment notes.md / results.md and dedups one entry per task", async () => {

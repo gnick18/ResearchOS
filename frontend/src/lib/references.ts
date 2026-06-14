@@ -60,11 +60,19 @@ const OBJECT_ROUTES: Record<ObjectRefType, RouteShape> = {
       return col && col.length > 0 ? col : null;
     },
   },
-  // Reserved for later surfaces. The chip renderer handles all types from the
-  // start; each surface wires its own resolver when it is built.
+  // The methods page is a single list route (/methods); it opens a specific
+  // method's detail panel via the ?openMethod=<id> deep link (methods/page.tsx
+  // reads it), NOT a per-id segment route. The old /methods/<id> build produced a
+  // 404 dead link (no such route exists), which closed the palette and lost the
+  // BeakerBot conversation when a method chip was clicked. This is the query-param
+  // form like sequence/molecule/datahub, matched before the bare-path routes.
   method: {
-    build: (id) => `/methods/${encodeURIComponent(id)}`,
-    match: (pathname) => idFromSegmentRoute(pathname, "/methods/"),
+    build: (id) => `/methods?openMethod=${encodeURIComponent(id)}`,
+    match: (pathname, params) => {
+      if (pathname !== "/methods") return null;
+      const m = params.get("openMethod");
+      return m && m.length > 0 ? m : null;
+    },
   },
   note: {
     build: (id) => `/notes/${encodeURIComponent(id)}`,

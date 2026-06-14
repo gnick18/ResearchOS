@@ -48,11 +48,11 @@ describe("RenderedMarkdown block embeds", () => {
 
   it("renders the generic card for a type without a rich renderer yet", () => {
     const { container } = render(
-      <RenderedMarkdown content="[Gibson Assembly](/methods/12#ros=card)" />,
+      <RenderedMarkdown content="[Gibson Assembly](/methods?openMethod=12#ros=card)" />,
     );
     const embed = container.querySelector('[data-embed-type="method"]');
     expect(embed).not.toBeNull();
     expect(embed).toHaveTextContent("Gibson Assembly");
-    expect(screen.getByRole("link", { name: /^Open/ })).toHaveAttribute("href", "/methods/12");
+    expect(screen.getByRole("link", { name: /^Open/ })).toHaveAttribute("href", "/methods?openMethod=12");
   });
 });
