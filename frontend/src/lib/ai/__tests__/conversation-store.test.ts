@@ -143,6 +143,7 @@ vi.mock("../user-memory", async (importOriginal) => {
 import { callModelViaProxy } from "../proxy-client";
 import { runAgentLoop } from "../agent-loop";
 import { getMemoryEntries } from "../user-memory";
+import { setSpotlightSuppressed } from "@/components/ai/spotlight-controller";
 
 // ---- helpers ----------------------------------------------------------------
 
@@ -168,6 +169,53 @@ afterEach(() => {
 });
 
 // ---- tests ------------------------------------------------------------------
+
+describe("nav polish: coaching-spotlight suppression during a driven plan", () => {
+  it("suppresses while a plan step runs and clears suppression at turn end", async () => {
+    // Drive the loop so it reports a plan running for two steps, then done.
+    // This mirrors the per-step driver (BEAKERBOT_PLAN_STEPS_ENABLED) firing
+    // onPlanProgress; the store callback is what wires it to the spotlight.
+    vi.mocked(runAgentLoop).mockImplementationOnce(async (opts) => {
+      opts.onPlanProgress?.({ steps: ["one", "two"], index: 0, total: 2, status: "running" });
+      opts.onPlanProgress?.({ steps: ["one", "two"], index: 1, total: 2, status: "running" });
+      opts.onPlanProgress?.({ steps: ["one", "two"], index: 1, total: 2, status: "done" });
+      const answer = "Both steps done.";
+      return {
+        answer,
+        messages: [
+          ...(opts.messages as LoopMessage[]),
+          { role: "assistant", content: answer },
+        ],
+        iterations: 1,
+        stoppedOnGuard: false,
+        totalUsage: { promptTokens: 0, completionTokens: 0 },
+      } as Awaited<ReturnType<typeof runAgentLoop>>;
+    });
+
+    await useConversationStore.getState().send("run a two step plan");
+    await flushAll();
+
+    const calls = vi.mocked(setSpotlightSuppressed).mock.calls.map((c) => c[0]);
+    // It was suppressed at least once (while a step was running)...
+    expect(calls).toContain(true);
+    // ...and the final state is unsuppressed (the finally always re-enables).
+    expect(calls.length).toBeGreaterThan(0);
+    expect(calls[calls.length - 1]).toBe(false);
+  });
+
+  it("never suppresses on a plain (non-plan) turn", async () => {
+    vi.mocked(callModelViaProxy).mockResolvedValueOnce(
+      jsonChoices("A plain answer.") as Awaited<ReturnType<typeof callModelViaProxy>>,
+    );
+
+    await useConversationStore.getState().send("what is a Tm?");
+    await flushAll();
+
+    // No onPlanProgress fired, so suppression was never turned on.
+    const calls = vi.mocked(setSpotlightSuppressed).mock.calls.map((c) => c[0]);
+    expect(calls).not.toContain(true);
+  });
+});
 
 describe("send: basic round-trip", () => {
   it("appends a user message and an empty assistant placeholder before the loop resolves", async () => {
