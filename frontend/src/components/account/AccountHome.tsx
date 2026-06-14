@@ -19,6 +19,9 @@ import {
   hasCloudBackup,
   recoverDeviceKeyFromCloud,
 } from "@/lib/sharing/identity/cloud-restore";
+import { provisionDeviceKeyForAccount } from "@/lib/sharing/identity/provision";
+import { markRecoveryConfirmed } from "@/lib/sharing/identity/recovery-confirm";
+import RecoveryKitModal from "@/components/sharing/RecoveryKitModal";
 
 interface AccountProfile {
   handle: string;
@@ -136,22 +139,69 @@ export default function AccountHome() {
   const [unlockError, setUnlockError] = useState<string | null>(null);
   const [unlocked, setUnlocked] = useState(false);
 
+  // Phase 2 Chunk 2B: provision-on-demand. When the signed-in account has NO key
+  // on this device AND no published backup at all (a brand-new account-first user
+  // who has never set up a data key), offer "set up your data key" instead of the
+  // restore card. Provisioning mints the key, publishes the public keys + backup
+  // blob to the directory, and shows the recovery kit once.
+  const [showProvision, setShowProvision] = useState(false);
+  const [provisioning, setProvisioning] = useState(false);
+  const [provisionError, setProvisionError] = useState<string | null>(null);
+  const [kit, setKit] = useState<{
+    recoveryWords: string;
+    recoveryCode: string;
+    fingerprint: string;
+  } | null>(null);
+  const [keyReady, setKeyReady] = useState(false);
+
   useEffect(() => {
     if (!isDeviceKeyV2Enabled()) return;
     let alive = true;
     void (async () => {
-      // Already have a key on this device (session or vault)? Nothing to unlock.
+      // Already have a key on this device (session or vault)? Nothing to do.
       if (getSessionIdentity()) return;
       const atRest = await loadKeysAtRest();
       if (!alive || atRest) return;
-      // Only offer the unlock when there is actually a blob to restore.
+      // A published backup means "restore on this device"; none means this
+      // account has never provisioned a key, so offer to set one up.
       const hasBackup = await hasCloudBackup();
-      if (alive && hasBackup) setShowUnlock(true);
+      if (!alive) return;
+      if (hasBackup) setShowUnlock(true);
+      else setShowProvision(true);
     })();
     return () => {
       alive = false;
     };
   }, []);
+
+  const onProvision = async () => {
+    setProvisionError(null);
+    setProvisioning(true);
+    // Yield a frame so the spinner paints before the heavy Argon2id wrap runs.
+    await new Promise((r) => setTimeout(r, 0));
+    try {
+      const result = await provisionDeviceKeyForAccount({
+        displayName: profile?.displayName ?? displayName.trim(),
+      });
+      if (result.ok) {
+        setKit({
+          recoveryWords: result.recoveryWords,
+          recoveryCode: result.recoveryCode,
+          fingerprint: result.fingerprint,
+        });
+        setShowProvision(false);
+        setKeyReady(true);
+      } else if (result.reason === "unauthorized") {
+        setProvisionError("Your sign-in expired. Sign in again, then retry.");
+      } else if (result.reason === "publish-failed") {
+        setProvisionError("Could not publish your key. Try again in a moment.");
+      } else {
+        setProvisionError("Could not reach the server. Check your connection.");
+      }
+    } finally {
+      setProvisioning(false);
+    }
+  };
 
   const onUnlock = async () => {
     if (!recoveryInput.trim()) return;
@@ -404,6 +454,58 @@ export default function AccountHome() {
             {unlocking ? "Unlocking…" : "Unlock my data"}
           </button>
         </div>
+      )}
+
+      {/* Phase 2 Chunk 2B: provision-on-demand. Shown only when the flag is on,
+          this browser holds no key, and the account has no published backup yet.
+          Sets up the end-to-end data key folderlessly so the user can share and
+          publish; the recovery kit is shown once on success. */}
+      {keyReady && (
+        <div className="rounded-2xl border border-emerald-500/30 bg-emerald-500/5 p-5">
+          <h2 className="text-body font-bold text-foreground">
+            Your data key is set up
+          </h2>
+          <p className="mt-1 text-meta text-foreground-muted">
+            You can now share and publish. Your key is live for this session and
+            stored encrypted on this device.
+          </p>
+        </div>
+      )}
+      {showProvision && !keyReady && (
+        <div className="rounded-2xl border border-brand-purple/30 bg-brand-purple/5 p-5">
+          <h2 className="text-body font-bold text-foreground">
+            Set up your data key
+          </h2>
+          <p className="mt-1 text-meta text-foreground-muted">
+            Sharing and publishing to the researcher directory use end-to-end
+            encryption keys that live on your device, never on our servers. Set
+            yours up now, no data folder needed. You will get recovery words to
+            save once.
+          </p>
+          {provisionError && (
+            <p className="mt-2 text-meta text-rose-600">{provisionError}</p>
+          )}
+          <button
+            type="button"
+            onClick={() => void onProvision()}
+            disabled={provisioning}
+            className="mt-3 rounded-lg bg-brand-purple px-4 py-2 text-meta font-semibold text-white disabled:opacity-60"
+          >
+            {provisioning ? "Setting up…" : "Set up my data key"}
+          </button>
+        </div>
+      )}
+
+      {kit && (
+        <RecoveryKitModal
+          recoveryWords={kit.recoveryWords}
+          recoveryCode={kit.recoveryCode}
+          onConfirm={() => {
+            markRecoveryConfirmed(kit.fingerprint);
+            setKit(null);
+          }}
+          onClose={() => setKit(null)}
+        />
       )}
 
       {/* Account-level surfaces that need no folder. */}
