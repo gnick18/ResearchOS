@@ -76,4 +76,29 @@ describe("noderange layer (geom_range)", () => {
     const code = generateGgtreeCode(specFor(TIMED, [rangePanel]));
     expect(code).toContain("geom_range(range = 'height_95%_HPD'");
   });
+
+  // Regression (2026-06-14): the bar must be anchored ON its node, not at an
+  // absolute-age x. Placing it by absolute age made it float free of the node on
+  // any non-ultrametric tree (node depth-from-root != age). With a node point
+  // drawn at the node, the node's x must fall inside the range bar.
+  it("seats the bar on its node (node point within the bar span)", () => {
+    const nodePoints: AlignedPanel = {
+      id: "np1",
+      kind: "nodepoints",
+      visible: true,
+      options: { size: 3, color: "#111827" },
+    };
+    const out = renderTreeSvg(TIMED, specFor(TIMED, [rangePanel, nodePoints]));
+    const bar = out.match(
+      /<rect x="([\d.]+)"[^>]*width="([\d.]+)"[^>]*opacity="0.35"/,
+    );
+    const node = out.match(/<circle cx="([\d.]+)"[^>]*fill="#111827"/);
+    expect(bar).not.toBeNull();
+    expect(node).not.toBeNull();
+    const barX = parseFloat(bar![1]);
+    const barW = parseFloat(bar![2]);
+    const cx = parseFloat(node![1]);
+    expect(cx).toBeGreaterThanOrEqual(barX);
+    expect(cx).toBeLessThanOrEqual(barX + barW);
+  });
 });

@@ -81,4 +81,35 @@ describe("taxastrip layer (geom_strip)", () => {
     expect(code).toContain("'A', 'B'");
     expect(code).toContain("label = 'Clade I'");
   });
+
+  // Regression (2026-06-14): the strip used to anchor at plotRight while the tip
+  // labels' aligned column also started at plotRight, so the strip + its label
+  // painted under the tip labels. The label column must now begin past the strip
+  // (the ggtree per-geom offset), so the leftmost tip label sits right of the
+  // strip's label.
+  it("starts the tip-label column past the strip (no overlap)", () => {
+    const labelsPanel: AlignedPanel = {
+      id: "lbl",
+      kind: "labels",
+      visible: true,
+      options: { align: true, italic: false },
+    };
+    const spec = figureToRenderSpec(
+      TREE,
+      {
+        layout: "rectangular",
+        phylogram: true,
+        tracks: NO_TRACKS,
+        panels: [stripPanel, labelsPanel],
+      },
+      { width: 700, height: 480 },
+    );
+    const out = renderTreeSvg(TREE, spec);
+    const stripLabel = out.match(/x="([\d.]+)"[^>]*>Clade I<\/text>/);
+    const tipLabel = out.match(/x="([\d.]+)"[^>]*>A<\/text>/);
+    expect(stripLabel).not.toBeNull();
+    expect(tipLabel).not.toBeNull();
+    // The aligned tip-label column begins right of the strip's own label.
+    expect(parseFloat(tipLabel![1])).toBeGreaterThan(parseFloat(stripLabel![1]));
+  });
 });

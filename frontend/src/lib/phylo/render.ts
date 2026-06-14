@@ -599,9 +599,20 @@ function renderFromPanels(
     panelStart = axis.ringStartR;
   } else {
     const layout = layoutRectangular(root, opts);
-    const plotRight = drawRectTree(parts, root, layout, spec, panels, collapsed);
+    const { plotRight, decorRight } = drawRectTree(
+      parts,
+      root,
+      layout,
+      spec,
+      panels,
+      collapsed,
+    );
     axis = rectTipAxis(root, layout, plotRight + 8);
-    panelStart = axis.panelStartX;
+    // Start the aligned panels / tip labels past any right-side decoration so a
+    // strip / bracket / taxalink gets its own column instead of painting under
+    // the labels (the ggtree per-geom offset). Math.max keeps the no-decoration
+    // case identical to plotRight-based placement.
+    panelStart = Math.max(axis.panelStartX, decorRight + 10);
   }
 
   // Draw each aligned panel in order, advancing the cursor by its thickness plus
@@ -782,8 +793,12 @@ function pointStyling(
   return { radiusFor, shapeFor };
 }
 
-/** Draw the rectangular tree spine + clade + support + points; returns plotRight
- *  (the x of the deepest tip) so the caller starts panels just past it. */
+/** Draw the rectangular tree spine + clade + support + points. Returns `plotRight`
+ *  (the x of the deepest tip, where the tip axis starts) and `decorRight` (the
+ *  rightmost x reached by any in-tree right-side decoration — clade brackets,
+ *  span strips, taxalink bows, incl their labels). The caller starts the aligned
+ *  panels / tip labels past `decorRight` so decorations get their own column and
+ *  never paint under the labels (the ggtree per-geom `offset` idea). */
 function drawRectTree(
   parts: string[],
   root: TreeNode,
@@ -791,9 +806,14 @@ function drawRectTree(
   spec: RenderSpec,
   panels: AlignedPanel[],
   collapsed: Map<number, CollapsedNode> = new Map(),
-): number {
+): { plotRight: number; decorRight: number } {
   const byId = new Map(layout.nodes.map((p) => [p.node.id, p]));
   const plotRight = Math.max(...layout.nodes.map((p) => p.x));
+  // Rightmost extent of any right-side decoration; grows as brackets/strips/links
+  // are placed so the caller can reserve a column for them. ~6px/char approximates
+  // the 10px decoration-label glyph advance (matches the boxed-label heuristic).
+  let decorRight = plotRight;
+  const labelW = (s: string) => s.length * 6 + 4;
   const showSupport = panels.some((p) => p.visible && p.kind === "support");
   const pointsPanel = panels.find((p) => p.visible && p.kind === "points");
 
@@ -817,6 +837,7 @@ function drawRectTree(
           `<text x="${bx + 8}" y="${((ymin + ymax) / 2 + 3).toFixed(1)}" font-size="10" font-weight="700" fill="${hl.color}">${esc(hl.label)}</text>`,
         );
       }
+      decorRight = Math.max(decorRight, bx + 8 + (hl.label ? labelW(hl.label) : 0));
     } else {
       const y0 = Math.min(...ys) - 12;
       const y1 = Math.max(...ys) + 12;
@@ -845,19 +866,17 @@ function drawRectTree(
       (typeof rangePanel.options?.color === "string" &&
         rangePanel.options.color) ||
       "#2563EB";
-    const rootNode = layout.nodes.find((p) => p.parentX === null);
-    const rootX = rootNode ? rootNode.x : 16;
-    const maxDepth = layout.maxDepth;
-    // x of an age (height before present): the node at age 0 sits at the tips.
-    const xForAge = (age: number) => rootX + (maxDepth - age) / upp;
     for (const p of layout.nodes) {
       const v = p.node.annotations?.[key];
       if (!Array.isArray(v) || v.length < 2) continue;
-      const xa = xForAge(v[0]);
-      const xb = xForAge(v[1]);
-      const x0 = Math.min(xa, xb);
-      const w = Math.abs(xb - xa);
+      // The interval width in px (age span / unitsPerPx). Anchor the bar ON its
+      // node (centered at p.x) so the uncertainty always passes through the node
+      // point — a phylogram plots nodes by branch-length-from-root, so an
+      // absolute-age x only coincides with the node when the tree is ultrametric;
+      // centering keeps the bar seated on the node for non-ultrametric trees too.
+      const w = Math.abs(v[1] - v[0]) / upp;
       if (!(w > 0)) continue;
+      const x0 = p.x - w / 2;
       parts.push(
         `<rect x="${x0.toFixed(1)}" y="${(p.y - 3).toFixed(1)}" width="${w.toFixed(1)}" height="6" rx="3" fill="${color}" opacity="0.35"/>`,
       );
@@ -959,6 +978,9 @@ function drawRectTree(
       parts.push(
         `<path d="M${a.x.toFixed(1)} ${a.y.toFixed(1)} Q${cx.toFixed(1)} ${cy.toFixed(1)} ${b.x.toFixed(1)} ${b.y.toFixed(1)}" fill="none" stroke="${link.color || "#7C3AED"}" stroke-width="1.5" stroke-dasharray="4 3" opacity="0.9"/>`,
       );
+      // A quadratic bow peaks at ~half the control offset, so the curve reaches
+      // x0 + bow/2; reserve to there so labels clear the dashed link.
+      decorRight = Math.max(decorRight, x0 + bow / 2 + 4);
     }
   }
   // Span strips (ggtree geom_strip): a solid bar just past the tree edge spanning
@@ -981,6 +1003,7 @@ function drawRectTree(
           `<text x="${(bx + 9).toFixed(1)}" y="${((y0 + y1) / 2 + 3).toFixed(1)}" font-size="10" font-weight="700" fill="${s.color || "#1D9E75"}">${esc(s.label)}</text>`,
         );
       }
+      decorRight = Math.max(decorRight, bx + (s.label ? 9 + labelW(s.label) : 5));
     }
   }
   // Time axis (ggtree theme_tree2): a full-width ruler in age-before-present, the
@@ -1015,7 +1038,7 @@ function drawRectTree(
       `<text x="16" y="${y - 4}" font-size="9" fill="${MUTED}">${tick}</text>`,
     );
   }
-  return plotRight;
+  return { plotRight, decorRight };
 }
 
 /** A 1/2/5 x 10^n "nice" step at or below the target, for axis ticks. */
