@@ -245,15 +245,37 @@ const RE_BULLET = /^\s*[-*•]\s+(.*)$/;
 const RE_HEADING = /^\s*#{1,6}\s+(.*?)\s*#*$/;
 const RE_BOLDLINE = /^\s*\*\*(.+?)\*\*\s*:?\s*$/;
 const RE_IMAGE = /!\[([^\]]*)\]\([^)]*\)/g;
+const RE_TABLE_ROW = /^\s*\|(.+)\|\s*$/;
+const RE_TABLE_SEP = /^\s*\|?[\s:|-]*-[\s:|-]*\|?\s*$/;
 
-// Pull any markdown image refs out of a line into `into`, return the rest.
-function stripImages(line: string, into: string[]): string {
-  return line
-    .replace(RE_IMAGE, (_m, alt) => {
-      into.push((alt || 'Figure').trim());
-      return '';
-    })
+// Convert the common inline markdown to plain reader text. Deliberately does NOT
+// touch a single `*` (it is a multiply sign in values like 5*10^6), only the
+// unambiguous `**bold**`, `code`, and link forms. Stripping a marker keeps the
+// wrapped text verbatim, so no number or reagent is altered.
+function inlineText(s: string): string {
+  return s
+    .replace(/\[([^\]]+)\]\([^)]*\)/g, '$1')
+    .replace(/\*\*(.+?)\*\*/g, '$1')
+    .replace(/`([^`]+)`/g, '$1')
+    .replace(/\s+/g, ' ')
     .trim();
+}
+
+// Pull any markdown image refs out of a line into `into`, then clean inline
+// markdown from what remains.
+function lineText(line: string, into: string[]): string {
+  const noImg = line.replace(RE_IMAGE, (_m, alt) => {
+    into.push(inlineText(alt || 'Figure'));
+    return '';
+  });
+  return inlineText(noImg);
+}
+
+// Split a markdown table row into trimmed, inline-cleaned cells.
+function tableCells(line: string): string[] {
+  const m = line.match(RE_TABLE_ROW);
+  if (!m) return [];
+  return m[1].split('|').map((c) => inlineText(c.trim()));
 }
 
 // Split a reagent line into name + amount by peeling a trailing parenthetical
@@ -315,7 +337,7 @@ function draftToStep(d: StepDraft): ReadStep {
 }
 
 function parseBodyToSteps(body: string): ReadStep[] {
-  const lines = body.replace(/\r\n/g, '\n').split('\n');
+  const lines = body.replace(/\r\n/g, '\n').split('\n').map((l) => l.replace(/\s+$/, ''));
   const steps: ReadStep[] = [];
   let phase: string | undefined;
   let cur: StepDraft | null = null;
@@ -326,18 +348,42 @@ function parseBodyToSteps(body: string): ReadStep[] {
     }
   };
 
-  for (const raw of lines) {
-    const line = raw.replace(/\s+$/, '');
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
     if (line.trim() === '') {
       // A blank line ends a prose paragraph; list and checklist steps continue.
       if (cur && cur.kind === 'para') flush();
       continue;
     }
 
+    // Markdown table: consume the whole block. The row before a separator is the
+    // header (dropped); each data row becomes a reagent check (first cell name,
+    // last cell amount). Attaches to the current step, or starts a checklist.
+    if (RE_TABLE_ROW.test(line) && !RE_TABLE_SEP.test(line)) {
+      let j = i;
+      const block: string[] = [];
+      while (j < lines.length && RE_TABLE_ROW.test(lines[j])) {
+        block.push(lines[j]);
+        j++;
+      }
+      const sepAt = block.findIndex((b) => RE_TABLE_SEP.test(b));
+      const rows = block.filter((b, idx) => !RE_TABLE_SEP.test(b) && idx !== sepAt - 1);
+      if (!cur) cur = { phase, kind: 'checklist', headline: phase ?? 'Materials', detail: [], checks: [], figures: [] };
+      rows.forEach((r) => {
+        const cells = tableCells(r).filter(Boolean);
+        if (cells.length === 0) return;
+        const amount = cells.length > 1 ? cells[cells.length - 1] : '';
+        const name = cells.length > 1 ? cells.slice(0, -1).join(' ') : cells[0];
+        cur!.checks.push({ name, amount });
+      });
+      i = j - 1;
+      continue;
+    }
+
     const heading = line.match(RE_HEADING) ?? line.match(RE_BOLDLINE);
     if (heading) {
       flush();
-      phase = heading[1].trim();
+      phase = inlineText(heading[1]);
       continue;
     }
 
@@ -345,7 +391,7 @@ function parseBodyToSteps(body: string): ReadStep[] {
     if (num) {
       flush();
       const figs: string[] = [];
-      const text = stripImages(num[1], figs);
+      const text = lineText(num[1], figs);
       cur = { phase, kind: 'num', headline: text, detail: [], checks: [], figures: figs };
       continue;
     }
@@ -353,7 +399,7 @@ function parseBodyToSteps(body: string): ReadStep[] {
     const bullet = line.match(RE_BULLET);
     if (bullet) {
       const figs: string[] = [];
-      const text = stripImages(bullet[1], figs);
+      const text = lineText(bullet[1], figs);
       if (!cur) cur = { phase, kind: 'checklist', headline: phase ?? 'Materials', detail: [], checks: [], figures: [] };
       if (text) cur.checks.push(splitReagent(text));
       cur.figures.push(...figs);
@@ -363,7 +409,7 @@ function parseBodyToSteps(body: string): ReadStep[] {
     const sub = line.match(RE_SUB);
     if (sub && cur) {
       const figs: string[] = [];
-      const text = stripImages(sub[1], figs);
+      const text = lineText(sub[1], figs);
       if (text) cur.detail.push(text);
       cur.figures.push(...figs);
       continue;
@@ -372,7 +418,7 @@ function parseBodyToSteps(body: string): ReadStep[] {
     // A plain line: continuation of the current step, or the start of a new
     // prose-paragraph step when nothing is open.
     const figs: string[] = [];
-    const text = stripImages(line, figs);
+    const text = lineText(line, figs);
     if (cur) {
       if (text) cur.detail.push(text);
       cur.figures.push(...figs);
