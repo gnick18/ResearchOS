@@ -185,6 +185,7 @@ export function PhyloStudio({ initialTreeId }: { initialTreeId?: string } = {}) 
   const [phylogram, setPhylogram] = useState(true);
   // Show the branch-length scale bar on a phylogram (geom_treescale). Default on.
   const [scaleBar, setScaleBar] = useState(true);
+  const [rootEdge, setRootEdge] = useState(false);
   // The ordered LAYER stack (phylo Phase 1). This IS the persisted panels[]; the
   // layers control edits it directly and the renderer + exporter walk it.
   const [panels, setPanels] = useState<AlignedPanel[]>(defaultPanels);
@@ -346,6 +347,7 @@ export function PhyloStudio({ initialTreeId }: { initialTreeId?: string } = {}) 
         layout,
         phylogram,
         scaleBar,
+        rootEdge,
         tracks: EMPTY_TRACKS,
         categoryColumn,
         metaRows,
@@ -364,6 +366,7 @@ export function PhyloStudio({ initialTreeId }: { initialTreeId?: string } = {}) 
     layout,
     phylogram,
     scaleBar,
+    rootEdge,
     categoryColumn,
     metaRows,
     tipColumn,
@@ -591,6 +594,7 @@ export function PhyloStudio({ initialTreeId }: { initialTreeId?: string } = {}) 
     setLayout(inputs.layout);
     setPhylogram(inputs.phylogram);
     setScaleBar(inputs.scaleBar ?? true);
+    setRootEdge(inputs.rootEdge ?? false);
     // Stored panels win; else project the layer stack from the Phase 0 fields.
     const restored =
       inputs.panels ??
@@ -798,6 +802,7 @@ export function PhyloStudio({ initialTreeId }: { initialTreeId?: string } = {}) 
       layout,
       branchLengths: phylogram,
       scaleBar,
+      rootEdge,
       tracks: derived.tracks,
       legend: true,
       panels,
@@ -1339,6 +1344,18 @@ export function PhyloStudio({ initialTreeId }: { initialTreeId?: string } = {}) 
                     Scale bar
                   </button>
                 )}
+                <button
+                  type="button"
+                  onClick={() => setRootEdge((s) => !s)}
+                  title="Draw a short root edge stub (geom_rootedge)"
+                  className={`inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1 text-xs font-bold transition-colors ${
+                    rootEdge
+                      ? "border-accent bg-accent-soft text-accent"
+                      : "border-border text-foreground-muted hover:text-foreground"
+                  }`}
+                >
+                  Root edge
+                </button>
                 <button
                   type="button"
                   onClick={() =>

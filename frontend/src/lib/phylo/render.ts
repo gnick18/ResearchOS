@@ -111,6 +111,8 @@ export interface RenderSpec {
   /** Show the branch-length scale bar on a phylogram (geom_treescale). Default
    *  on; absent = on (back-compat). Only meaningful for a rectangular phylogram. */
   scaleBar?: boolean;
+  /** Draw a short stub branch below the root (ggtree geom_rootedge). Default off. */
+  rootEdge?: boolean;
   tracks: FigureTracks;
   columns: FigureColumns;
   width: number;
@@ -747,6 +749,15 @@ function drawRectTree(
   // default rectangular tree draws the right-angle elbow (vertical then
   // horizontal). Node positions are identical, so panels / labels are unchanged.
   const slanted = spec.layout === "slanted";
+  // Optional root edge: a short stub branch to the left of the root (geom_rootedge).
+  if (spec.rootEdge) {
+    const r = layout.nodes.find((p) => p.parentX === null);
+    if (r) {
+      parts.push(
+        `<path d="M${(r.x - 16).toFixed(1)} ${r.y.toFixed(1)} L${r.x.toFixed(1)} ${r.y.toFixed(1)}" fill="none" stroke="${colorForBranch(spec, r.node.id)}" stroke-width="1.5"/>`,
+      );
+    }
+  }
   for (const p of layout.nodes) {
     if (p.parentX === null || p.parentY === null) continue;
     const d = slanted
@@ -889,6 +900,17 @@ function drawCircularTree(
           `<text x="${lx.toFixed(1)}" y="${ly.toFixed(1)}" font-size="9" font-weight="700" fill="${hl.color}" text-anchor="middle">${esc(hl.label)}</text>`,
         );
       }
+    }
+  }
+  // Optional root edge: a short radial stub from the root toward the center.
+  if (spec.rootEdge) {
+    const r = layout.nodes.find((p) => p.parentX === null);
+    if (r) {
+      const a = r.angle - Math.PI / 2;
+      const er = Math.max(0, r.radius - 12);
+      parts.push(
+        `<path d="M${(layout.cx + r.radius * Math.cos(a)).toFixed(1)} ${(layout.cy + r.radius * Math.sin(a)).toFixed(1)} L${(layout.cx + er * Math.cos(a)).toFixed(1)} ${(layout.cy + er * Math.sin(a)).toFixed(1)}" fill="none" stroke="${colorForBranch(spec, r.node.id)}" stroke-width="1.4"/>`,
+      );
     }
   }
   for (const p of layout.nodes) {

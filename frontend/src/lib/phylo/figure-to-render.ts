@@ -47,6 +47,8 @@ export interface FigureInputs {
   phylogram: boolean;
   /** Show the phylogram scale bar (default on; absent = on). */
   scaleBar?: boolean;
+  /** Draw a root edge stub (default off). */
+  rootEdge?: boolean;
   tracks: FigureTracks;
   categoryColumn?: string;
   barColumn?: string;
@@ -197,6 +199,7 @@ export function figureToRenderSpec(
     layout: inputs.layout,
     phylogram: inputs.phylogram,
     scaleBar: inputs.scaleBar,
+    rootEdge: inputs.rootEdge,
     tracks: inputs.tracks,
     columns: {
       category: inputs.categoryColumn || undefined,
@@ -230,6 +233,8 @@ interface StoredFigure {
   branchLengths?: boolean;
   /** Phylogram scale-bar toggle (optional, additive, defaults ON). */
   scaleBar?: boolean;
+  /** Root-edge stub toggle (optional, additive, defaults off). */
+  rootEdge?: boolean;
   tracks?: Record<string, boolean>;
   /** Per-track sequential-palette overrides (Phase 0, optional). */
   scales?: FigureScales;
@@ -270,6 +275,7 @@ export function figureInputsFromStored(
       : "rectangular";
   const phylogram = figure?.branchLengths ?? true;
   const scaleBar = figure?.scaleBar;
+  const rootEdge = figure?.rootEdge;
   const tracks: FigureTracks = {
     ...DEFAULT_FIGURE_TRACKS,
     ...((figure?.tracks ?? {}) as Partial<FigureTracks>),
@@ -285,6 +291,7 @@ export function figureInputsFromStored(
       layout,
       phylogram,
       scaleBar,
+      rootEdge,
       tracks,
       metaRows: null,
       scales,
@@ -298,6 +305,7 @@ export function figureInputsFromStored(
     layout,
     phylogram,
     scaleBar,
+    rootEdge,
     tracks,
     metaRows: metadata.rows,
     tipColumn: metadata.tipColumn || cols[0] || "",

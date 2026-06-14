@@ -225,6 +225,9 @@ function generateFromPanels(spec: RenderSpec, panels: AlignedPanel[]): string {
       `p <- p + aes(color = ${rNameKey(spec.branchColorColumn)})   # color branches by trait`,
     );
   }
+  if (spec.rootEdge) {
+    lines.push("p <- p + geom_rootedge()   # stub branch below the root");
+  }
 
   let offset = 0.05;
   for (const panel of panels) {

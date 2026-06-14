@@ -49,3 +49,21 @@ describe("slanted layout", () => {
     expect(slanted).not.toBe(rect);
   });
 });
+
+describe("rootEdge (Wave 4 geom_rootedge)", () => {
+  function specRoot(rootEdge: boolean, layout: PhyloLayout = "rectangular") {
+    return figureToRenderSpec(
+      TREE,
+      { layout, phylogram: true, rootEdge, tracks: NO_TRACKS, panels: [] },
+      { width: 500, height: 360 },
+    );
+  }
+  it("draws an extra root stub the default tree lacks (both layouts)", () => {
+    expect(renderTreeSvg(TREE, specRoot(true)).length).toBeGreaterThan(
+      renderTreeSvg(TREE, specRoot(false)).length,
+    );
+    expect(
+      renderTreeSvg(TREE, specRoot(true, "circular")).length,
+    ).toBeGreaterThan(renderTreeSvg(TREE, specRoot(false, "circular")).length);
+  });
+});
