@@ -11,7 +11,7 @@ import { parseNewick } from "./parse";
 import { layoutRectangular, rectTipAxis } from "./layout";
 import { figureToRenderSpec } from "./figure-to-render";
 import { renderTreeSvg, type RenderSpec } from "./render";
-import { buildPlotSpec } from "@/lib/datahub/plot-spec";
+import { buildPlotSpec, withStyle } from "@/lib/datahub/plot-spec";
 import type { DataHubDocContent } from "@/lib/datahub/model/types";
 import type { AlignedPanel } from "./types";
 
@@ -109,6 +109,26 @@ describe("phylo render: datahubPlot tip-aligned panel (Phase 4 render core)", ()
     expect(() =>
       renderTreeSvg(TREE, specWithPanel([panel], "circular", resolved)),
     ).not.toThrow();
+  });
+
+  it("honors the resolved plot's barMode (stack100 differs from dodge)", () => {
+    const dodge = renderTreeSvg(
+      TREE,
+      specWithPanel([panel], "rectangular", resolved),
+    );
+    const stacked = renderTreeSvg(
+      TREE,
+      specWithPanel([panel], "rectangular", {
+        p1: {
+          ...resolved.p1,
+          plotSpec: withStyle(resolved.p1.plotSpec, { barMode: "stack100" }),
+        },
+      }),
+    );
+    // Both draw bars; the 100%-stacked layout fills each tip band, so the markup
+    // differs from the dodge layout (barMode flows through the datahubPlot path).
+    expect(stacked).toContain("<rect");
+    expect(stacked).not.toBe(dodge);
   });
 
   it("shows the Data Hub series as a color key in the tree legend", () => {

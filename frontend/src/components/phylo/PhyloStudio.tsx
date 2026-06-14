@@ -99,6 +99,8 @@ import {
   downloadSvg,
   svgToPngBlob,
   buildPlotSpec,
+  withStyle,
+  type BarMode,
 } from "@/lib/datahub/plot-spec";
 import { dataHubApi } from "@/lib/datahub/api";
 import {
@@ -462,10 +464,14 @@ export function PhyloStudio({ initialTreeId }: { initialTreeId?: string } = {}) 
         const content = await dataHubApi.getContent(tableId);
         if (!content) continue;
         const joined = joinContentToTips(content, joinCol, tree);
-        const existing = content.plots.find((pl) => pl.type === "groupedBar");
-        const plotSpec =
-          existing ??
+        const base =
+          content.plots.find((pl) => pl.type === "groupedBar") ??
           buildPlotSpec({ id: `dhplot-${p.id}`, kind: "groupedBar", tableId });
+        // Honor a panel-level barMode (dodge / stack / stack100), so a tip panel
+        // can show the 100%-stacked relative-abundance look without editing the
+        // plot back in the Data Hub.
+        const barMode = p.options?.barMode as BarMode | undefined;
+        const plotSpec = barMode ? withStyle(base, { barMode }) : base;
         resolved[p.id] = { plotSpec, content: joined, analysis: null };
       }
       if (!cancelled) setDatahubResolved(resolved);
@@ -503,6 +509,16 @@ export function PhyloStudio({ initialTreeId }: { initialTreeId?: string } = {}) 
       if (labelIdx === -1) return [...prev, panel];
       return [...prev.slice(0, labelIdx), panel, ...prev.slice(labelIdx)];
     });
+  }
+
+  // Change a datahubPlot panel's bar mode (dodge / stack / stack100); the
+  // resolution effect re-applies it to the panel's plot spec.
+  function setPanelBarMode(id: string, barMode: BarMode) {
+    setPanels((prev) =>
+      prev.map((p) =>
+        p.id === id ? { ...p, options: { ...p.options, barMode } } : p,
+      ),
+    );
   }
 
   // ---- tree import ----
@@ -1105,21 +1121,36 @@ export function PhyloStudio({ initialTreeId }: { initialTreeId?: string } = {}) 
                   .map((p) => (
                     <div
                       key={p.id}
-                      className="flex items-center justify-between gap-2 text-xs"
+                      className="space-y-1 rounded-md border border-border px-2 py-1.5"
                     >
-                      <span className="text-foreground-muted truncate">
-                        {String(p.options?.title ?? "Data Hub plot")}
-                      </span>
-                      <button
-                        onClick={() =>
-                          setPanels((prev) =>
-                            prev.filter((q) => q.id !== p.id),
-                          )
+                      <div className="flex items-center justify-between gap-2 text-xs">
+                        <span className="text-foreground-muted truncate">
+                          {String(p.options?.title ?? "Data Hub plot")}
+                        </span>
+                        <button
+                          onClick={() =>
+                            setPanels((prev) =>
+                              prev.filter((q) => q.id !== p.id),
+                            )
+                          }
+                          className="shrink-0 text-accent hover:underline font-semibold"
+                        >
+                          Remove
+                        </button>
+                      </div>
+                      <select
+                        value={String(p.options?.barMode ?? "dodge")}
+                        onChange={(e) =>
+                          setPanelBarMode(p.id, e.target.value as BarMode)
                         }
-                        className="shrink-0 text-accent hover:underline font-semibold"
+                        className="w-full rounded border border-border bg-surface px-1.5 py-0.5 text-xs text-foreground"
                       >
-                        Remove
-                      </button>
+                        <option value="dodge">Grouped bars</option>
+                        <option value="stack">Stacked</option>
+                        <option value="stack100">
+                          100% stacked (relative)
+                        </option>
+                      </select>
                     </div>
                   ))}
               </div>
