@@ -16,7 +16,12 @@
 // No em-dashes, no emojis, no mid-sentence colons.
 
 import type { RenderSpec } from "./render";
-import type { AlignedPanel, CladeAnnotation, TaxaLink } from "./types";
+import type {
+  AlignedPanel,
+  CladeAnnotation,
+  TaxaLink,
+  TaxaStrip,
+} from "./types";
 
 export const GGTREE_CAVEAT =
   "This script is generated from your figure. The ggtree output is close but not 100% pixel-identical to the Studio canvas, ggtree uses a different layout engine.";
@@ -293,6 +298,17 @@ function generateFromPanels(spec: RenderSpec, panels: AlignedPanel[]): string {
           if (!l.from || !l.to) continue;
           lines.push(
             `p <- p + geom_taxalink(taxa1 = ${rstr(l.from)}, taxa2 = ${rstr(l.to)}, color = ${rstr(l.color || "#7C3AED")}, linetype = 2, curvature = 0.5)`,
+          );
+        }
+        break;
+      }
+      case "taxastrip": {
+        const strips =
+          (panel.options?.strips as TaxaStrip[] | undefined) ?? [];
+        for (const s of strips) {
+          if (!s.from || !s.to) continue;
+          lines.push(
+            `p <- p + geom_strip(${rstr(s.from)}, ${rstr(s.to)}, label = ${rstr(s.label || "")}, color = ${rstr(s.color || "#1D9E75")}, barsize = 2, offset = 0.5)`,
           );
         }
         break;

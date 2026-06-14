@@ -135,6 +135,26 @@ export interface TaxaLink {
   color: string;
 }
 
+/**
+ * One span strip, stored in the taxastrip layer's `options.strips` (ggtree
+ * geom_strip). A solid bar drawn just outside the tips, spanning the range from
+ * the `from` tip to the `to` tip (by NAME, any two tips, not necessarily a
+ * monophyletic clade), with an optional label alongside. Carried on the loose
+ * `AlignedPanel.options` seam, so no new on-disk field.
+ */
+export interface TaxaStrip {
+  /** Stable id within the figure (React key + edit target). */
+  id: string;
+  /** First tip NAME of the span. */
+  from: string;
+  /** Last tip NAME of the span. */
+  to: string;
+  /** Bar / label color. */
+  color: string;
+  /** A label drawn alongside the bar. */
+  label: string;
+}
+
 /** The geom catalog a layer can be, grows over phases. */
 export type AlignedPanelKind =
   | "labels"
@@ -149,6 +169,7 @@ export type AlignedPanelKind =
   | "scatter"
   | "clade"
   | "taxalink"
+  | "taxastrip"
   | "support"
   | "nodepoints"
   | "msa"

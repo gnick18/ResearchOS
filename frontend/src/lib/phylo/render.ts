@@ -58,6 +58,7 @@ import type {
   CladeAnnotation,
   PhyloLayout,
   TaxaLink,
+  TaxaStrip,
 } from "./types";
 import {
   renderPlot,
@@ -840,6 +841,28 @@ function drawRectTree(
       );
     }
   }
+  // Span strips (ggtree geom_strip): a solid bar just past the tree edge spanning
+  // the range from one named tip to another, with an optional label.
+  const strips = resolveTaxaStrips(panels);
+  if (strips.length > 0) {
+    const byName = new Map(leaves(root).map((t) => [t.name, byId.get(t.id)!]));
+    const bx = plotRight + 10;
+    for (const s of strips) {
+      const a = byName.get(s.from);
+      const b = byName.get(s.to);
+      if (!a || !b) continue;
+      const y0 = Math.min(a.y, b.y) - 5;
+      const y1 = Math.max(a.y, b.y) + 5;
+      parts.push(
+        `<rect x="${bx.toFixed(1)}" y="${y0.toFixed(1)}" width="5" height="${(y1 - y0).toFixed(1)}" rx="2" fill="${s.color || "#1D9E75"}"/>`,
+      );
+      if (s.label) {
+        parts.push(
+          `<text x="${(bx + 9).toFixed(1)}" y="${((y0 + y1) / 2 + 3).toFixed(1)}" font-size="10" font-weight="700" fill="${s.color || "#1D9E75"}">${esc(s.label)}</text>`,
+        );
+      }
+    }
+  }
   if (spec.phylogram && spec.scaleBar !== false && layout.unitsPerPx) {
     const tick = niceTick(layout.maxDepth);
     const px = tick / layout.unitsPerPx;
@@ -1015,6 +1038,35 @@ function drawCircularTree(
       parts.push(
         `<path d="M${a.x.toFixed(1)} ${a.y.toFixed(1)} Q${cx.toFixed(1)} ${cy.toFixed(1)} ${b.x.toFixed(1)} ${b.y.toFixed(1)}" fill="none" stroke="${link.color || "#7C3AED"}" stroke-width="1.5" stroke-dasharray="4 3" opacity="0.9"/>`,
       );
+    }
+  }
+  // Span strips (ggtree geom_strip): an annulus band over the angle range of the
+  // two named tips, just outside the ring, with an optional label.
+  const strips = resolveTaxaStrips(panels);
+  if (strips.length > 0) {
+    const byName = new Map(
+      layout.nodes
+        .filter((p) => p.node.children.length === 0)
+        .map((p) => [p.node.name, p]),
+    );
+    const maxR = Math.max(...layout.nodes.map((p) => p.radius));
+    for (const s of strips) {
+      const a = byName.get(s.from);
+      const b = byName.get(s.to);
+      if (!a || !b) continue;
+      const a0 = Math.min(a.angle, b.angle) - 0.02;
+      const a1 = Math.max(a.angle, b.angle) + 0.02;
+      const r0 = maxR + 6;
+      const r1 = maxR + 11;
+      parts.push(arcBand(layout.cx, layout.cy, r0, r1, a0, a1, s.color || "#1D9E75"));
+      if (s.label) {
+        const mid = (a0 + a1) / 2;
+        const lx = layout.cx + (r1 + 6) * Math.cos(mid - Math.PI / 2);
+        const ly = layout.cy + (r1 + 6) * Math.sin(mid - Math.PI / 2);
+        parts.push(
+          `<text x="${lx.toFixed(1)}" y="${ly.toFixed(1)}" font-size="9" font-weight="700" fill="${s.color || "#1D9E75"}" text-anchor="middle">${esc(s.label)}</text>`,
+        );
+      }
     }
   }
 }
@@ -1386,6 +1438,15 @@ function resolveTaxaLinks(panels: AlignedPanel[]): TaxaLink[] {
     .filter((p) => p.visible && p.kind === "taxalink")
     .flatMap((p) => (p.options?.links as TaxaLink[] | undefined) ?? [])
     .filter((l) => l && l.from && l.to);
+}
+
+/** All span strips across every visible taxastrip layer (ggtree geom_strip).
+ *  Stored by tip NAME on the loose options seam, so an older figure gets none. */
+function resolveTaxaStrips(panels: AlignedPanel[]): TaxaStrip[] {
+  return panels
+    .filter((p) => p.visible && p.kind === "taxastrip")
+    .flatMap((p) => (p.options?.strips as TaxaStrip[] | undefined) ?? [])
+    .filter((s) => s && s.from && s.to);
 }
 
 /** An annulus-sector band over an angular + radial span, for a circular clade

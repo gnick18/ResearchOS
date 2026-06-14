@@ -25,6 +25,7 @@ import type {
   AlignedPanelKind,
   CladeAnnotation,
   TaxaLink,
+  TaxaStrip,
 } from "@/lib/phylo/types";
 
 /** The Add-panel catalog, categorized for the searchable menu (mockup parity). */
@@ -62,6 +63,7 @@ export const PANEL_CATALOG: CatalogGroup[] = [
     cat: "Highlights",
     items: [
       { kind: "clade", name: "Clade highlight", desc: "shade a subtree" },
+      { kind: "taxastrip", name: "Span strip", desc: "bar + label across a tip range" },
       { kind: "taxalink", name: "Tip links", desc: "curve between two tips" },
       { kind: "support", name: "Support values", desc: "bootstrap labels" },
       { kind: "nodepoints", name: "Node points", desc: "glyph at each internal node" },
@@ -659,6 +661,13 @@ function Inspector({
           onUpdate={onUpdate}
         />
       )}
+      {panel.kind === "taxastrip" && (
+        <TaxaStripInspector
+          panel={panel}
+          tipNames={tipNames}
+          onUpdate={onUpdate}
+        />
+      )}
       {panel.kind === "msa" && (
         <>
           <p className="text-xs text-foreground-muted">
@@ -893,6 +902,103 @@ function TaxaLinkInspector({
         className="inline-flex items-center gap-1 rounded-lg border border-border px-2.5 py-1 text-sm font-semibold text-foreground hover:border-accent"
       >
         <Icon name="plus" className="h-3.5 w-3.5" /> Add link
+      </button>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// The span-strip inspector (ggtree geom_strip). Each strip names a FROM tip and a
+// TO tip; a solid bar is drawn just outside the tips spanning that range, with an
+// optional label. Unlike a clade, the span need not be monophyletic, it is just a
+// contiguous range of tips. Named by tip so it survives a re-layout.
+// ---------------------------------------------------------------------------
+
+function TaxaStripInspector({
+  panel,
+  tipNames,
+  onUpdate,
+}: {
+  panel: AlignedPanel;
+  tipNames: string[];
+  onUpdate: (patch: Partial<AlignedPanel>) => void;
+}) {
+  const strips = (panel.options?.strips as TaxaStrip[] | undefined) ?? [];
+  const setStrips = (next: TaxaStrip[]) =>
+    onUpdate({ options: { ...panel.options, strips: next } });
+  const addStrip = () =>
+    setStrips([
+      ...strips,
+      {
+        id: `strip-${strips.length}-${tipNames.length}`,
+        from: tipNames[0] ?? "",
+        to: tipNames[tipNames.length - 1] ?? tipNames[0] ?? "",
+        color: CLADE_PALETTE[(strips.length + 2) % CLADE_PALETTE.length],
+        label: "",
+      },
+    ]);
+  const patchStrip = (id: string, patch: Partial<TaxaStrip>) =>
+    setStrips(strips.map((s) => (s.id === id ? { ...s, ...patch } : s)));
+  const removeStrip = (id: string) =>
+    setStrips(strips.filter((s) => s.id !== id));
+
+  return (
+    <div className="space-y-2">
+      <p className="text-xs text-foreground-muted">
+        Draw a bar spanning a range of tips (from one tip to another), with a
+        label. The range need not be a clade. Works in both layouts.
+      </p>
+      {strips.map((s) => (
+        <div
+          key={s.id}
+          className="rounded-lg border border-border p-2 space-y-1.5 bg-surface-raised"
+        >
+          <div className="flex items-center gap-2">
+            <input
+              type="color"
+              value={s.color}
+              onChange={(e) => patchStrip(s.id, { color: e.target.value })}
+              aria-label="Strip color"
+              className="h-6 w-6 shrink-0 cursor-pointer rounded border border-border bg-transparent p-0"
+            />
+            <input
+              type="text"
+              value={s.label}
+              placeholder="Label (optional)"
+              onChange={(e) => patchStrip(s.id, { label: e.target.value })}
+              className="min-w-0 flex-1 rounded-md border border-border bg-surface px-2 py-1 text-sm text-foreground"
+            />
+            <button
+              type="button"
+              onClick={() => removeStrip(s.id)}
+              aria-label="Remove strip"
+              className="shrink-0 rounded p-1 text-foreground-muted hover:text-red-500"
+            >
+              <Icon name="trash" className="h-3.5 w-3.5" />
+            </button>
+          </div>
+          <Field label="From tip">
+            <SelectInput
+              value={s.from}
+              options={tipNames}
+              onChange={(v) => patchStrip(s.id, { from: v })}
+            />
+          </Field>
+          <Field label="To tip">
+            <SelectInput
+              value={s.to}
+              options={tipNames}
+              onChange={(v) => patchStrip(s.id, { to: v })}
+            />
+          </Field>
+        </div>
+      ))}
+      <button
+        type="button"
+        onClick={addStrip}
+        className="inline-flex items-center gap-1 rounded-lg border border-border px-2.5 py-1 text-sm font-semibold text-foreground hover:border-accent"
+      >
+        <Icon name="plus" className="h-3.5 w-3.5" /> Add strip
       </button>
     </div>
   );
