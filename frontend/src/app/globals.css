@@ -426,6 +426,41 @@
   line-height: 1.75;
 }
 
+/* ── Continuous calm popup surface (L3 "continuous surface") ──────────────────
+ * At fullscreen the WHOLE experiment/note popup is ONE calm canvas: the header
+ * (title, metadata subline, tabs) shares the same warm-paper (light) / dark-room
+ * (dark) surface as the editor body, with no white header band and no hard
+ * divider. The popup container adds `.ros-calm-surface` when expanded; the inner
+ * `.ros-editor-room` then stops painting its own gradient (the container owns the
+ * surface) so there is no double-gradient seam. */
+.ros-calm-surface {
+  background: radial-gradient(
+    130% 70% at 50% -6%,
+    var(--editor-room-top),
+    var(--editor-room-bot)
+  );
+}
+.ros-calm-surface .ros-editor-room {
+  background: transparent;
+  border-top: 0;
+}
+/* Dark mode: the whole popup becomes the dark room (matching the editor body),
+ * re-asserting the dark tokens for the popup subtree (it is otherwise
+ * .light-scope = white paper + dark text, which would vanish on the dark room). */
+[data-theme="dark"] .ros-calm-surface {
+  color-scheme: dark;
+  --editor-room-top: #121a2d;
+  --editor-room-bot: #0c1322;
+  --background: #0c1322;
+  --foreground: #f1f5f9;
+  --surface: #0c1322;
+  --surface-raised: #1c2638;
+  --surface-overlay: #28344c;
+  --surface-sunken: #0d1424;
+  --foreground-muted: #b4bfd0;
+  --border-subtle: rgba(255, 255, 255, 0.16);
+}
+
 /* Focus dimming (UNIFIED_EDITOR_SURFACE_DESIGN.md §3A, U5 toggle, default off).
  * The CM6 focusDimmingExtension adds `.cm-ros-dimmed` to every non-active LINE,
  * but ONLY while the editor is focused (it clears the set on blur), so this rule

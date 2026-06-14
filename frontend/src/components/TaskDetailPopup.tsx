@@ -1124,10 +1124,10 @@ export default function TaskDetailPopup({
         />
       )}
       <div
-        className={`pointer-events-auto bg-surface-raised rounded-2xl shadow-2xl w-full mx-4 flex flex-col transition-all duration-300 overflow-hidden ${
+        className={`pointer-events-auto rounded-2xl shadow-2xl w-full mx-4 flex flex-col transition-all duration-300 overflow-hidden ${
           isExpanded
-            ? "inset-4 max-w-none max-h-none h-[calc(100vh-2rem)]"
-            : "max-w-5xl h-[90vh] max-h-[860px]"
+            ? "ros-calm-surface inset-4 max-w-none max-h-none h-[calc(100vh-2rem)]"
+            : "bg-surface-raised max-w-5xl h-[90vh] max-h-[860px]"
         }`}
         // Accent bar via inset border-top so the card stays squared off without
         // the off-balance left-bar feel. The earlier `border-l-4` left a
@@ -1162,7 +1162,7 @@ export default function TaskDetailPopup({
             so the action rail wraps below the title at narrow viewports
             instead of jamming together. */}
         <div className={`flex items-start justify-between gap-4 px-6 py-4 flex-wrap ${
-          isExpanded ? "border-b border-border/40" : "border-b border-border"
+          isExpanded ? "" : "border-b border-border"
         }`}>
           <div className="flex items-start min-w-0 flex-1">
             <div className="min-w-0 flex-1">
@@ -1728,7 +1728,7 @@ export default function TaskDetailPopup({
             the same surface as the header for a smoother seam. */}
         <div
           className={`flex items-stretch gap-1 px-6 ${
-            isExpanded ? "border-b border-border/40" : "border-b border-border"
+            isExpanded ? "" : "border-b border-border"
           }`}
           data-tour-target="experiment-tab-container"
           role="tablist"
