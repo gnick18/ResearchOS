@@ -240,11 +240,16 @@ New (from this proposal):
 
 ## 15. Build status
 
-- Phase 1 IN PROGRESS (worktree figure-composer-phase1). DONE: the FigureSource
-  registry seam (`lib/figure/figure-source.ts`) + the FigurePage model + pure
-  layout helpers (label styles, ordered-by-reading, snapToGrid align/resize, panel
-  ops) in `lib/figure/figure-page.ts`, with 10 unit tests (tsc 0). NEXT: the page
-  compositor (compose N panel SVGs into one exact-units page SVG + export), the
-  Data Hub FigureSource adapter (wraps renderPlot + PlotSpec.id), storage (a
-  `figures` entity), the composer UI, routing + the Figures-home / rail IA. Then
-  hand the section-3 adapter contract to the phylo / sequence / chemistry lanes.
+- Phase 1 MERGED to LOCAL main `80c9a0eb4` (2026-06-14, additive; `/figures` routes
+  exist but are NOT in nav). tsc 0, 42 figure-composer tests, NOT browser-verified.
+  DONE: the FigureSource registry seam (`lib/figure/figure-source.ts`) +
+  `register-sources.ts` (Data Hub registered) + the FigurePage model + pure layout
+  helpers (label styles, ordered-by-reading, snapToGrid align/resize, panel ops) in
+  `lib/figure/figure-page.ts`; the page compositor (`figure-compose.ts`, composes N
+  panel SVGs into one exact-units page SVG + export); the Data Hub FigureSource adapter
+  (`lib/datahub/figure-source.ts`, wraps renderPlot + PlotSpec.id); plain-JSON `figures`
+  storage (`figure-page-store.ts`); the composer UI (`components/figure/FigureComposer.tsx`)
+  + the `/figures` and `/figures/[id]` routes. NEXT: (1) the LIVE end-to-end dogfood on
+  `:3000` (Grant + the next agent); (2) the Figures-home / rail nav IA; (3) the
+  annotation-placement UI; (4) hand the section-3 adapter contract to the phylo (next) /
+  sequence / chemistry lanes. Handoff: `docs/handoffs/2026-06-14-universal-figure-composer-phase1.md`.
