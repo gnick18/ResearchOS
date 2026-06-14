@@ -27,16 +27,28 @@ import {
   purchasesApi,
 } from "@/lib/local-api";
 import { moleculesApi, type MoleculeMeta } from "@/lib/chemistry/api";
+import { toMolblock } from "@/lib/chemistry/rdkit";
 import { requestNavigation } from "@/components/ai/navigation-bridge";
 import { objectDeepLink } from "@/lib/references";
+import { rawSeqToGenbank } from "./sequence-tools";
 import type {
   SequenceRecord,
+  SequenceDetail,
   Note,
   PurchaseItem,
   PurchaseItemUpdate,
   PurchaseOrderStatus,
 } from "@/lib/types";
 import type { AiTool } from "./types";
+
+/** Clean a pasted sequence into bare residue letters: drop whitespace, digits,
+ *  and FASTA-ish punctuation, uppercase the rest. The user's own bases in, never
+ *  invented. Pure. */
+export function cleanSequenceInput(raw: unknown): string {
+  return typeof raw === "string"
+    ? raw.replace(/[^A-Za-z]/g, "").toUpperCase()
+    : "";
+}
 
 // ---------------------------------------------------------------------------
 // Injectable seam
@@ -65,6 +77,14 @@ export type EditToolsDeps = {
     id: number,
     status: PurchaseOrderStatus,
   ) => Promise<{ item: PurchaseItem | null; notified: boolean }>;
+  /** Fetch a sequence's full detail (its current bases, type, topology, name). */
+  getSequenceDetail: (id: number) => Promise<SequenceDetail | null>;
+  /** Replace a sequence's content with a new GenBank record. */
+  setSequenceGenbank: (id: number, genbank: string) => Promise<SequenceRecord | null>;
+  /** Convert a SMILES string to a molblock (RDKit). Rejects on an unparseable SMILES. */
+  smilesToMolblock: (smiles: string) => Promise<string>;
+  /** Replace a molecule's structure with a new molblock. */
+  setMoleculeMolfile: (id: string, molfile: string) => Promise<MoleculeMeta | null>;
   navigate: (path: string) => void;
 };
 
@@ -83,6 +103,10 @@ export const editToolsDeps: EditToolsDeps = {
   listPurchases: () => purchasesApi.listAll(),
   updatePurchase: (id, data) => purchasesApi.update(id, data),
   setPurchaseStatus: (id, status) => purchasesApi.setOrderStatus(id, status),
+  getSequenceDetail: (id) => sequencesApi.get(id),
+  setSequenceGenbank: (id, genbank) => sequencesApi.update(id, { genbank }),
+  smilesToMolblock: (smiles) => toMolblock(smiles),
+  setMoleculeMolfile: (id, molfile) => moleculesApi.update(id, { molfile }),
   navigate: requestNavigation,
 };
 
@@ -271,6 +295,131 @@ export const updateMoleculeTool: AiTool = {
     if (!updated) return { ok: false as const, error: `Molecule ${mol.id} disappeared during the update.` };
     editToolsDeps.navigate(objectDeepLink("molecule", updated.id));
     return { ok: true as const, id: updated.id, name: updated.name };
+  },
+};
+
+// ---------------------------------------------------------------------------
+// edit_sequence (replace the BASES)
+// ---------------------------------------------------------------------------
+
+export const editSequenceTool: AiTool = {
+  name: "edit_sequence",
+  description:
+    "Replace the BASES of one of the user's sequences with a new sequence THEY provide. Use this only when the user gives you the actual new sequence (or an exact edit like \"change base 450 to A\" that you can apply to bases they confirmed). Call read_sequence first if you need the current bases. Pass the sequence (a name or id) and the full new residue string. The sequence type (DNA/RNA/protein) and topology are kept from the existing record. The app shows a one-line preview (with the new length) before anything writes. NO INTERPRETATION, ABSOLUTE: the bases must come from the USER, never from your own memory or a guess; if you are not certain of the exact sequence, ask, do not fabricate it. Own sequences only.",
+  parameters: {
+    type: "object",
+    properties: {
+      sequence: {
+        type: "string",
+        description: "The sequence to edit, by its name (case-insensitive) or numeric id.",
+      },
+      bases: {
+        type: "string",
+        description:
+          "The full new residue string the user gave you (A/C/G/T..., FASTA-style line breaks are fine and are stripped). The USER's bases, never invented.",
+      },
+    },
+    required: ["sequence", "bases"],
+    additionalProperties: false,
+  },
+  action: true,
+  isDestructive: () => false,
+  describeAction: (args) => {
+    const ref = String(args.sequence ?? "?");
+    const bases = cleanSequenceInput(args.bases);
+    return { summary: `replace the bases of sequence "${ref}" (${bases.length} residues)` };
+  },
+  execute: async (args) => {
+    const bases = cleanSequenceInput(args.bases);
+    if (!bases) {
+      return { ok: false as const, error: "A new sequence (the user's bases) is required." };
+    }
+    const seqs = await editToolsDeps.listSequences();
+    const rec = resolveSequence(seqs, args.sequence as string | number | undefined);
+    if (!rec) {
+      const names = seqs.map((s) => s.display_name);
+      return {
+        ok: false as const,
+        error: `I could not find one of your sequences called "${args.sequence}". Your sequences are: ${names.length ? names.map((n) => `"${n}"`).join(", ") : "(none yet)"}.`,
+      };
+    }
+    // Read the current detail so the new GenBank keeps the type, topology, and name.
+    const detail = await editToolsDeps.getSequenceDetail(rec.id);
+    const seqType = detail?.seq_type ?? rec.seq_type ?? "dna";
+    const circular = detail?.circular ?? rec.circular ?? false;
+    const name = detail?.display_name ?? rec.display_name;
+    const genbank = rawSeqToGenbank(name, bases, seqType, circular);
+    if (!genbank) {
+      return { ok: false as const, error: "That sequence could not be encoded. Check the residues are valid." };
+    }
+    let updated: SequenceRecord | null;
+    try {
+      updated = await editToolsDeps.setSequenceGenbank(rec.id, genbank);
+    } catch (err) {
+      return { ok: false as const, error: `Could not update the sequence. ${err instanceof Error ? err.message : String(err)}` };
+    }
+    if (!updated) return { ok: false as const, error: `Sequence ${rec.id} disappeared during the update.` };
+    editToolsDeps.navigate(objectDeepLink("sequence", rec.id));
+    return { ok: true as const, id: rec.id, name, length: bases.length };
+  },
+};
+
+// ---------------------------------------------------------------------------
+// edit_molecule_structure (replace the STRUCTURE from a SMILES)
+// ---------------------------------------------------------------------------
+
+export const editMoleculeStructureTool: AiTool = {
+  name: "edit_molecule_structure",
+  description:
+    "Replace the STRUCTURE of one of the user's molecules with a new SMILES THEY provide. Use this only when the user gives you the actual SMILES (or an unambiguous structural change you can express as SMILES they confirmed). Pass the molecule (a name or id) and the new SMILES. The app shows a one-line preview before anything writes, and the SMILES is validated by the chemistry engine (an unparseable one is rejected). NO INTERPRETATION, ABSOLUTE: the SMILES must come from the USER, never invented. Use update_molecule (not this) to only rename. ",
+  parameters: {
+    type: "object",
+    properties: {
+      molecule: {
+        type: "string",
+        description: "The molecule to edit, by its name (case-insensitive) or id.",
+      },
+      smiles: { type: "string", description: "The new SMILES string the user gave you." },
+    },
+    required: ["molecule", "smiles"],
+    additionalProperties: false,
+  },
+  action: true,
+  isDestructive: () => false,
+  describeAction: (args) => {
+    const ref = String(args.molecule ?? "?");
+    const smiles = typeof args.smiles === "string" ? args.smiles.trim() : "";
+    return { summary: `replace the structure of molecule "${ref}" with ${smiles || "a new SMILES"}` };
+  },
+  execute: async (args) => {
+    const smiles = typeof args.smiles === "string" ? args.smiles.trim() : "";
+    if (!smiles) return { ok: false as const, error: "A new SMILES (the user's) is required." };
+    const mols = await editToolsDeps.listMolecules();
+    const mol = resolveMolecule(mols, args.molecule as string | number | undefined);
+    if (!mol) {
+      const names = mols.map((m) => m.name);
+      return {
+        ok: false as const,
+        error: `I could not find one of your molecules called "${args.molecule}". Your molecules are: ${names.length ? names.map((n) => `"${n}"`).join(", ") : "(none yet)"}.`,
+      };
+    }
+    // Validate + convert the SMILES to a molblock via the chemistry engine. A bad
+    // SMILES rejects here, so we never write an unparseable structure.
+    let molfile: string;
+    try {
+      molfile = await editToolsDeps.smilesToMolblock(smiles);
+    } catch {
+      return { ok: false as const, error: `"${smiles}" could not be parsed as a valid SMILES. Check it and try again.` };
+    }
+    let updated: MoleculeMeta | null;
+    try {
+      updated = await editToolsDeps.setMoleculeMolfile(mol.id, molfile);
+    } catch (err) {
+      return { ok: false as const, error: `Could not update the molecule. ${err instanceof Error ? err.message : String(err)}` };
+    }
+    if (!updated) return { ok: false as const, error: `Molecule ${mol.id} disappeared during the update.` };
+    editToolsDeps.navigate(objectDeepLink("molecule", mol.id));
+    return { ok: true as const, id: mol.id, name: updated.name };
   },
 };
 

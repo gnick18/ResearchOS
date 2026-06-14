@@ -109,6 +109,8 @@ import {
   updateNoteTool,
   updatePurchaseTool,
   editNoteTool,
+  editSequenceTool,
+  editMoleculeStructureTool,
 } from "./edit-tools";
 import {
   readNoteTool,
@@ -447,6 +449,12 @@ export const ACTION_TOOLS: AiTool[] = [
   // or the description for an entry-less note), distinct from write_note's append
   // of a NEW entry. NO-INTERPRETATION: the user's own words.
   editNoteTool,
+  // edit_sequence / edit_molecule_structure replace the actual scientific content
+  // (a sequence's bases via rawSeqToGenbank, a molecule's structure via the RDKit
+  // SMILES->molblock path). ABSOLUTE no-interpretation: the bases / SMILES come from
+  // the USER, never invented; a bad SMILES is rejected by the engine.
+  editSequenceTool,
+  editMoleculeStructureTool,
   // create_purchase logs an order (action: true, isDestructive false). The preview
   // shows vendor, item, quantity, price, and project before anything writes. Two-step
   // write: a parent Task with task_type "purchase", then the linked PurchaseItem.

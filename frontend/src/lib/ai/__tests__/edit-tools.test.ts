@@ -24,13 +24,16 @@ import {
   resolvePurchase,
   resolveNoteEntry,
   parseOrderStatus,
+  cleanSequenceInput,
   updateSequenceTool,
   updateMoleculeTool,
   updateNoteTool,
   updatePurchaseTool,
   editNoteTool,
+  editSequenceTool,
+  editMoleculeStructureTool,
 } from "../tools/edit-tools";
-import type { SequenceRecord, Note, PurchaseItem } from "@/lib/types";
+import type { SequenceRecord, SequenceDetail, Note, PurchaseItem } from "@/lib/types";
 import type { MoleculeMeta } from "@/lib/chemistry/api";
 
 const seq = (over: Partial<SequenceRecord> = {}) =>
@@ -175,6 +178,64 @@ describe("edit_note", () => {
 
     await editNoteTool.execute({ note: 1, content: "new body" });
     expect(setDesc).toHaveBeenCalledWith(1, "new body");
+  });
+});
+
+describe("cleanSequenceInput", () => {
+  it("strips whitespace, digits, and punctuation and uppercases", () => {
+    expect(cleanSequenceInput("acg t\n123 GG")).toBe("ACGTGG");
+    expect(cleanSequenceInput("")).toBe("");
+    expect(cleanSequenceInput(42)).toBe("");
+  });
+});
+
+describe("edit_sequence (replace bases)", () => {
+  const detail = (over: Partial<SequenceDetail> = {}) =>
+    ({ id: 1, display_name: "pUC19", seq_type: "dna", circular: false, sequence: "ACGT" }) as unknown as SequenceDetail;
+
+  it("builds a GenBank from the user's bases and writes it", async () => {
+    vi.spyOn(editToolsDeps, "listSequences").mockResolvedValue([seq({ id: 9, display_name: "pUC19" })]);
+    vi.spyOn(editToolsDeps, "getSequenceDetail").mockResolvedValue(detail({ id: 9 }));
+    const setGb = vi.spyOn(editToolsDeps, "setSequenceGenbank").mockResolvedValue(seq({ id: 9 }));
+    vi.spyOn(editToolsDeps, "navigate").mockImplementation(() => {});
+
+    const r = (await editSequenceTool.execute({ sequence: "pUC19", bases: "acgt\nAACC" })) as { ok: boolean; length: number };
+    expect(r.ok).toBe(true);
+    expect(r.length).toBe(8);
+    // A GenBank string was produced and written (rawSeqToGenbank is the real serializer).
+    const [id, gb] = setGb.mock.calls[0];
+    expect(id).toBe(9);
+    expect(typeof gb).toBe("string");
+    expect(gb.toUpperCase()).toContain("ACGTAACC");
+  });
+
+  it("errors when no bases are given", async () => {
+    const r = (await editSequenceTool.execute({ sequence: "pUC19", bases: "123" })) as { ok: boolean };
+    expect(r.ok).toBe(false);
+  });
+});
+
+describe("edit_molecule_structure (replace structure)", () => {
+  it("validates the SMILES via the engine then writes the molblock", async () => {
+    vi.spyOn(editToolsDeps, "listMolecules").mockResolvedValue([mol()]);
+    const toMol = vi.spyOn(editToolsDeps, "smilesToMolblock").mockResolvedValue("MOLBLOCK");
+    const setMol = vi.spyOn(editToolsDeps, "setMoleculeMolfile").mockResolvedValue(mol());
+    vi.spyOn(editToolsDeps, "navigate").mockImplementation(() => {});
+
+    const r = (await editMoleculeStructureTool.execute({ molecule: "aspirin", smiles: "CC(=O)O" })) as { ok: boolean };
+    expect(r.ok).toBe(true);
+    expect(toMol).toHaveBeenCalledWith("CC(=O)O");
+    expect(setMol).toHaveBeenCalledWith("m1", "MOLBLOCK");
+  });
+
+  it("rejects an unparseable SMILES without writing", async () => {
+    vi.spyOn(editToolsDeps, "listMolecules").mockResolvedValue([mol()]);
+    vi.spyOn(editToolsDeps, "smilesToMolblock").mockRejectedValue(new Error("bad smiles"));
+    const setMol = vi.spyOn(editToolsDeps, "setMoleculeMolfile");
+    const r = (await editMoleculeStructureTool.execute({ molecule: "aspirin", smiles: "@@@" })) as { ok: boolean; error: string };
+    expect(r.ok).toBe(false);
+    expect(r.error).toMatch(/could not be parsed/i);
+    expect(setMol).not.toHaveBeenCalled();
   });
 });
 
