@@ -15,7 +15,7 @@
 //
 // House style, no inline SVG, no emojis / em-dashes / mid-sentence colons.
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Icon } from "@/components/icons";
 import Tooltip from "@/components/Tooltip";
 import {
@@ -25,8 +25,17 @@ import {
   slugifyMacroName,
   ensureUniqueMacroName,
   stepHasFixedDate,
+  MACRO_NOISE_TOOLS,
   type MacroStep,
 } from "@/lib/ai/beaker-macros-store";
+import { DEFAULT_TOOLS } from "@/lib/ai/tools/registry";
+
+// Turn a tool name into a human step label, for example "lab_digest" -> "Lab
+// digest". The user can rename it after adding.
+function humanizeToolName(name: string): string {
+  const words = name.replace(/_/g, " ").trim();
+  return words.charAt(0).toUpperCase() + words.slice(1);
+}
 
 export default function MacroEditorSheet({
   macroId,
@@ -50,6 +59,37 @@ export default function MacroEditorSheet({
   const [steps, setSteps] = useState<MacroStep[]>(initialSteps);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // The add-step tool picker (author-from-scratch). Open state + filter query.
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const [pickerQuery, setPickerQuery] = useState("");
+
+  // The tools a macro step may use, the registry minus the navigation and read
+  // noise (same set the capture drops). Sorted by name. Computed once.
+  const pickableTools = useMemo(
+    () =>
+      DEFAULT_TOOLS.filter((t) => !MACRO_NOISE_TOOLS.has(t.name))
+        .map((t) => ({ name: t.name, description: t.description }))
+        .sort((a, b) => a.name.localeCompare(b.name)),
+    [],
+  );
+  const filteredTools = useMemo(() => {
+    const q = pickerQuery.trim().toLowerCase();
+    if (!q) return pickableTools;
+    return pickableTools.filter(
+      (t) =>
+        t.name.toLowerCase().includes(q) ||
+        t.description.toLowerCase().includes(q),
+    );
+  }, [pickableTools, pickerQuery]);
+
+  const addStep = (toolName: string) => {
+    setSteps((prev) => [
+      ...prev,
+      { tool: toolName, args: {}, label: humanizeToolName(toolName), enabled: true },
+    ]);
+    setPickerOpen(false);
+    setPickerQuery("");
+  };
 
   const enabledCount = steps.filter((s) => s.enabled !== false).length;
   const canSave = name.trim().length > 0 && enabledCount > 0 && !saving;
@@ -188,8 +228,8 @@ export default function MacroEditorSheet({
             </span>
             {steps.length === 0 ? (
               <p className="rounded-md border border-dashed border-border px-3 py-3 text-meta text-foreground-muted">
-                No steps captured. Run something with BeakerBot first, then save it
-                as a macro.
+                No steps yet. Add one below, or run something with BeakerBot and
+                choose Save as macro to capture a step with its exact inputs.
               </p>
             ) : (
               <div className="flex flex-col gap-1.5" data-testid="macro-step-list">
@@ -269,6 +309,65 @@ export default function MacroEditorSheet({
                 })}
               </div>
             )}
+
+            {/* Add-step picker (author-from-scratch). Lists the registry tools a
+                macro may use; a chosen step starts with empty (default) args, the
+                user edits the label and reorders. Record-from-chat is still how to
+                capture a step with specific inputs. */}
+            <div className="relative mt-1.5">
+              {pickerOpen ? (
+                <div
+                  data-testid="macro-step-picker"
+                  className="rounded-md border border-border bg-surface-raised"
+                >
+                  <input
+                    autoFocus
+                    value={pickerQuery}
+                    onChange={(e) => setPickerQuery(e.target.value)}
+                    placeholder="Search tools"
+                    className="w-full border-b border-border bg-transparent px-2.5 py-2 text-meta text-foreground outline-none"
+                  />
+                  <div className="max-h-44 overflow-y-auto py-1">
+                    {filteredTools.length === 0 ? (
+                      <p className="px-2.5 py-2 text-meta text-foreground-muted">
+                        No tool matches.
+                      </p>
+                    ) : (
+                      filteredTools.map((t) => (
+                        <button
+                          key={t.name}
+                          type="button"
+                          data-testid="macro-step-pick"
+                          onClick={() => addStep(t.name)}
+                          className="flex w-full flex-col items-start px-2.5 py-1.5 text-left hover:bg-surface-sunken"
+                        >
+                          <span className="text-meta font-semibold text-purple-600 dark:text-purple-300">
+                            {t.name}
+                          </span>
+                          <span className="line-clamp-1 text-[11px] text-foreground-muted">
+                            {t.description}
+                          </span>
+                        </button>
+                      ))
+                    )}
+                  </div>
+                  <p className="border-t border-border px-2.5 py-1.5 text-[10px] text-foreground-muted">
+                    Steps added here run with default inputs. Record a run to
+                    capture exact arguments.
+                  </p>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  data-testid="macro-add-step"
+                  onClick={() => setPickerOpen(true)}
+                  className="flex w-full items-center justify-center gap-1.5 rounded-md border border-dashed border-border px-3 py-2 text-meta font-medium text-foreground-muted hover:border-purple-400 hover:text-purple-600 dark:hover:text-purple-300"
+                >
+                  <Icon name="plus" className="h-3.5 w-3.5" title="" />
+                  Add step
+                </button>
+              )}
+            </div>
           </div>
 
           {error ? (

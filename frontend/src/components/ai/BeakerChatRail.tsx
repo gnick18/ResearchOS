@@ -308,6 +308,19 @@ export default function BeakerChatRail() {
           <span className="text-[10px] font-bold uppercase tracking-wide text-purple-600 dark:text-purple-300">
             Macros
           </span>
+          <Tooltip label="New macro" placement="bottom">
+            <button
+              type="button"
+              data-testid="beaker-macro-new"
+              aria-label="New macro"
+              onClick={() =>
+                openMacroEditor({ name: "", description: "", steps: [] })
+              }
+              className="ml-auto flex h-5 w-5 items-center justify-center rounded text-purple-600 hover:bg-purple-500/10 dark:text-purple-300"
+            >
+              <Icon name="plus" className="h-3.5 w-3.5" title="New macro" />
+            </button>
+          </Tooltip>
         </div>
         {macros === null ? (
           <p className="px-3 pb-2 text-meta text-foreground-muted">Loading...</p>
