@@ -12,6 +12,7 @@
 import React, { useCallback, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import Svg, { Path, Circle } from 'react-native-svg';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -177,8 +178,8 @@ export default function HomeScreen() {
 
   const Label = ({ children, action }: { children: string; action?: string }) => (
     <View style={styles.lblRow}>
-      <Text style={[styles.lbl, { color: s.faint }]}>{children}</Text>
-      {action ? <Text style={[styles.lblAction, { color: p.sky }]}>{action}</Text> : null}
+      <Text style={[styles.lbl, { color: s.faint }]} numberOfLines={1}>{children}</Text>
+      {action ? <Text style={[styles.lblAction, { color: p.sky }]} numberOfLines={1}>{action}</Text> : null}
     </View>
   );
 
@@ -187,7 +188,7 @@ export default function HomeScreen() {
       <View style={[styles.tileIc, { backgroundColor: bg }]}>
         <Ic d={d} color={color} />
       </View>
-      <Text style={[styles.tileNm, { color: s.muted }]}>{label}</Text>
+      <Text style={[styles.tileNm, { color: s.muted }]} numberOfLines={1}>{label}</Text>
     </Pressable>
   );
 
@@ -234,15 +235,20 @@ export default function HomeScreen() {
 
       <ScrollView style={styles.scroll} contentContainerStyle={{ paddingHorizontal: spacing.lg, paddingBottom: insets.bottom + 96 }} showsVerticalScrollIndicator={false}>
         {/* status */}
-        <View style={[styles.statusCard, { backgroundColor: s.surface, borderColor: s.border }, t.shadow.sm]}>
+        <LinearGradient
+          colors={[s.surface, s.surface2]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 0, y: 1 }}
+          style={[styles.statusCard, { borderColor: s.border }, t.shadow.sm]}
+        >
           <View style={[styles.pulse, { backgroundColor: dotDim }]}>
-            <View style={[styles.pulseCore, { backgroundColor: dotColor }]} />
+            <View style={[styles.pulseCore, { backgroundColor: dotColor, shadowColor: dotColor }]} />
           </View>
           <View style={{ flex: 1 }}>
             <Text style={[styles.statusLab, { color: s.text }]} numberOfLines={1}>{`${labName} · ${connLabel}`}</Text>
-            <Text style={[styles.statusMeta, { color: s.muted }]}>{statusMeta}</Text>
+            <Text style={[styles.statusMeta, { color: s.muted }]} numberOfLines={1}>{statusMeta}</Text>
           </View>
-        </View>
+        </LinearGradient>
 
         {/* active experiments (hidden when none) */}
         {experiments.length > 0 ? (
@@ -259,20 +265,24 @@ export default function HomeScreen() {
         {running ? (
           <>
             <Label>Running now</Label>
-            <Pressable
-              style={[styles.timerLive, { borderColor: p.amberDim }, t.shadow.sm]}
-              onPress={() => router.push('/(tabs)/timers')}
-            >
-              <View style={[styles.ring, { borderColor: p.amber }]}>
-                <Ic d="M12 13V9M9 2h6M12 22a8 8 0 1 0 0-16 8 8 0 0 0 0 16Z" color={p.amber} size={20} />
-              </View>
-              <View style={{ flex: 1 }}>
-                <Text style={[styles.timerNm, { color: s.text }]} numberOfLines={1}>
-                  {running.label && running.label.length > 0 ? running.label : 'Timer'}
-                </Text>
-                <Text style={[styles.timerSub, { color: s.muted }]}>Running</Text>
-              </View>
-              <Text style={[styles.timerCd, { color: s.text }]}>{fmtCountdown(running.endsAt - Date.now())}</Text>
+            <Pressable onPress={() => router.push('/(tabs)/timers')}>
+              <LinearGradient
+                colors={[t.dark ? 'rgba(245,158,11,0.20)' : 'rgba(245,158,11,0.14)', s.surface]}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={[styles.timerLive, { borderColor: p.amberBorder }, t.shadow.sm]}
+              >
+                <View style={[styles.ring, { borderColor: p.amber }]}>
+                  <Ic d="M12 13V9M9 2h6M12 22a8 8 0 1 0 0-16 8 8 0 0 0 0 16Z" color={p.amber} size={20} />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={[styles.timerNm, { color: s.text }]} numberOfLines={1}>
+                    {running.label && running.label.length > 0 ? running.label : 'Timer'}
+                  </Text>
+                  <Text style={[styles.timerSub, { color: s.muted }]}>Running</Text>
+                </View>
+                <Text style={[styles.timerCd, { color: s.text }]}>{fmtCountdown(running.endsAt - Date.now())}</Text>
+              </LinearGradient>
             </Pressable>
           </>
         ) : null}
@@ -332,9 +342,14 @@ export default function HomeScreen() {
                   c.status === 'sent' ? p.success : c.status === 'failed' ? p.danger : p.amber;
                 return (
                   <View key={c.id} style={[styles.lrow, i > 0 && { borderTopWidth: 1, borderTopColor: s.hairline }]}>
-                    <View style={[styles.thumb, { backgroundColor: s.sunken, borderColor: s.border }]}>
+                    <LinearGradient
+                      colors={t.dark ? ['#1c2433', '#10161f'] : ['#cfe0ee', '#e7eef6']}
+                      start={{ x: 0, y: 0 }}
+                      end={{ x: 1, y: 1 }}
+                      style={[styles.thumb, { borderColor: s.border }]}
+                    >
                       <Ic d="M4 8h16v11H4z" color={s.faint} size={18} sw={1.6} />
-                    </View>
+                    </LinearGradient>
                     <View style={{ flex: 1 }}>
                       <Text style={[styles.lrowT, { color: s.text }]} numberOfLines={1}>
                         {c.caption && c.caption.length > 0 ? c.caption : 'Photo capture'}
@@ -363,15 +378,15 @@ const styles = StyleSheet.create({
   headActions: { flexDirection: 'row', gap: 8 },
   iconBtn: { width: 38, height: 38, borderRadius: 12, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
   scroll: { flex: 1 },
-  statusCard: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 14, borderRadius: radii.lg, borderWidth: 1 },
+  statusCard: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 14, paddingHorizontal: 15, borderRadius: radii.lg, borderWidth: 1 },
   pulse: { width: 42, height: 42, borderRadius: 13, alignItems: 'center', justifyContent: 'center' },
-  pulseCore: { width: 11, height: 11, borderRadius: 6 },
+  pulseCore: { width: 11, height: 11, borderRadius: 6, shadowOffset: { width: 0, height: 0 }, shadowOpacity: 0.5, shadowRadius: 4, elevation: 3 },
   statusLab: { fontSize: 15, fontFamily: fonts.bold },
   statusMeta: { fontSize: 12.5, fontFamily: fonts.ui, marginTop: 2 },
   lblRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 18, marginBottom: 9, marginHorizontal: 4 },
-  lbl: { fontSize: 12, fontFamily: fonts.bold, letterSpacing: 1, textTransform: 'uppercase', paddingRight: 2 },
+  lbl: { fontSize: 12, fontFamily: fonts.bold, letterSpacing: 0.9, textTransform: 'uppercase', paddingRight: 5 },
   lblAction: { fontSize: 12.5, fontFamily: fonts.semibold },
-  timerLive: { flexDirection: 'row', alignItems: 'center', gap: 13, padding: 14, borderRadius: radii.lg, borderWidth: 1, backgroundColor: 'rgba(245,158,11,0.06)' },
+  timerLive: { flexDirection: 'row', alignItems: 'center', gap: 13, paddingVertical: 14, paddingHorizontal: 15, borderRadius: radii.lg, borderWidth: 1 },
   ring: { width: 44, height: 44, borderRadius: 22, borderWidth: 3, alignItems: 'center', justifyContent: 'center' },
   timerNm: { fontSize: 14.5, fontFamily: fonts.semibold },
   timerSub: { fontSize: 12, fontFamily: fonts.ui, marginTop: 1 },
@@ -384,9 +399,9 @@ const styles = StyleSheet.create({
   taskT: { flex: 1, fontSize: 14.5, fontFamily: fonts.medium },
   taskW: { fontSize: 12, fontFamily: fonts.semibold },
   launch: { flexDirection: 'row', gap: 10 },
-  tile: { flex: 1, borderRadius: radii.md, borderWidth: 1, paddingVertical: 13, paddingHorizontal: 4, alignItems: 'center', gap: 7 },
+  tile: { flex: 1, borderRadius: radii.md, borderWidth: 1, paddingTop: 13, paddingBottom: 11, paddingHorizontal: 2, alignItems: 'center', gap: 7 },
   tileIc: { width: 40, height: 40, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
-  tileNm: { fontSize: 11.5, fontFamily: fonts.semibold },
+  tileNm: { fontSize: 11.5, fontFamily: fonts.semibold, textAlign: 'center', alignSelf: 'stretch' },
   lrow: { flexDirection: 'row', alignItems: 'center', gap: 11, paddingVertical: 11 },
   thumb: { width: 46, height: 46, borderRadius: 11, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
   lrowT: { fontSize: 14, fontFamily: fonts.semibold },

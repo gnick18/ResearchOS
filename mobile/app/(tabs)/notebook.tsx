@@ -31,6 +31,7 @@ import {
   ScrollView,
 } from 'react-native-gesture-handler';
 import { useFocusEffect, useRouter } from 'expo-router';
+import { LinearGradient } from 'expo-linear-gradient';
 import * as ImagePicker from 'expo-image-picker';
 
 import { ThemedText } from '@/components/themed-text';
@@ -947,11 +948,21 @@ export default function NotebookScreen() {
               ]}
               accessibilityRole="button"
             >
+              <LinearGradient
+                colors={[palette.sky, '#39B4FF']}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={StyleSheet.absoluteFill}
+                pointerEvents="none"
+              />
+              <View style={styles.actionBlob} pointerEvents="none" />
               <View style={styles.actionIconTile}>
                 <Ionicons name="camera-outline" size={22} color={palette.white} />
               </View>
-              <ThemedText style={styles.actionLabel}>Take a photo</ThemedText>
-              <ThemedText style={styles.actionSub}>Gel, plate, whiteboard</ThemedText>
+              <View style={styles.actionText}>
+                <ThemedText style={styles.actionLabel}>Take a photo</ThemedText>
+                <ThemedText style={styles.actionSub}>Gel, plate, whiteboard</ThemedText>
+              </View>
             </Pressable>
             <Pressable
               testID="notebook-quick-note"
@@ -970,11 +981,21 @@ export default function NotebookScreen() {
               ]}
               accessibilityRole="button"
             >
+              <LinearGradient
+                colors={['#FF6F61', '#FF9182']}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={StyleSheet.absoluteFill}
+                pointerEvents="none"
+              />
+              <View style={styles.actionBlob} pointerEvents="none" />
               <View style={styles.actionIconTile}>
                 <Ionicons name="create-outline" size={22} color={palette.white} />
               </View>
-              <ThemedText style={styles.actionLabel}>Quick note</ThemedText>
-              <ThemedText style={styles.actionSub}>Type and send</ThemedText>
+              <View style={styles.actionText}>
+                <ThemedText style={styles.actionLabel}>Quick note</ThemedText>
+                <ThemedText style={styles.actionSub}>Type and send</ThemedText>
+              </View>
             </Pressable>
           </View>
         ) : null}
@@ -995,6 +1016,14 @@ export default function NotebookScreen() {
               { borderRadius: radii.lg, opacity: pressed ? 0.92 : 1 },
             ]}
           >
+            <LinearGradient
+              colors={['#22B07D', '#2FC98F']}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={StyleSheet.absoluteFill}
+              pointerEvents="none"
+            />
+            <View style={styles.scanBlob} pointerEvents="none" />
             <View style={styles.scanIconTile}>
               <Ionicons name="scan-outline" size={24} color={palette.white} />
             </View>
@@ -1007,7 +1036,7 @@ export default function NotebookScreen() {
                 device.
               </ThemedText>
             </View>
-            <Ionicons name="chevron-forward" size={20} color={palette.skyBorder} />
+            <Ionicons name="chevron-forward" size={20} color="rgba(255,255,255,0.85)" />
           </Pressable>
         ) : null}
 
@@ -1569,25 +1598,47 @@ const styles = StyleSheet.create({
   },
   actionCard: {
     flex: 1,
-    paddingVertical: 15,
-    paddingHorizontal: 12,
-    alignItems: 'center',
-    gap: 7,
+    minHeight: 118,
+    paddingVertical: 18,
+    paddingHorizontal: 16,
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    overflow: 'hidden',
+    position: 'relative',
+    // depth: soft elevation matching --shadow-md
+    shadowColor: '#0F1722',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.14,
+    shadowRadius: 12,
+    elevation: 4,
+  },
+  // Decorative corner circle bleeding off the bottom-right, clipped by the card.
+  actionBlob: {
+    position: 'absolute',
+    right: -30,
+    bottom: -40,
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+    backgroundColor: 'rgba(255,255,255,0.12)',
   },
   actionIconTile: {
     width: 40,
     height: 40,
     borderRadius: 12,
-    backgroundColor: 'rgba(255,255,255,0.18)',
+    backgroundColor: 'rgba(255,255,255,0.22)',
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 1,
+  },
+  actionText: {
+    gap: 2,
+    alignSelf: 'stretch',
   },
   actionSub: {
-    fontSize: 11.5,
+    fontSize: 12,
     fontWeight: '500',
-    color: 'rgba(255,255,255,0.82)',
-    textAlign: 'center',
+    color: 'rgba(255,255,255,0.85)',
+    textAlign: 'left',
   },
   actionPrimary: {
     backgroundColor: palette.sky,
@@ -1597,10 +1648,11 @@ const styles = StyleSheet.create({
     backgroundColor: palette.coral,
   },
   actionLabel: {
-    fontSize: 14,
-    fontWeight: '600',
+    fontSize: 15,
+    fontWeight: '700',
     color: palette.white,
-    textAlign: 'center',
+    textAlign: 'left',
+    letterSpacing: -0.2,
   },
 
   // Photo preview
@@ -1685,28 +1737,39 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 13,
-    backgroundColor: palette.skyDim,
-    borderWidth: 1,
-    borderColor: palette.skyBorder,
-    paddingVertical: 14,
-    paddingHorizontal: 14,
+    // Confident filled green sibling to the sky/coral pair.
+    backgroundColor: '#22B07D',
+    paddingVertical: 16,
+    paddingHorizontal: 16,
+    overflow: 'hidden',
+    position: 'relative',
+    shadowColor: '#0F1722',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.14,
+    shadowRadius: 12,
+    elevation: 4,
+  },
+  // Decorative corner circle, same family as the action cards.
+  scanBlob: {
+    position: 'absolute',
+    right: -30,
+    bottom: -40,
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+    backgroundColor: 'rgba(255,255,255,0.12)',
   },
   scanIconTile: {
     width: 44,
     height: 44,
     borderRadius: 12,
-    backgroundColor: palette.sky,
+    backgroundColor: 'rgba(255,255,255,0.22)',
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: palette.sky,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.35,
-    shadowRadius: 5,
-    elevation: 2,
   },
   scanCardText: { flex: 1, gap: 3 },
-  scanCardTitle: { fontSize: 15.5, fontWeight: '800', color: palette.sky, letterSpacing: -0.2 },
-  scanCardSub: { fontSize: 12.5, lineHeight: 17, color: palette.sky, opacity: 0.85 },
+  scanCardTitle: { fontSize: 15.5, fontWeight: '800', color: palette.white, letterSpacing: -0.2 },
+  scanCardSub: { fontSize: 12.5, lineHeight: 17, color: 'rgba(255,255,255,0.9)' },
 
 
   // Demo mode pill

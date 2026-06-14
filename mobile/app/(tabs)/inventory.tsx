@@ -14,16 +14,15 @@ import {
   View,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useFocusEffect, useRouter } from 'expo-router';
 
 import { ThemedText } from '@/components/themed-text';
 import { ScreenFrame } from '@/components/ui/ScreenFrame';
-import { TabHeader } from '@/components/ui/TabHeader';
 import { useUnreadNotificationCount } from '@/lib/unread-notifications';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { EmptyState } from '@/components/ui/EmptyState';
-import { SectionHeader } from '@/components/ui/SectionHeader';
 import { useTheme, palette, fonts } from '@/lib/design';
 import { usePairing } from '@/lib/pairing';
 import { signWithDevice } from '@/lib/device-identity';
@@ -182,11 +181,10 @@ export default function InventoryScreen() {
             ) : null}
 
             {/* Tracked items */}
-            <SectionHeader
+            <SectionLabel
               title="Tracked items"
               action={hasLow ? (lowOnly ? 'Show all' : 'Reorder low') : undefined}
               onAction={hasLow ? () => setLowOnly((v) => !v) : undefined}
-              actionColor={palette.amber}
             />
             {shownStocks.length > 0 ? (
               <Card>
@@ -207,7 +205,7 @@ export default function InventoryScreen() {
             ) : null}
 
             {/* Purchase orders */}
-            <SectionHeader title="Purchase orders" />
+            <SectionLabel title="Purchase orders" />
             {recentPurchases.length > 0 ? (
               <Card>
                 {recentPurchases.map((po, i) => (
@@ -232,35 +230,71 @@ export default function InventoryScreen() {
   );
 }
 
-// Sky hero card matching the mockup (same component as the old today.tsx).
+// Sky-gradient hero card matching the contract (Inventory hero):
+// linear-gradient(140deg, --sky, #39b4ff), white text, 48 icon tile on
+// rgba(255,255,255,.22), shadow-md lift, trailing chevron.
 function ScanHeroCard({ onPress }: { onPress: () => void }) {
-  const { radii, elevation } = useTheme();
+  const { radii, shadow } = useTheme();
   return (
     <Pressable
       testID="inventory-scan-package"
       onPress={onPress}
       style={({ pressed }) => [
-        styles.scanHero,
+        { borderRadius: radii.lg },
+        shadow.md,
         {
-          backgroundColor: palette.sky,
-          borderRadius: radii.lg,
-          opacity: pressed ? 0.92 : 1,
+          opacity: pressed ? 0.94 : 1,
           transform: [{ scale: pressed ? 0.985 : 1 }],
         },
-        elevation,
       ]}
     >
-      <View style={styles.scanHeroIcon}>
-        <Ionicons name="scan-outline" size={26} color={palette.white} />
-      </View>
-      <View style={styles.scanHeroText}>
-        <ThemedText style={styles.scanHeroTitle}>Scan a package</ThemedText>
-        <ThemedText style={styles.scanHeroSub} numberOfLines={2}>
-          Receive, track, and reorder
-        </ThemedText>
-      </View>
-      <Ionicons name="chevron-forward" size={20} color="rgba(255,255,255,0.85)" />
+      <LinearGradient
+        // 140deg in CSS maps to start top-left, end bottom-right tilt.
+        colors={[palette.sky, '#39b4ff']}
+        start={{ x: 0.15, y: 0 }}
+        end={{ x: 0.85, y: 1 }}
+        style={[styles.scanHero, { borderRadius: radii.lg }]}
+      >
+        <View style={styles.scanHeroIcon}>
+          <Ionicons name="scan-outline" size={26} color={palette.white} />
+        </View>
+        <View style={styles.scanHeroText}>
+          <ThemedText style={styles.scanHeroTitle}>Scan a package</ThemedText>
+          <ThemedText style={styles.scanHeroSub} numberOfLines={2}>
+            Receive, track, and reorder
+          </ThemedText>
+        </View>
+        <Ionicons name="chevron-forward" size={20} color="rgba(255,255,255,0.92)" />
+      </LinearGradient>
     </Pressable>
+  );
+}
+
+// Contract .lbl: small uppercase faint section label with an optional sky
+// action link on the right. Used for "Tracked items" / "Purchase orders".
+function SectionLabel({
+  title,
+  action,
+  onAction,
+}: {
+  title: string;
+  action?: string;
+  onAction?: () => void;
+}) {
+  const { surface } = useTheme();
+  return (
+    <View style={styles.sectionLabelRow}>
+      <ThemedText style={[styles.sectionLabel, { color: surface.faint }]}>
+        {title}
+      </ThemedText>
+      {action && onAction ? (
+        <Pressable onPress={onAction} hitSlop={8} accessibilityRole="button">
+          <ThemedText style={[styles.sectionAction, { color: palette.sky }]}>
+            {action}
+          </ThemedText>
+        </Pressable>
+      ) : null}
+    </View>
   );
 }
 
@@ -288,9 +322,27 @@ function TrackedStockRow({
     : `${remaining}${unitLabel ? ` ${unitLabel}` : ''} left`;
 
   return (
-    <View testID={testID} style={[styles.listRow, last ? styles.rowLast : null]}>
-      <View style={[styles.stockIcon, { backgroundColor: palette.sky }]}>
-        <Ionicons name="cube-outline" size={18} color={palette.white} />
+    <View
+      testID={testID}
+      style={[
+        styles.listRow,
+        { borderBottomColor: surface.hairline },
+        last ? styles.rowLast : null,
+      ]}
+    >
+      <View
+        style={[
+          styles.thumb,
+          isLow
+            ? { backgroundColor: palette.dangerDim, borderColor: 'transparent' }
+            : { backgroundColor: palette.skyDim, borderColor: palette.skyBorder },
+        ]}
+      >
+        <Ionicons
+          name="cube-outline"
+          size={18}
+          color={isLow ? palette.danger : palette.sky}
+        />
       </View>
       <View style={styles.rowText}>
         <ThemedText style={[styles.rowTitle, { color: surface.text }]} numberOfLines={1}>
@@ -303,7 +355,7 @@ function TrackedStockRow({
       <View
         style={[
           styles.pill,
-          { backgroundColor: isLow ? palette.dangerLight : palette.successLight },
+          { backgroundColor: isLow ? palette.dangerDim : palette.successDim },
         ]}
       >
         <ThemedText
@@ -312,7 +364,7 @@ function TrackedStockRow({
             { color: isLow ? palette.danger : palette.success },
           ]}
         >
-          {isLow ? 'low' : 'ok'}
+          {isLow ? 'Low' : 'OK'}
         </ThemedText>
       </View>
     </View>
@@ -328,7 +380,7 @@ function PurchaseOrderRow({
   last: boolean;
   testID?: string;
 }) {
-  const { surface } = useTheme();
+  const { surface, dark } = useTheme();
   const name = purchase.name ?? 'Unknown item';
   const vendor = purchase.vendor ?? null;
   const orderedDate = purchase.orderedDate
@@ -339,10 +391,32 @@ function PurchaseOrderRow({
   );
 
   // A purchase in the recentPurchases list is ordered but not yet arrived.
-  const status = 'ordered';
+  const status = 'Ordered';
 
   return (
-    <View testID={testID} style={[styles.listRow, last ? styles.rowLast : null]}>
+    <View
+      testID={testID}
+      style={[
+        styles.listRow,
+        { borderBottomColor: surface.hairline },
+        last ? styles.rowLast : null,
+      ]}
+    >
+      <View
+        style={[
+          styles.thumb,
+          {
+            backgroundColor: surface.sunken,
+            borderColor: surface.border,
+          },
+        ]}
+      >
+        <Ionicons
+          name="receipt-outline"
+          size={18}
+          color={dark ? surface.faint : palette.faint}
+        />
+      </View>
       <View style={styles.rowText}>
         <ThemedText style={[styles.rowTitle, { color: surface.text }]} numberOfLines={1}>
           {name}
@@ -388,6 +462,30 @@ const styles = StyleSheet.create({
   errorBanner: { borderWidth: 1, paddingHorizontal: 14, paddingVertical: 12 },
   errorText: { lineHeight: 20 },
 
+  // Section label (contract .lbl): 12px / 700, .08em tracking, uppercase, faint.
+  // Sits flush with the card gutter; the scroll gap supplies vertical rhythm.
+  sectionLabelRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 4,
+    marginTop: 4,
+    marginBottom: -4,
+  },
+  sectionLabel: {
+    fontSize: 12,
+    fontFamily: fonts.bold,
+    fontWeight: '700',
+    letterSpacing: 0.9,
+    textTransform: 'uppercase',
+    lineHeight: 16,
+  },
+  sectionAction: {
+    fontSize: 12.5,
+    fontFamily: fonts.semibold,
+    fontWeight: '600',
+  },
+
   // Scan hero
   scanHero: {
     flexDirection: 'row',
@@ -423,22 +521,25 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
-    paddingHorizontal: 15,
-    paddingVertical: 13,
+    paddingHorizontal: 2,
+    paddingVertical: 11,
     borderBottomWidth: 1,
     borderBottomColor: 'rgba(0,0,0,0.06)',
   },
   rowLast: { borderBottomWidth: 0 },
-  stockIcon: {
-    width: 38,
-    height: 38,
-    borderRadius: 10,
+  // Contract .thumb: 46x46, radius 11, 1px border, centred glyph.
+  thumb: {
+    width: 46,
+    height: 46,
+    borderRadius: 11,
+    borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
   },
   rowText: { flex: 1, minWidth: 0 },
-  rowTitle: { fontSize: 15, fontWeight: '600', lineHeight: 20 },
-  rowMeta: { fontSize: 12.5, lineHeight: 18, marginTop: 1 },
-  pill: { paddingHorizontal: 9, paddingVertical: 3, borderRadius: 999 },
-  pillText: { fontSize: 11, fontWeight: '700' },
+  rowTitle: { fontSize: 14, fontFamily: fonts.semibold, fontWeight: '600', lineHeight: 19 },
+  rowMeta: { fontSize: 12, lineHeight: 17, marginTop: 2 },
+  // Contract .pill: 5px/11px padding, pill radius, 11.5px / 700.
+  pill: { paddingHorizontal: 11, paddingVertical: 5, borderRadius: 999 },
+  pillText: { fontSize: 11.5, fontFamily: fonts.bold, fontWeight: '700' },
 });
