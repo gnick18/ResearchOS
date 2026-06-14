@@ -101,6 +101,7 @@ import {
   updateTaskTool,
   linkTasksTool,
 } from "./task-tools";
+import { createMethodTool, updateMethodTool } from "./method-tools";
 import {
   readNoteTool,
   readMethodTool,
@@ -406,6 +407,14 @@ export const ACTION_TOOLS: AiTool[] = [
   rescheduleTaskTool,
   updateTaskTool,
   linkTasksTool,
+  // Method-library coworker tools (action: true, isDestructive false). create_method
+  // authors a new markdown protocol (writes the body file, then records it) filed
+  // under a folder with tags; update_method renames a method, sets its tags, or moves
+  // it to another folder (metadata only). The user sees a one-line confirm before each
+  // writes. Neither deletes, so neither forces the destructive hard-stop. NO
+  // INTERPRETATION: create_method writes the user's own protocol, never an invented one.
+  createMethodTool,
+  updateMethodTool,
   // create_purchase logs an order (action: true, isDestructive false). The preview
   // shows vendor, item, quantity, price, and project before anything writes. Two-step
   // write: a parent Task with task_type "purchase", then the linked PurchaseItem.
