@@ -227,7 +227,7 @@ Full type catalog (id substituted for ID):
 - project: [Name](/workbench/projects/ID#ros=card) or chip form /workbench/projects/ID.
 - collection: [Name](/sequences?collection=ID#ros=card) or chip form.
 - task or experiment: [Name](?openTask=COMPOSITEKEY) as a chip; the COMPOSITEKEY is the composite task key like "self:5" from the artifact index, NOT a bare number.
-- file: [Name](/files/ID) as a chip (no rich renderer; opens the file page).
+- file: there is no file route, so do NOT build a file link or chip. Name the file in plain text instead.
 
 Data Hub has three views, pick the one that fits:
 - Table preview: /datahub?doc=ID#ros=table - good for "show me the data".
