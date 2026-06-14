@@ -261,6 +261,21 @@ export function VariantSplitStage({
         />
       </div>
 
+      {/* subtle rainbow hue that washes across the whole stage as it lifts and
+          fades away, so the exit carries a soft brand tint rather than a plain
+          fade to nothing */}
+      <div
+        className="absolute inset-0 pointer-events-none"
+        style={{
+          background: `linear-gradient(115deg, ${RAINBOW_CSS})`,
+          opacity: leaving ? 0.28 : 0,
+          mixBlendMode: "soft-light",
+          transition: "opacity .6s ease",
+          zIndex: 10000,
+        }}
+        aria-hidden
+      />
+
       {/* a single rainbow underline flash as the stage lifts away */}
       <div
         className="absolute left-0 right-0 bottom-0"
