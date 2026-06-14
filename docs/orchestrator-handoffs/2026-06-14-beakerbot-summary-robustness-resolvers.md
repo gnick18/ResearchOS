@@ -90,16 +90,15 @@ engine (deterministic body scan), `periodToDateRange` (relative window → dates
   name+fuzzy resolution, never-widen on unknown names, confirm-first body search,
   correct top-N ordering, zero interpretation). Two SOFT deviations, both on the
   graceful-degradation side (not safety):
-    - **Check 4 (FIX QUEUED):** an unresolvable owner name ("Zxqv") returns a $0
-      summary indistinguishable from a real-but-empty member. Root: when
-      `resolveOwnerRefsToUsernames` returns [] the summarize tools fall back to
-      filtering by the raw string (`resolvedOwners.length > 0 ? resolvedOwners :
-      rawOwners`), which matches nobody. Never-widen held; the gap is signal. FIX
-      (deferred, lands AFTER the record-set widget merges since it edits the same
-      summarize-tool files): when refs were given but none resolved, return a
-      distinct `unresolvedOwners` signal so the model says "no member named X" /
-      asks, instead of rendering $0. Touches summarize-experiments/notes/purchases
-      + list_records.
+    - **Check 4 (FIXED `9367c2fab`, merged):** an unresolvable owner name ("Zxqv")
+      returned a $0 summary indistinguishable from a real-but-empty member. Root:
+      when `resolveOwnerRefsToUsernames` returns [] the tools fell back to filtering
+      by the raw string, which matches nobody. FIX: when the roster is KNOWN
+      (members non-empty) and no ref resolves, return a no-match error so the model
+      asks who was meant. Roster-aware: an empty members list (solo user / failed
+      fetch) keeps the raw filter as before, so a valid owner is never falsely
+      rejected. Covers summarize_experiments/notes/purchases + list_records, +2
+      tests. Landed with the record-set widget merge.
     - **Check 7 (FIXED `af5ea3d1c`):** an impossible dimension ("color tag" on
       experiments) was applied as a literal filter -> empty result, instead of
       degrading to the project-only summary. Tool can't know the dimension is

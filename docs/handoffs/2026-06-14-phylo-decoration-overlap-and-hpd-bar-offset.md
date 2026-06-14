@@ -2,7 +2,7 @@
 
 **Date:** 2026-06-14
 **Lane:** phylogenetics / Tree Studio (ggtree-class viz)
-**Status:** Two render bugs Grant flagged during the Phase-1/2/3 Chrome-verify pass are now **FIXED** in the working tree (takeover session, 2026-06-14) — gate-green (tsc 0 whole-repo, `src/lib/phylo` 275 tests incl 2 new regression locks), LOCAL main UNPUSHED, NOT yet browser-verified. The Chrome UI-wiring verify (below) is still owed and now doubles as the visual confirmation of these two fixes. The diagnosis is kept below so the fix is reviewable.
+**Status:** Two render bugs Grant flagged during the Phase-1/2/3 Chrome-verify pass are **FIXED + BROWSER-VERIFIED** (commit `f49d830f6`, takeover session 2026-06-14) — gate-green (tsc 0 whole-repo, `src/lib/phylo` 275 tests incl 2 new regression locks). **Claude-in-Chrome verify 2026-06-14: ALL 4 sections PASS, console clean.** Bug 1: each HPD bar passes through its node dot, centered (rectangular phylogram). Bug 2: confirmed column separation by on-screen geometry — tip labels begin at x≈1244 while the "Flavi" strip label ends at x≈1186 and the dashed tip-link ends at x≈1193, so the strip/label/link sit in their own column left of the tip names, nothing painting over the labels. Control wiring (node pies at MRCA / star toggle / slice edit / tip-point size+shape from CSV) and the ggtree export (geom_taxalink/geom_strip/nodepie+geom_inset/geom_tippoint/geom_range) all PASS. LANE CLOSED. The diagnosis below is kept for the record.
 **File for both bugs:** `frontend/src/lib/phylo/render.ts`. Lock tests: `render-noderange.test.ts` (Bug 1), `render-taxastrip.test.ts` (Bug 2).
 
 ---

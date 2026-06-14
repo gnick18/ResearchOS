@@ -242,7 +242,7 @@ export default function ZoomPanCanvas({
             className={btn}
             onClick={center}
           >
-            <Icon name="focus" className="h-3.5 w-3.5" />
+            <Icon name="fitView" className="h-3.5 w-3.5" />
           </button>
         </Tooltip>
         <Tooltip label="Fullscreen">
@@ -252,7 +252,7 @@ export default function ZoomPanCanvas({
             className={btn}
             onClick={toggleFullscreen}
           >
-            <Icon name="scan" className="h-3.5 w-3.5" />
+            <Icon name="focus" className="h-3.5 w-3.5" />
           </button>
         </Tooltip>
         <Tooltip label="Reset zoom to 100%">
