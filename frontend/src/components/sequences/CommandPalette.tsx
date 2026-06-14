@@ -1170,6 +1170,12 @@ export function CommandPalette({
             className="flex flex-1 flex-col overflow-hidden"
             style={{
               animation: "palette-fadein 0.2s cubic-bezier(.4,0,.2,1) both",
+              // BeakerBot's whole panel reads in its own typeface (--font-ai,
+              // Hanken Grotesk), distinct from the app chrome (Geist). Applied once
+              // at the ask-mode root so the header, toggle, "AI free in beta"
+              // button, history rail, conversation, cards, and composer are all one
+              // consistent font instead of a patchwork.
+              fontFamily: "var(--font-ai)",
             }}
           >
             <style>{`

@@ -30,6 +30,10 @@ export default function BeakerBotPlanCard({
   return (
     <div
       data-testid="beakerbot-plan-card"
+      // The step labels are BeakerBot's own plan (its voice), so render the card
+      // in the AI font (--font-ai), matching the reply text. Chrome buttons inherit
+      // it too here, which is fine, the whole card reads as BeakerBot output.
+      style={{ fontFamily: "var(--font-ai)" }}
       className={`mx-3 mb-2 overflow-hidden rounded-md border ${
         paused ? "border-amber-400" : "border-brand-action/60"
       }`}
