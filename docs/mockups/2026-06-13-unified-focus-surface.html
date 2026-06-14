@@ -1,0 +1,315 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Unified focus — the page blown up</title>
+<style>
+  :root{
+    --surface:#f8fafc;--raised:#ffffff;--sunken:#f1f5f9;--fg:#0f1b2e;--muted:#6b7280;
+    --border:#e5e7eb;--page-bg:#e7ecf3;--action:#1283C9;--ok:#16a34a;--pin:#e11d48;--amber:#f59e0b;
+    --room-top:#fbfaf7;--room-bot:#f3f1ea;--paper-fg:#1a2230;--paper-dim:rgba(26,34,48,.34);
+    --chrome-bg:rgba(255,255,255,.74);--chrome-br:rgba(15,27,46,.10);--hair:#1283C9;
+  }
+  html[data-theme="dark"]{
+    --surface:#0a0e1a;--raised:#16233c;--sunken:#0d1424;--fg:#eaf2fb;--muted:#9fb0c8;
+    --border:rgba(255,255,255,.16);--page-bg:#05080f;--action:#39a7e6;
+    --room-top:#10182a;--room-bot:#0a1120;--paper-fg:#e7eefb;--paper-dim:rgba(231,238,251,.30);
+    --chrome-bg:rgba(20,32,54,.66);--chrome-br:rgba(255,255,255,.12);--hair:#39a7e6;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;font-family:ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;background:var(--page-bg);color:var(--fg);}
+  .topbar{position:sticky;top:0;z-index:30;display:flex;align-items:center;gap:14px;padding:12px 22px;background:var(--raised);border-bottom:1px solid var(--border);flex-wrap:wrap;}
+  .topbar h1{font-size:15px;margin:0;font-weight:800;}
+  .topbar p{margin:0;font-size:12px;color:var(--muted);}
+  .spacer{flex:1;}
+  .btn{appearance:none;cursor:pointer;border:1px solid var(--border);background:var(--sunken);color:var(--fg);border-radius:8px;padding:7px 12px;font-size:12.5px;font-weight:600;}
+  .btn:hover{border-color:var(--muted);}
+  .wrap{max-width:1280px;margin:0 auto;padding:22px;}
+  .lead{font-size:13.5px;color:var(--muted);line-height:1.65;max-width:92ch;margin:4px 0 16px;}
+  .lead b{color:var(--fg);}
+
+  .ctrlbar{display:flex;gap:14px;flex-wrap:wrap;align-items:center;margin-bottom:14px;}
+  .seg{display:inline-flex;padding:3px;gap:3px;border-radius:11px;background:var(--sunken);border:1px solid var(--border);}
+  .seg .lbl{font-size:11px;font-weight:700;color:var(--muted);align-self:center;padding:0 7px 0 6px;text-transform:uppercase;letter-spacing:.04em;}
+  .seg button{appearance:none;cursor:pointer;border:none;background:none;color:var(--muted);font-size:12.5px;font-weight:700;padding:7px 14px;border-radius:8px;}
+  .seg button.on{background:var(--raised);color:var(--fg);box-shadow:0 1px 3px rgba(0,0,0,.1);}
+
+  /* ── the desk + the surface ── */
+  .stage{position:relative;height:720px;border-radius:16px;overflow:hidden;border:1px solid var(--border);
+    background:repeating-linear-gradient(45deg,rgba(15,27,46,.045),rgba(15,27,46,.045) 13px,rgba(15,27,46,.02) 13px,rgba(15,27,46,.02) 26px),var(--surface);}
+  .stage.exp{background:var(--surface);}
+
+  /* ONE surface element. Docked = inset card; fullscreen = inset:0. Same DOM. */
+  .surface{position:absolute;inset:64px 150px;display:flex;flex-direction:column;overflow:hidden;
+    border-radius:15px;border:1px solid var(--border);background:radial-gradient(120% 80% at 50% -10%,var(--room-top),var(--room-bot));
+    box-shadow:0 30px 80px rgba(8,22,45,.28);transition:inset .5s cubic-bezier(.5,.05,.2,1),border-radius .5s,box-shadow .5s;}
+  .surface.expanded{inset:0;border-radius:0;border-color:transparent;box-shadow:none;}
+
+  /* scroll-progress hairline (appears in fullscreen) */
+  .hair{position:absolute;top:0;left:0;height:2px;width:0;background:linear-gradient(90deg,var(--hair),transparent);z-index:8;opacity:0;transition:opacity .4s;}
+  .surface.expanded .hair{opacity:1;}
+
+  /* header */
+  .s-head{display:flex;align-items:flex-start;gap:12px;padding:16px 22px 4px;transition:padding .5s;}
+  .surface.expanded .s-head{padding:20px 40px 4px;}
+  .s-titlewrap{flex:1;min-width:0;}
+  .s-title{font-size:21px;font-weight:800;letter-spacing:-.01em;color:var(--paper-fg);transition:font-size .5s;}
+  .surface.expanded .s-title{font-size:30px;}
+  .s-meta{font-size:12px;color:var(--paper-dim);font-weight:600;margin-top:5px;}
+  .s-meta .status{color:var(--action);}
+  .s-acts{display:flex;align-items:center;gap:6px;flex:0 0 auto;}
+  .iconbtn{width:32px;height:32px;border:none;background:color-mix(in srgb,var(--paper-fg) 6%,transparent);border-radius:9px;color:var(--paper-dim);cursor:pointer;font-size:15px;display:flex;align-items:center;justify-content:center;}
+  .iconbtn:hover{color:var(--action);background:color-mix(in srgb,var(--action) 13%,transparent);}
+
+  /* quiet tab bar — present at BOTH sizes, dozes in fullscreen */
+  .s-tabs{display:flex;gap:3px;padding:8px 22px 6px;transition:padding .5s,opacity .4s,transform .4s;}
+  .surface.expanded .s-tabs{padding:6px 40px;}
+  .s-tabs.dozed{opacity:0;transform:translateY(-8px);pointer-events:none;}
+  .s-tabs button{appearance:none;border:none;background:none;cursor:pointer;font-size:12.5px;font-weight:700;color:var(--paper-dim);padding:6px 13px;border-radius:8px;}
+  .s-tabs button:hover{color:var(--paper-fg);background:color-mix(in srgb,var(--paper-fg) 5%,transparent);}
+  .s-tabs button.on{background:color-mix(in srgb,var(--paper-fg) 8%,transparent);color:var(--paper-fg);}
+
+  /* floating contextual chrome — only meaningful in fullscreen, dozes */
+  .s-float{position:absolute;top:14px;left:50%;transform:translateX(-50%);z-index:6;display:none;align-items:center;gap:7px;
+    padding:5px 7px;border-radius:13px;background:var(--chrome-bg);border:1px solid var(--chrome-br);
+    backdrop-filter:blur(14px) saturate(1.3);-webkit-backdrop-filter:blur(14px) saturate(1.3);box-shadow:0 8px 28px rgba(8,22,45,.16);transition:opacity .4s,transform .4s;}
+  .surface.expanded .s-float{display:flex;}
+  .s-float.dozed{opacity:0;transform:translateX(-50%) translateY(-12px);pointer-events:none;}
+  .s-float .qpill{display:flex;background:color-mix(in srgb,var(--sunken) 65%,transparent);border-radius:8px;padding:2px;}
+  .s-float .qpill button{border:none;background:none;font-size:11.5px;font-weight:600;color:var(--muted);padding:4px 10px;border-radius:6px;cursor:pointer;}
+  .s-float .qpill button.on{background:var(--raised);color:var(--paper-fg);box-shadow:0 1px 2px rgba(0,0,0,.12);}
+  .s-float .qico{width:28px;height:28px;border:none;background:none;color:var(--paper-dim);border-radius:7px;cursor:pointer;font-size:14px;}
+  .s-float .qico:hover{background:color-mix(in srgb,var(--action) 13%,transparent);color:var(--action);}
+  .s-float .qsep{width:1px;height:17px;background:var(--chrome-br);margin:0 1px;}
+
+  /* doc body */
+  .s-scroll{flex:1;min-height:0;overflow:auto;position:relative;}
+  .s-doc{color:var(--paper-fg);outline:none;transition:max-width .5s,font-size .5s,padding .5s;
+    max-width:62ch;margin:0 auto;font-size:16px;line-height:1.7;padding:14px 22px 40px;}
+  .surface.expanded .s-doc{max-width:68ch;font-size:18px;line-height:1.78;padding:92px 28px 55vh;}
+  .s-doc h3{font-size:21px;font-weight:800;letter-spacing:-.01em;margin:0 0 14px;}
+  .surface.expanded .s-doc h3{font-size:25px;}
+  .s-doc p{margin:0 0 14px;}
+  .s-doc .blk{transition:opacity .35s;}
+  .surface.expanded .s-doc.dim:focus .blk{opacity:.32;}
+  .surface.expanded .s-doc.dim:focus .blk.active{opacity:1;}
+  .embed{border:1px solid var(--chrome-br);border-radius:11px;overflow:hidden;background:color-mix(in srgb,var(--raised) 55%,transparent);margin:0 0 14px;}
+  .embed .eh{display:flex;align-items:center;gap:7px;padding:7px 11px;font-size:11px;font-weight:700;color:var(--action);background:color-mix(in srgb,var(--action) 9%,transparent);}
+  .embed .eb{padding:10px 11px;font-size:12.5px;color:var(--muted);}
+  .detail-grid{display:grid;grid-template-columns:120px 1fr;gap:8px 16px;font-size:14px;}
+  .detail-grid dt{color:var(--paper-dim);font-weight:700;}
+  .detail-grid dd{margin:0;color:var(--paper-fg);}
+
+  /* insert rail (fullscreen gutters only) */
+  .s-rail{position:absolute;right:16px;top:50%;transform:translateY(-50%);z-index:5;display:none;flex-direction:column;gap:4px;
+    padding:8px 6px;border-radius:14px;background:var(--chrome-bg);border:1px solid var(--chrome-br);
+    backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);box-shadow:0 6px 22px rgba(8,22,45,.12);transition:opacity .4s;}
+  .surface.expanded .s-rail{display:flex;}
+  .s-rail.dozed{opacity:0;pointer-events:none;}
+  .s-rail .rhdr{font-size:8px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--paper-dim);text-align:center;}
+  .s-rail .ri{width:32px;height:32px;border:none;border-radius:9px;background:none;color:var(--paper-dim);cursor:pointer;font-size:15px;}
+  .s-rail .ri:hover{background:color-mix(in srgb,var(--action) 13%,transparent);color:var(--action);}
+
+  /* footer: ambient autosave */
+  .s-foot{display:flex;align-items:center;gap:8px;padding:10px 22px 14px;font-size:11.5px;color:var(--paper-dim);font-weight:600;transition:padding .5s,opacity .4s;}
+  .surface.expanded .s-foot{padding:10px 40px 16px;}
+  .s-foot.dozed{opacity:0;}
+  .s-foot .dot{width:6px;height:6px;border-radius:999px;background:var(--ok);}
+  .s-foot .ct{margin-left:auto;}
+  .s-foot .done{margin-left:10px;border:1px solid var(--chrome-br);background:none;color:var(--paper-fg);font-weight:700;padding:5px 13px;border-radius:8px;cursor:pointer;}
+
+  .cap{font-size:12px;color:var(--muted);margin-top:10px;line-height:1.55;}
+  .cap b{color:var(--fg);}
+  .note{margin-top:18px;border:1px solid var(--border);background:var(--raised);border-radius:12px;padding:14px 16px;font-size:12.5px;color:var(--muted);line-height:1.6;max-width:92ch;}
+  .note b{color:var(--fg);}
+</style>
+</head>
+<body>
+  <div class="topbar">
+    <div>
+      <h1>Unified focus — the page blown up</h1>
+      <p>One experiment surface · docks small, expands to fullscreen focus · tabs come along</p>
+    </div>
+    <div class="spacer"></div>
+    <button class="btn" id="themeBtn">🌙 Dark</button>
+  </div>
+
+  <div class="wrap">
+    <p class="lead">
+      This is <b>one surface</b>, not two. Hit <b>⤢ Blow up</b> and the same docked popup grows into fullscreen focus —
+      a zoom, not a teleport. The writing-room treatment kicks in (calm canvas, bigger type, floating chrome, insert rail,
+      focus dimming), but the <b>experiment tabs stay with you</b>: click <b>Method</b> or <b>Results</b> while expanded and
+      you keep writing in the same calm fullscreen surface — no exit. Type in the doc to see the chrome + tabs doze.
+    </p>
+
+    <div class="ctrlbar">
+      <div class="seg" id="mSize">
+        <span class="lbl">Surface</span>
+        <button data-v="dock" class="on" onclick="setSize('dock')">Docked popup</button>
+        <button data-v="full" onclick="setSize('full')">⤢ Blow up (fullscreen)</button>
+      </div>
+      <div class="seg" id="mTabs">
+        <span class="lbl">Tabs in fullscreen</span>
+        <button data-v="doze" class="on" onclick="setTabsMode('doze')">Doze with chrome</button>
+        <button data-v="pin" onclick="setTabsMode('pin')">Stay pinned</button>
+      </div>
+    </div>
+
+    <div class="stage" id="stage">
+      <div class="surface" id="surface">
+        <div class="hair" id="hair"></div>
+
+        <!-- floating contextual chrome (fullscreen) -->
+        <div class="s-float" id="float">
+          <div class="qpill"><button class="on">Edit</button><button>Preview</button></div>
+          <div class="qsep"></div>
+          <button class="qico" title="Insert (or type /)">＋</button>
+          <button class="qico" title="Attachments">▢</button>
+          <button class="qico" title="Dock" onclick="setSize('dock')">⤡</button>
+        </div>
+
+        <!-- header -->
+        <div class="s-head">
+          <div class="s-titlewrap">
+            <div class="s-title">Plasmid prep — pPN-114</div>
+            <div class="s-meta">Jun 13, 2026 · Dr. G. Nickles · <span class="status">In progress</span> · cloning</div>
+          </div>
+          <div class="s-acts">
+            <button class="iconbtn" id="expBtn" title="Blow up to fullscreen" onclick="toggleSize()">⤢</button>
+            <button class="iconbtn" title="Close">✕</button>
+          </div>
+        </div>
+
+        <!-- tabs (present at both sizes) -->
+        <div class="s-tabs" id="tabs">
+          <button data-t="details" onclick="setTab('details')">Details</button>
+          <button data-t="notes" class="on" onclick="setTab('notes')">Lab Notes</button>
+          <button data-t="method" onclick="setTab('method')">Method</button>
+          <button data-t="results" onclick="setTab('results')">Results</button>
+        </div>
+
+        <!-- doc body -->
+        <div class="s-scroll" id="scroll">
+          <div class="s-doc dim" id="doc" contenteditable="true" spellcheck="false"></div>
+          <div class="s-rail" id="rail">
+            <div class="rhdr">Insert</div>
+            <button class="ri" title="Reference">§</button>
+            <button class="ri" title="Table">▦</button>
+            <button class="ri" title="Plot">∿</button>
+            <button class="ri" title="Sequence">≣</button>
+            <button class="ri" title="Molecule">⬡</button>
+          </div>
+        </div>
+
+        <!-- footer -->
+        <div class="s-foot" id="foot">
+          <span class="dot"></span> Saved · just now — autosaves as you write
+          <span class="ct" id="wc"></span>
+          <button class="done" onclick="setSize('dock')">Done</button>
+        </div>
+      </div>
+    </div>
+    <p class="cap"><b>Try it:</b> Blow up → click <b>Method</b> or <b>Results</b> (you stay fullscreen) → type to watch the tabs + chrome doze (move the mouse to wake). Flip <b>Tabs in fullscreen</b> to compare doze vs pinned.</p>
+
+    <div class="note">
+      <b>What this proves:</b> focus mode stops being a separate sealed overlay — it’s this page at a bigger zoom, so navigation comes free.
+      The old portal/buffer machinery that floated one editor goes away. <b>Still open (your call later):</b> does “blow up” = the modal
+      growing (shown here) or a real <b>/experiment/[id]</b> route — shareable URL, browser back, deep-link to a tab? I lean route, but it
+      doesn’t change this feel. <b>Notes &amp; Methods</b> popups scale identically, just with no tab row (nothing to navigate).
+    </div>
+  </div>
+
+<script>
+const DOCS={
+  details:`<div class="detail-grid">
+    <dt>Objective</dt><dd>Prep clean pPN-114 plasmid for downstream transfection.</dd>
+    <dt>Hypothesis</dt><dd>Insert junction carries the intended silent mutation; digest pattern will confirm.</dd>
+    <dt>Status</dt><dd>In progress · started Jun 12</dd>
+    <dt>Linked</dt><dd>3 sequences · 1 molecule · 2 methods</dd>
+    <dt>Collaborators</dt><dd>Dr. G. Nickles (owner)</dd></div>`,
+  notes:`<h3 class="blk">Plasmid prep — pPN-114</h3>
+    <p class="blk active">Miniprep of the overnight culture gave 412 ng/µL at A260/280 = 1.89. Loaded 2 µL on a 0.8% agarose gel; the single supercoiled band ran true to roughly 5.2 kb.</p>
+    <div class="blk embed"><div class="eh"><span>∿</span>Plot · A260/280 across this week’s preps<span style="margin-left:auto;font-size:8.5px;color:var(--paper-dim);font-weight:800">LIVE EMBED</span></div><div class="eb">A live figure dropped from the insert rail — renders inline, stays editable.</div></div>
+    <p class="blk">Diagnostic digest with EcoRI + HindIII produced the expected 3.1 and 2.1 kb fragments. Sequencing of the insert junction is queued for tomorrow’s run.</p>
+    <p class="blk">The transfection bench is asking for two aliquots. I’ll hold those until the midiprep so the concentration is consistent across the plate.</p>`,
+  method:`<h3 class="blk">Method — alkaline-lysis miniprep</h3>
+    <p class="blk active">1. Pellet 5 mL overnight culture, 4,000×g, 10 min. Discard supernatant.</p>
+    <p class="blk">2. Resuspend in 250 µL P1 (with RNase A). Vortex until homogeneous.</p>
+    <p class="blk">3. Add 250 µL P2; invert 6× until clear. Do not exceed 5 min.</p>
+    <p class="blk">4. Add 350 µL N3; invert immediately. Spin 10 min, 17,900×g.</p>
+    <p class="blk">5. Load supernatant onto column; wash with PB then PE. Elute in 30 µL EB.</p>`,
+  results:`<h3 class="blk">Results</h3>
+    <p class="blk active">Yield: 412 ng/µL × 30 µL = 12.4 µg total. A260/280 = 1.89, A260/230 = 2.05 — clean.</p>
+    <p class="blk">Gel: single supercoiled band ~5.2 kb, no genomic smear, no RNA shadow.</p>
+    <p class="blk">Digest (EcoRI + HindIII): 3.1 kb + 2.1 kb, matches in-silico prediction. Insert orientation confirmed.</p>`,
+};
+
+const surface=document.getElementById('surface'),stage=document.getElementById('stage'),
+  doc=document.getElementById('doc'),scroll=document.getElementById('scroll'),tabs=document.getElementById('tabs'),
+  floatEl=document.getElementById('float'),rail=document.getElementById('rail'),foot=document.getElementById('foot'),
+  hair=document.getElementById('hair'),expBtn=document.getElementById('expBtn');
+let size='dock',tab='notes',tabsMode='doze',dozeTimer=null;
+
+function setTab(t){
+  tab=t;
+  doc.innerHTML=DOCS[t];
+  doc.querySelectorAll('#tabs button, .s-tabs button').forEach(()=>{});
+  tabs.querySelectorAll('button').forEach(b=>b.classList.toggle('on',b.dataset.t===t));
+  // details tab is read-style; others are editable docs
+  doc.setAttribute('contenteditable', t==='details' ? 'false' : 'true');
+  doc.classList.toggle('dim', t!=='details');
+  refreshActive();updateWC();if(size==='full')wake();
+}
+function setSize(s){
+  size=s;
+  surface.classList.toggle('expanded',s==='full');
+  stage.classList.toggle('exp',s==='full');
+  document.querySelectorAll('#mSize button').forEach(b=>b.classList.toggle('on',b.dataset.v===s));
+  expBtn.textContent = s==='full' ? '⤡' : '⤢';
+  expBtn.title = s==='full' ? 'Dock' : 'Blow up to fullscreen';
+  if(s==='full'){wake();} else {undoze();clearTimeout(dozeTimer);}
+}
+function toggleSize(){setSize(size==='full'?'dock':'full');}
+function setTabsMode(m){tabsMode=m;
+  document.querySelectorAll('#mTabs button').forEach(b=>b.classList.toggle('on',b.dataset.v===m));
+  if(size==='full')wake();}
+
+function activeBlock(){
+  const sel=window.getSelection();if(!sel.rangeCount)return null;
+  let n=sel.anchorNode;while(n&&n!==doc){if(n.classList&&n.classList.contains('blk'))return n;n=n.parentNode;}
+  return null;
+}
+function refreshActive(){
+  const b=activeBlock();
+  doc.querySelectorAll('.blk').forEach(x=>x.classList.toggle('active',x===b));
+}
+function updateWC(){
+  const t=doc.innerText.trim();const w=t?t.split(/\s+/).length:0;
+  document.getElementById('wc').textContent=w+' words';
+}
+function undoze(){tabs.classList.remove('dozed');floatEl.classList.remove('dozed');rail.classList.remove('dozed');foot.classList.remove('dozed');}
+function doze(){if(size!=='full')return;
+  floatEl.classList.add('dozed');rail.classList.add('dozed');foot.classList.add('dozed');
+  if(tabsMode==='doze')tabs.classList.add('dozed');}
+function wake(){undoze();clearTimeout(dozeTimer);dozeTimer=setTimeout(doze,2500);}
+
+function updateHair(){const max=scroll.scrollHeight-scroll.clientHeight;hair.style.width=(max>0?scroll.scrollTop/max*100:0)+'%';}
+
+doc.addEventListener('input',()=>{refreshActive();updateWC();if(size==='full')wake();});
+doc.addEventListener('keyup',refreshActive);
+doc.addEventListener('click',refreshActive);
+document.addEventListener('selectionchange',()=>{if(document.activeElement===doc)refreshActive();});
+scroll.addEventListener('scroll',updateHair);
+stage.addEventListener('pointermove',()=>{if(size==='full')wake();});
+
+document.getElementById('themeBtn').onclick=function(){
+  const d=document.documentElement.getAttribute('data-theme')==='dark';
+  document.documentElement.setAttribute('data-theme',d?'light':'dark');
+  this.textContent=d?'🌙 Dark':'☀️ Light';
+};
+
+setTab('notes');setSize('dock');updateWC();
+</script>
+</body>
+</html>

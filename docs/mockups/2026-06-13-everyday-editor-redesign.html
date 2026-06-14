@@ -1,0 +1,380 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Everyday editor — Level 1 vs Level 3</title>
+<style>
+  :root{
+    --surface:#f8fafc;--raised:#ffffff;--sunken:#f1f5f9;--fg:#0f1b2e;--muted:#6b7280;
+    --border:#e5e7eb;--page-bg:#e7ecf3;--action:#1283C9;--ok:#16a34a;--pin:#e11d48;--amber:#f59e0b;
+    --room-top:#fbfaf7;--room-bot:#f4f2ec;--paper-fg:#1a2230;--paper-dim:rgba(26,34,48,.34);
+    --chrome-bg:rgba(255,255,255,.72);--chrome-br:rgba(15,27,46,.10);
+  }
+  html[data-theme="dark"]{
+    --surface:#0a0e1a;--raised:#16233c;--sunken:#0d1424;--fg:#eaf2fb;--muted:#9fb0c8;
+    --border:rgba(255,255,255,.16);--page-bg:#05080f;--action:#39a7e6;
+    --room-top:#10182a;--room-bot:#0b1322;--paper-fg:#e7eefb;--paper-dim:rgba(231,238,251,.30);
+    --chrome-bg:rgba(20,32,54,.66);--chrome-br:rgba(255,255,255,.12);
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;font-family:ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;background:var(--page-bg);color:var(--fg);}
+  .topbar{position:sticky;top:0;z-index:30;display:flex;align-items:center;gap:14px;padding:12px 22px;background:var(--raised);border-bottom:1px solid var(--border);flex-wrap:wrap;}
+  .topbar h1{font-size:15px;margin:0;font-weight:800;}
+  .topbar p{margin:0;font-size:12px;color:var(--muted);}
+  .spacer{flex:1;}
+  .btn{appearance:none;cursor:pointer;border:1px solid var(--border);background:var(--sunken);color:var(--fg);border-radius:8px;padding:7px 12px;font-size:12.5px;font-weight:600;}
+  .btn:hover{border-color:var(--muted);}
+  .wrap{max-width:1280px;margin:0 auto;padding:22px;}
+  .lead{font-size:13.5px;color:var(--muted);line-height:1.65;max-width:92ch;margin:4px 0 16px;}
+  .lead b{color:var(--fg);}
+
+  .seg{display:inline-flex;padding:3px;gap:3px;border-radius:11px;background:var(--sunken);border:1px solid var(--border);margin-bottom:16px;flex-wrap:wrap;}
+  .seg .lbl{font-size:11px;font-weight:700;color:var(--muted);align-self:center;padding:0 8px 0 6px;text-transform:uppercase;letter-spacing:.04em;}
+  .seg button{appearance:none;cursor:pointer;border:none;background:none;color:var(--muted);font-size:12.5px;font-weight:700;padding:7px 15px;border-radius:8px;}
+  .seg button.on{background:var(--raised);color:var(--fg);box-shadow:0 1px 3px rgba(0,0,0,.1);}
+
+  .stage{display:flex;gap:24px;align-items:flex-start;flex-wrap:wrap;}
+  .modalwrap{flex:1;min-width:620px;}
+  /* dim modal backdrop */
+  .backdrop{position:relative;border-radius:16px;padding:34px;background:
+    repeating-linear-gradient(45deg,rgba(15,27,46,.04),rgba(15,27,46,.04) 12px,rgba(15,27,46,.02) 12px,rgba(15,27,46,.02) 24px),var(--surface);
+    border:1px solid var(--border);overflow:hidden;}
+
+  /* ── the popup ── */
+  .popup{width:100%;max-width:880px;margin:0 auto;height:600px;border-radius:16px;overflow:hidden;
+    display:flex;flex-direction:column;box-shadow:0 30px 80px rgba(8,22,45,.28);
+    background:var(--raised);border:1px solid var(--border);}
+  /* Level-3 turns the whole shell into one calm paper canvas */
+  .popup.lvl-3{background:radial-gradient(120% 80% at 50% -10%,var(--room-top),var(--room-bot));border-color:var(--chrome-br);}
+
+  /* header */
+  .p-head{display:flex;align-items:flex-start;gap:12px;padding:14px 18px;border-bottom:1px solid var(--border);}
+  .lvl-3 .p-head{border-bottom:none;padding:22px 30px 6px;}
+  .p-titlewrap{flex:1;min-width:0;}
+  .p-title{font-size:15px;font-weight:700;color:var(--fg);background:var(--sunken);border:1px solid var(--border);border-radius:8px;padding:7px 11px;}
+  .lvl-1 .p-title{background:var(--sunken);}
+  .lvl-3 .p-title{background:none;border:none;padding:0;font-size:26px;font-weight:800;letter-spacing:-.01em;color:var(--paper-fg);}
+  .p-meta{display:flex;align-items:center;gap:7px;margin-top:9px;flex-wrap:wrap;}
+  .chip{font-size:11px;font-weight:600;color:var(--muted);background:var(--sunken);border:1px solid var(--border);border-radius:999px;padding:3px 9px;}
+  .chip.status{color:var(--action);background:color-mix(in srgb,var(--action) 12%,transparent);border-color:transparent;}
+  /* Level-3: metadata becomes a quiet inline subline, not chips */
+  .lvl-3 .p-meta{gap:0;margin-top:7px;}
+  .lvl-3 .chip{background:none;border:none;padding:0 0;color:var(--paper-dim);font-weight:600;}
+  .lvl-3 .chip::after{content:"·";margin:0 8px;color:var(--paper-dim);}
+  .lvl-3 .chip:last-child::after{content:"";}
+  .lvl-3 .chip.status{color:var(--action);}
+  .p-close{width:30px;height:30px;border:none;background:var(--sunken);border-radius:8px;color:var(--muted);cursor:pointer;font-size:15px;flex:0 0 auto;}
+  .lvl-3 .p-close{background:none;}
+  .p-close:hover{color:var(--fg);}
+
+  /* tabs */
+  .p-tabs{display:flex;gap:2px;padding:0 18px;border-bottom:1px solid var(--border);}
+  .lvl-3 .p-tabs{padding:6px 30px 0;border-bottom:none;}
+  .p-tabs button{appearance:none;border:none;background:none;cursor:pointer;font-size:12.5px;font-weight:600;color:var(--muted);padding:10px 13px;border-bottom:2px solid transparent;margin-bottom:-1px;}
+  .p-tabs button.on{color:var(--fg);border-bottom-color:var(--action);}
+  .lvl-3 .p-tabs{gap:3px;}
+  .lvl-3 .p-tabs button{border-bottom:none;border-radius:8px;padding:6px 12px;font-weight:700;}
+  .lvl-3 .p-tabs button.on{background:color-mix(in srgb,var(--paper-fg) 7%,transparent);color:var(--paper-fg);}
+
+  /* toolbar — heavy (today) vs quiet contextual (l1/l3) */
+  .p-tool{display:flex;align-items:center;gap:8px;padding:8px 16px;border-bottom:1px solid var(--border);background:color-mix(in srgb,var(--sunken) 50%,transparent);flex-wrap:wrap;}
+  .tool-heavy .pill{display:flex;background:var(--sunken);border-radius:7px;padding:2px;}
+  .tool-heavy .pill button{border:none;background:none;font-size:12px;font-weight:600;color:var(--muted);padding:5px 11px;border-radius:5px;cursor:pointer;}
+  .tool-heavy .pill button.on{background:var(--raised);color:var(--fg);box-shadow:0 1px 2px rgba(0,0,0,.1);}
+  .tool-heavy .tbtn{border:none;background:var(--sunken);color:var(--muted);font-size:12px;font-weight:600;padding:5px 10px;border-radius:6px;cursor:pointer;}
+  .tool-heavy .tico{width:28px;height:28px;border:none;background:var(--sunken);color:var(--muted);border-radius:6px;cursor:pointer;}
+  /* quiet contextual toolbar */
+  .p-tool.quiet{background:none;border-bottom:1px solid transparent;padding:7px 30px;justify-content:flex-start;}
+  .lvl-1 .p-tool.quiet{padding:7px 18px;}
+  .tool-quiet{display:flex;align-items:center;gap:6px;}
+  .tool-quiet .qpill{display:flex;background:color-mix(in srgb,var(--sunken) 70%,transparent);border-radius:8px;padding:2px;}
+  .tool-quiet .qpill button{border:none;background:none;font-size:11.5px;font-weight:600;color:var(--muted);padding:4px 10px;border-radius:6px;cursor:pointer;}
+  .tool-quiet .qpill button.on{background:var(--raised);color:var(--paper-fg);box-shadow:0 1px 2px rgba(0,0,0,.1);}
+  .tool-quiet .qico{width:28px;height:28px;border:none;background:none;color:var(--paper-dim);border-radius:7px;cursor:pointer;font-size:15px;display:flex;align-items:center;justify-content:center;}
+  .tool-quiet .qico:hover{background:color-mix(in srgb,var(--action) 12%,transparent);color:var(--action);}
+  .tool-quiet .qsep{width:1px;height:18px;background:var(--chrome-br);margin:0 3px;}
+  .tool-quiet .hintlbl{font-size:11px;color:var(--paper-dim);font-weight:600;margin-left:6px;}
+
+  /* edit zone */
+  .p-editzone{flex:1;min-height:0;display:flex;position:relative;overflow:hidden;}
+  /* today: cramped editor + a left shortcuts rail */
+  .p-shortcuts{width:40px;flex:0 0 40px;border-right:1px solid var(--border);background:var(--sunken);display:flex;flex-direction:column;align-items:center;gap:4px;padding:8px 0;}
+  .p-shortcuts span{width:26px;height:26px;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:var(--muted);}
+  .p-scroll{flex:1;overflow:auto;}
+  .p-editor{outline:none;}
+  /* today editor: small + tight */
+  .lvl-today .p-editzone{background:var(--raised);}
+  .lvl-today .p-editor{font-size:14.5px;line-height:1.55;color:var(--fg);padding:16px 22px;max-width:none;}
+  .lvl-today .p-editor h3{font-size:17px;margin:0 0 9px;}
+  .lvl-today .p-editor p{margin:0 0 11px;}
+  /* L1 editor: calm paper zone inside the unchanged shell */
+  .lvl-1 .p-editzone{background:radial-gradient(120% 80% at 50% -10%,var(--room-top),var(--room-bot));border-top:1px solid var(--chrome-br);}
+  .lvl-1 .p-editor,.lvl-3 .p-editor{font-size:17px;line-height:1.75;color:var(--paper-fg);max-width:64ch;margin:0 auto;padding:26px 26px 40px;}
+  .lvl-1 .p-editor h3,.lvl-3 .p-editor h3{font-size:22px;font-weight:800;letter-spacing:-.01em;margin:0 0 16px;}
+  .lvl-1 .p-editor p,.lvl-3 .p-editor p{margin:0 0 15px;}
+  .lvl-3 .p-editzone{background:none;}
+  /* slim insert rail in the editor's right gutter (l1/l3) */
+  .p-insertrail{position:absolute;right:12px;top:50%;transform:translateY(-50%);z-index:4;display:none;flex-direction:column;gap:4px;
+    padding:7px 6px;border-radius:14px;background:var(--chrome-bg);border:1px solid var(--chrome-br);
+    backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);box-shadow:0 6px 22px rgba(8,22,45,.12);}
+  .p-insertrail .ri{position:relative;width:32px;height:32px;border:none;border-radius:9px;background:none;color:var(--paper-dim);cursor:pointer;font-size:15px;display:flex;align-items:center;justify-content:center;}
+  .p-insertrail .ri:hover{background:color-mix(in srgb,var(--action) 13%,transparent);color:var(--action);}
+  .p-insertrail .rhdr{font-size:8px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--paper-dim);text-align:center;margin-bottom:1px;}
+  .embed{border:1px solid var(--chrome-br);border-radius:11px;overflow:hidden;background:color-mix(in srgb,var(--raised) 55%,transparent);margin:0 0 15px;}
+  .embed .eh{display:flex;align-items:center;gap:7px;padding:7px 11px;font-size:11px;font-weight:700;color:var(--action);background:color-mix(in srgb,var(--action) 9%,transparent);}
+  .embed .eb{padding:10px 11px;font-size:12px;color:var(--muted);}
+
+  /* footer — save bar (today/l1) vs ambient autosave (l3) */
+  .p-foot{display:flex;align-items:center;gap:10px;padding:11px 18px;border-top:1px solid var(--border);background:var(--raised);}
+  .lvl-3 .p-foot{border-top:none;background:none;padding:8px 30px 18px;}
+  .save-bar{display:flex;align-items:center;gap:10px;width:100%;}
+  .save-bar .saved{font-size:11.5px;color:var(--muted);}
+  .save-bar .savebtn{border:none;background:var(--action);color:#fff;font-size:12.5px;font-weight:700;padding:7px 16px;border-radius:8px;cursor:pointer;}
+  .save-bar .cancelbtn{border:1px solid var(--border);background:none;color:var(--muted);font-size:12.5px;font-weight:600;padding:7px 13px;border-radius:8px;cursor:pointer;}
+  .ambient-save{display:none;align-items:center;gap:8px;width:100%;font-size:11.5px;color:var(--paper-dim);font-weight:600;}
+  .ambient-save .dot{width:6px;height:6px;border-radius:999px;background:var(--ok);}
+  .ambient-save .donebtn{margin-left:auto;border:1px solid var(--chrome-br);background:none;color:var(--paper-fg);font-size:12px;font-weight:700;padding:6px 14px;border-radius:8px;cursor:pointer;}
+  /* visibility per level */
+  .tool-quiet,.p-tool.quiet{display:none;}
+  .lvl-1 .p-tool.heavy,.lvl-3 .p-tool.heavy{display:none;}
+  .lvl-1 .p-tool.quiet,.lvl-3 .p-tool.quiet{display:flex;}
+  .lvl-1 .tool-quiet,.lvl-3 .tool-quiet{display:flex;}
+  .lvl-1 .p-shortcuts,.lvl-3 .p-shortcuts{display:none;}
+  .lvl-1 .p-insertrail,.lvl-3 .p-insertrail{display:flex;}
+  .lvl-3 .save-bar{display:none;}
+  .lvl-3 .ambient-save{display:flex;}
+
+  /* zoom-to-focus affordance (l3 shows it as a continuous zoom) */
+  .zoomhint{position:absolute;top:10px;right:14px;z-index:5;font-size:10.5px;font-weight:700;color:var(--paper-dim);background:var(--chrome-bg);border:1px solid var(--chrome-br);border-radius:999px;padding:4px 11px;display:none;}
+  .lvl-3 .zoomhint{display:block;}
+
+  /* side notes */
+  .notes{flex:0 0 330px;min-width:300px;}
+  .notes h3{font-size:14px;font-weight:800;margin:0 0 3px;}
+  .notes .nlvl{font-size:11px;font-weight:800;color:var(--action);text-transform:uppercase;letter-spacing:.05em;margin-bottom:10px;}
+  .notes h4{font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);margin:16px 0 7px;}
+  .notes ul{margin:0;padding-left:17px;font-size:12.5px;line-height:1.65;color:var(--fg);}
+  .notes ul.trade{color:var(--muted);}
+  .notes ul b{color:var(--fg);}
+  .badge{display:inline-block;font-size:10.5px;font-weight:800;border-radius:6px;padding:2px 8px;margin-bottom:10px;}
+  .badge.risk-low{background:color-mix(in srgb,var(--ok) 16%,transparent);color:var(--ok);}
+  .badge.risk-med{background:color-mix(in srgb,var(--amber) 18%,transparent);color:#b45309;}
+  html[data-theme="dark"] .badge.risk-med{color:var(--amber);}
+
+  /* direction verdict */
+  h2.sect{font-size:15px;font-weight:800;margin:26px 0 4px;}
+  .dirrow{display:flex;gap:12px;flex-wrap:wrap;margin-top:10px;}
+  .dircard{flex:1;min-width:260px;border:1px solid var(--border);background:var(--raised);border-radius:13px;padding:14px 16px;cursor:pointer;}
+  .dircard:hover{border-color:var(--muted);}
+  .dircard.on{border-color:var(--action);box-shadow:inset 3px 0 0 var(--action);}
+  .dircard h4{margin:0 0 5px;font-size:13.5px;font-weight:800;}
+  .dircard p{margin:0;font-size:12px;color:var(--muted);line-height:1.55;}
+  .dircard .pick{margin-top:9px;font-size:11.5px;font-weight:800;color:var(--action);visibility:hidden;}
+  .dircard.on .pick{visibility:visible;}
+</style>
+</head>
+<body>
+  <div class="topbar">
+    <div>
+      <h1>Everyday editor redesign — Level 1 vs Level 3</h1>
+      <p>The in-popup live markdown editor (lab notes · experiments · notes) · toggle the three states</p>
+    </div>
+    <div class="spacer"></div>
+    <button class="btn" id="themeBtn">🌙 Dark</button>
+  </div>
+
+  <div class="wrap">
+    <p class="lead">
+      Same lab-note popup, three treatments. <b>Today</b> is the current heavy toolbar + cramped editor.
+      <b>Level 1</b> keeps the popup shell exactly as-is (title, tabs, save bar) but turns the <b>editor zone</b> into a
+      mini writing room — calm paper, writing-room type, a quiet contextual toolbar, and a slim insert rail.
+      <b>Level 3</b> lets the <b>whole popup</b> adopt the calm document language: editorial title, metadata as a quiet
+      subline, dissolved save bar (ambient autosave), one continuous surface, and focus mode as a literal zoom of this
+      same surface. The editor content is live — click in and type.
+    </p>
+
+    <div class="seg">
+      <span class="lbl">State</span>
+      <button id="sToday" onclick="setLevel('today')">Today</button>
+      <button id="s1" class="on" onclick="setLevel('1')">Level 1 · Scaled-down room</button>
+      <button id="s3" onclick="setLevel('3')">Level 3 · Continuous surface</button>
+    </div>
+
+    <div class="stage">
+      <div class="modalwrap">
+        <div class="backdrop">
+          <div class="popup lvl-1" id="popup">
+            <div class="zoomhint">⤢ Focus zooms THIS surface</div>
+
+            <!-- header -->
+            <div class="p-head">
+              <div class="p-titlewrap">
+                <div class="p-title" contenteditable="false">Plasmid prep — pPN-114</div>
+                <div class="p-meta">
+                  <span class="chip">Jun 13, 2026</span>
+                  <span class="chip">Dr. G. Nickles</span>
+                  <span class="chip status">In progress</span>
+                  <span class="chip">cloning</span>
+                </div>
+              </div>
+              <button class="p-close">✕</button>
+            </div>
+
+            <!-- tabs -->
+            <div class="p-tabs">
+              <button>Details</button>
+              <button class="on">Lab Notes</button>
+              <button>Method</button>
+              <button>Results</button>
+            </div>
+
+            <!-- HEAVY toolbar (today) -->
+            <div class="p-tool heavy tool-heavy">
+              <div class="pill"><button class="on">Edit</button><button>Preview</button></div>
+              <button class="tico" title="Focus">⤢</button>
+              <button class="tbtn">Add File</button>
+              <button class="tbtn">Browse</button>
+              <button class="tbtn">Insert ref</button>
+              <button class="tbtn">Number figs</button>
+              <div class="spacer" style="flex:1"></div>
+              <button class="tbtn">Attachments</button>
+            </div>
+
+            <!-- QUIET contextual toolbar (l1/l3) -->
+            <div class="p-tool quiet">
+              <div class="tool-quiet">
+                <div class="qpill"><button class="on">Edit</button><button>Preview</button></div>
+                <div class="qsep"></div>
+                <button class="qico" title="Insert (or type /)">＋</button>
+                <button class="qico" title="Attachments">▢</button>
+                <button class="qico" title="Focus mode">⤢</button>
+                <span class="hintlbl">type <b>/</b> to insert anything</span>
+              </div>
+            </div>
+
+            <!-- edit zone -->
+            <div class="p-editzone">
+              <div class="p-shortcuts">
+                <span>B</span><span>I</span><span>H</span><span>•</span><span>“</span><span>&lt;/&gt;</span>
+              </div>
+              <div class="p-scroll">
+                <div class="p-editor" contenteditable="true" spellcheck="false">
+                  <h3>Plasmid prep — pPN-114</h3>
+                  <p>Miniprep of the overnight culture gave 412 ng/µL at A260/280 = 1.89. Loaded 2 µL on a 0.8% agarose gel; the single supercoiled band ran true to roughly 5.2 kb.</p>
+                  <div class="embed"><div class="eh"><span>∿</span>Plot · A260/280 across this week’s preps<span style="margin-left:auto;font-size:8.5px;color:var(--paper-dim);font-weight:800">LIVE EMBED</span></div><div class="eb">A live figure dropped from the insert rail — renders inline, stays editable.</div></div>
+                  <p>Diagnostic digest with EcoRI + HindIII produced the expected 3.1 and 2.1 kb fragments. Sequencing of the insert junction is queued for tomorrow’s run.</p>
+                  <p>The transfection bench is asking for two aliquots. I’ll hold those until the midiprep so the concentration is consistent across the plate.</p>
+                </div>
+              </div>
+              <!-- slim insert rail (l1/l3) -->
+              <div class="p-insertrail">
+                <div class="rhdr">Insert</div>
+                <button class="ri" title="Reference">§</button>
+                <button class="ri" title="Data Hub table">▦</button>
+                <button class="ri" title="Plot">∿</button>
+                <button class="ri" title="Sequence">≣</button>
+                <button class="ri" title="Molecule">⬡</button>
+                <button class="ri" title="Image">▢</button>
+              </div>
+            </div>
+
+            <!-- footer -->
+            <div class="p-foot">
+              <div class="save-bar">
+                <span class="saved">Last saved 2 min ago</span>
+                <div class="spacer" style="flex:1"></div>
+                <button class="cancelbtn">Cancel</button>
+                <button class="savebtn">Save</button>
+              </div>
+              <div class="ambient-save">
+                <span class="dot"></span> Saved · just now — autosaves as you write
+                <button class="donebtn">Done</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="notes" id="notes"></div>
+    </div>
+
+    <h2 class="sect">Which direction do you want me to build?</h2>
+    <div class="dirrow" id="dirrow">
+      <div class="dircard" data-v="1" onclick="pickDir('1')">
+        <h4>Level 1 — Scaled-down room</h4>
+        <p>Lower risk, ships fast. Editor-only change across all three sections at once. The popup chrome stays familiar; the writing surface gets the love.</p>
+        <div class="pick">✓ Build this</div>
+      </div>
+      <div class="dircard" data-v="3" onclick="pickDir('3')">
+        <h4>Level 3 — Continuous surface</h4>
+        <p>The cohesive vision. Whole popup becomes a calm document; focus mode is a zoom. More surfaces, bigger lift, needs care on the dissolved save bar.</p>
+        <div class="pick">✓ Build this</div>
+      </div>
+      <div class="dircard" data-v="1then3" onclick="pickDir('1then3')">
+        <h4>Level 1 now → Level 3 later</h4>
+        <p>Ship the editor lift first (fast win, low risk), then take on the popup-shell + zoom continuity as a follow-up once L1 is proven in your hands.</p>
+        <div class="pick">✓ Build this</div>
+      </div>
+    </div>
+  </div>
+
+<script>
+const NOTES={
+  today:{lvl:'Today · baseline',badge:'',changed:[
+    '<b>Heavy permanent toolbar</b> — Edit/Preview, Add File, Browse, Insert ref, Number figs, Attachments, all as text buttons on a hard-bordered sunken bar.',
+    '<b>Left shortcuts rail</b> eats width.',
+    '<b>Cramped editor</b> — 14.5px, tight line-height, full-bleed, no readable measure.',
+    '<b>Form-like</b> — title input box, metadata chips, big blue Save. Feels like a dialog you fill in.'],
+  trade:[]},
+  '1':{lvl:'Level 1 · Scaled-down writing room',badge:'risk-low',changed:[
+    '<b>Popup shell unchanged</b> — same title box, tabs, metadata chips, and Save bar you know.',
+    '<b>Editor zone → calm paper</b> with writing-room type (17px / 1.75 / 64ch measure).',
+    '<b>Toolbar dissolves</b> into a quiet contextual strip: Edit/Preview + a single ＋ insert menu + Attachments + Focus. Plus <b>type “/” to insert anything</b>.',
+    '<b>Slim insert rail</b> in the editor’s right gutter (reference, table, plot, sequence, molecule, image).',
+    '<b>Shortcuts rail retired</b> into the ＋ / “/” affordance.'],
+  trade:[
+    'Visible boundary: the calm editor sits inside an unchanged “appy” frame (header/tabs/save). Intentional, but a slight seam.',
+    'Focus mode is a nicer version of the same surface, but still a mode-switch, not a literal zoom.']},
+  '3':{lvl:'Level 3 · One continuous surface',badge:'risk-med',changed:[
+    'Everything in Level 1, <b>plus the shell itself goes calm</b>.',
+    '<b>Title → editorial heading</b> (no input box).',
+    '<b>Metadata → quiet subline</b> (date · author · status), not chips.',
+    '<b>Save bar dissolves</b> into ambient autosave (“Saved · just now”) with a plain Done.',
+    '<b>One continuous paper surface</b> edge-to-edge — no hard dividers.',
+    '<b>Focus mode = a literal zoom</b> of this exact surface (continuity badge top-right).'],
+  trade:[
+    'Touches the popup shell across TaskDetailPopup + NoteDetailPopup — more surfaces, more QA.',
+    'Dissolving the Save button needs care: autosave must be trustworthy + obvious, and Done/close always reachable (no soft-lock).',
+    'Bigger build; best done after L1 is validated, or as one focused push.']}
+};
+let level='1', dir=null;
+function setLevel(l){
+  level=l;
+  document.getElementById('popup').className='popup lvl-'+l;
+  document.getElementById('sToday').classList.toggle('on',l==='today');
+  document.getElementById('s1').classList.toggle('on',l==='1');
+  document.getElementById('s3').classList.toggle('on',l==='3');
+  renderNotes();
+}
+function renderNotes(){
+  const n=NOTES[level];
+  let h=`<div class="nlvl">${n.lvl}</div>`;
+  if(n.badge){h+=`<span class="badge ${n.badge}">${n.badge==='risk-low'?'LOW RISK':'MEDIUM RISK'}</span>`;}
+  h+='<h4>What changes</h4><ul>'+n.changed.map(x=>`<li>${x}</li>`).join('')+'</ul>';
+  if(n.trade.length){h+='<h4>Trade-offs</h4><ul class="trade">'+n.trade.map(x=>`<li>${x}</li>`).join('')+'</ul>';}
+  document.getElementById('notes').innerHTML=h;
+}
+function pickDir(v){dir=v;document.querySelectorAll('.dircard').forEach(c=>c.classList.toggle('on',c.dataset.v===v));
+  try{localStorage.setItem('everydayEditorDir',v);}catch(e){}}
+try{const d=localStorage.getItem('everydayEditorDir');if(d)pickDir(d);}catch(e){}
+
+document.getElementById('themeBtn').onclick=function(){
+  const d=document.documentElement.getAttribute('data-theme')==='dark';
+  document.documentElement.setAttribute('data-theme',d?'light':'dark');
+  this.textContent=d?'🌙 Dark':'☀️ Light';
+};
+setLevel('1');
+</script>
+</body>
+</html>

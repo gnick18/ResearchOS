@@ -31,7 +31,14 @@ export function useHasCloudSession(): boolean | null {
 export default function AccountFirstRedirect() {
   const router = useRouter();
   useEffect(() => {
-    router.replace("/account");
+    // Carry the route they were trying to reach so /account can explain that it
+    // needs a data folder (a folder-requiring surface bounced them here).
+    const from = window.location.pathname;
+    const target =
+      from && from !== "/account"
+        ? `/account?from=${encodeURIComponent(from)}`
+        : "/account";
+    router.replace(target);
   }, [router]);
   return (
     <div className="flex min-h-screen items-center justify-center text-meta text-foreground-muted">

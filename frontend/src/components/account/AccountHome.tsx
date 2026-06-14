@@ -33,6 +33,17 @@ const LINKS: QuickLink[] = [
 export default function AccountHome() {
   const { isConnected, connect } = useFileSystem();
   const [connecting, setConnecting] = useState(false);
+  // Set when a folder-requiring surface bounced the user here (account-first).
+  const [fromRoute, setFromRoute] = useState<string | null>(null);
+
+  useEffect(() => {
+    try {
+      const f = new URLSearchParams(window.location.search).get("from");
+      if (f) setFromRoute(f);
+    } catch {
+      /* ignore */
+    }
+  }, []);
 
   const [profile, setProfile] = useState<AccountProfile | null>(null);
   const [loaded, setLoaded] = useState(false);
@@ -230,6 +241,12 @@ export default function AccountHome() {
           </>
         ) : (
           <>
+            {fromRoute && (
+              <p className="mb-2 rounded-lg bg-amber-50 px-3 py-2 text-meta text-amber-800 dark:bg-amber-500/15 dark:text-amber-300">
+                <b>{fromRoute}</b> needs your data, which lives in a folder on your
+                computer. Connect it below to continue.
+              </p>
+            )}
             <h2 className="text-body font-bold text-foreground">Connect your data folder</h2>
             <p className="mt-1 text-meta text-foreground-muted">
               Your notes, experiments, and files live in a folder on this computer,

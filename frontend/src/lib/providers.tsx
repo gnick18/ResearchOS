@@ -660,27 +660,20 @@ function AppContent({ children }: { children: ReactNode }) {
   // signed-in user does not flash the front door before the redirect.
   if (
     isAccountFirstEnabled() &&
+    hasCloudSession === true &&
     !isConnected &&
     !currentUser &&
     !isDemoOrWikiCapture() &&
     !signInInFlight
   ) {
-    if (hasCloudSession === null) {
-      return (
-        <QueryClientProvider client={queryClient}>
-          <div className="flex min-h-screen items-center justify-center text-meta text-foreground-muted">
-            Loading&hellip;
-          </div>
-        </QueryClientProvider>
-      );
-    }
-    if (hasCloudSession === true) {
-      return (
-        <QueryClientProvider client={queryClient}>
-          <AccountFirstRedirect />
-        </QueryClientProvider>
-      );
-    }
+    // Signed in with no folder: route to the folderless account home. A null
+    // (still-checking) or false (logged out) session falls through to the normal
+    // front door below, so a fresh visitor sees the landing with no delay.
+    return (
+      <QueryClientProvider client={queryClient}>
+        <AccountFirstRedirect />
+      </QueryClientProvider>
+    );
   }
 
 
