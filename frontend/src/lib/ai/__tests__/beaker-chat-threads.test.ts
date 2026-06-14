@@ -55,6 +55,7 @@ vi.mock("@/components/ai/context-bridge", () => ({
 vi.mock("@/components/ai/spotlight-controller", () => ({
   showSpotlight: vi.fn(),
   dismissSpotlight: vi.fn(),
+  setSpotlightSuppressed: vi.fn(),
 }));
 
 vi.mock("../page-perception", () => ({

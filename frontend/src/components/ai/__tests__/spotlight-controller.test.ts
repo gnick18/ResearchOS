@@ -15,6 +15,7 @@ import {
   showSpotlight,
   dismissSpotlight,
   isSpotlightActive,
+  setSpotlightSuppressed,
 } from "../spotlight-controller";
 
 function makeTarget(label: string): HTMLElement {
@@ -28,6 +29,9 @@ function makeTarget(label: string): HTMLElement {
 
 beforeEach(() => {
   dismissSpotlight();
+  // Suppression is module-level state; clear it so one test cannot leak into the
+  // next (the plan driver re-enables it in its finally, but tests bypass that).
+  setSpotlightSuppressed(false);
   document.body.innerHTML = "";
 });
 
@@ -67,6 +71,40 @@ describe("showSpotlight", () => {
     dismiss!.click();
     expect(isSpotlightActive()).toBe(false);
     expect(document.querySelector('[data-testid="beakerbot-spotlight-ring"]')).toBeNull();
+  });
+});
+
+describe("coaching-spotlight suppression (nav polish)", () => {
+  it("does not show a coaching spotlight while suppressed", () => {
+    setSpotlightSuppressed(true);
+    showSpotlight(makeTarget("Methods"), "Here is the Methods tab.");
+    expect(document.querySelector('[data-testid="beakerbot-spotlight-ring"]')).toBeNull();
+    expect(isSpotlightActive()).toBe(false);
+  });
+
+  it("still shows a forced (approval) spotlight while suppressed", () => {
+    setSpotlightSuppressed(true);
+    showSpotlight(makeTarget("Delete"), "BeakerBot wants to delete this.", {
+      force: true,
+    });
+    expect(document.querySelector('[data-testid="beakerbot-spotlight-ring"]')).toBeTruthy();
+    expect(isSpotlightActive()).toBe(true);
+  });
+
+  it("turning suppression on dismisses a coaching spotlight already showing", () => {
+    showSpotlight(makeTarget("Edit"), "note");
+    expect(isSpotlightActive()).toBe(true);
+    setSpotlightSuppressed(true);
+    expect(isSpotlightActive()).toBe(false);
+    expect(document.querySelector('[data-testid="beakerbot-spotlight-ring"]')).toBeNull();
+  });
+
+  it("re-enables coaching spotlights once suppression clears", () => {
+    setSpotlightSuppressed(true);
+    setSpotlightSuppressed(false);
+    showSpotlight(makeTarget("Add"), "note");
+    expect(document.querySelector('[data-testid="beakerbot-spotlight-ring"]')).toBeTruthy();
+    expect(isSpotlightActive()).toBe(true);
   });
 });
 

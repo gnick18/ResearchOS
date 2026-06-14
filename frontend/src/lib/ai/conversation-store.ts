@@ -84,6 +84,7 @@ import { resolveRef } from "@/lib/ai/page-perception";
 import {
   showSpotlight,
   dismissSpotlight,
+  setSpotlightSuppressed,
 } from "@/components/ai/spotlight-controller";
 import { getMemoryEntries, buildMemoryContext } from "@/lib/ai/user-memory";
 import type {
@@ -436,7 +437,10 @@ function requestApproval(
   if (request.kind === "action" && request.ref) {
     const el = resolveRef(request.ref);
     if (el) {
-      showSpotlight(el, `BeakerBot wants to ${request.summary}.`);
+      // force: an approval spotlight is the consent moment for a destructive or
+      // outward-facing step and must show even while a plan run suppresses the
+      // per-step coaching spotlights.
+      showSpotlight(el, `BeakerBot wants to ${request.summary}.`, { force: true });
     }
   }
 
@@ -1199,6 +1203,11 @@ export const useConversationStore = create<ConversationStore>((set, get) => ({
               status: p.status,
             },
           });
+          // Nav polish: suppress the per-step coaching spotlights while the plan
+          // is actively running so a fast multi-step run does not flash a ring +
+          // bubble on every navigation. The finally block clears suppression on
+          // any exit, so a "running" left at abort time never sticks.
+          setSpotlightSuppressed(p.status === "running");
         },
         // Update the reactive token total after each model iteration so the
         // status line ticks live. The loop fires this only when the provider
@@ -1372,6 +1381,9 @@ export const useConversationStore = create<ConversationStore>((set, get) => ({
       // at their settled values so the pinned summary line can still read them.
       // They are only fully reset by clearConversation/newChat.
       set({ sending: false, queuedText: null, turnStartedAt: null });
+      // Nav polish: always re-enable coaching spotlights at turn end, so a plan
+      // that stopped mid-step (abort, guard, error) never leaves them suppressed.
+      setSpotlightSuppressed(false);
       // If a message was queued while this turn ran, fire it now. The queue slot
       // is cleared first so a stop() during the queued send can cancel that turn
       // without re-queuing.
@@ -1563,6 +1575,7 @@ export const useConversationStore = create<ConversationStore>((set, get) => ({
         abortControllerRef = null;
       }
       set({ sending: false, queuedText: null, turnStartedAt: null });
+      setSpotlightSuppressed(false);
     }
   },
 
@@ -1648,6 +1661,9 @@ export const useConversationStore = create<ConversationStore>((set, get) => ({
           set({
             activePlan: { steps: p.steps, index: p.index, status: p.status },
           });
+          // Nav polish (resume path): same coaching-spotlight suppression as the
+          // send() driver. Cleared in the finally on any exit.
+          setSpotlightSuppressed(p.status === "running");
         },
         onStatus: (s) => {
           const label = statusLabel(s);
@@ -1739,6 +1755,7 @@ export const useConversationStore = create<ConversationStore>((set, get) => ({
         abortControllerRef = null;
       }
       set({ sending: false, queuedText: null, turnStartedAt: null });
+      setSpotlightSuppressed(false);
     }
   },
 }));
