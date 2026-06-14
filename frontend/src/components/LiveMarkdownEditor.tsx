@@ -191,6 +191,23 @@ interface LiveMarkdownEditorProps {
   focusMode?: boolean;
   /** Callback when focus mode changes (enables the controlled pattern). */
   onFocusModeChange?: (focusMode: boolean) => void;
+  /** Unified editor surface (UNIFIED_EDITOR_SURFACE_DESIGN.md §3B / §9, U1+U2).
+   *  When a host popup provides this, the editor's Focus button (and the
+   *  Cmd/Ctrl+Shift+F shortcut) call `onRequestExpand()` to ask the HOST to
+   *  grow itself to fullscreen (same DOM, CSS size transition) instead of the
+   *  editor teleporting its own subtree into a body-level portal overlay. The
+   *  editor stays mounted inline at the larger size; its overlay/portal/buffer/
+   *  focus-trap machinery stays dormant (kept as the fallback for the six
+   *  non-popup mounts that do NOT pass this prop). When ABSENT, behavior is
+   *  byte-identical to today (internal focusMode + overlay). The host is
+   *  expected to flush/commit the editor buffer before growing (see saveRef /
+   *  the host's flush bridge). */
+  onRequestExpand?: () => void;
+  /** Pressed/label state for the Focus button when the host owns expand via
+   *  `onRequestExpand`. Reflects whether the host popup is currently expanded
+   *  so the button can read as a toggle (expand <-> collapse). Ignored when
+   *  `onRequestExpand` is absent. */
+  expanded?: boolean;
   /** Optional parent-supplied content rendered on the RIGHT side of the
    *  single unified toolbar (after a flex spacer). Surfaces that own their
    *  own Save action or sub-tab switcher (the experiment popup's Lab Notes /
@@ -279,6 +296,8 @@ export default function LiveMarkdownEditor({
   onDirtyChange,
   focusMode = false,
   onFocusModeChange,
+  onRequestExpand,
+  expanded = false,
   toolbarTrailing,
   legacyAttachmentsDir,
   loroHandle,
@@ -398,11 +417,37 @@ export default function LiveMarkdownEditor({
     [setFocusMode],
   );
 
-  // The child fires this (Cmd/Ctrl+Shift+F) to request a toggle. It reads the
-  // live focusMode value from the ref so the closure stays stable.
-  const handleChildToggleFocusMode = useCallback(() => {
+  // Unified editor surface seam (UNIFIED_EDITOR_SURFACE_DESIGN.md §9, U1+U2).
+  // When the host popup provides `onRequestExpand`, the Focus button and the
+  // Cmd/Ctrl+Shift+F shortcut ask the HOST to grow itself (same DOM, CSS size
+  // transition) instead of toggling the editor's own portal overlay. The host
+  // owns the buffer flush before growing. When `onRequestExpand` is absent this
+  // falls through to the legacy internal focus-mode toggle, so the six
+  // non-popup mounts are byte-identical to today.
+  const onRequestExpandRef = useRef(onRequestExpand);
+  useEffect(() => {
+    onRequestExpandRef.current = onRequestExpand;
+  }, [onRequestExpand]);
+  const requestExpandToggle = useCallback(() => {
+    const requestExpand = onRequestExpandRef.current;
+    if (requestExpand) {
+      // Flush the in-flight buffer before the host transition so no typing is
+      // lost across the grow/shrink. Belt-and-suspenders alongside the host's
+      // own flush bridge.
+      commitBufferRef.current?.();
+      requestExpand();
+      return;
+    }
     toggleFocusMode(!focusModeActiveRef.current);
   }, [toggleFocusMode]);
+
+  // The child fires this (Cmd/Ctrl+Shift+F) to request a toggle. It reads the
+  // live focusMode value from the ref so the closure stays stable. Routes
+  // through requestExpandToggle so the shortcut grows the host popup when a
+  // host owns expand, and toggles the legacy overlay otherwise.
+  const handleChildToggleFocusMode = useCallback(() => {
+    requestExpandToggle();
+  }, [requestExpandToggle]);
 
   // Writing-surface WIDTH preset (MARKDOWN_EDITOR_TYPORA_DESIGN.md Phase 1).
   // Grant's pain point: the surface (esp. Focus Mode) was a constant box. The
@@ -1762,11 +1807,11 @@ export default function LiveMarkdownEditor({
       if (!ownsFocus && editableFocused) return;
       e.preventDefault();
       e.stopPropagation();
-      toggleFocusMode(!focusModeActiveRef.current);
+      requestExpandToggle();
     };
     document.addEventListener("keydown", onKeyDown, true);
     return () => document.removeEventListener("keydown", onKeyDown, true);
-  }, [inlineBranchActive, toggleFocusMode]);
+  }, [inlineBranchActive, requestExpandToggle]);
 
   // Minimal focus trap (a11y §10): keep Tab / Shift+Tab cycling within the
   // overlay. On enter, move focus to the overlay root so keyboard users
@@ -2057,16 +2102,41 @@ export default function LiveMarkdownEditor({
           {/* Writing Focus Mode enter button (FOCUS_WRITING_MODE_DESIGN.md
               §6). Inline SVG "expand" glyph (no emoji), project Tooltip (never
               native title=), data-tour-target for the walkthrough's enter beat.
-              Stays visible on the quiet strip. */}
-          <Tooltip label="Focus mode (Cmd+Shift+F)" placement="bottom">
+              Stays visible on the quiet strip.
+
+              Unified surface (UNIFIED_EDITOR_SURFACE_DESIGN.md §9, U1+U2): when
+              the host popup owns expand via onRequestExpand, this button grows
+              the HOST popup (and reads as a collapse toggle when already
+              expanded) instead of opening the editor's own portal overlay. */}
+          <Tooltip
+            label={
+              onRequestExpand
+                ? expanded
+                  ? "Exit fullscreen (Cmd+Shift+F)"
+                  : "Expand to fullscreen (Cmd+Shift+F)"
+                : "Focus mode (Cmd+Shift+F)"
+            }
+            placement="bottom"
+          >
             <button
               type="button"
               data-tour-target="hybrid-editor-focus-toggle"
               data-testid="hybrid-editor-focus-toggle"
-              onClick={() => toggleFocusMode(true)}
+              onClick={() => requestExpandToggle()}
               disabled={disabled}
-              aria-label="Enter writing focus mode"
-              className="p-1.5 text-foreground-muted rounded-lg hover:bg-foreground-muted/15 hover:text-foreground transition-colors disabled:opacity-50"
+              aria-pressed={onRequestExpand ? expanded : undefined}
+              aria-label={
+                onRequestExpand
+                  ? expanded
+                    ? "Exit fullscreen editing"
+                    : "Expand to fullscreen editing"
+                  : "Enter writing focus mode"
+              }
+              className={`p-1.5 rounded-lg transition-colors disabled:opacity-50 ${
+                onRequestExpand && expanded
+                  ? "bg-foreground-muted/15 text-foreground"
+                  : "text-foreground-muted hover:bg-foreground-muted/15 hover:text-foreground"
+              }`}
             >
               <svg
                 className="w-4 h-4"
@@ -2075,12 +2145,23 @@ export default function LiveMarkdownEditor({
                 viewBox="0 0 24 24"
                 aria-hidden="true"
               >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4"
-                />
+                {onRequestExpand && expanded ? (
+                  // Collapse glyph (inward arrows) when the host is expanded.
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M9 9V4m0 5H4m5 0L4 4m11 5h5m-5 0V4m0 5l5-5M9 15v5m0-5H4m5 0l-5 5m11-5h5m-5 0v5m0-5l5 5"
+                  />
+                ) : (
+                  // Expand glyph (outward arrows).
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4"
+                  />
+                )}
               </svg>
             </button>
           </Tooltip>

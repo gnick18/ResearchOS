@@ -214,6 +214,25 @@ export default function TaskDetailPopup({
     },
     [],
   );
+  // Unified editor surface (UNIFIED_EDITOR_SURFACE_DESIGN.md §3B / §9, U1).
+  // The popup MODAL GROWS in place — same DOM, a CSS size transition on the
+  // card below (transition-all duration-300). The tab bar stays pinned and
+  // navigable while expanded, and the active editor subtree is never
+  // unmounted/remounted across the transition (so no buffer loss). This single
+  // toggle is shared by the header fullscreen button and the editor's own
+  // Focus button (via onRequestExpand threaded into the Lab Notes / Results
+  // tabs). It flushes the active editor's in-flight buffer BEFORE growing so no
+  // in-flight text is lost across the size transition.
+  const toggleExpanded = useCallback(() => {
+    void (async () => {
+      try {
+        await activeTabFlushSaveRef.current?.();
+      } catch {
+        // Best-effort flush; draft persistence still holds the unsaved text.
+      }
+      setIsExpanded((prev) => !prev);
+    })();
+  }, []);
   // Phase 2: append-line handle. The active tab (LabNotesTab or ResultsTab)
   // registers a function that appends a plain text line via Loro (pilot) or
   // via legacy state + handleSave. Null when no editor tab is mounted.
@@ -1519,7 +1538,7 @@ export default function TaskDetailPopup({
               )}
               <Tooltip label={isExpanded ? "Exit fullscreen" : "Fullscreen"} placement="bottom">
                 <button
-                  onClick={() => setIsExpanded(!isExpanded)}
+                  onClick={() => toggleExpanded()}
                   data-tour-target="task-popup-fullscreen"
                   className="text-foreground-muted hover:text-foreground-muted hover:bg-surface-sunken p-1.5 rounded-lg transition-colors"
                 >
@@ -1783,7 +1802,7 @@ export default function TaskDetailPopup({
                     editable too. LabNotes/Results route to the member via their
                     Loro doc owner (task.owner) + the legacyOwner fallback, and
                     MethodTabs routes + audits via piActor. */}
-                {activeTab === "notes" && <LabNotesTab task={task} readOnly={readOnly || (task.is_shared_with_me === true && task.shared_permission === "view")} ownerUsername={username} onRegisterFlushSave={registerActiveTabFlushSave} onRegisterAppendLine={registerActiveTabAppendLine} />}
+                {activeTab === "notes" && <LabNotesTab task={task} readOnly={readOnly || (task.is_shared_with_me === true && task.shared_permission === "view")} ownerUsername={username} onRegisterFlushSave={registerActiveTabFlushSave} onRegisterAppendLine={registerActiveTabAppendLine} expanded={isExpanded} onRequestExpand={toggleExpanded} />}
                 {activeTab === "method" && (
                   <MethodTabs
                     task={task}
@@ -1792,7 +1811,7 @@ export default function TaskDetailPopup({
                     piActor={piActive && currentUser ? currentUser : undefined}
                   />
                 )}
-                {activeTab === "results" && <ResultsTab task={task} readOnly={readOnly || (task.is_shared_with_me === true && task.shared_permission === "view")} ownerUsername={username} onRegisterFlushSave={registerActiveTabFlushSave} onRegisterAppendLine={registerActiveTabAppendLine} />}
+                {activeTab === "results" && <ResultsTab task={task} readOnly={readOnly || (task.is_shared_with_me === true && task.shared_permission === "view")} ownerUsername={username} onRegisterFlushSave={registerActiveTabFlushSave} onRegisterAppendLine={registerActiveTabAppendLine} expanded={isExpanded} onRequestExpand={toggleExpanded} />}
                 {activeTab === "purchases" && (
                   <PurchaseEditor
                     taskId={task.id}
@@ -3897,7 +3916,7 @@ function DetailsTab({
 
 // ── Lab Notes Tab (with LiveMarkdownEditor) ──────────────────────────────────
 
-function LabNotesTab({ task, readOnly = false, ownerUsername, onRegisterFlushSave, onRegisterAppendLine }: { task: Task; readOnly?: boolean; ownerUsername?: string; onRegisterFlushSave?: (fn: (() => Promise<void>) | null) => void; onRegisterAppendLine?: (fn: ((line: string) => void) | null) => void }) {
+function LabNotesTab({ task, readOnly = false, ownerUsername, onRegisterFlushSave, onRegisterAppendLine, expanded = false, onRequestExpand }: { task: Task; readOnly?: boolean; ownerUsername?: string; onRegisterFlushSave?: (fn: (() => Promise<void>) | null) => void; onRegisterAppendLine?: (fn: ((line: string) => void) | null) => void; expanded?: boolean; onRequestExpand?: () => void }) {
   const [content, setContent] = useState("");
   const [originalContent, setOriginalContent] = useState("");
   const [saving, setSaving] = useState(false);
@@ -4821,6 +4840,13 @@ function LabNotesTab({ task, readOnly = false, ownerUsername, onRegisterFlushSav
                   // the editor's single unified toolbar instead of stacking
                   // parent bars above it.
                   toolbarTrailing={editorToolbarTrailing}
+                  // Unified editor surface (UNIFIED_EDITOR_SURFACE_DESIGN.md §9,
+                  // U1): the editor's Focus button grows the POPUP (same DOM,
+                  // CSS size transition) instead of teleporting into its own
+                  // body-level overlay. The popup flushes this editor's buffer
+                  // before growing via the registered flush bridge.
+                  onRequestExpand={onRequestExpand}
+                  expanded={expanded}
                   // file-unify bot: the single bottom attachments strip now
                   // UNION-reads the retired Files panel's `NotesPDFs/` folder
                   // so files attached there still appear (and can be viewed /
@@ -4882,7 +4908,7 @@ function LabNotesTab({ task, readOnly = false, ownerUsername, onRegisterFlushSav
 
 // ── Results Tab ──────────────────────────────────────────────────────────────
 
-function ResultsTab({ task, readOnly = false, ownerUsername, onRegisterFlushSave, onRegisterAppendLine }: { task: Task; readOnly?: boolean; ownerUsername?: string; onRegisterFlushSave?: (fn: (() => Promise<void>) | null) => void; onRegisterAppendLine?: (fn: ((line: string) => void) | null) => void }) {
+function ResultsTab({ task, readOnly = false, ownerUsername, onRegisterFlushSave, onRegisterAppendLine, expanded = false, onRequestExpand }: { task: Task; readOnly?: boolean; ownerUsername?: string; onRegisterFlushSave?: (fn: (() => Promise<void>) | null) => void; onRegisterAppendLine?: (fn: ((line: string) => void) | null) => void; expanded?: boolean; onRequestExpand?: () => void }) {
   const [content, setContent] = useState("");
   const [originalContent, setOriginalContent] = useState("");
   const [saving, setSaving] = useState(false);
@@ -5633,6 +5659,13 @@ function ResultsTab({ task, readOnly = false, ownerUsername, onRegisterFlushSave
                 // the editor's single unified toolbar instead of stacking
                 // parent bars above it.
                 toolbarTrailing={editorToolbarTrailing}
+                // Unified editor surface (UNIFIED_EDITOR_SURFACE_DESIGN.md §9,
+                // U1): the editor's Focus button grows the POPUP (same DOM, CSS
+                // size transition) instead of teleporting into its own
+                // body-level overlay. The popup flushes this editor's buffer
+                // before growing via the registered flush bridge.
+                onRequestExpand={onRequestExpand}
+                expanded={expanded}
                 // file-unify bot: the single bottom attachments strip now
                 // UNION-reads the retired Files panel's `ResultsPDFs/` folder
                 // so files attached there still appear (view / delete). New
