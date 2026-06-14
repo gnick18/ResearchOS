@@ -373,7 +373,7 @@ export default function CalmPopupShell({
                   data-tour-target={focusTourTarget}
                   aria-label={isExpanded ? "Exit focus" : "Focus"}
                   aria-pressed={isExpanded}
-                  className="iconbtn text-foreground-muted hover:text-foreground-muted hover:bg-surface-sunken p-1.5 rounded-lg transition-colors"
+                  className="iconbtn text-foreground-muted hover:text-brand-action hover:bg-surface-sunken p-1.5 rounded-lg transition-colors"
                 >
                   <Icon name="focus" className="w-4 h-4" />
                 </button>
@@ -385,7 +385,7 @@ export default function CalmPopupShell({
                 onClick={onClose}
                 data-tour-target={closeTourTarget}
                 aria-label="Close"
-                className="iconbtn text-foreground-muted hover:text-foreground hover:bg-surface-sunken p-1.5 rounded-lg transition-colors"
+                className="iconbtn text-foreground-muted hover:text-brand-action hover:bg-surface-sunken p-1.5 rounded-lg transition-colors"
               >
                 <Icon name="x" className="w-4 h-4" />
               </button>

@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useRef, useState, useEffect, useLayoutEffect } from "react";
+import { createPortal } from "react-dom";
 import dynamic from "next/dynamic";
 import { usePreloadOnIdle } from "@/lib/perf/use-preload-on-idle";
 import { extractUserContent } from "@/lib/stamp-utils";
@@ -614,6 +615,11 @@ export default function LiveMarkdownEditor({
   // state + outside-click/Escape close mirror the ＋ insert menu below.
   const [focusMenuOpen, setFocusMenuOpen] = useState(false);
   const focusMenuRef = useRef<HTMLDivElement>(null);
+  // The focus menu is portaled to document.body (see render) to escape the
+  // editor's stacking context; this ref is the portaled panel and the position
+  // is the fixed anchor computed from the trigger.
+  const focusMenuPanelRef = useRef<HTMLDivElement>(null);
+  const [focusMenuPos, setFocusMenuPos] = useState<{ top: number; right: number } | null>(null);
   // Native-file drag affordance: light up the editor (or the surrounding popup)
   // while the user is dragging a file from Finder over it. Counter handles
   // child-element bubbling — dragenter/leave fire on every nested element the
@@ -680,7 +686,11 @@ export default function LiveMarkdownEditor({
   useEffect(() => {
     if (!focusMenuOpen) return;
     const onPointerDown = (e: PointerEvent) => {
-      if (!focusMenuRef.current?.contains(e.target as Node)) {
+      // The panel is portaled out of this subtree, so check it explicitly too.
+      if (
+        !focusMenuRef.current?.contains(e.target as Node) &&
+        !focusMenuPanelRef.current?.contains(e.target as Node)
+      ) {
         setFocusMenuOpen(false);
       }
     };
@@ -692,6 +702,23 @@ export default function LiveMarkdownEditor({
     return () => {
       document.removeEventListener("pointerdown", onPointerDown, true);
       document.removeEventListener("keydown", onKeyDown);
+    };
+  }, [focusMenuOpen]);
+
+  // Anchor the portaled focus menu under its trigger with fixed coords, and keep
+  // it attached while open as the surface scrolls or the window resizes.
+  useLayoutEffect(() => {
+    if (!focusMenuOpen) return;
+    const update = () => {
+      const r = focusMenuRef.current?.getBoundingClientRect();
+      if (r) setFocusMenuPos({ top: r.bottom + 4, right: window.innerWidth - r.right });
+    };
+    update();
+    window.addEventListener("resize", update);
+    window.addEventListener("scroll", update, true);
+    return () => {
+      window.removeEventListener("resize", update);
+      window.removeEventListener("scroll", update, true);
     };
   }, [focusMenuOpen]);
 
@@ -2341,17 +2368,26 @@ export default function LiveMarkdownEditor({
                   <Icon name="focus" className="h-4 w-4" />
                 </button>
               </Tooltip>
-              {focusMenuOpen && (
+              {focusMenuOpen && focusMenuPos && createPortal(
                 <div
+                  ref={focusMenuPanelRef}
                   role="menu"
                   data-testid="hybrid-editor-focus-popover"
-                  // Solid, isolated panel: the parent fullscreen pill has
-                  // `backdrop-blur` + a translucent fill, whose compositing group
-                  // otherwise bleeds the document through this menu. An explicit
-                  // opaque `--surface-overlay` fill + `isolation:isolate` give it
-                  // its own stacking context so it paints solid over the room.
-                  style={{ backgroundColor: "var(--surface-overlay)", isolation: "isolate" }}
-                  className="absolute right-0 top-full mt-1 z-50 min-w-[15rem] p-1.5 rounded-lg border border-border bg-surface-overlay shadow-lg"
+                  // Portaled to document.body and fixed under the trigger: the
+                  // menu must escape the editor's stacking context. The fullscreen
+                  // pill's backdrop-blur and the document body sit in contexts that
+                  // otherwise paint over an in-tree menu (doc text bled through,
+                  // confirmed via elementFromPoint). As a top-level layer with an
+                  // opaque --surface-overlay fill it always renders solid above the
+                  // popup.
+                  style={{
+                    position: "fixed",
+                    top: focusMenuPos.top,
+                    right: focusMenuPos.right,
+                    zIndex: 500,
+                    backgroundColor: "var(--surface-overlay)",
+                  }}
+                  className="min-w-[15rem] p-1.5 rounded-lg border border-border bg-surface-overlay shadow-lg"
                 >
                   <FocusToggleRow
                     icon="align"
@@ -2414,7 +2450,8 @@ export default function LiveMarkdownEditor({
                       })}
                     </div>
                   </div>
-                </div>
+                </div>,
+                document.body,
               )}
             </div>
           )}
