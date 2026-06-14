@@ -211,7 +211,7 @@ describe("createLabForCurrentUser", () => {
         idImpl: () => "lab-test-id",
       }),
     ).rejects.toThrow(
-      "createLabForCurrentUser: relay rejected lab create (HTTP 401)",
+      "publishLabRemote: relay rejected lab create (HTTP 401)",
     );
   });
 });
