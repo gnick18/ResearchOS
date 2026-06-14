@@ -19,7 +19,9 @@ import CompoundMethodTabContent from "./methods/CompoundMethodTabContent";
 import CodingWorkflowMethodTabContent from "./methods/CodingWorkflowMethodTabContent";
 import QpcrAnalysisMethodTabContent from "./methods/QpcrAnalysisMethodTabContent";
 import { WrapAsCompoundAction } from "./methods/WrapAsCompoundAction";
+import { ForkToLibraryAction } from "./methods/ForkToLibraryAction";
 import ViewMethodOnPhoneButton from "./methods/ViewMethodOnPhoneButton";
+import { Icon } from "@/components/icons";
 
 interface MethodTabsProps {
   task: Task;
@@ -232,6 +234,21 @@ export default function MethodTabs({ task, onTaskUpdate, readOnly = false, piAct
             <ViewMethodOnPhoneButton taskId={task.id} taskOwner={task.owner} />
           </div>
         )}
+        {/* Gathered-reagent progress synced from the phone read mode. The
+            companion ticks reagents off as they are gathered at the bench and
+            syncs the count here (last-write-wins). Self-hides when nothing has
+            been gathered yet. */}
+        {activeMethod &&
+          activeAttachment?.gathered_checks &&
+          activeAttachment.gathered_checks.total > 0 && (
+            <div className="ml-2 mb-2 inline-flex items-center gap-1.5 px-2 py-1 rounded-md bg-surface-sunken text-meta text-foreground-muted">
+              <Icon name="check" className="w-3 h-3 text-green-600 shrink-0" />
+              <span>
+                {activeAttachment.gathered_checks.gatheredCount} of{" "}
+                {activeAttachment.gathered_checks.total} reagents gathered on the phone
+              </span>
+            </div>
+          )}
         {/* Extend-into-kit affordance for the active non-compound method.
             Wrapping creates a new compound (kit) that lists the active
             method as its first child, then swaps this task's attachment
@@ -250,6 +267,21 @@ export default function MethodTabs({ task, onTaskUpdate, readOnly = false, piAct
                   ),
                 )
               }
+            />
+          </div>
+        )}
+        {/* Promote this experiment's edited copy of the method into a brand-new
+            standalone library method. The per-task edits (body_override / the
+            per-type structured overrides / variation_notes) otherwise live only
+            on this attachment; this is the only path to fork them back into the
+            reusable library. Source method + this attachment stay untouched. */}
+        {!readOnly && activeMethod && (
+          <div className="ml-2 mb-2">
+            <ForkToLibraryAction
+              method={activeMethod}
+              attachment={activeAttachment}
+              task={task}
+              piActor={piActor}
             />
           </div>
         )}
