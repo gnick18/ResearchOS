@@ -101,6 +101,8 @@ import {
   GROUP_A,
   GROUP_B,
   GROUP_C,
+  FIRTH_X,
+  FIRTH_Y,
   KM_READ_TIMES,
   LOGIT_X,
   LOGIT_Y,
@@ -161,6 +163,7 @@ import {
   SCIPY,
   SKLEARN,
   STATSMODELS,
+  FIRTHLOGIST,
   WALLACE,
   GGTREE,
   PUBLISHED_TREE,
@@ -1326,6 +1329,22 @@ function runDatahubEngine(): Record<string, number> {
     "logistic regression",
   );
 
+  // Firth penalized logistic regression on a PERFECTLY SEPARABLE dataset (y flips
+  // from 0 to 1 at x = 5.5). Plain maximum likelihood has no finite maximum here
+  // (the old engine returned a non-convergence error), so the engine falls back to
+  // Firth's penalized likelihood. The intercept / slope / their SE / odds ratio
+  // reproduce the Python firthlogist package (equivalent to R logistf) on these
+  // exact arrays. need(...) also proves the fallback fires, since without it the
+  // fit would error and throw here.
+  const firth = need(
+    logisticRegression(
+      FIRTH_X.map((x) => [x]),
+      FIRTH_Y,
+      ["x"],
+    ),
+    "firth logistic regression",
+  );
+
   // ROC curve + AUC (Theme 4). Score the SAME binary dataset the logistic case
   // pins (LOGIT_X as the classifier score, LOGIT_Y as the true label), then read
   // off the AUC (trapezoidal over the swept curve, equal to sklearn's
@@ -1631,6 +1650,12 @@ function runDatahubEngine(): Record<string, number> {
     lr_mcfadden_r2: logit.mcFaddenR2,
     lr_auc: logit.auc,
 
+    firth_intercept: firth.intercept.estimate,
+    firth_slope: firth.slope.estimate,
+    firth_intercept_se: firth.intercept.standardError,
+    firth_slope_se: firth.slope.standardError,
+    firth_odds_ratio: firth.oddsRatio,
+
     roc_auc: roc.auc,
     roc_auc_se: roc.aucStandardError,
     roc_auc_ci_low: roc.aucCiLow,
@@ -1847,7 +1872,7 @@ function buildDatahubStatsDomain(): DomainReport {
       + "mean-centered vs median-centered Levene convention) rather than forced to "
       + "match.",
     impl: "frontend/src/lib/datahub/engine/",
-    oracles: [SCIPY, STATSMODELS, LIFELINES, SKLEARN],
+    oracles: [SCIPY, STATSMODELS, LIFELINES, SKLEARN, FIRTHLOGIST],
     cases,
     totals,
     status,

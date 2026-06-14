@@ -50,6 +50,7 @@ describe("Data Hub statistics validated against scipy / statsmodels / lifelines"
       "pingouin",
       "lifelines",
       "sklearn",
+      "firthlogist",
     ]);
     for (const c of domain.cases) {
       for (const cmp of c.comparisons) {

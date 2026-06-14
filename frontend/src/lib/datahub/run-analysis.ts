@@ -456,6 +456,13 @@ export interface NormalizedLogisticRegression {
   /** Area under the ROC curve of the fitted probabilities. */
   auc: number;
   iterations: number;
+  /**
+   * "mle" for the standard maximum-likelihood fit; "firth" when the data were
+   * (quasi-)separable and the engine fell back to Firth's penalized likelihood so
+   * the estimates stay finite. The UI can flag a Firth fit so the reader knows the
+   * coefficients are bias-reduced rather than the plain MLE.
+   */
+  method: "mle" | "firth";
 }
 
 /**
@@ -1541,6 +1548,7 @@ function runXYAnalysis(
       xAtHalf: res.xAtHalf,
       auc: res.auc,
       iterations: res.iterations,
+      method: res.method,
     };
   }
 

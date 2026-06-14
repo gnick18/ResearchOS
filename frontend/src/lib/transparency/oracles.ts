@@ -227,6 +227,19 @@ export const SKLEARN: OracleRef = {
   url: "https://scikit-learn.org/stable/modules/model_evaluation.html#roc-metrics",
 };
 
+export const FIRTHLOGIST: OracleRef = {
+  id: "firthlogist",
+  name: "firthlogist",
+  version: "0.5.0",
+  entrypoint: "firthlogist.FirthLogisticRegression(fit_intercept=True)",
+  citation:
+    "Firth 1993, bias reduction of maximum likelihood estimates, Biometrika "
+    + "80(1):27-38; Heinze & Schemper 2002 for the separation use case; a faithful "
+    + "Python port of R logistf (Heinze, Ploner)",
+  generator: "frontend/scripts/gen-datahub-stats-golden.py",
+  url: "https://github.com/jzluo/firthlogist",
+};
+
 export const GGTREE: OracleRef = {
   id: "ggtree",
   name: "ggtree",
@@ -275,6 +288,7 @@ export const ORACLES: Record<string, OracleRef> = {
   [PINGOUIN.id]: PINGOUIN,
   [LIFELINES.id]: LIFELINES,
   [SKLEARN.id]: SKLEARN,
+  [FIRTHLOGIST.id]: FIRTHLOGIST,
   [GGTREE.id]: GGTREE,
   [PUBLISHED_TREE.id]: PUBLISHED_TREE,
 };
