@@ -171,6 +171,8 @@ export function PhyloStudio({ initialTreeId }: { initialTreeId?: string } = {}) 
     "rectangular",
   );
   const [phylogram, setPhylogram] = useState(true);
+  // Show the branch-length scale bar on a phylogram (geom_treescale). Default on.
+  const [scaleBar, setScaleBar] = useState(true);
   // The ordered LAYER stack (phylo Phase 1). This IS the persisted panels[]; the
   // layers control edits it directly and the renderer + exporter walk it.
   const [panels, setPanels] = useState<AlignedPanel[]>(defaultPanels);
@@ -319,6 +321,7 @@ export function PhyloStudio({ initialTreeId }: { initialTreeId?: string } = {}) 
       {
         layout,
         phylogram,
+        scaleBar,
         tracks: EMPTY_TRACKS,
         categoryColumn,
         metaRows,
@@ -333,6 +336,7 @@ export function PhyloStudio({ initialTreeId }: { initialTreeId?: string } = {}) 
     tree,
     layout,
     phylogram,
+    scaleBar,
     categoryColumn,
     metaRows,
     tipColumn,
@@ -424,6 +428,7 @@ export function PhyloStudio({ initialTreeId }: { initialTreeId?: string } = {}) 
     );
     setLayout(inputs.layout);
     setPhylogram(inputs.phylogram);
+    setScaleBar(inputs.scaleBar ?? true);
     // Stored panels win; else project the layer stack from the Phase 0 fields.
     const restored =
       inputs.panels ??
@@ -630,6 +635,7 @@ export function PhyloStudio({ initialTreeId }: { initialTreeId?: string } = {}) 
     const figure = {
       layout,
       branchLengths: phylogram,
+      scaleBar,
       tracks: derived.tracks,
       legend: true,
       panels,
@@ -1048,6 +1054,20 @@ export function PhyloStudio({ initialTreeId }: { initialTreeId?: string } = {}) 
                   ]}
                   onChange={(v) => setPhylogram(v === "phylo")}
                 />
+                {phylogram && (
+                  <button
+                    type="button"
+                    onClick={() => setScaleBar((s) => !s)}
+                    title="Branch-length scale bar"
+                    className={`inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1 text-xs font-bold transition-colors ${
+                      scaleBar
+                        ? "border-accent bg-accent-soft text-accent"
+                        : "border-border text-foreground-muted hover:text-foreground"
+                    }`}
+                  >
+                    Scale bar
+                  </button>
+                )}
               </div>
               {/* The renderer string is the single source of SVG. The artboard
                   frames it on a real page when enabled; otherwise it injects
