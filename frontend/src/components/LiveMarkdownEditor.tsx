@@ -2267,7 +2267,11 @@ export default function LiveMarkdownEditor({
                 }`}
               >
                 <Icon name="attach" className="w-3.5 h-3.5" />
-                Attachments
+                {/* Fullscreen-only: icon-only (drop the "Attachments" label) to
+                    match the Writing-Room pill's ▢ glyph. The Tooltip label,
+                    handler, and aria all stay, so the toggle is unchanged for
+                    a11y; docked keeps the text. */}
+                {!expanded && "Attachments"}
               </button>
             </Tooltip>
           )}
@@ -2301,58 +2305,23 @@ export default function LiveMarkdownEditor({
             </span>
           )}
 
-          {/* Writing-surface WIDTH control (MARKDOWN_EDITOR_TYPORA_DESIGN.md
-              Phase 1). A small segmented affordance: Narrow / Comfortable /
-              Wide / Full-bleed. Each segment carries an inline-SVG measure glyph
-              (no emoji) inside a project Tooltip (never native title=). The
-              active preset is highlighted; clicking one applies + persists it
-              (localStorage mirror + per-user settings). Shown only when the host
-              popup is EXPANDED (fullscreen) — the dedicated writing surface where
-              the measure matters; docked-small the column is already tight so it
-              stays out of the way. */}
-          {expanded && (
-            <div
-              role="group"
-              aria-label="Writing width"
-              data-testid="hybrid-editor-width-control"
-              className="flex items-center bg-surface-sunken/70 rounded-lg p-0.5"
-            >
-              {EDITOR_WIDTH_PRESETS.map((preset) => {
-                const active = widthPreset === preset;
-                return (
-                  <Tooltip
-                    key={preset}
-                    label={EDITOR_WIDTH_PRESET_DESCRIPTIONS[preset]}
-                    placement="bottom"
-                  >
-                    <button
-                      type="button"
-                      data-testid={`hybrid-editor-width-${preset}`}
-                      aria-pressed={active}
-                      aria-label={`Set writing width to ${EDITOR_WIDTH_PRESET_LABELS[preset]}`}
-                      onClick={() => applyWidthPreset(preset)}
-                      className={`p-1.5 rounded-md transition-colors ${
-                        active
-                          ? "bg-surface-raised text-foreground shadow-sm"
-                          : "text-foreground-muted hover:text-foreground"
-                      }`}
-                    >
-                      <WidthPresetGlyph preset={preset} />
-                    </button>
-                  </Tooltip>
-                );
-              })}
-            </div>
-          )}
+          {/* Writing-surface WIDTH control moved OUT of the pill and INTO the
+              "Writing focus" popover below (fullscreen-chrome slim) so the
+              fullscreen pill stays minimal (Edit/Preview · ＋ · 📎 · ⊙focus).
+              The 4 segmented measure glyphs + applyWidthPreset + per-preset
+              testids now live as a "Writing width" section inside the focus
+              menu; width stays reachable via the ⊙ control at fullscreen.
+              Docked never rendered this (it was already gated on `expanded`). */}
 
           {/* Focus behaviors (UNIFIED_EDITOR_SURFACE_DESIGN.md §3A, U5 toggles).
-              A small quiet popover next to the width control, shown ONLY when the
-              host popup is EXPANDED (fullscreen) — these comfort behaviors only
-              matter at the dedicated writing scale, and they are double-gated
-              (pref AND expanded) before reaching the editor. Each toggle persists
-              immediately (localStorage mirror + durable settings) and takes
-              effect live via the editor's reconfigure compartment. Both default
-              off (the design's amber decision). */}
+              A small quiet popover, shown ONLY when the host popup is EXPANDED
+              (fullscreen) — these comfort behaviors only matter at the dedicated
+              writing scale, and they are double-gated (pref AND expanded) before
+              reaching the editor. Each toggle persists immediately (localStorage
+              mirror + durable settings) and takes effect live via the editor's
+              reconfigure compartment. Both default off (the design's amber
+              decision). The popover ALSO hosts the writing-width presets (moved
+              here from the pill). */}
           {expanded && (
             <div ref={focusMenuRef} className="relative">
               <Tooltip label="Writing focus" placement="bottom">
@@ -2394,6 +2363,51 @@ export default function LiveMarkdownEditor({
                     testId="hybrid-editor-dimming-toggle"
                     onChange={applyDimmingPref}
                   />
+
+                  {/* Writing-width presets (relocated from the pill —
+                      fullscreen-chrome slim). Same segmented measure glyphs,
+                      applyWidthPreset handler, and per-preset testids
+                      (hybrid-editor-width-*) so the moved control is still
+                      covered by the existing tests; the group testid
+                      hybrid-editor-width-control is preserved too. */}
+                  <div className="my-1 h-px bg-border" aria-hidden="true" />
+                  <div className="px-2 pt-0.5 pb-1.5">
+                    <div className="mb-1 text-xs font-medium text-foreground-muted">
+                      Writing width
+                    </div>
+                    <div
+                      role="group"
+                      aria-label="Writing width"
+                      data-testid="hybrid-editor-width-control"
+                      className="flex items-center bg-surface-sunken/70 rounded-lg p-0.5"
+                    >
+                      {EDITOR_WIDTH_PRESETS.map((preset) => {
+                        const active = widthPreset === preset;
+                        return (
+                          <Tooltip
+                            key={preset}
+                            label={EDITOR_WIDTH_PRESET_DESCRIPTIONS[preset]}
+                            placement="bottom"
+                          >
+                            <button
+                              type="button"
+                              data-testid={`hybrid-editor-width-${preset}`}
+                              aria-pressed={active}
+                              aria-label={`Set writing width to ${EDITOR_WIDTH_PRESET_LABELS[preset]}`}
+                              onClick={() => applyWidthPreset(preset)}
+                              className={`p-1.5 rounded-md transition-colors ${
+                                active
+                                  ? "bg-surface-raised text-foreground shadow-sm"
+                                  : "text-foreground-muted hover:text-foreground"
+                              }`}
+                            >
+                              <WidthPresetGlyph preset={preset} />
+                            </button>
+                          </Tooltip>
+                        );
+                      })}
+                    </div>
+                  </div>
                 </div>
               )}
             </div>
@@ -2654,13 +2668,14 @@ export default function LiveMarkdownEditor({
             // sheet stays one click away without disturbing the calm surface;
             // the shortcuts keep working via the CM6 keymap.
             <div className="flex h-full min-h-0">
-              {showShortcutsHelper && (
+              {/* Markdown shortcuts / Style Guide rail. At fullscreen it is now
+                  FULLY hidden (not even the thin collapsed strip) — the Insert
+                  rail owns that gutter in the Writing Room, and the markdown
+                  shortcuts still work via the CM6 keymap. Docked is unchanged
+                  (rail renders as before). Fullscreen-chrome slim. */}
+              {showShortcutsHelper && !expanded && (
                 <MarkdownShortcutsSidebar
                   onInsertSyntax={(s) => insertRef.current?.(s)}
-                  // At fullscreen the rail collapses to its thin expandable strip
-                  // so the cheat sheet stays one click away without crowding the
-                  // calm surface; `expanded` is the host-popup fullscreen signal
-                  // that replaces the retired internal focus mode.
                   focusActive={expanded}
                 />
               )}

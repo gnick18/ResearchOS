@@ -11,13 +11,18 @@ import LiveMarkdownEditor from "../LiveMarkdownEditor";
  * 1 replaces the fixed box with a FLUID, ch-based measure (default ~72ch
  * centered = "comfortable") plus a Narrow / Comfortable / Wide / Full-bleed
  * control. The sealed focus overlay that used to host the control was retired;
- * the control now lives on the docked quiet toolbar and is shown only when the
- * host popup is EXPANDED (`expanded` prop) — the dedicated writing surface where
- * the measure matters.
+ * the control is shown only when the host popup is EXPANDED (`expanded` prop) —
+ * the dedicated writing surface where the measure matters.
+ *
+ * Fullscreen-chrome slim (2026-06-14): the width control moved OUT of the
+ * fullscreen pill and INTO the "Writing focus" popover (opened via the focus
+ * menu button) so the pill stays minimal. The testids
+ * (`hybrid-editor-width-control` + per-preset `hybrid-editor-width-*`) are
+ * preserved; the tests now open the focus popover first via `openFocusMenu`.
  *
  * These tests pin:
- *   1. The control renders only when expanded, with the default preset
- *      highlighted.
+ *   1. The control renders only when expanded (inside the focus popover), with
+ *      the default preset highlighted.
  *   2. Picking a preset changes the editor column's measure class AND the
  *      Preview render's measure class.
  *   3. The choice persists to localStorage (the synchronous per-editor mirror)
@@ -29,6 +34,21 @@ import LiveMarkdownEditor from "../LiveMarkdownEditor";
  */
 
 const STORAGE_KEY = "research-os-editor-width-preset";
+
+/**
+ * The width presets live inside the "Writing focus" popover at fullscreen
+ * (fullscreen-chrome slim). Open it before querying the width control. Safe to
+ * call repeatedly — the menu stays open once toggled on, and queryByTestId
+ * returns null when the menu (and thus the trigger) isn't present (docked).
+ */
+function openFocusMenu() {
+  const trigger = screen.queryByTestId("hybrid-editor-focus-menu");
+  if (trigger && trigger.getAttribute("aria-expanded") !== "true") {
+    act(() => {
+      fireEvent.click(trigger);
+    });
+  }
+}
 
 describe("LiveMarkdownEditor: writing-surface width preset", () => {
   beforeEach(() => {
@@ -59,7 +79,8 @@ describe("LiveMarkdownEditor: writing-surface width preset", () => {
     // Docked (not expanded): the control is absent.
     expect(screen.queryByTestId("hybrid-editor-width-control")).toBeNull();
 
-    // Expanded: the control and all four presets render.
+    // Expanded: open the Writing focus popover; the control and all four
+    // presets render inside it.
     rerender(
       <LiveMarkdownEditor
         value="hello"
@@ -68,6 +89,7 @@ describe("LiveMarkdownEditor: writing-surface width preset", () => {
         expanded
       />,
     );
+    openFocusMenu();
     expect(
       screen.getByTestId("hybrid-editor-width-control"),
     ).toBeInTheDocument();
@@ -118,6 +140,9 @@ describe("LiveMarkdownEditor: writing-surface width preset", () => {
     // Default measure present.
     expect(container.querySelector(".max-w-\\[72ch\\]")).not.toBeNull();
 
+    // Open the focus popover that hosts the width presets.
+    openFocusMenu();
+
     // Wide -> ~96ch.
     act(() => {
       fireEvent.click(screen.getByTestId("hybrid-editor-width-wide"));
@@ -156,7 +181,9 @@ describe("LiveMarkdownEditor: writing-surface width preset", () => {
     const proseDefault = document.querySelector(".prose.max-w-\\[72ch\\]");
     expect(proseDefault).not.toBeNull();
 
-    // Narrow the measure, confirm the preview class follows.
+    // Narrow the measure, confirm the preview class follows. The width presets
+    // live in the focus popover; open it first.
+    openFocusMenu();
     act(() => {
       fireEvent.click(screen.getByTestId("hybrid-editor-width-narrow"));
     });
@@ -173,6 +200,7 @@ describe("LiveMarkdownEditor: writing-surface width preset", () => {
         expanded
       />,
     );
+    openFocusMenu();
     act(() => {
       fireEvent.click(screen.getByTestId("hybrid-editor-width-wide"));
     });
@@ -191,6 +219,7 @@ describe("LiveMarkdownEditor: writing-surface width preset", () => {
         expanded
       />,
     );
+    openFocusMenu();
     expect(
       screen.getByTestId("hybrid-editor-width-wide"),
     ).toHaveAttribute("aria-pressed", "true");

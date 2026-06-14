@@ -1174,17 +1174,22 @@ export default function TaskDetailPopup({
                 >
                   {task.name}
                 </h3>
-                <span
-                  className={`inline-flex items-center px-1.5 py-0.5 rounded text-meta font-medium uppercase tracking-wide ${
-                    isExperiment
-                      ? "bg-purple-50 dark:bg-purple-500/10 text-purple-700 dark:text-purple-300"
-                      : isPurchase
-                      ? "bg-emerald-50 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-300"
-                      : "bg-blue-50 dark:bg-blue-500/10 text-blue-700 dark:text-blue-300"
-                  }`}
-                >
-                  {isExperiment ? "Experiment" : isPurchase ? "Purchase" : "Task"}
-                </span>
+                {/* Type chip (Experiment / Purchase / Task). Hidden at
+                    fullscreen (fullscreen-chrome slim) so the Writing-Room
+                    title reads clean; docked keeps it. */}
+                {!isExpanded && (
+                  <span
+                    className={`inline-flex items-center px-1.5 py-0.5 rounded text-meta font-medium uppercase tracking-wide ${
+                      isExperiment
+                        ? "bg-purple-50 dark:bg-purple-500/10 text-purple-700 dark:text-purple-300"
+                        : isPurchase
+                        ? "bg-emerald-50 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-300"
+                        : "bg-blue-50 dark:bg-blue-500/10 text-blue-700 dark:text-blue-300"
+                    }`}
+                  >
+                    {isExperiment ? "Experiment" : isPurchase ? "Purchase" : "Task"}
+                  </span>
+                )}
                 {/* Cross-boundary provenance. Self-hides on a native experiment
                     (received_from absent), so only an experiment imported from a
                     received bundle shows "Received from {email}, verified". */}
@@ -1442,6 +1447,32 @@ export default function TaskDetailPopup({
                   actions in here can never soft-lock the shell. */}
               {(
                 <HeaderOverflowMenu label="More actions" testId="task-header-overflow">
+                  {/* Save checkpoint (fullscreen-chrome slim). At fullscreen the
+                      editor pill's "Save checkpoint" button is removed to keep
+                      the Writing-Room pill minimal; it relocates here so a
+                      permanent, revertible version save is still one click away.
+                      Routes through the active tab's registered flush+save (the
+                      SAME path the pill button used — flush the live buffer, then
+                      write only when changed). Disabled when there's nothing to
+                      save. Only shown at fullscreen and only for a writable
+                      editor tab that reports save state (notes / results). */}
+                  {isExpanded && !readOnly && ambientSaveState != null && (
+                    <button
+                      type="button"
+                      role="menuitem"
+                      data-testid="task-header-save-checkpoint"
+                      disabled={ambientSaveState !== "unsaved"}
+                      onClick={() => {
+                        void activeTabFlushSaveRef.current?.();
+                      }}
+                      className="flex w-full items-center gap-2.5 px-3 py-1.5 text-left text-body text-foreground hover:bg-surface-sunken disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                    >
+                      <Icon name="check" className="w-4 h-4 text-foreground-muted" />
+                      <span>
+                        {ambientSaveState === "saving" ? "Saving..." : "Save checkpoint"}
+                      </span>
+                    </button>
+                  )}
                   {!readOnly && (
                     <button
                       type="button"
@@ -4702,8 +4733,11 @@ function LabNotesTab({ task, readOnly = false, ownerUsername, onRegisterFlushSav
     <>
       {/* experiment-collab follow-up: auto-save Saving/Saved pill, parity with
           the Notes pilot (see NoteDetailPopup note-autosave-status). Only shown
-          while the pilot flag is on and the Loro handle is open. */}
-      {LORO_PILOT_ENABLED && !!loroHandle && (
+          while the pilot flag is on and the Loro handle is open. Fullscreen-chrome
+          slim: hidden at fullscreen — the popup header's `task-ambient-save`
+          already shows the live save state, so a second "Saved" in the pill is
+          a duplicate. Docked keeps it. */}
+      {!expanded && LORO_PILOT_ENABLED && !!loroHandle && (
         <span
           data-testid="task-notes-autosave-status"
           aria-live="polite"
@@ -4722,29 +4756,34 @@ function LabNotesTab({ task, readOnly = false, ownerUsername, onRegisterFlushSav
           in-place diff for the Lab Notes document. */}
       <TaskDocHistoryButton controller={docHistory} />
       {/* save-checkpoint bot: "Save checkpoint" makes it obvious every save is a
-          permanent, revertible version. Tooltip spells that out. */}
-      <Tooltip label="Saves a permanent version you can revert to anytime." placement="bottom">
-        <button
-          data-tour-target="task-popup-notes-save"
-          onClick={() => {
-            // Flush the editor's in-flight block buffer first so the
-            // last in-progress edit lands on disk, then persist.
-            const latest = editorSaveRef.current?.() ?? content;
-            void handleSave(latest);
-          }}
-          disabled={saving || (!hasUnsavedChanges && !editorDirty)}
-          className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-meta font-medium rounded-lg transition-colors ${
-            (hasUnsavedChanges || editorDirty) && !saving
-              ? "text-white bg-brand-action hover:bg-brand-action/90"
-              : "text-foreground-muted bg-surface-sunken cursor-not-allowed"
-          }`}
-        >
-          {(hasUnsavedChanges || editorDirty) && !saving && (
-            <span aria-hidden className="w-1.5 h-1.5 rounded-full bg-amber-300" />
-          )}
-          {saving ? "Saving..." : "Save checkpoint"}
-        </button>
-      </Tooltip>
+          permanent, revertible version. Tooltip spells that out. Fullscreen-chrome
+          slim: at fullscreen this relocates to the popup header's `...` overflow
+          (task-header-save-checkpoint) to keep the Writing-Room pill minimal;
+          docked keeps the inline button here. */}
+      {!expanded && (
+        <Tooltip label="Saves a permanent version you can revert to anytime." placement="bottom">
+          <button
+            data-tour-target="task-popup-notes-save"
+            onClick={() => {
+              // Flush the editor's in-flight block buffer first so the
+              // last in-progress edit lands on disk, then persist.
+              const latest = editorSaveRef.current?.() ?? content;
+              void handleSave(latest);
+            }}
+            disabled={saving || (!hasUnsavedChanges && !editorDirty)}
+            className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-meta font-medium rounded-lg transition-colors ${
+              (hasUnsavedChanges || editorDirty) && !saving
+                ? "text-white bg-brand-action hover:bg-brand-action/90"
+                : "text-foreground-muted bg-surface-sunken cursor-not-allowed"
+            }`}
+          >
+            {(hasUnsavedChanges || editorDirty) && !saving && (
+              <span aria-hidden className="w-1.5 h-1.5 rounded-full bg-amber-300" />
+            )}
+            {saving ? "Saving..." : "Save checkpoint"}
+          </button>
+        </Tooltip>
+      )}
     </>
   ) : undefined;
 
@@ -5587,8 +5626,10 @@ function ResultsTab({ task, readOnly = false, ownerUsername, onRegisterFlushSave
     <>
       {/* experiment-collab follow-up: auto-save Saving/Saved pill, parity with
           the Notes pilot (see LabNotesTab / NoteDetailPopup). Only shown while
-          the pilot flag is on and the Results Loro handle is open. */}
-      {LORO_PILOT_ENABLED && !!loroHandle && (
+          the pilot flag is on and the Results Loro handle is open. Fullscreen-
+          chrome slim: hidden at fullscreen (the header `task-ambient-save`
+          already shows it — no duplicate). Docked keeps it. */}
+      {!expanded && LORO_PILOT_ENABLED && !!loroHandle && (
         <span
           data-testid="task-results-autosave-status"
           aria-live="polite"
@@ -5605,29 +5646,33 @@ function ResultsTab({ task, readOnly = false, ownerUsername, onRegisterFlushSave
       {/* save-checkpoint bot: version-history entry button for the Results
           document (see LabNotesTab). */}
       <TaskDocHistoryButton controller={docHistory} />
-      {/* save-checkpoint bot: "Save checkpoint" + tooltip (see LabNotesTab). */}
-      <Tooltip label="Saves a permanent version you can revert to anytime." placement="bottom">
-        <button
-          data-tour-target="task-popup-results-save"
-          onClick={() => {
-            // Flush the editor's in-flight block buffer first so the
-            // last in-progress edit lands on disk, then persist.
-            const latest = editorSaveRef.current?.() ?? content;
-            void handleSave(latest);
-          }}
-          disabled={saving || (!hasUnsavedChanges && !editorDirty)}
-          className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-meta font-medium rounded-lg transition-colors ${
-            (hasUnsavedChanges || editorDirty) && !saving
-              ? "text-white bg-brand-action hover:bg-brand-action/90"
-              : "text-foreground-muted bg-surface-sunken cursor-not-allowed"
-          }`}
-        >
-          {(hasUnsavedChanges || editorDirty) && !saving && (
-            <span aria-hidden className="w-1.5 h-1.5 rounded-full bg-amber-300" />
-          )}
-          {saving ? "Saving..." : "Save checkpoint"}
-        </button>
-      </Tooltip>
+      {/* save-checkpoint bot: "Save checkpoint" + tooltip (see LabNotesTab).
+          Fullscreen-chrome slim: at fullscreen relocates to the header `...`
+          overflow (task-header-save-checkpoint); docked keeps it inline. */}
+      {!expanded && (
+        <Tooltip label="Saves a permanent version you can revert to anytime." placement="bottom">
+          <button
+            data-tour-target="task-popup-results-save"
+            onClick={() => {
+              // Flush the editor's in-flight block buffer first so the
+              // last in-progress edit lands on disk, then persist.
+              const latest = editorSaveRef.current?.() ?? content;
+              void handleSave(latest);
+            }}
+            disabled={saving || (!hasUnsavedChanges && !editorDirty)}
+            className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-meta font-medium rounded-lg transition-colors ${
+              (hasUnsavedChanges || editorDirty) && !saving
+                ? "text-white bg-brand-action hover:bg-brand-action/90"
+                : "text-foreground-muted bg-surface-sunken cursor-not-allowed"
+            }`}
+          >
+            {(hasUnsavedChanges || editorDirty) && !saving && (
+              <span aria-hidden className="w-1.5 h-1.5 rounded-full bg-amber-300" />
+            )}
+            {saving ? "Saving..." : "Save checkpoint"}
+          </button>
+        </Tooltip>
+      )}
     </>
   ) : undefined;
 
