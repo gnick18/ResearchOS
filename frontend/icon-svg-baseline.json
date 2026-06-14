@@ -240,6 +240,7 @@
   "lib/methods/method-type-icons.tsx": 10,
   "lib/phylo/render.ts": 1,
   "lib/sequences/export.ts": 4,
+  "lib/sequences/map-render.ts": 1,
   "lib/sharing/relay/__tests__/mailer.test.ts": 1,
   "lib/utils/icons.tsx": 8
 }
