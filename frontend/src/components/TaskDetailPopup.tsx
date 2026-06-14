@@ -252,6 +252,24 @@ export default function TaskDetailPopup({
     },
     [],
   );
+  // Docked-toolbar slimming (2026-06-14): the per-tab markdown doc-history
+  // (notes.md / results.md) toggle used to live as an inline button in the
+  // editor's trailing slot at every size. The docked bar is now slim
+  // (Edit|Preview · ＋ · / to insert), so the active editor tab LIFTS its
+  // doc-history toggle up here (same pattern as registerActiveTabFlushSave)
+  // and the popup "…" overflow renders a "Document history" row docked. At
+  // fullscreen the editor pill keeps its own inline doc-history button, so the
+  // control is reachable in BOTH states and never goes missing.
+  const [activeTabDocHistory, setActiveTabDocHistory] = useState<{
+    toggle: () => void;
+    isOpen: boolean;
+  } | null>(null);
+  const registerActiveTabDocHistory = useCallback(
+    (state: { toggle: () => void; isOpen: boolean } | null) => {
+      setActiveTabDocHistory(state);
+    },
+    [],
+  );
   // Unified editor surface (UNIFIED_EDITOR_SURFACE_DESIGN.md §3B / §9, U1).
   // The popup MODAL GROWS in place — same DOM, a CSS size transition on the
   // card below (transition-all duration-300). The tab bar stays pinned and
@@ -1124,7 +1142,7 @@ export default function TaskDetailPopup({
   // handler + data-testid / data-tour-target.
   const overflowSlot = (
     <HeaderOverflowMenu label="More actions" testId="task-header-overflow">
-      {isExpanded && !readOnly && ambientSaveState != null && (
+      {!readOnly && ambientSaveState != null && (
         <button
           type="button"
           role="menuitem"
@@ -1137,6 +1155,25 @@ export default function TaskDetailPopup({
         >
           <Icon name="check" className="w-4 h-4 text-foreground-muted" />
           <span>{ambientSaveState === "saving" ? "Saving..." : "Save checkpoint"}</span>
+        </button>
+      )}
+      {/* Document history (Lab Notes / Results markdown). Lifted out of the
+          editor's docked trailing slot (slimming, 2026-06-14): the active
+          editor tab registers its doc-history toggle, and this row is the
+          docked home for it. The fullscreen editor pill still renders the same
+          control inline (task-doc-history-button). Carries the moved testid so
+          tests/tours that target the docked doc-history affordance resolve. */}
+      {activeTabDocHistory && (
+        <button
+          type="button"
+          role="menuitem"
+          data-testid="task-doc-history-overflow"
+          aria-pressed={activeTabDocHistory.isOpen}
+          onClick={() => activeTabDocHistory.toggle()}
+          className="flex w-full items-center gap-2.5 px-3 py-1.5 text-left text-body text-foreground hover:bg-surface-sunken transition-colors"
+        >
+          <Icon name="history" className="w-4 h-4 text-foreground-muted" />
+          <span>{activeTabDocHistory.isOpen ? "Hide document history" : "Document history"}</span>
         </button>
       )}
       {isExperiment && (
@@ -1446,7 +1483,7 @@ export default function TaskDetailPopup({
                     editable too. LabNotes/Results route to the member via their
                     Loro doc owner (task.owner) + the legacyOwner fallback, and
                     MethodTabs routes + audits via piActor. */}
-                {activeTab === "notes" && <LabNotesTab task={task} readOnly={readOnly || (task.is_shared_with_me === true && task.shared_permission === "view")} ownerUsername={username} onRegisterFlushSave={registerActiveTabFlushSave} onRegisterAppendLine={registerActiveTabAppendLine} onRegisterDirtyState={registerActiveTabDirtyState} expanded={isExpanded} onRequestExpand={toggleExpanded} />}
+                {activeTab === "notes" && <LabNotesTab task={task} readOnly={readOnly || (task.is_shared_with_me === true && task.shared_permission === "view")} ownerUsername={username} onRegisterFlushSave={registerActiveTabFlushSave} onRegisterAppendLine={registerActiveTabAppendLine} onRegisterDirtyState={registerActiveTabDirtyState} onRegisterDocHistory={registerActiveTabDocHistory} expanded={isExpanded} onRequestExpand={toggleExpanded} />}
                 {activeTab === "method" && (
                   <MethodTabs
                     task={task}
@@ -1455,7 +1492,7 @@ export default function TaskDetailPopup({
                     piActor={piActive && currentUser ? currentUser : undefined}
                   />
                 )}
-                {activeTab === "results" && <ResultsTab task={task} readOnly={readOnly || (task.is_shared_with_me === true && task.shared_permission === "view")} ownerUsername={username} onRegisterFlushSave={registerActiveTabFlushSave} onRegisterAppendLine={registerActiveTabAppendLine} onRegisterDirtyState={registerActiveTabDirtyState} expanded={isExpanded} onRequestExpand={toggleExpanded} />}
+                {activeTab === "results" && <ResultsTab task={task} readOnly={readOnly || (task.is_shared_with_me === true && task.shared_permission === "view")} ownerUsername={username} onRegisterFlushSave={registerActiveTabFlushSave} onRegisterAppendLine={registerActiveTabAppendLine} onRegisterDirtyState={registerActiveTabDirtyState} onRegisterDocHistory={registerActiveTabDocHistory} expanded={isExpanded} onRequestExpand={toggleExpanded} />}
                 {activeTab === "purchases" && (
                   <PurchaseEditor
                     taskId={task.id}
@@ -3572,7 +3609,7 @@ function DetailsTab({
 
 // ── Lab Notes Tab (with LiveMarkdownEditor) ──────────────────────────────────
 
-function LabNotesTab({ task, readOnly = false, ownerUsername, onRegisterFlushSave, onRegisterAppendLine, onRegisterDirtyState, expanded = false, onRequestExpand }: { task: Task; readOnly?: boolean; ownerUsername?: string; onRegisterFlushSave?: (fn: (() => Promise<void>) | null) => void; onRegisterAppendLine?: (fn: ((line: string) => void) | null) => void; onRegisterDirtyState?: (state: { dirty: boolean; saving: boolean } | null) => void; expanded?: boolean; onRequestExpand?: () => void }) {
+function LabNotesTab({ task, readOnly = false, ownerUsername, onRegisterFlushSave, onRegisterAppendLine, onRegisterDirtyState, onRegisterDocHistory, expanded = false, onRequestExpand }: { task: Task; readOnly?: boolean; ownerUsername?: string; onRegisterFlushSave?: (fn: (() => Promise<void>) | null) => void; onRegisterAppendLine?: (fn: ((line: string) => void) | null) => void; onRegisterDirtyState?: (state: { dirty: boolean; saving: boolean } | null) => void; onRegisterDocHistory?: (state: { toggle: () => void; isOpen: boolean } | null) => void; expanded?: boolean; onRequestExpand?: () => void }) {
   const [content, setContent] = useState("");
   const [originalContent, setOriginalContent] = useState("");
   const [saving, setSaving] = useState(false);
@@ -4303,67 +4340,34 @@ function LabNotesTab({ task, readOnly = false, ownerUsername, onRegisterFlushSav
     },
   });
 
-  // Right-side controls for the editor's unified toolbar: the version-history
-  // button plus the Save button. The "Unsaved changes" cue is folded into the
-  // Save button's amber-dot + enabled state (no separate text bar). Hidden in
-  // readOnly mode (lab view) where there is nothing to save. The old
-  // "Markdown | Files" sub-tab switcher is retired: files now live in the
-  // single bottom attachments strip (file-unify bot).
-  const editorToolbarTrailing = !readOnly ? (
+  // Docked slimming (2026-06-14): lift this tab's doc-history toggle up so the
+  // popup "…" overflow can host it when docked (the inline pill button below is
+  // now fullscreen-only). Re-register on isOpen change so the overflow label
+  // ("Document history" / "Hide document history") tracks the live state.
+  useEffect(() => {
+    if (readOnly || !onRegisterDocHistory) return;
+    onRegisterDocHistory({ toggle: docHistory.toggle, isOpen: docHistory.isOpen });
+    return () => onRegisterDocHistory(null);
+  }, [readOnly, onRegisterDocHistory, docHistory.toggle, docHistory.isOpen]);
+
+  // Right-side controls for the editor's unified toolbar. Docked slimming
+  // (2026-06-14): the docked bar is now just Edit|Preview · ＋ · / to insert, so
+  // the trailing slot renders nothing when docked — the "Saved" pill is dropped
+  // (the popup footer's task-ambient-save shows save state), and Save checkpoint
+  // + Document history move to the popup "…" overflow. At fullscreen the editor
+  // pill keeps the inline doc-history + Save checkpoint controls. Hidden in
+  // readOnly mode (lab view) where there is nothing to save.
+  const editorToolbarTrailing = !readOnly && expanded ? (
     <>
-      {/* experiment-collab follow-up: auto-save Saving/Saved pill, parity with
-          the Notes pilot (see NoteDetailPopup note-autosave-status). Only shown
-          while the pilot flag is on and the Loro handle is open. Fullscreen-chrome
-          slim: hidden at fullscreen — the popup header's `task-ambient-save`
-          already shows the live save state, so a second "Saved" in the pill is
-          a duplicate. Docked keeps it. */}
-      {!expanded && LORO_PILOT_ENABLED && !!loroHandle && (
-        <span
-          data-testid="task-notes-autosave-status"
-          aria-live="polite"
-          aria-atomic="true"
-          className={`inline-flex items-center rounded-full px-2 py-0.5 text-meta font-medium ring-1 transition-colors ${
-            loroCommitPending
-              ? "bg-amber-50 text-amber-700 ring-amber-200 dark:bg-amber-500/15 dark:text-amber-200 dark:ring-amber-500/30"
-              : "bg-emerald-50 text-emerald-700 ring-emerald-200 dark:bg-emerald-500/15 dark:text-emerald-200 dark:ring-emerald-500/30"
-          }`}
-        >
-          {loroCommitPending ? "Saving..." : "Saved"}
-        </span>
-      )}
       {/* save-checkpoint bot: version-history entry button (icon-only clock +
           counter-arrow, Tooltip per house rule). Opens the docked sidebar +
-          in-place diff for the Lab Notes document. */}
+          in-place diff for the Lab Notes document. Fullscreen-only now; docked
+          reaches it via the popup "…" overflow (task-doc-history-overflow). */}
       <TaskDocHistoryButton controller={docHistory} />
-      {/* save-checkpoint bot: "Save checkpoint" makes it obvious every save is a
-          permanent, revertible version. Tooltip spells that out. Fullscreen-chrome
-          slim: at fullscreen this relocates to the popup header's `...` overflow
-          (task-header-save-checkpoint) to keep the Writing-Room pill minimal;
-          docked keeps the inline button here. */}
-      {!expanded && (
-        <Tooltip label="Saves a permanent version you can revert to anytime." placement="bottom">
-          <button
-            data-tour-target="task-popup-notes-save"
-            onClick={() => {
-              // Flush the editor's in-flight block buffer first so the
-              // last in-progress edit lands on disk, then persist.
-              const latest = editorSaveRef.current?.() ?? content;
-              void handleSave(latest);
-            }}
-            disabled={saving || (!hasUnsavedChanges && !editorDirty)}
-            className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-meta font-medium rounded-lg transition-colors ${
-              (hasUnsavedChanges || editorDirty) && !saving
-                ? "text-white bg-brand-action hover:bg-brand-action/90"
-                : "text-foreground-muted bg-surface-sunken cursor-not-allowed"
-            }`}
-          >
-            {(hasUnsavedChanges || editorDirty) && !saving && (
-              <span aria-hidden className="w-1.5 h-1.5 rounded-full bg-amber-300" />
-            )}
-            {saving ? "Saving..." : "Save checkpoint"}
-          </button>
-        </Tooltip>
-      )}
+      {/* Save checkpoint now lives ONLY in the popup "…" overflow
+          (task-header-save-checkpoint) at every size — it is driven by the
+          shell's lifted ambientSaveState, so the inline pill button was
+          redundant. The docked footer (task-ambient-save) shows save state. */}
     </>
   ) : undefined;
 
@@ -4583,7 +4587,7 @@ function LabNotesTab({ task, readOnly = false, ownerUsername, onRegisterFlushSav
 
 // ── Results Tab ──────────────────────────────────────────────────────────────
 
-function ResultsTab({ task, readOnly = false, ownerUsername, onRegisterFlushSave, onRegisterAppendLine, onRegisterDirtyState, expanded = false, onRequestExpand }: { task: Task; readOnly?: boolean; ownerUsername?: string; onRegisterFlushSave?: (fn: (() => Promise<void>) | null) => void; onRegisterAppendLine?: (fn: ((line: string) => void) | null) => void; onRegisterDirtyState?: (state: { dirty: boolean; saving: boolean } | null) => void; expanded?: boolean; onRequestExpand?: () => void }) {
+function ResultsTab({ task, readOnly = false, ownerUsername, onRegisterFlushSave, onRegisterAppendLine, onRegisterDirtyState, onRegisterDocHistory, expanded = false, onRequestExpand }: { task: Task; readOnly?: boolean; ownerUsername?: string; onRegisterFlushSave?: (fn: (() => Promise<void>) | null) => void; onRegisterAppendLine?: (fn: ((line: string) => void) | null) => void; onRegisterDirtyState?: (state: { dirty: boolean; saving: boolean } | null) => void; onRegisterDocHistory?: (state: { toggle: () => void; isOpen: boolean } | null) => void; expanded?: boolean; onRequestExpand?: () => void }) {
   const [content, setContent] = useState("");
   const [originalContent, setOriginalContent] = useState("");
   const [saving, setSaving] = useState(false);
@@ -5198,61 +5202,27 @@ function ResultsTab({ task, readOnly = false, ownerUsername, onRegisterFlushSave
     },
   });
 
-  // Right-side controls for the editor's unified toolbar: the version-history
-  // button plus the Save button. The old "Markdown | Files" sub-tab switcher is
-  // retired: files now live in the single bottom attachments strip
-  // (file-unify bot).
-  const editorToolbarTrailing = !readOnly ? (
+  // Docked slimming (2026-06-14): lift this tab's doc-history toggle up so the
+  // popup "…" overflow hosts it when docked (the inline pill button below is
+  // fullscreen-only). See LabNotesTab for the parallel wiring.
+  useEffect(() => {
+    if (readOnly || !onRegisterDocHistory) return;
+    onRegisterDocHistory({ toggle: docHistory.toggle, isOpen: docHistory.isOpen });
+    return () => onRegisterDocHistory(null);
+  }, [readOnly, onRegisterDocHistory, docHistory.toggle, docHistory.isOpen]);
+
+  // Right-side controls for the editor's unified toolbar. Docked slimming
+  // (2026-06-14): trailing renders nothing when docked (slim bar = Edit|Preview
+  // · ＋ · / to insert). The "Saved" pill is dropped (footer task-ambient-save
+  // shows it); Save checkpoint + Document history live in the popup "…" overflow
+  // at every size. At fullscreen the editor pill keeps the inline doc-history
+  // button. See LabNotesTab for the parallel wiring.
+  const editorToolbarTrailing = !readOnly && expanded ? (
     <>
-      {/* experiment-collab follow-up: auto-save Saving/Saved pill, parity with
-          the Notes pilot (see LabNotesTab / NoteDetailPopup). Only shown while
-          the pilot flag is on and the Results Loro handle is open. Fullscreen-
-          chrome slim: hidden at fullscreen (the header `task-ambient-save`
-          already shows it — no duplicate). Docked keeps it. */}
-      {!expanded && LORO_PILOT_ENABLED && !!loroHandle && (
-        <span
-          data-testid="task-results-autosave-status"
-          aria-live="polite"
-          aria-atomic="true"
-          className={`inline-flex items-center rounded-full px-2 py-0.5 text-meta font-medium ring-1 transition-colors ${
-            loroCommitPending
-              ? "bg-amber-50 text-amber-700 ring-amber-200 dark:bg-amber-500/15 dark:text-amber-200 dark:ring-amber-500/30"
-              : "bg-emerald-50 text-emerald-700 ring-emerald-200 dark:bg-emerald-500/15 dark:text-emerald-200 dark:ring-emerald-500/30"
-          }`}
-        >
-          {loroCommitPending ? "Saving..." : "Saved"}
-        </span>
-      )}
       {/* save-checkpoint bot: version-history entry button for the Results
-          document (see LabNotesTab). */}
+          document. Fullscreen-only now; docked reaches it via the popup "…"
+          overflow (task-doc-history-overflow). */}
       <TaskDocHistoryButton controller={docHistory} />
-      {/* save-checkpoint bot: "Save checkpoint" + tooltip (see LabNotesTab).
-          Fullscreen-chrome slim: at fullscreen relocates to the header `...`
-          overflow (task-header-save-checkpoint); docked keeps it inline. */}
-      {!expanded && (
-        <Tooltip label="Saves a permanent version you can revert to anytime." placement="bottom">
-          <button
-            data-tour-target="task-popup-results-save"
-            onClick={() => {
-              // Flush the editor's in-flight block buffer first so the
-              // last in-progress edit lands on disk, then persist.
-              const latest = editorSaveRef.current?.() ?? content;
-              void handleSave(latest);
-            }}
-            disabled={saving || (!hasUnsavedChanges && !editorDirty)}
-            className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-meta font-medium rounded-lg transition-colors ${
-              (hasUnsavedChanges || editorDirty) && !saving
-                ? "text-white bg-brand-action hover:bg-brand-action/90"
-                : "text-foreground-muted bg-surface-sunken cursor-not-allowed"
-            }`}
-          >
-            {(hasUnsavedChanges || editorDirty) && !saving && (
-              <span aria-hidden className="w-1.5 h-1.5 rounded-full bg-amber-300" />
-            )}
-            {saving ? "Saving..." : "Save checkpoint"}
-          </button>
-        </Tooltip>
-      )}
     </>
   ) : undefined;
 
