@@ -18,7 +18,7 @@
 //
 // Presentation only, the method is never edited here. House style: no em-dashes,
 // no emojis, no mid-sentence colons.
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   LayoutChangeEvent,
   Pressable,
@@ -555,8 +555,29 @@ export function MethodReadMode({
   const [variationText, setVariationText] = useState('');
   const [mapWidth, setMapWidth] = useState(280);
   // The typed header (badge, title, params, graphic) is collapsible so a long
-  // protocol can hand the whole screen to the steps.
+  // protocol can hand the whole screen to the steps. It opens expanded, then
+  // auto-collapses once the reader moves past the first step, UNLESS the user
+  // has manually toggled it, in which case it obeys them from then on.
   const [headerOpen, setHeaderOpen] = useState(true);
+  const headerUserSet = useRef(false);
+  const toggleHeader = useCallback(() => {
+    headerUserSet.current = true;
+    setHeaderOpen((o) => !o);
+  }, []);
+
+  // Each method opens fresh: header expanded, focus at the first step, and the
+  // manual-override flag cleared so the auto-collapse can run again.
+  useEffect(() => {
+    setHeaderOpen(true);
+    headerUserSet.current = false;
+    setFocus(0);
+  }, [method.methodId, method.name]);
+
+  // Auto-collapse the header the first time the reader advances past step one,
+  // but never fight a user who has manually opened or closed it.
+  useEffect(() => {
+    if (focus >= 1 && !headerUserSet.current) setHeaderOpen(false);
+  }, [focus]);
 
   const scrollRef = useRef<ScrollView>(null);
   const offsets = useRef<number[]>([]);
@@ -648,7 +669,7 @@ export function MethodReadMode({
           {/* The graphic label row doubles as the collapse toggle, so the PCR /
               LC profile can fold away to give the steps the whole screen too. */}
           <Pressable
-            onPress={() => setHeaderOpen((o) => !o)}
+            onPress={toggleHeader}
             accessibilityRole="button"
             accessibilityLabel={headerOpen ? 'Hide graphic' : 'Show graphic'}
             style={rstyles.mapHeadRow}
@@ -669,7 +690,7 @@ export function MethodReadMode({
           method={method}
           accent={accentFor(method.resolvedType)}
           collapsed={!headerOpen}
-          onToggle={() => setHeaderOpen((o) => !o)}
+          onToggle={toggleHeader}
         />
       ) : null}
 
