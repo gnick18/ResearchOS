@@ -1100,6 +1100,29 @@ export default function BeakerBotConversation({
     setFigurePickerOpen(false);
   }, [clearAttachedPaper]);
 
+  // Unified composer drop: a dropped PDF is attached as a paper (works even with
+  // vision off, since Outputs 1-3 are text-only); dropped images stage as vision
+  // input when vision is on. A mixed drop takes the first PDF, then images.
+  const handleComposerDrop = useCallback(
+    (e: React.DragEvent) => {
+      e.preventDefault();
+      setIsDragOver(false);
+      const files = Array.from(e.dataTransfer.files);
+      if (files.length === 0) return;
+      const pdf = files.find(
+        (f) => f.type.includes("pdf") || f.name.toLowerCase().endsWith(".pdf"),
+      );
+      if (pdf) {
+        void handlePdfFile(pdf);
+        return;
+      }
+      if (BEAKERBOT_VISION_ENABLED) {
+        void processImageFiles(e.dataTransfer.files);
+      }
+    },
+    [handlePdfFile, processImageFiles],
+  );
+
   // Keep the newest message in view as the answer reveals.
   useEffect(() => {
     const el = listRef.current;
@@ -1704,28 +1727,12 @@ export default function BeakerBotConversation({
       {/* Composer */}
       <div
         className={sending ? "border-t-0 border-border p-3" : "border-t border-border p-3"}
-        onDragOver={
-          BEAKERBOT_VISION_ENABLED
-            ? (e) => {
-                e.preventDefault();
-                setIsDragOver(true);
-              }
-            : undefined
-        }
-        onDragLeave={
-          BEAKERBOT_VISION_ENABLED ? () => setIsDragOver(false) : undefined
-        }
-        onDrop={
-          BEAKERBOT_VISION_ENABLED
-            ? (e) => {
-                e.preventDefault();
-                setIsDragOver(false);
-                if (e.dataTransfer.files.length > 0) {
-                  void processImageFiles(e.dataTransfer.files);
-                }
-              }
-            : undefined
-        }
+        onDragOver={(e) => {
+          e.preventDefault();
+          setIsDragOver(true);
+        }}
+        onDragLeave={() => setIsDragOver(false)}
+        onDrop={handleComposerDrop}
       >
         {/* PDF chip. Shows when a paper is being extracted (extracting state)
             or has been extracted and is staged (ready state). The chip resets
