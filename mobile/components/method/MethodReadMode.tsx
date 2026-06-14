@@ -46,12 +46,41 @@ import {
   type TempTone,
 } from '@/lib/method-read';
 
-// Temp tone colors, matched to the read-mode mockup.
+// Continuous thermal gradient: cold (blue) -> hot (red). One ramp drives every
+// bar fill, every bar's temp label, and the big step temperature, so a color
+// always reads as the temperature itself, not the step's role.
+const TEMP_RAMP: Array<{ t: number; rgb: [number, number, number] }> = [
+  { t: 4, rgb: [37, 99, 235] }, // blue - cold / hold
+  { t: 30, rgb: [6, 182, 212] }, // cyan
+  { t: 50, rgb: [34, 197, 94] }, // green
+  { t: 68, rgb: [234, 179, 8] }, // yellow
+  { t: 82, rgb: [249, 115, 22] }, // orange
+  { t: 95, rgb: [239, 68, 68] }, // red - hot / denature
+];
+
+function tempColor(tempC: number): string {
+  const r = TEMP_RAMP;
+  const x = Math.max(r[0].t, Math.min(r[r.length - 1].t, tempC));
+  for (let i = 1; i < r.length; i++) {
+    const a = r[i - 1];
+    const b = r[i];
+    if (x <= b.t) {
+      const f = (x - a.t) / (b.t - a.t);
+      const ch = (k: 0 | 1 | 2) => Math.round(a.rgb[k] + f * (b.rgb[k] - a.rgb[k]));
+      return `rgb(${ch(0)}, ${ch(1)}, ${ch(2)})`;
+    }
+  }
+  const last = r[r.length - 1].rgb;
+  return `rgb(${last[0]}, ${last[1]}, ${last[2]})`;
+}
+
+// Tone colors sampled from the same ramp at each phase's representative temp, so
+// the big step temperature matches its bar color in the profile.
 const TONE_COLOR: Record<TempTone, string> = {
-  hot: '#ef5350',
-  anneal: '#3b82f6',
-  extend: '#16a34a',
-  hold: '#64748b',
+  hot: tempColor(95),
+  anneal: tempColor(55),
+  extend: tempColor(72),
+  hold: tempColor(4),
   none: palette.sky,
 };
 
@@ -68,7 +97,6 @@ function PcrProfile({
   const { surface } = useTheme();
   // Temp -> bar height (4..95 C maps to 18..82 px).
   const h = (t: number) => 18 + ((Math.max(4, Math.min(95, t)) - 4) / (95 - 4)) * 64;
-  const barColor = (t: number) => TONE_COLOR[toneFromTemp(t)];
   return (
     <View style={pstyles.row}>
       {blocks.map((b, i) => {
@@ -80,24 +108,28 @@ function PcrProfile({
               onPress={() => onSelectSeg(b.id)}
               style={[
                 pstyles.cycwrap,
-                { borderColor: TONE_COLOR.anneal, opacity: on ? 1 : 0.45 },
+                { borderColor: surface.borderStrong, opacity: on ? 1 : 0.45 },
               ]}
             >
               <View style={pstyles.cycbars}>
                 {(b.cycleBars ?? []).map((cb, j) => (
-                  <View
-                    key={j}
-                    style={{
-                      width: 14,
-                      height: h(cb.tempC),
-                      borderTopLeftRadius: 4,
-                      borderTopRightRadius: 4,
-                      backgroundColor: barColor(cb.tempC),
-                    }}
-                  />
+                  <View key={j} style={pstyles.cycCell}>
+                    <ThemedText style={[pstyles.cycTemp, { color: tempColor(cb.tempC) }]}>
+                      {cb.tempC}
+                    </ThemedText>
+                    <View
+                      style={{
+                        width: 14,
+                        height: h(cb.tempC),
+                        borderTopLeftRadius: 4,
+                        borderTopRightRadius: 4,
+                        backgroundColor: tempColor(cb.tempC),
+                      }}
+                    />
+                  </View>
                 ))}
               </View>
-              <ThemedText style={[pstyles.cyclbl, { color: TONE_COLOR.anneal }]}>
+              <ThemedText style={[pstyles.cyclbl, { color: surface.muted }]}>
                 {b.cycleLabel ?? ''}
               </ThemedText>
             </Pressable>
@@ -109,29 +141,26 @@ function PcrProfile({
             onPress={() => onSelectSeg(b.id)}
             style={[pstyles.block, { opacity: on ? 1 : 0.45 }]}
           >
+            {b.label ? (
+              <ThemedText style={[pstyles.barTemp, { color: tempColor(b.tempC) }]}>
+                {b.label}°
+              </ThemedText>
+            ) : null}
             <View
               style={{
                 width: 28,
                 height: h(b.tempC),
                 borderTopLeftRadius: 5,
                 borderTopRightRadius: 5,
-                backgroundColor: barColor(b.tempC),
+                backgroundColor: tempColor(b.tempC),
               }}
             />
-            <ThemedText style={[pstyles.blockT, { color: surface.text }]}>{b.label}</ThemedText>
             <ThemedText style={[pstyles.blockSub, { color: surface.muted }]}>{b.sub}</ThemedText>
           </Pressable>
         );
       })}
     </View>
   );
-}
-
-function toneFromTemp(t: number): TempTone {
-  if (t >= 90) return 'hot';
-  if (t <= 16) return 'hold';
-  if (t >= 68) return 'extend';
-  return 'anneal';
 }
 
 // ---- LC gradient map ------------------------------------------------------
@@ -922,9 +951,9 @@ function mapLabel(map: GraphicMap): string {
 }
 
 const pstyles = StyleSheet.create({
-  row: { flexDirection: 'row', alignItems: 'flex-end', gap: 4, minHeight: 96 },
+  row: { flexDirection: 'row', alignItems: 'flex-end', gap: 4, minHeight: 104 },
   block: { alignItems: 'center', gap: 3 },
-  blockT: { fontSize: 11, fontWeight: '800' },
+  barTemp: { fontSize: 10.5, fontWeight: '800' },
   blockSub: { fontSize: 9 },
   cycwrap: {
     borderWidth: 1.5,
@@ -936,7 +965,9 @@ const pstyles = StyleSheet.create({
     alignItems: 'center',
     gap: 2,
   },
-  cycbars: { flexDirection: 'row', alignItems: 'flex-end', gap: 2 },
+  cycbars: { flexDirection: 'row', alignItems: 'flex-end', gap: 3 },
+  cycCell: { alignItems: 'center', gap: 2 },
+  cycTemp: { fontSize: 8, fontWeight: '800' },
   cyclbl: { fontSize: 9, fontWeight: '800' },
 });
 
