@@ -124,7 +124,7 @@ const LIST_WIDTH_KEY = "researchos:phylo:listWidth";
 
 // The right action-rail operations, in order. Each becomes a tab + flyout via
 // SequenceOperationsRail (recycled). The panels are built in the component.
-type PhyloOpId = "layers" | "setup" | "export" | "code";
+type PhyloOpId = "shape" | "layers" | "data" | "export" | "code";
 
 type ImportMode = "upload" | "paste" | "saved" | null;
 
@@ -587,16 +587,6 @@ export function PhyloStudio({ initialTreeId }: { initialTreeId?: string } = {}) 
     setSelectedLayerId(panel.id);
   }
 
-  // Change a datahubPlot panel's bar mode (dodge / stack / stack100); the
-  // resolution effect re-applies it to the panel's plot spec.
-  function setPanelBarMode(id: string, barMode: BarMode) {
-    setPanels((prev) =>
-      prev.map((p) =>
-        p.id === id ? { ...p, options: { ...p.options, barMode } } : p,
-      ),
-    );
-  }
-
   // ---- tree import ----
 
   function loadTreeText(text: string, name: string) {
@@ -939,38 +929,105 @@ export function PhyloStudio({ initialTreeId }: { initialTreeId?: string } = {}) 
   // left), Export, and the ggtree Code. Built only when a tree is open.
   const railOperations: RailOperation[] = [
     {
-      id: "layers",
-      label: "Layers",
-      title: "Layers",
-      sub: "Draw order, inner to outer",
-      icon: <Icon name="layer" className="h-5 w-5" />,
-      panel: (
-        <PhyloLayersControl
-          panels={panels}
-          selectedId={selectedLayerId}
-          columns={metaColumns.filter((c) => c !== tipColumn)}
-          columnKinds={columnKinds}
-          capabilities={layerCapabilities}
-          datahubTables={dhTables}
-          onAddDatahub={addDatahubFromTable}
-          tipNames={tips.map((t) => t.name)}
-          annotationKeys={tree ? collectAnnotationKeys(tree) : []}
-          treeSummary={`${phylogram ? "phylogram" : "cladogram"}, ${layout}`}
-          appliedTemplate={appliedTemplate}
-          onChange={editPanels}
-          onSelect={setSelectedLayerId}
-          onApplyTemplate={onApplyTemplate}
-        />
-      ),
-    },
-    {
-      id: "setup",
-      label: "Setup",
-      title: "Tree setup",
-      sub: "Tree, metadata, and alignment",
-      icon: <Icon name="database" className="h-5 w-5" />,
+      id: "shape",
+      label: "Shape",
+      title: "Tree shape",
+      sub: "Layout, rooting, axes, page",
+      icon: <Icon name="tree" className="h-5 w-5" />,
       panel: (
         <div className="space-y-3.5">
+          <Panel title="Layout">
+            <div className="flex flex-wrap items-center gap-2">
+              <Seg
+                value={layout}
+                options={[
+                  ["rectangular", "Rectangular"],
+                  ["slanted", "Slanted"],
+                  ["circular", "Circular"],
+                  ["fan", "Fan"],
+                  ["inwardCircular", "Inward circular"],
+                  ["unrooted", "Unrooted"],
+                ]}
+                onChange={setLayout}
+              />
+              <Seg
+                value={phylogram ? "phylo" : "clado"}
+                options={[
+                  ["phylo", "Phylogram"],
+                  ["clado", "Cladogram"],
+                ]}
+                onChange={(v) => setPhylogram(v === "phylo")}
+              />
+            </div>
+            <div className="mt-2 flex flex-wrap gap-1.5">
+              {phylogram && (
+                <button
+                  type="button"
+                  onClick={() => setScaleBar((s) => !s)}
+                  title="Branch-length scale bar"
+                  className={`inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1 text-xs font-bold transition-colors ${
+                    scaleBar
+                      ? "border-accent bg-accent-soft text-accent"
+                      : "border-border text-foreground-muted hover:text-foreground"
+                  }`}
+                >
+                  Scale bar
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={() => setRootEdge((s) => !s)}
+                title="Draw a short root edge stub (geom_rootedge)"
+                className={`inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1 text-xs font-bold transition-colors ${
+                  rootEdge
+                    ? "border-accent bg-accent-soft text-accent"
+                    : "border-border text-foreground-muted hover:text-foreground"
+                }`}
+              >
+                Root edge
+              </button>
+              {phylogram && (
+                <button
+                  type="button"
+                  onClick={() => setTimeAxis((s) => !s)}
+                  title="Full-width time axis, tips at age 0 (theme_tree2)"
+                  className={`inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1 text-xs font-bold transition-colors ${
+                    timeAxis
+                      ? "border-accent bg-accent-soft text-accent"
+                      : "border-border text-foreground-muted hover:text-foreground"
+                  }`}
+                >
+                  Time axis
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={() => onArtboardChange({ enabled: !artboard.enabled })}
+                title="Show the figure on a publication page (artboard)."
+                className={`inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1 text-xs font-bold transition-colors ${
+                  artboard.enabled
+                    ? "border-accent bg-accent-soft text-accent"
+                    : "border-border text-foreground-muted hover:text-foreground"
+                }`}
+              >
+                Page frame
+              </button>
+            </div>
+            {artboard.enabled && (
+              <div className="mt-3 border-t border-border pt-3">
+                <FigureArtboardControls
+                  state={artboard}
+                  onChange={onArtboardChange}
+                  figWIn={figWIn}
+                  figHIn={figHIn}
+                  dpi={ARTBOARD_DPI}
+                  onFitToPage={onFitToPage}
+                  onFigWidthIn={setFigWIn}
+                />
+              </div>
+            )}
+          </Panel>
+
           <Panel title="Tree">
             <div className="text-sm text-foreground-muted mb-2 truncate">
               {treeName} ({tips.length} tips)
@@ -1017,7 +1074,42 @@ export function PhyloStudio({ initialTreeId }: { initialTreeId?: string } = {}) 
               </button>
             </div>
           </Panel>
-
+        </div>
+      ),
+    },
+    {
+      id: "layers",
+      label: "Layers",
+      title: "Layers",
+      sub: "Draw order, inner to outer",
+      icon: <Icon name="layer" className="h-5 w-5" />,
+      panel: (
+        <PhyloLayersControl
+          panels={panels}
+          selectedId={selectedLayerId}
+          columns={metaColumns.filter((c) => c !== tipColumn)}
+          columnKinds={columnKinds}
+          capabilities={layerCapabilities}
+          datahubTables={dhTables}
+          onAddDatahub={addDatahubFromTable}
+          tipNames={tips.map((t) => t.name)}
+          annotationKeys={tree ? collectAnnotationKeys(tree) : []}
+          treeSummary={`${phylogram ? "phylogram" : "cladogram"}, ${layout}`}
+          appliedTemplate={appliedTemplate}
+          onChange={editPanels}
+          onSelect={setSelectedLayerId}
+          onApplyTemplate={onApplyTemplate}
+        />
+      ),
+    },
+    {
+      id: "data",
+      label: "Data",
+      title: "Data sources",
+      sub: "Metadata, alignment, Data Hub",
+      icon: <Icon name="database" className="h-5 w-5" />,
+      panel: (
+        <div className="space-y-3.5">
           <Panel title="Metadata">
             <p className="text-xs text-foreground-muted mb-2">
               Drop a table, then bind its columns to layers in the inspector.
@@ -1199,47 +1291,10 @@ export function PhyloStudio({ initialTreeId }: { initialTreeId?: string } = {}) 
                 )}
               </div>
             )}
-            {panels.some((p) => p.kind === "datahubPlot") && (
-              <div className="mt-3 space-y-1">
-                {panels
-                  .filter((p) => p.kind === "datahubPlot")
-                  .map((p) => (
-                    <div
-                      key={p.id}
-                      className="space-y-1 rounded-md border border-border px-2 py-1.5"
-                    >
-                      <div className="flex items-center justify-between gap-2 text-xs">
-                        <span className="text-foreground-muted truncate">
-                          {String(p.options?.title ?? "Data Hub plot")}
-                        </span>
-                        <button
-                          onClick={() =>
-                            setPanels((prev) =>
-                              prev.filter((q) => q.id !== p.id),
-                            )
-                          }
-                          className="shrink-0 text-accent hover:underline font-semibold"
-                        >
-                          Remove
-                        </button>
-                      </div>
-                      <select
-                        value={String(p.options?.barMode ?? "dodge")}
-                        onChange={(e) =>
-                          setPanelBarMode(p.id, e.target.value as BarMode)
-                        }
-                        className="w-full rounded border border-border bg-surface px-1.5 py-0.5 text-xs text-foreground"
-                      >
-                        <option value="dodge">Grouped bars</option>
-                        <option value="stack">Stacked</option>
-                        <option value="stack100">
-                          100% stacked (relative)
-                        </option>
-                      </select>
-                    </div>
-                  ))}
-              </div>
-            )}
+            <p className="mt-2 text-xs text-foreground-muted">
+              Added plots appear in Layers; set each plot&apos;s bar mode in its
+              layer inspector there.
+            </p>
           </Panel>
         </div>
       ),
@@ -1303,17 +1358,11 @@ export function PhyloStudio({ initialTreeId }: { initialTreeId?: string } = {}) 
               {savedMsg}
             </div>
           )}
-          <div className="mt-3 border-t border-border pt-3">
-            <FigureArtboardControls
-              state={artboard}
-              onChange={onArtboardChange}
-              figWIn={figWIn}
-              figHIn={figHIn}
-              dpi={ARTBOARD_DPI}
-              onFitToPage={onFitToPage}
-              onFigWidthIn={setFigWIn}
-            />
-          </div>
+          {artboard.enabled && (
+            <p className="mt-3 border-t border-border pt-3 text-xs text-foreground-muted">
+              Page size, orientation, and figure width are under the Shape tab.
+            </p>
+          )}
         </div>
       ),
     },
@@ -1385,86 +1434,11 @@ export function PhyloStudio({ initialTreeId }: { initialTreeId?: string } = {}) 
         <div className="flex min-w-0 flex-1 flex-col">
           {tree ? (
             <>
-              <div className="flex flex-wrap items-center gap-2 border-b border-border px-3 py-2">
-                <Seg
-                  value={layout}
-                  options={[
-                    ["rectangular", "Rectangular"],
-                    ["slanted", "Slanted"],
-                    ["circular", "Circular"],
-                    ["fan", "Fan"],
-                    ["inwardCircular", "Inward circular"],
-                    ["unrooted", "Unrooted"],
-                  ]}
-                  onChange={setLayout}
-                />
-                <span className="grow" />
-                <Seg
-                  value={phylogram ? "phylo" : "clado"}
-                  options={[
-                    ["phylo", "Phylogram"],
-                    ["clado", "Cladogram"],
-                  ]}
-                  onChange={(v) => setPhylogram(v === "phylo")}
-                />
-                {phylogram && (
-                  <button
-                    type="button"
-                    onClick={() => setScaleBar((s) => !s)}
-                    title="Branch-length scale bar"
-                    className={`inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1 text-xs font-bold transition-colors ${
-                      scaleBar
-                        ? "border-accent bg-accent-soft text-accent"
-                        : "border-border text-foreground-muted hover:text-foreground"
-                    }`}
-                  >
-                    Scale bar
-                  </button>
-                )}
-                <button
-                  type="button"
-                  onClick={() => setRootEdge((s) => !s)}
-                  title="Draw a short root edge stub (geom_rootedge)"
-                  className={`inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1 text-xs font-bold transition-colors ${
-                    rootEdge
-                      ? "border-accent bg-accent-soft text-accent"
-                      : "border-border text-foreground-muted hover:text-foreground"
-                  }`}
-                >
-                  Root edge
-                </button>
-                {phylogram && (
-                  <button
-                    type="button"
-                    onClick={() => setTimeAxis((s) => !s)}
-                    title="Full-width time axis, tips at age 0 (theme_tree2)"
-                    className={`inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1 text-xs font-bold transition-colors ${
-                      timeAxis
-                        ? "border-accent bg-accent-soft text-accent"
-                        : "border-border text-foreground-muted hover:text-foreground"
-                    }`}
-                  >
-                    Time axis
-                  </button>
-                )}
-                <button
-                  type="button"
-                  onClick={() =>
-                    onArtboardChange({ enabled: !artboard.enabled })
-                  }
-                  title="Show the figure on a publication page (artboard). Page size + fit live under Export."
-                  className={`inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1 text-xs font-bold transition-colors ${
-                    artboard.enabled
-                      ? "border-accent bg-accent-soft text-accent"
-                      : "border-border text-foreground-muted hover:text-foreground"
-                  }`}
-                >
-                  Page frame
-                </button>
-              </div>
-              {/* The renderer string is the single source of SVG. The artboard
-                  frames it on a real page when enabled; otherwise it injects
-                  directly, exactly as before. */}
+              {/* Tree-shape controls (layout, rooting, axes, page frame) now live
+                  in the Shape tab of the action rail; the canvas is just the
+                  figure + view controls. The renderer string is the single source
+                  of SVG. The artboard frames it on a real page when enabled;
+                  otherwise it injects directly, exactly as before. */}
               {artboard.enabled ? (
                 <div className="min-h-0 flex-1">
                   <ZoomPanCanvas

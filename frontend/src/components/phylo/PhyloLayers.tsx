@@ -864,9 +864,22 @@ function Inspector({
           <p className="text-xs text-foreground-muted">
             A Data Hub figure aligned to the tips
             {panel.options?.title ? ` (${String(panel.options.title)})` : ""},
-            joined on {(panel.options?.joinColumn as string) || "—"}. The bar mode
-            lives in Setup, under Data Hub plot.
+            joined on {(panel.options?.joinColumn as string) || "—"}.
           </p>
+          <Field label="Bar mode">
+            <SelectInput
+              value={String(panel.options?.barMode ?? "dodge")}
+              options={["dodge", "stack", "stack100"]}
+              labels={{
+                dodge: "Grouped bars",
+                stack: "Stacked",
+                stack100: "100% stacked",
+              }}
+              onChange={(v) =>
+                onUpdate({ options: { ...panel.options, barMode: v } })
+              }
+            />
+          </Field>
           <Field label="Panel width">
             <RangeInput
               value={Number(panel.width ?? 120)}
