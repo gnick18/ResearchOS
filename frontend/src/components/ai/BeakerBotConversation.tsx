@@ -34,6 +34,7 @@ import { useAiChat } from "./useAiChat";
 import { BEAKERBOT_VISION_ENABLED } from "@/lib/ai/config";
 import { useVoiceInput, appendTranscript } from "@/lib/ai/useVoiceInput";
 import BeakerBotThinking from "./BeakerBotThinking";
+import { PdfFigurePicker } from "./PdfFigurePicker";
 import { RunningStatusLine, SettledStatusLine } from "./TurnStatusLine";
 import ObjectChip from "@/components/ObjectChip";
 import ObjectEmbed from "@/components/embeds/ObjectEmbed";
@@ -792,6 +793,13 @@ export default function BeakerBotConversation({
   // Distinct from the store's attachedPaper so the "Extracting" chip state
   // does not bleed into the global reactive state.
   const [pdfExtracting, setPdfExtracting] = useState(false);
+  // The raw PDF File kept in-memory so the figure picker can render its pages on
+  // demand (pdf-extract keeps only text; pdf-render needs the bytes). Held in a
+  // ref, not the store, since it is only needed within this composer session.
+  const pdfFileRef = useRef<File | null>(null);
+  // figurePickerOpen: when true the PdfFigurePicker modal is mounted so the user
+  // can pick + crop a figure from the attached paper to stage for a style match.
+  const [figurePickerOpen, setFigurePickerOpen] = useState(false);
 
   // copiedId: the id of the message that most recently had its text copied. A
   // brief "Copied" label replaces the Copy button label while this is set.
@@ -1064,6 +1072,8 @@ export default function BeakerBotConversation({
       setPdfExtracting(true);
       // Clear any previously attached paper so the chip starts fresh.
       clearAttachedPaper();
+      // Keep the bytes so the figure picker can render pages later.
+      pdfFileRef.current = file;
       try {
         const { extractPdfText } = await import("@/lib/ai/pdf-extract");
         const result = await extractPdfText(file);
@@ -1082,6 +1092,13 @@ export default function BeakerBotConversation({
     },
     [clearAttachedPaper, setAttachedPaper],
   );
+
+  // Remove the attached paper and the figure picker tied to it.
+  const handleRemovePaper = useCallback(() => {
+    clearAttachedPaper();
+    pdfFileRef.current = null;
+    setFigurePickerOpen(false);
+  }, [clearAttachedPaper]);
 
   // Keep the newest message in view as the answer reveals.
   useEffect(() => {
@@ -1740,6 +1757,23 @@ export default function BeakerBotConversation({
                 </p>
               )}
             </div>
+            {/* Pick-a-figure button. Renders the paper's pages so the user can
+                crop a figure to match its style onto their own tree (Output 4).
+                Vision-gated, since the cropped figure is a vision input. */}
+            {BEAKERBOT_VISION_ENABLED && attachedPaper && !pdfExtracting && pdfFileRef.current ? (
+              <Tooltip label="Pick a figure to match its style" placement="top">
+                <button
+                  type="button"
+                  data-testid="beakerbot-pick-figure"
+                  aria-label="Pick a figure from this paper"
+                  onClick={() => setFigurePickerOpen(true)}
+                  className="flex-none inline-flex items-center gap-1 rounded-md border border-brand/40 px-1.5 py-1 text-[11px] font-medium text-brand hover:bg-brand/10"
+                >
+                  <Icon name="figure" className="h-3.5 w-3.5" title="Pick figure" />
+                  Pick figure
+                </button>
+              </Tooltip>
+            ) : null}
             {/* Remove button (only when ready, not while extracting) */}
             {attachedPaper && !pdfExtracting ? (
               <Tooltip label="Remove paper" placement="top">
@@ -1747,7 +1781,7 @@ export default function BeakerBotConversation({
                   type="button"
                   data-testid="beakerbot-remove-pdf"
                   aria-label="Remove attached paper"
-                  onClick={clearAttachedPaper}
+                  onClick={handleRemovePaper}
                   className="flex-none text-foreground-muted hover:text-foreground"
                 >
                   <Icon name="close" className="h-3.5 w-3.5" title="Remove" />
@@ -1755,6 +1789,18 @@ export default function BeakerBotConversation({
               </Tooltip>
             ) : null}
           </div>
+        ) : null}
+
+        {/* Figure picker modal. Mounted only while open; renders the attached
+            paper's pages, lets the user crop a figure, and stages the cropped
+            image into pendingImages (the vision path) for a style match. */}
+        {figurePickerOpen && pdfFileRef.current ? (
+          <PdfFigurePicker
+            source={pdfFileRef.current}
+            pdfName={attachedPaper?.name ?? "Paper"}
+            onPick={(dataUrl) => addPendingImage(dataUrl)}
+            onClose={() => setFigurePickerOpen(false)}
+          />
         ) : null}
 
         {/* Pending-image thumbnail strip. Only rendered when images are staged
