@@ -68,7 +68,11 @@ import {
   matchAlignmentToTips,
   type Alignment,
 } from "@/lib/phylo/msa";
-import type { AlignedPanel, PhyloFigureSpec } from "@/lib/phylo/types";
+import type {
+  AlignedPanel,
+  PhyloFigureSpec,
+  PhyloLayout,
+} from "@/lib/phylo/types";
 import {
   FigureArtboard,
   FigureArtboardControls,
@@ -176,9 +180,7 @@ export function PhyloStudio({ initialTreeId }: { initialTreeId?: string } = {}) 
   const [importMode, setImportMode] = useState<ImportMode>(null);
   const [pasteText, setPasteText] = useState("");
 
-  const [layout, setLayout] = useState<"rectangular" | "circular">(
-    "rectangular",
-  );
+  const [layout, setLayout] = useState<PhyloLayout>("rectangular");
   const [phylogram, setPhylogram] = useState(true);
   // Show the branch-length scale bar on a phylogram (geom_treescale). Default on.
   const [scaleBar, setScaleBar] = useState(true);
@@ -1305,6 +1307,7 @@ export function PhyloStudio({ initialTreeId }: { initialTreeId?: string } = {}) 
                   value={layout}
                   options={[
                     ["rectangular", "Rectangular"],
+                    ["slanted", "Slanted"],
                     ["circular", "Circular"],
                   ]}
                   onChange={setLayout}

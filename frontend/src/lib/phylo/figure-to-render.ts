@@ -23,7 +23,7 @@ import {
 } from "./render";
 import { projectTracksToPanels } from "./panels";
 import { buildColorScale } from "./color-scale";
-import type { AlignedPanel } from "./types";
+import type { AlignedPanel, PhyloLayout } from "./types";
 
 /** The track defaults a fresh figure starts from. A persisted figure overrides
  *  only the keys it stored, so an older record (missing a newer track) still
@@ -43,7 +43,7 @@ export const DEFAULT_FIGURE_TRACKS: FigureTracks = {
  *  state; the embed resolves these from the stored PhyloFigureSpec +
  *  PhyloMetadataBinding via figureInputsFromStored below. */
 export interface FigureInputs {
-  layout: "rectangular" | "circular";
+  layout: PhyloLayout;
   phylogram: boolean;
   /** Show the phylogram scale bar (default on; absent = on). */
   scaleBar?: boolean;
@@ -259,7 +259,12 @@ export function figureInputsFromStored(
   figure: StoredFigure | undefined,
   metadata: StoredMetadata | undefined,
 ): FigureInputs {
-  const layout = figure?.layout === "circular" ? "circular" : "rectangular";
+  const layout: PhyloLayout =
+    figure?.layout === "circular" ||
+    figure?.layout === "slanted" ||
+    figure?.layout === "unrooted"
+      ? figure.layout
+      : "rectangular";
   const phylogram = figure?.branchLengths ?? true;
   const scaleBar = figure?.scaleBar;
   const tracks: FigureTracks = {

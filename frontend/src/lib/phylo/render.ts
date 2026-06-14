@@ -52,7 +52,7 @@ import {
   extractPanelValues,
   buildPanelScales,
 } from "./panels";
-import type { AlignedPanel, CladeAnnotation } from "./types";
+import type { AlignedPanel, CladeAnnotation, PhyloLayout } from "./types";
 import {
   renderPlot,
   type AlignedAxis,
@@ -105,7 +105,7 @@ export interface FigureScales {
 }
 
 export interface RenderSpec {
-  layout: "rectangular" | "circular";
+  layout: PhyloLayout;
   phylogram: boolean;
   /** Show the branch-length scale bar on a phylogram (geom_treescale). Default
    *  on; absent = on (back-compat). Only meaningful for a rectangular phylogram. */
@@ -668,10 +668,17 @@ function drawRectTree(
       }
     }
   }
+  // A slanted cladogram draws a straight diagonal from parent to child; the
+  // default rectangular tree draws the right-angle elbow (vertical then
+  // horizontal). Node positions are identical, so panels / labels are unchanged.
+  const slanted = spec.layout === "slanted";
   for (const p of layout.nodes) {
     if (p.parentX === null || p.parentY === null) continue;
+    const d = slanted
+      ? `M${p.parentX} ${p.parentY} L${p.x} ${p.y}`
+      : `M${p.parentX} ${p.parentY} V${p.y} H${p.x}`;
     parts.push(
-      `<path d="M${p.parentX} ${p.parentY} V${p.y} H${p.x}" fill="none" stroke="${colorForBranch(spec, p.node.id)}" stroke-width="1.5"/>`,
+      `<path d="${d}" fill="none" stroke="${colorForBranch(spec, p.node.id)}" stroke-width="1.5"/>`,
     );
     if (showSupport && p.node.children.length > 0 && p.node.support !== null) {
       parts.push(
@@ -1353,11 +1360,15 @@ function renderRectangular(
     }
   }
 
-  // Edges (elbow connectors).
+  // Edges (elbow connectors, or straight diagonals for a slanted cladogram).
+  const slantedEdges = spec.layout === "slanted";
   for (const p of layout.nodes) {
     if (p.parentX === null || p.parentY === null) continue;
+    const d = slantedEdges
+      ? `M${p.parentX} ${p.parentY} L${p.x} ${p.y}`
+      : `M${p.parentX} ${p.parentY} V${p.y} H${p.x}`;
     parts.push(
-      `<path d="M${p.parentX} ${p.parentY} V${p.y} H${p.x}" fill="none" stroke="${colorForBranch(spec, p.node.id)}" stroke-width="1.5"/>`,
+      `<path d="${d}" fill="none" stroke="${colorForBranch(spec, p.node.id)}" stroke-width="1.5"/>`,
     );
     // Support values on internal branches.
     if (
