@@ -155,14 +155,17 @@ export async function getFocusContext(
 
 /** Post a sealed command to the relay for the laptop to apply.
  *  The command is sealed by the CALLER with sealToRecipient to the user's X25519 pubkey.
- *  Generates a random commandId. Returns without throwing on relay errors
- *  (commands are best-effort). */
+ *  Pass a STABLE commandId when retrying a queued command so the laptop poller
+ *  can dedupe (never apply the same write twice); omit it for a fresh post.
+ *  Returns true when the relay accepted it (HTTP ok), false on a network error,
+ *  a non-ok response, or no pairing, so the caller can queue and retry. */
 export async function postCommand(
   sealedCommand: string,
   relayUrl?: string,
-): Promise<void> {
+  commandId?: string,
+): Promise<boolean> {
   const pairing = await getPairing();
-  if (!pairing) return;
+  if (!pairing) return false;
 
   const url = relayUrl ?? pairing.relayUrl;
   const { u, devicePubkey } = pairing;
@@ -171,19 +174,21 @@ export async function postCommand(
   const deviceEdPrivateKey = hexToBytes(deviceKey.devicePrivHex);
 
   const ts = nowIso();
-  const commandId = makeCommandId();
+  const cid = commandId ?? makeCommandId();
   const sha = sha256Hex(sealedCommand);
   const sig = sign(
-    commandPostMessage(u, devicePubkey, commandId, ts, sha),
+    commandPostMessage(u, devicePubkey, cid, ts, sha),
     deviceEdPrivateKey,
   );
   try {
-    await fetch(`${url}/capture/command?u=${u}`, {
+    const res = await fetch(`${url}/capture/command?u=${u}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ u, device: devicePubkey, commandId, ts, sig, sealed: sealedCommand }),
+      body: JSON.stringify({ u, device: devicePubkey, commandId: cid, ts, sig, sealed: sealedCommand }),
     });
+    return res.ok;
   } catch {
-    // Best-effort; caller can retry if needed.
+    // Offline or relay unreachable. Caller queues it for the reconnect flush.
+    return false;
   }
 }

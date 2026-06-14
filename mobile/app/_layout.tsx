@@ -29,6 +29,7 @@ import { HeaderMascot } from '@/components/HeaderMascot';
 import { LabAlarm, LabAlarmWatcher } from '@/components/LabAlarm';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useMascotPrefs } from '@/lib/mascot-prefs';
+import { startCommandOutboxAutoFlush } from '@/lib/command-outbox';
 import {
   addQuickActionListener,
   getInitialQuickAction,
@@ -184,6 +185,13 @@ export default function RootLayout() {
       // Native module missing or already hidden, ignore.
     });
   }, [nativeHidden, fontsLoaded]);
+
+  // Flush any bench writes that were queued while offline, now and whenever the
+  // network comes back, so variation notes and method checks sync on reconnect.
+  useEffect(() => {
+    const stop = startCommandOutboxAutoFlush();
+    return () => stop();
+  }, []);
 
   const handleSplashFinish = useCallback(() => {
     setSplashVisible(false);

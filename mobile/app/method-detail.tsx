@@ -381,7 +381,7 @@ function MethodCard({
 
 // ── Screen ────────────────────────────────────────────────────────────────────
 
-type VariationStatus = { kind: 'idle' } | { kind: 'sent' } | { kind: 'failed' };
+type VariationStatus = { kind: 'idle' } | { kind: 'sent' } | { kind: 'queued' } | { kind: 'failed' };
 
 export default function MethodScreen() {
   const { surface } = useTheme();
@@ -469,7 +469,7 @@ export default function MethodScreen() {
       setVariationBusy(true);
       setVariationStatus({ kind: 'idle' });
       try {
-        const ok = await postAddVariation(
+        const result = await postAddVariation(
           snapshot.taskId,
           snapshot.owner,
           text,
@@ -477,7 +477,13 @@ export default function MethodScreen() {
           methodId,
           pairing.relayUrl,
         );
-        setVariationStatus(ok ? { kind: 'sent' } : { kind: 'failed' });
+        setVariationStatus(
+          result === 'sent'
+            ? { kind: 'sent' }
+            : result === 'queued'
+              ? { kind: 'queued' }
+              : { kind: 'failed' },
+        );
       } catch {
         setVariationStatus({ kind: 'failed' });
       } finally {
@@ -614,6 +620,13 @@ export default function MethodScreen() {
           <Card style={[styles.statusCard, { borderColor: palette.successLight }]}>
             <ThemedText style={[styles.statusText, { color: palette.success }]}>
               Variation sent to the experiment.
+            </ThemedText>
+          </Card>
+        ) : null}
+        {variationStatus.kind === 'queued' ? (
+          <Card style={[styles.statusCard, { borderColor: palette.warningLight }]}>
+            <ThemedText style={[styles.statusText, { color: palette.warning }]}>
+              Saved. It will sync to the experiment when this phone is back online.
             </ThemedText>
           </Card>
         ) : null}
