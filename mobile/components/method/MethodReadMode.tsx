@@ -36,6 +36,7 @@ import { ThemedText } from '@/components/themed-text';
 import { Button } from '@/components/ui/Button';
 import { useTheme, palette } from '@/lib/design';
 import type { MethodProjection } from '@/lib/snapshots';
+import { checkKey, loadMethodChecks, saveMethodChecks, type CheckMap } from '@/lib/method-checks';
 import {
   buildReadModel,
   type GraphicMap,
@@ -467,12 +468,18 @@ const pdfstyles = StyleSheet.create({
 // ---- The big step card ----------------------------------------------------
 function StepCard({
   step,
+  stepIndex,
+  checks,
+  onToggleCheck,
   focused,
   reduceMotion,
   onPress,
   onLayout,
 }: {
   step: ReadStep;
+  stepIndex: number;
+  checks: CheckMap;
+  onToggleCheck: (stepIndex: number, checkIndex: number) => void;
   focused: boolean;
   reduceMotion: boolean;
   onPress: () => void;
@@ -481,8 +488,6 @@ function StepCard({
   const { surface, radii } = useTheme();
   // Reduced motion: no scale change, just the focus border/opacity.
   const scale = reduceMotion ? 1 : focused ? 1 : 0.98;
-  // Ephemeral tick state so reagents can be checked off as they are gathered.
-  const [ticked, setTicked] = useState<Record<number, boolean>>({});
   return (
     <Pressable onPress={onPress} onLayout={onLayout}>
       <View
@@ -513,11 +518,11 @@ function StepCard({
         ) : null}
         {step.checks
           ? step.checks.map((c, i) => {
-              const on = !!ticked[i];
+              const on = !!checks[checkKey(stepIndex, i)];
               return (
                 <Pressable
                   key={i}
-                  onPress={() => setTicked((t) => ({ ...t, [i]: !t[i] }))}
+                  onPress={() => onToggleCheck(stepIndex, i)}
                   accessibilityRole="checkbox"
                   accessibilityState={{ checked: on }}
                   style={[
@@ -601,13 +606,37 @@ export function MethodReadMode({
     setHeaderOpen((o) => !o);
   }, []);
 
-  // Each method opens fresh: header expanded, focus at the first step, and the
-  // manual-override flag cleared so the auto-collapse can run again.
+  // Persisted checklist ticks, keyed by method, so reagents stay checked off
+  // across a reload while a protocol is in progress.
+  const methodKey = String(method.methodId ?? method.name ?? 'method');
+  const [checks, setChecks] = useState<CheckMap>({});
+  const toggleCheck = useCallback(
+    (stepIndex: number, checkIndex: number) => {
+      setChecks((prev) => {
+        const k = checkKey(stepIndex, checkIndex);
+        const next = { ...prev, [k]: !prev[k] };
+        void saveMethodChecks(methodKey, next);
+        return next;
+      });
+    },
+    [methodKey],
+  );
+
+  // Each method opens fresh: header expanded, focus at the first step, the
+  // manual-override flag cleared so the auto-collapse can run again, and the
+  // persisted ticks for this method loaded in.
   useEffect(() => {
     setHeaderOpen(true);
     headerUserSet.current = false;
     setFocus(0);
-  }, [method.methodId, method.name]);
+    let active = true;
+    loadMethodChecks(methodKey).then((m) => {
+      if (active) setChecks(m);
+    });
+    return () => {
+      active = false;
+    };
+  }, [method.methodId, method.name, methodKey]);
 
   // Auto-collapse the header the first time the reader advances past step one,
   // but never fight a user who has manually opened or closed it.
@@ -742,6 +771,9 @@ export function MethodReadMode({
           <StepCard
             key={i}
             step={s}
+            stepIndex={i}
+            checks={checks}
+            onToggleCheck={toggleCheck}
             focused={i === focus}
             reduceMotion={reduceMotion}
             onPress={() => goTo(i)}
