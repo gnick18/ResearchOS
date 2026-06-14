@@ -98,7 +98,14 @@ import { generateGgtreeCode, GGTREE_CAVEAT } from "@/lib/phylo/ggtree-code";
 import {
   downloadSvg,
   svgToPngBlob,
+  buildPlotSpec,
 } from "@/lib/datahub/plot-spec";
+import { dataHubApi } from "@/lib/datahub/api";
+import {
+  joinContentToTips,
+  datahubJoinRate,
+} from "@/lib/phylo/datahub-panel";
+import type { DataHubDocContent } from "@/lib/datahub/model/types";
 
 const FIG_W = 620;
 const FIG_H = 460;
@@ -203,6 +210,18 @@ export function PhyloStudio({ initialTreeId }: { initialTreeId?: string } = {}) 
   const [tipColumn, setTipColumn] = useState<string>("");
   // Color tree branches by this column (ggtree aes(color=trait)); "" = off.
   const [branchColorColumn, setBranchColorColumn] = useState<string>("");
+  // Data Hub plot binding (phylo Phase 4): the picker state for the "Data Hub
+  // plot" Setup panel, plus the RESOLVED render inputs the canvas reads. The
+  // persisted reference rides on each datahubPlot panel's options seam; the
+  // resolved { plotSpec, content, analysis } is recomputed from it here (live
+  // figure state, never persisted), the same way alignment resolves to msaTrack.
+  const [dhTables, setDhTables] = useState<{ id: string; name: string }[]>([]);
+  const [dhTableId, setDhTableId] = useState<string>("");
+  const [dhContent, setDhContent] = useState<DataHubDocContent | null>(null);
+  const [dhJoinCol, setDhJoinCol] = useState<string>("");
+  const [datahubResolved, setDatahubResolved] = useState<
+    RenderSpec["datahubPanels"]
+  >({});
 
   // Publication page-frame (artboard) state for the figure. Disabled by default
   // (the canvas renders exactly as before). The figure's width in inches is its
@@ -316,7 +335,7 @@ export function PhyloStudio({ initialTreeId }: { initialTreeId?: string } = {}) 
   // layer stack drives the render; the legacy track fields stay empty.
   const spec: RenderSpec | null = useMemo(() => {
     if (!tree) return null;
-    return figureToRenderSpec(
+    const base = figureToRenderSpec(
       tree,
       {
         layout,
@@ -332,6 +351,9 @@ export function PhyloStudio({ initialTreeId }: { initialTreeId?: string } = {}) 
       },
       { width: FIG_W, height: FIG_H },
     );
+    // Phase 4: the resolved Data Hub plot inputs are live figure state, supplied
+    // on the spec the same way figureToRenderSpec resolves alignment to msaTrack.
+    return { ...base, datahubPanels: datahubResolved };
   }, [
     tree,
     layout,
@@ -343,6 +365,7 @@ export function PhyloStudio({ initialTreeId }: { initialTreeId?: string } = {}) 
     panels,
     alignment,
     branchColorColumn,
+    datahubResolved,
   ]);
 
   // The alignment-to-tips match (for the "matched X of Y" indicator + auto-adding
@@ -361,6 +384,126 @@ export function PhyloStudio({ initialTreeId }: { initialTreeId?: string } = {}) 
     () => (spec ? generateGgtreeCode(spec) : ""),
     [spec],
   );
+
+  // ---- Data Hub plot binding (phylo Phase 4) ----
+
+  // Load the Data Hub table list once, for the picker.
+  useEffect(() => {
+    let cancelled = false;
+    dataHubApi
+      .list()
+      .then((docs) => {
+        if (!cancelled) {
+          setDhTables(docs.map((d) => ({ id: d.id, name: d.name })));
+        }
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  // When a table is picked, load its content for the picker and default the join
+  // column to the one that joins the most tips (seeded by the x-role column).
+  useEffect(() => {
+    if (!dhTableId) {
+      setDhContent(null);
+      return;
+    }
+    let cancelled = false;
+    dataHubApi
+      .getContent(dhTableId)
+      .then((content) => {
+        if (cancelled || !content) return;
+        setDhContent(content);
+        if (!tree) return;
+        const seed =
+          content.columns.find((c) => c.role === "x")?.id ??
+          content.columns[0]?.id ??
+          "";
+        let best = seed;
+        let bestRate = seed ? datahubJoinRate(content, seed, tree) : 0;
+        for (const col of content.columns) {
+          const rate = datahubJoinRate(content, col.id, tree);
+          if (rate > bestRate) {
+            bestRate = rate;
+            best = col.id;
+          }
+        }
+        setDhJoinCol(best);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [dhTableId, tree]);
+
+  // Resolve every bound datahubPlot panel into render inputs: load its table,
+  // relabel rows onto the tree's tips, and pick (or build) a grouped-bar plot.
+  // Re-runs on a panel/binding change or a new tree, so a reopened figure (which
+  // persisted only the reference) re-resolves.
+  useEffect(() => {
+    if (!tree) return;
+    const bound = panels.filter(
+      (p) =>
+        p.kind === "datahubPlot" &&
+        typeof p.options?.datahubTableId === "string",
+    );
+    if (bound.length === 0) {
+      setDatahubResolved({});
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      const resolved: NonNullable<RenderSpec["datahubPanels"]> = {};
+      for (const p of bound) {
+        const tableId = String(p.options!.datahubTableId);
+        const joinCol = String(p.options!.joinColumn ?? "");
+        const content = await dataHubApi.getContent(tableId);
+        if (!content) continue;
+        const joined = joinContentToTips(content, joinCol, tree);
+        const existing = content.plots.find((pl) => pl.type === "groupedBar");
+        const plotSpec =
+          existing ??
+          buildPlotSpec({ id: `dhplot-${p.id}`, kind: "groupedBar", tableId });
+        resolved[p.id] = { plotSpec, content: joined, analysis: null };
+      }
+      if (!cancelled) setDatahubResolved(resolved);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [panels, tree]);
+
+  // The tip-join rate for the picker indicator ("joins N of M tips").
+  const dhMatchRate = useMemo(() => {
+    if (!dhContent || !dhJoinCol || !tree) return null;
+    return datahubJoinRate(dhContent, dhJoinCol, tree);
+  }, [dhContent, dhJoinCol, tree]);
+
+  // Add a datahubPlot panel bound to the picked table + join column, inserted
+  // just inside any labels layer so the labels stay outermost.
+  function addDatahubPanel() {
+    if (!dhTableId || !dhJoinCol) return;
+    const tableName =
+      dhTables.find((t) => t.id === dhTableId)?.name ?? "Data Hub plot";
+    const panel: AlignedPanel = {
+      id: `dhplot-${Date.now().toString(36)}`,
+      kind: "datahubPlot",
+      visible: true,
+      legend: true,
+      options: {
+        datahubTableId: dhTableId,
+        joinColumn: dhJoinCol,
+        title: tableName,
+      },
+    };
+    setPanels((prev) => {
+      const labelIdx = prev.findIndex((p) => p.kind === "labels");
+      if (labelIdx === -1) return [...prev, panel];
+      return [...prev.slice(0, labelIdx), panel, ...prev.slice(labelIdx)];
+    });
+  }
 
   // ---- tree import ----
 
@@ -890,6 +1033,96 @@ export function PhyloStudio({ initialTreeId }: { initialTreeId?: string } = {}) 
               >
                 Remove alignment
               </button>
+            )}
+          </Panel>
+
+          <Panel title="Data Hub plot">
+            <p className="text-xs text-foreground-muted mb-2">
+              Align a Data Hub grouped-bar figure to the tips. Rows join to tips
+              by a column, the same way metadata does. The figure math stays in
+              the Data Hub engine; the tree just places it.
+            </p>
+            {dhTables.length === 0 ? (
+              <p className="text-xs text-foreground-muted">
+                No Data Hub tables found.
+              </p>
+            ) : (
+              <div className="space-y-2">
+                <label className="block text-xs">
+                  <span className="text-foreground-muted">Table</span>
+                  <select
+                    value={dhTableId}
+                    onChange={(e) => setDhTableId(e.target.value)}
+                    className="mt-0.5 w-full text-sm border border-border rounded-lg px-2 py-1 bg-surface text-foreground"
+                  >
+                    <option value="">(pick a table)</option>
+                    {dhTables.map((t) => (
+                      <option key={t.id} value={t.id}>
+                        {t.name}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                {dhContent && (
+                  <label className="block text-xs">
+                    <span className="text-foreground-muted">
+                      Join tips on column
+                    </span>
+                    <select
+                      value={dhJoinCol}
+                      onChange={(e) => setDhJoinCol(e.target.value)}
+                      className="mt-0.5 w-full text-sm border border-border rounded-lg px-2 py-1 bg-surface text-foreground"
+                    >
+                      {dhContent.columns.map((c) => (
+                        <option key={c.id} value={c.id}>
+                          {c.name}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                )}
+                {dhMatchRate != null && (
+                  <div
+                    className={`text-xs font-medium ${
+                      dhMatchRate >= 0.999
+                        ? "text-emerald-600"
+                        : "text-foreground-muted"
+                    }`}
+                  >
+                    Joins {Math.round(dhMatchRate * tips.length)} of{" "}
+                    {tips.length} tips
+                  </div>
+                )}
+                {dhContent && (
+                  <GhostBtn onClick={addDatahubPanel}>Add plot panel</GhostBtn>
+                )}
+              </div>
+            )}
+            {panels.some((p) => p.kind === "datahubPlot") && (
+              <div className="mt-3 space-y-1">
+                {panels
+                  .filter((p) => p.kind === "datahubPlot")
+                  .map((p) => (
+                    <div
+                      key={p.id}
+                      className="flex items-center justify-between gap-2 text-xs"
+                    >
+                      <span className="text-foreground-muted truncate">
+                        {String(p.options?.title ?? "Data Hub plot")}
+                      </span>
+                      <button
+                        onClick={() =>
+                          setPanels((prev) =>
+                            prev.filter((q) => q.id !== p.id),
+                          )
+                        }
+                        className="shrink-0 text-accent hover:underline font-semibold"
+                      >
+                        Remove
+                      </button>
+                    </div>
+                  ))}
+              </div>
             )}
           </Panel>
         </div>
