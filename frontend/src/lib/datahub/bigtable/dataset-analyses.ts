@@ -105,8 +105,9 @@ export const DATASET_ANALYSIS_TYPES: AnalysisType[] = [
  */
 export function validDatasetAnalysisTypes(
   numericColumns: number,
-  hasCategorical: boolean,
+  categoricalColumns: number,
 ): { wide: AnalysisType[]; groupBy: AnalysisType[] } {
+  const hasCategorical = categoricalColumns >= 1;
   const wide: AnalysisType[] = [];
   if (numericColumns >= 1) wide.push("grubbsOutlier");
   if (numericColumns >= 2) {
@@ -135,6 +136,18 @@ export function validDatasetAnalysisTypes(
       "linearMixedModel",
       "multipleRegression",
     );
+  }
+  // Whole-table multi-column analyses (their own column-role pickers in the dialog).
+  // Two-way ANOVA + nested need a value column and two categorical factors; the
+  // contingency test needs two categoricals; survival needs a time + event column
+  // (group optional for Kaplan-Meier, needed for Cox to have two arms).
+  if (numericColumns >= 1 && categoricalColumns >= 2) {
+    wide.push("twoWayAnova", "nestedTTest", "nestedOneWayAnova");
+  }
+  if (categoricalColumns >= 2) wide.push("contingency");
+  if (numericColumns >= 2) {
+    wide.push("kaplanMeier");
+    if (categoricalColumns >= 1) wide.push("coxRegression");
   }
   const groupBy: AnalysisType[] =
     numericColumns >= 1 && hasCategorical
