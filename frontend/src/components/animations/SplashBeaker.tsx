@@ -167,14 +167,16 @@ export function SplashBeaker({
             fired = true;
             onFillRef.current?.();
           }
-          // perpetual "pouring" loop: he tips around his base (20,31) and a
-          // droplet spills off the lip each cycle; the water settles to the
-          // natural line on the first pass, then holds. Loops until unmount.
+          // single "pour": he tips once around his base (20,31), a droplet
+          // spills off the lip, the water settles to the natural line, then he
+          // returns fully upright and holds. No perpetual loop.
           const loopStart = performance.now();
           const CYCLE = 600;
           const pour = (t2: number) => {
             const elapsed = t2 - loopStart;
-            const phase = (elapsed % CYCLE) / CYCLE;
+            // clamp to a single cycle so the tip happens exactly once; at
+            // phase 1 the angle and spill both return to zero (upright, dry).
+            const phase = Math.min(1, elapsed / CYCLE);
             const settleK = Math.min(1, elapsed / 600);
             setLevel(LIP_Y + (REST_Y - LIP_Y) * (1 - Math.pow(1 - settleK, 2)));
             const angle = 12 * Math.sin(phase * Math.PI);
@@ -188,7 +190,7 @@ export function SplashBeaker({
                 phase < 0.12 ? phase / 0.12 : phase > 0.6 ? Math.max(0, (1 - phase) / 0.4) : 1,
               );
             }
-            loopRaf = requestAnimationFrame(pour);
+            if (elapsed < CYCLE) loopRaf = requestAnimationFrame(pour);
           };
           loopRaf = requestAnimationFrame(pour);
         };
