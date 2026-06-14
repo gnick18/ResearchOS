@@ -274,49 +274,21 @@ export default function MethodTabs({ task, onTaskUpdate, readOnly = false, piAct
       {/* Right pane: active component header (name + actions) then the body. */}
       <div className="flex min-w-0 flex-1 flex-col">
         {activeMethod && (
-          <div className="flex items-center justify-between gap-2 border-b border-border px-4 py-2">
-            <div className="flex min-w-0 items-center gap-2">
-              <span
-                className="flex-shrink-0"
-                style={{ color: (TYPE_META[resolveMethodType(activeMethod.method_type, activeMethod.source_path)] ?? TYPE_META.markdown).color }}
-              >
-                <Icon
-                  name={(TYPE_META[resolveMethodType(activeMethod.method_type, activeMethod.source_path)] ?? TYPE_META.markdown).icon}
-                  className="h-4 w-4"
-                />
-              </span>
-              <span className="truncate text-body font-medium text-foreground">
-                {activeMethod.name || `Method ${activeAttachment!.method_id}`}
-              </span>
-            </div>
-            {/* Method-level actions: view on phone, extend into kit, fork to
-                library. Moved out of the old top bar into this header. */}
-            <div className="flex flex-shrink-0 items-center gap-1.5">
-              <ViewMethodOnPhoneButton taskId={task.id} taskOwner={task.owner} />
-              {!readOnly && activeMethod.method_type !== "compound" && (
-                <WrapAsCompoundAction
-                  method={activeMethod}
-                  task={task}
-                  piActor={piActor}
-                  onWrapped={(compound) =>
-                    setActiveAttachmentKey(
-                      attachmentKey(
-                        { method_id: compound.id, owner: compound.owner },
-                        task.owner,
-                      ),
-                    )
-                  }
-                />
-              )}
-              {!readOnly && (
-                <ForkToLibraryAction
-                  method={activeMethod}
-                  attachment={activeAttachment}
-                  task={task}
-                  piActor={piActor}
-                />
-              )}
-            </div>
+          <div className="flex items-center gap-2 border-b border-border px-4 py-2">
+            <span
+              className="flex-shrink-0"
+              style={{ color: (TYPE_META[resolveMethodType(activeMethod.method_type, activeMethod.source_path)] ?? TYPE_META.markdown).color }}
+            >
+              <Icon
+                name={(TYPE_META[resolveMethodType(activeMethod.method_type, activeMethod.source_path)] ?? TYPE_META.markdown).icon}
+                className="h-4 w-4"
+              />
+            </span>
+            {/* Full width for the title now that the actions live in the
+                bottom toolbar, so long method names are no longer cut off. */}
+            <span className="truncate text-body font-medium text-foreground">
+              {activeMethod.name || `Method ${activeAttachment!.method_id}`}
+            </span>
           </div>
         )}
         {/* Gathered-reagent progress synced from the phone read mode
@@ -497,6 +469,37 @@ export default function MethodTabs({ task, onTaskUpdate, readOnly = false, piAct
           })()
         )}
       </div>
+        {/* Action toolbar pinned to the bottom of the content pane, so the
+            method title above keeps the full header width instead of fighting
+            these buttons for space. */}
+        {activeMethod && (
+          <div className="flex flex-shrink-0 flex-wrap items-center gap-1.5 border-t border-border px-4 py-2">
+            <ViewMethodOnPhoneButton taskId={task.id} taskOwner={task.owner} />
+            {!readOnly && activeMethod.method_type !== "compound" && (
+              <WrapAsCompoundAction
+                method={activeMethod}
+                task={task}
+                piActor={piActor}
+                onWrapped={(compound) =>
+                  setActiveAttachmentKey(
+                    attachmentKey(
+                      { method_id: compound.id, owner: compound.owner },
+                      task.owner,
+                    ),
+                  )
+                }
+              />
+            )}
+            {!readOnly && (
+              <ForkToLibraryAction
+                method={activeMethod}
+                attachment={activeAttachment}
+                task={task}
+                piActor={piActor}
+              />
+            )}
+          </div>
+        )}
       </div>
     </div>
   );
