@@ -23,10 +23,9 @@ import { useFocusEffect, useRouter } from 'expo-router';
 import { ThemedText } from '@/components/themed-text';
 import { AnnotationOverlay } from '@/components/AnnotationOverlay';
 import { Button } from '@/components/ui/Button';
-import { Card } from '@/components/ui/Card';
 import { ScreenFrame } from '@/components/ui/ScreenFrame';
 import { ScreenHeader } from '@/components/ui/ScreenHeader';
-import { useTheme, palette } from '@/lib/design';
+import { useTheme, palette, fonts } from '@/lib/design';
 import { addCapture, sendCapture } from '@/lib/captures';
 import { takePendingBatch } from '@/lib/bulk-batch';
 import {
@@ -40,11 +39,12 @@ import { signWithDevice } from '@/lib/device-identity';
 export default function BulkScreen() {
   const router = useRouter();
   const { pairing } = usePairing();
-  const { surface, spacing, radii } = useTheme();
+  const { surface, spacing, radii, shadow, dark } = useTheme();
 
   const [uris, setUris] = useState<string[]>([]);
   const [selected, setSelected] = useState<Set<number>>(new Set());
   const [caption, setCaption] = useState('');
+  const [captionFocused, setCaptionFocused] = useState(false);
   const [sending, setSending] = useState(false);
   // Annotation docs keyed by the photo uri they belong to. Only the first
   // selected photo can be annotated for now (see FLAG in the header).
@@ -70,6 +70,8 @@ export default function BulkScreen() {
 
   const paired = !!pairing;
   const count = selected.size;
+  const total = uris.length;
+  const allSelected = total > 0 && count === total;
 
   const toggle = useCallback((i: number) => {
     setSelected((prev) => {
@@ -79,6 +81,13 @@ export default function BulkScreen() {
       return next;
     });
   }, []);
+
+  // Select-all / select-none toggle in the header (contract navhead action).
+  const onToggleAll = useCallback(() => {
+    setSelected((prev) =>
+      prev.size === uris.length ? new Set() : new Set(uris.map((_, i) => i)),
+    );
+  }, [uris]);
 
   // The first selected photo, in grid order, or null when nothing is selected.
   const firstSelectedUri = useMemo(() => {
@@ -129,65 +138,191 @@ export default function BulkScreen() {
     [paired, count],
   );
 
+  const firstSelectedHasDoc = !!(firstSelectedUri && docs[firstSelectedUri]);
+
+  // Caption field chrome. Focus lifts to the elevated surface and wraps the
+  // field in the contract sky focus ring (matches .input.focus).
+  const captionChrome = captionFocused
+    ? {
+        backgroundColor: surface.surface,
+        borderColor: palette.sky,
+        shadowColor: palette.sky,
+        shadowOffset: { width: 0, height: 0 },
+        shadowOpacity: dark ? 0.5 : 0.28,
+        shadowRadius: 6,
+        elevation: 0,
+      }
+    : {
+        backgroundColor: surface.surface2,
+        borderColor: surface.borderStrong,
+      };
+
   return (
-    <ScreenFrame>
-      <ScreenHeader />
-      <ScrollView style={styles.fill} contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
-        <ThemedText type="title">Label {uris.length} photo{uris.length === 1 ? '' : 's'}</ThemedText>
-        <ThemedText style={[styles.sub, { color: surface.muted }]}>
-          Tap to include or skip. The caption applies to every selected photo.
-        </ThemedText>
+    <ScreenFrame edges={['top', 'bottom']}>
+      {/* Pushed-screen header with a select-all / select-none action on the
+          right, matching the contract navhead. */}
+      <View style={styles.head}>
+        <ScreenHeader title="From camera roll" />
+        {total > 0 ? (
+          <Pressable
+            onPress={onToggleAll}
+            hitSlop={10}
+            style={styles.headAction}
+            accessibilityRole="button"
+            accessibilityLabel={allSelected ? 'Select none' : 'Select all'}
+          >
+            <ThemedText style={[styles.headActionText, { color: palette.sky }]}>
+              {allSelected ? 'Select none' : 'Select all'}
+            </ThemedText>
+          </Pressable>
+        ) : null}
+      </View>
+
+      <ScrollView
+        style={styles.fill}
+        contentContainerStyle={styles.scroll}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
+      >
+        {/* Count note (contract .note): how many are selected and where they go. */}
+        <View
+          style={[
+            styles.note,
+            {
+              backgroundColor: surface.surface2,
+              borderColor: surface.border,
+              borderRadius: radii.md,
+            },
+          ]}
+        >
+          <Ionicons name="checkmark-circle" size={16} color={palette.sky} />
+          <ThemedText style={[styles.noteText, { color: surface.muted }]}>
+            <ThemedText style={[styles.noteCount, { color: surface.text }]}>
+              {count} of {total}
+            </ThemedText>{' '}
+            selected.{' '}
+            {paired
+              ? 'They send to your lab inbox.'
+              : 'They queue to your outbox until this phone is paired.'}
+          </ThemedText>
+        </View>
 
         <View style={styles.grid}>
           {uris.map((uri, i) => {
             const on = selected.has(i);
+            const hasDoc = !!docs[uri];
             return (
-              <Pressable key={`${uri}-${i}`} onPress={() => toggle(i)} style={styles.cellWrap}>
-                <Image source={{ uri }} style={[styles.cell, { borderRadius: radii.md }]} />
-                {docs[uri] ? <AnnotationOverlay doc={docs[uri]} /> : null}
+              <Pressable
+                key={`${uri}-${i}`}
+                onPress={() => toggle(i)}
+                style={styles.cellWrap}
+                accessibilityRole="button"
+                accessibilityState={{ selected: on }}
+                accessibilityLabel={`Photo ${i + 1}${on ? ', selected' : ''}`}
+              >
+                <View
+                  style={[
+                    styles.cell,
+                    {
+                      borderRadius: radii.md,
+                      borderColor: on ? palette.skyBorder : surface.border,
+                      backgroundColor: surface.sunken,
+                      ...(on ? shadow.sm : null),
+                    },
+                  ]}
+                >
+                  <Image source={{ uri }} style={styles.cellImage} />
+                  {hasDoc ? <AnnotationOverlay doc={docs[uri]} /> : null}
+                  {!on ? <View style={styles.dim} /> : null}
+                </View>
+
+                {/* Selection check (contract .chk): sky fill on, translucent
+                    hollow ring off, both with a white border and soft shadow. */}
                 <View
                   style={[
                     styles.check,
-                    { backgroundColor: on ? palette.sky : 'rgba(0,0,0,0.35)', borderColor: palette.white },
+                    on
+                      ? { backgroundColor: palette.sky, ...shadow.sm }
+                      : { backgroundColor: 'rgba(255,255,255,0.35)', borderColor: 'rgba(255,255,255,0.85)' },
                   ]}
                 >
                   {on ? <Ionicons name="checkmark" size={15} color={palette.white} /> : null}
                 </View>
-                {docs[uri] ? (
-                  <View style={[styles.annotBadge, { backgroundColor: palette.sky }]}>
+
+                {/* Annotation badge: this photo carries markup that rides on send. */}
+                {hasDoc ? (
+                  <View style={[styles.annotBadge, { backgroundColor: palette.violet, ...shadow.sm }]}>
                     <Ionicons name="brush" size={11} color={palette.white} />
                   </View>
                 ) : null}
-                {!on ? <View style={[styles.dim, { borderRadius: radii.md }]} /> : null}
               </Pressable>
             );
           })}
         </View>
 
-        <ThemedText style={[styles.secLabel, { color: surface.muted }]}>APPLY TO ALL</ThemedText>
-        <Card style={{ gap: spacing.sm }}>
+        {/* Caption applied to every selected photo (contract .field). */}
+        <View style={styles.field}>
+          <ThemedText style={[styles.fieldLabel, { color: surface.muted }]}>
+            Caption
+          </ThemedText>
           <TextInput
             value={caption}
             onChangeText={setCaption}
-            placeholder="Caption, applied to every selected photo"
+            placeholder="Applied to every selected photo"
             placeholderTextColor={surface.placeholder}
-            style={[styles.input, { backgroundColor: surface.surface, borderColor: surface.border, borderRadius: radii.md, color: surface.text }]}
+            style={[
+              styles.input,
+              { borderRadius: radii.md, color: surface.text },
+              captionChrome,
+            ]}
+            onFocus={() => setCaptionFocused(true)}
+            onBlur={() => setCaptionFocused(false)}
             multiline
+            textAlignVertical="top"
           />
-        </Card>
+        </View>
 
-        <Button
-          variant="secondary"
-          label={
-            firstSelectedUri && docs[firstSelectedUri]
-              ? 'Edit annotations on first photo'
-              : 'Annotate first photo'
-          }
-          icon={<Ionicons name="brush-outline" size={18} color={palette.sky} />}
-          onPress={onAnnotate}
-          disabled={count === 0}
-        />
-        <Button variant="primary" label={sendLabel} loading={sending} disabled={count === 0 || sending} onPress={onSend} />
+        {/* Annotate the first selected photo (FLAG: first photo only for now). */}
+        <View
+          style={[
+            styles.callout,
+            {
+              backgroundColor: palette.violetDim,
+              borderColor: 'rgba(124,92,224,0.30)',
+              borderRadius: radii.md,
+            },
+          ]}
+        >
+          <Ionicons name="brush-outline" size={18} color={palette.violet} style={styles.calloutIcon} />
+          <ThemedText style={[styles.calloutText, { color: surface.text }]}>
+            <ThemedText style={[styles.calloutLead, { color: palette.violet }]}>
+              Markup rides along.
+            </ThemedText>{' '}
+            Annotate the first selected photo and its markup sends with it.
+          </ThemedText>
+        </View>
+
+        <View style={styles.toolbar}>
+          <Button
+            variant="secondary"
+            label={firstSelectedHasDoc ? 'Edit annotations on first photo' : 'Annotate first photo'}
+            icon={<Ionicons name="brush-outline" size={18} color={palette.violet} />}
+            onPress={onAnnotate}
+            disabled={count === 0}
+          />
+          <Button
+            variant="primary"
+            label={sendLabel}
+            icon={
+              !sending ? (
+                <Ionicons name="paper-plane-outline" size={17} color={palette.white} />
+              ) : undefined
+            }
+            loading={sending}
+            disabled={count === 0 || sending}
+            onPress={onSend}
+          />
+        </View>
       </ScrollView>
     </ScreenFrame>
   );
@@ -195,22 +330,38 @@ export default function BulkScreen() {
 
 const styles = StyleSheet.create({
   fill: { flex: 1 },
-  scroll: { paddingHorizontal: 20, paddingTop: 16, paddingBottom: 40, gap: 14 },
-  sub: { fontSize: 14, lineHeight: 20 },
-  secLabel: { fontSize: 12, fontWeight: '700', letterSpacing: 0.4, marginTop: 4 },
-  grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  cellWrap: { width: '31%', aspectRatio: 1, position: 'relative' },
-  cell: { width: '100%', height: '100%', backgroundColor: '#00000010' },
-  annotBadge: {
-    position: 'absolute',
-    bottom: 6,
-    left: 6,
-    width: 20,
-    height: 20,
-    borderRadius: 10,
+  scroll: { paddingHorizontal: 18, paddingTop: 8, paddingBottom: 40, gap: 14 },
+
+  // Header row: ScreenHeader fills the left, the select-all action floats right.
+  head: { flexDirection: 'row', alignItems: 'center' },
+  headAction: { position: 'absolute', right: 16, paddingVertical: 8, paddingHorizontal: 4 },
+  headActionText: { fontSize: 13.5, fontFamily: fonts.semibold, fontWeight: '600' },
+
+  // Count note (contract .note): tinted inset line with the count emphasized.
+  note: {
+    flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
+    gap: 8,
+    borderWidth: 1,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
   },
+  noteText: { flex: 1, fontSize: 13, fontFamily: fonts.ui, lineHeight: 19 },
+  noteCount: { fontFamily: fonts.semibold, fontWeight: '600' },
+
+  // Grid of selectable photo cells (contract .bulk-grid, 3 columns).
+  grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  cellWrap: { width: '31.5%', aspectRatio: 1, position: 'relative' },
+  cell: {
+    width: '100%',
+    height: '100%',
+    borderWidth: 1,
+    overflow: 'hidden',
+  },
+  cellImage: { width: '100%', height: '100%' },
+  dim: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(8,12,20,0.32)' },
+
+  // Selection check (contract .bulk-cell .chk).
   check: {
     position: 'absolute',
     top: 6,
@@ -218,10 +369,52 @@ const styles = StyleSheet.create({
     width: 22,
     height: 22,
     borderRadius: 11,
-    borderWidth: 1.5,
+    borderWidth: 2,
+    borderColor: palette.white,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  dim: { position: 'absolute', inset: 0, backgroundColor: 'rgba(0,0,0,0.28)' },
-  input: { borderWidth: 1, paddingHorizontal: 14, paddingVertical: 12, fontSize: 16, minHeight: 48 },
+
+  // Annotation badge, bottom-left of an annotated cell.
+  annotBadge: {
+    position: 'absolute',
+    bottom: 6,
+    left: 6,
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    borderWidth: 1.5,
+    borderColor: palette.white,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+
+  // Caption field (contract .field / .input).
+  field: { gap: 6 },
+  fieldLabel: { fontSize: 12, fontFamily: fonts.semibold, fontWeight: '600', lineHeight: 16 },
+  input: {
+    borderWidth: 1,
+    paddingHorizontal: 14,
+    paddingVertical: 13,
+    fontSize: 15,
+    fontFamily: fonts.ui,
+    minHeight: 80,
+    lineHeight: 22,
+  },
+
+  // Markup callout (contract .callout): tinted inset with an accent lead word.
+  callout: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 10,
+    borderWidth: 1,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+  },
+  calloutIcon: { marginTop: 1 },
+  calloutText: { flex: 1, fontSize: 13, fontFamily: fonts.ui, lineHeight: 20 },
+  calloutLead: { fontSize: 13, fontFamily: fonts.semibold, fontWeight: '600', lineHeight: 20 },
+
+  // Action toolbar (contract .toolbar-bottom column): annotate + send stacked.
+  toolbar: { gap: 9, marginTop: 4 },
 });
