@@ -101,7 +101,7 @@ import {
   updateTaskTool,
   linkTasksTool,
 } from "./task-tools";
-import { createMethodTool, updateMethodTool } from "./method-tools";
+import { createMethodTool, updateMethodTool, editMethodTool } from "./method-tools";
 import { createProjectTool, updateProjectTool } from "./project-tools";
 import {
   updateSequenceTool,
@@ -422,6 +422,10 @@ export const ACTION_TOOLS: AiTool[] = [
   // INTERPRETATION: create_method writes the user's own protocol, never an invented one.
   createMethodTool,
   updateMethodTool,
+  // edit_method edits the protocol BODY of a markdown method (append a section or
+  // rewrite). Reads the current file, writes the new body, re-stamps the excerpt.
+  // NO-INTERPRETATION: the user's own protocol text, never invented steps.
+  editMethodTool,
   // Project coworker tools (action: true, isDestructive false). create_project makes
   // a new project (the container a task/experiment needs); update_project renames,
   // sets tags, or archives/unarchives one (archive is reversible, never a delete).

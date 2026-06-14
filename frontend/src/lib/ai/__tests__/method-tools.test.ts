@@ -28,6 +28,7 @@ import {
   uniqueMethodSlug,
   createMethodTool,
   updateMethodTool,
+  editMethodTool,
 } from "../tools/method-tools";
 import type { Method } from "@/lib/types";
 
@@ -254,6 +255,70 @@ describe("update_method tool", () => {
     expect(result.ok).toBe(false);
     expect(result.error).toMatch(/nothing to update/i);
     expect(updateMethod).not.toHaveBeenCalled();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// edit_method (body)
+// ---------------------------------------------------------------------------
+
+describe("edit_method tool", () => {
+  it("is a gated action, not destructive", () => {
+    expect(editMethodTool.action).toBe(true);
+    expect(editMethodTool.isDestructive?.({})).toBe(false);
+  });
+
+  it("appends the content to the current body and re-stamps the excerpt", async () => {
+    vi.spyOn(methodToolsDeps, "listMethods").mockResolvedValue([
+      makeMethod({ id: 5, name: "Colony PCR", source_path: "methods/colony-pcr/colony-pcr.md" }),
+    ]);
+    vi.spyOn(methodToolsDeps, "readFile").mockResolvedValue("# Colony PCR\n\n1. Pick a colony");
+    const writeFile = vi.spyOn(methodToolsDeps, "writeFile").mockResolvedValue({ path: "x", sha: "y" });
+    const updateMethod = vi.spyOn(methodToolsDeps, "updateMethod").mockResolvedValue(makeMethod({ id: 5 }));
+    vi.spyOn(methodToolsDeps, "navigate").mockImplementation(() => {});
+
+    const result = (await editMethodTool.execute({
+      method: "Colony PCR",
+      content: "2. Add a wash step",
+    })) as { ok: boolean; mode: string };
+
+    expect(result.ok).toBe(true);
+    expect(result.mode).toBe("append");
+    const [path, body] = writeFile.mock.calls[0];
+    expect(path).toBe("methods/colony-pcr/colony-pcr.md");
+    expect(body).toContain("1. Pick a colony"); // kept the old body
+    expect(body).toContain("2. Add a wash step"); // appended the new
+    // Excerpt re-stamped.
+    expect(updateMethod).toHaveBeenCalledWith(5, { excerpt: expect.any(String) });
+  });
+
+  it("replace mode rewrites the body without the old content", async () => {
+    vi.spyOn(methodToolsDeps, "listMethods").mockResolvedValue([
+      makeMethod({ id: 5, name: "Colony PCR", source_path: "methods/colony-pcr/colony-pcr.md" }),
+    ]);
+    vi.spyOn(methodToolsDeps, "readFile").mockResolvedValue("OLD BODY");
+    const writeFile = vi.spyOn(methodToolsDeps, "writeFile").mockResolvedValue({ path: "x", sha: "y" });
+    vi.spyOn(methodToolsDeps, "updateMethod").mockResolvedValue(makeMethod({ id: 5 }));
+    vi.spyOn(methodToolsDeps, "navigate").mockImplementation(() => {});
+
+    await editMethodTool.execute({ method: 5, mode: "replace", content: "FRESH PROTOCOL" });
+    const body = writeFile.mock.calls[0][1];
+    expect(body).toContain("FRESH PROTOCOL");
+    expect(body).not.toContain("OLD BODY");
+  });
+
+  it("declines a non-markdown method", async () => {
+    vi.spyOn(methodToolsDeps, "listMethods").mockResolvedValue([
+      makeMethod({ id: 5, name: "PCR kit", method_type: "pdf", source_path: "methods/pcr/x.pdf" }),
+    ]);
+    const writeFile = vi.spyOn(methodToolsDeps, "writeFile");
+    const result = (await editMethodTool.execute({ method: 5, content: "x" })) as {
+      ok: boolean;
+      error: string;
+    };
+    expect(result.ok).toBe(false);
+    expect(result.error).toMatch(/pdf method/i);
+    expect(writeFile).not.toHaveBeenCalled();
   });
 
   it("errors with the user's real method names when the ref misses", async () => {

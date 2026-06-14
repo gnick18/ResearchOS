@@ -54,8 +54,11 @@ export type MethodToolsDeps = {
     data: MethodUpdate,
     owner?: string,
   ) => Promise<Method | null>;
-  /** Write the markdown body file for a new method. */
+  /** Write the markdown body file for a method (create or content edit). */
   writeFile: (path: string, content: string, message?: string) => Promise<unknown>;
+  /** Read a method's current body file (for an append/edit). Returns "" when the
+   *  file is missing or unreadable, so an append still produces something. */
+  readFile: (path: string) => Promise<string>;
   /** Navigate the user to an internal path after a successful write. */
   navigate: (path: string) => void;
 };
@@ -65,6 +68,13 @@ export const methodToolsDeps: MethodToolsDeps = {
   createMethod: (data) => methodsApi.create(data),
   updateMethod: (id, data, owner) => methodsApi.update(id, data, owner),
   writeFile: (path, content, message) => filesApi.writeFile(path, content, message),
+  readFile: async (path) => {
+    try {
+      return (await filesApi.readFile(path)).content;
+    } catch {
+      return "";
+    }
+  },
   navigate: requestNavigation,
 };
 
@@ -378,5 +388,119 @@ export const updateMethodTool: AiTool = {
       folder: updated.folder_path ?? null,
       tags: updated.tags ?? [],
     };
+  },
+};
+
+// ---------------------------------------------------------------------------
+// edit_method (edit the protocol BODY)
+// ---------------------------------------------------------------------------
+
+export const editMethodTool: AiTool = {
+  name: "edit_method",
+  description:
+    "Edit the BODY of an existing markdown method (the protocol text itself, not its title/tags). Use this when the user asks to add a step, add a section, or rewrite a protocol they already have. Two modes: \"append\" adds your markdown to the end (the default, for \"add a wash step\"), \"replace\" rewrites the whole protocol body. Call read_method first so you have the current text, then call this with the method (a name or id), the mode, and the markdown content. The app shows a one-line preview before anything writes. NO INTERPRETATION: write the user's OWN protocol text (expand and format what they tell you), NEVER invent steps, reagents, or conditions they did not give you. Markdown methods only (a PDF or structured method opens in its own editor). After it writes, confirm in one short sentence what changed. Own methods only.",
+  parameters: {
+    type: "object",
+    properties: {
+      method: {
+        type: "string",
+        description: "The method to edit, by its name (case-insensitive) or numeric id.",
+      },
+      mode: {
+        type: "string",
+        enum: ["append", "replace"],
+        description:
+          "\"append\" adds the content to the end of the protocol (default). \"replace\" rewrites the whole protocol body. Use replace only when the user clearly wants the protocol rewritten.",
+      },
+      content: {
+        type: "string",
+        description:
+          "The markdown to add (append) or the full new protocol body (replace). This is the user's OWN content; format it cleanly but do not invent steps.",
+      },
+    },
+    required: ["method", "content"],
+    additionalProperties: false,
+  },
+  action: true,
+  isDestructive: () => false,
+  describeAction: (args) => {
+    const ref =
+      typeof args.method === "string" || typeof args.method === "number"
+        ? String(args.method)
+        : "?";
+    const mode = args.mode === "replace" ? "rewrite the body of" : "add to";
+    return { summary: `${mode} method "${ref}"` };
+  },
+  execute: async (args) => {
+    const ref =
+      typeof args.method === "string" || typeof args.method === "number"
+        ? (args.method as string | number)
+        : undefined;
+    const content =
+      typeof args.content === "string" ? args.content.trim() : "";
+    if (!content) {
+      return { ok: false as const, error: "The content to add is required." };
+    }
+    const mode = args.mode === "replace" ? "replace" : "append";
+
+    const methods = await methodToolsDeps.listMethods();
+    const method = resolveMethod(methods, ref);
+    if (!method) {
+      const names = ownMethodNames(methods);
+      return {
+        ok: false as const,
+        error: `I could not find one of your methods called "${ref}". Your methods are: ${names.length ? names.map((n) => `"${n}"`).join(", ") : "(none yet)"}.`,
+      };
+    }
+    // Only a markdown method has an editable text body. A structured / PDF method
+    // is edited through its own surface, so decline cleanly and say why.
+    if (method.method_type !== "markdown" || !method.source_path) {
+      return {
+        ok: false as const,
+        error: `"${method.name}" is a ${method.method_type ?? "non-markdown"} method, so its body cannot be edited as text here. Open it in its own editor to change it.`,
+      };
+    }
+
+    const sourcePath = method.source_path;
+    let nextBody: string;
+    if (mode === "append") {
+      const current = await methodToolsDeps.readFile(sourcePath);
+      nextBody = `${current.trimEnd()}\n\n${content}\n`;
+    } else {
+      // Replace: rewrite the body but keep a stamped title header so the file
+      // stays a valid method document.
+      const scaffold = createNewFileContent(
+        method.name,
+        method.folder_path ?? "",
+        "method",
+      );
+      nextBody = `${scaffold}\n${content}\n`;
+    }
+
+    try {
+      await methodToolsDeps.writeFile(
+        sourcePath,
+        nextBody,
+        `Edit method: ${method.name}`,
+      );
+    } catch (err) {
+      return {
+        ok: false as const,
+        error: `Could not write the method body. ${err instanceof Error ? err.message : String(err)}`,
+      };
+    }
+
+    // Re-stamp the picker excerpt from the new body so the card preview stays current.
+    try {
+      await methodToolsDeps.updateMethod(method.id, {
+        excerpt: deriveExcerptFromMarkdown(nextBody),
+      });
+    } catch {
+      // The body write already landed; a failed excerpt re-stamp is non-fatal.
+    }
+
+    methodToolsDeps.navigate(objectDeepLink("method", method.id));
+
+    return { ok: true as const, id: method.id, name: method.name, mode };
   },
 };
