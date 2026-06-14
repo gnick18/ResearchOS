@@ -11,8 +11,10 @@
 
 import { patchUserSettings } from "@/lib/settings/user-settings";
 import type { StoredIdentity } from "@/lib/sharing/identity/storage";
+import { canonicalizeEmail } from "@/lib/sharing/directory/email";
 import { getLabRemote } from "./lab-do-client";
 import { openLabKeyCopy } from "./lab-key";
+import type { DataKeyState } from "./lab-deferred-seal";
 
 export type EnterLabResult =
   | { entered: true; labId: string }
@@ -79,6 +81,91 @@ export async function checkAndEnterLab(params: {
 
   // Approved + sealed to us. Set lab_id; useLabSession live-reads the write and
   // the gate activates. We do not touch account_type (a member is the default).
+  await patchUserSettings(username, { lab_id: labId });
+  return { entered: true, labId };
+}
+
+// ---------------------------------------------------------------------------
+// Phase 4A. The token-joined member side. A member who joined via a Phase 4B
+// server token has NO crypto-roster entry and NO sealed copy until a labmate runs
+// the deferred-seal reconciliation. Membership (the server token) and data-key
+// access (the sealed copy) are independent, so this returns a DataKeyState rather
+// than collapsing both into a single "pending", and NEVER traps the member: a
+// pending data key is a clearly-labeled state they can wait out or leave from.
+//
+// The deterministic roster key for a token-joined member is their CANONICAL EMAIL
+// (the same key the head seals under, see lab-deferred-seal-reconcile.ts), so the
+// member opens their copy keyed by canonicalizeEmail(their own OAuth email).
+// ---------------------------------------------------------------------------
+
+export type TokenEnterResult =
+  | { entered: true; labId: string }
+  | { entered: false; state: DataKeyState; message: string };
+
+/**
+ * Member side, token flow. Determines this member's data-key state for a lab and,
+ * when their copy is openable, activates the lab. The member's OAuth email is the
+ * roster key; we open the current-generation copy under it with the member's
+ * X25519 private key.
+ *
+ *   active        -> sealed copy opened, lab_id set, entered:true.
+ *   seal-pending  -> a sealed copy exists in the roster set but does not open under
+ *                    our key (should not normally happen for our own email) OR no
+ *                    copy yet though our pubkey is published. Wait for a labmate.
+ *   key-pending   -> we have no published device key, nobody can seal to us yet.
+ *
+ * We deliberately do NOT consult the head-signed crypto roster for membership: in
+ * the token flow the server token (billing roster) is the membership of record.
+ * The sealed copy is the ONLY data-access gate.
+ */
+export async function enterLabViaToken(params: {
+  labId: string;
+  username: string;
+  oauthEmail: string;
+  identity: StoredIdentity;
+  /** True when this device has published an X25519 pubkey (provisioned a key).
+   *  The caller knows this from the directory bind state; it only distinguishes
+   *  the two pending messages and never gates the open attempt. */
+  hasPublishedKey: boolean;
+}): Promise<TokenEnterResult> {
+  const { labId, username, oauthEmail, identity, hasPublishedKey } = params;
+  const rosterKey = canonicalizeEmail(oauthEmail);
+
+  let remote;
+  try {
+    remote = await getLabRemote(labId);
+  } catch (e) {
+    return {
+      entered: false,
+      state: "seal-pending",
+      message: e instanceof Error ? e.message : String(e),
+    };
+  }
+  if (!remote || !remote.envelopes.length) {
+    return {
+      entered: false,
+      state: hasPublishedKey ? "seal-pending" : "key-pending",
+      message: hasPublishedKey
+        ? "Waiting for a labmate to grant you data access."
+        : "Set up a device key so a labmate can grant you data access.",
+    };
+  }
+
+  const current = remote.envelopes.reduce((a, b) =>
+    b.generation > a.generation ? b : a,
+  );
+  try {
+    openLabKeyCopy(current, rosterKey, identity.keys.encryption.privateKey);
+  } catch {
+    return {
+      entered: false,
+      state: hasPublishedKey ? "seal-pending" : "key-pending",
+      message: hasPublishedKey
+        ? "Waiting for a labmate to grant you data access."
+        : "Set up a device key so a labmate can grant you data access.",
+    };
+  }
+
   await patchUserSettings(username, { lab_id: labId });
   return { entered: true, labId };
 }
