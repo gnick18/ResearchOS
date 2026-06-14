@@ -66,7 +66,7 @@ import {
 import { makeDataHubGraphTool } from "./datahub-graph";
 import { listNotesTool, writeNoteTool } from "./write-note";
 import { searchMyWorkTool } from "./search-my-work";
-import { searchNoteBodiesTool } from "./search-note-bodies";
+import { searchFullTextTool } from "./search-full-text";
 import { summarizeExperimentsTool } from "./summarize-experiments";
 import { summarizePurchasesTool } from "./summarize-purchases";
 import { summarizeNotesTool } from "./summarize-notes";
@@ -250,11 +250,11 @@ export const READ_ONLY_TOOLS: AiTool[] = [
   // title+keyword scorer, and returns a compact list of matched briefs. Only the
   // briefs (titles, ids, deep links) cross to the model, never any bodies.
   searchMyWorkTool,
-  // search_note_bodies is the deliberate DEEP search of full note BODY text (the
-  // index only covers titles/headings/tags/descriptions). Read-only; the model
-  // confirms the exact term via ask_user first (system-prompt). Snippets only, no
-  // body crosses as a finding.
-  searchNoteBodiesTool,
+  // search_full_text is the deliberate DEEP search of full note + method BODY text
+  // (the index only covers titles/headings/tags/descriptions). Read-only; the model
+  // confirms the exact term via ask_user first (system-prompt). Snippets + match
+  // counts only, no body crosses as a finding.
+  searchFullTextTool,
   // Summary suite Layer 2 (artifact-index filterArtifacts + deterministic
   // aggregates). summarize_experiments and summarize_purchases aggregate ACROSS
   // many records over a shared filter (types / dates / owners / projects /
