@@ -762,6 +762,53 @@ export default function NoteDetailPopup({
     (editingDescription && description !== note.description) ||
     (showNewEntryForm && newEntryTitle.trim().length > 0);
 
+  // True when the Loro pilot owns this note's content (flag on + handle ready).
+  // In that mode the note auto-persists via the debounced commit; otherwise the
+  // note follows the manual-save model. Hoisted here so the ambient indicator
+  // and the unsaved-changes guard below share one definition.
+  const loroActive = LORO_PILOT_ENABLED && !!loroHandle;
+
+  // Unified editor surface (L3, continuous-surface shell). An HONEST ambient
+  // save indicator derived ENTIRELY from the existing save/dirty state — no new
+  // autosave loop, no change to the manual-save semantics underneath.
+  //   - Loro pilot active: the note auto-persists via the debounced commit, so
+  //     "Saving" while a commit is queued/in-flight, else "Saved".
+  //   - Legacy (manual-save) note: tells the truth about the manual flow —
+  //     "Saving" while an explicit save is in flight, "Unsaved changes" while
+  //     the active entry (or its in-flight buffer) differs from disk, else
+  //     "Saved". It NEVER reads "Saved" while there is unsaved content, so the
+  //     ambient state can be trusted before the user clicks Done / closes.
+  // Only consumed in the expanded shell; the docked popup keeps its existing
+  // bars unchanged.
+  const ambientSaveState: "saving" | "unsaved" | "saved" = loroActive
+    ? loroCommitPending
+      ? "saving"
+      : "saved"
+    : saving
+      ? "saving"
+      : hasUnsavedChanges || editorDirty
+        ? "unsaved"
+        : "saved";
+
+  // Plain "Done" for the expanded shell: flush the active entry through the
+  // EXISTING manual-save path (legacy note) then collapse back to the docked
+  // popup. In Loro mode the debounced commit already persists, so Done just
+  // collapses. No close, no new write path — just the existing save + the
+  // collapse the user already had via the fullscreen toggle / Esc.
+  const handleDone = useCallback(() => {
+    if (!loroActive && !readOnly && activeTab) {
+      const latest = editorSaveRef.current?.();
+      const next =
+        typeof latest === "string"
+          ? latest
+          : (entries.find((e) => e.id === activeTab)?.content ?? "");
+      if (next !== (savedContentRef.current.get(activeTab) ?? "")) {
+        void saveEntryContent(activeTab, next);
+      }
+    }
+    setIsExpanded(false);
+  }, [loroActive, readOnly, activeTab, entries, saveEntryContent]);
+
   // beforeunload guard. `onFlush` saves every pending entry synchronously via
   // the manual path, giving the in-flight write a fighting chance before the
   // browser tears down. The guard itself only triggers when `hasUnsavedEdits`
@@ -772,7 +819,6 @@ export default function NoteDetailPopup({
   // commit), so the beforeunload prompt is suppressed. We STILL call flush via
   // onFlush so any pending debounced commit is drained before the page unloads
   // (belt and suspenders alongside the close/unmount paths).
-  const loroActive = LORO_PILOT_ENABLED && !!loroHandle;
   const flushLoroOnUnload = useCallback(() => {
     if (loroHandle) void loroHandle.flush();
   }, [loroHandle]);
@@ -1525,8 +1571,14 @@ export default function NoteDetailPopup({
             </p>
           </div>
         )}
-        {/* Header */}
-        <div className="p-4 border-b border-border flex-shrink-0">
+        {/* Header. L3: at fullscreen the hard divider softens so the header
+            reads as the top of one continuous paper surface, not a separate
+            card seam. */}
+        <div
+          className={`p-4 flex-shrink-0 ${
+            isExpanded ? "border-b border-border/40" : "border-b border-border"
+          }`}
+        >
           <div className="flex items-start justify-between">
             <div className="flex-1 mr-4">
               {/* Title */}
@@ -1537,14 +1589,24 @@ export default function NoteDetailPopup({
                   onChange={(e) => setTitle(e.target.value)}
                   onBlur={saveTitle}
                   onKeyDown={(e) => e.key === "Enter" && saveTitle()}
-                  className="text-heading font-bold text-foreground w-full border-b-2 border-emerald-500 focus:outline-none bg-transparent"
+                  // L3: at fullscreen the title becomes an editorial heading
+                  // rather than a boxed field — same persistence path
+                  // (saveTitle), only the type scale + the chromeless look
+                  // change. The docked popup keeps the underlined input.
+                  className={`font-bold text-foreground w-full focus:outline-none bg-transparent ${
+                    isExpanded
+                      ? "text-3xl leading-tight border-0 focus:ring-0 placeholder:text-foreground-muted/50"
+                      : "text-heading border-b-2 border-emerald-500"
+                  }`}
                   autoFocus
                   disabled={readOnly}
                 />
               ) : (
                 <h2
                   onClick={() => !readOnly && setEditingTitle(true)}
-                  className={`text-heading font-bold text-foreground ${
+                  className={`font-bold text-foreground ${
+                    isExpanded ? "text-3xl leading-tight" : "text-heading"
+                  } ${
                     !readOnly ? "cursor-pointer hover:text-emerald-600 dark:hover:text-emerald-300" : ""
                   }`}
                 >
@@ -1888,6 +1950,50 @@ export default function NoteDetailPopup({
                   </svg>
                 </button>
               </Tooltip>
+              {/* L3 ambient save state + plain Done. Only in the expanded
+                  (fullscreen) shell — the docked popup keeps its existing save
+                  bar. The indicator is HONEST: it reads "Saved" only when there
+                  is nothing pending (see ambientSaveState). Done flushes the
+                  active entry through the existing manual-save path and
+                  collapses; it is one of three always-reachable exits (Done,
+                  the fullscreen toggle, the X) so the shell is never soft-locked. */}
+              {isExpanded && (
+                <>
+                  <span
+                    data-testid="note-ambient-save"
+                    aria-live="polite"
+                    aria-atomic="true"
+                    className={`mr-1 inline-flex items-center gap-1.5 text-meta font-medium ${
+                      ambientSaveState === "unsaved"
+                        ? "text-amber-700 dark:text-amber-300"
+                        : "text-foreground-muted"
+                    }`}
+                  >
+                    <span
+                      aria-hidden
+                      className={`h-1.5 w-1.5 rounded-full ${
+                        ambientSaveState === "saving"
+                          ? "bg-amber-400 animate-pulse"
+                          : ambientSaveState === "unsaved"
+                            ? "bg-amber-500"
+                            : "bg-emerald-500"
+                      }`}
+                    />
+                    {ambientSaveState === "saving"
+                      ? "Saving..."
+                      : ambientSaveState === "unsaved"
+                        ? "Unsaved changes"
+                        : "Saved"}
+                  </span>
+                  <button
+                    onClick={handleDone}
+                    data-testid="note-done"
+                    className="mr-1 px-3 py-1.5 text-meta font-medium rounded-lg bg-surface-sunken text-foreground hover:bg-foreground-muted/15 transition-colors"
+                  >
+                    Done
+                  </button>
+                </>
+              )}
               <Tooltip label={isExpanded ? "Exit fullscreen" : "Fullscreen"} placement="bottom">
                 <button
                   onClick={() => toggleExpanded()}
@@ -1944,11 +2050,35 @@ export default function NoteDetailPopup({
             onCancel={piGate.cancelEdit}
           />
 
+          {/* L3 quiet metadata subline. At fullscreen the chip cluster + the
+              attribution stamps collapse into a single calm "date · author ·
+              status" line (sharing summarised quietly, the full chips + the
+              Share control stay reachable in the softened actions row below).
+              The docked popup keeps the original chip rows untouched. */}
+          {isExpanded && note.username && (
+            <p
+              data-testid="note-meta-subline"
+              className="mt-2 text-meta text-foreground-muted"
+            >
+              {[
+                formatDate(note.created_at || note.last_edited_at || ""),
+                note.last_edited_by || note.username,
+                (note.shared_with?.length ?? 0) > 0
+                  ? `Shared with ${note.shared_with!.length}`
+                  : "Private",
+              ]
+                .filter(Boolean)
+                .join("  ·  ")}
+            </p>
+          )}
+
           {/* R1b: sharing chips — read-only visibility hint row showing who
               currently has access. The Loro auto-save status sits inline at the
               end of this row (next to the sharing state) instead of a floating
-              pill, so status lives on one line with the access state. */}
-          {note.username && (
+              pill, so status lives on one line with the access state.
+              L3: at fullscreen this verbose row folds into the quiet subline
+              above + the ambient indicator in the header, so it is hidden. */}
+          {note.username && !isExpanded && (
             <div className="mt-3 flex flex-wrap items-center gap-2">
               <SharingChips
                 sharedWith={note.shared_with || []}
@@ -2085,17 +2215,21 @@ export default function NoteDetailPopup({
                 </span>
               )}
 
-              {/* Attribution stamps, docked right on the actions row. */}
-              <div className="ml-auto">
-                <StampsRow
-                  createdBy={note.username}
-                  createdAt={note.created_at}
-                  lastEditedBy={note.last_edited_by}
-                  lastEditedAt={note.last_edited_at}
-                />
-              </div>
+              {/* Attribution stamps, docked right on the actions row. L3: the
+                  stamps are summarised in the quiet subline at fullscreen, so
+                  this duplicate is hidden there. */}
+              {!isExpanded && (
+                <div className="ml-auto">
+                  <StampsRow
+                    createdBy={note.username}
+                    createdAt={note.created_at}
+                    lastEditedBy={note.last_edited_by}
+                    lastEditedAt={note.last_edited_at}
+                  />
+                </div>
+              )}
             </div>
-          ) : (
+          ) : !isExpanded ? (
             <div className="mt-3">
               <StampsRow
                 createdBy={note.username}
@@ -2104,7 +2238,7 @@ export default function NoteDetailPopup({
                 lastEditedAt={note.last_edited_at}
               />
             </div>
-          )}
+          ) : null}
         </div>
 
         {/* Content + version-history split. When the history sidebar is open
@@ -2114,9 +2248,14 @@ export default function NoteDetailPopup({
         <div className="flex-1 overflow-hidden flex flex-row min-h-0">
         {/* Content area (document column) */}
         <div className="flex-1 min-w-0 overflow-hidden flex flex-col">
-          {/* Tabs for running logs */}
+          {/* Tabs for running logs. L3: entry tabs are kept (still navigable)
+              but the seam softens at fullscreen. */}
           {note.is_running_log && (
-            <div className="border-b border-border px-4 py-2 flex-shrink-0">
+            <div
+              className={`px-4 py-2 flex-shrink-0 ${
+                isExpanded ? "border-b border-border/40" : "border-b border-border"
+              }`}
+            >
               <div className="flex items-center gap-2 overflow-x-auto pb-1">
                 {entries
                   .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
@@ -2185,9 +2324,16 @@ export default function NoteDetailPopup({
             </div>
           )}
 
-          {/* Entry info bar */}
+          {/* Entry info bar. L3: at fullscreen the seam + tinted strip soften
+              so the entry meta sits on the same continuous paper surface. */}
           {note.is_running_log && currentEntry && (
-            <div className="px-4 py-2 border-b border-border flex items-center justify-between bg-surface-sunken/50 flex-shrink-0">
+            <div
+              className={`px-4 py-2 flex items-center justify-between flex-shrink-0 ${
+                isExpanded
+                  ? "border-b border-border/40"
+                  : "border-b border-border bg-surface-sunken/50"
+              }`}
+            >
               <div className="flex items-center gap-3">
                 {/* Entry title - editable */}
                 {editingEntryTitle ? (
@@ -2254,8 +2400,13 @@ export default function NoteDetailPopup({
           {/* Legacy manual-save toolbar, ONLY when the Loro pilot is off or the
               handle is not ready. Under the pilot this whole bar is removed so
               the editor gets the full height; the auto-save status floats in the
-              editor corner instead (see the colored pill near the card end). */}
-          {!readOnly && currentEntry && !(LORO_PILOT_ENABLED && !!loroHandle) && (
+              editor corner instead (see the colored pill near the card end).
+              L3: at fullscreen this prominent bar dissolves into the ambient
+              header indicator + the plain Done button — the manual save still
+              works underneath via Done, Cmd+S (onExplicitSave), tab-switch
+              flush, and the close flush, so nothing is lost; only the look
+              changes and only when expanded. */}
+          {!readOnly && currentEntry && !(LORO_PILOT_ENABLED && !!loroHandle) && !isExpanded && (
             <div className="flex items-center gap-2 px-4 py-2 border-b border-border flex-shrink-0">
               <div className="flex-1" />
               {(hasUnsavedChanges || editorDirty) && (
