@@ -125,6 +125,7 @@ export type AlignedPanelKind =
   | "scatter"
   | "clade"
   | "support"
+  | "nodepoints"
   | "msa";
 
 /**

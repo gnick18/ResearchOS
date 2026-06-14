@@ -62,6 +62,7 @@ export const PANEL_CATALOG: CatalogGroup[] = [
     items: [
       { kind: "clade", name: "Clade highlight", desc: "shade a subtree" },
       { kind: "support", name: "Support values", desc: "bootstrap labels" },
+      { kind: "nodepoints", name: "Node points", desc: "glyph at each internal node" },
     ],
   },
   {
@@ -601,6 +602,50 @@ function Inspector({
         <p className="text-xs text-foreground-muted">
           Shows the bootstrap / support value on each internal branch.
         </p>
+      )}
+
+      {panel.kind === "nodepoints" && (
+        <>
+          <p className="text-xs text-foreground-muted">
+            A dot at every internal node (ggtree geom_nodepoint).
+          </p>
+          <Field label="Size">
+            <RangeInput
+              value={Number(panel.options?.size) || 3}
+              min={1}
+              max={8}
+              onChange={(n) =>
+                onUpdate({ options: { ...panel.options, size: n } })
+              }
+            />
+          </Field>
+          <Field label="Color">
+            <input
+              type="color"
+              value={(panel.options?.color as string) || "#374151"}
+              onChange={(e) =>
+                onUpdate({
+                  options: { ...panel.options, color: e.target.value },
+                })
+              }
+              aria-label="Node point color"
+              className="h-6 w-6 shrink-0 cursor-pointer rounded border border-border bg-transparent p-0"
+            />
+          </Field>
+          <Field label="Show root point">
+            <ToggleInput
+              on={!!panel.options?.showRoot}
+              onClick={() =>
+                onUpdate({
+                  options: {
+                    ...panel.options,
+                    showRoot: !panel.options?.showRoot,
+                  },
+                })
+              }
+            />
+          </Field>
+        </>
       )}
       {panel.kind === "clade" && (
         <CladeInspector panel={panel} tipNames={tipNames} onUpdate={onUpdate} />

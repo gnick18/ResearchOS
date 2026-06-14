@@ -109,6 +109,7 @@ const DEFAULT_THICKNESS: Record<AlignedPanelKind, number> = {
   scatter: 40,
   clade: 0,
   support: 0,
+  nodepoints: 0, // glyphs sit on the internal nodes, no own band
   msa: 0,
 };
 

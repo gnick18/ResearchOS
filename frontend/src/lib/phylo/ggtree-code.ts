@@ -233,6 +233,20 @@ function generateFromPanels(spec: RenderSpec, panels: AlignedPanel[]): string {
           "p <- p + geom_nodelab(aes(label = label), size = 2, hjust = -0.2)   # branch support",
         );
         break;
+      case "nodepoints": {
+        const npo = panel.options ?? {};
+        const size = Number(npo.size) || 3;
+        const color = (typeof npo.color === "string" && npo.color) || "#374151";
+        lines.push(
+          `p <- p + geom_nodepoint(size = ${(size / 2).toFixed(1)}, colour = ${rstr(color)})   # internal node points`,
+        );
+        if (npo.showRoot) {
+          lines.push(
+            `p <- p + geom_rootpoint(size = ${(size / 2 + 0.5).toFixed(1)}, colour = ${rstr(color)})`,
+          );
+        }
+        break;
+      }
       case "clade": {
         const clades =
           (panel.options?.clades as CladeAnnotation[] | undefined) ?? [];

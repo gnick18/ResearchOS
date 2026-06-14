@@ -566,6 +566,29 @@ function drawRectTree(
       );
     }
   }
+  // Node / root point glyphs (ggtree geom_nodepoint / geom_rootpoint), drawn on
+  // the tree over the branches.
+  const nodePointsPanel =
+    panels.find((p) => p.visible && p.kind === "nodepoints") ?? null;
+  if (nodePointsPanel) {
+    const npo = nodePointsPanel.options ?? {};
+    const r = Number(npo.size) || 3;
+    const color =
+      (typeof npo.color === "string" && npo.color) || "#374151";
+    const showRoot = !!npo.showRoot;
+    for (const p of layout.nodes) {
+      const isRoot = p.parentX === null || p.parentY === null;
+      if (isRoot) {
+        if (showRoot)
+          parts.push(
+            `<circle cx="${p.x}" cy="${p.y}" r="${(r + 1).toFixed(1)}" fill="${color}" stroke="#ffffff" stroke-width="0.75"/>`,
+          );
+        continue;
+      }
+      if (p.node.children.length > 0)
+        parts.push(`<circle cx="${p.x}" cy="${p.y}" r="${r}" fill="${color}"/>`);
+    }
+  }
   if (pointsPanel) {
     const scale =
       pointsPanel.column && spec.metadata
@@ -690,6 +713,27 @@ function drawCircularTree(
     parts.push(
       `<path d="M${px} ${py} A ${p.parentRadius} ${p.parentRadius} 0 ${large} ${sweep} ${ax} ${ay} L ${p.x} ${p.y}" fill="none" stroke="${colorForBranch(spec, p.node.id)}" stroke-width="1.4"/>`,
     );
+  }
+  // Node / root point glyphs (ggtree geom_nodepoint / geom_rootpoint).
+  const nodePointsPanel =
+    panels.find((p) => p.visible && p.kind === "nodepoints") ?? null;
+  if (nodePointsPanel) {
+    const npo = nodePointsPanel.options ?? {};
+    const r = Number(npo.size) || 3;
+    const color = (typeof npo.color === "string" && npo.color) || "#374151";
+    const showRoot = !!npo.showRoot;
+    for (const p of layout.nodes) {
+      const isRoot = p.parentX === null || p.parentY === null;
+      if (isRoot) {
+        if (showRoot)
+          parts.push(
+            `<circle cx="${p.x}" cy="${p.y}" r="${(r + 1).toFixed(1)}" fill="${color}" stroke="#ffffff" stroke-width="0.75"/>`,
+          );
+        continue;
+      }
+      if (p.node.children.length > 0)
+        parts.push(`<circle cx="${p.x}" cy="${p.y}" r="${r}" fill="${color}"/>`);
+    }
   }
   const pointsPanel = panels.find((p) => p.visible && p.kind === "points");
   if (pointsPanel) {
