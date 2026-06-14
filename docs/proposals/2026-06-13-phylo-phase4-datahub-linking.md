@@ -97,9 +97,12 @@ OPEN (asked the Data optimizer lane):
    minimal `PlotSpec` for the chosen kind, call `renderPlot(..., {alignedAxis})`,
    and return the SVG string + its measured thickness.
 2. New `AlignedPanelKind`: `"datahubPlot"` with `options` = `{ plotKind:
-   "stackedBar" | "groupedBar" | "pie" | "donut", valueColumns: string[],
-   paletteId?: string, normalize?: boolean }`. Stored on the figure spec like
-   every other panel (additive, back-compat).
+   "groupedBar", barMode: "dodge" | "stack" | "stack100", valueColumns:
+   string[], paletteId?: string }`. v1 plotKind is `groupedBar` only (the
+   column/bar geometry the seam reaches); `barMode` maps straight to the Data Hub
+   `style.barMode` the Data optimizer lane is adding (Commit 2): `dodge` = 4a,
+   `stack` (absolute) + `stack100` (100-percent normalized, the microbiome ring)
+   = 4b. Stored on the figure spec like every other panel (additive, back-compat).
 3. `panel-render.ts` `renderPanel`: for the `datahubPlot` kind, call the adapter
    and place the returned SVG as a ring (circular) / column (rectangular) against
    the `TipAxis`, same as every native panel. Per-tip band already known.
