@@ -1418,6 +1418,7 @@ const styles = StyleSheet.create({
   dispRes: {
     color: '#ffffff',
     fontSize: 34,
+    lineHeight: 42,
     fontWeight: '700',
     textAlign: 'right',
     letterSpacing: -0.5,
