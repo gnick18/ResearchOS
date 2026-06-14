@@ -30,6 +30,7 @@ import {
   fetchAllTasksIncludingShared,
   usersApi,
 } from "@/lib/local-api";
+import { withRecordSetUi, periodLabel, RECORD_SET_UI_CAP, type RecordSet, type RecordSetRow } from "@/lib/ai/record-set";
 import type { Project, Task } from "@/lib/types";
 import type { AiTool } from "./types";
 
@@ -386,6 +387,19 @@ export const summarizeExperimentsTool: AiTool = {
     // silently widening the scope to the whole lab.
     const rawOwners = baseFilter.owners ?? [];
     const resolvedOwners = resolveOwnerRefsToUsernames(rawOwners, members);
+    // Check 4 (live-verify 2026-06-14): the user named owner(s) but NONE resolved to
+    // a real member. Do not silently filter by the raw unmatched name and return an
+    // empty summary that reads like a real-but-empty member. Signal the miss so the
+    // model asks who was meant. A real member with no records still has a resolved
+    // username, so this never fires on a legitimate empty result. Guarded on a known
+    // roster: when members is empty (solo user, or the roster API returned nothing)
+    // we cannot tell a typo from a valid owner, so keep the raw filter as before.
+    if (members.length > 0 && rawOwners.length > 0 && resolvedOwners.length === 0) {
+      return {
+        ok: false as const,
+        error: `No lab member matched ${rawOwners.map((o) => `"${o}"`).join(", ")}. Ask the user who they mean, or call list_lab_members for the real names, instead of summarizing an empty set.`,
+      };
+    }
     const filter: ArtifactFilter = {
       ...baseFilter,
       since: baseFilter.since ?? range.since,
@@ -396,7 +410,40 @@ export const summarizeExperimentsTool: AiTool = {
     const projectNames = new Map(
       projects.map((p) => [String(p.id), p.name || "Untitled project"]),
     );
-    const summary = aggregateExperiments(tasks, filter, today, DEFAULT_ITEM_CAP, projectNames);
-    return { ok: true as const, summary };
+    // Aggregate ONCE at the UI cap so the full matched list is available for the
+    // inline record-set widget, then narrow the model-facing summary back to the
+    // documented item cap (counts and tallies are cap-independent). The widget gets
+    // every match; the model still gets only DEFAULT_ITEM_CAP items.
+    const fullSummary = aggregateExperiments(
+      tasks,
+      filter,
+      today,
+      RECORD_SET_UI_CAP,
+      projectNames,
+    );
+    const modelItems = fullSummary.items.slice(0, DEFAULT_ITEM_CAP);
+    const summary: ExperimentSummary = {
+      ...fullSummary,
+      items: modelItems,
+      truncated: fullSummary.total > modelItems.length,
+    };
+
+    const set: RecordSet = {
+      kind: "summarize_experiments",
+      title: periodLabel("Experiments", filter),
+      total: fullSummary.total,
+      items: fullSummary.items.map(
+        (it): RecordSetRow => ({
+          type: "experiment",
+          id: String(it.id),
+          title: it.title,
+          ...(it.projectName ? { subtitle: it.projectName } : {}),
+          ...(it.startDate ? { date: it.startDate } : {}),
+          meta: it.status,
+        }),
+      ),
+    };
+
+    return withRecordSetUi({ ok: true as const, summary }, set);
   },
 };

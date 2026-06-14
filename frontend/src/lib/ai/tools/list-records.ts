@@ -23,6 +23,7 @@ import {
   type ListSortBy,
 } from "@/lib/ai/artifact-index";
 import { fetchAllProjectsIncludingShared, usersApi } from "@/lib/local-api";
+import { withRecordSetUi, briefToRow, RECORD_SET_UI_CAP, type RecordSet } from "@/lib/ai/record-set";
 import type { Project } from "@/lib/types";
 import type { AiTool } from "./types";
 
@@ -128,6 +129,17 @@ export const listRecordsTool: AiTool = {
     const types = strArr(args.types).filter((t) => VALID_TYPES.has(t));
     const rawOwners = strArr(args.owners);
     const resolvedOwners = resolveOwnerRefsToUsernames(rawOwners, members);
+    // Check 4 (live-verify 2026-06-14): owner(s) named but NONE resolved to a real
+    // member. Signal the miss rather than filtering by the raw unmatched name and
+    // returning an empty list that looks like a real-but-empty member. Guarded on a
+    // known roster: an empty members list (solo user / roster API empty) cannot tell
+    // a typo from a valid owner, so it keeps the raw filter as before.
+    if (members.length > 0 && rawOwners.length > 0 && resolvedOwners.length === 0) {
+      return {
+        ok: false as const,
+        error: `No lab member matched ${rawOwners.map((o) => `"${o}"`).join(", ")}. Ask the user who they mean, or call list_lab_members for the real names, instead of listing an empty set.`,
+      };
+    }
     const resolvedProjectIds = resolveProjectRefsToIds(strArr(args.projects), projects);
 
     const filter: ArtifactFilter = {
@@ -144,7 +156,29 @@ export const listRecordsTool: AiTool = {
     const order: ListOrder = args.order === "asc" ? "asc" : "desc";
     const limit = typeof args.limit === "number" && args.limit > 0 ? Math.min(args.limit, 50) : 10;
 
-    const { total, items } = await listRecordsDeps.list({ filter, sortBy, order, limit });
-    return { ok: true as const, total, count: items.length, sortBy, order, items };
+    // Fetch up to the UI cap ONCE so the widget gets the full match set, then slice
+    // the requested limit for the model. The model still receives only `limit`
+    // items (its existing shape); the full set rides out-of-band under _ui, which
+    // the agent loop strips before the result reaches the model.
+    const uiLimit = Math.max(limit, RECORD_SET_UI_CAP);
+    const { total, items: fullItems } = await listRecordsDeps.list({
+      filter,
+      sortBy,
+      order,
+      limit: uiLimit,
+    });
+    const items = fullItems.slice(0, limit);
+
+    const set: RecordSet = {
+      kind: "list_records",
+      title: "Records",
+      total,
+      items: fullItems.slice(0, RECORD_SET_UI_CAP).map(briefToRow),
+    };
+
+    return withRecordSetUi(
+      { ok: true as const, total, count: items.length, sortBy, order, items },
+      set,
+    );
   },
 };
