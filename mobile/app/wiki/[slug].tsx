@@ -10,22 +10,34 @@
  *   code      -- monospace text on a sunken background
  *   image     -- caption shown as muted italic; no remote image fetch
  *
+ * Polished to the locked UI contract (docs/mockups/mobile-contract/03-tools.html,
+ * "Wiki page reader"): a CALM long-form READ surface. Unlike the structured app
+ * screens, the prose reader reads like a page -- a full elevated surface
+ * (contract .scroll.page{background:var(--surface)}) rather than a card floating
+ * on the flat grey canvas. Receding chrome (back chevron only), a muted section
+ * eyebrow, the big .reader h2 title, a .meta line (read-time), then comfortable
+ * 1.6-1.7 line-height prose with a clear h2/h3/h4 hierarchy. Geist + Geist Mono
+ * via design tokens, consistent with the just-polished wiki browse tab
+ * (sky accent, fonts.* tokens).
+ *
  * Route:  app/wiki/[slug].tsx  (expo-router, slug = entry.slug)
- * Pushed from: app/wiki/index.tsx  via router.push(`/wiki/${entry.slug}`)
+ * Pushed from: app/(tabs)/wiki.tsx via router.push(`/wiki/${entry.slug}`)
  *
  * House style: no em-dashes, no emojis, no mid-sentence colons.
  */
 
 import { ScrollView, StyleSheet, View } from 'react-native';
 import { useLocalSearchParams } from 'expo-router';
+import { Ionicons } from '@expo/vector-icons';
 
 import { ThemedText } from '@/components/themed-text';
 import { ScreenFrame } from '@/components/ui/ScreenFrame';
 import { ScreenHeader } from '@/components/ui/ScreenHeader';
-import { useTheme, palette } from '@/lib/design';
+import { useTheme, palette, fonts } from '@/lib/design';
 import {
   getBundledContent,
   entryBySlug,
+  type WikiEntry,
   type WikiBlock,
   type HeadingBlock,
   type ParagraphBlock,
@@ -34,6 +46,33 @@ import {
   type CodeBlock,
   type ImageBlock,
 } from '@/lib/wiki';
+
+// ---------------------------------------------------------------------------
+// Read-time estimate. The contract .meta line reads "N min read"; we derive it
+// deterministically from the page's word count (~200 wpm, floored at 1) so the
+// line is honest rather than a hardcoded number.
+// ---------------------------------------------------------------------------
+function estimateReadMinutes(entry: WikiEntry): number {
+  let words = entry.title.split(/\s+/).filter(Boolean).length;
+  for (const block of entry.blocks) {
+    switch (block.kind) {
+      case 'heading':
+      case 'paragraph':
+      case 'code':
+        words += block.text.split(/\s+/).filter(Boolean).length;
+        break;
+      case 'callout':
+        words += `${block.title ?? ''} ${block.text}`.split(/\s+/).filter(Boolean).length;
+        break;
+      case 'list':
+        words += block.items.join(' ').split(/\s+/).filter(Boolean).length;
+        break;
+      default:
+        break;
+    }
+  }
+  return Math.max(1, Math.round(words / 200));
+}
 
 // ---------------------------------------------------------------------------
 // Screen
@@ -50,40 +89,62 @@ export default function WikiReaderScreen() {
     return (
       <ScreenFrame>
         <ScreenHeader />
-        <View style={[styles.notFound, { paddingTop: spacing['3xl'] }]}>
+        <View style={styles.notFoundWrap}>
+          <View style={[styles.notFoundIcon, { backgroundColor: palette.skyDim }]}>
+            <Ionicons name="document-outline" size={26} color={palette.sky} />
+          </View>
+          <ThemedText style={[styles.notFoundTitle, { color: surface.text }]}>
+            Page not found
+          </ThemedText>
           <ThemedText style={[styles.notFoundText, { color: surface.muted }]}>
-            Page not found.
+            That wiki page is not in this bundle. Go back and pick another from
+            the list.
           </ThemedText>
         </View>
       </ScreenFrame>
     );
   }
 
-  return (
-    <ScreenFrame>
-      <ScreenHeader title="Wiki" />
-      <ScrollView
-        style={styles.fill}
-        contentContainerStyle={[styles.scroll, { paddingBottom: spacing['4xl'] }]}
-      >
-        {/* Breadcrumb */}
-        {entry.breadcrumbs.length > 1 ? (
-          <ThemedText style={[styles.breadcrumb, { color: surface.muted }]}>
-            {entry.breadcrumbs.join(' / ')}
-          </ThemedText>
-        ) : null}
+  // Section eyebrow: the page's own section sits one level above its title in
+  // the breadcrumb trail (contract muted ".note" eyebrow over the h2).
+  const eyebrow =
+    entry.breadcrumbs.length > 1
+      ? entry.breadcrumbs[entry.breadcrumbs.length - 2]
+      : null;
+  const readMinutes = estimateReadMinutes(entry);
 
-        {/* Article body in a white card on the grey canvas, matching the
-            notes/methods card look (Grant 2026-06-11). */}
-        <View style={[styles.articleCard, { backgroundColor: surface.surface, borderColor: surface.border }]}>
+  return (
+    // The reader is a full elevated SURFACE, not a card on the canvas, so the
+    // pushed page reads like a clean sheet of paper (contract .scroll.page).
+    <ScreenFrame>
+      <View style={[styles.page, { backgroundColor: surface.surface }]}>
+        <ScreenHeader />
+        <ScrollView
+          style={styles.fill}
+          contentContainerStyle={[styles.scroll, { paddingBottom: spacing['4xl'] }]}
+          showsVerticalScrollIndicator={false}
+        >
+          {/* Article masthead: muted section eyebrow, big title, read-time meta. */}
+          {eyebrow ? (
+            <ThemedText style={[styles.eyebrow, { color: surface.muted }]}>
+              {eyebrow}
+            </ThemedText>
+          ) : null}
           <ThemedText style={[styles.pageTitle, { color: surface.text }]}>
             {entry.title}
           </ThemedText>
+          <ThemedText style={[styles.meta, { color: surface.faint }]}>
+            {readMinutes} min read
+          </ThemedText>
+
+          {/* Hairline rule closes the masthead before the prose begins. */}
+          <View style={[styles.rule, { backgroundColor: surface.hairline }]} />
+
           {entry.blocks.map((block, idx) => (
             <BlockView key={idx} block={block} />
           ))}
-        </View>
-      </ScrollView>
+        </ScrollView>
+      </View>
     </ScreenFrame>
   );
 }
@@ -136,7 +197,12 @@ function ListView({ block }: { block: ListBlock }) {
     <View style={styles.listWrap}>
       {block.items.map((item, i) => (
         <View key={i} style={styles.listItem}>
-          <ThemedText style={[styles.listMarker, { color: surface.muted }]}>
+          <ThemedText
+            style={[
+              styles.listMarker,
+              { color: block.ordered ? palette.sky : surface.faint },
+            ]}
+          >
             {block.ordered ? `${i + 1}.` : '•'}
           </ThemedText>
           <ThemedText style={[styles.listText, { color: surface.text }]}>
@@ -153,7 +219,7 @@ function CalloutView({ block }: { block: CalloutBlock }) {
   const { bg, border, titleColor } = calloutColors(block.variant);
 
   return (
-    <View style={[styles.callout, { backgroundColor: bg, borderLeftColor: border }]}>
+    <View style={[styles.callout, { backgroundColor: bg, borderColor: border }]}>
       {block.title ? (
         <ThemedText style={[styles.calloutTitle, { color: titleColor }]}>
           {block.title}
@@ -171,15 +237,15 @@ function CalloutView({ block }: { block: CalloutBlock }) {
 function calloutColors(variant: string): { bg: string; border: string; titleColor: string } {
   switch (variant) {
     case 'warning':
-      return { bg: palette.warningLight, border: palette.warning, titleColor: palette.warning };
+      return { bg: palette.amberDim, border: palette.amberBorder, titleColor: palette.amber };
     case 'danger':
     case 'error':
-      return { bg: palette.dangerLight, border: palette.danger, titleColor: palette.danger };
+      return { bg: palette.dangerDim, border: palette.dangerBorder, titleColor: palette.danger };
     case 'success':
-      return { bg: palette.successLight, border: palette.success, titleColor: palette.success };
+      return { bg: palette.successDim, border: 'rgba(22,163,74,0.34)', titleColor: palette.success };
     default:
-      // tip or anything else
-      return { bg: palette.skyDim, border: palette.sky, titleColor: palette.sky };
+      // tip or anything else: the contract sky callout.
+      return { bg: palette.skyDim, border: palette.skyBorder, titleColor: palette.sky };
   }
 }
 
@@ -207,10 +273,13 @@ function ImagePlaceholder({ block }: { block: ImageBlock }) {
   const displayText = block.caption ?? block.alt;
   if (!displayText) return null;
   return (
-    <View style={[styles.imagePlaceholder, { backgroundColor: surface.sunken, borderColor: surface.border }]}>
-      <ThemedText style={[styles.imagePlaceholderLabel, { color: surface.muted }]}>
-        Screenshot
-      </ThemedText>
+    <View style={[styles.imagePlaceholder, { backgroundColor: surface.surface2, borderColor: surface.border }]}>
+      <View style={styles.imagePlaceholderHead}>
+        <Ionicons name="image-outline" size={14} color={surface.faint} />
+        <ThemedText style={[styles.imagePlaceholderLabel, { color: surface.faint }]}>
+          Screenshot
+        </ThemedText>
+      </View>
       <ThemedText style={[styles.imagePlaceholderText, { color: surface.muted }]}>
         {displayText}
       </ThemedText>
@@ -224,63 +293,98 @@ function ImagePlaceholder({ block }: { block: ImageBlock }) {
 
 const styles = StyleSheet.create({
   fill: { flex: 1 },
+  // Full elevated surface so the pushed reader reads like a clean page, not a
+  // card on the canvas (contract .scroll.page).
+  page: { flex: 1 },
   scroll: {
-    paddingHorizontal: 20,
-    paddingTop: 16,
-    gap: 14,
-  },
-  articleCard: {
-    borderRadius: 16,
-    borderWidth: 1,
-    padding: 18,
-    gap: 14,
-    shadowColor: '#101828',
-    shadowOpacity: 0.05,
-    shadowRadius: 12,
-    shadowOffset: { width: 0, height: 4 },
-    elevation: 1,
+    paddingHorizontal: 22,
+    paddingTop: 8,
+    gap: 13,
   },
 
-  breadcrumb: { fontSize: 12, lineHeight: 16 },
-  pageTitle: { fontSize: 26, fontWeight: '800', lineHeight: 32, marginBottom: 4 },
+  // Masthead: muted section eyebrow, big title, faint read-time, hairline rule.
+  eyebrow: {
+    fontSize: 12.5,
+    fontFamily: fonts.semibold,
+    lineHeight: 17,
+    marginBottom: -6,
+  },
+  pageTitle: {
+    fontSize: 27,
+    fontFamily: fonts.extrabold,
+    lineHeight: 33,
+    letterSpacing: -0.4,
+  },
+  meta: {
+    fontSize: 12.5,
+    fontFamily: fonts.medium,
+    lineHeight: 17,
+    marginTop: -7,
+  },
+  rule: { height: StyleSheet.hairlineWidth, marginTop: 3, marginBottom: -2 },
 
-  h2: { fontSize: 20, fontWeight: '700', lineHeight: 26, marginTop: 8 },
-  h3: { fontSize: 17, fontWeight: '700', lineHeight: 23, marginTop: 4 },
-  h4: { fontSize: 15, fontWeight: '600', lineHeight: 21, marginTop: 2 },
+  // Heading hierarchy. Clear size + weight steps, generous top margins to let
+  // sections breathe on this calm read surface.
+  h2: { fontSize: 20, fontFamily: fonts.extrabold, lineHeight: 27, letterSpacing: -0.2, marginTop: 12 },
+  h3: { fontSize: 16.5, fontFamily: fonts.bold, lineHeight: 23, marginTop: 8 },
+  h4: { fontSize: 14.5, fontFamily: fonts.semibold, lineHeight: 21, marginTop: 4 },
 
-  paragraph: { fontSize: 15, lineHeight: 23 },
+  // Body prose. Comfortable 1.6 line-height per the contract reader.
+  paragraph: { fontSize: 15, fontFamily: fonts.ui, lineHeight: 24 },
 
-  listWrap: { gap: 6 },
-  listItem: { flexDirection: 'row', gap: 8, alignItems: 'flex-start' },
-  listMarker: { fontSize: 15, lineHeight: 23, minWidth: 18 },
-  listText: { flex: 1, fontSize: 15, lineHeight: 23 },
+  listWrap: { gap: 7 },
+  listItem: { flexDirection: 'row', gap: 9, alignItems: 'flex-start' },
+  listMarker: { fontSize: 15, fontFamily: fonts.semibold, lineHeight: 24, minWidth: 18 },
+  listText: { flex: 1, fontSize: 15, fontFamily: fonts.ui, lineHeight: 24 },
 
+  // Callout: tinted inset with a full border (contract .callout), accent title.
   callout: {
-    borderLeftWidth: 3,
-    borderRadius: 8,
-    padding: 14,
+    borderWidth: 1,
+    borderRadius: 14,
+    paddingHorizontal: 15,
+    paddingVertical: 13,
     gap: 4,
+    marginVertical: 1,
   },
-  calloutTitle: { fontSize: 14, fontWeight: '700', lineHeight: 19 },
-  calloutText: { fontSize: 14, lineHeight: 20 },
+  calloutTitle: { fontSize: 13.5, fontFamily: fonts.bold, lineHeight: 19 },
+  calloutText: { fontSize: 13.5, fontFamily: fonts.ui, lineHeight: 21 },
 
   codeWrap: {
-    borderRadius: 8,
+    borderRadius: 14,
     borderWidth: 1,
-    padding: 12,
+    paddingHorizontal: 15,
+    paddingVertical: 13,
   },
-  codeText: { fontFamily: 'monospace', fontSize: 13, lineHeight: 20 },
+  codeText: { fontFamily: fonts.mono, fontSize: 13, lineHeight: 21 },
 
   imagePlaceholder: {
-    borderRadius: 8,
+    borderRadius: 14,
     borderWidth: 1,
     borderStyle: 'dashed',
-    padding: 12,
-    gap: 4,
+    paddingHorizontal: 14,
+    paddingVertical: 13,
+    gap: 5,
   },
-  imagePlaceholderLabel: { fontSize: 11, fontWeight: '700', letterSpacing: 0.4, textTransform: 'uppercase' },
-  imagePlaceholderText: { fontSize: 13, lineHeight: 19, fontStyle: 'italic' },
+  imagePlaceholderHead: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  imagePlaceholderLabel: {
+    fontSize: 11,
+    fontFamily: fonts.bold,
+    letterSpacing: 0.5,
+    textTransform: 'uppercase',
+  },
+  imagePlaceholderText: { fontSize: 13, fontFamily: fonts.ui, lineHeight: 19, fontStyle: 'italic' },
 
-  notFound: { alignItems: 'center', paddingHorizontal: 20 },
-  notFoundText: { fontSize: 16, lineHeight: 22 },
+  // Not-found: contract empty state (sky tile + title + subtext), consistent
+  // with the wiki browse no-results screen.
+  notFoundWrap: { alignItems: 'center', paddingTop: 56, paddingHorizontal: 32, gap: 6 },
+  notFoundIcon: {
+    width: 56,
+    height: 56,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 7,
+  },
+  notFoundTitle: { fontSize: 16, fontFamily: fonts.bold, lineHeight: 22 },
+  notFoundText: { fontSize: 13, fontFamily: fonts.ui, lineHeight: 19, textAlign: 'center' },
 });
