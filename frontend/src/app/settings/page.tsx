@@ -80,6 +80,7 @@ import {
 } from "./search-context";
 import { useSharingIdentity } from "@/hooks/useSharingIdentity";
 import { useAccountCapabilities } from "@/hooks/useAccountCapabilities";
+import { useHasCloudSession } from "@/components/account/AccountFirstRedirect";
 import SettingsShell, {
   type SettingsGroupDef,
 } from "@/components/settings/SettingsShell";
@@ -216,6 +217,11 @@ function SettingsBodyInner({
   // Account gating reads the unified capability model; `sharing` is kept for the
   // genuine identity reads it feeds DevicesSection (status + refresh).
   const caps = useAccountCapabilities();
+  // A NextAuth (cloud) session counts as having an account for billing surfaces:
+  // AI billing + storage are keyed on the OAuth session server-side, so a
+  // cloud-signed-in user must be able to reach Usage & billing even if they have
+  // not claimed a local sharing identity (caps.mode). See the AI billing design.
+  const hasCloudSession = useHasCloudSession();
   // floating-cluster-split bot (2026-06-02): the Data-folder + Switch-user
   // CONFIG actions relocated here from the AppShell floating cluster. Each
   // opens the same self-contained modal/screen the floating buttons used.
@@ -370,6 +376,9 @@ function SettingsBodyInner({
   // surface is tuned to what they can actually use. `status === "ready"` is the
   // same has-an-account signal NotificationsSection + DevicesSection gate on.
   const hasAccount = caps.mode === "account";
+  // Billing surfaces also open for a cloud (OAuth) session, not just a claimed
+  // local identity, so a signed-in user can actually reach AI usage + buy credits.
+  const canSeeBilling = hasAccount || hasCloudSession === true;
 
   const groups: SettingsGroupDef[] = [
     {
@@ -427,9 +436,10 @@ function SettingsBodyInner({
       ],
     },
     // Usage and billing is account-only (BeakerBot tokens + cloud storage both
-    // need a cloud account). Hidden entirely for solo users so they never land
-    // on an empty or locked billing page.
-    ...(hasAccount
+    // need a cloud account). Shown for a claimed local identity OR a cloud
+    // (OAuth) session; hidden for true solo users so they never land on an empty
+    // or locked billing page.
+    ...(canSeeBilling
       ? [
           {
             label: "Usage & billing",
