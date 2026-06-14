@@ -65,7 +65,6 @@ const BASE = {
 
 beforeEach(() => {
   vi.clearAllMocks();
-  delete process.env.ORG_BILLING_TAX_ENABLED;
   getOrgBillingMock.mockResolvedValue(null);
   customersCreateMock.mockResolvedValue({ id: "cus_1" });
   pricesCreateMock.mockResolvedValue({ id: "price_1" });

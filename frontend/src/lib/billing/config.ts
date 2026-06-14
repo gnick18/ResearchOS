@@ -17,18 +17,6 @@ export function isBillingEnabled(): boolean {
   return process.env.BILLING_ENABLED === "true";
 }
 
-/**
- * Whether to apply Stripe automatic tax to org (department / institution)
- * procurement invoices. OFF until Grant's Wisconsin sales-tax determination
- * lands (SaaS taxability varies by buyer type, and many universities are exempt
- * with a certificate on file). Fails closed, so no tax line is added until this
- * is explicitly turned on. Independent of charging, which the live-key flip and
- * BILLING_ENABLED still gate.
- */
-export function isOrgTaxEnabled(): boolean {
-  return process.env.ORG_BILLING_TAX_ENABLED === "true";
-}
-
 /** Net-terms window for org procurement invoices, in days. A sent invoice (PO
  *  number, ACH or card) is due this many days out, unlike the auto-charged card
  *  checkout individuals and labs use. */
