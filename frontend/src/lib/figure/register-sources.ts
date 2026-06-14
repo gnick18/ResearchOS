@@ -6,6 +6,7 @@
 // No em-dashes, no emojis, no mid-sentence colons.
 
 import { registerDataHubFigureSource } from "@/lib/datahub/figure-source";
+import { registerPhyloFigureSource } from "@/lib/phylo/figure-source";
 
 let registered = false;
 
@@ -13,5 +14,6 @@ export function registerFigureSources(): void {
   if (registered) return;
   registered = true;
   registerDataHubFigureSource();
-  // Phylo / sequence / chemistry adapters register here as they ship.
+  registerPhyloFigureSource();
+  // Sequence / chemistry adapters register here as they ship.
 }
