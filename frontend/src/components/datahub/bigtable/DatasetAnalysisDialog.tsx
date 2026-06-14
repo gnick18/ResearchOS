@@ -306,12 +306,22 @@ export default function DatasetAnalysisDialog({
     }
   };
 
+  // Click-outside dismiss, but never one that discards work. A computed result or
+  // an in-flight run is real output the user could lose to a single stray
+  // backdrop click, e.g. one a viewport reflow displaces onto the full-screen
+  // backdrop during a "Run another" transition. From those states the explicit
+  // Cancel / Done / Save / Escape controls close; the backdrop does not.
+  const backdropDismiss = () => {
+    if (result || running) return;
+    onClose();
+  };
+
   return (
     <div
       className="fixed inset-0 z-[120] flex items-center justify-center p-4"
       data-testid="dataset-analysis-dialog"
     >
-      <div className="absolute inset-0 bg-black/40" onClick={onClose} />
+      <div className="absolute inset-0 bg-black/40" onClick={backdropDismiss} />
       <div
         role="dialog"
         aria-modal="true"
