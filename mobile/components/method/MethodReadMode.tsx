@@ -576,12 +576,16 @@ export function MethodReadMode({
   experimentName,
   onClose,
   onAddVariation,
+  onSyncChecks,
   variationBusy,
 }: {
   method: MethodProjection;
   experimentName?: string;
   onClose: () => void;
   onAddVariation: (methodId: number | undefined, text: string) => Promise<void>;
+  /** Sync the full gathered checklist map to the laptop (debounced). Omitted for
+   *  demo / library methods that have no experiment to write back to. */
+  onSyncChecks?: (methodId: number | undefined, checks: CheckMap, total: number) => void;
   variationBusy: boolean;
 }) {
   const { surface, spacing, radii } = useTheme();
@@ -610,16 +614,33 @@ export function MethodReadMode({
   // across a reload while a protocol is in progress.
   const methodKey = String(method.methodId ?? method.name ?? 'method');
   const [checks, setChecks] = useState<CheckMap>({});
+  // Total checks across the method, so the laptop can show "N of M gathered".
+  const totalChecks = useMemo(
+    () => steps.reduce((n, s) => n + (s.checks?.length ?? 0), 0),
+    [steps],
+  );
+  // Debounce the laptop sync so a burst of ticks sends one command, not many.
+  const syncTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(
+    () => () => {
+      if (syncTimer.current) clearTimeout(syncTimer.current);
+    },
+    [],
+  );
   const toggleCheck = useCallback(
     (stepIndex: number, checkIndex: number) => {
       setChecks((prev) => {
         const k = checkKey(stepIndex, checkIndex);
         const next = { ...prev, [k]: !prev[k] };
         void saveMethodChecks(methodKey, next);
+        if (onSyncChecks) {
+          if (syncTimer.current) clearTimeout(syncTimer.current);
+          syncTimer.current = setTimeout(() => onSyncChecks(method.methodId, next, totalChecks), 800);
+        }
         return next;
       });
     },
-    [methodKey],
+    [methodKey, onSyncChecks, method.methodId, totalChecks],
   );
 
   // Each method opens fresh: header expanded, focus at the first step, the
