@@ -31,7 +31,7 @@ import {
   type ArtifactFilter,
 } from "@/lib/ai/artifact-index";
 import { fetchAllNotesIncludingShared, usersApi } from "@/lib/local-api";
-import { withRecordSetUi, periodLabel, RECORD_SET_UI_CAP, type RecordSet, type RecordSetRow } from "@/lib/ai/record-set";
+import { attachRecordSetIfBig, periodLabel, RECORD_SET_UI_CAP, type RecordSetRow } from "@/lib/ai/record-set";
 import type { Note } from "@/lib/types";
 import type { AiTool } from "./types";
 
@@ -304,24 +304,25 @@ export const summarizeNotesTool: AiTool = {
       truncated: fullSummary.total > modelItems.length,
     };
 
-    const set: RecordSet = {
+    // attachRecordSetIfBig gates the inline widget on the ">4" rule, so a summary of
+    // 4 or fewer notes shows inline chips and 5 or more renders the browser.
+    const rows = fullSummary.items.map(
+      (it): RecordSetRow => ({
+        type: "note",
+        id: String(it.id),
+        title: it.title,
+        ...(it.firstEntryTitle ? { subtitle: it.firstEntryTitle } : {}),
+        ...(it.date ? { date: it.date } : {}),
+        ...(it.entryCount
+          ? { meta: `${it.entryCount} ${it.entryCount === 1 ? "entry" : "entries"}` }
+          : {}),
+      }),
+    );
+
+    return attachRecordSetIfBig({ ok: true as const, summary }, rows, {
       kind: "summarize_notes",
       title: periodLabel("Notes", filter),
       total: fullSummary.total,
-      items: fullSummary.items.map(
-        (it): RecordSetRow => ({
-          type: "note",
-          id: String(it.id),
-          title: it.title,
-          ...(it.firstEntryTitle ? { subtitle: it.firstEntryTitle } : {}),
-          ...(it.date ? { date: it.date } : {}),
-          ...(it.entryCount
-            ? { meta: `${it.entryCount} ${it.entryCount === 1 ? "entry" : "entries"}` }
-            : {}),
-        }),
-      ),
-    };
-
-    return withRecordSetUi({ ok: true as const, summary }, set);
+    });
   },
 };

@@ -28,7 +28,7 @@ import ObjectEmbed from "@/components/embeds/ObjectEmbed";
 import { openObjectRef } from "@/components/ai/object-popup-bridge";
 import { requestNavigation } from "@/components/ai/navigation-bridge";
 import { DEFAULT_EMBED_VIEW, type EmbedDescriptor, type ObjectRefType } from "@/lib/references";
-import type { RecordSet, RecordSetRow, RecordSetRowType } from "@/lib/ai/record-set";
+import { RECORD_SET_COMPACT_MAX, type RecordSet, type RecordSetRow, type RecordSetRowType } from "@/lib/ai/record-set";
 
 // Per-type glyph + label, mirroring ObjectEmbed's maps so the list and the embed
 // preview read consistently. Kept local (ObjectEmbed does not export them) and
@@ -48,6 +48,7 @@ const TYPE_ICON: Record<RecordSetRowType, IconName> = {
   task: "today",
   experiment: "list",
   purchase: "receipt",
+  inventory: "box",
 };
 
 const TYPE_LABEL: Record<RecordSetRowType, string> = {
@@ -64,6 +65,7 @@ const TYPE_LABEL: Record<RecordSetRowType, string> = {
   task: "Task",
   experiment: "Experiment",
   purchase: "Purchase",
+  inventory: "Inventory item",
 };
 
 // Below this widget width the two columns collapse to a single column with a
@@ -79,15 +81,25 @@ function descriptorForRow(row: RecordSetRow & { type: ObjectRefType }): EmbedDes
   return { type: row.type, id: row.id, view, isEmbed: true, opts: {} };
 }
 
-/** Open the row's full object the way an embed Open button does. Purchases have no
- *  per-id route, so they navigate to the /purchases page; every other type goes
- *  through openObjectRef (popup for popup-capable types, soft navigation otherwise). */
+// Row types with no embed route and no per-id deep link. They open the owning page
+// as a whole (a calm fallback preview, a page-level Open full) rather than through
+// the embed pipeline or openObjectRef.
+const PAGELESS_ROUTE: Partial<Record<RecordSetRowType, string>> = {
+  purchase: "/purchases",
+  inventory: "/inventory",
+};
+
+/** Open the row's full object the way an embed Open button does. Purchases and
+ *  inventory items have no per-id route, so they navigate to their page as a whole;
+ *  every other type goes through openObjectRef (popup for popup-capable types, soft
+ *  navigation otherwise). */
 function openRowFull(row: RecordSetRow): void {
-  if (row.type === "purchase") {
-    requestNavigation("/purchases");
+  const route = PAGELESS_ROUTE[row.type];
+  if (route) {
+    requestNavigation(route);
     return;
   }
-  openObjectRef({ type: row.type, id: row.id });
+  openObjectRef({ type: row.type as ObjectRefType, id: row.id });
 }
 
 /** A single left-rail row button. Icon + title (truncated) + a small second line
@@ -130,13 +142,13 @@ function RowButton({
  *  (or its calm fallback card), with the row's snippet shown above when present and
  *  an Open full button below. */
 function RecordPreview({ row }: { row: RecordSetRow }) {
-  // Purchases have no embed route, so they show a calm summary card built from the
-  // row fields rather than an ObjectEmbed. Every other type renders through the
-  // embed pipeline (rich renderer or its fallback card).
-  const isPurchase = row.type === "purchase";
+  // Purchases and inventory items have no embed route, so they show a calm summary
+  // card built from the row fields rather than an ObjectEmbed. Every other type
+  // renders through the embed pipeline (rich renderer or its fallback card).
+  const isPageless = row.type in PAGELESS_ROUTE;
   const descriptor = useMemo(
-    () => (isPurchase ? null : descriptorForRow(row as RecordSetRow & { type: ObjectRefType })),
-    [row, isPurchase],
+    () => (isPageless ? null : descriptorForRow(row as RecordSetRow & { type: ObjectRefType })),
+    [row, isPageless],
   );
   return (
     <div className="flex h-full flex-col">
@@ -177,7 +189,7 @@ function RecordPreview({ row }: { row: RecordSetRow }) {
   );
 }
 
-export default function RecordSetWidget({ set }: { set: RecordSet }) {
+function FullRecordSet({ set }: { set: RecordSet }) {
   const [query, setQuery] = useState("");
   // Active type-filter chips. Empty set means "all types".
   const [activeTypes, setActiveTypes] = useState<Set<RecordSetRowType>>(new Set());
@@ -374,5 +386,75 @@ export default function RecordSetWidget({ set }: { set: RecordSet }) {
         </div>
       )}
     </div>
+  );
+}
+
+// Compact layout (Grant's "Option D", 2026-06-14) for a small set (2 to
+// RECORD_SET_COMPACT_MAX rows). The full widget in miniature: a row of selectable
+// chip tabs across the top, one shared preview pane below, no search box or rail
+// (overkill for a handful). Same preview + Open-full as the full layout, so the
+// two sizes are one mental model. Used instead of scattered inline chips so a few
+// results can be previewed in place without committing to the full popup.
+function CompactRecordSet({ set }: { set: RecordSet }) {
+  const [selectedId, setSelectedId] = useState<string | null>(set.items[0]?.id ?? null);
+  const selected = set.items.find((r) => r.id === selectedId) ?? set.items[0] ?? null;
+  return (
+    <div
+      data-testid="record-set-widget"
+      data-layout="compact"
+      className="mt-2 overflow-hidden rounded-xl border border-border bg-surface-raised"
+    >
+      <div className="flex items-center gap-2 border-b border-border px-3 py-2">
+        <span className="flex h-5 w-5 shrink-0 items-center justify-center text-foreground-muted">
+          <Icon name="filter" className="h-4 w-4" />
+        </span>
+        <span className="min-w-0 flex-1 truncate text-meta font-semibold text-foreground">
+          {set.title}
+        </span>
+        <span className="shrink-0 text-[11px] text-foreground-muted">
+          {set.total} {set.total === 1 ? "match" : "matches"}
+        </span>
+      </div>
+      <div className="flex flex-wrap gap-1.5 px-3 pt-2.5">
+        {set.items.map((row) => {
+          const on = row.id === selected?.id;
+          return (
+            <button
+              key={`${row.type}:${row.id}`}
+              type="button"
+              onClick={() => setSelectedId(row.id)}
+              aria-selected={on}
+              className={`inline-flex max-w-full items-center gap-1.5 rounded-md border px-2.5 py-1 text-meta transition-colors ${
+                on
+                  ? "border-brand-action bg-brand-action/10 text-foreground"
+                  : "border-border text-foreground-muted hover:border-brand-action hover:text-foreground"
+              }`}
+            >
+              <Icon name={TYPE_ICON[row.type]} className="h-3.5 w-3.5 shrink-0" />
+              <span className="truncate">{row.title || row.id}</span>
+            </button>
+          );
+        })}
+      </div>
+      <div className="px-3 pb-3 pt-2.5">
+        {/* Fixed height so RecordPreview's h-full preview body and Open-full row
+            lay out the same way they do in the full layout. */}
+        <div style={{ height: 300 }}>
+          {selected ? <RecordPreview row={selected} /> : null}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// The single entry point. A SET of 2 to RECORD_SET_COMPACT_MAX renders the compact
+// Option-D layout; a larger set renders the full search + rail layout. (Sets of 0
+// or 1 never reach here, the tools do not attach a _ui below RECORD_SET_MIN_ITEMS.)
+export default function RecordSetWidget({ set }: { set: RecordSet }) {
+  if (!set.items.length) return null;
+  return set.items.length <= RECORD_SET_COMPACT_MAX ? (
+    <CompactRecordSet set={set} />
+  ) : (
+    <FullRecordSet set={set} />
   );
 }

@@ -324,6 +324,7 @@ const realExpLister = summarizeExperimentsDeps.listExperiments;
 const realExpProjLister = summarizeExperimentsDeps.listProjects;
 const realExpMemberLister = summarizeExperimentsDeps.listMemberUsernames;
 const realPurchaseLister = summarizePurchasesDeps.listPurchases;
+const realPurchaseMemberLister = summarizePurchasesDeps.listMemberUsernames;
 
 function stubExperiments(overrides: Partial<SummarizeExperimentsDeps>): void {
   Object.assign(summarizeExperimentsDeps, overrides);
@@ -337,6 +338,7 @@ afterEach(() => {
   summarizeExperimentsDeps.listProjects = realExpProjLister;
   summarizeExperimentsDeps.listMemberUsernames = realExpMemberLister;
   summarizePurchasesDeps.listPurchases = realPurchaseLister;
+  summarizePurchasesDeps.listMemberUsernames = realPurchaseMemberLister;
 });
 
 describe("summarizeExperimentsTool.execute", () => {
@@ -400,6 +402,29 @@ describe("summarizeExperimentsTool.execute", () => {
     };
     expect(out.ok).toBe(true);
   });
+
+  it("attaches an experiment record-set under _ui when >4 match, none for 4 or fewer", async () => {
+    stubExperiments({
+      listExperiments: async () =>
+        [1, 2, 3, 4, 5].map((id) => makeExperiment({ id, name: `Exp ${id}`, owner: "grant" })),
+      listProjects: async () => [],
+      listMemberUsernames: async () => [],
+    });
+    const big = (await summarizeExperimentsTool.execute({})) as {
+      _ui?: { kind: string; total: number; items: Array<{ type: string }> };
+    };
+    expect(big._ui?.kind).toBe("summarize_experiments");
+    expect(big._ui?.total).toBe(5);
+    expect(big._ui?.items.every((i) => i.type === "experiment")).toBe(true);
+
+    stubExperiments({
+      listExperiments: async () => [makeExperiment({ id: 1, owner: "grant" })],
+      listProjects: async () => [],
+      listMemberUsernames: async () => [],
+    });
+    const small = (await summarizeExperimentsTool.execute({})) as { _ui?: unknown };
+    expect(small._ui).toBeUndefined();
+  });
 });
 
 describe("summarizePurchasesTool.execute", () => {
@@ -431,6 +456,29 @@ describe("summarizePurchasesTool.execute", () => {
     // Each largestItems entry carries a totalPriceDisplay.
     expect(out.summary.largestItems[0].totalPriceDisplay).toMatch(/^\$[\d,]+\.\d{2}$/);
     expect(out.summary.filter).toMatchObject({ types: ["purchase"] });
+  });
+
+  it("attaches a purchase record-set under _ui when >4 match, none for 4 or fewer", async () => {
+    stubPurchases({
+      listPurchases: async () =>
+        [1, 2, 3, 4, 5].map((id) =>
+          makePurchase({ id, item_name: `Item ${id}`, total_price: id * 10, owner: "grant" }),
+        ),
+      listMemberUsernames: async () => [],
+    });
+    const big = (await summarizePurchasesTool.execute({})) as {
+      _ui?: { kind: string; total: number; items: Array<{ type: string }> };
+    };
+    expect(big._ui?.kind).toBe("summarize_purchases");
+    expect(big._ui?.total).toBe(5);
+    expect(big._ui?.items.every((i) => i.type === "purchase")).toBe(true);
+
+    stubPurchases({
+      listPurchases: async () => [makePurchase({ id: 1, total_price: 10, owner: "grant" })],
+      listMemberUsernames: async () => [],
+    });
+    const small = (await summarizePurchasesTool.execute({})) as { _ui?: unknown };
+    expect(small._ui).toBeUndefined();
   });
 });
 

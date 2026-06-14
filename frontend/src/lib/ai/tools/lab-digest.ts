@@ -25,6 +25,12 @@ import {
 } from "./summarize-purchases";
 import { aggregateNotes, summarizeNotesDeps } from "./summarize-notes";
 import { aggregateProjects, summarizeProjectsDeps } from "./summarize-projects";
+import {
+  attachRecordSetIfBig,
+  periodLabel,
+  RECORD_SET_UI_CAP,
+  type RecordSetRow,
+} from "@/lib/ai/record-set";
 import type { AiTool } from "./types";
 
 // ---------------------------------------------------------------------------
@@ -165,6 +171,76 @@ export function composeLabDigest(
 }
 
 // ---------------------------------------------------------------------------
+// Combined record-set rows. The digest itself holds only headline counts, but the
+// inline widget needs REAL rows, so this re-runs the SAME deterministic
+// aggregators at the UI cap and maps every in-window record to a row keyed by its
+// REAL type (experiment / note / purchase), so the widget's type-filter chips
+// slice it and previews dispatch correctly. The projects rollup contributes no
+// rows (it is the forward schedule, not in-window records). Pure and exported for
+// direct unit testing. The window mirrors composeLabDigest exactly.
+// ---------------------------------------------------------------------------
+
+export function labDigestRows(
+  input: {
+    experiments: Task[];
+    purchases: OwnedPurchase[];
+    notes: OwnedNote[];
+  },
+  window: { since?: string; until?: string; owners?: string[] },
+  today: string,
+): RecordSetRow[] {
+  const owners = window.owners && window.owners.length > 0 ? window.owners : undefined;
+
+  const exp = aggregateExperiments(
+    input.experiments,
+    { types: ["experiment"], since: window.since, until: window.until, owners },
+    today,
+    RECORD_SET_UI_CAP,
+  );
+  const pur = aggregatePurchases(
+    input.purchases,
+    { types: ["purchase"], since: window.since, until: window.until, owners },
+    RECORD_SET_UI_CAP,
+  );
+  const notes = aggregateNotes(
+    input.notes,
+    { types: ["note"], since: window.since, until: window.until, owners },
+    RECORD_SET_UI_CAP,
+  );
+
+  const rows: RecordSetRow[] = [];
+  for (const it of exp.items) {
+    rows.push({
+      type: "experiment",
+      id: String(it.id),
+      title: it.title,
+      ...(it.projectName ? { subtitle: it.projectName } : {}),
+      ...(it.startDate ? { date: it.startDate } : {}),
+      meta: it.status,
+    });
+  }
+  for (const it of notes.items) {
+    rows.push({
+      type: "note",
+      id: String(it.id),
+      title: it.title,
+      ...(it.firstEntryTitle ? { subtitle: it.firstEntryTitle } : {}),
+      ...(it.date ? { date: it.date } : {}),
+    });
+  }
+  for (const it of pur.largestItems) {
+    rows.push({
+      type: "purchase",
+      id: String(it.id),
+      title: it.name,
+      ...(it.vendor ? { subtitle: it.vendor } : {}),
+      meta: it.totalPriceDisplay,
+    });
+  }
+  return rows.slice(0, RECORD_SET_UI_CAP);
+}
+
+// ---------------------------------------------------------------------------
 // Argument parsing + runtime today.
 // ---------------------------------------------------------------------------
 
@@ -220,11 +296,22 @@ export const labDigestTool: AiTool = {
       summarizeProjectsDeps.listTasks(),
     ]);
 
+    const today = todayString();
     const digest = composeLabDigest(
       { experiments, purchases, notes, projects, tasks },
       window,
-      todayString(),
+      today,
     );
-    return { ok: true as const, digest };
+
+    // One combined widget set of every in-window record across types, each row
+    // keyed by its REAL type so the widget's type-filter chips slice it. The digest
+    // the model reads is unchanged; the rows ride out-of-band under _ui, gated on
+    // the ">4" rule by attachRecordSetIfBig.
+    const rows = labDigestRows({ experiments, purchases, notes }, window, today);
+    return attachRecordSetIfBig({ ok: true as const, digest }, rows, {
+      kind: "lab_digest",
+      title: periodLabel("Lab digest", { since: window.since, until: window.until }),
+      total: rows.length,
+    });
   },
 };

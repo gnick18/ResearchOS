@@ -21,7 +21,7 @@
 import { fetchAllNotesIncludingShared, fetchAllMethodsIncludingShared, filesApi } from "@/lib/local-api";
 import { objectDeepLink, methodRefId, type ObjectRefType } from "@/lib/references";
 import { countMatches, findFirst, snippetAround } from "@/lib/ai/deep-text";
-import { withRecordSetUi, RECORD_SET_UI_CAP, type RecordSet, type RecordSetRow } from "@/lib/ai/record-set";
+import { attachRecordSetIfBig, RECORD_SET_UI_CAP, type RecordSetRow } from "@/lib/ai/record-set";
 import type { Note, Method } from "@/lib/types";
 import type { AiTool } from "./types";
 
@@ -189,26 +189,21 @@ export const searchFullTextTool: AiTool = {
       }
     }
 
-    const set: RecordSet = {
-      kind: "search_full_text",
-      title: `Matches for "${query}"`,
-      // total is the number of matching RECORDS the widget can show (uiHits length,
-      // capped at RECORD_SET_UI_CAP), not the totalMatches occurrence count.
-      total: uiHits.length,
-      query,
-      items: uiHits.map(
-        (hit): RecordSetRow => ({
-          type: hit.type as ObjectRefType,
-          id: String(hit.id),
-          title: hit.title,
-          ...(hit.entryTitle ? { subtitle: hit.entryTitle } : {}),
-          snippet: hit.snippet,
-          meta: `${hit.matches} ${hit.matches === 1 ? "match" : "matches"}`,
-        }),
-      ),
-    };
+    // One widget row per matching RECORD (not per occurrence). attachRecordSetIfBig
+    // gates the widget on the ">4" rule: 4 or fewer matching records stay as inline
+    // chips, 5 or more render the master-detail browser.
+    const rows = uiHits.map(
+      (hit): RecordSetRow => ({
+        type: hit.type as ObjectRefType,
+        id: String(hit.id),
+        title: hit.title,
+        ...(hit.entryTitle ? { subtitle: hit.entryTitle } : {}),
+        snippet: hit.snippet,
+        meta: `${hit.matches} ${hit.matches === 1 ? "match" : "matches"}`,
+      }),
+    );
 
-    return withRecordSetUi(
+    return attachRecordSetIfBig(
       {
         ok: true as const,
         count: hits.length,
@@ -219,7 +214,15 @@ export const searchFullTextTool: AiTool = {
         types,
         results: hits,
       },
-      set,
+      rows,
+      {
+        kind: "search_full_text",
+        // total is the number of matching RECORDS the widget can show (rows length),
+        // not the totalMatches occurrence count.
+        title: `Matches for "${query}"`,
+        total: rows.length,
+        query,
+      },
     );
   },
 };

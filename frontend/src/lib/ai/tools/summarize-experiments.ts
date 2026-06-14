@@ -30,7 +30,7 @@ import {
   fetchAllTasksIncludingShared,
   usersApi,
 } from "@/lib/local-api";
-import { withRecordSetUi, periodLabel, RECORD_SET_UI_CAP, type RecordSet, type RecordSetRow } from "@/lib/ai/record-set";
+import { attachRecordSetIfBig, periodLabel, RECORD_SET_UI_CAP, type RecordSetRow } from "@/lib/ai/record-set";
 import type { Project, Task } from "@/lib/types";
 import type { AiTool } from "./types";
 
@@ -428,22 +428,23 @@ export const summarizeExperimentsTool: AiTool = {
       truncated: fullSummary.total > modelItems.length,
     };
 
-    const set: RecordSet = {
+    // attachRecordSetIfBig gates the inline widget on the ">4" rule, so a summary of
+    // 4 or fewer experiments shows inline chips and 5 or more renders the browser.
+    const rows = fullSummary.items.map(
+      (it): RecordSetRow => ({
+        type: "experiment",
+        id: String(it.id),
+        title: it.title,
+        ...(it.projectName ? { subtitle: it.projectName } : {}),
+        ...(it.startDate ? { date: it.startDate } : {}),
+        meta: it.status,
+      }),
+    );
+
+    return attachRecordSetIfBig({ ok: true as const, summary }, rows, {
       kind: "summarize_experiments",
       title: periodLabel("Experiments", filter),
       total: fullSummary.total,
-      items: fullSummary.items.map(
-        (it): RecordSetRow => ({
-          type: "experiment",
-          id: String(it.id),
-          title: it.title,
-          ...(it.projectName ? { subtitle: it.projectName } : {}),
-          ...(it.startDate ? { date: it.startDate } : {}),
-          meta: it.status,
-        }),
-      ),
-    };
-
-    return withRecordSetUi({ ok: true as const, summary }, set);
+    });
   },
 };

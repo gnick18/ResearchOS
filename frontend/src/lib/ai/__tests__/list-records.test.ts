@@ -49,10 +49,10 @@ describe("list_records tool", () => {
     );
   });
 
-  it("attaches the full match set as a UI-only record-set under _ui", async () => {
+  it("attaches the full match set as a UI-only record-set under _ui when >4 match", async () => {
     vi.spyOn(listRecordsDeps, "list").mockResolvedValue({
-      total: 3,
-      items: [brief("1", "A"), brief("2", "B"), brief("3", "C")],
+      total: 5,
+      items: [brief("1", "A"), brief("2", "B"), brief("3", "C"), brief("4", "D"), brief("5", "E")],
     });
     vi.spyOn(listRecordsDeps, "listMemberUsernames").mockResolvedValue([]);
     vi.spyOn(listRecordsDeps, "listProjects").mockResolvedValue([]);
@@ -61,11 +61,41 @@ describe("list_records tool", () => {
       count: number;
       _ui?: { kind: string; total: number; items: Array<{ id: string }> };
     };
-    // Model sees only the requested 1 item; the widget set carries all 3.
+    // Model sees only the requested 1 item; the widget set carries all 5.
     expect(r.count).toBe(1);
     expect(r._ui?.kind).toBe("list_records");
-    expect(r._ui?.total).toBe(3);
-    expect(r._ui?.items.map((i) => i.id)).toEqual(["1", "2", "3"]);
+    expect(r._ui?.total).toBe(5);
+    expect(r._ui?.items.map((i) => i.id)).toEqual(["1", "2", "3", "4", "5"]);
+  });
+
+  it("does NOT attach _ui for a lone match (1 item stays an inline chip)", async () => {
+    vi.spyOn(listRecordsDeps, "list").mockResolvedValue({
+      total: 1,
+      items: [brief("1", "A")],
+    });
+    vi.spyOn(listRecordsDeps, "listMemberUsernames").mockResolvedValue([]);
+    vi.spyOn(listRecordsDeps, "listProjects").mockResolvedValue([]);
+
+    const r = (await listRecordsTool.execute({ limit: 10 })) as {
+      count: number;
+      _ui?: unknown;
+    };
+    expect(r.count).toBe(1);
+    expect(r._ui).toBeUndefined();
+  });
+
+  it("attaches _ui for a small set of 2 (compact-layout floor)", async () => {
+    vi.spyOn(listRecordsDeps, "list").mockResolvedValue({
+      total: 2,
+      items: [brief("1", "A"), brief("2", "B")],
+    });
+    vi.spyOn(listRecordsDeps, "listMemberUsernames").mockResolvedValue([]);
+    vi.spyOn(listRecordsDeps, "listProjects").mockResolvedValue([]);
+
+    const r = (await listRecordsTool.execute({ limit: 10 })) as {
+      _ui?: { items: Array<{ id: string }> };
+    };
+    expect(r._ui?.items).toHaveLength(2);
   });
 
   it("resolves a relative period into a date filter", async () => {

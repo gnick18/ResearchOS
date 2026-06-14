@@ -28,7 +28,7 @@ import {
 } from "@/lib/ai/artifact-index";
 import { purchasesApi, usersApi } from "@/lib/local-api";
 import { getCurrentUserCached } from "@/lib/storage/json-store";
-import { withRecordSetUi, periodLabel, RECORD_SET_UI_CAP, type RecordSet, type RecordSetRow } from "@/lib/ai/record-set";
+import { attachRecordSetIfBig, periodLabel, RECORD_SET_UI_CAP, type RecordSetRow } from "@/lib/ai/record-set";
 import type { PurchaseItem } from "@/lib/types";
 import type { AiTool } from "./types";
 
@@ -419,21 +419,22 @@ export const summarizePurchasesTool: AiTool = {
       truncated: fullSummary.count > modelItems.length,
     };
 
-    const set: RecordSet = {
+    // attachRecordSetIfBig gates the inline widget on the ">4" rule, so a summary of
+    // 4 or fewer line items shows inline chips and 5 or more renders the browser.
+    const rows = fullSummary.largestItems.map(
+      (it): RecordSetRow => ({
+        type: "purchase",
+        id: String(it.id),
+        title: it.name,
+        ...(it.vendor ? { subtitle: it.vendor } : {}),
+        meta: it.totalPriceDisplay,
+      }),
+    );
+
+    return attachRecordSetIfBig({ ok: true as const, summary }, rows, {
       kind: "summarize_purchases",
       title: periodLabel("Purchases", filter),
       total: fullSummary.count,
-      items: fullSummary.largestItems.map(
-        (it): RecordSetRow => ({
-          type: "purchase",
-          id: String(it.id),
-          title: it.name,
-          ...(it.vendor ? { subtitle: it.vendor } : {}),
-          meta: it.totalPriceDisplay,
-        }),
-      ),
-    };
-
-    return withRecordSetUi({ ok: true as const, summary }, set);
+    });
   },
 };

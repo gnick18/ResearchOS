@@ -35,11 +35,27 @@ export const RECORD_SET_UI_KEY = "_ui" as const;
  *  "showing N of total" note when it does. */
 export const RECORD_SET_UI_CAP = 500;
 
+/** The minimum set size that renders the widget at all (2026-06-14). A SET of
+ *  records is never enumerated in prose; it renders the master-detail widget once
+ *  there are at least 2 of them. A lone reference (1 item) stays an inline chip in
+ *  the reply (that is a single mention, not a set). Every record-listing tool gates
+ *  its _ui attachment on this, and the system prompt tells Beaker not to prose-list
+ *  a set. */
+export const RECORD_SET_MIN_ITEMS = 2;
+
+/** The size boundary between the two widget layouts (Grant picked "Option D",
+ *  2026-06-14). 2 to 4 items render the COMPACT layout (a row of selectable chip
+ *  tabs + one shared preview pane), the big widget in miniature. 5 or more render
+ *  the FULL layout (search box + type-filter chips + scrollable left rail +
+ *  preview). One mental model at every size. RecordSetWidget switches on this. */
+export const RECORD_SET_COMPACT_MAX = 4;
+
 /** The row type discriminant. Every ObjectRefType the embed pipeline knows, PLUS
- *  "purchase", which has no embed route or deep link (purchase items open the
- *  /purchases page as a whole). The widget renders a purchase as the calm fallback
- *  card and routes its Open full to /purchases. */
-export type RecordSetRowType = ObjectRefType | "purchase";
+ *  "purchase" and "inventory", neither of which has an embed route or per-id deep
+ *  link (purchases open the /purchases page, inventory items open /inventory). The
+ *  widget renders those two as the calm fallback card and routes their Open full to
+ *  the page as a whole. */
+export type RecordSetRowType = ObjectRefType | "purchase" | "inventory";
 
 /** One row in the record-set browser. A small, display-only envelope, never a body.
  *  type routes the preview to the right embed renderer; id is always a string so a
@@ -79,6 +95,42 @@ export function withRecordSetUi<T extends object>(
   set: RecordSet,
 ): T & { _ui: RecordSet } {
   return { ...result, [RECORD_SET_UI_KEY]: set } as T & { _ui: RecordSet };
+}
+
+/** Build a RecordSet from a row list ONLY when it is a SET (at least
+ *  RECORD_SET_MIN_ITEMS rows), else null. The caller passes the FULL pre-cap row
+ *  list and the set metadata; rows are capped at RECORD_SET_UI_CAP for the carried
+ *  items while total reflects the full count. A single row returns null so a lone
+ *  reference stays an inline chip; 2 or more render the widget (compact up to
+ *  RECORD_SET_COMPACT_MAX, full beyond). Pure. */
+export function maybeRecordSet(
+  rows: RecordSetRow[],
+  opts: { kind: string; title: string; total?: number; query?: string },
+): RecordSet | null {
+  if (rows.length < RECORD_SET_MIN_ITEMS) return null;
+  return {
+    kind: opts.kind,
+    title: opts.title,
+    total: opts.total ?? rows.length,
+    items: rows.slice(0, RECORD_SET_UI_CAP),
+    ...(opts.query ? { query: opts.query } : {}),
+  };
+}
+
+/** Attach a RecordSet to a tool result via withRecordSetUi ONLY when the full row
+ *  list is a SET (at least RECORD_SET_MIN_ITEMS rows), else return the result
+ *  UNCHANGED (a lone reference stays an inline chip). The central place every
+ *  record-listing tool routes its widget attachment through, so the threshold rule
+ *  is enforced in one spot. The model-facing shape is untouched either way; only
+ *  the out-of-band _ui key is conditionally added. Name kept for call-site
+ *  stability; "big" now means "big enough to group" (>= 2). */
+export function attachRecordSetIfBig<T extends object>(
+  result: T,
+  rows: RecordSetRow[],
+  opts: { kind: string; title: string; total?: number; query?: string },
+): T {
+  const set = maybeRecordSet(rows, opts);
+  return set ? withRecordSetUi(result, set) : result;
 }
 
 /** Return a shallow clone of a tool result with the _ui key removed, so the full

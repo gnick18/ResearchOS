@@ -13,10 +13,22 @@ import {
   stripRecordSetUi,
   recordSetFromResult,
   briefToRow,
+  maybeRecordSet,
+  attachRecordSetIfBig,
   RECORD_SET_UI_KEY,
+  RECORD_SET_MIN_ITEMS,
+  RECORD_SET_COMPACT_MAX,
   type RecordSet,
+  type RecordSetRow,
 } from "@/lib/ai/record-set";
 import type { ArtifactBrief } from "@/lib/ai/artifact-index";
+
+const rows = (n: number): RecordSetRow[] =>
+  Array.from({ length: n }, (_, i) => ({
+    type: "note" as const,
+    id: String(i + 1),
+    title: `Row ${i + 1}`,
+  }));
 
 const SAMPLE_SET: RecordSet = {
   kind: "list_records",
@@ -79,6 +91,65 @@ describe("recordSetFromResult", () => {
     expect(recordSetFromResult("x")).toBeNull();
     expect(recordSetFromResult({ _ui: { kind: "x" } })).toBeNull(); // no items array
     expect(recordSetFromResult({ _ui: { items: [] } })).toBeNull(); // no kind
+  });
+});
+
+describe("the set-size thresholds (RECORD_SET_MIN_ITEMS / RECORD_SET_COMPACT_MAX)", () => {
+  it("MIN_ITEMS is 2 (a set of 2+ shows the widget, a lone item stays a chip)", () => {
+    expect(RECORD_SET_MIN_ITEMS).toBe(2);
+  });
+
+  it("COMPACT_MAX is 4 (2 to 4 compact, 5+ full)", () => {
+    expect(RECORD_SET_COMPACT_MAX).toBe(4);
+  });
+
+  describe("maybeRecordSet", () => {
+    it("returns null at exactly 1 row (a lone reference stays an inline chip)", () => {
+      expect(maybeRecordSet(rows(1), { kind: "k", title: "T" })).toBeNull();
+    });
+
+    it("returns a set at exactly 2 rows (the compact-layout floor)", () => {
+      const set = maybeRecordSet(rows(2), { kind: "k", title: "T" });
+      expect(set).not.toBeNull();
+      expect(set?.total).toBe(2);
+      expect(set?.items).toHaveLength(2);
+    });
+
+    it("returns a set at 5 rows (the full-layout floor)", () => {
+      const set = maybeRecordSet(rows(5), { kind: "k", title: "T" });
+      expect(set?.items).toHaveLength(5);
+    });
+
+    it("returns null for an empty list", () => {
+      expect(maybeRecordSet([], { kind: "k", title: "T" })).toBeNull();
+    });
+
+    it("honors an explicit total and carries the query", () => {
+      const set = maybeRecordSet(rows(6), { kind: "k", title: "T", total: 42, query: "cyp51A" });
+      expect(set?.total).toBe(42);
+      expect(set?.query).toBe("cyp51A");
+    });
+  });
+
+  describe("attachRecordSetIfBig", () => {
+    it("attaches _ui only when the list is a set (>= 2)", () => {
+      const lone = attachRecordSetIfBig({ ok: true }, rows(1), { kind: "k", title: "T" }) as {
+        _ui?: unknown;
+      };
+      expect(lone._ui).toBeUndefined();
+
+      const set = attachRecordSetIfBig({ ok: true }, rows(2), { kind: "k", title: "T" }) as {
+        _ui?: RecordSet;
+      };
+      expect(set._ui?.kind).toBe("k");
+      expect(set._ui?.items).toHaveLength(2);
+    });
+
+    it("returns the model-facing fields untouched when below the threshold", () => {
+      const result = { ok: true, count: 1, items: [1] };
+      const out = attachRecordSetIfBig(result, rows(1), { kind: "k", title: "T" });
+      expect(out).toEqual(result);
+    });
   });
 });
 
