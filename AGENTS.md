@@ -254,6 +254,10 @@ The non-negotiable preamble every worktree sub-bot brief must carry, learned acr
 
 These five are the standard preamble; paste them into every worktree brief.
 
+### Inter-lane messaging (use the CDD message tool, 2026-06-14)
+
+When you need to coordinate with another lane / session, ALWAYS send it through the CDD cross-session message tool (`mcp__ccd_session_mgmt__send_message`), not by handing Grant a block of text to relay by hand. Find the target session id with `mcp__ccd_session_mgmt__list_sessions` (or use the `from` id on an incoming cross-session message). The tool prompts Grant for confirmation each time and is unavailable in fully unsupervised mode, so it stays human-in-the-loop without making Grant copy-paste. Keep the body in the house relay format (To:/From: header + sign-off, see `[[feedback_relay_signoff_to_from]]`), and do NOT spawn a chip for a lane that already has a running agent. Replying to an incoming lane message is the same tool, addressed back to the sender's session id.
+
 ### Commits
 
 - Subject line: present tense, concise (under 70 chars). Body explains the **why**, not just the what.
