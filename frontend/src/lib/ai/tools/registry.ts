@@ -104,6 +104,12 @@ import {
 import { createMethodTool, updateMethodTool } from "./method-tools";
 import { createProjectTool, updateProjectTool } from "./project-tools";
 import {
+  updateSequenceTool,
+  updateMoleculeTool,
+  updateNoteTool,
+  updatePurchaseTool,
+} from "./edit-tools";
+import {
   readNoteTool,
   readMethodTool,
   readSequenceTool,
@@ -422,6 +428,16 @@ export const ACTION_TOOLS: AiTool[] = [
   // One-line confirm before each writes; own projects only.
   createProjectTool,
   updateProjectTool,
+  // Edit (update) coworker tools (action: true, isDestructive false). These close
+  // the last "create but cannot edit" gaps: update_sequence / update_molecule /
+  // update_note rename their object; update_purchase changes an order's item name,
+  // quantity, vendor, or unit price, or moves its status (needs ordering -> ordered
+  // -> received, via setOrderStatus so the bell fires). One-line confirm before each
+  // writes; own objects only; none deletes.
+  updateSequenceTool,
+  updateMoleculeTool,
+  updateNoteTool,
+  updatePurchaseTool,
   // create_purchase logs an order (action: true, isDestructive false). The preview
   // shows vendor, item, quantity, price, and project before anything writes. Two-step
   // write: a parent Task with task_type "purchase", then the linked PurchaseItem.
