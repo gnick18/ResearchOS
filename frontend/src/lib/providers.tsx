@@ -560,6 +560,17 @@ function AppContent({ children }: { children: ReactNode }) {
     );
   }
 
+  // The Splash redesign review page is a folderless dev harness: it mounts the
+  // launch-splash variants over a mock workbench with no real data. It must
+  // render without the File System Access gate so the variants can be reviewed
+  // in any browser without connecting a folder. The variants are pure
+  // presentational components, so a query client is all the context it needs.
+  if (pathname === "/dev/splash") {
+    return (
+      <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+    );
+  }
+
   // The demo-video studio launcher is a folderless dev console of clip links. It
   // must render in ANY browser (notably Safari, so recordings dodge Chrome's
   // "Claude is debugging" automation banner) without the File System Access gate.
