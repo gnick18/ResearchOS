@@ -51,11 +51,23 @@ export default function ZoomPanCanvas({
   const [grabbing, setGrabbing] = useState(false);
   const [space, setSpace] = useState(false);
   const [size, setSize] = useState({ w: 0, h: 0 });
+  // Live cursor position in viewport coords, so EVERY zoom (wheel, buttons,
+  // keyboard) anchors where the mouse is — not the center. Null until the mouse
+  // has been over the canvas, in which case zoom falls back to the center.
+  const mouse = useRef<{ x: number; y: number } | null>(null);
 
   const viewport = useCallback(() => {
     const el = containerRef.current;
     return { w: el?.clientWidth ?? 0, h: el?.clientHeight ?? 0 };
   }, []);
+
+  // Where a non-wheel zoom should anchor: the live mouse position, or the
+  // viewport center if the mouse has not been over the canvas yet.
+  const anchor = useCallback(() => {
+    if (mouse.current) return mouse.current;
+    const { w, h } = viewport();
+    return { x: w / 2, y: h / 2 };
+  }, [viewport]);
 
   // Fit the figure to the viewport, centered. Used on mount + by Center / Cmd-1.
   const center = useCallback(() => {
@@ -120,13 +132,10 @@ export default function ZoomPanCanvas({
         e.deltaMode === 1 ? 16 : e.deltaMode === 2 ? el.clientHeight : 1;
       let dx = e.deltaX * unit;
       let dy = e.deltaY * unit;
+      const rect = el.getBoundingClientRect();
+      mouse.current = { x: e.clientX - rect.left, y: e.clientY - rect.top };
       if (e.ctrlKey || e.metaKey) {
-        const rect = el.getBoundingClientRect();
-        zoomToward(
-          Math.pow(0.992, dy),
-          e.clientX - rect.left,
-          e.clientY - rect.top,
-        );
+        zoomToward(Math.pow(0.992, dy), mouse.current.x, mouse.current.y);
       } else {
         // Shift+wheel on a mouse pans sideways (some mice only emit deltaY).
         if (e.shiftKey && dx === 0) {
@@ -165,6 +174,8 @@ export default function ZoomPanCanvas({
     }
   };
   const onPointerMove = (e: React.PointerEvent) => {
+    const r = (e.currentTarget as HTMLElement).getBoundingClientRect();
+    mouse.current = { x: e.clientX - r.left, y: e.clientY - r.top };
     const d = drag.current;
     if (!d) return;
     const dx = e.clientX - d.x;
@@ -193,10 +204,12 @@ export default function ZoomPanCanvas({
     const meta = e.metaKey || e.ctrlKey;
     if (meta && (e.key === "=" || e.key === "+")) {
       e.preventDefault();
-      zoomToward(1.2, size.w / 2, size.h / 2);
+      const a = anchor();
+      zoomToward(1.2, a.x, a.y);
     } else if (meta && e.key === "-") {
       e.preventDefault();
-      zoomToward(1 / 1.2, size.w / 2, size.h / 2);
+      const a = anchor();
+      zoomToward(1 / 1.2, a.x, a.y);
     } else if (meta && e.key === "0") {
       e.preventDefault();
       reset100();
@@ -343,13 +356,17 @@ export default function ZoomPanCanvas({
       <div
         className="absolute right-2 top-2 z-10 flex flex-col items-end gap-1"
         onPointerDown={(e) => e.stopPropagation()}
+        onPointerMove={(e) => e.stopPropagation()}
       >
         <Tooltip label="Zoom in (Cmd +)">
           <button
             type="button"
             aria-label="Zoom in"
             className={btn}
-            onClick={() => zoomToward(1.25, size.w / 2, size.h / 2)}
+            onClick={() => {
+              const a = anchor();
+              zoomToward(1.25, a.x, a.y);
+            }}
           >
             <Icon name="plus" className="h-3.5 w-3.5" />
           </button>
@@ -359,7 +376,10 @@ export default function ZoomPanCanvas({
             type="button"
             aria-label="Zoom out"
             className={btn}
-            onClick={() => zoomToward(1 / 1.25, size.w / 2, size.h / 2)}
+            onClick={() => {
+              const a = anchor();
+              zoomToward(1 / 1.25, a.x, a.y);
+            }}
           >
             <Icon name="minus" className="h-3.5 w-3.5" />
           </button>
