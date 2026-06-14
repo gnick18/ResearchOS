@@ -645,12 +645,24 @@ export function MethodReadMode({
           style={[rstyles.map, { backgroundColor: surface.surface, borderBottomColor: surface.border }]}
           onLayout={(e) => setMapWidth(e.nativeEvent.layout.width - 28)}
         >
-          <ThemedText style={[rstyles.mapLbl, { color: surface.muted }]}>{mapLabel(model.map)}</ThemedText>
-          {model.map.kind === 'pcr' ? (
-            <PcrProfile blocks={model.map.blocks} focusedSeg={focusedPcrSeg} onSelectSeg={selectPcrSeg} />
-          ) : (
-            <LcGradient points={model.map.points} focusedIndex={focusedLcSeg} width={mapWidth} />
-          )}
+          {/* The graphic label row doubles as the collapse toggle, so the PCR /
+              LC profile can fold away to give the steps the whole screen too. */}
+          <Pressable
+            onPress={() => setHeaderOpen((o) => !o)}
+            accessibilityRole="button"
+            accessibilityLabel={headerOpen ? 'Hide graphic' : 'Show graphic'}
+            style={rstyles.mapHeadRow}
+          >
+            <ThemedText style={[rstyles.mapLbl, { color: surface.muted }]}>{mapLabel(model.map)}</ThemedText>
+            <Ionicons name={headerOpen ? 'chevron-up' : 'chevron-down'} size={20} color={surface.muted} />
+          </Pressable>
+          {headerOpen ? (
+            model.map.kind === 'pcr' ? (
+              <PcrProfile blocks={model.map.blocks} focusedSeg={focusedPcrSeg} onSelectSeg={selectPcrSeg} />
+            ) : (
+              <LcGradient points={model.map.points} focusedIndex={focusedLcSeg} width={mapWidth} />
+            )
+          ) : null}
         </View>
       ) : method.resolvedType && method.resolvedType !== 'pcr' && method.resolvedType !== 'lc_gradient' && method.resolvedType !== 'compound' ? (
         <TypedHeader
@@ -813,7 +825,8 @@ const rstyles = StyleSheet.create({
   awakeDot: { width: 6, height: 6, borderRadius: 999 },
   awakeTxt: { fontSize: 9.5, fontWeight: '700' },
   map: { paddingHorizontal: 14, paddingVertical: 12, borderBottomWidth: 1 },
-  mapLbl: { fontSize: 10, fontWeight: '800', textTransform: 'uppercase', letterSpacing: 0.6, marginBottom: 8 },
+  mapHeadRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 },
+  mapLbl: { fontSize: 10, fontWeight: '800', textTransform: 'uppercase', letterSpacing: 0.6 },
   steps: { flex: 1 },
   stepsContent: { paddingHorizontal: 16, paddingTop: 14, paddingBottom: 140 },
   step: { borderWidth: 1, padding: 16, marginBottom: 12 },
