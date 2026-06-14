@@ -17,6 +17,7 @@ export const NAV_ITEMS: NavItem[] = [
   { href: "/chemistry", label: "Chemistry" },
   { href: "/datahub", label: "Data Hub" },
   { href: "/phylo", label: "Phylogenetics" },
+  { href: "/figures", label: "Figures" },
   { href: "/inventory", label: "Inventory" },
   { href: "/purchases", label: "Purchases" },
   { href: "/calendar", label: "Calendar" },

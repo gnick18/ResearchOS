@@ -222,6 +222,10 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
     // module, same pattern as /chemistry and /datahub. Visible when the flag is on
     // or in demo, hidden otherwise (prod default), so it stays dark until launch.
     if (item.href === "/phylo") return PHYLO_ENABLED || isDemo;
+    // /figures (the universal figure composer: compose saved plots onto a real
+    // page). Its only source today is Data Hub, so gate it the same way (visible
+    // when Data Hub is on or in demo), broadening as more figure sources land.
+    if (item.href === "/figures") return DATAHUB_ENABLED || isDemo;
     // /sequences (the molecular-biology editor) is a flagship surface that
     // must always be reachable from the nav. Existing accounts whose
     // visibleTabs list predates the route would otherwise never see it (the
