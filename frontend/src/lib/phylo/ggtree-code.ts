@@ -318,14 +318,27 @@ function generateFromPanels(spec: RenderSpec, panels: AlignedPanel[]): string {
         }
         break;
       }
-      case "points":
-        if (col) {
+      case "points": {
+        const po = panel.options ?? {};
+        const sizeCol = typeof po.sizeColumn === "string" ? po.sizeColumn : "";
+        const shapeCol =
+          typeof po.shapeColumn === "string" ? po.shapeColumn : "";
+        const aesParts: string[] = [];
+        if (col) aesParts.push(`color = ${rNameKey(col)}`);
+        if (sizeCol) aesParts.push(`size = ${rNameKey(sizeCol)}`);
+        if (shapeCol) aesParts.push(`shape = ${rNameKey(shapeCol)}`);
+        if (aesParts.length > 0) {
+          // A mapped size drives the radius; otherwise pin a fixed size.
+          const sizeArg = sizeCol ? "" : ", size = 2";
           lines.push(
-            `p <- p + geom_tippoint(aes(color = ${rNameKey(col)}), size = 2)`,
+            `p <- p + geom_tippoint(aes(${aesParts.join(", ")})${sizeArg})`,
           );
-          lines.push(panelColorScale(spec, col, numeric, "color"));
+          if (col) lines.push(panelColorScale(spec, col, numeric, "color"));
+        } else {
+          lines.push("p <- p + geom_tippoint(size = 2)");
         }
         break;
+      }
       case "labels": {
         const lo = panel.options ?? {};
         const face = (lo.italic ?? true) ? 'fontface = "italic", ' : "";

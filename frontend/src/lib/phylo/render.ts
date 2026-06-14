@@ -707,6 +707,80 @@ function panelTitle(
   return `<text x="${lx}" y="${ly}" font-size="8.5" font-weight="600" fill="${MUTED}" text-anchor="middle">${esc(truncate(title, 18))}</text>`;
 }
 
+/** The tip-marker shapes a points layer can map a categorical column onto
+ *  (ggtree aes(shape = ...)). Order is the assignment order per distinct value. */
+type TipShape = "circle" | "square" | "triangle" | "diamond";
+const TIP_SHAPES: TipShape[] = ["circle", "square", "triangle", "diamond"];
+
+/** One tip marker of a given shape, centered at (cx, cy) with "radius" r. */
+function shapeMarker(
+  cx: number,
+  cy: number,
+  r: number,
+  shape: TipShape,
+  fill: string,
+): string {
+  const x = cx.toFixed(1);
+  const y = cy.toFixed(1);
+  const rr = r.toFixed(2);
+  switch (shape) {
+    case "square":
+      return `<rect x="${(cx - r).toFixed(1)}" y="${(cy - r).toFixed(1)}" width="${(r * 2).toFixed(2)}" height="${(r * 2).toFixed(2)}" fill="${fill}"/>`;
+    case "triangle":
+      return `<path d="M${x} ${(cy - r).toFixed(1)} L${(cx + r).toFixed(1)} ${(cy + r).toFixed(1)} L${(cx - r).toFixed(1)} ${(cy + r).toFixed(1)} Z" fill="${fill}"/>`;
+    case "diamond":
+      return `<path d="M${x} ${(cy - r).toFixed(1)} L${(cx + r).toFixed(1)} ${y} L${x} ${(cy + r).toFixed(1)} L${(cx - r).toFixed(1)} ${y} Z" fill="${fill}"/>`;
+    default:
+      return `<circle cx="${x}" cy="${y}" r="${rr}" fill="${fill}"/>`;
+  }
+}
+
+/** Resolve per-tip radius + shape for a points layer from its optional
+ *  size-by-column (numeric, scaled to a radius range) and shape-by-column
+ *  (categorical, mapped to the marker set). Absent options give the fixed
+ *  default, so a points layer with no styling reads exactly as before. */
+function pointStyling(
+  panel: AlignedPanel,
+  spec: RenderSpec,
+  root: TreeNode,
+  baseR: number,
+): { radiusFor: (id: number) => number; shapeFor: (id: number) => TipShape } {
+  const opts = panel.options ?? {};
+  const sizeCol = typeof opts.sizeColumn === "string" ? opts.sizeColumn : "";
+  const shapeCol = typeof opts.shapeColumn === "string" ? opts.shapeColumn : "";
+  const meta = spec.metadata;
+  let radiusFor = (_id: number) => baseR;
+  if (sizeCol && meta) {
+    const vals: number[] = [];
+    for (const tip of leaves(root)) {
+      const v = Number(meta.get(tip.id)?.[sizeCol]);
+      if (Number.isFinite(v)) vals.push(v);
+    }
+    if (vals.length > 0) {
+      const mn = Math.min(...vals);
+      const span = Math.max(...vals) - mn || 1;
+      radiusFor = (id: number) => {
+        const v = Number(meta.get(id)?.[sizeCol]);
+        if (!Number.isFinite(v)) return baseR * 0.7;
+        return 2.5 + ((v - mn) / span) * 5;
+      };
+    }
+  }
+  let shapeFor = (_id: number): TipShape => "circle";
+  if (shapeCol && meta) {
+    const map = new Map<string, TipShape>();
+    for (const tip of leaves(root)) {
+      const v = meta.get(tip.id)?.[shapeCol];
+      if (v && !map.has(v)) map.set(v, TIP_SHAPES[map.size % TIP_SHAPES.length]);
+    }
+    shapeFor = (id: number): TipShape => {
+      const v = meta.get(id)?.[shapeCol];
+      return (v && map.get(v)) || "circle";
+    };
+  }
+  return { radiusFor, shapeFor };
+}
+
 /** Draw the rectangular tree spine + clade + support + points; returns plotRight
  *  (the x of the deepest tip) so the caller starts panels just past it. */
 function drawRectTree(
@@ -813,13 +887,16 @@ function drawRectTree(
             categoryColors: spec.categoryColors,
           })
         : null;
+    const { radiusFor, shapeFor } = pointStyling(pointsPanel, spec, root, 4);
     for (const tip of leaves(root)) {
       if (collapsed.has(tip.id)) continue; // a collapsed clade shows a triangle
       const p = byId.get(tip.id)!;
       const fill = scale
         ? scale.colorFor(spec.metadata?.get(tip.id)?.[pointsPanel.column ?? ""])
         : MUTED;
-      parts.push(`<circle cx="${p.x + 6}" cy="${p.y}" r="4" fill="${fill}"/>`);
+      parts.push(
+        shapeMarker(p.x + 6, p.y, radiusFor(tip.id), shapeFor(tip.id), fill),
+      );
     }
   }
   for (const [id, info] of collapsed) {
@@ -1051,13 +1128,16 @@ function drawCircularTree(
             categoryColors: spec.categoryColors,
           })
         : null;
+    const { radiusFor, shapeFor } = pointStyling(pointsPanel, spec, root, 3.5);
     for (const tip of leaves(root)) {
       if (collapsed.has(tip.id)) continue; // a collapsed clade shows a wedge
       const p = byId.get(tip.id)!;
       const fill = scale
         ? scale.colorFor(spec.metadata?.get(tip.id)?.[pointsPanel.column ?? ""])
         : MUTED;
-      parts.push(`<circle cx="${p.x}" cy="${p.y}" r="3.5" fill="${fill}"/>`);
+      parts.push(
+        shapeMarker(p.x, p.y, radiusFor(tip.id), shapeFor(tip.id), fill),
+      );
     }
   }
   // Tip-to-tip links (ggtree geom_taxalink): a curve between two named tips,

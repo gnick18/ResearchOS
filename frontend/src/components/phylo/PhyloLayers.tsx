@@ -448,6 +448,33 @@ function Inspector({
         <PointInspector panel={panel} columns={columns} onUpdate={onUpdate} />
       )}
 
+      {panel.kind === "points" && (
+        <>
+          <Field label="Size by">
+            <SelectInput
+              value={(panel.options?.sizeColumn as string) ?? ""}
+              options={["", ...columns]}
+              onChange={(v) =>
+                onUpdate({
+                  options: { ...panel.options, sizeColumn: v || undefined },
+                })
+              }
+            />
+          </Field>
+          <Field label="Shape by">
+            <SelectInput
+              value={(panel.options?.shapeColumn as string) ?? ""}
+              options={["", ...columns]}
+              onChange={(v) =>
+                onUpdate({
+                  options: { ...panel.options, shapeColumn: v || undefined },
+                })
+              }
+            />
+          </Field>
+        </>
+      )}
+
       {panel.kind === "scatter" && (
         <Field label="Jitter">
           <ToggleInput
