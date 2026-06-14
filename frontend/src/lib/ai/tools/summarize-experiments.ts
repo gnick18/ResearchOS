@@ -19,6 +19,7 @@
 import {
   experimentToBrief,
   filterArtifacts,
+  resolveProjectRefsToIds,
   type ArtifactBrief,
   type ArtifactFilter,
 } from "@/lib/ai/artifact-index";
@@ -313,11 +314,17 @@ export const summarizeExperimentsTool: AiTool = {
         description:
           "Optional. Usernames of the lab members to scope to. Omit for the whole lab (own plus everything shared with the current user). Never reaches a member's private work, only what is shared.",
       },
+      projects: {
+        type: "array",
+        items: { type: "string" },
+        description:
+          "Optional. Projects to scope to, by NAME or by numeric id. The tool resolves names to ids itself, so just pass what the user said (for example [\"cyp51A knockout\"]). You do NOT need to look up the id first. An experiment in any listed project is counted.",
+      },
       projectIds: {
         type: "array",
         items: { type: "string" },
         description:
-          "Optional. Project ids to scope to. An experiment in any of the listed projects is counted. Use search_my_work with a project type filter to resolve a project name to its id first.",
+          "Optional. Project ids to scope to (the resolved-id form of `projects`). Prefer `projects` with names; this is only for when you already hold ids.",
       },
       status: {
         type: "string",
@@ -334,11 +341,21 @@ export const summarizeExperimentsTool: AiTool = {
     additionalProperties: false,
   },
   execute: async (args) => {
-    const filter = parseFilter(args);
+    const baseFilter = parseFilter(args);
     const [tasks, projects] = await Promise.all([
       summarizeExperimentsDeps.listExperiments(),
       summarizeExperimentsDeps.listProjects(),
     ]);
+    // Resolve any project NAMES the model passed into ids, merged with any explicit
+    // projectIds, so the model never has to chain a search_my_work lookup first.
+    const nameRefs = Array.isArray(args.projects)
+      ? (args.projects as Array<string | number>)
+      : [];
+    const resolvedIds = resolveProjectRefsToIds(nameRefs, projects);
+    const filter: ArtifactFilter = {
+      ...baseFilter,
+      projectIds: [...new Set([...(baseFilter.projectIds ?? []), ...resolvedIds])],
+    };
     const projectNames = new Map(
       projects.map((p) => [String(p.id), p.name || "Untitled project"]),
     );

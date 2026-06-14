@@ -586,6 +586,38 @@ export type ArtifactFilter = {
   keywords?: string;
 };
 
+/** Resolve a list of project REFERENCES (each a numeric id, a numeric-looking
+ *  string, or a project NAME, case-insensitive) to a deduped list of string project
+ *  ids, using the user's own projects list. This lets the summary tools accept
+ *  project NAMES directly so the (weak) model never has to chain a search_my_work
+ *  lookup just to turn "the cyp51A project" into an id. An unresolved ref is
+ *  dropped (the caller can tell the user nothing matched). Pure given `projects`. */
+export function resolveProjectRefsToIds(
+  refs: Array<string | number> | undefined,
+  projects: Array<{ id: number | string; name: string }>,
+): string[] {
+  if (!refs || refs.length === 0) return [];
+  const out = new Set<string>();
+  for (const ref of refs) {
+    const refStr = String(ref).trim();
+    if (!refStr) continue;
+    // Numeric id (or numeric-looking string) wins when it matches a real project.
+    if (/^\d+$/.test(refStr)) {
+      const byId = projects.find((p) => String(p.id) === refStr);
+      if (byId) {
+        out.add(String(byId.id));
+        continue;
+      }
+    }
+    // Otherwise resolve by case-insensitive name.
+    const byName = projects.find(
+      (p) => (p.name ?? "").trim().toLowerCase() === refStr.toLowerCase(),
+    );
+    if (byName) out.add(String(byName.id));
+  }
+  return [...out];
+}
+
 /**
  * Apply an ArtifactFilter to a list of briefs. Pure, no I/O, fully deterministic.
  * Returns a NEW array of the briefs that pass every active dimension. The order

@@ -18,6 +18,7 @@ import {
   searchMyWork,
   dayPrefix,
   filterArtifacts,
+  resolveProjectRefsToIds,
   type ArtifactBrief,
   type ArtifactIndexDeps,
 } from "../artifact-index";
@@ -721,5 +722,26 @@ describe("owner on briefs", () => {
 
   it("purchaseToBrief leaves owner undefined on an undecorated item", () => {
     expect(purchaseToBrief(makePurchase()).owner).toBeUndefined();
+  });
+});
+
+describe("resolveProjectRefsToIds", () => {
+  const projects = [
+    { id: 1, name: "cyp51A knockout" },
+    { id: 2, name: "Imaging" },
+  ];
+  it("resolves a project NAME (case-insensitive) to its id", () => {
+    expect(resolveProjectRefsToIds(["cyp51a knockout"], projects)).toEqual(["1"]);
+  });
+  it("passes through a numeric id that matches a real project", () => {
+    expect(resolveProjectRefsToIds(["2"], projects)).toEqual(["2"]);
+    expect(resolveProjectRefsToIds([2], projects)).toEqual(["2"]);
+  });
+  it("dedupes and drops unresolved refs", () => {
+    expect(resolveProjectRefsToIds(["Imaging", "imaging", "Nope", "999"], projects)).toEqual(["2"]);
+  });
+  it("returns [] for empty / missing input", () => {
+    expect(resolveProjectRefsToIds(undefined, projects)).toEqual([]);
+    expect(resolveProjectRefsToIds([], projects)).toEqual([]);
   });
 });
