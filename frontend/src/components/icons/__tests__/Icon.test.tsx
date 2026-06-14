@@ -11,11 +11,11 @@ describe("<Icon>", () => {
     const svg = container.querySelector("svg");
     expect(svg).not.toBeNull();
     expect(svg?.getAttribute("class")).toContain("h-4 w-4");
-    // The canonical tree glyph's trunk path.
+    // The canonical tree glyph is a rooted cladogram: this is its root stem path.
     const paths = Array.from(container.querySelectorAll("path")).map((p) =>
       p.getAttribute("d"),
     );
-    expect(paths).toContain("M12 20.5V7");
+    expect(paths).toContain("M3 12H6");
   });
 
   it("is decorative (aria-hidden) by default and an img with a title when titled", () => {

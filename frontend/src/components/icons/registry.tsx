@@ -109,20 +109,19 @@ const ICONS_RAW = {
     ),
   },
   tree: {
-    concept: "Tree",
+    concept: "Phylogenetic tree (rooted cladogram, branches to tips)",
     body: (
       <>
-        <path d="M12 20.5V7" />
-        <path d="M10.5 20.5h3" />
-        <circle cx="12" cy="4.8" r="1.7" />
-        <path d="M12 11 7.6 8.4" />
-        <circle cx="6.2" cy="7.6" r="1.7" />
-        <path d="M12 11 16.4 8.4" />
-        <circle cx="17.8" cy="7.6" r="1.7" />
-        <path d="M12 15 8 12.9" />
-        <circle cx="6.6" cy="12.1" r="1.7" />
-        <path d="M12 15 16 12.9" />
-        <circle cx="17.4" cy="12.1" r="1.7" />
+        <path d="M3 12H6" />
+        <path d="M6 6V16" />
+        <path d="M6 6H13" />
+        <path d="M6 16H10" />
+        <path d="M10 12V20" />
+        <path d="M10 12H13" />
+        <path d="M10 20H13" />
+        <circle cx="14.5" cy="6" r="1.5" />
+        <circle cx="14.5" cy="12" r="1.5" />
+        <circle cx="14.5" cy="20" r="1.5" />
       </>
     ),
   },
