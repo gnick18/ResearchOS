@@ -23,6 +23,9 @@ export interface SplashProps {
   /** Called when the flood-reveal animation finishes and the caller should
    * advance to the next screen. */
   onComplete: () => void;
+  /** The signed-in user's name. When set, a big "Welcome back, <name>" greets
+   * them in the upper-left of the splash. Omitted for an anonymous launch. */
+  userName?: string;
 }
 
 // ---- brand palette (verbatim from mockup :root) --------------------------------
@@ -30,7 +33,10 @@ const SKY = "#1AA0E6";
 const INK = "#0c1830";
 const MUTED = "#6b7280";
 
-export function Splash({ onComplete }: SplashProps) {
+export function Splash({ onComplete, userName }: SplashProps) {
+  const greetName = userName?.trim()
+    ? userName.trim().charAt(0).toUpperCase() + userName.trim().slice(1)
+    : null;
   const containerRef = useRef<HTMLDivElement>(null);
   const onCompleteRef = useRef(onComplete);
   onCompleteRef.current = onComplete;
@@ -212,6 +218,7 @@ export function Splash({ onComplete }: SplashProps) {
     const centerEl = container.querySelector<HTMLElement>("#splash-center");
     const dotsEl = container.querySelector<HTMLElement>("#splash-dots");
     const skipEl = container.querySelector<HTMLElement>("#splash-skip");
+    const greetEl = container.querySelector<HTMLElement>("#splash-greet");
 
     // 1. Hide the counter and raise the rainbow flood to cover the whole stage.
     T(() => {
@@ -227,7 +234,7 @@ export function Splash({ onComplete }: SplashProps) {
     T(() => {
       container.style.transition = "background 350ms ease";
       container.style.background = "transparent";
-      [centerEl, dotsEl, skipEl].forEach((el) => {
+      [centerEl, dotsEl, skipEl, greetEl].forEach((el) => {
         if (!el) return;
         el.style.transition = "opacity 250ms ease";
         el.style.opacity = "0";
@@ -302,13 +309,20 @@ export function Splash({ onComplete }: SplashProps) {
           animation: splashRise 0.7s ease forwards;
           animation-delay: 2.25s;
         }
+        /* Upper-left welcome-back greeting, rises in early. */
+        .splash-greet {
+          opacity: 0;
+          transform: translateY(8px);
+          animation: splashRise 0.7s cubic-bezier(.16,.84,.24,1) forwards;
+          animation-delay: 0.5s;
+        }
         @keyframes splashRise {
           to { opacity: 1; transform: none; }
         }
 
         /* Reduced-motion overrides */
         @media (prefers-reduced-motion: reduce) {
-          .splash-draw, .splash-face, .splash-wm, .splash-tag {
+          .splash-draw, .splash-face, .splash-wm, .splash-tag, .splash-greet {
             animation: none !important;
             opacity: 1 !important;
             stroke-dashoffset: 0 !important;
@@ -349,6 +363,39 @@ export function Splash({ onComplete }: SplashProps) {
         >
           Skip
         </button>
+
+        {/* Personalized greeting, big in the upper-left (balances the percentage
+            counter in the lower-right). Only when a name is known. */}
+        {greetName && (
+          <div
+            id="splash-greet"
+            className="splash-greet absolute"
+            style={{ left: "6vmin", top: "5vmin", zIndex: 3, textAlign: "left" }}
+          >
+            <div
+              style={{
+                fontSize: "min(2.4vmin, 18px)",
+                color: MUTED,
+                fontWeight: 700,
+                letterSpacing: "-0.01em",
+              }}
+            >
+              Welcome back,
+            </div>
+            <div
+              style={{
+                fontSize: "min(6.5vmin, 54px)",
+                color: INK,
+                fontWeight: 800,
+                letterSpacing: "-0.03em",
+                lineHeight: 1.05,
+                marginTop: "0.3vmin",
+              }}
+            >
+              {greetName}
+            </div>
+          </div>
+        )}
 
         {/* Center column: bot + wordmark + tagline */}
         <div

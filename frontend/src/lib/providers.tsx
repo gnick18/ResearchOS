@@ -991,6 +991,7 @@ function AppContent({ children }: { children: ReactNode }) {
             SuccessTransition. Skipped in fixture modes (returned above anyway). */}
         {!splashSeen && !isDemoOrWikiCapture() && (
           <Splash
+            userName={currentUser ?? undefined}
             onComplete={() => {
               try {
                 localStorage.setItem(SPLASH_DAY_KEY, localDayStamp());
