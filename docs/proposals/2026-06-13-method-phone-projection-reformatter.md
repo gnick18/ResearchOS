@@ -41,12 +41,11 @@ Parse the markdown for obvious structure offline:
 Many tidy protocols are fully served by this with no model call. The result is the same `MethodProjection` shape the readers already consume (a `steps[]` plus optional `keyParams`).
 
 ### 2. Opt-in LLM pass (for messy free-form markdown)
-When the deterministic parse yields a poor result (for example one giant step, or no detectable structure), offer a one-tap "Make phone-friendly" action. A small, cheap model segments and labels the body under the verbatim guardrail above. It runs:
-- **once, on save or edit** (debounced on a hash of the body), never per phone open,
-- on the backend (the metered-AI proxy), so it is a paid action but a tiny one,
-- producing the cached projection, not re-running when the phone just reads.
+When the deterministic parse yields a poor result (for example one giant step, or no detectable structure), a small, cheap model segments and labels the body under the verbatim guardrail above. Two user-confirmed triggers (see Decisions), never a silent lab-wide auto-run:
+- the laptop-side "Make phone-friendly" button on the method, and
+- a **just-in-time prompt on the phone**: when the user opens a method with no phone projection yet, the phone offers to have BeakerBot build one on the spot.
 
-So the cost is a few tokens per method edit, and zero per view. This fits the metered-AI billing model directly.
+It runs on the backend (the metered-AI proxy), produces the cached projection, and does not re-run when the phone just reads. So the cost is a few tokens per method, once, and zero per view. This fits the metered-AI billing model directly.
 
 ### 3. Store as a derived artifact linked to the source
 The raw `.md` method stays the portable source of truth (same philosophy as the markdown-embed-hybrid). The stepped projection is a **derivative**, stored alongside the method keyed by a content hash of the body:
@@ -79,13 +78,22 @@ Prototyped the reformat against a real lab method (Grant's Trichoderma asperellu
 - **Explicit step kicker / phase.** `buildGeneric` hard-codes the kicker to "Step N of M" via `numberKickers`. The reformatter wants to set the phase ("Germlings", "Protoplasting", "Transformation") so the reader shows where you are. The model should let the reformatter supply the kicker. For the prototype I encoded the phase into the headline ("Transformation, pellet") as a workaround; a real phase field is cleaner.
 - **Structured reagent / material checks.** The reader already renders a `checks[]` checklist for pcr/lc steps; the generic/markdown path does not populate it, so the three material lists rendered as prose detail instead of checkboxes. The reformatter should emit `checks[]` for any reagent or material list.
 - **Sub-step nesting.** The SOP has a/b and i/ii/iii sub-steps. Folding them into the parent step's detail prose works but loses the structure; consider a nested/indented detail or sub-checks.
-- **Figures are the biggest open question.** The 6 inline figures (confirm germlings under scope, flask color, protoplast morphology at two mags) carry real bench meaning and were dropped to a "(see figure)" note. Decision needed: ship the figure images in the method snapshot and render them inline at their step, or keep the laptop-only note for v1. Image-heavy methods are common, so this matters.
-- **Pinned-header weight on long protocols.** The full keyParams card stays pinned above the step scroll; on a 49-step method that eats a lot of vertical space. Consider collapsing the header to a thin bar after the first step for long methods.
+- **Figures.** The 6 inline figures (confirm germlings under scope, flask color, protoplast morphology at two mags) carry real bench meaning and were dropped to a "(see figure)" note. DECIDED: render them INLINE full width at their step, and ship the figure images in the method snapshot (see Decisions).
+- **Pinned-header weight on long protocols.** SHIPPED already: the read-mode header is now collapsible (badge + title tap toggle) and auto-collapses once the reader advances past step one, unless the user manually toggles it. Merged to main (`55f64f74e` and the two merges before it). This is independent of the reformatter.
 
 Implication for the data model: the reformatter should emit a **structured step list** (phase/title/detail/checks/figureRef), and the body-type model builder should consume that, not just a flat `body` string. That is the main model change phase 1 should include.
 
-## Open questions for Grant
+## Decisions (locked 2026-06-13)
 
-- Should phase 1 (the free deterministic parser) auto-apply to all body-only types silently, or only when it clearly improves on the flat body? (Recommendation: auto-apply, since it is non-destructive and reversible to the raw view.)
-- For the LLM layer, opt-in per method (a button) or a lab-level default that auto-reformats every new markdown method on save? (Recommendation: opt-in per method first, measure token cost, then consider a default.)
-- Which model tier for the reformat (it is a cheap structural task; the smallest capable model keeps the per-edit cost near zero)?
+- **Figures: inline, full width, images shipped.** Render each figure in the step where it is referenced (the bench needs it), and ship the figure images in the method snapshot. The relay is size-limited and E2E, so downscale/compress figures for the phone payload and reference them from the step by index (`figureRef`). Image-heavy methods are the norm, so this is worth the payload.
+- **Materials and reagent lists: tickable checklist.** Reformatter emits `checks[]` for any reagent or material list, rendered as the same checkbox-row primitive the PCR reader already uses (name + mono amount), tickable as you gather. Not prose.
+- **Reformat trigger: opt-in per method PLUS just-in-time on first phone open.** Two entry points, both user-confirmed, no silent lab-wide auto-reformat:
+  1. A "Make phone-friendly" button on the method (laptop side), for methods you choose ahead of time.
+  2. **On the phone, when a user opens a method that has no phone projection yet** (a raw pdf / md / doc / kit / etc.), the phone shows a popup offering "Have BeakerBot build a phone version of this method?" One tap fires the backend reformat, the phone then renders the result. This is the moment of need, at the bench, so it is the natural trigger. Still metered-AI, still user-confirmed (no surprise token spend).
+- **Sub-steps:** fold a/b and i/ii into the parent step as indented sub-detail or sub-checks (not lost to flat prose).
+- **Deterministic parser auto-applies** to all body-only types (non-destructive, the raw view is always one tap away). The LLM pass is only the opt-in / just-in-time paths above.
+
+## Still open (small)
+
+- Which model tier for the reformat (cheap structural task; smallest capable model keeps per-edit cost near zero). Decide at build time against the Fireworks options.
+- A lab-level "auto-reformat every method on save" default is explicitly deferred until the per-method and just-in-time costs are measured.
