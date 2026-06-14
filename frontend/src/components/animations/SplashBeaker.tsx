@@ -52,9 +52,13 @@ export interface SplashBeakerProps {
   className?: string;
 }
 
-// Water-group translate: 22 = empty (surface below the body), 0 = full to lip.
+// Water-group translate: 22 = empty (surface below the body), 1 = brim/lip.
+// The fill OVERFILLS to the brim, then the "splish" spills the excess back
+// down to REST_Y — BeakerBot's natural liquid line (ported from the original
+// Splash.tsx tip-and-settle: empty 22 / lip 0 / normal 16).
 const EMPTY_Y = 22;
-const FULL_Y = 1;
+const LIP_Y = 1;
+const REST_Y = 16;
 
 export function SplashBeaker({
   playKey,
@@ -83,6 +87,7 @@ export function SplashBeaker({
     const w3 = svg.querySelector<SVGPathElement>("[data-w3]");
     const draws = svg.querySelectorAll<SVGPathElement>("[data-draw]");
     const face = svg.querySelector<SVGGElement>("[data-face]");
+    const spill = svg.querySelector<SVGGElement>("[data-spill]");
     if (!water || !w1 || !w2 || !w3 || !face) return;
 
     const setLevel = (y: number) =>
@@ -90,7 +95,7 @@ export function SplashBeaker({
 
     // ---- static / reduced-motion frame -----------------------------------
     if (staticFull) {
-      setLevel(FULL_Y);
+      setLevel(REST_Y);
       draws.forEach((p) => {
         p.style.transition = "none";
         p.style.strokeDashoffset = "0";
@@ -142,20 +147,46 @@ export function SplashBeaker({
     };
     waveRaf = requestAnimationFrame(wave);
 
-    // liquid rise
+    // liquid rise — OVERFILLS to the brim, then the splish spills the excess
+    // back down to the natural line (REST_Y) with a few droplets off the lip.
     timers.push(
       window.setTimeout(() => {
         const start = performance.now();
         const step = (now: number) => {
           const k = Math.min(1, (now - start) / fillMs);
           const e = 1 - Math.pow(1 - k, 2.2); // easeOut
-          setLevel(EMPTY_Y - (EMPTY_Y - FULL_Y) * e);
+          setLevel(EMPTY_Y - (EMPTY_Y - LIP_Y) * e);
           if (k < 1) {
             raf = requestAnimationFrame(step);
-          } else if (!fired) {
+            return;
+          }
+          // reached the brim: fire the flourish, then spill + settle to REST_Y.
+          if (!fired) {
             fired = true;
             onFillRef.current?.();
           }
+          const spillStart = performance.now();
+          const spillDur = 640;
+          const settle = (t2: number) => {
+            const sk = Math.min(1, (t2 - spillStart) / spillDur);
+            const sw = Math.max(0, Math.min(1, (sk - 0.05) / 0.7));
+            setLevel(LIP_Y + (REST_Y - LIP_Y) * (1 - Math.pow(1 - sw, 2)));
+            if (spill) {
+              spill.setAttribute(
+                "transform",
+                `translate(${(sk * 2.4).toFixed(2)}, ${(sk * 16).toFixed(2)})`,
+              );
+              spill.style.opacity = String(
+                sk < 0.12 ? sk / 0.12 : sk > 0.7 ? Math.max(0, (1 - sk) / 0.3) : 1,
+              );
+            }
+            if (sk < 1) {
+              raf = requestAnimationFrame(settle);
+            } else if (spill) {
+              spill.style.opacity = "0";
+            }
+          };
+          raf = requestAnimationFrame(settle);
         };
         raf = requestAnimationFrame(step);
       }, fillDelayMs),
@@ -243,6 +274,13 @@ export function SplashBeaker({
             them, draw them on with the rest of the outline. */}
         <path data-draw d="M14 26 L15.5 26" />
         <path data-draw d="M24.5 26 L26 26" />
+      </g>
+
+      {/* Spill droplets — fall from the lip during the splish and fade. */}
+      <g data-spill opacity="0">
+        <ellipse cx="26.5" cy="10" rx="0.7" ry="1" fill={RAMP[3]} />
+        <ellipse cx="28" cy="9" rx="0.5" ry="0.8" fill={RAMP[0]} />
+        <ellipse cx="25" cy="11" rx="0.5" ry="0.7" fill={RAMP[2]} />
       </g>
 
       {/* Face wakes after the outline lands */}
