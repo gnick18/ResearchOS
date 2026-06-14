@@ -28,7 +28,8 @@ The server **never** sees these private keys today, and that is the property we 
 ## 3. Target architecture
 
 ### 3.1 Account = cloud identity (the social, device-independent layer)
-- The account is the **OAuth identity** (Google / Microsoft Entra for institutions / ORCID for academics) plus a directory record. It exists with **no folder connected** and is usable from any browser or device.
+- **An account is OPTIONAL.** A solo user runs the app purely locally with a folder and **no account at all** (data local, no cloud identity, never forced). The account is a separate, additive, opt-in cloud overlay for people who want to share, be found, or sync across devices. Today the folder-first gate wrongly fuses "use the app" with "have an identity"; the redesign separates them cleanly.
+- When present, the account is the **OAuth identity** (Google / Microsoft Entra for institutions / ORCID for academics) plus a directory record with a unique **@handle**. It exists with **no folder connected** and is usable from any browser or device. Anyone who HAS an account gets this cloud, folderless, device-independent model by default.
 - Add the social surface the directory is missing: a **unique handle** (today there is only a non-human-readable fingerprint and a free-text display name), an avatar, and a single "find a researcher and share with them" flow (today search-by-name and send-by-email are two disconnected operations). The directory already has the hard parts: cloud profiles, trigram search, public shareable `/researchers/<fingerprint>` URLs, ORCID publication links, and a lab directory.
 - Connecting a research folder becomes a **post-login action**, not the pre-login gate it is now.
 
@@ -78,10 +79,10 @@ Blocks (the real work):
 
 ## 7. Open decisions for Grant
 
-1. **E2E vs escrow for cross-device data access** (section 4). Recommended: keep E2E with one user-held recovery factor; optional institutional escrow opt-in. This is the philosophy-defining choice.
-2. **Handle scheme:** auto-suggested from name/email vs user-chosen unique `@handle`. (Affects the directory schema.)
-3. **Phase 1 aggressiveness:** make folderless accounts the default new-user flow, or ship it behind a flag alongside the current folder-first flow until proven.
-4. **Whether to fold the just-built unified invite tokens + the org-portal sign-in into Phase 1** (they are already centralized and folderless, so they are a natural first slice of this larger move).
+1. **E2E vs escrow for cross-device data access** (section 4). DECIDED 2026-06-13: **keep E2E, one user-held recovery factor** (recovery words/passphrase the server never sees, entered once per new device). The cloud account stays fully device-independent via OAuth; only the first data-unlock on a new device needs the factor. Optional, clearly-labeled institutional escrow may be offered later as a per-org opt-in, never the default. The server can never read user data.
+2. **Handle scheme.** DECIDED 2026-06-13: a globally-unique **@handle**, auto-suggested from name/email at signup but user-editable. Becomes the public identifier + the `/@handle` shareable URL, replacing the unreadable fingerprint. Needs a uniqueness/claim step in the directory schema.
+3. **Phase 1 aggressiveness.** DECIDED 2026-06-13: for **anyone who has an account, folderless cloud-account is the default** (not flag-gated-second). BUT making an account stays **optional** (see 3.1): solo users never have to create one and keep pure local-only use. So Phase 1 separates "use the app" (local, optional folder, no account) from "have an account" (cloud, folderless), and the account flow is folderless by default.
+4. **Fold in the shipped work.** DECIDED 2026-06-13: **yes.** The just-built unified invite tokens + folderless org portals are already the centralized / folderless / session-based / no-device-key pattern, so they are Phase 1's proof slice; Phase 1 generalizes that running pattern to the individual account rather than starting greenfield.
 
 ---
 
