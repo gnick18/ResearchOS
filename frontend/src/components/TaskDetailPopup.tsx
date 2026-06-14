@@ -17,8 +17,6 @@ import DynamicAnimation from "./DynamicAnimation";
 import MethodTabs from "./MethodTabs";
 import TaskPicker from "./TaskPicker";
 import UnifiedShareDialog from "@/components/sharing/UnifiedShareDialog";
-import SharingChips from "@/components/sharing/SharingChips";
-import { StampsRow } from "@/components/AttributionChip";
 import CommentsThread from "./CommentsThread";
 import CommentsSidebar from "./CommentsSidebar";
 import ReceivedFromBadge from "./ReceivedFromBadge";
@@ -186,6 +184,20 @@ export default function TaskDetailPopup({
     }
   }, []);
   const [task, setTask] = useState(initialTask);
+  // L3 unified header: short calm date for the metadata subline. Mirrors
+  // NoteDetailPopup's local helper (no shared import needed for one line).
+  const formatDate = (dateStr: string) => {
+    if (!dateStr) return "";
+    try {
+      return new Date(dateStr).toLocaleDateString("en-US", {
+        month: "short",
+        day: "numeric",
+        year: "numeric",
+      });
+    } catch {
+      return dateStr;
+    }
+  };
   const [isExpanded, setIsExpanded] = useState(false);
   const [animationPosition, setAnimationPosition] = useState<{ x: number; y: number } | null>(null);
   const [showSharePopup, setShowSharePopup] = useState(false);
@@ -1157,7 +1169,7 @@ export default function TaskDetailPopup({
               <div className="flex items-center gap-2 flex-wrap">
                 <h3
                   className={`font-semibold text-foreground leading-tight truncate max-w-[60ch] ${
-                    isExpanded ? "text-3xl" : "text-heading"
+                    isExpanded ? "text-3xl" : "text-2xl"
                   }`}
                 >
                   {task.name}
@@ -1352,89 +1364,13 @@ export default function TaskDetailPopup({
                 />
               </>
             )}
-            {/* Phone-paired indicator. When a phone companion is linked, show
-                in the header that a snapped photo routes to this open experiment
-                and which tab it lands on (follows the active editor tab). Hidden
-                when no phone is paired.
-                L3 declutter: docked-only. In the expanded calm shell it folds
-                into the "..." overflow menu as a quiet "Phone linked" status
-                row, so it doesn't clutter the editorial title. */}
-            {phonePaired && !isPurchase && !isExpanded && (
-              <Tooltip
-                label={`Paired phone will send photos to ${
-                  activeTab === "results" ? "Results" : "Lab Notes"
-                }`}
-                placement="bottom"
-              >
-                <span className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-meta font-medium bg-sky-50 dark:bg-sky-500/15 text-sky-700 dark:text-sky-300 ring-1 ring-sky-200 dark:ring-sky-500/30">
-                  <Icon name="phone" className="h-3.5 w-3.5" />
-                  <span>Phone linked</span>
-                  <span aria-hidden className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
-                </span>
-              </Tooltip>
-            )}
-            {/* Completion pill — single combined affordance that doubles as
-                status + toggle. Replaces the old "Mark as complete →" hint
-                + raw checkmark icon (chief offender on the "looks janky"
-                complaint).
-                L3 declutter: docked-only. The expanded calm shell already
-                surfaces completion in the "status . owner . sharing" subline, so
-                the prominent pill is folded away there to keep the header calm.
-                The toggle remains reachable: collapse with the fullscreen toggle
-                (always in the header) to mark complete via this pill, or use the
-                Details tab's own status control. */}
-            {!readOnly && !isExpanded ? (
-              <Tooltip
-                label={task.is_complete ? "Mark as incomplete" : "Mark as complete"}
-                placement="bottom"
-              >
-                <button
-                  onClick={async () => {
-                    try {
-                      await tasksApi.update(task.id, { is_complete: !task.is_complete });
-                      await Promise.all([
-                        await queryClient.refetchQueries({ queryKey: ["tasks"] }),
-                        await queryClient.refetchQueries({ queryKey: ["task", taskKey(task)] }),
-                      ]);
-                    } catch {
-                      alert("Failed to update task");
-                    }
-                  }}
-                  className={`group/complete inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-meta font-medium transition-colors ${
-                    task.is_complete
-                      ? "bg-emerald-50 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-100 dark:hover:bg-emerald-500/20 ring-1 ring-emerald-200"
-                      : "bg-surface-raised text-foreground hover:text-emerald-700 dark:hover:text-emerald-300 hover:bg-emerald-50 dark:hover:bg-emerald-500/10 ring-1 ring-gray-200 hover:ring-emerald-200"
-                  }`}
-                >
-                  {/* R1 fix-pass: when complete, swap the check icon for a
-                      subtle reset arrow on hover so the toggle nature is
-                      hinted at without shouting. */}
-                  {task.is_complete ? (
-                    <>
-                      <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="block group-hover/complete:hidden" aria-hidden>
-                        <path d="M20 6L9 17l-5-5" />
-                      </svg>
-                      <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="hidden group-hover/complete:block" aria-hidden>
-                        <polyline points="1 4 1 10 7 10" />
-                        <path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10" />
-                      </svg>
-                    </>
-                  ) : (
-                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-                      <path d="M20 6L9 17l-5-5" />
-                    </svg>
-                  )}
-                  {task.is_complete ? "Complete" : "Mark complete"}
-                </button>
-              </Tooltip>
-            ) : readOnly && task.is_complete ? (
-              <span className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-meta font-medium bg-emerald-50 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 ring-1 ring-emerald-200">
-                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M20 6L9 17l-5-5" />
-                </svg>
-                Complete
-              </span>
-            ) : null}
+            {/* L3 unified header (2026-06-14): the phone-paired indicator and
+                the completion pill are no longer header chips at any size. The
+                phone status folds into the "..." overflow menu as a quiet
+                "Phone linked" row, and completion lives in the calm
+                "status . owner . sharing" subline below (the toggle stays
+                reachable via the Details tab's own status control). This keeps
+                the editorial title uncluttered at BOTH docked + fullscreen. */}
             {/* Icon-button rail — compact + neutral so the actions don't
                 steal focus from the title. */}
             <div className="ml-1 flex items-center gap-0.5">
@@ -1450,90 +1386,21 @@ export default function TaskDetailPopup({
                   signal once it mounts after the tab swap. Preserves the
                   `task-popup-edit-button` tour target.
 
-                  L3 declutter (2026-06-14): in the EXPANDED calm shell this and
-                  the other secondary actions fold into the single "..." overflow
-                  menu below; the DOCKED header keeps them inline exactly as
-                  before. The button stays mounted with its handler +
-                  data-tour-target in both states (here when docked, in the menu
-                  when expanded) so tour scripts and automation still find it. */}
-              {!readOnly && !isExpanded && (
-                <Tooltip label="Edit properties" placement="bottom">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      if (activeTab !== "details") selectTab("details");
-                      setPendingEnterEdit(true);
-                    }}
-                    data-tour-target="task-popup-edit-button"
-                    className="text-foreground-muted hover:text-blue-600 dark:hover:text-blue-300 hover:bg-blue-50 dark:hover:bg-brand-action/10 p-1.5 rounded-lg transition-colors"
-                    aria-label="Edit properties"
-                  >
-                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-                      <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
-                      <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4z" />
-                    </svg>
-                  </button>
-                </Tooltip>
-              )}
-              {isExperiment && !isExpanded && <TaskExportButton task={task} />}
-              {isExperiment && !isExpanded && <TaskDepositButton task={task} />}
-              {/* VC Phase 3 (Task): "Undo restore" header button. Visible (flag
-                  ON) while a 24h undo window is live for this task. Enabled for
-                  the owner / PI-with-unlock; DISABLED with an unlock Tooltip for
-                  a PI who could unlock but has not; HIDDEN for a read-only shared
-                  viewer. Render-gated on expiry. Mirrors NoteDetailPopup.
-                  L3 declutter: docked-only; the expanded shell shows it in the
-                  overflow menu. */}
-              {RESTORE_ENABLED &&
-                !isExpanded &&
-                undoWindowActive &&
-                (canRestore || restoreNeedsUnlock) && (
-                  <Tooltip
-                    label={
-                      restoreNeedsUnlock
-                        ? "Unlock edit mode (PI passcode) to undo the restore"
-                        : restoreBusy
-                          ? "Undoing the restore..."
-                          : "Undo the restore (returns the experiment to its pre-restore version)"
-                    }
-                    placement="bottom"
-                  >
-                    <button
-                      onClick={
-                        canRestore && !restoreBusy ? handleUndoRestore : undefined
-                      }
-                      disabled={!canRestore || restoreBusy}
-                      data-testid="task-undo-restore-button"
-                      className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 text-meta font-medium rounded-lg transition-colors ${
-                        canRestore && !restoreBusy
-                          ? "text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-500/10 hover:bg-amber-100 dark:hover:bg-amber-500/20"
-                          : "text-foreground-muted bg-surface-sunken cursor-not-allowed"
-                      }`}
-                    >
-                      <svg
-                        className="w-4 h-4"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth={2}
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        aria-hidden="true"
-                      >
-                        <path d="M9 14L4 9l5-5" />
-                        <path d="M4 9h11a4 4 0 0 1 0 8h-1" />
-                      </svg>
-                      {restoreBusy ? "Undoing..." : "Undo restore"}
-                    </button>
-                  </Tooltip>
-                )}
+                  L3 unified header (2026-06-14): these secondary actions
+                  (Edit properties, Export, Deposit, Undo restore, Version
+                  history, Share) fold into the single "..." overflow menu below
+                  at BOTH docked + fullscreen, so they stop competing with the
+                  editorial title. Each row keeps its EXACT handler +
+                  data-tour-target / data-testid in the menu so tour scripts and
+                  automation still find it. */}
               {/* VC Phase 3 (Task): version-history entry button. Shown to
                   anyone with read access (the popup only opens on readable
                   tasks). Toggles the right-sidebar version viewer; opening flips
                   the body to a read-only diff preview. Mirrors NoteDetailPopup.
-                  Comments stays primary (visible in both docked + expanded); only
-                  the docked icon-rail history button is gated here, the expanded
-                  one moves into the overflow menu. */}
+                  Comments stays a PRIMARY header button at both sizes (its
+                  unread badge stays); Version history now lives only in the
+                  overflow menu (no docked twin) so its testid + trigger ref are
+                  single-owned. */}
               {isExperiment && (
                 <Tooltip label="Comments" placement="bottom">
                   <button
@@ -1563,72 +1430,17 @@ export default function TaskDetailPopup({
                   </button>
                 </Tooltip>
               )}
-              {!isExpanded && (
-                <Tooltip label="Version history" placement="bottom">
-                  <button
-                    ref={historyTriggerRef}
-                    onClick={() => {
-                      if (historyOpen) {
-                        closeHistory();
-                      } else {
-                        setCommentsOpen(false);
-                        setHistoryOpen(true);
-                      }
-                    }}
-                    data-testid="task-history-button"
-                    aria-pressed={historyOpen}
-                    className={`p-1.5 rounded-lg transition-colors ${
-                      historyOpen
-                        ? "text-emerald-600 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-500/10"
-                        : "text-foreground-muted hover:text-foreground-muted hover:bg-surface-sunken"
-                    }`}
-                  >
-                    <svg
-                      className="w-4 h-4"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth={2}
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      aria-hidden="true"
-                    >
-                      <path d="M3 3v5h5" />
-                      <path d="M3.05 13A9 9 0 1 0 6 5.3L3 8" />
-                      <path d="M12 7v5l3 2" />
-                    </svg>
-                  </button>
-                </Tooltip>
-              )}
-              {!readOnly && !task.is_shared_with_me && canShare && !isExpanded && (
-                <Tooltip label="Share" placement="bottom">
-                  <button
-                    onClick={() => setShowSharePopup(true)}
-                    data-tour-target="task-popup-share-button"
-                    aria-label="Share"
-                    className="text-foreground-muted hover:text-foreground-muted hover:bg-surface-sunken p-1.5 rounded-lg transition-colors"
-                  >
-                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                      <circle cx="18" cy="5" r="3" />
-                      <circle cx="6" cy="12" r="3" />
-                      <circle cx="18" cy="19" r="3" />
-                      <line x1="8.59" y1="13.51" x2="15.42" y2="17.49" />
-                      <line x1="15.41" y1="6.51" x2="8.59" y2="10.49" />
-                    </svg>
-                  </button>
-                </Tooltip>
-              )}
-              {/* L3 declutter (2026-06-14): the single "..." overflow menu, shown
-                  ONLY in the expanded calm shell. It folds the SECONDARY header
-                  actions (Edit properties, Export, Deposit, Version history,
-                  Undo restore, Share) plus the quiet "Phone linked" status into
-                  one dismissable menu (Esc + outside-click close, no focus trap)
-                  so they stop competing with the editorial title. Each row keeps
-                  its EXACT handler + data-testid / data-tour-target. The always-
-                  reachable exits (Done, the fullscreen toggle, the X) and the
-                  primary Comments button stay OUTSIDE the menu, so folding actions
-                  in here can never soft-lock the shell. */}
-              {isExpanded && (
+              {/* L3 unified header (2026-06-14): the single "..." overflow menu,
+                  now shown at BOTH docked + fullscreen. It folds the SECONDARY
+                  header actions (Edit properties, Export, Deposit, Version
+                  history, Undo restore, Share) plus the quiet "Phone linked"
+                  status into one dismissable menu (Esc + outside-click close, no
+                  focus trap) so they stop competing with the editorial title.
+                  Each row keeps its EXACT handler + data-testid / data-tour-target.
+                  The always-reachable exits (Done, the fullscreen toggle, the X)
+                  and the primary Comments button stay OUTSIDE the menu, so folding
+                  actions in here can never soft-lock the shell. */}
+              {(
                 <HeaderOverflowMenu label="More actions" testId="task-header-overflow">
                   {!readOnly && (
                     <button
@@ -1704,15 +1516,15 @@ export default function TaskDetailPopup({
                   )}
                 </HeaderOverflowMenu>
               )}
-              {/* L3 ambient save state + plain Done. Only in the expanded
-                  (fullscreen) shell. The indicator is HONEST: it reflects the
-                  ACTIVE editor tab's own dirty/saving state (lifted from the
-                  tab), and shows NOTHING for tabs that own their own flow
-                  (Method / Order items) rather than a false "Saved". Done
-                  flushes the active tab through its existing save then
-                  collapses — one of three always-reachable exits (Done, the
-                  fullscreen toggle, the X) so the shell is never soft-locked. */}
-              {isExpanded && (
+              {/* L3 ambient save state + plain Done, now shown at BOTH docked +
+                  fullscreen (unified header). The indicator is HONEST: it
+                  reflects the ACTIVE editor tab's own dirty/saving state (lifted
+                  from the tab), and shows NOTHING for tabs that own their own
+                  flow (Method / Order items) rather than a false "Saved". Done
+                  flushes the active tab through its existing save then collapses
+                  — one of three always-reachable exits (Done, the fullscreen
+                  toggle, the X) so the shell is never soft-locked. */}
+              {(
                 <>
                   {ambientSaveState && (
                     <span
@@ -1850,60 +1662,31 @@ export default function TaskDetailPopup({
               }}
             />
           )}
-          {/* L3: at fullscreen the assignee/sharing chips + stamps collapse into
-              ONE quiet "status · author · sharing" subline. The capabilities
-              behind them (status pill + Save live on the Details tab, sharing on
-              the Share button in the header) stay reachable. The docked popup
-              keeps the original chip band untouched. */}
-          {isExpanded ? (
-            <p data-testid="task-meta-subline" className="text-meta text-foreground-muted">
-              {[
-                task.is_complete ? "Complete" : "In progress",
-                task.assignee && task.assignee !== task.owner
-                  ? `Assigned to ${task.assignee}`
-                  : task.owner
-                    ? `Owner: ${task.owner}`
-                    : "",
-                (task.shared_with?.length ?? 0) > 0
-                  ? `Shared with ${task.shared_with!.length}`
-                  : task.is_shared_with_me
-                    ? `Shared by ${task.owner}`
-                    : "Private",
-              ]
-                .filter(Boolean)
-                .join("  ·  ")}
-            </p>
-          ) : (
-            <>
-              {task.assignee && task.assignee !== task.owner && (
-                <div className="flex items-center gap-2 text-meta">
-                  <span className="text-foreground-muted">Assigned to</span>
-                  <span
-                    className="inline-flex items-center px-1.5 py-0.5 rounded bg-emerald-50 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 font-medium border border-emerald-200 dark:border-emerald-500/30"
-                    data-testid="task-assignee-chip"
-                  >
-                    {task.assignee}
-                  </span>
-                  <span className="text-foreground-muted">·</span>
-                  <span className="text-foreground-muted">Owner: {task.owner}</span>
-                </div>
-              )}
-              {((task.shared_with?.length ?? 0) > 0 || task.is_shared_with_me) && (
-                <SharingChips
-                  sharedWith={task.shared_with || []}
-                  ownerUsername={task.owner}
-                  viewerUsername={currentUser ?? undefined}
-                  hideWhenEmpty
-                />
-              )}
-              <StampsRow
-                createdBy={null}
-                createdAt={null}
-                lastEditedBy={task.last_edited_by}
-                lastEditedAt={task.last_edited_at}
-              />
-            </>
-          )}
+          {/* L3 unified header (2026-06-14): ONE quiet "date · author · status ·
+              sharing" subline at BOTH docked + fullscreen. It absorbs the former
+              assignee/owner chips, the SharingChips row, AND the standalone
+              attribution stamp ("Last edited by …"). The capabilities behind
+              them stay reachable — the status pill + Save live on the Details
+              tab, and Share lives in the "..." overflow menu — so nothing is
+              lost, only quieted. Tasks carry no reliable created_at (the record
+              is recomputed), so the date is the last-edited stamp. */}
+          <p data-testid="task-meta-subline" className="text-meta text-foreground-muted">
+            {[
+              formatDate(task.last_edited_at || ""),
+              task.last_edited_by || task.owner || "",
+              task.is_complete ? "Complete" : "In progress",
+              task.assignee && task.assignee !== task.owner
+                ? `Assigned to ${task.assignee}`
+                : "",
+              (task.shared_with?.length ?? 0) > 0
+                ? `Shared with ${task.shared_with!.length}`
+                : task.is_shared_with_me
+                  ? `Shared by ${task.owner}`
+                  : "Private",
+            ]
+              .filter(Boolean)
+              .join("  ·  ")}
+          </p>
         </div>
 
         {/* Tabs — clean underline pattern with a quiet hover state. The old
