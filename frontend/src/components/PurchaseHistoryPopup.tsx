@@ -135,6 +135,16 @@ export default function PurchaseHistoryPopup({
           </div>
         </div>
       }
+      // Mirror of beforeBody: the panel's bottom-edge glow, cast down into the
+      // footer gap. Same zero-height layout mirror so it aligns over the panel.
+      afterBody={
+        <div className="flex h-0" aria-hidden>
+          <div className="flex-1 min-w-0" />
+          <div className="w-80 flex-shrink-0 relative">
+            <div className="ros-history-botglow" />
+          </div>
+        </div>
+      }
     >
       <div className="flex h-full min-h-0" data-testid="purchase-history-popup">
         {/* In-place read-only diff column. */}

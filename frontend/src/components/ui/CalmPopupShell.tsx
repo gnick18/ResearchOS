@@ -158,6 +158,10 @@ export interface CalmPopupShellProps {
   /** Content rendered between the header and the tab row (flag banners, restore
    *  errors) — stays out of the scroll body so it is always visible. */
   beforeBody?: React.ReactNode;
+  /** Content rendered between the scroll body and the footer — always visible,
+   *  out of the clipped scroll region (mirror of beforeBody). Used for the
+   *  history panel's bottom-edge glow, which must cast below the body. */
+  afterBody?: React.ReactNode;
 
   /** The body, rendered on .s-scroll. The host reads the shell's expand state
    *  through `onExpandedChange` (mirror) and drives expand through
@@ -195,6 +199,7 @@ export default function CalmPopupShell({
   onCardDragOver,
   onCardDrop,
   beforeBody,
+  afterBody,
   children,
 }: CalmPopupShellProps) {
   // ── lifted expand state (was copy-pasted in both popups) ───────────────────
@@ -442,6 +447,10 @@ export default function CalmPopupShell({
           {children}
         </div>
 
+        {/* Always-visible band between body and footer (mirror of beforeBody;
+            the history panel's bottom-edge glow). */}
+        {afterBody}
+
         {/* Insert rail (fullscreen gutter; host-composed). */}
         {insertRail}
 
@@ -488,10 +497,11 @@ export default function CalmPopupShell({
                     data-testid={footer.doneTestId}
                     data-tour-target={footer.doneTourTarget}
                     onClick={handleDone}
-                    // Grey-on-tan buttons must carry a subtle shadow + hairline
-                    // so they read as a real, raised button on the calm surface
-                    // instead of a flat grey patch (Grant 2026-06-14).
-                    className="px-3 py-1.5 text-meta font-medium rounded-lg bg-surface-sunken text-foreground border border-border/70 shadow-[0_1px_2px_rgba(15,23,42,0.12)] hover:bg-foreground-muted/15 hover:shadow-[0_2px_5px_rgba(15,23,42,0.16)] transition-all"
+                    // Buttons on the calm surface read as real RAISED buttons:
+                    // a raised fill (not the recessed sunken well), a quiet
+                    // hairline, and a soft two-layer shadow that lifts on hover
+                    // (Grant 2026-06-14).
+                    className="px-3 py-1.5 text-meta font-medium rounded-lg bg-surface-raised text-foreground border border-border shadow-[0_1px_2px_rgba(15,23,42,0.08),0_2px_4px_rgba(15,23,42,0.06)] hover:bg-surface-sunken hover:shadow-[0_2px_4px_rgba(15,23,42,0.10),0_4px_10px_rgba(15,23,42,0.10)] transition-all"
                   >
                     {footer.doneLabel ?? "Done"}
                   </button>
