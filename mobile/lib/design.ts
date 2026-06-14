@@ -173,9 +173,14 @@ export interface ShadowSet {
 }
 
 const shadowLight: ShadowSet = {
-  sm: { shadowColor: '#0F1722', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.08, shadowRadius: 3, elevation: 2 },
-  md: { shadowColor: '#0F1722', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.10, shadowRadius: 12, elevation: 5 },
-  lg: { shadowColor: '#0F1722', shadowOffset: { width: 0, height: 10 }, shadowOpacity: 0.16, shadowRadius: 24, elevation: 12 },
+  // Contract --shadow-sm/md/lg are layered, very soft drops. RN takes one layer,
+  // so each token approximates the dominant (outer) layer of the contract pair:
+  //  sm: 0 1px 3px rgba(15,23,34,.05-.06)  -> soft hairline lift
+  //  md: 0 6px 18px rgba(15,23,34,.07)     -> floating card/sheet
+  //  lg: 0 8px 30px rgba(15,23,34,.12)     -> nav pill / dialog
+  sm: { shadowColor: '#0F1722', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.06, shadowRadius: 3, elevation: 2 },
+  md: { shadowColor: '#0F1722', shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.08, shadowRadius: 18, elevation: 5 },
+  lg: { shadowColor: '#0F1722', shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.13, shadowRadius: 30, elevation: 12 },
 };
 
 const shadowDark: ShadowSet = {
