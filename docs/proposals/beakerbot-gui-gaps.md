@@ -60,18 +60,17 @@ record-set widget, Canvas, memory, @/commands), not a chat line.
 
 The A/B/C catch-up is done. These are the live targets, roughly by leverage.
 
-1. **One-front-door BeakerSearch, finish the unification.** [~80% BUILT] The instant
-   cross-type GUI palette (`CommandPalette.tsx` + `beaker-search/global-index.ts`), the
-   ask-mode escalation into chat, the Layer 0 context bridge, `search_my_work` (Layer 1),
-   and most Layer 2 read-by-id tools all EXIST. Remaining gaps:
-   - The GUI palette and the AI `search_my_work` read TWO separate indices
-     (`GlobalIndexEntry` vs `ArtifactBrief`) that cover the same types but can drift.
-     Unify on one shared index (the "one front door" ideal, one index both surfaces read).
-   - 3 missing Layer 2 read tools: `read_task` (generic tasks), `read_inventory`,
-     `read_datahub` (the document, not just `read_datahub_analysis`).
-   - Phylo trees are in `searchMyWork` but not in the GUI `buildGlobalIndex`, so the
-     palette does not show them.
-   - Context-bridge coverage audit, not every page calls `setBeakerContext` yet.
+1. **One-front-door BeakerSearch.** [PHASE 1 DONE 2026-06-14, merge `1f0d748b1`]
+   Phase 1 (additive completeness) shipped: the 3 missing Layer 2 read tools
+   (`read_task`, `read_inventory`, `read_datahub`), phylo trees in the GUI palette
+   (also @-mentionable now), and context-bridge publishers on
+   sequences/methods/chemistry/phylo/supplies. **Phase 2 (open):** unify the two
+   indices, the GUI palette reads `GlobalIndexEntry` and the AI `search_my_work` reads
+   `ArtifactBrief`, same types but separate code paths that can drift. One shared index
+   is the true "one front door". Higher risk (touches the working instant palette), do
+   it as a careful, separately-reviewed step. Also deferred from Phase 1: context-bridge
+   on purchases (no 1:1 PurchaseItem id) and notes/projects (selection lives in panels,
+   no clean page-level state), revisit if those become resolvable.
 2. **PDF-reproduce-from-paper.** [PARTIAL] Outputs 1 and 2 (draft_paper_summary,
    extract_paper_method) shipped. Open: the ingestion UI (attach a PDF, pdf.js text
    extraction) that feeds the draft tools, plus outputs 3 and 4 (pipeline -> generate_tree,
