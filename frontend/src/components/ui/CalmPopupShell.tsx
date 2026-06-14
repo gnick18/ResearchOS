@@ -488,7 +488,10 @@ export default function CalmPopupShell({
                     data-testid={footer.doneTestId}
                     data-tour-target={footer.doneTourTarget}
                     onClick={handleDone}
-                    className="px-3 py-1.5 text-meta font-medium rounded-lg bg-surface-sunken text-foreground hover:bg-foreground-muted/15 transition-colors"
+                    // Grey-on-tan buttons must carry a subtle shadow + hairline
+                    // so they read as a real, raised button on the calm surface
+                    // instead of a flat grey patch (Grant 2026-06-14).
+                    className="px-3 py-1.5 text-meta font-medium rounded-lg bg-surface-sunken text-foreground border border-border/70 shadow-[0_1px_2px_rgba(15,23,42,0.12)] hover:bg-foreground-muted/15 hover:shadow-[0_2px_5px_rgba(15,23,42,0.16)] transition-all"
                   >
                     {footer.doneLabel ?? "Done"}
                   </button>

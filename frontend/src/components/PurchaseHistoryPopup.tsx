@@ -121,6 +121,20 @@ export default function PurchaseHistoryPopup({
       title="Purchase item history"
       dockedWidthClassName="max-w-5xl"
       footer={{ doneLabel: "Close", onDone: handleClose }}
+      // The history panel's top-edge shadow must cast UP into the header gap, but
+      // the scroll body clips overflow above the panel, so it can't live on the
+      // panel. Render it here in the always-visible header/body gap instead. This
+      // zero-height row mirrors the body layout (flex-1 diff column + w-80 panel)
+      // so the glow auto-aligns over the panel's top edge without hardcoding a
+      // width. See `.ros-history-topglow` in globals.css.
+      beforeBody={
+        <div className="flex h-0" aria-hidden>
+          <div className="flex-1 min-w-0" />
+          <div className="w-80 flex-shrink-0 relative">
+            <div className="ros-history-topglow" />
+          </div>
+        </div>
+      }
     >
       <div className="flex h-full min-h-0" data-testid="purchase-history-popup">
         {/* In-place read-only diff column. */}
