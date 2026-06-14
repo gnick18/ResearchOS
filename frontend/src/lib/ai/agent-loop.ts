@@ -177,6 +177,36 @@ export type RunAgentLoopOptions = {
   // provider actually reports usage (non-zero total). Absent from providers that
   // do not support the field, so a missing call is expected, not an error.
   onUsage?: (cumulative: TokenUsage) => void;
+  // Opt-in (default off): drive an approved propose_plan ONE STEP AT A TIME instead
+  // of letting the model free-run the whole plan. The loop injects each step,
+  // waits for the model to finish it (a text turn), marks it done, and advances.
+  // This makes the live plan-card ticks exact and resume model-independent (the
+  // loop owns the step boundaries), at the cost of a model round-trip per step.
+  // When false/absent the plan path is UNCHANGED (current free-run behavior), so
+  // production is untouched until the caller opts in.
+  drivePlanPerStep?: boolean;
+  // Fired as the driven plan advances, so the panel can tick the live plan card.
+  // Only called when drivePlanPerStep is on and a plan was approved.
+  onPlanProgress?: (progress: PlanProgress) => void;
+  // Resume a paused per-step plan from a given point, WITHOUT a fresh propose_plan
+  // approval. The caller seeds the remaining-steps state (steps + the index to
+  // continue from) and injects a directive message for that step into `messages`;
+  // the loop treats the plan as already approved and keeps advancing from here.
+  // Requires drivePlanPerStep. Absent on a normal run.
+  initialPlanRun?: PlanRunState;
+};
+
+// The live state of a per-step-driven plan. `index` is the 0-based step being run
+// now; `active` is false once the plan finishes or is abandoned. Returned in the
+// result so the caller can persist it and resume from `index`.
+export type PlanRunState = { steps: string[]; index: number; active: boolean };
+
+// Progress event for the live plan card.
+export type PlanProgress = {
+  index: number;
+  total: number;
+  status: "running" | "paused" | "done";
+  steps: string[];
 };
 
 export type RunAgentLoopResult = {
@@ -194,6 +224,11 @@ export type RunAgentLoopResult = {
   // error: show the count only when at least one iteration reported non-zero
   // usage. The status line uses this to show "48.3k tokens" live.
   totalUsage: TokenUsage;
+  // The driven plan's final state, present only when drivePlanPerStep ran an
+  // approved plan. `active: true` here means the run ended (abort, guard, error)
+  // with steps remaining, so the caller can persist it and offer Resume from
+  // `index`. Absent/null for non-plan runs and the unchanged free-run path.
+  planRun?: PlanRunState | null;
 };
 
 // A whole-plan pipeline (filter, then a test, then a plot, then a note) runs
@@ -222,6 +257,14 @@ export type GateDeps = {
   getReviewMode: () => BeakerBotReviewMode;
   requestApproval?: (request: ApprovalRequest) => Promise<ApprovalDecision>;
   planState: { approved: boolean };
+  // Per-step plan driving (opt-in). When `drivePerStep` is true, handleProposePlan
+  // populates `planRun` on approve so the main loop can drive the steps one at a
+  // time and fire `onPlanProgress`. All three are absent on the unchanged free-run
+  // path. `planRun` is a mutable holder shared with the loop (set here, advanced
+  // there), like `planState`.
+  drivePerStep?: boolean;
+  planRun?: PlanRunState | null;
+  onPlanProgress?: (progress: PlanProgress) => void;
 };
 
 // Parse a tool call's arguments string into an object, returning null on bad JSON
@@ -286,6 +329,24 @@ async function handleProposePlan(
   if (decision === "allow") {
     // Approved, the routine steps in this run no longer re-ask.
     deps.planState.approved = true;
+
+    // Per-step driving (opt-in): the loop will feed the steps one at a time, so we
+    // hand the model ONLY step 1 and ask it to stop after. The main loop advances
+    // on the model's next text turn. Fire the first progress tick for the card.
+    if (deps.drivePerStep) {
+      deps.planRun = { steps, index: 0, active: true };
+      deps.onPlanProgress?.({
+        index: 0,
+        total: steps.length,
+        status: "running",
+        steps,
+      });
+      return {
+        approved: true,
+        message: `The user approved the plan. Do ONLY step 1 of ${steps.length}: "${steps[0]}". Carry out just this one step now (use go_to_page, read_page, click_element, and the data tools as needed), then stop and say in one short sentence that the step is done. Do not start the next step, I will give it to you.`,
+      };
+    }
+
     return {
       approved: true,
       message:
@@ -604,7 +665,12 @@ async function runToolCall(
 export async function runAgentLoop(
   options: RunAgentLoopOptions,
 ): Promise<RunAgentLoopResult> {
-  const maxIterations = options.maxIterations ?? DEFAULT_MAX_ITERATIONS;
+  // Per-step plan driving costs a model round-trip per step (each step is at least
+  // one text turn plus its tool turns), so the default cap is too low for a
+  // multi-step plan. Give the driven path a roomier but still bounded cap.
+  const maxIterations =
+    options.maxIterations ??
+    (options.drivePlanPerStep ? DEFAULT_MAX_ITERATIONS * 4 : DEFAULT_MAX_ITERATIONS);
   const toolDefs = options.tools.map(toToolDefinition);
   const toolMap = buildToolMap(options.tools);
   // Work on a copy, so the caller's array is never mutated.
@@ -626,7 +692,14 @@ export async function runAgentLoop(
           return options.requestApproval!(request);
         }
       : undefined,
-    planState: { approved: false },
+    // A resumed plan starts already approved (the user approved it the first time),
+    // so routine steps run free from the resume point.
+    planState: { approved: Boolean(options.initialPlanRun) },
+    drivePerStep: options.drivePlanPerStep,
+    planRun: options.initialPlanRun
+      ? { ...options.initialPlanRun, active: true }
+      : null,
+    onPlanProgress: options.onPlanProgress,
   };
 
   const signal = options.signal;
@@ -640,7 +713,7 @@ export async function runAgentLoop(
     // Check for abort before each model call, so a stop() that arrived while a
     // tool was running takes effect on the next iteration boundary.
     if (signal?.aborted) {
-      return { answer: "", iterations, stoppedOnGuard: false, messages, totalUsage };
+      return { answer: "", iterations, stoppedOnGuard: false, messages, totalUsage, planRun: gateDeps.planRun ?? null };
     }
 
     iterations += 1;
@@ -653,7 +726,7 @@ export async function runAgentLoop(
       // An AbortError means the user cancelled cleanly. Return an empty answer
       // so the caller can remove the placeholder bubble without showing an error.
       if (err instanceof Error && err.name === "AbortError") {
-        return { answer: "", iterations, stoppedOnGuard: false, messages, totalUsage };
+        return { answer: "", iterations, stoppedOnGuard: false, messages, totalUsage, planRun: gateDeps.planRun ?? null };
       }
       // Any other error propagates to the caller (the catch in send()).
       throw err;
@@ -684,10 +757,48 @@ export async function runAgentLoop(
     const toolCalls = message?.tool_calls ?? [];
 
     if (toolCalls.length === 0) {
-      // No tool calls means this is the final answer.
+      // A text turn (no tool calls). On the normal path this is the final answer.
       const answer = (message?.content ?? "").trim();
       messages.push({ role: "assistant", content: answer });
-      return { answer, iterations, stoppedOnGuard: false, messages, totalUsage };
+
+      // Per-step plan driving: a text turn means the model finished the CURRENT
+      // step. If steps remain, advance and hand it the next one instead of
+      // returning, so the loop (not the model) owns the step boundaries. The
+      // destructive hard-stop inside each step still fires through the normal gate.
+      const pr = gateDeps.planRun;
+      if (options.drivePlanPerStep && pr && pr.active) {
+        if (pr.index < pr.steps.length - 1) {
+          pr.index += 1;
+          options.onPlanProgress?.({
+            index: pr.index,
+            total: pr.steps.length,
+            status: "running",
+            steps: pr.steps,
+          });
+          messages.push({
+            role: "user",
+            content: `Continue the approved plan. Now do ONLY step ${pr.index + 1} of ${pr.steps.length}: "${pr.steps[pr.index]}". Do just this one step, then stop and say in one short sentence that it is done.`,
+          });
+          continue;
+        }
+        // Last step finished, the plan is complete.
+        pr.active = false;
+        options.onPlanProgress?.({
+          index: pr.steps.length,
+          total: pr.steps.length,
+          status: "done",
+          steps: pr.steps,
+        });
+      }
+
+      return {
+        answer,
+        iterations,
+        stoppedOnGuard: false,
+        messages,
+        totalUsage,
+        planRun: gateDeps.planRun ?? null,
+      };
     }
 
     // Record the assistant turn that requested the tools, then run each and append
@@ -703,7 +814,7 @@ export async function runAgentLoop(
       // Check for abort before each tool call so a stop() received mid-batch
       // takes effect immediately, not after the rest of the batch finishes.
       if (signal?.aborted) {
-        return { answer: "", iterations, stoppedOnGuard: false, messages, totalUsage };
+        return { answer: "", iterations, stoppedOnGuard: false, messages, totalUsage, planRun: gateDeps.planRun ?? null };
       }
       options.onStatus?.({ phase: "tool", toolName: call.function.name });
       const result = await runToolCall(call, toolMap, gateDeps);
@@ -726,5 +837,6 @@ export async function runAgentLoop(
     stoppedOnGuard: true,
     messages,
     totalUsage,
+    planRun: gateDeps.planRun ?? null,
   };
 }

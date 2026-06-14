@@ -43,6 +43,7 @@ import ComposerMentionPicker, {
 import type { GlobalIndexEntry } from "@/components/beaker-search/global-index";
 import ComposerSlashMenu, { type MacroMenuItem } from "./ComposerSlashMenu";
 import MacroEditorSheet from "./MacroEditorSheet";
+import BeakerBotPlanCard from "./BeakerBotPlanCard";
 import { useMacroUiStore } from "@/lib/ai/macro-ui-store";
 import {
   listMacros,
@@ -734,6 +735,9 @@ export default function BeakerBotConversation({
     removeAttachedRef,
     runStoredMacro,
     captureMacroDraftFromLastRun,
+    activePlan,
+    resumePlan,
+    dismissPlan,
   } = useAiChat();
   const [draft, setDraft] = useState("");
   const listRef = useRef<HTMLDivElement | null>(null);
@@ -1616,6 +1620,19 @@ export default function BeakerBotConversation({
             Discard
           </button>
         </div>
+      ) : null}
+
+      {/* Live plan card (resumable plan card). Shows while a per-step plan runs
+          (ticking each step) and when it pauses (offering Resume from the stopped
+          step). Hidden once the plan is done. */}
+      {activePlan && activePlan.status !== "done" ? (
+        <BeakerBotPlanCard
+          plan={activePlan}
+          onResume={() => {
+            void resumePlan();
+          }}
+          onDismiss={dismissPlan}
+        />
       ) : null}
 
       {/* Running status line: elapsed time, token count, running-tool count, and
