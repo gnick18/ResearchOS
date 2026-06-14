@@ -68,7 +68,20 @@ import {
   matchAlignmentToTips,
   type Alignment,
 } from "@/lib/phylo/msa";
-import type { AlignedPanel } from "@/lib/phylo/types";
+import type { AlignedPanel, PhyloFigureSpec } from "@/lib/phylo/types";
+import {
+  FigureArtboard,
+  FigureArtboardControls,
+} from "@/components/figure/FigureArtboard";
+import {
+  readArtboardState,
+  pageDims,
+  fitFigureToPage,
+  artboardExportSvg,
+  pxAtDpi,
+  DEFAULT_ARTBOARD_STATE,
+  type ArtboardState,
+} from "@/lib/figure/artboard";
 import {
   PhyloLayersControl,
   MultiColumnField,
@@ -186,6 +199,22 @@ export function PhyloStudio({ initialTreeId }: { initialTreeId?: string } = {}) 
   const [tipColumn, setTipColumn] = useState<string>("");
   // Color tree branches by this column (ggtree aes(color=trait)); "" = off.
   const [branchColorColumn, setBranchColorColumn] = useState<string>("");
+
+  // Publication page-frame (artboard) state for the figure. Disabled by default
+  // (the canvas renders exactly as before). The figure's width in inches is its
+  // own state since Tree Studio has no other figure-size control; the height
+  // follows the fixed tree aspect (FIG_H / FIG_W).
+  const [artboard, setArtboard] = useState<ArtboardState>(() => ({
+    ...DEFAULT_ARTBOARD_STATE,
+  }));
+  const [figWIn, setFigWIn] = useState<number>(FIG_W / 96);
+  const figHIn = figWIn * (FIG_H / FIG_W);
+  const onArtboardChange = (patch: Partial<ArtboardState>) =>
+    setArtboard((s) => ({ ...s, ...patch }));
+  const onFitToPage = () => {
+    const fit = fitFigureToPage(pageDims(artboard), FIG_W / FIG_H);
+    setFigWIn(fit.figWIn);
+  };
   // Tip members whose MRCA clade the Rotate button flips (ggtree rotate()).
   const [rotateMembers, setRotateMembers] = useState<string[]>([]);
 
@@ -377,6 +406,16 @@ export function PhyloStudio({ initialTreeId }: { initialTreeId?: string } = {}) 
    */
   function restoreSavedFigure(meta: PhyloMeta) {
     const inputs = figureInputsFromStored(meta.figure, meta.metadata);
+    // Restore the artboard config + figure width straight off the stored figure
+    // (additive optional fields; absent means disabled + natural size).
+    const storedFigure = meta.figure as PhyloFigureSpec | undefined;
+    setArtboard(readArtboardState(storedFigure?.artboard));
+    setFigWIn(
+      typeof storedFigure?.figureWidthIn === "number" &&
+        storedFigure.figureWidthIn > 0
+        ? storedFigure.figureWidthIn
+        : FIG_W / 96,
+    );
     setLayout(inputs.layout);
     setPhylogram(inputs.phylogram);
     // Stored panels win; else project the layer stack from the Phase 0 fields.
@@ -506,10 +545,27 @@ export function PhyloStudio({ initialTreeId }: { initialTreeId?: string } = {}) 
 
   // ---- export ----
 
-  const onExportSvg = () => svgMarkup && downloadSvg(svgMarkup, treeName || "tree");
+  // Export dpi for the artboard's true-inch raster (the page-frame readout uses
+  // the same value). Tree Studio has no per-figure dpi control, so it is fixed.
+  const ARTBOARD_DPI = 300;
+  // When the artboard is on, the figure exports at TRUE inches (vector) and the
+  // PNG rasterizes at inches * dpi. When off, the legacy px box + 3x hi-DPI
+  // behavior is unchanged.
+  const exportSvgMarkup = () =>
+    artboard.enabled
+      ? artboardExportSvg({ figureSvg: svgMarkup, figWIn, figHIn, mode: "figure" })
+      : svgMarkup;
+  const pngDims = (): [number, number, number] =>
+    artboard.enabled
+      ? [pxAtDpi(figWIn, ARTBOARD_DPI), pxAtDpi(figHIn, ARTBOARD_DPI), 1]
+      : [FIG_W, FIG_H, 3];
+
+  const onExportSvg = () =>
+    svgMarkup && downloadSvg(exportSvgMarkup(), treeName || "tree");
   const onExportPng = async () => {
     if (!svgMarkup) return;
-    const blob = await svgToPngBlob(svgMarkup, FIG_W, FIG_H, 3);
+    const [w, h, scale] = pngDims();
+    const blob = await svgToPngBlob(svgMarkup, w, h, scale);
     const a = document.createElement("a");
     a.href = URL.createObjectURL(blob);
     a.download = `${treeName || "tree"}.png`;
@@ -523,13 +579,14 @@ export function PhyloStudio({ initialTreeId }: { initialTreeId?: string } = {}) 
         typeof ClipboardItem !== "undefined" &&
         !!navigator.clipboard?.write;
       if (canImage) {
-        const blob = await svgToPngBlob(svgMarkup, FIG_W, FIG_H, 3);
+        const [w, h, scale] = pngDims();
+        const blob = await svgToPngBlob(svgMarkup, w, h, scale);
         await navigator.clipboard.write([
           new ClipboardItem({ "image/png": blob }),
         ]);
         setCopyState("image");
       } else {
-        await navigator.clipboard.writeText(svgMarkup);
+        await navigator.clipboard.writeText(exportSvgMarkup());
         setCopyState("text");
       }
       setTimeout(() => setCopyState("idle"), 1800);
@@ -555,6 +612,8 @@ export function PhyloStudio({ initialTreeId }: { initialTreeId?: string } = {}) 
       legend: true,
       panels,
       branchColorColumn: branchColorColumn || undefined,
+      artboard: artboard.enabled ? artboard : undefined,
+      figureWidthIn: figWIn,
     };
     const metadata =
       metaRows && tipColumn
@@ -860,6 +919,17 @@ export function PhyloStudio({ initialTreeId }: { initialTreeId?: string } = {}) 
               {savedMsg}
             </div>
           )}
+          <div className="mt-3 border-t border-border pt-3">
+            <FigureArtboardControls
+              state={artboard}
+              onChange={onArtboardChange}
+              figWIn={figWIn}
+              figHIn={figHIn}
+              dpi={ARTBOARD_DPI}
+              onFitToPage={onFitToPage}
+              onFigWidthIn={setFigWIn}
+            />
+          </div>
         </div>
       ),
     },
@@ -950,11 +1020,24 @@ export function PhyloStudio({ initialTreeId }: { initialTreeId?: string } = {}) 
                   onChange={(v) => setPhylogram(v === "phylo")}
                 />
               </div>
-              {/* The renderer string is the single source of SVG; injected here. */}
-              <div
-                className="min-h-0 flex-1 overflow-auto p-3"
-                dangerouslySetInnerHTML={{ __html: svgMarkup }}
-              />
+              {/* The renderer string is the single source of SVG. The artboard
+                  frames it on a real page when enabled; otherwise it injects
+                  directly, exactly as before. */}
+              {artboard.enabled ? (
+                <div className="min-h-0 flex-1">
+                  <FigureArtboard
+                    figureSvg={svgMarkup}
+                    figWIn={figWIn}
+                    figHIn={figHIn}
+                    state={artboard}
+                  />
+                </div>
+              ) : (
+                <div
+                  className="min-h-0 flex-1 overflow-auto p-3"
+                  dangerouslySetInnerHTML={{ __html: svgMarkup }}
+                />
+              )}
             </>
           ) : (
             <div className="min-h-0 flex-1 overflow-auto p-4">

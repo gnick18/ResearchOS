@@ -152,6 +152,12 @@ export interface FigureArtboardControlsProps {
   dpi: number;
   /** Fit the figure to the page (writes the figure size on the consumer's style). */
   onFitToPage?: () => void;
+  /**
+   * Optional figure-width slider (inches). Provide it for a consumer that has no
+   * size controls of its own (Tree Studio); a consumer with its own size panel
+   * (Data Hub) omits it.
+   */
+  onFigWidthIn?: (widthIn: number) => void;
 }
 
 /**
@@ -167,6 +173,7 @@ export function FigureArtboardControls({
   figHIn,
   dpi,
   onFitToPage,
+  onFigWidthIn,
 }: FigureArtboardControlsProps) {
   const toggleId = useId();
   const page = pageDims(state);
@@ -262,6 +269,26 @@ export function FigureArtboardControls({
               )}
             </div>
           </Row>
+
+          {onFigWidthIn && (
+            <Row label="Figure width">
+              <div className="flex items-center gap-2">
+                <input
+                  type="range"
+                  min={1}
+                  max={Math.max(2, Math.round(page.wIn))}
+                  step={0.1}
+                  value={Math.min(figWIn, page.wIn)}
+                  onChange={(e) => onFigWidthIn(parseFloat(e.target.value))}
+                  className="w-24"
+                  aria-label="Figure width in inches"
+                />
+                <span className="text-meta tabular-nums text-foreground-muted">
+                  {round1(figWIn)} in
+                </span>
+              </div>
+            </Row>
+          )}
 
           {onFitToPage && (
             <button

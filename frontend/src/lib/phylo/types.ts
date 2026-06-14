@@ -11,6 +11,8 @@
 // (Phase 2+). They are absent on Phase 0 / Builder-saved records, which is why
 // they are optional, older records simply omit them.
 
+import type { ArtboardState } from "@/lib/figure/artboard";
+
 /** The tree-text format as imported. */
 export type PhyloFormat = "newick" | "nexus" | "phyloxml";
 
@@ -67,6 +69,17 @@ export interface PhyloFigureSpec {
    * claim ancestral-state reconstruction.
    */
   branchColorColumn?: string;
+  /**
+   * The publication page-frame (artboard) config for this figure. Optional +
+   * additive (an older record omits it and the artboard reads as disabled, so the
+   * figure renders exactly as before). Normalized with readArtboardState on load.
+   */
+  artboard?: ArtboardState;
+  /**
+   * The figure's chosen width in inches when the artboard is used (height follows
+   * the fixed tree aspect). Optional + additive, absent means the natural size.
+   */
+  figureWidthIn?: number;
 }
 
 /**
