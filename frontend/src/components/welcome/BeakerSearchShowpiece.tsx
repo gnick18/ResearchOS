@@ -242,10 +242,10 @@ export default function BeakerSearchShowpiece({
 
           <div className="mt-[18px] rounded-2xl border border-white/30 bg-white/[0.12] px-4 py-[13px] backdrop-blur-[3px]">
             <span className="block text-lg font-extrabold text-white">
-              About 750,000 free tokens to start
+              About 1.6 million free tokens to start
             </span>
             <span className="text-meta text-[#cfe9fb]">
-              a one-time gift, around 20 to 25 full analyses, no card needed
+              a one-time gift, around 15 tasks, no card needed
             </span>
           </div>
 

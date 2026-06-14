@@ -31,8 +31,8 @@
  *   4. Search your own work, cross-type
  *   5. Experiments + scheduling, a linked cloning chain on the Gantt
  *   Value, lead hard on how cheap the metered AI is (the numbers match /pricing
- *      and the usage fixtures, a full analysis ~30,000 tokens, a quick question
- *      ~7,500, the free sign-up gift ~750,000)
+ *      and the usage fixtures, a full task ~110,000 tokens, a quick question
+ *      ~50,000, the free sign-up gift ~1,600,000)
  *   Final CTA + sponsors + footer
  *
  * Voice rules: no em-dashes, no emojis (every glyph is <Icon name=...> from the
@@ -618,10 +618,10 @@ export default function AiPage() {
                 dollars, matching the usage fixtures and /pricing. */}
             <div className="mt-7 w-full max-w-md rounded-2xl border border-[#cfe0f3] bg-[#eef5fd] px-5 py-4">
               <div className="text-lg font-extrabold tracking-tight text-brand-ink">
-                About 750,000 free tokens to start, no card needed
+                About 1.6 million free tokens to start, no card needed
               </div>
               <p className="mt-1 text-meta font-semibold text-[#475569]">
-                That covers about 20 to 25 full analyses or over 100 quick
+                That covers about 15 tasks or 30-plus quick
                 questions. After that, prepaid top-ups are metered at cost. You
                 always see your balance and what the last task cost.
               </p>
@@ -659,7 +659,7 @@ export default function AiPage() {
           <PromptCard
             prompt="Run a t-test on the growth data in my OD600 table. WT versus knockout, six replicates each."
             tool="run_datahub_analysis"
-            cost="~30,000 tokens"
+            cost="~110,000 tokens"
           >
             <BotSays>
               I read your OD600 table (12 rows, 3 columns) and ran{" "}
@@ -718,7 +718,7 @@ export default function AiPage() {
           <PromptCard
             prompt="Make a publication-ready bar chart with error bars from those replicates."
             tool="make_datahub_graph"
-            cost="~30,000 tokens"
+            cost="~110,000 tokens"
           >
             <BotSays>
               Here&apos;s the figure, using{" "}
@@ -747,7 +747,7 @@ export default function AiPage() {
             <PromptCard
               prompt="Design cloning primers for this insert. Add a BamHI site on the forward and an EcoRI site on the reverse. Target Tm around 60C."
               tool="design_primers · compute_tm"
-              cost="~7,500 tokens"
+              cost="~50,000 tokens"
             >
               <BotSays>
                 I designed primers against your insert (452 bp) and appended the
@@ -798,7 +798,7 @@ export default function AiPage() {
           <PromptCard
             prompt="Look up rapamycin on PubChem and add it to this project's molecule library."
             tool="search_pubchem · create_molecule"
-            cost="~7,500 tokens"
+            cost="~50,000 tokens"
           >
             <BotSays>
               I found{" "}
@@ -860,7 +860,7 @@ export default function AiPage() {
             <PromptCard
               prompt="What PCR runs failed last month? I think there were some gel photos with bad bands."
               tool="search_my_work"
-              cost="~7,500 tokens"
+              cost="~50,000 tokens"
             >
               <BotSays>
                 I searched your folder for PCR experiments and notes from the last
@@ -922,7 +922,7 @@ export default function AiPage() {
           <PromptCard
             prompt="Set up a 3-day cloning experiment chain. Restriction digest today, ligation tomorrow morning, transformation and colony PCR on day 3."
             tool="create_experiment_chain"
-            cost="~30,000 tokens"
+            cost="~110,000 tokens"
           >
             <BotSays>
               I created{" "}
@@ -1001,17 +1001,17 @@ export default function AiPage() {
               {/* Why metered, the WHY */}
               <div className="rounded-2xl border border-[#dbe6f3] bg-white p-6 shadow-[0_1px_3px_rgba(15,40,80,0.06)]">
                 <h3 className="text-title font-bold text-brand-ink">
-                  A penny of compute does real work
+                  A couple cents of compute does real work
                 </h3>
                 <p className="mt-2 text-body leading-relaxed text-[#475569]">
-                  A full analysis costs about one penny of real compute (roughly
-                  30,000 tokens). A quick question is about 7,500. The free
-                  sign-up gift is about 750,000 tokens, which covers about 20 to
-                  25 full analyses or over 100 quick questions, no card needed.
+                  A full task costs about two cents of real compute (roughly
+                  110,000 tokens). A quick question is about 50,000. The free
+                  sign-up gift is about 1.6 million tokens, which covers about 15
+                  tasks or 30-plus quick questions, no card needed.
                 </p>
                 <p className="mt-3 text-body leading-relaxed text-[#475569]">
                   After the gift, prepaid top-ups are $10, $25, or $50, and a $10
-                  top-up is hundreds of analyses. We charge what the compute costs
+                  top-up is a few hundred tasks. We charge what the compute costs
                   plus a thin processing buffer, because a lab&apos;s AI use
                   varies a lot month to month and one heavy week should not cost
                   the same as four quiet ones.
@@ -1045,23 +1045,23 @@ export default function AiPage() {
                 </div>
                 <div className="mt-3 divide-y divide-[#dbe6f3]">
                   <CostRefRow
-                    label="Full analysis"
-                    value="~30,000 tok"
+                    label="Full task"
+                    value="~110,000 tok"
                     valueClass="text-brand-sky"
                   />
                   <CostRefRow
                     label="Quick question"
-                    value="~7,500 tok"
+                    value="~50,000 tok"
                     valueClass="text-brand-sky"
                   />
                   <CostRefRow
                     label="Free sign-up gift"
-                    value="~750,000 tok"
+                    value="~1.6M tok"
                     valueClass="text-emerald-600"
                   />
                 </div>
                 <p className="mt-3 border-t border-dashed border-[#cfe0f3] pt-3 text-meta leading-relaxed text-[#64748b]">
-                  About 20 to 25 full analyses free, no card needed.
+                  About 15 tasks free, no card needed.
                 </p>
                 <a
                   href="/pricing#ai-pricing"
