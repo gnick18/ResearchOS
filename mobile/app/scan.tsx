@@ -10,7 +10,6 @@
 // colons.
 import { useCallback, useEffect, useState } from 'react';
 import {
-  ActivityIndicator,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -18,6 +17,7 @@ import {
   View,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
 import {
   CameraView,
   useCameraPermissions,
@@ -32,7 +32,7 @@ import { Card } from '@/components/ui/Card';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { ScreenFrame } from '@/components/ui/ScreenFrame';
 import { ScreenHeader } from '@/components/ui/ScreenHeader';
-import { useTheme, palette } from '@/lib/design';
+import { useTheme, palette, fonts, radii as globalRadii } from '@/lib/design';
 import { usePairing } from '@/lib/pairing';
 import { signWithDevice } from '@/lib/device-identity';
 import { fetchSnapshot } from '@/lib/snapshots';
@@ -86,10 +86,124 @@ function buzz(style: Haptics.ImpactFeedbackStyle = Haptics.ImpactFeedbackStyle.L
   hapticImpact(style);
 }
 
+// Contract .input.focus: sky border + soft sky glow. Spread onto a focused
+// input/field. Glow reads a touch hotter on dark, matching note.tsx.
+function focusRing(dark: boolean) {
+  return {
+    shadowColor: palette.sky,
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: dark ? 0.5 : 0.28,
+    shadowRadius: 6,
+    elevation: 0,
+  } as const;
+}
+
+// Contract .glowline: a luminous sky hairline that seams the gradient hero to
+// the card body (sky -> #5ec8ff -> sky, with a soft outer glow).
+function GlowLine() {
+  return (
+    <View style={styles.glowlineWrap}>
+      <LinearGradient
+        colors={['transparent', palette.sky, '#5ec8ff', palette.sky, 'transparent']}
+        start={{ x: 0, y: 0.5 }}
+        end={{ x: 1, y: 0.5 }}
+        style={styles.glowline}
+      />
+    </View>
+  );
+}
+
+// Contract .callout: tinted inset with an accent lead word. Sky by default,
+// amber for the "not recognized" warning. Optional leading sparkle/icon.
+function Callout({
+  tone = 'sky',
+  icon,
+  children,
+}: {
+  tone?: 'sky' | 'amber';
+  icon?: keyof typeof Ionicons.glyphMap;
+  children: React.ReactNode;
+}) {
+  const { radii, surface } = useTheme();
+  const accent = tone === 'amber' ? palette.amber : palette.sky;
+  const bg = tone === 'amber' ? palette.amberDim : palette.skyDim;
+  const border = tone === 'amber' ? palette.amberBorder : palette.skyBorder;
+  return (
+    <View
+      style={[
+        styles.callout,
+        { backgroundColor: bg, borderColor: border, borderRadius: radii.md },
+      ]}
+    >
+      {icon ? (
+        <Ionicons name={icon} size={17} color={accent} style={{ marginTop: 1 }} />
+      ) : null}
+      <ThemedText style={[styles.calloutText, { color: surface.text }]}>
+        {children}
+      </ThemedText>
+    </View>
+  );
+}
+
+// Contract .stockbar: a sunken track with an ok/low gradient fill (clamped).
+function StockBar({ ratio, low }: { ratio: number; low: boolean }) {
+  const { surface } = useTheme();
+  const pct = Math.max(0, Math.min(1, ratio));
+  return (
+    <View style={[styles.stockbar, { backgroundColor: surface.sunken }]}>
+      <LinearGradient
+        colors={low ? [palette.danger, '#ff6b6f'] : [palette.success, '#34d27b']}
+        start={{ x: 0, y: 0.5 }}
+        end={{ x: 1, y: 0.5 }}
+        style={[styles.stockfill, { width: `${Math.round(pct * 100)}%` }]}
+      />
+    </View>
+  );
+}
+
+// Sky-gradient hero header (contract: linear-gradient(140deg, sky, #39b4ff)),
+// white text, a translucent icon tile, item name, and a mono code line.
+function GradientHero({
+  icon,
+  eyebrow,
+  title,
+  code,
+}: {
+  icon: keyof typeof Ionicons.glyphMap;
+  eyebrow?: string;
+  title: string;
+  code?: string | null;
+}) {
+  return (
+    <LinearGradient
+      colors={[palette.sky, '#39b4ff']}
+      start={{ x: 0.15, y: 0 }}
+      end={{ x: 0.85, y: 1 }}
+      style={styles.hero}
+    >
+      <View style={styles.heroIcon}>
+        <Ionicons name={icon} size={24} color={palette.white} />
+      </View>
+      <View style={{ flex: 1, minWidth: 0 }}>
+        {eyebrow ? <ThemedText style={styles.heroEyebrow}>{eyebrow}</ThemedText> : null}
+        <ThemedText style={styles.heroTitle} numberOfLines={2}>
+          {title}
+        </ThemedText>
+        {code ? (
+          <ThemedText style={styles.heroCode} numberOfLines={1}>
+            {code}
+          </ThemedText>
+        ) : null}
+      </View>
+    </LinearGradient>
+  );
+}
+
 export default function ScanScreen() {
   const { pairing } = usePairing();
-  const { surface, spacing, radii } = useTheme();
+  const { surface, spacing, radii, dark } = useTheme();
   const [permission, requestPermission] = useCameraPermissions();
+  const [manualFocus, setManualFocus] = useState(false);
 
   const [snap, setSnap] = useState<InventorySnapshot | null>(null);
   const [sync, setSync] = useState<Sync>({ kind: 'loading' });
@@ -426,17 +540,33 @@ export default function ScanScreen() {
                     <View style={[styles.corner, styles.c2]} />
                     <View style={[styles.corner, styles.c3]} />
                     <View style={[styles.corner, styles.c4]} />
+                    <View style={styles.scanline} />
+                  </View>
+                  <View style={styles.scanHint} pointerEvents="none">
+                    <ThemedText style={styles.scanHintText}>Point at the package barcode</ThemedText>
                   </View>
                 </View>
               ) : null}
               <Card style={{ gap: spacing.sm }}>
-                <ThemedText style={[styles.h, { color: surface.text }]}>Enter a code by hand</ThemedText>
+                <ThemedText style={[styles.fieldLabelLg, { color: surface.text }]}>Enter a code by hand</ThemedText>
                 <TextInput
                   value={manualCode}
                   onChangeText={setManualCode}
+                  onFocus={() => setManualFocus(true)}
+                  onBlur={() => setManualFocus(false)}
                   placeholder="Barcode"
                   placeholderTextColor={surface.placeholder}
-                  style={[styles.input, { backgroundColor: surface.surface, borderColor: surface.border, borderRadius: radii.md, color: surface.text }]}
+                  style={[
+                    styles.input,
+                    styles.mono,
+                    {
+                      backgroundColor: manualFocus ? surface.surface : surface.surface2,
+                      borderColor: manualFocus ? palette.sky : surface.borderStrong,
+                      borderRadius: radii.md,
+                      color: surface.text,
+                    },
+                    manualFocus ? focusRing(dark) : null,
+                  ]}
                   autoCapitalize="none"
                   autoCorrect={false}
                 />
@@ -553,49 +683,91 @@ function DeductView({
   const remaining = typeof tracked.unitsRemaining === 'number' ? tracked.unitsRemaining : undefined;
   const total = typeof tracked.totalUnits === 'number' ? tracked.totalUnits : undefined;
   const plural = qty === 1 ? unit : `${unit}s`;
+  const low =
+    tracked.lowAtCount != null && remaining != null && remaining <= tracked.lowAtCount;
+  const ratio = total != null && total > 0 && remaining != null ? remaining / total : 1;
+  const code = tracked.productBarcode ?? null;
   return (
     <View style={{ gap: spacing.md }}>
-      <ThemedText type="title">{tracked.itemName ?? 'Tracked item'}</ThemedText>
-      <ThemedText style={[styles.sub, { color: surface.muted }]}>
-        {remaining != null ? `${remaining}${total != null ? ` of ${total}` : ''} ${unit}s left` : `${tracked.vendor ?? ''}`}
-      </ThemedText>
-
-      <Card style={{ alignItems: 'center', gap: spacing.sm, paddingVertical: spacing.lg }}>
-        <ThemedText style={[styles.sub, { color: surface.muted, fontWeight: '600' }]}>Use how many?</ThemedText>
-        <View style={styles.qtyRow}>
-          <Pressable onPress={() => setQty(Math.max(1, qty - 1))} style={[styles.qBtn, { backgroundColor: surface.sunken }]}>
-            <Ionicons name="remove" size={22} color={palette.sky} />
-          </Pressable>
-          <ThemedText style={[styles.bigNum, { color: surface.text }]}>{qty}</ThemedText>
-          <Pressable onPress={() => setQty(qty + 1)} style={[styles.qBtn, { backgroundColor: surface.sunken }]}>
-            <Ionicons name="add" size={22} color={palette.sky} />
-          </Pressable>
+      {/* Color hero with glowing line, count, and a stock bar (contract 2). */}
+      <Card style={styles.heroCard} compact>
+        <GradientHero
+          icon="cube-outline"
+          title={tracked.itemName ?? 'Tracked item'}
+          code={code ? formatCode(code) : tracked.vendor ?? null}
+        />
+        <GlowLine />
+        <View style={styles.heroBody}>
+          <View style={styles.countRow}>
+            <View style={styles.countLine}>
+              <ThemedText style={[styles.bigNum, { color: surface.text }]}>
+                {remaining != null ? remaining : '–'}
+              </ThemedText>
+              {total != null ? (
+                <ThemedText style={[styles.countUnit, { color: surface.muted }]}>
+                  {' '}/ {total} {unit}s
+                </ThemedText>
+              ) : (
+                <ThemedText style={[styles.countUnit, { color: surface.muted }]}> {unit}s</ThemedText>
+              )}
+            </View>
+            <View
+              style={[
+                styles.pill,
+                { backgroundColor: low ? palette.dangerDim : palette.successDim },
+              ]}
+            >
+              <ThemedText
+                style={[styles.pillText, { color: low ? palette.danger : palette.success }]}
+              >
+                {low ? 'Low' : 'In stock'}
+              </ThemedText>
+            </View>
+          </View>
+          {total != null ? <StockBar ratio={ratio} low={low} /> : null}
         </View>
-        <ThemedText style={[styles.sub, { color: surface.muted }]}>{plural}</ThemedText>
-        <View style={styles.chips}>
-          {QTY_CHIPS.map((n) => (
+      </Card>
+
+      <ThemedText style={[styles.sectionLabel, { color: surface.faint }]}>HOW MANY DID YOU USE?</ThemedText>
+      <View style={styles.chips}>
+        {QTY_CHIPS.map((n) => {
+          const on = qty === n;
+          return (
             <Pressable
               key={n}
               onPress={() => setQty(n)}
               style={[
                 styles.chip,
-                { backgroundColor: qty === n ? palette.sky : surface.sunken, borderRadius: radii.sm },
+                {
+                  backgroundColor: on ? palette.sky : surface.surface,
+                  borderColor: on ? palette.sky : surface.border,
+                  borderRadius: radii.pill,
+                },
               ]}
             >
-              <ThemedText style={{ color: qty === n ? palette.white : surface.muted, fontWeight: '700' }}>{n}</ThemedText>
+              <ThemedText style={[styles.chipText, { color: on ? palette.white : surface.muted }]}>{n}</ThemedText>
             </Pressable>
-          ))}
-        </View>
-      </Card>
+          );
+        })}
+      </View>
 
       <Button variant="primary" label={`Deduct ${qty} ${plural}`} loading={sending} disabled={sending} onPress={onDeduct} />
       {tracked.purchaseItemId != null ? (
         <Pressable
           onPress={onReorder}
           disabled={sending}
-          style={[styles.dangerBtn, { backgroundColor: palette.dangerLight, borderRadius: radii.md }]}
+          style={({ pressed }) => [
+            styles.dangerBtn,
+            {
+              backgroundColor: palette.dangerDim,
+              borderColor: palette.dangerBorder,
+              borderRadius: radii.md,
+              opacity: pressed ? 0.85 : 1,
+            },
+          ]}
         >
-          <ThemedText style={{ color: palette.danger, fontWeight: '700', fontSize: 16 }}>Low, reorder ASAP</ThemedText>
+          <Ionicons name="alert-circle-outline" size={18} color={palette.danger} />
+          <ThemedText style={styles.dangerLabel}>Low, reorder ASAP</ThemedText>
         </Pressable>
       ) : null}
       {errorMsg ? <ThemedText style={[styles.err]}>{errorMsg}</ThemedText> : null}
@@ -629,80 +801,179 @@ function NewPackageView({
 }) {
   const { surface, spacing, radii } = useTheme();
   const guessName = guess?.name;
+  const hasParsed =
+    !!parsed && (!!parsed.gtin14 || !!parsed.ai.lot || !!parsed.ai.expiry || !!parsed.ai.serial);
   return (
     <View style={{ gap: spacing.md }}>
-      <ThemedText type="title">New package</ThemedText>
+      <ThemedText type="title">New barcode</ThemedText>
+
+      {/* Contract: amber "not recognized" callout when unknown; a sky
+          prefill callout when the barcode index gave us a head start. */}
       {guessName ? (
-        <View style={[styles.guess, { borderRadius: radii.lg }]}>
-          <ThemedText style={styles.guessLabel}>From this barcode</ThemedText>
-          <ThemedText style={[styles.guessName, { color: surface.text }]}>
-            {guessName}
-            {guess?.vendor ? `  -  ${guess.vendor}` : ''}
-          </ThemedText>
-          <ThemedText style={[styles.sub, { color: surface.muted }]}>we will prefill the details, you confirm</ThemedText>
-        </View>
+        <Callout tone="sky" icon="sparkles-outline">
+          <ThemedText style={styles.calloutLead}>{guessName}</ThemedText>
+          {guess?.vendor ? `  ·  ${guess.vendor}` : ''}. We will prefill the details, you confirm.
+        </Callout>
       ) : (
-        <ThemedText style={[styles.sub, { color: surface.muted }]}>Scanned {code}</ThemedText>
+        <Callout tone="amber">
+          <ThemedText style={[styles.calloutLead, { color: palette.amber }]}>Not recognized. </ThemedText>
+          {formatCode(code)}. What is it?
+        </Callout>
       )}
 
-      {parsed && (parsed.gtin14 || parsed.ai.lot || parsed.ai.expiry || parsed.ai.serial) ? (
-        <View style={{ gap: 2 }}>
-          {parsed.gtin14 ? (
-            <ThemedText style={[styles.sub, { color: surface.muted }]}>
-              GTIN {parsed.gtin14}
-              {parsed.region ? `  -  ${parsed.region}` : ''}
-            </ThemedText>
+      {hasParsed ? (
+        <Card compact style={{ gap: spacing.sm }}>
+          {parsed!.gtin14 ? (
+            <DetailRow
+              label="GTIN"
+              value={`${parsed!.gtin14}${parsed!.region ? `  ·  ${parsed!.region}` : ''}`}
+              mono
+            />
           ) : null}
-          {parsed.ai.lot ? (
-            <ThemedText style={[styles.sub, { color: surface.muted }]}>Lot {parsed.ai.lot}</ThemedText>
-          ) : null}
-          {parsed.ai.expiry ? (
-            <ThemedText style={[styles.sub, { color: surface.muted }]}>Expires {parsed.ai.expiry}</ThemedText>
-          ) : null}
-          {parsed.ai.serial ? (
-            <ThemedText style={[styles.sub, { color: surface.muted }]}>Serial {parsed.ai.serial}</ThemedText>
-          ) : null}
-        </View>
+          {parsed!.ai.lot ? <DetailRow label="Lot" value={parsed!.ai.lot} mono /> : null}
+          {parsed!.ai.expiry ? <DetailRow label="Expires" value={parsed!.ai.expiry} /> : null}
+          {parsed!.ai.serial ? <DetailRow label="Serial" value={parsed!.ai.serial} mono /> : null}
+        </Card>
       ) : null}
 
       {purchases.length > 0 ? (
         <>
-          <ThemedText style={[styles.sectionLabel, { color: surface.muted }]}>MATCH TO A RECENT ORDER</ThemedText>
-          {purchases.map((p, i) => {
-            const likely =
-              (!!guessName && p.name === guessName) || barcodesMatch(p.productBarcode, code);
-            return (
-              <Pressable key={String(p.purchaseItemId ?? i)} onPress={() => onPick(p)} disabled={sending}>
-                <Card compact style={styles.purchaseRow}>
-                  <View style={{ flex: 1 }}>
+          <ThemedText style={[styles.sectionLabel, { color: surface.faint }]}>MATCH TO A RECENT ORDER</ThemedText>
+          <Card style={styles.listCard}>
+            {purchases.map((p, i) => {
+              const likely =
+                (!!guessName && p.name === guessName) || barcodesMatch(p.productBarcode, code);
+              const last = i === purchases.length - 1;
+              return (
+                <Pressable
+                  key={String(p.purchaseItemId ?? i)}
+                  onPress={() => onPick(p)}
+                  disabled={sending}
+                  style={({ pressed }) => [
+                    styles.matchRow,
+                    { borderBottomColor: surface.hairline },
+                    last ? { borderBottomWidth: 0 } : null,
+                    pressed ? { opacity: 0.7 } : null,
+                  ]}
+                >
+                  <View
+                    style={[
+                      styles.thumb,
+                      likely
+                        ? { backgroundColor: palette.successDim, borderColor: 'transparent' }
+                        : { backgroundColor: palette.skyDim, borderColor: palette.skyBorder },
+                    ]}
+                  >
+                    <Ionicons
+                      name="receipt-outline"
+                      size={18}
+                      color={likely ? palette.success : palette.sky}
+                    />
+                  </View>
+                  <View style={{ flex: 1, minWidth: 0 }}>
                     <ThemedText style={[styles.rowTitle, { color: surface.text }]} numberOfLines={1}>
                       {p.name ?? 'Order'}
                     </ThemedText>
-                    <ThemedText style={[styles.rowMeta, { color: surface.muted }]}>
-                      {[p.vendor, p.orderedDate ? `ordered ${formatShort(p.orderedDate)}` : null].filter(Boolean).join('  -  ')}
+                    <ThemedText style={[styles.rowMeta, { color: surface.muted }]} numberOfLines={1}>
+                      {[p.vendor, p.orderedDate ? `ordered ${formatShort(p.orderedDate)}` : null]
+                        .filter(Boolean)
+                        .join('  ·  ')}
                     </ThemedText>
                   </View>
                   {likely ? (
-                    <View style={[styles.pill, { backgroundColor: palette.successLight }]}>
-                      <ThemedText style={{ color: palette.success, fontSize: 12, fontWeight: '700' }}>likely</ThemedText>
+                    <View style={[styles.pill, { backgroundColor: palette.successDim }]}>
+                      <ThemedText style={[styles.pillText, { color: palette.success }]}>likely</ThemedText>
                     </View>
                   ) : (
-                    <Ionicons name="chevron-forward" size={18} color={surface.muted} />
+                    <Ionicons name="chevron-forward" size={18} color={surface.faint} />
                   )}
-                </Card>
-              </Pressable>
-            );
-          })}
+                </Pressable>
+              );
+            })}
+          </Card>
         </>
       ) : (
         <ThemedText style={[styles.sub, { color: surface.muted }]}>No recent orders awaiting arrival.</ThemedText>
       )}
 
-      <Button variant="secondary" label="Add a new purchase order" onPress={onAddPurchase} disabled={sending} />
-      <Button variant="secondary" label="Not a purchase, just add to inventory" onPress={onAddInventory} disabled={sending} />
+      <ThemedText style={[styles.sectionLabel, { color: surface.faint }]}>OR ADD IT YOURSELF</ThemedText>
+      {/* Contract sheet-opt rows: icon tile + label + sub, one tap each. */}
+      <SheetOption
+        icon="add-circle-outline"
+        tint="violet"
+        label="Add a purchase item"
+        sub="Order and track at once"
+        onPress={onAddPurchase}
+        disabled={sending}
+      />
+      <SheetOption
+        icon="cube-outline"
+        tint="success"
+        label="Just track in stock"
+        sub="Add to inventory only"
+        onPress={onAddInventory}
+        disabled={sending}
+      />
       {errorMsg ? <ThemedText style={styles.err}>{errorMsg}</ThemedText> : null}
       <Button variant="ghost" label="Cancel" onPress={onCancel} />
     </View>
+  );
+}
+
+// A labelled key/value row (contract .kv) used for parsed barcode details.
+function DetailRow({ label, value, mono }: { label: string; value: string; mono?: boolean }) {
+  const { surface } = useTheme();
+  return (
+    <View style={styles.kv}>
+      <ThemedText style={[styles.kvKey, { color: surface.muted }]}>{label}</ThemedText>
+      <ThemedText
+        style={[styles.kvVal, { color: surface.text }, mono ? styles.mono : null]}
+        numberOfLines={1}
+      >
+        {value}
+      </ThemedText>
+    </View>
+  );
+}
+
+// Contract .sheet-opt: an icon-tile action row inside a card surface.
+function SheetOption({
+  icon,
+  tint,
+  label,
+  sub,
+  onPress,
+  disabled,
+}: {
+  icon: keyof typeof Ionicons.glyphMap;
+  tint: 'sky' | 'violet' | 'success';
+  label: string;
+  sub: string;
+  onPress: () => void;
+  disabled?: boolean;
+}) {
+  const { surface, radii } = useTheme();
+  const accent =
+    tint === 'violet' ? palette.violet : tint === 'success' ? palette.success : palette.sky;
+  const bg =
+    tint === 'violet' ? palette.violetDim : tint === 'success' ? palette.successDim : palette.skyDim;
+  return (
+    <Pressable
+      onPress={onPress}
+      disabled={disabled}
+      style={({ pressed }) => (pressed ? { opacity: 0.85 } : null)}
+    >
+      <Card compact style={styles.sheetOpt}>
+        <View style={[styles.sheetIcon, { backgroundColor: bg }]}>
+          <Ionicons name={icon} size={20} color={accent} />
+        </View>
+        <View style={{ flex: 1, minWidth: 0 }}>
+          <ThemedText style={[styles.rowTitle, { color: surface.text }]}>{label}</ThemedText>
+          <ThemedText style={[styles.rowMeta, { color: surface.muted }]}>{sub}</ThemedText>
+        </View>
+        <Ionicons name="chevron-forward" size={18} color={surface.faint} />
+      </Card>
+    </Pressable>
   );
 }
 
@@ -733,61 +1004,98 @@ function TrackView({
   sending: boolean;
   errorMsg: string | null;
 }) {
-  const { surface, spacing, radii } = useTheme();
+  const { surface, spacing, radii, dark } = useTheme();
+  const [totalFocus, setTotalFocus] = useState(false);
+  const perScanText = unitsPerScan === 1 ? `1 ${unitLabel}` : `${unitsPerScan} ${unitLabel}s`;
   return (
     <View style={{ gap: spacing.md }}>
       {isArrived ? (
         <View style={{ alignItems: 'center', gap: spacing.sm }}>
           <View style={styles.okBadge}>
-            <Ionicons name="checkmark" size={30} color={palette.success} />
+            <Ionicons name="checkmark" size={34} color={palette.success} />
           </View>
           <ThemedText type="title">Marked arrived</ThemedText>
         </View>
       ) : (
-        <ThemedText type="title">Almost done</ThemedText>
+        <ThemedText type="title">Track this item</ThemedText>
       )}
       {title ? <ThemedText style={[styles.sub, { color: surface.muted, textAlign: 'center' }]}>{title}</ThemedText> : null}
 
-      <ThemedText style={[styles.sectionLabel, { color: surface.muted }]}>TRACK THIS BARCODE?</ThemedText>
-      <Card style={{ gap: spacing.md }}>
-        <View style={styles.field}>
-          <ThemedText style={[styles.fieldLabel, { color: surface.text }]}>One scan uses</ThemedText>
-          <View style={styles.stepperInline}>
-            <Pressable onPress={() => setUnitsPerScan(Math.max(1, unitsPerScan - 1))} style={[styles.qBtnSm, { backgroundColor: surface.sunken }]}>
-              <Ionicons name="remove" size={18} color={palette.sky} />
-            </Pressable>
-            <ThemedText style={[styles.fieldValue, { color: surface.text }]}>{unitsPerScan}</ThemedText>
-            <Pressable onPress={() => setUnitsPerScan(unitsPerScan + 1)} style={[styles.qBtnSm, { backgroundColor: surface.sunken }]}>
-              <Ionicons name="add" size={18} color={palette.sky} />
-            </Pressable>
+      <ThemedText style={[styles.sectionLabel, { color: surface.faint }]}>TRACK THIS BARCODE?</ThemedText>
+      <Card style={{ gap: spacing.lg }}>
+        <View>
+          <ThemedText style={[styles.fieldLabel, { color: surface.muted }]}>Counts as</ThemedText>
+          <View style={styles.chips}>
+            {UNIT_CHIPS.map((u) => {
+              const on = unitLabel === u;
+              return (
+                <Pressable
+                  key={u}
+                  onPress={() => setUnitLabel(u)}
+                  style={[
+                    styles.chip,
+                    {
+                      backgroundColor: on ? palette.sky : surface.surface,
+                      borderColor: on ? palette.sky : surface.border,
+                      borderRadius: radii.pill,
+                    },
+                  ]}
+                >
+                  <ThemedText style={[styles.chipText, { color: on ? palette.white : surface.muted }]}>{u}</ThemedText>
+                </Pressable>
+              );
+            })}
           </View>
         </View>
-        <View style={styles.field}>
-          <ThemedText style={[styles.fieldLabel, { color: surface.text }]}>Total in box</ThemedText>
-          <TextInput
-            value={totalInBox}
-            onChangeText={(t) => setTotalInBox(t.replace(/[^0-9]/g, ''))}
-            placeholder="50"
-            placeholderTextColor={surface.placeholder}
-            keyboardType="number-pad"
-            style={[styles.numInput, { backgroundColor: surface.surface, borderColor: surface.border, borderRadius: radii.sm, color: surface.text }]}
-          />
-        </View>
-        <View>
-          <ThemedText style={[styles.fieldLabel, { color: surface.text, marginBottom: spacing.sm }]}>Unit</ThemedText>
-          <View style={styles.chips}>
-            {UNIT_CHIPS.map((u) => (
+
+        <View style={styles.calcRow}>
+          <View style={styles.field}>
+            <ThemedText style={[styles.fieldLabel, { color: surface.muted }]}>One scan uses</ThemedText>
+            <View style={[styles.stepperBox, { borderWidth: 1, borderColor: surface.borderStrong }]}>
               <Pressable
-                key={u}
-                onPress={() => setUnitLabel(u)}
-                style={[styles.chip, { backgroundColor: unitLabel === u ? palette.sky : surface.sunken, borderRadius: radii.sm }]}
+                onPress={() => setUnitsPerScan(Math.max(1, unitsPerScan - 1))}
+                style={[styles.stepBtn, { backgroundColor: surface.surface2, borderRightWidth: 1, borderRightColor: surface.border }]}
               >
-                <ThemedText style={{ color: unitLabel === u ? palette.white : surface.muted, fontWeight: '600' }}>{u}</ThemedText>
+                <Ionicons name="remove" size={18} color={palette.sky} />
               </Pressable>
-            ))}
+              <ThemedText style={[styles.stepVal, { color: surface.text }]}>{unitsPerScan}</ThemedText>
+              <Pressable
+                onPress={() => setUnitsPerScan(unitsPerScan + 1)}
+                style={[styles.stepBtn, { backgroundColor: surface.surface2, borderLeftWidth: 1, borderLeftColor: surface.border }]}
+              >
+                <Ionicons name="add" size={18} color={palette.sky} />
+              </Pressable>
+            </View>
+          </View>
+          <View style={styles.field}>
+            <ThemedText style={[styles.fieldLabel, { color: surface.muted }]}>Total in box</ThemedText>
+            <TextInput
+              value={totalInBox}
+              onChangeText={(t) => setTotalInBox(t.replace(/[^0-9]/g, ''))}
+              onFocus={() => setTotalFocus(true)}
+              onBlur={() => setTotalFocus(false)}
+              placeholder="50"
+              placeholderTextColor={surface.placeholder}
+              keyboardType="number-pad"
+              style={[
+                styles.numInput,
+                styles.mono,
+                {
+                  backgroundColor: totalFocus ? surface.surface : surface.surface2,
+                  borderColor: totalFocus ? palette.sky : surface.borderStrong,
+                  borderRadius: radii.md,
+                  color: surface.text,
+                },
+                totalFocus ? focusRing(dark) : null,
+              ]}
+            />
           </View>
         </View>
       </Card>
+
+      <Callout tone="sky">
+        Each scan deducts <ThemedText style={styles.calloutLead}>{perScanText}</ThemedText>. We will warn you when it runs low.
+      </Callout>
 
       <Button variant="primary" label="Start tracking" loading={sending} disabled={sending} onPress={onStart} />
       <Button variant="secondary" label="No thanks" onPress={onSkip} disabled={sending} />
@@ -799,12 +1107,12 @@ function TrackView({
 function DoneView({ message, onAgain }: { message: string; onAgain: () => void }) {
   const { surface, spacing } = useTheme();
   return (
-    <View style={{ gap: spacing.lg, alignItems: 'center', paddingTop: spacing.xl }}>
-      <View style={styles.okBadge}>
-        <Ionicons name="checkmark" size={30} color={palette.success} />
+    <View style={{ gap: spacing.lg, alignItems: 'center', paddingTop: spacing['3xl'] }}>
+      <View style={styles.successCheck}>
+        <Ionicons name="checkmark" size={42} color={palette.success} />
       </View>
       <ThemedText type="title" style={{ textAlign: 'center' }}>{message || 'Done'}</ThemedText>
-      <ThemedText style={[styles.sub, { color: surface.muted, textAlign: 'center' }]}>
+      <ThemedText style={[styles.sub, { color: surface.muted, textAlign: 'center', maxWidth: 260 }]}>
         Synced to your lab. Your laptop will apply it on its next check.
       </ThemedText>
       <View style={{ alignSelf: 'stretch' }}>
@@ -821,39 +1129,213 @@ function formatShort(value?: string): string {
   return new Date(ms).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
 }
 
+// Light cosmetic grouping for a scanned code, e.g. an EAN-13 into 1 6 6 groups
+// so it reads like the contract's "EAN 4 047649 123456". Falls back verbatim.
+function formatCode(code: string): string {
+  const c = code.trim();
+  if (/^\d{13}$/.test(c)) return `EAN ${c[0]} ${c.slice(1, 7)} ${c.slice(7)}`;
+  if (/^\d{12}$/.test(c)) return `UPC ${c.slice(0, 6)} ${c.slice(6)}`;
+  return c;
+}
+
 const styles = StyleSheet.create({
   fill: { flex: 1 },
   scroll: { paddingHorizontal: 20, paddingTop: 16, paddingBottom: 40, gap: 16 },
-  h: { fontSize: 16, fontWeight: '700', lineHeight: 22 },
-  sub: { fontSize: 14, lineHeight: 20 },
-  sectionLabel: { fontSize: 12, fontWeight: '700', letterSpacing: 0.4 },
-  input: { borderWidth: 1, paddingHorizontal: 14, paddingVertical: 12, fontSize: 16, minHeight: 48 },
-  numInput: { borderWidth: 1, paddingHorizontal: 12, paddingVertical: 8, fontSize: 16, minWidth: 80, textAlign: 'right' },
+  h: { fontSize: 16, fontFamily: fonts.bold, fontWeight: '700', lineHeight: 22 },
+  sub: { fontSize: 14, fontFamily: fonts.ui, lineHeight: 20 },
+  mono: { fontFamily: fonts.mono },
+  sectionLabel: {
+    fontSize: 12,
+    fontFamily: fonts.bold,
+    fontWeight: '700',
+    letterSpacing: 0.9,
+    textTransform: 'uppercase',
+    lineHeight: 16,
+    marginTop: 2,
+    marginBottom: -4,
+    paddingHorizontal: 2,
+  },
+
+  // Inputs (contract .input / .input.focus). Focus ring spread on via focusRing().
+  input: {
+    borderWidth: 1,
+    paddingHorizontal: 14,
+    paddingVertical: 13,
+    fontSize: 15,
+    minHeight: 48,
+  },
+  numInput: {
+    borderWidth: 1,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    fontSize: 16,
+    minHeight: 48,
+    textAlign: 'right',
+  },
+  fieldLabelLg: { fontSize: 15, fontFamily: fonts.semibold, fontWeight: '600', lineHeight: 20 },
+
+  // Camera viewfinder (contract .scanframe): white corner brackets + a glowing
+  // sky scanline, with a centered hint line below.
   cameraWrap: { width: '100%', aspectRatio: 3 / 4, overflow: 'hidden', backgroundColor: '#000000' },
-  reticle: { position: 'absolute', top: '33%', left: '18%', right: '18%', bottom: '33%' },
-  corner: { position: 'absolute', width: 26, height: 26, borderColor: '#ffffff' },
-  c1: { top: 0, left: 0, borderTopWidth: 3, borderLeftWidth: 3, borderTopLeftRadius: 8 },
-  c2: { top: 0, right: 0, borderTopWidth: 3, borderRightWidth: 3, borderTopRightRadius: 8 },
-  c3: { bottom: 0, left: 0, borderBottomWidth: 3, borderLeftWidth: 3, borderBottomLeftRadius: 8 },
-  c4: { bottom: 0, right: 0, borderBottomWidth: 3, borderRightWidth: 3, borderBottomRightRadius: 8 },
-  qtyRow: { flexDirection: 'row', alignItems: 'center', gap: 22 },
-  bigNum: { fontSize: 64, fontWeight: '800', lineHeight: 70, minWidth: 70, textAlign: 'center' },
-  qBtn: { width: 46, height: 46, borderRadius: 23, alignItems: 'center', justifyContent: 'center' },
-  qBtnSm: { width: 34, height: 34, borderRadius: 17, alignItems: 'center', justifyContent: 'center' },
-  chips: { flexDirection: 'row', gap: 8, justifyContent: 'center', flexWrap: 'wrap' },
-  chip: { minWidth: 44, paddingHorizontal: 12, paddingVertical: 9, alignItems: 'center' },
-  dangerBtn: { paddingVertical: 14, alignItems: 'center', justifyContent: 'center', minHeight: 48 },
-  guess: { padding: 14, backgroundColor: palette.skyDim },
-  guessLabel: { fontSize: 11, fontWeight: '700', letterSpacing: 0.4, color: palette.sky, textTransform: 'uppercase' },
-  guessName: { fontSize: 16, fontWeight: '700', marginTop: 2 },
-  purchaseRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  rowTitle: { fontSize: 15, fontWeight: '600', lineHeight: 20 },
-  rowMeta: { fontSize: 13, lineHeight: 18 },
-  pill: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 999 },
-  field: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  fieldLabel: { fontSize: 15, fontWeight: '500' },
-  fieldValue: { fontSize: 16, fontWeight: '700', minWidth: 28, textAlign: 'center' },
-  stepperInline: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  okBadge: { width: 60, height: 60, borderRadius: 30, backgroundColor: palette.successLight, alignItems: 'center', justifyContent: 'center' },
-  err: { color: palette.danger, fontSize: 14, lineHeight: 20 },
+  reticle: { position: 'absolute', top: '32%', left: '16%', right: '16%', bottom: '38%' },
+  corner: { position: 'absolute', width: 30, height: 30, borderColor: '#ffffff', opacity: 0.95 },
+  c1: { top: 0, left: 0, borderTopWidth: 3, borderLeftWidth: 3, borderTopLeftRadius: 9 },
+  c2: { top: 0, right: 0, borderTopWidth: 3, borderRightWidth: 3, borderTopRightRadius: 9 },
+  c3: { bottom: 0, left: 0, borderBottomWidth: 3, borderLeftWidth: 3, borderBottomLeftRadius: 9 },
+  c4: { bottom: 0, right: 0, borderBottomWidth: 3, borderRightWidth: 3, borderBottomRightRadius: 9 },
+  scanline: {
+    position: 'absolute',
+    left: '7%',
+    right: '7%',
+    top: '50%',
+    height: 2,
+    backgroundColor: palette.sky,
+    shadowColor: palette.sky,
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.9,
+    shadowRadius: 7,
+    elevation: 0,
+  },
+  scanHint: { position: 'absolute', left: 0, right: 0, bottom: '14%', alignItems: 'center' },
+  scanHintText: {
+    color: 'rgba(255,255,255,0.92)',
+    fontSize: 13.5,
+    fontFamily: fonts.semibold,
+    fontWeight: '600',
+  },
+
+  // Gradient hero (contract deduct/match hero card).
+  heroCard: { padding: 0, overflow: 'hidden', gap: 0 },
+  hero: { flexDirection: 'row', alignItems: 'center', gap: 13, paddingHorizontal: 18, paddingVertical: 16 },
+  heroIcon: {
+    width: 48,
+    height: 48,
+    borderRadius: 13,
+    backgroundColor: 'rgba(255,255,255,0.22)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  heroEyebrow: {
+    color: 'rgba(255,255,255,0.85)',
+    fontSize: 10.5,
+    fontFamily: fonts.bold,
+    fontWeight: '700',
+    letterSpacing: 0.8,
+    textTransform: 'uppercase',
+    marginBottom: 2,
+  },
+  heroTitle: { color: palette.white, fontSize: 17, fontFamily: fonts.bold, fontWeight: '700', lineHeight: 22 },
+  heroCode: {
+    color: 'rgba(255,255,255,0.82)',
+    fontSize: 12,
+    fontFamily: fonts.mono,
+    marginTop: 2,
+  },
+  heroBody: { paddingHorizontal: 16, paddingTop: 13, paddingBottom: 15, gap: 9 },
+
+  // Glowing seam line between hero and body.
+  glowlineWrap: { height: 2, width: '100%' },
+  glowline: { flex: 1, height: 2 },
+
+  // Big mono count line (contract .bigcount): remaining / total unit.
+  countRow: { flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between' },
+  countLine: { flexDirection: 'row', alignItems: 'baseline' },
+  bigNum: { fontSize: 32, fontFamily: fonts.monoSemibold, fontWeight: '600', letterSpacing: -0.6, lineHeight: 36 },
+  countUnit: { fontSize: 14, fontFamily: fonts.medium, fontWeight: '500', lineHeight: 20 },
+
+  // Stock bar (contract .stockbar / .fill).
+  stockbar: { height: 10, borderRadius: 999, overflow: 'hidden' },
+  stockfill: { height: '100%', borderRadius: 999 },
+
+  // Chips (contract .ch / .ch.on): pill, 1px border, sky-fill when active.
+  chips: { flexDirection: 'row', gap: 8, flexWrap: 'wrap' },
+  chip: {
+    minWidth: 44,
+    paddingHorizontal: 16,
+    paddingVertical: 9,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+  },
+  chipText: { fontSize: 13, fontFamily: fonts.semibold, fontWeight: '600' },
+
+  // Reorder danger button (contract: tinted, bordered, danger label + icon).
+  dangerBtn: {
+    flexDirection: 'row',
+    gap: 8,
+    paddingVertical: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+    minHeight: 50,
+    borderWidth: 1,
+  },
+  dangerLabel: { color: palette.danger, fontFamily: fonts.semibold, fontWeight: '700', fontSize: 15 },
+
+  // Callout (contract .callout): tinted inset, accent lead word.
+  callout: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 9,
+    borderWidth: 1,
+    paddingHorizontal: 15,
+    paddingVertical: 13,
+  },
+  calloutText: { flex: 1, fontSize: 13, fontFamily: fonts.ui, lineHeight: 19 },
+  calloutLead: { fontFamily: fonts.semibold, fontWeight: '700', color: palette.sky },
+
+  // Match-order list rows + new-item detail card.
+  listCard: { padding: 0, paddingHorizontal: 14 },
+  matchRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    paddingVertical: 11,
+    borderBottomWidth: 1,
+  },
+  thumb: {
+    width: 44,
+    height: 44,
+    borderRadius: 12,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  rowTitle: { fontSize: 15, fontFamily: fonts.semibold, fontWeight: '600', lineHeight: 20 },
+  rowMeta: { fontSize: 12.5, fontFamily: fonts.ui, lineHeight: 17, marginTop: 2 },
+  pill: { paddingHorizontal: 11, paddingVertical: 5, borderRadius: 999 },
+  pillText: { fontSize: 11.5, fontFamily: fonts.bold, fontWeight: '700' },
+
+  // Key/value detail rows (contract .kv).
+  kv: { flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between', gap: 12 },
+  kvKey: { fontSize: 13, fontFamily: fonts.ui },
+  kvVal: { fontSize: 13.5, fontFamily: fonts.semibold, fontWeight: '600', flexShrink: 1, textAlign: 'right' },
+
+  // Sheet option rows (contract .sheet-opt).
+  sheetOpt: { flexDirection: 'row', alignItems: 'center', gap: 13 },
+  sheetIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+
+  // Track-step fields (contract .field + .calc-row + .stepper).
+  calcRow: { flexDirection: 'row', gap: 12 },
+  field: { flex: 1, gap: 7 },
+  fieldLabel: { fontSize: 12, fontFamily: fonts.semibold, fontWeight: '600', lineHeight: 16, marginBottom: 7 },
+  stepperBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderRadius: globalRadii.md,
+    overflow: 'hidden',
+    height: 48,
+  },
+  stepBtn: { width: 44, height: 48, alignItems: 'center', justifyContent: 'center' },
+  stepVal: { flex: 1, textAlign: 'center', fontSize: 18, fontFamily: fonts.monoSemibold, fontWeight: '600' },
+
+  // Success states.
+  okBadge: { width: 64, height: 64, borderRadius: 32, backgroundColor: palette.successDim, alignItems: 'center', justifyContent: 'center' },
+  successCheck: { width: 84, height: 84, borderRadius: 42, backgroundColor: palette.successDim, alignItems: 'center', justifyContent: 'center', marginBottom: 4 },
+  err: { color: palette.danger, fontSize: 14, fontFamily: fonts.ui, lineHeight: 20 },
 });
