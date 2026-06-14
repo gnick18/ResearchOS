@@ -137,15 +137,17 @@ function PaperRow({
     return (
       <div className="flex gap-2.5 px-3 py-2.5 border-b border-border">
         {starsEnabled && (
-          <button
-            type="button"
-            data-testid="lit-explorer-star"
-            aria-label={isStarred ? "Unstar patent" : "Star this patent"}
-            onClick={() => onStarChange(item, !isStarred)}
-            className={`flex-none w-5 h-5 mt-0.5 ${isStarred ? "text-amber-400 fill-current" : "text-border hover:text-amber-400"} transition-colors`}
-          >
-            <Icon name="star" className="w-full h-full" />
-          </button>
+          <Tooltip label={isStarred ? "Unstar patent" : "Star patent"}>
+            <button
+              type="button"
+              data-testid="lit-explorer-star"
+              aria-label={isStarred ? "Unstar patent" : "Star this patent"}
+              onClick={() => onStarChange(item, !isStarred)}
+              className={`flex-none w-5 h-5 mt-0.5 ${isStarred ? "text-amber-400 fill-current" : "text-border hover:text-amber-400"} transition-colors`}
+            >
+              <Icon name="star" className="w-full h-full" />
+            </button>
+          </Tooltip>
         )}
         <div className="flex-1 min-w-0">
           <a
@@ -167,15 +169,17 @@ function PaperRow({
   return (
     <div className="flex gap-2.5 px-3 py-2.5 border-b border-border">
       {starsEnabled && (
-        <button
-          type="button"
-          data-testid="lit-explorer-star"
-          aria-label={isStarred ? "Unstar paper" : "Star this paper for this molecule"}
-          onClick={() => onStarChange(item, !isStarred)}
-          className={`flex-none w-5 h-5 mt-0.5 ${isStarred ? "text-amber-400 fill-current" : "text-border hover:text-amber-400"} transition-colors`}
-        >
-          <Icon name="star" className="w-full h-full" />
-        </button>
+        <Tooltip label={isStarred ? "Unstar paper" : "Star paper"}>
+          <button
+            type="button"
+            data-testid="lit-explorer-star"
+            aria-label={isStarred ? "Unstar paper" : "Star this paper for this molecule"}
+            onClick={() => onStarChange(item, !isStarred)}
+            className={`flex-none w-5 h-5 mt-0.5 ${isStarred ? "text-amber-400 fill-current" : "text-border hover:text-amber-400"} transition-colors`}
+          >
+            <Icon name="star" className="w-full h-full" />
+          </button>
+        </Tooltip>
       )}
       <div className="flex-1 min-w-0">
         <a
