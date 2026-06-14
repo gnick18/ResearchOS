@@ -515,12 +515,15 @@
  * notes sidebar (its own raised-white card) is untouched. */
 .ros-calm-surface .ros-history-panel {
   border-left: 1px solid var(--border-subtle);
-  background: color-mix(in srgb, var(--foreground) 2.5%, transparent);
-  box-shadow: -20px 0 40px -26px rgba(15, 23, 42, 0.32);
+  background: color-mix(in srgb, var(--foreground) 3%, transparent);
+  /* Small offset, near-zero spread: the blur actually reads as a soft band on
+   * the diff column. (A large negative spread collapses the shadow to nothing,
+   * however high the alpha.) */
+  box-shadow: -8px 0 18px -4px rgba(15, 23, 42, 0.18);
 }
 [data-theme="dark"] .ros-calm-surface .ros-history-panel {
-  background: color-mix(in srgb, #ffffff 4%, transparent);
-  box-shadow: -20px 0 44px -26px rgba(0, 0, 0, 0.62);
+  background: color-mix(in srgb, #ffffff 5%, transparent);
+  box-shadow: -8px 0 20px -4px rgba(0, 0, 0, 0.55);
 }
 /* The compare toolbar reads as a quiet raised strip over the scrolling rows: a
  * slightly firmer raised fill + a soft drop shadow in place of the washed-out
@@ -528,21 +531,21 @@
 .ros-calm-surface .ros-history-panel .ros-history-toolbar {
   border-bottom-color: transparent;
   background: color-mix(in srgb, var(--foreground) 5%, transparent);
-  box-shadow: 0 6px 10px -9px rgba(15, 23, 42, 0.28);
+  box-shadow: 0 5px 8px -4px rgba(15, 23, 42, 0.18);
 }
 [data-theme="dark"] .ros-calm-surface .ros-history-panel .ros-history-toolbar {
   background: color-mix(in srgb, #ffffff 7%, transparent);
-  box-shadow: 0 6px 12px -9px rgba(0, 0, 0, 0.5);
+  box-shadow: 0 5px 10px -4px rgba(0, 0, 0, 0.5);
 }
 /* The sticky day header keeps its near-opaque fill (it has to occlude rows
  * scrolling under it) but trades the washed hairline for a soft drop shadow so
  * it floats over the list as it sticks. */
 .ros-calm-surface .ros-history-panel .ros-history-dayhead {
   border-bottom-color: transparent;
-  box-shadow: 0 6px 10px -9px rgba(15, 23, 42, 0.28);
+  box-shadow: 0 5px 8px -4px rgba(15, 23, 42, 0.18);
 }
 [data-theme="dark"] .ros-calm-surface .ros-history-panel .ros-history-dayhead {
-  box-shadow: 0 6px 12px -9px rgba(0, 0, 0, 0.5);
+  box-shadow: 0 5px 10px -4px rgba(0, 0, 0, 0.5);
 }
 
 /* Ghost icon button — the calm header glyph treatment (Focus / Close / the
