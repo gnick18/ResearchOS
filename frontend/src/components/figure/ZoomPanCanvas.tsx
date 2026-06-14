@@ -12,6 +12,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Icon } from "@/components/icons";
+import Tooltip from "@/components/Tooltip";
 
 const MIN_ZOOM = 0.15;
 const MAX_ZOOM = 12;
@@ -208,43 +209,69 @@ export default function ZoomPanCanvas({
         {children}
       </div>
 
-      {/* Controls (top-right). */}
-      <div className="absolute right-2 top-2 z-10 flex flex-col items-end gap-1">
-        <button
-          type="button"
-          className={btn}
-          title="Zoom in"
-          onClick={() => zoomToward(1.25, size.w / 2, size.h / 2)}
-        >
-          <Icon name="plus" className="h-3.5 w-3.5" />
-        </button>
-        <button
-          type="button"
-          className={btn}
-          title="Zoom out"
-          onClick={() => zoomToward(1 / 1.25, size.w / 2, size.h / 2)}
-        >
-          <Icon name="minus" className="h-3.5 w-3.5" />
-        </button>
-        <button
-          type="button"
-          className={btn}
-          title="Center + fit"
-          onClick={center}
-        >
-          <Icon name="focus" className="h-3.5 w-3.5" />
-        </button>
-        <button
-          type="button"
-          className={btn}
-          title="Fullscreen"
-          onClick={toggleFullscreen}
-        >
-          <Icon name="scan" className="h-3.5 w-3.5" />
-        </button>
-        <div className="rounded-md border border-border bg-surface/90 px-1.5 py-0.5 text-[10px] font-medium tabular-nums text-foreground-muted shadow-sm">
-          {Math.round(zoom * 100)}%
-        </div>
+      {/* Controls (top-right). Icon-only buttons carry a Tooltip + aria-label
+          (house rule); the controls never start a pan (stop pointer here). */}
+      <div
+        className="absolute right-2 top-2 z-10 flex flex-col items-end gap-1"
+        onPointerDown={(e) => e.stopPropagation()}
+      >
+        <Tooltip label="Zoom in">
+          <button
+            type="button"
+            aria-label="Zoom in"
+            className={btn}
+            onClick={() => zoomToward(1.25, size.w / 2, size.h / 2)}
+          >
+            <Icon name="plus" className="h-3.5 w-3.5" />
+          </button>
+        </Tooltip>
+        <Tooltip label="Zoom out">
+          <button
+            type="button"
+            aria-label="Zoom out"
+            className={btn}
+            onClick={() => zoomToward(1 / 1.25, size.w / 2, size.h / 2)}
+          >
+            <Icon name="minus" className="h-3.5 w-3.5" />
+          </button>
+        </Tooltip>
+        <Tooltip label="Fit to view">
+          <button
+            type="button"
+            aria-label="Fit to view"
+            className={btn}
+            onClick={center}
+          >
+            <Icon name="focus" className="h-3.5 w-3.5" />
+          </button>
+        </Tooltip>
+        <Tooltip label="Fullscreen">
+          <button
+            type="button"
+            aria-label="Fullscreen"
+            className={btn}
+            onClick={toggleFullscreen}
+          >
+            <Icon name="scan" className="h-3.5 w-3.5" />
+          </button>
+        </Tooltip>
+        <Tooltip label="Reset zoom to 100%">
+          <button
+            type="button"
+            aria-label="Reset zoom to 100%"
+            onClick={() => {
+              const { w, h } = viewport();
+              setZoom(1);
+              setPan({
+                x: (w - contentWidth) / 2,
+                y: (h - contentHeight) / 2,
+              });
+            }}
+            className="rounded-md border border-border bg-surface/90 px-1.5 py-0.5 text-[10px] font-medium tabular-nums text-foreground-muted shadow-sm transition-colors hover:bg-surface-sunken"
+          >
+            {Math.round(zoom * 100)}%
+          </button>
+        </Tooltip>
       </div>
 
       {/* Minimap (bottom-left), shown when zoomed past the viewport. */}
