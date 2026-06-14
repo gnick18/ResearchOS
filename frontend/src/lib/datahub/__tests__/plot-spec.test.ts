@@ -491,6 +491,36 @@ describe("plot-spec: SVG serialization", () => {
     expect(svg).not.toContain("A & B");
   });
 
+  it("value labels: geometry carries the mean and the renderer draws it when on", () => {
+    const content = threeGroupContent();
+    const base = defaultPlotStyle();
+    const groups = resolvePlotGroups(content, base);
+    const geo = layoutPlot(groups, base, []);
+    expect(typeof geo.groups[0].mean).toBe("number");
+    const off = renderPlotSvg(geo, base);
+    const on = renderPlotSvg(geo, { ...base, showValueLabels: true });
+    // The labels add text nodes, so the "on" markup is strictly longer.
+    expect(on.length).toBeGreaterThan(off.length);
+  });
+});
+
+describe("plot-spec: error-bar magnitude", () => {
+  it("ci95 is t(0.975, n-1) * SEM and needs n >= 2", () => {
+    const e = errorMagnitude({ mean: 10, sd: Math.sqrt(5), sem: 1, n: 5 }, "ci95");
+    // t(0.975, 4) = 2.7764
+    expect(e).toBeCloseTo(2.7764, 3);
+    // wider than the SEM
+    expect(e as number).toBeGreaterThan(1);
+    // not enough data for a CI
+    expect(errorMagnitude({ mean: 1, sd: null, sem: null, n: 1 }, "ci95")).toBeNull();
+  });
+  it("sd / sem / none are unchanged", () => {
+    const s = { mean: 10, sd: 2, sem: 1, n: 4 };
+    expect(errorMagnitude(s, "sd")).toBe(2);
+    expect(errorMagnitude(s, "sem")).toBe(1);
+    expect(errorMagnitude(s, "none")).toBeNull();
+  });
+
   it("renderPlot is the end-to-end spec -> svg path", () => {
     const content = threeGroupContent();
     const spec = buildPlotSpec({

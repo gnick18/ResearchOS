@@ -31,6 +31,7 @@
 // No em-dashes, no emojis, no mid-sentence colons.
 
 import { scaleLinear, scaleLog } from "d3-scale";
+import { tCritTwoSided } from "@/lib/datahub/engine/dists";
 import type {
   AnalysisSpec,
   DataHubDocContent,
@@ -127,7 +128,7 @@ export type PlotKind =
   | "stackedBar";
 
 /** Which error bar a figure draws, computed from the raw replicates. */
-export type ErrorBarKind = "sd" | "sem" | "none";
+export type ErrorBarKind = "sd" | "sem" | "ci95" | "none";
 
 /** A named color theme for the group series. */
 export type ColorMode = "brand" | "sky" | "ink";
@@ -268,6 +269,12 @@ export interface PlotStyle {
   yAxisMin?: number;
   yAxisMax?: number;
   yTickStep?: number;
+  /**
+   * Draw the numeric value above each bar / mean (column + grouped figures).
+   * Optional and additive, absent means off. Layout-only label of the same mean
+   * the figure already computes.
+   */
+  showValueLabels?: boolean;
 }
 
 /** The unit a figure's width / height is typed in (and stored as). */
@@ -471,7 +478,10 @@ export function readPlotStyle(spec: PlotSpec): PlotStyle {
   return {
     kind,
     errorBar:
-      s.errorBar === "sd" || s.errorBar === "none" || s.errorBar === "sem"
+      s.errorBar === "sd" ||
+      s.errorBar === "none" ||
+      s.errorBar === "sem" ||
+      s.errorBar === "ci95"
         ? (s.errorBar as ErrorBarKind)
         : d.errorBar,
     showPoints: typeof s.showPoints === "boolean" ? s.showPoints : d.showPoints,
@@ -603,6 +613,7 @@ export function readPlotStyle(spec: PlotSpec): PlotStyle {
     yTickStep: s.yTickStep != null && Number.isFinite(s.yTickStep) && (s.yTickStep as number) > 0
       ? (s.yTickStep as number)
       : undefined,
+    showValueLabels: s.showValueLabels === true ? true : undefined,
   };
 }
 
@@ -832,6 +843,8 @@ export interface GroupGeometry {
   cx: number;
   /** y of the mean line (null when the group has no mean). */
   meanY: number | null;
+  /** The numeric mean (null when the group has none), for an optional value label. */
+  mean: number | null;
   /** Mean line half-width, so it runs cx-meanHalf .. cx+meanHalf. */
   meanHalf: number;
   /** The bar rect (only for a bar plot, and only when the group has a mean). */
@@ -896,6 +909,13 @@ export function errorMagnitude(
   kind: ErrorBarKind,
 ): number | null {
   if (kind === "none") return null;
+  if (kind === "ci95") {
+    // Half-width of the 95% CI of the mean: t(0.975, n-1) * SEM. Needs n >= 2.
+    if (stats.sem === null || !Number.isFinite(stats.sem) || stats.n < 2) {
+      return null;
+    }
+    return tCritTwoSided(0.05, stats.n - 1) * stats.sem;
+  }
   const e = kind === "sd" ? stats.sd : stats.sem;
   return e !== null && Number.isFinite(e) ? e : null;
 }
@@ -1138,6 +1158,7 @@ export function layoutPlot(
       color: g.color,
       cx,
       meanY,
+      mean,
       meanHalf,
       bar,
       errorBar,
@@ -1388,6 +1409,13 @@ export function renderPlotSvg(
         `<circle data-series="${i}" cx="${p.x}" cy="${p.y}" r="3" fill="${lineColor}" opacity="0.9"/>`,
       );
     });
+    // Optional value label, above the topmost drawn element (error cap or mean).
+    if (style.showValueLabels && g.mean !== null) {
+      const topY = g.errorBar ? g.errorBar.topY : (g.meanY ?? geo.y0);
+      parts.push(
+        `<text x="${g.cx}" y="${topY - 5}" font-size="${tickFont}" fill="${LABEL_TEXT}" text-anchor="middle">${fmtTick(g.mean)}</text>`,
+      );
+    }
     parts.push(
       `<text x="${g.labelX}" y="${g.labelY}" font-size="${f}" fill="${LABEL_TEXT}" text-anchor="middle">${esc(g.name)}</text>`,
     );
@@ -2051,7 +2079,13 @@ export function layoutGroupedBar(
   const errFor = (s: { sd: number | null; n: number }): number | null => {
     if (style.errorBar === "none") return null;
     if (s.sd === null || !Number.isFinite(s.sd)) return null;
-    return style.errorBar === "sd" ? s.sd : s.sd / Math.sqrt(s.n);
+    if (style.errorBar === "sd") return s.sd;
+    const sem = s.sd / Math.sqrt(s.n);
+    // 95% CI half-width needs n >= 2 for a finite t critical value.
+    if (style.errorBar === "ci95") {
+      return s.n >= 2 ? tCritTwoSided(0.05, s.n - 1) * sem : null;
+    }
+    return sem;
   };
 
   const mode: BarMode = style.barMode ?? "dodge";

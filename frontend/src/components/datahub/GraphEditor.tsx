@@ -835,6 +835,7 @@ export default function GraphEditor({
                   options={[
                     { value: "sem", label: "SEM" },
                     { value: "sd", label: "SD" },
+                    { value: "ci95", label: "95% CI" },
                     { value: "none", label: "None" },
                   ]}
                   onChange={(v) => onStyleChange({ errorBar: v })}
@@ -919,6 +920,7 @@ export default function GraphEditor({
                   options={[
                     { value: "sem", label: "SEM" },
                     { value: "sd", label: "SD" },
+                    { value: "ci95", label: "95% CI" },
                     { value: "none", label: "None" },
                   ]}
                   onChange={(v) => onStyleChange({ errorBar: v })}
@@ -935,6 +937,19 @@ export default function GraphEditor({
                   ]}
                   onChange={(v) => onStyleChange({ showPoints: v === "on" })}
                   testIdPrefix="datahub-points"
+                />
+              </Ctl>
+
+              <Ctl label="Value labels">
+                <Seg<"on" | "off">
+                  value={style.showValueLabels ? "on" : "off"}
+                  options={[
+                    { value: "on", label: "On" },
+                    { value: "off", label: "Off" },
+                  ]}
+                  onChange={(v) =>
+                    onStyleChange({ showValueLabels: v === "on" ? true : undefined })
+                  }
                 />
               </Ctl>
 
