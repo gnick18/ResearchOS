@@ -110,6 +110,7 @@ const DEFAULT_THICKNESS: Record<AlignedPanelKind, number> = {
   clade: 0,
   taxalink: 0, // curves drawn on the tree by render.ts, no own band
   taxastrip: 0, // span bars drawn just outside the tips by render.ts, no own band
+  noderange: 0, // node-age bars drawn over the tree by render.ts, no own band
   support: 0,
   nodepoints: 0, // glyphs sit on the internal nodes, no own band
   msa: 0,

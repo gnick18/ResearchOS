@@ -170,6 +170,7 @@ export type AlignedPanelKind =
   | "clade"
   | "taxalink"
   | "taxastrip"
+  | "noderange"
   | "support"
   | "nodepoints"
   | "msa"

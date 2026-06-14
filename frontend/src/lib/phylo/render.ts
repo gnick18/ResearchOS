@@ -829,6 +829,39 @@ function drawRectTree(
       }
     }
   }
+  // Node-age range bars (ggtree geom_range): a horizontal bar through each node
+  // spanning a parsed {lo,hi} annotation interval (e.g. height_95%_HPD), drawn in
+  // branch-length / age coordinates so it reads against the time axis. Under the
+  // spine so the branches + node points sit on top. Rectangular phylogram only.
+  const rangePanel = panels.find((p) => p.visible && p.kind === "noderange");
+  if (rangePanel && spec.phylogram && layout.unitsPerPx) {
+    const upp = layout.unitsPerPx;
+    const key =
+      (typeof rangePanel.options?.rangeKey === "string" &&
+        rangePanel.options.rangeKey) ||
+      "height_95%_HPD";
+    const color =
+      (typeof rangePanel.options?.color === "string" &&
+        rangePanel.options.color) ||
+      "#2563EB";
+    const rootNode = layout.nodes.find((p) => p.parentX === null);
+    const rootX = rootNode ? rootNode.x : 16;
+    const maxDepth = layout.maxDepth;
+    // x of an age (height before present): the node at age 0 sits at the tips.
+    const xForAge = (age: number) => rootX + (maxDepth - age) / upp;
+    for (const p of layout.nodes) {
+      const v = p.node.annotations?.[key];
+      if (!Array.isArray(v) || v.length < 2) continue;
+      const xa = xForAge(v[0]);
+      const xb = xForAge(v[1]);
+      const x0 = Math.min(xa, xb);
+      const w = Math.abs(xb - xa);
+      if (!(w > 0)) continue;
+      parts.push(
+        `<rect x="${x0.toFixed(1)}" y="${(p.y - 3).toFixed(1)}" width="${w.toFixed(1)}" height="6" rx="3" fill="${color}" opacity="0.35"/>`,
+      );
+    }
+  }
   // A slanted cladogram draws a straight diagonal from parent to child; the
   // default rectangular tree draws the right-angle elbow (vertical then
   // horizontal). Node positions are identical, so panels / labels are unchanged.

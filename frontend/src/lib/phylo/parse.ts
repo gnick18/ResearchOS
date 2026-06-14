@@ -304,6 +304,16 @@ export function allNodes(node: TreeNode, acc: TreeNode[] = []): TreeNode[] {
   return acc;
 }
 
+/** Every distinct [&...] annotation key present across the tree's nodes, sorted.
+ *  Empty for a plain Newick tree. Feeds the geom_range key picker. */
+export function collectAnnotationKeys(node: TreeNode): string[] {
+  const keys = new Set<string>();
+  for (const n of allNodes(node)) {
+    if (n.annotations) for (const k of Object.keys(n.annotations)) keys.add(k);
+  }
+  return [...keys].sort();
+}
+
 /** Tip count for a parsed tree (the renderer-side twin of countNewickTips). */
 export function tipCount(node: TreeNode): number {
   return leaves(node).length;

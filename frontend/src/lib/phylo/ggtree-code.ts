@@ -318,6 +318,19 @@ function generateFromPanels(spec: RenderSpec, panels: AlignedPanel[]): string {
         }
         break;
       }
+      case "noderange": {
+        const key =
+          (typeof panel.options?.rangeKey === "string" &&
+            panel.options.rangeKey) ||
+          "height_95%_HPD";
+        const color =
+          (typeof panel.options?.color === "string" && panel.options.color) ||
+          "#2563EB";
+        lines.push(
+          `p <- p + geom_range(range = ${rstr(key)}, color = ${rstr(color)}, alpha = 0.35, size = 2)`,
+        );
+        break;
+      }
       case "points": {
         const po = panel.options ?? {};
         const sizeCol = typeof po.sizeColumn === "string" ? po.sizeColumn : "";

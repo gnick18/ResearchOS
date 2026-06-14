@@ -65,6 +65,7 @@ export const PANEL_CATALOG: CatalogGroup[] = [
       { kind: "clade", name: "Clade highlight", desc: "shade a subtree" },
       { kind: "taxastrip", name: "Span strip", desc: "bar + label across a tip range" },
       { kind: "taxalink", name: "Tip links", desc: "curve between two tips" },
+      { kind: "noderange", name: "Node age bars", desc: "HPD bars from a timed tree" },
       { kind: "support", name: "Support values", desc: "bootstrap labels" },
       { kind: "nodepoints", name: "Node points", desc: "glyph at each internal node" },
     ],
@@ -150,6 +151,7 @@ export function PhyloLayersControl({
   selectedId,
   columns,
   tipNames = [],
+  annotationKeys = [],
   treeSummary,
   appliedTemplate,
   onChange,
@@ -161,6 +163,8 @@ export function PhyloLayersControl({
   columns: string[];
   /** Every tip name in the tree, for naming clade members (MRCA picker). */
   tipNames?: string[];
+  /** Every [&...] annotation key present in the tree, for the geom_range picker. */
+  annotationKeys?: string[];
   treeSummary: string;
   /** The template id currently applied (drives the picker so it never snaps back
    *  to the placeholder after an apply, the flicker fix). "" when none / edited. */
@@ -213,6 +217,7 @@ export function PhyloLayersControl({
           selectedId={selectedId}
           columns={columns}
           tipNames={tipNames}
+          annotationKeys={annotationKeys}
           onSelect={onSelect}
           onUpdate={update}
           onRemove={remove}
@@ -246,6 +251,7 @@ function LayerList({
   selectedId,
   columns,
   tipNames,
+  annotationKeys,
   onSelect,
   onUpdate,
   onRemove,
@@ -255,6 +261,7 @@ function LayerList({
   selectedId: string | null;
   columns: string[];
   tipNames: string[];
+  annotationKeys: string[];
   onSelect: (id: string | null) => void;
   onUpdate: (id: string, patch: Partial<AlignedPanel>) => void;
   onRemove: (id: string) => void;
@@ -384,6 +391,7 @@ function LayerList({
                 panel={panel}
                 columns={columns}
                 tipNames={tipNames}
+                annotationKeys={annotationKeys}
                 onUpdate={(patch) => onUpdate(panel.id, patch)}
               />
             )}
@@ -402,11 +410,13 @@ function Inspector({
   panel,
   columns,
   tipNames,
+  annotationKeys,
   onUpdate,
 }: {
   panel: AlignedPanel;
   columns: string[];
   tipNames: string[];
+  annotationKeys: string[];
   onUpdate: (patch: Partial<AlignedPanel>) => void;
 }) {
   const colored = COLORED_KINDS.has(panel.kind);
@@ -694,6 +704,48 @@ function Inspector({
           tipNames={tipNames}
           onUpdate={onUpdate}
         />
+      )}
+      {panel.kind === "noderange" && (
+        <>
+          {annotationKeys.length === 0 ? (
+            <p className="text-xs text-foreground-muted">
+              No node annotations found. Import a time-calibrated tree (BEAST /
+              MrBayes / FigTree Nexus) whose nodes carry a [&height_95%_HPD=...]
+              interval, then pick the key here.
+            </p>
+          ) : (
+            <Field label="Interval key">
+              <SelectInput
+                value={
+                  (panel.options?.rangeKey as string) ??
+                  (annotationKeys.includes("height_95%_HPD")
+                    ? "height_95%_HPD"
+                    : annotationKeys[0])
+                }
+                options={annotationKeys}
+                onChange={(v) =>
+                  onUpdate({ options: { ...panel.options, rangeKey: v } })
+                }
+              />
+            </Field>
+          )}
+          <Field label="Color">
+            <input
+              type="color"
+              value={(panel.options?.color as string) || "#2563EB"}
+              onChange={(e) =>
+                onUpdate({
+                  options: { ...panel.options, color: e.target.value },
+                })
+              }
+              aria-label="Node range color"
+              className="h-6 w-6 shrink-0 cursor-pointer rounded border border-border bg-transparent p-0"
+            />
+          </Field>
+          <p className="text-xs text-foreground-muted">
+            Best paired with the Time axis toggle and branch lengths on.
+          </p>
+        </>
       )}
       {panel.kind === "msa" && (
         <>
