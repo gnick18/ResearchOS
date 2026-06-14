@@ -214,6 +214,25 @@ export default function TaskDetailPopup({
     },
     [],
   );
+  // Unified editor surface (L3, continuous-surface shell). The shell's ambient
+  // save indicator must tell the TRUTH, but the experiment's save state is owned
+  // per-tab (each editor tab + DetailsTab keeps its OWN hasUnsavedChanges /
+  // saving). So the active editor tab LIFTS its dirty + saving state up here via
+  // this registration; the shell reads it to render an honest indicator and to
+  // enable Done. A tab that registers nothing (Method, Order items) reports no
+  // state, and the shell shows NO save claim for it rather than a misleading
+  // "Saved". This changes presentation only — the per-tab manual save (Save
+  // button + flush) is untouched.
+  const [activeEditorState, setActiveEditorState] = useState<{
+    dirty: boolean;
+    saving: boolean;
+  } | null>(null);
+  const registerActiveTabDirtyState = useCallback(
+    (state: { dirty: boolean; saving: boolean } | null) => {
+      setActiveEditorState(state);
+    },
+    [],
+  );
   // Unified editor surface (UNIFIED_EDITOR_SURFACE_DESIGN.md §3B / §9, U1).
   // The popup MODAL GROWS in place — same DOM, a CSS size transition on the
   // card below (transition-all duration-300). The tab bar stays pinned and
@@ -231,6 +250,23 @@ export default function TaskDetailPopup({
         // Best-effort flush; draft persistence still holds the unsaved text.
       }
       setIsExpanded((prev) => !prev);
+    })();
+  }, []);
+  // L3 plain "Done" for the expanded shell: flush the active editor tab through
+  // its EXISTING manual-save (registered via activeTabFlushSaveRef, which only
+  // writes when the doc actually changed) then collapse back to the docked
+  // popup. No close, no new write path — Done, the fullscreen toggle, and the
+  // X are three always-reachable exits so the expanded shell is never
+  // soft-locked. Mirrors toggleExpanded's flush-then-resize, which is why the
+  // ambient indicator can honestly read "Saved" right after Done resolves.
+  const handleDone = useCallback(() => {
+    void (async () => {
+      try {
+        await activeTabFlushSaveRef.current?.();
+      } catch {
+        // Best-effort flush; draft persistence still holds the unsaved text.
+      }
+      setIsExpanded(false);
     })();
   }, []);
   // Phase 2: append-line handle. The active tab (LabNotesTab or ResultsTab)
@@ -861,6 +897,21 @@ export default function TaskDetailPopup({
     ? [...baseTabs, "purchases"]
     : baseTabs;
 
+  // L3 honest ambient save state for the expanded shell, derived ENTIRELY from
+  // the active editor tab's own dirty/saving state (lifted via
+  // registerActiveTabDirtyState). null when the active tab does not report a
+  // save state (Method / Order items own their own flows) — the shell then
+  // renders NO save claim rather than a misleading "Saved". The experiment
+  // tabs are manual-save, so this honestly reads "Unsaved changes" until the
+  // user saves (or clicks Done, which flushes), never a premature "Saved".
+  const ambientSaveState: "saving" | "unsaved" | "saved" | null = !activeEditorState
+    ? null
+    : activeEditorState.saving
+      ? "saving"
+      : activeEditorState.dirty
+        ? "unsaved"
+        : "saved";
+
   // For simple tasks, render a minimal popup showing only the list and sublists
   if (isSimpleTask && !isExpanded) {
     return (
@@ -1097,11 +1148,17 @@ export default function TaskDetailPopup({
             top accent strip carries the color tone. Added flex-wrap
             so the action rail wraps below the title at narrow viewports
             instead of jamming together. */}
-        <div className="flex items-start justify-between gap-4 px-6 py-4 border-b border-border flex-wrap">
+        <div className={`flex items-start justify-between gap-4 px-6 py-4 flex-wrap ${
+          isExpanded ? "border-b border-border/40" : "border-b border-border"
+        }`}>
           <div className="flex items-start min-w-0 flex-1">
             <div className="min-w-0 flex-1">
               <div className="flex items-center gap-2 flex-wrap">
-                <h3 className="text-heading font-semibold text-foreground leading-tight truncate max-w-[60ch]">
+                <h3
+                  className={`font-semibold text-foreground leading-tight truncate max-w-[60ch] ${
+                    isExpanded ? "text-3xl" : "text-heading"
+                  }`}
+                >
                   {task.name}
                 </h3>
                 <span
@@ -1536,6 +1593,53 @@ export default function TaskDetailPopup({
                   </button>
                 </Tooltip>
               )}
+              {/* L3 ambient save state + plain Done. Only in the expanded
+                  (fullscreen) shell. The indicator is HONEST: it reflects the
+                  ACTIVE editor tab's own dirty/saving state (lifted from the
+                  tab), and shows NOTHING for tabs that own their own flow
+                  (Method / Order items) rather than a false "Saved". Done
+                  flushes the active tab through its existing save then
+                  collapses — one of three always-reachable exits (Done, the
+                  fullscreen toggle, the X) so the shell is never soft-locked. */}
+              {isExpanded && (
+                <>
+                  {ambientSaveState && (
+                    <span
+                      data-testid="task-ambient-save"
+                      aria-live="polite"
+                      aria-atomic="true"
+                      className={`mr-1 inline-flex items-center gap-1.5 text-meta font-medium ${
+                        ambientSaveState === "unsaved"
+                          ? "text-amber-700 dark:text-amber-300"
+                          : "text-foreground-muted"
+                      }`}
+                    >
+                      <span
+                        aria-hidden
+                        className={`h-1.5 w-1.5 rounded-full ${
+                          ambientSaveState === "saving"
+                            ? "bg-amber-400 animate-pulse"
+                            : ambientSaveState === "unsaved"
+                              ? "bg-amber-500"
+                              : "bg-emerald-500"
+                        }`}
+                      />
+                      {ambientSaveState === "saving"
+                        ? "Saving..."
+                        : ambientSaveState === "unsaved"
+                          ? "Unsaved changes"
+                          : "Saved"}
+                    </span>
+                  )}
+                  <button
+                    onClick={handleDone}
+                    data-testid="task-done"
+                    className="mr-1 px-3 py-1.5 text-meta font-medium rounded-lg bg-surface-sunken text-foreground hover:bg-foreground-muted/15 transition-colors"
+                  >
+                    Done
+                  </button>
+                </>
+              )}
               <Tooltip label={isExpanded ? "Exit fullscreen" : "Fullscreen"} placement="bottom">
                 <button
                   onClick={() => toggleExpanded()}
@@ -1621,6 +1725,8 @@ export default function TaskDetailPopup({
             PI Phase 3 flag banner + assignee, R1b sharing chips, and VCP R3
             attribution stamps (createdAt null until §3g) all live here. */}
         <div className="px-6 pt-2 space-y-2">
+          {/* The flag banner is actionable + important, so it stays in EVERY
+              state (never folded away). */}
           {task.flagged && (
             <FlagBanner
               flag={task.flagged}
@@ -1633,33 +1739,60 @@ export default function TaskDetailPopup({
               }}
             />
           )}
-          {task.assignee && task.assignee !== task.owner && (
-            <div className="flex items-center gap-2 text-meta">
-              <span className="text-foreground-muted">Assigned to</span>
-              <span
-                className="inline-flex items-center px-1.5 py-0.5 rounded bg-emerald-50 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 font-medium border border-emerald-200 dark:border-emerald-500/30"
-                data-testid="task-assignee-chip"
-              >
-                {task.assignee}
-              </span>
-              <span className="text-foreground-muted">·</span>
-              <span className="text-foreground-muted">Owner: {task.owner}</span>
-            </div>
+          {/* L3: at fullscreen the assignee/sharing chips + stamps collapse into
+              ONE quiet "status · author · sharing" subline. The capabilities
+              behind them (status pill + Save live on the Details tab, sharing on
+              the Share button in the header) stay reachable. The docked popup
+              keeps the original chip band untouched. */}
+          {isExpanded ? (
+            <p data-testid="task-meta-subline" className="text-meta text-foreground-muted">
+              {[
+                task.is_complete ? "Complete" : "In progress",
+                task.assignee && task.assignee !== task.owner
+                  ? `Assigned to ${task.assignee}`
+                  : task.owner
+                    ? `Owner: ${task.owner}`
+                    : "",
+                (task.shared_with?.length ?? 0) > 0
+                  ? `Shared with ${task.shared_with!.length}`
+                  : task.is_shared_with_me
+                    ? `Shared by ${task.owner}`
+                    : "Private",
+              ]
+                .filter(Boolean)
+                .join("  ·  ")}
+            </p>
+          ) : (
+            <>
+              {task.assignee && task.assignee !== task.owner && (
+                <div className="flex items-center gap-2 text-meta">
+                  <span className="text-foreground-muted">Assigned to</span>
+                  <span
+                    className="inline-flex items-center px-1.5 py-0.5 rounded bg-emerald-50 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 font-medium border border-emerald-200 dark:border-emerald-500/30"
+                    data-testid="task-assignee-chip"
+                  >
+                    {task.assignee}
+                  </span>
+                  <span className="text-foreground-muted">·</span>
+                  <span className="text-foreground-muted">Owner: {task.owner}</span>
+                </div>
+              )}
+              {((task.shared_with?.length ?? 0) > 0 || task.is_shared_with_me) && (
+                <SharingChips
+                  sharedWith={task.shared_with || []}
+                  ownerUsername={task.owner}
+                  viewerUsername={currentUser ?? undefined}
+                  hideWhenEmpty
+                />
+              )}
+              <StampsRow
+                createdBy={null}
+                createdAt={null}
+                lastEditedBy={task.last_edited_by}
+                lastEditedAt={task.last_edited_at}
+              />
+            </>
           )}
-          {((task.shared_with?.length ?? 0) > 0 || task.is_shared_with_me) && (
-            <SharingChips
-              sharedWith={task.shared_with || []}
-              ownerUsername={task.owner}
-              viewerUsername={currentUser ?? undefined}
-              hideWhenEmpty
-            />
-          )}
-          <StampsRow
-            createdBy={null}
-            createdAt={null}
-            lastEditedBy={task.last_edited_by}
-            lastEditedAt={task.last_edited_at}
-          />
         </div>
 
         {/* Tabs — clean underline pattern with a quiet hover state. The old
@@ -1667,7 +1800,9 @@ export default function TaskDetailPopup({
             which read as a chrome leak from the header. Now they sit on
             the same surface as the header for a smoother seam. */}
         <div
-          className="flex items-stretch gap-1 px-6 border-b border-border"
+          className={`flex items-stretch gap-1 px-6 ${
+            isExpanded ? "border-b border-border/40" : "border-b border-border"
+          }`}
           data-tour-target="experiment-tab-container"
           role="tablist"
         >
@@ -1795,6 +1930,7 @@ export default function TaskDetailPopup({
                     readOnly={readOnly}
                     pendingEnterEdit={pendingEnterEdit}
                     onConsumePendingEnterEdit={() => setPendingEnterEdit(false)}
+                    onRegisterDirtyState={registerActiveTabDirtyState}
                     piActor={piActive && currentUser ? currentUser : undefined}
                   />
                 )}
@@ -1802,7 +1938,7 @@ export default function TaskDetailPopup({
                     editable too. LabNotes/Results route to the member via their
                     Loro doc owner (task.owner) + the legacyOwner fallback, and
                     MethodTabs routes + audits via piActor. */}
-                {activeTab === "notes" && <LabNotesTab task={task} readOnly={readOnly || (task.is_shared_with_me === true && task.shared_permission === "view")} ownerUsername={username} onRegisterFlushSave={registerActiveTabFlushSave} onRegisterAppendLine={registerActiveTabAppendLine} expanded={isExpanded} onRequestExpand={toggleExpanded} />}
+                {activeTab === "notes" && <LabNotesTab task={task} readOnly={readOnly || (task.is_shared_with_me === true && task.shared_permission === "view")} ownerUsername={username} onRegisterFlushSave={registerActiveTabFlushSave} onRegisterAppendLine={registerActiveTabAppendLine} onRegisterDirtyState={registerActiveTabDirtyState} expanded={isExpanded} onRequestExpand={toggleExpanded} />}
                 {activeTab === "method" && (
                   <MethodTabs
                     task={task}
@@ -1811,7 +1947,7 @@ export default function TaskDetailPopup({
                     piActor={piActive && currentUser ? currentUser : undefined}
                   />
                 )}
-                {activeTab === "results" && <ResultsTab task={task} readOnly={readOnly || (task.is_shared_with_me === true && task.shared_permission === "view")} ownerUsername={username} onRegisterFlushSave={registerActiveTabFlushSave} onRegisterAppendLine={registerActiveTabAppendLine} expanded={isExpanded} onRequestExpand={toggleExpanded} />}
+                {activeTab === "results" && <ResultsTab task={task} readOnly={readOnly || (task.is_shared_with_me === true && task.shared_permission === "view")} ownerUsername={username} onRegisterFlushSave={registerActiveTabFlushSave} onRegisterAppendLine={registerActiveTabAppendLine} onRegisterDirtyState={registerActiveTabDirtyState} expanded={isExpanded} onRequestExpand={toggleExpanded} />}
                 {activeTab === "purchases" && (
                   <PurchaseEditor
                     taskId={task.id}
@@ -2225,6 +2361,7 @@ function DetailsTab({
   readOnly = false,
   pendingEnterEdit = false,
   onConsumePendingEnterEdit,
+  onRegisterDirtyState,
   piActor,
 }: {
   task: Task;
@@ -2240,6 +2377,10 @@ function DetailsTab({
       transition both happen via this handshake). */
   pendingEnterEdit?: boolean;
   onConsumePendingEnterEdit?: () => void;
+  /** L3: lift the in-card form dirty/saving state to the popup shell so the
+      expanded shell's ambient indicator is honest. Only true while editing
+      the Properties form; at rest the form is clean ("Saved"). */
+  onRegisterDirtyState?: (state: { dirty: boolean; saving: boolean } | null) => void;
   /** PI capability revamp: set to the lab head's username when they are
       editing this member's task on the role (after the confirm), so writes
       route to the owner's folder + audit. */
@@ -2355,6 +2496,14 @@ function DetailsTab({
       startDate !== originalValues.startDate ||
       durationDays !== originalValues.durationDays ||
       weekendOverride !== originalValues.weekendOverride);
+
+  // L3: lift the Properties-form dirty/saving up to the popup shell so the
+  // expanded shell's ambient indicator is honest on the Details tab. Same
+  // hasUnsavedChanges/saving the in-card Save button uses; clears on unmount.
+  useEffect(() => {
+    onRegisterDirtyState?.({ dirty: hasUnsavedChanges, saving });
+    return () => onRegisterDirtyState?.(null);
+  }, [onRegisterDirtyState, hasUnsavedChanges, saving]);
 
   // Enter edit mode: snapshot current values as the baseline so Cancel
   // restores them and hasUnsavedChanges has a stable reference.
@@ -3916,7 +4065,7 @@ function DetailsTab({
 
 // ── Lab Notes Tab (with LiveMarkdownEditor) ──────────────────────────────────
 
-function LabNotesTab({ task, readOnly = false, ownerUsername, onRegisterFlushSave, onRegisterAppendLine, expanded = false, onRequestExpand }: { task: Task; readOnly?: boolean; ownerUsername?: string; onRegisterFlushSave?: (fn: (() => Promise<void>) | null) => void; onRegisterAppendLine?: (fn: ((line: string) => void) | null) => void; expanded?: boolean; onRequestExpand?: () => void }) {
+function LabNotesTab({ task, readOnly = false, ownerUsername, onRegisterFlushSave, onRegisterAppendLine, onRegisterDirtyState, expanded = false, onRequestExpand }: { task: Task; readOnly?: boolean; ownerUsername?: string; onRegisterFlushSave?: (fn: (() => Promise<void>) | null) => void; onRegisterAppendLine?: (fn: ((line: string) => void) | null) => void; onRegisterDirtyState?: (state: { dirty: boolean; saving: boolean } | null) => void; expanded?: boolean; onRequestExpand?: () => void }) {
   const [content, setContent] = useState("");
   const [originalContent, setOriginalContent] = useState("");
   const [saving, setSaving] = useState(false);
@@ -4326,6 +4475,17 @@ function LabNotesTab({ task, readOnly = false, ownerUsername, onRegisterFlushSav
   // route changes are NOT covered by beforeunload — the draft-persistence
   // hook above handles that case by surviving the remount.
   useUnsavedChangesGuard(hasUnsavedChanges);
+
+  // L3: lift this tab's dirty/saving state up to the popup shell so the
+  // expanded shell's ambient indicator is HONEST (it reflects the SAME
+  // hasUnsavedChanges/editorDirty/saving the in-tab Save button uses — no new
+  // state, no autosave). editorDirty covers the mid-block buffer so the shell
+  // flips to "Unsaved changes" the instant typing starts. Clears to null on
+  // unmount so a non-reporting tab (Method / Order items) shows no save claim.
+  useEffect(() => {
+    onRegisterDirtyState?.({ dirty: hasUnsavedChanges || editorDirty, saving });
+    return () => onRegisterDirtyState?.(null);
+  }, [onRegisterDirtyState, hasUnsavedChanges, editorDirty, saving]);
 
   // When the tab is in legacy attach mode (shared `Files/`+`Images/` at the
   // outer base), perform the split-on-write migration so new drops land in
@@ -4908,7 +5068,7 @@ function LabNotesTab({ task, readOnly = false, ownerUsername, onRegisterFlushSav
 
 // ── Results Tab ──────────────────────────────────────────────────────────────
 
-function ResultsTab({ task, readOnly = false, ownerUsername, onRegisterFlushSave, onRegisterAppendLine, expanded = false, onRequestExpand }: { task: Task; readOnly?: boolean; ownerUsername?: string; onRegisterFlushSave?: (fn: (() => Promise<void>) | null) => void; onRegisterAppendLine?: (fn: ((line: string) => void) | null) => void; expanded?: boolean; onRequestExpand?: () => void }) {
+function ResultsTab({ task, readOnly = false, ownerUsername, onRegisterFlushSave, onRegisterAppendLine, onRegisterDirtyState, expanded = false, onRequestExpand }: { task: Task; readOnly?: boolean; ownerUsername?: string; onRegisterFlushSave?: (fn: (() => Promise<void>) | null) => void; onRegisterAppendLine?: (fn: ((line: string) => void) | null) => void; onRegisterDirtyState?: (state: { dirty: boolean; saving: boolean } | null) => void; expanded?: boolean; onRequestExpand?: () => void }) {
   const [content, setContent] = useState("");
   const [originalContent, setOriginalContent] = useState("");
   const [saving, setSaving] = useState(false);
@@ -5237,6 +5397,13 @@ function ResultsTab({ task, readOnly = false, ownerUsername, onRegisterFlushSave
   // Warn before navigating away (F5 / tab close). SPA route changes are
   // handled by the draft-persistence hook above.
   useUnsavedChangesGuard(hasUnsavedChanges);
+
+  // L3: lift dirty/saving up to the shell for the honest ambient indicator.
+  // Same contract as LabNotesTab — presentation only, no new save behavior.
+  useEffect(() => {
+    onRegisterDirtyState?.({ dirty: hasUnsavedChanges || editorDirty, saving });
+    return () => onRegisterDirtyState?.(null);
+  }, [onRegisterDirtyState, hasUnsavedChanges, editorDirty, saving]);
 
   const ensureAttachmentsSplit = useCallback(
     async (
