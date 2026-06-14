@@ -55,6 +55,7 @@ import {
 import type { AlignedPanel, CladeAnnotation } from "./types";
 import {
   renderPlot,
+  type AlignedAxis,
   type GroupedLegendItem,
   type AlignedGroupedBarGeometry,
 } from "@/lib/datahub/plot-spec";
@@ -403,6 +404,40 @@ function renderDatahubPanel(
   // in tree space via the alignedAxis positions, so only X needs the start shift.
   const svg = `<g transform="translate(${axis.panelStartX}, 0)">${r.svg}</g>`;
   return { svg, thickness, legend: geom.legend ?? [] };
+}
+
+/**
+ * Read a datahubPlot panel's series legend (the renderPlot column groups). The
+ * series are content-driven, NOT position-driven, so this renders against a
+ * synthetic axis (tip ids in order, dummy positions) only to read geometry.legend
+ * before the real layout exists. Lets the legend column be sized to include the
+ * Data Hub series before the tree is laid out. Rectangular only (the adapter
+ * throws on circular); empty when unresolved.
+ */
+function datahubPanelLegend(
+  panel: AlignedPanel,
+  spec: RenderSpec,
+  root: TreeNode,
+): GroupedLegendItem[] {
+  if (spec.layout === "circular") return [];
+  const resolved = spec.datahubPanels?.[panel.id];
+  if (!resolved) return [];
+  const tips = leaves(root);
+  if (tips.length === 0) return [];
+  const probe: AlignedAxis = {
+    order: tips.map((t) => String(t.id)),
+    positions: tips.map((_, i) => i),
+    band: 1,
+    orientation: "rows",
+  };
+  try {
+    const r = renderPlot(resolved.plotSpec, resolved.content, resolved.analysis, {
+      alignedAxis: probe,
+    });
+    return (r.geometry as AlignedGroupedBarGeometry).legend ?? [];
+  } catch {
+    return [];
+  }
 }
 
 function renderFromPanels(
@@ -935,6 +970,29 @@ function collectPanelLegends(
     if (panel.kind === "msa") {
       if (spec.msaTrack) {
         out.push({ title: "Alignment", residue: spec.msaTrack.kind });
+      }
+      continue;
+    }
+    // A datahubPlot panel's color key is its series (the renderPlot column
+    // groups), read from the resolved figure, not from bound metadata. Like msa,
+    // it is collected even when no metadata table is linked.
+    if (panel.kind === "datahubPlot") {
+      const series = datahubPanelLegend(panel, spec, root);
+      if (series.length > 0) {
+        const title = String(panel.options?.title ?? "Data Hub plot");
+        const categoryColors: Record<string, string> = {};
+        for (const s of series) categoryColors[s.name] = s.color;
+        out.push({
+          title,
+          scale: {
+            column: title,
+            kind: "categorical",
+            categories: series.map((s) => s.name),
+            categoryColors,
+            colorFor: (raw) =>
+              (raw != null && categoryColors[raw]) || EMPTY_FILL,
+          },
+        });
       }
       continue;
     }

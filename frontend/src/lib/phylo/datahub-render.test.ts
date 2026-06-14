@@ -110,4 +110,15 @@ describe("phylo render: datahubPlot tip-aligned panel (Phase 4 render core)", ()
       renderTreeSvg(TREE, specWithPanel([panel], "circular", resolved)),
     ).not.toThrow();
   });
+
+  it("shows the Data Hub series as a color key in the tree legend", () => {
+    const legendPanel: AlignedPanel = { ...panel, legend: true };
+    const svg = renderTreeSvg(
+      TREE,
+      specWithPanel([legendPanel], "rectangular", resolved),
+    );
+    // The grouped-bar series names are the panel's color key.
+    expect(svg).toContain("Phylum A");
+    expect(svg).toContain("Phylum B");
+  });
 });
