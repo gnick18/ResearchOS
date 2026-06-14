@@ -85,6 +85,13 @@ const TONE_COLOR: Record<TempTone, string> = {
 };
 
 // ---- PCR profile map ------------------------------------------------------
+// Every bar is the same width, and every bar (standalone phase OR a bar inside
+// the cycling bracket) bottom-anchors to the same baseline at the bottom of a
+// fixed-height bar area, so identical temperatures render at identical height
+// AND line up (the cycle's 95 sits level with a standalone 95).
+const BAR_W = 24;
+const BAR_AREA_H = 104;
+
 function PcrProfile({
   blocks,
   focusedSeg,
@@ -97,6 +104,17 @@ function PcrProfile({
   const { surface } = useTheme();
   // Temp -> bar height (4..95 C maps to 18..82 px).
   const h = (t: number) => 18 + ((Math.max(4, Math.min(95, t)) - 4) / (95 - 4)) * 64;
+  const bar = (tempC: number) => (
+    <View
+      style={{
+        width: BAR_W,
+        height: h(tempC),
+        borderTopLeftRadius: 4,
+        borderTopRightRadius: 4,
+        backgroundColor: tempColor(tempC),
+      }}
+    />
+  );
   return (
     <View style={pstyles.row}>
       {blocks.map((b, i) => {
@@ -106,30 +124,21 @@ function PcrProfile({
             <Pressable
               key={`cyc-${i}`}
               onPress={() => onSelectSeg(b.id)}
-              style={[
-                pstyles.cycwrap,
-                { borderColor: surface.borderStrong, opacity: on ? 1 : 0.45 },
-              ]}
+              style={[pstyles.col, { opacity: on ? 1 : 0.45 }]}
             >
-              <View style={pstyles.cycbars}>
-                {(b.cycleBars ?? []).map((cb, j) => (
-                  <View key={j} style={pstyles.cycCell}>
-                    <ThemedText style={[pstyles.cycTemp, { color: tempColor(cb.tempC) }]}>
-                      {cb.tempC}
-                    </ThemedText>
-                    <View
-                      style={{
-                        width: 14,
-                        height: h(cb.tempC),
-                        borderTopLeftRadius: 4,
-                        borderTopRightRadius: 4,
-                        backgroundColor: tempColor(cb.tempC),
-                      }}
-                    />
-                  </View>
-                ))}
+              <View style={[pstyles.bracket, { borderColor: surface.borderStrong }]}>
+                <View style={pstyles.cycRow}>
+                  {(b.cycleBars ?? []).map((cb, j) => (
+                    <View key={j} style={pstyles.barCell}>
+                      <ThemedText style={[pstyles.barTemp, { color: tempColor(cb.tempC) }]}>
+                        {cb.tempC}°
+                      </ThemedText>
+                      {bar(cb.tempC)}
+                    </View>
+                  ))}
+                </View>
               </View>
-              <ThemedText style={[pstyles.cyclbl, { color: surface.muted }]}>
+              <ThemedText style={[pstyles.caption, { color: surface.muted }]}>
                 {b.cycleLabel ?? ''}
               </ThemedText>
             </Pressable>
@@ -139,23 +148,17 @@ function PcrProfile({
           <Pressable
             key={`blk-${i}`}
             onPress={() => onSelectSeg(b.id)}
-            style={[pstyles.block, { opacity: on ? 1 : 0.45 }]}
+            style={[pstyles.col, { opacity: on ? 1 : 0.45 }]}
           >
-            {b.label ? (
-              <ThemedText style={[pstyles.barTemp, { color: tempColor(b.tempC) }]}>
-                {b.label}°
-              </ThemedText>
-            ) : null}
-            <View
-              style={{
-                width: 28,
-                height: h(b.tempC),
-                borderTopLeftRadius: 5,
-                borderTopRightRadius: 5,
-                backgroundColor: tempColor(b.tempC),
-              }}
-            />
-            <ThemedText style={[pstyles.blockSub, { color: surface.muted }]}>{b.sub}</ThemedText>
+            <View style={pstyles.barArea}>
+              {b.label ? (
+                <ThemedText style={[pstyles.barTemp, { color: tempColor(b.tempC) }]}>
+                  {b.label}°
+                </ThemedText>
+              ) : null}
+              {bar(b.tempC)}
+            </View>
+            <ThemedText style={[pstyles.caption, { color: surface.muted }]}>{b.sub}</ThemedText>
           </Pressable>
         );
       })}
@@ -951,24 +954,25 @@ function mapLabel(map: GraphicMap): string {
 }
 
 const pstyles = StyleSheet.create({
-  row: { flexDirection: 'row', alignItems: 'flex-end', gap: 4, minHeight: 104 },
-  block: { alignItems: 'center', gap: 3 },
-  barTemp: { fontSize: 10.5, fontWeight: '800' },
-  blockSub: { fontSize: 9 },
-  cycwrap: {
+  row: { flexDirection: 'row', alignItems: 'flex-end', gap: 6, minHeight: BAR_AREA_H + 22 },
+  col: { alignItems: 'center', gap: 5 },
+  // Standalone phase: fixed-height area, bar bottom-anchored. paddingBottom 1.5
+  // matches the cycle bracket's bottom border so the two baselines coincide.
+  barArea: { height: BAR_AREA_H, justifyContent: 'flex-end', alignItems: 'center', paddingBottom: 1.5 },
+  // Cycle bracket: same fixed height, dashed outline. Its bottom border sits at
+  // the shared baseline; the bars inside bottom-anchor flush above it.
+  bracket: {
+    height: BAR_AREA_H,
+    justifyContent: 'flex-end',
     borderWidth: 1.5,
     borderStyle: 'dashed',
     borderRadius: 8,
     paddingHorizontal: 5,
-    paddingTop: 4,
-    paddingBottom: 3,
-    alignItems: 'center',
-    gap: 2,
   },
-  cycbars: { flexDirection: 'row', alignItems: 'flex-end', gap: 3 },
-  cycCell: { alignItems: 'center', gap: 2 },
-  cycTemp: { fontSize: 8, fontWeight: '800' },
-  cyclbl: { fontSize: 9, fontWeight: '800' },
+  cycRow: { flexDirection: 'row', alignItems: 'flex-end', gap: 5 },
+  barCell: { alignItems: 'center', justifyContent: 'flex-end', gap: 2 },
+  barTemp: { fontSize: 10, fontWeight: '800', marginBottom: 2 },
+  caption: { fontSize: 9 },
 });
 
 const rstyles = StyleSheet.create({
