@@ -768,15 +768,17 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
             >
               Report
             </button>
-            <button
-              onClick={dismissErrorToast}
-              aria-label="Dismiss error toast"
-              className="text-meta hover:bg-white/20 px-1 rounded transition-colors"
-            >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-              </svg>
-            </button>
+            <Tooltip label="Dismiss" placement="top">
+              <button
+                onClick={dismissErrorToast}
+                aria-label="Dismiss error toast"
+                className="text-meta hover:bg-white/20 px-1 rounded transition-colors"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </Tooltip>
           </div>
         </div>
       )}

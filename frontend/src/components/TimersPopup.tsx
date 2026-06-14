@@ -11,6 +11,7 @@ import { useEffect, useState } from "react";
 
 import HeaderPopover from "@/components/ui/HeaderPopover";
 import { Icon } from "@/components/icons";
+import Tooltip from "@/components/Tooltip";
 import { useTimersPopup } from "@/lib/ui/timers-popup-store";
 import { useFileSystem } from "@/lib/file-system/file-system-context";
 import {
@@ -255,14 +256,16 @@ export default function TimersPopup() {
         <div className="flex items-center gap-2 px-5 pt-5 pb-3">
           <Icon name="alarmClock" className="w-5 h-5 text-sky-500" />
           <h2 className="text-title font-semibold text-foreground">Timers</h2>
-          <button
-            type="button"
-            aria-label="Close"
-            onClick={close}
-            className="ml-auto p-1.5 rounded-lg text-foreground-muted hover:bg-surface-sunken"
-          >
-            <Icon name="close" className="w-4 h-4" />
-          </button>
+          <Tooltip label="Close timers" placement="bottom">
+            <button
+              type="button"
+              aria-label="Close"
+              onClick={close}
+              className="ml-auto p-1.5 rounded-lg text-foreground-muted hover:bg-surface-sunken"
+            >
+              <Icon name="close" className="w-4 h-4" />
+            </button>
+          </Tooltip>
         </div>
 
         <div className="flex-1 min-h-0 overflow-y-auto px-5 pb-5 space-y-2.5">
