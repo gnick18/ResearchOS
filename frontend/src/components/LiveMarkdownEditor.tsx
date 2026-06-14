@@ -2035,11 +2035,13 @@ export default function LiveMarkdownEditor({
   const editorTree = (
     <div
       ref={wrapperRef}
-      className={
-        expanded
-          ? `flex flex-col h-full ${measureClass}`
-          : "flex flex-col h-full"
-      }
+      // Full-width always: the warm-paper room + toolbar span the whole surface
+      // and the writing column is centered by the INNER measure (InlineMarkdownEditor
+      // + the Preview card both carry measureClass). Capping this outer wrapper with
+      // the measure (the old `expanded` branch) shrank the paper to a narrow centered
+      // card AND collapsed the gutters the insert/context rails need — so focus mode
+      // read as a small card floating in white instead of an edge-to-edge room.
+      className="flex flex-col h-full"
       onDragEnter={handleWrapperDragEnter}
       onDragLeave={handleWrapperDragLeave}
       // Capture phase: the inner drop handler calls stopPropagation on valid
