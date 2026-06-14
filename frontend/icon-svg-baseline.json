@@ -233,6 +233,8 @@
   "lib/datahub/plot-spec.ts": 4,
   "lib/export/__tests__/bake-embeds.test.ts": 2,
   "lib/export/bake-embeds.ts": 1,
+  "lib/figure/__tests__/artboard.test.ts": 2,
+  "lib/figure/artboard.ts": 6,
   "lib/methods/method-type-icons.tsx": 10,
   "lib/phylo/render.ts": 1,
   "lib/sequences/export.ts": 4,
