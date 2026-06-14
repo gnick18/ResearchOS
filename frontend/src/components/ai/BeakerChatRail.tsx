@@ -149,21 +149,25 @@ export default function BeakerChatRail() {
               aria-label="Chat title"
               className="min-w-0 flex-1 rounded border border-border bg-surface px-2 py-1 text-meta text-foreground focus:border-brand-action focus:outline-none"
             />
-            <button
-              type="submit"
-              aria-label="Save title"
-              className="flex h-6 w-6 flex-none items-center justify-center rounded text-brand-action hover:bg-surface-raised"
-            >
-              <Icon name="check" className="h-3.5 w-3.5" title="Save" />
-            </button>
-            <button
-              type="button"
-              aria-label="Cancel rename"
-              onClick={() => setRenamingId(null)}
-              className="flex h-6 w-6 flex-none items-center justify-center rounded text-foreground-muted hover:bg-surface-raised hover:text-foreground"
-            >
-              <Icon name="close" className="h-3.5 w-3.5" title="Cancel" />
-            </button>
+            <Tooltip label="Save title">
+              <button
+                type="submit"
+                aria-label="Save title"
+                className="flex h-6 w-6 flex-none items-center justify-center rounded text-brand-action hover:bg-surface-raised"
+              >
+                <Icon name="check" className="h-3.5 w-3.5" />
+              </button>
+            </Tooltip>
+            <Tooltip label="Cancel rename">
+              <button
+                type="button"
+                aria-label="Cancel rename"
+                onClick={() => setRenamingId(null)}
+                className="flex h-6 w-6 flex-none items-center justify-center rounded text-foreground-muted hover:bg-surface-raised hover:text-foreground"
+              >
+                <Icon name="close" className="h-3.5 w-3.5" />
+              </button>
+            </Tooltip>
           </form>
         </li>
       );

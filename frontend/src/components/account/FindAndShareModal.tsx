@@ -20,6 +20,7 @@
 import { useCallback, useRef, useState } from "react";
 
 import { Icon } from "@/components/icons";
+import Tooltip from "@/components/Tooltip";
 import { useEscapeToClose } from "@/hooks/useEscapeToClose";
 import {
   sendShare,
@@ -248,14 +249,16 @@ export default function FindAndShareModal({
               Search by @handle or name, then send an encrypted copy
             </p>
           </div>
-          <button
-            type="button"
-            onClick={onClose}
-            aria-label="Close"
-            className="text-foreground-muted hover:text-foreground"
-          >
-            <Icon name="close" className="h-5 w-5" />
-          </button>
+          <Tooltip label="Close">
+            <button
+              type="button"
+              onClick={onClose}
+              aria-label="Close"
+              className="text-foreground-muted hover:text-foreground"
+            >
+              <Icon name="close" className="h-5 w-5" />
+            </button>
+          </Tooltip>
         </div>
 
         <div className="overflow-y-auto px-5 py-5">

@@ -144,14 +144,16 @@ export default function SettingsPage() {
   return (
     <div className="fixed inset-0 z-[60] flex flex-col bg-surface-sunken">
       {/* Permanent close, top-right. Esc also exits. */}
-      <button
-        type="button"
-        onClick={exit}
-        aria-label="Close settings (Esc)"
-        className="absolute right-4 top-3.5 z-20 flex h-9 w-9 items-center justify-center rounded-full border border-border bg-surface text-foreground-muted shadow-sm transition-colors hover:bg-surface-sunken hover:text-foreground"
-      >
-        <Icon name="x" className="h-4 w-4" />
-      </button>
+      <Tooltip label="Close settings">
+        <button
+          type="button"
+          onClick={exit}
+          aria-label="Close settings (Esc)"
+          className="absolute right-4 top-3.5 z-20 flex h-9 w-9 items-center justify-center rounded-full border border-border bg-surface text-foreground-muted shadow-sm transition-colors hover:bg-surface-sunken hover:text-foreground"
+        >
+          <Icon name="x" className="h-4 w-4" />
+        </button>
+      </Tooltip>
       <SettingsBody />
     </div>
   );
