@@ -2,7 +2,7 @@
 
 **Date:** 2026-06-14
 **Lane:** phylogenetics / Tree Studio (`/phylo`)
-**Status:** DESIGN / mockup-first. NOT built. Builds on the LOCKED Phases 0–3 findability redesign + the `layer-schema.ts` engine.
+**Status:** DESIGN APPROVED by Grant (wizard locked 2026-06-14). NOT built yet. Builds on the LOCKED Phases 0–3 findability redesign + the `layer-schema.ts` engine.
 **Mockup:** `docs/mockups/2026-06-14-phylo-phase4-smart-data-binding.html`
 **Memory:** `project_phylo_tree_studio_redesign` (Phase 4 captured), `[[feedback_beakerbot_no_interpretation]]`, `[[project_beakerbot_record_set_widget]]`.
 
