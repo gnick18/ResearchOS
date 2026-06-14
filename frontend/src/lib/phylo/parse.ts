@@ -19,6 +19,10 @@
  * array. Internal nodes may be unnamed. `support` is the internal-node support
  * value when the label parses as a bare number (the IQ-TREE / RAxML convention).
  */
+/** A parsed value from a FigTree / BEAST `[&key=value]` node annotation. A
+ *  `{lo,hi}` range (e.g. a 95% HPD interval) comes back as a number[]. */
+export type NodeAnnotationValue = number | string | number[];
+
 export interface TreeNode {
   /** Stable id, assigned depth-first on parse, so edits can target a node. */
   id: number;
@@ -28,6 +32,14 @@ export interface TreeNode {
   branchLength: number | null;
   /** Internal-node support value (parsed from a numeric internal label). */
   support: number | null;
+  /**
+   * FigTree / BEAST-style metadata from `[&key=value, ...]` comment blocks on
+   * this node (node-age HPD intervals, posterior probabilities, rates). Absent on
+   * a plain Newick tree, which carries none. Both before-colon (node) and
+   * after-length (branch) comments are merged here, keyed by their annotation
+   * name, so geom_range and friends look a value up by key.
+   */
+  annotations?: Record<string, NodeAnnotationValue>;
   children: TreeNode[];
 }
 
@@ -92,6 +104,59 @@ function stripQuotes(s: string): string {
   return s;
 }
 
+/** Split an annotation block body on top-level commas, keeping `{a,b}` ranges
+ *  intact (a comma inside braces is part of one value, not a separator). */
+function splitTopLevel(body: string): string[] {
+  const parts: string[] = [];
+  let depth = 0;
+  let cur = "";
+  for (const c of body) {
+    if (c === "{") depth++;
+    else if (c === "}") depth = Math.max(0, depth - 1);
+    if (c === "," && depth === 0) {
+      parts.push(cur);
+      cur = "";
+      continue;
+    }
+    cur += c;
+  }
+  if (cur.trim() !== "") parts.push(cur);
+  return parts;
+}
+
+/** Parse one annotation value: a `{lo,hi,...}` numeric range -> number[], a bare
+ *  number -> number, anything else -> the (quote-stripped) string. */
+function parseAnnotationValue(raw: string): NodeAnnotationValue {
+  const t = raw.trim();
+  if (t.startsWith("{") && t.endsWith("}")) {
+    const nums = t
+      .slice(1, -1)
+      .split(",")
+      .map((x) => Number(x.trim()));
+    if (nums.length > 0 && nums.every((n) => Number.isFinite(n))) return nums;
+    return stripQuotes(t);
+  }
+  const n = Number(t);
+  if (t !== "" && Number.isFinite(n)) return n;
+  return stripQuotes(t);
+}
+
+/** Parse a `&key=value, key=value` comment body (the leading "&" already
+ *  stripped) into an annotation record, or null when it has no usable pairs. */
+function parseAnnotationBlock(
+  body: string,
+): Record<string, NodeAnnotationValue> | null {
+  const out: Record<string, NodeAnnotationValue> = {};
+  for (const piece of splitTopLevel(body)) {
+    const eq = piece.indexOf("=");
+    if (eq === -1) continue;
+    const key = piece.slice(0, eq).trim();
+    if (key === "") continue;
+    out[key] = parseAnnotationValue(piece.slice(eq + 1));
+  }
+  return Object.keys(out).length > 0 ? out : null;
+}
+
 /** Is this text a Nexus file (so we route through nexusToNewick first)? */
 export function isNexus(text: string): boolean {
   return /^\s*#nexus/i.test(text);
@@ -132,9 +197,10 @@ export function parseNewick(text: string): TreeNode {
       }
       return out;
     }
-    // Bare label: read to a token boundary. Newick allows "_" to mean a space.
+    // Bare label: read to a token boundary ("[" starts an annotation block, so it
+    // bounds the label too). Newick allows "_" to mean a space.
     let out = "";
-    while (i < s.length && !"():,;".includes(s[i])) out += s[i++];
+    while (i < s.length && !"():,;[".includes(s[i])) out += s[i++];
     return out.trim().replace(/_/g, " ");
   }
 
@@ -144,6 +210,23 @@ export function parseNewick(text: string): TreeNode {
     if (out === "") return null;
     const n = Number(out);
     return Number.isFinite(n) ? n : null;
+  }
+
+  // Consume any `[...]` comment(s) at the cursor, merging FigTree / BEAST `[&...]`
+  // metadata into the node's annotations. A non-"&" comment (e.g. `[&R]` rooting,
+  // a plain note) is read and discarded. Without this, a `[` is an "unexpected
+  // character" and a BEAST tree fails to parse at all.
+  function mergeComments(node: TreeNode): void {
+    while (peek() === "[") {
+      i++; // consume "["
+      let out = "";
+      while (i < s.length && s[i] !== "]") out += s[i++];
+      if (peek() === "]") i++; // consume "]"
+      if (out[0] === "&") {
+        const parsed = parseAnnotationBlock(out.slice(1));
+        if (parsed) node.annotations = { ...(node.annotations ?? {}), ...parsed };
+      }
+    }
   }
 
   function parseNode(): TreeNode {
@@ -173,8 +256,11 @@ export function parseNewick(text: string): TreeNode {
         );
       }
     }
-    // Optional label (tip name, or numeric support on an internal node).
-    if (i < s.length && !"():,;".includes(peek())) {
+    // A comment right after ")" annotates the internal node, e.g. ")[&prob=1]".
+    mergeComments(node);
+    // Optional label (tip name, or numeric support on an internal node). "[" is a
+    // token boundary so an annotation block is never swallowed as a bare label.
+    if (i < s.length && !"():,;[".includes(peek())) {
       const label = readLabel();
       if (node.children.length > 0 && /^\d+(\.\d+)?$/.test(label)) {
         node.support = Number(label);
@@ -182,11 +268,15 @@ export function parseNewick(text: string): TreeNode {
         node.name = label;
       }
     }
+    // A comment after the label but before the colon, e.g. "A[&height=1.2]:0.3".
+    mergeComments(node);
     // Optional branch length.
     if (peek() === ":") {
       i++;
       node.branchLength = readNumber();
     }
+    // A comment after the branch length, e.g. ":0.3[&rate=0.5]".
+    mergeComments(node);
     return node;
   }
 
