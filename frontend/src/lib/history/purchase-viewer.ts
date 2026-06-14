@@ -105,12 +105,18 @@ export function projectPurchaseState(
 
   // The diff body is one "Label: value" line per non-empty display field, so a
   // single-field edit touches a single line and the line-diff stays localized.
+  // Lines are joined with a markdown HARD break (two trailing spaces + newline)
+  // rather than a bare newline: VersionDiffView renders unchanged runs through
+  // ReactMarkdown, where bare single newlines soft-wrap into one run-on
+  // paragraph. The hard break keeps each structured field on its own line when
+  // rendered, while the line-differ (which splits on "\n") still sees one line
+  // per field, so single-field edits stay localized.
   const lines: string[] = [];
   for (const { key, label } of DISPLAY_FIELDS) {
     const value = fields[key];
     if (value !== "") lines.push(`${label}: ${value}`);
   }
-  const body = lines.join("\n");
+  const body = lines.join("  \n");
 
   return { fields, body };
 }
