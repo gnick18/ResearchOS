@@ -19,4 +19,15 @@ describe("chemistry figure source", () => {
     expect(src?.editHref("7")).toBe("/chemistry?molecule=7");
     expect(src?.editHref("a b")).toBe("/chemistry?molecule=a%20b");
   });
+
+  it("exposes no style controls yet (renderSvg takes only a size, Phase 3 honest omission)", () => {
+    // RDKit's renderSvg has no per-element or option knob to map a PanelStyle onto,
+    // so the chemistry source declares neither styleTargets nor styleSchema. The
+    // composer simply shows no Style section for a molecule panel.
+    registerChemistryFigureSource();
+    const src = getFigureSource("chemistry");
+    expect(src?.styleTargets).toBeUndefined();
+    expect(src?.styleSchema).toBeUndefined();
+    expect(src?.saveDefaultStyle).toBeUndefined();
+  });
 });

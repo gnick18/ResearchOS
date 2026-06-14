@@ -22,6 +22,7 @@ import {
   type FigureSource,
   type FigureRef,
   type RenderedFigure,
+  type StyleOption,
 } from "@/lib/figure/figure-source";
 
 /** Circular-family layouts read best square; rectangular ones a touch wide. */
@@ -65,7 +66,17 @@ export const phyloFigureSource: FigureSource = {
     if (!raw) return missingPanelSvg(opts.widthIn, opts.heightIn);
     try {
       const tree = parseTree(raw.tree);
-      const inputs = figureInputsFromStored(raw.meta.figure, raw.meta.metadata);
+      const base = figureInputsFromStored(raw.meta.figure, raw.meta.metadata);
+      // Per-panel option overrides (composer Style inspector) layer on top of the
+      // figure's stored inputs without mutating the saved tree. Absent options
+      // keep the stored value, so an unstyled panel renders exactly as before.
+      const o = opts.style?.options ?? {};
+      const inputs = {
+        ...base,
+        scaleBar: typeof o.scaleBar === "boolean" ? o.scaleBar : base.scaleBar,
+        legend: typeof o.legend === "boolean" ? o.legend : base.legend,
+        rootEdge: typeof o.rootEdge === "boolean" ? o.rootEdge : base.rootEdge,
+      };
       // renderTreeSvg sizes in px; the panel asks in real inches, so convert at
       // the requested dpi. The returned SVG carries a viewBox, so it scales to
       // the panel box when the composer nests it.
@@ -78,6 +89,14 @@ export const phyloFigureSource: FigureSource = {
     } catch {
       return missingPanelSvg(opts.widthIn, opts.heightIn);
     }
+  },
+
+  styleSchema(): StyleOption[] {
+    return [
+      { kind: "toggle", key: "scaleBar", label: "Scale bar", default: true },
+      { kind: "toggle", key: "legend", label: "Legend", default: true },
+      { kind: "toggle", key: "rootEdge", label: "Root edge", default: false },
+    ];
   },
 
   editHref(id) {

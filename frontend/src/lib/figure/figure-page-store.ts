@@ -41,10 +41,39 @@ export async function createFigurePageDoc(
   return page;
 }
 
+// Per-id save serialization. The composer saves on EVERY edit (a slider drag
+// fires many onChange ticks), and fileService.writeJson does a temp-file write +
+// `<id>.json.tmp` move. Two overlapping writes to one page share that tmp name and
+// collide on the move ("NoModificationAllowedError: cannot be moved while locked"),
+// surfacing the bug modal. So we serialize writes per id and coalesce intermediate
+// states (latest-wins), so rapid edits flush as one trailing write with no overlap.
+const saveInFlight = new Map<string, Promise<void>>();
+const saveQueued = new Map<string, FigurePage>();
+
 /** Persist a Figure page (called on every edit, the wizard's no-soft-lock path). */
-export async function saveFigurePage(page: FigurePage): Promise<void> {
-  const owner = await getCurrentUserCached();
-  await fileService.writeJson(figurePath(owner, page.id), page);
+export function saveFigurePage(page: FigurePage): Promise<void> {
+  const id = page.id;
+  // The latest state always supersedes any still-queued one for this page.
+  saveQueued.set(id, page);
+  let chain = saveInFlight.get(id);
+  if (!chain) {
+    chain = (async () => {
+      try {
+        let next: FigurePage | undefined;
+        // Synchronous check-then-delete with no await between the empty check and
+        // the finally-delete below, so no concurrent save is ever dropped.
+        while ((next = saveQueued.get(id)) !== undefined) {
+          saveQueued.delete(id);
+          const owner = await getCurrentUserCached();
+          await fileService.writeJson(figurePath(owner, next.id), next);
+        }
+      } finally {
+        saveInFlight.delete(id);
+      }
+    })();
+    saveInFlight.set(id, chain);
+  }
+  return chain;
 }
 
 /** Read one Figure page by id, or null when it does not exist. */

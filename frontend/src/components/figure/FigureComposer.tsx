@@ -544,6 +544,10 @@ export default function FigureComposer({ pageId }: { pageId: string }) {
           (() => {
             const sp = page.panels.find((x) => x.panelId === selected);
             const titleShown = sp?.overrides?.hideTitle === false;
+            const src = getFigureSource(sp?.ref.type ?? "");
+            // Source-specific option controls, declared by the source so the
+            // inspector renders them with no per-source special-casing.
+            const styleSchema = src?.styleSchema?.() ?? [];
             return (
               <div className="space-y-2.5 rounded-xl border border-border p-3">
                 <h3 className="text-meta font-bold uppercase tracking-wide text-foreground-faint">
@@ -571,9 +575,10 @@ export default function FigureComposer({ pageId }: { pageId: string }) {
                   Show plot title
                 </label>
 
-                {styleTargets.length > 0 && (
+                {(styleTargets.length > 0 || styleSchema.length > 0) && (
                   <div className="space-y-2 border-t border-border pt-2.5">
                     <p className="text-meta font-semibold text-foreground-muted">Style</p>
+                    {styleTargets.length > 0 && (
                     <div className="max-h-44 space-y-1 overflow-y-auto pr-1">
                       {styleTargets.map((t) => {
                         const ov = sp?.style?.targets?.[t.key];
@@ -609,67 +614,101 @@ export default function FigureComposer({ pageId }: { pageId: string }) {
                         );
                       })}
                     </div>
-                    {sp?.ref.type === "sequence" && (
+                    )}
+                    {styleSchema.length > 0 && (
                       <div className="space-y-1.5 pt-1">
-                        <label className="flex items-center justify-between gap-2 text-meta text-foreground-muted">
-                          <span>Thickness</span>
-                          <input
-                            type="range"
-                            min={0.5}
-                            max={2}
-                            step={0.1}
-                            value={(sp?.style?.options?.featureScale as number) ?? 1}
-                            onChange={(e) =>
-                              mutate((p) =>
-                                setPanelStyle(p, selected, { options: { featureScale: Number(e.target.value) } }),
-                              )
-                            }
-                            className="w-28"
-                          />
-                        </label>
-                        <label className="flex items-center gap-2 text-meta text-foreground-muted">
-                          <input
-                            type="checkbox"
-                            checked={sp?.style?.options?.showTicks !== false}
-                            onChange={(e) =>
-                              mutate(
-                                (p) => setPanelStyle(p, selected, { options: { showTicks: e.target.checked } }),
-                                true,
-                              )
-                            }
-                          />
-                          Coordinate ruler
-                        </label>
-                        <label className="flex items-center gap-2 text-meta text-foreground-muted">
-                          <input
-                            type="checkbox"
-                            checked={sp?.style?.options?.showLabels !== false}
-                            onChange={(e) =>
-                              mutate(
-                                (p) => setPanelStyle(p, selected, { options: { showLabels: e.target.checked } }),
-                                true,
-                              )
-                            }
-                          />
-                          Feature labels
-                        </label>
+                        {styleSchema.map((opt) => {
+                          const cur = sp?.style?.options?.[opt.key];
+                          if (opt.kind === "range") {
+                            return (
+                              <label
+                                key={opt.key}
+                                className="flex items-center justify-between gap-2 text-meta text-foreground-muted"
+                              >
+                                <span>{opt.label}</span>
+                                <input
+                                  type="range"
+                                  min={opt.min}
+                                  max={opt.max}
+                                  step={opt.step}
+                                  value={typeof cur === "number" ? cur : opt.default}
+                                  onChange={(e) =>
+                                    mutate((p) =>
+                                      setPanelStyle(p, selected, {
+                                        options: { [opt.key]: Number(e.target.value) },
+                                      }),
+                                    )
+                                  }
+                                  className="w-28"
+                                />
+                              </label>
+                            );
+                          }
+                          if (opt.kind === "toggle") {
+                            return (
+                              <label
+                                key={opt.key}
+                                className="flex items-center gap-2 text-meta text-foreground-muted"
+                              >
+                                <input
+                                  type="checkbox"
+                                  checked={typeof cur === "boolean" ? cur : opt.default}
+                                  onChange={(e) =>
+                                    mutate(
+                                      (p) =>
+                                        setPanelStyle(p, selected, {
+                                          options: { [opt.key]: e.target.checked },
+                                        }),
+                                      true,
+                                    )
+                                  }
+                                />
+                                {opt.label}
+                              </label>
+                            );
+                          }
+                          return (
+                            <label
+                              key={opt.key}
+                              className="flex items-center justify-between gap-2 text-meta text-foreground-muted"
+                            >
+                              <span>{opt.label}</span>
+                              <select
+                                value={typeof cur === "string" ? cur : opt.default}
+                                onChange={(e) =>
+                                  mutate(
+                                    (p) =>
+                                      setPanelStyle(p, selected, {
+                                        options: { [opt.key]: e.target.value },
+                                      }),
+                                    true,
+                                  )
+                                }
+                                className="max-w-[10rem] rounded border border-border bg-transparent px-1 py-0.5 text-meta"
+                              >
+                                {opt.choices.map((c) => (
+                                  <option key={c.value} value={c.value}>
+                                    {c.label}
+                                  </option>
+                                ))}
+                              </select>
+                            </label>
+                          );
+                        })}
                       </div>
                     )}
-                    {getFigureSource(sp?.ref.type ?? "")?.saveDefaultStyle && (
+                    {src?.saveDefaultStyle && (
                       <button
                         type="button"
                         onClick={async () => {
                           if (!sp) return;
-                          await getFigureSource(sp.ref.type)?.saveDefaultStyle?.(
-                            sp.ref.id,
-                            sp.style ?? {},
-                          );
+                          await src.saveDefaultStyle?.(sp.ref.id, sp.style ?? {});
                           setDefaultSaved(true);
                         }}
                         className="mt-1 flex items-center gap-1 text-meta font-medium text-brand-action hover:underline"
                       >
                         {defaultSaved && <Icon name="check" className="h-3 w-3" />}
-                        {defaultSaved ? "Saved as default" : "Save as this sequence's default"}
+                        {defaultSaved ? "Saved as default" : "Save as this figure's default"}
                       </button>
                     )}
                   </div>

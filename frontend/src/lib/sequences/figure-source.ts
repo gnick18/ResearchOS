@@ -23,6 +23,7 @@ import {
   type FigureRef,
   type RenderedFigure,
   type StyleTarget,
+  type StyleOption,
   type PanelStyle,
 } from "@/lib/figure/figure-source";
 
@@ -95,6 +96,14 @@ export const sequenceFigureSource: FigureSource = {
       // Seed the swatch from the canonical override if set, else the editor color.
       color: loaded.canonical?.perFeature?.[featureKey(f)]?.color ?? resolveFeatureColor(f),
     }));
+  },
+
+  styleSchema(): StyleOption[] {
+    return [
+      { kind: "range", key: "featureScale", label: "Thickness", min: 0.5, max: 2, step: 0.1, default: 1 },
+      { kind: "toggle", key: "showTicks", label: "Coordinate ruler", default: true },
+      { kind: "toggle", key: "showLabels", label: "Feature labels", default: true },
+    ];
   },
 
   async saveDefaultStyle(id, style): Promise<void> {
