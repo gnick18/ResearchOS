@@ -102,6 +102,7 @@ import {
   linkTasksTool,
 } from "./task-tools";
 import { createMethodTool, updateMethodTool } from "./method-tools";
+import { createProjectTool, updateProjectTool } from "./project-tools";
 import {
   readNoteTool,
   readMethodTool,
@@ -415,6 +416,12 @@ export const ACTION_TOOLS: AiTool[] = [
   // INTERPRETATION: create_method writes the user's own protocol, never an invented one.
   createMethodTool,
   updateMethodTool,
+  // Project coworker tools (action: true, isDestructive false). create_project makes
+  // a new project (the container a task/experiment needs); update_project renames,
+  // sets tags, or archives/unarchives one (archive is reversible, never a delete).
+  // One-line confirm before each writes; own projects only.
+  createProjectTool,
+  updateProjectTool,
   // create_purchase logs an order (action: true, isDestructive false). The preview
   // shows vendor, item, quantity, price, and project before anything writes. Two-step
   // write: a parent Task with task_type "purchase", then the linked PurchaseItem.
