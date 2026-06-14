@@ -145,12 +145,34 @@ const GRANT_TTL_MS = 5 * 60 * 1000; // five minutes, generous for a scan.
  * the laptop. It rides alongside the signed grant (the sealing key is public,
  * so it needs no separate signature) and the signed message is unchanged, so
  * older phones that ignore the field still verify the grant byte-for-byte.
+ *
+ * `display` carries human-readable, presentation-only fields (the account's
+ * display name, the lab label) so the phone can greet the user by name instead
+ * of guessing from a pubkey. These ride INSIDE the grant object but the signed
+ * message still derives only from u/pid/exp/url (see capturePairGrantMessage and
+ * the worker's handleRegister), so the extra keys never affect verification and
+ * older phones that ignore them still verify the grant byte-for-byte.
  */
-export function makePairingGrant(keys: UserCaptureKeys, relayUrl = captureRelayUrl()): PairingGrant {
+export function makePairingGrant(
+  keys: UserCaptureKeys,
+  relayUrl = captureRelayUrl(),
+  display?: { userName?: string; labName?: string },
+): PairingGrant {
   const u = keys.ed25519PublicKeyHex;
   const pairingId = `pair-${cryptoRandomId()}`;
   const exp = new Date(Date.now() + GRANT_TTL_MS).toISOString();
-  const grant = { u, pid: pairingId, exp, url: relayUrl };
+  const grant: { u: string; pid: string; exp: string; url: string; userName?: string; labName?: string } = {
+    u,
+    pid: pairingId,
+    exp,
+    url: relayUrl,
+  };
+  // Presentation-only, not part of the signed bytes. Only set when non-empty so
+  // a grant with no display info stays byte-identical to the smoke shape.
+  const userName = display?.userName?.trim();
+  if (userName) grant.userName = userName;
+  const labName = display?.labName?.trim();
+  if (labName) grant.labName = labName;
   const sig = sign(capturePairGrantMessage(u, pairingId, exp, relayUrl), keys.ed25519PrivateKey);
   const payload: { grant: typeof grant; sig: string; userX25519PubHex?: string } = { grant, sig };
   if (keys.x25519PublicKeyHex) payload.userX25519PubHex = keys.x25519PublicKeyHex;

@@ -35,6 +35,7 @@ import {
   type PairingGrant,
 } from "@/lib/mobile-relay/client";
 import { loadUserCaptureKeys } from "@/lib/mobile-relay/keys";
+import { readUserSettings } from "@/lib/settings/user-settings";
 import { runCaptureInboxPoll } from "@/lib/mobile-relay/poll";
 import { publishTodayToAllDevices } from "@/lib/mobile-relay/today-snapshot";
 import { publishInventoryToAllDevices } from "@/lib/mobile-relay/inventory-snapshot";
@@ -279,11 +280,24 @@ export default function DevicesSection({
       }
       const list = (await refreshDevices()) ?? [];
       baselineKeysRef.current = new Set(list.map((d) => d.devicePubkey));
-      setGrant(makePairingGrant(keys));
+      // Resolve a display name so the phone can greet by name (settings.json
+      // #displayName when set, otherwise the folder username). Never blocks
+      // pairing: any failure just omits the name and the phone greets by time
+      // of day alone.
+      let userName: string | undefined;
+      if (currentUser) {
+        try {
+          const dn = (await readUserSettings(currentUser)).displayName?.trim();
+          userName = dn && dn.length > 0 ? dn : currentUser;
+        } catch {
+          userName = currentUser;
+        }
+      }
+      setGrant(makePairingGrant(keys, undefined, { userName }));
     } finally {
       setBusy(false);
     }
-  }, [refreshDevices]);
+  }, [refreshDevices, currentUser]);
 
   const cancelPairing = useCallback(() => {
     setGrant(null);
