@@ -16,12 +16,20 @@ import Tooltip from "@/components/Tooltip";
 import {
   type FigurePage,
   type LabelStyle,
+  type Annotation,
   pageSizeIn,
   assignLabels,
   addPanel,
   removePanel,
   snapToGrid,
   fitPanelsToPage,
+  addAnnotation,
+  removeAnnotation,
+  updateAnnotation,
+  moveAnnotation,
+  makeTextAnnotation,
+  makeArrowAnnotation,
+  makeBracketAnnotation,
 } from "@/lib/figure/figure-page";
 import {
   getFigureSource,
@@ -34,7 +42,10 @@ import {
   saveFigurePage,
   createFigurePageDoc,
 } from "@/lib/figure/figure-page-store";
-import { composeFigurePageSvg } from "@/lib/figure/figure-compose";
+import {
+  composeFigurePageSvg,
+  annotationLayerSvg,
+} from "@/lib/figure/figure-compose";
 import { registerFigureSources } from "@/lib/figure/register-sources";
 import { PAPER_PRESETS } from "@/lib/figure/artboard";
 
@@ -57,7 +68,10 @@ export default function FigureComposer({ pageId }: { pageId: string }) {
   const [undo, setUndo] = useState<FigurePage[]>([]);
   const [pickerOpen, setPickerOpen] = useState(false);
   const [loadState, setLoadState] = useState<"loading" | "ready" | "missing">("loading");
+  const [tool, setTool] = useState<null | "text" | "arrow" | "bracket">(null);
+  const [selectedAnn, setSelectedAnn] = useState<string | null>(null);
   const stageRef = useRef<HTMLDivElement>(null);
+  const annDrag = useRef<null | { id: string; sx: number; sy: number }>(null);
   const router = useRouter();
 
   useEffect(() => {
@@ -189,6 +203,28 @@ export default function FigureComposer({ pageId }: { pageId: string }) {
     };
   }, [scale, mutate]);
 
+  // Drag a selected annotation (translates all of its anchor points).
+  useEffect(() => {
+    const move = (e: MouseEvent) => {
+      const d = annDrag.current;
+      if (!d) return;
+      const dxIn = (e.clientX - d.sx) / scale;
+      const dyIn = (e.clientY - d.sy) / scale;
+      if (dxIn === 0 && dyIn === 0) return;
+      annDrag.current = { ...d, sx: e.clientX, sy: e.clientY };
+      mutate((prev) => moveAnnotation(prev, d.id, dxIn, dyIn));
+    };
+    const up = () => {
+      annDrag.current = null;
+    };
+    window.addEventListener("mousemove", move);
+    window.addEventListener("mouseup", up);
+    return () => {
+      window.removeEventListener("mousemove", move);
+      window.removeEventListener("mouseup", up);
+    };
+  }, [scale, mutate]);
+
   const exportSvg = useCallback(() => {
     if (!page) return;
     const svg = composeFigurePageSvg(page, { pxPerInch: 300, panelSvgs });
@@ -242,11 +278,41 @@ export default function FigureComposer({ pageId }: { pageId: string }) {
   const pageW = wIn * scale;
   const pageH = hIn * scale;
 
+  const placeAnnotation = (xIn: number, yIn: number) => {
+    if (!tool) return;
+    const annId = `a${page.id}-${Date.now().toString(36)}`;
+    const make =
+      tool === "text"
+        ? makeTextAnnotation
+        : tool === "arrow"
+          ? makeArrowAnnotation
+          : makeBracketAnnotation;
+    mutate((p) => addAnnotation(p, make(annId, xIn, yIn)), true);
+    setSelected(null);
+    setSelectedAnn(annId);
+    setTool(null);
+  };
+
+  const onAnnDown = (e: React.MouseEvent, id: string) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setSelected(null);
+    setSelectedAnn(id);
+    annDrag.current = { id, sx: e.clientX, sy: e.clientY };
+  };
+
+  const selectedAnnotation = selectedAnn
+    ? page.annotations.find((a) => a.annId === selectedAnn) ?? null
+    : null;
+
   return (
     <div className="flex h-full gap-4 p-4" data-testid="figure-composer">
       <div
         className="flex flex-1 items-start justify-center overflow-auto rounded-2xl border border-border bg-surface-sunken p-8"
-        onMouseDown={() => setSelected(null)}
+        onMouseDown={() => {
+          setSelected(null);
+          setSelectedAnn(null);
+        }}
       >
         <div
           ref={stageRef}
@@ -298,6 +364,50 @@ export default function FigureComposer({ pageId }: { pageId: string }) {
             <div className="flex h-full items-center justify-center text-meta text-foreground-faint">
               Add a figure to start the page.
             </div>
+          )}
+
+          {/* Annotation layer, painted above the panels (one injected SVG string,
+              so the component carries no inline SVG of its own). Click-through. */}
+          <div
+            className="pointer-events-none absolute inset-0"
+            dangerouslySetInnerHTML={{ __html: annotationLayerSvg(page, scale) }}
+          />
+
+          {/* Interaction targets for select + drag (only when not placing). */}
+          {!tool &&
+            page.annotations.map((a) => {
+              const b = annBox(a, scale);
+              const sel = selectedAnn === a.annId;
+              return (
+                <div
+                  key={a.annId}
+                  onMouseDown={(e) => onAnnDown(e, a.annId)}
+                  className="absolute"
+                  style={{
+                    left: b.x - 4,
+                    top: b.y - 4,
+                    width: b.w + 8,
+                    height: b.h + 8,
+                    cursor: "move",
+                    borderRadius: 3,
+                    border: sel ? "1px dashed #2563eb" : "1px solid transparent",
+                  }}
+                />
+              );
+            })}
+
+          {/* Placement capture overlay (only while a tool is active). */}
+          {tool && (
+            <div
+              className="absolute inset-0 z-10"
+              style={{ cursor: "crosshair" }}
+              onMouseDown={(e) => {
+                e.stopPropagation();
+                const rect = stageRef.current?.getBoundingClientRect();
+                if (!rect) return;
+                placeAnnotation((e.clientX - rect.left) / scale, (e.clientY - rect.top) / scale);
+              }}
+            />
           )}
         </div>
       </div>
@@ -371,6 +481,35 @@ export default function FigureComposer({ pageId }: { pageId: string }) {
           </div>
         </div>
 
+        <div className="rounded-xl border border-border p-3">
+          <h3 className="mb-2 text-meta font-bold uppercase tracking-wide text-foreground-faint">
+            Annotate
+          </h3>
+          <div className="flex gap-2">
+            {(
+              [
+                ["text", "Text"],
+                ["arrow", "Arrow"],
+                ["bracket", "Bracket"],
+              ] as const
+            ).map(([t, lbl]) => (
+              <button
+                key={t}
+                type="button"
+                onClick={() => setTool(tool === t ? null : t)}
+                className={`flex-1 rounded-lg border px-2 py-1.5 text-meta font-medium ${tool === t ? "border-brand-action bg-brand-action/10 text-brand-action" : "border-border-strong hover:border-brand-action"}`}
+              >
+                {lbl}
+              </button>
+            ))}
+          </div>
+          {tool && (
+            <p className="mt-2 text-meta text-foreground-faint">
+              Click the page to place the {tool}.
+            </p>
+          )}
+        </div>
+
         {selected &&
           (() => {
             const sp = page.panels.find((x) => x.panelId === selected);
@@ -414,6 +553,93 @@ export default function FigureComposer({ pageId }: { pageId: string }) {
               </div>
             );
           })()}
+
+        {selectedAnnotation && (
+          <div className="space-y-2.5 rounded-xl border border-border p-3">
+            <h3 className="text-meta font-bold uppercase tracking-wide text-foreground-faint">
+              Annotation
+            </h3>
+            {selectedAnnotation.kind === "text" && (
+              <input
+                type="text"
+                value={selectedAnnotation.text}
+                onChange={(e) =>
+                  mutate((p) => updateAnnotation(p, selectedAnnotation.annId, { text: e.target.value }))
+                }
+                placeholder="Text"
+                className="w-full rounded-md border border-border bg-surface px-2 py-1 text-meta"
+              />
+            )}
+            {selectedAnnotation.kind === "arrow" && (
+              <div className="flex items-center justify-between text-body">
+                <span className="text-foreground-muted">Heads</span>
+                <div className="inline-flex overflow-hidden rounded-md border border-border-strong">
+                  {(
+                    [
+                      [0, "Line"],
+                      [1, "Arrow"],
+                      [2, "Double"],
+                    ] as const
+                  ).map(([h, lbl]) => (
+                    <button
+                      key={h}
+                      type="button"
+                      onClick={() =>
+                        mutate((p) => updateAnnotation(p, selectedAnnotation.annId, { heads: h }), true)
+                      }
+                      className={`px-2 py-1 text-meta ${selectedAnnotation.heads === h ? "bg-brand-action text-white" : "text-foreground-muted"}`}
+                    >
+                      {lbl}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+            {selectedAnnotation.kind === "bracket" && (
+              <>
+                <input
+                  type="text"
+                  value={selectedAnnotation.label ?? ""}
+                  onChange={(e) =>
+                    mutate((p) => updateAnnotation(p, selectedAnnotation.annId, { label: e.target.value }))
+                  }
+                  placeholder="Label (e.g. ** or p = 0.03)"
+                  className="w-full rounded-md border border-border bg-surface px-2 py-1 text-meta"
+                />
+                <div className="flex items-center justify-between text-body">
+                  <span className="text-foreground-muted">Orientation</span>
+                  <div className="inline-flex overflow-hidden rounded-md border border-border-strong">
+                    {(["horizontal", "vertical"] as const).map((o) => (
+                      <button
+                        key={o}
+                        type="button"
+                        onClick={() =>
+                          mutate(
+                            (p) => updateAnnotation(p, selectedAnnotation.annId, { orientation: o }),
+                            true,
+                          )
+                        }
+                        className={`px-2 py-1 text-meta capitalize ${selectedAnnotation.orientation === o ? "bg-brand-action text-white" : "text-foreground-muted"}`}
+                      >
+                        {o}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </>
+            )}
+            <button
+              type="button"
+              onClick={() => {
+                mutate((p) => removeAnnotation(p, selectedAnnotation.annId), true);
+                setSelectedAnn(null);
+              }}
+              className="block text-meta font-medium text-pin hover:underline"
+            >
+              Remove annotation
+            </button>
+          </div>
+        )}
 
         <div className="rounded-xl border border-border p-3">
           <h3 className="mb-2 text-meta font-bold uppercase tracking-wide text-foreground-faint">Export</h3>
@@ -790,4 +1016,24 @@ function FilterChip({ label, on, onClick }: { label: string; on: boolean; onClic
       {label}
     </button>
   );
+}
+
+/** The screen-space bounding box (px) of an annotation, for hit + highlight. */
+function annBox(a: Annotation, scale: number): { x: number; y: number; w: number; h: number } {
+  if (a.kind === "text") {
+    const fs = (a.fontPt * scale) / 72;
+    return { x: a.xIn * scale, y: a.yIn * scale - fs, w: Math.max(30, a.text.length * fs * 0.6), h: fs * 1.3 };
+  }
+  if (a.kind === "arrow") {
+    return {
+      x: Math.min(a.x1In, a.x2In) * scale,
+      y: Math.min(a.y1In, a.y2In) * scale,
+      w: Math.abs(a.x2In - a.x1In) * scale,
+      h: Math.abs(a.y2In - a.y1In) * scale,
+    };
+  }
+  const tick = Math.max(4, 0.06 * scale);
+  return a.orientation === "horizontal"
+    ? { x: a.xIn * scale, y: a.yIn * scale - tick, w: a.spanIn * scale, h: tick * 2.5 }
+    : { x: a.xIn * scale - tick, y: a.yIn * scale, w: tick * 2.5, h: a.spanIn * scale };
 }

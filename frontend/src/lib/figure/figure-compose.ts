@@ -9,8 +9,82 @@
 //
 // No em-dashes, no emojis, no mid-sentence colons.
 
-import { type FigurePage, pageSizeIn, assignLabels } from "@/lib/figure/figure-page";
+import {
+  type FigurePage,
+  type Annotation,
+  pageSizeIn,
+  assignLabels,
+} from "@/lib/figure/figure-page";
 import { missingPanelSvg } from "@/lib/figure/figure-source";
+
+/**
+ * The <defs> (arrowhead markers) the annotation layer needs. Shared by the
+ * export compositor and the on-screen annotation overlay so they draw identically.
+ */
+export function annotationDefs(): string {
+  return (
+    `<defs>` +
+    `<marker id="fp-ah" markerWidth="9" markerHeight="9" refX="6" refY="4" orient="auto">` +
+    `<path d="M0,0 L9,4 L0,8 z" fill="#0f172a"/></marker>` +
+    `<marker id="fp-ah-s" markerWidth="9" markerHeight="9" refX="3" refY="4" orient="auto">` +
+    `<path d="M9,0 L0,4 L9,8 z" fill="#0f172a"/></marker>` +
+    `</defs>`
+  );
+}
+
+/**
+ * Draw ONE annotation at `ppi` px per inch, in page coordinates. Pure, returns an
+ * SVG fragment. Shared by the export compositor and the on-screen overlay so an
+ * annotation looks identical on screen and in the exported file.
+ */
+export function annotationToSvg(a: Annotation, ppi: number): string {
+  if (a.kind === "text") {
+    const fs = (a.fontPt * ppi) / 72;
+    return (
+      `<text x="${(a.xIn * ppi).toFixed(1)}" y="${(a.yIn * ppi).toFixed(1)}" ` +
+      `font-size="${fs.toFixed(1)}" fill="#0f172a">${esc(a.text)}</text>`
+    );
+  }
+  if (a.kind === "arrow") {
+    const x1 = (a.x1In * ppi).toFixed(1);
+    const y1 = (a.y1In * ppi).toFixed(1);
+    const x2 = (a.x2In * ppi).toFixed(1);
+    const y2 = (a.y2In * ppi).toFixed(1);
+    const start = a.heads === 2 ? ` marker-start="url(#fp-ah-s)"` : "";
+    const end = a.heads >= 1 ? ` marker-end="url(#fp-ah)"` : "";
+    return (
+      `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="#0f172a" ` +
+      `stroke-width="${Math.max(1, 0.02 * ppi).toFixed(1)}"${start}${end}/>`
+    );
+  }
+  // bracket (horizontal or vertical), optional label = significance marker.
+  const x = a.xIn * ppi;
+  const y = a.yIn * ppi;
+  const span = a.spanIn * ppi;
+  const tick = Math.max(4, 0.06 * ppi);
+  const sw = Math.max(1, 0.018 * ppi).toFixed(1);
+  const fs = Math.max(9, 0.14 * ppi).toFixed(1);
+  if (a.orientation === "horizontal") {
+    let out =
+      `<path d="M${x.toFixed(1)},${(y + tick).toFixed(1)} V${y.toFixed(1)} ` +
+      `H${(x + span).toFixed(1)} V${(y + tick).toFixed(1)}" fill="none" stroke="#0f172a" stroke-width="${sw}"/>`;
+    if (a.label) {
+      out +=
+        `<text x="${(x + span / 2).toFixed(1)}" y="${(y - tick * 0.4).toFixed(1)}" ` +
+        `font-size="${fs}" fill="#0f172a" text-anchor="middle">${esc(a.label)}</text>`;
+    }
+    return out;
+  }
+  let out =
+    `<path d="M${(x + tick).toFixed(1)},${y.toFixed(1)} H${x.toFixed(1)} ` +
+    `V${(y + span).toFixed(1)} H${(x + tick).toFixed(1)}" fill="none" stroke="#0f172a" stroke-width="${sw}"/>`;
+  if (a.label) {
+    out +=
+      `<text x="${(x - tick * 0.4).toFixed(1)}" y="${(y + span / 2).toFixed(1)}" ` +
+      `font-size="${fs}" fill="#0f172a" text-anchor="end">${esc(a.label)}</text>`;
+  }
+  return out;
+}
 
 export interface ComposeOpts {
   /** Output px per inch (export dpi, e.g. 300, or a screen scale like 96). */
@@ -47,6 +121,22 @@ function placeSvg(svg: string, px: number, py: number, pw: number, ph: number): 
   return svg.replace(/^\s*<svg\b[^>]*>/i, head);
 }
 
+/**
+ * The annotation layer as one standalone SVG string, for the on-screen overlay
+ * (the export embeds the same fragments via composeFigurePageSvg, so they match).
+ * Built here in lib so the composer component carries no inline SVG of its own.
+ */
+export function annotationLayerSvg(page: FigurePage, ppi: number): string {
+  const { wIn, hIn } = pageSizeIn(page);
+  const W = (wIn * ppi).toFixed(1);
+  const H = (hIn * ppi).toFixed(1);
+  const body = page.annotations.map((a) => annotationToSvg(a, ppi)).join("");
+  return (
+    `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" ` +
+    `viewBox="0 0 ${W} ${H}">${annotationDefs()}${body}</svg>`
+  );
+}
+
 /** Compose the whole page into one SVG string. */
 export function composeFigurePageSvg(page: FigurePage, opts: ComposeOpts): string {
   const ppi = opts.pxPerInch;
@@ -61,14 +151,7 @@ export function composeFigurePageSvg(page: FigurePage, opts: ComposeOpts): strin
   ];
 
   // Arrowhead markers, used by arrow annotations.
-  parts.push(
-    `<defs>` +
-      `<marker id="fp-ah" markerWidth="9" markerHeight="9" refX="6" refY="4" orient="auto">` +
-      `<path d="M0,0 L9,4 L0,8 z" fill="#0f172a"/></marker>` +
-      `<marker id="fp-ah-s" markerWidth="9" markerHeight="9" refX="3" refY="4" orient="auto">` +
-      `<path d="M9,0 L0,4 L9,8 z" fill="#0f172a"/></marker>` +
-      `</defs>`,
-  );
+  parts.push(annotationDefs());
 
   // The page sheet.
   parts.push(`<rect x="0" y="0" width="${W.toFixed(1)}" height="${H.toFixed(1)}" fill="#ffffff"/>`);
@@ -91,53 +174,9 @@ export function composeFigurePageSvg(page: FigurePage, opts: ComposeOpts): strin
     }
   }
 
-  // Annotation layer (page coordinates).
+  // Annotation layer (page coordinates), drawn by the shared renderer.
   for (const a of page.annotations) {
-    if (a.kind === "text") {
-      const fs = (a.fontPt * ppi) / 72;
-      parts.push(
-        `<text x="${(a.xIn * ppi).toFixed(1)}" y="${(a.yIn * ppi).toFixed(1)}" ` +
-          `font-size="${fs.toFixed(1)}" fill="#0f172a">${esc(a.text)}</text>`,
-      );
-    } else if (a.kind === "arrow") {
-      const x1 = (a.x1In * ppi).toFixed(1);
-      const y1 = (a.y1In * ppi).toFixed(1);
-      const x2 = (a.x2In * ppi).toFixed(1);
-      const y2 = (a.y2In * ppi).toFixed(1);
-      const start = a.heads === 2 ? ` marker-start="url(#fp-ah-s)"` : "";
-      const end = a.heads >= 1 ? ` marker-end="url(#fp-ah)"` : "";
-      parts.push(
-        `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="#0f172a" stroke-width="${Math.max(1, 0.02 * ppi).toFixed(1)}"${start}${end}/>`,
-      );
-    } else {
-      // bracket (horizontal or vertical), optional label = significance marker.
-      const x = a.xIn * ppi;
-      const y = a.yIn * ppi;
-      const span = a.spanIn * ppi;
-      const tick = Math.max(4, 0.06 * ppi);
-      const sw = Math.max(1, 0.018 * ppi).toFixed(1);
-      if (a.orientation === "horizontal") {
-        parts.push(
-          `<path d="M${x.toFixed(1)},${(y + tick).toFixed(1)} V${y.toFixed(1)} H${(x + span).toFixed(1)} V${(y + tick).toFixed(1)}" ` +
-            `fill="none" stroke="#0f172a" stroke-width="${sw}"/>`,
-        );
-        if (a.label) {
-          parts.push(
-            `<text x="${(x + span / 2).toFixed(1)}" y="${(y - tick * 0.4).toFixed(1)}" font-size="${Math.max(9, 0.14 * ppi).toFixed(1)}" fill="#0f172a" text-anchor="middle">${esc(a.label)}</text>`,
-          );
-        }
-      } else {
-        parts.push(
-          `<path d="M${(x + tick).toFixed(1)},${y.toFixed(1)} H${x.toFixed(1)} V${(y + span).toFixed(1)} H${(x + tick).toFixed(1)}" ` +
-            `fill="none" stroke="#0f172a" stroke-width="${sw}"/>`,
-        );
-        if (a.label) {
-          parts.push(
-            `<text x="${(x - tick * 0.4).toFixed(1)}" y="${(y + span / 2).toFixed(1)}" font-size="${Math.max(9, 0.14 * ppi).toFixed(1)}" fill="#0f172a" text-anchor="end">${esc(a.label)}</text>`,
-          );
-        }
-      }
-    }
+    parts.push(annotationToSvg(a, ppi));
   }
 
   parts.push(`</svg>`);
