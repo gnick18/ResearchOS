@@ -9,6 +9,8 @@
 // House style: <Icon> only, Tooltip on icon-only buttons, no emojis / em-dashes.
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { Icon } from "@/components/icons";
 import Tooltip from "@/components/Tooltip";
 import {
@@ -30,6 +32,7 @@ import { buildPickerView, type GroupBy } from "@/lib/figure/picker-view";
 import {
   readFigurePage,
   saveFigurePage,
+  createFigurePageDoc,
 } from "@/lib/figure/figure-page-store";
 import { composeFigurePageSvg } from "@/lib/figure/figure-compose";
 import { registerFigureSources } from "@/lib/figure/register-sources";
@@ -53,14 +56,29 @@ export default function FigureComposer({ pageId }: { pageId: string }) {
   const [selected, setSelected] = useState<string | null>(null);
   const [undo, setUndo] = useState<FigurePage[]>([]);
   const [pickerOpen, setPickerOpen] = useState(false);
+  const [loadState, setLoadState] = useState<"loading" | "ready" | "missing">("loading");
   const stageRef = useRef<HTMLDivElement>(null);
+  const router = useRouter();
 
   useEffect(() => {
     registerFigureSources();
     let live = true;
-    void readFigurePage(pageId).then((p) => {
-      if (live) setPage(p);
-    });
+    setLoadState("loading");
+    readFigurePage(pageId)
+      .then((p) => {
+        if (!live) return;
+        // A page can be absent if the link is stale or its data was cleared (e.g.
+        // a demo re-seed). Show a recoverable not-found state, never spin forever.
+        if (p) {
+          setPage(p);
+          setLoadState("ready");
+        } else {
+          setLoadState("missing");
+        }
+      })
+      .catch(() => {
+        if (live) setLoadState("missing");
+      });
     return () => {
       live = false;
     };
@@ -183,7 +201,39 @@ export default function FigureComposer({ pageId }: { pageId: string }) {
     URL.revokeObjectURL(url);
   }, [page, panelSvgs]);
 
-  if (!page) {
+  if (loadState === "missing") {
+    return (
+      <div className="flex h-full flex-col items-center justify-center gap-3 p-8 text-center">
+        <Icon name="alert" className="h-7 w-7 text-foreground-faint" />
+        <div>
+          <p className="text-body font-semibold text-foreground">This figure page could not be found.</p>
+          <p className="mt-1 text-meta text-foreground-muted">
+            It may have been deleted, or the link is out of date.
+          </p>
+        </div>
+        <div className="mt-1 flex items-center gap-2">
+          <Link
+            href="/figures"
+            className="rounded-lg bg-brand-action px-3 py-1.5 text-meta font-semibold text-white"
+          >
+            Back to figures
+          </Link>
+          <button
+            type="button"
+            onClick={async () => {
+              const created = await createFigurePageDoc("Untitled figure", null);
+              router.push(`/figures/${created.id}`);
+            }}
+            className="rounded-lg border border-border-strong px-3 py-1.5 text-meta font-semibold hover:border-brand-action"
+          >
+            New figure page
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  if (loadState === "loading" || !page) {
     return <div className="p-8 text-body text-foreground-muted">Loading figure page...</div>;
   }
 
