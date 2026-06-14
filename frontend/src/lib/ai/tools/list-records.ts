@@ -129,6 +129,17 @@ export const listRecordsTool: AiTool = {
     const types = strArr(args.types).filter((t) => VALID_TYPES.has(t));
     const rawOwners = strArr(args.owners);
     const resolvedOwners = resolveOwnerRefsToUsernames(rawOwners, members);
+    // Check 4 (live-verify 2026-06-14): owner(s) named but NONE resolved to a real
+    // member. Signal the miss rather than filtering by the raw unmatched name and
+    // returning an empty list that looks like a real-but-empty member. Guarded on a
+    // known roster: an empty members list (solo user / roster API empty) cannot tell
+    // a typo from a valid owner, so it keeps the raw filter as before.
+    if (members.length > 0 && rawOwners.length > 0 && resolvedOwners.length === 0) {
+      return {
+        ok: false as const,
+        error: `No lab member matched ${rawOwners.map((o) => `"${o}"`).join(", ")}. Ask the user who they mean, or call list_lab_members for the real names, instead of listing an empty set.`,
+      };
+    }
     const resolvedProjectIds = resolveProjectRefsToIds(strArr(args.projects), projects);
 
     const filter: ArtifactFilter = {

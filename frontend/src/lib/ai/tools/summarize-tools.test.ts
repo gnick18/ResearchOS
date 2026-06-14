@@ -322,6 +322,7 @@ describe("aggregatePurchases (deterministic money)", () => {
 
 const realExpLister = summarizeExperimentsDeps.listExperiments;
 const realExpProjLister = summarizeExperimentsDeps.listProjects;
+const realExpMemberLister = summarizeExperimentsDeps.listMemberUsernames;
 const realPurchaseLister = summarizePurchasesDeps.listPurchases;
 
 function stubExperiments(overrides: Partial<SummarizeExperimentsDeps>): void {
@@ -334,6 +335,7 @@ function stubPurchases(overrides: Partial<SummarizePurchasesDeps>): void {
 afterEach(() => {
   summarizeExperimentsDeps.listExperiments = realExpLister;
   summarizeExperimentsDeps.listProjects = realExpProjLister;
+  summarizeExperimentsDeps.listMemberUsernames = realExpMemberLister;
   summarizePurchasesDeps.listPurchases = realPurchaseLister;
 });
 
@@ -365,6 +367,38 @@ describe("summarizeExperimentsTool.execute", () => {
     expect(out.summary.byProject).toEqual([{ projectId: "4", projectName: "cyp51A", count: 1 }]);
     // The filter is echoed back with the experiment type pinned.
     expect(out.summary.filter).toMatchObject({ types: ["experiment"], owners: ["grant"] });
+  });
+
+  // Check 4 (live-verify 2026-06-14): an owner name that matches nobody on a KNOWN
+  // roster must not silently summarize an empty set, it signals the miss so the model
+  // can ask who was meant.
+  it("returns a no-match error when an owner resolves to nobody on a known roster", async () => {
+    stubExperiments({
+      listExperiments: async () => [makeExperiment({ id: 1, owner: "grant" })],
+      listProjects: async () => [],
+      listMemberUsernames: async () => ["grant", "alice"],
+    });
+    const out = (await summarizeExperimentsTool.execute({ owners: ["Zxqv"] })) as {
+      ok: boolean;
+      error?: string;
+    };
+    expect(out.ok).toBe(false);
+    expect(out.error).toMatch(/No lab member matched/i);
+  });
+
+  // The guard is roster-aware: with an UNKNOWN roster (empty members, e.g. a solo
+  // user or a failed roster fetch) it cannot tell a typo from a valid owner, so it
+  // keeps the raw owner filter and still runs, exactly as before the fix.
+  it("keeps the raw owner filter when the roster is unknown (empty members)", async () => {
+    stubExperiments({
+      listExperiments: async () => [makeExperiment({ id: 1, owner: "grant" })],
+      listProjects: async () => [],
+      listMemberUsernames: async () => [],
+    });
+    const out = (await summarizeExperimentsTool.execute({ owners: ["grant"] })) as {
+      ok: boolean;
+    };
+    expect(out.ok).toBe(true);
   });
 });
 
