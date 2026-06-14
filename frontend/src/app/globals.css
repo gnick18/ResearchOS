@@ -426,6 +426,27 @@
   line-height: 1.75;
 }
 
+/* Focus dimming (UNIFIED_EDITOR_SURFACE_DESIGN.md §3A, U5 toggle, default off).
+ * The CM6 focusDimmingExtension adds `.cm-ros-dimmed` to every non-active LINE,
+ * but ONLY while the editor is focused (it clears the set on blur), so this rule
+ * can never wash out a resting / unfocused note — there is nothing to wash out
+ * when no decoration is present. The opacity is the same ~30% the JS module
+ * exports (FOCUS_DIMMING_OPACITY). A short transition makes the dim breathe in /
+ * out as the caret moves; we drop the transition under reduced-motion so it is
+ * an instant state change for motion-sensitive users. The extension is added
+ * only at the fullscreen scale, but the selector is kept generic (CM lines carry
+ * the class) and harmless everywhere because the class is never present unless
+ * the extension is installed and focused. */
+.cm-line.cm-ros-dimmed {
+  opacity: 0.3;
+  transition: opacity 160ms ease;
+}
+@media (prefers-reduced-motion: reduce) {
+  .cm-line.cm-ros-dimmed {
+    transition: none;
+  }
+}
+
 /* ── Dark-mode editor surface = immersive "dark room" ─────────────────────────
  * Grant chose the dark room over warm paper for dark mode (2026-06-14). The
  * docked editor is otherwise light-scoped (white paper on dark chrome, like

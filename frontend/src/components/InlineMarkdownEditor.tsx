@@ -89,6 +89,16 @@ type CMModules = {
   // words with click-to-fix suggestions. Loaded with the editor chunk and only
   // spread into the extension set when the user's pref is on (gate read below).
   spellcheckExtension: typeof import("@/lib/markdown/cm-spellcheck/spellcheck").spellcheckExtension;
+  // Compartment: the reconfigurable slot the focus behaviors live in. Built once
+  // into makeState (empty by default) so the disabled / collab / entry-switch
+  // setState rebuilds preserve it; a dedicated effect reconfigures it when the
+  // per-user pref or the fullscreen gate changes (no full editor rebuild).
+  Compartment: typeof import("@codemirror/state").Compartment;
+  // Focus behaviors (UNIFIED_EDITOR_SURFACE_DESIGN.md §3A, U5 toggles). Both are
+  // opt-in + fullscreen-only; spread into the focus compartment only when their
+  // pref is on AND the editor is at the fullscreen scale.
+  typewriterScrollExtension: typeof import("@/lib/markdown/cm-focus-mode/focus-mode").typewriterScrollExtension;
+  focusDimmingExtension: typeof import("@/lib/markdown/cm-focus-mode/focus-mode").focusDimmingExtension;
 };
 
 /**
@@ -213,6 +223,38 @@ interface InlineMarkdownEditorProps {
    * from loro-codemirror: { name: string; colorClassName: string }.
    */
   collabUser?: UserState;
+
+  // ---------------------------------------------------------------------------
+  // Focus behaviors (UNIFIED_EDITOR_SURFACE_DESIGN.md §3A, U5 toggles). INTERNAL
+  // props (LiveMarkdownEditor reads the per-user prefs + the fullscreen gate and
+  // passes the already-resolved booleans). Both default false; the docked editor
+  // and BeakerBotCanvas never pass them true, so those surfaces are unaffected.
+  // ---------------------------------------------------------------------------
+  /** When true, the active line is held at ~42% of the viewport (typewriter
+   *  scroll). Resolved by the parent = (pref on AND fullscreen). Default false.
+   *  Reconfigured live via a CM6 compartment, no editor rebuild. */
+  typewriterScroll?: boolean;
+  /** When true, non-active lines dim to ~30% while the editor is FOCUSED (focus
+   *  dimming); cleared on blur so the resting note is full-contrast. Resolved by
+   *  the parent = (pref on AND fullscreen). Default false. */
+  focusDimming?: boolean;
+}
+
+/**
+ * Build the focus-behavior extension set for the current resolved flags (U5).
+ * Returns the typewriter-scroll and/or focus-dimming extensions when their flag
+ * is on, or an empty array (so the compartment holds nothing) when both are off
+ * — which is the default and the only state the docked editor / Canvas ever see.
+ * The caller has already AND-gated each flag with the fullscreen scale.
+ */
+function buildFocusExtensions(
+  mods: CMModules,
+  flags: { typewriterScroll: boolean; focusDimming: boolean },
+): import("@codemirror/state").Extension[] {
+  const exts: import("@codemirror/state").Extension[] = [];
+  if (flags.typewriterScroll) exts.push(mods.typewriterScrollExtension());
+  if (flags.focusDimming) exts.push(mods.focusDimmingExtension());
+  return exts;
 }
 
 /**
@@ -370,6 +412,8 @@ export default function InlineMarkdownEditor({
   collabUser,
   onRequestReference,
   normalizeRef,
+  typewriterScroll = false,
+  focusDimming = false,
 }: InlineMarkdownEditorProps) {
   // loroActive is stable after mount: when a handle is provided, the editor is
   // in Loro mode for its entire lifetime. We compute it once from the prop
@@ -458,6 +502,20 @@ export default function InlineMarkdownEditor({
   // suspenders for the session-stop case where collabEphemeral goes undefined.
   collabEphemeralRef.current = collabEphemeral;
   collabUserRef.current = collabUser;
+
+  // Focus-behavior refs (U5). Held so makeState (built once at mount) seeds the
+  // focus compartment with the current resolved flags, while the dedicated
+  // reconfigure effect below drives live changes. Kept in sync every render.
+  const typewriterScrollRef = useRef(typewriterScroll);
+  const focusDimmingRef = useRef(focusDimming);
+  typewriterScrollRef.current = typewriterScroll;
+  focusDimmingRef.current = focusDimming;
+  // The reconfigurable compartment instance for the focus behaviors. Created
+  // once the CM6 chunk loads (Compartment lives in @codemirror/state) and reused
+  // for the lifetime of the editor so reconfigure() targets the same slot.
+  const focusCompartmentRef = useRef<import("@codemirror/state").Compartment | null>(
+    null,
+  );
 
   // Dirty flag: flips true on the first user edit after a mount / external
   // value swap / save.
@@ -694,6 +752,17 @@ export default function InlineMarkdownEditor({
       const requestCodeBlock = (view: import("@codemirror/view").EditorView) =>
         openCodeBlockPickerRef.current(view);
 
+      // Focus behaviors (U5) live in a reconfigurable compartment so the toggle
+      // / fullscreen gate can swap them in/out live WITHOUT a full state rebuild.
+      // Created once (lives across the disabled / collab / entry-switch setState
+      // rebuilds because makeState always re-wraps the SAME compartment instance)
+      // and SEEDED with the current resolved flags from refs. Default off => the
+      // compartment holds an empty array, byte-identical to today.
+      if (!focusCompartmentRef.current) {
+        focusCompartmentRef.current = new mods.Compartment();
+      }
+      const focusCompartment = focusCompartmentRef.current;
+
       return mods.EditorState.create({
         doc,
         extensions: [
@@ -708,6 +777,14 @@ export default function InlineMarkdownEditor({
             requestCodeBlock,
             false,
             embedPinContextRef.current,
+          ),
+          // Reconfigurable focus-behavior slot. Empty unless a flag is on (and
+          // the parent only sets a flag true at the fullscreen scale).
+          focusCompartment.of(
+            buildFocusExtensions(mods, {
+              typewriterScroll: typewriterScrollRef.current,
+              focusDimming: focusDimmingRef.current,
+            }),
           ),
           ...loroExtension,
         ],
@@ -735,6 +812,7 @@ export default function InlineMarkdownEditor({
         highlightMod,
         inlineRevealMod,
         spellcheckMod,
+        focusModeMod,
       ] = await Promise.all([
         import("@codemirror/state"),
         import("@codemirror/view"),
@@ -744,6 +822,7 @@ export default function InlineMarkdownEditor({
         import("@lezer/highlight"),
         import("@/lib/markdown/cm-inline-reveal/inline-reveal"),
         import("@/lib/markdown/cm-spellcheck/spellcheck"),
+        import("@/lib/markdown/cm-focus-mode/focus-mode"),
       ]);
       if (cancelled) return;
 
@@ -767,6 +846,9 @@ export default function InlineMarkdownEditor({
         imageBasePathExt: inlineRevealMod.imageBasePathExt,
         embedPinContextExt: inlineRevealMod.embedPinContextExt,
         spellcheckExtension: spellcheckMod.spellcheckExtension,
+        Compartment: stateMod.Compartment,
+        typewriterScrollExtension: focusModeMod.typewriterScrollExtension,
+        focusDimmingExtension: focusModeMod.focusDimmingExtension,
       };
       modsRef.current = mods;
 
@@ -1042,6 +1124,25 @@ export default function InlineMarkdownEditor({
     if (!view || !mods) return;
     view.setState(makeState(mods, view.state.doc.toString(), !disabled));
   }, [collabActive, disabled, loaded, makeState]);
+
+  // Reflect a change to the focus-behavior flags (U5) into the live editor via
+  // the compartment — NO full state rebuild, so the document, undo stack, and
+  // every other extension are untouched and there is no remount. The parent has
+  // already AND-gated each flag with the fullscreen scale, so when both are off
+  // (the default, and the only state the docked editor / Canvas ever pass) the
+  // compartment reconfigures to an empty array = byte-identical to today.
+  useEffect(() => {
+    if (!loaded) return;
+    const view = viewRef.current;
+    const mods = modsRef.current;
+    const compartment = focusCompartmentRef.current;
+    if (!view || !mods || !compartment) return;
+    view.dispatch({
+      effects: compartment.reconfigure(
+        buildFocusExtensions(mods, { typewriterScroll, focusDimming }),
+      ),
+    });
+  }, [typewriterScroll, focusDimming, loaded]);
 
   return (
     <div className="h-full overflow-y-auto p-4">
