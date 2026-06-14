@@ -224,8 +224,27 @@ New (from this proposal):
 - ZoomPanCanvas. The shared pan/zoom wraps the composed page on screen, orthogonal
   to the figure model. No interaction with composition or export.
 
-## 14. Next step
+## 14. Decisions locked (2026-06-14, Grant)
 
-Sign off the seam (section 3) + the decisions (section 12), then I build phase 1
-(framework + Data Hub adapter) in a `lib/figure` worktree, and hand the adapter
-contract to the phylo / sequence / chemistry lanes for their phases.
+1. Panel labels: USER-PICKABLE per page (ABC / abc / 123 / none), not a fixed default.
+2. Layout: free drag by default + a "Snap to grid" button, with UNDO.
+3. Annotation set: the 3 combined tools (Text, Arrow with 0/1/2 head toggle =
+   line, Bracket with label = significance), each with a hover tooltip.
+4. Panel sizing: each independent; "Snap to grid" asks resize-to-cells vs
+   align-positions-only (keep sizes).
+5. Add figures: cross-source picker.
+6. Scope: UNIVERSAL seam now, Data Hub panels first.
+7. Live: live reference + optional per-panel overrides (hide title/legend).
+8. Access: a "Figures" top-level home AND per-surface collection-rail entries.
+9. Build order after Data Hub: phylo adapter next (flexible).
+
+## 15. Build status
+
+- Phase 1 IN PROGRESS (worktree figure-composer-phase1). DONE: the FigureSource
+  registry seam (`lib/figure/figure-source.ts`) + the FigurePage model + pure
+  layout helpers (label styles, ordered-by-reading, snapToGrid align/resize, panel
+  ops) in `lib/figure/figure-page.ts`, with 10 unit tests (tsc 0). NEXT: the page
+  compositor (compose N panel SVGs into one exact-units page SVG + export), the
+  Data Hub FigureSource adapter (wraps renderPlot + PlotSpec.id), storage (a
+  `figures` entity), the composer UI, routing + the Figures-home / rail IA. Then
+  hand the section-3 adapter contract to the phylo / sequence / chemistry lanes.
