@@ -47,6 +47,7 @@ import { buildGlobalIndex, type GlobalIndexEntry } from "./global-index";
 import { INVENTORY_ENABLED } from "@/lib/inventory/config";
 import { dataHubApi } from "@/lib/datahub/api";
 import { moleculesApi } from "@/lib/chemistry/api";
+import { phyloApi } from "@/lib/phylo/api";
 
 /** Subscribe to all canonical caches and assemble the flat index. The
  *  useMemo rebuilds only when one of the results changes identity, which is
@@ -142,6 +143,15 @@ export function useGlobalObjectIndex(): GlobalIndexEntry[] {
     enabled: !!user,
   });
 
+  // Saved phylogenetic trees. Same ["phylo", "list"] cache the Tree Studio
+  // collection rail registers (and PhyloStudio invalidates on save), so a tree
+  // added or renamed there refreshes the index automatically.
+  const { data: phyloTrees = [] } = useQuery({
+    queryKey: ["phylo", "list"],
+    queryFn: () => phyloApi.list(),
+    enabled: !!user,
+  });
+
   // Eager-once prefetch (decision 2). Fire-and-forget the loaders once per
   // session so the cache is warm before the user visits each page. prefetchQuery
   // is a no-op when the cache is already fresh, so this never double-fetches a
@@ -178,6 +188,10 @@ export function useGlobalObjectIndex(): GlobalIndexEntry[] {
         queryKey: ["purchases-all", user],
         queryFn: () => purchasesApi.listAllIncludingShared(user),
       });
+      void queryClient.prefetchQuery({
+        queryKey: ["phylo", "list"],
+        queryFn: () => phyloApi.list(),
+      });
     }
   }, [queryClient, user]);
 
@@ -195,7 +209,8 @@ export function useGlobalObjectIndex(): GlobalIndexEntry[] {
         datahubDocs,
         molecules: rawMolecules,
         purchaseItems,
+        phyloTrees,
       }),
-    [tasks, projects, methods, sequences, inventoryItems, user, notes, noteOcrText, datahubDocs, rawMolecules, purchaseItems],
+    [tasks, projects, methods, sequences, inventoryItems, user, notes, noteOcrText, datahubDocs, rawMolecules, purchaseItems, phyloTrees],
   );
 }

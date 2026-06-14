@@ -23,6 +23,7 @@ import { fileService } from "@/lib/file-system/file-service";
 import { fileEvents } from "@/lib/attachments/file-events";
 import { imageEvents } from "@/lib/attachments/image-events";
 import { migrateNoteImages } from "@/lib/notes/migrate-images";
+import { setBeakerContext } from "@/components/ai/context-bridge";
 import { hasLegacyStampFormat, normalizeStampFormat } from "@/lib/stamp-utils";
 import AppShell from "@/components/AppShell";
 import LiveMarkdownEditor from "@/components/LiveMarkdownEditor";
@@ -236,6 +237,29 @@ export default function MethodsPage() {
   const queryClient = useQueryClient();
   const [viewingMethod, setViewingMethod] = useState<Method | null>(null);
   const [creating, setCreating] = useState(false);
+
+  // Publish the open method to the BeakerBot context bridge so the model can
+  // resolve "this", "this method", or "this protocol" to what the user has open.
+  // Mirrors the Data Hub publisher: rebuilt when the selection changes, cleared on
+  // close and on unmount so the model never inherits a stale selection.
+  useEffect(() => {
+    if (!viewingMethod) {
+      setBeakerContext(null);
+      return;
+    }
+    setBeakerContext({
+      route: "/methods",
+      pageLabel: "Methods",
+      selection: {
+        type: "method",
+        id: String(viewingMethod.id),
+        name: viewingMethod.name || "Untitled method",
+      },
+    });
+    return () => {
+      setBeakerContext(null);
+    };
+  }, [viewingMethod]);
   // Pending compound-aware delete confirmation. When set, the three-button
   // DeleteMethodConfirm modal is shown; the affected-compounds list is
   // pre-computed at click time so the modal stays presentational.

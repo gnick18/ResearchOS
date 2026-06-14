@@ -136,6 +136,9 @@ import {
   readProjectTool,
   readPurchaseTool,
   readMoleculeTool,
+  readTaskTool,
+  readInventoryTool,
+  readDataHubTool,
 } from "./read-artifact";
 import {
   computeTmTool,
@@ -305,6 +308,16 @@ export const READ_ONLY_TOOLS: AiTool[] = [
   readProjectTool,
   readPurchaseTool,
   readMoleculeTool,
+  // read_task covers GENERIC list-type tasks (task_type "list"), the sibling of
+  // read_experiment (task_type "experiment"); each refuses a record of the other
+  // type. read_inventory reads one inventory item plus its stocks (summed count,
+  // low-at threshold, soonest expiry), the per-id complement of summarize_inventory.
+  // read_datahub reads a Data Hub DOCUMENT's metadata (name, columns, row count,
+  // analyses present) WITHOUT the cell data, distinct from read_datahub_analysis
+  // which reads one analysis result. All three read-only, none navigates.
+  readTaskTool,
+  readInventoryTool,
+  readDataHubTool,
   // Sequence compute tools. Deterministic, non-gated, engine-computed. The model
   // orchestrates (maps the user's words to a sequenceId or a raw string), the
   // validated engine computes every number, the model relays the result. None of

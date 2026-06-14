@@ -34,6 +34,7 @@ const TYPE_LABEL: Record<GlobalIndexEntry["type"], string> = {
   datahub: "table",
   molecule: "molecule",
   purchase: "purchase",
+  phylo: "tree",
 };
 
 /** Group title shown above a run of same-type rows. */
@@ -47,6 +48,7 @@ const GROUP_LABEL: Record<GlobalIndexEntry["type"], string> = {
   datahub: "Tables",
   molecule: "Molecules",
   purchase: "Purchases",
+  phylo: "Trees",
 };
 
 // Cap the visible result count so the dropdown never grows unbounded. The user

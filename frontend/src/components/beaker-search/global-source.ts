@@ -43,6 +43,7 @@ const TYPE_WEIGHT: Record<GlobalObjectType, number> = {
   datahub: 0,
   molecule: 0,
   purchase: 0,
+  phylo: 0,
 };
 
 /** Per-type cap, at most 5 results of any one type, so one prolific type cannot
@@ -70,6 +71,7 @@ export const GLOBAL_TYPE_ORDER: GlobalObjectType[] = [
   "datahub",
   "molecule",
   "purchase",
+  "phylo",
 ];
 
 /** The display heading for each object type's group. */
@@ -83,6 +85,7 @@ export const GLOBAL_TYPE_TITLE: Record<GlobalObjectType, string> = {
   datahub: "Data Hub",
   molecule: "Molecules",
   purchase: "Purchases",
+  phylo: "Trees",
 };
 
 /** The recency boost for an entry, +min(4, weeksFreshness) from entry.recencyAt

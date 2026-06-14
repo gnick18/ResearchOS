@@ -118,6 +118,7 @@ const CHIP_TONE: Record<PaletteTone, string> = {
   datahub: "bg-orange-50 text-orange-600 dark:bg-orange-900/30 dark:text-orange-300",
   molecule: "bg-lime-50 text-lime-600 dark:bg-lime-900/30 dark:text-lime-300",
   purchase: "bg-yellow-50 text-yellow-600 dark:bg-yellow-900/30 dark:text-yellow-300",
+  phylo: "bg-green-50 text-green-600 dark:bg-green-900/30 dark:text-green-300",
 };
 /** The default chip for commands / sequence-nav / artifacts / the search-all
  *  row (everything that is not a typed cross-app record). */

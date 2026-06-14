@@ -29,6 +29,7 @@ import { useContextMenu } from "@/components/context-menu/ContextMenuProvider";
 import type { EditMenuItem } from "@/components/sequences/SequenceEditMenu";
 import { referenceClipboardText } from "@/lib/copy-reference";
 import { objectReferenceMarkdown } from "@/lib/references";
+import { setBeakerContext } from "@/components/ai/context-bridge";
 import SendReferencePicker from "@/components/references/SendReferencePicker";
 import {
   useSplitShell,
@@ -318,6 +319,30 @@ export function ChemistryHub({
     () => molecules.find((m) => m.id === selectedId) ?? null,
     [molecules, selectedId],
   );
+
+  // Publish the selected molecule to the BeakerBot context bridge so the model
+  // can resolve "this", "this molecule", or "this compound" to what the user has
+  // open in the rail. Mirrors the Data Hub publisher: rebuilt when the selection
+  // changes, cleared on deselect and on unmount so the model never inherits a
+  // stale selection.
+  useEffect(() => {
+    if (!selected) {
+      setBeakerContext(null);
+      return;
+    }
+    setBeakerContext({
+      route: "/chemistry",
+      pageLabel: "Chemistry",
+      selection: {
+        type: "molecule",
+        id: selected.id,
+        name: selected.name || "Untitled molecule",
+      },
+    });
+    return () => {
+      setBeakerContext(null);
+    };
+  }, [selected]);
 
   // -- Bulk selection ------------------------------------------------------
   // Keep the checked set consistent with the live data: drop ids that have

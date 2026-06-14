@@ -20,10 +20,21 @@
 //
 // House style, no em-dashes, no emojis, no mid-sentence colons.
 
-import { notesApi, methodsApi, sequencesApi, projectsApi, purchasesApi, tasksApi } from "@/lib/local-api";
+import {
+  notesApi,
+  methodsApi,
+  sequencesApi,
+  projectsApi,
+  purchasesApi,
+  tasksApi,
+  inventoryItemsApi,
+  inventoryStocksApi,
+} from "@/lib/local-api";
 import { moleculesApi } from "@/lib/chemistry/api";
-import type { Note, Method, SequenceDetail, Project, PurchaseItem, Task } from "@/lib/types";
+import { dataHubApi } from "@/lib/datahub/api";
+import type { Note, Method, SequenceDetail, Project, PurchaseItem, Task, InventoryItem, InventoryStock } from "@/lib/types";
 import type { MoleculeDetail } from "@/lib/chemistry/api";
+import type { DataHubDocContent } from "@/lib/datahub/model/types";
 import type { AiTool } from "./types";
 
 // ---------------------------------------------------------------------------
@@ -118,6 +129,58 @@ export type MoleculeProjection =
       smiles: string | null;
       molecularWeight: number | null;
       source: string | null;
+    }
+  | { ok: false; error: string };
+
+/** Trimmed task projection returned by read_task. Covers generic list-type
+ *  tasks (task_type "list"), as opposed to read_experiment which covers the
+ *  "experiment" type. */
+export type TaskProjection =
+  | {
+      ok: true;
+      id: string;
+      title: string;
+      status: "complete" | "active";
+      dueDate: string;
+      startDate: string;
+      projectId: number | null;
+      linkedMethodCount: number;
+      tags: string[];
+    }
+  | { ok: false; error: string };
+
+/** Trimmed inventory-item projection returned by read_inventory. */
+export type InventoryProjection =
+  | {
+      ok: true;
+      id: string;
+      name: string;
+      category: string | null;
+      vendor: string | null;
+      /** Number of physical stock records for this item. */
+      stockCount: number;
+      /** Summed container_count across this item's stocks. */
+      totalContainers: number;
+      /** The count-based reorder threshold (low_at_count), or null when none. */
+      lowAtCount: number | null;
+      /** The soonest expiration date among this item's stocks, YYYY-MM-DD, or null. */
+      soonestExpiry: string | null;
+    }
+  | { ok: false; error: string };
+
+/** Trimmed Data Hub DOCUMENT projection returned by read_datahub. Describes the
+ *  table itself (name, columns, row count, the analyses present) WITHOUT dumping
+ *  the cell data. read_datahub_analysis (datahub-analysis.ts) reads one analysis
+ *  result; this reads the document. */
+export type DataHubDocProjection =
+  | {
+      ok: true;
+      id: string;
+      name: string;
+      tableType: string;
+      rowCount: number;
+      columns: Array<{ name: string; role: string; dataType: string }>;
+      analyses: Array<{ id: string; name: string; type: string }>;
     }
   | { ok: false; error: string };
 
@@ -257,6 +320,85 @@ export function projectMolecule(mol: MoleculeDetail): Extract<MoleculeProjection
   };
 }
 
+/** The YYYY-MM-DD day prefix of a date-ish string, or null when absent. Pure. */
+function dayPrefix(value: string | null | undefined): string | null {
+  if (!value || typeof value !== "string") return null;
+  const m = value.match(/^\d{4}-\d{2}-\d{2}/);
+  return m ? m[0] : null;
+}
+
+/** Project a loaded list-type Task to its model-facing trimmed shape. Pure, no
+ *  I/O. read_experiment covers task_type "experiment"; this covers "list". */
+export function projectTask(task: Task): Extract<TaskProjection, { ok: true }> {
+  return {
+    ok: true,
+    id: String(task.id),
+    title: task.name || "Untitled task",
+    status: task.is_complete ? "complete" : "active",
+    dueDate: task.end_date,
+    startDate: task.start_date,
+    projectId: task.project_id ?? null,
+    linkedMethodCount: (task.method_ids ?? []).length,
+    tags: task.tags ?? [],
+  };
+}
+
+/** Project a loaded InventoryItem plus its stocks to its model-facing trimmed
+ *  shape. Pure, no I/O. The summed container_count and soonest expiry are derived
+ *  from the passed stock list (the same fields summarize_inventory uses). */
+export function projectInventory(
+  item: InventoryItem,
+  stocks: InventoryStock[],
+): Extract<InventoryProjection, { ok: true }> {
+  const totalContainers = stocks.reduce(
+    (sum, s) => sum + (typeof s.container_count === "number" ? s.container_count : 0),
+    0,
+  );
+  let soonestExpiry: string | null = null;
+  for (const s of stocks) {
+    const exp = dayPrefix(s.expiration_date);
+    if (exp !== null && (soonestExpiry === null || exp < soonestExpiry)) {
+      soonestExpiry = exp;
+    }
+  }
+  return {
+    ok: true,
+    id: String(item.id),
+    name: item.name || "Untitled item",
+    category: item.category ?? null,
+    vendor: item.vendor ?? null,
+    stockCount: stocks.length,
+    totalContainers,
+    lowAtCount: typeof item.low_at_count === "number" ? item.low_at_count : null,
+    soonestExpiry,
+  };
+}
+
+/** Project a loaded Data Hub document's full content to its model-facing trimmed
+ *  shape. Pure, no I/O. Returns table metadata (name, column names/types/roles,
+ *  row count, the analyses present by id/name/type) and NEVER the cell data, so a
+ *  large table cannot overflow the context window. */
+export function projectDataHubDoc(content: DataHubDocContent): Extract<DataHubDocProjection, { ok: true }> {
+  const meta = content.meta;
+  return {
+    ok: true,
+    id: meta.id,
+    name: meta.name || "Untitled table",
+    tableType: meta.table_type,
+    rowCount: content.rows.length,
+    columns: content.columns.map((c) => ({
+      name: c.name || "Unnamed column",
+      role: c.role,
+      dataType: c.dataType,
+    })),
+    analyses: content.analyses.map((a) => ({
+      id: a.id,
+      name: a.name || a.type,
+      type: a.type,
+    })),
+  };
+}
+
 // ---------------------------------------------------------------------------
 // Injectable deps seam.
 // ---------------------------------------------------------------------------
@@ -266,9 +408,13 @@ export type ReadArtifactDeps = {
   getMethod: (id: number) => Promise<Method | null>;
   getSequence: (id: number) => Promise<SequenceDetail | null>;
   getExperiment: (id: number) => Promise<Task | null>;
+  getTask: (id: number) => Promise<Task | null>;
   getProject: (id: number) => Promise<Project | null>;
   listPurchases: () => Promise<PurchaseItem[]>;
   getMolecule: (id: string) => Promise<MoleculeDetail | null>;
+  getInventoryItem: (id: number) => Promise<InventoryItem | null>;
+  listStocksForItem: (id: number) => Promise<InventoryStock[]>;
+  getDataHubContent: (id: string) => Promise<DataHubDocContent | null>;
 };
 
 export const readArtifactDeps: ReadArtifactDeps = {
@@ -276,10 +422,18 @@ export const readArtifactDeps: ReadArtifactDeps = {
   getMethod: (id) => methodsApi.get(id),
   getSequence: (id) => sequencesApi.get(id),
   getExperiment: (id) => tasksApi.get(id),
+  // read_task and read_experiment share the same tasks API; the tools branch on
+  // task_type so each refuses a record of the wrong type.
+  getTask: (id) => tasksApi.get(id),
   getProject: (id) => projectsApi.get(id),
   // purchasesApi has no get(id) method, so we list all and find by id.
   listPurchases: () => purchasesApi.listAll(),
   getMolecule: (id) => moleculesApi.get(id),
+  getInventoryItem: (id) => inventoryItemsApi.get(id),
+  listStocksForItem: (id) => inventoryStocksApi.listForItem(id),
+  // getContent returns the full document (columns / rows / analyses); the tool
+  // projects only metadata + the row COUNT, never the cell data.
+  getDataHubContent: (id) => dataHubApi.getContent(id),
 };
 
 // ---------------------------------------------------------------------------
@@ -489,5 +643,94 @@ export const readMoleculeTool: AiTool = {
     const mol = await readArtifactDeps.getMolecule(id);
     if (!mol) return { ok: false, error: `Molecule ${args.id} was not found.` } satisfies MoleculeProjection;
     return projectMolecule(mol) satisfies MoleculeProjection;
+  },
+};
+
+export const readTaskTool: AiTool = {
+  name: "read_task",
+  description:
+    "Read one of the user's generic to-do tasks (task_type \"list\") by id, returning its title, status (active or complete), due and start dates, the project it lives in, the number of linked methods, and tags. " +
+    "Use this after search_my_work returns a brief with type \"task\". For an experiment (a scheduled bench run) use read_experiment instead. " +
+    "Returns { ok: true, id, title, status, dueDate, startDate, projectId, linkedMethodCount, tags } or { ok: false, error } when not found or when the id is an experiment / purchase, not a list task. " +
+    "Read-only, never navigates.",
+  parameters: {
+    type: "object",
+    properties: {
+      id: {
+        type: "string",
+        description: "The task id from a search_my_work brief.",
+      },
+    },
+    required: ["id"],
+    additionalProperties: false,
+  },
+  execute: async (args) => {
+    const parsed = parseIntId(args.id, "id");
+    if ("error" in parsed) return { ok: false, error: parsed.error } satisfies TaskProjection;
+    const task = await readArtifactDeps.getTask(parsed.id);
+    if (!task) return { ok: false, error: `Task ${args.id} was not found.` } satisfies TaskProjection;
+    if (task.task_type !== "list") {
+      return {
+        ok: false,
+        error: `Item ${args.id} is a ${task.task_type}, not a list task. Use read_${task.task_type === "experiment" ? "experiment" : "purchase"} instead.`,
+      } satisfies TaskProjection;
+    }
+    return projectTask(task) satisfies TaskProjection;
+  },
+};
+
+export const readInventoryTool: AiTool = {
+  name: "read_inventory",
+  description:
+    "Read one of the user's inventory items by id, returning its name, category, vendor, the number of physical stock records, the summed container count across those stocks, the count-based low-at threshold, and the soonest expiration date. " +
+    "Use this after search_my_work returns a brief with type \"inventory\". " +
+    "Returns { ok: true, id, name, category, vendor, stockCount, totalContainers, lowAtCount, soonestExpiry } or { ok: false, error } when not found. " +
+    "Read-only, never navigates. For the whole-shelf low / out / expiring rollup use summarize_inventory instead.",
+  parameters: {
+    type: "object",
+    properties: {
+      id: {
+        type: "string",
+        description: "The inventory item id from a search_my_work brief.",
+      },
+    },
+    required: ["id"],
+    additionalProperties: false,
+  },
+  execute: async (args) => {
+    const parsed = parseIntId(args.id, "id");
+    if ("error" in parsed) return { ok: false, error: parsed.error } satisfies InventoryProjection;
+    const item = await readArtifactDeps.getInventoryItem(parsed.id);
+    if (!item) return { ok: false, error: `Inventory item ${args.id} was not found.` } satisfies InventoryProjection;
+    const stocks = await readArtifactDeps.listStocksForItem(parsed.id);
+    return projectInventory(item, stocks) satisfies InventoryProjection;
+  },
+};
+
+export const readDataHubTool: AiTool = {
+  name: "read_datahub",
+  description:
+    "Read one of the user's Data Hub DOCUMENTS (tables) by id, returning the table metadata: its name, table type, row count, the columns (name, role, data type), and the analyses present on it (id, name, type). " +
+    "Use this after search_my_work returns a brief with type \"datahub\" and you need to know what the table holds and which analyses are on it. " +
+    "The cell DATA is never returned, only its shape, so a large table cannot overflow the context window. To read one analysis RESULT use read_datahub_analysis with an analysis id from this document. " +
+    "Returns { ok: true, id, name, tableType, rowCount, columns, analyses } or { ok: false, error } when not found. " +
+    "Read-only, never navigates.",
+  parameters: {
+    type: "object",
+    properties: {
+      id: {
+        type: "string",
+        description: "The Data Hub document id from a search_my_work brief.",
+      },
+    },
+    required: ["id"],
+    additionalProperties: false,
+  },
+  execute: async (args) => {
+    const id = typeof args.id === "string" ? args.id : typeof args.id === "number" ? String(args.id) : null;
+    if (!id) return { ok: false, error: "id is required." } satisfies DataHubDocProjection;
+    const content = await readArtifactDeps.getDataHubContent(id);
+    if (!content) return { ok: false, error: `Data Hub table ${args.id} was not found.` } satisfies DataHubDocProjection;
+    return projectDataHubDoc(content) satisfies DataHubDocProjection;
   },
 };

@@ -12,6 +12,9 @@ import {
   projectProject,
   projectPurchase,
   projectMolecule,
+  projectTask,
+  projectInventory,
+  projectDataHubDoc,
   readNoteTool,
   readMethodTool,
   readSequenceTool,
@@ -19,11 +22,25 @@ import {
   readProjectTool,
   readPurchaseTool,
   readMoleculeTool,
+  readTaskTool,
+  readInventoryTool,
+  readDataHubTool,
   readArtifactDeps,
   type ReadArtifactDeps,
 } from "../tools/read-artifact";
-import type { Note, NoteEntry, Method, SequenceDetail, Project, PurchaseItem, Task } from "@/lib/types";
+import type {
+  Note,
+  NoteEntry,
+  Method,
+  SequenceDetail,
+  Project,
+  PurchaseItem,
+  Task,
+  InventoryItem,
+  InventoryStock,
+} from "@/lib/types";
 import type { MoleculeDetail } from "@/lib/chemistry/api";
+import type { DataHubDocContent } from "@/lib/datahub/model/types";
 
 // ---------------------------------------------------------------------------
 // Fixtures
@@ -171,6 +188,110 @@ function makeTask(): Task {
   };
 }
 
+function makeListTask(): Task {
+  return { ...makeTask(), id: 11, name: "Order pipette tips", task_type: "list" };
+}
+
+function makeInventoryItem(): InventoryItem {
+  return {
+    id: 8,
+    name: "Q5 High-Fidelity DNA Polymerase",
+    category: "reagent" as InventoryItem["category"],
+    catalog_number: "M0491S",
+    vendor: "NEB",
+    cas: null,
+    url: null,
+    container_label: "vial",
+    storage_class: null,
+    hazard_note: null,
+    sds_url: null,
+    notes: null,
+    low_at_count: 2,
+    product_barcode: null,
+    owner: "grant",
+    shared_with: [],
+    created_by: "grant",
+  };
+}
+
+function makeInventoryStocks(): InventoryStock[] {
+  return [
+    {
+      id: 100,
+      item_id: 8,
+      lot_number: "L1",
+      container_count: 3,
+      status: "in_stock" as InventoryStock["status"],
+      received_date: null,
+      expiration_date: "2026-12-01",
+      opened_date: null,
+      last_touched_at: "2026-06-10T00:00:00Z",
+      amount_per_container: null,
+      unit: null,
+      concentration: null,
+      location_text: null,
+      location_node_id: null,
+      position: null,
+      purchase_item_id: null,
+      container_code: null,
+      notes: null,
+      owner: "grant",
+      shared_with: [],
+      created_by: "grant",
+    },
+    {
+      id: 101,
+      item_id: 8,
+      lot_number: "L2",
+      container_count: 1,
+      status: "low" as InventoryStock["status"],
+      received_date: null,
+      expiration_date: "2026-09-15",
+      opened_date: null,
+      last_touched_at: "2026-06-11T00:00:00Z",
+      amount_per_container: null,
+      unit: null,
+      concentration: null,
+      location_text: null,
+      location_node_id: null,
+      position: null,
+      purchase_item_id: null,
+      container_code: null,
+      notes: null,
+      owner: "grant",
+      shared_with: [],
+      created_by: "grant",
+    },
+  ];
+}
+
+function makeDataHubContent(): DataHubDocContent {
+  return {
+    meta: {
+      id: "doc-1",
+      name: "Cell viability assay",
+      project_ids: [],
+      folder_path: null,
+      table_type: "column",
+      created_at: "2026-06-01T00:00:00Z",
+    },
+    columns: [
+      { id: "c1", name: "Control", role: "y", dataType: "number" },
+      { id: "c2", name: "Treated", role: "y", dataType: "number" },
+    ],
+    rows: [
+      { id: "r1", cells: { c1: 1, c2: 2 } },
+      { id: "r2", cells: { c1: 3, c2: 4 } },
+      { id: "r3", cells: { c1: 5, c2: 6 } },
+    ],
+    analyses: [
+      { id: "a1", name: "Unpaired t-test", type: "unpairedTTest", params: {}, inputs: {}, resultCache: null, resultStale: false },
+      { id: "a2", type: "oneWayAnova", params: {}, inputs: {}, resultCache: null, resultStale: false },
+    ],
+    plots: [],
+  };
+}
+
 // ---------------------------------------------------------------------------
 // trimBody
 // ---------------------------------------------------------------------------
@@ -303,6 +424,65 @@ describe("projectMolecule", () => {
   });
 });
 
+describe("projectTask", () => {
+  it("returns title, status, dates, project, and linked method count", () => {
+    const result = projectTask(makeListTask());
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.title).toBe("Order pipette tips");
+    expect(result.status).toBe("active");
+    expect(result.projectId).toBe(4);
+    expect(result.linkedMethodCount).toBe(2);
+  });
+
+  it("returns status complete when the task is complete", () => {
+    const result = projectTask({ ...makeListTask(), is_complete: true });
+    if (!result.ok) throw new Error("Expected ok");
+    expect(result.status).toBe("complete");
+  });
+});
+
+describe("projectInventory", () => {
+  it("sums container counts and finds the soonest expiry", () => {
+    const result = projectInventory(makeInventoryItem(), makeInventoryStocks());
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.name).toContain("Q5");
+    expect(result.category).toBe("reagent");
+    expect(result.stockCount).toBe(2);
+    expect(result.totalContainers).toBe(4);
+    expect(result.lowAtCount).toBe(2);
+    expect(result.soonestExpiry).toBe("2026-09-15");
+  });
+
+  it("handles an item with no stocks", () => {
+    const result = projectInventory(makeInventoryItem(), []);
+    if (!result.ok) throw new Error("Expected ok");
+    expect(result.stockCount).toBe(0);
+    expect(result.totalContainers).toBe(0);
+    expect(result.soonestExpiry).toBeNull();
+  });
+});
+
+describe("projectDataHubDoc", () => {
+  it("returns table metadata, row count, columns, and analyses without cell data", () => {
+    const result = projectDataHubDoc(makeDataHubContent());
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.name).toBe("Cell viability assay");
+    expect(result.tableType).toBe("column");
+    expect(result.rowCount).toBe(3);
+    expect(result.columns).toHaveLength(2);
+    expect(result.columns[0].name).toBe("Control");
+    expect(result.analyses).toHaveLength(2);
+    // A named analysis keeps its name; an unnamed one falls back to its type.
+    expect(result.analyses[0].name).toBe("Unpaired t-test");
+    expect(result.analyses[1].name).toBe("oneWayAnova");
+    // Must NOT carry any row cell data on the projection.
+    expect(JSON.stringify(result)).not.toContain("cells");
+  });
+});
+
 // ---------------------------------------------------------------------------
 // Tool execute paths with stubbed deps
 // ---------------------------------------------------------------------------
@@ -429,6 +609,67 @@ describe("readMoleculeTool.execute", () => {
 
   it("returns ok:false when id is missing", async () => {
     const result = await readMoleculeTool.execute({}) as { ok: false };
+    expect(result.ok).toBe(false);
+  });
+});
+
+describe("readTaskTool.execute", () => {
+  it("returns the task projection for a list-type task", async () => {
+    overrideDeps({ getTask: async () => makeListTask() });
+    const result = await readTaskTool.execute({ id: "11" });
+    expect((result as { ok: boolean }).ok).toBe(true);
+  });
+
+  it("returns ok:false when the task is an experiment, not a list task", async () => {
+    overrideDeps({ getTask: async () => makeTask() });
+    const result = await readTaskTool.execute({ id: "6" }) as { ok: false; error: string };
+    expect(result.ok).toBe(false);
+    expect(result.error).toContain("experiment");
+  });
+
+  it("returns ok:false when the task is not found", async () => {
+    overrideDeps({ getTask: async () => null });
+    const result = await readTaskTool.execute({ id: "999" }) as { ok: false };
+    expect(result.ok).toBe(false);
+  });
+});
+
+describe("readInventoryTool.execute", () => {
+  it("returns the inventory projection with summed stocks", async () => {
+    overrideDeps({
+      getInventoryItem: async () => makeInventoryItem(),
+      listStocksForItem: async () => makeInventoryStocks(),
+    });
+    const result = await readInventoryTool.execute({ id: "8" });
+    expect((result as { ok: boolean }).ok).toBe(true);
+    const proj = result as { ok: true; totalContainers: number };
+    expect(proj.totalContainers).toBe(4);
+  });
+
+  it("returns ok:false when the item is not found", async () => {
+    overrideDeps({ getInventoryItem: async () => null });
+    const result = await readInventoryTool.execute({ id: "404" }) as { ok: false };
+    expect(result.ok).toBe(false);
+  });
+});
+
+describe("readDataHubTool.execute", () => {
+  it("returns the document projection when found", async () => {
+    overrideDeps({ getDataHubContent: async () => makeDataHubContent() });
+    const result = await readDataHubTool.execute({ id: "doc-1" });
+    expect((result as { ok: boolean }).ok).toBe(true);
+    const proj = result as { ok: true; rowCount: number };
+    expect(proj.rowCount).toBe(3);
+  });
+
+  it("returns ok:false when the document is not found", async () => {
+    overrideDeps({ getDataHubContent: async () => null });
+    const result = await readDataHubTool.execute({ id: "nope" }) as { ok: false };
+    expect(result.ok).toBe(false);
+  });
+
+  it("returns ok:false when id is missing", async () => {
+    const result = await readDataHubTool.execute({}) as { ok: false };
     expect(result.ok).toBe(false);
   });
 });

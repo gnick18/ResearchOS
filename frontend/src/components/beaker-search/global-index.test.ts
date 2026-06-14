@@ -12,11 +12,13 @@ import {
   buildDataHubEntry,
   buildMoleculeEntry,
   buildPurchaseEntry,
+  buildPhyloEntry,
   type GlobalIndexInput,
 } from "./global-index";
 import type { Task, Method, Project, SequenceRecord, InventoryItem, Note, PurchaseItem } from "@/lib/types";
 import type { DataHubDocument } from "@/lib/datahub/model/types";
 import type { Molecule } from "@/lib/chemistry/api";
+import type { PhyloMeta } from "@/lib/phylo/api";
 
 const CURRENT_USER = "morgan";
 
@@ -582,5 +584,64 @@ describe("buildPurchaseEntry (pure entry builder)", () => {
     const found = entries.filter((e) => e.type === "purchase");
     expect(found).toHaveLength(1);
     expect(found[0].label).toBe("Trypsin MSDS grade");
+  });
+});
+
+function makePhyloTree(over: Partial<PhyloMeta> = {}): PhyloMeta {
+  return {
+    id: "tree-3",
+    name: "16S rRNA bacterial tree",
+    project_ids: [],
+    added_at: "2026-06-08T10:00:00Z",
+    format: "newick",
+    tip_count: 42,
+    ...over,
+  } as PhyloMeta;
+}
+
+describe("buildPhyloEntry (pure entry builder)", () => {
+  it("sets type to phylo and uses the tree icon", () => {
+    const entry = buildPhyloEntry(makePhyloTree());
+    expect(entry.type).toBe("phylo");
+    expect(entry.iconName).toBe("tree");
+  });
+
+  it("builds a prefixed key from the tree id", () => {
+    const entry = buildPhyloEntry(makePhyloTree({ id: "tree-3" }));
+    expect(entry.key).toBe("phylo:tree-3");
+  });
+
+  it("deep-links via /phylo?doc=<id>", () => {
+    const entry = buildPhyloEntry(makePhyloTree({ id: "tree-3" }));
+    expect(entry.href).toBe("/phylo?doc=tree-3");
+  });
+
+  it("includes the tip count and format in the meta subline", () => {
+    const entry = buildPhyloEntry(makePhyloTree());
+    expect(entry.meta).toContain("42 tips");
+    expect(entry.meta).toContain("newick");
+  });
+
+  it("falls back to a generic label when tip_count is absent", () => {
+    const entry = buildPhyloEntry(makePhyloTree({ tip_count: undefined }));
+    expect(entry.meta).toContain("Phylogenetic tree");
+  });
+
+  it("folds the tree name into a lowercased haystack", () => {
+    const entry = buildPhyloEntry(makePhyloTree());
+    expect(entry.haystack).toContain("16s rrna bacterial tree");
+    expect(entry.haystack).toBe(entry.haystack.toLowerCase());
+  });
+
+  it("parses added_at to epoch ms for recency", () => {
+    const entry = buildPhyloEntry(makePhyloTree({ added_at: "2026-06-08T10:00:00Z" }));
+    expect(entry.recencyAt).toBe(Date.parse("2026-06-08T10:00:00Z"));
+  });
+
+  it("buildGlobalIndex includes phylo entries when phyloTrees is passed", () => {
+    const entries = build({ phyloTrees: [makePhyloTree()] });
+    const found = entries.filter((e) => e.type === "phylo");
+    expect(found).toHaveLength(1);
+    expect(found[0].label).toBe("16S rRNA bacterial tree");
   });
 });

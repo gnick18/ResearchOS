@@ -639,6 +639,7 @@ const REF_TYPE_ICON: Record<AttachedRef["type"], IconName> = {
   datahub: "chart",
   molecule: "vial",
   purchase: "receipt",
+  phylo: "tree",
 };
 
 // Per-type chip tint. The mockup locked colored @ mention chips, one quiet tint
@@ -687,6 +688,10 @@ const REF_TYPE_TINT: Record<AttachedRef["type"], RefChipTint> = {
   purchase: {
     chip: "border-rose-300 bg-rose-50 text-rose-700 dark:border-rose-700 dark:bg-rose-500/15 dark:text-rose-300",
     x: "text-rose-500 hover:text-rose-700 dark:text-rose-400 dark:hover:text-rose-200",
+  },
+  phylo: {
+    chip: "border-green-300 bg-green-50 text-green-700 dark:border-green-700 dark:bg-green-500/15 dark:text-green-300",
+    x: "text-green-500 hover:text-green-700 dark:text-green-400 dark:hover:text-green-200",
   },
 };
 
