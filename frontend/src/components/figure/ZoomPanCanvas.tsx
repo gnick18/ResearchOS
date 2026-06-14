@@ -55,6 +55,13 @@ export default function ZoomPanCanvas({
   // keyboard) anchors where the mouse is — not the center. Null until the mouse
   // has been over the canvas, in which case zoom falls back to the center.
   const mouse = useRef<{ x: number; y: number } | null>(null);
+  // Live mirrors of zoom + pan so zoomToward can compute the new pan from the
+  // current values WITHOUT nesting setPan inside setZoom (that nesting double-
+  // applied the pan under React StrictMode and threw the figure off-screen).
+  const zoomRef = useRef(zoom);
+  const panRef = useRef(pan);
+  zoomRef.current = zoom;
+  panRef.current = pan;
 
   const viewport = useCallback(() => {
     const el = containerRef.current;
@@ -109,16 +116,23 @@ export default function ZoomPanCanvas({
     // re-fit when the figure dimensions change
   }, [contentWidth, contentHeight, center]);
 
-  // Zoom toward an anchor point (in viewport coords), keeping it fixed.
+  // Zoom toward an anchor point (in viewport coords), keeping the content point
+  // under it fixed. Reads the live zoom + pan from refs and sets both states once
+  // (no nested updaters), and updates the refs immediately so a rapid burst of
+  // wheel events (a pinch) chains off the latest value instead of a stale one.
   const zoomToward = useCallback((factor: number, ax: number, ay: number) => {
-    setZoom((z) => {
-      const nz = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, z * factor));
-      setPan((p) => ({
-        x: ax - ((ax - p.x) / z) * nz,
-        y: ay - ((ay - p.y) / z) * nz,
-      }));
-      return nz;
-    });
+    const z = zoomRef.current;
+    const nz = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, z * factor));
+    if (nz === z) return;
+    const p = panRef.current;
+    const np = {
+      x: ax - ((ax - p.x) / z) * nz,
+      y: ay - ((ay - p.y) / z) * nz,
+    };
+    zoomRef.current = nz;
+    panRef.current = np;
+    setZoom(nz);
+    setPan(np);
   }, []);
 
   // Wheel: the Figma model. No ctrl/meta -> pan; ctrl/meta (incl. trackpad pinch)
