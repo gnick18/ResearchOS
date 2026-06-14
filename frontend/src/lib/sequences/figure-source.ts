@@ -1,0 +1,67 @@
+// The sequence adapter to the universal figure composer. Registers a "sequence"
+// FigureSource (lib/figure/figure-source.ts) so every saved sequence map becomes
+// a composable panel. Unlike phylo/chem there is no shared editor renderer to
+// reuse (SeqViz is React + DOM-bound), so the panel is drawn by the headless
+// renderSequenceMapSvg, which depicts the SAME features + colors as the editor.
+//
+// The composer never imports sequences directly, it only calls this through the
+// registry, keeping lib/figure surface-agnostic.
+//
+// No em-dashes, no emojis, no mid-sentence colons.
+
+import { sequenceStore } from "@/lib/sequences/sequence-store";
+import { genbankToDetail } from "@/lib/sequences/parse";
+import { documentFromDetail } from "@/lib/sequences/edit-model";
+import { renderSequenceMapSvg } from "@/lib/sequences/map-render";
+import {
+  registerFigureSource,
+  missingPanelSvg,
+  type FigureSource,
+  type FigureRef,
+  type RenderedFigure,
+} from "@/lib/figure/figure-source";
+
+export const sequenceFigureSource: FigureSource = {
+  type: "sequence",
+  label: "Sequence map",
+
+  async list(scope) {
+    const metas = await sequenceStore.listMeta();
+    const visible = scope.collectionId
+      ? metas.filter((m) => m.project_ids.includes(scope.collectionId as string))
+      : metas;
+    return visible.map((m) => ({
+      id: String(m.id),
+      type: "sequence",
+      name: m.display_name,
+      kind: "sequence map",
+    }));
+  },
+
+  async render(id, opts): Promise<RenderedFigure> {
+    const raw = await sequenceStore.getRaw(Number(id));
+    if (!raw) return missingPanelSvg(opts.widthIn, opts.heightIn);
+    try {
+      const detail = genbankToDetail(raw.genbank, raw.meta);
+      if (!detail) return missingPanelSvg(opts.widthIn, opts.heightIn);
+      const doc = documentFromDetail(detail);
+      const svg = renderSequenceMapSvg(doc, {
+        width: Math.max(1, Math.round(opts.widthIn * opts.dpi)),
+        height: Math.max(1, Math.round(opts.heightIn * opts.dpi)),
+      });
+      // Plasmid maps read square; linear maps read wide.
+      return { svg, naturalAspect: doc.circular ? 1.0 : 1.8 };
+    } catch {
+      return missingPanelSvg(opts.widthIn, opts.heightIn);
+    }
+  },
+
+  editHref(id) {
+    return `/sequences?seq=${encodeURIComponent(id)}`;
+  },
+};
+
+/** Register the sequence source. Called once from the app's source registration. */
+export function registerSequenceFigureSource(): void {
+  registerFigureSource(sequenceFigureSource);
+}
