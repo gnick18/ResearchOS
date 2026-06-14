@@ -426,6 +426,62 @@
   line-height: 1.75;
 }
 
+/* ── Dark-mode editor surface = immersive "dark room" ─────────────────────────
+ * Grant chose the dark room over warm paper for dark mode (2026-06-14). The
+ * docked editor is otherwise light-scoped (white paper on dark chrome, like
+ * Word); this overrides that for the WRITING ZONE ONLY, flipping the surface AND
+ * the text together so nothing goes invisible. Scoped to `.ros-editor-room`, so
+ * the focus overlay (relocated without the room class) and every other
+ * light-scoped surface stay exactly as they were. Reversible by deleting this
+ * block (the warm-paper tokens in the .light-scope override above resume). */
+[data-theme="dark"] .ros-editor-room {
+  --editor-room-top: #121a2d;
+  --editor-room-bot: #0c1322;
+  --editor-room-edge: rgba(255, 255, 255, 0.08);
+  /* `.ros-editor-room` is a CLOSER ancestor of `.cm-content` than the popup's
+   * `.light-scope`, so re-asserting the dark-native CM palette here wins for the
+   * edit surface and its syntax highlighting. Values mirror the dark `:root`. */
+  --cm-text: #e5e7eb;
+  --cm-caret: #f1f5f9;
+  --cm-selection: rgba(96, 165, 250, 0.28);
+  --cm-active-line: rgba(255, 255, 255, 0.04);
+  --cm-link: #60a5fa;
+  --cm-mono: #c084fc;
+  --cm-quote: #94a3b8;
+  --cm-list: #cbd5e1;
+  --cm-meta: #94a3b8;
+}
+/* The Preview (read) card carries its OWN `light-scope`, which would force its
+ * prose dark on the dark room. These higher-specificity rules (3 classes beats
+ * the `.light-scope .prose` 2 classes) flip it to light text + dark-appropriate
+ * headings, links, blockquote, and inline code. The card background is already
+ * transparent inside the room, so the dark room shows straight through. */
+[data-theme="dark"] .ros-editor-room .ros-editor-preview-card.prose {
+  color: #e5e7eb;
+}
+[data-theme="dark"] .ros-editor-room .ros-editor-preview-card.prose h1,
+[data-theme="dark"] .ros-editor-room .ros-editor-preview-card.prose h2,
+[data-theme="dark"] .ros-editor-room .ros-editor-preview-card.prose h3,
+[data-theme="dark"] .ros-editor-room .ros-editor-preview-card.prose h4,
+[data-theme="dark"] .ros-editor-room .ros-editor-preview-card.prose strong {
+  color: #f1f5f9;
+}
+[data-theme="dark"] .ros-editor-room .ros-editor-preview-card.prose h1 {
+  border-bottom-color: rgba(255, 255, 255, 0.12);
+}
+[data-theme="dark"] .ros-editor-room .ros-editor-preview-card.prose a {
+  color: #60a5fa;
+}
+[data-theme="dark"] .ros-editor-room .ros-editor-preview-card.prose blockquote {
+  border-left-color: rgba(255, 255, 255, 0.18);
+  color: #b4bfd0;
+  background-color: rgba(255, 255, 255, 0.04);
+}
+[data-theme="dark"] .ros-editor-room .ros-editor-preview-card.prose code {
+  background-color: rgba(255, 255, 255, 0.08);
+  color: inherit;
+}
+
 @layer utilities {
   /* Paint the brand rainbow as a background fill (ribbons, dividers, bands). */
   .brand-rainbow-bg {
