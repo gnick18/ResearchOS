@@ -2069,7 +2069,7 @@ export default function LiveMarkdownEditor({
           // is only ever true when expanded, so the docked toolbar is unaffected.
           className={`${
             expanded
-              ? "self-center mt-2 mb-1 inline-flex rounded-full border border-border bg-surface-overlay/85 shadow-md backdrop-blur px-2.5"
+              ? "relative z-40 self-center mt-2 mb-1 inline-flex rounded-full border border-border bg-surface-overlay/85 shadow-md backdrop-blur px-2.5"
               : "flex px-3"
           } items-center gap-1.5 py-1.5 transition-opacity duration-500 ${
             chromeDozing ? "opacity-0 pointer-events-none" : "opacity-100"
