@@ -1309,6 +1309,7 @@ export function PhyloStudio({ initialTreeId }: { initialTreeId?: string } = {}) 
                     ["rectangular", "Rectangular"],
                     ["slanted", "Slanted"],
                     ["circular", "Circular"],
+                    ["unrooted", "Unrooted"],
                   ]}
                   onChange={setLayout}
                 />

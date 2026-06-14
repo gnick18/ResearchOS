@@ -18,6 +18,7 @@
 import {
   layoutCircular,
   layoutRectangular,
+  layoutUnrooted,
   type CircularLayout,
   type LayoutOptions,
   type RectLayout,
@@ -291,8 +292,54 @@ function resolveScales(root: TreeNode, spec: RenderSpec): ResolvedScales {
 
 /** Build a complete SVG string for the current figure. */
 export function renderTreeSvg(root: TreeNode, spec: RenderSpec): string {
+  // The unrooted (equal-angle) layout has no tip line/circle, so it bypasses the
+  // panel + aligned-track machinery and draws its own self-contained figure.
+  if (spec.layout === "unrooted") return renderUnrooted(root, spec);
   if (spec.panels) return renderFromPanels(root, spec, spec.panels);
   return renderFromTracks(root, spec);
+}
+
+/**
+ * Render the unrooted (equal-angle) tree: straight edges through the laid-out
+ * point cloud, a small dot at each tip, and a rotated tip label (when a labels
+ * layer is on) angled outward along the tip's direction. No aligned panels or
+ * scale bar apply to an unrooted tree.
+ */
+function renderUnrooted(root: TreeNode, spec: RenderSpec): string {
+  const layout = layoutUnrooted(root, {
+    width: spec.width,
+    height: spec.height,
+    padding: 24,
+    phylogram: spec.phylogram,
+  });
+  const parts: string[] = [];
+  for (const p of layout.nodes) {
+    if (p.parentX === null || p.parentY === null) continue;
+    parts.push(
+      `<path d="M${p.parentX.toFixed(1)} ${p.parentY.toFixed(1)} L${p.x.toFixed(1)} ${p.y.toFixed(1)}" fill="none" stroke="${colorForBranch(spec, p.node.id)}" stroke-width="1.4"/>`,
+    );
+  }
+  const labelsOn =
+    spec.panels?.some((pp) => pp.visible && pp.kind === "labels") ??
+    !!spec.tracks?.labels;
+  for (const p of layout.nodes) {
+    if (p.node.children.length > 0) continue;
+    parts.push(
+      `<circle cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="1.6" fill="${FG}"/>`,
+    );
+    if (labelsOn && p.node.name) {
+      const deg = (p.angle * 180) / Math.PI;
+      const flip = Math.cos(p.angle) < 0;
+      const lx = p.x + Math.cos(p.angle) * 4;
+      const ly = p.y + Math.sin(p.angle) * 4;
+      const rot = flip ? deg + 180 : deg;
+      const anchor = flip ? "end" : "start";
+      parts.push(
+        `<text x="${lx.toFixed(1)}" y="${ly.toFixed(1)}" font-size="9" fill="${FG}" transform="rotate(${rot.toFixed(1)} ${lx.toFixed(1)} ${ly.toFixed(1)})" text-anchor="${anchor}">${esc(p.node.name)}</text>`,
+      );
+    }
+  }
+  return svgDocument(spec.width, spec.height, parts.join(""), "");
 }
 
 /** The Phase 0 track-driven render path (kept for a hand-built spec with no
