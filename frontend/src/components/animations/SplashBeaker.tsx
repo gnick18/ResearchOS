@@ -88,6 +88,7 @@ export function SplashBeaker({
     const draws = svg.querySelectorAll<SVGPathElement>("[data-draw]");
     const face = svg.querySelector<SVGGElement>("[data-face]");
     const spill = svg.querySelector<SVGGElement>("[data-spill]");
+    const bot = svg.querySelector<SVGGElement>("[data-bot]");
     if (!water || !w1 || !w2 || !w3 || !face) return;
 
     const setLevel = (y: number) =>
@@ -110,6 +111,7 @@ export function SplashBeaker({
     const timers: number[] = [];
     let raf = 0;
     let waveRaf = 0;
+    let loopRaf = 0;
     let fired = false;
 
     // reset
@@ -165,28 +167,30 @@ export function SplashBeaker({
             fired = true;
             onFillRef.current?.();
           }
-          const spillStart = performance.now();
-          const spillDur = 640;
-          const settle = (t2: number) => {
-            const sk = Math.min(1, (t2 - spillStart) / spillDur);
-            const sw = Math.max(0, Math.min(1, (sk - 0.05) / 0.7));
-            setLevel(LIP_Y + (REST_Y - LIP_Y) * (1 - Math.pow(1 - sw, 2)));
+          // perpetual "pouring" loop: he tips around his base (20,31) and a
+          // droplet spills off the lip each cycle; the water settles to the
+          // natural line on the first pass, then holds. Loops until unmount.
+          const loopStart = performance.now();
+          const CYCLE = 1500;
+          const pour = (t2: number) => {
+            const elapsed = t2 - loopStart;
+            const phase = (elapsed % CYCLE) / CYCLE;
+            const settleK = Math.min(1, elapsed / 600);
+            setLevel(LIP_Y + (REST_Y - LIP_Y) * (1 - Math.pow(1 - settleK, 2)));
+            const angle = 12 * Math.sin(phase * Math.PI);
+            bot?.setAttribute("transform", `rotate(${angle.toFixed(2)}, 20, 31)`);
             if (spill) {
               spill.setAttribute(
                 "transform",
-                `translate(${(sk * 2.4).toFixed(2)}, ${(sk * 16).toFixed(2)})`,
+                `translate(${(phase * 3).toFixed(2)}, ${(phase * 15).toFixed(2)})`,
               );
               spill.style.opacity = String(
-                sk < 0.12 ? sk / 0.12 : sk > 0.7 ? Math.max(0, (1 - sk) / 0.3) : 1,
+                phase < 0.12 ? phase / 0.12 : phase > 0.6 ? Math.max(0, (1 - phase) / 0.4) : 1,
               );
             }
-            if (sk < 1) {
-              raf = requestAnimationFrame(settle);
-            } else if (spill) {
-              spill.style.opacity = "0";
-            }
+            loopRaf = requestAnimationFrame(pour);
           };
-          raf = requestAnimationFrame(settle);
+          loopRaf = requestAnimationFrame(pour);
         };
         raf = requestAnimationFrame(step);
       }, fillDelayMs),
@@ -196,6 +200,7 @@ export function SplashBeaker({
       timers.forEach((t) => window.clearTimeout(t));
       cancelAnimationFrame(raf);
       cancelAnimationFrame(waveRaf);
+      cancelAnimationFrame(loopRaf);
     };
   }, [playKey, staticFull, drawMs, fillDelayMs, fillMs]);
 
@@ -229,6 +234,9 @@ export function SplashBeaker({
         </clipPath>
       </defs>
 
+      {/* Everything that tips together pivots around the base (20,31). The
+          spill droplets live OUTSIDE this group so they fall straight. */}
+      <g data-bot>
       {/* White glass body so liquid + face read on a light canvas */}
       <path
         d="M 12 12 L 12 24 C 12 30, 16 32, 20 32 C 24 32, 28 30, 28 24 L 28 12 Z"
@@ -276,13 +284,6 @@ export function SplashBeaker({
         <path data-draw d="M24.5 26 L26 26" />
       </g>
 
-      {/* Spill droplets — fall from the lip during the splish and fade. */}
-      <g data-spill opacity="0">
-        <ellipse cx="26.5" cy="10" rx="0.7" ry="1" fill={RAMP[3]} />
-        <ellipse cx="28" cy="9" rx="0.5" ry="0.8" fill={RAMP[0]} />
-        <ellipse cx="25" cy="11" rx="0.5" ry="0.7" fill={RAMP[2]} />
-      </g>
-
       {/* Face wakes after the outline lands */}
       <g data-face style={{ opacity: 0, transformBox: "fill-box", transformOrigin: "center" }}>
         <circle cx="17" cy="18" r="1.25" fill={SKY} />
@@ -294,6 +295,14 @@ export function SplashBeaker({
           fill="none"
           strokeLinecap="round"
         />
+      </g>
+      </g>
+
+      {/* Spill droplets — fall straight from the lip as he tips, on a loop. */}
+      <g data-spill opacity="0">
+        <ellipse cx="26.5" cy="10" rx="0.7" ry="1" fill={RAMP[3]} />
+        <ellipse cx="28" cy="9" rx="0.5" ry="0.8" fill={RAMP[0]} />
+        <ellipse cx="25" cy="11" rx="0.5" ry="0.7" fill={RAMP[2]} />
       </g>
     </svg>
   );
