@@ -28,6 +28,7 @@ import {
 } from "@/lib/datahub/bigtable/dataset-view";
 import type { ColumnDataType } from "@/lib/datahub/model/types";
 import { columnTier } from "@/lib/datahub/bigtable/column-tiers";
+import { deleteDataset } from "@/lib/datahub/bigtable/dataset-store";
 import {
   isExplainerDismissed,
   dismissExplainer,
@@ -56,11 +57,15 @@ export default function DatasetView({
   owner,
   sidecar,
   onOpenTransform,
+  onDeleted,
 }: {
   owner: string;
   sidecar: DatasetSidecar;
   /** Open the transform builder for this dataset (Phase 2a). */
   onOpenTransform?: () => void;
+  /** Called after this dataset is deleted, so the page clears its selection and
+   *  refreshes the table rail. */
+  onDeleted?: () => void;
 }) {
   const totalRows = sidecar.rowCount;
   const allColumnNames = useMemo(
@@ -95,6 +100,22 @@ export default function DatasetView({
   const [showAnalyze, setShowAnalyze] = useState(false);
   const [showGraph, setShowGraph] = useState(false);
   const [showExport, setShowExport] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+
+  // Delete this whole large dataset (its parquet + sidecar). Large datasets had
+  // no delete affordance before; the editable lane has had one. Confirmed inline,
+  // then the page clears the selection and refreshes the rail via onDeleted.
+  const confirmDelete = useCallback(async () => {
+    setDeleting(true);
+    try {
+      await deleteDataset(owner, sidecar.id);
+      setShowDeleteConfirm(false);
+      onDeleted?.();
+    } finally {
+      setDeleting(false);
+    }
+  }, [owner, sidecar.id, onDeleted]);
   // The analysis + graph entry points stay behind the lane flag, like every other
   // surface in this lane. Both run through the validated engine / plot path.
   const analyzeEnabled = isBigTableEnabled();
@@ -313,6 +334,17 @@ export default function DatasetView({
             </button>
           </Tooltip>
         )}
+        <Tooltip label="Delete this dataset (its data and sidecar)">
+          <button
+            type="button"
+            onClick={() => setShowDeleteConfirm(true)}
+            className="inline-flex items-center gap-1.5 rounded-md border border-border px-2.5 py-1 text-meta font-medium text-rose-600 transition-colors hover:bg-rose-50"
+            data-testid="bigtable-delete"
+          >
+            <Icon name="trash" className="h-3.5 w-3.5" />
+            Delete
+          </button>
+        </Tooltip>
         <span
           className={`text-meta text-foreground-muted ${
             onOpenTransform || analyzeEnabled ? "" : "ml-auto"
@@ -322,6 +354,33 @@ export default function DatasetView({
           columns
         </span>
       </div>
+
+      {showDeleteConfirm && (
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-rose-200 bg-rose-50 px-3 py-2">
+          <span className="text-meta text-rose-700">
+            Delete {sidecar.name} and its data. This cannot be undone.
+          </span>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setShowDeleteConfirm(false)}
+              disabled={deleting}
+              className="rounded-md border border-border px-2.5 py-1 text-meta font-medium text-foreground transition-colors hover:bg-surface-sunken disabled:opacity-50"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              onClick={() => void confirmDelete()}
+              disabled={deleting}
+              className="rounded-md bg-rose-600 px-2.5 py-1 text-meta font-semibold text-white transition-colors hover:bg-rose-700 disabled:opacity-50"
+              data-testid="bigtable-delete-confirm"
+            >
+              {deleting ? "Deleting..." : "Delete dataset"}
+            </button>
+          </div>
+        </div>
+      )}
 
       {showExplainer && (
         <DatasetExplainerCard
