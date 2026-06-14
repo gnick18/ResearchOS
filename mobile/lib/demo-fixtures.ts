@@ -116,7 +116,9 @@ export const DEMO_INVENTORY_SNAPSHOT: InventorySnapshot = {
       stockId: 'demo-stock-3',
       itemName: 'Trypsin-EDTA 0.25%',
       vendor: 'Gibco',
-      productBarcode: '25200072',
+      // A valid UPC-A so the GTIN-normalized match is demoable: scanning or
+      // typing its EAN-13 form (0036000291452) still resolves to this stock.
+      productBarcode: '036000291452',
       unitsPerScan: 1,
       unitsRemaining: 5,
       unitLabel: 'vials',

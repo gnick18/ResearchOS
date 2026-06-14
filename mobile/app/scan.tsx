@@ -48,6 +48,7 @@ import {
   type TrackedStock,
   type RecentPurchase,
 } from '@/lib/scan';
+import { parseBarcode, barcodesMatch, type ParsedBarcode } from '@/lib/barcode';
 
 const BARCODE_TYPES = [
   'qr',
@@ -99,6 +100,7 @@ export default function ScanScreen() {
 
   // Resolved scan context.
   const [code, setCode] = useState('');
+  const [parsed, setParsed] = useState<ParsedBarcode | null>(null);
   const [tracked, setTracked] = useState<TrackedStock | null>(null);
   const [trackCtx, setTrackCtx] = useState<TrackContext | null>(null);
   const [arrivedLabel, setArrivedLabel] = useState<string | null>(null);
@@ -154,18 +156,25 @@ export default function ScanScreen() {
       buzz();
       setCode(c);
       setSend({ ok: 'idle' });
+      // Layer 2: parse the payload (GS1-128 AIs, or a plain UPC/EAN normalized to
+      // a canonical GTIN). Layer 1: match the lab's own tracked stock by GTIN so
+      // a UPC-A stored item still matches an EAN-13 scan of the same product, and
+      // a GS1-128 box matches by its embedded GTIN. Non-GTIN catalog codes fall
+      // back to the exact-string match they always used.
+      const info = parseBarcode(c);
+      setParsed(info);
       const stocks = Array.isArray(snap?.trackedStocks) ? snap!.trackedStocks! : [];
-      const hit = stocks.find(
-        (s) => typeof s.productBarcode === 'string' && s.productBarcode.trim() === c,
-      );
+      const hit = stocks.find((s) => barcodesMatch(s.productBarcode, c));
       if (hit) {
         setTracked(hit);
         setDeductQty(1);
         setStep('tracked');
         return;
       }
-      // Unknown, prefill the new-package guess from the barcode index.
-      const guess = snap?.barcodeIndex?.[c];
+      // Unknown, prefill the new-package guess from the barcode index (try the
+      // canonical GTIN first, then the raw code).
+      const guess =
+        (info.gtin14 ? snap?.barcodeIndex?.[info.gtin14] : undefined) ?? snap?.barcodeIndex?.[c];
       if (guess) {
         setUnitLabel('reaction');
       }
@@ -188,6 +197,7 @@ export default function ScanScreen() {
     setHandled(false);
     setManualCode('');
     setCode('');
+    setParsed(null);
     setTracked(null);
     setTrackCtx(null);
     setArrivedLabel(null);
@@ -462,6 +472,7 @@ export default function ScanScreen() {
           {paired && step === 'newpkg' ? (
             <NewPackageView
               code={code}
+              parsed={parsed}
               guess={snap?.barcodeIndex?.[code]}
               purchases={Array.isArray(snap?.recentPurchases) ? snap!.recentPurchases! : []}
               onPick={onPickPurchase}
@@ -595,6 +606,7 @@ function DeductView({
 
 function NewPackageView({
   code,
+  parsed,
   guess,
   purchases,
   onPick,
@@ -605,6 +617,7 @@ function NewPackageView({
   errorMsg,
 }: {
   code: string;
+  parsed?: ParsedBarcode | null;
   guess?: { name?: string; vendor?: string | null; catalog?: string | null };
   purchases: RecentPurchase[];
   onPick: (p: RecentPurchase) => void;
@@ -632,11 +645,32 @@ function NewPackageView({
         <ThemedText style={[styles.sub, { color: surface.muted }]}>Scanned {code}</ThemedText>
       )}
 
+      {parsed && (parsed.gtin14 || parsed.ai.lot || parsed.ai.expiry || parsed.ai.serial) ? (
+        <View style={{ gap: 2 }}>
+          {parsed.gtin14 ? (
+            <ThemedText style={[styles.sub, { color: surface.muted }]}>
+              GTIN {parsed.gtin14}
+              {parsed.region ? `  -  ${parsed.region}` : ''}
+            </ThemedText>
+          ) : null}
+          {parsed.ai.lot ? (
+            <ThemedText style={[styles.sub, { color: surface.muted }]}>Lot {parsed.ai.lot}</ThemedText>
+          ) : null}
+          {parsed.ai.expiry ? (
+            <ThemedText style={[styles.sub, { color: surface.muted }]}>Expires {parsed.ai.expiry}</ThemedText>
+          ) : null}
+          {parsed.ai.serial ? (
+            <ThemedText style={[styles.sub, { color: surface.muted }]}>Serial {parsed.ai.serial}</ThemedText>
+          ) : null}
+        </View>
+      ) : null}
+
       {purchases.length > 0 ? (
         <>
           <ThemedText style={[styles.sectionLabel, { color: surface.muted }]}>MATCH TO A RECENT ORDER</ThemedText>
           {purchases.map((p, i) => {
-            const likely = !!guessName && p.name === guessName;
+            const likely =
+              (!!guessName && p.name === guessName) || barcodesMatch(p.productBarcode, code);
             return (
               <Pressable key={String(p.purchaseItemId ?? i)} onPress={() => onPick(p)} disabled={sending}>
                 <Card compact style={styles.purchaseRow}>
