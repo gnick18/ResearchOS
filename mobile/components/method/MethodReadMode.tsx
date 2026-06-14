@@ -327,46 +327,19 @@ function PdfPreview({ accent }: { accent: string }) {
   );
 }
 
-// ---- Generic key-params card (used by western, staining, culture, etc.) ----
-// Renders as a clean kv list inside a sunken card. The accent color tints the
-// left border so each type still feels distinct.
-function GenericParamsCard({
-  params,
-  accent,
-}: {
-  params: MethodProjection['keyParams'];
-  accent: string;
-}) {
-  const { surface } = useTheme();
-  if (!params || params.length === 0) return null;
-  return (
-    <View style={[gpstyles.card, { backgroundColor: surface.sunken, borderLeftColor: accent }]}>
-      {params.map((p, i) => (
-        <View
-          key={i}
-          style={[
-            gpstyles.row,
-            { borderBottomColor: surface.hairline },
-            i === params.length - 1 && gpstyles.rowLast,
-          ]}
-        >
-          <ThemedText style={[gpstyles.label, { color: surface.muted }]}>{p.label ?? ''}</ThemedText>
-          <ThemedText style={[gpstyles.value, { color: surface.text }]}>{p.value ?? ''}</ThemedText>
-        </View>
-      ))}
-    </View>
-  );
-}
-
 // ---- Pinned typed header (replaces the plain map section for non-pcr/lc) ---
 // Visible above the step scroll for every type. Contains a type badge, the
 // method title, key params, and a type-specific graphic where applicable.
 function TypedHeader({
   method,
   accent,
+  collapsed,
+  onToggle,
 }: {
   method: MethodProjection;
   accent: string;
+  collapsed: boolean;
+  onToggle: () => void;
 }) {
   const { surface } = useTheme();
   const rt = method.resolvedType ?? '';
@@ -385,28 +358,50 @@ function TypedHeader({
 
   return (
     <View style={[tystyles.wrap, { backgroundColor: surface.surface, borderBottomColor: surface.border }]}>
-      <TypeBadge label={typeLabel} accent={accent} />
-      <ThemedText style={[tystyles.title, { color: surface.text }]} numberOfLines={2}>
-        {method.name ?? 'Method'}
-      </ThemedText>
-      <TypeKeyParams params={method.keyParams} accent={accent} />
+      {/* The badge + title row doubles as the collapse toggle, so the step list
+          can take the whole screen when the details are not needed. */}
+      <Pressable
+        onPress={onToggle}
+        accessibilityRole="button"
+        accessibilityLabel={collapsed ? 'Show method details' : 'Hide method details'}
+        style={tystyles.headRow}
+      >
+        <View style={tystyles.headLeft}>
+          <TypeBadge label={typeLabel} accent={accent} />
+          <ThemedText style={[tystyles.title, { color: surface.text }]} numberOfLines={collapsed ? 1 : 2}>
+            {method.name ?? 'Method'}
+          </ThemedText>
+        </View>
+        <Ionicons
+          name={collapsed ? 'chevron-down' : 'chevron-up'}
+          size={20}
+          color={surface.muted}
+          style={tystyles.headChevron}
+        />
+      </Pressable>
 
-      {rt === 'mass_spec' ? (
-        <View style={[tystyles.chart, { backgroundColor: surface.sunken }]}>
-          <ThemedText style={[tystyles.chartLbl, { color: surface.muted }]}>Acquisition spectrum</ThemedText>
-          <MassSpecChart accent={accent} />
-        </View>
-      ) : rt === 'qpcr' ? (
-        <View style={[tystyles.chart, { backgroundColor: surface.sunken }]}>
-          <ThemedText style={[tystyles.chartLbl, { color: surface.muted }]}>Melt curve (Tm)</ThemedText>
-          <QpcrMeltChart accent={accent} />
-        </View>
-      ) : rt === 'coding' ? (
-        <CodeBlock body={method.body} accent={accent} />
-      ) : rt === 'pdf' ? (
-        <PdfPreview accent={accent} />
-      ) : (
-        <GenericParamsCard params={method.keyParams} accent={accent} />
+      {collapsed ? null : (
+        <>
+          {/* Key params show once, as chips. No second params card (it duplicated
+              these chips for the generic types). */}
+          <TypeKeyParams params={method.keyParams} accent={accent} />
+
+          {rt === 'mass_spec' ? (
+            <View style={[tystyles.chart, { backgroundColor: surface.sunken }]}>
+              <ThemedText style={[tystyles.chartLbl, { color: surface.muted }]}>Acquisition spectrum</ThemedText>
+              <MassSpecChart accent={accent} />
+            </View>
+          ) : rt === 'qpcr' ? (
+            <View style={[tystyles.chart, { backgroundColor: surface.sunken }]}>
+              <ThemedText style={[tystyles.chartLbl, { color: surface.muted }]}>Melt curve (Tm)</ThemedText>
+              <QpcrMeltChart accent={accent} />
+            </View>
+          ) : rt === 'coding' ? (
+            <CodeBlock body={method.body} accent={accent} />
+          ) : rt === 'pdf' ? (
+            <PdfPreview accent={accent} />
+          ) : null}
+        </>
       )}
     </View>
   );
@@ -430,6 +425,9 @@ const thstyles = StyleSheet.create({
 
 const tystyles = StyleSheet.create({
   wrap: { paddingHorizontal: 16, paddingTop: 10, paddingBottom: 12, borderBottomWidth: 1, gap: 8 },
+  headRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  headLeft: { flex: 1, gap: 6 },
+  headChevron: { marginLeft: 4 },
   title: { fontSize: 17, fontWeight: '800', lineHeight: 22 },
   chart: { borderRadius: 12, padding: 10, marginTop: 4 },
   chartLbl: { fontSize: 10, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 6 },
@@ -464,21 +462,6 @@ const pdfstyles = StyleSheet.create({
     borderTopWidth: 1,
   },
   pageLbl: { fontSize: 12, fontWeight: '600' },
-});
-
-const gpstyles = StyleSheet.create({
-  card: { borderRadius: 10, borderLeftWidth: 3, overflow: 'hidden', marginTop: 4 },
-  row: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    borderBottomWidth: 1,
-  },
-  rowLast: { borderBottomWidth: 0 },
-  label: { fontSize: 13 },
-  value: { fontSize: 13, fontWeight: '700', textAlign: 'right', flexShrink: 1, marginLeft: 8 },
 });
 
 // ---- The big step card ----------------------------------------------------
@@ -571,6 +554,9 @@ export function MethodReadMode({
   const [composerOpen, setComposerOpen] = useState(false);
   const [variationText, setVariationText] = useState('');
   const [mapWidth, setMapWidth] = useState(280);
+  // The typed header (badge, title, params, graphic) is collapsible so a long
+  // protocol can hand the whole screen to the steps.
+  const [headerOpen, setHeaderOpen] = useState(true);
 
   const scrollRef = useRef<ScrollView>(null);
   const offsets = useRef<number[]>([]);
@@ -667,7 +653,12 @@ export function MethodReadMode({
           )}
         </View>
       ) : method.resolvedType && method.resolvedType !== 'pcr' && method.resolvedType !== 'lc_gradient' && method.resolvedType !== 'compound' ? (
-        <TypedHeader method={method} accent={accentFor(method.resolvedType)} />
+        <TypedHeader
+          method={method}
+          accent={accentFor(method.resolvedType)}
+          collapsed={!headerOpen}
+          onToggle={() => setHeaderOpen((o) => !o)}
+        />
       ) : null}
 
       {/* Hybrid step scroll. */}
