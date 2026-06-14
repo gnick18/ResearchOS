@@ -1563,10 +1563,12 @@ export default function TaskDetailPopup({
                   </button>
                 </>
               )}
-              <Tooltip label={isExpanded ? "Exit fullscreen" : "Fullscreen"} placement="bottom">
+              <Tooltip label={isExpanded ? "Exit focus" : "Focus"} placement="bottom">
                 <button
                   onClick={() => toggleExpanded()}
                   data-tour-target="task-popup-fullscreen"
+                  aria-label={isExpanded ? "Exit focus" : "Focus"}
+                  aria-pressed={isExpanded}
                   className="text-foreground-muted hover:text-foreground-muted hover:bg-surface-sunken p-1.5 rounded-lg transition-colors"
                 >
                   {isExpanded ? (

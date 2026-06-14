@@ -1960,9 +1960,11 @@ export default function NoteDetailPopup({
                   </button>
                 </>
               )}
-              <Tooltip label={isExpanded ? "Exit fullscreen" : "Fullscreen"} placement="bottom">
+              <Tooltip label={isExpanded ? "Exit focus" : "Focus"} placement="bottom">
                 <button
                   onClick={() => toggleExpanded()}
+                  aria-label={isExpanded ? "Exit focus" : "Focus"}
+                  aria-pressed={isExpanded}
                   className="p-2 text-foreground-muted hover:text-foreground-muted hover:bg-surface-sunken rounded-lg transition-colors"
                 >
                   {isExpanded ? (
