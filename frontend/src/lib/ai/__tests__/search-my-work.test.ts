@@ -18,7 +18,7 @@ vi.mock("@/lib/ai/artifact-index", () => ({
 
 import { searchMyWorkTool } from "../tools/search-my-work";
 
-const brief = (id: string, type: string, title: string): ArtifactBrief => ({
+const brief = (id: string, type: ArtifactBrief["type"], title: string): ArtifactBrief => ({
   type,
   id,
   title,

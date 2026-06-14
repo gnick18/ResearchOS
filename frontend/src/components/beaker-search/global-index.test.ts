@@ -13,8 +13,11 @@ import {
   buildMoleculeEntry,
   buildPurchaseEntry,
   buildPhyloEntry,
+  GUI_TYPE_COVERAGE,
+  briefTypeToGuiType,
   type GlobalIndexInput,
 } from "./global-index";
+import { INDEXED_TYPES, aiTypeToGuiType } from "@/lib/index/indexed-types";
 import type { Task, Method, Project, SequenceRecord, InventoryItem, Note, PurchaseItem } from "@/lib/types";
 import type { DataHubDocument } from "@/lib/datahub/model/types";
 import type { Molecule } from "@/lib/chemistry/api";
@@ -643,5 +646,98 @@ describe("buildPhyloEntry (pure entry builder)", () => {
     const found = entries.filter((e) => e.type === "phylo");
     expect(found).toHaveLength(1);
     expect(found[0].label).toBe("16S rRNA bacterial tree");
+  });
+});
+
+// ── Shared-adapter unification (anti-drift) ──────────────────────────────────
+// After unifying the two indices behind one shared adapter layer, the GUI note
+// haystack MUST still carry the scanned OCR text (the AI brief intentionally
+// never carries OCR, so the GUI folds it in itself). This is an explicit
+// regression guard against the "shrunk the search field" failure mode.
+
+describe("note GUI haystack OCR regression guard (post-unification)", () => {
+  function makeNote(over: Partial<Note> = {}): Note {
+    return {
+      id: 7,
+      title: "PCR optimization",
+      description: "gradient screen",
+      is_running_log: false,
+      is_shared: false,
+      entries: [],
+      updated_at: "2026-06-01T00:00:00.000Z",
+      username: CURRENT_USER,
+      ...over,
+    } as Note;
+  }
+
+  it("STILL folds the scanned OCR text into the note haystack and the ocr field", () => {
+    const entry = buildNoteEntry(
+      makeNote(),
+      "colony pcr 30 cycles 72c extension handwritten",
+      CURRENT_USER,
+    );
+    // The OCR words must remain searchable from the haystack.
+    expect(entry.haystack).toContain("colony pcr 30 cycles 72c extension handwritten");
+    // And carried on the dedicated ocr field MiniSearch boosts separately.
+    expect(entry.ocr).toBe("colony pcr 30 cycles 72c extension handwritten");
+  });
+
+  it("keeps the note title and description in the haystack alongside OCR", () => {
+    const entry = buildNoteEntry(makeNote(), "scanned words", CURRENT_USER);
+    expect(entry.haystack).toContain("pcr optimization");
+    expect(entry.haystack).toContain("gradient");
+    expect(entry.haystack).toContain("scanned words");
+  });
+
+  it("ALSO now folds entry titles into the haystack (a superset, never a subset)", () => {
+    const noteWithEntries = makeNote({
+      entries: [
+        {
+          id: "e1",
+          title: "Colony count tally",
+          date: "2026-06-01",
+          content: "",
+          created_at: "2026-06-01T00:00:00.000Z",
+          updated_at: "2026-06-01T00:00:00.000Z",
+        },
+      ],
+    });
+    const entry = buildNoteEntry(noteWithEntries, "ocr text", CURRENT_USER);
+    // The entry title surfaces via the shared adapter's keywords, so the GUI
+    // haystack is a strict superset of its prior title + description + OCR fold.
+    expect(entry.haystack).toContain("colony");
+    expect(entry.haystack).toContain("tally");
+    expect(entry.haystack).toContain("ocr text");
+  });
+});
+
+// ── Cross-index exhaustiveness (GUI side) ────────────────────────────────────
+// GUI_TYPE_COVERAGE is a Record<GuiIndexType, ...>, so adding a kind to the
+// shared INDEXED_TYPES registry fails to COMPILE here until the GUI handles it.
+// This runtime test backstops that compile-time guard and proves the two
+// indices stay in lockstep, with the task/experiment naming reconciled.
+
+describe("indexed-type registry + exhaustiveness (GUI side)", () => {
+  it("GUI_TYPE_COVERAGE covers exactly the registry kinds, in the GUI spelling", () => {
+    const guiKeys = Object.keys(GUI_TYPE_COVERAGE).sort();
+    const expected = INDEXED_TYPES.map((t) => aiTypeToGuiType(t)).sort();
+    expect(guiKeys).toEqual(expected);
+  });
+
+  it("reconciles the AI 'experiment' kind to the GUI 'task' kind", () => {
+    expect(briefTypeToGuiType("experiment")).toBe("task");
+    // Every other kind shares one name across both indices.
+    expect(briefTypeToGuiType("note")).toBe("note");
+    expect(briefTypeToGuiType("inventory")).toBe("inventory");
+    // The "task" GUI kind is present (and "experiment" is NOT a GUI spelling).
+    expect(GUI_TYPE_COVERAGE).toHaveProperty("task");
+    expect(GUI_TYPE_COVERAGE).not.toHaveProperty("experiment");
+  });
+
+  it("pairs every GUI kind with a defined entry builder and shared brief adapter", () => {
+    for (const cov of Object.values(GUI_TYPE_COVERAGE)) {
+      expect(typeof cov.entryBuilder).toBe("function");
+      expect(typeof cov.briefAdapter).toBe("function");
+    }
   });
 });
