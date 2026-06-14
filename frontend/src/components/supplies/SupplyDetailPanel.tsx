@@ -231,14 +231,16 @@ export default function SupplyDetailPanel({
                   </button>
                 </Tooltip>
               )}
-              <button
-                type="button"
-                onClick={onClose}
-                aria-label="Close"
-                className="rounded-md p-1 text-foreground-muted hover:bg-surface-sunken hover:text-foreground"
-              >
-                <Icon name="close" className="h-4 w-4" />
-              </button>
+              <Tooltip label="Close">
+                <button
+                  type="button"
+                  onClick={onClose}
+                  aria-label="Close"
+                  className="rounded-md p-1 text-foreground-muted hover:bg-surface-sunken hover:text-foreground"
+                >
+                  <Icon name="close" className="h-4 w-4" />
+                </button>
+              </Tooltip>
             </div>
           </div>
         </div>
