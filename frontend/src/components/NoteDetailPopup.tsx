@@ -54,9 +54,7 @@ import PiEditConfirmDialog from "./lab-head/PiEditConfirmDialog";
 import PiEditAuditNote from "./lab-head/PiEditAuditNote";
 import PiActionsHeaderButton from "./lab-head/PiActionsHeaderButton";
 import { usePiEditGate } from "@/hooks/usePiEditGate";
-import SharingChips from "@/components/sharing/SharingChips";
 import UnifiedShareDialog from "@/components/sharing/UnifiedShareDialog";
-import { StampsRow } from "@/components/AttributionChip";
 import NoteVersionHistorySidebar, {
   type VersionPreview,
 } from "@/components/history/NoteVersionHistorySidebar";
@@ -1597,7 +1595,7 @@ export default function NoteDetailPopup({
                   className={`font-bold text-foreground w-full focus:outline-none bg-transparent ${
                     isExpanded
                       ? "text-3xl leading-tight border-0 focus:ring-0 placeholder:text-foreground-muted/50"
-                      : "text-heading border-b-2 border-emerald-500"
+                      : "text-2xl border-b-2 border-emerald-500"
                   }`}
                   autoFocus
                   disabled={readOnly}
@@ -1606,7 +1604,7 @@ export default function NoteDetailPopup({
                 <h2
                   onClick={() => !readOnly && setEditingTitle(true)}
                   className={`font-bold text-foreground ${
-                    isExpanded ? "text-3xl leading-tight" : "text-heading"
+                    isExpanded ? "text-3xl leading-tight" : "text-2xl"
                   } ${
                     !readOnly ? "cursor-pointer hover:text-emerald-600 dark:hover:text-emerald-300" : ""
                   }`}
@@ -1615,24 +1613,10 @@ export default function NoteDetailPopup({
                 </h2>
               )}
 
-              {/* Phone-paired indicator. Mirrors the experiment popup so the
-                  user can see a phone companion is linked. Hidden when no phone
-                  is paired.
-                  L3 declutter: docked-only. In the expanded calm shell it folds
-                  into the "..." overflow menu as a quiet "Phone linked" status
-                  row. */}
-              {phonePaired && !isExpanded && (
-                <Tooltip label="Phone companion is paired" placement="bottom">
-                  <span className="mt-1 inline-flex w-fit items-center gap-1.5 rounded-full bg-amber-50 px-2.5 py-1 text-meta font-medium text-amber-700 dark:bg-amber-500/15 dark:text-amber-300">
-                    <Icon name="phone" className="h-3.5 w-3.5" />
-                    <span>Phone linked</span>
-                    <span
-                      aria-hidden
-                      className="h-1.5 w-1.5 rounded-full bg-emerald-500"
-                    />
-                  </span>
-                </Tooltip>
-              )}
+              {/* L3 unified header (2026-06-14): the phone-paired indicator is
+                  no longer a header banner at any size. It folds into the "..."
+                  overflow menu as a quiet "Phone linked" status row so the
+                  editorial title stays calm at BOTH docked + fullscreen. */}
 
               {/* Description */}
               {editingDescription ? (
@@ -1784,107 +1768,12 @@ export default function NoteDetailPopup({
                   currentFlag={note.flagged ?? null}
                 />
               )}
-              {/* Move-to-notebook (notebooks-gen Phase 2). Personal mode only:
-                  the parent wires `onMoveToNotebook` and the notebook lists.
-                  Hidden in Lab Mode / read-only contexts (no callback). */}
-              {onMoveToNotebook && !readOnly && !isExpanded && (
-                <Tooltip label="Move to notebook" placement="bottom">
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      const rect = (
-                        e.currentTarget as HTMLElement
-                      ).getBoundingClientRect();
-                      setMoveMenuAnchor({ x: rect.left, y: rect.bottom });
-                    }}
-                    data-testid="note-header-move-notebook"
-                    className="p-2 text-foreground-muted hover:text-brand-action hover:bg-surface-sunken rounded-lg transition-colors"
-                  >
-                    <Icon name="book" className="w-5 h-5" />
-                  </button>
-                </Tooltip>
-              )}
-              {/* Header Delete affordance (delete-affordances bot,
-                  2026-05-29): the soft-delete used to live only as a small
-                  text link in the footer, which Grant could not find. This
-                  mirrors the experiment popup's header trash icon. Gated with
-                  the SAME condition as the footer Delete button: not
-                  read-only AND (owner OR an active PI Phase 5 unlock). Calls
-                  the existing handleDeleteNote, so the soft-delete (move to
-                  `users/<owner>/_trash/notes/`) + Undo toast are preserved. */}
-              {canDeleteNote && !isExpanded && (
-                <Tooltip label="Delete note" placement="bottom">
-                  <button
-                    onClick={handleDeleteNote}
-                    data-testid="note-header-delete"
-                    className="p-2 text-foreground-muted hover:text-red-600 dark:hover:text-red-300 hover:bg-red-50 dark:hover:bg-red-500/10 rounded-lg transition-colors"
-                  >
-                    <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
-                      <polyline points="3 6 5 6 21 6" />
-                      <path d="M19 6l-2 14a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2L5 6" />
-                      <path d="M10 11v6M14 11v6" />
-                      <path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2" />
-                    </svg>
-                  </button>
-                </Tooltip>
-              )}
-              {/* VC Phase 2 (restore-a-version sub-bot of HR, 2026-05-30):
-                  "Undo restore" header button. Visible (flag ON) while a
-                  24h undo window is live for this note. The button is the
-                  prominent surface that appears after a restore exits the
-                  sidebar. Enabled for the owner / PI-with-unlock; DISABLED with
-                  an unlock Tooltip for a PI who could unlock but has not; HIDDEN
-                  for a read-only shared viewer (both canRestore and
-                  restoreNeedsUnlock are false). Render-gated on expiry: once
-                  `expires_at` passes, undoWindowActive is false and the button
-                  drops with no background timer. */}
-              {RESTORE_ENABLED &&
-                !isExpanded &&
-                undoWindowActive &&
-                (canRestore || restoreNeedsUnlock) && (
-                  <Tooltip
-                    label={
-                      restoreNeedsUnlock
-                        ? "Unlock edit mode (PI passcode) to undo the restore"
-                        : activeRestoreBusy
-                          ? "Undoing the restore..."
-                          : "Undo the restore (returns the note to its pre-restore version)"
-                    }
-                    placement="bottom"
-                  >
-                    <button
-                      onClick={
-                        canRestore && !activeRestoreBusy ? activeHandleUndoRestore : undefined
-                      }
-                      // Disable while a restore / undo is in flight so a
-                      // distracted double click cannot fire two concurrent
-                      // undo-revert writes. The hook also early-returns when
-                      // busy; this is the UX layer over that guard.
-                      disabled={!canRestore || activeRestoreBusy}
-                      data-testid="note-undo-restore-button"
-                      className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 text-meta font-medium rounded-lg transition-colors ${
-                        canRestore && !activeRestoreBusy
-                          ? "text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-500/10 hover:bg-amber-100 dark:hover:bg-amber-500/20"
-                          : "text-foreground-muted bg-surface-sunken cursor-not-allowed"
-                      }`}
-                    >
-                      <svg
-                        className="w-4 h-4"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth={2}
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        aria-hidden="true"
-                      >
-                        <path d="M9 14L4 9l5-5" />
-                        <path d="M4 9h11a4 4 0 0 1 0 8h-1" />
-                      </svg>
-                      {activeRestoreBusy ? "Undoing..." : "Undo restore"}
-                    </button>
-                  </Tooltip>
-                )}
+              {/* L3 unified header (2026-06-14): Move-to-notebook, Delete, and
+                  Undo restore are no longer docked icon buttons at any size.
+                  They fold into the single "..." overflow menu below (at BOTH
+                  docked + fullscreen), each keeping its EXACT handler +
+                  data-testid (note-header-move-notebook / note-header-delete /
+                  note-undo-restore-button) so automation still finds them. */}
               {/* VCP Phase 1 (version-history viewer bot for HR,
                   2026-05-29): version-history entry button. Shown to anyone
                   with read access (the popup only opens on notes the viewer
@@ -1920,58 +1809,39 @@ export default function NoteDetailPopup({
                   ) : null}
                 </button>
               </Tooltip>
-              {!isExpanded && (
-                <Tooltip label="Version history" placement="bottom">
-                  <button
-                    ref={historyTriggerRef}
-                    onClick={() => {
-                      if (historyOpen) {
-                        closeHistory();
-                      } else {
-                        setCommentsOpen(false);
-                        setHistoryOpen(true);
-                      }
-                    }}
-                    data-testid="note-history-button"
-                    aria-pressed={historyOpen}
-                    className={`p-2 rounded-lg transition-colors ${
-                      historyOpen
-                        ? "text-emerald-600 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-500/10"
-                        : "text-foreground-muted hover:text-foreground-muted hover:bg-surface-sunken"
-                    }`}
-                  >
-                    <svg
-                      className="w-5 h-5"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth={2}
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      aria-hidden="true"
-                    >
-                      <path d="M3 3v5h5" />
-                      <path d="M3.05 13A9 9 0 1 0 6 5.3L3 8" />
-                      <path d="M12 7v5l3 2" />
-                    </svg>
-                  </button>
-                </Tooltip>
-              )}
-              {/* L3 declutter (2026-06-14): the single "..." overflow menu, shown
-                  ONLY in the expanded calm shell. Mirrors the experiment popup:
-                  it folds the SECONDARY note header actions (Version history,
-                  Undo restore, Move to notebook, Delete) plus the quiet "Phone
-                  linked" status into one dismissable menu (Esc + outside-click
-                  close, no focus trap). Each row keeps its EXACT handler +
-                  data-testid. The always-reachable exits (Done, the fullscreen
-                  toggle, the X) and the primary Comments button stay OUTSIDE the
-                  menu, so folding actions in here can never soft-lock the shell. */}
-              {isExpanded && (
+              {/* L3 unified header (2026-06-14): the single "..." overflow menu,
+                  now shown at BOTH docked + fullscreen. Mirrors the experiment
+                  popup: it folds the SECONDARY note header actions (Share,
+                  Version history, Undo restore, Move to notebook, Delete) plus
+                  the quiet "Phone linked" status into one dismissable menu (Esc +
+                  outside-click close, no focus trap). Each row keeps its EXACT
+                  handler + data-testid. The always-reachable exits (Done, the
+                  fullscreen toggle, the X) and the primary Comments button stay
+                  OUTSIDE the menu, so folding actions in here can never soft-lock
+                  the shell. */}
+              {(
                 <HeaderOverflowMenu
                   label="More actions"
                   testId="note-header-overflow"
                   buttonClassName="p-2 rounded-lg text-foreground-muted hover:text-foreground hover:bg-surface-sunken transition-colors"
                 >
+                  {canShare && (
+                    <button
+                      type="button"
+                      role="menuitem"
+                      onClick={() => {
+                        // Snapshot shared_with before the dialog opens so the
+                        // grant-on-share callback can compute the diff.
+                        sharedWithBeforeShareRef.current = note.shared_with ?? [];
+                        setShowShare(true);
+                      }}
+                      data-testid="note-header-share"
+                      className="flex w-full items-center gap-2.5 px-3 py-1.5 text-left text-body text-foreground hover:bg-surface-sunken transition-colors"
+                    >
+                      <Icon name="share" className="w-4 h-4 text-foreground-muted" />
+                      <span>Share</span>
+                    </button>
+                  )}
                   <button
                     type="button"
                     role="menuitem"
@@ -2046,14 +1916,14 @@ export default function NoteDetailPopup({
                   )}
                 </HeaderOverflowMenu>
               )}
-              {/* L3 ambient save state + plain Done. Only in the expanded
-                  (fullscreen) shell — the docked popup keeps its existing save
-                  bar. The indicator is HONEST: it reads "Saved" only when there
-                  is nothing pending (see ambientSaveState). Done flushes the
-                  active entry through the existing manual-save path and
-                  collapses; it is one of three always-reachable exits (Done,
-                  the fullscreen toggle, the X) so the shell is never soft-locked. */}
-              {isExpanded && (
+              {/* L3 ambient save state + plain Done, now shown at BOTH docked +
+                  fullscreen (unified header). The indicator is HONEST: it reads
+                  "Saved" only when there is nothing pending (see
+                  ambientSaveState). Done flushes the active entry through the
+                  existing manual-save path and collapses; it is one of three
+                  always-reachable exits (Done, the fullscreen toggle, the X) so
+                  the shell is never soft-locked. */}
+              {(
                 <>
                   <span
                     data-testid="note-ambient-save"
@@ -2146,195 +2016,98 @@ export default function NoteDetailPopup({
             onCancel={piGate.cancelEdit}
           />
 
-          {/* L3 quiet metadata subline. At fullscreen the chip cluster + the
-              attribution stamps collapse into a single calm "date · author ·
-              status" line (sharing summarised quietly, the full chips + the
-              Share control stay reachable in the softened actions row below).
-              The docked popup keeps the original chip rows untouched. */}
-          {isExpanded && note.username && (
+          {/* L3 unified header (2026-06-14): ONE quiet "date · author · status ·
+              sharing" subline at BOTH docked + fullscreen. It absorbs the former
+              SharingChips row, the standalone attribution stamps ("Created by /
+              Last edited by"), the live-collab presence word, and the transient
+              upload / save status. The capabilities behind them stay reachable:
+              Share lives in the "..." overflow menu, files attach via the
+              editor's quiet "+" insert menu (Add File), and the ambient save
+              indicator sits in the header. The hidden file input below stays
+              mounted so the editor's Add File path (onFileDrop) keeps routing
+              uploads through handleFileUpload. */}
+          {note.username && (
             <p
               data-testid="note-meta-subline"
-              className="mt-2 text-meta text-foreground-muted"
+              className="mt-2 flex flex-wrap items-center gap-x-1.5 text-meta text-foreground-muted"
             >
-              {[
-                formatDate(note.created_at || note.last_edited_at || ""),
-                note.last_edited_by || note.username,
-                (note.shared_with?.length ?? 0) > 0
-                  ? `Shared with ${note.shared_with!.length}`
-                  : "Private",
-              ]
-                .filter(Boolean)
-                .join("  ·  ")}
+              <span>
+                {[
+                  formatDate(note.created_at || note.last_edited_at || ""),
+                  note.last_edited_by || note.username,
+                  (note.shared_with?.length ?? 0) > 0
+                    ? `Shared with ${note.shared_with!.length}`
+                    : "Private",
+                ]
+                  .filter(Boolean)
+                  .join("  ·  ")}
+              </span>
+              {/* Quiet live-collab presence: a small dot + word folded into the
+                  subline (sharing IS collab; auto-connects on open). */}
+              {LORO_PILOT_ENABLED && !!loroHandle && collab.state.status === "connecting" && (
+                <span className="inline-flex items-center gap-1">
+                  <span aria-hidden>·</span>
+                  <span className="inline-flex items-center gap-1 text-foreground-muted">
+                    <svg className="animate-spin w-3 h-3" fill="none" viewBox="0 0 24 24" aria-hidden="true">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                    </svg>
+                    Connecting
+                  </span>
+                </span>
+              )}
+              {LORO_PILOT_ENABLED && !!loroHandle && collab.state.status === "live" && (
+                <span className="inline-flex items-center gap-1">
+                  <span aria-hidden>·</span>
+                  <span className="inline-flex items-center gap-1 text-emerald-600 dark:text-emerald-300 font-medium">
+                    <svg className="w-3 h-3" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                      <circle cx="12" cy="12" r="5" />
+                    </svg>
+                    Live
+                  </span>
+                </span>
+              )}
+              {/* Phone-paired presence: a quiet phone glyph in the subline
+                  (the verbose banner is gone; the "Phone linked" overflow row
+                  carries the same status). */}
+              {phonePaired && (
+                <Tooltip label="Phone companion is paired" placement="bottom">
+                  <span className="inline-flex items-center gap-1">
+                    <span aria-hidden>·</span>
+                    <Icon name="phone" className="h-3.5 w-3.5" />
+                  </span>
+                </Tooltip>
+              )}
+              {/* Transient upload / save status, folded inline so the verbose
+                  "Add File"/"Saving" buttons can leave the header. */}
+              {(uploading || saving) && (
+                <span className="inline-flex items-center gap-1">
+                  <span aria-hidden>·</span>
+                  <span className="inline-flex items-center gap-1">
+                    <svg className="animate-spin w-3 h-3" fill="none" viewBox="0 0 24 24" aria-hidden="true">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                    </svg>
+                    {uploading ? "Uploading" : "Saving"}
+                  </span>
+                </span>
+              )}
             </p>
           )}
-
-          {/* R1b: sharing chips — read-only visibility hint row showing who
-              currently has access. The Loro auto-save status sits inline at the
-              end of this row (next to the sharing state) instead of a floating
-              pill, so status lives on one line with the access state.
-              L3: at fullscreen this verbose row folds into the quiet subline
-              above + the ambient indicator in the header, so it is hidden. */}
-          {note.username && !isExpanded && (
-            <div className="mt-3 flex flex-wrap items-center gap-2">
-              <SharingChips
-                sharedWith={note.shared_with || []}
-                ownerUsername={note.username}
-                viewerUsername={currentUser ?? undefined}
-              />
-              {LORO_PILOT_ENABLED && !!loroHandle && !readOnly && currentEntry && (
-                <span
-                  data-testid="note-autosave-status"
-                  aria-live="polite"
-                  aria-atomic="true"
-                  className={`inline-flex items-center rounded-full px-2 py-0.5 text-meta font-medium ring-1 transition-colors ${
-                    loroCommitPending
-                      ? "bg-amber-50 text-amber-700 ring-amber-200 dark:bg-amber-500/15 dark:text-amber-200 dark:ring-amber-500/30"
-                      : "bg-emerald-50 text-emerald-700 ring-emerald-200 dark:bg-emerald-500/15 dark:text-emerald-200 dark:ring-emerald-500/30"
-                  }`}
-                >
-                  {loroCommitPending ? "Saving..." : "Saved"}
-                </span>
-              )}
-            </div>
-          )}
-
-          {/* Unified Share + Add File actions. The attribution stamps
-              (VCP R3, 2026-05-26: "Created by X on D" / "Last edited by Y
-              on D", PI-badge resolved, self-hiding on pre-R3 notes) dock to
-              the right of this same row so the header stays thin. Read-only
-              notes have no actions, so they show the stamps on their own
-              line. The creator stamp is `username` (per OQ5), not
-              `created_by`. */}
-          {!readOnly ? (
-            <div className="mt-3 flex flex-wrap items-center gap-2">
-              {/* One Share button opens the two-tab UnifiedShareDialog (lab ACL
-                  + cross-boundary send), replacing the old Private / Shared
-                  toggle AND the separate "Share outside this folder" button.
-                  Hidden for solo/locked accounts (capabilities bot). */}
-              {canShare && (
-              <Tooltip label="Share" placement="top">
-                <button
-                  onClick={() => {
-                    // Snapshot the current shared_with before opening the dialog
-                    // so the grant-on-share callback can compute the diff.
-                    sharedWithBeforeShareRef.current = note.shared_with ?? [];
-                    setShowShare(true);
-                  }}
-                  className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-body bg-surface-sunken text-foreground-muted hover:bg-foreground-muted/15 transition-colors"
-                  aria-label="Share"
-                >
-                  <svg
-                    className="w-4 h-4"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth={2}
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    aria-hidden="true"
-                  >
-                    <circle cx="18" cy="5" r="3" />
-                    <circle cx="6" cy="12" r="3" />
-                    <circle cx="18" cy="19" r="3" />
-                    <line x1="8.59" y1="13.51" x2="15.42" y2="17.49" />
-                    <line x1="15.41" y1="6.51" x2="8.59" y2="10.49" />
-                  </svg>
-                  Share
-                </button>
-              </Tooltip>
-              )}
-
-              {/* Loro Phase 3, chunk 4: live-collab session control.
-                  Only rendered when LORO_PILOT_ENABLED and the Loro handle is
-                  open. Flag-off = zero new surface. No emojis, no em-dashes,
-                  custom inline SVGs only, Tooltip for icon-only buttons. */}
-              {LORO_PILOT_ENABLED && !!loroHandle && (
-                <div className="flex items-center gap-2">
-                  {/* Sharing IS collab: a shared note auto-connects on open
-                      (see the connectFromDocId effects above), so there is no
-                      manual start / paste-link / copy-link / stop control. This
-                      row is now a quiet presence indicator only. */}
-                  {collab.state.status === "connecting" ? (
-                    <span className="text-meta text-foreground-muted flex items-center gap-1.5">
-                      <svg className="animate-spin w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" aria-hidden="true">
-                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-                      </svg>
-                      Connecting...
-                    </span>
-                  ) : (
-                    /* status === "live" */
-                    <>
-                      <span className="flex items-center gap-1.5 text-body text-emerald-600 dark:text-emerald-300 font-medium">
-                        <svg
-                          className="w-3.5 h-3.5"
-                          viewBox="0 0 24 24"
-                          fill="currentColor"
-                          aria-hidden="true"
-                        >
-                          <circle cx="12" cy="12" r="5" />
-                        </svg>
-                        Live
-                      </span>
-                    </>
-                  )}
-                </div>
-              )}
-
-              <button
-                onClick={() => fileInputRef.current?.click()}
-                disabled={uploading}
-                className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-body bg-surface-sunken text-foreground-muted hover:bg-foreground-muted/15 transition-colors disabled:opacity-50"
-              >
-                {uploading ? "Uploading..." : "Add File"}
-              </button>
-              <input
-                ref={fileInputRef}
-                type="file"
-                multiple
-                className="hidden"
-                onChange={(e) => {
-                  if (e.target.files) handleFileUpload(Array.from(e.target.files));
-                  e.target.value = "";
-                }}
-              />
-
-              {/* Save-in-progress indicator (note-save manager): shown while
-                  an explicit save (or title / sharing write) is in flight. */}
-              {saving && (
-                <span className="text-meta text-foreground-muted flex items-center gap-1">
-                  <svg className="animate-spin w-3 h-3" fill="none" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                  </svg>
-                  Saving...
-                </span>
-              )}
-
-              {/* Attribution stamps, docked right on the actions row. L3: the
-                  stamps are summarised in the quiet subline at fullscreen, so
-                  this duplicate is hidden there. */}
-              {!isExpanded && (
-                <div className="ml-auto">
-                  <StampsRow
-                    createdBy={note.username}
-                    createdAt={note.created_at}
-                    lastEditedBy={note.last_edited_by}
-                    lastEditedAt={note.last_edited_at}
-                  />
-                </div>
-              )}
-            </div>
-          ) : !isExpanded ? (
-            <div className="mt-3">
-              <StampsRow
-                createdBy={note.username}
-                createdAt={note.created_at}
-                lastEditedBy={note.last_edited_by}
-                lastEditedAt={note.last_edited_at}
-              />
-            </div>
-          ) : null}
+          {/* Hidden file input kept mounted: the editor's quiet "+" Add File menu
+              routes uploads to handleFileUpload via onFileDrop, and this input
+              is the host fallback for that same path. No visible trigger here —
+              Add File now lives in the editor toolbar's "+" menu. */}
+          <input
+            ref={fileInputRef}
+            type="file"
+            multiple
+            className="hidden"
+            onChange={(e) => {
+              if (e.target.files) handleFileUpload(Array.from(e.target.files));
+              e.target.value = "";
+            }}
+          />
         </div>
 
         {/* Content + version-history split. When the history sidebar is open
