@@ -31,6 +31,7 @@ import {
   ScrollView,
 } from 'react-native-gesture-handler';
 import { useFocusEffect, useRouter } from 'expo-router';
+import { LinearGradient } from 'expo-linear-gradient';
 import * as ImagePicker from 'expo-image-picker';
 
 import { ThemedText } from '@/components/themed-text';
@@ -947,6 +948,13 @@ export default function NotebookScreen() {
               ]}
               accessibilityRole="button"
             >
+              <LinearGradient
+                colors={[palette.sky, '#39B4FF']}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={StyleSheet.absoluteFill}
+                pointerEvents="none"
+              />
               <View style={styles.actionBlob} pointerEvents="none" />
               <View style={styles.actionIconTile}>
                 <Ionicons name="camera-outline" size={22} color={palette.white} />
@@ -973,6 +981,13 @@ export default function NotebookScreen() {
               ]}
               accessibilityRole="button"
             >
+              <LinearGradient
+                colors={['#FF6F61', '#FF9182']}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={StyleSheet.absoluteFill}
+                pointerEvents="none"
+              />
               <View style={styles.actionBlob} pointerEvents="none" />
               <View style={styles.actionIconTile}>
                 <Ionicons name="create-outline" size={22} color={palette.white} />
@@ -1001,6 +1016,13 @@ export default function NotebookScreen() {
               { borderRadius: radii.lg, opacity: pressed ? 0.92 : 1 },
             ]}
           >
+            <LinearGradient
+              colors={['#22B07D', '#2FC98F']}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={StyleSheet.absoluteFill}
+              pointerEvents="none"
+            />
             <View style={styles.scanBlob} pointerEvents="none" />
             <View style={styles.scanIconTile}>
               <Ionicons name="scan-outline" size={24} color={palette.white} />
