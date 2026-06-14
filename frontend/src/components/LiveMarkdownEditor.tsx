@@ -2067,10 +2067,12 @@ export default function LiveMarkdownEditor({
           // goes non-interactive while dozing, and wakes (opacity-100) the
           // instant the user moves the pointer or presses a key. `chromeDozing`
           // is only ever true when expanded, so the docked toolbar is unaffected.
-          className={`flex items-center gap-1.5 px-3 py-1.5 transition-opacity duration-500 ${
-            chromeDozing
-              ? "opacity-0 pointer-events-none"
-              : "opacity-100"
+          className={`${
+            expanded
+              ? "self-center mt-2 mb-1 inline-flex rounded-full border border-border bg-surface-overlay/85 shadow-md backdrop-blur px-2.5"
+              : "flex px-3"
+          } items-center gap-1.5 py-1.5 transition-opacity duration-500 ${
+            chromeDozing ? "opacity-0 pointer-events-none" : "opacity-100"
           }`}
         >
           {/* Two-way mode toggle: Edit | Preview. The inline CodeMirror 6
@@ -2287,7 +2289,7 @@ export default function LiveMarkdownEditor({
               never crowds the trailing controls. The styling mirrors BeakerBot's
               composer slash affordance (a `/` token + muted copy) so users
               learn one "/" mental model. */}
-          {enableReferencePicker && !disabled && currentMode !== "preview" && (
+          {enableReferencePicker && !disabled && currentMode !== "preview" && !expanded && (
             <span
               data-testid="editor-slash-hint"
               className="hidden md:inline-flex items-center gap-1 pl-1 text-meta text-foreground-muted/70 select-none"
