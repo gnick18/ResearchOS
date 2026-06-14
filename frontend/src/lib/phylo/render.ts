@@ -56,6 +56,7 @@ import {
 import type {
   AlignedPanel,
   CladeAnnotation,
+  NodePie,
   PhyloLayout,
   TaxaLink,
   TaxaStrip,
@@ -936,6 +937,11 @@ function drawRectTree(
     const ln = byId.get(id);
     if (ln) parts.push(collapsedTriangleRect(ln.x, ln.y, info));
   }
+  // Node pies / stars (ggtree nodepie): a glyph at the MRCA of the named tips.
+  for (const pie of resolveNodePies(root, panels)) {
+    const np = byId.get(pie.nodeId);
+    if (np) parts.push(nodePieSvg(np.x, np.y, pie));
+  }
   // Tip-to-tip links (ggtree geom_taxalink): a curve between two named tips,
   // bowing to the right of the tree so it does not cross the spine.
   const links = resolveTaxaLinks(panels);
@@ -1171,6 +1177,14 @@ function drawCircularTree(
       parts.push(
         shapeMarker(p.x, p.y, radiusFor(tip.id), shapeFor(tip.id), fill),
       );
+    }
+  }
+  // Node pies / stars (ggtree nodepie): a glyph at the MRCA of the named tips.
+  {
+    const byId = new Map(layout.nodes.map((p) => [p.node.id, p]));
+    for (const pie of resolveNodePies(root, panels)) {
+      const np = byId.get(pie.nodeId);
+      if (np) parts.push(nodePieSvg(np.x, np.y, pie));
     }
   }
   // Tip-to-tip links (ggtree geom_taxalink): a curve between two named tips,
@@ -1602,6 +1616,76 @@ function resolveTaxaStrips(panels: AlignedPanel[]): TaxaStrip[] {
     .filter((p) => p.visible && p.kind === "taxastrip")
     .flatMap((p) => (p.options?.strips as TaxaStrip[] | undefined) ?? [])
     .filter((s) => s && s.from && s.to);
+}
+
+/** Each node pie / star resolved to its MRCA node id (ggtree nodepie). Stored by
+ *  tip NAME so the target survives a re-layout without internal node labels. */
+interface ResolvedNodePie {
+  nodeId: number;
+  slices: { label: string; value: number; color: string }[];
+  style: "pie" | "star";
+}
+function resolveNodePies(
+  root: TreeNode,
+  panels: AlignedPanel[],
+): ResolvedNodePie[] {
+  const pies = panels
+    .filter((p) => p.visible && p.kind === "nodepie")
+    .flatMap((p) => (p.options?.pies as NodePie[] | undefined) ?? []);
+  const out: ResolvedNodePie[] = [];
+  for (const pie of pies) {
+    if (!pie.tips || pie.tips.length === 0) continue;
+    const nodeId = mrca(root, pie.tips);
+    if (nodeId == null) continue;
+    const slices = (pie.slices ?? []).filter((s) => Number(s.value) > 0);
+    if (slices.length === 0) continue;
+    out.push({ nodeId, slices, style: pie.style === "star" ? "star" : "pie" });
+  }
+  return out;
+}
+
+/** Draw a pie chart (or a star glyph in the dominant color) centered at (cx, cy).
+ *  Shared by both layouts so a node pie reads the same in the rings + columns. */
+function nodePieSvg(cx: number, cy: number, pie: ResolvedNodePie): string {
+  const r = 9;
+  if (pie.style === "star") {
+    const top = pie.slices.reduce((a, b) => (b.value > a.value ? b : a));
+    const pts: string[] = [];
+    for (let k = 0; k < 10; k++) {
+      const rad = k % 2 === 0 ? r : r * 0.42;
+      const a = (Math.PI / 5) * k - Math.PI / 2;
+      pts.push(
+        `${(cx + rad * Math.cos(a)).toFixed(1)},${(cy + rad * Math.sin(a)).toFixed(1)}`,
+      );
+    }
+    return `<polygon points="${pts.join(" ")}" fill="${top.color}" stroke="#ffffff" stroke-width="0.75"/>`;
+  }
+  const total = pie.slices.reduce((s, x) => s + x.value, 0) || 1;
+  let acc = -Math.PI / 2; // start at 12 o'clock
+  const parts: string[] = [
+    `<circle cx="${cx.toFixed(1)}" cy="${cy.toFixed(1)}" r="${(r + 0.6).toFixed(1)}" fill="#ffffff"/>`,
+  ];
+  for (const s of pie.slices) {
+    const a0 = acc;
+    const a1 = acc + (s.value / total) * Math.PI * 2;
+    acc = a1;
+    const large = a1 - a0 > Math.PI ? 1 : 0;
+    const x0 = cx + r * Math.cos(a0);
+    const y0 = cy + r * Math.sin(a0);
+    const x1 = cx + r * Math.cos(a1);
+    const y1 = cy + r * Math.sin(a1);
+    // A full single slice is a circle (an arc back to the same point is a no-op).
+    if (pie.slices.length === 1) {
+      parts.push(
+        `<circle cx="${cx.toFixed(1)}" cy="${cy.toFixed(1)}" r="${r}" fill="${s.color}"/>`,
+      );
+      break;
+    }
+    parts.push(
+      `<path d="M${cx.toFixed(1)} ${cy.toFixed(1)} L${x0.toFixed(1)} ${y0.toFixed(1)} A ${r} ${r} 0 ${large} 1 ${x1.toFixed(1)} ${y1.toFixed(1)} Z" fill="${s.color}"/>`,
+    );
+  }
+  return parts.join("");
 }
 
 /** An annulus-sector band over an angular + radial span, for a circular clade

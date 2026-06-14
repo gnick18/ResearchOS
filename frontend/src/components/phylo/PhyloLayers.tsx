@@ -24,6 +24,7 @@ import type {
   AlignedPanel,
   AlignedPanelKind,
   CladeAnnotation,
+  NodePie,
   TaxaLink,
   TaxaStrip,
 } from "@/lib/phylo/types";
@@ -66,6 +67,7 @@ export const PANEL_CATALOG: CatalogGroup[] = [
       { kind: "taxastrip", name: "Span strip", desc: "bar + label across a tip range" },
       { kind: "taxalink", name: "Tip links", desc: "curve between two tips" },
       { kind: "noderange", name: "Node age bars", desc: "HPD bars from a timed tree" },
+      { kind: "nodepie", name: "Node pies", desc: "pie / star at a clade's MRCA" },
       { kind: "support", name: "Support values", desc: "bootstrap labels" },
       { kind: "nodepoints", name: "Node points", desc: "glyph at each internal node" },
     ],
@@ -705,6 +707,13 @@ function Inspector({
           onUpdate={onUpdate}
         />
       )}
+      {panel.kind === "nodepie" && (
+        <NodePieInspector
+          panel={panel}
+          tipNames={tipNames}
+          onUpdate={onUpdate}
+        />
+      )}
       {panel.kind === "noderange" && (
         <>
           {annotationKeys.length === 0 ? (
@@ -1078,6 +1087,171 @@ function TaxaStripInspector({
         className="inline-flex items-center gap-1 rounded-lg border border-border px-2.5 py-1 text-sm font-semibold text-foreground hover:border-accent"
       >
         <Icon name="plus" className="h-3.5 w-3.5" /> Add strip
+      </button>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// The node-pie inspector (ggtree nodepie). Each pie targets the MRCA of its named
+// tips (same idiom as a clade) and carries category slices (label + value +
+// color). A "pie" draws proportions; a "star" draws one glyph in the dominant
+// color. Values need not sum to 1, the renderer normalizes.
+// ---------------------------------------------------------------------------
+
+function NodePieInspector({
+  panel,
+  tipNames,
+  onUpdate,
+}: {
+  panel: AlignedPanel;
+  tipNames: string[];
+  onUpdate: (patch: Partial<AlignedPanel>) => void;
+}) {
+  const pies = (panel.options?.pies as NodePie[] | undefined) ?? [];
+  const setPies = (next: NodePie[]) =>
+    onUpdate({ options: { ...panel.options, pies: next } });
+  const addPie = () =>
+    setPies([
+      ...pies,
+      {
+        id: `pie-${pies.length}-${tipNames.length}`,
+        tips: [],
+        style: "pie",
+        slices: [
+          { label: "A", value: 1, color: CLADE_PALETTE[0] },
+          { label: "B", value: 1, color: CLADE_PALETTE[1] },
+        ],
+      },
+    ]);
+  const patchPie = (id: string, patch: Partial<NodePie>) =>
+    setPies(pies.map((p) => (p.id === id ? { ...p, ...patch } : p)));
+  const removePie = (id: string) => setPies(pies.filter((p) => p.id !== id));
+  const patchSlice = (
+    pie: NodePie,
+    idx: number,
+    patch: Partial<NodePie["slices"][number]>,
+  ) =>
+    patchPie(pie.id, {
+      slices: pie.slices.map((s, i) => (i === idx ? { ...s, ...patch } : s)),
+    });
+
+  return (
+    <div className="space-y-2">
+      <p className="text-xs text-foreground-muted">
+        Draw a pie (or star) at the MRCA of the chosen tips, sized by category
+        proportions (e.g. ancestral-state probabilities). Works in both layouts.
+      </p>
+      {pies.map((pie) => (
+        <div
+          key={pie.id}
+          className="rounded-lg border border-border p-2 space-y-1.5 bg-surface-raised"
+        >
+          <div className="flex items-center justify-between gap-2 text-sm">
+            <div className="inline-flex gap-0.5 p-0.5 border border-border rounded-lg bg-surface">
+              {(
+                [
+                  ["pie", "Pie"],
+                  ["star", "Star"],
+                ] as const
+              ).map(([val, lab]) => (
+                <button
+                  key={val}
+                  type="button"
+                  onClick={() => patchPie(pie.id, { style: val })}
+                  className={`px-2.5 py-1 rounded-md text-xs font-bold transition-colors ${
+                    (pie.style ?? "pie") === val
+                      ? "bg-accent-soft text-accent"
+                      : "text-foreground-muted hover:text-foreground"
+                  }`}
+                >
+                  {lab}
+                </button>
+              ))}
+            </div>
+            <button
+              type="button"
+              onClick={() => removePie(pie.id)}
+              aria-label="Remove pie"
+              className="shrink-0 rounded p-1 text-foreground-muted hover:text-red-500"
+            >
+              <Icon name="trash" className="h-3.5 w-3.5" />
+            </button>
+          </div>
+          {pie.slices.map((s, i) => (
+            <div key={i} className="flex items-center gap-1.5">
+              <input
+                type="color"
+                value={s.color}
+                onChange={(e) => patchSlice(pie, i, { color: e.target.value })}
+                aria-label="Slice color"
+                className="h-6 w-6 shrink-0 cursor-pointer rounded border border-border bg-transparent p-0"
+              />
+              <input
+                type="text"
+                value={s.label}
+                placeholder="Label"
+                onChange={(e) => patchSlice(pie, i, { label: e.target.value })}
+                className="min-w-0 flex-1 rounded-md border border-border bg-surface px-2 py-1 text-sm text-foreground"
+              />
+              <input
+                type="number"
+                value={s.value}
+                min={0}
+                step="any"
+                onChange={(e) =>
+                  patchSlice(pie, i, { value: Number(e.target.value) || 0 })
+                }
+                aria-label="Slice value"
+                className="w-16 rounded-md border border-border bg-surface px-2 py-1 text-sm text-foreground tabular-nums"
+              />
+              <button
+                type="button"
+                onClick={() =>
+                  patchPie(pie.id, {
+                    slices: pie.slices.filter((_, j) => j !== i),
+                  })
+                }
+                aria-label="Remove slice"
+                className="shrink-0 rounded p-1 text-foreground-muted hover:text-red-500"
+              >
+                <Icon name="x" className="h-3.5 w-3.5" />
+              </button>
+            </div>
+          ))}
+          <button
+            type="button"
+            onClick={() =>
+              patchPie(pie.id, {
+                slices: [
+                  ...pie.slices,
+                  {
+                    label: "",
+                    value: 1,
+                    color:
+                      CLADE_PALETTE[pie.slices.length % CLADE_PALETTE.length],
+                  },
+                ],
+              })
+            }
+            className="inline-flex items-center gap-1 text-xs font-semibold text-accent"
+          >
+            <Icon name="plus" className="h-3 w-3" /> Add slice
+          </button>
+          <MultiColumnField
+            columns={tipNames}
+            selected={pie.tips}
+            label="Members (MRCA target)"
+            onChange={(tips) => patchPie(pie.id, { tips })}
+          />
+        </div>
+      ))}
+      <button
+        type="button"
+        onClick={addPie}
+        className="inline-flex items-center gap-1 rounded-lg border border-border px-2.5 py-1 text-sm font-semibold text-foreground hover:border-accent"
+      >
+        <Icon name="plus" className="h-3.5 w-3.5" /> Add pie
       </button>
     </div>
   );

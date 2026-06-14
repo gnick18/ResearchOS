@@ -19,6 +19,7 @@ import type { RenderSpec } from "./render";
 import type {
   AlignedPanel,
   CladeAnnotation,
+  NodePie,
   TaxaLink,
   TaxaStrip,
 } from "./types";
@@ -316,6 +317,37 @@ function generateFromPanels(spec: RenderSpec, panels: AlignedPanel[]): string {
             `p <- p + geom_strip(${rstr(s.from)}, ${rstr(s.to)}, label = ${rstr(s.label || "")}, color = ${rstr(s.color || "#1D9E75")}, barsize = 2, offset = 0.5)`,
           );
         }
+        break;
+      }
+      case "nodepie": {
+        const pies = (panel.options?.pies as NodePie[] | undefined) ?? [];
+        const usable = pies.filter(
+          (pie) => pie.tips?.length && pie.slices?.length,
+        );
+        if (usable.length === 0) break;
+        // nodepie needs a per-node data frame + geom_inset, not a one-liner.
+        // Emit the data frame + the inset call so the figure is reproducible.
+        const cats = usable[0].slices.map((s) => s.label);
+        lines.push("# Node pies (ggtree nodepie + geom_inset).");
+        lines.push("pie_data <- data.frame(");
+        const nodeExprs = usable.map(
+          (pie) =>
+            `MRCA(tree, c(${pie.tips.map((t) => rstr(t)).join(", ")}))`,
+        );
+        lines.push(`  node = c(${nodeExprs.join(", ")}),`);
+        for (const cat of cats) {
+          const vals = usable.map((pie) => {
+            const s = pie.slices.find((x) => x.label === cat);
+            return s ? s.value : 0;
+          });
+          lines.push(`  ${rNameKey(cat)} = c(${vals.join(", ")}),`);
+        }
+        lines.push(")");
+        const colors = usable[0].slices.map((s) => rstr(s.color)).join(", ");
+        lines.push(
+          `pies <- nodepie(pie_data, cols = 2:${cats.length + 1}, color = c(${colors}))`,
+        );
+        lines.push("p <- p + geom_inset(pies, width = 0.05, height = 0.05)");
         break;
       }
       case "noderange": {

@@ -155,6 +155,25 @@ export interface TaxaStrip {
   label: string;
 }
 
+/**
+ * One node pie / star, stored in the nodepie layer's `options.pies` (ggtree
+ * nodepie + geom_inset / geom_star). The target node is the MRCA of the named
+ * tips (the same name-the-members idiom as a clade), so it survives a re-layout
+ * without internal node labels. `slices` are category proportions (e.g.
+ * ancestral-state probabilities); a "pie" draws them as a pie chart at the node,
+ * a "star" draws a single star glyph in the dominant slice's color.
+ */
+export interface NodePie {
+  /** Stable id within the figure (React key + edit target). */
+  id: string;
+  /** Members by tip NAME; the MRCA of these is the target node. */
+  tips: string[];
+  /** Category slices (label + value + color); values need not sum to 1. */
+  slices: { label: string; value: number; color: string }[];
+  /** Glyph style at the node (default "pie"). */
+  style?: "pie" | "star";
+}
+
 /** The geom catalog a layer can be, grows over phases. */
 export type AlignedPanelKind =
   | "labels"
@@ -171,6 +190,7 @@ export type AlignedPanelKind =
   | "taxalink"
   | "taxastrip"
   | "noderange"
+  | "nodepie"
   | "support"
   | "nodepoints"
   | "msa"
