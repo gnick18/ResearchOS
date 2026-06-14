@@ -7,6 +7,7 @@
 
 import { registerDataHubFigureSource } from "@/lib/datahub/figure-source";
 import { registerPhyloFigureSource } from "@/lib/phylo/figure-source";
+import { registerChemistryFigureSource } from "@/lib/chemistry/figure-source";
 
 let registered = false;
 
@@ -15,5 +16,7 @@ export function registerFigureSources(): void {
   registered = true;
   registerDataHubFigureSource();
   registerPhyloFigureSource();
-  // Sequence / chemistry adapters register here as they ship.
+  registerChemistryFigureSource();
+  // Sequence adapter is pending a pure render-at-size function (SeqViz is React-
+  // only; the export path needs a live DOM). Registers here once that lands.
 }
