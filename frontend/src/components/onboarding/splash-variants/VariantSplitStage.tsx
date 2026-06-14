@@ -268,8 +268,7 @@ export function VariantSplitStage({
         className="absolute inset-0 pointer-events-none"
         style={{
           background: `linear-gradient(115deg, ${RAINBOW_CSS})`,
-          opacity: leaving ? 0.28 : 0,
-          mixBlendMode: "soft-light",
+          opacity: leaving ? 0.55 : 0,
           transition: "opacity .6s ease",
           zIndex: 10000,
         }}
