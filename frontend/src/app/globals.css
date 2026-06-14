@@ -448,17 +448,19 @@
  * re-asserting the dark tokens for the popup subtree (it is otherwise
  * .light-scope = white paper + dark text, which would vanish on the dark room). */
 [data-theme="dark"] .ros-calm-surface {
+  /* Exact dark tokens from the approved Writing-Room mockup. */
   color-scheme: dark;
-  --editor-room-top: #121a2d;
-  --editor-room-bot: #0c1322;
-  --background: #0c1322;
-  --foreground: #f1f5f9;
-  --surface: #0c1322;
-  --surface-raised: #1c2638;
-  --surface-overlay: #28344c;
+  --editor-room-top: #10182a;
+  --editor-room-bot: #0a1120;
+  --background: #0a1120;
+  --foreground: #eaf2fb;
+  --surface: #0a0e1a;
+  --surface-raised: #16233c;
+  --surface-overlay: #142036;
   --surface-sunken: #0d1424;
-  --foreground-muted: #b4bfd0;
-  --border-subtle: rgba(255, 255, 255, 0.16);
+  --foreground-muted: #9fb0c8;
+  --border-subtle: rgba(255, 255, 255, 0.12);
+  --accent: #39a7e6;
 }
 
 /* Focus dimming (UNIFIED_EDITOR_SURFACE_DESIGN.md §3A, U5 toggle, default off).
@@ -491,21 +493,24 @@
  * light-scoped surface stay exactly as they were. Reversible by deleting this
  * block (the warm-paper tokens in the .light-scope override above resume). */
 [data-theme="dark"] .ros-editor-room {
-  --editor-room-top: #121a2d;
-  --editor-room-bot: #0c1322;
-  --editor-room-edge: rgba(255, 255, 255, 0.08);
+  /* Exact dark-room tokens from the approved Writing-Room mockup
+   * (docs/mockups/2026-06-13-focus-mode-redesign.html): room-top/bot, paper text
+   * (#e7eefb), muted (#9fb0c8), accent (#39a7e6). */
+  --editor-room-top: #10182a;
+  --editor-room-bot: #0a1120;
+  --editor-room-edge: rgba(255, 255, 255, 0.12);
   /* `.ros-editor-room` is a CLOSER ancestor of `.cm-content` than the popup's
-   * `.light-scope`, so re-asserting the dark-native CM palette here wins for the
-   * edit surface and its syntax highlighting. Values mirror the dark `:root`. */
-  --cm-text: #e5e7eb;
-  --cm-caret: #f1f5f9;
-  --cm-selection: rgba(96, 165, 250, 0.28);
+   * `.light-scope`, so re-asserting the dark CM palette here wins for the edit
+   * surface and its syntax highlighting. Mirrors the mockup paper-fg / muted. */
+  --cm-text: #e7eefb;
+  --cm-caret: #eaf2fb;
+  --cm-selection: rgba(57, 167, 230, 0.28);
   --cm-active-line: rgba(255, 255, 255, 0.04);
-  --cm-link: #60a5fa;
+  --cm-link: #39a7e6;
   --cm-mono: #c084fc;
-  --cm-quote: #94a3b8;
+  --cm-quote: #9fb0c8;
   --cm-list: #cbd5e1;
-  --cm-meta: #94a3b8;
+  --cm-meta: #9fb0c8;
 }
 /* The Preview (read) card carries its OWN `light-scope`, which would force its
  * prose dark on the dark room. These higher-specificity rules (3 classes beats
@@ -513,24 +518,24 @@
  * headings, links, blockquote, and inline code. The card background is already
  * transparent inside the room, so the dark room shows straight through. */
 [data-theme="dark"] .ros-editor-room .ros-editor-preview-card.prose {
-  color: #e5e7eb;
+  color: #e7eefb;
 }
 [data-theme="dark"] .ros-editor-room .ros-editor-preview-card.prose h1,
 [data-theme="dark"] .ros-editor-room .ros-editor-preview-card.prose h2,
 [data-theme="dark"] .ros-editor-room .ros-editor-preview-card.prose h3,
 [data-theme="dark"] .ros-editor-room .ros-editor-preview-card.prose h4,
 [data-theme="dark"] .ros-editor-room .ros-editor-preview-card.prose strong {
-  color: #f1f5f9;
+  color: #eaf2fb;
 }
 [data-theme="dark"] .ros-editor-room .ros-editor-preview-card.prose h1 {
   border-bottom-color: rgba(255, 255, 255, 0.12);
 }
 [data-theme="dark"] .ros-editor-room .ros-editor-preview-card.prose a {
-  color: #60a5fa;
+  color: #39a7e6;
 }
 [data-theme="dark"] .ros-editor-room .ros-editor-preview-card.prose blockquote {
   border-left-color: rgba(255, 255, 255, 0.18);
-  color: #b4bfd0;
+  color: #9fb0c8;
   background-color: rgba(255, 255, 255, 0.04);
 }
 [data-theme="dark"] .ros-editor-room .ros-editor-preview-card.prose code {
