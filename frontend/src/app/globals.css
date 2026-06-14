@@ -1282,3 +1282,45 @@ body.recording-mode * {
     animation: none;
   }
 }
+
+/* BeakerBot AI shortcut shimmer (2026-06-14). The "Cmd J" hint on the ask bar
+   gets a slow brand-rainbow sheen swept across its text, so it reads as the
+   special "this opens the AI" chip without shouting. The base color on BOTH ends
+   is brand-action, so the gradient loops seamlessly (no visible jump). The text
+   is clipped to the gradient, so only the glyphs shimmer, not the chip. */
+@keyframes beakerbot-ai-shimmer {
+  from {
+    background-position: 160% center;
+  }
+  to {
+    background-position: -160% center;
+  }
+}
+.beakerbot-ai-shimmer {
+  background-image: linear-gradient(
+    100deg,
+    var(--accent) 0%,
+    var(--accent) 36%,
+    #fbbf24 44%,
+    #4ade80 48%,
+    #38bdf8 52%,
+    #c084fc 56%,
+    var(--accent) 64%,
+    var(--accent) 100%
+  );
+  background-size: 250% auto;
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  color: transparent;
+  animation: beakerbot-ai-shimmer 3.6s linear infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .beakerbot-ai-shimmer {
+    /* Settle on a calm brand-action fill when motion is reduced. */
+    animation: none;
+    background-image: none;
+    -webkit-text-fill-color: var(--accent);
+    color: var(--accent);
+  }
+}
