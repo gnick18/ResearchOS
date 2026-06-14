@@ -750,7 +750,10 @@
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  /* Real Geist (loaded via next/font in layout.tsx, exposed as --font-sans).
+   * Replaces leftover create-next-app Arial boilerplate that was overriding it,
+   * so everything inheriting from body now matches the font-sans components. */
+  font-family: var(--font-sans), system-ui, -apple-system, sans-serif;
 }
 
 /* ── Markdown Prose Overrides ──────────────────────────────────────────────── */
