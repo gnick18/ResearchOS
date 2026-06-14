@@ -56,7 +56,7 @@ import { useAccountCapabilities } from "@/hooks/useAccountCapabilities";
  * The AI discovery upsell lives inside the palette as an escalation row, not
  * here, so the bar never becomes a dead end. */
 export default function BeakerSearchBottomBar() {
-  const { openPalette } = useBeakerSearch();
+  const { openPalette, openBeakerBot } = useBeakerSearch();
 
   // BeakerBot AI is ACCOUNT-ONLY (Grant's lock). The bar stays functional for
   // FREE local search in all states; only the label changes to reflect what the
@@ -112,7 +112,20 @@ export default function BeakerSearchBottomBar() {
             beside the Cmd K search hint so the shortcut is discoverable. */}
         {canUseAI && (
           <Tooltip label="Ask BeakerBot AI (⌘J)" placement="top">
-            <kbd className="beakerbot-ai-shimmer flex-none rounded-md border border-border bg-surface-sunken px-1.5 py-0.5 text-[11px] font-semibold">
+            {/* Clicking the Cmd J chip opens BeakerBot straight in Ask mode.
+                stopPropagation so it does not also trigger the bar's openPalette
+                (which would open Search instead). A kbd (not a button) keeps the
+                markup valid inside the bar's button; the ⌘J shortcut covers
+                keyboard users. */}
+            <kbd
+              role="button"
+              aria-label="Ask BeakerBot AI"
+              onClick={(e) => {
+                e.stopPropagation();
+                openBeakerBot();
+              }}
+              className="beakerbot-ai-shimmer flex-none cursor-pointer rounded-md border border-border bg-surface-sunken px-1.5 py-0.5 text-[11px] font-semibold"
+            >
               Cmd J
             </kbd>
           </Tooltip>
