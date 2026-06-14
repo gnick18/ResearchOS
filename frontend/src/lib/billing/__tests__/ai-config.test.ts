@@ -14,8 +14,8 @@ import {
 } from "../ai-config";
 
 describe("ai-config token math", () => {
-  it("bare cost is the locked Fireworks output rate, $0.60 per 1M", () => {
-    expect(AI_BARE_COST_USD_PER_TOKEN).toBeCloseTo(0.6 / 1_000_000, 12);
+  it("bare cost is the locked measured-plus-margin basis, $0.20 per 1M", () => {
+    expect(AI_BARE_COST_USD_PER_TOKEN).toBeCloseTo(0.2 / 1_000_000, 12);
   });
 
   it("the confirmed markups are 1.4x individual and 2.0x org", () => {
@@ -23,16 +23,16 @@ describe("ai-config token math", () => {
     expect(AI_ORG_MARKUP).toBe(2.0);
   });
 
-  it("the individual rate is bare cost times 1.4 (~$0.84 per 1M)", () => {
-    expect(AI_TOKEN_PRICE_USD).toBeCloseTo(0.84 / 1_000_000, 12);
+  it("the individual rate is bare cost times 1.4 (~$0.28 per 1M)", () => {
+    expect(AI_TOKEN_PRICE_USD).toBeCloseTo(0.28 / 1_000_000, 12);
   });
 
-  it("the org rate is bare cost times 2.0 (~$1.20 per 1M)", () => {
-    expect(AI_ORG_TOKEN_PRICE_USD).toBeCloseTo(1.2 / 1_000_000, 12);
+  it("the org rate is bare cost times 2.0 (~$0.40 per 1M)", () => {
+    expect(AI_ORG_TOKEN_PRICE_USD).toBeCloseTo(0.4 / 1_000_000, 12);
   });
 
-  it("the starter grant is ~25 cents of value at the individual rate (297,619 tokens)", () => {
-    expect(STARTER_GRANT_TOKENS).toBe(297_619);
+  it("the starter grant is ~25 cents of value at the individual rate (892,857 tokens)", () => {
+    expect(STARTER_GRANT_TOKENS).toBe(892_857);
   });
 
   it("the starter grant is worth about 25 cents (250,000 micro-dollars)", () => {
@@ -46,8 +46,8 @@ describe("ai-config token math", () => {
   });
 
   it("usdMicrosForTokens scales linearly with the rate", () => {
-    // 1,500,000 tokens at the $0.84 per 1M individual rate is $1.26 (1,260,000 micro).
-    expect(usdMicrosForTokens(1_500_000)).toBe(1_260_000);
+    // 1,500,000 tokens at the $0.28 per 1M individual rate is $0.42 (420,000 micro).
+    expect(usdMicrosForTokens(1_500_000)).toBe(420_000);
   });
 
   it("packs convert dollars to tokens at the current rate", () => {
@@ -59,7 +59,7 @@ describe("ai-config token math", () => {
     expect(PACK_TOKENS[50]).toBeGreaterThan(PACK_TOKENS[25]);
   });
 
-  it("a $10 pack is 11,904,762 tokens at the $0.84 per 1M individual rate", () => {
-    expect(PACK_TOKENS[10]).toBe(11_904_762);
+  it("a $10 pack is 35,714,286 tokens at the $0.28 per 1M individual rate", () => {
+    expect(PACK_TOKENS[10]).toBe(35_714_286);
   });
 });

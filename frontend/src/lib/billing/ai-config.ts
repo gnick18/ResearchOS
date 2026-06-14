@@ -11,17 +11,18 @@
 // House style: no em-dashes, no emojis, no mid-sentence colons.
 
 /**
- * The bare inference cost basis, LOCKED for beta go-live (2026-06-14). Set to the
- * Fireworks gpt-oss-120b standard-tier OUTPUT rate, $0.60 per 1M tokens (input is
- * cheaper at $0.15/1M; verified live at docs.fireworks.ai/serverless/pricing). We
- * debit total tokens at one rate, so using the output rate as the cost basis is the
- * safe never-undercharge choice across any input:output mix (worst case, an
- * all-output turn, is still covered). Real blended cost is lower because BeakerBot
- * is input-heavy, so this can be refined DOWN after instrumenting real tasks.
- * Every billing rate derives from this, so changing this one constant retunes the
- * whole token economy and nothing else.
+ * The bare inference cost basis, LOCKED for beta go-live (2026-06-14) from a real
+ * spend test (23 tasks / 43 turns / 2.17M tokens on demo data). The MEASURED
+ * blended cost was $0.153/1M, and it is remarkably stable because BeakerBot is
+ * 99.4% input: the ~50k system+tools prefix is resent every agent-loop turn, so
+ * output (0.6%) is noise. We set the basis to $0.20/1M, the measured cost plus a
+ * ~30% margin, since the only thing that moves the blend is the output share
+ * creeping up (undercharging is the liability). Fireworks gpt-oss-120b standard
+ * tier is $0.15/1M input, $0.60/1M output (docs.fireworks.ai/serverless/pricing).
+ * Biggest future lever: prompt-cache the fixed prefix ($0.015/1M cached) to cut
+ * real cost ~5x. Every billing rate derives from this one constant.
  */
-export const AI_BARE_COST_USD_PER_TOKEN = 0.6 / 1_000_000;
+export const AI_BARE_COST_USD_PER_TOKEN = 0.2 / 1_000_000;
 
 /**
  * The confirmed AI markups over bare cost (Grant 2026-06-11, see
@@ -56,12 +57,13 @@ export const USD_MICROS_PER_USD = 1_000_000;
 /**
  * The one-time sign-up gift, in tokens. Granted once per owner on FIRST use
  * (LOCKED decision), keyed to the owner so it can never be re-minted. Sized at 25
- * cents of value at the individual billing rate (~298k tokens); because the basis
- * is the conservative output-rate cost, our actual worst-case exposure on an
- * all-output trial is under 18 cents, so the free liability is firmly capped. That
- * is dozens of real tasks, enough to genuinely try BeakerBot before deciding to
- * spend. A one-time trial, NOT a recurring monthly allowance (a recurring free pool
- * would be an unbounded liability, Grant 2026-06-11).
+ * cents of value at the individual billing rate (~893k tokens). Our real cost to
+ * mint it is only about 14 cents (the measured $0.153/1M blend, since BeakerBot is
+ * 99.4% input), so the free liability stays small. In real terms that is roughly a
+ * dozen tasks (around 10 typical multi-step tasks or ~18 quick questions), enough
+ * to genuinely try BeakerBot before deciding to spend. A one-time trial, NOT a
+ * recurring monthly allowance (a recurring free pool would be an unbounded
+ * liability, Grant 2026-06-11).
  */
 export const STARTER_GRANT_TOKENS = Math.round(0.25 / AI_TOKEN_PRICE_USD);
 
