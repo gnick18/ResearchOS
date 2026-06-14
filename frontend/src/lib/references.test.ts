@@ -39,8 +39,10 @@ describe("objectDeepLink", () => {
   it("builds the dataset route (big-table lane, dataset query param)", () => {
     expect(objectDeepLink("dataset", "5")).toBe("/datahub?dataset=5");
   });
+  it("builds the method route via the openMethod query param (not a 404 segment)", () => {
+    expect(objectDeepLink("method", " abc")).toBe("/methods?openMethod=%20abc");
+  });
   it("builds the reserved segment routes", () => {
-    expect(objectDeepLink("method", " abc")).toBe("/methods/%20abc");
     expect(objectDeepLink("note", "n1")).toBe("/notes/n1");
     expect(objectDeepLink("file", "f1")).toBe("/files/f1");
     expect(objectDeepLink("project", "p1")).toBe("/projects/p1");
@@ -102,7 +104,7 @@ describe("method scope (public vs private)", () => {
     // the public store rather than the private one that resolves first.
     const refId = methodRefId(1, true);
     const md = objectReferenceMarkdown("method", refId, "Lab qPCR protocol");
-    expect(md).toBe("[Lab qPCR protocol](/methods/public%3A1)");
+    expect(md).toBe("[Lab qPCR protocol](/methods?openMethod=public%3A1)");
 
     const parsed = parseObjectDeepLink(md.slice(md.indexOf("(") + 1, -1));
     expect(parsed).toEqual({ type: "method", id: "public:1" });
@@ -116,9 +118,9 @@ describe("method scope (public vs private)", () => {
   it("a private method reference resolves with no owner (private-first)", () => {
     const refId = methodRefId(1, false);
     const md = objectReferenceMarkdown("method", refId, "My draft method");
-    expect(md).toBe("[My draft method](/methods/1)");
+    expect(md).toBe("[My draft method](/methods?openMethod=1)");
 
-    const parsed = parseObjectDeepLink("/methods/1");
+    const parsed = parseObjectDeepLink("/methods?openMethod=1");
     expect(parsed).toEqual({ type: "method", id: "1" });
     expect(splitMethodRefId(parsed!.id)).toEqual({ id: 1 });
   });

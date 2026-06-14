@@ -124,7 +124,9 @@ export async function scanBacklinks(
             type: "method",
             id: String(method.id),
             title: method.name || `Method ${method.id}`,
-            href: `/methods/${method.id}`,
+            // Use the canonical builder, not a hardcoded /methods/<id> (a 404 dead
+            // route). objectDeepLink resolves to /methods?openMethod=<id>.
+            href: objectDeepLink("method", method.id),
           });
         }
       } catch {

@@ -248,7 +248,7 @@ describe("ObjectChip hover card", () => {
   });
 
   it("shows method type in the card", async () => {
-    render(<ObjectChip type="method" href="/methods/1" label="Western Blot" />);
+    render(<ObjectChip type="method" href="/methods?openMethod=1" label="Western Blot" />);
     await hoverAndFlush(screen.getByRole("button", { name: /Western Blot/ }));
     const card = screen.getByRole("status");
     expect(card).toHaveTextContent("Western Blot");
