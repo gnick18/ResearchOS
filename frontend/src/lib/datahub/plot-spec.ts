@@ -1574,16 +1574,40 @@ export function exportPngPixels(frame: FigureFrame): {
  * ready SVG string. Resolves groups, pulls bracket requests from the analysis,
  * lays out, and serializes. Pure (no DOM).
  */
+/**
+ * A tree's tip axis, handed in by the phylo Tree Studio so a category-axis figure
+ * (grouped bar, v1) lays its category axis out tip-for-tip instead of with its own
+ * even spacing. Additive and back-compat: absent, every figure is byte-identical
+ * to before this existed. `positions` is the tip center per id (px Y for "rows",
+ * angle for "angles"); `band` is the per-tip band thickness. v1 supports "rows"
+ * (rectangular) only. See docs/proposals/2026-06-13-phylo-phase4-datahub-linking.md.
+ */
+export interface AlignedAxis {
+  order: string[];
+  positions: number[];
+  band: number;
+  orientation: "rows" | "angles";
+  /** Horizontal value-axis length in px (the panel thickness). Defaults to 120. */
+  length?: number;
+}
+
+/** Optional render inputs that do not belong on the persisted PlotSpec. */
+export interface RenderPlotOpts {
+  alignedAxis?: AlignedAxis;
+}
+
 export function renderPlot(
   spec: PlotSpec,
   content: DataHubDocContent,
   analysis: AnalysisSpec | null,
+  opts?: RenderPlotOpts,
 ): {
   svg: string;
   geometry:
     | PlotGeometry
     | XYPlotGeometry
     | GroupedBarGeometry
+    | AlignedGroupedBarGeometry
     | SurvivalCurveGeometry
     | EstimationGeometry
     | DiagnosticGeometry
@@ -1613,6 +1637,15 @@ export function renderPlot(
     return { svg, geometry, style, frame };
   }
   if (style.kind === "groupedBar") {
+    // Tip-aligned path (phylo Tree Studio, Phase 4): lay the category axis out on
+    // the tree's tips and draw horizontal bars per tip, value axis running right.
+    // The drawer returns a self-contained fragment the panel renderer places; the
+    // on-screen size wrapper does not apply (the phylo figure owns the frame).
+    if (opts?.alignedAxis && opts.alignedAxis.orientation === "rows") {
+      const geometry = layoutAlignedGroupedBar(content, style, opts.alignedAxis);
+      const svg = renderAlignedGroupedBarSvg(geometry, style);
+      return { svg, geometry, style, frame };
+    }
     const geometry = layoutGroupedBar(content, style);
     const svg = onScreen(renderGroupedBarSvg(geometry, style));
     return { svg, geometry, style, frame };
@@ -2303,6 +2336,180 @@ export function renderGroupedBarSvg(
   }
 
   parts.push(`</svg>`);
+  return parts.join("");
+}
+
+// ---------------------------------------------------------------------------
+// Tip-aligned grouped bar (phylo Tree Studio seam, Phase 4)
+//
+// The SAME grouped-bar data (row-factor levels = tips, column groups = series),
+// drawn HORIZONTALLY against a tree's tip axis: category axis is the tip's vertical
+// position (handed in via AlignedAxis), value axis runs to the right. dodge =
+// thin bars stacked inside each tip band; stack / stack100 = segments along X.
+// Pure geometry, asserted in tests. The renderer returns a fragment (a <g>) in
+// tree-space Y + panel-local X (0..length), which the phylo panel renderer
+// translates to the column's start X. The numbers are read verbatim from the
+// metadata table (no statistic), descriptive and gate-exempt like parts-of-whole.
+// ---------------------------------------------------------------------------
+
+/** One horizontal bar (or stacked segment) in a tip-aligned grouped bar. */
+export interface AlignedGroupedBar {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  color: string;
+}
+
+/** One tip row of a tip-aligned grouped bar (bars share the tip's vertical band). */
+export interface AlignedGroupedRow {
+  id: string;
+  cy: number;
+  bars: AlignedGroupedBar[];
+}
+
+/** The full laid-out tip-aligned grouped bar panel. */
+export interface AlignedGroupedBarGeometry {
+  /** Value-axis length in px (the panel thickness drawn to the right of the tree). */
+  length: number;
+  yTop: number;
+  yBot: number;
+  valueMax: number;
+  ticks: { value: number; x: number }[];
+  rows: AlignedGroupedRow[];
+  legend: GroupedLegendItem[];
+}
+
+/**
+ * Lay out a grouped bar against a tree's tip axis. `axis.order` lists the tip ids
+ * in tip order and `axis.positions[i]` is that tip's vertical center; `axis.band`
+ * is the per-tip band thickness. dodge splits the band among the groups; stack /
+ * stack100 draw one band of cumulative segments (stack100 normalizes each tip to a
+ * full bar). A tip with no finite value keeps its (empty) band slot.
+ */
+export function layoutAlignedGroupedBar(
+  content: DataHubDocContent,
+  style: PlotStyle,
+  axis: AlignedAxis,
+): AlignedGroupedBarGeometry {
+  const length = axis.length && axis.length > 0 ? axis.length : 120;
+  const groups = groupDatasets(content);
+  const groupColors = seriesColors(style, groups.length);
+  const nGroups = Math.max(1, groups.length);
+  const mode: BarMode = style.barMode ?? "dodge";
+  const stacked = mode === "stack" || mode === "stack100";
+
+  const posMean = (level: string, datasetId: string): number => {
+    const m = cellMean(content, level, datasetId).mean;
+    return m !== null && m > 0 ? m : 0;
+  };
+  const clusterSum = (level: string): number =>
+    groups.reduce((acc, g) => acc + posMean(level, g.datasetId), 0);
+
+  // Value-axis max. dodge = max single mean; stack = max tip total; stack100 = 1.
+  let valueMax: number;
+  if (mode === "stack100") {
+    valueMax = 1;
+  } else {
+    let dataMax = 0;
+    for (const level of axis.order) {
+      if (mode === "stack") {
+        dataMax = Math.max(dataMax, clusterSum(level));
+      } else {
+        for (const g of groups) {
+          dataMax = Math.max(dataMax, posMean(level, g.datasetId));
+        }
+      }
+    }
+    valueMax = dataMax > 0 ? niceTicks(0, dataMax).hi : 1;
+  }
+  const X = (v: number) => (valueMax > 0 ? (v / valueMax) * length : 0);
+
+  // Bars fill 70% of the band; dodge splits that among the groups.
+  const usable = axis.band * 0.7;
+  const positions = axis.positions;
+  const rows: AlignedGroupedRow[] = axis.order.map((level, i) => {
+    const cy = positions[i] ?? 0;
+    const bandTop = cy - usable / 2;
+    if (stacked) {
+      const total = mode === "stack100" ? clusterSum(level) : 0;
+      let cum = 0;
+      const bars: AlignedGroupedBar[] = groups.map((g, gi) => {
+        const raw = posMean(level, g.datasetId);
+        const val = mode === "stack100" ? (total > 0 ? raw / total : 0) : raw;
+        const x = X(cum);
+        cum += val;
+        return {
+          x,
+          y: bandTop,
+          width: X(cum) - x,
+          height: usable * 0.92,
+          color: groupColors[gi] ?? "#000000",
+        };
+      });
+      return { id: level, cy, bars };
+    }
+    const subH = usable / nGroups;
+    const bars: AlignedGroupedBar[] = groups.map((g, gi) => ({
+      x: 0,
+      y: bandTop + subH * gi,
+      width: X(posMean(level, g.datasetId)),
+      height: subH * 0.86,
+      color: groupColors[gi] ?? "#000000",
+    }));
+    return { id: level, cy, bars };
+  });
+
+  const tickStep = niceTicks(0, valueMax).step;
+  const ticks: { value: number; x: number }[] = [];
+  for (let v = 0; v <= valueMax + tickStep * 1e-6; v += tickStep) {
+    const value = Math.round(v * 1e6) / 1e6;
+    ticks.push({ value, x: X(value) });
+  }
+
+  const ys = positions.length ? positions : [0];
+  const yTop = Math.min(...ys) - axis.band / 2;
+  const yBot = Math.max(...ys) + axis.band / 2;
+  const legend: GroupedLegendItem[] = groups.map((g, gi) => ({
+    name: g.name,
+    color: groupColors[gi] ?? "#000000",
+  }));
+
+  return { length, yTop, yBot, valueMax, ticks, rows, legend };
+}
+
+/**
+ * Serialize a tip-aligned grouped bar into an SVG FRAGMENT (a <g>, not a full
+ * document): bars in panel-local X (0..length) and tree-space Y, plus a value-axis
+ * ruler at the bottom. The phylo panel renderer wraps this in a translate to the
+ * column's start X; the legend is collected tree-side, so none is drawn here.
+ */
+export function renderAlignedGroupedBarSvg(
+  geo: AlignedGroupedBarGeometry,
+  style: PlotStyle,
+): string {
+  const tickFont = Math.max(8, style.fontSize - 2);
+  const parts: string[] = [`<g>`];
+  for (const row of geo.rows) {
+    for (const bar of row.bars) {
+      if (bar.width <= 0) continue;
+      parts.push(
+        `<rect x="${bar.x.toFixed(2)}" y="${bar.y.toFixed(2)}" width="${bar.width.toFixed(2)}" height="${bar.height.toFixed(2)}" fill="${bar.color}" opacity="0.85"/>`,
+      );
+    }
+  }
+  // Value-axis ruler under the panel: baseline + ticks with value labels.
+  const axisY = geo.yBot + 6;
+  parts.push(
+    `<line x1="0" y1="${axisY.toFixed(2)}" x2="${geo.length.toFixed(2)}" y2="${axisY.toFixed(2)}" stroke="${AXIS_COLOR}" stroke-width="1"/>`,
+  );
+  for (const t of geo.ticks) {
+    parts.push(
+      `<line x1="${t.x.toFixed(2)}" y1="${axisY.toFixed(2)}" x2="${t.x.toFixed(2)}" y2="${(axisY + 4).toFixed(2)}" stroke="${AXIS_COLOR}"/>` +
+        `<text x="${t.x.toFixed(2)}" y="${(axisY + 14).toFixed(2)}" font-size="${tickFont}" fill="${TICK_TEXT}" text-anchor="middle">${fmtTick(t.value)}</text>`,
+    );
+  }
+  parts.push(`</g>`);
   return parts.join("");
 }
 
