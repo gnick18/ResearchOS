@@ -31,7 +31,15 @@
 
 import { objectDeepLink, methodRefId, type ObjectRefType } from "@/lib/references";
 import { fuzzyResolve } from "@/lib/ai/fuzzy-match";
-import { notesApi, methodsApi, sequencesApi, projectsApi, purchasesApi, fetchAllTasks } from "@/lib/local-api";
+import {
+  notesApi,
+  methodsApi,
+  sequencesApi,
+  projectsApi,
+  purchasesApi,
+  fetchAllTasks,
+  fetchAllInventoryItemsIncludingShared,
+} from "@/lib/local-api";
 import { dataHubApi } from "@/lib/datahub/api";
 import { moleculesApi } from "@/lib/chemistry/api";
 import { phyloApi, type PhyloMeta } from "@/lib/phylo/api";
@@ -41,9 +49,11 @@ import type { SequenceRecord } from "@/lib/types";
 import type { Project } from "@/lib/types";
 import type { PurchaseItem } from "@/lib/types";
 import type { Task } from "@/lib/types";
+import type { InventoryItem } from "@/lib/types";
 import { taskKey } from "@/lib/types";
 import type { DataHubDocument } from "@/lib/datahub/model/types";
 import type { Molecule } from "@/lib/chemistry/api";
+import type { IndexedType } from "@/lib/index/indexed-types";
 
 // ---------------------------------------------------------------------------
 // ArtifactBrief: the small, model-safe envelope for any artifact in the index.
@@ -58,8 +68,10 @@ import type { Molecule } from "@/lib/chemistry/api";
  *   "datahub" | "project" | "purchase" | "molecule"
  */
 export type ArtifactBrief = {
-  /** Discriminant for routing to the right Layer-2 read tool. */
-  type: string;
+  /** Discriminant for routing to the right Layer-2 read tool. Derived from the
+   *  shared INDEXED_TYPES registry so it can never drift from the GUI palette's
+   *  covered kinds (the registry maps "experiment" <-> the GUI's "task"). */
+  type: IndexedType;
   /** The artifact's stable id (numeric ids are stored as strings for uniformity). */
   id: string;
   /** The primary human-readable label shown in the index. */
@@ -276,6 +288,64 @@ export function phyloToBrief(meta: PhyloMeta): ArtifactBrief {
   };
 }
 
+/** Map one InventoryItem to an ArtifactBrief. Pure, no I/O.
+ *
+ * Inventory is PAGELESS like purchases (no per-item route), so the deepLink is
+ * the /inventory page, mirroring purchaseToBrief's "/purchases" and the
+ * deepLink summarize_inventory / read_inventory already use. The shared-view
+ * loader (fetchAllInventoryItemsIncludingShared) decorates each item with the
+ * real owner the current user is allowed to see, so the brief carries it
+ * through for the "whose" summary filter. Keywords stay LEAN (name, category,
+ * vendor, catalog number, CAS) and deliberately EXCLUDE the free-text `notes`
+ * body, so the brief never carries a large body across to the model. */
+export function inventoryToBrief(item: InventoryItem): ArtifactBrief {
+  const keywords: string[] = tokenize(item.name);
+  if (item.category) keywords.push(item.category);
+  if (item.vendor) keywords.push(...tokenize(item.vendor));
+  if (item.catalog_number) keywords.push(item.catalog_number.toLowerCase());
+  if (item.cas) keywords.push(item.cas.toLowerCase());
+  return {
+    type: "inventory",
+    id: String(item.id),
+    title: item.name || "Untitled item",
+    subtitle: item.category ?? item.vendor ?? undefined,
+    // Inventory items carry last_edited_at once touched (same pattern as
+    // purchases). A never-edited item stays dateless so a date-bounded search
+    // drops it, the documented behavior.
+    date: item.last_edited_at,
+    owner: item.owner || undefined,
+    deepLink: "/inventory",
+    keywords: dedupe(keywords),
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Canonical adapter registry: one entry per IndexedType. This is the shared
+// per-type adapter layer the GUI palette also sources its common brief fields
+// from (via the BRIEF_ADAPTERS export below). The Record<IndexedType, ...>
+// typing is the anti-drift guard on the AI side: adding a kind to the registry
+// without an adapter here is a COMPILE error. The value functions are typed
+// `unknown -> ArtifactBrief` so a single map can hold adapters over different
+// record shapes; each is only ever called with the matching record by the
+// strongly-typed adapter exports above and by buildAllBriefs below.
+// ---------------------------------------------------------------------------
+
+/** Every indexed kind's canonical record-to-brief adapter, keyed by IndexedType.
+ *  The map MUST stay exhaustive (the Record type enforces it). Used by the GUI
+ *  palette to source common brief fields and by the exhaustiveness test. */
+export const BRIEF_ADAPTERS: Record<IndexedType, (record: never) => ArtifactBrief> = {
+  note: noteToBrief,
+  experiment: experimentToBrief,
+  method: methodToBrief,
+  sequence: sequenceToBrief,
+  datahub: dataHubToBrief,
+  project: projectToBrief,
+  purchase: purchaseToBrief,
+  molecule: moleculeToBrief,
+  phylo: phyloToBrief,
+  inventory: inventoryToBrief,
+};
+
 // ---------------------------------------------------------------------------
 // Helpers: tokenize and dedupe for keyword extraction.
 // ---------------------------------------------------------------------------
@@ -383,6 +453,7 @@ export type ArtifactIndexDeps = {
   listExperiments: () => Promise<Task[]>;
   listMolecules: () => Promise<Molecule[]>;
   listPhylo: () => Promise<PhyloMeta[]>;
+  listInventory: () => Promise<InventoryItem[]>;
 };
 
 export const artifactIndexDeps: ArtifactIndexDeps = {
@@ -401,6 +472,10 @@ export const artifactIndexDeps: ArtifactIndexDeps = {
   },
   listMolecules: () => moleculesApi.list(),
   listPhylo: () => phyloApi.list(),
+  // Inventory is whole-lab by default (own plus everything shared with the
+  // current user, ACL enforced upstream), the same loader summarize_inventory /
+  // read_inventory use, so search and the summaries cover the shelf.
+  listInventory: () => fetchAllInventoryItemsIncludingShared(),
 };
 
 // ---------------------------------------------------------------------------
@@ -452,6 +527,7 @@ export async function buildAllBriefs(
     experimentsResult,
     moleculesResult,
     phyloResult,
+    inventoryResult,
   ] = await Promise.allSettled([
     deps.listNotes(),
     deps.listMethods(),
@@ -462,6 +538,7 @@ export async function buildAllBriefs(
     deps.listExperiments(),
     deps.listMolecules(),
     deps.listPhylo(),
+    deps.listInventory(),
   ]);
 
   const allBriefs: ArtifactBrief[] = [];
@@ -487,6 +564,7 @@ export async function buildAllBriefs(
   addBriefs(experimentsResult, experimentToBrief);
   addBriefs(moleculesResult, moleculeToBrief);
   addBriefs(phyloResult, phyloToBrief);
+  addBriefs(inventoryResult, inventoryToBrief);
   return allBriefs;
 }
 

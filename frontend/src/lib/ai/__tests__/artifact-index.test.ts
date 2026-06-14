@@ -15,6 +15,9 @@ import {
   moleculeToBrief,
   phyloToBrief,
   experimentToBrief,
+  inventoryToBrief,
+  BRIEF_ADAPTERS,
+  buildAllBriefs,
   searchMyWork,
   dayPrefix,
   filterArtifacts,
@@ -25,9 +28,10 @@ import {
   type ArtifactBrief,
   type ArtifactIndexDeps,
 } from "../artifact-index";
-import type { Note, NoteEntry, Method, SequenceRecord, Project, PurchaseItem, Task } from "@/lib/types";
+import type { Note, NoteEntry, Method, SequenceRecord, Project, PurchaseItem, Task, InventoryItem } from "@/lib/types";
 import type { DataHubDocument } from "@/lib/datahub/model/types";
 import type { Molecule } from "@/lib/chemistry/api";
+import { INDEXED_TYPES } from "@/lib/index/indexed-types";
 
 // ---------------------------------------------------------------------------
 // Fixtures
@@ -174,6 +178,30 @@ function makeExperiment(overrides: Partial<Task> = {}): Task {
     method_attachments: [],
     owner: "grant",
     shared_with: [],
+    ...overrides,
+  };
+}
+
+function makeInventory(overrides: Partial<InventoryItem> = {}): InventoryItem {
+  return {
+    id: 8,
+    name: "Q5 High-Fidelity DNA Polymerase",
+    category: "enzyme",
+    catalog_number: "M0491S",
+    vendor: "NEB",
+    cas: null,
+    url: null,
+    container_label: null,
+    storage_class: null,
+    hazard_note: null,
+    sds_url: null,
+    notes: "store at minus 20",
+    low_at_count: 2,
+    product_barcode: null,
+    owner: "grant",
+    shared_with: [],
+    created_by: "grant",
+    last_edited_at: "2026-06-06T09:00:00.000Z",
     ...overrides,
   };
 }
@@ -414,6 +442,89 @@ describe("experimentToBrief", () => {
   });
 });
 
+describe("inventoryToBrief", () => {
+  it("returns type inventory, the item name, and the /inventory deepLink", () => {
+    const brief = inventoryToBrief(makeInventory());
+    expect(brief.type).toBe("inventory");
+    expect(brief.title).toBe("Q5 High-Fidelity DNA Polymerase");
+    expect(brief.subtitle).toBe("enzyme");
+    // Pageless like purchases: deep-link to the /inventory page.
+    expect(brief.deepLink).toBe("/inventory");
+  });
+
+  it("dates on last_edited_at and carries the owner through", () => {
+    const brief = inventoryToBrief(makeInventory({ owner: "alice" }));
+    expect(brief.date).toBe("2026-06-06T09:00:00.000Z");
+    expect(brief.owner).toBe("alice");
+  });
+
+  it("folds name, category, vendor, catalog, and CAS into keywords", () => {
+    const brief = inventoryToBrief(
+      makeInventory({ name: "Q5", vendor: "NEB", catalog_number: "M0491S", cas: "9007-49-2" }),
+    );
+    expect(brief.keywords).toContain("q5");
+    expect(brief.keywords).toContain("enzyme");
+    expect(brief.keywords).toContain("neb");
+    expect(brief.keywords).toContain("m0491s");
+    expect(brief.keywords).toContain("9007-49-2");
+  });
+
+  it("NEVER leaks the free-text notes body into keywords (kept model-lean)", () => {
+    const brief = inventoryToBrief(makeInventory({ notes: "store at minus 20 special handling" }));
+    const kw = (brief.keywords ?? []).join(" ");
+    expect(kw).not.toContain("minus");
+    expect(kw).not.toContain("special");
+    expect(kw).not.toContain("handling");
+  });
+
+  it("appears in buildAllBriefs so search_my_work + the summaries cover inventory", async () => {
+    const briefs = await buildAllBriefs(makeStubDeps());
+    const inv = briefs.filter((b) => b.type === "inventory");
+    expect(inv).toHaveLength(1);
+    expect(inv[0].title).toBe("Q5 High-Fidelity DNA Polymerase");
+    expect(inv[0].deepLink).toBe("/inventory");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Anti-drift guard: the shared type registry covers every adapter, on the AI
+// side. INDEXED_TYPES is the single source of truth; BRIEF_ADAPTERS is a
+// Record<IndexedType, ...> so a new kind fails to COMPILE without an adapter.
+// This runtime test backstops the compile-time guard.
+// ---------------------------------------------------------------------------
+
+describe("indexed-type registry + exhaustiveness (AI side)", () => {
+  it("BRIEF_ADAPTERS has exactly one adapter per IndexedType", () => {
+    const adapterKeys = Object.keys(BRIEF_ADAPTERS).sort();
+    const registryKeys = [...INDEXED_TYPES].sort();
+    expect(adapterKeys).toEqual(registryKeys);
+  });
+
+  it("every IndexedType in the registry has a defined adapter function", () => {
+    for (const t of INDEXED_TYPES) {
+      expect(typeof BRIEF_ADAPTERS[t]).toBe("function");
+    }
+  });
+
+  it("covers the full set of ten artifact kinds", () => {
+    expect(INDEXED_TYPES).toHaveLength(10);
+    expect([...INDEXED_TYPES].sort()).toEqual(
+      [
+        "datahub",
+        "experiment",
+        "inventory",
+        "method",
+        "molecule",
+        "note",
+        "phylo",
+        "project",
+        "purchase",
+        "sequence",
+      ].sort(),
+    );
+  });
+});
+
 // ---------------------------------------------------------------------------
 // searchMyWork integration (stubbed deps)
 // ---------------------------------------------------------------------------
@@ -429,6 +540,7 @@ function makeStubDeps(overrides: Partial<ArtifactIndexDeps> = {}): ArtifactIndex
     listExperiments: async () => [makeExperiment()],
     listMolecules: async () => [makeMolecule()],
     listPhylo: async () => [],
+    listInventory: async () => [makeInventory()],
     ...overrides,
   };
 }
@@ -511,6 +623,7 @@ describe("searchMyWork", () => {
       listPurchases: async () => [],
       listExperiments: async () => [],
       listMolecules: async () => [],
+      listInventory: async () => [],
     });
 
   it("keeps only briefs on or after the since bound", async () => {
@@ -542,6 +655,7 @@ describe("searchMyWork", () => {
       listProjects: async () => [],
       listExperiments: async () => [],
       listMolecules: async () => [],
+      listInventory: async () => [],
     });
     const results = await searchMyWork("", { since: "2026-01-01" }, deps);
     expect(results.every((r) => r.type !== "purchase")).toBe(true);
@@ -784,6 +898,7 @@ describe("listArtifacts", () => {
       listExperiments: async () => [],
       listMolecules: async () => [],
       listPhylo: async () => [],
+      listInventory: async () => [],
     });
 
   const deps = () =>
