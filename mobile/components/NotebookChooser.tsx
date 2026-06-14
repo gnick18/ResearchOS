@@ -39,6 +39,7 @@ import {
   Text,
   View,
 } from 'react-native';
+import Svg, { Path, Circle } from 'react-native-svg';
 import { useReducedMotion } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme, palette } from '@/lib/design';
@@ -64,65 +65,128 @@ export interface NotebookChooserProps {
 }
 
 // ---------------------------------------------------------------------------
-// Icon sub-components (inline SVG-equiv in RN: geometric shapes)
+// Icon sub-components — crisp react-native-svg glyphs matching the capture
+// contract (docs/mockups/mobile-contract/02-capture.html): 1.8px stroked,
+// rounded joins, tinted rounded-square chip behind each.
 // ---------------------------------------------------------------------------
 
-/** Note icon: rect outline with two horizontal lines. Amber by default. */
-function NoteIcon({ color, bg }: { color: string; bg: string }) {
+const ICON_GLYPH = 22;
+
+function IconChip({
+  bg,
+  border,
+  children,
+}: {
+  bg: string;
+  border?: string;
+  children: React.ReactNode;
+}) {
   return (
-    <View style={[styles.iconWrap, { backgroundColor: bg }]}>
-      <View style={[styles.noteRect, { borderColor: color }]}>
-        <View style={[styles.noteLine, { backgroundColor: color }]} />
-        <View style={[styles.noteLine, { backgroundColor: color, width: '70%' }]} />
-      </View>
+    <View
+      style={[
+        styles.iconWrap,
+        { backgroundColor: bg },
+        border ? { borderWidth: 1, borderColor: border } : null,
+      ]}
+    >
+      {children}
     </View>
   );
 }
 
-/** People icon: two overlapping circle/line silhouettes. */
-function PeopleIcon({ color, bg }: { color: string; bg: string }) {
+/** Notebook icon: bookmarked notebook cover (contract glyph). */
+function NoteIcon({ color, bg, border }: { color: string; bg: string; border?: string }) {
   return (
-    <View style={[styles.iconWrap, { backgroundColor: bg }]}>
-      <View style={styles.peopleWrap}>
-        {/* Back head */}
-        <View style={[styles.peopleHeadBack, { backgroundColor: color, opacity: 0.55 }]} />
-        {/* Back shoulder arc */}
-        <View style={[styles.peopleShoulderBack, { borderColor: color, opacity: 0.55 }]} />
-        {/* Front head */}
-        <View style={[styles.peopleHead, { backgroundColor: color }]} />
-        {/* Front shoulder arc */}
-        <View style={[styles.peopleShoulder, { borderColor: color }]} />
-      </View>
-    </View>
+    <IconChip bg={bg} border={border}>
+      <Svg width={ICON_GLYPH} height={ICON_GLYPH} viewBox="0 0 24 24" fill="none">
+        <Path
+          d="M6 3h11a2 2 0 0 1 2 2v15l-3-2-3 2-3-2-3 2V5a2 2 0 0 1 2-2Z"
+          stroke={color}
+          strokeWidth={1.8}
+          strokeLinejoin="round"
+        />
+      </Svg>
+    </IconChip>
   );
 }
 
-/** Inbox icon: tray with two lines. Gray. */
-function InboxIcon({ color, bg }: { color: string; bg: string }) {
+/** People icon: two figures (contract shared/mentoring glyph). */
+function PeopleIcon({ color, bg, border }: { color: string; bg: string; border?: string }) {
   return (
-    <View style={[styles.iconWrap, { backgroundColor: bg }]}>
-      <View style={[styles.inboxTray, { borderColor: color }]}>
-        <View style={[styles.inboxLip, { borderColor: color }]} />
-      </View>
-    </View>
+    <IconChip bg={bg} border={border}>
+      <Svg width={ICON_GLYPH} height={ICON_GLYPH} viewBox="0 0 24 24" fill="none">
+        <Circle cx={9} cy={8} r={3} stroke={color} strokeWidth={1.8} />
+        <Path
+          d="M3.5 19a5.5 5.5 0 0 1 11 0"
+          stroke={color}
+          strokeWidth={1.8}
+          strokeLinecap="round"
+        />
+        <Path
+          d="M16 5.2a3 3 0 0 1 0 5.6M18 19a5.5 5.5 0 0 0-2.4-4.5"
+          stroke={color}
+          strokeWidth={1.8}
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+      </Svg>
+    </IconChip>
   );
 }
 
-/** Experiment/beaker icon: flask shape using borders. */
-function FlaskIcon({ color, bg }: { color: string; bg: string }) {
+/** Inbox/archive icon (contract unsorted glyph). */
+function InboxIcon({ color, bg, border }: { color: string; bg: string; border?: string }) {
   return (
-    <View style={[styles.iconWrap, { backgroundColor: bg }]}>
-      <View style={styles.flaskWrap}>
-        <View style={[styles.flaskNeck, { backgroundColor: color }]} />
-        <View style={[styles.flaskBody, { backgroundColor: color }]} />
-      </View>
-    </View>
+    <IconChip bg={bg} border={border}>
+      <Svg width={ICON_GLYPH} height={ICON_GLYPH} viewBox="0 0 24 24" fill="none">
+        <Path
+          d="M4 8h16v11H4z"
+          stroke={color}
+          strokeWidth={1.8}
+          strokeLinejoin="round"
+        />
+        <Path
+          d="M4 8l2-3h12l2 3M9 12h6"
+          stroke={color}
+          strokeWidth={1.8}
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+      </Svg>
+    </IconChip>
+  );
+}
+
+/** Experiment/beaker icon (contract photo-filing glyph). */
+function FlaskIcon({ color, bg, border }: { color: string; bg: string; border?: string }) {
+  return (
+    <IconChip bg={bg} border={border}>
+      <Svg width={ICON_GLYPH} height={ICON_GLYPH} viewBox="0 0 24 24" fill="none">
+        <Path
+          d="M9 3h6M10 3v6L5.5 17a2.5 2.5 0 0 0 2.2 3.7h8.6A2.5 2.5 0 0 0 18.5 17L14 9V3"
+          stroke={color}
+          strokeWidth={1.8}
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+      </Svg>
+    </IconChip>
   );
 }
 
 /** Chevron right indicator. */
-function Chevron() {
-  return <Text style={styles.chevron}>{'›'}</Text>;
+function Chevron({ color }: { color: string }) {
+  return (
+    <Svg width={18} height={18} viewBox="0 0 24 24" fill="none" style={styles.chevron}>
+      <Path
+        d="m9 6 6 6-6 6"
+        stroke={color}
+        strokeWidth={2}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </Svg>
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -187,7 +251,7 @@ function NotebookRow({
         styles.optRow,
         inGroup && styles.optRowInGroup,
         showTopDivider && { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: surface.border },
-        recommended && [styles.optRowRec, { shadowColor: palette.sky, backgroundColor: palette.skyDim }],
+        recommended && [styles.optRowRec, { shadowColor: palette.sky, backgroundColor: palette.skyDim, borderColor: palette.skyBorder }],
         !inGroup && !recommended && { borderColor: surface.border, backgroundColor: surface.sunken },
         inGroup && { backgroundColor: 'transparent' },
         pressed && styles.pressed,
@@ -209,11 +273,14 @@ function NotebookRow({
             <Pill label="open" color={palette.sky} bg={palette.skyDim} />
           ) : null}
         </View>
-        <Text style={[styles.optSub, { color: surface.muted }]} numberOfLines={1}>
+        <Text
+          style={[styles.optSub, { color: recommended ? palette.sky : surface.muted }]}
+          numberOfLines={1}
+        >
           {subtitle}
         </Text>
       </View>
-      <Chevron />
+      <Chevron color={recommended ? palette.sky : surface.faint} />
     </Pressable>
   );
 }
@@ -364,9 +431,9 @@ export function NotebookChooser({
             {/* Grab handle */}
             <View style={[styles.grab, { backgroundColor: surface.border }]} />
 
-            <Text style={[styles.sheetTitle, { color: surface.text }]}>Where should this go?</Text>
+            <Text style={[styles.sheetTitle, { color: surface.text }]}>File this capture</Text>
             <Text style={[styles.sheetSub, { color: surface.muted }]}>
-              Pick a notebook, or leave it unsorted.
+              Pick a notebook, or leave it in the inbox.
             </Text>
 
             <ScrollView
@@ -377,11 +444,11 @@ export function NotebookChooser({
               {/* RECOMMENDED: experiment fast path (experiment kind) */}
               {recommended?.kind === 'experiment' ? (
                 <>
-                  <SectionHeader label="Open on your laptop" />
+                  <SectionHeader label="Recommended" />
                   <NotebookRow
                     title={recommended.name}
-                    subtitle="Recommended, you have it open"
-                    icon={<FlaskIcon color={palette.sky} bg={palette.skyDim} />}
+                    subtitle="Your active experiment"
+                    icon={<FlaskIcon color={palette.white} bg={palette.sky} />}
                     recommended
                     onPress={() => {
                       // For an experiment context, the caller's Alert handles Notes/Results.
@@ -395,11 +462,11 @@ export function NotebookChooser({
               {/* RECOMMENDED: note context */}
               {recommended?.kind === 'note' && recNote ? (
                 <>
-                  <SectionHeader label="Open on your laptop" />
+                  <SectionHeader label="Recommended" />
                   <NotebookRow
                     title={recNote.title}
-                    subtitle="Recommended, you have it open"
-                    icon={<NoteIcon color={amberColor} bg={amberBg} />}
+                    subtitle="Open on your laptop"
+                    icon={<NoteIcon color={palette.white} bg={palette.sky} />}
                     recommended
                     onPress={() => handlePickNotebook(recNote)}
                   />
@@ -479,12 +546,16 @@ export function NotebookChooser({
               {/* UNSORTED footer */}
               <Pressable
                 testID="notebook-chooser-unsorted"
-                style={({ pressed }) => [styles.unsortedBtn, pressed && styles.pressed]}
+                style={({ pressed }) => [
+                  styles.unsortedBtn,
+                  { borderColor: surface.borderStrong },
+                  pressed && styles.pressed,
+                ]}
                 onPress={onUnsorted}
                 accessibilityRole="button"
                 accessibilityLabel="Unsorted note, send to inbox"
               >
-                <InboxIcon color={grayColor} bg={grayBg} />
+                <InboxIcon color={grayColor} bg={grayBg} border={surface.border} />
                 <Text style={[styles.unsortedText, { color: surface.muted }]}>
                   Unsorted note (inbox)
                 </Text>
@@ -628,9 +699,6 @@ const styles = StyleSheet.create({
   },
   // Chevron
   chevron: {
-    fontSize: 20,
-    color: 'rgba(0,0,0,0.3)',
-    lineHeight: 22,
     flexShrink: 0,
   },
   // Unsorted footer
@@ -643,7 +711,6 @@ const styles = StyleSheet.create({
     marginTop: 14,
     borderWidth: 1.5,
     borderStyle: 'dashed',
-    borderColor: 'rgba(60,70,86,0.22)',
     borderRadius: 14,
   },
   unsortedText: {
@@ -653,7 +720,7 @@ const styles = StyleSheet.create({
   pressed: {
     opacity: 0.72,
   },
-  // Note icon internals
+  // Icon chip
   iconWrap: {
     width: 44,
     height: 44,
@@ -661,103 +728,5 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     flexShrink: 0,
-  },
-  noteRect: {
-    width: 18,
-    height: 18,
-    borderWidth: 1.5,
-    borderRadius: 3,
-    padding: 3,
-    gap: 3,
-    alignItems: 'flex-start',
-    transform: [{ scale: 1.2 }],
-  },
-  noteLine: {
-    height: 2,
-    width: '100%',
-    borderRadius: 1,
-  },
-  // People icon internals
-  peopleWrap: {
-    width: 20,
-    height: 18,
-    position: 'relative',
-    transform: [{ scale: 1.2 }],
-  },
-  peopleHeadBack: {
-    position: 'absolute',
-    right: 0,
-    top: 0,
-    width: 9,
-    height: 9,
-    borderRadius: 4.5,
-  },
-  peopleShoulderBack: {
-    position: 'absolute',
-    right: -1,
-    bottom: 0,
-    width: 13,
-    height: 8,
-    borderWidth: 1.5,
-    borderBottomLeftRadius: 7,
-    borderBottomRightRadius: 7,
-    borderTopWidth: 0,
-  },
-  peopleHead: {
-    position: 'absolute',
-    left: 0,
-    top: 1,
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-  },
-  peopleShoulder: {
-    position: 'absolute',
-    left: -1,
-    bottom: 0,
-    width: 14,
-    height: 9,
-    borderWidth: 1.5,
-    borderBottomLeftRadius: 7,
-    borderBottomRightRadius: 7,
-    borderTopWidth: 0,
-  },
-  // Flask icon internals
-  flaskWrap: {
-    width: 14,
-    height: 18,
-    alignItems: 'center',
-    transform: [{ scale: 1.2 }],
-  },
-  flaskNeck: {
-    width: 5,
-    height: 6,
-    borderRadius: 1,
-  },
-  flaskBody: {
-    width: 14,
-    height: 10,
-    borderRadius: 4,
-    marginTop: 1,
-  },
-  // Inbox icon internals
-  inboxTray: {
-    width: 18,
-    height: 14,
-    borderWidth: 1.5,
-    borderRadius: 3,
-    justifyContent: 'flex-start',
-    paddingTop: 3,
-    paddingHorizontal: 2,
-    alignItems: 'center',
-    transform: [{ scale: 1.2 }],
-  },
-  inboxLip: {
-    width: 8,
-    height: 4,
-    borderWidth: 1.5,
-    borderTopLeftRadius: 4,
-    borderTopRightRadius: 4,
-    borderBottomWidth: 0,
   },
 });
