@@ -3,9 +3,15 @@
  *
  * Headline interaction: a search field that ranks across all 66 pages
  * using the ported search.ts logic. Below search, the 8-9 sections are
- * shown as grouped cards (expandable) with the page list inside each card.
- * Tapping any page (from search results or the browse list) pushes the
- * reader screen.
+ * shown as grouped cards (uppercase label OUTSIDE a tight card of page
+ * rows). Tapping any page (from search results or the browse list) pushes
+ * the reader screen.
+ *
+ * Polished to the locked UI contract (docs/mockups/mobile-contract/03-tools.html,
+ * "Wiki browse"): searchbar with elevation, success-checkmark freshness note,
+ * uppercase faint section labels, .row-list cards of .lrow rows, the first page
+ * of each section reading as an "Overview" with a sky .thumb tile, faint
+ * chevrons. Geist + Geist Mono via design tokens.
  *
  * Route: app/(tabs)/wiki.tsx  (expo-router auto-discovers this as /wiki)
  *
@@ -16,7 +22,6 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Pressable,
   ScrollView,
-  SectionList,
   StyleSheet,
   TextInput,
   View,
@@ -26,9 +31,6 @@ import { Ionicons } from '@expo/vector-icons';
 
 import { ThemedText } from '@/components/themed-text';
 import { ScreenFrame } from '@/components/ui/ScreenFrame';
-import { TabHeader } from '@/components/ui/TabHeader';
-import { useUnreadNotificationCount } from '@/lib/unread-notifications';
-import { Card } from '@/components/ui/Card';
 import { useTheme, palette, fonts } from '@/lib/design';
 import {
   getBundledContent,
@@ -75,7 +77,6 @@ function formatPulled(iso: string): string {
 export default function WikiBrowseScreen() {
   const { surface } = useTheme();
   const router = useRouter();
-  const unreadCount = useUnreadNotificationCount();
   const [query, setQuery] = useState('');
   const inputRef = useRef<TextInput>(null);
 
@@ -117,9 +118,9 @@ export default function WikiBrowseScreen() {
 
   return (
     <ScreenFrame>
-      {/* Header matches every other tab: big title, muted tagline, then search. */}
+      {/* Header matches every other tab: muted kicker, big title, then search. */}
       <View style={styles.headerArea}>
-        <ThemedText style={{ fontSize: 12.5, fontFamily: fonts.semibold, color: surface.muted, marginBottom: 4 }}>
+        <ThemedText style={[styles.kicker, { color: surface.muted }]}>
           Guides and help
         </ThemedText>
         <ThemedText type="title">Wiki</ThemedText>
@@ -131,21 +132,18 @@ export default function WikiBrowseScreen() {
             inputRef={inputRef}
           />
         </View>
+        {/* Freshness line. Success checkmark glyph mirrors the contract. */}
         <View style={styles.pulledRow}>
-          <Ionicons name="cloud-done-outline" size={13} color={surface.muted} />
+          <Ionicons name="checkmark-circle" size={14} color={palette.success} />
           <ThemedText style={[styles.pulledNote, { color: surface.muted }]}>
-            Last pulled from the web wiki on {formatPulled(pulledAt)}
+            Pulled from the web wiki on {formatPulled(pulledAt)}
           </ThemedText>
         </View>
       </View>
 
       {/* Content area */}
       {grouped ? (
-        <SearchResults
-          groups={grouped}
-          query={query}
-          onSelect={goToPage}
-        />
+        <SearchResults groups={grouped} query={query} onSelect={goToPage} />
       ) : (
         <BrowseList sectionRows={SECTION_ROWS} onSelectPage={goToPage} />
       )}
@@ -154,7 +152,7 @@ export default function WikiBrowseScreen() {
 }
 
 // ---------------------------------------------------------------------------
-// Search bar
+// Search bar (contract .searchbar: strong border, surface, soft elevation)
 // ---------------------------------------------------------------------------
 
 function SearchBar({
@@ -168,10 +166,21 @@ function SearchBar({
   onClear: () => void;
   inputRef: React.RefObject<TextInput | null>;
 }) {
-  const { surface, radii } = useTheme();
+  const { surface, radii, shadow } = useTheme();
   return (
-    <View style={[styles.searchRow, { backgroundColor: surface.surface, borderColor: surface.border, borderWidth: 1, borderRadius: radii.md }]}>
-      <Ionicons name="search" size={18} color={surface.muted} style={styles.searchIcon} />
+    <View
+      style={[
+        styles.searchRow,
+        shadow.sm,
+        {
+          backgroundColor: surface.surface,
+          borderColor: surface.borderStrong,
+          borderWidth: 1,
+          borderRadius: radii.md,
+        },
+      ]}
+    >
+      <Ionicons name="search" size={18} color={surface.faint} style={styles.searchIcon} />
       <TextInput
         ref={inputRef}
         value={value}
@@ -206,54 +215,74 @@ function SearchResults({
   query: string;
   onSelect: (entry: WikiEntry) => void;
 }) {
-  const { surface, spacing } = useTheme();
+  const { surface, radii, shadow } = useTheme();
 
   if (groups.length === 0) {
     return (
-      <View style={[styles.emptyWrap, { paddingTop: spacing['3xl'] }]}>
+      <View style={styles.emptyWrap}>
+        <View style={[styles.emptyIcon, { backgroundColor: palette.skyDim }]}>
+          <Ionicons name="search-outline" size={26} color={palette.sky} />
+        </View>
+        <ThemedText style={[styles.emptyTitle, { color: surface.text }]}>
+          No results
+        </ThemedText>
         <ThemedText style={[styles.emptyText, { color: surface.muted }]}>
-          No results for &quot;{query}&quot;
+          Nothing in the wiki matches &quot;{query}&quot;. Try a different term.
         </ThemedText>
       </View>
     );
   }
 
-  // Flatten to a SectionList-friendly shape.
-  type SLSection = { title: string; data: WikiSearchHit[] };
-  const sections: SLSection[] = groups.map((g) => ({
-    title: g.section.label,
-    data: g.hits,
-  }));
-
+  // One faint uppercase label per matched section, each over its own .row-list
+  // card of hit rows (same composition as the browse list).
   return (
-    <SectionList
-      sections={sections}
-      keyExtractor={(item) => item.entry.slug}
-      contentContainerStyle={[styles.searchListContent, { paddingBottom: 112 }]}
-      renderSectionHeader={({ section }) => (
-        <View style={[styles.sectionHeader, { backgroundColor: surface.bg }]}>
-          <ThemedText style={[styles.sectionLabel, { color: surface.muted }]}>
-            {section.title.toUpperCase()}
+    <ScrollView
+      style={styles.fill}
+      contentContainerStyle={styles.browseContent}
+      keyboardShouldPersistTaps="handled"
+      showsVerticalScrollIndicator={false}
+    >
+      {groups.map((g) => (
+        <View key={g.section.id} style={styles.sectionBlock}>
+          <ThemedText style={[styles.sectionLabelOut, { color: surface.faint }]}>
+            {g.section.label.toUpperCase()}
           </ThemedText>
+          <View
+            style={[
+              styles.pagesCard,
+              shadow.sm,
+              { backgroundColor: surface.surface, borderColor: surface.border, borderRadius: radii.lg },
+            ]}
+          >
+            {g.hits.map((hit, i) => (
+              <SearchHitRow
+                key={hit.entry.slug}
+                hit={hit}
+                query={query}
+                first={i === 0}
+                onPress={() => onSelect(hit.entry)}
+              />
+            ))}
+          </View>
         </View>
-      )}
-      renderItem={({ item }) => (
-        <SearchHitRow hit={item} query={query} onPress={() => onSelect(item.entry)} />
-      )}
-    />
+      ))}
+      <View style={styles.bottomPad} />
+    </ScrollView>
   );
 }
 
 function SearchHitRow({
   hit,
   query,
+  first,
   onPress,
 }: {
   hit: WikiSearchHit;
   query: string;
+  first: boolean;
   onPress: () => void;
 }) {
-  const { surface, spacing } = useTheme();
+  const { surface } = useTheme();
   const isTitleMatch = hit.matchKind === 'title';
 
   return (
@@ -261,13 +290,13 @@ function SearchHitRow({
       onPress={onPress}
       style={({ pressed }) => [
         styles.hitRow,
-        {
-          backgroundColor: pressed ? surface.pressed : surface.surface,
-          borderBottomColor: surface.border,
-        },
+        !first && { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: surface.hairline },
+        pressed && { backgroundColor: surface.pressed },
       ]}
+      accessibilityRole="button"
+      accessibilityLabel={`Open ${hit.entry.title}`}
     >
-      <View style={{ flex: 1, gap: spacing.xs }}>
+      <View style={styles.hitBody}>
         <HighlightedText
           text={hit.entry.title}
           highlight={hit.matchKind === 'title' ? query : undefined}
@@ -276,11 +305,11 @@ function SearchHitRow({
         {!isTitleMatch ? (
           <SnippetText hit={hit} style={[styles.hitSnippet, { color: surface.muted }]} />
         ) : null}
-        <ThemedText style={[styles.hitBreadcrumb, { color: surface.muted }]}>
-          {hit.entry.breadcrumbs.join(' / ')}
+        <ThemedText style={[styles.hitBreadcrumb, { color: surface.faint }]} numberOfLines={1}>
+          {hit.entry.breadcrumbs.join('  ›  ')}
         </ThemedText>
       </View>
-      <Ionicons name="chevron-forward" size={16} color={surface.muted} style={styles.chevron} />
+      <Ionicons name="chevron-forward" size={18} color={surface.faint} style={styles.chevron} />
     </Pressable>
   );
 }
@@ -336,21 +365,28 @@ function BrowseList({
   sectionRows: Array<{ section: WikiSection; pages: WikiEntry[] }>;
   onSelectPage: (entry: WikiEntry) => void;
 }) {
-  const { surface } = useTheme();
+  const { surface, radii, shadow } = useTheme();
   return (
     <ScrollView
       style={styles.fill}
       contentContainerStyle={styles.browseContent}
       keyboardShouldPersistTaps="handled"
+      showsVerticalScrollIndicator={false}
     >
       {sectionRows.map(({ section, pages }) =>
         pages.length === 0 ? null : (
           <View key={section.id} style={styles.sectionBlock}>
-            {/* Section label sits OUTSIDE the white card, like the ideal. */}
-            <ThemedText style={[styles.sectionLabelOut, { color: surface.muted }]}>
+            {/* Uppercase faint label sits OUTSIDE the card, per the contract. */}
+            <ThemedText style={[styles.sectionLabelOut, { color: surface.faint }]}>
               {section.label.toUpperCase()}
             </ThemedText>
-            <Card style={styles.pagesCard}>
+            <View
+              style={[
+                styles.pagesCard,
+                shadow.sm,
+                { backgroundColor: surface.surface, borderColor: surface.border, borderRadius: radii.lg },
+              ]}
+            >
               {pages.map((entry, i) => (
                 <PageRow
                   key={entry.slug}
@@ -362,7 +398,7 @@ function BrowseList({
                   onPress={() => onSelectPage(entry)}
                 />
               ))}
-            </Card>
+            </View>
           </View>
         ),
       )}
@@ -390,24 +426,33 @@ function PageRow({
   const dupTitle =
     overview && sectionLabel && entry.title.toLowerCase() === sectionLabel.toLowerCase();
   const title = dupTitle ? 'Overview' : entry.title;
-  const accent = overview ? palette.sky : surface.text;
 
   return (
     <Pressable
       onPress={onPress}
       style={({ pressed }) => [
         styles.pageRow,
-        !first && { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: surface.border },
-        { backgroundColor: pressed ? surface.pressed : overview ? palette.skyDim : 'transparent' },
+        !first && { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: surface.hairline },
+        pressed && { backgroundColor: surface.pressed },
       ]}
+      accessibilityRole="button"
+      accessibilityLabel={`Open ${title}`}
     >
+      {/* Overview rows lead with a sky .thumb tile (contract first-row treatment). */}
       {overview ? (
-        <View style={styles.overviewIcon}>
+        <View style={[styles.thumb, { backgroundColor: palette.skyDim, borderColor: surface.border }]}>
           <Ionicons name="compass-outline" size={18} color={palette.sky} />
         </View>
       ) : null}
-      <View style={{ flex: 1, gap: 2 }}>
-        <ThemedText style={[styles.pageTitle, { color: accent }, overview && styles.overviewTitle]}>
+      <View style={styles.pageBody}>
+        <ThemedText
+          style={[
+            styles.pageTitle,
+            { color: surface.text },
+            overview && styles.overviewTitle,
+          ]}
+          numberOfLines={1}
+        >
           {title}
         </ThemedText>
         {entry.blurb ? (
@@ -416,7 +461,7 @@ function PageRow({
           </ThemedText>
         ) : null}
       </View>
-      <Ionicons name="chevron-forward" size={16} color={overview ? palette.sky : surface.muted} style={styles.chevron} />
+      <Ionicons name="chevron-forward" size={18} color={surface.faint} style={styles.chevron} />
     </Pressable>
   );
 }
@@ -428,75 +473,80 @@ function PageRow({
 const styles = StyleSheet.create({
   fill: { flex: 1 },
   headerArea: {
-    paddingHorizontal: 24,
-    paddingTop: 16,
+    paddingHorizontal: 16,
+    paddingTop: 6,
     paddingBottom: 4,
   },
-  tagline: { fontSize: 14, lineHeight: 20, marginTop: 4 },
+  kicker: { fontSize: 12.5, fontFamily: fonts.semibold, marginBottom: 4 },
   searchWrap: { paddingTop: 12 },
-  pulledRow: { flexDirection: 'row', alignItems: 'center', gap: 5, paddingTop: 9, marginLeft: 2 },
-  pulledNote: { fontSize: 12, lineHeight: 16 },
+  pulledRow: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingTop: 10, marginLeft: 2 },
+  pulledNote: { fontSize: 12.5, fontFamily: fonts.medium, lineHeight: 17 },
+
   searchRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    minHeight: 44,
+    paddingHorizontal: 14,
+    paddingVertical: 11,
+    minHeight: 46,
   },
-  searchIcon: { marginRight: 8 },
-  searchInput: { flex: 1, fontSize: 16, lineHeight: 20 },
-  clearBtn: { marginLeft: 6 },
-
-  // Search results list (flat rows under uppercase section headers)
-  searchListContent: { flexGrow: 1 },
-  sectionHeader: {
-    paddingHorizontal: 24,
-    paddingTop: 14,
-    paddingBottom: 6,
-  },
-  sectionLabel: { fontSize: 12, fontWeight: '700', letterSpacing: 0.5 },
+  searchIcon: { marginRight: 9 },
+  searchInput: { flex: 1, fontSize: 15, fontFamily: fonts.ui, padding: 0 },
+  clearBtn: { marginLeft: 8 },
 
   hitRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 24,
+    paddingHorizontal: 2,
     paddingVertical: 12,
-    borderBottomWidth: StyleSheet.hairlineWidth,
   },
-  hitTitle: { fontSize: 15, fontWeight: '600', lineHeight: 20 },
-  hitSnippet: { fontSize: 13, lineHeight: 18 },
-  hitBreadcrumb: { fontSize: 12, lineHeight: 16 },
-  highlight: { backgroundColor: 'rgba(26, 160, 230, 0.20)', color: palette.sky },
+  hitBody: { flex: 1, minWidth: 0, gap: 3 },
+  hitTitle: { fontSize: 15, fontFamily: fonts.semibold, lineHeight: 20 },
+  hitSnippet: { fontSize: 13, fontFamily: fonts.ui, lineHeight: 18 },
+  hitBreadcrumb: { fontSize: 11.5, fontFamily: fonts.medium, lineHeight: 16 },
+  highlight: { backgroundColor: palette.skyDim, color: palette.sky, fontFamily: fonts.semibold },
   chevron: { marginLeft: 8 },
 
-  // Browse list: grey section label OUTSIDE a white card of page rows.
+  // Browse list: faint section label OUTSIDE a card of .lrow page rows.
   browseContent: {
-    paddingHorizontal: 24,
+    paddingHorizontal: 16,
     paddingTop: 4,
     paddingBottom: 112,
     gap: 18,
   },
-  sectionBlock: { gap: 8 },
+  sectionBlock: { gap: 9 },
   sectionLabelOut: {
     fontSize: 12,
-    fontWeight: '700',
-    letterSpacing: 0.5,
+    fontFamily: fonts.bold,
+    letterSpacing: 0.9,
+    textTransform: 'uppercase',
     marginLeft: 4,
   },
-  pagesCard: { padding: 0, gap: 0, overflow: 'hidden' },
+  pagesCard: { borderWidth: 1, paddingHorizontal: 14, overflow: 'hidden' },
 
   pageRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 13,
+    gap: 11,
+    paddingVertical: 11,
+    paddingHorizontal: 2,
   },
-  overviewIcon: { marginRight: 11 },
-  overviewTitle: { fontWeight: '700' },
-  pageTitle: { fontSize: 15, fontWeight: '500', lineHeight: 20 },
-  pageBlurb: { fontSize: 13, lineHeight: 18 },
+  thumb: {
+    width: 38,
+    height: 38,
+    borderRadius: 11,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  pageBody: { flex: 1, minWidth: 0, gap: 2 },
+  overviewTitle: { fontFamily: fonts.bold },
+  pageTitle: { fontSize: 14.5, fontFamily: fonts.semibold, lineHeight: 20 },
+  pageBlurb: { fontSize: 12.5, fontFamily: fonts.ui, lineHeight: 18 },
 
-  emptyWrap: { alignItems: 'center', paddingHorizontal: 24 },
-  emptyText: { fontSize: 15, lineHeight: 22, textAlign: 'center' },
-  bottomPad: { height: 40 },
+  // Empty / no-results — contract .empty (sky tile + title + subtext).
+  emptyWrap: { alignItems: 'center', paddingTop: 56, paddingHorizontal: 32, gap: 6 },
+  emptyIcon: { width: 56, height: 56, borderRadius: 16, alignItems: 'center', justifyContent: 'center', marginBottom: 7 },
+  emptyTitle: { fontSize: 16, fontFamily: fonts.bold },
+  emptyText: { fontSize: 13, fontFamily: fonts.ui, lineHeight: 19, textAlign: 'center' },
+  bottomPad: { height: 24 },
 });
