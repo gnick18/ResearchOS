@@ -37,6 +37,7 @@ import {
   readPlanSummary,
 } from "./tools/propose-plan";
 import { ASK_USER_TOOL_NAME, parseAskUserArgs } from "./tools/ask-user";
+import { stripRecordSetUi } from "./record-set";
 import type { BeakerBotReviewMode } from "./review-mode-store";
 
 // A single block inside a multimodal content array. Two variants are supported.
@@ -177,6 +178,12 @@ export type RunAgentLoopOptions = {
   // provider actually reports usage (non-zero total). Absent from providers that
   // do not support the field, so a missing call is expected, not an error.
   onUsage?: (cumulative: TokenUsage) => void;
+  // Fired after each tool runs, with the tool name, the parsed args, and the RAW
+  // (unstripped) result. The conversation store uses this to lift a record-set
+  // returning tool's UI-only full set (result._ui) onto the in-flight assistant
+  // message so the inline record-set widget can render it. The full set never
+  // reaches the model. Absent on callers that do not surface widgets.
+  onToolResult?: (toolName: string, args: Record<string, unknown>, result: unknown) => void;
   // Opt-in (default off): drive an approved propose_plan ONE STEP AT A TIME instead
   // of letting the model free-run the whole plan. The loop injects each step,
   // waits for the model to finish it (a text turn), marks it done, and advances.
@@ -828,11 +835,17 @@ export async function runAgentLoop(
       }
       options.onStatus?.({ phase: "tool", toolName: call.function.name });
       const result = await runToolCall(call, toolMap, gateDeps);
+      // Hand the RAW result (still carrying any _ui record-set) to the caller so it
+      // can surface an inline widget. Parse the args the same way runToolCall does;
+      // a bad-JSON args string yields {} here, never throws.
+      options.onToolResult?.(call.function.name, parseToolArgs(call) ?? {}, result);
       messages.push({
         role: "tool",
         tool_call_id: call.id,
         name: call.function.name,
-        content: JSON.stringify(result),
+        // Strip the UI-only full set before serializing for the model, so the
+        // record-set widget's full match list never inflates the model context.
+        content: JSON.stringify(stripRecordSetUi(result)),
       });
     }
     // Loop again so the model can read the tool results and either call more tools

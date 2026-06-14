@@ -28,6 +28,7 @@ import {
 } from "@/lib/ai/artifact-index";
 import { purchasesApi, usersApi } from "@/lib/local-api";
 import { getCurrentUserCached } from "@/lib/storage/json-store";
+import { withRecordSetUi, periodLabel, RECORD_SET_UI_CAP, type RecordSet, type RecordSetRow } from "@/lib/ai/record-set";
 import type { PurchaseItem } from "@/lib/types";
 import type { AiTool } from "./types";
 
@@ -394,7 +395,32 @@ export const summarizePurchasesTool: AiTool = {
       until: baseFilter.until ?? range.until,
       owners: rawOwners.length > 0 ? (resolvedOwners.length > 0 ? resolvedOwners : rawOwners) : undefined,
     };
-    const summary = aggregatePurchases(purchases, filter);
-    return { ok: true as const, summary };
+    // Aggregate ONCE at the UI cap so the full matched list (largest-first) feeds
+    // the inline record-set widget, then narrow largestItems back to the documented
+    // cap for the model. Every money figure is the aggregator's, never recomputed.
+    const fullSummary = aggregatePurchases(purchases, filter, RECORD_SET_UI_CAP);
+    const modelItems = fullSummary.largestItems.slice(0, DEFAULT_ITEM_CAP);
+    const summary: PurchaseSummary = {
+      ...fullSummary,
+      largestItems: modelItems,
+      truncated: fullSummary.count > modelItems.length,
+    };
+
+    const set: RecordSet = {
+      kind: "summarize_purchases",
+      title: periodLabel("Purchases", filter),
+      total: fullSummary.count,
+      items: fullSummary.largestItems.map(
+        (it): RecordSetRow => ({
+          type: "purchase",
+          id: String(it.id),
+          title: it.name,
+          ...(it.vendor ? { subtitle: it.vendor } : {}),
+          meta: it.totalPriceDisplay,
+        }),
+      ),
+    };
+
+    return withRecordSetUi({ ok: true as const, summary }, set);
   },
 };

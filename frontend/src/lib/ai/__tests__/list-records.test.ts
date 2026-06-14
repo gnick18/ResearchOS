@@ -36,12 +36,36 @@ describe("list_records tool", () => {
     };
     expect(r.ok).toBe(true);
     expect(r.total).toBe(42);
+    // The model-facing count is the requested limit (2), even though the tool now
+    // fetches up to the UI cap (500) once so the inline record-set widget gets the
+    // full match set. items is sliced to the limit for the model.
     expect(r.count).toBe(2);
     expect(r.sortBy).toBe("title");
     expect(r.order).toBe("asc");
+    // deps.list is asked for the UI cap, not the model limit, so the widget set is
+    // complete in one pass; sortBy/order still flow through unchanged.
     expect(listSpy).toHaveBeenCalledWith(
-      expect.objectContaining({ sortBy: "title", order: "asc", limit: 2 }),
+      expect.objectContaining({ sortBy: "title", order: "asc", limit: 500 }),
     );
+  });
+
+  it("attaches the full match set as a UI-only record-set under _ui", async () => {
+    vi.spyOn(listRecordsDeps, "list").mockResolvedValue({
+      total: 3,
+      items: [brief("1", "A"), brief("2", "B"), brief("3", "C")],
+    });
+    vi.spyOn(listRecordsDeps, "listMemberUsernames").mockResolvedValue([]);
+    vi.spyOn(listRecordsDeps, "listProjects").mockResolvedValue([]);
+
+    const r = (await listRecordsTool.execute({ limit: 1 })) as {
+      count: number;
+      _ui?: { kind: string; total: number; items: Array<{ id: string }> };
+    };
+    // Model sees only the requested 1 item; the widget set carries all 3.
+    expect(r.count).toBe(1);
+    expect(r._ui?.kind).toBe("list_records");
+    expect(r._ui?.total).toBe(3);
+    expect(r._ui?.items.map((i) => i.id)).toEqual(["1", "2", "3"]);
   });
 
   it("resolves a relative period into a date filter", async () => {

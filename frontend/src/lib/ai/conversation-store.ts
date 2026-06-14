@@ -90,6 +90,7 @@ import {
   setSpotlightSuppressed,
 } from "@/components/ai/spotlight-controller";
 import { getMemoryEntries, buildMemoryContext } from "@/lib/ai/user-memory";
+import { recordSetFromResult } from "@/lib/ai/record-set";
 import type {
   ApprovalRequest,
   ApprovalDecision,
@@ -123,6 +124,13 @@ export type ChatMessage = {
   // charge per-image per-turn). The display message keeps .images so the user still
   // sees the thumbnails after sending.
   images?: string[];
+  // Inline record-set browsers attached to this assistant turn. One entry per
+  // record-returning tool that ran (search_full_text, list_records, the summarize
+  // tools). Lifted from each tool result's out-of-band _ui by the runAgentLoop
+  // onToolResult callback, the full match set never reaches the model. Plain JSON,
+  // so it round-trips through saveChat with the rest of the message. Only assistant
+  // messages carry these; the panel renders each below the reply markdown.
+  recordSets?: import("./record-set").RecordSet[];
 };
 
 // The pending approval the UI renders while the loop is paused on the user.
@@ -573,6 +581,23 @@ export function todayContext(now: Date = new Date()): string {
 // Typewriter reveal. Updates the assistant message incrementally so the answer
 // does not pop in all at once. Returns a promise that resolves when the full
 // text is shown.
+/** Lift a record-returning tool's UI-only full set onto the in-flight assistant
+ *  message, so the inline record-set widget renders below the reply. Called from
+ *  runAgentLoop's onToolResult with the RAW (unstripped) result. A result that
+ *  carries no _ui record-set is ignored, so this is safe to call after every tool.
+ *  Appends (one widget per record-returning tool in the turn), preserving order. */
+function appendRecordSetFromResult(assistantId: string, result: unknown): void {
+  const set = recordSetFromResult(result);
+  if (!set) return;
+  useConversationStore.setState((state) => ({
+    messages: state.messages.map((m) =>
+      m.id === assistantId
+        ? { ...m, recordSets: [...(m.recordSets ?? []), set] }
+        : m,
+    ),
+  }));
+}
+
 function revealAnswer(assistantId: string, answer: string): Promise<void> {
   return new Promise<void>((resolve) => {
     if (answer.length === 0) {
@@ -1223,6 +1248,12 @@ export const useConversationStore = create<ConversationStore>((set, get) => ({
               cumulative.promptTokens + cumulative.completionTokens,
           });
         },
+        // Lift any record-returning tool's UI-only full set onto this assistant
+        // message so the inline record-set widget renders below the reply. The full
+        // set never reaches the model (the loop strips _ui from the model message).
+        onToolResult: (_toolName, _args, toolResult) => {
+          appendRecordSetFromResult(assistantId, toolResult);
+        },
       });
 
       // Resumable plan card: if the driven plan stopped with steps remaining
@@ -1701,6 +1732,12 @@ export const useConversationStore = create<ConversationStore>((set, get) => ({
           set({
             turnTokens: cumulative.promptTokens + cumulative.completionTokens,
           });
+        },
+        // Lift any record-returning tool's UI-only full set onto this assistant
+        // message so the inline record-set widget renders below the reply (resume
+        // path). The full set never reaches the model.
+        onToolResult: (_toolName, _args, toolResult) => {
+          appendRecordSetFromResult(assistantId, toolResult);
         },
       });
 

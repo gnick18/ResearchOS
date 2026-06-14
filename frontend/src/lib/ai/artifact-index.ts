@@ -822,6 +822,10 @@ export async function listArtifacts(
         : (a.date ?? "").localeCompare(b.date ?? "");
     return order === "asc" ? cmp : -cmp;
   });
-  const limit = opts.limit && opts.limit > 0 ? Math.min(opts.limit, 50) : 10;
+  // The internal ceiling is the UI full-set cap (500), not the model's documented
+  // max-50. list_records enforces its own 50 cap on the model-facing `limit`; this
+  // higher ceiling lets it ALSO ask for up to 500 in one call to build the inline
+  // record-set widget's full match list without a second pass.
+  const limit = opts.limit && opts.limit > 0 ? Math.min(opts.limit, 500) : 10;
   return { total: filtered.length, items: sorted.slice(0, limit) };
 }

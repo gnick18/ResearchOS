@@ -31,6 +31,7 @@ import {
   type ArtifactFilter,
 } from "@/lib/ai/artifact-index";
 import { fetchAllNotesIncludingShared, usersApi } from "@/lib/local-api";
+import { withRecordSetUi, periodLabel, RECORD_SET_UI_CAP, type RecordSet, type RecordSetRow } from "@/lib/ai/record-set";
 import type { Note } from "@/lib/types";
 import type { AiTool } from "./types";
 
@@ -279,7 +280,35 @@ export const summarizeNotesTool: AiTool = {
       until: baseFilter.until ?? range.until,
       owners: rawOwners.length > 0 ? (resolvedOwners.length > 0 ? resolvedOwners : rawOwners) : undefined,
     };
-    const summary = aggregateNotes(notes, filter);
-    return { ok: true as const, summary };
+    // Aggregate ONCE at the UI cap so the full matched list feeds the inline
+    // record-set widget, then narrow the model-facing summary back to the
+    // documented item cap (the counts are cap-independent).
+    const fullSummary = aggregateNotes(notes, filter, RECORD_SET_UI_CAP);
+    const modelItems = fullSummary.items.slice(0, DEFAULT_ITEM_CAP);
+    const summary: NoteSummary = {
+      ...fullSummary,
+      items: modelItems,
+      truncated: fullSummary.total > modelItems.length,
+    };
+
+    const set: RecordSet = {
+      kind: "summarize_notes",
+      title: periodLabel("Notes", filter),
+      total: fullSummary.total,
+      items: fullSummary.items.map(
+        (it): RecordSetRow => ({
+          type: "note",
+          id: String(it.id),
+          title: it.title,
+          ...(it.firstEntryTitle ? { subtitle: it.firstEntryTitle } : {}),
+          ...(it.date ? { date: it.date } : {}),
+          ...(it.entryCount
+            ? { meta: `${it.entryCount} ${it.entryCount === 1 ? "entry" : "entries"}` }
+            : {}),
+        }),
+      ),
+    };
+
+    return withRecordSetUi({ ok: true as const, summary }, set);
   },
 };

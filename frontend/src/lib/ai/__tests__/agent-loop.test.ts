@@ -84,6 +84,55 @@ describe("runAgentLoop", () => {
     });
   });
 
+  it("fires onToolResult with the raw result and strips _ui from the model-facing tool message", async () => {
+    // A tool that returns a model-facing shape PLUS an out-of-band _ui record-set.
+    const fakeTool: AiTool = {
+      name: "list_records",
+      description: "List records.",
+      parameters: { type: "object", properties: {} },
+      execute: async () => ({
+        ok: true,
+        count: 1,
+        items: [{ id: "1" }],
+        _ui: {
+          kind: "list_records",
+          title: "Records",
+          total: 1,
+          items: [{ type: "note", id: "1", title: "First" }],
+        },
+      }),
+    };
+
+    const callModel = vi
+      .fn<(m: LoopMessage[], t: unknown[]) => Promise<ModelResponse>>()
+      .mockResolvedValueOnce(assistantWithToolCall("list_records", {}))
+      .mockResolvedValueOnce(assistantFinal("Listed."));
+
+    const onToolResult = vi.fn();
+
+    const result = await runAgentLoop({
+      messages: [{ role: "user", content: "list" }],
+      tools: [fakeTool],
+      callModel,
+      onToolResult,
+    });
+
+    // onToolResult sees the RAW result, still carrying _ui, plus the tool name + args.
+    expect(onToolResult).toHaveBeenCalledTimes(1);
+    const [toolName, args, raw] = onToolResult.mock.calls[0];
+    expect(toolName).toBe("list_records");
+    expect(args).toEqual({});
+    expect((raw as { _ui?: unknown })._ui).toBeDefined();
+
+    // The tool message the MODEL saw on turn 2 has the _ui key stripped.
+    const secondTurnMessages = callModel.mock.calls[1][0];
+    const toolMessage = secondTurnMessages.find((m) => m.role === "tool");
+    const parsed = JSON.parse(toolMessage?.content as string);
+    expect(parsed._ui).toBeUndefined();
+    expect(parsed).toEqual({ ok: true, count: 1, items: [{ id: "1" }] });
+    expect(result.answer).toBe("Listed.");
+  });
+
   it("hands the model tool definitions without the execute function", async () => {
     const fakeTool: AiTool = {
       name: "lookup",

@@ -25,7 +25,7 @@
 // House style, Icon only, brand + semantic tokens, no emojis / em-dashes /
 // mid-sentence colons.
 
-import { useEffect, useRef, useState, useCallback } from "react";
+import { useEffect, useRef, useState, useCallback, lazy, Suspense } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { Icon } from "@/components/icons";
@@ -65,6 +65,10 @@ import type {
 import type { IconName } from "@/components/icons";
 import type { AttachedRef } from "@/lib/ai/conversation-store";
 import BeakerBotCanvas from "./BeakerBotCanvas";
+// The inline record-set browser is lazy so the master-detail UI (and the embed
+// renderers it pulls in) never bloats the chat bundle until a turn actually
+// resolves a record set.
+const RecordSetWidget = lazy(() => import("./RecordSetWidget"));
 import { useCanvasStore } from "@/lib/ai/canvas-store";
 
 // Lightweight markdown renderer for assistant replies only. Scoped to this
@@ -1292,6 +1296,20 @@ export default function BeakerBotConversation({
                     </>
                   )}
                 </div>
+
+                {/* Inline record-set browsers. Rendered below an assistant reply
+                    when a record-returning tool resolved a set this turn. Each is a
+                    searchable master-detail browser of the full match set. Lazy so
+                    the heavy UI never loads until a set is present. */}
+                {m.role === "assistant" && m.recordSets && m.recordSets.length > 0 ? (
+                  <Suspense fallback={null}>
+                    <div className="flex w-full flex-col gap-2 self-start">
+                      {m.recordSets.map((s, i) => (
+                        <RecordSetWidget key={`${s.kind}-${i}`} set={s} />
+                      ))}
+                    </div>
+                  </Suspense>
+                ) : null}
 
                 {/* Per-message action row. Appears on hover (group-hover) for any
                     settled message. User messages: Copy + Revert-to-here (danger

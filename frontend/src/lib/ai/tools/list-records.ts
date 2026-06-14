@@ -23,6 +23,7 @@ import {
   type ListSortBy,
 } from "@/lib/ai/artifact-index";
 import { fetchAllProjectsIncludingShared, usersApi } from "@/lib/local-api";
+import { withRecordSetUi, briefToRow, RECORD_SET_UI_CAP, type RecordSet } from "@/lib/ai/record-set";
 import type { Project } from "@/lib/types";
 import type { AiTool } from "./types";
 
@@ -144,7 +145,29 @@ export const listRecordsTool: AiTool = {
     const order: ListOrder = args.order === "asc" ? "asc" : "desc";
     const limit = typeof args.limit === "number" && args.limit > 0 ? Math.min(args.limit, 50) : 10;
 
-    const { total, items } = await listRecordsDeps.list({ filter, sortBy, order, limit });
-    return { ok: true as const, total, count: items.length, sortBy, order, items };
+    // Fetch up to the UI cap ONCE so the widget gets the full match set, then slice
+    // the requested limit for the model. The model still receives only `limit`
+    // items (its existing shape); the full set rides out-of-band under _ui, which
+    // the agent loop strips before the result reaches the model.
+    const uiLimit = Math.max(limit, RECORD_SET_UI_CAP);
+    const { total, items: fullItems } = await listRecordsDeps.list({
+      filter,
+      sortBy,
+      order,
+      limit: uiLimit,
+    });
+    const items = fullItems.slice(0, limit);
+
+    const set: RecordSet = {
+      kind: "list_records",
+      title: "Records",
+      total,
+      items: fullItems.slice(0, RECORD_SET_UI_CAP).map(briefToRow),
+    };
+
+    return withRecordSetUi(
+      { ok: true as const, total, count: items.length, sortBy, order, items },
+      set,
+    );
   },
 };

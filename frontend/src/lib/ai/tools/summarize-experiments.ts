@@ -30,6 +30,7 @@ import {
   fetchAllTasksIncludingShared,
   usersApi,
 } from "@/lib/local-api";
+import { withRecordSetUi, periodLabel, RECORD_SET_UI_CAP, type RecordSet, type RecordSetRow } from "@/lib/ai/record-set";
 import type { Project, Task } from "@/lib/types";
 import type { AiTool } from "./types";
 
@@ -396,7 +397,40 @@ export const summarizeExperimentsTool: AiTool = {
     const projectNames = new Map(
       projects.map((p) => [String(p.id), p.name || "Untitled project"]),
     );
-    const summary = aggregateExperiments(tasks, filter, today, DEFAULT_ITEM_CAP, projectNames);
-    return { ok: true as const, summary };
+    // Aggregate ONCE at the UI cap so the full matched list is available for the
+    // inline record-set widget, then narrow the model-facing summary back to the
+    // documented item cap (counts and tallies are cap-independent). The widget gets
+    // every match; the model still gets only DEFAULT_ITEM_CAP items.
+    const fullSummary = aggregateExperiments(
+      tasks,
+      filter,
+      today,
+      RECORD_SET_UI_CAP,
+      projectNames,
+    );
+    const modelItems = fullSummary.items.slice(0, DEFAULT_ITEM_CAP);
+    const summary: ExperimentSummary = {
+      ...fullSummary,
+      items: modelItems,
+      truncated: fullSummary.total > modelItems.length,
+    };
+
+    const set: RecordSet = {
+      kind: "summarize_experiments",
+      title: periodLabel("Experiments", filter),
+      total: fullSummary.total,
+      items: fullSummary.items.map(
+        (it): RecordSetRow => ({
+          type: "experiment",
+          id: String(it.id),
+          title: it.title,
+          ...(it.projectName ? { subtitle: it.projectName } : {}),
+          ...(it.startDate ? { date: it.startDate } : {}),
+          meta: it.status,
+        }),
+      ),
+    };
+
+    return withRecordSetUi({ ok: true as const, summary }, set);
   },
 };

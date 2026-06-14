@@ -21,6 +21,7 @@
 import { fetchAllNotesIncludingShared, fetchAllMethodsIncludingShared, filesApi } from "@/lib/local-api";
 import { objectDeepLink, methodRefId, type ObjectRefType } from "@/lib/references";
 import { countMatches, findFirst, snippetAround } from "@/lib/ai/deep-text";
+import { withRecordSetUi, RECORD_SET_UI_CAP, type RecordSet, type RecordSetRow } from "@/lib/ai/record-set";
 import type { Note, Method } from "@/lib/types";
 import type { AiTool } from "./types";
 
@@ -121,6 +122,10 @@ export const searchFullTextTool: AiTool = {
     const types = requested.length > 0 ? requested : ALL_TYPES;
 
     const hits: FullTextHit[] = [];
+    // The UI full set: EVERY matching record up to the widget cap, independent of
+    // the model's MAX_HITS. The model still sees only `hits` (capped at MAX_HITS);
+    // the inline record-set widget shows every match so the user can browse them.
+    const uiHits: FullTextHit[] = [];
     let totalMatches = 0;
     let truncated = false;
 
@@ -128,6 +133,7 @@ export const searchFullTextTool: AiTool = {
       totalMatches += hit.matches;
       if (hits.length < MAX_HITS) hits.push(hit);
       else truncated = true;
+      if (uiHits.length < RECORD_SET_UI_CAP) uiHits.push(hit);
     };
 
     // Notes: bodies are already in memory.
@@ -183,15 +189,37 @@ export const searchFullTextTool: AiTool = {
       }
     }
 
-    return {
-      ok: true as const,
-      count: hits.length,
-      totalMatches,
-      truncated,
+    const set: RecordSet = {
+      kind: "search_full_text",
+      title: `Matches for "${query}"`,
+      // total is the number of matching RECORDS the widget can show (uiHits length,
+      // capped at RECORD_SET_UI_CAP), not the totalMatches occurrence count.
+      total: uiHits.length,
       query,
-      regex: isRegex,
-      types,
-      results: hits,
+      items: uiHits.map(
+        (hit): RecordSetRow => ({
+          type: hit.type as ObjectRefType,
+          id: String(hit.id),
+          title: hit.title,
+          ...(hit.entryTitle ? { subtitle: hit.entryTitle } : {}),
+          snippet: hit.snippet,
+          meta: `${hit.matches} ${hit.matches === 1 ? "match" : "matches"}`,
+        }),
+      ),
     };
+
+    return withRecordSetUi(
+      {
+        ok: true as const,
+        count: hits.length,
+        totalMatches,
+        truncated,
+        query,
+        regex: isRegex,
+        types,
+        results: hits,
+      },
+      set,
+    );
   },
 };
