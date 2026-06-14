@@ -1,0 +1,110 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>BeakerSearch font study</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=Newsreader:opsz,wght@6..72,400;6..72,500&family=Fraunces:opsz,wght@9..144,400;9..144,500&family=Hanken+Grotesk:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&family=Instrument+Sans:wght@400;500;600&display=swap">
+<style>
+  :root{
+    --bg:#eef1f5;--surface:#fff;--sunken:#f4f7f9;--text:#1a2530;--text-2:#5a6b78;--text-3:#8a98a4;
+    --border:rgba(26,37,48,.14);--border-2:rgba(26,37,48,.24);--sky:#185fa5;--sky-soft:#e6f1fb;
+    --geist:"Geist",sans-serif;--r:12px;--rm:8px;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;background:var(--bg);color:var(--text);font-family:var(--geist);}
+  .wrap{max-width:760px;margin:0 auto;padding:26px 22px 120px;}
+  h1{font-size:17px;margin:0 0 4px;}
+  .lead{font-size:13px;color:var(--text-2);line-height:1.6;margin:0 0 22px;}
+  .grouplab{font-size:10px;text-transform:uppercase;letter-spacing:.05em;color:var(--text-3);margin:0 6px;}
+  .bar{display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-bottom:8px;}
+  .swatch{font-size:14px;border:1px solid var(--border-2);background:var(--surface);color:var(--text);border-radius:var(--rm);padding:6px 13px;cursor:pointer;}
+  .swatch.on{background:var(--sky-soft);color:var(--sky);border-color:var(--sky);font-weight:600;}
+  .scoperow{display:flex;align-items:center;gap:10px;margin:6px 0 16px;}
+  .seg{display:inline-flex;border:1px solid var(--border-2);border-radius:var(--rm);overflow:hidden;}
+  .seg button{border:0;background:transparent;color:var(--text-2);font-size:12px;padding:5px 11px;cursor:pointer;}
+  .seg button.on{background:var(--sky-soft);color:var(--sky);font-weight:600;}
+  .note{font-size:12px;color:var(--text-2);flex:1;}
+  .panel{background:var(--surface);border:1px solid var(--border-2);border-radius:var(--r);overflow:hidden;box-shadow:0 4px 20px rgba(0,0,0,.08);}
+  .head{display:flex;align-items:center;gap:9px;padding:11px 14px;border-bottom:1px solid var(--border);}
+  .mark{width:24px;height:24px;border-radius:7px;background:var(--sky-soft);color:var(--sky);display:inline-flex;align-items:center;justify-content:center;font-size:14px;}
+  .name{font-size:14px;font-weight:600;flex:1;}
+  .mode{font-size:11px;color:var(--text-3);border:1px solid var(--border);border-radius:6px;padding:2px 8px;}
+  .body{padding:14px;display:flex;flex-direction:column;gap:12px;}
+  .um{align-self:flex-end;max-width:80%;background:var(--sunken);border-radius:10px;padding:8px 12px;font-size:13px;}
+  .ai{font-size:14px;line-height:1.65;}
+  .ai p{margin:0 0 10px;} .ai .h{font-weight:600;margin:0 0 4px;} .ai ul{margin:0 0 12px;padding-left:18px;}
+  .composer{display:flex;align-items:center;gap:8px;padding:11px 14px;border-top:1px solid var(--border);}
+  .composer .ph{flex:1;font-size:13px;color:var(--text-3);}
+  .send{width:28px;height:28px;border-radius:7px;background:var(--sky);color:#fff;display:inline-flex;align-items:center;justify-content:center;}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>BeakerSearch font study</h1>
+  <p class="lead">The app (and BeakerBot) renders in Geist, the default Next.js font, which reads anonymous. Following Claude's pattern of giving the AI its own face, this compares typefaces for BeakerBot's reply text. Click a typeface to swap it live. "AI replies only" keeps the chrome on Geist (the recommended scope). DECISION 2026-06-13, Grant picked Hanken Grotesk, AI-replies-only. Shipped on main afe9dcdce (--font-ai on the AssistantMarkdown container).</p>
+
+  <div class="bar" id="bar"></div>
+  <div class="scoperow">
+    <span class="grouplab" style="margin-left:0;">Apply to</span>
+    <div class="seg" id="scope">
+      <button data-scope="ai" class="on">AI replies only</button>
+      <button data-scope="all">Whole panel</button>
+    </div>
+    <span class="note" id="note"></span>
+  </div>
+
+  <div class="panel" id="panel">
+    <div class="head"><span class="mark">&#9851;</span><span class="name">BeakerBot</span><span class="mode">Ask</span></div>
+    <div class="body">
+      <div class="um">Summarize my experiments</div>
+      <div class="ai" id="ai">
+        <p>You have <strong>17 experiments</strong> across three projects.</p>
+        <p class="h">Status breakdown</p>
+        <ul><li>Complete: 10</li><li>Active: 2</li><li>Upcoming: 4</li><li>Overdue: 1</li></ul>
+        <p class="h">What needs attention</p>
+        <p>One overdue item, due 2026-06-12. Two active runs finish this week, including a fluorescence reader scan and a qPCR setup from morgan.</p>
+      </div>
+    </div>
+    <div class="composer"><span class="ph">Message BeakerBot, or / for a command</span><span class="send">&#8593;</span></div>
+  </div>
+</div>
+<script>
+(function(){
+  var FONTS=[
+    {k:"Geist",f:"'Geist',sans-serif",g:"current",note:"Current. The default Next.js font, clean but anonymous."},
+    {k:"Source Serif 4",f:"'Source Serif 4',serif",g:"serif",note:"Serif. Screen-tuned and calm, closest free analog to Claude's reading voice."},
+    {k:"Newsreader",f:"'Newsreader',serif",g:"serif",note:"Serif. Literary and warm, makes the assistant feel considered."},
+    {k:"Fraunces",f:"'Fraunces',serif",g:"serif",note:"Serif. Characterful old-style, distinctive but less neutral."},
+    {k:"IBM Plex Sans",f:"'IBM Plex Sans',sans-serif",g:"sans",note:"Sans. Engineered, scientific feel that suits a lab tool."},
+    {k:"Hanken Grotesk",f:"'Hanken Grotesk',sans-serif",g:"sans",note:"Sans. Friendly modern grotesque, warmer than Geist without going serif. CHOSEN."},
+    {k:"Instrument Sans",f:"'Instrument Sans',sans-serif",g:"sans",note:"Sans. Contemporary with subtle character, fresh but neutral."}
+  ];
+  var GROUPS=[["current","Current"],["serif","Serif, gives the AI a voice"],["sans","Sans, fresh alternatives"]];
+  var bar=document.getElementById("bar"),ai=document.getElementById("ai"),note=document.getElementById("note");
+  var chrome=document.querySelectorAll("#panel .head,#panel .um,#panel .composer");
+  var scope="ai",active="Hanken Grotesk",btns={};
+  GROUPS.forEach(function(grp){
+    var l=document.createElement("span");l.className="grouplab";l.textContent=grp[1];bar.appendChild(l);
+    FONTS.filter(function(x){return x.g===grp[0];}).forEach(function(x){
+      var b=document.createElement("button");b.className="swatch";b.textContent=x.k;b.style.fontFamily=x.f;
+      b.onclick=function(){apply(x);};btns[x.k]=b;bar.appendChild(b);
+    });
+  });
+  function apply(x){
+    active=x.k;ai.style.fontFamily=x.f;note.textContent=x.note;
+    chrome.forEach(function(el){el.style.fontFamily=scope==="all"?x.f:"";});
+    Object.keys(btns).forEach(function(k){btns[k].classList.toggle("on",k===x.k);});
+  }
+  document.querySelectorAll("#scope button").forEach(function(sb){
+    sb.onclick=function(){
+      scope=sb.getAttribute("data-scope");
+      document.querySelectorAll("#scope button").forEach(function(o){o.classList.toggle("on",o===sb);});
+      apply(FONTS.filter(function(x){return x.k===active;})[0]);
+    };
+  });
+  apply(FONTS.filter(function(x){return x.k==="Hanken Grotesk";})[0]);
+})();
+</script>
+</body>
+</html>
