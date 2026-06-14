@@ -1,33 +1,14 @@
-import type { Metadata } from "next";
-
-import BusinessTracker from "@/components/admin/BusinessTracker";
-import LightOnly from "@/components/LightOnly";
+import { redirect } from "next/navigation";
 
 /**
- * Standalone `/business` route: the operator-only LLC business tracker.
+ * Legacy `/business` route. The operator-only LLC finances now live inside the
+ * unified operator console at `/admin` (Finances group), merged with the user
+ * metrics so the operator sees the whole picture in one shell (2026-06-14).
  *
- * Grant-only. The page is just a shell; the data is gated by the
- * /api/admin/business endpoint (ADMIN_EMAILS + SHARING_ENABLED), which returns
- * 404 to anyone not on the allow-list, so loading the page leaks nothing. Like
- * /admin it renders without the AppShell or a connected folder and is excluded
- * from the wiki-coverage map (an operator tool, not a documented user feature).
- * Moved here from /admin/business 2026-06-10 (Grant) for a cleaner path; the old
- * route redirects here, and /admin and /business cross-link to each other.
- *
- * Pinned to light mode (Grant 2026-06-11): the operator surfaces always read in
- * the light palette regardless of the user's theme. The full-height
- * bg-surface-sunken root covers the viewport, so the LightOnly scope leaves no
- * dark peek behind it.
+ * This redirect preserves old bookmarks and any already-sent email links. Both
+ * surfaces are operator-only either way (the data is gated at
+ * /api/admin/business regardless of path), so loading this leaks nothing.
  */
-export const metadata: Metadata = {
-  title: "Business | ResearchOS",
-  robots: { index: false, follow: false },
-};
-
-export default function BusinessPage() {
-  return (
-    <LightOnly>
-      <BusinessTracker />
-    </LightOnly>
-  );
+export default function LegacyBusinessRedirect() {
+  redirect("/admin#finances");
 }
