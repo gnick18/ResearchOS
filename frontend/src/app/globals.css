@@ -53,6 +53,19 @@
   --cm-list: #374151;
   --cm-meta: #9ca3af;
 
+  /* ── Writing-room editor surface (L1 calm editor atom) ───────────────────────
+   * The DOCKED (non-focus) LiveMarkdownEditor zone paints as a calm "writing
+   * room": warm paper instead of the flat utilitarian well, with larger,
+   * airier writing-room type. These drive `.ros-editor-room` below. The room
+   * is intentionally a warm-paper tint that layers cleanly over the editor's
+   * existing white `.light-scope` paper, so it reads as paper in BOTH light and
+   * dark (where the editor body is forced light by .light-scope). A
+   * dark-native variant is declared in the [data-theme="dark"] block for
+   * surfaces that opt out of light-scope. */
+  --editor-room-top: #fcfbf8; /* warm paper, top */
+  --editor-room-bot: #f5f3ec; /* warm paper, bottom */
+  --editor-room-edge: rgba(15, 27, 46, 0.06); /* hairline at the room's top edge */
+
   /* ── Sequence editor palette (custom SVG viewer) ─────────────────────────────
    * The /sequences map + sequence views are custom SVG (no canvas), so fills are
    * driven through these vars to flip with data-theme. Light values here are
@@ -189,6 +202,14 @@
   --cm-list: #cbd5e1;
   --cm-meta: #94a3b8;
 
+  /* Dark-native writing room (used only when the editor is NOT light-scoped;
+   * today the docked editor IS light-scoped, so the .light-scope override below
+   * wins and keeps the warm-paper look. Declared for completeness / future
+   * surfaces that paint the editor on true dark chrome). */
+  --editor-room-top: #121a2d;
+  --editor-room-bot: #0c1322;
+  --editor-room-edge: rgba(255, 255, 255, 0.08);
+
   /* Sequence editor palette in dark (SnapGene-inspired, on our app surface). */
   --seq-bg: #0a0e1a;
   --seq-letter: #e8edf4;
@@ -261,6 +282,11 @@
   --cm-quote: #6b7280;
   --cm-list: #374151;
   --cm-meta: #9ca3af;
+  /* Keep the writing room warm-paper inside a light-scope (the docked editor),
+   * so the calm surface reads as paper on the dark app chrome too. */
+  --editor-room-top: #fcfbf8;
+  --editor-room-bot: #f5f3ec;
+  --editor-room-edge: rgba(15, 27, 46, 0.06);
   --seq-bg: #ffffff;
   --seq-letter: #1f2937;
   --seq-letter-muted: #64748b;
@@ -345,6 +371,59 @@
   --border-subtle: rgba(255, 255, 255, 0.16);
   --accent: #38bdf8;
   --accent-soft: rgba(56, 189, 248, 0.14);
+}
+
+/* ── L1 writing-room editor surface ──────────────────────────────────────────
+ * The DOCKED (non-focus) LiveMarkdownEditor content zone gets `.ros-editor-room`.
+ * This turns the flat editor well into a calm paper canvas and applies
+ * writing-room typography (larger base, comfortable line-height, readable
+ * measure preserved by the existing width-preset measure classes).
+ *
+ * Scope discipline (Phase A guardrails):
+ *   - Only the DOCKED editor carries `.ros-editor-room`. The focus-mode overlay
+ *     relocates the same subtree to a body portal WITHOUT this class, so the
+ *     focus path keeps its own treatment untouched.
+ *   - BeakerBotCanvas + every other host that mounts the shared
+ *     InlineMarkdownEditor is unaffected unless it carries this class.
+ *   - We only nudge `.cm-content` font-size / line-height here; the shared CM6
+ *     theme defaults in InlineMarkdownEditor are NOT modified, so non-room
+ *     surfaces keep their exact 0.95rem / 1.7 type. */
+.ros-editor-room {
+  background: radial-gradient(
+    120% 80% at 50% -10%,
+    var(--editor-room-top),
+    var(--editor-room-bot)
+  );
+  border-top: 1px solid var(--editor-room-edge);
+}
+
+/* Writing-room type on the live CodeMirror surface (Edit mode). The CM6 theme
+ * sets 0.95rem / 1.7 by element-level inline-ish rules; we raise specificity
+ * with the `.ros-editor-room` ancestor so the room wins without touching the
+ * shared theme. */
+.ros-editor-room .cm-content {
+  font-size: 17.5px;
+  line-height: 1.75;
+  padding: 1.4rem 1.75rem 2.5rem;
+}
+.ros-editor-room .cm-scroller {
+  line-height: 1.75;
+}
+
+/* Make the editor's own white "paper" card dissolve INTO the room so the zone
+ * reads as one calm surface instead of a card-on-a-well. The CM host card and
+ * the Preview card both carry `bg-surface-raised border border-border`; inside
+ * the room we soften them to transparent with a hairline. */
+.ros-editor-room .cm-inline-editor,
+.ros-editor-room .ros-editor-preview-card {
+  background: transparent;
+  border-color: transparent;
+}
+
+/* Writing-room type on the read-only Preview render (prose). */
+.ros-editor-room .ros-editor-preview-card.prose {
+  font-size: 17px;
+  line-height: 1.75;
 }
 
 @layer utilities {
