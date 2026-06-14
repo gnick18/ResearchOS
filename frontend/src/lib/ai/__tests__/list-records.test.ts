@@ -68,10 +68,10 @@ describe("list_records tool", () => {
     expect(r._ui?.items.map((i) => i.id)).toEqual(["1", "2", "3", "4", "5"]);
   });
 
-  it("does NOT attach _ui when 4 or fewer match (>4 rule, inline chips instead)", async () => {
+  it("does NOT attach _ui for a lone match (1 item stays an inline chip)", async () => {
     vi.spyOn(listRecordsDeps, "list").mockResolvedValue({
-      total: 4,
-      items: [brief("1", "A"), brief("2", "B"), brief("3", "C"), brief("4", "D")],
+      total: 1,
+      items: [brief("1", "A")],
     });
     vi.spyOn(listRecordsDeps, "listMemberUsernames").mockResolvedValue([]);
     vi.spyOn(listRecordsDeps, "listProjects").mockResolvedValue([]);
@@ -80,8 +80,22 @@ describe("list_records tool", () => {
       count: number;
       _ui?: unknown;
     };
-    expect(r.count).toBe(4);
+    expect(r.count).toBe(1);
     expect(r._ui).toBeUndefined();
+  });
+
+  it("attaches _ui for a small set of 2 (compact-layout floor)", async () => {
+    vi.spyOn(listRecordsDeps, "list").mockResolvedValue({
+      total: 2,
+      items: [brief("1", "A"), brief("2", "B")],
+    });
+    vi.spyOn(listRecordsDeps, "listMemberUsernames").mockResolvedValue([]);
+    vi.spyOn(listRecordsDeps, "listProjects").mockResolvedValue([]);
+
+    const r = (await listRecordsTool.execute({ limit: 10 })) as {
+      _ui?: { items: Array<{ id: string }> };
+    };
+    expect(r._ui?.items).toHaveLength(2);
   });
 
   it("resolves a relative period into a date filter", async () => {

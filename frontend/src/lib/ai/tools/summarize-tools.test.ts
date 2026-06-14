@@ -418,8 +418,7 @@ describe("summarizeExperimentsTool.execute", () => {
     expect(big._ui?.items.every((i) => i.type === "experiment")).toBe(true);
 
     stubExperiments({
-      listExperiments: async () =>
-        [1, 2, 3, 4].map((id) => makeExperiment({ id, owner: "grant" })),
+      listExperiments: async () => [makeExperiment({ id: 1, owner: "grant" })],
       listProjects: async () => [],
       listMemberUsernames: async () => [],
     });
@@ -475,8 +474,7 @@ describe("summarizePurchasesTool.execute", () => {
     expect(big._ui?.items.every((i) => i.type === "purchase")).toBe(true);
 
     stubPurchases({
-      listPurchases: async () =>
-        [1, 2, 3, 4].map((id) => makePurchase({ id, total_price: id * 10, owner: "grant" })),
+      listPurchases: async () => [makePurchase({ id: 1, total_price: 10, owner: "grant" })],
       listMemberUsernames: async () => [],
     });
     const small = (await summarizePurchasesTool.execute({})) as { _ui?: unknown };

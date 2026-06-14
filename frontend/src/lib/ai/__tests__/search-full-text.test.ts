@@ -75,7 +75,7 @@ describe("search_full_text tool", () => {
     expect(bad.error).toMatch(/not a valid regular expression/i);
   });
 
-  it("attaches a record-set under _ui when >4 records match, none for 4 or fewer", async () => {
+  it("attaches a record-set under _ui for a set of matches, none for a lone match", async () => {
     const fiveNotes = [1, 2, 3, 4, 5].map((id) => note(id, `Note ${id}`, "cyp51A here"));
     vi.spyOn(searchFullTextDeps, "listNotes").mockResolvedValue(fiveNotes);
     vi.spyOn(searchFullTextDeps, "listMethods").mockResolvedValue([]);
@@ -88,8 +88,8 @@ describe("search_full_text tool", () => {
     expect(big._ui?.items.every((i) => i.type === "note")).toBe(true);
 
     vi.restoreAllMocks();
-    const fourNotes = [1, 2, 3, 4].map((id) => note(id, `Note ${id}`, "cyp51A here"));
-    vi.spyOn(searchFullTextDeps, "listNotes").mockResolvedValue(fourNotes);
+    const oneNote = [1].map((id) => note(id, `Note ${id}`, "cyp51A here"));
+    vi.spyOn(searchFullTextDeps, "listNotes").mockResolvedValue(oneNote);
     vi.spyOn(searchFullTextDeps, "listMethods").mockResolvedValue([]);
     const small = (await searchFullTextTool.execute({ query: "cyp51A" })) as { _ui?: unknown };
     expect(small._ui).toBeUndefined();

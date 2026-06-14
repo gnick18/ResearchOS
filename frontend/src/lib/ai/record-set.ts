@@ -35,12 +35,20 @@ export const RECORD_SET_UI_KEY = "_ui" as const;
  *  "showing N of total" note when it does. */
 export const RECORD_SET_UI_CAP = 500;
 
-/** Grant's ">4" rule (2026-06-14, universal). A result with MORE THAN 4 items
- *  uses the master-detail widget; 4 or fewer stays as inline chips in the reply,
- *  no widget. So the widget shows ONLY when the full set has at least 5 rows.
- *  Every record-listing tool gates its _ui attachment on this threshold, and the
- *  system prompt tells Beaker not to enumerate more than 4 records in prose. */
-export const RECORD_SET_MIN_ITEMS = 5;
+/** The minimum set size that renders the widget at all (2026-06-14). A SET of
+ *  records is never enumerated in prose; it renders the master-detail widget once
+ *  there are at least 2 of them. A lone reference (1 item) stays an inline chip in
+ *  the reply (that is a single mention, not a set). Every record-listing tool gates
+ *  its _ui attachment on this, and the system prompt tells Beaker not to prose-list
+ *  a set. */
+export const RECORD_SET_MIN_ITEMS = 2;
+
+/** The size boundary between the two widget layouts (Grant picked "Option D",
+ *  2026-06-14). 2 to 4 items render the COMPACT layout (a row of selectable chip
+ *  tabs + one shared preview pane), the big widget in miniature. 5 or more render
+ *  the FULL layout (search box + type-filter chips + scrollable left rail +
+ *  preview). One mental model at every size. RecordSetWidget switches on this. */
+export const RECORD_SET_COMPACT_MAX = 4;
 
 /** The row type discriminant. Every ObjectRefType the embed pipeline knows, PLUS
  *  "purchase" and "inventory", neither of which has an embed route or per-id deep
@@ -89,11 +97,12 @@ export function withRecordSetUi<T extends object>(
   return { ...result, [RECORD_SET_UI_KEY]: set } as T & { _ui: RecordSet };
 }
 
-/** Build a RecordSet from a row list ONLY when it clears the ">4" threshold (at
- *  least RECORD_SET_MIN_ITEMS rows), else null. The caller passes the FULL pre-cap
- *  row list and the set metadata; rows are capped at RECORD_SET_UI_CAP for the
- *  carried items while total reflects the full count. A set of 4 or fewer rows
- *  returns null so the reply shows inline chips instead of a widget. Pure. */
+/** Build a RecordSet from a row list ONLY when it is a SET (at least
+ *  RECORD_SET_MIN_ITEMS rows), else null. The caller passes the FULL pre-cap row
+ *  list and the set metadata; rows are capped at RECORD_SET_UI_CAP for the carried
+ *  items while total reflects the full count. A single row returns null so a lone
+ *  reference stays an inline chip; 2 or more render the widget (compact up to
+ *  RECORD_SET_COMPACT_MAX, full beyond). Pure. */
 export function maybeRecordSet(
   rows: RecordSetRow[],
   opts: { kind: string; title: string; total?: number; query?: string },
@@ -109,11 +118,12 @@ export function maybeRecordSet(
 }
 
 /** Attach a RecordSet to a tool result via withRecordSetUi ONLY when the full row
- *  list clears the ">4" threshold (at least RECORD_SET_MIN_ITEMS rows), else return
- *  the result UNCHANGED (no widget, inline chips instead). The central place every
+ *  list is a SET (at least RECORD_SET_MIN_ITEMS rows), else return the result
+ *  UNCHANGED (a lone reference stays an inline chip). The central place every
  *  record-listing tool routes its widget attachment through, so the threshold rule
  *  is enforced in one spot. The model-facing shape is untouched either way; only
- *  the out-of-band _ui key is conditionally added. */
+ *  the out-of-band _ui key is conditionally added. Name kept for call-site
+ *  stability; "big" now means "big enough to group" (>= 2). */
 export function attachRecordSetIfBig<T extends object>(
   result: T,
   rows: RecordSetRow[],

@@ -69,18 +69,13 @@ describe("search_my_work tool", () => {
     ]);
   });
 
-  it("does NOT attach _ui when 4 or fewer results (>4 rule, inline chips instead)", async () => {
-    searchMyWorkMock.mockResolvedValue([
-      brief("1", "note", "A"),
-      brief("2", "note", "B"),
-      brief("3", "note", "C"),
-      brief("4", "note", "D"),
-    ]);
+  it("does NOT attach _ui for a lone result (1 stays an inline chip)", async () => {
+    searchMyWorkMock.mockResolvedValue([brief("1", "note", "A")]);
     const out = (await searchMyWorkTool.execute({ query: "notes" })) as {
       count: number;
       _ui?: unknown;
     };
-    expect(out.count).toBe(4);
+    expect(out.count).toBe(1);
     expect(out._ui).toBeUndefined();
   });
 });

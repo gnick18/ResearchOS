@@ -17,6 +17,7 @@ import {
   attachRecordSetIfBig,
   RECORD_SET_UI_KEY,
   RECORD_SET_MIN_ITEMS,
+  RECORD_SET_COMPACT_MAX,
   type RecordSet,
   type RecordSetRow,
 } from "@/lib/ai/record-set";
@@ -93,20 +94,29 @@ describe("recordSetFromResult", () => {
   });
 });
 
-describe("the >4 threshold rule (RECORD_SET_MIN_ITEMS)", () => {
-  it("RECORD_SET_MIN_ITEMS is 5 (more than 4 items shows the widget)", () => {
-    expect(RECORD_SET_MIN_ITEMS).toBe(5);
+describe("the set-size thresholds (RECORD_SET_MIN_ITEMS / RECORD_SET_COMPACT_MAX)", () => {
+  it("MIN_ITEMS is 2 (a set of 2+ shows the widget, a lone item stays a chip)", () => {
+    expect(RECORD_SET_MIN_ITEMS).toBe(2);
+  });
+
+  it("COMPACT_MAX is 4 (2 to 4 compact, 5+ full)", () => {
+    expect(RECORD_SET_COMPACT_MAX).toBe(4);
   });
 
   describe("maybeRecordSet", () => {
-    it("returns null at exactly 4 rows (4 or fewer stays inline chips)", () => {
-      expect(maybeRecordSet(rows(4), { kind: "k", title: "T" })).toBeNull();
+    it("returns null at exactly 1 row (a lone reference stays an inline chip)", () => {
+      expect(maybeRecordSet(rows(1), { kind: "k", title: "T" })).toBeNull();
     });
 
-    it("returns a set at exactly 5 rows", () => {
-      const set = maybeRecordSet(rows(5), { kind: "k", title: "T" });
+    it("returns a set at exactly 2 rows (the compact-layout floor)", () => {
+      const set = maybeRecordSet(rows(2), { kind: "k", title: "T" });
       expect(set).not.toBeNull();
-      expect(set?.total).toBe(5);
+      expect(set?.total).toBe(2);
+      expect(set?.items).toHaveLength(2);
+    });
+
+    it("returns a set at 5 rows (the full-layout floor)", () => {
+      const set = maybeRecordSet(rows(5), { kind: "k", title: "T" });
       expect(set?.items).toHaveLength(5);
     });
 
@@ -122,22 +132,22 @@ describe("the >4 threshold rule (RECORD_SET_MIN_ITEMS)", () => {
   });
 
   describe("attachRecordSetIfBig", () => {
-    it("attaches _ui only when the list clears the threshold", () => {
-      const small = attachRecordSetIfBig({ ok: true }, rows(4), { kind: "k", title: "T" }) as {
+    it("attaches _ui only when the list is a set (>= 2)", () => {
+      const lone = attachRecordSetIfBig({ ok: true }, rows(1), { kind: "k", title: "T" }) as {
         _ui?: unknown;
       };
-      expect(small._ui).toBeUndefined();
+      expect(lone._ui).toBeUndefined();
 
-      const big = attachRecordSetIfBig({ ok: true }, rows(5), { kind: "k", title: "T" }) as {
+      const set = attachRecordSetIfBig({ ok: true }, rows(2), { kind: "k", title: "T" }) as {
         _ui?: RecordSet;
       };
-      expect(big._ui?.kind).toBe("k");
-      expect(big._ui?.items).toHaveLength(5);
+      expect(set._ui?.kind).toBe("k");
+      expect(set._ui?.items).toHaveLength(2);
     });
 
-    it("returns the model-facing fields untouched either way", () => {
-      const result = { ok: true, count: 3, items: [1, 2, 3] };
-      const out = attachRecordSetIfBig(result, rows(2), { kind: "k", title: "T" });
+    it("returns the model-facing fields untouched when below the threshold", () => {
+      const result = { ok: true, count: 1, items: [1] };
+      const out = attachRecordSetIfBig(result, rows(1), { kind: "k", title: "T" });
       expect(out).toEqual(result);
     });
   });

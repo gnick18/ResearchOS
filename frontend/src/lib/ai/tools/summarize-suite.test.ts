@@ -566,7 +566,7 @@ describe("summarizeProjectsTool.execute", () => {
     expect(big._ui?.items.every((i) => i.type === "project")).toBe(true);
 
     Object.assign(summarizeProjectsDeps, {
-      listProjects: async () => [1, 2, 3, 4].map((id) => makeProject({ id, name: `P${id}` })),
+      listProjects: async () => [makeProject({ id: 1, name: "P1" })],
       listTasks: async () => [],
     });
     const small = (await summarizeProjectsTool.execute({})) as { _ui?: unknown };
@@ -611,9 +611,8 @@ describe("summarizeInventoryTool.execute", () => {
     expect(big._ui?.items.every((i) => i.meta === "low")).toBe(true);
 
     Object.assign(summarizeInventoryDeps, {
-      listItems: async () => [1, 2, 3, 4].map((id) => makeItem({ id, low_at_count: 5 })),
-      listStocks: async () =>
-        [1, 2, 3, 4].map((id) => makeStock({ id: id * 10, item_id: id, container_count: 2 })),
+      listItems: async () => [makeItem({ id: 1, low_at_count: 5 })],
+      listStocks: async () => [makeStock({ id: 10, item_id: 1, container_count: 2 })],
     });
     const small = (await summarizeInventoryTool.execute({})) as { _ui?: unknown };
     expect(small._ui).toBeUndefined();
@@ -671,13 +670,13 @@ describe("labDigestTool.execute", () => {
     expect(types.has("note")).toBe(true);
   });
 
-  it("does NOT attach _ui when 4 or fewer cross-type records", async () => {
+  it("does NOT attach _ui for a lone cross-type record", async () => {
     Object.assign(summarizeExperimentsDeps, {
       listExperiments: async () => [makeTask({ id: 1, is_complete: true })],
       listProjects: async (): Promise<Project[]> => [],
     });
     Object.assign(summarizePurchasesDeps, { listPurchases: async () => [] });
-    Object.assign(summarizeNotesDeps, { listNotes: async () => [makeNote({ id: 1 })] });
+    Object.assign(summarizeNotesDeps, { listNotes: async () => [] });
     Object.assign(summarizeProjectsDeps, {
       listProjects: async () => [makeProject({ id: 1 })],
       listTasks: async () => [],

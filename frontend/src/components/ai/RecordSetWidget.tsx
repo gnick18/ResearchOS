@@ -28,7 +28,7 @@ import ObjectEmbed from "@/components/embeds/ObjectEmbed";
 import { openObjectRef } from "@/components/ai/object-popup-bridge";
 import { requestNavigation } from "@/components/ai/navigation-bridge";
 import { DEFAULT_EMBED_VIEW, type EmbedDescriptor, type ObjectRefType } from "@/lib/references";
-import type { RecordSet, RecordSetRow, RecordSetRowType } from "@/lib/ai/record-set";
+import { RECORD_SET_COMPACT_MAX, type RecordSet, type RecordSetRow, type RecordSetRowType } from "@/lib/ai/record-set";
 
 // Per-type glyph + label, mirroring ObjectEmbed's maps so the list and the embed
 // preview read consistently. Kept local (ObjectEmbed does not export them) and
@@ -189,7 +189,7 @@ function RecordPreview({ row }: { row: RecordSetRow }) {
   );
 }
 
-export default function RecordSetWidget({ set }: { set: RecordSet }) {
+function FullRecordSet({ set }: { set: RecordSet }) {
   const [query, setQuery] = useState("");
   // Active type-filter chips. Empty set means "all types".
   const [activeTypes, setActiveTypes] = useState<Set<RecordSetRowType>>(new Set());
@@ -386,5 +386,75 @@ export default function RecordSetWidget({ set }: { set: RecordSet }) {
         </div>
       )}
     </div>
+  );
+}
+
+// Compact layout (Grant's "Option D", 2026-06-14) for a small set (2 to
+// RECORD_SET_COMPACT_MAX rows). The full widget in miniature: a row of selectable
+// chip tabs across the top, one shared preview pane below, no search box or rail
+// (overkill for a handful). Same preview + Open-full as the full layout, so the
+// two sizes are one mental model. Used instead of scattered inline chips so a few
+// results can be previewed in place without committing to the full popup.
+function CompactRecordSet({ set }: { set: RecordSet }) {
+  const [selectedId, setSelectedId] = useState<string | null>(set.items[0]?.id ?? null);
+  const selected = set.items.find((r) => r.id === selectedId) ?? set.items[0] ?? null;
+  return (
+    <div
+      data-testid="record-set-widget"
+      data-layout="compact"
+      className="mt-2 overflow-hidden rounded-xl border border-border bg-surface-raised"
+    >
+      <div className="flex items-center gap-2 border-b border-border px-3 py-2">
+        <span className="flex h-5 w-5 shrink-0 items-center justify-center text-foreground-muted">
+          <Icon name="filter" className="h-4 w-4" />
+        </span>
+        <span className="min-w-0 flex-1 truncate text-meta font-semibold text-foreground">
+          {set.title}
+        </span>
+        <span className="shrink-0 text-[11px] text-foreground-muted">
+          {set.total} {set.total === 1 ? "match" : "matches"}
+        </span>
+      </div>
+      <div className="flex flex-wrap gap-1.5 px-3 pt-2.5">
+        {set.items.map((row) => {
+          const on = row.id === selected?.id;
+          return (
+            <button
+              key={`${row.type}:${row.id}`}
+              type="button"
+              onClick={() => setSelectedId(row.id)}
+              aria-selected={on}
+              className={`inline-flex max-w-full items-center gap-1.5 rounded-md border px-2.5 py-1 text-meta transition-colors ${
+                on
+                  ? "border-brand-action bg-brand-action/10 text-foreground"
+                  : "border-border text-foreground-muted hover:border-brand-action hover:text-foreground"
+              }`}
+            >
+              <Icon name={TYPE_ICON[row.type]} className="h-3.5 w-3.5 shrink-0" />
+              <span className="truncate">{row.title || row.id}</span>
+            </button>
+          );
+        })}
+      </div>
+      <div className="px-3 pb-3 pt-2.5">
+        {/* Fixed height so RecordPreview's h-full preview body and Open-full row
+            lay out the same way they do in the full layout. */}
+        <div style={{ height: 300 }}>
+          {selected ? <RecordPreview row={selected} /> : null}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// The single entry point. A SET of 2 to RECORD_SET_COMPACT_MAX renders the compact
+// Option-D layout; a larger set renders the full search + rail layout. (Sets of 0
+// or 1 never reach here, the tools do not attach a _ui below RECORD_SET_MIN_ITEMS.)
+export default function RecordSetWidget({ set }: { set: RecordSet }) {
+  if (!set.items.length) return null;
+  return set.items.length <= RECORD_SET_COMPACT_MAX ? (
+    <CompactRecordSet set={set} />
+  ) : (
+    <FullRecordSet set={set} />
   );
 }
