@@ -256,6 +256,18 @@ export interface PlotStyle {
    * Read only by the grouped bar; other kinds ignore it.
    */
   barMode?: BarMode;
+  /**
+   * Manual axis range + tick step overrides (Prism-style). All optional and
+   * additive, absent means auto. The value (y) axis of a column / grouped bar uses
+   * yAxisMax (its top, the baseline stays 0) and yTickStep. An XY figure uses the
+   * full xAxisMin / xAxisMax / yAxisMin / yAxisMax. An override is ignored when it
+   * is not a finite number or would invert the range (min >= max).
+   */
+  xAxisMin?: number;
+  xAxisMax?: number;
+  yAxisMin?: number;
+  yAxisMax?: number;
+  yTickStep?: number;
 }
 
 /** The unit a figure's width / height is typed in (and stored as). */
@@ -582,7 +594,21 @@ export function readPlotStyle(spec: PlotSpec): PlotStyle {
       s.barMode === "stack" || s.barMode === "stack100"
         ? (s.barMode as BarMode)
         : undefined,
+    // Manual axis overrides. Each kept only when a positive-or-finite number; the
+    // layout functions validate ranges (min < max) before applying.
+    xAxisMin: numOrUndef(s.xAxisMin),
+    xAxisMax: numOrUndef(s.xAxisMax),
+    yAxisMin: numOrUndef(s.yAxisMin),
+    yAxisMax: numOrUndef(s.yAxisMax),
+    yTickStep: s.yTickStep != null && Number.isFinite(s.yTickStep) && (s.yTickStep as number) > 0
+      ? (s.yTickStep as number)
+      : undefined,
   };
+}
+
+/** A finite number passes through, anything else becomes undefined. */
+function numOrUndef(v: unknown): number | undefined {
+  return typeof v === "number" && Number.isFinite(v) ? v : undefined;
 }
 
 /** Read a PlotSpec's open source record into the typed PlotSource. */
@@ -1044,7 +1070,17 @@ export function layoutPlot(
   const y0 = height - padB;
   const y1 = padT;
 
-  const { yMax, step } = pickAxis(groups, style.errorBar);
+  const auto = pickAxis(groups, style.errorBar);
+  // Manual overrides: a column figure keeps a 0 baseline, so only the top (yMax)
+  // and the tick step can be set; an out-of-range value is ignored.
+  const yMax =
+    style.yAxisMax !== undefined && style.yAxisMax > 0
+      ? style.yAxisMax
+      : auto.yMax;
+  const step =
+    style.yTickStep !== undefined && style.yTickStep > 0
+      ? style.yTickStep
+      : auto.step;
   // d3 linear scale: value domain [0, yMax] -> pixel range [y0 (bottom), y1 (top)].
   const yScale = scaleLinear().domain([0, yMax]).range([y0, y1]);
   const Y = (v: number) => yScale(v);
@@ -1698,6 +1734,31 @@ export function logTicks(
 }
 
 /**
+ * Apply manual min / max overrides to an auto axis (from niceTicks / logTicks),
+ * keeping its tick values that fall inside the chosen range. An override is taken
+ * only when finite, valid for a log axis (positive), and does not invert the range
+ * (min < max); otherwise the auto bound stands. Used by the XY figure where both
+ * axes have a free range (a column figure only overrides its top).
+ */
+function resolveAxisRange(
+  auto: { lo: number; hi: number; values: number[] },
+  min: number | undefined,
+  max: number | undefined,
+  isLog: boolean,
+): { lo: number; hi: number; values: number[] } {
+  let lo = auto.lo;
+  let hi = auto.hi;
+  if (min !== undefined && Number.isFinite(min) && (!isLog || min > 0)) lo = min;
+  if (max !== undefined && Number.isFinite(max) && (!isLog || max > 0)) hi = max;
+  if (lo >= hi) {
+    lo = auto.lo;
+    hi = auto.hi;
+  }
+  const values = auto.values.filter((v) => v >= lo - 1e-9 && v <= hi + 1e-9);
+  return { lo, hi, values: values.length ? values : [lo, hi] };
+}
+
+/**
  * Resolve a fitted curve for the (x, y) pairs under a chosen model. Returns the
  * predictor function (fitted parameters baked in) plus a short note, or null
  * when no curve is requested / the fit cannot run. The engine does the math
@@ -1793,8 +1854,11 @@ export function layoutXYPlot(
   // Y log decided after the fit, since the curve can widen the Y extent below 0.
   const yLog = style.yScaleType === "log" && yMinData > 0;
 
-  const xAxis = xLog ? logTicks(xMinData, xMaxData) : niceTicks(xMinData, xMaxData);
-  const yAxis = yLog ? logTicks(yMinData, yMaxData) : niceTicks(yMinData, yMaxData);
+  const xAuto = xLog ? logTicks(xMinData, xMaxData) : niceTicks(xMinData, xMaxData);
+  const yAuto = yLog ? logTicks(yMinData, yMaxData) : niceTicks(yMinData, yMaxData);
+  // Manual range overrides (an XY axis has a free range, unlike a 0-based bar).
+  const xAxis = resolveAxisRange(xAuto, style.xAxisMin, style.xAxisMax, xLog);
+  const yAxis = resolveAxisRange(yAuto, style.yAxisMin, style.yAxisMax, yLog);
 
   const xScale = (xLog ? scaleLog() : scaleLinear())
     .domain([xAxis.lo, xAxis.hi])
@@ -2035,6 +2099,12 @@ export function layoutGroupedBar(
       yMax = t.hi;
       step = t.step;
     }
+  }
+
+  // Manual overrides (not for stack100, which is normalized to a full bar).
+  if (mode !== "stack100") {
+    if (style.yAxisMax !== undefined && style.yAxisMax > 0) yMax = style.yAxisMax;
+    if (style.yTickStep !== undefined && style.yTickStep > 0) step = style.yTickStep;
   }
 
   const yScale = scaleLinear().domain([0, yMax]).range([y0, y1]);

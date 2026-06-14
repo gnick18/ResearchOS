@@ -650,6 +650,42 @@ describe("plot-spec: XY scatter + fitted curve", () => {
     // Min data is 0, so log is refused and linear ticks (not powers of ten) appear.
     expect(geo.xMin).toBe(0);
   });
+
+  it("honors manual X/Y axis range overrides", () => {
+    const content = lineContent(); // x 0..5, y = 2x+1 -> 1..11
+    const style = {
+      ...defaultPlotStyle(),
+      kind: "xyScatter" as const,
+      fitModel: "none" as const,
+      xAxisMin: 0,
+      xAxisMax: 10,
+      yAxisMin: 0,
+      yAxisMax: 20,
+    };
+    const geo = layoutXYPlot(content, style, "y1");
+    expect(geo.xMin).toBe(0);
+    expect(geo.xMax).toBe(10);
+    expect(geo.yMin).toBe(0);
+    expect(geo.yMax).toBe(20);
+    // ticks stay within the chosen range
+    for (const t of geo.xTicks) {
+      expect(t.value).toBeGreaterThanOrEqual(0);
+      expect(t.value).toBeLessThanOrEqual(10);
+    }
+  });
+
+  it("ignores an inverted manual range and keeps auto", () => {
+    const content = lineContent();
+    const style = {
+      ...defaultPlotStyle(),
+      kind: "xyScatter" as const,
+      fitModel: "none" as const,
+      xAxisMin: 10,
+      xAxisMax: 2, // inverted -> ignored
+    };
+    const geo = layoutXYPlot(content, style, "y1");
+    expect(geo.xMin).toBeLessThan(geo.xMax);
+  });
 });
 
 describe("plot-spec: logTicks", () => {
@@ -727,6 +763,18 @@ describe("plot-spec: grouped bar modes", () => {
     const totalPx = geo.y0 - geo.y1;
     expect(bars[0].height / totalPx).toBeCloseTo(0.2, 2);
     expect(bars[1].height / totalPx).toBeCloseTo(0.8, 2);
+  });
+
+  it("honors a manual Y max + tick step on the value axis", () => {
+    const style = {
+      ...defaultPlotStyle(),
+      kind: "groupedBar" as const,
+      yAxisMax: 20,
+      yTickStep: 5,
+    };
+    const geo = layoutGroupedBar(groupedContent(), style);
+    expect(geo.yMax).toBe(20);
+    expect(geo.ticks.map((t) => t.value)).toEqual([0, 5, 10, 15, 20]);
   });
 });
 

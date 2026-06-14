@@ -172,6 +172,34 @@ function Section({
   );
 }
 
+/** An optional-number axis input: blank means auto (undefined), any finite number
+ * is the override. Used for the manual axis-range controls. */
+function AxisInput({
+  value,
+  onChange,
+  ariaLabel,
+}: {
+  value: number | undefined;
+  onChange: (v: number | undefined) => void;
+  ariaLabel: string;
+}) {
+  return (
+    <input
+      type="number"
+      value={value ?? ""}
+      aria-label={ariaLabel}
+      placeholder="auto"
+      onChange={(e) => {
+        const t = e.target.value.trim();
+        if (t === "") return onChange(undefined);
+        const n = Number(t);
+        onChange(Number.isFinite(n) ? n : undefined);
+      }}
+      className="w-20 rounded-md border border-border bg-surface-overlay px-2 py-1 text-meta text-foreground placeholder:text-foreground-muted focus:border-sky-400 focus:outline-none"
+    />
+  );
+}
+
 /** Round a size number to a tidy precision for the input (inches / cm keep two
  * decimals, px stays whole). */
 function roundForUnit(value: number, unit: SizeUnit): number {
@@ -495,6 +523,7 @@ export default function GraphEditor({
   const style = useMemo(() => readPlotStyle(spec), [spec]);
   const isXY = style.kind === "xyScatter";
   const isGrouped = style.kind === "groupedBar";
+  const isColumn = style.kind === "columnScatter" || style.kind === "columnBar";
   const isSurvival = style.kind === "survivalCurve";
   const isEstimation =
     style.kind === "estimationGardnerAltman" ||
@@ -967,6 +996,63 @@ export default function GraphEditor({
             onFitToPage={onFitToPage}
           />
         </Section>
+
+        {(isXY || isColumn || isGrouped) && (
+          <Section title="Axis range" icon="ruler">
+            {isXY ? (
+              <>
+                <Ctl label="X min">
+                  <AxisInput
+                    value={style.xAxisMin}
+                    onChange={(v) => onStyleChange({ xAxisMin: v })}
+                    ariaLabel="X axis minimum"
+                  />
+                </Ctl>
+                <Ctl label="X max">
+                  <AxisInput
+                    value={style.xAxisMax}
+                    onChange={(v) => onStyleChange({ xAxisMax: v })}
+                    ariaLabel="X axis maximum"
+                  />
+                </Ctl>
+                <Ctl label="Y min">
+                  <AxisInput
+                    value={style.yAxisMin}
+                    onChange={(v) => onStyleChange({ yAxisMin: v })}
+                    ariaLabel="Y axis minimum"
+                  />
+                </Ctl>
+                <Ctl label="Y max">
+                  <AxisInput
+                    value={style.yAxisMax}
+                    onChange={(v) => onStyleChange({ yAxisMax: v })}
+                    ariaLabel="Y axis maximum"
+                  />
+                </Ctl>
+              </>
+            ) : (
+              <>
+                <Ctl label="Y max">
+                  <AxisInput
+                    value={style.yAxisMax}
+                    onChange={(v) => onStyleChange({ yAxisMax: v })}
+                    ariaLabel="Y axis maximum"
+                  />
+                </Ctl>
+                <Ctl label="Y tick step">
+                  <AxisInput
+                    value={style.yTickStep}
+                    onChange={(v) => onStyleChange({ yTickStep: v })}
+                    ariaLabel="Y axis tick step"
+                  />
+                </Ctl>
+              </>
+            )}
+            <p className="mt-1 text-[11px] text-foreground-muted">
+              Leave blank for auto.
+            </p>
+          </Section>
+        )}
 
         <Section title="Labels and text">
           <Ctl label="Axis text">
