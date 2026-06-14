@@ -176,7 +176,10 @@ describe("AppShell — dashboard nav entry", () => {
     expect(hrefs).not.toContain("/");
     expect(labelForHref(container, "/lab-overview")).toBe("Lab Overview");
     // Other tabs still render (incl. /purchases, no longer hidden for PIs).
-    expect(hrefs).toContain("/workbench");
+    expect(hrefs).toContain("/purchases");
+    // In the lab lens the personal Workbench drops out of the primary set —
+    // it is the researcher home, reached via the "My work" toggle (NAV-3).
+    expect(hrefs).not.toContain("/workbench");
   });
 
   it("member: no dashboard entry (Workbench is the landing)", () => {
