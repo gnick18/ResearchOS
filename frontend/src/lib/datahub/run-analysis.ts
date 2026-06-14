@@ -67,6 +67,7 @@ import {
   meanDifference,
   fitModel,
   fitGlobal,
+  prepareFitData,
   fivePLLogEC50Shift,
   extraSumOfSquaresF,
   aiccCompare,
@@ -1189,7 +1190,11 @@ function runDoseResponse(
   const model =
     (readParams(spec).model as "logistic4pl" | "logistic5pl" | undefined) ??
     "logistic4pl";
-  const fit = fitModel(model, x, y);
+  // The dose-response models are parameterized in log10(dose); the picked X is a
+  // raw dose column, so transform it (and drop non-positive doses) before fitting
+  // so EC50 = 10^logEC50 comes back in linear dose units instead of 10^(rawDose).
+  const fitData = prepareFitData(model, x, y);
+  const fit = fitModel(model, fitData.x, fitData.y);
   if (!fit.ok) return { ok: false, error: fit.error };
   const res = fit as FitResult & { ok: true };
 
@@ -1225,7 +1230,7 @@ function runDoseResponse(
     yName,
     x,
     y,
-    n: x.length,
+    n: fitData.x.length,
     ec50,
     ec50CI95,
     logEC50: logEC50True,
@@ -1269,11 +1274,17 @@ function runModelComparison(
   if (!modelA || !modelB) {
     return { ok: false, error: "Pick two models the fitter knows." };
   }
-  const fitA = fitModel(idA, x, y);
+  // Each model fits in its own x-domain: a log-dose model (4PL/5PL) takes
+  // log10(dose), an enzyme/decay model takes raw x. prepareFitData transforms a
+  // raw dose column per model so both fit the same parameterization the analyses
+  // use. For same-domain comparisons (the usual 4PL-vs-5PL) both keep all points.
+  const prepA = prepareFitData(idA, x, y);
+  const prepB = prepareFitData(idB, x, y);
+  const fitA = fitModel(idA, prepA.x, prepA.y);
   if (!fitA.ok) return { ok: false, error: `${modelA.label}: ${fitA.error}` };
-  const fitB = fitModel(idB, x, y);
+  const fitB = fitModel(idB, prepB.x, prepB.y);
   if (!fitB.ok) return { ok: false, error: `${modelB.label}: ${fitB.error}` };
-  const n = x.length;
+  const n = Math.min(prepA.x.length, prepB.x.length);
 
   // Order by parameter count so the F test always sees the simpler model first.
   // A tie keeps the user's order but disables the F test below.
@@ -1394,7 +1405,16 @@ function runGlobalFit(
     return { label: c.name, x: pairs.x, y: pairs.y };
   });
 
-  const fit = fitGlobal(model, datasets, sharedNames);
+  // The dose-response models fit on log10(dose); the shared X is a raw dose column,
+  // so transform each dataset (dropping non-positive doses) before the global fit,
+  // exactly as the single-curve runDoseResponse does. The raw `datasets` are kept
+  // for the returned point curves.
+  const fitDatasets = datasets.map((d) => {
+    const prepared = prepareFitData(model, d.x, d.y);
+    return { label: d.label, x: prepared.x, y: prepared.y };
+  });
+
+  const fit = fitGlobal(model, fitDatasets, sharedNames);
   if (!fit.ok) return { ok: false, error: fit.error };
   const res = fit as GlobalFitResult & { ok: true };
 

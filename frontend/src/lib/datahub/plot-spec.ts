@@ -55,7 +55,12 @@ import {
   rowFactorLevels,
 } from "@/lib/datahub/grouped-table";
 import { survivalGroups } from "@/lib/datahub/survival-table";
-import { fitModel, getModel, kaplanMeier } from "@/lib/datahub/engine";
+import {
+  fitModel,
+  getModel,
+  prepareFitData,
+  kaplanMeier,
+} from "@/lib/datahub/engine";
 import type { BootstrapMethod } from "@/lib/datahub/engine/bootstrap";
 import {
   layoutEstimationPlot,
@@ -1801,12 +1806,22 @@ function resolveXYFit(
   if (modelId === "none") return null;
   const model = getModel(modelId);
   if (!model) return null;
-  if (x.length <= model.paramNames.length) return null;
-  const result = fitModel(modelId, x, y);
+  // Dose-response models fit on log10(dose); transform a raw dose column (and drop
+  // non-positive doses) so the plotted curve uses the same fit as the analysis.
+  const fitData = prepareFitData(modelId, x, y);
+  if (fitData.x.length <= model.paramNames.length) return null;
+  const result = fitModel(modelId, fitData.x, fitData.y);
   if (!result.ok) return null;
   const params = result.parameters.map((p) => p.value);
   if (!params.every((v) => Number.isFinite(v))) return null;
-  const predict = model.fn(params);
+  const rawPredict = model.fn(params);
+  // The curve is sampled at raw x positions; for a log-dose model map each raw
+  // dose through log10 first so the drawn curve matches the fitted parameters
+  // (and EC50 = 10^logEC50 sits at the visible half-max). Non-positive doses have
+  // no point on a log-dose curve.
+  const predict = model.logXInput
+    ? (xv: number) => (xv > 0 ? rawPredict(Math.log10(xv)) : NaN)
+    : rawPredict;
   const r2 = Number.isFinite(result.rSquared)
     ? `R-squared = ${result.rSquared.toFixed(3)}`
     : "";

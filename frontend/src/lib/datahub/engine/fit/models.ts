@@ -32,6 +32,15 @@ export interface NonlinearModel {
   canonicalize?: (params: number[]) => number[];
   /** Optional derived readouts (e.g. EC50) from fitted params. */
   derived?: (params: number[]) => Record<string, number>;
+  /**
+   * When true, the model is parameterized in log10(dose): its `fn`, initial
+   * guess, bounds, and the EC50 = 10^logEC50 readout all assume x = log10(dose).
+   * The analysis and plot fit paths run a raw dose column through
+   * `prepareFitData` (drop non-positive doses, take log10) before fitting, so a
+   * user picks raw concentrations and still gets EC50 in linear dose units.
+   * Absent => x is taken as-is.
+   */
+  logXInput?: boolean;
 }
 
 function range(y: number[]): { lo: number; hi: number } {
@@ -71,6 +80,7 @@ function trendSign(x: number[], y: number[]): number {
 const fourPL: NonlinearModel = {
   id: "logistic4pl",
   label: "4-parameter logistic (variable slope)",
+  logXInput: true,
   paramNames: ["Bottom", "Top", "logEC50", "HillSlope"],
   fn:
     ([bottom, top, logEC50, hill]) =>
@@ -157,6 +167,7 @@ function fivePLHalfMaxShift(hill: number, s: number): number {
 const fivePL: NonlinearModel = {
   id: "logistic5pl",
   label: "5-parameter logistic (asymmetric)",
+  logXInput: true,
   paramNames: ["Bottom", "Top", "logEC50", "HillSlope", "S"],
   fn:
     ([bottom, top, logEC50, hill, s]) =>
@@ -365,6 +376,37 @@ export function getModel(id: string): NonlinearModel | undefined {
 
 export function listModels(): Array<{ id: string; label: string }> {
   return Object.values(MODELS).map((m) => ({ id: m.id, label: m.label }));
+}
+
+/** True when model `id` is parameterized in log10(dose) (see `logXInput`). */
+export function modelExpectsLogX(id: string): boolean {
+  return getModel(id)?.logXInput === true;
+}
+
+/**
+ * Prepare (x, y) pairs for fitting model `id`. For a log-dose model (logXInput)
+ * this drops non-positive / non-finite doses — log10 has no value there — and
+ * replaces x with log10(x), so a RAW dose column fits the model's log10(dose)
+ * parameterization and EC50 = 10^logEC50 lands back in linear dose units. Any
+ * other model gets its pairs back unchanged. x and y stay paired; the returned
+ * arrays are fresh (callers can keep the originals for display).
+ */
+export function prepareFitData(
+  id: string,
+  x: number[],
+  y: number[],
+): { x: number[]; y: number[] } {
+  if (!modelExpectsLogX(id)) return { x, y };
+  const fx: number[] = [];
+  const fy: number[] = [];
+  for (let i = 0; i < x.length; i++) {
+    const xi = x[i];
+    if (xi > 0 && Number.isFinite(xi)) {
+      fx.push(Math.log10(xi));
+      fy.push(y[i]);
+    }
+  }
+  return { x: fx, y: fy };
 }
 
 /**

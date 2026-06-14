@@ -132,6 +132,8 @@ export {
   fitGlobal,
   getModel,
   listModels,
+  modelExpectsLogX,
+  prepareFitData,
   fivePLLogEC50Shift,
   MODELS,
   aicc,

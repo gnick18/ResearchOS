@@ -548,8 +548,9 @@ function doseResponseCode(r: NormalizedDoseResponse): string {
 from scipy.optimize import curve_fit
 from scipy import stats
 
-x = ${x}
+dose = ${x}
 y = ${y}
+x = np.log10(np.asarray(dose, dtype=float))  # dose-response fits on log10(dose)
 
 # 5-parameter logistic (asymmetric), x = log10(dose). Bottom, Top, logEC50,
 # HillSlope, S. The 4PL is the special case S = 1.
@@ -592,8 +593,9 @@ print(f"R-squared = {1 - ss_res/ss_tot:.4g}")`;
 from scipy.optimize import curve_fit
 from scipy import stats
 
-x = ${x}
+dose = ${x}
 y = ${y}
+x = np.log10(np.asarray(dose, dtype=float))  # dose-response fits on log10(dose)
 
 # 4-parameter logistic (variable slope), x = log10(dose). The Prism
 # "log(agonist) vs response" dose-response model. Bottom, Top, logEC50, HillSlope.
