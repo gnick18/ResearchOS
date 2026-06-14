@@ -4,25 +4,28 @@ import LiveMarkdownEditor from "../LiveMarkdownEditor";
 
 /**
  * Writing-surface WIDTH preset coverage (MARKDOWN_EDITOR_TYPORA_DESIGN.md
- * Phase 1, editor-fluid-width bot 2026-05-29).
+ * Phase 1; rehomed for the unified editor surface,
+ * UNIFIED_EDITOR_SURFACE_DESIGN.md §9, unify U5).
  *
- * Grant's pain point: the writing surface (esp. Focus Mode) was locked to a
- * constant size. Phase 1 replaces the fixed box with a FLUID, ch-based measure
- * (default ~72ch centered = "comfortable") and a Narrow / Comfortable / Wide /
- * Full-bleed control in the Focus Mode top bar, persisted per user.
+ * Grant's pain point: the writing surface was locked to a constant size. Phase
+ * 1 replaces the fixed box with a FLUID, ch-based measure (default ~72ch
+ * centered = "comfortable") plus a Narrow / Comfortable / Wide / Full-bleed
+ * control. The sealed focus overlay that used to host the control was retired;
+ * the control now lives on the docked quiet toolbar and is shown only when the
+ * host popup is EXPANDED (`expanded` prop) — the dedicated writing surface where
+ * the measure matters.
  *
  * These tests pin:
- *   1. The control renders in Focus Mode (and only there), with the default
- *      preset highlighted.
- *   2. Picking a preset changes the Focus Mode column's measure class AND the
+ *   1. The control renders only when expanded, with the default preset
+ *      highlighted.
+ *   2. Picking a preset changes the editor column's measure class AND the
  *      Preview render's measure class.
  *   3. The choice persists to localStorage (the synchronous per-editor mirror)
  *      and re-hydrates on a fresh mount.
  *
  * The editor renders WITHOUT a FileSystemProvider here, so `useOptionalCurrent
  * User()` resolves to null and the durable settings.json write is skipped, so
- * the localStorage mirror is the only persistence under test (which is exactly
- * the provider-less behavior we want to guarantee never throws).
+ * the localStorage mirror is the only persistence under test.
  */
 
 const STORAGE_KEY = "research-os-editor-width-preset";
@@ -43,17 +46,28 @@ describe("LiveMarkdownEditor: writing-surface width preset", () => {
     }
   });
 
-  it("renders the width control only in Focus Mode, defaulting to Comfortable", () => {
-    render(<LiveMarkdownEditor value="hello" onChange={vi.fn()} />);
+  it("renders the width control only when expanded, defaulting to Comfortable", () => {
+    const { rerender } = render(
+      <LiveMarkdownEditor
+        value="hello"
+        onChange={vi.fn()}
+        onRequestExpand={vi.fn()}
+        expanded={false}
+      />,
+    );
 
-    // Not in focus mode: the control is absent.
+    // Docked (not expanded): the control is absent.
     expect(screen.queryByTestId("hybrid-editor-width-control")).toBeNull();
 
-    act(() => {
-      fireEvent.click(screen.getByTestId("hybrid-editor-focus-toggle"));
-    });
-
-    // In focus mode: the control and all four presets render.
+    // Expanded: the control and all four presets render.
+    rerender(
+      <LiveMarkdownEditor
+        value="hello"
+        onChange={vi.fn()}
+        onRequestExpand={vi.fn()}
+        expanded
+      />,
+    );
     expect(
       screen.getByTestId("hybrid-editor-width-control"),
     ).toBeInTheDocument();
@@ -77,34 +91,39 @@ describe("LiveMarkdownEditor: writing-surface width preset", () => {
     );
   });
 
-  it("the Focus Mode column uses a fluid ch-based measure (not the old constant max-w-5xl box)", () => {
-    render(<LiveMarkdownEditor value="hello" onChange={vi.fn()} />);
-    act(() => {
-      fireEvent.click(screen.getByTestId("hybrid-editor-focus-toggle"));
-    });
-
-    const dialog = screen.getByRole("dialog");
+  it("the expanded column uses a fluid ch-based measure (not the old constant max-w-5xl box)", () => {
+    const { container } = render(
+      <LiveMarkdownEditor
+        value="hello"
+        onChange={vi.fn()}
+        onRequestExpand={vi.fn()}
+        expanded
+      />,
+    );
     // The wrapper centers the editor in a ch measure; the old fixed box is gone.
-    expect(dialog.querySelector(".max-w-\\[72ch\\]")).not.toBeNull();
-    expect(dialog.querySelector(".max-w-5xl")).toBeNull();
+    expect(container.querySelector(".max-w-\\[72ch\\]")).not.toBeNull();
+    expect(container.querySelector(".max-w-5xl")).toBeNull();
   });
 
-  it("picking Wide widens the Focus Mode column measure; Full-bleed drops the cap", () => {
-    render(<LiveMarkdownEditor value="hello" onChange={vi.fn()} />);
-    act(() => {
-      fireEvent.click(screen.getByTestId("hybrid-editor-focus-toggle"));
-    });
-    const dialog = screen.getByRole("dialog");
+  it("picking Wide widens the expanded column measure; Full-bleed drops the cap", () => {
+    const { container } = render(
+      <LiveMarkdownEditor
+        value="hello"
+        onChange={vi.fn()}
+        onRequestExpand={vi.fn()}
+        expanded
+      />,
+    );
 
     // Default measure present.
-    expect(dialog.querySelector(".max-w-\\[72ch\\]")).not.toBeNull();
+    expect(container.querySelector(".max-w-\\[72ch\\]")).not.toBeNull();
 
     // Wide -> ~96ch.
     act(() => {
       fireEvent.click(screen.getByTestId("hybrid-editor-width-wide"));
     });
-    expect(dialog.querySelector(".max-w-\\[96ch\\]")).not.toBeNull();
-    expect(dialog.querySelector(".max-w-\\[72ch\\]")).toBeNull();
+    expect(container.querySelector(".max-w-\\[96ch\\]")).not.toBeNull();
+    expect(container.querySelector(".max-w-\\[72ch\\]")).toBeNull();
     expect(
       screen.getByTestId("hybrid-editor-width-wide"),
     ).toHaveAttribute("aria-pressed", "true");
@@ -113,14 +132,21 @@ describe("LiveMarkdownEditor: writing-surface width preset", () => {
     act(() => {
       fireEvent.click(screen.getByTestId("hybrid-editor-width-full"));
     });
-    expect(dialog.querySelector(".max-w-\\[96ch\\]")).toBeNull();
-    expect(dialog.querySelector(".max-w-\\[72ch\\]")).toBeNull();
-    expect(dialog.querySelector(".max-w-\\[60ch\\]")).toBeNull();
+    expect(container.querySelector(".max-w-\\[96ch\\]")).toBeNull();
+    expect(container.querySelector(".max-w-\\[72ch\\]")).toBeNull();
+    expect(container.querySelector(".max-w-\\[60ch\\]")).toBeNull();
   });
 
   it("the preset also drives the Preview render's measure class (normal-surface breathing room)", () => {
-    render(<LiveMarkdownEditor value="some **content**" onChange={vi.fn()} />);
-    // Switch to Preview via the in-place toolbar.
+    render(
+      <LiveMarkdownEditor
+        value="some **content**"
+        onChange={vi.fn()}
+        onRequestExpand={vi.fn()}
+        expanded
+      />,
+    );
+    // Switch to Preview via the toolbar.
     act(() => {
       fireEvent.click(screen.getByText("Preview"));
     });
@@ -130,10 +156,7 @@ describe("LiveMarkdownEditor: writing-surface width preset", () => {
     const proseDefault = document.querySelector(".prose.max-w-\\[72ch\\]");
     expect(proseDefault).not.toBeNull();
 
-    // Enter focus mode, narrow the measure, confirm the preview class follows.
-    act(() => {
-      fireEvent.click(screen.getByTestId("hybrid-editor-focus-toggle"));
-    });
+    // Narrow the measure, confirm the preview class follows.
     act(() => {
       fireEvent.click(screen.getByTestId("hybrid-editor-width-narrow"));
     });
@@ -143,11 +166,13 @@ describe("LiveMarkdownEditor: writing-surface width preset", () => {
 
   it("persists the chosen preset to localStorage and re-hydrates it on a fresh mount", () => {
     const first = render(
-      <LiveMarkdownEditor value="hello" onChange={vi.fn()} />,
+      <LiveMarkdownEditor
+        value="hello"
+        onChange={vi.fn()}
+        onRequestExpand={vi.fn()}
+        expanded
+      />,
     );
-    act(() => {
-      fireEvent.click(screen.getByTestId("hybrid-editor-focus-toggle"));
-    });
     act(() => {
       fireEvent.click(screen.getByTestId("hybrid-editor-width-wide"));
     });
@@ -158,15 +183,17 @@ describe("LiveMarkdownEditor: writing-surface width preset", () => {
     first.unmount();
 
     // A brand-new editor instance hydrates the saved preset synchronously.
-    render(<LiveMarkdownEditor value="hello" onChange={vi.fn()} />);
-    act(() => {
-      fireEvent.click(screen.getByTestId("hybrid-editor-focus-toggle"));
-    });
+    const { container } = render(
+      <LiveMarkdownEditor
+        value="hello"
+        onChange={vi.fn()}
+        onRequestExpand={vi.fn()}
+        expanded
+      />,
+    );
     expect(
       screen.getByTestId("hybrid-editor-width-wide"),
     ).toHaveAttribute("aria-pressed", "true");
-    expect(
-      screen.getByRole("dialog").querySelector(".max-w-\\[96ch\\]"),
-    ).not.toBeNull();
+    expect(container.querySelector(".max-w-\\[96ch\\]")).not.toBeNull();
   });
 });
