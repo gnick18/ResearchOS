@@ -16,7 +16,9 @@ import {
   addPanel,
   removePanel,
   snapToGrid,
+  fitPanelsToPage,
   gridFor,
+  PAGE_MARGIN_IN,
   type FigurePage,
   type FigurePanel,
 } from "@/lib/figure/figure-page";
@@ -133,11 +135,45 @@ describe("figure-page model", () => {
     expect(resized.panels[0].hIn).toBeCloseTo(resized.panels[1].hIn, 6);
 
     const aligned = snapToGrid(p, "align");
-    // sizes preserved (not equalized)
+    // sizes preserved (not equalized) when they already fit their cell
     expect(aligned.panels[0].wIn).toBe(2.0);
     expect(aligned.panels[1].wIn).toBe(1.0);
     // but repositioned to distinct cells
     expect(aligned.panels[0].xIn).not.toBeCloseTo(aligned.panels[1].xIn, 2);
+  });
+
+  it("snapToGrid align shrinks an oversized panel so it cannot overlap a neighbor", () => {
+    let p = createFigurePage("f", "F", null);
+    p = addPanel(p, { type: "d", id: "1" }, "p1");
+    p = addPanel(p, { type: "d", id: "2" }, "p2");
+    // Panel 1 was resized larger than any 2x2 cell on Letter (cell ~3.6 x 4.9 in).
+    p.panels[0].wIn = 7.0; p.panels[0].hIn = 6.0;
+    const aligned = snapToGrid(p, "align");
+    const a = aligned.panels[0];
+    const b = aligned.panels[1];
+    // shrunk to fit and aspect preserved (7/6 ratio kept)
+    expect(a.wIn).toBeLessThan(7.0);
+    expect(a.wIn / a.hIn).toBeCloseTo(7 / 6, 3);
+    // the two panels no longer overlap (a's right edge is left of b, or vice versa,
+    // OR they are on different rows)
+    const overlapX = a.xIn < b.xIn + b.wIn && b.xIn < a.xIn + a.wIn;
+    const overlapY = a.yIn < b.yIn + b.hIn && b.yIn < a.yIn + a.hIn;
+    expect(overlapX && overlapY).toBe(false);
+  });
+
+  it("fitPanelsToPage pulls an off-canvas panel back after the paper shrinks", () => {
+    let p = createFigurePage("f", "F", null); // Letter portrait 8.5 x 11
+    p = addPanel(p, { type: "d", id: "1" }, "p1");
+    // place it low on the tall page, then shrink the paper to a short slide
+    p.panels[0].xIn = 1; p.panels[0].yIn = 8.5; p.panels[0].wIn = 3; p.panels[0].hIn = 2.2;
+    p = { ...p, paper: { ...p.paper, paperId: "slide-169" } }; // 13.3 x 7.5
+    const fitted = fitPanelsToPage(p);
+    const f = fitted.panels[0];
+    // the panel's far edges now stay within the page margins
+    expect(f.xIn + f.wIn).toBeLessThanOrEqual(13.3 - PAGE_MARGIN_IN + 1e-6);
+    expect(f.yIn + f.hIn).toBeLessThanOrEqual(7.5 - PAGE_MARGIN_IN + 1e-6);
+    expect(f.xIn).toBeGreaterThanOrEqual(PAGE_MARGIN_IN - 1e-6);
+    expect(f.yIn).toBeGreaterThanOrEqual(PAGE_MARGIN_IN - 1e-6);
   });
 });
 

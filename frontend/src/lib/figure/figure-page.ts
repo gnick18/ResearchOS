@@ -174,6 +174,32 @@ export function removePanel(page: FigurePage, panelId: string): FigurePage {
 }
 
 /**
+ * Clamp every panel into the current page's usable area, shrinking a panel
+ * PROPORTIONALLY (aspect preserved) only when it no longer fits. Run this after
+ * the paper changes (e.g. Letter -> a shorter Slide 16:9), so a panel that used
+ * to fit never hangs off the new canvas. Returns the same object when nothing
+ * moved, so it is cheap to call on every paper change. Pure.
+ */
+export function fitPanelsToPage(page: FigurePage): FigurePage {
+  const { wIn, hIn } = pageSizeIn(page);
+  const usableW = Math.max(0.1, wIn - 2 * PAGE_MARGIN_IN);
+  const usableH = Math.max(0.1, hIn - 2 * PAGE_MARGIN_IN);
+  let changed = false;
+  const panels = page.panels.map((p) => {
+    const fit = Math.min(1, usableW / p.wIn, usableH / p.hIn);
+    const w = p.wIn * fit;
+    const h = p.hIn * fit;
+    // Keep the panel on the page: its far edge cannot pass the bottom/right margin.
+    const x = Math.min(Math.max(PAGE_MARGIN_IN, p.xIn), wIn - PAGE_MARGIN_IN - w);
+    const y = Math.min(Math.max(PAGE_MARGIN_IN, p.yIn), hIn - PAGE_MARGIN_IN - h);
+    if (w === p.wIn && h === p.hIn && x === p.xIn && y === p.yIn) return p;
+    changed = true;
+    return { ...p, wIn: w, hIn: h, xIn: x, yIn: y };
+  });
+  return changed ? { ...page, panels } : page;
+}
+
+/**
  * Arrange every panel into a clean grid (reading order). The caller keeps the
  * prior page for undo, the locked behavior. `mode` is the decision-4 sub-choice:
  *  - "resize": each panel is resized to fill its cell (aspect ignored, even grid).
@@ -200,11 +226,16 @@ export function snapToGrid(page: FigurePage, mode: "align" | "resize"): FigurePa
     if (mode === "resize") {
       byId.set(p.panelId, { ...cur, xIn: cellX, yIn: cellY, wIn: cellW, hIn: cellH });
     } else {
-      // Keep the panel's size, center it in the cell (clamped to the cell).
-      const w = Math.min(cur.wIn, cellW);
-      const h = Math.min(cur.hIn, cellH);
+      // Keep the panel's size when it fits; if it is bigger than its cell,
+      // shrink it PROPORTIONALLY (aspect preserved) so panels never overlap a
+      // neighbor. Then center it in the cell.
+      const fit = Math.min(1, cellW / cur.wIn, cellH / cur.hIn);
+      const w = cur.wIn * fit;
+      const h = cur.hIn * fit;
       byId.set(p.panelId, {
         ...cur,
+        wIn: w,
+        hIn: h,
         xIn: cellX + (cellW - w) / 2,
         yIn: cellY + (cellH - h) / 2,
       });

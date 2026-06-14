@@ -19,6 +19,7 @@ import {
   addPanel,
   removePanel,
   snapToGrid,
+  fitPanelsToPage,
 } from "@/lib/figure/figure-page";
 import {
   getFigureSource,
@@ -282,7 +283,12 @@ export default function FigureComposer({ pageId }: { pageId: string }) {
             <span className="text-foreground-muted">Paper</span>
             <select
               value={page.paper.paperId}
-              onChange={(e) => mutate((p) => ({ ...p, paper: { ...p.paper, paperId: e.target.value } }))}
+              onChange={(e) =>
+                mutate(
+                  (p) => fitPanelsToPage({ ...p, paper: { ...p.paper, paperId: e.target.value } }),
+                  true,
+                )
+              }
               className="rounded-md border border-border bg-surface px-2 py-1 text-meta"
             >
               {PAPER_PRESETS.map((pp) => (
