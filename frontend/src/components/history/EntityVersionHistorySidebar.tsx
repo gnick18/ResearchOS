@@ -529,7 +529,7 @@ export default function EntityVersionHistorySidebar<P extends EntityProjection>(
         role="listbox"
         aria-label="Versions"
         onKeyDown={handleKeyDown}
-        className="flex-1 overflow-y-auto focus:outline-none"
+        className="ros-thin-scroll flex-1 overflow-y-auto focus:outline-none"
         data-testid="version-list"
       >
         {rows === null && (
