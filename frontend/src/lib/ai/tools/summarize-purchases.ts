@@ -22,10 +22,11 @@ import {
   purchaseToBrief,
   filterArtifacts,
   periodToDateRange,
+  resolveOwnerRefsToUsernames,
   type ArtifactBrief,
   type ArtifactFilter,
 } from "@/lib/ai/artifact-index";
-import { purchasesApi } from "@/lib/local-api";
+import { purchasesApi, usersApi } from "@/lib/local-api";
 import { getCurrentUserCached } from "@/lib/storage/json-store";
 import type { PurchaseItem } from "@/lib/types";
 import type { AiTool } from "./types";
@@ -43,12 +44,21 @@ export type SummarizePurchasesDeps = {
   /** Load every purchase the current user may see (own + shared-in), each
    *  decorated with its owner. ACL-enforced upstream by listAllIncludingShared. */
   listPurchases: () => Promise<OwnedPurchase[]>;
+  /** The lab member usernames, used to resolve owner NAMES to usernames. */
+  listMemberUsernames: () => Promise<string[]>;
 };
 
 export const summarizePurchasesDeps: SummarizePurchasesDeps = {
   listPurchases: async () => {
     const currentUser = (await getCurrentUserCached()) ?? "";
     return purchasesApi.listAllIncludingShared(currentUser);
+  },
+  listMemberUsernames: async () => {
+    try {
+      return (await usersApi.list()).users;
+    } catch {
+      return [];
+    }
   },
 };
 
@@ -344,7 +354,7 @@ export const summarizePurchasesTool: AiTool = {
         type: "array",
         items: { type: "string" },
         description:
-          "Optional. Usernames of the lab members to scope to. Omit for the whole lab (own plus everything shared with the current user). Never reaches a member's private purchases, only what is shared.",
+          "Optional. Lab members to scope to, by NAME or username (for example [\"Kritika\"]). The tool resolves names to usernames itself, tolerating case and small typos, so just pass what the user said; you do NOT need to call list_lab_members first. Omit for the whole lab (own plus everything shared with the current user). Never reaches a member's private purchases, only what is shared.",
       },
       status: {
         type: "string",
@@ -371,12 +381,19 @@ export const summarizePurchasesTool: AiTool = {
     const today = new Date().toISOString().slice(0, 10);
     const period = typeof args.period === "string" ? args.period : undefined;
     const range = periodToDateRange(period, today);
+    const [purchases, members] = await Promise.all([
+      summarizePurchasesDeps.listPurchases(),
+      summarizePurchasesDeps.listMemberUsernames(),
+    ]);
+    // Resolve owner NAMES to usernames (keep raw if none resolve, never widen).
+    const rawOwners = baseFilter.owners ?? [];
+    const resolvedOwners = resolveOwnerRefsToUsernames(rawOwners, members);
     const filter: ArtifactFilter = {
       ...baseFilter,
       since: baseFilter.since ?? range.since,
       until: baseFilter.until ?? range.until,
+      owners: rawOwners.length > 0 ? (resolvedOwners.length > 0 ? resolvedOwners : rawOwners) : undefined,
     };
-    const purchases = await summarizePurchasesDeps.listPurchases();
     const summary = aggregatePurchases(purchases, filter);
     return { ok: true as const, summary };
   },

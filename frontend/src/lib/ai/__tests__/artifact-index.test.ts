@@ -19,6 +19,7 @@ import {
   dayPrefix,
   filterArtifacts,
   resolveProjectRefsToIds,
+  resolveOwnerRefsToUsernames,
   periodToDateRange,
   type ArtifactBrief,
   type ArtifactIndexDeps,
@@ -744,6 +745,28 @@ describe("resolveProjectRefsToIds", () => {
   it("returns [] for empty / missing input", () => {
     expect(resolveProjectRefsToIds(undefined, projects)).toEqual([]);
     expect(resolveProjectRefsToIds([], projects)).toEqual([]);
+  });
+  it("resolves a partial / typo'd project name via fuzzy match", () => {
+    expect(resolveProjectRefsToIds(["cyp51"], projects)).toEqual(["1"]); // prefix
+    expect(resolveProjectRefsToIds(["Imagimg"], projects)).toEqual(["2"]); // one typo
+  });
+});
+
+describe("resolveOwnerRefsToUsernames", () => {
+  const members = ["kritika", "grant", "alex chen"];
+  it("resolves an exact / cased username", () => {
+    expect(resolveOwnerRefsToUsernames(["Kritika"], members)).toEqual(["kritika"]);
+  });
+  it("resolves a first name and a small typo", () => {
+    expect(resolveOwnerRefsToUsernames(["alex"], members)).toEqual(["alex chen"]);
+    expect(resolveOwnerRefsToUsernames(["kritka"], members)).toEqual(["kritika"]);
+  });
+  it("dedupes and drops unresolved refs", () => {
+    expect(resolveOwnerRefsToUsernames(["grant", "Grant", "nobody"], members)).toEqual(["grant"]);
+  });
+  it("returns [] for empty / missing input", () => {
+    expect(resolveOwnerRefsToUsernames(undefined, members)).toEqual([]);
+    expect(resolveOwnerRefsToUsernames([], members)).toEqual([]);
   });
 });
 

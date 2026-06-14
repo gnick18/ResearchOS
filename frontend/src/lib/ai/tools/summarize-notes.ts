@@ -26,10 +26,11 @@ import {
   noteToBrief,
   filterArtifacts,
   periodToDateRange,
+  resolveOwnerRefsToUsernames,
   type ArtifactBrief,
   type ArtifactFilter,
 } from "@/lib/ai/artifact-index";
-import { fetchAllNotesIncludingShared } from "@/lib/local-api";
+import { fetchAllNotesIncludingShared, usersApi } from "@/lib/local-api";
 import type { Note } from "@/lib/types";
 import type { AiTool } from "./types";
 
@@ -46,10 +47,19 @@ export type SummarizeNotesDeps = {
   /** Load every note the current user may see (own + shared-in), each decorated
    *  with its owner. ACL-enforced upstream by fetchAllNotesIncludingShared. */
   listNotes: () => Promise<OwnedNote[]>;
+  /** The lab member usernames, used to resolve owner NAMES to usernames. */
+  listMemberUsernames: () => Promise<string[]>;
 };
 
 export const summarizeNotesDeps: SummarizeNotesDeps = {
   listNotes: () => fetchAllNotesIncludingShared(),
+  listMemberUsernames: async () => {
+    try {
+      return (await usersApi.list()).users;
+    } catch {
+      return [];
+    }
+  },
 };
 
 // ---------------------------------------------------------------------------
@@ -233,7 +243,7 @@ export const summarizeNotesTool: AiTool = {
         type: "array",
         items: { type: "string" },
         description:
-          "Optional. Usernames of the lab members to scope to. Omit for the whole lab (own plus everything shared with the current user). Never reaches a member's private notes, only what is shared.",
+          "Optional. Lab members to scope to, by NAME or username (for example [\"Kritika\"]). The tool resolves names to usernames itself, tolerating case and small typos, so just pass what the user said; you do NOT need to call list_lab_members first. Omit for the whole lab (own plus everything shared with the current user). Never reaches a member's private notes, only what is shared.",
       },
       keywords: {
         type: "string",
@@ -256,12 +266,19 @@ export const summarizeNotesTool: AiTool = {
     const today = new Date().toISOString().slice(0, 10);
     const period = typeof args.period === "string" ? args.period : undefined;
     const range = periodToDateRange(period, today);
+    const [notes, members] = await Promise.all([
+      summarizeNotesDeps.listNotes(),
+      summarizeNotesDeps.listMemberUsernames(),
+    ]);
+    // Resolve owner NAMES to usernames (keep raw if none resolve, never widen).
+    const rawOwners = baseFilter.owners ?? [];
+    const resolvedOwners = resolveOwnerRefsToUsernames(rawOwners, members);
     const filter: ArtifactFilter = {
       ...baseFilter,
       since: baseFilter.since ?? range.since,
       until: baseFilter.until ?? range.until,
+      owners: rawOwners.length > 0 ? (resolvedOwners.length > 0 ? resolvedOwners : rawOwners) : undefined,
     };
-    const notes = await summarizeNotesDeps.listNotes();
     const summary = aggregateNotes(notes, filter);
     return { ok: true as const, summary };
   },

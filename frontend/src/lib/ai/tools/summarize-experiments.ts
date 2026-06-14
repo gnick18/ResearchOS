@@ -21,10 +21,15 @@ import {
   filterArtifacts,
   periodToDateRange,
   resolveProjectRefsToIds,
+  resolveOwnerRefsToUsernames,
   type ArtifactBrief,
   type ArtifactFilter,
 } from "@/lib/ai/artifact-index";
-import { fetchAllProjectsIncludingShared, fetchAllTasksIncludingShared } from "@/lib/local-api";
+import {
+  fetchAllProjectsIncludingShared,
+  fetchAllTasksIncludingShared,
+  usersApi,
+} from "@/lib/local-api";
 import type { Project, Task } from "@/lib/types";
 import type { AiTool } from "./types";
 
@@ -41,6 +46,9 @@ export type SummarizeExperimentsDeps = {
   /** Load all projects visible to the current user (own + shared), used to
    *  resolve project ids to human-readable names in the byProject breakdown. */
   listProjects: () => Promise<Project[]>;
+  /** The lab member usernames, used to resolve owner NAMES the model passed
+   *  ("Kritika") to real usernames before scoping. */
+  listMemberUsernames: () => Promise<string[]>;
 };
 
 export const summarizeExperimentsDeps: SummarizeExperimentsDeps = {
@@ -49,6 +57,13 @@ export const summarizeExperimentsDeps: SummarizeExperimentsDeps = {
     return all.filter((t) => t.task_type === "experiment");
   },
   listProjects: () => fetchAllProjectsIncludingShared(),
+  listMemberUsernames: async () => {
+    try {
+      return (await usersApi.list()).users;
+    } catch {
+      return [];
+    }
+  },
 };
 
 // ---------------------------------------------------------------------------
@@ -313,7 +328,7 @@ export const summarizeExperimentsTool: AiTool = {
         type: "array",
         items: { type: "string" },
         description:
-          "Optional. Usernames of the lab members to scope to. Omit for the whole lab (own plus everything shared with the current user). Never reaches a member's private work, only what is shared.",
+          "Optional. Lab members to scope to, by NAME or username (for example [\"Kritika\"]). The tool resolves names to usernames itself, tolerating case and small typos, so just pass what the user said; you do NOT need to call list_lab_members first. Omit for the whole lab (own plus everything shared with the current user). Never reaches a member's private work, only what is shared.",
       },
       projects: {
         type: "array",
@@ -354,9 +369,10 @@ export const summarizeExperimentsTool: AiTool = {
     // An explicit since/until the model also passed wins over the period bound.
     const period = typeof args.period === "string" ? args.period : undefined;
     const range = periodToDateRange(period, today);
-    const [tasks, projects] = await Promise.all([
+    const [tasks, projects, members] = await Promise.all([
       summarizeExperimentsDeps.listExperiments(),
       summarizeExperimentsDeps.listProjects(),
+      summarizeExperimentsDeps.listMemberUsernames(),
     ]);
     // Resolve any project NAMES the model passed into ids, merged with any explicit
     // projectIds, so the model never has to chain a search_my_work lookup first.
@@ -364,10 +380,17 @@ export const summarizeExperimentsTool: AiTool = {
       ? (args.projects as Array<string | number>)
       : [];
     const resolvedIds = resolveProjectRefsToIds(nameRefs, projects);
+    // Resolve owner NAMES the model passed ("Kritika", "kritka") to real usernames,
+    // so the model never has to chain list_lab_members first. If owners were given
+    // but none resolve (e.g. no member list), keep the raw strings rather than
+    // silently widening the scope to the whole lab.
+    const rawOwners = baseFilter.owners ?? [];
+    const resolvedOwners = resolveOwnerRefsToUsernames(rawOwners, members);
     const filter: ArtifactFilter = {
       ...baseFilter,
       since: baseFilter.since ?? range.since,
       until: baseFilter.until ?? range.until,
+      owners: rawOwners.length > 0 ? (resolvedOwners.length > 0 ? resolvedOwners : rawOwners) : undefined,
       projectIds: [...new Set([...(baseFilter.projectIds ?? []), ...resolvedIds])],
     };
     const projectNames = new Map(

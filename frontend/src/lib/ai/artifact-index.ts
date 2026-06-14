@@ -30,6 +30,7 @@
 // House style, no em-dashes, no emojis, no mid-sentence colons.
 
 import { objectDeepLink, methodRefId, type ObjectRefType } from "@/lib/references";
+import { fuzzyResolve } from "@/lib/ai/fuzzy-match";
 import { notesApi, methodsApi, sequencesApi, projectsApi, purchasesApi, fetchAllTasks } from "@/lib/local-api";
 import { dataHubApi } from "@/lib/datahub/api";
 import { moleculesApi } from "@/lib/chemistry/api";
@@ -609,11 +610,35 @@ export function resolveProjectRefsToIds(
         continue;
       }
     }
-    // Otherwise resolve by case-insensitive name.
-    const byName = projects.find(
-      (p) => (p.name ?? "").trim().toLowerCase() === refStr.toLowerCase(),
-    );
-    if (byName) out.add(String(byName.id));
+    // Otherwise resolve by name, tolerating case, partials, and small typos via the
+    // shared fuzzy matcher (exact name still wins; a near-miss like "cyp51" or
+    // "cyp51A knokout" resolves instead of silently dropping).
+    const names = projects.map((p) => (p.name ?? "").trim()).filter(Boolean);
+    const matchedName = fuzzyResolve(refStr, names);
+    if (matchedName) {
+      const byName = projects.find((p) => (p.name ?? "").trim() === matchedName);
+      if (byName) out.add(String(byName.id));
+    }
+  }
+  return [...out];
+}
+
+/** Resolve user-typed member references to real lab usernames, tolerating case,
+ *  first-name / partial, and small typos via the shared fuzzy matcher. Mirrors
+ *  resolveProjectRefsToIds for people, so a summary tool can take owners by NAME
+ *  ("Kritika", "kritka") and never make the model map a name to a username first.
+ *  Deterministic, dedupes, drops anything that does not resolve. Pure. */
+export function resolveOwnerRefsToUsernames(
+  refs: Array<string | number> | undefined,
+  usernames: readonly string[],
+): string[] {
+  if (!refs || refs.length === 0) return [];
+  const out = new Set<string>();
+  for (const ref of refs) {
+    const refStr = String(ref).trim();
+    if (!refStr) continue;
+    const matched = fuzzyResolve(refStr, usernames);
+    if (matched) out.add(matched);
   }
   return [...out];
 }
