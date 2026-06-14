@@ -19,6 +19,7 @@ import {
   dayPrefix,
   filterArtifacts,
   resolveProjectRefsToIds,
+  periodToDateRange,
   type ArtifactBrief,
   type ArtifactIndexDeps,
 } from "../artifact-index";
@@ -743,5 +744,63 @@ describe("resolveProjectRefsToIds", () => {
   it("returns [] for empty / missing input", () => {
     expect(resolveProjectRefsToIds(undefined, projects)).toEqual([]);
     expect(resolveProjectRefsToIds([], projects)).toEqual([]);
+  });
+});
+
+describe("periodToDateRange", () => {
+  // Frozen "today" = Saturday 2026-06-13 (Q2, mid-month). Calendar semantics.
+  const today = "2026-06-13";
+
+  it("returns no bounds for all_time / unknown / missing", () => {
+    expect(periodToDateRange("all_time", today)).toEqual({});
+    expect(periodToDateRange("nonsense", today)).toEqual({});
+    expect(periodToDateRange(undefined, today)).toEqual({});
+  });
+
+  it("today is a single day", () => {
+    expect(periodToDateRange("today", today)).toEqual({ since: "2026-06-13", until: "2026-06-13" });
+  });
+
+  it("this_month runs from the 1st through today", () => {
+    expect(periodToDateRange("this_month", today)).toEqual({ since: "2026-06-01", until: "2026-06-13" });
+  });
+
+  it("last_month is the full previous calendar month", () => {
+    expect(periodToDateRange("last_month", today)).toEqual({ since: "2026-05-01", until: "2026-05-31" });
+  });
+
+  it("last_month crosses the year boundary in January", () => {
+    expect(periodToDateRange("last_month", "2026-01-09")).toEqual({ since: "2025-12-01", until: "2025-12-31" });
+  });
+
+  it("this_quarter runs from the quarter start through today", () => {
+    // June is in Q2 (Apr-Jun).
+    expect(periodToDateRange("this_quarter", today)).toEqual({ since: "2026-04-01", until: "2026-06-13" });
+  });
+
+  it("last_quarter is the full previous quarter", () => {
+    // From Q2, last quarter is Q1 (Jan-Mar).
+    expect(periodToDateRange("last_quarter", today)).toEqual({ since: "2026-01-01", until: "2026-03-31" });
+  });
+
+  it("last_quarter crosses the year boundary from Q1", () => {
+    // February is Q1; last quarter is the prior year's Q4 (Oct-Dec).
+    expect(periodToDateRange("last_quarter", "2026-02-15")).toEqual({ since: "2025-10-01", until: "2025-12-31" });
+  });
+
+  it("this_year and last_year span calendar years", () => {
+    expect(periodToDateRange("this_year", today)).toEqual({ since: "2026-01-01", until: "2026-06-13" });
+    expect(periodToDateRange("last_year", today)).toEqual({ since: "2025-01-01", until: "2025-12-31" });
+  });
+
+  it("this_week runs Monday through today, last_week is the prior Mon-Sun", () => {
+    // 2026-06-13 is a Saturday; that week's Monday is 2026-06-08.
+    expect(periodToDateRange("this_week", today)).toEqual({ since: "2026-06-08", until: "2026-06-13" });
+    expect(periodToDateRange("last_week", today)).toEqual({ since: "2026-06-01", until: "2026-06-07" });
+  });
+
+  it("normalizes spaces and hyphens in the token", () => {
+    expect(periodToDateRange("Last Month", today)).toEqual({ since: "2026-05-01", until: "2026-05-31" });
+    expect(periodToDateRange("last-month", today)).toEqual({ since: "2026-05-01", until: "2026-05-31" });
   });
 });

@@ -25,6 +25,7 @@
 import {
   noteToBrief,
   filterArtifacts,
+  periodToDateRange,
   type ArtifactBrief,
   type ArtifactFilter,
 } from "@/lib/ai/artifact-index";
@@ -239,12 +240,27 @@ export const summarizeNotesTool: AiTool = {
         description:
           "Optional free-text match on the note title and entry titles, for example \"transformation\" or \"colony count\".",
       },
+      period: {
+        type: "string",
+        description:
+          "Optional relative date window the TOOL resolves to since/until for you, so you never compute dates yourself. One of: today, this_week, last_week, this_month, last_month, this_quarter, last_quarter, this_year, last_year, all_time. Prefer this over computing since/until by hand whenever the user says a relative window. An explicit since/until you also pass wins over the period for that bound.",
+      },
     },
     required: [],
     additionalProperties: false,
   },
   execute: async (args) => {
-    const filter = parseFilter(args);
+    const baseFilter = parseFilter(args);
+    // Deterministic relative-window resolution (last_month, this_quarter, ...) so
+    // the weak model never does date arithmetic; explicit since/until wins.
+    const today = new Date().toISOString().slice(0, 10);
+    const period = typeof args.period === "string" ? args.period : undefined;
+    const range = periodToDateRange(period, today);
+    const filter: ArtifactFilter = {
+      ...baseFilter,
+      since: baseFilter.since ?? range.since,
+      until: baseFilter.until ?? range.until,
+    };
     const notes = await summarizeNotesDeps.listNotes();
     const summary = aggregateNotes(notes, filter);
     return { ok: true as const, summary };

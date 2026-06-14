@@ -19,6 +19,7 @@
 import {
   experimentToBrief,
   filterArtifacts,
+  periodToDateRange,
   resolveProjectRefsToIds,
   type ArtifactBrief,
   type ArtifactFilter,
@@ -336,12 +337,23 @@ export const summarizeExperimentsTool: AiTool = {
         description:
           "Optional free-text match on the experiment name and tags, for example \"miniprep\" or \"cyp51A\".",
       },
+      period: {
+        type: "string",
+        description:
+          "Optional relative date window the TOOL resolves to since/until for you, so you never compute dates yourself. One of: today, this_week, last_week, this_month, last_month, this_quarter, last_quarter, this_year, last_year, all_time. Prefer this over computing since/until by hand whenever the user says a relative window (\"last month\", \"this quarter\"). An explicit since/until you also pass wins over the period for that bound.",
+      },
     },
     required: [],
     additionalProperties: false,
   },
   execute: async (args) => {
+    const today = todayString();
     const baseFilter = parseFilter(args);
+    // Resolve a relative period token (last_month, this_quarter, ...) to dates
+    // DETERMINISTICALLY in the tool, so the weak model never does date arithmetic.
+    // An explicit since/until the model also passed wins over the period bound.
+    const period = typeof args.period === "string" ? args.period : undefined;
+    const range = periodToDateRange(period, today);
     const [tasks, projects] = await Promise.all([
       summarizeExperimentsDeps.listExperiments(),
       summarizeExperimentsDeps.listProjects(),
@@ -354,12 +366,14 @@ export const summarizeExperimentsTool: AiTool = {
     const resolvedIds = resolveProjectRefsToIds(nameRefs, projects);
     const filter: ArtifactFilter = {
       ...baseFilter,
+      since: baseFilter.since ?? range.since,
+      until: baseFilter.until ?? range.until,
       projectIds: [...new Set([...(baseFilter.projectIds ?? []), ...resolvedIds])],
     };
     const projectNames = new Map(
       projects.map((p) => [String(p.id), p.name || "Untitled project"]),
     );
-    const summary = aggregateExperiments(tasks, filter, todayString(), DEFAULT_ITEM_CAP, projectNames);
+    const summary = aggregateExperiments(tasks, filter, today, DEFAULT_ITEM_CAP, projectNames);
     return { ok: true as const, summary };
   },
 };

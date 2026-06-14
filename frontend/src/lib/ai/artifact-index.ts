@@ -618,6 +618,83 @@ export function resolveProjectRefsToIds(
   return [...out];
 }
 
+/** The relative date windows the summary tools accept as a `period` token, so the
+ *  (weak) model passes a token instead of computing ISO dates itself (a frequent
+ *  off-by-one / wrong-boundary failure). Calendar-based, not rolling. */
+export type SummaryPeriod =
+  | "today"
+  | "this_week"
+  | "last_week"
+  | "this_month"
+  | "last_month"
+  | "this_quarter"
+  | "last_quarter"
+  | "this_year"
+  | "last_year"
+  | "all_time";
+
+/** Resolve a relative period token to an inclusive { since, until } date range
+ *  (YYYY-MM-DD), computed deterministically from `today` (also YYYY-MM-DD). Calendar
+ *  semantics: "last_month" in June is all of May, "this_quarter" is the quarter start
+ *  through today. "all_time" returns {} (no bounds). An unknown token returns {} too,
+ *  so the caller falls back to the model's explicit since/until. Pure. */
+export function periodToDateRange(
+  period: string | undefined,
+  today: string,
+): { since?: string; until?: string } {
+  if (!period) return {};
+  const p = period.trim().toLowerCase().replace(/[\s-]+/g, "_");
+  const [ty, tm, td] = today.split("-").map(Number);
+  if (![ty, tm, td].every((n) => Number.isFinite(n))) return {};
+  const pad = (n: number) => String(n).padStart(2, "0");
+  const fmt = (y: number, m1: number, d: number) => `${y}-${pad(m1)}-${pad(d)}`;
+  // Date from (year, 1-based month, day); JS Date normalizes overflow/underflow.
+  const mk = (y: number, m1: number, d: number) => new Date(y, m1 - 1, d);
+  const toStr = (dt: Date) => fmt(dt.getFullYear(), dt.getMonth() + 1, dt.getDate());
+  const todayDt = mk(ty, tm, td);
+  // Days since Monday (Mon=0 ... Sun=6).
+  const dowMon = (todayDt.getDay() + 6) % 7;
+
+  switch (p) {
+    case "all_time":
+      return {};
+    case "today":
+      return { since: today, until: today };
+    case "this_week": {
+      const mon = mk(ty, tm, td - dowMon);
+      return { since: toStr(mon), until: today };
+    }
+    case "last_week": {
+      const mon = mk(ty, tm, td - dowMon - 7);
+      const sun = mk(ty, tm, td - dowMon - 1);
+      return { since: toStr(mon), until: toStr(sun) };
+    }
+    case "this_month":
+      return { since: fmt(ty, tm, 1), until: today };
+    case "last_month": {
+      const firstPrev = mk(ty, tm - 1, 1);
+      const lastPrev = mk(ty, tm, 0); // day 0 of this month = last day of prev
+      return { since: toStr(firstPrev), until: toStr(lastPrev) };
+    }
+    case "this_quarter": {
+      const startMonth = Math.floor((tm - 1) / 3) * 3 + 1;
+      return { since: fmt(ty, startMonth, 1), until: today };
+    }
+    case "last_quarter": {
+      const startMonth = Math.floor((tm - 1) / 3) * 3 + 1; // current quarter start
+      const prevStart = mk(ty, startMonth - 3, 1);
+      const prevEnd = mk(ty, startMonth, 0); // last day of the month before this quarter
+      return { since: toStr(prevStart), until: toStr(prevEnd) };
+    }
+    case "this_year":
+      return { since: fmt(ty, 1, 1), until: today };
+    case "last_year":
+      return { since: fmt(ty - 1, 1, 1), until: fmt(ty - 1, 12, 31) };
+    default:
+      return {};
+  }
+}
+
 /**
  * Apply an ArtifactFilter to a list of briefs. Pure, no I/O, fully deterministic.
  * Returns a NEW array of the briefs that pass every active dimension. The order
