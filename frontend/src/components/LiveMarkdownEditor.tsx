@@ -1,7 +1,6 @@
 "use client";
 
 import { useCallback, useRef, useState, useEffect, useLayoutEffect } from "react";
-import { createPortal } from "react-dom";
 import dynamic from "next/dynamic";
 import { usePreloadOnIdle } from "@/lib/perf/use-preload-on-idle";
 import { extractUserContent } from "@/lib/stamp-utils";
@@ -185,25 +184,18 @@ interface LiveMarkdownEditorProps {
    *  that hides the internal Save button can enable its own Save button the
    *  moment the user starts typing. */
   onDirtyChange?: (dirty: boolean) => void;
-  /** Writing Focus Mode (FOCUS_WRITING_MODE_DESIGN.md §6). Controlled-or-
-   *  internal pair mirroring `mode` / `onModeChange`. When `onFocusModeChange`
-   *  is provided the wrapper treats `focusMode` as a controlled value (the
-   *  tour drives it this way); otherwise it owns the boolean internally and
-   *  the toolbar button / shortcut toggle it. Defaults to off. */
-  focusMode?: boolean;
-  /** Callback when focus mode changes (enables the controlled pattern). */
-  onFocusModeChange?: (focusMode: boolean) => void;
-  /** Unified editor surface (UNIFIED_EDITOR_SURFACE_DESIGN.md §3B / §9, U1+U2).
+  /** Unified editor surface (UNIFIED_EDITOR_SURFACE_DESIGN.md §3B / §9).
    *  When a host popup provides this, the editor's Focus button (and the
    *  Cmd/Ctrl+Shift+F shortcut) call `onRequestExpand()` to ask the HOST to
-   *  grow itself to fullscreen (same DOM, CSS size transition) instead of the
-   *  editor teleporting its own subtree into a body-level portal overlay. The
-   *  editor stays mounted inline at the larger size; its overlay/portal/buffer/
-   *  focus-trap machinery stays dormant (kept as the fallback for the six
-   *  non-popup mounts that do NOT pass this prop). When ABSENT, behavior is
-   *  byte-identical to today (internal focusMode + overlay). The host is
-   *  expected to flush/commit the editor buffer before growing (see saveRef /
-   *  the host's flush bridge). */
+   *  grow itself to fullscreen (same DOM, CSS size transition) and shrink back.
+   *  The editor renders inline at every size; there is no separate fullscreen
+   *  overlay. The host is expected to flush/commit the editor buffer before
+   *  growing (see saveRef / the host's flush bridge); the editor also flushes
+   *  its in-flight buffer (`commitBufferRef`) before calling `onRequestExpand`
+   *  as a belt-and-suspenders guard. When this prop is ABSENT (the non-popup
+   *  mounts: methods page, the method create / compound / variation panels, the
+   *  BeakerBot Canvas) the editor shows NO Focus button, since those surfaces
+   *  have no host that can expand, so the affordance would be a dead end. */
   onRequestExpand?: () => void;
   /** Pressed/label state for the Focus button when the host owns expand via
    *  `onRequestExpand`. Reflects whether the host popup is currently expanded
@@ -296,8 +288,6 @@ export default function LiveMarkdownEditor({
   saveRef,
   onExplicitSave,
   onDirtyChange,
-  focusMode = false,
-  onFocusModeChange,
   onRequestExpand,
   expanded = false,
   toolbarTrailing,
@@ -321,24 +311,6 @@ export default function LiveMarkdownEditor({
   // Internal mode state (used if onModeChange is not provided)
   const [internalMode, setInternalMode] = useState<EditorMode>(mode);
 
-  // Writing Focus Mode (FOCUS_WRITING_MODE_DESIGN.md §6). Controlled-or-
-  // internal pattern mirroring `mode` / `onModeChange` above. When the host
-  // (or the tour) supplies `onFocusModeChange`, `focusMode` is the source of
-  // truth; otherwise we own it internally and the toolbar button / shortcut
-  // toggle it.
-  const [internalFocusMode, setInternalFocusMode] = useState<boolean>(focusMode);
-  const focusModeActive = onFocusModeChange ? focusMode : internalFocusMode;
-  const setFocusMode = useCallback(
-    (next: boolean) => {
-      if (onFocusModeChange) {
-        onFocusModeChange(next);
-      } else {
-        setInternalFocusMode(next);
-      }
-    },
-    [onFocusModeChange],
-  );
-
   // Reference picker (Chemistry Phase 3). State lives here in LiveMarkdownEditor
   // so the toolbar button and the InlineMarkdownEditor slash callback both toggle
   // the same modal. Only active when enableReferencePicker is true.
@@ -361,112 +333,50 @@ export default function LiveMarkdownEditor({
     [],
   );
 
-  // Buffer-safety bridge (FOCUS_WRITING_MODE_DESIGN.md §7). Wired for
-  // belt-and-suspenders safety across the focus-mode portal flip. Element
-  // identity is preserved across the portal flip (the SAME editor subtree
-  // renders in both branches), so no remount happens. The flush-to-pending
-  // function may be null when the inline editor is mounted (it owns its own
-  // CM6 history stack), which is fine.
+  // In-flight buffer flush. The inline (CM6) editor publishes a flush-to-pending
+  // function here; the manual-save / expand paths call it to commit any unsaved
+  // keystrokes before the host grows or shrinks the popup, so no typing is lost
+  // across the size transition. May be null while the inline editor's own CM6
+  // history stack owns the buffer, which is fine.
   const commitBufferRef = useRef<(() => void) | null>(null);
   // Imperative insert published by the inline (CodeMirror 6) child. The inline
   // Style Guide rail (MarkdownShortcutsSidebar) calls this to splice a markdown
   // snippet in at the editor's current selection. Null until the inline editor
   // mounts; only the inline branch wires it.
   const insertRef = useRef<((syntax: string) => void) | null>(null);
-  // Captured focused element on enter, restored on exit (a11y §10).
-  const focusReturnElRef = useRef<HTMLElement | null>(null);
-  // Overlay root for the focus trap + guarded-Escape scoping.
-  const focusOverlayRef = useRef<HTMLDivElement>(null);
-  // Parked status published by the child editor (no block mid-edit AND no
-  // block selected). The guarded-Escape listener consults this so it never
-  // exits focus mode while a block is being edited or merely selected
-  // (FOCUS_WRITING_MODE_DESIGN.md §0 decision 1). Defaults true so a fresh
-  // editor with nothing selected is parked.
-  const editorParkedRef = useRef(true);
-  // Mirror focusMode into a ref so it can be read inside listeners with
-  // stable deps (avoids re-binding the document keydown on every render).
-  const focusModeActiveRef = useRef(false);
 
-  // Buffer-safe portal container (FOCUS_WRITING_MODE_DESIGN.md §7).
-  //
-  // React UNMOUNTS + remounts a portal's children when the portal CONTAINER
-  // node changes between renders (verified in react-dom 19's reconciler:
-  // updatePortal bails to createFiberFromPortal on a containerInfo mismatch).
-  // A remount would wipe the editor's CM6 state and silently drop in-flight
-  // typing, exactly the failure the design doc calls the top correctness risk.
-  //
-  // So we create ONE stable container div and ALWAYS portal the editor subtree
-  // into it (the container reference never changes, so React never remounts).
-  // We then move that single node IMPERATIVELY in the DOM: into the in-place
-  // mount slot when not in focus mode, and into document.body (full-viewport
-  // overlay) when in focus mode. Moving a node with `appendChild` does not
-  // change the node's identity, so the portal's containerInfo stays equal and
-  // the component state survives.
-  const portalContainerRef = useRef<HTMLDivElement | null>(null);
-  if (portalContainerRef.current === null && typeof document !== "undefined") {
-    portalContainerRef.current = document.createElement("div");
-  }
-  // The in-place mount slot: a `display: contents` node so it is transparent
-  // to the host's flex layout. The portal container lives inside it when not
-  // in focus mode. Captured via a callback ref so the move effect can react.
-  const [inPlaceMount, setInPlaceMount] = useState<HTMLDivElement | null>(null);
-  const inPlaceMountCallbackRef = useCallback((node: HTMLDivElement | null) => {
-    setInPlaceMount(node);
-  }, []);
+  // Self-effacing chrome (UNIFIED_EDITOR_SURFACE_DESIGN.md §3A, U5). When the
+  // host popup is EXPANDED (fullscreen), the editor's quiet contextual toolbar
+  // dozes ~2.5s after the user goes quiet (i.e. into writing) and wakes the
+  // instant they move the pointer or press a key, so the writing surface stays
+  // calm without trapping the controls. Applies ONLY at fullscreen; the small
+  // docked editor keeps its toolbar always visible. The host popup's PINNED tab
+  // bar is owned by the popup, not this component, so it never dozes (Grant's
+  // pinned-tabs decision). Defaults awake so the toolbar is visible the moment
+  // the surface expands.
+  const [chromeDozing, setChromeDozing] = useState(false);
 
-  // Toggle handler shared by the toolbar button, the exit button, the
-  // Cmd/Ctrl+Shift+F shortcut, and the guarded Escape. Flush the in-flight
-  // buffer to pending BEFORE flipping the portal target (see commitBufferRef
-  // above), then flip.
-  const toggleFocusMode = useCallback(
-    (next: boolean) => {
-      commitBufferRef.current?.();
-      if (next) {
-        // Capture where focus was so we can restore it on exit (the toolbar
-        // enter button, typically). Done before the overlay mounts.
-        if (typeof document !== "undefined") {
-          focusReturnElRef.current =
-            document.activeElement instanceof HTMLElement
-              ? document.activeElement
-              : null;
-        }
-      }
-      setFocusMode(next);
-    },
-    [setFocusMode],
-  );
-
-  // Unified editor surface seam (UNIFIED_EDITOR_SURFACE_DESIGN.md §9, U1+U2).
-  // When the host popup provides `onRequestExpand`, the Focus button and the
-  // Cmd/Ctrl+Shift+F shortcut ask the HOST to grow itself (same DOM, CSS size
-  // transition) instead of toggling the editor's own portal overlay. The host
-  // owns the buffer flush before growing. When `onRequestExpand` is absent this
-  // falls through to the legacy internal focus-mode toggle, so the six
-  // non-popup mounts are byte-identical to today.
+  // Unified editor surface seam (UNIFIED_EDITOR_SURFACE_DESIGN.md §9).
+  // The Focus button and the Cmd/Ctrl+Shift+F shortcut ask the HOST popup to
+  // grow / shrink itself (same DOM, CSS size transition) via `onRequestExpand`.
+  // The editor renders inline at every size, so there is no separate fullscreen
+  // overlay to toggle. When `onRequestExpand` is absent (the non-popup mounts)
+  // there is no host to expand: the Focus button is not rendered and this is a
+  // no-op. A ref keeps the keydown closure stable without re-binding the
+  // listener on every render.
   const onRequestExpandRef = useRef(onRequestExpand);
   useEffect(() => {
     onRequestExpandRef.current = onRequestExpand;
   }, [onRequestExpand]);
   const requestExpandToggle = useCallback(() => {
     const requestExpand = onRequestExpandRef.current;
-    if (requestExpand) {
-      // Flush the in-flight buffer before the host transition so no typing is
-      // lost across the grow/shrink. Belt-and-suspenders alongside the host's
-      // own flush bridge.
-      commitBufferRef.current?.();
-      requestExpand();
-      return;
-    }
-    toggleFocusMode(!focusModeActiveRef.current);
-  }, [toggleFocusMode]);
-
-  // The child fires this (Cmd/Ctrl+Shift+F) to request a toggle. It reads the
-  // live focusMode value from the ref so the closure stays stable. Routes
-  // through requestExpandToggle so the shortcut grows the host popup when a
-  // host owns expand, and toggles the legacy overlay otherwise.
-  const handleChildToggleFocusMode = useCallback(() => {
-    requestExpandToggle();
-  }, [requestExpandToggle]);
+    if (!requestExpand) return;
+    // Flush the in-flight buffer before the host transition so no typing is
+    // lost across the grow / shrink. Belt-and-suspenders alongside the host's
+    // own flush bridge.
+    commitBufferRef.current?.();
+    requestExpand();
+  }, []);
 
   // Writing-surface WIDTH preset (MARKDOWN_EDITOR_TYPORA_DESIGN.md Phase 1).
   // Grant's pain point: the surface (esp. Focus Mode) was a constant box. The
@@ -1762,90 +1672,14 @@ export default function LiveMarkdownEditor({
     };
   }, [isDraggingFile]);
 
-  // ---- Writing Focus Mode (FOCUS_WRITING_MODE_DESIGN.md §5, §6, §10) ----
+  // ---- Fullscreen expand shortcut (UNIFIED_EDITOR_SURFACE_DESIGN.md §9) ----
 
-  // Keep the latest focusMode value on a ref so the child's Cmd+Shift+F
-  // toggle (handleChildToggleFocusMode) reads the live value without
-  // re-binding the editor's document-level keydown listener.
-  useEffect(() => {
-    focusModeActiveRef.current = focusModeActive;
-  }, [focusModeActive]);
-
-  // Focus mode keeps ALL the editor's own tools (the Shortcuts / Style Guide
-  // rail and the Images / Files attachment strip) so no editing functionality
-  // is lost (Grant 2026-05-29). Focus mode strips the surrounding host popup
-  // chrome (tabs, header, icon rail), which the full-viewport overlay simply
-  // covers, NOT the editor's own affordances. So the attachment strip stays
-  // visible (its `true` default) on enter, and the rail is not force-collapsed
-  // (see forceHelperCollapsed below). The "Attachments" toggle in the focus
-  // top bar can still collapse the strip on demand for a calmer surface.
-
-  // Restore focus to where it was before entering (a11y §10). Runs on the
-  // exit transition; the captured element is the toolbar enter button.
-  useEffect(() => {
-    if (!focusModeActive && focusReturnElRef.current) {
-      const el = focusReturnElRef.current;
-      focusReturnElRef.current = null;
-      try {
-        el.focus();
-      } catch {
-        // Some elements throw on focus in test environments; ignore.
-      }
-    }
-  }, [focusModeActive]);
-
-  // Guarded Escape exit (FOCUS_WRITING_MODE_DESIGN.md §0 decision 1, §5).
-  // Document-level listener that exits focus mode ONLY when parked. The
-  // inline editor's CM6 keymap may call stopPropagation for its own Escape
-  // handling. When this listener DOES receive one it re-checks the guards
-  // before acting, and early-returns on a tour-synthetic Escape so the
-  // in-cluster Escapes the walkthrough fires never bounce the user out of
-  // focus mode mid-demo.
-  useEffect(() => {
-    if (!focusModeActive) return;
-    if (typeof document === "undefined") return;
-    const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key !== "Escape") return;
-      // Modifier-combo Escape is not our toggle; let it pass through.
-      if (e.metaKey || e.ctrlKey || e.altKey || e.shiftKey) return;
-      // Only act when PARKED: no block mid-edit, no block selected, and no
-      // tour cursor lock active. The child editor signals "mid-edit" by
-      // keeping a textarea focused (its own handler stopPropagation's that
-      // case before we see it); the belt-and-suspenders checks below cover
-      // the rest.
-      // PARKED guard (decision 1): the child publishes whether no block is
-      // mid-edit AND no block is selected. If it is not parked, decline.
-      if (!editorParkedRef.current) return;
-      // Belt-and-suspenders: also decline if a textarea inside the overlay is
-      // focused (mid-edit). The child's own block-commit Escape owns that
-      // case and stopPropagation's it, so we usually never see it, but this
-      // keeps us safe if the parked ref ever lags a frame.
-      const active = document.activeElement as HTMLElement | null;
-      const isEditingTextarea =
-        active instanceof HTMLTextAreaElement &&
-        Boolean(focusOverlayRef.current?.contains(active));
-      if (isEditingTextarea) return;
-      const tourCursorLocked = Boolean(
-        (window as unknown as { __beakerBotCursorScriptRunning?: boolean })
-          .__beakerBotCursorScriptRunning,
-      );
-      if (tourCursorLocked) return;
-      // We are parked: claim the Escape so the host popup's own
-      // Escape-to-close / shrink never also fires, then exit focus mode.
-      e.preventDefault();
-      e.stopPropagation();
-      toggleFocusMode(false);
-    };
-    // Capture phase so we win over the host popup's window-level Escape
-    // (which would otherwise close / shrink the popup underneath).
-    document.addEventListener("keydown", onKeyDown, true);
-    return () => document.removeEventListener("keydown", onKeyDown, true);
-  }, [focusModeActive, toggleFocusMode]);
-
-  // Cmd/Ctrl+Shift+F focus-mode toggle. The inline (CodeMirror 6) editor does
-  // not install a document-level keydown, so the wrapper owns the shortcut
-  // here. Fires when this editor owns focus OR when nothing editable anywhere
-  // owns focus (so a freshly opened editor with focus on the host chrome still
+  // Cmd/Ctrl+Shift+F expand toggle. The inline (CodeMirror 6) editor does not
+  // install a document-level keydown, so the wrapper owns the shortcut here. It
+  // routes through requestExpandToggle, which asks the host popup to grow /
+  // shrink (and is a no-op on the non-popup mounts that pass no onRequestExpand).
+  // Fires when this editor owns focus OR when nothing editable anywhere owns
+  // focus (so a freshly opened editor with focus on the host chrome still
   // toggles), and yields when a DIFFERENT editor's field is focused.
   const inlineBranchActive = currentMode === "inline";
   useEffect(() => {
@@ -1876,71 +1710,37 @@ export default function LiveMarkdownEditor({
     return () => document.removeEventListener("keydown", onKeyDown, true);
   }, [inlineBranchActive, requestExpandToggle]);
 
-  // Minimal focus trap (a11y §10): keep Tab / Shift+Tab cycling within the
-  // overlay. On enter, move focus to the overlay root so keyboard users
-  // land inside the dialog.
+  // Self-effacing chrome doze (UNIFIED_EDITOR_SURFACE_DESIGN.md §3A, U5). Only
+  // armed when the host popup is EXPANDED. Pointer-move or keypress anywhere in
+  // the editor subtree wakes the chrome and (re)starts a ~2.5s idle timer; when
+  // it fires the toolbar dozes. Listeners are scoped to the editor wrapper so
+  // activity elsewhere on the page (incl. the pinned tab bar, which lives
+  // outside this subtree) never affects it. When not expanded the chrome is
+  // always awake, so the small docked toolbar stays put.
   useEffect(() => {
-    if (!focusModeActive) return;
-    const root = focusOverlayRef.current;
-    if (!root) return;
-    // Land focus inside the overlay on enter.
-    try {
-      root.focus();
-    } catch {
-      // ignore in test environments
+    if (!expanded) {
+      setChromeDozing(false);
+      return;
     }
-    const onTrapKeyDown = (e: KeyboardEvent) => {
-      if (e.key !== "Tab") return;
-      const focusables = Array.from(
-        root.querySelectorAll<HTMLElement>(
-          'a[href], button:not([disabled]), textarea, input:not([disabled]), select, [tabindex]:not([tabindex="-1"])',
-        ),
-      ).filter((el) => el.offsetParent !== null || el === root);
-      if (focusables.length === 0) return;
-      const first = focusables[0];
-      const last = focusables[focusables.length - 1];
-      const activeEl = document.activeElement as HTMLElement | null;
-      if (e.shiftKey) {
-        if (activeEl === first || activeEl === root) {
-          e.preventDefault();
-          last.focus();
-        }
-      } else if (activeEl === last) {
-        e.preventDefault();
-        first.focus();
-      }
+    const root = wrapperRef.current;
+    if (!root || typeof window === "undefined") return;
+    let timer: number | undefined;
+    const arm = () => {
+      setChromeDozing(false);
+      if (timer !== undefined) window.clearTimeout(timer);
+      timer = window.setTimeout(() => setChromeDozing(true), 2500);
     };
-    root.addEventListener("keydown", onTrapKeyDown);
-    return () => root.removeEventListener("keydown", onTrapKeyDown);
-  }, [focusModeActive]);
-
-  // Move the stable portal container in the DOM (never replace it) so the
-  // editor's React state survives the focus toggle. When focus mode is on the
-  // container lives in document.body (its `fixed inset-0` child becomes the
-  // viewport overlay); otherwise it lives inside the in-place mount slot in
-  // the host's normal flow. The container is `display: contents` so it is
-  // transparent to layout in both homes. useLayoutEffect so the node is
-  // attached before paint (no first-frame flash of an editor-less slot).
-  useLayoutEffect(() => {
-    const container = portalContainerRef.current;
-    if (!container) return;
-    container.style.display = "contents";
-    const desiredParent = focusModeActive ? document.body : inPlaceMount;
-    if (desiredParent && container.parentNode !== desiredParent) {
-      desiredParent.appendChild(container);
-    }
-  }, [focusModeActive, inPlaceMount]);
-
-  // Detach the stable container from the DOM on unmount so it doesn't leak as
-  // an orphan in document.body if we unmount mid-focus-mode.
-  useEffect(() => {
+    // Start awake with the timer armed so the toolbar dozes if the user goes
+    // straight to writing without any further activity.
+    arm();
+    root.addEventListener("pointermove", arm);
+    root.addEventListener("keydown", arm);
     return () => {
-      const container = portalContainerRef.current;
-      if (container && container.parentNode) {
-        container.parentNode.removeChild(container);
-      }
+      if (timer !== undefined) window.clearTimeout(timer);
+      root.removeEventListener("pointermove", arm);
+      root.removeEventListener("keydown", arm);
     };
-  }, []);
+  }, [expanded]);
 
   // ── Slim insert rail config (L1 Phase B) ──────────────────────────────────
   // Minimum REAL empty gutter (px) before the rail may render. Below this the
@@ -1979,22 +1779,21 @@ export default function LiveMarkdownEditor({
     currentMode !== "preview" &&
     railGutterPx >= RAIL_MIN_GUTTER_PX;
 
-  // The editor subtree, rendered ONCE. In focus mode it is relocated into a
-  // body-level portal via createPortal below; React preserves component
-  // state (the CM6 editor's state + undo refs) when only the portal
-  // container changes and element identity is kept, so no remount happens
-  // and no typing is lost (FOCUS_WRITING_MODE_DESIGN.md §7).
-  // In focus mode the outer wrapper centers the body in a FLUID, ch-based
-  // readable measure (Phase 1) instead of the old constant `max-w-5xl` box.
-  // The measure follows the user's width preset (Narrow / Comfortable / Wide /
-  // Full-bleed); Full-bleed drops the cap so the surface uses the available
-  // width. `h-full` is kept so the column still fills the overlay height and
-  // scrolls inside itself.
+  // The editor subtree, rendered inline at EVERY size (no portal, no overlay).
+  // The host popup grows / shrinks itself around this same DOM, so the editor
+  // never remounts and no in-flight typing is lost across the size transition
+  // (UNIFIED_EDITOR_SURFACE_DESIGN.md §9).
+  // When the host popup is EXPANDED (fullscreen) the outer wrapper centers the
+  // body in a FLUID, ch-based readable measure (Phase 1) so the writing-room
+  // type reads well across the wide surface. The measure follows the user's
+  // width preset (Narrow / Comfortable / Wide / Full-bleed); Full-bleed drops
+  // the cap so the surface uses the available width. `h-full` is kept so the
+  // column fills the available height and scrolls inside itself.
   const editorTree = (
     <div
       ref={wrapperRef}
       className={
-        focusModeActive
+        expanded
           ? `flex flex-col h-full ${measureClass}`
           : "flex flex-col h-full"
       }
@@ -2005,11 +1804,11 @@ export default function LiveMarkdownEditor({
       // Capture runs top-down before that stop, so we always reset on drop.
       onDropCapture={handleWrapperDrop}
     >
-      {/* Toolbar: the FULL in-place toolbar. Hidden while focus mode is on
-          (the focus overlay renders its own compact top bar instead, see
-          §6: hide Add File / Browse / Strip, keep a compact Hybrid / Preview
-          toggle + Attachments toggle + Save + Exit). */}
-      {showToolbar && !focusModeActive && (
+      {/* Toolbar: the quiet contextual strip. Always rendered when showToolbar
+          is set; at fullscreen it self-effaces (dozes ~2.5s into writing, wakes
+          on pointer-move / keypress) via `chromeDozing` below, but the markup is
+          unchanged across docked and fullscreen. */}
+      {showToolbar && (
         // L1 quiet contextual toolbar. The heavy permanent toolbar collapses
         // into a calm, low-contrast strip: Edit / Preview + Focus stay visible;
         // the secondary insert actions (Add File / Browse / Insert ref / Number
@@ -2018,7 +1817,17 @@ export default function LiveMarkdownEditor({
         // original action + behavior is preserved — only the presentation is
         // quieted (Phase A). No hard border / sunken fill so it reads as part
         // of the writing room.
-        <div className="flex items-center gap-1.5 px-3 py-1.5">
+        <div
+          // Self-effacing chrome (U5): at fullscreen the toolbar fades out and
+          // goes non-interactive while dozing, and wakes (opacity-100) the
+          // instant the user moves the pointer or presses a key. `chromeDozing`
+          // is only ever true when expanded, so the docked toolbar is unaffected.
+          className={`flex items-center gap-1.5 px-3 py-1.5 transition-opacity duration-500 ${
+            chromeDozing
+              ? "opacity-0 pointer-events-none"
+              : "opacity-100"
+          }`}
+        >
           {/* Two-way mode toggle: Edit | Preview. The inline CodeMirror 6
               surface is now the sole editor ("Edit"); Hybrid was retired from
               the UI (its code stays as a dormant fallback). The Edit pill maps
@@ -2211,72 +2020,69 @@ export default function LiveMarkdownEditor({
             </button>
           </Tooltip>
 
-          {/* Writing Focus Mode enter button (FOCUS_WRITING_MODE_DESIGN.md
-              §6). Inline SVG "expand" glyph (no emoji), project Tooltip (never
-              native title=), data-tour-target for the walkthrough's enter beat.
-              Stays visible on the quiet strip.
-
-              Unified surface (UNIFIED_EDITOR_SURFACE_DESIGN.md §9, U1+U2): when
-              the host popup owns expand via onRequestExpand, this button grows
-              the HOST popup (and reads as a collapse toggle when already
-              expanded) instead of opening the editor's own portal overlay. */}
-          <Tooltip
-            label={
-              onRequestExpand
-                ? expanded
+          {/* Fullscreen expand button (UNIFIED_EDITOR_SURFACE_DESIGN.md §9).
+              Rendered ONLY when the host popup can expand (it passes
+              onRequestExpand). The non-popup mounts (methods page, the method
+              create / compound / variation panels, the BeakerBot Canvas) have no
+              host to grow, so they show no button. Clicking it grows the host
+              popup to fullscreen (and reads as a collapse toggle when already
+              expanded). Inline SVG glyph (no emoji), project Tooltip (never
+              native title=), data-tour-target for the walkthrough's enter beat. */}
+          {onRequestExpand && (
+            <Tooltip
+              label={
+                expanded
                   ? "Exit fullscreen (Cmd+Shift+F)"
                   : "Expand to fullscreen (Cmd+Shift+F)"
-                : "Focus mode (Cmd+Shift+F)"
-            }
-            placement="bottom"
-          >
-            <button
-              type="button"
-              data-tour-target="hybrid-editor-focus-toggle"
-              data-testid="hybrid-editor-focus-toggle"
-              onClick={() => requestExpandToggle()}
-              disabled={disabled}
-              aria-pressed={onRequestExpand ? expanded : undefined}
-              aria-label={
-                onRequestExpand
-                  ? expanded
+              }
+              placement="bottom"
+            >
+              <button
+                type="button"
+                data-tour-target="hybrid-editor-focus-toggle"
+                data-testid="hybrid-editor-focus-toggle"
+                onClick={() => requestExpandToggle()}
+                disabled={disabled}
+                aria-pressed={expanded}
+                aria-label={
+                  expanded
                     ? "Exit fullscreen editing"
                     : "Expand to fullscreen editing"
-                  : "Enter writing focus mode"
-              }
-              className={`p-1.5 rounded-lg transition-colors disabled:opacity-50 ${
-                onRequestExpand && expanded
-                  ? "bg-foreground-muted/15 text-foreground"
-                  : "text-foreground-muted hover:bg-foreground-muted/15 hover:text-foreground"
-              }`}
-            >
-              <svg
-                className="w-4 h-4"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-                aria-hidden="true"
+                }
+                className={`p-1.5 rounded-lg transition-colors disabled:opacity-50 ${
+                  expanded
+                    ? "bg-foreground-muted/15 text-foreground"
+                    : "text-foreground-muted hover:bg-foreground-muted/15 hover:text-foreground"
+                }`}
               >
-                {onRequestExpand && expanded ? (
-                  // Collapse glyph (inward arrows) when the host is expanded.
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M9 9V4m0 5H4m5 0L4 4m11 5h5m-5 0V4m0 5l5-5M9 15v5m0-5H4m5 0l-5 5m11-5h5m-5 0v5m0-5l5 5"
-                  />
-                ) : (
-                  // Expand glyph (outward arrows).
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4"
-                  />
-                )}
-              </svg>
-            </button>
-          </Tooltip>
+                <svg
+                  className="w-4 h-4"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                  aria-hidden="true"
+                >
+                  {expanded ? (
+                    // Collapse glyph (inward arrows) when the host is expanded.
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M9 9V4m0 5H4m5 0L4 4m11 5h5m-5 0V4m0 5l5-5M9 15v5m0-5H4m5 0l-5 5m11-5h5m-5 0v5m0-5l5 5"
+                    />
+                  ) : (
+                    // Expand glyph (outward arrows).
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4"
+                    />
+                  )}
+                </svg>
+              </button>
+            </Tooltip>
+          )}
 
           {/* "/" discoverability hint (L1 Phase B, design §3A). Quiet,
               low-contrast text so it teaches without shouting. Shown only when
@@ -2296,6 +2102,50 @@ export default function LiveMarkdownEditor({
               </span>
               to insert
             </span>
+          )}
+
+          {/* Writing-surface WIDTH control (MARKDOWN_EDITOR_TYPORA_DESIGN.md
+              Phase 1). A small segmented affordance: Narrow / Comfortable /
+              Wide / Full-bleed. Each segment carries an inline-SVG measure glyph
+              (no emoji) inside a project Tooltip (never native title=). The
+              active preset is highlighted; clicking one applies + persists it
+              (localStorage mirror + per-user settings). Shown only when the host
+              popup is EXPANDED (fullscreen) — the dedicated writing surface where
+              the measure matters; docked-small the column is already tight so it
+              stays out of the way. */}
+          {expanded && (
+            <div
+              role="group"
+              aria-label="Writing width"
+              data-testid="hybrid-editor-width-control"
+              className="flex items-center bg-surface-sunken/70 rounded-lg p-0.5"
+            >
+              {EDITOR_WIDTH_PRESETS.map((preset) => {
+                const active = widthPreset === preset;
+                return (
+                  <Tooltip
+                    key={preset}
+                    label={EDITOR_WIDTH_PRESET_DESCRIPTIONS[preset]}
+                    placement="bottom"
+                  >
+                    <button
+                      type="button"
+                      data-testid={`hybrid-editor-width-${preset}`}
+                      aria-pressed={active}
+                      aria-label={`Set writing width to ${EDITOR_WIDTH_PRESET_LABELS[preset]}`}
+                      onClick={() => applyWidthPreset(preset)}
+                      className={`p-1.5 rounded-md transition-colors ${
+                        active
+                          ? "bg-surface-raised text-foreground shadow-sm"
+                          : "text-foreground-muted hover:text-foreground"
+                      }`}
+                    >
+                      <WidthPresetGlyph preset={preset} />
+                    </button>
+                  </Tooltip>
+                );
+              })}
+            </div>
           )}
 
           <input
@@ -2323,12 +2173,12 @@ export default function LiveMarkdownEditor({
       <div
         ref={editorContentRef}
         className={
-          // L1 calm editor atom: the DOCKED (non-focus) content zone becomes a
-          // warm "writing room" (calm paper + writing-room type via the scoped
-          // `.ros-editor-room` rules in globals.css). Focus mode relocates this
-          // same subtree to a body portal WITHOUT this class, so the focus
-          // overlay keeps its own treatment untouched (Phase A guardrail).
-          `flex flex-1 min-h-0${focusModeActive ? "" : " ros-editor-room"}`
+          // L1 calm editor atom: the content zone is a warm "writing room"
+          // (calm paper + writing-room type via the scoped `.ros-editor-room`
+          // rules in globals.css). The same surface renders at every size, so
+          // the room treatment now also applies when the host popup is expanded
+          // to fullscreen (UNIFIED_EDITOR_SURFACE_DESIGN.md §9, U5).
+          "flex flex-1 min-h-0 ros-editor-room"
         }
         onDragOver={(e) => {
           const types = Array.from(e.dataTransfer.types);
@@ -2556,7 +2406,11 @@ export default function LiveMarkdownEditor({
               {showShortcutsHelper && (
                 <MarkdownShortcutsSidebar
                   onInsertSyntax={(s) => insertRef.current?.(s)}
-                  focusActive={focusModeActive}
+                  // At fullscreen the rail collapses to its thin expandable strip
+                  // so the cheat sheet stays one click away without crowding the
+                  // calm surface; `expanded` is the host-popup fullscreen signal
+                  // that replaces the retired internal focus mode.
+                  focusActive={expanded}
                 />
               )}
               <div
@@ -2942,241 +2796,22 @@ export default function LiveMarkdownEditor({
     </div>
   );
 
-  // ---- Buffer-safe render switch (FOCUS_WRITING_MODE_DESIGN.md §7) ----
+  // ---- Render (UNIFIED_EDITOR_SURFACE_DESIGN.md §9) ----
   //
-  // The single most important correctness constraint: toggling focus mode
-  // must NOT remount the editor, or its CM6 state + undo refs are wiped and
-  // in-flight typing is lost silently.
-  //
-  // We ALWAYS render `editorTree` through a portal at a FIXED position in the
-  // React element tree: it is always the single child of the column div,
-  // which is always the second slot of the outer `frame` div. Only two things
-  // change between the normal and focus renders:
-  //   1. the portal CONTAINER DOM node (the in-place mount node vs
-  //      document.body), and
-  //   2. the chrome classNames + whether the focus top bar slot is filled.
-  // React preserves component state when only the portal container changes
-  // and element identity is kept, so the editor never unmounts.
-  //
-  // The in-place mount node is rendered by THIS component (the
-  // `inPlaceMountRef` div with `display: contents` so it is transparent to
-  // the host's flex layout). On the very first render its DOM node does not
-  // exist yet, so we portal into document.body for that one frame and a
-  // layout effect re-renders once the node attaches; in practice focus mode
-  // always starts off, so the in-place node is present before the user can
-  // toggle.
-  const frame = (
-    <div
-      ref={focusModeActive ? focusOverlayRef : undefined}
-      role={focusModeActive ? "dialog" : undefined}
-      aria-modal={focusModeActive ? true : undefined}
-      aria-label={focusModeActive ? "Writing focus mode" : undefined}
-      tabIndex={focusModeActive ? -1 : undefined}
-      className={
-        focusModeActive
-          // z-[410] sits ABOVE the LivingPopup band (z-[400]) so Focus Mode
-          // covers the task/note popup it launches from. It used to be z-50,
-          // fine when popups were also ~z-50, but the LivingPopup migration
-          // raised popups to z-[400] and stranded Focus Mode beneath them.
-          // Stays BELOW the v4 tour overlays (input lock z-[420], spotlight
-          // z-[440], speech z-[450]) so the tour still paints over Focus Mode
-          // exactly as before.
-          ? "fixed inset-0 z-[410] flex flex-col bg-surface-raised outline-none"
-          : "contents"
-      }
-    >
-      {/* Focus top-bar slot (index 0). Stays a falsy slot when not in focus
-          mode so the column div below keeps its index-1 position and the
-          editor subtree inside it is never re-keyed / remounted. */}
-      {focusModeActive && (
-        <div className="flex items-center gap-2 px-4 py-2 border-b border-border bg-surface-raised/80 backdrop-blur-sm">
-          {/* Compact Edit / Preview toggle (kept on the calm surface). The
-              Edit pill maps to the inline CodeMirror 6 surface (sole editor);
-              Hybrid was retired from the UI. */}
-          <div className="flex items-center bg-surface-sunken rounded-md p-0.5">
-            <button
-              type="button"
-              data-testid="editor-mode-inline-focus"
-              onClick={() => setMode("inline")}
-              disabled={disabled}
-              className={`px-2.5 py-1 text-meta rounded transition-colors ${
-                currentMode !== "preview"
-                  ? "bg-surface-raised text-foreground font-medium shadow-sm"
-                  : "text-foreground-muted hover:text-foreground"
-              } disabled:opacity-50`}
-            >
-              Edit
-            </button>
-            <button
-              type="button"
-              onClick={() => setMode("preview")}
-              disabled={disabled}
-              className={`px-2.5 py-1 text-meta rounded transition-colors ${
-                currentMode === "preview"
-                  ? "bg-surface-raised text-foreground font-medium shadow-sm"
-                  : "text-foreground-muted hover:text-foreground"
-              } disabled:opacity-50`}
-            >
-              Preview
-            </button>
-          </div>
-
-          {/* Single collapsed Attachments toggle: re-shows the existing
-              Images / Files tray (reuses showAttachmentStrip). Carries the same
-              paperclip glyph as the docked toolbar for consistency (L1 Phase B). */}
-          <button
-            type="button"
-            onClick={() => setShowAttachmentStrip((v) => !v)}
-            className={`flex items-center gap-1.5 px-2.5 py-1 text-meta rounded transition-colors ${
-              showAttachmentStrip
-                ? "bg-blue-100 dark:bg-blue-500/20 text-blue-700 dark:text-blue-300"
-                : "bg-surface-sunken text-foreground-muted hover:bg-foreground-muted/15"
-            }`}
-          >
-            <Icon name="attach" className="w-3.5 h-3.5" />
-            Attachments
-          </button>
-
-          <div className="flex-1" />
-
-          {/* Writing-surface WIDTH control (MARKDOWN_EDITOR_TYPORA_DESIGN.md
-              Phase 1). A small segmented affordance: Narrow / Comfortable /
-              Wide / Full-bleed. Each segment carries an inline-SVG measure
-              glyph (no emoji) inside a project Tooltip (never native title=).
-              The active preset is highlighted; clicking one applies + persists
-              it (localStorage mirror + per-user settings). Lives only on the
-              Focus Mode top bar, which is the dedicated writing surface. */}
-          <div
-            role="group"
-            aria-label="Writing width"
-            data-testid="hybrid-editor-width-control"
-            className="flex items-center bg-surface-sunken rounded-md p-0.5"
-          >
-            {EDITOR_WIDTH_PRESETS.map((preset) => {
-              const active = widthPreset === preset;
-              return (
-                <Tooltip
-                  key={preset}
-                  label={EDITOR_WIDTH_PRESET_DESCRIPTIONS[preset]}
-                  placement="bottom"
-                >
-                  <button
-                    type="button"
-                    data-testid={`hybrid-editor-width-${preset}`}
-                    aria-pressed={active}
-                    aria-label={`Set writing width to ${EDITOR_WIDTH_PRESET_LABELS[preset]}`}
-                    onClick={() => applyWidthPreset(preset)}
-                    className={`p-1.5 rounded transition-colors ${
-                      active
-                        ? "bg-surface-raised text-foreground shadow-sm"
-                        : "text-foreground-muted hover:text-foreground"
-                    }`}
-                  >
-                    <WidthPresetGlyph preset={preset} />
-                  </button>
-                </Tooltip>
-              );
-            })}
-          </div>
-
-          {/* Focus-mode Save (FOCUS_WRITING_MODE_DESIGN.md §0 decision 3, §7).
-              The host disk-Save button sits outside the editor and is covered
-              by this overlay, so focus mode renders its own, but only when a
-              saveRef is wired (the four primary surfaces + the method create /
-              compound mounts). When the host provides onExplicitSave too we
-              flush via saveRef and call onExplicitSave (the exact wiring the
-              popup's own Save uses, e.g. TaskDetailPopup.tsx:4042-4045);
-              otherwise the saveRef flush IS the editor's internal manual save
-              (it commits the buffer + fires onChange). Surfaces with no
-              saveRef (VariationNotesPanel) keep the editor's own visible Save
-              button inside the overlay as the fallback, so we don't render a
-              second one here. Cmd+S keeps working unchanged in every case. */}
-          {saveRef && (
-            <Tooltip label="Save (Cmd+S)" placement="bottom">
-              <button
-                type="button"
-                data-testid="hybrid-editor-focus-save"
-                onClick={() => {
-                  const flushed = saveRef.current?.();
-                  if (flushed !== undefined && onExplicitSave) {
-                    onExplicitSave(flushed);
-                  }
-                }}
-                disabled={disabled}
-                aria-label="Save"
-                className="px-3 py-1.5 text-meta font-medium rounded-md shadow-sm bg-brand-action text-white hover:bg-brand-action/90 transition-colors disabled:opacity-50"
-              >
-                Save
-              </button>
-            </Tooltip>
-          )}
-
-          {/* Exit control (FOCUS_WRITING_MODE_DESIGN.md §5). Inline SVG
-              "collapse" glyph, project Tooltip, data-tour-target for the
-              walkthrough's exit beat. */}
-          <Tooltip label="Exit focus mode (Esc)" placement="bottom">
-            <button
-              type="button"
-              data-tour-target="hybrid-editor-focus-exit"
-              data-testid="hybrid-editor-focus-exit"
-              onClick={() => toggleFocusMode(false)}
-              aria-label="Exit writing focus mode"
-              className="p-1.5 text-foreground-muted rounded hover:bg-foreground-muted/15 hover:text-foreground transition-colors"
-            >
-              <svg
-                className="w-4 h-4"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-                aria-hidden="true"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M9 9V4m0 5H4m5 0L4 4m11 5h5m-5 0V4m0 5l5-5M9 15v5m0-5H4m5 0l-5 5m11-5h5m-5 0v5m0-5l5 5"
-                />
-              </svg>
-            </button>
-          </Tooltip>
-        </div>
-      )}
-
-      {/* Column slot (index 1). `editorTree` is ALWAYS its single child, at a
-          stable React-tree position across the normal <-> focus toggle, so
-          the manual-save buffer survives the portal-container flip. */}
-      <div
-        className={
-          focusModeActive
-            ? "flex-1 min-h-0 overflow-hidden flex justify-center px-4"
-            : "contents"
-        }
-      >
-        {editorTree}
-      </div>
-    </div>
-  );
-
+  // The editor renders INLINE at every size. The host popup grows / shrinks
+  // itself (modal-grows-in-place) around this same DOM, so the editor never
+  // teleports into an overlay and never remounts; its CM6 state + undo refs and
+  // any in-flight buffer survive the size transition. The retired model used a
+  // body-level portal to move the editor in/out of a fullscreen overlay; that
+  // machinery is gone (no portal, no focus trap, no buffer-flip).
   return (
     <>
-      {/* In-place mount slot. `display: contents` keeps it transparent to the
-          host's flex layout so the normal render looks identical to before.
-          The stable portal container (moved imperatively by the effect above)
-          lives inside this node when not in focus mode. */}
-      <div ref={inPlaceMountCallbackRef} className="contents" />
-      {/* ALWAYS portal into the SAME stable container so React never remounts
-          the editor subtree (no buffer loss). The container's DOM home is
-          what moves, not the container itself. */}
-      {portalContainerRef.current
-        ? createPortal(frame, portalContainerRef.current)
-        : null}
+      {editorTree}
 
-      {/* Reference picker modal (Chemistry Phase 3). Rendered outside the
-          portal so it is never clipped by the editor's overflow parents.
-          Only mounts when enableReferencePicker is true AND the picker is
-          open, so the default (picker off) adds exactly zero nodes to the
-          DOM. When a reference is picked, insert it at the CM6 caret via
-          the existing insertRef. */}
+      {/* Reference picker modal (Chemistry Phase 3). Only mounts when
+          enableReferencePicker is true AND the picker is open, so the default
+          (picker off) adds exactly zero nodes to the DOM. When a reference is
+          picked, insert it at the CM6 caret via the existing insertRef. */}
       {enableReferencePicker && referencePickerOpen && (
         <ReferencePicker
           initialTab={referencePickerTab ?? undefined}
