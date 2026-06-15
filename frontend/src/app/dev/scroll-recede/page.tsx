@@ -111,7 +111,10 @@ function CustomScrollPanel({
     }
   }, []);
 
-  const pct = dragging ? 55 : hover ? 42 : active ? 30 : 14;
+  // Tone has three levels: rest (dim), scrolling (a touch brighter), and
+  // hover/grab (dark). Grab shares the SAME tone as hover — the only thing grab
+  // changes is the SIZE.
+  const pct = dragging || hover ? 42 : active ? 30 : 14;
 
   return (
     <div className={`relative ${className}`}>
