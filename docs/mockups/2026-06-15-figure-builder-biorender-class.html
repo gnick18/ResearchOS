@@ -1,0 +1,300 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Figure &amp; Diagram Studio — BioRender-class layout (2026-06-15)</title>
+<style>
+  :root{
+    --bg:#f6f7f5; --surface:#ffffff; --sunken:#f1f2ef; --line:#e3e5e0; --line2:#d2d5cd;
+    --fg:#1f2421; --muted:#6b716a; --faint:#9aa097;
+    --brand:#1d9e75; --brand-soft:#e3f4ec; --brand-ink:#0f6e56;
+    --info:#2563eb; --info-soft:#e7f0fe; --info-ink:#1b4fa8;
+    --amber:#b9770f; --amber-soft:#fbf0dc; --amber-ink:#8a5908;
+    --violet:#7c5cff; --violet-soft:#ece8ff; --violet-ink:#4f37b8;
+    --pin:#c0392b; --radius:10px;
+  }
+  :root[data-theme="dark"]{
+    --bg:#15171a; --surface:#1d2024; --sunken:#23272c; --line:#2c3137; --line2:#3a4047;
+    --fg:#e7eae7; --muted:#9aa29b; --faint:#6f7872;
+    --brand-soft:#0f3a2c; --brand-ink:#6fd9b4; --info-soft:#14233f; --info-ink:#7fb0f5;
+    --amber-soft:#3a2c12; --amber-ink:#e0b977; --violet-soft:#241a44; --violet-ink:#b3a3ff;
+  }
+  *{box-sizing:border-box}
+  body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Inter,system-ui,sans-serif;
+    background:var(--bg); color:var(--fg); font-size:13px; line-height:1.45; padding:20px; margin:0;}
+  h1{font-size:18px; margin:0 0 3px} .sub{color:var(--muted); margin:0 0 4px; font-size:12.5px}
+  .sub b{color:var(--brand-ink)} a{color:var(--info-ink)}
+  .themetoggle{position:fixed; top:16px; right:16px; padding:6px 12px; font-size:11px;
+    border:1px solid var(--line2); border-radius:999px; background:var(--surface); color:var(--muted); cursor:pointer; z-index:50}
+  .legend{display:flex; gap:14px; flex-wrap:wrap; margin:10px 0 14px; font-size:11.5px; color:var(--muted)}
+  .legend span{display:inline-flex; align-items:center; gap:6px}
+  .dot{width:10px;height:10px;border-radius:3px;display:inline-block}
+  .dot.moat{background:var(--brand)} .dot.copy{background:var(--violet)} .dot.win{background:var(--info)}
+
+  /* ── editor shell ───────────────────────────────────────────── */
+  .app{border:1px solid var(--line2); border-radius:14px; overflow:hidden; background:var(--surface);
+    box-shadow:0 8px 30px rgba(0,0,0,.07); max-width:1280px}
+  /* top bar */
+  .topbar{display:flex; align-items:center; gap:10px; padding:8px 12px; border-bottom:1px solid var(--line); background:var(--surface)}
+  .crumb{font-weight:700; font-size:13px} .crumb .doc{color:var(--muted); font-weight:500}
+  .tprefix{font-size:10px; text-transform:uppercase; letter-spacing:.5px; color:var(--faint); margin-left:6px}
+  .seg{display:flex; gap:1px; background:var(--line); border-radius:8px; overflow:hidden; border:1px solid var(--line)}
+  .seg button{border:0; background:var(--surface); color:var(--muted); padding:5px 9px; font-size:11px; cursor:pointer; display:flex; align-items:center; gap:5px}
+  .seg button.on{background:var(--brand-soft); color:var(--brand-ink); font-weight:600}
+  .ctxbar{display:flex; align-items:center; gap:8px; padding:4px 9px; border:1px solid var(--violet); background:var(--violet-soft);
+    border-radius:9px; color:var(--violet-ink); font-size:11px}
+  .ctxbar .sep{width:1px;height:16px;background:var(--violet);opacity:.3}
+  .ibtn{display:inline-flex;align-items:center;justify-content:center;width:24px;height:22px;border:1px solid transparent;border-radius:6px;cursor:pointer;color:inherit}
+  .ibtn:hover{background:rgba(124,92,255,.16)}
+  .spacer{flex:1}
+  .pill{font-size:11px;padding:5px 11px;border-radius:8px;border:1px solid var(--line2);background:var(--surface);color:var(--fg);cursor:pointer;display:inline-flex;gap:6px;align-items:center}
+  .pill.primary{background:var(--brand);border-color:var(--brand);color:#fff;font-weight:600}
+
+  /* body grid */
+  .body{display:grid; grid-template-columns:248px 1fr 264px; height:600px}
+  .left{border-right:1px solid var(--line); display:flex; min-height:0; background:var(--surface)}
+  .leftnav{width:52px; border-right:1px solid var(--line); display:flex; flex-direction:column; align-items:center; gap:2px; padding:8px 0; background:var(--sunken)}
+  .navb{width:38px;height:40px;border-radius:9px;border:1px solid transparent;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;cursor:pointer;color:var(--muted);font-size:8.5px}
+  .navb:hover{background:var(--surface)}
+  .navb.on{background:var(--surface);border-color:var(--line2);color:var(--brand-ink);font-weight:600}
+  .navb svg{width:17px;height:17px}
+  .leftpanel{flex:1; min-width:0; display:flex; flex-direction:column; padding:10px}
+  .panelhd{font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:var(--faint);font-weight:700;margin:0 0 8px;display:flex;justify-content:space-between;align-items:center}
+  .search{display:flex;align-items:center;gap:7px;border:1px solid var(--line2);border-radius:8px;padding:6px 9px;background:var(--sunken);margin-bottom:8px}
+  .search svg{width:14px;height:14px;color:var(--faint)} .search input{border:0;background:transparent;outline:0;color:var(--fg);font-size:12px;width:100%}
+  .ai{font-size:9.5px;color:var(--violet-ink);background:var(--violet-soft);border:1px solid var(--violet);padding:2px 6px;border-radius:999px;white-space:nowrap}
+  .chips{display:flex;gap:5px;flex-wrap:wrap;margin-bottom:9px}
+  .chip{font-size:10.5px;padding:3px 9px;border-radius:999px;border:1px solid var(--line2);color:var(--muted);cursor:pointer;background:var(--surface)}
+  .chip.on{background:var(--brand);border-color:var(--brand);color:#fff;font-weight:600}
+  .grid{display:grid;grid-template-columns:repeat(3,1fr);gap:7px;overflow:auto}
+  .ic{position:relative;aspect-ratio:1;border:1px solid var(--line);border-radius:9px;background:var(--sunken);display:flex;align-items:center;justify-content:center;cursor:grab}
+  .ic:hover{border-color:var(--brand);background:var(--surface)}
+  .ic svg{width:64%;height:64%}
+  .ic .fav{position:absolute;top:3px;right:4px;font-size:9px;color:var(--amber-ink);opacity:.85}
+  .drophint{font-size:10px;color:var(--faint);margin-top:8px;display:flex;gap:6px;align-items:center;border-top:1px dashed var(--line);padding-top:8px}
+
+  /* canvas */
+  .canvaswrap{position:relative;background:var(--sunken);overflow:hidden}
+  .artboard{position:absolute;top:42px;left:50%;transform:translateX(-50%);width:430px;height:516px;background:#fff;border-radius:3px;box-shadow:0 4px 18px rgba(0,0,0,.13)}
+  :root[data-theme="dark"] .artboard{background:#f4f5f3}
+  .el{position:absolute;border:1px solid transparent;border-radius:4px}
+  .el.panel{outline:1px dashed #b9c2cf}
+  .el .plabel{position:absolute;top:-2px;left:2px;font-size:13px;font-weight:800;color:#1f2421}
+  .databadge{position:absolute;top:4px;right:4px;font-size:8px;font-weight:600;color:var(--brand-ink);background:var(--brand-soft);border:1px solid var(--brand);padding:1px 5px;border-radius:999px;display:flex;gap:3px;align-items:center}
+  .databadge svg{width:8px;height:8px}
+  .sel{outline:2px solid var(--violet)!important;border-radius:5px}
+  .handle{position:absolute;width:9px;height:9px;background:#fff;border:2px solid var(--violet);border-radius:2px}
+  .rot{position:absolute;width:10px;height:10px;border:2px solid var(--violet);border-radius:50%;background:#fff}
+  /* connector anchors */
+  .anchor{position:absolute;width:11px;height:11px;border-radius:50%;background:var(--info);border:2px solid #fff;box-shadow:0 0 0 1px var(--info)}
+  .anchor.ghost{background:#fff;border:2px dashed var(--info)}
+  .guide{position:absolute;background:var(--violet);opacity:.8}
+  .zoom{position:absolute;top:8px;right:8px;display:flex;flex-direction:column;gap:4px;align-items:flex-end}
+  .zbtn{width:26px;height:26px;border:1px solid var(--line2);background:var(--surface);border-radius:7px;display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--fg);font-size:13px}
+  .zpct{font-size:10px;color:var(--muted);background:var(--surface);border:1px solid var(--line2);border-radius:6px;padding:2px 6px}
+  .minimap{position:absolute;bottom:8px;left:8px;width:108px;height:130px;background:#fff;border:1px solid var(--line2);border-radius:7px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,.12)}
+  :root[data-theme="dark"] .minimap{background:#f4f5f3}
+  .miniview{position:absolute;border:2px solid var(--violet);background:rgba(124,92,255,.1)}
+  .callout{position:absolute;font-size:10px;background:var(--fg);color:var(--bg);padding:3px 7px;border-radius:6px;white-space:nowrap;box-shadow:0 2px 8px rgba(0,0,0,.2);z-index:6}
+  .callout:after{content:"";position:absolute;width:7px;height:7px;background:var(--fg);transform:rotate(45deg)}
+
+  /* right inspector */
+  .right{border-left:1px solid var(--line);padding:11px;display:flex;flex-direction:column;gap:13px;overflow:auto;background:var(--surface)}
+  .insphd{display:flex;align-items:center;gap:8px;font-weight:700;font-size:12.5px}
+  .insphd .tag{font-size:9.5px;background:var(--violet-soft);color:var(--violet-ink);border:1px solid var(--violet);padding:1px 6px;border-radius:999px;font-weight:600}
+  .sec{display:flex;flex-direction:column;gap:7px}
+  .sech{font-size:10px;text-transform:uppercase;letter-spacing:.5px;color:var(--faint);font-weight:700}
+  .row{display:flex;align-items:center;gap:8px;justify-content:space-between}
+  .field{display:flex;align-items:center;gap:5px;border:1px solid var(--line2);border-radius:7px;padding:4px 7px;background:var(--sunken);font-size:11px;flex:1}
+  .field b{color:var(--faint);font-weight:600}
+  .swrow{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+  .sw{width:22px;height:22px;border-radius:6px;border:1px solid var(--line2);cursor:pointer;position:relative}
+  .sw.on{box-shadow:0 0 0 2px var(--violet)}
+  .sw .lname{position:absolute;bottom:-15px;left:50%;transform:translateX(-50%);font-size:8px;color:var(--faint);white-space:nowrap}
+  .modeseg{display:flex;border:1px solid var(--line2);border-radius:7px;overflow:hidden}
+  .modeseg button{flex:1;border:0;background:var(--surface);color:var(--muted);font-size:10.5px;padding:5px;cursor:pointer}
+  .modeseg button.on{background:var(--brand-soft);color:var(--brand-ink);font-weight:600}
+  .slider{height:5px;background:var(--line);border-radius:999px;position:relative}
+  .slider i{position:absolute;top:-4px;width:13px;height:13px;border-radius:50%;background:var(--brand);border:2px solid #fff;box-shadow:0 1px 3px rgba(0,0,0,.25)}
+  .credit{font-size:10px;color:var(--muted);background:var(--sunken);border:1px solid var(--line);border-radius:8px;padding:8px;line-height:1.5}
+  .credit b{color:var(--info-ink)}
+  .note{font-size:11px;color:var(--muted);max-width:1280px;margin:14px 0 4px;line-height:1.6}
+  .note b{color:var(--fg)} .k{font-family:ui-monospace,Menlo,monospace;font-size:11px;background:var(--sunken);border:1px solid var(--line);padding:0 4px;border-radius:4px}
+</style>
+</head>
+<body>
+<button class="themetoggle" onclick="document.documentElement.dataset.theme=document.documentElement.dataset.theme==='dark'?'':'dark'">◐ theme</button>
+
+<h1>Figure &amp; Diagram Studio</h1>
+<p class="sub">A <b>BioRender-class</b> three-zone editor on the existing <b>/figures</b> seam — icons live on the left, contextual inspector on the right, align bar up top. Same ZoomPanCanvas, same data-linked panels.</p>
+<div class="legend">
+  <span><i class="dot moat"></i> Our moat (already built — BioRender can't do this)</span>
+  <span><i class="dot copy"></i> Copied from BioRender (the polish layer)</span>
+  <span><i class="dot win"></i> We already beat them</span>
+</div>
+
+<div class="app">
+  <!-- TOP BAR -->
+  <div class="topbar">
+    <div class="crumb">Figure Studio <span class="doc">/ Fig 2 — knockout phenotype</span></div>
+    <span class="tprefix">selection</span>
+    <div class="ctxbar" title="Appears on multi-select (copied from BioRender's contextual top bar)">
+      <span style="font-weight:600">2 selected</span><span class="sep"></span>
+      <span class="ibtn" title="Align left">⊢</span><span class="ibtn" title="Align center">≡</span><span class="ibtn" title="Align right">⊣</span>
+      <span class="sep"></span>
+      <span class="ibtn" title="Distribute horizontally">⇿</span><span class="ibtn" title="Distribute vertically">⇡</span>
+      <span class="sep"></span>
+      <span class="ibtn" title="Group">▣</span><span class="ibtn" title="Bring forward">⬆</span><span class="ibtn" title="Send back">⬇</span>
+    </div>
+    <div class="spacer"></div>
+    <span class="pill" title="We export TRUE vector SVG — BioRender has none">⬇ Export SVG / PDF / PNG</span>
+    <span class="pill primary">Share</span>
+  </div>
+
+  <div class="body">
+    <!-- LEFT: insert / browse rail (icons on the left, per Grant) -->
+    <div class="left">
+      <div class="leftnav">
+        <div class="navb" title="Figures (your data)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19V5M4 19h16M8 16v-5M12 16V8M16 16v-3"/></svg>Figures</div>
+        <div class="navb on" title="Icon library"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="7" cy="7" r="3"/><path d="M14 5h6M14 9h6M4 14h16M4 18h16"/></svg>Icons</div>
+        <div class="navb" title="Text"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 6h14M12 6v12M9 18h6"/></svg>Text</div>
+        <div class="navb" title="Shapes"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="4" width="7" height="7"/><circle cx="16.5" cy="16.5" r="3.5"/></svg>Shapes</div>
+        <div class="navb" title="Connect tool"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="6" cy="6" r="2"/><circle cx="18" cy="18" r="2"/><path d="M7.5 7.5 16 16"/></svg>Connect</div>
+        <div class="navb" title="Templates"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="4" width="16" height="16" rx="2"/><path d="M4 9h16M9 9v11"/></svg>Templates</div>
+        <div class="navb" title="Layers"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3 3 8l9 5 9-5-9-5zM3 14l9 5 9-5"/></svg>Layers</div>
+      </div>
+      <div class="leftpanel">
+        <div class="panelhd">Icon library <span class="ai">AI search</span></div>
+        <div class="search"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m21 21-4-4"/></svg><input placeholder="mouse, plasmid, antibody…" value="cell"/></div>
+        <div class="chips"><span class="chip on">All</span><span class="chip">Cell</span><span class="chip">Immuno</span><span class="chip">Neuro</span><span class="chip">Lab</span><span class="chip">★ Favs</span></div>
+        <div class="grid">
+          <div class="ic"><span class="fav">★</span><svg viewBox="0 0 40 40"><circle cx="20" cy="20" r="14" fill="#e7c4b0" stroke="#b97a55" stroke-width="2"/><circle cx="20" cy="20" r="6" fill="#9a5a8a"/></svg></div>
+          <div class="ic"><svg viewBox="0 0 40 40"><rect x="8" y="14" width="24" height="12" rx="6" fill="#bcd6f5" stroke="#4f86c6" stroke-width="2"/></svg></div>
+          <div class="ic"><svg viewBox="0 0 40 40"><path d="M20 6c8 6 8 22 0 28-8-6-8-22 0-28z" fill="#cbe6cf" stroke="#3f9d5a" stroke-width="2"/></svg></div>
+          <div class="ic"><svg viewBox="0 0 40 40"><path d="M12 28V12l8 6 8-6v16" fill="none" stroke="#7c5cff" stroke-width="2.5"/></svg></div>
+          <div class="ic"><svg viewBox="0 0 40 40"><circle cx="14" cy="20" r="7" fill="#f3d28a" stroke="#b9770f" stroke-width="2"/><circle cx="26" cy="20" r="7" fill="#f3b08a" stroke="#b95a0f" stroke-width="2"/></svg></div>
+          <div class="ic"><svg viewBox="0 0 40 40"><rect x="10" y="8" width="20" height="24" rx="3" fill="#dfe3da" stroke="#8a9183" stroke-width="2"/><path d="M14 16h12M14 22h12" stroke="#8a9183" stroke-width="2"/></svg></div>
+          <div class="ic"><svg viewBox="0 0 40 40"><path d="M20 8v24M12 14l8-6 8 6" fill="none" stroke="#c0392b" stroke-width="2.5"/></svg></div>
+          <div class="ic"><svg viewBox="0 0 40 40"><circle cx="20" cy="20" r="13" fill="#d9cdf0" stroke="#7c5cff" stroke-width="2"/></svg></div>
+          <div class="ic"><svg viewBox="0 0 40 40"><path d="M8 26c4-10 20-10 24 0" fill="none" stroke="#3f9d5a" stroke-width="2.5"/><circle cx="20" cy="14" r="4" fill="#cbe6cf" stroke="#3f9d5a" stroke-width="2"/></svg></div>
+        </div>
+        <div class="drophint"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12l7 7 7-7"/></svg> Drag onto the canvas, or click to place</div>
+      </div>
+    </div>
+
+    <!-- CENTER: canvas -->
+    <div class="canvaswrap">
+      <!-- align smart-guide (violet line between the two selected icons) -->
+      <div class="guide" style="left:calc(50% - 215px + 250px);top:78px;width:1px;height:150px"></div>
+
+      <div class="artboard">
+        <!-- Panel A: data-linked sequence map (MOAT) -->
+        <div class="el panel" style="left:24px;top:30px;width:178px;height:150px">
+          <span class="plabel">A</span>
+          <div class="databadge"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M5 12l4 4 10-10"/></svg> live · sequence</div>
+          <svg viewBox="0 0 178 150" style="width:100%;height:100%">
+            <rect x="18" y="64" width="142" height="20" rx="10" fill="#eef1ee" stroke="#c3cabf"/>
+            <rect x="24" y="64" width="40" height="20" fill="#bcd6f5"/><rect x="74" y="64" width="34" height="20" fill="#cbe6cf"/><rect x="116" y="64" width="38" height="20" fill="#f3d28a"/>
+            <text x="44" y="78" font-size="8" text-anchor="middle" fill="#2c3137">P_lac</text>
+            <text x="91" y="78" font-size="8" text-anchor="middle" fill="#2c3137">GFP</text>
+            <text x="135" y="78" font-size="8" text-anchor="middle" fill="#2c3137">AmpR</text>
+            <text x="89" y="40" font-size="9" text-anchor="middle" fill="#6b716a">pBR-mini · 60 bp</text>
+          </svg>
+        </div>
+
+        <!-- Panel B: data-linked phylo tree (MOAT) -->
+        <div class="el panel" style="left:222px;top:30px;width:184px;height:150px">
+          <span class="plabel">B</span>
+          <div class="databadge"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M5 12l4 4 10-10"/></svg> live · tree</div>
+          <svg viewBox="0 0 184 150" style="width:100%;height:100%">
+            <path d="M20 75 H50 M50 45 V105 M50 45 H95 M50 105 H80 M80 85 V125 M80 85 H120 M80 125 H120" fill="none" stroke="#3f6f5a" stroke-width="2"/>
+            <circle cx="95" cy="45" r="3" fill="#3f9d5a"/><circle cx="120" cy="85" r="3" fill="#b9770f"/><circle cx="120" cy="125" r="3" fill="#c0392b"/>
+            <text x="100" y="48" font-size="8" fill="#2c3137">WT</text><text x="125" y="88" font-size="8" fill="#2c3137">Δhog1</text><text x="125" y="128" font-size="8" fill="#2c3137">Δpbs2</text>
+          </svg>
+        </div>
+
+        <!-- two placed icons (multi-selected) with a smart connector being drawn between them -->
+        <div class="el sel" style="left:60px;top:235px;width:58px;height:58px">
+          <svg viewBox="0 0 58 58" style="width:100%;height:100%"><circle cx="29" cy="29" r="20" fill="#e7c4b0" stroke="#b97a55" stroke-width="2.5"/><circle cx="29" cy="29" r="8" fill="#9a5a8a"/></svg>
+          <div class="handle" style="left:-5px;top:-5px"></div><div class="handle" style="right:-5px;top:-5px"></div>
+          <div class="handle" style="left:-5px;bottom:-5px"></div><div class="handle" style="right:-5px;bottom:-5px"></div>
+          <div class="rot" style="left:50%;top:-22px;transform:translateX(-50%)"></div>
+          <!-- anchor nodes appear on hover (BioRender signature) -->
+          <div class="anchor" style="right:-6px;top:50%;transform:translateY(-50%)"></div>
+        </div>
+
+        <div class="el sel" style="left:300px;top:240px;width:54px;height:54px">
+          <svg viewBox="0 0 54 54" style="width:100%;height:100%"><path d="M27 6c10 7 10 35 0 42-10-7-10-35 0-42z" fill="#cbe6cf" stroke="#3f9d5a" stroke-width="2.5"/></svg>
+          <div class="handle" style="left:-5px;top:-5px"></div><div class="handle" style="right:-5px;top:-5px"></div>
+          <div class="handle" style="left:-5px;bottom:-5px"></div><div class="handle" style="right:-5px;bottom:-5px"></div>
+          <div class="anchor ghost" style="left:-6px;top:50%;transform:translateY(-50%)"></div>
+        </div>
+
+        <!-- the connector mid-draw: anchored line with arrowhead -->
+        <svg style="position:absolute;inset:0;width:100%;height:100%;pointer-events:none" viewBox="0 0 430 516">
+          <defs><marker id="ah" markerWidth="9" markerHeight="9" refX="6" refY="3" orient="auto"><path d="M0 0l6 3-6 3z" fill="#2563eb"/></marker></defs>
+          <path d="M124 264 C 210 264, 220 267, 294 267" fill="none" stroke="#2563eb" stroke-width="2.5" marker-end="url(#ah)"/>
+          <circle cx="209" cy="265" r="4" fill="#fff" stroke="#2563eb" stroke-width="2"/>
+        </svg>
+
+        <!-- a typed Label text object -->
+        <div class="el" style="left:150px;top:330px;font-size:11px;font-weight:600;color:#1f2421">induces stress response</div>
+      </div>
+
+      <!-- canvas chrome -->
+      <div class="zoom">
+        <div class="zbtn">+</div><div class="zbtn">−</div><div class="zbtn" title="Fit">▣</div><div class="zpct">118%</div>
+      </div>
+      <div class="minimap"><div class="miniview" style="left:18px;top:14px;width:70px;height:84px"></div>
+        <svg viewBox="0 0 108 130" style="width:100%;height:100%;opacity:.55"><rect x="10" y="14" width="40" height="34" fill="#dfe7f3"/><rect x="56" y="14" width="42" height="34" fill="#dcefe0"/><circle cx="24" cy="74" r="9" fill="#e7c4b0"/><path d="M74 64c5 4 5 18 0 22" stroke="#3f9d5a" fill="none"/></svg>
+      </div>
+
+      <!-- callouts -->
+      <div class="callout" style="left:14px;top:8px">↙ left rail = insert (icons first, per you)</div>
+      <div class="callout" style="left:120px;top:248px;background:var(--info)">smart connector · stays attached when you move either icon</div>
+    </div>
+
+    <!-- RIGHT: contextual inspector -->
+    <div class="right">
+      <div class="insphd">Mitochondrion icon <span class="tag">multi-part</span></div>
+
+      <div class="sec">
+        <div class="sech">Recolor</div>
+        <div class="modeseg"><button class="on">Whole icon</button><button>By part</button></div>
+        <div class="swrow" style="margin-top:6px">
+          <div class="sw on" style="background:#cbe6cf"><span class="lname">body</span></div>
+          <div class="sw" style="background:#3f9d5a"><span class="lname">crista</span></div>
+          <div class="sw" style="background:#b9770f"><span class="lname">outline</span></div>
+          <div class="sw" style="background:#fff;display:flex;align-items:center;justify-content:center;font-size:11px;color:var(--muted)">+</div>
+        </div>
+      </div>
+
+      <div class="sec">
+        <div class="sech">Transform</div>
+        <div class="row"><div class="field"><b>W</b> 0.60 in</div><div class="field"><b>H</b> 0.56 in</div></div>
+        <div class="row"><div class="field"><b>Rotate</b> 0°</div><div class="field"><b>Flip</b> ⇆ ⇅</div></div>
+      </div>
+
+      <div class="sec">
+        <div class="sech">Appearance</div>
+        <div class="row"><span style="font-size:11px;color:var(--muted)">Opacity</span><span style="font-size:11px;color:var(--muted)">100%</span></div>
+        <div class="slider"><i style="right:0"></i></div>
+      </div>
+
+      <div class="sec">
+        <div class="sech">Figure credits · auto</div>
+        <div class="credit">Mitochondrion — <b>BioIcons</b>, CC-BY 4.0, T. Author. <br>Added automatically · <b>compliant by construction</b>. PD/CC0 assets omitted.</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<p class="note">
+<b>What's on screen:</b> <i style="color:var(--brand-ink)">green</i> = our moat — panels <b>A</b> and <b>B</b> are LIVE views of a real sequence map and a phylo tree (the "live" badge), which BioRender structurally cannot do. <i style="color:var(--violet-ink)">violet</i> = the copied polish: left insert rail with icons first, multi-select with handles, a smart <span class="k">connector</span> mid-draw whose endpoints anchor to the icons (re-routes on move), the contextual align bar on top, and the multi-part recolor inspector (<b>Whole icon</b> vs <b>By part</b>). <i style="color:var(--info-ink)">blue</i> = where we already win: true <b>SVG</b> export and an auto-generated, license-correct <b>credits</b> block.
+</p>
+<p class="note">
+<b>Build order (locked: full diagram tool):</b> ① selection + smart guides + align/distribute + group/z-order → ② smart connectors → ③ icon depth (drag-drop, multi-part recolor, bulk ops, favorites, semantic search, scale ingest) → ④ templates + typed text + empty-state. Proposal: <span class="k">docs/proposals/2026-06-15-figure-builder-biorender-class.md</span>.
+</p>
+</body>
+</html>
