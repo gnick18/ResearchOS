@@ -12,7 +12,8 @@ import StatusPill from "./StatusPill";
 export default function ScalarMixedTable({ domain }: { domain: DomainReport }) {
   return (
     <figure className="overflow-hidden rounded-xl border border-border bg-surface-raised">
-      <div className="overflow-x-auto">
+      {/* Desktop table — hidden on phones */}
+      <div className="hidden sm:block overflow-x-auto">
         <table className="w-full text-left text-meta">
           <thead>
             <tr className="border-b border-border bg-surface-sunken text-foreground-muted">
@@ -48,6 +49,39 @@ export default function ScalarMixedTable({ domain }: { domain: DomainReport }) {
             })}
           </tbody>
         </table>
+      </div>
+
+      {/* Phone stacked cards — visible below sm */}
+      <div className="sm:hidden divide-y divide-border">
+        {domain.cases.map((c) => {
+          const cmp = c.comparisons[0];
+          if (!cmp) return null;
+          return (
+            <div key={c.id} className="flex flex-col gap-2 p-3">
+              <div className="flex items-start justify-between gap-2">
+                <div>
+                  <div className="font-medium text-foreground">{c.label}</div>
+                  {c.input ? <div className="mt-0.5 text-meta text-foreground-muted">{c.input}</div> : null}
+                </div>
+                <StatusPill status={cmp.status} exact={cmp.delta === 0} kind={cmp.tolerance.kind} />
+              </div>
+              <div className="grid grid-cols-3 gap-x-2 text-meta text-center">
+                <div>
+                  <div className="text-[10px] uppercase tracking-wide text-foreground-muted">Ours</div>
+                  <div className="font-mono text-foreground whitespace-nowrap">{cmp.ours} {cmp.tolerance.unit}</div>
+                </div>
+                <div>
+                  <div className="text-[10px] uppercase tracking-wide text-foreground-muted">Expected</div>
+                  <div className="font-mono text-foreground-muted whitespace-nowrap">{cmp.theirs} {cmp.tolerance.unit}</div>
+                </div>
+                <div>
+                  <div className="text-[10px] uppercase tracking-wide text-foreground-muted">Δ</div>
+                  <div className="font-mono text-foreground-muted">{cmp.delta}</div>
+                </div>
+              </div>
+            </div>
+          );
+        })}
       </div>
     </figure>
   );

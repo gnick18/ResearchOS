@@ -31,12 +31,12 @@ export default function TransparencyView() {
     <div className="min-h-screen bg-surface-sunken">
       <div aria-hidden className="brand-rainbow-bg h-2 w-full" />
       <MarketingNav />
-      <div className="mx-auto max-w-5xl px-6 py-12">
-        <header className="rounded-2xl border border-border bg-surface-raised p-8 shadow-sm sm:p-10">
+      <div className="mx-auto max-w-5xl px-4 py-8 sm:px-6 sm:py-12">
+        <header className="rounded-2xl border border-border bg-surface-raised p-5 shadow-sm sm:p-10">
           <div className="mb-4">
             <Kicker>Method validation</Kicker>
           </div>
-          <h1 className="mb-5 text-display font-bold tracking-tight text-foreground sm:text-4xl">
+          <h1 className="mb-5 text-[clamp(1.35rem,5vw,2.25rem)] font-bold leading-tight tracking-tight text-foreground sm:text-display sm:text-4xl">
             Validation of bioinformatic calculations against peer-reviewed alternatives
           </h1>
           <p className="max-w-2xl text-body text-foreground-muted">

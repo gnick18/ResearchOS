@@ -202,45 +202,86 @@ function CaseVisualCard({ domain, c }: { domain: DomainReport; c: CaseResult }) 
 
 function ScalarTable({ domain, unit }: { domain: DomainReport; unit: string }) {
   return (
-    <div className="overflow-x-auto rounded-xl border border-border">
-      <table className="w-full text-left text-meta">
-        <thead>
-          <tr className="border-b border-border bg-surface-sunken text-foreground-muted">
-            <th className="px-3 py-2 font-semibold">Case</th>
-            <th className="px-3 py-2 font-semibold">Reference</th>
-            <th className="px-3 py-2 text-right font-semibold">ResearchOS</th>
-            <th className="px-3 py-2 text-right font-semibold">Reference</th>
-            <th className="px-3 py-2 text-right font-semibold">Δ ({unit})</th>
-            <th className="px-3 py-2 font-semibold">Verdict</th>
-          </tr>
-        </thead>
-        <tbody>
-          {domain.cases.map((c) =>
-            c.comparisons.map((cmp, ci) => (
-              <tr key={`${c.id}-${cmp.oracleId}`} className={`border-b border-border last:border-0 ${cmp.informational ? "bg-surface-sunken/60" : ""}`}>
-                {ci === 0 ? (
-                  <td rowSpan={c.comparisons.length} className="px-3 py-2 align-top">
-                    <div className="font-medium text-foreground">{c.label}</div>
-                    <div className="mt-0.5 break-all font-mono text-[11px] text-foreground-muted">{c.input}</div>
+    <>
+      {/* Desktop table — hidden on phones */}
+      <div className="hidden sm:block overflow-x-auto rounded-xl border border-border">
+        <table className="w-full text-left text-meta">
+          <thead>
+            <tr className="border-b border-border bg-surface-sunken text-foreground-muted">
+              <th className="px-3 py-2 font-semibold">Case</th>
+              <th className="px-3 py-2 font-semibold">Reference</th>
+              <th className="px-3 py-2 text-right font-semibold">ResearchOS</th>
+              <th className="px-3 py-2 text-right font-semibold">Reference</th>
+              <th className="px-3 py-2 text-right font-semibold">Δ ({unit})</th>
+              <th className="px-3 py-2 font-semibold">Verdict</th>
+            </tr>
+          </thead>
+          <tbody>
+            {domain.cases.map((c) =>
+              c.comparisons.map((cmp, ci) => (
+                <tr key={`${c.id}-${cmp.oracleId}`} className={`border-b border-border last:border-0 ${cmp.informational ? "bg-surface-sunken/60" : ""}`}>
+                  {ci === 0 ? (
+                    <td rowSpan={c.comparisons.length} className="px-3 py-2 align-top">
+                      <div className="font-medium text-foreground">{c.label}</div>
+                      <div className="mt-0.5 break-all font-mono text-[11px] text-foreground-muted">{c.input}</div>
+                    </td>
+                  ) : null}
+                  <td className="px-3 py-2 text-foreground-muted">{oracleName(domain.oracles, cmp.oracleId)}</td>
+                  <td className="px-3 py-2 text-right font-mono text-foreground">{cmp.ours}</td>
+                  <td className="px-3 py-2 text-right font-mono text-foreground-muted">{cmp.theirs}</td>
+                  <td className="px-3 py-2 text-right font-mono text-foreground-muted">{cmp.delta}</td>
+                  <td className="px-3 py-2">
+                    {cmp.informational ? (
+                      <span className="text-meta text-foreground-muted">context</span>
+                    ) : (
+                      <StatusPill status={cmp.status} exact={cmp.delta === 0} kind={cmp.tolerance.kind} />
+                    )}
                   </td>
-                ) : null}
-                <td className="px-3 py-2 text-foreground-muted">{oracleName(domain.oracles, cmp.oracleId)}</td>
-                <td className="px-3 py-2 text-right font-mono text-foreground">{cmp.ours}</td>
-                <td className="px-3 py-2 text-right font-mono text-foreground-muted">{cmp.theirs}</td>
-                <td className="px-3 py-2 text-right font-mono text-foreground-muted">{cmp.delta}</td>
-                <td className="px-3 py-2">
+                </tr>
+              )),
+            )}
+          </tbody>
+        </table>
+      </div>
+
+      {/* Phone stacked cards — visible below sm */}
+      <div className="sm:hidden space-y-3">
+        {domain.cases.map((c) => (
+          <div key={c.id} className="rounded-xl border border-border bg-surface-raised p-4">
+            <div className="mb-2">
+              <div className="font-medium text-foreground">{c.label}</div>
+              {c.input ? <div className="mt-0.5 break-all font-mono text-[11px] text-foreground-muted">{c.input}</div> : null}
+            </div>
+            {c.comparisons.map((cmp) => (
+              <div key={`${c.id}-${cmp.oracleId}-mobile`} className={`mt-2 rounded-lg border border-border p-3 text-meta ${cmp.informational ? "bg-surface-sunken/60" : "bg-surface-sunken"}`}>
+                <div className="mb-1 flex items-center justify-between gap-2">
+                  <span className="text-foreground-muted">{oracleName(domain.oracles, cmp.oracleId)}</span>
                   {cmp.informational ? (
-                    <span className="text-meta text-foreground-muted">context</span>
+                    <span className="text-foreground-muted">context</span>
                   ) : (
                     <StatusPill status={cmp.status} exact={cmp.delta === 0} kind={cmp.tolerance.kind} />
                   )}
-                </td>
-              </tr>
-            )),
-          )}
-        </tbody>
-      </table>
-    </div>
+                </div>
+                <div className="grid grid-cols-3 gap-x-2 text-center">
+                  <div>
+                    <div className="text-[10px] uppercase tracking-wide text-foreground-muted">Ours</div>
+                    <div className="font-mono text-foreground">{cmp.ours}</div>
+                  </div>
+                  <div>
+                    <div className="text-[10px] uppercase tracking-wide text-foreground-muted">Ref</div>
+                    <div className="font-mono text-foreground-muted">{cmp.theirs}</div>
+                  </div>
+                  <div>
+                    <div className="text-[10px] uppercase tracking-wide text-foreground-muted">Δ ({unit})</div>
+                    <div className="font-mono text-foreground-muted">{cmp.delta}</div>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        ))}
+      </div>
+    </>
   );
 }
 
