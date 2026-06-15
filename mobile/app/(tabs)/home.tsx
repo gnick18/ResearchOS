@@ -227,7 +227,7 @@ export default function HomeScreen() {
                 colors={[t.dark ? 'rgba(245,158,11,0.20)' : 'rgba(245,158,11,0.14)', s.surface]}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 1 }}
-                style={[styles.timerLive, { borderColor: p.amberBorder }, t.shadow.sm]}
+                style={[styles.timerLive, { backgroundColor: s.surface, borderColor: p.amberBorder }, t.shadow.sm]}
               >
                 <View style={[styles.ring, { borderColor: p.amber }]}>
                   <Ic d="M12 13V9M9 2h6M12 22a8 8 0 1 0 0-16 8 8 0 0 0 0 16Z" color={p.amber} size={20} />
