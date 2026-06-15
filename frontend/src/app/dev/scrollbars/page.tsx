@@ -15,31 +15,35 @@
 
 import { useCallback, useState } from "react";
 
+// All always-on with a resting tint (Chrome won't reliably reveal a transparent
+// thumb on container :hover, so a pure hover-reveal renders blank). They vary by
+// thickness + resting strength; #5 recedes to nearly nothing at rest and boosts
+// on hover, approximating auto-hide while still always painting.
 const OPTIONS: { cls: string; name: string; spec: string }[] = [
   {
-    cls: "sb-reveal",
-    name: "1 - Reveal pill (current)",
-    spec: "~4px pill, transparent track, hidden until hover / scroll, then fades in.",
+    cls: "sb-hairline",
+    name: "1 - Hairline 3px",
+    spec: "~3px pill, faint at rest (18%), darkens on direct hover. Always on.",
   },
   {
-    cls: "sb-hairline",
-    name: "2 - Always-on hairline",
-    spec: "~3px pill, always faintly visible, darkens on hover. No reveal.",
+    cls: "sb-thin",
+    name: "2 - Thin 4px",
+    spec: "~4px pill, resting 20%, darker on hover. Always on.",
+  },
+  {
+    cls: "sb-medium",
+    name: "3 - Medium 6px",
+    spec: "~6px pill, resting 22%, the most substantial. Always on.",
   },
   {
     cls: "sb-track",
-    name: "3 - Inset groove",
+    name: "4 - Inset groove",
     spec: "~5px thumb in a faint always-visible track groove.",
   },
   {
-    cls: "sb-ultra",
-    name: "4 - Ultra-thin",
-    spec: "~3px pill, very subtle always-on, stronger on hover.",
-  },
-  {
-    cls: "sb-floating",
-    name: "5 - Floating fat pill",
-    spec: "~6px rounded thumb with padding, reveal on hover, most pronounced.",
+    cls: "sb-recede",
+    name: "5 - Recede + boost",
+    spec: "~4px pill, nearly invisible at rest (10%), jumps to 34% on hover. The auto-hide feel, but reliably painted.",
   },
 ];
 
@@ -110,38 +114,39 @@ export default function ScrollbarPickerPage() {
 // All five treatments. The thumb tints use --foreground so each reads correctly
 // on both the warm paper (dark foreground) and the dark room (light foreground).
 const SCROLLBAR_CSS = `
-/* 1 - Reveal pill (the current .ros-thin-scroll). */
-.sb-reveal { scrollbar-width: thin; scrollbar-color: color-mix(in srgb, var(--foreground) 24%, transparent) transparent; }
-.sb-reveal::-webkit-scrollbar { width: 10px; height: 10px; }
-.sb-reveal::-webkit-scrollbar-track { background: transparent; }
-.sb-reveal::-webkit-scrollbar-thumb { background-color: transparent; border-radius: 9999px; border: 3px solid transparent; background-clip: padding-box; transition: background-color 0.2s ease; }
-.sb-reveal:hover::-webkit-scrollbar-thumb, .sb-reveal:focus-within::-webkit-scrollbar-thumb { background-color: color-mix(in srgb, var(--foreground) 22%, transparent); }
-.sb-reveal::-webkit-scrollbar-thumb:hover { background-color: color-mix(in srgb, var(--foreground) 38%, transparent); }
-
-/* 2 - Always-on hairline. */
-.sb-hairline { scrollbar-width: thin; scrollbar-color: color-mix(in srgb, var(--foreground) 20%, transparent) transparent; }
-.sb-hairline::-webkit-scrollbar { width: 8px; height: 8px; }
+/* 1 - Hairline 3px (always-on). 7px bar, 2px transparent border -> ~3px pill. */
+.sb-hairline { scrollbar-width: thin; scrollbar-color: color-mix(in srgb, var(--foreground) 18%, transparent) transparent; }
+.sb-hairline::-webkit-scrollbar { width: 7px; height: 7px; }
 .sb-hairline::-webkit-scrollbar-track { background: transparent; }
-.sb-hairline::-webkit-scrollbar-thumb { background-color: color-mix(in srgb, var(--foreground) 16%, transparent); border-radius: 9999px; border: 2.5px solid transparent; background-clip: padding-box; transition: background-color 0.2s ease; }
-.sb-hairline::-webkit-scrollbar-thumb:hover { background-color: color-mix(in srgb, var(--foreground) 34%, transparent); }
+.sb-hairline::-webkit-scrollbar-thumb { background-color: color-mix(in srgb, var(--foreground) 18%, transparent); border-radius: 9999px; border: 2px solid transparent; background-clip: padding-box; transition: background-color 0.2s ease; }
+.sb-hairline::-webkit-scrollbar-thumb:hover { background-color: color-mix(in srgb, var(--foreground) 36%, transparent); }
 
-/* 3 - Inset groove (faint visible track). */
+/* 2 - Thin 4px. 9px bar, 2.5px border -> ~4px pill. */
+.sb-thin { scrollbar-width: thin; scrollbar-color: color-mix(in srgb, var(--foreground) 20%, transparent) transparent; }
+.sb-thin::-webkit-scrollbar { width: 9px; height: 9px; }
+.sb-thin::-webkit-scrollbar-track { background: transparent; }
+.sb-thin::-webkit-scrollbar-thumb { background-color: color-mix(in srgb, var(--foreground) 20%, transparent); border-radius: 9999px; border: 2.5px solid transparent; background-clip: padding-box; transition: background-color 0.2s ease; }
+.sb-thin::-webkit-scrollbar-thumb:hover { background-color: color-mix(in srgb, var(--foreground) 38%, transparent); }
+
+/* 3 - Medium 6px. 12px bar, 3px border -> ~6px pill. */
+.sb-medium { scrollbar-width: thin; scrollbar-color: color-mix(in srgb, var(--foreground) 22%, transparent) transparent; }
+.sb-medium::-webkit-scrollbar { width: 12px; height: 12px; }
+.sb-medium::-webkit-scrollbar-track { background: transparent; }
+.sb-medium::-webkit-scrollbar-thumb { background-color: color-mix(in srgb, var(--foreground) 22%, transparent); border-radius: 9999px; border: 3px solid transparent; background-clip: padding-box; transition: background-color 0.2s ease; }
+.sb-medium::-webkit-scrollbar-thumb:hover { background-color: color-mix(in srgb, var(--foreground) 40%, transparent); }
+
+/* 4 - Inset groove (faint visible track). */
 .sb-track::-webkit-scrollbar { width: 12px; height: 12px; }
 .sb-track::-webkit-scrollbar-track { background: color-mix(in srgb, var(--foreground) 6%, transparent); border-radius: 9999px; margin: 4px; }
 .sb-track::-webkit-scrollbar-thumb { background-color: color-mix(in srgb, var(--foreground) 28%, transparent); border-radius: 9999px; border: 3px solid transparent; background-clip: padding-box; transition: background-color 0.2s ease; }
 .sb-track::-webkit-scrollbar-thumb:hover { background-color: color-mix(in srgb, var(--foreground) 42%, transparent); }
 
-/* 4 - Ultra-thin. */
-.sb-ultra { scrollbar-width: thin; scrollbar-color: color-mix(in srgb, var(--foreground) 18%, transparent) transparent; }
-.sb-ultra::-webkit-scrollbar { width: 6px; height: 6px; }
-.sb-ultra::-webkit-scrollbar-track { background: transparent; }
-.sb-ultra::-webkit-scrollbar-thumb { background-color: color-mix(in srgb, var(--foreground) 14%, transparent); border-radius: 9999px; border: 1.5px solid transparent; background-clip: padding-box; transition: background-color 0.2s ease; }
-.sb-ultra:hover::-webkit-scrollbar-thumb { background-color: color-mix(in srgb, var(--foreground) 32%, transparent); }
-
-/* 5 - Floating fat pill. */
-.sb-floating::-webkit-scrollbar { width: 14px; height: 14px; }
-.sb-floating::-webkit-scrollbar-track { background: transparent; }
-.sb-floating::-webkit-scrollbar-thumb { background-color: transparent; border-radius: 9999px; border: 4px solid transparent; background-clip: padding-box; transition: background-color 0.2s ease; }
-.sb-floating:hover::-webkit-scrollbar-thumb, .sb-floating:focus-within::-webkit-scrollbar-thumb { background-color: color-mix(in srgb, var(--foreground) 25%, transparent); }
-.sb-floating::-webkit-scrollbar-thumb:hover { background-color: color-mix(in srgb, var(--foreground) 40%, transparent); }
+/* 5 - Recede + boost. Faint at rest (always painted, so reliable), boosts when
+ *     the region is hovered. 9px bar, 2.5px border -> ~4px pill. */
+.sb-recede { scrollbar-width: thin; scrollbar-color: color-mix(in srgb, var(--foreground) 12%, transparent) transparent; }
+.sb-recede::-webkit-scrollbar { width: 9px; height: 9px; }
+.sb-recede::-webkit-scrollbar-track { background: transparent; }
+.sb-recede::-webkit-scrollbar-thumb { background-color: color-mix(in srgb, var(--foreground) 10%, transparent); border-radius: 9999px; border: 2.5px solid transparent; background-clip: padding-box; transition: background-color 0.2s ease; }
+.sb-recede:hover::-webkit-scrollbar-thumb { background-color: color-mix(in srgb, var(--foreground) 34%, transparent); }
+.sb-recede::-webkit-scrollbar-thumb:hover { background-color: color-mix(in srgb, var(--foreground) 46%, transparent); }
 `;
