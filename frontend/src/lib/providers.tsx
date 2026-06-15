@@ -609,7 +609,8 @@ function AppContent({ children }: { children: ReactNode }) {
   if (
     pathname === "/dev/popup-chrome" ||
     pathname === "/dev/scrollbars" ||
-    pathname === "/dev/scroll-recede"
+    pathname === "/dev/scroll-recede" ||
+    pathname === "/dev/popup-titles"
   ) {
     return (
       <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
