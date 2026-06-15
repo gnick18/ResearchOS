@@ -130,6 +130,19 @@ Reuse the device keypair only if `fetchMyProfile()` (`GET /api/directory/profile
 
 tsc 0; identity suite 98 tests pass; flag-OFF byte-identical (helper inert, all new branches behind `MULTI_FOLDER_ENABLED`). **Phase B core + follow-ons COMPLETE; only the Phase-C-dependent cross-device restore UX remains, by design.**
 
+## 6c. Phase C build plan (recovery / hybrid) — STARTED
+
+Ordered by independence (safe + client-side first; the escrow backend last, behind a security review).
+
+- **C1 — reset-keep-data escape (STARTED).** Primitive `resetIdentityKeepData(username)` (`storage.ts`) DONE + unit-tested (2 tests): drops the stale identity from session + vault, mints a fresh keypair + sidecar, returns a new recovery code; the plaintext notebook data is untouched. **Next: the UI** — a "can't sign in? reset and keep your data" affordance on the unlock gate, with a clear warning (data stays; old signatures + previously-shared-to-you data are lost; a shared lab needs PI re-admit). Client-side only, no new backend.
+- **C2 — PI re-admit.** After a reset, the member's NEW public key is re-admitted to the lab roster by the lab head. Touches `components/lab-head/LabRoster.tsx` + `lib/lab/*`. No escrow.
+- **C3 — hybrid server escrow + OAuth-gated reissue (THE HEAVY ONE; gated on security review).** The default tier: the server can release the account's key after an OAuth re-auth, so "forgot recovery code" is not fatal. Needs a careful crypto design (a server-held release capability or a second escrow copy wrapped under a server-managed key released on verified OAuth), access controls, an audit log, and the reissue route. Today's `/api/directory/my-backup` is recovery-code-gated escrow; the hybrid adds the OAuth-gated path alongside it. **Do NOT build before the crypto design is signed off (ideally with the identity lane).**
+- **C4 — tier toggle** ("Advanced Protection" opt-in strict E2E) + clear disclosure of the trade.
+- **C5 — cross-device restore** (closes the Phase B gap): on a new laptop, cloud-restore the canonical keypair (via C3's OAuth path or the recovery code), then write a reference sidecar. Replaces the Phase B `// Phase C:` stop-and-point-at-recovery guard.
+- **C6 — pre-provisioning:** a PI invite carrying a one-time setup so a future student claims a ready account on first entry.
+
+⚠️ C3 is the new backend surface + the real security review. Everything C1/C2 is client-side and self-contained; build those first, then open C3 with the identity lane.
+
 ## 7. Coordination
 
 The identity pieces (4.1, 4.4, 4.5) overlap the cloud-accounts / identity lane's owned surface. Phase A (4.2) is independent and safe to start. Phases B–C should be co-designed with that lane before code, given the security implications.
