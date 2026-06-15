@@ -1605,7 +1605,31 @@ export function useOptionalCurrentUser(): string | null {
 }
 
 export function isFileSystemAccessSupported(): boolean {
-  return typeof window !== "undefined" && "showDirectoryPicker" in window;
+  if (typeof window === "undefined") return false;
+  if (!("showDirectoryPicker" in window)) return false;
+  // Chrome 149+ on Android now EXPOSES showDirectoryPicker, but the app's
+  // folder-backed workflow is a desktop experience (no usable directory picker
+  // on a phone), and treating a phone as "supported" wrongly routes it past the
+  // read-only marketing/welcome path into the folder-connect dead-end. So a
+  // mobile device is unsupported regardless of the API's presence. UA-based on
+  // purpose (not pointer:coarse, which would also catch touch laptops that CAN
+  // run the app). userAgentData.mobile is the modern signal; the regex covers
+  // engines that do not expose it yet.
+  const nav = window.navigator as Navigator & {
+    userAgentData?: { mobile?: boolean };
+  };
+  const uaDataMobile =
+    typeof nav.userAgentData?.mobile === "boolean"
+      ? nav.userAgentData.mobile
+      : undefined;
+  if (uaDataMobile === true) return false;
+  if (
+    uaDataMobile === undefined &&
+    /Android|iPhone|iPad|iPod|Mobile|Silk/i.test(nav.userAgent)
+  ) {
+    return false;
+  }
+  return true;
 }
 
 /**
