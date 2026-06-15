@@ -49,11 +49,14 @@ bleeds through = mud). One uniform hue per object type.
 - Classes `.ros-title-accent` + `.ros-accent-<hue>` (globals.css) for non-shell
   titles (page headers) too.
 
-### 4. Raised button shadow
+### 4. Raised button — `.ros-btn-neutral`
 Neutral/grey buttons on the calm/warm surface must read as real raised buttons,
-never flat grey patches: `bg-surface-raised` + `border border-border` + a soft
-two-layer shadow that lifts on hover. Reference: CalmPopupShell footer
-Done/Close button. (Memory: feedback_grey_buttons_need_shadow.)
+never flat grey patches. Single source of truth: the `.ros-btn-neutral` class
+(globals.css). Add it + your own sizing/typography (px/py/text/font); the class
+owns the raised fill + hairline + soft two-layer shadow + hover/active states,
+including the dark recolor (bluish-white shadow) and the inverted dark hover
+(lighten, not darken). The CalmPopupShell footer Done/Close button uses it.
+(Memory: feedback_grey_buttons_need_shadow.)
 
 ### 5. Seam depth — `.ros-seam` + `.ros-seam-divider`
 `.ros-seam` (globals.css): a raised-card depth (lighter than the popup drop)

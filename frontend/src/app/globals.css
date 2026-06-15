@@ -508,6 +508,41 @@
     0 20px 50px -12px rgba(120, 150, 210, 0.3);
 }
 
+/* .ros-btn-neutral: the canonical neutral/grey button on the calm surface. A
+ * raised fill + hairline + soft two-layer shadow so it reads as a real button,
+ * never a flat grey patch. Dark recolors the shadow bluish-white and INVERTS the
+ * hover (lighten, not darken, since sunken is darker than the raised button).
+ * Add sizing/typography classes (px/py/text/font) separately; this owns only the
+ * surface + shadow + state treatment. Single source of truth for the app-wide
+ * button standard (feedback_grey_buttons_need_shadow). */
+.ros-btn-neutral {
+  background: var(--surface-raised);
+  color: var(--foreground);
+  border: 1px solid var(--border-subtle);
+  border-radius: 0.5rem;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.08), 0 2px 4px rgba(15, 23, 42, 0.06);
+  transition: background 0.15s ease, box-shadow 0.15s ease, filter 0.15s ease;
+}
+.ros-btn-neutral:hover {
+  background: var(--surface-sunken);
+  box-shadow: 0 2px 4px rgba(15, 23, 42, 0.1), 0 4px 10px rgba(15, 23, 42, 0.1);
+}
+.ros-btn-neutral:active {
+  filter: brightness(0.95);
+}
+[data-theme="dark"] .ros-btn-neutral {
+  box-shadow: 0 1px 2px rgba(190, 205, 235, 0.1), 0 2px 5px rgba(190, 205, 235, 0.08);
+}
+[data-theme="dark"] .ros-btn-neutral:hover {
+  /* Keep the raised base and brighten — the inverse of light mode. */
+  background: var(--surface-raised);
+  filter: brightness(1.25);
+  box-shadow: 0 2px 5px rgba(190, 205, 235, 0.12), 0 4px 10px rgba(190, 205, 235, 0.12);
+}
+[data-theme="dark"] .ros-btn-neutral:active {
+  filter: brightness(1.5);
+}
+
 /* Per-popup title accent block: a colored marker behind the title, longer than
  * the text, snug height. Each popup passes its own hue. Light = a crisp pastel
  * behind the dark title; dark = an opaque saturated fill of the same hue behind
