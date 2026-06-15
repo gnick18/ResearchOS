@@ -69,6 +69,7 @@ import RainbowFrame from "@/components/marketing/RainbowFrame";
 import FeatureRow from "@/components/marketing/FeatureRow";
 import RoadmapModal from "@/components/RoadmapModal";
 import { markLandingSeen } from "@/lib/landing/landing-gate";
+import { ASSET_BASE_URL } from "@/lib/figure/asset-library";
 
 /** The rainbow ramps, pulled from the brand tokens in globals.css so the
  *  welcome page never drifts from the footer / avatars / banner. RAINBOW is the
@@ -77,6 +78,27 @@ import { markLandingSeen } from "@/lib/landing/landing-gate";
  *  out as type on white). */
 const RAINBOW = "var(--brand-rainbow)";
 const RAINBOW_TEXT = "var(--brand-rainbow-vivid)";
+
+/** The current welcome demo clips live in R2 under the `welcome/` prefix, served
+ *  from the shared asset domain (`ASSET_BASE_URL`, default
+ *  https://assets.research-os.com). The old per-feature Vercel Blob clips were
+ *  retired 2026-06-15; this is the curated five-clip lineup. */
+const WELCOME_VIDEO_BASE = `${ASSET_BASE_URL}/welcome`;
+
+/** A framed R2 welcome demo clip (poster + mp4 by name under `welcome/`). Wraps
+ *  the shared DemoLoop in the rainbow frame used across the feature rows. */
+function R2Demo({ name, label }: { name: string; label: string }) {
+  return (
+    <RainbowFrame>
+      <DemoLoop
+        src={`${WELCOME_VIDEO_BASE}/${name}.mp4`}
+        poster={`${WELCOME_VIDEO_BASE}/${name}.poster.jpg`}
+        label={label}
+        preload="metadata"
+      />
+    </RainbowFrame>
+  );
+}
 
 /** The contact address used across the marketing surfaces (footer, privacy,
  *  terms). The phone tri-CTA "notify me" / "email me a desktop link" actions
@@ -1054,6 +1076,13 @@ export default function WelcomePage({
               <CostTable />
             </div>
             <CostCards />
+            {/* The lead motion proof: one app standing in for the whole stack. */}
+            <Reveal className="mt-8">
+              <R2Demo
+                name="replaces-5-tools"
+                label="One ResearchOS window standing in for a separate notebook, chemistry, cloning, stats, and ordering app"
+              />
+            </Reveal>
             <Reveal>
               <p className="mt-5 max-w-[68ch] border-t border-dashed border-[#dbe6f3] pt-4 text-body leading-relaxed text-[#64748b]">
                 Free to use, with every feature included. The only thing that
@@ -1174,16 +1203,6 @@ export default function WelcomePage({
           title="Draw and search chemistry, built in"
           body="Draw a structure like you would in ChemDraw, pull the compound straight from PubChem, then search the literature and patents by structure, a free stab at what most labs open SciFinder for. Drop any of it into your experiment note. The tools labs pay a fortune for, free."
           pills={["Structure editor", "PubChem import", "Literature and patent search"]}
-          visual={
-            <RainbowFrame>
-              <DemoLoop
-                src="https://tkqei2x7bdmdvg7v.public.blob.vercel-storage.com/chemistry-gliotoxin.mp4"
-                poster="https://tkqei2x7bdmdvg7v.public.blob.vercel-storage.com/chemistry-gliotoxin.poster.jpg"
-                label="Importing gliotoxin from PubChem and searching the literature and patents by structure in the ResearchOS chemistry workbench"
-                preload="metadata"
-              />
-            </RainbowFrame>
-          }
         />
 
         {/* ── 4. DATA HUB ──────────────────────────────────────────────── */}
@@ -1193,16 +1212,6 @@ export default function WelcomePage({
           title="Run the stats and make the figure"
           body="Paste your data, run the test, make a publication-ready plot. Every statistic is validated in public against scipy, R, and Prism, so you can trust the number you cite."
           pills={["Validated tests", "Publication figures", "No black box"]}
-          visual={
-            <RainbowFrame>
-              <DemoLoop
-                src="https://tkqei2x7bdmdvg7v.public.blob.vercel-storage.com/data-hub.mp4"
-                poster="https://tkqei2x7bdmdvg7v.public.blob.vercel-storage.com/data-hub.poster.jpg"
-                label="Running a validated t-test, reading the plain-language verdict, and styling a publication-ready bar plot in the ResearchOS Data Hub"
-                preload="metadata"
-              />
-            </RainbowFrame>
-          }
         />
 
         {/* ── 5. SEQUENCE EDITOR (real clip, flagship) ─────────────────── */}
@@ -1218,24 +1227,10 @@ export default function WelcomePage({
               bubble="whoa!"
               size="h-24 w-24"
             >
-              <div className="grid gap-4">
-                <RainbowFrame>
-                  <DemoLoop
-                    src="https://tkqei2x7bdmdvg7v.public.blob.vercel-storage.com/sequence-editor-a.mp4"
-                    poster="https://tkqei2x7bdmdvg7v.public.blob.vercel-storage.com/sequence-editor-a.poster.jpg"
-                    label="A circular plasmid map rendering in the ResearchOS sequence editor, with annotated feature arcs, then a Gibson assembly designing its own junction primers"
-                    preload="metadata"
-                  />
-                </RainbowFrame>
-                <RainbowFrame>
-                  <DemoLoop
-                    src="https://tkqei2x7bdmdvg7v.public.blob.vercel-storage.com/sequence-ncbi.mp4"
-                    poster="https://tkqei2x7bdmdvg7v.public.blob.vercel-storage.com/sequence-ncbi.poster.jpg"
-                    label="The guided NCBI import wizard finding a gene in a reference genome by name and importing a windowed sequence into the ResearchOS library"
-                    preload="metadata"
-                  />
-                </RainbowFrame>
-              </div>
+              <R2Demo
+                name="sequence-editor-a"
+                label="A circular plasmid map rendering in the ResearchOS sequence editor, with annotated feature arcs, then a Gibson assembly designing its own junction primers"
+              />
             </BeakerBotPeek>
           }
         >
@@ -1267,16 +1262,6 @@ export default function WelcomePage({
           title="Track orders and inventory"
           body="Log a purchase, attach the order PDF, and the PI can send it to the department in one click. Inventory and ordering for the whole lab, no extra subscription."
           pills={["Order tracking", "Attach PDFs", "Send to department"]}
-          visual={
-            <RainbowFrame>
-              <DemoLoop
-                src="https://tkqei2x7bdmdvg7v.public.blob.vercel-storage.com/purchases.mp4"
-                poster="https://tkqei2x7bdmdvg7v.public.blob.vercel-storage.com/purchases.poster.jpg"
-                label="Filtering lab orders by stage and category, expanding line items, and the spending dashboard in ResearchOS purchases"
-                preload="metadata"
-              />
-            </RainbowFrame>
-          }
         />
 
         {/* ── 6.5 CHECK-INS + MENTORING ────────────────────────────────── */}
@@ -1292,14 +1277,10 @@ export default function WelcomePage({
             "Mentorship tree",
           ]}
           visual={
-            <RainbowFrame>
-              <DemoLoop
-                src="https://tkqei2x7bdmdvg7v.public.blob.vercel-storage.com/check-ins.mp4"
-                poster="https://tkqei2x7bdmdvg7v.public.blob.vercel-storage.com/check-ins.poster.jpg"
-                label="A lab mentorship tree, an individual development plan, and a lab-meeting presenter rotation in ResearchOS check-ins"
-                preload="metadata"
-              />
-            </RainbowFrame>
+            <R2Demo
+              name="pi-lab-overview"
+              label="A PI's overview of the lab in ResearchOS: the mentorship tree, individual development plans, and the lab-meeting presenter rotation"
+            />
           }
         />
 
@@ -1408,6 +1389,15 @@ export default function WelcomePage({
                 </Reveal>
               </div>
             </div>
+
+            {/* Methods library in motion: opening a saved method and running it
+                step by step at the bench from the phone. */}
+            <Reveal className="mt-9">
+              <R2Demo
+                name="methods-library"
+                label="Opening a saved method from the ResearchOS library and running it step by step at the bench from the companion app"
+              />
+            </Reveal>
           </div>
         </section>
 
@@ -1443,6 +1433,13 @@ export default function WelcomePage({
                 />
               </Reveal>
             </div>
+            {/* Local-first in motion: the data living in a folder the user owns. */}
+            <Reveal className="mt-8">
+              <R2Demo
+                name="own-your-data"
+                label="ResearchOS working from a folder on the user's own computer, the original records living locally with optional cloud sync"
+              />
+            </Reveal>
           </div>
         </section>
 
@@ -1494,15 +1491,6 @@ export default function WelcomePage({
           title="Grant-ready deposits, free"
           body="Records you own, real version history, clean exports, and a one-click Zenodo deposit carrying your ORCID and grant metadata. That covers an NIH Data Management and Sharing Plan, with no enterprise license to buy."
           pills={["Records you own", "Version history", "Zenodo deposit"]}
-          visual={
-            <RainbowFrame>
-              <DemoLoop
-                src="https://tkqei2x7bdmdvg7v.public.blob.vercel-storage.com/nih-zenodo.mp4"
-                poster="https://tkqei2x7bdmdvg7v.public.blob.vercel-storage.com/nih-zenodo.poster.jpg"
-                label="Building a grant-ready Zenodo deposit with ORCID and grant metadata"
-              />
-            </RainbowFrame>
-          }
         >
           <a
             href="/wiki/compliance/nih-data-management"
