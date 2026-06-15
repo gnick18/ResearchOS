@@ -294,7 +294,12 @@ describe("plot-spec: layout geometry (exact coordinates)", () => {
     expect(sdBar.bottomY).toBeCloseTo(Y(10), 6); // 20 - 10
     expect(semBar.topY).toBeCloseTo(Y(20 + sem), 6);
     expect(semBar.bottomY).toBeCloseTo(Y(20 - sem), 6);
-    expect(sdBar.capHalf).toBe(5);
+    // Caps are a fixed fraction of the mean-line width (independent of error
+    // kind) and narrower than the mean line, so the I-beam nests cleanly inside
+    // it rather than reading as a cramped mark or three equal parallel lines.
+    expect(sdBar.capHalf).toBe(semBar.capHalf);
+    expect(sdBar.capHalf).toBeLessThan(sdGeo.groups[0].meanHalf);
+    expect(sdBar.capHalf).toBeGreaterThan(5);
 
     // Because the y axis grows downward in pixels, the SEM top cap sits BELOW
     // (greater pixel y than) the SD top cap, confirming SEM is the tighter bar.

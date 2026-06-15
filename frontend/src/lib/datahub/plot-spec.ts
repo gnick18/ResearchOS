@@ -1155,9 +1155,12 @@ export function layoutPlot(
   }
 
   const meanHalf = Math.min(22, bandW * 0.3);
-  // Smaller error-bar caps so a single error bar reads as one element, not a
-  // stack of horizontal lines (it is one I-beam per group; this just de-clutters).
-  const capHalf = 5;
+  // Error-bar caps sit a touch narrower than the mean line (~0.62x) so the
+  // top cap, mean line, and bottom cap read as one nested I-beam/bracket: wide
+  // enough not to look like a cramped mark in the center of the mean line, but
+  // narrow enough not to collapse into three equal parallel lines when SEM is
+  // small (the mean line stays the widest, the caps clearly inside it).
+  const capHalf = Math.max(6, Math.round(meanHalf * 0.62));
 
   const groupGeo: GroupGeometry[] = groups.map((g, i) => {
     const cx = x0 + bandW * (i + 0.5);
