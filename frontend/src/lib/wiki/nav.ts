@@ -32,6 +32,7 @@ export const APP_ROUTE_TO_WIKI: Record<string, string> = {
   "/datahub": "/wiki/features/datahub",
   "/chemistry": "/wiki/features/chemistry",
   "/phylo": "/wiki/features/phylo",
+  "/figures": "/wiki/features/figures",
 };
 
 /** Prefix-aware lookup. Tries an exact match first, then walks the
@@ -253,6 +254,11 @@ export const WIKI_NAV: WikiNode[] = [
         href: "/wiki/features/phylo",
         label: "Phylogenetics",
         blurb: "A Tree Builder that writes you a verified, runnable tree-building recipe, and a Tree Studio that renders and annotates trees in the browser, a free iTOL alternative.",
+      },
+      {
+        href: "/wiki/features/figures",
+        label: "Figure Composer",
+        blurb: "Lay your real data figures out on a single publication page, with live panels from sequences, molecules, trees, and Data Hub plots, exported as one clean vector SVG.",
       },
       {
         href: "/wiki/features/cloning",
