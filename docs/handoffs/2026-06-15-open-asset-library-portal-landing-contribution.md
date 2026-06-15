@@ -5,9 +5,13 @@ Plan doc: docs/proposals/2026-06-15-asset-library-portal-landing-contribution.md
 
 ## TL;DR — what shipped (all merged to LOCAL main, merge a98883471, NOT pushed)
 
-1. **Ingest scaled to the full clean corpus and synced to R2.** 14,296 assets live on
-   `assets.research-os.com` (11,738 PhyloPic + 2,558 BioIcons). 0 license violations,
+1. **Ingest scaled to the full clean corpus and synced to R2.** 14,559 assets live on
+   `assets.research-os.com` (11,738 PhyloPic + 2,821 BioIcons). 0 license violations,
    0 missing credits. Clean browsable taxonomy + rich tags (common names).
+   (2026-06-15 BioIcons failure-retry: space->underscore path candidate recovered 264 of
+   the 271 logged misses; corpus 14,296 -> 14,559. Remaining 7 are genuine upstream
+   deletions. Ingest fix worktree-icon-library-data b13179ded; R2 synced via rclone copy +
+   manifest.json now carries Cache-Control max-age=300 + swr.)
 2. **Public `/library` landing** — browse/search/category-tree/citation drawer over the
    live CDN manifest. No login. Public route.
 3. **Community contribution wizard + backend (Part 3a)** + **peer-review surface +
@@ -100,7 +104,9 @@ App (on main via merge a98883471):
 - Identity hardening: submit/verify accept submittedBy/verifierId from the body (blind-
   relay model). Binding to a verified session is a follow-up; the independent-verifier
   rule still compares handles + is server-enforced.
-- BioIcons: 271 URL-encoding failures logged for a future retry pass.
+- BioIcons: ~~271 URL-encoding failures logged for a future retry pass.~~ DONE 2026-06-15
+  — root cause was author/name dir segments storing spaces as underscores; segU candidate
+  recovered 264; 7 residual are genuine upstream 404s (Chinese/accented names, DBCLS-removed).
 
 ## Notes for the next session
 
