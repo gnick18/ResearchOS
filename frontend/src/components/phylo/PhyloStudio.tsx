@@ -1054,16 +1054,28 @@ export function PhyloStudio({ initialTreeId }: { initialTreeId?: string } = {}) 
     // a pasted tree be co-scoped with a Data Hub table in the same project, so
     // the smart-binding wizard can join them.
     const projectIds = saveProjectId ? [saveProjectId] : [];
-    const created = await phyloApi.create(serializeNewick(tree), {
-      name: treeName || "Untitled tree",
-      project_ids: projectIds,
-      format: "newick",
-      source: "upload",
-      figure,
-      metadata,
-    });
-    // The tree now lives in the store, so Copy reference can point at it.
-    setOpenTreeId(created.meta.id);
+    if (openTreeId) {
+      // Re-saving an already-open tree updates the record in place rather than
+      // creating a duplicate (the figure / metadata / name / project all reflect
+      // the current edit). "Move to project" on the row is the explicit re-file.
+      await phyloApi.update(openTreeId, serializeNewick(tree), {
+        name: treeName || "Untitled tree",
+        project_ids: projectIds,
+        figure,
+        metadata,
+      });
+    } else {
+      const created = await phyloApi.create(serializeNewick(tree), {
+        name: treeName || "Untitled tree",
+        project_ids: projectIds,
+        format: "newick",
+        source: "upload",
+        figure,
+        metadata,
+      });
+      // The tree now lives in the store, so Copy reference can point at it.
+      setOpenTreeId(created.meta.id);
+    }
     // Re-scope the smart-binding scan to where the tree now lives (so the banner
     // immediately reflects joinable tables in the chosen project).
     setOpenTreeProjectIds(projectIds);

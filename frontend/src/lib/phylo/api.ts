@@ -54,6 +54,26 @@ export const phyloApi = {
     });
   },
 
+  /**
+   * Save IN PLACE over an existing stored tree: overwrite the tree text and patch
+   * the sidecar (name / project_ids / figure / metadata / tip_count). This is what
+   * lets re-saving an already-open tree update the record instead of creating a
+   * duplicate. The tip_count is recounted from the (possibly edited) tree.
+   */
+  async update(
+    id: string,
+    tree: string,
+    patch: Partial<Omit<PhyloMeta, "id" | "tip_count">>,
+  ): Promise<PhyloMeta | null> {
+    const username = await getCurrentUserCached();
+    await phyloStore.writeTree(id, tree, username);
+    return phyloStore.updateMeta(
+      id,
+      { ...patch, tip_count: countNewickTips(tree) },
+      username,
+    );
+  },
+
   /** Patch a tree's sidecar metadata. */
   async updateMeta(
     id: string,
