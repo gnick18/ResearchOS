@@ -12,7 +12,8 @@
 //
 // No emojis, no em-dashes, no mid-sentence colons.
 
-import { useRef, useState } from "react";
+import { useState } from "react";
+import FileDropzone from "@/components/ui/FileDropzone";
 import BeakerBot from "@/components/BeakerBot";
 import ProfileAvatar from "@/components/account/ProfileAvatar";
 import {
@@ -103,7 +104,6 @@ export default function ProfileStep({
   const [website, setWebsite] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
-  const fileRef = useRef<HTMLInputElement>(null);
 
   const pickPhoto = async (file: File | undefined) => {
     if (!file) return;
@@ -175,32 +175,26 @@ export default function ProfileStep({
             name={displayName || "?"}
             sizePx={72}
           />
-          <input
-            ref={fileRef}
-            type="file"
+          <FileDropzone
+            compact
+            className="w-full"
             accept="image/png,image/jpeg,image/webp"
-            className="hidden"
-            data-testid="wizard-profile-photo-input"
-            onChange={(e) => void pickPhoto(e.target.files?.[0])}
+            label={avatarUrl ? "Drag and drop to replace" : "Drag and drop a photo"}
+            hint="PNG, JPG, WebP"
+            icon="camera"
+            ariaLabel="Upload a profile photo"
+            onFiles={(files) => void pickPhoto(files[0])}
+            onReject={(msg) => setError(msg)}
           />
-          <div className="flex items-center gap-3 text-xs">
+          {avatarUrl && (
             <button
               type="button"
-              onClick={() => fileRef.current?.click()}
-              className="font-semibold text-[#1283c9] hover:underline"
+              onClick={() => setAvatarUrl(null)}
+              className="text-xs text-foreground-muted hover:underline"
             >
-              {avatarUrl ? "Change photo" : "Add a photo"}
+              Remove photo
             </button>
-            {avatarUrl && (
-              <button
-                type="button"
-                onClick={() => setAvatarUrl(null)}
-                className="text-foreground-muted hover:underline"
-              >
-                Remove
-              </button>
-            )}
-          </div>
+          )}
         </div>
 
         <div>

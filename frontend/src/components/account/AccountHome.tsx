@@ -25,6 +25,7 @@ import { provisionDeviceKeyForAccount } from "@/lib/sharing/identity/provision";
 import { markRecoveryConfirmed } from "@/lib/sharing/identity/recovery-confirm";
 import RecoveryKitModal from "@/components/sharing/RecoveryKitModal";
 import ProfileAvatar from "@/components/account/ProfileAvatar";
+import FileDropzone from "@/components/ui/FileDropzone";
 import { fileToAvatarDataUrl } from "@/lib/account/avatar-image";
 
 interface AccountProfile {
@@ -85,7 +86,6 @@ export default function AccountHome() {
   // preview a freshly picked image before it is persisted.
   const [avatarDraft, setAvatarDraft] = useState<string | null | undefined>(undefined);
   const [avatarError, setAvatarError] = useState<string | null>(null);
-  const [avatarDragOver, setAvatarDragOver] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -334,56 +334,16 @@ export default function AccountHome() {
                 sizePx={56}
               />
               <div className="flex flex-1 flex-col gap-1">
-                <label
-                  onDragOver={(e) => {
-                    e.preventDefault();
-                    setAvatarDragOver(true);
-                  }}
-                  onDragEnter={(e) => {
-                    e.preventDefault();
-                    setAvatarDragOver(true);
-                  }}
-                  onDragLeave={(e) => {
-                    e.preventDefault();
-                    setAvatarDragOver(false);
-                  }}
-                  onDrop={(e) => {
-                    e.preventDefault();
-                    setAvatarDragOver(false);
-                    const file = e.dataTransfer.files?.[0];
-                    if (!file) return;
-                    if (!file.type.startsWith("image/")) {
-                      setAvatarError("Drop a PNG, JPG, or WebP image.");
-                      return;
-                    }
-                    void onPickAvatar(file);
-                  }}
-                  className={`flex cursor-pointer flex-col items-center justify-center gap-0.5 rounded-lg border border-dashed px-3 py-2.5 text-center transition-colors ${
-                    avatarDragOver
-                      ? "border-brand-action bg-[#1283c9]/5"
-                      : "border-border bg-surface hover:border-brand-action"
-                  }`}
-                >
-                  <span className="text-meta font-semibold text-foreground">
-                    {avatarDragOver ? "Drop to upload" : "Drag and drop a photo"}
-                  </span>
-                  <span className="text-meta text-foreground-muted">
-                    or{" "}
-                    <span className="font-semibold text-brand-action">
-                      click to choose
-                    </span>{" "}
-                    &middot; PNG, JPG, WebP
-                  </span>
-                  <input
-                    type="file"
-                    accept="image/png,image/jpeg,image/webp"
-                    className="hidden"
-                    onChange={(e) => {
-                      void onPickAvatar(e.target.files?.[0]);
-                      e.target.value = "";
-                    }}
-                  />
-                </label>
+                <FileDropzone
+                  compact
+                  accept="image/png,image/jpeg,image/webp"
+                  label="Drag and drop a photo"
+                  hint="PNG, JPG, WebP"
+                  icon="camera"
+                  ariaLabel="Upload a profile photo"
+                  onFiles={(files) => void onPickAvatar(files[0])}
+                  onReject={(msg) => setAvatarError(msg)}
+                />
                 {(avatarDraft ?? profile?.avatarUrl) && (
                   <button
                     type="button"
