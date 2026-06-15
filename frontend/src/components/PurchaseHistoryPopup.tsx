@@ -120,6 +120,7 @@ export default function PurchaseHistoryPopup({
       origin={origin}
       label="Purchase item history"
       title="Purchase item history"
+      titleAccent="violet"
       dockedWidthClassName="max-w-5xl"
       footer={{ doneLabel: "Close", onDone: handleClose }}
       // The history panel's top-edge shadow must cast UP into the header gap, but

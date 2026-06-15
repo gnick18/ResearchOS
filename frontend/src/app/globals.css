@@ -494,6 +494,62 @@
   transition: font-size 0.5s cubic-bezier(0.5, 0.05, 0.2, 1);
 }
 
+/* Popup card shadow. Light mode keeps the soft black drop shadow; dark mode uses
+ * the SAME geometry recolored to a soft bluish-white (a black shadow is
+ * invisible on the dark room) + a faint light ring so the card edge reads.
+ * (Grant 2026-06-14: "THAT LOOKS SO GOOD".) */
+.ros-popup-card-shadow {
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06), 0 20px 50px -10px rgba(0, 0, 0, 0.25);
+}
+[data-theme="dark"] .ros-popup-card-shadow {
+  box-shadow:
+    0 0 0 1px rgba(190, 205, 235, 0.08),
+    0 1px 3px rgba(150, 180, 225, 0.06),
+    0 20px 50px -12px rgba(120, 150, 210, 0.3);
+}
+
+/* Per-popup title accent block: a colored marker behind the title, longer than
+ * the text, snug height. Each popup passes its own hue. Light = a crisp pastel
+ * behind the dark title; dark = an opaque saturated fill of the same hue behind
+ * the light title (same hue family, deeper shade). The title font is unchanged. */
+.ros-title-accent {
+  display: inline-block;
+  border-radius: 8px;
+  padding: 0.02em 0.55em;
+  box-decoration-break: clone;
+  -webkit-box-decoration-break: clone;
+}
+.ros-accent-amber {
+  background: #fde68a;
+}
+.ros-accent-violet {
+  background: #ddd6fe;
+}
+.ros-accent-sky {
+  background: #bae6fd;
+}
+.ros-accent-emerald {
+  background: #a7f3d0;
+}
+.ros-accent-rose {
+  background: #fecdd3;
+}
+[data-theme="dark"] .ros-accent-amber {
+  background: #b45309;
+}
+[data-theme="dark"] .ros-accent-violet {
+  background: #6d28d9;
+}
+[data-theme="dark"] .ros-accent-sky {
+  background: #0369a1;
+}
+[data-theme="dark"] .ros-accent-emerald {
+  background: #047857;
+}
+[data-theme="dark"] .ros-accent-rose {
+  background: #be123c;
+}
+
 /* Quiet tab row — transparent, no divider, present at both sizes (C1). */
 .ros-calm-surface .s-tabs {
   background: transparent;
