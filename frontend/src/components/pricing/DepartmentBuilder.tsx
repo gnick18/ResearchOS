@@ -27,7 +27,11 @@ const MAILTO =
     "We are looking at ResearchOS for our department. Here is the plan estimate from research-os.app/pricing.",
   );
 
-export default function DepartmentBuilder() {
+interface DepartmentBuilderProps {
+  billingEnabled: boolean;
+}
+
+export default function DepartmentBuilder({ billingEnabled }: DepartmentBuilderProps) {
   const [labs, setLabs] = useState(8);
   const [members, setMembers] = useState(6);
   const [adopt, setAdopt] = useState(60);
@@ -149,7 +153,7 @@ export default function DepartmentBuilder() {
               invoice to your procurement office on net terms, or a card or bank
               account on file, change it any month, no lock-in. Paying by bank
               transfer costs a little less because it costs us less to process. An
-              estimate, not a final price, and free during the beta.
+              estimate, not a final price{billingEnabled ? "." : ", and free during the beta."}
             </p>
           </div>
         </div>
