@@ -25,8 +25,8 @@
 // House style, Icon only, brand + semantic tokens, no emojis / em-dashes /
 // mid-sentence colons.
 
-import { useEffect, useRef, useState, useCallback, lazy, Suspense } from "react";
-import ReactMarkdown from "react-markdown";
+import { useEffect, useRef, useState, useCallback, lazy, Suspense, memo } from "react";
+import ReactMarkdown, { type Components } from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { Icon } from "@/components/icons";
 import Tooltip from "@/components/Tooltip";
@@ -99,89 +99,89 @@ import { useCanvasStore } from "@/lib/ai/canvas-store";
 //   for rich visuals (molecules, Data Hub tables).
 //
 //   External links still open in a new tab with rel=noopener.
-export function AssistantMarkdown({ content }: { content: string }) {
+// The react-markdown component overrides, defined ONCE at module scope so their
+// identities are STABLE across renders. This is load-bearing, not cosmetic: an
+// inline `components={{...}}` object recreates these functions every render, so
+// react-markdown sees a changed component `type` and UNMOUNTS + REMOUNTS the whole
+// subtree, including any ObjectEmbed. A remounted PhyloEmbed resets to its
+// "loading" state and re-fetches, which (with the embed's own re-layout) made the
+// inline tree card flicker between loading / fitted / oversized and yanked the
+// chat scroll on every parent re-render. A stable map lets react-markdown reconcile
+// the embed in place, so it mounts + loads exactly once. The overrides are pure
+// (they close over only module-level imports), so module scope is safe.
+const ASSISTANT_MD_COMPONENTS: Components = {
+  // A paragraph that is a lone object-embed link renders as a block embed. Every
+  // other paragraph renders normally; this is additive. basePath is undefined for
+  // chat (no file-relative image paths).
+  p: ({ node, children, ...props }) => {
+    const lone = loneEmbedFromChatParagraph(node as unknown as ChatHastNode);
+    if (lone) {
+      return <ObjectEmbed descriptor={lone.descriptor} caption={lone.caption} />;
+    }
+    return <p {...props}>{children}</p>;
+  },
+  a: ({ href, children, ...props }) => {
+    // An object embed link that ends up inline (mid-sentence) is handled here
+    // instead of via the p override. Treat it as a chip when it is a valid object
+    // deep-link, falling back to new-tab.
+    const embedDesc = parseObjectEmbed(href ?? "");
+    if (embedDesc && embedDesc.isEmbed) {
+      // Mid-sentence embed link: degrade to a chip (the block path above already
+      // handled the lone-paragraph case).
+      const label =
+        typeof children === "string"
+          ? children
+          : Array.isArray(children)
+            ? children.join("")
+            : String(children ?? embedDesc.id);
+      return <ObjectChip type={embedDesc.type} href={href ?? ""} label={label} />;
+    }
+    const objectRef = parseObjectDeepLink(href ?? "");
+    if (objectRef) {
+      const label =
+        typeof children === "string"
+          ? children
+          : Array.isArray(children)
+            ? String(children.join(""))
+            : String(children ?? objectRef.id);
+      return <ObjectChip type={objectRef.type} href={href ?? ""} label={label} />;
+    }
+    return (
+      <a href={href} target="_blank" rel="noopener noreferrer" {...props}>
+        {children}
+      </a>
+    );
+  },
+  // Keep the horizontal-scroll wrapper but render a real <table> inside it.
+  // Returning a bare <div> here put react-markdown's <thead>/<tbody> directly
+  // inside a div, which is invalid HTML and tripped a hydration error whenever
+  // BeakerBot rendered a markdown table in chat.
+  table: ({ children }) => (
+    <div className="overflow-x-auto">
+      <table className="text-xs">{children}</table>
+    </div>
+  ),
+};
+
+// memo so an assistant turn re-renders (and re-parses its markdown) ONLY when its
+// content changes, not on every parent re-render (token-counter ticks, hover,
+// status). With the stable components map above, this keeps each inline embed
+// mounted + loaded once instead of flashing back to "loading" on scroll.
+export const AssistantMarkdown = memo(function AssistantMarkdown({
+  content,
+}: {
+  content: string;
+}) {
   return (
     <div
       style={{ fontFamily: "var(--font-ai)" }}
       className="prose prose-sm max-w-none text-foreground [&_a]:text-brand [&_a]:underline [&_code]:rounded [&_code]:bg-surface-overlay [&_code]:px-1 [&_code]:py-0.5 [&_code]:text-xs [&_li]:my-0.5 [&_ol]:my-1 [&_ol]:list-decimal [&_ol]:pl-4 [&_p]:my-1 [&_pre]:overflow-x-auto [&_pre]:rounded [&_pre]:bg-surface-overlay [&_pre]:p-2 [&_strong]:font-semibold [&_ul]:my-1 [&_ul]:list-disc [&_ul]:pl-4">
-      <ReactMarkdown
-        remarkPlugins={[remarkGfm]}
-        components={{
-          // A paragraph that is a lone object-embed link renders as a block
-          // embed. Every other paragraph renders normally; this is additive.
-          // basePath is undefined for chat (no file-relative image paths).
-          p: ({ node, children, ...props }) => {
-            const lone = loneEmbedFromChatParagraph(node as unknown as ChatHastNode);
-            if (lone) {
-              return (
-                <ObjectEmbed
-                  descriptor={lone.descriptor}
-                  caption={lone.caption}
-                />
-              );
-            }
-            return <p {...props}>{children}</p>;
-          },
-          a: ({ href, children, ...props }) => {
-            // An object embed link that ends up inline (mid-sentence) is
-            // handled here instead of via the p override. Treat it as a chip
-            // when it is a valid object deep-link, falling back to new-tab.
-            const embedDesc = parseObjectEmbed(href ?? "");
-            if (embedDesc && embedDesc.isEmbed) {
-              // Mid-sentence embed link: degrade to a chip (the block path
-              // above already handled the lone-paragraph case).
-              const label =
-                typeof children === "string"
-                  ? children
-                  : Array.isArray(children)
-                    ? children.join("")
-                    : String(children ?? embedDesc.id);
-              return (
-                <ObjectChip
-                  type={embedDesc.type}
-                  href={href ?? ""}
-                  label={label}
-                />
-              );
-            }
-            const objectRef = parseObjectDeepLink(href ?? "");
-            if (objectRef) {
-              const label =
-                typeof children === "string"
-                  ? children
-                  : Array.isArray(children)
-                    ? String(children.join(""))
-                    : String(children ?? objectRef.id);
-              return (
-                <ObjectChip
-                  type={objectRef.type}
-                  href={href ?? ""}
-                  label={label}
-                />
-              );
-            }
-            return (
-              <a href={href} target="_blank" rel="noopener noreferrer" {...props}>
-                {children}
-              </a>
-            );
-          },
-          // Keep the horizontal-scroll wrapper but render a real <table> inside
-          // it. Returning a bare <div> here put react-markdown's <thead>/<tbody>
-          // directly inside a div, which is invalid HTML and tripped a hydration
-          // error whenever BeakerBot rendered a markdown table in chat.
-          table: ({ children }) => (
-            <div className="overflow-x-auto">
-              <table className="text-xs">{children}</table>
-            </div>
-          ),
-        }}
-      >
+      <ReactMarkdown remarkPlugins={[remarkGfm]} components={ASSISTANT_MD_COMPONENTS}>
         {content}
       </ReactMarkdown>
     </div>
   );
-}
+});
 
 // The choice prompt (ask_user). Renders a button per option. Single-select
 // resolves on a tap. Multi-select toggles chips and resolves on Confirm.
