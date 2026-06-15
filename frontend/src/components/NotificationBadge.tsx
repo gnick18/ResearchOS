@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { sharingApi } from "@/lib/local-api";
+import { useLabPendingRequests } from "@/hooks/useLabPendingRequests";
 import NotificationPopup from "./NotificationPopup";
 import Tooltip from "./Tooltip";
 
@@ -15,6 +16,10 @@ export default function NotificationBadge({ pill = false }: NotificationBadgePro
   const [unreadCount, setUnreadCount] = useState(0);
   const [showPopup, setShowPopup] = useState(false);
   const [, setLoading] = useState(true);
+  // Fold pending lab join-requests into the bell badge so a PI sees them without
+  // opening the popup. Inert (0) for non-lab-heads.
+  const { count: pendingLabRequests } = useLabPendingRequests();
+  const badgeCount = unreadCount + pendingLabRequests;
 
   // Load unread count on mount and periodically. Also listen for
   // "ros-notifications-changed" custom events so reminders fired locally
@@ -82,9 +87,9 @@ export default function NotificationBadge({ pill = false }: NotificationBadgePro
               d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"
             />
           </svg>
-          {unreadCount > 0 && (
+          {badgeCount > 0 && (
             <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] bg-red-500 text-white text-meta font-bold rounded-full flex items-center justify-center px-1">
-              {unreadCount > 99 ? "99+" : unreadCount}
+              {badgeCount > 99 ? "99+" : badgeCount}
             </span>
           )}
         </button>

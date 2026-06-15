@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { sharingApi } from "@/lib/local-api";
 import { useCalendarNavStore } from "@/lib/calendar/calendar-nav-store";
+import { useLabPendingRequests } from "@/hooks/useLabPendingRequests";
 import { useEscapeToClose } from "@/hooks/useEscapeToClose";
 import Tooltip from "./Tooltip";
 import type {
@@ -30,6 +31,10 @@ export default function NotificationPopup({
   onNotificationRead,
 }: NotificationPopupProps) {
   const router = useRouter();
+  // Pending lab join-requests are surfaced as a light pinned banner (not a
+  // persisted store notification) so a PI sees them in the bell without the
+  // heavy notification-record machinery. Inert for non-lab-heads (count 0).
+  const { count: pendingLabRequests } = useLabPendingRequests();
   const jumpTo = useCalendarNavStore((s) => s.jumpTo);
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(false);
@@ -264,6 +269,31 @@ export default function NotificationPopup({
           </div>
         )}
       </div>
+
+      {/* Pending lab join-requests: a pinned banner above the notification list
+          (lab head only; routes to the Members roster to approve). */}
+      {pendingLabRequests > 0 && (
+        <button
+          type="button"
+          onClick={() => {
+            router.push("/settings?section=members");
+            onClose();
+          }}
+          className="flex w-full items-center gap-3 border-b border-border bg-blue-50 dark:bg-blue-500/10 px-4 py-3 text-left transition-colors hover:bg-blue-100 dark:hover:bg-blue-500/20"
+        >
+          <span className="flex h-6 min-w-[24px] items-center justify-center rounded-full bg-red-500 px-1.5 text-meta font-bold text-white">
+            {pendingLabRequests > 99 ? "99+" : pendingLabRequests}
+          </span>
+          <span className="text-body text-foreground">
+            {pendingLabRequests === 1
+              ? "1 pending lab join request"
+              : `${pendingLabRequests} pending lab join requests`}
+            <span className="block text-meta text-foreground-muted">
+              Open Members to review and approve
+            </span>
+          </span>
+        </button>
+      )}
 
       {/* Content */}
       <div className="max-h-96 overflow-y-auto">
