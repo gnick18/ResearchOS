@@ -72,7 +72,7 @@ export default function PopupTitlesPage() {
           {POPUPS.map((p) => (
             <div
               key={p.hue}
-              className="rounded-2xl px-7 py-6 shadow-[0_1px_3px_rgba(0,0,0,0.06),0_20px_50px_-10px_rgba(0,0,0,0.18)]"
+              className="popup-card-shadow rounded-2xl px-7 py-6"
               style={{
                 background:
                   "radial-gradient(130% 70% at 50% -6%, var(--editor-room-top), var(--editor-room-bot))",
@@ -114,6 +114,19 @@ export default function PopupTitlesPage() {
 // different shade per the brief). The block is wider than the text via the
 // horizontal padding, so it always reads longer than the title.
 const ACCENT_CSS = `
+/* Popup card shadow. Light mode: the soft black drop shadow. Dark mode: the
+ * SAME geometry but recolored to a light bluish-white (a black shadow is
+ * invisible on the dark room), plus a faint light ring so the card edge reads. */
+.popup-card-shadow {
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06), 0 20px 50px -10px rgba(0, 0, 0, 0.18);
+}
+[data-theme="dark"] .popup-card-shadow {
+  box-shadow:
+    0 0 0 1px rgba(190, 205, 235, 0.08),
+    0 1px 3px rgba(150, 180, 225, 0.06),
+    0 20px 50px -12px rgba(120, 150, 210, 0.30);
+}
+
 .acc {
   display: inline-block;
   border-radius: 8px;
