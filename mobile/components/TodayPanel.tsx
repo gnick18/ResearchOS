@@ -92,6 +92,14 @@ export function TodayPanel({
   const reduceMotion = useReducedMotion();
   const router = useRouter();
 
+  // Open the method for a task (experiment band card or a method-linked Today
+  // row). Close the panel first so the navigation reads cleanly, then land on
+  // the actionable method view (NOT full-screen read mode).
+  const openTaskMethod = (_task: SnapshotTask) => {
+    onClose();
+    router.push('/method-detail');
+  };
+
   // Partition active tasks: experiments go into the dedicated band, everything
   // else stays in the regular Today task list.
   const activeBandTasks = tasks.filter((t) => t.task_type === 'experiment');
@@ -270,24 +278,19 @@ export function TodayPanel({
                 <ActiveExperimentsBand
                   experiments={activeBandTasks}
                   dark={dark}
-                  onPress={(task) => {
-                    // Deep-link to the method for the focused experiment. We land on
-                    // the method view (steps, key params, add-variation, plus a Read
-                    // mode button), NOT straight into full-screen read mode, so the
-                    // bench researcher can act on the method rather than only read it.
-                    // The method snapshot is published separately by the laptop when
-                    // the user taps "View method on phone"; if none is published the
-                    // screen shows its "open a method from the laptop" empty state,
-                    // which is the correct degradation.
-                    router.push('/method-detail');
-                  }}
+                  onPress={openTaskMethod}
                 />
               ) : null}
 
               <GroupLabel text="Today" color={surface.muted} />
               {hasTodayRows ? (
                 activeListTasks.map((task, i) => (
-                  <TaskRow key={task.id ?? `today-${i}`} task={task} tone="today" />
+                  <TaskRow
+                    key={task.id ?? `today-${i}`}
+                    task={task}
+                    tone="today"
+                    onOpenMethod={openTaskMethod}
+                  />
                 ))
               ) : (
                 <ThemedText style={[styles.empty, { color: surface.muted }]}>
@@ -303,6 +306,7 @@ export function TodayPanel({
                       key={task.id ?? `overdue-${i}`}
                       task={task}
                       tone="over"
+                      onOpenMethod={openTaskMethod}
                     />
                   ))}
                 </>
@@ -323,6 +327,7 @@ export function TodayPanel({
                       key={task.id ?? `upcoming-${i}`}
                       task={task}
                       tone="soon"
+                      onOpenMethod={openTaskMethod}
                     />
                   ))}
                 </>
@@ -556,9 +561,13 @@ function GroupLabel({ text, color }: { text: string; color: string }) {
 export function TaskRow({
   task,
   tone,
+  onOpenMethod,
 }: {
   task: SnapshotTask;
   tone: 'today' | 'over' | 'soon';
+  /** Called when a task that has a linked method is tapped. When omitted (or the
+   *  task has no method) the row is static, so we never show a dead affordance. */
+  onOpenMethod?: (task: SnapshotTask) => void;
 }) {
   const { surface } = useTheme();
   const tickColor =
@@ -566,8 +575,11 @@ export function TaskRow({
   const meta = [formatDateRange(task.start_date, task.end_date), task.task_type]
     .filter((part): part is string => !!part && part.length > 0)
     .join('  -  ');
-  return (
-    <View style={[styles.trow, { backgroundColor: surface.sunken }]}>
+  const hasMethod = !!task.linkedMethodName;
+  const tappable = hasMethod && !!onOpenMethod;
+
+  const body = (
+    <>
       <View style={[styles.tick, { backgroundColor: tickColor }]} />
       <View style={styles.trowBody}>
         <ThemedText
@@ -584,8 +596,44 @@ export function TaskRow({
             {meta}
           </ThemedText>
         ) : null}
+        {hasMethod ? (
+          <View style={styles.trowMethodRow}>
+            <View style={[styles.flaskDot, { backgroundColor: palette.purple }]} />
+            <ThemedText
+              style={[styles.expMethodName, { color: surface.muted }]}
+              numberOfLines={1}
+            >
+              {task.linkedMethodName}
+            </ThemedText>
+            {tappable ? (
+              <View style={styles.expOpenCue}>
+                <ThemedText style={[styles.expOpenCueText, { color: palette.purple }]}>
+                  View method
+                </ThemedText>
+                <Ionicons name="chevron-forward" size={12} color={palette.purple} />
+              </View>
+            ) : null}
+          </View>
+        ) : null}
       </View>
-    </View>
+    </>
+  );
+
+  if (tappable) {
+    return (
+      <Pressable
+        style={[styles.trow, { backgroundColor: surface.sunken }]}
+        onPress={() => onOpenMethod!(task)}
+        accessibilityRole="button"
+        accessibilityLabel={`Open method for ${task.name ?? 'task'}`}
+      >
+        {body}
+      </Pressable>
+    );
+  }
+
+  return (
+    <View style={[styles.trow, { backgroundColor: surface.sunken }]}>{body}</View>
   );
 }
 
@@ -775,6 +823,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 6,
     marginTop: 2,
+  },
+  trowMethodRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginTop: 4,
   },
   flaskDot: {
     width: 5,
