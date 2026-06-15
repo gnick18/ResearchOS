@@ -107,11 +107,13 @@ On account setup / first publish, IF the user is on the default (recoverable) ti
    - **(C) Plain env secret, separate store:** SEK is an env var, but the escrow blobs live in a *different* datastore than Neon, so one credential leak isn't enough. Weakest of the three; only acceptable as a temporary beta posture with eyes open.
    - ❌ **Not acceptable:** SEK as an env var on the same deployment that holds `DATABASE_URL`, with escrow in the same Neon DB. That is a one-leak-loses-everything honeypot.
 
-   **Where the SEK service runs (settled): Cloudflare, for isolation AND cost.** In split (B) the SEK-holding reissue service belongs on **Cloudflare**, not Vercel — for two reasons that point the same way:
+   **Where the SEK service runs (LOCKED 2026-06-15): Cloudflare, for isolation AND cost.** In split (B) the SEK-holding reissue service belongs on **Cloudflare**, not Vercel — for two reasons that point the same way:
    - **Trust-domain isolation (the deciding reason):** the Neon DB creds (`DATABASE_URL`) live on Vercel with the main app. Putting the SEK service on Vercel too would re-collapse escrow ciphertext + the key that opens it into one blast radius, defeating the whole split. The SEK must live in a *different* domain → Cloudflare.
    - **Cost at scale (the bonus):** escrow ops do not scale with user count (enrollment is once-per-user; reissue only on a lockout), so even at 10k+ users this service stays in the cheapest tier. Cloudflare Workers is also structurally cheaper for short-CPU request workloads (Paid ~$5/mo, 10M req + 30M CPU-ms included, CPU-time billing so no charge for I/O wait) vs Vercel Functions (~$20/mo per seat, Active-CPU + invocation billing). At 10k+ users the reissue Worker is well inside Cloudflare's included tier.
 
    So: **main app stays on Vercel; the SEK-holding reissue Worker runs on Cloudflare.** This is the placement to build to — do not co-locate the SEK on Vercel to consolidate.
+
+   **Pricing (no new fixed cost):** Cloudflare Workers is gated by **request volume, not user count**. The **Free plan covers 100k requests/day**; the SEK service's volume is trivially low (enrollment once per user, reissue only on a lockout), so it stays inside the free tier effectively indefinitely even at 10k+ users. A bare "unwrap a DEK" Worker + a Worker Secret needs no paid-only feature (no Durable Objects, no extended CPU). The **$5/mo Workers Paid is therefore NOT a required new line item** for C3 — we'd only pay it if overall Cloudflare usage crosses the free limits or we later want a paid feature, in which case the $5 flat also covers this service. The audit log can ride a free-tier store (KV writes are per-reissue = rare, or a small D1 table).
 
    **Upgrade path:** start free with (B) and move to (A) later without changing the envelope-encryption shape — both wrap the same per-user DEKs, so swapping the SEK custody backend re-wraps only the small DEKs, not the blobs. A managed KMS (AWS/GCP) slots in *behind* the same Cloudflare reissue Worker, so picking (B) now does not lock us out of HSM-grade custody later.
 
@@ -140,6 +142,17 @@ On account setup / first publish, IF the user is on the default (recoverable) ti
 5. Wire `cloud-restore.ts` to try the reissue path (default tier) and fall back to recovery-code unwrap (strict). This closes the Phase B `// Phase C:` cross-device stop-guard (= C5).
 6. C4 tier toggle: choose/disclose strict vs recoverable; switching recoverable→strict deletes the escrow row + SEK-wrapped DEK.
 7. Security pass on the built thing (not just the design): rate-limit/audit/notify verified, SEK custody verified, takeover + compulsion paths walked, then a staged flag-on.
+
+---
+
+## 9. Infra cost posture (broader, recorded so it isn't re-litigated)
+
+Context for a "should we move things to Cloudflare to save money" question (Grant, 2026-06-15). Conclusion: **the only savings worth chasing later is app hosting; everything else is already optimal or a no-op.**
+
+- **Cloud database stays tiny by design → don't move Neon.** The product is "cloud accounts, *local* data": research lives on the user's disk; the cloud DB holds only directory/identity/lab/escrow *metadata* (kilobytes per user, a few MB even at 10k users). That is effectively free on Neon *or* Cloudflare D1, so there is no bill to cut, while a move means a Postgres→SQLite rewrite (`@neondatabase/serverless`, `ON CONFLICT`, `timestamptz`, peppered HMAC lookups). Effort for ~$0 savings. If the *app* ever moves to Cloudflare, keep Neon and front it with **Hyperdrive** (pooling) — no DB migration.
+- **Bulk-storage savings (R2) already captured.** The cost that scales is archives + the assets library; those are already on **Cloudflare R2**, whose zero-egress model is the single biggest available win vs S3. Nothing to do.
+- **App hosting (Vercel → Cloudflare) is the only real lever, and it is a later, deliberate call.** Vercel costs more per-unit at high volume, but it is a Next.js app (running Next on Cloudflare via `@opennextjs/cloudflare` carries an ISR/middleware/image compatibility tax), and a local-first app has lighter server load than typical SaaS, so the Vercel bill grows slowly. **Monitor the bill; revisit only if it actually hurts.** Not a speculative migration.
+- **Do NOT consolidate everything onto one provider — it would break the C3 trust-domain split.** The SEK lives on Cloudflare *because* the DB creds live on Vercel. If the whole app ever moved to Cloudflare, the SEK would need to move to a *third* domain (managed KMS) to keep two-secret custody. "Everything on one provider" is the one move that is actively harmful here.
 
 ---
 
