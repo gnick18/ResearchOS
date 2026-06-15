@@ -19,6 +19,7 @@ import {
   type LibraryAsset,
   type CategoryGroup,
 } from "@/lib/figure/asset-library";
+import { rankAssets } from "@/lib/figure/asset-search";
 import type { FigurePage, ShapeKind, TextVariant } from "@/lib/figure/figure-page";
 import type { ElementRef } from "@/lib/figure/figure-arrange";
 import { FIGURE_TEMPLATES, type FigureTemplate } from "@/lib/figure/figure-templates";
@@ -253,10 +254,15 @@ function IconsPanel({ onPick }: { onPick: (a: LibraryAsset) => void }) {
   // The locked taxonomy from the Icon Library lane: sections (display-ordered,
   // empty omitted) each holding the leaf categories actually present.
   const groups = useMemo<CategoryGroup[]>(() => listCategoryGroups(assets), [assets]);
-  const results = useMemo(
-    () => searchAssets(assets, { query, category }).slice(0, 240),
-    [assets, query, category],
-  );
+  // With a query, rank by near-miss relevance (typo + synonym tolerant) over the
+  // category-filtered set, so "rodent" / "moose" / "cell death" still find icons
+  // whose title never says those words. With no query, keep the plain category
+  // view (rankAssets returns nothing for an empty query).
+  const results = useMemo(() => {
+    const inCategory = searchAssets(assets, { category });
+    if (!query.trim()) return inCategory.slice(0, 240);
+    return rankAssets(inCategory, query, { limit: 240 }).map((s) => s.asset);
+  }, [assets, query, category]);
   const reviewable = useMemo(
     () => (ASSET_CONTRIBUTE_ENABLED ? countReviewable(assets) : 0),
     [assets],
