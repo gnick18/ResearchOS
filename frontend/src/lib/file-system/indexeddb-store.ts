@@ -868,3 +868,360 @@ export async function restorePreDemoStateOrClear(): Promise<boolean> {
   ]);
   return false;
 }
+
+// ── Multi-folder store (Phase A) ────────────────────────────────────────────
+//
+// The app historically remembered exactly ONE data folder: a single handle in
+// the `handles` object store under DIRECTORY_HANDLE_KEY plus a `-meta` blob.
+// Phase A adds a SET of remembered folders and an "active folder" pointer so a
+// user can switch labs without re-running the OS picker each time.
+//
+// Storage layout (all additive, the legacy single-folder keys are untouched):
+//   - `handles` object store, key `folder-handle::<id>`  -> the directory handle
+//     (structured-cloneable FileSystemDirectoryHandle, NOT a path).
+//   - idb-keyval key `research-os-folders`  -> RememberedFolderMeta[] (id, name,
+//     lastOpenedAt). The handle is intentionally NOT duplicated here.
+//   - idb-keyval key `research-os-active-folder`  -> the active folder id.
+//
+// IMPORTANT compatibility note: when the multi-folder flag is OFF, none of the
+// app code below is exercised on the hot path (file-system-context only calls
+// the multi-folder helpers behind MULTI_FOLDER_ENABLED). storeDirectoryHandle /
+// getStoredDirectoryHandle continue to read and write the single legacy key, so
+// a flag-off build is byte-identical to today. The flag-ON build keeps the
+// legacy key in lockstep with the active folder (see the context wiring) so a
+// later flag flip OFF degrades gracefully back to the last active folder.
+//
+// Demo tabs never participate: every multi-folder helper short-circuits in a
+// demo tab exactly like the single-folder helpers do, so the fixture identity
+// can never leak into the remembered set.
+
+const FOLDERS_KEY = "research-os-folders";
+const ACTIVE_FOLDER_KEY = "research-os-active-folder";
+const FOLDER_HANDLE_PREFIX = "folder-handle::";
+
+/** A folder the app remembers, as surfaced to the UI. The `handle` is hydrated
+ *  from the `handles` object store on read; the rest is metadata persisted in
+ *  idb-keyval. */
+export interface RememberedFolder {
+  id: string;
+  name: string;
+  lastOpenedAt: number;
+  handle: FileSystemDirectoryHandle;
+}
+
+/** Persisted metadata row (no handle — the handle lives in the object store). */
+interface RememberedFolderMeta {
+  id: string;
+  name: string;
+  lastOpenedAt: number;
+}
+
+/** Generate a stable, collision-resistant folder id. We cannot derive a sync
+ *  id from a FileSystemDirectoryHandle (it exposes only the async isSameEntry),
+ *  so we mint a random id once and dedupe new adds by isSameEntry against the
+ *  already-remembered handles. Prefer crypto.randomUUID, fall back to a
+ *  timestamp+random string for older runtimes. */
+function makeFolderId(): string {
+  try {
+    if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+      return crypto.randomUUID();
+    }
+  } catch {
+    // fall through
+  }
+  return `f_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 10)}`;
+}
+
+async function readFolderMetas(): Promise<RememberedFolderMeta[]> {
+  try {
+    const metas = (await get<RememberedFolderMeta[]>(FOLDERS_KEY)) ?? [];
+    return Array.isArray(metas) ? metas : [];
+  } catch {
+    return [];
+  }
+}
+
+async function writeFolderMetas(metas: RememberedFolderMeta[]): Promise<void> {
+  try {
+    await set(FOLDERS_KEY, metas);
+  } catch {
+    // best-effort
+  }
+}
+
+/** Put a directory handle into the `handles` object store under its per-folder
+ *  key. Mirrors the inline transaction style used for DIRECTORY_HANDLE_KEY. */
+async function putFolderHandle(
+  id: string,
+  handle: FileSystemDirectoryHandle,
+): Promise<void> {
+  const db = await initDB();
+  if (!db) return;
+  try {
+    await new Promise<void>((resolve, reject) => {
+      const tx = db.transaction(STORE_NAME, "readwrite");
+      const store = tx.objectStore(STORE_NAME);
+      store.put(handle, FOLDER_HANDLE_PREFIX + id);
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error);
+    });
+  } catch {
+    // Ignore IndexedDB errors
+  } finally {
+    db.close();
+  }
+}
+
+async function getFolderHandle(
+  id: string,
+): Promise<FileSystemDirectoryHandle | null> {
+  const db = await initDB();
+  if (!db) return null;
+  try {
+    return await new Promise<FileSystemDirectoryHandle | null>((resolve, reject) => {
+      const tx = db.transaction(STORE_NAME, "readonly");
+      const store = tx.objectStore(STORE_NAME);
+      const request = store.get(FOLDER_HANDLE_PREFIX + id);
+      request.onsuccess = () => resolve(request.result || null);
+      request.onerror = () => reject(request.error);
+    });
+  } catch {
+    return null;
+  } finally {
+    db.close();
+  }
+}
+
+async function deleteFolderHandle(id: string): Promise<void> {
+  const db = await initDB();
+  if (!db) return;
+  try {
+    await new Promise<void>((resolve, reject) => {
+      const tx = db.transaction(STORE_NAME, "readwrite");
+      const store = tx.objectStore(STORE_NAME);
+      store.delete(FOLDER_HANDLE_PREFIX + id);
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error);
+    });
+  } catch {
+    // Ignore IndexedDB errors
+  } finally {
+    db.close();
+  }
+}
+
+/**
+ * Backward-compatible migration (CRITICAL). On the first multi-folder read for
+ * a returning user, the remembered set is empty but the OLD single
+ * DIRECTORY_HANDLE_KEY handle may exist. Copy it into the new store as the
+ * active folder so the user does NOT lose their folder or get bounced to the
+ * picker. Idempotent: it only runs when the set is empty AND a legacy handle is
+ * present, and it never deletes the legacy key (the legacy key stays the source
+ * of truth for a flag-off build).
+ *
+ * Returns true when a migration was performed.
+ *
+ * No-op in a demo tab (the legacy getter is masked there anyway).
+ */
+async function migrateLegacyFolderIfNeeded(): Promise<boolean> {
+  if (isDemoTab()) return false;
+  const metas = await readFolderMetas();
+  if (metas.length > 0) return false;
+
+  // Read the legacy single handle directly from the object store. We bypass
+  // getStoredDirectoryHandle so a poisoned in-process cachedHandle can't steer
+  // the migration, and so the fixture sentinel is filtered out below.
+  let legacy: FileSystemDirectoryHandle | null = null;
+  const db = await initDB();
+  if (db) {
+    try {
+      legacy = await new Promise<FileSystemDirectoryHandle | null>((resolve, reject) => {
+        const tx = db.transaction(STORE_NAME, "readonly");
+        const store = tx.objectStore(STORE_NAME);
+        const request = store.get(DIRECTORY_HANDLE_KEY);
+        request.onsuccess = () => resolve(request.result || null);
+        request.onerror = () => reject(request.error);
+      });
+    } catch {
+      legacy = null;
+    } finally {
+      db.close();
+    }
+  }
+  if (!legacy) return false;
+  // Never migrate a leaked fixture sentinel into the remembered set.
+  if (legacy.name === FIXTURE_HANDLE_SENTINEL) return false;
+
+  const meta = await getStoredDirectoryMeta();
+  const id = makeFolderId();
+  const row: RememberedFolderMeta = {
+    id,
+    name: legacy.name,
+    lastOpenedAt: meta?.grantedAt ?? Date.now(),
+  };
+  await putFolderHandle(id, legacy);
+  await writeFolderMetas([row]);
+  try {
+    await set(ACTIVE_FOLDER_KEY, id);
+  } catch {
+    // best-effort
+  }
+  return true;
+}
+
+/**
+ * List the remembered folders, most-recently-opened first. Runs the legacy
+ * migration first so a returning user's single folder always appears here.
+ * Returns [] in a demo tab. Folders whose handle has gone missing from the
+ * object store are skipped (defensive — a half-written entry never surfaces a
+ * handle-less row to the UI).
+ */
+export async function listRememberedFolders(): Promise<RememberedFolder[]> {
+  if (isDemoTab()) return [];
+  await migrateLegacyFolderIfNeeded();
+  const metas = await readFolderMetas();
+  const out: RememberedFolder[] = [];
+  for (const m of metas) {
+    const handle = await getFolderHandle(m.id);
+    if (!handle) continue;
+    if (handle.name === FIXTURE_HANDLE_SENTINEL) continue;
+    out.push({ id: m.id, name: m.name, lastOpenedAt: m.lastOpenedAt, handle });
+  }
+  out.sort((a, b) => b.lastOpenedAt - a.lastOpenedAt);
+  return out;
+}
+
+/** The active folder id (the remembered folder the app is currently using), or
+ *  null when none is set. Runs the legacy migration first so a returning user
+ *  has an active id even on the very first multi-folder load. */
+export async function getActiveFolderId(): Promise<string | null> {
+  if (isDemoTab()) return null;
+  await migrateLegacyFolderIfNeeded();
+  try {
+    return (await get<string>(ACTIVE_FOLDER_KEY)) || null;
+  } catch {
+    return null;
+  }
+}
+
+/** Resolve the active folder's stored handle, or null. */
+export async function getActiveFolderHandle(): Promise<FileSystemDirectoryHandle | null> {
+  const id = await getActiveFolderId();
+  if (!id) return null;
+  const handle = await getFolderHandle(id);
+  if (handle && handle.name === FIXTURE_HANDLE_SENTINEL) return null;
+  return handle;
+}
+
+/** Resolve a remembered folder's stored handle by id, or null. Used by the
+ *  folder switcher to re-grant permission on a chosen folder without the OS
+ *  picker. Returns null in a demo tab or when the handle is missing. */
+export async function getRememberedFolderHandle(
+  id: string,
+): Promise<FileSystemDirectoryHandle | null> {
+  if (isDemoTab()) return null;
+  const handle = await getFolderHandle(id);
+  if (handle && handle.name === FIXTURE_HANDLE_SENTINEL) return null;
+  return handle;
+}
+
+/**
+ * Add a freshly-picked folder to the remembered set and make it active. If an
+ * existing remembered folder points at the SAME on-disk directory (isSameEntry),
+ * its handle is refreshed and its lastOpenedAt bumped instead of adding a
+ * duplicate. Returns the id of the active folder.
+ *
+ * No-op (returns "") in a demo tab.
+ */
+export async function rememberFolder(
+  handle: FileSystemDirectoryHandle,
+): Promise<string> {
+  if (isDemoTab()) return "";
+  if (handle.name === FIXTURE_HANDLE_SENTINEL) return "";
+  await migrateLegacyFolderIfNeeded();
+
+  const metas = await readFolderMetas();
+
+  // Dedupe by isSameEntry against the already-remembered handles. isSameEntry
+  // is the only reliable same-directory test the FSA gives us; name equality is
+  // not enough (two different folders can share a name).
+  let matchId: string | null = null;
+  for (const m of metas) {
+    const existing = await getFolderHandle(m.id);
+    if (!existing) continue;
+    try {
+      if (
+        typeof existing.isSameEntry === "function" &&
+        (await existing.isSameEntry(handle))
+      ) {
+        matchId = m.id;
+        break;
+      }
+    } catch {
+      // isSameEntry can throw on a revoked handle; treat as not-a-match.
+    }
+  }
+
+  const now = Date.now();
+  let activeId: string;
+  if (matchId) {
+    activeId = matchId;
+    await putFolderHandle(matchId, handle); // refresh to the freshly-granted handle
+    const next = metas.map((m) =>
+      m.id === matchId ? { ...m, name: handle.name, lastOpenedAt: now } : m,
+    );
+    await writeFolderMetas(next);
+  } else {
+    activeId = makeFolderId();
+    await putFolderHandle(activeId, handle);
+    await writeFolderMetas([
+      { id: activeId, name: handle.name, lastOpenedAt: now },
+      ...metas,
+    ]);
+  }
+
+  try {
+    await set(ACTIVE_FOLDER_KEY, activeId);
+  } catch {
+    // best-effort
+  }
+  return activeId;
+}
+
+/** Make an already-remembered folder the active one and bump its lastOpenedAt.
+ *  Does NOT touch permissions (the caller re-grants); pure pointer update. */
+export async function setActiveFolderId(id: string): Promise<void> {
+  if (isDemoTab()) return;
+  const metas = await readFolderMetas();
+  if (!metas.some((m) => m.id === id)) return;
+  const now = Date.now();
+  await writeFolderMetas(
+    metas.map((m) => (m.id === id ? { ...m, lastOpenedAt: now } : m)),
+  );
+  try {
+    await set(ACTIVE_FOLDER_KEY, id);
+  } catch {
+    // best-effort
+  }
+}
+
+/**
+ * Remove one folder from the remembered set. Does NOT delete any data on disk
+ * (it only drops the remembered handle + metadata). If the forgotten folder was
+ * the active one, the active pointer is cleared (the caller decides what to do
+ * next — typically fall back to the connect screen).
+ */
+export async function forgetRememberedFolder(id: string): Promise<void> {
+  if (isDemoTab()) return;
+  const metas = await readFolderMetas();
+  await writeFolderMetas(metas.filter((m) => m.id !== id));
+  await deleteFolderHandle(id);
+  try {
+    const active = (await get<string>(ACTIVE_FOLDER_KEY)) || null;
+    if (active === id) {
+      await del(ACTIVE_FOLDER_KEY);
+    }
+  } catch {
+    // best-effort
+  }
+}

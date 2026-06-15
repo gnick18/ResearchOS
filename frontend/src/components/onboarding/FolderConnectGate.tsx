@@ -31,6 +31,7 @@ import {
 } from "@/lib/file-system/file-system-context";
 import BrowserNotSupported from "@/components/BrowserNotSupported";
 import { ONBOARDING_WIZARD_ENABLED } from "@/lib/onboarding/config";
+import FolderSwitcher from "@/components/file-system/FolderSwitcher";
 import BetaDonationButton from "@/components/BetaDonationButton";
 import FeedbackModal from "@/components/FeedbackModal";
 import BeakerBot from "@/components/BeakerBot";
@@ -89,6 +90,7 @@ export default function FolderConnectGate({
     needsInitialization,
     initializeFolder,
     directoryName,
+    rememberedFolders,
   } = useFileSystem();
 
   const { showBugReport, currentError, openBugReport, closeBugReport } =
@@ -361,6 +363,20 @@ export default function FolderConnectGate({
                 find the folder, just choose Allow.
               </p>
             </div>
+          </div>
+        )}
+
+        {/* Remembered folders (Phase A, multi-folder). Lists every folder the
+            app remembers so the user can one-click switch without the OS
+            picker. Renders nothing unless NEXT_PUBLIC_MULTI_FOLDER is on and
+            more than one folder is remembered, so single-folder users see only
+            the reconnect card above and the browse card below, unchanged. */}
+        {rememberedFolders.length > 1 && (
+          <div className="max-w-xl mx-auto mb-5">
+            <p className="mb-2 text-meta font-medium text-foreground-muted">
+              Your folders
+            </p>
+            <FolderSwitcher variant="panel" />
           </div>
         )}
 
