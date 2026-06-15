@@ -43,7 +43,7 @@ import {
   readProjectActivity,
   type ProjectActivityEvent,
 } from "@/lib/project-activity/event-log";
-import LivingPopup from "@/components/ui/LivingPopup";
+import CalmPopupShell from "@/components/ui/CalmPopupShell";
 import type { OpenOrigin } from "@/lib/ui/create-popup-store";
 import UnifiedShareDialog from "@/components/sharing/UnifiedShareDialog";
 import ProjectDepositDialog from "@/components/ProjectDepositDialog";
@@ -471,119 +471,128 @@ export default function ProjectDetailPopup({
 
   const gantt = `/gantt?project=${encodeURIComponent(`${project.owner}:${project.id}`)}`;
 
+  // ── Header slots (mapped onto CalmPopupShell). On the home view the title is
+  // the project name, the meta is the Archived / Shared-by badge row, and the
+  // overflow is the kebab. On a sub-view the title becomes that view's name with
+  // no badges or kebab; the in-body BackBar keeps the exact back navigation.
+  const subViewTitle: Record<Exclude<InnerView, "home">, string> = {
+    results: "Results",
+    methods: "Methods",
+    sequences: "Sequences",
+    molecules: "Molecules",
+    history: "Version history",
+  };
+
+  const titleSlot = view === "home" ? project.name : subViewTitle[view];
+
+  const metaSlot =
+    view === "home" && (project.is_archived || project.is_shared_with_me) ? (
+      <div className="flex flex-wrap items-center gap-1.5">
+        {project.is_archived && (
+          <span className="text-meta px-2 py-0.5 bg-surface-sunken text-foreground-muted rounded-full">
+            Archived
+          </span>
+        )}
+        {project.is_shared_with_me && (
+          <span className="text-meta px-2 py-0.5 bg-blue-50 dark:bg-blue-500/15 text-blue-600 dark:text-blue-300 rounded-full">
+            Shared by {project.owner}
+          </span>
+        )}
+      </div>
+    ) : null;
+
+  const overflowSlot =
+    view === "home" && !isMiscellaneousProject ? (
+      <div ref={kebabRef} className="relative shrink-0">
+        <button
+          type="button"
+          onClick={() => setKebabOpen((v) => !v)}
+          aria-label="Project actions"
+          aria-expanded={kebabOpen}
+          aria-haspopup="menu"
+          className="p-1.5 rounded-lg text-foreground-muted hover:text-foreground hover:bg-surface-sunken transition-colors"
+        >
+          <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20" aria-hidden>
+            <circle cx="4" cy="10" r="1.5" />
+            <circle cx="10" cy="10" r="1.5" />
+            <circle cx="16" cy="10" r="1.5" />
+          </svg>
+        </button>
+        {kebabOpen && (
+          <div
+            role="menu"
+            className="absolute top-full right-0 mt-1 w-40 bg-surface-raised border border-border rounded-lg shadow-lg py-1 z-50"
+          >
+            <button
+              role="menuitem"
+              disabled={isViewOnlyReceiver}
+              onClick={() => {
+                setKebabOpen(false);
+                setShowEditModal(true);
+              }}
+              className={`w-full text-left px-3 py-1.5 text-body transition-colors ${
+                isViewOnlyReceiver
+                  ? "text-foreground-muted cursor-not-allowed"
+                  : "text-foreground hover:bg-surface-sunken"
+              }`}
+            >
+              Edit
+            </button>
+            <button
+              role="menuitem"
+              disabled={isViewOnlyReceiver || archiving}
+              onClick={() => {
+                setKebabOpen(false);
+                if (project.is_archived) void handleArchive();
+                else setShowArchiveConfirm(true);
+              }}
+              className={`w-full text-left px-3 py-1.5 text-body transition-colors ${
+                isViewOnlyReceiver
+                  ? "text-foreground-muted cursor-not-allowed"
+                  : "text-foreground hover:bg-surface-sunken"
+              }`}
+            >
+              {project.is_archived ? "Unarchive" : "Archive"}
+            </button>
+            <button
+              role="menuitem"
+              disabled={isAnyReceiver || deleting}
+              onClick={() => {
+                setKebabOpen(false);
+                setShowDeleteConfirm(true);
+              }}
+              className={`w-full text-left px-3 py-1.5 text-body transition-colors ${
+                isAnyReceiver
+                  ? "text-foreground-muted cursor-not-allowed"
+                  : "text-red-600 dark:text-red-300 hover:bg-red-50 dark:hover:bg-red-500/20"
+              }`}
+            >
+              Delete
+            </button>
+          </div>
+        )}
+      </div>
+    ) : null;
+
   return (
-    <LivingPopup
+    <>
+    <CalmPopupShell
       open={open}
       onClose={onClose}
       origin={origin}
       label={project.name || "Project"}
-      widthClassName="max-w-xl"
-      fillHeight
-      blur
-      padded
+      title={titleSlot}
+      meta={metaSlot}
+      overflow={overflowSlot}
+      accentColor={projectColor}
+      expandable={false}
+      dockedWidthClassName="max-w-xl"
     >
       {/* HOME VIEW */}
       {view === "home" && (
-        <div className="flex flex-col min-h-0 flex-1">
-          {/* Header: color accent + inline name + the single kebab. */}
-          <div className="flex items-start gap-3 pr-10">
-            <span
-              className="mt-1.5 h-3.5 w-3.5 shrink-0 rounded-full"
-              style={{ backgroundColor: projectColor }}
-              aria-hidden
-            />
-            <div className="min-w-0 flex-1">
-              <h2 className="text-heading font-semibold text-foreground leading-tight break-words">
-                {project.name}
-              </h2>
-              <div className="mt-1 flex flex-wrap items-center gap-1.5">
-                {project.is_archived && (
-                  <span className="text-meta px-2 py-0.5 bg-surface-sunken text-foreground-muted rounded-full">
-                    Archived
-                  </span>
-                )}
-                {project.is_shared_with_me && (
-                  <span className="text-meta px-2 py-0.5 bg-blue-50 dark:bg-blue-500/15 text-blue-600 dark:text-blue-300 rounded-full">
-                    Shared by {project.owner}
-                  </span>
-                )}
-              </div>
-            </div>
-            {!isMiscellaneousProject && (
-              <div ref={kebabRef} className="relative shrink-0">
-                <button
-                  type="button"
-                  onClick={() => setKebabOpen((v) => !v)}
-                  aria-label="Project actions"
-                  aria-expanded={kebabOpen}
-                  aria-haspopup="menu"
-                  className="p-1.5 rounded-lg text-foreground-muted hover:text-foreground hover:bg-surface-sunken transition-colors"
-                >
-                  <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20" aria-hidden>
-                    <circle cx="4" cy="10" r="1.5" />
-                    <circle cx="10" cy="10" r="1.5" />
-                    <circle cx="16" cy="10" r="1.5" />
-                  </svg>
-                </button>
-                {kebabOpen && (
-                  <div
-                    role="menu"
-                    className="absolute top-full right-0 mt-1 w-40 bg-surface-raised border border-border rounded-lg shadow-lg py-1 z-50"
-                  >
-                    <button
-                      role="menuitem"
-                      disabled={isViewOnlyReceiver}
-                      onClick={() => {
-                        setKebabOpen(false);
-                        setShowEditModal(true);
-                      }}
-                      className={`w-full text-left px-3 py-1.5 text-body transition-colors ${
-                        isViewOnlyReceiver
-                          ? "text-foreground-muted cursor-not-allowed"
-                          : "text-foreground hover:bg-surface-sunken"
-                      }`}
-                    >
-                      Edit
-                    </button>
-                    <button
-                      role="menuitem"
-                      disabled={isViewOnlyReceiver || archiving}
-                      onClick={() => {
-                        setKebabOpen(false);
-                        if (project.is_archived) void handleArchive();
-                        else setShowArchiveConfirm(true);
-                      }}
-                      className={`w-full text-left px-3 py-1.5 text-body transition-colors ${
-                        isViewOnlyReceiver
-                          ? "text-foreground-muted cursor-not-allowed"
-                          : "text-foreground hover:bg-surface-sunken"
-                      }`}
-                    >
-                      {project.is_archived ? "Unarchive" : "Archive"}
-                    </button>
-                    <button
-                      role="menuitem"
-                      disabled={isAnyReceiver || deleting}
-                      onClick={() => {
-                        setKebabOpen(false);
-                        setShowDeleteConfirm(true);
-                      }}
-                      className={`w-full text-left px-3 py-1.5 text-body transition-colors ${
-                        isAnyReceiver
-                          ? "text-foreground-muted cursor-not-allowed"
-                          : "text-red-600 dark:text-red-300 hover:bg-red-50 dark:hover:bg-red-500/20"
-                      }`}
-                    >
-                      Delete
-                    </button>
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-
+        <div className="flex flex-col min-h-0 flex-1 px-6 pb-2">
           {/* Scrollable body. */}
-          <div className="mt-4 flex-1 min-h-0 overflow-y-auto pr-1 flex flex-col gap-5">
+          <div className="flex-1 min-h-0 overflow-y-auto pr-1 flex flex-col gap-5">
             {/* Status glance. Adapts for a brand-new project. */}
             <section data-testid="project-status-glance">
               {isBrandNew ? (
@@ -820,8 +829,8 @@ export default function ProjectDetailPopup({
 
       {/* DOORWAY VIEWS */}
       {view === "results" && (
-        <div className="flex flex-col min-h-0 flex-1">
-          <div className="pr-10">
+        <div className="flex flex-col min-h-0 flex-1 px-6 pb-2 pt-2">
+          <div>
             <BackBar onBack={() => setView("home")} />
           </div>
           <div className="mt-3 flex-1 min-h-0 overflow-y-auto pr-1">
@@ -830,8 +839,8 @@ export default function ProjectDetailPopup({
         </div>
       )}
       {view === "methods" && (
-        <div className="flex flex-col min-h-0 flex-1">
-          <div className="pr-10">
+        <div className="flex flex-col min-h-0 flex-1 px-6 pb-2 pt-2">
+          <div>
             <BackBar onBack={() => setView("home")} />
           </div>
           <div className="mt-3 flex-1 min-h-0 overflow-y-auto pr-1">
@@ -840,8 +849,8 @@ export default function ProjectDetailPopup({
         </div>
       )}
       {view === "sequences" && (
-        <div className="flex flex-col min-h-0 flex-1">
-          <div className="pr-10">
+        <div className="flex flex-col min-h-0 flex-1 px-6 pb-2 pt-2">
+          <div>
             <BackBar onBack={() => setView("home")} />
           </div>
           <div className="mt-3 flex-1 min-h-0 overflow-y-auto pr-1">
@@ -850,8 +859,8 @@ export default function ProjectDetailPopup({
         </div>
       )}
       {view === "molecules" && (
-        <div className="flex flex-col min-h-0 flex-1">
-          <div className="pr-10">
+        <div className="flex flex-col min-h-0 flex-1 px-6 pb-2 pt-2">
+          <div>
             <BackBar onBack={() => setView("home")} />
           </div>
           <div className="mt-3 flex-1 min-h-0 overflow-y-auto pr-1">
@@ -862,8 +871,8 @@ export default function ProjectDetailPopup({
 
       {/* VERSION HISTORY VIEW */}
       {view === "history" && (
-        <div className="flex flex-col min-h-0 flex-1">
-          <div className="pr-10">
+        <div className="flex flex-col min-h-0 flex-1 px-6 pb-2 pt-2">
+          <div>
             <BackBar onBack={() => setView("home")} />
           </div>
           <div className="mt-3 flex-1 min-h-0 flex flex-row gap-3 overflow-hidden">
@@ -907,7 +916,10 @@ export default function ProjectDetailPopup({
         </div>
       )}
 
-      {/* ── Dialogs + confirms (reused wirings) ─────────────────────────── */}
+    </CalmPopupShell>
+
+      {/* ── Dialogs + confirms (reused wirings). Rendered as siblings of the
+          shell so they portal/overlay on top of it, exactly as before. ──── */}
       {showSharePopup && (
         <UnifiedShareDialog
           isOpen
@@ -1014,7 +1026,7 @@ export default function ProjectDetailPopup({
           </div>
         </div>
       )}
-    </LivingPopup>
+    </>
   );
 }
 
