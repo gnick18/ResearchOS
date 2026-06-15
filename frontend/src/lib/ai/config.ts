@@ -37,3 +37,16 @@ export const BEAKERBOT_VISION_ENABLED =
 export const BEAKERBOT_PLAN_STEPS_ENABLED =
   process.env.NEXT_PUBLIC_BEAKERBOT_PLAN_STEPS === "true" ||
   process.env.NEXT_PUBLIC_BEAKERBOT_PLAN_STEPS === "1";
+
+// Method phone-projection reformatter, opt-in LLM layer (2026-06-14). When on,
+// the laptop method view shows a "Make phone-friendly" action and the phone shows
+// a just-in-time popup (when a method has no good phone projection) offering to
+// have BeakerBot restructure the body into bench-readable steps. Both are
+// user-confirmed, metered-AI calls; the deterministic phone parser (Phase 1) is
+// always on regardless of this flag. The server endpoint /api/ai/reformat-method
+// is additionally gated by AI_API_KEY presence and AI_BILLING_ENABLED, so this
+// flag only governs whether the UI entry points appear. Default OFF; enable with
+// NEXT_PUBLIC_METHOD_PHONE_REFORMAT=1 in .env.local or a Vercel plain var.
+export const METHOD_PHONE_REFORMAT_ENABLED =
+  process.env.NEXT_PUBLIC_METHOD_PHONE_REFORMAT === "true" ||
+  process.env.NEXT_PUBLIC_METHOD_PHONE_REFORMAT === "1";
