@@ -1441,7 +1441,26 @@ function collectPanelLegends(
       }
     }
   }
-  return out;
+  // Dedupe identical legend keys: one column bound to several geoms (e.g. MIC as
+  // BOTH a heat and a bar overlay, which the smart-binding multi-add can produce)
+  // otherwise draws the SAME colorbar two or three times, piling redundant keys
+  // over the tip labels (the crowded-overlay report, 2026-06-15). Collapse to one
+  // per distinct (column, representation) signature, keeping the first.
+  const seen = new Set<string>();
+  const deduped: LegendEntry[] = [];
+  for (const e of out) {
+    const sig = e.residue
+      ? `r:${e.residue}`
+      : e.valueScale
+        ? `v:${e.title}:${e.valueScale.lo}:${e.valueScale.hi}`
+        : e.scale
+          ? `s:${e.title}:${e.scale.kind}:${(e.scale.categories ?? []).join(",")}`
+          : `t:${e.title}`;
+    if (seen.has(sig)) continue;
+    seen.add(sig);
+    deduped.push(e);
+  }
+  return deduped;
 }
 
 /** A single legend entry's markup + the height it consumed, at (x, y). The msa

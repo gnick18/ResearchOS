@@ -179,6 +179,48 @@ describe("multi-panel legend polish", () => {
     );
     expect(new Set(xs).size).toBeGreaterThan(1);
   });
+
+  it("dedupes identical legends when one column drives multiple overlays", () => {
+    // The smart-binding multi-add can bind ONE column to several geoms; without
+    // dedupe each draws the same colorbar, piling redundant keys over the labels
+    // (the crowded-overlay report, 2026-06-15). Two strips on the same column must
+    // yield a single legend.
+    const rows = [
+      { tip: "A", zzcol: "x" },
+      { tip: "B", zzcol: "y" },
+      { tip: "C", zzcol: "x" },
+      { tip: "D", zzcol: "y" },
+    ];
+    const META = matchMetadataToTips(TREE, rows, "tip").matched;
+    const spec: RenderSpec = {
+      layout: "rectangular",
+      phylogram: false,
+      tracks: {
+        labels: false,
+        labelsItalic: false,
+        points: false,
+        strip: false,
+        bars: false,
+        heat: false,
+        clade: false,
+        support: false,
+      },
+      columns: {},
+      width: 700,
+      height: 480,
+      metadata: META,
+      // Tip-point decorations color by a column (so each contributes a legend)
+      // but draw no column-name header on the tree, so the only place the column
+      // name appears is the legend title - isolating the legend count.
+      panels: [
+        { id: "p1", kind: "points", visible: true, column: "zzcol", legend: true },
+        { id: "p2", kind: "points", visible: true, column: "zzcol", legend: true },
+      ],
+    };
+    const svg = renderTreeSvg(TREE, spec);
+    // Two same-column point overlays -> exactly one legend after dedupe.
+    expect((svg.match(/>zzcol</g) ?? []).length).toBe(1);
+  });
 });
 
 describe("distribution panel value scale-key (circular numeric axis fix)", () => {
