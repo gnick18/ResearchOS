@@ -133,7 +133,9 @@ function CustomScrollPanel({
             className="pointer-events-auto absolute left-1/2 top-0 cursor-default rounded-full"
             style={{
               height: thumb.height,
-              width: dragging ? 10 : 6,
+              // Width is FIXED (not content-derived) — only the height scales
+              // with the content ratio. 4px at rest, grows to 7px on grab.
+              width: dragging ? 7 : 4,
               transform: `translateX(-50%) translateY(${thumb.top}px)`,
               backgroundColor: `color-mix(in srgb, var(--foreground) ${pct}%, transparent)`,
               // Width gets a slight back-eased ease so the grow lands with a
