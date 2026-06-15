@@ -53,7 +53,25 @@ This is the first, smallest slice and a good forcing function for the engine's o
 
 ## Build status (2026-06-15)
 - SHIPPED: legend dedupe (`36d318843`) + the Q2 add-time multi-overlay warning — the first prevent/cure slices.
-- NEXT: the deterministic engine (overlap detect from render bounding boxes -> fix enumeration as parameter deltas -> preview-render inputs), then the wand + menu UI + per-plot silence, then the BeakerBot door. Phylo first, then the shared `FigureSource` seam for Data Hub + Figure Composer.
+
+### Toggle inventory (the wand can only move settings that EXIST)
+A 2026-06-15 grep of the phylo render/spec shows which of the example fixes are already settable vs. need a new field first:
+- **Drop duplicate overlay** — EXISTS (remove a panel).
+- **Shrink font** — EXISTS (the labels panel's font-size option, Wave 1).
+- **Increase canvas height / width** — EXISTS (`spec.height` / `figureWidthIn`).
+- **Shrink a column width** — PARTIAL (`panel.width` honored for msa + some kinds; not all).
+- **Increase column spacing ('x')** — MISSING: `PANEL_GAP` is a module CONSTANT, not a per-figure field. Needs a new settable gap.
+- **Tilt / rotate tip labels (rectangular)** — MISSING as a user toggle: rotation exists in render (circular auto-rotate, `rot` at render.ts:359) but there is no rectangular label-tilt setting.
+- **Relocate / size the legend** — MISSING: legend columnization is automatic, no manual control.
+
+### Build phases (revised by the inventory)
+1. **Add the missing settable toggles** so the wand has something to move: per-figure panel gap, rectangular label tilt, manual legend placement/width. (Each is a small additive figure-spec field + render honoring it + a control — the Wave-1/Phase-4 additive pattern.)
+2. **Geometry source** (DECISION PENDING, Grant): recommend emitting a layout manifest (element bboxes the renderer already computes) alongside the SVG — exact, single source of truth — over SVG-parsing (fragile) or recomputation (drift).
+3. **Deterministic engine** (pure module over the manifest): overlap detect -> fix enumeration as `SettingDelta[]` against the real toggles -> preview-render inputs. Unit-tested with fixtures (Phase 4 discipline).
+4. **UI:** the magic-wand one-click (reversible) + the per-fix preview menu + the per-plot silence; quiet banner -> BeakerBot popup gating.
+5. **Generalize** to the shared `FigureSource` seam (Data Hub plots + Figure Composer).
+
+Phylo first throughout. Phase 1 (the missing toggles) is independent of the geometry-source decision and could start anytime; phases 3-4 wait on the geometry-source call.
 
 ## Related
 `[[project_phylo_phase4_smart_binding]]` (the trigger), `task_b849ab45` (interaction-collision instance), `[[project_figure_composer_styling]]` + `[[project_datahub_v2_stats]]` (the other data pages this must reach), `[[feedback_beakerbot_no_interpretation]]`, `[[feedback_no_soft_locks]]`.
