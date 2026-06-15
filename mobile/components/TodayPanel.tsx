@@ -696,6 +696,11 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   statNum: {
+    // Top-right, opposite the top-left icon tile, so the big count never
+    // overlaps the glyph.
+    position: 'absolute',
+    top: 8,
+    right: 12,
     fontSize: 26,
     fontFamily: fonts.extrabold,
     fontWeight: '800',
