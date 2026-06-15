@@ -26,7 +26,7 @@
 
 import { useRouter } from "next/navigation";
 import type { ObjectRefType } from "@/lib/references";
-import { parseObjectDeepLink } from "@/lib/references";
+import { parseObjectDeepLink, parseObjectEmbed } from "@/lib/references";
 import { openObjectPopup, POPUP_CAPABLE_TYPES } from "@/components/ai/object-popup-bridge";
 import { Icon } from "@/components/icons";
 import ChipHoverCard from "@/components/ChipHoverCard";
@@ -148,12 +148,16 @@ export default function ObjectChip({
         e.preventDefault();
         e.stopPropagation();
         if (POPUP_CAPABLE_TYPES.has(type)) {
-          // Open in place via the root popup host. Parse the id from the href so
-          // the bridge call is type-and-id clean; fall through to navigation if it
-          // does not parse (should not happen for a well-formed chip).
-          const parsed = parseObjectDeepLink(href);
-          if (parsed) {
-            openObjectPopup(parsed);
+          // Open in place via the root popup host. The href may be in EITHER the
+          // deep-link form (?openTask=...) or the embed form ([name](/path#ros=...)),
+          // and the chip can be created from either parser, so read the id from
+          // whichever matches. Using the chip's own type keeps the ref clean. This
+          // is the fix for an embed-form experiment/note chip falling through to a
+          // full-page navigation that closed the BeakerBot chat.
+          const id =
+            parseObjectDeepLink(href)?.id ?? parseObjectEmbed(href)?.id ?? null;
+          if (id) {
+            openObjectPopup({ type, id });
             return;
           }
         }
