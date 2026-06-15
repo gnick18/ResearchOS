@@ -12,7 +12,7 @@
 //
 // No emojis, no em-dashes, no mid-sentence colons.
 
-import { useReducer, useEffect } from "react";
+import { useReducer, useEffect, useState, type ReactNode } from "react";
 import { ONBOARDING_TUTOR_ENABLED } from "@/lib/onboarding/config";
 import {
   tutorReducer,
@@ -20,9 +20,14 @@ import {
   currentBeat,
   isFinished,
 } from "@/lib/onboarding/tutor-machine";
+import { summarize } from "@/lib/onboarding/tutor-summary";
 import WelcomeTakeover from "./WelcomeTakeover";
 import InterestPicker from "./InterestPicker";
 import ShowcaseStage from "./ShowcaseStage";
+import AiDemoBeat from "./AiDemoBeat";
+import MontageBeat from "./MontageBeat";
+import MemoryProposeBeat from "./MemoryProposeBeat";
+import RecapBeat from "./RecapBeat";
 
 export interface OnboardingTutorProps {
   /** Fires when the run reaches done or skipped. The host unmounts the tutor and
@@ -32,6 +37,9 @@ export interface OnboardingTutorProps {
 
 export default function OnboardingTutor({ onComplete }: OnboardingTutorProps) {
   const [state, dispatch] = useReducer(tutorReducer, initialTutorState);
+  // Whether the user accepted the memory proposal (drives the recap framing). In
+  // a later phase this also triggers the actual per-user memory write.
+  const [remembered, setRemembered] = useState(false);
 
   useEffect(() => {
     if (isFinished(state)) onComplete();
@@ -61,69 +69,57 @@ export default function OnboardingTutor({ onComplete }: OnboardingTutorProps) {
     );
   }
 
-  // phase === "playing".
+  // phase === "playing". Route each beat to its component. A tour-level "Skip for
+  // now" stays available on every beat (no soft-lock). onDone/onFinish advance
+  // the reel; the final beat advancing past the end flips the machine to done,
+  // which fires onComplete via the effect above.
   const beat = currentBeat(state);
-  const total = state.reel?.beats.length ?? 0;
+  const next = () => dispatch({ type: "next" });
+  const summary = summarize(
+    state.role,
+    state.goals,
+    state.reel?.deepSurfaces ?? [],
+  );
 
-  // DEEP demos render the real showcase stage (presenter cursor + morph). The AI
-  // demo, montage, memory, and recap beats are still placeholders below (Phase 3
-  // continues + Phase 4). onDone advances to the next beat.
+  let body: ReactNode = null;
   if (beat?.kind === "deep_demo" && beat.surface) {
-    return (
-      <div>
-        <button
-          onClick={() => dispatch({ type: "skip" })}
-          className="fixed right-4 top-4 z-[70] text-xs text-[var(--muted,#6b716a)] hover:underline"
-        >
-          Skip for now
-        </button>
-        <ShowcaseStage
-          key={`${beat.surface}-${state.beatIndex}`}
-          surface={beat.surface}
-          onDone={() => dispatch({ type: "next" })}
-        />
-      </div>
+    body = (
+      <ShowcaseStage
+        key={`${beat.surface}-${state.beatIndex}`}
+        surface={beat.surface}
+        onDone={next}
+      />
+    );
+  } else if (beat?.kind === "ai_demo" && beat.aiVariant) {
+    body = <AiDemoBeat key={state.beatIndex} variant={beat.aiVariant} onDone={next} />;
+  } else if (beat?.kind === "montage" && beat.surfaces) {
+    body = <MontageBeat key={state.beatIndex} surfaces={beat.surfaces} onDone={next} />;
+  } else if (beat?.kind === "memory_propose") {
+    body = (
+      <MemoryProposeBeat
+        fact={summary.memoryFact}
+        onRemember={() => {
+          setRemembered(true);
+          next();
+        }}
+        onDecline={next}
+      />
+    );
+  } else if (beat?.kind === "recap") {
+    body = (
+      <RecapBeat recap={summary.recap} remembered={remembered} onFinish={next} />
     );
   }
+
   return (
-    <div className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-[var(--surface,#fff)] px-6 text-center">
+    <div>
       <button
         onClick={() => dispatch({ type: "skip" })}
-        className="absolute right-4 top-4 text-xs text-[var(--muted,#6b716a)] hover:underline"
+        className="fixed right-4 top-4 z-[70] text-xs text-[var(--muted,#6b716a)] hover:underline"
       >
         Skip for now
       </button>
-      <div className="text-[10.5px] font-semibold uppercase tracking-wide text-[var(--faint,#9aa097)]">
-        Beat {state.beatIndex + 1} of {total}
-      </div>
-      <div className="mt-2 text-lg font-bold" data-testid="tutor-beat-kind">
-        {beat?.kind}
-        {beat?.surface ? ` · ${beat.surface}` : ""}
-        {beat?.aiVariant ? ` · ${beat.aiVariant}` : ""}
-      </div>
-      <div className="mt-1 max-w-xs text-xs text-[var(--muted,#6b716a)]">
-        Phase 3 renders the real on-page showcase here (Beaker's presenter cursor
-        + the morph reveal). For now this confirms the director's running order.
-      </div>
-      {beat?.surfaces ? (
-        <div className="mt-2 text-xs text-[var(--faint,#9aa097)]">
-          montage: {beat.surfaces.join(", ")}
-        </div>
-      ) : null}
-      <div className="mt-5 flex items-center gap-3">
-        <button
-          onClick={() => dispatch({ type: "back" })}
-          className="rounded-lg border border-[var(--line2,#d2d5cd)] px-4 py-2 text-xs font-semibold text-[var(--muted,#6b716a)] hover:bg-[var(--sunken,#f1f2ef)]"
-        >
-          Back
-        </button>
-        <button
-          onClick={() => dispatch({ type: "next" })}
-          className="rounded-lg bg-[var(--brand,#1d9e75)] px-4 py-2 text-xs font-bold text-white hover:brightness-105"
-        >
-          Next
-        </button>
-      </div>
+      {body}
     </div>
   );
 }
