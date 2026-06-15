@@ -179,6 +179,12 @@ export interface PlotStyle {
   /** X axis title (below the group labels). Empty hides it. */
   xTitle: string;
   /**
+   * How x-axis group labels are oriented. "auto" (default) keeps them flat and
+   * only angles them when they would overlap; "horizontal" forces flat;
+   * "angled" forces the rotated layout. (Wrap / shrink are future modes.)
+   */
+  xLabelMode?: "auto" | "horizontal" | "angled";
+  /**
    * For an XY figure, the curve fitted over the scatter. "none" draws points
    * only; "linear" draws the least-squares line; any other id is a registered
    * nonlinear model (4PL, Michaelis-Menten, exponential, ...). Ignored by the
@@ -896,6 +902,14 @@ export interface PlotGeometry {
   ticks: AxisTick[];
   groups: GroupGeometry[];
   brackets: BracketGeometry[];
+  /** Rotation (deg) applied to the x-axis group labels, 0 when they fit flat. */
+  xLabelAngle: number;
+}
+
+/** Rough rendered width (px) of a label, for overlap detection in pure layout. */
+export function estimateLabelWidth(text: string, fontSize: number): number {
+  // 0.58 is an average glyph-width factor for the system sans at this size.
+  return text.length * fontSize * 0.58;
 }
 
 /** GraphPad-style significance stars from an adjusted p-value. */
@@ -1092,8 +1106,31 @@ export function layoutPlot(
   const { width, height, padL, padR, padT, padB } = figureBox(style);
   const x0 = padL;
   const x1 = width - padR;
-  const y0 = height - padB;
   const y1 = padT;
+
+  // X-axis group labels: estimate whether they would overlap at the band width
+  // and angle them (reserving extra bottom room) so long names never collide.
+  // Short labels keep the flat layout, so existing geometry is unchanged.
+  const n = Math.max(1, groups.length);
+  const bandW = (x1 - x0) / n;
+  const maxLabelW = groups.reduce(
+    (m, g) => Math.max(m, estimateLabelWidth(g.name, style.fontSize)),
+    0,
+  );
+  const xLabelMode = style.xLabelMode ?? "auto";
+  const xLabelAngle =
+    xLabelMode === "horizontal"
+      ? 0
+      : xLabelMode === "angled"
+        ? -40
+        : maxLabelW > bandW * 0.92
+          ? -40
+          : 0;
+  // Rotated labels drop below the axis by ~width*sin(40deg); reserve that room
+  // beyond the one flat-label line the base padding already allows for.
+  const extraBottom =
+    xLabelAngle !== 0 ? Math.max(0, maxLabelW * Math.sin((40 * Math.PI) / 180) - 14) : 0;
+  const y0 = height - padB - extraBottom;
 
   const auto = pickAxis(groups, style.errorBar);
   // Manual overrides: a column figure keeps a 0 baseline, so only the top (yMax)
@@ -1117,10 +1154,10 @@ export function layoutPlot(
     ticks.push({ value, y: Y(value) });
   }
 
-  const n = Math.max(1, groups.length);
-  const bandW = (x1 - x0) / n;
   const meanHalf = Math.min(22, bandW * 0.3);
-  const capHalf = 7;
+  // Smaller error-bar caps so a single error bar reads as one element, not a
+  // stack of horizontal lines (it is one I-beam per group; this just de-clutters).
+  const capHalf = 5;
 
   const groupGeo: GroupGeometry[] = groups.map((g, i) => {
     const cx = x0 + bandW * (i + 0.5);
@@ -1232,6 +1269,7 @@ export function layoutPlot(
     ticks,
     groups: groupGeo,
     brackets,
+    xLabelAngle,
   };
 }
 
@@ -1422,7 +1460,12 @@ export function renderPlotSvg(
       );
     }
     parts.push(
-      `<text x="${g.labelX}" y="${g.labelY}" font-size="${f}" fill="${LABEL_TEXT}" text-anchor="middle">${esc(g.name)}</text>`,
+      geo.xLabelAngle !== 0
+        ? // Angled labels: anchor the label's end at the tick and rotate it down-left
+          // so long names never overlap.
+          `<text transform="translate(${g.labelX}, ${g.labelY - 4}) rotate(${geo.xLabelAngle})" ` +
+            `font-size="${f}" fill="${LABEL_TEXT}" text-anchor="end">${esc(g.name)}</text>`
+        : `<text x="${g.labelX}" y="${g.labelY}" font-size="${f}" fill="${LABEL_TEXT}" text-anchor="middle">${esc(g.name)}</text>`,
     );
   });
 

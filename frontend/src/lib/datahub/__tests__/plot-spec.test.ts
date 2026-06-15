@@ -29,6 +29,7 @@ import {
   resolvePlotGroups,
   bracketRequestsFromAnalysis,
   layoutPlot,
+  estimateLabelWidth,
   renderPlotSvg,
   renderPlot,
   figureFileStem,
@@ -293,7 +294,7 @@ describe("plot-spec: layout geometry (exact coordinates)", () => {
     expect(sdBar.bottomY).toBeCloseTo(Y(10), 6); // 20 - 10
     expect(semBar.topY).toBeCloseTo(Y(20 + sem), 6);
     expect(semBar.bottomY).toBeCloseTo(Y(20 - sem), 6);
-    expect(sdBar.capHalf).toBe(7);
+    expect(sdBar.capHalf).toBe(5);
 
     // Because the y axis grows downward in pixels, the SEM top cap sits BELOW
     // (greater pixel y than) the SD top cap, confirming SEM is the tighter bar.
@@ -1256,5 +1257,55 @@ describe("plot-spec: re-layout vs scale", () => {
     expect(exportPngPixels(relayout.frame)).toEqual(
       exportPngPixels(scale.frame),
     );
+  });
+});
+
+describe("plot-spec: x-axis label overlap handling", () => {
+  const contentWithNames = (names: string[]): DataHubDocContent => ({
+    meta: META,
+    columns: names.map((n, i) => ({
+      id: `c${i}`,
+      name: n,
+      role: "y" as const,
+      dataType: "number" as const,
+    })),
+    rows: [
+      { id: "r1", cells: Object.fromEntries(names.map((_, i) => [`c${i}`, 10 + i])) },
+      { id: "r2", cells: Object.fromEntries(names.map((_, i) => [`c${i}`, 20 + i])) },
+      { id: "r3", cells: Object.fromEntries(names.map((_, i) => [`c${i}`, 30 + i])) },
+    ],
+    analyses: [],
+    plots: [],
+  });
+  const longNames = ["Control (WT)", "FakeYeast-001", "FakeYeast-002", "FakeYeast-003"];
+
+  it("estimateLabelWidth grows with text length", () => {
+    expect(estimateLabelWidth("FakeYeast-001", 13)).toBeGreaterThan(estimateLabelWidth("WT", 13));
+  });
+
+  it("keeps short labels flat (angle 0)", () => {
+    const style = defaultPlotStyle();
+    const groups = resolvePlotGroups(contentWithNames(["A", "B", "C"]), style);
+    expect(layoutPlot(groups, style, []).xLabelAngle).toBe(0);
+  });
+
+  it("angles long labels that would overlap", () => {
+    const style = defaultPlotStyle();
+    const groups = resolvePlotGroups(contentWithNames(longNames), style);
+    expect(layoutPlot(groups, style, []).xLabelAngle).toBe(-40);
+  });
+
+  it("respects the xLabelMode override either way", () => {
+    const horiz = { ...defaultPlotStyle(), xLabelMode: "horizontal" as const };
+    const angled = { ...defaultPlotStyle(), xLabelMode: "angled" as const };
+    expect(layoutPlot(resolvePlotGroups(contentWithNames(longNames), horiz), horiz, []).xLabelAngle).toBe(0);
+    expect(layoutPlot(resolvePlotGroups(contentWithNames(["A", "B"]), angled), angled, []).xLabelAngle).toBe(-40);
+  });
+
+  it("reserves bottom room when angled (plot area pulled up)", () => {
+    const style = defaultPlotStyle();
+    const flat = layoutPlot(resolvePlotGroups(contentWithNames(["A", "B"]), style), style, []);
+    const rot = layoutPlot(resolvePlotGroups(contentWithNames(longNames), style), style, []);
+    expect(rot.y0).toBeLessThan(flat.y0);
   });
 });
