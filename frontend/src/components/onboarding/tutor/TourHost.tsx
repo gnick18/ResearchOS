@@ -29,6 +29,8 @@ import {
   clearTourResume,
   type TourResumeState,
 } from "@/lib/onboarding/tour-demo-session";
+import { resumeTutorState } from "@/lib/onboarding/tutor-machine";
+import type { Role, GoalKey } from "@/lib/onboarding/reel-director";
 
 export interface TourHostProps {
   /** The connected user, from providers. Null while none is connected. */
@@ -89,15 +91,26 @@ export default function TourHost({ username }: TourHostProps) {
 
   if (!active) return null;
 
-  // TODO(live): when `resume` is set, hand its beatIndex + picks + fixtureFlavor
-  // to OnboardingTutor as an initial machine state so it re-enters at the
-  // live-demo beat (skipping welcome/picker). That machine-resume prop + the
-  // begin-show reload that writes the marker are the browser-coupled half of
-  // increment 2 (verify in checkpoint A). The marker plumbing + gate are wired.
+  // When a resume marker is present (post-reload or refresh, build plan §2),
+  // rebuild the playing machine state from it so the reel re-enters at the
+  // live-demo beat, skipping welcome/picker. The marker's role/goals are stored
+  // as strings (decoupled storage); cast to the reel-director unions here (they
+  // were written from valid machine state). TODO(live): the begin-show reload
+  // that WRITES this marker + the demo enter/exit are the browser-coupled half
+  // of increment 2 (verify in checkpoint A).
+  const initialState = resume
+    ? resumeTutorState({
+        role: resume.role as Role,
+        goals: resume.goals as GoalKey[],
+        beatIndex: resume.beatIndex,
+      })
+    : undefined;
+
   return (
     <OnboardingTutor
       onComplete={handleComplete}
       onRememberFact={handleRememberFact}
+      initialState={initialState}
     />
   );
 }

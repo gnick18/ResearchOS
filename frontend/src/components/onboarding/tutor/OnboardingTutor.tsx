@@ -19,6 +19,7 @@ import {
   initialTutorState,
   currentBeat,
   isFinished,
+  type TutorState,
 } from "@/lib/onboarding/tutor-machine";
 import { summarize } from "@/lib/onboarding/tutor-summary";
 import { newMeter, type OnboardingMeter } from "@/lib/onboarding/onboarding-meter";
@@ -44,6 +45,11 @@ export interface OnboardingTutorProps {
   /** Mount regardless of the feature flag. Dev preview only, never set in the
    *  real after-account mount (that path respects ONBOARDING_TUTOR_ENABLED). */
   forceEnabled?: boolean;
+  /** Resume straight into a `playing` state (build plan §2): after the tour set
+   *  the demo sticky and reloaded, TourHost rebuilds this from the persisted
+   *  marker so the reel picks back up at the live-demo beat instead of replaying
+   *  welcome/picker. Omit for a normal first run (starts at welcome). */
+  initialState?: TutorState;
 }
 
 export default function OnboardingTutor({
@@ -51,9 +57,10 @@ export default function OnboardingTutor({
   onRememberFact,
   meter,
   forceEnabled = false,
+  initialState,
 }: OnboardingTutorProps) {
   const tokenMeter = meter ?? newMeter();
-  const [state, dispatch] = useReducer(tutorReducer, initialTutorState);
+  const [state, dispatch] = useReducer(tutorReducer, initialState ?? initialTutorState);
   // Whether the user accepted the memory proposal (drives the recap framing). In
   // a later phase this also triggers the actual per-user memory write.
   const [remembered, setRemembered] = useState(false);

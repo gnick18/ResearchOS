@@ -41,8 +41,9 @@ function throwingStorage(): StorageLike {
 }
 
 const STATE: TourResumeState = {
+  role: "pi",
+  goals: ["microbio", "phylo"],
   beatIndex: 2,
-  picks: ["microbio", "pi"],
   fixtureFlavor: "resistance",
 };
 
@@ -77,23 +78,34 @@ describe("tour-demo-session resume marker", () => {
 
   it("rejects a marker missing required fields", () => {
     const s = memStorage();
-    // beatIndex present but picks is not a string array.
+    // goals is not a string array.
     s.map.set(
       TOUR_RESUME_KEY,
-      JSON.stringify({ beatIndex: 1, picks: [1, 2], fixtureFlavor: "x" }),
+      JSON.stringify({ role: "pi", goals: [1, 2], beatIndex: 1, fixtureFlavor: "x" }),
     );
     expect(readTourResume(s)).toBeNull();
     // negative beatIndex is invalid.
     s.map.set(
       TOUR_RESUME_KEY,
-      JSON.stringify({ beatIndex: -1, picks: [], fixtureFlavor: "x" }),
+      JSON.stringify({ role: "pi", goals: [], beatIndex: -1, fixtureFlavor: "x" }),
+    );
+    expect(readTourResume(s)).toBeNull();
+    // empty role is invalid (cannot rebuild the role-gated reel).
+    s.map.set(
+      TOUR_RESUME_KEY,
+      JSON.stringify({ role: "", goals: [], beatIndex: 0, fixtureFlavor: "x" }),
     );
     expect(readTourResume(s)).toBeNull();
   });
 
-  it("accepts an empty picks list (role-default reel) with a flavor", () => {
+  it("accepts an empty goals list (role-default reel) with a flavor", () => {
     const s = memStorage();
-    const state: TourResumeState = { beatIndex: 0, picks: [], fixtureFlavor: "generic" };
+    const state: TourResumeState = {
+      role: "bench",
+      goals: [],
+      beatIndex: 0,
+      fixtureFlavor: "generic",
+    };
     saveTourResume(state, s);
     expect(readTourResume(s)).toEqual(state);
   });

@@ -18,14 +18,19 @@
 /** The sessionStorage key holding the in-flight tour's resume marker. */
 export const TOUR_RESUME_KEY = "researchos:onboarding-tour-resume";
 
-/** What the tour needs to pick up exactly where the pre-reload run left off. */
+/** What the tour needs to pick up exactly where the pre-reload run left off.
+ *  Stored as plain strings so this storage module stays decoupled from the
+ *  reel-director's Role / GoalKey unions; the machine layer casts on resume
+ *  (the values are written from valid machine state, so the cast is safe). */
 export interface TourResumeState {
+  /** The chosen role, so the resumed reel is rebuilt identically (it role-gates
+   *  + tailors the running order). A reel-director Role at the machine layer. */
+  role: string;
+  /** The picked interest goals, so the resumed reel keeps the same surfaces. */
+  goals: string[];
   /** The reel beat index to resume at (the first live-demo beat, past the
    *  opaque welcome/picker which are not replayed after the demo reload). */
   beatIndex: number;
-  /** The interest picks chosen on the picker, so the resumed reel is the same
-   *  field-personalized running order. */
-  picks: string[];
   /** Which field-personalized fixture set the demo seeded (e.g. a microbio
    *  resistance flavor), so the resumed surfaces show the same data. */
   fixtureFlavor: string;
@@ -50,15 +55,17 @@ function defaultStorage(): StorageLike | null {
 function asResumeState(value: unknown): TourResumeState | null {
   if (value === null || typeof value !== "object") return null;
   const v = value as Record<string, unknown>;
-  if (typeof v.beatIndex !== "number" || !Number.isFinite(v.beatIndex)) return null;
-  if (v.beatIndex < 0) return null;
-  if (!Array.isArray(v.picks) || !v.picks.every((p) => typeof p === "string")) {
+  if (typeof v.role !== "string" || v.role.length === 0) return null;
+  if (!Array.isArray(v.goals) || !v.goals.every((g) => typeof g === "string")) {
     return null;
   }
+  if (typeof v.beatIndex !== "number" || !Number.isFinite(v.beatIndex)) return null;
+  if (v.beatIndex < 0) return null;
   if (typeof v.fixtureFlavor !== "string") return null;
   return {
+    role: v.role,
+    goals: v.goals as string[],
     beatIndex: v.beatIndex,
-    picks: v.picks as string[],
     fixtureFlavor: v.fixtureFlavor,
   };
 }

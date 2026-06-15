@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import {
   initialTutorState,
   tutorReducer,
+  resumeTutorState,
   currentBeat,
   isFinished,
   type TutorState,
@@ -113,5 +114,49 @@ describe("tutor-machine — playing next/back", () => {
     const back = tutorReducer(fwd, { type: "back" });
     expect(back.phase).toBe("playing");
     expect(back.beatIndex).toBe(play.beatIndex);
+  });
+});
+
+describe("tutor-machine — resumeTutorState (post-reload demo resume)", () => {
+  it("rebuilds the SAME reel a fresh beginReel would, in playing phase", () => {
+    const fresh = run([
+      { type: "start" },
+      { type: "setRole", role: "pi" },
+      { type: "toggleGoal", goal: "analyze" },
+      { type: "toggleGoal", goal: "trees" },
+      { type: "beginReel" },
+    ]);
+    const resumed = resumeTutorState({
+      role: "pi",
+      goals: ["analyze", "trees"],
+      beatIndex: fresh.beatIndex,
+    });
+    expect(resumed.phase).toBe("playing");
+    expect(resumed.role).toBe("pi");
+    expect(resumed.reel?.beats.map((b) => b.kind)).toEqual(
+      fresh.reel?.beats.map((b) => b.kind),
+    );
+    expect(resumed.beatIndex).toBe(fresh.beatIndex);
+    expect(currentBeat(resumed)).not.toBeNull();
+  });
+
+  it("resumes at an explicit mid-reel beat", () => {
+    const resumed = resumeTutorState({ role: "grad", goals: ["trees"], beatIndex: 3 });
+    // 3 is within range for this reel, so it is honored.
+    expect(resumed.beatIndex).toBe(3);
+    expect(resumed.phase).toBe("playing");
+  });
+
+  it("clamps a below-floor beat up to the first playable beat (no welcome/picker)", () => {
+    const resumed = resumeTutorState({ role: "pi", goals: ["analyze"], beatIndex: 0 });
+    const firstKind = resumed.reel?.beats[resumed.beatIndex]?.kind;
+    expect(firstKind).not.toBe("welcome");
+    expect(firstKind).not.toBe("interest_picker");
+  });
+
+  it("clamps an out-of-range beat to the last beat rather than stranding", () => {
+    const resumed = resumeTutorState({ role: "pi", goals: ["analyze"], beatIndex: 9999 });
+    expect(resumed.beatIndex).toBe((resumed.reel?.beats.length ?? 1) - 1);
+    expect(currentBeat(resumed)).not.toBeNull();
   });
 });
