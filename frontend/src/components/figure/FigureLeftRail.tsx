@@ -18,6 +18,7 @@ import {
 } from "@/lib/figure/asset-library";
 import type { FigurePage, ShapeKind, TextVariant } from "@/lib/figure/figure-page";
 import type { ElementRef } from "@/lib/figure/figure-arrange";
+import { FIGURE_TEMPLATES, type FigureTemplate } from "@/lib/figure/figure-templates";
 
 /** One row in the Layers panel (computed by the composer in render/z order). */
 export interface LayerItem {
@@ -61,6 +62,7 @@ export default function FigureLeftRail({
   onSelectLayer,
   onReorderLayer,
   onAddShape,
+  onUseTemplate,
 }: {
   tool: null | "text" | "arrow" | "bracket" | "connect";
   setTool: (t: null | "text" | "arrow" | "bracket" | "connect") => void;
@@ -77,6 +79,7 @@ export default function FigureLeftRail({
   onSelectLayer: (ref: ElementRef) => void;
   onReorderLayer: (ref: ElementRef, dir: "up" | "down") => void;
   onAddShape: (kind: ShapeKind) => void;
+  onUseTemplate: (t: FigureTemplate) => void;
 }) {
   // Default to Icons (the library is the headline of this rail).
   const [section, setSection] = useState<RailSection>("icons");
@@ -174,10 +177,27 @@ export default function FigureLeftRail({
           </>
         )}
         {section === "templates" && (
-          <ComingSoon
-            title="Templates"
-            note="Start from a gallery layout that can bind to your data. Coming next."
-          />
+          <>
+            <PanelHead>Templates</PanelHead>
+            <div className="min-h-0 flex-1 space-y-1.5 overflow-auto">
+              {FIGURE_TEMPLATES.map((t) => (
+                <button
+                  key={t.id}
+                  type="button"
+                  onClick={() => onUseTemplate(t)}
+                  className="w-full rounded-lg border border-border px-2 py-1.5 text-left hover:border-brand-action"
+                >
+                  <div className="text-meta font-semibold text-foreground">{t.name}</div>
+                  <div className="text-[10.5px] leading-snug text-foreground-muted">
+                    {t.description}
+                  </div>
+                </button>
+              ))}
+            </div>
+            <p className="mt-2 text-[10px] text-foreground-faint">
+              Adds the layout to the current page. Drop your own figures and icons in.
+            </p>
+          </>
         )}
         {section === "layers" && (
           <LayersPanel

@@ -92,6 +92,7 @@ import {
   listFigurePages,
 } from "@/lib/figure/figure-page-store";
 import FigureLeftRail, { type LayerItem } from "@/components/figure/FigureLeftRail";
+import { applyTemplateSized } from "@/lib/figure/figure-templates";
 import {
   composeFigurePageSvg,
   annotationLayerSvg,
@@ -954,6 +955,7 @@ export default function FigureComposer({ pageId }: { pageId: string }) {
             mutate((p) => (dir === "up" ? bringForward(p, ref) : sendBackward(p, ref)), true)
           }
           onAddShape={placeShape}
+          onUseTemplate={(t) => mutate((p) => applyTemplateSized(p, t, wIn, hIn), true)}
         />
       )}
       <div className="flex min-w-0 flex-1 flex-col overflow-hidden rounded-2xl border border-border bg-surface-sunken">
