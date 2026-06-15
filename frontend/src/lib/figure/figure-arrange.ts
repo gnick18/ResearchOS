@@ -204,13 +204,14 @@ export function distributeElements(
  */
 export function computeSnap(
   page: FigurePage,
-  moving: ElementRef,
+  moving: ElementRef | ElementRef[],
   proposed: Box,
   opts?: { thresholdIn?: number; pageWIn?: number; pageHIn?: number },
 ): { dxIn: number; dyIn: number; guides: SnapGuide[] } {
   const threshold = opts?.thresholdIn ?? 0.05;
+  const movingList = Array.isArray(moving) ? moving : [moving];
   const others = listElements(page)
-    .filter((r) => !sameRef(r, moving))
+    .filter((r) => !movingList.some((m) => sameRef(r, m)))
     .map((r) => elementBox(page, r))
     .filter((b): b is Box => b !== null);
 

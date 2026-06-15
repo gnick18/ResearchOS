@@ -40,6 +40,24 @@ import {
   figureCredits,
 } from "@/lib/figure/figure-page";
 import {
+  type ElementRef,
+  type Box,
+  type SnapGuide,
+  type AlignEdge,
+  sameRef,
+  elementBox,
+  unionBox,
+  alignElements,
+  distributeElements,
+  computeSnap,
+  translateElement,
+  elementsInRect,
+  bringToFront,
+  sendToBack,
+  bringForward,
+  sendBackward,
+} from "@/lib/figure/figure-arrange";
+import {
   getFigureSource,
   listFigureSources,
   type FigureRef,
@@ -71,6 +89,10 @@ import ZoomPanCanvas from "@/components/figure/ZoomPanCanvas";
 
 const SCREEN_DPI = 96;
 
+/** Compact button used in the contextual arrange bar (align / distribute / order). */
+const ARRANGE_BTN =
+  "rounded border border-border-strong px-2 py-0.5 font-medium text-foreground hover:border-brand-action disabled:cursor-not-allowed disabled:opacity-40";
+
 /** A signature of what affects a panel's RENDER (ref + size + title, not position). */
 function renderSignature(page: FigurePage): string {
   return page.panels
@@ -84,24 +106,47 @@ function renderSignature(page: FigurePage): string {
 export default function FigureComposer({ pageId }: { pageId: string }) {
   const [page, setPage] = useState<FigurePage | null>(null);
   const [panelSvgs, setPanelSvgs] = useState<Map<string, string>>(new Map());
-  const [selected, setSelected] = useState<string | null>(null);
+  // Unified multi-selection (the Phase 1 diagram-tool model). The per-kind single
+  // selections below are DERIVED from it, so the existing inspector + drag code is
+  // unchanged; the align bar + group drag operate on the full `selection`.
+  const [selection, setSelection] = useState<ElementRef[]>([]);
+  const single = selection.length === 1 ? selection[0] : null;
+  const selected = single?.kind === "panel" ? single.id : null;
+  const selectedAsset = single?.kind === "asset" ? single.id : null;
+  const selectedAnn = single?.kind === "annotation" ? single.id : null;
+  const isSelectedRef = (ref: ElementRef) => selection.some((r) => sameRef(r, ref));
+  const selectRef = (ref: ElementRef, additive: boolean) =>
+    setSelection((prev) =>
+      additive
+        ? prev.some((r) => sameRef(r, ref))
+          ? prev.filter((r) => !sameRef(r, ref))
+          : [...prev, ref]
+        : [ref],
+    );
+  const clearSel = () => setSelection([]);
   const [undo, setUndo] = useState<FigurePage[]>([]);
   const [pickerOpen, setPickerOpen] = useState(false);
   const [loadState, setLoadState] = useState<"loading" | "ready" | "missing">("loading");
   const [tool, setTool] = useState<null | "text" | "arrow" | "bracket">(null);
-  const [selectedAnn, setSelectedAnn] = useState<string | null>(null);
+  // Marquee drag-select rectangle (inches), live while dragging on empty canvas.
+  const [marquee, setMarquee] = useState<Box | null>(null);
+  const marqueeRef = useRef<null | { sx: number; sy: number; box?: Box }>(null);
+  // Smart-guide alignment lines (inches) shown while dragging an element.
+  const [guides, setGuides] = useState<SnapGuide[]>([]);
   const [styleTargets, setStyleTargets] = useState<StyleTarget[]>([]);
   const [defaultSaved, setDefaultSaved] = useState(false);
   // Placed-asset (icon library) state, gated behind ASSET_LIBRARY_ENABLED.
   const [assetSvgs, setAssetSvgs] = useState<Map<string, string>>(new Map());
   const [iconPickerOpen, setIconPickerOpen] = useState(false);
-  const [selectedAsset, setSelectedAsset] = useState<string | null>(null);
   const assetDrag = useRef<
     | null
     | { id: string; resize: boolean; sx: number; sy: number; ox: number; oy: number; ow: number; oh: number }
   >(null);
   const stageRef = useRef<HTMLDivElement>(null);
   const annDrag = useRef<null | { id: string; sx: number; sy: number }>(null);
+  // Group drag: move every selected element together from a snapshot of the page
+  // at press time (so deltas stay absolute and snapping has a stable base).
+  const groupDrag = useRef<null | { base: FigurePage; refs: ElementRef[]; sx: number; sy: number }>(null);
   const router = useRouter();
 
   useEffect(() => {
@@ -258,10 +303,29 @@ export default function FigureComposer({ pageId }: { pageId: string }) {
     | { id: string; resize: boolean; sx: number; sy: number; ox: number; oy: number; ow: number; oh: number }
   >(null);
 
+  // Select on press: shift toggles into the multi-selection; a plain click on an
+  // element already in a multi-selection KEEPS the group (so it can be dragged
+  // together), otherwise it selects only that element.
+  const pressSelect = (ref: ElementRef, e: React.MouseEvent) => {
+    if (e.shiftKey) selectRef(ref, true);
+    else if (!isSelectedRef(ref)) setSelection([ref]);
+  };
+
+  // If a plain (non-resize, non-shift) press lands on an element that is part of a
+  // multi-selection, drag the whole group instead of just that element. Returns
+  // true when it claimed the press.
+  const maybeGroupDrag = (ref: ElementRef, e: React.MouseEvent, resize: boolean): boolean => {
+    if (resize || e.shiftKey || selection.length < 2 || !isSelectedRef(ref) || !page) return false;
+    groupDrag.current = { base: page, refs: selection, sx: e.clientX, sy: e.clientY };
+    return true;
+  };
+
   const onPanelDown = (e: React.MouseEvent, id: string, resize: boolean) => {
     e.preventDefault();
     e.stopPropagation();
-    setSelected(id);
+    const ref: ElementRef = { kind: "panel", id };
+    if (maybeGroupDrag(ref, e, resize)) return;
+    pressSelect(ref, e);
     const p = page?.panels.find((x) => x.panelId === id);
     if (!p) return;
     drag.current = { id, resize, sx: e.clientX, sy: e.clientY, ox: p.xIn, oy: p.yIn, ow: p.wIn, oh: p.hIn };
@@ -270,9 +334,9 @@ export default function FigureComposer({ pageId }: { pageId: string }) {
   const onAssetDown = (e: React.MouseEvent, id: string, resize: boolean) => {
     e.preventDefault();
     e.stopPropagation();
-    setSelected(null);
-    setSelectedAnn(null);
-    setSelectedAsset(id);
+    const ref: ElementRef = { kind: "asset", id };
+    if (maybeGroupDrag(ref, e, resize)) return;
+    pressSelect(ref, e);
     const a = page ? pageAssets(page).find((x) => x.assetId === id) : undefined;
     if (!a) return;
     assetDrag.current = { id, resize, sx: e.clientX, sy: e.clientY, ox: a.xIn, oy: a.yIn, ow: a.wIn, oh: a.hIn };
@@ -283,8 +347,20 @@ export default function FigureComposer({ pageId }: { pageId: string }) {
       const d = drag.current;
       if (!d) return;
       const s = effScale();
-      const dxIn = (e.clientX - d.sx) / s;
-      const dyIn = (e.clientY - d.sy) / s;
+      let dxIn = (e.clientX - d.sx) / s;
+      let dyIn = (e.clientY - d.sy) / s;
+      if (!d.resize && page) {
+        const ps = pageSizeIn(page);
+        const snap = computeSnap(
+          page,
+          { kind: "panel", id: d.id },
+          { xIn: d.ox + dxIn, yIn: d.oy + dyIn, wIn: d.ow, hIn: d.oh },
+          { pageWIn: ps.wIn, pageHIn: ps.hIn },
+        );
+        dxIn += snap.dxIn;
+        dyIn += snap.dyIn;
+        setGuides(snap.guides);
+      }
       mutate((prev) => ({
         ...prev,
         panels: prev.panels.map((p) =>
@@ -298,6 +374,7 @@ export default function FigureComposer({ pageId }: { pageId: string }) {
     };
     const up = () => {
       drag.current = null;
+      setGuides([]);
     };
     window.addEventListener("mousemove", move);
     window.addEventListener("mouseup", up);
@@ -305,7 +382,7 @@ export default function FigureComposer({ pageId }: { pageId: string }) {
       window.removeEventListener("mousemove", move);
       window.removeEventListener("mouseup", up);
     };
-  }, [effScale, mutate]);
+  }, [effScale, mutate, page]);
 
   // Drag / resize a placed asset (mirrors the panel drag).
   useEffect(() => {
@@ -313,8 +390,8 @@ export default function FigureComposer({ pageId }: { pageId: string }) {
       const d = assetDrag.current;
       if (!d) return;
       const s = effScale();
-      const dxIn = (e.clientX - d.sx) / s;
-      const dyIn = (e.clientY - d.sy) / s;
+      let dxIn = (e.clientX - d.sx) / s;
+      let dyIn = (e.clientY - d.sy) / s;
       if (d.resize) {
         mutate((prev) =>
           updatePlacedAsset(prev, d.id, {
@@ -323,6 +400,18 @@ export default function FigureComposer({ pageId }: { pageId: string }) {
           }),
         );
       } else {
+        if (page) {
+          const ps = pageSizeIn(page);
+          const snap = computeSnap(
+            page,
+            { kind: "asset", id: d.id },
+            { xIn: d.ox + dxIn, yIn: d.oy + dyIn, wIn: d.ow, hIn: d.oh },
+            { pageWIn: ps.wIn, pageHIn: ps.hIn },
+          );
+          dxIn += snap.dxIn;
+          dyIn += snap.dyIn;
+          setGuides(snap.guides);
+        }
         mutate((prev) =>
           updatePlacedAsset(prev, d.id, {
             xIn: Math.max(0, d.ox + dxIn),
@@ -333,6 +422,7 @@ export default function FigureComposer({ pageId }: { pageId: string }) {
     };
     const up = () => {
       assetDrag.current = null;
+      setGuides([]);
     };
     window.addEventListener("mousemove", move);
     window.addEventListener("mouseup", up);
@@ -340,7 +430,7 @@ export default function FigureComposer({ pageId }: { pageId: string }) {
       window.removeEventListener("mousemove", move);
       window.removeEventListener("mouseup", up);
     };
-  }, [effScale, mutate]);
+  }, [effScale, mutate, page]);
 
   // Drag a selected annotation (translates all of its anchor points).
   useEffect(() => {
@@ -364,6 +454,92 @@ export default function FigureComposer({ pageId }: { pageId: string }) {
       window.removeEventListener("mouseup", up);
     };
   }, [effScale, mutate]);
+
+  // Group drag: move the whole multi-selection together, rebuilt each move from
+  // the press-time snapshot so the delta stays absolute, with snapping on the
+  // union box (excluding the moving group).
+  useEffect(() => {
+    const move = (e: MouseEvent) => {
+      const g = groupDrag.current;
+      if (!g) return;
+      const s = effScale();
+      let dxIn = (e.clientX - g.sx) / s;
+      let dyIn = (e.clientY - g.sy) / s;
+      const u = unionBox(g.base, g.refs);
+      if (u) {
+        const ps = pageSizeIn(g.base);
+        const snap = computeSnap(
+          g.base,
+          g.refs,
+          { xIn: u.xIn + dxIn, yIn: u.yIn + dyIn, wIn: u.wIn, hIn: u.hIn },
+          { pageWIn: ps.wIn, pageHIn: ps.hIn },
+        );
+        dxIn += snap.dxIn;
+        dyIn += snap.dyIn;
+        setGuides(snap.guides);
+      }
+      mutate(() => {
+        let next = g.base;
+        for (const r of g.refs) next = translateElement(next, r, dxIn, dyIn);
+        return next;
+      });
+    };
+    const up = () => {
+      if (groupDrag.current) {
+        groupDrag.current = null;
+        setGuides([]);
+      }
+    };
+    window.addEventListener("mousemove", move);
+    window.addEventListener("mouseup", up);
+    return () => {
+      window.removeEventListener("mousemove", move);
+      window.removeEventListener("mouseup", up);
+    };
+  }, [effScale, mutate]);
+
+  // Marquee (rubber-band) drag-select on the empty canvas.
+  useEffect(() => {
+    const move = (e: MouseEvent) => {
+      const m = marqueeRef.current;
+      if (!m) return;
+      const rect = stageRef.current?.getBoundingClientRect();
+      if (!rect) return;
+      const s = effScale();
+      const cx = (e.clientX - rect.left) / s;
+      const cy = (e.clientY - rect.top) / s;
+      const box: Box = {
+        xIn: Math.min(m.sx, cx),
+        yIn: Math.min(m.sy, cy),
+        wIn: Math.abs(cx - m.sx),
+        hIn: Math.abs(cy - m.sy),
+      };
+      m.box = box;
+      setMarquee(box);
+    };
+    const up = () => {
+      const m = marqueeRef.current;
+      marqueeRef.current = null;
+      setMarquee(null);
+      if (!m?.box || !page) return;
+      const box = m.box;
+      if (box.wIn <= 0.05 && box.hIn <= 0.05) return;
+      const hits = elementsInRect(page, box);
+      // The start-press cleared the selection unless Shift was held, so merging
+      // into the current selection gives "replace" (plain) or "add" (shift).
+      setSelection((prev) => {
+        const merged = [...prev];
+        for (const h of hits) if (!merged.some((r) => sameRef(r, h))) merged.push(h);
+        return merged;
+      });
+    };
+    window.addEventListener("mousemove", move);
+    window.addEventListener("mouseup", up);
+    return () => {
+      window.removeEventListener("mousemove", move);
+      window.removeEventListener("mouseup", up);
+    };
+  }, [effScale, page]);
 
   const exportSvg = useCallback(() => {
     if (!page) return;
@@ -428,16 +604,16 @@ export default function FigureComposer({ pageId }: { pageId: string }) {
           ? makeArrowAnnotation
           : makeBracketAnnotation;
     mutate((p) => addAnnotation(p, make(annId, xIn, yIn)), true);
-    setSelected(null);
-    setSelectedAnn(annId);
+    setSelection([{ kind: "annotation", id: annId }]);
     setTool(null);
   };
 
   const onAnnDown = (e: React.MouseEvent, id: string) => {
     e.preventDefault();
     e.stopPropagation();
-    setSelected(null);
-    setSelectedAnn(id);
+    const ref: ElementRef = { kind: "annotation", id };
+    if (maybeGroupDrag(ref, e, false)) return;
+    pressSelect(ref, e);
     annDrag.current = { id, sx: e.clientX, sy: e.clientY };
   };
 
@@ -461,9 +637,7 @@ export default function FigureComposer({ pageId }: { pageId: string }) {
       sizeIn,
     );
     mutate((p) => addPlacedAsset(p, placed), true);
-    setSelected(null);
-    setSelectedAnn(null);
-    setSelectedAsset(assetId);
+    setSelection([{ kind: "asset", id: assetId }]);
     setIconPickerOpen(false);
     // Eagerly fetch the SVG so it appears immediately (the effect also covers it).
     void fetchAssetSvg(asset).then((svg) => {
@@ -522,6 +696,82 @@ export default function FigureComposer({ pageId }: { pageId: string }) {
   return (
     <div className="flex h-full gap-4 p-4" data-testid="figure-composer">
       <div className="flex min-w-0 flex-1 flex-col overflow-hidden rounded-2xl border border-border bg-surface-sunken">
+        {/* Contextual arrange bar: appears on selection. Align/distribute act on
+            the multi-selection; arrange (z-order) acts on each selected element. */}
+        {selection.length >= 1 && (
+          <div className="flex flex-wrap items-center gap-1.5 border-b border-border bg-surface px-3 py-1.5 text-meta">
+            <span className="font-semibold text-foreground-muted">
+              {selection.length} selected
+            </span>
+            <span className="mx-1 h-4 w-px bg-border" />
+            {(
+              [
+                ["left", "Left"],
+                ["centerX", "Center"],
+                ["right", "Right"],
+                ["top", "Top"],
+                ["centerY", "Middle"],
+                ["bottom", "Bottom"],
+              ] as [AlignEdge, string][]
+            ).map(([edge, label]) => (
+              <button
+                key={edge}
+                type="button"
+                disabled={selection.length < 2}
+                onClick={() => mutate((p) => alignElements(p, selection, edge), true)}
+                className={ARRANGE_BTN}
+              >
+                {label}
+              </button>
+            ))}
+            <span className="mx-1 h-4 w-px bg-border" />
+            <button
+              type="button"
+              disabled={selection.length < 3}
+              onClick={() => mutate((p) => distributeElements(p, selection, "horizontal"), true)}
+              className={ARRANGE_BTN}
+            >
+              Distribute H
+            </button>
+            <button
+              type="button"
+              disabled={selection.length < 3}
+              onClick={() => mutate((p) => distributeElements(p, selection, "vertical"), true)}
+              className={ARRANGE_BTN}
+            >
+              Distribute V
+            </button>
+            <span className="mx-1 h-4 w-px bg-border" />
+            <button
+              type="button"
+              onClick={() => mutate((p) => selection.reduce((a, r) => bringToFront(a, r), p), true)}
+              className={ARRANGE_BTN}
+            >
+              Front
+            </button>
+            <button
+              type="button"
+              onClick={() => mutate((p) => selection.reduce((a, r) => bringForward(a, r), p), true)}
+              className={ARRANGE_BTN}
+            >
+              Forward
+            </button>
+            <button
+              type="button"
+              onClick={() => mutate((p) => selection.reduce((a, r) => sendBackward(a, r), p), true)}
+              className={ARRANGE_BTN}
+            >
+              Backward
+            </button>
+            <button
+              type="button"
+              onClick={() => mutate((p) => selection.reduce((a, r) => sendToBack(a, r), p), true)}
+              className={ARRANGE_BTN}
+            >
+              Back
+            </button>
+          </div>
+        )}
         {/* Shared pan/zoom viewport (same component the Phylo Studio + Data Hub use):
             two-finger pan, pinch / Cmd-wheel zoom-at-cursor, Space-drag, scrollbars,
             minimap. The stage is rendered at its natural fit size; the canvas zooms
@@ -531,14 +781,22 @@ export default function FigureComposer({ pageId }: { pageId: string }) {
           ref={stageRef}
           className="relative bg-white shadow-lg"
           style={{ width: pageW, height: pageH }}
-          onMouseDown={() => {
-            setSelected(null);
-            setSelectedAnn(null);
-            setSelectedAsset(null);
+          onPointerDown={(e) => e.stopPropagation()}
+          onMouseDown={(e) => {
+            // Empty-canvas press starts a marquee (rubber-band) select. A plain
+            // click with no drag finalizes to an empty rect, which deselects.
+            const rect = stageRef.current?.getBoundingClientRect();
+            if (!rect) return;
+            const s = effScale();
+            marqueeRef.current = {
+              sx: (e.clientX - rect.left) / s,
+              sy: (e.clientY - rect.top) / s,
+            };
+            if (!e.shiftKey) clearSel();
           }}
         >
           {page.panels.map((p) => {
-            const sel = selected === p.panelId;
+            const sel = isSelectedRef({ kind: "panel", id: p.panelId });
             const lab = labels.get(p.panelId);
             return (
               <div
@@ -569,7 +827,7 @@ export default function FigureComposer({ pageId }: { pageId: string }) {
                     {lab}
                   </span>
                 )}
-                {sel && (
+                {selection.length === 1 && sel && (
                   <div
                     className="absolute -bottom-1.5 -right-1.5 h-3 w-3 rounded-sm border-2 border-brand-action bg-white"
                     style={{ cursor: "nwse-resize" }}
@@ -587,7 +845,7 @@ export default function FigureComposer({ pageId }: { pageId: string }) {
 
           {/* Placed library assets (icons), draggable + resizable, above panels. */}
           {pageAssets(page).map((a) => {
-            const sel = selectedAsset === a.assetId;
+            const sel = isSelectedRef({ kind: "asset", id: a.assetId });
             const raw = assetSvgs.get(a.assetId) ?? "";
             const display = a.tint && raw ? tintSvg(raw, a.tint) : raw;
             return (
@@ -610,7 +868,7 @@ export default function FigureComposer({ pageId }: { pageId: string }) {
                   className="pointer-events-none h-full w-full [&>svg]:h-full [&>svg]:w-full"
                   dangerouslySetInnerHTML={{ __html: display }}
                 />
-                {sel && (
+                {selection.length === 1 && sel && (
                   <div
                     className="absolute -bottom-1.5 -right-1.5 h-3 w-3 rounded-sm border-2 border-brand-action bg-white"
                     style={{ cursor: "nwse-resize" }}
@@ -632,7 +890,7 @@ export default function FigureComposer({ pageId }: { pageId: string }) {
           {!tool &&
             page.annotations.map((a) => {
               const b = annBox(a, scale);
-              const sel = selectedAnn === a.annId;
+              const sel = isSelectedRef({ kind: "annotation", id: a.annId });
               return (
                 <div
                   key={a.annId}
@@ -664,6 +922,36 @@ export default function FigureComposer({ pageId }: { pageId: string }) {
                 if (!rect) return;
                 const s = effScale();
                 placeAnnotation((e.clientX - rect.left) / s, (e.clientY - rect.top) / s);
+              }}
+            />
+          )}
+
+          {/* Smart-guide alignment lines while dragging (drawn full-page). */}
+          {guides.map((g, i) =>
+            g.axis === "x" ? (
+              <div
+                key={`gx${i}`}
+                className="pointer-events-none absolute z-20 bg-brand-action"
+                style={{ left: g.atIn * scale, top: 0, width: 1, height: pageH }}
+              />
+            ) : (
+              <div
+                key={`gy${i}`}
+                className="pointer-events-none absolute z-20 bg-brand-action"
+                style={{ left: 0, top: g.atIn * scale, width: pageW, height: 1 }}
+              />
+            ),
+          )}
+
+          {/* Marquee (rubber-band) selection rectangle. */}
+          {marquee && (
+            <div
+              className="pointer-events-none absolute z-20 border border-brand-action bg-brand-action/10"
+              style={{
+                left: marquee.xIn * scale,
+                top: marquee.yIn * scale,
+                width: marquee.wIn * scale,
+                height: marquee.hIn * scale,
               }}
             />
           )}
@@ -957,7 +1245,7 @@ export default function FigureComposer({ pageId }: { pageId: string }) {
                   type="button"
                   onClick={() => {
                     mutate((p) => removePanel(p, selected), true);
-                    setSelected(null);
+                    clearSel();
                   }}
                   className="block text-meta font-medium text-pin hover:underline"
                 >
@@ -1045,7 +1333,7 @@ export default function FigureComposer({ pageId }: { pageId: string }) {
               type="button"
               onClick={() => {
                 mutate((p) => removeAnnotation(p, selectedAnnotation.annId), true);
-                setSelectedAnn(null);
+                clearSel();
               }}
               className="block text-meta font-medium text-pin hover:underline"
             >
@@ -1103,7 +1391,7 @@ export default function FigureComposer({ pageId }: { pageId: string }) {
               type="button"
               onClick={() => {
                 mutate((p) => removePlacedAsset(p, selectedAssetObj.assetId), true);
-                setSelectedAsset(null);
+                clearSel();
               }}
               className="mt-2 block text-meta font-medium text-pin hover:underline"
             >
