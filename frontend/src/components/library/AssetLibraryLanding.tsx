@@ -15,6 +15,7 @@ import {
   listCategoryGroups,
   listSources,
   assetSvgUrl,
+  verificationStatus,
   type LibraryAsset,
 } from "@/lib/figure/asset-library";
 
@@ -306,6 +307,12 @@ export default function AssetLibraryLanding() {
               >
                 <Icon name="userPlus" className="h-4 w-4" /> Contribute an icon
               </Link>
+              <Link
+                href="/library/review"
+                className="inline-flex items-center gap-2 rounded-full border border-border-strong px-4 py-2 text-sm font-semibold transition hover:border-brand-action"
+              >
+                <Icon name="check" className="h-4 w-4" /> Help review submissions
+              </Link>
             </div>
           </Reveal>
         </div>
@@ -427,7 +434,25 @@ function AssetDetail({
                 No attribution required
               </span>
             )}
+            {verificationStatus(asset) === "unverified" && (
+              <span className="rounded-full border border-amber-300 bg-amber-50 px-2.5 py-1 text-meta text-amber-700">
+                Unverified for accuracy
+              </span>
+            )}
+            {verificationStatus(asset) === "verified" && (
+              <span className="rounded-full border border-border px-2.5 py-1 text-meta text-foreground-muted">
+                Community verified
+              </span>
+            )}
           </div>
+          {verificationStatus(asset) === "unverified" && (
+            <p className="text-meta text-foreground-muted">
+              A community contribution awaiting an independent review.{" "}
+              <Link href="/library/review" className="font-semibold text-brand-action hover:opacity-80">
+                Help review
+              </Link>
+            </p>
+          )}
 
           {asset.creator && (
             <p className="text-meta text-foreground-muted">

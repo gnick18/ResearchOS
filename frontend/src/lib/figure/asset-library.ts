@@ -251,3 +251,21 @@ export function searchAssets(
     return terms.every((t) => hay.includes(t));
   });
 }
+
+/** Community assets awaiting an independent review. */
+export function reviewableAssets(
+  assets: LibraryAsset[],
+  viewerHandle?: string | null,
+): LibraryAsset[] {
+  return assets.filter(
+    (a) =>
+      verificationStatus(a) === "unverified" &&
+      // The submitter cannot review their own work, so exclude it from a viewer's queue.
+      (!viewerHandle || a.submittedBy !== viewerHandle),
+  );
+}
+
+/** Count of reviewable community assets, for the picker's "Help review (N)" badge. */
+export function countReviewable(assets: LibraryAsset[], viewerHandle?: string | null): number {
+  return reviewableAssets(assets, viewerHandle).length;
+}

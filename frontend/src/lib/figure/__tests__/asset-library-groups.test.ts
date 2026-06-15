@@ -3,6 +3,9 @@ import { describe, it, expect } from "vitest";
 import {
   listCategoryGroups,
   sectionForCategory,
+  verificationStatus,
+  reviewableAssets,
+  countReviewable,
   type LibraryAsset,
 } from "@/lib/figure/asset-library";
 
@@ -57,5 +60,38 @@ describe("category grouping", () => {
 
   it("returns no groups for an empty manifest", () => {
     expect(listCategoryGroups([])).toEqual([]);
+  });
+});
+
+function community(uid: string, submittedBy: string | null, status?: "unverified" | "verified"): LibraryAsset {
+  return {
+    ...asset("Mammals"),
+    uid,
+    source: "community",
+    submittedBy,
+    verification: status ? { status, flags: 0 } : undefined,
+  };
+}
+
+describe("verification + review queue", () => {
+  it("defaults the curated seed to 'curated'", () => {
+    expect(verificationStatus(asset("Birds"))).toBe("curated");
+    expect(verificationStatus(community("community:1", "alice", "unverified"))).toBe("unverified");
+    expect(verificationStatus(community("community:2", "bob", "verified"))).toBe("verified");
+  });
+
+  it("reviewableAssets surfaces only unverified, excluding the viewer's own", () => {
+    const assets = [
+      asset("Birds"), // curated, never reviewable
+      community("community:1", "alice", "unverified"),
+      community("community:2", "bob", "unverified"),
+      community("community:3", "carol", "verified"), // already verified
+    ];
+    // Anonymous viewer sees both unverified.
+    expect(reviewableAssets(assets).map((a) => a.uid)).toEqual(["community:1", "community:2"]);
+    // Alice cannot review her own submission.
+    expect(reviewableAssets(assets, "alice").map((a) => a.uid)).toEqual(["community:2"]);
+    expect(countReviewable(assets, "alice")).toBe(1);
+    expect(countReviewable(assets)).toBe(2);
   });
 });
