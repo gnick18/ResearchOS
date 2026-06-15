@@ -86,6 +86,12 @@ export interface PhyloFigureSpec {
    * the fixed tree aspect). Optional + additive, absent means the natural size.
    */
   figureWidthIn?: number;
+  /**
+   * Per-figure gap (px) between overlay columns. Optional + additive: absent means
+   * the default PANEL_GAP, so an older record renders unchanged. The collision
+   * advisor's "increase column spacing" lever (and a manual control).
+   */
+  columnGap?: number;
 }
 
 /**

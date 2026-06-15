@@ -52,6 +52,9 @@ export interface FigureInputs {
   /** Draw a full-width time axis (age before present) instead of the scale bar
    *  (default off). */
   timeAxis?: boolean;
+  /** Per-figure gap (px) between overlay columns; absent = the default PANEL_GAP.
+   *  The collision advisor's "increase column spacing" lever. */
+  columnGap?: number;
   tracks: FigureTracks;
   categoryColumn?: string;
   barColumn?: string;
@@ -204,6 +207,7 @@ export function figureToRenderSpec(
     scaleBar: inputs.scaleBar,
     rootEdge: inputs.rootEdge,
     timeAxis: inputs.timeAxis,
+    columnGap: inputs.columnGap,
     tracks: inputs.tracks,
     columns: {
       category: inputs.categoryColumn || undefined,
@@ -241,6 +245,8 @@ interface StoredFigure {
   rootEdge?: boolean;
   /** Time-axis toggle (optional, additive, defaults off). */
   timeAxis?: boolean;
+  /** Per-figure overlay-column gap in px (optional, additive, defaults PANEL_GAP). */
+  columnGap?: number;
   tracks?: Record<string, boolean>;
   /** Per-track sequential-palette overrides (Phase 0, optional). */
   scales?: FigureScales;
@@ -283,6 +289,7 @@ export function figureInputsFromStored(
   const scaleBar = figure?.scaleBar;
   const rootEdge = figure?.rootEdge;
   const timeAxis = figure?.timeAxis;
+  const columnGap = figure?.columnGap;
   const tracks: FigureTracks = {
     ...DEFAULT_FIGURE_TRACKS,
     ...((figure?.tracks ?? {}) as Partial<FigureTracks>),
@@ -300,6 +307,7 @@ export function figureInputsFromStored(
       scaleBar,
       rootEdge,
       timeAxis,
+      columnGap,
       tracks,
       metaRows: null,
       scales,
@@ -315,6 +323,7 @@ export function figureInputsFromStored(
     scaleBar,
     rootEdge,
     timeAxis,
+    columnGap,
     tracks,
     metaRows: metadata.rows,
     tipColumn: metadata.tipColumn || cols[0] || "",

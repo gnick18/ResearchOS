@@ -253,6 +253,9 @@ export function PhyloStudio({ initialTreeId }: { initialTreeId?: string } = {}) 
   // Show the branch-length scale bar on a phylogram (geom_treescale). Default on.
   const [scaleBar, setScaleBar] = useState(true);
   const [rootEdge, setRootEdge] = useState(false);
+  // Per-figure gap (px) between overlay columns; default = render's PANEL_GAP (8).
+  // The collision advisor's "increase column spacing" lever + a manual control.
+  const [columnGap, setColumnGap] = useState<number>(8);
   // Draw a full-width time axis (age before present) instead of the scale bar.
   const [timeAxis, setTimeAxis] = useState(false);
   // The ordered LAYER stack (phylo Phase 1). This IS the persisted panels[]; the
@@ -449,6 +452,7 @@ export function PhyloStudio({ initialTreeId }: { initialTreeId?: string } = {}) 
         scaleBar,
         rootEdge,
         timeAxis,
+        columnGap,
         tracks: EMPTY_TRACKS,
         categoryColumn,
         metaRows,
@@ -469,6 +473,7 @@ export function PhyloStudio({ initialTreeId }: { initialTreeId?: string } = {}) 
     scaleBar,
     rootEdge,
     timeAxis,
+    columnGap,
     categoryColumn,
     metaRows,
     tipColumn,
@@ -822,6 +827,7 @@ export function PhyloStudio({ initialTreeId }: { initialTreeId?: string } = {}) 
     setPhylogram(inputs.phylogram);
     setScaleBar(inputs.scaleBar ?? true);
     setRootEdge(inputs.rootEdge ?? false);
+    setColumnGap(inputs.columnGap ?? 8);
     setTimeAxis(inputs.timeAxis ?? false);
     // Stored panels win; else project the layer stack from the Phase 0 fields.
     const restored =
@@ -1032,6 +1038,7 @@ export function PhyloStudio({ initialTreeId }: { initialTreeId?: string } = {}) 
       scaleBar,
       rootEdge,
       timeAxis,
+      columnGap,
       tracks: derived.tracks,
       legend: true,
       panels,
@@ -1203,6 +1210,32 @@ export function PhyloStudio({ initialTreeId }: { initialTreeId?: string } = {}) 
                 Page frame
               </button>
             </div>
+            {panels.some(
+              (p) => p.visible && p.kind !== "labels" && p.kind !== "clade",
+            ) && (
+              <div className="mt-3 flex items-center gap-2">
+                <label
+                  htmlFor="phylo-column-gap"
+                  className="text-xs font-semibold text-foreground-muted whitespace-nowrap"
+                  title="Gap between overlay columns (heatmap / bars / strips)"
+                >
+                  Column spacing
+                </label>
+                <input
+                  id="phylo-column-gap"
+                  type="range"
+                  min={2}
+                  max={40}
+                  step={1}
+                  value={columnGap}
+                  onChange={(e) => setColumnGap(Number(e.target.value))}
+                  className="flex-1 accent-[var(--accent)]"
+                />
+                <span className="w-8 text-right text-xs tabular-nums text-foreground-muted">
+                  {columnGap}
+                </span>
+              </div>
+            )}
             {artboard.enabled && (
               <div className="mt-3 border-t border-border pt-3">
                 <FigureArtboardControls

@@ -125,6 +125,9 @@ export interface RenderSpec {
    *  phylogram, with the tips at age 0 (ggtree theme_tree2). Default off.
    *  Replaces the compact scale bar when on. */
   timeAxis?: boolean;
+  /** Per-figure gap (px) between overlay columns; absent = PANEL_GAP. The
+   *  collision advisor's "increase column spacing" lever. */
+  columnGap?: number;
   tracks: FigureTracks;
   columns: FigureColumns;
   width: number;
@@ -470,17 +473,17 @@ const MSA_DEFAULT_THICKNESS = 120;
 /** Sum the radial / horizontal room every visible aligned panel needs. The gap
  *  between stacked panels is generous enough that adjacent rings / columns read
  *  as separate bands rather than visually merging (the multi-panel spacing). */
-function alignedRoom(panels: AlignedPanel[]): number {
+function alignedRoom(panels: AlignedPanel[], gap: number = PANEL_GAP): number {
   let room = 6; // initial gap from the tips
   for (const p of panels) {
     if (!p.visible || !ALIGNED_KINDS.has(p.kind)) continue;
     if (p.kind === "heat") {
       const ncol = p.columns?.length ?? 1;
-      room += ncol * (panelBandThickness(p) + 1) + PANEL_GAP;
+      room += ncol * (panelBandThickness(p) + 1) + gap;
     } else if (p.kind === "msa") {
-      room += (p.width && p.width > 0 ? p.width : MSA_DEFAULT_THICKNESS) + PANEL_GAP;
+      room += (p.width && p.width > 0 ? p.width : MSA_DEFAULT_THICKNESS) + gap;
     } else {
-      room += panelBandThickness(p) + PANEL_GAP;
+      room += panelBandThickness(p) + gap;
     }
   }
   return room;
@@ -606,7 +609,9 @@ function renderFromPanels(
   const legendW = legendCols * LEGEND_COL_WIDTH;
   const plotWidth = Math.max(120, spec.width - legendW);
 
-  const room = alignedRoom(aligned);
+  // Per-figure overlay-column gap (the advisor's spacing lever); absent = default.
+  const columnGap = spec.columnGap ?? PANEL_GAP;
+  const room = alignedRoom(aligned, columnGap);
   const labelRoom = hasLabels ? longestLabelPx(root) : 8;
 
   const opts: LayoutOptions = {
@@ -685,7 +690,7 @@ function renderFromPanels(
             h: colH,
             label: panelTitleText(panel, spec) || undefined,
           });
-        cursor += drawn.thickness + PANEL_GAP;
+        cursor += drawn.thickness + columnGap;
       }
       continue;
     }
@@ -716,7 +721,7 @@ function renderFromPanels(
           h: colH,
           label: panelTitleText(panel, spec) || undefined,
         });
-      cursor += r.thickness + PANEL_GAP;
+      cursor += r.thickness + columnGap;
     }
   }
 

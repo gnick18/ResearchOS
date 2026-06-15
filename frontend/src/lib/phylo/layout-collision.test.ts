@@ -148,4 +148,42 @@ describe("renderTreeWithManifest (integration)", () => {
     // The detector runs without throwing on a real manifest.
     expect(Array.isArray(detectCollisions(m))).toBe(true);
   });
+
+  it("columnGap widens the spacing between overlay columns", () => {
+    const base: RenderSpec = {
+      layout: "rectangular",
+      phylogram: false,
+      tracks: {
+        labels: false,
+        labelsItalic: false,
+        points: false,
+        strip: false,
+        bars: false,
+        heat: false,
+        clade: false,
+        support: false,
+      },
+      columns: {},
+      width: 600,
+      height: 360,
+      metadata: META,
+      panels: [
+        { id: "bars", kind: "bars", visible: true, column: "mic" },
+        { id: "dots", kind: "dots", visible: true, column: "mic" },
+      ],
+    };
+    // The inter-column delta = first column width + gap (absolute x shifts because
+    // a bigger gap enlarges the reserved room and compresses the tree).
+    const interColumnGap = (spec: RenderSpec) => {
+      const cols = renderTreeWithManifest(TREE, spec).manifest.boxes.filter(
+        (b) => b.kind === "panel",
+      );
+      return cols[1].x - cols[0].x;
+    };
+    const tight = interColumnGap({ ...base, columnGap: 4 });
+    const wide = interColumnGap({ ...base, columnGap: 30 });
+    // A larger columnGap widens the space between the two columns by ~the delta.
+    expect(wide).toBeGreaterThan(tight);
+    expect(wide - tight).toBeCloseTo(26, 0); // 30 - 4
+  });
 });
