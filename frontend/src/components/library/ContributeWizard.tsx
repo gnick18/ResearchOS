@@ -245,8 +245,13 @@ export default function ContributeWizard() {
             </div>
           ) : (
             <>
-              {/* Drop zone */}
+              {/* Drop zone. data-attach-target opts this surface into the
+                  window-level GlobalDropGuard allow-list (and stopPropagation on
+                  the drop keeps the guard's "not supported" toast from firing over
+                  a zone that DOES handle the file), same as the task/note/method
+                  attach surfaces. */}
               <div
+                data-attach-target
                 onDragOver={(e) => {
                   e.preventDefault();
                   setDragOver(true);
@@ -254,6 +259,7 @@ export default function ContributeWizard() {
                 onDragLeave={() => setDragOver(false)}
                 onDrop={(e) => {
                   e.preventDefault();
+                  e.stopPropagation();
                   setDragOver(false);
                   void addFiles(e.dataTransfer.files);
                 }}
