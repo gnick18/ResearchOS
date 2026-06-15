@@ -12,8 +12,10 @@
 import {
   type FigurePage,
   type Annotation,
+  type PlacedAsset,
   pageSizeIn,
   assignLabels,
+  pageAssets,
 } from "@/lib/figure/figure-page";
 import { missingPanelSvg } from "@/lib/figure/figure-source";
 
@@ -91,6 +93,33 @@ export interface ComposeOpts {
   pxPerInch: number;
   /** The source-rendered SVG per panelId, fetched by the caller from the sources. */
   panelSvgs: Map<string, string>;
+  /** The raw SVG per placed-asset assetId, fetched by the caller from the CDN. */
+  assetSvgs?: Map<string, string>;
+}
+
+/**
+ * The placed-asset layer as one standalone SVG string, for the on-screen overlay
+ * (the export embeds the same fragments via composeFigurePageSvg, so they match).
+ * `assetSvgs` maps assetId to its raw SVG; a missing one simply draws nothing.
+ */
+export function assetLayerSvg(
+  page: FigurePage,
+  ppi: number,
+  assetSvgs: Map<string, string>,
+): string {
+  const { wIn, hIn } = pageSizeIn(page);
+  const W = (wIn * ppi).toFixed(1);
+  const H = (hIn * ppi).toFixed(1);
+  const body = pageAssets(page)
+    .map((a) => {
+      const svg = assetSvgs.get(a.assetId);
+      return svg ? placeAssetSvg(a, svg, ppi) : "";
+    })
+    .join("");
+  return (
+    `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" ` +
+    `viewBox="0 0 ${W} ${H}">${body}</svg>`
+  );
 }
 
 function esc(s: string): string {
@@ -119,6 +148,35 @@ function placeSvg(svg: string, px: number, py: number, pw: number, ph: number): 
     `<svg ${attrs} x="${px.toFixed(2)}" y="${py.toFixed(2)}" ` +
     `width="${pw.toFixed(2)}" height="${ph.toFixed(2)}">`;
   return svg.replace(/^\s*<svg\b[^>]*>/i, head);
+}
+
+/**
+ * Recolor every concrete fill in an SVG to one tint (single-tint recolor). Leaves
+ * `fill="none"` alone so outlines/holes stay. Per-fill targeting comes later; this
+ * is the whole-asset tint a placed icon uses. Pure string transform.
+ */
+export function tintSvg(svg: string, color: string): string {
+  return svg
+    .replace(/fill="(?!none")[^"]*"/gi, `fill="${color}"`)
+    .replace(/fill:\s*(?!none)[^;"']+/gi, `fill:${color}`);
+}
+
+/**
+ * Place an asset SVG as a nested viewport at (px, py) sized (pw, ph), with an
+ * optional single-tint and clockwise rotation about its own center. Reuses
+ * placeSvg for the viewport so the asset's own viewBox handles internal scaling.
+ */
+function placeAssetSvg(a: PlacedAsset, svg: string, ppi: number): string {
+  const px = a.xIn * ppi;
+  const py = a.yIn * ppi;
+  const pw = a.wIn * ppi;
+  const ph = a.hIn * ppi;
+  const tinted = a.tint ? tintSvg(svg, a.tint) : svg;
+  const inner = placeSvg(tinted, px, py, pw, ph);
+  if (!a.rotation) return inner;
+  const cx = (px + pw / 2).toFixed(2);
+  const cy = (py + ph / 2).toFixed(2);
+  return `<g transform="rotate(${a.rotation} ${cx} ${cy})">${inner}</g>`;
 }
 
 /**
@@ -171,6 +229,15 @@ export function composeFigurePageSvg(page: FigurePage, opts: ComposeOpts): strin
         `<text x="${(px + labelPx * 0.2).toFixed(1)}" y="${(py + labelPx).toFixed(1)}" ` +
           `font-size="${labelPx.toFixed(1)}" font-weight="700" fill="#0f172a">${esc(lab)}</text>`,
       );
+    }
+  }
+
+  // Placed-asset layer (icons / illustrations), above panels, below annotations.
+  const assetSvgs = opts.assetSvgs;
+  if (assetSvgs) {
+    for (const a of pageAssets(page)) {
+      const svg = assetSvgs.get(a.assetId);
+      if (svg) parts.push(placeAssetSvg(a, svg, ppi));
     }
   }
 

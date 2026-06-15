@@ -32,6 +32,12 @@ import {
   makeBracketAnnotation,
   setPanelStyle,
   setPanelTarget,
+  pageAssets,
+  makePlacedAsset,
+  addPlacedAsset,
+  removePlacedAsset,
+  updatePlacedAsset,
+  figureCredits,
 } from "@/lib/figure/figure-page";
 import {
   getFigureSource,
@@ -48,7 +54,17 @@ import {
 import {
   composeFigurePageSvg,
   annotationLayerSvg,
+  tintSvg,
 } from "@/lib/figure/figure-compose";
+import {
+  ASSET_LIBRARY_ENABLED,
+  loadAssetManifest,
+  fetchAssetSvg,
+  assetSvgUrl,
+  searchAssets,
+  listCategories,
+  type LibraryAsset,
+} from "@/lib/figure/asset-library";
 import { registerFigureSources } from "@/lib/figure/register-sources";
 import { PAPER_PRESETS } from "@/lib/figure/artboard";
 
@@ -75,6 +91,14 @@ export default function FigureComposer({ pageId }: { pageId: string }) {
   const [selectedAnn, setSelectedAnn] = useState<string | null>(null);
   const [styleTargets, setStyleTargets] = useState<StyleTarget[]>([]);
   const [defaultSaved, setDefaultSaved] = useState(false);
+  // Placed-asset (icon library) state, gated behind ASSET_LIBRARY_ENABLED.
+  const [assetSvgs, setAssetSvgs] = useState<Map<string, string>>(new Map());
+  const [iconPickerOpen, setIconPickerOpen] = useState(false);
+  const [selectedAsset, setSelectedAsset] = useState<string | null>(null);
+  const assetDrag = useRef<
+    | null
+    | { id: string; resize: boolean; sx: number; sy: number; ox: number; oy: number; ow: number; oh: number }
+  >(null);
   const stageRef = useRef<HTMLDivElement>(null);
   const annDrag = useRef<null | { id: string; sx: number; sy: number }>(null);
   const router = useRouter();
@@ -135,6 +159,31 @@ export default function FigureComposer({ pageId }: { pageId: string }) {
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sig]);
+
+  // Fetch each placed asset's raw SVG from the CDN once (keyed by svgPath set), so
+  // the canvas + export can inline + tint it. Cached in fetchAssetSvg per the bundle.
+  const assetSig = page ? pageAssets(page).map((a) => `${a.assetId}:${a.svgPath}`).join("|") : "";
+  useEffect(() => {
+    if (!page) return;
+    let cancelled = false;
+    void (async () => {
+      const next = new Map(assetSvgs);
+      let changed = false;
+      for (const a of pageAssets(page)) {
+        if (next.has(a.assetId)) continue;
+        const svg = await fetchAssetSvg(a);
+        if (svg) {
+          next.set(a.assetId, svg);
+          changed = true;
+        }
+      }
+      if (!cancelled && changed) setAssetSvgs(next);
+    })();
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [assetSig]);
 
   // Load the selected panel's styleable elements (features, ...) for the style inspector.
   const selectedRef = selected
@@ -205,6 +254,17 @@ export default function FigureComposer({ pageId }: { pageId: string }) {
     drag.current = { id, resize, sx: e.clientX, sy: e.clientY, ox: p.xIn, oy: p.yIn, ow: p.wIn, oh: p.hIn };
   };
 
+  const onAssetDown = (e: React.MouseEvent, id: string, resize: boolean) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setSelected(null);
+    setSelectedAnn(null);
+    setSelectedAsset(id);
+    const a = page ? pageAssets(page).find((x) => x.assetId === id) : undefined;
+    if (!a) return;
+    assetDrag.current = { id, resize, sx: e.clientX, sy: e.clientY, ox: a.xIn, oy: a.yIn, ow: a.wIn, oh: a.hIn };
+  };
+
   useEffect(() => {
     const move = (e: MouseEvent) => {
       const d = drag.current;
@@ -224,6 +284,40 @@ export default function FigureComposer({ pageId }: { pageId: string }) {
     };
     const up = () => {
       drag.current = null;
+    };
+    window.addEventListener("mousemove", move);
+    window.addEventListener("mouseup", up);
+    return () => {
+      window.removeEventListener("mousemove", move);
+      window.removeEventListener("mouseup", up);
+    };
+  }, [scale, mutate]);
+
+  // Drag / resize a placed asset (mirrors the panel drag).
+  useEffect(() => {
+    const move = (e: MouseEvent) => {
+      const d = assetDrag.current;
+      if (!d) return;
+      const dxIn = (e.clientX - d.sx) / scale;
+      const dyIn = (e.clientY - d.sy) / scale;
+      if (d.resize) {
+        mutate((prev) =>
+          updatePlacedAsset(prev, d.id, {
+            wIn: Math.max(0.2, d.ow + dxIn),
+            hIn: Math.max(0.2, d.oh + dyIn),
+          }),
+        );
+      } else {
+        mutate((prev) =>
+          updatePlacedAsset(prev, d.id, {
+            xIn: Math.max(0, d.ox + dxIn),
+            yIn: Math.max(0, d.oy + dyIn),
+          }),
+        );
+      }
+    };
+    const up = () => {
+      assetDrag.current = null;
     };
     window.addEventListener("mousemove", move);
     window.addEventListener("mouseup", up);
@@ -257,7 +351,7 @@ export default function FigureComposer({ pageId }: { pageId: string }) {
 
   const exportSvg = useCallback(() => {
     if (!page) return;
-    const svg = composeFigurePageSvg(page, { pxPerInch: 300, panelSvgs });
+    const svg = composeFigurePageSvg(page, { pxPerInch: 300, panelSvgs, assetSvgs });
     const blob = new Blob([svg], { type: "image/svg+xml" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
@@ -265,7 +359,7 @@ export default function FigureComposer({ pageId }: { pageId: string }) {
     a.download = `${page.name || "figure"}.svg`;
     a.click();
     URL.revokeObjectURL(url);
-  }, [page, panelSvgs]);
+  }, [page, panelSvgs, assetSvgs]);
 
   if (loadState === "missing") {
     return (
@@ -331,6 +425,41 @@ export default function FigureComposer({ pageId }: { pageId: string }) {
     annDrag.current = { id, sx: e.clientX, sy: e.clientY };
   };
 
+  // Place a picked library asset centered on the page, and load its SVG.
+  const placeIcon = (asset: LibraryAsset) => {
+    const sizeIn = 1.2;
+    const xIn = Math.max(0, wIn / 2 - sizeIn / 2);
+    const yIn = Math.max(0, hIn / 2 - sizeIn / 2);
+    const assetId = `ic${page.id}-${Date.now().toString(36)}`;
+    const placed = makePlacedAsset(
+      assetId,
+      {
+        source: asset.source,
+        sourceId: asset.sourceId,
+        svgPath: asset.svgPath,
+        credit: asset.credit,
+        requiresAttribution: asset.requiresAttribution,
+      },
+      xIn,
+      yIn,
+      sizeIn,
+    );
+    mutate((p) => addPlacedAsset(p, placed), true);
+    setSelected(null);
+    setSelectedAnn(null);
+    setSelectedAsset(assetId);
+    setIconPickerOpen(false);
+    // Eagerly fetch the SVG so it appears immediately (the effect also covers it).
+    void fetchAssetSvg(asset).then((svg) => {
+      if (svg) setAssetSvgs((m) => new Map(m).set(assetId, svg));
+    });
+  };
+
+  const selectedAssetObj = selectedAsset
+    ? pageAssets(page).find((a) => a.assetId === selectedAsset) ?? null
+    : null;
+  const credits = figureCredits(page);
+
   const selectedAnnotation = selectedAnn
     ? page.annotations.find((a) => a.annId === selectedAnn) ?? null
     : null;
@@ -342,6 +471,7 @@ export default function FigureComposer({ pageId }: { pageId: string }) {
         onMouseDown={() => {
           setSelected(null);
           setSelectedAnn(null);
+          setSelectedAsset(null);
         }}
       >
         <div
@@ -390,11 +520,46 @@ export default function FigureComposer({ pageId }: { pageId: string }) {
               </div>
             );
           })}
-          {page.panels.length === 0 && (
+          {page.panels.length === 0 && pageAssets(page).length === 0 && (
             <div className="flex h-full items-center justify-center text-meta text-foreground-faint">
               Add a figure to start the page.
             </div>
           )}
+
+          {/* Placed library assets (icons), draggable + resizable, above panels. */}
+          {pageAssets(page).map((a) => {
+            const sel = selectedAsset === a.assetId;
+            const raw = assetSvgs.get(a.assetId) ?? "";
+            const display = a.tint && raw ? tintSvg(raw, a.tint) : raw;
+            return (
+              <div
+                key={a.assetId}
+                className={`absolute ${sel ? "outline outline-2 outline-brand-action" : "outline outline-1 outline-transparent hover:outline-border-strong"}`}
+                style={{
+                  left: a.xIn * scale,
+                  top: a.yIn * scale,
+                  width: a.wIn * scale,
+                  height: a.hIn * scale,
+                  cursor: "grab",
+                  transform: a.rotation ? `rotate(${a.rotation}deg)` : undefined,
+                }}
+                onMouseDown={(e) => onAssetDown(e, a.assetId, false)}
+                data-testid="figure-asset"
+              >
+                <div
+                  className="pointer-events-none h-full w-full [&>svg]:h-full [&>svg]:w-full"
+                  dangerouslySetInnerHTML={{ __html: display }}
+                />
+                {sel && (
+                  <div
+                    className="absolute -bottom-1.5 -right-1.5 h-3 w-3 rounded-sm border-2 border-brand-action bg-white"
+                    style={{ cursor: "nwse-resize" }}
+                    onMouseDown={(e) => onAssetDown(e, a.assetId, true)}
+                  />
+                )}
+              </div>
+            );
+          })}
 
           {/* Annotation layer, painted above the panels (one injected SVG string,
               so the component carries no inline SVG of its own). Click-through. */}
@@ -452,6 +617,16 @@ export default function FigureComposer({ pageId }: { pageId: string }) {
           >
             <Icon name="plus" className="h-3.5 w-3.5" /> Add figure
           </button>
+          {ASSET_LIBRARY_ENABLED && (
+            <button
+              type="button"
+              onClick={() => setIconPickerOpen(true)}
+              className="flex items-center gap-1.5 rounded-lg border border-border-strong px-3 py-1.5 text-meta font-semibold hover:border-brand-action"
+              data-testid="figure-add-icon"
+            >
+              <Icon name="plus" className="h-3.5 w-3.5" /> Add icon
+            </button>
+          )}
           <Tooltip label="Arrange every panel into a clean grid (undoable).">
             <button
               type="button"
@@ -815,6 +990,64 @@ export default function FigureComposer({ pageId }: { pageId: string }) {
           </div>
         )}
 
+        {/* Selected placed-asset (icon) inspector. */}
+        {selectedAssetObj && (
+          <div className="rounded-xl border border-border p-3" data-testid="figure-asset-inspector">
+            <h3 className="mb-2 text-meta font-bold uppercase tracking-wide text-foreground-faint">
+              Selected icon
+            </h3>
+            <div className="flex items-center gap-2">
+              <span className="text-meta text-foreground-muted">Tint</span>
+              {["", "#2563eb", "#16a34a", "#dc2626", "#b9770f", "#6d28d9", "#0f172a"].map((c) => {
+                const active = (selectedAssetObj.tint ?? "") === c;
+                return (
+                  <button
+                    key={c || "none"}
+                    type="button"
+                    aria-label={c ? `Tint ${c}` : "Original colors"}
+                    onClick={() =>
+                      mutate((p) =>
+                        updatePlacedAsset(p, selectedAssetObj.assetId, { tint: c || undefined }),
+                      )
+                    }
+                    className={`h-5 w-5 rounded border ${active ? "ring-2 ring-brand-action" : "border-border"}`}
+                    style={c ? { background: c } : undefined}
+                    title={c ? c : "Original colors"}
+                  >
+                    {c ? "" : <Icon name="close" className="h-3 w-3 text-foreground-muted" />}
+                  </button>
+                );
+              })}
+            </div>
+            <label className="mt-3 flex items-center justify-between gap-2 text-meta text-foreground-muted">
+              <span>Rotate</span>
+              <input
+                type="range"
+                min={0}
+                max={360}
+                step={15}
+                value={selectedAssetObj.rotation ?? 0}
+                onChange={(e) =>
+                  mutate((p) =>
+                    updatePlacedAsset(p, selectedAssetObj.assetId, { rotation: Number(e.target.value) || undefined }),
+                  )
+                }
+                className="w-32"
+              />
+            </label>
+            <button
+              type="button"
+              onClick={() => {
+                mutate((p) => removePlacedAsset(p, selectedAssetObj.assetId), true);
+                setSelectedAsset(null);
+              }}
+              className="mt-2 block text-meta font-medium text-pin hover:underline"
+            >
+              Remove from page
+            </button>
+          </div>
+        )}
+
         <div className="rounded-xl border border-border p-3">
           <h3 className="mb-2 text-meta font-bold uppercase tracking-wide text-foreground-faint">Export</h3>
           <button
@@ -828,6 +1061,25 @@ export default function FigureComposer({ pageId }: { pageId: string }) {
           <p className="mt-2 text-meta text-foreground-faint">
             {page.panels.length} panel{page.panels.length === 1 ? "" : "s"} at {wIn} x {hIn} in, one vector SVG.
           </p>
+          {credits.length > 0 && (
+            <div className="mt-3 border-t border-border pt-2" data-testid="figure-credits">
+              <p className="text-meta font-semibold text-foreground-muted">Figure credits</p>
+              <ul className="mt-1 space-y-1">
+                {credits.map((c) => (
+                  <li key={c} className="text-[10px] leading-snug text-foreground-faint">
+                    {c}
+                  </li>
+                ))}
+              </ul>
+              <button
+                type="button"
+                onClick={() => void navigator.clipboard?.writeText(credits.join("\n"))}
+                className="mt-1 text-meta font-medium text-brand-action hover:underline"
+              >
+                Copy credits
+              </button>
+            </div>
+          )}
         </div>
       </div>
 
@@ -851,6 +1103,10 @@ export default function FigureComposer({ pageId }: { pageId: string }) {
             setPickerOpen(false);
           }}
         />
+      )}
+
+      {iconPickerOpen && (
+        <AddIconPicker onClose={() => setIconPickerOpen(false)} onPick={placeIcon} />
       )}
     </div>
   );
@@ -1210,4 +1466,123 @@ function annBox(a: Annotation, scale: number): { x: number; y: number; w: number
   return a.orientation === "horizontal"
     ? { x: a.xIn * scale, y: a.yIn * scale - tick, w: a.spanIn * scale, h: tick * 2.5 }
     : { x: a.xIn * scale - tick, y: a.yIn * scale, w: tick * 2.5, h: a.spanIn * scale };
+}
+
+/**
+ * The open-asset (icon) library picker. Reads the live CDN manifest, offers a
+ * search box + category chips + a thumbnail grid; clicking an icon places it.
+ * Thumbnails load via <img> from the CDN (display only); placeIcon fetches the
+ * raw SVG for inlining + recolor. Mirrors the AddFigurePicker shell.
+ */
+function AddIconPicker({
+  onClose,
+  onPick,
+}: {
+  onClose: () => void;
+  onPick: (asset: LibraryAsset) => void;
+}) {
+  const [assets, setAssets] = useState<LibraryAsset[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [query, setQuery] = useState("");
+  const [category, setCategory] = useState<string | null>(null);
+
+  useEffect(() => {
+    let live = true;
+    void loadAssetManifest().then((a) => {
+      if (!live) return;
+      setAssets(a);
+      setLoading(false);
+    });
+    return () => {
+      live = false;
+    };
+  }, []);
+
+  const categories = useMemo(() => listCategories(assets), [assets]);
+  const results = useMemo(
+    () => searchAssets(assets, { query, category }).slice(0, 240),
+    [assets, query, category],
+  );
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-6"
+      onMouseDown={onClose}
+    >
+      <div
+        className="flex h-[80vh] w-[min(880px,92vw)] flex-col overflow-hidden rounded-2xl border border-border bg-surface shadow-xl"
+        onMouseDown={(e) => e.stopPropagation()}
+        data-testid="figure-icon-picker"
+      >
+        <div className="flex items-center gap-2 border-b border-border p-3">
+          <Icon name="search" className="h-4 w-4 text-foreground-faint" />
+          <input
+            autoFocus
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Search the open-asset library (PhyloPic, BioIcons, ...)"
+            className="flex-1 bg-transparent text-body outline-none placeholder:text-foreground-faint"
+          />
+          <button type="button" onClick={onClose} className="text-foreground-faint hover:text-foreground">
+            <Icon name="close" className="h-4 w-4" />
+          </button>
+        </div>
+
+        <div className="flex flex-wrap gap-1.5 border-b border-border p-2">
+          <button
+            type="button"
+            onClick={() => setCategory(null)}
+            className={`rounded-full px-2.5 py-1 text-meta ${category === null ? "bg-brand-action text-white" : "border border-border text-foreground-muted"}`}
+          >
+            All
+          </button>
+          {categories.slice(0, 14).map((c) => (
+            <button
+              key={c}
+              type="button"
+              onClick={() => setCategory(c)}
+              className={`rounded-full px-2.5 py-1 text-meta ${category === c ? "bg-brand-action text-white" : "border border-border text-foreground-muted"}`}
+            >
+              {c}
+            </button>
+          ))}
+        </div>
+
+        <div className="flex-1 overflow-auto p-3">
+          {loading ? (
+            <p className="p-6 text-center text-body text-foreground-muted">Loading the asset library...</p>
+          ) : assets.length === 0 ? (
+            <p className="p-6 text-center text-body text-foreground-muted">
+              No assets available. The library may not be deployed yet.
+            </p>
+          ) : (
+            <div className="grid grid-cols-[repeat(auto-fill,minmax(96px,1fr))] gap-2">
+              {results.map((a) => (
+                <button
+                  key={a.uid}
+                  type="button"
+                  onClick={() => onPick(a)}
+                  title={`${a.title}${a.requiresAttribution ? ` (${a.license}, cited)` : ` (${a.license})`}`}
+                  className="group flex aspect-square flex-col items-center justify-center rounded-lg border border-border bg-surface-sunken p-2 hover:border-brand-action"
+                  data-testid="figure-icon-option"
+                >
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={assetSvgUrl(a)}
+                    alt={a.title}
+                    loading="lazy"
+                    className="h-full w-full object-contain"
+                  />
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+
+        <div className="border-t border-border p-2 text-center text-meta text-foreground-faint">
+          {loading ? "" : `${results.length} shown of ${assets.length} open-licensed assets. Credits are added automatically.`}
+        </div>
+      </div>
+    </div>
+  );
 }
