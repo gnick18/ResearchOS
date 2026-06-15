@@ -55,6 +55,19 @@ horizontal divider). Settings lane is waiting on this. Until extracted, the
 history-panel masked-gradient approach (`.ros-history-panel` + topglow/botglow)
 is the column-edge reference.
 
+## DARK MODE IS HALF THE WORK (learned 2026-06-14)
+Every surface must be checked in BOTH modes. The recurring dark-mode traps:
+- **Black shadows are invisible on the dark room.** Any depth (card shadow, seam,
+  glow, drop shadow, button lift) needs a dark recolor to a soft bluish-white
+  (`rgba(190,205,235,a)` for edges/rings, `rgba(120,150,210,a)` for the big soft
+  drop). Never leave a `rgba(0,0,0,...)` or `rgba(15,23,42,...)` shadow as the
+  dark value.
+- **Hardcoded light colors** leak into dark: `bg-stone-50`/`bg-white`/`bg-amber-50`
+  need a `dark:` variant; `text-*-700` needs `dark:text-*-300`; `prose-gray` needs
+  `dark:prose-invert`. Grep each file for raw color utilities without a `dark:`.
+- Tailwind `dark:` is wired to `[data-theme="dark"]` (globals.css @custom-variant),
+  so `dark:` utilities work on the calm surface.
+
 ## Per-page checklist
 For each page/surface, ask:
 - [ ] Substantial scroll region? → ScrollArea
