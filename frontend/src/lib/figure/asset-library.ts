@@ -80,7 +80,11 @@ let manifestPromise: Promise<LibraryAsset[]> | null = null;
 /** Fetch one manifest file from the CDN. Returns [] on any failure (missing file ok). */
 async function fetchManifestFile(name: string): Promise<LibraryAsset[]> {
   try {
-    const res = await fetch(`${ASSET_BASE_URL}/${name}`, { cache: "force-cache" });
+    // "default" (revalidate per the CDN's Cache-Control), NOT force-cache: the
+    // manifest GROWS (re-ingests + community contributions), and surfaces like the
+    // landing show a live asset count, so a once-cached-forever response would go
+    // permanently stale. Per-asset SVGs stay force-cached (immutable by id).
+    const res = await fetch(`${ASSET_BASE_URL}/${name}`, { cache: "default" });
     if (!res.ok) return [];
     const data = (await res.json()) as LibraryAsset[];
     return Array.isArray(data) ? data : [];
