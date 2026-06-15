@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 
 import MarketingNav from "@/components/MarketingNav";
@@ -12,6 +12,7 @@ import {
   looksLikeSvg,
   ALLOWED_CONTRIBUTION_LICENSES,
 } from "@/lib/library/asset-validate";
+import { useLibraryActor, normalizeHandle } from "./use-library-actor";
 
 /**
  * The community contribution wizard (Part 3a). Drag in one or many SVGs, set the
@@ -56,9 +57,15 @@ type SubmitState =
   | { kind: "error"; message: string };
 
 export default function ContributeWizard() {
+  const actor = useLibraryActor();
   const [items, setItems] = useState<StagedItem[]>([]);
   const [selected, setSelected] = useState<Set<string>>(new Set());
+  // The contributor identity is the same persisted @handle used to review, so a
+  // contribution and its later peer-review are attributed to one consistent actor.
   const [submittedBy, setSubmittedBy] = useState("");
+  useEffect(() => {
+    if (actor.handle) setSubmittedBy(actor.handle);
+  }, [actor.handle]);
   const [bulk, setBulk] = useState({ license: "", creator: "", category: "", tags: "" });
   const [submit, setSubmit] = useState<SubmitState>({ kind: "idle" });
   const [dragOver, setDragOver] = useState(false);
@@ -152,12 +159,14 @@ export default function ContributeWizard() {
 
   const doSubmit = async () => {
     setSubmit({ kind: "submitting" });
+    const me = normalizeHandle(submittedBy);
+    if (me) actor.setHandle(me); // persist so the same handle reviews later
     try {
       const res = await fetch("/api/library/submit", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          submittedBy: submittedBy.trim() || null,
+          submittedBy: me || null,
           items: items.map((it) => ({
             svg: it.svg,
             title: it.title.trim(),
@@ -423,13 +432,19 @@ export default function ContributeWizard() {
                   {/* Submitter + submit */}
                   <div className="mt-6 flex flex-col gap-3 rounded-xl border border-border bg-surface-raised/70 p-4 sm:flex-row sm:items-center sm:justify-between">
                     <div className="flex-1">
-                      <label className="text-meta font-semibold">Your name or @handle</label>
+                      <label className="text-meta font-semibold">Your @handle</label>
                       <input
                         value={submittedBy}
                         onChange={(e) => setSubmittedBy(e.target.value)}
+                        onBlur={() => submittedBy.trim() && actor.setHandle(submittedBy)}
                         placeholder="So others can credit and verify your contribution"
                         className="mt-1 w-full rounded-lg border border-border-strong bg-surface px-2 py-1.5 text-meta sm:max-w-xs"
                       />
+                      <p className="mt-1 text-[11px] text-foreground-faint">
+                        Used to credit you and to enforce independent review (you
+                        cannot verify your own submission). The same handle is used
+                        when you review.
+                      </p>
                     </div>
                     <div className="text-right">
                       <p className="mb-2 text-meta text-foreground-muted">

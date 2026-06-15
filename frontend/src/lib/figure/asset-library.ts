@@ -64,6 +64,36 @@ export interface LibraryAsset {
   verification?: AssetVerification;
 }
 
+/**
+ * Removal record for a community asset a reviewer rejected. Mirrors the Trash
+ * 30-day pattern: the asset leaves the live community manifest and lands in a
+ * separate community-removed.json, retained REMOVAL_RETENTION_DAYS so any signed
+ * -in user can revert it. After the window a GC pass purges the SVG + record.
+ * The reviewer's handle and written reason are kept the whole time (audit trail).
+ */
+export interface AssetRemoval {
+  /** ISO timestamp of the rejection. */
+  removedAt: string;
+  /** @handle of the reviewer who rejected it (the accountable actor). */
+  removedBy: string;
+  /** The required written reason for the rejection. */
+  reason: string;
+  /** removedAt + REMOVAL_RETENTION_DAYS; when the GC pass purges it for good. */
+  autoExpiresAt: string;
+}
+
+/** A community asset currently inside the 30-day removal window. */
+export type RemovedAsset = LibraryAsset & { removal: AssetRemoval };
+
+/** How long a rejected community asset is retained + revertible before GC. */
+export const REMOVAL_RETENTION_DAYS = 30;
+
+/** Whole days left before a removed asset is permanently purged (0 = expired). */
+export function removalDaysLeft(removal: AssetRemoval, now: number = Date.now()): number {
+  const ms = Date.parse(removal.autoExpiresAt) - now;
+  return Math.max(0, Math.ceil(ms / (24 * 60 * 60 * 1000)));
+}
+
 /** The verification status of an asset, defaulting the curated seed to "curated". */
 export function verificationStatus(asset: LibraryAsset): AssetVerification["status"] {
   return asset.verification?.status ?? "curated";
