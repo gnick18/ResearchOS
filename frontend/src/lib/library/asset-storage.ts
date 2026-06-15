@@ -12,14 +12,18 @@
 // built lazily so importing this during a build / tsc pass needs no credentials.
 
 import {
+  DeleteObjectCommand,
   GetObjectCommand,
   PutObjectCommand,
   S3Client,
 } from "@aws-sdk/client-s3";
 
-import type { LibraryAsset } from "@/lib/figure/asset-library";
+import type { LibraryAsset, RemovedAsset } from "@/lib/figure/asset-library";
 
 const COMMUNITY_MANIFEST_KEY = "community-manifest.json";
+// Rejected community assets move here for the retention window (see asset-library
+// REMOVAL_RETENTION_DAYS). Kept separate so the live manifest read path is clean.
+const COMMUNITY_REMOVED_KEY = "community-removed.json";
 
 let s3Singleton: S3Client | null = null;
 
@@ -93,4 +97,72 @@ export async function writeCommunityManifest(list: LibraryAsset[]): Promise<void
       CacheControl: "public, max-age=60",
     }),
   );
+}
+
+/** Read the removed (rejected, in-retention) manifest. [] when absent. */
+export async function readRemovedManifest(): Promise<RemovedAsset[]> {
+  try {
+    const out = await getS3().send(
+      new GetObjectCommand({ Bucket: getBucket(), Key: COMMUNITY_REMOVED_KEY }),
+    );
+    const text = await out.Body?.transformToString();
+    if (!text) return [];
+    const data = JSON.parse(text) as RemovedAsset[];
+    return Array.isArray(data) ? data : [];
+  } catch (err) {
+    const name = (err as { name?: string } | null)?.name;
+    const status = (err as { $metadata?: { httpStatusCode?: number } } | null)?.$metadata
+      ?.httpStatusCode;
+    if (name === "NoSuchKey" || name === "NotFound" || status === 404) return [];
+    throw err;
+  }
+}
+
+/** Overwrite the removed manifest. */
+export async function writeRemovedManifest(list: RemovedAsset[]): Promise<void> {
+  await getS3().send(
+    new PutObjectCommand({
+      Bucket: getBucket(),
+      Key: COMMUNITY_REMOVED_KEY,
+      Body: JSON.stringify(list, null, 2),
+      ContentType: "application/json",
+      CacheControl: "public, max-age=60",
+    }),
+  );
+}
+
+/** Hard-delete one asset SVG (used by the GC pass on expired removals). */
+export async function deleteAssetSvg(svgPath: string): Promise<void> {
+  await getS3().send(
+    new DeleteObjectCommand({ Bucket: getBucket(), Key: svgPath }),
+  );
+}
+
+/**
+ * GC pass: drop removed assets whose retention window has elapsed, hard-deleting
+ * their SVGs. Best-effort per-SVG (a failed delete just orphans one file, which a
+ * later pass or manual sweep can reap); the manifest is only rewritten when at
+ * least one entry expired. Returns how many were purged. Lazily callable from the
+ * read/revert endpoints so no cron is required.
+ */
+export async function purgeExpiredRemovals(
+  now: number = Date.now(),
+): Promise<{ purged: number }> {
+  const removed = await readRemovedManifest();
+  const survivors: RemovedAsset[] = [];
+  const expired: RemovedAsset[] = [];
+  for (const a of removed) {
+    if (Date.parse(a.removal.autoExpiresAt) <= now) expired.push(a);
+    else survivors.push(a);
+  }
+  if (expired.length === 0) return { purged: 0 };
+  for (const a of expired) {
+    try {
+      await deleteAssetSvg(a.svgPath);
+    } catch {
+      /* best-effort GC: leave the orphaned SVG for a later sweep */
+    }
+  }
+  await writeRemovedManifest(survivors);
+  return { purged: expired.length };
 }
