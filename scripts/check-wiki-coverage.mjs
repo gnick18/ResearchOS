@@ -46,6 +46,7 @@ const EXCLUDED_PREFIXES = [
   "/showcase", // hidden, unlinked BeakerBot showcase Easter egg (URL / brand-mark unlock only, never in nav); not a documented feature
   "/sequences", // pending wiki page (sequence editor Phase 4)
   "/open-source", // "Built on open source" credits + attribution page (legal/informational, no AppShell, not a documented app feature; like /welcome)
+  "/library", // public open-asset / icon library landing + subpages (browse, contribute, review); marketing/informational with its own MarketingNav + footer, no AppShell. Now a More-overflow nav entry, so the coverage check sees it; a dedicated wiki page is a pending follow-up (like /sequences, /phylo). Prefix-matches /library/contribute + /library/review.
   "/thanks", // "Sponsors and thanks": GitHub Sponsors tiers + open-source thank-you (marketing/brand page, no AppShell, not a documented app feature; like /open-source). Indexed on purpose, no robots noindex
   "/sponsors", // redirect-only alias → /thanks (client-side router.replace stub, like /pcr)
   "/transparency", // "Transparency of tests": bioinformatic-tool comparisons vs Biopython/primer3, build-time computed + vitest-gated (trust/informational, no AppShell, not a documented app feature; like /open-source)
