@@ -16,8 +16,9 @@
 
 import { phyloApi } from "@/lib/phylo/api";
 import { dataHubApi } from "@/lib/datahub/api";
-import { parseTree } from "@/lib/phylo/parse";
+import { parseTree, leaves } from "@/lib/phylo/parse";
 import { mergeTableColumnsIntoMetadata } from "@/lib/phylo/smart-binding";
+import { projectTracksToPanels } from "@/lib/phylo/panels";
 import { makePanel } from "@/components/phylo/PhyloLayers";
 import { requestNavigation } from "@/components/ai/navigation-bridge";
 import type { AlignedPanel, PhyloFigureSpec } from "@/lib/phylo/types";
@@ -83,17 +84,36 @@ export async function applyOverlayCommit(
     if (name) newPanels.push(makePanel(s.geom, [name]));
   }
 
-  // Splice the new panels just inside any labels layer (labels stay outermost),
-  // mirroring the GUI. Build a valid minimal figure when the tree has none yet.
-  const existingPanels: AlignedPanel[] = meta.figure?.panels ?? [];
-  const labelIdx = existingPanels.findIndex((p) => p.kind === "labels");
+  // The panels to splice into. When the tree has a saved figure, use its panels.
+  // When it has NONE yet (never opened in the Studio), seed the SAME baseline
+  // stack PhyloStudio.defaultPanels uses (labels + default decorations) FIRST, so
+  // the result is a normal labeled tree plus the overlays, not bare overlays on an
+  // unlabeled tree (phylo lane recipe, 2026-06-14). The tree topology itself is
+  // always drawn by renderTreeSvg independent of panels.
+  const basePanels: AlignedPanel[] =
+    meta.figure?.panels ??
+    projectTracksToPanels({
+      tracks: {
+        labels: leaves(tree).length <= 100,
+        labelsItalic: true,
+        points: true,
+        strip: true,
+        bars: false,
+        heat: false,
+        clade: false,
+        support: false,
+      },
+    });
+
+  // Splice the new panels just inside any labels layer (labels stay outermost).
+  const labelIdx = basePanels.findIndex((p) => p.kind === "labels");
   const panels =
     labelIdx === -1
-      ? [...existingPanels, ...newPanels]
+      ? [...basePanels, ...newPanels]
       : [
-          ...existingPanels.slice(0, labelIdx),
+          ...basePanels.slice(0, labelIdx),
           ...newPanels,
-          ...existingPanels.slice(labelIdx),
+          ...basePanels.slice(labelIdx),
         ];
 
   const figure: PhyloFigureSpec = meta.figure
