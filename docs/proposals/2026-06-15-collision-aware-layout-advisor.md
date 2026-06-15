@@ -65,13 +65,13 @@ A 2026-06-15 grep of the phylo render/spec shows which of the example fixes are 
 - **Relocate / size the legend** — MISSING: legend columnization is automatic, no manual control.
 
 ### Build phases (revised by the inventory)
-1. **Add the missing settable toggles** so the wand has something to move: per-figure panel gap, rectangular label tilt, manual legend placement/width. (Each is a small additive figure-spec field + render honoring it + a control — the Wave-1/Phase-4 additive pattern.)
-2. **Geometry source** (DECISION PENDING, Grant): recommend emitting a layout manifest (element bboxes the renderer already computes) alongside the SVG — exact, single source of truth — over SVG-parsing (fragile) or recomputation (drift).
-3. **Deterministic engine** (pure module over the manifest): overlap detect -> fix enumeration as `SettingDelta[]` against the real toggles -> preview-render inputs. Unit-tested with fixtures (Phase 4 discipline).
-4. **UI:** the magic-wand one-click (reversible) + the per-fix preview menu + the per-plot silence; quiet banner -> BeakerBot popup gating.
+1. **Add the missing settable toggles** — DONE 2026-06-15: column spacing (`columnGap`, `29e59981c`), rectangular label tilt (`5de3ffd36`), legend right|bottom placement (`c6d1605a8`). Every wand lever now exists, so `suggestFixes` marks all fixes `available`.
+2. **Geometry source** — DONE (`785dd2fc3`): `render.ts` emits a `LayoutManifest` (exact bboxes) via an optional out-param + `renderTreeWithManifest`. Single source of truth, rectangular v1.
+3. **Deterministic engine** — DONE (`785dd2fc3`): `layout-collision.ts` `detectCollisions` + `suggestFixes`, unit-tested incl. a real-render integration test.
+4. **UI (NEXT):** the magic-wand one-click (reversible) + the per-fix preview menu + the per-plot silence; quiet banner -> BeakerBot popup gating. The engine + toggles it drives are all in place.
 5. **Generalize** to the shared `FigureSource` seam (Data Hub plots + Figure Composer).
 
-Phylo first throughout. Phase 1 (the missing toggles) is independent of the geometry-source decision and could start anytime; phases 3-4 wait on the geometry-source call.
+Phylo first throughout. Phases 1-3 shipped; phase 4 (the wand/menu UI wiring `suggestFixes` -> the now-available toggles) is the next piece. Browser-verify the 3 new toggles on a real crowded figure before/with the wand UI.
 
 ## Related
 `[[project_phylo_phase4_smart_binding]]` (the trigger), `task_b849ab45` (interaction-collision instance), `[[project_figure_composer_styling]]` + `[[project_datahub_v2_stats]]` (the other data pages this must reach), `[[feedback_beakerbot_no_interpretation]]`, `[[feedback_no_soft_locks]]`.
