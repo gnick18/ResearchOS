@@ -30,6 +30,8 @@ import {
   makeTextAnnotation,
   makeArrowAnnotation,
   makeBracketAnnotation,
+  type TextVariant,
+  TEXT_VARIANT_PT,
   setPanelStyle,
   setPanelTarget,
   pageAssets,
@@ -38,7 +40,37 @@ import {
   removePlacedAsset,
   updatePlacedAsset,
   figureCredits,
+  type Connector,
+  type ConnectorEnd,
+  type ConnectorShape,
+  pageConnectors,
+  makeConnector,
+  addConnector,
+  removeConnector,
+  updateConnector,
+  pruneConnectors,
 } from "@/lib/figure/figure-page";
+import { elementAnchors, nearestSide, type Point } from "@/lib/figure/figure-connectors";
+import {
+  type ElementRef,
+  type Box,
+  type SnapGuide,
+  type AlignEdge,
+  sameRef,
+  elementBox,
+  unionBox,
+  alignElements,
+  distributeElements,
+  computeSnap,
+  translateElement,
+  elementsInRect,
+  elementAtPoint,
+  listElements,
+  bringToFront,
+  sendToBack,
+  bringForward,
+  sendBackward,
+} from "@/lib/figure/figure-arrange";
 import {
   getFigureSource,
   listFigureSources,
@@ -54,7 +86,9 @@ import {
 import {
   composeFigurePageSvg,
   annotationLayerSvg,
-  tintSvg,
+  connectorLayerSvg,
+  recolorPlacedAsset,
+  extractFills,
 } from "@/lib/figure/figure-compose";
 import {
   ASSET_LIBRARY_ENABLED,
@@ -71,6 +105,19 @@ import ZoomPanCanvas from "@/components/figure/ZoomPanCanvas";
 
 const SCREEN_DPI = 96;
 
+/** Compact button used in the contextual arrange bar (align / distribute / order). */
+const ARRANGE_BTN =
+  "rounded border border-border-strong px-2 py-0.5 font-medium text-foreground hover:border-brand-action disabled:cursor-not-allowed disabled:opacity-40";
+
+/** Coerce a fill value to a #rrggbb hex for an <input type="color"> (fallback grey). */
+function toHex6(c: string): string {
+  const v = c.trim();
+  const m3 = /^#([0-9a-f])([0-9a-f])([0-9a-f])$/i.exec(v);
+  if (m3) return `#${m3[1]}${m3[1]}${m3[2]}${m3[2]}${m3[3]}${m3[3]}`;
+  if (/^#[0-9a-f]{6}$/i.test(v)) return v.toLowerCase();
+  return "#888888";
+}
+
 /** A signature of what affects a panel's RENDER (ref + size + title, not position). */
 function renderSignature(page: FigurePage): string {
   return page.panels
@@ -84,24 +131,61 @@ function renderSignature(page: FigurePage): string {
 export default function FigureComposer({ pageId }: { pageId: string }) {
   const [page, setPage] = useState<FigurePage | null>(null);
   const [panelSvgs, setPanelSvgs] = useState<Map<string, string>>(new Map());
-  const [selected, setSelected] = useState<string | null>(null);
+  // Unified multi-selection (the Phase 1 diagram-tool model). The per-kind single
+  // selections below are DERIVED from it, so the existing inspector + drag code is
+  // unchanged; the align bar + group drag operate on the full `selection`.
+  const [selection, setSelection] = useState<ElementRef[]>([]);
+  const single = selection.length === 1 ? selection[0] : null;
+  const selected = single?.kind === "panel" ? single.id : null;
+  const selectedAsset = single?.kind === "asset" ? single.id : null;
+  const selectedAnn = single?.kind === "annotation" ? single.id : null;
+  const isSelectedRef = (ref: ElementRef) => selection.some((r) => sameRef(r, ref));
+  const selectRef = (ref: ElementRef, additive: boolean) =>
+    setSelection((prev) =>
+      additive
+        ? prev.some((r) => sameRef(r, ref))
+          ? prev.filter((r) => !sameRef(r, ref))
+          : [...prev, ref]
+        : [ref],
+    );
+  const clearSel = () => {
+    setSelection([]);
+    setSelectedConn(null);
+  };
   const [undo, setUndo] = useState<FigurePage[]>([]);
   const [pickerOpen, setPickerOpen] = useState(false);
   const [loadState, setLoadState] = useState<"loading" | "ready" | "missing">("loading");
-  const [tool, setTool] = useState<null | "text" | "arrow" | "bracket">(null);
-  const [selectedAnn, setSelectedAnn] = useState<string | null>(null);
+  const [tool, setTool] = useState<null | "text" | "arrow" | "bracket" | "connect">(null);
+  // Smart-connector state (Phase 2). selectedConn is kept separate from the element
+  // selection (connectors are not panels/icons/annotations). connDraw holds an
+  // in-progress connector while dragging from an anchor node; connCursor is the
+  // live cursor in inches for the rubber line.
+  const [selectedConn, setSelectedConn] = useState<string | null>(null);
+  const connDraw = useRef<null | { from: ConnectorEnd; startIn: Point }>(null);
+  const [connCursor, setConnCursor] = useState<Point | null>(null);
+  // Icon recolor mode: whole-icon single tint, or per-fill (multi-part) recolor.
+  const [recolorMode, setRecolorMode] = useState<"whole" | "part">("whole");
+  // Which typed-text style the Text tool places (Heading / Label / Body).
+  const [textVariant, setTextVariant] = useState<TextVariant>("label");
+  // Marquee drag-select rectangle (inches), live while dragging on empty canvas.
+  const [marquee, setMarquee] = useState<Box | null>(null);
+  const marqueeRef = useRef<null | { sx: number; sy: number; box?: Box }>(null);
+  // Smart-guide alignment lines (inches) shown while dragging an element.
+  const [guides, setGuides] = useState<SnapGuide[]>([]);
   const [styleTargets, setStyleTargets] = useState<StyleTarget[]>([]);
   const [defaultSaved, setDefaultSaved] = useState(false);
   // Placed-asset (icon library) state, gated behind ASSET_LIBRARY_ENABLED.
   const [assetSvgs, setAssetSvgs] = useState<Map<string, string>>(new Map());
   const [iconPickerOpen, setIconPickerOpen] = useState(false);
-  const [selectedAsset, setSelectedAsset] = useState<string | null>(null);
   const assetDrag = useRef<
     | null
     | { id: string; resize: boolean; sx: number; sy: number; ox: number; oy: number; ow: number; oh: number }
   >(null);
   const stageRef = useRef<HTMLDivElement>(null);
   const annDrag = useRef<null | { id: string; sx: number; sy: number }>(null);
+  // Group drag: move every selected element together from a snapshot of the page
+  // at press time (so deltas stay absolute and snapping has a stable base).
+  const groupDrag = useRef<null | { base: FigurePage; refs: ElementRef[]; sx: number; sy: number }>(null);
   const router = useRouter();
 
   useEffect(() => {
@@ -258,10 +342,30 @@ export default function FigureComposer({ pageId }: { pageId: string }) {
     | { id: string; resize: boolean; sx: number; sy: number; ox: number; oy: number; ow: number; oh: number }
   >(null);
 
+  // Select on press: shift toggles into the multi-selection; a plain click on an
+  // element already in a multi-selection KEEPS the group (so it can be dragged
+  // together), otherwise it selects only that element.
+  const pressSelect = (ref: ElementRef, e: React.MouseEvent) => {
+    setSelectedConn(null);
+    if (e.shiftKey) selectRef(ref, true);
+    else if (!isSelectedRef(ref)) setSelection([ref]);
+  };
+
+  // If a plain (non-resize, non-shift) press lands on an element that is part of a
+  // multi-selection, drag the whole group instead of just that element. Returns
+  // true when it claimed the press.
+  const maybeGroupDrag = (ref: ElementRef, e: React.MouseEvent, resize: boolean): boolean => {
+    if (resize || e.shiftKey || selection.length < 2 || !isSelectedRef(ref) || !page) return false;
+    groupDrag.current = { base: page, refs: selection, sx: e.clientX, sy: e.clientY };
+    return true;
+  };
+
   const onPanelDown = (e: React.MouseEvent, id: string, resize: boolean) => {
     e.preventDefault();
     e.stopPropagation();
-    setSelected(id);
+    const ref: ElementRef = { kind: "panel", id };
+    if (maybeGroupDrag(ref, e, resize)) return;
+    pressSelect(ref, e);
     const p = page?.panels.find((x) => x.panelId === id);
     if (!p) return;
     drag.current = { id, resize, sx: e.clientX, sy: e.clientY, ox: p.xIn, oy: p.yIn, ow: p.wIn, oh: p.hIn };
@@ -270,9 +374,9 @@ export default function FigureComposer({ pageId }: { pageId: string }) {
   const onAssetDown = (e: React.MouseEvent, id: string, resize: boolean) => {
     e.preventDefault();
     e.stopPropagation();
-    setSelected(null);
-    setSelectedAnn(null);
-    setSelectedAsset(id);
+    const ref: ElementRef = { kind: "asset", id };
+    if (maybeGroupDrag(ref, e, resize)) return;
+    pressSelect(ref, e);
     const a = page ? pageAssets(page).find((x) => x.assetId === id) : undefined;
     if (!a) return;
     assetDrag.current = { id, resize, sx: e.clientX, sy: e.clientY, ox: a.xIn, oy: a.yIn, ow: a.wIn, oh: a.hIn };
@@ -283,8 +387,20 @@ export default function FigureComposer({ pageId }: { pageId: string }) {
       const d = drag.current;
       if (!d) return;
       const s = effScale();
-      const dxIn = (e.clientX - d.sx) / s;
-      const dyIn = (e.clientY - d.sy) / s;
+      let dxIn = (e.clientX - d.sx) / s;
+      let dyIn = (e.clientY - d.sy) / s;
+      if (!d.resize && page) {
+        const ps = pageSizeIn(page);
+        const snap = computeSnap(
+          page,
+          { kind: "panel", id: d.id },
+          { xIn: d.ox + dxIn, yIn: d.oy + dyIn, wIn: d.ow, hIn: d.oh },
+          { pageWIn: ps.wIn, pageHIn: ps.hIn },
+        );
+        dxIn += snap.dxIn;
+        dyIn += snap.dyIn;
+        setGuides(snap.guides);
+      }
       mutate((prev) => ({
         ...prev,
         panels: prev.panels.map((p) =>
@@ -298,6 +414,7 @@ export default function FigureComposer({ pageId }: { pageId: string }) {
     };
     const up = () => {
       drag.current = null;
+      setGuides([]);
     };
     window.addEventListener("mousemove", move);
     window.addEventListener("mouseup", up);
@@ -305,7 +422,7 @@ export default function FigureComposer({ pageId }: { pageId: string }) {
       window.removeEventListener("mousemove", move);
       window.removeEventListener("mouseup", up);
     };
-  }, [effScale, mutate]);
+  }, [effScale, mutate, page]);
 
   // Drag / resize a placed asset (mirrors the panel drag).
   useEffect(() => {
@@ -313,8 +430,8 @@ export default function FigureComposer({ pageId }: { pageId: string }) {
       const d = assetDrag.current;
       if (!d) return;
       const s = effScale();
-      const dxIn = (e.clientX - d.sx) / s;
-      const dyIn = (e.clientY - d.sy) / s;
+      let dxIn = (e.clientX - d.sx) / s;
+      let dyIn = (e.clientY - d.sy) / s;
       if (d.resize) {
         mutate((prev) =>
           updatePlacedAsset(prev, d.id, {
@@ -323,6 +440,18 @@ export default function FigureComposer({ pageId }: { pageId: string }) {
           }),
         );
       } else {
+        if (page) {
+          const ps = pageSizeIn(page);
+          const snap = computeSnap(
+            page,
+            { kind: "asset", id: d.id },
+            { xIn: d.ox + dxIn, yIn: d.oy + dyIn, wIn: d.ow, hIn: d.oh },
+            { pageWIn: ps.wIn, pageHIn: ps.hIn },
+          );
+          dxIn += snap.dxIn;
+          dyIn += snap.dyIn;
+          setGuides(snap.guides);
+        }
         mutate((prev) =>
           updatePlacedAsset(prev, d.id, {
             xIn: Math.max(0, d.ox + dxIn),
@@ -333,6 +462,7 @@ export default function FigureComposer({ pageId }: { pageId: string }) {
     };
     const up = () => {
       assetDrag.current = null;
+      setGuides([]);
     };
     window.addEventListener("mousemove", move);
     window.addEventListener("mouseup", up);
@@ -340,7 +470,7 @@ export default function FigureComposer({ pageId }: { pageId: string }) {
       window.removeEventListener("mousemove", move);
       window.removeEventListener("mouseup", up);
     };
-  }, [effScale, mutate]);
+  }, [effScale, mutate, page]);
 
   // Drag a selected annotation (translates all of its anchor points).
   useEffect(() => {
@@ -364,6 +494,137 @@ export default function FigureComposer({ pageId }: { pageId: string }) {
       window.removeEventListener("mouseup", up);
     };
   }, [effScale, mutate]);
+
+  // Group drag: move the whole multi-selection together, rebuilt each move from
+  // the press-time snapshot so the delta stays absolute, with snapping on the
+  // union box (excluding the moving group).
+  useEffect(() => {
+    const move = (e: MouseEvent) => {
+      const g = groupDrag.current;
+      if (!g) return;
+      const s = effScale();
+      let dxIn = (e.clientX - g.sx) / s;
+      let dyIn = (e.clientY - g.sy) / s;
+      const u = unionBox(g.base, g.refs);
+      if (u) {
+        const ps = pageSizeIn(g.base);
+        const snap = computeSnap(
+          g.base,
+          g.refs,
+          { xIn: u.xIn + dxIn, yIn: u.yIn + dyIn, wIn: u.wIn, hIn: u.hIn },
+          { pageWIn: ps.wIn, pageHIn: ps.hIn },
+        );
+        dxIn += snap.dxIn;
+        dyIn += snap.dyIn;
+        setGuides(snap.guides);
+      }
+      mutate(() => {
+        let next = g.base;
+        for (const r of g.refs) next = translateElement(next, r, dxIn, dyIn);
+        return next;
+      });
+    };
+    const up = () => {
+      if (groupDrag.current) {
+        groupDrag.current = null;
+        setGuides([]);
+      }
+    };
+    window.addEventListener("mousemove", move);
+    window.addEventListener("mouseup", up);
+    return () => {
+      window.removeEventListener("mousemove", move);
+      window.removeEventListener("mouseup", up);
+    };
+  }, [effScale, mutate]);
+
+  // Marquee (rubber-band) drag-select on the empty canvas.
+  useEffect(() => {
+    const move = (e: MouseEvent) => {
+      const m = marqueeRef.current;
+      if (!m) return;
+      const rect = stageRef.current?.getBoundingClientRect();
+      if (!rect) return;
+      const s = effScale();
+      const cx = (e.clientX - rect.left) / s;
+      const cy = (e.clientY - rect.top) / s;
+      const box: Box = {
+        xIn: Math.min(m.sx, cx),
+        yIn: Math.min(m.sy, cy),
+        wIn: Math.abs(cx - m.sx),
+        hIn: Math.abs(cy - m.sy),
+      };
+      m.box = box;
+      setMarquee(box);
+    };
+    const up = () => {
+      const m = marqueeRef.current;
+      marqueeRef.current = null;
+      setMarquee(null);
+      if (!m?.box || !page) return;
+      const box = m.box;
+      if (box.wIn <= 0.05 && box.hIn <= 0.05) return;
+      const hits = elementsInRect(page, box);
+      // The start-press cleared the selection unless Shift was held, so merging
+      // into the current selection gives "replace" (plain) or "add" (shift).
+      setSelection((prev) => {
+        const merged = [...prev];
+        for (const h of hits) if (!merged.some((r) => sameRef(r, h))) merged.push(h);
+        return merged;
+      });
+    };
+    window.addEventListener("mousemove", move);
+    window.addEventListener("mouseup", up);
+    return () => {
+      window.removeEventListener("mousemove", move);
+      window.removeEventListener("mouseup", up);
+    };
+  }, [effScale, page]);
+
+  // Smart-connector draw: drag from an anchor node, drop on an element to connect.
+  useEffect(() => {
+    const move = (e: MouseEvent) => {
+      if (!connDraw.current) return;
+      const rect = stageRef.current?.getBoundingClientRect();
+      if (!rect) return;
+      const s = effScale();
+      setConnCursor({ xIn: (e.clientX - rect.left) / s, yIn: (e.clientY - rect.top) / s });
+    };
+    const up = (e: MouseEvent) => {
+      const d = connDraw.current;
+      connDraw.current = null;
+      setConnCursor(null);
+      if (!d || !page) return;
+      const rect = stageRef.current?.getBoundingClientRect();
+      if (!rect) return;
+      const s = effScale();
+      const xIn = (e.clientX - rect.left) / s;
+      const yIn = (e.clientY - rect.top) / s;
+      const target = elementAtPoint(page, xIn, yIn);
+      // Need a target that exists and is not the source element.
+      if (!target || sameRef(target, d.from.ref as ElementRef)) {
+        setTool(null);
+        return;
+      }
+      const tBox = elementBox(page, target);
+      if (!tBox) {
+        setTool(null);
+        return;
+      }
+      const to: ConnectorEnd = { ref: target, side: nearestSide(tBox, d.startIn) };
+      const connId = `cn${page.id}-${Date.now().toString(36)}`;
+      mutate((p) => addConnector(p, makeConnector(connId, d.from, to)), true);
+      setSelection([]);
+      setSelectedConn(connId);
+      setTool(null);
+    };
+    window.addEventListener("mousemove", move);
+    window.addEventListener("mouseup", up);
+    return () => {
+      window.removeEventListener("mousemove", move);
+      window.removeEventListener("mouseup", up);
+    };
+  }, [effScale, mutate, page]);
 
   const exportSvg = useCallback(() => {
     if (!page) return;
@@ -421,31 +682,34 @@ export default function FigureComposer({ pageId }: { pageId: string }) {
   const placeAnnotation = (xIn: number, yIn: number) => {
     if (!tool) return;
     const annId = `a${page.id}-${Date.now().toString(36)}`;
-    const make =
+    const ann =
       tool === "text"
-        ? makeTextAnnotation
+        ? makeTextAnnotation(annId, xIn, yIn, textVariant)
         : tool === "arrow"
-          ? makeArrowAnnotation
-          : makeBracketAnnotation;
-    mutate((p) => addAnnotation(p, make(annId, xIn, yIn)), true);
-    setSelected(null);
-    setSelectedAnn(annId);
+          ? makeArrowAnnotation(annId, xIn, yIn)
+          : makeBracketAnnotation(annId, xIn, yIn);
+    mutate((p) => addAnnotation(p, ann), true);
+    setSelection([{ kind: "annotation", id: annId }]);
     setTool(null);
   };
 
   const onAnnDown = (e: React.MouseEvent, id: string) => {
     e.preventDefault();
     e.stopPropagation();
-    setSelected(null);
-    setSelectedAnn(id);
+    const ref: ElementRef = { kind: "annotation", id };
+    if (maybeGroupDrag(ref, e, false)) return;
+    pressSelect(ref, e);
     annDrag.current = { id, sx: e.clientX, sy: e.clientY };
   };
 
   // Place a picked library asset centered on the page, and load its SVG.
   const placeIcon = (asset: LibraryAsset) => {
     const sizeIn = 1.2;
-    const xIn = Math.max(0, wIn / 2 - sizeIn / 2);
-    const yIn = Math.max(0, hIn / 2 - sizeIn / 2);
+    // Cascade each new icon down-right so consecutive placements do not stack
+    // exactly on top of each other (wrapping before it runs off the page).
+    const step = (pageAssets(page).length % 6) * 0.3;
+    const xIn = Math.max(0, Math.min(wIn - sizeIn, wIn / 2 - sizeIn / 2 + step));
+    const yIn = Math.max(0, Math.min(hIn - sizeIn, hIn / 2 - sizeIn / 2 + step));
     const assetId = `ic${page.id}-${Date.now().toString(36)}`;
     const placed = makePlacedAsset(
       assetId,
@@ -461,9 +725,7 @@ export default function FigureComposer({ pageId }: { pageId: string }) {
       sizeIn,
     );
     mutate((p) => addPlacedAsset(p, placed), true);
-    setSelected(null);
-    setSelectedAnn(null);
-    setSelectedAsset(assetId);
+    setSelection([{ kind: "asset", id: assetId }]);
     setIconPickerOpen(false);
     // Eagerly fetch the SVG so it appears immediately (the effect also covers it).
     void fetchAssetSvg(asset).then((svg) => {
@@ -479,6 +741,13 @@ export default function FigureComposer({ pageId }: { pageId: string }) {
   const selectedAnnotation = selectedAnn
     ? page.annotations.find((a) => a.annId === selectedAnn) ?? null
     : null;
+
+  const selectedConnObj = selectedConn
+    ? pageConnectors(page).find((c) => c.connId === selectedConn) ?? null
+    : null;
+
+  // Asset ids within a multi-selection, for bulk recolor.
+  const selAssetIds = selection.filter((r) => r.kind === "asset").map((r) => r.id);
 
   // A static, non-interactive thumbnail of the page for the ZoomPanCanvas minimap
   // (panels + placed icons, no handlers). Without this the minimap shows just the
@@ -500,7 +769,7 @@ export default function FigureComposer({ pageId }: { pageId: string }) {
       ))}
       {pageAssets(page).map((a) => {
         const raw = assetSvgs.get(a.assetId) ?? "";
-        const display = a.tint && raw ? tintSvg(raw, a.tint) : raw;
+        const display = raw ? recolorPlacedAsset(raw, a) : raw;
         return (
           <div
             key={a.assetId}
@@ -522,6 +791,82 @@ export default function FigureComposer({ pageId }: { pageId: string }) {
   return (
     <div className="flex h-full gap-4 p-4" data-testid="figure-composer">
       <div className="flex min-w-0 flex-1 flex-col overflow-hidden rounded-2xl border border-border bg-surface-sunken">
+        {/* Contextual arrange bar: appears on selection. Align/distribute act on
+            the multi-selection; arrange (z-order) acts on each selected element. */}
+        {selection.length >= 1 && (
+          <div className="flex flex-wrap items-center gap-1.5 border-b border-border bg-surface px-3 py-1.5 text-meta">
+            <span className="font-semibold text-foreground-muted">
+              {selection.length} selected
+            </span>
+            <span className="mx-1 h-4 w-px bg-border" />
+            {(
+              [
+                ["left", "Left"],
+                ["centerX", "Center"],
+                ["right", "Right"],
+                ["top", "Top"],
+                ["centerY", "Middle"],
+                ["bottom", "Bottom"],
+              ] as [AlignEdge, string][]
+            ).map(([edge, label]) => (
+              <button
+                key={edge}
+                type="button"
+                disabled={selection.length < 2}
+                onClick={() => mutate((p) => alignElements(p, selection, edge), true)}
+                className={ARRANGE_BTN}
+              >
+                {label}
+              </button>
+            ))}
+            <span className="mx-1 h-4 w-px bg-border" />
+            <button
+              type="button"
+              disabled={selection.length < 3}
+              onClick={() => mutate((p) => distributeElements(p, selection, "horizontal"), true)}
+              className={ARRANGE_BTN}
+            >
+              Distribute H
+            </button>
+            <button
+              type="button"
+              disabled={selection.length < 3}
+              onClick={() => mutate((p) => distributeElements(p, selection, "vertical"), true)}
+              className={ARRANGE_BTN}
+            >
+              Distribute V
+            </button>
+            <span className="mx-1 h-4 w-px bg-border" />
+            <button
+              type="button"
+              onClick={() => mutate((p) => selection.reduce((a, r) => bringToFront(a, r), p), true)}
+              className={ARRANGE_BTN}
+            >
+              Front
+            </button>
+            <button
+              type="button"
+              onClick={() => mutate((p) => selection.reduce((a, r) => bringForward(a, r), p), true)}
+              className={ARRANGE_BTN}
+            >
+              Forward
+            </button>
+            <button
+              type="button"
+              onClick={() => mutate((p) => selection.reduce((a, r) => sendBackward(a, r), p), true)}
+              className={ARRANGE_BTN}
+            >
+              Backward
+            </button>
+            <button
+              type="button"
+              onClick={() => mutate((p) => selection.reduce((a, r) => sendToBack(a, r), p), true)}
+              className={ARRANGE_BTN}
+            >
+              Back
+            </button>
+          </div>
+        )}
         {/* Shared pan/zoom viewport (same component the Phylo Studio + Data Hub use):
             two-finger pan, pinch / Cmd-wheel zoom-at-cursor, Space-drag, scrollbars,
             minimap. The stage is rendered at its natural fit size; the canvas zooms
@@ -531,14 +876,22 @@ export default function FigureComposer({ pageId }: { pageId: string }) {
           ref={stageRef}
           className="relative bg-white shadow-lg"
           style={{ width: pageW, height: pageH }}
-          onMouseDown={() => {
-            setSelected(null);
-            setSelectedAnn(null);
-            setSelectedAsset(null);
+          onPointerDown={(e) => e.stopPropagation()}
+          onMouseDown={(e) => {
+            // Empty-canvas press starts a marquee (rubber-band) select. A plain
+            // click with no drag finalizes to an empty rect, which deselects.
+            const rect = stageRef.current?.getBoundingClientRect();
+            if (!rect) return;
+            const s = effScale();
+            marqueeRef.current = {
+              sx: (e.clientX - rect.left) / s,
+              sy: (e.clientY - rect.top) / s,
+            };
+            if (!e.shiftKey) clearSel();
           }}
         >
           {page.panels.map((p) => {
-            const sel = selected === p.panelId;
+            const sel = isSelectedRef({ kind: "panel", id: p.panelId });
             const lab = labels.get(p.panelId);
             return (
               <div
@@ -569,7 +922,7 @@ export default function FigureComposer({ pageId }: { pageId: string }) {
                     {lab}
                   </span>
                 )}
-                {sel && (
+                {selection.length === 1 && sel && (
                   <div
                     className="absolute -bottom-1.5 -right-1.5 h-3 w-3 rounded-sm border-2 border-brand-action bg-white"
                     style={{ cursor: "nwse-resize" }}
@@ -587,9 +940,9 @@ export default function FigureComposer({ pageId }: { pageId: string }) {
 
           {/* Placed library assets (icons), draggable + resizable, above panels. */}
           {pageAssets(page).map((a) => {
-            const sel = selectedAsset === a.assetId;
+            const sel = isSelectedRef({ kind: "asset", id: a.assetId });
             const raw = assetSvgs.get(a.assetId) ?? "";
-            const display = a.tint && raw ? tintSvg(raw, a.tint) : raw;
+            const display = raw ? recolorPlacedAsset(raw, a) : raw;
             return (
               <div
                 key={a.assetId}
@@ -610,7 +963,7 @@ export default function FigureComposer({ pageId }: { pageId: string }) {
                   className="pointer-events-none h-full w-full [&>svg]:h-full [&>svg]:w-full"
                   dangerouslySetInnerHTML={{ __html: display }}
                 />
-                {sel && (
+                {selection.length === 1 && sel && (
                   <div
                     className="absolute -bottom-1.5 -right-1.5 h-3 w-3 rounded-sm border-2 border-brand-action bg-white"
                     style={{ cursor: "nwse-resize" }}
@@ -620,6 +973,54 @@ export default function FigureComposer({ pageId }: { pageId: string }) {
               </div>
             );
           })}
+
+          {/* Smart-connector layer. Built as an injected SVG STRING (so the
+              component carries no inline svg element, per house style); paths
+              resolve live from element boxes and reroute on move. A delegated
+              mousedown reads data-conn-id to select a connector. */}
+          <div
+            className="absolute inset-0"
+            style={{ pointerEvents: "none" }}
+            onMouseDown={(e) => {
+              const id = (e.target as Element)
+                .closest?.("[data-conn-id]")
+                ?.getAttribute("data-conn-id");
+              if (!id) return;
+              e.stopPropagation();
+              setSelection([]);
+              setSelectedConn(id);
+            }}
+            dangerouslySetInnerHTML={{
+              __html: connectorLayerSvg(page, scale, {
+                selectedConn,
+                rubber:
+                  connDraw.current && connCursor
+                    ? { from: connDraw.current.startIn, to: connCursor }
+                    : null,
+              }),
+            }}
+          />
+
+          {/* Anchor nodes (Connect tool): drag one to another element to connect. */}
+          {tool === "connect" &&
+            listElements(page).map((ref) => {
+              const b = elementBox(page, ref);
+              if (!b) return null;
+              return elementAnchors(b).map((an) => (
+                <div
+                  key={`${ref.kind}-${ref.id}-${an.side}`}
+                  className="absolute z-30 h-3 w-3 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-white bg-brand-action shadow"
+                  style={{ left: an.point.xIn * scale, top: an.point.yIn * scale, cursor: "crosshair" }}
+                  onPointerDown={(e) => e.stopPropagation()}
+                  onMouseDown={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    connDraw.current = { from: { ref, side: an.side }, startIn: an.point };
+                    setConnCursor(an.point);
+                  }}
+                />
+              ));
+            })}
 
           {/* Annotation layer, painted above the panels (one injected SVG string,
               so the component carries no inline SVG of its own). Click-through. */}
@@ -632,7 +1033,7 @@ export default function FigureComposer({ pageId }: { pageId: string }) {
           {!tool &&
             page.annotations.map((a) => {
               const b = annBox(a, scale);
-              const sel = selectedAnn === a.annId;
+              const sel = isSelectedRef({ kind: "annotation", id: a.annId });
               return (
                 <div
                   key={a.annId}
@@ -652,8 +1053,9 @@ export default function FigureComposer({ pageId }: { pageId: string }) {
               );
             })}
 
-          {/* Placement capture overlay (only while a tool is active). */}
-          {tool && (
+          {/* Placement capture overlay (annotation tools only, NOT connect: the
+              connect tool needs the anchor nodes to receive the press). */}
+          {tool && tool !== "connect" && (
             <div
               className="absolute inset-0 z-10"
               style={{ cursor: "crosshair" }}
@@ -664,6 +1066,36 @@ export default function FigureComposer({ pageId }: { pageId: string }) {
                 if (!rect) return;
                 const s = effScale();
                 placeAnnotation((e.clientX - rect.left) / s, (e.clientY - rect.top) / s);
+              }}
+            />
+          )}
+
+          {/* Smart-guide alignment lines while dragging (drawn full-page). */}
+          {guides.map((g, i) =>
+            g.axis === "x" ? (
+              <div
+                key={`gx${i}`}
+                className="pointer-events-none absolute z-20 bg-brand-action"
+                style={{ left: g.atIn * scale, top: 0, width: 1, height: pageH }}
+              />
+            ) : (
+              <div
+                key={`gy${i}`}
+                className="pointer-events-none absolute z-20 bg-brand-action"
+                style={{ left: 0, top: g.atIn * scale, width: pageW, height: 1 }}
+              />
+            ),
+          )}
+
+          {/* Marquee (rubber-band) selection rectangle. */}
+          {marquee && (
+            <div
+              className="pointer-events-none absolute z-20 border border-brand-action bg-brand-action/10"
+              style={{
+                left: marquee.xIn * scale,
+                top: marquee.yIn * scale,
+                width: marquee.wIn * scale,
+                height: marquee.hIn * scale,
               }}
             />
           )}
@@ -772,12 +1204,147 @@ export default function FigureComposer({ pageId }: { pageId: string }) {
               </button>
             ))}
           </div>
-          {tool && (
+          {/* Typed-text picker: choose the semantic style the Text tool places. */}
+          {tool === "text" && (
+            <div className="mt-2 flex gap-1">
+              {(["heading", "label", "body"] as TextVariant[]).map((v) => (
+                <button
+                  key={v}
+                  type="button"
+                  onClick={() => setTextVariant(v)}
+                  className={`flex-1 rounded border px-1.5 py-1 text-meta capitalize ${textVariant === v ? "border-brand-action bg-brand-action/10 text-brand-action" : "border-border-strong hover:border-brand-action"}`}
+                >
+                  {v}
+                </button>
+              ))}
+            </div>
+          )}
+          {tool && tool !== "connect" && (
             <p className="mt-2 text-meta text-foreground-faint">
-              Click the page to place the {tool}.
+              {tool === "text"
+                ? `Click the page to place a ${textVariant}.`
+                : `Click the page to place the ${tool}.`}
             </p>
           )}
         </div>
+
+        {/* Smart connectors (Phase 2): the connect tool + the selected-connector
+            inspector. The connector itself anchors to elements and reroutes on move. */}
+        <div className="rounded-xl border border-border p-3">
+          <h3 className="mb-2 text-meta font-bold uppercase tracking-wide text-foreground-faint">
+            Connect
+          </h3>
+          <button
+            type="button"
+            onClick={() => setTool(tool === "connect" ? null : "connect")}
+            className={`w-full rounded-lg border px-2 py-1.5 text-meta font-medium ${tool === "connect" ? "border-brand-action bg-brand-action/10 text-brand-action" : "border-border-strong hover:border-brand-action"}`}
+          >
+            {tool === "connect" ? "Connecting (drag node to node)" : "Smart connector"}
+          </button>
+          {tool === "connect" && (
+            <p className="mt-2 text-meta text-foreground-faint">
+              Drag from a blue node on one element onto another element to connect them.
+            </p>
+          )}
+
+          {selectedConnObj && (
+            <div className="mt-3 space-y-2.5 border-t border-border pt-3">
+              <div className="flex gap-1">
+                {(["straight", "elbow", "curve"] as ConnectorShape[]).map((s) => (
+                  <button
+                    key={s}
+                    type="button"
+                    onClick={() => mutate((p) => updateConnector(p, selectedConnObj.connId, { shape: s }), true)}
+                    className={`flex-1 rounded border px-1.5 py-1 text-meta capitalize ${selectedConnObj.shape === s ? "border-brand-action bg-brand-action/10 text-brand-action" : "border-border-strong hover:border-brand-action"}`}
+                  >
+                    {s}
+                  </button>
+                ))}
+              </div>
+              <div className="flex gap-1">
+                {([["None", 0], ["End", 1], ["Both", 2]] as [string, 0 | 1 | 2][]).map(([lbl, h]) => (
+                  <button
+                    key={h}
+                    type="button"
+                    onClick={() => mutate((p) => updateConnector(p, selectedConnObj.connId, { heads: h }), true)}
+                    className={`flex-1 rounded border px-1.5 py-1 text-meta ${selectedConnObj.heads === h ? "border-brand-action bg-brand-action/10 text-brand-action" : "border-border-strong hover:border-brand-action"}`}
+                  >
+                    {lbl}
+                  </button>
+                ))}
+              </div>
+              <div className="flex items-center gap-2">
+                <input
+                  type="color"
+                  value={selectedConnObj.color}
+                  onChange={(e) => mutate((p) => updateConnector(p, selectedConnObj.connId, { color: e.target.value }), true)}
+                  className="h-7 w-9 cursor-pointer rounded border border-border-strong"
+                />
+                <span className="text-meta text-foreground-muted">Weight</span>
+                <input
+                  type="range"
+                  min={0.5}
+                  max={4}
+                  step={0.5}
+                  value={selectedConnObj.weightPt}
+                  onChange={(e) => mutate((p) => updateConnector(p, selectedConnObj.connId, { weightPt: Number(e.target.value) }), true)}
+                  className="flex-1"
+                />
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  mutate((p) => removeConnector(p, selectedConnObj.connId), true);
+                  setSelectedConn(null);
+                }}
+                className="block text-meta font-medium text-pin hover:underline"
+              >
+                Remove connector
+              </button>
+            </div>
+          )}
+        </div>
+
+        {/* Bulk actions on a multi-selection (Phase 3): recolor every selected icon
+            at once, the fastest way to make a figure's icons look coherent. */}
+        {selection.length >= 2 && (
+          <div className="rounded-xl border border-border p-3">
+            <h3 className="mb-2 text-meta font-bold uppercase tracking-wide text-foreground-faint">
+              {selection.length} selected
+            </h3>
+            {selAssetIds.length > 0 ? (
+              <div className="flex flex-wrap items-center gap-1.5">
+                <span className="text-meta text-foreground-muted">
+                  Recolor {selAssetIds.length} icon{selAssetIds.length === 1 ? "" : "s"}
+                </span>
+                {["", "#2563eb", "#16a34a", "#dc2626", "#b9770f", "#6d28d9", "#0f172a"].map((c) => (
+                  <button
+                    key={c || "none"}
+                    type="button"
+                    aria-label={c ? `Recolor all to ${c}` : "Reset all to original"}
+                    onClick={() =>
+                      mutate((p) => {
+                        let np = p;
+                        for (const id of selAssetIds)
+                          np = updatePlacedAsset(np, id, { tint: c || undefined, fillTints: undefined });
+                        return np;
+                      }, true)
+                    }
+                    className="h-5 w-5 rounded border border-border"
+                    style={c ? { background: c } : undefined}
+                    title={c ? c : "Original colors"}
+                  >
+                    {c ? "" : <Icon name="close" className="h-3 w-3 text-foreground-muted" />}
+                  </button>
+                ))}
+              </div>
+            ) : (
+              <p className="text-meta text-foreground-faint">
+                Use the bar above the canvas to align, distribute, or reorder.
+              </p>
+            )}
+          </div>
+        )}
 
         {selected &&
           (() => {
@@ -956,8 +1523,8 @@ export default function FigureComposer({ pageId }: { pageId: string }) {
                 <button
                   type="button"
                   onClick={() => {
-                    mutate((p) => removePanel(p, selected), true);
-                    setSelected(null);
+                    mutate((p) => pruneConnectors(removePanel(p, selected)), true);
+                    clearSel();
                   }}
                   className="block text-meta font-medium text-pin hover:underline"
                 >
@@ -973,15 +1540,36 @@ export default function FigureComposer({ pageId }: { pageId: string }) {
               Annotation
             </h3>
             {selectedAnnotation.kind === "text" && (
-              <input
-                type="text"
-                value={selectedAnnotation.text}
-                onChange={(e) =>
-                  mutate((p) => updateAnnotation(p, selectedAnnotation.annId, { text: e.target.value }))
-                }
-                placeholder="Text"
-                className="w-full rounded-md border border-border bg-surface px-2 py-1 text-meta"
-              />
+              <>
+                <input
+                  type="text"
+                  value={selectedAnnotation.text}
+                  onChange={(e) =>
+                    mutate((p) => updateAnnotation(p, selectedAnnotation.annId, { text: e.target.value }))
+                  }
+                  placeholder="Text"
+                  className="w-full rounded-md border border-border bg-surface px-2 py-1 text-meta"
+                />
+                <div className="flex gap-1">
+                  {(["heading", "label", "body"] as TextVariant[]).map((v) => (
+                    <button
+                      key={v}
+                      type="button"
+                      onClick={() =>
+                        mutate((p) =>
+                          updateAnnotation(p, selectedAnnotation.annId, {
+                            variant: v,
+                            fontPt: TEXT_VARIANT_PT[v],
+                          }),
+                        )
+                      }
+                      className={`flex-1 rounded border px-1.5 py-1 text-meta capitalize ${(selectedAnnotation.variant ?? "label") === v ? "border-brand-action bg-brand-action/10 text-brand-action" : "border-border-strong hover:border-brand-action"}`}
+                    >
+                      {v}
+                    </button>
+                  ))}
+                </div>
+              </>
             )}
             {selectedAnnotation.kind === "arrow" && (
               <div className="flex items-center justify-between text-body">
@@ -1044,8 +1632,8 @@ export default function FigureComposer({ pageId }: { pageId: string }) {
             <button
               type="button"
               onClick={() => {
-                mutate((p) => removeAnnotation(p, selectedAnnotation.annId), true);
-                setSelectedAnn(null);
+                mutate((p) => pruneConnectors(removeAnnotation(p, selectedAnnotation.annId)), true);
+                clearSel();
               }}
               className="block text-meta font-medium text-pin hover:underline"
             >
@@ -1060,29 +1648,98 @@ export default function FigureComposer({ pageId }: { pageId: string }) {
             <h3 className="mb-2 text-meta font-bold uppercase tracking-wide text-foreground-faint">
               Selected icon
             </h3>
-            <div className="flex items-center gap-2">
-              <span className="text-meta text-foreground-muted">Tint</span>
-              {["", "#2563eb", "#16a34a", "#dc2626", "#b9770f", "#6d28d9", "#0f172a"].map((c) => {
-                const active = (selectedAssetObj.tint ?? "") === c;
-                return (
-                  <button
-                    key={c || "none"}
-                    type="button"
-                    aria-label={c ? `Tint ${c}` : "Original colors"}
-                    onClick={() =>
-                      mutate((p) =>
-                        updatePlacedAsset(p, selectedAssetObj.assetId, { tint: c || undefined }),
-                      )
-                    }
-                    className={`h-5 w-5 rounded border ${active ? "ring-2 ring-brand-action" : "border-border"}`}
-                    style={c ? { background: c } : undefined}
-                    title={c ? c : "Original colors"}
-                  >
-                    {c ? "" : <Icon name="close" className="h-3 w-3 text-foreground-muted" />}
-                  </button>
-                );
-              })}
+            {/* Recolor: whole-icon single tint, or per-fill (multi-part) recolor. */}
+            <div className="mb-2 flex overflow-hidden rounded-lg border border-border-strong text-meta">
+              {(["whole", "part"] as const).map((m) => (
+                <button
+                  key={m}
+                  type="button"
+                  onClick={() => setRecolorMode(m)}
+                  className={`flex-1 px-2 py-1 font-medium ${recolorMode === m ? "bg-brand-action/10 text-brand-action" : "text-foreground-muted hover:bg-surface-sunken"}`}
+                >
+                  {m === "whole" ? "Whole icon" : "By part"}
+                </button>
+              ))}
             </div>
+
+            {recolorMode === "whole" ? (
+              <div className="flex flex-wrap items-center gap-1.5">
+                {["", "#2563eb", "#16a34a", "#dc2626", "#b9770f", "#6d28d9", "#0f172a"].map((c) => {
+                  const active = !selectedAssetObj.fillTints && (selectedAssetObj.tint ?? "") === c;
+                  return (
+                    <button
+                      key={c || "none"}
+                      type="button"
+                      aria-label={c ? `Tint ${c}` : "Original colors"}
+                      onClick={() =>
+                        mutate((p) =>
+                          updatePlacedAsset(p, selectedAssetObj.assetId, {
+                            tint: c || undefined,
+                            fillTints: undefined,
+                          }),
+                        )
+                      }
+                      className={`h-5 w-5 rounded border ${active ? "ring-2 ring-brand-action" : "border-border"}`}
+                      style={c ? { background: c } : undefined}
+                      title={c ? c : "Original colors"}
+                    >
+                      {c ? "" : <Icon name="close" className="h-3 w-3 text-foreground-muted" />}
+                    </button>
+                  );
+                })}
+              </div>
+            ) : (
+              (() => {
+                const raw = assetSvgs.get(selectedAssetObj.assetId) ?? "";
+                const fills = extractFills(raw);
+                if (fills.length === 0) {
+                  return (
+                    <p className="text-meta text-foreground-faint">
+                      This icon is a single shape. Use Whole icon to tint it.
+                    </p>
+                  );
+                }
+                return (
+                  <div className="space-y-1.5">
+                    {fills.map((f, i) => {
+                      const cur = selectedAssetObj.fillTints?.[f] ?? f;
+                      return (
+                        <div key={`${f}-${i}`} className="flex items-center gap-2">
+                          <input
+                            type="color"
+                            value={toHex6(cur)}
+                            onChange={(e) =>
+                              mutate((p) =>
+                                updatePlacedAsset(p, selectedAssetObj.assetId, {
+                                  tint: undefined,
+                                  fillTints: { ...(selectedAssetObj.fillTints ?? {}), [f]: e.target.value },
+                                }),
+                              )
+                            }
+                            className="h-6 w-9 cursor-pointer rounded border border-border-strong"
+                            aria-label={`Recolor part ${i + 1}`}
+                          />
+                          <span className="truncate text-meta text-foreground-muted">{f}</span>
+                        </div>
+                      );
+                    })}
+                    {selectedAssetObj.fillTints && (
+                      <button
+                        type="button"
+                        onClick={() =>
+                          mutate((p) =>
+                            updatePlacedAsset(p, selectedAssetObj.assetId, { fillTints: undefined }),
+                          )
+                        }
+                        className="text-meta font-medium text-brand-action hover:underline"
+                      >
+                        Reset colors
+                      </button>
+                    )}
+                  </div>
+                );
+              })()
+            )}
             <label className="mt-3 flex items-center justify-between gap-2 text-meta text-foreground-muted">
               <span>Rotate</span>
               <input
@@ -1102,8 +1759,8 @@ export default function FigureComposer({ pageId }: { pageId: string }) {
             <button
               type="button"
               onClick={() => {
-                mutate((p) => removePlacedAsset(p, selectedAssetObj.assetId), true);
-                setSelectedAsset(null);
+                mutate((p) => pruneConnectors(removePlacedAsset(p, selectedAssetObj.assetId)), true);
+                clearSel();
               }}
               className="mt-2 block text-meta font-medium text-pin hover:underline"
             >
