@@ -21,6 +21,7 @@ import {
   writeIdentityReferenceSidecar,
   resetIdentityKeepData,
 } from "@/lib/sharing/identity/storage";
+import { recoverDeviceKeyFromCloud } from "@/lib/sharing/identity/cloud-restore";
 import { isAccountFirstEnabled } from "@/lib/account/account-first";
 import { deriveWorkspaceUsername } from "@/lib/account/workspace-username";
 import { decodePublicKey, encodePublicKey, fingerprint as computeFingerprint } from "@/lib/sharing/identity/keys";
@@ -226,6 +227,20 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
   // the createdRecovery display). Dark behind MULTI_FOLDER_ENABLED.
   const [resetConfirmFor, setResetConfirmFor] = useState<string | null>(null);
   const [resetting, setResetting] = useState(false);
+
+  // Phase C5 (cross-device restore, docs/proposals/2026-06-15-account-folder-
+  // identity-redesign.md §6c): when a signed-in account lands on a fresh device
+  // (no local keypair) but already has a canonical identity published from
+  // elsewhere, do NOT mint a divergent key — restore the published one from the
+  // cloud backup with the recovery code, then write a reference sidecar and
+  // enter. This replaces the Phase B `// Phase C:` stop-and-point guard with the
+  // real restore UX (strict path: recovery-code unwrap of the existing OAuth-
+  // gated my-backup blob, no new server surface). Dark behind MULTI_FOLDER_ENABLED.
+  const [crossDeviceRestore, setCrossDeviceRestore] = useState<{
+    username: string;
+  } | null>(null);
+  const [restoreInput, setRestoreInput] = useState("");
+  const [restoring, setRestoring] = useState(false);
 
   // Per-user password management popup (set/change/remove)
   const [managingPasswordFor, setManagingPasswordFor] = useState<string | null>(null);
@@ -651,6 +666,62 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
     return false;
   };
 
+  // Phase C5: run the cross-device restore. Unwraps the account's canonical
+  // keypair from the cloud backup with the recovery code (sets the session +
+  // at-rest vault), then writes a reference sidecar for this folder and enters.
+  // After a successful restore loadIdentity() is non-null, so the same verified
+  // reuse path the same-device case uses now writes the sidecar; a defensive
+  // direct write covers the unlikely case reuse declines (e.g. a profile-read
+  // hiccup) so a restored user is never stranded.
+  const handleCrossDeviceRestore = async () => {
+    if (!crossDeviceRestore) return;
+    const { username } = crossDeviceRestore;
+    setError(null);
+    setRestoring(true);
+    try {
+      const result = await recoverDeviceKeyFromCloud(restoreInput);
+      if (!result.ok) {
+        setError(
+          result.reason === "wrong-words"
+            ? "That recovery code does not match this account."
+            : result.reason === "no-blob"
+              ? "No cloud backup was found for this account to restore."
+              : result.reason === "unauthorized"
+                ? "Your sign-in expired. Sign in again, then restore."
+                : "Could not reach the server. Check your connection and try again.",
+        );
+        setRestoring(false);
+        return;
+      }
+      // Identity is now on this device. Bind it to this folder's sidecar.
+      const linked = await reuseAccountIdentityIfVerified(username);
+      if (!linked) {
+        const restored = await loadIdentity();
+        if (restored) {
+          await writeIdentityReferenceSidecar(username, restored.keys);
+        }
+      }
+      setCrossDeviceRestore(null);
+      setRestoreInput("");
+      setRestoring(false);
+      await performLogin(username);
+    } catch {
+      setError("Could not restore your identity on this device. Please try again.");
+      setRestoring(false);
+    }
+  };
+
+  // Phase C5: abandon the restore. The workspace user dir was created during
+  // auto-provision, so dropping back lands on the normal picker (the user can
+  // retry restore from there, or use a different folder). We do NOT mint a
+  // divergent identity here — that is the whole point of the guard.
+  const cancelCrossDeviceRestore = () => {
+    setCrossDeviceRestore(null);
+    setRestoreInput("");
+    setRestoring(false);
+    setError(null);
+  };
+
   const autoProvisionFromAccount = async () => {
     setAutoProvisioning(true);
     setError(null);
@@ -748,16 +819,16 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
             // transient profile-read hiccup never blocks first-ever setup.
           }
           if (publishedElsewhere) {
-            // Phase C: this is where the real cross-device restore UX lands
-            // (DEVICE_KEY_V2 — unwrap the account's canonical keypair from the
-            // cloud backup / recovery code on this new device, then write a
-            // reference sidecar, exactly like the reuse path). Until then we stop
-            // rather than mint a divergent identity, and point the user at the
-            // recovery door they already have. autoProvisionAttempted stays true
-            // so this does not loop; the picker / recovery affordance takes over.
-            setError(
-              "This account already has an identity on another device. Restore it on this device with your recovery code before setting up this folder.",
-            );
+            // Phase C5: the account has a canonical identity published from
+            // another device. Instead of minting a divergent key (or dead-ending
+            // at an error), open the cross-device restore gate: the user enters
+            // their recovery code, we unwrap the canonical keypair from the cloud
+            // backup, write a reference sidecar for THIS folder, and enter — the
+            // same end state as the same-device reuse path. The workspace user
+            // dir was already created above (step 1), so the restore handler only
+            // needs to establish the identity + performLogin. autoProvisionAttempted
+            // stays true so this does not loop; the modal (or its cancel) takes over.
+            setCrossDeviceRestore({ username });
             setAutoProvisioning(false);
             return;
           }
@@ -2348,6 +2419,78 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
               >
                 I saved it, continue
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Phase C5: cross-device restore gate. Shown when a signed-in account
+          lands on a fresh device with a canonical identity published elsewhere.
+          Restores the published keypair from the cloud backup with the recovery
+          code rather than minting a divergent one. */}
+      {crossDeviceRestore && (
+        <div
+          className="fixed inset-0 z-[200] flex items-center justify-center bg-black/50 backdrop-blur-sm"
+          onClick={cancelCrossDeviceRestore}
+        >
+          <div
+            className="bg-surface-raised rounded-2xl shadow-2xl border border-border max-w-sm w-full mx-4 overflow-hidden"
+            onClick={(e) => e.stopPropagation()}
+            data-testid="cross-device-restore"
+          >
+            <div className="px-6 py-4 border-b border-border">
+              <h3 className="text-title font-semibold text-foreground">
+                Restore your identity on this device
+              </h3>
+              <p className="text-meta text-foreground-muted mt-0.5">
+                This account already has an identity set up on another device.
+                Enter your recovery code to restore it here, then we&apos;ll open
+                this folder under it.
+              </p>
+            </div>
+            <div className="px-6 py-5 space-y-3">
+              <input
+                type="text"
+                value={restoreInput}
+                onChange={(e) => setRestoreInput(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && restoreInput && !restoring) {
+                    handleCrossDeviceRestore();
+                  }
+                  if (e.key === "Escape" && !restoring) cancelCrossDeviceRestore();
+                }}
+                disabled={restoring}
+                className="w-full px-3 py-2 bg-surface-sunken border border-border rounded-lg text-foreground placeholder-foreground-muted focus:outline-none focus:ring-2 focus:ring-blue-500 text-body font-mono"
+                placeholder="Recovery code or 12 words"
+                data-testid="cross-device-restore-input"
+                autoFocus
+              />
+
+              {error && (
+                <div className="p-2 bg-red-50 dark:bg-red-500/15 border border-red-200 dark:border-red-500/30 rounded-lg">
+                  <p className="text-meta text-red-700 dark:text-red-300">{error}</p>
+                </div>
+              )}
+
+              <div className="flex gap-2 pt-1">
+                <button
+                  type="button"
+                  onClick={cancelCrossDeviceRestore}
+                  disabled={restoring}
+                  className="flex-1 py-2 text-body bg-surface-sunken hover:bg-surface-sunken/70 border border-border text-foreground rounded-lg disabled:opacity-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={handleCrossDeviceRestore}
+                  disabled={restoring || !restoreInput}
+                  className="flex-1 py-2 text-body bg-brand-action hover:bg-brand-action/90 text-white font-medium rounded-lg disabled:opacity-50"
+                  data-testid="cross-device-restore-submit"
+                >
+                  {restoring ? "Restoring…" : "Restore and continue"}
+                </button>
+              </div>
             </div>
           </div>
         </div>
