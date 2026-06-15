@@ -21,6 +21,7 @@ import {
   isFinished,
 } from "@/lib/onboarding/tutor-machine";
 import { summarize } from "@/lib/onboarding/tutor-summary";
+import { newMeter, type OnboardingMeter } from "@/lib/onboarding/onboarding-meter";
 import WelcomeTakeover from "./WelcomeTakeover";
 import InterestPicker from "./InterestPicker";
 import ShowcaseStage from "./ShowcaseStage";
@@ -33,9 +34,21 @@ export interface OnboardingTutorProps {
   /** Fires when the run reaches done or skipped. The host unmounts the tutor and
    *  records that onboarding has run so it does not fire again. */
   onComplete: () => void;
+  /** Called when the user accepts the memory proposal. The host persists the
+   *  fact to the per-user account memory (the real vault write, injected so this
+   *  component stays storage-agnostic). Omit during preview. */
+  onRememberFact?: (fact: string) => void;
+  /** The capped onboarding token meter, for the visible spend indicator. The
+   *  live layer accrues real usage into it. Defaults to a fresh full meter. */
+  meter?: OnboardingMeter;
 }
 
-export default function OnboardingTutor({ onComplete }: OnboardingTutorProps) {
+export default function OnboardingTutor({
+  onComplete,
+  onRememberFact,
+  meter,
+}: OnboardingTutorProps) {
+  const tokenMeter = meter ?? newMeter();
   const [state, dispatch] = useReducer(tutorReducer, initialTutorState);
   // Whether the user accepted the memory proposal (drives the recap framing). In
   // a later phase this also triggers the actual per-user memory write.
@@ -53,6 +66,8 @@ export default function OnboardingTutor({ onComplete }: OnboardingTutorProps) {
       <WelcomeTakeover
         onStart={() => dispatch({ type: "start" })}
         onSkip={() => dispatch({ type: "skip" })}
+        tokensUsed={tokenMeter.used}
+        tokenCap={tokenMeter.cap}
       />
     );
   }
@@ -99,6 +114,7 @@ export default function OnboardingTutor({ onComplete }: OnboardingTutorProps) {
       <MemoryProposeBeat
         fact={summary.memoryFact}
         onRemember={() => {
+          onRememberFact?.(summary.memoryFact);
           setRemembered(true);
           next();
         }}
