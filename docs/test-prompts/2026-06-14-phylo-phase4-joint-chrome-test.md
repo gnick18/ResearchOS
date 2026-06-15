@@ -53,10 +53,11 @@ You are testing a feature called "Smart Data Binding" on a local ResearchOS dev 
 9. CHECKPOINT (GUI result): the wizard shows "Added 2 overlays". Close it. The tree now shows a **bar track** (MIC) and a **color strip** (phenotype) aligned to the tips, and the **Layers list has 2 new overlay rows** (a bars layer + a strip layer). Tip H (no data) is blank in both. Report whether the overlays rendered.
 
 ### Step 5 — CHAT DOOR (BeakerBot inline wizard)
-10. Keep "Phase4 Tree" open in `/phylo` (so BeakerBot knows which tree is "this tree"). Open BeakerBot (the Ask/Cmd-J chat).
-11. Type: **what data can I put on this tree?**
-12. CHECKPOINT (chat narration): BeakerBot should name **resistance_assay**, say it **joins 7 of 8 tips**, and that MIC can be a heatmap/bars and phenotype a color strip — these numbers must MATCH the GUI exactly (same engine). Then the **same wizard widget renders inline below the reply**.
-13. In the inline wizard: pick a table → columns → e.g. **MIC → Heatmap** this time → **Add**.
+10. Keep "Phase4 Tree" open in `/phylo` (so BeakerBot knows which tree is "this tree" — it resolves via the context bridge). Open BeakerBot (the Ask/Cmd-J chat).
+11. Type this EXACT prompt (it maps to the `suggest_tree_overlays` tool's registered examples): **What data can I overlay on this tree?**
+    - If for any reason the model doesn't call the tool, retry with a fallback: **Add my data to this tree** or **What can I annotate this tree with?** — all three map to the tool.
+12. CHECKPOINT (chat narration): BeakerBot should name **resistance_assay**, say it **joins 7 of 8 tips**, and that **MIC offers bars / heatmap / dots / point** (numeric, recommended bars-first) and **phenotype offers a color strip** (categorical) — these numbers must MATCH the GUI door exactly (same engine). Don't fail it if the narration leads with "bars" rather than "heatmap" — the column offers all four numeric geoms; the wizard is where you pick which one. Then the **same wizard widget renders inline below the reply**.
+13. In the inline wizard: pick the table → columns → this time pick **MIC → Heatmap** (a DIFFERENT geom than the GUI door used, to show the same column drives multiple geoms) → **Add**.
 14. CHECKPOINT (chat result): BeakerBot ends with a tree link/card; clicking it opens `/phylo` for "Phase4 Tree" with the heatmap overlay now ALSO present. Report whether the inline widget worked and the overlay persisted.
 
 ### What to report back
