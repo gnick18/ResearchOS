@@ -37,6 +37,13 @@ export type BeakerSelection = {
   /** The container this selection lives in. For an analysis the parent is its
    *  table, which gives the model both ids in one message. */
   parent?: { type: string; id: string; name: string };
+  /** The project(s) this selection belongs to, when the surface knows them.
+   *  Published by PhyloStudio for an open tree so a tool can default a new
+   *  object (e.g. create_datahub_table) into the same project — "make a table
+   *  from this and put it on my tree" then files into the tree's project.
+   *  Plural: a tree can union several projects. Optional and open-typed; a
+   *  surface that does not know its projects simply omits it. */
+  projectIds?: string[];
 };
 
 /** The full context snapshot a page publishes. route and pageLabel tell the

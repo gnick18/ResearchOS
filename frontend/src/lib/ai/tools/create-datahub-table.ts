@@ -18,17 +18,23 @@ import { importTextToTable } from "@/lib/datahub/import-table";
 import { dataHubApi } from "@/lib/datahub/api";
 import type { DataHubCreate, DataHubDocument } from "@/lib/datahub/model/types";
 import { requestNavigation } from "@/components/ai/navigation-bridge";
+import { getBeakerContext, type BeakerContext } from "@/components/ai/context-bridge";
 import type { AiTool } from "./types";
 
 // Injectable seam so the tool is unit-testable without a real folder.
 export type CreateDatahubTableDeps = {
   createTable: (data: DataHubCreate) => Promise<DataHubDocument>;
   navigate: (path: string) => void;
+  // Read the on-screen selection so an open tree's project can default the new
+  // table's collection (the phylo lane publishes selection.projectIds). Seamed
+  // for testability.
+  getContext: () => BeakerContext | null;
 };
 
 export const createDatahubTableDeps: CreateDatahubTableDeps = {
   createTable: (data) => dataHubApi.create(data),
   navigate: requestNavigation,
+  getContext: getBeakerContext,
 };
 
 /** Pull the raw data text + name + project from loose tool args. */
@@ -102,12 +108,20 @@ export const createDatahubTableTool: AiTool = {
           "I could not detect any columns or rows in that data. Check it is rows of comma- or tab-separated values.",
       };
     }
+    // Default the table's collection to the open tree's project when the model
+    // gave no explicit projectId, so "make a table from this and put it on my
+    // tree" files it alongside the tree (phylo publishes selection.projectIds).
+    // An explicit projectId from the model always wins.
+    const resolvedProjectId =
+      projectId ??
+      createDatahubTableDeps.getContext()?.selection?.projectIds?.[0] ??
+      null;
     let created: DataHubDocument;
     try {
       created = await createDatahubTableDeps.createTable({
         name,
         table_type: "column",
-        project_ids: projectId ? [projectId] : [],
+        project_ids: resolvedProjectId ? [resolvedProjectId] : [],
         columns,
         rows,
       });

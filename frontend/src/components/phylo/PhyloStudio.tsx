@@ -192,6 +192,14 @@ export function PhyloStudio({ initialTreeId }: { initialTreeId?: string } = {}) 
   const [copiedRef, setCopiedRef] = useState(false);
   const [parseError, setParseError] = useState<string | null>(null);
 
+  // The open tree's project association(s). The smart scan is scoped to these
+  // projects (the locked "same project" rule), matching the BeakerBot
+  // suggest_tree_overlays tool, and they are published on the context-bridge
+  // selection (below) so create_datahub_table can default a new table into the
+  // tree's project. Empty for an unsaved / unfiled tree (no collection).
+  // Declared above the publisher effect so the effect can reference it.
+  const [openTreeProjectIds, setOpenTreeProjectIds] = useState<string[]>([]);
+
   // Publish the open SAVED tree to the BeakerBot context bridge so the model can
   // resolve "this", "this tree", or "this phylogeny" to what the user has open in
   // the Studio. Only a saved tree (openTreeId set) is published, since that is the
@@ -210,12 +218,17 @@ export function PhyloStudio({ initialTreeId }: { initialTreeId?: string } = {}) 
         type: "phylo",
         id: openTreeId,
         name: treeName || "Untitled tree",
+        // The open tree's project association(s), so chat tools like
+        // create_datahub_table can default a new table into the tree's project
+        // ("make a table from this and put it on my tree"). Plural: a tree can
+        // union several projects (see openTreeProjectIds).
+        projectIds: openTreeProjectIds,
       },
     });
     return () => {
       setBeakerContext(null);
     };
-  }, [openTreeId, treeName]);
+  }, [openTreeId, treeName, openTreeProjectIds]);
   const [importMode, setImportMode] = useState<ImportMode>(null);
   const [pasteText, setPasteText] = useState("");
 
@@ -277,11 +290,6 @@ export function PhyloStudio({ initialTreeId }: { initialTreeId?: string } = {}) 
   const [smartOpen, setSmartOpen] = useState(false);
   const [smartDismissed, setSmartDismissed] = useState(false);
   // The open tree's collection membership, captured when a saved tree is opened.
-  // The smart scan is scoped to these projects (the locked "same project" rule),
-  // matching the BeakerBot suggest_tree_overlays tool. Empty for an unsaved /
-  // unfiled tree, which has no collection and therefore no auto-suggestions.
-  const [openTreeProjectIds, setOpenTreeProjectIds] = useState<string[]>([]);
-
   // Publication page-frame (artboard) state for the figure. Disabled by default
   // (the canvas renders exactly as before). The figure's width in inches is its
   // own state since Tree Studio has no other figure-size control; the height
