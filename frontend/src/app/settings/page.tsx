@@ -33,6 +33,7 @@ import { useFileSystem } from "@/lib/file-system/file-system-context";
 import { isDemoOrWikiCapture } from "@/lib/file-system/wiki-capture-mock";
 import { storePreDemoRoute } from "@/lib/file-system/pre-demo-route";
 import { useIsLabMode } from "@/hooks/useIsLabMode";
+import { useIsMultiUserFolder } from "@/hooks/useIsMultiUserFolder";
 import { useAppStore } from "@/lib/store";
 import { useCompanionHub } from "@/lib/ui/companion-hub-store";
 import { fileService } from "@/lib/file-system/file-service";
@@ -255,6 +256,10 @@ function SettingsBodyInner({
   // the tab (the role gate, unchanged).
   const derivedLabMode = useIsLabMode() ?? false;
   const isLabMode = settings?.account_type === "lab_head" || derivedLabMode;
+  // Whether this folder genuinely holds 2+ local users (a legacy multi-user
+  // folder). A cross-folder cloud lab has only the PI locally, so the folder
+  // roster is redundant there and the unified Members section hides it.
+  const isMultiUser = useIsMultiUserFolder() ?? false;
 
   // Load on mount + when the active user changes.
   useEffect(() => {
@@ -683,60 +688,46 @@ function SettingsBodyInner({
             label: "Lab",
             labBadge: true,
             sections: [
+              // One unified Members page: the cloud lab roster + invite link +
+              // pending join requests (lab head) AND the folder roster with
+              // archive/restore. The folder roster is hidden for a cross-folder
+              // cloud lab head (no other local users to manage) and shown for a
+              // legacy multi-user folder or to a member, which is their roster.
               {
                 id: "members",
                 group: "Lab",
-                title: "Members & roster",
+                title: "Members",
                 icon: "users" as const,
-                keywords: "members archive restore roster lab people",
-                render: () => <LabRosterSection />,
-              },
-              ...(LAB_TIER_ENABLED && isLabHead
-                ? [
-                    {
-                      id: "membership",
-                      group: "Lab",
-                      title: "Membership & agreement",
-                      icon: "userPlus" as const,
-                      keywords:
-                        "invite member join link lab tier add request agreement mode solo lab visibility approval",
-                      render: () => (
-                        <>
-                          <LabMembershipSection />
-                          <LabAgreementSection
-                            settings={settings}
-                            update={update}
-                          />
-                        </>
-                      ),
-                    },
-                  ]
-                : isLabHead
-                  ? [
-                      {
-                        id: "membership",
-                        group: "Lab",
-                        title: "Membership & agreement",
-                        icon: "userPlus" as const,
-                        keywords:
-                          "agreement mode solo lab visibility approval lab head",
-                        render: () => (
-                          <LabAgreementSection
-                            settings={settings}
-                            update={update}
-                          />
-                        ),
-                      },
-                    ]
-                  : []),
-              {
-                id: "accounttype",
-                group: "Lab",
-                title: "Account type",
-                icon: "shield" as const,
-                keywords: "account type member pi lab head role",
+                keywords:
+                  "members roster invite join link add request archive restore lab people seat pending sponsored collaborator",
                 render: () => (
-                  <AccountTypeSection settings={settings} update={update} />
+                  <>
+                    {LAB_TIER_ENABLED && isLabHead ? (
+                      <LabMembershipSection />
+                    ) : null}
+                    {isMultiUser || !(LAB_TIER_ENABLED && isLabHead) ? (
+                      <LabRosterSection />
+                    ) : null}
+                  </>
+                ),
+              },
+              // Lab settings: the account-type (role) control plus, for a lab
+              // head, the lab agreement (mode / visibility / approval policy).
+              // Policy lives apart from the people list above.
+              {
+                id: "labsettings",
+                group: "Lab",
+                title: "Lab settings",
+                icon: "shield" as const,
+                keywords:
+                  "account type member pi lab head role agreement mode solo lab visibility approval policy settings",
+                render: () => (
+                  <>
+                    <AccountTypeSection settings={settings} update={update} />
+                    {isLabHead ? (
+                      <LabAgreementSection settings={settings} update={update} />
+                    ) : null}
+                  </>
                 ),
               },
               ...(isLabHead
