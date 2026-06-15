@@ -210,6 +210,23 @@ export default function FolderStep({ onConnected }: FolderStepProps) {
           {error}
         </p>
       )}
+
+      {/*
+        Go-live: the folder step is unskippable (no folder = no app), so this
+        permanent escape is the one way past it without connecting a folder. It
+        lands on the read-only /demo workspace, the "limited mode" replacement.
+        Never remove it without restoring another escape (no soft-locks).
+      */}
+      <p className="mt-6 text-xs text-foreground-muted">
+        Not ready to pick a folder?{" "}
+        <a
+          href="/demo"
+          data-testid="wizard-folder-try-demo"
+          className="font-semibold text-[#1283c9] hover:underline"
+        >
+          Try the demo instead
+        </a>
+      </p>
     </div>
   );
 }

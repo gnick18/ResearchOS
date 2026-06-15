@@ -27,8 +27,10 @@ describe("buildSoloFreeTrack", () => {
     ]);
   });
 
-  it("makes sign-in and handle required, profile and folder skippable", () => {
-    expect(skips(buildSoloFreeTrack())).toEqual([false, false, true, true]);
+  it("makes sign-in, handle, and folder required; only profile skippable", () => {
+    // Go-live: the folder step is unskippable (no folder = no app). The demo
+    // escape FolderStep renders is the only way past it without connecting.
+    expect(skips(buildSoloFreeTrack())).toEqual([false, false, true, false]);
   });
 });
 
@@ -38,8 +40,8 @@ describe("buildSoloLocalTrack", () => {
     expect(ids(track)).toEqual(["folder"]);
   });
 
-  it("the lone folder step is skippable", () => {
-    expect(skips(buildSoloLocalTrack())).toEqual([true]);
+  it("the lone folder step is required (go-live: no folder = no app)", () => {
+    expect(skips(buildSoloLocalTrack())).toEqual([false]);
   });
 });
 
@@ -54,13 +56,13 @@ describe("buildPiCreateTrack", () => {
     ]);
   });
 
-  it("makes lab-setup required (name needed to create)", () => {
+  it("makes lab-setup and folder required (name to create, folder to work)", () => {
     expect(skips(buildPiCreateTrack())).toEqual([
       false,
       false,
       true,
       false,
-      true,
+      false,
     ]);
   });
 });

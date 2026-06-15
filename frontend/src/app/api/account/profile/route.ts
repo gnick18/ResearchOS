@@ -54,6 +54,8 @@ export async function POST(request: Request): Promise<Response> {
     displayName?: unknown;
     affiliation?: unknown;
     avatarUrl?: unknown;
+    bio?: unknown;
+    links?: unknown;
   };
   try {
     body = (await request.json()) as typeof body;
@@ -77,6 +79,19 @@ export async function POST(request: Request): Promise<Response> {
       : null
     : undefined;
 
+  // bio + links: same "omit = leave unchanged" contract as the avatar. Omit the
+  // key to keep the existing value; send a string/object to set, or null to clear.
+  const hasBio = Object.prototype.hasOwnProperty.call(body, "bio");
+  const bio = hasBio
+    ? typeof body.bio === "string"
+      ? body.bio
+      : null
+    : undefined;
+  const hasLinks = Object.prototype.hasOwnProperty.call(body, "links");
+  const links = hasLinks
+    ? (body.links as Record<string, unknown> | null) ?? null
+    : undefined;
+
   try {
     await ensureAccountProfileSchema();
     const result = await upsertAccountProfile(ownerKey, {
@@ -84,6 +99,8 @@ export async function POST(request: Request): Promise<Response> {
       displayName,
       affiliation,
       ...(hasAvatar ? { avatarUrl } : {}),
+      ...(hasBio ? { bio } : {}),
+      ...(hasLinks ? { links } : {}),
     });
     if (!result.ok) return json(409, { error: result.error });
     return json(200, { ok: true, profile: result.profile });

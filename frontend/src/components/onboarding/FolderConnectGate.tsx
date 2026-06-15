@@ -450,6 +450,22 @@ export default function FolderConnectGate({
           </div>
         )}
 
+        {/*
+          Go-live: a permanent escape off the folder gate to the read-only /demo
+          workspace, so a user who is not ready to connect a folder is never
+          trapped here (no soft-locks). The demo loads the starter yeast lab.
+        */}
+        <p className="mt-6 text-center text-meta text-foreground-muted">
+          Not ready to pick a folder?{" "}
+          <a
+            href="/demo"
+            data-testid="gate-try-demo"
+            className="font-semibold text-[#1283c9] hover:underline"
+          >
+            Try the demo instead
+          </a>
+        </p>
+
         <GateFooter onBugReport={openBugReport} />
       </div>
 

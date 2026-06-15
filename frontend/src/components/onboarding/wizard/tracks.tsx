@@ -74,7 +74,10 @@ export function buildSoloFreeTrack(cb: TrackCallbacks = {}): WizardTrack {
       {
         id: "folder",
         label: "Folder",
-        skippable: true,
+        // Go-live: the folder step is unskippable. No folder = no app, so the
+        // only ways past it are Back or the permanent "try the demo" escape
+        // FolderStep renders. (Was skippable in the pre-go-live wizard.)
+        skippable: false,
         render: (c) => <FolderStep onConnected={c.next} />,
       },
     ],
@@ -90,7 +93,10 @@ export function buildSoloLocalTrack(): WizardTrack {
       {
         id: "folder",
         label: "Folder",
-        skippable: true,
+        // Go-live: the folder step is unskippable. No folder = no app, so the
+        // only ways past it are Back or the permanent "try the demo" escape
+        // FolderStep renders. (Was skippable in the pre-go-live wizard.)
+        skippable: false,
         render: (c) => <FolderStep onConnected={c.next} />,
       },
     ],
@@ -151,7 +157,10 @@ export function buildPiCreateTrack(cb: TrackCallbacks = {}): WizardTrack {
       {
         id: "folder",
         label: "Folder",
-        skippable: true,
+        // Go-live: the folder step is unskippable. No folder = no app, so the
+        // only ways past it are Back or the permanent "try the demo" escape
+        // FolderStep renders. (Was skippable in the pre-go-live wizard.)
+        skippable: false,
         render: (c) => <FolderStep onConnected={c.next} />,
       },
     ],

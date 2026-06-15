@@ -12,6 +12,26 @@
 // House style: no em-dashes, no emojis, no mid-sentence colons.
 
 import { neon, type NeonQueryFunction } from "@neondatabase/serverless";
+import {
+  EMPTY_LINKS,
+  validateAvatar,
+  validateBio,
+  normalizeLinks,
+  type ProfileLinks,
+} from "./account-profile-validation";
+
+// Re-export the pure validation surface so server callers keep importing from
+// account-profile.ts. Client components import from account-profile-validation
+// directly to stay off the Neon driver.
+export {
+  EMPTY_LINKS,
+  AVATAR_MAX_BYTES,
+  BIO_MAX_CHARS,
+  validateAvatar,
+  validateBio,
+  normalizeLinks,
+  type ProfileLinks,
+} from "./account-profile-validation";
 
 let sqlSingleton: NeonQueryFunction<false, false> | null = null;
 
@@ -35,41 +55,18 @@ export interface AccountProfile {
    * account has not set one, the UI falls back to an initial-based placeholder.
    */
   avatarUrl: string | null;
-}
-
-/**
- * Phase 3 Chunk 3A avatar cap. A thumbnail-sized avatar fits comfortably under
- * this; we reject anything larger server-side so a row stays small and the
- * profile read stays cheap. ~64KB of decoded image, measured on the raw data-URL
- * string length (base64 adds ~33%, so the on-the-wire string is allowed a little
- * more headroom than the decoded bytes).
- */
-export const AVATAR_MAX_BYTES = 96 * 1024;
-
-/** The image MIME types we accept for an avatar data URL. */
-const AVATAR_MIME = new Set(["image/png", "image/jpeg", "image/webp"]);
-
-/**
- * Validates an avatar value for storage. Accepts null (clear the avatar) or a
- * data URL whose MIME is an allowed image type and whose total string length is
- * within AVATAR_MAX_BYTES. Returns null when valid, else a human reason. This is
- * pure so it is unit-tested and can be reused on both the client (pre-upload
- * gate) and the server (authoritative cap).
- */
-export function validateAvatar(value: unknown): string | null {
-  if (value === null || value === undefined) return null;
-  if (typeof value !== "string") return "The avatar must be an image data URL.";
-  const v = value.trim();
-  if (v === "") return null;
-  const match = /^data:([a-z/+.-]+);base64,/i.exec(v);
-  if (!match) return "The avatar must be a base64 image data URL.";
-  if (!AVATAR_MIME.has(match[1].toLowerCase())) {
-    return "Use a PNG, JPEG, or WEBP image.";
-  }
-  if (v.length > AVATAR_MAX_BYTES) {
-    return "That image is too large. Pick one under 64 KB.";
-  }
-  return null;
+  /**
+   * Wizard go-live (researcher-social-layer): a short free-text bio, capped at
+   * BIO_MAX_CHARS. Null when unset. Editable in the profile step and Settings.
+   */
+  bio: string | null;
+  /**
+   * Wizard go-live: typed external links (ORCID, ResearchGate, personal site).
+   * Always present as an object so callers never branch on undefined; an unset
+   * link is null. Stored as a jsonb column so the set can grow without a schema
+   * change.
+   */
+  links: ProfileLinks;
 }
 
 /** Handles a third party could mistake for a system route or that we want to keep. */
@@ -114,6 +111,30 @@ export async function ensureAccountProfileSchema(): Promise<void> {
   // Phase 3 Chunk 3A: additive, idempotent avatar column. A nullable TEXT holds
   // the capped data URL inline (see AVATAR_MAX_BYTES). Safe to run on every call.
   await sql`ALTER TABLE account_profiles ADD COLUMN IF NOT EXISTS avatar_url text`;
+  // Wizard go-live: additive, idempotent bio + typed-links columns. bio is a
+  // capped TEXT; links is jsonb so the set can grow without another migration.
+  await sql`ALTER TABLE account_profiles ADD COLUMN IF NOT EXISTS bio text`;
+  await sql`ALTER TABLE account_profiles ADD COLUMN IF NOT EXISTS links jsonb`;
+}
+
+/** Coerce a jsonb links value (object, JSON string, or null) into ProfileLinks. */
+function parseLinks(raw: unknown): ProfileLinks {
+  let obj: unknown = raw;
+  if (typeof raw === "string") {
+    try {
+      obj = JSON.parse(raw);
+    } catch {
+      return { ...EMPTY_LINKS };
+    }
+  }
+  if (!obj || typeof obj !== "object") return { ...EMPTY_LINKS };
+  const v = obj as Record<string, unknown>;
+  const str = (x: unknown): string | null => (typeof x === "string" && x.trim() ? x : null);
+  return {
+    orcid: str(v.orcid),
+    researchgate: str(v.researchgate),
+    website: str(v.website),
+  };
 }
 
 function rowToProfile(r: {
@@ -121,12 +142,16 @@ function rowToProfile(r: {
   display_name: string | null;
   affiliation: string | null;
   avatar_url?: string | null;
+  bio?: string | null;
+  links?: unknown;
 }): AccountProfile {
   return {
     handle: r.handle,
     displayName: r.display_name,
     affiliation: r.affiliation,
     avatarUrl: r.avatar_url ?? null,
+    bio: r.bio ?? null,
+    links: parseLinks(r.links),
   };
 }
 
@@ -134,8 +159,8 @@ function rowToProfile(r: {
 export async function getAccountProfile(ownerKey: string): Promise<AccountProfile | null> {
   const sql = getSql();
   const rows = (await sql`
-    SELECT handle, display_name, affiliation, avatar_url FROM account_profiles WHERE owner_key = ${ownerKey} LIMIT 1
-  `) as Array<{ handle: string; display_name: string | null; affiliation: string | null; avatar_url: string | null }>;
+    SELECT handle, display_name, affiliation, avatar_url, bio, links FROM account_profiles WHERE owner_key = ${ownerKey} LIMIT 1
+  `) as Array<{ handle: string; display_name: string | null; affiliation: string | null; avatar_url: string | null; bio: string | null; links: unknown }>;
   return rows[0] ? rowToProfile(rows[0]) : null;
 }
 
@@ -144,8 +169,8 @@ export async function getAccountProfileByHandle(handle: string): Promise<Account
   const sql = getSql();
   const h = normalizeHandle(handle);
   const rows = (await sql`
-    SELECT handle, display_name, affiliation, avatar_url FROM account_profiles WHERE handle = ${h} LIMIT 1
-  `) as Array<{ handle: string; display_name: string | null; affiliation: string | null; avatar_url: string | null }>;
+    SELECT handle, display_name, affiliation, avatar_url, bio, links FROM account_profiles WHERE handle = ${h} LIMIT 1
+  `) as Array<{ handle: string; display_name: string | null; affiliation: string | null; avatar_url: string | null; bio: string | null; links: unknown }>;
   return rows[0] ? rowToProfile(rows[0]) : null;
 }
 
@@ -179,6 +204,17 @@ export async function upsertAccountProfile(
      * validated + capped here so an oversize image never reaches the row.
      */
     avatarUrl?: string | null;
+    /**
+     * Wizard go-live. Pass a string to set the bio, null to clear it, or omit
+     * (undefined) to leave any existing bio untouched. Capped at BIO_MAX_CHARS.
+     */
+    bio?: string | null;
+    /**
+     * Wizard go-live. Pass a links object to set it (each field validated +
+     * normalized), null to clear all links, or omit to leave existing links
+     * untouched.
+     */
+    links?: Record<string, unknown> | null;
   },
 ): Promise<{ ok: true; profile: AccountProfile } | { ok: false; error: string }> {
   const handleErr = validateHandle(input.handle);
@@ -187,53 +223,56 @@ export async function upsertAccountProfile(
   if (!(await isHandleAvailable(h, ownerKey))) {
     return { ok: false, error: "That handle is already taken." };
   }
-  // "Leave unchanged" (undefined) vs "set/clear" (string | null). When the caller
-  // does not mention the avatar we keep the row's current value; otherwise we
-  // validate the provided value and overwrite.
-  const setAvatar = input.avatarUrl !== undefined;
-  const avatar = input.avatarUrl ?? null;
-  if (setAvatar) {
+
+  // Optional fields use "omit (undefined) = leave unchanged, null = clear,
+  // value = set" semantics. To keep a single literal upsert (no per-field SQL
+  // branching), we read the current row and merge the mentioned fields over it,
+  // then write the merged values unconditionally.
+  if (input.avatarUrl !== undefined) {
     const avatarErr = validateAvatar(input.avatarUrl);
     if (avatarErr) return { ok: false, error: avatarErr };
   }
+  if (input.bio !== undefined) {
+    const bioErr = validateBio(input.bio);
+    if (bioErr) return { ok: false, error: bioErr };
+  }
+  let nextLinks: ProfileLinks | undefined;
+  if (input.links !== undefined) {
+    const norm = normalizeLinks(input.links);
+    if (!norm.ok) return { ok: false, error: norm.error };
+    nextLinks = norm.links;
+  }
+
+  const current = await getAccountProfile(ownerKey);
+  const avatar =
+    input.avatarUrl !== undefined ? input.avatarUrl ?? null : current?.avatarUrl ?? null;
+  const bio =
+    input.bio !== undefined ? input.bio?.trim() || null : current?.bio ?? null;
+  const links = nextLinks ?? current?.links ?? EMPTY_LINKS;
+
   const sql = getSql();
   await ensureAccountProfileSchema();
-  // Two explicit branches rather than a nested sql fragment: when the avatar is
-  // mentioned we overwrite the column, otherwise we preserve the existing value
-  // with COALESCE(EXCLUDED.avatar_url, account_profiles.avatar_url) where the
-  // inserted value is the current one. Keeping the queries literal avoids any
-  // tagged-template fragment ambiguity in the neon driver.
   type Row = {
     handle: string;
     display_name: string | null;
     affiliation: string | null;
     avatar_url: string | null;
+    bio: string | null;
+    links: unknown;
   };
-  let rows: Row[];
-  if (setAvatar) {
-    rows = (await sql`
-      INSERT INTO account_profiles (owner_key, handle, display_name, affiliation, avatar_url, updated_at)
-      VALUES (${ownerKey}, ${h}, ${input.displayName ?? null}, ${input.affiliation ?? null}, ${avatar}, now())
-      ON CONFLICT (owner_key) DO UPDATE SET
-        handle = EXCLUDED.handle,
-        display_name = EXCLUDED.display_name,
-        affiliation = EXCLUDED.affiliation,
-        avatar_url = EXCLUDED.avatar_url,
-        updated_at = now()
-      RETURNING handle, display_name, affiliation, avatar_url
-    `) as Row[];
-  } else {
-    rows = (await sql`
-      INSERT INTO account_profiles (owner_key, handle, display_name, affiliation, updated_at)
-      VALUES (${ownerKey}, ${h}, ${input.displayName ?? null}, ${input.affiliation ?? null}, now())
-      ON CONFLICT (owner_key) DO UPDATE SET
-        handle = EXCLUDED.handle,
-        display_name = EXCLUDED.display_name,
-        affiliation = EXCLUDED.affiliation,
-        updated_at = now()
-      RETURNING handle, display_name, affiliation, avatar_url
-    `) as Row[];
-  }
+  const rows = (await sql`
+    INSERT INTO account_profiles (owner_key, handle, display_name, affiliation, avatar_url, bio, links, updated_at)
+    VALUES (${ownerKey}, ${h}, ${input.displayName ?? null}, ${input.affiliation ?? null}, ${avatar}, ${bio}, ${JSON.stringify(links)}::jsonb, now())
+    ON CONFLICT (owner_key) DO UPDATE SET
+      handle = EXCLUDED.handle,
+      display_name = EXCLUDED.display_name,
+      affiliation = EXCLUDED.affiliation,
+      avatar_url = EXCLUDED.avatar_url,
+      bio = EXCLUDED.bio,
+      links = EXCLUDED.links,
+      updated_at = now()
+    RETURNING handle, display_name, affiliation, avatar_url, bio, links
+  `) as Row[];
   return { ok: true, profile: rowToProfile(rows[0]) };
 }
 
