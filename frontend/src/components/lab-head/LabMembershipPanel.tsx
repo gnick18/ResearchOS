@@ -20,6 +20,7 @@ import { LAB_PENDING_REQUESTS_QUERY_KEY } from "@/hooks/useLabPendingRequests";
 import { getSessionIdentity } from "@/lib/sharing/identity/session-key";
 import { isRealSharingEnabled } from "@/lib/sharing/oauth-availability";
 import { readUserSettings } from "@/lib/settings/user-settings";
+import { canonicalAppOrigin } from "@/lib/app-origin";
 import { Icon } from "@/components/icons";
 import Tooltip from "@/components/Tooltip";
 import {
@@ -324,7 +325,7 @@ export default function LabMembershipPanel() {
         labId,
         username: currentUser,
         identity: requireIdentity(),
-        origin: window.location.origin,
+        origin: canonicalAppOrigin(),
         ...inviteDisplay(),
       });
       setLink(l);
@@ -346,7 +347,7 @@ export default function LabMembershipPanel() {
       labId,
       username: currentUser,
       identity: requireIdentity(),
-      origin: window.location.origin,
+      origin: canonicalAppOrigin(),
       ...inviteDisplay(),
     }).link;
 
@@ -451,7 +452,7 @@ export default function LabMembershipPanel() {
           labId,
           username: currentUser,
           identity: requireIdentity(),
-          origin: window.location.origin,
+          origin: canonicalAppOrigin(),
           ...inviteDisplay(),
         });
         setApprovedLinks((cur) => ({ ...cur, [req.requesterEmailHash]: l }));
