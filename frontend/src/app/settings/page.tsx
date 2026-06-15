@@ -1009,7 +1009,7 @@ function SectionShell({
       data-tour-target={tourTarget}
       data-settings-section-marker="1"
       hidden={state.shouldHide}
-      className="bg-surface-raised rounded-xl border border-border shadow-sm p-6 scroll-mt-4"
+      className="bg-surface-raised rounded-xl border border-border ros-seam p-6 scroll-mt-4"
     >
       <div className="mb-4">
         <h2 className="text-title font-semibold text-foreground">
