@@ -15,7 +15,6 @@ import { ThemedText } from '@/components/themed-text';
 import { ScreenFrame } from '@/components/ui/ScreenFrame';
 import { Button } from '@/components/ui/Button';
 import { SectionHeader } from '@/components/ui/SectionHeader';
-import { AlarmSettingsCard } from '@/components/AlarmSettingsCard';
 import { useTheme, palette, fonts } from '@/lib/design';
 import { ensureNotificationPermission } from '@/lib/notifications';
 import {
@@ -353,8 +352,6 @@ export default function TimersScreen() {
               ))}
             </>
           ) : null}
-
-          <AlarmSettingsCard />
       </ScrollView>
     </ScreenFrame>
   );
