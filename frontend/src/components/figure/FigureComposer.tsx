@@ -102,11 +102,7 @@ import {
 } from "@/lib/figure/figure-compose";
 import {
   ASSET_LIBRARY_ENABLED,
-  loadAssetManifest,
   fetchAssetSvg,
-  assetSvgUrl,
-  searchAssets,
-  listCategories,
   type LibraryAsset,
 } from "@/lib/figure/asset-library";
 import { registerFigureSources } from "@/lib/figure/register-sources";
@@ -189,7 +185,6 @@ export default function FigureComposer({ pageId }: { pageId: string }) {
   const [defaultSaved, setDefaultSaved] = useState(false);
   // Placed-asset (icon library) state, gated behind ASSET_LIBRARY_ENABLED.
   const [assetSvgs, setAssetSvgs] = useState<Map<string, string>>(new Map());
-  const [iconPickerOpen, setIconPickerOpen] = useState(false);
   const assetDrag = useRef<
     | null
     | { id: string; resize: boolean; sx: number; sy: number; ox: number; oy: number; ow: number; oh: number }
@@ -824,7 +819,6 @@ export default function FigureComposer({ pageId }: { pageId: string }) {
     mutate((p) => addPlacedAsset(p, placed), true);
     setSelectedConn(null);
     setSelection([{ kind: "asset", id: assetId }]);
-    setIconPickerOpen(false);
     // Eagerly fetch the SVG so it appears immediately (the effect also covers it).
     void fetchAssetSvg(asset).then((svg) => {
       if (svg) setAssetSvgs((m) => new Map(m).set(assetId, svg));
@@ -1137,11 +1131,15 @@ export default function FigureComposer({ pageId }: { pageId: string }) {
               </div>
             );
           })}
-          {page.panels.length === 0 && pageAssets(page).length === 0 && (
-            <div className="flex h-full items-center justify-center text-meta text-foreground-faint">
-              Add a figure to start the page.
-            </div>
-          )}
+          {page.panels.length === 0 &&
+            pageAssets(page).length === 0 &&
+            pageShapes(page).length === 0 &&
+            page.annotations.length === 0 &&
+            pageConnectors(page).length === 0 && (
+              <div className="flex h-full items-center justify-center text-meta text-foreground-faint">
+                Add a figure, icon, shape, or template to start the page.
+              </div>
+            )}
 
           {/* Placed library assets (icons), draggable + resizable, above panels. */}
           {pageAssets(page).map((a) => {
@@ -2082,10 +2080,6 @@ export default function FigureComposer({ pageId }: { pageId: string }) {
           }}
         />
       )}
-
-      {iconPickerOpen && (
-        <AddIconPicker onClose={() => setIconPickerOpen(false)} onPick={placeIcon} />
-      )}
     </div>
   );
 }
@@ -2444,123 +2438,4 @@ function annBox(a: Annotation, scale: number): { x: number; y: number; w: number
   return a.orientation === "horizontal"
     ? { x: a.xIn * scale, y: a.yIn * scale - tick, w: a.spanIn * scale, h: tick * 2.5 }
     : { x: a.xIn * scale - tick, y: a.yIn * scale, w: tick * 2.5, h: a.spanIn * scale };
-}
-
-/**
- * The open-asset (icon) library picker. Reads the live CDN manifest, offers a
- * search box + category chips + a thumbnail grid; clicking an icon places it.
- * Thumbnails load via <img> from the CDN (display only); placeIcon fetches the
- * raw SVG for inlining + recolor. Mirrors the AddFigurePicker shell.
- */
-function AddIconPicker({
-  onClose,
-  onPick,
-}: {
-  onClose: () => void;
-  onPick: (asset: LibraryAsset) => void;
-}) {
-  const [assets, setAssets] = useState<LibraryAsset[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [query, setQuery] = useState("");
-  const [category, setCategory] = useState<string | null>(null);
-
-  useEffect(() => {
-    let live = true;
-    void loadAssetManifest().then((a) => {
-      if (!live) return;
-      setAssets(a);
-      setLoading(false);
-    });
-    return () => {
-      live = false;
-    };
-  }, []);
-
-  const categories = useMemo(() => listCategories(assets), [assets]);
-  const results = useMemo(
-    () => searchAssets(assets, { query, category }).slice(0, 240),
-    [assets, query, category],
-  );
-
-  return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-6"
-      onMouseDown={onClose}
-    >
-      <div
-        className="flex h-[80vh] w-[min(880px,92vw)] flex-col overflow-hidden rounded-2xl border border-border bg-surface shadow-xl"
-        onMouseDown={(e) => e.stopPropagation()}
-        data-testid="figure-icon-picker"
-      >
-        <div className="flex items-center gap-2 border-b border-border p-3">
-          <Icon name="search" className="h-4 w-4 text-foreground-faint" />
-          <input
-            autoFocus
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search the open-asset library (PhyloPic, BioIcons, ...)"
-            className="flex-1 bg-transparent text-body outline-none placeholder:text-foreground-faint"
-          />
-          <button type="button" onClick={onClose} className="text-foreground-faint hover:text-foreground">
-            <Icon name="close" className="h-4 w-4" />
-          </button>
-        </div>
-
-        <div className="flex flex-wrap gap-1.5 border-b border-border p-2">
-          <button
-            type="button"
-            onClick={() => setCategory(null)}
-            className={`rounded-full px-2.5 py-1 text-meta ${category === null ? "bg-brand-action text-white" : "border border-border text-foreground-muted"}`}
-          >
-            All
-          </button>
-          {categories.slice(0, 14).map((c) => (
-            <button
-              key={c}
-              type="button"
-              onClick={() => setCategory(c)}
-              className={`rounded-full px-2.5 py-1 text-meta ${category === c ? "bg-brand-action text-white" : "border border-border text-foreground-muted"}`}
-            >
-              {c}
-            </button>
-          ))}
-        </div>
-
-        <div className="flex-1 overflow-auto p-3">
-          {loading ? (
-            <p className="p-6 text-center text-body text-foreground-muted">Loading the asset library...</p>
-          ) : assets.length === 0 ? (
-            <p className="p-6 text-center text-body text-foreground-muted">
-              No assets available. The library may not be deployed yet.
-            </p>
-          ) : (
-            <div className="grid grid-cols-[repeat(auto-fill,minmax(96px,1fr))] gap-2">
-              {results.map((a) => (
-                <button
-                  key={a.uid}
-                  type="button"
-                  onClick={() => onPick(a)}
-                  title={`${a.title}${a.requiresAttribution ? ` (${a.license}, cited)` : ` (${a.license})`}`}
-                  className="group flex aspect-square flex-col items-center justify-center rounded-lg border border-border bg-surface-sunken p-2 hover:border-brand-action"
-                  data-testid="figure-icon-option"
-                >
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
-                    src={assetSvgUrl(a)}
-                    alt={a.title}
-                    loading="lazy"
-                    className="h-full w-full object-contain"
-                  />
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
-
-        <div className="border-t border-border p-2 text-center text-meta text-foreground-faint">
-          {loading ? "" : `${results.length} shown of ${assets.length} open-licensed assets. Credits are added automatically.`}
-        </div>
-      </div>
-    </div>
-  );
 }

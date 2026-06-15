@@ -471,12 +471,3 @@ function ToolPanel({
     </>
   );
 }
-
-function ComingSoon({ title, note }: { title: string; note: string }) {
-  return (
-    <>
-      <PanelHead>{title}</PanelHead>
-      <p className="text-meta text-foreground-faint">{note}</p>
-    </>
-  );
-}
