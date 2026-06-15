@@ -632,11 +632,13 @@
   );
 }
 [data-theme="dark"] .ros-calm-surface .ros-history-panel::before {
+  /* Dark room: a black shadow is invisible, so the seam reads as a soft
+   * bluish-white edge glow instead (matching the dark card shadow). */
   background: linear-gradient(
     to right,
     transparent 0%,
-    rgba(0, 0, 0, 0.18) 55%,
-    rgba(0, 0, 0, 0.6) 100%
+    rgba(190, 205, 235, 0.05) 55%,
+    rgba(190, 205, 235, 0.16) 100%
   );
 }
 /* Matching top-edge shadow, cast UPWARD into the header gap so the panel reads
@@ -665,8 +667,8 @@
 [data-theme="dark"] .ros-calm-surface .ros-history-topglow {
   background: linear-gradient(
     to top,
-    rgba(0, 0, 0, 0.4) 0%,
-    rgba(0, 0, 0, 0.12) 50%,
+    rgba(190, 205, 235, 0.13) 0%,
+    rgba(190, 205, 235, 0.04) 50%,
     transparent 100%
   );
 }
@@ -693,8 +695,8 @@
 [data-theme="dark"] .ros-calm-surface .ros-history-botglow {
   background: linear-gradient(
     to bottom,
-    rgba(0, 0, 0, 0.4) 0%,
-    rgba(0, 0, 0, 0.12) 50%,
+    rgba(190, 205, 235, 0.13) 0%,
+    rgba(190, 205, 235, 0.04) 50%,
     transparent 100%
   );
 }
@@ -750,7 +752,7 @@
 }
 [data-theme="dark"] .ros-calm-surface .ros-history-panel .ros-history-toolbar {
   background: color-mix(in srgb, #ffffff 7%, transparent);
-  box-shadow: 0 5px 10px -4px rgba(0, 0, 0, 0.5);
+  box-shadow: 0 1px 0 0 rgba(190, 205, 235, 0.1), 0 5px 10px -6px rgba(190, 205, 235, 0.1);
 }
 /* The sticky day header keeps its near-opaque fill (it has to occlude rows
  * scrolling under it) but trades the washed hairline for a soft drop shadow so
@@ -760,7 +762,7 @@
   box-shadow: 0 5px 8px -4px rgba(15, 23, 42, 0.18);
 }
 [data-theme="dark"] .ros-calm-surface .ros-history-panel .ros-history-dayhead {
-  box-shadow: 0 5px 10px -4px rgba(0, 0, 0, 0.5);
+  box-shadow: 0 1px 0 0 rgba(190, 205, 235, 0.1), 0 5px 10px -6px rgba(190, 205, 235, 0.1);
 }
 
 /* Ghost icon button — the calm header glyph treatment (Focus / Close / the

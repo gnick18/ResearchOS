@@ -31,9 +31,9 @@ import UserAvatar from "@/components/UserAvatar";
 // version diff and the method-override diff read identically. Green = added,
 // red + line-through = removed. The editor tint rides on top as a left border.
 const ADDED_CLASSES =
-  "text-green-700 whitespace-pre-wrap font-mono text-xs px-2 py-1 rounded";
+  "text-green-700 dark:text-green-300 whitespace-pre-wrap font-mono text-xs px-2 py-1 rounded";
 const REMOVED_CLASSES =
-  "text-red-700 line-through whitespace-pre-wrap font-mono text-xs px-2 py-1 rounded";
+  "text-red-700 dark:text-red-300 line-through whitespace-pre-wrap font-mono text-xs px-2 py-1 rounded";
 
 interface VersionDiffViewProps {
   /** Predecessor (or current, when toggled) state, the diff "before". */
@@ -79,7 +79,10 @@ export default function VersionDiffView({
       {segments.map((segment, idx) => {
         if (segment.kind === "same") {
           return (
-            <div key={idx} className="prose prose-sm prose-gray max-w-none">
+            <div
+              key={idx}
+              className="prose prose-sm prose-gray dark:prose-invert max-w-none"
+            >
               <ReactMarkdown
                 remarkPlugins={[remarkGfm, remarkUnderline]}
                 rehypePlugins={[
@@ -99,7 +102,7 @@ export default function VersionDiffView({
           <div
             key={idx}
             data-testid={`diff-${segment.kind}`}
-            className="flex items-start gap-2 pl-2 border-l-2 rounded bg-stone-50"
+            className="flex items-start gap-2 pl-2 border-l-2 rounded bg-stone-50 dark:bg-white/[0.04]"
             style={{ borderLeftColor: tint }}
           >
             <span className="pt-1 flex-shrink-0">
