@@ -29,6 +29,7 @@ import {
   recoverLabKeyFromHead,
   createLab,
   addMember,
+  readmitMember,
   type LabKeyEnvelope,
 } from "./lab-key";
 import {
@@ -290,6 +291,127 @@ describe("rotate on departure with seed chaining", () => {
     const key = openLabKeyCopy(created.envelope, "alice", alice.x25519Private);
     expect(() => rotateLabKey(created.record, key, "pi", head.ed25519Private)).toThrow();
     expect(() => rotateLabKey(created.record, key, "ghost", head.ed25519Private)).toThrow();
+  });
+});
+
+describe("readmitMember (Phase C2 PI re-admit after an identity reset)", () => {
+  it("excludes the old key, admits the new key, and preserves data access", () => {
+    const head = makeMember("pi", "head");
+    const alice = makeMember("alice", "member");
+    const bob = makeMember("bob", "member");
+    const created = createLab(
+      "lab-1",
+      head.member,
+      [alice.member, bob.member],
+      head.ed25519Private,
+    );
+
+    // Gen0 lab data written before alice resets.
+    const gen0Key = openLabKeyCopy(created.envelope, "alice", alice.x25519Private);
+    const histData = utf8ToBytes("gen0: cloning log");
+    const histBlob = encryptLabData(histData, gen0Key);
+    const aliceOldKeyCopyBefore = openLabKeyCopy(
+      created.envelope,
+      "alice",
+      alice.x25519Private,
+    );
+
+    // Alice resets her identity (Phase C1): she now holds a brand-new keypair
+    // under the SAME username.
+    const aliceReset = generateIdentityKeys();
+    const newKeys = {
+      x25519PublicKey: bytesToHex(aliceReset.encryption.publicKey),
+      ed25519PublicKey: bytesToHex(aliceReset.signing.publicKey),
+    };
+
+    const out = readmitMember(
+      created.record,
+      gen0Key,
+      "alice",
+      newKeys,
+      head.ed25519Private,
+    );
+
+    // New generation data, sealed under the new key.
+    const newData = utf8ToBytes("gen1: post-reset assay");
+    const newBlob = encryptLabData(newData, out.newLabKey);
+
+    // Alice's OLD x25519 key can no longer open her copy (it is sealed to the
+    // NEW key now), so the lost key is excluded from post-readmit data.
+    expect(() =>
+      openLabKeyCopy(out.envelope, "alice", alice.x25519Private),
+    ).toThrow();
+    expect(() => decryptLabData(newBlob, aliceOldKeyCopyBefore)).toThrow();
+
+    // Alice's NEW key opens the new generation and reads new data.
+    const aliceNewKey = openLabKeyCopy(
+      out.envelope,
+      "alice",
+      aliceReset.encryption.privateKey,
+    );
+    expect(decryptLabData(newBlob, aliceNewKey)).toEqual(newData);
+
+    // Bob (untouched) and the PI also hold the new generation key.
+    expect(decryptLabData(newBlob, openLabKeyCopy(out.envelope, "bob", bob.x25519Private))).toEqual(newData);
+    expect(decryptLabData(newBlob, openLabKeyCopy(out.envelope, "pi", head.x25519Private))).toEqual(newData);
+
+    // Historical gen0 lab data stays readable to re-admitted alice via the seed
+    // chain (lab data survives the reset; only direct shares to the old key are lost).
+    const envelopes = new Map<number, LabKeyEnvelope>([
+      [0, created.envelope],
+      [1, out.envelope],
+    ]);
+    const recoveredGen0 = recoverGenerationKey(aliceNewKey, 1, 0, envelopes);
+    expect(decryptLabData(histBlob, recoveredGen0)).toEqual(histData);
+
+    // Roster keeps the same username with the NEW signing key; log verifies.
+    const row = out.record.members.find((m) => m.username === "alice");
+    expect(row?.ed25519PublicKey).toBe(newKeys.ed25519PublicKey);
+    expect(row?.x25519PublicKey).toBe(newKeys.x25519PublicKey);
+    expect(out.record.members.map((m) => m.username).sort()).toEqual(["alice", "bob"]);
+    expect(out.record.keyGeneration).toBe(1);
+    expect(verifyMembershipLog(out.record).ok).toBe(true);
+
+    // The log records a rotate (eviction of stale keys) followed by an add.
+    const tail = out.record.log.slice(-2).map((e) => e.type);
+    expect(tail).toEqual(["rotate", "add"]);
+  });
+
+  it("preserves the member's role and email binding across the re-admit", () => {
+    const head = makeMember("pi", "head");
+    const alice = makeMember("alice", "member");
+    alice.member.emailHashEnc = "deadbeef";
+    const created = createLab("lab-1", head.member, [alice.member], head.ed25519Private);
+    const gen0Key = openLabKeyCopy(created.envelope, "alice", alice.x25519Private);
+
+    const reset = generateIdentityKeys();
+    const out = readmitMember(
+      created.record,
+      gen0Key,
+      "alice",
+      {
+        x25519PublicKey: bytesToHex(reset.encryption.publicKey),
+        ed25519PublicKey: bytesToHex(reset.signing.publicKey),
+      },
+      head.ed25519Private,
+    );
+    const row = out.record.members.find((m) => m.username === "alice");
+    expect(row?.role).toBe("member");
+    expect(row?.emailHashEnc).toBe("deadbeef");
+  });
+
+  it("refuses to re-admit the head or a non-member", () => {
+    const head = makeMember("pi", "head");
+    const alice = makeMember("alice", "member");
+    const created = createLab("lab-1", head.member, [alice.member], head.ed25519Private);
+    const key = openLabKeyCopy(created.envelope, "alice", alice.x25519Private);
+    const reset = generateIdentityKeys();
+    const newKeys = {
+      x25519PublicKey: bytesToHex(reset.encryption.publicKey),
+      ed25519PublicKey: bytesToHex(reset.signing.publicKey),
+    };
+    expect(() => readmitMember(created.record, key, "pi", newKeys, head.ed25519Private)).toThrow();
+    expect(() => readmitMember(created.record, key, "ghost", newKeys, head.ed25519Private)).toThrow();
   });
 });
 
