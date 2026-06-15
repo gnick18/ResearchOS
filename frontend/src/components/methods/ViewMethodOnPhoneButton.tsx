@@ -144,6 +144,7 @@ export default function ViewMethodOnPhoneButton({
     >
       <button
         type="button"
+        data-tutor-target="method-view-on-phone"
         onClick={(e) => {
           if (connected) {
             void onPublish();

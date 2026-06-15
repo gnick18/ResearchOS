@@ -2114,6 +2114,7 @@ export default function DataHubPage() {
           onClick: () => setNewGraphOpen(true),
           tooltip: "Make a figure from this table.",
           testId: "datahub-toolbar-new-graph",
+          tutorTarget: "datahub-plot-button",
         },
         {
           icon: "gauge",

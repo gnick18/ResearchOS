@@ -53,6 +53,11 @@ export interface RailOperation {
   badge?: number | "dot";
   /** The inspector body for this operation. */
   panel: ReactNode;
+  /** Onboarding-tour anchor. When set, the rail button carries
+   *  `data-tutor-target="<tutorTarget>"` so the tutor's presenter cursor + ring
+   *  can land on it (see lib/onboarding/tutor-target.ts). Opt-in per caller, so a
+   *  shared op id never leaks a target across surfaces. */
+  tutorTarget?: string;
 }
 
 /** A tiny uppercase section heading inside an inspector panel. */
@@ -275,6 +280,7 @@ function RailGroupAndButton({
           onClick={() => onPick(op.id)}
           aria-pressed={active}
           data-op={op.id}
+          {...(op.tutorTarget ? { "data-tutor-target": op.tutorTarget } : {})}
           className={`relative flex h-[46px] w-12 flex-col items-center justify-center gap-0.5 rounded-xl border transition-colors ${
             active
               ? "border-sky-200 bg-sky-100 text-sky-700 dark:border-sky-800 dark:bg-sky-900/40 dark:text-sky-300"

@@ -747,6 +747,7 @@ function SuppliesPageInner() {
                       <Tooltip label="Add to the reorder cart">
                         <button
                           type="button"
+                          data-tutor-target="inventory-reorder-button"
                           onClick={() => addToCart(s)}
                           aria-label={`Reorder ${s.identity.name}`}
                           className="absolute right-4 top-1/2 -translate-y-1/2 inline-flex items-center gap-1 rounded-lg border border-border bg-surface-raised px-2 py-1 text-meta font-medium text-foreground hover:bg-surface-sunken"

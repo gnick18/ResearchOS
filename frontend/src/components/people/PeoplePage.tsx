@@ -175,6 +175,7 @@ export default function PeoplePage() {
                 <button
                   type="button"
                   onClick={() => setSelected(row)}
+                  data-tutor-target="people-member-card"
                   data-testid={`people-row-${row.username}`}
                   className={`flex w-full items-center gap-3 px-4 py-3 text-left transition hover:bg-surface-hover ${
                     row.archived ? "bg-surface-sunken" : "bg-surface"

@@ -34,6 +34,10 @@ export interface ToolbarButton {
   danger?: boolean;
   /** A stable test id passthrough. */
   testId?: string;
+  /** Onboarding-tour anchor. When set, the button carries
+   *  `data-tutor-target="<tutorTarget>"` so the tutor cursor + ring can land on
+   *  it (lib/onboarding/tutor-target.ts). Opt-in per button. */
+  tutorTarget?: string;
 }
 
 export type ToolbarGroup = ToolbarButton[];
@@ -54,6 +58,7 @@ function ToolbarAction({ btn }: { btn: ToolbarButton }) {
       disabled={btn.disabled}
       aria-label={iconOnly ? btn.tooltip ?? btn.label : undefined}
       data-testid={btn.testId}
+      {...(btn.tutorTarget ? { "data-tutor-target": btn.tutorTarget } : {})}
       className={`${base} ${tone} ${iconOnly ? "px-2" : ""}`}
     >
       {btn.icon ? <Icon name={btn.icon} className="h-3.5 w-3.5 shrink-0" /> : null}

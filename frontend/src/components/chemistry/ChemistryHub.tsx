@@ -622,7 +622,13 @@ export function ChemistryHub({
             </div>
           </div>
           <div className="flex flex-wrap gap-1.5 mt-2.5">
-            <RailAction icon="pencil" label="New" onClick={onNewStructure} primary />
+            <RailAction
+              icon="pencil"
+              label="New"
+              onClick={onNewStructure}
+              primary
+              tutorTarget="chemistry-render-button"
+            />
             <RailAction icon="search" label="PubChem" onClick={onSearchPubchem} />
             <RailAction icon="download" label="Import" onClick={onImportFile} />
             <RailAction
@@ -1118,17 +1124,21 @@ function RailAction({
   onClick,
   primary,
   active,
+  tutorTarget,
 }: {
   icon: "pencil" | "search" | "download" | "book";
   label: string;
   onClick: () => void;
   primary?: boolean;
   active?: boolean;
+  /** Onboarding-tour anchor (lib/onboarding/tutor-target.ts). Opt-in per call. */
+  tutorTarget?: string;
 }) {
   return (
     <button
       type="button"
       data-testid={`chem-rail-${label.toLowerCase().replace(/\s+/g, "-")}`}
+      {...(tutorTarget ? { "data-tutor-target": tutorTarget } : {})}
       onClick={onClick}
       className={`inline-flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-meta font-semibold transition-colors ${
         primary
