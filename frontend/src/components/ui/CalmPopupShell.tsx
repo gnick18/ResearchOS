@@ -516,7 +516,7 @@ export default function CalmPopupShell({
                     // a raised fill (not the recessed sunken well), a quiet
                     // hairline, and a soft two-layer shadow that lifts on hover
                     // (Grant 2026-06-14).
-                    className="px-3 py-1.5 text-meta font-medium rounded-lg bg-surface-raised text-foreground border border-border shadow-[0_1px_2px_rgba(15,23,42,0.08),0_2px_4px_rgba(15,23,42,0.06)] hover:bg-surface-sunken hover:shadow-[0_2px_4px_rgba(15,23,42,0.10),0_4px_10px_rgba(15,23,42,0.10)] transition-all"
+                    className="px-3 py-1.5 text-meta font-medium rounded-lg bg-surface-raised text-foreground border border-border shadow-[0_1px_2px_rgba(15,23,42,0.08),0_2px_4px_rgba(15,23,42,0.06)] hover:bg-surface-sunken hover:shadow-[0_2px_4px_rgba(15,23,42,0.10),0_4px_10px_rgba(15,23,42,0.10)] dark:shadow-[0_1px_2px_rgba(190,205,235,0.10),0_2px_5px_rgba(190,205,235,0.08)] dark:hover:shadow-[0_2px_5px_rgba(190,205,235,0.12),0_4px_10px_rgba(190,205,235,0.12)] transition-all"
                   >
                     {footer.doneLabel ?? "Done"}
                   </button>
