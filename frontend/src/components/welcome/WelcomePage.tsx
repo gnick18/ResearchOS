@@ -1485,6 +1485,31 @@ export default function WelcomePage({
           </Reveal>
         </section>
 
+        {/* ── 11.5 OPEN ICON LIBRARY (open-science resource, not a feature pitch) ─ */}
+        <section className="px-6 py-16 sm:px-12">
+          <Reveal className="mx-auto max-w-[1080px]">
+            <div className="overflow-hidden rounded-2xl border border-[#e3eaf3] bg-white p-6 shadow-[0_1px_2px_rgba(15,40,80,0.04)] sm:p-8">
+              <Kicker>// free for everyone, not just our users</Kicker>
+              <h2 className="mt-2.5 max-w-[24ch] text-2xl font-extrabold leading-tight tracking-tight text-brand-ink sm:text-3xl">
+                An open icon library for science
+              </h2>
+              <p className="mt-4 max-w-[64ch] text-title leading-relaxed text-[#475569]">
+                Over 14,000 openly-licensed scientific icons and silhouettes (CC0,
+                CC-BY, and public domain). Every asset carries its source and
+                license, and the credits are added for you. Browse them, drop them
+                into your figures, or contribute your own.
+              </p>
+              <a
+                href="/library"
+                data-testid="welcome-icon-library"
+                className="mt-5 inline-flex min-h-[44px] items-center gap-1.5 text-body font-bold text-brand-action transition-colors hover:text-brand-ink"
+              >
+                Browse the icon library <span aria-hidden>&rarr;</span>
+              </a>
+            </div>
+          </Reveal>
+        </section>
+
         {/* ── 12. NIH + ZENODO (moved out of the hero) ─────────────────── */}
         <FeatureRow
           kicker="// built for grant-funded labs"
