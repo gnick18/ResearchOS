@@ -1,6 +1,8 @@
 # Experiment Hub Phase 2b — add a TEXT note / result entry to an experiment from the phone
 
-Status: design, 2026-06-15. Owner: MobileUI lane. Follows Phase 2a (photo -> experiment notes/results, shipped d34c81f5c). Grant chose "Both" (photo now, text as a follow-up); this is the text follow-up. Cross-surface (mobile + relay command + laptop handler).
+> UPDATE 2026-06-15: SHIPPED (commit 71c9b0871), and SIMPLER than this doc assumed. The new `create-experiment-entry` command below turned out to be UNNECESSARY: the existing **`append-line`** command (poll.ts, "Phase 2", emitted by `lib/calc-export.ts` `postAppendLine`) already appends arbitrary text to an experiment's notes/results markdown doc by taskId+owner+tab, live-or-on-disk, with a laptop handler already live. Phase 2b reused it — a text composer (field + Notes/Results toggle + Send) on the experiment hub calling `postAppendLine`. No new relay command, no laptop work. The design below is retained for history; ignore the new-command part. Round-trip still verifies on a paired device.
+
+Status: design (superseded by the append-line reuse above), 2026-06-15. Owner: MobileUI lane. Follows Phase 2a (photo -> experiment notes/results, shipped d34c81f5c). Grant chose "Both" (photo now, text as a follow-up); this is the text follow-up. Cross-surface (mobile + relay command + laptop handler).
 
 ## Goal
 From the experiment hub, let a researcher write a TEXT note or result entry at the bench and have it land as a fresh entry on that specific experiment's Notes or Results tab on the laptop, independent of laptop focus, mirroring how Phase 2a routes a photo.
