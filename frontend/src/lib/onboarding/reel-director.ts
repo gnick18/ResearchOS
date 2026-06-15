@@ -20,6 +20,16 @@
 
 export type Role = "pi" | "grad" | "postdoc" | "undergrad" | "industry";
 
+// Roles shown in the interest picker, in display order. Single source of truth
+// for the labels so the UI and the director never drift.
+export const ROLES = [
+  { key: "pi", label: "PI / lab head" },
+  { key: "grad", label: "Grad student" },
+  { key: "postdoc", label: "Postdoc" },
+  { key: "undergrad", label: "Undergrad" },
+  { key: "industry", label: "Industry" },
+] as const satisfies ReadonlyArray<{ key: Role; label: string }>;
+
 // The surfaces a demo can run on. Order here IS the priority used to break ties
 // when more goals are picked than the DEEP cap allows, and to order deep beats.
 export const SURFACE_PRIORITY = [
