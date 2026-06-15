@@ -31,11 +31,13 @@ import PurchaseHistoryPopupAfter from "@/components/PurchaseHistoryPopup";
 import NewPurchaseModalBefore from "./_legacy/NewPurchaseModal.legacy";
 import PurchaseHistoryPopupBefore from "./_legacy/PurchaseHistoryPopup.legacy";
 import PopupErrorBoundary from "./PopupErrorBoundary";
+import NoteDetailPopup from "@/components/NoteDetailPopup";
 import type { VersionHistorySource } from "@/components/history/EntityVersionHistorySidebar";
 import {
   makeSeededPurchaseHistoryEngine,
   FIXTURE_OWNER,
   FIXTURE_PURCHASE_ID,
+  FIXTURE_NOTE,
 } from "./fixtures";
 
 // Which variant of a given popup is currently mounted. "none" = closed.
@@ -124,6 +126,8 @@ export default function PopupChromeReviewPage() {
   const [purchaseVariant, setPurchaseVariant] = useState<Variant>("none");
   // Purchase history popup: which variant is open.
   const [historyVariant, setHistoryVariant] = useState<Variant>("none");
+  // Note detail popup: open state (single, not a migration before/after).
+  const [noteOpen, setNoteOpen] = useState(false);
   // Pre-seeded fixture engine so the history popup renders with real content.
   const [historyEngine, setHistoryEngine] = useState<VersionHistorySource | null>(
     null,
@@ -238,6 +242,40 @@ export default function PopupChromeReviewPage() {
             </PopupErrorBoundary>
           )}
         </SectionRow>
+
+        {/* NoteDetailPopup: already on CalmPopupShell, so this is the kit polish
+            (sky title accent + option-3 recolor + dark), not a chrome migration.
+            One Open button, seeded with a running-log fixture note. */}
+        <section className="rounded-xl border border-border bg-surface-raised p-6">
+          <div className="flex items-start justify-between gap-6">
+            <div className="min-w-0">
+              <h2 className="text-lg font-bold text-foreground">NoteDetailPopup</h2>
+              <p className="mt-1 text-meta text-foreground-muted">
+                Note detail, sky family hue (option 3 recolor). Seeded running-log
+                note with two entries. Verify the title accent, the selected entry
+                tab + edit affordances (sky), and the dark card shadow.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setNoteOpen(true)}
+              className="shrink-0 rounded-lg border border-brand-action bg-surface px-4 py-2 text-body font-semibold text-brand-action hover:bg-surface-sunken"
+            >
+              Open
+            </button>
+          </div>
+          {noteOpen && (
+            <PopupErrorBoundary label="NoteDetailPopup" onReset={() => setNoteOpen(false)}>
+              <NoteDetailPopup
+                note={FIXTURE_NOTE}
+                onClose={() => setNoteOpen(false)}
+                onUpdate={() => {}}
+                onDelete={() => setNoteOpen(false)}
+                currentUser="dev"
+              />
+            </PopupErrorBoundary>
+          )}
+        </section>
       </div>
 
       {/* Floating theme toggle, pinned above the popups (which cover the header

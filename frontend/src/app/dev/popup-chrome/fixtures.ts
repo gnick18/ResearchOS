@@ -15,6 +15,39 @@
 
 import { HistoryEngine } from "@/lib/history/engine";
 import { MemoryStorage, makeSpacedClock } from "@/lib/history/test-utils";
+import type { Note } from "@/lib/types";
+
+/** A seeded running-log note for the NoteDetailPopup row (so its entry tabs +
+ *  sky accents render with content). */
+export const FIXTURE_NOTE: Note = {
+  id: 1,
+  title: "Buffer prep, cohort 2",
+  description: "Stock solutions and bench notes",
+  is_running_log: true,
+  is_shared: false,
+  username: "dev",
+  updated_at: "2025-12-31T18:00:00.000Z",
+  entries: [
+    {
+      id: "e1",
+      title: "Dec 31 - received",
+      date: "2025-12-31",
+      content:
+        "NaCl received from Fisher. Doubled order covers the second cohort. Filtered all stocks through a 0.22 micron membrane before use.",
+      created_at: "2025-12-31T18:00:00.000Z",
+      updated_at: "2025-12-31T18:00:00.000Z",
+    },
+    {
+      id: "e2",
+      title: "Dec 28 - prep",
+      date: "2025-12-28",
+      content:
+        "Laid out the buffer series, high-salt condition last to keep the bench clear of cross contamination.",
+      created_at: "2025-12-28T15:00:00.000Z",
+      updated_at: "2025-12-28T15:00:00.000Z",
+    },
+  ],
+};
 
 /** Owner + id the gallery passes to PurchaseHistoryPopup; the seed must match. */
 export const FIXTURE_OWNER = "dev";
