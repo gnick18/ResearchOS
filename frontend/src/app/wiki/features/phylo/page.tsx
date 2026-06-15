@@ -172,6 +172,36 @@ export default function PhyloFeaturePage() {
         caption="A circular layout with a clade color strip and a metadata heatmap ring. The rings are driven by the columns in the linked CSV."
       />
 
+      <h3>Adding data straight from the Data Hub</h3>
+      <p>
+        Linking a CSV by hand is one way in. The Studio also finds the data for
+        you. When you open a saved tree, it looks at the{" "}
+        <Link href="/wiki/features/datahub">Data Hub</Link> tables in the same
+        project, works out which ones share identifiers with your tips, and ranks
+        them by how many tips each one covers. A quiet banner tells you when
+        something fits, for example that a resistance table joins seven of your
+        eight tips, and a <strong>Find data for this tree</strong> button is
+        always there in the Layers panel.
+      </p>
+      <p>
+        Choosing one opens a short add-data wizard. You pick the table, pick the
+        columns you care about, and for each column pick how it should read on the
+        tree, where a numeric column can become a bar panel, a heatmap, dots, or
+        sized points, and a categorical one becomes a color strip. The wizard adds
+        them as real, editable layers in the stack, the same layers you would have
+        built by hand, and you can loop back to add another table without leaving
+        it. Every join rate and every available overlay is computed in the page,
+        so what the wizard offers is always grounded in your actual data.
+      </p>
+      <Callout variant="tip" title="Or just ask in plain language">
+        The BeakerBot assistant reaches the same engine. With a tree open, ask it
+        something like "what data can I overlay on this tree" and it resolves
+        which tree you mean, reports the same ranked matches, and mounts the very
+        same add-data wizard inside the chat. Whichever door you use, the app does
+        the matching and the math and the assistant only narrates it, so the two
+        always agree.
+      </Callout>
+
       <h3>Exporting the figure</h3>
       <p>
         When the figure looks right, you export it as <strong>SVG</strong> for a
