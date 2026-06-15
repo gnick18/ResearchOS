@@ -50,6 +50,13 @@ export interface SmartDataWizardProps {
   }) => void | Promise<void>;
   /** Dismiss the wizard. */
   onClose: () => void;
+  /**
+   * Optional: a host that doesn't already show the tree (the BeakerBot chat mount)
+   * can pass these so the DONE step offers an "Open <tree>" affordance. The GUI
+   * host omits them (the user is already on /phylo looking at the tree).
+   */
+  appliedTreeName?: string;
+  onOpenApplied?: () => void;
 }
 
 type Step = "table" | "columns" | "geoms" | "done";
@@ -76,6 +83,8 @@ export function SmartDataWizard({
   candidates,
   onAddOverlays,
   onClose,
+  appliedTreeName,
+  onOpenApplied,
 }: SmartDataWizardProps) {
   const [step, setStep] = useState<Step>("table");
   const [tableId, setTableId] = useState<string | null>(
@@ -194,7 +203,12 @@ export function SmartDataWizard({
           <GeomStep overlays={chosenOverlays} picks={picks} onToggle={togglePick} />
         )}
         {step === "done" && table && (
-          <DoneStep count={addedCount} tableName={table.tableName} />
+          <DoneStep
+            count={addedCount}
+            tableName={table.tableName}
+            treeName={appliedTreeName}
+            onOpen={onOpenApplied}
+          />
         )}
       </div>
 
@@ -478,7 +492,17 @@ function GeomStep({
   );
 }
 
-function DoneStep({ count, tableName }: { count: number; tableName: string }) {
+function DoneStep({
+  count,
+  tableName,
+  treeName,
+  onOpen,
+}: {
+  count: number;
+  tableName: string;
+  treeName?: string;
+  onOpen?: () => void;
+}) {
   return (
     <div className="px-1 py-5 text-center">
       <span className="inline-grid place-items-center w-10 h-10 rounded-full bg-accent-soft text-accent mb-3">
@@ -488,7 +512,17 @@ function DoneStep({ count, tableName }: { count: number; tableName: string }) {
         Added <b>{count}</b> {count === 1 ? "overlay" : "overlays"} from{" "}
         <b>{tableName}</b> to the tree.
       </p>
-      <p className="text-xs text-foreground-muted mt-1">
+      {onOpen && (
+        <button
+          type="button"
+          onClick={onOpen}
+          className="mt-3 inline-flex items-center gap-1.5 text-sm font-semibold text-accent hover:underline"
+        >
+          <Icon name="tree" className="w-4 h-4" />
+          Open {treeName ?? "the tree"}
+        </button>
+      )}
+      <p className="text-xs text-foreground-muted mt-3">
         Want to put another table on this tree?
       </p>
     </div>
