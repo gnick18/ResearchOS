@@ -425,10 +425,11 @@ describe("plot-spec: significance brackets", () => {
     expect(b0.rightX).toBeCloseTo(geo.groups[1].cx, 6);
     expect(b1.leftX).toBeCloseTo(geo.groups[0].cx, 6);
     expect(b1.rightX).toBeCloseTo(geo.groups[2].cx, 6);
-    // Tier 2 sits 18px higher (smaller pixel y) than tier 1.
-    expect(b1.spanY).toBeCloseTo(b0.spanY - 18, 6);
-    // Legs drop 6px below the span.
-    expect(b0.legY).toBeCloseTo(b0.spanY + 6, 6);
+    // The wider (0,2) span crosses the taller Drug B, so it clears Drug B and
+    // sits at least one tier (18px) above the (0,1) bar.
+    expect(b1.spanY).toBeLessThanOrEqual(b0.spanY - 18 + 1e-6);
+    // Legs drop 8px below the span.
+    expect(b0.legY).toBeCloseTo(b0.spanY + 8, 6);
     // Label sits just above the span.
     expect(b0.labelY).toBeCloseTo(b0.spanY - 3, 6);
   });
@@ -455,9 +456,10 @@ describe("plot-spec: significance brackets", () => {
       expect(b.labelY).toBeGreaterThanOrEqual(geo.y1);
       expect(b.spanY).toBeGreaterThan(0);
     }
-    // The block keeps its uniform tier spacing after any downward shift.
+    // The wider span still sits at least a tier above the narrower one after the
+    // whole stack is shifted down (the shift is uniform, so spacing is kept).
     if (geo.brackets.length >= 2) {
-      expect(geo.brackets[1].spanY).toBeCloseTo(geo.brackets[0].spanY - 18, 6);
+      expect(geo.brackets[1].spanY).toBeLessThanOrEqual(geo.brackets[0].spanY - 18 + 1e-6);
     }
   });
 });
