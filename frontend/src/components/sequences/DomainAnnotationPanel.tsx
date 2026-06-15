@@ -35,6 +35,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import Tooltip from "@/components/Tooltip";
+import FileDropzone from "@/components/ui/FileDropzone";
 import { useEscapeToClose } from "@/hooks/useEscapeToClose";
 import { colorForType } from "@/lib/sequences/feature-colors";
 import type { EditFeature } from "@/lib/sequences/edit-model";
@@ -62,18 +63,6 @@ import {
 /** Soft warning threshold for a chosen .hmm. Full Pfam-A (~1.5 GB) is heavy in
  *  browser memory; we do not block, just warn that a curated subset is faster. */
 const LARGE_HMM_WARN_BYTES = 300 * 1024 * 1024;
-
-/** Minimal File System Access typings (the app targets Chromium only). */
-interface FsaFileHandle {
-  getFile: () => Promise<File>;
-}
-interface WindowWithFsaOpen extends Window {
-  showOpenFilePicker?: (options?: {
-    multiple?: boolean;
-    excludeAcceptAllOption?: boolean;
-    types?: { description?: string; accept: Record<string, string[]> }[];
-  }) => Promise<FsaFileHandle[]>;
-}
 
 /** Build the single-record FASTA the worker searches (our translated CDS). */
 function proteinToFasta(protein: string): string {
@@ -270,47 +259,13 @@ export default function DomainAnnotationPanel({
     [feature, seqLength],
   );
 
-  // The LOCAL on-device path: pick a .hmm via the File System Access API, read
-  // its bytes, and run hmmsearch in the WebWorker against OUR translated protein.
-  // Nothing leaves the machine, so there is no consent gate here.
-  const runLocal = useCallback(async () => {
-    const win = window as WindowWithFsaOpen;
-    if (typeof win.showOpenFilePicker !== "function") {
-      setPhase({
-        kind: "error",
-        message:
-          "This browser cannot open local files. Use Chrome or Edge for on-device databases.",
-      });
-      return;
-    }
-
-    let file: File;
-    try {
-      const [handle] = await win.showOpenFilePicker({
-        multiple: false,
-        excludeAcceptAllOption: false,
-        types: [
-          {
-            description: "HMMER profile database",
-            accept: { "application/octet-stream": [".hmm"] },
-          },
-        ],
-      });
-      if (!handle) return; // picker cancelled
-      file = await handle.getFile();
-    } catch (e) {
-      // AbortError is the user dismissing the picker; return to the source step.
-      if ((e as Error)?.name === "AbortError") {
-        setPhase({ kind: "local" });
-        return;
-      }
-      setPhase({
-        kind: "error",
-        message: "Could not open that file. Try choosing the .hmm again.",
-      });
-      return;
-    }
-
+  // The LOCAL on-device path: the user picks (or drags) a .hmm via the shared
+  // FileDropzone, and we run hmmsearch in the WebWorker against OUR translated
+  // protein. We read the picked File's bytes directly (same as the old
+  // FileSystemFileHandle.getFile() result), so this works in any browser and
+  // supports drag-and-drop. Nothing leaves the machine, so there is no consent
+  // gate here.
+  const runLocal = useCallback(async (file: File) => {
     const controller = new AbortController();
     abortRef.current = controller;
     const big = file.size > LARGE_HMM_WARN_BYTES;
@@ -604,15 +559,19 @@ export default function DomainAnnotationPanel({
           against. Large databases run slower in the browser; a curated subset
           is faster.
         </p>
+        <div className="mt-2">
+          <FileDropzone
+            accept=".hmm,.hmm.gz,text/plain"
+            hint="HMMER .hmm"
+            icon="file"
+            label="Drag and drop your HMM database"
+            onFiles={(files) => {
+              if (files[0]) void runLocal(files[0]);
+            }}
+            onReject={(message) => setPhase({ kind: "error", message })}
+          />
+        </div>
         <div className="mt-2 flex items-center gap-2">
-          <button
-            type="button"
-            onClick={() => void runLocal()}
-            className="inline-flex items-center gap-1 rounded-md bg-emerald-600 px-2.5 py-1 text-meta font-medium text-white transition-colors hover:bg-emerald-700"
-          >
-            <IconFolderOpen className="h-3.5 w-3.5" />
-            Choose HMM database
-          </button>
           <button
             type="button"
             onClick={() => setPhase({ kind: "source" })}
@@ -909,24 +868,6 @@ function IconDownload({ className }: { className?: string }) {
       <path d="M12 3v12" />
       <path d="m7 11 5 5 5-5" />
       <path d="M5 21h14" />
-    </svg>
-  );
-}
-
-function IconFolderOpen({ className }: { className?: string }) {
-  return (
-    <svg
-      className={className}
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth={2}
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden
-    >
-      <path d="M3 7a2 2 0 0 1 2-2h4l2 2h6a2 2 0 0 1 2 2v1" />
-      <path d="M3 9h17l-2 9a1 1 0 0 1-1 .8H4a1 1 0 0 1-1-1V9Z" />
     </svg>
   );
 }

@@ -26,6 +26,7 @@ import { SAMPLE_TREE, SAMPLE_CSV, SAMPLE_ALIGNMENT } from "@/lib/phylo/sample";
 import { PhyloCollectionRail } from "@/components/phylo/PhyloCollectionRail";
 import { PhyloBuilder } from "@/components/phylo/PhyloBuilder";
 import LivingPopup from "@/components/ui/LivingPopup";
+import FileDropzone from "@/components/ui/FileDropzone";
 import {
   SequenceOperationsRail,
   type RailOperation,
@@ -324,9 +325,6 @@ export function PhyloStudio({ initialTreeId }: { initialTreeId?: string } = {}) 
 
   const queryClient = useQueryClient();
 
-  const fileRef = useRef<HTMLInputElement>(null);
-  const csvFileRef = useRef<HTMLInputElement>(null);
-  const alnFileRef = useRef<HTMLInputElement>(null);
 
   // The shared split shell (resizable + collapse-to-focus + persisted width).
   const shell = useSplitShell(LIST_WIDTH_KEY);
@@ -1309,23 +1307,20 @@ export function PhyloStudio({ initialTreeId }: { initialTreeId?: string } = {}) 
               Drop a table, then bind its columns to layers in the inspector.
               Unmatched tips are shown, never dropped.
             </p>
-            <div className="flex flex-wrap gap-1.5">
-              <GhostBtn onClick={() => csvFileRef.current?.click()}>
-                Drop CSV
-              </GhostBtn>
+            <FileDropzone
+              accept=".csv,.tsv,text/csv"
+              onFiles={(files) => files[0] && onUploadCsv(files[0])}
+              label="Drop CSV"
+              hint="CSV, TSV"
+              icon="file"
+              ariaLabel="Upload a metadata table"
+              compact
+            />
+            <div className="mt-1.5 flex flex-wrap gap-1.5">
               <GhostBtn onClick={() => loadCsvText(SAMPLE_CSV)}>
                 Sample table
               </GhostBtn>
             </div>
-            <input
-              ref={csvFileRef}
-              type="file"
-              accept=".csv,.tsv,text/csv"
-              className="hidden"
-              onChange={(e) =>
-                e.target.files?.[0] && onUploadCsv(e.target.files[0])
-              }
-            />
             {metaColumns.length > 0 && (
               <div className="mt-3 space-y-2">
                 <ColumnSelect
@@ -1370,23 +1365,20 @@ export function PhyloStudio({ initialTreeId }: { initialTreeId?: string } = {}) 
               Drop an aligned FASTA to add a sequence-alignment track. Sequences
               join to tips by label, the same way metadata does.
             </p>
-            <div className="flex flex-wrap gap-1.5">
-              <GhostBtn onClick={() => alnFileRef.current?.click()}>
-                Drop FASTA
-              </GhostBtn>
+            <FileDropzone
+              accept=".fasta,.fa,.fas,.aln,.afa,.mfa,.txt,text/plain"
+              onFiles={(files) => files[0] && onUploadAlignment(files[0])}
+              label="Drop FASTA"
+              hint="FASTA, alignment"
+              icon="file"
+              ariaLabel="Upload an aligned FASTA"
+              compact
+            />
+            <div className="mt-1.5 flex flex-wrap gap-1.5">
               <GhostBtn onClick={() => loadAlignmentText(SAMPLE_ALIGNMENT)}>
                 Sample alignment
               </GhostBtn>
             </div>
-            <input
-              ref={alnFileRef}
-              type="file"
-              accept=".fasta,.fa,.fas,.aln,.afa,.mfa,.txt,text/plain"
-              className="hidden"
-              onChange={(e) =>
-                e.target.files?.[0] && onUploadAlignment(e.target.files[0])
-              }
-            />
             {alignment && alnMatch && (
               <div
                 className={`mt-2 text-xs font-medium ${
@@ -1677,8 +1669,8 @@ export function PhyloStudio({ initialTreeId }: { initialTreeId?: string } = {}) 
                 pasteText={pasteText}
                 setPasteText={setPasteText}
                 parseError={parseError}
-                fileRef={fileRef}
                 onUploadFile={onUploadFile}
+                onReject={setParseError}
                 onLoadPaste={() => loadTreeText(pasteText, "Pasted tree")}
                 onSample={() => loadTreeText(SAMPLE_TREE, "Aspergillus sample")}
               />
@@ -1747,8 +1739,8 @@ function ImportPanel(props: {
   pasteText: string;
   setPasteText: (s: string) => void;
   parseError: string | null;
-  fileRef: React.RefObject<HTMLInputElement | null>;
   onUploadFile: (f: File) => void;
+  onReject: (message: string) => void;
   onLoadPaste: () => void;
   onSample: () => void;
 }) {
@@ -1758,8 +1750,8 @@ function ImportPanel(props: {
     pasteText,
     setPasteText,
     parseError,
-    fileRef,
     onUploadFile,
+    onReject,
     onLoadPaste,
     onSample,
   } = props;
@@ -1777,10 +1769,16 @@ function ImportPanel(props: {
           never infers a tree, so nothing runs on a server. Upload a Newick or
           Nexus file, paste the text, or open a tree you already saved.
         </p>
-        <div className="flex flex-wrap gap-2">
-          <GhostBtn onClick={() => fileRef.current?.click()}>
-            <Icon name="import" className="w-4 h-4" /> Upload
-          </GhostBtn>
+        <FileDropzone
+          accept=".nwk,.tree,.treefile,.nex,.nexus,.txt,text/plain"
+          onFiles={(files) => files[0] && onUploadFile(files[0])}
+          label="Upload a tree"
+          hint="Newick, Nexus"
+          icon="file"
+          onReject={onReject}
+          ariaLabel="Upload a Newick or Nexus tree"
+        />
+        <div className="mt-2 flex flex-wrap gap-2">
           <GhostBtn
             onClick={() =>
               setImportMode(importMode === "paste" ? null : "paste")
@@ -1790,13 +1788,6 @@ function ImportPanel(props: {
           </GhostBtn>
           <GhostBtn onClick={onSample}>Try a sample</GhostBtn>
         </div>
-        <input
-          ref={fileRef}
-          type="file"
-          accept=".nwk,.tree,.treefile,.nex,.nexus,.txt,text/plain"
-          className="hidden"
-          onChange={(e) => e.target.files?.[0] && onUploadFile(e.target.files[0])}
-        />
 
         {importMode === "paste" && (
           <div className="mt-4">

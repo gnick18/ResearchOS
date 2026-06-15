@@ -1,6 +1,7 @@
 "use client";
 
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useState } from "react";
+import FileDropzone from "@/components/ui/FileDropzone";
 
 interface UploadStepProps {
   file: File | null;
@@ -35,8 +36,6 @@ export default function UploadStep({
   onClear,
   errorMessage,
 }: UploadStepProps) {
-  const inputRef = useRef<HTMLInputElement | null>(null);
-  const [dragOver, setDragOver] = useState(false);
   const [localError, setLocalError] = useState<string | null>(null);
 
   const acceptFile = useCallback(
@@ -53,37 +52,13 @@ export default function UploadStep({
     [onSelectFile],
   );
 
-  const onInputChange = useCallback(
-    (e: React.ChangeEvent<HTMLInputElement>) => {
-      const picked = e.target.files?.[0];
-      e.target.value = "";
+  const onFiles = useCallback(
+    (files: File[]) => {
+      const picked = files[0];
       if (picked) acceptFile(picked);
     },
     [acceptFile],
   );
-
-  const onDrop = useCallback(
-    (e: React.DragEvent<HTMLLabelElement>) => {
-      e.preventDefault();
-      e.stopPropagation();
-      setDragOver(false);
-      const dropped = e.dataTransfer.files?.[0];
-      if (dropped) acceptFile(dropped);
-    },
-    [acceptFile],
-  );
-
-  const onDragOver = useCallback((e: React.DragEvent<HTMLLabelElement>) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setDragOver(true);
-  }, []);
-
-  const onDragLeave = useCallback((e: React.DragEvent<HTMLLabelElement>) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setDragOver(false);
-  }, []);
 
   const visibleError = errorMessage ?? localError;
   const oversized = file !== null && file.size > MAX_RECOMMENDED_ZIP_BYTES;
@@ -100,30 +75,14 @@ export default function UploadStep({
         </p>
       </div>
 
-      <label
-        htmlFor="eln-upload-input"
-        onDrop={onDrop}
-        onDragOver={onDragOver}
-        onDragLeave={onDragLeave}
-        className={`flex flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed cursor-pointer transition-colors px-6 py-10 text-center ${
-          dragOver
-            ? "border-blue-400 bg-blue-50 dark:bg-blue-500/15"
-            : "border-border hover:border-gray-400 bg-surface-sunken"
-        }`}
-      >
-        <input
-          id="eln-upload-input"
-          ref={inputRef}
-          type="file"
-          accept=".zip,application/zip,application/x-zip-compressed"
-          className="hidden"
-          onChange={onInputChange}
-        />
-        <p className="text-body text-foreground">
-          Drag and drop a <code className="px-1 py-0.5 bg-surface-raised border border-border rounded text-meta">.zip</code> here
-        </p>
-        <p className="text-meta text-foreground-muted">or click to pick a file</p>
-      </label>
+      <FileDropzone
+        onFiles={onFiles}
+        accept=".zip,application/zip,application/x-zip-compressed"
+        multiple={false}
+        hint="ZIP archive"
+        onReject={setLocalError}
+        ariaLabel="Upload the offline notebook ZIP"
+      />
 
       {file && (
         <div className="rounded-lg border border-border bg-surface-raised p-3 flex items-center justify-between gap-3">

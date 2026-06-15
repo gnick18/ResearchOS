@@ -9,6 +9,7 @@ import {
 } from "@/lib/import/orchestrate";
 import { pickImportedMethodName, pickImportedProjectName } from "@/lib/import/resolve";
 import LivingPopup from "@/components/ui/LivingPopup";
+import FileDropzone from "@/components/ui/FileDropzone";
 import type {
   ImportPlan,
   ImportResult,
@@ -59,7 +60,6 @@ export default function ImportExperimentDialog({
   provenanceFingerprint,
 }: ImportExperimentDialogProps) {
   const queryClient = useQueryClient();
-  const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   // Start in "loading" when a bundle was pre-supplied (the inbox path) so the
   // file-picker stage never flashes before the auto-load effect runs.
@@ -119,20 +119,6 @@ export default function ImportExperimentDialog({
       setStage("error");
     }
   }, []);
-
-  const onPickFile = useCallback(() => {
-    fileInputRef.current?.click();
-  }, []);
-
-  const onFileInputChange = useCallback(
-    async (e: React.ChangeEvent<HTMLInputElement>) => {
-      const file = e.target.files?.[0];
-      // Reset the input so picking the same file twice still triggers change.
-      e.target.value = "";
-      if (file) await handleFile(file);
-    },
-    [handleFile],
-  );
 
   // Cross-boundary inbox path, auto-load a pre-supplied bundle (the decrypted
   // shared experiment) the moment the dialog opens, so the user lands in review
@@ -228,14 +214,6 @@ export default function ImportExperimentDialog({
       fillHeight
     >
       <div className="bg-surface-raised rounded-xl shadow-2xl w-full flex flex-col overflow-hidden max-h-full">
-        <input
-          ref={fileInputRef}
-          type="file"
-          accept=".zip,application/zip"
-          className="hidden"
-          onChange={onFileInputChange}
-        />
-
         <div className="px-6 pt-5 pb-3 border-b border-border bg-surface-sunken flex items-center justify-between gap-4">
           <div>
             <h2 className="text-title font-semibold text-foreground">
@@ -250,7 +228,9 @@ export default function ImportExperimentDialog({
         </div>
 
         <div className="flex-1 overflow-y-auto px-6 py-5">
-          {stage === "picker" && <PickerStage onPick={onPickFile} />}
+          {stage === "picker" && (
+            <PickerStage onFiles={handleFile} onReject={setErrorMsg} />
+          )}
           {stage === "loading" && <SpinnerStage label="Reading bundle…" />}
           {stage === "applying" && <SpinnerStage label="Writing to disk…" />}
           {stage === "review" && plan && (
@@ -309,20 +289,30 @@ export default function ImportExperimentDialog({
   );
 }
 
-function PickerStage({ onPick }: { onPick: () => void }) {
+function PickerStage({
+  onFiles,
+  onReject,
+}: {
+  onFiles: (file: File) => void | Promise<void>;
+  onReject: (message: string) => void;
+}) {
   return (
     <div className="flex flex-col items-center justify-center gap-3 py-8">
       <p className="text-body text-foreground text-center max-w-md">
         Select a <code className="px-1 py-0.5 bg-surface-sunken rounded text-meta">-raw.zip</code> bundle
         exported by another ResearchOS user. You&apos;ll review what gets created before anything is written.
       </p>
-      <button
-        type="button"
-        onClick={onPick}
-        className="mt-2 px-4 py-2 text-body bg-brand-action hover:bg-brand-action/90 text-white rounded-lg"
-      >
-        Choose .zip file
-      </button>
+      <FileDropzone
+        accept=".zip,application/zip"
+        multiple={false}
+        onFiles={(files) => {
+          const file = files[0];
+          if (file) void onFiles(file);
+        }}
+        onReject={onReject}
+        hint="ZIP archive"
+        className="mt-2 w-full max-w-md"
+      />
     </div>
   );
 }

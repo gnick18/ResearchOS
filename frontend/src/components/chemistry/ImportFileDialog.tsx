@@ -6,10 +6,11 @@
 // added to the library with source "imported". ChemDraw + unknown formats get an
 // honest message, never a silent drop.
 
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 
 import LivingPopup from "@/components/ui/LivingPopup";
+import FileDropzone from "@/components/ui/FileDropzone";
 import { Icon } from "@/components/icons";
 import { moleculesApi } from "@/lib/chemistry/api";
 import { toMolblock } from "@/lib/chemistry/rdkit";
@@ -32,11 +33,9 @@ export function ImportFileDialog({
   onImported?: (id: string) => void;
 }) {
   const queryClient = useQueryClient();
-  const inputRef = useRef<HTMLInputElement | null>(null);
   const [fileName, setFileName] = useState<string | null>(null);
   const [parsed, setParsed] = useState<ParseResult | null>(null);
   const [importing, setImporting] = useState(false);
-  const [dragOver, setDragOver] = useState(false);
   const [summary, setSummary] = useState<string | null>(null);
   const [progress, setProgress] = useState<{ done: number; total: number } | null>(
     null,
@@ -118,49 +117,16 @@ export function ImportFileDialog({
         </div>
 
         <div className="px-5 py-4">
-          <input
-            ref={inputRef}
-            type="file"
+          <FileDropzone
             accept=".mol,.sdf,.smi,.smiles,.txt,.cdxml,.cdx"
-            className="hidden"
-            onChange={(e) => {
-              const f = e.target.files?.[0];
+            onFiles={(files) => {
+              const f = files[0];
               if (f) void takeFile(f);
-              e.target.value = "";
             }}
+            onReject={(message) => setSummary(message)}
+            label={fileName ?? "Drop a file here, or click to choose"}
+            hint="MOL, SDF, SMILES, CDXML"
           />
-
-          <button
-            type="button"
-            onClick={() => inputRef.current?.click()}
-            onDragOver={(e) => {
-              e.preventDefault();
-              setDragOver(true);
-            }}
-            onDragLeave={() => setDragOver(false)}
-            onDrop={(e) => {
-              e.preventDefault();
-              setDragOver(false);
-              const f = e.dataTransfer.files?.[0];
-              if (f) void takeFile(f);
-            }}
-            className={`w-full border border-dashed rounded-xl px-6 py-8 text-center transition-colors ${
-              dragOver
-                ? "border-brand-action bg-accent-soft"
-                : "border-border bg-surface-sunken hover:border-brand-action"
-            }`}
-          >
-            <Icon
-              name="download"
-              className="w-7 h-7 mx-auto mb-2 text-foreground-muted"
-            />
-            <div className="text-body font-semibold text-foreground">
-              Drop a file here, or click to choose
-            </div>
-            <div className="text-meta text-foreground-muted mt-1">
-              {fileName ?? ".mol / .sdf / .smi / .smiles"}
-            </div>
-          </button>
 
           {summary ? (
             <p className="text-meta text-foreground-muted mt-4">{summary}</p>

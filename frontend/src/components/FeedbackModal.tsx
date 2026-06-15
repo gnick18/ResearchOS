@@ -11,6 +11,7 @@ import {
 } from "@/lib/error-reporting";
 import Tooltip from "@/components/Tooltip";
 import LivingPopup from "@/components/ui/LivingPopup";
+import FileDropzone from "@/components/ui/FileDropzone";
 
 interface FeedbackModalProps {
   isOpen: boolean;
@@ -84,8 +85,6 @@ export default function FeedbackModal({ isOpen, onClose, prefilledError }: Feedb
   // transient "Copied" affordance on that specific thumbnail).
   const [copiedImageId, setCopiedImageId] = useState<string | null>(null);
   const [clipboardError, setClipboardError] = useState<string | null>(null);
-
-  const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const errorInfo = prefilledError || getLastError();
 
@@ -287,13 +286,6 @@ export default function FeedbackModal({ isOpen, onClose, prefilledError }: Feedb
       e.preventDefault();
       addImageBlobs(blobs);
     }
-  };
-
-  const handleFileInput = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = Array.from(e.target.files ?? []);
-    addImageBlobs(files.map((f) => ({ blob: f, name: f.name })));
-    // Reset so selecting the same file again re-fires onChange.
-    e.target.value = "";
   };
 
   const heading =
@@ -612,26 +604,17 @@ export default function FeedbackModal({ isOpen, onClose, prefilledError }: Feedb
             <label className="block text-body font-medium text-foreground mb-1.5">
               Screenshots (optional)
             </label>
-            <button
-              type="button"
-              onClick={() => fileInputRef.current?.click()}
-              className="w-full rounded-lg border-2 border-dashed border-border hover:border-sky-300 hover:bg-sky-50/40 dark:hover:bg-brand-action/15 transition-colors px-3 py-4 flex flex-col items-center gap-1.5 text-center"
-            >
-              <svg className="w-6 h-6 text-foreground-muted" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-              </svg>
-              <span className="text-body text-foreground-muted font-medium">
-                Drop, paste, or click to add images
-              </span>
-            </button>
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept="image/*"
+            <FileDropzone
               multiple
-              onChange={handleFileInput}
-              className="hidden"
-              aria-label="Attach screenshot images"
+              accept="image/*"
+              icon="camera"
+              label="Drop, paste, or click to add images"
+              hint="PNG, JPG, screenshots"
+              ariaLabel="Attach screenshot images"
+              onReject={(message) => setClipboardError(message)}
+              onFiles={(files) =>
+                addImageBlobs(files.map((f) => ({ blob: f, name: f.name })))
+              }
             />
             <p className="mt-1.5 text-meta text-foreground-muted">
               Screenshots help us act on your report. You will paste them into GitHub on the next screen.
