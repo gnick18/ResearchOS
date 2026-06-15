@@ -241,9 +241,13 @@ function unionColumnNames(rows: Record<string, string>[]): string[] {
  * - Existing inline binding: keep every existing row + column untouched, add the
  *   chosen columns onto the rows that map to a tip, and append a new row for any
  *   tip that has table data but no existing row.
- * - Name collisions: a chosen column whose name already exists is namespaced as
+ * - Re-adding the SAME column: when a chosen column is already merged with the
+ *   IDENTICAL values (e.g. the GUI bound MIC as bars, now a second geom is added
+ *   for MIC), reuse that existing column instead of duplicating it, so "same
+ *   column, multiple geoms" lands as two panels on ONE column, no dup key/legend.
+ * - Genuine name collisions (same name, DIFFERENT data): namespaced as
  *   `<table>:<name>`, then suffixed `(2)`, `(3)` if still taken. The overlay
- *   binds the returned (possibly namespaced) name.
+ *   binds the returned name.
  *
  * Pure: the inputs are never mutated, a fresh row set is returned.
  */
@@ -261,48 +265,75 @@ export function mergeTableColumnsIntoMetadata(params: {
 
   const tipColumn = existing ? existing.tipColumn : SYNTHETIC_TIP_COLUMN;
 
-  // Resolve collision-free display names for the chosen columns.
+  const valueFor = (tipId: number, colId: string): string =>
+    perTip.get(tipId)?.[colId] ?? "";
+
+  // Index which existing row joins which tip (by reference), used both to add
+  // columns onto the right rows and to compare values for the reuse check.
+  const matchedExisting = existing
+    ? matchMetadataToTips(tree, existing.rows, existing.tipColumn).matched
+    : new Map<number, Record<string, string>>();
+
+  // An existing column `name` is "the same column re-added" when, on every tip
+  // this table joins with a non-blank value, the existing metadata already holds
+  // that exact value. Then we reuse it rather than writing a duplicate.
+  const isAlreadyMerged = (name: string, colId: string): boolean => {
+    if (!existing) return false;
+    for (const [tipId, tableRow] of perTip) {
+      const want = (tableRow[colId] ?? "").trim();
+      if (want === "") continue;
+      const have = matchedExisting.get(tipId)?.[name];
+      if (have === undefined || have !== (tableRow[colId] ?? "")) return false;
+    }
+    return true;
+  };
+
+  // Resolve the name each chosen column binds: reuse an identical existing
+  // column, else collision-free namespacing.
   const taken = new Set<string>(
     existing ? unionColumnNames(existing.rows) : [tipColumn],
   );
   const addedColumns: { columnId: string; name: string }[] = [];
+  const reused = new Set<string>();
   for (const colId of columnIds) {
     const base = colName.get(colId) ?? colId;
-    let name = base;
-    if (taken.has(name)) name = `${tableName}:${base}`;
-    let n = 2;
-    while (taken.has(name)) name = `${tableName}:${base} (${n++})`;
-    taken.add(name);
-    addedColumns.push({ columnId: colId, name });
+    if (taken.has(base)) {
+      if (isAlreadyMerged(base, colId)) {
+        // Same data already present: bind the panel to it, write nothing new.
+        addedColumns.push({ columnId: colId, name: base });
+        reused.add(base);
+        continue;
+      }
+      let name = `${tableName}:${base}`;
+      let n = 2;
+      while (taken.has(name)) name = `${tableName}:${base} (${n++})`;
+      taken.add(name);
+      addedColumns.push({ columnId: colId, name });
+      continue;
+    }
+    taken.add(base);
+    addedColumns.push({ columnId: colId, name: base });
   }
-
-  const valueFor = (tipId: number, colId: string): string =>
-    perTip.get(tipId)?.[colId] ?? "";
+  // Columns that get freshly written onto the rows (reused ones are left as-is).
+  const writeColumns = addedColumns.filter((c) => !reused.has(c.name));
 
   if (!existing) {
     const rows = leaves(tree).map((tip) => {
       const row: Record<string, string> = { [tipColumn]: tip.name };
-      for (const { columnId, name } of addedColumns)
+      for (const { columnId, name } of writeColumns)
         row[name] = valueFor(tip.id, columnId);
       return row;
     });
     return { rows, tipColumn, addedColumns };
   }
 
-  // Existing binding: index which existing row joins which tip (by reference),
-  // so we add columns onto the right rows and know which tips still need one.
-  const matchedExisting = matchMetadataToTips(
-    tree,
-    existing.rows,
-    existing.tipColumn,
-  ).matched;
   const rowToTip = new Map<Record<string, string>, number>();
   for (const [tipId, row] of matchedExisting) rowToTip.set(row, tipId);
 
   const rows: Record<string, string>[] = existing.rows.map((r) => {
     const copy = { ...r };
     const tipId = rowToTip.get(r);
-    for (const { columnId, name } of addedColumns)
+    for (const { columnId, name } of writeColumns)
       copy[name] = tipId === undefined ? "" : valueFor(tipId, columnId);
     return copy;
   });
@@ -313,7 +344,7 @@ export function mergeTableColumnsIntoMetadata(params: {
     if (covered.has(tip.id)) continue;
     if (!perTip.has(tip.id)) continue; // no table data for this tip either
     const row: Record<string, string> = { [tipColumn]: tip.name };
-    for (const { columnId, name } of addedColumns)
+    for (const { columnId, name } of writeColumns)
       row[name] = valueFor(tip.id, columnId);
     rows.push(row);
   }
