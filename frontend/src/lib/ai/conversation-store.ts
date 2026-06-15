@@ -67,6 +67,7 @@ function getModelCaller(taskId?: string): ModelCaller {
   return taskId ? proxyCallerForTask(taskId) : callModelViaProxy;
 }
 import { DEFAULT_TOOLS } from "@/lib/ai/tools/registry";
+import { setAnalysisResultInChat } from "@/lib/ai/tools/analysis-presentation";
 import { BEAKERBOT_SYSTEM_PROMPT } from "@/lib/ai/system-prompt";
 import {
   runMacro,
@@ -355,7 +356,14 @@ export type ToolStep = {
 };
 
 interface ConversationActions {
-  send: (text: string) => Promise<void>;
+  /**
+   * Send a user message and run a turn. `opts.resultInChat` arms the Data Hub
+   * run tools to keep their result IN CHAT (no navigation to /datahub) for this
+   * turn only, used by the inline analysis/graph picker so picking an item does
+   * not yank the user off the chat (Grant's locked nuance). A typed send leaves
+   * it off and a run navigates as before.
+   */
+  send: (text: string, opts?: { resultInChat?: boolean }) => Promise<void>;
   /**
    * Run a saved workflow macro. Raises one Run-card approval (the same plan
    * approval UI), and on approval replays the macro's steps deterministically via
@@ -1030,7 +1038,7 @@ export const useConversationStore = create<ConversationStore>((set, get) => ({
     conversationEpoch += 1;
   },
 
-  send: async (text: string) => {
+  send: async (text: string, opts?: { resultInChat?: boolean }) => {
     const trimmed = text.trim();
     // Guard: discard empty input.
     if (!trimmed) return;
@@ -1044,6 +1052,12 @@ export const useConversationStore = create<ConversationStore>((set, get) => ({
     }
 
     set({ error: null });
+
+    // Arm (or clear) in-chat result presentation for THIS turn. The Data Hub run
+    // tools consult this latch when deciding whether to navigate to the stored
+    // result. Set on every turn we start (default off), so a picker-driven turn
+    // keeps its result in chat while a later typed run navigates as before.
+    setAnalysisResultInChat(opts?.resultInChat === true);
 
     // Create a fresh controller for this send. Guard against a stale ref from a
     // previous turn that was not cleaned up (belt-and-suspenders).

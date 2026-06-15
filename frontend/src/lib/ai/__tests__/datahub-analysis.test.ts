@@ -7,6 +7,9 @@ import type {
 import { runAnalysis } from "@/lib/datahub/run-analysis";
 import { planAnalysis } from "@/lib/datahub/planner";
 import { buildEmptyNestedTable } from "@/lib/datahub/nested-table";
+import {
+  setAnalysisResultInChat,
+} from "@/lib/ai/tools/analysis-presentation";
 
 // Pins for BeakerBot's Data Hub analysis tools. The pure mapping + planning
 // functions are tested directly against built content, so no folder and no Loro
@@ -167,6 +170,9 @@ function doseResponseContent(): DataHubDocContent {
 beforeEach(() => {
   _clearDataHubAnalysisCache();
   vi.restoreAllMocks();
+  // The in-chat presentation latch is module state, so disarm it between cases
+  // (a turn that armed it must not leak navigation suppression into the next).
+  setAnalysisResultInChat(false);
 });
 
 // ---------------------------------------------------------------------------
@@ -385,6 +391,30 @@ describe("run_datahub_analysis tool", () => {
     expect(navigate).toHaveBeenCalledWith(
       `/datahub?doc=1&analysis=${out.analysisId}`,
     );
+  });
+
+  it("stores the result but does NOT navigate when the run is picker-driven (in-chat)", async () => {
+    const content = twoGroupContent();
+    vi.spyOn(datahubAnalysisDeps, "resolveContent").mockResolvedValue(content);
+    const persist = vi
+      .spyOn(datahubAnalysisDeps, "persistAnalysis")
+      .mockResolvedValue(true);
+    const navigate = vi
+      .spyOn(datahubAnalysisDeps, "navigate")
+      .mockImplementation(() => {});
+
+    // Arm the latch as the conversation store does for a picker-initiated turn.
+    setAnalysisResultInChat(true);
+    const out = (await runDataHubAnalysisTool.execute({
+      tableId: "1",
+      columns: ["Control", "Drug"],
+    })) as { ok: boolean };
+
+    // The analysis still runs and stores (the result is real and version-controlled),
+    // but the user is NOT navigated away, so the inline picker interaction stays in chat.
+    expect(out.ok).toBe(true);
+    expect(persist).toHaveBeenCalledTimes(1);
+    expect(navigate).not.toHaveBeenCalled();
   });
 
   it("does not navigate when the run fails (nothing was stored to show)", async () => {

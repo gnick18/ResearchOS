@@ -1531,7 +1531,12 @@ export default function BeakerBotConversation({
                                   ? `Make a ${item.label} of`
                                   : `Run the ${item.label} on`;
                               dismiss();
-                              void send(`${verb} ${p.tableName}.`);
+                              // Picker-driven run stays in chat (no navigation to
+                              // /datahub), so the inline picker interaction is not
+                              // yanked off the chat. A typed run still navigates.
+                              void send(`${verb} ${p.tableName}.`, {
+                                resultInChat: true,
+                              });
                             }}
                             onClose={dismiss}
                           />
