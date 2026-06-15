@@ -141,6 +141,10 @@ export type MethodSnapshot = {
   owner?: string;
   experimentName?: string;
   methods?: MethodProjection[];
+  /** Whether the laptop offers the AI "make phone-friendly" reformat. The reader
+   *  hides its reformat action unless this is true, so the trigger stays dark
+   *  until the laptop is set up for it. Absent = off. */
+  reformatAvailable?: boolean;
 };
 
 // ---- Library snapshot (offline method-library sync, 2026-06-13) ------------

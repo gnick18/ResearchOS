@@ -717,6 +717,7 @@ export default function MethodScreen() {
     // pcr/lc/compound types already read as steps and have no markdown to tidy).
     const rt = opened.resolvedType;
     const canReformat =
+      !!snapshot?.reformatAvailable &&
       !!opened.body &&
       rt !== 'pcr' &&
       rt !== 'lc_gradient' &&

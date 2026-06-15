@@ -29,6 +29,7 @@
 
 import { tasksApi, methodsApi, pcrApi, lcGradientApi, filesApi } from "@/lib/local-api";
 import { readFreshPhoneReformat } from "@/lib/methods/phone-reformat-cache";
+import { METHOD_PHONE_REFORMAT_ENABLED } from "@/lib/ai/config";
 import { sealToRecipient } from "@/lib/sharing/encryption";
 import { decodePublicKey } from "@/lib/sharing/identity/keys";
 import { listDevices, publishSnapshot, type UserCaptureKeys } from "./client";
@@ -153,6 +154,11 @@ export interface MethodSnapshot {
   owner: string;
   experimentName: string;
   methods: MethodProjection[];
+  /** Whether this laptop offers the AI "make phone-friendly" reformat (the
+   *  NEXT_PUBLIC_METHOD_PHONE_REFORMAT flag). The phone hides its reformat action
+   *  unless this is true, so the trigger stays dark until the laptop is set up for
+   *  it (mirrors the laptop-side button gate). Absent = treated as off. */
+  reformatAvailable?: boolean;
 }
 
 // ── Resolution helpers ───────────────────────────────────────────────────────
@@ -502,6 +508,7 @@ export async function buildMethodSnapshot(
     owner: task.owner,
     experimentName: task.name,
     methods,
+    reformatAvailable: METHOD_PHONE_REFORMAT_ENABLED,
   };
 }
 
