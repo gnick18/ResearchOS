@@ -17,6 +17,7 @@ import {
   assignLabels,
   pageAssets,
   pageConnectors,
+  TEXT_VARIANT_WEIGHT,
 } from "@/lib/figure/figure-page";
 import { missingPanelSvg } from "@/lib/figure/figure-source";
 import { connectorEndpoints, connectorPath, type Point } from "@/lib/figure/figure-connectors";
@@ -44,9 +45,10 @@ export function annotationDefs(): string {
 export function annotationToSvg(a: Annotation, ppi: number): string {
   if (a.kind === "text") {
     const fs = (a.fontPt * ppi) / 72;
+    const weight = TEXT_VARIANT_WEIGHT[a.variant ?? "label"];
     return (
       `<text x="${(a.xIn * ppi).toFixed(1)}" y="${(a.yIn * ppi).toFixed(1)}" ` +
-      `font-size="${fs.toFixed(1)}" fill="#0f172a">${esc(a.text)}</text>`
+      `font-size="${fs.toFixed(1)}" font-weight="${weight}" fill="#0f172a">${esc(a.text)}</text>`
     );
   }
   if (a.kind === "arrow") {

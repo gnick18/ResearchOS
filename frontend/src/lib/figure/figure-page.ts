@@ -44,9 +44,27 @@ export interface FigurePanel {
   style?: PanelStyle;
 }
 
+/** Semantic text styles (Heading / Label / Body), the science-text presets. */
+export type TextVariant = "heading" | "label" | "body";
+export const TEXT_VARIANT_PT: Record<TextVariant, number> = { heading: 18, label: 12, body: 10 };
+export const TEXT_VARIANT_WEIGHT: Record<TextVariant, number> = {
+  heading: 700,
+  label: 600,
+  body: 400,
+};
+
 /** The 3-tool annotation set (Text, Arrow with head toggle, Bracket with label). */
 export type Annotation =
-  | { annId: string; kind: "text"; xIn: number; yIn: number; text: string; fontPt: number }
+  | {
+      annId: string;
+      kind: "text";
+      xIn: number;
+      yIn: number;
+      text: string;
+      fontPt: number;
+      /** Semantic style. Absent on legacy text annotations (treated as label). */
+      variant?: TextVariant;
+    }
   | {
       annId: string;
       kind: "arrow";
@@ -401,8 +419,13 @@ export function moveAnnotation(
 }
 
 /** A new text annotation anchored at a click point (real inches). */
-export function makeTextAnnotation(annId: string, xIn: number, yIn: number): Annotation {
-  return { annId, kind: "text", xIn, yIn, text: "Text", fontPt: 12 };
+export function makeTextAnnotation(
+  annId: string,
+  xIn: number,
+  yIn: number,
+  variant: TextVariant = "label",
+): Annotation {
+  return { annId, kind: "text", xIn, yIn, text: "Text", fontPt: TEXT_VARIANT_PT[variant], variant };
 }
 
 /** A new arrow (1 head) starting at the click point, pointing right. */

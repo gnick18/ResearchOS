@@ -30,6 +30,8 @@ import {
   makeTextAnnotation,
   makeArrowAnnotation,
   makeBracketAnnotation,
+  type TextVariant,
+  TEXT_VARIANT_PT,
   setPanelStyle,
   setPanelTarget,
   pageAssets,
@@ -163,6 +165,8 @@ export default function FigureComposer({ pageId }: { pageId: string }) {
   const [connCursor, setConnCursor] = useState<Point | null>(null);
   // Icon recolor mode: whole-icon single tint, or per-fill (multi-part) recolor.
   const [recolorMode, setRecolorMode] = useState<"whole" | "part">("whole");
+  // Which typed-text style the Text tool places (Heading / Label / Body).
+  const [textVariant, setTextVariant] = useState<TextVariant>("label");
   // Marquee drag-select rectangle (inches), live while dragging on empty canvas.
   const [marquee, setMarquee] = useState<Box | null>(null);
   const marqueeRef = useRef<null | { sx: number; sy: number; box?: Box }>(null);
@@ -678,13 +682,13 @@ export default function FigureComposer({ pageId }: { pageId: string }) {
   const placeAnnotation = (xIn: number, yIn: number) => {
     if (!tool) return;
     const annId = `a${page.id}-${Date.now().toString(36)}`;
-    const make =
+    const ann =
       tool === "text"
-        ? makeTextAnnotation
+        ? makeTextAnnotation(annId, xIn, yIn, textVariant)
         : tool === "arrow"
-          ? makeArrowAnnotation
-          : makeBracketAnnotation;
-    mutate((p) => addAnnotation(p, make(annId, xIn, yIn)), true);
+          ? makeArrowAnnotation(annId, xIn, yIn)
+          : makeBracketAnnotation(annId, xIn, yIn);
+    mutate((p) => addAnnotation(p, ann), true);
     setSelection([{ kind: "annotation", id: annId }]);
     setTool(null);
   };
@@ -1200,9 +1204,26 @@ export default function FigureComposer({ pageId }: { pageId: string }) {
               </button>
             ))}
           </div>
+          {/* Typed-text picker: choose the semantic style the Text tool places. */}
+          {tool === "text" && (
+            <div className="mt-2 flex gap-1">
+              {(["heading", "label", "body"] as TextVariant[]).map((v) => (
+                <button
+                  key={v}
+                  type="button"
+                  onClick={() => setTextVariant(v)}
+                  className={`flex-1 rounded border px-1.5 py-1 text-meta capitalize ${textVariant === v ? "border-brand-action bg-brand-action/10 text-brand-action" : "border-border-strong hover:border-brand-action"}`}
+                >
+                  {v}
+                </button>
+              ))}
+            </div>
+          )}
           {tool && tool !== "connect" && (
             <p className="mt-2 text-meta text-foreground-faint">
-              Click the page to place the {tool}.
+              {tool === "text"
+                ? `Click the page to place a ${textVariant}.`
+                : `Click the page to place the ${tool}.`}
             </p>
           )}
         </div>
@@ -1519,15 +1540,36 @@ export default function FigureComposer({ pageId }: { pageId: string }) {
               Annotation
             </h3>
             {selectedAnnotation.kind === "text" && (
-              <input
-                type="text"
-                value={selectedAnnotation.text}
-                onChange={(e) =>
-                  mutate((p) => updateAnnotation(p, selectedAnnotation.annId, { text: e.target.value }))
-                }
-                placeholder="Text"
-                className="w-full rounded-md border border-border bg-surface px-2 py-1 text-meta"
-              />
+              <>
+                <input
+                  type="text"
+                  value={selectedAnnotation.text}
+                  onChange={(e) =>
+                    mutate((p) => updateAnnotation(p, selectedAnnotation.annId, { text: e.target.value }))
+                  }
+                  placeholder="Text"
+                  className="w-full rounded-md border border-border bg-surface px-2 py-1 text-meta"
+                />
+                <div className="flex gap-1">
+                  {(["heading", "label", "body"] as TextVariant[]).map((v) => (
+                    <button
+                      key={v}
+                      type="button"
+                      onClick={() =>
+                        mutate((p) =>
+                          updateAnnotation(p, selectedAnnotation.annId, {
+                            variant: v,
+                            fontPt: TEXT_VARIANT_PT[v],
+                          }),
+                        )
+                      }
+                      className={`flex-1 rounded border px-1.5 py-1 text-meta capitalize ${(selectedAnnotation.variant ?? "label") === v ? "border-brand-action bg-brand-action/10 text-brand-action" : "border-border-strong hover:border-brand-action"}`}
+                    >
+                      {v}
+                    </button>
+                  ))}
+                </div>
+              </>
             )}
             {selectedAnnotation.kind === "arrow" && (
               <div className="flex items-center justify-between text-body">
