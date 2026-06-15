@@ -101,6 +101,9 @@ export function tutorReducer(
     }
 
     case "back": {
+      // From the picker, Back returns to the welcome (picks preserved so the
+      // user can resume). No phase is ever a dead end.
+      if (state.phase === "picking") return { ...state, phase: "welcome" };
       if (state.phase !== "playing" || !state.reel) return state;
       const floor = firstPlayableIndex(state.reel);
       if (state.beatIndex <= floor) {

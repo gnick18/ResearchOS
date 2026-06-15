@@ -84,6 +84,15 @@ export default function AiDemoBeat({ variant, onDone }: AiDemoBeatProps) {
             {s.line}
           </div>
         </div>
+
+        <div className="mt-4 flex justify-end">
+          <button
+            onClick={onDone}
+            className="rounded-md bg-[var(--brand,#1d9e75)] px-4 py-1.5 text-xs font-bold text-white hover:brightness-105"
+          >
+            Continue
+          </button>
+        </div>
       </div>
     </TutorScreen>
   );

@@ -35,7 +35,6 @@ export interface ShowcaseStageProps {
   onDone: () => void;
 }
 
-const TICK_MS = 80;
 // Placeholder anchor for the cursor + target marker on the stand-in stage. The
 // live phase replaces this with the real element rect.
 const TARGET_POS = { x: 320, y: 150 };
@@ -45,11 +44,24 @@ export default function ShowcaseStage({ surface, onDone }: ShowcaseStageProps) {
   const [state, dispatch] = useReducer(playerReducer, choreography, initPlayer);
   const doneRef = useRef(false);
 
-  // Drive the player on a fixed-interval tick while playing.
+  // Drive the player with requestAnimationFrame on real elapsed time. rAF pauses
+  // automatically in a background tab, so the demo pauses when the user looks
+  // away and resumes cleanly when they return. The delta is clamped so the first
+  // frame after a resume cannot jump a whole step.
   useEffect(() => {
     if (state.status !== "playing") return;
-    const id = setInterval(() => dispatch({ type: "tick", deltaMs: TICK_MS }), TICK_MS);
-    return () => clearInterval(id);
+    let raf = 0;
+    let last = 0;
+    const loop = (now: number) => {
+      if (last !== 0 && !document.hidden) {
+        const delta = Math.min(now - last, 120);
+        if (delta > 0) dispatch({ type: "tick", deltaMs: delta });
+      }
+      last = now;
+      raf = requestAnimationFrame(loop);
+    };
+    raf = requestAnimationFrame(loop);
+    return () => cancelAnimationFrame(raf);
   }, [state.status]);
 
   // Fire onDone exactly once when the demo completes.

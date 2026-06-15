@@ -80,6 +80,12 @@ export default function MontageBeat({ surfaces, onDone }: MontageBeatProps) {
           />
         ))}
       </div>
+      <button
+        onClick={onDone}
+        className="mt-4 text-xs font-semibold text-[var(--muted,#6b716a)] hover:text-[var(--fg,#1f2421)]"
+      >
+        Skip ahead
+      </button>
     </TutorScreen>
   );
 }

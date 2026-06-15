@@ -84,6 +84,8 @@ export default function OnboardingTutor({
         onSetRole={(role) => dispatch({ type: "setRole", role })}
         onToggleGoal={(goal) => dispatch({ type: "toggleGoal", goal })}
         onStart={() => dispatch({ type: "beginReel" })}
+        onSkip={() => dispatch({ type: "skip" })}
+        onBack={() => dispatch({ type: "back" })}
       />
     );
   }

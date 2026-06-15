@@ -30,6 +30,16 @@ const GOAL_LABEL: Record<GoalKey, string> = GOALS.reduce(
   {} as Record<GoalKey, string>,
 );
 
+// Warmer first-person phrasing for the proposed memory line, so it reads like
+// Beaker talking about the user rather than a database row.
+const ROLE_PHRASE: Record<Role, string> = {
+  pi: "You lead a lab",
+  grad: "You're a grad student",
+  postdoc: "You're a postdoc",
+  undergrad: "You're an undergrad",
+  industry: "You work in industry",
+};
+
 const SURFACE_LABEL: Record<Surface, string> = {
   datahub: "Data Hub",
   phylo: "Phylogenetics",
@@ -71,11 +81,11 @@ export function summarize(
     (s) => SURFACE_LABEL[s],
   );
 
-  const wants =
+  const rolePhrase = role ? ROLE_PHRASE[role] : "You're a researcher";
+  const memoryFact =
     goalLabels.length > 0
-      ? `Wants to ${prose(goalLabels)}.`
-      : "Still exploring what to focus on.";
-  const memoryFact = `${roleLabel}. ${wants}`;
+      ? `${rolePhrase} and want to ${prose(goalLabels)}.`
+      : `${rolePhrase}, still figuring out where to focus.`;
 
   const recap: RecapItem[] = [{ label: "Role", value: roleLabel }];
   if (goalLabels.length > 0) {

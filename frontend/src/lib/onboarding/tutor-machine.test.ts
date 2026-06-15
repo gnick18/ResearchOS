@@ -64,6 +64,18 @@ describe("tutor-machine — interest picking", () => {
     // before start (welcome) it is a no-op
     expect(run([{ type: "setRole", role: "pi" }]).role).toBeNull();
   });
+
+  it("Back from the picker returns to welcome with picks preserved (no dead end)", () => {
+    const s = run([
+      { type: "start" },
+      { type: "setRole", role: "pi" },
+      { type: "toggleGoal", goal: "trees" },
+      { type: "back" },
+    ]);
+    expect(s.phase).toBe("welcome");
+    expect(s.role).toBe("pi");
+    expect(s.goals).toEqual(["trees"]);
+  });
 });
 
 describe("tutor-machine — playing next/back", () => {

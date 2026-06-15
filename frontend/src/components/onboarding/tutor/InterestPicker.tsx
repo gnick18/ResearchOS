@@ -22,6 +22,10 @@ export interface InterestPickerProps {
   onSetRole: (role: Role) => void;
   onToggleGoal: (goal: GoalKey) => void;
   onStart: () => void;
+  /** Dismiss onboarding entirely (the always-available escape). */
+  onSkip: () => void;
+  /** Step back to the welcome (picks preserved). */
+  onBack: () => void;
 }
 
 export default function InterestPicker({
@@ -30,10 +34,18 @@ export default function InterestPicker({
   onSetRole,
   onToggleGoal,
   onStart,
+  onSkip,
+  onBack,
 }: InterestPickerProps) {
   const canStart = role !== null;
   return (
     <TutorScreen>
+      <button
+        onClick={onSkip}
+        className="absolute right-4 top-4 z-20 text-xs text-[var(--muted,#6b716a)] hover:text-[var(--fg,#1f2421)] hover:underline"
+      >
+        Skip for now
+      </button>
       <div className="w-full max-w-md">
         <div className="mb-4 flex items-start gap-2">
           <div className="h-8 w-8 flex-none">
@@ -90,7 +102,13 @@ export default function InterestPicker({
           })}
         </div>
 
-        <div className="mt-6 flex justify-end">
+        <div className="mt-6 flex items-center justify-between">
+          <button
+            onClick={onBack}
+            className="text-xs font-medium text-[var(--muted,#6b716a)] hover:text-[var(--fg,#1f2421)]"
+          >
+            Back
+          </button>
           <button
             onClick={onStart}
             disabled={!canStart}
