@@ -67,10 +67,18 @@ App (on main via merge a98883471):
 ## R2 / CDN
 
 - Bucket `researchos-assets` @ `https://assets.research-os.com`. rclone remote `r2:`.
-- Re-sync after a fresh ingest:
-  `rclone sync .claude/worktrees/icon-library-data/frontend/scripts/asset-ingest/out/bundle/ r2:researchos-assets --transfers=24 --checkers=24 --exclude "community-manifest.json" --exclude "assets/community/**"`
-  The excludes are MANDATORY once contributions exist — the curated sync must never
-  clobber the community write-path.
+- **SHARED BUCKET — DESTRUCTIVE-SYNC HAZARD.** `researchos-assets` is shared with OTHER
+  lanes: the Billing/Welcome lane stores marketing videos under `welcome/**`
+  (assets.research-os.com/welcome/*.mp4), and the contribution feature writes
+  `community-manifest.json` + `assets/community/**`. A bare `rclone sync` MIRRORS (deletes
+  anything in the bucket not in out/bundle/) and WOULD WIPE all of those.
+- **SAFE default re-sync = `rclone copy` (never deletes):**
+  `rclone copy .claude/worktrees/icon-library-data/frontend/scripts/asset-ingest/out/bundle/ r2:researchos-assets --transfers=24 --checkers=24`
+  Orphaned files from removed/renamed icons are harmless (not in manifest.json = not shown).
+- ONLY if you genuinely need to PRUNE removed icons, use `sync` and FIRST
+  `rclone lsf r2:researchos-assets --dirs-only` to see every foreign top-level prefix, then
+  exclude them ALL:
+  `rclone sync ...out/bundle/ r2:researchos-assets --exclude "welcome/**" --exclude "community-manifest.json" --exclude "assets/community/**"`
 - manifest.json carries Cache-Control max-age=300 + swr (set via rclone --header-upload).
 
 ## GO-LIVE GATES (Grant's infra — none done yet)
