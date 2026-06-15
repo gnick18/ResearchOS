@@ -30,7 +30,8 @@
  *   - The fixture mode is dev-only — guarded by NODE_ENV inside the app.
  */
 
-import { mkdir, writeFile } from "node:fs/promises";
+import { mkdir, writeFile, readFile } from "node:fs/promises";
+import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { createRequire } from "node:module";
@@ -55,6 +56,75 @@ const SCALE = 2; // deviceScaleFactor, screenshots are 2x the CSS viewport
 // (ring + click-pulse + cursor, composited after capture) instead of the old
 // in-page red ring. Set WIKI_NO_ANNOTATE=1 to fall back to the red ring.
 const ANNOTATE = process.env.WIKI_NO_ANNOTATE !== "1";
+
+// ── Phylo MSA harness helper ────────────────────────────────────────────────
+// The Tree Studio's aligned-FASTA is live-only component state (PhyloStudio
+// loadAlignmentText): it is never persisted to the wiki-capture fixture, so an
+// MSA track only renders after a real FASTA upload. To make phylo-studio-msa
+// reproducible, this helper reads tree doc=1's actual tip labels straight from
+// the generated fixture, synthesizes a small deterministic aligned FASTA whose
+// headers match those tips, and writes it to a temp file the harness uploads
+// via the Alignment dropzone's hidden <input type=file>. Matching real tip
+// labels means every tip row in the matrix shows residues (no blank rows).
+let _msaFastaPath = null;
+async function buildPhyloMsaFasta() {
+  if (_msaFastaPath) return _msaFastaPath;
+  const fixturePath = path.join(
+    REPO_ROOT,
+    "frontend",
+    "src",
+    "lib",
+    "file-system",
+    "wiki-capture-fixture.ts",
+  );
+  const src = await readFile(fixturePath, "utf8");
+  const m = src.match(/"users\/alex\/phylo\/1\.tree",\s*"((?:[^"\\]|\\.)*)"/);
+  if (!m) throw new Error("could not find phylo/1.tree in fixture");
+  const newick = m[1];
+  // Tip labels = tokens that follow a "(" or "," and precede a ":".
+  const tips = [
+    ...newick.matchAll(/[(,]([A-Za-z0-9._|\-]+):/g),
+  ].map((x) => x[1]);
+  if (tips.length === 0) throw new Error("no tips parsed from phylo/1.tree");
+  // A short, deterministic aligned nucleotide block (40 columns). Each tip gets
+  // a row seeded off a per-label hash so the matrix has visible per-row variation
+  // and a couple of gaps — a real-looking alignment, not a flat field.
+  const ALPHA = "ACGT";
+  const COLS = 40;
+  const rowFor = (label) => {
+    let seed = 0;
+    for (let i = 0; i < label.length; i++)
+      seed = (seed * 31 + label.charCodeAt(i)) >>> 0;
+    let s = seed || 1;
+    const next = () => {
+      // xorshift32
+      s ^= s << 13;
+      s >>>= 0;
+      s ^= s >> 17;
+      s ^= s << 5;
+      s >>>= 0;
+      return s;
+    };
+    let out = "";
+    for (let c = 0; c < COLS; c++) {
+      const r = next();
+      // ~6% gaps, else a base biased toward a conserved-looking column.
+      if (r % 16 === 0) out += "-";
+      else out += ALPHA[(r >>> 4) % 4];
+    }
+    return out;
+  };
+  const lines = [];
+  for (const t of tips) {
+    lines.push(`>${t}`);
+    lines.push(rowFor(t));
+  }
+  const fasta = lines.join("\n") + "\n";
+  const out = path.join(os.tmpdir(), "wiki-phylo-doc1-alignment.fasta");
+  await writeFile(out, fasta, "utf8");
+  _msaFastaPath = out;
+  return out;
+}
 
 /** Public, no-auth routes (fresh browser context). */
 const PUBLIC_ROUTES = [
@@ -4495,6 +4565,51 @@ const FIXTURE_ROUTES = [
         if (clip && clip.width > 100 && clip.height > 100) return { clip };
       } catch (err) {
         console.warn(`  ⚠ phylo-builder-recipe: ${err.message}`);
+      }
+    },
+  },
+  {
+    // The MSA (multiple-sequence alignment) track drawn beside the tree tips.
+    // doc=1 defaults to circular + has NO alignment, so we (1) switch Shape to
+    // Rectangular so the matrix sits to the right of the tips, (2) open the Data
+    // tab and upload an aligned FASTA whose headers match doc=1's real tip
+    // labels (built by buildPhyloMsaFasta from the fixture's newick), which fires
+    // loadAlignmentText and auto-adds the msa panel. We wait for the residue
+    // cells (<rect> elements the msa renderer emits) to appear in the canvas SVG
+    // before capturing the whole studio.
+    path: "/phylo?doc=1",
+    file: "phylo-studio-msa.png",
+    waitFor: "text=Build a tree, svg",
+    settleMs: 2000,
+    action: async (page) => {
+      try {
+        // 1. Rectangular layout so the MSA renders as a matrix beside the tips.
+        await page.getByText(/^Shape$/).first().click({ timeout: 3000 });
+        await page.waitForTimeout(400);
+        await page
+          .getByRole("button", { name: /^Rectangular$/ })
+          .first()
+          .click({ timeout: 3000 });
+        await page.waitForTimeout(700);
+        // 2. Data tab -> Alignment dropzone -> upload the matched FASTA.
+        await page.getByText(/^Data$/).first().click({ timeout: 3000 });
+        await page.waitForTimeout(400);
+        const fasta = await buildPhyloMsaFasta();
+        // The FASTA dropzone's hidden input is identified by its accept list
+        // (the aria-label lives on the wrapping div, not the input).
+        const input = page.locator(
+          'div[aria-label="Upload an aligned FASTA"] input[type="file"]',
+        );
+        await input.setInputFiles(fasta, { timeout: 5000 });
+        // 3. Wait for the "Matched N of M tips" confirmation + the residue cells.
+        await page
+          .getByText(/Matched \d+ of \d+ tips/)
+          .first()
+          .waitFor({ timeout: 8000 })
+          .catch(() => null);
+        await page.waitForTimeout(1600);
+      } catch (err) {
+        console.warn(`  ⚠ phylo-studio-msa: ${err.message}`);
       }
     },
   },
