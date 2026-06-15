@@ -15,7 +15,11 @@
 //
 // No emojis, no em-dashes, no mid-sentence colons.
 
-import type { DataHubDocContent, DataHubTableType } from "./model/types";
+import type {
+  DataHubDocContent,
+  DataHubTableType,
+  AnalysisSpec,
+} from "./model/types";
 import { validAnalysisTypes, type AnalysisType } from "./run-analysis";
 import type { PlotKind } from "./plot-spec";
 import { groupColumns } from "./column-table";
@@ -134,16 +138,32 @@ export function plotKindsForTable(
   }
 }
 
+/** The stored regression on the table (its residuals feed the diagnostics), or
+ *  null. THE single source the GUI (NewGraphDialog) and the engine both read, so
+ *  the diagnostic-plot gating lives in exactly one place. */
+export function findRegressionAnalysis(
+  content: DataHubDocContent,
+): AnalysisSpec | null {
+  return (
+    content.analyses.find(
+      (a) => a.type === "linearRegression" || a.type === "multipleRegression",
+    ) ?? null
+  );
+}
+
+/** The stored ROC curve analysis on the table (it feeds the ROC visual), or null. */
+export function findRocAnalysis(content: DataHubDocContent): AnalysisSpec | null {
+  return content.analyses.find((a) => a.type === "rocCurve") ?? null;
+}
+
 /** A linear/multiple regression is stored on the table. */
 export function hasRegressionAnalysis(content: DataHubDocContent): boolean {
-  return content.analyses.some(
-    (a) => a.type === "linearRegression" || a.type === "multipleRegression",
-  );
+  return findRegressionAnalysis(content) !== null;
 }
 
 /** A ROC curve analysis is stored on the table. */
 export function hasRocAnalysis(content: DataHubDocContent): boolean {
-  return content.analyses.some((a) => a.type === "rocCurve");
+  return findRocAnalysis(content) !== null;
 }
 
 export function validPlotKinds(content: DataHubDocContent): PlotKind[] {
