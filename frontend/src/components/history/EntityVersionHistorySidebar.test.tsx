@@ -218,12 +218,14 @@ describe("EntityVersionHistorySidebar (Notes adapter)", () => {
     expect(sidebar.className).toContain("flex");
     expect(sidebar.className).toContain("flex-col");
 
-    // The version list is the single scrollable, growing child. flex-1 lets it
-    // take the leftover height; overflow-y-auto engages the internal scroll once
-    // the host bounds the column.
+    // The version list is the scrollable viewport (h-full + overflow-y-auto)
+    // inside the ScrollArea wrapper, which is the growing flex child (flex-1
+    // min-h-0) that bounds the column so the internal scroll engages.
     const list = await screen.findByTestId("version-list", undefined, IMPORT_WAIT);
-    expect(list.className).toContain("flex-1");
     expect(list.className).toContain("overflow-y-auto");
+    expect(list.className).toContain("h-full");
+    expect(list.parentElement?.className).toContain("flex-1");
+    expect(list.parentElement?.className).toContain("min-h-0");
   }, TEST_TIMEOUT);
 
   it("renders the predecessor diff in the document column via the adapter", async () => {

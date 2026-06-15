@@ -38,7 +38,8 @@ export interface ScrollAreaProps {
   viewportRef?: Ref<HTMLDivElement>;
   /** Props spread onto the viewport (role, tabIndex, aria-*, onKeyDown,
    *  data-testid, ...). */
-  viewportProps?: HTMLAttributes<HTMLDivElement>;
+  viewportProps?: HTMLAttributes<HTMLDivElement> &
+    Record<`data-${string}`, string | undefined>;
 }
 
 const MIN_THUMB = 44;

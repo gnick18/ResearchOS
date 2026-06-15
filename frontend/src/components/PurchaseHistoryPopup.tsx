@@ -20,6 +20,7 @@
 
 import { useCallback, useMemo, useRef, useState } from "react";
 import CalmPopupShell from "@/components/ui/CalmPopupShell";
+import ScrollArea from "@/components/ui/ScrollArea";
 import EntityVersionHistorySidebar, {
   type VersionPreview,
   type VersionHistorySource,
@@ -147,8 +148,8 @@ export default function PurchaseHistoryPopup({
       }
     >
       <div className="flex h-full min-h-0" data-testid="purchase-history-popup">
-        {/* In-place read-only diff column. */}
-        <div className="ros-thin-scroll flex-1 min-w-0 overflow-y-auto">
+        {/* In-place read-only diff column (custom overlay scrollbar). */}
+        <ScrollArea className="flex-1 min-w-0 min-h-0">
           {preview ? (
             <div className="p-6" data-testid="purchase-history-diff-column">
               <VersionDiffView
@@ -163,7 +164,7 @@ export default function PurchaseHistoryPopup({
               <p>Select a version to preview it here.</p>
             </div>
           )}
-        </div>
+        </ScrollArea>
 
         {/* The generic version-history sidebar, driven by the purchase engine +
             adapter. We pass NO headCanonical: the Loro engine reconstructs via

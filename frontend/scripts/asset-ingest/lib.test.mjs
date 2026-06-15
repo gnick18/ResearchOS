@@ -1,0 +1,70 @@
+// Unit tests for the ingest lib. Run: `node --test scripts/asset-ingest/lib.test.mjs`.
+import { test } from "node:test";
+import assert from "node:assert/strict";
+import { classifyLicense, formatCredit, sanitizeSvg } from "./lib.mjs";
+
+test("classifyLicense: allowed set", () => {
+  for (const [s, id] of [
+    ["https://creativecommons.org/publicdomain/zero/1.0/", "CC0"],
+    ["https://creativecommons.org/licenses/by/4.0/", "CC-BY"],
+    ["https://creativecommons.org/licenses/by-sa/4.0/", "CC-BY-SA"],
+    ["Public Domain", "Public Domain"],
+  ]) {
+    const r = classifyLicense(s);
+    assert.equal(r.id, id, s);
+    assert.equal(r.allowed, true, s);
+  }
+  // attribution flags
+  assert.equal(classifyLicense("CC-BY").attribution, true);
+  assert.equal(classifyLicense("CC0").attribution, false);
+  assert.equal(classifyLicense("Public Domain").attribution, false);
+});
+
+test("classifyLicense: excluded NC / ND", () => {
+  for (const s of [
+    "https://creativecommons.org/licenses/by-nc/4.0/",
+    "https://creativecommons.org/licenses/by-nc-sa/4.0/",
+    "https://creativecommons.org/licenses/by-nc-nd/4.0/",
+    "https://creativecommons.org/licenses/by-nd/4.0/",
+    "some unknown thing",
+  ]) {
+    assert.equal(classifyLicense(s).allowed, false, s);
+  }
+});
+
+test("formatCredit: per-source format", () => {
+  const c = formatCredit({
+    source: "phylopic",
+    title: "Strix aluco",
+    creator: "T. Michael Keesey",
+    license: "CC-BY",
+    sourceUrl: "https://www.phylopic.org/images/abc",
+  });
+  assert.match(c, /Strix aluco by T\. Michael Keesey/);
+  assert.match(c, /PhyloPic/);
+  assert.match(c, /\(CC-BY\)/);
+});
+
+test("sanitizeSvg: strips scripts/handlers, keeps fills + viewBox", () => {
+  const dirty =
+    '<svg viewBox="0 0 10 10" xmlns="http://www.w3.org/2000/svg">' +
+    '<script>alert(1)</script>' +
+    '<path d="M0 0h10v10H0z" fill="#ff0000" onclick="evil()"/>' +
+    '<circle cx="5" cy="5" r="3" fill="#00ff00"/></svg>';
+  const { svg, fills, hasViewBox } = sanitizeSvg(dirty);
+  assert.ok(!/<script/i.test(svg), "script removed");
+  assert.ok(!/onclick/i.test(svg), "handler removed");
+  assert.ok(/fill="#ff0000"/.test(svg) && /fill="#00ff00"/.test(svg), "fills preserved");
+  assert.equal(fills, 2, "two distinct fills counted (per-fill recolor ready)");
+  assert.equal(hasViewBox, true);
+});
+
+test("sanitizeSvg: neutralizes external href but keeps internal #refs", () => {
+  const s =
+    '<svg viewBox="0 0 1 1"><a href="https://evil.test">x</a>' +
+    '<use href="#frag"/><rect fill="url(#grad)"/></svg>';
+  const { svg } = sanitizeSvg(s);
+  assert.ok(!/evil\.test/.test(svg), "external href neutralized");
+  assert.ok(/href="#frag"/.test(svg), "internal #ref kept");
+  assert.ok(/url\(#grad\)/.test(svg), "gradient ref kept");
+});

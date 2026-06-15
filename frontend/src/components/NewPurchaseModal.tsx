@@ -13,6 +13,7 @@ import { useUnsavedChangesGuard } from "@/hooks/useUnsavedChangesGuard";
 import { useDraftPersistence } from "@/hooks/useDraftPersistence";
 import { defaultFundingStringForProject } from "@/lib/funding/prefill";
 import CalmPopupShell from "@/components/ui/CalmPopupShell";
+import ScrollArea from "@/components/ui/ScrollArea";
 
 /**
  * Quick "+ New Purchase" modal mounted from the /purchases page.
@@ -586,13 +587,15 @@ export default function NewPurchaseModal({
     >
       <form
         onSubmit={handleSave}
-        className="flex-1 overflow-y-auto px-6 py-4"
+        className="flex-1 flex flex-col min-h-0"
         data-tour-target="purchases-form"
       >
         {/* Hidden submit keeps native Enter-to-submit working now that the
             visible Save button lives in the shell footer outside this form. */}
         <button type="submit" className="hidden" aria-hidden tabIndex={-1} />
 
+        {/* Custom overlay scrollbar (unified standard, ScrollArea). */}
+        <ScrollArea className="flex-1 min-h-0" viewportClassName="px-6 py-4">
         {error && (
           <div className="mb-4 px-3 py-2 bg-rose-50 dark:bg-rose-500/10 border border-rose-200 dark:border-rose-500/30 rounded-lg text-meta text-rose-700 dark:text-rose-300">
             {error}
@@ -808,6 +811,7 @@ export default function NewPurchaseModal({
             </p>
           </div>
         </div>
+        </ScrollArea>
       </form>
     </CalmPopupShell>
   );

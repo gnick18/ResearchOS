@@ -46,6 +46,7 @@ import {
 import { useLabUserProfileMap } from "@/hooks/useLabUserProfiles";
 import UserAvatar from "@/components/UserAvatar";
 import Tooltip from "@/components/Tooltip";
+import ScrollArea from "@/components/ui/ScrollArea";
 
 // Version Control Phase 3 (shared-generalization): the entity-agnostic
 // right-sidebar version-history viewer. Generalized FROM the Notes pilot
@@ -522,15 +523,19 @@ export default function EntityVersionHistorySidebar<P extends EntityProjection>(
         </div>
       )}
 
-      {/* Version list */}
-      <div
-        ref={listRef}
-        tabIndex={0}
-        role="listbox"
-        aria-label="Versions"
-        onKeyDown={handleKeyDown}
-        className="ros-thin-scroll flex-1 overflow-y-auto focus:outline-none"
-        data-testid="version-list"
+      {/* Version list (custom overlay scrollbar via ScrollArea; the viewport
+          keeps the listbox role + keyboard nav + focus ref). */}
+      <ScrollArea
+        className="flex-1 min-h-0"
+        viewportClassName="focus:outline-none"
+        viewportRef={listRef}
+        viewportProps={{
+          tabIndex: 0,
+          role: "listbox",
+          "aria-label": "Versions",
+          onKeyDown: handleKeyDown,
+          "data-testid": "version-list",
+        }}
       >
         {rows === null && (
           <div className="p-4 text-meta text-foreground-muted animate-pulse">
@@ -691,7 +696,7 @@ export default function EntityVersionHistorySidebar<P extends EntityProjection>(
             </button>
           </div>
         )}
-      </div>
+      </ScrollArea>
 
       {/* VC Phase 2: sticky restore footer. Renders ONLY when the popup granted
           restore rights AND a NON-HEAD version is selected. HEAD is the live
