@@ -100,18 +100,6 @@ function R2Demo({ name, label }: { name: string; label: string }) {
   );
 }
 
-/** The contact address used across the marketing surfaces (footer, privacy,
- *  terms). The phone tri-CTA "notify me" / "email me a desktop link" actions
- *  open the visitor's own mail client to this address rather than POSTing to a
- *  capture endpoint that does not exist yet. */
-const CONTACT_EMAIL = "researchos.llc@gmail.com";
-
-/** Launch flag, shared with CompanionHub. While false the tri-CTA shows a
- *  brand-free "iOS & Android · Coming soon" pill (no Apple/Google marks — their
- *  official store badges only apply once real listings exist and require their
- *  own artwork). At launch: set NEXT_PUBLIC_COMPANION_APP_LIVE=1 in Vercel AND
- *  swap the pill for the official App Store + Google Play badge artwork. */
-const COMPANION_APP_LIVE = process.env.NEXT_PUBLIC_COMPANION_APP_LIVE === "1";
 
 /** Public mirror of the server BILLING_ENABLED switch, for client copy. While
  *  false, the pricing copy says cloud + AI are free during the beta; while true,
@@ -121,26 +109,6 @@ const COMPANION_APP_LIVE = process.env.NEXT_PUBLIC_COMPANION_APP_LIVE === "1";
  *  flag because the server switch is not readable from this client component. */
 const BILLING_LIVE = process.env.NEXT_PUBLIC_BILLING_LIVE === "1";
 
-/** mailto: for the "email me a desktop link" + "notify me" actions. We open the
- *  visitor's own mail client (the same draft-and-hand-off pattern the pricing
- *  "Notify me at launch" CTA and the PI purchase routing use) rather than ship a
- *  silently-broken POST form. */
-// TODO(v2): wire a real capture endpoint (waitlist / desktop-link emailer) and
-// swap these mailto: actions for it once the backend exists.
-const DESKTOP_LINK_MAILTO =
-  `mailto:${CONTACT_EMAIL}?subject=` +
-  encodeURIComponent("Send me the ResearchOS desktop link") +
-  "&body=" +
-  encodeURIComponent(
-    "Please send me the link to open ResearchOS on a desktop browser. (Open this from Chrome or Edge on a laptop or desktop to start your notebook.)",
-  );
-const NOTIFY_MAILTO =
-  `mailto:${CONTACT_EMAIL}?subject=` +
-  encodeURIComponent("Notify me about ResearchOS") +
-  "&body=" +
-  encodeURIComponent(
-    "I'd like the desktop link plus updates when the ResearchOS companion app launches.",
-  );
 
 /** A check glyph for the trust-block lists, sky-blue. The single inline check
  *  glyph in the file, reused everywhere a bullet needs a tick. */
@@ -598,176 +566,6 @@ function ComparisonCards() {
 }
 
 /* ----------------------------------------------------------------------------
- * The phone / unsupported tri-CTA (mockup scroll 1). Shown only when
- * `unsupported` is true, in priority order: (1) companion app, (2) open on
- * desktop + live demo, (3) notify me. It replaces the desktop "Start your
- * notebook" entry (there is no app to start on a phone). Sits on the branded
- * MarketingBackdrop with the living hero BeakerBot, so the phone visit feels
- * like the same product, not a dead end.
- * -------------------------------------------------------------------------- */
-function PhoneTriCta() {
-  return (
-    <section className="relative isolate overflow-hidden border-b border-[#dbe6f3] bg-gradient-to-b from-white to-[#eef4fb] px-5 pb-12 pt-6 sm:px-12 sm:pb-16">
-      <MarketingBackdrop tone="vivid" />
-      <div className="relative z-10 mx-auto max-w-[1080px]">
-        {/* Hero block: living mascot + headline. */}
-        <Reveal className="flex flex-col items-center text-center">
-          <div
-            aria-hidden
-            className="relative drop-shadow-[0_14px_30px_rgba(26,160,230,0.34)]"
-          >
-            <BeakerBot
-              pose="waving"
-              alive
-              className="h-28 w-28 text-brand-sky sm:h-32 sm:w-32"
-            />
-          </div>
-          <span className="mt-2 inline-flex items-center gap-2 rounded-full border border-[#d3deec] bg-sky-50 px-3 py-1 text-meta font-semibold text-sky-700">
-            The open lab notebook
-          </span>
-          <h1 className="mt-4 max-w-[16ch] text-[clamp(1.75rem,8vw,2.5rem)] font-extrabold leading-[1.08] tracking-tight text-brand-ink">
-            Your research,{" "}
-            <span
-              style={{
-                background: RAINBOW_TEXT,
-                WebkitBackgroundClip: "text",
-                backgroundClip: "text",
-                color: "transparent",
-              }}
-            >
-              on every screen
-            </span>
-          </h1>
-          <p className="mt-3 max-w-[34ch] text-body leading-relaxed text-[#475569]">
-            A local-first notebook, sharing, and a Prism-class analysis suite.
-            Capture at the bench from your phone; do the deep work on desktop.
-          </p>
-        </Reveal>
-
-        {/* Tri-CTA cards: single column on phone, three across on a wide
-            screen (e.g. an unsupported desktop browser like Safari/Firefox). */}
-        <div className="mt-8 grid gap-4 md:grid-cols-3 md:items-start">
-          {/* 1. Companion app */}
-          <Reveal delay={0}>
-            <div
-              className="relative h-full overflow-hidden rounded-2xl bg-gradient-to-b from-white to-[#eef5fc] p-5 shadow-[0_18px_40px_-22px_rgba(15,23,34,0.45)]"
-              style={{ boxShadow: "0 0 0 1.5px var(--brand-action), 0 18px 40px -22px rgba(15,23,34,0.45)" }}
-            >
-              <div className="text-meta font-bold uppercase tracking-[0.06em] text-brand-action">
-                Built for the bench
-              </div>
-              <h2 className="mt-1 text-title font-extrabold text-brand-ink">
-                Get the companion app
-              </h2>
-              <p className="mt-1 text-body leading-snug text-[#475569]">
-                Capture experiments, photos, timers and checklists at the bench.
-                It syncs straight into your notebook.
-              </p>
-              {/* Brand-free availability pill: no Apple/Google marks while the
-                  app is pre-launch (their official badges only apply once real
-                  store listings exist, and require their own artwork). At launch,
-                  swap this for the official App Store + Google Play badges and
-                  flip NEXT_PUBLIC_COMPANION_APP_LIVE. */}
-              <div className="mt-4">
-                <span className="inline-flex min-h-[44px] items-center rounded-xl border border-[#1c2630] bg-[#0f1722] px-4 py-2">
-                  <span className="text-left">
-                    <span className="block text-body font-bold leading-tight text-white">
-                      iOS &amp; Android
-                    </span>
-                    <span className="block text-[11px] leading-none text-white/80">
-                      Coming soon
-                    </span>
-                  </span>
-                </span>
-              </div>
-              {!COMPANION_APP_LIVE && (
-                <p className="mt-3 text-meta leading-snug text-[#7c8aa0]">
-                  The companion app is on the way. Drop your email below and we
-                  will tell you the moment it lands.
-                </p>
-              )}
-            </div>
-          </Reveal>
-
-          {/* 2. Open on desktop + live demo */}
-          <Reveal delay={90}>
-            <div className="flex h-full flex-col rounded-2xl border border-[#e3eaf3] bg-white p-5 shadow-[0_18px_40px_-22px_rgba(15,23,34,0.45)]">
-              <h2 className="text-title font-extrabold text-brand-ink">
-                Open on desktop for the full app
-              </h2>
-              <p className="mt-1 text-body leading-snug text-[#475569]">
-                The complete notebook, analysis, figures, and the sequence and
-                chemistry workbenches run on a desktop browser.
-              </p>
-              <div className="mt-4 flex flex-col gap-2.5">
-                <a
-                  href="/demo"
-                  data-testid="phone-cta-demo"
-                  className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-xl bg-brand-action px-4 text-body font-bold text-white transition-transform hover:scale-[1.02]"
-                >
-                  <span aria-hidden>&#9654;</span> Try the live demo
-                </a>
-                <a
-                  href={DESKTOP_LINK_MAILTO}
-                  className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-xl border border-[#cfdcec] bg-[#f4f7fb] px-4 text-body font-semibold text-brand-ink"
-                >
-                  Email me a desktop link <span aria-hidden>&rarr;</span>
-                </a>
-              </div>
-              <p className="mt-3 text-meta leading-snug text-[#7c8aa0]">
-                Runs in Chrome or Edge on a laptop or desktop. The demo needs no
-                account.
-              </p>
-            </div>
-          </Reveal>
-
-          {/* 3. Notify me */}
-          <Reveal delay={180}>
-            <div className="flex h-full flex-col rounded-2xl border border-[#e3eaf3] bg-white p-5 shadow-[0_18px_40px_-22px_rgba(15,23,34,0.45)]">
-              <h2 className="text-title font-extrabold text-brand-ink">
-                Be first to know
-              </h2>
-              <p className="mt-1 text-body leading-snug text-[#475569]">
-                New to ResearchOS? We will send the desktop link plus launch
-                updates for the companion app.
-              </p>
-              {/* No capture endpoint exists yet, so this hands off to the
-                  visitor's own mail client (draft-and-hand-off) rather than
-                  POSTing into the void. */}
-              <a
-                href={NOTIFY_MAILTO}
-                data-testid="phone-cta-notify"
-                className="mt-4 inline-flex min-h-[44px] items-center justify-center gap-2 rounded-xl bg-[#0f1722] px-4 text-body font-bold text-white transition-transform hover:scale-[1.02]"
-              >
-                Notify me <span aria-hidden>&rarr;</span>
-              </a>
-              <p className="mt-3 text-meta leading-snug text-[#7c8aa0]">
-                Free to start. Your data stays on your own disk; the account is
-                only for sharing and the researcher directory.
-              </p>
-            </div>
-          </Reveal>
-        </div>
-
-        {/* Trust chips. */}
-        <div className="mt-7 flex flex-wrap justify-center gap-2">
-          {["1 GB free cloud", "Local-first", "Open source", "No lock-in"].map(
-            (c) => (
-              <span
-                key={c}
-                className="rounded-full border border-[#e3eaf3] bg-[#f4f7fb] px-3 py-1 text-meta font-semibold text-[#475569]"
-              >
-                {c}
-              </span>
-            ),
-          )}
-        </div>
-      </div>
-    </section>
-  );
-}
-
-/* ----------------------------------------------------------------------------
  * Compact pricing-tier snapshot for the cost lead. Shows the SHAPE of the plans
  * (storage allowances, who pays) without printing the provisional Plus/Pro
  * sticker prices, per docs/reference/billing-copy-facts.md (final prices are not
@@ -962,13 +760,13 @@ export default function WelcomePage({
             MarketingBackdrop aurora (vivid) so the brand sings here, the same
             stage the pricing hero uses. The NIH card is NOT here anymore; it is
             its own section #12 below. */}
-        {/* On an unsupported device/browser (every phone, plus Safari/Firefox)
-            the desktop "start your notebook" entry has nowhere to go, so the
-            standard hero is replaced by the tri-CTA: companion app, open on
-            desktop + demo, and notify me. Still hidden when embedded. */}
-        {!embedded && unsupported && <PhoneTriCta />}
-
-        {!embedded && !unsupported && (
+        {/* The SAME hero on every device, just reflowed for the screen. On an
+            unsupported device/browser (every phone, plus Safari/Firefox) the
+            sticky desktop-required banner above already explains that the app
+            itself runs on desktop, so the marketing content stays identical
+            rather than diverging into a separate phone landing. Hidden when
+            embedded (the chooser's own bar leads). */}
+        {!embedded && (
           <header className="relative isolate overflow-hidden bg-gradient-to-b from-white to-[#eef4fb] px-6 pb-16 pt-4 text-center sm:px-12">
             <MarketingBackdrop tone="vivid" />
             <Reveal className="relative z-10 mx-auto flex max-w-3xl flex-col items-center">
