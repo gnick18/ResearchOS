@@ -57,6 +57,9 @@ export type SnapshotTask = {
     name?: string | null;
     methodType?: string | null;
   }> | null;
+  /** Owner username of the task itself, so the phone can target a route-capture
+   *  command at this experiment's notes/results tab. Absent on older laptops. */
+  owner?: string | null;
 };
 
 // The decrypted "today" snapshot. generatedAt drives the "last synced" line.

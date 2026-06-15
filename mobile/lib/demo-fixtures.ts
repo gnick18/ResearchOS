@@ -38,7 +38,8 @@ export const DEMO_TODAY_SNAPSHOT: TodaySnapshot = {
     {
       // Experiment-typed task: drives the active-experiments band (Home hub +
       // Today panel). Carries a linked method so the band card shows it.
-      id: 'demo-exp-1',
+      id: '9001',
+      owner: 'you',
       name: 'fakeGFP expression (chapter 2)',
       start_date: yesterdayStr,
       end_date: twoDaysOutStr,
@@ -53,7 +54,8 @@ export const DEMO_TODAY_SNAPSHOT: TodaySnapshot = {
       ],
     },
     {
-      id: 'demo-task-1',
+      id: '9002',
+      owner: 'you',
       name: 'Split HEK293 cells (passage 18)',
       start_date: todayStr,
       end_date: todayStr,
@@ -66,7 +68,8 @@ export const DEMO_TODAY_SNAPSHOT: TodaySnapshot = {
       ],
     },
     {
-      id: 'demo-task-2',
+      id: '9003',
+      owner: 'you',
       name: 'Image plate 4 (GFP channel, 20x)',
       start_date: todayStr,
       end_date: todayStr,
@@ -77,7 +80,8 @@ export const DEMO_TODAY_SNAPSHOT: TodaySnapshot = {
   upcoming: 1,
   overdueTasks: [
     {
-      id: 'demo-task-3',
+      id: '9004',
+      owner: 'you',
       name: 'qPCR validation of KO clone B7',
       start_date: yesterdayStr,
       end_date: yesterdayStr,
@@ -93,7 +97,8 @@ export const DEMO_TODAY_SNAPSHOT: TodaySnapshot = {
   ],
   upcomingTasks: [
     {
-      id: 'demo-task-4',
+      id: '9005',
+      owner: 'you',
       name: 'Western blot for p53 (lysate batch 3)',
       start_date: twoDaysOutStr,
       end_date: twoDaysOutStr,

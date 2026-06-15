@@ -10,8 +10,9 @@
 // relay follow-up, same limitation the band card has).
 //
 // House style: no em-dashes, no emojis, no mid-sentence colons.
+import { useState } from 'react';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
 import { ScreenFrame } from '@/components/ui/ScreenFrame';
@@ -20,14 +21,20 @@ import { EmptyState } from '@/components/ui/EmptyState';
 import { ThemedText } from '@/components/themed-text';
 import { useTodayState } from '@/lib/today-store';
 import { typeMeta } from '@/lib/method-library';
-import { useTheme, fonts } from '@/lib/design';
+import { usePairing } from '@/lib/pairing';
+import { captureToExperiment } from '@/lib/experiment-capture';
+import type { RouteTab } from '@/lib/route-capture';
+import { useTheme, palette, fonts } from '@/lib/design';
 import type { SnapshotTask } from '@/lib/snapshots';
 
 export default function ExperimentDetailScreen() {
   const { surface, spacing } = useTheme();
   const router = useRouter();
+  const { pairing } = usePairing();
   const { taskId } = useLocalSearchParams<{ taskId?: string }>();
   const { snapshot } = useTodayState();
+  const [busyTab, setBusyTab] = useState<RouteTab | null>(null);
+  const [status, setStatus] = useState<string | null>(null);
 
   // Find the task across all three buckets (today / overdue / upcoming).
   const allTasks: SnapshotTask[] = [
@@ -50,6 +57,39 @@ export default function ExperimentDetailScreen() {
     // Per-method precise content is a later relay follow-up; for now every method
     // opens the published method view (which itself lists the protocols).
     router.push('/method-detail');
+  };
+
+  // Routing a capture to this experiment needs its numeric id + owner. The
+  // snapshot id is the Task record id as a string; parse it and require an owner.
+  const numericTaskId = task?.id ? Number(task.id) : NaN;
+  const canAdd = Number.isFinite(numericTaskId) && !!task?.owner;
+
+  const addTo = async (tab: RouteTab) => {
+    if (!canAdd || !task?.owner || busyTab) return;
+    setBusyTab(tab);
+    setStatus(null);
+    try {
+      const result = await captureToExperiment({
+        taskId: numericTaskId,
+        owner: task.owner,
+        tab,
+        pairing,
+      });
+      const where = tab === 'results' ? 'Results' : 'Lab Notes';
+      setStatus(
+        result === 'routed'
+          ? `Photo sent to ${where} for this experiment.`
+          : result === 'queued-offline'
+            ? 'Saved. It will sync when this phone is back online.'
+            : result === 'sent-no-routing'
+              ? 'Sent to your inbox (re-pair this phone to file it on the experiment).'
+              : result === 'no-permission'
+                ? 'Camera permission is needed to add a photo.'
+                : null,
+      );
+    } finally {
+      setBusyTab(null);
+    }
   };
 
   if (!task) {
@@ -122,6 +162,61 @@ export default function ExperimentDetailScreen() {
             );
           })
         )}
+
+        {canAdd ? (
+          <View style={styles.addSection}>
+            <ThemedText style={[styles.sectionLabel, { color: surface.muted }]}>
+              ADD TO THIS EXPERIMENT
+            </ThemedText>
+            <View style={styles.addRow}>
+              <Pressable
+                onPress={() => addTo('notes')}
+                disabled={busyTab !== null}
+                style={[
+                  styles.addBtn,
+                  { backgroundColor: surface.surface, borderColor: surface.border },
+                  busyTab !== null ? styles.addBtnDisabled : null,
+                ]}
+                accessibilityRole="button"
+                accessibilityLabel="Add a photo to this experiment's Lab Notes"
+              >
+                {busyTab === 'notes' ? (
+                  <ActivityIndicator size="small" color={palette.sky} />
+                ) : (
+                  <Ionicons name="camera-outline" size={18} color={palette.sky} />
+                )}
+                <ThemedText style={[styles.addBtnText, { color: surface.text }]}>
+                  Lab Notes
+                </ThemedText>
+              </Pressable>
+              <Pressable
+                onPress={() => addTo('results')}
+                disabled={busyTab !== null}
+                style={[
+                  styles.addBtn,
+                  { backgroundColor: surface.surface, borderColor: surface.border },
+                  busyTab !== null ? styles.addBtnDisabled : null,
+                ]}
+                accessibilityRole="button"
+                accessibilityLabel="Add a photo to this experiment's Results"
+              >
+                {busyTab === 'results' ? (
+                  <ActivityIndicator size="small" color={palette.violet} />
+                ) : (
+                  <Ionicons name="bar-chart-outline" size={18} color={palette.violet} />
+                )}
+                <ThemedText style={[styles.addBtnText, { color: surface.text }]}>
+                  Results
+                </ThemedText>
+              </Pressable>
+            </View>
+            {status ? (
+              <ThemedText style={[styles.statusText, { color: surface.muted }]}>
+                {status}
+              </ThemedText>
+            ) : null}
+          </View>
+        ) : null}
       </ScrollView>
     </ScreenFrame>
   );
@@ -167,5 +262,28 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontFamily: fonts.semibold,
     fontWeight: '600',
+  },
+  addSection: { marginTop: 8 },
+  addRow: { flexDirection: 'row', gap: 10 },
+  addBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    borderWidth: 1,
+    borderRadius: 14,
+    paddingVertical: 14,
+  },
+  addBtnDisabled: { opacity: 0.55 },
+  addBtnText: {
+    fontSize: 15,
+    fontFamily: fonts.semibold,
+    fontWeight: '600',
+  },
+  statusText: {
+    marginTop: 10,
+    fontSize: 13,
+    fontFamily: fonts.medium,
   },
 });

@@ -54,6 +54,13 @@ export interface SnapshotTask {
     name: string | null;
     methodType: string | null;
   }> | null;
+  /**
+   * Record owner of the task itself (the experiment's owner username), so the
+   * phone can target a route-capture command at THIS specific experiment's
+   * notes/results tab from the hub, independent of whatever the laptop has
+   * focused. Omitted when unknown.
+   */
+  owner?: string | null;
 }
 
 /** The decrypted shape the phone reads after openSealed. */
@@ -203,6 +210,7 @@ export async function buildTodaySnapshot(): Promise<TodaySnapshot> {
       end_date: t.end_date,
       task_type: t.task_type,
     };
+    if (t.owner) snap.owner = t.owner;
     const methods = methodResolutions.get(t.id);
     if (methods && methods.length > 0) {
       snap.linkedMethods = methods;
