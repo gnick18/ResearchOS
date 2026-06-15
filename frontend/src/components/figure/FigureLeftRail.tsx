@@ -243,13 +243,26 @@ function IconsPanel({ onPick }: { onPick: (a: LibraryAsset) => void }) {
               <button
                 key={a.uid}
                 type="button"
+                draggable
+                onDragStart={(e) => {
+                  // Carry the whole asset so the canvas drop can place it without
+                  // re-resolving the manifest. text/plain keeps it broadly droppable.
+                  e.dataTransfer.setData("application/x-ros-asset", JSON.stringify(a));
+                  e.dataTransfer.effectAllowed = "copy";
+                }}
                 onClick={() => onPick(a)}
-                title={`${a.title} (${a.license}${a.requiresAttribution ? ", cited" : ""})`}
-                className="flex aspect-square items-center justify-center rounded-lg border border-border bg-surface-sunken p-1.5 hover:border-brand-action"
+                title={`${a.title} (${a.license}${a.requiresAttribution ? ", cited" : ""}). Click or drag onto the page.`}
+                className="flex aspect-square cursor-grab items-center justify-center rounded-lg border border-border bg-surface-sunken p-1.5 hover:border-brand-action active:cursor-grabbing"
                 data-testid="figure-icon-option"
               >
                 {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={assetSvgUrl(a)} alt={a.title} loading="lazy" className="h-full w-full object-contain" />
+                <img
+                  src={assetSvgUrl(a)}
+                  alt={a.title}
+                  loading="lazy"
+                  draggable={false}
+                  className="pointer-events-none h-full w-full object-contain"
+                />
               </button>
             ))}
           </div>

@@ -734,14 +734,9 @@ export default function FigureComposer({ pageId }: { pageId: string }) {
     annDrag.current = { id, sx: e.clientX, sy: e.clientY };
   };
 
-  // Place a picked library asset centered on the page, and load its SVG.
-  const placeIcon = (asset: LibraryAsset) => {
+  // Place a library asset with its top-left at (xIn, yIn), clamped to the page.
+  const placeIconAt = (asset: LibraryAsset, xIn: number, yIn: number) => {
     const sizeIn = 1.2;
-    // Cascade each new icon down-right so consecutive placements do not stack
-    // exactly on top of each other (wrapping before it runs off the page).
-    const step = (pageAssets(page).length % 6) * 0.3;
-    const xIn = Math.max(0, Math.min(wIn - sizeIn, wIn / 2 - sizeIn / 2 + step));
-    const yIn = Math.max(0, Math.min(hIn - sizeIn, hIn / 2 - sizeIn / 2 + step));
     const assetId = `ic${page.id}-${Date.now().toString(36)}`;
     const placed = makePlacedAsset(
       assetId,
@@ -752,17 +747,42 @@ export default function FigureComposer({ pageId }: { pageId: string }) {
         credit: asset.credit,
         requiresAttribution: asset.requiresAttribution,
       },
-      xIn,
-      yIn,
+      Math.max(0, Math.min(wIn - sizeIn, xIn)),
+      Math.max(0, Math.min(hIn - sizeIn, yIn)),
       sizeIn,
     );
     mutate((p) => addPlacedAsset(p, placed), true);
+    setSelectedConn(null);
     setSelection([{ kind: "asset", id: assetId }]);
     setIconPickerOpen(false);
     // Eagerly fetch the SVG so it appears immediately (the effect also covers it).
     void fetchAssetSvg(asset).then((svg) => {
       if (svg) setAssetSvgs((m) => new Map(m).set(assetId, svg));
     });
+  };
+
+  // Click-to-place: centered, cascading down-right so consecutive icons do not
+  // stack exactly on top of each other (wrapping before it runs off the page).
+  const placeIcon = (asset: LibraryAsset) => {
+    const step = (pageAssets(page).length % 6) * 0.3;
+    placeIconAt(asset, wIn / 2 - 0.6 + step, hIn / 2 - 0.6 + step);
+  };
+
+  // Drop an icon dragged from the left rail at the cursor (centered on it).
+  const onCanvasDrop = (e: React.DragEvent) => {
+    const raw = e.dataTransfer.getData("application/x-ros-asset");
+    if (!raw) return;
+    e.preventDefault();
+    let asset: LibraryAsset;
+    try {
+      asset = JSON.parse(raw) as LibraryAsset;
+    } catch {
+      return;
+    }
+    const rect = stageRef.current?.getBoundingClientRect();
+    if (!rect) return;
+    const s = effScale();
+    placeIconAt(asset, (e.clientX - rect.left) / s - 0.6, (e.clientY - rect.top) / s - 0.6);
   };
 
   const selectedAssetObj = selectedAsset
@@ -934,6 +954,10 @@ export default function FigureComposer({ pageId }: { pageId: string }) {
           ref={stageRef}
           className="relative bg-white shadow-lg"
           style={{ width: pageW, height: pageH }}
+          onDragOver={(e) => {
+            if (e.dataTransfer.types.includes("application/x-ros-asset")) e.preventDefault();
+          }}
+          onDrop={onCanvasDrop}
           onPointerDown={(e) => e.stopPropagation()}
           onMouseDown={(e) => {
             // Empty-canvas press starts a marquee (rubber-band) select. A plain
