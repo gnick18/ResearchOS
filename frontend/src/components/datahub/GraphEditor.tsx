@@ -63,6 +63,7 @@ import {
   FigureArtboard,
   FigureArtboardControls,
 } from "@/components/figure/FigureArtboard";
+import ZoomPanCanvas from "@/components/figure/ZoomPanCanvas";
 import {
   artboardInitial,
   saveArtboardPrefs,
@@ -723,44 +724,61 @@ export default function GraphEditor({
           </Tooltip>
         </div>
 
+        {/* Shared pan/zoom viewport (same ZoomPanCanvas the Phylo Studio + Figure
+            composer use): two-finger pan, pinch / Cmd-wheel zoom-at-cursor,
+            Space-drag, scrollbars, minimap. The figure renders at its natural size;
+            the canvas zooms on top. The resize handle stops pointer propagation, so
+            dragging it never pans; color clicks stay under the pan threshold. */}
         {artboard.enabled ? (
           // Publication page-frame view: the figure on a real paper sheet at true
           // scale. Color editing lives in the standard (artboard-off) view.
-          <FigureArtboard
-            figureSvg={svg}
-            figWIn={frame.exportInchesW}
-            figHIn={frame.exportInchesH}
-            state={artboard}
-            renderFigure={({ wPx, hPx }) => (
-              // Size the figure SVG to the page box so direct-on-figure color
-              // editing keeps working inside the artboard view.
-              <PlotColorEditor
-                svg={withRootSize(svg, `${Math.round(wPx)}px`, `${Math.round(hPx)}px`)}
-                style={style}
-                resolvedColors={seriesInfo.colors}
-                onStyleChange={onStyleChange}
-                onSaveColorsAsPalette={onSaveColorsAsPalette}
+          <div className="min-h-0 flex-1 bg-surface-sunken">
+            <ZoomPanCanvas
+              contentWidth={pageDims(artboard).wIn * 96}
+              contentHeight={pageDims(artboard).hIn * 96}
+            >
+              <FigureArtboard
+                figureSvg={svg}
+                figWIn={frame.exportInchesW}
+                figHIn={frame.exportInchesH}
+                state={artboard}
+                renderFigure={({ wPx, hPx }) => (
+                  // Size the figure SVG to the page box so direct-on-figure color
+                  // editing keeps working inside the artboard view.
+                  <PlotColorEditor
+                    svg={withRootSize(svg, `${Math.round(wPx)}px`, `${Math.round(hPx)}px`)}
+                    style={style}
+                    resolvedColors={seriesInfo.colors}
+                    onStyleChange={onStyleChange}
+                    onSaveColorsAsPalette={onSaveColorsAsPalette}
+                  />
+                )}
               />
-            )}
-          />
+            </ZoomPanCanvas>
+          </div>
         ) : (
-          <div className="flex flex-1 items-center justify-center overflow-auto bg-surface-sunken p-6">
-            <div className="rounded-lg border border-border bg-white p-3 shadow-sm">
-              <FigureResizeFrame
-                style={style}
-                frameWidthPx={frame.screenWidth}
-                frameHeightPx={frame.screenHeight}
-                onStyleChange={onStyleChange}
-              >
-                <PlotColorEditor
-                  svg={svg}
+          <div className="min-h-0 flex-1 bg-surface-sunken">
+            <ZoomPanCanvas
+              contentWidth={frame.screenWidth + 30}
+              contentHeight={frame.screenHeight + 30}
+            >
+              <div className="rounded-lg border border-border bg-white p-3 shadow-sm">
+                <FigureResizeFrame
                   style={style}
-                  resolvedColors={seriesInfo.colors}
+                  frameWidthPx={frame.screenWidth}
+                  frameHeightPx={frame.screenHeight}
                   onStyleChange={onStyleChange}
-                  onSaveColorsAsPalette={onSaveColorsAsPalette}
-                />
-              </FigureResizeFrame>
-            </div>
+                >
+                  <PlotColorEditor
+                    svg={svg}
+                    style={style}
+                    resolvedColors={seriesInfo.colors}
+                    onStyleChange={onStyleChange}
+                    onSaveColorsAsPalette={onSaveColorsAsPalette}
+                  />
+                </FigureResizeFrame>
+              </div>
+            </ZoomPanCanvas>
           </div>
         )}
       </div>
