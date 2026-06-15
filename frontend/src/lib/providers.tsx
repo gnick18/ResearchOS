@@ -580,6 +580,20 @@ function AppContent({ children }: { children: ReactNode }) {
         previewMode = null;
       }
     }
+    // A real provider return (?sharingClaim=1) means the user actually signed in
+    // from the preview sign-in screen (the dev-mock button exercises the live
+    // claim flow). The persisted PREVIEW_KEY would otherwise re-enter this branch
+    // and re-show the "Welcome back" screen, trapping the just-authenticated user
+    // ("closes and refreshes, no sign-in"). Clear the flag and fall through so the
+    // normal SharingClaimResume / account flow completes.
+    if (previewMode && sharingClaimReturn) {
+      try {
+        sessionStorage.removeItem(PREVIEW_KEY);
+      } catch {
+        // best-effort; the fall-through below still yields out of preview mode.
+      }
+      previewMode = null;
+    }
     if (previewMode) {
       const exitPreview = () => {
         try {
