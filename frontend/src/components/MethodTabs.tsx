@@ -21,6 +21,8 @@ import QpcrAnalysisMethodTabContent from "./methods/QpcrAnalysisMethodTabContent
 import { WrapAsCompoundAction } from "./methods/WrapAsCompoundAction";
 import { ForkToLibraryAction } from "./methods/ForkToLibraryAction";
 import ViewMethodOnPhoneButton from "./methods/ViewMethodOnPhoneButton";
+import MakePhoneFriendlyButton from "./methods/MakePhoneFriendlyButton";
+import { METHOD_PHONE_REFORMAT_ENABLED } from "@/lib/ai/config";
 import VariationNotesPanel from "./methods/VariationNotesPanel";
 import { Icon, type IconName } from "@/components/icons";
 
@@ -486,6 +488,12 @@ export default function MethodTabs({ task, onTaskUpdate, readOnly = false, piAct
         {activeMethod && (
           <div className="flex flex-shrink-0 flex-wrap items-center gap-1.5 border-t border-border px-4 py-2">
             <ViewMethodOnPhoneButton taskId={task.id} taskOwner={task.owner} />
+            {METHOD_PHONE_REFORMAT_ENABLED &&
+              !readOnly &&
+              !!activeMethod.source_path &&
+              !activeMethod.source_path.includes("://") && (
+                <MakePhoneFriendlyButton method={activeMethod} />
+              )}
             {!readOnly && activeMethod.method_type !== "compound" && (
               <WrapAsCompoundAction
                 method={activeMethod}
