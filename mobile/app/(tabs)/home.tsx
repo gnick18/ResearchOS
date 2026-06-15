@@ -11,12 +11,13 @@
 
 import React, { useCallback, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import Svg, { Path, Circle } from 'react-native-svg';
+import Svg, { Path } from 'react-native-svg';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ScreenFrame } from '@/components/ui/ScreenFrame';
+import { TabHeader } from '@/components/ui/TabHeader';
 import { ActiveExperimentsBand } from '@/components/TodayPanel';
 import { useTheme, fonts, spacing, radii } from '@/lib/design';
 import { usePairing } from '@/lib/pairing';
@@ -216,30 +217,7 @@ export default function HomeScreen() {
     <ScreenFrame edges={['top']}>
       {/* header */}
       <View style={styles.head}>
-        <View style={styles.headText}>
-          <Text style={[styles.greet, { color: s.muted }]} numberOfLines={1}>{greeting}</Text>
-          <Text style={[styles.title, { color: s.text }]} numberOfLines={1}>Home</Text>
-        </View>
-        <View style={styles.headActions}>
-          <Pressable style={[styles.iconBtn, { backgroundColor: s.surface, borderColor: s.border }, t.shadow.sm]} onPress={() => router.push('/notifications')}>
-            <Ic d="M6 9a6 6 0 0 1 12 0c0 7 3 8 3 8H3s3-1 3-8M9.5 21a2.5 2.5 0 0 0 5 0" color={s.text} size={19} sw={1.7} />
-          </Pressable>
-          <Pressable style={[styles.iconBtn, { backgroundColor: s.surface, borderColor: s.border }, t.shadow.sm]} onPress={() => router.push('/modal')}>
-            <Svg width={19} height={19} viewBox="0 0 24 24">
-              {/* Settings gear (matches TabHeader's settings-outline; the old
-                  rayed glyph read as a sun). */}
-              <Circle cx={12} cy={12} r={3} stroke={s.text} strokeWidth={1.7} fill="none" />
-              <Path
-                d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"
-                stroke={s.text}
-                strokeWidth={1.7}
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                fill="none"
-              />
-            </Svg>
-          </Pressable>
-        </View>
+        <TabHeader title="Home" eyebrow={greeting} />
       </View>
 
       <ScrollView style={styles.scroll} contentContainerStyle={{ paddingHorizontal: spacing.lg, paddingBottom: insets.bottom + 96 }} showsVerticalScrollIndicator={false}>
@@ -380,12 +358,7 @@ export default function HomeScreen() {
 }
 
 const styles = StyleSheet.create({
-  head: { paddingHorizontal: spacing.lg, paddingTop: 6, paddingBottom: 10, flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between', gap: 10 },
-  headText: { flex: 1, minWidth: 0 },
-  greet: { fontSize: 12.5, fontFamily: fonts.semibold, marginBottom: 5 },
-  title: { fontSize: 27, fontFamily: fonts.extrabold, letterSpacing: -0.8, lineHeight: 30 },
-  headActions: { flexDirection: 'row', gap: 8 },
-  iconBtn: { width: 38, height: 38, borderRadius: 12, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
+  head: { paddingHorizontal: spacing.lg, paddingTop: 6, paddingBottom: 10 },
   scroll: { flex: 1 },
   statusCard: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 14, paddingHorizontal: 15, borderRadius: radii.lg, borderWidth: 1 },
   pulse: { width: 42, height: 42, borderRadius: 13, alignItems: 'center', justifyContent: 'center' },

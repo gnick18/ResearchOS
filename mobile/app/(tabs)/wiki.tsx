@@ -31,6 +31,7 @@ import { Ionicons } from '@expo/vector-icons';
 
 import { ThemedText } from '@/components/themed-text';
 import { ScreenFrame } from '@/components/ui/ScreenFrame';
+import { TabHeader } from '@/components/ui/TabHeader';
 import { useTheme, palette, fonts } from '@/lib/design';
 import {
   getBundledContent,
@@ -118,12 +119,10 @@ export default function WikiBrowseScreen() {
 
   return (
     <ScreenFrame>
-      {/* Header matches every other tab: muted kicker, big title, then search. */}
+      {/* Header matches every other tab: the shared TabHeader (eyebrow + title
+          + notifications / Today / settings trio), then search. */}
       <View style={styles.headerArea}>
-        <ThemedText style={[styles.kicker, { color: surface.muted }]}>
-          Guides and help
-        </ThemedText>
-        <ThemedText type="title">Wiki</ThemedText>
+        <TabHeader title="Wiki" eyebrow="Guides and help" />
         <View style={styles.searchWrap}>
           <SearchBar
             value={query}
@@ -477,7 +476,6 @@ const styles = StyleSheet.create({
     paddingTop: 6,
     paddingBottom: 4,
   },
-  kicker: { fontSize: 12.5, fontFamily: fonts.semibold, marginBottom: 4 },
   searchWrap: { paddingTop: 12 },
   pulledRow: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingTop: 10, marginLeft: 2 },
   pulledNote: { fontSize: 12.5, fontFamily: fonts.medium, lineHeight: 17 },

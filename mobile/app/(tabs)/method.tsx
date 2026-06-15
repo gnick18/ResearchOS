@@ -33,6 +33,7 @@ import { useFocusEffect, useRouter } from 'expo-router';
 
 import { ThemedText } from '@/components/themed-text';
 import { ScreenFrame } from '@/components/ui/ScreenFrame';
+import { TabHeader } from '@/components/ui/TabHeader';
 import { useTheme, palette, fonts } from '@/lib/design';
 import { usePairing } from '@/lib/pairing';
 import { signWithDevice } from '@/lib/device-identity';
@@ -391,9 +392,8 @@ export default function MethodLibraryScreen() {
   return (
     <ScreenFrame>
       <View style={styles.head}>
-        {/* Contract title header. Notifications + settings live on Home. */}
-        <ThemedText style={[styles.greet, { color: surface.muted }]}>Protocol library</ThemedText>
-        <ThemedText type="title">Methods</ThemedText>
+        {/* Shared tab header (title + notifications / Today / settings trio). */}
+        <TabHeader title="Methods" eyebrow="Protocol library" />
 
         {/* Offline download status chip (real sync state), now below the header. */}
         <View style={styles.offchipRow}>
@@ -633,7 +633,6 @@ export default function MethodLibraryScreen() {
 
 const styles = StyleSheet.create({
   head: { paddingHorizontal: 16, paddingTop: 6, paddingBottom: 8 },
-  greet: { fontSize: 12.5, fontFamily: fonts.semibold, marginBottom: 4 },
   offchipRow: { flexDirection: 'row', alignItems: 'center', marginTop: 8 },
   offchip: { flexDirection: 'row', alignItems: 'center', gap: 6, borderRadius: 999, paddingHorizontal: 10, paddingVertical: 5, borderWidth: 1 },
   offdot: { width: 7, height: 7, borderRadius: 999 },
