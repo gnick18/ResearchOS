@@ -94,6 +94,7 @@ import {
   extractPaperMethodTool,
 } from "./paper-reproduce-tools";
 import { saveSummaryAsNoteTool } from "./summary-artifact-tool";
+import { createDatahubTableTool } from "./create-datahub-table";
 import {
   rememberPreferenceTool,
   forgetPreferenceTool,
@@ -436,6 +437,13 @@ export const ACTION_TOOLS: AiTool[] = [
   // writes it via the draft-preview gate. Numbers come verbatim from the summary tool,
   // the model only supplies the narration paragraph.
   saveSummaryAsNoteTool,
+  // create_datahub_table (action: true, isDestructive false) turns pasted CSV/TSV
+  // into a Data Hub "column" table in one call, reusing importTextToTable + the
+  // dataHubApi.create path. The parser computes columns/rows verbatim; the user
+  // approves the detected columns + row count before the write. Fills the CRUD gap
+  // (no Data Hub table create tool before) and lets BeakerBot create a table then
+  // suggest_tree_overlays it onto a tree, all in chat.
+  createDatahubTableTool,
   // Memory coworker tools (action: true, isDestructive false). remember_preference
   // saves a standing user preference to _beakerbot_memory.json, reversible via
   // forget_preference. Both are low-stakes local writes the user explicitly asked for.
