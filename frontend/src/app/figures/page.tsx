@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Icon } from "@/components/icons";
+import AppShell from "@/components/AppShell";
 import {
   listFigurePages,
   createFigurePageDoc,
@@ -33,7 +34,8 @@ export default function FiguresHome() {
   };
 
   return (
-    <div className="mx-auto max-w-4xl p-8">
+    <AppShell>
+      <div className="mx-auto max-w-4xl p-8 overflow-auto">
       <div className="mb-6 flex items-center justify-between">
         <div>
           <h1 className="text-xl font-bold">Figures</h1>
@@ -71,6 +73,7 @@ export default function FiguresHome() {
           </button>
         ))}
       </div>
-    </div>
+      </div>
+    </AppShell>
   );
 }

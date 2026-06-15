@@ -1,3 +1,4 @@
+import AppShell from "@/components/AppShell";
 import FigureComposer from "@/components/figure/FigureComposer";
 
 export default async function FigurePageRoute({
@@ -6,9 +7,11 @@ export default async function FigurePageRoute({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
+  // Render inside the standard app shell so the global nav + BeakerSearch persist
+  // and the composer is a page in the site, not a separate full-bleed surface.
   return (
-    <div className="h-[calc(100dvh-3.5rem)]">
+    <AppShell>
       <FigureComposer pageId={id} />
-    </div>
+    </AppShell>
   );
 }

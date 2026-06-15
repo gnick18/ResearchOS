@@ -789,7 +789,7 @@ export default function FigureComposer({ pageId }: { pageId: string }) {
   );
 
   return (
-    <div className="flex h-full gap-4 p-4" data-testid="figure-composer">
+    <div className="flex min-h-0 flex-1 gap-4 p-4" data-testid="figure-composer">
       <div className="flex min-w-0 flex-1 flex-col overflow-hidden rounded-2xl border border-border bg-surface-sunken">
         {/* Contextual arrange bar: appears on selection. Align/distribute act on
             the multi-selection; arrange (z-order) acts on each selected element. */}
