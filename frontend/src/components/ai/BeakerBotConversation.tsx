@@ -763,6 +763,16 @@ export default function BeakerBotConversation({
   } = useAiChat();
   const [draft, setDraft] = useState("");
   const listRef = useRef<HTMLDivElement | null>(null);
+  // Auto-follow the newest content only while the user is already at the bottom.
+  // If they have scrolled up (to read, or to use an inline widget), do NOT yank
+  // them back down on the next message or status change.
+  const stickToBottomRef = useRef(true);
+  const handleListScroll = useCallback(() => {
+    const el = listRef.current;
+    if (!el) return;
+    stickToBottomRef.current =
+      el.scrollHeight - el.scrollTop - el.clientHeight < 80;
+  }, []);
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
 
   // Canvas (docked editable draft panel) hooks. The pointer line that replaces
@@ -1146,10 +1156,11 @@ export default function BeakerBotConversation({
     [handlePdfFile, processImageFiles],
   );
 
-  // Keep the newest message in view as the answer reveals.
+  // Keep the newest message in view as the answer reveals, but only when the
+  // user is already parked at the bottom (see stickToBottomRef).
   useEffect(() => {
     const el = listRef.current;
-    if (el) el.scrollTop = el.scrollHeight;
+    if (el && stickToBottomRef.current) el.scrollTop = el.scrollHeight;
   }, [messages, status]);
 
   const handleSend = () => {
@@ -1283,6 +1294,7 @@ export default function BeakerBotConversation({
       {/* Message thread */}
       <div
         ref={listRef}
+        onScroll={handleListScroll}
         data-testid="beakerbot-messages"
         className="flex flex-1 flex-col gap-3 overflow-y-auto px-4 py-4"
       >
@@ -1422,6 +1434,7 @@ export default function BeakerBotConversation({
                         return (
                           <SmartDataWizard
                             key={key}
+                            inline
                             candidates={w.candidates}
                             onAddOverlays={async (args) => {
                               const res = await applyOverlayCommit({
