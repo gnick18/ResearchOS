@@ -20,7 +20,6 @@ import { parseTree, leaves } from "@/lib/phylo/parse";
 import { mergeTableColumnsIntoMetadata } from "@/lib/phylo/smart-binding";
 import { projectTracksToPanels } from "@/lib/phylo/panels";
 import { makePanel } from "@/components/phylo/PhyloLayers";
-import { requestNavigation } from "@/components/ai/navigation-bridge";
 import type { AlignedPanel, PhyloFigureSpec } from "@/lib/phylo/types";
 import type { OverlaySelection } from "@/components/phylo/SmartDataWizard";
 
@@ -34,11 +33,13 @@ export type OverlayCommitArgs = {
 };
 
 export type OverlayCommitResult =
-  | { ok: true; treeId: string }
+  | { ok: true; treeId: string; treeName: string }
   | { ok: false; error: string };
 
-/** Apply the wizard's chosen overlays onto a saved tree, then navigate to it.
- *  Mirrors PhyloStudio.addSmartOverlays, persisting via phyloApi.updateMeta. */
+/** Apply the wizard's chosen overlays onto a saved tree, persisting via
+ *  phyloApi.updateMeta. Mirrors PhyloStudio.addSmartOverlays. Does NOT navigate,
+ *  the chat host shows the result as a live inline tree card in place instead (the
+ *  calm, GUI-parity behavior, Grant 2026-06-14). */
 export async function applyOverlayCommit(
   args: OverlayCommitArgs,
 ): Promise<OverlayCommitResult> {
@@ -147,6 +148,7 @@ export async function applyOverlayCommit(
     return { ok: false, error: `I could not save the overlays: ${msg}` };
   }
 
-  requestNavigation(`/phylo?doc=${args.treeId}#ros=studio`);
-  return { ok: true, treeId: args.treeId };
+  // No navigation: the chat host renders the overlaid tree as a live inline card
+  // (with its own Open-in-Studio button) so the user stays in the conversation.
+  return { ok: true, treeId: args.treeId, treeName: meta.name || "Tree" };
 }

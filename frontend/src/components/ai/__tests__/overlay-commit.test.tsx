@@ -75,6 +75,7 @@ describe("applyOverlayCommit", () => {
     });
 
     expect(res.ok).toBe(true);
+    if (res.ok) expect(res.treeName).toBe("Phase4 Tree");
     expect(updateMetaMock).toHaveBeenCalledTimes(1);
     const patch = (updateMetaMock.mock.calls[0] as unknown[])[1] as {
       figure: { panels: { kind: string; column?: string }[] };
@@ -85,7 +86,8 @@ describe("applyOverlayCommit", () => {
     // Spliced BEFORE the labels panel (labels stays outermost).
     const kinds = patch.figure.panels.map((p) => p.kind);
     expect(kinds.indexOf("heat")).toBeLessThan(kinds.indexOf("labels"));
-    expect(navMock).toHaveBeenCalledWith("/phylo?doc=3#ros=studio");
+    // No navigation: the chat host shows the result as an inline card in place.
+    expect(navMock).not.toHaveBeenCalled();
   });
 
   it("fails loudly (no false success) when no selection resolves to a panel", async () => {

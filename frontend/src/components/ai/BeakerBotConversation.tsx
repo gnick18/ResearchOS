@@ -814,6 +814,12 @@ export default function BeakerBotConversation({
   const [dismissedWizards, setDismissedWizards] = useState<Set<string>>(
     () => new Set(),
   );
+  // After a wizard's overlays are applied, the wizard is replaced in place by a
+  // live tree-embed card of the now-overlaid tree (calm, GUI-parity, no nav).
+  // Keyed by the same `${messageId}:ow:${index}`.
+  const [appliedOverlays, setAppliedOverlays] = useState<
+    Record<string, { treeId: string; treeName: string }>
+  >({});
 
   // copiedId: the id of the message that most recently had its text copied. A
   // brief "Copied" label replaces the Copy button label while this is set.
@@ -1385,12 +1391,28 @@ export default function BeakerBotConversation({
                 {/* Inline Smart Data Binding wizards. Rendered below an assistant
                     reply when suggest_tree_overlays found joinable tables. Same
                     engine + widget as the /phylo GUI; applying does the host commit
-                    (merge metadata + add overlay panels) then opens the Studio. */}
+                    (merge metadata + add overlay panels). On Add the wizard is
+                    replaced in place by a live tree-embed card of the overlaid tree
+                    (no nav), so the user sees the result and stays in the chat. */}
                 {m.role === "assistant" && m.overlayWizards && m.overlayWizards.length > 0 ? (
                   <Suspense fallback={null}>
                     <div className="flex w-full flex-col gap-2 self-start">
                       {m.overlayWizards.map((w, i) => {
                         const key = `${m.id}:ow:${i}`;
+                        // Applied: show the overlaid tree as a live card in place.
+                        const applied = appliedOverlays[key];
+                        if (applied) {
+                          const desc = parseObjectEmbed(
+                            `/phylo?doc=${applied.treeId}#ros=studio`,
+                          );
+                          return desc ? (
+                            <ObjectEmbed
+                              key={key}
+                              descriptor={desc}
+                              caption={applied.treeName}
+                            />
+                          ) : null;
+                        }
                         if (dismissedWizards.has(key)) return null;
                         const dismiss = () =>
                           setDismissedWizards((prev) => new Set(prev).add(key));
@@ -1410,6 +1432,11 @@ export default function BeakerBotConversation({
                                 );
                                 throw new Error(res.error);
                               }
+                              // Replace the wizard with a live card of the result.
+                              setAppliedOverlays((prev) => ({
+                                ...prev,
+                                [key]: { treeId: res.treeId, treeName: res.treeName },
+                              }));
                             }}
                             onClose={dismiss}
                           />
