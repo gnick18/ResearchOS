@@ -793,6 +793,16 @@ function pointStyling(
   return { radiusFor, shapeFor };
 }
 
+/** Left x of a clade highlight band: the MIDDLE of the clade MRCA's stem branch
+ *  (conventional ggtree geom_hilight anchor), so the band hugs the clade from its
+ *  branching point. The root clade has no stem (parentX null), so it falls back to
+ *  the tree-base inset. Never left of x=12. */
+function cladeRootLeft(cladeRoot: { x: number; parentX: number | null }): number {
+  const stemMid =
+    cladeRoot.parentX === null ? 12 : (cladeRoot.parentX + cladeRoot.x) / 2;
+  return Math.max(12, stemMid);
+}
+
 /** Draw the rectangular tree spine + clade + support + points. Returns `plotRight`
  *  (the x of the deepest tip, where the tip axis starts) and `decorRight` (the
  *  rightmost x reached by any in-tree right-side decoration — clade brackets,
@@ -841,12 +851,17 @@ function drawRectTree(
     } else {
       const y0 = Math.min(...ys) - 12;
       const y1 = Math.max(...ys) + 12;
+      // Anchor the highlight's left edge at the MIDDLE of the clade MRCA's stem
+      // branch (conventional geom_hilight placement), so the band hugs the clade
+      // from its branching point rather than running to the tree base. The root
+      // clade has no stem branch, so it falls back to the tree-base inset.
+      const xLeft = cladeRootLeft(cladeRoot);
       parts.push(
-        `<rect x="12" y="${y0}" width="${plotRight + 6 - 12}" height="${y1 - y0}" rx="6" fill="${hl.color}" opacity="0.10"/>`,
+        `<rect x="${xLeft.toFixed(1)}" y="${y0}" width="${(plotRight + 6 - xLeft).toFixed(1)}" height="${y1 - y0}" rx="6" fill="${hl.color}" opacity="0.10"/>`,
       );
       if (hl.label) {
         parts.push(
-          `<text x="16" y="${y0 + 12}" font-size="10" font-weight="700" fill="${hl.color}">${esc(hl.label)}</text>`,
+          `<text x="${(xLeft + 4).toFixed(1)}" y="${y0 + 12}" font-size="10" font-weight="700" fill="${hl.color}">${esc(hl.label)}</text>`,
         );
       }
     }
@@ -1830,9 +1845,12 @@ function renderRectangular(
       if (cl.length > 0) {
         const y0 = Math.min(...cl.map((c) => c.y)) - 12;
         const y1 = Math.max(...cl.map((c) => c.y)) + 12;
+        // Left edge at the middle of the clade MRCA's stem branch (see the
+        // multi-clade path above), not the tree base.
+        const xLeft = cladeRootLeft(cladeRoot);
         parts.push(
-          `<rect x="12" y="${y0}" width="${plotRight + 6 - 12}" height="${y1 - y0}" rx="6" fill="${spec.cladeHighlight.color}" opacity="0.10"/>`,
-          `<text x="16" y="${y0 + 12}" font-size="10" font-weight="700" fill="${spec.cladeHighlight.color}">${esc(spec.cladeHighlight.label)}</text>`,
+          `<rect x="${xLeft.toFixed(1)}" y="${y0}" width="${(plotRight + 6 - xLeft).toFixed(1)}" height="${y1 - y0}" rx="6" fill="${spec.cladeHighlight.color}" opacity="0.10"/>`,
+          `<text x="${(xLeft + 4).toFixed(1)}" y="${y0 + 12}" font-size="10" font-weight="700" fill="${spec.cladeHighlight.color}">${esc(spec.cladeHighlight.label)}</text>`,
         );
       }
     }

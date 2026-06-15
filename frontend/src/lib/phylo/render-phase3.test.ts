@@ -409,6 +409,23 @@ describe("multi-clade highlights by MRCA (Wave 2: geom_hilight)", () => {
     expect(svg).toContain("Clade CD");
   });
 
+  it("rectangular: anchors the highlight left edge at the clade MRCA stem, not the tree base", () => {
+    const svg = renderTreeSvg(
+      TREE,
+      cladeSpec("rectangular", [
+        { id: "b", tips: ["C", "D"], color: "#00ff00", label: "" },
+      ]),
+    );
+    // The band must start at the middle of the (C,D) MRCA's stem branch, well to
+    // the right of the old hardcoded tree-base inset (x=12) - conventional
+    // geom_hilight placement.
+    const m = svg.match(
+      /<rect x="([\d.]+)"[^>]*fill="#00ff00" opacity="0\.10"/,
+    );
+    expect(m).not.toBeNull();
+    expect(Number(m![1])).toBeGreaterThan(12);
+  });
+
   it("circular: draws an annulus band for a named clade", () => {
     const svg = renderTreeSvg(
       TREE,
