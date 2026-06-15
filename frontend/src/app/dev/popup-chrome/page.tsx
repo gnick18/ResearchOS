@@ -159,7 +159,7 @@ export default function PopupChromeReviewPage() {
       <header className="border-b border-border bg-surface-raised px-6 py-4">
         <div className="flex items-center justify-between gap-6">
           <div>
-            <h1 className="text-xl font-extrabold tracking-tight text-brand-ink">
+            <h1 className="text-xl font-extrabold tracking-tight text-foreground">
               Popup chrome review
             </h1>
             <p className="mt-0.5 text-meta text-foreground-muted">
