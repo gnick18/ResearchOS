@@ -32,6 +32,13 @@ export interface OnboardingWizardShellProps {
   /** The active track (ordered steps). */
   track: WizardTrack;
   /**
+   * Optional step id to start on. Used when the wizard resumes after the
+   * page-leaving OAuth sign-in (the host starts on the handle / org-name step,
+   * since sign-in already happened). Defaults to the first step. An unknown id
+   * falls back to the first step.
+   */
+  initialStepId?: string;
+  /**
    * Called once the user advances past the last step. The host provisions and
    * routes to the finished destination (the app, the lab workspace, or the org
    * portal).
@@ -47,15 +54,21 @@ export interface OnboardingWizardShellProps {
 
 export default function OnboardingWizardShell({
   track,
+  initialStepId,
   onFinish,
   onClose,
 }: OnboardingWizardShellProps) {
   const total = track.steps.length;
+  const initialIndex = (() => {
+    if (!initialStepId) return 0;
+    const i = track.steps.findIndex((s) => s.id === initialStepId);
+    return i >= 0 ? i : 0;
+  })();
   const [nav, dispatch] = useReducer(
     (state: ReturnType<typeof initWizardNav>, action: Parameters<typeof wizardNavReducer>[1]) =>
       wizardNavReducer(state, action, total),
-    undefined,
-    initWizardNav,
+    initialIndex,
+    (index) => ({ ...initWizardNav(), index }),
   );
 
   // Terminal transitions are handled in an effect so the host's side effects

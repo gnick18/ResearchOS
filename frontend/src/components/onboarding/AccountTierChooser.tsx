@@ -23,6 +23,9 @@ import { useRouter } from "next/navigation";
 import { BeakerBotScene } from "@/components/onboarding/BeakerBotScene";
 import LandingBackdrop from "@/components/onboarding/oauth-first/LandingBackdrop";
 import { LAB_TIER_ENABLED } from "@/lib/lab/config";
+import { DEPT_TIER_ENABLED } from "@/lib/dept/config";
+import { INSTITUTION_TIER_ENABLED } from "@/lib/institution/config";
+import { ONBOARDING_WIZARD_ENABLED } from "@/lib/onboarding/config";
 import { isOAuthPublishAvailable } from "@/lib/sharing/oauth-availability";
 import { isOAuthFirstLoginEnabled } from "@/lib/sharing/oauth-first-login";
 import { startOAuthFirstSignIn } from "@/lib/sharing/oauth-first-signin";
@@ -57,6 +60,14 @@ export interface AccountTierChooserProps {
    * @deprecated prefer onLocal
    */
   onChoose?: (tier: AccountTier) => void;
+  /**
+   * Called when the bottom-zone org-admin entry is chosen, with the org kind.
+   * Only wired and rendered behind the onboarding wizard flag plus the matching
+   * org tier flag (the chooser routes the org path into the wizard there). When
+   * the wizard flag is off this prop is never invoked and the entry is hidden,
+   * so the chooser's existing behavior is completely unchanged.
+   */
+  onOrgAdmin?: (kind: "department" | "institution") => void;
 }
 
 // Internal navigation state for the sub-steps
@@ -601,7 +612,7 @@ function LabJoinSubStep({
 }
 
 // ---- Main component ----
-export function AccountTierChooser({ onLocal, onChoose }: AccountTierChooserProps) {
+export function AccountTierChooser({ onLocal, onChoose, onOrgAdmin }: AccountTierChooserProps) {
   const router = useRouter();
   const [step, setStep] = useState<ChooserStep>({ view: "tiles" });
   const [compareOpen, setCompareOpen] = useState(false);
@@ -609,6 +620,14 @@ export function AccountTierChooser({ onLocal, onChoose }: AccountTierChooserProp
   // Flag gating: evaluate once at render time (these are env-var reads, stable)
   const showFree = isOAuthPublishAvailable();
   const showLab = LAB_TIER_ENABLED;
+  // The bottom-zone org-admin entry is purely additive: it appears only when the
+  // onboarding wizard flag is on (so the chooser's flag-off behavior is byte for
+  // byte unchanged), the host wired onOrgAdmin, and at least one org tier flag is
+  // on. Each org option is gated on its own tier flag.
+  const showOrgEntry =
+    ONBOARDING_WIZARD_ENABLED &&
+    Boolean(onOrgAdmin) &&
+    (DEPT_TIER_ENABLED || INSTITUTION_TIER_ENABLED);
 
   // Resolve the local callback: prefer the explicit onLocal; fall back to the
   // legacy onChoose("local") if a caller hasn't migrated yet.
@@ -771,6 +790,47 @@ export function AccountTierChooser({ onLocal, onChoose }: AccountTierChooserProp
           </button>
           , you can upgrade to an account or a lab any time.
         </p>
+
+        {/* BOTTOM ZONE: org-admin entry, visually separated below a thin divider
+            (Q1 default: a distinct entry, not a full equal-weight card). Purely
+            additive, shown only behind the wizard flag + an org tier flag. */}
+        {showOrgEntry && (
+          <div className="w-full max-w-3xl mt-8" data-testid="chooser-org-zone">
+            <div className="flex items-center gap-4">
+              <span className="h-px flex-1 bg-border" />
+              <span className="text-xs font-semibold uppercase tracking-widest text-foreground-muted">
+                Setting up for a department or institution?
+              </span>
+              <span className="h-px flex-1 bg-border" />
+            </div>
+            <div className="mt-4 flex flex-col items-center gap-2 sm:flex-row sm:justify-center">
+              {DEPT_TIER_ENABLED && (
+                <button
+                  type="button"
+                  data-testid="chooser-org-dept"
+                  onClick={() => onOrgAdmin?.("department")}
+                  className="inline-flex items-center gap-2 rounded-xl border border-border bg-surface-raised px-5 py-2.5 text-sm font-semibold text-foreground transition-colors hover:border-[#1283c9] hover:bg-surface-sunken"
+                >
+                  Set up a department account
+                </button>
+              )}
+              {INSTITUTION_TIER_ENABLED && (
+                <button
+                  type="button"
+                  data-testid="chooser-org-institution"
+                  onClick={() => onOrgAdmin?.("institution")}
+                  className="inline-flex items-center gap-2 rounded-xl border border-border bg-surface-raised px-5 py-2.5 text-sm font-semibold text-foreground transition-colors hover:border-[#1283c9] hover:bg-surface-sunken"
+                >
+                  Set up an institution account
+                </button>
+              )}
+            </div>
+            <p className="mt-3 text-center text-xs text-foreground-muted">
+              For administrators setting up infrastructure for researchers. No
+              research workspace, no data folder.
+            </p>
+          </div>
+        )}
 
         {/* compare the tiers expandable */}
         <div className="w-full max-w-4xl mt-8">

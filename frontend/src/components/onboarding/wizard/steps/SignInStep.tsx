@@ -16,6 +16,10 @@ import BeakerBot from "@/components/BeakerBot";
 import SharingProviderButtons from "@/components/sharing/SharingProviderButtons";
 import type { SharingProvider } from "@/components/sharing/SharingProviderButtons";
 import { startOAuthFirstSignIn } from "@/lib/sharing/oauth-first-signin";
+import {
+  startOrgWizardSignIn,
+  type OrgWizardKind,
+} from "@/lib/onboarding/org-wizard-signin";
 
 export interface SignInStepProps {
   /** Heading copy, varies by track (free account vs create a lab). */
@@ -28,6 +32,12 @@ export interface SignInStepProps {
    */
   labCreate?: boolean;
   /**
+   * When set, this is the org-admin track sign in. It uses the org OAuth kickoff
+   * (returns with ?orgWizard=<kind>, never the research keypair-mint callback)
+   * so the org wizard resumes at the name step on return.
+   */
+  orgKind?: OrgWizardKind;
+  /**
    * Test/host seam: override the provider-click handler. Defaults to the real
    * OAuth-first kickoff. Lets a preview or test exercise the step without a live
    * redirect.
@@ -39,11 +49,16 @@ export default function SignInStep({
   heading,
   subheading,
   labCreate = false,
+  orgKind,
   onProvider,
 }: SignInStepProps) {
   const handleProvider = (provider: SharingProvider) => {
     if (onProvider) {
       onProvider(provider);
+      return;
+    }
+    if (orgKind) {
+      startOrgWizardSignIn(provider, orgKind);
       return;
     }
     startOAuthFirstSignIn(provider, labCreate ? { labCreate: true } : {});

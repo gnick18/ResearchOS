@@ -44,6 +44,11 @@ import {
   AccountTierChooser,
   type AccountTier,
 } from "@/components/onboarding/AccountTierChooser";
+import OnboardingWizard, {
+  type WizardSelection,
+} from "@/components/onboarding/wizard/OnboardingWizard";
+import { ONBOARDING_WIZARD_ENABLED } from "@/lib/onboarding/config";
+import { clearOrgWizardReturn } from "@/lib/onboarding/org-wizard-signin";
 import CelebrationManager from "@/components/onboarding/CelebrationManager";
 import MilestoneTwirlMount from "@/components/onboarding/MilestoneTwirlMount";
 import IdleAnimationManager from "@/components/onboarding/IdleAnimationManager";
@@ -157,6 +162,36 @@ function useSharingClaimReturn(): boolean {
         ? new URLSearchParams(window.location.search).has("sharingClaim")
         : false,
     () => false,
+  );
+}
+
+/**
+ * Reactive read of the org-wizard return marker (?orgWizard=dept|inst), set by
+ * the org-admin track sign-in kickoff. Drives re-mounting the folderless org
+ * wizard at the name step on the post-OAuth return, so it never falls through to
+ * the research folder-connect gate. Null when absent. Only meaningful behind the
+ * wizard flag.
+ */
+function useOrgWizardReturn(): WizardSelection | null {
+  const subscribe = useCallback((onChange: () => void) => {
+    if (typeof window === "undefined") return () => {};
+    window.addEventListener("popstate", onChange);
+    window.addEventListener("researchos:locationchange", onChange);
+    return () => {
+      window.removeEventListener("popstate", onChange);
+      window.removeEventListener("researchos:locationchange", onChange);
+    };
+  }, []);
+  return useSyncExternalStore(
+    subscribe,
+    () => {
+      if (typeof window === "undefined") return null;
+      const v = new URLSearchParams(window.location.search).get("orgWizard");
+      if (v === "dept") return "org-dept" as WizardSelection;
+      if (v === "inst") return "org-inst" as WizardSelection;
+      return null;
+    },
+    () => null,
   );
 }
 
@@ -399,6 +434,11 @@ function AppContent({ children }: { children: ReactNode }) {
   // folder yet? Drives the "Save your account on your disk" folder framing.
   const sharingClaimReturn = useSharingClaimReturn();
   const accountSaveFraming = isOAuthFirstLoginEnabled() && sharingClaimReturn;
+  // Org-wizard post-OAuth return (flag on): re-mount the folderless org wizard at
+  // the name step (sign-in already happened). Null when absent or flag off. The
+  // hook is always called (rules of hooks); the flag gates the value.
+  const orgWizardReturnRaw = useOrgWizardReturn();
+  const orgWizardReturn = ONBOARDING_WIZARD_ENABLED ? orgWizardReturnRaw : null;
   // Splash plays once per tab session (survives reloads, so dev reloads and
   // returning users do not replay it; a brand-new tab plays it). Skippable.
   // True once today's launch splash has played. Read from the per-day stamp so
@@ -411,6 +451,14 @@ function AppContent({ children }: { children: ReactNode }) {
   const [entryAction, setEntryAction] = useState<EntryAction | null>(
     entryActionThisLoad,
   );
+
+  // Onboarding wizard (NEXT_PUBLIC_ONBOARDING_WIZARD): when on, the chooser's
+  // bottom-zone org-admin entry routes into the standalone, folderless org
+  // wizard (Track 3). Held in state for this load. The org wizard is fully
+  // self-contained (no folder, no keypair) so it renders in place of the
+  // research gates below. Dark and null when the flag is off.
+  const [orgWizardSelection, setOrgWizardSelection] =
+    useState<WizardSelection | null>(null);
 
   // Client-mounted flag, only used to gate the dev login preview below so it
   // does not cause a hydration mismatch. The preview reads window/sessionStorage,
@@ -823,6 +871,38 @@ function AppContent({ children }: { children: ReactNode }) {
     );
   }
 
+  // Onboarding wizard org-admin track (flag on). Two entry points, both
+  // standalone and folderless (no folder, no keypair), finishing into the
+  // /department or /institution portal:
+  //   - in-session pick: the chooser's bottom-zone org entry sets
+  //     orgWizardSelection and the wizard starts at sign-in.
+  //   - post-OAuth return: ?orgWizard=<kind> re-mounts the wizard at the name
+  //     step (sign-in already happened), so it never falls through to the
+  //     research folder-connect gate.
+  // Rendered above the research gates so the org path never touches a folder.
+  if (
+    ONBOARDING_WIZARD_ENABLED &&
+    (orgWizardReturn || orgWizardSelection) &&
+    !isConnected &&
+    !isDemoOrWikiCapture()
+  ) {
+    const selection = orgWizardReturn ?? orgWizardSelection;
+    return (
+      <QueryClientProvider client={queryClient}>
+        <OnboardingWizard
+          selection={selection as WizardSelection}
+          initialStepId={orgWizardReturn ? "org-name" : undefined}
+          onClose={() => {
+            setOrgWizardSelection(null);
+            // On the post-OAuth return path the selection lives in the URL, so
+            // strip the marker too or this branch re-renders (a close loop).
+            if (orgWizardReturn) clearOrgWizardReturn();
+          }}
+        />
+      </QueryClientProvider>
+    );
+  }
+
   // Account-tier chooser, reached via the start screen's "Create a new account".
   // Local falls through to the normal folder-connect + create-user flow below
   // (absent account_type normalizes to solo); Free / Lab drive their OAuth
@@ -837,6 +917,9 @@ function AppContent({ children }: { children: ReactNode }) {
     return (
       <QueryClientProvider client={queryClient}>
         <AccountTierChooser
+          onOrgAdmin={(kind) =>
+            setOrgWizardSelection(kind === "department" ? "org-dept" : "org-inst")
+          }
           onLocal={() => {
             // Local: record the solo tier + open the OS picker straight from
             // this click (the tile click is a live user gesture), the same

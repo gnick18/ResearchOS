@@ -52,7 +52,13 @@ export function buildOrgTrack(kind: OrgKind, cb: OrgTrackCallbacks = {}): Wizard
     id: "sign-in",
     label: "Sign in",
     skippable: false,
-    render: () => <SignInStep heading={heading} subheading={subheading} />,
+    render: () => (
+      <SignInStep
+        heading={heading}
+        subheading={subheading}
+        orgKind={kind === "department" ? "dept" : "inst"}
+      />
+    ),
   };
 
   const name = {
