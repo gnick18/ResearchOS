@@ -264,7 +264,12 @@ export default function PairScreen() {
               style={styles.heroTile}
             >
               <View style={styles.heroGloss} pointerEvents="none" />
-              <BeakerBot size={68} alive color={palette.white} />
+              {/* White disc holding the SIGNATURE blue beaker (matches the splash
+                  + header mascot), instead of a white beaker that drifted off the
+                  brand. */}
+              <View style={styles.heroDisc}>
+                <BeakerBot size={52} alive color={palette.sky} />
+              </View>
             </LinearGradient>
             <ThemedText style={[styles.heroTitle, { color: surface.text }]}>
               Connect to your lab
@@ -524,6 +529,14 @@ const styles = StyleSheet.create({
     gap: 14,
   },
   // Sky gradient rounded-square that seats the mark (contract .bot tile).
+  heroDisc: {
+    width: 76,
+    height: 76,
+    borderRadius: 38,
+    backgroundColor: palette.white,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   heroTile: {
     width: 96,
     height: 96,
