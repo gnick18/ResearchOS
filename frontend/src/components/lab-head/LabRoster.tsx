@@ -18,6 +18,22 @@ import { ARCHIVED_USERS_QUERY_KEY } from "@/hooks/useArchivedUsers";
 import { LAB_USER_PROFILES_QUERY_KEY } from "@/hooks/useLabUserProfiles";
 import { useContextMenu } from "@/components/context-menu/ContextMenuProvider";
 import type { EditMenuItem } from "@/components/sequences/SequenceEditMenu";
+import { MULTI_FOLDER_ENABLED } from "@/lib/file-system/multi-folder-config";
+import { useLabSession } from "@/hooks/useLabSession";
+import {
+  getLabRemote,
+  readmitMemberRemote,
+} from "@/lib/lab/lab-do-client";
+import {
+  verifyMembershipLog,
+  type LabRecord,
+} from "@/lib/lab/lab-membership";
+import { fingerprint } from "@/lib/sharing/identity/keys";
+import { hexToBytes } from "@noble/hashes/utils.js";
+import {
+  searchResearchers,
+  type ProfileSearchResult,
+} from "@/lib/sharing/profile";
 
 /**
  * Lab Head Phase 6 (lab head Phase 6 manager, 2026-05-23): Lab Roster
@@ -137,6 +153,11 @@ export default function LabRoster() {
   >(null);
   const [busy, setBusy] = useState(false);
 
+  // Phase C2 (PI re-admit after a member's identity reset). DARK behind
+  // MULTI_FOLDER_ENABLED. Holds the username being re-admitted; the modal owns
+  // the rest of the multi-step flow (load record, resolve new identity, confirm).
+  const [readmitUsername, setReadmitUsername] = useState<string | null>(null);
+
   const handleConfirm = async () => {
     if (!pendingAction || !currentUser) return;
     setBusy(true);
@@ -198,6 +219,11 @@ export default function LabRoster() {
             // a PI who wants to leave hands off to a co-PI.
             const canArchive = isLabHead && !isSelf && !row.archived;
             const canRestore = isLabHead && row.archived;
+            // Phase C2: re-admit a member who reset their identity key. Same
+            // gate as Archive plus the multi-folder flag, so flag-OFF is
+            // byte-identical (the button never renders).
+            const canReadmit =
+              MULTI_FOLDER_ENABLED && isLabHead && !isSelf && !row.archived;
             return (
               <li
                 key={row.username}
@@ -325,6 +351,16 @@ export default function LabRoster() {
                     )}
                   </div>
                 </div>
+                {canReadmit && (
+                  <button
+                    type="button"
+                    onClick={() => setReadmitUsername(row.username)}
+                    className="flex-shrink-0 px-2.5 py-1 rounded-md text-meta font-medium border border-border text-foreground hover:bg-surface-sunken"
+                    data-testid={`lab-roster-readmit-${row.username}`}
+                  >
+                    Re-admit (reset key)
+                  </button>
+                )}
                 {canArchive && (
                   <button
                     type="button"
@@ -361,6 +397,20 @@ export default function LabRoster() {
           busy={busy}
           onCancel={() => setPendingAction(null)}
           onConfirm={() => void handleConfirm()}
+        />
+      )}
+
+      {readmitUsername && (
+        <ReadmitDialog
+          username={readmitUsername}
+          displayName={
+            rows.find((r) => r.username === readmitUsername)?.displayName?.trim() ||
+            readmitUsername
+          }
+          onClose={() => setReadmitUsername(null)}
+          onDone={() =>
+            void queryClient.invalidateQueries({ queryKey: LAB_ROSTER_QUERY_KEY })
+          }
         />
       )}
     </div>
@@ -454,6 +504,379 @@ function ConfirmDialog({
                 ? "Archive"
                 : "Restore"}
           </button>
+        </div>
+      </div>
+    </LivingPopup>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Phase C2: PI re-admit after a member's identity reset. DARK behind
+// MULTI_FOLDER_ENABLED (the caller only renders this when the flag is on).
+//
+// A member who reset their identity key (Phase C1) now holds a brand-new
+// keypair under the SAME username; their roster entry's keys are stale, so the
+// lab key sealed to the old key can no longer be opened by them. The PI re-admits
+// them with the new keys via readmitMemberRemote (a rotate-then-add against the
+// relay). All state is local to this modal. The flow is staged:
+//
+//   - "loading"  : reading + verifying the current lab record off the relay.
+//   - "session"  : the head is not signed in to the lab (no live keys to sign).
+//   - "error"    : record load or verify failed; only Close.
+//   - "select"   : resolve the member's NEW identity from the directory.
+//   - "confirm"  : old fingerprint vs the selected new fingerprint + warning.
+//   - "working"  : the two-append re-admit is in flight.
+//   - "done"     : success.
+//
+// No emojis, no em-dashes, no mid-sentence colons.
+type ReadmitPhase =
+  | { kind: "loading" }
+  | { kind: "session" }
+  | { kind: "error"; message: string }
+  | {
+      kind: "select";
+      labId: string;
+      // The verified current record + the member row's current key facts.
+      record: LabRecord;
+      oldFingerprint: string;
+    }
+  | {
+      kind: "confirm";
+      labId: string;
+      record: LabRecord;
+      oldFingerprint: string;
+      selected: ProfileSearchResult;
+    }
+  | { kind: "working" }
+  | { kind: "done" };
+
+function ReadmitDialog({
+  username,
+  displayName,
+  onClose,
+  onDone,
+}: {
+  username: string;
+  displayName: string;
+  onClose: () => void;
+  onDone: () => void;
+}) {
+  const session = useLabSession();
+  const [phase, setPhase] = useState<ReadmitPhase>({ kind: "loading" });
+  // Directory search state for the "select" phase.
+  const [query, setQuery] = useState(displayName);
+  const [results, setResults] = useState<ProfileSearchResult[]>([]);
+  const [searching, setSearching] = useState(false);
+  const [searched, setSearched] = useState(false);
+
+  // Resolve the live lab session up front. The head's signing key + current lab
+  // key live in the controller's "live" state.
+  const sessionLoading = session !== null && session.loading === true;
+  const live =
+    session !== null && session.loading === false
+      ? (() => {
+          const s = session.controller.getState();
+          return s.kind === "live" ? s : null;
+        })()
+      : null;
+
+  // One-shot record load on open. We avoid useEffect ceremony by loading lazily
+  // from the loading render, gated by phase so it runs exactly once.
+  if (phase.kind === "loading") {
+    if (sessionLoading) {
+      // Session hook still resolving; keep showing the loader.
+    } else if (!live) {
+      // Not signed in to the lab, no keys to sign with. Show the session notice.
+      // Defer the state change out of render.
+      queueMicrotask(() => setPhase({ kind: "session" }));
+    } else {
+      const labId = live.labId;
+      queueMicrotask(async () => {
+        try {
+          const got = await getLabRemote(labId);
+          if (!got) {
+            setPhase({ kind: "error", message: "This lab could not be found on the relay." });
+            return;
+          }
+          if (!verifyMembershipLog(got.record).ok) {
+            setPhase({
+              kind: "error",
+              message: "The lab membership log failed verification. Re-admit is blocked.",
+            });
+            return;
+          }
+          const member = got.record.members.find((m) => m.username === username);
+          if (!member) {
+            setPhase({
+              kind: "error",
+              message: `${displayName} is no longer a member of this lab.`,
+            });
+            return;
+          }
+          const oldFingerprint = fingerprint(hexToBytes(member.ed25519PublicKey));
+          setPhase({ kind: "select", labId, record: got.record, oldFingerprint });
+        } catch {
+          setPhase({
+            kind: "error",
+            message: "Could not read the lab record from the relay. Try again.",
+          });
+        }
+      });
+    }
+  }
+
+  const runSearch = async () => {
+    const q = query.trim();
+    if (q.length < 2) return;
+    setSearching(true);
+    setSearched(false);
+    try {
+      const found = await searchResearchers(q);
+      setResults(found);
+    } finally {
+      setSearching(false);
+      setSearched(true);
+    }
+  };
+
+  const doReadmit = async () => {
+    if (phase.kind !== "confirm" || !live) return;
+    const { labId, record, selected } = phase;
+    setPhase({ kind: "working" });
+    try {
+      const out = await readmitMemberRemote({
+        labId,
+        record,
+        currentLabKey: live.labKey,
+        username,
+        newKeys: {
+          x25519PublicKey: selected.x25519PublicKey,
+          ed25519PublicKey: selected.ed25519PublicKey,
+        },
+        headEd25519PrivateKey: live.signingKeyPair.ed25519Priv,
+      });
+      if (out.ok) {
+        onDone();
+        setPhase({ kind: "done" });
+        return;
+      }
+      if (out.stage === "rotate") {
+        setPhase({
+          kind: "error",
+          message: `Could not start the re-admit (relay ${out.status}). Nothing changed; try again.`,
+        });
+      } else {
+        // The member was removed but the re-add failed. Refresh the roster so it
+        // reflects the removal, then point the PI at the normal invite flow.
+        onDone();
+        setPhase({
+          kind: "error",
+          message: `The member was removed but re-adding their new key failed (relay ${out.status}). Re-invite them through the normal invite flow to finish.`,
+        });
+      }
+    } catch {
+      setPhase({
+        kind: "error",
+        message: "The re-admit failed unexpectedly. Nothing was changed; try again.",
+      });
+    }
+  };
+
+  return (
+    <LivingPopup
+      open
+      onClose={phase.kind === "working" ? () => {} : onClose}
+      label="Re-admit member"
+      card={false}
+      widthClassName="max-w-lg"
+      closeOnScrimClick={phase.kind !== "working"}
+    >
+      <div
+        className="pointer-events-auto bg-surface-raised rounded-xl shadow-xl w-full p-6 space-y-4"
+        onClick={(e) => e.stopPropagation()}
+        data-testid="lab-roster-readmit-dialog"
+      >
+        <h2 className="text-title font-semibold text-foreground">
+          Re-admit {displayName}
+        </h2>
+
+        {phase.kind === "loading" && (
+          <p className="text-body text-foreground-muted">Loading the lab record…</p>
+        )}
+
+        {phase.kind === "session" && (
+          <p className="text-body text-foreground-muted">
+            Sign in to your lab to re-admit a member.
+          </p>
+        )}
+
+        {phase.kind === "error" && (
+          <p className="text-body text-rose-700 dark:text-rose-300">{phase.message}</p>
+        )}
+
+        {phase.kind === "select" && (
+          <div className="space-y-3">
+            <p className="text-body text-foreground-muted">
+              Find {displayName}&apos;s new identity. After a key reset they
+              re-publish a fresh fingerprint; pick the result that matches the
+              fingerprint they sent you.
+            </p>
+            <div className="text-meta text-foreground-muted">
+              Current key:{" "}
+              <span className="font-mono text-foreground">{phase.oldFingerprint}</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <input
+                type="text"
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") void runSearch();
+                }}
+                placeholder="Search by name or institution"
+                className="flex-1 px-3 py-1.5 rounded-md border border-border bg-surface text-body text-foreground"
+                data-testid="lab-roster-readmit-search-input"
+              />
+              <button
+                type="button"
+                onClick={() => void runSearch()}
+                disabled={searching || query.trim().length < 2}
+                className="px-3 py-1.5 rounded-md text-meta font-medium border border-border text-foreground hover:bg-surface-sunken disabled:opacity-50"
+              >
+                {searching ? "Searching…" : "Search"}
+              </button>
+            </div>
+            {searched && results.length === 0 && !searching && (
+              <p className="text-meta text-foreground-muted">No researchers found.</p>
+            )}
+            {results.length > 0 && (
+              <ul className="divide-y divide-border border border-border rounded-lg overflow-hidden max-h-64 overflow-y-auto">
+                {results.map((r) => {
+                  // Grey out the OLD identity (its fingerprint equals the current
+                  // roster fingerprint): that is not a reset, so it is not a valid
+                  // re-admit target.
+                  const isOld = r.fingerprint === phase.oldFingerprint;
+                  return (
+                    <li key={r.fingerprint}>
+                      <button
+                        type="button"
+                        disabled={isOld}
+                        onClick={() =>
+                          setPhase({
+                            kind: "confirm",
+                            labId: phase.labId,
+                            record: phase.record,
+                            oldFingerprint: phase.oldFingerprint,
+                            selected: r,
+                          })
+                        }
+                        className={`w-full text-left px-3 py-2.5 ${
+                          isOld
+                            ? "opacity-50 cursor-not-allowed bg-surface-sunken"
+                            : "bg-surface-raised hover:bg-surface-sunken"
+                        }`}
+                        data-testid={`lab-roster-readmit-result-${r.fingerprint.replace(/\s/g, "")}`}
+                      >
+                        <div className="text-body font-medium text-foreground">
+                          {r.displayName}
+                          {isOld && (
+                            <span className="ml-2 text-meta font-normal text-foreground-muted">
+                              (current key, not a reset)
+                            </span>
+                          )}
+                        </div>
+                        {r.affiliation && (
+                          <div className="text-meta text-foreground-muted">
+                            {r.affiliation}
+                          </div>
+                        )}
+                        <div className="text-meta font-mono text-foreground-muted">
+                          {r.fingerprint}
+                        </div>
+                      </button>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+          </div>
+        )}
+
+        {phase.kind === "confirm" && (
+          <div className="space-y-3">
+            <div className="grid grid-cols-2 gap-3">
+              <div className="rounded-lg border border-border p-3">
+                <div className="text-meta font-semibold text-foreground-muted">
+                  Old key
+                </div>
+                <div className="text-meta font-mono text-foreground break-all">
+                  {phase.oldFingerprint}
+                </div>
+              </div>
+              <div className="rounded-lg border border-emerald-300 dark:border-emerald-500/30 p-3">
+                <div className="text-meta font-semibold text-emerald-700 dark:text-emerald-300">
+                  New key
+                </div>
+                <div className="text-meta font-mono text-foreground break-all">
+                  {phase.selected.fingerprint}
+                </div>
+              </div>
+            </div>
+            <p className="text-body text-foreground-muted">
+              This re-admits {displayName} with their new identity. Their old key
+              loses access to lab data shared under it; they regain current and
+              historical lab data with the new key. This rotates the lab key for
+              everyone.
+            </p>
+          </div>
+        )}
+
+        {phase.kind === "working" && (
+          <p className="text-body text-foreground-muted">Re-admitting {displayName}…</p>
+        )}
+
+        {phase.kind === "done" && (
+          <p className="text-body text-foreground">
+            {displayName} re-admitted. They can now reach lab data again with their
+            new identity.
+          </p>
+        )}
+
+        <div className="flex items-center justify-end gap-2 pt-1">
+          {phase.kind === "confirm" && (
+            <button
+              type="button"
+              onClick={() =>
+                setPhase({
+                  kind: "select",
+                  labId: phase.labId,
+                  record: phase.record,
+                  oldFingerprint: phase.oldFingerprint,
+                })
+              }
+              className="px-3 py-1.5 rounded-md text-meta text-foreground-muted hover:bg-surface-sunken"
+            >
+              Back
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={onClose}
+            disabled={phase.kind === "working"}
+            className="px-3 py-1.5 rounded-md text-meta text-foreground-muted hover:bg-surface-sunken disabled:opacity-50"
+          >
+            {phase.kind === "done" ? "Close" : "Cancel"}
+          </button>
+          {phase.kind === "confirm" && (
+            <button
+              type="button"
+              onClick={() => void doReadmit()}
+              className="px-3 py-1.5 rounded-md text-meta font-medium text-white bg-emerald-600 hover:bg-emerald-700"
+              data-testid="lab-roster-readmit-confirm"
+            >
+              Re-admit
+            </button>
+          )}
         </div>
       </div>
     </LivingPopup>
