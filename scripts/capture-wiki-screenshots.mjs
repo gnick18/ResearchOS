@@ -75,7 +75,7 @@ const PUBLIC_ROUTES = [
     // the "Starting fresh?" box, the demo/starter links, and the RISE stamp all
     // land in the shot.
     path: "/?connect=1",
-    file: "folder-connect.png",
+    file: "folder-connect-current.png",
     waitFor: "text=Open a folder",
     fullPage: true,
     action: async (page) => {
@@ -515,7 +515,7 @@ const FIXTURE_ROUTES = [
     // (empty-state placeholder, the fixture seeds no prose), the Go to doorways,
     // and the Actions row. Viewport capture of the centered popup.
     path: "/workbench/projects/1",
-    file: "projects-route-overview.png",
+    file: "projects-popup-home.png",
     waitFor:
       '[data-testid="project-status-glance"], [data-testid="project-overview"]',
     settleMs: 800,
@@ -2058,7 +2058,7 @@ const FIXTURE_ROUTES = [
     // ~900px, missing most panels — use fullPage so the whole stack lands in
     // the wiki shot.
     path: "/settings",
-    file: "settings.png",
+    file: "settings-rail-overview.png",
     waitFor: "text=Settings, text=Profile",
     fullPage: true,
     highlight: { text: "Connect Telegram" },
