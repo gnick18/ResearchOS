@@ -33,8 +33,13 @@ export function classifyLicense(s) {
   if (/by-nd/.test(t)) return { id: "CC-BY-ND", allowed: false, attribution: false };
   if (/by-sa/.test(t)) return { id: "CC-BY-SA", allowed: true, attribution: true };
   if (/\/by\/|cc-by\b|\bcc by\b|attribution\s*[34]/.test(t)) return { id: "CC-BY", allowed: true, attribution: true };
-  if (/zero|cc0|publicdomain\/zero/.test(t)) return { id: "CC0", allowed: true, attribution: false };
+  if (/zero|cc-?0|publicdomain\/zero/.test(t)) return { id: "CC0", allowed: true, attribution: false };
   if (/public\s*domain|publicdomain|\/mark\//.test(t)) return { id: "Public Domain", allowed: true, attribution: false };
+  // Permissive code-style licenses (BioIcons tags some assets these): commercial +
+  // derivative OK, but the copyright/license notice must be retained -> attribution.
+  if (/\bmit\b/.test(t)) return { id: "MIT", allowed: true, attribution: true };
+  if (/\bbsd\b/.test(t)) return { id: "BSD", allowed: true, attribution: true };
+  if (/\bapache\b/.test(t)) return { id: "Apache-2.0", allowed: true, attribution: true };
   return { id: "UNKNOWN", allowed: false, attribution: false };
 }
 
@@ -54,6 +59,9 @@ export function formatCredit({ source, title, creator, license, sourceUrl }) {
   }
   if (source === "bioart") {
     return `${who}. ${title}. NIH BioArt Source. ${sourceUrl} (${licenseLabel(license)})`;
+  }
+  if (source === "bioicons") {
+    return `${title} by ${who}. Bioicons. ${sourceUrl} (${licenseLabel(license)})`;
   }
   // Generic fallback.
   return `${title} by ${who}. ${sourceUrl} (${licenseLabel(license)})`;

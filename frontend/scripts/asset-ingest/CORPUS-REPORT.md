@@ -51,6 +51,20 @@ Excluded = any -NC or -ND.
 **Net on BioArt:** license is fine (PD-dominant, all clean), but it is the *harder*
 source — rate-limited + an unresolved SVG path. It is NOT the quick win PhyloPic is.
 
+## BioIcons — the multi-color SVG source (replaced Servier as source #2)
+
+Servier turned out to be PNG + PowerPoint only (vectors locked in `.pptx`, no SVG), so
+it is NOT a clean SVG source. **BioIcons** fills that role far better:
+- **2,829 assets, ALL ingestable**: cc-0 488, cc-by 2,260, cc-by-sa 39, mit 39, bsd 3
+  (no NC/ND). A flat manifest (`bioicons.com/icons/icons.json`) + direct SVG URLs at
+  `/icons/<license>/<category>/<author>/<name>.svg` (license is in the path).
+- **Multi-fill SVGs** -> validates per-fill recolor: a 150-asset batch gave **129/150
+  multi-fill** (1-240 distinct fills), vs PhyloPic's all-single-fill.
+- Caveat 1: ~19% of the first batch's URLs 404'd (name/author encoding edge cases) -
+  a production run should log + retry these.
+- Caveat 2: BioIcons spans beyond biology (a `Machine_Learning` category has tech logos
+  like TensorFlow/Jupyter) - may want category filtering for a science-figure library.
+
 ## Revised source priority (recommendation)
 
 1. **PhyloPic first** — API, 11.7k clean SVGs, trivial ingest. Validates the

@@ -20,6 +20,16 @@ test("classifyLicense: allowed set", () => {
   assert.equal(classifyLicense("Public Domain").attribution, false);
 });
 
+test("classifyLicense: BioIcons tags (hyphen cc-0 + permissive code licenses)", () => {
+  // BioIcons license values are lowercase path tags.
+  assert.deepEqual(classifyLicense("cc-0"), { id: "CC0", allowed: true, attribution: false });
+  assert.equal(classifyLicense("cc-by").id, "CC-BY");
+  assert.equal(classifyLicense("cc-by-sa").id, "CC-BY-SA");
+  // MIT/BSD: allowed, but retain the notice -> attribution true.
+  assert.deepEqual(classifyLicense("mit"), { id: "MIT", allowed: true, attribution: true });
+  assert.deepEqual(classifyLicense("bsd"), { id: "BSD", allowed: true, attribution: true });
+});
+
 test("classifyLicense: excluded NC / ND", () => {
   for (const s of [
     "https://creativecommons.org/licenses/by-nc/4.0/",
