@@ -99,6 +99,21 @@ describe("suggest_tree_overlays", () => {
     expect(overlayWizardFromResult(res)?.treeId).toBe("tree1");
   });
 
+  it("treats a deictic ref ('this tree') as the OPEN tree from context", async () => {
+    setBeakerContext({
+      route: "/phylo",
+      pageLabel: "Tree Studio",
+      selection: { type: "phylo", id: "tree1", name: "cyp51A" },
+    });
+    mockRank.mockReturnValue([CANDIDATE]);
+    const res = (await suggestTreeOverlaysTool.execute({ tree: "this tree" })) as Record<
+      string,
+      unknown
+    >;
+    expect(res.ok).toBe(true);
+    expect(overlayWizardFromResult(res)?.treeId).toBe("tree1");
+  });
+
   it("reports no candidates (and no wizard) when nothing joins", async () => {
     mockRank.mockReturnValue([]);
     const res = (await suggestTreeOverlaysTool.execute({ tree: "cyp51A" })) as Record<

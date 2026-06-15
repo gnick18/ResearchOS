@@ -127,6 +127,21 @@ export const phyloToolsDeps: PhyloToolsDeps = {
   getTableContent: (id) => dataHubApi.getContent(id),
 };
 
+/** True when a tree ref is deictic ("this", "this tree", "the tree", "current
+ *  tree", "open tree", "it", "mine") rather than a real name, so it should resolve
+ *  to the OPEN tree from context, not be looked up by name. The model sometimes
+ *  passes "this tree" instead of omitting the arg; without this it would 404. */
+export function isDeicticTreeRef(ref: string): boolean {
+  const r = ref
+    .trim()
+    .toLowerCase()
+    .replace(/\btree\b/g, "")
+    .replace(/\bthe\b/g, "")
+    .replace(/\bmy\b/g, "")
+    .trim();
+  return r === "" || ["this", "that", "it", "current", "open", "mine"].includes(r);
+}
+
 /** Resolve a tree reference (a stable string id or a case-insensitive name) to a
  *  PhyloMeta, or null. Pure. */
 export function resolveTree(trees: PhyloMeta[], ref: string | undefined): PhyloMeta | null {
@@ -243,16 +258,19 @@ export const suggestTreeOverlaysTool: AiTool = {
       };
     }
 
-    // Resolve the target tree: an explicit ref, else the open tree from context.
-    let meta = ref ? resolveTree(trees, ref) : null;
-    if (!meta && !ref) {
+    // Resolve the target tree. A real name is looked up; an empty or deictic ref
+    // ("this tree", "the tree") falls back to the OPEN tree from the context
+    // bridge, so the user (and the model passing "this tree") get the open tree.
+    const named = ref !== "" && !isDeicticTreeRef(ref);
+    let meta = named ? resolveTree(trees, ref) : null;
+    if (!meta && !named) {
       const ctx = getBeakerContext();
       if (ctx?.selection?.type === "phylo") {
         meta = resolveTree(trees, ctx.selection.id);
       }
     }
     if (!meta) {
-      if (ref) {
+      if (named) {
         const names = trees.map((t) => `"${t.name}"`).join(", ");
         return {
           ok: false as const,
