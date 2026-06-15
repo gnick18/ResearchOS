@@ -67,7 +67,6 @@ import { DEPT_TIER_ENABLED } from "@/lib/dept/config";
 import { INSTITUTION_TIER_ENABLED } from "@/lib/institution/config";
 import RainbowFrame from "@/components/marketing/RainbowFrame";
 import FeatureRow from "@/components/marketing/FeatureRow";
-import RoadmapModal from "@/components/RoadmapModal";
 import { markLandingSeen } from "@/lib/landing/landing-gate";
 import { ASSET_BASE_URL } from "@/lib/figure/asset-library";
 
@@ -632,7 +631,6 @@ export default function WelcomePage({
   const router = useRouter();
 
   // Roadmap modal state.
-  const [roadmapOpen, setRoadmapOpen] = useState(false);
 
   // "Get started" routes UP to the connect chooser, which now lives ABOVE this
   // page. When this component is embedded in EntrySnapSurface, the chooser is
@@ -671,33 +669,6 @@ export default function WelcomePage({
     // Standalone: send them to the home route where the connect flow lives.
     router.push("/");
   };
-
-  /** The "What we're building" roadmap chip, used in the nav and standalone. */
-  const RoadmapChip = ({ className }: { className?: string }) => (
-    <button
-      type="button"
-      onClick={() => setRoadmapOpen(true)}
-      className={`inline-flex items-center gap-1.5 rounded-full border border-[#d3deec] bg-white px-3 py-1 text-meta font-semibold text-brand-ink transition-colors hover:bg-[#eef4fb] hover:border-[#c5d6ea] ${className ?? ""}`}
-    >
-      {/* 4-point asterisk / spark icon */}
-      <svg
-        width="14"
-        height="14"
-        viewBox="0 0 16 16"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="2"
-        strokeLinecap="round"
-        aria-hidden
-      >
-        <line x1="8" y1="2" x2="8" y2="14" />
-        <line x1="2" y1="8" x2="14" y2="8" />
-        <line x1="3.5" y1="3.5" x2="12.5" y2="12.5" />
-        <line x1="12.5" y1="3.5" x2="3.5" y2="12.5" />
-      </svg>
-      What we&apos;re building
-    </button>
-  );
 
   return (
     <div
@@ -739,7 +710,6 @@ export default function WelcomePage({
           <nav className="relative z-10 mx-auto flex w-full max-w-[1440px] items-center justify-between px-6 py-5 sm:px-12">
             <Wordmark size="md" animated={false} className="gap-2.5" />
             <div className="flex items-center gap-3">
-              <RoadmapChip />
               {/* Get started: routes up to the connect chooser (embedded) or
                   home (standalone). The brand-gradient primary action. */}
               <button
@@ -1455,9 +1425,8 @@ export default function WelcomePage({
                 <span aria-hidden>&rarr;</span>
               </a>
             </div>
-            {/* Roadmap chip + pricing handoff, the mockup's CTA footnote. */}
+            {/* Pricing handoff, the mockup's CTA footnote. */}
             <div className="mt-6 flex flex-col items-center gap-3">
-              <RoadmapChip />
               <p className="text-meta text-[#94a3b8]">
                 Free and open source. It grew out of a UW-Madison Distinguished
                 Research Fellowship. Curious how the optional cloud is priced?{" "}
@@ -1480,8 +1449,6 @@ export default function WelcomePage({
         <MarketingFooter />
       </div>
 
-      {/* Roadmap modal */}
-      <RoadmapModal open={roadmapOpen} onClose={() => setRoadmapOpen(false)} />
     </div>
   );
 }
