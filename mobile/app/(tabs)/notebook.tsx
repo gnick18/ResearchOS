@@ -47,6 +47,7 @@ import { Card } from '@/components/ui/Card';
 import { useTheme, palette, fonts } from '@/lib/design';
 import {
   addCapture,
+  markDemoCapturesSent,
   removeCapture,
   clearAllCaptures,
   sendCapture,
@@ -130,8 +131,13 @@ export default function NotebookScreen() {
           await addCapture({ uri: DEMO_IMAGE_URI, caption: 'Demo: Plate 4 brightfield overview (GFP channel)' });
           await addCapture({ uri: DEMO_IMAGE_URI, caption: 'Demo: Post-trypsin cell suspension check' });
           await AsyncStorage.setItem(DEMO_SEED_KEY, '1');
-          await refreshCaptures();
         }
+        // Demo has no real relay, so the sample captures represent items already
+        // synced to the lab inbox. Mark them delivered (also rescues any left
+        // stuck on "Sending..." by an earlier interrupted send) so the demo
+        // inbox never shows a perpetual spinner.
+        await markDemoCapturesSent();
+        await refreshCaptures();
       } catch {
         // Seeding is best-effort; the demo still works without it.
       }

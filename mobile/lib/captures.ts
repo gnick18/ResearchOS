@@ -83,12 +83,20 @@ export async function listCaptures(): Promise<Capture[]> {
     let valid = parsed.filter(isCapture);
     if (!prunedSentThisRun) {
       prunedSentThisRun = true;
-      const kept = valid.filter(
-        (c) => c.status !== 'sent' || c.caption.startsWith('Demo:'),
-      );
-      if (kept.length !== valid.length) {
-        await writeAll(kept);
-        valid = kept;
+      // Drop delivered captures (but keep Demo: samples), AND requeue any capture
+      // left mid-flight: a 'sending' status persisted to storage means a previous
+      // upload was interrupted (app killed, or the relay never answered). There is
+      // no live upload after a reload, so reset it to 'queued' instead of leaving
+      // it stuck on "Sending..." forever (Send all only retries queued/failed).
+      const hadSending = valid.some((c) => c.status === 'sending');
+      const cleaned = valid
+        .filter((c) => c.status !== 'sent' || c.caption.startsWith('Demo:'))
+        .map((c) =>
+          c.status === 'sending' ? { ...c, status: 'queued' as const } : c,
+        );
+      if (cleaned.length !== valid.length || hadSending) {
+        await writeAll(cleaned);
+        valid = cleaned;
       }
     }
     return valid;
@@ -122,6 +130,23 @@ function isStatus(value: unknown): value is CaptureStatus {
 
 async function writeAll(captures: Capture[]): Promise<void> {
   await AsyncStorage.setItem(CAPTURES_KEY, JSON.stringify(captures));
+}
+
+// Demo captures are sample data with no real relay behind them, so they must
+// never sit on "Sending..." or "Queued" as if a real upload were pending. Mark
+// every Demo: capture as delivered (sent), which is how a synced lab inbox reads.
+// Idempotent: a no-op once they are all sent.
+export async function markDemoCapturesSent(): Promise<void> {
+  const current = await listCaptures();
+  let changed = false;
+  const next = current.map((c) => {
+    if (c.caption.startsWith('Demo:') && c.status !== 'sent') {
+      changed = true;
+      return { ...c, status: 'sent' as const };
+    }
+    return c;
+  });
+  if (changed) await writeAll(next);
 }
 
 // Queue a new capture. The caller passes the picker uri and an optional caption.
