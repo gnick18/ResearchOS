@@ -16,7 +16,7 @@
 // No em-dashes, no emojis, no mid-sentence colons.
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { Icon } from "@/components/icons";
 import Tooltip from "@/components/Tooltip";
@@ -24,6 +24,7 @@ import { phyloApi } from "@/lib/phylo/api";
 import { setBeakerContext } from "@/components/ai/context-bridge";
 import { SAMPLE_TREE, SAMPLE_CSV, SAMPLE_ALIGNMENT } from "@/lib/phylo/sample";
 import { PhyloCollectionRail } from "@/components/phylo/PhyloCollectionRail";
+import { projectsApi } from "@/lib/local-api";
 import { PhyloBuilder } from "@/components/phylo/PhyloBuilder";
 import LivingPopup from "@/components/ui/LivingPopup";
 import FileDropzone from "@/components/ui/FileDropzone";
@@ -200,6 +201,20 @@ export function PhyloStudio({ initialTreeId }: { initialTreeId?: string } = {}) 
   // tree's project. Empty for an unsaved / unfiled tree (no collection).
   // Declared above the publisher effect so the effect can reference it.
   const [openTreeProjectIds, setOpenTreeProjectIds] = useState<string[]>([]);
+
+  // The collection currently selected in the sidebar rail (lifted here so the
+  // save flow can default a freshly pasted/loaded tree into the project the user
+  // is viewing). "all" / "unfiled" mean no project; any other value is a project
+  // id. The rail reads + writes it through the controlled props below.
+  const [railCollection, setRailCollection] = useState<string>("all");
+  // The project a Save writes the tree into ("" = Unfiled). Seeded from the
+  // sidebar selection on a fresh load and from the tree's own project when a
+  // saved tree is opened; the Save panel exposes it as a picker.
+  const [saveProjectId, setSaveProjectId] = useState<string>("");
+  const { data: phyloProjects = [] } = useQuery({
+    queryKey: ["projects", "for-phylo"],
+    queryFn: () => projectsApi.list(),
+  });
 
   // Publish the open SAVED tree to the BeakerBot context bridge so the model can
   // resolve "this", "this tree", or "this phylogeny" to what the user has open in
@@ -643,30 +658,26 @@ export function PhyloStudio({ initialTreeId }: { initialTreeId?: string } = {}) 
     setSelectedLayerId(panel.id);
   }
 
-  // Smart Data Binding: scan the open tree's COLLECTION (its projects) for Data
-  // Hub tables that join its tips and rank them (the engine drops zero-join /
-  // key-only tables). Scoped to the tree's projects (the locked "same project"
-  // rule, matching the BeakerBot suggest_tree_overlays tool); an unsaved / unfiled
-  // tree has no collection, so no auto-suggestions. getContent is a local read
+  // Smart Data Binding: scan the open tree's COLLECTION for Data Hub tables that
+  // join its tips and rank them (the engine drops zero-join / key-only tables).
+  // Scoped to the tree's collection (the locked "same collection" rule, matching
+  // the BeakerBot suggest_tree_overlays tool): the union of its projects, or the
+  // Unfiled tables when the tree is unfiled (so an unfiled — including freshly
+  // pasted — tree still joins unfiled tables). getContent is a local read
   // (local-first), so loading the collection's table contents is cheap; recomputed
   // when the tree or its collection changes.
   useEffect(() => {
     let cancelled = false;
-    if (!tree || openTreeProjectIds.length === 0) {
+    if (!tree) {
       setSmartCandidates([]);
       return;
     }
     (async () => {
-      // Union the tables across the tree's projects, deduped by id.
-      const byId = new Map<string, { id: string; name: string }>();
-      for (const pid of openTreeProjectIds) {
-        const docs = await dataHubApi.listByProject(pid);
-        for (const d of docs) if (!byId.has(d.id)) byId.set(d.id, { id: d.id, name: d.name });
-      }
+      const docs = await dataHubApi.listForScope(openTreeProjectIds);
       const loaded: CandidateTable[] = [];
-      for (const t of byId.values()) {
-        const content = await dataHubApi.getContent(t.id);
-        if (content) loaded.push({ id: t.id, name: t.name, content });
+      for (const d of docs) {
+        const content = await dataHubApi.getContent(d.id);
+        if (content) loaded.push({ id: d.id, name: d.name, content });
       }
       if (cancelled) return;
       setSmartCandidates(rankJoinCandidates(tree, loaded));
@@ -751,6 +762,14 @@ export function PhyloStudio({ initialTreeId }: { initialTreeId?: string } = {}) 
       setOpenTreeId(null);
       // No collection yet either (onPickSaved sets it from the saved meta).
       setOpenTreeProjectIds([]);
+      // Default the save destination to the project the sidebar is filtered to,
+      // so a paste while viewing a project saves straight into it ("all" /
+      // "unfiled" → Unfiled). The Save picker can still override it.
+      setSaveProjectId(
+        railCollection === "all" || railCollection === "unfiled"
+          ? ""
+          : railCollection,
+      );
     } catch (err) {
       setParseError(
         err instanceof TreeParseError
@@ -775,6 +794,9 @@ export function PhyloStudio({ initialTreeId }: { initialTreeId?: string } = {}) 
     // Scope the smart-binding scan to this tree's collection (set AFTER
     // loadTreeText, which cleared it).
     setOpenTreeProjectIds(raw.meta.project_ids ?? []);
+    // The Save picker reflects where this tree already lives (re-saving keeps it
+    // there; a single-project tree shows that project).
+    setSaveProjectId(raw.meta.project_ids?.[0] ?? "");
   }
 
   /**
@@ -1028,9 +1050,13 @@ export function PhyloStudio({ initialTreeId }: { initialTreeId?: string } = {}) 
               derived.heatColumns.length > 0 ? derived.heatColumns : undefined,
           }
         : undefined;
+    // File the tree into the chosen collection ("" = Unfiled). This is what lets
+    // a pasted tree be co-scoped with a Data Hub table in the same project, so
+    // the smart-binding wizard can join them.
+    const projectIds = saveProjectId ? [saveProjectId] : [];
     const created = await phyloApi.create(serializeNewick(tree), {
       name: treeName || "Untitled tree",
-      project_ids: [],
+      project_ids: projectIds,
       format: "newick",
       source: "upload",
       figure,
@@ -1038,7 +1064,14 @@ export function PhyloStudio({ initialTreeId }: { initialTreeId?: string } = {}) 
     });
     // The tree now lives in the store, so Copy reference can point at it.
     setOpenTreeId(created.meta.id);
-    setSavedMsg("Saved to your trees");
+    // Re-scope the smart-binding scan to where the tree now lives (so the banner
+    // immediately reflects joinable tables in the chosen project).
+    setOpenTreeProjectIds(projectIds);
+    const destName = saveProjectId
+      ? (phyloProjects.find((p) => String(p.id) === saveProjectId)?.name ??
+        "project")
+      : null;
+    setSavedMsg(destName ? `Saved to ${destName}` : "Saved to your trees");
     setTimeout(() => setSavedMsg(null), 2200);
     // The rail owns the live list; tell it to re-fetch so the new tree appears.
     void queryClient.invalidateQueries({ queryKey: ["phylo", "list"] });
@@ -1521,6 +1554,26 @@ export function PhyloStudio({ initialTreeId }: { initialTreeId?: string } = {}) 
               </Tooltip>
             )}
           </div>
+          <label className="mt-3 block text-[10.5px] font-semibold uppercase tracking-wide text-foreground-muted">
+            Save to
+          </label>
+          <select
+            aria-label="Save this tree into a project"
+            value={saveProjectId}
+            onChange={(e) => setSaveProjectId(e.target.value)}
+            className="mt-1 w-full rounded-md border border-border bg-surface-raised px-2 py-1.5 text-body text-foreground outline-none focus:border-brand-action"
+          >
+            <option value="">Unfiled (no project)</option>
+            {phyloProjects.length > 0 && (
+              <optgroup label="Projects">
+                {phyloProjects.map((p) => (
+                  <option key={String(p.id)} value={String(p.id)}>
+                    {p.name}
+                  </option>
+                ))}
+              </optgroup>
+            )}
+          </select>
           <button
             onClick={onSave}
             className="mt-2 w-full px-3 py-1.5 rounded-lg font-bold text-sm border border-border text-foreground hover:border-accent flex items-center justify-center gap-1.5"
@@ -1597,6 +1650,8 @@ export function PhyloStudio({ initialTreeId }: { initialTreeId?: string } = {}) 
         aria-hidden={shell.collapsed}
       >
         <PhyloCollectionRail
+          collection={railCollection}
+          onCollectionChange={setRailCollection}
           selectedId={openTreeId}
           onPick={(id) => void onPickSaved(id)}
           onNew={() => {

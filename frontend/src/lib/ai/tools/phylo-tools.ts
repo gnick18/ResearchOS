@@ -104,8 +104,9 @@ export type PhyloToolsDeps = {
   /** Read one saved tree's raw files (tree text + sidecar). Wraps phyloApi.get.
    *  suggest_tree_overlays parses the tree text to rank joinable tables. */
   getTree: (id: string) => Promise<RawPhyloFiles | null>;
-  /** List the Data Hub tables across a tree's projects, deduped by id. Wraps
-   *  dataHubApi.listByProject. suggest_tree_overlays ranks these against tips. */
+  /** List the Data Hub tables in a tree's collection scope, deduped by id. Wraps
+   *  dataHubApi.listForScope (project union, or Unfiled tables for an unfiled
+   *  tree). suggest_tree_overlays ranks these against tips. */
   listProjectTables: (
     projectIds: string[],
   ) => Promise<{ id: string; name: string }[]>;
@@ -121,12 +122,10 @@ export const phyloToolsDeps: PhyloToolsDeps = {
   updateTreeMeta: (id, patch) => phyloApi.updateMeta(id, patch),
   getTree: (id) => phyloApi.get(id),
   listProjectTables: async (projectIds) => {
-    const seen = new Map<string, { id: string; name: string }>();
-    for (const pid of projectIds) {
-      const docs = await dataHubApi.listByProject(pid);
-      for (const d of docs) if (!seen.has(d.id)) seen.set(d.id, { id: d.id, name: d.name });
-    }
-    return [...seen.values()];
+    // The "same collection" scope: union across the tree's projects, or the
+    // Unfiled tables when the tree itself is unfiled (listForScope handles both).
+    const docs = await dataHubApi.listForScope(projectIds);
+    return docs.map((d) => ({ id: d.id, name: d.name }));
   },
   getTableContent: (id) => dataHubApi.getContent(id),
 };
@@ -319,7 +318,7 @@ export const suggestTreeOverlaysTool: AiTool = {
         ok: true as const,
         treeName,
         candidateCount: 0,
-        message: `There are no Data Hub tables in ${treeName}'s project to overlay.`,
+        message: `There are no Data Hub tables in ${treeName}'s collection to overlay.`,
       };
     }
 
@@ -338,7 +337,7 @@ export const suggestTreeOverlaysTool: AiTool = {
         ok: true as const,
         treeName,
         candidateCount: 0,
-        message: `None of the Data Hub tables in ${treeName}'s project join its tip labels, so there is nothing to overlay yet.`,
+        message: `None of the Data Hub tables in ${treeName}'s collection join its tip labels, so there is nothing to overlay yet.`,
       };
     }
 
