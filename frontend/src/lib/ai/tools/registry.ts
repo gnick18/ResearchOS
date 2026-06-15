@@ -84,6 +84,7 @@ import {
   suggestTreeOverlaysTool,
   compareTreeRecipesTool,
 } from "./phylo-tools";
+import { suggestAnalysesTool } from "./suggest-analyses";
 import {
   createExperimentTool,
   rescheduleExperimentTool,
@@ -358,6 +359,12 @@ export const READ_ONLY_TOOLS: AiTool[] = [
   // inline. The model only narrates the ranked facts; the write is the user's
   // wizard Add (host commit), so no approval card.
   suggestTreeOverlaysTool,
+  // suggest_analyses (constraint-aware analysis/graph picker, chat front door) is
+  // read-only: it calls the SAME deterministic tableCapabilities engine the Data
+  // Hub "Analyze" UI uses, narrates only the VALID analyses + graphs, and rides
+  // them UI-only so the inline picker mounts. The model can never offer a test or
+  // figure that cannot run on the table, the fix for suggest-then-refuse.
+  suggestAnalysesTool,
   // compare_tree_recipes (reproduce-from-PDF "light comparison" carve-out) is
   // read-only + deterministic: it diffs the paper's recipe vs the user's
   // (resolveBuilderOptions on both -> compareBuilderOptions) and rides the result
