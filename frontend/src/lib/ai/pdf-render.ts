@@ -129,14 +129,38 @@ function makeCanvas(width: number, height: number): HTMLCanvasElement {
   return canvas;
 }
 
+/** Page count + render plan, reported as soon as the document opens (before any
+ *  page renders) so the picker can show "0 of N" and reserve the grid. */
+export type PdfThumbStart = {
+  pageCount: number;
+  /** How many pages will actually be rendered (capped at maxPages). */
+  renderCount: number;
+  capped: boolean;
+};
+
+export type RenderThumbOpts = {
+  maxPages?: number;
+  targetWidth?: number;
+  /** Fired once, right after the document opens, with the page counts. */
+  onStart?: (info: PdfThumbStart) => void;
+  /** Fired after EACH page renders, so the picker can show thumbnails
+   *  progressively instead of waiting for the whole document. */
+  onThumb?: (thumb: PdfPageThumb, info: PdfThumbStart) => void;
+};
+
 /**
  * Render up to MAX_THUMB_PAGES page thumbnails as small JPEG data URLs for the
  * picker grid. Browser-only (needs a canvas). Each thumb is about
  * THUMB_TARGET_WIDTH px wide.
+ *
+ * Progressive: pass `onStart` to learn the page count up front and `onThumb` to
+ * receive each thumbnail the moment it renders, so a long PDF shows pages as they
+ * arrive instead of behind one blank wait. The full result is still returned for
+ * callers that just want the array.
  */
 export async function renderPdfThumbnails(
   source: File | ArrayBuffer,
-  opts?: { maxPages?: number; targetWidth?: number },
+  opts?: RenderThumbOpts,
 ): Promise<PdfThumbResult> {
   const maxPages = opts?.maxPages ?? MAX_THUMB_PAGES;
   const targetWidth = opts?.targetWidth ?? THUMB_TARGET_WIDTH;
@@ -145,6 +169,8 @@ export async function renderPdfThumbnails(
   const pdfDoc = await pdfjsLib.getDocument({ data }).promise;
   const pageCount = pdfDoc.numPages;
   const renderCount = Math.min(pageCount, maxPages);
+  const info: PdfThumbStart = { pageCount, renderCount, capped: pageCount > renderCount };
+  opts?.onStart?.(info);
   const thumbs: PdfPageThumb[] = [];
 
   for (let pageNum = 1; pageNum <= renderCount; pageNum++) {
@@ -156,12 +182,14 @@ export async function renderPdfThumbnails(
     const ctx = canvas.getContext("2d");
     if (!ctx) continue;
     await page.render({ canvas, canvasContext: ctx, viewport }).promise;
-    thumbs.push({
+    const thumb: PdfPageThumb = {
       pageNumber: pageNum,
       dataUrl: canvas.toDataURL("image/jpeg", 0.7),
       width: canvas.width,
       height: canvas.height,
-    });
+    };
+    thumbs.push(thumb);
+    opts?.onThumb?.(thumb, info);
   }
 
   await pdfDoc.cleanup();

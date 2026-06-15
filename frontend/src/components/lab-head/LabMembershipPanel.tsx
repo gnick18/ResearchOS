@@ -13,18 +13,23 @@
 // No emojis, no em-dashes, no mid-sentence colons.
 
 import { useEffect, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { useLabSession } from "@/hooks/useLabSession";
+import { LAB_PENDING_REQUESTS_QUERY_KEY } from "@/hooks/useLabPendingRequests";
 import { getSessionIdentity } from "@/lib/sharing/identity/session-key";
 import { isRealSharingEnabled } from "@/lib/sharing/oauth-availability";
 import { readUserSettings } from "@/lib/settings/user-settings";
+import { canonicalAppOrigin } from "@/lib/app-origin";
 import { Icon } from "@/components/icons";
+import Tooltip from "@/components/Tooltip";
 import {
   mintInviteForHead,
   loadPendingAccepts,
   finalizePendingAccepts,
 } from "@/lib/lab/lab-head-membership";
 import { getLabRemote } from "@/lib/lab/lab-do-client";
+import { fetchLabProfile } from "@/lib/lab/lab-profile-client";
 import {
   fetchLabRoster,
   type UnifiedLabRoster,
@@ -100,6 +105,7 @@ export default function LabMembershipPanel() {
   const { currentUser } = useCurrentUser();
   const session = useLabSession();
   const labId = (session && !session.loading ? session.labId : null) ?? null;
+  const queryClient = useQueryClient();
 
   const [link, setLink] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
@@ -148,6 +154,11 @@ export default function LabMembershipPanel() {
   const [senderLabel, setSenderLabel] = useState<string>(currentUser ?? "");
   const [labName, setLabName] = useState<string>("");
   const [labNameTouched, setLabNameTouched] = useState(false);
+  // The saved cosmetic branding, used as the display-only fields on minted
+  // invites so the branded join welcome paints instantly. Falls back to the
+  // panel's labName / no title when unset.
+  const [brandLabName, setBrandLabName] = useState<string>("");
+  const [brandPiTitle, setBrandPiTitle] = useState<string>("");
 
   const sharingOn = isRealSharingEnabled();
 
@@ -199,6 +210,77 @@ export default function LabMembershipPanel() {
     };
   }, [labId, outcomes]);
 
+  // Load the saved cosmetic branding so minted invites carry the lab name + PI
+  // title (display only). Best-effort; the invite is fine without them.
+  useEffect(() => {
+    if (!labId) return;
+    let cancelled = false;
+    void (async () => {
+      try {
+        const profile = await fetchLabProfile(labId);
+        if (cancelled || !profile) return;
+        setBrandLabName(profile.labName ?? "");
+        setBrandPiTitle(profile.piTitle ?? "");
+      } catch {
+        // Best-effort; invites just go out without the display branding.
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [labId]);
+
+  // Auto-load both pending queues on mount (lab-pending-requests-ux,
+  // 2026-06-14). The PI should never have to click a button to see who is
+  // waiting, so the panel fetches invite-link accepts + directory requests as
+  // soon as the lab session resolves. Best-effort and silent (the small refresh
+  // glyph re-runs them on demand, and the awareness badges poll separately).
+  useEffect(() => {
+    if (!labId) return;
+    const identity = getSessionIdentity();
+    if (!identity) return;
+    let cancelled = false;
+    void (async () => {
+      try {
+        const accepts = await loadPendingAccepts(labId, identity);
+        if (!cancelled) setPending(accepts);
+      } catch {
+        // Leave pending null so the empty-state copy stays calm on failure.
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [labId]);
+
+  useEffect(() => {
+    if (!labId) return;
+    let cancelled = false;
+    void (async () => {
+      try {
+        const res = await fetch(
+          `/api/directory/labs/request?labId=${encodeURIComponent(labId)}`,
+          { credentials: "include" },
+        );
+        if (!res.ok || cancelled) return;
+        const j = (await res.json()) as { requests?: DirJoinRequest[] };
+        if (!cancelled) setDirRequests(j.requests ?? []);
+      } catch {
+        // Best-effort; the directory section just stays in its empty state.
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [labId]);
+
+  // The display-only branding for a minted invite. Prefers the saved lab name,
+  // then the panel's editable labName, then a calm fallback handled downstream.
+  const inviteDisplay = () => ({
+    labName: (brandLabName || labName).trim() || undefined,
+    piTitle: brandPiTitle.trim() || undefined,
+  });
+
   if (!labId || !currentUser) {
     return (
       <p className="text-meta text-foreground-muted leading-relaxed">
@@ -215,6 +297,14 @@ export default function LabMembershipPanel() {
       );
     }
     return id;
+  };
+
+  // Clear the awareness badges (rail count pill + dots + avatar-menu dot) right
+  // after an approve or add, instead of waiting for the next 30s poll.
+  const invalidatePendingBadges = () => {
+    void queryClient.invalidateQueries({
+      queryKey: LAB_PENDING_REQUESTS_QUERY_KEY,
+    });
   };
 
   const run = async (key: string, fn: () => Promise<void>) => {
@@ -235,7 +325,8 @@ export default function LabMembershipPanel() {
         labId,
         username: currentUser,
         identity: requireIdentity(),
-        origin: window.location.origin,
+        origin: canonicalAppOrigin(),
+        ...inviteDisplay(),
       });
       setLink(l);
       setCopied(false);
@@ -256,7 +347,8 @@ export default function LabMembershipPanel() {
       labId,
       username: currentUser,
       identity: requireIdentity(),
-      origin: window.location.origin,
+      origin: canonicalAppOrigin(),
+      ...inviteDisplay(),
     }).link;
 
   /** POST the minted link to the recipient's inbox. Best effort. */
@@ -360,7 +452,8 @@ export default function LabMembershipPanel() {
           labId,
           username: currentUser,
           identity: requireIdentity(),
-          origin: window.location.origin,
+          origin: canonicalAppOrigin(),
+          ...inviteDisplay(),
         });
         setApprovedLinks((cur) => ({ ...cur, [req.requesterEmailHash]: l }));
       }
@@ -369,6 +462,7 @@ export default function LabMembershipPanel() {
           (r) => r.requesterEmailHash !== req.requesterEmailHash,
         ),
       );
+      invalidatePendingBadges();
     });
 
   const addAll = () =>
@@ -380,6 +474,7 @@ export default function LabMembershipPanel() {
       });
       setOutcomes(o);
       setPending(await loadPendingAccepts(labId, requireIdentity()));
+      invalidatePendingBadges();
     });
 
   const rosterMembers =
@@ -760,26 +855,26 @@ export default function LabMembershipPanel() {
           <h4 className="text-body font-medium text-foreground">
             Pending join requests
           </h4>
-          <button
-            type="button"
-            onClick={refresh}
-            disabled={busy !== null}
-            className={secondaryBtn}
-          >
-            {busy === "refresh" ? "Checking..." : "Check for requests"}
-          </button>
+          <Tooltip label="Refresh">
+            <button
+              type="button"
+              onClick={refresh}
+              disabled={busy !== null}
+              aria-label="Refresh requests"
+              className="rounded-md border border-border bg-surface p-2 text-foreground hover:bg-surface-hover disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <Icon
+                name="refresh"
+                className={`h-4 w-4 ${busy === "refresh" ? "animate-spin" : ""}`}
+              />
+            </button>
+          </Tooltip>
         </div>
 
-        {pending === null && (
+        {(pending === null || pending.length === 0) && (
           <p className="text-meta text-foreground-muted leading-relaxed">
-            Click &quot;Check for requests&quot; to see who has opened your
-            invite link and asked to join.
-          </p>
-        )}
-
-        {pending !== null && pending.length === 0 && (
-          <p className="text-meta text-foreground-muted leading-relaxed">
-            No pending requests right now.
+            No pending requests right now. People who open your invite link and
+            ask to join show up here automatically.
           </p>
         )}
 
@@ -917,25 +1012,26 @@ export default function LabMembershipPanel() {
           <h4 className="text-body font-medium text-foreground">
             Requests from the directory
           </h4>
-          <button
-            type="button"
-            onClick={loadDirRequests}
-            disabled={busy !== null}
-            className={secondaryBtn}
-          >
-            {busy === "dir-load" ? "Loading..." : "Load requests"}
-          </button>
+          <Tooltip label="Refresh">
+            <button
+              type="button"
+              onClick={loadDirRequests}
+              disabled={busy !== null}
+              aria-label="Refresh requests"
+              className="rounded-md border border-border bg-surface p-2 text-foreground hover:bg-surface-hover disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <Icon
+                name="refresh"
+                className={`h-4 w-4 ${busy === "dir-load" ? "animate-spin" : ""}`}
+              />
+            </button>
+          </Tooltip>
         </div>
 
-        {dirRequests === null && (
+        {(dirRequests === null || dirRequests.length === 0) && (
           <p className="text-meta text-foreground-muted leading-relaxed">
-            Researchers who find your lab in the directory and ask to join show
-            up here.
-          </p>
-        )}
-        {dirRequests !== null && dirRequests.length === 0 && (
-          <p className="text-meta text-foreground-muted leading-relaxed">
-            No directory join requests right now.
+            No directory join requests right now. Researchers who find your lab
+            in the directory and ask to join show up here automatically.
           </p>
         )}
         {dirRequests !== null && dirRequests.length > 0 && (

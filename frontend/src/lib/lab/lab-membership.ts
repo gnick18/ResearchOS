@@ -26,6 +26,14 @@ export interface PendingLabGenesis {
   labId: string;
   record: LabRecord;
   envelope: LabKeyEnvelope;
+  /** Optional cosmetic branding to attach to the relay create body when the
+   *  publish lands. Carried here so a retry (publishPendingGenesis) still sends
+   *  the lab name / PI title / PI display. NOT part of the signed log. */
+  branding?: {
+    labName?: string;
+    piTitle?: string;
+    piDisplay?: string;
+  };
 }
 
 /**

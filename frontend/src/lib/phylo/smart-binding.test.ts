@@ -242,6 +242,36 @@ describe("mergeTableColumnsIntoMetadata", () => {
     expect(byTip.A["resistance_assay:MIC"]).toBe("2"); // merged under a safe name
   });
 
+  it("reuses an already-merged identical column instead of duplicating it", () => {
+    // First add MIC fresh (e.g. the GUI door, bars).
+    const first = mergeTableColumnsIntoMetadata({
+      tree,
+      existing: null,
+      tableName: "resistance_assay",
+      content: resistance.content,
+      joinColumnId: "strain",
+      columnIds: ["mic"],
+    });
+    // Second add of the SAME column onto that result (e.g. the chat door, heatmap).
+    const second = mergeTableColumnsIntoMetadata({
+      tree,
+      existing: { rows: first.rows, tipColumn: first.tipColumn },
+      tableName: "resistance_assay",
+      content: resistance.content,
+      joinColumnId: "strain",
+      columnIds: ["mic"],
+    });
+    // Bound to the EXISTING column, not a namespaced duplicate.
+    expect(second.addedColumns).toEqual([{ columnId: "mic", name: "MIC" }]);
+    const cols = new Set(second.rows.flatMap((r) => Object.keys(r)));
+    expect(cols.has("resistance_assay:MIC")).toBe(false);
+    expect(cols.has("MIC")).toBe(true);
+    const byTip = Object.fromEntries(
+      second.rows.map((r) => [r[first.tipColumn], r]),
+    );
+    expect(byTip.A.MIC).toBe("2"); // value preserved
+  });
+
   it("appends a row for a tip that has table data but no existing row", () => {
     const existing = {
       tipColumn: "name",

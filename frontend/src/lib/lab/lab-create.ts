@@ -57,6 +57,16 @@ export interface CreateLabParams {
    */
   institution?: string | null;
   /**
+   * Optional cosmetic PI title (Dr. / Prof. / ...). Stored in DO meta as
+   * pi_title, used to brand the join welcome. Display only, never gates access.
+   */
+  piTitle?: string;
+  /**
+   * Optional cosmetic PI display name (the human name shown next to the title).
+   * Stored in DO meta as pi_display. Defaults to the username when omitted.
+   */
+  piDisplay?: string;
+  /**
    * Override for the lab-id generator. Defaults to crypto.randomUUID. Injected
    * in tests to produce a deterministic id.
    */
@@ -145,9 +155,18 @@ export async function publishLabRemote(
     labName?: string;
     institution?: string | null;
     piDisplayName?: string;
+    /** Cosmetic PI title (Dr. / Prof. / ...) stored in DO meta as pi_title. */
+    piTitle?: string;
   },
 ): Promise<void> {
-  const res = await createLabRemote(labId, created);
+  // Cosmetic branding rides into the relay create body (DO meta), NOT the signed
+  // log. piDisplayName is the human PI name shown next to the title; it doubles as
+  // the directory row's piDisplayName below.
+  const res = await createLabRemote(labId, created, {
+    labName: opts?.labName,
+    piTitle: opts?.piTitle,
+    piDisplay: opts?.piDisplayName,
+  });
   if (!res.ok) {
     throw new Error(
       `publishLabRemote: relay rejected lab create (HTTP ${res.status})`,
@@ -190,7 +209,8 @@ export async function createLabForCurrentUser(
   await publishLabRemote(labId, created, {
     labName: params.labName,
     institution: params.institution,
-    piDisplayName: params.username,
+    piDisplayName: params.piDisplay ?? params.username,
+    piTitle: params.piTitle,
   });
   return { labId, labKey: created.labKey };
 }

@@ -48,6 +48,15 @@ import type { OpenOrigin } from "@/lib/ui/create-popup-store";
  *  reports no save state (e.g. a read-only tab), so the footer shows no claim. */
 export type CalmSaveState = "saving" | "unsaved" | "saved" | null;
 
+/** Per-popup title accent hue (the colored marker block behind the title). Each
+ *  object type gets its own; omit for no accent. */
+export type CalmTitleAccent =
+  | "amber"
+  | "violet"
+  | "sky"
+  | "emerald"
+  | "rose";
+
 export interface CalmPopupTab {
   /** Stable key compared against `activeTab`. */
   key: string;
@@ -89,6 +98,9 @@ export interface CalmPopupShellProps {
   // ── header slots ──────────────────────────────────────────────────────────
   /** .s-title content (left). Usually a heading or an inline-editable title. */
   title: React.ReactNode;
+  /** Optional per-popup accent hue: a colored marker block behind the title so
+   *  each object type reads as its own. Omit for a plain title. */
+  titleAccent?: CalmTitleAccent;
   /** .s-meta single subline (caller composes "date · author · status · tail"). */
   meta?: React.ReactNode;
   /** Optional leading header content rendered ABOVE the actions (PI buttons,
@@ -175,6 +187,7 @@ export default function CalmPopupShell({
   label,
   origin = null,
   title,
+  titleAccent,
   meta,
   headerLead,
   overflow,
@@ -302,7 +315,7 @@ export default function CalmPopupShell({
   // transparent header / tabs / footer read as one continuous paper (light) /
   // dark-room (dark) surface, never a banded card.
   const cardClass = [
-    "ros-calm-surface pointer-events-auto rounded-2xl shadow-2xl w-full mx-4 flex flex-col transition-all duration-300 overflow-hidden",
+    "ros-calm-surface ros-popup-card-shadow pointer-events-auto rounded-2xl w-full mx-4 flex flex-col transition-all duration-300 overflow-hidden",
     isExpanded
       ? "inset-4 max-w-none max-h-none h-[calc(100vh-2rem)]"
       : `${dockedWidthClassName} h-[90vh] max-h-[860px]`,
@@ -329,10 +342,6 @@ export default function CalmPopupShell({
     >
       <div
         className={cardClass}
-        style={{
-          boxShadow:
-            "0 1px 3px rgba(0,0,0,0.06), 0 20px 50px -10px rgba(0,0,0,0.25)",
-        }}
         data-drag-ring-target={dragRingTarget ? "" : undefined}
         onClick={(e) => e.stopPropagation()}
         onDragOver={onCardDragOver}
@@ -359,7 +368,13 @@ export default function CalmPopupShell({
                   isExpanded ? "text-3xl" : "text-2xl"
                 }`}
               >
-                {title}
+                {titleAccent ? (
+                  <span className={`ros-title-accent ros-accent-${titleAccent}`}>
+                    {title}
+                  </span>
+                ) : (
+                  title
+                )}
               </div>
               {meta != null && (
                 <div className="s-meta mt-1 text-meta text-foreground-muted">
@@ -501,7 +516,7 @@ export default function CalmPopupShell({
                     // a raised fill (not the recessed sunken well), a quiet
                     // hairline, and a soft two-layer shadow that lifts on hover
                     // (Grant 2026-06-14).
-                    className="px-3 py-1.5 text-meta font-medium rounded-lg bg-surface-raised text-foreground border border-border shadow-[0_1px_2px_rgba(15,23,42,0.08),0_2px_4px_rgba(15,23,42,0.06)] hover:bg-surface-sunken hover:shadow-[0_2px_4px_rgba(15,23,42,0.10),0_4px_10px_rgba(15,23,42,0.10)] transition-all"
+                    className="ros-btn-neutral px-3 py-1.5 text-meta font-medium"
                   >
                     {footer.doneLabel ?? "Done"}
                   </button>

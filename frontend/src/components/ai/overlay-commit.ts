@@ -77,11 +77,25 @@ export async function applyOverlayCommit(
   });
 
   // One overlay panel per selection, bound to the merged (collision-free) name.
+  // mergeTableColumnsIntoMetadata reports each requested column's bound name in
+  // addedColumns (including a column already on the tree, once the engine reuses
+  // it). We bind every selection to that name.
   const nameFor = new Map(merged.addedColumns.map((a) => [a.columnId, a.name]));
   const newPanels: AlignedPanel[] = [];
   for (const s of args.selections) {
     const name = nameFor.get(s.columnId);
     if (name) newPanels.push(makePanel(s.geom, [name]));
+  }
+
+  // Never report a false success. If the user picked overlays but none resolved
+  // to a panel (e.g. the engine did not report a bound name for the column), the
+  // commit is a no-op, so fail loudly instead of letting the wizard claim "added".
+  if (args.selections.length > 0 && newPanels.length === 0) {
+    return {
+      ok: false,
+      error:
+        "I could not add those overlays. The column may already be on the tree, or its data did not resolve.",
+    };
   }
 
   // The panels to splice into. When the tree has a saved figure, use its panels.

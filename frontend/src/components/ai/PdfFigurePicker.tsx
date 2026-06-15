@@ -47,6 +47,8 @@ export function PdfFigurePicker({
   const [phase, setPhase] = useState<Phase>("loading");
   const [thumbs, setThumbs] = useState<PdfPageThumb[]>([]);
   const [pageCount, setPageCount] = useState(0);
+  const [renderTotal, setRenderTotal] = useState(0);
+  const [thumbsDone, setThumbsDone] = useState(false);
   const [capped, setCapped] = useState(false);
   const [selectedPage, setSelectedPage] = useState<number | null>(null);
   const [pagePreview, setPagePreview] = useState<string | null>(null);
@@ -56,22 +58,37 @@ export function PdfFigurePicker({
   const dragStart = useRef<{ x: number; y: number } | null>(null);
   const imageWrapRef = useRef<HTMLDivElement | null>(null);
 
-  // Render the page thumbnails once on mount.
+  // Render the page thumbnails on mount, PROGRESSIVELY: show the grid as soon as
+  // the doc opens (onStart) and append each thumbnail the moment it renders
+  // (onThumb), so a long PDF fills in instead of waiting behind one blank screen.
   useEffect(() => {
     let cancelled = false;
-    (async () => {
-      try {
-        const result = await renderPdfThumbnails(source);
+    setThumbs([]);
+    setThumbsDone(false);
+    renderPdfThumbnails(source, {
+      onStart: (info) => {
         if (cancelled) return;
-        setThumbs(result.thumbs);
-        setPageCount(result.pageCount);
-        setCapped(result.capped);
+        setPageCount(info.pageCount);
+        setRenderTotal(info.renderCount);
+        setCapped(info.capped);
         setPhase("grid");
-      } catch (err) {
+      },
+      onThumb: (thumb) => {
+        if (cancelled) return;
+        setThumbs((prev) => [...prev, thumb]);
+      },
+    })
+      .then(() => {
+        if (!cancelled) setThumbsDone(true);
+      })
+      .catch((err) => {
         console.error("[BeakerBot] PDF thumbnail render failed:", err);
-        if (!cancelled) setPhase("error");
-      }
-    })();
+        if (cancelled) return;
+        setThumbsDone(true);
+        // Only show the error card if nothing rendered; if some pages already
+        // appeared, keep them usable.
+        setPhase((p) => (p === "loading" ? "error" : p));
+      });
     return () => {
       cancelled = true;
     };
@@ -275,7 +292,15 @@ export function PdfFigurePicker({
 
           {phase === "grid" ? (
             <>
-              {capped ? (
+              {!thumbsDone ? (
+                <p
+                  data-testid="beakerbot-pdf-progress"
+                  className="mb-3 flex items-center gap-1.5 text-[11px] text-foreground-muted"
+                >
+                  <Icon name="refresh" className="h-3 w-3 animate-spin" title="" />
+                  Rendering pages… {thumbs.length} of {renderTotal} ready
+                </p>
+              ) : capped ? (
                 <p className="mb-3 text-[11px] text-foreground-muted">
                   Showing the first {thumbs.length} of {pageCount} pages.
                 </p>

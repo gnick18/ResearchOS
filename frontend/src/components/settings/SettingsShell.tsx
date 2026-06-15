@@ -43,6 +43,10 @@ export interface SettingsSectionDef {
   keywords?: string;
   /** Small "new" / "lab" style flag chip on the rail item. */
   flag?: string;
+  /** When greater than 0, the rail item shows a count pill plus an Apple-style
+   *  attention dot, and the group heading inherits a dot. Used by the Members
+   *  section to surface pending lab join requests without opening the section. */
+  badgeCount?: number;
   /** Renders the section body in the pane. Reuses the existing components. */
   render: () => ReactNode;
 }
@@ -201,15 +205,32 @@ export default function SettingsShell({
               </div>
             </div>
 
-            {groups.map((group) => {
+            {groups.map((group, groupIndex) => {
               const visibleSections = group.sections.filter(sectionMatches);
               if (visibleSections.length === 0) return null;
+              // Bubble an attention dot to the group heading when any section in
+              // the group is asking for attention, so a rail scrolled past the
+              // section still signals it.
+              const groupNeedsAttention = group.sections.some(
+                (s) => (s.badgeCount ?? 0) > 0,
+              );
               return (
                 <div key={group.label} className="mt-3">
+                  {/* Soft fading divider between rail groups (Popup Unifier
+                      seam kit). First group has no divider above it. */}
+                  {groupIndex > 0 && (
+                    <div className="ros-seam-divider mb-3" aria-hidden="true" />
+                  )}
                   <div className="flex items-center gap-1.5 px-2 pb-1.5">
                     <span className="text-meta font-bold uppercase tracking-wide text-foreground-muted">
                       {group.label}
                     </span>
+                    {groupNeedsAttention && (
+                      <span
+                        aria-hidden="true"
+                        className="h-1.5 w-1.5 rounded-full bg-red-500"
+                      />
+                    )}
                     {group.labBadge && (
                       <span className="text-meta font-bold text-purple-600 dark:text-purple-300 bg-purple-100 dark:bg-purple-500/15 rounded px-1.5 py-px">
                         Lab heads
@@ -243,6 +264,22 @@ export default function SettingsShell({
                           <span className="text-meta font-bold text-blue-600 dark:text-blue-300 bg-blue-100 dark:bg-blue-500/15 rounded px-1.5 py-px">
                             {section.flag}
                           </span>
+                        )}
+                        {(section.badgeCount ?? 0) > 0 && (
+                          <>
+                            {/* Count pill: how many items need the PI. */}
+                            <span
+                              className="min-w-[1.25rem] rounded-full bg-red-500 px-1.5 py-px text-center text-meta font-bold leading-tight text-white"
+                              aria-label={`${section.badgeCount} pending`}
+                            >
+                              {section.badgeCount}
+                            </span>
+                            {/* Apple-style attention dot beside the pill. */}
+                            <span
+                              aria-hidden="true"
+                              className="h-1.5 w-1.5 shrink-0 rounded-full bg-red-500"
+                            />
+                          </>
                         )}
                       </button>
                     );

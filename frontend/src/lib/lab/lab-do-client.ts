@@ -92,6 +92,18 @@ export interface CreateLabBody {
    *  signature under it (the create roster lists only non-head members, so the
    *  head pubkey is not otherwise present in the entry). */
   head: LabMember;
+  /** Optional cosmetic lab branding stored in DO meta at create time. NOT part of
+   *  the signed log (it never gates access). All optional + backward compatible. */
+  labName?: string;
+  piTitle?: string;
+  piDisplay?: string;
+}
+
+/** Optional cosmetic branding carried alongside lab create. */
+export interface LabBranding {
+  labName?: string;
+  piTitle?: string;
+  piDisplay?: string;
 }
 
 /** The body POSTed to /lab/append. For rotate, envelope is the new generation's
@@ -114,6 +126,7 @@ export interface AppendLabBody {
 export async function createLabRemote(
   labId: string,
   created: CreatedLab,
+  branding?: LabBranding,
 ): Promise<Response> {
   ensureEnabled();
   const body: CreateLabBody = {
@@ -121,6 +134,11 @@ export async function createLabRemote(
     envelope: created.envelope,
     head: created.record.head,
   };
+  // Only attach branding keys that are actually set, so a create with no branding
+  // serializes exactly as it did before this feature.
+  if (branding?.labName) body.labName = branding.labName;
+  if (branding?.piTitle) body.piTitle = branding.piTitle;
+  if (branding?.piDisplay) body.piDisplay = branding.piDisplay;
   return postJson(`/lab/create?lab=${encodeURIComponent(labId)}`, body);
 }
 

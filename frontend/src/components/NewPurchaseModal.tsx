@@ -575,6 +575,7 @@ export default function NewPurchaseModal({
       onClose={handleClose}
       label="New purchase"
       title="New Purchase"
+      titleAccent="amber"
       expandable={false}
       dockedWidthClassName="max-w-md"
       footer={{
