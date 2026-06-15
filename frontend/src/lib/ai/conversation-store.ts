@@ -92,6 +92,7 @@ import {
 import { getMemoryEntries, buildMemoryContext } from "@/lib/ai/user-memory";
 import { recordSetFromResult } from "@/lib/ai/record-set";
 import { overlayWizardFromResult } from "@/lib/ai/overlay-wizard";
+import { analysisPickerFromResult } from "@/lib/ai/analysis-picker";
 import { recipeComparisonFromResult } from "@/lib/ai/recipe-compare";
 import type {
   ApprovalRequest,
@@ -143,6 +144,7 @@ export type ChatMessage = {
   // carve-out). One per compare_tree_recipes call. Lifted from the tool result's
   // _ui; renders the deterministic paper-vs-user diff below the reply, facts only.
   recipeComparisons?: import("./recipe-compare").RecipeComparisonPayload[];
+  analysisPickers?: import("./analysis-picker").AnalysisPickerPayload[];
 };
 
 // The pending approval the UI renders while the loop is paused on the user.
@@ -640,13 +642,28 @@ function appendRecipeComparisonFromResult(assistantId: string, result: unknown):
   }));
 }
 
+/** Lift a suggest_analyses picker payload onto the in-flight assistant message,
+ *  so <AnalysisPickerWidget> mounts below the reply. Same seam. */
+function appendAnalysisPickerFromResult(assistantId: string, result: unknown): void {
+  const payload = analysisPickerFromResult(result);
+  if (!payload) return;
+  useConversationStore.setState((state) => ({
+    messages: state.messages.map((m) =>
+      m.id === assistantId
+        ? { ...m, analysisPickers: [...(m.analysisPickers ?? []), payload] }
+        : m,
+    ),
+  }));
+}
+
 /** Run every inline-widget capture over a raw tool result (record sets + overlay
- *  wizards + recipe comparisons). One call site so the onToolResult hooks stay in
- *  sync. */
+ *  wizards + recipe comparisons + analysis pickers). One call site so the
+ *  onToolResult hooks stay in sync. */
 function captureInlineWidgets(assistantId: string, result: unknown): void {
   appendRecordSetFromResult(assistantId, result);
   appendOverlayWizardFromResult(assistantId, result);
   appendRecipeComparisonFromResult(assistantId, result);
+  appendAnalysisPickerFromResult(assistantId, result);
 }
 
 function revealAnswer(assistantId: string, answer: string): Promise<void> {

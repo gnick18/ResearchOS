@@ -82,6 +82,13 @@ import { applyOverlayCommit } from "./overlay-commit";
 // RecipeComparisonWidget renders the reproduce-from-PDF light-comparison card.
 // Lazy so it never loads until a comparison turn surfaces one.
 const RecipeComparisonWidget = lazy(() => import("./RecipeComparisonWidget"));
+// AnalysisPickerWidget renders the constraint-aware analysis/graph picker inline
+// when a suggest_analyses turn surfaces capabilities.
+const AnalysisPickerWidget = lazy(() =>
+  import("./AnalysisPickerWidget").then((m) => ({
+    default: m.AnalysisPickerWidget,
+  })),
+);
 import { useCanvasStore } from "@/lib/ai/canvas-store";
 
 // Lightweight markdown renderer for assistant replies only. Scoped to this
@@ -1471,6 +1478,40 @@ export default function BeakerBotConversation({
                       {m.recipeComparisons.map((c, i) => (
                         <RecipeComparisonWidget key={`${m.id}:rc:${i}`} payload={c} />
                       ))}
+                    </div>
+                  </Suspense>
+                ) : null}
+
+                {/* Inline analysis/graph picker (suggest_analyses). Lists only the
+                    analyses + graphs the engine said can run on the table; picking
+                    one tells BeakerBot to run it deterministically, so the chat is
+                    never navigated away from. */}
+                {m.role === "assistant" && m.analysisPickers && m.analysisPickers.length > 0 ? (
+                  <Suspense fallback={null}>
+                    <div className="flex w-full flex-col gap-2 self-start">
+                      {m.analysisPickers.map((p, i) => {
+                        const key = `${m.id}:ap:${i}`;
+                        if (dismissedWizards.has(key)) return null;
+                        const dismiss = () =>
+                          setDismissedWizards((prev) => new Set(prev).add(key));
+                        return (
+                          <AnalysisPickerWidget
+                            key={key}
+                            inline
+                            tableName={p.tableName}
+                            capabilities={p.capabilities}
+                            onPick={(item) => {
+                              const verb =
+                                item.kind === "graph"
+                                  ? `Make a ${item.label} of`
+                                  : `Run the ${item.label} on`;
+                              dismiss();
+                              void send(`${verb} ${p.tableName}.`);
+                            }}
+                            onClose={dismiss}
+                          />
+                        );
+                      })}
                     </div>
                   </Suspense>
                 ) : null}
