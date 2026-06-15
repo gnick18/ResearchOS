@@ -96,6 +96,20 @@ const PUBLIC_ROUTES = [
     },
     highlight: { selector: '[data-testid="link-folder-drop-zone"]' },
   },
+  {
+    // Demo-mode overview: the public in-browser demo workspace. Captured as a
+    // PUBLIC route (NO ?wikiCapture=1) so isWikiCaptureMode() is false and the
+    // floating demo pills (Leave demo + Open the docs, bottom-right) actually
+    // render — in capture mode FloatingLeaveDemoButton returns null by design.
+    // /demo seeds the same demo lab on its own (getDemoMode() keys off the path),
+    // so the workspace still populates. keepDock keeps the pills from being
+    // stripped by the docs-cleanup pass.
+    path: "/demo",
+    file: "demo-mode-overview.png",
+    waitFor: "text=Research Project Overview, text=Workbench",
+    settleMs: 2200,
+    keepDock: true,
+  },
   // The first-time-visitor landing ("sell") page. Captured from the
 ];
 
@@ -263,38 +277,86 @@ async function openSeededNote(page) {
   } catch (err) {
     console.warn(`  ⚠ openSeededNote notes tab: ${err.message}`);
   }
-  // The NoteCard root carries the onClick; match the card whose <h3> is the
-  // qPCR optimization log title and click it. Wait for the Notes grid to
-  // load its data and render the card.
+  // The Notes tab now renders a list of NoteListRow elements (role="button",
+  // aria-label = note title), not the old NoteCard <h3> grid. Match the row by
+  // its accessible name and DOM-click it (Playwright actionability is flaky on
+  // the hydrating list; the raw .click() reliably fires the React onClick).
   try {
-    const card = page
-      .locator("h3")
-      .filter({ hasText: /^qPCR optimization log \(fakeGFP vs ACT1\)$/ })
+    const titleRe = /qPCR optimization log \(fakeGFP vs ACT1\)/;
+    const row = page
+      .locator('[role="button"]')
+      .filter({ hasText: titleRe })
       .first();
-    await card.waitFor({ state: "visible", timeout: 10000 });
-    await card.scrollIntoViewIfNeeded({ timeout: 3000 }).catch(() => {});
-    // The note card is a clickable DIV (not a button) with a hover
-    // transition; Playwright's actionability click times out on it, but a
-    // DOM-level .click() reliably fires the React onClick (verified: opens
-    // the note popup). Dispatch it directly.
+    await row.waitFor({ state: "visible", timeout: 10000 });
+    await row.scrollIntoViewIfNeeded({ timeout: 3000 }).catch(() => {});
     await page.evaluate(() => {
-      const h3 = [...document.querySelectorAll("h3")].find((e) =>
-        /qPCR optimization log \(fakeGFP vs ACT1\)/.test(e.textContent || ""),
+      const re = /qPCR optimization log \(fakeGFP vs ACT1\)/;
+      const el = [...document.querySelectorAll('[role="button"]')].find((e) =>
+        re.test(e.getAttribute("aria-label") || e.textContent || ""),
       );
-      if (h3) h3.click();
+      if (el) el.click();
     });
     await page.waitForTimeout(1000);
   } catch (err) {
     console.warn(`  ⚠ openSeededNote open card: ${err.message}`);
   }
-  // Confirm the popup mounted (history button is popup-scoped).
+  // Confirm the popup mounted. The Version-history button now lives inside the
+  // header "More actions" overflow menu (testid note-header-overflow), so it is
+  // not in the DOM until that menu opens. Confirm via the overflow trigger
+  // instead, which is always present once the popup is up.
   try {
-    await page.waitForSelector('[data-testid="note-history-button"]', {
-      timeout: 5000,
+    await page.waitForSelector('[data-testid="note-header-overflow"]', {
+      timeout: 6000,
     });
     return true;
   } catch {
     console.warn("  ⚠ openSeededNote: note popup never mounted");
+    return false;
+  }
+}
+
+/** Open a note by its title from the Workbench Notes tab. Mirrors
+ *  openSeededNote but takes the title regex, so any seeded note can be opened.
+ *  Returns true once the NoteDetailPopup mounts. */
+async function openNoteByTitle(page, titleRe) {
+  try {
+    await page
+      .locator('[data-tour-target="workbench-notes-tab"]')
+      .first()
+      .waitFor({ state: "visible", timeout: 12000 });
+    await page.evaluate(() => {
+      document
+        .querySelector('[data-tour-target="workbench-notes-tab"]')
+        ?.click();
+    });
+    await page.waitForTimeout(1000);
+  } catch (err) {
+    console.warn(`  ⚠ openNoteByTitle notes tab: ${err.message}`);
+  }
+  try {
+    // The Notes tab renders a list of NoteListRow elements, each a
+    // role="button" whose aria-label is the note title (NoteCard grids use the
+    // same shape). Match the row by its accessible name, then DOM-click it (the
+    // React onClick is flaky under Playwright actionability on the hydrating
+    // list).
+    const row = page
+      .locator('[role="button"]')
+      .filter({ hasText: titleRe })
+      .first();
+    await row.waitFor({ state: "visible", timeout: 10000 });
+    await row.scrollIntoViewIfNeeded({ timeout: 3000 }).catch(() => {});
+    const src = titleRe.source;
+    await page.evaluate((reSource) => {
+      const re = new RegExp(reSource);
+      const el = [...document.querySelectorAll('[role="button"]')].find((e) =>
+        re.test(e.getAttribute("aria-label") || e.textContent || ""),
+      );
+      if (el) el.click();
+    }, src);
+    await page.waitForTimeout(1200);
+    return true;
+  } catch (err) {
+    console.warn(`  ⚠ openNoteByTitle open card: ${err.message}`);
     return false;
   }
 }
@@ -306,6 +368,15 @@ async function openSeededNote(page) {
  *  session summaries until expanded). */
 async function openHistorySidebar(page) {
   try {
+    // The Version-history button lives in the header "More actions" overflow
+    // menu now, so open that menu first (DOM click — the popup is still
+    // transitioning and actionability is flaky), then the history button mounts.
+    try {
+      await page.evaluate(() => {
+        document.querySelector('[data-testid="note-header-overflow"]')?.click();
+      });
+      await page.waitForTimeout(400);
+    } catch {}
     const btn = page.locator('[data-testid="note-history-button"]').first();
     await btn.waitFor({ state: "visible", timeout: 6000 }).catch(() => {});
     if (await btn.count()) {
@@ -758,6 +829,83 @@ const FIXTURE_ROUTES = [
     settleMs: 600,
     action: ensureExperimentsTab,
     fullPage: true,
+  },
+  {
+    // The Experiments tab in List view (the default for the experiments
+    // panel — `view` state initializes to "list"). The dense, one-row-per-
+    // experiment list with status bands, as opposed to the Kanban Board view.
+    // ensureExperimentsTab clicks into the Experiments tab; the List/Board
+    // segmented control already sits on "List", so this captures the list.
+    path: "/workbench",
+    file: "workbench-experiments-list-view.png",
+    waitFor: "text=Workbench",
+    settleMs: 800,
+    action: async (page) => {
+      await ensureExperimentsTab(page);
+      // Make sure the List toggle is active (defensive — state defaults to
+      // list, but a carried-over store value could land on board).
+      try {
+        const listBtn = page
+          .locator("button")
+          .filter({ hasText: /^List$/ })
+          .first();
+        if (await listBtn.count()) {
+          await listBtn.click({ timeout: 3000 }).catch(() => {});
+          await page.waitForTimeout(400);
+        }
+      } catch {}
+    },
+  },
+  {
+    // The Workbench Projects tab — the default landing view: a responsive
+    // grid of project cards (member sees their projects first, not a flat
+    // task list). Projects is the default tab so no click is needed; just
+    // wait for the grid to render.
+    path: "/workbench",
+    file: "home-workbench-projects-grid.png",
+    waitFor: "text=Workbench",
+    settleMs: 900,
+  },
+  {
+    // The methods "+ New Method" modal showing the method-type tile grid
+    // (Standard methods + specialized types). Click the New Method button to
+    // open CreateMethodModal; the MethodTypeCategoryPicker grid renders at the
+    // top of the modal body.
+    path: "/methods",
+    file: "methods-type-picker.png",
+    waitFor: "text=Methods",
+    settleMs: 900,
+    action: async (page) => {
+      try {
+        const btn = page
+          .locator('[data-tour-target="methods-new-method-button"]')
+          .first();
+        if (await btn.count()) {
+          await btn.click({ timeout: 3000 });
+        } else {
+          await page.getByText(/\+ New Method/).first().click({ timeout: 3000 });
+        }
+        await page.waitForSelector(
+          '[data-tour-target="methods-create-form"]',
+          { timeout: 5000 },
+        );
+        await page.waitForTimeout(700);
+      } catch (err) {
+        console.warn(`  ⚠ methods-type-picker open modal: ${err.message}`);
+      }
+    },
+  },
+  {
+    // The Inventory (Supplies) main list with its signal/filter chips
+    // (All / Needs attention / On order, each with a live count) and the
+    // per-supply on-hand rows. With NEXT_PUBLIC_INVENTORY_ENABLED=1 the legacy
+    // standalone /inventory page is retired and redirects to /supplies — the
+    // unified inventory surface — so we capture /supplies directly to avoid the
+    // client redirect mid-shot.
+    path: "/supplies",
+    file: "inventory-signal-list.png",
+    waitFor: 'text=Supplies, [role="tablist"][aria-label="Supplies filters"]',
+    settleMs: 1100,
   },
   {
     // The public /transparency ("Method validation") page for the Trust wiki.
@@ -2076,6 +2224,104 @@ const FIXTURE_ROUTES = [
     file: "settings-ai-helper.png",
     waitFor: "text=AI Helper",
     settleMs: 900,
+  },
+  {
+    // Settings → Data → Inventory & export: the DataInventorySection panel that
+    // shows what this browser stores (files on disk, IndexedDB, external calls)
+    // plus the export controls. Reached via ?section=inventory.
+    path: "/settings?section=inventory",
+    file: "security-data-inventory-panel.png",
+    waitFor: "text=Data inventory",
+    settleMs: 1000,
+  },
+  {
+    // Settings → Data → Offline & sync: the Offline-mode toggle (block the
+    // app's own /api proxy so it makes zero outbound calls). ?section=offline.
+    path: "/settings?section=offline",
+    file: "security-offline-mode-toggle.png",
+    waitFor: "text=Offline mode",
+    settleMs: 1000,
+  },
+  {
+    // Settings → Notifications: the per-category routing matrix (each event
+    // type routed to bell / laptop / phone / email). ?section=notifications.
+    path: "/settings?section=notifications",
+    file: "notifications-routing-matrix.png",
+    waitFor: "text=Notifications",
+    settleMs: 1000,
+  },
+  {
+    // Settings → Workspace → Companion: pair-your-phone panel + the two
+    // Companion preferences. ?section=companion.
+    path: "/settings?section=companion",
+    file: "settings-companion-section.png",
+    waitFor: "text=Companion",
+    settleMs: 1000,
+  },
+  {
+    // The convert-to-single-user migration modal (MigrateToSoloModal): turn a
+    // shared multi-user folder into your own solo folder. Reached from Settings →
+    // Data → Maintenance, the "Convert..." button. The fixture is a multi-user
+    // lab folder (alex + morgan + mira ...), so the ConvertToSoloRow renders.
+    path: "/settings?section=maintenance",
+    file: "migration-convert-owner.png",
+    waitFor: "text=Maintenance",
+    settleMs: 1200,
+    action: async (page) => {
+      try {
+        const btn = page
+          .getByRole("button", { name: /^Convert\.\.\.$/ })
+          .first();
+        await btn.waitFor({ state: "visible", timeout: 8000 });
+        await btn.click({ timeout: 4000 });
+        await page.waitForSelector("text=Convert this folder to single-user", {
+          timeout: 5000,
+        });
+        await page.waitForTimeout(700);
+      } catch (err) {
+        console.warn(`  ⚠ migration-convert-owner open modal: ${err.message}`);
+      }
+    },
+  },
+  {
+    // The post-export self-export banner (SelfExportResultBanner): the top
+    // overlay a graduating labmate sees after exporting their data + leaving the
+    // shared lab folder. It renders from a sessionStorage stash
+    // (ros_selfexport_result), mounted at the app root, so seed the stash and
+    // reload so the banner's lazy initial read picks it up.
+    path: "/workbench",
+    file: "migration-selfexport-banner.png",
+    waitFor: "text=Workbench",
+    settleMs: 800,
+    keepDock: false,
+    action: async (page) => {
+      try {
+        await page.evaluate(() => {
+          window.sessionStorage.setItem(
+            "ros_selfexport_result",
+            JSON.stringify({
+              username: "alex",
+              folderName: "Demo Synthetic Biology Lab",
+              bundlePath: "Demo Lab Exports/alex-workspace",
+              trashPath: ".trash/lab-departures/alex",
+            }),
+          );
+        });
+        await page.reload({ waitUntil: "domcontentloaded" });
+        await page
+          .waitForSelector('[data-testid="staged-loading-screen"]', {
+            state: "detached",
+            timeout: 10000,
+          })
+          .catch(() => null);
+        await page
+          .waitForSelector("text=Your data was exported", { timeout: 8000 })
+          .catch(() => null);
+        await page.waitForTimeout(900);
+      } catch (err) {
+        console.warn(`  ⚠ migration-selfexport-banner: ${err.message}`);
+      }
+    },
   },
   {
     // user-archiving-roster.png — the Lab Roster in Settings with a member
@@ -3629,6 +3875,29 @@ const FIXTURE_ROUTES = [
     },
   },
   {
+    // The "Download from NCBI" dialog: pull a gene / genome / accession straight
+    // from the NCBI Datasets API into the collection. Click the toolbar button
+    // to open the NcbiDownloadDialog.
+    path: "/sequences",
+    file: "sequences-ncbi-download.png",
+    waitFor: "text=pEGFP-N1",
+    settleMs: 1200,
+    action: async (page) => {
+      try {
+        await page
+          .getByRole("button", { name: /Download from NCBI/i })
+          .first()
+          .click({ timeout: 4000 });
+        await page.waitForSelector('[data-testid="ncbi-download-dialog"]', {
+          timeout: 5000,
+        });
+        await page.waitForTimeout(700);
+      } catch (err) {
+        console.warn(`  ⚠ sequences-ncbi-download open dialog: ${err.message}`);
+      }
+    },
+  },
+  {
     // 2. Library panel: collection selector visible, crop to the left panel.
     //    The selector is a native <select> so we capture its closed state.
     path: "/sequences",
@@ -4071,6 +4340,165 @@ const FIXTURE_ROUTES = [
     },
   },
 
+  // ── Phylo Tree Studio shots ───────────────────────────────────────────────
+  // ENV REQUIREMENT: NEXT_PUBLIC_PHYLO_ENABLED=1 on the captured server, or
+  // /phylo renders the "not enabled" gate. The ?wikiCapture=1 fixture seeds 3
+  // saved trees for alex (1 = "Candida auris global epidemiology", a circular
+  // showcase). /phylo?doc=1 deep-links straight into tree 1. The studio is the
+  // shared split shell: PhyloCollectionRail (left) + canvas (center) + the
+  // SequenceOperationsRail action tabs (Shape / Layers / Data / Export / Code,
+  // right). Helper that waits for the studio to render its canvas + rails.
+  {
+    // Phylo hub overview: the whole studio (collection rail + canvas + action
+    // tabs) with tree 1 open. doc=1 opens the Candida auris showcase tree.
+    path: "/phylo?doc=1",
+    file: "phylo-hub-overview.png",
+    waitFor: "text=Build a tree, svg",
+    settleMs: 2200,
+  },
+  {
+    // The left collection rail: the saved-trees list + "Build a tree". Clip to
+    // the left rail.
+    path: "/phylo?doc=1",
+    file: "phylo-collection-rail.png",
+    waitFor: "text=Build a tree, svg",
+    settleMs: 2000,
+    action: async (page) => {
+      const clip = await page.evaluate(() => {
+        // The collection rail is the left column; find the "Build a tree" button
+        // and walk up to its scrolling rail container.
+        const btns = [...document.querySelectorAll("button")];
+        const build = btns.find((b) => /Build a tree/.test(b.textContent || ""));
+        let el = build;
+        for (let i = 0; i < 6 && el?.parentElement; i++) el = el.parentElement;
+        const r = (el ?? build)?.getBoundingClientRect();
+        if (!r) return null;
+        const width = Math.min(360, Math.ceil(r.width) || 320);
+        return {
+          x: 0,
+          y: 0,
+          width,
+          height: window.innerHeight,
+        };
+      });
+      if (clip && clip.width > 100) return { clip };
+    },
+  },
+  {
+    // The right action-rail tabs (Shape / Layers / Data / Export / Code). Open
+    // the Shape tab so its layout + page controls show, then clip to the rail.
+    path: "/phylo?doc=1",
+    file: "phylo-studio-tabs.png",
+    waitFor: "text=Build a tree, svg",
+    settleMs: 2000,
+    action: async (page) => {
+      try {
+        await page.getByText(/^Shape$/).first().click({ timeout: 3000 });
+        await page.waitForTimeout(700);
+      } catch {}
+    },
+  },
+  {
+    // Rectangular layout (the default phylogram). Open Shape, click Rectangular.
+    path: "/phylo?doc=1",
+    file: "phylo-studio-rectangular.png",
+    waitFor: "text=Build a tree, svg",
+    settleMs: 2000,
+    action: async (page) => {
+      try {
+        await page.getByText(/^Shape$/).first().click({ timeout: 3000 });
+        await page.waitForTimeout(500);
+        await page
+          .getByRole("button", { name: /^Rectangular$/ })
+          .first()
+          .click({ timeout: 3000 });
+        await page.waitForTimeout(900);
+      } catch (err) {
+        console.warn(`  ⚠ phylo-studio-rectangular: ${err.message}`);
+      }
+    },
+  },
+  {
+    // Circular layout. Open Shape, click Circular.
+    path: "/phylo?doc=1",
+    file: "phylo-studio-circular.png",
+    waitFor: "text=Build a tree, svg",
+    settleMs: 2000,
+    action: async (page) => {
+      try {
+        await page.getByText(/^Shape$/).first().click({ timeout: 3000 });
+        await page.waitForTimeout(500);
+        await page
+          .getByRole("button", { name: /^Circular$/ })
+          .first()
+          .click({ timeout: 3000 });
+        await page.waitForTimeout(900);
+      } catch (err) {
+        console.warn(`  ⚠ phylo-studio-circular: ${err.message}`);
+      }
+    },
+  },
+  {
+    // The Build-a-tree recipe wizard overlay (PhyloBuilder): the "Choose your
+    // options" form + the generated "Your recipe" panel. Click the rail's
+    // "Build a tree" button to open it.
+    path: "/phylo?doc=1",
+    file: "phylo-builder-wizard.png",
+    waitFor: "text=Build a tree, svg",
+    settleMs: 2000,
+    action: async (page) => {
+      try {
+        await page
+          .getByRole("button", { name: /^Build a tree$/ })
+          .first()
+          .click({ timeout: 3000 });
+        await page.waitForSelector("text=Choose your options", { timeout: 5000 });
+        await page.waitForTimeout(800);
+      } catch (err) {
+        console.warn(`  ⚠ phylo-builder-wizard: ${err.message}`);
+      }
+    },
+  },
+  {
+    // The generated recipe output inside the Build-a-tree wizard ("Your recipe":
+    // the exact tree-building commands). Open the wizard, then clip to the recipe
+    // panel.
+    path: "/phylo?doc=1",
+    file: "phylo-builder-recipe.png",
+    waitFor: "text=Build a tree, svg",
+    settleMs: 2000,
+    action: async (page) => {
+      try {
+        await page
+          .getByRole("button", { name: /^Build a tree$/ })
+          .first()
+          .click({ timeout: 3000 });
+        await page.waitForSelector("text=Your recipe", { timeout: 5000 });
+        await page.waitForTimeout(800);
+        const clip = await page.evaluate(() => {
+          const h = [...document.querySelectorAll("h3")].find((e) =>
+            /Your recipe/.test(e.textContent || ""),
+          );
+          const panel = h?.parentElement;
+          const r = panel?.getBoundingClientRect();
+          if (!r) return null;
+          const pad = 10;
+          const x = Math.max(0, Math.floor(r.left - pad));
+          const y = Math.max(0, Math.floor(r.top - pad));
+          return {
+            x,
+            y,
+            width: Math.min(window.innerWidth - x, Math.ceil(r.width + pad * 2)),
+            height: Math.min(window.innerHeight - y, Math.ceil(r.height + pad * 2)),
+          };
+        });
+        if (clip && clip.width > 100 && clip.height > 100) return { clip };
+      } catch (err) {
+        console.warn(`  ⚠ phylo-builder-recipe: ${err.message}`);
+      }
+    },
+  },
+
   // ── Chemistry workbench shots ─────────────────────────────────────────────
   // ENV REQUIREMENT: the captured server must be BUILT with
   // NEXT_PUBLIC_CHEMISTRY_ENABLED=1, or /chemistry renders the "not enabled" gate
@@ -4308,6 +4736,232 @@ const FIXTURE_ROUTES = [
   // NEEDS NEXT_PUBLIC_DATAHUB_ENABLED=1 in the build/dev server, or /datahub
   // renders the disabled gate. House style: no highlight (illustrative result
   // shots, not click-here shots).
+  {
+    // Figure Composer overview: the full /figures/<id> editor — the Letter
+    // artboard with three placed panels (A/B/C) in the ZoomPanCanvas on the
+    // left, and the right rail (Add figure / Paper / Export). The fixture seeds
+    // users/alex/figures/1.json with three Data Hub plot panels.
+    path: "/figures/1",
+    file: "figure-composer-overview.png",
+    waitFor: '[data-testid="figure-composer"]',
+    settleMs: 2000,
+  },
+  {
+    // Figure Composer — the per-panel Style inspector. Click the first placed
+    // panel so the "Selected panel" inspector (show title + source style schema:
+    // palette / hide-elements) renders in the right rail.
+    path: "/figures/1",
+    file: "figure-composer-inspector.png",
+    waitFor: '[data-testid="figure-composer"]',
+    settleMs: 2000,
+    action: async (page) => {
+      try {
+        const panel = page.locator('[data-testid="figure-panel"]').first();
+        await panel.waitFor({ state: "visible", timeout: 8000 });
+        await panel.click({ timeout: 4000 });
+        await page.waitForTimeout(700);
+      } catch (err) {
+        console.warn(`  ⚠ figure-composer-inspector select panel: ${err.message}`);
+      }
+    },
+  },
+  {
+    // Figure Composer — the artboard: a tight clip of the Letter page frame with
+    // the three placed panels, so the publication-page metaphor (real-inch paper,
+    // rulers, snap grid) reads clearly. Clips to the canvas stage.
+    path: "/figures/1",
+    file: "figure-composer-artboard.png",
+    waitFor: '[data-testid="figure-composer"]',
+    settleMs: 2000,
+    action: async (page) => {
+      try {
+        await page.waitForTimeout(600);
+        const clip = await page.evaluate(() => {
+          // The canvas viewport is the flex-1 panel left of the right rail.
+          const composer = document.querySelector('[data-testid="figure-composer"]');
+          if (!composer) return null;
+          const canvas = composer.firstElementChild; // the canvas column
+          if (!canvas) return null;
+          const r = canvas.getBoundingClientRect();
+          const x = Math.max(0, Math.floor(r.left));
+          const y = Math.max(0, Math.floor(r.top));
+          const width = Math.min(
+            Math.max(0, window.innerWidth - x),
+            Math.ceil(r.width),
+          );
+          const height = Math.min(
+            Math.max(0, window.innerHeight - y),
+            Math.ceil(r.height),
+          );
+          return { x, y, width, height };
+        });
+        if (clip && clip.width > 100 && clip.height > 100) {
+          return { clip };
+        }
+      } catch (err) {
+        console.warn(`  ⚠ figure-composer-artboard clip: ${err.message}`);
+      }
+    },
+  },
+  {
+    // The account start screen (Sign in / Open a folder / Create a new account).
+    // Captured off the dev-only /dev/account-setup preview, which renders the
+    // real StartScreen/EntrySnapSurface in isolation. Loaded in fixture mode so
+    // the folder-connect gate (which otherwise bounces non-app routes to the
+    // landing) is satisfied. The preview opens on a Splash; click the
+    // "Start (fresh)" dev control to land on the start screen, then hide the
+    // dev-control bar before the shot.
+    path: "/dev/account-setup",
+    file: "accounts-start-screen.png",
+    waitFor: "text=Start (fresh)",
+    settleMs: 1400,
+    action: async (page) => {
+      try {
+        const btn = page.getByRole("button", { name: /^Start \(fresh\)$/ }).first();
+        await btn.waitFor({ state: "visible", timeout: 8000 });
+        await btn.click({ timeout: 4000 });
+        await page.waitForSelector("text=Create a new account", { timeout: 6000 });
+        await page.waitForTimeout(800);
+        await page.evaluate(() => {
+          for (const el of document.querySelectorAll('[class*="z-\\[300\\]"]')) {
+            if ((el.textContent || "").includes("preview:")) {
+              el.style.display = "none";
+            }
+          }
+        });
+        await page.waitForTimeout(200);
+      } catch (err) {
+        console.warn(`  ⚠ accounts-start-screen: ${err.message}`);
+      }
+    },
+  },
+  {
+    // The 3-tier account chooser (Just me local / Free account / Lab), reached
+    // after "Create a new account". Click the "Chooser" dev control to render
+    // AccountTierChooser directly, then hide the dev-control bar.
+    path: "/dev/account-setup",
+    file: "accounts-tier-chooser.png",
+    waitFor: "text=Start (fresh)",
+    settleMs: 1400,
+    action: async (page) => {
+      try {
+        const btn = page.getByRole("button", { name: /^Chooser$/ }).first();
+        await btn.waitFor({ state: "visible", timeout: 8000 });
+        await btn.click({ timeout: 4000 });
+        await page.waitForSelector("text=Just me, local", { timeout: 6000 });
+        await page.waitForTimeout(800);
+        await page.evaluate(() => {
+          for (const el of document.querySelectorAll('[class*="z-\\[300\\]"]')) {
+            if ((el.textContent || "").includes("preview:")) {
+              el.style.display = "none";
+            }
+          }
+        });
+        await page.waitForTimeout(200);
+      } catch (err) {
+        console.warn(`  ⚠ accounts-tier-chooser: ${err.message}`);
+      }
+    },
+  },
+  {
+    // Markdown-embed hybrid: a note whose body carries lone object-embed links
+    // (a `#ros=` fragment) that render as LIVE embed cards inline. Open note 8
+    // (seeded with a Data Hub table embed + a sequence map embed), then switch
+    // the editor to Preview so every embed renders as its rich card.
+    path: "/workbench",
+    file: "editor-embed-card.png",
+    waitFor: "text=Workbench",
+    settleMs: 900,
+    action: async (page) => {
+      const opened = await openNoteByTitle(
+        page,
+        /Results writeup: fakeGFP expression/,
+      );
+      if (!opened) return;
+      // Switch to the read-only Preview render so all embeds resolve to cards.
+      await switchEditorMode(page, "Preview");
+      await page.waitForTimeout(1600); // let the lazy embed renderers resolve
+    },
+  },
+  {
+    // Data Hub overview: the studio shell with the collection rail (tables /
+    // results / graphs sections) on the left and the open table grid +
+    // workspace toolbar (Analyze / New graph / Add controls) on the right.
+    // doc=1 opens the fakeGFP fixture table without an analysis selected.
+    path: "/datahub?doc=1",
+    file: "datahub-overview.png",
+    waitFor: '[data-testid="datahub-rail"]',
+    settleMs: 1400,
+  },
+  {
+    // The "New data table" dialog showing the table-type chooser (the Prism-
+    // style XY / Column / Grouped / Contingency / Survival / Nested / Parts-of-
+    // whole / Info table types). Click the rail's New table button.
+    path: "/datahub?doc=1",
+    file: "datahub-table-types.png",
+    waitFor: '[data-testid="datahub-rail"]',
+    settleMs: 1200,
+    action: async (page) => {
+      try {
+        await page
+          .locator('[data-testid="datahub-rail"] button[aria-label="New table"]')
+          .first()
+          .click({ timeout: 3000 });
+        await page.waitForSelector('[data-testid="datahub-new-table-dialog"]', {
+          timeout: 5000,
+        });
+        await page.waitForTimeout(600);
+      } catch (err) {
+        console.warn(`  ⚠ datahub-table-types open dialog: ${err.message}`);
+      }
+    },
+  },
+  {
+    // The "Import data" dialog (paste / upload a spreadsheet into a new table).
+    path: "/datahub?doc=1",
+    file: "datahub-import-data.png",
+    waitFor: '[data-testid="datahub-rail"]',
+    settleMs: 2000,
+    action: async (page) => {
+      try {
+        const btn = page
+          .locator('[data-testid="datahub-rail"] button[aria-label="Import data"]')
+          .first();
+        await btn.waitFor({ state: "visible", timeout: 8000 });
+        await btn.click({ timeout: 5000 });
+        await page.waitForSelector('[data-testid="datahub-import-dialog"]', {
+          timeout: 5000,
+        });
+        await page.waitForTimeout(600);
+      } catch (err) {
+        console.warn(`  ⚠ datahub-import-data open dialog: ${err.message}`);
+      }
+    },
+  },
+  {
+    // The Guided analysis wizard — the analysis-finder that walks a researcher
+    // from "what do I want to know?" to the right test. The button lives in the
+    // rail's results section, which only renders when a table with raw data is
+    // open, so doc=1 (fakeGFP) keeps it present.
+    path: "/datahub?doc=1",
+    file: "datahub-guided-analysis.png",
+    waitFor: '[data-testid="datahub-rail"]',
+    settleMs: 1200,
+    action: async (page) => {
+      try {
+        await page
+          .locator('[data-testid="datahub-guided-analysis-button"]')
+          .first()
+          .click({ timeout: 3000 });
+        await page.waitForSelector('[data-testid="datahub-guided-wizard"]', {
+          timeout: 5000,
+        });
+        await page.waitForTimeout(600);
+      } catch (err) {
+        console.warn(`  ⚠ datahub-guided-analysis open wizard: ${err.message}`);
+      }
+    },
+  },
   {
     // Effect sizes + CIs: a two-group t-test shows the mean difference, its
     // 95% CI, and Cohen's d, the trio the effect-sizes page teaches to read.
