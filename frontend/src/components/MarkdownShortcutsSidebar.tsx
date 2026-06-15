@@ -97,7 +97,7 @@ export default function MarkdownShortcutsSidebar({
   return (
     <div
       data-tour-target="inline-editor-shortcut-bar"
-      className={`${collapsed ? "w-8" : "w-52"} flex-shrink-0 border-r border-border bg-surface-sunken/30 flex flex-col transition-all duration-200`}
+      className={`${collapsed ? "w-8" : "w-52"} ros-helper-rail flex-shrink-0 border-r border-border flex flex-col transition-all duration-200`}
     >
       <Tooltip
         label={collapsed ? "Expand helper panel" : "Collapse helper panel"}

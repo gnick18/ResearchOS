@@ -819,6 +819,73 @@
   );
 }
 
+/* ── .ros-helper-rail: the editor's Shortcuts / Style Guide rail reads as the
+ * SAME elevated "shadow box" as the history panel, instead of a flat sunken
+ * strip. It sits to the LEFT of the editor on the calm surface, so it gets the
+ * raised-paper tint + a soft seam shadow cast onto the editor to its RIGHT
+ * (mirror of .ros-history-panel, which casts left onto its diff column). The
+ * seam is faded at the top + bottom corners so it has no hard nub. Works in or
+ * out of a calm-surface popup (the tint rides on --foreground). */
+.ros-helper-rail {
+  position: relative;
+  background: linear-gradient(
+    to bottom,
+    transparent 0,
+    color-mix(in srgb, var(--foreground) 3%, transparent) 28px,
+    color-mix(in srgb, var(--foreground) 3%, transparent) calc(100% - 28px),
+    transparent 100%
+  );
+}
+.ros-helper-rail::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  right: -26px;
+  width: 26px;
+  pointer-events: none;
+  /* Densest at the rail's right edge (the seam), fading out toward the editor. */
+  background: linear-gradient(
+    to left,
+    transparent 0%,
+    rgba(15, 23, 42, 0.05) 55%,
+    rgba(15, 23, 42, 0.22) 100%
+  );
+  -webkit-mask-image: linear-gradient(
+    to bottom,
+    transparent 0,
+    #000 14px,
+    #000 calc(100% - 14px),
+    transparent 100%
+  );
+  mask-image: linear-gradient(
+    to bottom,
+    transparent 0,
+    #000 14px,
+    #000 calc(100% - 14px),
+    transparent 100%
+  );
+}
+[data-theme="dark"] .ros-helper-rail {
+  background: linear-gradient(
+    to bottom,
+    transparent 0,
+    color-mix(in srgb, #ffffff 5%, transparent) 28px,
+    color-mix(in srgb, #ffffff 5%, transparent) calc(100% - 28px),
+    transparent 100%
+  );
+}
+[data-theme="dark"] .ros-helper-rail::after {
+  /* Dark room: a black shadow is invisible, so the seam reads as a soft
+   * bluish-white edge glow instead (matching the dark card shadow). */
+  background: linear-gradient(
+    to left,
+    transparent 0%,
+    rgba(190, 205, 235, 0.05) 55%,
+    rgba(190, 205, 235, 0.16) 100%
+  );
+}
+
 /* Hide the native scrollbar on a viewport that uses the custom overlay thumb
  * (ScrollArea). The component draws its own pill thumb on top. */
 .ros-hide-native-scroll { scrollbar-width: none; }
