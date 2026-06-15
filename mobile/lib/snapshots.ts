@@ -47,6 +47,16 @@ export type SnapshotTask = {
    *  Drives the "first method +N more" glance. Absent on older laptops; treat
    *  absent or <= 1 as a single method. */
   linkedMethodCount?: number | null;
+  /** Every method attached to this task (attachment order, capped). Powers the
+   *  experiment hub screen. Each entry carries id + owner so a row can deep-link
+   *  to that specific method. Absent on older laptops (fall back to the single
+   *  linkedMethodName glance). */
+  linkedMethods?: Array<{
+    methodId?: number;
+    owner?: string | null;
+    name?: string | null;
+    methodType?: string | null;
+  }> | null;
 };
 
 // The decrypted "today" snapshot. generatedAt drives the "last synced" line.

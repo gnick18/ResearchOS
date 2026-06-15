@@ -92,12 +92,17 @@ export function TodayPanel({
   const reduceMotion = useReducedMotion();
   const router = useRouter();
 
-  // Open the method for a task (experiment band card or a method-linked Today
-  // row). Close the panel first so the navigation reads cleanly, then land on
-  // the actionable method view (NOT full-screen read mode).
-  const openTaskMethod = (_task: SnapshotTask) => {
+  // Open a task that has attached method(s). Close the panel first so the
+  // navigation reads cleanly, then land on the experiment hub (the screen that
+  // lists all of the task's methods, then opens one). Always route to the hub so
+  // an experiment has one consistent home, even with a single method.
+  const openTaskMethod = (task: SnapshotTask) => {
     onClose();
-    router.push('/method-detail');
+    if (task.id) {
+      router.push(`/experiment-detail?taskId=${encodeURIComponent(task.id)}`);
+    } else {
+      router.push('/method-detail');
+    }
   };
 
   // Partition active tasks: experiments go into the dedicated band, everything

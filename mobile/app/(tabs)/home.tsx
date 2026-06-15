@@ -213,7 +213,11 @@ export default function HomeScreen() {
             <ActiveExperimentsBand
               experiments={experiments}
               dark={t.dark}
-              onPress={() => router.push('/method-detail')}
+              onPress={(task) =>
+                task.id
+                  ? router.push(`/experiment-detail?taskId=${encodeURIComponent(task.id)}`)
+                  : router.push('/method-detail')
+              }
             />
           </View>
         ) : null}

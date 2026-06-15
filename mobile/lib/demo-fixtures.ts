@@ -46,6 +46,11 @@ export const DEMO_TODAY_SNAPSHOT: TodaySnapshot = {
       linkedMethodName: 'Colony PCR, GoTaq',
       linkedMethodType: 'pcr',
       linkedMethodCount: 3,
+      linkedMethods: [
+        { name: 'Colony PCR, GoTaq', methodType: 'pcr' },
+        { name: 'Plasmid miniprep', methodType: 'extract' },
+        { name: 'Agarose gel electrophoresis', methodType: 'markdown' },
+      ],
     },
     {
       id: 'demo-task-1',
@@ -55,6 +60,10 @@ export const DEMO_TODAY_SNAPSHOT: TodaySnapshot = {
       task_type: 'Cell culture',
       linkedMethodName: 'HEK293 passaging (1:6 split)',
       linkedMethodType: 'cell-culture',
+      linkedMethodCount: 1,
+      linkedMethods: [
+        { name: 'HEK293 passaging (1:6 split)', methodType: 'cell-culture' },
+      ],
     },
     {
       id: 'demo-task-2',
@@ -76,6 +85,10 @@ export const DEMO_TODAY_SNAPSHOT: TodaySnapshot = {
       linkedMethodName: 'qPCR validation, SYBR Green',
       linkedMethodType: 'pcr',
       linkedMethodCount: 2,
+      linkedMethods: [
+        { name: 'qPCR validation, SYBR Green', methodType: 'pcr' },
+        { name: 'Relative quantification (ddCt)', methodType: 'markdown' },
+      ],
     },
   ],
   upcomingTasks: [
@@ -87,6 +100,10 @@ export const DEMO_TODAY_SNAPSHOT: TodaySnapshot = {
       task_type: 'Protein analysis',
       linkedMethodName: 'Western blot, wet transfer',
       linkedMethodType: 'protein',
+      linkedMethodCount: 1,
+      linkedMethods: [
+        { name: 'Western blot, wet transfer', methodType: 'protein' },
+      ],
     },
   ],
 };

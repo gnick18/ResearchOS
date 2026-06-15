@@ -41,6 +41,19 @@ export interface SnapshotTask {
    * every method name. Omitted when no method is attached; treat absent as 1.
    */
   linkedMethodCount?: number | null;
+  /**
+   * Every method attached to this task, in attachment order (capped). Powers the
+   * phone's experiment hub screen (list all methods, then open one). Each entry
+   * carries the id + owner so the phone can deep-link to that specific method.
+   * Omitted when no method is attached; linkedMethodName/Type/Count are derived
+   * from this list's first entry for older phones that ignore the array.
+   */
+  linkedMethods?: Array<{
+    methodId: number;
+    owner: string | null;
+    name: string | null;
+    methodType: string | null;
+  }> | null;
 }
 
 /** The decrypted shape the phone reads after openSealed. */
@@ -117,30 +130,44 @@ export function classifyToday(
   return { active, overdue, upcoming };
 }
 
+/** Cap on how many methods per task ride in the snapshot, to bound payload and
+ *  the methodsApi.get fan-out. Tasks rarely exceed this; the count above stays
+ *  exact even when the listed array is capped. */
+const METHODS_PER_TASK_CAP = 12;
+
+type ResolvedMethod = {
+  methodId: number;
+  owner: string | null;
+  name: string | null;
+  methodType: string | null;
+};
+
 /**
- * Resolve the name (and raw method_type) of the first method attachment on an
- * experiment task. Only called for tasks where task_type === "experiment" and
- * method_attachments is non-empty, so the methodsApi.get calls are bounded to
- * the set of active-today experiments, not the whole task list. Returns null
- * when the method cannot be loaded (safe degradation).
+ * Resolve every method attached to a task (name + raw method_type + id/owner),
+ * in attachment order, capped at METHODS_PER_TASK_CAP. Only called for tasks
+ * with at least one attachment, so the methodsApi.get fan-out is bounded to the
+ * active/overdue/upcoming tasks that actually carry methods. Entries that fail
+ * to load keep their id/owner with null name (safe degradation, still listable).
  */
-async function resolveFirstMethodName(
-  t: TaskLike,
-): Promise<{ name: string | null; methodType: string | null }> {
-  const attachments = t.method_attachments ?? [];
-  if (attachments.length === 0) return { name: null, methodType: null };
-  const first = attachments[0];
-  const lookupOwner = first.owner ?? t.owner ?? undefined;
-  try {
-    const method = await methodsApi.get(first.method_id, lookupOwner);
-    if (!method) return { name: null, methodType: null };
-    return {
-      name: (method as { name?: string }).name ?? null,
-      methodType: (method as { method_type?: string | null }).method_type ?? null,
-    };
-  } catch {
-    return { name: null, methodType: null };
-  }
+async function resolveTaskMethods(t: TaskLike): Promise<ResolvedMethod[]> {
+  const attachments = (t.method_attachments ?? []).slice(0, METHODS_PER_TASK_CAP);
+  if (attachments.length === 0) return [];
+  return Promise.all(
+    attachments.map(async (att): Promise<ResolvedMethod> => {
+      const lookupOwner = att.owner ?? t.owner ?? null;
+      try {
+        const method = await methodsApi.get(att.method_id, lookupOwner ?? undefined);
+        return {
+          methodId: att.method_id,
+          owner: lookupOwner,
+          name: (method as { name?: string })?.name ?? null,
+          methodType: (method as { method_type?: string | null })?.method_type ?? null,
+        };
+      } catch {
+        return { methodId: att.method_id, owner: lookupOwner, name: null, methodType: null };
+      }
+    }),
+  );
 }
 
 /** Reads the connected folder's tasks and builds today's snapshot. */
@@ -149,21 +176,23 @@ export async function buildTodaySnapshot(): Promise<TodaySnapshot> {
   const tasks = (await fetchAllTasks()) as unknown as TaskLike[];
   const { active, overdue, upcoming } = classifyToday(tasks, today);
 
-  // Resolve linked method names for experiment-type active tasks only.
-  // Non-experiment tasks and experiments with no attachments skip the API call.
-  const methodResolutions = new Map<string, { name: string | null; methodType: string | null }>();
+  // Resolve every attached method for ANY task (experiment or not) across all
+  // three buckets that carries attachments, so the phone's experiment hub works
+  // for today, overdue, and upcoming rows alike. Tasks with no attachments skip
+  // the API calls entirely. Overdue/upcoming are capped first to bound the
+  // fan-out to what actually rides in the snapshot.
+  const resolvable = [
+    ...active,
+    ...overdue.slice(0, LIST_CAP),
+    ...upcoming.slice(0, LIST_CAP),
+  ].filter(
+    (t) => Array.isArray(t.method_attachments) && t.method_attachments.length > 0,
+  );
+  const methodResolutions = new Map<string, ResolvedMethod[]>();
   await Promise.all(
-    active
-      .filter(
-        (t) =>
-          t.task_type === "experiment" &&
-          Array.isArray(t.method_attachments) &&
-          t.method_attachments.length > 0,
-      )
-      .map(async (t) => {
-        const resolved = await resolveFirstMethodName(t);
-        methodResolutions.set(t.id, resolved);
-      }),
+    resolvable.map(async (t) => {
+      methodResolutions.set(t.id, await resolveTaskMethods(t));
+    }),
   );
 
   const toSnap = (t: TaskLike): SnapshotTask => {
@@ -174,13 +203,14 @@ export async function buildTodaySnapshot(): Promise<TodaySnapshot> {
       end_date: t.end_date,
       task_type: t.task_type,
     };
-    const resolved = methodResolutions.get(t.id);
-    if (resolved) {
-      snap.linkedMethodName = resolved.name;
-      snap.linkedMethodType = resolved.methodType;
-      // Count rides only when we resolved a first method, so the phone can show
-      // "first +N more" without resolving the rest.
-      snap.linkedMethodCount = t.method_attachments?.length ?? 1;
+    const methods = methodResolutions.get(t.id);
+    if (methods && methods.length > 0) {
+      snap.linkedMethods = methods;
+      // Derive the first-method glance fields from the list so older phones that
+      // ignore linkedMethods still render the card + "+N more" count.
+      snap.linkedMethodName = methods[0].name;
+      snap.linkedMethodType = methods[0].methodType;
+      snap.linkedMethodCount = t.method_attachments?.length ?? methods.length;
     }
     return snap;
   };
