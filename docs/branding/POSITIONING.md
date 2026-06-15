@@ -85,12 +85,12 @@ For academic researchers and the labs they work in who want a serious electronic
 - Free and open source under AGPLv3, so the trust is verifiable, not promised.
 - Solidarity pricing, where individuals and labs pay only what storage costs and larger institutions pay a little more to keep it free for everyone else.
 - Public, reproducible validation of the science (the /transparency page), which closed competitors cannot match.
-- One workspace that spans chemistry, sequences, stats, and the notebook, backed by a real Wisconsin LLC and a research fellowship.
+- One workspace that spans chemistry, sequences, stats, and the notebook, backed by a real Wisconsin LLC.
 - A friendly, non-corporate brand (BeakerBot, Made in Madison) in a category full of cold enterprise tools.
 
 ### Embedded Value (and Proof)
 
-- Built and shaped by a UW Distinguished Research Fellowship at UW-Madison, funded through the Office of the Vice Chancellor for Research with WARF funding.
+- Grew out of work begun during a UW-Madison Distinguished Research Fellowship.
 - The /transparency page shows our Tm, alignment, digest, and translation results matching Biopython and primer3, with the comparison run as a test gate.
 - Open source on GitHub, so anyone can read exactly how their data is stored and computed.
 - A real merchant of record with banking and Stripe set up, so paid storage, when it turns on, is accountable rather than a hobby link.

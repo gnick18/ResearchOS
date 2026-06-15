@@ -115,9 +115,8 @@ export function OAuthFirstLanding({
           {/* Funding acknowledgment, upper-right, balancing the entity
               signature in the upper-left. */}
           <div className="absolute right-5 top-4 z-[4] max-w-[260px] text-right text-[10px] leading-snug text-slate-500">
-            Supported by a UW Distinguished Research Fellowship at UW-Madison
-            (Office of the Vice Chancellor for Research, with funding from the
-            Wisconsin Alumni Research Foundation).
+            ResearchOS grew out of work begun during a UW-Madison Distinguished
+            Research Fellowship.
           </div>
 
           <div

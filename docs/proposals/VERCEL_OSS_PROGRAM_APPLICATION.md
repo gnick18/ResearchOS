@@ -26,8 +26,8 @@ Drafted by: brand manager (Claude), 2026-06-07.
 - Code of Conduct: `CODE_OF_CONDUCT.md` present.
 - Hosted on Vercel: yes, the app and demo deploy on Vercel.
 - Actively maintained: daily commits, single primary maintainer (Grant).
-- Funding posture: free and open core, funded in part by the UW-Madison RISE
-  Initiative plus voluntary donations. A small Wisconsin LLC exists for optional
+- Funding posture: free and open core, sustained by voluntary donations; the
+  project originated from a UW-Madison Distinguished Research Fellowship. A small Wisconsin LLC exists for optional
   metered cloud storage cost-recovery, not VC-funded, so the OSS Program (not the
   Startups Program) is the right fit. Worth a one-line mention so it is not a surprise.
 
@@ -95,8 +95,8 @@ costs to researchers. It directly lowers the cost of keeping ResearchOS free and
 ### Traffic, growth, or community signals
 
 ResearchOS is early but moving fast. The repository was created in February 2026 and
-already has more than 3,000 commits, with daily activity from the maintainer. It is
-funded in part by the UW-Madison RISE Initiative and has a working hosted demo that
+already has more than 3,000 commits, with daily activity from the maintainer. It
+originated from a UW-Madison Distinguished Research Fellowship and has a working hosted demo that
 anyone can try in the browser with no signup. The pitch here is growth potential, a
 sharp niche (a local-first, fully open ELN that researchers actually own) at a moment
 when labs need NIH Data Management and Sharing compliance and a credible alternative

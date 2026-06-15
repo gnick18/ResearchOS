@@ -33,4 +33,4 @@ The app is a Next.js 16 App Router project with React 19 and TypeScript, deploye
 Grant R. Nickles, University of Wisconsin-Madison. Solo maintainer, actively developed.
 
 ## Anything else
-ResearchOS is a real, in-production academic project used for managing live research, not a demo. It is grant-funded, non-commercial, and committed to staying free and open under AGPLv3.
+ResearchOS is a real, in-production academic project used for managing live research, not a demo. It is non-commercial and committed to staying free and open under AGPLv3.

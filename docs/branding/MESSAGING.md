@@ -198,6 +198,6 @@ Adjectives: plain-spoken, trustworthy, friendly, confident, non-corporate.
 - A cost circuit breaker pauses cloud writes before a runaway bill, and the local app keeps working.
 
 **Proof points**
-- Built and shaped by a UW Distinguished Research Fellowship at UW-Madison, funded through the Office of the Vice Chancellor for Research with WARF funding.
+- Grew out of work begun during a UW-Madison Distinguished Research Fellowship.
 - A real merchant of record with banking and Stripe set up.
 - Solidarity pricing, where larger institutions subsidize free use for individual researchers.

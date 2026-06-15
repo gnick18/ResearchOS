@@ -250,16 +250,15 @@ export default function AboutPage() {
               .
             </p>
             <p className="mt-3 max-w-[64ch] text-body leading-relaxed text-foreground-muted">
-              It is supported by a UW Distinguished Research Fellowship at
-              UW-Madison, with funding from the Wisconsin Alumni Research
-              Foundation. That, plus voluntary{" "}
+              ResearchOS grew out of work begun during a UW-Madison Distinguished
+              Research Fellowship. It is open source and local-first, so voluntary{" "}
               <Link
                 href="/thanks"
                 className="font-medium text-brand-action underline-offset-2 hover:underline"
               >
                 GitHub Sponsors
               </Link>
-              , keeps the core free and open for the whole research community.
+              {" "}are enough to keep the core free and open for the whole research community.
             </p>
             <div className="mt-5 flex flex-wrap items-center gap-3 rounded-2xl border border-border bg-gradient-to-br from-brand-action/[0.05] to-brand-purple/[0.05] px-5 py-4">
               <MadeInMadison variant="badge" tone="punchy" />

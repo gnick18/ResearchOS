@@ -53,15 +53,15 @@ export default function TrustPage() {
         what the license gives you and where the credits live.
       </p>
 
-      <h3>4. The funding is clean</h3>
+      <h3>4. The incentives are clean</h3>
       <p>
-        ResearchOS is grant-funded through a UW Distinguished Research Fellowship at UW-Madison, not
-        venture-backed. Every feature is free with no per-seat fees, a
+        ResearchOS is open source and local-first, not venture-backed. Every
+        feature is free with no per-seat fees, a
         deliberate choice to keep the tool reachable for low-resource labs. The
         only optional paid part is cloud storage for labs that use a lot of it,
         priced at cost.{" "}
         <a href="/wiki/trust/how-we-fund-it">How it stays free</a> explains
-        the funding model honestly.
+        the model honestly.
       </p>
 
       <Callout variant="tip" title="The short version">

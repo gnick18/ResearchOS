@@ -31,7 +31,7 @@ ResearchOS is for benchwork researchers, computational scientists, lab heads, la
 
 > **Try the live demo at [research-os.app/demo](https://research-os.app/demo).** It runs entirely in your browser against synthetic fixture data, so you can poke around without signing up or picking a folder.
 
-Built by Dr. Grant R. Nickles (PhD). Free and open source. Support for this research was provided by the University of Wisconsin-Madison, Office of the Vice Chancellor for Research with funding from the Wisconsin Alumni Research Foundation, through a UW Distinguished Research Fellowship.
+Built by Dr. Grant R. Nickles (PhD). Free and open source. ResearchOS grew out of work begun during a UW-Madison Distinguished Research Fellowship.
 
 ---
 
