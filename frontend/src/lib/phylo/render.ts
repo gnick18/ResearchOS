@@ -48,6 +48,7 @@ import {
   type PanelValues,
 } from "./panel-render";
 import type { AlignmentKind } from "./msa";
+import type { LayoutManifest, PlacedBox } from "./layout-manifest";
 import {
   projectTracksToPanels,
   extractPanelValues,
@@ -304,12 +305,42 @@ function resolveScales(root: TreeNode, spec: RenderSpec): ResolvedScales {
 }
 
 /** Build a complete SVG string for the current figure. */
-export function renderTreeSvg(root: TreeNode, spec: RenderSpec): string {
+export function renderTreeSvg(
+  root: TreeNode,
+  spec: RenderSpec,
+  outManifest?: PlacedBox[],
+): string {
   // The unrooted (equal-angle) layout has no tip line/circle, so it bypasses the
   // panel + aligned-track machinery and draws its own self-contained figure.
   if (spec.layout === "unrooted") return renderUnrooted(root, spec);
-  if (spec.panels) return renderFromPanels(root, spec, spec.panels);
+  if (spec.panels) return renderFromPanels(root, spec, spec.panels, outManifest);
   return renderFromTracks(root, spec);
+}
+
+/**
+ * Render AND emit the layout manifest (the bboxes the draw just used) for the
+ * collision-aware layout advisor. The manifest is exact (same numbers as the SVG),
+ * not a re-derivation. v1 populates the rectangular panel path; other layouts
+ * return an empty box list for now. See layout-manifest.ts.
+ */
+export function renderTreeWithManifest(
+  root: TreeNode,
+  spec: RenderSpec,
+): { svg: string; manifest: LayoutManifest } {
+  const boxes: PlacedBox[] = [];
+  const svg = renderTreeSvg(root, spec, boxes);
+  // plotRight = the right edge of the tree+panels+labels region; the legend column
+  // sits past it. Derived from the boxes (the rightmost non-legend element), or the
+  // full width when nothing was placed.
+  const nonLegend = boxes.filter((b) => b.kind !== "legend");
+  const plotRight =
+    nonLegend.length > 0
+      ? Math.max(...nonLegend.map((b) => b.x + b.w))
+      : spec.width;
+  return {
+    svg,
+    manifest: { width: spec.width, height: spec.height, plotRight, boxes },
+  };
 }
 
 /**
@@ -531,6 +562,7 @@ function renderFromPanels(
   rootRaw: TreeNode,
   spec: RenderSpec,
   panels: AlignedPanel[],
+  outManifest?: PlacedBox[],
 ): string {
   const meta = spec.metadata;
   // Collapse any clade marked collapsed to a single leaf before layout; the rest
@@ -615,6 +647,17 @@ function renderFromPanels(
     panelStart = Math.max(axis.panelStartX, decorRight + 10);
   }
 
+  // Layout-manifest emission (collision-aware advisor). v1 covers the rectangular
+  // path, where crowding was reported; the y-extent of the tip band is shared by
+  // every panel column + the labels.
+  const wantManifest = !!outManifest && !isCircular(spec.layout);
+  const tipYs = axis.tips.map((t) => t.y);
+  const tipTop = tipYs.length ? Math.min(...tipYs) : 0;
+  const tipBot = tipYs.length ? Math.max(...tipYs) : spec.height;
+  const bandPad = axis.bandHeight / 2;
+  const colY = tipTop - bandPad;
+  const colH = tipBot - tipTop + axis.bandHeight;
+
   // Draw each aligned panel in order, advancing the cursor by its thickness plus
   // a spacing gap so stacked rings / columns stay visually distinct. A small panel
   // title sits above each panel (rectangular) so a reader knows what each column /
@@ -632,6 +675,16 @@ function renderFromPanels(
       if (drawn) {
         parts.push(panelTitle(panel, localAxis, spec, root, meta));
         parts.push(drawn.svg);
+        if (wantManifest)
+          outManifest!.push({
+            id: panel.id,
+            kind: "panel",
+            x: cursor,
+            y: colY,
+            w: drawn.thickness,
+            h: colH,
+            label: panelTitleText(panel, spec) || undefined,
+          });
         cursor += drawn.thickness + PANEL_GAP;
       }
       continue;
@@ -653,6 +706,16 @@ function renderFromPanels(
     if (r.thickness > 0) {
       parts.push(panelTitle(panel, localAxis, spec, root, meta));
       parts.push(r.svg);
+      if (wantManifest)
+        outManifest!.push({
+          id: panel.id,
+          kind: "panel",
+          x: cursor,
+          y: colY,
+          w: r.thickness,
+          h: colH,
+          label: panelTitleText(panel, spec) || undefined,
+        });
       cursor += r.thickness + PANEL_GAP;
     }
   }
@@ -660,6 +723,21 @@ function renderFromPanels(
   // Tip labels (outermost), drawn past the last panel.
   if (labelsPanel) {
     drawLabels(parts, root, axis, spec, cursor, labelsPanel);
+    if (wantManifest) {
+      const labelW = longestLabelPx(root);
+      const nameById = new Map(leaves(root).map((l) => [l.id, l.name]));
+      for (const t of axis.tips) {
+        outManifest!.push({
+          id: `tipLabel:${t.id}`,
+          kind: "tipLabel",
+          x: cursor,
+          y: t.y - bandPad,
+          w: labelW,
+          h: axis.bandHeight,
+          label: nameById.get(t.id) ?? undefined,
+        });
+      }
+    }
   }
 
   // Scale bar (rectangular phylogram only) is drawn inside drawRectTree.
@@ -667,6 +745,16 @@ function renderFromPanels(
     legendItems.length > 0
       ? renderPanelLegendColumn(legendItems, plotWidth, spec.height, legendCols)
       : "";
+  if (wantManifest && legendItems.length > 0)
+    outManifest!.push({
+      id: "legend",
+      kind: "legend",
+      x: plotWidth,
+      y: 0,
+      w: legendW,
+      h: spec.height,
+      label: `${legendItems.length} legend keys`,
+    });
 
   return svgDocument(spec.width, spec.height, parts.join(""), legend);
 }
