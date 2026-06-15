@@ -67,6 +67,7 @@ import {
 } from "@/lib/figure/asset-library";
 import { registerFigureSources } from "@/lib/figure/register-sources";
 import { PAPER_PRESETS } from "@/lib/figure/artboard";
+import ZoomPanCanvas from "@/components/figure/ZoomPanCanvas";
 
 const SCREEN_DPI = 96;
 
@@ -239,6 +240,18 @@ export default function FigureComposer({ pageId }: { pageId: string }) {
     return Math.min(SCREEN_DPI, 560 / hIn);
   }, [page]);
 
+  // On-screen pixels per inch RIGHT NOW, measured from the live stage rect so it
+  // includes the ZoomPanCanvas zoom transform. Drag math divides by this (not the
+  // static fit `scale`) so panels/icons track the cursor 1:1 at any zoom level.
+  // Falls back to the fit scale before the stage has mounted.
+  const effScale = useCallback(() => {
+    const el = stageRef.current;
+    if (!el || !page) return scale;
+    const { wIn } = pageSizeIn(page);
+    const r = el.getBoundingClientRect();
+    return wIn > 0 ? r.width / wIn : scale;
+  }, [page, scale]);
+
   // Drag / resize a panel.
   const drag = useRef<
     | null
@@ -269,8 +282,9 @@ export default function FigureComposer({ pageId }: { pageId: string }) {
     const move = (e: MouseEvent) => {
       const d = drag.current;
       if (!d) return;
-      const dxIn = (e.clientX - d.sx) / scale;
-      const dyIn = (e.clientY - d.sy) / scale;
+      const s = effScale();
+      const dxIn = (e.clientX - d.sx) / s;
+      const dyIn = (e.clientY - d.sy) / s;
       mutate((prev) => ({
         ...prev,
         panels: prev.panels.map((p) =>
@@ -291,15 +305,16 @@ export default function FigureComposer({ pageId }: { pageId: string }) {
       window.removeEventListener("mousemove", move);
       window.removeEventListener("mouseup", up);
     };
-  }, [scale, mutate]);
+  }, [effScale, mutate]);
 
   // Drag / resize a placed asset (mirrors the panel drag).
   useEffect(() => {
     const move = (e: MouseEvent) => {
       const d = assetDrag.current;
       if (!d) return;
-      const dxIn = (e.clientX - d.sx) / scale;
-      const dyIn = (e.clientY - d.sy) / scale;
+      const s = effScale();
+      const dxIn = (e.clientX - d.sx) / s;
+      const dyIn = (e.clientY - d.sy) / s;
       if (d.resize) {
         mutate((prev) =>
           updatePlacedAsset(prev, d.id, {
@@ -325,15 +340,16 @@ export default function FigureComposer({ pageId }: { pageId: string }) {
       window.removeEventListener("mousemove", move);
       window.removeEventListener("mouseup", up);
     };
-  }, [scale, mutate]);
+  }, [effScale, mutate]);
 
   // Drag a selected annotation (translates all of its anchor points).
   useEffect(() => {
     const move = (e: MouseEvent) => {
       const d = annDrag.current;
       if (!d) return;
-      const dxIn = (e.clientX - d.sx) / scale;
-      const dyIn = (e.clientY - d.sy) / scale;
+      const s = effScale();
+      const dxIn = (e.clientX - d.sx) / s;
+      const dyIn = (e.clientY - d.sy) / s;
       if (dxIn === 0 && dyIn === 0) return;
       annDrag.current = { ...d, sx: e.clientX, sy: e.clientY };
       mutate((prev) => moveAnnotation(prev, d.id, dxIn, dyIn));
@@ -347,7 +363,7 @@ export default function FigureComposer({ pageId }: { pageId: string }) {
       window.removeEventListener("mousemove", move);
       window.removeEventListener("mouseup", up);
     };
-  }, [scale, mutate]);
+  }, [effScale, mutate]);
 
   const exportSvg = useCallback(() => {
     if (!page) return;
@@ -466,18 +482,21 @@ export default function FigureComposer({ pageId }: { pageId: string }) {
 
   return (
     <div className="flex h-full gap-4 p-4" data-testid="figure-composer">
-      <div
-        className="flex flex-1 items-start justify-center overflow-auto rounded-2xl border border-border bg-surface-sunken p-8"
-        onMouseDown={() => {
-          setSelected(null);
-          setSelectedAnn(null);
-          setSelectedAsset(null);
-        }}
-      >
+      <div className="flex min-w-0 flex-1 flex-col overflow-hidden rounded-2xl border border-border bg-surface-sunken">
+        {/* Shared pan/zoom viewport (same component the Phylo Studio + Data Hub use):
+            two-finger pan, pinch / Cmd-wheel zoom-at-cursor, Space-drag, scrollbars,
+            minimap. The stage is rendered at its natural fit size; the canvas zooms
+            on top. Drag math reads the live on-screen scale via effScale(). */}
+        <ZoomPanCanvas contentWidth={pageW} contentHeight={pageH}>
         <div
           ref={stageRef}
           className="relative bg-white shadow-lg"
           style={{ width: pageW, height: pageH }}
+          onMouseDown={() => {
+            setSelected(null);
+            setSelectedAnn(null);
+            setSelectedAsset(null);
+          }}
         >
           {page.panels.map((p) => {
             const sel = selected === p.panelId;
@@ -493,6 +512,7 @@ export default function FigureComposer({ pageId }: { pageId: string }) {
                   height: p.hIn * scale,
                   cursor: "grab",
                 }}
+                onPointerDown={(e) => e.stopPropagation()}
                 onMouseDown={(e) => onPanelDown(e, p.panelId, false)}
                 data-testid="figure-panel"
               >
@@ -543,6 +563,7 @@ export default function FigureComposer({ pageId }: { pageId: string }) {
                   cursor: "grab",
                   transform: a.rotation ? `rotate(${a.rotation}deg)` : undefined,
                 }}
+                onPointerDown={(e) => e.stopPropagation()}
                 onMouseDown={(e) => onAssetDown(e, a.assetId, false)}
                 data-testid="figure-asset"
               >
@@ -576,6 +597,7 @@ export default function FigureComposer({ pageId }: { pageId: string }) {
               return (
                 <div
                   key={a.annId}
+                  onPointerDown={(e) => e.stopPropagation()}
                   onMouseDown={(e) => onAnnDown(e, a.annId)}
                   className="absolute"
                   style={{
@@ -596,15 +618,18 @@ export default function FigureComposer({ pageId }: { pageId: string }) {
             <div
               className="absolute inset-0 z-10"
               style={{ cursor: "crosshair" }}
+              onPointerDown={(e) => e.stopPropagation()}
               onMouseDown={(e) => {
                 e.stopPropagation();
                 const rect = stageRef.current?.getBoundingClientRect();
                 if (!rect) return;
-                placeAnnotation((e.clientX - rect.left) / scale, (e.clientY - rect.top) / scale);
+                const s = effScale();
+                placeAnnotation((e.clientX - rect.left) / s, (e.clientY - rect.top) / s);
               }}
             />
           )}
         </div>
+        </ZoomPanCanvas>
       </div>
 
       <div className="w-72 shrink-0 space-y-4 overflow-auto">
