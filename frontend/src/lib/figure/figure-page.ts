@@ -87,8 +87,11 @@ export interface PlacedAsset {
   hIn: number;
   /** Clockwise rotation in degrees (0 = upright). */
   rotation?: number;
-  /** Single-color tint applied to the whole asset (per-fill targets come later). */
+  /** Single-color tint applied to the whole asset (overridden by fillTints). */
   tint?: string;
+  /** Per-fill recolor map: original fill value -> replacement. Multi-part icons
+   *  recolored piece by piece. When non-empty it takes precedence over `tint`. */
+  fillTints?: Record<string, string>;
   /** The verbatim citation, cached at place-time for the auto-credits block. */
   credit: string;
   /** Whether the license requires the credit be shown (CC-BY / SA / MIT / BSD). */

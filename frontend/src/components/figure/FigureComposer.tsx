@@ -85,7 +85,8 @@ import {
   composeFigurePageSvg,
   annotationLayerSvg,
   connectorLayerSvg,
-  tintSvg,
+  recolorPlacedAsset,
+  extractFills,
 } from "@/lib/figure/figure-compose";
 import {
   ASSET_LIBRARY_ENABLED,
@@ -105,6 +106,15 @@ const SCREEN_DPI = 96;
 /** Compact button used in the contextual arrange bar (align / distribute / order). */
 const ARRANGE_BTN =
   "rounded border border-border-strong px-2 py-0.5 font-medium text-foreground hover:border-brand-action disabled:cursor-not-allowed disabled:opacity-40";
+
+/** Coerce a fill value to a #rrggbb hex for an <input type="color"> (fallback grey). */
+function toHex6(c: string): string {
+  const v = c.trim();
+  const m3 = /^#([0-9a-f])([0-9a-f])([0-9a-f])$/i.exec(v);
+  if (m3) return `#${m3[1]}${m3[1]}${m3[2]}${m3[2]}${m3[3]}${m3[3]}`;
+  if (/^#[0-9a-f]{6}$/i.test(v)) return v.toLowerCase();
+  return "#888888";
+}
 
 /** A signature of what affects a panel's RENDER (ref + size + title, not position). */
 function renderSignature(page: FigurePage): string {
@@ -151,6 +161,8 @@ export default function FigureComposer({ pageId }: { pageId: string }) {
   const [selectedConn, setSelectedConn] = useState<string | null>(null);
   const connDraw = useRef<null | { from: ConnectorEnd; startIn: Point }>(null);
   const [connCursor, setConnCursor] = useState<Point | null>(null);
+  // Icon recolor mode: whole-icon single tint, or per-fill (multi-part) recolor.
+  const [recolorMode, setRecolorMode] = useState<"whole" | "part">("whole");
   // Marquee drag-select rectangle (inches), live while dragging on empty canvas.
   const [marquee, setMarquee] = useState<Box | null>(null);
   const marqueeRef = useRef<null | { sx: number; sy: number; box?: Box }>(null);
@@ -747,7 +759,7 @@ export default function FigureComposer({ pageId }: { pageId: string }) {
       ))}
       {pageAssets(page).map((a) => {
         const raw = assetSvgs.get(a.assetId) ?? "";
-        const display = a.tint && raw ? tintSvg(raw, a.tint) : raw;
+        const display = raw ? recolorPlacedAsset(raw, a) : raw;
         return (
           <div
             key={a.assetId}
@@ -920,7 +932,7 @@ export default function FigureComposer({ pageId }: { pageId: string }) {
           {pageAssets(page).map((a) => {
             const sel = isSelectedRef({ kind: "asset", id: a.assetId });
             const raw = assetSvgs.get(a.assetId) ?? "";
-            const display = a.tint && raw ? tintSvg(raw, a.tint) : raw;
+            const display = raw ? recolorPlacedAsset(raw, a) : raw;
             return (
               <div
                 key={a.assetId}
@@ -1547,29 +1559,98 @@ export default function FigureComposer({ pageId }: { pageId: string }) {
             <h3 className="mb-2 text-meta font-bold uppercase tracking-wide text-foreground-faint">
               Selected icon
             </h3>
-            <div className="flex items-center gap-2">
-              <span className="text-meta text-foreground-muted">Tint</span>
-              {["", "#2563eb", "#16a34a", "#dc2626", "#b9770f", "#6d28d9", "#0f172a"].map((c) => {
-                const active = (selectedAssetObj.tint ?? "") === c;
-                return (
-                  <button
-                    key={c || "none"}
-                    type="button"
-                    aria-label={c ? `Tint ${c}` : "Original colors"}
-                    onClick={() =>
-                      mutate((p) =>
-                        updatePlacedAsset(p, selectedAssetObj.assetId, { tint: c || undefined }),
-                      )
-                    }
-                    className={`h-5 w-5 rounded border ${active ? "ring-2 ring-brand-action" : "border-border"}`}
-                    style={c ? { background: c } : undefined}
-                    title={c ? c : "Original colors"}
-                  >
-                    {c ? "" : <Icon name="close" className="h-3 w-3 text-foreground-muted" />}
-                  </button>
-                );
-              })}
+            {/* Recolor: whole-icon single tint, or per-fill (multi-part) recolor. */}
+            <div className="mb-2 flex overflow-hidden rounded-lg border border-border-strong text-meta">
+              {(["whole", "part"] as const).map((m) => (
+                <button
+                  key={m}
+                  type="button"
+                  onClick={() => setRecolorMode(m)}
+                  className={`flex-1 px-2 py-1 font-medium ${recolorMode === m ? "bg-brand-action/10 text-brand-action" : "text-foreground-muted hover:bg-surface-sunken"}`}
+                >
+                  {m === "whole" ? "Whole icon" : "By part"}
+                </button>
+              ))}
             </div>
+
+            {recolorMode === "whole" ? (
+              <div className="flex flex-wrap items-center gap-1.5">
+                {["", "#2563eb", "#16a34a", "#dc2626", "#b9770f", "#6d28d9", "#0f172a"].map((c) => {
+                  const active = !selectedAssetObj.fillTints && (selectedAssetObj.tint ?? "") === c;
+                  return (
+                    <button
+                      key={c || "none"}
+                      type="button"
+                      aria-label={c ? `Tint ${c}` : "Original colors"}
+                      onClick={() =>
+                        mutate((p) =>
+                          updatePlacedAsset(p, selectedAssetObj.assetId, {
+                            tint: c || undefined,
+                            fillTints: undefined,
+                          }),
+                        )
+                      }
+                      className={`h-5 w-5 rounded border ${active ? "ring-2 ring-brand-action" : "border-border"}`}
+                      style={c ? { background: c } : undefined}
+                      title={c ? c : "Original colors"}
+                    >
+                      {c ? "" : <Icon name="close" className="h-3 w-3 text-foreground-muted" />}
+                    </button>
+                  );
+                })}
+              </div>
+            ) : (
+              (() => {
+                const raw = assetSvgs.get(selectedAssetObj.assetId) ?? "";
+                const fills = extractFills(raw);
+                if (fills.length === 0) {
+                  return (
+                    <p className="text-meta text-foreground-faint">
+                      This icon is a single shape. Use Whole icon to tint it.
+                    </p>
+                  );
+                }
+                return (
+                  <div className="space-y-1.5">
+                    {fills.map((f, i) => {
+                      const cur = selectedAssetObj.fillTints?.[f] ?? f;
+                      return (
+                        <div key={`${f}-${i}`} className="flex items-center gap-2">
+                          <input
+                            type="color"
+                            value={toHex6(cur)}
+                            onChange={(e) =>
+                              mutate((p) =>
+                                updatePlacedAsset(p, selectedAssetObj.assetId, {
+                                  tint: undefined,
+                                  fillTints: { ...(selectedAssetObj.fillTints ?? {}), [f]: e.target.value },
+                                }),
+                              )
+                            }
+                            className="h-6 w-9 cursor-pointer rounded border border-border-strong"
+                            aria-label={`Recolor part ${i + 1}`}
+                          />
+                          <span className="truncate text-meta text-foreground-muted">{f}</span>
+                        </div>
+                      );
+                    })}
+                    {selectedAssetObj.fillTints && (
+                      <button
+                        type="button"
+                        onClick={() =>
+                          mutate((p) =>
+                            updatePlacedAsset(p, selectedAssetObj.assetId, { fillTints: undefined }),
+                          )
+                        }
+                        className="text-meta font-medium text-brand-action hover:underline"
+                      >
+                        Reset colors
+                      </button>
+                    )}
+                  </div>
+                );
+              })()
+            )}
             <label className="mt-3 flex items-center justify-between gap-2 text-meta text-foreground-muted">
               <span>Rotate</span>
               <input

@@ -157,10 +157,50 @@ function placeSvg(svg: string, px: number, py: number, pw: number, ph: number): 
  * `fill="none"` alone so outlines/holes stay. Per-fill targeting comes later; this
  * is the whole-asset tint a placed icon uses. Pure string transform.
  */
-export function tintSvg(svg: string, color: string): string {
+/**
+ * Recolor an SVG. A string `tint` recolors the WHOLE icon (single-tint). A map
+ * recolors PER FILL: each key is an original fill value (as returned by
+ * extractFills) and only those fills are replaced, so multi-part icons can be
+ * recolored piece by piece. `none` fills are always left alone.
+ */
+export function tintSvg(svg: string, tint: string | Record<string, string>): string {
+  if (typeof tint === "string") {
+    return svg
+      .replace(/fill="(?!none")[^"]*"/gi, `fill="${tint}"`)
+      .replace(/fill:\s*(?!none)[^;"']+/gi, `fill:${tint}`);
+  }
   return svg
-    .replace(/fill="(?!none")[^"]*"/gi, `fill="${color}"`)
-    .replace(/fill:\s*(?!none)[^;"']+/gi, `fill:${color}`);
+    .replace(/fill="([^"]*)"/gi, (full, v: string) => {
+      const next = tint[v.trim()];
+      return next ? `fill="${next}"` : full;
+    })
+    .replace(/fill:\s*([^;"']+)/gi, (full, v: string) => {
+      const next = tint[v.trim()];
+      return next ? `fill:${next}` : full;
+    });
+}
+
+/** Distinct fill colors in an SVG (excluding `none`), in document order. */
+export function extractFills(svg: string): string[] {
+  const out: string[] = [];
+  const seen = new Set<string>();
+  const push = (raw: string) => {
+    const v = raw.trim();
+    if (v && v.toLowerCase() !== "none" && !seen.has(v)) {
+      seen.add(v);
+      out.push(v);
+    }
+  };
+  for (const m of svg.matchAll(/fill="([^"]*)"/gi)) push(m[1]);
+  for (const m of svg.matchAll(/fill:\s*([^;"']+)/gi)) push(m[1]);
+  return out;
+}
+
+/** The display SVG for a placed asset: per-fill recolor, else whole tint, else raw. */
+export function recolorPlacedAsset(svg: string, a: PlacedAsset): string {
+  if (a.fillTints && Object.keys(a.fillTints).length > 0) return tintSvg(svg, a.fillTints);
+  if (a.tint) return tintSvg(svg, a.tint);
+  return svg;
 }
 
 /**
@@ -173,7 +213,7 @@ function placeAssetSvg(a: PlacedAsset, svg: string, ppi: number): string {
   const py = a.yIn * ppi;
   const pw = a.wIn * ppi;
   const ph = a.hIn * ppi;
-  const tinted = a.tint ? tintSvg(svg, a.tint) : svg;
+  const tinted = recolorPlacedAsset(svg, a);
   const inner = placeSvg(tinted, px, py, pw, ph);
   if (!a.rotation) return inner;
   const cx = (px + pw / 2).toFixed(2);
