@@ -69,6 +69,7 @@ const EXCLUDED_PREFIXES = [
   "/ai", // public BeakerBot marketing page (sells the AI assistant; no AppShell, like /pricing and /welcome, not a documented in-app feature)
   "/chemistry-embed-check", // dev-only Ketcher/RDKit embed probe (not a documented user feature; like /sharing-setup-test)
   "/phylo", // pending wiki page (phylogenetics page; the wiki page + APP_ROUTE_TO_WIKI entry land with the BeakerBot/embeds phase). Like /sequences.
+  "/figures", // pending wiki page (Universal Figure Composer; live AppShell route, wiki page + APP_ROUTE_TO_WIKI entry land with the figure-composer lane's docs). Like /phylo.
   "/people", // pending wiki page (PI Mode People roster, PE-1; real PI-only AppShell page, wiki page + mapping land with the PI-experience lane). Like /phylo.
   "/lab-work", // pending wiki page (PI Mode Lab Work hub, LW-1..3; real PI-only AppShell page, wiki page lands with the PI-experience lane). Like /people.
   "/funding", // pending wiki page (PI Mode funding surface; real PI-only AppShell page, wiki page lands with the PI-experience lane). Like /people.
