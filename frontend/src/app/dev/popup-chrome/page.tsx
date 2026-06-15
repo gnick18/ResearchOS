@@ -239,6 +239,16 @@ export default function PopupChromeReviewPage() {
           )}
         </SectionRow>
       </div>
+
+      {/* Floating theme toggle, pinned above the popups (which cover the header
+          toggle) so dark/light can be flipped while a popup is open. */}
+      <button
+        type="button"
+        onClick={toggleTheme}
+        className="ros-popup-card-shadow fixed bottom-5 right-5 z-[99999] rounded-full border border-border bg-surface-raised px-5 py-3 text-body font-semibold text-foreground"
+      >
+        {theme === "light" ? "Switch to dark" : "Switch to light"}
+      </button>
     </main>
   );
 }
