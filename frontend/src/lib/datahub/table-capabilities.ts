@@ -85,24 +85,40 @@ const PLOT_LABEL: Record<PlotKind, LabelEntry> = {
   stackedBar: { label: "Stacked bar", hint: "categories stacked to the total" },
 };
 
-/** The graphs an archetype can draw, given how many group columns it has. Pure,
- *  so it is directly unit-tested. The PlotKind names are archetype-bound, so the
- *  mapping is conservative (under-offer rather than offer something that cannot
- *  draw). */
+/** Signals a diagnostic plot needs (it reads a stored analysis, not just the
+ *  table shape). Matches NewGraphDialog's findRegression / findRoc gating so the
+ *  GUI and the chat offer the EXACT same plots. */
+export interface PlotSignals {
+  /** A linear/multiple regression is stored on the table (feeds the residual plot). */
+  hasRegression?: boolean;
+  /** A ROC curve analysis is stored on the table (feeds the ROC visual). */
+  hasRoc?: boolean;
+}
+
+/** The graphs a table can draw, given its archetype, group-column count, and the
+ *  diagnostic-feeding analyses it already has. Pure, so it is directly
+ *  unit-tested. Mirrors NewGraphDialog exactly (residual + ROC are diagnostic
+ *  plots gated on a stored regression / ROC analysis, never offered without one,
+ *  which is why a bare table-type guess would suggest-then-fail). */
 export function plotKindsForTable(
   tableType: DataHubTableType,
   groupCount: number,
+  signals: PlotSignals = {},
 ): PlotKind[] {
+  const diagnostics: PlotKind[] = [];
+  if (signals.hasRegression) diagnostics.push("residualPlot");
+  if (signals.hasRoc) diagnostics.push("rocCurve");
+
   switch (tableType) {
     case "column": {
       if (groupCount < 1) return [];
       const kinds: PlotKind[] = ["columnBar", "columnScatter", "qqPlot"];
       if (groupCount >= 2) kinds.push("estimationGardnerAltman");
       if (groupCount >= 3) kinds.push("estimationCumming");
-      return kinds;
+      return [...kinds, ...diagnostics];
     }
     case "xy":
-      return ["xyScatter", "residualPlot"];
+      return ["xyScatter", ...diagnostics];
     case "grouped":
       return ["groupedBar"];
     case "survival":
@@ -112,14 +128,29 @@ export function plotKindsForTable(
     case "contingency":
       return [];
     default:
-      // nested / partsOfWhole / info and any future archetype: no graph offered
-      // until its plotting is wired, so we never offer one that cannot draw.
+      // nested / info and any future archetype: no graph offered until its
+      // plotting is wired, so we never offer one that cannot draw.
       return [];
   }
 }
 
+/** A linear/multiple regression is stored on the table. */
+export function hasRegressionAnalysis(content: DataHubDocContent): boolean {
+  return content.analyses.some(
+    (a) => a.type === "linearRegression" || a.type === "multipleRegression",
+  );
+}
+
+/** A ROC curve analysis is stored on the table. */
+export function hasRocAnalysis(content: DataHubDocContent): boolean {
+  return content.analyses.some((a) => a.type === "rocCurve");
+}
+
 export function validPlotKinds(content: DataHubDocContent): PlotKind[] {
-  return plotKindsForTable(content.meta.table_type, groupColumns(content).length);
+  return plotKindsForTable(content.meta.table_type, groupColumns(content).length, {
+    hasRegression: hasRegressionAnalysis(content),
+    hasRoc: hasRocAnalysis(content),
+  });
 }
 
 function toCapability(

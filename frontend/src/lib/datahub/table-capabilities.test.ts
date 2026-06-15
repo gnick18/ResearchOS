@@ -24,10 +24,23 @@ describe("plotKindsForTable — constraint-aware graph offers", () => {
     expect(plotKindsForTable("column", 0)).toEqual([]);
   });
 
-  it("xy offers the scatter + residual, never a column bar", () => {
+  it("xy offers the scatter, never a column bar", () => {
     const kinds = plotKindsForTable("xy", 0);
-    expect(kinds).toEqual(["xyScatter", "residualPlot"]);
+    expect(kinds).toEqual(["xyScatter"]);
     expect(kinds).not.toContain("columnBar");
+  });
+
+  it("residual + ROC are diagnostic, offered ONLY when the analysis is stored", () => {
+    // No stored analysis: no diagnostic plot (the suggest-then-fail fix).
+    expect(plotKindsForTable("xy", 0)).not.toContain("residualPlot");
+    expect(plotKindsForTable("column", 1)).not.toContain("rocCurve");
+    // With the feeding analysis present, the diagnostic is offered.
+    expect(plotKindsForTable("xy", 0, { hasRegression: true })).toContain(
+      "residualPlot",
+    );
+    expect(plotKindsForTable("column", 1, { hasRoc: true })).toContain(
+      "rocCurve",
+    );
   });
 
   it("grouped offers the grouped bar only", () => {
