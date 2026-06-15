@@ -487,19 +487,25 @@ export default function LabJoinPage() {
             </div>
           )}
 
-          <button
-            type="button"
-            onClick={accept}
-            disabled={phase === "working" || phase === "entering"}
-            className={primaryBtn}
-          >
-            {phase === "working" ? "Sending request..." : "Accept invite"}
-          </button>
+          {/* Once the request is in, the Accept button would just re-post and
+              read as dead, so it is replaced by the now-primary Enter lab. */}
+          {phase !== "sent" && phase !== "pending" && (
+            <button
+              type="button"
+              onClick={accept}
+              disabled={phase === "working" || phase === "entering"}
+              className={primaryBtn}
+            >
+              {phase === "working" ? "Sending request..." : "Accept invite"}
+            </button>
+          )}
           <button
             type="button"
             onClick={enterLab}
             disabled={phase === "working" || phase === "entering"}
-            className={secondaryBtn}
+            className={
+              phase === "sent" || phase === "pending" ? primaryBtn : secondaryBtn
+            }
           >
             {phase === "entering" ? "Checking..." : "Enter lab"}
           </button>
