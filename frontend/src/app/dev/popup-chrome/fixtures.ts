@@ -15,7 +15,31 @@
 
 import { HistoryEngine } from "@/lib/history/engine";
 import { MemoryStorage, makeSpacedClock } from "@/lib/history/test-utils";
-import type { Note } from "@/lib/types";
+import type { Note, Task } from "@/lib/types";
+
+/** A minimal "list" task for the TaskDetailPopup row (routes through the simple
+ *  CalmPopupShell path where the violet title marker lives). */
+export const FIXTURE_TASK: Task = {
+  id: 1,
+  project_id: 1,
+  name: "Order reagents for cohort 2",
+  start_date: "2025-12-28",
+  duration_days: 3,
+  end_date: "2025-12-31",
+  is_high_level: false,
+  is_complete: false,
+  task_type: "list",
+  weekend_override: null,
+  method_ids: [],
+  deviation_log: null,
+  tags: null,
+  sort_order: 0,
+  experiment_color: null,
+  sub_tasks: null,
+  method_attachments: [],
+  owner: "dev",
+  shared_with: [],
+};
 
 /** A seeded running-log note for the NoteDetailPopup row (so its entry tabs +
  *  sky accents render with content). */

@@ -32,12 +32,14 @@ import NewPurchaseModalBefore from "./_legacy/NewPurchaseModal.legacy";
 import PurchaseHistoryPopupBefore from "./_legacy/PurchaseHistoryPopup.legacy";
 import PopupErrorBoundary from "./PopupErrorBoundary";
 import NoteDetailPopup from "@/components/NoteDetailPopup";
+import TaskDetailPopup from "@/components/TaskDetailPopup";
 import type { VersionHistorySource } from "@/components/history/EntityVersionHistorySidebar";
 import {
   makeSeededPurchaseHistoryEngine,
   FIXTURE_OWNER,
   FIXTURE_PURCHASE_ID,
   FIXTURE_NOTE,
+  FIXTURE_TASK,
 } from "./fixtures";
 
 // Which variant of a given popup is currently mounted. "none" = closed.
@@ -128,6 +130,8 @@ export default function PopupChromeReviewPage() {
   const [historyVariant, setHistoryVariant] = useState<Variant>("none");
   // Note detail popup: open state (single, not a migration before/after).
   const [noteOpen, setNoteOpen] = useState(false);
+  // Task detail popup: open state.
+  const [taskOpen, setTaskOpen] = useState(false);
   // Pre-seeded fixture engine so the history popup renders with real content.
   const [historyEngine, setHistoryEngine] = useState<VersionHistorySource | null>(
     null,
@@ -273,6 +277,33 @@ export default function PopupChromeReviewPage() {
                 onDelete={() => setNoteOpen(false)}
                 currentUser="dev"
               />
+            </PopupErrorBoundary>
+          )}
+        </section>
+
+        {/* TaskDetailPopup: kit polish (violet title accent + dark card-shadow
+            fixes), seeded with a minimal list task. */}
+        <section className="rounded-xl border border-border bg-surface-raised p-6">
+          <div className="flex items-start justify-between gap-6">
+            <div className="min-w-0">
+              <h2 className="text-lg font-bold text-foreground">TaskDetailPopup</h2>
+              <p className="mt-1 text-meta text-foreground-muted">
+                Task detail, violet family hue (work+data). Verify the violet
+                title marker; task metadata colors (amber flags, emerald complete,
+                red delete) stay semantic per option 3. Check dark mode.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setTaskOpen(true)}
+              className="shrink-0 rounded-lg border border-brand-action bg-surface px-4 py-2 text-body font-semibold text-brand-action hover:bg-surface-sunken"
+            >
+              Open
+            </button>
+          </div>
+          {taskOpen && (
+            <PopupErrorBoundary label="TaskDetailPopup" onReset={() => setTaskOpen(false)}>
+              <TaskDetailPopup task={FIXTURE_TASK} onClose={() => setTaskOpen(false)} />
             </PopupErrorBoundary>
           )}
         </section>
