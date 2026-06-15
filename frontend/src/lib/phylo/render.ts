@@ -492,6 +492,13 @@ function alignedRoom(panels: AlignedPanel[], gap: number = PANEL_GAP): number {
 /** Inter-panel spacing (px) reserved so stacked rings / columns stay distinct. */
 const PANEL_GAP = 8;
 
+/** Clamp a tip-label tilt to a sane range; beyond +/-80 deg the text reads as
+ *  vertical and the layout math degenerates. */
+function clampTilt(deg: number): number {
+  if (!Number.isFinite(deg)) return 0;
+  return Math.max(-80, Math.min(80, deg));
+}
+
 /**
  * Draw one tip-aligned Data Hub plot panel (phylo Phase 4). Resolves the panel's
  * pre-loaded { plotSpec, content, analysis } off the render spec and hands the
@@ -612,7 +619,14 @@ function renderFromPanels(
   // Per-figure overlay-column gap (the advisor's spacing lever); absent = default.
   const columnGap = spec.columnGap ?? PANEL_GAP;
   const room = alignedRoom(aligned, columnGap);
-  const labelRoom = hasLabels ? longestLabelPx(root) : 8;
+  // Tilted tip labels project a narrower horizontal footprint (labelW * cos), so
+  // they reserve less right-edge room; 0 tilt keeps the full horizontal reserve.
+  const labelTilt = clampTilt(Number(labelsPanel?.options?.tilt) || 0);
+  const labelTiltCos = Math.cos((Math.abs(labelTilt) * Math.PI) / 180);
+  const labelReserve = hasLabels
+    ? Math.max(12, longestLabelPx(root) * labelTiltCos)
+    : 8;
+  const labelRoom = labelReserve;
 
   const opts: LayoutOptions = {
     width: plotWidth,
@@ -729,7 +743,7 @@ function renderFromPanels(
   if (labelsPanel) {
     drawLabels(parts, root, axis, spec, cursor, labelsPanel);
     if (wantManifest) {
-      const labelW = longestLabelPx(root);
+      const labelW = labelReserve;
       const nameById = new Map(leaves(root).map((l) => [l.id, l.name]));
       for (const t of axis.tips) {
         outManifest!.push({
@@ -1412,21 +1426,27 @@ function drawLabels(
   if (axis.layout === "rectangular") {
     const fs = Number(opts.fontSize) || 11;
     const boxPad = boxed ? 3 : 0;
+    // Tilt (degrees): rotate each label around its anchor so long names need less
+    // vertical room and stop colliding (the advisor's "tilt tip labels" fix).
+    // 0 = horizontal (default, unchanged). Negative reads up-and-to-the-right.
+    const tilt = clampTilt(Number(opts.tilt) || 0);
     for (const slot of axis.tips) {
       const fill = fillFor(slot.id);
       const baseX = align ? cursor : slot.x;
       const tx = baseX + 4 + boxPad;
+      const ty = slot.y + fs * 0.36;
+      const spin = tilt ? ` transform="rotate(${tilt} ${tx.toFixed(1)} ${slot.y.toFixed(1)})"` : "";
       if (align && baseX - slot.x > 4) {
         parts.push(leader(slot.x, slot.y, baseX + 2, slot.y));
       }
       if (boxed) {
         const w = Math.max(8, slot.name.length * fs * 0.6) + 8;
         parts.push(
-          `<rect x="${(tx - 4).toFixed(1)}" y="${(slot.y - fs / 2 - 3).toFixed(1)}" width="${w.toFixed(1)}" height="${fs + 6}" rx="3" fill="#ffffff" stroke="${fill}" stroke-width="0.75"/>`,
+          `<rect x="${(tx - 4).toFixed(1)}" y="${(slot.y - fs / 2 - 3).toFixed(1)}" width="${w.toFixed(1)}" height="${fs + 6}" rx="3" fill="#ffffff" stroke="${fill}" stroke-width="0.75"${spin}/>`,
         );
       }
       parts.push(
-        `<text x="${tx.toFixed(1)}" y="${(slot.y + fs * 0.36).toFixed(1)}" font-size="${fs}"${styleAttr} fill="${fill}">${esc(slot.name)}</text>`,
+        `<text x="${tx.toFixed(1)}" y="${ty.toFixed(1)}" font-size="${fs}"${styleAttr} fill="${fill}"${spin}>${esc(slot.name)}</text>`,
       );
     }
   } else {

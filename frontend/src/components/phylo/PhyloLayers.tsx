@@ -841,6 +841,18 @@ function Inspector({
               }
             />
           </Field>
+          <Field label="Tilt">
+            <RangeInput
+              value={Number(panel.options?.tilt) || 0}
+              min={-80}
+              max={80}
+              onChange={(n) =>
+                onUpdate({
+                  options: { ...panel.options, tilt: n || undefined },
+                })
+              }
+            />
+          </Field>
         </>
       )}
 

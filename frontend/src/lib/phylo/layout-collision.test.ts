@@ -186,4 +186,38 @@ describe("renderTreeWithManifest (integration)", () => {
     expect(wide).toBeGreaterThan(tight);
     expect(wide - tight).toBeCloseTo(26, 0); // 30 - 4
   });
+
+  it("tilting tip labels rotates them and narrows the reserved label width", () => {
+    const mk = (tilt: number): RenderSpec => ({
+      layout: "rectangular",
+      phylogram: false,
+      tracks: {
+        labels: false,
+        labelsItalic: false,
+        points: false,
+        strip: false,
+        bars: false,
+        heat: false,
+        clade: false,
+        support: false,
+      },
+      columns: {},
+      width: 600,
+      height: 360,
+      metadata: META,
+      panels: [
+        { id: "labels", kind: "labels", visible: true, options: { tilt } },
+      ],
+    });
+    const flat = renderTreeWithManifest(TREE, mk(0));
+    const tilted = renderTreeWithManifest(TREE, mk(45));
+    // The rendered labels carry a rotate() transform only when tilted.
+    expect(flat.svg).not.toContain("rotate(45");
+    expect(tilted.svg).toContain("rotate(45");
+    // Tilted labels project a narrower horizontal footprint, so the manifest
+    // tip-label box is narrower (cos 45 ~ 0.71).
+    const labelW = (r: typeof flat) =>
+      r.manifest.boxes.find((b) => b.kind === "tipLabel")!.w;
+    expect(labelW(tilted)).toBeLessThan(labelW(flat));
+  });
 });
