@@ -83,6 +83,13 @@ For each page/surface, ask:
 - [ ] Stacked section cards / rail groups? → `.ros-seam` (when ready)
 - [ ] Check BOTH light and dark.
 
+## Dev pages vs production
+Throwaway/dev pages (`/dev/*`, review scaffolding) can be loose — don't spend
+effort polishing their own chrome (toggle buttons, section rows, etc.). The bar
+applies to PRODUCTION surfaces only, where there are NO shortcuts: both modes,
+every shadow recolored, every hover/press direction correct, every hardcoded
+color given a `dark:` variant.
+
 ## Process
 - Sweep in batches by area; Grant verifies each batch on his `:3000` (the
   orchestrator can't drive Chrome here).
