@@ -81,6 +81,7 @@ import {
   readPhyloTreeTool,
   generateTreeTool,
   matchFigureStyleTool,
+  suggestTreeOverlaysTool,
 } from "./phylo-tools";
 import {
   createExperimentTool,
@@ -348,6 +349,13 @@ export const READ_ONLY_TOOLS: AiTool[] = [
   listPhyloTreesTool,
   readPhyloTreeTool,
   generateTreeTool,
+  // suggest_tree_overlays (Phase 4 Smart Data Binding, chat front door) is
+  // read-only: it ranks the user's Data Hub tables that join the open tree's tips
+  // via the SAME deterministic engine the /phylo GUI uses, then rides the
+  // candidates UI-only so BeakerBotConversation mounts the SAME SmartDataWizard
+  // inline. The model only narrates the ranked facts; the write is the user's
+  // wizard Add (host commit), so no approval card.
+  suggestTreeOverlaysTool,
   // match_figure_style (PDF-reproduce Output 4) is non-gated for the same reason
   // as make_datahub_graph: it writes a reversible figure-style spec the user
   // explicitly asked for onto the user's OWN tree (a saved tree or pasted Newick),

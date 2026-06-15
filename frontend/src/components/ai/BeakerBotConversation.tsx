@@ -70,6 +70,15 @@ import BeakerBotCanvas from "./BeakerBotCanvas";
 // renderers it pulls in) never bloats the chat bundle until a turn actually
 // resolves a record set.
 const RecordSetWidget = lazy(() => import("./RecordSetWidget"));
+// SmartDataWizard (the Phase 4 Smart Data Binding wizard) is mounted inline when a
+// suggest_tree_overlays turn finds joinable tables. Lazy so the phylo widget never
+// loads until a turn actually surfaces one. Named export, so adapt to default.
+const SmartDataWizard = lazy(() =>
+  import("@/components/phylo/SmartDataWizard").then((m) => ({
+    default: m.SmartDataWizard,
+  })),
+);
+import { applyOverlayCommit } from "./overlay-commit";
 import { useCanvasStore } from "@/lib/ai/canvas-store";
 
 // Lightweight markdown renderer for assistant replies only. Scoped to this
@@ -800,6 +809,11 @@ export default function BeakerBotConversation({
   // figurePickerOpen: when true the PdfFigurePicker modal is mounted so the user
   // can pick + crop a figure from the attached paper to stage for a style match.
   const [figurePickerOpen, setFigurePickerOpen] = useState(false);
+  // Inline Smart Data Binding wizards the user dismissed or applied, keyed by
+  // `${messageId}:ow:${index}`, so a closed wizard stays closed across re-renders.
+  const [dismissedWizards, setDismissedWizards] = useState<Set<string>>(
+    () => new Set(),
+  );
 
   // copiedId: the id of the message that most recently had its text copied. A
   // brief "Copied" label replaces the Copy button label while this is set.
@@ -1364,6 +1378,43 @@ export default function BeakerBotConversation({
                       {m.recordSets.map((s, i) => (
                         <RecordSetWidget key={`${s.kind}-${i}`} set={s} />
                       ))}
+                    </div>
+                  </Suspense>
+                ) : null}
+
+                {/* Inline Smart Data Binding wizards. Rendered below an assistant
+                    reply when suggest_tree_overlays found joinable tables. Same
+                    engine + widget as the /phylo GUI; applying does the host commit
+                    (merge metadata + add overlay panels) then opens the Studio. */}
+                {m.role === "assistant" && m.overlayWizards && m.overlayWizards.length > 0 ? (
+                  <Suspense fallback={null}>
+                    <div className="flex w-full flex-col gap-2 self-start">
+                      {m.overlayWizards.map((w, i) => {
+                        const key = `${m.id}:ow:${i}`;
+                        if (dismissedWizards.has(key)) return null;
+                        const dismiss = () =>
+                          setDismissedWizards((prev) => new Set(prev).add(key));
+                        return (
+                          <SmartDataWizard
+                            key={key}
+                            candidates={w.candidates}
+                            onAddOverlays={async (args) => {
+                              const res = await applyOverlayCommit({
+                                treeId: w.treeId,
+                                ...args,
+                              });
+                              if (!res.ok) {
+                                console.error(
+                                  "[BeakerBot] overlay apply failed:",
+                                  res.error,
+                                );
+                                throw new Error(res.error);
+                              }
+                            }}
+                            onClose={dismiss}
+                          />
+                        );
+                      })}
                     </div>
                   </Suspense>
                 ) : null}

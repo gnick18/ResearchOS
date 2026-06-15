@@ -91,6 +91,7 @@ import {
 } from "@/components/ai/spotlight-controller";
 import { getMemoryEntries, buildMemoryContext } from "@/lib/ai/user-memory";
 import { recordSetFromResult } from "@/lib/ai/record-set";
+import { overlayWizardFromResult } from "@/lib/ai/overlay-wizard";
 import type {
   ApprovalRequest,
   ApprovalDecision,
@@ -131,6 +132,12 @@ export type ChatMessage = {
   // so it round-trips through saveChat with the rest of the message. Only assistant
   // messages carry these; the panel renders each below the reply markdown.
   recordSets?: import("./record-set").RecordSet[];
+  // Inline Smart Data Binding wizards attached to this assistant turn. One entry
+  // per suggest_tree_overlays call that found joinable tables. Lifted from the
+  // tool result's out-of-band _ui by the onToolResult callback (the full candidate
+  // set never reaches the model). The panel mounts each <SmartDataWizard> below the
+  // reply so the user can pick + apply overlays onto their tree.
+  overlayWizards?: import("./overlay-wizard").OverlayWizardPayload[];
 };
 
 // The pending approval the UI renders while the loop is paused on the user.
@@ -596,6 +603,29 @@ function appendRecordSetFromResult(assistantId: string, result: unknown): void {
         : m,
     ),
   }));
+}
+
+/** Lift a suggest_tree_overlays wizard payload off a RAW tool result onto the
+ *  in-flight assistant message, so <SmartDataWizard> mounts below the reply. Same
+ *  seam as the record-set widget; a result with no overlay-wizard _ui is ignored,
+ *  so this is safe to call after every tool. */
+function appendOverlayWizardFromResult(assistantId: string, result: unknown): void {
+  const payload = overlayWizardFromResult(result);
+  if (!payload) return;
+  useConversationStore.setState((state) => ({
+    messages: state.messages.map((m) =>
+      m.id === assistantId
+        ? { ...m, overlayWizards: [...(m.overlayWizards ?? []), payload] }
+        : m,
+    ),
+  }));
+}
+
+/** Run every inline-widget capture over a raw tool result (record sets + overlay
+ *  wizards). One call site for both so the two onToolResult hooks stay in sync. */
+function captureInlineWidgets(assistantId: string, result: unknown): void {
+  appendRecordSetFromResult(assistantId, result);
+  appendOverlayWizardFromResult(assistantId, result);
 }
 
 function revealAnswer(assistantId: string, answer: string): Promise<void> {
@@ -1252,7 +1282,7 @@ export const useConversationStore = create<ConversationStore>((set, get) => ({
         // message so the inline record-set widget renders below the reply. The full
         // set never reaches the model (the loop strips _ui from the model message).
         onToolResult: (_toolName, _args, toolResult) => {
-          appendRecordSetFromResult(assistantId, toolResult);
+          captureInlineWidgets(assistantId, toolResult);
         },
       });
 
@@ -1737,7 +1767,7 @@ export const useConversationStore = create<ConversationStore>((set, get) => ({
         // message so the inline record-set widget renders below the reply (resume
         // path). The full set never reaches the model.
         onToolResult: (_toolName, _args, toolResult) => {
-          appendRecordSetFromResult(assistantId, toolResult);
+          captureInlineWidgets(assistantId, toolResult);
         },
       });
 
