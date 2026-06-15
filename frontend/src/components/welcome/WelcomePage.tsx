@@ -78,6 +78,46 @@ import { markLandingSeen } from "@/lib/landing/landing-gate";
 const RAINBOW = "var(--brand-rainbow)";
 const RAINBOW_TEXT = "var(--brand-rainbow-vivid)";
 
+/** The contact address used across the marketing surfaces (footer, privacy,
+ *  terms). The phone tri-CTA "notify me" / "email me a desktop link" actions
+ *  open the visitor's own mail client to this address rather than POSTing to a
+ *  capture endpoint that does not exist yet. */
+const CONTACT_EMAIL = "researchos.llc@gmail.com";
+
+/** Launch flag, shared with CompanionHub. When the companion app actually ships
+ *  on the stores, set NEXT_PUBLIC_COMPANION_APP_LIVE=1 in Vercel and the tri-CTA
+ *  store badges become real links; until then they render a "Coming soon" state
+ *  so the phone visitor never taps a dead store URL. */
+const COMPANION_APP_LIVE = process.env.NEXT_PUBLIC_COMPANION_APP_LIVE === "1";
+
+/** Real App Store / Play listing URLs, filled in at launch (mirrors the
+ *  placeholder in CompanionHub). Only used when COMPANION_APP_LIVE is true. */
+const APP_STORE_URL =
+  "https://apps.apple.com/app/researchos-companion/idPLACEHOLDER";
+const PLAY_STORE_URL =
+  "https://play.google.com/store/apps/details?id=app.researchos.companion";
+
+/** mailto: for the "email me a desktop link" + "notify me" actions. We open the
+ *  visitor's own mail client (the same draft-and-hand-off pattern the pricing
+ *  "Notify me at launch" CTA and the PI purchase routing use) rather than ship a
+ *  silently-broken POST form. */
+// TODO(v2): wire a real capture endpoint (waitlist / desktop-link emailer) and
+// swap these mailto: actions for it once the backend exists.
+const DESKTOP_LINK_MAILTO =
+  `mailto:${CONTACT_EMAIL}?subject=` +
+  encodeURIComponent("Send me the ResearchOS desktop link") +
+  "&body=" +
+  encodeURIComponent(
+    "Please send me the link to open ResearchOS on a desktop browser. (Open this from Chrome or Edge on a laptop or desktop to start your notebook.)",
+  );
+const NOTIFY_MAILTO =
+  `mailto:${CONTACT_EMAIL}?subject=` +
+  encodeURIComponent("Notify me about ResearchOS") +
+  "&body=" +
+  encodeURIComponent(
+    "I'd like the desktop link plus updates when the ResearchOS companion app launches.",
+  );
+
 /** A check glyph for the trust-block lists, sky-blue. The single inline check
  *  glyph in the file, reused everywhere a bullet needs a tick. */
 function CheckGlyph() {
@@ -382,6 +422,382 @@ function TrustCard({
   return <div className={cls}>{inner}</div>;
 }
 
+/* ----------------------------------------------------------------------------
+ * Phone reflow of the cost table (the lead band). Below the `sm` breakpoint the
+ * wide three-column table is hard to scan with a thumb, so each tool becomes a
+ * stacked card (name + what it does + price) and the "thousands -> free" punch
+ * line becomes a final highlighted card. Desktop (>= sm) keeps the real table.
+ * SSR-safe: pure CSS visibility toggle, no viewport hook.
+ * -------------------------------------------------------------------------- */
+function CostCards() {
+  return (
+    <div className="mt-8 flex flex-col gap-3 sm:hidden">
+      {COST_ROWS.map((r) => (
+        <div
+          key={r.tool}
+          className="rounded-2xl border border-[#e3eaf3] bg-white p-4 shadow-[0_1px_2px_rgba(15,40,80,0.04)]"
+        >
+          <div className="flex items-baseline justify-between gap-3">
+            <span className="text-body font-bold text-brand-ink">{r.tool}</span>
+            <span className="whitespace-nowrap text-meta font-bold text-brand-ink">
+              {r.price}
+            </span>
+          </div>
+          <p className="mt-1 text-meta leading-snug text-[#475569]">{r.does}</p>
+        </div>
+      ))}
+      {/* The punch line, as a branded card. */}
+      <div
+        className="relative overflow-hidden rounded-2xl border border-transparent bg-gradient-to-br from-white to-[#eef5fc] p-4"
+        style={{ boxShadow: "0 0 0 1.5px var(--brand-action)" }}
+      >
+        <div className="text-xl font-extrabold leading-tight tracking-tight text-brand-ink">
+          Thousands per year <span aria-hidden>&rarr;</span>{" "}
+          <span
+            style={{
+              background: RAINBOW_TEXT,
+              WebkitBackgroundClip: "text",
+              backgroundClip: "text",
+              color: "transparent",
+            }}
+          >
+            free
+          </span>
+        </div>
+        <div className="mt-1 text-body font-extrabold text-emerald-600">
+          with ResearchOS
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ----------------------------------------------------------------------------
+ * Phone reflow of the four-way comparison table. Below `sm` each product
+ * becomes a stacked card listing how it scores on each capability (price, where
+ * the data lives, full-suite). ResearchOS leads, framed with the brand accent;
+ * the others follow. Desktop (>= sm) keeps the wide table.
+ * -------------------------------------------------------------------------- */
+const COMPARE_CAPS: { label: string; us: Cell; labarchives: Cell; snapgene: Cell; quartzy: Cell }[] = [
+  {
+    label: "Price",
+    us: { mark: "win", text: "Free and open source; the app never charges per seat" },
+    labarchives: { mark: "none", text: "Paid, per-seat licensing; limited free tier" },
+    snapgene: { mark: "none", text: "Paid license per seat; free viewer only" },
+    quartzy: { mark: "have", text: "Free core ordering; paid inventory tiers" },
+  },
+  {
+    label: "Where your data lives",
+    us: { mark: "win", text: "A folder on your own machine" },
+    labarchives: { mark: "none", text: "On LabArchives' cloud servers" },
+    snapgene: { mark: "have", text: "Files on your machine" },
+    quartzy: { mark: "none", text: "On Quartzy's cloud servers" },
+  },
+  {
+    label: "A full lab suite",
+    us: { mark: "win", text: "Notebook, planning, purchasing, sequences, all in one" },
+    labarchives: { mark: "have", text: "Notebook plus widgets and add-ons" },
+    snapgene: { mark: "none", text: "Sequences only, not a notebook" },
+    quartzy: { mark: "none", text: "Ordering and inventory only" },
+  },
+];
+
+type CompareProduct = "us" | "labarchives" | "snapgene" | "quartzy";
+const COMPARE_PRODUCTS: { id: CompareProduct; name: string }[] = [
+  { id: "us", name: "ResearchOS" },
+  { id: "labarchives", name: "LabArchives" },
+  { id: "snapgene", name: "SnapGene" },
+  { id: "quartzy", name: "Quartzy" },
+];
+
+function ComparisonCards() {
+  return (
+    <div className="mx-auto mt-2 flex max-w-[520px] flex-col gap-3 sm:hidden">
+      {COMPARE_PRODUCTS.map((p) => {
+        const isUs = p.id === "us";
+        return (
+          <div
+            key={p.id}
+            className="overflow-hidden rounded-2xl border bg-white"
+            style={
+              isUs
+                ? {
+                    borderColor: "var(--brand-action)",
+                    boxShadow: "0 0 0 1px var(--brand-action)",
+                  }
+                : { borderColor: "#e3eaf3" }
+            }
+          >
+            <div
+              className={`px-4 py-2.5 ${isUs ? "" : "bg-[#f5f9fd]"}`}
+              style={
+                isUs
+                  ? {
+                      background:
+                        "linear-gradient(90deg, rgba(18,131,201,0.10), rgba(155,123,214,0.10))",
+                    }
+                  : undefined
+              }
+            >
+              <span
+                className={`text-body font-extrabold ${isUs ? "text-sky-700" : "text-brand-ink"}`}
+              >
+                {p.name}
+              </span>
+            </div>
+            <div>
+              {COMPARE_CAPS.map((cap) => {
+                const cell = cap[p.id];
+                return (
+                  <div
+                    key={cap.label}
+                    className="flex items-start gap-2.5 border-t border-[#e3eaf3] px-4 py-2.5 first:border-t-0"
+                  >
+                    <MarkIcon mark={cell.mark} />
+                    <div className="min-w-0">
+                      <div className="text-meta font-semibold text-brand-ink">
+                        {cap.label}
+                      </div>
+                      <div className="text-meta leading-snug text-[#64748b]">
+                        {cell.text}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+/* ----------------------------------------------------------------------------
+ * Store badge (App Store / Google Play) for the phone tri-CTA. Dark pill,
+ * matches the mockup's .badge. Renders as a link when COMPANION_APP_LIVE, else
+ * a non-interactive "Coming soon" pill so we never tap a dead store URL.
+ * -------------------------------------------------------------------------- */
+function StoreBadge({
+  store,
+}: {
+  store: "apple" | "google";
+}) {
+  const isApple = store === "apple";
+  const href = isApple ? APP_STORE_URL : PLAY_STORE_URL;
+  const line1 = COMPANION_APP_LIVE
+    ? isApple
+      ? "Download on the"
+      : "Get it on"
+    : "Coming soon to";
+  const line2 = isApple ? "App Store" : "Google Play";
+  const glyph = isApple ? (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="#fff" aria-hidden className="flex-none">
+      <path d="M16.4 12.6c0-2 1.6-3 1.7-3-1-1.4-2.4-1.6-2.9-1.6-1.2-.1-2.4.7-3 .7-.6 0-1.6-.7-2.6-.7-1.3 0-2.6.8-3.2 2-1.4 2.4-.4 6 1 8 .6 1 1.4 2.1 2.4 2 1-.1 1.3-.6 2.5-.6s1.5.6 2.6.6 1.7-1 2.3-2c.7-1.1 1-2.1 1-2.2-.1 0-2.1-.8-2.1-3.4zM14.7 6.3c.5-.7.9-1.6.8-2.5-.8 0-1.7.5-2.3 1.2-.5.6-.9 1.5-.8 2.4.9.1 1.8-.4 2.3-1.1z" />
+    </svg>
+  ) : (
+    <svg width="17" height="17" viewBox="0 0 24 24" aria-hidden className="flex-none">
+      <path fill="#39a0d8" d="M3.6 2.2l9.2 9.2-2.6 2.6z" />
+      <path fill="#5bbf6a" d="M3.6 2.2L14.4 8 12 10.4z" />
+      <path fill="#f6c343" d="M17.6 9.9l2.8 1.6c1 .6 1 1.4 0 2l-2.8 1.6-2.8-2.6z" />
+      <path fill="#d8475b" d="M3.6 21.8l9.2-9.2 2.6 2.6z" />
+    </svg>
+  );
+
+  const inner = (
+    <>
+      {glyph}
+      <span className="min-w-0 text-left">
+        <span className="block text-[9px] leading-none text-white/80">
+          {line1}
+        </span>
+        <span className="block text-body font-bold leading-tight text-white">
+          {line2}
+        </span>
+      </span>
+    </>
+  );
+
+  const cls =
+    "flex min-h-[44px] flex-1 items-center gap-2 rounded-xl border border-[#1c2630] bg-[#0f1722] px-3 py-2";
+
+  if (COMPANION_APP_LIVE) {
+    return (
+      <a
+        href={href}
+        target="_blank"
+        rel="noopener noreferrer"
+        className={`${cls} transition-transform hover:scale-[1.02]`}
+        aria-label={`${isApple ? "Download on the App Store" : "Get it on Google Play"}`}
+      >
+        {inner}
+      </a>
+    );
+  }
+  return (
+    <div className={`${cls} opacity-90`} aria-label={`${line2} ${line1.toLowerCase()}`}>
+      {inner}
+    </div>
+  );
+}
+
+/* ----------------------------------------------------------------------------
+ * The phone / unsupported tri-CTA (mockup scroll 1). Shown only when
+ * `unsupported` is true, in priority order: (1) companion app, (2) open on
+ * desktop + live demo, (3) notify me. It replaces the desktop "Start your
+ * notebook" entry (there is no app to start on a phone). Sits on the branded
+ * MarketingBackdrop with the living hero BeakerBot, so the phone visit feels
+ * like the same product, not a dead end.
+ * -------------------------------------------------------------------------- */
+function PhoneTriCta() {
+  return (
+    <section className="relative isolate overflow-hidden border-b border-[#dbe6f3] bg-gradient-to-b from-white to-[#eef4fb] px-5 pb-12 pt-6 sm:px-12 sm:pb-16">
+      <MarketingBackdrop tone="vivid" />
+      <div className="relative z-10 mx-auto max-w-[1080px]">
+        {/* Hero block: living mascot + headline. */}
+        <Reveal className="flex flex-col items-center text-center">
+          <div
+            aria-hidden
+            className="relative drop-shadow-[0_14px_30px_rgba(26,160,230,0.34)]"
+          >
+            <BeakerBot
+              pose="waving"
+              alive
+              className="h-28 w-28 text-brand-sky sm:h-32 sm:w-32"
+            />
+          </div>
+          <span className="mt-2 inline-flex items-center gap-2 rounded-full border border-[#d3deec] bg-sky-50 px-3 py-1 text-meta font-semibold text-sky-700">
+            The open lab notebook
+          </span>
+          <h1 className="mt-4 max-w-[16ch] text-[clamp(1.75rem,8vw,2.5rem)] font-extrabold leading-[1.08] tracking-tight text-brand-ink">
+            Your research,{" "}
+            <span
+              style={{
+                background: RAINBOW_TEXT,
+                WebkitBackgroundClip: "text",
+                backgroundClip: "text",
+                color: "transparent",
+              }}
+            >
+              on every screen
+            </span>
+          </h1>
+          <p className="mt-3 max-w-[34ch] text-body leading-relaxed text-[#475569]">
+            A local-first notebook, sharing, and a Prism-class analysis suite.
+            Capture at the bench from your phone; do the deep work on desktop.
+          </p>
+        </Reveal>
+
+        {/* Tri-CTA cards: single column on phone, three across on a wide
+            screen (e.g. an unsupported desktop browser like Safari/Firefox). */}
+        <div className="mt-8 grid gap-4 md:grid-cols-3 md:items-start">
+          {/* 1. Companion app */}
+          <Reveal delay={0}>
+            <div
+              className="relative h-full overflow-hidden rounded-2xl bg-gradient-to-b from-white to-[#eef5fc] p-5 shadow-[0_18px_40px_-22px_rgba(15,23,34,0.45)]"
+              style={{ boxShadow: "0 0 0 1.5px var(--brand-action), 0 18px 40px -22px rgba(15,23,34,0.45)" }}
+            >
+              <div className="text-meta font-bold uppercase tracking-[0.06em] text-brand-action">
+                Built for the bench
+              </div>
+              <h2 className="mt-1 text-title font-extrabold text-brand-ink">
+                Get the companion app
+              </h2>
+              <p className="mt-1 text-body leading-snug text-[#475569]">
+                Capture experiments, photos, timers and checklists at the bench.
+                It syncs straight into your notebook.
+              </p>
+              <div className="mt-4 flex gap-2">
+                <StoreBadge store="apple" />
+                <StoreBadge store="google" />
+              </div>
+              {!COMPANION_APP_LIVE && (
+                <p className="mt-3 text-meta leading-snug text-[#7c8aa0]">
+                  The companion app is on the way. Drop your email below and we
+                  will tell you the moment it lands.
+                </p>
+              )}
+            </div>
+          </Reveal>
+
+          {/* 2. Open on desktop + live demo */}
+          <Reveal delay={90}>
+            <div className="flex h-full flex-col rounded-2xl border border-[#e3eaf3] bg-white p-5 shadow-[0_18px_40px_-22px_rgba(15,23,34,0.45)]">
+              <h2 className="text-title font-extrabold text-brand-ink">
+                Open on desktop for the full app
+              </h2>
+              <p className="mt-1 text-body leading-snug text-[#475569]">
+                The complete notebook, analysis, figures, and the sequence and
+                chemistry workbenches run on a desktop browser.
+              </p>
+              <div className="mt-4 flex flex-col gap-2.5">
+                <a
+                  href="/demo"
+                  data-testid="phone-cta-demo"
+                  className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-xl bg-brand-action px-4 text-body font-bold text-white transition-transform hover:scale-[1.02]"
+                >
+                  <span aria-hidden>&#9654;</span> Try the live demo
+                </a>
+                <a
+                  href={DESKTOP_LINK_MAILTO}
+                  className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-xl border border-[#cfdcec] bg-[#f4f7fb] px-4 text-body font-semibold text-brand-ink"
+                >
+                  Email me a desktop link <span aria-hidden>&rarr;</span>
+                </a>
+              </div>
+              <p className="mt-3 text-meta leading-snug text-[#7c8aa0]">
+                Runs in Chrome or Edge on a laptop or desktop. The demo needs no
+                account.
+              </p>
+            </div>
+          </Reveal>
+
+          {/* 3. Notify me */}
+          <Reveal delay={180}>
+            <div className="flex h-full flex-col rounded-2xl border border-[#e3eaf3] bg-white p-5 shadow-[0_18px_40px_-22px_rgba(15,23,34,0.45)]">
+              <h2 className="text-title font-extrabold text-brand-ink">
+                Be first to know
+              </h2>
+              <p className="mt-1 text-body leading-snug text-[#475569]">
+                New to ResearchOS? We will send the desktop link plus launch
+                updates for the companion app.
+              </p>
+              {/* No capture endpoint exists yet, so this hands off to the
+                  visitor's own mail client (draft-and-hand-off) rather than
+                  POSTing into the void. */}
+              <a
+                href={NOTIFY_MAILTO}
+                data-testid="phone-cta-notify"
+                className="mt-4 inline-flex min-h-[44px] items-center justify-center gap-2 rounded-xl bg-[#0f1722] px-4 text-body font-bold text-white transition-transform hover:scale-[1.02]"
+              >
+                Notify me <span aria-hidden>&rarr;</span>
+              </a>
+              <p className="mt-3 text-meta leading-snug text-[#7c8aa0]">
+                Free to start. Your data stays on your own disk; the account is
+                only for sharing and the researcher directory.
+              </p>
+            </div>
+          </Reveal>
+        </div>
+
+        {/* Trust chips. */}
+        <div className="mt-7 flex flex-wrap justify-center gap-2">
+          {["1 GB free cloud", "Local-first", "Open source", "No lock-in"].map(
+            (c) => (
+              <span
+                key={c}
+                className="rounded-full border border-[#e3eaf3] bg-[#f4f7fb] px-3 py-1 text-meta font-semibold text-[#475569]"
+              >
+                {c}
+              </span>
+            ),
+          )}
+        </div>
+      </div>
+    </section>
+  );
+}
+
 /* ========================================================================== */
 
 export default function WelcomePage({
@@ -531,7 +947,13 @@ export default function WelcomePage({
             MarketingBackdrop aurora (vivid) so the brand sings here, the same
             stage the pricing hero uses. The NIH card is NOT here anymore; it is
             its own section #12 below. */}
-        {!embedded && (
+        {/* On an unsupported device/browser (every phone, plus Safari/Firefox)
+            the desktop "start your notebook" entry has nowhere to go, so the
+            standard hero is replaced by the tri-CTA: companion app, open on
+            desktop + demo, and notify me. Still hidden when embedded. */}
+        {!embedded && unsupported && <PhoneTriCta />}
+
+        {!embedded && !unsupported && (
           <header className="relative isolate overflow-hidden bg-gradient-to-b from-white to-[#eef4fb] px-6 pb-16 pt-4 text-center sm:px-12">
             <MarketingBackdrop tone="vivid" />
             <Reveal className="relative z-10 mx-auto flex max-w-3xl flex-col items-center">
@@ -627,7 +1049,11 @@ export default function WelcomePage({
                 it, free, in a folder on your own machine.
               </p>
             </Reveal>
-            <CostTable />
+            {/* Wide cost table on >= sm; stacked cards on phone. */}
+            <div className="hidden sm:block">
+              <CostTable />
+            </div>
+            <CostCards />
             <Reveal>
               <p className="mt-5 max-w-[68ch] border-t border-dashed border-[#dbe6f3] pt-4 text-body leading-relaxed text-[#64748b]">
                 Free to use, with every feature included. The only thing that
@@ -675,7 +1101,10 @@ export default function WelcomePage({
             restPose="idle"
             size="h-24 w-24"
           >
-            <div className="mx-auto max-w-[1320px] overflow-hidden rounded-2xl border border-[#e3eaf3] bg-white shadow-[0_1px_2px_rgba(15,40,80,0.04)]">
+            {/* Phone: the four-way table reflows into stacked per-product cards
+                so BeakerBot peeks over the same content at any width. */}
+            <ComparisonCards />
+            <div className="mx-auto hidden max-w-[1320px] overflow-hidden rounded-2xl border border-[#e3eaf3] bg-white shadow-[0_1px_2px_rgba(15,40,80,0.04)] sm:block">
               <div className="overflow-x-auto">
                 <table className="w-full min-w-[860px] border-collapse text-left">
                   <thead>
@@ -909,7 +1338,7 @@ export default function WelcomePage({
                   finished product shot, not an empty play placeholder. Leads
                   the cascade, then the four capability cards follow it in. */}
               <Reveal className="justify-self-center" delay={0}>
-                <div className="relative aspect-[9/19] w-[196px] overflow-hidden rounded-[30px] border-8 border-[#060d1c] bg-[#0d1424] shadow-[0_20px_54px_rgba(0,0,0,0.55)]">
+                <div className="relative aspect-[9/19] w-[clamp(150px,46vw,196px)] max-w-full overflow-hidden rounded-[30px] border-8 border-[#060d1c] bg-[#0d1424] shadow-[0_20px_54px_rgba(0,0,0,0.55)]">
                   <span
                     aria-hidden
                     className="absolute left-1/2 top-2.5 z-[2] h-1.5 w-[52px] -translate-x-1/2 rounded-full bg-[#060d1c]"
