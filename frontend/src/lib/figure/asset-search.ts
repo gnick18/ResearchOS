@@ -128,92 +128,139 @@ const TRIGRAM_FLOOR = 0.5; // below this, a fuzzy match is noise
  *  matters: the query being a prefix/substring of a real asset word (the user
  *  typed a fragment) is a strong signal; an asset word merely sitting inside the
  *  query term ("rod" inside "rodent") is usually coincidental and discounted. */
-function tokenMatch(term: string, hay: string): number {
-  if (term === hay) return 1;
-  // The user's term is the start of an asset word: "bacter" -> "bacteria".
-  if (hay.startsWith(term) && term.length >= 2) return 0.9;
-  // The user's term sits inside an asset word: "neuron" in "interneuron".
-  if (hay.includes(term) && term.length >= 3) return 0.72;
-  // An asset word sits inside the (longer) query term: coincidental unless the
-  // asset word is substantial and covers most of the term (so "rod" no longer
-  // hijacks "rodent", but "helix" still helps "double-helix").
-  if (term.includes(hay) && hay.length >= 4 && hay.length / term.length >= 0.6) {
-    return 0.6;
-  }
-  const sim = trigramSimilarity(term, hay);
+// A query term prepared ONCE per search: its words + each word's trigram set,
+// so we never recompute the query side inside the 14k-asset loop.
+interface PreparedTerm {
+  words: { text: string; tri: Set<string> }[];
+  isSynonym: boolean;
+}
+
+/** Best 0..1 match of one prepared query word against one haystack token. The
+ *  cheap string checks run always; the allocating trigram fuzzy path runs only
+ *  when `fuzzy` is set (the sparse-results fallback), since it is the dominant
+ *  cost and is only needed for typos. */
+function wordMatch(word: string, tri: Set<string>, hay: string, fuzzy: boolean): number {
+  if (word === hay) return 1;
+  if (hay.startsWith(word) && word.length >= 2) return 0.9;
+  if (hay.includes(word) && word.length >= 3) return 0.72;
+  if (word.includes(hay) && hay.length >= 4 && hay.length / word.length >= 0.6) return 0.6;
+  if (!fuzzy || Math.abs(word.length - hay.length) > 3) return 0;
+  const hg = trigrams(hay);
+  let inter = 0;
+  for (const g of tri) if (hg.has(g)) inter += 1;
+  const sim = (2 * inter) / (tri.size + hg.size);
   return sim >= TRIGRAM_FLOOR ? sim * 0.85 : 0;
 }
 
-/** Best match of one term across a field's tokens, scaled by field weight. */
-function termVsField(term: string, fieldTokens: string[], weight: number): number {
-  // Multi-word synonym terms (e.g. "cell death") match if all their words land.
-  const parts = term.split(" ");
-  let best = 0;
-  if (parts.length > 1) {
+/** Best match of one prepared term across a field's tokens, scaled by weight. */
+function termVsTokens(term: PreparedTerm, tokens: string[], weight: number, fuzzy: boolean): number {
+  if (term.words.length > 1) {
     let sum = 0;
-    for (const p of parts) {
+    for (const w of term.words) {
       let b = 0;
-      for (const h of fieldTokens) b = Math.max(b, tokenMatch(p, h));
+      for (const h of tokens) b = Math.max(b, wordMatch(w.text, w.tri, h, fuzzy));
       sum += b;
     }
-    best = sum / parts.length;
-  } else {
-    for (const h of fieldTokens) best = Math.max(best, tokenMatch(term, h));
+    return (sum / term.words.length) * weight;
   }
+  const w = term.words[0];
+  let best = 0;
+  for (const h of tokens) best = Math.max(best, wordMatch(w.text, w.tri, h, fuzzy));
   return best * weight;
 }
 
-/** Score one asset against an expanded query. The original (first) query term
- *  scores at full weight; synonym terms are discounted. */
-function scoreAsset(asset: LibraryAsset, originalTerms: string[], synonymTerms: string[]): number {
-  const fields: [string[], number][] = [
-    [toTokens(asset.title), FIELD_WEIGHT.title],
-    [toTokens(asset.category ?? ""), FIELD_WEIGHT.category],
-    [toTokens(asset.tags.join(" ")), FIELD_WEIGHT.tags],
-  ];
-  // Every original query token must find *some* footing; we average their best
-  // hits so a 2-word query needs both words represented, not just one.
-  let originalScore = 0;
-  for (const term of originalTerms) {
-    let best = 0;
-    for (const [tokens, w] of fields) best = Math.max(best, termVsField(term, tokens, w));
-    originalScore += best;
-  }
-  originalScore = originalTerms.length ? originalScore / originalTerms.length : 0;
+// ---------------------------------------------------------------------------
+// Precomputed index. Tokenizing 14k assets on every keystroke is the dominant
+// cost, so do it ONCE (buildSearchIndex) and rank against the cached tokens.
+// ---------------------------------------------------------------------------
 
-  // Synonyms only *raise* the score (best single synonym hit), discounted.
-  let synScore = 0;
-  for (const term of synonymTerms) {
-    for (const [tokens, w] of fields) {
-      synScore = Math.max(synScore, termVsField(term, tokens, w) * SYNONYM_DISCOUNT);
+export interface SearchDoc {
+  asset: LibraryAsset;
+  titleTokens: string[];
+  catTokens: string[];
+  tagTokens: string[];
+}
+
+/** Tokenize a manifest once into searchable docs (memoize on the asset list). */
+export function buildSearchIndex(assets: LibraryAsset[]): SearchDoc[] {
+  return assets.map((asset) => ({
+    asset,
+    titleTokens: toTokens(asset.title),
+    catTokens: toTokens(asset.category ?? ""),
+    tagTokens: toTokens(asset.tags.join(" ")),
+  }));
+}
+
+function prepareTerm(text: string, isSynonym: boolean): PreparedTerm {
+  return {
+    words: text.split(" ").map((w) => ({ text: w, tri: trigrams(w) })),
+    isSynonym,
+  };
+}
+
+/** Rank precomputed docs by near-miss relevance. The hot path: no per-asset
+ *  tokenization, query trigrams computed once. */
+export function rankDocs(
+  docs: SearchDoc[],
+  query: string,
+  opts: { minScore?: number; limit?: number } = {},
+): ScoredAsset[] {
+  const minScore = opts.minScore ?? 0.34;
+  const limit = opts.limit ?? 240;
+  const q = norm(query);
+  if (!q) return [];
+  const originalWords = q.split(" ").filter(Boolean);
+  const original: PreparedTerm[] = [prepareTerm(q, false)];
+  const synonyms: PreparedTerm[] = expandQuery(query)
+    .filter((t) => t !== q && !originalWords.includes(t))
+    .map((t) => prepareTerm(t, true));
+
+  const scoreOnce = (fuzzy: boolean): ScoredAsset[] => {
+    const out: ScoredAsset[] = [];
+    for (const doc of docs) {
+      let best = 0;
+      for (const term of original) {
+        best = Math.max(
+          best,
+          termVsTokens(term, doc.titleTokens, FIELD_WEIGHT.title, fuzzy),
+          termVsTokens(term, doc.catTokens, FIELD_WEIGHT.category, fuzzy),
+          termVsTokens(term, doc.tagTokens, FIELD_WEIGHT.tags, fuzzy),
+        );
+      }
+      let score = best;
+      if (score < 0.999) {
+        for (const term of synonyms) {
+          const s =
+            Math.max(
+              termVsTokens(term, doc.titleTokens, FIELD_WEIGHT.title, fuzzy),
+              termVsTokens(term, doc.catTokens, FIELD_WEIGHT.category, fuzzy),
+              termVsTokens(term, doc.tagTokens, FIELD_WEIGHT.tags, fuzzy),
+            ) * SYNONYM_DISCOUNT;
+          if (s > score) score = s;
+        }
+      }
+      if (score >= minScore) out.push({ asset: doc.asset, score });
     }
-  }
-  return Math.max(originalScore, synScore);
+    return out;
+  };
+
+  // Cheap pass first (no trigram allocation). Only when literal + synonym hits
+  // are sparse (a likely typo) do the expensive fuzzy pass.
+  let scored = scoreOnce(false);
+  if (scored.length < 12) scored = scoreOnce(true);
+  scored.sort((a, b) => b.score - a.score || a.asset.title.localeCompare(b.asset.title));
+  return scored.slice(0, limit);
 }
 
 /**
- * Rank assets by near-miss relevance to a free-text query. Returns scored
- * matches above `minScore`, best first, capped at `limit`. An empty query
- * returns [] (the caller shows the unfiltered/category view instead).
+ * Rank assets by near-miss relevance (typo + synonym tolerant). Convenience
+ * wrapper that builds the index inline; callers that re-search the same manifest
+ * should buildSearchIndex once and call rankDocs to avoid re-tokenizing.
  */
 export function rankAssets(
   assets: LibraryAsset[],
   query: string,
   opts: { minScore?: number; limit?: number } = {},
 ): ScoredAsset[] {
-  const minScore = opts.minScore ?? 0.34;
-  const limit = opts.limit ?? 240;
-  const originalTerms = norm(query) ? norm(query).split(" ").filter(Boolean) : [];
-  if (originalTerms.length === 0) return [];
-  const expanded = expandQuery(query);
-  const synonymTerms = expanded.filter((t) => !originalTerms.includes(t) && t !== norm(query));
-
-  const scored: ScoredAsset[] = [];
-  for (const asset of assets) {
-    const score = scoreAsset(asset, originalTerms, synonymTerms);
-    if (score >= minScore) scored.push({ asset, score });
-  }
-  // Highest score first; stable tiebreak on title so the order is deterministic.
-  scored.sort((a, b) => b.score - a.score || a.asset.title.localeCompare(b.asset.title));
-  return scored.slice(0, limit);
+  return rankDocs(buildSearchIndex(assets), query, opts);
 }

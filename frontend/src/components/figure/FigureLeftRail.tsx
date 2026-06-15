@@ -19,7 +19,7 @@ import {
   type LibraryAsset,
   type CategoryGroup,
 } from "@/lib/figure/asset-library";
-import { rankAssets } from "@/lib/figure/asset-search";
+import { buildSearchIndex, rankDocs } from "@/lib/figure/asset-search";
 import {
   buildSmartSearchTasks,
   semanticSearch,
@@ -245,6 +245,11 @@ const ASSET_SMART_SEARCH_ENABLED =
 
 const smartTimingStore = createLocalTimingStore();
 
+// Cap the rendered grid: each tile fetches an SVG from the CDN, so rendering
+// hundreds at once is what makes results feel slow to appear. ~90 fills several
+// scroll-pages; the rest are reachable by narrowing the search/category.
+const RESULT_CAP = 90;
+
 function IconsPanel({ onPick }: { onPick: (a: LibraryAsset) => void }) {
   const [assets, setAssets] = useState<LibraryAsset[]>([]);
   const [loading, setLoading] = useState(true);
@@ -253,6 +258,9 @@ function IconsPanel({ onPick }: { onPick: (a: LibraryAsset) => void }) {
   // Which top-level sections are open in the tree. Collapsed by default so a
   // 9-section corpus stays scannable; selecting a leaf keeps its section open.
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
+
+  // Debounced query so we don't re-rank 14k assets on every keystroke.
+  const [debouncedQuery, setDebouncedQuery] = useState("");
 
   useEffect(() => {
     let live = true;
@@ -265,6 +273,14 @@ function IconsPanel({ onPick }: { onPick: (a: LibraryAsset) => void }) {
       live = false;
     };
   }, []);
+
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedQuery(query), 120);
+    return () => clearTimeout(t);
+  }, [query]);
+
+  // Tokenize the manifest ONCE; re-searching reuses the cached tokens.
+  const searchIndex = useMemo(() => buildSearchIndex(assets), [assets]);
 
   // The locked taxonomy from the Icon Library lane: sections (display-ordered,
   // empty omitted) each holding the leaf categories actually present.
@@ -281,10 +297,14 @@ function IconsPanel({ onPick }: { onPick: (a: LibraryAsset) => void }) {
   const [smartResults, setSmartResults] = useState<LibraryAsset[] | null>(null);
 
   const keywordResults = useMemo(() => {
-    const inCategory = searchAssets(assets, { category });
-    if (!query.trim()) return inCategory.slice(0, 240);
-    return rankAssets(inCategory, query, { limit: 240 }).map((s) => s.asset);
-  }, [assets, query, category]);
+    if (!debouncedQuery.trim()) {
+      return searchAssets(assets, { category }).slice(0, RESULT_CAP);
+    }
+    const docs = category
+      ? searchIndex.filter((d) => d.asset.category === category)
+      : searchIndex;
+    return rankDocs(docs, debouncedQuery, { limit: RESULT_CAP }).map((s) => s.asset);
+  }, [assets, searchIndex, debouncedQuery, category]);
 
   const enableSmart = () => {
     setSmart(true);
@@ -307,32 +327,29 @@ function IconsPanel({ onPick }: { onPick: (a: LibraryAsset) => void }) {
       });
   };
 
-  // Recompute blended semantic results (debounced) when smart is on + ready.
+  // Recompute blended semantic results when smart is on + ready (debounced query).
   useEffect(() => {
-    if (!smart || !smartReady || !query.trim()) {
+    if (!smart || !smartReady || !debouncedQuery.trim()) {
       setSmartResults(null);
       return;
     }
     let live = true;
-    const t = setTimeout(() => {
-      void semanticSearch(assets, query, { limit: 240 }).then((r) => {
-        if (live) setSmartResults(r.map((s) => s.asset));
-      });
-    }, 150);
+    void semanticSearch(assets, debouncedQuery, { limit: RESULT_CAP }).then((r) => {
+      if (live) setSmartResults(r.map((s) => s.asset));
+    });
     return () => {
       live = false;
-      clearTimeout(t);
     };
-  }, [smart, smartReady, query, assets]);
+  }, [smart, smartReady, debouncedQuery, assets]);
 
   // What the grid shows: smart (blended, category-filtered) when active + ready,
   // else the keyword baseline.
   const results = useMemo(() => {
-    if (smart && smartReady && query.trim() && smartResults) {
+    if (smart && smartReady && debouncedQuery.trim() && smartResults) {
       return category ? smartResults.filter((a) => a.category === category) : smartResults;
     }
     return keywordResults;
-  }, [smart, smartReady, query, smartResults, category, keywordResults]);
+  }, [smart, smartReady, debouncedQuery, smartResults, category, keywordResults]);
 
   const reviewable = useMemo(
     () => (ASSET_CONTRIBUTE_ENABLED ? countReviewable(assets) : 0),
