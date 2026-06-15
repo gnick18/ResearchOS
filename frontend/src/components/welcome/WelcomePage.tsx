@@ -113,6 +113,14 @@ const CONTACT_EMAIL = "researchos.llc@gmail.com";
  *  swap the pill for the official App Store + Google Play badge artwork. */
 const COMPANION_APP_LIVE = process.env.NEXT_PUBLIC_COMPANION_APP_LIVE === "1";
 
+/** Public mirror of the server BILLING_ENABLED switch, for client copy. While
+ *  false, the pricing copy says cloud + AI are free during the beta; while true,
+ *  it reads as live, billed pricing. NEXT_PUBLIC bakes at build, so flip it in
+ *  Vercel ALONGSIDE the server BILLING_ENABLED / AI_BILLING_ENABLED and redeploy
+ *  (see docs/proposals/2026-06-13-billing-go-live-checklist.md). Kept a separate
+ *  flag because the server switch is not readable from this client component. */
+const BILLING_LIVE = process.env.NEXT_PUBLIC_BILLING_LIVE === "1";
+
 /** mailto: for the "email me a desktop link" + "notify me" actions. We open the
  *  visitor's own mail client (the same draft-and-hand-off pattern the pricing
  *  "Notify me at launch" CTA and the PI purchase routing use) rather than ship a
@@ -759,6 +767,52 @@ function PhoneTriCta() {
   );
 }
 
+/* ----------------------------------------------------------------------------
+ * Compact pricing-tier snapshot for the cost lead. Shows the SHAPE of the plans
+ * (storage allowances, who pays) without printing the provisional Plus/Pro
+ * sticker prices, per docs/reference/billing-copy-facts.md (final prices are not
+ * published; the /pricing calculator shows the labeled estimates). The free/paid
+ * framing line is flag-aware: free during the beta while BILLING_LIVE is off,
+ * live billed pricing once it flips.
+ * -------------------------------------------------------------------------- */
+function TierSummary() {
+  const tiers: { name: string; detail: string }[] = [
+    { name: "Free", detail: "5 GB cloud, $0. A real working tier." },
+    { name: "Plus / Pro", detail: "More storage, priced at what it costs us." },
+    { name: "Labs", detail: "One shared pool. Only the PI pays." },
+    {
+      name: "Departments & institutions",
+      detail: "A sustaining rate that keeps it free for individuals.",
+    },
+  ];
+  return (
+    <div className="mt-8">
+      <div className="grid gap-3 sm:grid-cols-2">
+        {tiers.map((t) => (
+          <div
+            key={t.name}
+            className="rounded-2xl border border-[#e3eaf3] bg-white p-4 shadow-[0_1px_2px_rgba(15,40,80,0.04)]"
+          >
+            <div className="text-body font-extrabold text-brand-ink">
+              {t.name}
+            </div>
+            <p className="mt-0.5 text-meta leading-snug text-[#475569]">
+              {t.detail}
+            </p>
+          </div>
+        ))}
+      </div>
+      <p className="mt-3 text-meta leading-snug text-[#64748b]">
+        Plus a metered BeakerBot AI, priced near cost, with about 1.6 million free
+        tokens to start.{" "}
+        {BILLING_LIVE
+          ? "Cloud storage and AI are billed now, at what they cost us."
+          : "Cloud storage and AI are free during the beta while we test the billing."}
+      </p>
+    </div>
+  );
+}
+
 /* ========================================================================== */
 
 export default function WelcomePage({
@@ -1023,15 +1077,19 @@ export default function WelcomePage({
               />
             </Reveal>
             <Reveal>
+              <TierSummary />
+            </Reveal>
+            <Reveal>
               <p className="mt-5 max-w-[68ch] border-t border-dashed border-[#dbe6f3] pt-4 text-body leading-relaxed text-[#64748b]">
-                Free to use, with every feature included. The only thing that
-                ever costs money is optional cloud storage, and we charge what it
-                costs us.{" "}
+                The notebook and every feature are free, forever. The only thing
+                that ever costs money is optional cloud storage and the AI, and we
+                charge what they cost us.{" "}
                 <a
                   href="/pricing"
                   className="font-bold text-brand-action transition-colors hover:text-brand-ink"
                 >
-                  See exactly how it is priced <span aria-hidden>&rarr;</span>
+                  See the full pricing and the cost calculator{" "}
+                  <span aria-hidden>&rarr;</span>
                 </a>
               </p>
             </Reveal>
