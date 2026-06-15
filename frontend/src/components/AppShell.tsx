@@ -26,6 +26,7 @@ import FeedbackModal from "./FeedbackModal";
 import Wordmark from "./Wordmark";
 import { useShowcaseUnlock } from "./showcase/useShowcaseUnlock";
 import StreakBadge from "./StreakBadge";
+import LabHeaderLogo from "@/components/lab/LabHeaderLogo";
 import { installStreakActivityTracking } from "@/lib/streak/streak-activity-bootstrap";
 import { NAV_ITEMS, HOME_HREF } from "@/lib/nav";
 import { INVENTORY_ENABLED } from "@/lib/inventory/config";
@@ -402,6 +403,9 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
               onTextClick={onBeakerBotClick}
             />
             <StreakBadge username={currentUser} />
+            {/* Ambient lab mark: only renders for a signed-in lab member whose
+                lab has a logo, otherwise nothing (no layout shift for solos). */}
+            <LabHeaderLogo />
           </span>
         </PillWrap>
 
