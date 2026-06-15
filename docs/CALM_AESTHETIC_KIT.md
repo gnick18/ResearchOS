@@ -68,6 +68,11 @@ Every surface must be checked in BOTH modes. The recurring dark-mode traps:
   `dark:prose-invert`. Grep each file for raw color utilities without a `dark:`.
 - Tailwind `dark:` is wired to `[data-theme="dark"]` (globals.css @custom-variant),
   so `dark:` utilities work on the calm surface.
+- **Hover/press direction inverts in dark.** Light mode darkens on hover
+  (`hover:bg-surface-sunken`); in dark, sunken is *darker* than the raised
+  control, so that goes the wrong way. Dark should LIGHTEN: keep the base
+  (`dark:hover:bg-surface-raised`) + `dark:hover:brightness-125`, and
+  `dark:active:brightness-150` for press (light side: `active:brightness-95`).
 
 ## Per-page checklist
 For each page/surface, ask:
