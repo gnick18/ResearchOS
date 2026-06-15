@@ -44,12 +44,16 @@ The Phase 4 multi-add overlap is a real bug regardless of the advisor:
 
 This is the first, smallest slice and a good forcing function for the engine's overlap detector.
 
-## Decisions — OPEN (need Grant)
+## Decisions — LOCKED (Grant 2026-06-15)
 
-1. **Aggressiveness:** quiet inline banner only, or also a BeakerBot proactive popup the moment a crowded figure is produced (e.g. right after a Phase 4 multi-add)? Grant's wording leans proactive-popup; confirm it is not annoying on every small overlap.
-2. **Apply model:** one-click "apply the recommended fix," or a menu where each suggestion has its own preview + apply (his message implies the menu-with-previews)?
-3. **Prevention vs. cure:** also prevent the duplicate-overlay case at add-time in the Phase 4 wizard (block adding the same column twice / warn), or only flag it after via the advisor?
-4. **Threshold:** what counts as "overlapping enough" — any bbox intersection, or a % overlap / illegibility heuristic.
+1. **Aggressiveness:** threshold-gated BOTH — a quiet, dismissable in-figure banner for minor overlap, escalating to a BeakerBot popup for severe illegibility / click-eating. Must be **silenceable per-plot** ("don't show again on this plot", persisted on the figure).
+2. **Apply model:** HYBRID — (a) a one-click **magic-wand** button (Apple Photos metaphor) that auto-moves the setting toggles to fix the figure and is **reversible** (click the wand again to revert, plus an explicit Back/Revert), AND (b) a **menu of individual fixes each with its own live preview** so the user can pick + adjust. Wand for speed, menu for control, always undoable.
+3. **Prevention vs. cure:** PREVENT AT ADD-TIME for the duplicate-overlay case — the wizard defaults to one overlay per column and warns before a 2nd geom on the same column (warn, not block). **SHIPPED** (geom-step inline warning). The advisor still cures other overlap kinds.
+4. **Threshold:** still TBD ("overlapping enough" — likely a % bbox-overlap / illegibility heuristic, tuned during the engine build).
+
+## Build status (2026-06-15)
+- SHIPPED: legend dedupe (`36d318843`) + the Q2 add-time multi-overlay warning — the first prevent/cure slices.
+- NEXT: the deterministic engine (overlap detect from render bounding boxes -> fix enumeration as parameter deltas -> preview-render inputs), then the wand + menu UI + per-plot silence, then the BeakerBot door. Phylo first, then the shared `FigureSource` seam for Data Hub + Figure Composer.
 
 ## Related
 `[[project_phylo_phase4_smart_binding]]` (the trigger), `task_b849ab45` (interaction-collision instance), `[[project_figure_composer_styling]]` + `[[project_datahub_v2_stats]]` (the other data pages this must reach), `[[feedback_beakerbot_no_interpretation]]`, `[[feedback_no_soft_locks]]`.
