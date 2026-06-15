@@ -50,6 +50,12 @@ export interface EntityConfig {
   salesTaxNote: string | null;
   /** Tax reserve percentage, 0..100. A placeholder until confirmed. */
   reservePct: number;
+  /**
+   * The UW research award number the project originated under (the UW
+   * Distinguished Research Fellowship), recorded for the IP disclosure. Internal
+   * operator-console record only, never shown on any public surface. Null until set.
+   */
+  fundingGrantNo: string | null;
 }
 
 export type SalesTaxStatus = "pending" | "taxable" | "exempt";
@@ -256,6 +262,9 @@ export const DEFAULT_ENTITY: EntityConfig = {
   salesTaxStatus: "pending",
   salesTaxNote: null,
   reservePct: 30,
+  // Default null on purpose: the value is entered in the operator-only console
+  // and persisted to the private DB, never hardcoded in this public source file.
+  fundingGrantNo: null,
 };
 
 // --- date helpers, all in UTC so a timezone never shifts a due date ---

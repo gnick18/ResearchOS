@@ -202,6 +202,7 @@ function parseEntity(raw: unknown): EntityConfig | null {
     salesTaxStatus,
     salesTaxNote: o.salesTaxNote == null ? null : asString(o.salesTaxNote),
     reservePct,
+    fundingGrantNo: o.fundingGrantNo == null ? null : asString(o.fundingGrantNo),
   };
 }
 

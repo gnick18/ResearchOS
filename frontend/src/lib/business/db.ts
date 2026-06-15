@@ -90,6 +90,7 @@ export async function ensureBusinessSchema(): Promise<void> {
   await sql`ALTER TABLE business_entity ADD COLUMN IF NOT EXISTS sales_tax_status text`;
   await sql`ALTER TABLE business_entity ADD COLUMN IF NOT EXISTS sales_tax_note text`;
   await sql`ALTER TABLE business_entity ADD COLUMN IF NOT EXISTS reserve_pct numeric NOT NULL DEFAULT 30`;
+  await sql`ALTER TABLE business_entity ADD COLUMN IF NOT EXISTS funding_grant_no text`;
   await sql`ALTER TABLE business_entity ADD COLUMN IF NOT EXISTS updated_at timestamptz DEFAULT now()`;
   await sql`
     CREATE TABLE IF NOT EXISTS business_ledger (
@@ -332,6 +333,7 @@ type EntityRow = {
   sales_tax_status: string | null;
   sales_tax_note: string | null;
   reserve_pct: string | number | null;
+  funding_grant_no: string | null;
 };
 
 function normalizeSalesTaxStatus(v: string | null): EntityConfig["salesTaxStatus"] {
@@ -367,6 +369,7 @@ function rowToEntity(r: EntityRow): EntityConfig {
     salesTaxStatus: normalizeSalesTaxStatus(r.sales_tax_status),
     salesTaxNote: r.sales_tax_note ?? null,
     reservePct: r.reserve_pct == null ? DEFAULT_ENTITY.reservePct : Number(r.reserve_pct),
+    fundingGrantNo: r.funding_grant_no ?? DEFAULT_ENTITY.fundingGrantNo,
   };
 }
 
@@ -377,7 +380,7 @@ export async function getEntity(): Promise<EntityConfig> {
     SELECT legal_name, state, entity_id, formation_date, ein, registered_agent,
            duns, business_phone, apple_enrollment_id, apple_enrollment_date, google_play_account,
            google_enrollment_date, bank_label, docs_folder, sales_tax_status,
-           sales_tax_note, reserve_pct
+           sales_tax_note, reserve_pct, funding_grant_no
     FROM business_entity WHERE id = 1
   `) as EntityRow[];
   if (!rows.length) return { ...DEFAULT_ENTITY };
@@ -392,14 +395,14 @@ export async function upsertEntity(config: EntityConfig): Promise<EntityConfig> 
       (id, legal_name, state, entity_id, formation_date, ein, registered_agent,
        duns, business_phone, apple_enrollment_id, apple_enrollment_date, google_play_account,
        google_enrollment_date, bank_label,
-       docs_folder, sales_tax_status, sales_tax_note, reserve_pct, updated_at)
+       docs_folder, sales_tax_status, sales_tax_note, reserve_pct, funding_grant_no, updated_at)
     VALUES
       (1, ${config.legalName}, ${config.state}, ${config.entityId},
        ${config.formationDate}, ${config.ein}, ${config.registeredAgent},
        ${config.duns}, ${config.businessPhone}, ${config.appleEnrollmentId}, ${config.appleEnrollmentDate},
        ${config.googlePlayAccount}, ${config.googleEnrollmentDate},
        ${config.bankLabel}, ${config.docsFolder},
-       ${config.salesTaxStatus}, ${config.salesTaxNote}, ${config.reservePct}, now())
+       ${config.salesTaxStatus}, ${config.salesTaxNote}, ${config.reservePct}, ${config.fundingGrantNo}, now())
     ON CONFLICT (id) DO UPDATE SET
       legal_name = EXCLUDED.legal_name,
       state = EXCLUDED.state,
@@ -418,6 +421,7 @@ export async function upsertEntity(config: EntityConfig): Promise<EntityConfig> 
       sales_tax_status = EXCLUDED.sales_tax_status,
       sales_tax_note = EXCLUDED.sales_tax_note,
       reserve_pct = EXCLUDED.reserve_pct,
+      funding_grant_no = EXCLUDED.funding_grant_no,
       updated_at = now()
   `;
   await reconcileDevAccountFees(sql, config);
