@@ -885,6 +885,55 @@
     rgba(190, 205, 235, 0.16) 100%
   );
 }
+/* Top + bottom edge glows so the rail reads as a fully boxed floating panel
+ * (the purchase history panel gets these from the shell's beforeBody/afterBody
+ * slots; the rail has no such gaps, so it casts them itself, just above its top
+ * edge and just below its bottom edge). Right end masked so each glow meets the
+ * right seam at the corner without a hard nub. */
+.ros-helper-rail-topglow,
+.ros-helper-rail-botglow {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 16px;
+  pointer-events: none;
+  -webkit-mask-image: linear-gradient(to left, transparent 0, #000 14px, #000 100%);
+  mask-image: linear-gradient(to left, transparent 0, #000 14px, #000 100%);
+}
+.ros-helper-rail-topglow {
+  top: -16px;
+  background: linear-gradient(
+    to top,
+    rgba(15, 23, 42, 0.13) 0%,
+    rgba(15, 23, 42, 0.04) 50%,
+    transparent 100%
+  );
+}
+.ros-helper-rail-botglow {
+  bottom: -16px;
+  background: linear-gradient(
+    to bottom,
+    rgba(15, 23, 42, 0.13) 0%,
+    rgba(15, 23, 42, 0.04) 50%,
+    transparent 100%
+  );
+}
+[data-theme="dark"] .ros-helper-rail-topglow {
+  background: linear-gradient(
+    to top,
+    rgba(190, 205, 235, 0.13) 0%,
+    rgba(190, 205, 235, 0.04) 50%,
+    transparent 100%
+  );
+}
+[data-theme="dark"] .ros-helper-rail-botglow {
+  background: linear-gradient(
+    to bottom,
+    rgba(190, 205, 235, 0.13) 0%,
+    rgba(190, 205, 235, 0.04) 50%,
+    transparent 100%
+  );
+}
 
 /* Hide the native scrollbar on a viewport that uses the custom overlay thumb
  * (ScrollArea). The component draws its own pill thumb on top. */

@@ -99,6 +99,10 @@ export default function MarkdownShortcutsSidebar({
       data-tour-target="inline-editor-shortcut-bar"
       className={`${collapsed ? "w-8" : "w-52"} ros-helper-rail flex-shrink-0 border-r border-border flex flex-col transition-all duration-200`}
     >
+      {/* Top + bottom edge glows so the rail reads as a fully boxed floating
+          panel, matching the purchase history panel. */}
+      <div className="ros-helper-rail-topglow" aria-hidden />
+      <div className="ros-helper-rail-botglow" aria-hidden />
       <Tooltip
         label={collapsed ? "Expand helper panel" : "Collapse helper panel"}
         placement="right"
