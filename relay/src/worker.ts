@@ -3447,14 +3447,45 @@ export class LabRecordDO {
     this.sql().exec(
       "CREATE TABLE IF NOT EXISTS meta (k TEXT PRIMARY KEY, v TEXT)",
     );
-    // Pending join ACCEPTS (lab tier Phase 8c), one row per invite nonce. A
+    // Pending join ACCEPTS (lab tier Phase 8c), one row per joining MEMBER. A
     // member who opened a head-minted invite link posts a signed accept here
     // (the member email is SEALED to the head, so this row leaks no email). The
     // head reads them (head-signed /lab/accept/list), verifies + finalizes
-    // (addMember), then dismisses. Keyed by nonce so one invite yields one slot.
+    // (addMember), then dismisses. Keyed by the member's Ed25519 pubkey so ONE
+    // reusable invite link admits MANY members (each joiner gets their own
+    // pending row), and a member re-posting replaces only their own row.
     this.sql().exec(
-      "CREATE TABLE IF NOT EXISTS accepts (nonce TEXT PRIMARY KEY, accept TEXT, created_at INTEGER)",
+      "CREATE TABLE IF NOT EXISTS lab_accepts (member_pubkey TEXT PRIMARY KEY, nonce TEXT, accept TEXT, created_at INTEGER)",
     );
+    // One-time, idempotent, best-effort migration from the legacy nonce-keyed
+    // `accepts` table to the member-keyed `lab_accepts` table. A no-op once the
+    // legacy table is gone (the outer try/catch swallows the missing-table case).
+    try {
+      const legacy = this.sql()
+        .exec<{ accept: string; created_at: number }>(
+          "SELECT accept, created_at FROM accepts",
+        )
+        .toArray();
+      for (const r of legacy) {
+        try {
+          const a = JSON.parse(r.accept);
+          if (a && typeof a.memberEd25519Pub === "string") {
+            this.sql().exec(
+              "INSERT INTO lab_accepts (member_pubkey, nonce, accept, created_at) VALUES (?, ?, ?, ?) ON CONFLICT(member_pubkey) DO NOTHING",
+              a.memberEd25519Pub,
+              a.nonce ?? "",
+              r.accept,
+              r.created_at,
+            );
+          }
+        } catch {
+          /* skip a bad legacy row */
+        }
+      }
+      this.sql().exec("DROP TABLE accepts");
+    } catch {
+      /* no legacy table, nothing to migrate */
+    }
   }
 
   private sql(): SqlStorage {
@@ -3914,9 +3945,10 @@ export class LabRecordDO {
   /** POST /lab/accept?lab=<labId>. A member posts a signed join accept. Open
    *  write (the member may not be in any roster yet); the head is the real
    *  verifier at finalize. We do light shape validation, require the lab to
-   *  exist, and store ONE row per nonce (a re-post for the same nonce replaces
-   *  the prior pending accept). The member email inside is sealed to the head, so
-   *  this row leaks no email. */
+   *  exist, and store ONE row per joining MEMBER keyed by memberEd25519Pub (a
+   *  re-post by the same member replaces only their own pending accept, so a
+   *  single reusable invite link can admit many members). The member email
+   *  inside is sealed to the head, so this row leaks no email. */
   private async handleAcceptPush(request: Request, labId: string): Promise<Response> {
     if (this.metaGet("head_pubkey") === null) {
       return this.json({ error: "lab does not exist" }, 404);
@@ -3942,7 +3974,8 @@ export class LabRecordDO {
       return this.json({ error: "malformed accept" }, 400);
     }
     this.sql().exec(
-      "INSERT INTO accepts (nonce, accept, created_at) VALUES (?, ?, ?) ON CONFLICT(nonce) DO UPDATE SET accept = excluded.accept, created_at = excluded.created_at",
+      "INSERT INTO lab_accepts (member_pubkey, nonce, accept, created_at) VALUES (?, ?, ?, ?) ON CONFLICT(member_pubkey) DO UPDATE SET nonce = excluded.nonce, accept = excluded.accept, created_at = excluded.created_at",
+      a.memberEd25519Pub,
       a.nonce,
       JSON.stringify(a),
       Date.now(),
@@ -3984,7 +4017,7 @@ export class LabRecordDO {
     if (rej) return rej;
     const rows = this.sql()
       .exec<{ accept: string; created_at: number }>(
-        "SELECT accept, created_at FROM accepts ORDER BY created_at ASC",
+        "SELECT accept, created_at FROM lab_accepts ORDER BY created_at ASC",
       )
       .toArray();
     const accepts = rows.map((r) => ({
@@ -3994,23 +4027,24 @@ export class LabRecordDO {
     return this.json({ accepts }, 200);
   }
 
-  /** POST /lab/accept/dismiss?lab=<labId>. Head-signed removal of one accept.
-   *  Body: { nonce, issuedAt, signature } over
-   *  "lab-accept-dismiss\n<labId>\n<nonce>\n<issuedAt>". */
+  /** POST /lab/accept/dismiss?lab=<labId>. Head-signed removal of one member's
+   *  pending accept, keyed by the member's Ed25519 pubkey.
+   *  Body: { memberPubkey, issuedAt, signature } over
+   *  "lab-accept-dismiss\n<labId>\n<memberPubkey>\n<issuedAt>". */
   private async handleAcceptDismiss(request: Request, labId: string): Promise<Response> {
-    let body: { nonce?: string; issuedAt?: number; signature?: string };
+    let body: { memberPubkey?: string; issuedAt?: number; signature?: string };
     try {
       body = await request.json();
     } catch {
       return this.json({ error: "invalid JSON body" }, 400);
     }
-    if (typeof body.nonce !== "string") {
-      return this.json({ error: "missing nonce" }, 400);
+    if (typeof body.memberPubkey !== "string") {
+      return this.json({ error: "missing memberPubkey" }, 400);
     }
-    const message = `lab-accept-dismiss\n${labId}\n${body.nonce}\n${body.issuedAt}`;
+    const message = `lab-accept-dismiss\n${labId}\n${body.memberPubkey}\n${body.issuedAt}`;
     const rej = this.requireHeadSig(message, body.signature ?? "", body.issuedAt ?? 0);
     if (rej) return rej;
-    this.sql().exec("DELETE FROM accepts WHERE nonce = ?", body.nonce);
+    this.sql().exec("DELETE FROM lab_accepts WHERE member_pubkey = ?", body.memberPubkey);
     return this.json({ ok: true }, 200);
   }
 

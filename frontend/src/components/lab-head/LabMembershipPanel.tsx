@@ -709,16 +709,17 @@ export default function LabMembershipPanel() {
 
       <hr className="border-border" />
 
-      {/* Invite link (manual fallback): share a generic one-time link yourself. */}
+      {/* Invite link (manual fallback): share a reusable link yourself. */}
       <div className="space-y-3">
         <h4 className="text-body font-medium text-foreground">
           Or share an invite link
         </h4>
         <p className="text-meta text-foreground-muted leading-relaxed">
-          Mint a one-time link and share it however you like (chat, a printed
-          QR, in person). They open it, sign in with any provider, and request
-          to join. The email they sign in with is bound to their membership,
-          whatever address you sent the link to.
+          Mint a reusable link and share it however you like (your lab email
+          list, chat, a printed QR, in person). Anyone who opens it signs in
+          with any provider and requests to join, and you approve each request.
+          The link stays valid for 7 days. The email each person signs in with
+          is bound to their membership, whatever address you sent the link to.
         </p>
         <button
           type="button"
