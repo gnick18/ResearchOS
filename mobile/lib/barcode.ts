@@ -12,9 +12,12 @@
 //
 // This NEVER invents data. The region is the GS1 prefix's issuing region, NOT a
 // claim about where the product was made, and it is labelled that way. Mapping a
-// prefix to an actual manufacturer NAME needs an external GEPIR lookup, which is
-// a separate (gated) layer. House style: no em-dashes, no emojis, no mid-sentence
-// colons.
+// prefix to an actual manufacturer or product NAME would need an external lookup,
+// which we intentionally do NOT do: no free database covers lab reagents (the
+// free open-data sources are consumer-goods only) and a paid one is not worth it.
+// The naming layer is instead the lab-shared barcode memory (the first scan of a
+// new box names it for the whole lab, offline and free). House style: no
+// em-dashes, no emojis, no mid-sentence colons.
 
 export type BarcodeAI = {
   /** Lot / batch number, GS1 AI (10). */
