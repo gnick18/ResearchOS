@@ -34,6 +34,12 @@ vi.mock("@/lib/sharing/oauth-availability", () => ({
   isRealSharingEnabled: () => false,
 }));
 
+// LabSignInGate calls useFileSystem() for `disconnect`; mock it so the suite
+// doesn't need a real FileSystemProvider wrapper.
+vi.mock("@/lib/file-system/file-system-context", () => ({
+  useFileSystem: () => ({ disconnect: vi.fn() }),
+}));
+
 // ── Fake controller factory ───────────────────────────────────────────────
 
 function makeFakeController(
