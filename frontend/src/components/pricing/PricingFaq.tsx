@@ -60,7 +60,7 @@ export default function PricingFaq() {
       <div className="mx-auto max-w-2xl divide-y divide-border border-y border-border">
         {FAQ.map(({ q, a }) => (
           <details key={q} className="group">
-            <summary className="flex cursor-pointer list-none items-center justify-between gap-3 py-3.5 text-left text-[14px] font-semibold text-foreground [&::-webkit-details-marker]:hidden">
+            <summary className="flex cursor-pointer list-none items-center justify-between gap-3 py-4 text-left text-[13.5px] font-semibold text-foreground [&::-webkit-details-marker]:hidden sm:py-3.5 sm:text-[14px]">
               {q}
               <span
                 aria-hidden

@@ -86,8 +86,8 @@ export default function PricingPage() {
   return (
     <div className="min-h-screen bg-surface-sunken">
       <MarketingNav />
-      <div className="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
-        <div className="overflow-hidden rounded-3xl border border-border bg-surface">
+      <div className="mx-auto max-w-7xl px-2 py-6 sm:px-6 sm:py-10 lg:px-8">
+        <div className="overflow-hidden rounded-2xl border border-border bg-surface sm:rounded-3xl">
           <PricingHero />
 
           {/* Two-part model */}
