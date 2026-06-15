@@ -12,7 +12,7 @@
 // optional, the director falls back to a role-default set). No emojis, no
 // em-dashes, no mid-sentence colons.
 
-import { BeakerBotScene } from "@/components/onboarding/BeakerBotScene";
+import BeakerBot from "@/components/BeakerBot";
 import { ROLES, GOALS, type Role, type GoalKey } from "@/lib/onboarding/reel-director";
 import TutorScreen from "./TutorScreen";
 
@@ -37,7 +37,7 @@ export default function InterestPicker({
       <div className="w-full max-w-md">
         <div className="mb-4 flex items-start gap-2">
           <div className="h-8 w-8 flex-none">
-            <BeakerBotScene name="solo" className="h-full w-full" />
+            <BeakerBot pose="idle" animated alive ariaLabel="Beaker" className="h-full w-full" />
           </div>
           <div className="rounded-xl rounded-tl-sm border border-[var(--line,#e3e5e0)] bg-[var(--sunken,#f1f2ef)] px-3 py-2 text-sm">
             First, who are you and what do you want to get done? I'll show you

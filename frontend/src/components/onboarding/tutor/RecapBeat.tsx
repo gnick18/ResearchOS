@@ -8,7 +8,7 @@
 // gap. Finishing fires onFinish so the host unmounts + records the run. No
 // emojis, no em-dashes, no mid-sentence colons.
 
-import { BeakerBotScene } from "@/components/onboarding/BeakerBotScene";
+import BeakerBot from "@/components/BeakerBot";
 import type { RecapItem } from "@/lib/onboarding/tutor-summary";
 import TutorScreen from "./TutorScreen";
 
@@ -26,7 +26,7 @@ export default function RecapBeat({ recap, remembered, onFinish }: RecapBeatProp
       <div className="w-full max-w-md">
         <div className="mb-4 flex items-start gap-2">
           <span className="h-8 w-8 flex-none">
-            <BeakerBotScene name="solo" className="h-full w-full" />
+            <BeakerBot pose="idle" animated alive ariaLabel="Beaker" className="h-full w-full" />
           </span>
           <div className="rounded-xl rounded-tl-sm border border-[var(--line,#e3e5e0)] bg-[var(--sunken,#f1f2ef)] px-3 py-2 text-sm">
             That's the tour. The sample data is gone, your space is clean.

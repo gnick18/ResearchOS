@@ -10,7 +10,7 @@
 // No emojis, no em-dashes, no mid-sentence colons.
 
 import { useEffect } from "react";
-import { BeakerBotScene } from "@/components/onboarding/BeakerBotScene";
+import BeakerBot from "@/components/BeakerBot";
 import type { AiVariant } from "@/lib/onboarding/reel-director";
 import TutorScreen from "./TutorScreen";
 
@@ -62,7 +62,7 @@ export default function AiDemoBeat({ variant, onDone }: AiDemoBeatProps) {
         <div className="overflow-hidden rounded-xl border border-[var(--line,#e3e5e0)]">
           <div className="flex items-center gap-2 border-b border-[var(--line,#e3e5e0)] bg-[var(--sunken,#f1f2ef)] px-3 py-1.5 text-[11px] font-bold">
             <span className="h-4 w-4">
-              <BeakerBotScene name="solo" className="h-full w-full" />
+              <BeakerBot pose="idle" animated alive ariaLabel="Beaker" className="h-full w-full" />
             </span>
             BeakerBot
           </div>
@@ -78,7 +78,7 @@ export default function AiDemoBeat({ variant, onDone }: AiDemoBeatProps) {
 
         <div className="mt-3 flex items-start gap-2">
           <span className="h-7 w-7 flex-none">
-            <BeakerBotScene name="solo" className="h-full w-full" />
+            <BeakerBot pose="idle" animated alive ariaLabel="Beaker" className="h-full w-full" />
           </span>
           <div className="rounded-xl rounded-tl-sm bg-[var(--violet-soft,#efe7fb)] px-3 py-2 text-xs text-[var(--violet-ink,#5b34a0)]">
             {s.line}

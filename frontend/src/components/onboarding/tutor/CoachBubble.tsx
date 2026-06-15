@@ -8,7 +8,7 @@
 // parent passes the line and an optional anchor position. No emojis, no
 // em-dashes, no mid-sentence colons.
 
-import { BeakerBotScene } from "@/components/onboarding/BeakerBotScene";
+import BeakerBot from "@/components/BeakerBot";
 
 export interface CoachBubbleProps {
   line: string | null;
@@ -26,7 +26,7 @@ export default function CoachBubble({ line, x, y }: CoachBubbleProps) {
       style={positioned ? { left: x, top: y } : { left: 16, bottom: 16 }}
     >
       <div className="h-7 w-7 flex-none">
-        <BeakerBotScene name="solo" className="h-full w-full" />
+        <BeakerBot pose="idle" animated alive ariaLabel="Beaker" className="h-full w-full" />
       </div>
       <div className="rounded-xl rounded-bl-sm bg-[var(--surface,#fff)] px-3 py-2 text-xs shadow-lg">
         {line}
