@@ -573,8 +573,8 @@
   background: linear-gradient(
     to right,
     transparent 0%,
-    rgba(15, 23, 42, 0.1) 18%,
-    rgba(15, 23, 42, 0.1) 82%,
+    rgba(15, 23, 42, 0.22) 14%,
+    rgba(15, 23, 42, 0.22) 86%,
     transparent 100%
   );
 }
@@ -582,8 +582,8 @@
   background: linear-gradient(
     to right,
     transparent 0%,
-    rgba(190, 205, 235, 0.13) 18%,
-    rgba(190, 205, 235, 0.13) 82%,
+    rgba(190, 205, 235, 0.2) 14%,
+    rgba(190, 205, 235, 0.2) 86%,
     transparent 100%
   );
 }
