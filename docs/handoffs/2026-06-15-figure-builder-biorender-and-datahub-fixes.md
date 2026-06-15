@@ -94,6 +94,19 @@ calling `searchAssets` with the leaf on select. Their Part 3b (a `verificationSt
    batch today; full ~14.5k via bumping MAX + re-rclone sync).
 5. **Build the grouped sidebar** once the Icon Library lane confirms the taxonomy is locked.
 
+## Shared R2 bucket `researchos-assets` (collision watch)
+
+The icon library is NOT the only tenant of `researchos-assets` anymore. The
+Billing/Welcome lane put marketing videos under a **`welcome/`** prefix
+(`assets.research-os.com/welcome/<name>.mp4` + `.poster.jpg`); they ride the same
+CSP-allows-`assets.research-os.com` change (no new CSP). They are static media,
+NOT icon-catalog entries, and never appear in `manifest.json` — so the
+asset-library / taxonomy code is unaffected. **HAZARD:** the ingest command
+`rclone sync out/bundle/ r2:researchos-assets` makes the bucket MATCH the source,
+so a re-sync would DELETE the `welcome/` prefix. The icon-library lane was warned
+to guard it (`--exclude "welcome/**"`, sync into an `assets/`/`icons/` sub-prefix,
+or `rclone copy`). Anyone doing bucket/CDN/ingest work: account for `welcome/`.
+
 ## Environment / coordination
 
 - **Worktree** `/Users/gnickles/Desktop/ROS-fig-diagram` (currently on branch
