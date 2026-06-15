@@ -70,8 +70,7 @@ import { postOcrSidecar } from '@/lib/ocr-sidecar';
 import { sendTextNote } from '@/lib/notes';
 import { NotebookChooser } from '@/components/NotebookChooser';
 import { fireSuccess } from '@/lib/success-burst';
-import { useTodayPrefs } from '@/lib/today-prefs';
-import { TodayPanel } from '@/components/TodayPanel';
+import { setTodayData } from '@/lib/today-store';
 import { TabHeader } from '@/components/ui/TabHeader';
 import {
   recordSyncSuccess,
@@ -93,7 +92,6 @@ import {
   DEMO_NOTIF_FIRED_KEY,
 } from '@/lib/demo-fixtures';
 import { ensureNotificationPermission } from '@/lib/notifications';
-import { useUnreadNotificationCount } from '@/lib/unread-notifications';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export default function NotebookScreen() {
@@ -104,9 +102,6 @@ export default function NotebookScreen() {
   const { pairing, refresh: refreshPairing } = usePairing();
   const paired = !!pairing;
 
-  // Unread count for the header bell badge (refreshes on focus).
-  const unreadCount = useUnreadNotificationCount();
-
   // Keep the connection card current when returning from the pair screen.
   useFocusEffect(
     useCallback(() => {
@@ -114,25 +109,12 @@ export default function NotebookScreen() {
     }, [refreshPairing]),
   );
 
-  // ---- Today snapshot ----
-  const [snapshot, setSnapshot] = useState<TodaySnapshot | null>(null);
-  const [snapshotLoaded, setSnapshotLoaded] = useState(false);
+  // ---- Today sync ----
+  // The Today panel itself is now GLOBAL (TodayHost in app/_layout), opened from
+  // the header trio's Today button on any tab. Notebook keeps a lightweight
+  // "syncing" flag so its pull-to-refresh + connection card still reflect a sync
+  // in flight, and feeds the freshly fetched snapshot into the global store.
   const [snapshotLoading, setSnapshotLoading] = useState(false);
-  const [snapshotError, setSnapshotError] = useState<string | null>(null);
-
-  // ---- Today visibility (device-local pref) + pull-down state ----
-  // showToday gates the whole surface (default on, so existing users keep it).
-  // Today is now an Apple-Notification-Center-style panel (TodayPanel) that
-  // pulls DOWN from the top of the screen over a dimmed scrim. todayOpen drives
-  // it; a slim pull-down affordance at the very top opens it (drag or tap), and
-  // the Settings "Show Today" toggle removes the affordance entirely.
-  const [todayPrefs] = useTodayPrefs();
-  const [todayOpen, setTodayOpen] = useState(false);
-  const openToday = useCallback(() => {
-    hapticImpact();
-    setTodayOpen(true);
-  }, []);
-  const closeToday = useCallback(() => setTodayOpen(false), []);
 
   // ---- Demo mode side-effects (seeding captures + one-time notification) ----
   // These run once when we first land in demo mode. Guards in AsyncStorage
@@ -201,29 +183,29 @@ export default function NotebookScreen() {
 
   const loadSnapshot = useCallback(async () => {
     if (!pairing) {
-      setSnapshot(null);
-      setSnapshotLoaded(true);
+      setTodayData({ snapshot: null, loaded: true, loading: false, error: null });
+      setSnapshotLoading(false);
       return;
     }
     setSnapshotLoading(true);
-    setSnapshotError(null);
+    setTodayData({ loading: true, error: null });
     try {
       const data = (await fetchSnapshot(
         'today',
         pairing,
         signWithDevice,
       )) as TodaySnapshot | null;
-      setSnapshot(data);
-      setSnapshotLoaded(true);
+      setTodayData({ snapshot: data, loaded: true });
       // Feed the app-wide sync-freshness cue: a 200 (or a 404, which is "laptop
       // reachable, nothing published yet") both prove the relay is reachable, so
       // count them as a successful sync. Only a thrown fetch is a failure.
       recordSyncSuccess();
     } catch {
-      setSnapshotError('Could not sync. Pull down to try again.');
+      setTodayData({ error: 'Could not sync. Pull down to try again.' });
       recordSyncFailure();
     } finally {
       setSnapshotLoading(false);
+      setTodayData({ loading: false });
     }
   }, [pairing]);
 
@@ -827,23 +809,6 @@ export default function NotebookScreen() {
     };
   }, []);
 
-  // ---- Today snapshot data ----
-  const tasks: SnapshotTask[] = Array.isArray(snapshot?.tasks)
-    ? snapshot!.tasks!
-    : [];
-  const overdue = typeof snapshot?.overdue === 'number' ? snapshot.overdue : 0;
-  const upcoming =
-    typeof snapshot?.upcoming === 'number' ? snapshot.upcoming : 0;
-  const overdueTasks: SnapshotTask[] = Array.isArray(snapshot?.overdueTasks)
-    ? snapshot!.overdueTasks!
-    : [];
-  const upcomingTasks: SnapshotTask[] = Array.isArray(snapshot?.upcomingTasks)
-    ? snapshot!.upcomingTasks!
-    : [];
-  const syncedLabel = snapshot?.generatedAt
-    ? formatSynced(snapshot.generatedAt)
-    : null;
-
   // Connection gate: until the phone is paired, the Notebook does real work only
   // through the laptop, so it shows nothing but the pair CTA (capture now
   // requires pairing first). Calc / Timers / Wiki stay usable offline. Demo
@@ -857,7 +822,7 @@ export default function NotebookScreen() {
     return (
       <ScreenFrame>
         <View style={styles.scrollContent}>
-          <TabHeader title="Notebook" unreadCount={unreadCount} />
+          <TabHeader title="Notebook" />
           <Card style={{ gap: spacing.sm, marginTop: spacing.lg }}>
             <ThemedText style={[styles.cardTitle, { color: surface.text }]}>
               Pair this phone
@@ -1267,26 +1232,6 @@ export default function NotebookScreen() {
           onPickNotebook={onQuickNoteChooserPick}
           onUnsorted={onQuickNoteChooserUnsorted}
           onClose={onQuickNoteChooserClose}
-        />
-      ) : null}
-
-      {/* Today pull-down panel. An overlay floating above the tab content; it
-          owns its own drag-to-dismiss + scrim. Driven by todayOpen. Only
-          mounted when paired and the pref is on, matching the affordance. */}
-      {pairing && todayPrefs.showToday ? (
-        <TodayPanel
-          visible={todayOpen}
-          onClose={closeToday}
-          snapshot={snapshot}
-          tasks={tasks}
-          overdueTasks={overdueTasks}
-          upcomingTasks={upcomingTasks}
-          overdue={overdue}
-          upcoming={upcoming}
-          loading={snapshotLoading}
-          loaded={snapshotLoaded}
-          error={snapshotError}
-          syncedLabel={syncedLabel}
         />
       ) : null}
     </ScreenFrame>
