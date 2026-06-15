@@ -28,6 +28,7 @@
 // No em-dashes, no emojis, no mid-sentence colons.
 
 import { tasksApi, methodsApi, pcrApi, lcGradientApi, filesApi } from "@/lib/local-api";
+import { readFreshPhoneReformat } from "@/lib/methods/phone-reformat-cache";
 import { sealToRecipient } from "@/lib/sharing/encryption";
 import { decodePublicKey } from "@/lib/sharing/identity/keys";
 import { listDevices, publishSnapshot, type UserCaptureKeys } from "./client";
@@ -398,7 +399,12 @@ export async function buildBody(
   if (!sourcePath || sourcePath.includes("://")) return null;
   try {
     const file = await filesApi.readFile(sourcePath);
-    return file.content;
+    // Prefer a cached phone-friendly reformat when one exists AND was built from
+    // the current body (the sidecar embeds the source SHA, so an edited method
+    // invalidates it automatically). Best-effort: a miss falls through to the raw
+    // body, which the phone's deterministic parser still renders as steps.
+    const reformatted = await readFreshPhoneReformat(sourcePath, file.sha);
+    return reformatted ?? file.content;
   } catch {
     return null;
   }
