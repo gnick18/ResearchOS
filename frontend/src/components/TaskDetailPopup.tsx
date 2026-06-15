@@ -948,7 +948,7 @@ export default function TaskDetailPopup({
             </svg>
           </span>
         )}
-        <span className={`truncate min-w-0 ${task.is_complete ? "text-foreground-muted line-through" : "text-foreground"}`}>
+        <span className={`ros-title-accent ros-accent-violet truncate min-w-0 ${task.is_complete ? "text-foreground-muted line-through" : "text-foreground"}`}>
           {task.name}
         </span>
       </span>
@@ -1031,7 +1031,7 @@ export default function TaskDetailPopup({
   // provenance + the "shared into project" pill ride alongside it.
   const titleSlot = (
     <span className="inline-flex items-center gap-2 flex-wrap min-w-0">
-      <span className="truncate max-w-[60ch]">{task.name}</span>
+      <span className="ros-title-accent ros-accent-violet truncate max-w-[60ch]">{task.name}</span>
       {task.received_from && (
         <ReceivedFromBadge
           receivedFrom={task.received_from}
@@ -1576,7 +1576,7 @@ export default function TaskDetailPopup({
 
         {universalDropToast && (
           <div
-            className="fixed z-50 max-w-sm rounded-lg border border-emerald-200 dark:border-emerald-500/30 bg-surface-raised px-3 py-2 text-body text-emerald-900 dark:text-emerald-200 shadow-lg pointer-events-none flex items-center gap-2"
+            className="ros-popup-card-shadow fixed z-50 max-w-sm rounded-lg border border-emerald-200 dark:border-emerald-500/30 bg-surface-raised px-3 py-2 text-body text-emerald-900 dark:text-emerald-200 pointer-events-none flex items-center gap-2"
             style={{
               left: Math.max(8, Math.min(universalDropToast.x + 12, (typeof window !== "undefined" ? window.innerWidth : 1024) - 400)),
               top: Math.max(8, Math.min(universalDropToast.y + 12, (typeof window !== "undefined" ? window.innerHeight : 768) - 100)),
@@ -3535,7 +3535,7 @@ function DetailsTab({
           }}
         >
           <div
-            className="bg-surface-raised rounded-2xl shadow-2xl max-w-md w-full mx-4 p-6"
+            className="ros-popup-card-shadow bg-surface-raised rounded-2xl max-w-md w-full mx-4 p-6"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-start gap-3 mb-3">
