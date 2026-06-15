@@ -138,6 +138,18 @@ export function buildSmartSearchTasks(): BootTask[] {
         const meta_url = `${EMBED_BASE}/embeddings-v1.meta.json`;
         meta = (await fetch(meta_url, { cache: "force-cache" }).then((r) => r.json())) as EmbedMeta;
         const tf = await import("@xenova/transformers");
+        // The MiniLM model files must load from a CSP-allowed origin. By default
+        // transformers.js fetches from huggingface.co, which is NOT in the app's
+        // connect-src allowlist; in prod we host the model on our own R2 (already
+        // allowed, like the vectors). Set NEXT_PUBLIC_ASSET_MODEL_HOST to that
+        // origin (files under <host>/<model>/...). Unset = HF default (dev only,
+        // needs HF temporarily allowed in CSP).
+        const modelHost = process.env.NEXT_PUBLIC_ASSET_MODEL_HOST;
+        if (modelHost) {
+          tf.env.allowLocalModels = false;
+          tf.env.remoteHost = modelHost.replace(/\/$/, "") + "/";
+          tf.env.remotePathTemplate = "{model}/";
+        }
         // Aggregate the per-file download progress into one 0..1.
         const totals: Record<string, { loaded: number; total: number }> = {};
         const pipe = await tf.pipeline("feature-extraction", meta.model, {
