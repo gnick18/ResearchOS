@@ -36,6 +36,14 @@ import {
  * Voice rules: no em-dashes, no emojis, no mid-sentence colons.
  */
 
+// The contribution surface (the "Add your own icons" band + its Contribute /
+// Review CTAs) only appears when contributions are live. The /api/library/submit
+// endpoint is gated on the same flag, so showing the CTA while it is off would
+// walk the user into a wizard whose submit is rejected. Mirrors the figure rail.
+const ASSET_CONTRIBUTE_ENABLED =
+  process.env.NEXT_PUBLIC_ASSET_CONTRIBUTE_ENABLED === "1" ||
+  process.env.NEXT_PUBLIC_ASSET_CONTRIBUTE_ENABLED === "true";
+
 const SOURCE_LABELS: Record<string, string> = {
   phylopic: "PhyloPic",
   bioicons: "Bioicons",
@@ -266,7 +274,9 @@ export default function AssetLibraryLanding() {
       {/* License + contribute bands */}
       <section className="relative border-t border-border">
         <MarketingBackdrop tone="soft" />
-        <div className="relative z-10 mx-auto grid max-w-7xl gap-6 px-6 py-14 md:grid-cols-2">
+        <div
+          className={`relative z-10 mx-auto grid max-w-7xl gap-6 px-6 py-14 ${ASSET_CONTRIBUTE_ENABLED ? "md:grid-cols-2" : ""}`}
+        >
           <Reveal className="rounded-2xl border border-border bg-surface-raised/70 p-7">
             <div className="flex items-center gap-2 text-brand-action">
               <Icon name="shield" className="h-5 w-5" />
@@ -283,6 +293,7 @@ export default function AssetLibraryLanding() {
               the icon and written into your figure for you.
             </p>
           </Reveal>
+          {ASSET_CONTRIBUTE_ENABLED && (
           <Reveal
             delay={80}
             className="rounded-2xl border border-border bg-surface-raised/70 p-7"
@@ -315,6 +326,7 @@ export default function AssetLibraryLanding() {
               </Link>
             </div>
           </Reveal>
+          )}
         </div>
       </section>
 
