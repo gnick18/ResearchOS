@@ -606,7 +606,11 @@ function AppContent({ children }: { children: ReactNode }) {
   // useQuery; the always-mounted FileSystemProvider above already gives them a
   // null currentUser cleanly). The popups read empty / missing data and show
   // their own empty states, which is exactly what we want for a chrome review.
-  if (pathname === "/dev/popup-chrome" || pathname === "/dev/scrollbars") {
+  if (
+    pathname === "/dev/popup-chrome" ||
+    pathname === "/dev/scrollbars" ||
+    pathname === "/dev/scroll-recede"
+  ) {
     return (
       <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
     );
