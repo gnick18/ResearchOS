@@ -138,7 +138,7 @@ function CustomScrollPanel({
               height: thumb.height,
               // Width is FIXED (not content-derived) — only the height scales
               // with the content ratio. 4px at rest, grows to 7px on grab.
-              width: dragging ? 7 : 4,
+              width: dragging ? 10 : 6,
               transform: `translateX(-50%) translateY(${thumb.top}px)`,
               backgroundColor: `color-mix(in srgb, var(--foreground) ${pct}%, transparent)`,
               // Width gets a slight back-eased ease so the grow lands with a
