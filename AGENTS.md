@@ -792,3 +792,28 @@ https://research-os-xi.vercel.app/
 ```
 
 Good luck.
+
+## Open asset library (icon library / BioRender alternative) — 2026-06-15
+
+Open, openly-licensed scientific icon corpus surfaced in the figure composer + a public
+`/library`. Full plan: docs/proposals/2026-06-15-asset-library-portal-landing-contribution.md.
+Latest handoff: docs/handoffs/2026-06-15-open-asset-library-portal-landing-contribution.md.
+
+- **Corpus**: 14,296 assets (11,738 PhyloPic + 2,558 BioIcons) live on R2 at
+  `assets.research-os.com`. License invariant (HARD): CC0 / Public Domain / CC-BY /
+  CC-BY-SA only, never -NC/-ND. Every asset carries a verbatim credit. Ingest tooling in
+  `frontend/scripts/asset-ingest/` (standalone node, out/ gitignored, synced via rclone
+  remote `r2:`). PhyloPic categories/tags come from a TOP-DOWN clade index (filter_clade)
+  with EXACT-match clade resolution (fuzzy match over-broadens, e.g. Archaea→Neomura).
+- **App seam**: `frontend/src/lib/figure/asset-library.ts` — `loadAssetManifest` merges the
+  curated `manifest.json` with `community-manifest.json` (user input never rewrites the
+  seed); `listCategoryGroups` gives the BioRender-style grouped tree; `verificationStatus`
+  / `reviewableAssets` / `countReviewable` drive the wiki-verification UI. Keep changes
+  ADDITIVE — the Figure Composer lane consumes this file (IconsPanel in FigureLeftRail.tsx).
+- **Contribution + wiki verification** (Part 3, behind `NEXT_PUBLIC_ASSET_CONTRIBUTE_ENABLED`,
+  OFF): wizard at `/library/contribute`, review queue at `/library/review`, endpoints
+  `/api/library/{submit,verify,flag}` (nodejs runtime, reuse relay `R2_*` creds, bucket
+  override `ASSET_R2_BUCKET`). Auto-publish flagged "unverified"; an INDEPENDENT user must
+  verify (server enforces `verifierId !== submittedBy`); 3 flags auto-unpublish.
+- **Curated re-sync MUST exclude** `community-manifest.json` + `assets/community/**` or it
+  clobbers user submissions.
