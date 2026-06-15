@@ -12,7 +12,7 @@ import { Icon } from "@/components/icons";
 import {
   loadAssetManifest,
   searchAssets,
-  listCategories,
+  listCategoryGroups,
   listSources,
   assetSvgUrl,
   type LibraryAsset,
@@ -67,7 +67,7 @@ export default function AssetLibraryLanding() {
     };
   }, []);
 
-  const categories = useMemo(() => listCategories(assets), [assets]);
+  const categoryGroups = useMemo(() => listCategoryGroups(assets), [assets]);
   const sources = useMemo(() => listSources(assets), [assets]);
   const results = useMemo(
     () => searchAssets(assets, { query, category, source }),
@@ -187,17 +187,26 @@ export default function AssetLibraryLanding() {
             </div>
           )}
 
-          {/* Category chips */}
-          {categories.length > 0 && (
-            <div className="mt-2 flex flex-wrap items-center gap-1.5">
-              <span className="mr-1 text-meta text-foreground-faint">Category</span>
-              <Chip active={category === null} onClick={() => setCategory(null)}>
-                All
-              </Chip>
-              {categories.map((c) => (
-                <Chip key={c} active={category === c} onClick={() => setCategory(c)}>
-                  {c}
+          {/* Category tree, grouped into sections (BioRender-style) */}
+          {categoryGroups.length > 0 && (
+            <div className="mt-3 space-y-2">
+              <div className="flex items-center gap-1.5">
+                <span className="mr-1 text-meta text-foreground-faint">Category</span>
+                <Chip active={category === null} onClick={() => setCategory(null)}>
+                  All
                 </Chip>
+              </div>
+              {categoryGroups.map((g) => (
+                <div key={g.section} className="flex flex-wrap items-baseline gap-1.5">
+                  <span className="mr-1 w-full text-[11px] font-semibold uppercase tracking-wide text-foreground-faint sm:w-auto">
+                    {g.section}
+                  </span>
+                  {g.categories.map((c) => (
+                    <Chip key={c} active={category === c} onClick={() => setCategory(c)}>
+                      {c}
+                    </Chip>
+                  ))}
+                </div>
               ))}
             </div>
           )}
