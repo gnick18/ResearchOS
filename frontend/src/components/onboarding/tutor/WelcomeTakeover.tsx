@@ -11,7 +11,8 @@
 // Presentational only. The parent owns the step machine and passes onStart /
 // onSkip. No emojis, no em-dashes, no mid-sentence colons.
 
-import { BeakerBotScene } from "@/components/onboarding/BeakerBotScene";
+import { useEffect, useState } from "react";
+import BeakerBot, { type BeakerBotPose } from "@/components/BeakerBot";
 import MarketingBackdrop from "@/components/marketing/MarketingBackdrop";
 import styles from "./WelcomeTakeover.module.css";
 
@@ -23,6 +24,12 @@ export interface WelcomeTakeoverProps {
   tokenCap?: number;
 }
 
+// Beaker greets, then shows off the signature poses on a gentle loop, so the
+// hero mascot is genuinely alive. Starts on the wave (a hello) and cycles
+// through the continuous-loop poses.
+const HERO_POSES: BeakerBotPose[] = ["waving", "twirl", "double-wave", "cheering", "idle"];
+const POSE_HOLD_MS = 3200;
+
 export default function WelcomeTakeover({
   onStart,
   onSkip,
@@ -30,6 +37,14 @@ export default function WelcomeTakeover({
   tokenCap = 150_000,
 }: WelcomeTakeoverProps) {
   const pct = tokenCap > 0 ? Math.min(100, (tokensUsed / tokenCap) * 100) : 0;
+  const [poseIdx, setPoseIdx] = useState(0);
+  useEffect(() => {
+    const id = setInterval(
+      () => setPoseIdx((i) => (i + 1) % HERO_POSES.length),
+      POSE_HOLD_MS,
+    );
+    return () => clearInterval(id);
+  }, []);
   return (
     <div className="fixed inset-0 z-50 overflow-hidden bg-[var(--bg,#f6f7f5)]">
       <MarketingBackdrop tone="vivid" />
@@ -52,13 +67,16 @@ export default function WelcomeTakeover({
       <div className="relative z-10 flex h-full flex-col items-center justify-center px-6 text-center">
         <div className="relative flex items-center justify-center">
           <span className={styles.heroGlow} aria-hidden />
-          <BeakerBotScene
-            name="solo"
-            className="relative h-[38vh] max-h-[440px] w-auto drop-shadow-[0_18px_40px_rgba(80,120,180,0.28)]"
+          <BeakerBot
+            pose={HERO_POSES[poseIdx]}
+            animated
+            alive
+            ariaLabel="Beaker"
+            className="relative h-[clamp(240px,50vh,520px)] w-auto drop-shadow-[0_22px_48px_rgba(80,120,180,0.3)]"
           />
         </div>
 
-        <h1 className="mt-2 text-3xl font-extrabold tracking-tight text-[var(--fg,#1f2421)] sm:text-4xl">
+        <h1 className="mt-1 text-3xl font-extrabold tracking-tight text-[var(--fg,#1f2421)] sm:text-4xl">
           Hi, I'm Beaker.
         </h1>
         <p className="mt-3 max-w-md text-[15px] leading-relaxed text-[var(--muted,#6b716a)]">
