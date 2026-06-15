@@ -48,6 +48,8 @@ import {
 import { appQueryClient } from "@/lib/query-client";
 import type { StoredIdentity } from "@/lib/sharing/identity/storage";
 import SharingSetupWizard from "@/components/sharing/SharingSetupWizard";
+import LabSetupStep, { type LabSetupResult } from "@/components/lab/LabSetupStep";
+import { uploadLabLogo } from "@/lib/lab/lab-profile-client";
 
 const LAB_CREATE_MARKER = "researchos:lab-create";
 
@@ -80,6 +82,13 @@ export default function LabCreateResume() {
   // Set when an email-less ORCID session is detected: we open the email-OTP
   // wizard to prove an email before the lab can be created.
   const [needEmail, setNeedEmail] = useState(false);
+  // When the prerequisites are ready and the user has no lab yet, we hold the
+  // unlocked identity + verified email here and show the "Set up your lab" step.
+  // Provisioning then happens on submit (with branding) or skip (without).
+  const [pendingSetup, setPendingSetup] = useState<{
+    identity: StoredIdentity;
+    oauthEmail: string;
+  } | null>(null);
   // Guards the create attempt so a re-render cannot double-create.
   const ran = useRef(false);
 
@@ -98,7 +107,11 @@ export default function LabCreateResume() {
   // OAuth-email path and the ORCID email-OTP path. Persists the lab_id and
   // promotes the account_type, then clears the marker.
   const provisionLab = useCallback(
-    async (identity: StoredIdentity, oauthEmail: string) => {
+    async (
+      identity: StoredIdentity,
+      oauthEmail: string,
+      branding?: LabSetupResult,
+    ) => {
       if (!currentUser) return;
 
       // Idempotency: if the user already has a lab_id, do not create a second
@@ -138,6 +151,23 @@ export default function LabCreateResume() {
         oauthEmail,
       });
 
+      // Cosmetic branding (lab name / PI title / PI display) rides into the relay
+      // create body via the pending genesis. It is NOT in the signed log.
+      const brandingMeta =
+        branding && (branding.labName || branding.piTitle || branding.piDisplay)
+          ? {
+              labName: branding.labName || undefined,
+              piTitle: branding.piTitle || undefined,
+              piDisplay: branding.piDisplay || undefined,
+            }
+          : undefined;
+      const pending = {
+        labId,
+        record: created.record,
+        envelope: created.envelope,
+        ...(brandingMeta ? { branding: brandingMeta } : {}),
+      };
+
       // Persist lab_id + account_type AND the genesis artifacts in one write.
       // The persisted record + envelope let LabGenesisPublishRetry retry the
       // publish across reloads, and let openLabKey re-derive the lab key offline
@@ -145,11 +175,7 @@ export default function LabCreateResume() {
       await patchUserSettings(currentUser, {
         account_type: "lab_head",
         lab_id: labId,
-        lab_pending_genesis: {
-          labId,
-          record: created.record,
-          envelope: created.envelope,
-        },
+        lab_pending_genesis: pending,
       });
 
       // Invalidate queries so LabSessionMount re-reads settings and engages.
@@ -157,17 +183,29 @@ export default function LabCreateResume() {
 
       console.log("[LabCreateResume] lab created locally:", labId);
 
-      // Fire-and-forget the relay publish. A failure here does NOT un-promote
-      // the user: LabGenesisPublishRetry + a reload retry from the persisted
-      // pending genesis handle the eventual publish.
-      void publishPendingGenesis(currentUser, {
-        labId,
-        record: created.record,
-        envelope: created.envelope,
-      });
+      // Fire-and-forget the relay publish, then the logo upload. A failure here
+      // does NOT un-promote the user: LabGenesisPublishRetry + a reload retry
+      // from the persisted pending genesis handle the eventual publish. The logo
+      // upload waits for the publish so the lab DO exists to receive it.
+      void (async () => {
+        const published = await publishPendingGenesis(currentUser, pending);
+        if (published && branding?.logo) {
+          try {
+            await uploadLabLogo(
+              labId,
+              branding.logo.bytes,
+              branding.logo.contentType,
+              identity.keys.signing.privateKey,
+            );
+          } catch {
+            // Best-effort: the head can re-upload the logo in Settings.
+          }
+        }
+      })();
 
       consumeLabCreateMarker();
       setNeedEmail(false);
+      setPendingSetup(null);
       setDone(true);
     },
     [currentUser],
@@ -179,6 +217,7 @@ export default function LabCreateResume() {
     if (done) return;
     if (!currentUser) return;
     if (needEmail) return; // waiting on the email-OTP wizard
+    if (pendingSetup) return; // waiting on the "Set up your lab" step
     if (ran.current) return;
 
     // Bounded retry: the identity unlock and the OAuth session can land a
@@ -223,9 +262,19 @@ export default function LabCreateResume() {
         return;
       }
 
-      await provisionLab(identity, oauthEmail);
+      // If the user already has a lab (idempotent re-run, e.g. a reload after a
+      // prior create), take the fast path straight through provisionLab, which
+      // just ensures account_type + retries any unpublished genesis. Otherwise
+      // show the "Set up your lab" step to capture the lab identity before the
+      // first create.
+      const settings = await readUserSettings(currentUser);
+      if (settings.lab_id) {
+        await provisionLab(identity, oauthEmail);
+        return;
+      }
+      setPendingSetup({ identity, oauthEmail });
     })();
-  }, [markerPresent, currentUser, done, retry, needEmail, provisionLab]);
+  }, [markerPresent, currentUser, done, retry, needEmail, pendingSetup, provisionLab]);
 
   // The email-OTP wizard completed with a verified email. Feed it straight into
   // lab creation, binding the head membership to the ORCID-proven email.
@@ -238,9 +287,11 @@ export default function LabCreateResume() {
         setNeedEmail(false);
         return;
       }
-      void provisionLab(identity, result.email);
+      // Hand off to the "Set up your lab" step now that we have a proven email.
+      setNeedEmail(false);
+      setPendingSetup({ identity, oauthEmail: result.email });
     },
-    [provisionLab],
+    [],
   );
 
   // Closing the wizard without proving an email leaves the marker in place, so
@@ -251,6 +302,22 @@ export default function LabCreateResume() {
     consumeLabCreateMarker();
   }, []);
 
+  // "Set up your lab" submitted: provision with the captured branding.
+  const handleSetupSubmit = useCallback(
+    (result: LabSetupResult) => {
+      if (!pendingSetup) return;
+      void provisionLab(pendingSetup.identity, pendingSetup.oauthEmail, result);
+    },
+    [pendingSetup, provisionLab],
+  );
+
+  // "Skip for now": provision the lab without any branding (never a soft-lock;
+  // the head can fill it in later in Settings).
+  const handleSetupSkip = useCallback(() => {
+    if (!pendingSetup) return;
+    void provisionLab(pendingSetup.identity, pendingSetup.oauthEmail);
+  }, [pendingSetup, provisionLab]);
+
   if (needEmail && currentUser) {
     return (
       <SharingSetupWizard
@@ -258,6 +325,16 @@ export default function LabCreateResume() {
         initialStep="email-enter"
         onComplete={handleEmailVerified}
         onClose={handleWizardClose}
+      />
+    );
+  }
+
+  if (pendingSetup && currentUser) {
+    return (
+      <LabSetupStep
+        defaultPiDisplay={currentUser}
+        onSubmit={handleSetupSubmit}
+        onSkip={handleSetupSkip}
       />
     );
   }

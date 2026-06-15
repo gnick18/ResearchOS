@@ -61,13 +61,25 @@ export async function publishPendingGenesis(
   pending: PendingLabGenesis,
 ): Promise<boolean> {
   try {
-    await publishLabRemote(pending.labId, {
-      record: pending.record,
-      envelope: pending.envelope,
-      // labKey is unused by the publish path; createLabRemote ships only the
-      // public, sealed artifacts. An empty array satisfies the CreatedLab type.
-      labKey: new Uint8Array(),
-    });
+    await publishLabRemote(
+      pending.labId,
+      {
+        record: pending.record,
+        envelope: pending.envelope,
+        // labKey is unused by the publish path; createLabRemote ships only the
+        // public, sealed artifacts. An empty array satisfies the CreatedLab type.
+        labKey: new Uint8Array(),
+      },
+      // Carry any persisted cosmetic branding so a retried publish still sends
+      // the lab name / PI title / PI display to the relay DO meta.
+      pending.branding
+        ? {
+            labName: pending.branding.labName,
+            piTitle: pending.branding.piTitle,
+            piDisplayName: pending.branding.piDisplay,
+          }
+        : undefined,
+    );
     await clearPendingGenesis(username);
     return true;
   } catch {
