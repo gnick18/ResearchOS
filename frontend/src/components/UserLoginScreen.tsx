@@ -19,6 +19,7 @@ import {
   unlockIdentityWithRecovery,
   loadIdentity,
   writeIdentityReferenceSidecar,
+  resetIdentityKeepData,
 } from "@/lib/sharing/identity/storage";
 import { isAccountFirstEnabled } from "@/lib/account/account-first";
 import { deriveWorkspaceUsername } from "@/lib/account/workspace-username";
@@ -214,6 +215,17 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
     code: string;
   } | null>(null);
   const [recoveryCopied, setRecoveryCopied] = useState(false);
+
+  // Phase C1 (recovery, docs/proposals/2026-06-15-account-folder-identity-redesign.md
+  // §6c): the reset-keep-data lockout escape. When a user can't unlock (lost the
+  // recovery code AND provider access) they can mint a fresh identity rather than
+  // be permanently locked out — their plaintext notebook data is untouched. This
+  // is a no-soft-lock escape ([[feedback_no_soft_locks]]). Two-step: the unlock
+  // gate offers it as a last resort, clicking opens a warning confirmation, and
+  // confirming runs resetIdentityKeepData + shows the new recovery code (reusing
+  // the createdRecovery display). Dark behind MULTI_FOLDER_ENABLED.
+  const [resetConfirmFor, setResetConfirmFor] = useState<string | null>(null);
+  const [resetting, setResetting] = useState(false);
 
   // Per-user password management popup (set/change/remove)
   const [managingPasswordFor, setManagingPasswordFor] = useState<string | null>(null);
@@ -889,6 +901,8 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
     setRecoveryMode(false);
     setRecoveryInput("");
     setUnlockingViaProvider(false);
+    setResetConfirmFor(null);
+    setResetting(false);
     setLoggingIn(null);
     setError(null);
   };
@@ -919,6 +933,34 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
     } catch {
       setError("Could not unlock with that recovery code. Please try again.");
       setUnlocking(false);
+    }
+  };
+
+  // Phase C1: the reset-keep-data confirm. Mints a fresh identity for a
+  // locked-out user while leaving their plaintext notebook data on disk
+  // untouched, then surfaces the new one-time recovery code through the same
+  // createdRecovery display a brand-new account uses. The old signing key,
+  // prior signatures, and the ability to read data previously shared TO the old
+  // key are lost (warned about in the confirm view); a shared lab needs the PI
+  // to re-admit the new key (Phase C2). No backend — purely client-side.
+  const handleResetKeepData = async () => {
+    const username = resetConfirmFor;
+    if (!username) return;
+    setError(null);
+    setResetting(true);
+    try {
+      const { recoveryCode } = await resetIdentityKeepData(username);
+      // Tear down the unlock + confirm surfaces, then hand off to the
+      // save-your-recovery-code step which signs the user in on continue.
+      setResetConfirmFor(null);
+      setUnlockGate(null);
+      setRecoveryMode(false);
+      setRecoveryInput("");
+      setResetting(false);
+      setCreatedRecovery({ username, code: recoveryCode });
+    } catch {
+      setError("Could not reset this account. Your data is unchanged — please try again.");
+      setResetting(false);
     }
   };
 
@@ -1975,7 +2017,56 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
               </p>
             </div>
             <div className="px-6 py-5 space-y-3">
-              {unlockingViaProvider ? (
+              {resetConfirmFor ? (
+                /* Phase C1 reset-keep-data confirmation — the last-resort
+                   lockout escape. Clear about what survives (all your data) and
+                   what is lost (old signing identity + access to data shared TO
+                   you; a shared lab needs the PI to re-admit your new key). */
+                <div className="space-y-3" data-testid="reset-keep-data-confirm">
+                  <div className="p-3 bg-amber-50 dark:bg-amber-500/15 border border-amber-200 dark:border-amber-500/30 rounded-lg space-y-2">
+                    <p className="text-meta font-medium text-amber-800 dark:text-amber-200">
+                      Reset your identity and keep your data?
+                    </p>
+                    <p className="text-meta text-amber-800/90 dark:text-amber-200/90">
+                      Use this only if you can&apos;t sign in any other way. It
+                      gives <span className="font-medium">{resetConfirmFor}</span> a
+                      brand-new identity and a new recovery code.
+                    </p>
+                    <ul className="text-meta text-amber-800/90 dark:text-amber-200/90 list-disc pl-4 space-y-0.5">
+                      <li><span className="font-medium">Kept:</span> all of your notebook data stays on disk, untouched.</li>
+                      <li><span className="font-medium">Lost:</span> your old signing identity, so past signatures and anything previously shared <em>to</em> you can no longer be opened.</li>
+                      <li>If you&apos;re in a shared lab, your lab head will need to re-admit your new key before sharing works again.</li>
+                    </ul>
+                  </div>
+                  {error && (
+                    <div className="p-2 bg-red-50 dark:bg-red-500/15 border border-red-200 dark:border-red-500/30 rounded-lg">
+                      <p className="text-meta text-red-700 dark:text-red-300">{error}</p>
+                    </div>
+                  )}
+                  <div className="flex gap-2 pt-1">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setResetConfirmFor(null);
+                        setError(null);
+                      }}
+                      disabled={resetting}
+                      className="flex-1 py-2 text-body bg-surface-sunken hover:bg-surface-sunken/70 border border-border text-foreground rounded-lg disabled:opacity-50"
+                    >
+                      Back
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleResetKeepData}
+                      disabled={resetting}
+                      className="flex-1 py-2 text-body bg-red-600 hover:bg-red-700 text-white font-medium rounded-lg disabled:opacity-50"
+                      data-testid="reset-keep-data-confirm-submit"
+                    >
+                      {resetting ? "Resetting…" : "Reset, keep my data"}
+                    </button>
+                  </div>
+                </div>
+              ) : unlockingViaProvider ? (
                 <p className="text-meta text-foreground-muted text-center py-1">
                   Confirming your sign-in...
                 </p>
@@ -2054,55 +2145,79 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
               )}
 
 
-              {error && (
-                <div className="p-2 bg-red-50 dark:bg-red-500/15 border border-red-200 dark:border-red-500/30 rounded-lg">
-                  <p className="text-meta text-red-700 dark:text-red-300">{error}</p>
-                </div>
+              {/* Everything below is the normal unlock chrome — hidden while
+                  the Phase C1 reset-keep-data confirmation owns the modal. */}
+              {!resetConfirmFor && (
+                <>
+                  {error && (
+                    <div className="p-2 bg-red-50 dark:bg-red-500/15 border border-red-200 dark:border-red-500/30 rounded-lg">
+                      <p className="text-meta text-red-700 dark:text-red-300">{error}</p>
+                    </div>
+                  )}
+
+                  <div className="flex gap-2 pt-1">
+                    <button
+                      onClick={cancelUnlockGate}
+                      disabled={unlocking}
+                      className="flex-1 py-2 text-body bg-surface-sunken hover:bg-surface-sunken/70 border border-border text-foreground rounded-lg disabled:opacity-50"
+                    >
+                      Cancel
+                    </button>
+                    {recoveryMode && (
+                      <button
+                        onClick={handleSubmitRecovery}
+                        disabled={unlocking || !recoveryInput}
+                        className="flex-1 py-2 text-body bg-brand-action hover:bg-brand-action/90 text-white font-medium rounded-lg disabled:opacity-50"
+                        data-testid="unlock-recovery-submit"
+                      >
+                        {unlocking ? "Unlocking…" : "Unlock"}
+                      </button>
+                    )}
+                  </div>
+
+                  {/* Toggle between the OAuth door and the recovery-code
+                      input. Hidden while an OAuth resume is confirming, and hidden
+                      in recovery mode when there is no OAuth option to go back to. */}
+                  {!unlockingViaProvider &&
+                    !(
+                      recoveryMode &&
+                      !(claimedUsers.has(unlockGate.username) && isOnline)
+                    ) && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setError(null);
+                          setRecoveryMode((m) => !m);
+                        }}
+                        disabled={unlocking}
+                        className="text-meta text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 disabled:opacity-50"
+                        data-testid="unlock-toggle-recovery"
+                      >
+                        {recoveryMode
+                          ? "Back to other unlock options"
+                          : "Use your recovery code instead"}
+                      </button>
+                    )}
+
+                  {/* Phase C1: last-resort lockout escape. Dark behind
+                      MULTI_FOLDER_ENABLED until the recovery arc ships. Hidden
+                      during an OAuth resume so it never competes with it. */}
+                  {MULTI_FOLDER_ENABLED && !unlockingViaProvider && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setError(null);
+                        setResetConfirmFor(unlockGate.username);
+                      }}
+                      disabled={unlocking}
+                      className="block text-meta text-foreground-muted underline underline-offset-2 hover:text-foreground transition-colors disabled:opacity-50"
+                      data-testid="unlock-reset-keep-data"
+                    >
+                      Can&apos;t sign in? Reset and keep your data
+                    </button>
+                  )}
+                </>
               )}
-
-              <div className="flex gap-2 pt-1">
-                <button
-                  onClick={cancelUnlockGate}
-                  disabled={unlocking}
-                  className="flex-1 py-2 text-body bg-surface-sunken hover:bg-surface-sunken/70 border border-border text-foreground rounded-lg disabled:opacity-50"
-                >
-                  Cancel
-                </button>
-                {recoveryMode && (
-                  <button
-                    onClick={handleSubmitRecovery}
-                    disabled={unlocking || !recoveryInput}
-                    className="flex-1 py-2 text-body bg-brand-action hover:bg-brand-action/90 text-white font-medium rounded-lg disabled:opacity-50"
-                    data-testid="unlock-recovery-submit"
-                  >
-                    {unlocking ? "Unlocking…" : "Unlock"}
-                  </button>
-                )}
-              </div>
-
-              {/* Toggle between the OAuth door and the recovery-code
-                  input. Hidden while an OAuth resume is confirming, and hidden
-                  in recovery mode when there is no OAuth option to go back to. */}
-              {!unlockingViaProvider &&
-                !(
-                  recoveryMode &&
-                  !(claimedUsers.has(unlockGate.username) && isOnline)
-                ) && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setError(null);
-                      setRecoveryMode((m) => !m);
-                    }}
-                    disabled={unlocking}
-                    className="text-meta text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 disabled:opacity-50"
-                    data-testid="unlock-toggle-recovery"
-                  >
-                    {recoveryMode
-                      ? "Back to other unlock options"
-                      : "Use your recovery code instead"}
-                  </button>
-                )}
             </div>
           </div>
         </div>
