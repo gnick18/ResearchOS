@@ -27,23 +27,23 @@ const OPTIONS: { cls: string; name: string; spec: string }[] = [
   },
   {
     cls: "sb-thin",
-    name: "2 - Thin 4px",
-    spec: "~4px pill, resting 20%, darker on hover. Always on.",
+    name: "2 - Thin 5px",
+    spec: "~5px pill, resting 20%, darker on hover. Always on.",
   },
   {
     cls: "sb-medium",
-    name: "3 - Medium 6px",
-    spec: "~6px pill, resting 22%, the most substantial. Always on.",
+    name: "3 - Medium 7px",
+    spec: "~7px pill, resting 22%, the most substantial. Always on.",
   },
   {
     cls: "sb-track",
-    name: "4 - Inset groove",
-    spec: "~5px thumb in a faint always-visible track groove.",
+    name: "4 - Inset groove 6px",
+    spec: "~6px thumb in a faint always-visible track groove.",
   },
   {
     cls: "sb-recede",
-    name: "5 - Recede + boost",
-    spec: "~4px pill, nearly invisible at rest (10%), jumps to 34% on hover. The auto-hide feel, but reliably painted.",
+    name: "5 - Recede + boost 5px",
+    spec: "~5px pill, nearly invisible at rest (10%), jumps to 34% on hover. The auto-hide feel, but reliably painted.",
   },
 ];
 
@@ -113,38 +113,42 @@ export default function ScrollbarPickerPage() {
 
 // All five treatments. The thumb tints use --foreground so each reads correctly
 // on both the warm paper (dark foreground) and the dark room (light foreground).
+// NOTE: pure ::-webkit-scrollbar only. We deliberately do NOT set the standard
+// scrollbar-width/scrollbar-color here: in Chrome, scrollbar-width:thin pins the
+// gutter to a fixed thin size and IGNORES the ::-webkit width, so per-option
+// widths collapsed and only the transparent border varied (bigger border = thinner
+// thumb), making "medium" render thinner than "thin". Dropping it lets the gutter
+// width below be authoritative. Constant 2.5px inset border, so visible pill =
+// (bar width - 5px): 8->3, 10->5, 12->7. (The chosen standard can re-add a
+// Firefox scrollbar-width fallback once picked.)
 const SCROLLBAR_CSS = `
-/* 1 - Hairline 3px (always-on). 7px bar, 2px transparent border -> ~3px pill. */
-.sb-hairline { scrollbar-width: thin; scrollbar-color: color-mix(in srgb, var(--foreground) 18%, transparent) transparent; }
-.sb-hairline::-webkit-scrollbar { width: 7px; height: 7px; }
+/* 1 - Hairline 3px. 8px gutter, 2.5px inset -> 3px pill. */
+.sb-hairline::-webkit-scrollbar { width: 8px; height: 8px; }
 .sb-hairline::-webkit-scrollbar-track { background: transparent; }
-.sb-hairline::-webkit-scrollbar-thumb { background-color: color-mix(in srgb, var(--foreground) 18%, transparent); border-radius: 9999px; border: 2px solid transparent; background-clip: padding-box; transition: background-color 0.2s ease; }
+.sb-hairline::-webkit-scrollbar-thumb { background-color: color-mix(in srgb, var(--foreground) 18%, transparent); border-radius: 9999px; border: 2.5px solid transparent; background-clip: padding-box; transition: background-color 0.2s ease; }
 .sb-hairline::-webkit-scrollbar-thumb:hover { background-color: color-mix(in srgb, var(--foreground) 36%, transparent); }
 
-/* 2 - Thin 4px. 9px bar, 2.5px border -> ~4px pill. */
-.sb-thin { scrollbar-width: thin; scrollbar-color: color-mix(in srgb, var(--foreground) 20%, transparent) transparent; }
-.sb-thin::-webkit-scrollbar { width: 9px; height: 9px; }
+/* 2 - Thin 5px. 10px gutter, 2.5px inset -> 5px pill. */
+.sb-thin::-webkit-scrollbar { width: 10px; height: 10px; }
 .sb-thin::-webkit-scrollbar-track { background: transparent; }
 .sb-thin::-webkit-scrollbar-thumb { background-color: color-mix(in srgb, var(--foreground) 20%, transparent); border-radius: 9999px; border: 2.5px solid transparent; background-clip: padding-box; transition: background-color 0.2s ease; }
 .sb-thin::-webkit-scrollbar-thumb:hover { background-color: color-mix(in srgb, var(--foreground) 38%, transparent); }
 
-/* 3 - Medium 6px. 12px bar, 3px border -> ~6px pill. */
-.sb-medium { scrollbar-width: thin; scrollbar-color: color-mix(in srgb, var(--foreground) 22%, transparent) transparent; }
+/* 3 - Medium 7px. 12px gutter, 2.5px inset -> 7px pill. */
 .sb-medium::-webkit-scrollbar { width: 12px; height: 12px; }
 .sb-medium::-webkit-scrollbar-track { background: transparent; }
-.sb-medium::-webkit-scrollbar-thumb { background-color: color-mix(in srgb, var(--foreground) 22%, transparent); border-radius: 9999px; border: 3px solid transparent; background-clip: padding-box; transition: background-color 0.2s ease; }
+.sb-medium::-webkit-scrollbar-thumb { background-color: color-mix(in srgb, var(--foreground) 22%, transparent); border-radius: 9999px; border: 2.5px solid transparent; background-clip: padding-box; transition: background-color 0.2s ease; }
 .sb-medium::-webkit-scrollbar-thumb:hover { background-color: color-mix(in srgb, var(--foreground) 40%, transparent); }
 
-/* 4 - Inset groove (faint visible track). */
+/* 4 - Inset groove 6px (faint visible track). 12px gutter, 3px inset -> 6px thumb. */
 .sb-track::-webkit-scrollbar { width: 12px; height: 12px; }
 .sb-track::-webkit-scrollbar-track { background: color-mix(in srgb, var(--foreground) 6%, transparent); border-radius: 9999px; margin: 4px; }
 .sb-track::-webkit-scrollbar-thumb { background-color: color-mix(in srgb, var(--foreground) 28%, transparent); border-radius: 9999px; border: 3px solid transparent; background-clip: padding-box; transition: background-color 0.2s ease; }
 .sb-track::-webkit-scrollbar-thumb:hover { background-color: color-mix(in srgb, var(--foreground) 42%, transparent); }
 
-/* 5 - Recede + boost. Faint at rest (always painted, so reliable), boosts when
- *     the region is hovered. 9px bar, 2.5px border -> ~4px pill. */
-.sb-recede { scrollbar-width: thin; scrollbar-color: color-mix(in srgb, var(--foreground) 12%, transparent) transparent; }
-.sb-recede::-webkit-scrollbar { width: 9px; height: 9px; }
+/* 5 - Recede + boost 5px. Faint at rest (always painted), boosts on region hover.
+ *     10px gutter, 2.5px inset -> 5px pill. */
+.sb-recede::-webkit-scrollbar { width: 10px; height: 10px; }
 .sb-recede::-webkit-scrollbar-track { background: transparent; }
 .sb-recede::-webkit-scrollbar-thumb { background-color: color-mix(in srgb, var(--foreground) 10%, transparent); border-radius: 9999px; border: 2.5px solid transparent; background-clip: padding-box; transition: background-color 0.2s ease; }
 .sb-recede:hover::-webkit-scrollbar-thumb { background-color: color-mix(in srgb, var(--foreground) 34%, transparent); }
