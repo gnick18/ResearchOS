@@ -1155,9 +1155,12 @@ export function layoutPlot(
   }
 
   const meanHalf = Math.min(22, bandW * 0.3);
-  // Smaller error-bar caps so a single error bar reads as one element, not a
-  // stack of horizontal lines (it is one I-beam per group; this just de-clutters).
-  const capHalf = 5;
+  // Error-bar caps sit a touch narrower than the mean line (~0.62x) so the
+  // top cap, mean line, and bottom cap read as one nested I-beam/bracket: wide
+  // enough not to look like a cramped mark in the center of the mean line, but
+  // narrow enough not to collapse into three equal parallel lines when SEM is
+  // small (the mean line stays the widest, the caps clearly inside it).
+  const capHalf = Math.max(6, Math.round(meanHalf * 0.62));
 
   const groupGeo: GroupGeometry[] = groups.map((g, i) => {
     const cx = x0 + bandW * (i + 0.5);
@@ -1210,41 +1213,67 @@ export function layoutPlot(
     };
   });
 
-  // Stack the brackets above the tallest drawn element so legs never cross a
-  // point or an error cap. Each successive bracket rises one step.
+  // Significance brackets. Each bracket sits just above the TALLEST element under
+  // the groups its span CROSSES (not the global top), and steps one tier higher
+  // than any already-placed bracket whose x-range overlaps it. So a narrow
+  // adjacent comparison hugs its own pair, while a wide comparison that reaches
+  // across taller groups rises above them and over the narrower bars it crosses.
+  // Legs are short stubs that mark the endpoints; they do not reach the data.
   const brackets: BracketGeometry[] = [];
   if (style.showBrackets && bracketRequests.length > 0) {
-    // The highest element y (smallest pixel y) across points + error tops.
-    let highest = y1 + 24;
-    for (const gg of groupGeo) {
-      if (gg.errorBar) highest = Math.min(highest, gg.errorBar.topY);
-      for (const p of gg.points) highest = Math.min(highest, p.y);
-      if (gg.meanY !== null) highest = Math.min(highest, gg.meanY);
-    }
-    const legDrop = 6;
-    const tier = 18;
     // The bars that will actually be drawn (both endpoints resolve to a group).
     const drawn = bracketRequests.filter(
       (req) =>
         groupGeo[req.i]?.cx !== undefined && groupGeo[req.j]?.cx !== undefined,
     );
-    // Where the topmost bracket's span line and its label would land if we just
-    // stacked up from the tallest element. The label sits 3px above the span.
-    const topSpanY = highest - 14 - (drawn.length - 1) * tier;
-    const topLabelY = topSpanY - 3;
-    // The title (when shown) sits above the plot area at y1 - 14, so its glyphs
-    // run roughly y1 - 14 - (f + 1) .. y1 - 14. Keep every bracket label clear
-    // of it AND inside the canvas by holding a ceiling a little below the top
-    // axis inset. When the stack would rise past that ceiling, push it down as a
-    // block (the spacing between bars is unchanged, only the whole stack shifts).
+    // Highest drawn element (smallest pixel y) per group: points, error top, mean.
+    const groupTop = groupGeo.map((g) => {
+      let t = g.meanY ?? y0;
+      if (g.errorBar) t = Math.min(t, g.errorBar.topY);
+      for (const p of g.points) t = Math.min(t, p.y);
+      return t;
+    });
+    const gap = 16; // air between a bracket and the tallest element it clears
+    const tier = 18; // vertical step between two stacked (overlapping) brackets
+    const legDrop = 8;
+    // Place narrow spans first (then left to right) so a wide span is pushed up
+    // OVER the narrow ones it crosses, never the reverse.
+    const order = drawn
+      .map((req, idx) => ({ req, idx }))
+      .sort((a, b) => {
+        const wa = Math.abs(a.req.j - a.req.i);
+        const wb = Math.abs(b.req.j - b.req.i);
+        if (wa !== wb) return wa - wb;
+        return Math.min(a.req.i, a.req.j) - Math.min(b.req.i, b.req.j);
+      });
+    const placed: { lo: number; hi: number; spanY: number }[] = [];
+    const spanYByIdx: number[] = new Array(drawn.length);
+    for (const { req, idx } of order) {
+      const lo = Math.min(req.i, req.j);
+      const hi = Math.max(req.i, req.j);
+      // Clear the tallest element anywhere under this span.
+      let clearY = Infinity;
+      for (let k = lo; k <= hi; k++) clearY = Math.min(clearY, groupTop[k]!);
+      let spanY = clearY - gap;
+      // And sit a tier above any already-placed bracket whose x-range overlaps
+      // (touching at a shared endpoint column counts, so legs never collide).
+      for (const p of placed) {
+        if (p.lo <= hi && lo <= p.hi) spanY = Math.min(spanY, p.spanY - tier);
+      }
+      placed.push({ lo, hi, spanY });
+      spanYByIdx[idx] = spanY;
+    }
+    // Hold the whole stack below a ceiling (clear of the title / canvas top),
+    // shifting every bracket down by the same delta so the tiers are preserved.
     const hasTitle = style.title.trim() !== "";
     const ceiling = hasTitle ? y1 + 6 : 4;
+    let topLabelY = Infinity;
+    for (const s of spanYByIdx) topLabelY = Math.min(topLabelY, s - 3 - style.fontSize);
     const shiftDown = topLabelY < ceiling ? ceiling - topLabelY : 0;
-    let level = 0;
-    for (const req of drawn) {
+    drawn.forEach((req, idx) => {
       const a = groupGeo[req.i]!.cx;
       const b = groupGeo[req.j]!.cx;
-      const spanY = highest - 14 - level * tier + shiftDown;
+      const spanY = spanYByIdx[idx]! + shiftDown;
       brackets.push({
         leftX: a,
         rightX: b,
@@ -1254,8 +1283,7 @@ export function layoutPlot(
         labelY: spanY - 3,
         label: req.label,
       });
-      level += 1;
-    }
+    });
   }
 
   return {
