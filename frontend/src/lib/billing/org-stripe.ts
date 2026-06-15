@@ -16,15 +16,17 @@
 //
 // Either way the price is the derived monthly rate, re-derived from the live plan
 // so a change takes effect next cycle. metadata carries { orgTier, orgId } so the
-// webhook can attribute events. Sales tax is a seam (isOrgTaxEnabled, off until
-// the Wisconsin determination). Everything runs against Stripe TEST keys until
-// the live-key flip. See docs/proposals/2026-06-13-org-tier-billing-cascade.md.
+// webhook can attribute events. Stripe Tax (automatic_tax) is always on (decided
+// 2026-06-14): it computes $0 where we are not registered or the product is not
+// taxable, and monitors economic-nexus thresholds, so it is safe to run on every
+// org invoice/subscription. Everything runs against Stripe TEST keys until the
+// live-key flip. See docs/proposals/2026-06-13-org-tier-billing-cascade.md.
 //
 // House style: no em-dashes, no emojis, no mid-sentence colons.
 
 import type Stripe from "stripe";
 
-import { isOrgTaxEnabled, ORG_INVOICE_NET_DAYS } from "./config";
+import { ORG_INVOICE_NET_DAYS } from "./config";
 import { getStripe } from "./stripe";
 import { priceForMethod, stripeMethodsFor, type PayClass } from "./processing-fee";
 import {
@@ -138,11 +140,18 @@ export async function setupOrgBilling(args: {
     currency: "usd",
     unit_amount: chargeCents,
     recurring: { interval: "month" },
+    // Required once automatic_tax is on: tax is added on top of this rate
+    // (US-standard exclusive), never baked in. Without it Stripe rejects the
+    // tax calculation on this dynamically-created price.
+    tax_behavior: "exclusive",
     product_data: { name: `${TIER_PRODUCT_LABEL[tier]} (${info.name})` },
   });
   const metadata: Stripe.MetadataParam = { orgTier: tier, orgId: entityId };
   if (args.poNumber) metadata.poNumber = args.poNumber;
-  const tax = isOrgTaxEnabled() ? { automatic_tax: { enabled: true } } : {};
+  // Stripe Tax on every org invoice/subscription. Safe always-on: $0 where we are
+  // not registered or the product is not taxable (e.g. SaaS in WI), and exempt
+  // universities still pay no tax once their exemption is on the Stripe customer.
+  const tax = { automatic_tax: { enabled: true } };
   // The discount is honest because it is enforced: a bank (discounted) price is
   // only ever payable by a bank debit, a card price only by a card.
   const allowedMethods = stripeMethodsFor(payClass);
@@ -219,6 +228,8 @@ export async function setupOrgBilling(args: {
     customer: customerId,
     line_items: [{ price: price.id, quantity: 1 }],
     payment_method_types: allowedMethods,
+    billing_address_collection: "required",
+    ...tax,
     metadata,
     subscription_data: { metadata },
     success_url: `${args.returnOrigin}/${tier === "institution" ? "institution" : "department"}?billing=success`,

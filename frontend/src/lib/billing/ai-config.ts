@@ -11,15 +11,53 @@
 // House style: no em-dashes, no emojis, no mid-sentence colons.
 
 /**
- * PLACEHOLDER, Grant sets this from the live Fireworks gpt-oss-120b rates before
- * go-live (see docs/proposals/beakerbot-pricing-analysis.md, "Re-pull Fireworks
- * rates at lock time"). It is pinned here so the starter-grant math lands on a
- * round 750,000-token gift, i.e. a one-time grant worth about 25 cents of
- * inference. Concretely 0.25 dollars divided across 750,000 tokens, about
- * 3.33e-7 dollars per token. Every other number in this file derives from it, so
- * changing this one constant retunes the whole token economy and nothing else.
+ * The bare inference cost basis, LOCKED for beta go-live (2026-06-14) from a real
+ * spend test (23 tasks / 43 turns / 2.17M tokens on demo data). The MEASURED
+ * blended cost was $0.153/1M, and it is remarkably stable because BeakerBot is
+ * 99.4% input: the ~50k system+tools prefix is resent every agent-loop turn, so
+ * output (0.6%) is noise. We set the basis to $0.20/1M, the measured cost plus a
+ * ~30% margin, since the only thing that moves the blend is the output share
+ * creeping up (undercharging is the liability). Fireworks gpt-oss-120b standard
+ * tier is $0.15/1M input, $0.60/1M output (docs.fireworks.ai/serverless/pricing).
+ * Biggest future lever: prompt-cache the fixed prefix ($0.015/1M cached) to cut
+ * real cost ~5x. Every billing rate derives from this one constant.
  */
-export const AI_TOKEN_PRICE_USD = 0.25 / 750_000;
+export const AI_BARE_COST_USD_PER_TOKEN = 0.2 / 1_000_000;
+
+/**
+ * Our MEASURED real inference cost, $0.153 per 1M tokens (the 23-task spend test,
+ * 2026-06-14). This is what BeakerBot actually costs us, distinct from the pricing
+ * basis above (which carries a safety margin). Used ONLY to size the free starter
+ * grant by our true exposure, so "we give you 25 cents of free AI" means it costs
+ * us 25 cents, full stop. Billing rates derive from the basis, not this.
+ */
+export const AI_MEASURED_BARE_COST_USD_PER_TOKEN = 0.153 / 1_000_000;
+
+/**
+ * The confirmed AI markups over bare cost (Grant 2026-06-11, see
+ * docs/proposals/beakerbot-pricing-analysis.md "The markup"). The multipliers are
+ * locked; the bare-cost dollars stay tunable. Individuals and labs pay 1.4x bare
+ * (cost-recovery plus a thin buffer for Stripe on the block and the proxy
+ * invocation, not profit). Departments and institutions pay 2.0x bare; that ~0.6x
+ * gap is the sustaining surplus that funds the free individual sign-up trials and
+ * AI development, the same solidarity logic as the storage tiers.
+ */
+export const AI_INDIVIDUAL_MARKUP = 1.4;
+export const AI_ORG_MARKUP = 2.0;
+
+/**
+ * The individual/lab billing rate, what a user's prepaid dollars buy and what the
+ * balance debits at. This is THE rate the packs, the balance, and the ledger use.
+ * Bare cost times the 1.4x individual markup, about $0.84 per 1M tokens.
+ */
+export const AI_TOKEN_PRICE_USD = AI_BARE_COST_USD_PER_TOKEN * AI_INDIVIDUAL_MARKUP;
+
+/**
+ * The department/institution pool billing rate, bare cost times the 2.0x org
+ * markup, about $1.20 per 1M tokens. Defined here so the rate lives in one place;
+ * the org AI invoice line that consumes it is a later phase and is not wired yet.
+ */
+export const AI_ORG_TOKEN_PRICE_USD = AI_BARE_COST_USD_PER_TOKEN * AI_ORG_MARKUP;
 
 /** Micro-dollars (millionths of a USD) per token, the integer unit we store in
  *  the ledger so token-to-dollar accounting never drifts on floats. */
@@ -27,13 +65,17 @@ export const USD_MICROS_PER_USD = 1_000_000;
 
 /**
  * The one-time sign-up gift, in tokens. Granted once per owner on FIRST use
- * (LOCKED decision), keyed to the owner so it can never be re-minted. Worth about
- * 25 cents of inference at the placeholder rate above, which is dozens of real
- * tasks, enough to genuinely try BeakerBot before deciding to spend. A one-time
- * trial, NOT a recurring monthly allowance (a recurring free pool would be an
- * unbounded liability, Grant 2026-06-11).
+ * (LOCKED decision), keyed to the owner so it can never be re-minted. Sized by our
+ * MEASURED cost at 25 cents (~1.63M tokens): it costs us a clean 25 cents per
+ * signup, so "we give you 25 cents of free AI" is literally true. To the user that
+ * is ~46 cents of value at our prices, roughly 17 typical multi-step tasks or ~33
+ * quick questions, a real trial. A one-time trial, NOT a recurring monthly
+ * allowance (a recurring free pool would be an unbounded liability, Grant
+ * 2026-06-11).
  */
-export const STARTER_GRANT_TOKENS = Math.round(0.25 / AI_TOKEN_PRICE_USD);
+export const STARTER_GRANT_TOKENS = Math.round(
+  0.25 / AI_MEASURED_BARE_COST_USD_PER_TOKEN,
+);
 
 /**
  * Prepaid top-up packs, dollars to tokens at the current rate. Defined now for

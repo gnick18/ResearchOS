@@ -11,6 +11,8 @@
 // (Phase 2+). They are absent on Phase 0 / Builder-saved records, which is why
 // they are optional, older records simply omit them.
 
+import type { ArtboardState } from "@/lib/figure/artboard";
+
 /** The tree-text format as imported. */
 export type PhyloFormat = "newick" | "nexus" | "phyloxml";
 
@@ -18,7 +20,13 @@ export type PhyloFormat = "newick" | "nexus" | "phyloxml";
 export type PhyloSource = "upload" | "paste" | "builder";
 
 /** Studio layout shapes. */
-export type PhyloLayout = "rectangular" | "circular" | "slanted" | "unrooted";
+export type PhyloLayout =
+  | "rectangular"
+  | "circular"
+  | "slanted"
+  | "unrooted"
+  | "fan"
+  | "inwardCircular";
 
 /**
  * The Studio figure spec, read by both the native SVG renderer and the ggtree
@@ -67,6 +75,17 @@ export interface PhyloFigureSpec {
    * claim ancestral-state reconstruction.
    */
   branchColorColumn?: string;
+  /**
+   * The publication page-frame (artboard) config for this figure. Optional +
+   * additive (an older record omits it and the artboard reads as disabled, so the
+   * figure renders exactly as before). Normalized with readArtboardState on load.
+   */
+  artboard?: ArtboardState;
+  /**
+   * The figure's chosen width in inches when the artboard is used (height follows
+   * the fixed tree aspect). Optional + additive, absent means the natural size.
+   */
+  figureWidthIn?: number;
 }
 
 /**
@@ -98,6 +117,63 @@ export interface CladeAnnotation {
   collapsed?: boolean;
 }
 
+/**
+ * One curved tip-to-tip link, stored in the taxalink layer's `options.links`
+ * (ggtree geom_taxalink). Defined BY TIP NAME so it survives a re-layout, the
+ * renderer resolves each name to a tip position and draws a curve between them
+ * (bowing right in the rectangular tree, through the inside of a circular tree).
+ * Carried on the loose `AlignedPanel.options` seam, so no new on-disk field.
+ */
+export interface TaxaLink {
+  /** Stable id within the figure (React key + edit target). */
+  id: string;
+  /** Source tip NAME. */
+  from: string;
+  /** Target tip NAME. */
+  to: string;
+  /** Curve stroke color. */
+  color: string;
+}
+
+/**
+ * One span strip, stored in the taxastrip layer's `options.strips` (ggtree
+ * geom_strip). A solid bar drawn just outside the tips, spanning the range from
+ * the `from` tip to the `to` tip (by NAME, any two tips, not necessarily a
+ * monophyletic clade), with an optional label alongside. Carried on the loose
+ * `AlignedPanel.options` seam, so no new on-disk field.
+ */
+export interface TaxaStrip {
+  /** Stable id within the figure (React key + edit target). */
+  id: string;
+  /** First tip NAME of the span. */
+  from: string;
+  /** Last tip NAME of the span. */
+  to: string;
+  /** Bar / label color. */
+  color: string;
+  /** A label drawn alongside the bar. */
+  label: string;
+}
+
+/**
+ * One node pie / star, stored in the nodepie layer's `options.pies` (ggtree
+ * nodepie + geom_inset / geom_star). The target node is the MRCA of the named
+ * tips (the same name-the-members idiom as a clade), so it survives a re-layout
+ * without internal node labels. `slices` are category proportions (e.g.
+ * ancestral-state probabilities); a "pie" draws them as a pie chart at the node,
+ * a "star" draws a single star glyph in the dominant slice's color.
+ */
+export interface NodePie {
+  /** Stable id within the figure (React key + edit target). */
+  id: string;
+  /** Members by tip NAME; the MRCA of these is the target node. */
+  tips: string[];
+  /** Category slices (label + value + color); values need not sum to 1. */
+  slices: { label: string; value: number; color: string }[];
+  /** Glyph style at the node (default "pie"). */
+  style?: "pie" | "star";
+}
+
 /** The geom catalog a layer can be, grows over phases. */
 export type AlignedPanelKind =
   | "labels"
@@ -111,8 +187,14 @@ export type AlignedPanelKind =
   | "point"
   | "scatter"
   | "clade"
+  | "taxalink"
+  | "taxastrip"
+  | "noderange"
+  | "nodepie"
   | "support"
-  | "msa";
+  | "nodepoints"
+  | "msa"
+  | "datahubPlot";
 
 /**
  * Error-whisker kind for the point (lollipop) geom, mirroring the Data Hub

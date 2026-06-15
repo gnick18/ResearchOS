@@ -14,6 +14,7 @@ import Tooltip from "@/components/Tooltip";
 import { Icon } from "@/components/icons";
 import SendReferencePicker from "@/components/references/SendReferencePicker";
 import { objectReferenceMarkdown } from "@/lib/references";
+import { setBeakerContext } from "@/components/ai/context-bridge";
 import SequenceEditView from "@/components/sequences/SequenceEditView";
 import { usePreloadOnIdle } from "@/lib/perf/use-preload-on-idle";
 import SequenceNewDialog, {
@@ -621,6 +622,29 @@ export default function SequencesPage() {
     queryFn: () => (selectedId == null ? null : sequencesApi.get(selectedId)),
     enabled: selectedId != null,
   });
+
+  // Publish the open sequence to the BeakerBot context bridge so the model can
+  // resolve "this", "this sequence", or "this plasmid" to what the user has open.
+  // Mirrors the Data Hub publisher: rebuilt when the selection changes, cleared on
+  // deselect and on unmount so the model never inherits a stale selection.
+  useEffect(() => {
+    if (!selected) {
+      setBeakerContext(null);
+      return;
+    }
+    setBeakerContext({
+      route: "/sequences",
+      pageLabel: "Sequences",
+      selection: {
+        type: "sequence",
+        id: String(selected.id),
+        name: selected.display_name || "Untitled sequence",
+      },
+    });
+    return () => {
+      setBeakerContext(null);
+    };
+  }, [selected]);
 
   // sequence editor master. The open sequence's pinned lineage, derived from its
   // taxonomy. lineageIds is the root-to-organism trail (the named lineage tax

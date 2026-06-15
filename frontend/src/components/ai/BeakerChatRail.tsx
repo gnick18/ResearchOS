@@ -27,6 +27,15 @@ import {
   useConversationStore,
 } from "@/lib/ai/conversation-store";
 import type { StoredBeakerChat } from "@/lib/ai/beaker-chats-store";
+import {
+  listMacros,
+  deleteMacro,
+  createMacro,
+  slugifyMacroName,
+  ensureUniqueMacroName,
+  type StoredMacro,
+} from "@/lib/ai/beaker-macros-store";
+import { useMacroUiStore } from "@/lib/ai/macro-ui-store";
 
 function shortWhen(iso: string): string {
   const then = new Date(iso).getTime();
@@ -47,6 +56,38 @@ export default function BeakerChatRail() {
   const [renameDraft, setRenameDraft] = useState("");
   const [confirmDeleteId, setConfirmDeleteId] = useState<number | null>(null);
   const [showArchived, setShowArchived] = useState(false);
+
+  // Macros (the manager view in this rail). Loaded from disk and refreshed when
+  // any macro is created / edited / duplicated / deleted (the revision counter).
+  const [macros, setMacros] = useState<StoredMacro[] | null>(null);
+  const [confirmDeleteMacroId, setConfirmDeleteMacroId] = useState<number | null>(
+    null,
+  );
+  const macroRevision = useMacroUiStore((s) => s.revision);
+  const openMacroEditor = useMacroUiStore((s) => s.openEditor);
+  const notifyMacrosChanged = useMacroUiStore((s) => s.notifyMacrosChanged);
+  useEffect(() => {
+    void listMacros().then(setMacros);
+  }, [macroRevision]);
+
+  const handleRunMacro = (macro: StoredMacro) => {
+    void useConversationStore.getState().runStoredMacro(macro);
+  };
+  const handleDuplicateMacro = async (macro: StoredMacro) => {
+    const base = slugifyMacroName(`${macro.name}-copy`);
+    const others = (macros ?? []).map((m) => m.name);
+    await createMacro({
+      name: ensureUniqueMacroName(base, others),
+      description: macro.description,
+      steps: macro.steps,
+    });
+    notifyMacrosChanged();
+  };
+  const handleDeleteMacro = async (id: number) => {
+    await deleteMacro(id);
+    setConfirmDeleteMacroId(null);
+    notifyMacrosChanged();
+  };
 
   // The open thread, reactive, so the matching row highlights and the list
   // refreshes when a fresh chat creates its thread on the first send.
@@ -108,21 +149,25 @@ export default function BeakerChatRail() {
               aria-label="Chat title"
               className="min-w-0 flex-1 rounded border border-border bg-surface px-2 py-1 text-meta text-foreground focus:border-brand-action focus:outline-none"
             />
-            <button
-              type="submit"
-              aria-label="Save title"
-              className="flex h-6 w-6 flex-none items-center justify-center rounded text-brand-action hover:bg-surface-raised"
-            >
-              <Icon name="check" className="h-3.5 w-3.5" title="Save" />
-            </button>
-            <button
-              type="button"
-              aria-label="Cancel rename"
-              onClick={() => setRenamingId(null)}
-              className="flex h-6 w-6 flex-none items-center justify-center rounded text-foreground-muted hover:bg-surface-raised hover:text-foreground"
-            >
-              <Icon name="close" className="h-3.5 w-3.5" title="Cancel" />
-            </button>
+            <Tooltip label="Save title">
+              <button
+                type="submit"
+                aria-label="Save title"
+                className="flex h-6 w-6 flex-none items-center justify-center rounded text-brand-action hover:bg-surface-raised"
+              >
+                <Icon name="check" className="h-3.5 w-3.5" />
+              </button>
+            </Tooltip>
+            <Tooltip label="Cancel rename">
+              <button
+                type="button"
+                aria-label="Cancel rename"
+                onClick={() => setRenamingId(null)}
+                className="flex h-6 w-6 flex-none items-center justify-center rounded text-foreground-muted hover:bg-surface-raised hover:text-foreground"
+              >
+                <Icon name="close" className="h-3.5 w-3.5" />
+              </button>
+            </Tooltip>
           </form>
         </li>
       );
@@ -251,6 +296,151 @@ export default function BeakerChatRail() {
             <ul className="flex flex-col gap-0.5">{active.map(renderRow)}</ul>
           </>
         )}
+      </div>
+
+      {/* Macros manager. Lists the user's saved macros with Run / Edit /
+          Duplicate / Delete. Author-from-scratch (an Add-step tool picker) is a
+          follow-up, today macros are created by "Save as macro" on a run or by
+          Duplicate. The disabled Lab macros row reserves the lab-shared home. */}
+      <div className="border-t border-border">
+        <div className="flex items-center gap-1.5 px-3 pb-1 pt-2">
+          <Icon
+            name="bolt"
+            className="h-3 w-3 text-purple-600 dark:text-purple-300"
+            title=""
+          />
+          <span className="text-[10px] font-bold uppercase tracking-wide text-purple-600 dark:text-purple-300">
+            Macros
+          </span>
+          <Tooltip label="New macro" placement="bottom">
+            <button
+              type="button"
+              data-testid="beaker-macro-new"
+              aria-label="New macro"
+              onClick={() =>
+                openMacroEditor({ name: "", description: "", steps: [] })
+              }
+              className="ml-auto flex h-5 w-5 items-center justify-center rounded text-purple-600 hover:bg-purple-500/10 dark:text-purple-300"
+            >
+              <Icon name="plus" className="h-3.5 w-3.5" title="New macro" />
+            </button>
+          </Tooltip>
+        </div>
+        {macros === null ? (
+          <p className="px-3 pb-2 text-meta text-foreground-muted">Loading...</p>
+        ) : macros.length === 0 ? (
+          <p className="px-3 pb-2 text-[11px] leading-snug text-foreground-muted">
+            No macros yet. Run something, then choose Save as macro to reuse it
+            with one command.
+          </p>
+        ) : (
+          <ul className="flex flex-col gap-0.5 px-1.5 pb-1.5">
+            {macros.map((macro) => {
+              const isConfirming = confirmDeleteMacroId === macro.id;
+              return (
+                <li
+                  key={macro.id}
+                  data-testid="beaker-macro-row"
+                  className="group relative flex items-center gap-1.5 rounded-md px-2 py-1.5 hover:bg-surface-raised"
+                >
+                  <button
+                    type="button"
+                    data-testid="beaker-macro-run"
+                    onClick={() => handleRunMacro(macro)}
+                    className="flex min-w-0 flex-1 flex-col items-start text-left"
+                  >
+                    <span className="w-full truncate text-meta font-semibold text-purple-600 dark:text-purple-300">
+                      /{macro.name}
+                    </span>
+                    <span className="w-full truncate text-[10px] text-foreground-muted">
+                      {macro.steps.length} step
+                      {macro.steps.length === 1 ? "" : "s"}
+                      {macro.description ? ` · ${macro.description}` : ""}
+                    </span>
+                  </button>
+
+                  {isConfirming ? (
+                    <div className="flex flex-none items-center gap-1 text-[11px]">
+                      <button
+                        type="button"
+                        data-testid="beaker-macro-delete-confirm"
+                        onClick={() => void handleDeleteMacro(macro.id)}
+                        className="rounded border border-red-300 bg-red-50 px-1.5 py-0.5 font-medium text-red-700 hover:bg-red-100 dark:border-red-800 dark:bg-red-900/20 dark:text-red-300"
+                      >
+                        Delete
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setConfirmDeleteMacroId(null)}
+                        className="rounded border border-border px-1.5 py-0.5 text-foreground-muted hover:bg-surface-raised hover:text-foreground"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="hidden flex-none items-center gap-0.5 group-hover:flex">
+                      <Tooltip label="Run macro" placement="bottom">
+                        <button
+                          type="button"
+                          aria-label="Run macro"
+                          onClick={() => handleRunMacro(macro)}
+                          className="flex h-6 w-6 items-center justify-center rounded text-foreground-muted hover:bg-surface-sunken hover:text-purple-600 dark:hover:text-purple-300"
+                        >
+                          <Icon name="bolt" className="h-3.5 w-3.5" title="Run" />
+                        </button>
+                      </Tooltip>
+                      <Tooltip label="Edit" placement="bottom">
+                        <button
+                          type="button"
+                          data-testid="beaker-macro-edit"
+                          aria-label="Edit macro"
+                          onClick={() =>
+                            openMacroEditor({
+                              macroId: macro.id,
+                              name: macro.name,
+                              description: macro.description,
+                              steps: macro.steps,
+                            })
+                          }
+                          className="flex h-6 w-6 items-center justify-center rounded text-foreground-muted hover:bg-surface-sunken hover:text-foreground"
+                        >
+                          <Icon name="pencil" className="h-3.5 w-3.5" title="Edit" />
+                        </button>
+                      </Tooltip>
+                      <Tooltip label="Duplicate" placement="bottom">
+                        <button
+                          type="button"
+                          aria-label="Duplicate macro"
+                          onClick={() => void handleDuplicateMacro(macro)}
+                          className="flex h-6 w-6 items-center justify-center rounded text-foreground-muted hover:bg-surface-sunken hover:text-foreground"
+                        >
+                          <Icon name="copy" className="h-3.5 w-3.5" title="Duplicate" />
+                        </button>
+                      </Tooltip>
+                      <Tooltip label="Delete" placement="bottom">
+                        <button
+                          type="button"
+                          aria-label="Delete macro"
+                          onClick={() => setConfirmDeleteMacroId(macro.id)}
+                          className="flex h-6 w-6 items-center justify-center rounded text-foreground-muted hover:bg-surface-sunken hover:text-red-600"
+                        >
+                          <Icon name="trash" className="h-3.5 w-3.5" title="Delete" />
+                        </button>
+                      </Tooltip>
+                    </div>
+                  )}
+                </li>
+              );
+            })}
+          </ul>
+        )}
+        <div className="flex items-center gap-1.5 px-3 pb-2 pt-0.5 text-[10px] text-foreground-muted">
+          <Icon name="lock" className="h-3 w-3" title="" />
+          <span>Lab macros</span>
+          <span className="rounded border border-border bg-surface px-1 py-px text-[9px] font-semibold uppercase tracking-wide">
+            soon
+          </span>
+        </div>
       </div>
 
       {archived.length > 0 ? (

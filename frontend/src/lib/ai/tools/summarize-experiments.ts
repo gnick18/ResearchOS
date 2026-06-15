@@ -19,10 +19,18 @@
 import {
   experimentToBrief,
   filterArtifacts,
+  periodToDateRange,
+  resolveProjectRefsToIds,
+  resolveOwnerRefsToUsernames,
   type ArtifactBrief,
   type ArtifactFilter,
 } from "@/lib/ai/artifact-index";
-import { fetchAllProjectsIncludingShared, fetchAllTasksIncludingShared } from "@/lib/local-api";
+import {
+  fetchAllProjectsIncludingShared,
+  fetchAllTasksIncludingShared,
+  usersApi,
+} from "@/lib/local-api";
+import { attachRecordSetIfBig, periodLabel, RECORD_SET_UI_CAP, type RecordSetRow } from "@/lib/ai/record-set";
 import type { Project, Task } from "@/lib/types";
 import type { AiTool } from "./types";
 
@@ -39,6 +47,9 @@ export type SummarizeExperimentsDeps = {
   /** Load all projects visible to the current user (own + shared), used to
    *  resolve project ids to human-readable names in the byProject breakdown. */
   listProjects: () => Promise<Project[]>;
+  /** The lab member usernames, used to resolve owner NAMES the model passed
+   *  ("Kritika") to real usernames before scoping. */
+  listMemberUsernames: () => Promise<string[]>;
 };
 
 export const summarizeExperimentsDeps: SummarizeExperimentsDeps = {
@@ -47,6 +58,13 @@ export const summarizeExperimentsDeps: SummarizeExperimentsDeps = {
     return all.filter((t) => t.task_type === "experiment");
   },
   listProjects: () => fetchAllProjectsIncludingShared(),
+  listMemberUsernames: async () => {
+    try {
+      return (await usersApi.list()).users;
+    } catch {
+      return [];
+    }
+  },
 };
 
 // ---------------------------------------------------------------------------
@@ -311,13 +329,19 @@ export const summarizeExperimentsTool: AiTool = {
         type: "array",
         items: { type: "string" },
         description:
-          "Optional. Usernames of the lab members to scope to. Omit for the whole lab (own plus everything shared with the current user). Never reaches a member's private work, only what is shared.",
+          "Optional. Lab members to scope to, by NAME or username (for example [\"Kritika\"]). The tool resolves names to usernames itself, tolerating case and small typos, so just pass what the user said; you do NOT need to call list_lab_members first. Omit for the whole lab (own plus everything shared with the current user). Never reaches a member's private work, only what is shared.",
+      },
+      projects: {
+        type: "array",
+        items: { type: "string" },
+        description:
+          "Optional. Projects to scope to, by NAME or by numeric id. The tool resolves names to ids itself, so just pass what the user said (for example [\"cyp51A knockout\"]). You do NOT need to look up the id first. An experiment in any listed project is counted.",
       },
       projectIds: {
         type: "array",
         items: { type: "string" },
         description:
-          "Optional. Project ids to scope to. An experiment in any of the listed projects is counted. Use search_my_work with a project type filter to resolve a project name to its id first.",
+          "Optional. Project ids to scope to (the resolved-id form of `projects`). Prefer `projects` with names; this is only for when you already hold ids.",
       },
       status: {
         type: "string",
@@ -329,20 +353,98 @@ export const summarizeExperimentsTool: AiTool = {
         description:
           "Optional free-text match on the experiment name and tags, for example \"miniprep\" or \"cyp51A\".",
       },
+      period: {
+        type: "string",
+        description:
+          "Optional relative date window the TOOL resolves to since/until for you, so you never compute dates yourself. One of: today, this_week, last_week, this_month, last_month, this_quarter, last_quarter, this_year, last_year, all_time. Prefer this over computing since/until by hand whenever the user says a relative window (\"last month\", \"this quarter\"). An explicit since/until you also pass wins over the period for that bound.",
+      },
     },
     required: [],
     additionalProperties: false,
   },
   execute: async (args) => {
-    const filter = parseFilter(args);
-    const [tasks, projects] = await Promise.all([
+    const today = todayString();
+    const baseFilter = parseFilter(args);
+    // Resolve a relative period token (last_month, this_quarter, ...) to dates
+    // DETERMINISTICALLY in the tool, so the weak model never does date arithmetic.
+    // An explicit since/until the model also passed wins over the period bound.
+    const period = typeof args.period === "string" ? args.period : undefined;
+    const range = periodToDateRange(period, today);
+    const [tasks, projects, members] = await Promise.all([
       summarizeExperimentsDeps.listExperiments(),
       summarizeExperimentsDeps.listProjects(),
+      summarizeExperimentsDeps.listMemberUsernames(),
     ]);
+    // Resolve any project NAMES the model passed into ids, merged with any explicit
+    // projectIds, so the model never has to chain a search_my_work lookup first.
+    const nameRefs = Array.isArray(args.projects)
+      ? (args.projects as Array<string | number>)
+      : [];
+    const resolvedIds = resolveProjectRefsToIds(nameRefs, projects);
+    // Resolve owner NAMES the model passed ("Kritika", "kritka") to real usernames,
+    // so the model never has to chain list_lab_members first. If owners were given
+    // but none resolve (e.g. no member list), keep the raw strings rather than
+    // silently widening the scope to the whole lab.
+    const rawOwners = baseFilter.owners ?? [];
+    const resolvedOwners = resolveOwnerRefsToUsernames(rawOwners, members);
+    // Check 4 (live-verify 2026-06-14): the user named owner(s) but NONE resolved to
+    // a real member. Do not silently filter by the raw unmatched name and return an
+    // empty summary that reads like a real-but-empty member. Signal the miss so the
+    // model asks who was meant. A real member with no records still has a resolved
+    // username, so this never fires on a legitimate empty result. Guarded on a known
+    // roster: when members is empty (solo user, or the roster API returned nothing)
+    // we cannot tell a typo from a valid owner, so keep the raw filter as before.
+    if (members.length > 0 && rawOwners.length > 0 && resolvedOwners.length === 0) {
+      return {
+        ok: false as const,
+        error: `No lab member matched ${rawOwners.map((o) => `"${o}"`).join(", ")}. Ask the user who they mean, or call list_lab_members for the real names, instead of summarizing an empty set.`,
+      };
+    }
+    const filter: ArtifactFilter = {
+      ...baseFilter,
+      since: baseFilter.since ?? range.since,
+      until: baseFilter.until ?? range.until,
+      owners: rawOwners.length > 0 ? (resolvedOwners.length > 0 ? resolvedOwners : rawOwners) : undefined,
+      projectIds: [...new Set([...(baseFilter.projectIds ?? []), ...resolvedIds])],
+    };
     const projectNames = new Map(
       projects.map((p) => [String(p.id), p.name || "Untitled project"]),
     );
-    const summary = aggregateExperiments(tasks, filter, todayString(), DEFAULT_ITEM_CAP, projectNames);
-    return { ok: true as const, summary };
+    // Aggregate ONCE at the UI cap so the full matched list is available for the
+    // inline record-set widget, then narrow the model-facing summary back to the
+    // documented item cap (counts and tallies are cap-independent). The widget gets
+    // every match; the model still gets only DEFAULT_ITEM_CAP items.
+    const fullSummary = aggregateExperiments(
+      tasks,
+      filter,
+      today,
+      RECORD_SET_UI_CAP,
+      projectNames,
+    );
+    const modelItems = fullSummary.items.slice(0, DEFAULT_ITEM_CAP);
+    const summary: ExperimentSummary = {
+      ...fullSummary,
+      items: modelItems,
+      truncated: fullSummary.total > modelItems.length,
+    };
+
+    // attachRecordSetIfBig gates the inline widget on the ">4" rule, so a summary of
+    // 4 or fewer experiments shows inline chips and 5 or more renders the browser.
+    const rows = fullSummary.items.map(
+      (it): RecordSetRow => ({
+        type: "experiment",
+        id: String(it.id),
+        title: it.title,
+        ...(it.projectName ? { subtitle: it.projectName } : {}),
+        ...(it.startDate ? { date: it.startDate } : {}),
+        meta: it.status,
+      }),
+    );
+
+    return attachRecordSetIfBig({ ok: true as const, summary }, rows, {
+      kind: "summarize_experiments",
+      title: periodLabel("Experiments", filter),
+      total: fullSummary.total,
+    });
   },
 };

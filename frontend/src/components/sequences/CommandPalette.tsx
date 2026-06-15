@@ -118,6 +118,7 @@ const CHIP_TONE: Record<PaletteTone, string> = {
   datahub: "bg-orange-50 text-orange-600 dark:bg-orange-900/30 dark:text-orange-300",
   molecule: "bg-lime-50 text-lime-600 dark:bg-lime-900/30 dark:text-lime-300",
   purchase: "bg-yellow-50 text-yellow-600 dark:bg-yellow-900/30 dark:text-yellow-300",
+  phylo: "bg-green-50 text-green-600 dark:bg-green-900/30 dark:text-green-300",
 };
 /** The default chip for commands / sequence-nav / artifacts / the search-all
  *  row (everything that is not a typed cross-app record). */
@@ -996,6 +997,14 @@ export function CommandPalette({
 
   const onKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
+      // In ask mode the BeakerBot conversation is rendered INSIDE this container
+      // and fully owns keyboard input (its composer handles Enter to send, the
+      // slash and mention menus handle Arrow and Enter). A keypress there bubbles
+      // up to this handler, so without this guard a composer Enter re-fires the
+      // palette's escalation with the stale search query, queueing a phantom
+      // message behind the in-flight turn. The palette's search-mode key handling
+      // is irrelevant once we are in a conversation, so bail entirely.
+      if (askMode === "ask") return;
       if (e.key === "ArrowDown") {
         e.preventDefault();
         moveHighlight(1);
@@ -1046,6 +1055,7 @@ export function CommandPalette({
       }
     },
     [
+      askMode,
       onClose,
       moveHighlight,
       runItem,
@@ -1161,6 +1171,12 @@ export function CommandPalette({
             className="flex flex-1 flex-col overflow-hidden"
             style={{
               animation: "palette-fadein 0.2s cubic-bezier(.4,0,.2,1) both",
+              // BeakerBot's whole panel reads in its own typeface (--font-ai,
+              // Hanken Grotesk), distinct from the app chrome (Geist). Applied once
+              // at the ask-mode root so the header, toggle, "AI free in beta"
+              // button, history rail, conversation, cards, and composer are all one
+              // consistent font instead of a patchwork.
+              fontFamily: "var(--font-ai)",
             }}
           >
             <style>{`

@@ -14,7 +14,6 @@
 import { useEffect, useState } from "react";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { isDemoOrWikiCapture } from "@/lib/file-system/wiki-capture-mock";
-import { getSessionIdentity } from "@/lib/sharing/identity/session-key";
 import { patchUserSettings } from "@/lib/settings/user-settings";
 import { Icon } from "@/components/icons";
 import { createInstitutionForCurrentUser } from "@/lib/institution/institution-create";
@@ -48,23 +47,19 @@ export default function InstitutionAdminPanel() {
     void refresh();
   }, []);
 
-  const requireIdentity = () => {
-    const id = getSessionIdentity();
-    if (!id) throw new Error("Your identity is locked. Reload and sign in first.");
-    return id;
-  };
-
   const createInstitution = async () => {
-    if (!name.trim() || !currentUser) return;
+    if (!name.trim()) return;
     setError(null);
     setBusy(true);
     try {
-      const { institutionId } = await createInstitutionForCurrentUser({
-        identity: requireIdentity(),
-        name,
-      });
-      // Record the org relationship locally (the Institution lens reads this).
-      await patchUserSettings(currentUser, { institution_admin_of: institutionId });
+      // Created server-side off the authenticated session; no local device
+      // identity needed (the portal works folderless).
+      const { institutionId } = await createInstitutionForCurrentUser({ name });
+      // Record the org relationship locally ONLY when a folder is connected (the
+      // in-app Institution lens reads it). Folderless portal use skips this.
+      if (currentUser) {
+        await patchUserSettings(currentUser, { institution_admin_of: institutionId });
+      }
       await refresh();
     } catch (e) {
       setError(errMsg(e));
@@ -73,22 +68,18 @@ export default function InstitutionAdminPanel() {
     }
   };
 
-  const makeInviteLink = () => {
+  const makeInviteLink = async () => {
     if (!roster?.institution) return;
     setError(null);
-    // Demo mode has no identity to sign with; show a representative link.
+    // Demo mode has no session; show a representative link.
     if (isDemoOrWikiCapture()) {
       setLink(`${window.location.origin}/institution/join#demo-invite-link`);
       setCopied(false);
       return;
     }
-    if (!currentUser) return;
     try {
-      const { link: l } = mintInviteForInstitutionAdmin({
+      const { link: l } = await mintInviteForInstitutionAdmin({
         institutionId: roster.institution.institutionId,
-        institutionName: roster.institution.name,
-        username: currentUser,
-        identity: requireIdentity(),
         origin: window.location.origin,
       });
       setLink(l);
@@ -177,7 +168,7 @@ export default function InstitutionAdminPanel() {
           department; you do not need their email.
         </p>
         <div className="mt-3 flex flex-wrap items-center gap-2">
-          <button type="button" className={primaryBtn} onClick={makeInviteLink}>
+          <button type="button" className={primaryBtn} onClick={() => void makeInviteLink()}>
             Create invite link
           </button>
           {link && (

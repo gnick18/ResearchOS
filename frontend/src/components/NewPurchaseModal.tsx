@@ -12,7 +12,7 @@ import {
 import { useUnsavedChangesGuard } from "@/hooks/useUnsavedChangesGuard";
 import { useDraftPersistence } from "@/hooks/useDraftPersistence";
 import { defaultFundingStringForProject } from "@/lib/funding/prefill";
-import LivingPopup from "@/components/ui/LivingPopup";
+import CalmPopupShell from "@/components/ui/CalmPopupShell";
 
 /**
  * Quick "+ New Purchase" modal mounted from the /purchases page.
@@ -562,21 +562,36 @@ export default function NewPurchaseModal({
   };
 
   return (
-    <LivingPopup
+    // Unified Popup Chrome (UNIFIED_POPUP_CHROME_SPEC.md §1 Purchase): the quick
+    // New Purchase modal adopts the shared shell. Single-view form, so no tab
+    // row and no Focus toggle (it is a small fixed-size form, not an expandable
+    // editor). Title "New Purchase" (no type chip, C3); Save lives in the shell
+    // footer; Cancel stays reachable as the header ✕ (onClose = handleClose,
+    // which never closes mid-write). The form still wraps the body so Enter
+    // submits, and every input keeps its data-tour-target for the cursor demo.
+    <CalmPopupShell
       open={open}
       onClose={handleClose}
       label="New purchase"
-      widthClassName="max-w-md"
-      card={false}
+      title="New Purchase"
+      expandable={false}
+      dockedWidthClassName="max-w-md"
+      footer={{
+        doneLabel: saving ? "Saving..." : "Save",
+        onDone: () => {
+          if (!saving && form.name.trim()) void handleSave();
+        },
+        doneTourTarget: "purchases-form-submit",
+      }}
     >
       <form
         onSubmit={handleSave}
-        className="bg-surface-raised rounded-xl shadow-2xl w-full p-6"
+        className="flex-1 overflow-y-auto px-6 py-4"
         data-tour-target="purchases-form"
       >
-        <h3 className="text-heading font-semibold text-foreground mb-4">
-          New Purchase
-        </h3>
+        {/* Hidden submit keeps native Enter-to-submit working now that the
+            visible Save button lives in the shell footer outside this form. */}
+        <button type="submit" className="hidden" aria-hidden tabIndex={-1} />
 
         {error && (
           <div className="mb-4 px-3 py-2 bg-rose-50 dark:bg-rose-500/10 border border-rose-200 dark:border-rose-500/30 rounded-lg text-meta text-rose-700 dark:text-rose-300">
@@ -663,7 +678,7 @@ export default function NewPurchaseModal({
                 }
               }}
               placeholder="e.g. 12-well plates"
-              className="w-full px-3 py-2 border border-border rounded-lg text-body focus:outline-none focus:ring-2 focus:ring-amber-500"
+              className="w-full px-3 py-2 border border-border rounded-lg text-body focus:outline-none focus:ring-2 focus:ring-amber-500 bg-surface-raised"
               autoFocus
               data-tour-target="purchases-form-name"
             />
@@ -701,7 +716,7 @@ export default function NewPurchaseModal({
               value={form.vendor}
               onChange={(e) => handleField("vendor", e.target.value)}
               placeholder="e.g. Sigma-Aldrich"
-              className="w-full px-3 py-2 border border-border rounded-lg text-body focus:outline-none focus:ring-2 focus:ring-amber-500"
+              className="w-full px-3 py-2 border border-border rounded-lg text-body focus:outline-none focus:ring-2 focus:ring-amber-500 bg-surface-raised"
               data-tour-target="purchases-form-vendor"
             />
           </div>
@@ -744,7 +759,7 @@ export default function NewPurchaseModal({
                 value={form.price}
                 onChange={(e) => handleField("price", e.target.value)}
                 placeholder="0.00"
-                className="w-full px-3 py-2 border border-border rounded-lg text-body focus:outline-none focus:ring-2 focus:ring-amber-500"
+                className="w-full px-3 py-2 border border-border rounded-lg text-body focus:outline-none focus:ring-2 focus:ring-amber-500 bg-surface-raised"
                 data-tour-target="purchases-form-price"
               />
             </div>
@@ -758,7 +773,7 @@ export default function NewPurchaseModal({
                 value={form.quantity}
                 onChange={(e) => handleField("quantity", e.target.value)}
                 placeholder="1"
-                className="w-full px-3 py-2 border border-border rounded-lg text-body focus:outline-none focus:ring-2 focus:ring-amber-500"
+                className="w-full px-3 py-2 border border-border rounded-lg text-body focus:outline-none focus:ring-2 focus:ring-amber-500 bg-surface-raised"
                 data-tour-target="purchases-form-quantity"
               />
             </div>
@@ -779,7 +794,7 @@ export default function NewPurchaseModal({
                 handleField("fundingString", e.target.value);
               }}
               placeholder="e.g. NIH-R01-12345"
-              className="w-full px-3 py-2 border border-border rounded-lg text-body focus:outline-none focus:ring-2 focus:ring-amber-500"
+              className="w-full px-3 py-2 border border-border rounded-lg text-body focus:outline-none focus:ring-2 focus:ring-amber-500 bg-surface-raised"
               data-tour-target="purchases-form-funding"
             />
             <datalist id={FUNDING_DATALIST_ID}>
@@ -793,26 +808,7 @@ export default function NewPurchaseModal({
             </p>
           </div>
         </div>
-
-        <div className="flex gap-3 justify-end mt-6">
-          <button
-            type="button"
-            onClick={onClose}
-            disabled={saving}
-            className="px-4 py-2 text-body text-foreground-muted hover:text-foreground rounded-lg hover:bg-surface-sunken transition-colors disabled:opacity-50"
-          >
-            Cancel
-          </button>
-          <button
-            type="submit"
-            disabled={saving || !form.name.trim()}
-            data-tour-target="purchases-form-submit"
-            className="px-4 py-2 text-body text-white bg-amber-600 hover:bg-amber-700 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            {saving ? "Saving..." : "Save"}
-          </button>
-        </div>
       </form>
-    </LivingPopup>
+    </CalmPopupShell>
   );
 }

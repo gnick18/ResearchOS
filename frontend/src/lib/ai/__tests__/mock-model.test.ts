@@ -46,10 +46,13 @@ vi.mock("../proxy-client", () => {
       this.name = "ProxyError";
     }
   };
+  const callModelViaProxy = vi.fn(async () => ({
+    choices: [{ message: { content: "proxy-answer" } }],
+  }));
   return {
-    callModelViaProxy: vi.fn(async () => ({
-      choices: [{ message: { content: "proxy-answer" } }],
-    })),
+    callModelViaProxy,
+    // f824505eb metering: send() binds a per-task proxy caller via proxyCallerForTask.
+    proxyCallerForTask: vi.fn(() => callModelViaProxy),
     ProxyError,
   };
 });
@@ -62,6 +65,7 @@ vi.mock("@/components/ai/context-bridge", () => ({
 vi.mock("@/components/ai/spotlight-controller", () => ({
   showSpotlight: vi.fn(),
   dismissSpotlight: vi.fn(),
+  setSpotlightSuppressed: vi.fn(),
 }));
 
 vi.mock("../page-perception", () => ({

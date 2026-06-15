@@ -55,6 +55,10 @@ export const NAV_ICON_BY_HREF: Record<string, IconName> = {
   // "tree" glyph, which literally depicts a phylogenetic tree. Distinct from
   // "labTree" (the lab-mentorship hierarchy), so no meaning collision.
   "/phylo": "tree",
+  // /figures (the universal figure composer) uses the dedicated "figure" glyph
+  // (a framed plot panel + caption), distinct from "chart" (Data Hub) and
+  // "results" (analysis output).
+  "/figures": "figure",
   "/purchases": "download",
   "/calendar": "history",
   "/inventory": "vial",

@@ -1,0 +1,639 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Focus mode redesign — Writing Room</title>
+<style>
+  :root{
+    --surface:#f8fafc;--raised:#ffffff;--sunken:#f1f5f9;--fg:#0f1b2e;--muted:#6b7280;
+    --border:#e5e7eb;--page-bg:#e7ecf3;--action:#1283C9;--ok:#16a34a;--pin:#e11d48;--amber:#f59e0b;
+    /* writing-room canvas (light = warm paper) */
+    --room-top:#fbfaf7;--room-bot:#f3f1ea;--paper-fg:#1a2230;--paper-dim:rgba(26,34,48,.30);
+    --chrome-bg:rgba(255,255,255,.72);--chrome-br:rgba(15,27,46,.10);--hair:#1283C9;
+  }
+  html[data-theme="dark"]{
+    --surface:#0a0e1a;--raised:#16233c;--sunken:#0d1424;--fg:#eaf2fb;--muted:#9fb0c8;
+    --border:rgba(255,255,255,.16);--page-bg:#05080f;--action:#39a7e6;
+    --room-top:#10182a;--room-bot:#0a1120;--paper-fg:#e7eefb;--paper-dim:rgba(231,238,251,.28);
+    --chrome-bg:rgba(20,32,54,.66);--chrome-br:rgba(255,255,255,.12);--hair:#39a7e6;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;font-family:ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;background:var(--page-bg);color:var(--fg);}
+  .topbar{position:sticky;top:0;z-index:30;display:flex;align-items:center;gap:14px;padding:12px 22px;background:var(--raised);border-bottom:1px solid var(--border);flex-wrap:wrap;}
+  .topbar h1{font-size:15px;margin:0;font-weight:800;}
+  .topbar p{margin:0;font-size:12px;color:var(--muted);}
+  .spacer{flex:1;}
+  .btn{appearance:none;cursor:pointer;border:1px solid var(--border);background:var(--sunken);color:var(--fg);border-radius:8px;padding:7px 12px;font-size:12.5px;font-weight:600;}
+  .btn:hover{border-color:var(--muted);}
+  .btn.on{background:var(--action);border-color:var(--action);color:#fff;}
+  .wrap{max-width:1340px;margin:0 auto;padding:22px;}
+  .lead{font-size:13.5px;color:var(--muted);line-height:1.65;max-width:90ch;margin:4px 0 18px;}
+  .lead b{color:var(--fg);}
+
+  /* ── stage: live preview of the focus overlay ── */
+  .stagewrap{display:flex;flex-direction:column;gap:18px;margin-bottom:26px;}
+  .stagecol{width:100%;}
+  .seg{display:inline-flex;padding:3px;gap:3px;border-radius:11px;background:var(--sunken);border:1px solid var(--border);margin-bottom:12px;flex-wrap:wrap;}
+  .seg button{appearance:none;cursor:pointer;border:none;background:none;color:var(--muted);font-size:12px;font-weight:700;padding:6px 13px;border-radius:8px;}
+  .seg button.on{background:var(--raised);color:var(--fg);box-shadow:0 1px 3px rgba(0,0,0,.08);}
+  .seg .lbl{font-size:11px;font-weight:700;color:var(--muted);align-self:center;padding:0 6px 0 4px;text-transform:uppercase;letter-spacing:.04em;}
+
+  /* the device frame standing in for the app viewport */
+  .viewport{position:relative;height:600px;border-radius:16px;overflow:hidden;border:1px solid var(--border);background:var(--surface);box-shadow:0 24px 60px rgba(8,30,60,.18);margin:0 auto;transition:max-width .3s ease;}
+  .viewport.narrow{max-width:740px;}
+
+  /* ===== BEFORE (today) ===== */
+  .before{position:absolute;inset:0;display:none;flex-direction:column;background:var(--raised);}
+  .before.show{display:flex;}
+  .b-bar{display:flex;align-items:center;gap:8px;padding:9px 16px;border-bottom:1px solid var(--border);background:color-mix(in srgb,var(--raised) 80%,transparent);}
+  .b-pill{display:flex;background:var(--sunken);border-radius:7px;padding:2px;}
+  .b-pill button{border:none;background:none;font-size:12px;font-weight:600;color:var(--muted);padding:5px 11px;border-radius:5px;cursor:pointer;}
+  .b-pill button.on{background:var(--raised);color:var(--fg);box-shadow:0 1px 2px rgba(0,0,0,.1);}
+  .b-att{border:none;background:var(--sunken);color:var(--muted);font-size:12px;font-weight:600;padding:5px 11px;border-radius:6px;cursor:pointer;}
+  .b-width{display:flex;gap:2px;background:var(--sunken);border-radius:7px;padding:2px;}
+  .b-width span{width:26px;height:24px;border-radius:5px;display:flex;align-items:center;justify-content:center;color:var(--muted);}
+  .b-width span.on{background:var(--raised);box-shadow:0 1px 2px rgba(0,0,0,.1);color:var(--fg);}
+  .b-save{border:none;background:var(--action);color:#fff;font-size:12px;font-weight:700;padding:6px 13px;border-radius:7px;cursor:pointer;}
+  .b-exit{width:28px;height:28px;border:none;background:none;color:var(--muted);cursor:pointer;border-radius:6px;}
+  .b-body{flex:1;overflow:auto;display:flex;justify-content:center;padding:18px;}
+  .b-col{width:100%;max-width:60ch;font-size:15px;line-height:1.6;color:var(--fg);}
+  .b-col h3{font-size:18px;margin:0 0 10px;}
+  .b-col p{margin:0 0 13px;}
+
+  /* ===== AFTER (Writing Room) ===== */
+  .after{position:absolute;inset:0;display:none;flex-direction:column;
+    background:radial-gradient(120% 90% at 50% -8%,var(--room-top),var(--room-bot));}
+  .after.show{display:flex;}
+  /* scroll-progress hairline */
+  .hairline{position:absolute;top:0;left:0;height:2px;width:0%;background:linear-gradient(90deg,var(--hair),color-mix(in srgb,var(--hair) 40%,transparent));z-index:6;transition:width .08s linear;}
+  /* floating self-effacing chrome */
+  .chrome{position:absolute;top:14px;left:50%;transform:translateX(-50%);z-index:5;
+    display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:14px;
+    background:var(--chrome-bg);border:1px solid var(--chrome-br);
+    backdrop-filter:blur(14px) saturate(1.3);-webkit-backdrop-filter:blur(14px) saturate(1.3);
+    box-shadow:0 8px 30px rgba(8,22,45,.16);transition:opacity .45s ease,transform .45s ease;}
+  .chrome.dozed{opacity:0;transform:translateX(-50%) translateY(-14px);pointer-events:none;}
+  .c-pill{display:flex;background:color-mix(in srgb,var(--sunken) 70%,transparent);border-radius:9px;padding:2px;}
+  .c-pill button{border:none;background:none;font-size:12px;font-weight:600;color:var(--muted);padding:5px 12px;border-radius:7px;cursor:pointer;}
+  .c-pill button.on{background:var(--raised);color:var(--fg);box-shadow:0 1px 3px rgba(0,0,0,.12);}
+  .c-div{width:1px;height:18px;background:var(--chrome-br);margin:0 1px;}
+  .c-ico{width:30px;height:28px;border:none;background:none;color:var(--muted);cursor:pointer;border-radius:8px;display:flex;align-items:center;justify-content:center;}
+  .c-ico:hover{background:color-mix(in srgb,var(--muted) 16%,transparent);color:var(--fg);}
+  .c-ico.on{color:var(--action);background:color-mix(in srgb,var(--action) 14%,transparent);}
+  .c-save{border:none;background:var(--action);color:#fff;font-size:12px;font-weight:700;padding:6px 14px;border-radius:9px;cursor:pointer;}
+  .c-exit{width:30px;height:28px;border:none;background:none;color:var(--muted);cursor:pointer;border-radius:8px;}
+  .c-exit:hover{background:color-mix(in srgb,var(--pin) 14%,transparent);color:var(--pin);}
+
+  /* writing column */
+  .a-scroll{position:absolute;inset:0;overflow:auto;scroll-behavior:smooth;}
+  .a-scroll::-webkit-scrollbar{width:9px;}
+  .a-scroll::-webkit-scrollbar-thumb{background:color-mix(in srgb,var(--paper-fg) 16%,transparent);border-radius:9px;}
+  .a-col{max-width:68ch;margin:0 auto;padding:96px 28px 60vh;color:var(--paper-fg);
+    font-size:18px;line-height:1.78;letter-spacing:.002em;outline:none;}
+  .a-col.serif{font-family:Iowan Old Style,Georgia,"Times New Roman",serif;font-size:19px;}
+  .a-col.measure-narrow{max-width:54ch;}
+  .a-col.measure-wide{max-width:88ch;}
+  .a-col.measure-full{max-width:none;}
+  .a-col h3{font-size:25px;font-weight:800;letter-spacing:-.01em;margin:0 0 18px;}
+  .a-col .blk{margin:0 0 18px;transition:opacity .35s ease,filter .35s ease;}
+  /* focus dimming — only while actively writing (.writing toggled on
+     focus/blur), so the resting note reads at full contrast and never
+     looks like a washed-out greyed page when you step away */
+  .a-col.dim.writing .blk{opacity:.30;filter:saturate(.9);}
+  .a-col.dim.writing .blk.active{opacity:1;filter:none;}
+  .a-col.dim.writing.sentence .blk.active{opacity:1;}
+  /* ambient footer */
+  .a-foot{position:absolute;bottom:12px;left:50%;transform:translateX(-50%);z-index:5;
+    display:flex;align-items:center;gap:16px;font-size:11.5px;font-weight:600;color:var(--paper-dim);
+    background:var(--chrome-bg);border:1px solid var(--chrome-br);border-radius:999px;padding:6px 16px;
+    backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);transition:opacity .45s ease;}
+  .a-foot.dozed{opacity:0;}
+  .a-foot b{color:color-mix(in srgb,var(--paper-fg) 72%,transparent);font-weight:700;}
+  .a-foot .dot{width:3px;height:3px;border-radius:999px;background:currentColor;opacity:.5;}
+
+  /* ── gutter embed rails (use the dead horizontal space) ── */
+  .lrail,.rrail{position:absolute;top:50%;transform:translateY(-50%);z-index:5;display:flex;flex-direction:column;gap:5px;
+    padding:9px 7px;border-radius:18px;background:var(--chrome-bg);border:1px solid var(--chrome-br);
+    backdrop-filter:blur(14px) saturate(1.3);-webkit-backdrop-filter:blur(14px) saturate(1.3);
+    box-shadow:0 8px 30px rgba(8,22,45,.14);transition:opacity .45s ease,transform .45s ease;}
+  .lrail{left:16px;}.rrail{right:16px;}
+  .lrail.hidden,.rrail.hidden{display:none;}
+  .lrail.dozed{opacity:0;pointer-events:none;transform:translateY(-50%) translateX(-10px);}
+  .rrail.dozed{opacity:0;pointer-events:none;transform:translateY(-50%) translateX(10px);}
+  .railhdr{font-size:9px;font-weight:800;letter-spacing:.07em;text-transform:uppercase;color:var(--paper-dim);text-align:center;margin-bottom:3px;}
+  .rchip{position:relative;width:38px;height:38px;border:none;border-radius:12px;background:none;color:var(--muted);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:18px;line-height:1;transition:background .15s,color .15s;}
+  .rchip:hover{background:color-mix(in srgb,var(--action) 14%,transparent);color:var(--action);}
+  .rchip.on{background:color-mix(in srgb,var(--action) 16%,transparent);color:var(--action);}
+  .rchip .flab{position:absolute;left:46px;top:50%;transform:translateY(-50%);white-space:nowrap;background:var(--fg);color:var(--raised);font-size:11px;font-weight:700;padding:4px 9px;border-radius:7px;opacity:0;pointer-events:none;transition:opacity .12s;z-index:7;}
+  .rrail .rchip .flab{left:auto;right:46px;}
+  .rchip:hover .flab{opacity:1;}
+  .flyout{position:absolute;right:64px;top:50%;transform:translateY(-50%);z-index:6;width:218px;max-height:74%;overflow:auto;
+    background:var(--chrome-bg);border:1px solid var(--chrome-br);border-radius:15px;
+    backdrop-filter:blur(14px) saturate(1.3);-webkit-backdrop-filter:blur(14px) saturate(1.3);
+    box-shadow:0 12px 40px rgba(8,22,45,.22);padding:11px;display:none;}
+  .flyout.show{display:block;}
+  .flyout h4{font-size:10px;text-transform:uppercase;letter-spacing:.05em;color:var(--paper-dim);margin:0 0 8px;font-weight:800;}
+  .flyout .item{font-size:12px;color:var(--paper-fg);padding:6px 8px;border-radius:7px;cursor:pointer;line-height:1.35;}
+  .flyout .item:hover{background:color-mix(in srgb,var(--action) 12%,transparent);}
+  .flyout .item.sub{padding-left:18px;color:var(--muted);font-size:11.5px;}
+  .flyout .empty{font-size:11.5px;color:var(--muted);padding:6px 8px;line-height:1.45;}
+  /* embed block dropped into the doc */
+  .embed{border:1px solid var(--chrome-br);border-radius:13px;overflow:hidden;background:color-mix(in srgb,var(--raised) 55%,transparent);}
+  .embed .ehead{display:flex;align-items:center;gap:8px;padding:8px 12px;font-size:11.5px;font-weight:700;color:var(--action);background:color-mix(in srgb,var(--action) 9%,transparent);}
+  .embed .ehead .epill{margin-left:auto;font-size:9px;font-weight:800;letter-spacing:.04em;color:var(--paper-dim);text-transform:uppercase;}
+  .embed .ebody{padding:12px;font-size:12.5px;color:var(--muted);line-height:1.5;}
+
+  /* chrome fold buttons — appear only when the window is too narrow for
+     gutters; the insert/doc tools fold into the floating chrome instead of
+     ever overlapping the text */
+  .c-ico.fold{display:none;}
+  .chrome.folded .c-ico.fold{display:flex;}
+
+  /* Top-ribbon (Word-style) variant of the embed tools */
+  .tribbon{position:absolute;top:60px;left:50%;transform:translateX(-50%);z-index:5;display:none;
+    align-items:center;gap:6px;padding:6px 9px;border-radius:13px;flex-wrap:wrap;justify-content:center;max-width:92%;
+    background:var(--chrome-bg);border:1px solid var(--chrome-br);
+    backdrop-filter:blur(14px) saturate(1.3);-webkit-backdrop-filter:blur(14px) saturate(1.3);
+    box-shadow:0 8px 30px rgba(8,22,45,.14);transition:opacity .45s ease;}
+  .tribbon.show{display:flex;}
+  .tribbon.dozed{opacity:0;pointer-events:none;}
+  .tribbon .trlbl{font-size:9px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--paper-dim);padding:0 4px;}
+  .tribbon .trsep{width:1px;height:20px;background:var(--chrome-br);margin:0 3px;}
+  .tribbon button{border:none;background:none;color:var(--muted);font-size:11.5px;font-weight:600;padding:5px 9px;border-radius:8px;cursor:pointer;display:flex;align-items:center;gap:5px;}
+  .tribbon button:hover{background:color-mix(in srgb,var(--action) 13%,transparent);color:var(--action);}
+  /* when ribbon mode is on, the writing column drops below the ribbon */
+  .after.ribbon .a-col{padding-top:118px;}
+  /* flyout re-anchors to top-center in ribbon / folded mode */
+  .flyout.top{right:auto;left:50%;top:118px;transform:translateX(-50%);}
+
+  .hint{font-size:12px;color:var(--muted);margin-top:9px;line-height:1.55;}
+  .hint b{color:var(--fg);}
+
+  /* live feature toggles (drives the AFTER preview) */
+  .ctrls{width:100%;border:1px solid var(--border);background:var(--raised);border-radius:14px;padding:15px 20px;}
+  .ctrls h2{font-size:14px;font-weight:800;margin:0 0 4px;}
+  .ctrls .sub{font-size:12px;color:var(--muted);margin:0 0 12px;line-height:1.5;}
+  .ctrls .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(248px,1fr));gap:0 30px;}
+  .row{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:9px 0;border-bottom:1px dashed var(--border);}
+  .row .rl{font-size:12.5px;font-weight:600;}
+  .row .rd{font-size:11px;color:var(--muted);margin-top:1px;}
+  .mini{display:inline-flex;padding:2px;gap:2px;border-radius:8px;background:var(--sunken);border:1px solid var(--border);}
+  .mini button{appearance:none;border:none;background:none;cursor:pointer;font-size:11px;font-weight:700;color:var(--muted);padding:4px 9px;border-radius:6px;}
+  .mini button.on{background:var(--raised);color:var(--fg);box-shadow:0 1px 2px rgba(0,0,0,.1);}
+  .sw{position:relative;width:40px;height:23px;border-radius:999px;background:var(--sunken);border:1px solid var(--border);cursor:pointer;transition:background .15s;}
+  .sw.on{background:var(--action);border-color:var(--action);}
+  .sw::after{content:"";position:absolute;top:2px;left:2px;width:17px;height:17px;border-radius:999px;background:#fff;transition:transform .15s;box-shadow:0 1px 2px rgba(0,0,0,.3);}
+  .sw.on::after{transform:translateX(17px);}
+
+  /* ── change cards (review harness) ── */
+  h2.sect{font-size:15px;font-weight:800;margin:6px 0 4px;}
+  .secthint{font-size:12px;color:var(--muted);margin:0 0 14px;}
+  .changes{display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:11px;}
+  .change{border:1px solid var(--border);background:var(--raised);border-radius:13px;padding:13px 15px;display:flex;flex-direction:column;gap:9px;}
+  .change.approved{border-color:var(--ok);box-shadow:inset 3px 0 0 var(--ok);}
+  .change.disapproved{border-color:var(--pin);box-shadow:inset 3px 0 0 var(--pin);}
+  .ctitle{font-weight:700;font-size:13.5px;display:flex;align-items:center;gap:7px;}
+  .ctitle .tag{font-size:10px;font-weight:800;color:#fff;background:var(--action);border-radius:5px;padding:2px 6px;}
+  .ctitle .tag.flag{background:var(--amber);}
+  .cdesc{font-size:12px;color:var(--muted);line-height:1.6;}
+  .cdesc b{color:var(--fg);}
+  .verdict{display:flex;align-items:center;gap:8px;margin-top:2px;}
+  .vbtn{appearance:none;cursor:pointer;border:1px solid var(--border);background:var(--sunken);color:var(--fg);border-radius:7px;padding:5px 11px;font-size:11.5px;font-weight:700;}
+  .vbtn.app.on{background:var(--ok);border-color:var(--ok);color:#fff;}
+  .vbtn.dis.on{background:var(--pin);border-color:var(--pin);color:#fff;}
+  .vclear{appearance:none;cursor:pointer;border:none;background:none;color:var(--muted);font-size:11px;text-decoration:underline;}
+  .exportbar{margin-top:18px;display:flex;gap:10px;align-items:center;}
+  #exportOut{white-space:pre-wrap;font-family:ui-monospace,Menlo,monospace;font-size:11.5px;background:var(--sunken);border:1px solid var(--border);border-radius:9px;padding:12px;margin-top:10px;display:none;color:var(--fg);}
+</style>
+</head>
+<body>
+  <div class="topbar">
+    <div>
+      <h1>Focus mode redesign — “Writing Room”</h1>
+      <p>LiveMarkdownEditor focus mode · before / after · type in the After panel to feel it</p>
+    </div>
+    <div class="spacer"></div>
+    <button class="btn" id="themeBtn">🌙 Dark</button>
+  </div>
+
+  <div class="wrap">
+    <p class="lead">
+      Today’s focus mode is the normal editor dropped onto a flat surface with a permanent utilitarian toolbar — a <b>4/10</b>.
+      This redesign turns it into a <b>writing room</b>: a calm ambient canvas, chrome that dissolves while you write,
+      typewriter scrolling, and optional focus dimming. <b>Click into the After panel and start typing</b> — the toolbar
+      dozes off, the active paragraph stays lit, and the line you’re on holds its place on screen. The centered column leaves
+      big dead gutters on a laptop, so the <b>left gutter is an Insert rail</b> (drop embeds at your caret) and the
+      <b>right gutter is a Context rail</b> (outline, placed embeds, attachments, BeakerBot) — both doze with the chrome.
+      Every change below is independently approvable.
+    </p>
+
+    <div class="stagewrap">
+      <div class="stagecol">
+        <div style="display:flex;gap:14px;flex-wrap:wrap;align-items:center;">
+          <div class="seg" role="tablist">
+            <span class="lbl">View</span>
+            <button id="vBefore" onclick="setView('before')">Before (today)</button>
+            <button id="vAfter" class="on" onclick="setView('after')">After (Writing Room)</button>
+          </div>
+          <div class="seg" id="mRailStyle">
+            <span class="lbl">Embed tools</span>
+            <button data-v="gutter" class="on" onclick="setRailStyle('gutter')">Gutter rails</button>
+            <button data-v="topbar" onclick="setRailStyle('topbar')">Top ribbon</button>
+          </div>
+          <div class="seg" id="mWindow">
+            <span class="lbl">Window</span>
+            <button data-v="wide" class="on" onclick="setWindow('wide')">Wide laptop</button>
+            <button data-v="narrow" onclick="setWindow('narrow')">13″ / split</button>
+          </div>
+        </div>
+
+        <div class="viewport">
+          <!-- BEFORE -->
+          <div class="before" id="beforePane">
+            <div class="b-bar">
+              <div class="b-pill"><button class="on">Edit</button><button>Preview</button></div>
+              <button class="b-att">Attachments</button>
+              <div class="spacer" style="flex:1"></div>
+              <div class="b-width"><span>▮</span><span class="on">▭</span><span>▭</span><span>⬜</span></div>
+              <button class="b-save">Save</button>
+              <button class="b-exit">⤡</button>
+            </div>
+            <div class="b-body">
+              <div class="b-col">
+                <h3>Plasmid prep — pPN-114</h3>
+                <p>Miniprep of the overnight culture gave 412 ng/µL at A260/280 = 1.89. Loaded 2 µL on a 0.8% agarose gel; single supercoiled band ran true to ~5.2 kb.</p>
+                <p>Diagnostic digest with EcoRI + HindIII produced the expected 3.1 / 2.1 kb fragments. Sequencing of the insert junction is queued for tomorrow’s run.</p>
+                <p>Next: scale to a midiprep once the sequence confirms, then hand off two aliquots to the transfection bench.</p>
+              </div>
+            </div>
+          </div>
+
+          <!-- AFTER -->
+          <div class="after" id="afterPane">
+            <div class="hairline" id="hair"></div>
+            <div class="chrome" id="chrome">
+              <button class="c-ico fold" id="foldInsert" title="Insert embed" onclick="flyout('insert')">＋</button>
+              <button class="c-ico fold" id="foldDoc" title="Outline & embeds" onclick="flyout('outline')">≡</button>
+              <div class="c-pill"><button class="on">Edit</button><button>Preview</button></div>
+              <div class="c-div"></div>
+              <button class="c-ico" id="dimBtn" title="Focus dimming" onclick="cycleDim()">◐</button>
+              <button class="c-ico" id="twBtn" title="Typewriter scroll" onclick="toggleTW()">⌖</button>
+              <button class="c-ico" id="serifBtn" title="Serif" onclick="toggleSerif()">Aa</button>
+              <div class="c-div"></div>
+              <button class="c-save">Save</button>
+              <button class="c-exit" title="Exit (Esc)">✕</button>
+            </div>
+
+            <!-- LEFT gutter: Insert rail -->
+            <div class="lrail" id="lrail">
+              <div class="railhdr">Insert</div>
+              <button class="rchip" onclick="insertEmbed('ref')"><span>§</span><span class="flab">Reference</span></button>
+              <button class="rchip" onclick="insertEmbed('table')"><span>▦</span><span class="flab">Data Hub table</span></button>
+              <button class="rchip" onclick="insertEmbed('plot')"><span>∿</span><span class="flab">Plot / figure</span></button>
+              <button class="rchip" onclick="insertEmbed('seq')"><span>≣</span><span class="flab">Sequence</span></button>
+              <button class="rchip" onclick="insertEmbed('mol')"><span>⬡</span><span class="flab">Molecule</span></button>
+              <button class="rchip" onclick="insertEmbed('tree')"><span>⑂</span><span class="flab">Phylo tree</span></button>
+              <button class="rchip" onclick="insertEmbed('img')"><span>▢</span><span class="flab">Image / file</span></button>
+            </div>
+
+            <!-- RIGHT gutter: Context rail -->
+            <div class="rrail" id="rrail">
+              <div class="railhdr">Doc</div>
+              <button class="rchip" id="tOutline" onclick="flyout('outline')"><span>≡</span><span class="flab">Outline</span></button>
+              <button class="rchip" id="tEmbeds" onclick="flyout('embeds')"><span>◈</span><span class="flab">Embeds</span></button>
+              <button class="rchip" id="tFiles" onclick="flyout('files')"><span>▢</span><span class="flab">Attachments</span></button>
+              <button class="rchip" id="tBot" onclick="flyout('bot')"><span>✺</span><span class="flab">BeakerBot</span></button>
+            </div>
+            <div class="flyout" id="flyout"></div>
+
+            <!-- Top-ribbon (Word-style) alternative to the gutter rails -->
+            <div class="tribbon" id="tribbon">
+              <span class="trlbl">Insert</span>
+              <button onclick="insertEmbed('ref')">§ Reference</button>
+              <button onclick="insertEmbed('table')">▦ Table</button>
+              <button onclick="insertEmbed('plot')">∿ Plot</button>
+              <button onclick="insertEmbed('seq')">≣ Sequence</button>
+              <button onclick="insertEmbed('mol')">⬡ Molecule</button>
+              <button onclick="insertEmbed('tree')">⑂ Tree</button>
+              <button onclick="insertEmbed('img')">▢ Image</button>
+              <div class="trsep"></div>
+              <span class="trlbl">Doc</span>
+              <button onclick="flyout('outline')">≡ Outline</button>
+              <button onclick="flyout('embeds')">◈ Embeds</button>
+              <button onclick="flyout('files')">▢ Files</button>
+              <button onclick="flyout('bot')">✺ BeakerBot</button>
+            </div>
+
+            <div class="a-scroll" id="aScroll">
+              <div class="a-col dim measure-comfortable" id="aCol" contenteditable="true" spellcheck="false">
+                <h3 class="blk">Plasmid prep — pPN-114</h3>
+                <p class="blk active">Miniprep of the overnight culture gave 412 ng/µL at A260/280 = 1.89. Loaded 2 µL on a 0.8% agarose gel; the single supercoiled band ran true to roughly 5.2 kb.</p>
+                <p class="blk">Diagnostic digest with EcoRI + HindIII produced the expected 3.1 and 2.1 kb fragments. Sequencing of the insert junction is queued for tomorrow’s run, and I want the chromatogram side-by-side with the reference before I trust the silent mutation call.</p>
+                <p class="blk">The transfection bench is asking for two aliquots. I’ll hold those until the midiprep so the concentration is consistent across the plate — last time the uneven stocks made the dose-response impossible to read.</p>
+                <p class="blk">Keep typing here. Notice the toolbar fade away, the paragraph you’re in stay lit while the rest settles back, and this line hold its vertical position as the text grows beneath it.</p>
+              </div>
+            </div>
+
+            <div class="a-foot" id="foot"><b id="wc">0</b> words<span class="dot"></span><span id="rt">0 min read</span><span class="dot"></span><span id="timer">0:00 in focus</span></div>
+          </div>
+        </div>
+        <p class="hint">After panel is live: <b>type to see the chrome doze</b> (moves the mouse to wake it), the active paragraph stays lit, and typewriter scroll keeps your line in place. Toggle each behavior at right.</p>
+      </div>
+
+      <div class="ctrls">
+        <h2>Live controls</h2>
+        <p class="sub">These drive the After preview so you can feel each piece before approving it. <b>Switch Window → 13″ / split</b> to watch the gutter rails fold into the chrome instead of ever overlapping text.</p>
+        <div class="grid">
+        <div class="row">
+          <div><div class="rl">Focus dimming</div><div class="rd">Dim everything but the active unit</div></div>
+          <div class="mini" id="mDim"><button data-v="off">Off</button><button data-v="paragraph" class="on">¶</button><button data-v="sentence">Sent.</button></div>
+        </div>
+        <div class="row">
+          <div><div class="rl">Typewriter scroll</div><div class="rd">Hold the active line at ~42%</div></div>
+          <div class="sw on" id="swTW" onclick="toggleTW()"></div>
+        </div>
+        <div class="row">
+          <div><div class="rl">Auto-hide chrome</div><div class="rd">Toolbar dozes while writing</div></div>
+          <div class="sw on" id="swHide" onclick="toggleHide()"></div>
+        </div>
+        <div class="row">
+          <div><div class="rl">Serif typeface</div><div class="rd">Book-style writing face</div></div>
+          <div class="sw" id="swSerif" onclick="toggleSerif()"></div>
+        </div>
+        <div class="row">
+          <div><div class="rl">Width</div><div class="rd">Readable measure</div></div>
+          <div class="mini" id="mWidth"><button data-v="narrow">54</button><button data-v="comfortable" class="on">68</button><button data-v="wide">88</button><button data-v="full">Full</button></div>
+        </div>
+        <div class="row">
+          <div><div class="rl">Ambient footer</div><div class="rd">Word count · read · timer</div></div>
+          <div class="sw on" id="swFoot" onclick="toggleFoot()"></div>
+        </div>
+        <div class="row">
+          <div><div class="rl">Gutter embed tools</div><div class="rd">Insert + context rails in the dead space</div></div>
+          <div class="sw on" id="swRails" onclick="toggleRails()"></div>
+        </div>
+        </div>
+      </div>
+    </div>
+
+    <h2 class="sect">The changes</h2>
+    <p class="secthint">Approve or reject each independently — I’ll build only what you greenlight, in this order.</p>
+    <div class="changes" id="changes"></div>
+
+    <div class="exportbar">
+      <button class="btn" onclick="exportVerdicts()">Export verdicts</button>
+      <button class="btn" onclick="document.querySelectorAll('.change').forEach(c=>c.classList.remove('approved','disapproved'));verdicts={};save();">Clear all</button>
+    </div>
+    <div id="exportOut"></div>
+  </div>
+
+<script>
+const CHANGES = [
+  {id:'canvas',tag:'Canvas',flag:false,title:'Calm writing canvas',
+   d:'Replace the flat <b>bg-surface-raised</b> + hard-bordered bar with an ambient radial canvas (warm paper in light, deep ink in dark). The chrome floats over it; no hard divider line. This is the single biggest "feels like a real writing app" lift.'},
+  {id:'chrome',tag:'Chrome',flag:false,title:'Self-effacing floating toolbar',
+   d:'The permanent left-aligned toolbar becomes a <b>centered translucent pill</b> that <b>dozes off ~2.5s into writing</b> and wakes on pointer-move or hover-to-top. Exit + Save always one motion away. Nothing competes with the words.'},
+  {id:'typewriter',tag:'Motion',flag:false,title:'Typewriter scrolling',
+   d:'Keep the active line pinned at ~42% of the viewport so your eyes never chase the caret down the page. The signature feature of every serious writing tool (iA Writer, Typora, Ulysses). Toggleable + persisted.'},
+  {id:'dimming',tag:'Focus',flag:false,title:'Focus dimming (¶ / sentence)',
+   d:'Optionally fade everything but the <b>active paragraph or sentence</b> to ~30%. Off by default for compatibility, opt-in per user. Pairs with typewriter scroll for deep-work writing.'},
+  {id:'type',tag:'Type',flag:false,title:'Refined writing typography',
+   d:'Bump base size to 18–19px, line-height ~1.78, gentle measure, and an optional <b>serif book face</b>. The width presets you already shipped stay; this just makes the default measure feel composed instead of cramped.'},
+  {id:'footer',tag:'Ambient',flag:false,title:'Ambient status footer',
+   d:'A quiet bottom-center capsule: <b>word count · reading time · time-in-focus</b>. Fades with the chrome. Gives the session a sense of progress without a heavy status bar.'},
+  {id:'lrail',tag:'Gutters',flag:false,title:'Left gutter — Insert rail',
+   d:'Use the dead space left of the column for a quiet <b>embed palette</b>: reference, Data Hub table, plot, sequence, molecule, phylo tree, image. Click drops a live embed at your caret — the "/" picker, always within reach but never in the way. (Try the left rail in the preview.)'},
+  {id:'rrail',tag:'Gutters',flag:false,title:'Right gutter — Context rail',
+   d:'The right dead space holds <b>outline, the embeds you’ve placed, attachments, and BeakerBot</b> as icon tabs that pop a flyout. Jump around a long note, see every embedded object, or ask BeakerBot — without leaving the writing room. (Click the right-rail icons.)'},
+  {id:'gutterbehavior',tag:'Decision',flag:true,title:'Gutters doze + collapse at full width',
+   d:'The rails <b>fade with the chrome while you write</b> and pull back in. At <b>Full</b> width there’s no gutter, so they hide entirely (the writing owns the screen). Flag this card if you’d rather the rails stay pinned/always-visible instead of dozing.'},
+  {id:'neveroverlap',tag:'Guarantee',flag:false,title:'Rails never sit on the text',
+   d:'Hard rule: the rails are placed by <b>measuring the real empty gutter</b>, not fixed pixels. If a window is too narrow to clear the column (small laptop, split-screen), the tools <b>fold into the floating chrome</b> (＋ Insert / ≡ Doc) instead of overlapping a single word. Flip <b>Window → 13″ / split</b> in the preview to watch it happen.'},
+  {id:'railstyle',tag:'Decision',flag:true,title:'Gutter rails vs Word-style top ribbon',
+   d:'Two ways to surface the embed tools — toggle <b>Embed tools: Gutter rails / Top ribbon</b> above the preview to compare. <b>My rec: gutter rails.</b> Focus mode is the one place with real horizontal room, and a permanent top ribbon reintroduces exactly the heavy chrome we just dissolved. The narrow-window fold gives us the ribbon’s discoverability only when it’s actually needed. Flag this if you want the top ribbon as the default everywhere.'},
+  {id:'hairline',tag:'Polish',flag:false,title:'Scroll-progress hairline',
+   d:'A 2px brand-tinted progress line across the very top edge — ambient orientation for long notes. Small touch, lots of perceived polish.'},
+  {id:'transition',tag:'Polish',flag:false,title:'Graceful enter / exit',
+   d:'A 180–220ms fade+scale as focus mode opens and closes, instead of the current instant swap. Reinforces "I’ve stepped into a room."'},
+  {id:'scope',tag:'Decision',flag:true,title:'Default-on vs opt-in',
+   d:'Canvas + chrome + typography ship on for everyone. <b>Typewriter scroll and dimming are the two I’d gate behind a per-user toggle</b> (default off) so existing muscle memory isn’t disrupted. Flag if you want them on by default instead.'},
+];
+
+let verdicts = {};
+try{verdicts = JSON.parse(localStorage.getItem('focusRedesignVerdicts')||'{}');}catch(e){}
+function save(){localStorage.setItem('focusRedesignVerdicts',JSON.stringify(verdicts));}
+
+const changesEl = document.getElementById('changes');
+CHANGES.forEach(c=>{
+  const el = document.createElement('div');
+  el.className='change';el.id='ch-'+c.id;
+  el.innerHTML = `
+    <div class="ctitle"><span class="tag ${c.flag?'flag':''}">${c.tag}</span>${c.title}</div>
+    <div class="cdesc">${c.d}</div>
+    <div class="verdict">
+      <button class="vbtn app" onclick="vote('${c.id}','app')">✓ Approve</button>
+      <button class="vbtn dis" onclick="vote('${c.id}','dis')">✕ Reject</button>
+      <button class="vclear" onclick="vote('${c.id}',null)">clear</button>
+    </div>`;
+  changesEl.appendChild(el);
+});
+function applyVerdict(id){
+  const el=document.getElementById('ch-'+id);const v=verdicts[id];
+  el.classList.toggle('approved',v==='app');el.classList.toggle('disapproved',v==='dis');
+  el.querySelector('.vbtn.app').classList.toggle('on',v==='app');
+  el.querySelector('.vbtn.dis').classList.toggle('on',v==='dis');
+}
+function vote(id,v){verdicts[id]=v||undefined;if(!v)delete verdicts[id];save();applyVerdict(id);}
+CHANGES.forEach(c=>applyVerdict(c.id));
+
+function exportVerdicts(){
+  const out=document.getElementById('exportOut');
+  const lines=CHANGES.map(c=>{const v=verdicts[c.id];return `${v==='app'?'✅':v==='dis'?'❌':'⬜'}  ${c.title}`;});
+  const a=CHANGES.filter(c=>verdicts[c.id]==='app').length,r=CHANGES.filter(c=>verdicts[c.id]==='dis').length;
+  out.style.display='block';
+  out.textContent=`Focus mode redesign — verdicts\n${'─'.repeat(34)}\n`+lines.join('\n')+`\n\nApproved ${a} · Rejected ${r} · Undecided ${CHANGES.length-a-r}`;
+}
+
+// ── view toggle ──
+function setView(v){
+  document.getElementById('beforePane').classList.toggle('show',v==='before');
+  document.getElementById('afterPane').classList.toggle('show',v==='after');
+  document.getElementById('vBefore').classList.toggle('on',v==='before');
+  document.getElementById('vAfter').classList.toggle('on',v==='after');
+}
+setView('after');
+
+// ── theme ──
+document.getElementById('themeBtn').onclick=function(){
+  const d=document.documentElement.getAttribute('data-theme')==='dark';
+  document.documentElement.setAttribute('data-theme',d?'light':'dark');
+  this.textContent=d?'🌙 Dark':'☀️ Light';
+};
+
+// ── live AFTER behavior ──
+const col=document.getElementById('aCol'),scroll=document.getElementById('aScroll'),
+  chrome=document.getElementById('chrome'),foot=document.getElementById('foot'),hair=document.getElementById('hair'),
+  lrail=document.getElementById('lrail'),rrail=document.getElementById('rrail'),fly=document.getElementById('flyout'),
+  tribbon=document.getElementById('tribbon'),afterPane=document.getElementById('afterPane');
+let dimMode='paragraph',tw=true,autohide=true,footOn=true,serif=false,railsOn=true,widthFull=false;
+let railStyle='gutter',windowMode='wide';
+let dozeTimer=null,timerStart=Date.now();
+let embeds=[],embedSeq=0,curFly=null;
+const GUTTER_MIN=76; // px of empty gutter required before rails may show
+
+function activeBlock(){
+  const sel=window.getSelection();if(!sel.rangeCount)return null;
+  let n=sel.anchorNode;while(n&&n!==col){if(n.classList&&n.classList.contains('blk'))return n;n=n.parentNode;}
+  return null;
+}
+function refreshActive(){
+  const b=activeBlock();
+  col.querySelectorAll('.blk').forEach(x=>x.classList.toggle('active',x===b));
+  if(tw&&b){
+    const target=scroll.clientHeight*0.42;
+    const top=b.offsetTop - target + b.offsetHeight/2;
+    scroll.scrollTo({top:Math.max(0,top),behavior:'smooth'});
+  }
+}
+function updateStats(){
+  const txt=col.innerText.trim();const words=txt?txt.split(/\s+/).length:0;
+  document.getElementById('wc').textContent=words;
+  document.getElementById('rt').textContent=Math.max(1,Math.round(words/200))+' min read';
+}
+function updateHair(){
+  const max=scroll.scrollHeight-scroll.clientHeight;
+  hair.style.width=(max>0?(scroll.scrollTop/max*100):0)+'%';
+}
+function doze(){if(autohide){chrome.classList.add('dozed');if(footOn)foot.classList.add('dozed');
+  lrail.classList.add('dozed');rrail.classList.add('dozed');tribbon.classList.add('dozed');closeFly();}}
+function wake(){chrome.classList.remove('dozed');foot.classList.remove('dozed');tribbon.classList.remove('dozed');
+  if(railsOn&&railStyle==='gutter'&&!widthFull){lrail.classList.remove('dozed');rrail.classList.remove('dozed');}
+  clearTimeout(dozeTimer);if(autohide)dozeTimer=setTimeout(doze,2500);}
+
+col.addEventListener('focus',()=>{col.classList.add('writing');refreshActive();});
+col.addEventListener('blur',()=>col.classList.remove('writing'));
+col.addEventListener('input',()=>{refreshActive();updateStats();wake();updateHair();});
+col.addEventListener('keyup',refreshActive);
+col.addEventListener('click',refreshActive);
+document.addEventListener('selectionchange',()=>{if(document.activeElement===col)refreshActive();});
+scroll.addEventListener('scroll',updateHair);
+document.querySelector('.viewport').addEventListener('pointermove',wake);
+
+// timer
+setInterval(()=>{
+  const s=Math.floor((Date.now()-timerStart)/1000);
+  document.getElementById('timer').textContent=`${Math.floor(s/60)}:${String(s%60).padStart(2,'0')} in focus`;
+},1000);
+
+// toggles
+function setDim(v){dimMode=v;col.classList.toggle('dim',v!=='off');col.classList.toggle('sentence',v==='sentence');
+  document.querySelectorAll('#mDim button').forEach(b=>b.classList.toggle('on',b.dataset.v===v));
+  document.getElementById('dimBtn').classList.toggle('on',v!=='off');refreshActive();}
+document.querySelectorAll('#mDim button').forEach(b=>b.onclick=()=>setDim(b.dataset.v));
+function cycleDim(){setDim(dimMode==='off'?'paragraph':dimMode==='paragraph'?'sentence':'off');}
+
+function toggleTW(){tw=!tw;document.getElementById('swTW').classList.toggle('on',tw);
+  document.getElementById('twBtn').classList.toggle('on',tw);if(tw)refreshActive();}
+function toggleHide(){autohide=!autohide;document.getElementById('swHide').classList.toggle('on',autohide);
+  if(autohide)wake();else{chrome.classList.remove('dozed');foot.classList.remove('dozed');clearTimeout(dozeTimer);}}
+function toggleFoot(){footOn=!footOn;document.getElementById('swFoot').classList.toggle('on',footOn);
+  foot.style.display=footOn?'flex':'none';}
+function toggleSerif(){serif=!serif;col.classList.toggle('serif',serif);
+  document.getElementById('swSerif').classList.toggle('on',serif);
+  document.getElementById('serifBtn').classList.toggle('on',serif);}
+function setWidth(v){['narrow','comfortable','wide','full'].forEach(w=>col.classList.toggle('measure-'+w,w===v));
+  document.querySelectorAll('#mWidth button').forEach(b=>b.classList.toggle('on',b.dataset.v===v));
+  widthFull=(v==='full');applyRailVisibility();refreshActive();}
+document.querySelectorAll('#mWidth button').forEach(b=>b.onclick=()=>setWidth(b.dataset.v));
+
+// ── gutter rails: NEVER overlap the column ──
+// Measure the real empty gutter; rails only show when there is genuinely
+// room beside the text. When there isn't (narrow window / full-bleed),
+// the tools fold into the floating chrome instead of sitting on the words.
+function fitsGutter(){
+  const gutter=(scroll.clientWidth - col.clientWidth)/2;
+  return gutter >= GUTTER_MIN;
+}
+function applyRailVisibility(){
+  const ribbon   = railsOn && railStyle==='topbar';
+  const gutterFits = railsOn && railStyle==='gutter' && !widthFull && fitsGutter();
+  const folded   = railsOn && railStyle==='gutter' && !widthFull && !fitsGutter();
+  lrail.classList.toggle('hidden', !gutterFits);
+  rrail.classList.toggle('hidden', !gutterFits);
+  tribbon.classList.toggle('show', ribbon);
+  afterPane.classList.toggle('ribbon', ribbon);
+  chrome.classList.toggle('folded', folded);
+  fly.classList.toggle('top', ribbon || folded);
+  if(!gutterFits && !ribbon && !folded) closeFly();
+}
+function toggleRails(){railsOn=!railsOn;document.getElementById('swRails').classList.toggle('on',railsOn);applyRailVisibility();}
+function setRailStyle(s){railStyle=s;
+  document.querySelectorAll('#mRailStyle button').forEach(b=>b.classList.toggle('on',b.dataset.v===s));
+  closeFly();applyRailVisibility();wake();}
+function setWindow(m){windowMode=m;
+  document.querySelector('.viewport').classList.toggle('narrow',m==='narrow');
+  document.querySelectorAll('#mWindow button').forEach(b=>b.classList.toggle('on',b.dataset.v===m));
+  requestAnimationFrame(()=>{applyRailVisibility();refreshActive();wake();});}
+window.addEventListener('resize',applyRailVisibility);
+
+const EMB={
+  ref:['§','Reference','pPN-114 cloning note'],
+  table:['▦','Data Hub table','yield_by_construct · 24 rows × 6 cols'],
+  plot:['∿','Plot','A260/280 across this week’s preps'],
+  seq:['≣','Sequence','pPN-114 insert · 1,182 bp'],
+  mol:['⬡','Molecule','EcoRI recognition site (G^AATTC)'],
+  tree:['⑂','Phylo tree','plasmid lineage · 8 tips'],
+  img:['▢','Image','gel_2026-06-13.png'],
+};
+function insertEmbed(t){
+  const m=EMB[t];embedSeq++;
+  const div=document.createElement('div');
+  div.className='blk embed';div.id='emb-'+embedSeq;div.setAttribute('contenteditable','false');
+  div.innerHTML=`<div class="ehead"><span>${m[0]}</span>${m[1]}<span class="epill">live embed</span></div><div class="ebody">${m[2]}</div>`;
+  const b=activeBlock();
+  if(b&&b.parentNode===col)b.after(div);else col.appendChild(div);
+  embeds.push({id:div.id,label:m[1],sub:m[2]});
+  refreshActive();updateStats();wake();
+  if(curFly==='embeds'||curFly==='outline')renderFly();
+  div.scrollIntoView({behavior:'smooth',block:'center'});
+}
+
+// ── right-rail flyouts ──
+function closeFly(){curFly=null;fly.classList.remove('show');syncRailOn();}
+function flyout(kind){
+  if(curFly===kind){closeFly();return;}
+  curFly=kind;renderFly();fly.classList.add('show');syncRailOn();wake();
+}
+function ensureId(el){if(!el.id)el.id='o-'+(embedSeq++ +'-'+Math.floor(performance.now()));return el.id;}
+function jump(id){const el=document.getElementById(id);if(el)el.scrollIntoView({behavior:'smooth',block:'center'});}
+function syncRailOn(){[['outline','tOutline'],['embeds','tEmbeds'],['files','tFiles'],['bot','tBot'],['insert','foldInsert'],['outline','foldDoc']]
+  .forEach(([k,id])=>{const el=document.getElementById(id);if(el)el.classList.toggle('on',curFly===k);});}
+function renderFly(){
+  let h='';
+  if(curFly==='insert'){
+    h='<h4>Insert embed</h4>';
+    Object.entries(EMB).forEach(([k,m])=>h+=`<div class="item" onclick="insertEmbed('${k}');closeFly()">${m[0]}&nbsp;&nbsp;${m[1]}</div>`);
+  }else if(curFly==='outline'){
+    h='<h4>Outline</h4>';
+    col.querySelectorAll('h3.blk, p.blk, .embed').forEach(el=>{
+      const isH=el.tagName==='H3',isE=el.classList.contains('embed');
+      const txt=(isE?el.querySelector('.ehead').innerText:el.innerText).replace(/live embed/i,'').trim().slice(0,34);
+      h+=`<div class="item ${isH?'':'sub'}" onclick="jump('${ensureId(el)}')">${isH?'':isE?'◈ ':'· '}${txt}…</div>`;
+    });
+  }else if(curFly==='embeds'){
+    h='<h4>Embeds in this note</h4>';
+    if(!embeds.length)h+='<div class="empty">None yet — add one from the left Insert rail.</div>';
+    embeds.forEach(e=>h+=`<div class="item" onclick="jump('${e.id}')">◈ <b>${e.label}</b><br><span class="sub" style="padding:0">${e.sub}</span></div>`);
+  }else if(curFly==='files'){
+    h='<h4>Attachments</h4><div class="item">▢ gel_2026-06-13.png</div><div class="item">▢ sanger_pPN-114.ab1</div><div class="empty">Drop a file anywhere on the page to attach it.</div>';
+  }else if(curFly==='bot'){
+    h='<h4>BeakerBot</h4><div class="empty">Ask BeakerBot to expand a bullet, pull a method, or summarize this note — inline, without leaving the writing room.</div>';
+  }
+  fly.innerHTML=h;
+}
+
+updateStats();refreshActive();applyRailVisibility();wake();
+</script>
+</body>
+</html>

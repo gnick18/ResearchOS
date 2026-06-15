@@ -30,7 +30,16 @@
 // House style, no em-dashes, no emojis, no mid-sentence colons.
 
 import { objectDeepLink, methodRefId, type ObjectRefType } from "@/lib/references";
-import { notesApi, methodsApi, sequencesApi, projectsApi, purchasesApi, fetchAllTasks } from "@/lib/local-api";
+import { fuzzyResolve } from "@/lib/ai/fuzzy-match";
+import {
+  notesApi,
+  methodsApi,
+  sequencesApi,
+  projectsApi,
+  purchasesApi,
+  fetchAllTasks,
+  fetchAllInventoryItemsIncludingShared,
+} from "@/lib/local-api";
 import { dataHubApi } from "@/lib/datahub/api";
 import { moleculesApi } from "@/lib/chemistry/api";
 import { phyloApi, type PhyloMeta } from "@/lib/phylo/api";
@@ -40,9 +49,11 @@ import type { SequenceRecord } from "@/lib/types";
 import type { Project } from "@/lib/types";
 import type { PurchaseItem } from "@/lib/types";
 import type { Task } from "@/lib/types";
+import type { InventoryItem } from "@/lib/types";
 import { taskKey } from "@/lib/types";
 import type { DataHubDocument } from "@/lib/datahub/model/types";
 import type { Molecule } from "@/lib/chemistry/api";
+import type { IndexedType } from "@/lib/index/indexed-types";
 
 // ---------------------------------------------------------------------------
 // ArtifactBrief: the small, model-safe envelope for any artifact in the index.
@@ -57,8 +68,10 @@ import type { Molecule } from "@/lib/chemistry/api";
  *   "datahub" | "project" | "purchase" | "molecule"
  */
 export type ArtifactBrief = {
-  /** Discriminant for routing to the right Layer-2 read tool. */
-  type: string;
+  /** Discriminant for routing to the right Layer-2 read tool. Derived from the
+   *  shared INDEXED_TYPES registry so it can never drift from the GUI palette's
+   *  covered kinds (the registry maps "experiment" <-> the GUI's "task"). */
+  type: IndexedType;
   /** The artifact's stable id (numeric ids are stored as strings for uniformity). */
   id: string;
   /** The primary human-readable label shown in the index. */
@@ -275,6 +288,64 @@ export function phyloToBrief(meta: PhyloMeta): ArtifactBrief {
   };
 }
 
+/** Map one InventoryItem to an ArtifactBrief. Pure, no I/O.
+ *
+ * Inventory is PAGELESS like purchases (no per-item route), so the deepLink is
+ * the /inventory page, mirroring purchaseToBrief's "/purchases" and the
+ * deepLink summarize_inventory / read_inventory already use. The shared-view
+ * loader (fetchAllInventoryItemsIncludingShared) decorates each item with the
+ * real owner the current user is allowed to see, so the brief carries it
+ * through for the "whose" summary filter. Keywords stay LEAN (name, category,
+ * vendor, catalog number, CAS) and deliberately EXCLUDE the free-text `notes`
+ * body, so the brief never carries a large body across to the model. */
+export function inventoryToBrief(item: InventoryItem): ArtifactBrief {
+  const keywords: string[] = tokenize(item.name);
+  if (item.category) keywords.push(item.category);
+  if (item.vendor) keywords.push(...tokenize(item.vendor));
+  if (item.catalog_number) keywords.push(item.catalog_number.toLowerCase());
+  if (item.cas) keywords.push(item.cas.toLowerCase());
+  return {
+    type: "inventory",
+    id: String(item.id),
+    title: item.name || "Untitled item",
+    subtitle: item.category ?? item.vendor ?? undefined,
+    // Inventory items carry last_edited_at once touched (same pattern as
+    // purchases). A never-edited item stays dateless so a date-bounded search
+    // drops it, the documented behavior.
+    date: item.last_edited_at,
+    owner: item.owner || undefined,
+    deepLink: "/inventory",
+    keywords: dedupe(keywords),
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Canonical adapter registry: one entry per IndexedType. This is the shared
+// per-type adapter layer the GUI palette also sources its common brief fields
+// from (via the BRIEF_ADAPTERS export below). The Record<IndexedType, ...>
+// typing is the anti-drift guard on the AI side: adding a kind to the registry
+// without an adapter here is a COMPILE error. The value functions are typed
+// `unknown -> ArtifactBrief` so a single map can hold adapters over different
+// record shapes; each is only ever called with the matching record by the
+// strongly-typed adapter exports above and by buildAllBriefs below.
+// ---------------------------------------------------------------------------
+
+/** Every indexed kind's canonical record-to-brief adapter, keyed by IndexedType.
+ *  The map MUST stay exhaustive (the Record type enforces it). Used by the GUI
+ *  palette to source common brief fields and by the exhaustiveness test. */
+export const BRIEF_ADAPTERS: Record<IndexedType, (record: never) => ArtifactBrief> = {
+  note: noteToBrief,
+  experiment: experimentToBrief,
+  method: methodToBrief,
+  sequence: sequenceToBrief,
+  datahub: dataHubToBrief,
+  project: projectToBrief,
+  purchase: purchaseToBrief,
+  molecule: moleculeToBrief,
+  phylo: phyloToBrief,
+  inventory: inventoryToBrief,
+};
+
 // ---------------------------------------------------------------------------
 // Helpers: tokenize and dedupe for keyword extraction.
 // ---------------------------------------------------------------------------
@@ -382,6 +453,7 @@ export type ArtifactIndexDeps = {
   listExperiments: () => Promise<Task[]>;
   listMolecules: () => Promise<Molecule[]>;
   listPhylo: () => Promise<PhyloMeta[]>;
+  listInventory: () => Promise<InventoryItem[]>;
 };
 
 export const artifactIndexDeps: ArtifactIndexDeps = {
@@ -400,6 +472,10 @@ export const artifactIndexDeps: ArtifactIndexDeps = {
   },
   listMolecules: () => moleculesApi.list(),
   listPhylo: () => phyloApi.list(),
+  // Inventory is whole-lab by default (own plus everything shared with the
+  // current user, ACL enforced upstream), the same loader summarize_inventory /
+  // read_inventory use, so search and the summaries cover the shelf.
+  listInventory: () => fetchAllInventoryItemsIncludingShared(),
 };
 
 // ---------------------------------------------------------------------------
@@ -432,6 +508,66 @@ export const artifactIndexDeps: ArtifactIndexDeps = {
  *   granular; drops briefs after it and briefs with no date.
  * @param deps - Injectable seam for testing without a real folder.
  */
+/**
+ * Build briefs for EVERY artifact type the current user can see, concurrently and
+ * fault-tolerantly (one type's list() throwing is skipped, never fatal). Shared by
+ * searchMyWork (which then scores by query) and listArtifacts (which then sorts by
+ * a field), so the per-type adapter wiring lives in exactly one place. No type
+ * filtering here, the callers narrow with their own filter. */
+export async function buildAllBriefs(
+  deps: ArtifactIndexDeps = artifactIndexDeps,
+): Promise<ArtifactBrief[]> {
+  const [
+    notesResult,
+    methodsResult,
+    sequencesResult,
+    dataHubResult,
+    projectsResult,
+    purchasesResult,
+    experimentsResult,
+    moleculesResult,
+    phyloResult,
+    inventoryResult,
+  ] = await Promise.allSettled([
+    deps.listNotes(),
+    deps.listMethods(),
+    deps.listSequences(),
+    deps.listDataHub(),
+    deps.listProjects(),
+    deps.listPurchases(),
+    deps.listExperiments(),
+    deps.listMolecules(),
+    deps.listPhylo(),
+    deps.listInventory(),
+  ]);
+
+  const allBriefs: ArtifactBrief[] = [];
+  function addBriefs<T>(
+    result: PromiseSettledResult<T[]>,
+    toBrief: (item: T) => ArtifactBrief,
+  ): void {
+    if (result.status === "rejected") return;
+    for (const item of result.value) {
+      try {
+        allBriefs.push(toBrief(item));
+      } catch {
+        // A corrupt record is skipped so it cannot block the rest of the type.
+      }
+    }
+  }
+  addBriefs(notesResult, noteToBrief);
+  addBriefs(methodsResult, methodToBrief);
+  addBriefs(sequencesResult, sequenceToBrief);
+  addBriefs(dataHubResult, dataHubToBrief);
+  addBriefs(projectsResult, projectToBrief);
+  addBriefs(purchasesResult, purchaseToBrief);
+  addBriefs(experimentsResult, experimentToBrief);
+  addBriefs(moleculesResult, moleculeToBrief);
+  addBriefs(phyloResult, phyloToBrief);
+  addBriefs(inventoryResult, inventoryToBrief);
+  return allBriefs;
+}
+
 export async function searchMyWork(
   query: string,
   opts?: { types?: string[]; limit?: number; since?: string; until?: string },
@@ -457,65 +593,8 @@ export async function searchMyWork(
     return true;
   };
 
-  // Run all list() calls concurrently. Per-type failure is silently skipped.
-  const [
-    notesResult,
-    methodsResult,
-    sequencesResult,
-    dataHubResult,
-    projectsResult,
-    purchasesResult,
-    experimentsResult,
-    moleculesResult,
-    phyloResult,
-  ] = await Promise.allSettled([
-    deps.listNotes(),
-    deps.listMethods(),
-    deps.listSequences(),
-    deps.listDataHub(),
-    deps.listProjects(),
-    deps.listPurchases(),
-    deps.listExperiments(),
-    deps.listMolecules(),
-    deps.listPhylo(),
-  ]);
-
-  // Collect all briefs from settled (fulfilled) results.
-  const allBriefs: ArtifactBrief[] = [];
-
-  function addBriefs<T>(
-    result: PromiseSettledResult<T[]>,
-    toBrief: (item: T) => ArtifactBrief,
-    typeName: string,
-  ): void {
-    if (result.status === "rejected") {
-      // One type's failure is silently skipped. The search continues with the
-      // remaining types so a missing molecule store does not break note search.
-      return;
-    }
-    const filtered =
-      typeFilter && !typeFilter.has(typeName)
-        ? []
-        : result.value;
-    for (const item of filtered) {
-      try {
-        allBriefs.push(toBrief(item));
-      } catch {
-        // Adapter failure on one record is skipped so a corrupt record does
-        // not block the rest of the type.
-      }
-    }
-  }
-
-  addBriefs(notesResult, noteToBrief, "note");
-  addBriefs(methodsResult, methodToBrief, "method");
-  addBriefs(sequencesResult, sequenceToBrief, "sequence");
-  addBriefs(dataHubResult, dataHubToBrief, "datahub");
-  addBriefs(projectsResult, projectToBrief, "project");
-  addBriefs(purchasesResult, purchaseToBrief, "purchase");
-  addBriefs(experimentsResult, experimentToBrief, "experiment");
-  addBriefs(moleculesResult, moleculeToBrief, "molecule");
-  addBriefs(phyloResult, phyloToBrief, "phylo");
+  const builtBriefs = await buildAllBriefs(deps);
+  const allBriefs = typeFilter ? builtBriefs.filter((b) => typeFilter.has(b.type)) : builtBriefs;
 
   // Apply the optional date window before scoring, so a "from last week" search
   // ranks only the in-window briefs (and never spends a result slot on one that
@@ -586,6 +665,139 @@ export type ArtifactFilter = {
   keywords?: string;
 };
 
+/** Resolve a list of project REFERENCES (each a numeric id, a numeric-looking
+ *  string, or a project NAME, case-insensitive) to a deduped list of string project
+ *  ids, using the user's own projects list. This lets the summary tools accept
+ *  project NAMES directly so the (weak) model never has to chain a search_my_work
+ *  lookup just to turn "the cyp51A project" into an id. An unresolved ref is
+ *  dropped (the caller can tell the user nothing matched). Pure given `projects`. */
+export function resolveProjectRefsToIds(
+  refs: Array<string | number> | undefined,
+  projects: Array<{ id: number | string; name: string }>,
+): string[] {
+  if (!refs || refs.length === 0) return [];
+  const out = new Set<string>();
+  for (const ref of refs) {
+    const refStr = String(ref).trim();
+    if (!refStr) continue;
+    // Numeric id (or numeric-looking string) wins when it matches a real project.
+    if (/^\d+$/.test(refStr)) {
+      const byId = projects.find((p) => String(p.id) === refStr);
+      if (byId) {
+        out.add(String(byId.id));
+        continue;
+      }
+    }
+    // Otherwise resolve by name, tolerating case, partials, and small typos via the
+    // shared fuzzy matcher (exact name still wins; a near-miss like "cyp51" or
+    // "cyp51A knokout" resolves instead of silently dropping).
+    const names = projects.map((p) => (p.name ?? "").trim()).filter(Boolean);
+    const matchedName = fuzzyResolve(refStr, names);
+    if (matchedName) {
+      const byName = projects.find((p) => (p.name ?? "").trim() === matchedName);
+      if (byName) out.add(String(byName.id));
+    }
+  }
+  return [...out];
+}
+
+/** Resolve user-typed member references to real lab usernames, tolerating case,
+ *  first-name / partial, and small typos via the shared fuzzy matcher. Mirrors
+ *  resolveProjectRefsToIds for people, so a summary tool can take owners by NAME
+ *  ("Kritika", "kritka") and never make the model map a name to a username first.
+ *  Deterministic, dedupes, drops anything that does not resolve. Pure. */
+export function resolveOwnerRefsToUsernames(
+  refs: Array<string | number> | undefined,
+  usernames: readonly string[],
+): string[] {
+  if (!refs || refs.length === 0) return [];
+  const out = new Set<string>();
+  for (const ref of refs) {
+    const refStr = String(ref).trim();
+    if (!refStr) continue;
+    const matched = fuzzyResolve(refStr, usernames);
+    if (matched) out.add(matched);
+  }
+  return [...out];
+}
+
+/** The relative date windows the summary tools accept as a `period` token, so the
+ *  (weak) model passes a token instead of computing ISO dates itself (a frequent
+ *  off-by-one / wrong-boundary failure). Calendar-based, not rolling. */
+export type SummaryPeriod =
+  | "today"
+  | "this_week"
+  | "last_week"
+  | "this_month"
+  | "last_month"
+  | "this_quarter"
+  | "last_quarter"
+  | "this_year"
+  | "last_year"
+  | "all_time";
+
+/** Resolve a relative period token to an inclusive { since, until } date range
+ *  (YYYY-MM-DD), computed deterministically from `today` (also YYYY-MM-DD). Calendar
+ *  semantics: "last_month" in June is all of May, "this_quarter" is the quarter start
+ *  through today. "all_time" returns {} (no bounds). An unknown token returns {} too,
+ *  so the caller falls back to the model's explicit since/until. Pure. */
+export function periodToDateRange(
+  period: string | undefined,
+  today: string,
+): { since?: string; until?: string } {
+  if (!period) return {};
+  const p = period.trim().toLowerCase().replace(/[\s-]+/g, "_");
+  const [ty, tm, td] = today.split("-").map(Number);
+  if (![ty, tm, td].every((n) => Number.isFinite(n))) return {};
+  const pad = (n: number) => String(n).padStart(2, "0");
+  const fmt = (y: number, m1: number, d: number) => `${y}-${pad(m1)}-${pad(d)}`;
+  // Date from (year, 1-based month, day); JS Date normalizes overflow/underflow.
+  const mk = (y: number, m1: number, d: number) => new Date(y, m1 - 1, d);
+  const toStr = (dt: Date) => fmt(dt.getFullYear(), dt.getMonth() + 1, dt.getDate());
+  const todayDt = mk(ty, tm, td);
+  // Days since Monday (Mon=0 ... Sun=6).
+  const dowMon = (todayDt.getDay() + 6) % 7;
+
+  switch (p) {
+    case "all_time":
+      return {};
+    case "today":
+      return { since: today, until: today };
+    case "this_week": {
+      const mon = mk(ty, tm, td - dowMon);
+      return { since: toStr(mon), until: today };
+    }
+    case "last_week": {
+      const mon = mk(ty, tm, td - dowMon - 7);
+      const sun = mk(ty, tm, td - dowMon - 1);
+      return { since: toStr(mon), until: toStr(sun) };
+    }
+    case "this_month":
+      return { since: fmt(ty, tm, 1), until: today };
+    case "last_month": {
+      const firstPrev = mk(ty, tm - 1, 1);
+      const lastPrev = mk(ty, tm, 0); // day 0 of this month = last day of prev
+      return { since: toStr(firstPrev), until: toStr(lastPrev) };
+    }
+    case "this_quarter": {
+      const startMonth = Math.floor((tm - 1) / 3) * 3 + 1;
+      return { since: fmt(ty, startMonth, 1), until: today };
+    }
+    case "last_quarter": {
+      const startMonth = Math.floor((tm - 1) / 3) * 3 + 1; // current quarter start
+      const prevStart = mk(ty, startMonth - 3, 1);
+      const prevEnd = mk(ty, startMonth, 0); // last day of the month before this quarter
+      return { since: toStr(prevStart), until: toStr(prevEnd) };
+    }
+    case "this_year":
+      return { since: fmt(ty, 1, 1), until: today };
+    case "last_year":
+      return { since: fmt(ty - 1, 1, 1), until: fmt(ty - 1, 12, 31) };
+    default:
+      return {};
+  }
+}
+
 /**
  * Apply an ArtifactFilter to a list of briefs. Pure, no I/O, fully deterministic.
  * Returns a NEW array of the briefs that pass every active dimension. The order
@@ -652,4 +864,46 @@ export function filterArtifacts(
 
     return true;
   });
+}
+
+// ---------------------------------------------------------------------------
+// listArtifacts: the deterministic top-N / sorted-list resolver. The model passes
+// a structured query (type, sort field, order, limit, filter) and the TOOL sorts
+// and slices, so "my 5 most recent experiments" or "oldest open tasks" never asks
+// the model to eyeball records and rank them. Sorts by date or title; price-based
+// "biggest" lives in the summarize tools' largestItems (briefs carry no amount).
+// ---------------------------------------------------------------------------
+
+export type ListSortBy = "date" | "title";
+export type ListOrder = "asc" | "desc";
+
+/** Build, filter, deterministically sort, and cap a list of briefs. Returns the
+ *  full pre-cap total alongside the capped items, so the caller can say "showing
+ *  10 of 42". Pure given the deps seam. */
+export async function listArtifacts(
+  opts: {
+    filter?: ArtifactFilter;
+    sortBy?: ListSortBy;
+    order?: ListOrder;
+    limit?: number;
+  },
+  deps: ArtifactIndexDeps = artifactIndexDeps,
+): Promise<{ total: number; items: ArtifactBrief[] }> {
+  const briefs = await buildAllBriefs(deps);
+  const filtered = opts.filter ? filterArtifacts(briefs, opts.filter) : briefs;
+  const sortBy = opts.sortBy ?? "date";
+  const order = opts.order ?? "desc";
+  const sorted = [...filtered].sort((a, b) => {
+    const cmp =
+      sortBy === "title"
+        ? (a.title ?? "").localeCompare(b.title ?? "")
+        : (a.date ?? "").localeCompare(b.date ?? "");
+    return order === "asc" ? cmp : -cmp;
+  });
+  // The internal ceiling is the UI full-set cap (500), not the model's documented
+  // max-50. list_records enforces its own 50 cap on the model-facing `limit`; this
+  // higher ceiling lets it ALSO ask for up to 500 in one call to build the inline
+  // record-set widget's full match list without a second pass.
+  const limit = opts.limit && opts.limit > 0 ? Math.min(opts.limit, 500) : 10;
+  return { total: filtered.length, items: sorted.slice(0, limit) };
 }

@@ -5,34 +5,30 @@
 //
 // No emojis, no em-dashes, no mid-sentence colons.
 
-import { encodePublicKey } from "@/lib/sharing/identity/keys";
-import type { StoredIdentity } from "@/lib/sharing/identity/storage";
 import { isDemoOrWikiCapture } from "@/lib/file-system/wiki-capture-mock";
-import {
-  mintDeptInvite,
-  encodeDeptInviteLink,
-  DEFAULT_DEPT_INVITE_TTL_MS,
-  type DeptInvitePayload,
-} from "./dept-invite";
 
-/** Mints a dept invite for a lab head and returns the payload + shareable link. */
-export function mintInviteForDeptAdmin(params: {
+/**
+ * Mints a dept invite via the server (unified opaque-token invites) and returns
+ * the shareable /dept/join#<token> link. No local signing key, so it works in a
+ * folderless browser; the server authorizes the caller as the dept admin.
+ *
+ * @throws if the API rejects the mint.
+ */
+export async function mintInviteForDeptAdmin(params: {
   deptId: string;
-  deptName: string;
-  username: string;
-  identity: StoredIdentity;
   origin: string;
-  ttlMs?: number;
-}): { invite: DeptInvitePayload; link: string } {
-  const invite = mintDeptInvite({
-    deptId: params.deptId,
-    deptName: params.deptName,
-    adminUsername: params.username,
-    adminEd25519Pub: encodePublicKey(params.identity.keys.signing.publicKey),
-    adminEd25519Priv: params.identity.keys.signing.privateKey,
-    expiresAt: Date.now() + (params.ttlMs ?? DEFAULT_DEPT_INVITE_TTL_MS),
+}): Promise<{ link: string }> {
+  const res = await fetch("/api/dept/invite", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ deptId: params.deptId }),
   });
-  return { invite, link: encodeDeptInviteLink(params.origin, invite) };
+  if (!res.ok) {
+    throw new Error(`mintInviteForDeptAdmin: mint rejected (HTTP ${res.status})`);
+  }
+  const data = (await res.json()) as { token?: string };
+  if (!data.token) throw new Error("mintInviteForDeptAdmin: no token returned");
+  return { link: `${params.origin}/dept/join#${data.token}` };
 }
 
 export interface DeptRosterLabHead {

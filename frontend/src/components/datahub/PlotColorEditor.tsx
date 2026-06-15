@@ -17,6 +17,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { Icon } from "@/components/icons";
+import Tooltip from "@/components/Tooltip";
 import type { PlotStyle } from "@/lib/datahub/plot-spec";
 
 type Popover =
@@ -297,25 +298,29 @@ export default function PlotColorEditor({
               }}
               className="min-w-0 flex-1 rounded-md border border-border bg-surface-overlay px-2 py-1 text-[11px] text-foreground placeholder:text-foreground-muted focus:border-sky-400 focus:outline-none"
             />
-            <button
-              type="button"
-              onClick={() => {
-                onSaveColorsAsPalette?.(popover.name.trim() || "My palette");
-                setPopover(null);
-              }}
-              className="flex h-6 w-6 items-center justify-center rounded-md border border-brand-action bg-brand-action text-white transition-colors hover:opacity-90"
-              aria-label="Save palette"
-            >
-              <Icon name="check" className="h-3 w-3" />
-            </button>
-            <button
-              type="button"
-              onClick={() => setPopover(null)}
-              className="flex h-6 w-6 items-center justify-center rounded-md border border-border text-foreground-muted transition-colors hover:bg-surface-sunken"
-              aria-label="Cancel"
-            >
-              <Icon name="close" className="h-3 w-3" />
-            </button>
+            <Tooltip label="Save palette">
+              <button
+                type="button"
+                onClick={() => {
+                  onSaveColorsAsPalette?.(popover.name.trim() || "My palette");
+                  setPopover(null);
+                }}
+                className="flex h-6 w-6 items-center justify-center rounded-md border border-brand-action bg-brand-action text-white transition-colors hover:opacity-90"
+                aria-label="Save palette"
+              >
+                <Icon name="check" className="h-3 w-3" />
+              </button>
+            </Tooltip>
+            <Tooltip label="Cancel">
+              <button
+                type="button"
+                onClick={() => setPopover(null)}
+                className="flex h-6 w-6 items-center justify-center rounded-md border border-border text-foreground-muted transition-colors hover:bg-surface-sunken"
+                aria-label="Cancel"
+              >
+                <Icon name="close" className="h-3 w-3" />
+              </button>
+            </Tooltip>
           </div>
         </div>
       )}

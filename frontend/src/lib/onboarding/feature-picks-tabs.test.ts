@@ -150,11 +150,19 @@ describe("tabsForFeaturePicks() — lab paths", () => {
         links: "yes",
       }),
     );
-    // /inventory is in NAV_ITEMS but is FLAG-gated (INVENTORY_ENABLED, resolved
-    // in AppShell), not feature-pick-governed, so tabsForFeaturePicks never emits
-    // it. /search moved to the Cmd-K palette (nav audit 2026-06-07). Both are
-    // excluded from the feature-picks tab set.
-    expect(result).toEqual(NAV_ORDER.filter((href) => href !== "/inventory"));
+    // The FLAG-gated module tabs (/inventory, /chemistry, /datahub, /phylo,
+    // /figures) are resolved in AppShell by their own feature flags, NOT by the
+    // feature-pick wizard, so tabsForFeaturePicks never emits them. /search moved
+    // to the Cmd-K palette (nav audit 2026-06-07). All are excluded from the
+    // feature-picks tab set.
+    const FLAG_GATED = new Set([
+      "/inventory",
+      "/chemistry",
+      "/datahub",
+      "/phylo",
+      "/figures",
+    ]);
+    expect(result).toEqual(NAV_ORDER.filter((href) => !FLAG_GATED.has(href)));
   });
 });
 

@@ -473,17 +473,21 @@ describe("dose-response analysis (D1)", () => {
     table_type: "xy",
     created_at: "2026-06-12T00:00:00.000Z",
   };
-  // x = log10(dose), an 11-point curve generated from a known 4PL plus a little
-  // wobble (Bottom~5, Top~98, logEC50~-6.4, Hill~0.93). The same arrays the
-  // engine's scipy-pinned reference test uses, so the analysis-layer EC50 matches.
-  const XS = [-9.0, -8.5, -8.0, -7.5, -7.0, -6.5, -6.0, -5.5, -5.0, -4.5, -4.0];
+  // x = RAW dose (the analysis log10-transforms it before fitting). An 11-point
+  // curve generated from a known 4PL on the log10(dose) grid [-9..-4] plus a
+  // little wobble (Bottom~5, Top~98, logEC50~-6.4, Hill~0.93). The response array
+  // is the engine's scipy-pinned reference, so the analysis-layer EC50 (in linear
+  // dose units) matches after the internal log transform — this is the raw-dose
+  // user path the engine's already-log reference test could not exercise.
+  const LOG_DOSE = [-9.0, -8.5, -8.0, -7.5, -7.0, -6.5, -6.0, -5.5, -5.0, -4.5, -4.0];
+  const XS = LOG_DOSE.map((lx) => 10 ** lx);
   const YS = [4.8, 6.1, 7.9, 12.5, 24.0, 47.0, 70.0, 86.0, 93.5, 96.8, 98.1];
 
   function drContent(): DataHubDocContent {
     return {
       meta: XMETA,
       columns: [
-        { id: "x", name: "log[dose]", role: "x" as const, dataType: "number" as const },
+        { id: "x", name: "dose", role: "x" as const, dataType: "number" as const },
         { id: "y1", name: "Response", role: "y" as const, dataType: "number" as const },
       ],
       rows: XS.map((x, i) => ({ id: `r${i}`, cells: { x, y1: YS[i] } })),
@@ -580,16 +584,18 @@ describe("model comparison analysis (D2)", () => {
     table_type: "xy",
     created_at: "2026-06-12T00:00:00.000Z",
   };
-  // The SAME dose-response dataset the D1 + transparency pins use, so the F and
-  // AICc match the scipy reference exactly.
-  const XS = [-9.0, -8.5, -8.0, -7.5, -7.0, -6.5, -6.0, -5.5, -5.0, -4.5, -4.0];
+  // The SAME dose-response dataset the D1 + transparency pins use, as a RAW dose
+  // column (the analysis log10-transforms it). Both models recover the identical
+  // log grid internally, so the F and AICc match the scipy reference exactly.
+  const LOG_DOSE = [-9.0, -8.5, -8.0, -7.5, -7.0, -6.5, -6.0, -5.5, -5.0, -4.5, -4.0];
+  const XS = LOG_DOSE.map((lx) => 10 ** lx);
   const YS = [4.8, 6.1, 7.9, 12.5, 24.0, 47.0, 70.0, 86.0, 93.5, 96.8, 98.1];
 
   function mcContent(): DataHubDocContent {
     return {
       meta: XMETA,
       columns: [
-        { id: "x", name: "log[dose]", role: "x" as const, dataType: "number" as const },
+        { id: "x", name: "dose", role: "x" as const, dataType: "number" as const },
         { id: "y1", name: "Response", role: "y" as const, dataType: "number" as const },
       ],
       rows: XS.map((x, i) => ({ id: `r${i}`, cells: { x, y1: YS[i] } })),

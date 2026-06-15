@@ -16,6 +16,10 @@ import {
   isDemoOrWikiCapture,
 } from "@/lib/file-system/wiki-capture-mock";
 import FolderConnectGate from "@/components/onboarding/FolderConnectGate";
+import AccountFirstRedirect, {
+  useHasCloudSession,
+} from "@/components/account/AccountFirstRedirect";
+import { isAccountFirstEnabled } from "@/lib/account/account-first";
 import WelcomePage from "@/components/welcome/WelcomePage";
 import { signIn } from "next-auth/react";
 import ImportELNDialog from "@/components/import-eln/ImportELNDialog";
@@ -355,6 +359,19 @@ function AppContent({ children }: { children: ReactNode }) {
     pathname === "/privacy" ||
     pathname === "/terms";
 
+  // Folderless, session-authenticated routes: the org admin portals + their
+  // accept pages, the account home, and public @handle profiles. These run off
+  // the NextAuth session and Neon, need NO data folder, and must render in any
+  // browser, so they bypass the File System Access + folder-connect gate exactly
+  // like the operator and marketing routes do (cloud-accounts Phase 1: data is
+  // local, the account is cloud).
+  const isFolderlessAccountRoute =
+    pathname === "/account" ||
+    pathname?.startsWith("/department") ||
+    pathname?.startsWith("/institution") ||
+    pathname?.startsWith("/dept/") ||
+    pathname?.startsWith("/u/");
+
   // QueryClient is a module-level singleton (see `appQueryClient` below)
   // so non-React-tree consumers (e.g. the onboarding-v4 cursor scripts
   // that fire programmatic API calls outside the component tree) can
@@ -374,6 +391,7 @@ function AppContent({ children }: { children: ReactNode }) {
     connect,
     reconnectWithStoredHandle,
     disconnect,
+    needsInitialization,
   } = useFileSystem();
   const pendingSignInProvider = useSignInProvider();
   const signInInFlight = pendingSignInProvider !== null;
@@ -400,6 +418,12 @@ function AppContent({ children }: { children: ReactNode }) {
   // (preview off) and only swap in after mount.
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
+
+  // Account-first (cloud-accounts Phase 1, Chunk C): read the cloud (NextAuth)
+  // session once so a signed-in, folderless visitor can be routed to /account
+  // instead of the folder wall. Only consulted when the flag is on; the hook runs
+  // unconditionally (rules of hooks) but is cheap and inert otherwise.
+  const hasCloudSession = useHasCloudSession();
 
   useEffect(() => {
     if (currentUser) {
@@ -527,6 +551,27 @@ function AppContent({ children }: { children: ReactNode }) {
     );
   }
 
+  // Folderless, session-authenticated routes (org portals, accept pages, account
+  // home, @handle profiles) render directly off the session in any browser, no
+  // folder gate. FileSystemProvider context is still inherited from Providers
+  // (currentUser is simply null when no folder is connected).
+  if (isFolderlessAccountRoute) {
+    return (
+      <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+    );
+  }
+
+  // The Splash redesign review page is a folderless dev harness: it mounts the
+  // launch-splash variants over a mock workbench with no real data. It must
+  // render without the File System Access gate so the variants can be reviewed
+  // in any browser without connecting a folder. The variants are pure
+  // presentational components, so a query client is all the context it needs.
+  if (pathname === "/dev/splash") {
+    return (
+      <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+    );
+  }
+
   // The demo-video studio launcher is a folderless dev console of clip links. It
   // must render in ANY browser (notably Safari, so recordings dodge Chrome's
   // "Claude is debugging" automation banner) without the File System Access gate.
@@ -550,6 +595,24 @@ function AppContent({ children }: { children: ReactNode }) {
           {children}
         </BeakerSearchProvider>
       </QueryClientProvider>
+    );
+  }
+
+  // The popup-chrome before/after review gallery is a folderless dev harness.
+  // It mounts the OLD (pre-CalmPopupShell) and NEW (migrated) object popups side
+  // by side so the migrated chrome can be signed off per type, with no real data.
+  // It must render without the File System Access gate, so bypass the folder
+  // wall and supply just a query client (the popups call useQueryClient /
+  // useQuery; the always-mounted FileSystemProvider above already gives them a
+  // null currentUser cleanly). The popups read empty / missing data and show
+  // their own empty states, which is exactly what we want for a chrome review.
+  if (
+    pathname === "/dev/popup-chrome" ||
+    pathname === "/dev/scrollbars" ||
+    pathname === "/dev/scroll-recede"
+  ) {
+    return (
+      <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
     );
   }
 
@@ -613,6 +676,37 @@ function AppContent({ children }: { children: ReactNode }) {
     return (
       <QueryClientProvider client={queryClient}>
         <WelcomePage unsupported />
+      </QueryClientProvider>
+    );
+  }
+
+  // Account-first (cloud-accounts Phase 1, Chunk C). When NEXT_PUBLIC_ACCOUNT_FIRST
+  // is on, a SIGNED-IN visitor with no folder belongs on the folderless /account
+  // home, not the folder-connect wall (this is the break in the OAuth->folder
+  // fusion: today a fresh OAuth sign-in falls through to FolderConnectGate). A
+  // logged-out visitor falls through to the normal front door below. Default-off,
+  // so this whole branch is inert and the current flow is untouched unless the
+  // flag is set. While the session check is in flight we hold briefly so a
+  // signed-in user does not flash the front door before the redirect.
+  if (
+    isAccountFirstEnabled() &&
+    hasCloudSession === true &&
+    !isConnected &&
+    !currentUser &&
+    // A brand-new empty folder is attached but not yet validated: finishConnect
+    // flipped needsInitialization. Do NOT bounce to /account here (that loops the
+    // first-folder onboarding path) — fall through to FolderConnectGate's
+    // "Initialize New Folder" prompt below.
+    !needsInitialization &&
+    !isDemoOrWikiCapture() &&
+    !signInInFlight
+  ) {
+    // Signed in with no folder: route to the folderless account home. A null
+    // (still-checking) or false (logged out) session falls through to the normal
+    // front door below, so a fresh visitor sees the landing with no delay.
+    return (
+      <QueryClientProvider client={queryClient}>
+        <AccountFirstRedirect />
       </QueryClientProvider>
     );
   }
@@ -932,6 +1026,7 @@ function AppContent({ children }: { children: ReactNode }) {
             SuccessTransition. Skipped in fixture modes (returned above anyway). */}
         {!splashSeen && !isDemoOrWikiCapture() && (
           <Splash
+            userName={currentUser ?? undefined}
             onComplete={() => {
               try {
                 localStorage.setItem(SPLASH_DAY_KEY, localDayStamp());

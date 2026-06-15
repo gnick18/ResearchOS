@@ -161,10 +161,14 @@ describe("run-analysis: XY failure modes", () => {
 });
 
 describe("run-analysis: global (shared-parameter) fit through the XY pipe", () => {
-  // A two-Y XY table: one shared X (log10 dose), two response columns that share
-  // Bottom/Top/Hill and differ only in EC50. Pinned against the same scipy
-  // least_squares reference the engine + transparency gate use.
-  const GX = [-9.0, -8.5, -8.0, -7.5, -7.0, -6.5, -6.0, -5.5, -5.0, -4.5, -4.0];
+  // A two-Y XY table: one shared RAW-dose X column (the analysis log10-transforms
+  // it internally — dose-response fits on log10 dose), two response columns that
+  // share Bottom/Top/Hill and differ only in EC50. Pinned against the same scipy
+  // least_squares reference the engine + transparency gate use; the raw grid is
+  // 10^[-9 .. -4], so the recovered log doses — and thus the fit — are identical
+  // to feeding the logs directly (this is exactly the raw-dose user path).
+  const LOG_DOSE = [-9.0, -8.5, -8.0, -7.5, -7.0, -6.5, -6.0, -5.5, -5.0, -4.5, -4.0];
+  const GX = LOG_DOSE.map((lx) => 10 ** lx);
   const GYA = [0.9, 2.9, 8.6, 23.0, 50.4, 75.9, 90.8, 96.9, 99.1, 99.6, 100.1];
   const GYB = [0.1, 0.4, 0.8, 2.9, 8.6, 23.4, 50.4, 75.9, 90.8, 96.9, 99.1];
 
@@ -179,7 +183,7 @@ describe("run-analysis: global (shared-parameter) fit through the XY pipe", () =
     return {
       meta: META,
       columns: [
-        { id: "x", name: "log[Dose]", role: "x", dataType: "number" },
+        { id: "x", name: "Dose", role: "x", dataType: "number" },
         { id: "y1", name: "Drug A", role: "y", dataType: "number" },
         { id: "y2", name: "Drug B", role: "y", dataType: "number" },
       ],
@@ -243,5 +247,38 @@ describe("run-analysis: global (shared-parameter) fit through the XY pipe", () =
   it("fails cleanly when the table has only one Y column", () => {
     const out = runAnalysis(gfSpec(), xyContent(GX, GYA));
     expect(out.ok).toBe(false);
+  });
+});
+
+describe("run-analysis: single-curve dose-response on a raw dose column", () => {
+  // The Drug A response fit on its own. X is a RAW dose column (10^[-9..-4]); the
+  // analysis log10-transforms it before fitting, so EC50 = 10^logEC50 lands in
+  // LINEAR dose units near 1e-7 M (the curve crosses 50% around the -7 log dose),
+  // NOT the ~1e8 blow-up a missing transform produced (10^(rawDose half-max)).
+  // This guards the raw-dose user path end to end — the gap the engine's own
+  // (already-log) parity test could not see.
+  const LOG_DOSE = [-9.0, -8.5, -8.0, -7.5, -7.0, -6.5, -6.0, -5.5, -5.0, -4.5, -4.0];
+  const DOSE = LOG_DOSE.map((lx) => 10 ** lx);
+  const RESP = [0.9, 2.9, 8.6, 23.0, 50.4, 75.9, 90.8, 96.9, 99.1, 99.6, 100.1];
+
+  it("reports EC50 in linear dose units, not 10^(raw dose)", () => {
+    const out = runAnalysis(spec("doseResponse"), xyContent(DOSE, RESP));
+    if (!out.ok || out.kind !== "doseResponse") {
+      throw new Error("expected doseResponse");
+    }
+    expect(out.n).toBe(11);
+    expect(out.xName).toBe("Dose");
+    // Half-max in linear dose units, ~1e-7 M, and unambiguously NOT the ~1e8
+    // raw-dose failure mode.
+    expect(out.ec50).toBeGreaterThan(3e-8);
+    expect(out.ec50).toBeLessThan(3e-7);
+    expect(out.ec50CI95[0]).toBeGreaterThan(0);
+    expect(out.ec50CI95[1]).toBeLessThan(1);
+    // Plateaus and fit quality match the clean sigmoid.
+    expect(out.top.value).toBeGreaterThan(98);
+    expect(out.top.value).toBeLessThan(102);
+    expect(out.bottom.value).toBeGreaterThan(-2);
+    expect(out.bottom.value).toBeLessThan(3);
+    expect(out.rSquared).toBeGreaterThan(0.999);
   });
 });

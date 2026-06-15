@@ -15,7 +15,6 @@ import {
 } from "@/lib/billing/institution";
 
 export const runtime = "nodejs";
-const HEX = /^[0-9a-f]+$/i;
 
 export async function POST(request: Request): Promise<Response> {
   if (!INSTITUTION_TIER_ENABLED) return json(404, { error: "not found" });
@@ -35,10 +34,11 @@ export async function POST(request: Request): Promise<Response> {
   const institutionId =
     typeof body.institutionId === "string" ? body.institutionId.trim() : "";
   const name = typeof body.name === "string" ? body.name.trim() : "";
+  // adminEd25519Pub is vestigial now (invites are server-issued opaque tokens,
+  // no client signature). Accepted from a legacy client, otherwise stored empty.
   const pub =
     typeof body.adminEd25519Pub === "string" ? body.adminEd25519Pub.trim() : "";
   if (!institutionId || !name) return json(400, { error: "institutionId and name are required" });
-  if (!HEX.test(pub)) return json(400, { error: "a valid admin pubkey is required" });
 
   try {
     await ensureInstitutionSchema();

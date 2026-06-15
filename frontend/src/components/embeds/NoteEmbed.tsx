@@ -13,6 +13,7 @@ import { useEffect, useState } from "react";
 import { notesApi } from "@/lib/local-api";
 import type { Note } from "@/lib/types";
 import { objectDeepLink } from "@/lib/references";
+import { deriveExcerptFromMarkdown } from "@/lib/methods/excerpt";
 import { ObjectEmbedCard, UnavailableEmbedCard, type EmbedRendererProps } from "./ObjectEmbed";
 
 type LoadState =
@@ -20,14 +21,13 @@ type LoadState =
   | { k: "missing" }
   | { k: "ok"; note: Note };
 
-/** Pick a short excerpt from the note. Tries the first entry's content
- *  (trimmed, first 160 chars), then falls back to the description field. */
+/** Pick a short excerpt from the note. Tries the first entry's content, then
+ *  falls back to the description field. Run through deriveExcerptFromMarkdown so
+ *  the invisible stamp scaffold (<!-- stamp:start --> ...) and any leading H1 are
+ *  stripped, never leaking into the card. */
 function noteExcerpt(note: Note): string {
-  const firstEntry = note.entries[0];
-  if (firstEntry?.content?.trim()) {
-    return firstEntry.content.trim().slice(0, 160);
-  }
-  return note.description?.trim().slice(0, 160) ?? "";
+  const raw = note.entries[0]?.content?.trim() || note.description?.trim() || "";
+  return deriveExcerptFromMarkdown(raw);
 }
 
 export default function NoteEmbed({ descriptor, caption }: EmbedRendererProps) {

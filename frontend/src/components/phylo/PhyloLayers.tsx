@@ -20,10 +20,27 @@ import { useMemo, useRef, useState } from "react";
 import { Icon } from "@/components/icons";
 import Tooltip from "@/components/Tooltip";
 import { reorderPanels } from "@/lib/phylo/panels";
+import {
+  columnFilterFor,
+  errorBarControl,
+  filterColumns,
+  isRemovableLayer,
+  kindAvailable,
+  kindDrawsLegend,
+  layerCategory,
+  unmetReason,
+  usesScaleKindSelect,
+  type ColumnFilter,
+  type LayerCapabilities,
+  type LayerCategory,
+} from "@/lib/phylo/layer-schema";
 import type {
   AlignedPanel,
   AlignedPanelKind,
   CladeAnnotation,
+  NodePie,
+  TaxaLink,
+  TaxaStrip,
 } from "@/lib/phylo/types";
 
 /** The Add-panel catalog, categorized for the searchable menu (mockup parity). */
@@ -55,13 +72,19 @@ export const PANEL_CATALOG: CatalogGroup[] = [
       { kind: "violin", name: "Violin", desc: "per-tip density" },
       { kind: "point", name: "Point + error", desc: "mean with SD / SEM whisker" },
       { kind: "scatter", name: "Jitter scatter", desc: "individual replicates" },
+      { kind: "datahubPlot", name: "Data Hub plot", desc: "a Data Hub figure, aligned to tips" },
     ],
   },
   {
     cat: "Highlights",
     items: [
       { kind: "clade", name: "Clade highlight", desc: "shade a subtree" },
+      { kind: "taxastrip", name: "Span strip", desc: "bar + label across a tip range" },
+      { kind: "taxalink", name: "Tip links", desc: "curve between two tips" },
+      { kind: "noderange", name: "Node age bars", desc: "HPD bars from a timed tree" },
+      { kind: "nodepie", name: "Node pies", desc: "pie / star at a clade's MRCA" },
       { kind: "support", name: "Support values", desc: "bootstrap labels" },
+      { kind: "nodepoints", name: "Node points", desc: "glyph at each internal node" },
     ],
   },
   {
@@ -76,7 +99,49 @@ const KIND_LABEL: Record<string, string> = Object.fromEntries(
   PANEL_CATALOG.flatMap((g) => g.items.map((i) => [i.kind, i.name])),
 );
 
-/** Which kinds bind a metadata column (show the column / scale fields). */
+// Typed-row treatment (Phase 3): each layer category reads differently at a
+// glance — tree elements recede (neutral, a "style" pill, non-removable), added
+// data overlays carry a data-source chip (the binding), highlights get an amber
+// accent + a count of their annotations.
+const CATEGORY_ACCENT: Record<LayerCategory, string> = {
+  "tree-element": "border-l-border",
+  "data-overlay": "border-l-brand-sky",
+  highlight: "border-l-amber-500",
+};
+const CATEGORY_SWATCH: Record<LayerCategory, string> = {
+  "tree-element": "bg-foreground-muted",
+  "data-overlay": "bg-brand-sky",
+  highlight: "bg-amber-500",
+};
+
+/** The data-source chip text for an added overlay (the binding it carries), or
+ *  null for tree elements which bind nothing. */
+function dataSourceLabel(panel: AlignedPanel): string | null {
+  if (panel.kind === "datahubPlot")
+    return String(panel.options?.title ?? "Data Hub");
+  if (panel.kind === "msa") return "alignment";
+  if (panel.columns?.length)
+    return panel.columns.length <= 2
+      ? panel.columns.join(", ")
+      : `${panel.columns.length} cols`;
+  if (panel.column) return panel.column;
+  return null;
+}
+
+/** How many annotations a highlight container layer holds (clades, links,
+ *  strips, pies), or null for non-container kinds. */
+function annotationCount(panel: AlignedPanel): number | null {
+  const o = panel.options ?? {};
+  if (panel.kind === "clade") return (o.clades as unknown[] | undefined)?.length ?? 0;
+  if (panel.kind === "taxalink") return (o.links as unknown[] | undefined)?.length ?? 0;
+  if (panel.kind === "taxastrip") return (o.strips as unknown[] | undefined)?.length ?? 0;
+  if (panel.kind === "nodepie") return (o.pies as unknown[] | undefined)?.length ?? 0;
+  return null;
+}
+
+/** Which kinds bind a metadata column (show the column / scale fields). The
+ *  legend + error-bar + scale-kind rules now live in lib/phylo/layer-schema.ts;
+ *  this set only gates the shared single-column binding field. */
 const COLORED_KINDS = new Set<AlignedPanelKind>([
   "points",
   "strip",
@@ -84,8 +149,6 @@ const COLORED_KINDS = new Set<AlignedPanelKind>([
   "bars",
   "dots",
 ]);
-/** Which kinds carry an aligned numeric / value panel scale + legend. */
-const DATA_KINDS = new Set<AlignedPanelKind>(["heat", "bars", "dots", "box"]);
 
 /** Sequential ramps offered in the inspector (Data Hub palette ids). */
 const SEQUENTIAL_PALETTES: { id: string; label: string }[] = [
@@ -144,7 +207,12 @@ export function PhyloLayersControl({
   panels,
   selectedId,
   columns,
+  columnKinds,
+  capabilities,
+  datahubTables,
+  onAddDatahub,
   tipNames = [],
+  annotationKeys = [],
   treeSummary,
   appliedTemplate,
   onChange,
@@ -154,8 +222,19 @@ export function PhyloLayersControl({
   panels: AlignedPanel[];
   selectedId: string | null;
   columns: string[];
+  /** Each bindable metadata column classified numeric vs categorical, so the
+   *  inspector offers only type-appropriate columns per field (Phase 0). */
+  columnKinds?: Record<string, ColumnFilter>;
+  /** What the figure can supply, to grey unavailable overlays in Add (Phase 1). */
+  capabilities?: LayerCapabilities;
+  /** Available Data Hub tables, for the inline picker when adding a Data Hub plot. */
+  datahubTables?: { id: string; name: string }[];
+  /** Add a Data Hub plot bound to a table (best join column auto-chosen). */
+  onAddDatahub?: (tableId: string) => void;
   /** Every tip name in the tree, for naming clade members (MRCA picker). */
   tipNames?: string[];
+  /** Every [&...] annotation key present in the tree, for the geom_range picker. */
+  annotationKeys?: string[];
   treeSummary: string;
   /** The template id currently applied (drives the picker so it never snaps back
    *  to the placeholder after an apply, the flicker fix). "" when none / edited. */
@@ -194,7 +273,16 @@ export function PhyloLayersControl({
           <Icon name="plus" className="w-4 h-4" /> Add panel
         </button>
         {menuOpen && (
-          <AddPanelMenu onAdd={add} onClose={() => setMenuOpen(false)} />
+          <AddPanelMenu
+            onAdd={add}
+            onClose={() => setMenuOpen(false)}
+            capabilities={capabilities}
+            datahubTables={datahubTables}
+            onAddDatahub={(tableId) => {
+              onAddDatahub?.(tableId);
+              setMenuOpen(false);
+            }}
+          />
         )}
       </div>
 
@@ -207,13 +295,76 @@ export function PhyloLayersControl({
           panels={panels}
           selectedId={selectedId}
           columns={columns}
+          columnKinds={columnKinds}
           tipNames={tipNames}
+          annotationKeys={annotationKeys}
           onSelect={onSelect}
           onUpdate={update}
           onRemove={remove}
           onReorder={reorder}
         />
       </div>
+
+      <LegendsAndKeys panels={panels} onUpdate={update} />
+    </div>
+  );
+}
+
+/** Contextual legend manager: lists only the keys CURRENTLY on the figure (a
+ *  visible data layer that can draw a legend), with a per-key show/hide. Empties
+ *  to a hint when nothing is on the figure, so the controls never sit dead. */
+function LegendsAndKeys({
+  panels,
+  onUpdate,
+}: {
+  panels: AlignedPanel[];
+  onUpdate: (id: string, patch: Partial<AlignedPanel>) => void;
+}) {
+  const keyed = panels.filter(
+    (p) =>
+      p.visible &&
+      kindDrawsLegend(p.kind) &&
+      (!!p.column || !!p.columns?.length || p.kind === "msa"),
+  );
+  return (
+    <div>
+      <h3 className="text-[11px] uppercase tracking-wide text-foreground-muted font-semibold mb-2">
+        Legends &amp; keys
+        <span className="ml-1.5 font-normal normal-case opacity-70">
+          only what&apos;s on the figure
+        </span>
+      </h3>
+      {keyed.length === 0 ? (
+        <p className="text-xs text-foreground-muted px-1">
+          No data layers visible — no keys to place.
+        </p>
+      ) : (
+        <div className="space-y-1">
+          {keyed.map((p) => {
+            const on = p.legend !== false;
+            return (
+              <div
+                key={p.id}
+                className="flex items-center gap-2 text-xs px-2 py-1 rounded-md border border-border bg-surface"
+              >
+                <span className="w-2 h-2 rounded-sm bg-brand-sky shrink-0" />
+                <span className="text-foreground truncate">
+                  {KIND_LABEL[p.kind] ?? p.kind} key
+                </span>
+                <span className="text-foreground-muted truncate">
+                  {dataSourceLabel(p) ?? ""}
+                </span>
+                <button
+                  onClick={() => onUpdate(p.id, { legend: on ? false : true })}
+                  className={`ml-auto shrink-0 ${on ? "text-brand-sky" : "text-foreground-muted"}`}
+                >
+                  {on ? "Shown" : "Hidden"}
+                </button>
+              </div>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }
@@ -240,7 +391,9 @@ function LayerList({
   panels,
   selectedId,
   columns,
+  columnKinds,
   tipNames,
+  annotationKeys,
   onSelect,
   onUpdate,
   onRemove,
@@ -249,7 +402,9 @@ function LayerList({
   panels: AlignedPanel[];
   selectedId: string | null;
   columns: string[];
+  columnKinds?: Record<string, ColumnFilter>;
   tipNames: string[];
+  annotationKeys: string[];
   onSelect: (id: string | null) => void;
   onUpdate: (id: string, patch: Partial<AlignedPanel>) => void;
   onRemove: (id: string) => void;
@@ -312,13 +467,19 @@ function LayerList({
         const sel = panel.id === selectedId;
         const dragging = dragIndex === index;
         const over = overIndex === index && dragIndex !== null && !dragging;
+        const cat = layerCategory(panel.kind);
+        const removable = isRemovableLayer(panel.kind);
+        const source = dataSourceLabel(panel);
+        const count = annotationCount(panel);
         return (
           <div
             key={panel.id}
             ref={(el) => {
               rowRefs.current[index] = el;
             }}
-            className={`border rounded-lg mb-1.5 bg-surface-raised overflow-hidden transition-shadow ${
+            className={`border border-l-2 ${CATEGORY_ACCENT[cat]} rounded-lg mb-1.5 overflow-hidden transition-shadow ${
+              cat === "tree-element" ? "bg-surface" : "bg-surface-raised"
+            } ${
               sel ? "border-brand-sky ring-2 ring-sky-100" : "border-border"
             } ${over ? "border-t-2 border-t-brand-sky" : ""} ${
               dragging ? "opacity-60" : ""
@@ -350,35 +511,53 @@ function LayerList({
                   />
                 </button>
               </Tooltip>
+              <span
+                className={`w-2.5 h-2.5 rounded-sm shrink-0 ${CATEGORY_SWATCH[cat]}`}
+                aria-hidden
+              />
               <button
                 onClick={() => onSelect(sel ? null : panel.id)}
-                className="flex-1 text-left min-w-0"
+                className="flex-1 text-left min-w-0 flex items-center gap-1.5"
               >
-                <span className="text-sm text-foreground">
+                <span className="text-sm text-foreground truncate">
                   {KIND_LABEL[panel.kind] ?? panel.kind}
                 </span>
-                {(panel.column || panel.columns?.length) && (
-                  <span className="text-xs text-foreground-muted truncate">
-                    {" · "}
-                    {panel.column ?? panel.columns?.join(", ")}
+                {cat === "data-overlay" && source && (
+                  <span className="inline-flex items-center gap-1 shrink-0 text-[10px] text-brand-sky bg-sky-50 dark:bg-sky-900/30 rounded px-1.5 py-0.5 truncate">
+                    <Icon name="database" className="w-2.5 h-2.5" />
+                    {source}
+                  </span>
+                )}
+                {cat === "tree-element" && (
+                  <span className="shrink-0 text-[10px] text-foreground-muted border border-border rounded px-1.5 py-0.5">
+                    style
+                  </span>
+                )}
+                {cat === "highlight" && count != null && (
+                  <span className="shrink-0 text-[10px] text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-900/30 rounded px-1.5 py-0.5">
+                    {count} {count === 1 ? "item" : "items"}
                   </span>
                 )}
               </button>
-              <Tooltip label="Delete layer">
-                <button
-                  onClick={() => onRemove(panel.id)}
-                  className="text-border hover:text-red-500 px-0.5"
-                  aria-label="Delete layer"
-                >
-                  <Icon name="trash" className="w-3.5 h-3.5" />
-                </button>
-              </Tooltip>
+              {removable && (
+                <Tooltip label="Delete layer">
+                  <button
+                    onClick={() => onRemove(panel.id)}
+                    className="text-border hover:text-red-500 px-0.5"
+                    aria-label="Delete layer"
+                  >
+                    <Icon name="trash" className="w-3.5 h-3.5" />
+                  </button>
+                </Tooltip>
+              )}
             </div>
             {sel && (
               <Inspector
                 panel={panel}
                 columns={columns}
+                columnKinds={columnKinds}
                 tipNames={tipNames}
+                annotationKeys={annotationKeys}
                 onUpdate={(patch) => onUpdate(panel.id, patch)}
               />
             )}
@@ -396,17 +575,38 @@ function LayerList({
 function Inspector({
   panel,
   columns,
+  columnKinds,
   tipNames,
+  annotationKeys,
   onUpdate,
 }: {
   panel: AlignedPanel;
   columns: string[];
+  columnKinds?: Record<string, ColumnFilter>;
   tipNames: string[];
+  annotationKeys: string[];
   onUpdate: (patch: Partial<AlignedPanel>) => void;
 }) {
   const colored = COLORED_KINDS.has(panel.kind);
-  const isData = DATA_KINDS.has(panel.kind);
   const continuous = panel.scale?.kind === "continuous";
+  // Type-appropriate column options per field (Phase 0): a "Size by" never lists
+  // a categorical column, a numeric value field never lists a text column, etc.
+  // The active binding is always kept so an existing figure never loses it.
+  const colsFor = (field: string, current?: string) =>
+    filterColumns(columns, columnKinds, columnFilterFor(panel.kind, field), current);
+  // Multi-select variant: type-filter but keep every already-selected column so
+  // an existing binding is never hidden out from under the figure.
+  const multiColsFor = (field: string, selected: string[]) => {
+    const filter = columnFilterFor(panel.kind, field);
+    if (filter === "any" || !columnKinds || Object.keys(columnKinds).length === 0)
+      return columns;
+    return columns.filter(
+      (c) =>
+        columnKinds[c] === undefined ||
+        columnKinds[c] === filter ||
+        selected.includes(c),
+    );
+  };
 
   return (
     <div className="px-3 pb-3 pt-1 border-t border-border bg-surface space-y-2">
@@ -414,7 +614,7 @@ function Inspector({
         <Field label="Column">
           <SelectInput
             value={panel.column ?? ""}
-            options={["", ...columns]}
+            options={["", ...colsFor("column", panel.column)]}
             onChange={(v) => onUpdate({ column: v })}
           />
         </Field>
@@ -422,7 +622,7 @@ function Inspector({
 
       {panel.kind === "heat" && (
         <MultiColumnField
-          columns={columns}
+          columns={multiColsFor("columns", panel.columns ?? [])}
           selected={panel.columns ?? []}
           onChange={(cols) => onUpdate({ columns: cols })}
         />
@@ -432,7 +632,7 @@ function Inspector({
         panel.kind === "violin" ||
         panel.kind === "scatter") && (
         <MultiColumnField
-          columns={columns}
+          columns={multiColsFor("columns", panel.columns ?? [])}
           selected={panel.columns ?? []}
           label="Replicate columns"
           onChange={(cols) => onUpdate({ columns: cols })}
@@ -440,7 +640,45 @@ function Inspector({
       )}
 
       {panel.kind === "point" && (
-        <PointInspector panel={panel} columns={columns} onUpdate={onUpdate} />
+        <PointInspector
+          panel={panel}
+          columns={columns}
+          columnKinds={columnKinds}
+          onUpdate={onUpdate}
+        />
+      )}
+
+      {panel.kind === "points" && (
+        <>
+          <Field label="Size by">
+            <SelectInput
+              value={(panel.options?.sizeColumn as string) ?? ""}
+              options={[
+                "",
+                ...colsFor("sizeColumn", panel.options?.sizeColumn as string),
+              ]}
+              onChange={(v) =>
+                onUpdate({
+                  options: { ...panel.options, sizeColumn: v || undefined },
+                })
+              }
+            />
+          </Field>
+          <Field label="Shape by">
+            <SelectInput
+              value={(panel.options?.shapeColumn as string) ?? ""}
+              options={[
+                "",
+                ...colsFor("shapeColumn", panel.options?.shapeColumn as string),
+              ]}
+              onChange={(v) =>
+                onUpdate({
+                  options: { ...panel.options, shapeColumn: v || undefined },
+                })
+              }
+            />
+          </Field>
+        </>
       )}
 
       {panel.kind === "scatter" && (
@@ -477,7 +715,7 @@ function Inspector({
         </Field>
       )}
 
-      {(colored || panel.kind === "bars" || panel.kind === "dots") && (
+      {usesScaleKindSelect(panel.kind) && (
         <Field label="Scale">
           <SelectInput
             value={continuous ? "continuous" : "categorical"}
@@ -491,6 +729,27 @@ function Inspector({
                         paletteId: panel.scale?.paletteId ?? "viridis",
                       }
                     : { kind: "categorical" },
+              })
+            }
+          />
+        </Field>
+      )}
+
+      {(panel.kind === "bars" || panel.kind === "dots") && (
+        // bars/dots encode value by length and only honor a numeric color scale
+        // (a categorical scale was a no-op flat fill), so this is a plain on/off
+        // for the value gradient rather than the misleading categorical select.
+        <Field label="Color by value">
+          <ToggleInput
+            on={continuous}
+            onClick={() =>
+              onUpdate({
+                scale: continuous
+                  ? { kind: "categorical" }
+                  : {
+                      kind: "continuous",
+                      paletteId: panel.scale?.paletteId ?? "viridis",
+                    },
               })
             }
           />
@@ -569,13 +828,23 @@ function Inspector({
               }
             />
           </Field>
+          <Field label="Align labels">
+            <ToggleInput
+              on={(panel.options?.align ?? true) as boolean}
+              onClick={() =>
+                onUpdate({
+                  options: {
+                    ...panel.options,
+                    align: !(panel.options?.align ?? true),
+                  },
+                })
+              }
+            />
+          </Field>
         </>
       )}
 
-      {(isData ||
-        panel.kind === "points" ||
-        panel.kind === "strip" ||
-        panel.kind === "msa") && (
+      {kindDrawsLegend(panel.kind) && (
         <Field label="Legend">
           <ToggleInput
             on={panel.legend !== false}
@@ -589,8 +858,115 @@ function Inspector({
           Shows the bootstrap / support value on each internal branch.
         </p>
       )}
+
+      {panel.kind === "nodepoints" && (
+        <>
+          <p className="text-xs text-foreground-muted">
+            A dot at every internal node (ggtree geom_nodepoint).
+          </p>
+          <Field label="Size">
+            <RangeInput
+              value={Number(panel.options?.size) || 3}
+              min={1}
+              max={8}
+              onChange={(n) =>
+                onUpdate({ options: { ...panel.options, size: n } })
+              }
+            />
+          </Field>
+          <Field label="Color">
+            <input
+              type="color"
+              value={(panel.options?.color as string) || "#374151"}
+              onChange={(e) =>
+                onUpdate({
+                  options: { ...panel.options, color: e.target.value },
+                })
+              }
+              aria-label="Node point color"
+              className="h-6 w-6 shrink-0 cursor-pointer rounded border border-border bg-transparent p-0"
+            />
+          </Field>
+          <Field label="Show root point">
+            <ToggleInput
+              on={!!panel.options?.showRoot}
+              onClick={() =>
+                onUpdate({
+                  options: {
+                    ...panel.options,
+                    showRoot: !panel.options?.showRoot,
+                  },
+                })
+              }
+            />
+          </Field>
+        </>
+      )}
       {panel.kind === "clade" && (
         <CladeInspector panel={panel} tipNames={tipNames} onUpdate={onUpdate} />
+      )}
+      {panel.kind === "taxalink" && (
+        <TaxaLinkInspector
+          panel={panel}
+          tipNames={tipNames}
+          onUpdate={onUpdate}
+        />
+      )}
+      {panel.kind === "taxastrip" && (
+        <TaxaStripInspector
+          panel={panel}
+          tipNames={tipNames}
+          onUpdate={onUpdate}
+        />
+      )}
+      {panel.kind === "nodepie" && (
+        <NodePieInspector
+          panel={panel}
+          tipNames={tipNames}
+          onUpdate={onUpdate}
+        />
+      )}
+      {panel.kind === "noderange" && (
+        <>
+          {annotationKeys.length === 0 ? (
+            <p className="text-xs text-foreground-muted">
+              No node annotations found. Import a time-calibrated tree (BEAST /
+              MrBayes / FigTree Nexus) whose nodes carry a [&height_95%_HPD=...]
+              interval, then pick the key here.
+            </p>
+          ) : (
+            <Field label="Interval key">
+              <SelectInput
+                value={
+                  (panel.options?.rangeKey as string) ??
+                  (annotationKeys.includes("height_95%_HPD")
+                    ? "height_95%_HPD"
+                    : annotationKeys[0])
+                }
+                options={annotationKeys}
+                onChange={(v) =>
+                  onUpdate({ options: { ...panel.options, rangeKey: v } })
+                }
+              />
+            </Field>
+          )}
+          <Field label="Color">
+            <input
+              type="color"
+              value={(panel.options?.color as string) || "#2563EB"}
+              onChange={(e) =>
+                onUpdate({
+                  options: { ...panel.options, color: e.target.value },
+                })
+              }
+              aria-label="Node range color"
+              className="h-6 w-6 shrink-0 cursor-pointer rounded border border-border bg-transparent p-0"
+            />
+          </Field>
+          <p className="text-xs text-foreground-muted">
+            Best paired with the Time axis toggle and branch lengths on.
+          </p>
+        </>
       )}
       {panel.kind === "msa" && (
         <>
@@ -603,6 +979,37 @@ function Inspector({
             <RangeInput
               value={Number(panel.width ?? 120)}
               min={60}
+              max={320}
+              onChange={(n) => onUpdate({ width: n })}
+            />
+          </Field>
+        </>
+      )}
+      {panel.kind === "datahubPlot" && (
+        <>
+          <p className="text-xs text-foreground-muted">
+            A Data Hub figure aligned to the tips
+            {panel.options?.title ? ` (${String(panel.options.title)})` : ""},
+            joined on {(panel.options?.joinColumn as string) || "—"}.
+          </p>
+          <Field label="Bar mode">
+            <SelectInput
+              value={String(panel.options?.barMode ?? "dodge")}
+              options={["dodge", "stack", "stack100"]}
+              labels={{
+                dodge: "Grouped bars",
+                stack: "Stacked",
+                stack100: "100% stacked",
+              }}
+              onChange={(v) =>
+                onUpdate({ options: { ...panel.options, barMode: v } })
+              }
+            />
+          </Field>
+          <Field label="Panel width">
+            <RangeInput
+              value={Number(panel.width ?? 120)}
+              min={80}
               max={320}
               onChange={(n) => onUpdate({ width: n })}
             />
@@ -692,18 +1099,27 @@ function CladeInspector({
           </div>
           <div className="flex items-center justify-between gap-2 text-sm">
             <span className="text-foreground-muted">Style</span>
-            <select
-              value={c.style ?? "highlight"}
-              onChange={(e) =>
-                patchClade(c.id, {
-                  style: e.target.value === "label" ? "label" : "highlight",
-                })
-              }
-              className="text-sm border border-border rounded-lg px-2 py-1 bg-surface text-foreground"
-            >
-              <option value="highlight">Highlight</option>
-              <option value="label">Bracket</option>
-            </select>
+            <div className="inline-flex gap-0.5 p-0.5 border border-border rounded-lg bg-surface">
+              {(
+                [
+                  ["highlight", "Highlight"],
+                  ["label", "Bracket"],
+                ] as const
+              ).map(([val, lab]) => (
+                <button
+                  key={val}
+                  type="button"
+                  onClick={() => patchClade(c.id, { style: val })}
+                  className={`px-2.5 py-1 rounded-md text-xs font-bold transition-colors ${
+                    (c.style ?? "highlight") === val
+                      ? "bg-accent-soft text-accent"
+                      : "text-foreground-muted hover:text-foreground"
+                  }`}
+                >
+                  {lab}
+                </button>
+              ))}
+            </div>
           </div>
           <Field label="Collapse to triangle">
             <ToggleInput
@@ -731,6 +1147,360 @@ function CladeInspector({
 }
 
 // ---------------------------------------------------------------------------
+// The tip-link inspector (ggtree geom_taxalink). Each link names a FROM tip and a
+// TO tip; the renderer draws a curve between them (bowing right in a rectangular
+// tree, through the inside of a circular one). Links are named by tip so they
+// survive a re-layout. Multiple links, each a color.
+// ---------------------------------------------------------------------------
+
+function TaxaLinkInspector({
+  panel,
+  tipNames,
+  onUpdate,
+}: {
+  panel: AlignedPanel;
+  tipNames: string[];
+  onUpdate: (patch: Partial<AlignedPanel>) => void;
+}) {
+  const links = (panel.options?.links as TaxaLink[] | undefined) ?? [];
+  const setLinks = (next: TaxaLink[]) =>
+    onUpdate({ options: { ...panel.options, links: next } });
+  const addLink = () =>
+    setLinks([
+      ...links,
+      {
+        id: `link-${links.length}-${tipNames.length}`,
+        from: tipNames[0] ?? "",
+        to: tipNames[1] ?? tipNames[0] ?? "",
+        color: CLADE_PALETTE[(links.length + 3) % CLADE_PALETTE.length],
+      },
+    ]);
+  const patchLink = (id: string, patch: Partial<TaxaLink>) =>
+    setLinks(links.map((l) => (l.id === id ? { ...l, ...patch } : l)));
+  const removeLink = (id: string) =>
+    setLinks(links.filter((l) => l.id !== id));
+
+  return (
+    <div className="space-y-2">
+      <p className="text-xs text-foreground-muted">
+        Draw a curve between two tips (a co-occurrence, a transfer, a host link).
+        Works in the rectangular and circular layouts.
+      </p>
+      {links.map((l) => (
+        <div
+          key={l.id}
+          className="rounded-lg border border-border p-2 space-y-1.5 bg-surface-raised"
+        >
+          <div className="flex items-center gap-2">
+            <input
+              type="color"
+              value={l.color}
+              onChange={(e) => patchLink(l.id, { color: e.target.value })}
+              aria-label="Link color"
+              className="h-6 w-6 shrink-0 cursor-pointer rounded border border-border bg-transparent p-0"
+            />
+            <span className="flex-1 text-xs text-foreground-muted">
+              Tip link
+            </span>
+            <button
+              type="button"
+              onClick={() => removeLink(l.id)}
+              aria-label="Remove link"
+              className="shrink-0 rounded p-1 text-foreground-muted hover:text-red-500"
+            >
+              <Icon name="trash" className="h-3.5 w-3.5" />
+            </button>
+          </div>
+          <Field label="From tip">
+            <SelectInput
+              value={l.from}
+              options={tipNames}
+              onChange={(v) => patchLink(l.id, { from: v })}
+            />
+          </Field>
+          <Field label="To tip">
+            <SelectInput
+              value={l.to}
+              options={tipNames}
+              onChange={(v) => patchLink(l.id, { to: v })}
+            />
+          </Field>
+        </div>
+      ))}
+      <button
+        type="button"
+        onClick={addLink}
+        className="inline-flex items-center gap-1 rounded-lg border border-border px-2.5 py-1 text-sm font-semibold text-foreground hover:border-accent"
+      >
+        <Icon name="plus" className="h-3.5 w-3.5" /> Add link
+      </button>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// The span-strip inspector (ggtree geom_strip). Each strip names a FROM tip and a
+// TO tip; a solid bar is drawn just outside the tips spanning that range, with an
+// optional label. Unlike a clade, the span need not be monophyletic, it is just a
+// contiguous range of tips. Named by tip so it survives a re-layout.
+// ---------------------------------------------------------------------------
+
+function TaxaStripInspector({
+  panel,
+  tipNames,
+  onUpdate,
+}: {
+  panel: AlignedPanel;
+  tipNames: string[];
+  onUpdate: (patch: Partial<AlignedPanel>) => void;
+}) {
+  const strips = (panel.options?.strips as TaxaStrip[] | undefined) ?? [];
+  const setStrips = (next: TaxaStrip[]) =>
+    onUpdate({ options: { ...panel.options, strips: next } });
+  const addStrip = () =>
+    setStrips([
+      ...strips,
+      {
+        id: `strip-${strips.length}-${tipNames.length}`,
+        from: tipNames[0] ?? "",
+        to: tipNames[tipNames.length - 1] ?? tipNames[0] ?? "",
+        color: CLADE_PALETTE[(strips.length + 2) % CLADE_PALETTE.length],
+        label: "",
+      },
+    ]);
+  const patchStrip = (id: string, patch: Partial<TaxaStrip>) =>
+    setStrips(strips.map((s) => (s.id === id ? { ...s, ...patch } : s)));
+  const removeStrip = (id: string) =>
+    setStrips(strips.filter((s) => s.id !== id));
+
+  return (
+    <div className="space-y-2">
+      <p className="text-xs text-foreground-muted">
+        Draw a bar spanning a range of tips (from one tip to another), with a
+        label. The range need not be a clade. Works in both layouts.
+      </p>
+      {strips.map((s) => (
+        <div
+          key={s.id}
+          className="rounded-lg border border-border p-2 space-y-1.5 bg-surface-raised"
+        >
+          <div className="flex items-center gap-2">
+            <input
+              type="color"
+              value={s.color}
+              onChange={(e) => patchStrip(s.id, { color: e.target.value })}
+              aria-label="Strip color"
+              className="h-6 w-6 shrink-0 cursor-pointer rounded border border-border bg-transparent p-0"
+            />
+            <input
+              type="text"
+              value={s.label}
+              placeholder="Label (optional)"
+              onChange={(e) => patchStrip(s.id, { label: e.target.value })}
+              className="min-w-0 flex-1 rounded-md border border-border bg-surface px-2 py-1 text-sm text-foreground"
+            />
+            <button
+              type="button"
+              onClick={() => removeStrip(s.id)}
+              aria-label="Remove strip"
+              className="shrink-0 rounded p-1 text-foreground-muted hover:text-red-500"
+            >
+              <Icon name="trash" className="h-3.5 w-3.5" />
+            </button>
+          </div>
+          <Field label="From tip">
+            <SelectInput
+              value={s.from}
+              options={tipNames}
+              onChange={(v) => patchStrip(s.id, { from: v })}
+            />
+          </Field>
+          <Field label="To tip">
+            <SelectInput
+              value={s.to}
+              options={tipNames}
+              onChange={(v) => patchStrip(s.id, { to: v })}
+            />
+          </Field>
+        </div>
+      ))}
+      <button
+        type="button"
+        onClick={addStrip}
+        className="inline-flex items-center gap-1 rounded-lg border border-border px-2.5 py-1 text-sm font-semibold text-foreground hover:border-accent"
+      >
+        <Icon name="plus" className="h-3.5 w-3.5" /> Add strip
+      </button>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// The node-pie inspector (ggtree nodepie). Each pie targets the MRCA of its named
+// tips (same idiom as a clade) and carries category slices (label + value +
+// color). A "pie" draws proportions; a "star" draws one glyph in the dominant
+// color. Values need not sum to 1, the renderer normalizes.
+// ---------------------------------------------------------------------------
+
+function NodePieInspector({
+  panel,
+  tipNames,
+  onUpdate,
+}: {
+  panel: AlignedPanel;
+  tipNames: string[];
+  onUpdate: (patch: Partial<AlignedPanel>) => void;
+}) {
+  const pies = (panel.options?.pies as NodePie[] | undefined) ?? [];
+  const setPies = (next: NodePie[]) =>
+    onUpdate({ options: { ...panel.options, pies: next } });
+  const addPie = () =>
+    setPies([
+      ...pies,
+      {
+        id: `pie-${pies.length}-${tipNames.length}`,
+        tips: [],
+        style: "pie",
+        slices: [
+          { label: "A", value: 1, color: CLADE_PALETTE[0] },
+          { label: "B", value: 1, color: CLADE_PALETTE[1] },
+        ],
+      },
+    ]);
+  const patchPie = (id: string, patch: Partial<NodePie>) =>
+    setPies(pies.map((p) => (p.id === id ? { ...p, ...patch } : p)));
+  const removePie = (id: string) => setPies(pies.filter((p) => p.id !== id));
+  const patchSlice = (
+    pie: NodePie,
+    idx: number,
+    patch: Partial<NodePie["slices"][number]>,
+  ) =>
+    patchPie(pie.id, {
+      slices: pie.slices.map((s, i) => (i === idx ? { ...s, ...patch } : s)),
+    });
+
+  return (
+    <div className="space-y-2">
+      <p className="text-xs text-foreground-muted">
+        Draw a pie (or star) at the MRCA of the chosen tips, sized by category
+        proportions (e.g. ancestral-state probabilities). Works in both layouts.
+      </p>
+      {pies.map((pie) => (
+        <div
+          key={pie.id}
+          className="rounded-lg border border-border p-2 space-y-1.5 bg-surface-raised"
+        >
+          <div className="flex items-center justify-between gap-2 text-sm">
+            <div className="inline-flex gap-0.5 p-0.5 border border-border rounded-lg bg-surface">
+              {(
+                [
+                  ["pie", "Pie"],
+                  ["star", "Star"],
+                ] as const
+              ).map(([val, lab]) => (
+                <button
+                  key={val}
+                  type="button"
+                  onClick={() => patchPie(pie.id, { style: val })}
+                  className={`px-2.5 py-1 rounded-md text-xs font-bold transition-colors ${
+                    (pie.style ?? "pie") === val
+                      ? "bg-accent-soft text-accent"
+                      : "text-foreground-muted hover:text-foreground"
+                  }`}
+                >
+                  {lab}
+                </button>
+              ))}
+            </div>
+            <button
+              type="button"
+              onClick={() => removePie(pie.id)}
+              aria-label="Remove pie"
+              className="shrink-0 rounded p-1 text-foreground-muted hover:text-red-500"
+            >
+              <Icon name="trash" className="h-3.5 w-3.5" />
+            </button>
+          </div>
+          {pie.slices.map((s, i) => (
+            <div key={i} className="flex items-center gap-1.5">
+              <input
+                type="color"
+                value={s.color}
+                onChange={(e) => patchSlice(pie, i, { color: e.target.value })}
+                aria-label="Slice color"
+                className="h-6 w-6 shrink-0 cursor-pointer rounded border border-border bg-transparent p-0"
+              />
+              <input
+                type="text"
+                value={s.label}
+                placeholder="Label"
+                onChange={(e) => patchSlice(pie, i, { label: e.target.value })}
+                className="min-w-0 flex-1 rounded-md border border-border bg-surface px-2 py-1 text-sm text-foreground"
+              />
+              <input
+                type="number"
+                value={s.value}
+                min={0}
+                step="any"
+                onChange={(e) =>
+                  patchSlice(pie, i, { value: Number(e.target.value) || 0 })
+                }
+                aria-label="Slice value"
+                className="w-16 rounded-md border border-border bg-surface px-2 py-1 text-sm text-foreground tabular-nums"
+              />
+              <button
+                type="button"
+                onClick={() =>
+                  patchPie(pie.id, {
+                    slices: pie.slices.filter((_, j) => j !== i),
+                  })
+                }
+                aria-label="Remove slice"
+                className="shrink-0 rounded p-1 text-foreground-muted hover:text-red-500"
+              >
+                <Icon name="x" className="h-3.5 w-3.5" />
+              </button>
+            </div>
+          ))}
+          <button
+            type="button"
+            onClick={() =>
+              patchPie(pie.id, {
+                slices: [
+                  ...pie.slices,
+                  {
+                    label: "",
+                    value: 1,
+                    color:
+                      CLADE_PALETTE[pie.slices.length % CLADE_PALETTE.length],
+                  },
+                ],
+              })
+            }
+            className="inline-flex items-center gap-1 text-xs font-semibold text-accent"
+          >
+            <Icon name="plus" className="h-3 w-3" /> Add slice
+          </button>
+          <MultiColumnField
+            columns={tipNames}
+            selected={pie.tips}
+            label="Members (MRCA target)"
+            onChange={(tips) => patchPie(pie.id, { tips })}
+          />
+        </div>
+      ))}
+      <button
+        type="button"
+        onClick={addPie}
+        className="inline-flex items-center gap-1 rounded-lg border border-border px-2.5 py-1 text-sm font-semibold text-foreground hover:border-accent"
+      >
+        <Icon name="plus" className="h-3.5 w-3.5" /> Add pie
+      </button>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
 // The point (lollipop) inspector. Two binding modes: a single value column plus
 // an optional error column (read straight from the table), or the replicate
 // columns (the mean + the SD / SEM are derived). Picking a value column switches
@@ -746,21 +1516,37 @@ const ERROR_KINDS: { id: string; label: string }[] = [
 function PointInspector({
   panel,
   columns,
+  columnKinds,
   onUpdate,
 }: {
   panel: AlignedPanel;
   columns: string[];
+  columnKinds?: Record<string, ColumnFilter>;
   onUpdate: (patch: Partial<AlignedPanel>) => void;
 }) {
-  const errorKind =
-    (panel.options?.errorKind as string | undefined) ?? "sd";
-  const valueMode = !!panel.column;
+  const errorKind = (panel.options?.errorKind as string | undefined) ?? "sd";
+  // "verbatim" = a value column is set, so the error column is taken as-is and
+  // sd vs sem is meaningless (only show/hide matters). "replicate" = error is
+  // derived from replicate columns, where sd vs sem IS meaningful.
+  const mode = errorBarControl(panel);
+  const numCols = (current?: string) =>
+    filterColumns(columns, columnKinds, "numeric", current);
+  const repCols = (() => {
+    const selected = panel.columns ?? [];
+    if (!columnKinds || Object.keys(columnKinds).length === 0) return columns;
+    return columns.filter(
+      (c) =>
+        columnKinds[c] === undefined ||
+        columnKinds[c] === "numeric" ||
+        selected.includes(c),
+    );
+  })();
   return (
     <>
       <Field label="Value column">
         <SelectInput
           value={panel.column ?? ""}
-          options={["", ...columns]}
+          options={["", ...numCols(panel.column)]}
           onChange={(v) =>
             // A value column engages the value+error mode; clearing it (none)
             // hands back to the replicate columns below.
@@ -768,34 +1554,55 @@ function PointInspector({
           }
         />
       </Field>
-      {valueMode ? (
-        errorKind !== "none" && (
-          <Field label="Error column">
-            <SelectInput
-              value={panel.errorColumn ?? ""}
-              options={["", ...columns]}
-              onChange={(v) => onUpdate({ errorColumn: v || undefined })}
+      {mode === "verbatim" ? (
+        <>
+          <Field label="Show error bars">
+            <ToggleInput
+              on={errorKind !== "none"}
+              onClick={() =>
+                onUpdate({
+                  options: {
+                    ...panel.options,
+                    // the magnitude comes from the error column verbatim, so the
+                    // only meaningful states are show (sd) and hide (none).
+                    errorKind: errorKind === "none" ? "sd" : "none",
+                  },
+                })
+              }
             />
           </Field>
-        )
+          {errorKind !== "none" && (
+            <Field label="Error column">
+              <SelectInput
+                value={panel.errorColumn ?? ""}
+                options={["", ...numCols(panel.errorColumn)]}
+                onChange={(v) => onUpdate({ errorColumn: v || undefined })}
+              />
+            </Field>
+          )}
+        </>
       ) : (
-        <MultiColumnField
-          columns={columns}
-          selected={panel.columns ?? []}
-          label="Replicate columns"
-          onChange={(cols) => onUpdate({ columns: cols })}
-        />
+        <>
+          <MultiColumnField
+            columns={repCols}
+            selected={panel.columns ?? []}
+            label="Replicate columns"
+            onChange={(cols) => onUpdate({ columns: cols })}
+          />
+          <Field label="Error bar">
+            <SelectInput
+              value={errorKind}
+              options={ERROR_KINDS.map((e) => e.id)}
+              labels={Object.fromEntries(
+                ERROR_KINDS.map((e) => [e.id, e.label]),
+              )}
+              onChange={(v) =>
+                onUpdate({ options: { ...panel.options, errorKind: v } })
+              }
+            />
+          </Field>
+        </>
       )}
-      <Field label="Error bar">
-        <SelectInput
-          value={errorKind}
-          options={ERROR_KINDS.map((e) => e.id)}
-          labels={Object.fromEntries(ERROR_KINDS.map((e) => [e.id, e.label]))}
-          onChange={(v) =>
-            onUpdate({ options: { ...panel.options, errorKind: v } })
-          }
-        />
-      </Field>
     </>
   );
 }
@@ -807,68 +1614,181 @@ function PointInspector({
 function AddPanelMenu({
   onAdd,
   onClose,
+  capabilities,
+  datahubTables = [],
+  onAddDatahub,
 }: {
   onAdd: (kind: AlignedPanelKind) => void;
   onClose: () => void;
+  /** What the figure can supply, to grey out overlays whose data is missing. */
+  capabilities?: LayerCapabilities;
+  /** Available Data Hub tables, for the inline picker when adding a Data Hub plot. */
+  datahubTables?: { id: string; name: string }[];
+  /** Add a Data Hub plot bound to a table (best join column auto-chosen). */
+  onAddDatahub?: (tableId: string) => void;
 }) {
   const [query, setQuery] = useState("");
+  // When the user picks "Data Hub plot", expand an inline table picker instead of
+  // adding immediately (a Data Hub plot needs a table + join, unlike other kinds).
+  const [pickingDatahub, setPickingDatahub] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
+  const caps: LayerCapabilities = capabilities ?? {
+    hasNumericColumn: true,
+    hasAnyColumn: true,
+    hasAlignment: true,
+    hasAnnotations: true,
+    hasDatahubTable: true,
+  };
+
   const groups = useMemo(() => {
     const q = query.trim().toLowerCase();
-    if (!q) return PANEL_CATALOG;
-    return PANEL_CATALOG.map((g) => ({
+    const filtered = !q
+      ? PANEL_CATALOG
+      : PANEL_CATALOG.map((g) => ({
+          ...g,
+          items: g.items.filter(
+            (i) =>
+              i.name.toLowerCase().includes(q) ||
+              i.desc.toLowerCase().includes(q) ||
+              i.kind.includes(q),
+          ),
+        })).filter((g) => g.items.length > 0);
+    // Available kinds sort above unavailable ones within each group, so the
+    // things you CAN add are always at the top of their category.
+    return filtered.map((g) => ({
       ...g,
-      items: g.items.filter(
-        (i) =>
-          i.name.toLowerCase().includes(q) ||
-          i.desc.toLowerCase().includes(q) ||
-          i.kind.includes(q),
+      items: [...g.items].sort(
+        (a, b) =>
+          Number(kindAvailable(b.kind, caps)) -
+          Number(kindAvailable(a.kind, caps)),
       ),
-    })).filter((g) => g.items.length > 0);
-  }, [query]);
+    }));
+  }, [query, caps]);
+
+  // The first available item across the (filtered) list — Enter adds it (add by
+  // name: type a few letters, press Enter).
+  const topAvailable = useMemo(() => {
+    for (const g of groups)
+      for (const i of g.items) if (kindAvailable(i.kind, caps)) return i.kind;
+    return null;
+  }, [groups, caps]);
+
+  const choose = (kind: AlignedPanelKind) => {
+    if (kind === "datahubPlot") {
+      setPickingDatahub(true);
+      return;
+    }
+    onAdd(kind);
+  };
 
   return (
     <>
       <div className="fixed inset-0 z-10" onClick={onClose} aria-hidden />
       <div className="absolute z-20 top-11 left-0 w-[300px] max-w-full bg-surface-raised border border-border rounded-xl shadow-xl p-2">
-        <div className="relative mb-2">
-          <Icon
-            name="search"
-            className="w-3.5 h-3.5 text-foreground-muted absolute left-2.5 top-2.5"
-          />
-          <input
-            ref={inputRef}
-            autoFocus
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search panels..."
-            className="w-full pl-8 pr-2 py-2 border border-border rounded-lg text-sm bg-surface text-foreground"
-          />
-        </div>
-        <div className="max-h-72 overflow-y-auto">
-          {groups.map((g) => (
-            <div key={g.cat}>
-              <div className="text-[10px] uppercase tracking-wide text-foreground-muted px-1 pt-2 pb-1">
-                {g.cat}
-              </div>
-              {g.items.map((i) => (
-                <button
-                  key={i.kind}
-                  onClick={() => onAdd(i.kind)}
-                  className="w-full flex items-center justify-between px-2 py-1.5 rounded-lg hover:bg-accent-soft text-left"
-                >
-                  <span className="text-sm text-foreground">{i.name}</span>
-                  <span className="text-xs text-foreground-muted">{i.desc}</span>
-                </button>
-              ))}
+        {pickingDatahub ? (
+          <div>
+            <button
+              onClick={() => setPickingDatahub(false)}
+              className="text-xs text-foreground-muted hover:text-foreground mb-1 px-1"
+            >
+              ← Back
+            </button>
+            <div className="text-[10px] uppercase tracking-wide text-foreground-muted px-1 pb-1">
+              Data Hub plot · pick a table
             </div>
-          ))}
-          {groups.length === 0 && (
-            <p className="text-xs text-foreground-muted px-1 py-3">
-              No panel matches that.
-            </p>
-          )}
-        </div>
+            <div className="max-h-72 overflow-y-auto">
+              {datahubTables.length === 0 ? (
+                <p className="text-xs text-foreground-muted px-1 py-3">
+                  No Data Hub tables yet. Create one in Data Hub first.
+                </p>
+              ) : (
+                datahubTables.map((t) => (
+                  <button
+                    key={t.id}
+                    onClick={() => {
+                      onAddDatahub?.(t.id);
+                      onClose();
+                    }}
+                    className="w-full flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-accent-soft text-left"
+                  >
+                    <Icon
+                      name="chart"
+                      className="w-3.5 h-3.5 text-foreground-muted shrink-0"
+                    />
+                    <span className="text-sm text-foreground truncate">
+                      {t.name}
+                    </span>
+                  </button>
+                ))
+              )}
+            </div>
+          </div>
+        ) : (
+          <>
+            <div className="relative mb-2">
+              <Icon
+                name="search"
+                className="w-3.5 h-3.5 text-foreground-muted absolute left-2.5 top-2.5"
+              />
+              <input
+                ref={inputRef}
+                autoFocus
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && topAvailable) choose(topAvailable);
+                }}
+                placeholder="Search overlays, or type to add by name..."
+                className="w-full pl-8 pr-2 py-2 border border-border rounded-lg text-sm bg-surface text-foreground"
+              />
+            </div>
+            <div className="max-h-72 overflow-y-auto">
+              {groups.map((g) => (
+                <div key={g.cat}>
+                  <div className="text-[10px] uppercase tracking-wide text-foreground-muted px-1 pt-2 pb-1">
+                    {g.cat}
+                  </div>
+                  {g.items.map((i) => {
+                    const reason = unmetReason(i.kind, caps);
+                    if (reason) {
+                      return (
+                        <div
+                          key={i.kind}
+                          className="w-full flex items-center justify-between px-2 py-1.5 rounded-lg opacity-45 cursor-default"
+                          title={`${i.name} — ${reason}`}
+                        >
+                          <span className="text-sm text-foreground">
+                            {i.name}
+                          </span>
+                          <span className="text-xs text-foreground-muted">
+                            {reason}
+                          </span>
+                        </div>
+                      );
+                    }
+                    return (
+                      <button
+                        key={i.kind}
+                        onClick={() => choose(i.kind)}
+                        className="w-full flex items-center justify-between px-2 py-1.5 rounded-lg hover:bg-accent-soft text-left"
+                      >
+                        <span className="text-sm text-foreground">{i.name}</span>
+                        <span className="text-xs text-foreground-muted">
+                          {i.desc}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              ))}
+              {groups.length === 0 && (
+                <p className="text-xs text-foreground-muted px-1 py-3">
+                  No panel matches that.
+                </p>
+              )}
+            </div>
+          </>
+        )}
       </div>
     </>
   );
@@ -1071,7 +1991,12 @@ export function MultiColumnField({
   label?: string;
   onChange: (cols: string[]) => void;
 }) {
+  const [filter, setFilter] = useState("");
   const available = columns.filter((c) => !selected.includes(c));
+  const q = filter.trim().toLowerCase();
+  const shown = q
+    ? available.filter((c) => c.toLowerCase().includes(q))
+    : available;
   return (
     <div className="text-sm">
       <span className="text-foreground-muted">{label}</span>
@@ -1085,6 +2010,7 @@ export function MultiColumnField({
               {c}
               <Tooltip label={`Remove ${c}`}>
                 <button
+                  type="button"
                   onClick={() => onChange(selected.filter((x) => x !== c))}
                   className="hover:text-foreground"
                   aria-label={`Remove ${c}`}
@@ -1096,19 +2022,38 @@ export function MultiColumnField({
           ))}
         </div>
       )}
+      {/* Click-driven, not a native <select>: option overlays can't be driven by
+          synthetic events or the browser test extension, and a synthetic select
+          commit silently no-ops. Buttons + a filter input both commit reliably. */}
       {available.length > 0 && (
-        <select
-          value=""
-          onChange={(e) => e.target.value && onChange([...selected, e.target.value])}
-          className="mt-1 w-full text-sm border border-border rounded-lg px-2 py-1 bg-surface text-foreground"
-        >
-          <option value="">Add a column...</option>
-          {available.map((c) => (
-            <option key={c} value={c}>
-              {c}
-            </option>
-          ))}
-        </select>
+        <div className="mt-1">
+          {columns.length > 8 && (
+            <input
+              type="text"
+              value={filter}
+              onChange={(e) => setFilter(e.target.value)}
+              placeholder="Filter..."
+              aria-label={`Filter ${label}`}
+              className="mb-1 w-full text-sm border border-border rounded-lg px-2 py-1 bg-surface text-foreground"
+            />
+          )}
+          <div className="flex flex-wrap gap-1 max-h-40 overflow-auto">
+            {shown.map((c) => (
+              <button
+                key={c}
+                type="button"
+                onClick={() => onChange([...selected, c])}
+                aria-label={`Add ${c}`}
+                className="inline-flex items-center gap-0.5 px-2 py-0.5 rounded-full border border-border text-xs font-medium text-foreground hover:border-accent hover:text-accent"
+              >
+                <Icon name="plus" className="w-3 h-3" /> {c}
+              </button>
+            ))}
+            {shown.length === 0 && (
+              <span className="text-xs text-foreground-muted">No matches</span>
+            )}
+          </div>
+        </div>
       )}
     </div>
   );

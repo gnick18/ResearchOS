@@ -114,6 +114,12 @@ export async function POST(request: Request): Promise<Response> {
       payment_method_types: stripeMethodsFor(payClass),
       line_items: lineItems,
       customer_email: email,
+      // Stripe Tax on the storage subscription, same posture as the AI top-up:
+      // tax computed per buyer location + our SaaS category, collected only where
+      // we are registered and the product is taxable ($0 in WI). Needs the buyer
+      // address, so require it.
+      automatic_tax: { enabled: true },
+      billing_address_collection: "required",
       // Carry owner + plan so the webhook records the right plan on this owner.
       metadata: { ownerKey, planId: plan.id },
       subscription_data: { metadata: { ownerKey, planId: plan.id } },

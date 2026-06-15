@@ -63,6 +63,14 @@ export interface LogisticRegressionResult {
   fitted: number[];
   /** IRLS iterations to convergence. */
   iterations: number;
+  /**
+   * Which estimator produced the fit. "mle" is the standard maximum-likelihood
+   * IRLS (Newton-Raphson) path used for well-behaved data. "firth" means the data
+   * were completely or quasi-completely separable, so the MLE had no finite
+   * maximum and the engine fell back to Firth's penalized likelihood (Jeffreys
+   * prior), which keeps the estimates large but finite and stable.
+   */
+  method: "mle" | "firth";
 }
 
 /** Logistic sigmoid, numerically guarded against overflow for large |z|. */
@@ -99,6 +107,96 @@ function rocAuc(probs: number[], y: number[]): number {
   let rankSumPos = 0;
   for (let i = 0; i < y.length; i++) if (y[i] === 1) rankSumPos += ranks[i];
   return (rankSumPos - (pos * (pos + 1)) / 2) / (pos * neg);
+}
+
+/**
+ * Firth penalized-likelihood logistic fit (Jeffreys-prior bias reduction). Used
+ * as a fallback when the plain maximum-likelihood IRLS does not converge, which
+ * is the signature of complete or quasi-complete separation (the MLE runs off to
+ * infinity, but the Firth estimate stays finite). The modified score adds the
+ * Jeffreys term U*(b)_a = sum_i x_ia [ (y_i - mu_i) + h_i (0.5 - mu_i) ], where
+ * h_i is the i-th hat-matrix diagonal under the IRLS weights. The Newton step
+ * reuses the Fisher information H = X^T W X, so the standard errors the caller
+ * reads off (X^T W X)^-1 at the Firth estimate match R's logistf and the Python
+ * firthlogist package (the transparency gate pins them).
+ *
+ * `design` already includes the leading intercept column. Returns the converged
+ * coefficients and the iteration count, or null when the information matrix is
+ * singular at some step (a genuinely unidentified model).
+ */
+function firthNewton(
+  design: number[][],
+  Y: number[],
+  p: number,
+  n: number,
+  maxIterations: number,
+  tol: number,
+): { beta: number[]; iterations: number } | null {
+  const beta = new Array<number>(p).fill(0);
+  // Cap each Newton component so a far-from-solution step under separation cannot
+  // overshoot. The penalized score has a unique finite root, so capping only
+  // shapes the path, never the destination.
+  const maxStep = 5;
+  let iterations = 0;
+  for (let iter = 0; iter < maxIterations; iter++) {
+    iterations = iter + 1;
+    const mu = new Array<number>(n);
+    const w = new Array<number>(n);
+    for (let i = 0; i < n; i++) {
+      let eta = 0;
+      for (let j = 0; j < p; j++) eta += design[i][j] * beta[j];
+      const mi = sigmoid(eta);
+      mu[i] = mi;
+      w[i] = Math.max(mi * (1 - mi), 1e-10);
+    }
+    // Fisher information H = X^T W X.
+    const H: number[][] = Array.from({ length: p }, () =>
+      new Array<number>(p).fill(0),
+    );
+    for (let i = 0; i < n; i++) {
+      const xi = design[i];
+      for (let a = 0; a < p; a++) {
+        const wxa = w[i] * xi[a];
+        for (let b = a; b < p; b++) H[a][b] += wxa * xi[b];
+      }
+    }
+    for (let a = 0; a < p; a++) for (let b = 0; b < a; b++) H[a][b] = H[b][a];
+    const inv = solveWithInverse(H, new Array<number>(p).fill(0));
+    if (!inv) return null;
+    const Iinv = inv.inverse;
+    // Hat-matrix diagonal h_i = w_i * x_i^T Iinv x_i.
+    const h = new Array<number>(n);
+    for (let i = 0; i < n; i++) {
+      const xi = design[i];
+      let q = 0;
+      for (let a = 0; a < p; a++) {
+        let row = 0;
+        for (let b = 0; b < p; b++) row += Iinv[a][b] * xi[b];
+        q += xi[a] * row;
+      }
+      h[i] = w[i] * q;
+    }
+    // Modified (Firth) score U*_a = sum_i x_ia [ (y_i - mu_i) + h_i (0.5 - mu_i) ].
+    const U = new Array<number>(p).fill(0);
+    for (let i = 0; i < n; i++) {
+      const adj = Y[i] - mu[i] + h[i] * (0.5 - mu[i]);
+      const xi = design[i];
+      for (let a = 0; a < p; a++) U[a] += xi[a] * adj;
+    }
+    // Newton step delta = Iinv U, capped per component.
+    let maxDelta = 0;
+    for (let a = 0; a < p; a++) {
+      let d = 0;
+      for (let b = 0; b < p; b++) d += Iinv[a][b] * U[b];
+      if (d > maxStep) d = maxStep;
+      else if (d < -maxStep) d = -maxStep;
+      beta[a] += d;
+      const ad = Math.abs(d);
+      if (ad > maxDelta) maxDelta = ad;
+    }
+    if (maxDelta < tol) break;
+  }
+  return { beta, iterations };
 }
 
 /**
@@ -185,10 +283,9 @@ export function logisticRegression(
 
     const solved = solveWithInverse(H, g);
     if (!solved) {
-      return {
-        ok: false,
-        error: "Logistic fit did not converge (possible perfect separation).",
-      };
+      // Singular information, the hallmark of perfect separation. Abandon the MLE
+      // and hand off to the Firth penalized fit below (converged stays false).
+      break;
     }
     lastInverse = solved.inverse;
     let maxStep = 0;
@@ -203,15 +300,29 @@ export function logisticRegression(
     }
   }
 
-  if (!converged || !lastInverse) {
-    return {
-      ok: false,
-      error: "Logistic fit did not converge within the iteration limit.",
-    };
+  // When the plain MLE did not converge (complete or quasi-complete separation
+  // gives the likelihood no finite maximum) fall back to Firth's penalized
+  // likelihood, which always has a finite maximum and yields large-but-stable
+  // estimates. Well-behaved data converge above and never reach this branch, so
+  // their pinned MLE results are unchanged.
+  let method: "mle" | "firth" = "mle";
+  if (!converged) {
+    const firth = firthNewton(design, Y, p, n, 1000, tol);
+    if (!firth) {
+      return {
+        ok: false,
+        error: "Logistic fit did not converge within the iteration limit.",
+      };
+    }
+    for (let j = 0; j < p; j++) beta[j] = firth.beta[j];
+    iterations = firth.iterations;
+    method = "firth";
   }
 
-  // Covariance is the inverse Fisher information at the MLE. Recompute it at the
-  // final beta so the standard errors use the converged weights, not the last step.
+  // Covariance is the inverse Fisher information at the final estimate. Recompute
+  // it at the final beta so the standard errors use the converged weights, not the
+  // last step. For the Firth fit this is sqrt(diag((X^T W X)^-1)) at the Firth
+  // estimate, the same Wald SE R logistf / firthlogist report.
   {
     const H: number[][] = Array.from({ length: p }, () =>
       new Array<number>(p).fill(0),
@@ -230,6 +341,13 @@ export function logisticRegression(
     for (let a = 0; a < p; a++) for (let b = 0; b < a; b++) H[a][b] = H[b][a];
     const inv = solveWithInverse(H, new Array<number>(p).fill(0));
     if (inv) lastInverse = inv.inverse;
+  }
+
+  if (!lastInverse) {
+    return {
+      ok: false,
+      error: "Logistic fit did not converge within the iteration limit.",
+    };
   }
 
   // Fitted probabilities and the maximized log-likelihood.
@@ -299,5 +417,6 @@ export function logisticRegression(
     auc,
     fitted,
     iterations,
+    method,
   };
 }

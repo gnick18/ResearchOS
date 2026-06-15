@@ -23,6 +23,7 @@ import { fileService } from "@/lib/file-system/file-service";
 import { fileEvents } from "@/lib/attachments/file-events";
 import { imageEvents } from "@/lib/attachments/image-events";
 import { migrateNoteImages } from "@/lib/notes/migrate-images";
+import { setBeakerContext } from "@/components/ai/context-bridge";
 import { hasLegacyStampFormat, normalizeStampFormat } from "@/lib/stamp-utils";
 import AppShell from "@/components/AppShell";
 import LiveMarkdownEditor from "@/components/LiveMarkdownEditor";
@@ -236,6 +237,29 @@ export default function MethodsPage() {
   const queryClient = useQueryClient();
   const [viewingMethod, setViewingMethod] = useState<Method | null>(null);
   const [creating, setCreating] = useState(false);
+
+  // Publish the open method to the BeakerBot context bridge so the model can
+  // resolve "this", "this method", or "this protocol" to what the user has open.
+  // Mirrors the Data Hub publisher: rebuilt when the selection changes, cleared on
+  // close and on unmount so the model never inherits a stale selection.
+  useEffect(() => {
+    if (!viewingMethod) {
+      setBeakerContext(null);
+      return;
+    }
+    setBeakerContext({
+      route: "/methods",
+      pageLabel: "Methods",
+      selection: {
+        type: "method",
+        id: String(viewingMethod.id),
+        name: viewingMethod.name || "Untitled method",
+      },
+    });
+    return () => {
+      setBeakerContext(null);
+    };
+  }, [viewingMethod]);
   // Pending compound-aware delete confirmation. When set, the three-button
   // DeleteMethodConfirm modal is shown; the affected-compounds list is
   // pre-computed at click time so the modal stays presentational.
@@ -371,17 +395,32 @@ export default function MethodsPage() {
   // Other params pass through untouched. Resolves the method from the
   // current user's own list first, then falls back to the public
   // namespace so demo IDs like `users/public/methods/1` work too.
+  // Guard so this effect handles each openMethod value exactly once. `methods` is
+  // a useMemo off a react-query result, so a write (e.g. BeakerBot's create/edit
+  // tools, which then navigate to ?openMethod=<id>) refetches the list and gives
+  // `methods` a NEW identity. Without the guard the effect re-fires on that new
+  // identity while the router.replace that strips the param is still async, calling
+  // setViewingMethod + router.replace in a tight storm = "Maximum update depth
+  // exceeded". The ref makes it idempotent per openMethod value; clearing the param
+  // resets it so the same id can be reopened later.
+  const handledOpenMethodRef = useRef<string | null>(null);
   useEffect(() => {
     if (!searchParams) return;
     const wantsMethod = searchParams.get("openMethod");
-    if (!wantsMethod) return;
+    if (!wantsMethod) {
+      handledOpenMethodRef.current = null;
+      return;
+    }
+    if (handledOpenMethodRef.current === wantsMethod) return;
     const mid = Number(wantsMethod);
     if (!Number.isFinite(mid)) return;
     const match =
       methods.find((m) => m.id === mid && m.owner === currentUser) ??
       methods.find((m) => m.id === mid && m.owner === "public") ??
       methods.find((m) => m.id === mid);
+    // Not loaded yet: leave the guard unset so a later methods update retries.
     if (!match) return;
+    handledOpenMethodRef.current = wantsMethod;
     setViewingMethod(match);
     const next = new URLSearchParams(searchParams.toString());
     next.delete("openMethod");

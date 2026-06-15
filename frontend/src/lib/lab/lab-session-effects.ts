@@ -50,9 +50,13 @@ import {
 } from "@/lib/sharing/identity/session-key";
 import { restoreSessionFromStore } from "@/lib/sharing/identity/storage";
 import { getLabRemote, resyncLabRemote } from "./lab-do-client";
+import type { GetLabResult } from "./lab-do-client";
+import { readPendingGenesis } from "./lab-genesis-pending";
 import { openLabKeyCopy } from "./lab-key";
 import { verifyMemberEmailBinding } from "./lab-binding";
 import { autoBindLabProfile } from "./lab-profile-auto-bind";
+import { isLabTokensV2Enabled } from "./lab-tokens-config";
+import { reconcileDeferredSeals } from "./lab-deferred-seal-reconcile";
 import type {
   LabSessionEffects,
   LabSigningKeyPair,
@@ -200,8 +204,23 @@ export function createLabSessionEffects(params: {
       }
       const x25519Priv = id.keys.encryption.privateKey;
 
-      // Step 2: fetch the lab record from the relay.
-      const result = await getLabRemote(labId);
+      // Step 2: fetch the lab record from the relay. If the relay does not have
+      // the lab yet (the genesis publish has not landed) OR returns no envelopes,
+      // fall back to the head's locally-persisted pending genesis so the head is
+      // never locked out of a lab they just created offline. The lab key is
+      // re-derived from the persisted sealed envelope below, exactly as it would
+      // be from the relay copy.
+      let result = await getLabRemote(labId);
+      if (!result || result.envelopes.length === 0) {
+        const pending = await readPendingGenesis(username);
+        if (pending && pending.labId === labId) {
+          const local: GetLabResult = {
+            record: pending.record,
+            envelopes: [pending.envelope],
+          };
+          result = local;
+        }
+      }
       if (!result) {
         throw new Error("lab session: lab not found on relay");
       }
@@ -269,6 +288,21 @@ export function createLabSessionEffects(params: {
       // it also self-heals any member whose earlier resync did not land. Fully
       // best-effort: a relay error must never block the login.
       void resyncLabRemote(labId);
+
+      // Step 5c (Phase 4A): the head, on lab open, runs the deferred-seal
+      // reconciliation. It seals the lab key to any member who joined via a Phase
+      // 4B server token and has since published an X25519 pubkey but has no sealed
+      // copy yet. The seal is client-side (sealToRecipient) plus a head-signed add;
+      // the lab key NEVER leaves this browser in plaintext. Flag-gated + head-only
+      // + fully best-effort: a failure here must never block the head's login.
+      const isHead = result.record.head.username === username;
+      if (isHead && isLabTokensV2Enabled()) {
+        void reconcileDeferredSeals({
+          ctx: { labId, labKey, headEd25519Priv: id.keys.signing.privateKey },
+        }).catch(() => {
+          // best-effort post-join hook, swallow all errors
+        });
+      }
 
       // Step 6: assemble and return the live-session payload.
       const signingKeyPair: LabSigningKeyPair = {

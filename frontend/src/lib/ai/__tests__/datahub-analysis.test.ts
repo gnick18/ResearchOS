@@ -146,12 +146,16 @@ function threeGroupContent(): DataHubDocContent {
 // An XY dose-response table (the SAME dataset the engine modelComparison test +
 // the D1 transparency pin use), so 4PL vs 5PL fits and the F / AICc are real.
 function doseResponseContent(): DataHubDocContent {
-  const xs = [-9.0, -8.5, -8.0, -7.5, -7.0, -6.5, -6.0, -5.5, -5.0, -4.5, -4.0];
+  // RAW dose (the analysis log10-transforms it). Same log grid [-9..-4] as the
+  // engine pins, so the recovered fit and EC50 match.
+  const xs = [-9.0, -8.5, -8.0, -7.5, -7.0, -6.5, -6.0, -5.5, -5.0, -4.5, -4.0].map(
+    (lx) => 10 ** lx,
+  );
   const ys = [4.8, 6.1, 7.9, 12.5, 24.0, 47.0, 70.0, 86.0, 93.5, 96.8, 98.1];
   return {
     meta: meta({ id: "5", name: "Dose response", table_type: "xy" }),
     columns: [
-      { id: "x", name: "log[dose]", role: "x", dataType: "number" },
+      { id: "x", name: "dose", role: "x", dataType: "number" },
       { id: "y1", name: "Response", role: "y", dataType: "number" },
     ],
     rows: xs.map((x, i) => ({ id: `r${i}`, cells: { x, y1: ys[i] } })),
@@ -1098,13 +1102,16 @@ describe("run_logistic_regression tool", () => {
 // An XY table with TWO dose-response curves sharing a shape (same plateaus +
 // Hill, EC50 shifted between them), so a global fit is well-posed.
 function twoCurveContent(): DataHubDocContent {
-  const xs = [-9.0, -8.5, -8.0, -7.5, -7.0, -6.5, -6.0, -5.5, -5.0, -4.5, -4.0];
+  // RAW dose (the analysis log10-transforms it) on the same log grid [-9..-4].
+  const xs = [-9.0, -8.5, -8.0, -7.5, -7.0, -6.5, -6.0, -5.5, -5.0, -4.5, -4.0].map(
+    (lx) => 10 ** lx,
+  );
   const yA = [4.8, 6.1, 7.9, 12.5, 24.0, 47.0, 70.0, 86.0, 93.5, 96.8, 98.1];
   const yB = [4.0, 5.0, 6.5, 9.5, 18.0, 38.0, 62.0, 82.0, 92.0, 96.0, 98.0];
   return {
     meta: meta({ id: "9", name: "Two curves", table_type: "xy" }),
     columns: [
-      { id: "x", name: "log[dose]", role: "x", dataType: "number" },
+      { id: "x", name: "dose", role: "x", dataType: "number" },
       { id: "yA", name: "Drug A", role: "y", dataType: "number" },
       { id: "yB", name: "Drug B", role: "y", dataType: "number" },
     ],

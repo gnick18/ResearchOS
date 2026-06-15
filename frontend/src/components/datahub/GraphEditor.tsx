@@ -40,6 +40,8 @@ import {
   downloadFigureSvg,
   downloadFigurePng,
   copyFigure,
+  downloadSvg,
+  withRootSize,
   convertUnit,
   fromDesignPx,
   FIG,
@@ -48,6 +50,8 @@ import {
   type ResizeMode,
   type ErrorBarKind,
   type FitModelId,
+  type AxisScaleType,
+  type BarMode,
 } from "@/lib/datahub/plot-spec";
 import { plotCode } from "@/lib/datahub/plot-code";
 import { chainCode, type ContentResolver } from "@/lib/datahub/chain-code";
@@ -55,6 +59,19 @@ import {
   addUserPalette,
   newUserPaletteId,
 } from "@/lib/datahub/user-palettes";
+import {
+  FigureArtboard,
+  FigureArtboardControls,
+} from "@/components/figure/FigureArtboard";
+import {
+  artboardInitial,
+  saveArtboardPrefs,
+  pageDims,
+  placeFigureCentered,
+  fitFigureToPage,
+  artboardExportSvg,
+  type ArtboardState,
+} from "@/lib/figure/artboard";
 
 /** The fitted-curve choices the XY style panel offers, labeled for scientists. */
 const FIT_MODEL_OPTIONS: { value: FitModelId; label: string }[] = [
@@ -152,6 +169,34 @@ function Section({
       </div>
       <div className="px-3.5 py-3">{children}</div>
     </div>
+  );
+}
+
+/** An optional-number axis input: blank means auto (undefined), any finite number
+ * is the override. Used for the manual axis-range controls. */
+function AxisInput({
+  value,
+  onChange,
+  ariaLabel,
+}: {
+  value: number | undefined;
+  onChange: (v: number | undefined) => void;
+  ariaLabel: string;
+}) {
+  return (
+    <input
+      type="number"
+      value={value ?? ""}
+      aria-label={ariaLabel}
+      placeholder="auto"
+      onChange={(e) => {
+        const t = e.target.value.trim();
+        if (t === "") return onChange(undefined);
+        const n = Number(t);
+        onChange(Number.isFinite(n) ? n : undefined);
+      }}
+      className="w-20 rounded-md border border-border bg-surface-overlay px-2 py-1 text-meta text-foreground placeholder:text-foreground-muted focus:border-sky-400 focus:outline-none"
+    />
   );
 }
 
@@ -478,6 +523,7 @@ export default function GraphEditor({
   const style = useMemo(() => readPlotStyle(spec), [spec]);
   const isXY = style.kind === "xyScatter";
   const isGrouped = style.kind === "groupedBar";
+  const isColumn = style.kind === "columnScatter" || style.kind === "columnBar";
   const isSurvival = style.kind === "survivalCurve";
   const isEstimation =
     style.kind === "estimationGardnerAltman" ||
@@ -576,7 +622,51 @@ export default function GraphEditor({
     onStyleChange({ palette: id, colorOverrides: {} });
   };
 
+  // The publication page-frame config for this figure (normalized from the spec;
+  // absent => disabled, so an old figure renders exactly as before).
+  const artboard = useMemo(
+    () => artboardInitial(style.artboard),
+    [style.artboard],
+  );
+  const onArtboardChange = (patch: Partial<ArtboardState>) => {
+    const next = { ...artboard, ...patch };
+    onStyleChange({ artboard: next });
+    // Remember the paper / orientation / ruler-unit so the next new figure starts
+    // on the same page.
+    saveArtboardPrefs(next);
+  };
+  // Fit the figure to the page (largest centered figure that keeps the aspect),
+  // writing the size in inches onto the versioned style.
+  const onFitToPage = () => {
+    const page = pageDims(artboard);
+    const aspect =
+      frame.exportInchesH > 0 ? frame.exportInchesW / frame.exportInchesH : 1;
+    const fit = fitFigureToPage(page, aspect);
+    onStyleChange({
+      sizeUnit: "in",
+      width: roundForUnit(fit.figWIn, "in"),
+      height: roundForUnit(fit.figHIn, "in"),
+    });
+  };
+
   const onExportSvg = () => downloadFigureSvg(svg, frame, fileStem);
+  // Export the whole page sheet (the figure centered on the chosen paper, at true
+  // inches). Available only when the artboard is on.
+  const onExportPage = () => {
+    const page = pageDims(artboard);
+    const figWIn = frame.exportInchesW;
+    const figHIn = frame.exportInchesH;
+    const placement = placeFigureCentered(page, figWIn, figHIn);
+    const markup = artboardExportSvg({
+      figureSvg: svg,
+      figWIn,
+      figHIn,
+      mode: "page",
+      page,
+      placement,
+    });
+    downloadSvg(markup, `${fileStem}-page`);
+  };
   const onExportPng = async () => {
     setBusy(true);
     try {
@@ -633,24 +723,46 @@ export default function GraphEditor({
           </Tooltip>
         </div>
 
-        <div className="flex flex-1 items-center justify-center overflow-auto bg-surface-sunken p-6">
-          <div className="rounded-lg border border-border bg-white p-3 shadow-sm">
-            <FigureResizeFrame
-              style={style}
-              frameWidthPx={frame.screenWidth}
-              frameHeightPx={frame.screenHeight}
-              onStyleChange={onStyleChange}
-            >
+        {artboard.enabled ? (
+          // Publication page-frame view: the figure on a real paper sheet at true
+          // scale. Color editing lives in the standard (artboard-off) view.
+          <FigureArtboard
+            figureSvg={svg}
+            figWIn={frame.exportInchesW}
+            figHIn={frame.exportInchesH}
+            state={artboard}
+            renderFigure={({ wPx, hPx }) => (
+              // Size the figure SVG to the page box so direct-on-figure color
+              // editing keeps working inside the artboard view.
               <PlotColorEditor
-                svg={svg}
+                svg={withRootSize(svg, `${Math.round(wPx)}px`, `${Math.round(hPx)}px`)}
                 style={style}
                 resolvedColors={seriesInfo.colors}
                 onStyleChange={onStyleChange}
                 onSaveColorsAsPalette={onSaveColorsAsPalette}
               />
-            </FigureResizeFrame>
+            )}
+          />
+        ) : (
+          <div className="flex flex-1 items-center justify-center overflow-auto bg-surface-sunken p-6">
+            <div className="rounded-lg border border-border bg-white p-3 shadow-sm">
+              <FigureResizeFrame
+                style={style}
+                frameWidthPx={frame.screenWidth}
+                frameHeightPx={frame.screenHeight}
+                onStyleChange={onStyleChange}
+              >
+                <PlotColorEditor
+                  svg={svg}
+                  style={style}
+                  resolvedColors={seriesInfo.colors}
+                  onStyleChange={onStyleChange}
+                  onSaveColorsAsPalette={onSaveColorsAsPalette}
+                />
+              </FigureResizeFrame>
+            </div>
           </div>
-        </div>
+        )}
       </div>
 
       {/* Right dock. Fixed-width full-height column with its own scroll, so the
@@ -661,33 +773,75 @@ export default function GraphEditor({
       >
         <Section title="Graph style">
           {isXY ? (
-            <Ctl label="Fitted curve">
-              <div className="max-w-[150px]" data-testid="datahub-style-fitmodel">
-                <StyledSelect
-                  value={style.fitModel}
-                  options={FIT_MODEL_OPTIONS.map((o) => ({
-                    value: o.value,
-                    label: o.label,
-                  }))}
+            <>
+              <Ctl label="Fitted curve">
+                <div className="max-w-[150px]" data-testid="datahub-style-fitmodel">
+                  <StyledSelect
+                    value={style.fitModel}
+                    options={FIT_MODEL_OPTIONS.map((o) => ({
+                      value: o.value,
+                      label: o.label,
+                    }))}
+                    onChange={(v) =>
+                      onStyleChange({ fitModel: v as FitModelId })
+                    }
+                    ariaLabel="Fitted curve"
+                  />
+                </div>
+              </Ctl>
+              <Ctl label="X axis">
+                <Seg<AxisScaleType>
+                  value={style.xScaleType ?? "linear"}
+                  options={[
+                    { value: "linear", label: "Linear" },
+                    { value: "log", label: "Log" },
+                  ]}
                   onChange={(v) =>
-                    onStyleChange({ fitModel: v as FitModelId })
+                    onStyleChange({ xScaleType: v === "log" ? "log" : undefined })
                   }
-                  ariaLabel="Fitted curve"
                 />
-              </div>
-            </Ctl>
+              </Ctl>
+              <Ctl label="Y axis">
+                <Seg<AxisScaleType>
+                  value={style.yScaleType ?? "linear"}
+                  options={[
+                    { value: "linear", label: "Linear" },
+                    { value: "log", label: "Log" },
+                  ]}
+                  onChange={(v) =>
+                    onStyleChange({ yScaleType: v === "log" ? "log" : undefined })
+                  }
+                />
+              </Ctl>
+            </>
           ) : isGrouped ? (
-            <Ctl label="Error bars">
-              <Seg<ErrorBarKind>
-                value={style.errorBar}
-                options={[
-                  { value: "sem", label: "SEM" },
-                  { value: "sd", label: "SD" },
-                  { value: "none", label: "None" },
-                ]}
-                onChange={(v) => onStyleChange({ errorBar: v })}
-              />
-            </Ctl>
+            <>
+              <Ctl label="Bars">
+                <Seg<BarMode>
+                  value={style.barMode ?? "dodge"}
+                  options={[
+                    { value: "dodge", label: "Dodge" },
+                    { value: "stack", label: "Stack" },
+                    { value: "stack100", label: "100%" },
+                  ]}
+                  onChange={(v) =>
+                    onStyleChange({ barMode: v === "dodge" ? undefined : v })
+                  }
+                />
+              </Ctl>
+              <Ctl label="Error bars">
+                <Seg<ErrorBarKind>
+                  value={style.errorBar}
+                  options={[
+                    { value: "sem", label: "SEM" },
+                    { value: "sd", label: "SD" },
+                    { value: "ci95", label: "95% CI" },
+                    { value: "none", label: "None" },
+                  ]}
+                  onChange={(v) => onStyleChange({ errorBar: v })}
+                />
+              </Ctl>
+            </>
           ) : isSurvival ? (
             <p className="text-[11px] text-foreground-muted">
               A survival curve has no per-bar style. Tune colors and labels in the
@@ -766,6 +920,7 @@ export default function GraphEditor({
                   options={[
                     { value: "sem", label: "SEM" },
                     { value: "sd", label: "SD" },
+                    { value: "ci95", label: "95% CI" },
                     { value: "none", label: "None" },
                   ]}
                   onChange={(v) => onStyleChange({ errorBar: v })}
@@ -782,6 +937,19 @@ export default function GraphEditor({
                   ]}
                   onChange={(v) => onStyleChange({ showPoints: v === "on" })}
                   testIdPrefix="datahub-points"
+                />
+              </Ctl>
+
+              <Ctl label="Value labels">
+                <Seg<"on" | "off">
+                  value={style.showValueLabels ? "on" : "off"}
+                  options={[
+                    { value: "on", label: "On" },
+                    { value: "off", label: "Off" },
+                  ]}
+                  onChange={(v) =>
+                    onStyleChange({ showValueLabels: v === "on" ? true : undefined })
+                  }
                 />
               </Ctl>
 
@@ -832,6 +1000,74 @@ export default function GraphEditor({
         <Section title="Figure size" icon="ruler">
           <FigureSizeControls style={style} onStyleChange={onStyleChange} />
         </Section>
+
+        <Section title="Page artboard" icon="ruler">
+          <FigureArtboardControls
+            state={artboard}
+            onChange={onArtboardChange}
+            figWIn={frame.exportInchesW}
+            figHIn={frame.exportInchesH}
+            dpi={frame.dpi}
+            onFitToPage={onFitToPage}
+          />
+        </Section>
+
+        {(isXY || isColumn || isGrouped) && (
+          <Section title="Axis range" icon="ruler">
+            {isXY ? (
+              <>
+                <Ctl label="X min">
+                  <AxisInput
+                    value={style.xAxisMin}
+                    onChange={(v) => onStyleChange({ xAxisMin: v })}
+                    ariaLabel="X axis minimum"
+                  />
+                </Ctl>
+                <Ctl label="X max">
+                  <AxisInput
+                    value={style.xAxisMax}
+                    onChange={(v) => onStyleChange({ xAxisMax: v })}
+                    ariaLabel="X axis maximum"
+                  />
+                </Ctl>
+                <Ctl label="Y min">
+                  <AxisInput
+                    value={style.yAxisMin}
+                    onChange={(v) => onStyleChange({ yAxisMin: v })}
+                    ariaLabel="Y axis minimum"
+                  />
+                </Ctl>
+                <Ctl label="Y max">
+                  <AxisInput
+                    value={style.yAxisMax}
+                    onChange={(v) => onStyleChange({ yAxisMax: v })}
+                    ariaLabel="Y axis maximum"
+                  />
+                </Ctl>
+              </>
+            ) : (
+              <>
+                <Ctl label="Y max">
+                  <AxisInput
+                    value={style.yAxisMax}
+                    onChange={(v) => onStyleChange({ yAxisMax: v })}
+                    ariaLabel="Y axis maximum"
+                  />
+                </Ctl>
+                <Ctl label="Y tick step">
+                  <AxisInput
+                    value={style.yTickStep}
+                    onChange={(v) => onStyleChange({ yTickStep: v })}
+                    ariaLabel="Y axis tick step"
+                  />
+                </Ctl>
+              </>
+            )}
+            <p className="mt-1 text-[11px] text-foreground-muted">
+              Leave blank for auto.
+            </p>
+          </Section>
+        )}
 
         <Section title="Labels and text">
           <Ctl label="Axis text">
@@ -913,6 +1149,17 @@ export default function GraphEditor({
               {copyState === "idle" ? "Copy" : copyLabel}
             </button>
           </div>
+          {artboard.enabled && (
+            <button
+              type="button"
+              onClick={onExportPage}
+              className="mt-2 flex w-full items-center justify-center gap-1.5 rounded-md border border-border px-2 py-1.5 text-meta font-medium text-foreground transition-colors hover:bg-surface-sunken"
+              data-testid="datahub-export-page"
+            >
+              <Icon name="download" className="h-3.5 w-3.5" />
+              Export page (full sheet)
+            </button>
+          )}
           <p className="mt-2 text-[11px] text-foreground-muted">
             SVG stays an infinitely-scalable vector for a paper. PNG renders at 3x
             for a crisp slide. Copy drops a PNG straight into a doc.

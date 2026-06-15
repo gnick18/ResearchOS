@@ -109,14 +109,16 @@ export default function ReorderCartReview({ onClose }: { onClose: () => void }) 
               Review the batch, set one funding account, then submit as one order.
             </p>
           </div>
-          <button
-            type="button"
-            onClick={onClose}
-            aria-label="Close"
-            className="flex-none rounded-md p-1 text-foreground-muted hover:bg-surface-sunken hover:text-foreground"
-          >
-            <Icon name="close" className="h-4 w-4" />
-          </button>
+          <Tooltip label="Close">
+            <button
+              type="button"
+              onClick={onClose}
+              aria-label="Close"
+              className="flex-none rounded-md p-1 text-foreground-muted hover:bg-surface-sunken hover:text-foreground"
+            >
+              <Icon name="close" className="h-4 w-4" />
+            </button>
+          </Tooltip>
         </div>
 
         <div className="max-h-[55vh] overflow-y-auto px-5 py-4">

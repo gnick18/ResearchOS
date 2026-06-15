@@ -131,6 +131,17 @@ interface EntityVersionHistorySidebarProps<P extends EntityProjection> {
    * native history instead of the delta-store (chunk 5 wiring).
    */
   engine?: VersionHistorySource;
+  /**
+   * Unified Popup Chrome: when hosted inside a CalmPopupShell the shell already
+   * provides the title + Close + the ambient surface, so the sidebar's own card
+   * chrome (raised-white background, its "Version history" header, the nested ✕)
+   * would render as a second white card with a duplicate close affordance. Set
+   * `embedded` to de-band it: the column becomes transparent (a quiet left
+   * divider only), its header is dropped, and the restore footer loses its raised
+   * band so it reads on the calm surface. Defaults false so every standalone
+   * consumer (notes version history) is byte-for-byte unchanged.
+   */
+  embedded?: boolean;
 }
 
 export default function EntityVersionHistorySidebar<P extends EntityProjection>({
@@ -145,6 +156,7 @@ export default function EntityVersionHistorySidebar<P extends EntityProjection>(
   canRestore = false,
   onRestore,
   engine: engineProp,
+  embedded = false,
 }: EntityVersionHistorySidebarProps<P>) {
   // Resolve the engine: caller-supplied Loro engine OR legacy delta engine.
   // Captured in a stable ref so the effects below do not re-run purely because
@@ -421,12 +433,18 @@ export default function EntityVersionHistorySidebar<P extends EntityProjection>(
 
   return (
     <div
-      className="w-80 flex-shrink-0 border-l border-border bg-surface-raised flex flex-col h-full"
+      className={`w-80 flex-shrink-0 flex flex-col h-full ${
+        embedded
+          ? "ros-history-panel"
+          : "border-l border-border bg-surface-raised"
+      }`}
       role="dialog"
       aria-label="Version history"
       data-testid="note-version-history-sidebar"
     >
-      {/* Sidebar header */}
+      {/* Sidebar header — dropped when embedded in a CalmPopupShell, which already
+          carries the title + Close (avoids the second header + nested ✕ seam). */}
+      {!embedded && (
       <div className="px-4 py-3 border-b border-border flex items-center justify-between flex-shrink-0">
         <div className="flex items-center gap-2">
           <svg
@@ -469,10 +487,11 @@ export default function EntityVersionHistorySidebar<P extends EntityProjection>(
           </button>
         </Tooltip>
       </div>
+      )}
 
       {/* Compare toggle */}
       {!isEmpty && (
-        <div className="px-4 py-2 border-b border-border flex items-center gap-2 flex-shrink-0">
+        <div className="ros-history-toolbar px-4 py-2 border-b border-border flex items-center gap-2 flex-shrink-0">
           <span className="text-meta text-foreground-muted">Compare against</span>
           <div className="inline-flex rounded-lg bg-surface-sunken p-0.5 text-meta">
             <button
@@ -510,7 +529,7 @@ export default function EntityVersionHistorySidebar<P extends EntityProjection>(
         role="listbox"
         aria-label="Versions"
         onKeyDown={handleKeyDown}
-        className="flex-1 overflow-y-auto focus:outline-none"
+        className="ros-thin-scroll flex-1 overflow-y-auto focus:outline-none"
         data-testid="version-list"
       >
         {rows === null && (
@@ -532,7 +551,7 @@ export default function EntityVersionHistorySidebar<P extends EntityProjection>(
 
         {model?.days.map((day) => (
           <div key={day.dayKey}>
-            <div className="sticky top-0 bg-surface-sunken/95 backdrop-blur px-4 py-1.5 text-meta font-semibold uppercase tracking-wide text-foreground-muted border-b border-border">
+            <div className="ros-history-dayhead sticky top-0 bg-surface-sunken/95 backdrop-blur px-4 py-1.5 text-meta font-semibold uppercase tracking-wide text-foreground-muted border-b border-border">
               {day.label}
             </div>
             {day.sessions.map((session, si) => {
@@ -683,7 +702,9 @@ export default function EntityVersionHistorySidebar<P extends EntityProjection>(
           rule. */}
       {canRestore && onRestore && selectedEntry && !selectedEntry.isHead && (
         <div
-          className="border-t border-border bg-surface-raised px-4 py-3 flex-shrink-0"
+          className={`border-t border-border px-4 py-3 flex-shrink-0 ${
+            embedded ? "" : "bg-surface-raised"
+          }`}
           data-testid="restore-footer"
         >
           {!confirmingRestore ? (

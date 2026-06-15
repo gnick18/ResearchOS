@@ -85,6 +85,41 @@ function runMockQuery(sql: string) {
     );
   }
 
+  // Shape 4: SELECT "V" AS dv, "A" AS la, "B" AS lb  (readValueAndTwoLabels)
+  if (/AS dv\b/.test(sql) && /AS la\b/.test(sql) && /AS lb\b/.test(sql)) {
+    const names = quoted(sql);
+    const vi = colIndex(names[0]);
+    const ai = colIndex(names[1]);
+    const bi = colIndex(names[2]);
+    return arrowLike(
+      FIXTURE.rows.map((r) => ({ dv: r[vi], la: r[ai], lb: r[bi] })),
+    );
+  }
+
+  // Shape 5: SELECT "A" AS la, "B" AS lb  (readContingencyCounts, no dv)
+  if (/AS la\b/.test(sql) && /AS lb\b/.test(sql)) {
+    const names = quoted(sql);
+    const ai = colIndex(names[0]);
+    const bi = colIndex(names[1]);
+    return arrowLike(FIXTURE.rows.map((r) => ({ la: r[ai], lb: r[bi] })));
+  }
+
+  // Shape 6: SELECT "T" AS st, "E" AS se [, "G" AS sg]  (readSurvivalRows)
+  if (/AS st\b/.test(sql) && /AS se\b/.test(sql)) {
+    const names = quoted(sql);
+    const ti = colIndex(names[0]);
+    const ei = colIndex(names[1]);
+    const hasGroup = /AS sg\b/.test(sql);
+    const gi = hasGroup ? colIndex(names[2]) : -1;
+    return arrowLike(
+      FIXTURE.rows.map((r) => {
+        const o: Record<string, Cell> = { st: r[ti], se: r[ei] };
+        if (hasGroup) o.sg = r[gi];
+        return o;
+      }),
+    );
+  }
+
   throw new Error(`mock query did not recognize SQL: ${sql}`);
 }
 
@@ -436,6 +471,335 @@ describe("dataset-lane parity with the editable lane (validation gate)", () => {
     expect(d.coefficient as number).toBeCloseTo(e.coefficient as number, 12);
     expect(d.pValue as number).toBeCloseTo(e.pValue as number, 12);
     expect(d.statistic as number).toBeCloseTo(e.statistic as number, 12);
+  });
+
+  // --- Single-Y XY family parity (linear / logistic regression, dose-response,
+  //     ROC), all through the synthetic XY path. For each, the dataset-lane outcome
+  //     must be numbers-identical to an editable XY run on the same pairs. ---
+
+  /** An editable XY table (one role-x, one role-y) over the given pairs. */
+  function editableXY(xv: number[], yv: number[]): DataHubDocContent {
+    return {
+      meta: {
+        id: "t1",
+        name: "T",
+        project_ids: [],
+        folder_path: null,
+        table_type: "xy",
+        created_at: "",
+      },
+      columns: [
+        { id: "cx", name: "x", role: "x", dataType: "number" },
+        { id: "cy", name: "y", role: "y", dataType: "number" },
+      ],
+      rows: xv.map((v, i) => ({
+        id: `r${i}`,
+        cells: { cx: v, cy: yv[i] } as Record<string, CellValue>,
+      })),
+      analyses: [],
+      plots: [],
+    };
+  }
+
+  /** Flatten every finite numeric leaf of a result, keyed by path. */
+  function numericLeaves(
+    o: unknown,
+    prefix = "",
+    out: Record<string, number> = {},
+  ): Record<string, number> {
+    if (typeof o === "number") {
+      if (Number.isFinite(o)) out[prefix] = o;
+      return out;
+    }
+    if (Array.isArray(o)) {
+      o.forEach((v, i) => numericLeaves(v, `${prefix}[${i}]`, out));
+      return out;
+    }
+    if (o && typeof o === "object") {
+      for (const [k, v] of Object.entries(o))
+        numericLeaves(v, prefix ? `${prefix}.${k}` : k, out);
+    }
+    return out;
+  }
+
+  /** Assert two outcomes carry numbers-identical results (same engine, same data). */
+  function expectSameNumbers(dataset: unknown, editable: unknown) {
+    const d = numericLeaves(dataset);
+    const e = numericLeaves(editable);
+    const common = Object.keys(d).filter((k) => k in e);
+    expect(common.length).toBeGreaterThan(2);
+    for (const k of common) expect(d[k]).toBeCloseTo(e[k], 10);
+  }
+
+  it("linear regression: WIDE XY matches the editable XY run", async () => {
+    const xv = [1, 2, 3, 4, 5, 6.5, 7.2];
+    const yv = [2.1, 3.9, 6.2, 7.8, 10.1, 13.0, 14.4];
+    FIXTURE = {
+      columns: ["x", "y"],
+      rows: [
+        ...xv.map((v, i) => [v, yv[i]] as Cell[]),
+        [null, 9.9],
+        [3.3, "nope"],
+      ],
+    };
+    const dataset = await runAnalysisOnDataset(
+      HANDLE,
+      spec("linearRegression", ["x", "y"]),
+      sidecar(["x", "y"]),
+    );
+    const editable = runAnalysis(spec("linearRegression", ["cy"]), editableXY(xv, yv));
+    expect(dataset.ok).toBe(true);
+    expect(editable.ok).toBe(true);
+    expectSameNumbers(dataset, editable);
+  });
+
+  it("dose-response: WIDE XY matches the editable XY run (defaults to 4PL)", async () => {
+    // A monotone sigmoid-ish dose / response so the 4PL fit converges.
+    const xv = [0.01, 0.03, 0.1, 0.3, 1, 3, 10, 30, 100];
+    const yv = [2, 5, 12, 28, 50, 72, 88, 95, 98];
+    FIXTURE = { columns: ["dose", "resp"], rows: xv.map((v, i) => [v, yv[i]] as Cell[]) };
+    const dataset = await runAnalysisOnDataset(
+      HANDLE,
+      spec("doseResponse", ["dose", "resp"]),
+      sidecar(["dose", "resp"]),
+    );
+    const editable = runAnalysis(spec("doseResponse", ["cy"]), editableXY(xv, yv));
+    expect(dataset.ok).toBe(true);
+    expect(editable.ok).toBe(true);
+    expectSameNumbers(dataset, editable);
+  });
+
+  it("logistic regression: WIDE XY (binary Y) matches the editable XY run", async () => {
+    const xv = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
+    const yv = [0, 0, 0, 0, 1, 0, 1, 1, 1, 1];
+    FIXTURE = { columns: ["x", "y"], rows: xv.map((v, i) => [v, yv[i]] as Cell[]) };
+    const dataset = await runAnalysisOnDataset(
+      HANDLE,
+      spec("logisticRegression", ["x", "y"]),
+      sidecar(["x", "y"]),
+    );
+    const editable = runAnalysis(spec("logisticRegression", ["cy"]), editableXY(xv, yv));
+    expect(dataset.ok).toBe(true);
+    expect(editable.ok).toBe(true);
+    expectSameNumbers(dataset, editable);
+  });
+
+  it("ROC curve: WIDE XY (score + 0/1 label) matches the editable XY run", async () => {
+    const xv = [0.1, 0.4, 0.35, 0.8, 0.2, 0.9, 0.55, 0.7, 0.3, 0.6];
+    const yv = [0, 0, 1, 1, 0, 1, 1, 1, 0, 0];
+    FIXTURE = { columns: ["score", "label"], rows: xv.map((v, i) => [v, yv[i]] as Cell[]) };
+    const dataset = await runAnalysisOnDataset(
+      HANDLE,
+      spec("rocCurve", ["score", "label"]),
+      sidecar(["score", "label"]),
+    );
+    const editable = runAnalysis(spec("rocCurve", ["cy"]), editableXY(xv, yv));
+    expect(dataset.ok).toBe(true);
+    expect(editable.ok).toBe(true);
+    expectSameNumbers(dataset, editable);
+  });
+
+  // --- Whole-table multi-column parity (two-way ANOVA, contingency, survival,
+  //     nested). Tidy data goes dataset -> reader -> synthetic table; compared to a
+  //     hand-built canonical editable table holding the same numbers. ---
+
+  function content(
+    table_type: string,
+    columns: DataHubDocContent["columns"],
+    rows: { id: string; cells: Record<string, CellValue> }[],
+  ): DataHubDocContent {
+    return {
+      meta: { id: "t1", name: "T", project_ids: [], folder_path: null, table_type: table_type as DataHubDocContent["meta"]["table_type"], created_at: "" },
+      columns,
+      rows,
+      analyses: [],
+      plots: [],
+    };
+  }
+
+  it("two-way ANOVA: tidy value+2 factors matches the editable grouped run", async () => {
+    FIXTURE = {
+      columns: ["val", "fa", "fb"],
+      rows: [
+        [10.5, "D1", "Ctrl"], [11.2, "D1", "Ctrl"],
+        [15.3, "D1", "Trt"], [14.8, "D1", "Trt"],
+        [12.1, "D2", "Ctrl"], [13.4, "D2", "Ctrl"],
+        [18.9, "D2", "Trt"], [19.2, "D2", "Trt"],
+      ],
+    };
+    const dataset = await runAnalysisOnDataset(
+      HANDLE,
+      spec("twoWayAnova", ["val", "fa", "fb"], { postHocFactor: "none" }),
+      sidecar(["val", "fa", "fb"]),
+    );
+    const editable = runAnalysis(
+      spec("twoWayAnova", [], { postHocFactor: "none" }),
+      content(
+        "grouped",
+        [
+          { id: "rowlabel", name: "Factor A", role: "x", dataType: "text" },
+          { id: "ec0", name: "Ctrl", role: "y", dataType: "number", datasetId: "dc", subcolumnKind: "replicate" },
+          { id: "ec1", name: "Ctrl", role: "y", dataType: "number", datasetId: "dc", subcolumnKind: "replicate" },
+          { id: "et0", name: "Trt", role: "y", dataType: "number", datasetId: "dt", subcolumnKind: "replicate" },
+          { id: "et1", name: "Trt", role: "y", dataType: "number", datasetId: "dt", subcolumnKind: "replicate" },
+        ],
+        [
+          { id: "r1", cells: { rowlabel: "D1", ec0: 10.5, ec1: 11.2, et0: 15.3, et1: 14.8 } },
+          { id: "r2", cells: { rowlabel: "D2", ec0: 12.1, ec1: 13.4, et0: 18.9, et1: 19.2 } },
+        ],
+      ),
+    );
+    expect(dataset.ok).toBe(true);
+    expect(editable.ok).toBe(true);
+    expectSameNumbers(dataset, editable);
+  });
+
+  it("contingency: tidy two categoricals matches the editable count-matrix run", async () => {
+    FIXTURE = {
+      columns: ["exposure", "outcome"],
+      rows: [
+        ["Exp", "Dis"], ["Exp", "Dis"], ["Exp", "Dis"], ["Exp", "No"],
+        ["Unexp", "Dis"], ["Unexp", "No"], ["Unexp", "No"], ["Unexp", "No"],
+      ],
+    };
+    const dataset = await runAnalysisOnDataset(
+      HANDLE,
+      spec("contingency", ["exposure", "outcome"]),
+      sidecar(["exposure", "outcome"]),
+    );
+    const editable = runAnalysis(
+      spec("contingency", []),
+      content(
+        "contingency",
+        [
+          { id: "rowlabel", name: "Row factor", role: "x", dataType: "text" },
+          { id: "c0", name: "Dis", role: "y", dataType: "number" },
+          { id: "c1", name: "No", role: "y", dataType: "number" },
+        ],
+        [
+          { id: "r1", cells: { rowlabel: "Exp", c0: 3, c1: 1 } },
+          { id: "r2", cells: { rowlabel: "Unexp", c0: 1, c1: 3 } },
+        ],
+      ),
+    );
+    expect(dataset.ok).toBe(true);
+    expect(editable.ok).toBe(true);
+    expectSameNumbers(dataset, editable);
+  });
+
+  const survRows: Array<[number, number, string]> = [
+    [10.5, 1, "Control"], [15.2, 0, "Control"], [9.1, 1, "Control"], [20, 0, "Control"],
+    [8.3, 1, "Treated"], [20.1, 1, "Treated"], [12, 1, "Treated"], [18, 0, "Treated"],
+  ];
+  const survEditable = () =>
+    content(
+      "survival",
+      [
+        { id: "time", name: "Time", role: "x", dataType: "number" },
+        { id: "event", name: "Event", role: "y", dataType: "number" },
+        { id: "group", name: "Group", role: "group", dataType: "text" },
+      ],
+      survRows.map(([t, e, g], i) => ({ id: `s${i}`, cells: { time: t, event: e, group: g } })),
+    );
+
+  it("Kaplan-Meier: tidy time+event+group matches the editable survival run", async () => {
+    FIXTURE = { columns: ["t", "e", "g"], rows: survRows.map((r) => [...r] as Cell[]) };
+    const dataset = await runAnalysisOnDataset(
+      HANDLE,
+      spec("kaplanMeier", ["t", "e", "g"]),
+      sidecar(["t", "e", "g"]),
+    );
+    const editable = runAnalysis(spec("kaplanMeier", []), survEditable());
+    expect(dataset.ok).toBe(true);
+    expect(editable.ok).toBe(true);
+    expectSameNumbers(dataset, editable);
+  });
+
+  it("Cox regression: tidy time+event+group matches the editable survival run", async () => {
+    FIXTURE = { columns: ["t", "e", "g"], rows: survRows.map((r) => [...r] as Cell[]) };
+    const dataset = await runAnalysisOnDataset(
+      HANDLE,
+      spec("coxRegression", ["t", "e", "g"]),
+      sidecar(["t", "e", "g"]),
+    );
+    const editable = runAnalysis(spec("coxRegression", []), survEditable());
+    expect(dataset.ok).toBe(true);
+    expect(editable.ok).toBe(true);
+    expectSameNumbers(dataset, editable);
+  });
+
+  it("nested t-test: tidy value+group+subgroup matches the editable nested run", async () => {
+    FIXTURE = {
+      columns: ["val", "grp", "sub"],
+      rows: [
+        [5.2, "Control", "S1"], [5.5, "Control", "S1"], [5.1, "Control", "S1"],
+        [6.1, "Control", "S2"], [6.3, "Control", "S2"], [6.0, "Control", "S2"],
+        [8.3, "Drug", "S3"], [8.1, "Drug", "S3"], [8.5, "Drug", "S3"],
+        [7.9, "Drug", "S4"], [8.2, "Drug", "S4"], [7.8, "Drug", "S4"],
+      ],
+    };
+    const dataset = await runAnalysisOnDataset(
+      HANDLE,
+      spec("nestedTTest", ["val", "grp", "sub"]),
+      sidecar(["val", "grp", "sub"]),
+    );
+    const editable = runAnalysis(
+      spec("nestedTTest", []),
+      content(
+        "nested",
+        [
+          { id: "g0s0", name: "S1", role: "y", dataType: "number", datasetId: "d0", subcolumnKind: "replicate", groupName: "Control" },
+          { id: "g0s1", name: "S2", role: "y", dataType: "number", datasetId: "d0", subcolumnKind: "replicate", groupName: "Control" },
+          { id: "g1s0", name: "S3", role: "y", dataType: "number", datasetId: "d1", subcolumnKind: "replicate", groupName: "Drug" },
+          { id: "g1s1", name: "S4", role: "y", dataType: "number", datasetId: "d1", subcolumnKind: "replicate", groupName: "Drug" },
+        ],
+        [
+          { id: "r0", cells: { g0s0: 5.2, g0s1: 6.1, g1s0: 8.3, g1s1: 7.9 } },
+          { id: "r1", cells: { g0s0: 5.5, g0s1: 6.3, g1s0: 8.1, g1s1: 8.2 } },
+          { id: "r2", cells: { g0s0: 5.1, g0s1: 6.0, g1s0: 8.5, g1s1: 7.8 } },
+        ],
+      ),
+    );
+    expect(dataset.ok).toBe(true);
+    expect(editable.ok).toBe(true);
+    expectSameNumbers(dataset, editable);
+  });
+
+  it("nested one-way ANOVA: tidy 3 groups matches the editable nested run", async () => {
+    FIXTURE = {
+      columns: ["val", "grp", "sub"],
+      rows: [
+        [5.2, "A", "S1"], [5.5, "A", "S1"], [6.1, "A", "S2"], [6.3, "A", "S2"],
+        [8.3, "B", "S3"], [8.1, "B", "S3"], [7.9, "B", "S4"], [8.2, "B", "S4"],
+        [11.1, "C", "S5"], [10.8, "C", "S5"], [12.0, "C", "S6"], [11.7, "C", "S6"],
+      ],
+    };
+    const dataset = await runAnalysisOnDataset(
+      HANDLE,
+      spec("nestedOneWayAnova", ["val", "grp", "sub"]),
+      sidecar(["val", "grp", "sub"]),
+    );
+    const editable = runAnalysis(
+      spec("nestedOneWayAnova", []),
+      content(
+        "nested",
+        [
+          { id: "a0", name: "S1", role: "y", dataType: "number", datasetId: "dA", subcolumnKind: "replicate", groupName: "A" },
+          { id: "a1", name: "S2", role: "y", dataType: "number", datasetId: "dA", subcolumnKind: "replicate", groupName: "A" },
+          { id: "b0", name: "S3", role: "y", dataType: "number", datasetId: "dB", subcolumnKind: "replicate", groupName: "B" },
+          { id: "b1", name: "S4", role: "y", dataType: "number", datasetId: "dB", subcolumnKind: "replicate", groupName: "B" },
+          { id: "c0", name: "S5", role: "y", dataType: "number", datasetId: "dC", subcolumnKind: "replicate", groupName: "C" },
+          { id: "c1", name: "S6", role: "y", dataType: "number", datasetId: "dC", subcolumnKind: "replicate", groupName: "C" },
+        ],
+        [
+          { id: "r0", cells: { a0: 5.2, a1: 6.1, b0: 8.3, b1: 7.9, c0: 11.1, c1: 12.0 } },
+          { id: "r1", cells: { a0: 5.5, a1: 6.3, b0: 8.1, b1: 8.2, c0: 10.8, c1: 11.7 } },
+        ],
+      ),
+    );
+    expect(dataset.ok).toBe(true);
+    expect(editable.ok).toBe(true);
+    expectSameNumbers(dataset, editable);
   });
 
   it("group-pair selection: a two-group test on a 3-level column compares exactly the chosen pair", async () => {

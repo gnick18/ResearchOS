@@ -19,7 +19,10 @@ import CompoundMethodTabContent from "./methods/CompoundMethodTabContent";
 import CodingWorkflowMethodTabContent from "./methods/CodingWorkflowMethodTabContent";
 import QpcrAnalysisMethodTabContent from "./methods/QpcrAnalysisMethodTabContent";
 import { WrapAsCompoundAction } from "./methods/WrapAsCompoundAction";
+import { ForkToLibraryAction } from "./methods/ForkToLibraryAction";
 import ViewMethodOnPhoneButton from "./methods/ViewMethodOnPhoneButton";
+import VariationNotesPanel from "./methods/VariationNotesPanel";
+import { Icon, type IconName } from "@/components/icons";
 
 interface MethodTabsProps {
   task: Task;
@@ -30,6 +33,23 @@ interface MethodTabsProps {
    *  owner's folder + audit. */
   piActor?: string;
 }
+
+// Per-type visual identity for the component rail: a registry icon, a short
+// sentence-case label, and an accent color. The color is a mid-ramp hue that
+// stays legible on both light and dark surfaces (the active row tints to ~10%
+// of it). Keyed by the resolved viewer type from resolveMethodType.
+const TYPE_META: Record<string, { icon: IconName; label: string; color: string }> = {
+  markdown: { icon: "text", label: "Markdown", color: "#5F5E5A" },
+  pcr: { icon: "growth", label: "PCR", color: "#A32D2D" },
+  qpcr_analysis: { icon: "chart", label: "qPCR analysis", color: "#534AB7" },
+  lc_gradient: { icon: "chart", label: "LC gradient", color: "#0F6E56" },
+  plate: { icon: "table", label: "Plate layout", color: "#854F0B" },
+  cell_culture: { icon: "vial", label: "Cell culture", color: "#3B6D11" },
+  mass_spec: { icon: "gauge", label: "Mass spec", color: "#185FA5" },
+  compound: { icon: "layer", label: "Compound kit", color: "#993556" },
+  coding_workflow: { icon: "transform", label: "Code workflow", color: "#444441" },
+  pdf: { icon: "file", label: "PDF", color: "#993C1D" },
+};
 
 export default function MethodTabs({ task, onTaskUpdate, readOnly = false, piActor }: MethodTabsProps) {
   const queryClient = useQueryClient();
@@ -144,113 +164,88 @@ export default function MethodTabs({ task, onTaskUpdate, readOnly = false, piAct
   }, [task.id, task.owner, activeAttachmentKey, queryClient, onTaskUpdate, tasksApi]);
 
   return (
-    <div className="flex flex-col h-full">
-      {/* Tab bar - browser-like */}
-      <div className="flex items-center bg-surface-sunken border-b border-border px-2 pt-2">
-        {/* Method tabs */}
-        <div className="flex items-end gap-0.5 flex-1 overflow-x-auto">
+    <div className="flex h-full">
+      {/* Left rail: method components, color-coded by type. Replaces the old
+          cramped top tab bar so long names get vertical room and each type
+          carries its own accent color instead of blurring into grey. */}
+      <div className="flex w-56 flex-shrink-0 flex-col border-r border-border bg-surface-sunken">
+        <div className="px-3 pb-1.5 pt-3 text-meta font-medium text-foreground-muted">
+          Components
+        </div>
+        <div className="flex flex-1 flex-col gap-1 overflow-y-auto px-2 pb-2">
           {methodAttachments.map((attachment) => {
             const method = resolveMethodForAttachment(attachment, allMethods, task.owner);
             const tabKey = attachmentKey(attachment, task.owner);
             const isActive = activeAttachmentKey === tabKey;
+            const meta =
+              TYPE_META[resolveMethodType(method?.method_type, method?.source_path)] ??
+              TYPE_META.markdown;
 
             return (
               <div
                 key={tabKey}
-                className={`group relative flex items-center gap-1 px-3 py-2 rounded-t-lg text-body font-medium cursor-pointer transition-colors min-w-[120px] max-w-[200px] ${
-                  isActive
-                    ? "bg-surface-raised text-foreground shadow-sm border-t border-l border-r border-border"
-                    : "bg-surface-sunken text-foreground-muted hover:bg-gray-300"
-                }`}
+                title={method?.name || `Method ${attachment.method_id}`}
                 onClick={() => setActiveAttachmentKey(tabKey)}
+                className={`group relative flex cursor-pointer items-start gap-2.5 rounded-md px-2.5 py-2 transition-colors ${
+                  isActive ? "shadow-sm" : "hover:bg-surface-raised/60"
+                }`}
+                style={isActive ? { backgroundColor: `${meta.color}1A` } : undefined}
               >
-                {/* Tab type badge — text-only, no emoji */}
-                {method?.method_type && (
-                  <span className="text-meta font-mono uppercase tracking-wide bg-surface-sunken group-[.active-tab]:bg-surface-sunken rounded px-1 py-0.5 text-foreground-muted shrink-0">
-                    {method.method_type === "lc_gradient" ? "LC" :
-                     method.method_type === "qpcr_analysis" ? "qPCR" :
-                     method.method_type === "mass_spec" ? "MS" :
-                     method.method_type === "cell_culture" ? "CC" :
-                     method.method_type === "coding_workflow" ? "code" :
-                     method.method_type === "pcr" ? "PCR" :
-                     method.method_type === "pdf" ? "PDF" :
-                     method.method_type === "compound" ? "cmpd" :
-                     method.method_type === "plate" ? "plate" :
-                     "md"}
-                  </span>
-                )}
-
-                {/* Tab title */}
-                <span className="truncate flex-1">
-                  {method?.name || `Method ${attachment.method_id}`}
+                <span className="mt-0.5 flex-shrink-0" style={{ color: meta.color }}>
+                  <Icon name={meta.icon} className="h-4 w-4" />
                 </span>
+                <div className="min-w-0 flex-1">
+                  <div
+                    className={`text-body font-medium leading-snug ${
+                      isActive ? "text-foreground" : "text-foreground-muted"
+                    }`}
+                    style={{
+                      display: "-webkit-box",
+                      WebkitLineClamp: 2,
+                      WebkitBoxOrient: "vertical",
+                      overflow: "hidden",
+                    }}
+                  >
+                    {method?.name || `Method ${attachment.method_id}`}
+                  </div>
+                  <div className="mt-0.5 text-meta" style={{ color: meta.color }}>
+                    {meta.label}
+                  </div>
+                </div>
 
-                {/* Close button - hidden in readOnly mode */}
+                {/* Remove component - hidden in readOnly mode */}
                 {!readOnly && (
-                  <Tooltip label="Remove method" placement="bottom">
+                  <Tooltip label="Remove method" placement="left">
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
                         handleRemoveMethod(attachment.method_id, tabKey);
                       }}
                       disabled={saving}
-                      className="opacity-0 group-hover:opacity-100 hover:bg-gray-300 rounded p-0.5 transition-opacity"
+                      className="rounded p-0.5 text-foreground-muted opacity-0 transition-opacity hover:bg-surface-raised group-hover:opacity-100"
                       data-force-hover-controls-target
+                      aria-label="Remove method"
                     >
-                      <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                        <path d="M18 6L6 18M6 6l12 12"/>
-                      </svg>
+                      <Icon name="close" className="h-3.5 w-3.5" />
                     </button>
                   </Tooltip>
                 )}
               </div>
             );
           })}
-
-          {/* Add method button - hidden in readOnly mode */}
-          {!readOnly && (
-            <Tooltip label="Add method" placement="bottom">
-              <button
-                onClick={() => setShowMethodSelector(true)}
-                data-tour-target="experiment-attach-method"
-                className="flex items-center justify-center px-3 py-2 rounded-t-lg text-body text-foreground-muted hover:bg-surface-sunken transition-colors"
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M12 5v14M5 12h14"/>
-                </svg>
-              </button>
-            </Tooltip>
-          )}
         </div>
-        {/* View method on phone (explicit entry point, Grant's locked v1
-            decision). Publishes a sealed read-mode projection of this
-            experiment's method(s) to the paired phone so the researcher can
-            follow the protocol at the bench. Self-hides when no phone is
-            paired. Shown in read AND edit mode (viewing is always allowed). */}
-        {activeMethod && (
-          <div className="ml-2 mb-2">
-            <ViewMethodOnPhoneButton taskId={task.id} taskOwner={task.owner} />
-          </div>
-        )}
-        {/* Extend-into-kit affordance for the active non-compound method.
-            Wrapping creates a new compound (kit) that lists the active
-            method as its first child, then swaps this task's attachment
-            from the source method to the new compound. */}
-        {!readOnly && activeMethod && activeMethod.method_type !== "compound" && (
-          <div className="ml-2 mb-2">
-            <WrapAsCompoundAction
-              method={activeMethod}
-              task={task}
-              piActor={piActor}
-              onWrapped={(compound) =>
-                setActiveAttachmentKey(
-                  attachmentKey(
-                    { method_id: compound.id, owner: compound.owner },
-                    task.owner,
-                  ),
-                )
-              }
-            />
+        {/* Add component sits in the rail footer, full-width, so it reads as a
+            list action rather than a tab. */}
+        {!readOnly && (
+          <div className="border-t border-border p-2">
+            <button
+              onClick={() => setShowMethodSelector(true)}
+              data-tour-target="experiment-attach-method"
+              className="flex w-full items-center justify-center gap-1.5 rounded-md px-3 py-2 text-body text-foreground-muted transition-colors hover:bg-surface-raised"
+            >
+              <Icon name="plus" className="h-4 w-4" />
+              Add component
+            </button>
           </div>
         )}
       </div>
@@ -277,8 +272,42 @@ export default function MethodTabs({ task, onTaskUpdate, readOnly = false, piAct
         onClose={() => setShowMethodSelector(false)}
       />
 
-      {/* Tab content — dispatch to per-type viewer */}
-      <div className="flex-1 overflow-y-auto">
+      {/* Right pane: active component header (name + actions) then the body. */}
+      <div className="flex min-w-0 flex-1 flex-col">
+        {activeMethod && (
+          <div className="flex items-center gap-2 border-b border-border px-4 py-2">
+            <span
+              className="flex-shrink-0"
+              style={{ color: (TYPE_META[resolveMethodType(activeMethod.method_type, activeMethod.source_path)] ?? TYPE_META.markdown).color }}
+            >
+              <Icon
+                name={(TYPE_META[resolveMethodType(activeMethod.method_type, activeMethod.source_path)] ?? TYPE_META.markdown).icon}
+                className="h-4 w-4"
+              />
+            </span>
+            {/* Full width for the title now that the actions live in the
+                bottom toolbar, so long method names are no longer cut off. */}
+            <span className="truncate text-body font-medium text-foreground">
+              {activeMethod.name || `Method ${activeAttachment!.method_id}`}
+            </span>
+          </div>
+        )}
+        {/* Gathered-reagent progress synced from the phone read mode
+            (last-write-wins). Self-hides when nothing has been gathered yet. */}
+        {activeMethod &&
+          activeAttachment?.gathered_checks &&
+          activeAttachment.gathered_checks.total > 0 && (
+            <div className="flex items-center gap-1.5 border-b border-border bg-surface-sunken px-4 py-1.5 text-meta text-foreground-muted">
+              <Icon name="check" className="h-3 w-3 flex-shrink-0 text-green-600" />
+              <span>
+                {activeAttachment.gathered_checks.gatheredCount} of{" "}
+                {activeAttachment.gathered_checks.total} reagents gathered on the phone
+              </span>
+            </div>
+          )}
+
+        {/* Tab content — dispatch to per-type viewer */}
+        <div className="flex-1 overflow-y-auto">
         {activeAttachmentKey === null || !activeMethod ? (
           <div className="flex flex-col items-center justify-center h-full text-foreground-muted">
             <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1" strokeLinecap="round" strokeLinejoin="round">
@@ -317,6 +346,7 @@ export default function MethodTabs({ task, onTaskUpdate, readOnly = false, piAct
                     methodId={activeMethodId}
                     attachment={activeAttachment}
                     onTaskUpdate={onTaskUpdate}
+                    hideVariationNotes
                     readOnly={readOnly}
                     piActor={piActor}
                   />
@@ -329,6 +359,7 @@ export default function MethodTabs({ task, onTaskUpdate, readOnly = false, piAct
                     methodId={activeMethodId}
                     attachment={activeAttachment}
                     onTaskUpdate={onTaskUpdate}
+                    hideVariationNotes
                     readOnly={readOnly}
                     piActor={piActor}
                   />
@@ -341,6 +372,7 @@ export default function MethodTabs({ task, onTaskUpdate, readOnly = false, piAct
                     methodId={activeMethodId}
                     attachment={activeAttachment}
                     onTaskUpdate={onTaskUpdate}
+                    hideVariationNotes
                     readOnly={readOnly}
                     piActor={piActor}
                   />
@@ -353,6 +385,7 @@ export default function MethodTabs({ task, onTaskUpdate, readOnly = false, piAct
                     methodId={activeMethodId}
                     attachment={activeAttachment}
                     onTaskUpdate={onTaskUpdate}
+                    hideVariationNotes
                     readOnly={readOnly}
                     piActor={piActor}
                   />
@@ -365,6 +398,7 @@ export default function MethodTabs({ task, onTaskUpdate, readOnly = false, piAct
                     methodId={activeMethodId}
                     attachment={activeAttachment}
                     onTaskUpdate={onTaskUpdate}
+                    hideVariationNotes
                     readOnly={readOnly}
                     piActor={piActor}
                   />
@@ -377,6 +411,7 @@ export default function MethodTabs({ task, onTaskUpdate, readOnly = false, piAct
                     methodId={activeMethodId}
                     attachment={activeAttachment}
                     onTaskUpdate={onTaskUpdate}
+                    hideVariationNotes
                     readOnly={readOnly}
                   />
                 );
@@ -388,6 +423,7 @@ export default function MethodTabs({ task, onTaskUpdate, readOnly = false, piAct
                     methodId={activeMethodId}
                     attachment={activeAttachment}
                     onTaskUpdate={onTaskUpdate}
+                    hideVariationNotes
                     readOnly={readOnly}
                   />
                 );
@@ -399,6 +435,7 @@ export default function MethodTabs({ task, onTaskUpdate, readOnly = false, piAct
                     methodId={activeMethodId}
                     attachment={activeAttachment}
                     onTaskUpdate={onTaskUpdate}
+                    hideVariationNotes
                     readOnly={readOnly}
                     onSwitchActiveMethod={(nextId) =>
                       setActiveAttachmentKey(
@@ -421,6 +458,7 @@ export default function MethodTabs({ task, onTaskUpdate, readOnly = false, piAct
                     methodId={activeMethodId}
                     attachment={activeAttachment}
                     onTaskUpdate={onTaskUpdate}
+                    hideVariationNotes
                     readOnly={readOnly}
                   />
                 );
@@ -433,6 +471,7 @@ export default function MethodTabs({ task, onTaskUpdate, readOnly = false, piAct
                     methodId={activeMethodId}
                     attachment={activeAttachment}
                     onTaskUpdate={onTaskUpdate}
+                    hideVariationNotes
                     readOnly={readOnly}
                     piActor={piActor}
                   />
@@ -441,6 +480,58 @@ export default function MethodTabs({ task, onTaskUpdate, readOnly = false, piAct
           })()
         )}
       </div>
+        {/* Action toolbar pinned to the bottom of the content pane, so the
+            method title above keeps the full header width instead of fighting
+            these buttons for space. */}
+        {activeMethod && (
+          <div className="flex flex-shrink-0 flex-wrap items-center gap-1.5 border-t border-border px-4 py-2">
+            <ViewMethodOnPhoneButton taskId={task.id} taskOwner={task.owner} />
+            {!readOnly && activeMethod.method_type !== "compound" && (
+              <WrapAsCompoundAction
+                method={activeMethod}
+                task={task}
+                piActor={piActor}
+                onWrapped={(compound) =>
+                  setActiveAttachmentKey(
+                    attachmentKey(
+                      { method_id: compound.id, owner: compound.owner },
+                      task.owner,
+                    ),
+                  )
+                }
+              />
+            )}
+            {!readOnly && (
+              <ForkToLibraryAction
+                method={activeMethod}
+                attachment={activeAttachment}
+                task={task}
+                piActor={piActor}
+              />
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* Variation Notes — hoisted out of the per-type viewers into a shared
+          full-height right column (rail | content | variations). Reads the
+          active attachment's notes; the per-type viewers are told to hide
+          their own copy via `hideVariationNotes`. Only shown when a method
+          component is actually open. */}
+      {activeAttachmentKey !== null && activeMethod && activeAttachment && (
+        <VariationNotesPanel
+          task={task}
+          methodId={activeAttachment.method_id}
+          variationNotes={activeAttachment.variation_notes}
+          onSaved={(updatedTask) => {
+            if (updatedTask) onTaskUpdate?.(updatedTask);
+            queryClient.refetchQueries({ queryKey: ["tasks"] });
+            queryClient.refetchQueries({ queryKey: ["allTasks"] });
+          }}
+          readOnly={readOnly}
+          piActor={piActor}
+        />
+      )}
     </div>
   );
 }

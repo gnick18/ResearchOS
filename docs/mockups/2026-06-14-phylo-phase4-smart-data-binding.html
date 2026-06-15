@@ -1,0 +1,288 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Phylo Phase 4 — Smart Data Binding wizard (2026-06-14)</title>
+<style>
+  :root{
+    --bg:#f6f7f5; --surface:#ffffff; --sunken:#f1f2ef; --line:#e3e5e0; --line2:#d2d5cd;
+    --fg:#1f2421; --muted:#6b716a; --faint:#9aa097;
+    --brand:#1d9e75; --brand-soft:#e3f4ec; --brand-ink:#0f6e56;
+    --info:#2563eb; --info-soft:#e7f0fe; --info-ink:#1b4fa8;
+    --amber:#b9770f; --amber-soft:#fbf0dc; --radius:10px;
+  }
+  :root[data-theme="dark"]{
+    --bg:#15171a; --surface:#1d2024; --sunken:#23272c; --line:#2c3137; --line2:#3a4047;
+    --fg:#e7eae7; --muted:#9aa29b; --faint:#6f7872;
+    --brand-soft:#0f3a2c; --brand-ink:#6fd9b4; --info-soft:#14233f; --info-ink:#7fb0f5;
+    --amber-soft:#3a2c12;
+  }
+  .themetoggle{position:fixed; top:16px; right:18px; z-index:50; font-size:12px; padding:6px 12px;
+    border:1px solid var(--line2); border-radius:999px; background:var(--surface); color:var(--muted);
+    cursor:pointer;}
+  .themetoggle:hover{background:var(--sunken)}
+  *{box-sizing:border-box}
+  html,body{margin:0}
+  body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Inter,system-ui,sans-serif;
+    background:var(--bg); color:var(--fg); font-size:13px; line-height:1.45; padding:24px;}
+  h1{font-size:17px; margin:0 0 2px}
+  .sub{color:var(--muted); margin:0 0 20px; font-size:12.5px}
+  .lane{color:var(--brand-ink); font-weight:600}
+  .grid{display:flex; gap:22px; align-items:flex-start; flex-wrap:wrap}
+  .col{display:flex; flex-direction:column; gap:14px}
+  .caption{font-size:11px; text-transform:uppercase; letter-spacing:.6px; color:var(--faint); margin:2px 0 -4px}
+
+  /* the in-panel banner (auto-suggest) */
+  .panel{width:344px; border:1px solid var(--line); border-radius:12px; background:var(--surface); overflow:hidden}
+  .ptabs{display:flex; gap:2px; padding:8px 8px 0; border-bottom:1px solid var(--line)}
+  .ptab{font-size:12.5px; padding:8px 12px; border-radius:8px 8px 0 0; color:var(--muted)}
+  .ptab.active{color:var(--fg); background:var(--surface); border:1px solid var(--line); border-bottom:none; position:relative; top:1px; font-weight:500}
+  .pbody{padding:12px}
+  .banner{display:flex; gap:10px; align-items:flex-start; padding:11px 12px; border:1px solid var(--info); background:var(--info-soft); border-radius:10px}
+  .banner .bi{width:20px;height:20px;color:var(--info-ink);flex:none}
+  .banner .bt{font-weight:600; color:var(--info-ink)}
+  .banner .bd{color:var(--info-ink); opacity:.85; font-size:12px; margin-top:1px}
+  .banner .bx{margin-left:auto; color:var(--info-ink); opacity:.6; cursor:pointer; font-size:14px; line-height:1}
+  .reviewline{font-size:11.5px; color:var(--faint); margin-top:14px}
+
+  /* wizard card */
+  .wiz{width:430px; border:1px solid var(--line2); border-radius:14px; background:var(--surface); overflow:hidden; box-shadow:0 8px 30px rgba(0,0,0,.10)}
+  .whdr{display:flex; align-items:center; gap:10px; padding:13px 16px; border-bottom:1px solid var(--line)}
+  .whdr .wt{font-weight:600; font-size:13.5px}
+  .whdr .wx{margin-left:auto; color:var(--faint); cursor:pointer}
+  .steps{display:flex; gap:6px; padding:11px 16px; border-bottom:1px solid var(--line); background:var(--sunken)}
+  .step{display:flex; align-items:center; gap:7px; font-size:11.5px; color:var(--faint)}
+  .step .sn{width:18px;height:18px;border-radius:50%; border:1px solid var(--line2); display:flex; align-items:center; justify-content:center; font-size:10px; background:var(--surface)}
+  .step.on{color:var(--fg); font-weight:600}
+  .step.on .sn{background:var(--brand); border-color:var(--brand); color:#fff}
+  .step.done .sn{background:var(--brand-soft); border-color:var(--brand); color:var(--brand-ink)}
+  .step .arr{color:var(--line2)}
+  .wbody{padding:14px 16px; max-height:430px; overflow:auto}
+  .wfoot{display:flex; gap:10px; align-items:center; padding:12px 16px; border-top:1px solid var(--line); background:var(--surface)}
+  .wfoot .gap{flex:1}
+  .btn{font-size:12.5px; padding:8px 13px; border:1px solid var(--line2); border-radius:9px; background:var(--surface); color:var(--fg); cursor:pointer; display:inline-flex; gap:7px; align-items:center}
+  .btn:hover{background:var(--sunken)}
+  .btn.primary{background:var(--brand); border-color:var(--brand); color:#fff}
+  .btn.ghost{border-color:transparent; color:var(--muted)}
+
+  /* step 1 — table candidate cards */
+  .tcard{display:flex; gap:12px; align-items:flex-start; padding:12px; border:1px solid var(--line); border-radius:11px; margin-bottom:10px; cursor:pointer}
+  .tcard:hover{border-color:var(--line2); background:var(--sunken)}
+  .tcard.sel{border-color:var(--info); box-shadow:0 0 0 1px var(--info); background:var(--info-soft)}
+  .tcard .tk{width:30px;height:30px;border-radius:8px; background:var(--brand-soft); color:var(--brand-ink); display:flex; align-items:center; justify-content:center; flex:none}
+  .tcard .tk svg{width:17px;height:17px}
+  .tcard .nm{font-weight:600; font-size:13px}
+  .tcard .meta{font-size:11.5px; color:var(--muted); margin-top:3px}
+  .ratechip{display:inline-flex; align-items:center; gap:5px; font-size:11px; font-weight:600; padding:2px 8px; border-radius:999px; margin-top:7px}
+  .ratechip.hi{background:var(--brand-soft); color:var(--brand-ink)}
+  .ratechip.mid{background:var(--amber-soft); color:var(--amber)}
+  .bar{height:4px; border-radius:2px; background:var(--line); margin-top:7px; overflow:hidden}
+  .bar > i{display:block; height:100%; background:var(--brand)}
+  .bar.mid > i{background:var(--amber)}
+  .low{opacity:.7}
+
+  /* step 2 — columns */
+  .anchor{display:flex; align-items:center; gap:9px; padding:9px 11px; border:1px solid var(--brand); background:var(--brand-soft); border-radius:9px; margin-bottom:10px; font-size:12px; color:var(--brand-ink)}
+  .anchor b{font-weight:600}
+  .crow{display:flex; align-items:center; gap:10px; padding:10px 11px; border:1px solid var(--line); border-radius:9px; margin-bottom:7px; cursor:pointer}
+  .crow:hover{background:var(--sunken)}
+  .crow.sel{border-color:var(--info); box-shadow:0 0 0 1px var(--info)}
+  .crow.dis{opacity:.55; cursor:not-allowed}
+  .cbox{width:16px;height:16px;border:1.5px solid var(--line2); border-radius:5px; flex:none; display:flex; align-items:center; justify-content:center}
+  .crow.sel .cbox{background:var(--info); border-color:var(--info)}
+  .cbox svg{width:11px;height:11px;color:#fff}
+  .cname{font-weight:500}
+  .kindtag{font-size:10px; font-weight:600; padding:1px 7px; border-radius:5px; background:var(--sunken); color:var(--muted); margin-left:6px}
+  .kindtag.num{background:var(--info-soft); color:var(--info-ink)}
+  .canopts{font-size:11px; color:var(--faint); margin-left:auto}
+  .reason{font-size:11px; color:var(--faint); margin-left:auto; font-style:italic}
+
+  /* step 3 — gallery */
+  .gal{display:grid; grid-template-columns:1fr 1fr; gap:10px}
+  .gcard{border:1px solid var(--line); border-radius:11px; overflow:hidden; cursor:pointer; background:var(--surface)}
+  .gcard:hover{border-color:var(--line2)}
+  .gcard.sel{border-color:var(--info); box-shadow:0 0 0 1px var(--info)}
+  .gthumb{height:96px; background:var(--sunken); border-bottom:1px solid var(--line); display:flex; align-items:center; justify-content:center; position:relative}
+  .gthumb svg{width:100%;height:100%}
+  .gcheck{position:absolute; top:7px; right:7px; width:18px;height:18px;border-radius:6px; background:var(--surface); border:1.5px solid var(--line2); display:flex;align-items:center;justify-content:center}
+  .gcard.sel .gcheck{background:var(--info); border-color:var(--info)}
+  .gcheck svg{width:12px;height:12px;color:#fff}
+  .gcap{padding:8px 10px}
+  .gcap .gt{font-weight:600; font-size:12px}
+  .gcap .gd{font-size:11px; color:var(--muted); margin-top:1px}
+
+  /* beakerbot mount */
+  .chat{width:430px; border:1px solid var(--line); border-radius:14px; background:var(--surface); overflow:hidden}
+  .chrow{display:flex; gap:10px; padding:13px 15px}
+  .av{width:26px;height:26px;border-radius:8px;flex:none;background:linear-gradient(135deg,#a78bfa,#f0abfc,#5eead4);}
+  .av.me{background:var(--sunken)}
+  .msg{font-size:12.5px}
+  .msg .who{font-weight:600; font-size:11px; color:var(--muted); margin-bottom:2px}
+  .embed{margin-top:9px; border:1px solid var(--line2); border-radius:11px; overflow:hidden}
+  .embed .eh{font-size:11px; color:var(--faint); padding:7px 11px; border-bottom:1px solid var(--line); background:var(--sunken); display:flex; gap:6px; align-items:center}
+  .mini{padding:10px 11px}
+</style>
+</head>
+<body>
+  <button class="themetoggle" onclick="var r=document.documentElement;r.dataset.theme=r.dataset.theme==='dark'?'':'dark';this.textContent=r.dataset.theme==='dark'?'☀ Light':'☾ Dark';">☾ Dark</button>
+  <h1>Phylo Tree Studio — <span class="lane">Phase 4: Smart Data Binding</span></h1>
+  <p class="sub">The hub finds data that can go on the tree, ranks it by tip-coverage, enumerates the overlays each column can drive, and adds one or several at once. ONE engine, TWO front doors (GUI + BeakerBot). Deterministic engine computes; the model only narrates. — mockup 2026-06-14</p>
+
+  <div class="grid">
+
+    <!-- ============ LEFT: auto-suggest banner in the Layers tab ============ -->
+    <div class="col">
+      <div class="caption">A · Auto-suggest banner (Layers tab, on tree open)</div>
+      <div class="panel">
+        <div class="ptabs">
+          <div class="ptab">Shape</div>
+          <div class="ptab active">Layers</div>
+          <div class="ptab">Data</div>
+          <div class="ptab">Export</div>
+          <div class="ptab">Code</div>
+        </div>
+        <div class="pbody">
+          <div class="banner">
+            <svg class="bi" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 3-1.9 5.8a2 2 0 0 1-1.3 1.3L3 12l5.8 1.9a2 2 0 0 1 1.3 1.3L12 21l1.9-5.8a2 2 0 0 1 1.3-1.3L21 12l-5.8-1.9a2 2 0 0 1-1.3-1.3Z"/><path d="M19 3v3"/><path d="M17.5 4.5h3"/></svg>
+            <div>
+              <div class="bt">3 tables can overlay this tree</div>
+              <div class="bd">Tables in this collection share a column with your tip labels. Pick what to put on the tree →</div>
+            </div>
+            <div class="bx">×</div>
+          </div>
+          <div class="reviewline">Quiet, dismissable, non-modal. Also reachable any time from the Add ＋ menu → “Find data for this tree”.</div>
+        </div>
+      </div>
+
+      <div class="caption">D · BeakerBot mounts the SAME widget</div>
+      <div class="chat">
+        <div class="chrow"><div class="av me"></div><div class="msg"><div class="who">You</div>what data can I put on this tree?</div></div>
+        <div class="chrow"><div class="av"></div><div class="msg"><div class="who">BeakerBot</div>
+          Three tables in this collection join your tips. <b>resistance_assay</b> is the strongest — it joins 48 of 50 tips. Its MIC column could be a heatmap or a bar overlay. Here’s the picker:
+          <div class="embed">
+            <div class="eh"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 3-1.9 5.8a2 2 0 0 1-1.3 1.3L3 12l5.8 1.9a2 2 0 0 1 1.3 1.3L12 21l1.9-5.8a2 2 0 0 1 1.3-1.3L21 12l-5.8-1.9a2 2 0 0 1-1.3-1.3Z"/><path d="M19 3v3"/><path d="M17.5 4.5h3"/></svg> Smart Data Binding · same widget as /phylo</div>
+            <div class="mini">
+              <div class="tcard sel" style="margin:0">
+                <div class="tk"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 9h18M9 4v16"/></svg></div>
+                <div style="flex:1">
+                  <div class="nm">resistance_assay</div>
+                  <div class="meta">3 numeric → heatmap, bars, points · 1 category → color strip</div>
+                  <span class="ratechip hi">joins 48 of 50 tips</span>
+                  <div class="bar"><i style="width:96%"></i></div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div style="font-size:11.5px;color:var(--faint);margin-top:8px">The engine computed every join rate and the possible overlays — I’m only walking you through them.</div>
+        </div></div>
+      </div>
+    </div>
+
+    <!-- ============ MIDDLE: the wizard, three states ============ -->
+    <div class="col">
+      <div class="caption">B · Wizard — Step 1: tables that can go on this tree</div>
+      <div class="wiz">
+        <div class="whdr"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--brand)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 3-1.9 5.8a2 2 0 0 1-1.3 1.3L3 12l5.8 1.9a2 2 0 0 1 1.3 1.3L12 21l1.9-5.8a2 2 0 0 1 1.3-1.3L21 12l-5.8-1.9a2 2 0 0 1-1.3-1.3Z"/><path d="M19 3v3"/><path d="M17.5 4.5h3"/></svg><div class="wt">Find data for <b>Clade_A.nwk</b></div><div class="wx">×</div></div>
+        <div class="steps">
+          <div class="step on"><span class="sn">1</span>Pick a table</div><span class="arr">›</span>
+          <div class="step"><span class="sn">2</span>Columns</div><span class="arr">›</span>
+          <div class="step"><span class="sn">3</span>Overlays</div>
+        </div>
+        <div class="wbody">
+          <div class="tcard sel">
+            <div class="tk"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 9h18M9 4v16"/></svg></div>
+            <div style="flex:1">
+              <div class="nm">resistance_assay</div>
+              <div class="meta">Data Hub table · 3 numeric cols → heatmap · bars · points &nbsp;·&nbsp; 1 category → color strip</div>
+              <span class="ratechip hi">joins 48 of 50 tips</span>
+              <div class="bar"><i style="width:96%"></i></div>
+            </div>
+          </div>
+          <div class="tcard">
+            <div class="tk"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 9h18M9 4v16"/></svg></div>
+            <div style="flex:1">
+              <div class="nm">growth_rates</div>
+              <div class="meta">Data Hub table · 2 numeric cols → heatmap · bars · points</div>
+              <span class="ratechip hi">joins 41 of 50 tips</span>
+              <div class="bar"><i style="width:82%"></i></div>
+            </div>
+          </div>
+          <div class="tcard low">
+            <div class="tk"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 9h18M9 4v16"/></svg></div>
+            <div style="flex:1">
+              <div class="nm">sampling_sites</div>
+              <div class="meta">Data Hub table · 1 category → color strip · node pies</div>
+              <span class="ratechip mid">joins 12 of 50 tips</span>
+              <div class="bar mid"><i style="width:24%"></i></div>
+            </div>
+          </div>
+          <div style="font-size:11.5px;color:var(--faint);margin-top:4px">Partial coverage is fine — the rate is shown so you judge. Tables with no shared column are hidden.</div>
+        </div>
+        <div class="wfoot"><div class="btn ghost">Cancel</div><div class="gap"></div><div class="btn primary">Next: columns ›</div></div>
+      </div>
+    </div>
+
+    <!-- ============ RIGHT: steps 2 & 3 ============ -->
+    <div class="col">
+      <div class="caption">B · Step 2: which columns to overlay (constraint-aware)</div>
+      <div class="wiz">
+        <div class="whdr"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--brand)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 3-1.9 5.8a2 2 0 0 1-1.3 1.3L3 12l5.8 1.9a2 2 0 0 1 1.3 1.3L12 21l1.9-5.8a2 2 0 0 1 1.3-1.3L21 12l-5.8-1.9a2 2 0 0 1-1.3-1.3Z"/><path d="M19 3v3"/><path d="M17.5 4.5h3"/></svg><div class="wt">resistance_assay → columns</div><div class="wx">×</div></div>
+        <div class="steps">
+          <div class="step done"><span class="sn">✓</span>Table</div><span class="arr">›</span>
+          <div class="step on"><span class="sn">2</span>Columns</div><span class="arr">›</span>
+          <div class="step"><span class="sn">3</span>Overlays</div>
+        </div>
+        <div class="wbody">
+          <div class="anchor">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 12l2 2 4-4"/><circle cx="12" cy="12" r="9"/></svg>
+            Joining on <b>strain_id</b> — matched 48 of 50 tips
+          </div>
+          <div class="crow sel"><span class="cbox"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M5 12l4 4L19 7"/></svg></span><span class="cname">MIC_ug_ml</span><span class="kindtag num">numeric</span><span class="canopts">heatmap · bars · points</span></div>
+          <div class="crow sel"><span class="cbox"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M5 12l4 4L19 7"/></svg></span><span class="cname">zone_mm</span><span class="kindtag num">numeric</span><span class="canopts">heatmap · bars · points</span></div>
+          <div class="crow"><span class="cbox"></span><span class="cname">phenotype</span><span class="kindtag">category</span><span class="canopts">color strip · node pies</span></div>
+          <div class="crow"><span class="cbox"></span><span class="cname">replicate_n</span><span class="kindtag num">numeric</span><span class="canopts">heatmap · bars · points</span></div>
+          <div class="crow dis"><span class="cbox"></span><span class="cname">notes</span><span class="kindtag">text</span><span class="reason">free text — no overlay fits</span></div>
+        </div>
+        <div class="wfoot"><div class="btn ghost">‹ Back</div><div class="gap"></div><span style="font-size:11.5px;color:var(--muted)">2 columns selected</span><div class="btn primary">Next: overlays ›</div></div>
+      </div>
+
+      <div class="caption">B · Step 3: possible plots — live previews, multi-add</div>
+      <div class="wiz">
+        <div class="whdr"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--brand)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 3-1.9 5.8a2 2 0 0 1-1.3 1.3L3 12l5.8 1.9a2 2 0 0 1 1.3 1.3L12 21l1.9-5.8a2 2 0 0 1 1.3-1.3L21 12l-5.8-1.9a2 2 0 0 1-1.3-1.3Z"/><path d="M19 3v3"/><path d="M17.5 4.5h3"/></svg><div class="wt">Pick overlays to add</div><div class="wx">×</div></div>
+        <div class="steps">
+          <div class="step done"><span class="sn">✓</span>Table</div><span class="arr">›</span>
+          <div class="step done"><span class="sn">✓</span>Columns</div><span class="arr">›</span>
+          <div class="step on"><span class="sn">3</span>Overlays</div>
+        </div>
+        <div class="wbody">
+          <div class="gal">
+            <div class="gcard sel">
+              <div class="gthumb"><div class="gcheck"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M5 12l4 4L19 7"/></svg></div>
+                <svg viewBox="0 0 120 96"><g stroke="#1d9e75" stroke-width="1.5" fill="none"><path d="M10 20h20M10 48h20M10 76h20M30 20v56"/></g><g fill="#1d9e75"><rect x="44" y="14" width="44" height="12" opacity=".85"/><rect x="44" y="42" width="28" height="12" opacity=".6"/><rect x="44" y="70" width="60" height="12"/></g></svg></div>
+              <div class="gcap"><div class="gt">MIC_ug_ml — bars</div><div class="gd">aligned bar per tip</div></div>
+            </div>
+            <div class="gcard sel">
+              <div class="gthumb"><div class="gcheck"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M5 12l4 4L19 7"/></svg></div>
+                <svg viewBox="0 0 120 96"><g stroke="#1d9e75" stroke-width="1.5" fill="none"><path d="M10 20h20M10 48h20M10 76h20M30 20v56"/></g><rect x="44" y="12" width="20" height="20" fill="#c43d3d"/><rect x="66" y="12" width="20" height="20" fill="#e8a23d"/><rect x="44" y="40" width="20" height="20" fill="#e8d23d"/><rect x="66" y="40" width="20" height="20" fill="#7fb83d"/><rect x="44" y="68" width="20" height="20" fill="#c43d3d"/><rect x="66" y="68" width="20" height="20" fill="#3d83c4"/></svg></div>
+              <div class="gcap"><div class="gt">MIC_ug_ml — heatmap</div><div class="gd">color cell per tip</div></div>
+            </div>
+            <div class="gcard">
+              <div class="gthumb"><div class="gcheck"></div>
+                <svg viewBox="0 0 120 96"><g stroke="#1d9e75" stroke-width="1.5" fill="none"><path d="M10 20h20M10 48h20M10 76h20M30 20v56"/></g><g fill="none" stroke="#2563eb" stroke-width="1.5"><line x1="60" y1="20" x2="84" y2="20"/><line x1="50" y1="48" x2="70" y2="48"/><line x1="64" y1="76" x2="96" y2="76"/></g><g fill="#2563eb"><circle cx="72" cy="20" r="3.5"/><circle cx="60" cy="48" r="3.5"/><circle cx="80" cy="76" r="3.5"/></g></svg></div>
+              <div class="gcap"><div class="gt">zone_mm — points</div><div class="gd">point + error bar</div></div>
+            </div>
+            <div class="gcard">
+              <div class="gthumb"><div class="gcheck"></div>
+                <svg viewBox="0 0 120 96"><g stroke="#1d9e75" stroke-width="1.5" fill="none"><path d="M10 20h20M10 48h20M10 76h20M30 20v56"/></g><rect x="44" y="14" width="14" height="68" fill="#7c3aed" opacity=".25"/><rect x="44" y="14" width="14" height="14" fill="#7c3aed"/><rect x="44" y="42" width="14" height="14" fill="#db2777"/><rect x="44" y="70" width="14" height="14" fill="#7c3aed"/></svg></div>
+              <div class="gcap"><div class="gt">phenotype — color strip</div><div class="gd">categorical band</div></div>
+            </div>
+          </div>
+        </div>
+        <div class="wfoot"><div class="btn ghost">‹ Back</div><div class="gap"></div><div class="btn primary">＋ Add 2 overlays</div></div>
+      </div>
+    </div>
+
+  </div>
+</body>
+</html>

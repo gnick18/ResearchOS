@@ -1,0 +1,448 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Multi-panel figure composition (Figure 1A/B/C) - concept</title>
+<style>
+  :root {
+    --surface: #f8fafc; --surface-raised: #ffffff; --surface-sunken: #f1f5f9; --pasteboard: #e2e8f0;
+    --border: #e5e7eb; --border-strong: #cbd5e1;
+    --fg: #111827; --fg-muted: #64748b; --fg-faint: #94a3b8;
+    --brand-action: #1283C9; --brand-sky: #1AA0E6;
+    --pin: #e11d48; --ok: #16a34a; --warn: #b45309; --warn-soft: #fef3c7;
+    --good: #0f766e; --good-soft: #e0f2ee;
+  }
+  body.dark {
+    --surface: #0a0e1a; --surface-raised: #1c2638; --surface-sunken: #0d1424; --pasteboard: #111a2e;
+    --border: rgba(255,255,255,0.16); --border-strong: rgba(255,255,255,0.28);
+    --fg: #e9eef7; --fg-muted: #9fb0c8; --fg-faint: #6b7c96;
+    --pin: #fb7185; --ok: #4ade80; --warn: #fbbf24; --warn-soft: rgba(180,83,9,0.25);
+    --good: #5eead4; --good-soft: rgba(15,118,110,0.22);
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; background: var(--surface); color: var(--fg); line-height: 1.45; -webkit-font-smoothing: antialiased; }
+  header.top { position: sticky; top: 0; z-index: 40; display: flex; align-items: center; gap: 14px; padding: 14px 22px; background: var(--surface-raised); border-bottom: 1px solid var(--border); }
+  header.top h1 { font-size: 17px; margin: 0; font-weight: 800; letter-spacing: -0.01em; }
+  header.top .sub { font-size: 12.5px; color: var(--fg-muted); }
+  header.top .spacer { flex: 1; }
+  .btn { font: inherit; font-size: 13px; font-weight: 600; padding: 7px 13px; border-radius: 9px; border: 1px solid var(--border-strong); background: var(--surface-raised); color: var(--fg); cursor: pointer; }
+  .btn:hover { border-color: var(--brand-action); }
+  .btn.on { background: var(--brand-action); border-color: var(--brand-action); color: #fff; }
+  .wrap { max-width: 1180px; margin: 0 auto; padding: 22px; }
+  .lead { color: var(--fg-muted); font-size: 14px; max-width: 940px; margin: 0 0 6px; }
+  .lead strong { color: var(--fg); }
+
+  .toolbar { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin: 16px 0 2px; padding: 9px 11px; background: var(--surface-raised); border: 1px solid var(--border); border-radius: 12px; }
+  .toolbar .grouplbl { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: var(--fg-faint); margin-right: 2px; }
+  .tool { font: inherit; font-size: 12.5px; font-weight: 600; padding: 6px 11px; border-radius: 8px; border: 1px solid var(--border-strong); background: var(--surface); color: var(--fg); cursor: pointer; display: inline-flex; align-items: center; gap: 6px; }
+  .tool:hover { border-color: var(--brand-action); }
+  .tool.armed { background: var(--brand-action); border-color: var(--brand-action); color: #fff; }
+  .tool .ic { width: 17px; height: 15px; display: block; color: currentColor; }
+  .tool .ic path, .tool .ic line { fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+  .tool .ic .fill { fill: currentColor; stroke: none; }
+  .tool .ic text { fill: currentColor; stroke: none; }
+  .sep { width: 1px; align-self: stretch; background: var(--border); margin: 2px 4px; }
+  .hint { font-size: 12px; color: var(--fg-faint); margin-left: auto; }
+
+  .demo { display: grid; grid-template-columns: 1fr 312px; gap: 18px; margin-top: 14px; align-items: start; }
+  @media (max-width: 980px) { .demo { grid-template-columns: 1fr; } }
+  .stage { background: var(--pasteboard); border: 1px solid var(--border); border-radius: 14px; padding: 34px 40px; min-height: 600px; display: flex; align-items: flex-start; justify-content: center; overflow: auto; }
+  .pageWrap { position: relative; }
+  .ruler { position: absolute; color: var(--fg-faint); font-size: 9px; pointer-events: none; }
+  .ruler.top { top: -17px; left: 0; right: 0; height: 12px; }
+  .ruler.left { left: -20px; top: 0; bottom: 0; width: 14px; }
+  .tick { position: absolute; background: var(--fg-faint); }
+  .tlabel { position: absolute; transform: translateX(-50%); }
+  .llabel { position: absolute; right: 2px; transform: translateY(-50%); }
+  .page { position: relative; background: #ffffff; box-shadow: 0 6px 22px rgba(0,0,0,0.20); border: 1px solid #d8dee9; }
+  body.dark .page { background: #f7fafc; }
+
+  .fig { position: absolute; outline: 1.5px solid transparent; display: flex; align-items: center; justify-content: center; cursor: grab; background: rgba(255,255,255,0.01); }
+  .fig:hover { outline-color: var(--border-strong); }
+  .fig.sel { outline: 1.6px solid var(--brand-action); }
+  .fig.dragging { cursor: grabbing; }
+  .fig svg { width: 100%; height: 100%; display: block; pointer-events: none; }
+  .figtag { position: absolute; top: 3px; left: 5px; font-weight: 800; color: #0f172a; background: rgba(255,255,255,0.7); padding: 0 3px; border-radius: 3px; }
+  .handle { position: absolute; width: 9px; height: 9px; background: #fff; border: 1.5px solid var(--brand-action); border-radius: 2px; }
+  .handle.br { right: -5px; bottom: -5px; cursor: nwse-resize; }
+
+  .annot { position: absolute; pointer-events: none; }
+  .annot .txt { font-size: 11px; color: #0f172a; background: rgba(255,255,255,0.0); white-space: nowrap; }
+  .annot.sel-ann { outline: 1px dashed var(--pin); outline-offset: 2px; }
+
+  .panel { background: var(--surface-raised); border: 1px solid var(--border); border-radius: 12px; padding: 14px; margin-bottom: 14px; }
+  .panel h3 { margin: 0 0 11px; font-size: 12px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.06em; color: var(--fg-faint); }
+  .row { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 10px; }
+  .row:last-child { margin-bottom: 0; }
+  .row label { font-size: 12.5px; color: var(--fg-muted); }
+  select { font: inherit; font-size: 12.5px; padding: 5px 7px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); color: var(--fg); }
+  .seg { display: inline-flex; border: 1px solid var(--border-strong); border-radius: 8px; overflow: hidden; }
+  .seg button { border: none; border-right: 1px solid var(--border); background: transparent; font: inherit; font-size: 11.5px; padding: 5px 9px; cursor: pointer; color: var(--fg-muted); }
+  .seg button:last-child { border-right: none; }
+  .seg button.on { background: var(--brand-action); color: #fff; }
+
+  .figlist { list-style: none; margin: 0; padding: 0; }
+  .figlist li { display: flex; align-items: center; gap: 8px; padding: 6px 8px; border: 1px solid var(--border); border-radius: 8px; margin-bottom: 6px; cursor: pointer; font-size: 12.5px; }
+  .figlist li.on { border-color: var(--brand-action); background: var(--surface-sunken); }
+  .figlist li .lab { font-weight: 800; color: var(--brand-action); width: 16px; }
+  .figlist li .nm { flex: 1; color: var(--fg); }
+  .figlist li .rm { color: var(--fg-faint); font-size: 14px; padding: 0 3px; }
+  .figlist li .rm:hover { color: var(--pin); }
+
+  .readout { font-size: 12px; color: var(--fg-muted); background: var(--surface-sunken); border: 1px solid var(--border); border-radius: 9px; padding: 9px 11px; }
+  .readout b { color: var(--fg); }
+
+  .decisions { margin-top: 26px; }
+  .decisions h2 { font-size: 15px; margin: 0 0 4px; }
+  .dec { border: 1px solid var(--border); border-radius: 11px; padding: 13px 15px; margin-top: 11px; background: var(--surface-raised); }
+  .dec .q { font-size: 13.5px; font-weight: 700; margin-bottom: 7px; }
+  .dec .opts { display: flex; gap: 8px; flex-wrap: wrap; }
+  .pill { font-size: 12.5px; padding: 5px 11px; border-radius: 999px; border: 1px solid var(--border-strong); background: var(--surface); color: var(--fg-muted); cursor: pointer; }
+  .pill.on { background: var(--good-soft); border-color: var(--good); color: var(--good); font-weight: 700; }
+  .note { font-size: 12px; color: var(--fg-faint); margin-top: 7px; }
+</style>
+</head>
+<body>
+<header class="top">
+  <div>
+    <h1>Multi-panel figure composition</h1>
+    <div class="sub">Arrange several figures as Figure 1A / 1B / 1C on one publication page, annotate, export as one exact SVG.</div>
+  </div>
+  <div class="spacer"></div>
+  <button class="btn" id="themeBtn">Dark</button>
+</header>
+
+<div class="wrap">
+  <p class="lead">The artboard already puts <strong>one</strong> figure on a real publication page at true scale. This extends it to <strong>many</strong>: drop several figures on the same page, drag them into a panel layout, and they auto-label A / B / C. Add a freeform <strong>annotation layer</strong> (text, arrows, lines, brackets, significance markers) over and between the panels. Export the whole page as <strong>one publication-exact SVG</strong>. It is the same shared <code>lib/figure</code> artboard, so Tree Studio gets it too (compose a phylogeny + its data panels on one page).</p>
+  <p class="lead"><strong>Try it:</strong> click <b>+ Add figure</b>, drag the panels to arrange them, click a panel to select + resize it, pick an annotation tool and click the page to drop one. Flip the panel-label style. Then mark the decisions below.</p>
+
+  <div class="toolbar">
+    <span class="grouplbl">Figures</span>
+    <button class="tool" id="addFig"><span class="gl">+</span> Add figure</button>
+    <div class="sep"></div>
+    <span class="grouplbl">Annotate</span>
+    <button class="tool" data-ann="text"><svg class="ic" viewBox="0 0 17 15"><path d="M3 4h11"/><path d="M8.5 4v9"/></svg> Text</button>
+    <button class="tool" data-ann="arrow"><svg class="ic" viewBox="0 0 17 15"><path d="M3 13 L13 4"/><path d="M13 4 H8.5 M13 4 V8.5"/></svg> Arrow</button>
+    <button class="tool" data-ann="line"><svg class="ic" viewBox="0 0 17 15"><path d="M3 12 L14 4"/></svg> Line</button>
+    <button class="tool" data-ann="bracket"><svg class="ic" viewBox="0 0 17 15"><path d="M3 12 V9 Q3 7 5 7 Q7 7 8.5 5 Q10 7 12 7 Q14 7 14 9 V12"/></svg> Bracket</button>
+    <button class="tool" data-ann="sig"><svg class="ic" viewBox="0 0 17 15"><path d="M3 11 H14 M3 11 V8 M14 11 V8"/><text x="8.5" y="5.5" font-size="7" text-anchor="middle">&#42;&#42;</text></svg> Significance</button>
+    <div class="sep"></div>
+    <button class="tool armed" data-ann="select" id="selectTool"><svg class="ic" viewBox="0 0 17 15"><path class="fill" d="M4 2 L4 13 L7 10 L9 14 L11 13 L9 9 L13 9 Z"/></svg> Select</button>
+    <span class="hint" id="toolHint">Drag a panel to move it. Click a panel to select.</span>
+  </div>
+
+  <div class="demo">
+    <div class="stage">
+      <div class="pageWrap" id="pageWrap">
+        <div class="ruler top" id="rulerTop"></div>
+        <div class="ruler left" id="rulerLeft"></div>
+        <div class="page" id="page"></div>
+      </div>
+    </div>
+
+    <div>
+      <div class="panel">
+        <h3>Page</h3>
+        <div class="row"><label>Paper</label>
+          <select id="paper">
+            <option value="8.5x11">Letter (8.5 x 11 in)</option>
+            <option value="8.27x11.69">A4 (8.27 x 11.69 in)</option>
+            <option value="7.2x9">Journal double (7.2 in)</option>
+            <option value="3.5x9">Journal single (3.5 in)</option>
+          </select>
+        </div>
+        <div class="row"><label>Orientation</label>
+          <div class="seg" id="orient">
+            <button data-o="portrait" class="on">Portrait</button>
+            <button data-o="landscape">Landscape</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <h3>Figures on page</h3>
+        <ul class="figlist" id="figlist"></ul>
+        <div class="note" id="emptyNote" style="display:none">No figures yet. Click <b>+ Add figure</b>.</div>
+      </div>
+
+      <div class="panel">
+        <h3>Panel labels</h3>
+        <div class="row"><label>Show</label>
+          <div class="seg" id="showLab"><button data-v="1" class="on">On</button><button data-v="0">Off</button></div>
+        </div>
+        <div class="row"><label>Style</label>
+          <div class="seg" id="labStyle">
+            <button data-s="ABC" class="on">A B C</button>
+            <button data-s="abc">a b c</button>
+            <button data-s="123">1 2 3</button>
+          </div>
+        </div>
+        <div class="note">Labels auto-assign in reading order (top-left first), the journal default. Drag a panel and the order re-flows.</div>
+      </div>
+
+      <div class="panel">
+        <h3>Selected panel</h3>
+        <div id="selBox">
+          <div class="row"><label>Figure</label><span id="selName" style="font-size:12.5px;color:var(--fg)">none</span></div>
+          <div class="row"><label>Width (in)</label><span id="selW" style="font-size:12.5px">-</span></div>
+          <div class="row"><label>Height (in)</label><span id="selH" style="font-size:12.5px">-</span></div>
+          <div class="row"><button class="tool" id="fitCell" style="width:100%;justify-content:center">Fit to a 2-column grid cell</button></div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <h3>Export</h3>
+        <div class="readout" id="readout"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="decisions">
+    <h2>Decisions to approve</h2>
+    <p class="lead">Pick one per row (just visual marks for the review).</p>
+
+    <div class="dec">
+      <div class="q">1. Default panel-label style</div>
+      <div class="opts" data-dec="lab"><span class="pill on">A B C (cap)</span><span class="pill">a b c</span><span class="pill">1 2 3</span><span class="pill">none by default</span></div>
+      <div class="note">Most journals use bold capital A B C, top-left of each panel.</div>
+    </div>
+
+    <div class="dec">
+      <div class="q">2. Layout model</div>
+      <div class="opts" data-dec="layout"><span class="pill on">Free drag + snap guides</span><span class="pill">Snap to a grid (rows x cols)</span><span class="pill">Both (toggle)</span></div>
+      <div class="note">Free drag is flexible; a grid makes even panels effortless. "Both" = free by default, optional grid snap.</div>
+    </div>
+
+    <div class="dec">
+      <div class="q">3. Annotation set for v1</div>
+      <div class="opts" data-dec="annot"><span class="pill on">Text, arrow, line, bracket, significance star</span><span class="pill">Add shapes (box/ellipse)</span><span class="pill">Add image/inset</span></div>
+      <div class="note">Significance bars on a single plot already exist; these are page-level, spanning across panels.</div>
+    </div>
+
+    <div class="dec">
+      <div class="q">4. How figures get onto the page</div>
+      <div class="opts" data-dec="add"><span class="pill on">Pick from your saved figures</span><span class="pill">Drag from the figure list</span><span class="pill">Both</span></div>
+    </div>
+
+    <div class="dec">
+      <div class="q">5. Panel sizing</div>
+      <div class="opts" data-dec="size"><span class="pill on">Each panel independent (real inches)</span><span class="pill">Uniform (match to selected)</span><span class="pill">Snap to grid cells</span></div>
+      <div class="note">Independent keeps each figure publication-exact; a "match size" action evens them when wanted.</div>
+    </div>
+
+    <div class="dec">
+      <div class="q">6. Shared with Tree Studio?</div>
+      <div class="opts" data-dec="shared"><span class="pill on">Yes, one composer for tree + data figures</span><span class="pill">Data Hub only for now</span></div>
+      <div class="note">It is the same lib/figure artboard, so a tree panel + data panels compose on one page. Phylo lane confirmed lib/figure is uncontested.</div>
+    </div>
+  </div>
+</div>
+
+<script>
+(function () {
+  var DPI = 96; // px per inch on screen for the mock (page render scale)
+  var page = document.getElementById('page');
+  var pageWrap = document.getElementById('pageWrap');
+  var rulerTop = document.getElementById('rulerTop');
+  var rulerLeft = document.getElementById('rulerLeft');
+  var figlist = document.getElementById('figlist');
+  var readout = document.getElementById('readout');
+
+  // Sample figure SVGs (small, representative Data Hub + a tree).
+  function barSvg(){return '<svg viewBox="0 0 120 96"><rect x="0" y="0" width="120" height="96" fill="#fff"/><line x1="18" y1="8" x2="18" y2="82" stroke="#94a3b8"/><line x1="18" y1="82" x2="112" y2="82" stroke="#94a3b8"/><rect x="30" y="40" width="16" height="42" fill="#1AA0E6"/><rect x="56" y="22" width="16" height="60" fill="#7C3AED"/><rect x="82" y="54" width="16" height="28" fill="#F97316"/></svg>';}
+  function kmSvg(){return '<svg viewBox="0 0 120 96"><rect width="120" height="96" fill="#fff"/><line x1="18" y1="8" x2="18" y2="82" stroke="#94a3b8"/><line x1="18" y1="82" x2="112" y2="82" stroke="#94a3b8"/><polyline points="18,14 40,14 40,28 64,28 64,46 88,46 88,70 110,70" fill="none" stroke="#1AA0E6" stroke-width="2"/><polyline points="18,14 36,14 36,40 58,40 58,60 82,60 82,78 110,78" fill="none" stroke="#F97316" stroke-width="2"/></svg>';}
+  function scatterSvg(){return '<svg viewBox="0 0 120 96"><rect width="120" height="96" fill="#fff"/><line x1="18" y1="8" x2="18" y2="82" stroke="#94a3b8"/><line x1="18" y1="82" x2="112" y2="82" stroke="#94a3b8"/><path d="M22,78 C50,76 70,40 108,18" fill="none" stroke="#7C3AED" stroke-width="2"/><circle cx="30" cy="74" r="2.5" fill="#111"/><circle cx="46" cy="66" r="2.5" fill="#111"/><circle cx="62" cy="50" r="2.5" fill="#111"/><circle cx="80" cy="34" r="2.5" fill="#111"/><circle cx="98" cy="24" r="2.5" fill="#111"/></svg>';}
+  function treeSvg(){return '<svg viewBox="0 0 120 96"><rect width="120" height="96" fill="#fff"/><g stroke="#334155" stroke-width="1.6" fill="none"><path d="M14,48 H34 V22 H58"/><path d="M34,48 V74 H58"/><path d="M58,22 V12 H86"/><path d="M58,22 V34 H86"/><path d="M58,74 V62 H86"/><path d="M58,74 V86 H86"/></g><g fill="#1AA0E6"><circle cx="86" cy="12" r="3"/><circle cx="86" cy="34" r="3"/></g><g fill="#F97316"><circle cx="86" cy="62" r="3"/><circle cx="86" cy="86" r="3"/></g></svg>';}
+  var SAMPLES = [
+    {name:'Grouped bar', svg:barSvg(), w:2.0, h:1.6},
+    {name:'Survival (KM)', svg:kmSvg(), w:2.0, h:1.6},
+    {name:'Dose-response', svg:scatterSvg(), w:2.0, h:1.6},
+    {name:'Phylogeny', svg:treeSvg(), w:2.4, h:1.9}
+  ];
+
+  var state = {
+    paper: '8.5x11', orient: 'portrait',
+    showLab: true, labStyle: 'ABC',
+    figs: [], anns: [], sel: null, tool: 'select', addIdx: 0
+  };
+  var uid = 1;
+
+  function paperIn(){
+    var p = state.paper.split('x').map(Number);
+    var w = p[0], h = p[1];
+    return state.orient === 'landscape' ? [Math.max(w,h), Math.min(w,h)] : [Math.min(w,h), Math.max(w,h)];
+  }
+  function pageScale(){
+    // Fit the page into ~430px tall stage area.
+    var ph = paperIn()[1];
+    return Math.min(DPI, 470 / ph);
+  }
+
+  function seedDefault(){
+    // Start with two panels so the multi-panel idea reads immediately.
+    addFigure(0, 0.5, 0.5);
+    addFigure(1, 2.7, 0.5);
+  }
+  function addFigure(idx, x, y){
+    if (idx == null) { idx = state.addIdx % SAMPLES.length; state.addIdx++; }
+    var s = SAMPLES[idx];
+    var px = x == null ? (0.5 + (state.figs.length % 2) * 2.2) : x;
+    var py = y == null ? (0.5 + Math.floor(state.figs.length / 2) * 1.9) : y;
+    state.figs.push({ id: uid++, name: s.name, svg: s.svg, x: px, y: py, w: s.w, h: s.h });
+  }
+
+  function labelFor(i){
+    if (!state.showLab) return '';
+    if (state.labStyle === 'abc') return String.fromCharCode(97 + i);
+    if (state.labStyle === '123') return String(i + 1);
+    return String.fromCharCode(65 + i);
+  }
+  // Reading order: top row first, then left-to-right.
+  function orderedFigs(){
+    return state.figs.map(function(f, i){ return { f: f, i: i }; })
+      .sort(function(a, b){
+        if (Math.abs(a.f.y - b.f.y) > 0.4) return a.f.y - b.f.y;
+        return a.f.x - b.f.x;
+      });
+  }
+
+  function render(){
+    var sc = pageScale();
+    var win = paperIn();
+    page.style.width = (win[0] * sc) + 'px';
+    page.style.height = (win[1] * sc) + 'px';
+    page.innerHTML = '';
+
+    // rulers
+    rulerTop.innerHTML = ''; rulerLeft.innerHTML = '';
+    for (var ix = 0; ix <= Math.floor(win[0]); ix++){
+      var t = document.createElement('div'); t.className = 'tick'; t.style.left = (ix*sc)+'px'; t.style.top='8px'; t.style.width='1px'; t.style.height='5px'; rulerTop.appendChild(t);
+      var tl = document.createElement('div'); tl.className='tlabel'; tl.style.left=(ix*sc)+'px'; tl.style.top='-2px'; tl.textContent=ix; rulerTop.appendChild(tl);
+    }
+    for (var iy = 0; iy <= Math.floor(win[1]); iy++){
+      var t2 = document.createElement('div'); t2.className='tick'; t2.style.top=(iy*sc)+'px'; t2.style.left='9px'; t2.style.height='1px'; t2.style.width='5px'; rulerLeft.appendChild(t2);
+      var ll = document.createElement('div'); ll.className='llabel'; ll.style.top=(iy*sc)+'px'; ll.textContent=iy; rulerLeft.appendChild(ll);
+    }
+
+    var ord = orderedFigs();
+    var labelByFigId = {};
+    ord.forEach(function(o, k){ labelByFigId[o.f.id] = labelFor(k); });
+
+    // annotations layer (under figures so panels sit on top, but markers read fine)
+    state.anns.forEach(function(a){
+      var el = document.createElement('div'); el.className = 'annot'; el.dataset.aid = a.id;
+      el.style.left = (a.x*sc) + 'px'; el.style.top = (a.y*sc) + 'px';
+      if (a.type === 'text'){ el.innerHTML = '<div class="txt">label text</div>'; }
+      else if (a.type === 'sig'){ el.innerHTML = '<svg width="64" height="20"><line x1="6" y1="13" x2="58" y2="13" stroke="#0f172a" stroke-width="1.4"/><line x1="6" y1="13" x2="6" y2="8" stroke="#0f172a" stroke-width="1.4"/><line x1="58" y1="13" x2="58" y2="8" stroke="#0f172a" stroke-width="1.4"/><text x="32" y="9" text-anchor="middle" font-size="12" fill="#0f172a">&#10033;&#10033;</text></svg>'; }
+      else if (a.type === 'arrow'){ el.innerHTML = '<svg width="60" height="34"><defs><marker id="ah'+a.id+'" markerWidth="7" markerHeight="7" refX="5" refY="3.5" orient="auto"><path d="M0,0 L7,3.5 L0,7 z" fill="#0f172a"/></marker></defs><line x1="4" y1="30" x2="52" y2="6" stroke="#0f172a" stroke-width="1.6" marker-end="url(#ah'+a.id+')"/></svg>'; }
+      else if (a.type === 'line'){ el.innerHTML = '<svg width="60" height="20"><line x1="2" y1="10" x2="58" y2="10" stroke="#0f172a" stroke-width="1.6"/></svg>'; }
+      else if (a.type === 'bracket'){ el.innerHTML = '<svg width="20" height="60"><path d="M14,2 H6 V58 H14" fill="none" stroke="#0f172a" stroke-width="1.5"/></svg>'; }
+      page.appendChild(el);
+    });
+
+    // figures
+    state.figs.forEach(function(f){
+      var el = document.createElement('div'); el.className = 'fig' + (state.sel === f.id ? ' sel' : '');
+      el.dataset.fid = f.id;
+      el.style.left = (f.x*sc) + 'px'; el.style.top = (f.y*sc) + 'px';
+      el.style.width = (f.w*sc) + 'px'; el.style.height = (f.h*sc) + 'px';
+      el.innerHTML = f.svg;
+      var lab = labelByFigId[f.id];
+      if (lab){ var tg = document.createElement('span'); tg.className='figtag'; tg.style.fontSize = Math.max(9, sc*0.16)+'px'; tg.textContent = lab; el.appendChild(tg); }
+      if (state.sel === f.id){ var h = document.createElement('div'); h.className='handle br'; el.appendChild(h); }
+      page.appendChild(el);
+    });
+
+    renderList(ord);
+    renderSel();
+    renderReadout();
+  }
+
+  function renderList(ord){
+    figlist.innerHTML = '';
+    document.getElementById('emptyNote').style.display = state.figs.length ? 'none' : 'block';
+    ord.forEach(function(o, k){
+      var f = o.f;
+      var li = document.createElement('li'); li.className = (state.sel === f.id ? 'on' : '');
+      li.innerHTML = '<span class="lab">' + (labelFor(k) || '-') + '</span><span class="nm">' + f.name + '</span><span class="rm" data-rm="'+f.id+'">&times;</span>';
+      li.addEventListener('click', function(e){ if (e.target.dataset.rm) return; state.sel = f.id; render(); });
+      figlist.appendChild(li);
+    });
+    figlist.querySelectorAll('[data-rm]').forEach(function(x){
+      x.addEventListener('click', function(){ var id = +x.dataset.rm; state.figs = state.figs.filter(function(f){return f.id!==id;}); if (state.sel===id) state.sel=null; render(); });
+    });
+  }
+  function renderSel(){
+    var f = state.figs.find(function(x){return x.id===state.sel;});
+    document.getElementById('selName').textContent = f ? f.name : 'none';
+    document.getElementById('selW').textContent = f ? f.w.toFixed(2) : '-';
+    document.getElementById('selH').textContent = f ? f.h.toFixed(2) : '-';
+  }
+  function renderReadout(){
+    var win = paperIn();
+    var n = state.figs.length;
+    readout.innerHTML = 'Page <b>' + win[0] + ' x ' + win[1] + ' in</b> at <b>300 DPI</b> = <b>' + Math.round(win[0]*300) + ' x ' + Math.round(win[1]*300) + ' px</b>.<br>' +
+      '<b>' + n + '</b> panel' + (n===1?'':'s') + ' + <b>' + state.anns.length + '</b> annotation' + (state.anns.length===1?'':'s') + ' export as <b>one vector SVG</b>, every figure publication-exact.';
+  }
+
+  // --- interactions ---
+  var drag = null;
+  page.addEventListener('mousedown', function(e){
+    var sc = pageScale();
+    // annotation placement mode
+    if (state.tool !== 'select'){
+      var r = page.getBoundingClientRect();
+      state.anns.push({ id: uid++, type: state.tool, x: (e.clientX - r.left)/sc, y: (e.clientY - r.top)/sc });
+      setTool('select');
+      render();
+      return;
+    }
+    var figEl = e.target.closest('.fig');
+    if (!figEl){ state.sel = null; render(); return; }
+    var id = +figEl.dataset.fid;
+    state.sel = id;
+    var f = state.figs.find(function(x){return x.id===id;});
+    var resize = e.target.classList.contains('handle');
+    drag = { id: id, resize: resize, sx: e.clientX, sy: e.clientY, ox: f.x, oy: f.y, ow: f.w, oh: f.h };
+    figEl.classList.add('dragging');
+    render();
+    e.preventDefault();
+  });
+  window.addEventListener('mousemove', function(e){
+    if (!drag) return;
+    var sc = pageScale();
+    var f = state.figs.find(function(x){return x.id===drag.id;});
+    var dx = (e.clientX - drag.sx)/sc, dy = (e.clientY - drag.sy)/sc;
+    if (drag.resize){ f.w = Math.max(0.6, drag.ow + dx); f.h = Math.max(0.5, drag.oh + dy); }
+    else { f.x = Math.max(0, drag.ox + dx); f.y = Math.max(0, drag.oy + dy); }
+    render();
+  });
+  window.addEventListener('mouseup', function(){ drag = null; });
+
+  function setTool(t){
+    state.tool = t;
+    document.querySelectorAll('.tool[data-ann]').forEach(function(b){ b.classList.toggle('armed', b.dataset.ann === t); });
+    var hint = document.getElementById('toolHint');
+    hint.textContent = t === 'select' ? 'Drag a panel to move it. Click a panel to select.' : 'Click the page to drop a ' + t + ' annotation.';
+  }
+  document.querySelectorAll('.tool[data-ann]').forEach(function(b){ b.addEventListener('click', function(){ setTool(b.dataset.ann); }); });
+  document.getElementById('addFig').addEventListener('click', function(){ addFigure(null); render(); });
+
+  document.getElementById('paper').addEventListener('change', function(e){ state.paper = e.target.value; render(); });
+  document.getElementById('orient').addEventListener('click', function(e){ if (!e.target.dataset.o) return; state.orient = e.target.dataset.o; this.querySelectorAll('button').forEach(function(b){b.classList.toggle('on', b.dataset.o===state.orient);}); render(); });
+  document.getElementById('showLab').addEventListener('click', function(e){ if (!e.target.dataset.v) return; state.showLab = e.target.dataset.v==='1'; this.querySelectorAll('button').forEach(function(b){b.classList.toggle('on', (b.dataset.v==='1')===state.showLab);}); render(); });
+  document.getElementById('labStyle').addEventListener('click', function(e){ if (!e.target.dataset.s) return; state.labStyle = e.target.dataset.s; this.querySelectorAll('button').forEach(function(b){b.classList.toggle('on', b.dataset.s===state.labStyle);}); render(); });
+  document.getElementById('fitCell').addEventListener('click', function(){ var f = state.figs.find(function(x){return x.id===state.sel;}); if (!f) return; var win=paperIn(); f.w = (win[0]-1.5)/2; f.h = f.w*0.8; render(); });
+
+  document.querySelectorAll('.dec .opts').forEach(function(g){ g.addEventListener('click', function(e){ if(!e.target.classList.contains('pill')) return; g.querySelectorAll('.pill').forEach(function(p){p.classList.remove('on');}); e.target.classList.add('on'); }); });
+  document.getElementById('themeBtn').addEventListener('click', function(){ document.body.classList.toggle('dark'); this.textContent = document.body.classList.contains('dark') ? 'Light' : 'Dark'; });
+
+  seedDefault();
+  setTool('select');
+  render();
+})();
+</script>
+</body>
+</html>

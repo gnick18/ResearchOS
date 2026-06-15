@@ -73,7 +73,7 @@ describe("RenderedMarkdown Preview embeds", () => {
 
   it("renders a generic card embed type for a method link", () => {
     const { container } = render(
-      <RenderedMarkdown content="[Gibson Assembly](/methods/12#ros=card)" />,
+      <RenderedMarkdown content="[Gibson Assembly](/methods?openMethod=12#ros=card)" />,
     );
     const embed = container.querySelector("[data-embed-type]");
     expect(embed).not.toBeNull();

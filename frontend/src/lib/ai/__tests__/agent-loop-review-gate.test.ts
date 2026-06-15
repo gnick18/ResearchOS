@@ -85,6 +85,29 @@ function makeActionTool(opts: { destructive?: boolean } = {}): {
   };
 }
 
+/** An immutable action tool (click_element style): an action that changes nothing
+ *  in the user's data (navigate, click a nav link or tab), optionally with a
+ *  destructive-looking target. */
+function makeImmutableActionTool(opts: { destructive?: boolean } = {}): {
+  tool: AiTool;
+  execute: ReturnType<typeof vi.fn>;
+} {
+  const execute = vi.fn(async () => ({ ok: true }));
+  return {
+    execute,
+    tool: {
+      name: "click_nav",
+      description: "An immutable nav action.",
+      parameters: { type: "object", properties: {} },
+      action: true,
+      immutable: true,
+      describeAction: () => ({ summary: "click the Data Hub link" }),
+      isDestructive: opts.destructive ? () => true : undefined,
+      execute,
+    },
+  };
+}
+
 /** A previewable tool (run_datahub_analysis style), not an action, optionally
  *  destructive (a contrived case used only to prove the hard-stop fires even on
  *  a previewable tool). */
@@ -153,6 +176,34 @@ describe("gate decision table: pure read-only", () => {
     const { requests } = await runOnce({ tool, reviewMode: "plan" });
     expect(requests).toHaveLength(0);
     expect(execute).toHaveBeenCalledTimes(1);
+  });
+});
+
+// ---- immutable action proceeds without a per-step confirm -------------------
+
+describe("gate decision table: immutable action (navigation / show-around)", () => {
+  it("proceeds with NO confirm in step mode (keeps step-by-step usable)", async () => {
+    const { tool, execute } = makeImmutableActionTool();
+    const { requests } = await runOnce({ tool, reviewMode: "step" });
+    expect(requests).toHaveLength(0);
+    expect(execute).toHaveBeenCalledTimes(1);
+  });
+
+  it("proceeds with no confirm in plan mode", async () => {
+    const { tool, execute } = makeImmutableActionTool();
+    const { requests } = await runOnce({ tool, reviewMode: "plan" });
+    expect(requests).toHaveLength(0);
+    expect(execute).toHaveBeenCalledTimes(1);
+  });
+
+  it("STILL confirms when the immutable target looks destructive, in both modes", async () => {
+    for (const reviewMode of ["step", "plan"] as const) {
+      const { tool, execute } = makeImmutableActionTool({ destructive: true });
+      const { requests } = await runOnce({ tool, reviewMode, approve: "allow" });
+      expect(requests).toHaveLength(1);
+      expect(requests[0].kind).toBe("action");
+      expect(execute).toHaveBeenCalledTimes(1);
+    }
   });
 });
 

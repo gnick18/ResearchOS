@@ -8,6 +8,7 @@ import {
   tipCount,
   TreeParseError,
 } from "./parse";
+import { SAMPLE_TREE } from "./sample";
 
 describe("parseNewick", () => {
   it("parses a simple bifurcating tree with branch lengths", () => {
@@ -108,5 +109,24 @@ describe("Nexus support", () => {
   it("parseTree routes plain newick straight through", () => {
     const t = parseTree("(A,B);");
     expect(tipCount(t)).toBe(2);
+  });
+});
+
+describe("Tree Studio sample tree", () => {
+  // Guards the exact SAMPLE_TREE literal the "Try a sample" button loads.
+  // It was once shipped with unbalanced parens (8 opens / 7 closes), so the
+  // parser threw 'Unexpected character ";"' and no tree rendered.
+  it("parses the bundled SAMPLE_TREE to 7 tips without throwing", () => {
+    const t = parseTree(SAMPLE_TREE);
+    expect(tipCount(t)).toBe(7);
+    expect(leaves(t).map((l) => l.name).sort()).toEqual([
+      "A. fischeri",
+      "A. flavus",
+      "A. fumigatus",
+      "A. nidulans",
+      "A. niger",
+      "A. oryzae",
+      "P. chrysogenum",
+    ]);
   });
 });

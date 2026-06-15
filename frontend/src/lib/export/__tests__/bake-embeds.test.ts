@@ -81,8 +81,8 @@ const DH_PLOT_HREF = "/datahub?doc=dh-1#ros=plot";
 const DH_RESULT_HREF = "/datahub?doc=dh-1#ros=result";
 const SEQ_HREF = "/sequences?seq=42#ros=map";
 const NOTE_HREF = "/notes/7#ros=card";
-const METHOD_HREF = "/methods/3#ros=card";
-const PROJECT_HREF = "/projects/9#ros=card";
+const METHOD_HREF = "/methods?openMethod=3#ros=card";
+const PROJECT_HREF = "/workbench/projects/9#ros=card";
 const TASK_HREF = "/?openTask=self%3A5#ros=card";
 
 // ── scanEmbedRefs ─────────────────────────────────────────────────────────────

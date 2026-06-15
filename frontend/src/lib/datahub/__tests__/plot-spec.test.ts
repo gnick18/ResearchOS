@@ -33,7 +33,11 @@ import {
   renderPlot,
   figureFileStem,
   niceTicks,
+  logTicks,
   layoutXYPlot,
+  layoutGroupedBar,
+  layoutAlignedGroupedBar,
+  renderAlignedGroupedBarSvg,
   renderXYPlotSvg,
   toDesignPx,
   toInches,
@@ -489,6 +493,36 @@ describe("plot-spec: SVG serialization", () => {
     expect(svg).not.toContain("A & B");
   });
 
+  it("value labels: geometry carries the mean and the renderer draws it when on", () => {
+    const content = threeGroupContent();
+    const base = defaultPlotStyle();
+    const groups = resolvePlotGroups(content, base);
+    const geo = layoutPlot(groups, base, []);
+    expect(typeof geo.groups[0].mean).toBe("number");
+    const off = renderPlotSvg(geo, base);
+    const on = renderPlotSvg(geo, { ...base, showValueLabels: true });
+    // The labels add text nodes, so the "on" markup is strictly longer.
+    expect(on.length).toBeGreaterThan(off.length);
+  });
+});
+
+describe("plot-spec: error-bar magnitude", () => {
+  it("ci95 is t(0.975, n-1) * SEM and needs n >= 2", () => {
+    const e = errorMagnitude({ mean: 10, sd: Math.sqrt(5), sem: 1, n: 5 }, "ci95");
+    // t(0.975, 4) = 2.7764
+    expect(e).toBeCloseTo(2.7764, 3);
+    // wider than the SEM
+    expect(e as number).toBeGreaterThan(1);
+    // not enough data for a CI
+    expect(errorMagnitude({ mean: 1, sd: null, sem: null, n: 1 }, "ci95")).toBeNull();
+  });
+  it("sd / sem / none are unchanged", () => {
+    const s = { mean: 10, sd: 2, sem: 1, n: 4 };
+    expect(errorMagnitude(s, "sd")).toBe(2);
+    expect(errorMagnitude(s, "sem")).toBe(1);
+    expect(errorMagnitude(s, "none")).toBeNull();
+  });
+
   it("renderPlot is the end-to-end spec -> svg path", () => {
     const content = threeGroupContent();
     const spec = buildPlotSpec({
@@ -588,6 +622,321 @@ describe("plot-spec: XY scatter + fitted curve", () => {
     expect(svg.startsWith("<" + "svg")).toBe(true);
     expect(svg).toContain("<circle");
     expect(svg).not.toContain("<path");
+  });
+
+  // Log-spaced concentration data, the dose-response use case for a log X axis.
+  function logContent(): DataHubDocContent {
+    const xs = [0.01, 0.1, 1, 10, 100, 1000];
+    return {
+      meta: XY_META,
+      columns: [
+        { id: "x", name: "Conc", role: "x", dataType: "number" },
+        { id: "y1", name: "Signal", role: "y", dataType: "number" },
+      ],
+      rows: xs.map((x, i) => ({ id: `r${i}`, cells: { x, y1: 10 + i * 10 } })),
+      analyses: [],
+      plots: [],
+    };
+  }
+
+  it("a log X axis snaps to powers of ten and keeps points in frame", () => {
+    const content = logContent();
+    const style = {
+      ...defaultPlotStyle(),
+      kind: "xyScatter" as const,
+      fitModel: "none" as const,
+      xScaleType: "log" as const,
+    };
+    const geo = layoutXYPlot(content, style, "y1");
+    // X ticks are powers of ten spanning the data (0.01 .. 1000).
+    expect(geo.xTicks.map((t) => t.value)).toEqual([0.01, 0.1, 1, 10, 100, 1000]);
+    expect(geo.xMin).toBeCloseTo(0.01, 9);
+    expect(geo.xMax).toBeCloseTo(1000, 6);
+    expect(geo.points).toHaveLength(6);
+    for (const p of geo.points) {
+      expect(p.x).toBeGreaterThanOrEqual(geo.x0 - 1);
+      expect(p.x).toBeLessThanOrEqual(geo.x1 + 1);
+    }
+  });
+
+  it("a log axis falls back to linear when the data is not strictly positive", () => {
+    // y includes a non-positive value path is not triggered here; instead verify
+    // that x with a zero would fall back. Build x starting at 0.
+    const content: DataHubDocContent = {
+      meta: XY_META,
+      columns: [
+        { id: "x", name: "X", role: "x", dataType: "number" },
+        { id: "y1", name: "Y", role: "y", dataType: "number" },
+      ],
+      rows: [0, 1, 2, 3].map((x, i) => ({ id: `r${i}`, cells: { x, y1: x + 1 } })),
+      analyses: [],
+      plots: [],
+    };
+    const style = {
+      ...defaultPlotStyle(),
+      kind: "xyScatter" as const,
+      fitModel: "none" as const,
+      xScaleType: "log" as const,
+    };
+    const geo = layoutXYPlot(content, style, "y1");
+    // Min data is 0, so log is refused and linear ticks (not powers of ten) appear.
+    expect(geo.xMin).toBe(0);
+  });
+
+  it("honors manual X/Y axis range overrides", () => {
+    const content = lineContent(); // x 0..5, y = 2x+1 -> 1..11
+    const style = {
+      ...defaultPlotStyle(),
+      kind: "xyScatter" as const,
+      fitModel: "none" as const,
+      xAxisMin: 0,
+      xAxisMax: 10,
+      yAxisMin: 0,
+      yAxisMax: 20,
+    };
+    const geo = layoutXYPlot(content, style, "y1");
+    expect(geo.xMin).toBe(0);
+    expect(geo.xMax).toBe(10);
+    expect(geo.yMin).toBe(0);
+    expect(geo.yMax).toBe(20);
+    // ticks stay within the chosen range
+    for (const t of geo.xTicks) {
+      expect(t.value).toBeGreaterThanOrEqual(0);
+      expect(t.value).toBeLessThanOrEqual(10);
+    }
+  });
+
+  it("ignores an inverted manual range and keeps auto", () => {
+    const content = lineContent();
+    const style = {
+      ...defaultPlotStyle(),
+      kind: "xyScatter" as const,
+      fitModel: "none" as const,
+      xAxisMin: 10,
+      xAxisMax: 2, // inverted -> ignored
+    };
+    const geo = layoutXYPlot(content, style, "y1");
+    expect(geo.xMin).toBeLessThan(geo.xMax);
+  });
+});
+
+describe("plot-spec: logTicks", () => {
+  it("snaps lo/hi out to the enclosing powers of ten and lists the decades", () => {
+    const t = logTicks(0.03, 250);
+    expect(t.lo).toBeCloseTo(0.01, 9);
+    expect(t.hi).toBeCloseTo(1000, 6);
+    expect(t.values).toEqual([0.01, 0.1, 1, 10, 100, 1000]);
+  });
+  it("always spans at least one decade and rejects non-positive input", () => {
+    expect(logTicks(5, 5).values.length).toBeGreaterThanOrEqual(2);
+    expect(logTicks(-1, 10)).toEqual({ lo: 1, hi: 10, step: 1, values: [1, 10] });
+  });
+});
+
+describe("plot-spec: grouped bar modes", () => {
+  // One row-level, two groups (G1 mean 2, G2 mean 8) so totals are easy.
+  function groupedContent(): DataHubDocContent {
+    return {
+      meta: {
+        id: "g1",
+        name: "G",
+        project_ids: [],
+        folder_path: null,
+        table_type: "grouped",
+        created_at: "2026-06-10T00:00:00.000Z",
+      },
+      columns: [
+        { id: "rowlabel", name: "Level", role: "x", dataType: "text" },
+        { id: "a0", name: "G1", role: "y", dataType: "number", datasetId: "d0", subcolumnKind: "replicate" },
+        { id: "b0", name: "G2", role: "y", dataType: "number", datasetId: "d1", subcolumnKind: "replicate" },
+      ],
+      rows: [{ id: "r0", cells: { rowlabel: "L1", a0: 2, b0: 8 } }],
+      analyses: [],
+      plots: [],
+    };
+  }
+
+  it("dodge places two bars side by side framed to the tallest", () => {
+    const style = { ...defaultPlotStyle(), kind: "groupedBar" as const };
+    const geo = layoutGroupedBar(groupedContent(), style);
+    const bars = geo.clusters[0].bars;
+    expect(bars).toHaveLength(2);
+    // side by side -> different x
+    expect(bars[0].x).not.toBeCloseTo(bars[1].x, 3);
+    // framed to include the taller bar (8)
+    expect(geo.yMax).toBeGreaterThanOrEqual(8);
+  });
+
+  it("stack frames to the cluster total and stacks segments", () => {
+    const style = { ...defaultPlotStyle(), kind: "groupedBar" as const, barMode: "stack" as const };
+    const geo = layoutGroupedBar(groupedContent(), style);
+    const bars = geo.clusters[0].bars;
+    // both segments share the same x (one band), no error bars
+    expect(bars[0].x).toBeCloseTo(bars[1].x, 6);
+    expect(bars[0].error).toBeNull();
+    // framed to the total (10), so yMax >= 10
+    expect(geo.yMax).toBeGreaterThanOrEqual(10);
+    // first segment sits on the baseline (y0), second stacks above it
+    expect(bars[0].y + bars[0].height).toBeCloseTo(geo.y0, 3);
+    expect(bars[1].y + bars[1].height).toBeCloseTo(bars[0].y, 3);
+  });
+
+  it("stack100 normalizes the cluster to a full bar", () => {
+    const style = { ...defaultPlotStyle(), kind: "groupedBar" as const, barMode: "stack100" as const };
+    const geo = layoutGroupedBar(groupedContent(), style);
+    const bars = geo.clusters[0].bars;
+    expect(geo.yMax).toBe(1);
+    // the two segments together fill the whole axis (baseline y0 to top y1)
+    const bottom = bars[0].y + bars[0].height;
+    const top = bars[1].y;
+    expect(bottom).toBeCloseTo(geo.y0, 3);
+    expect(top).toBeCloseTo(geo.y1, 3);
+    // G1 is 2/10 of the bar, G2 is 8/10
+    const totalPx = geo.y0 - geo.y1;
+    expect(bars[0].height / totalPx).toBeCloseTo(0.2, 2);
+    expect(bars[1].height / totalPx).toBeCloseTo(0.8, 2);
+  });
+
+  it("honors a manual Y max + tick step on the value axis", () => {
+    const style = {
+      ...defaultPlotStyle(),
+      kind: "groupedBar" as const,
+      yAxisMax: 20,
+      yTickStep: 5,
+    };
+    const geo = layoutGroupedBar(groupedContent(), style);
+    expect(geo.yMax).toBe(20);
+    expect(geo.ticks.map((t) => t.value)).toEqual([0, 5, 10, 15, 20]);
+  });
+});
+
+describe("plot-spec: tip-aligned grouped bar (phylo Phase 4 seam)", () => {
+  // Two tips, two series (Phylum A / B). t1 = A2 B8, t2 = A6 B6.
+  function tipGroupedContent(): DataHubDocContent {
+    return {
+      meta: {
+        id: "tg",
+        name: "Abundance",
+        project_ids: [],
+        folder_path: null,
+        table_type: "grouped",
+        created_at: "2026-06-10T00:00:00.000Z",
+      },
+      columns: [
+        { id: "rowlabel", name: "Tip", role: "x", dataType: "text" },
+        { id: "a0", name: "Phylum A", role: "y", dataType: "number", datasetId: "d0", subcolumnKind: "replicate" },
+        { id: "b0", name: "Phylum B", role: "y", dataType: "number", datasetId: "d1", subcolumnKind: "replicate" },
+      ],
+      rows: [
+        { id: "r0", cells: { rowlabel: "t1", a0: 2, b0: 8 } },
+        { id: "r1", cells: { rowlabel: "t2", a0: 6, b0: 6 } },
+      ],
+      analyses: [],
+      plots: [],
+    };
+  }
+  const axis = {
+    order: ["t1", "t2"],
+    positions: [100, 200],
+    band: 40,
+    orientation: "rows" as const,
+    length: 120,
+  };
+
+  it("dodge: one row per tip at its position, bars from x=0 stacked within the band", () => {
+    const style = { ...defaultPlotStyle(), kind: "groupedBar" as const };
+    const geo = layoutAlignedGroupedBar(tipGroupedContent(), style, axis);
+    expect(geo.rows.map((r) => r.id)).toEqual(["t1", "t2"]);
+    expect(geo.rows[0].cy).toBe(100);
+    expect(geo.rows[1].cy).toBe(200);
+    const r0 = geo.rows[0].bars;
+    expect(r0).toHaveLength(2);
+    // both grow from the zero baseline; wider bar is the larger mean (B=8 > A=2)
+    expect(r0[0].x).toBe(0);
+    expect(r0[1].x).toBe(0);
+    expect(r0[1].width).toBeGreaterThan(r0[0].width);
+    // the two series occupy different vertical sub-bands within the tip
+    expect(r0[1].y).toBeGreaterThan(r0[0].y);
+  });
+
+  it("stack: segments run cumulatively along X within one band", () => {
+    const style = { ...defaultPlotStyle(), kind: "groupedBar" as const, barMode: "stack" as const };
+    const geo = layoutAlignedGroupedBar(tipGroupedContent(), style, axis);
+    const r0 = geo.rows[0].bars;
+    // second segment starts where the first ends
+    expect(r0[1].x).toBeCloseTo(r0[0].x + r0[0].width, 3);
+    // both share the tip band (same y / height)
+    expect(r0[1].y).toBeCloseTo(r0[0].y, 6);
+  });
+
+  it("stack100: each tip's segments fill the full length, proportional to composition", () => {
+    const style = { ...defaultPlotStyle(), kind: "groupedBar" as const, barMode: "stack100" as const };
+    const geo = layoutAlignedGroupedBar(tipGroupedContent(), style, axis);
+    expect(geo.valueMax).toBe(1);
+    const r0 = geo.rows[0].bars; // t1 = A2 B8 -> 0.2 / 0.8
+    const total = r0[0].width + r0[1].width;
+    expect(total).toBeCloseTo(120, 3);
+    expect(r0[0].width / total).toBeCloseTo(0.2, 3);
+    expect(r0[1].width / total).toBeCloseTo(0.8, 3);
+  });
+
+  it("a tip with no value keeps an empty slot rather than dropping out", () => {
+    const style = { ...defaultPlotStyle(), kind: "groupedBar" as const };
+    const axis3 = { ...axis, order: ["t1", "t2", "tGhost"], positions: [100, 200, 300] };
+    const geo = layoutAlignedGroupedBar(tipGroupedContent(), style, axis3);
+    expect(geo.rows).toHaveLength(3);
+    expect(geo.rows[2].id).toBe("tGhost");
+    expect(geo.rows[2].bars.every((b) => b.width === 0)).toBe(true);
+  });
+
+  it("renderPlot dispatches to the aligned path only when an alignedAxis is given", () => {
+    const spec = buildPlotSpec({ id: "p", kind: "groupedBar", tableId: "tg" });
+    const content = tipGroupedContent();
+    const plain = renderPlot(spec, content, null);
+    const aligned = renderPlot(spec, content, null, { alignedAxis: axis });
+    // back-compat: no opts -> the vertical grouped-bar geometry (clusters)
+    expect("clusters" in plain.geometry).toBe(true);
+    // opts -> the tip-aligned geometry (rows + length), fragment markup
+    expect("rows" in aligned.geometry).toBe(true);
+    expect("length" in aligned.geometry).toBe(true);
+    expect(aligned.svg.startsWith("<g>")).toBe(true);
+  });
+
+  it("renders a <g> fragment with a bar per series and a value-axis ruler", () => {
+    const style = { ...defaultPlotStyle(), kind: "groupedBar" as const };
+    const geo = layoutAlignedGroupedBar(tipGroupedContent(), style, axis);
+    const svg = renderAlignedGroupedBarSvg(geo, style);
+    // a fragment, not a standalone document (needle built dynamically so the
+    // inline-svg icon guard does not flag this assertion)
+    expect(svg.startsWith("<g>")).toBe(true);
+    expect(svg.includes("<" + "svg")).toBe(false);
+    // 2 tips x 2 series = 4 bars (all positive here)
+    expect((svg.match(/<rect /g) ?? []).length).toBe(4);
+    // a value-axis ruler line + at least one tick label
+    expect(svg.includes("<line ")).toBe(true);
+    expect((svg.match(/<text /g) ?? []).length).toBeGreaterThan(0);
+  });
+
+  it("clamps a non-positive series value to an empty (zero-width) bar", () => {
+    const content = tipGroupedContent();
+    content.rows[0].cells.a0 = -5; // t1 Phylum A negative
+    const style = { ...defaultPlotStyle(), kind: "groupedBar" as const };
+    const geo = layoutAlignedGroupedBar(content, style, axis);
+    // t1 series A (index 0) clamps to zero width; series B (8) still draws
+    expect(geo.rows[0].bars[0].width).toBe(0);
+    expect(geo.rows[0].bars[1].width).toBeGreaterThan(0);
+  });
+
+  it("keeps every bar within the panel length", () => {
+    const style = { ...defaultPlotStyle(), kind: "groupedBar" as const };
+    for (const mode of ["dodge", "stack", "stack100"] as const) {
+      const geo = layoutAlignedGroupedBar(tipGroupedContent(), { ...style, barMode: mode }, axis);
+      for (const row of geo.rows) {
+        for (const bar of row.bars) {
+          expect(bar.x + bar.width).toBeLessThanOrEqual(axis.length + 1e-6);
+        }
+      }
+    }
   });
 });
 

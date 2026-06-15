@@ -18,6 +18,7 @@
 import {
   layoutCircular,
   layoutRectangular,
+  layoutUnrooted,
   type CircularLayout,
   type LayoutOptions,
   type RectLayout,
@@ -52,7 +53,26 @@ import {
   extractPanelValues,
   buildPanelScales,
 } from "./panels";
-import type { AlignedPanel, CladeAnnotation } from "./types";
+import type {
+  AlignedPanel,
+  CladeAnnotation,
+  NodePie,
+  PhyloLayout,
+  TaxaLink,
+  TaxaStrip,
+} from "./types";
+import {
+  renderPlot,
+  type AlignedAxis,
+  type GroupedLegendItem,
+  type AlignedGroupedBarGeometry,
+} from "@/lib/datahub/plot-spec";
+import type {
+  PlotSpec,
+  AnalysisSpec,
+  DataHubDocContent,
+} from "@/lib/datahub/model/types";
+import { tipAxisToAlignedAxis } from "./datahub-panel";
 
 export { CATEGORY_PALETTE } from "./render-palette";
 
@@ -93,8 +113,17 @@ export interface FigureScales {
 }
 
 export interface RenderSpec {
-  layout: "rectangular" | "circular";
+  layout: PhyloLayout;
   phylogram: boolean;
+  /** Show the branch-length scale bar on a phylogram (geom_treescale). Default
+   *  on; absent = on (back-compat). Only meaningful for a rectangular phylogram. */
+  scaleBar?: boolean;
+  /** Draw a short stub branch below the root (ggtree geom_rootedge). Default off. */
+  rootEdge?: boolean;
+  /** Draw a full-width time axis (age before present) under a rectangular
+   *  phylogram, with the tips at age 0 (ggtree theme_tree2). Default off.
+   *  Replaces the compact scale bar when on. */
+  timeAxis?: boolean;
   tracks: FigureTracks;
   columns: FigureColumns;
   width: number;
@@ -151,6 +180,23 @@ export interface RenderSpec {
     /** A short downsample note when the alignment was binned, else empty. */
     note: string;
   };
+  /**
+   * Resolved Data Hub render inputs for each `datahubPlot` panel, keyed by panel
+   * id (phylo Phase 4 tip-aligned plots). Carried on the render spec the same way
+   * `msaTrack` + `metadata` are: the Studio / embed loads the table + plot from the
+   * Data Hub store and supplies them here, and render.ts hands the tree's
+   * alignedAxis to the Data Hub renderPlot (the shared seam). A datahubPlot panel
+   * with no entry here draws nothing, so a saved figure that stored only the
+   * reference is not a breaking change.
+   */
+  datahubPanels?: Record<
+    string,
+    {
+      plotSpec: PlotSpec;
+      content: DataHubDocContent;
+      analysis: AnalysisSpec | null;
+    }
+  >;
 }
 
 const FG = "#1f2937";
@@ -259,8 +305,82 @@ function resolveScales(root: TreeNode, spec: RenderSpec): ResolvedScales {
 
 /** Build a complete SVG string for the current figure. */
 export function renderTreeSvg(root: TreeNode, spec: RenderSpec): string {
+  // The unrooted (equal-angle) layout has no tip line/circle, so it bypasses the
+  // panel + aligned-track machinery and draws its own self-contained figure.
+  if (spec.layout === "unrooted") return renderUnrooted(root, spec);
   if (spec.panels) return renderFromPanels(root, spec, spec.panels);
   return renderFromTracks(root, spec);
+}
+
+/**
+ * Render the unrooted (equal-angle) tree: straight edges through the laid-out
+ * point cloud, a small dot at each tip, and a rotated tip label (when a labels
+ * layer is on) angled outward along the tip's direction. No aligned panels or
+ * scale bar apply to an unrooted tree.
+ */
+function renderUnrooted(root: TreeNode, spec: RenderSpec): string {
+  const labelsOn =
+    spec.panels?.some((pp) => pp.visible && pp.kind === "labels") ??
+    !!spec.tracks?.labels;
+  // Reserve room for the tip labels: they extend radially OUTWARD past each tip,
+  // so the node cloud must be inset by roughly the longest label's length, or a
+  // tip near the edge gets its label clipped at the canvas. ~5.4px per char at
+  // font-size 9, plus the label offset and a margin.
+  const longestName = labelsOn
+    ? Math.max(0, ...leaves(root).map((t) => t.name.length))
+    : 0;
+  const labelRoom = labelsOn ? longestName * 5.4 + 16 : 24;
+  const layout = layoutUnrooted(root, {
+    width: spec.width,
+    height: spec.height,
+    padding: Math.max(24, labelRoom),
+    phylogram: spec.phylogram,
+  });
+  const parts: string[] = [];
+  for (const p of layout.nodes) {
+    if (p.parentX === null || p.parentY === null) continue;
+    parts.push(
+      `<path d="M${p.parentX.toFixed(1)} ${p.parentY.toFixed(1)} L${p.x.toFixed(1)} ${p.y.toFixed(1)}" fill="none" stroke="${colorForBranch(spec, p.node.id)}" stroke-width="1.4"/>`,
+    );
+  }
+  for (const p of layout.nodes) {
+    if (p.node.children.length > 0) continue;
+    parts.push(
+      `<circle cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="1.6" fill="${FG}"/>`,
+    );
+    if (labelsOn && p.node.name) {
+      const deg = (p.angle * 180) / Math.PI;
+      const flip = Math.cos(p.angle) < 0;
+      const lx = p.x + Math.cos(p.angle) * 4;
+      const ly = p.y + Math.sin(p.angle) * 4;
+      const rot = flip ? deg + 180 : deg;
+      const anchor = flip ? "end" : "start";
+      parts.push(
+        `<text x="${lx.toFixed(1)}" y="${ly.toFixed(1)}" font-size="9" fill="${FG}" transform="rotate(${rot.toFixed(1)} ${lx.toFixed(1)} ${ly.toFixed(1)})" text-anchor="${anchor}">${esc(p.node.name)}</text>`,
+      );
+    }
+  }
+  return svgDocument(spec.width, spec.height, parts.join(""), "");
+}
+
+/** True for the circular family (circular, fan, inward-circular). All three share
+ *  the polar layout, the ring panels, and drawCircularTree; only the fan sweep
+ *  angle and the tip-label orientation differ. */
+function isCircular(layout: PhyloLayout): boolean {
+  return (
+    layout === "circular" || layout === "fan" || layout === "inwardCircular"
+  );
+}
+
+/** The fan sweep (degrees) for a layout: an open fan for "fan", else the near-full
+ *  circle the rooted circular tree uses. Ignored by the rectangular layout. */
+function sweepFor(layout: PhyloLayout): number {
+  return layout === "fan" ? 180 : 330;
+}
+
+/** Whether the circular tip labels face inward (toward the center). */
+function labelsInward(layout: PhyloLayout): boolean {
+  return layout === "inwardCircular";
 }
 
 /** The Phase 0 track-driven render path (kept for a hand-built spec with no
@@ -279,13 +399,12 @@ function renderFromTracks(root: TreeNode, spec: RenderSpec): string {
     rightInset: rightInsetFor(root, spec),
     padding: 16,
     phylogram: spec.phylogram,
-    circularRingRoom:
-      spec.layout === "circular" ? circularRingRoom(spec) : 0,
+    circularRingRoom: isCircular(spec.layout) ? circularRingRoom(spec) : 0,
+    sweepDegrees: sweepFor(spec.layout),
   };
-  const body =
-    spec.layout === "circular"
-      ? renderCircular(root, layoutCircular(root, opts), spec, scales)
-      : renderRectangular(root, layoutRectangular(root, opts), spec, scales);
+  const body = isCircular(spec.layout)
+    ? renderCircular(root, layoutCircular(root, opts), spec, scales)
+    : renderRectangular(root, layoutRectangular(root, opts), spec, scales);
   const legend =
     legendItems.length > 0
       ? renderLegends(legendItems, plotWidth, spec.height)
@@ -310,6 +429,7 @@ const ALIGNED_KINDS = new Set([
   "point",
   "scatter",
   "msa",
+  "datahubPlot",
 ]);
 
 /** Default thickness an msa panel occupies when it does not pin its own width
@@ -337,6 +457,75 @@ function alignedRoom(panels: AlignedPanel[]): number {
 
 /** Inter-panel spacing (px) reserved so stacked rings / columns stay distinct. */
 const PANEL_GAP = 8;
+
+/**
+ * Draw one tip-aligned Data Hub plot panel (phylo Phase 4). Resolves the panel's
+ * pre-loaded { plotSpec, content, analysis } off the render spec and hands the
+ * tree's alignedAxis to the shared Data Hub renderPlot seam, then translates the
+ * returned panel-local fragment to the panel's start cursor. Returns the fragment,
+ * its thickness, and its series legend (the tree owns the legend column). v1 is
+ * rectangular only (the adapter throws on a circular axis), so a circular layout
+ * skips it. LAYOUT ONLY: every figure number is the Data Hub engine's; this just
+ * decides WHERE the panel draws.
+ */
+function renderDatahubPanel(
+  panel: AlignedPanel,
+  axis: TipAxis,
+  spec: RenderSpec,
+): { svg: string; thickness: number; legend: GroupedLegendItem[] } | null {
+  if (isCircular(spec.layout)) return null; // circular rings: polar fast-follow
+  const resolved = spec.datahubPanels?.[panel.id];
+  if (!resolved) return null;
+  const thickness = panelBandThickness(panel);
+  let alignedAxis: ReturnType<typeof tipAxisToAlignedAxis>;
+  try {
+    alignedAxis = tipAxisToAlignedAxis(axis, thickness);
+  } catch {
+    return null;
+  }
+  const r = renderPlot(resolved.plotSpec, resolved.content, resolved.analysis, {
+    alignedAxis,
+  });
+  const geom = r.geometry as AlignedGroupedBarGeometry;
+  // renderPlot returns a panel-local <g> fragment: X runs 0..length, Y is already
+  // in tree space via the alignedAxis positions, so only X needs the start shift.
+  const svg = `<g transform="translate(${axis.panelStartX}, 0)">${r.svg}</g>`;
+  return { svg, thickness, legend: geom.legend ?? [] };
+}
+
+/**
+ * Read a datahubPlot panel's series legend (the renderPlot column groups). The
+ * series are content-driven, NOT position-driven, so this renders against a
+ * synthetic axis (tip ids in order, dummy positions) only to read geometry.legend
+ * before the real layout exists. Lets the legend column be sized to include the
+ * Data Hub series before the tree is laid out. Rectangular only (the adapter
+ * throws on circular); empty when unresolved.
+ */
+function datahubPanelLegend(
+  panel: AlignedPanel,
+  spec: RenderSpec,
+  root: TreeNode,
+): GroupedLegendItem[] {
+  if (isCircular(spec.layout)) return [];
+  const resolved = spec.datahubPanels?.[panel.id];
+  if (!resolved) return [];
+  const tips = leaves(root);
+  if (tips.length === 0) return [];
+  const probe: AlignedAxis = {
+    order: tips.map((t) => String(t.id)),
+    positions: tips.map((_, i) => i),
+    band: 1,
+    orientation: "rows",
+  };
+  try {
+    const r = renderPlot(resolved.plotSpec, resolved.content, resolved.analysis, {
+      alignedAxis: probe,
+    });
+    return (r.geometry as AlignedGroupedBarGeometry).legend ?? [];
+  } catch {
+    return [];
+  }
+}
 
 function renderFromPanels(
   rootRaw: TreeNode,
@@ -392,26 +581,38 @@ function renderFromPanels(
     width: plotWidth,
     height: spec.height,
     rightInset:
-      spec.layout === "circular" ? 0 : room + labelRoom + 8,
+      isCircular(spec.layout) ? 0 : room + labelRoom + 8,
     padding: 16,
     phylogram: spec.phylogram,
-    circularRingRoom: spec.layout === "circular" ? room + 4 : 0,
+    circularRingRoom: isCircular(spec.layout) ? room + 4 : 0,
+    sweepDegrees: sweepFor(spec.layout),
   };
 
   const parts: string[] = [];
   let axis: TipAxis;
   let panelStart: number; // x cursor (rect) / radius cursor (circular)
 
-  if (spec.layout === "circular") {
+  if (isCircular(spec.layout)) {
     const layout = layoutCircular(root, opts);
     drawCircularTree(parts, root, layout, spec, panels, collapsed);
     axis = circularTipAxis(root, layout, layout.radius + 6);
     panelStart = axis.ringStartR;
   } else {
     const layout = layoutRectangular(root, opts);
-    const plotRight = drawRectTree(parts, root, layout, spec, panels, collapsed);
+    const { plotRight, decorRight } = drawRectTree(
+      parts,
+      root,
+      layout,
+      spec,
+      panels,
+      collapsed,
+    );
     axis = rectTipAxis(root, layout, plotRight + 8);
-    panelStart = axis.panelStartX;
+    // Start the aligned panels / tip labels past any right-side decoration so a
+    // strip / bracket / taxalink gets its own column instead of painting under
+    // the labels (the ggtree per-geom offset). Math.max keeps the no-decoration
+    // case identical to plotRight-based placement.
+    panelStart = Math.max(axis.panelStartX, decorRight + 10);
   }
 
   // Draw each aligned panel in order, advancing the cursor by its thickness plus
@@ -421,9 +622,20 @@ function renderFromPanels(
   let cursor = panelStart;
   for (const panel of aligned) {
     const localAxis: TipAxis =
-      spec.layout === "circular"
+      isCircular(spec.layout)
         ? { ...axis, ringStartR: cursor }
         : { ...axis, panelStartX: cursor };
+    // A datahubPlot panel delegates its draw to the Data Hub renderPlot seam
+    // (a self-contained fragment placed at the cursor), not the metadata path.
+    if (panel.kind === "datahubPlot") {
+      const drawn = renderDatahubPanel(panel, localAxis, spec);
+      if (drawn) {
+        parts.push(panelTitle(panel, localAxis, spec, root, meta));
+        parts.push(drawn.svg);
+        cursor += drawn.thickness + PANEL_GAP;
+      }
+      continue;
+    }
     // The msa panel reads its per-tip residue rows from the alignment track on the
     // spec (not from the bound metadata); every other panel reads the metadata.
     const values: PanelValues =
@@ -507,8 +719,86 @@ function panelTitle(
   return `<text x="${lx}" y="${ly}" font-size="8.5" font-weight="600" fill="${MUTED}" text-anchor="middle">${esc(truncate(title, 18))}</text>`;
 }
 
-/** Draw the rectangular tree spine + clade + support + points; returns plotRight
- *  (the x of the deepest tip) so the caller starts panels just past it. */
+/** The tip-marker shapes a points layer can map a categorical column onto
+ *  (ggtree aes(shape = ...)). Order is the assignment order per distinct value. */
+type TipShape = "circle" | "square" | "triangle" | "diamond";
+const TIP_SHAPES: TipShape[] = ["circle", "square", "triangle", "diamond"];
+
+/** One tip marker of a given shape, centered at (cx, cy) with "radius" r. */
+function shapeMarker(
+  cx: number,
+  cy: number,
+  r: number,
+  shape: TipShape,
+  fill: string,
+): string {
+  const x = cx.toFixed(1);
+  const y = cy.toFixed(1);
+  const rr = r.toFixed(2);
+  switch (shape) {
+    case "square":
+      return `<rect x="${(cx - r).toFixed(1)}" y="${(cy - r).toFixed(1)}" width="${(r * 2).toFixed(2)}" height="${(r * 2).toFixed(2)}" fill="${fill}"/>`;
+    case "triangle":
+      return `<path d="M${x} ${(cy - r).toFixed(1)} L${(cx + r).toFixed(1)} ${(cy + r).toFixed(1)} L${(cx - r).toFixed(1)} ${(cy + r).toFixed(1)} Z" fill="${fill}"/>`;
+    case "diamond":
+      return `<path d="M${x} ${(cy - r).toFixed(1)} L${(cx + r).toFixed(1)} ${y} L${x} ${(cy + r).toFixed(1)} L${(cx - r).toFixed(1)} ${y} Z" fill="${fill}"/>`;
+    default:
+      return `<circle cx="${x}" cy="${y}" r="${rr}" fill="${fill}"/>`;
+  }
+}
+
+/** Resolve per-tip radius + shape for a points layer from its optional
+ *  size-by-column (numeric, scaled to a radius range) and shape-by-column
+ *  (categorical, mapped to the marker set). Absent options give the fixed
+ *  default, so a points layer with no styling reads exactly as before. */
+function pointStyling(
+  panel: AlignedPanel,
+  spec: RenderSpec,
+  root: TreeNode,
+  baseR: number,
+): { radiusFor: (id: number) => number; shapeFor: (id: number) => TipShape } {
+  const opts = panel.options ?? {};
+  const sizeCol = typeof opts.sizeColumn === "string" ? opts.sizeColumn : "";
+  const shapeCol = typeof opts.shapeColumn === "string" ? opts.shapeColumn : "";
+  const meta = spec.metadata;
+  let radiusFor = (_id: number) => baseR;
+  if (sizeCol && meta) {
+    const vals: number[] = [];
+    for (const tip of leaves(root)) {
+      const v = Number(meta.get(tip.id)?.[sizeCol]);
+      if (Number.isFinite(v)) vals.push(v);
+    }
+    if (vals.length > 0) {
+      const mn = Math.min(...vals);
+      const span = Math.max(...vals) - mn || 1;
+      radiusFor = (id: number) => {
+        const v = Number(meta.get(id)?.[sizeCol]);
+        if (!Number.isFinite(v)) return baseR * 0.7;
+        return 2.5 + ((v - mn) / span) * 5;
+      };
+    }
+  }
+  let shapeFor = (_id: number): TipShape => "circle";
+  if (shapeCol && meta) {
+    const map = new Map<string, TipShape>();
+    for (const tip of leaves(root)) {
+      const v = meta.get(tip.id)?.[shapeCol];
+      if (v && !map.has(v)) map.set(v, TIP_SHAPES[map.size % TIP_SHAPES.length]);
+    }
+    shapeFor = (id: number): TipShape => {
+      const v = meta.get(id)?.[shapeCol];
+      return (v && map.get(v)) || "circle";
+    };
+  }
+  return { radiusFor, shapeFor };
+}
+
+/** Draw the rectangular tree spine + clade + support + points. Returns `plotRight`
+ *  (the x of the deepest tip, where the tip axis starts) and `decorRight` (the
+ *  rightmost x reached by any in-tree right-side decoration — clade brackets,
+ *  span strips, taxalink bows, incl their labels). The caller starts the aligned
+ *  panels / tip labels past `decorRight` so decorations get their own column and
+ *  never paint under the labels (the ggtree per-geom `offset` idea). */
 function drawRectTree(
   parts: string[],
   root: TreeNode,
@@ -516,9 +806,14 @@ function drawRectTree(
   spec: RenderSpec,
   panels: AlignedPanel[],
   collapsed: Map<number, CollapsedNode> = new Map(),
-): number {
+): { plotRight: number; decorRight: number } {
   const byId = new Map(layout.nodes.map((p) => [p.node.id, p]));
   const plotRight = Math.max(...layout.nodes.map((p) => p.x));
+  // Rightmost extent of any right-side decoration; grows as brackets/strips/links
+  // are placed so the caller can reserve a column for them. ~6px/char approximates
+  // the 10px decoration-label glyph advance (matches the boxed-label heuristic).
+  let decorRight = plotRight;
+  const labelW = (s: string) => s.length * 6 + 4;
   const showSupport = panels.some((p) => p.visible && p.kind === "support");
   const pointsPanel = panels.find((p) => p.visible && p.kind === "points");
 
@@ -542,6 +837,7 @@ function drawRectTree(
           `<text x="${bx + 8}" y="${((ymin + ymax) / 2 + 3).toFixed(1)}" font-size="10" font-weight="700" fill="${hl.color}">${esc(hl.label)}</text>`,
         );
       }
+      decorRight = Math.max(decorRight, bx + 8 + (hl.label ? labelW(hl.label) : 0));
     } else {
       const y0 = Math.min(...ys) - 12;
       const y1 = Math.max(...ys) + 12;
@@ -555,15 +851,85 @@ function drawRectTree(
       }
     }
   }
+  // Node-age range bars (ggtree geom_range): a horizontal bar through each node
+  // spanning a parsed {lo,hi} annotation interval (e.g. height_95%_HPD), drawn in
+  // branch-length / age coordinates so it reads against the time axis. Under the
+  // spine so the branches + node points sit on top. Rectangular phylogram only.
+  const rangePanel = panels.find((p) => p.visible && p.kind === "noderange");
+  if (rangePanel && spec.phylogram && layout.unitsPerPx) {
+    const upp = layout.unitsPerPx;
+    const key =
+      (typeof rangePanel.options?.rangeKey === "string" &&
+        rangePanel.options.rangeKey) ||
+      "height_95%_HPD";
+    const color =
+      (typeof rangePanel.options?.color === "string" &&
+        rangePanel.options.color) ||
+      "#2563EB";
+    for (const p of layout.nodes) {
+      const v = p.node.annotations?.[key];
+      if (!Array.isArray(v) || v.length < 2) continue;
+      // The interval width in px (age span / unitsPerPx). Anchor the bar ON its
+      // node (centered at p.x) so the uncertainty always passes through the node
+      // point — a phylogram plots nodes by branch-length-from-root, so an
+      // absolute-age x only coincides with the node when the tree is ultrametric;
+      // centering keeps the bar seated on the node for non-ultrametric trees too.
+      const w = Math.abs(v[1] - v[0]) / upp;
+      if (!(w > 0)) continue;
+      const x0 = p.x - w / 2;
+      parts.push(
+        `<rect x="${x0.toFixed(1)}" y="${(p.y - 3).toFixed(1)}" width="${w.toFixed(1)}" height="6" rx="3" fill="${color}" opacity="0.35"/>`,
+      );
+    }
+  }
+  // A slanted cladogram draws a straight diagonal from parent to child; the
+  // default rectangular tree draws the right-angle elbow (vertical then
+  // horizontal). Node positions are identical, so panels / labels are unchanged.
+  const slanted = spec.layout === "slanted";
+  // Optional root edge: a short stub branch to the left of the root (geom_rootedge).
+  if (spec.rootEdge) {
+    const r = layout.nodes.find((p) => p.parentX === null);
+    if (r) {
+      parts.push(
+        `<path d="M${(r.x - 16).toFixed(1)} ${r.y.toFixed(1)} L${r.x.toFixed(1)} ${r.y.toFixed(1)}" fill="none" stroke="${colorForBranch(spec, r.node.id)}" stroke-width="1.5"/>`,
+      );
+    }
+  }
   for (const p of layout.nodes) {
     if (p.parentX === null || p.parentY === null) continue;
+    const d = slanted
+      ? `M${p.parentX} ${p.parentY} L${p.x} ${p.y}`
+      : `M${p.parentX} ${p.parentY} V${p.y} H${p.x}`;
     parts.push(
-      `<path d="M${p.parentX} ${p.parentY} V${p.y} H${p.x}" fill="none" stroke="${colorForBranch(spec, p.node.id)}" stroke-width="1.5"/>`,
+      `<path d="${d}" fill="none" stroke="${colorForBranch(spec, p.node.id)}" stroke-width="1.5"/>`,
     );
     if (showSupport && p.node.children.length > 0 && p.node.support !== null) {
       parts.push(
         `<text x="${p.parentX + 3}" y="${p.y - 3}" font-size="9" fill="${MUTED}">${p.node.support}</text>`,
       );
+    }
+  }
+  // Node / root point glyphs (ggtree geom_nodepoint / geom_rootpoint), drawn on
+  // the tree over the branches.
+  const nodePointsPanel =
+    panels.find((p) => p.visible && p.kind === "nodepoints") ?? null;
+  if (nodePointsPanel) {
+    const npo = nodePointsPanel.options ?? {};
+    const r = Number(npo.size) || 3;
+    const color =
+      (typeof npo.color === "string" && npo.color) || "#374151";
+    const showRoot = !!npo.showRoot;
+    for (const p of layout.nodes) {
+      const isRoot = p.parentX === null || p.parentY === null;
+      if (isRoot) {
+        if (showRoot)
+          parts.push(
+            `<circle cx="${p.x}" cy="${p.y}" r="${(r + 1).toFixed(1)}" fill="${color}" stroke="#ffffff" stroke-width="0.75"/>`,
+          );
+        continue;
+      }
+      if (p.node.children.length > 0)
+        parts.push(`<circle cx="${p.x}" cy="${p.y}" r="${r}" fill="${color}"/>`);
     }
   }
   if (pointsPanel) {
@@ -574,20 +940,96 @@ function drawRectTree(
             categoryColors: spec.categoryColors,
           })
         : null;
+    const { radiusFor, shapeFor } = pointStyling(pointsPanel, spec, root, 4);
     for (const tip of leaves(root)) {
       if (collapsed.has(tip.id)) continue; // a collapsed clade shows a triangle
       const p = byId.get(tip.id)!;
       const fill = scale
         ? scale.colorFor(spec.metadata?.get(tip.id)?.[pointsPanel.column ?? ""])
         : MUTED;
-      parts.push(`<circle cx="${p.x + 6}" cy="${p.y}" r="4" fill="${fill}"/>`);
+      parts.push(
+        shapeMarker(p.x + 6, p.y, radiusFor(tip.id), shapeFor(tip.id), fill),
+      );
     }
   }
   for (const [id, info] of collapsed) {
     const ln = byId.get(id);
     if (ln) parts.push(collapsedTriangleRect(ln.x, ln.y, info));
   }
-  if (spec.phylogram && layout.unitsPerPx) {
+  // Node pies / stars (ggtree nodepie): a glyph at the MRCA of the named tips.
+  for (const pie of resolveNodePies(root, panels)) {
+    const np = byId.get(pie.nodeId);
+    if (np) parts.push(nodePieSvg(np.x, np.y, pie));
+  }
+  // Tip-to-tip links (ggtree geom_taxalink): a curve between two named tips,
+  // bowing to the right of the tree so it does not cross the spine.
+  const links = resolveTaxaLinks(panels);
+  if (links.length > 0) {
+    const byName = new Map(leaves(root).map((t) => [t.name, byId.get(t.id)!]));
+    for (const link of links) {
+      const a = byName.get(link.from);
+      const b = byName.get(link.to);
+      if (!a || !b) continue;
+      const x0 = Math.max(a.x, b.x);
+      // Bow outward (right) proportional to how far apart the tips are.
+      const bow = 24 + Math.abs(a.y - b.y) * 0.35;
+      const cx = x0 + bow;
+      const cy = (a.y + b.y) / 2;
+      parts.push(
+        `<path d="M${a.x.toFixed(1)} ${a.y.toFixed(1)} Q${cx.toFixed(1)} ${cy.toFixed(1)} ${b.x.toFixed(1)} ${b.y.toFixed(1)}" fill="none" stroke="${link.color || "#7C3AED"}" stroke-width="1.5" stroke-dasharray="4 3" opacity="0.9"/>`,
+      );
+      // A quadratic bow peaks at ~half the control offset, so the curve reaches
+      // x0 + bow/2; reserve to there so labels clear the dashed link.
+      decorRight = Math.max(decorRight, x0 + bow / 2 + 4);
+    }
+  }
+  // Span strips (ggtree geom_strip): a solid bar just past the tree edge spanning
+  // the range from one named tip to another, with an optional label.
+  const strips = resolveTaxaStrips(panels);
+  if (strips.length > 0) {
+    const byName = new Map(leaves(root).map((t) => [t.name, byId.get(t.id)!]));
+    const bx = plotRight + 10;
+    for (const s of strips) {
+      const a = byName.get(s.from);
+      const b = byName.get(s.to);
+      if (!a || !b) continue;
+      const y0 = Math.min(a.y, b.y) - 5;
+      const y1 = Math.max(a.y, b.y) + 5;
+      parts.push(
+        `<rect x="${bx.toFixed(1)}" y="${y0.toFixed(1)}" width="5" height="${(y1 - y0).toFixed(1)}" rx="2" fill="${s.color || "#1D9E75"}"/>`,
+      );
+      if (s.label) {
+        parts.push(
+          `<text x="${(bx + 9).toFixed(1)}" y="${((y0 + y1) / 2 + 3).toFixed(1)}" font-size="10" font-weight="700" fill="${s.color || "#1D9E75"}">${esc(s.label)}</text>`,
+        );
+      }
+      decorRight = Math.max(decorRight, bx + (s.label ? 9 + labelW(s.label) : 5));
+    }
+  }
+  // Time axis (ggtree theme_tree2): a full-width ruler in age-before-present, the
+  // tips at age 0 and the root at the maximum depth. Replaces the compact scale
+  // bar when on. Only meaningful for a rectangular phylogram.
+  if (spec.phylogram && spec.timeAxis && layout.unitsPerPx) {
+    const upp = layout.unitsPerPx;
+    const rootNode = layout.nodes.find((p) => p.parentX === null);
+    const rootX = rootNode ? rootNode.x : 16;
+    const maxDepth = layout.maxDepth;
+    const step = niceAxisStep(maxDepth / 5);
+    const y = spec.height - 16;
+    const xForAge = (age: number) => rootX + (maxDepth - age) / upp;
+    const x0 = xForAge(maxDepth); // oldest (root end)
+    const x1 = xForAge(0); // present (tip end)
+    parts.push(
+      `<line x1="${x0.toFixed(1)}" y1="${y}" x2="${x1.toFixed(1)}" y2="${y}" stroke="${MUTED}" stroke-width="1"/>`,
+    );
+    for (let age = 0; age <= maxDepth + 1e-9; age += step) {
+      const x = xForAge(age);
+      parts.push(
+        `<line x1="${x.toFixed(1)}" y1="${(y - 3).toFixed(1)}" x2="${x.toFixed(1)}" y2="${(y + 3).toFixed(1)}" stroke="${MUTED}" stroke-width="1"/>`,
+        `<text x="${x.toFixed(1)}" y="${(y + 13).toFixed(1)}" font-size="8.5" fill="${MUTED}" text-anchor="middle">${formatAxisTick(age)}</text>`,
+      );
+    }
+  } else if (spec.phylogram && spec.scaleBar !== false && layout.unitsPerPx) {
     const tick = niceTick(layout.maxDepth);
     const px = tick / layout.unitsPerPx;
     const y = spec.height - 6;
@@ -596,7 +1038,22 @@ function drawRectTree(
       `<text x="16" y="${y - 4}" font-size="9" fill="${MUTED}">${tick}</text>`,
     );
   }
-  return plotRight;
+  return { plotRight, decorRight };
+}
+
+/** A 1/2/5 x 10^n "nice" step at or below the target, for axis ticks. */
+function niceAxisStep(target: number): number {
+  if (!(target > 0)) return 1;
+  const pow = Math.pow(10, Math.floor(Math.log10(target)));
+  const f = target / pow;
+  const nice = f < 1.5 ? 1 : f < 3 ? 2 : f < 7 ? 5 : 10;
+  return nice * pow;
+}
+
+/** Trim a tick value to a short label (no trailing zeros). */
+function formatAxisTick(v: number): string {
+  if (Math.abs(v) < 1e-9) return "0";
+  return Number(v.toFixed(4)).toString();
 }
 
 /** Draw the circular tree spine + points (clade / support are deferred in the
@@ -673,6 +1130,17 @@ function drawCircularTree(
       }
     }
   }
+  // Optional root edge: a short radial stub from the root toward the center.
+  if (spec.rootEdge) {
+    const r = layout.nodes.find((p) => p.parentX === null);
+    if (r) {
+      const a = r.angle - Math.PI / 2;
+      const er = Math.max(0, r.radius - 12);
+      parts.push(
+        `<path d="M${(layout.cx + r.radius * Math.cos(a)).toFixed(1)} ${(layout.cy + r.radius * Math.sin(a)).toFixed(1)} L${(layout.cx + er * Math.cos(a)).toFixed(1)} ${(layout.cy + er * Math.sin(a)).toFixed(1)}" fill="none" stroke="${colorForBranch(spec, r.node.id)}" stroke-width="1.4"/>`,
+      );
+    }
+  }
   for (const p of layout.nodes) {
     if (
       p.parentX === null ||
@@ -691,6 +1159,27 @@ function drawCircularTree(
       `<path d="M${px} ${py} A ${p.parentRadius} ${p.parentRadius} 0 ${large} ${sweep} ${ax} ${ay} L ${p.x} ${p.y}" fill="none" stroke="${colorForBranch(spec, p.node.id)}" stroke-width="1.4"/>`,
     );
   }
+  // Node / root point glyphs (ggtree geom_nodepoint / geom_rootpoint).
+  const nodePointsPanel =
+    panels.find((p) => p.visible && p.kind === "nodepoints") ?? null;
+  if (nodePointsPanel) {
+    const npo = nodePointsPanel.options ?? {};
+    const r = Number(npo.size) || 3;
+    const color = (typeof npo.color === "string" && npo.color) || "#374151";
+    const showRoot = !!npo.showRoot;
+    for (const p of layout.nodes) {
+      const isRoot = p.parentX === null || p.parentY === null;
+      if (isRoot) {
+        if (showRoot)
+          parts.push(
+            `<circle cx="${p.x}" cy="${p.y}" r="${(r + 1).toFixed(1)}" fill="${color}" stroke="#ffffff" stroke-width="0.75"/>`,
+          );
+        continue;
+      }
+      if (p.node.children.length > 0)
+        parts.push(`<circle cx="${p.x}" cy="${p.y}" r="${r}" fill="${color}"/>`);
+    }
+  }
   const pointsPanel = panels.find((p) => p.visible && p.kind === "points");
   if (pointsPanel) {
     const byId = new Map(layout.nodes.map((p) => [p.node.id, p]));
@@ -701,13 +1190,75 @@ function drawCircularTree(
             categoryColors: spec.categoryColors,
           })
         : null;
+    const { radiusFor, shapeFor } = pointStyling(pointsPanel, spec, root, 3.5);
     for (const tip of leaves(root)) {
       if (collapsed.has(tip.id)) continue; // a collapsed clade shows a wedge
       const p = byId.get(tip.id)!;
       const fill = scale
         ? scale.colorFor(spec.metadata?.get(tip.id)?.[pointsPanel.column ?? ""])
         : MUTED;
-      parts.push(`<circle cx="${p.x}" cy="${p.y}" r="3.5" fill="${fill}"/>`);
+      parts.push(
+        shapeMarker(p.x, p.y, radiusFor(tip.id), shapeFor(tip.id), fill),
+      );
+    }
+  }
+  // Node pies / stars (ggtree nodepie): a glyph at the MRCA of the named tips.
+  {
+    const byId = new Map(layout.nodes.map((p) => [p.node.id, p]));
+    for (const pie of resolveNodePies(root, panels)) {
+      const np = byId.get(pie.nodeId);
+      if (np) parts.push(nodePieSvg(np.x, np.y, pie));
+    }
+  }
+  // Tip-to-tip links (ggtree geom_taxalink): a curve between two named tips,
+  // bowing through the inside of the ring (control pulled toward the center).
+  const links = resolveTaxaLinks(panels);
+  if (links.length > 0) {
+    const byName = new Map(
+      layout.nodes
+        .filter((p) => p.node.children.length === 0)
+        .map((p) => [p.node.name, p]),
+    );
+    for (const link of links) {
+      const a = byName.get(link.from);
+      const b = byName.get(link.to);
+      if (!a || !b) continue;
+      const mx = (a.x + b.x) / 2;
+      const my = (a.y + b.y) / 2;
+      const cx = mx + (layout.cx - mx) * 0.7;
+      const cy = my + (layout.cy - my) * 0.7;
+      parts.push(
+        `<path d="M${a.x.toFixed(1)} ${a.y.toFixed(1)} Q${cx.toFixed(1)} ${cy.toFixed(1)} ${b.x.toFixed(1)} ${b.y.toFixed(1)}" fill="none" stroke="${link.color || "#7C3AED"}" stroke-width="1.5" stroke-dasharray="4 3" opacity="0.9"/>`,
+      );
+    }
+  }
+  // Span strips (ggtree geom_strip): an annulus band over the angle range of the
+  // two named tips, just outside the ring, with an optional label.
+  const strips = resolveTaxaStrips(panels);
+  if (strips.length > 0) {
+    const byName = new Map(
+      layout.nodes
+        .filter((p) => p.node.children.length === 0)
+        .map((p) => [p.node.name, p]),
+    );
+    const maxR = Math.max(...layout.nodes.map((p) => p.radius));
+    for (const s of strips) {
+      const a = byName.get(s.from);
+      const b = byName.get(s.to);
+      if (!a || !b) continue;
+      const a0 = Math.min(a.angle, b.angle) - 0.02;
+      const a1 = Math.max(a.angle, b.angle) + 0.02;
+      const r0 = maxR + 6;
+      const r1 = maxR + 11;
+      parts.push(arcBand(layout.cx, layout.cy, r0, r1, a0, a1, s.color || "#1D9E75"));
+      if (s.label) {
+        const mid = (a0 + a1) / 2;
+        const lx = layout.cx + (r1 + 6) * Math.cos(mid - Math.PI / 2);
+        const ly = layout.cy + (r1 + 6) * Math.sin(mid - Math.PI / 2);
+        parts.push(
+          `<text x="${lx.toFixed(1)}" y="${ly.toFixed(1)}" font-size="9" font-weight="700" fill="${s.color || "#1D9E75"}" text-anchor="middle">${esc(s.label)}</text>`,
+        );
+      }
     }
   }
 }
@@ -742,30 +1293,57 @@ function drawLabels(
       : null;
   const fillFor = (id: number): string =>
     scale ? scale.colorFor(spec.metadata?.get(id)?.[colorColumn]) : FG;
+  // align (default on): every label shares an outer x / radius, with a faint
+  // dotted leader from each branch tip to its label (ggtree geom_tiplab
+  // align=TRUE). Off: each label sits at its own branch tip (ragged, the ggtree
+  // default look). Leaders only draw where there is a real gap (phylograms).
+  const align = (opts.align ?? true) as boolean;
+  const leader = (x1: number, y1: number, x2: number, y2: number): string =>
+    `<line x1="${x1.toFixed(1)}" y1="${y1.toFixed(1)}" x2="${x2.toFixed(1)}" y2="${y2.toFixed(1)}" stroke="${MUTED}" stroke-width="0.5" stroke-dasharray="1 2" opacity="0.55"/>`;
 
   if (axis.layout === "rectangular") {
     const fs = Number(opts.fontSize) || 11;
-    const tx = cursor + 4 + (boxed ? 3 : 0);
+    const boxPad = boxed ? 3 : 0;
     for (const slot of axis.tips) {
       const fill = fillFor(slot.id);
+      const baseX = align ? cursor : slot.x;
+      const tx = baseX + 4 + boxPad;
+      if (align && baseX - slot.x > 4) {
+        parts.push(leader(slot.x, slot.y, baseX + 2, slot.y));
+      }
       if (boxed) {
         const w = Math.max(8, slot.name.length * fs * 0.6) + 8;
         parts.push(
-          `<rect x="${tx - 4}" y="${(slot.y - fs / 2 - 3).toFixed(1)}" width="${w.toFixed(1)}" height="${fs + 6}" rx="3" fill="#ffffff" stroke="${fill}" stroke-width="0.75"/>`,
+          `<rect x="${(tx - 4).toFixed(1)}" y="${(slot.y - fs / 2 - 3).toFixed(1)}" width="${w.toFixed(1)}" height="${fs + 6}" rx="3" fill="#ffffff" stroke="${fill}" stroke-width="0.75"/>`,
         );
       }
       parts.push(
-        `<text x="${tx}" y="${(slot.y + fs * 0.36).toFixed(1)}" font-size="${fs}"${styleAttr} fill="${fill}">${esc(slot.name)}</text>`,
+        `<text x="${tx.toFixed(1)}" y="${(slot.y + fs * 0.36).toFixed(1)}" font-size="${fs}"${styleAttr} fill="${fill}">${esc(slot.name)}</text>`,
       );
     }
   } else {
     const fs = Number(opts.fontSize) || 10;
-    const lr = cursor + 4;
     for (const slot of axis.tips) {
-      const lx = axis.cx + lr * Math.cos(slot.angle - Math.PI / 2);
-      const ly = axis.cy + lr * Math.sin(slot.angle - Math.PI / 2);
+      const baseR = align ? cursor : slot.radius;
+      const lr = baseR + 4;
+      const ca = Math.cos(slot.angle - Math.PI / 2);
+      const sa = Math.sin(slot.angle - Math.PI / 2);
+      const lx = axis.cx + lr * ca;
+      const ly = axis.cy + lr * sa;
+      if (align && baseR - slot.radius > 4) {
+        parts.push(
+          leader(
+            axis.cx + slot.radius * ca,
+            axis.cy + slot.radius * sa,
+            axis.cx + (baseR + 2) * ca,
+            axis.cy + (baseR + 2) * sa,
+          ),
+        );
+      }
       const deg = ((slot.angle - Math.PI / 2) * 180) / Math.PI;
-      const flip = Math.cos(slot.angle - Math.PI / 2) < 0;
+      // Inward-circular mirrors the reading direction so labels face the center
+      // (still seated just outside the rim, the symmetric inverse of outward).
+      const flip = labelsInward(spec.layout) ? ca >= 0 : ca < 0;
       parts.push(
         `<text x="${lx.toFixed(1)}" y="${ly.toFixed(1)}" font-size="${fs}"${styleAttr} fill="${fillFor(slot.id)}" transform="rotate(${(flip ? deg + 180 : deg).toFixed(1)} ${lx.toFixed(1)} ${ly.toFixed(1)})" text-anchor="${flip ? "end" : "start"}">${esc(slot.name)}</text>`,
       );
@@ -788,6 +1366,29 @@ function collectPanelLegends(
     if (panel.kind === "msa") {
       if (spec.msaTrack) {
         out.push({ title: "Alignment", residue: spec.msaTrack.kind });
+      }
+      continue;
+    }
+    // A datahubPlot panel's color key is its series (the renderPlot column
+    // groups), read from the resolved figure, not from bound metadata. Like msa,
+    // it is collected even when no metadata table is linked.
+    if (panel.kind === "datahubPlot") {
+      const series = datahubPanelLegend(panel, spec, root);
+      if (series.length > 0) {
+        const title = String(panel.options?.title ?? "Data Hub plot");
+        const categoryColors: Record<string, string> = {};
+        for (const s of series) categoryColors[s.name] = s.color;
+        out.push({
+          title,
+          scale: {
+            column: title,
+            kind: "categorical",
+            categories: series.map((s) => s.name),
+            categoryColors,
+            colorFor: (raw) =>
+              (raw != null && categoryColors[raw]) || EMPTY_FILL,
+          },
+        });
       }
       continue;
     }
@@ -936,7 +1537,7 @@ function renderPanelLegendColumn(
 
 /** Reserve horizontal room on the right for the active tracks + labels. */
 function rightInsetFor(root: TreeNode, spec: RenderSpec): number {
-  if (spec.layout === "circular") return 0;
+  if (isCircular(spec.layout)) return 0;
   let inset = 16;
   if (spec.tracks.strip) inset += 16;
   if (spec.tracks.bars) inset += 78;
@@ -986,10 +1587,14 @@ function resolveCladeHighlights(
   panels: AlignedPanel[],
   spec: RenderSpec,
 ): ResolvedClade[] {
-  const cladePanel = panels.find((p) => p.visible && p.kind === "clade");
-  if (!cladePanel) return [];
-  const clades = cladePanel.options?.clades as CladeAnnotation[] | undefined;
-  if (clades && clades.length > 0) {
+  // Aggregate clades across EVERY visible clade panel, not just the first. A
+  // restored figure can carry a tracks-projected empty clade panel, and the user
+  // then adds another; finding only the first would silently drop the populated
+  // one (the ggtree exporter already walks all clade panels, so this matches it).
+  const clades = panels
+    .filter((p) => p.visible && p.kind === "clade")
+    .flatMap((p) => (p.options?.clades as CladeAnnotation[] | undefined) ?? []);
+  if (clades.length > 0) {
     const out: ResolvedClade[] = [];
     for (const c of clades) {
       if (c.collapsed) continue; // collapsed clades render as triangles, not bands
@@ -1015,6 +1620,95 @@ function resolveCladeHighlights(
         },
       ]
     : [];
+}
+
+/** All tip-to-tip links across every visible taxalink layer (ggtree
+ *  geom_taxalink). Links are stored by tip NAME on the loose options seam, so an
+ *  older figure with no taxalink layer simply gets none. */
+function resolveTaxaLinks(panels: AlignedPanel[]): TaxaLink[] {
+  return panels
+    .filter((p) => p.visible && p.kind === "taxalink")
+    .flatMap((p) => (p.options?.links as TaxaLink[] | undefined) ?? [])
+    .filter((l) => l && l.from && l.to);
+}
+
+/** All span strips across every visible taxastrip layer (ggtree geom_strip).
+ *  Stored by tip NAME on the loose options seam, so an older figure gets none. */
+function resolveTaxaStrips(panels: AlignedPanel[]): TaxaStrip[] {
+  return panels
+    .filter((p) => p.visible && p.kind === "taxastrip")
+    .flatMap((p) => (p.options?.strips as TaxaStrip[] | undefined) ?? [])
+    .filter((s) => s && s.from && s.to);
+}
+
+/** Each node pie / star resolved to its MRCA node id (ggtree nodepie). Stored by
+ *  tip NAME so the target survives a re-layout without internal node labels. */
+interface ResolvedNodePie {
+  nodeId: number;
+  slices: { label: string; value: number; color: string }[];
+  style: "pie" | "star";
+}
+function resolveNodePies(
+  root: TreeNode,
+  panels: AlignedPanel[],
+): ResolvedNodePie[] {
+  const pies = panels
+    .filter((p) => p.visible && p.kind === "nodepie")
+    .flatMap((p) => (p.options?.pies as NodePie[] | undefined) ?? []);
+  const out: ResolvedNodePie[] = [];
+  for (const pie of pies) {
+    if (!pie.tips || pie.tips.length === 0) continue;
+    const nodeId = mrca(root, pie.tips);
+    if (nodeId == null) continue;
+    const slices = (pie.slices ?? []).filter((s) => Number(s.value) > 0);
+    if (slices.length === 0) continue;
+    out.push({ nodeId, slices, style: pie.style === "star" ? "star" : "pie" });
+  }
+  return out;
+}
+
+/** Draw a pie chart (or a star glyph in the dominant color) centered at (cx, cy).
+ *  Shared by both layouts so a node pie reads the same in the rings + columns. */
+function nodePieSvg(cx: number, cy: number, pie: ResolvedNodePie): string {
+  const r = 9;
+  if (pie.style === "star") {
+    const top = pie.slices.reduce((a, b) => (b.value > a.value ? b : a));
+    const pts: string[] = [];
+    for (let k = 0; k < 10; k++) {
+      const rad = k % 2 === 0 ? r : r * 0.42;
+      const a = (Math.PI / 5) * k - Math.PI / 2;
+      pts.push(
+        `${(cx + rad * Math.cos(a)).toFixed(1)},${(cy + rad * Math.sin(a)).toFixed(1)}`,
+      );
+    }
+    return `<polygon points="${pts.join(" ")}" fill="${top.color}" stroke="#ffffff" stroke-width="0.75"/>`;
+  }
+  const total = pie.slices.reduce((s, x) => s + x.value, 0) || 1;
+  let acc = -Math.PI / 2; // start at 12 o'clock
+  const parts: string[] = [
+    `<circle cx="${cx.toFixed(1)}" cy="${cy.toFixed(1)}" r="${(r + 0.6).toFixed(1)}" fill="#ffffff"/>`,
+  ];
+  for (const s of pie.slices) {
+    const a0 = acc;
+    const a1 = acc + (s.value / total) * Math.PI * 2;
+    acc = a1;
+    const large = a1 - a0 > Math.PI ? 1 : 0;
+    const x0 = cx + r * Math.cos(a0);
+    const y0 = cy + r * Math.sin(a0);
+    const x1 = cx + r * Math.cos(a1);
+    const y1 = cy + r * Math.sin(a1);
+    // A full single slice is a circle (an arc back to the same point is a no-op).
+    if (pie.slices.length === 1) {
+      parts.push(
+        `<circle cx="${cx.toFixed(1)}" cy="${cy.toFixed(1)}" r="${r}" fill="${s.color}"/>`,
+      );
+      break;
+    }
+    parts.push(
+      `<path d="M${cx.toFixed(1)} ${cy.toFixed(1)} L${x0.toFixed(1)} ${y0.toFixed(1)} A ${r} ${r} 0 ${large} 1 ${x1.toFixed(1)} ${y1.toFixed(1)} Z" fill="${s.color}"/>`,
+    );
+  }
+  return parts.join("");
 }
 
 /** An annulus-sector band over an angular + radial span, for a circular clade
@@ -1073,9 +1767,11 @@ function applyCollapses(
   root: TreeNode,
   panels: AlignedPanel[],
 ): { root: TreeNode; collapsed: Map<number, CollapsedNode> } {
-  const cladePanel = panels.find((p) => p.visible && p.kind === "clade");
-  const clades =
-    (cladePanel?.options?.clades as CladeAnnotation[] | undefined) ?? [];
+  // Same aggregation as resolveCladeHighlights: collapse settings can live on any
+  // visible clade panel, not only the first one.
+  const clades = panels
+    .filter((p) => p.visible && p.kind === "clade")
+    .flatMap((p) => (p.options?.clades as CladeAnnotation[] | undefined) ?? []);
   const toCollapse = clades.filter((c) => c.collapsed);
   if (toCollapse.length === 0) return { root, collapsed: new Map() };
   const collapsed = new Map<number, CollapsedNode>();
@@ -1142,11 +1838,15 @@ function renderRectangular(
     }
   }
 
-  // Edges (elbow connectors).
+  // Edges (elbow connectors, or straight diagonals for a slanted cladogram).
+  const slantedEdges = spec.layout === "slanted";
   for (const p of layout.nodes) {
     if (p.parentX === null || p.parentY === null) continue;
+    const d = slantedEdges
+      ? `M${p.parentX} ${p.parentY} L${p.x} ${p.y}`
+      : `M${p.parentX} ${p.parentY} V${p.y} H${p.x}`;
     parts.push(
-      `<path d="M${p.parentX} ${p.parentY} V${p.y} H${p.x}" fill="none" stroke="${colorForBranch(spec, p.node.id)}" stroke-width="1.5"/>`,
+      `<path d="${d}" fill="none" stroke="${colorForBranch(spec, p.node.id)}" stroke-width="1.5"/>`,
     );
     // Support values on internal branches.
     if (
@@ -1221,7 +1921,7 @@ function renderRectangular(
   }
 
   // Scale bar (phylogram only).
-  if (spec.phylogram && layout.unitsPerPx) {
+  if (spec.phylogram && spec.scaleBar !== false && layout.unitsPerPx) {
     const tick = niceTick(layout.maxDepth);
     const px = tick / layout.unitsPerPx;
     const y = spec.height - 6;

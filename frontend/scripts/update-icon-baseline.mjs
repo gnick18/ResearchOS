@@ -29,6 +29,11 @@ export const EXCLUDED_PREFIXES = [
   "components/animations/",
   "components/showcase/",
   "app/dev/icons/",
+  // Throwaway pre-migration popup snapshots for the /dev/popup-chrome before/after
+  // review gallery. Verbatim copies of already-baselined product components (so
+  // they carry grandfathered inline svg); deleted with the gallery once the Phase 3
+  // chrome rollout is signed off. Not product UI, so not subject to the ratchet.
+  "app/dev/popup-chrome/_legacy/",
 ];
 
 const SCANNED_EXTENSIONS = [".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs"];

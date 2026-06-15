@@ -17,8 +17,6 @@ import DynamicAnimation from "./DynamicAnimation";
 import MethodTabs from "./MethodTabs";
 import TaskPicker from "./TaskPicker";
 import UnifiedShareDialog from "@/components/sharing/UnifiedShareDialog";
-import SharingChips from "@/components/sharing/SharingChips";
-import { StampsRow } from "@/components/AttributionChip";
 import CommentsThread from "./CommentsThread";
 import CommentsSidebar from "./CommentsSidebar";
 import ReceivedFromBadge from "./ReceivedFromBadge";
@@ -26,7 +24,8 @@ import Tooltip from "./Tooltip";
 import { Icon } from "@/components/icons";
 import { usePhonePaired } from "@/hooks/usePhonePaired";
 import { focusWithoutTooltip } from "./tooltip-focus";
-import LivingPopup from "@/components/ui/LivingPopup";
+import CalmPopupShell, { type CalmPopupTab } from "@/components/ui/CalmPopupShell";
+import HeaderOverflowMenu, { HeaderOverflowLabel } from "@/components/ui/HeaderOverflowMenu";
 import { useAppStore } from "@/lib/store";
 import { taskKey } from "@/lib/types";
 import type { Task, Project, ShiftResult, SubTask, SharedUser } from "@/lib/types";
@@ -185,7 +184,27 @@ export default function TaskDetailPopup({
     }
   }, []);
   const [task, setTask] = useState(initialTask);
+  // L3 unified header: short calm date for the metadata subline. Mirrors
+  // NoteDetailPopup's local helper (no shared import needed for one line).
+  const formatDate = (dateStr: string) => {
+    if (!dateStr) return "";
+    try {
+      return new Date(dateStr).toLocaleDateString("en-US", {
+        month: "short",
+        day: "numeric",
+        year: "numeric",
+      });
+    } catch {
+      return dateStr;
+    }
+  };
+  // Unified Popup Chrome (UNIFIED_POPUP_CHROME_SPEC.md §4): CalmPopupShell now
+  // OWNS the canonical expand state, the Focus toggle, the calm-surface class,
+  // and the Escape state machine. This stays only as a local MIRROR the shell
+  // pushes via `onExpandedChange`, so the many body conditionals that read
+  // `isExpanded` (the editor tabs' `expanded` prop, etc.) keep working unchanged.
   const [isExpanded, setIsExpanded] = useState(false);
+  const shellToggleExpandRef = useRef<() => void>(() => {});
   const [animationPosition, setAnimationPosition] = useState<{ x: number; y: number } | null>(null);
   const [showSharePopup, setShowSharePopup] = useState(false);
   // Account-capability gate (capabilities bot, 2026-06-13). Share is a deep
@@ -214,6 +233,76 @@ export default function TaskDetailPopup({
     },
     [],
   );
+  // Unified editor surface (L3, continuous-surface shell). The shell's ambient
+  // save indicator must tell the TRUTH, but the experiment's save state is owned
+  // per-tab (each editor tab + DetailsTab keeps its OWN hasUnsavedChanges /
+  // saving). So the active editor tab LIFTS its dirty + saving state up here via
+  // this registration; the shell reads it to render an honest indicator and to
+  // enable Done. A tab that registers nothing (Method, Order items) reports no
+  // state, and the shell shows NO save claim for it rather than a misleading
+  // "Saved". This changes presentation only — the per-tab manual save (Save
+  // button + flush) is untouched.
+  const [activeEditorState, setActiveEditorState] = useState<{
+    dirty: boolean;
+    saving: boolean;
+  } | null>(null);
+  const registerActiveTabDirtyState = useCallback(
+    (state: { dirty: boolean; saving: boolean } | null) => {
+      setActiveEditorState(state);
+    },
+    [],
+  );
+  // Docked-toolbar slimming (2026-06-14): the per-tab markdown doc-history
+  // (notes.md / results.md) toggle used to live as an inline button in the
+  // editor's trailing slot at every size. The docked bar is now slim
+  // (Edit|Preview · ＋ · / to insert), so the active editor tab LIFTS its
+  // doc-history toggle up here (same pattern as registerActiveTabFlushSave)
+  // and the popup "…" overflow renders a "Document history" row docked. At
+  // fullscreen the editor pill keeps its own inline doc-history button, so the
+  // control is reachable in BOTH states and never goes missing.
+  const [activeTabDocHistory, setActiveTabDocHistory] = useState<{
+    toggle: () => void;
+    isOpen: boolean;
+  } | null>(null);
+  const registerActiveTabDocHistory = useCallback(
+    (state: { toggle: () => void; isOpen: boolean } | null) => {
+      setActiveTabDocHistory(state);
+    },
+    [],
+  );
+  // Unified editor surface (UNIFIED_EDITOR_SURFACE_DESIGN.md §3B / §9, U1).
+  // The popup MODAL GROWS in place — same DOM, a CSS size transition on the
+  // card below (transition-all duration-300). The tab bar stays pinned and
+  // navigable while expanded, and the active editor subtree is never
+  // unmounted/remounted across the transition (so no buffer loss). This single
+  // toggle is shared by the header fullscreen button and the editor's own
+  // Focus button (via onRequestExpand threaded into the Lab Notes / Results
+  // tabs). It flushes the active editor's in-flight buffer BEFORE growing so no
+  // in-flight text is lost across the size transition.
+  // The editor tabs' Focus button + Cmd/Ctrl+Shift+F route here via
+  // onRequestExpand. The shell owns the actual toggle (and flushes the active
+  // editor buffer first via onBeforeToggleExpand = flushActiveTab below), so
+  // this just delegates to the shell.
+  const toggleExpanded = useCallback(() => {
+    shellToggleExpandRef.current();
+  }, []);
+  // The shell awaits this BEFORE growing / before Done, flushing the active
+  // editor tab's in-flight buffer (its registered flush+save) so no in-flight
+  // text is lost across the size transition.
+  const flushActiveTab = useCallback(async () => {
+    try {
+      await activeTabFlushSaveRef.current?.();
+    } catch {
+      // Best-effort flush; draft persistence still holds the unsaved text.
+    }
+  }, []);
+  // The shell's footer Done flushes the active editor tab (via
+  // onBeforeToggleExpand = flushActiveTab, the EXISTING manual-save which only
+  // writes when the doc changed) THEN collapses the shell itself. Done, the
+  // fullscreen toggle, and the X stay three always-reachable exits so the
+  // expanded shell is never soft-locked. This handler runs after that flush, so
+  // there is no extra work for it to do.
+  const handleDone = useCallback(() => {}, []);
   // Phase 2: append-line handle. The active tab (LabNotesTab or ResultsTab)
   // registers a function that appends a plain text line via Loro (pilot) or
   // via legacy state + handleSave. Null when no editor tab is mounted.
@@ -735,87 +824,33 @@ export default function TaskDetailPopup({
     });
   }, [freshTask, initialTask.owner, initialTask.is_shared_with_me, initialTask.shared_permission]);
 
-  // Handle escape key — context-sensitive.
-  //
-  // esc-context fix manager (2026-05-27, Grant hand-walk fix):
-  //   1. If focus is on an editor surface inside the popup (textarea,
-  //      contenteditable, or text input), let Esc fall through to that
-  //      element's own onKeyDown handler so it can handle its own
-  //      commit / blur logic without the popup intercepting.
-  //   2. Otherwise if the popup is fullscreen, shrink it instead of
-  //      closing.
-  //   3. Otherwise close (the original behavior).
-  useEffect(() => {
-    const isTextInputEl = (el: Element | null): boolean => {
-      if (!(el instanceof HTMLElement)) return false;
-      if (el.isContentEditable) return true;
-      const tag = el.tagName;
-      if (tag === "TEXTAREA") return true;
-      if (tag === "INPUT") {
-        const type = (el as HTMLInputElement).type;
-        // Treat any text-shaped input as "Esc cancels the field, not
-        // the popup". Number / date / etc. also accept text editing.
-        return (
-          type === "text" ||
-          type === "search" ||
-          type === "email" ||
-          type === "url" ||
-          type === "tel" ||
-          type === "password" ||
-          type === "number" ||
-          type === "date" ||
-          type === "datetime-local"
-        );
-      }
-      return false;
-    };
-    const handleKeyDown = (e: KeyboardEvent) => {
-      // Bail when a nested overlay (UnifiedShareDialog, ExportFormatDialog,
-      // DepositDialog, PiEditConfirmDialog) already handled this Escape, so
-      // dismissing it does not also advance this popup's state machine on the
-      // same press.
-      if (e.key !== "Escape" || e.defaultPrevented) return;
-      const active = typeof document !== "undefined"
-        ? document.activeElement
-        : null;
-      if (isTextInputEl(active)) {
-        // Branch 1: text input has focus, let it own the Escape.
-        // The field's onKeyDown handler is responsible for blurring
-        // and calling stopPropagation. If the field doesn't stop the
-        // event we still don't close: dropping out of edit mode is
-        // enough, and Grant's tour scripts rely on the popup surviving.
-        // We do NOT mark the event handled here, so the field keeps control.
-        return;
-      }
-      // From here every branch acts on the Escape, so mark it handled (mirrors
-      // useEscapeToClose) before dispatching.
-      e.preventDefault();
-      e.stopPropagation();
-      if (historyOpen) {
-        // Branch 1.5 (VC Phase 3): when the version-history sidebar is open,
-        // Esc exits HISTORY first and returns to the live record, rather than
-        // closing the whole popup. Mirrors NoteDetailPopup's precedence.
-        setHistoryOpen(false);
-        setVersionPreview(null);
-        focusWithoutTooltip(historyTriggerRef.current);
-        return;
-      }
-      if (commentsOpen) {
-        setCommentsOpen(false);
-        return;
-      }
-      if (isExpanded) {
-        // Branch 2: shrink before closing so the fullscreen state can
-        // persist across multi-step demos. A second Esc closes.
-        setIsExpanded(false);
-        return;
-      }
-      // Branch 3: normal close.
-      onClose();
-    };
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [isExpanded, onClose, historyOpen, commentsOpen]);
+  // Handle escape key — context-sensitive. The text-input-owns-Escape rule, the
+  // shrink-a-fullscreen-shell step, and the terminal close now live in
+  // CalmPopupShell's lifted Escape state machine. These ordered intermediate
+  // layers run BEFORE that: history first (exit history, return to the live
+  // record), then comments. Each returns true if it consumed the press. Mirrors
+  // the prior precedence (esc-context fix manager, 2026-05-27).
+  const escapeLayers = useMemo<Array<() => boolean>>(
+    () => [
+      () => {
+        if (historyOpen) {
+          setHistoryOpen(false);
+          setVersionPreview(null);
+          focusWithoutTooltip(historyTriggerRef.current);
+          return true;
+        }
+        return false;
+      },
+      () => {
+        if (commentsOpen) {
+          setCommentsOpen(false);
+          return true;
+        }
+        return false;
+      },
+    ],
+    [historyOpen, commentsOpen],
+  );
 
   // Orphan-items probe: non-purchase tasks can still have purchase_items
   // attached (the "Items on non-purchase tasks" surface on the spending
@@ -842,21 +877,128 @@ export default function TaskDetailPopup({
     ? [...baseTabs, "purchases"]
     : baseTabs;
 
-  // For simple tasks, render a minimal popup showing only the list and sublists
-  if (isSimpleTask && !isExpanded) {
+  // L3 honest ambient save state for the expanded shell, derived ENTIRELY from
+  // the active editor tab's own dirty/saving state (lifted via
+  // registerActiveTabDirtyState). null when the active tab does not report a
+  // save state (Method / Order items own their own flows) — the shell then
+  // renders NO save claim rather than a misleading "Saved". The experiment
+  // tabs are manual-save, so this honestly reads "Unsaved changes" until the
+  // user saves (or clicks Done, which flushes), never a premature "Saved".
+  const ambientSaveState: "saving" | "unsaved" | "saved" | null = !activeEditorState
+    ? null
+    : activeEditorState.saving
+      ? "saving"
+      : activeEditorState.dirty
+        ? "unsaved"
+        : "saved";
+
+  // Simple (list / checklist) task: routed through CalmPopupShell too (spec §6
+  // step 2), so even the lightweight list item inherits the one calm chrome. No
+  // tab row (single-view), no editor footer; the title carries the completion
+  // checkbox + name, Delete folds into the "..." overflow, and the body is the
+  // sub-tasks checklist. The shell owns expand (docks small, grows to focus),
+  // the Focus/Close glyphs, the calm surface, and Escape.
+  if (isSimpleTask) {
+    const simpleTitleSlot = (
+      <span className="inline-flex items-center gap-2 min-w-0">
+        {!readOnly ? (
+          <Tooltip label={task.is_complete ? "Mark as incomplete" : "Mark as complete"} placement="bottom">
+            <button
+              onClick={async (event) => {
+                const willComplete = !task.is_complete;
+                const rect = willComplete
+                  ? event.currentTarget.getBoundingClientRect()
+                  : null;
+                try {
+                  await tasksApi.update(task.id, { is_complete: !task.is_complete });
+                  await Promise.all([
+                    await queryClient.refetchQueries({ queryKey: ["tasks"] }),
+                    await queryClient.refetchQueries({ queryKey: ["task", taskKey(task)] }),
+                  ]);
+                  if (rect) {
+                    setAnimationPosition({
+                      x: rect.left + rect.width / 2,
+                      y: rect.top + rect.height / 2,
+                    });
+                  }
+                } catch {
+                  alert("Failed to update task");
+                }
+              }}
+              data-tour-target="workbench-list-mark-complete"
+              className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all flex-shrink-0 ${
+                task.is_complete
+                  ? "bg-emerald-500 border-emerald-500 text-white"
+                  : "border-border hover:border-emerald-400 text-transparent hover:text-emerald-400"
+              }`}
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M20 6L9 17l-5-5" />
+              </svg>
+            </button>
+          </Tooltip>
+        ) : (
+          <span className={`w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0 ${
+            task.is_complete
+              ? "bg-emerald-500 text-white"
+              : "border-2 border-border text-transparent"
+          }`}>
+            <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M20 6L9 17l-5-5" />
+            </svg>
+          </span>
+        )}
+        <span className={`truncate min-w-0 ${task.is_complete ? "text-foreground-muted line-through" : "text-foreground"}`}>
+          {task.name}
+        </span>
+      </span>
+    );
+    const simpleOverflowSlot = !readOnly ? (
+      <HeaderOverflowMenu label="More actions" testId="task-header-overflow">
+        <button
+          type="button"
+          role="menuitem"
+          disabled={task.is_shared_with_me}
+          onClick={async () => {
+            if (confirm(`Delete task "${task.name}"?`)) {
+              try {
+                await tasksApi.delete(task.id);
+                onClose();
+                await Promise.all([
+                  await queryClient.refetchQueries({ queryKey: ["tasks"] }),
+                  await queryClient.refetchQueries({ queryKey: ["task"] }),
+                ]);
+                queryClient.removeQueries({ queryKey: ["task", taskKey(task)] });
+              } catch {
+                alert("Failed to delete task");
+              }
+            }
+          }}
+          data-testid="task-header-delete"
+          className={`flex w-full items-center gap-2.5 px-3 py-1.5 text-left text-body transition-colors ${
+            task.is_shared_with_me
+              ? "text-foreground-muted cursor-not-allowed"
+              : "text-red-600 dark:text-red-300 hover:bg-red-50 dark:hover:bg-red-500/10"
+          }`}
+        >
+          <Icon name="trash" className="w-4 h-4" />
+          <span>
+            {task.is_shared_with_me ? `Only ${task.owner} can delete` : "Delete task"}
+          </span>
+        </button>
+      </HeaderOverflowMenu>
+    ) : undefined;
     return (
-      // Minimal list-task popup. The card owns its own header close + expand,
-      // and Escape precedence lives in the manual handler above, so opt out of
-      // LivingPopup's Escape + corner X. No blur: this is the small variant
-      // (was bg-black/20), and little popups never blur.
-      <LivingPopup
+      <CalmPopupShell
         open
         onClose={onClose}
         label="Task"
-        card={false}
-        selfSize
-        closeOnEscape={false}
-        showClose={false}
+        title={simpleTitleSlot}
+        overflow={simpleOverflowSlot}
+        onExpandedChange={setIsExpanded}
+        expandToggleRef={shellToggleExpandRef}
+        dockedWidthClassName="max-w-3xl"
+        accentColor={project?.color || "#3b82f6"}
       >
         {animationPosition && (
           <DynamicAnimation
@@ -866,141 +1008,7 @@ export default function TaskDetailPopup({
             onComplete={handleAnimationComplete}
           />
         )}
-        <div
-          className="pointer-events-auto bg-surface-raised rounded-2xl shadow-2xl w-full max-w-3xl mx-4 flex flex-col overflow-hidden max-h-[90vh]"
-          style={{
-            boxShadow:
-              "0 1px 3px rgba(0,0,0,0.06), 0 16px 40px -8px rgba(0,0,0,0.22)",
-          }}
-          onClick={(e) => e.stopPropagation()}
-        >
-          {/* Project accent strip — slim color band along the top so the
-              project color stays a present-but-quiet identifier without
-              the off-balance left-bar feel. */}
-          <div
-            aria-hidden
-            className="h-1 w-full flex-shrink-0"
-            style={{ backgroundColor: project?.color || "#3b82f6" }}
-          />
-          {/* Minimal Header */}
-          <div className="flex items-center justify-between px-4 py-2.5 border-b border-border flex-shrink-0">
-            <div className="flex items-center gap-2 flex-1 mr-2 min-w-0">
-              {/* Completion checkbox — circular pill mirrors the experiment
-                  popup's "Mark complete" affordance but stays compact for the
-                  list popup's narrower header. */}
-              {!readOnly && (
-                <Tooltip label={task.is_complete ? "Mark as incomplete" : "Mark as complete"} placement="bottom">
-                  <button
-                    onClick={async (event) => {
-                      // Celebrate on false -> true only. Parity with the
-                      // workbench inline card and the subtask checkbox: the
-                      // parent mark-complete button is the "list is done"
-                      // moment and should fire the same animation.
-                      const willComplete = !task.is_complete;
-                      const rect = willComplete
-                        ? event.currentTarget.getBoundingClientRect()
-                        : null;
-                      try {
-                        await tasksApi.update(task.id, { is_complete: !task.is_complete });
-                        await Promise.all([
-                          await queryClient.refetchQueries({ queryKey: ["tasks"] }),
-                          await queryClient.refetchQueries({ queryKey: ["task", taskKey(task)] }),
-                        ]);
-                        if (rect) {
-                          setAnimationPosition({
-                            x: rect.left + rect.width / 2,
-                            y: rect.top + rect.height / 2,
-                          });
-                        }
-                      } catch {
-                        alert("Failed to update task");
-                      }
-                    }}
-                    data-tour-target="workbench-list-mark-complete"
-                    className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all flex-shrink-0 ${
-                      task.is_complete
-                        ? "bg-emerald-500 border-emerald-500 text-white"
-                        : "border-border hover:border-emerald-400 text-transparent hover:text-emerald-400"
-                    }`}
-                  >
-                    <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
-                      <path d="M20 6L9 17l-5-5"/>
-                    </svg>
-                  </button>
-                </Tooltip>
-              )}
-              {readOnly && (
-                <span className={`w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0 ${
-                  task.is_complete
-                    ? "bg-emerald-500 text-white"
-                    : "border-2 border-border text-transparent"
-                }`}>
-                  <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M20 6L9 17l-5-5"/>
-                  </svg>
-                </span>
-              )}
-              <h3 className={`text-title font-semibold truncate min-w-0 ${task.is_complete ? "text-foreground-muted line-through" : "text-foreground"}`}>
-                {task.name}
-              </h3>
-            </div>
-            <div className="flex items-center gap-0.5 flex-shrink-0">
-              {!readOnly && (
-                <Tooltip label={task.is_shared_with_me ? `Only the owner (${task.owner}) can delete this task` : "Delete task"} placement="bottom">
-                  <button
-                    disabled={task.is_shared_with_me}
-                    onClick={async () => {
-                      if (confirm(`Delete task "${task.name}"?`)) {
-                        try {
-                          await tasksApi.delete(task.id);
-                          onClose();
-                          await Promise.all([
-                            await queryClient.refetchQueries({ queryKey: ["tasks"] }),
-                            await queryClient.refetchQueries({ queryKey: ["task"] }),
-                          ]);
-                          queryClient.removeQueries({ queryKey: ["task", taskKey(task)] });
-                        } catch {
-                          alert("Failed to delete task");
-                        }
-                      }
-                    }}
-                    className={`p-1.5 rounded-lg transition-colors ${task.is_shared_with_me ? "text-foreground-muted cursor-not-allowed" : "text-foreground-muted hover:text-red-600 dark:hover:text-red-300 hover:bg-red-50 dark:hover:bg-red-500/10"}`}
-                  >
-                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                      <polyline points="3 6 5 6 21 6" />
-                      <path d="M19 6l-2 14a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2L5 6" />
-                      <path d="M10 11v6M14 11v6" />
-                      <path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2" />
-                    </svg>
-                  </button>
-                </Tooltip>
-              )}
-              <Tooltip label="Expand to full view" placement="bottom">
-                <button
-                  onClick={() => setIsExpanded(true)}
-                  className="text-foreground-muted hover:text-foreground-muted hover:bg-surface-sunken p-1.5 rounded-lg transition-colors"
-                >
-                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/>
-                  </svg>
-                </button>
-              </Tooltip>
-              <Tooltip label="Close (Esc)" placement="bottom">
-                <button
-                  onClick={onClose}
-                  aria-label="Close"
-                  className="text-foreground-muted hover:text-foreground hover:bg-surface-sunken p-1.5 rounded-lg transition-colors"
-                >
-                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <line x1="18" y1="6" x2="6" y2="18"/>
-                    <line x1="6" y1="6" x2="18" y2="18"/>
-                  </svg>
-                </button>
-              </Tooltip>
-            </div>
-          </div>
-
-          {/* Sub-tasks checklist */}
+        <div className="flex-1 min-h-0 overflow-y-auto">
           <SimpleTaskChecklist
             task={task}
             onAnimationTrigger={(pos) => setAnimationPosition(pos)}
@@ -1008,9 +1016,383 @@ export default function TaskDetailPopup({
             piActor={piActive && currentUser ? currentUser : undefined}
           />
         </div>
-      </LivingPopup>
+      </CalmPopupShell>
     );
   }
+
+  // ── Unified Popup Chrome slots (UNIFIED_POPUP_CHROME_SPEC.md §2/§4) ─────────
+  // The experiment/purchase popup's chrome composed as CalmPopupShell slots.
+  // The shell owns the transparent header band, the Focus/Close glyphs, the
+  // footer (ambient save + Done), the calm surface, the expand state, and the
+  // Escape machine; these slots carry the task-specific content.
+
+  // .s-title: just the experiment name (C3: the EXPERIMENT/Purchase/Task chip is
+  // dropped — the type reads from context + the meta subline). Cross-boundary
+  // provenance + the "shared into project" pill ride alongside it.
+  const titleSlot = (
+    <span className="inline-flex items-center gap-2 flex-wrap min-w-0">
+      <span className="truncate max-w-[60ch]">{task.name}</span>
+      {task.received_from && (
+        <ReceivedFromBadge
+          receivedFrom={task.received_from}
+          fingerprint={task.received_from_fingerprint}
+          receivedAt={task.received_at}
+        />
+      )}
+      {task.external_project && !task.is_shared_with_me && !readOnly && (
+        <Tooltip
+          label={`Click X to remove from ${task.external_project.owner}'s project`}
+          placement="bottom"
+        >
+          <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/30 px-2 py-0.5 text-meta font-medium text-amber-700 dark:text-amber-300">
+            <svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8" />
+              <polyline points="16 6 12 2 8 6" />
+              <line x1="12" y1="2" x2="12" y2="15" />
+            </svg>
+            Shared into {task.external_project.owner}&apos;s project
+            <button
+              type="button"
+              disabled={unsharingFromProjectTop}
+              onClick={(e) => {
+                e.stopPropagation();
+                handleUnshareFromProjectTop();
+              }}
+              className="ml-0.5 -mr-0.5 rounded-full p-0.5 hover:bg-amber-100 dark:hover:bg-amber-500/20 disabled:opacity-50 disabled:cursor-wait"
+              aria-label="Remove from project"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <line x1="18" y1="6" x2="6" y2="18" />
+                <line x1="6" y1="6" x2="18" y2="18" />
+              </svg>
+            </button>
+          </span>
+        </Tooltip>
+      )}
+    </span>
+  );
+
+  // .s-meta: ONE quiet "date · author · status · assignee · sharing" subline (C4
+  // — replaces the former TWO meta rows). Project name leads it when present.
+  const metaSlot = (
+    <span data-testid="task-meta-subline">
+      {[
+        project?.name || "",
+        formatDate(task.last_edited_at || ""),
+        task.last_edited_by || task.owner || "",
+        task.is_complete ? "Complete" : "In progress",
+        task.assignee && task.assignee !== task.owner
+          ? `Assigned to ${task.assignee}`
+          : "",
+        (task.shared_with?.length ?? 0) > 0
+          ? `Shared with ${task.shared_with!.length}`
+          : task.is_shared_with_me
+            ? `Shared by ${task.owner}`
+            : "Private",
+      ]
+        .filter(Boolean)
+        .join("  ·  ")}
+    </span>
+  );
+
+  // Right-cluster lead: the PI role affordances (kept, not demoted).
+  const headerLeadSlot = (
+    <>
+      {piGate.isPiEdit && !piGate.confirmed && (
+        <PiEditButton memberName={recordOwnerForGate} onClick={piGate.beginEdit} />
+      )}
+      {piActive && (
+        <PiEditAuditNote memberName={recordOwnerForGate} className="mr-1" />
+      )}
+      <PiActionsHeaderButton
+        recordType="task"
+        record={{ owner: task.owner, id: task.id, flagged: !!task.flagged }}
+        viewerUsername={currentUser}
+        isLabHead={isLabHead}
+        onEditAsPi={() => {}}
+      />
+      {canActAsLabHead && currentUser && (
+        <>
+          <AssignTaskButton
+            task={task}
+            actor={currentUser}
+            onAssigned={() => {
+              void queryClient.refetchQueries({ queryKey: ["task", taskKey(task)] });
+            }}
+          />
+          <FlagForReviewButton
+            recordType="task"
+            recordId={task.id}
+            recordName={task.name}
+            targetOwner={task.owner}
+            actor={currentUser}
+            currentFlag={task.flagged ?? null}
+            onFlagged={() => {
+              void queryClient.refetchQueries({ queryKey: ["task", taskKey(task)] });
+            }}
+          />
+        </>
+      )}
+    </>
+  );
+
+  // .s-acts overflow: the single "..." menu. C2 demotes Comments + Delete into
+  // it (alongside Save checkpoint / Edit properties / Export / Deposit / Version
+  // history / Undo restore / Share / Phone linked). Each row keeps its exact
+  // handler + data-testid / data-tour-target.
+  const overflowSlot = (
+    <HeaderOverflowMenu label="More actions" testId="task-header-overflow">
+      {!readOnly && ambientSaveState != null && (
+        <button
+          type="button"
+          role="menuitem"
+          data-testid="task-header-save-checkpoint"
+          disabled={ambientSaveState !== "unsaved"}
+          onClick={() => {
+            void activeTabFlushSaveRef.current?.();
+          }}
+          className="flex w-full items-center gap-2.5 px-3 py-1.5 text-left text-body text-foreground hover:bg-surface-sunken disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+        >
+          <Icon name="check" className="w-4 h-4 text-foreground-muted" />
+          <span>{ambientSaveState === "saving" ? "Saving..." : "Save checkpoint"}</span>
+        </button>
+      )}
+      {/* Document history (Lab Notes / Results markdown). Lifted out of the
+          editor's docked trailing slot (slimming, 2026-06-14): the active
+          editor tab registers its doc-history toggle, and this row is the
+          docked home for it. The fullscreen editor pill still renders the same
+          control inline (task-doc-history-button). Carries the moved testid so
+          tests/tours that target the docked doc-history affordance resolve. */}
+      {activeTabDocHistory && (
+        <button
+          type="button"
+          role="menuitem"
+          data-testid="task-doc-history-overflow"
+          aria-pressed={activeTabDocHistory.isOpen}
+          onClick={() => activeTabDocHistory.toggle()}
+          className="flex w-full items-center gap-2.5 px-3 py-1.5 text-left text-body text-foreground hover:bg-surface-sunken transition-colors"
+        >
+          <Icon name="history" className="w-4 h-4 text-foreground-muted" />
+          <span>{activeTabDocHistory.isOpen ? "Hide document history" : "Document history"}</span>
+        </button>
+      )}
+      {isExperiment && (
+        <button
+          type="button"
+          role="menuitem"
+          onClick={() => {
+            setCommentsOpen((open) => {
+              const next = !open;
+              if (next) setHistoryOpen(false);
+              return next;
+            });
+          }}
+          data-testid="task-comments-button"
+          aria-pressed={commentsOpen}
+          className="flex w-full items-center gap-2.5 px-3 py-1.5 text-left text-body text-foreground hover:bg-surface-sunken transition-colors"
+        >
+          <svg className="w-4 h-4 text-foreground-muted" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M7 8h10M7 12h6m-7 9l4-4h10a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2h1v4z" />
+          </svg>
+          <span>
+            {commentsOpen ? "Hide comments" : "Comments"}
+            {commentCount > 0 ? ` (${commentCount})` : ""}
+          </span>
+        </button>
+      )}
+      {!readOnly && (
+        <button
+          type="button"
+          role="menuitem"
+          onClick={() => {
+            if (activeTab !== "details") selectTab("details");
+            setPendingEnterEdit(true);
+          }}
+          data-tour-target="task-popup-edit-button"
+          className="flex w-full items-center gap-2.5 px-3 py-1.5 text-left text-body text-foreground hover:bg-surface-sunken transition-colors"
+        >
+          <Icon name="pencil" className="w-4 h-4 text-foreground-muted" />
+          <span>Edit properties</span>
+        </button>
+      )}
+      {isExperiment && <TaskExportButton task={task} menuRow />}
+      {isExperiment && <TaskDepositButton task={task} menuRow />}
+      <button
+        type="button"
+        role="menuitem"
+        ref={historyTriggerRef}
+        onClick={() => {
+          if (historyOpen) {
+            closeHistory();
+          } else {
+            setCommentsOpen(false);
+            setHistoryOpen(true);
+          }
+        }}
+        data-testid="task-history-button"
+        aria-pressed={historyOpen}
+        className="flex w-full items-center gap-2.5 px-3 py-1.5 text-left text-body text-foreground hover:bg-surface-sunken transition-colors"
+      >
+        <Icon name="history" className="w-4 h-4 text-foreground-muted" />
+        <span>Version history</span>
+      </button>
+      {RESTORE_ENABLED &&
+        undoWindowActive &&
+        (canRestore || restoreNeedsUnlock) && (
+          <button
+            type="button"
+            role="menuitem"
+            onClick={canRestore && !restoreBusy ? handleUndoRestore : undefined}
+            disabled={!canRestore || restoreBusy}
+            data-testid="task-undo-restore-button"
+            className="flex w-full items-center gap-2.5 px-3 py-1.5 text-left text-body text-amber-700 dark:text-amber-300 hover:bg-amber-50 dark:hover:bg-amber-500/10 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+          >
+            <Icon name="undo" className="w-4 h-4" />
+            <span>{restoreBusy ? "Undoing..." : "Undo restore"}</span>
+          </button>
+        )}
+      {!readOnly && !task.is_shared_with_me && canShare && (
+        <button
+          type="button"
+          role="menuitem"
+          onClick={() => setShowSharePopup(true)}
+          data-tour-target="task-popup-share-button"
+          className="flex w-full items-center gap-2.5 px-3 py-1.5 text-left text-body text-foreground hover:bg-surface-sunken transition-colors"
+        >
+          <Icon name="share" className="w-4 h-4 text-foreground-muted" />
+          <span>Share</span>
+        </button>
+      )}
+      {!readOnly && (
+        <button
+          type="button"
+          role="menuitem"
+          disabled={task.is_shared_with_me}
+          onClick={async () => {
+            if (confirm(`Delete task "${task.name}"?`)) {
+              try {
+                await tasksApi.delete(task.id);
+                onClose();
+                await Promise.all([
+                  queryClient.refetchQueries({ queryKey: ["tasks"] }),
+                  queryClient.refetchQueries({ queryKey: ["task"] }),
+                ]);
+                queryClient.removeQueries({ queryKey: ["task", taskKey(task)] });
+              } catch {
+                alert("Failed to delete task");
+              }
+            }
+          }}
+          data-testid="task-header-delete"
+          className={`flex w-full items-center gap-2.5 px-3 py-1.5 text-left text-body transition-colors ${
+            task.is_shared_with_me
+              ? "text-foreground-muted cursor-not-allowed"
+              : "text-red-600 dark:text-red-300 hover:bg-red-50 dark:hover:bg-red-500/10"
+          }`}
+        >
+          <Icon name="trash" className="w-4 h-4" />
+          <span>
+            {task.is_shared_with_me
+              ? `Only ${task.owner} can delete`
+              : "Delete task"}
+          </span>
+        </button>
+      )}
+      {phonePaired && !isPurchase && (
+        <HeaderOverflowLabel icon={<Icon name="phone" className="h-3.5 w-3.5" />}>
+          Phone linked
+        </HeaderOverflowLabel>
+      )}
+    </HeaderOverflowMenu>
+  );
+
+  // Tab slot (C4 tab anatomy). Experiment keeps Details/Lab Notes/Method/
+  // Results/(Order items); purchase keeps Order items/Details; a plain task is
+  // single-view (one Details tab) so the shell renders no tab row.
+  const tabLabel = (tab: Tab): string =>
+    tab === "details"
+      ? "Details"
+      : tab === "notes"
+        ? "Lab Notes"
+        : tab === "method"
+          ? "Method"
+          : tab === "results"
+            ? "Results"
+            : "Order items";
+  const tabTourTarget = (tab: Tab): string | undefined =>
+    tab === "method"
+      ? "experiment-methods-tab"
+      : tab === "notes"
+        ? "experiment-notes-tab"
+        : tab === "results"
+          ? "experiment-results-tab"
+          : undefined;
+  const calmTabs: CalmPopupTab[] | undefined =
+    tabs.length > 1
+      ? tabs.map((tab) => ({
+          key: tab,
+          label: tabLabel(tab),
+          tourTarget: tabTourTarget(tab),
+        }))
+      : undefined;
+
+  // Always-visible band between header and body (never folded): the flag banner
+  // + the restore/undo-confirm messages.
+  const beforeBodySlot = (
+    <div className="px-6 pt-2 space-y-2 empty:hidden">
+      {task.flagged && (
+        <FlagBanner
+          flag={task.flagged}
+          recordType="task"
+          recordId={task.id}
+          owner={task.owner}
+          activeUser={currentUser}
+          onCleared={() => {
+            void queryClient.refetchQueries({ queryKey: ["task", taskKey(task)] });
+          }}
+        />
+      )}
+      {restoreError && (
+        <p
+          data-testid="task-restore-error"
+          className="text-meta text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/30 rounded-lg px-3 py-2 leading-snug"
+        >
+          {restoreError}
+        </p>
+      )}
+      {undoConfirmPending && (
+        <div
+          data-testid="task-undo-confirm"
+          className="text-meta text-amber-800 dark:text-amber-200 bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/30 rounded-lg px-3 py-2 leading-snug"
+        >
+          <p>
+            You have edited this experiment since the restore. Undoing will
+            discard those edits and return it to its pre-restore state.
+          </p>
+          <div className="mt-2 flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => void confirmUndoRestore()}
+              disabled={restoreBusy}
+              data-testid="task-undo-confirm-button"
+              className="px-2.5 py-1 text-meta font-medium text-white bg-amber-600 hover:bg-amber-700 disabled:opacity-60 rounded-md transition-colors"
+            >
+              {restoreBusy ? "Undoing..." : "Discard edits and undo"}
+            </button>
+            <button
+              type="button"
+              onClick={dismissUndoConfirm}
+              disabled={restoreBusy}
+              data-testid="task-undo-cancel-button"
+              className="px-2.5 py-1 text-meta font-medium text-foreground-muted bg-surface-sunken hover:bg-foreground-muted/15 disabled:opacity-60 rounded-md transition-colors"
+            >
+              Keep editing
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
 
   return (
     <>
@@ -1019,18 +1401,38 @@ export default function TaskDetailPopup({
         handlers are gated on per-tab state. This one fires only for
         drops that land outside an editor card. */}
     <UniversalDuplicateDialog />
-    <LivingPopup
+    <CalmPopupShell
       open
       onClose={onClose}
       label="Task"
-      blur
-      card={false}
-      selfSize
-      // The card owns Escape precedence (text field, then history/comments,
-      // then fullscreen, then close) in the manual handler above, and it has
-      // its own header close, so opt out of LivingPopup's Escape + corner X.
-      closeOnEscape={false}
-      showClose={false}
+      title={titleSlot}
+      meta={metaSlot}
+      headerLead={headerLeadSlot}
+      overflow={overflowSlot}
+      tabs={calmTabs}
+      activeTab={activeTab}
+      onTabChange={(key) => selectTab(key as Tab)}
+      tabsTourTarget="experiment-tab-container"
+      beforeBody={beforeBodySlot}
+      footer={{
+        saveState: ambientSaveState,
+        saveTestId: "task-ambient-save",
+        onDone: handleDone,
+        doneTestId: "task-done",
+      }}
+      onBeforeToggleExpand={flushActiveTab}
+      onExpandedChange={setIsExpanded}
+      // Bridge the shell's flush-then-toggle to the editor tabs' onRequestExpand
+      // (toggleExpanded delegates to shellToggleExpandRef.current).
+      expandToggleRef={shellToggleExpandRef}
+      focusTourTarget="task-popup-fullscreen"
+      closeTourTarget="task-popup-close"
+      dockedWidthClassName="max-w-5xl"
+      accentColor={project?.color || "#3b82f6"}
+      dragRingTarget
+      onCardDragOver={handleUniversalDragOver}
+      onCardDrop={handleUniversalDrop}
+      escapeLayers={escapeLayers}
     >
       {animationPosition && (
         <DynamicAnimation
@@ -1040,709 +1442,6 @@ export default function TaskDetailPopup({
           onComplete={handleAnimationComplete}
         />
       )}
-      <div
-        className={`pointer-events-auto bg-surface-raised rounded-2xl shadow-2xl w-full mx-4 flex flex-col transition-all duration-300 overflow-hidden ${
-          isExpanded
-            ? "inset-4 max-w-none max-h-none h-[calc(100vh-2rem)]"
-            : "max-w-5xl h-[90vh] max-h-[860px]"
-        }`}
-        // Accent bar via inset border-top so the card stays squared off without
-        // the off-balance left-bar feel. The earlier `border-l-4` left a
-        // raw colored stripe down one edge that the new chrome doesn't need.
-        style={{
-          boxShadow:
-            "0 1px 3px rgba(0,0,0,0.06), 0 20px 50px -10px rgba(0,0,0,0.25)",
-        }}
-        // LiveMarkdownEditor walks up to this attribute and draws its
-        // file-drag ring on the popup card so the ring isn't clipped by
-        // the editor's overflow parents.
-        data-drag-ring-target=""
-        onClick={(e) => e.stopPropagation()}
-        onDragOver={handleUniversalDragOver}
-        onDrop={handleUniversalDrop}
-      >
-        {/* Project accent strip — slim color band along the top so the
-            project color stays a present-but-quiet identifier without the
-            old border-left-4 feeling like a sidebar leak. */}
-        <div
-          aria-hidden
-          className="h-1 w-full flex-shrink-0"
-          style={{ backgroundColor: project?.color || "#3b82f6" }}
-        />
-        {/* Header */}
-        {/* R1 fix-pass (experiments fix-pass R1 manager, 2026-05-23):
-            Removed the ringed-colored-dot type indicator. The dot, the
-            colored type pill, and the underlying color all triggered
-            on `task_type`; three signals saying the same thing read
-            as visual noise. The pill stays (accessible label) and the
-            top accent strip carries the color tone. Added flex-wrap
-            so the action rail wraps below the title at narrow viewports
-            instead of jamming together. */}
-        <div className="flex items-start justify-between gap-4 px-6 py-4 border-b border-border flex-wrap">
-          <div className="flex items-start min-w-0 flex-1">
-            <div className="min-w-0 flex-1">
-              <div className="flex items-center gap-2 flex-wrap">
-                <h3 className="text-heading font-semibold text-foreground leading-tight truncate max-w-[60ch]">
-                  {task.name}
-                </h3>
-                <span
-                  className={`inline-flex items-center px-1.5 py-0.5 rounded text-meta font-medium uppercase tracking-wide ${
-                    isExperiment
-                      ? "bg-purple-50 dark:bg-purple-500/10 text-purple-700 dark:text-purple-300"
-                      : isPurchase
-                      ? "bg-emerald-50 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-300"
-                      : "bg-blue-50 dark:bg-blue-500/10 text-blue-700 dark:text-blue-300"
-                  }`}
-                >
-                  {isExperiment ? "Experiment" : isPurchase ? "Purchase" : "Task"}
-                </span>
-                {/* Cross-boundary provenance. Self-hides on a native experiment
-                    (received_from absent), so only an experiment imported from a
-                    received bundle shows "Received from {email}, verified". */}
-                {task.received_from && (
-                  <ReceivedFromBadge
-                    receivedFrom={task.received_from}
-                    fingerprint={task.received_from_fingerprint}
-                    receivedAt={task.received_at}
-                  />
-                )}
-                {/* Cross-owner "shared into project" pill. The X removes the
-                    share — both the originating task owner AND the
-                    destination project owner are allowed to unshare in v1
-                    (this badge only renders for the task owner). */}
-                {task.external_project && !task.is_shared_with_me && !readOnly && (
-                  <Tooltip
-                    label={`Click X to remove from ${task.external_project.owner}'s project`}
-                    placement="bottom"
-                  >
-                    <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/30 px-2 py-0.5 text-meta font-medium text-amber-700 dark:text-amber-300">
-                      <svg
-                        xmlns="http://www.w3.org/2000/svg"
-                        width="11"
-                        height="11"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="2.5"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                      >
-                        <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8" />
-                        <polyline points="16 6 12 2 8 6" />
-                        <line x1="12" y1="2" x2="12" y2="15" />
-                      </svg>
-                      Shared into {task.external_project.owner}&apos;s project
-                      <button
-                        type="button"
-                        disabled={unsharingFromProjectTop}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleUnshareFromProjectTop();
-                        }}
-                        className="ml-0.5 -mr-0.5 rounded-full p-0.5 hover:bg-amber-100 dark:hover:bg-amber-500/20 disabled:opacity-50 disabled:cursor-wait"
-                        aria-label="Remove from project"
-                      >
-                        <svg
-                          xmlns="http://www.w3.org/2000/svg"
-                          width="12"
-                          height="12"
-                          viewBox="0 0 24 24"
-                          fill="none"
-                          stroke="currentColor"
-                          strokeWidth="2.5"
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                        >
-                          <line x1="18" y1="6" x2="6" y2="18" />
-                          <line x1="6" y1="6" x2="18" y2="18" />
-                        </svg>
-                      </button>
-                    </span>
-                  </Tooltip>
-                )}
-              </div>
-              <div className="mt-1 flex items-center flex-wrap gap-x-1.5 gap-y-1 text-meta text-foreground-muted">
-                {project?.name && (
-                  <>
-                    <span className="font-medium text-foreground-muted">{project.name}</span>
-                    <span className="text-foreground-muted">·</span>
-                  </>
-                )}
-                <span className="inline-flex items-center gap-1 text-foreground-muted">
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    width="11"
-                    height="11"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    aria-hidden
-                  >
-                    <rect x="3" y="4" width="18" height="18" rx="2" />
-                    <line x1="16" y1="2" x2="16" y2="6" />
-                    <line x1="8" y1="2" x2="8" y2="6" />
-                    <line x1="3" y1="10" x2="21" y2="10" />
-                  </svg>
-                  {task.start_date} → {task.end_date}
-                </span>
-                <span className="text-foreground-muted">·</span>
-                <span>
-                  {task.duration_days} day{task.duration_days !== 1 ? "s" : ""}
-                </span>
-                {task.is_complete && (
-                  <>
-                    <span className="text-foreground-muted">·</span>
-                    <span className="inline-flex items-center gap-1 text-emerald-700 dark:text-emerald-300 font-medium">
-                      <svg
-                        xmlns="http://www.w3.org/2000/svg"
-                        width="11"
-                        height="11"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="3"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        aria-hidden
-                      >
-                        <polyline points="20 6 9 17 4 12" />
-                      </svg>
-                      Complete
-                    </span>
-                  </>
-                )}
-              </div>
-            </div>
-          </div>
-          {/* R1 fix-pass: drop flex-shrink-0 + add flex-wrap so the rail
-              wraps onto a second line at narrow viewports (≤~600px)
-              instead of jamming against the title block. */}
-          <div className="flex items-center gap-1 flex-wrap justify-end">
-            {/* PI capability revamp (2026-06-07): role-based edit affordance.
-                A lab head on a member's task sees "Edit as lab head" until they
-                cross the once-per-session confirm; afterward the inline audit
-                note replaces it. No password. */}
-            {piGate.isPiEdit && !piGate.confirmed && (
-              <PiEditButton
-                memberName={recordOwnerForGate}
-                onClick={piGate.beginEdit}
-              />
-            )}
-            {piActive && (
-              <PiEditAuditNote memberName={recordOwnerForGate} className="mr-1" />
-            )}
-            {/* PI Phase 2 pass 2 (2026-06-07): consolidated "Lab head actions"
-                kebab. Self-gates on isPiViewingMemberRecord (a lab head viewing
-                a member's task), opens the shared PI menu (flag toggle + assign)
-                with "Edit as lab head" omitted since the task is already open. */}
-            <PiActionsHeaderButton
-              recordType="task"
-              record={{
-                owner: task.owner,
-                id: task.id,
-                flagged: !!task.flagged,
-              }}
-              viewerUsername={currentUser}
-              isLabHead={isLabHead}
-              onEditAsPi={() => {}}
-            />
-            {/* PI Phase 3 (PI Phase 3 manager, 2026-05-23):
-                Assign + Flag-for-review buttons. A lab head viewing a
-                member's task can still assign + flag it (role privileges,
-                not record writes). */}
-            {canActAsLabHead && currentUser && (
-              <>
-                <AssignTaskButton
-                  task={task}
-                  actor={currentUser}
-                  onAssigned={() => {
-                    void queryClient.refetchQueries({ queryKey: ["task", taskKey(task)] });
-                  }}
-                />
-                <FlagForReviewButton
-                  recordType="task"
-                  recordId={task.id}
-                  recordName={task.name}
-                  targetOwner={task.owner}
-                  actor={currentUser}
-                  currentFlag={task.flagged ?? null}
-                  onFlagged={() => {
-                    void queryClient.refetchQueries({ queryKey: ["task", taskKey(task)] });
-                  }}
-                />
-              </>
-            )}
-            {/* Phone-paired indicator. When a phone companion is linked, show
-                in the header that a snapped photo routes to this open experiment
-                and which tab it lands on (follows the active editor tab). Hidden
-                when no phone is paired. */}
-            {phonePaired && !isPurchase && (
-              <Tooltip
-                label={`Paired phone will send photos to ${
-                  activeTab === "results" ? "Results" : "Lab Notes"
-                }`}
-                placement="bottom"
-              >
-                <span className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-meta font-medium bg-sky-50 dark:bg-sky-500/15 text-sky-700 dark:text-sky-300 ring-1 ring-sky-200 dark:ring-sky-500/30">
-                  <Icon name="phone" className="h-3.5 w-3.5" />
-                  <span>Phone linked</span>
-                  <span aria-hidden className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
-                </span>
-              </Tooltip>
-            )}
-            {/* Completion pill — single combined affordance that doubles as
-                status + toggle. Replaces the old "Mark as complete →" hint
-                + raw checkmark icon (chief offender on the "looks janky"
-                complaint). */}
-            {!readOnly ? (
-              <Tooltip
-                label={task.is_complete ? "Mark as incomplete" : "Mark as complete"}
-                placement="bottom"
-              >
-                <button
-                  onClick={async () => {
-                    try {
-                      await tasksApi.update(task.id, { is_complete: !task.is_complete });
-                      await Promise.all([
-                        await queryClient.refetchQueries({ queryKey: ["tasks"] }),
-                        await queryClient.refetchQueries({ queryKey: ["task", taskKey(task)] }),
-                      ]);
-                    } catch {
-                      alert("Failed to update task");
-                    }
-                  }}
-                  className={`group/complete inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-meta font-medium transition-colors ${
-                    task.is_complete
-                      ? "bg-emerald-50 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-100 dark:hover:bg-emerald-500/20 ring-1 ring-emerald-200"
-                      : "bg-surface-raised text-foreground hover:text-emerald-700 dark:hover:text-emerald-300 hover:bg-emerald-50 dark:hover:bg-emerald-500/10 ring-1 ring-gray-200 hover:ring-emerald-200"
-                  }`}
-                >
-                  {/* R1 fix-pass: when complete, swap the check icon for a
-                      subtle reset arrow on hover so the toggle nature is
-                      hinted at without shouting. */}
-                  {task.is_complete ? (
-                    <>
-                      <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="block group-hover/complete:hidden" aria-hidden>
-                        <path d="M20 6L9 17l-5-5" />
-                      </svg>
-                      <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="hidden group-hover/complete:block" aria-hidden>
-                        <polyline points="1 4 1 10 7 10" />
-                        <path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10" />
-                      </svg>
-                    </>
-                  ) : (
-                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-                      <path d="M20 6L9 17l-5-5" />
-                    </svg>
-                  )}
-                  {task.is_complete ? "Complete" : "Mark complete"}
-                </button>
-              </Tooltip>
-            ) : task.is_complete ? (
-              <span className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-meta font-medium bg-emerald-50 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 ring-1 ring-emerald-200">
-                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M20 6L9 17l-5-5" />
-                </svg>
-                Complete
-              </span>
-            ) : null}
-            {/* Icon-button rail — compact + neutral so the actions don't
-                steal focus from the title. */}
-            <div className="ml-1 flex items-center gap-0.5">
-              {/* R1 fix-pass (experiments fix-pass R1 manager, 2026-05-23):
-                  Lifted the Edit affordance from the Properties card header
-                  into the header action rail so editing dates/duration is
-                  one click from popup-open instead of three. Always
-                  visible (not gated on activeTab) so tour scripts that
-                  click this immediately after mounting the popup still
-                  work; clicking it from Notes/Method/Results swaps to
-                  Details first. Uses a parent-state "pending enter edit"
-                  flag (not a CustomEvent) so DetailsTab consumes the
-                  signal once it mounts after the tab swap. Preserves the
-                  `task-popup-edit-button` tour target. */}
-              {!readOnly && (
-                <Tooltip label="Edit properties" placement="bottom">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      if (activeTab !== "details") selectTab("details");
-                      setPendingEnterEdit(true);
-                    }}
-                    data-tour-target="task-popup-edit-button"
-                    className="text-foreground-muted hover:text-blue-600 dark:hover:text-blue-300 hover:bg-blue-50 dark:hover:bg-brand-action/10 p-1.5 rounded-lg transition-colors"
-                    aria-label="Edit properties"
-                  >
-                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-                      <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
-                      <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4z" />
-                    </svg>
-                  </button>
-                </Tooltip>
-              )}
-              {isExperiment && <TaskExportButton task={task} />}
-              {isExperiment && <TaskDepositButton task={task} />}
-              {/* VC Phase 3 (Task): "Undo restore" header button. Visible (flag
-                  ON) while a 24h undo window is live for this task. Enabled for
-                  the owner / PI-with-unlock; DISABLED with an unlock Tooltip for
-                  a PI who could unlock but has not; HIDDEN for a read-only shared
-                  viewer. Render-gated on expiry. Mirrors NoteDetailPopup. */}
-              {RESTORE_ENABLED &&
-                undoWindowActive &&
-                (canRestore || restoreNeedsUnlock) && (
-                  <Tooltip
-                    label={
-                      restoreNeedsUnlock
-                        ? "Unlock edit mode (PI passcode) to undo the restore"
-                        : restoreBusy
-                          ? "Undoing the restore..."
-                          : "Undo the restore (returns the experiment to its pre-restore version)"
-                    }
-                    placement="bottom"
-                  >
-                    <button
-                      onClick={
-                        canRestore && !restoreBusy ? handleUndoRestore : undefined
-                      }
-                      disabled={!canRestore || restoreBusy}
-                      data-testid="task-undo-restore-button"
-                      className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 text-meta font-medium rounded-lg transition-colors ${
-                        canRestore && !restoreBusy
-                          ? "text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-500/10 hover:bg-amber-100 dark:hover:bg-amber-500/20"
-                          : "text-foreground-muted bg-surface-sunken cursor-not-allowed"
-                      }`}
-                    >
-                      <svg
-                        className="w-4 h-4"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth={2}
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        aria-hidden="true"
-                      >
-                        <path d="M9 14L4 9l5-5" />
-                        <path d="M4 9h11a4 4 0 0 1 0 8h-1" />
-                      </svg>
-                      {restoreBusy ? "Undoing..." : "Undo restore"}
-                    </button>
-                  </Tooltip>
-                )}
-              {/* VC Phase 3 (Task): version-history entry button. Shown to
-                  anyone with read access (the popup only opens on readable
-                  tasks). Toggles the right-sidebar version viewer; opening flips
-                  the body to a read-only diff preview. Mirrors NoteDetailPopup. */}
-              {isExperiment && (
-                <Tooltip label="Comments" placement="bottom">
-                  <button
-                    onClick={() => {
-                      setCommentsOpen((open) => {
-                        const next = !open;
-                        if (next) setHistoryOpen(false);
-                        return next;
-                      });
-                    }}
-                    data-testid="task-comments-button"
-                    aria-pressed={commentsOpen}
-                    className={`relative p-1.5 rounded-lg transition-colors ${
-                      commentsOpen
-                        ? "text-emerald-600 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-500/10"
-                        : "text-foreground-muted hover:text-foreground-muted hover:bg-surface-sunken"
-                    }`}
-                  >
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24" aria-hidden="true">
-                      <path d="M7 8h10M7 12h6m-7 9l4-4h10a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2h1v4z" />
-                    </svg>
-                    {commentCount > 0 ? (
-                      <span className="absolute -top-0.5 -right-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-emerald-500 px-1 text-meta font-semibold text-white tabular-nums">
-                        {commentCount}
-                      </span>
-                    ) : null}
-                  </button>
-                </Tooltip>
-              )}
-              <Tooltip label="Version history" placement="bottom">
-                <button
-                  ref={historyTriggerRef}
-                  onClick={() => {
-                    if (historyOpen) {
-                      closeHistory();
-                    } else {
-                      setCommentsOpen(false);
-                      setHistoryOpen(true);
-                    }
-                  }}
-                  data-testid="task-history-button"
-                  aria-pressed={historyOpen}
-                  className={`p-1.5 rounded-lg transition-colors ${
-                    historyOpen
-                      ? "text-emerald-600 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-500/10"
-                      : "text-foreground-muted hover:text-foreground-muted hover:bg-surface-sunken"
-                  }`}
-                >
-                  <svg
-                    className="w-4 h-4"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth={2}
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    aria-hidden="true"
-                  >
-                    <path d="M3 3v5h5" />
-                    <path d="M3.05 13A9 9 0 1 0 6 5.3L3 8" />
-                    <path d="M12 7v5l3 2" />
-                  </svg>
-                </button>
-              </Tooltip>
-              {!readOnly && !task.is_shared_with_me && canShare && (
-                <Tooltip label="Share" placement="bottom">
-                  <button
-                    onClick={() => setShowSharePopup(true)}
-                    data-tour-target="task-popup-share-button"
-                    aria-label="Share"
-                    className="text-foreground-muted hover:text-foreground-muted hover:bg-surface-sunken p-1.5 rounded-lg transition-colors"
-                  >
-                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                      <circle cx="18" cy="5" r="3" />
-                      <circle cx="6" cy="12" r="3" />
-                      <circle cx="18" cy="19" r="3" />
-                      <line x1="8.59" y1="13.51" x2="15.42" y2="17.49" />
-                      <line x1="15.41" y1="6.51" x2="8.59" y2="10.49" />
-                    </svg>
-                  </button>
-                </Tooltip>
-              )}
-              <Tooltip label={isExpanded ? "Exit fullscreen" : "Fullscreen"} placement="bottom">
-                <button
-                  onClick={() => setIsExpanded(!isExpanded)}
-                  data-tour-target="task-popup-fullscreen"
-                  className="text-foreground-muted hover:text-foreground-muted hover:bg-surface-sunken p-1.5 rounded-lg transition-colors"
-                >
-                  {isExpanded ? (
-                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                      <path d="M8 3v3a2 2 0 0 1-2 2H3m18 0h-3a2 2 0 0 1-2-2V3m0 18v-3a2 2 0 0 1 2-2h3M3 16h3a2 2 0 0 1 2 2v3" />
-                    </svg>
-                  ) : (
-                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                      <path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3" />
-                    </svg>
-                  )}
-                </button>
-              </Tooltip>
-              {!readOnly && (
-                <Tooltip
-                  label={
-                    task.is_shared_with_me
-                      ? `Only the owner (${task.owner}) can delete this task`
-                      : "Delete task"
-                  }
-                  placement="bottom"
-                >
-                  <button
-                    disabled={task.is_shared_with_me}
-                    onClick={async () => {
-                      if (confirm(`Delete task "${task.name}"?`)) {
-                        try {
-                          await tasksApi.delete(task.id);
-                          onClose();
-                          await Promise.all([
-                            queryClient.refetchQueries({ queryKey: ["tasks"] }),
-                            queryClient.refetchQueries({ queryKey: ["task"] }),
-                          ]);
-                          queryClient.removeQueries({ queryKey: ["task", taskKey(task)] });
-                        } catch {
-                          alert("Failed to delete task");
-                        }
-                      }
-                    }}
-                    className={`p-1.5 rounded-lg transition-colors ${
-                      task.is_shared_with_me
-                        ? "text-foreground-muted cursor-not-allowed"
-                        : "text-foreground-muted hover:text-red-600 dark:hover:text-red-300 hover:bg-red-50 dark:hover:bg-red-500/10"
-                    }`}
-                  >
-                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                      <polyline points="3 6 5 6 21 6" />
-                      <path d="M19 6l-2 14a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2L5 6" />
-                      <path d="M10 11v6M14 11v6" />
-                      <path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2" />
-                    </svg>
-                  </button>
-                </Tooltip>
-              )}
-              <Tooltip label="Close (Esc)" placement="bottom">
-                <button
-                  onClick={onClose}
-                  data-tour-target="task-popup-close"
-                  className="text-foreground-muted hover:text-foreground hover:bg-surface-sunken p-1.5 rounded-lg transition-colors"
-                  aria-label="Close"
-                >
-                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <line x1="18" y1="6" x2="6" y2="18" />
-                    <line x1="6" y1="6" x2="18" y2="18" />
-                  </svg>
-                </button>
-              </Tooltip>
-            </div>
-          </div>
-        </div>
-
-        {/* Metadata zone — flag banner, assignee, sharing chips and the
-            attribution stamps share ONE padded block with a single vertical
-            rhythm (space-y-2) so they read as one quiet band under the header
-            instead of four separately-padded strips with uneven gaps. Each
-            element still renders/hides on its own condition; only the spacing
-            is unified. Tour mounts still happen via each child's own
-            data-tour-target / data-testid.
-            PI Phase 3 flag banner + assignee, R1b sharing chips, and VCP R3
-            attribution stamps (createdAt null until §3g) all live here. */}
-        <div className="px-6 pt-2 space-y-2">
-          {task.flagged && (
-            <FlagBanner
-              flag={task.flagged}
-              recordType="task"
-              recordId={task.id}
-              owner={task.owner}
-              activeUser={currentUser}
-              onCleared={() => {
-                void queryClient.refetchQueries({ queryKey: ["task", taskKey(task)] });
-              }}
-            />
-          )}
-          {task.assignee && task.assignee !== task.owner && (
-            <div className="flex items-center gap-2 text-meta">
-              <span className="text-foreground-muted">Assigned to</span>
-              <span
-                className="inline-flex items-center px-1.5 py-0.5 rounded bg-emerald-50 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 font-medium border border-emerald-200 dark:border-emerald-500/30"
-                data-testid="task-assignee-chip"
-              >
-                {task.assignee}
-              </span>
-              <span className="text-foreground-muted">·</span>
-              <span className="text-foreground-muted">Owner: {task.owner}</span>
-            </div>
-          )}
-          {((task.shared_with?.length ?? 0) > 0 || task.is_shared_with_me) && (
-            <SharingChips
-              sharedWith={task.shared_with || []}
-              ownerUsername={task.owner}
-              viewerUsername={currentUser ?? undefined}
-              hideWhenEmpty
-            />
-          )}
-          <StampsRow
-            createdBy={null}
-            createdAt={null}
-            lastEditedBy={task.last_edited_by}
-            lastEditedAt={task.last_edited_at}
-          />
-        </div>
-
-        {/* Tabs — clean underline pattern with a quiet hover state. The old
-            tabs sat on a gray strip with the active tab back on white,
-            which read as a chrome leak from the header. Now they sit on
-            the same surface as the header for a smoother seam. */}
-        <div
-          className="flex items-stretch gap-1 px-6 border-b border-border"
-          data-tour-target="experiment-tab-container"
-          role="tablist"
-        >
-          {tabs.map((tab) => {
-            const isActive = activeTab === tab;
-            return (
-              <button
-                key={tab}
-                role="tab"
-                aria-selected={isActive}
-                onClick={() => selectTab(tab)}
-                data-tour-target={
-                  tab === "method"
-                    ? "experiment-methods-tab"
-                    : tab === "notes"
-                      ? "experiment-notes-tab"
-                      : tab === "results"
-                        ? "experiment-results-tab"
-                        : undefined
-                }
-                className={`relative px-3.5 py-3 text-body font-medium transition-colors -mb-px ${
-                  isActive
-                    ? "text-blue-600 dark:text-blue-300"
-                    : "text-foreground-muted hover:text-foreground"
-                }`}
-              >
-                {tab === "details" && "Details"}
-                {tab === "notes" && "Lab Notes"}
-                {tab === "method" && "Method"}
-                {tab === "results" && "Results"}
-                {tab === "purchases" && "Order items"}
-                {/* R1 fix-pass: bumped from h-0.5 to h-1 and switched to
-                    rounded-t-full so the active-tab indicator reads as an
-                    intentional underline cap instead of a thin Material
-                    rule. Stays subtle (no fill, no chrome change) but
-                    visually punchier when scanning tabs. */}
-                <span
-                  aria-hidden
-                  className={`absolute left-2 right-2 -bottom-px h-1 rounded-t-full transition-colors ${
-                    isActive ? "bg-blue-500" : "bg-transparent"
-                  }`}
-                />
-              </button>
-            );
-          })}
-        </div>
-
-        {/* VC Phase 3 (Task): restore / undo-restore error + Case-C fallback
-            message + the in-app undo confirm. Inline, non-blocking; clears on
-            the next attempt. Mirrors NoteDetailPopup. */}
-        {(restoreError || undoConfirmPending) && (
-          <div className="px-6 pt-2">
-            {restoreError && (
-              <p
-                data-testid="task-restore-error"
-                className="text-meta text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/30 rounded-lg px-3 py-2 leading-snug"
-              >
-                {restoreError}
-              </p>
-            )}
-            {undoConfirmPending && (
-              <div
-                data-testid="task-undo-confirm"
-                className="mt-2 text-meta text-amber-800 dark:text-amber-200 bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/30 rounded-lg px-3 py-2 leading-snug"
-              >
-                <p>
-                  You have edited this experiment since the restore. Undoing will
-                  discard those edits and return it to its pre-restore state.
-                </p>
-                <div className="mt-2 flex items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={() => void confirmUndoRestore()}
-                    disabled={restoreBusy}
-                    data-testid="task-undo-confirm-button"
-                    className="px-2.5 py-1 text-meta font-medium text-white bg-amber-600 hover:bg-amber-700 disabled:opacity-60 rounded-md transition-colors"
-                  >
-                    {restoreBusy ? "Undoing..." : "Discard edits and undo"}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={dismissUndoConfirm}
-                    disabled={restoreBusy}
-                    data-testid="task-undo-cancel-button"
-                    className="px-2.5 py-1 text-meta font-medium text-foreground-muted bg-surface-sunken hover:bg-foreground-muted/15 disabled:opacity-60 rounded-md transition-colors"
-                  >
-                    Keep editing
-                  </button>
-                </div>
-              </div>
-            )}
-          </div>
-        )}
-
         {/* Tab content (or, when the history sidebar is open, the in-place
             read-only diff for the selected version + the docked version
             sidebar). Wrapped in a flex-row so the sidebar docks right, mirroring
@@ -1776,6 +1475,7 @@ export default function TaskDetailPopup({
                     readOnly={readOnly}
                     pendingEnterEdit={pendingEnterEdit}
                     onConsumePendingEnterEdit={() => setPendingEnterEdit(false)}
+                    onRegisterDirtyState={registerActiveTabDirtyState}
                     piActor={piActive && currentUser ? currentUser : undefined}
                   />
                 )}
@@ -1783,7 +1483,7 @@ export default function TaskDetailPopup({
                     editable too. LabNotes/Results route to the member via their
                     Loro doc owner (task.owner) + the legacyOwner fallback, and
                     MethodTabs routes + audits via piActor. */}
-                {activeTab === "notes" && <LabNotesTab task={task} readOnly={readOnly || (task.is_shared_with_me === true && task.shared_permission === "view")} ownerUsername={username} onRegisterFlushSave={registerActiveTabFlushSave} onRegisterAppendLine={registerActiveTabAppendLine} />}
+                {activeTab === "notes" && <LabNotesTab task={task} readOnly={readOnly || (task.is_shared_with_me === true && task.shared_permission === "view")} ownerUsername={username} onRegisterFlushSave={registerActiveTabFlushSave} onRegisterAppendLine={registerActiveTabAppendLine} onRegisterDirtyState={registerActiveTabDirtyState} onRegisterDocHistory={registerActiveTabDocHistory} expanded={isExpanded} onRequestExpand={toggleExpanded} />}
                 {activeTab === "method" && (
                   <MethodTabs
                     task={task}
@@ -1792,7 +1492,7 @@ export default function TaskDetailPopup({
                     piActor={piActive && currentUser ? currentUser : undefined}
                   />
                 )}
-                {activeTab === "results" && <ResultsTab task={task} readOnly={readOnly || (task.is_shared_with_me === true && task.shared_permission === "view")} ownerUsername={username} onRegisterFlushSave={registerActiveTabFlushSave} onRegisterAppendLine={registerActiveTabAppendLine} />}
+                {activeTab === "results" && <ResultsTab task={task} readOnly={readOnly || (task.is_shared_with_me === true && task.shared_permission === "view")} ownerUsername={username} onRegisterFlushSave={registerActiveTabFlushSave} onRegisterAppendLine={registerActiveTabAppendLine} onRegisterDirtyState={registerActiveTabDirtyState} onRegisterDocHistory={registerActiveTabDocHistory} expanded={isExpanded} onRequestExpand={toggleExpanded} />}
                 {activeTab === "purchases" && (
                   <PurchaseEditor
                     taskId={task.id}
@@ -1889,8 +1589,7 @@ export default function TaskDetailPopup({
             <span>{universalDropToast.msg}</span>
           </div>
         )}
-      </div>
-    </LivingPopup>
+    </CalmPopupShell>
     {/* PI capability revamp: the once-per-session confirm a lab head crosses
         before editing this member's task. LivingPopup portals itself. */}
     <PiEditConfirmDialog
@@ -2184,7 +1883,7 @@ function PropertyGrid({
           <dt className="text-meta font-medium text-foreground-muted uppercase tracking-wide mb-1.5">
             Deviation log
           </dt>
-          <div className="prose prose-sm prose-gray max-w-none bg-amber-50 dark:bg-amber-500/10 border border-amber-100 dark:border-amber-500/25 rounded-lg p-3">
+          <div className="prose prose-sm prose-gray max-w-none bg-surface-sunken border border-border rounded-lg p-3">
             <ReactMarkdown remarkPlugins={[remarkGfm, remarkUnderline]} rehypePlugins={[rehypeRaw, [rehypeSanitize, markdownSanitizeSchema]]}>
               {task.deviation_log}
             </ReactMarkdown>
@@ -2206,6 +1905,7 @@ function DetailsTab({
   readOnly = false,
   pendingEnterEdit = false,
   onConsumePendingEnterEdit,
+  onRegisterDirtyState,
   piActor,
 }: {
   task: Task;
@@ -2221,6 +1921,10 @@ function DetailsTab({
       transition both happen via this handshake). */
   pendingEnterEdit?: boolean;
   onConsumePendingEnterEdit?: () => void;
+  /** L3: lift the in-card form dirty/saving state to the popup shell so the
+      expanded shell's ambient indicator is honest. Only true while editing
+      the Properties form; at rest the form is clean ("Saved"). */
+  onRegisterDirtyState?: (state: { dirty: boolean; saving: boolean } | null) => void;
   /** PI capability revamp: set to the lab head's username when they are
       editing this member's task on the role (after the confirm), so writes
       route to the owner's folder + audit. */
@@ -2336,6 +2040,14 @@ function DetailsTab({
       startDate !== originalValues.startDate ||
       durationDays !== originalValues.durationDays ||
       weekendOverride !== originalValues.weekendOverride);
+
+  // L3: lift the Properties-form dirty/saving up to the popup shell so the
+  // expanded shell's ambient indicator is honest on the Details tab. Same
+  // hasUnsavedChanges/saving the in-card Save button uses; clears on unmount.
+  useEffect(() => {
+    onRegisterDirtyState?.({ dirty: hasUnsavedChanges, saving });
+    return () => onRegisterDirtyState?.(null);
+  }, [onRegisterDirtyState, hasUnsavedChanges, saving]);
 
   // Enter edit mode: snapshot current values as the baseline so Cancel
   // restores them and hasUnsavedChanges has a stable reference.
@@ -3440,7 +3152,7 @@ function DetailsTab({
           read↔edit transition reads as a state change on the same fields,
           not a layout swap (the old "Edit / Exit edit mode" pattern flipped
           the whole layout out from under the user). */}
-      <section className="bg-surface-raised border border-border rounded-xl overflow-hidden">
+      <section className="ros-detail-card bg-surface-raised border border-border rounded-xl overflow-hidden">
         {/* R1 fix-pass (experiments fix-pass R1 manager, 2026-05-23):
             Dropped the "Name, project, schedule, and other fields" subtitle
             — "Properties" already says that. Surface the completion-status
@@ -3897,7 +3609,7 @@ function DetailsTab({
 
 // ── Lab Notes Tab (with LiveMarkdownEditor) ──────────────────────────────────
 
-function LabNotesTab({ task, readOnly = false, ownerUsername, onRegisterFlushSave, onRegisterAppendLine }: { task: Task; readOnly?: boolean; ownerUsername?: string; onRegisterFlushSave?: (fn: (() => Promise<void>) | null) => void; onRegisterAppendLine?: (fn: ((line: string) => void) | null) => void }) {
+function LabNotesTab({ task, readOnly = false, ownerUsername, onRegisterFlushSave, onRegisterAppendLine, onRegisterDirtyState, onRegisterDocHistory, expanded = false, onRequestExpand }: { task: Task; readOnly?: boolean; ownerUsername?: string; onRegisterFlushSave?: (fn: (() => Promise<void>) | null) => void; onRegisterAppendLine?: (fn: ((line: string) => void) | null) => void; onRegisterDirtyState?: (state: { dirty: boolean; saving: boolean } | null) => void; onRegisterDocHistory?: (state: { toggle: () => void; isOpen: boolean } | null) => void; expanded?: boolean; onRequestExpand?: () => void }) {
   const [content, setContent] = useState("");
   const [originalContent, setOriginalContent] = useState("");
   const [saving, setSaving] = useState(false);
@@ -4308,6 +4020,17 @@ function LabNotesTab({ task, readOnly = false, ownerUsername, onRegisterFlushSav
   // hook above handles that case by surviving the remount.
   useUnsavedChangesGuard(hasUnsavedChanges);
 
+  // L3: lift this tab's dirty/saving state up to the popup shell so the
+  // expanded shell's ambient indicator is HONEST (it reflects the SAME
+  // hasUnsavedChanges/editorDirty/saving the in-tab Save button uses — no new
+  // state, no autosave). editorDirty covers the mid-block buffer so the shell
+  // flips to "Unsaved changes" the instant typing starts. Clears to null on
+  // unmount so a non-reporting tab (Method / Order items) shows no save claim.
+  useEffect(() => {
+    onRegisterDirtyState?.({ dirty: hasUnsavedChanges || editorDirty, saving });
+    return () => onRegisterDirtyState?.(null);
+  }, [onRegisterDirtyState, hasUnsavedChanges, editorDirty, saving]);
+
   // When the tab is in legacy attach mode (shared `Files/`+`Images/` at the
   // outer base), perform the split-on-write migration so new drops land in
   // the per-tab scoped folder and refs stay self-contained. Returns the
@@ -4617,59 +4340,34 @@ function LabNotesTab({ task, readOnly = false, ownerUsername, onRegisterFlushSav
     },
   });
 
-  // Right-side controls for the editor's unified toolbar: the version-history
-  // button plus the Save button. The "Unsaved changes" cue is folded into the
-  // Save button's amber-dot + enabled state (no separate text bar). Hidden in
-  // readOnly mode (lab view) where there is nothing to save. The old
-  // "Markdown | Files" sub-tab switcher is retired: files now live in the
-  // single bottom attachments strip (file-unify bot).
-  const editorToolbarTrailing = !readOnly ? (
+  // Docked slimming (2026-06-14): lift this tab's doc-history toggle up so the
+  // popup "…" overflow can host it when docked (the inline pill button below is
+  // now fullscreen-only). Re-register on isOpen change so the overflow label
+  // ("Document history" / "Hide document history") tracks the live state.
+  useEffect(() => {
+    if (readOnly || !onRegisterDocHistory) return;
+    onRegisterDocHistory({ toggle: docHistory.toggle, isOpen: docHistory.isOpen });
+    return () => onRegisterDocHistory(null);
+  }, [readOnly, onRegisterDocHistory, docHistory.toggle, docHistory.isOpen]);
+
+  // Right-side controls for the editor's unified toolbar. Docked slimming
+  // (2026-06-14): the docked bar is now just Edit|Preview · ＋ · / to insert, so
+  // the trailing slot renders nothing when docked — the "Saved" pill is dropped
+  // (the popup footer's task-ambient-save shows save state), and Save checkpoint
+  // + Document history move to the popup "…" overflow. At fullscreen the editor
+  // pill keeps the inline doc-history + Save checkpoint controls. Hidden in
+  // readOnly mode (lab view) where there is nothing to save.
+  const editorToolbarTrailing = !readOnly && expanded ? (
     <>
-      {/* experiment-collab follow-up: auto-save Saving/Saved pill, parity with
-          the Notes pilot (see NoteDetailPopup note-autosave-status). Only shown
-          while the pilot flag is on and the Loro handle is open. */}
-      {LORO_PILOT_ENABLED && !!loroHandle && (
-        <span
-          data-testid="task-notes-autosave-status"
-          aria-live="polite"
-          aria-atomic="true"
-          className={`inline-flex items-center rounded-full px-2 py-0.5 text-meta font-medium ring-1 transition-colors ${
-            loroCommitPending
-              ? "bg-amber-50 text-amber-700 ring-amber-200 dark:bg-amber-500/15 dark:text-amber-200 dark:ring-amber-500/30"
-              : "bg-emerald-50 text-emerald-700 ring-emerald-200 dark:bg-emerald-500/15 dark:text-emerald-200 dark:ring-emerald-500/30"
-          }`}
-        >
-          {loroCommitPending ? "Saving..." : "Saved"}
-        </span>
-      )}
       {/* save-checkpoint bot: version-history entry button (icon-only clock +
           counter-arrow, Tooltip per house rule). Opens the docked sidebar +
-          in-place diff for the Lab Notes document. */}
+          in-place diff for the Lab Notes document. Fullscreen-only now; docked
+          reaches it via the popup "…" overflow (task-doc-history-overflow). */}
       <TaskDocHistoryButton controller={docHistory} />
-      {/* save-checkpoint bot: "Save checkpoint" makes it obvious every save is a
-          permanent, revertible version. Tooltip spells that out. */}
-      <Tooltip label="Saves a permanent version you can revert to anytime." placement="bottom">
-        <button
-          data-tour-target="task-popup-notes-save"
-          onClick={() => {
-            // Flush the editor's in-flight block buffer first so the
-            // last in-progress edit lands on disk, then persist.
-            const latest = editorSaveRef.current?.() ?? content;
-            void handleSave(latest);
-          }}
-          disabled={saving || (!hasUnsavedChanges && !editorDirty)}
-          className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-meta font-medium rounded-lg transition-colors ${
-            (hasUnsavedChanges || editorDirty) && !saving
-              ? "text-white bg-brand-action hover:bg-brand-action/90"
-              : "text-foreground-muted bg-surface-sunken cursor-not-allowed"
-          }`}
-        >
-          {(hasUnsavedChanges || editorDirty) && !saving && (
-            <span aria-hidden className="w-1.5 h-1.5 rounded-full bg-amber-300" />
-          )}
-          {saving ? "Saving..." : "Save checkpoint"}
-        </button>
-      </Tooltip>
+      {/* Save checkpoint now lives ONLY in the popup "…" overflow
+          (task-header-save-checkpoint) at every size — it is driven by the
+          shell's lifted ambientSaveState, so the inline pill button was
+          redundant. The docked footer (task-ambient-save) shows save state. */}
     </>
   ) : undefined;
 
@@ -4821,6 +4519,13 @@ function LabNotesTab({ task, readOnly = false, ownerUsername, onRegisterFlushSav
                   // the editor's single unified toolbar instead of stacking
                   // parent bars above it.
                   toolbarTrailing={editorToolbarTrailing}
+                  // Unified editor surface (UNIFIED_EDITOR_SURFACE_DESIGN.md §9,
+                  // U1): the editor's Focus button grows the POPUP (same DOM,
+                  // CSS size transition) instead of teleporting into its own
+                  // body-level overlay. The popup flushes this editor's buffer
+                  // before growing via the registered flush bridge.
+                  onRequestExpand={onRequestExpand}
+                  expanded={expanded}
                   // file-unify bot: the single bottom attachments strip now
                   // UNION-reads the retired Files panel's `NotesPDFs/` folder
                   // so files attached there still appear (and can be viewed /
@@ -4882,7 +4587,7 @@ function LabNotesTab({ task, readOnly = false, ownerUsername, onRegisterFlushSav
 
 // ── Results Tab ──────────────────────────────────────────────────────────────
 
-function ResultsTab({ task, readOnly = false, ownerUsername, onRegisterFlushSave, onRegisterAppendLine }: { task: Task; readOnly?: boolean; ownerUsername?: string; onRegisterFlushSave?: (fn: (() => Promise<void>) | null) => void; onRegisterAppendLine?: (fn: ((line: string) => void) | null) => void }) {
+function ResultsTab({ task, readOnly = false, ownerUsername, onRegisterFlushSave, onRegisterAppendLine, onRegisterDirtyState, onRegisterDocHistory, expanded = false, onRequestExpand }: { task: Task; readOnly?: boolean; ownerUsername?: string; onRegisterFlushSave?: (fn: (() => Promise<void>) | null) => void; onRegisterAppendLine?: (fn: ((line: string) => void) | null) => void; onRegisterDirtyState?: (state: { dirty: boolean; saving: boolean } | null) => void; onRegisterDocHistory?: (state: { toggle: () => void; isOpen: boolean } | null) => void; expanded?: boolean; onRequestExpand?: () => void }) {
   const [content, setContent] = useState("");
   const [originalContent, setOriginalContent] = useState("");
   const [saving, setSaving] = useState(false);
@@ -5212,6 +4917,13 @@ function ResultsTab({ task, readOnly = false, ownerUsername, onRegisterFlushSave
   // handled by the draft-persistence hook above.
   useUnsavedChangesGuard(hasUnsavedChanges);
 
+  // L3: lift dirty/saving up to the shell for the honest ambient indicator.
+  // Same contract as LabNotesTab — presentation only, no new save behavior.
+  useEffect(() => {
+    onRegisterDirtyState?.({ dirty: hasUnsavedChanges || editorDirty, saving });
+    return () => onRegisterDirtyState?.(null);
+  }, [onRegisterDirtyState, hasUnsavedChanges, editorDirty, saving]);
+
   const ensureAttachmentsSplit = useCallback(
     async (
       latestContent: string
@@ -5490,55 +5202,27 @@ function ResultsTab({ task, readOnly = false, ownerUsername, onRegisterFlushSave
     },
   });
 
-  // Right-side controls for the editor's unified toolbar: the version-history
-  // button plus the Save button. The old "Markdown | Files" sub-tab switcher is
-  // retired: files now live in the single bottom attachments strip
-  // (file-unify bot).
-  const editorToolbarTrailing = !readOnly ? (
+  // Docked slimming (2026-06-14): lift this tab's doc-history toggle up so the
+  // popup "…" overflow hosts it when docked (the inline pill button below is
+  // fullscreen-only). See LabNotesTab for the parallel wiring.
+  useEffect(() => {
+    if (readOnly || !onRegisterDocHistory) return;
+    onRegisterDocHistory({ toggle: docHistory.toggle, isOpen: docHistory.isOpen });
+    return () => onRegisterDocHistory(null);
+  }, [readOnly, onRegisterDocHistory, docHistory.toggle, docHistory.isOpen]);
+
+  // Right-side controls for the editor's unified toolbar. Docked slimming
+  // (2026-06-14): trailing renders nothing when docked (slim bar = Edit|Preview
+  // · ＋ · / to insert). The "Saved" pill is dropped (footer task-ambient-save
+  // shows it); Save checkpoint + Document history live in the popup "…" overflow
+  // at every size. At fullscreen the editor pill keeps the inline doc-history
+  // button. See LabNotesTab for the parallel wiring.
+  const editorToolbarTrailing = !readOnly && expanded ? (
     <>
-      {/* experiment-collab follow-up: auto-save Saving/Saved pill, parity with
-          the Notes pilot (see LabNotesTab / NoteDetailPopup). Only shown while
-          the pilot flag is on and the Results Loro handle is open. */}
-      {LORO_PILOT_ENABLED && !!loroHandle && (
-        <span
-          data-testid="task-results-autosave-status"
-          aria-live="polite"
-          aria-atomic="true"
-          className={`inline-flex items-center rounded-full px-2 py-0.5 text-meta font-medium ring-1 transition-colors ${
-            loroCommitPending
-              ? "bg-amber-50 text-amber-700 ring-amber-200 dark:bg-amber-500/15 dark:text-amber-200 dark:ring-amber-500/30"
-              : "bg-emerald-50 text-emerald-700 ring-emerald-200 dark:bg-emerald-500/15 dark:text-emerald-200 dark:ring-emerald-500/30"
-          }`}
-        >
-          {loroCommitPending ? "Saving..." : "Saved"}
-        </span>
-      )}
       {/* save-checkpoint bot: version-history entry button for the Results
-          document (see LabNotesTab). */}
+          document. Fullscreen-only now; docked reaches it via the popup "…"
+          overflow (task-doc-history-overflow). */}
       <TaskDocHistoryButton controller={docHistory} />
-      {/* save-checkpoint bot: "Save checkpoint" + tooltip (see LabNotesTab). */}
-      <Tooltip label="Saves a permanent version you can revert to anytime." placement="bottom">
-        <button
-          data-tour-target="task-popup-results-save"
-          onClick={() => {
-            // Flush the editor's in-flight block buffer first so the
-            // last in-progress edit lands on disk, then persist.
-            const latest = editorSaveRef.current?.() ?? content;
-            void handleSave(latest);
-          }}
-          disabled={saving || (!hasUnsavedChanges && !editorDirty)}
-          className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-meta font-medium rounded-lg transition-colors ${
-            (hasUnsavedChanges || editorDirty) && !saving
-              ? "text-white bg-brand-action hover:bg-brand-action/90"
-              : "text-foreground-muted bg-surface-sunken cursor-not-allowed"
-          }`}
-        >
-          {(hasUnsavedChanges || editorDirty) && !saving && (
-            <span aria-hidden className="w-1.5 h-1.5 rounded-full bg-amber-300" />
-          )}
-          {saving ? "Saving..." : "Save checkpoint"}
-        </button>
-      </Tooltip>
     </>
   ) : undefined;
 
@@ -5633,6 +5317,13 @@ function ResultsTab({ task, readOnly = false, ownerUsername, onRegisterFlushSave
                 // the editor's single unified toolbar instead of stacking
                 // parent bars above it.
                 toolbarTrailing={editorToolbarTrailing}
+                // Unified editor surface (UNIFIED_EDITOR_SURFACE_DESIGN.md §9,
+                // U1): the editor's Focus button grows the POPUP (same DOM, CSS
+                // size transition) instead of teleporting into its own
+                // body-level overlay. The popup flushes this editor's buffer
+                // before growing via the registered flush bridge.
+                onRequestExpand={onRequestExpand}
+                expanded={expanded}
                 // file-unify bot: the single bottom attachments strip now
                 // UNION-reads the retired Files panel's `ResultsPDFs/` folder
                 // so files attached there still appear (view / delete). New
@@ -5674,7 +5365,15 @@ function ResultsTab({ task, readOnly = false, ownerUsername, onRegisterFlushSave
 
 // ── Task Export Button Component ───────────────────────────────────────────────
 
-function TaskExportButton({ task }: { task: Task }) {
+function TaskExportButton({
+  task,
+  menuRow = false,
+}: {
+  task: Task;
+  /** L3 declutter: render as a full-width overflow-menu row (icon + label)
+   *  instead of the bare header icon-button. Same handler + dialog either way. */
+  menuRow?: boolean;
+}) {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [exporting, setExporting] = useState(false);
   const { currentUser } = useCurrentUser();
@@ -5700,54 +5399,71 @@ function TaskExportButton({ task }: { task: Task }) {
     [task, currentUser]
   );
 
+  const exportGlyph = exporting ? (
+    <svg
+      className="animate-spin w-4 h-4"
+      xmlns="http://www.w3.org/2000/svg"
+      fill="none"
+      viewBox="0 0 24 24"
+      aria-hidden
+    >
+      <circle
+        className="opacity-25"
+        cx="12"
+        cy="12"
+        r="10"
+        stroke="currentColor"
+        strokeWidth="4"
+      />
+      <path
+        className="opacity-75"
+        fill="currentColor"
+        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+      />
+    </svg>
+  ) : (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      width="16"
+      height="16"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden
+    >
+      <path d="M12 4v10M8 10l4 4 4-4" />
+      <path d="M5 19h14" />
+    </svg>
+  );
+
   return (
     <>
-      <Tooltip label="Export experiment" placement="bottom">
+      {menuRow ? (
         <button
+          role="menuitem"
           aria-label="Export experiment"
           onClick={() => setDialogOpen(true)}
           disabled={exporting}
-          className="text-foreground-muted hover:text-foreground-muted p-1 disabled:opacity-50"
+          className="flex w-full items-center gap-2.5 px-3 py-1.5 text-left text-body text-foreground hover:bg-surface-sunken disabled:opacity-50 transition-colors"
         >
-          {exporting ? (
-            <svg
-              className="animate-spin w-4 h-4"
-              xmlns="http://www.w3.org/2000/svg"
-              fill="none"
-              viewBox="0 0 24 24"
-            >
-              <circle
-                className="opacity-25"
-                cx="12"
-                cy="12"
-                r="10"
-                stroke="currentColor"
-                strokeWidth="4"
-              />
-              <path
-                className="opacity-75"
-                fill="currentColor"
-                d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-              />
-            </svg>
-          ) : (
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              width="16"
-              height="16"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            >
-              <path d="M12 4v10M8 10l4 4 4-4" />
-              <path d="M5 19h14" />
-            </svg>
-          )}
+          <span className="text-foreground-muted">{exportGlyph}</span>
+          <span>{exporting ? "Exporting..." : "Export"}</span>
         </button>
-      </Tooltip>
+      ) : (
+        <Tooltip label="Export experiment" placement="bottom">
+          <button
+            aria-label="Export experiment"
+            onClick={() => setDialogOpen(true)}
+            disabled={exporting}
+            className="text-foreground-muted hover:text-foreground-muted p-1 disabled:opacity-50"
+          >
+            {exportGlyph}
+          </button>
+        </Tooltip>
+      )}
 
       {/* Format picker — hidden during the actual export so the
           ProgressEntertainer takes over the screen (Grant brief on
@@ -5789,40 +5505,65 @@ function TaskExportButton({ task }: { task: Task }) {
  * own web upload page. Phase 1 is the GUIDED path; no API calls, no DOI is
  * minted here.
  */
-function TaskDepositButton({ task }: { task: Task }) {
+function TaskDepositButton({
+  task,
+  menuRow = false,
+}: {
+  task: Task;
+  /** L3 declutter: render as a full-width overflow-menu row instead of the
+   *  bare header icon-button. Same handler + dialog + testid either way. */
+  menuRow?: boolean;
+}) {
   const [open, setOpen] = useState(false);
   const { currentUser } = useCurrentUser();
 
+  // Repository / archive-with-upload-arrow glyph (inline SVG; no icon library,
+  // no emoji).
+  const depositGlyph = (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      width="16"
+      height="16"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden
+    >
+      <path d="M21 8v13H3V8" />
+      <rect x="1" y="3" width="22" height="5" rx="1" />
+      <path d="M12 17V11" />
+      <polyline points="9 14 12 11 15 14" />
+    </svg>
+  );
+
   return (
     <>
-      <Tooltip label="Deposit to a repository" placement="bottom">
+      {menuRow ? (
         <button
+          role="menuitem"
           aria-label="Deposit to a repository"
           onClick={() => setOpen(true)}
           data-testid="task-deposit-button"
-          className="text-foreground-muted hover:text-foreground-muted p-1"
+          className="flex w-full items-center gap-2.5 px-3 py-1.5 text-left text-body text-foreground hover:bg-surface-sunken transition-colors"
         >
-          {/* Repository / archive-with-upload-arrow glyph (inline SVG; no
-              icon library, no emoji). */}
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            width="16"
-            height="16"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            aria-hidden
-          >
-            <path d="M21 8v13H3V8" />
-            <rect x="1" y="3" width="22" height="5" rx="1" />
-            <path d="M12 17V11" />
-            <polyline points="9 14 12 11 15 14" />
-          </svg>
+          <span className="text-foreground-muted">{depositGlyph}</span>
+          <span>Deposit to a repository</span>
         </button>
-      </Tooltip>
+      ) : (
+        <Tooltip label="Deposit to a repository" placement="bottom">
+          <button
+            aria-label="Deposit to a repository"
+            onClick={() => setOpen(true)}
+            data-testid="task-deposit-button"
+            className="text-foreground-muted hover:text-foreground-muted p-1"
+          >
+            {depositGlyph}
+          </button>
+        </Tooltip>
+      )}
 
       <DepositDialog
         isOpen={open}

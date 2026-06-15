@@ -63,6 +63,8 @@ import BeakerSearchShowpiece from "@/components/welcome/BeakerSearchShowpiece";
 import Reveal from "@/components/marketing/Reveal";
 import MarketingBackdrop from "@/components/marketing/MarketingBackdrop";
 import Kicker from "@/components/marketing/Kicker";
+import { DEPT_TIER_ENABLED } from "@/lib/dept/config";
+import { INSTITUTION_TIER_ENABLED } from "@/lib/institution/config";
 import RainbowFrame from "@/components/marketing/RainbowFrame";
 import FeatureRow from "@/components/marketing/FeatureRow";
 import RoadmapModal from "@/components/RoadmapModal";
@@ -1122,6 +1124,60 @@ export default function WelcomePage({
             </div>
           </div>
         </section>
+
+        {/* ── 13.5 FOR DEPARTMENTS & INSTITUTIONS (standalone admin portals) ─
+            A quiet band for the org-admin audience. Each card links into its
+            own standalone, sign-in-gated portal (PortalShell), no folder or
+            install needed. Gated on the tier flags so it stays dark in prod
+            exactly like the rest of the org tier. */}
+        {(DEPT_TIER_ENABLED || INSTITUTION_TIER_ENABLED) && (
+          <section className="border-t border-[#d8e3f1] bg-[#f7faff] px-6 py-16 sm:px-12">
+            <Reveal className="mx-auto max-w-[920px] text-center">
+              <div
+                aria-hidden
+                className="brand-rainbow-bg mx-auto mb-5 h-1 w-14 rounded-full"
+              />
+              <h2 className="text-3xl font-extrabold tracking-tight text-brand-ink">
+                For departments &amp; institutions
+              </h2>
+              <p className="mx-auto mt-3 max-w-[58ch] text-title leading-relaxed text-[#475569]">
+                Sponsor your labs on one invoice. The admin portals manage your
+                plan, roster, and billing right in the browser, no folder to
+                connect and nothing to install.
+              </p>
+              <div className="mt-8 grid gap-4 sm:grid-cols-2">
+                {DEPT_TIER_ENABLED && (
+                  <a
+                    href="/department"
+                    className="flex flex-col gap-1 rounded-2xl border border-[#cfdcec] bg-white p-5 text-left shadow-[0_2px_12px_rgba(15,40,80,0.06)] transition-transform hover:scale-[1.02]"
+                  >
+                    <span className="flex items-center gap-2 text-title font-extrabold text-brand-ink">
+                      Department admin <span aria-hidden className="text-brand-action">&rarr;</span>
+                    </span>
+                    <span className="text-body text-[#475569]">
+                      Sponsor your labs on one invoice. Plan, roster, and billing
+                      in one portal.
+                    </span>
+                  </a>
+                )}
+                {INSTITUTION_TIER_ENABLED && (
+                  <a
+                    href="/institution"
+                    className="flex flex-col gap-1 rounded-2xl border border-[#cfdcec] bg-white p-5 text-left shadow-[0_2px_12px_rgba(15,40,80,0.06)] transition-transform hover:scale-[1.02]"
+                  >
+                    <span className="flex items-center gap-2 text-title font-extrabold text-brand-ink">
+                      Institution admin <span aria-hidden className="text-brand-action">&rarr;</span>
+                    </span>
+                    <span className="text-body text-[#475569]">
+                      One tier up. Cover your departments and roll up usage and
+                      cost.
+                    </span>
+                  </a>
+                )}
+              </div>
+            </Reveal>
+          </section>
+        )}
 
         {/* ── 14. FINAL CTA ────────────────────────────────────────────── */}
         <section className="border-t border-[#d8e3f1] bg-white px-6 py-20 text-center sm:px-12">

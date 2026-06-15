@@ -2324,6 +2324,12 @@ export default function DataHubPage() {
                 owner={currentUser}
                 sidecar={openDatasetSidecar}
                 onOpenTransform={() => setDatasetBuilderOpen(true)}
+                onDeleted={() => {
+                  void queryClient.invalidateQueries({
+                    queryKey: ["datahub", "datasets", currentUser],
+                  });
+                  setSelectedDatasetId(null);
+                }}
               />
             )
           ) : tablesInCollection.length === 0 && datasets.length === 0 ? (

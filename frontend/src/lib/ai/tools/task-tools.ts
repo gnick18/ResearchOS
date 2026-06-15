@@ -89,6 +89,8 @@ export type TaskToolsDeps = {
     child_id: number;
     dep_type: "FS" | "SS" | "SF";
   }) => Promise<Dependency>;
+  /** Soft-delete a task (moves it to _trash, recoverable). */
+  deleteTask: (id: number) => Promise<void>;
   /** Navigate the user to an internal path after a successful write.
    *  Defaults to the navigation bridge. Injected so tests assert the call. */
   navigate: (path: string) => void;
@@ -101,6 +103,7 @@ export const taskToolsDeps: TaskToolsDeps = {
   updateTask: (id, data) => tasksApi.update(id, data),
   moveTask: (id, data) => tasksApi.move(id, data),
   createDependency: (data) => dependenciesApi.create(data),
+  deleteTask: (id) => tasksApi.delete(id),
   navigate: requestNavigation,
 };
 
@@ -660,5 +663,59 @@ export const linkTasksTool: AiTool = {
       successor: successor.name,
       depType,
     };
+  },
+};
+
+// ---------------------------------------------------------------------------
+// delete_task (soft-delete, recoverable; also covers experiments)
+// ---------------------------------------------------------------------------
+
+export const deleteTaskTool: AiTool = {
+  name: "delete_task",
+  description:
+    "Delete one of the user's tasks (this also covers experiments, which are task records). Use this only when the user clearly asks to delete or remove a task or experiment. It is RECOVERABLE, the task moves to Trash, not a permanent erase. The app shows a destructive confirm card first (a hard-stop, it always confirms). After it is deleted, say in one short sentence that it moved to Trash and can be restored. Own tasks only.",
+  parameters: {
+    type: "object",
+    properties: {
+      task: {
+        type: "string",
+        description: "The task to delete, by its name (case-insensitive) or numeric id.",
+      },
+    },
+    required: ["task"],
+    additionalProperties: false,
+  },
+  action: true,
+  isDestructive: () => true,
+  describeAction: (args) => {
+    const ref =
+      typeof args.task === "string" || typeof args.task === "number"
+        ? String(args.task)
+        : "?";
+    return { summary: `delete task "${ref}" (recoverable from Trash)` };
+  },
+  execute: async (args) => {
+    const ref =
+      typeof args.task === "string" || typeof args.task === "number"
+        ? (args.task as string | number)
+        : undefined;
+    const tasks = await taskToolsDeps.listTasks();
+    const task = resolveTask(tasks, ref);
+    if (!task) {
+      const names = ownTaskNames(tasks);
+      return {
+        ok: false as const,
+        error: `I could not find one of your tasks called "${ref}". Your tasks are: ${names.length ? names.map((n) => `"${n}"`).join(", ") : "(none yet)"}.`,
+      };
+    }
+    try {
+      await taskToolsDeps.deleteTask(task.id);
+    } catch (err) {
+      return {
+        ok: false as const,
+        error: `Could not delete the task. ${err instanceof Error ? err.message : String(err)}`,
+      };
+    }
+    return { ok: true as const, id: task.id, name: task.name, trashed: true };
   },
 };

@@ -42,7 +42,7 @@ const INDIVIDUAL_PLANS: PlanCard[] = [
     price: { figure: "$0", per: " /mo" },
     priceNote: "A real working tier, not a trial.",
     feats: [
-      "~750,000 free AI tokens to start, a one-time sign-up gift (about 20 to 25 full analyses or 100-plus quick questions)",
+      "~1.6 million free AI tokens to start, a one-time sign-up gift (about 15 tasks or 30-plus quick questions)",
       "5 GB of shared-document storage",
       "A generous editing allowance",
       "Everything in the app, no features held back",
@@ -83,7 +83,7 @@ const LAB_PLANS: PlanCard[] = [
     price: { figure: "$0", per: " /mo" },
     priceNote: "A shared pool for the whole lab.",
     feats: [
-      "~750,000 free AI tokens for every member to start, a one-time sign-up gift (about 20 to 25 full analyses each)",
+      "~1.6 million free AI tokens for every member to start, a one-time sign-up gift (about 15 tasks each)",
       "5 GB pooled across the whole lab",
       "Real-time co-editing for the team",
       "Only the PI sets it up, members never enter a card",

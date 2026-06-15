@@ -270,6 +270,14 @@ export type AiTool = {
    *  pops a single confirm for a lone step), with a destructive hard-stop in
    *  both. Absent / false = read-only, runs immediately. */
   action?: boolean;
+  /** When true, this action changes NOTHING in the user's data, it only moves
+   *  around or shows the UI (navigate, click a nav link or tab, highlight an
+   *  element). An immutable action runs WITHOUT a per-step confirm in BOTH review
+   *  modes, so step-by-step does not ask permission to click to a page or point at
+   *  a button. The destructive safety net still applies, an immutable click whose
+   *  target looks destructive or outward-facing (Delete, Send, Pay, ...) still
+   *  confirms via isDestructive. Only meaningful together with `action`. */
+  immutable?: boolean;
   /** When true, this is a non-action tool that still shows a preview-and-confirm
    *  block in step review mode (the instant analysis/plot tools); ignored in plan
    *  mode. It writes a new, reversible, version-controlled result rather than an

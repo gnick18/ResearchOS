@@ -39,10 +39,13 @@ vi.mock("../agent-loop", () => ({
 
 vi.mock("../proxy-client", () => {
   const ProxyError = class extends Error {};
+  const callModelViaProxy = vi.fn(async () => ({
+    choices: [{ message: { content: "ok" } }],
+  }));
   return {
-    callModelViaProxy: vi.fn(async () => ({
-      choices: [{ message: { content: "ok" } }],
-    })),
+    callModelViaProxy,
+    // f824505eb metering: send() binds a per-task proxy caller via proxyCallerForTask.
+    proxyCallerForTask: vi.fn(() => callModelViaProxy),
     ProxyError,
   };
 });
@@ -55,6 +58,7 @@ vi.mock("@/components/ai/context-bridge", () => ({
 vi.mock("@/components/ai/spotlight-controller", () => ({
   showSpotlight: vi.fn(),
   dismissSpotlight: vi.fn(),
+  setSpotlightSuppressed: vi.fn(),
 }));
 
 vi.mock("../page-perception", () => ({

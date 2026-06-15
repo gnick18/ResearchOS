@@ -28,3 +28,12 @@ export const AI_ASSISTANT_ENABLED =
 export const BEAKERBOT_VISION_ENABLED =
   process.env.NEXT_PUBLIC_BEAKERBOT_VISION === "true" ||
   process.env.NEXT_PUBLIC_BEAKERBOT_VISION === "1";
+
+// Resumable plan card (2026-06-13). When on, an approved propose_plan is driven
+// ONE STEP AT A TIME so the live plan card ticks each step and a stopped plan can
+// resume from where it left off. When off, plans free-run exactly as before, so
+// this gates the new (riskier) execution path until it is verified. Enable with
+// NEXT_PUBLIC_BEAKERBOT_PLAN_STEPS=true in .env.local or a Vercel plain var.
+export const BEAKERBOT_PLAN_STEPS_ENABLED =
+  process.env.NEXT_PUBLIC_BEAKERBOT_PLAN_STEPS === "true" ||
+  process.env.NEXT_PUBLIC_BEAKERBOT_PLAN_STEPS === "1";

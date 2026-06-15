@@ -52,7 +52,19 @@ import {
   readColumn,
   readColumnAligned,
   readColumnByGroup,
+  readValueAndTwoLabels,
+  readContingencyCounts,
+  readSurvivalRows,
+  type ValueTwoLabelRow,
+  type ContingencyCounts,
+  type SurvivalRow,
 } from "./dataset-columns";
+import { ROW_LABEL_COLUMN_ID } from "@/lib/datahub/grouped-table";
+import {
+  TIME_COLUMN_ID,
+  EVENT_COLUMN_ID,
+  GROUP_COLUMN_ID,
+} from "@/lib/datahub/survival-table";
 
 /**
  * The analyses Phase 3a runs on a dataset. These are the Column-table family the
@@ -72,6 +84,13 @@ export const DATASET_ANALYSIS_TYPES: AnalysisType[] = [
   "repeatedMeasuresAnova",
   "linearMixedModel",
   "multipleRegression",
+  // Single-Y XY family (synthetic XY table path).
+  "correlationPearson",
+  "correlationSpearman",
+  "linearRegression",
+  "doseResponse",
+  "logisticRegression",
+  "rocCurve",
 ];
 
 /**
@@ -86,8 +105,9 @@ export const DATASET_ANALYSIS_TYPES: AnalysisType[] = [
  */
 export function validDatasetAnalysisTypes(
   numericColumns: number,
-  hasCategorical: boolean,
+  categoricalColumns: number,
 ): { wide: AnalysisType[]; groupBy: AnalysisType[] } {
+  const hasCategorical = categoricalColumns >= 1;
   const wide: AnalysisType[] = [];
   if (numericColumns >= 1) wide.push("grubbsOutlier");
   if (numericColumns >= 2) {
@@ -98,6 +118,15 @@ export function validDatasetAnalysisTypes(
     // the dataset lane offers it once two numeric columns are chosen, the first
     // as X and the second as Y.
     wide.push("correlationPearson", "correlationSpearman");
+    // The rest of the single-Y XY family routes through the SAME synthetic XY path
+    // (first chosen column X, second Y): linear / logistic regression, dose-response
+    // (engine defaults to a 4PL), and the ROC curve (X score, Y a 0/1 label).
+    wide.push(
+      "linearRegression",
+      "doseResponse",
+      "logisticRegression",
+      "rocCurve",
+    );
   }
   if (numericColumns >= 3) {
     wide.push(
@@ -107,6 +136,18 @@ export function validDatasetAnalysisTypes(
       "linearMixedModel",
       "multipleRegression",
     );
+  }
+  // Whole-table multi-column analyses (their own column-role pickers in the dialog).
+  // Two-way ANOVA + nested need a value column and two categorical factors; the
+  // contingency test needs two categoricals; survival needs a time + event column
+  // (group optional for Kaplan-Meier, needed for Cox to have two arms).
+  if (numericColumns >= 1 && categoricalColumns >= 2) {
+    wide.push("twoWayAnova", "nestedTTest", "nestedOneWayAnova");
+  }
+  if (categoricalColumns >= 2) wide.push("contingency");
+  if (numericColumns >= 2) {
+    wide.push("kaplanMeier");
+    if (categoricalColumns >= 1) wide.push("coxRegression");
   }
   const groupBy: AnalysisType[] =
     numericColumns >= 1 && hasCategorical
@@ -147,6 +188,47 @@ export function analysisIsRowAligned(type: AnalysisType): boolean {
  */
 export function analysisIsCorrelation(type: AnalysisType): boolean {
   return type === "correlationPearson" || type === "correlationSpearman";
+}
+
+/**
+ * True when the analysis reads a SINGLE-Y XY table in the editable lane (one
+ * role-"x" column, one role-"y" column, paired by row complete-case). This is the
+ * whole XY family the dataset lane can express by extracting two row-aligned
+ * columns into a synthetic XY table: correlation (Pearson / Spearman), linear
+ * regression, dose-response (the engine defaults to a 4PL when no model param is
+ * set), logistic regression, and the ROC curve (X = score, Y = a 0/1 label the
+ * engine itself filters to). They all dispatch through runXYAnalysis off the same
+ * xColumn + columnIds[0] resolution, so ONE synthetic XY path (contentFromAlignedXY
+ * + specForSyntheticXY) serves every one. globalFit is excluded (it needs several
+ * Y columns) and is handled in a later wave.
+ */
+export function analysisIsXY(type: AnalysisType): boolean {
+  return (
+    analysisIsCorrelation(type) ||
+    type === "linearRegression" ||
+    type === "doseResponse" ||
+    type === "logisticRegression" ||
+    type === "rocCurve"
+  );
+}
+
+/**
+ * True when the analysis reads a WHOLE editable table that the dataset lane builds
+ * from value + label column(s): two-way ANOVA (grouped), contingency, survival
+ * (Kaplan-Meier / Cox), and the nested tests. These do not fit the wide / groupBy /
+ * XY paths; the runner reads their columns in a documented columnIds order and
+ * builds the matching synthetic table. The engine reads the whole table (no
+ * columnIds), so spec.params (postHocFactor, yates, referenceGroup) flow through.
+ */
+export function analysisIsWholeTableMultiCol(type: AnalysisType): boolean {
+  return (
+    type === "twoWayAnova" ||
+    type === "contingency" ||
+    type === "kaplanMeier" ||
+    type === "coxRegression" ||
+    type === "nestedTTest" ||
+    type === "nestedOneWayAnova"
+  );
 }
 
 /** Stable synthetic ids so the synthetic content is deterministic. */
@@ -301,6 +383,259 @@ function specForSynthetic(
   return { ...spec, inputs: { ...spec.inputs, columnIds } };
 }
 
+/**
+ * Wrap value + row-factor + column-factor rows into a synthetic GROUPED table for
+ * two-way ANOVA. Factor A is the row-label column (one row per A level); factor B
+ * is a datasetId-keyed family of replicate columns (one family per B level, the
+ * level name repeated on every replicate column). twoWayObservations re-flattens
+ * this into the same {factorA, factorB, value} cells the editable lane produces.
+ */
+function contentFromGrouped(
+  name: string,
+  rows: ValueTwoLabelRow[],
+): DataHubDocContent {
+  const aLevels: string[] = [];
+  const bLevels: string[] = [];
+  // cell[a][b] = the replicate values for that (rowLevel, group) cell.
+  const cells = new Map<string, Map<string, number[]>>();
+  for (const r of rows) {
+    if (!cells.has(r.labelA)) {
+      cells.set(r.labelA, new Map());
+      aLevels.push(r.labelA);
+    }
+    if (!bLevels.includes(r.labelB)) bLevels.push(r.labelB);
+    const m = cells.get(r.labelA)!;
+    const arr = m.get(r.labelB) ?? [];
+    arr.push(r.value);
+    m.set(r.labelB, arr);
+  }
+  // Each group gets as many replicate columns as its largest cell.
+  const repsPerB = bLevels.map((b) => {
+    let max = 0;
+    for (const a of aLevels) max = Math.max(max, cells.get(a)?.get(b)?.length ?? 0);
+    return Math.max(1, max);
+  });
+  const colDefs: ColumnDef[] = [
+    { id: ROW_LABEL_COLUMN_ID, name: "Factor A", role: "x", dataType: "text" },
+  ];
+  bLevels.forEach((b, bi) => {
+    for (let k = 0; k < repsPerB[bi]; k++) {
+      colDefs.push({
+        id: `g${bi}-r${k}`,
+        name: b,
+        role: "y",
+        dataType: "number",
+        datasetId: `grp-${bi}`,
+        subcolumnKind: "replicate",
+      });
+    }
+  });
+  const dataRows: RowRecord[] = aLevels.map((a, ai) => {
+    const c: Record<string, CellValue> = { [ROW_LABEL_COLUMN_ID]: a };
+    bLevels.forEach((b, bi) => {
+      const vals = cells.get(a)?.get(b) ?? [];
+      for (let k = 0; k < repsPerB[bi]; k++) {
+        c[`g${bi}-r${k}`] = vals[k] === undefined ? null : vals[k];
+      }
+    });
+    return { id: `dsrow-${ai}`, cells: c };
+  });
+  return {
+    meta: { ...synthMeta(name), table_type: "grouped" },
+    columns: colDefs,
+    rows: dataRows,
+    analyses: [],
+    plots: [],
+  };
+}
+
+/**
+ * Wrap a cross-tabulated count grid into a synthetic CONTINGENCY table. The row
+ * factor is the role-"x" row-label column; each column factor level is a role-"y"
+ * count column. contingencyMatrix re-reads the identical R x C matrix.
+ */
+function contentFromContingency(
+  name: string,
+  counts: ContingencyCounts,
+): DataHubDocContent {
+  const colDefs: ColumnDef[] = [
+    { id: ROW_LABEL_COLUMN_ID, name: "Row factor", role: "x", dataType: "text" },
+    ...counts.colLabels.map((cl, i) => ({
+      id: `col-${i}`,
+      name: cl,
+      role: "y" as const,
+      dataType: "number" as const,
+    })),
+  ];
+  const dataRows: RowRecord[] = counts.rowLabels.map((rl, r) => {
+    const c: Record<string, CellValue> = { [ROW_LABEL_COLUMN_ID]: rl };
+    counts.colLabels.forEach((_cl, i) => {
+      c[`col-${i}`] = counts.matrix[r][i];
+    });
+    return { id: `dsrow-${r}`, cells: c };
+  });
+  return {
+    meta: { ...synthMeta(name), table_type: "contingency" },
+    columns: colDefs,
+    rows: dataRows,
+    analyses: [],
+    plots: [],
+  };
+}
+
+/**
+ * Wrap survival rows into a synthetic SURVIVAL table (one role-"x" time column, one
+ * role-"y" event column, one role-"group" column), one row per subject, using the
+ * constant ids survivalGroups looks for. survivalGroups re-partitions the rows into
+ * the same arms.
+ */
+function contentFromSurvival(name: string, rows: SurvivalRow[]): DataHubDocContent {
+  const colDefs: ColumnDef[] = [
+    { id: TIME_COLUMN_ID, name: "Time", role: "x", dataType: "number" },
+    { id: EVENT_COLUMN_ID, name: "Event", role: "y", dataType: "number" },
+    { id: GROUP_COLUMN_ID, name: "Group", role: "group", dataType: "text" },
+  ];
+  const dataRows: RowRecord[] = rows.map((r, i) => ({
+    id: `dsrow-${i}`,
+    cells: {
+      [TIME_COLUMN_ID]: r.time,
+      [EVENT_COLUMN_ID]: r.event,
+      [GROUP_COLUMN_ID]: r.group,
+    },
+  }));
+  return {
+    meta: { ...synthMeta(name), table_type: "survival" },
+    columns: colDefs,
+    rows: dataRows,
+    analyses: [],
+    plots: [],
+  };
+}
+
+/**
+ * Wrap value + group + subgroup rows into a synthetic NESTED table. Each top-level
+ * group is a datasetId-keyed family of SUBGROUP columns (subgroup label on the
+ * column name, the group display name repeated on groupName); replicates run down
+ * the rows. nestedGroups re-reads the same {group -> subgroups -> values}.
+ */
+function contentFromNested(
+  name: string,
+  rows: ValueTwoLabelRow[],
+): DataHubDocContent {
+  const groups: string[] = [];
+  // group -> subgroup -> values
+  const data = new Map<string, Map<string, number[]>>();
+  for (const r of rows) {
+    if (!data.has(r.labelA)) {
+      data.set(r.labelA, new Map());
+      groups.push(r.labelA);
+    }
+    const subs = data.get(r.labelA)!;
+    const arr = subs.get(r.labelB) ?? [];
+    arr.push(r.value);
+    subs.set(r.labelB, arr);
+  }
+  const colDefs: ColumnDef[] = [];
+  let maxReps = 0;
+  groups.forEach((g, gi) => {
+    const subs = data.get(g)!;
+    let si = 0;
+    for (const [subLabel, vals] of subs) {
+      maxReps = Math.max(maxReps, vals.length);
+      colDefs.push({
+        id: `g${gi}-s${si}`,
+        name: subLabel,
+        role: "y",
+        dataType: "number",
+        datasetId: `grp-${gi}`,
+        subcolumnKind: "replicate",
+        groupName: g,
+      });
+      si++;
+    }
+  });
+  const dataRows: RowRecord[] = [];
+  for (let k = 0; k < Math.max(1, maxReps); k++) {
+    const c: Record<string, CellValue> = {};
+    groups.forEach((g, gi) => {
+      const subs = data.get(g)!;
+      let si = 0;
+      for (const [, vals] of subs) {
+        c[`g${gi}-s${si}`] = vals[k] === undefined ? null : vals[k];
+        si++;
+      }
+    });
+    dataRows.push({ id: `dsrow-${k}`, cells: c });
+  }
+  return {
+    meta: { ...synthMeta(name), table_type: "nested" },
+    columns: colDefs,
+    rows: dataRows,
+    analyses: [],
+    plots: [],
+  };
+}
+
+/**
+ * Build the synthetic editable-lane content for a whole-table multi-column analysis
+ * from its chosen schema columns (in the documented columnIds order), or return an
+ * error string when the columns are insufficient. The column order per type:
+ *   twoWayAnova        [value, rowFactor, colFactor]
+ *   nestedTTest/Anova  [value, group, subgroup]
+ *   contingency        [rowFactor, colFactor]
+ *   kaplanMeier/cox    [time, event, group?]  (group optional)
+ */
+async function buildMultiColContent(
+  type: AnalysisType,
+  names: string[],
+  handle: OpenDatasetHandle,
+  datasetName: string,
+  recipe: DatasetSidecar["recipe"],
+): Promise<DataHubDocContent | string> {
+  if (type === "twoWayAnova") {
+    if (names.length < 3)
+      return "Pick a value column, a row factor, and a column factor.";
+    const rows = await readValueAndTwoLabels(
+      handle,
+      names[0],
+      names[1],
+      names[2],
+      recipe,
+    );
+    return contentFromGrouped(datasetName, rows);
+  }
+  if (type === "nestedTTest" || type === "nestedOneWayAnova") {
+    if (names.length < 3)
+      return "Pick a value column, a group column, and a subgroup column.";
+    const rows = await readValueAndTwoLabels(
+      handle,
+      names[0],
+      names[1],
+      names[2],
+      recipe,
+    );
+    return contentFromNested(datasetName, rows);
+  }
+  if (type === "contingency") {
+    if (names.length < 2)
+      return "Pick two categorical columns to cross-tabulate.";
+    const counts = await readContingencyCounts(handle, names[0], names[1], recipe);
+    return contentFromContingency(datasetName, counts);
+  }
+  if (type === "kaplanMeier" || type === "coxRegression") {
+    if (names.length < 2) return "Pick a time column and a 0/1 event column.";
+    const survRows = await readSurvivalRows(
+      handle,
+      names[0],
+      names[1],
+      names[2] ?? null,
+      recipe,
+    );
+    return contentFromSurvival(datasetName, survRows);
+  }
+  return "This analysis is not supported on a dataset yet.";
+}
+
 /** How the dataset analysis resolves its columns from the spec + sidecar. */
 export interface DatasetAnalysisOptions {
   /**
@@ -371,13 +706,23 @@ export async function runAnalysisOnDataset(
   const type = spec.type as AnalysisType;
   const recipe = sidecar.recipe;
 
+  // WHOLE-TABLE multi-column (two-way ANOVA, contingency, survival, nested): read
+  // the chosen columns in their documented order and build the matching synthetic
+  // table, then run the SAME validated engine on the whole table.
+  if (analysisIsWholeTableMultiCol(type)) {
+    const names = resolveDatasetColumnNames(spec, sidecar);
+    const built = await buildMultiColContent(type, names, handle, sidecar.name, recipe);
+    if (typeof built === "string") return { ok: false, error: built };
+    return runAnalysis(spec, built);
+  }
+
   // GROUP-BY (tidy / long): one value column split into per-category groups.
   if (opts.groupByColumn) {
     const valueColumn = resolveDatasetColumnNames(spec, sidecar)[0];
     if (!valueColumn) {
       return { ok: false, error: "Pick a numeric value column to analyze." };
     }
-    if (analysisIsRowAligned(type) || analysisIsCorrelation(type)) {
+    if (analysisIsRowAligned(type) || analysisIsXY(type)) {
       return {
         ok: false,
         error:
@@ -421,12 +766,13 @@ export async function runAnalysisOnDataset(
     return { ok: false, error: "Pick at least one column to analyze." };
   }
 
-  // CORRELATION: two columns paired by row, complete-case, into a synthetic XY
-  // table (first column X, second column Y). Row-aligned extraction guarantees
-  // the dataset r equals the editable r on the same data.
-  if (analysisIsCorrelation(type)) {
+  // XY: two columns paired by row, complete-case, into a synthetic XY table (first
+  // column X, second column Y). Serves correlation, linear / logistic regression,
+  // dose-response, and ROC. Row-aligned extraction guarantees the dataset result
+  // equals the editable XY result on the same data.
+  if (analysisIsXY(type)) {
     if (names.length < 2) {
-      return { ok: false, error: "Pick two numeric columns to correlate." };
+      return { ok: false, error: "Pick an X column and a Y column." };
     }
     const pair = names.slice(0, 2);
     const rowsMatrix = await readColumnAligned(handle, pair, recipe);
@@ -465,9 +811,16 @@ export async function buildDatasetAnalysisContent(
   const type = spec.type as AnalysisType;
   const recipe = sidecar.recipe;
 
+  if (analysisIsWholeTableMultiCol(type)) {
+    const names = resolveDatasetColumnNames(spec, sidecar);
+    const built = await buildMultiColContent(type, names, handle, sidecar.name, recipe);
+    if (typeof built === "string") return null;
+    return { content: built, spec };
+  }
+
   if (opts.groupByColumn) {
     const valueColumn = resolveDatasetColumnNames(spec, sidecar)[0];
-    if (!valueColumn || analysisIsRowAligned(type) || analysisIsCorrelation(type))
+    if (!valueColumn || analysisIsRowAligned(type) || analysisIsXY(type))
       return null;
     const allGroups = await readColumnByGroup(
       handle,
@@ -492,7 +845,7 @@ export async function buildDatasetAnalysisContent(
   const names = resolveDatasetColumnNames(spec, sidecar);
   if (names.length === 0) return null;
 
-  if (analysisIsCorrelation(type)) {
+  if (analysisIsXY(type)) {
     if (names.length < 2) return null;
     const pair = names.slice(0, 2);
     const rowsMatrix = await readColumnAligned(handle, pair, recipe);

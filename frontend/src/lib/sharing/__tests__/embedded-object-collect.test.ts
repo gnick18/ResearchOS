@@ -57,8 +57,8 @@ const mockTaskGet = vi.mocked(tasksApi.get);
 const MOL_HREF = "/chemistry?molecule=mol-42#ros=view";
 const SEQ_HREF = "/sequences?seq=7#ros=view";
 const NOTE_HREF = "/notes/3#ros=view";
-const METHOD_HREF = "/methods/5#ros=view";
-const PROJECT_HREF = "/projects/9#ros=view";
+const METHOD_HREF = "/methods?openMethod=5#ros=view";
+const PROJECT_HREF = "/workbench/projects/9#ros=view";
 const TASK_HREF = "/?openTask=self:11#ros=view";
 const DH_HREF = "/datahub?doc=dh-22#ros=view&view=result";
 

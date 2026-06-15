@@ -105,6 +105,12 @@ export const clickElementTool: AiTool = {
     additionalProperties: false,
   },
   action: true,
+  // Immutable: a click moves around or operates the UI (open a form, switch a tab,
+  // click a nav link), it does not change the user's data, so it runs WITHOUT a
+  // per-step confirm in both review modes. The real data writes go through their
+  // own gated tools (create_task, write_note, ...). The destructive safety net
+  // below still confirms a Delete / Send / Pay / Share target at the moment it runs.
+  immutable: true,
   describeAction: (args) => {
     const ref = typeof args.ref === "string" ? args.ref : "";
     const name = typeof args.name === "string" ? args.name : undefined;

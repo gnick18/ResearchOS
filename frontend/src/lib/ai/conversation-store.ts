@@ -35,8 +35,11 @@ import {
   type LoopMessage,
   type TokenUsage,
   type ModelCaller,
+  type PlanProgress,
+  type PlanRunState,
 } from "@/lib/ai/agent-loop";
-import { callModelViaProxy, ProxyError } from "@/lib/ai/proxy-client";
+import { BEAKERBOT_PLAN_STEPS_ENABLED } from "@/lib/ai/config";
+import { callModelViaProxy, proxyCallerForTask, ProxyError } from "@/lib/ai/proxy-client";
 
 // ---- Dev-only model-caller override seam ------------------------------------
 //
@@ -56,12 +59,25 @@ export function setModelCallerOverride(fn: ModelCaller | null): void {
   modelCallerOverride = fn;
 }
 
-/** Returns the active model caller: the override when set, otherwise the real proxy. */
-function getModelCaller(): ModelCaller {
-  return modelCallerOverride ?? callModelViaProxy;
+/** Returns the active model caller: the override when set, otherwise the real
+ *  proxy. When a taskId is given (one per BeakerBot task), the proxy caller is
+ *  bound to it so every turn of the task meters under one task_id in the ledger. */
+function getModelCaller(taskId?: string): ModelCaller {
+  if (modelCallerOverride) return modelCallerOverride;
+  return taskId ? proxyCallerForTask(taskId) : callModelViaProxy;
 }
 import { DEFAULT_TOOLS } from "@/lib/ai/tools/registry";
 import { BEAKERBOT_SYSTEM_PROMPT } from "@/lib/ai/system-prompt";
+import {
+  runMacro,
+  summarizeMacroRun,
+  invocationsFromHistory,
+} from "@/lib/ai/macro-runner";
+import {
+  captureMacroSteps,
+  type StoredMacro,
+  type MacroStep,
+} from "@/lib/ai/beaker-macros-store";
 import { getReviewMode, type BeakerBotReviewMode } from "@/lib/ai/review-mode-store";
 import {
   getBeakerContext,
@@ -71,8 +87,10 @@ import { resolveRef } from "@/lib/ai/page-perception";
 import {
   showSpotlight,
   dismissSpotlight,
+  setSpotlightSuppressed,
 } from "@/components/ai/spotlight-controller";
 import { getMemoryEntries, buildMemoryContext } from "@/lib/ai/user-memory";
+import { recordSetFromResult } from "@/lib/ai/record-set";
 import type {
   ApprovalRequest,
   ApprovalDecision,
@@ -106,6 +124,13 @@ export type ChatMessage = {
   // charge per-image per-turn). The display message keeps .images so the user still
   // sees the thumbnails after sending.
   images?: string[];
+  // Inline record-set browsers attached to this assistant turn. One entry per
+  // record-returning tool that ran (search_full_text, list_records, the summarize
+  // tools). Lifted from each tool result's out-of-band _ui by the runAgentLoop
+  // onToolResult callback, the full match set never reaches the model. Plain JSON,
+  // so it round-trips through saveChat with the rest of the message. Only assistant
+  // messages carry these; the panel renders each below the reply markdown.
+  recordSets?: import("./record-set").RecordSet[];
 };
 
 // The pending approval the UI renders while the loop is paused on the user.
@@ -248,7 +273,25 @@ interface ConversationState {
   //   pattern so it is NOT re-sent on every later turn) and on
   //   clearConversation/newChat.
   attachedRefs: AttachedRef[];
+
+  // ---- Resumable plan card (2026-06-13) -----------------------------------------
+  //
+  // The live state of a per-step-driven plan, gated on BEAKERBOT_PLAN_STEPS_ENABLED.
+  // Set from runAgentLoop's onPlanProgress while a plan runs, flipped to "paused"
+  // on settle when the run stopped with steps remaining (so the card can offer
+  // Resume). Null when no plan is active. Persisted with the thread so a paused
+  // plan survives a reload.
+  activePlan: ActivePlan | null;
 }
+
+// The plan shown in the live plan card. `index` is the current/last step run;
+// `status` drives the card (running ticks, paused offers Resume, done collapses).
+export type ActivePlan = {
+  steps: string[];
+  index: number;
+  status: "running" | "paused" | "done";
+  summary?: string;
+};
 
 // ---- Attached object refs (@ mentions) ----------------------------------------
 //
@@ -263,7 +306,7 @@ interface ConversationState {
 /** One user-selected object attached via the @ mention picker. */
 export type AttachedRef = {
   /** The canonical object type from the global index. */
-  type: "task" | "project" | "method" | "sequence" | "inventory" | "note" | "datahub" | "molecule" | "purchase";
+  type: "task" | "project" | "method" | "sequence" | "inventory" | "note" | "datahub" | "molecule" | "purchase" | "phylo";
   /** The composite key (e.g. "note-gnickles:42"), unique within the index. */
   id: string;
   /** Display name shown on the chip and injected into the per-turn note. */
@@ -293,6 +336,33 @@ export type ToolStep = {
 
 interface ConversationActions {
   send: (text: string) => Promise<void>;
+  /**
+   * Run a saved workflow macro. Raises one Run-card approval (the same plan
+   * approval UI), and on approval replays the macro's steps deterministically via
+   * runMacro, reusing the same approval bridge so a destructive step still
+   * self-confirms mid-run. No model is called on the happy path. Posts a /command
+   * user line and a one-line result, and reuses the live steps panel. A no-op when
+   * a turn is already in flight.
+   */
+  runStoredMacro: (macro: StoredMacro) => Promise<void>;
+  /**
+   * Capture the most recent run as macro steps, for the "Save as macro"
+   * affordance. Reads the executed tool calls from the loop history (where the
+   * args live), labels each via the tool's describeAction, and drops navigation
+   * and read noise. Returns the captured steps (empty when the last turn ran no
+   * meaningful tools), the editor takes it from there. Pure read, no side effect.
+   */
+  captureMacroDraftFromLastRun: () => MacroStep[];
+  /**
+   * Resume a paused per-step plan from where it stopped. Re-enters the agent loop
+   * with the remaining steps seeded as already-approved (no re-approval), injecting
+   * a directive for the current step. No-op unless an activePlan is paused and no
+   * turn is in flight.
+   */
+  resumePlan: () => Promise<void>;
+  /** Dismiss the active plan card (Cancel the rest). Clears activePlan, does not
+   *  undo steps already done. */
+  dismissPlan: () => void;
   /** Stage a base64 data URL image for the next send. Gated on the vision flag in the UI; the store accepts it regardless so tests can call it directly. */
   addPendingImage: (dataUrl: string) => void;
   /** Remove a staged image by its data URL. */
@@ -378,7 +448,10 @@ function requestApproval(
   if (request.kind === "action" && request.ref) {
     const el = resolveRef(request.ref);
     if (el) {
-      showSpotlight(el, `BeakerBot wants to ${request.summary}.`);
+      // force: an approval spotlight is the consent moment for a destructive or
+      // outward-facing step and must show even while a plan run suppresses the
+      // per-step coaching spotlights.
+      showSpotlight(el, `BeakerBot wants to ${request.summary}.`, { force: true });
     }
   }
 
@@ -508,6 +581,23 @@ export function todayContext(now: Date = new Date()): string {
 // Typewriter reveal. Updates the assistant message incrementally so the answer
 // does not pop in all at once. Returns a promise that resolves when the full
 // text is shown.
+/** Lift a record-returning tool's UI-only full set onto the in-flight assistant
+ *  message, so the inline record-set widget renders below the reply. Called from
+ *  runAgentLoop's onToolResult with the RAW (unstripped) result. A result that
+ *  carries no _ui record-set is ignored, so this is safe to call after every tool.
+ *  Appends (one widget per record-returning tool in the turn), preserving order. */
+function appendRecordSetFromResult(assistantId: string, result: unknown): void {
+  const set = recordSetFromResult(result);
+  if (!set) return;
+  useConversationStore.setState((state) => ({
+    messages: state.messages.map((m) =>
+      m.id === assistantId
+        ? { ...m, recordSets: [...(m.recordSets ?? []), set] }
+        : m,
+    ),
+  }));
+}
+
 function revealAnswer(assistantId: string, answer: string): Promise<void> {
   return new Promise<void>((resolve) => {
     if (answer.length === 0) {
@@ -561,6 +651,8 @@ export const useConversationStore = create<ConversationStore>((set, get) => ({
   attachedPaper: null,
   // @ mention attached refs.
   attachedRefs: [],
+  // Resumable plan card.
+  activePlan: null,
 
   stop: (placeholderAssistantId?: string) => {
     // Guard: nothing to abort when idle.
@@ -682,6 +774,8 @@ export const useConversationStore = create<ConversationStore>((set, get) => ({
       attachedPaper: null,
       // Clear any attached refs when starting fresh.
       attachedRefs: [],
+      // Clear any active plan card when starting fresh.
+      activePlan: null,
     });
   },
 
@@ -742,6 +836,12 @@ export const useConversationStore = create<ConversationStore>((set, get) => ({
       attachedPaper: null,
       // Discard any attached refs when switching threads.
       attachedRefs: [],
+      // Restore a paused plan so the reopened thread offers Resume (only paused
+      // plans are persisted; a running one was in-flight and is not resumed blind).
+      activePlan:
+        stored.activePlan && stored.activePlan.status === "paused"
+          ? stored.activePlan
+          : null,
     });
   },
 
@@ -1087,11 +1187,13 @@ export const useConversationStore = create<ConversationStore>((set, get) => ({
     // record regardless of what the UI does while we are awaiting.
     let boundThreadId = get().currentThreadId;
 
+    // One id per task so the billing ledger groups every turn of this task.
+    const taskId = crypto.randomUUID();
     try {
       const result = await runAgentLoop({
         messages: loopInput,
         tools: DEFAULT_TOOLS,
-        callModel: getModelCaller(),
+        callModel: getModelCaller(taskId),
         onStatus: (s) => {
           // Update the friendly status label for the existing "Thinking" text.
           // Also update the running-tool count and the steps panel list.
@@ -1120,6 +1222,23 @@ export const useConversationStore = create<ConversationStore>((set, get) => ({
         getReviewMode: getReviewMode,
         requestApproval,
         signal: controller.signal,
+        // Resumable plan card (flag-gated): drive an approved plan one step at a
+        // time and mirror each tick into activePlan for the live card.
+        drivePlanPerStep: BEAKERBOT_PLAN_STEPS_ENABLED,
+        onPlanProgress: (p: PlanProgress) => {
+          set({
+            activePlan: {
+              steps: p.steps,
+              index: p.index,
+              status: p.status,
+            },
+          });
+          // Nav polish: suppress the per-step coaching spotlights while the plan
+          // is actively running so a fast multi-step run does not flash a ring +
+          // bubble on every navigation. The finally block clears suppression on
+          // any exit, so a "running" left at abort time never sticks.
+          setSpotlightSuppressed(p.status === "running");
+        },
         // Update the reactive token total after each model iteration so the
         // status line ticks live. The loop fires this only when the provider
         // reports non-zero usage, so a zero here is always a real zero.
@@ -1129,7 +1248,30 @@ export const useConversationStore = create<ConversationStore>((set, get) => ({
               cumulative.promptTokens + cumulative.completionTokens,
           });
         },
+        // Lift any record-returning tool's UI-only full set onto this assistant
+        // message so the inline record-set widget renders below the reply. The full
+        // set never reaches the model (the loop strips _ui from the model message).
+        onToolResult: (_toolName, _args, toolResult) => {
+          appendRecordSetFromResult(assistantId, toolResult);
+        },
       });
+
+      // Resumable plan card: if the driven plan stopped with steps remaining
+      // (abort, guard, error), mark it paused so the card offers Resume from the
+      // in-progress step. A completed plan already reported "done" via onPlanProgress.
+      if (result.planRun && result.planRun.active) {
+        set((state) =>
+          state.activePlan
+            ? {
+                activePlan: {
+                  ...state.activePlan,
+                  index: result.planRun!.index,
+                  status: "paused",
+                },
+              }
+            : {},
+        );
+      }
 
       // Persist the full loop history (including tool turns) for the next send,
       // but strip ALL per-turn injected messages by reference so they never persist.
@@ -1197,6 +1339,8 @@ export const useConversationStore = create<ConversationStore>((set, get) => ({
           await saveChat(boundThreadId, {
             messages: existingMessages,
             history: historyStore,
+            activePlan:
+              get().activePlan?.status === "paused" ? get().activePlan : null,
           });
         }
         return;
@@ -1244,6 +1388,8 @@ export const useConversationStore = create<ConversationStore>((set, get) => ({
         await saveChat(boundThreadId, {
           messages: savedMessages,
           history: historyStore,
+          activePlan:
+            get().activePlan?.status === "paused" ? get().activePlan : null,
         });
       }
     } catch (err) {
@@ -1271,6 +1417,9 @@ export const useConversationStore = create<ConversationStore>((set, get) => ({
       // at their settled values so the pinned summary line can still read them.
       // They are only fully reset by clearConversation/newChat.
       set({ sending: false, queuedText: null, turnStartedAt: null });
+      // Nav polish: always re-enable coaching spotlights at turn end, so a plan
+      // that stopped mid-step (abort, guard, error) never leaves them suppressed.
+      setSpotlightSuppressed(false);
       // If a message was queued while this turn ran, fire it now. The queue slot
       // is cleared first so a stop() during the queued send can cancel that turn
       // without re-queuing.
@@ -1287,6 +1436,370 @@ export const useConversationStore = create<ConversationStore>((set, get) => ({
           if (conversationEpoch === epochAtSettle) get().send(next);
         });
       }
+    }
+  },
+
+  runStoredMacro: async (macro: StoredMacro) => {
+    // A macro run is a turn, so it respects the same single-turn guard as send.
+    // Unlike a typed message it is not queued, the user can re-run it after.
+    if (get().sending) return;
+
+    set({ error: null });
+
+    if (abortControllerRef) {
+      abortControllerRef.abort();
+    }
+    const controller = new AbortController();
+    abortControllerRef = controller;
+
+    const enabledSteps = macro.steps.filter((s) => s.enabled !== false);
+
+    // The display turn. The user line is the /command they invoked, the assistant
+    // bubble is seeded empty so the steps panel and the result line have a target.
+    const userMessage: ChatMessage = {
+      id: nextId(),
+      role: "user",
+      content: `/${macro.name}`,
+    };
+    const assistantId = nextId();
+    const wasFresh = get().currentThreadId === null;
+    const turnStartedAt = Date.now();
+    set((state) => ({
+      messages: [
+        ...state.messages.map((m) =>
+          m.followups ? { ...m, followups: undefined } : m,
+        ),
+        userMessage,
+        { id: assistantId, role: "assistant" as ChatRole, content: "" },
+      ],
+      sending: true,
+      status: "thinking",
+      turnStartedAt,
+      turnElapsedMs: 0,
+      turnTokens: null,
+      runningToolCount: 0,
+      turnToolSteps: [],
+    }));
+
+    // Seed the system prompt once so a thread opened from a macro run is a valid
+    // conversation the user can keep typing into afterwards.
+    if (historyStore.length === 0) {
+      historyStore = [{ role: "system", content: BEAKERBOT_SYSTEM_PROMPT }];
+    }
+
+    if (wasFresh) {
+      const title = `/${macro.name}`;
+      const created = await createChat({
+        title,
+        messages: [userMessage],
+        history: historyStore,
+      });
+      if (created) {
+        set({ currentThreadId: created.id, currentTitle: created.title });
+      } else {
+        set({ currentTitle: title });
+      }
+    }
+
+    let boundThreadId = get().currentThreadId;
+
+    try {
+      // The single Run-card approval, reusing the plan approval UI. The labels are
+      // the steps the user will see, the summary is the macro's description.
+      const decision = await requestApproval({
+        kind: "plan",
+        toolName: `/${macro.name}`,
+        steps: enabledSteps.map((s) => s.label),
+        ...(macro.description ? { summary: macro.description } : {}),
+      });
+
+      if (decision !== "allow") {
+        set({ status: null, runningToolCount: 0 });
+        await revealAnswer(
+          assistantId,
+          `Cancelled /${macro.name}. Nothing ran.`,
+        );
+        boundThreadId = boundThreadId ?? get().currentThreadId;
+        if (boundThreadId !== null) {
+          await saveChat(boundThreadId, {
+            messages: get().messages,
+            history: historyStore,
+          });
+        }
+        return;
+      }
+
+      // Replay the steps. runMacro reuses the agent-loop gate with the run
+      // pre-approved, so routine steps run free and a destructive step still
+      // raises its own confirm through the same requestApproval bridge.
+      const result = await runMacro({
+        macro,
+        tools: DEFAULT_TOOLS,
+        requestApproval,
+        signal: controller.signal,
+        onStep: (event) => {
+          set((state) => {
+            // Flip any running step to done before reacting to this event.
+            const settled = state.turnToolSteps.map((step) =>
+              step.status === "running"
+                ? { ...step, status: "done" as const }
+                : step,
+            );
+            if (event.status === "running") {
+              return {
+                status: `Running ${event.step.label}`,
+                runningToolCount: 1,
+                turnToolSteps: [
+                  ...settled,
+                  { toolName: event.step.label, status: "running" as const },
+                ],
+              };
+            }
+            // Terminal event (done, skipped, skipped-dangling, failed). The step
+            // panel marks it done, the result detail is carried in the summary
+            // line below so the panel stays simple.
+            return { runningToolCount: 0, turnToolSteps: settled };
+          });
+        },
+      });
+
+      const turnElapsedMs = Date.now() - turnStartedAt;
+      set((state) => ({
+        status: null,
+        runningToolCount: 0,
+        turnElapsedMs,
+        turnToolSteps: state.turnToolSteps.map((step) =>
+          step.status === "running"
+            ? { ...step, status: "done" as const }
+            : step,
+        ),
+      }));
+
+      // A user-initiated stop returns aborted, remove the placeholder quietly.
+      if (controller.signal.aborted) {
+        set((state) => ({
+          messages: state.messages.filter((m) => m.id !== assistantId),
+        }));
+        return;
+      }
+
+      await revealAnswer(assistantId, summarizeMacroRun(macro.name, result));
+
+      set((state) => ({
+        settledTurns: [
+          ...state.settledTurns,
+          { assistantId, elapsedMs: turnElapsedMs, tokens: 0 },
+        ],
+      }));
+
+      boundThreadId = boundThreadId ?? get().currentThreadId;
+      if (boundThreadId !== null) {
+        await saveChat(boundThreadId, {
+          messages: get().messages,
+          history: historyStore,
+        });
+      }
+    } catch (err) {
+      set({ status: null });
+      console.warn("[conversation-store] runStoredMacro failed", err);
+      set((state) => ({
+        error: "Something went wrong running the macro. Try again.",
+        messages: state.messages.filter((m) => m.id !== assistantId),
+      }));
+    } finally {
+      if (abortControllerRef === controller) {
+        abortControllerRef = null;
+      }
+      set({ sending: false, queuedText: null, turnStartedAt: null });
+      setSpotlightSuppressed(false);
+    }
+  },
+
+  captureMacroDraftFromLastRun: () => {
+    const toolMap = new Map(DEFAULT_TOOLS.map((t) => [t.name, t] as const));
+    const describeLabel = (
+      tool: string,
+      args: Record<string, unknown>,
+    ): string => {
+      try {
+        const summary = toolMap.get(tool)?.describeAction?.(args)?.summary;
+        if (summary && summary.trim().length > 0) return summary;
+      } catch {
+        // describeAction can throw on loose args, fall back to a generic label.
+      }
+      return `Run ${tool}`;
+    };
+    const invocations = invocationsFromHistory(historyStore, describeLabel);
+    return captureMacroSteps(invocations);
+  },
+
+  dismissPlan: () => {
+    set({ activePlan: null });
+  },
+
+  resumePlan: async () => {
+    const plan = get().activePlan;
+    if (get().sending) return;
+    if (!plan || plan.status !== "paused") return;
+
+    set({ error: null });
+    if (abortControllerRef) abortControllerRef.abort();
+    const controller = new AbortController();
+    abortControllerRef = controller;
+
+    const assistantId = nextId();
+    const turnStartedAt = Date.now();
+    set((state) => ({
+      messages: [
+        ...state.messages.map((m) =>
+          m.followups ? { ...m, followups: undefined } : m,
+        ),
+        { id: assistantId, role: "assistant" as ChatRole, content: "" },
+      ],
+      sending: true,
+      status: "thinking",
+      turnStartedAt,
+      turnElapsedMs: 0,
+      turnTokens: null,
+      runningToolCount: 0,
+      turnToolSteps: [],
+      activePlan: { ...plan, status: "running" },
+    }));
+
+    if (historyStore.length === 0) {
+      historyStore = [{ role: "system", content: BEAKERBOT_SYSTEM_PROMPT }];
+    }
+
+    // The directive for the step we resume on. The loop drives the rest from the
+    // seeded plan, treating it as already approved (no re-approval).
+    const directive: LoopMessage = {
+      role: "user",
+      content: `Resume the approved plan. Do ONLY step ${plan.index + 1} of ${plan.steps.length}: "${plan.steps[plan.index]}". Do just this one step, then stop and say in one short sentence that it is done.`,
+    };
+    const loopInput: LoopMessage[] = [...historyStore, directive];
+
+    let boundThreadId = get().currentThreadId;
+    // One id per task so the billing ledger groups every turn of this task.
+    const taskId = crypto.randomUUID();
+    try {
+      const result = await runAgentLoop({
+        messages: loopInput,
+        tools: DEFAULT_TOOLS,
+        callModel: getModelCaller(taskId),
+        getReviewMode: getReviewMode,
+        requestApproval,
+        signal: controller.signal,
+        drivePlanPerStep: true,
+        initialPlanRun: {
+          steps: plan.steps,
+          index: plan.index,
+          active: true,
+        },
+        onPlanProgress: (p: PlanProgress) => {
+          set({
+            activePlan: { steps: p.steps, index: p.index, status: p.status },
+          });
+          // Nav polish (resume path): same coaching-spotlight suppression as the
+          // send() driver. Cleared in the finally on any exit.
+          setSpotlightSuppressed(p.status === "running");
+        },
+        onStatus: (s) => {
+          const label = statusLabel(s);
+          const isToolPhase = s.phase === "tool";
+          set((state) => {
+            const prevSteps = state.turnToolSteps.map((step) =>
+              step.status === "running"
+                ? { ...step, status: "done" as const }
+                : step,
+            );
+            const nextSteps = isToolPhase
+              ? [
+                  ...prevSteps,
+                  {
+                    toolName: (s as { toolName: string }).toolName,
+                    status: "running" as const,
+                  },
+                ]
+              : prevSteps;
+            return {
+              status: label,
+              runningToolCount: isToolPhase ? 1 : 0,
+              turnToolSteps: nextSteps,
+            };
+          });
+        },
+        onUsage: (cumulative: TokenUsage) => {
+          set({
+            turnTokens: cumulative.promptTokens + cumulative.completionTokens,
+          });
+        },
+        // Lift any record-returning tool's UI-only full set onto this assistant
+        // message so the inline record-set widget renders below the reply (resume
+        // path). The full set never reaches the model.
+        onToolResult: (_toolName, _args, toolResult) => {
+          appendRecordSetFromResult(assistantId, toolResult);
+        },
+      });
+
+      // Strip the per-turn directive before persisting so it does not accumulate.
+      historyStore = result.messages.filter((m) => m !== directive);
+
+      const turnElapsedMs = Date.now() - turnStartedAt;
+      set((state) => ({
+        status: null,
+        runningToolCount: 0,
+        turnElapsedMs,
+        turnToolSteps: state.turnToolSteps.map((step) =>
+          step.status === "running" ? { ...step, status: "done" as const } : step,
+        ),
+      }));
+
+      if (result.planRun && result.planRun.active) {
+        set((state) =>
+          state.activePlan
+            ? {
+                activePlan: {
+                  ...state.activePlan,
+                  index: result.planRun!.index,
+                  status: "paused",
+                },
+              }
+            : {},
+        );
+      }
+
+      if (controller.signal.aborted || result.answer.length === 0) {
+        set((state) => ({
+          messages: state.messages.filter((m) => m.id !== assistantId),
+        }));
+        return;
+      }
+
+      const { stripped: displayAnswer } = extractFollowups(result.answer);
+      await revealAnswer(assistantId, displayAnswer);
+
+      boundThreadId = boundThreadId ?? get().currentThreadId;
+      if (boundThreadId !== null) {
+        await saveChat(boundThreadId, {
+          messages: get().messages,
+          history: historyStore,
+          activePlan:
+            get().activePlan?.status === "paused" ? get().activePlan : null,
+        });
+      }
+    } catch (err) {
+      set({ status: null });
+      console.warn("[conversation-store] resumePlan failed", err);
+      set((state) => ({
+        error: "Something went wrong resuming the plan. Try again.",
+        messages: state.messages.filter((m) => m.id !== assistantId),
+      }));
+    } finally {
+      if (abortControllerRef === controller) {
+        abortControllerRef = null;
+      }
+      set({ sending: false, queuedText: null, turnStartedAt: null });
+      setSpotlightSuppressed(false);
     }
   },
 }));

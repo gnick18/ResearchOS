@@ -322,7 +322,9 @@ describe("aggregatePurchases (deterministic money)", () => {
 
 const realExpLister = summarizeExperimentsDeps.listExperiments;
 const realExpProjLister = summarizeExperimentsDeps.listProjects;
+const realExpMemberLister = summarizeExperimentsDeps.listMemberUsernames;
 const realPurchaseLister = summarizePurchasesDeps.listPurchases;
+const realPurchaseMemberLister = summarizePurchasesDeps.listMemberUsernames;
 
 function stubExperiments(overrides: Partial<SummarizeExperimentsDeps>): void {
   Object.assign(summarizeExperimentsDeps, overrides);
@@ -334,7 +336,9 @@ function stubPurchases(overrides: Partial<SummarizePurchasesDeps>): void {
 afterEach(() => {
   summarizeExperimentsDeps.listExperiments = realExpLister;
   summarizeExperimentsDeps.listProjects = realExpProjLister;
+  summarizeExperimentsDeps.listMemberUsernames = realExpMemberLister;
   summarizePurchasesDeps.listPurchases = realPurchaseLister;
+  summarizePurchasesDeps.listMemberUsernames = realPurchaseMemberLister;
 });
 
 describe("summarizeExperimentsTool.execute", () => {
@@ -365,6 +369,61 @@ describe("summarizeExperimentsTool.execute", () => {
     expect(out.summary.byProject).toEqual([{ projectId: "4", projectName: "cyp51A", count: 1 }]);
     // The filter is echoed back with the experiment type pinned.
     expect(out.summary.filter).toMatchObject({ types: ["experiment"], owners: ["grant"] });
+  });
+
+  // Check 4 (live-verify 2026-06-14): an owner name that matches nobody on a KNOWN
+  // roster must not silently summarize an empty set, it signals the miss so the model
+  // can ask who was meant.
+  it("returns a no-match error when an owner resolves to nobody on a known roster", async () => {
+    stubExperiments({
+      listExperiments: async () => [makeExperiment({ id: 1, owner: "grant" })],
+      listProjects: async () => [],
+      listMemberUsernames: async () => ["grant", "alice"],
+    });
+    const out = (await summarizeExperimentsTool.execute({ owners: ["Zxqv"] })) as {
+      ok: boolean;
+      error?: string;
+    };
+    expect(out.ok).toBe(false);
+    expect(out.error).toMatch(/No lab member matched/i);
+  });
+
+  // The guard is roster-aware: with an UNKNOWN roster (empty members, e.g. a solo
+  // user or a failed roster fetch) it cannot tell a typo from a valid owner, so it
+  // keeps the raw owner filter and still runs, exactly as before the fix.
+  it("keeps the raw owner filter when the roster is unknown (empty members)", async () => {
+    stubExperiments({
+      listExperiments: async () => [makeExperiment({ id: 1, owner: "grant" })],
+      listProjects: async () => [],
+      listMemberUsernames: async () => [],
+    });
+    const out = (await summarizeExperimentsTool.execute({ owners: ["grant"] })) as {
+      ok: boolean;
+    };
+    expect(out.ok).toBe(true);
+  });
+
+  it("attaches an experiment record-set under _ui when >4 match, none for 4 or fewer", async () => {
+    stubExperiments({
+      listExperiments: async () =>
+        [1, 2, 3, 4, 5].map((id) => makeExperiment({ id, name: `Exp ${id}`, owner: "grant" })),
+      listProjects: async () => [],
+      listMemberUsernames: async () => [],
+    });
+    const big = (await summarizeExperimentsTool.execute({})) as {
+      _ui?: { kind: string; total: number; items: Array<{ type: string }> };
+    };
+    expect(big._ui?.kind).toBe("summarize_experiments");
+    expect(big._ui?.total).toBe(5);
+    expect(big._ui?.items.every((i) => i.type === "experiment")).toBe(true);
+
+    stubExperiments({
+      listExperiments: async () => [makeExperiment({ id: 1, owner: "grant" })],
+      listProjects: async () => [],
+      listMemberUsernames: async () => [],
+    });
+    const small = (await summarizeExperimentsTool.execute({})) as { _ui?: unknown };
+    expect(small._ui).toBeUndefined();
   });
 });
 
@@ -397,6 +456,29 @@ describe("summarizePurchasesTool.execute", () => {
     // Each largestItems entry carries a totalPriceDisplay.
     expect(out.summary.largestItems[0].totalPriceDisplay).toMatch(/^\$[\d,]+\.\d{2}$/);
     expect(out.summary.filter).toMatchObject({ types: ["purchase"] });
+  });
+
+  it("attaches a purchase record-set under _ui when >4 match, none for 4 or fewer", async () => {
+    stubPurchases({
+      listPurchases: async () =>
+        [1, 2, 3, 4, 5].map((id) =>
+          makePurchase({ id, item_name: `Item ${id}`, total_price: id * 10, owner: "grant" }),
+        ),
+      listMemberUsernames: async () => [],
+    });
+    const big = (await summarizePurchasesTool.execute({})) as {
+      _ui?: { kind: string; total: number; items: Array<{ type: string }> };
+    };
+    expect(big._ui?.kind).toBe("summarize_purchases");
+    expect(big._ui?.total).toBe(5);
+    expect(big._ui?.items.every((i) => i.type === "purchase")).toBe(true);
+
+    stubPurchases({
+      listPurchases: async () => [makePurchase({ id: 1, total_price: 10, owner: "grant" })],
+      listMemberUsernames: async () => [],
+    });
+    const small = (await summarizePurchasesTool.execute({})) as { _ui?: unknown };
+    expect(small._ui).toBeUndefined();
   });
 });
 

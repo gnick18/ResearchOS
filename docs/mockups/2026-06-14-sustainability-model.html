@@ -1,0 +1,235 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Sustainability model, free base vs dept/inst revenue</title>
+<style>
+  :root{--bg:#0d1117;--panel:#161b22;--panel2:#1c2230;--ink:#e6edf3;--muted:#9aa7b4;--line:#2a3340;--accent:#4f9cf9;--good:#3fb950;--bad:#f85149;--warn:#d29922;--sustain:#a371f7;font-family:ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,sans-serif;}
+  *{box-sizing:border-box;} body{margin:0;background:var(--bg);color:var(--ink);line-height:1.5;}
+  .wrap{max-width:1100px;margin:0 auto;padding:28px 20px 80px;}
+  h1{font-size:25px;margin:0 0 4px;letter-spacing:-0.02em;} h2{font-size:18px;margin:30px 0 8px;}
+  .sub{color:var(--muted);font-size:14px;margin:0 0 8px;}
+  .panel{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:18px 20px;margin:14px 0;}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:18px;} .grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;}
+  @media(max-width:840px){.grid2,.grid3{grid-template-columns:1fr;}}
+  label{font-size:13px;color:var(--muted);display:block;margin:11px 0 3px;}
+  input[type=range]{width:100%;accent-color:var(--accent);} .val{color:var(--ink);font-weight:600;}
+  .verdict{background:linear-gradient(135deg,#16231a,#161b22);border:1px solid #2c4a33;border-radius:14px;padding:16px 20px;margin:16px 0;}
+  .verdict.bad{background:linear-gradient(135deg,#2a1513,#161b22);border-color:#5a2420;}
+  .big{font-size:32px;font-weight:800;letter-spacing:-0.02em;} .pos{color:var(--good);} .neg{color:var(--bad);}
+  .kv{display:flex;justify-content:space-between;font-size:13px;padding:4px 0;border-bottom:1px dashed var(--line);} .kv span:last-child{font-variant-numeric:tabular-nums;}
+  canvas{width:100%;display:block;background:var(--panel2);border-radius:10px;border:1px solid var(--line);}
+  .legend{font-size:12px;color:var(--muted);margin-top:6px;} .dot{display:inline-block;width:10px;height:10px;border-radius:2px;vertical-align:middle;margin-right:4px;}
+  .note{font-size:12.5px;color:var(--muted);margin-top:8px;} code{background:#0b1220;padding:1px 5px;border-radius:5px;}
+  .pill{display:inline-block;padding:3px 10px;border-radius:999px;font-size:12px;font-weight:700;} .pill.ok{background:#122a18;color:var(--good);} .pill.loss{background:#3a1614;color:var(--bad);}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Sustainability model: free base vs department / institution revenue</h1>
+  <p class="sub">Does the solidarity model hold when free researchers vastly outnumber paying orgs? Drive the sliders. 2026-06-14, constants from assumptions.ts (placeholders).</p>
+
+  <div id="verdict" class="verdict"></div>
+
+  <div class="grid2">
+    <div class="panel">
+      <h2 style="margin-top:0">Free base</h2>
+      <label>Free researchers: <span class="val" id="freeLbl"></span></label>
+      <input type="range" id="free" min="0" max="50000" step="500" value="10000"/>
+      <p class="note" style="margin-top:2px">Usage mix of those free users (drives average cost; $1.50 is the maxed ceiling, most are far below):</p>
+      <label>Light (~$0.03): <span class="val" id="lightLbl"></span></label>
+      <input type="range" id="light" min="0" max="100" step="1" value="70"/>
+      <label>Typical (~$0.26): <span class="val" id="typLbl"></span></label>
+      <input type="range" id="typ" min="0" max="100" step="1" value="25"/>
+      <label>Heavy / near-cap (~$1.50): <span class="val" id="hvyLbl"></span></label>
+      <input type="range" id="hvy" min="0" max="100" step="1" value="5"/>
+      <label>Free write cap (the lever): <span class="val" id="capLbl"></span></label>
+      <input type="range" id="cap" min="0.1" max="2" step="0.05" value="1"/>
+      <div class="kv" style="margin-top:8px"><span><b>Avg cost / free user</b></span><span id="avgFree"></span></div>
+    </div>
+
+    <div class="panel">
+      <h2 style="margin-top:0">Paying side (revenue)</h2>
+      <label>Paid individuals (Plus/Pro): <span class="val" id="indLbl"></span></label>
+      <input type="range" id="ind" min="0" max="5000" step="50" value="300"/>
+      <label>Paid standalone labs: <span class="val" id="labLbl"></span></label>
+      <input type="range" id="lab" min="0" max="2000" step="10" value="100"/>
+      <label>Departments: <span class="val" id="deptLbl"></span></label>
+      <input type="range" id="dept" min="0" max="500" step="1" value="30"/>
+      <label>Avg labs / department: <span class="val" id="dlLbl"></span></label>
+      <input type="range" id="dl" min="2" max="40" step="1" value="10"/>
+      <label>Institutions: <span class="val" id="instLbl"></span></label>
+      <input type="range" id="inst" min="0" max="100" step="1" value="3"/>
+      <label>Avg depts / institution: <span class="val" id="idLbl"></span></label>
+      <input type="range" id="id" min="2" max="30" step="1" value="6"/>
+      <label>Sustain per active lab: <span class="val" id="susLbl"></span></label>
+      <input type="range" id="sus" min="0" max="40" step="1" value="12"/>
+    </div>
+  </div>
+
+  <div class="panel">
+    <h2 style="margin-top:0">Monthly money in vs out</h2>
+    <div class="grid3">
+      <div>
+        <div class="sub">Money IN</div>
+        <div class="kv"><span>Individual margins</span><span id="inInd"></span></div>
+        <div class="kv"><span>Lab margins</span><span id="inLab"></span></div>
+        <div class="kv"><span>Dept sustain + recovery</span><span id="inDept"></span></div>
+        <div class="kv"><span>Inst sustain + recovery</span><span id="inInst"></span></div>
+        <div class="kv"><span><b>Total in</b></span><span id="inTot"></span></div>
+      </div>
+      <div>
+        <div class="sub">Money OUT</div>
+        <div class="kv"><span>Free base cost</span><span id="outFree"></span></div>
+        <div class="kv"><span>Fixed base (infra)</span><span id="outFixed"></span></div>
+        <div class="kv"><span><b>Total out</b></span><span id="outTot"></span></div>
+        <div class="note">Fixed base (~$28/mo) is meant to be fellowship/donation-funded, not user-loaded; shown for completeness.</div>
+      </div>
+      <div>
+        <div class="sub">Net / month</div>
+        <div class="big" id="netBig">&mdash;</div>
+        <div id="netPill"></div>
+        <div class="kv" style="margin-top:10px"><span>Break-even free users</span><span id="beFree"></span></div>
+        <div class="kv"><span>Free supported / paying lab</span><span id="perLab"></span></div>
+        <div class="kv"><span>Headroom (free users)</span><span id="headroom"></span></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="grid2">
+    <div class="panel">
+      <h2 style="margin-top:0">Net as the free base grows</h2>
+      <canvas id="chartFree" height="260"></canvas>
+      <div class="legend"><span class="dot" style="background:var(--good)"></span>net P&amp;L &nbsp; <span class="dot" style="background:var(--bad)"></span>break-even &nbsp; <span class="dot" style="background:var(--warn)"></span>your current free count</div>
+      <p class="note">At the current paying mix, where does net cross zero as free users scale? The crossover is the max free base this paying side can carry.</p>
+    </div>
+    <div class="panel">
+      <h2 style="margin-top:0">The free-cap lever</h2>
+      <canvas id="chartCap" height="260"></canvas>
+      <div class="legend"><span class="dot" style="background:var(--accent)"></span>max supportable free users vs the free write cap</div>
+      <p class="note">Lowering the free write cap cuts the worst-case per-free cost, so the same paying side carries far more free users. This is your main sustainability dial.</p>
+    </div>
+  </div>
+
+  <p class="note" style="margin-top:20px">Margins use the storage-only model (cheap individual/lab, near cost). The real revenue lever is dept/inst <b>sustain per lab</b>. Everything is placeholder math for what-ifs, not a forecast.</p>
+</div>
+
+<script>
+const C={gb:0.0485,buffer:0.15,sPct:0.029,sFix:0.30,actM:1.50,fixedBase:28,freeLab:5};
+// per-free-user cost by usage class (storage + activity). cap scales the heavy class.
+function freeCosts(capM){
+  const light = 0.2*C.gb + 0.01*C.actM;            // 0.2GB, 10k writes
+  const typical = 0.7*C.gb + 0.15*C.actM;          // 0.7GB, 150k writes
+  const heavy = 1.0*C.gb + capM*C.actM;            // 1GB, maxed to the cap
+  return {light,typical,heavy};
+}
+function priceStorageOnly(capGB,freeGB){const b=Math.max(0,capGB-freeGB);if(b<=0)return 0;const raw=b*C.gb;const pre=raw+raw*C.buffer;return (pre+C.sFix)/(1-C.sPct);}
+function bare(gb,actM){return gb*C.gb+actM*C.actM;}
+function stripeOn(p){return p<=0?0:p*C.sPct+C.sFix;}
+function planMargin(capGB,freeGB,gbUse,actUse){const p=priceStorageOnly(capGB,freeGB);return p-bare(gbUse,actUse)-stripeOn(p);}
+
+let S={free:10000,light:70,typ:25,hvy:5,cap:1,ind:300,lab:100,dept:30,dl:10,inst:3,id:6,sus:12};
+
+function avgFreeCost(){const f=freeCosts(S.cap);const tot=S.light+S.typ+S.hvy||1;return (S.light*f.light+S.typ*f.typical+S.hvy*f.heavy)/tot;}
+
+function moneyIn(){
+  // individual paid: assume Pro 100GB, modest real use
+  const indMargin = planMargin(100,1,8,0.1);
+  // standalone lab: Lab Plus 150GB pooled
+  const labMargin = planMargin(150,5,40,0.5);
+  // dept: sustain (labs*sus) + storage recovery on the dept pool, cost tiny
+  const deptLabs=S.dept*S.dl; const deptGB=deptLabs*6*3; // members*perMemberGB
+  const deptRecovery = priceStorageOnly(deptGB, deptLabs*C.freeLab);
+  const deptIn = deptLabs*S.sus + (deptRecovery - bare(deptGB, deptLabs*0.6) - stripeOn(deptRecovery+deptLabs*S.sus));
+  // inst
+  const instLabs=S.inst*S.id*8; const instGB=instLabs*6*3;
+  const instRecovery=priceStorageOnly(instGB, instLabs*C.freeLab);
+  const instIn = instLabs*S.sus + (instRecovery - bare(instGB, instLabs*0.6) - stripeOn(instRecovery+instLabs*S.sus));
+  return {ind:S.ind*indMargin, lab:S.lab*labMargin, dept:deptIn, inst:instIn};
+}
+
+const fmt=n=>(n<0?'-$':'$')+Math.abs(n).toLocaleString('en-US',{maximumFractionDigits:0});
+const fmt2=n=>(n<0?'-$':'$')+Math.abs(n).toFixed(2);
+
+function render(){
+  document.getElementById('freeLbl').textContent=S.free.toLocaleString();
+  document.getElementById('lightLbl').textContent=S.light+'%';
+  document.getElementById('typLbl').textContent=S.typ+'%';
+  document.getElementById('hvyLbl').textContent=S.hvy+'%';
+  document.getElementById('capLbl').textContent=S.cap.toFixed(2)+'M writes';
+  document.getElementById('indLbl').textContent=S.ind.toLocaleString();
+  document.getElementById('labLbl').textContent=S.lab.toLocaleString();
+  document.getElementById('deptLbl').textContent=S.dept;
+  document.getElementById('dlLbl').textContent=S.dl;
+  document.getElementById('instLbl').textContent=S.inst;
+  document.getElementById('idLbl').textContent=S.id;
+  document.getElementById('susLbl').textContent='$'+S.sus;
+
+  const avg=avgFreeCost();
+  document.getElementById('avgFree').textContent=fmt2(avg)+' / mo';
+  const mi=moneyIn(); const totIn=mi.ind+mi.lab+mi.dept+mi.inst;
+  const freeCost=S.free*avg; const fixed=C.fixedBase; const totOut=freeCost+fixed;
+  const net=totIn-totOut;
+  document.getElementById('inInd').textContent=fmt(mi.ind);
+  document.getElementById('inLab').textContent=fmt(mi.lab);
+  document.getElementById('inDept').textContent=fmt(mi.dept);
+  document.getElementById('inInst').textContent=fmt(mi.inst);
+  document.getElementById('inTot').textContent=fmt(totIn);
+  document.getElementById('outFree').textContent=fmt(freeCost);
+  document.getElementById('outFixed').textContent=fmt(fixed);
+  document.getElementById('outTot').textContent=fmt(totOut);
+  document.getElementById('netBig').innerHTML='<span class="'+(net<0?'neg':'pos')+'">'+fmt(net)+'</span> <span style="font-size:14px;color:var(--muted)">/mo</span>';
+  document.getElementById('netPill').innerHTML=net<0?'<span class="pill loss">UNDERWATER</span>':'<span class="pill ok">sustainable</span>';
+  const beFree=avg>0?(totIn-fixed)/avg:Infinity;
+  document.getElementById('beFree').textContent=isFinite(beFree)?Math.max(0,Math.round(beFree)).toLocaleString():'unlimited';
+  const payingLabs=S.dept*S.dl+S.inst*S.id*8+S.lab;
+  document.getElementById('perLab').textContent=payingLabs>0?Math.round(beFree/payingLabs).toLocaleString():'n/a';
+  const head=beFree-S.free; document.getElementById('headroom').innerHTML='<span class="'+(head<0?'neg':'pos')+'">'+(isFinite(head)?(head>=0?'+':'')+Math.round(head).toLocaleString():'unlimited')+'</span>';
+
+  const v=document.getElementById('verdict');
+  if(net>=0){ v.className='verdict'; v.innerHTML='<b>Sustainable at this mix.</b> '+S.free.toLocaleString()+' free users cost ~'+fmt(freeCost)+'/mo (avg '+fmt2(avg)+' each), covered by '+fmt(totIn)+'/mo from paying orgs. You can carry up to <b>'+Math.round(beFree).toLocaleString()+'</b> free users before going underwater ('+(isFinite(head)?'+'+Math.round(head).toLocaleString():'∞')+' headroom). The dial that moves this most is the free write cap and the dept count.'; }
+  else { v.className='verdict bad'; v.innerHTML='<b class="neg">Underwater by '+fmt(-net)+'/mo.</b> '+S.free.toLocaleString()+' free users cost '+fmt(freeCost)+'/mo but paying orgs only bring '+fmt(totIn)+'/mo. You need either fewer free users (cap '+Math.round(beFree).toLocaleString()+'), a lower free write cap, more departments, or a higher sustain rate.'; }
+
+  drawFree(); drawCap();
+}
+
+function chart(id){const cv=document.getElementById(id);const dpr=window.devicePixelRatio||1;const w=cv.clientWidth,h=cv.height;cv.width=w*dpr;cv.height=h*dpr;const x=cv.getContext('2d');x.scale(dpr,dpr);x.clearRect(0,0,w,h);return{x,w,h};}
+
+function drawFree(){
+  const {x,w,h}=chart('chartFree');const padL=58,padR=14,padT=14,padB=28;const W=w-padL-padR,H=h-padT-padB;
+  const avg=avgFreeCost();const mi=moneyIn();const totIn=mi.ind+mi.lab+mi.dept+mi.inst;const fixed=C.fixedBase;
+  const maxFree=50000;const pts=[];for(let i=0;i<=100;i++){const f=maxFree*i/100;pts.push({f,net:totIn-fixed-f*avg});}
+  let ymax=Math.max(...pts.map(p=>p.net),100),ymin=Math.min(...pts.map(p=>p.net),0);const yr=ymax-ymin||1;ymin-=yr*0.08;ymax+=yr*0.08;
+  const X=f=>padL+W*f/maxFree,Y=v=>padT+H*(1-(v-ymin)/(ymax-ymin));
+  x.strokeStyle='#2a3340';x.fillStyle='#9aa7b4';x.font='11px sans-serif';
+  for(let g=0;g<=4;g++){const v=ymin+(ymax-ymin)*g/4;const yy=Y(v);x.beginPath();x.moveTo(padL,yy);x.lineTo(w-padR,yy);x.stroke();x.fillText(fmt(v),4,yy+3);}
+  for(let f=0;f<=maxFree;f+=10000)x.fillText((f/1000)+'k',X(f)-8,h-10);
+  x.strokeStyle='#f85149';x.beginPath();x.moveTo(padL,Y(0));x.lineTo(w-padR,Y(0));x.stroke();
+  // current free marker
+  x.strokeStyle='#d29922';x.setLineDash([4,4]);x.beginPath();x.moveTo(X(S.free),padT);x.lineTo(X(S.free),h-padB);x.stroke();x.setLineDash([]);
+  x.strokeStyle='#3fb950';x.lineWidth=2.4;x.beginPath();pts.forEach((p,i)=>{const px=X(p.f),py=Y(p.net);i?x.lineTo(px,py):x.moveTo(px,py);});x.stroke();
+}
+
+function drawCap(){
+  const {x,w,h}=chart('chartCap');const padL=58,padR=14,padT=14,padB=28;const W=w-padL-padR,H=h-padT-padB;
+  const mi=moneyIn();const totIn=mi.ind+mi.lab+mi.dept+mi.inst;const fixed=C.fixedBase;
+  const maxCap=2;const pts=[];for(let i=0;i<=100;i++){const cap=0.1+(maxCap-0.1)*i/100;const sav=S; // recompute avg at this cap
+    const f=freeCosts(cap);const tot=S.light+S.typ+S.hvy||1;const avg=(S.light*f.light+S.typ*f.typical+S.hvy*f.heavy)/tot;
+    const be=avg>0?(totIn-fixed)/avg:0;pts.push({cap,be});}
+  let ymax=Math.max(...pts.map(p=>p.be),100);const X=c=>padL+W*(c-0.1)/(maxCap-0.1),Y=v=>padT+H*(1-v/ymax);
+  x.strokeStyle='#2a3340';x.fillStyle='#9aa7b4';x.font='11px sans-serif';
+  for(let g=0;g<=4;g++){const v=ymax*g/4;const yy=Y(v);x.beginPath();x.moveTo(padL,yy);x.lineTo(w-padR,yy);x.stroke();x.fillText((v/1000).toFixed(0)+'k',4,yy+3);}
+  for(let c=0.5;c<=maxCap;c+=0.5)x.fillText(c+'M',X(c)-6,h-10);
+  // current cap marker + current free level
+  x.strokeStyle='#d29922';x.setLineDash([4,4]);x.beginPath();x.moveTo(X(S.cap),padT);x.lineTo(X(S.cap),h-padB);x.stroke();x.setLineDash([]);
+  x.strokeStyle='#4f9cf9';x.lineWidth=2.4;x.beginPath();pts.forEach((p,i)=>{const px=X(p.cap),py=Y(p.be);i?x.lineTo(px,py):x.moveTo(px,py);});x.stroke();
+}
+
+function bind(id,key,fn){const e=document.getElementById(id);e.oninput=()=>{S[key]=+e.value;(fn||render)();};}
+['free','light','typ','hvy','cap','ind','lab','dept','dl','inst','id','sus'].forEach(k=>bind(k,k));
+window.addEventListener('resize',render);
+render();
+</script>
+</body>
+</html>

@@ -54,16 +54,16 @@ const SUPPORT_ITEMS: FeatureItem[] = [
 const AI_ITEMS: FeatureItem[] = [
   {
     icon: "heart",
-    title: "About 750,000 free tokens to start",
+    title: "About 1.6 million free tokens to start",
     body: [
-      "Every new account gets a one-time gift of about 750,000 AI tokens to try BeakerBot, no card needed. How far they stretch depends on what you ask. A quick question is cheap, a full analysis costs more, and the gift works out to roughly 20 to 25 full analyses or over 100 quick questions. Plenty to see what BeakerBot does over your own data before you spend anything.",
+      "Every new account gets a one-time gift of about 1.6 million AI tokens to try BeakerBot, no card needed. How far they stretch depends on what you ask. A quick question is cheap, a full task that reads across your work costs more, and the gift works out to roughly 15 tasks or 30-plus quick questions. Plenty to see what BeakerBot does over your own data before you spend anything.",
     ],
   },
   {
     icon: "gauge",
     title: "Then prepaid top-ups, near cost",
     body: [
-      "After the gift runs out you buy a prepaid top-up, and each task draws down what it actually cost us to run plus a thin buffer for processing. Because a full analysis is about a penny of compute, a $10 top-up is hundreds of analyses. You always see your token balance and what the last task cost. No subscription, you pay only for what you use.",
+      "After the gift runs out you buy a prepaid top-up, and each task draws down what it actually cost us to run plus a thin buffer for processing. Because a full task is only a couple cents of compute, a $10 top-up is a few hundred tasks. You always see your token balance and what the last task cost. No subscription, you pay only for what you use.",
     ],
   },
   {
@@ -111,11 +111,11 @@ export default function PricingPage() {
             />
             <div className="mx-auto mb-6 max-w-2xl rounded-2xl border border-brand-action/30 bg-brand-action/[0.06] px-5 py-4 text-center">
               <div className="text-2xl font-extrabold tracking-tight text-brand-ink dark:text-foreground">
-                About 750,000 free AI tokens
+                About 1.6 million free AI tokens
               </div>
               <p className="mt-1 text-[13px] font-semibold text-foreground-muted">
-                a one-time sign-up gift, about 20 to 25 full analyses or over 100
-                quick questions
+                a one-time sign-up gift, about 15 tasks or 30-plus quick
+                questions
               </p>
             </div>
             <FeatureGrid items={AI_ITEMS} />

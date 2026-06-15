@@ -32,6 +32,8 @@ import {
   runAnalysisOnDataset,
   buildDatasetAnalysisContent,
   validDatasetAnalysisTypes,
+  analysisIsXY,
+  analysisIsWholeTableMultiCol,
 } from "@/lib/datahub/bigtable/dataset-analyses";
 import { readDistinctLabels } from "@/lib/datahub/bigtable/dataset-columns";
 import { saveDatasetAnalysis } from "@/lib/datahub/bigtable/dataset-store";
@@ -71,7 +73,7 @@ export default function DatasetAnalysisDialog({
     [sidecar.schema],
   );
   const valid = useMemo(
-    () => validDatasetAnalysisTypes(numericNames.length, categoricalNames.length > 0),
+    () => validDatasetAnalysisTypes(numericNames.length, categoricalNames.length),
     [numericNames.length, categoricalNames.length],
   );
 
@@ -88,6 +90,14 @@ export default function DatasetAnalysisDialog({
   // GROUP-BY picks.
   const [valueColumn, setValueColumn] = useState("");
   const [groupColumn, setGroupColumn] = useState("");
+  // WHOLE-TABLE multi-column picks (two-way ANOVA, contingency, survival, nested).
+  // value = valueColumn (reused); the two factors / subgroup are categorical; a
+  // survival analysis uses time + event (numeric) and an optional group.
+  const [rowFactor, setRowFactor] = useState("");
+  const [colFactor, setColFactor] = useState("");
+  const [timeCol, setTimeCol] = useState("");
+  const [eventCol, setEventCol] = useState("");
+  const [survGroup, setSurvGroup] = useState("");
   // The distinct levels of the chosen group-by column, loaded on demand so a
   // two-group test on a 3+ level column can ask which two levels to compare. Null
   // while loading / not yet needed.
@@ -123,6 +133,11 @@ export default function DatasetAnalysisDialog({
     setGroupLevels(null);
     setGroupA("");
     setGroupB("");
+    setRowFactor(categoricalNames[0] ?? "");
+    setColFactor(categoricalNames[1] ?? "");
+    setTimeCol(numericNames[0] ?? "");
+    setEventCol(numericNames[1] ?? "");
+    setSurvGroup(categoricalNames[0] ?? "");
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, mode]);
 
@@ -172,22 +187,54 @@ export default function DatasetAnalysisDialog({
   // uses every level as before.
   const showGroupPair =
     needsGroupLevels && groupLevels !== null && groupLevels.length > 2;
+  // Whole-table multi-column readiness, per the columns each shape needs.
+  const wholeTableReady = (t: AnalysisType): boolean => {
+    if (t === "contingency")
+      return rowFactor !== "" && colFactor !== "" && rowFactor !== colFactor;
+    if (t === "kaplanMeier")
+      return timeCol !== "" && eventCol !== "" && timeCol !== eventCol;
+    if (t === "coxRegression")
+      return (
+        timeCol !== "" && eventCol !== "" && timeCol !== eventCol && survGroup !== ""
+      );
+    // two-way ANOVA + nested
+    return (
+      valueColumn !== "" &&
+      rowFactor !== "" &&
+      colFactor !== "" &&
+      rowFactor !== colFactor
+    );
+  };
   const canRun =
     handle !== null &&
     type !== null &&
-    (mode === "groupBy"
-      ? valueColumn !== "" &&
-        groupColumn !== "" &&
-        (!showGroupPair || (groupA !== "" && groupB !== "" && groupA !== groupB))
-      : isTwoGroup(type)
-        ? columnA !== "" && columnB !== "" && columnA !== columnB
-        : isScreen(type)
-          ? cleanMulti.length >= 1
-          : cleanMulti.length >= 3);
+    (analysisIsWholeTableMultiCol(type)
+      ? wholeTableReady(type)
+      : mode === "groupBy"
+        ? valueColumn !== "" &&
+          groupColumn !== "" &&
+          (!showGroupPair || (groupA !== "" && groupB !== "" && groupA !== groupB))
+        : isTwoGroup(type)
+          ? columnA !== "" && columnB !== "" && columnA !== columnB
+          : isScreen(type)
+            ? cleanMulti.length >= 1
+            : cleanMulti.length >= 3);
+
+  const selCls =
+    "mt-1 w-full rounded-md border border-border bg-surface-raised px-2 py-1.5 text-body text-foreground focus:border-sky-400 focus:outline-none";
+  const labelCls =
+    "block text-meta font-medium uppercase tracking-wide text-foreground-muted";
 
   // Resolve the chosen columns into an analysis spec's columnIds (dataset column
   // NAMES) the SAME way for both run and save.
   const resolveColumnIds = (t: AnalysisType): string[] => {
+    if (analysisIsWholeTableMultiCol(t)) {
+      if (t === "contingency") return [rowFactor, colFactor];
+      if (t === "kaplanMeier" || t === "coxRegression")
+        return survGroup ? [timeCol, eventCol, survGroup] : [timeCol, eventCol];
+      // two-way ANOVA + nested: value, then the two factors / group + subgroup.
+      return [valueColumn, rowFactor, colFactor];
+    }
     if (mode === "groupBy") return [valueColumn];
     if (isTwoGroup(t)) return [columnA, columnB];
     return cleanMulti;
@@ -259,12 +306,22 @@ export default function DatasetAnalysisDialog({
     }
   };
 
+  // Click-outside dismiss, but never one that discards work. A computed result or
+  // an in-flight run is real output the user could lose to a single stray
+  // backdrop click, e.g. one a viewport reflow displaces onto the full-screen
+  // backdrop during a "Run another" transition. From those states the explicit
+  // Cancel / Done / Save / Escape controls close; the backdrop does not.
+  const backdropDismiss = () => {
+    if (result || running) return;
+    onClose();
+  };
+
   return (
     <div
       className="fixed inset-0 z-[120] flex items-center justify-center p-4"
       data-testid="dataset-analysis-dialog"
     >
-      <div className="absolute inset-0 bg-black/40" onClick={onClose} />
+      <div className="absolute inset-0 bg-black/40" onClick={backdropDismiss} />
       <div
         role="dialog"
         aria-modal="true"
@@ -447,11 +504,144 @@ export default function DatasetAnalysisDialog({
                         </div>
                       )}
                     </>
+                  ) : type && analysisIsWholeTableMultiCol(type) ? (
+                    <div className="mt-4 grid grid-cols-2 gap-3">
+                      {(type === "twoWayAnova" ||
+                        type === "nestedTTest" ||
+                        type === "nestedOneWayAnova") && (
+                        <div className="col-span-2">
+                          <label className={labelCls}>Value column</label>
+                          <select
+                            value={valueColumn}
+                            onChange={(e) => setValueColumn(e.target.value)}
+                            className={selCls}
+                            data-testid="dataset-analysis-value"
+                          >
+                            {numericNames.map((n) => (
+                              <option key={n} value={n}>
+                                {n}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                      )}
+                      {(type === "twoWayAnova" ||
+                        type === "contingency" ||
+                        type === "nestedTTest" ||
+                        type === "nestedOneWayAnova") && (
+                        <>
+                          <div>
+                            <label className={labelCls}>
+                              {type === "nestedTTest" || type === "nestedOneWayAnova"
+                                ? "Group"
+                                : "Row factor"}
+                            </label>
+                            <select
+                              value={rowFactor}
+                              onChange={(e) => setRowFactor(e.target.value)}
+                              className={selCls}
+                              data-testid="dataset-analysis-rowfactor"
+                            >
+                              {categoricalNames.map((n) => (
+                                <option key={n} value={n}>
+                                  {n}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+                          <div>
+                            <label className={labelCls}>
+                              {type === "nestedTTest" || type === "nestedOneWayAnova"
+                                ? "Subgroup"
+                                : "Column factor"}
+                            </label>
+                            <select
+                              value={colFactor}
+                              onChange={(e) => setColFactor(e.target.value)}
+                              className={selCls}
+                              data-testid="dataset-analysis-colfactor"
+                            >
+                              {categoricalNames.map((n) => (
+                                <option key={n} value={n}>
+                                  {n}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+                          {rowFactor === colFactor && (
+                            <p className="col-span-2 text-meta text-amber-600">
+                              Pick two different columns.
+                            </p>
+                          )}
+                        </>
+                      )}
+                      {(type === "kaplanMeier" || type === "coxRegression") && (
+                        <>
+                          <div>
+                            <label className={labelCls}>Time column</label>
+                            <select
+                              value={timeCol}
+                              onChange={(e) => setTimeCol(e.target.value)}
+                              className={selCls}
+                              data-testid="dataset-analysis-time"
+                            >
+                              {numericNames.map((n) => (
+                                <option key={n} value={n}>
+                                  {n}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+                          <div>
+                            <label className={labelCls}>Event column (0/1)</label>
+                            <select
+                              value={eventCol}
+                              onChange={(e) => setEventCol(e.target.value)}
+                              className={selCls}
+                              data-testid="dataset-analysis-event"
+                            >
+                              {numericNames.map((n) => (
+                                <option key={n} value={n}>
+                                  {n}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+                          <div className="col-span-2">
+                            <label className={labelCls}>
+                              {type === "coxRegression"
+                                ? "Group (the arms to compare)"
+                                : "Group (optional)"}
+                            </label>
+                            <select
+                              value={survGroup}
+                              onChange={(e) => setSurvGroup(e.target.value)}
+                              className={selCls}
+                              data-testid="dataset-analysis-survgroup"
+                            >
+                              {type === "kaplanMeier" && (
+                                <option value="">None (all subjects)</option>
+                              )}
+                              {categoricalNames.map((n) => (
+                                <option key={n} value={n}>
+                                  {n}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+                          {timeCol === eventCol && (
+                            <p className="col-span-2 text-meta text-amber-600">
+                              Pick different time and event columns.
+                            </p>
+                          )}
+                        </>
+                      )}
+                    </div>
                   ) : type && isTwoGroup(type) ? (
                     <div className="mt-4 grid grid-cols-2 gap-3">
                       <div>
                         <label className="block text-meta font-medium uppercase tracking-wide text-foreground-muted">
-                          First column
+                          {analysisIsXY(type) ? "X column" : "First column"}
                         </label>
                         <select
                           value={columnA}
@@ -467,7 +657,11 @@ export default function DatasetAnalysisDialog({
                       </div>
                       <div>
                         <label className="block text-meta font-medium uppercase tracking-wide text-foreground-muted">
-                          Second column
+                          {analysisIsXY(type)
+                            ? type === "rocCurve" || type === "logisticRegression"
+                              ? "Y column (0/1 outcome)"
+                              : "Y column"
+                            : "Second column"}
                         </label>
                         <select
                           value={columnB}

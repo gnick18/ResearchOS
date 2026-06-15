@@ -20,7 +20,7 @@
  * House style: no em-dashes, no emojis, no mid-sentence colons.
  */
 
-import React, { useCallback, useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import {
   Alert,
   Pressable,
@@ -187,10 +187,7 @@ function CalcHeader({
               <Text
                 style={[
                   styles.calcChipLabel,
-                  {
-                    color: on ? palette.white : surface.muted,
-                    fontFamily: fonts.semibold,
-                  },
+                  { color: on ? palette.white : surface.muted, fontWeight: on ? '700' : '600' },
                 ]}
               >
                 {CHIP_LABEL[t.id]}
@@ -213,8 +210,7 @@ function CalcHeader({
 // way. We do not fetch a count here (that is a sealed relay round-trip); the
 // viewer itself shows the list, loading, and empty states.
 function LabCalculatorsLink() {
-  const theme = useTheme();
-  const { surface } = theme;
+  const { surface } = useTheme();
   const { pairing } = usePairing();
   const router = useRouter();
 
@@ -229,28 +225,32 @@ function LabCalculatorsLink() {
       style={({ pressed }) => [
         styles.labLink,
         {
-          backgroundColor: pressed ? surface.pressed : surface.surface,
-          borderColor: palette.violetDim,
+          backgroundColor: pressed ? palette.amber : palette.skyDim,
+          borderColor: pressed ? palette.amber : palette.skyBorder,
+          borderRadius: radii.md,
         },
-        theme.shadow.sm,
       ]}
     >
-      <View style={styles.labLinkRow}>
-        <View style={styles.labLinkIcon}>
-          <Text style={styles.labLinkIconGlyph}>{'≡'}</Text>
-        </View>
-        <View style={styles.labLinkText}>
-          <Text style={[styles.labLinkTitle, { color: surface.text }]}>
-            Your lab calculators
+      {({ pressed }) => (
+        <View style={styles.labLinkRow}>
+          <View style={styles.labLinkText}>
+            <Text style={[styles.labLinkTitle, { color: pressed ? palette.white : palette.sky }]}>
+              Your lab calculators
+            </Text>
+            <Text
+              style={[
+                styles.labLinkSub,
+                { color: pressed ? palette.white : surface.muted },
+              ]}
+            >
+              Built on the laptop, run here at the bench
+            </Text>
+          </View>
+          <Text style={[styles.labLinkChevron, { color: pressed ? palette.white : palette.sky }]}>
+            {'›'}
           </Text>
-          <Text style={[styles.labLinkSub, { color: surface.muted }]}>
-            Built on the laptop, run here at the bench
-          </Text>
         </View>
-        <Text style={[styles.labLinkChevron, { color: surface.faint }]}>
-          {'›'}
-        </Text>
-      </View>
+      )}
     </Pressable>
   );
 }
@@ -289,15 +289,15 @@ function NumericWithUnit<U extends string>({
   return (
     <View style={styles.fieldWrap}>
       <FieldLabel>{label}</FieldLabel>
-      <View style={[styles.unitsel, { backgroundColor: surface.surface2, borderColor: surface.borderStrong }]}>
+      <View style={styles.row}>
         <TextInput
           testID={inputTestID}
-          style={[styles.unitselInput, { color: surface.text }]}
+          style={[styles.numInput, { backgroundColor: surface.surface, borderColor: surface.border, color: surface.text, flex: 1 }]}
           value={value}
           onChangeText={onValue}
           keyboardType="decimal-pad"
-          placeholder={placeholder ?? '0'}
-          placeholderTextColor={surface.faint}
+          placeholder={placeholder ?? ''}
+          placeholderTextColor={surface.placeholder}
           autoCorrect={false}
           autoCapitalize="none"
         />
@@ -309,21 +309,27 @@ function NumericWithUnit<U extends string>({
                 key={u}
                 onPress={() => onUnit(u)}
                 style={({ pressed }) => [
-                  styles.udd,
+                  styles.unitChip,
                   {
                     backgroundColor: pressed
-                      ? palette.sky
+                      ? palette.amber
                       : active
-                        ? palette.skyDim
-                        : 'transparent',
+                        ? palette.sky
+                        : surface.surface,
+                    borderColor: pressed
+                      ? palette.amber
+                      : active
+                        ? palette.sky
+                        : surface.border,
+                    borderRadius: radii.sm,
                   },
                 ]}
               >
                 {({ pressed }) => (
                   <Text
                     style={[
-                      styles.uddLabel,
-                      { color: pressed ? palette.white : active ? palette.sky : surface.faint },
+                      styles.unitLabel,
+                      { color: pressed || active ? palette.white : surface.muted },
                     ]}
                   >
                     {u}
@@ -357,24 +363,20 @@ function PlainNumeric({
   return (
     <View style={styles.fieldWrap}>
       <FieldLabel>{label}</FieldLabel>
-      <View style={[styles.unitsel, { backgroundColor: surface.surface2, borderColor: surface.borderStrong }]}>
+      <View style={styles.row}>
         <TextInput
           testID={inputTestID}
-          style={[styles.unitselInput, { color: surface.text }]}
+          style={[styles.numInput, { backgroundColor: surface.surface, borderColor: surface.border, color: surface.text, flex: 1 }]}
           value={value}
           onChangeText={onValue}
           keyboardType="decimal-pad"
-          placeholder={placeholder ?? '0'}
-          placeholderTextColor={surface.faint}
+          placeholder={placeholder ?? ''}
+          placeholderTextColor={surface.placeholder}
           autoCorrect={false}
           autoCapitalize="none"
         />
         {suffix ? (
-          <View style={styles.unitRow}>
-            <View style={[styles.udd, { backgroundColor: palette.skyDim }]}>
-              <Text style={[styles.uddLabel, { color: palette.sky }]}>{suffix}</Text>
-            </View>
-          </View>
+          <Text style={[styles.suffix, { color: surface.muted }]}>{suffix}</Text>
         ) : null}
       </View>
     </View>
@@ -397,18 +399,9 @@ function ResultCard({ children, empty }: { children?: React.ReactNode; empty?: b
       </View>
     );
   }
-  // Inject a hairline divider between each non-null child row (contract .rr+.rr).
-  const items = React.Children.toArray(children).filter(Boolean);
   return (
     <View style={[styles.resultFilled, { backgroundColor: palette.skyDim, borderColor: palette.skyBorder }]}>
-      {items.map((child, i) => (
-        <View
-          key={i}
-          style={i > 0 && { borderTopWidth: 1, borderTopColor: palette.skyBorder }}
-        >
-          {child}
-        </View>
-      ))}
+      {children}
     </View>
   );
 }
@@ -444,7 +437,7 @@ function HintCallout({ children }: { children: string }) {
         style={({ pressed }) => [
           styles.hintBadge,
           styles.hintBadgeAlone,
-          pressed && { backgroundColor: palette.sky600 },
+          pressed && { backgroundColor: palette.coral },
         ]}
       >
         <Text style={styles.hintBadgeLabel}>f</Text>
@@ -459,7 +452,7 @@ function HintCallout({ children }: { children: string }) {
       accessibilityLabel="Hide the formula tip"
       style={({ pressed }) => [
         styles.hintCallout,
-        pressed && { backgroundColor: palette.skyBorder },
+        pressed && { backgroundColor: 'rgba(245, 158, 11, 0.22)' },
       ]}
     >
       <View style={styles.hintBadge}>
@@ -612,8 +605,7 @@ function useExport(lineText: string | null) {
  * result to export. Disabled (greyed) when `lineText` is null.
  */
 function ExportButton({ lineText }: { lineText: string | null }) {
-  const theme = useTheme();
-  const { surface } = theme;
+  const { surface } = useTheme();
   const exportLine = useExport(lineText);
   const enabled = !!lineText;
 
@@ -624,21 +616,30 @@ function ExportButton({ lineText }: { lineText: string | null }) {
       style={({ pressed }) => [
         styles.exportBtn,
         {
-          backgroundColor: pressed && enabled ? surface.sunken : surface.surface,
-          borderColor: surface.borderStrong,
+          backgroundColor: enabled
+            ? pressed ? palette.amber : palette.skyDim
+            : surface.sunken,
+          borderColor: enabled
+            ? pressed ? palette.amber : palette.skyBorder
+            : surface.border,
           borderRadius: radii.md,
-          opacity: enabled ? 1 : 0.4,
+          opacity: enabled ? 1 : 0.5,
         },
-        enabled && theme.shadow.sm,
       ]}
       accessibilityRole="button"
-      accessibilityLabel="Send to notebook"
+      accessibilityLabel="Export to notebook"
       accessibilityHint="Appends this result to the experiment open on your laptop."
     >
-      <Text style={[styles.exportArrow, { color: surface.text }]}>{'↓'}</Text>
-      <Text style={[styles.exportBtnLabel, { color: surface.text }]}>
-        Send to notebook
-      </Text>
+      {({ pressed }) => (
+        <Text
+          style={[
+            styles.exportBtnLabel,
+            { color: enabled ? (pressed ? palette.white : palette.sky) : surface.muted },
+          ]}
+        >
+          Export to notebook
+        </Text>
+      )}
     </Pressable>
   );
 }
@@ -672,15 +673,15 @@ type SciKeyVariant = 'digit' | 'op' | 'fnk' | 'eq' | 'clear' | 'accent';
 
 const KEY_BG: Partial<Record<SciKeyVariant, string>> = {
   op: palette.skyDim,
-  eq: palette.sky,
-  clear: palette.coralDim,
-  accent: palette.skyDim,
+  eq: palette.amber,
+  clear: palette.coral,
+  accent: palette.sky,
 };
 const KEY_FG: Partial<Record<SciKeyVariant, string>> = {
   op: palette.sky,
   eq: palette.white,
-  clear: palette.coral,
-  accent: palette.sky,
+  clear: palette.white,
+  accent: palette.white,
 };
 
 function SciKey({
@@ -694,35 +695,25 @@ function SciKey({
   variant?: SciKeyVariant;
   span2?: boolean;
 }) {
-  const theme = useTheme();
-  const { surface } = theme;
+  const { surface } = useTheme();
   const bg = KEY_BG[variant] ?? (variant === 'fnk' ? surface.sunken : surface.surface);
   const color = KEY_FG[variant] ?? (variant === 'fnk' ? surface.muted : surface.text);
   const wordKey = variant === 'fnk' || variant === 'clear' || variant === 'accent';
-  // Pressed: solid sky for blue keys, deeper coral tint for clear, sunken for digits.
-  const pressedBg =
-    variant === 'eq' || variant === 'op' || variant === 'accent'
-      ? palette.sky
-      : variant === 'clear'
-        ? palette.coral
-        : surface.sunken;
-  const pressedFg = variant === 'digit' || variant === 'fnk' ? surface.text : palette.white;
   return (
     <Pressable
       onPress={onPress}
       style={({ pressed }) => [
         styles.padKey,
         span2 && styles.padKeySpan2,
-        { backgroundColor: pressed ? pressedBg : bg },
-        (variant === 'digit' || variant === 'fnk') && { borderColor: surface.border, borderWidth: 1 },
-        theme.shadow.sm,
+        { backgroundColor: pressed ? palette.amber : bg },
+        variant === 'digit' && !pressed && { borderColor: surface.border, borderWidth: 1 },
       ]}
     >
       {({ pressed }) => (
         <Text
           style={[
             styles.padKeyLabel,
-            { color: pressed ? pressedFg : color },
+            { color: pressed ? palette.white : color },
             wordKey && styles.padKeyLabelSm,
           ]}
         >
@@ -810,11 +801,7 @@ function ScientificTab() {
             <Pressable
               key={label}
               onPress={() => insert(token)}
-              style={({ pressed }) => [
-                styles.fnchip,
-                { backgroundColor: surface.surface, borderColor: surface.border },
-                pressed && { backgroundColor: palette.sky, borderColor: palette.sky },
-              ]}
+              style={({ pressed }) => [styles.fnchip, pressed && { backgroundColor: palette.amber }]}
             >
               {({ pressed }) => (
                 <Text style={[styles.fnchipLabel, pressed && { color: palette.white }]}>{label}</Text>
@@ -1058,29 +1045,23 @@ function SerialTab() {
       {rows.length === 0 ? (
         <ResultCard empty />
       ) : (
-        <View style={[styles.table, { borderColor: surface.border, backgroundColor: surface.surface }]}>
-          <View style={[styles.tableRow, styles.tableHeadRow, { borderBottomColor: surface.border }]}>
-            <Text style={[styles.tableHead, { color: surface.faint, flex: 0.7 }]}>Tube</Text>
-            <Text style={[styles.tableHead, styles.tableHeadNum, { color: surface.faint, flex: 2 }]}>Conc ({startU})</Text>
-            <Text style={[styles.tableHead, styles.tableHeadNum, { color: surface.faint, flex: 1.4 }]}>Sample</Text>
-            <Text style={[styles.tableHead, styles.tableHeadNum, { color: surface.faint, flex: 1.4 }]}>Diluent</Text>
+        <View style={[styles.table, { borderColor: palette.skyBorder, backgroundColor: palette.skyDim }]}>
+          <View style={[styles.tableRow, { borderBottomColor: palette.skyBorder }]}>
+            <Text style={[styles.tableHead, { color: surface.muted, flex: 0.5 }]}>Tube</Text>
+            <Text style={[styles.tableHead, { color: surface.muted, flex: 2 }]}>Conc ({startU})</Text>
+            <Text style={[styles.tableHead, { color: surface.muted, flex: 1.5 }]}>Sample ({volU})</Text>
+            <Text style={[styles.tableHead, { color: surface.muted, flex: 1.5 }]}>Diluent ({volU})</Text>
           </View>
-          {rows.map((r, i) => (
-            <View
-              key={r.step}
-              style={[
-                styles.tableRow,
-                i < rows.length - 1 && { borderBottomColor: surface.hairline, borderBottomWidth: StyleSheet.hairlineWidth },
-              ]}
-            >
-              <Text style={[styles.tableCell, { color: surface.text, flex: 0.7 }]}>{r.step}</Text>
-              <Text style={[styles.tableCell, styles.tableCellNum, { color: surface.text, flex: 2 }]}>
+          {rows.map((r) => (
+            <View key={r.step} style={[styles.tableRow, { borderBottomColor: surface.border }]}>
+              <Text style={[styles.tableCell, { color: surface.text, flex: 0.5 }]}>{r.step}</Text>
+              <Text style={[styles.tableCell, { color: surface.text, flex: 2 }]}>
                 {formatNum(r.concentration)}
               </Text>
-              <Text style={[styles.tableCell, styles.tableCellNum, { color: surface.text, flex: 1.4 }]}>
+              <Text style={[styles.tableCell, { color: surface.text, flex: 1.5 }]}>
                 {formatNum(r.sampleVolume)}
               </Text>
-              <Text style={[styles.tableCell, styles.tableCellNum, { color: surface.text, flex: 1.4 }]}>
+              <Text style={[styles.tableCell, { color: surface.text, flex: 1.5 }]}>
                 {formatNum(r.diluentVolume)}
               </Text>
             </View>
@@ -1115,8 +1096,7 @@ function BufferTab() {
   const [rows, setRows] = useState<BufferRow[]>(() => [makeBufferRow(), makeBufferRow()]);
   const [total, setTotal] = useState('');
   const [totalU, setTotalU] = useState<VolUnit>('mL');
-  const theme = useTheme();
-  const { surface } = theme;
+  const { surface } = useTheme();
 
   const totalN = parseNum(total);
   const totalL = totalN !== null ? volToBase(totalN, totalU) : null;
@@ -1168,7 +1148,7 @@ function BufferTab() {
         <Card key={r.id} compact>
           <View style={styles.row}>
             <TextInput
-              style={[styles.nameInput, { backgroundColor: surface.surface2, borderColor: surface.borderStrong, color: surface.text, flex: 1 }]}
+              style={[styles.nameInput, { backgroundColor: surface.surface, borderColor: surface.border, color: surface.text, flex: 1 }]}
               value={r.name}
               onChangeText={(v) => update(r.id, { name: v })}
               placeholder="Component name"
@@ -1215,16 +1195,17 @@ function BufferTab() {
         style={({ pressed }) => [
           styles.addBtn,
           {
-            borderColor: surface.borderStrong,
-            backgroundColor: pressed ? surface.sunken : surface.surface,
+            borderColor: pressed ? palette.amber : palette.skyBorder,
+            backgroundColor: pressed ? palette.amber : palette.skyDim,
             borderRadius: radii.md,
           },
-          theme.shadow.sm,
         ]}
       >
-        <Text style={[styles.addBtnLabel, { color: surface.text }]}>
-          {'+  Add component'}
-        </Text>
+        {({ pressed }) => (
+          <Text style={[styles.addBtnLabel, { color: pressed ? palette.white : palette.sky }]}>
+            + Add component
+          </Text>
+        )}
       </Pressable>
 
       {result === null ? (
@@ -1244,7 +1225,9 @@ function BufferTab() {
             />
           ))}
           {result.diluentL !== null ? (
-            <ResultRow label="Diluent (top up)" value={describeVol(result.diluentL)} />
+            <View style={[styles.divider, { borderTopColor: palette.skyBorder }]}>
+              <ResultRow label="Diluent (top up)" value={describeVol(result.diluentL)} />
+            </View>
           ) : null}
         </ResultCard>
       )}
@@ -1276,73 +1259,54 @@ const styles = StyleSheet.create({
     elevation: 1,
   },
   calcChipOn: { backgroundColor: palette.sky, borderColor: palette.sky, elevation: 0, shadowOpacity: 0 },
-  calcChipLabel: { fontSize: 13, fontFamily: fonts.semibold },
+  calcChipLabel: { fontSize: 13 },
 
   body: {
     paddingHorizontal: spacing.lg,
     paddingTop: spacing.lg,
     gap: spacing.lg,
   },
-  // Lab calculators link card (contract: surface card, violet icon square, chevron)
+  // Lab calculators link card
   labLink: {
+    borderWidth: 1,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.md,
+  },
+  labLinkRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
+  labLinkText: { flex: 1, gap: 2 },
+  labLinkTitle: { fontSize: 15, fontWeight: '700' },
+  labLinkSub: { fontSize: 12, lineHeight: 16 },
+  labLinkChevron: { fontSize: 22, fontWeight: '700' },
+  tabGap: { gap: spacing.md },
+  fieldWrap: { gap: spacing.xs },
+  fieldLabel: { fontSize: 12, fontWeight: '600', letterSpacing: 0.2 },
+  row: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
+  numInput: {
     borderWidth: 1,
     borderRadius: radii.md,
     paddingHorizontal: spacing.md,
-    paddingVertical: 13,
+    paddingVertical: 10,
+    fontSize: 16,
+    minHeight: 44,
   },
-  labLinkRow: { flexDirection: 'row', alignItems: 'center', gap: 11 },
-  labLinkIcon: {
-    width: 36,
-    height: 36,
-    borderRadius: 10,
-    backgroundColor: palette.violet,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  labLinkIconGlyph: { color: palette.white, fontSize: 18, fontFamily: fonts.bold, marginTop: -2 },
-  labLinkText: { flex: 1, gap: 2 },
-  labLinkTitle: { fontSize: 14, fontFamily: fonts.bold },
-  labLinkSub: { fontSize: 11.5, lineHeight: 16, fontFamily: fonts.ui },
-  labLinkChevron: { fontSize: 22, fontFamily: fonts.semibold },
-  tabGap: { gap: spacing.md },
-  fieldWrap: { gap: 6 },
-  fieldLabel: { fontSize: 12, fontFamily: fonts.semibold },
-  row: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
   nameInput: {
     borderWidth: 1,
     borderRadius: radii.md,
-    paddingHorizontal: 14,
-    paddingVertical: 11,
+    paddingHorizontal: spacing.md,
+    paddingVertical: 8,
     fontSize: 15,
-    fontFamily: fonts.medium,
-    minHeight: 44,
+    minHeight: 40,
   },
-  // contract .unitsel: one bordered surface-2 container, mono input + unit pills
-  unitsel: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderRadius: radii.md,
-    paddingRight: 6,
-    minHeight: 48,
-  },
-  unitselInput: {
-    flex: 1,
-    minWidth: 0,
-    fontFamily: fonts.mono,
-    fontSize: 16,
-    paddingHorizontal: 13,
-    paddingVertical: 12,
-  },
-  unitRow: { flexDirection: 'row', gap: 4, flexWrap: 'wrap', flexShrink: 0 },
-  udd: {
-    paddingHorizontal: 9,
+  suffix: { fontSize: 14, fontWeight: '500', minWidth: 36 },
+  unitRow: { flexDirection: 'row', gap: 4, flexWrap: 'wrap' },
+  unitChip: {
+    paddingHorizontal: 8,
     paddingVertical: 6,
-    borderRadius: radii.sm,
-    minWidth: 34,
+    borderWidth: 1,
+    minWidth: 36,
     alignItems: 'center',
   },
-  uddLabel: { fontSize: 12.5, fontFamily: fonts.bold },
+  unitLabel: { fontSize: 12, fontWeight: '700' },
   resultEmpty: {
     borderWidth: 1,
     borderStyle: 'dashed',
@@ -1350,40 +1314,37 @@ const styles = StyleSheet.create({
     padding: spacing.lg,
     alignItems: 'center',
   },
-  resultEmptyText: { fontSize: 14, fontFamily: fonts.ui },
+  resultEmptyText: { fontSize: 14 },
   resultFilled: {
     borderWidth: 1,
     borderRadius: radii.md,
-    paddingHorizontal: 16,
-    paddingVertical: 2,
+    padding: spacing.lg,
+    gap: 6,
   },
   resultRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'baseline',
     gap: spacing.md,
-    paddingVertical: 11,
+    paddingVertical: 2,
   },
-  resultLabel: { fontSize: 13, lineHeight: 20, fontFamily: fonts.ui },
-  resultValue: { fontSize: 17, fontFamily: fonts.monoSemibold, lineHeight: 22, textAlign: 'right' },
-  hint: { fontSize: 13, lineHeight: 18, fontFamily: fonts.ui },
-  // Collapsible sky formula callout (contract .callout)
+  resultLabel: { fontSize: 14, lineHeight: 20 },
+  resultValue: { fontSize: 16, fontWeight: '600', lineHeight: 22, textAlign: 'right' },
+  hint: { fontSize: 13, lineHeight: 18 },
+  // Collapsible amber formula callout
   hintCallout: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    gap: 10,
-    backgroundColor: palette.skyDim,
-    borderWidth: 1,
-    borderColor: palette.skyBorder,
-    borderRadius: radii.md,
-    paddingVertical: 13,
-    paddingHorizontal: 14,
+    gap: 9,
+    backgroundColor: 'rgba(245, 158, 11, 0.13)',
+    borderRadius: 12,
+    padding: 11,
   },
   hintBadge: {
     width: 22,
     height: 22,
     borderRadius: 6,
-    backgroundColor: palette.sky,
+    backgroundColor: palette.amber,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -1396,11 +1357,10 @@ const styles = StyleSheet.create({
   hintBadgeLabel: {
     color: palette.white,
     fontSize: 14,
-    fontFamily: fonts.extrabold,
+    fontWeight: '800',
     fontStyle: 'italic',
   },
-  hintCalloutText: { flex: 1, fontSize: 13, lineHeight: 19, fontFamily: fonts.ui },
-  // Serial table (contract .dtable inside a surface card)
+  hintCalloutText: { flex: 1, fontSize: 13, lineHeight: 19 },
   table: {
     borderWidth: 1,
     borderRadius: radii.md,
@@ -1408,59 +1368,48 @@ const styles = StyleSheet.create({
   },
   tableRow: {
     flexDirection: 'row',
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    alignItems: 'center',
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 8,
+    borderBottomWidth: StyleSheet.hairlineWidth,
   },
-  tableHeadRow: { borderBottomWidth: 1 },
-  tableHead: { fontSize: 10.5, fontFamily: fonts.bold, letterSpacing: 0.5, textTransform: 'uppercase' },
-  tableHeadNum: { textAlign: 'right' },
-  tableCell: { fontSize: 13, fontFamily: fonts.ui },
-  tableCellNum: { fontFamily: fonts.mono, textAlign: 'right' },
+  tableHead: { fontSize: 11, fontWeight: '700', letterSpacing: 0.3 },
+  tableCell: { fontSize: 13, fontFamily: 'Courier' },
   divider: {
     borderTopWidth: StyleSheet.hairlineWidth,
     paddingTop: 6,
     marginTop: 4,
   },
   addBtn: {
-    flexDirection: 'row',
-    paddingVertical: 14,
+    paddingVertical: spacing.md,
     alignItems: 'center',
-    justifyContent: 'center',
     borderWidth: 1,
-    minHeight: 50,
   },
-  addBtnLabel: { fontSize: 15, fontFamily: fonts.semibold },
-  // Send to notebook button (contract .btn-secondary)
+  addBtnLabel: { fontSize: 15, fontWeight: '600' },
+  // Phase 2: Export to notebook button
   exportBtn: {
-    flexDirection: 'row',
-    gap: 8,
-    paddingVertical: 14,
+    paddingVertical: spacing.md,
     alignItems: 'center',
-    justifyContent: 'center',
     borderWidth: 1,
-    minHeight: 50,
     marginTop: 2,
   },
-  exportArrow: { fontSize: 17, fontFamily: fonts.bold, marginTop: -1 },
-  exportBtnLabel: { fontSize: 15, fontFamily: fonts.semibold },
+  exportBtnLabel: { fontSize: 15, fontWeight: '600' },
   removeBtn: {
     width: 32,
     height: 32,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  // Scientific calculator: dark display (contract .calc-display, #0d1117)
+  // Scientific calculator: dark display
   disp: {
-    backgroundColor: '#0d1117',
-    borderRadius: radii.lg,
-    paddingHorizontal: 18,
-    paddingVertical: 16,
+    backgroundColor: '#0c1422',
+    borderRadius: 16,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
     gap: 6,
   },
   dispExpr: {
-    color: 'rgba(255,255,255,0.55)',
-    fontFamily: fonts.mono,
+    color: '#cfe0f0',
+    fontFamily: 'Courier',
     fontSize: 15,
     textAlign: 'right',
     minHeight: 20,
@@ -1468,37 +1417,41 @@ const styles = StyleSheet.create({
   },
   dispRes: {
     color: '#ffffff',
-    fontFamily: fonts.monoSemibold,
-    fontSize: 38,
-    lineHeight: 44,
+    fontSize: 34,
+    lineHeight: 42,
+    fontWeight: '700',
     textAlign: 'right',
-    letterSpacing: -0.7,
+    letterSpacing: -0.5,
   },
 
-  // RAD/DEG toggle + function strip (contract .fnstrip / .fnkey pills)
+  // Function strip
   stripRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  rdpill: { flexDirection: 'row', borderWidth: 1, borderRadius: radii.sm, overflow: 'hidden' },
+  rdpill: { flexDirection: 'row', borderWidth: 1, borderRadius: 10, overflow: 'hidden' },
   rdseg: { paddingHorizontal: 11, paddingVertical: 9 },
-  rdsegLabel: { fontSize: 12, fontFamily: fonts.bold },
-  fnstrip: { gap: 6, paddingRight: 4, alignItems: 'center' },
+  rdsegLabel: { fontSize: 12, fontWeight: '700' },
+  fnstrip: { gap: 7, paddingRight: 4, alignItems: 'center' },
   fnchip: {
-    borderWidth: 1,
-    borderRadius: radii.pill,
-    paddingHorizontal: 13,
+    backgroundColor: palette.skyDim,
+    borderRadius: 10,
+    paddingHorizontal: 12,
     paddingVertical: 9,
   },
-  fnchipLabel: { color: palette.sky, fontSize: 13, fontFamily: fonts.monoSemibold },
+  fnchipLabel: { color: palette.sky, fontSize: 14, fontWeight: '700', fontFamily: 'Courier' },
 
-  // Number pad (4-col, contract .keypad.calc keys radius md, mono)
+  // Number pad (4-col)
   padGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 9 },
   padKey: {
     width: '22.7%',
     height: 58,
-    borderRadius: radii.md,
+    borderRadius: 16,
     alignItems: 'center',
     justifyContent: 'center',
+    shadowColor: '#101828',
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    shadowOffset: { width: 0, height: 1 },
   },
   padKeySpan2: { width: '48.1%' },
-  padKeyLabel: { fontSize: 21, fontFamily: fonts.monoSemibold },
-  padKeyLabelSm: { fontSize: 15, fontFamily: fonts.bold },
+  padKeyLabel: { fontSize: 22, fontWeight: '600' },
+  padKeyLabelSm: { fontSize: 16, fontWeight: '700' },
 });

@@ -17,6 +17,16 @@
 import { ed25519 } from "@noble/curves/ed25519.js";
 import { bytesToHex, hexToBytes } from "@noble/hashes/utils.js";
 import { sha256 } from "@noble/hashes/sha2.js";
+import type { LabKeyEnvelope } from "./lab-key";
+
+/** Locally-persisted genesis artifacts for a lab whose relay publish has not
+ *  landed yet. record + envelope are fully JSON-safe and are exactly what a
+ *  blind relay receives; the labKey is NOT stored (re-derivable from envelope). */
+export interface PendingLabGenesis {
+  labId: string;
+  record: LabRecord;
+  envelope: LabKeyEnvelope;
+}
 
 /**
  * A lab participant, identified by username plus the public halves of their

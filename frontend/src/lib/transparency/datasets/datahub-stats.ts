@@ -80,6 +80,19 @@ export const LOGIT_Y = [
 ];
 
 /**
+ * A PERFECTLY SEPARABLE binary-outcome dataset for the Firth penalized-likelihood
+ * fallback. The outcome y flips cleanly from 0 to 1 at x = 5.5, so the predictor
+ * completely separates the classes and the ordinary maximum-likelihood estimate
+ * has no finite maximum (it diverges to infinity, the classic separation failure).
+ * The engine detects the non-convergence and falls back to Firth's penalized
+ * likelihood (Jeffreys prior), which keeps the estimate finite. The Python
+ * firthlogist package (a faithful port of R logistf) on these exact arrays
+ * produces the pinned intercept / slope / their SE / odds ratio below.
+ */
+export const FIRTH_X = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
+export const FIRTH_Y = [0, 0, 0, 0, 0, 1, 1, 1, 1, 1];
+
+/**
  * A multiple-regression dataset (D5). Two predictors x1, x2 and a response y, with
  * mild correlation between the predictors so the VIF is meaningful (about 3.5) but
  * not pathological. statsmodels.api.OLS on sm.add_constant([x1, x2]) produces the
@@ -522,6 +535,19 @@ export const STAT_PINS: StatPin[] = [
   // AUC is the rank-sum (Mann-Whitney) form on the fitted probabilities, computed
   // from scipy.stats.rankdata; it equals sklearn.metrics.roc_auc_score exactly.
   { id: "lr_auc", metric: "Logistic regression, ROC AUC of fitted probabilities", reference: 0.8438, oracleId: "scipy", tol: 1e-4, warn: 5e-4, unit: "AUC" },
+
+  // --- Firth penalized logistic regression on SEPARABLE data vs firthlogist ----
+  // On the perfectly separable FIRTH_X / FIRTH_Y dataset the plain MLE diverges
+  // (no finite maximum), so the engine falls back to Firth's penalized likelihood.
+  // The intercept, slope, their Wald SE (= sqrt(diag((X^T W X)^-1)) at the Firth
+  // estimate), and the odds ratio exp(b1) reproduce the Python firthlogist package
+  // (equivalent to R logistf) to several decimals. The penalized fit is a unique
+  // finite root reached by the same Newton numerics, so these pin tight.
+  { id: "firth_intercept", metric: "Firth logistic regression (separable data), intercept (b0)", reference: -5.338573, oracleId: "firthlogist", tol: 1e-3, warn: 5e-3, unit: "b0" },
+  { id: "firth_slope", metric: "Firth logistic regression (separable data), slope (b1)", reference: 0.970650, oracleId: "firthlogist", tol: 1e-3, warn: 5e-3, unit: "b1" },
+  { id: "firth_intercept_se", metric: "Firth logistic regression (separable data), intercept standard error", reference: 3.322712, oracleId: "firthlogist", tol: 1e-3, warn: 5e-3, unit: "SE" },
+  { id: "firth_slope_se", metric: "Firth logistic regression (separable data), slope standard error", reference: 0.576541, oracleId: "firthlogist", tol: 1e-3, warn: 5e-3, unit: "SE" },
+  { id: "firth_odds_ratio", metric: "Firth logistic regression (separable data), odds ratio exp(b1)", reference: 2.639659, oracleId: "firthlogist", tol: 1e-3, warn: 5e-3, unit: "OR" },
 
   // --- ROC curve + AUC (Theme 4) vs scikit-learn ------------------------------
   // The SAME binary-outcome dataset (LOGIT_X score, LOGIT_Y label) the logistic

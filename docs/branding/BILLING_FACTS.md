@@ -4,7 +4,7 @@ Canonical reference for anyone writing marketing, pricing, or FAQ copy about
 what ResearchOS charges for. Keep this current as billing changes, it is the
 single source the branding work pulls from.
 
-Last updated 2026-06-10 (added the solidarity model, larger institutions sustain the free tiers).
+Last updated 2026-06-14 (added the BeakerBot AI meter with real spend-test numbers, locked rates; documented the operator price-modeling tool and locked the assumptions as deliberate research, see "Where the numbers live" at the bottom).
 
 House voice applies to everything written from this file: no em-dashes, no
 emojis, no mid-sentence colons, always state the why, no AI-speak.
@@ -56,6 +56,36 @@ placeholder for Grant to set before launch.
   keeps hitting it, the PI raises the lab plan.
 - Frame this as "your editing is never metered." That is the LabArchives
   trust-flip, their model nickel-and-dimes, ours does not.
+
+## BeakerBot AI (the second meter, get the numbers right)
+
+The optional AI assistant is the ONE thing metered on use, because each task calls
+a hosted model that costs real money. Local search is free forever; only BeakerBot
+is metered. Numbers locked 2026-06-14 from a real spend test, not a guess.
+
+- **Present the balance in tokens, never dollars** (Grant 2026-06-11). A token is a
+  small chunk of text. Always pair the balance with a plain-value hint and a
+  "depends on the size of the question" hedge.
+- **What tasks really cost (measured):** a quick question is about 50,000 tokens, a
+  full task that reads across your work is about 110,000. They run big because the
+  AI resends its instructions on every step, so input is about 99 percent of the
+  cost. Near our cost a full task is about two cents of compute.
+- **The free trial:** every new account gets a one-time sign-up gift of about
+  **1.6 million tokens**, no card needed. That is roughly 15 full tasks or 30-plus
+  quick questions. It is a ONE-TIME trial, NOT a recurring monthly allowance (a
+  recurring free pool would be an unbounded liability). Say "we give you 25 cents of
+  free AI" if a dollar figure is needed, that is its real cost to us.
+- **After the trial, prepaid top-ups** of $10 / $25 / $50, each metered near our
+  cost plus a thin buffer for processing (Stripe and the proxy, not profit). A $10
+  top-up is about 300 full tasks, $25 about 800, $50 about 1,600. No subscription,
+  you pay only for what you use, and you always see your balance and the last task's
+  cost.
+- **Departments and institutions pay a sustaining rate** on metered AI (about 40
+  percent more per unit than an individual), the same solidarity logic as storage,
+  and that surplus keeps the individual trial free. A lab, department, or
+  institution can fund a shared AI pool so its members never enter a card.
+- The token amounts derive from one constant in `frontend/src/lib/billing/
+  ai-config.ts`; if pricing changes, update that file AND this section together.
 
 ## Labs (get this exact)
 
@@ -153,3 +183,21 @@ placeholder for Grant to set before launch.
   now.
 - Do not promise "free forever" for cloud storage. The LOCAL notebook is free
   forever. Cloud storage is the optional paid part.
+
+## Where the numbers live (do not override)
+
+- Every tunable price/cost number has ONE home, `frontend/src/lib/pricing/assumptions.ts`
+  (storage cost split, activity cost per million writes, Stripe fees, the
+  per-active-lab sustaining rate, free pools, competitor list prices). The public
+  `/pricing` page and the operator price-modeling tool both derive from it, so the
+  math stays honest, change a number there and everything moves with it.
+- The **operator price-modeling tool** (internal only, `/admin` -> Modeling section)
+  is where Grant tunes the economics. It reads `assumptions.ts` + `plans.ts` LIVE
+  (never a frozen copy) and has two modes, Simulation (illustrative what-if) and
+  Actuals (seeds the customer counts from the real operator metrics). It exposes raw
+  cost economics, so it is operator-gated and never shown on a public surface.
+- The BeakerBot AI-meter rates are LOCKED from a real spend test (see the AI section
+  above). Treat the values in `assumptions.ts`, `plans.ts`, and the AI rates as
+  DELIBERATE RESEARCH DECISIONS. Do NOT overwrite, round, "simplify", or revert any
+  of them without Grant's explicit say-so. To change pricing, edit `assumptions.ts`
+  (and this file), never hardcode a price anywhere else.

@@ -23,6 +23,7 @@ import { useEffect, useMemo, useState } from "react";
 import Tooltip from "@/components/Tooltip";
 import { buildPlotSpec, type PlotKind } from "@/lib/datahub/plot-spec";
 import type { DatasetSidecar, SavedDatasetPlot } from "@/lib/datahub/bigtable/types";
+import { labelColumnNames } from "@/lib/datahub/bigtable/label-columns";
 import type { OpenDatasetHandle } from "@/lib/datahub/bigtable/dataset-view";
 import {
   renderDatasetPlot,
@@ -97,7 +98,7 @@ export default function DatasetPlotDialog({
   // by treatment, not by run_date). Used only by the split picker; the grouped-bar
   // cluster / bar pickers keep the full categorical set.
   const labelNames = useMemo(
-    () => sidecar.schema.filter((c) => c.type === "text").map((c) => c.name),
+    () => labelColumnNames(sidecar.schema),
     [sidecar.schema],
   );
   const offered = useMemo(

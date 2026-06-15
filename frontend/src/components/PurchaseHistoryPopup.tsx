@@ -19,9 +19,10 @@
  */
 
 import { useCallback, useMemo, useRef, useState } from "react";
-import LivingPopup from "@/components/ui/LivingPopup";
+import CalmPopupShell from "@/components/ui/CalmPopupShell";
 import EntityVersionHistorySidebar, {
   type VersionPreview,
+  type VersionHistorySource,
 } from "@/components/history/EntityVersionHistorySidebar";
 import VersionDiffView from "@/components/history/VersionDiffView";
 import type { OpenOrigin } from "@/lib/ui/create-popup-store";
@@ -47,6 +48,13 @@ export interface PurchaseHistoryPopupProps {
   currentUser?: string;
   /** Called after a successful restore so the editor can refresh its list. */
   onRestored?: () => void;
+  /**
+   * Dev/review only: inject a pre-seeded history engine (the `/dev/popup-chrome`
+   * gallery passes a fixture engine so the popup renders with a populated version
+   * list + real diffs instead of the no-folder empty state). Omitted in the real
+   * app, where the Loro engine is built from the on-disk sidecar below.
+   */
+  engineOverride?: VersionHistorySource;
 }
 
 export default function PurchaseHistoryPopup({
@@ -58,6 +66,7 @@ export default function PurchaseHistoryPopup({
   canRestore,
   currentUser,
   onRestored,
+  engineOverride,
 }: PurchaseHistoryPopupProps) {
   const [preview, setPreview] = useState<VersionPreview | null>(null);
   const busyRef = useRef(false);
@@ -65,8 +74,8 @@ export default function PurchaseHistoryPopup({
   // One engine instance per (owner, itemId). The sidebar captures it in a stable
   // ref, so a new object on re-render is harmless, but memoizing keeps it clean.
   const engine = useMemo(
-    () => makeLoroPurchaseHistoryEngine(owner, itemId),
-    [owner, itemId],
+    () => engineOverride ?? makeLoroPurchaseHistoryEngine(owner, itemId),
+    [engineOverride, owner, itemId],
   );
 
   const handleClose = useCallback(() => {
@@ -97,19 +106,49 @@ export default function PurchaseHistoryPopup({
   );
 
   return (
-    <LivingPopup
+    // Unified Popup Chrome (UNIFIED_POPUP_CHROME_SPEC.md §4): the read-style
+    // history surface adopts the shared shell so its frame matches every other
+    // popup (transparent header, one meta line, ⤢ + ✕, ambient footer). It is a
+    // single-view object, so no tab row. The Restore affordance lives inside the
+    // generic EntityVersionHistorySidebar (keyed to its own selection state and
+    // shared across every entity type, so it is NOT lifted out here); the footer
+    // carries the always-reachable Close exit.
+    <CalmPopupShell
       open={open}
       onClose={handleClose}
       origin={origin}
       label="Purchase item history"
-      widthClassName="max-w-5xl"
-      blur
-      fillHeight
-      showClose
+      title="Purchase item history"
+      dockedWidthClassName="max-w-5xl"
+      footer={{ doneLabel: "Close", onDone: handleClose }}
+      // The history panel's top-edge shadow must cast UP into the header gap, but
+      // the scroll body clips overflow above the panel, so it can't live on the
+      // panel. Render it here in the always-visible header/body gap instead. This
+      // zero-height row mirrors the body layout (flex-1 diff column + w-80 panel)
+      // so the glow auto-aligns over the panel's top edge without hardcoding a
+      // width. See `.ros-history-topglow` in globals.css.
+      beforeBody={
+        <div className="flex h-0" aria-hidden>
+          <div className="flex-1 min-w-0" />
+          <div className="w-80 flex-shrink-0 relative">
+            <div className="ros-history-topglow" />
+          </div>
+        </div>
+      }
+      // Mirror of beforeBody: the panel's bottom-edge glow, cast down into the
+      // footer gap. Same zero-height layout mirror so it aligns over the panel.
+      afterBody={
+        <div className="flex h-0" aria-hidden>
+          <div className="flex-1 min-w-0" />
+          <div className="w-80 flex-shrink-0 relative">
+            <div className="ros-history-botglow" />
+          </div>
+        </div>
+      }
     >
       <div className="flex h-full min-h-0" data-testid="purchase-history-popup">
         {/* In-place read-only diff column. */}
-        <div className="flex-1 min-w-0 overflow-y-auto">
+        <div className="ros-thin-scroll flex-1 min-w-0 overflow-y-auto">
           {preview ? (
             <div className="p-6" data-testid="purchase-history-diff-column">
               <VersionDiffView
@@ -129,7 +168,9 @@ export default function PurchaseHistoryPopup({
         {/* The generic version-history sidebar, driven by the purchase engine +
             adapter. We pass NO headCanonical: the Loro engine reconstructs via
             doc.checkout() and never consults it (genesis is the seed commit, not
-            a bare anchor). */}
+            a bare anchor). It owns its own sticky Restore footer (gated by
+            canRestore + onRestore), kept here so its selection-keyed restore is
+            preserved exactly. */}
         <EntityVersionHistorySidebar
           entityType="purchase_items"
           id={itemId}
@@ -140,8 +181,9 @@ export default function PurchaseHistoryPopup({
           onPreviewChange={setPreview}
           canRestore={canRestore}
           onRestore={handleRestore}
+          embedded
         />
       </div>
-    </LivingPopup>
+    </CalmPopupShell>
   );
 }

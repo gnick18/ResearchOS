@@ -25,7 +25,7 @@
 // House style, Icon only, brand + semantic tokens, no emojis / em-dashes /
 // mid-sentence colons.
 
-import { useEffect, useRef, useState, useCallback } from "react";
+import { useEffect, useRef, useState, useCallback, lazy, Suspense } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { Icon } from "@/components/icons";
@@ -34,6 +34,7 @@ import { useAiChat } from "./useAiChat";
 import { BEAKERBOT_VISION_ENABLED } from "@/lib/ai/config";
 import { useVoiceInput, appendTranscript } from "@/lib/ai/useVoiceInput";
 import BeakerBotThinking from "./BeakerBotThinking";
+import { PdfFigurePicker } from "./PdfFigurePicker";
 import { RunningStatusLine, SettledStatusLine } from "./TurnStatusLine";
 import ObjectChip from "@/components/ObjectChip";
 import ObjectEmbed from "@/components/embeds/ObjectEmbed";
@@ -41,7 +42,15 @@ import ComposerMentionPicker, {
   entryToRef,
 } from "./ComposerMentionPicker";
 import type { GlobalIndexEntry } from "@/components/beaker-search/global-index";
-import ComposerSlashMenu from "./ComposerSlashMenu";
+import ComposerSlashMenu, { type MacroMenuItem } from "./ComposerSlashMenu";
+import MacroEditorSheet from "./MacroEditorSheet";
+import BeakerBotPlanCard from "./BeakerBotPlanCard";
+import { useMacroUiStore } from "@/lib/ai/macro-ui-store";
+import {
+  listMacros,
+  type StoredMacro,
+  type MacroStep,
+} from "@/lib/ai/beaker-macros-store";
 import {
   parseSlashQuery,
   filterSlashCommands,
@@ -57,6 +66,10 @@ import type {
 import type { IconName } from "@/components/icons";
 import type { AttachedRef } from "@/lib/ai/conversation-store";
 import BeakerBotCanvas from "./BeakerBotCanvas";
+// The inline record-set browser is lazy so the master-detail UI (and the embed
+// renderers it pulls in) never bloats the chat bundle until a turn actually
+// resolves a record set.
+const RecordSetWidget = lazy(() => import("./RecordSetWidget"));
 import { useCanvasStore } from "@/lib/ai/canvas-store";
 
 // Lightweight markdown renderer for assistant replies only. Scoped to this
@@ -79,7 +92,9 @@ import { useCanvasStore } from "@/lib/ai/canvas-store";
 //   External links still open in a new tab with rel=noopener.
 export function AssistantMarkdown({ content }: { content: string }) {
   return (
-    <div className="prose prose-sm max-w-none text-foreground [&_a]:text-brand [&_a]:underline [&_code]:rounded [&_code]:bg-surface-overlay [&_code]:px-1 [&_code]:py-0.5 [&_code]:text-xs [&_li]:my-0.5 [&_ol]:my-1 [&_ol]:list-decimal [&_ol]:pl-4 [&_p]:my-1 [&_pre]:overflow-x-auto [&_pre]:rounded [&_pre]:bg-surface-overlay [&_pre]:p-2 [&_strong]:font-semibold [&_ul]:my-1 [&_ul]:list-disc [&_ul]:pl-4">
+    <div
+      style={{ fontFamily: "var(--font-ai)" }}
+      className="prose prose-sm max-w-none text-foreground [&_a]:text-brand [&_a]:underline [&_code]:rounded [&_code]:bg-surface-overlay [&_code]:px-1 [&_code]:py-0.5 [&_code]:text-xs [&_li]:my-0.5 [&_ol]:my-1 [&_ol]:list-decimal [&_ol]:pl-4 [&_p]:my-1 [&_pre]:overflow-x-auto [&_pre]:rounded [&_pre]:bg-surface-overlay [&_pre]:p-2 [&_strong]:font-semibold [&_ul]:my-1 [&_ul]:list-disc [&_ul]:pl-4">
       <ReactMarkdown
         remarkPlugins={[remarkGfm]}
         components={{
@@ -625,6 +640,7 @@ const REF_TYPE_ICON: Record<AttachedRef["type"], IconName> = {
   datahub: "chart",
   molecule: "vial",
   purchase: "receipt",
+  phylo: "tree",
 };
 
 // Per-type chip tint. The mockup locked colored @ mention chips, one quiet tint
@@ -673,6 +689,10 @@ const REF_TYPE_TINT: Record<AttachedRef["type"], RefChipTint> = {
   purchase: {
     chip: "border-rose-300 bg-rose-50 text-rose-700 dark:border-rose-700 dark:bg-rose-500/15 dark:text-rose-300",
     x: "text-rose-500 hover:text-rose-700 dark:text-rose-400 dark:hover:text-rose-200",
+  },
+  phylo: {
+    chip: "border-green-300 bg-green-50 text-green-700 dark:border-green-700 dark:bg-green-500/15 dark:text-green-300",
+    x: "text-green-500 hover:text-green-700 dark:text-green-400 dark:hover:text-green-200",
   },
 };
 
@@ -723,6 +743,11 @@ export default function BeakerBotConversation({
     attachedRefs,
     addAttachedRef,
     removeAttachedRef,
+    runStoredMacro,
+    captureMacroDraftFromLastRun,
+    activePlan,
+    resumePlan,
+    dismissPlan,
   } = useAiChat();
   const [draft, setDraft] = useState("");
   const listRef = useRef<HTMLDivElement | null>(null);
@@ -768,6 +793,13 @@ export default function BeakerBotConversation({
   // Distinct from the store's attachedPaper so the "Extracting" chip state
   // does not bleed into the global reactive state.
   const [pdfExtracting, setPdfExtracting] = useState(false);
+  // The raw PDF File kept in-memory so the figure picker can render its pages on
+  // demand (pdf-extract keeps only text; pdf-render needs the bytes). Held in a
+  // ref, not the store, since it is only needed within this composer session.
+  const pdfFileRef = useRef<File | null>(null);
+  // figurePickerOpen: when true the PdfFigurePicker modal is mounted so the user
+  // can pick + crop a figure from the attached paper to stage for a style match.
+  const [figurePickerOpen, setFigurePickerOpen] = useState(false);
 
   // copiedId: the id of the message that most recently had its text copied. A
   // brief "Copied" label replaces the Copy button label while this is set.
@@ -802,12 +834,62 @@ export default function BeakerBotConversation({
   const slashCommands: SlashCommand[] =
     slashQuery !== null ? filterSlashCommands(slashQuery) : [];
 
+  // The user's saved workflow macros, shown in the / menu below the curated
+  // commands. Loaded from disk when the menu opens so a just-created macro shows
+  // without a reload. Empty (and the group hidden) when none exist or no folder
+  // is connected (listMacros returns [] safely).
+  const [macros, setMacros] = useState<StoredMacro[]>([]);
+  // The steps the last run would capture, drives the "Save as macro" affordance.
+  const [macroDraftSteps, setMacroDraftSteps] = useState<MacroStep[]>([]);
+  // Shared macro UI store, the editor target (this component renders the sheet)
+  // and the revision counter so the / list re-fetches after any macro write from
+  // here OR the chat rail manager.
+  const macroEditorTarget = useMacroUiStore((s) => s.editorTarget);
+  const openMacroEditor = useMacroUiStore((s) => s.openEditor);
+  const closeMacroEditor = useMacroUiStore((s) => s.closeEditor);
+  const notifyMacrosChanged = useMacroUiStore((s) => s.notifyMacrosChanged);
+  const macroRevision = useMacroUiStore((s) => s.revision);
+  const slashActive = slashQuery !== null;
+  useEffect(() => {
+    if (!slashActive) return;
+    let live = true;
+    void listMacros().then((all) => {
+      if (live) setMacros(all);
+    });
+    return () => {
+      live = false;
+    };
+  }, [slashActive, macroRevision]);
+
+  // Filter macros by the / query, prefix-first then substring on the name, the
+  // same ranking the curated commands use.
+  const filteredMacros: MacroMenuItem[] = (() => {
+    if (slashQuery === null) return [];
+    const q = slashQuery.trim().toLowerCase();
+    const items = macros.map((m) => ({
+      id: m.id,
+      name: m.name,
+      description: m.description,
+    }));
+    if (!q) return items;
+    const prefix = items.filter((m) => m.name.toLowerCase().startsWith(q));
+    const substring = items.filter(
+      (m) => !m.name.toLowerCase().startsWith(q) && m.name.toLowerCase().includes(q),
+    );
+    return [...prefix, ...substring];
+  })();
+
   // The container mounts whenever an "@" mention is being typed; it owns the
   // index hook and reports results up. pickerOpen (keyboard-active) additionally
   // requires at least one result row to be showing.
   const pickerMounted = atQuery !== null;
   const pickerOpen = pickerMounted && mentionResults.length > 0;
-  const slashOpen = slashQuery !== null && slashCommands.length > 0;
+  const slashOpen =
+    slashQuery !== null &&
+    (slashCommands.length > 0 || filteredMacros.length > 0);
+  // The number of rows the keyboard navigates in the slash menu, commands then
+  // macros, so one arrow path moves through both groups.
+  const slashRowCount = slashCommands.length + filteredMacros.length;
 
   // When the @ mention is dismissed, drop any stale results so a reopened picker
   // does not flash the previous query's rows before the hook recomputes.
@@ -900,6 +982,19 @@ export default function BeakerBotConversation({
     [closeOverlays],
   );
 
+  // Pick a macro from the / menu. Unlike a curated command it does NOT pre-fill
+  // prose, the steps are already fixed, so it clears the draft and stages the run
+  // (runStoredMacro raises the one Run-card approval and replays the steps).
+  const handleMacroSelect = useCallback(
+    (item: MacroMenuItem) => {
+      const macro = macros.find((m) => m.id === item.id);
+      closeOverlays();
+      setDraft("");
+      if (macro) void runStoredMacro(macro);
+    },
+    [macros, closeOverlays, runStoredMacro],
+  );
+
   // Bridge registration (useNavigationBridge + useBeakerBotMessageBridge) moved
   // to BeakerBotBridges (mounted once in app/layout.tsx). This component is now
   // bridge-free so it can render in multiple surfaces without double-registering.
@@ -977,6 +1072,8 @@ export default function BeakerBotConversation({
       setPdfExtracting(true);
       // Clear any previously attached paper so the chip starts fresh.
       clearAttachedPaper();
+      // Keep the bytes so the figure picker can render pages later.
+      pdfFileRef.current = file;
       try {
         const { extractPdfText } = await import("@/lib/ai/pdf-extract");
         const result = await extractPdfText(file);
@@ -994,6 +1091,36 @@ export default function BeakerBotConversation({
       }
     },
     [clearAttachedPaper, setAttachedPaper],
+  );
+
+  // Remove the attached paper and the figure picker tied to it.
+  const handleRemovePaper = useCallback(() => {
+    clearAttachedPaper();
+    pdfFileRef.current = null;
+    setFigurePickerOpen(false);
+  }, [clearAttachedPaper]);
+
+  // Unified composer drop: a dropped PDF is attached as a paper (works even with
+  // vision off, since Outputs 1-3 are text-only); dropped images stage as vision
+  // input when vision is on. A mixed drop takes the first PDF, then images.
+  const handleComposerDrop = useCallback(
+    (e: React.DragEvent) => {
+      e.preventDefault();
+      setIsDragOver(false);
+      const files = Array.from(e.dataTransfer.files);
+      if (files.length === 0) return;
+      const pdf = files.find(
+        (f) => f.type.includes("pdf") || f.name.toLowerCase().endsWith(".pdf"),
+      );
+      if (pdf) {
+        void handlePdfFile(pdf);
+        return;
+      }
+      if (BEAKERBOT_VISION_ENABLED) {
+        void processImageFiles(e.dataTransfer.files);
+      }
+    },
+    [handlePdfFile, processImageFiles],
   );
 
   // Keep the newest message in view as the answer reveals.
@@ -1087,6 +1214,17 @@ export default function BeakerBotConversation({
         })()
       : null;
 
+  // After a run settles, compute whether it captured any meaningful steps, so the
+  // "Save as macro" affordance shows only on a run worth saving. Cheap history
+  // parse, recomputed when the last reply or the sending state changes.
+  useEffect(() => {
+    if (sending || !lastAssistantId) {
+      setMacroDraftSteps([]);
+      return;
+    }
+    setMacroDraftSteps(captureMacroDraftFromLastRun());
+  }, [sending, lastAssistantId, captureMacroDraftFromLastRun]);
+
   // When a Canvas draft panel is docked open, the chat column narrows to make
   // room for it (the mockup's split-win, chat + Canvas). When collapsed, the
   // chat occupies the full surface as before.
@@ -1157,6 +1295,18 @@ export default function BeakerBotConversation({
               >
                 <div
                   data-testid={`beakerbot-message-${m.role}`}
+                  // Beaker speaks Hanken (--font-ai, set at the panel root); the USER
+                  // speaks the app font. A user bubble is the user's own words, so it
+                  // drops back to the app body chain. Use the FULL chain (not bare
+                  // var(--font-sans), which resolves to an unloaded Geist var and so
+                  // falls back to the inherited Hanken) so the user voice is visibly
+                  // non-Hanken whether or not Geist is loaded. Assistant bubbles inherit
+                  // Hanken untouched.
+                  style={
+                    m.role === "user"
+                      ? { fontFamily: "var(--font-geist-sans), system-ui, -apple-system, sans-serif" }
+                      : undefined
+                  }
                   className={
                     m.role === "user"
                       ? "self-end max-w-[85%] rounded-lg bg-brand px-3 py-2 text-body text-white"
@@ -1204,6 +1354,20 @@ export default function BeakerBotConversation({
                   )}
                 </div>
 
+                {/* Inline record-set browsers. Rendered below an assistant reply
+                    when a record-returning tool resolved a set this turn. Each is a
+                    searchable master-detail browser of the full match set. Lazy so
+                    the heavy UI never loads until a set is present. */}
+                {m.role === "assistant" && m.recordSets && m.recordSets.length > 0 ? (
+                  <Suspense fallback={null}>
+                    <div className="flex w-full flex-col gap-2 self-start">
+                      {m.recordSets.map((s, i) => (
+                        <RecordSetWidget key={`${s.kind}-${i}`} set={s} />
+                      ))}
+                    </div>
+                  </Suspense>
+                ) : null}
+
                 {/* Per-message action row. Appears on hover (group-hover) for any
                     settled message. User messages: Copy + Revert-to-here (danger
                     tone). Assistant messages: Copy + Regenerate (last only). The
@@ -1242,6 +1406,32 @@ export default function BeakerBotConversation({
                         >
                           <Icon name="refresh" className="h-3 w-3" title="Regenerate" />
                           Regenerate
+                        </button>
+                      </Tooltip>
+                    ) : null}
+
+                    {/* Save as macro (last assistant reply, only when the run
+                        captured meaningful steps). Opens the editor pre-filled. */}
+                    {isSettledAssistant &&
+                    canRegenerate &&
+                    !sending &&
+                    macroDraftSteps.length > 0 ? (
+                      <Tooltip label="Save these steps as a reusable macro" placement="bottom">
+                        <button
+                          type="button"
+                          data-testid="beakerbot-save-macro"
+                          aria-label="Save as macro"
+                          onClick={() =>
+                            openMacroEditor({
+                              name: "",
+                              description: "",
+                              steps: macroDraftSteps,
+                            })
+                          }
+                          className="flex items-center gap-1 rounded px-1.5 py-0.5 text-[11px] text-purple-600 transition-colors hover:bg-purple-500/10 dark:text-purple-300"
+                        >
+                          <Icon name="bolt" className="h-3 w-3" title="Save as macro" />
+                          Save as macro
                         </button>
                       </Tooltip>
                     ) : null}
@@ -1507,6 +1697,19 @@ export default function BeakerBotConversation({
         </div>
       ) : null}
 
+      {/* Live plan card (resumable plan card). Shows while a per-step plan runs
+          (ticking each step) and when it pauses (offering Resume from the stopped
+          step). Hidden once the plan is done. */}
+      {activePlan && activePlan.status !== "done" ? (
+        <BeakerBotPlanCard
+          plan={activePlan}
+          onResume={() => {
+            void resumePlan();
+          }}
+          onDismiss={dismissPlan}
+        />
+      ) : null}
+
       {/* Running status line: elapsed time, token count, running-tool count, and
           a phase word. Appears while a turn is in flight, above the composer.
           The Stop button lives in the composer row below, not in this line.
@@ -1524,28 +1727,12 @@ export default function BeakerBotConversation({
       {/* Composer */}
       <div
         className={sending ? "border-t-0 border-border p-3" : "border-t border-border p-3"}
-        onDragOver={
-          BEAKERBOT_VISION_ENABLED
-            ? (e) => {
-                e.preventDefault();
-                setIsDragOver(true);
-              }
-            : undefined
-        }
-        onDragLeave={
-          BEAKERBOT_VISION_ENABLED ? () => setIsDragOver(false) : undefined
-        }
-        onDrop={
-          BEAKERBOT_VISION_ENABLED
-            ? (e) => {
-                e.preventDefault();
-                setIsDragOver(false);
-                if (e.dataTransfer.files.length > 0) {
-                  void processImageFiles(e.dataTransfer.files);
-                }
-              }
-            : undefined
-        }
+        onDragOver={(e) => {
+          e.preventDefault();
+          setIsDragOver(true);
+        }}
+        onDragLeave={() => setIsDragOver(false)}
+        onDrop={handleComposerDrop}
       >
         {/* PDF chip. Shows when a paper is being extracted (extracting state)
             or has been extracted and is staged (ready state). The chip resets
@@ -1577,6 +1764,23 @@ export default function BeakerBotConversation({
                 </p>
               )}
             </div>
+            {/* Pick-a-figure button. Renders the paper's pages so the user can
+                crop a figure to match its style onto their own tree (Output 4).
+                Vision-gated, since the cropped figure is a vision input. */}
+            {BEAKERBOT_VISION_ENABLED && attachedPaper && !pdfExtracting && pdfFileRef.current ? (
+              <Tooltip label="Pick a figure to match its style" placement="top">
+                <button
+                  type="button"
+                  data-testid="beakerbot-pick-figure"
+                  aria-label="Pick a figure from this paper"
+                  onClick={() => setFigurePickerOpen(true)}
+                  className="flex-none inline-flex items-center gap-1 rounded-md border border-brand/40 px-1.5 py-1 text-[11px] font-medium text-brand hover:bg-brand/10"
+                >
+                  <Icon name="figure" className="h-3.5 w-3.5" title="Pick figure" />
+                  Pick figure
+                </button>
+              </Tooltip>
+            ) : null}
             {/* Remove button (only when ready, not while extracting) */}
             {attachedPaper && !pdfExtracting ? (
               <Tooltip label="Remove paper" placement="top">
@@ -1584,7 +1788,7 @@ export default function BeakerBotConversation({
                   type="button"
                   data-testid="beakerbot-remove-pdf"
                   aria-label="Remove attached paper"
-                  onClick={clearAttachedPaper}
+                  onClick={handleRemovePaper}
                   className="flex-none text-foreground-muted hover:text-foreground"
                 >
                   <Icon name="close" className="h-3.5 w-3.5" title="Remove" />
@@ -1592,6 +1796,18 @@ export default function BeakerBotConversation({
               </Tooltip>
             ) : null}
           </div>
+        ) : null}
+
+        {/* Figure picker modal. Mounted only while open; renders the attached
+            paper's pages, lets the user crop a figure, and stages the cropped
+            image into pendingImages (the vision path) for a style match. */}
+        {figurePickerOpen && pdfFileRef.current ? (
+          <PdfFigurePicker
+            source={pdfFileRef.current}
+            pdfName={attachedPaper?.name ?? "Paper"}
+            onPick={(dataUrl) => addPendingImage(dataUrl)}
+            onClose={() => setFigurePickerOpen(false)}
+          />
         ) : null}
 
         {/* Pending-image thumbnail strip. Only rendered when images are staged
@@ -1705,8 +1921,10 @@ export default function BeakerBotConversation({
             {slashOpen ? (
               <ComposerSlashMenu
                 commands={slashCommands}
+                macros={filteredMacros}
                 activeIndex={activeIndex}
                 onSelect={handleSlashSelect}
+                onSelectMacro={handleMacroSelect}
               />
             ) : null}
 
@@ -1778,7 +1996,7 @@ export default function BeakerBotConversation({
                 const overlayOpen = pickerOpen || slashOpen;
                 const count = pickerOpen
                   ? mentionResults.length
-                  : slashCommands.length;
+                  : slashRowCount;
                 if (overlayOpen) {
                   if (e.key === "ArrowDown") {
                     e.preventDefault();
@@ -1799,8 +2017,12 @@ export default function BeakerBotConversation({
                     e.preventDefault();
                     if (pickerOpen) {
                       handleMentionSelect(entryToRef(mentionResults[activeIndex]));
-                    } else {
+                    } else if (activeIndex < slashCommands.length) {
                       handleSlashSelect(slashCommands[activeIndex]);
+                    } else {
+                      handleMacroSelect(
+                        filteredMacros[activeIndex - slashCommands.length],
+                      );
                     }
                     return;
                   }
@@ -1826,6 +2048,15 @@ export default function BeakerBotConversation({
               }}
               onPaste={BEAKERBOT_VISION_ENABLED ? handlePaste : undefined}
               placeholder="Message BeakerBot, or @ to attach, / for a command"
+              // The panel root reads in Beaker's signature typeface (--font-ai,
+              // Hanken) because that font is BEAKER'S voice. The composer is where
+              // the USER writes, not Beaker, so it drops to the app body font chain.
+              // Use the FULL chain (bare var(--font-sans) resolves to an unloaded
+              // Geist var and falls back to the inherited Hanken); this keeps the
+              // composer visibly non-Hanken whether or not Geist is loaded. Inline so
+              // it overrides the inherited inline --font-ai; covers the typed text and
+              // the placeholder.
+              style={{ fontFamily: "var(--font-geist-sans), system-ui, -apple-system, sans-serif" }}
               className="min-h-0 w-full resize-none rounded-md border border-border bg-surface-raised px-3 py-2 text-body text-foreground placeholder:text-foreground-muted focus:outline-none focus:ring-2 focus:ring-brand"
             />
           </div>
@@ -1935,6 +2166,20 @@ export default function BeakerBotConversation({
           the Canvas store), so it sits to the right of the chat column whenever
           canvasDocked is true. */}
       {canvasDocked ? <BeakerBotCanvas /> : null}
+
+      {/* Macro editor sheet, opened from "Save as macro" here or New / Edit in the
+          chat rail (shared via the macro UI store). Scoped to this panel (the root
+          is relative). */}
+      {macroEditorTarget !== null ? (
+        <MacroEditorSheet
+          macroId={macroEditorTarget.macroId}
+          initialName={macroEditorTarget.name}
+          initialDescription={macroEditorTarget.description}
+          initialSteps={macroEditorTarget.steps}
+          onClose={closeMacroEditor}
+          onSaved={notifyMacrosChanged}
+        />
+      ) : null}
     </div>
   );
 }

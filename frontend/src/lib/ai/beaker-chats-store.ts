@@ -18,7 +18,7 @@
 
 import { JsonStore } from "@/lib/storage/json-store";
 import type { LoopMessage } from "@/lib/ai/agent-loop";
-import type { ChatMessage } from "@/lib/ai/conversation-store";
+import type { ChatMessage, ActivePlan } from "@/lib/ai/conversation-store";
 
 // A single persisted BeakerBot conversation. `messages` is the reactive display
 // transcript (user + assistant text turns) that the panel renders. `history` is
@@ -32,6 +32,10 @@ export type StoredBeakerChat = {
   archived: boolean;
   messages: ChatMessage[];
   history: LoopMessage[];
+  // A paused per-step plan, persisted so it survives a reload and can be resumed
+  // (resumable plan card). Absent/null when no plan is paused. Only the paused
+  // state is worth persisting; a running plan is in-flight and a done plan is gone.
+  activePlan?: ActivePlan | null;
 };
 
 // The on-disk entity name. Files land at users/<u>/beakerbot_chats/<id>.json.
@@ -78,7 +82,12 @@ export async function createChat(input: {
 // Resilient, returns the saved record or null on failure.
 export async function saveChat(
   id: number,
-  patch: { messages: ChatMessage[]; history: LoopMessage[]; title?: string },
+  patch: {
+    messages: ChatMessage[];
+    history: LoopMessage[];
+    title?: string;
+    activePlan?: ActivePlan | null;
+  },
 ): Promise<StoredBeakerChat | null> {
   try {
     const update: Partial<StoredBeakerChat> = {
@@ -87,6 +96,8 @@ export async function saveChat(
       updatedAt: new Date().toISOString(),
     };
     if (patch.title !== undefined) update.title = patch.title;
+    // Persist the paused plan (or clear it) whenever the caller passes the field.
+    if (patch.activePlan !== undefined) update.activePlan = patch.activePlan;
     return await store.update(id, update);
   } catch (err) {
     console.warn("[beaker-chats-store] saveChat failed", err);

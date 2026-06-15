@@ -60,11 +60,19 @@ const OBJECT_ROUTES: Record<ObjectRefType, RouteShape> = {
       return col && col.length > 0 ? col : null;
     },
   },
-  // Reserved for later surfaces. The chip renderer handles all types from the
-  // start; each surface wires its own resolver when it is built.
+  // The methods page is a single list route (/methods); it opens a specific
+  // method's detail panel via the ?openMethod=<id> deep link (methods/page.tsx
+  // reads it), NOT a per-id segment route. The old /methods/<id> build produced a
+  // 404 dead link (no such route exists), which closed the palette and lost the
+  // BeakerBot conversation when a method chip was clicked. This is the query-param
+  // form like sequence/molecule/datahub, matched before the bare-path routes.
   method: {
-    build: (id) => `/methods/${encodeURIComponent(id)}`,
-    match: (pathname) => idFromSegmentRoute(pathname, "/methods/"),
+    build: (id) => `/methods?openMethod=${encodeURIComponent(id)}`,
+    match: (pathname, params) => {
+      if (pathname !== "/methods") return null;
+      const m = params.get("openMethod");
+      return m && m.length > 0 ? m : null;
+    },
   },
   note: {
     build: (id) => `/notes/${encodeURIComponent(id)}`,
@@ -74,9 +82,15 @@ const OBJECT_ROUTES: Record<ObjectRefType, RouteShape> = {
     build: (id) => `/files/${encodeURIComponent(id)}`,
     match: (pathname) => idFromSegmentRoute(pathname, "/files/"),
   },
+  // A project opens at /workbench/projects/<id> (projects/[id]/page.tsx), which
+  // renders the Workbench Projects view and AUTO-OPENS the project detail popup
+  // for that id. The old bare /projects/<id> build produced a 404 dead link (no
+  // such route exists), the same class of bug as the method ?openMethod fix: a
+  // chip click navigated to a 404 and lost the BeakerBot conversation. The real
+  // route lives under /workbench, not at the app root.
   project: {
-    build: (id) => `/projects/${encodeURIComponent(id)}`,
-    match: (pathname) => idFromSegmentRoute(pathname, "/projects/"),
+    build: (id) => `/workbench/projects/${encodeURIComponent(id)}`,
+    match: (pathname) => idFromSegmentRoute(pathname, "/workbench/projects/"),
   },
   // The chemistry workbench opens a molecule via a query param (the editor is a
   // popup over the hub, not its own route), so this is a query-param route like

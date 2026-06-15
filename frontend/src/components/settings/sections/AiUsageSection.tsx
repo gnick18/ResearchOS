@@ -122,7 +122,7 @@ export default function AiUsageSection() {
             <div className="mt-2 rounded-lg border border-blue-200 dark:border-blue-500/30 bg-blue-50/60 dark:bg-blue-500/10 px-3 py-2 text-body text-foreground-muted leading-relaxed">
               That covers roughly{" "}
               <span className="font-medium text-foreground">
-                a few dozen full analyses or a hundred-plus quick questions
+                dozens of full tasks or hundreds of quick questions
               </span>
               , depending on how big each question is.
             </div>
@@ -132,7 +132,7 @@ export default function AiUsageSection() {
             BeakerBot is free during the beta, so there is no balance to track
             yet. When metered billing turns on you start with a one-time sign-up
             gift of about{" "}
-            <span className="font-medium text-foreground">750,000 tokens</span>.
+            <span className="font-medium text-foreground">1.6 million tokens</span>.
           </div>
         )}
 

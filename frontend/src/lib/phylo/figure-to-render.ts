@@ -23,7 +23,7 @@ import {
 } from "./render";
 import { projectTracksToPanels } from "./panels";
 import { buildColorScale } from "./color-scale";
-import type { AlignedPanel } from "./types";
+import type { AlignedPanel, PhyloLayout } from "./types";
 
 /** The track defaults a fresh figure starts from. A persisted figure overrides
  *  only the keys it stored, so an older record (missing a newer track) still
@@ -43,8 +43,15 @@ export const DEFAULT_FIGURE_TRACKS: FigureTracks = {
  *  state; the embed resolves these from the stored PhyloFigureSpec +
  *  PhyloMetadataBinding via figureInputsFromStored below. */
 export interface FigureInputs {
-  layout: "rectangular" | "circular";
+  layout: PhyloLayout;
   phylogram: boolean;
+  /** Show the phylogram scale bar (default on; absent = on). */
+  scaleBar?: boolean;
+  /** Draw a root edge stub (default off). */
+  rootEdge?: boolean;
+  /** Draw a full-width time axis (age before present) instead of the scale bar
+   *  (default off). */
+  timeAxis?: boolean;
   tracks: FigureTracks;
   categoryColumn?: string;
   barColumn?: string;
@@ -194,6 +201,9 @@ export function figureToRenderSpec(
     msaTrack,
     layout: inputs.layout,
     phylogram: inputs.phylogram,
+    scaleBar: inputs.scaleBar,
+    rootEdge: inputs.rootEdge,
+    timeAxis: inputs.timeAxis,
     tracks: inputs.tracks,
     columns: {
       category: inputs.categoryColumn || undefined,
@@ -225,6 +235,12 @@ export function figureToRenderSpec(
 interface StoredFigure {
   layout?: string;
   branchLengths?: boolean;
+  /** Phylogram scale-bar toggle (optional, additive, defaults ON). */
+  scaleBar?: boolean;
+  /** Root-edge stub toggle (optional, additive, defaults off). */
+  rootEdge?: boolean;
+  /** Time-axis toggle (optional, additive, defaults off). */
+  timeAxis?: boolean;
   tracks?: Record<string, boolean>;
   /** Per-track sequential-palette overrides (Phase 0, optional). */
   scales?: FigureScales;
@@ -254,8 +270,19 @@ export function figureInputsFromStored(
   figure: StoredFigure | undefined,
   metadata: StoredMetadata | undefined,
 ): FigureInputs {
-  const layout = figure?.layout === "circular" ? "circular" : "rectangular";
+  const stored = figure?.layout;
+  const layout: PhyloLayout =
+    stored === "circular" ||
+    stored === "slanted" ||
+    stored === "unrooted" ||
+    stored === "fan" ||
+    stored === "inwardCircular"
+      ? stored
+      : "rectangular";
   const phylogram = figure?.branchLengths ?? true;
+  const scaleBar = figure?.scaleBar;
+  const rootEdge = figure?.rootEdge;
+  const timeAxis = figure?.timeAxis;
   const tracks: FigureTracks = {
     ...DEFAULT_FIGURE_TRACKS,
     ...((figure?.tracks ?? {}) as Partial<FigureTracks>),
@@ -270,6 +297,9 @@ export function figureInputsFromStored(
     return {
       layout,
       phylogram,
+      scaleBar,
+      rootEdge,
+      timeAxis,
       tracks,
       metaRows: null,
       scales,
@@ -282,6 +312,9 @@ export function figureInputsFromStored(
   return {
     layout,
     phylogram,
+    scaleBar,
+    rootEdge,
+    timeAxis,
     tracks,
     metaRows: metadata.rows,
     tipColumn: metadata.tipColumn || cols[0] || "",

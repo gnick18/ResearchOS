@@ -121,6 +121,17 @@ Paid storage, when it turns on, is an accountable business.
   (`FREE_STORAGE_BYTES` in `relay/limits.ts`, delete-on-pickup), and that 1 GB is correct and
   unrelated.
 
+## Where the numbers live (do not override, 2026-06-14)
+
+- Every tunable price/cost number lives in `frontend/src/lib/pricing/assumptions.ts`
+  (the public `/pricing` page and the operator price-modeling tool both derive from it).
+  The operator-only price-modeling tool (`/admin` -> Modeling section) reads it LIVE and
+  is where Grant tunes the economics, with Simulation and Actuals (real-counts) modes.
+- The values in `assumptions.ts`, `plans.ts`, and the locked BeakerBot AI-meter rates are
+  DELIBERATE RESEARCH DECISIONS. Do not overwrite, round, "simplify", or revert any of
+  them without Grant's explicit say-so. To change a price, edit `assumptions.ts` and
+  `docs/branding/BILLING_FACTS.md`, never hardcode a number elsewhere.
+
 ## What this supersedes
 
 - `docs/proposals/SPONSORSHIP_TIERS.md` framed storage tiers themselves as the sponsor reward.

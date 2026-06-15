@@ -25,10 +25,13 @@
 import {
   noteToBrief,
   filterArtifacts,
+  periodToDateRange,
+  resolveOwnerRefsToUsernames,
   type ArtifactBrief,
   type ArtifactFilter,
 } from "@/lib/ai/artifact-index";
-import { fetchAllNotesIncludingShared } from "@/lib/local-api";
+import { fetchAllNotesIncludingShared, usersApi } from "@/lib/local-api";
+import { attachRecordSetIfBig, periodLabel, RECORD_SET_UI_CAP, type RecordSetRow } from "@/lib/ai/record-set";
 import type { Note } from "@/lib/types";
 import type { AiTool } from "./types";
 
@@ -45,10 +48,19 @@ export type SummarizeNotesDeps = {
   /** Load every note the current user may see (own + shared-in), each decorated
    *  with its owner. ACL-enforced upstream by fetchAllNotesIncludingShared. */
   listNotes: () => Promise<OwnedNote[]>;
+  /** The lab member usernames, used to resolve owner NAMES to usernames. */
+  listMemberUsernames: () => Promise<string[]>;
 };
 
 export const summarizeNotesDeps: SummarizeNotesDeps = {
   listNotes: () => fetchAllNotesIncludingShared(),
+  listMemberUsernames: async () => {
+    try {
+      return (await usersApi.list()).users;
+    } catch {
+      return [];
+    }
+  },
 };
 
 // ---------------------------------------------------------------------------
@@ -232,21 +244,85 @@ export const summarizeNotesTool: AiTool = {
         type: "array",
         items: { type: "string" },
         description:
-          "Optional. Usernames of the lab members to scope to. Omit for the whole lab (own plus everything shared with the current user). Never reaches a member's private notes, only what is shared.",
+          "Optional. Lab members to scope to, by NAME or username (for example [\"Kritika\"]). The tool resolves names to usernames itself, tolerating case and small typos, so just pass what the user said; you do NOT need to call list_lab_members first. Omit for the whole lab (own plus everything shared with the current user). Never reaches a member's private notes, only what is shared.",
       },
       keywords: {
         type: "string",
         description:
           "Optional free-text match on the note title and entry titles, for example \"transformation\" or \"colony count\".",
       },
+      period: {
+        type: "string",
+        description:
+          "Optional relative date window the TOOL resolves to since/until for you, so you never compute dates yourself. One of: today, this_week, last_week, this_month, last_month, this_quarter, last_quarter, this_year, last_year, all_time. Prefer this over computing since/until by hand whenever the user says a relative window. An explicit since/until you also pass wins over the period for that bound.",
+      },
     },
     required: [],
     additionalProperties: false,
   },
   execute: async (args) => {
-    const filter = parseFilter(args);
-    const notes = await summarizeNotesDeps.listNotes();
-    const summary = aggregateNotes(notes, filter);
-    return { ok: true as const, summary };
+    const baseFilter = parseFilter(args);
+    // Deterministic relative-window resolution (last_month, this_quarter, ...) so
+    // the weak model never does date arithmetic; explicit since/until wins.
+    const today = new Date().toISOString().slice(0, 10);
+    const period = typeof args.period === "string" ? args.period : undefined;
+    const range = periodToDateRange(period, today);
+    const [notes, members] = await Promise.all([
+      summarizeNotesDeps.listNotes(),
+      summarizeNotesDeps.listMemberUsernames(),
+    ]);
+    // Resolve owner NAMES to usernames (keep raw if none resolve, never widen).
+    const rawOwners = baseFilter.owners ?? [];
+    const resolvedOwners = resolveOwnerRefsToUsernames(rawOwners, members);
+    // Check 4 (live-verify 2026-06-14): the user named owner(s) but NONE resolved to
+    // a real member. Do not silently filter by the raw unmatched name and return an
+    // empty summary that reads like a real-but-empty member. Signal the miss so the
+    // model asks who was meant. A real member with no records still has a resolved
+    // username, so this never fires on a legitimate empty result. Guarded on a known
+    // roster: when members is empty (solo user, or the roster API returned nothing)
+    // we cannot tell a typo from a valid owner, so keep the raw filter as before.
+    if (members.length > 0 && rawOwners.length > 0 && resolvedOwners.length === 0) {
+      return {
+        ok: false as const,
+        error: `No lab member matched ${rawOwners.map((o) => `"${o}"`).join(", ")}. Ask the user who they mean, or call list_lab_members for the real names, instead of summarizing an empty set.`,
+      };
+    }
+    const filter: ArtifactFilter = {
+      ...baseFilter,
+      since: baseFilter.since ?? range.since,
+      until: baseFilter.until ?? range.until,
+      owners: rawOwners.length > 0 ? (resolvedOwners.length > 0 ? resolvedOwners : rawOwners) : undefined,
+    };
+    // Aggregate ONCE at the UI cap so the full matched list feeds the inline
+    // record-set widget, then narrow the model-facing summary back to the
+    // documented item cap (the counts are cap-independent).
+    const fullSummary = aggregateNotes(notes, filter, RECORD_SET_UI_CAP);
+    const modelItems = fullSummary.items.slice(0, DEFAULT_ITEM_CAP);
+    const summary: NoteSummary = {
+      ...fullSummary,
+      items: modelItems,
+      truncated: fullSummary.total > modelItems.length,
+    };
+
+    // attachRecordSetIfBig gates the inline widget on the ">4" rule, so a summary of
+    // 4 or fewer notes shows inline chips and 5 or more renders the browser.
+    const rows = fullSummary.items.map(
+      (it): RecordSetRow => ({
+        type: "note",
+        id: String(it.id),
+        title: it.title,
+        ...(it.firstEntryTitle ? { subtitle: it.firstEntryTitle } : {}),
+        ...(it.date ? { date: it.date } : {}),
+        ...(it.entryCount
+          ? { meta: `${it.entryCount} ${it.entryCount === 1 ? "entry" : "entries"}` }
+          : {}),
+      }),
+    );
+
+    return attachRecordSetIfBig({ ok: true as const, summary }, rows, {
+      kind: "summarize_notes",
+      title: periodLabel("Notes", filter),
+      total: fullSummary.total,
+    });
   },
 };

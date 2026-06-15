@@ -53,6 +53,19 @@
   --cm-list: #374151;
   --cm-meta: #9ca3af;
 
+  /* ── Writing-room editor surface (L1 calm editor atom) ───────────────────────
+   * The DOCKED (non-focus) LiveMarkdownEditor zone paints as a calm "writing
+   * room": warm paper instead of the flat utilitarian well, with larger,
+   * airier writing-room type. These drive `.ros-editor-room` below. The room
+   * is intentionally a warm-paper tint that layers cleanly over the editor's
+   * existing white `.light-scope` paper, so it reads as paper in BOTH light and
+   * dark (where the editor body is forced light by .light-scope). A
+   * dark-native variant is declared in the [data-theme="dark"] block for
+   * surfaces that opt out of light-scope. */
+  --editor-room-top: #fcfbf8; /* warm paper, top */
+  --editor-room-bot: #f5f3ec; /* warm paper, bottom */
+  --editor-room-edge: rgba(15, 27, 46, 0.06); /* hairline at the room's top edge */
+
   /* ── Sequence editor palette (custom SVG viewer) ─────────────────────────────
    * The /sequences map + sequence views are custom SVG (no canvas), so fills are
    * driven through these vars to flip with data-theme. Light values here are
@@ -189,6 +202,14 @@
   --cm-list: #cbd5e1;
   --cm-meta: #94a3b8;
 
+  /* Dark-native writing room (used only when the editor is NOT light-scoped;
+   * today the docked editor IS light-scoped, so the .light-scope override below
+   * wins and keeps the warm-paper look. Declared for completeness / future
+   * surfaces that paint the editor on true dark chrome). */
+  --editor-room-top: #121a2d;
+  --editor-room-bot: #0c1322;
+  --editor-room-edge: rgba(255, 255, 255, 0.08);
+
   /* Sequence editor palette in dark (SnapGene-inspired, on our app surface). */
   --seq-bg: #0a0e1a;
   --seq-letter: #e8edf4;
@@ -261,6 +282,11 @@
   --cm-quote: #6b7280;
   --cm-list: #374151;
   --cm-meta: #9ca3af;
+  /* Keep the writing room warm-paper inside a light-scope (the docked editor),
+   * so the calm surface reads as paper on the dark app chrome too. */
+  --editor-room-top: #fcfbf8;
+  --editor-room-bot: #f5f3ec;
+  --editor-room-edge: rgba(15, 27, 46, 0.06);
   --seq-bg: #ffffff;
   --seq-letter: #1f2937;
   --seq-letter-muted: #64748b;
@@ -345,6 +371,458 @@
   --border-subtle: rgba(255, 255, 255, 0.16);
   --accent: #38bdf8;
   --accent-soft: rgba(56, 189, 248, 0.14);
+}
+
+/* ── L1 writing-room editor surface ──────────────────────────────────────────
+ * The DOCKED (non-focus) LiveMarkdownEditor content zone gets `.ros-editor-room`.
+ * This turns the flat editor well into a calm paper canvas and applies
+ * writing-room typography (larger base, comfortable line-height, readable
+ * measure preserved by the existing width-preset measure classes).
+ *
+ * Scope discipline (Phase A guardrails):
+ *   - Only the DOCKED editor carries `.ros-editor-room`. The focus-mode overlay
+ *     relocates the same subtree to a body portal WITHOUT this class, so the
+ *     focus path keeps its own treatment untouched.
+ *   - BeakerBotCanvas + every other host that mounts the shared
+ *     InlineMarkdownEditor is unaffected unless it carries this class.
+ *   - We only nudge `.cm-content` font-size / line-height here; the shared CM6
+ *     theme defaults in InlineMarkdownEditor are NOT modified, so non-room
+ *     surfaces keep their exact 0.95rem / 1.7 type. */
+.ros-editor-room {
+  background: radial-gradient(
+    120% 80% at 50% -10%,
+    var(--editor-room-top),
+    var(--editor-room-bot)
+  );
+  border-top: 1px solid var(--editor-room-edge);
+}
+
+/* Writing-room type on the live CodeMirror surface (Edit mode). The CM6 theme
+ * sets 0.95rem / 1.7 by element-level inline-ish rules; we raise specificity
+ * with the `.ros-editor-room` ancestor so the room wins without touching the
+ * shared theme. */
+.ros-editor-room .cm-content {
+  font-size: 17.5px;
+  line-height: 1.75;
+  padding: 1.4rem 1.75rem 2.5rem;
+}
+.ros-editor-room .cm-scroller {
+  line-height: 1.75;
+}
+
+/* Make the editor's own white "paper" card dissolve INTO the room so the zone
+ * reads as one calm surface instead of a card-on-a-well. The CM host card and
+ * the Preview card both carry `bg-surface-raised border border-border`; inside
+ * the room we soften them to transparent with a hairline. */
+.ros-editor-room .cm-inline-editor,
+.ros-editor-room .ros-editor-preview-card {
+  background: transparent;
+  border-color: transparent;
+}
+
+/* Writing-room type on the read-only Preview render (prose). */
+.ros-editor-room .ros-editor-preview-card.prose {
+  font-size: 17px;
+  line-height: 1.75;
+}
+
+/* ── Continuous calm popup surface (L3 "continuous surface") ──────────────────
+ * At fullscreen the WHOLE experiment/note popup is ONE calm canvas: the header
+ * (title, metadata subline, tabs) shares the same warm-paper (light) / dark-room
+ * (dark) surface as the editor body, with no white header band and no hard
+ * divider. The popup container adds `.ros-calm-surface` when expanded; the inner
+ * `.ros-editor-room` then stops painting its own gradient (the container owns the
+ * surface) so there is no double-gradient seam. */
+.ros-calm-surface {
+  background: radial-gradient(
+    130% 70% at 50% -6%,
+    var(--editor-room-top),
+    var(--editor-room-bot)
+  );
+}
+.ros-calm-surface .ros-editor-room {
+  background: transparent;
+  border-top: 0;
+}
+/* Details tab: the Properties card dissolves into the calm surface at fullscreen
+ * (transparent bg + border, and its inner header divider) so Details reads as
+ * part of the one continuous canvas, like the editor cards in the room — instead
+ * of a boxed card floating on it. Docked keeps the card (no .ros-calm-surface). */
+.ros-calm-surface .ros-detail-card {
+  background: transparent;
+  border-color: transparent;
+}
+.ros-calm-surface .ros-detail-card > div {
+  border-color: transparent;
+}
+/* Dark mode: the whole popup becomes the dark room (matching the editor body),
+ * re-asserting the dark tokens for the popup subtree (it is otherwise
+ * .light-scope = white paper + dark text, which would vanish on the dark room). */
+[data-theme="dark"] .ros-calm-surface {
+  /* Exact dark tokens from the approved Writing-Room mockup. */
+  color-scheme: dark;
+  --editor-room-top: #10182a;
+  --editor-room-bot: #0a1120;
+  --background: #0a1120;
+  --foreground: #eaf2fb;
+  --surface: #0a0e1a;
+  --surface-raised: #16233c;
+  --surface-overlay: #142036;
+  --surface-sunken: #0d1424;
+  --foreground-muted: #9fb0c8;
+  --border-subtle: rgba(255, 255, 255, 0.12);
+  --accent: #39a7e6;
+}
+
+/* ── Calm popup chrome anatomy (UNIFIED_POPUP_CHROME_SPEC.md §2/§4) ───────────
+ * The canonical header / tabs / footer treatment every CalmPopupShell renders,
+ * promoted from docs/mockups/2026-06-13-unified-focus-surface.html. The shell
+ * carries `.ros-calm-surface` at BOTH sizes (decision D1), so these slots are
+ * transparent with NO band and NO divider at every size (gap fix C1). The shell
+ * also lays out spacing with Tailwind utilities; these rules only own the
+ * "one continuous surface, no seams" treatment + the doze transitions so the
+ * chrome reads identically across every object type. */
+
+/* Header sits flush on the surface, no band, no bottom divider, at any size. */
+.ros-calm-surface .s-head {
+  background: transparent;
+  border-bottom: 0;
+  transition: padding 0.5s cubic-bezier(0.5, 0.05, 0.2, 1);
+}
+.ros-calm-surface .s-title {
+  letter-spacing: -0.01em;
+  transition: font-size 0.5s cubic-bezier(0.5, 0.05, 0.2, 1);
+}
+
+/* Quiet tab row — transparent, no divider, present at both sizes (C1). */
+.ros-calm-surface .s-tabs {
+  background: transparent;
+  border-bottom: 0;
+}
+
+/* Footer — transparent ambient autosave line, no top divider. */
+.ros-calm-surface .s-foot {
+  background: transparent;
+  border-top: 0;
+}
+
+/* Embedded version-history panel: the shared EntityVersionHistorySidebar hosted
+ * inside a CalmPopupShell (e.g. the purchase history popup). The calm surface
+ * has no seams, so a hard color line reintroduces the card edge we removed; the
+ * column reads as its own plane through DEPTH instead. A soft shadow cast onto
+ * the diff column + a quiet hairline + a whisper of raised paper differentiate
+ * it without adding new hues. Gated on .ros-history-panel so the standalone
+ * notes sidebar (its own raised-white card) is untouched. */
+.ros-calm-surface .ros-history-panel {
+  position: relative;
+  border-left: 1px solid var(--border-subtle);
+  /* Raised paper, faded in/out at the top + bottom so the tint rectangle has no
+   * hard horizontal edge against the surface above the toolbar / below the
+   * footer. */
+  background: linear-gradient(
+    to bottom,
+    transparent 0,
+    color-mix(in srgb, var(--foreground) 3%, transparent) 28px,
+    color-mix(in srgb, var(--foreground) 3%, transparent) calc(100% - 28px),
+    transparent 100%
+  );
+}
+/* Soft seam shadow cast onto the diff column. A box-shadow on the rectangle
+ * caps the shadow with a hard horizontal nub at the top + bottom corners; a
+ * masked gradient strip casts ONLY horizontally (transparent -> shadow toward
+ * the seam) and is faded at the top + bottom by the vertical mask, so it dies
+ * out cleanly instead of hard-cutting. */
+.ros-calm-surface .ros-history-panel::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: -26px;
+  width: 26px;
+  pointer-events: none;
+  /* Concentrate the shadow near the seam (right edge) so it reads as dense as
+   * the box-shadow it replaces, not a thin wash. */
+  background: linear-gradient(
+    to right,
+    transparent 0%,
+    rgba(15, 23, 42, 0.05) 55%,
+    rgba(15, 23, 42, 0.22) 100%
+  );
+  /* Short end-fade only: the shadow runs nearly full height (matching the
+   * middle) and just softens at the very top + bottom corners, so it neither
+   * hard-cuts nor goes missing there. */
+  -webkit-mask-image: linear-gradient(
+    to bottom,
+    transparent 0,
+    #000 14px,
+    #000 calc(100% - 14px),
+    transparent 100%
+  );
+  mask-image: linear-gradient(
+    to bottom,
+    transparent 0,
+    #000 14px,
+    #000 calc(100% - 14px),
+    transparent 100%
+  );
+}
+[data-theme="dark"] .ros-calm-surface .ros-history-panel {
+  background: linear-gradient(
+    to bottom,
+    transparent 0,
+    color-mix(in srgb, #ffffff 5%, transparent) 28px,
+    color-mix(in srgb, #ffffff 5%, transparent) calc(100% - 28px),
+    transparent 100%
+  );
+}
+[data-theme="dark"] .ros-calm-surface .ros-history-panel::before {
+  background: linear-gradient(
+    to right,
+    transparent 0%,
+    rgba(0, 0, 0, 0.18) 55%,
+    rgba(0, 0, 0, 0.6) 100%
+  );
+}
+/* Matching top-edge shadow, cast UPWARD into the header gap so the panel reads
+ * as lifting off the header, mirroring the left seam. It can't live on the panel
+ * itself (the scroll body clips overflow above the panel), so the host renders
+ * `.ros-history-topglow` in the shell's beforeBody slot, which sits in the gap
+ * between the header and the body and is NOT clipped. Darkest at the panel's top
+ * edge (its own bottom), fading up; the left end is masked so it meets the left
+ * seam at the corner without a nub. */
+.ros-calm-surface .ros-history-topglow {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 16px;
+  pointer-events: none;
+  background: linear-gradient(
+    to top,
+    rgba(15, 23, 42, 0.13) 0%,
+    rgba(15, 23, 42, 0.04) 50%,
+    transparent 100%
+  );
+  -webkit-mask-image: linear-gradient(to right, transparent 0, #000 14px, #000 100%);
+  mask-image: linear-gradient(to right, transparent 0, #000 14px, #000 100%);
+}
+[data-theme="dark"] .ros-calm-surface .ros-history-topglow {
+  background: linear-gradient(
+    to top,
+    rgba(0, 0, 0, 0.4) 0%,
+    rgba(0, 0, 0, 0.12) 50%,
+    transparent 100%
+  );
+}
+/* Mirror of the top glow: the panel's bottom-edge shadow, cast DOWN into the
+ * footer gap (the scroll body clips overflow below the panel too). Rendered in
+ * the shell's afterBody slot. Darkest at the panel's bottom edge (its own top),
+ * fading down; left end masked to meet the seam at the corner. */
+.ros-calm-surface .ros-history-botglow {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  height: 16px;
+  pointer-events: none;
+  background: linear-gradient(
+    to bottom,
+    rgba(15, 23, 42, 0.13) 0%,
+    rgba(15, 23, 42, 0.04) 50%,
+    transparent 100%
+  );
+  -webkit-mask-image: linear-gradient(to right, transparent 0, #000 14px, #000 100%);
+  mask-image: linear-gradient(to right, transparent 0, #000 14px, #000 100%);
+}
+[data-theme="dark"] .ros-calm-surface .ros-history-botglow {
+  background: linear-gradient(
+    to bottom,
+    rgba(0, 0, 0, 0.4) 0%,
+    rgba(0, 0, 0, 0.12) 50%,
+    transparent 100%
+  );
+}
+
+/* ── Thin scrollbar (the emerging standard, Grant 2026-06-14) ───────────────
+ * A clean, thin scrollbar for the calm surfaces. macOS Chrome's native overlay
+ * scrollbar ignores CSS width, so styling it via ::-webkit-scrollbar is the only
+ * way to make it reliably thin; that drops the OS fade, so we emulate the
+ * disappear feel with a hover-reveal (thumb is transparent until the region is
+ * hovered / focused / scrolled, then fades in). `scrollbar-width: thin` covers
+ * Firefox. Apply `.ros-thin-scroll` to any overflow-auto region; once dialed in
+ * here it becomes the app-wide standard. The thumb tint rides on --foreground so
+ * it works on both the warm paper and the dark room. */
+.ros-thin-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in srgb, var(--foreground) 24%, transparent) transparent;
+}
+.ros-thin-scroll::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+.ros-thin-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+.ros-thin-scroll::-webkit-scrollbar-thumb {
+  /* A 3px transparent border clipped to the padding box leaves a ~4px visible
+   * pill, so the bar reads thin even though the hit area is comfortable. */
+  background-color: transparent;
+  border-radius: 9999px;
+  border: 3px solid transparent;
+  background-clip: padding-box;
+  transition: background-color 0.2s ease;
+}
+.ros-thin-scroll:hover::-webkit-scrollbar-thumb,
+.ros-thin-scroll:focus-within::-webkit-scrollbar-thumb {
+  background-color: color-mix(in srgb, var(--foreground) 22%, transparent);
+}
+.ros-thin-scroll::-webkit-scrollbar-thumb:hover {
+  background-color: color-mix(in srgb, var(--foreground) 38%, transparent);
+}
+/* The compare toolbar reads as a quiet raised strip over the scrolling rows: a
+ * slightly firmer raised fill + a soft drop shadow in place of the washed-out
+ * hairline. */
+.ros-calm-surface .ros-history-panel .ros-history-toolbar {
+  border-bottom-color: transparent;
+  background: color-mix(in srgb, var(--foreground) 5%, transparent);
+  box-shadow: 0 5px 8px -4px rgba(15, 23, 42, 0.18);
+}
+[data-theme="dark"] .ros-calm-surface .ros-history-panel .ros-history-toolbar {
+  background: color-mix(in srgb, #ffffff 7%, transparent);
+  box-shadow: 0 5px 10px -4px rgba(0, 0, 0, 0.5);
+}
+/* The sticky day header keeps its near-opaque fill (it has to occlude rows
+ * scrolling under it) but trades the washed hairline for a soft drop shadow so
+ * it floats over the list as it sticks. */
+.ros-calm-surface .ros-history-panel .ros-history-dayhead {
+  border-bottom-color: transparent;
+  box-shadow: 0 5px 8px -4px rgba(15, 23, 42, 0.18);
+}
+[data-theme="dark"] .ros-calm-surface .ros-history-panel .ros-history-dayhead {
+  box-shadow: 0 5px 10px -4px rgba(0, 0, 0, 0.5);
+}
+
+/* Ghost icon button — the calm header glyph treatment (Focus / Close / the
+ * overflow trigger). Low-contrast at rest, action-tinted on hover. The shell
+ * also applies Tailwind hover utilities; this is the resting ghost fill so the
+ * three glyphs read as one quiet cluster on the surface. */
+.ros-calm-surface .iconbtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+/* Action-tinted hover (mockup `.iconbtn:hover{color:var(--action)…}`). Higher
+ * specificity than the shell's Tailwind hover utilities, so the glyph turns
+ * accent + the fill gets the same tint — the three glyphs read as one cluster. */
+.ros-calm-surface .iconbtn:hover {
+  color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 13%, transparent);
+}
+
+/* Floating centered editing pill + insert rail wrappers doze with the chrome at
+ * fullscreen. The host composes their contents; the doze timing lives with the
+ * editor. These hooks exist so the spec's `.s-float` / `.s-rail` anatomy maps to
+ * real classes when the editor types opt in. */
+.ros-calm-surface .s-float,
+.ros-calm-surface .s-rail {
+  transition: opacity 0.4s ease, transform 0.4s ease;
+}
+
+/* Focus dimming (UNIFIED_EDITOR_SURFACE_DESIGN.md §3A, U5 toggle, default off).
+ * The CM6 focusDimmingExtension adds `.cm-ros-dimmed` to every non-active LINE,
+ * but ONLY while the editor is focused (it clears the set on blur), so this rule
+ * can never wash out a resting / unfocused note — there is nothing to wash out
+ * when no decoration is present. The opacity is the same ~30% the JS module
+ * exports (FOCUS_DIMMING_OPACITY). A short transition makes the dim breathe in /
+ * out as the caret moves; we drop the transition under reduced-motion so it is
+ * an instant state change for motion-sensitive users. The extension is added
+ * only at the fullscreen scale, but the selector is kept generic (CM lines carry
+ * the class) and harmless everywhere because the class is never present unless
+ * the extension is installed and focused. */
+.cm-line.cm-ros-dimmed {
+  opacity: 0.3;
+  transition: opacity 160ms ease;
+}
+@media (prefers-reduced-motion: reduce) {
+  .cm-line.cm-ros-dimmed {
+    transition: none;
+  }
+}
+
+/* ── Dark-mode editor surface = immersive "dark room" ─────────────────────────
+ * Grant chose the dark room over warm paper for dark mode (2026-06-14). The
+ * docked editor is otherwise light-scoped (white paper on dark chrome, like
+ * Word); this overrides that for the WRITING ZONE ONLY, flipping the surface AND
+ * the text together so nothing goes invisible. Scoped to `.ros-editor-room`, so
+ * the focus overlay (relocated without the room class) and every other
+ * light-scoped surface stay exactly as they were. Reversible by deleting this
+ * block (the warm-paper tokens in the .light-scope override above resume). */
+[data-theme="dark"] .ros-editor-room {
+  /* Exact dark-room tokens from the approved Writing-Room mockup
+   * (docs/mockups/2026-06-13-focus-mode-redesign.html): room-top/bot, paper text
+   * (#e7eefb), muted (#9fb0c8), accent (#39a7e6). */
+  --editor-room-top: #10182a;
+  --editor-room-bot: #0a1120;
+  --editor-room-edge: rgba(255, 255, 255, 0.12);
+  /* `.ros-editor-room` is a CLOSER ancestor of `.cm-content` than the popup's
+   * `.light-scope`, so re-asserting the dark CM palette here wins for the edit
+   * surface and its syntax highlighting. Mirrors the mockup paper-fg / muted. */
+  --cm-text: #e7eefb;
+  --cm-caret: #eaf2fb;
+  --cm-selection: rgba(57, 167, 230, 0.28);
+  --cm-active-line: rgba(255, 255, 255, 0.04);
+  --cm-link: #39a7e6;
+  --cm-mono: #c084fc;
+  --cm-quote: #9fb0c8;
+  --cm-list: #cbd5e1;
+  --cm-meta: #9fb0c8;
+}
+/* CRITICAL: the CM edit host `.cm-inline-editor` carries its OWN `.light-scope`,
+ * which is a CLOSER ancestor of `.cm-content` than `.ros-editor-room` — so the
+ * room-level `--cm-*` above gets overridden back to DARK text, leaving the editor
+ * unreadable (dark-on-dark) on the dark room. Re-assert the dark CM palette here
+ * (`.ros-editor-room .cm-inline-editor` = 2 classes beats `.light-scope` = 1) so
+ * the edit text reads on the dark room. */
+[data-theme="dark"] .ros-editor-room .cm-inline-editor {
+  --cm-text: #e7eefb;
+  --cm-caret: #eaf2fb;
+  --cm-selection: rgba(57, 167, 230, 0.28);
+  --cm-active-line: rgba(255, 255, 255, 0.04);
+  --cm-link: #39a7e6;
+  --cm-mono: #c084fc;
+  --cm-quote: #9fb0c8;
+  --cm-list: #cbd5e1;
+  --cm-meta: #9fb0c8;
+}
+/* The Preview (read) card carries its OWN `light-scope`, which would force its
+ * prose dark on the dark room. These higher-specificity rules (3 classes beats
+ * the `.light-scope .prose` 2 classes) flip it to light text + dark-appropriate
+ * headings, links, blockquote, and inline code. The card background is already
+ * transparent inside the room, so the dark room shows straight through. */
+[data-theme="dark"] .ros-editor-room .ros-editor-preview-card.prose {
+  color: #e7eefb;
+}
+[data-theme="dark"] .ros-editor-room .ros-editor-preview-card.prose h1,
+[data-theme="dark"] .ros-editor-room .ros-editor-preview-card.prose h2,
+[data-theme="dark"] .ros-editor-room .ros-editor-preview-card.prose h3,
+[data-theme="dark"] .ros-editor-room .ros-editor-preview-card.prose h4,
+[data-theme="dark"] .ros-editor-room .ros-editor-preview-card.prose strong {
+  color: #eaf2fb;
+}
+[data-theme="dark"] .ros-editor-room .ros-editor-preview-card.prose h1 {
+  border-bottom-color: rgba(255, 255, 255, 0.12);
+}
+[data-theme="dark"] .ros-editor-room .ros-editor-preview-card.prose a {
+  color: #39a7e6;
+}
+[data-theme="dark"] .ros-editor-room .ros-editor-preview-card.prose blockquote {
+  border-left-color: rgba(255, 255, 255, 0.18);
+  color: #9fb0c8;
+  background-color: rgba(255, 255, 255, 0.04);
+}
+[data-theme="dark"] .ros-editor-room .ros-editor-preview-card.prose code {
+  background-color: rgba(255, 255, 255, 0.08);
+  color: inherit;
 }
 
 @layer utilities {
@@ -468,7 +946,10 @@
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  /* Real Geist (loaded via next/font in layout.tsx, exposed as --font-sans).
+   * Replaces leftover create-next-app Arial boilerplate that was overriding it,
+   * so everything inheriting from body now matches the font-sans components. */
+  font-family: var(--font-sans), system-ui, -apple-system, sans-serif;
 }
 
 /* ── Markdown Prose Overrides ──────────────────────────────────────────────── */
@@ -1145,5 +1626,52 @@ body.recording-mode * {
 @media (prefers-reduced-motion: reduce) {
   .beakersearch-rider-awaken {
     animation: none;
+  }
+}
+
+/* BeakerBot AI shortcut shimmer (2026-06-14). The "Cmd J" hint on the ask bar
+   gets a slow brand-rainbow sheen swept across its text, so it reads as the
+   special "this opens the AI" chip without shouting. The base color on BOTH ends
+   is brand-action, so the gradient loops seamlessly (no visible jump). The text
+   is clipped to the gradient, so only the glyphs shimmer, not the chip. */
+@keyframes beakerbot-ai-shimmer {
+  from {
+    background-position: 160% center;
+  }
+  to {
+    background-position: -160% center;
+  }
+}
+.beakerbot-ai-shimmer {
+  /* Subtle by design: the text sits at the SAME muted color as the plain Cmd K
+     chip, and only a soft PASTEL rainbow glint (the --brand-rainbow ramp, not the
+     vivid one) sweeps through, as a narrow band. So the chip blends with the bar
+     at rest and just catches a gentle rainbow shimmer as it passes. */
+  background-image: linear-gradient(
+    100deg,
+    var(--foreground-muted) 0%,
+    var(--foreground-muted) 42%,
+    #ffd2b0 47%,
+    #b7ebb1 50%,
+    #a6d2f4 53%,
+    #d6b5f0 56%,
+    var(--foreground-muted) 60%,
+    var(--foreground-muted) 100%
+  );
+  background-size: 260% auto;
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  color: transparent;
+  animation: beakerbot-ai-shimmer 4.2s linear infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .beakerbot-ai-shimmer {
+    /* Settle on the calm muted fill (identical to the Cmd K chip) when motion is
+       reduced. */
+    animation: none;
+    background-image: none;
+    -webkit-text-fill-color: var(--foreground-muted);
+    color: var(--foreground-muted);
   }
 }

@@ -24,6 +24,7 @@ vi.mock("next/navigation", () => ({
 
 vi.mock("@/components/ai/object-popup-bridge", () => ({
   openObjectPopup: vi.fn(),
+  POPUP_CAPABLE_TYPES: new Set(["note", "task", "experiment"]),
 }));
 
 // ── API mocks (vi.fn() inside factory so hoisting works) ─────────────────────
@@ -248,7 +249,7 @@ describe("ObjectChip hover card", () => {
   });
 
   it("shows method type in the card", async () => {
-    render(<ObjectChip type="method" href="/methods/1" label="Western Blot" />);
+    render(<ObjectChip type="method" href="/methods?openMethod=1" label="Western Blot" />);
     await hoverAndFlush(screen.getByRole("button", { name: /Western Blot/ }));
     const card = screen.getByRole("status");
     expect(card).toHaveTextContent("Western Blot");
@@ -271,7 +272,7 @@ describe("ObjectChip hover card", () => {
   });
 
   it("shows generic type label for project type", async () => {
-    render(<ObjectChip type="project" href="/projects/42" label="Lab Project" />);
+    render(<ObjectChip type="project" href="/workbench/projects/42" label="Lab Project" />);
     await hoverAndFlush(screen.getByRole("button", { name: /Lab Project/ }));
     const card = screen.getByRole("status");
     expect(card).toHaveTextContent("Project");

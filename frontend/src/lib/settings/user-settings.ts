@@ -337,6 +337,12 @@ export interface UserSettings {
   /** Lab-tier: the lab this user belongs to (head or member). Absent for solo users. */
   lab_id?: string;
 
+  /** Lab-tier: genesis artifacts for a lab created locally whose relay publish
+   *  has not yet succeeded. Present => LabGenesisPublishRetry keeps retrying the
+   *  publish; cleared on success. Lets a PI be a lab head instantly without the
+   *  relay, and lets openLabKey re-derive the key offline. */
+  lab_pending_genesis?: import("@/lib/lab/lab-membership").PendingLabGenesis;
+
   /** Department tier Phase 1: the dept_id this user ADMINISTERS, if any. Set when
    *  they create a department or accept an institution's dept-admin invite. An
    *  additive org relationship, NOT a mutually-exclusive account_type, so a PI can
@@ -402,6 +408,23 @@ export interface UserSettings {
   // (`ros.spellcheck.enabled`) so the editor reads it synchronously at mount,
   // the same first-paint pattern as editorWidthPreset. Absent = off.
   spellCheckInEditor?: boolean;
+
+  // Markdown editor focus behaviors (UNIFIED_EDITOR_SURFACE_DESIGN.md §3A, U5
+  // toggles). DATA-SHAPE CHANGE: additive + optional, BOTH default OFF (the
+  // design's "amber decision"). They engage ONLY at the fullscreen (expanded)
+  // editor scale, never in the docked editor or BeakerBotCanvas. Mirrored to
+  // localStorage (`ros.editor.typewriter` / `ros.editor.dimming`) so the editor
+  // reads them synchronously at mount, the same first-paint pattern as
+  // editorWidthPreset / spellCheckInEditor; settings.json is the durable
+  // per-user record. Absent = off.
+  //
+  // editorTypewriterScroll: hold the active line at ~42% of the viewport so the
+  // caret stops chasing down the page.
+  editorTypewriterScroll?: boolean;
+  // editorFocusDimming: fade every line except the active paragraph to ~30%
+  // opacity, ONLY while the editor is focused (removed on blur so the resting
+  // note is full-contrast).
+  editorFocusDimming?: boolean;
 
   // LEGACY (dashboard-unification build, 2026-05-29): superseded by
   // `dashboard_layout` above. Kept READABLE for one release so the

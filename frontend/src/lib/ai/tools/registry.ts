@@ -66,6 +66,8 @@ import {
 import { makeDataHubGraphTool } from "./datahub-graph";
 import { listNotesTool, writeNoteTool } from "./write-note";
 import { searchMyWorkTool } from "./search-my-work";
+import { searchFullTextTool } from "./search-full-text";
+import { listRecordsTool } from "./list-records";
 import { summarizeExperimentsTool } from "./summarize-experiments";
 import { summarizePurchasesTool } from "./summarize-purchases";
 import { summarizeNotesTool } from "./summarize-notes";
@@ -100,7 +102,32 @@ import {
   rescheduleTaskTool,
   updateTaskTool,
   linkTasksTool,
+  deleteTaskTool,
 } from "./task-tools";
+import {
+  createMethodTool,
+  updateMethodTool,
+  editMethodTool,
+  deleteMethodTool,
+} from "./method-tools";
+import {
+  createProjectTool,
+  updateProjectTool,
+  deleteProjectTool,
+} from "./project-tools";
+import {
+  updateSequenceTool,
+  updateMoleculeTool,
+  updateNoteTool,
+  updatePurchaseTool,
+  editNoteTool,
+  editSequenceTool,
+  editMoleculeStructureTool,
+  deleteSequenceTool,
+  deleteNoteTool,
+  deleteMoleculeTool,
+  deletePurchaseTool,
+} from "./edit-tools";
 import {
   readNoteTool,
   readMethodTool,
@@ -109,6 +136,9 @@ import {
   readProjectTool,
   readPurchaseTool,
   readMoleculeTool,
+  readTaskTool,
+  readInventoryTool,
+  readDataHubTool,
 } from "./read-artifact";
 import {
   computeTmTool,
@@ -224,6 +254,15 @@ export const READ_ONLY_TOOLS: AiTool[] = [
   // title+keyword scorer, and returns a compact list of matched briefs. Only the
   // briefs (titles, ids, deep links) cross to the model, never any bodies.
   searchMyWorkTool,
+  // search_full_text is the deliberate DEEP search of full note + method BODY text
+  // (the index only covers titles/headings/tags/descriptions). Read-only; the model
+  // confirms the exact term via ask_user first (system-prompt). Snippets + match
+  // counts only, no body crosses as a finding.
+  searchFullTextTool,
+  // list_records is the deterministic top-N / sorted-list resolver (listArtifacts):
+  // the tool sorts by date/title and slices the top N, so the model never eyeballs
+  // records to decide which are newest/first. Briefs only, read-only.
+  listRecordsTool,
   // Summary suite Layer 2 (artifact-index filterArtifacts + deterministic
   // aggregates). summarize_experiments and summarize_purchases aggregate ACROSS
   // many records over a shared filter (types / dates / owners / projects /
@@ -269,6 +308,16 @@ export const READ_ONLY_TOOLS: AiTool[] = [
   readProjectTool,
   readPurchaseTool,
   readMoleculeTool,
+  // read_task covers GENERIC list-type tasks (task_type "list"), the sibling of
+  // read_experiment (task_type "experiment"); each refuses a record of the other
+  // type. read_inventory reads one inventory item plus its stocks (summed count,
+  // low-at threshold, soonest expiry), the per-id complement of summarize_inventory.
+  // read_datahub reads a Data Hub DOCUMENT's metadata (name, columns, row count,
+  // analyses present) WITHOUT the cell data, distinct from read_datahub_analysis
+  // which reads one analysis result. All three read-only, none navigates.
+  readTaskTool,
+  readInventoryTool,
+  readDataHubTool,
   // Sequence compute tools. Deterministic, non-gated, engine-computed. The model
   // orchestrates (maps the user's words to a sequenceId or a raw string), the
   // validated engine computes every number, the model relays the result. None of
@@ -406,6 +455,44 @@ export const ACTION_TOOLS: AiTool[] = [
   rescheduleTaskTool,
   updateTaskTool,
   linkTasksTool,
+  // Method-library coworker tools (action: true, isDestructive false). create_method
+  // authors a new markdown protocol (writes the body file, then records it) filed
+  // under a folder with tags; update_method renames a method, sets its tags, or moves
+  // it to another folder (metadata only). The user sees a one-line confirm before each
+  // writes. Neither deletes, so neither forces the destructive hard-stop. NO
+  // INTERPRETATION: create_method writes the user's own protocol, never an invented one.
+  createMethodTool,
+  updateMethodTool,
+  // edit_method edits the protocol BODY of a markdown method (append a section or
+  // rewrite). Reads the current file, writes the new body, re-stamps the excerpt.
+  // NO-INTERPRETATION: the user's own protocol text, never invented steps.
+  editMethodTool,
+  // Project coworker tools (action: true, isDestructive false). create_project makes
+  // a new project (the container a task/experiment needs); update_project renames,
+  // sets tags, or archives/unarchives one (archive is reversible, never a delete).
+  // One-line confirm before each writes; own projects only.
+  createProjectTool,
+  updateProjectTool,
+  // Edit (update) coworker tools (action: true, isDestructive false). These close
+  // the last "create but cannot edit" gaps: update_sequence / update_molecule /
+  // update_note rename their object; update_purchase changes an order's item name,
+  // quantity, vendor, or unit price, or moves its status (needs ordering -> ordered
+  // -> received, via setOrderStatus so the bell fires). One-line confirm before each
+  // writes; own objects only; none deletes.
+  updateSequenceTool,
+  updateMoleculeTool,
+  updateNoteTool,
+  updatePurchaseTool,
+  // edit_note edits the CONTENT of a note (rewrite or append to an existing entry,
+  // or the description for an entry-less note), distinct from write_note's append
+  // of a NEW entry. NO-INTERPRETATION: the user's own words.
+  editNoteTool,
+  // edit_sequence / edit_molecule_structure replace the actual scientific content
+  // (a sequence's bases via rawSeqToGenbank, a molecule's structure via the RDKit
+  // SMILES->molblock path). ABSOLUTE no-interpretation: the bases / SMILES come from
+  // the USER, never invented; a bad SMILES is rejected by the engine.
+  editSequenceTool,
+  editMoleculeStructureTool,
   // create_purchase logs an order (action: true, isDestructive false). The preview
   // shows vendor, item, quantity, price, and project before anything writes. Two-step
   // write: a parent Task with task_type "purchase", then the linked PurchaseItem.
@@ -447,6 +534,17 @@ export const ACTION_TOOLS: AiTool[] = [
   // writing; neither deletes, so neither forces the destructive hard-stop.
   addInventoryItemTool,
   adjustInventoryStockTool,
+  // Delete coworker tools (action: true, isDestructive TRUE). Every delete is a
+  // soft-delete (moves the object to _trash, recoverable), but it always forces the
+  // destructive hard-stop confirm in both review modes. Own objects only.
+  // delete_task also covers experiments (task records).
+  deleteMethodTool,
+  deleteProjectTool,
+  deleteTaskTool,
+  deleteNoteTool,
+  deleteSequenceTool,
+  deleteMoleculeTool,
+  deletePurchaseTool,
 ];
 
 // The coordination toolset. These tools neither read the user's data nor act on

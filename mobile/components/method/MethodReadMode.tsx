@@ -1043,6 +1043,10 @@ const rstyles = StyleSheet.create({
     shadowRadius: 18,
     elevation: 6,
   },
+  // Android tall-glyph clipping fix: the big read-mode text needs generous
+  // lineHeight (32 / 38 / 56) so ascenders/descenders are not clipped on
+  // Android. Geist weight tokens + negative letterSpacing carry foundation's
+  // visual polish on the same headings.
   kicker: { fontSize: 11, fontFamily: fonts.extrabold, fontWeight: '800', textTransform: 'uppercase', letterSpacing: 0.6 },
   big: { fontSize: 24, fontFamily: fonts.extrabold, fontWeight: '800', lineHeight: 32, marginTop: 6, letterSpacing: -0.3 },
   bigFocused: { fontSize: 28, lineHeight: 38 },

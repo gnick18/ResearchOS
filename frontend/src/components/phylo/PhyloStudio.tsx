@@ -21,7 +21,11 @@ import { useQueryClient } from "@tanstack/react-query";
 import { Icon } from "@/components/icons";
 import Tooltip from "@/components/Tooltip";
 import { phyloApi } from "@/lib/phylo/api";
+import { setBeakerContext } from "@/components/ai/context-bridge";
+import { SAMPLE_TREE, SAMPLE_CSV, SAMPLE_ALIGNMENT } from "@/lib/phylo/sample";
 import { PhyloCollectionRail } from "@/components/phylo/PhyloCollectionRail";
+import { PhyloBuilder } from "@/components/phylo/PhyloBuilder";
+import LivingPopup from "@/components/ui/LivingPopup";
 import {
   SequenceOperationsRail,
   type RailOperation,
@@ -36,6 +40,7 @@ import type { PhyloMeta } from "@/lib/phylo/types";
 import {
   parseTree,
   leaves,
+  collectAnnotationKeys,
   TreeParseError,
   type TreeNode,
 } from "@/lib/phylo/parse";
@@ -65,12 +70,43 @@ import {
   matchAlignmentToTips,
   type Alignment,
 } from "@/lib/phylo/msa";
-import type { AlignedPanel } from "@/lib/phylo/types";
+import type {
+  AlignedPanel,
+  PhyloFigureSpec,
+  PhyloLayout,
+} from "@/lib/phylo/types";
+import {
+  FigureArtboard,
+  FigureArtboardControls,
+} from "@/components/figure/FigureArtboard";
+import ZoomPanCanvas from "@/components/figure/ZoomPanCanvas";
+import {
+  readArtboardState,
+  artboardInitial,
+  saveArtboardPrefs,
+  pageDims,
+  placeFigureCentered,
+  fitFigureToPage,
+  artboardExportSvg,
+  pxAtDpi,
+  type ArtboardState,
+} from "@/lib/figure/artboard";
 import {
   PhyloLayersControl,
   MultiColumnField,
   buildTemplate,
+  makePanel,
 } from "@/components/phylo/PhyloLayers";
+import {
+  SmartDataWizard,
+  type OverlaySelection,
+} from "@/components/phylo/SmartDataWizard";
+import {
+  rankJoinCandidates,
+  mergeTableColumnsIntoMetadata,
+  type JoinCandidate,
+  type CandidateTable,
+} from "@/lib/phylo/smart-binding";
 import {
   objectDeepLink,
   objectEmbedMarkdown,
@@ -80,7 +116,16 @@ import { generateGgtreeCode, GGTREE_CAVEAT } from "@/lib/phylo/ggtree-code";
 import {
   downloadSvg,
   svgToPngBlob,
+  buildPlotSpec,
+  withStyle,
+  type BarMode,
 } from "@/lib/datahub/plot-spec";
+import { dataHubApi } from "@/lib/datahub/api";
+import {
+  joinContentToTips,
+  datahubJoinRate,
+} from "@/lib/phylo/datahub-panel";
+import type { DataHubDocContent } from "@/lib/datahub/model/types";
 
 const FIG_W = 620;
 const FIG_H = 460;
@@ -91,40 +136,7 @@ const LIST_WIDTH_KEY = "researchos:phylo:listWidth";
 
 // The right action-rail operations, in order. Each becomes a tab + flyout via
 // SequenceOperationsRail (recycled). The panels are built in the component.
-type PhyloOpId = "layers" | "setup" | "export" | "code";
-
-const SAMPLE_TREE =
-  "(((A. fumigatus:0.5,A. fischeri:0.5)100:0.3,(((A. flavus:0.45,A. oryzae:0.45)96:0.25,(A. nidulans:0.55,(A. niger:0.4,P. chrysogenum:0.6)90:0.2)85:0.18)80:0.15));";
-
-const SAMPLE_CSV = [
-  "tip,section,genome,gliP",
-  "A. fumigatus,Fumigati,29.4,yes",
-  "A. fischeri,Fumigati,32.5,no",
-  "A. flavus,Flavi,37.0,yes",
-  "A. oryzae,Flavi,37.1,no",
-  "A. nidulans,Nidulantes,30.1,no",
-  "A. niger,Nigri,34.0,yes",
-  "P. chrysogenum,Outgroup,32.2,no",
-].join("\n");
-
-// A tiny aligned FASTA over the sample tree's tips, so "Sample alignment" shows
-// the msa track without a file. Gaps are intentional (a real alignment has them).
-const SAMPLE_ALIGNMENT = [
-  ">A. fumigatus",
-  "ATGCATGC-TAGCTAGCATCG",
-  ">A. fischeri",
-  "ATGCATGC-TAGCTAGCATGG",
-  ">A. flavus",
-  "ATGCATGCATAGCT-GCATCG",
-  ">A. oryzae",
-  "ATGCATGCATAGCT-GCATCG",
-  ">A. nidulans",
-  "ATGGATGCATA-CTAGCATCG",
-  ">A. niger",
-  "ATGCATGCATAGCTAGCAT-G",
-  ">P. chrysogenum",
-  "TTGCATGCATAGCTAGCATCA",
-].join("\n");
+type PhyloOpId = "shape" | "layers" | "data" | "export" | "code";
 
 type ImportMode = "upload" | "paste" | "saved" | null;
 
@@ -179,13 +191,41 @@ export function PhyloStudio({ initialTreeId }: { initialTreeId?: string } = {}) 
   const [openTreeId, setOpenTreeId] = useState<string | null>(null);
   const [copiedRef, setCopiedRef] = useState(false);
   const [parseError, setParseError] = useState<string | null>(null);
+
+  // Publish the open SAVED tree to the BeakerBot context bridge so the model can
+  // resolve "this", "this tree", or "this phylogeny" to what the user has open in
+  // the Studio. Only a saved tree (openTreeId set) is published, since that is the
+  // id read_phylo_tree can resolve; a freshly imported / unsaved tree is skipped.
+  // Mirrors the Data Hub publisher: cleared when no saved tree is open and on
+  // unmount so the model never inherits a stale selection.
+  useEffect(() => {
+    if (!openTreeId) {
+      setBeakerContext(null);
+      return;
+    }
+    setBeakerContext({
+      route: "/phylo",
+      pageLabel: "Tree Studio",
+      selection: {
+        type: "phylo",
+        id: openTreeId,
+        name: treeName || "Untitled tree",
+      },
+    });
+    return () => {
+      setBeakerContext(null);
+    };
+  }, [openTreeId, treeName]);
   const [importMode, setImportMode] = useState<ImportMode>(null);
   const [pasteText, setPasteText] = useState("");
 
-  const [layout, setLayout] = useState<"rectangular" | "circular">(
-    "rectangular",
-  );
+  const [layout, setLayout] = useState<PhyloLayout>("rectangular");
   const [phylogram, setPhylogram] = useState(true);
+  // Show the branch-length scale bar on a phylogram (geom_treescale). Default on.
+  const [scaleBar, setScaleBar] = useState(true);
+  const [rootEdge, setRootEdge] = useState(false);
+  // Draw a full-width time axis (age before present) instead of the scale bar.
+  const [timeAxis, setTimeAxis] = useState(false);
   // The ordered LAYER stack (phylo Phase 1). This IS the persisted panels[]; the
   // layers control edits it directly and the renderer + exporter walk it.
   const [panels, setPanels] = useState<AlignedPanel[]>(defaultPanels);
@@ -216,6 +256,46 @@ export function PhyloStudio({ initialTreeId }: { initialTreeId?: string } = {}) 
   const [tipColumn, setTipColumn] = useState<string>("");
   // Color tree branches by this column (ggtree aes(color=trait)); "" = off.
   const [branchColorColumn, setBranchColorColumn] = useState<string>("");
+  // Data Hub plot binding (phylo Phase 4): the picker state for the "Data Hub
+  // plot" Setup panel, plus the RESOLVED render inputs the canvas reads. The
+  // persisted reference rides on each datahubPlot panel's options seam; the
+  // resolved { plotSpec, content, analysis } is recomputed from it here (live
+  // figure state, never persisted), the same way alignment resolves to msaTrack.
+  const [dhTables, setDhTables] = useState<{ id: string; name: string }[]>([]);
+  const [dhTableId, setDhTableId] = useState<string>("");
+  const [dhContent, setDhContent] = useState<DataHubDocContent | null>(null);
+  const [dhJoinCol, setDhJoinCol] = useState<string>("");
+  const [datahubResolved, setDatahubResolved] = useState<
+    RenderSpec["datahubPanels"]
+  >({});
+
+  // Smart Data Binding (phylo Phase 4): the auto-detected joinable tables for the
+  // open tree, the wizard's open state, and a per-tree banner dismissal. The
+  // engine (rankJoinCandidates) computes the candidates; the wizard widget drives
+  // the add; addSmartOverlays does the merge + makePanel app operation.
+  const [smartCandidates, setSmartCandidates] = useState<JoinCandidate[]>([]);
+  const [smartOpen, setSmartOpen] = useState(false);
+  const [smartDismissed, setSmartDismissed] = useState(false);
+
+  // Publication page-frame (artboard) state for the figure. Disabled by default
+  // (the canvas renders exactly as before). The figure's width in inches is its
+  // own state since Tree Studio has no other figure-size control; the height
+  // follows the fixed tree aspect (FIG_H / FIG_W).
+  const [artboard, setArtboard] = useState<ArtboardState>(() =>
+    artboardInitial(undefined),
+  );
+  const [figWIn, setFigWIn] = useState<number>(FIG_W / 96);
+  const figHIn = figWIn * (FIG_H / FIG_W);
+  const onArtboardChange = (patch: Partial<ArtboardState>) =>
+    setArtboard((s) => {
+      const next = { ...s, ...patch };
+      saveArtboardPrefs(next);
+      return next;
+    });
+  const onFitToPage = () => {
+    const fit = fitFigureToPage(pageDims(artboard), FIG_W / FIG_H);
+    setFigWIn(fit.figWIn);
+  };
   // Tip members whose MRCA clade the Rotate button flips (ggtree rotate()).
   const [rotateMembers, setRotateMembers] = useState<string[]>([]);
 
@@ -225,6 +305,9 @@ export function PhyloStudio({ initialTreeId }: { initialTreeId?: string } = {}) 
   // The open action-rail tab (Layers / Setup / Export / Code), null = collapsed.
   // Defaults to Layers so the layer stack shows on open, as it always did.
   const [activeOp, setActiveOp] = useState<PhyloOpId | null>("layers");
+  // The Tree Builder recipe wizard opens as an overlay from the rail's "Build a
+  // tree" button (phylo v3 unified layout: no top mode-switch bar).
+  const [builderOpen, setBuilderOpen] = useState(false);
 
   const queryClient = useQueryClient();
 
@@ -291,6 +374,32 @@ export function PhyloStudio({ initialTreeId }: { initialTreeId?: string } = {}) 
     );
   }, [tree, match, metaColumns, tipColumn]);
 
+  // Each bindable column classified numeric vs categorical, so the layer
+  // inspector offers only type-appropriate columns per field (size-by numeric,
+  // shape-by categorical, etc. — Phase 0 contextual settings).
+  const columnKinds = useMemo(() => {
+    const out: Record<string, "numeric" | "categorical"> = {};
+    if (!tree || !match) return out;
+    for (const c of metaColumns) {
+      if (c === tipColumn) continue;
+      out[c] = classifyColumn(tree, match.matched, c);
+    }
+    return out;
+  }, [tree, match, metaColumns, tipColumn]);
+
+  // What the figure can currently supply, so the Add menu greys overlays whose
+  // data is missing and says why (Phase 1 constraint-aware Smart Add).
+  const layerCapabilities = useMemo(
+    () => ({
+      hasNumericColumn: numericColumns.length > 0,
+      hasAnyColumn: metaColumns.filter((c) => c !== tipColumn).length > 0,
+      hasAlignment: !!alignment,
+      hasAnnotations: tree ? collectAnnotationKeys(tree).length > 0 : false,
+      hasDatahubTable: dhTables.length > 0,
+    }),
+    [numericColumns, metaColumns, tipColumn, alignment, tree, dhTables],
+  );
+
   // The primary category column for the pinned categorical hues, taken from the
   // first points / strip layer so points + strip + legend agree (as in Phase 0).
   const categoryColumn = useMemo(() => {
@@ -306,11 +415,14 @@ export function PhyloStudio({ initialTreeId }: { initialTreeId?: string } = {}) 
   // layer stack drives the render; the legacy track fields stay empty.
   const spec: RenderSpec | null = useMemo(() => {
     if (!tree) return null;
-    return figureToRenderSpec(
+    const base = figureToRenderSpec(
       tree,
       {
         layout,
         phylogram,
+        scaleBar,
+        rootEdge,
+        timeAxis,
         tracks: EMPTY_TRACKS,
         categoryColumn,
         metaRows,
@@ -321,16 +433,23 @@ export function PhyloStudio({ initialTreeId }: { initialTreeId?: string } = {}) 
       },
       { width: FIG_W, height: FIG_H },
     );
+    // Phase 4: the resolved Data Hub plot inputs are live figure state, supplied
+    // on the spec the same way figureToRenderSpec resolves alignment to msaTrack.
+    return { ...base, datahubPanels: datahubResolved };
   }, [
     tree,
     layout,
     phylogram,
+    scaleBar,
+    rootEdge,
+    timeAxis,
     categoryColumn,
     metaRows,
     tipColumn,
     panels,
     alignment,
     branchColorColumn,
+    datahubResolved,
   ]);
 
   // The alignment-to-tips match (for the "matched X of Y" indicator + auto-adding
@@ -349,6 +468,245 @@ export function PhyloStudio({ initialTreeId }: { initialTreeId?: string } = {}) 
     () => (spec ? generateGgtreeCode(spec) : ""),
     [spec],
   );
+
+  // ---- Data Hub plot binding (phylo Phase 4) ----
+
+  // Load the Data Hub table list once, for the picker.
+  useEffect(() => {
+    let cancelled = false;
+    dataHubApi
+      .list()
+      .then((docs) => {
+        if (!cancelled) {
+          setDhTables(docs.map((d) => ({ id: d.id, name: d.name })));
+        }
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  // When a table is picked, load its content for the picker and default the join
+  // column to the one that joins the most tips (seeded by the x-role column).
+  useEffect(() => {
+    if (!dhTableId) {
+      setDhContent(null);
+      return;
+    }
+    let cancelled = false;
+    dataHubApi
+      .getContent(dhTableId)
+      .then((content) => {
+        if (cancelled || !content) return;
+        setDhContent(content);
+        if (!tree) return;
+        const seed =
+          content.columns.find((c) => c.role === "x")?.id ??
+          content.columns[0]?.id ??
+          "";
+        let best = seed;
+        let bestRate = seed ? datahubJoinRate(content, seed, tree) : 0;
+        for (const col of content.columns) {
+          const rate = datahubJoinRate(content, col.id, tree);
+          if (rate > bestRate) {
+            bestRate = rate;
+            best = col.id;
+          }
+        }
+        setDhJoinCol(best);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [dhTableId, tree]);
+
+  // Resolve every bound datahubPlot panel into render inputs: load its table,
+  // relabel rows onto the tree's tips, and pick (or build) a grouped-bar plot.
+  // Re-runs on a panel/binding change or a new tree, so a reopened figure (which
+  // persisted only the reference) re-resolves.
+  useEffect(() => {
+    if (!tree) return;
+    const bound = panels.filter(
+      (p) =>
+        p.kind === "datahubPlot" &&
+        typeof p.options?.datahubTableId === "string",
+    );
+    if (bound.length === 0) {
+      setDatahubResolved({});
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      const resolved: NonNullable<RenderSpec["datahubPanels"]> = {};
+      for (const p of bound) {
+        const tableId = String(p.options!.datahubTableId);
+        const joinCol = String(p.options!.joinColumn ?? "");
+        const content = await dataHubApi.getContent(tableId);
+        if (!content) continue;
+        const joined = joinContentToTips(content, joinCol, tree);
+        const base =
+          content.plots.find((pl) => pl.type === "groupedBar") ??
+          buildPlotSpec({ id: `dhplot-${p.id}`, kind: "groupedBar", tableId });
+        // Honor a panel-level barMode (dodge / stack / stack100), so a tip panel
+        // can show the 100%-stacked relative-abundance look without editing the
+        // plot back in the Data Hub.
+        const barMode = p.options?.barMode as BarMode | undefined;
+        const plotSpec = barMode ? withStyle(base, { barMode }) : base;
+        resolved[p.id] = { plotSpec, content: joined, analysis: null };
+      }
+      if (!cancelled) setDatahubResolved(resolved);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [panels, tree]);
+
+  // The tip-join rate for the picker indicator ("joins N of M tips").
+  const dhMatchRate = useMemo(() => {
+    if (!dhContent || !dhJoinCol || !tree) return null;
+    return datahubJoinRate(dhContent, dhJoinCol, tree);
+  }, [dhContent, dhJoinCol, tree]);
+
+  // Add a datahubPlot panel bound to the picked table + join column, inserted
+  // just inside any labels layer so the labels stay outermost.
+  function addDatahubPanel() {
+    if (!dhTableId || !dhJoinCol) return;
+    const tableName =
+      dhTables.find((t) => t.id === dhTableId)?.name ?? "Data Hub plot";
+    const panel: AlignedPanel = {
+      id: `dhplot-${Date.now().toString(36)}`,
+      kind: "datahubPlot",
+      visible: true,
+      legend: true,
+      options: {
+        datahubTableId: dhTableId,
+        joinColumn: dhJoinCol,
+        title: tableName,
+      },
+    };
+    setPanels((prev) => {
+      const labelIdx = prev.findIndex((p) => p.kind === "labels");
+      if (labelIdx === -1) return [...prev, panel];
+      return [...prev.slice(0, labelIdx), panel, ...prev.slice(labelIdx)];
+    });
+  }
+
+  // Add a Data Hub plot straight from the Layers Add menu (the first-class entry,
+  // Phase 1) — load the table, auto-pick the join column that matches the most
+  // tips, and insert the panel. Mirrors addDatahubPanel but parameterized by a
+  // table id (the menu picks the table; the join is automatic, editable later).
+  async function addDatahubFromTable(tableId: string) {
+    if (!tree) return;
+    const content = await dataHubApi.getContent(tableId);
+    if (!content) return;
+    const seed =
+      content.columns.find((c) => c.role === "x")?.id ??
+      content.columns[0]?.id ??
+      "";
+    let best = seed;
+    let bestRate = seed ? datahubJoinRate(content, seed, tree) : 0;
+    for (const col of content.columns) {
+      const rate = datahubJoinRate(content, col.id, tree);
+      if (rate > bestRate) {
+        bestRate = rate;
+        best = col.id;
+      }
+    }
+    if (!best) return;
+    const tableName =
+      dhTables.find((t) => t.id === tableId)?.name ?? "Data Hub plot";
+    const panel: AlignedPanel = {
+      id: `dhplot-${Date.now().toString(36)}`,
+      kind: "datahubPlot",
+      visible: true,
+      legend: true,
+      options: { datahubTableId: tableId, joinColumn: best, title: tableName },
+    };
+    setPanels((prev) => {
+      const labelIdx = prev.findIndex((p) => p.kind === "labels");
+      if (labelIdx === -1) return [...prev, panel];
+      return [...prev.slice(0, labelIdx), panel, ...prev.slice(labelIdx)];
+    });
+    setSelectedLayerId(panel.id);
+  }
+
+  // Smart Data Binding: scan the collection's Data Hub tables for ones that join
+  // the open tree's tips and rank them (the engine drops zero-join / key-only
+  // tables). Drives the "N tables can overlay this tree" banner + the wizard.
+  // getContent is a local read (local-first), so loading every table's content is
+  // cheap; recomputed when the tree or the table list changes.
+  useEffect(() => {
+    let cancelled = false;
+    if (!tree || dhTables.length === 0) {
+      setSmartCandidates([]);
+      return;
+    }
+    (async () => {
+      const loaded: CandidateTable[] = [];
+      for (const t of dhTables) {
+        const content = await dataHubApi.getContent(t.id);
+        if (content) loaded.push({ id: t.id, name: t.name, content });
+      }
+      if (cancelled) return;
+      setSmartCandidates(rankJoinCandidates(tree, loaded));
+    })().catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [tree, dhTables]);
+
+  // Re-arm the banner when a different SAVED tree is opened (not on every edit,
+  // which would re-nag). An imported / unsaved tree clears openTreeId, which also
+  // re-arms it; the "Find data" button stays available after a dismissal anyway.
+  useEffect(() => {
+    setSmartDismissed(false);
+    setSmartOpen(false);
+  }, [openTreeId]);
+
+  // The wizard's add step: merge the chosen table columns into the tree's tip-
+  // keyed metadata (the engine), then append one overlay panel per selection
+  // (makePanel) just inside any labels layer. The model never runs this; the
+  // wizard collects the selections and the engine + app do the work.
+  async function addSmartOverlays(args: {
+    tableId: string;
+    tableName: string;
+    joinColumnId: string;
+    selections: OverlaySelection[];
+  }) {
+    if (!tree) return;
+    const content = await dataHubApi.getContent(args.tableId);
+    if (!content) return;
+    const columnIds = Array.from(new Set(args.selections.map((s) => s.columnId)));
+    const merged = mergeTableColumnsIntoMetadata({
+      tree,
+      existing: metaRows && tipColumn ? { rows: metaRows, tipColumn } : null,
+      tableName: args.tableName,
+      content,
+      joinColumnId: args.joinColumnId,
+      columnIds,
+    });
+    setMetaRows(merged.rows);
+    setTipColumn(merged.tipColumn);
+    // metaColumns drives the inspector pickers: tip-id column first, then the rest.
+    const others = new Set<string>();
+    for (const r of merged.rows)
+      for (const k of Object.keys(r)) if (k !== merged.tipColumn) others.add(k);
+    setMetaColumns([merged.tipColumn, ...others]);
+    const nameFor = new Map(merged.addedColumns.map((a) => [a.columnId, a.name]));
+    const newPanels: AlignedPanel[] = [];
+    for (const s of args.selections) {
+      const name = nameFor.get(s.columnId);
+      if (name) newPanels.push(makePanel(s.geom, [name]));
+    }
+    setPanels((prev) => {
+      const labelIdx = prev.findIndex((p) => p.kind === "labels");
+      if (labelIdx === -1) return [...prev, ...newPanels];
+      return [...prev.slice(0, labelIdx), ...newPanels, ...prev.slice(labelIdx)];
+    });
+    setAppliedTemplate("");
+  }
 
   // ---- tree import ----
 
@@ -404,8 +762,21 @@ export function PhyloStudio({ initialTreeId }: { initialTreeId?: string } = {}) 
    */
   function restoreSavedFigure(meta: PhyloMeta) {
     const inputs = figureInputsFromStored(meta.figure, meta.metadata);
+    // Restore the artboard config + figure width straight off the stored figure
+    // (additive optional fields; absent means disabled + natural size).
+    const storedFigure = meta.figure as PhyloFigureSpec | undefined;
+    setArtboard(readArtboardState(storedFigure?.artboard));
+    setFigWIn(
+      typeof storedFigure?.figureWidthIn === "number" &&
+        storedFigure.figureWidthIn > 0
+        ? storedFigure.figureWidthIn
+        : FIG_W / 96,
+    );
     setLayout(inputs.layout);
     setPhylogram(inputs.phylogram);
+    setScaleBar(inputs.scaleBar ?? true);
+    setRootEdge(inputs.rootEdge ?? false);
+    setTimeAxis(inputs.timeAxis ?? false);
     // Stored panels win; else project the layer stack from the Phase 0 fields.
     const restored =
       inputs.panels ??
@@ -533,10 +904,43 @@ export function PhyloStudio({ initialTreeId }: { initialTreeId?: string } = {}) 
 
   // ---- export ----
 
-  const onExportSvg = () => svgMarkup && downloadSvg(svgMarkup, treeName || "tree");
+  // Export dpi for the artboard's true-inch raster (the page-frame readout uses
+  // the same value). Tree Studio has no per-figure dpi control, so it is fixed.
+  const ARTBOARD_DPI = 300;
+  // When the artboard is on, the figure exports at TRUE inches (vector) and the
+  // PNG rasterizes at inches * dpi. When off, the legacy px box + 3x hi-DPI
+  // behavior is unchanged.
+  const exportSvgMarkup = () =>
+    artboard.enabled
+      ? artboardExportSvg({ figureSvg: svgMarkup, figWIn, figHIn, mode: "figure" })
+      : svgMarkup;
+  const pngDims = (): [number, number, number] =>
+    artboard.enabled
+      ? [pxAtDpi(figWIn, ARTBOARD_DPI), pxAtDpi(figHIn, ARTBOARD_DPI), 1]
+      : [FIG_W, FIG_H, 3];
+
+  const onExportSvg = () =>
+    svgMarkup && downloadSvg(exportSvgMarkup(), treeName || "tree");
+  // Export the whole page sheet (the tree centered on the chosen paper at true
+  // inches). Only meaningful when the artboard is on.
+  const onExportPage = () => {
+    if (!svgMarkup) return;
+    const page = pageDims(artboard);
+    const placement = placeFigureCentered(page, figWIn, figHIn);
+    const markup = artboardExportSvg({
+      figureSvg: svgMarkup,
+      figWIn,
+      figHIn,
+      mode: "page",
+      page,
+      placement,
+    });
+    downloadSvg(markup, `${treeName || "tree"}-page`);
+  };
   const onExportPng = async () => {
     if (!svgMarkup) return;
-    const blob = await svgToPngBlob(svgMarkup, FIG_W, FIG_H, 3);
+    const [w, h, scale] = pngDims();
+    const blob = await svgToPngBlob(svgMarkup, w, h, scale);
     const a = document.createElement("a");
     a.href = URL.createObjectURL(blob);
     a.download = `${treeName || "tree"}.png`;
@@ -550,13 +954,14 @@ export function PhyloStudio({ initialTreeId }: { initialTreeId?: string } = {}) 
         typeof ClipboardItem !== "undefined" &&
         !!navigator.clipboard?.write;
       if (canImage) {
-        const blob = await svgToPngBlob(svgMarkup, FIG_W, FIG_H, 3);
+        const [w, h, scale] = pngDims();
+        const blob = await svgToPngBlob(svgMarkup, w, h, scale);
         await navigator.clipboard.write([
           new ClipboardItem({ "image/png": blob }),
         ]);
         setCopyState("image");
       } else {
-        await navigator.clipboard.writeText(svgMarkup);
+        await navigator.clipboard.writeText(exportSvgMarkup());
         setCopyState("text");
       }
       setTimeout(() => setCopyState("idle"), 1800);
@@ -578,10 +983,15 @@ export function PhyloStudio({ initialTreeId }: { initialTreeId?: string } = {}) 
     const figure = {
       layout,
       branchLengths: phylogram,
+      scaleBar,
+      rootEdge,
+      timeAxis,
       tracks: derived.tracks,
       legend: true,
       panels,
       branchColorColumn: branchColorColumn || undefined,
+      artboard: artboard.enabled ? artboard : undefined,
+      figureWidthIn: figWIn,
     };
     const metadata =
       metaRows && tipColumn
@@ -640,33 +1050,105 @@ export function PhyloStudio({ initialTreeId }: { initialTreeId?: string } = {}) 
   // left), Export, and the ggtree Code. Built only when a tree is open.
   const railOperations: RailOperation[] = [
     {
-      id: "layers",
-      label: "Layers",
-      title: "Layers",
-      sub: "Draw order, inner to outer",
-      icon: <Icon name="layer" className="h-5 w-5" />,
-      panel: (
-        <PhyloLayersControl
-          panels={panels}
-          selectedId={selectedLayerId}
-          columns={metaColumns.filter((c) => c !== tipColumn)}
-          tipNames={tips.map((t) => t.name)}
-          treeSummary={`${phylogram ? "phylogram" : "cladogram"}, ${layout}`}
-          appliedTemplate={appliedTemplate}
-          onChange={editPanels}
-          onSelect={setSelectedLayerId}
-          onApplyTemplate={onApplyTemplate}
-        />
-      ),
-    },
-    {
-      id: "setup",
-      label: "Setup",
-      title: "Tree setup",
-      sub: "Tree, metadata, and alignment",
-      icon: <Icon name="database" className="h-5 w-5" />,
+      id: "shape",
+      label: "Shape",
+      title: "Tree shape",
+      sub: "Layout, rooting, axes, page",
+      icon: <Icon name="tree" className="h-5 w-5" />,
       panel: (
         <div className="space-y-3.5">
+          <Panel title="Layout">
+            <div className="flex flex-wrap items-center gap-2">
+              <Seg
+                value={layout}
+                options={[
+                  ["rectangular", "Rectangular"],
+                  ["slanted", "Slanted"],
+                  ["circular", "Circular"],
+                  ["fan", "Fan"],
+                  ["inwardCircular", "Inward circular"],
+                  ["unrooted", "Unrooted"],
+                ]}
+                onChange={setLayout}
+              />
+              <Seg
+                value={phylogram ? "phylo" : "clado"}
+                options={[
+                  ["phylo", "Phylogram"],
+                  ["clado", "Cladogram"],
+                ]}
+                onChange={(v) => setPhylogram(v === "phylo")}
+              />
+            </div>
+            <div className="mt-2 flex flex-wrap gap-1.5">
+              {phylogram && (
+                <button
+                  type="button"
+                  onClick={() => setScaleBar((s) => !s)}
+                  title="Branch-length scale bar"
+                  className={`inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1 text-xs font-bold transition-colors ${
+                    scaleBar
+                      ? "border-accent bg-accent-soft text-accent"
+                      : "border-border text-foreground-muted hover:text-foreground"
+                  }`}
+                >
+                  Scale bar
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={() => setRootEdge((s) => !s)}
+                title="Draw a short root edge stub (geom_rootedge)"
+                className={`inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1 text-xs font-bold transition-colors ${
+                  rootEdge
+                    ? "border-accent bg-accent-soft text-accent"
+                    : "border-border text-foreground-muted hover:text-foreground"
+                }`}
+              >
+                Root edge
+              </button>
+              {phylogram && (
+                <button
+                  type="button"
+                  onClick={() => setTimeAxis((s) => !s)}
+                  title="Full-width time axis, tips at age 0 (theme_tree2)"
+                  className={`inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1 text-xs font-bold transition-colors ${
+                    timeAxis
+                      ? "border-accent bg-accent-soft text-accent"
+                      : "border-border text-foreground-muted hover:text-foreground"
+                  }`}
+                >
+                  Time axis
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={() => onArtboardChange({ enabled: !artboard.enabled })}
+                title="Show the figure on a publication page (artboard)."
+                className={`inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1 text-xs font-bold transition-colors ${
+                  artboard.enabled
+                    ? "border-accent bg-accent-soft text-accent"
+                    : "border-border text-foreground-muted hover:text-foreground"
+                }`}
+              >
+                Page frame
+              </button>
+            </div>
+            {artboard.enabled && (
+              <div className="mt-3 border-t border-border pt-3">
+                <FigureArtboardControls
+                  state={artboard}
+                  onChange={onArtboardChange}
+                  figWIn={figWIn}
+                  figHIn={figHIn}
+                  dpi={ARTBOARD_DPI}
+                  onFitToPage={onFitToPage}
+                  onFigWidthIn={setFigWIn}
+                />
+              </div>
+            )}
+          </Panel>
+
           <Panel title="Tree">
             <div className="text-sm text-foreground-muted mb-2 truncate">
               {treeName} ({tips.length} tips)
@@ -713,7 +1195,89 @@ export function PhyloStudio({ initialTreeId }: { initialTreeId?: string } = {}) 
               </button>
             </div>
           </Panel>
-
+        </div>
+      ),
+    },
+    {
+      id: "layers",
+      label: "Layers",
+      title: "Layers",
+      sub: "Draw order, inner to outer",
+      icon: <Icon name="layer" className="h-5 w-5" />,
+      panel: (
+        <div className="space-y-3">
+          {tree && (
+            <div>
+              {smartCandidates.length > 0 && !smartDismissed && (
+                <div className="flex items-start gap-2.5 px-3 py-2.5 mb-2 rounded-xl border border-accent bg-accent-soft">
+                  <Icon
+                    name="bolt"
+                    className="w-4 h-4 text-accent shrink-0 mt-0.5"
+                  />
+                  <div className="min-w-0">
+                    <button
+                      type="button"
+                      onClick={() => setSmartOpen(true)}
+                      className="block text-left text-sm font-semibold text-accent hover:underline"
+                    >
+                      {smartCandidates.length} table
+                      {smartCandidates.length === 1 ? "" : "s"} can overlay this
+                      tree
+                    </button>
+                    <p className="text-xs text-accent/80 mt-0.5">
+                      Put your data on the tree as heatmaps, bars, or color
+                      strips.
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setSmartDismissed(true)}
+                    aria-label="Dismiss"
+                    className="ml-auto text-accent/70 hover:text-accent shrink-0"
+                  >
+                    <Icon name="x" className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              )}
+              {(smartCandidates.length === 0 || smartDismissed) && (
+                <button
+                  type="button"
+                  onClick={() => setSmartOpen(true)}
+                  className="flex items-center gap-1.5 text-xs font-medium text-foreground-muted hover:text-accent mb-1"
+                >
+                  <Icon name="bolt" className="w-3.5 h-3.5" />
+                  Find data for this tree
+                </button>
+              )}
+            </div>
+          )}
+          <PhyloLayersControl
+            panels={panels}
+            selectedId={selectedLayerId}
+            columns={metaColumns.filter((c) => c !== tipColumn)}
+            columnKinds={columnKinds}
+            capabilities={layerCapabilities}
+            datahubTables={dhTables}
+            onAddDatahub={addDatahubFromTable}
+            tipNames={tips.map((t) => t.name)}
+            annotationKeys={tree ? collectAnnotationKeys(tree) : []}
+            treeSummary={`${phylogram ? "phylogram" : "cladogram"}, ${layout}`}
+            appliedTemplate={appliedTemplate}
+            onChange={editPanels}
+            onSelect={setSelectedLayerId}
+            onApplyTemplate={onApplyTemplate}
+          />
+        </div>
+      ),
+    },
+    {
+      id: "data",
+      label: "Data",
+      title: "Data sources",
+      sub: "Metadata, alignment, Data Hub",
+      icon: <Icon name="database" className="h-5 w-5" />,
+      panel: (
+        <div className="space-y-3.5">
           <Panel title="Metadata">
             <p className="text-xs text-foreground-muted mb-2">
               Drop a table, then bind its columns to layers in the inspector.
@@ -832,6 +1396,74 @@ export function PhyloStudio({ initialTreeId }: { initialTreeId?: string } = {}) 
               </button>
             )}
           </Panel>
+
+          <Panel title="Data Hub plot">
+            <p className="text-xs text-foreground-muted mb-2">
+              Align a Data Hub grouped-bar figure to the tips. Rows join to tips
+              by a column, the same way metadata does. The figure math stays in
+              the Data Hub engine; the tree just places it.
+            </p>
+            {dhTables.length === 0 ? (
+              <p className="text-xs text-foreground-muted">
+                No Data Hub tables found.
+              </p>
+            ) : (
+              <div className="space-y-2">
+                <label className="block text-xs">
+                  <span className="text-foreground-muted">Table</span>
+                  <select
+                    value={dhTableId}
+                    onChange={(e) => setDhTableId(e.target.value)}
+                    className="mt-0.5 w-full text-sm border border-border rounded-lg px-2 py-1 bg-surface text-foreground"
+                  >
+                    <option value="">(pick a table)</option>
+                    {dhTables.map((t) => (
+                      <option key={t.id} value={t.id}>
+                        {t.name}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                {dhContent && (
+                  <label className="block text-xs">
+                    <span className="text-foreground-muted">
+                      Join tips on column
+                    </span>
+                    <select
+                      value={dhJoinCol}
+                      onChange={(e) => setDhJoinCol(e.target.value)}
+                      className="mt-0.5 w-full text-sm border border-border rounded-lg px-2 py-1 bg-surface text-foreground"
+                    >
+                      {dhContent.columns.map((c) => (
+                        <option key={c.id} value={c.id}>
+                          {c.name}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                )}
+                {dhMatchRate != null && (
+                  <div
+                    className={`text-xs font-medium ${
+                      dhMatchRate >= 0.999
+                        ? "text-emerald-600"
+                        : "text-foreground-muted"
+                    }`}
+                  >
+                    Joins {Math.round(dhMatchRate * tips.length)} of{" "}
+                    {tips.length} tips
+                  </div>
+                )}
+                {dhContent && (
+                  <GhostBtn onClick={addDatahubPanel}>Add plot panel</GhostBtn>
+                )}
+              </div>
+            )}
+            <p className="mt-2 text-xs text-foreground-muted">
+              Added plots appear in Layers; set each plot&apos;s bar mode in its
+              layer inspector there.
+            </p>
+          </Panel>
         </div>
       ),
     },
@@ -863,6 +1495,13 @@ export function PhyloStudio({ initialTreeId }: { initialTreeId?: string } = {}) 
                     : "Copy"}
               </button>
             </Tooltip>
+            {artboard.enabled && (
+              <Tooltip label="Export the whole page sheet with the tree placed on it">
+                <button onClick={onExportPage} className={GHOST_CLASS}>
+                  Page
+                </button>
+              </Tooltip>
+            )}
           </div>
           <button
             onClick={onSave}
@@ -886,6 +1525,11 @@ export function PhyloStudio({ initialTreeId }: { initialTreeId?: string } = {}) 
             <div className="mt-1 text-xs text-brand-sky font-semibold">
               {savedMsg}
             </div>
+          )}
+          {artboard.enabled && (
+            <p className="mt-3 border-t border-border pt-3 text-xs text-foreground-muted">
+              Page size, orientation, and figure width are under the Shape tab.
+            </p>
           )}
         </div>
       ),
@@ -941,6 +1585,7 @@ export function PhyloStudio({ initialTreeId }: { initialTreeId?: string } = {}) 
             setTree(null);
             setOpenTreeId(null);
           }}
+          onBuild={() => setBuilderOpen(true)}
           onCollapse={() => shell.setCollapsed(true)}
           onOpenCleared={() => {
             setTree(null);
@@ -957,30 +1602,46 @@ export function PhyloStudio({ initialTreeId }: { initialTreeId?: string } = {}) 
         <div className="flex min-w-0 flex-1 flex-col">
           {tree ? (
             <>
-              <div className="flex flex-wrap items-center gap-2 border-b border-border px-3 py-2">
-                <Seg
-                  value={layout}
-                  options={[
-                    ["rectangular", "Rectangular"],
-                    ["circular", "Circular"],
-                  ]}
-                  onChange={setLayout}
-                />
-                <span className="grow" />
-                <Seg
-                  value={phylogram ? "phylo" : "clado"}
-                  options={[
-                    ["phylo", "Phylogram"],
-                    ["clado", "Cladogram"],
-                  ]}
-                  onChange={(v) => setPhylogram(v === "phylo")}
-                />
-              </div>
-              {/* The renderer string is the single source of SVG; injected here. */}
-              <div
-                className="min-h-0 flex-1 overflow-auto p-3"
-                dangerouslySetInnerHTML={{ __html: svgMarkup }}
-              />
+              {/* Tree-shape controls (layout, rooting, axes, page frame) now live
+                  in the Shape tab of the action rail; the canvas is just the
+                  figure + view controls. The renderer string is the single source
+                  of SVG. The artboard frames it on a real page when enabled;
+                  otherwise it injects directly, exactly as before. */}
+              {artboard.enabled ? (
+                <div className="min-h-0 flex-1">
+                  <ZoomPanCanvas
+                    contentWidth={pageDims(artboard).wIn * 96}
+                    contentHeight={pageDims(artboard).hIn * 96}
+                    minimap={
+                      <FigureArtboard
+                        figureSvg={svgMarkup}
+                        figWIn={figWIn}
+                        figHIn={figHIn}
+                        state={artboard}
+                      />
+                    }
+                  >
+                    <FigureArtboard
+                      figureSvg={svgMarkup}
+                      figWIn={figWIn}
+                      figHIn={figHIn}
+                      state={artboard}
+                    />
+                  </ZoomPanCanvas>
+                </div>
+              ) : (
+                <div className="min-h-0 flex-1">
+                  <ZoomPanCanvas
+                    contentWidth={FIG_W}
+                    contentHeight={FIG_H}
+                    minimap={
+                      <div dangerouslySetInnerHTML={{ __html: svgMarkup }} />
+                    }
+                  >
+                    <div dangerouslySetInnerHTML={{ __html: svgMarkup }} />
+                  </ZoomPanCanvas>
+                </div>
+              )}
             </>
           ) : (
             <div className="min-h-0 flex-1 overflow-auto p-4">
@@ -1011,6 +1672,41 @@ export function PhyloStudio({ initialTreeId }: { initialTreeId?: string } = {}) 
           />
         ) : null}
       </section>
+      {/* Tree Builder overlay, opened from the rail's "Build a tree" button. */}
+      <LivingPopup
+        open={builderOpen}
+        onClose={() => setBuilderOpen(false)}
+        label="Build a tree"
+        widthClassName="max-w-4xl"
+        padded
+      >
+        <div className="max-h-[80vh] overflow-auto">
+          <h2 className="text-title font-bold text-foreground mb-1">
+            Build a tree
+          </h2>
+          <p className="text-meta text-foreground-muted mb-4">
+            Generate the exact tree-building scripts. Nothing runs on our
+            servers.
+          </p>
+          <PhyloBuilder />
+        </div>
+      </LivingPopup>
+      {/* Smart Data Binding wizard (phylo Phase 4). Own card chrome, so it is a
+          plain centered overlay rather than a LivingPopup frame. */}
+      {smartOpen && tree && (
+        <div
+          className="fixed inset-0 z-50 grid place-items-center bg-black/30 p-4"
+          onClick={() => setSmartOpen(false)}
+        >
+          <div onClick={(e) => e.stopPropagation()}>
+            <SmartDataWizard
+              candidates={smartCandidates}
+              onAddOverlays={addSmartOverlays}
+              onClose={() => setSmartOpen(false)}
+            />
+          </div>
+        </div>
+      )}
     </div>
   );
 }

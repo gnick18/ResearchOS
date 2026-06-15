@@ -12,6 +12,7 @@ import { useDropWarning } from "@/lib/use-drop-warning";
 import { ownerScopedTasksApi } from "@/lib/tasks/owner-scoped-api";
 import LiveMarkdownEditor from "@/components/LiveMarkdownEditor";
 import Tooltip from "@/components/Tooltip";
+import { Icon } from "@/components/icons";
 
 interface VariationEntry {
   heading: string;
@@ -73,6 +74,30 @@ function removeVariationEntry(markdown: string, entryIndex: number): string {
       ? matches[headerArrayIndex + 1].start
       : markdown.length;
   return (markdown.substring(0, start) + markdown.substring(end)).trim();
+}
+
+/**
+ * Strip the leading `### Variation - ...` marker (and any markdown noise) from
+ * an entry so the card can show a compact, human one-line title. Falls back to
+ * "Variation" for heading-less legacy prologue entries.
+ */
+function entryTitle(entry: VariationEntry): string {
+  if (!entry.heading) return "Variation";
+  return entry.heading.replace(/^###\s+/, "").trim() || "Variation";
+}
+
+/**
+ * Collapse an entry body to a single readable line for the card preview:
+ * drop markdown headers/bullets/emphasis markers and whitespace runs.
+ */
+function entryPreview(entry: VariationEntry): string {
+  const raw = entry.body || "";
+  const flat = raw
+    .replace(/^#+\s+/gm, "")
+    .replace(/[*_`>#-]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+  return flat;
 }
 
 interface VariationNotesPanelProps {
@@ -154,13 +179,64 @@ function SaveStatusIndicator({
   return null;
 }
 
+/**
+ * Floating full-text summary popup for a hovered card. Modeled on the
+ * MethodExperimentsSidebar variation-notes popup: `fixed z-50 w-80
+ * bg-surface-raised rounded-lg shadow-xl border border-border p-4
+ * pointer-events-none`, anchored to the LEFT of the card (the column lives on
+ * the right edge of the pane, so the bubble opens inward). Renders the FULL
+ * note body as markdown so formatting is preserved on hover.
+ */
+function VariationHoverSummary({
+  entry,
+  position,
+}: {
+  entry: VariationEntry;
+  position: { x: number; y: number };
+}) {
+  return (
+    <div
+      className="fixed z-50 w-80 bg-surface-raised rounded-lg shadow-xl border border-border p-4 pointer-events-none"
+      style={{
+        // Open to the LEFT of the card (column is on the right edge): 320px
+        // bubble + 12px gap from the card's left edge.
+        left: `calc(${position.x}px - 332px)`,
+        top: `${position.y}px`,
+        maxHeight: "320px",
+        overflowY: "auto",
+      }}
+    >
+      <h4 className="text-meta font-semibold text-foreground mb-2 flex items-center gap-1">
+        {/* Reused note glyph from the MethodExperimentsSidebar popup. */}
+        <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+        </svg>
+        Variations
+      </h4>
+      <div className="text-meta text-foreground-muted whitespace-pre-wrap prose prose-xs max-w-none">
+        <ReactMarkdown remarkPlugins={[remarkGfm, remarkUnderline]} rehypePlugins={[rehypeRaw, [rehypeSanitize, markdownSanitizeSchema]]}>
+          {entry.heading ? `${entry.heading}\n\n${entry.body}` : entry.body}
+        </ReactMarkdown>
+      </div>
+    </div>
+  );
+}
+
 export default function VariationNotesPanel({ task, methodId, variationNotes, onSaved, readOnly = false, piActor }: VariationNotesPanelProps) {
   // Match MethodTabs: thread owner through saveVariationNote when this is a
   // shared-with-edit task — otherwise writes land in the wrong namespace.
   const tasksApi = useMemo(() => ownerScopedTasksApi(task, piActor ? { actor: piActor } : undefined), [task, piActor]);
-  const [isExpanded, setIsExpanded] = useState(false);
+  // Narrow-width collapse: the column folds to a thin "Variations (N)" strip
+  // the user expands by hover or click. Default expanded on wide layouts; the
+  // container CSS (see MethodTabs) drives the actual responsive hide, this is
+  // the manual toggle for the strip affordance.
+  const [isColumnCollapsed, setIsColumnCollapsed] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [content, setContent] = useState(variationNotes || "");
+  // Card whose full note is currently shown in the hover summary popup, plus
+  // the on-screen anchor for it.
+  const [hoveredEntryIndex, setHoveredEntryIndex] = useState<number | null>(null);
+  const [popupPosition, setPopupPosition] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
   // Baseline = the last value we know is durably on disk. Cancel reverts to
   // this; the autosave loop compares against this to skip no-op writes.
   // (Previously called `originalContent` and only updated on explicit Save.)
@@ -361,159 +437,205 @@ export default function VariationNotesPanel({ task, methodId, variationNotes, on
   // `saving` flag for disabling Cancel / delete buttons mid-write.
   const saving = saveStatus === "saving";
 
-  // Split rendered notes into individual entries so each gets its own delete button.
+  // Split rendered notes into individual entries so each gets its own card.
   const entries = useMemo(() => parseVariationEntries(variationNotes || ""), [variationNotes]);
 
-  return (
-    <div className="border-b border-border" data-tour-target="experiment-variation-notes">
-      {/* Header - always visible */}
-      <button
-        onClick={() => setIsExpanded(!isExpanded)}
-        className="w-full flex items-center justify-between px-4 py-2.5 bg-amber-50 dark:bg-amber-500/10 hover:bg-amber-100 dark:hover:bg-amber-500/20 transition-colors"
+  const hoveredEntry =
+    hoveredEntryIndex !== null && entries[hoveredEntryIndex]
+      ? entries[hoveredEntryIndex]
+      : null;
+
+  // ---- Narrow-width collapsed strip ------------------------------------
+  // A thin vertical bar showing "Variations (N)" that the user expands by
+  // clicking. Used at narrow content widths (also reachable via the in-column
+  // collapse chevron). Keeps the read-only gating: clicking only toggles the
+  // column open, no editing affordances are exposed here.
+  if (isColumnCollapsed) {
+    return (
+      <div
+        className="flex w-9 flex-shrink-0 flex-col items-center border-l border-border bg-surface-secondary"
+        data-tour-target="experiment-variation-notes"
       >
-        <div className="flex items-center gap-2">
-          <span className="text-body font-medium text-amber-800 dark:text-amber-200">Variation Notes</span>
+        <Tooltip label="Show variation notes" placement="left">
+          <button
+            type="button"
+            onClick={() => setIsColumnCollapsed(false)}
+            className="flex flex-1 flex-col items-center gap-2 px-1.5 py-3 text-foreground-muted hover:text-foreground"
+            aria-label={`Show variation notes${noteCount > 0 ? ` (${noteCount})` : ""}`}
+          >
+            <Icon name="chevronLeft" className="h-4 w-4" />
+            <span
+              className="text-meta font-medium tracking-wide"
+              style={{ writingMode: "vertical-rl" }}
+            >
+              Variations{noteCount > 0 ? ` (${noteCount})` : ""}
+            </span>
+          </button>
+        </Tooltip>
+      </div>
+    );
+  }
+
+  return (
+    <div
+      className="flex w-[248px] flex-shrink-0 flex-col border-l border-border bg-surface-secondary"
+      data-tour-target="experiment-variation-notes"
+    >
+      {/* Column header: "Variations" label + Add + a collapse chevron. */}
+      <div className="flex items-center justify-between gap-1 border-b border-border px-3 py-2">
+        <div className="flex min-w-0 items-center gap-1.5">
+          <span className="text-body font-medium text-foreground">Variations</span>
           {noteCount > 0 && (
-            <span className="text-meta px-1.5 py-0.5 bg-amber-200 text-amber-700 dark:text-amber-300 rounded">
-              {noteCount} {noteCount === 1 ? "entry" : "entries"}
+            <span className="text-meta rounded bg-surface-raised px-1.5 py-0.5 text-foreground-muted">
+              {noteCount}
             </span>
           )}
-          {!variationNotes && (
-            <span className="text-meta text-amber-600 dark:text-amber-300 italic">Click to add notes</span>
-          )}
         </div>
-        <svg
-          xmlns="http://www.w3.org/2000/svg"
-          width="16"
-          height="16"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          className={`text-amber-600 dark:text-amber-300 transition-transform ${isExpanded ? "rotate-180" : ""}`}
-        >
-          <path d="M6 9l6 6 6-6"/>
-        </svg>
-      </button>
+        <div className="flex flex-shrink-0 items-center gap-0.5">
+          {!readOnly && !isEditing && (
+            <Tooltip label="Add a variation note" placement="bottom">
+              <button
+                type="button"
+                onClick={handleAddNote}
+                className="flex items-center gap-1 rounded-md px-2 py-1 text-meta text-foreground-muted transition-colors hover:bg-surface-raised hover:text-foreground"
+                aria-label="Add a variation note"
+              >
+                <Icon name="plus" className="h-3.5 w-3.5" />
+                Add
+              </button>
+            </Tooltip>
+          )}
+          <Tooltip label="Collapse variations" placement="left">
+            <button
+              type="button"
+              onClick={() => setIsColumnCollapsed(true)}
+              className="rounded-md p-1 text-foreground-muted transition-colors hover:bg-surface-raised hover:text-foreground"
+              aria-label="Collapse variations"
+            >
+              <Icon name="chevronRight" className="h-4 w-4" />
+            </button>
+          </Tooltip>
+        </div>
+      </div>
 
-      {/* Expanded content */}
-      {isExpanded && (
-        <div className="bg-amber-50 dark:bg-amber-500/10 p-4">
-          {isEditing ? (
-            <div className="space-y-3">
-              <LiveMarkdownEditor
-                value={content}
-                onChange={setContent}
-                placeholder="Write your variation notes in markdown..."
-                showToolbar={true}
-                allowAnyFileType={true}
-                onFileDrop={() => showDropWarning()}
-              />
-              <div className="flex justify-end items-center gap-2">
-                {/* Autosave status indicator. Replaces the explicit Save
-                    button — input is debounced-persisted (700ms) and the
-                    label is the only visible save affordance. Hidden when
-                    fully idle so the panel stays calm at rest. */}
-                <SaveStatusIndicator status={saveStatus} hasUnsavedChanges={hasUnsavedChanges} />
-                <Tooltip label="Revert to last saved value">
-                  <button
-                    onClick={handleCancel}
-                    disabled={saving}
-                    className="px-3 py-1.5 text-meta text-foreground-muted hover:bg-surface-sunken rounded-lg disabled:opacity-50"
-                  >
-                    Cancel
-                  </button>
-                </Tooltip>
-                <Tooltip label="Close the editor (your edits are saved automatically)">
-                  <button
-                    onClick={() => setIsEditing(false)}
-                    disabled={saving}
-                    className="px-3 py-1.5 text-meta text-white bg-amber-600 hover:bg-amber-700 rounded-lg disabled:opacity-50"
-                  >
-                    Done
-                  </button>
-                </Tooltip>
-              </div>
+      {/* Body: editor (when editing) or the scrollable list of entry cards. */}
+      <div className="flex-1 overflow-y-auto p-2">
+        {isEditing ? (
+          <div className="space-y-2">
+            <LiveMarkdownEditor
+              value={content}
+              onChange={setContent}
+              placeholder="Write your variation notes in markdown..."
+              showToolbar={true}
+              allowAnyFileType={true}
+              onFileDrop={() => showDropWarning()}
+            />
+            <div className="flex flex-wrap items-center justify-end gap-2">
+              {/* Autosave status indicator. Input is debounced-persisted
+                  (700ms) — the label is the only visible save affordance. */}
+              <SaveStatusIndicator status={saveStatus} hasUnsavedChanges={hasUnsavedChanges} />
+              <Tooltip label="Revert to last saved value">
+                <button
+                  onClick={handleCancel}
+                  disabled={saving}
+                  className="rounded-lg px-3 py-1.5 text-meta text-foreground-muted hover:bg-surface-sunken disabled:opacity-50"
+                >
+                  Cancel
+                </button>
+              </Tooltip>
+              <Tooltip label="Close the editor (your edits are saved automatically)">
+                <button
+                  onClick={() => setIsEditing(false)}
+                  disabled={saving}
+                  className="rounded-lg bg-brand-action px-3 py-1.5 text-meta text-white hover:bg-brand-action/90 disabled:opacity-50"
+                >
+                  Done
+                </button>
+              </Tooltip>
             </div>
-          ) : (
-            <div className="space-y-3">
-              {variationNotes && entries.length > 0 ? (
-                <div className="space-y-2">
-                  {entries.map((entry, idx) => {
-                    // Heading-less leading prologue (legacy data) — no delete button.
-                    const canDelete = !readOnly && entry.heading !== "";
-                    return (
-                      <div
-                        key={idx}
-                        className="group relative bg-surface-raised rounded-lg p-4 pr-9 border border-amber-200 dark:border-amber-500/30"
+          </div>
+        ) : variationNotes && entries.length > 0 ? (
+          <div className="space-y-1.5">
+            {entries.map((entry, idx) => {
+              // Heading-less leading prologue (legacy data) — no delete button.
+              const canDelete = !readOnly && entry.heading !== "";
+              const preview = entryPreview(entry);
+              return (
+                <div
+                  key={idx}
+                  className="group relative rounded-md border border-border bg-surface p-2.5 pr-7 transition-colors hover:border-foreground-muted/40 hover:shadow-sm"
+                  onMouseEnter={(e) => {
+                    setHoveredEntryIndex(idx);
+                    const rect = e.currentTarget.getBoundingClientRect();
+                    setPopupPosition({ x: rect.left, y: rect.top });
+                  }}
+                  onMouseLeave={() => setHoveredEntryIndex(null)}
+                >
+                  {/* Date / title line */}
+                  <div className="truncate text-meta font-medium text-foreground">
+                    {entryTitle(entry)}
+                  </div>
+                  {/* One-line preview of the note body */}
+                  {preview ? (
+                    <div className="mt-0.5 truncate text-meta text-foreground-muted">
+                      {preview}
+                    </div>
+                  ) : (
+                    <div className="mt-0.5 truncate text-meta italic text-foreground-muted">
+                      No details yet
+                    </div>
+                  )}
+
+                  {canDelete && (
+                    <Tooltip label="Delete this variation" placement="left">
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteEntry(idx)}
+                        disabled={saving}
+                        className="absolute right-1.5 top-1.5 rounded p-1 text-foreground-muted opacity-0 transition-opacity hover:bg-red-50 hover:text-red-600 focus:opacity-100 group-hover:opacity-100 disabled:opacity-50 dark:hover:bg-red-500/10 dark:hover:text-red-300"
+                        aria-label="Delete this variation"
+                        data-force-hover-controls-target
                       >
-                        {canDelete && (
-                          <Tooltip label="Delete this variation" placement="left">
-                            <button
-                              type="button"
-                              onClick={() => handleDeleteEntry(idx)}
-                              disabled={saving}
-                              className="absolute top-2 right-2 p-1 text-foreground-muted hover:text-red-600 dark:hover:text-red-300 hover:bg-red-50 dark:hover:bg-red-500/10 rounded opacity-0 group-hover:opacity-100 focus:opacity-100 transition-opacity disabled:opacity-50"
-                              aria-label="Delete this variation"
-                              data-force-hover-controls-target
-                            >
-                            <svg
-                              width="14"
-                              height="14"
-                              viewBox="0 0 24 24"
-                              fill="none"
-                              stroke="currentColor"
-                              strokeWidth="2"
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                            >
-                              <polyline points="3 6 5 6 21 6" />
-                              <path d="M19 6l-2 14a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2L5 6" />
-                              <path d="M10 11v6M14 11v6" />
-                              <path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2" />
-                            </svg>
-                            </button>
-                          </Tooltip>
-                        )}
-                        <div className="prose prose-sm prose-amber max-w-none">
-                          <ReactMarkdown remarkPlugins={[remarkGfm, remarkUnderline]} rehypePlugins={[rehypeRaw, [rehypeSanitize, markdownSanitizeSchema]]}>
-                            {entry.heading ? `${entry.heading}\n\n${entry.body}` : entry.body}
-                          </ReactMarkdown>
-                        </div>
-                      </div>
-                    );
-                  })}
+                        <Icon name="trash" className="h-3.5 w-3.5" />
+                      </button>
+                    </Tooltip>
+                  )}
                 </div>
-              ) : (
-                <div className="text-center py-6 rounded-lg border border-border bg-surface-sunken text-amber-600 dark:text-amber-300">
-                  <p className="text-body">No variation notes yet.</p>
-                  <p className="text-meta mt-1">Document any changes you make to the method during this experiment.</p>
-                </div>
-              )}
-              <div className="flex justify-end gap-2">
-                {!readOnly && (
-                  <button
-                    onClick={handleAddNote}
-                    className="px-3 py-1.5 text-meta text-amber-700 dark:text-amber-300 bg-amber-100 dark:bg-amber-500/20 hover:bg-amber-200 rounded-lg"
-                  >
-                    + Add Note
-                  </button>
-                )}
-                {variationNotes && !readOnly && (
-                  <button
-                    onClick={() => setIsEditing(true)}
-                    className="px-3 py-1.5 text-meta text-foreground-muted hover:bg-surface-sunken rounded-lg"
-                  >
-                    Edit All
-                  </button>
-                )}
-              </div>
-            </div>
-          )}
-        </div>
+              );
+            })}
+            {variationNotes && !readOnly && (
+              <button
+                onClick={() => setIsEditing(true)}
+                className="w-full rounded-md px-3 py-1.5 text-meta text-foreground-muted transition-colors hover:bg-surface-raised hover:text-foreground"
+              >
+                Edit all
+              </button>
+            )}
+          </div>
+        ) : (
+          <div className="rounded-md border border-dashed border-border px-3 py-6 text-center text-foreground-muted">
+            <p className="text-meta">No variation notes yet.</p>
+            <p className="mt-1 text-meta">
+              Document any changes you make to the method during this experiment.
+            </p>
+            {!readOnly && (
+              <button
+                onClick={handleAddNote}
+                className="mt-3 inline-flex items-center gap-1 rounded-md bg-brand-action px-3 py-1.5 text-meta text-white transition-colors hover:bg-brand-action/90"
+              >
+                <Icon name="plus" className="h-3.5 w-3.5" />
+                Add note
+              </button>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* Hover summary popup — full note text next to the hovered card. */}
+      {!isEditing && hoveredEntry && (
+        <VariationHoverSummary entry={hoveredEntry} position={popupPosition} />
       )}
+
       {dropWarningToast}
     </div>
   );

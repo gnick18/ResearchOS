@@ -1,14 +1,17 @@
-// Cross-boundary sharing, on-device identity persistence (Phase 1a).
+// Cross-boundary sharing, on-device identity persistence (Phase 1a; Phase 2 2C).
 //
-// A thin, self-contained IndexedDB wrapper that persists this device's identity
-// keypair plus its device salt. It is deliberately ISOLATED from the crypto in
-// keys.ts and backup.ts (which stay pure and unit-testable) and from the
-// existing file-system layer (lib/file-system/indexeddb-store.ts), which it
-// does NOT import or touch. Nothing else in the app imports this yet.
+// A thin layer over the in-memory session holder (session-key.ts, the
+// authoritative store) plus an at-rest device vault (device-vault.ts). It is
+// deliberately ISOLATED from the crypto in keys.ts and backup.ts (which stay
+// pure and unit-testable) and from the existing file-system layer
+// (lib/file-system/indexeddb-store.ts), which it does NOT import or touch.
 //
-// We use a dedicated database name so this never collides with the app's own
-// IndexedDB usage. Raw key bytes live on this device only, the published copies
-// are the public keys (directory) and the wrapped backup blobs (backup.ts).
+// Phase 2 Chunk 2C: the at-rest layer no longer persists the RAW keypair. It is
+// encrypted under a non-extractable WebCrypto AES-GCM key (device-vault.ts), so
+// the keypair never sits raw on disk. The session holder is still the primary
+// read; the vault is the reload-survival layer and migrates any legacy raw
+// record on first load. The published copies remain the public keys (directory)
+// and the wrapped backup blobs (backup.ts).
 
 import type { IdentityKeys } from "./keys";
 import {
@@ -18,6 +21,11 @@ import {
 } from "./keys";
 import type { KdfParams } from "./backup";
 import { generateDeviceSalt } from "./backup";
+import {
+  clearKeysAtRest,
+  loadKeysAtRest,
+  persistKeysAtRest,
+} from "./device-vault";
 import {
   clearSessionIdentity,
   getSessionIdentity,
@@ -35,124 +43,49 @@ import {
 } from "./sidecar";
 import { ensureGitignoreEntries } from "../../file-system/gitignore";
 
-const DB_NAME = "researchos-sharing-identity";
-const DB_VERSION = 1;
-const STORE_NAME = "identity";
-const IDENTITY_KEY = "self";
-
 /**
  * The persisted record for this device, the full identity keypair plus the
- * device salt used by the device-bound passphrase backup blob.
+ * device salt. The shape is kept stable for existing consumers; under the Phase
+ * 2 vault the deviceSalt is vestigial (a fresh throwaway value), since the
+ * device-bound passphrase blob it once fed is no longer the at-rest unlock.
  */
 export interface StoredIdentity {
   keys: IdentityKeys;
   deviceSalt: Uint8Array;
 }
 
-function getIndexedDB(): IDBFactory {
-  if (typeof indexedDB === "undefined") {
-    throw new Error(
-      "IndexedDB is not available in this environment (sharing identity storage requires a browser)",
-    );
-  }
-  return indexedDB;
-}
-
-function openDb(): Promise<IDBDatabase> {
-  return new Promise((resolve, reject) => {
-    const request = getIndexedDB().open(DB_NAME, DB_VERSION);
-    request.onupgradeneeded = () => {
-      const db = request.result;
-      if (!db.objectStoreNames.contains(STORE_NAME)) {
-        db.createObjectStore(STORE_NAME);
-      }
-    };
-    request.onsuccess = () => resolve(request.result);
-    request.onerror = () => reject(request.error);
-  });
-}
-
-function tx<T>(
-  db: IDBDatabase,
-  mode: IDBTransactionMode,
-  run: (store: IDBObjectStore) => IDBRequest<T>,
-): Promise<T> {
-  return new Promise((resolve, reject) => {
-    const transaction = db.transaction(STORE_NAME, mode);
-    const store = transaction.objectStore(STORE_NAME);
-    const request = run(store);
-    request.onsuccess = () => resolve(request.result);
-    request.onerror = () => reject(request.error);
-  });
-}
-
 /**
- * Persists this device's identity, overwriting any existing record. Raw key
- * bytes and the device salt are structured-clonable, so IndexedDB stores them
- * directly with no serialization.
+ * Persists this device's identity. The session holder is the PRIMARY store
+ * loadIdentity reads, so it lands first. The keypair is then encrypted at rest
+ * in the device vault (device-vault.ts) so a page reload re-hydrates without
+ * re-entering the recovery words. The deviceSalt is NOT persisted (it is
+ * vestigial under the vault); only the keypair is encrypted at rest.
+ *
+ * Best-effort at-rest write: the vault no-ops on SSR / no-crypto.subtle /
+ * blocked IndexedDB. The session key above is authoritative and loadIdentity
+ * prefers it, so a failed at-rest persist never breaks identity creation/unlock.
  */
 export async function saveIdentity(identity: StoredIdentity): Promise<void> {
-  // OAuth-only model: the unlocked key lives in process memory for the session.
-  // This is the PRIMARY store loadIdentity reads, so it must land first.
   setSessionIdentity(identity);
-  // Transition fallback: also keep the legacy IndexedDB record so a page reload
-  // before the passkey-unlock login lands still finds the key. This raw-at-rest
-  // store is removed once the login ceremony populates the session on boot.
-  //
-  // Best-effort: IndexedDB can be absent (SSR / unit tests) or blocked (private
-  // browsing, hardened browsers, quota). The session key above is authoritative
-  // and loadIdentity prefers it, so a failed fallback persist must never break
-  // identity creation / unlock. Skip when there is no IndexedDB, and swallow
-  // runtime errors (open blocked, transaction aborted) with a warning.
-  if (typeof indexedDB === "undefined") return;
-  try {
-    const db = await openDb();
-    try {
-      await tx(db, "readwrite", (store) =>
-        store.put(identity, IDENTITY_KEY),
-      );
-    } finally {
-      db.close();
-    }
-  } catch (err) {
-    console.warn(
-      "[identity] IndexedDB fallback persist failed (non-fatal; session key is authoritative)",
-      err,
-    );
-  }
+  await persistKeysAtRest(identity.keys);
 }
 
 /**
  * The unlocked identity for this session, or null. Prefers the in-memory session
- * key (populated by an unlock ceremony); falls back to the legacy IndexedDB raw
- * record during the transition so existing callers keep working.
+ * key (populated by an unlock ceremony); falls back to the encrypted at-rest
+ * vault, which also migrates any legacy raw record on first load. A fresh
+ * deviceSalt is attached to the vault-loaded keys to keep StoredIdentity stable.
+ *
+ * The vault reads as "no persisted identity" (never throws) when IndexedDB /
+ * crypto.subtle are absent or blocked, so callers like restoreSessionFromStore /
+ * hasIdentity and the key-rotation publish flow never see an unhandled rejection.
  */
 export async function loadIdentity(): Promise<StoredIdentity | null> {
   const session = getSessionIdentity();
   if (session) return session;
-  // The legacy IndexedDB record is a best-effort fallback. IndexedDB can be
-  // absent (SSR / tests) or blocked (private browsing, hardened browsers); that
-  // must read as "no persisted identity", never throw — callers like
-  // restoreSessionFromStore / hasIdentity and the key-rotation publish flow
-  // would otherwise see an unhandled rejection. Mirrors saveIdentity's guard.
-  if (typeof indexedDB === "undefined") return null;
-  try {
-    const db = await openDb();
-    try {
-      const record = await tx<StoredIdentity | undefined>(db, "readonly", (store) =>
-        store.get(IDENTITY_KEY),
-      );
-      return record ?? null;
-    } finally {
-      db.close();
-    }
-  } catch (err) {
-    console.warn(
-      "[identity] IndexedDB load failed (treating as no persisted identity)",
-      err,
-    );
-    return null;
-  }
+  const keys = await loadKeysAtRest();
+  if (!keys) return null;
+  return toStored(keys);
 }
 
 /**
@@ -188,26 +121,14 @@ export async function restoreSessionFromStore(): Promise<boolean> {
  * not delete the database itself, so a later save reuses the same store.
  */
 export async function clearIdentity(): Promise<void> {
-  // Lock the session AND drop the legacy raw record. The session lock above is
-  // authoritative; the IndexedDB delete is best-effort. Absent / blocked
-  // IndexedDB must not turn a successful sign-out into a reported failure
-  // ("Could not remove your key from this device") when the key is in fact gone
-  // from the session. Mirrors saveIdentity / loadIdentity.
+  // Lock the session AND clear the at-rest vault (encrypted payload + the
+  // wrapping key + any lingering legacy raw record). The session lock is
+  // authoritative; the vault clear is best-effort. Absent / blocked IndexedDB
+  // must not turn a successful sign-out into a reported failure ("Could not
+  // remove your key from this device") when the key is in fact gone from the
+  // session. Mirrors saveIdentity / loadIdentity.
   clearSessionIdentity();
-  if (typeof indexedDB === "undefined") return;
-  try {
-    const db = await openDb();
-    try {
-      await tx(db, "readwrite", (store) => store.delete(IDENTITY_KEY));
-    } finally {
-      db.close();
-    }
-  } catch (err) {
-    console.warn(
-      "[identity] IndexedDB clear failed (session already locked)",
-      err,
-    );
-  }
+  await clearKeysAtRest();
 }
 
 // ---------------------------------------------------------------------------

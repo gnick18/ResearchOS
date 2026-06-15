@@ -752,7 +752,7 @@ export function AccountTierChooser({ onLocal, onChoose }: AccountTierChooserProp
                   className="w-full py-2 px-4 rounded-xl bg-[#1283c9] hover:bg-[#0f6fa8] text-white font-semibold text-sm transition-colors"
                   onClick={() => setStep({ view: "lab-choice" })}
                 >
-                  Set up a lab
+                  Create or join a lab
                 </button>
               </div>
             </div>

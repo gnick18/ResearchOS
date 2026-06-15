@@ -34,7 +34,7 @@ import {
 import { getStripe, getWebhookSecret } from "@/lib/billing/stripe";
 import { formatUSD } from "@/lib/business/calc";
 import {
-  addLedgerEntry,
+  addLedgerEntryBySource,
   ensureBusinessSchema,
   recordBusinessEmail,
 } from "@/lib/business/db";
@@ -192,12 +192,25 @@ export async function POST(request: Request): Promise<Response> {
       case "invoice.paid":
       case "invoice.payment_succeeded": {
         const inv = event.data.object as Stripe.Invoice & {
+          // Removed top-level field (pre-2026 API versions); kept for fallback.
           subscription?: string | { id: string } | null;
+          parent?: {
+            subscription_details?: { subscription?: string | { id: string } | null } | null;
+          } | null;
         };
         const amountCents = inv.amount_paid ?? 0;
         if (amountCents > 0) {
           await ensureBusinessSchema();
-          const subRef = inv.subscription;
+          // The subscription ref moved to invoice.parent.subscription_details
+          // in API version 2026-05-27; fall back to the deprecated top-level
+          // field and the line-item parent for older versions.
+          const subRef =
+            inv.parent?.subscription_details?.subscription ??
+            inv.subscription ??
+            (inv.lines?.data?.[0]?.parent as
+              | { subscription_item_details?: { subscription?: string | null } }
+              | undefined)?.subscription_item_details?.subscription ??
+            null;
           const subId =
             typeof subRef === "string" ? subRef : subRef?.id ?? null;
           // An org procurement invoice attributes to its entity; otherwise it is
@@ -216,20 +229,26 @@ export async function POST(request: Request): Promise<Response> {
             : owner
               ? `owner ${owner.ownerKey.slice(0, 12)}...`
               : "storage payment";
-          await addLedgerEntry({
+          // Idempotent per invoice: Stripe fires both invoice.paid and
+          // invoice.payment_succeeded for one payment, so key the ledger row on
+          // the invoice id to book it exactly once regardless of which (or both)
+          // arrive, or of webhook redelivery.
+          const { inserted } = await addLedgerEntryBySource({
             date,
             direction: "in",
             category,
             amountCents,
             note,
-            source: "storage-payment",
+            source: inv.id ? `storage-payment:${inv.id}` : "storage-payment",
           });
-          await recordBusinessEmail({
-            kind: "storage-receipt",
-            toEmail: inv.customer_email ?? "",
-            subject: `${category} payment received, ${formatUSD(amountCents)}`,
-            body: `A ${category.toLowerCase()} payment of ${formatUSD(amountCents)} was received on ${date}. Stripe sends the customer-facing receipt; this is the LLC record.`,
-          });
+          if (inserted) {
+            await recordBusinessEmail({
+              kind: "storage-receipt",
+              toEmail: inv.customer_email ?? "",
+              subject: `${category} payment received, ${formatUSD(amountCents)}`,
+              body: `A ${category.toLowerCase()} payment of ${formatUSD(amountCents)} was received on ${date}. Stripe sends the customer-facing receipt; this is the LLC record.`,
+            });
+          }
         }
         break;
       }

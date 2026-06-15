@@ -62,6 +62,7 @@ vi.mock("@/lib/file-system/file-service", () => ({
 vi.mock("@/lib/markdown/cm-inline-reveal/inline-reveal", () => ({
   inlineRevealExtension: [],
   imageBasePathExt: () => [],
+  embedPinContextExt: () => [],
 }));
 
 // ---------------------------------------------------------------------------

@@ -74,6 +74,12 @@ export interface LayoutOptions {
    * so an unannotated circular tree, and every rectangular caller, are unchanged.
    */
   circularRingRoom?: number;
+  /**
+   * Angular spread (degrees) for a circular / fan layout. The default 330 leaves
+   * a small open gap (the rooted-fan look); a smaller value (e.g. 180) makes an
+   * open fan. Ignored by the rectangular layout.
+   */
+  sweepDegrees?: number;
 }
 
 /** Sum of branch lengths from the root to each node. Treats missing lengths as 0. */
@@ -189,8 +195,9 @@ export function layoutCircular(
   );
   const innerR = 18;
 
-  // Spread tips over a 330 degree fan (the open gap reads as a rooted fan).
-  const sweep = Math.PI * (330 / 180);
+  // Spread tips over the requested fan angle (default 330 degrees, whose open gap
+  // reads as a rooted fan; a smaller value like 180 makes an open fan layout).
+  const sweep = Math.PI * ((opts.sweepDegrees ?? 330) / 180);
   const startA = -sweep / 2 - Math.PI / 2;
   const angleOf = (y: number) => startA + (y / aMax) * sweep;
   const radiusOf = (d: number) => innerR + (d / maxDepth) * (radius - innerR);
@@ -247,6 +254,8 @@ export interface TipSlot {
   // Rectangular fields (NaN in circular).
   /** Vertical center of the tip row (rectangular). */
   y: number;
+  /** Branch-end x of the tip (rectangular), for label alignment leader lines. */
+  x: number;
   // Circular fields (NaN in rectangular).
   /** Angle of the tip spoke in radians, 0 = up, clockwise (circular). */
   angle: number;
@@ -287,7 +296,7 @@ export function rectTipAxis(
   const lv = leaves(root);
   const tips: TipSlot[] = lv.map((t) => {
     const p = byId.get(t.id)!;
-    return { id: t.id, name: t.name, y: p.y, angle: NaN, radius: NaN };
+    return { id: t.id, name: t.name, y: p.y, x: p.x, angle: NaN, radius: NaN };
   });
   // Band height = the spacing between adjacent tip rows (uniform by construction).
   const ys = tips.map((t) => t.y).sort((a, b) => a - b);
@@ -317,7 +326,7 @@ export function circularTipAxis(
   const lv = leaves(root);
   const tips: TipSlot[] = lv.map((t) => {
     const p = byId.get(t.id)!;
-    return { id: t.id, name: t.name, y: NaN, angle: p.angle, radius: p.radius };
+    return { id: t.id, name: t.name, y: NaN, x: NaN, angle: p.angle, radius: p.radius };
   });
   // Half the angular spacing between neighboring tips, so wedges meet without overlap.
   const half =
@@ -332,6 +341,115 @@ export function circularTipAxis(
     halfAngle: half,
     ringStartR: ringStartR ?? layout.radius + 6,
   };
+}
+
+/** A node placed in 2D for the unrooted (equal-angle) layout. */
+export interface UnrootedNode {
+  node: TreeNode;
+  x: number;
+  y: number;
+  parentX: number | null;
+  parentY: number | null;
+  /** Outward direction (radians) at this node, for label rotation. */
+  angle: number;
+}
+
+export interface UnrootedLayout {
+  kind: "unrooted";
+  nodes: UnrootedNode[];
+  width: number;
+  height: number;
+}
+
+/**
+ * Equal-angle unrooted layout (Felsenstein). Each leaf takes an equal slice of
+ * the full circle; an internal node's angular sector spans its leaves' slices,
+ * and a child is placed from its parent in the direction of the child's sector
+ * MIDPOINT, at a distance of its branch length (phylogram) or one unit
+ * (cladogram). The resulting point cloud is scaled + centered to fit the box.
+ * There is no root node anchor and no tip line/circle, so unrooted trees carry no
+ * aligned panels or scale bar.
+ */
+export function layoutUnrooted(
+  root: TreeNode,
+  opts: { width: number; height: number; padding: number; phylogram: boolean },
+): UnrootedLayout {
+  const { width, height, padding, phylogram } = opts;
+  const lv = leaves(root);
+  const n = Math.max(1, lv.length);
+  const slice = (2 * Math.PI) / n;
+  // Angular sector [start, end] per node: a leaf is its own slice; an internal
+  // node spans from its first leaf's slice start to its last leaf's slice end.
+  const sector = new Map<number, { start: number; end: number }>();
+  lv.forEach((l, i) =>
+    sector.set(l.id, { start: i * slice, end: (i + 1) * slice }),
+  );
+  const computeSector = (nd: TreeNode): { start: number; end: number } => {
+    if (nd.children.length === 0) return sector.get(nd.id)!;
+    const cs = nd.children.map(computeSector);
+    const s = {
+      start: Math.min(...cs.map((c) => c.start)),
+      end: Math.max(...cs.map((c) => c.end)),
+    };
+    sector.set(nd.id, s);
+    return s;
+  };
+  computeSector(root);
+  // Place the root at the origin; each child in the direction of its sector
+  // midpoint, at its branch-length (or unit) distance.
+  const raw = new Map<number, { x: number; y: number; angle: number }>();
+  raw.set(root.id, { x: 0, y: 0, angle: 0 });
+  const edgeLen = (nd: TreeNode): number =>
+    phylogram ? (nd.branchLength ?? 0) : 1;
+  const place = (nd: TreeNode) => {
+    const here = raw.get(nd.id)!;
+    for (const c of nd.children) {
+      const sec = sector.get(c.id)!;
+      const mid = (sec.start + sec.end) / 2;
+      const d = edgeLen(c);
+      raw.set(c.id, {
+        x: here.x + d * Math.cos(mid),
+        y: here.y + d * Math.sin(mid),
+        angle: mid,
+      });
+      place(c);
+    }
+  };
+  place(root);
+  // Fit the cloud into the box (uniform scale + center). Guard a degenerate
+  // zero-extent cloud (e.g. a phylogram with all-zero branch lengths).
+  const xs = [...raw.values()].map((p) => p.x);
+  const ys = [...raw.values()].map((p) => p.y);
+  const minX = Math.min(...xs);
+  const minY = Math.min(...ys);
+  const spanX = Math.max(...xs) - minX || 1;
+  const spanY = Math.max(...ys) - minY || 1;
+  const plotW = Math.max(1, width - padding * 2);
+  const plotH = Math.max(1, height - padding * 2);
+  const scale = Math.min(plotW / spanX, plotH / spanY);
+  const offX = padding + (plotW - spanX * scale) / 2 - minX * scale;
+  const offY = padding + (plotH - spanY * scale) / 2 - minY * scale;
+
+  const placed = new Map<number, { x: number; y: number; angle: number }>();
+  for (const [id, p] of raw) {
+    placed.set(id, { x: offX + p.x * scale, y: offY + p.y * scale, angle: p.angle });
+  }
+  const nodes: UnrootedNode[] = allNodes(root).map((nd) => {
+    const p = placed.get(nd.id)!;
+    return { node: nd, x: p.x, y: p.y, parentX: null, parentY: null, angle: p.angle };
+  });
+  const byId = new Map(nodes.map((u) => [u.node.id, u]));
+  const link = (nd: TreeNode) => {
+    const here = byId.get(nd.id)!;
+    for (const c of nd.children) {
+      const cu = byId.get(c.id)!;
+      cu.parentX = here.x;
+      cu.parentY = here.y;
+      link(c);
+    }
+  };
+  link(root);
+  return { kind: "unrooted", nodes, width, height };
 }
 
 // ---------------------------------------------------------------------------

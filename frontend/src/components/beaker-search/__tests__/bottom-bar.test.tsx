@@ -18,8 +18,9 @@ import { render, screen, fireEvent, cleanup } from "@testing-library/react";
 // The shared trigger. We inject a spy openPalette so the test can assert the
 // click reuses the one open path.
 const openPalette = vi.fn();
+const openBeakerBot = vi.fn();
 vi.mock("../BeakerSearchProvider", () => ({
-  useBeakerSearch: () => ({ openPalette }),
+  useBeakerSearch: () => ({ openPalette, openBeakerBot }),
 }));
 
 // BeakerBot renders as a simple span so no SVG registration is needed.

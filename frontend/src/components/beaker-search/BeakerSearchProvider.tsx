@@ -120,6 +120,19 @@ const BeakerSearchRegistryContext = createContext<BeakerSearchRegistry | null>(
   null,
 );
 
+/** The next palette state when the Cmd/Ctrl+J BeakerBot shortcut fires, from the
+ *  current open + askMode. Already open in Ask toggles closed (back to Search so
+ *  the next open starts fresh); otherwise it opens in Ask (from closed, or flips
+ *  Search -> Ask). Pure, so the shortcut logic is unit-tested without the
+ *  provider's hook machinery. */
+export function nextBeakerBotShortcutState(
+  open: boolean,
+  askMode: "search" | "ask",
+): { open: boolean; askMode: "search" | "ask" } {
+  if (open && askMode === "ask") return { open: false, askMode: "search" };
+  return { open: true, askMode: "ask" };
+}
+
 export function BeakerSearchProvider({ children }: { children: ReactNode }) {
   const [open, setOpen] = useState(false);
   // BeakerSearch v2 Phase 2. The palette's current mode: "search" (result
@@ -130,6 +143,11 @@ export function BeakerSearchProvider({ children }: { children: ReactNode }) {
   // re-subscribing the listener on every open / close.
   const openRef = useRef(open);
   openRef.current = open;
+  // The latest `askMode`, read by the global Cmd/Ctrl+J handler so it can decide
+  // whether to toggle closed (already in Ask) or flip to Ask, without
+  // re-subscribing the listener on every mode change.
+  const askModeRef = useRef(askMode);
+  askModeRef.current = askMode;
   // The source STACK. The last element is the active source (most-recently
   // registered surface wins).
   const [sources, setSources] = useState<BeakerSearchSource[]>([]);
@@ -260,15 +278,26 @@ export function BeakerSearchProvider({ children }: { children: ReactNode }) {
   // a plain toggle (no collapsed/tucked sub-state to consult).
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (
-        (e.metaKey || e.ctrlKey) &&
-        !e.shiftKey &&
-        e.key.toLowerCase() === "k"
-      ) {
+      if (!(e.metaKey || e.ctrlKey) || e.shiftKey) return;
+      const key = e.key.toLowerCase();
+      if (key === "k") {
+        // Cmd/Ctrl+K toggles the palette in Search mode (the existing behavior).
         e.preventDefault();
         setOpen((cur) => !cur);
         // If closing, reset to search mode so the next open starts fresh.
         if (openRef.current) setAskMode("search");
+      } else if (key === "j") {
+        // Cmd/Ctrl+J opens BeakerBot directly in Ask mode, skipping Search. When
+        // it is already open in Ask it toggles closed; when open in Search it
+        // flips to Ask; when closed it opens in Ask. Mirrors openBeakerBot (the
+        // FAB), so a locked / demo state is handled by the palette the same way.
+        e.preventDefault();
+        const next = nextBeakerBotShortcutState(
+          openRef.current,
+          askModeRef.current,
+        );
+        setOpen(next.open);
+        setAskMode(next.askMode);
       }
     };
     window.addEventListener("keydown", onKey);
@@ -350,6 +379,16 @@ export function useBeakerSearch(): BeakerSearchApi {
     throw new Error("useBeakerSearch must be used within a BeakerSearchProvider");
   }
   return ctx;
+}
+
+/** Non-throwing variant for surfaces that may mount WITHOUT the app shell (e.g.
+ *  the LiveMarkdownEditor renders inside the BeakerBot Canvas and the method
+ *  create / compound / variation panels, which are not always under the
+ *  provider). Returns null instead of throwing so a "summon BeakerBot" control
+ *  can render only when the provider is genuinely present and stay inert
+ *  otherwise. */
+export function useOptionalBeakerSearch(): BeakerSearchApi | null {
+  return useContext(BeakerSearchApiContext);
 }
 
 /** The registry hook, used by useBeakerSearchSource. Throws when used outside

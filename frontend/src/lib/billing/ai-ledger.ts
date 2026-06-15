@@ -128,7 +128,7 @@ export async function creditTokens(
     VALUES (${ownerKey}, 'topup', ${add}, ${usdMicrosForTokens(
       add,
     )}, ${stripeEventId})
-    ON CONFLICT (stripe_event_id) DO NOTHING
+    ON CONFLICT (stripe_event_id) WHERE stripe_event_id IS NOT NULL DO NOTHING
     RETURNING id
   `) as Array<{ id: string | number }>;
 

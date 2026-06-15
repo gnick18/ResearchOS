@@ -12,6 +12,8 @@ export {
   MODELS,
   getModel,
   listModels,
+  modelExpectsLogX,
+  prepareFitData,
   fivePLLogEC50Shift,
   type NonlinearModel,
 } from "./models";

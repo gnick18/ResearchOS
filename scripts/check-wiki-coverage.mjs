@@ -51,6 +51,7 @@ const EXCLUDED_PREFIXES = [
   "/transparency", // "Transparency of tests": bioinformatic-tool comparisons vs Biopython/primer3, build-time computed + vitest-gated (trust/informational, no AppShell, not a documented app feature; like /open-source)
   "/pricing", // public pricing page (two-part model + competitor savings + plan builders + cost math); marketing/informational, no AppShell, not a documented app feature (like /welcome and /transparency)
   "/about", // public marketing About page (origin story + mission, from the footer/nav IA split); marketing/informational, no AppShell, not a documented app feature (like /pricing and /transparency)
+  "/account", // folderless cloud-account home (Cloud-accounts Phase 1): sign-in-gated PortalShell with profile/billing/settings, no AppShell so the ? icon never renders here; a portal surface, not a documented in-app feature (like /welcome and /ai)
   "/sharing-setup-test", // dev-only test harness for the cross-boundary sharing setup wizard (NODE_ENV=development gated, renders "not available" in prod); not a user feature
   "/privacy", // privacy policy (legal/informational, no AppShell, not a documented app feature; like /open-source). OAuth providers require a privacy-policy URL
   "/terms", // terms of service (legal/informational, no AppShell, not a documented app feature; like /privacy and /open-source)

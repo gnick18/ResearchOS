@@ -250,6 +250,10 @@ export type PaletteGroupTitle =
   | "Data Hub"
   | "Molecules"
   | "Purchases"
+  // BeakerSearch completeness (2026-06-14): saved phylogenetic trees are indexed
+  // alongside the other types; same heading pattern. Keep in sync with
+  // GLOBAL_TYPE_TITLE in global-source.ts.
+  | "Trees"
   // BeakerSearch global object search, chunk 3, the trailing "Search everything"
   // handoff row to the full faceted /search.
   | "More"
@@ -961,6 +965,8 @@ export function objectGroupTitle(type: GlobalIndexEntry["type"]): PaletteGroupTi
       return "Molecules";
     case "purchase":
       return "Purchases";
+    case "phylo":
+      return "Trees";
   }
 }
 

@@ -3,6 +3,11 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  AI_BARE_COST_USD_PER_TOKEN,
+  AI_INDIVIDUAL_MARKUP,
+  AI_MEASURED_BARE_COST_USD_PER_TOKEN,
+  AI_ORG_MARKUP,
+  AI_ORG_TOKEN_PRICE_USD,
   AI_TOKEN_PRICE_USD,
   PACK_TOKENS,
   STARTER_GRANT_TOKENS,
@@ -10,16 +15,35 @@ import {
 } from "../ai-config";
 
 describe("ai-config token math", () => {
-  it("the starter grant is the round 750,000-token gift", () => {
-    expect(STARTER_GRANT_TOKENS).toBe(750_000);
+  it("bare cost is the locked measured-plus-margin basis, $0.20 per 1M", () => {
+    expect(AI_BARE_COST_USD_PER_TOKEN).toBeCloseTo(0.2 / 1_000_000, 12);
   });
 
-  it("the per-token price is the placeholder 25 cents over 750k tokens", () => {
-    expect(AI_TOKEN_PRICE_USD).toBeCloseTo(0.25 / 750_000, 12);
+  it("the confirmed markups are 1.4x individual and 2.0x org", () => {
+    expect(AI_INDIVIDUAL_MARKUP).toBe(1.4);
+    expect(AI_ORG_MARKUP).toBe(2.0);
   });
 
-  it("the starter grant is worth about 25 cents (250,000 micro-dollars)", () => {
-    expect(usdMicrosForTokens(STARTER_GRANT_TOKENS)).toBe(250_000);
+  it("the individual rate is bare cost times 1.4 (~$0.28 per 1M)", () => {
+    expect(AI_TOKEN_PRICE_USD).toBeCloseTo(0.28 / 1_000_000, 12);
+  });
+
+  it("the org rate is bare cost times 2.0 (~$0.40 per 1M)", () => {
+    expect(AI_ORG_TOKEN_PRICE_USD).toBeCloseTo(0.4 / 1_000_000, 12);
+  });
+
+  it("the starter grant is sized by measured cost (1,633,987 tokens)", () => {
+    expect(STARTER_GRANT_TOKENS).toBe(1_633_987);
+  });
+
+  it("the starter grant costs us a clean 25 cents at measured cost", () => {
+    expect(
+      STARTER_GRANT_TOKENS * AI_MEASURED_BARE_COST_USD_PER_TOKEN,
+    ).toBeCloseTo(0.25, 3);
+  });
+
+  it("the starter grant is worth about 46 cents of value at our price", () => {
+    expect(usdMicrosForTokens(STARTER_GRANT_TOKENS)).toBe(457_516);
   });
 
   it("usdMicrosForTokens is zero or non-positive-safe", () => {
@@ -29,8 +53,8 @@ describe("ai-config token math", () => {
   });
 
   it("usdMicrosForTokens scales linearly with the rate", () => {
-    // 1,500,000 tokens is two grants, so about 50 cents.
-    expect(usdMicrosForTokens(1_500_000)).toBe(500_000);
+    // 1,500,000 tokens at the $0.28 per 1M individual rate is $0.42 (420,000 micro).
+    expect(usdMicrosForTokens(1_500_000)).toBe(420_000);
   });
 
   it("packs convert dollars to tokens at the current rate", () => {
@@ -42,7 +66,7 @@ describe("ai-config token math", () => {
     expect(PACK_TOKENS[50]).toBeGreaterThan(PACK_TOKENS[25]);
   });
 
-  it("a $10 pack is 40 starter grants of tokens (30,000,000)", () => {
-    expect(PACK_TOKENS[10]).toBe(30_000_000);
+  it("a $10 pack is 35,714,286 tokens at the $0.28 per 1M individual rate", () => {
+    expect(PACK_TOKENS[10]).toBe(35_714_286);
   });
 });

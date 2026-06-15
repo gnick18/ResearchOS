@@ -30,7 +30,8 @@
 //
 // No em-dashes, no emojis, no mid-sentence colons.
 
-import { scaleLinear } from "d3-scale";
+import { scaleLinear, scaleLog } from "d3-scale";
+import { tCritTwoSided } from "@/lib/datahub/engine/dists";
 import type {
   AnalysisSpec,
   DataHubDocContent,
@@ -54,7 +55,12 @@ import {
   rowFactorLevels,
 } from "@/lib/datahub/grouped-table";
 import { survivalGroups } from "@/lib/datahub/survival-table";
-import { fitModel, getModel, kaplanMeier } from "@/lib/datahub/engine";
+import {
+  fitModel,
+  getModel,
+  prepareFitData,
+  kaplanMeier,
+} from "@/lib/datahub/engine";
 import type { BootstrapMethod } from "@/lib/datahub/engine/bootstrap";
 import {
   layoutEstimationPlot,
@@ -66,6 +72,10 @@ import {
   renderDiagnosticSvg,
   type DiagnosticGeometry,
 } from "@/lib/datahub/diagnostic-plot";
+// Type-only import (the artboard lib imports VALUES from this module, so a value
+// import here would create a runtime cycle). The consumer normalizes the raw
+// stored value with readArtboardState; PlotStyle just carries it through.
+import type { ArtboardState } from "@/lib/figure/artboard";
 import {
   layoutPartsOfWhole,
   renderPartsOfWholeSvg,
@@ -123,7 +133,7 @@ export type PlotKind =
   | "stackedBar";
 
 /** Which error bar a figure draws, computed from the raw replicates. */
-export type ErrorBarKind = "sd" | "sem" | "none";
+export type ErrorBarKind = "sd" | "sem" | "ci95" | "none";
 
 /** A named color theme for the group series. */
 export type ColorMode = "brand" | "sky" | "ink";
@@ -230,10 +240,62 @@ export interface PlotStyle {
    * reads back byte-identical and only a donut figure carries it.
    */
   donutHoleRatio?: number;
+  /**
+   * The publication page-frame (artboard) config for this figure. Optional and
+   * additive, so a spec written before this feature reads back as absent, which
+   * the artboard treats as disabled (the figure renders exactly as before). The
+   * raw stored value is normalized with readArtboardState at the consumer.
+   */
+  artboard?: ArtboardState;
+  /**
+   * Axis value scale for an XY figure (relationship plots). "log" is base-10 and
+   * applies only when the data on that axis is strictly positive (it falls back to
+   * linear otherwise). Optional and additive, absent means linear, so every other
+   * figure reads back byte-identical. Bars are excluded by nature (a zero baseline
+   * has no log position).
+   */
+  xScaleType?: AxisScaleType;
+  yScaleType?: AxisScaleType;
+  /**
+   * Grouped-bar arrangement (dodge / stack / stack100). Optional and additive,
+   * absent means "dodge", so an old grouped figure reads back byte-identical.
+   * Read only by the grouped bar; other kinds ignore it.
+   */
+  barMode?: BarMode;
+  /**
+   * Manual axis range + tick step overrides (Prism-style). All optional and
+   * additive, absent means auto. The value (y) axis of a column / grouped bar uses
+   * yAxisMax (its top, the baseline stays 0) and yTickStep. An XY figure uses the
+   * full xAxisMin / xAxisMax / yAxisMin / yAxisMax. An override is ignored when it
+   * is not a finite number or would invert the range (min >= max).
+   */
+  xAxisMin?: number;
+  xAxisMax?: number;
+  yAxisMin?: number;
+  yAxisMax?: number;
+  yTickStep?: number;
+  /**
+   * Draw the numeric value above each bar / mean (column + grouped figures).
+   * Optional and additive, absent means off. Layout-only label of the same mean
+   * the figure already computes.
+   */
+  showValueLabels?: boolean;
 }
 
 /** The unit a figure's width / height is typed in (and stored as). */
 export type SizeUnit = "px" | "in" | "cm";
+
+/** An axis value scale. "log" is base-10 (XY figures only, positive data). */
+export type AxisScaleType = "linear" | "log";
+
+/**
+ * How a grouped bar chart arranges the bars within a row-factor cluster. "dodge"
+ * is side-by-side (the default). "stack" stacks them (absolute magnitudes sum).
+ * "stack100" stacks and normalizes each cluster to 1 (relative composition, the
+ * 100-percent bar). Stacking treats a non-positive cell as zero and draws no
+ * per-segment error bar.
+ */
+export type BarMode = "dodge" | "stack" | "stack100";
 
 /** How a resize changes the figure (re-layout the axes vs zoom the whole image). */
 export type ResizeMode = "relayout" | "scale";
@@ -421,7 +483,10 @@ export function readPlotStyle(spec: PlotSpec): PlotStyle {
   return {
     kind,
     errorBar:
-      s.errorBar === "sd" || s.errorBar === "none" || s.errorBar === "sem"
+      s.errorBar === "sd" ||
+      s.errorBar === "none" ||
+      s.errorBar === "sem" ||
+      s.errorBar === "ci95"
         ? (s.errorBar as ErrorBarKind)
         : d.errorBar,
     showPoints: typeof s.showPoints === "boolean" ? s.showPoints : d.showPoints,
@@ -528,7 +593,38 @@ export function readPlotStyle(spec: PlotSpec): PlotStyle {
       s.donutHoleRatio < 0.9
         ? s.donutHoleRatio
         : d.donutHoleRatio,
+    // Artboard config. Carried through as the raw stored object (absent => the
+    // artboard is disabled); the consumer fully validates it with
+    // readArtboardState before use, so a malformed value cannot reach the render.
+    artboard:
+      s.artboard && typeof s.artboard === "object"
+        ? (s.artboard as ArtboardState)
+        : undefined,
+    // Axis scales for an XY figure. Absent / anything but "log" reads as linear,
+    // so an old spec (or any non-XY figure) is byte-identical.
+    xScaleType: s.xScaleType === "log" ? "log" : undefined,
+    yScaleType: s.yScaleType === "log" ? "log" : undefined,
+    // Grouped-bar arrangement. Absent / unknown reads as dodge.
+    barMode:
+      s.barMode === "stack" || s.barMode === "stack100"
+        ? (s.barMode as BarMode)
+        : undefined,
+    // Manual axis overrides. Each kept only when a positive-or-finite number; the
+    // layout functions validate ranges (min < max) before applying.
+    xAxisMin: numOrUndef(s.xAxisMin),
+    xAxisMax: numOrUndef(s.xAxisMax),
+    yAxisMin: numOrUndef(s.yAxisMin),
+    yAxisMax: numOrUndef(s.yAxisMax),
+    yTickStep: s.yTickStep != null && Number.isFinite(s.yTickStep) && (s.yTickStep as number) > 0
+      ? (s.yTickStep as number)
+      : undefined,
+    showValueLabels: s.showValueLabels === true ? true : undefined,
   };
+}
+
+/** A finite number passes through, anything else becomes undefined. */
+function numOrUndef(v: unknown): number | undefined {
+  return typeof v === "number" && Number.isFinite(v) ? v : undefined;
 }
 
 /** Read a PlotSpec's open source record into the typed PlotSource. */
@@ -752,6 +848,8 @@ export interface GroupGeometry {
   cx: number;
   /** y of the mean line (null when the group has no mean). */
   meanY: number | null;
+  /** The numeric mean (null when the group has none), for an optional value label. */
+  mean: number | null;
   /** Mean line half-width, so it runs cx-meanHalf .. cx+meanHalf. */
   meanHalf: number;
   /** The bar rect (only for a bar plot, and only when the group has a mean). */
@@ -816,6 +914,13 @@ export function errorMagnitude(
   kind: ErrorBarKind,
 ): number | null {
   if (kind === "none") return null;
+  if (kind === "ci95") {
+    // Half-width of the 95% CI of the mean: t(0.975, n-1) * SEM. Needs n >= 2.
+    if (stats.sem === null || !Number.isFinite(stats.sem) || stats.n < 2) {
+      return null;
+    }
+    return tCritTwoSided(0.05, stats.n - 1) * stats.sem;
+  }
   const e = kind === "sd" ? stats.sd : stats.sem;
   return e !== null && Number.isFinite(e) ? e : null;
 }
@@ -990,7 +1095,17 @@ export function layoutPlot(
   const y0 = height - padB;
   const y1 = padT;
 
-  const { yMax, step } = pickAxis(groups, style.errorBar);
+  const auto = pickAxis(groups, style.errorBar);
+  // Manual overrides: a column figure keeps a 0 baseline, so only the top (yMax)
+  // and the tick step can be set; an out-of-range value is ignored.
+  const yMax =
+    style.yAxisMax !== undefined && style.yAxisMax > 0
+      ? style.yAxisMax
+      : auto.yMax;
+  const step =
+    style.yTickStep !== undefined && style.yTickStep > 0
+      ? style.yTickStep
+      : auto.step;
   // d3 linear scale: value domain [0, yMax] -> pixel range [y0 (bottom), y1 (top)].
   const yScale = scaleLinear().domain([0, yMax]).range([y0, y1]);
   const Y = (v: number) => yScale(v);
@@ -1048,6 +1163,7 @@ export function layoutPlot(
       color: g.color,
       cx,
       meanY,
+      mean,
       meanHalf,
       bar,
       errorBar,
@@ -1298,6 +1414,13 @@ export function renderPlotSvg(
         `<circle data-series="${i}" cx="${p.x}" cy="${p.y}" r="3" fill="${lineColor}" opacity="0.9"/>`,
       );
     });
+    // Optional value label, above the topmost drawn element (error cap or mean).
+    if (style.showValueLabels && g.mean !== null) {
+      const topY = g.errorBar ? g.errorBar.topY : (g.meanY ?? geo.y0);
+      parts.push(
+        `<text x="${g.cx}" y="${topY - 5}" font-size="${tickFont}" fill="${LABEL_TEXT}" text-anchor="middle">${fmtTick(g.mean)}</text>`,
+      );
+    }
     parts.push(
       `<text x="${g.labelX}" y="${g.labelY}" font-size="${f}" fill="${LABEL_TEXT}" text-anchor="middle">${esc(g.name)}</text>`,
     );
@@ -1456,16 +1579,40 @@ export function exportPngPixels(frame: FigureFrame): {
  * ready SVG string. Resolves groups, pulls bracket requests from the analysis,
  * lays out, and serializes. Pure (no DOM).
  */
+/**
+ * A tree's tip axis, handed in by the phylo Tree Studio so a category-axis figure
+ * (grouped bar, v1) lays its category axis out tip-for-tip instead of with its own
+ * even spacing. Additive and back-compat: absent, every figure is byte-identical
+ * to before this existed. `positions` is the tip center per id (px Y for "rows",
+ * angle for "angles"); `band` is the per-tip band thickness. v1 supports "rows"
+ * (rectangular) only. See docs/proposals/2026-06-13-phylo-phase4-datahub-linking.md.
+ */
+export interface AlignedAxis {
+  order: string[];
+  positions: number[];
+  band: number;
+  orientation: "rows" | "angles";
+  /** Horizontal value-axis length in px (the panel thickness). Defaults to 120. */
+  length?: number;
+}
+
+/** Optional render inputs that do not belong on the persisted PlotSpec. */
+export interface RenderPlotOpts {
+  alignedAxis?: AlignedAxis;
+}
+
 export function renderPlot(
   spec: PlotSpec,
   content: DataHubDocContent,
   analysis: AnalysisSpec | null,
+  opts?: RenderPlotOpts,
 ): {
   svg: string;
   geometry:
     | PlotGeometry
     | XYPlotGeometry
     | GroupedBarGeometry
+    | AlignedGroupedBarGeometry
     | SurvivalCurveGeometry
     | EstimationGeometry
     | DiagnosticGeometry
@@ -1495,6 +1642,15 @@ export function renderPlot(
     return { svg, geometry, style, frame };
   }
   if (style.kind === "groupedBar") {
+    // Tip-aligned path (phylo Tree Studio, Phase 4): lay the category axis out on
+    // the tree's tips and draw horizontal bars per tip, value axis running right.
+    // The drawer returns a self-contained fragment the panel renderer places; the
+    // on-screen size wrapper does not apply (the phylo figure owns the frame).
+    if (opts?.alignedAxis && opts.alignedAxis.orientation === "rows") {
+      const geometry = layoutAlignedGroupedBar(content, style, opts.alignedAxis);
+      const svg = renderAlignedGroupedBarSvg(geometry, style);
+      return { svg, geometry, style, frame };
+    }
     const geometry = layoutGroupedBar(content, style);
     const svg = onScreen(renderGroupedBarSvg(geometry, style));
     return { svg, geometry, style, frame };
@@ -1624,6 +1780,51 @@ export function niceTicks(
 }
 
 /**
+ * Base-10 log-axis ticks spanning the data: lo / hi snap OUT to the enclosing
+ * powers of ten, and the ticks are the powers of ten in that span. Shares the
+ * niceTicks return shape (step is the decade count, unused by the renderer). The
+ * caller guarantees min is strictly positive before choosing a log axis.
+ */
+export function logTicks(
+  min: number,
+  max: number,
+): { lo: number; hi: number; step: number; values: number[] } {
+  if (!Number.isFinite(min) || !Number.isFinite(max) || min <= 0 || max <= 0) {
+    return { lo: 1, hi: 10, step: 1, values: [1, 10] };
+  }
+  const loE = Math.floor(Math.log10(min));
+  const hiE = Math.max(loE + 1, Math.ceil(Math.log10(max)));
+  const values: number[] = [];
+  for (let e = loE; e <= hiE; e++) values.push(Math.pow(10, e));
+  return { lo: Math.pow(10, loE), hi: Math.pow(10, hiE), step: 1, values };
+}
+
+/**
+ * Apply manual min / max overrides to an auto axis (from niceTicks / logTicks),
+ * keeping its tick values that fall inside the chosen range. An override is taken
+ * only when finite, valid for a log axis (positive), and does not invert the range
+ * (min < max); otherwise the auto bound stands. Used by the XY figure where both
+ * axes have a free range (a column figure only overrides its top).
+ */
+function resolveAxisRange(
+  auto: { lo: number; hi: number; values: number[] },
+  min: number | undefined,
+  max: number | undefined,
+  isLog: boolean,
+): { lo: number; hi: number; values: number[] } {
+  let lo = auto.lo;
+  let hi = auto.hi;
+  if (min !== undefined && Number.isFinite(min) && (!isLog || min > 0)) lo = min;
+  if (max !== undefined && Number.isFinite(max) && (!isLog || max > 0)) hi = max;
+  if (lo >= hi) {
+    lo = auto.lo;
+    hi = auto.hi;
+  }
+  const values = auto.values.filter((v) => v >= lo - 1e-9 && v <= hi + 1e-9);
+  return { lo, hi, values: values.length ? values : [lo, hi] };
+}
+
+/**
  * Resolve a fitted curve for the (x, y) pairs under a chosen model. Returns the
  * predictor function (fitted parameters baked in) plus a short note, or null
  * when no curve is requested / the fit cannot run. The engine does the math
@@ -1638,12 +1839,22 @@ function resolveXYFit(
   if (modelId === "none") return null;
   const model = getModel(modelId);
   if (!model) return null;
-  if (x.length <= model.paramNames.length) return null;
-  const result = fitModel(modelId, x, y);
+  // Dose-response models fit on log10(dose); transform a raw dose column (and drop
+  // non-positive doses) so the plotted curve uses the same fit as the analysis.
+  const fitData = prepareFitData(modelId, x, y);
+  if (fitData.x.length <= model.paramNames.length) return null;
+  const result = fitModel(modelId, fitData.x, fitData.y);
   if (!result.ok) return null;
   const params = result.parameters.map((p) => p.value);
   if (!params.every((v) => Number.isFinite(v))) return null;
-  const predict = model.fn(params);
+  const rawPredict = model.fn(params);
+  // The curve is sampled at raw x positions; for a log-dose model map each raw
+  // dose through log10 first so the drawn curve matches the fitted parameters
+  // (and EC50 = 10^logEC50 sits at the visible half-max). Non-positive doses have
+  // no point on a log-dose curve.
+  const predict = model.logXInput
+    ? (xv: number) => (xv > 0 ? rawPredict(Math.log10(xv)) : NaN)
+    : rawPredict;
   const r2 = Number.isFinite(result.rSquared)
     ? `R-squared = ${result.rSquared.toFixed(3)}`
     : "";
@@ -1692,13 +1903,21 @@ export function layoutXYPlot(
   let yMinData = yvals.length ? Math.min(...yvals) : 0;
   let yMaxData = yvals.length ? Math.max(...yvals) : 1;
 
+  // Log axes only when requested AND the data on that axis is strictly positive
+  // (a log scale has no position for zero / negatives), else fall back to linear.
+  const xLog = style.xScaleType === "log" && xMinData > 0;
+
   // Sample the fitted curve across the X data range to both draw it and let it
-  // influence the Y frame (a curve can overshoot the points).
+  // influence the Y frame (a curve can overshoot the points). On a log X the
+  // samples are spaced in log space so the curve stays smooth across decades.
   const SAMPLES = 96;
   const rawFit: { x: number; y: number }[] = [];
   if (fit && xs.length > 0) {
+    const lx0 = xLog ? Math.log10(xMinData) : xMinData;
+    const lx1 = xLog ? Math.log10(xMaxData) : xMaxData;
     for (let i = 0; i <= SAMPLES; i++) {
-      const xv = xMinData + ((xMaxData - xMinData) * i) / SAMPLES;
+      const t = lx0 + ((lx1 - lx0) * i) / SAMPLES;
+      const xv = xLog ? Math.pow(10, t) : t;
       const yv = fit.predict(xv);
       if (Number.isFinite(yv)) {
         rawFit.push({ x: xv, y: yv });
@@ -1708,11 +1927,21 @@ export function layoutXYPlot(
     }
   }
 
-  const xAxis = niceTicks(xMinData, xMaxData);
-  const yAxis = niceTicks(yMinData, yMaxData);
+  // Y log decided after the fit, since the curve can widen the Y extent below 0.
+  const yLog = style.yScaleType === "log" && yMinData > 0;
 
-  const xScale = scaleLinear().domain([xAxis.lo, xAxis.hi]).range([x0, x1]);
-  const yScale = scaleLinear().domain([yAxis.lo, yAxis.hi]).range([y0, y1]);
+  const xAuto = xLog ? logTicks(xMinData, xMaxData) : niceTicks(xMinData, xMaxData);
+  const yAuto = yLog ? logTicks(yMinData, yMaxData) : niceTicks(yMinData, yMaxData);
+  // Manual range overrides (an XY axis has a free range, unlike a 0-based bar).
+  const xAxis = resolveAxisRange(xAuto, style.xAxisMin, style.xAxisMax, xLog);
+  const yAxis = resolveAxisRange(yAuto, style.yAxisMin, style.yAxisMax, yLog);
+
+  const xScale = (xLog ? scaleLog() : scaleLinear())
+    .domain([xAxis.lo, xAxis.hi])
+    .range([x0, x1]);
+  const yScale = (yLog ? scaleLog() : scaleLinear())
+    .domain([yAxis.lo, yAxis.hi])
+    .range([y0, y1]);
   const X = (v: number) => xScale(v);
   const Y = (v: number) => yScale(v);
 
@@ -1898,31 +2127,66 @@ export function layoutGroupedBar(
   const errFor = (s: { sd: number | null; n: number }): number | null => {
     if (style.errorBar === "none") return null;
     if (s.sd === null || !Number.isFinite(s.sd)) return null;
-    return style.errorBar === "sd" ? s.sd : s.sd / Math.sqrt(s.n);
+    if (style.errorBar === "sd") return s.sd;
+    const sem = s.sd / Math.sqrt(s.n);
+    // 95% CI half-width needs n >= 2 for a finite t critical value.
+    if (style.errorBar === "ci95") {
+      return s.n >= 2 ? tCritTwoSided(0.05, s.n - 1) * sem : null;
+    }
+    return sem;
   };
 
-  // Data max over (mean + error) to frame the Y axis.
-  let dataMax = 0;
-  let any = false;
-  for (const level of levels) {
-    for (const g of groups) {
-      const s = stat(level, g.datasetId);
-      if (s.mean === null) continue;
-      any = true;
-      const e = errFor(s) ?? 0;
-      const top = s.mean + e;
-      if (top > dataMax) dataMax = top;
-    }
-  }
+  const mode: BarMode = style.barMode ?? "dodge";
+  const stacked = mode === "stack" || mode === "stack100";
+  // The positive part of a cell mean (stacking treats non-positive as zero).
+  const posMean = (level: string, datasetId: string): number => {
+    const m = stat(level, datasetId).mean;
+    return m !== null && m > 0 ? m : 0;
+  };
+  const clusterSum = (level: string): number =>
+    groups.reduce((acc, g) => acc + posMean(level, g.datasetId), 0);
+
+  // Frame the Y axis. dodge = max(mean + error); stack = max cluster total;
+  // stack100 = 1 (each cluster normalized to a full bar).
   let yMax: number;
   let step: number;
-  if (!any || dataMax <= 0) {
+  if (mode === "stack100") {
     yMax = 1;
-    step = 0.5;
+    step = 0.25;
   } else {
-    const t = niceTicks(0, dataMax * 1.1);
-    yMax = t.hi;
-    step = t.step;
+    let dataMax = 0;
+    let any = false;
+    if (mode === "stack") {
+      for (const level of levels) {
+        const total = clusterSum(level);
+        if (total > 0) any = true;
+        if (total > dataMax) dataMax = total;
+      }
+    } else {
+      for (const level of levels) {
+        for (const g of groups) {
+          const s = stat(level, g.datasetId);
+          if (s.mean === null) continue;
+          any = true;
+          const top = s.mean + (errFor(s) ?? 0);
+          if (top > dataMax) dataMax = top;
+        }
+      }
+    }
+    if (!any || dataMax <= 0) {
+      yMax = 1;
+      step = 0.5;
+    } else {
+      const t = niceTicks(0, dataMax * 1.1);
+      yMax = t.hi;
+      step = t.step;
+    }
+  }
+
+  // Manual overrides (not for stack100, which is normalized to a full bar).
+  if (mode !== "stack100") {
+    if (style.yAxisMax !== undefined && style.yAxisMax > 0) yMax = style.yAxisMax;
+    if (style.yTickStep !== undefined && style.yTickStep > 0) step = style.yTickStep;
   }
 
   const yScale = scaleLinear().domain([0, yMax]).range([y0, y1]);
@@ -1947,6 +2211,32 @@ export function layoutGroupedBar(
 
   const clusters: GroupedCluster[] = levels.map((level, li) => {
     const cx = x0 + clusterW * (li + 0.5);
+    if (stacked) {
+      // One band per cluster; segments stack from the baseline up. stack100
+      // normalizes the segments to the full bar. No per-segment error bar.
+      const left = cx - bandW / 2;
+      const segW = bandW * 0.86;
+      const total = mode === "stack100" ? clusterSum(level) : 0;
+      let cum = 0;
+      const bars: GroupedBar[] = groups.map((g, gi) => {
+        const color = groupColors[gi] ?? "#000000";
+        const raw = posMean(level, g.datasetId);
+        const val = mode === "stack100" ? (total > 0 ? raw / total : 0) : raw;
+        const vBottom = cum;
+        const vTop = cum + val;
+        cum = vTop;
+        const yTop = Y(vTop);
+        return {
+          x: left,
+          y: yTop,
+          width: segW,
+          height: Y(vBottom) - yTop,
+          color,
+          error: null,
+        };
+      });
+      return { label: level, labelX: cx, bars };
+    }
     const left = cx - bandW / 2;
     const bars: GroupedBar[] = groups.map((g, gi) => {
       const s = stat(level, g.datasetId);
@@ -2061,6 +2351,183 @@ export function renderGroupedBarSvg(
   }
 
   parts.push(`</svg>`);
+  return parts.join("");
+}
+
+// ---------------------------------------------------------------------------
+// Tip-aligned grouped bar (phylo Tree Studio seam, Phase 4)
+//
+// The SAME grouped-bar data (row-factor levels = tips, column groups = series),
+// drawn HORIZONTALLY against a tree's tip axis: category axis is the tip's vertical
+// position (handed in via AlignedAxis), value axis runs to the right. dodge =
+// thin bars stacked inside each tip band; stack / stack100 = segments along X.
+// Pure geometry, asserted in tests. The renderer returns a fragment (a <g>) in
+// tree-space Y + panel-local X (0..length), which the phylo panel renderer
+// translates to the column's start X. The numbers are read verbatim from the
+// metadata table (no statistic), descriptive and gate-exempt like parts-of-whole.
+// ---------------------------------------------------------------------------
+
+/** One horizontal bar (or stacked segment) in a tip-aligned grouped bar. */
+export interface AlignedGroupedBar {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  color: string;
+}
+
+/** One tip row of a tip-aligned grouped bar (bars share the tip's vertical band). */
+export interface AlignedGroupedRow {
+  id: string;
+  cy: number;
+  bars: AlignedGroupedBar[];
+}
+
+/** The full laid-out tip-aligned grouped bar panel. */
+export interface AlignedGroupedBarGeometry {
+  /** Value-axis length in px (the panel thickness drawn to the right of the tree). */
+  length: number;
+  yTop: number;
+  yBot: number;
+  valueMax: number;
+  ticks: { value: number; x: number }[];
+  rows: AlignedGroupedRow[];
+  legend: GroupedLegendItem[];
+}
+
+/**
+ * Lay out a grouped bar against a tree's tip axis. `axis.order` lists the tip ids
+ * in tip order and `axis.positions[i]` is that tip's vertical center; `axis.band`
+ * is the per-tip band thickness. dodge splits the band among the groups; stack /
+ * stack100 draw one band of cumulative segments (stack100 normalizes each tip to a
+ * full bar). A tip with no finite value keeps its (empty) band slot.
+ */
+export function layoutAlignedGroupedBar(
+  content: DataHubDocContent,
+  style: PlotStyle,
+  axis: AlignedAxis,
+): AlignedGroupedBarGeometry {
+  const length = axis.length && axis.length > 0 ? axis.length : 120;
+  const groups = groupDatasets(content);
+  const groupColors = seriesColors(style, groups.length);
+  const nGroups = Math.max(1, groups.length);
+  const mode: BarMode = style.barMode ?? "dodge";
+  const stacked = mode === "stack" || mode === "stack100";
+
+  const posMean = (level: string, datasetId: string): number => {
+    const m = cellMean(content, level, datasetId).mean;
+    return m !== null && m > 0 ? m : 0;
+  };
+  const clusterSum = (level: string): number =>
+    groups.reduce((acc, g) => acc + posMean(level, g.datasetId), 0);
+
+  // Value-axis max. dodge = max single mean; stack = max tip total; stack100 = 1.
+  let valueMax: number;
+  if (mode === "stack100") {
+    valueMax = 1;
+  } else {
+    let dataMax = 0;
+    for (const level of axis.order) {
+      if (mode === "stack") {
+        dataMax = Math.max(dataMax, clusterSum(level));
+      } else {
+        for (const g of groups) {
+          dataMax = Math.max(dataMax, posMean(level, g.datasetId));
+        }
+      }
+    }
+    valueMax = dataMax > 0 ? niceTicks(0, dataMax).hi : 1;
+  }
+  const X = (v: number) => (valueMax > 0 ? (v / valueMax) * length : 0);
+
+  // Bars fill 70% of the band; dodge splits that among the groups.
+  const usable = axis.band * 0.7;
+  const positions = axis.positions;
+  const rows: AlignedGroupedRow[] = axis.order.map((level, i) => {
+    const cy = positions[i] ?? 0;
+    const bandTop = cy - usable / 2;
+    if (stacked) {
+      const total = mode === "stack100" ? clusterSum(level) : 0;
+      let cum = 0;
+      const bars: AlignedGroupedBar[] = groups.map((g, gi) => {
+        const raw = posMean(level, g.datasetId);
+        const val = mode === "stack100" ? (total > 0 ? raw / total : 0) : raw;
+        const x = X(cum);
+        cum += val;
+        return {
+          x,
+          y: bandTop,
+          width: X(cum) - x,
+          height: usable * 0.92,
+          color: groupColors[gi] ?? "#000000",
+        };
+      });
+      return { id: level, cy, bars };
+    }
+    const subH = usable / nGroups;
+    const bars: AlignedGroupedBar[] = groups.map((g, gi) => ({
+      x: 0,
+      y: bandTop + subH * gi,
+      width: X(posMean(level, g.datasetId)),
+      height: subH * 0.86,
+      color: groupColors[gi] ?? "#000000",
+    }));
+    return { id: level, cy, bars };
+  });
+
+  const rawStep = niceTicks(0, valueMax).step;
+  // Never advance by a non-positive step (a degenerate niceTicks return would
+  // otherwise spin forever); fall back to a single span tick.
+  const tickStep = rawStep > 0 ? rawStep : valueMax;
+  const ticks: { value: number; x: number }[] = [];
+  for (let v = 0; v <= valueMax + tickStep * 1e-6; v += tickStep) {
+    const value = Math.round(v * 1e6) / 1e6;
+    ticks.push({ value, x: X(value) });
+  }
+
+  const ys = positions.length ? positions : [0];
+  const yTop = Math.min(...ys) - axis.band / 2;
+  const yBot = Math.max(...ys) + axis.band / 2;
+  const legend: GroupedLegendItem[] = groups.map((g, gi) => ({
+    name: g.name,
+    color: groupColors[gi] ?? "#000000",
+  }));
+
+  return { length, yTop, yBot, valueMax, ticks, rows, legend };
+}
+
+/**
+ * Serialize a tip-aligned grouped bar into an SVG FRAGMENT (a <g>, not a full
+ * document): bars in panel-local X (0..length) and tree-space Y, plus a value-axis
+ * ruler at the bottom. The phylo panel renderer wraps this in a translate to the
+ * column's start X; the legend is collected tree-side, so none is drawn here.
+ */
+export function renderAlignedGroupedBarSvg(
+  geo: AlignedGroupedBarGeometry,
+  style: PlotStyle,
+): string {
+  const tickFont = Math.max(8, style.fontSize - 2);
+  const parts: string[] = [`<g>`];
+  for (const row of geo.rows) {
+    for (const bar of row.bars) {
+      if (bar.width <= 0) continue;
+      parts.push(
+        `<rect x="${bar.x.toFixed(2)}" y="${bar.y.toFixed(2)}" width="${bar.width.toFixed(2)}" height="${bar.height.toFixed(2)}" fill="${bar.color}" opacity="0.85"/>`,
+      );
+    }
+  }
+  // Value-axis ruler under the panel: baseline + ticks with value labels.
+  const axisY = geo.yBot + 6;
+  parts.push(
+    `<line x1="0" y1="${axisY.toFixed(2)}" x2="${geo.length.toFixed(2)}" y2="${axisY.toFixed(2)}" stroke="${AXIS_COLOR}" stroke-width="1"/>`,
+  );
+  for (const t of geo.ticks) {
+    parts.push(
+      `<line x1="${t.x.toFixed(2)}" y1="${axisY.toFixed(2)}" x2="${t.x.toFixed(2)}" y2="${(axisY + 4).toFixed(2)}" stroke="${AXIS_COLOR}"/>` +
+        `<text x="${t.x.toFixed(2)}" y="${(axisY + 14).toFixed(2)}" font-size="${tickFont}" fill="${TICK_TEXT}" text-anchor="middle">${fmtTick(t.value)}</text>`,
+    );
+  }
+  parts.push(`</g>`);
   return parts.join("");
 }
 

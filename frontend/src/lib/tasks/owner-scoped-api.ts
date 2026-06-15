@@ -12,7 +12,7 @@
 
 import { tasksApi as rawTasksApi } from "@/lib/local-api";
 import type { TaskUpdate, TaskMoveRequest } from "@/lib/local-api";
-import type { Task } from "@/lib/types";
+import type { Task, MethodGatheredChecks } from "@/lib/types";
 import type { HistoryEditKind } from "@/lib/history";
 import { appendAuditEntries, buildFieldDiffEntries } from "@/lib/lab/pi-audit";
 
@@ -109,6 +109,11 @@ export function ownerScopedTasksApi(task: Task, piEdit?: { actor: string }) {
     ) => rawTasksApi.updateMethodCellCulture(taskId, methodId, data, owner),
     saveVariationNote: (taskId: number, methodId: number, notes: string) =>
       rawTasksApi.saveVariationNote(taskId, methodId, notes, owner),
+    saveGatheredChecks: (
+      taskId: number,
+      methodId: number,
+      gathered: MethodGatheredChecks
+    ) => rawTasksApi.saveGatheredChecks(taskId, methodId, gathered, owner),
     // Lab-mode comment thread. Like every other mutating call, receiver-edits
     // route to the OWNER's task file so the comment is visible to everyone.
     // Read-only shared views never reach here — CommentsThread hides the

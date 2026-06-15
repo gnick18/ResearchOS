@@ -33,6 +33,7 @@ import { useFileSystem } from "@/lib/file-system/file-system-context";
 import { isDemoOrWikiCapture } from "@/lib/file-system/wiki-capture-mock";
 import { storePreDemoRoute } from "@/lib/file-system/pre-demo-route";
 import { useIsLabMode } from "@/hooks/useIsLabMode";
+import { useIsMultiUserFolder } from "@/hooks/useIsMultiUserFolder";
 import { useAppStore } from "@/lib/store";
 import { useCompanionHub } from "@/lib/ui/companion-hub-store";
 import { fileService } from "@/lib/file-system/file-service";
@@ -80,6 +81,7 @@ import {
 } from "./search-context";
 import { useSharingIdentity } from "@/hooks/useSharingIdentity";
 import { useAccountCapabilities } from "@/hooks/useAccountCapabilities";
+import { useHasCloudSession } from "@/components/account/AccountFirstRedirect";
 import SettingsShell, {
   type SettingsGroupDef,
 } from "@/components/settings/SettingsShell";
@@ -143,14 +145,16 @@ export default function SettingsPage() {
   return (
     <div className="fixed inset-0 z-[60] flex flex-col bg-surface-sunken">
       {/* Permanent close, top-right. Esc also exits. */}
-      <button
-        type="button"
-        onClick={exit}
-        aria-label="Close settings (Esc)"
-        className="absolute right-4 top-3.5 z-20 flex h-9 w-9 items-center justify-center rounded-full border border-border bg-surface text-foreground-muted shadow-sm transition-colors hover:bg-surface-sunken hover:text-foreground"
-      >
-        <Icon name="x" className="h-4 w-4" />
-      </button>
+      <Tooltip label="Close settings">
+        <button
+          type="button"
+          onClick={exit}
+          aria-label="Close settings (Esc)"
+          className="absolute right-4 top-3.5 z-20 flex h-9 w-9 items-center justify-center rounded-full border border-border bg-surface text-foreground-muted shadow-sm transition-colors hover:bg-surface-sunken hover:text-foreground"
+        >
+          <Icon name="x" className="h-4 w-4" />
+        </button>
+      </Tooltip>
       <SettingsBody />
     </div>
   );
@@ -216,6 +220,11 @@ function SettingsBodyInner({
   // Account gating reads the unified capability model; `sharing` is kept for the
   // genuine identity reads it feeds DevicesSection (status + refresh).
   const caps = useAccountCapabilities();
+  // A NextAuth (cloud) session counts as having an account for billing surfaces:
+  // AI billing + storage are keyed on the OAuth session server-side, so a
+  // cloud-signed-in user must be able to reach Usage & billing even if they have
+  // not claimed a local sharing identity (caps.mode). See the AI billing design.
+  const hasCloudSession = useHasCloudSession();
   // floating-cluster-split bot (2026-06-02): the Data-folder + Switch-user
   // CONFIG actions relocated here from the AppShell floating cluster. Each
   // opens the same self-contained modal/screen the floating buttons used.
@@ -247,6 +256,10 @@ function SettingsBodyInner({
   // the tab (the role gate, unchanged).
   const derivedLabMode = useIsLabMode() ?? false;
   const isLabMode = settings?.account_type === "lab_head" || derivedLabMode;
+  // Whether this folder genuinely holds 2+ local users (a legacy multi-user
+  // folder). A cross-folder cloud lab has only the PI locally, so the folder
+  // roster is redundant there and the unified Members section hides it.
+  const isMultiUser = useIsMultiUserFolder() ?? false;
 
   // Load on mount + when the active user changes.
   useEffect(() => {
@@ -370,6 +383,9 @@ function SettingsBodyInner({
   // surface is tuned to what they can actually use. `status === "ready"` is the
   // same has-an-account signal NotificationsSection + DevicesSection gate on.
   const hasAccount = caps.mode === "account";
+  // Billing surfaces also open for a cloud (OAuth) session, not just a claimed
+  // local identity, so a signed-in user can actually reach AI usage + buy credits.
+  const canSeeBilling = hasAccount || hasCloudSession === true;
 
   const groups: SettingsGroupDef[] = [
     {
@@ -427,9 +443,10 @@ function SettingsBodyInner({
       ],
     },
     // Usage and billing is account-only (BeakerBot tokens + cloud storage both
-    // need a cloud account). Hidden entirely for solo users so they never land
-    // on an empty or locked billing page.
-    ...(hasAccount
+    // need a cloud account). Shown for a claimed local identity OR a cloud
+    // (OAuth) session; hidden for true solo users so they never land on an empty
+    // or locked billing page.
+    ...(canSeeBilling
       ? [
           {
             label: "Usage & billing",
@@ -671,60 +688,46 @@ function SettingsBodyInner({
             label: "Lab",
             labBadge: true,
             sections: [
+              // One unified Members page: the cloud lab roster + invite link +
+              // pending join requests (lab head) AND the folder roster with
+              // archive/restore. The folder roster is hidden for a cross-folder
+              // cloud lab head (no other local users to manage) and shown for a
+              // legacy multi-user folder or to a member, which is their roster.
               {
                 id: "members",
                 group: "Lab",
-                title: "Members & roster",
+                title: "Members",
                 icon: "users" as const,
-                keywords: "members archive restore roster lab people",
-                render: () => <LabRosterSection />,
-              },
-              ...(LAB_TIER_ENABLED && isLabHead
-                ? [
-                    {
-                      id: "membership",
-                      group: "Lab",
-                      title: "Membership & agreement",
-                      icon: "userPlus" as const,
-                      keywords:
-                        "invite member join link lab tier add request agreement mode solo lab visibility approval",
-                      render: () => (
-                        <>
-                          <LabMembershipSection />
-                          <LabAgreementSection
-                            settings={settings}
-                            update={update}
-                          />
-                        </>
-                      ),
-                    },
-                  ]
-                : isLabHead
-                  ? [
-                      {
-                        id: "membership",
-                        group: "Lab",
-                        title: "Membership & agreement",
-                        icon: "userPlus" as const,
-                        keywords:
-                          "agreement mode solo lab visibility approval lab head",
-                        render: () => (
-                          <LabAgreementSection
-                            settings={settings}
-                            update={update}
-                          />
-                        ),
-                      },
-                    ]
-                  : []),
-              {
-                id: "accounttype",
-                group: "Lab",
-                title: "Account type",
-                icon: "shield" as const,
-                keywords: "account type member pi lab head role",
+                keywords:
+                  "members roster invite join link add request archive restore lab people seat pending sponsored collaborator",
                 render: () => (
-                  <AccountTypeSection settings={settings} update={update} />
+                  <>
+                    {LAB_TIER_ENABLED && isLabHead ? (
+                      <LabMembershipSection />
+                    ) : null}
+                    {isMultiUser || !(LAB_TIER_ENABLED && isLabHead) ? (
+                      <LabRosterSection />
+                    ) : null}
+                  </>
+                ),
+              },
+              // Lab settings: the account-type (role) control plus, for a lab
+              // head, the lab agreement (mode / visibility / approval policy).
+              // Policy lives apart from the people list above.
+              {
+                id: "labsettings",
+                group: "Lab",
+                title: "Lab settings",
+                icon: "shield" as const,
+                keywords:
+                  "account type member pi lab head role agreement mode solo lab visibility approval policy settings",
+                render: () => (
+                  <>
+                    <AccountTypeSection settings={settings} update={update} />
+                    {isLabHead ? (
+                      <LabAgreementSection settings={settings} update={update} />
+                    ) : null}
+                  </>
                 ),
               },
               ...(isLabHead
@@ -771,6 +774,16 @@ function SettingsBodyInner({
       : []),
   ];
 
+  // A lab head runs the lab, so the Lab group leads their rail instead of
+  // sitting last below the personal + workspace settings. Members and solo
+  // users keep the default You -> Workspace -> Data (-> Lab) order.
+  const orderedGroups: SettingsGroupDef[] = isLabHead
+    ? [
+        ...groups.filter((g) => g.label === "Lab"),
+        ...groups.filter((g) => g.label !== "Lab"),
+      ]
+    : groups;
+
   // key={currentUser} on the shell resets each section's local draft state when
   // the lab user switches mid-session, so we never show user A's half-typed
   // draft to user B (the same guard the old scroll-wall had).
@@ -778,7 +791,7 @@ function SettingsBodyInner({
     <div className="min-h-0 flex-1 flex flex-col bg-surface-sunken">
       <SettingsShell
         key={currentUser}
-        groups={groups}
+        groups={orderedGroups}
         currentUser={currentUser}
         initialSectionId={initialSectionId}
         roleLabel={

@@ -1,0 +1,1451 @@
+<!doctype html>
+<!--
+  MOCKUP: Unified operator shell — 2026-06-14
+  ============================================
+  This is a DESIGN ARTIFACT only. Do not modify real app code based on this file.
+
+  What this merges
+  ----------------
+  1. /admin       — AdminMetrics.tsx  (signups, institutions, capacity, feature usage)
+  2. /admin/business — BusinessTracker.tsx (finances, cost breaker, gift pools, ledger,
+                       deadlines, checklist, infra cost, payment methods, subscriptions,
+                       correspondence, plus the Price Modeling modal)
+
+  IA decisions made
+  -----------------
+  - "Dashboard" (Overview group) is the landing section: headline stat cards drawn from
+    both pages, so the operator sees the pulse of the whole system at a glance.
+  - METRICS group mirrors AdminMetrics.tsx section order exactly.
+  - FINANCES group mirrors BusinessTracker.tsx section order; "Where things stand" (the
+    money summary cards) is placed FIRST in the group so the financial pulse is one
+    click away, not buried after the cost breaker.
+  - MODELING group contains only "Price modeling". It is kept as a LINK that opens the
+    existing Price Modeling modal (rather than promoted to a full content section), but
+    see Open question 1 below.
+  - The rail header shows "ResearchOS LLC" + "Operator" instead of a user avatar row,
+    since the operator shell is grant-only and a personal avatar is unnecessary noise.
+  - "Broadcast email" from AdminMetrics appears under METRICS > Feature usage (it is an
+    action tied to usage outreach, not finances). Open question 2 below.
+  - Tax summary panel is folded into the FINANCES > Spend by category section because
+    both concern expense categorization. Open question 3 below.
+  - EntityCard / LLC setup checklist are kept as separate FINANCES sections (Setup facts
+    and Setup checklist) so the operator can jump straight to either.
+
+  Open design questions for Grant
+  --------------------------------
+  1. Price modeling: full section vs modal trigger? The rail item currently fires the
+     modal. Promoting it to a full section would let it live alongside a future "what-if
+     runway" table without a modal context — worth doing if the model grows.
+  2. "Broadcast email" belongs under Metrics or a new COMMS group? It is used as an
+     outreach tool, not a financial one. Could also be its own rail group.
+  3. Should Tax summary be a standalone section under FINANCES, or stay inside
+     "Spend by category" as it is in BusinessTracker.tsx today?
+  4. The Dashboard section currently shows a static composite. Should it auto-refresh
+     like the individual sections do, or is a "refresh all" button enough?
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Operator shell — unified mockup (2026-06-14)</title>
+<style>
+/* ── Tokens (light mode only, pinned per spec) ───────────────────────────── */
+:root {
+  --surface:         #f8fafc;
+  --surface-raised:  #ffffff;
+  --surface-sunken:  #f1f5f9;
+  --foreground:      #171717;
+  --fg-muted:        #6b7280;
+  --border:          #e5e7eb;
+  --brand-action:    #1283c9;
+  --accent-soft:     #eff6ff;
+  --accent-text:     #1d4ed8;
+  --ok:              #059669;
+  --ok-bg:           #ecfdf5;
+  --ok-border:       #a7f3d0;
+  --warn:            #b45309;
+  --warn-bg:         #fffbeb;
+  --warn-border:     #fcd34d;
+  --danger:          #b91c1c;
+  --danger-bg:       #fff1f2;
+  --danger-border:   #fecaca;
+  --rail-w:          256px;
+  font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto,
+               Helvetica, Arial, sans-serif;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+/* ── Reset ───────────────────────────────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+body { background: var(--surface); color: var(--foreground); }
+button { font: inherit; cursor: pointer; border: none; background: none; }
+input, select, textarea { font: inherit; }
+
+/* ── Layout ──────────────────────────────────────────────────────────────── */
+.shell {
+  display: flex;
+  flex-direction: column;
+  height: 100dvh;
+  overflow: hidden;
+}
+
+/* Slim top bar */
+.topbar {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 20px;
+  background: var(--surface-raised);
+  border-bottom: 1px solid var(--border);
+  font-size: 13px;
+}
+.topbar-title {
+  font-weight: 700;
+  font-size: 14px;
+  letter-spacing: -0.01em;
+}
+.topbar-sep { color: var(--border); }
+.topbar-crumb { color: var(--fg-muted); }
+.topbar-link {
+  color: var(--brand-action);
+  text-decoration: none;
+  font-weight: 500;
+  margin-left: auto;
+}
+.topbar-link:hover { text-decoration: underline; }
+
+/* Rail + pane */
+.body-row {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+}
+
+/* ── Rail ────────────────────────────────────────────────────────────────── */
+.rail {
+  flex-shrink: 0;
+  width: var(--rail-w);
+  border-right: 1px solid var(--border);
+  background: var(--surface-raised);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.rail-scroll {
+  flex: 1;
+  overflow-y: auto;
+  padding: 10px;
+}
+.rail-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 8px 10px;
+}
+.rail-avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #a6d2f4, #d6b5f0);
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: 700;
+  color: #3b5ea6;
+}
+.rail-header-text { line-height: 1.25; }
+.rail-name { font-size: 13px; font-weight: 700; }
+.rail-role { font-size: 11px; color: var(--fg-muted); }
+
+/* Rail search */
+.rail-search-wrap { padding: 0 0 10px; }
+.rail-search {
+  width: 100%;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface-sunken);
+  padding: 6px 10px 6px 30px;
+  font-size: 13px;
+  color: var(--foreground);
+  outline: none;
+  position: relative;
+}
+.rail-search:focus { border-color: var(--brand-action); }
+.rail-search-icon {
+  position: absolute;
+  left: 18px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--fg-muted);
+  pointer-events: none;
+}
+.rail-search-container { position: relative; }
+
+/* Rail groups */
+.rail-group { margin-top: 10px; }
+.rail-group-label {
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--fg-muted);
+  padding: 0 8px 6px;
+}
+.rail-item {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  width: 100%;
+  text-align: left;
+  border-radius: 8px;
+  padding: 6px 8px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--foreground);
+  transition: background 120ms;
+  text-decoration: none;
+}
+.rail-item:hover { background: var(--surface-sunken); }
+.rail-item.active {
+  background: var(--accent-soft);
+  color: var(--accent-text);
+}
+.rail-item.active .rail-icon { color: var(--accent-text); }
+.rail-icon { width: 14px; height: 14px; flex-shrink: 0; color: var(--fg-muted); }
+.rail-item span { flex: 1; }
+
+/* Rail footer */
+.rail-footer {
+  flex-shrink: 0;
+  border-top: 1px solid var(--border);
+  padding: 10px;
+  font-size: 11.5px;
+  color: var(--fg-muted);
+  line-height: 1.6;
+}
+
+/* ── Content pane ────────────────────────────────────────────────────────── */
+.pane {
+  flex: 1;
+  overflow-y: auto;
+  background: var(--surface-sunken);
+}
+.pane-inner {
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 32px 32px 64px;
+}
+
+/* ── Sections ────────────────────────────────────────────────────────────── */
+.section { display: none; }
+.section.visible { display: block; }
+
+.section-kicker {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--fg-muted);
+  margin-bottom: 4px;
+}
+.section-title {
+  font-size: 22px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  margin-bottom: 4px;
+}
+.section-desc {
+  font-size: 13px;
+  color: var(--fg-muted);
+  margin-bottom: 20px;
+  max-width: 600px;
+  line-height: 1.6;
+}
+
+/* Section heading inside pane content */
+h3.subsection {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--foreground);
+  margin: 24px 0 10px;
+}
+h3.subsection:first-child { margin-top: 0; }
+
+/* ── Cards ───────────────────────────────────────────────────────────────── */
+.stat-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: 12px;
+  margin-bottom: 20px;
+}
+.stat-card {
+  background: var(--surface-raised);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 16px 18px;
+}
+.stat-label {
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--fg-muted);
+  margin-bottom: 4px;
+}
+.stat-value {
+  font-size: 26px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: var(--foreground);
+  line-height: 1.1;
+}
+.stat-value.good { color: var(--ok); }
+.stat-value.warn { color: var(--warn); }
+.stat-value.danger { color: var(--danger); }
+.stat-sub {
+  font-size: 11.5px;
+  color: var(--fg-muted);
+  margin-top: 3px;
+}
+
+/* Panel card (section body) */
+.panel {
+  background: var(--surface-raised);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 20px;
+  margin-bottom: 16px;
+}
+
+/* Status banners */
+.banner {
+  border-radius: 12px;
+  border: 1px solid;
+  padding: 12px 16px;
+  margin-bottom: 14px;
+  font-size: 13px;
+}
+.banner.ok    { background: var(--ok-bg);    border-color: var(--ok-border);   color: #065f46; }
+.banner.warn  { background: var(--warn-bg);  border-color: var(--warn-border); color: #78350f; }
+.banner.danger{ background: var(--danger-bg);border-color: var(--danger-border);color: #7f1d1d; }
+.banner strong { display: block; font-weight: 700; margin-bottom: 2px; }
+
+/* ── Bar charts (placeholder style) ─────────────────────────────────────── */
+.bar-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+.bar-label { width: 80px; font-size: 12px; color: var(--fg-muted); flex-shrink: 0; font-variant-numeric: tabular-nums; }
+.bar-track { flex: 1; height: 10px; background: var(--surface-sunken); border-radius: 999px; overflow: hidden; }
+.bar-fill  { height: 100%; border-radius: 999px; background: #38bdf8; }
+.bar-fill.emerald { background: #34d399; }
+.bar-fill.purple  { background: #a78bfa; }
+.bar-count { width: 28px; text-align: right; font-size: 12px; color: var(--foreground); font-variant-numeric: tabular-nums; }
+
+/* Usage bars (infra capacity) */
+.usage-wrap { margin-bottom: 12px; }
+.usage-hdr  { display: flex; justify-content: space-between; font-size: 12px; margin-bottom: 3px; }
+.usage-hdr .uname { color: var(--fg-muted); }
+.usage-hdr .upct  { font-weight: 700; }
+.usage-hdr .upct.ok     { color: var(--ok); }
+.usage-hdr .upct.warn   { color: var(--warn); }
+.usage-hdr .upct.danger { color: var(--danger); }
+.usage-track { height: 8px; background: var(--surface-sunken); border-radius: 999px; overflow: hidden; margin-bottom: 3px; }
+.usage-fill  { height: 100%; border-radius: 999px; }
+.usage-fill.ok     { background: #34d399; }
+.usage-fill.warn   { background: #fbbf24; }
+.usage-fill.danger { background: #fb7185; }
+.usage-sub   { font-size: 11px; color: var(--fg-muted); }
+
+/* Service cards grid */
+.service-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 12px;
+}
+.service-card {
+  background: var(--surface-raised);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 16px;
+}
+.service-name { font-size: 13px; font-weight: 700; margin-bottom: 2px; }
+.service-sub  { font-size: 12px; color: var(--fg-muted); margin-bottom: 10px; }
+
+/* Tables */
+.tbl-wrap { overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+th { text-align: left; padding: 8px; font-weight: 700; color: var(--fg-muted); border-bottom: 1px solid var(--border); font-size: 11px; letter-spacing: 0.04em; text-transform: uppercase; }
+td { padding: 8px; border-bottom: 1px solid var(--border); vertical-align: middle; }
+tr:last-child td { border-bottom: 0; }
+td.money { text-align: right; font-variant-numeric: tabular-nums; font-family: ui-monospace, monospace; }
+td.money.in  { color: var(--ok); }
+td.money.out { color: var(--foreground); }
+
+/* Deadline strips */
+.deadline-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 10px;
+}
+.deadline-card {
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  background: var(--surface-raised);
+  padding: 14px 16px;
+}
+.deadline-card.warn   { background: var(--warn-bg);   border-color: var(--warn-border); }
+.deadline-card.danger { background: var(--danger-bg); border-color: var(--danger-border); }
+.deadline-top { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; margin-bottom: 2px; }
+.deadline-name { font-size: 13px; font-weight: 600; }
+.deadline-chip { font-size: 11px; font-weight: 700; white-space: nowrap; }
+.deadline-chip.ok     { color: var(--ok); }
+.deadline-chip.warn   { color: var(--warn); }
+.deadline-chip.danger { color: var(--danger); }
+.deadline-date { font-size: 12px; color: var(--fg-muted); }
+
+/* Checklist */
+.check-list { list-style: none; }
+.check-item { display: flex; align-items: center; gap: 10px; padding: 7px 0; border-bottom: 1px solid var(--border); font-size: 13px; }
+.check-item:last-child { border-bottom: 0; }
+.check-item input[type=checkbox] { width: 16px; height: 16px; flex-shrink: 0; accent-color: var(--brand-action); }
+.check-done { color: var(--fg-muted); text-decoration: line-through; }
+
+/* Payment method chips */
+.pm-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  background: var(--surface-raised);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  margin-bottom: 8px;
+  font-size: 13px;
+}
+.pm-swatch {
+  width: 32px;
+  height: 20px;
+  border-radius: 4px;
+  flex-shrink: 0;
+}
+.pm-swatch.llc      { background: linear-gradient(135deg, #38bdf8, #818cf8); }
+.pm-swatch.personal { background: linear-gradient(135deg, #94a3b8, #475569); }
+.pm-name { flex: 1; font-weight: 600; }
+.pm-last4 { color: var(--fg-muted); font-family: ui-monospace, monospace; }
+.kind-chip {
+  font-size: 11px; font-weight: 700;
+  border-radius: 999px; padding: 2px 8px;
+}
+.kind-chip.llc      { background: #e0f2fe; color: #0369a1; border: 1px solid #7dd3fc; }
+.kind-chip.personal { background: #fef3c7; color: #b45309; border: 1px solid #fcd34d; }
+
+/* Sub row */
+.sub-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 12px;
+  background: var(--surface-raised);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  margin-bottom: 7px;
+  font-size: 13px;
+  flex-wrap: wrap;
+}
+.sub-name  { flex: 1; font-weight: 600; }
+.sub-amt   { color: #b91c1c; font-variant-numeric: tabular-nums; font-weight: 700; }
+.sub-badge { font-size: 11px; color: var(--fg-muted); background: var(--surface-sunken); border-radius: 6px; padding: 2px 7px; }
+
+/* Chart placeholder box */
+.chart-placeholder {
+  height: 160px;
+  border-radius: 12px;
+  background: var(--surface-sunken);
+  border: 1px dashed var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  color: var(--fg-muted);
+  margin-bottom: 16px;
+}
+
+/* Gift pool row */
+.gift-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--border);
+  font-size: 13px;
+}
+.gift-row:last-child { border-bottom: 0; }
+.gift-pool-bar { height: 6px; background: var(--surface-sunken); border-radius: 999px; overflow: hidden; margin-top: 4px; }
+.gift-pool-fill { height: 100%; border-radius: 999px; background: #818cf8; }
+
+/* Price modeling CTA */
+.price-model-cta {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--brand-action);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 700;
+  border-radius: 10px;
+  padding: 9px 18px;
+  text-decoration: none;
+  transition: opacity 120ms;
+}
+.price-model-cta:hover { opacity: 0.88; }
+.price-model-cta svg { flex-shrink: 0; }
+
+/* Modal overlay */
+.modal-overlay {
+  display: none;
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,0.45);
+  z-index: 100;
+  align-items: center;
+  justify-content: center;
+}
+.modal-overlay.open { display: flex; }
+.modal-box {
+  background: var(--surface-raised);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  width: min(820px, 94vw);
+  max-height: 88vh;
+  overflow-y: auto;
+  padding: 28px 32px 32px;
+  position: relative;
+}
+.modal-close {
+  position: absolute; top: 16px; right: 16px;
+  width: 28px; height: 28px;
+  border-radius: 50%;
+  background: var(--surface-sunken);
+  border: 1px solid var(--border);
+  display: flex; align-items: center; justify-content: center;
+  color: var(--fg-muted);
+  font-size: 16px; line-height: 1;
+  cursor: pointer;
+  transition: background 120ms;
+}
+.modal-close:hover { background: var(--border); }
+.modal-title { font-size: 18px; font-weight: 800; letter-spacing: -0.02em; margin-bottom: 6px; }
+.modal-sub   { font-size: 13px; color: var(--fg-muted); margin-bottom: 20px; }
+
+/* Add-entry stub */
+.add-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+.add-row input, .add-row select {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 6px 10px;
+  font-size: 12.5px;
+  background: var(--surface-sunken);
+  color: var(--foreground);
+  outline: none;
+}
+.add-row input:focus, .add-row select:focus { border-color: var(--brand-action); }
+.btn-primary {
+  background: var(--brand-action);
+  color: #fff;
+  border-radius: 8px;
+  padding: 6px 14px;
+  font-size: 13px;
+  font-weight: 700;
+}
+.btn-ghost {
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 6px 14px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--foreground);
+}
+.btn-ghost:hover { background: var(--surface-sunken); }
+
+/* Hidden when rail item filtered out */
+.rail-group.hidden { display: none; }
+.rail-item.hidden  { display: none; }
+</style>
+</head>
+<body>
+
+<div class="shell">
+
+  <!-- ── Top bar ── -->
+  <header class="topbar">
+    <span class="topbar-title">ResearchOS</span>
+    <span class="topbar-sep">/</span>
+    <span class="topbar-crumb" id="topbar-crumb">Dashboard</span>
+    <a href="/" class="topbar-link">Back to the app</a>
+  </header>
+
+  <div class="body-row">
+
+    <!-- ── Rail ── -->
+    <nav class="rail" aria-label="Operator sections">
+      <div class="rail-scroll">
+
+        <!-- Search -->
+        <div class="rail-search-wrap">
+          <div class="rail-search-container">
+            <svg class="rail-search-icon" width="13" height="13" viewBox="0 0 16 16" fill="none">
+              <circle cx="6.5" cy="6.5" r="5" stroke="currentColor" stroke-width="1.6"/>
+              <path d="M10.5 10.5L14 14" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
+            </svg>
+            <input class="rail-search" id="rail-search" type="search" placeholder="Search sections..." autocomplete="off" />
+          </div>
+        </div>
+
+        <!-- Rail identity header -->
+        <div class="rail-header">
+          <div class="rail-avatar">RO</div>
+          <div class="rail-header-text">
+            <div class="rail-name">ResearchOS LLC</div>
+            <div class="rail-role">Operator</div>
+          </div>
+        </div>
+
+        <!-- OVERVIEW group -->
+        <div class="rail-group" data-group="overview">
+          <div class="rail-group-label">Overview</div>
+          <button class="rail-item active" data-section="dashboard">
+            <svg class="rail-icon" viewBox="0 0 16 16" fill="none"><rect x="1" y="1" width="6" height="6" rx="1.5" stroke="currentColor" stroke-width="1.5"/><rect x="9" y="1" width="6" height="6" rx="1.5" stroke="currentColor" stroke-width="1.5"/><rect x="1" y="9" width="6" height="6" rx="1.5" stroke="currentColor" stroke-width="1.5"/><rect x="9" y="9" width="6" height="6" rx="1.5" stroke="currentColor" stroke-width="1.5"/></svg>
+            <span>Dashboard</span>
+          </button>
+        </div>
+
+        <!-- METRICS group -->
+        <div class="rail-group" data-group="metrics">
+          <div class="rail-group-label">Metrics</div>
+          <button class="rail-item" data-section="signups">
+            <svg class="rail-icon" viewBox="0 0 16 16" fill="none"><path d="M3 12V10a5 5 0 0 1 10 0v2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><circle cx="8" cy="5" r="3" stroke="currentColor" stroke-width="1.5"/></svg>
+            <span>Signups</span>
+          </button>
+          <button class="rail-item" data-section="institutions">
+            <svg class="rail-icon" viewBox="0 0 16 16" fill="none"><path d="M2 14V7l6-4 6 4v7" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><rect x="5" y="9" width="2.5" height="5" rx="0.5" stroke="currentColor" stroke-width="1.2"/><rect x="8.5" y="9" width="2.5" height="5" rx="0.5" stroke="currentColor" stroke-width="1.2"/></svg>
+            <span>Institutions</span>
+          </button>
+          <button class="rail-item" data-section="capacity">
+            <svg class="rail-icon" viewBox="0 0 16 16" fill="none"><rect x="2" y="11" width="12" height="3" rx="1.5" stroke="currentColor" stroke-width="1.5"/><rect x="2" y="6.5" width="8" height="3" rx="1.5" stroke="currentColor" stroke-width="1.5"/><rect x="2" y="2" width="5" height="3" rx="1.5" stroke="currentColor" stroke-width="1.5"/></svg>
+            <span>Capacity</span>
+          </button>
+          <button class="rail-item" data-section="feature-usage">
+            <svg class="rail-icon" viewBox="0 0 16 16" fill="none"><path d="M2 14l3-4 3 2 3-5 3 3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            <span>Feature usage</span>
+          </button>
+        </div>
+
+        <!-- FINANCES group -->
+        <div class="rail-group" data-group="finances">
+          <div class="rail-group-label">Finances</div>
+          <button class="rail-item" data-section="where-things-stand">
+            <svg class="rail-icon" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="6" stroke="currentColor" stroke-width="1.5"/><path d="M8 5v3l2 2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+            <span>Where things stand</span>
+          </button>
+          <button class="rail-item" data-section="cost-breaker">
+            <svg class="rail-icon" viewBox="0 0 16 16" fill="none"><path d="M8 2v4M8 10v4M3.5 5.5l3.5 2-3.5 2M12.5 5.5L9 7.5l3.5 2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+            <span>Cost breaker</span>
+          </button>
+          <button class="rail-item" data-section="gift-pools">
+            <svg class="rail-icon" viewBox="0 0 16 16" fill="none"><rect x="1" y="7" width="14" height="8" rx="1.5" stroke="currentColor" stroke-width="1.5"/><path d="M5 7C5 5 6 3 8 3s3 2 3 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><path d="M1 10h14" stroke="currentColor" stroke-width="1.2"/><path d="M8 7v8" stroke="currentColor" stroke-width="1.2"/></svg>
+            <span>Gift pools</span>
+          </button>
+          <button class="rail-item" data-section="spend-category">
+            <svg class="rail-icon" viewBox="0 0 16 16" fill="none"><path d="M3 3h10v10H3z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/><path d="M3 7h10M7 3v10" stroke="currentColor" stroke-width="1.2"/></svg>
+            <span>Spend by category</span>
+          </button>
+          <button class="rail-item" data-section="deadlines">
+            <svg class="rail-icon" viewBox="0 0 16 16" fill="none"><rect x="2" y="3" width="12" height="11" rx="1.5" stroke="currentColor" stroke-width="1.5"/><path d="M5 1v3M11 1v3M2 7h12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+            <span>Deadlines</span>
+          </button>
+          <button class="rail-item" data-section="setup-checklist">
+            <svg class="rail-icon" viewBox="0 0 16 16" fill="none"><path d="M5 8l2 2 4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><rect x="2" y="2" width="12" height="12" rx="2" stroke="currentColor" stroke-width="1.5"/></svg>
+            <span>Setup checklist</span>
+          </button>
+          <button class="rail-item" data-section="infra-cost">
+            <svg class="rail-icon" viewBox="0 0 16 16" fill="none"><path d="M2 12h12M4 12V8m3 4V6m3 6V4m3 8V10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+            <span>Infra cost estimate</span>
+          </button>
+          <button class="rail-item" data-section="payment-methods">
+            <svg class="rail-icon" viewBox="0 0 16 16" fill="none"><rect x="1" y="4" width="14" height="9" rx="1.5" stroke="currentColor" stroke-width="1.5"/><path d="M1 8h14" stroke="currentColor" stroke-width="1.5"/></svg>
+            <span>Payment methods</span>
+          </button>
+          <button class="rail-item" data-section="subscriptions">
+            <svg class="rail-icon" viewBox="0 0 16 16" fill="none"><path d="M2 8a6 6 0 0 1 11.66-1.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><path d="M14 8a6 6 0 0 1-11.66 1.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><path d="M11 5.5l2.66 1-1 2.66" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/><path d="M5 10.5l-2.66-1 1-2.66" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            <span>Subscriptions</span>
+          </button>
+          <button class="rail-item" data-section="correspondence">
+            <svg class="rail-icon" viewBox="0 0 16 16" fill="none"><rect x="1" y="4" width="14" height="9" rx="1.5" stroke="currentColor" stroke-width="1.5"/><path d="M1 6l7 4 7-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            <span>Correspondence</span>
+          </button>
+        </div>
+
+        <!-- MODELING group -->
+        <div class="rail-group" data-group="modeling">
+          <div class="rail-group-label">Modeling</div>
+          <button class="rail-item" data-section="price-modeling">
+            <svg class="rail-icon" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="6" stroke="currentColor" stroke-width="1.5"/><path d="M6 10.5c0-1.5 4-3 4-5a2 2 0 1 0-4 0" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><circle cx="8" cy="13" r="0.7" fill="currentColor"/></svg>
+            <span>Price modeling</span>
+          </button>
+        </div>
+
+      </div><!-- /rail-scroll -->
+
+      <div class="rail-footer">
+        Operator console. Not a legal or tax advisor.
+      </div>
+    </nav><!-- /rail -->
+
+    <!-- ── Content pane ── -->
+    <main class="pane" id="pane">
+      <div class="pane-inner">
+
+        <!-- ═══════════════════════════════════════════════════════════════ -->
+        <!-- DASHBOARD -->
+        <!-- ═══════════════════════════════════════════════════════════════ -->
+        <div class="section visible" id="section-dashboard">
+          <div class="section-kicker">Overview</div>
+          <div class="section-title">Dashboard</div>
+          <p class="section-desc">
+            At-a-glance pulse across both the user metrics and the LLC finances.
+            Click any rail section for the full detail.
+          </p>
+
+          <div class="banner ok">
+            <strong>All survival-critical capacity ceilings are healthy.</strong>
+            R2 storage 3.1% · Neon collab 0.8% · Resend email 12%
+          </div>
+
+          <h3 class="subsection">Users &amp; sharing</h3>
+          <div class="stat-grid">
+            <div class="stat-card"><div class="stat-label">Registered identities</div><div class="stat-value">47</div></div>
+            <div class="stat-card"><div class="stat-label">Published profiles</div><div class="stat-value">31</div></div>
+            <div class="stat-card"><div class="stat-label">ORCID linked</div><div class="stat-value">18</div></div>
+            <div class="stat-card"><div class="stat-label">Shares ever sent</div><div class="stat-value">214</div></div>
+            <div class="stat-card"><div class="stat-label">Pending shares</div><div class="stat-value">3</div></div>
+            <div class="stat-card"><div class="stat-label">Pending storage</div><div class="stat-value">1.4 MB</div></div>
+          </div>
+
+          <h3 class="subsection">LLC finances snapshot</h3>
+          <div class="stat-grid">
+            <div class="stat-card"><div class="stat-label">Cash in</div><div class="stat-value good">$640</div><div class="stat-sub">YTD income</div></div>
+            <div class="stat-card"><div class="stat-label">Cash out</div><div class="stat-value">$218</div><div class="stat-sub">YTD expenses</div></div>
+            <div class="stat-card"><div class="stat-label">Net</div><div class="stat-value good">$422</div></div>
+            <div class="stat-card"><div class="stat-label">Tax reserve</div><div class="stat-value warn">$106</div><div class="stat-sub">25% of net</div></div>
+            <div class="stat-card"><div class="stat-label">Safe to draw</div><div class="stat-value good">$316</div></div>
+            <div class="stat-card"><div class="stat-label">Monthly burn</div><div class="stat-value">$28</div><div class="stat-sub">subscriptions</div></div>
+          </div>
+
+          <h3 class="subsection">Upcoming deadlines</h3>
+          <div class="deadline-grid">
+            <div class="deadline-card ok">
+              <div class="deadline-top">
+                <span class="deadline-name">Wisconsin annual report</span>
+                <span class="deadline-chip ok">in 127 days</span>
+              </div>
+              <div class="deadline-date">Due 2026-03-31</div>
+            </div>
+            <div class="deadline-card warn">
+              <div class="deadline-top">
+                <span class="deadline-name">Apple Developer renewal</span>
+                <span class="deadline-chip warn">in 12 days</span>
+              </div>
+              <div class="deadline-date">Due 2026-06-26 — $99/yr</div>
+            </div>
+            <div class="deadline-card ok">
+              <div class="deadline-top">
+                <span class="deadline-name">Vercel OSS application</span>
+                <span class="deadline-chip ok">in 44 days</span>
+              </div>
+              <div class="deadline-date">Due 2026-07-28</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ═══════════════════════════════════════════════════════════════ -->
+        <!-- SIGNUPS -->
+        <!-- ═══════════════════════════════════════════════════════════════ -->
+        <div class="section" id="section-signups">
+          <div class="section-kicker">Metrics</div>
+          <div class="section-title">Signups by month</div>
+          <p class="section-desc">New registered identities per calendar month. Aggregate only, no per-user data.</p>
+
+          <div class="panel">
+            <div class="bar-row"><span class="bar-label">2026-01</span><div class="bar-track"><div class="bar-fill" style="width:20%"></div></div><span class="bar-count">4</span></div>
+            <div class="bar-row"><span class="bar-label">2026-02</span><div class="bar-track"><div class="bar-fill" style="width:55%"></div></div><span class="bar-count">11</span></div>
+            <div class="bar-row"><span class="bar-label">2026-03</span><div class="bar-track"><div class="bar-fill" style="width:35%"></div></div><span class="bar-count">7</span></div>
+            <div class="bar-row"><span class="bar-label">2026-04</span><div class="bar-track"><div class="bar-fill" style="width:80%"></div></div><span class="bar-count">16</span></div>
+            <div class="bar-row"><span class="bar-label">2026-05</span><div class="bar-track"><div class="bar-fill" style="width:100%"></div></div><span class="bar-count">20</span></div>
+            <div class="bar-row"><span class="bar-label">2026-06</span><div class="bar-track"><div class="bar-fill" style="width:45%"></div></div><span class="bar-count">9</span></div>
+          </div>
+        </div>
+
+        <!-- ═══════════════════════════════════════════════════════════════ -->
+        <!-- INSTITUTIONS -->
+        <!-- ═══════════════════════════════════════════════════════════════ -->
+        <div class="section" id="section-institutions">
+          <div class="section-kicker">Metrics</div>
+          <div class="section-title">Profiles by institution</div>
+          <p class="section-desc">Published profiles grouped by verified email domain. Requires a verified affiliation on the profile.</p>
+
+          <div class="panel">
+            <div class="tbl-wrap">
+              <table>
+                <thead><tr><th>Domain</th><th>Profiles</th></tr></thead>
+                <tbody>
+                  <tr><td><code>wisc.edu</code></td><td>14</td></tr>
+                  <tr><td><code>umn.edu</code></td><td>7</td></tr>
+                  <tr><td><code>stanford.edu</code></td><td>4</td></tr>
+                  <tr><td><code>uw.edu</code></td><td>3</td></tr>
+                  <tr><td><code>mit.edu</code></td><td>2</td></tr>
+                  <tr><td><em style="color:var(--fg-muted)">other</em></td><td>1</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <!-- ═══════════════════════════════════════════════════════════════ -->
+        <!-- CAPACITY -->
+        <!-- ═══════════════════════════════════════════════════════════════ -->
+        <div class="section" id="section-capacity">
+          <div class="section-kicker">Metrics</div>
+          <div class="section-title">Infrastructure capacity</div>
+          <p class="section-desc">Free-tier usage vs. ceilings. Red = upgrade or bust. The R2, Neon collab, and Resend ceilings are survival-critical; the others self-clean or are console-only.</p>
+
+          <div class="banner ok">
+            <strong>All survival-critical ceilings are healthy.</strong>
+            The ceilings that can take sharing and collab down are well below their thresholds.
+          </div>
+
+          <div class="service-grid">
+            <div class="service-card">
+              <div class="service-name">Neon Postgres</div>
+              <div class="service-sub">Accounts, profiles, relay metadata, collab docs</div>
+              <div class="usage-wrap">
+                <div class="usage-hdr"><span class="uname">Database size</span><span class="upct ok">5.2%</span></div>
+                <div class="usage-track"><div class="usage-fill ok" style="width:5.2%"></div></div>
+                <div class="usage-sub">26 MB of 500 MB</div>
+              </div>
+              <div class="usage-wrap">
+                <div class="usage-hdr"><span class="uname">Of which collab docs</span><span class="upct ok">0.8%</span></div>
+                <div class="usage-track"><div class="usage-fill ok" style="width:0.8%"></div></div>
+                <div class="usage-sub">800 KB of 100 MB budget</div>
+              </div>
+            </div>
+            <div class="service-card">
+              <div class="service-name">Cloudflare R2</div>
+              <div class="service-sub">Encrypted share bundles in flight</div>
+              <div class="usage-wrap">
+                <div class="usage-hdr"><span class="uname">Object storage</span><span class="upct ok">3.1%</span></div>
+                <div class="usage-track"><div class="usage-fill ok" style="width:3.1%"></div></div>
+                <div class="usage-sub">315 MB of 10 GB — 12 bundles parked</div>
+              </div>
+            </div>
+            <div class="service-card">
+              <div class="service-name">Upstash Redis</div>
+              <div class="service-sub">Rate-limit windows + OTP codes</div>
+              <div style="font-size:26px;font-weight:800;letter-spacing:-0.02em;color:var(--foreground);margin-bottom:2px">42</div>
+              <div style="font-size:12px;color:var(--fg-muted)">live keys — all short-lived, TTL'd</div>
+            </div>
+            <div class="service-card">
+              <div class="service-name">Resend email</div>
+              <div class="service-sub">OTP codes + share invites</div>
+              <div class="usage-wrap">
+                <div class="usage-hdr"><span class="uname">Today</span><span class="upct ok">6%</span></div>
+                <div class="usage-track"><div class="usage-fill ok" style="width:6%"></div></div>
+                <div class="usage-sub">6 of 100/day</div>
+              </div>
+              <div class="usage-wrap">
+                <div class="usage-hdr"><span class="uname">Last 30 days</span><span class="upct ok">12%</span></div>
+                <div class="usage-track"><div class="usage-fill ok" style="width:12%"></div></div>
+                <div class="usage-sub">120 of 1 000/month</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ═══════════════════════════════════════════════════════════════ -->
+        <!-- FEATURE USAGE -->
+        <!-- ═══════════════════════════════════════════════════════════════ -->
+        <div class="section" id="section-feature-usage">
+          <div class="section-kicker">Metrics</div>
+          <div class="section-title">Feature usage</div>
+          <p class="section-desc">Anonymous aggregate counts over the last 30 days. Totals only, never per-user.</p>
+
+          <div class="stat-grid">
+            <div class="stat-card"><div class="stat-label">Shares sent</div><div class="stat-value">87</div></div>
+            <div class="stat-card"><div class="stat-label">Profiles published</div><div class="stat-value">12</div></div>
+            <div class="stat-card"><div class="stat-label">Identities created</div><div class="stat-value">9</div></div>
+          </div>
+
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+            <div class="panel">
+              <div style="font-size:13px;font-weight:700;margin-bottom:10px">Shares by type</div>
+              <div class="bar-row"><span class="bar-label">Notes</span><div class="bar-track"><div class="bar-fill" style="width:70%"></div></div><span class="bar-count">38</span></div>
+              <div class="bar-row"><span class="bar-label">Methods</span><div class="bar-track"><div class="bar-fill" style="width:40%"></div></div><span class="bar-count">22</span></div>
+              <div class="bar-row"><span class="bar-label">Projects</span><div class="bar-track"><div class="bar-fill" style="width:20%"></div></div><span class="bar-count">11</span></div>
+              <div class="bar-row"><span class="bar-label">Experiments</span><div class="bar-track"><div class="bar-fill" style="width:15%"></div></div><span class="bar-count">8</span></div>
+              <div class="bar-row"><span class="bar-label">Sequences</span><div class="bar-track"><div class="bar-fill" style="width:8%"></div></div><span class="bar-count">5</span></div>
+              <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);font-size:12px;font-weight:600;color:var(--fg-muted);margin-bottom:6px">By destination</div>
+              <div class="bar-row"><span class="bar-label" style="width:140px">Existing users</span><div class="bar-track"><div class="bar-fill emerald" style="width:80%"></div></div><span class="bar-count">62</span></div>
+              <div class="bar-row"><span class="bar-label" style="width:140px">Email invites</span><div class="bar-track"><div class="bar-fill purple" style="width:25%"></div></div><span class="bar-count">25</span></div>
+            </div>
+            <div class="panel">
+              <div style="font-size:13px;font-weight:700;margin-bottom:10px">Published profiles</div>
+              <table>
+                <tbody>
+                  <tr><td>With ORCID linked</td><td style="text-align:right;color:var(--fg-muted)">9 of 12</td></tr>
+                  <tr><td>With affiliation</td><td style="text-align:right;color:var(--fg-muted)">11 of 12</td></tr>
+                </tbody>
+              </table>
+              <div style="margin-top:16px;font-size:13px;font-weight:700;margin-bottom:8px">Broadcast email</div>
+              <p style="font-size:12px;color:var(--fg-muted);margin-bottom:8px">Send a one-off message to all registered users. Grant-only, uses Resend. Counts against the monthly email budget.</p>
+              <button class="btn-ghost" style="font-size:12px">Compose broadcast</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- ═══════════════════════════════════════════════════════════════ -->
+        <!-- WHERE THINGS STAND -->
+        <!-- ═══════════════════════════════════════════════════════════════ -->
+        <div class="section" id="section-where-things-stand">
+          <div class="section-kicker">Finances</div>
+          <div class="section-title">Where things stand</div>
+          <p class="section-desc">Money in, money out, net, tax reserve, and safe-to-draw — the six numbers that matter for a solo LLC.</p>
+
+          <div class="banner warn">
+            <strong>WI sales-tax status: pending.</strong>
+            Hard gate. Do not bill a real customer until the WI DOR replies.
+          </div>
+
+          <div class="stat-grid">
+            <div class="stat-card"><div class="stat-label">Money in</div><div class="stat-value good">$640.00</div><div class="stat-sub">YTD income</div></div>
+            <div class="stat-card"><div class="stat-label">Money out</div><div class="stat-value">$218.40</div><div class="stat-sub">YTD expenses</div></div>
+            <div class="stat-card"><div class="stat-label">Net</div><div class="stat-value good">$421.60</div></div>
+            <div class="stat-card"><div class="stat-label">Tax reserve</div><div class="stat-value warn">$105.40</div><div class="stat-sub">25% of net</div></div>
+            <div class="stat-card"><div class="stat-label">Safe to draw</div><div class="stat-value good">$316.20</div></div>
+            <div class="stat-card"><div class="stat-label">Fronted on personal</div><div class="stat-value warn">$74.00</div><div class="stat-sub">owed back to you</div></div>
+          </div>
+
+          <div class="chart-placeholder">Monthly money flow chart — bar chart of income vs. expenses per month (placeholder)</div>
+        </div>
+
+        <!-- ═══════════════════════════════════════════════════════════════ -->
+        <!-- COST BREAKER -->
+        <!-- ═══════════════════════════════════════════════════════════════ -->
+        <div class="section" id="section-cost-breaker">
+          <div class="section-kicker">Finances</div>
+          <div class="section-title">Cost breaker</div>
+          <p class="section-desc">Runaway-bill guard. When spend exceeds the budget threshold, cloud writes pause and local-first keeps working. Manual reset required.</p>
+
+          <div class="panel">
+            <div class="stat-grid" style="margin-bottom:16px">
+              <div class="stat-card"><div class="stat-label">AI spend this month</div><div class="stat-value good">$12.40</div></div>
+              <div class="stat-card"><div class="stat-label">Budget threshold</div><div class="stat-value">$50.00</div></div>
+              <div class="stat-card"><div class="stat-label">Status</div><div class="stat-value good" style="font-size:18px">Under budget</div></div>
+            </div>
+            <div class="usage-wrap">
+              <div class="usage-hdr"><span class="uname">AI spend vs. monthly budget</span><span class="upct ok">24.8%</span></div>
+              <div class="usage-track"><div class="usage-fill ok" style="width:24.8%"></div></div>
+              <div class="usage-sub">$12.40 of $50.00</div>
+            </div>
+            <div style="display:flex;gap:8px;margin-top:12px">
+              <button class="btn-ghost">Edit budget</button>
+              <button class="btn-ghost" style="color:var(--fg-muted)">Reset circuit</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- ═══════════════════════════════════════════════════════════════ -->
+        <!-- GIFT POOLS -->
+        <!-- ═══════════════════════════════════════════════════════════════ -->
+        <div class="section" id="section-gift-pools">
+          <div class="section-kicker">Finances</div>
+          <div class="section-title">Gift pools</div>
+          <p class="section-desc">Funded allocations for grants, donations, and gifted tokens. Each pool drains as its tokens are redeemed.</p>
+
+          <div class="panel">
+            <div class="gift-row">
+              <div style="flex:1">
+                <div style="font-weight:600">NSF pilot grant</div>
+                <div class="gift-pool-bar"><div class="gift-pool-fill" style="width:68%"></div></div>
+              </div>
+              <div style="text-align:right;margin-left:16px">
+                <div style="font-variant-numeric:tabular-nums;font-weight:700">68%</div>
+                <div style="font-size:11px;color:var(--fg-muted)">340 / 500 tokens</div>
+              </div>
+            </div>
+            <div class="gift-row">
+              <div style="flex:1">
+                <div style="font-weight:600">Grant personal top-up</div>
+                <div class="gift-pool-bar"><div class="gift-pool-fill" style="width:20%;background:#34d399"></div></div>
+              </div>
+              <div style="text-align:right;margin-left:16px">
+                <div style="font-variant-numeric:tabular-nums;font-weight:700">20%</div>
+                <div style="font-size:11px;color:var(--fg-muted)">40 / 200 tokens</div>
+              </div>
+            </div>
+            <div class="gift-row">
+              <div style="flex:1">
+                <div style="font-weight:600">Beta-tester comp</div>
+                <div class="gift-pool-bar"><div class="gift-pool-fill" style="width:100%;background:#fb923c"></div></div>
+              </div>
+              <div style="text-align:right;margin-left:16px">
+                <div style="font-variant-numeric:tabular-nums;font-weight:700;color:var(--danger)">100%</div>
+                <div style="font-size:11px;color:var(--fg-muted)">100 / 100 tokens — depleted</div>
+              </div>
+            </div>
+            <div style="margin-top:12px">
+              <button class="btn-ghost" style="font-size:12px">Add pool</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- ═══════════════════════════════════════════════════════════════ -->
+        <!-- SPEND BY CATEGORY -->
+        <!-- ═══════════════════════════════════════════════════════════════ -->
+        <div class="section" id="section-spend-category">
+          <div class="section-kicker">Finances</div>
+          <div class="section-title">Spend by category</div>
+          <p class="section-desc">Ledger entries. Log income and expenses here; the tax-summary CSV is generated from this data for Schedule C self-filing.</p>
+
+          <!-- Add entry stub -->
+          <div class="panel" style="margin-bottom:16px">
+            <div style="font-size:13px;font-weight:700;margin-bottom:8px">Add entry</div>
+            <div class="add-row">
+              <input type="date" value="2026-06-14" style="width:130px" />
+              <select style="width:110px"><option>Money out</option><option>Money in</option></select>
+              <input placeholder="Category" style="width:130px" />
+              <select style="width:150px"><option>Uncategorized</option><option>Advertising</option><option>Software</option><option>Utilities</option><option>Dues &amp; subscriptions</option></select>
+              <input placeholder="0.00" style="width:80px" />
+              <select style="width:130px"><option>Untagged</option><option>LLC Mastercard ••4821</option><option>Personal Visa ••7392</option></select>
+              <input placeholder="Note" style="flex:1;min-width:120px" />
+              <button class="btn-primary">Add</button>
+            </div>
+          </div>
+
+          <!-- Ledger table -->
+          <div class="panel">
+            <div class="tbl-wrap">
+              <table>
+                <thead>
+                  <tr><th>Date</th><th>Category</th><th>Tax category</th><th>Paid with</th><th>Note</th><th style="text-align:right">Amount</th><th></th></tr>
+                </thead>
+                <tbody>
+                  <tr><td>2026-06-01</td><td>Neon</td><td>Software</td><td>LLC ••4821</td><td>Postgres hosting</td><td class="money out">-$19.00</td><td><button style="font-size:11px;color:var(--fg-muted)">Delete</button></td></tr>
+                  <tr><td>2026-05-28</td><td>Stripe fees</td><td>Dues &amp; subscriptions</td><td>LLC ••4821</td><td>May processing</td><td class="money out">-$4.20</td><td><button style="font-size:11px;color:var(--fg-muted)">Delete</button></td></tr>
+                  <tr><td>2026-05-15</td><td>Donation</td><td style="color:var(--fg-muted)">—</td><td>—</td><td>Beta tester gift</td><td class="money in">+$100.00</td><td><button style="font-size:11px;color:var(--fg-muted)">Delete</button></td></tr>
+                  <tr><td>2026-05-01</td><td>Apple Developer</td><td>Dues &amp; subscriptions</td><td>Personal ••7392</td><td>Annual membership</td><td class="money out">-$99.00</td><td><button style="font-size:11px;color:var(--fg-muted)">Delete</button></td></tr>
+                  <tr><td>2026-04-18</td><td>Vercel</td><td>Software</td><td>LLC ••4821</td><td>Pro plan</td><td class="money out">-$20.00</td><td><button style="font-size:11px;color:var(--fg-muted)">Delete</button></td></tr>
+                </tbody>
+              </table>
+            </div>
+            <div style="margin-top:12px;display:flex;gap:8px">
+              <button class="btn-ghost" style="font-size:12px">Download tax CSV (2026)</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- ═══════════════════════════════════════════════════════════════ -->
+        <!-- DEADLINES -->
+        <!-- ═══════════════════════════════════════════════════════════════ -->
+        <div class="section" id="section-deadlines">
+          <div class="section-kicker">Finances</div>
+          <div class="section-title">Deadlines</div>
+          <p class="section-desc">Compliance and renewal dates. Wisconsin annual report, Apple Developer membership, subscription renewals.</p>
+
+          <div class="deadline-grid">
+            <div class="deadline-card ok">
+              <div class="deadline-top"><span class="deadline-name">Wisconsin annual report</span><span class="deadline-chip ok">in 127 days</span></div>
+              <div class="deadline-date">Due 2026-10-01</div>
+              <div class="deadline-date" style="margin-top:2px;font-size:11px">$25 filing fee. File with WI DOR online.</div>
+            </div>
+            <div class="deadline-card warn">
+              <div class="deadline-top"><span class="deadline-name">Apple Developer renewal</span><span class="deadline-chip warn">in 12 days</span></div>
+              <div class="deadline-date">Due 2026-06-26 — $99/yr auto-renews</div>
+            </div>
+            <div class="deadline-card ok">
+              <div class="deadline-top"><span class="deadline-name">Vercel OSS application</span><span class="deadline-chip ok">in 44 days</span></div>
+              <div class="deadline-date">Due 2026-07-28 — apply for OSS plan</div>
+            </div>
+            <div class="deadline-card ok">
+              <div class="deadline-top"><span class="deadline-name">Claude Max seats (3)</span><span class="deadline-chip ok">in 18 days</span></div>
+              <div class="deadline-date">Renews 2026-07-02 — $300/mo × 3</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ═══════════════════════════════════════════════════════════════ -->
+        <!-- SETUP CHECKLIST -->
+        <!-- ═══════════════════════════════════════════════════════════════ -->
+        <div class="section" id="section-setup-checklist">
+          <div class="section-kicker">Finances</div>
+          <div class="section-title">Setup checklist</div>
+          <p class="section-desc">One-time LLC setup tasks. Check these off as you complete them. Add new items as they arise.</p>
+
+          <div class="panel">
+            <div style="font-size:12px;color:var(--fg-muted);margin-bottom:8px">7 of 11 done</div>
+            <ul class="check-list">
+              <li class="check-item"><input type="checkbox" checked disabled /><span class="check-done">File Articles of Organization with WI DOR</span></li>
+              <li class="check-item"><input type="checkbox" checked disabled /><span class="check-done">Obtain EIN from IRS</span></li>
+              <li class="check-item"><input type="checkbox" checked disabled /><span class="check-done">Open LLC business checking account</span></li>
+              <li class="check-item"><input type="checkbox" checked disabled /><span class="check-done">Register Apple Developer account under LLC</span></li>
+              <li class="check-item"><input type="checkbox" checked disabled /><span class="check-done">Register Google Play account</span></li>
+              <li class="check-item"><input type="checkbox" checked disabled /><span class="check-done">Obtain D-U-N-S number from Dun &amp; Bradstreet</span></li>
+              <li class="check-item"><input type="checkbox" checked disabled /><span class="check-done">Set up Tello prepaid eSIM as business phone</span></li>
+              <li class="check-item"><input type="checkbox" /><span>Submit WI DOR sales-tax determination request</span></li>
+              <li class="check-item"><input type="checkbox" /><span>Set up Stripe with LLC banking info</span></li>
+              <li class="check-item"><input type="checkbox" /><span>File first Wisconsin annual report</span></li>
+              <li class="check-item"><input type="checkbox" /><span>Get accountant sign-off on tax reserve %</span></li>
+            </ul>
+            <div style="display:flex;gap:8px;margin-top:12px">
+              <input placeholder="Add action item..." style="flex:1;border:1px solid var(--border);border-radius:8px;padding:6px 10px;font-size:13px" />
+              <button class="btn-ghost">Add</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- ═══════════════════════════════════════════════════════════════ -->
+        <!-- INFRA COST -->
+        <!-- ═══════════════════════════════════════════════════════════════ -->
+        <div class="section" id="section-infra-cost">
+          <div class="section-kicker">Finances</div>
+          <div class="section-title">Infra cost estimate</div>
+          <p class="section-desc">Scenario-based monthly cost vs. subscriber count. Pulls from infra-tiers.ts — not a live API call, computed client-side.</p>
+
+          <div class="panel">
+            <div style="font-size:13px;font-weight:700;margin-bottom:10px">Monthly infra cost by subscriber tier</div>
+            <div class="tbl-wrap">
+              <table>
+                <thead>
+                  <tr><th>Scenario</th><th>Subscribers</th><th style="text-align:right">Infra cost / mo</th><th style="text-align:right">Cost / subscriber</th></tr>
+                </thead>
+                <tbody>
+                  <tr><td>Solo (current)</td><td>1</td><td class="money">$0.00</td><td class="money">$0.00</td></tr>
+                  <tr><td>Small pilot</td><td>10</td><td class="money">$0.00</td><td class="money">$0.00</td></tr>
+                  <tr><td>Early adopter</td><td>50</td><td class="money">$19.00</td><td class="money">$0.38</td></tr>
+                  <tr><td>Lab-scale</td><td>200</td><td class="money">$49.00</td><td class="money">$0.25</td></tr>
+                  <tr><td>Growth</td><td>1 000</td><td class="money">$149.00</td><td class="money">$0.15</td></tr>
+                  <tr><td>Scale</td><td>5 000</td><td class="money">$399.00</td><td class="money">$0.08</td></tr>
+                </tbody>
+              </table>
+            </div>
+            <div class="chart-placeholder" style="margin-top:16px">Infra cost curve — line chart per tier scenario (placeholder)</div>
+          </div>
+        </div>
+
+        <!-- ═══════════════════════════════════════════════════════════════ -->
+        <!-- PAYMENT METHODS -->
+        <!-- ═══════════════════════════════════════════════════════════════ -->
+        <div class="section" id="section-payment-methods">
+          <div class="section-kicker">Finances</div>
+          <div class="section-title">Payment methods</div>
+          <p class="section-desc">LLC cards and accounts, plus personal cards fronted on LLC expenses. Label and last four only — never full number, expiry, or CVV.</p>
+
+          <div class="panel">
+            <div class="pm-row">
+              <div class="pm-swatch llc"></div>
+              <div class="pm-name">Business Mastercard credit</div>
+              <div class="pm-last4">••4821</div>
+              <span class="kind-chip llc">LLC</span>
+              <span style="font-size:12px;color:var(--fg-muted)">Active</span>
+            </div>
+            <div class="pm-row">
+              <div class="pm-swatch llc"></div>
+              <div class="pm-name">LLC checking</div>
+              <div class="pm-last4">••0072</div>
+              <span class="kind-chip llc">LLC</span>
+              <span style="font-size:12px;color:var(--fg-muted)">Active</span>
+            </div>
+            <div class="pm-row">
+              <div class="pm-swatch personal"></div>
+              <div class="pm-name">Personal Visa (Grant)</div>
+              <div class="pm-last4">••7392</div>
+              <span class="kind-chip personal">Personal</span>
+              <span style="font-size:12px;color:var(--fg-muted)">Active</span>
+            </div>
+
+            <div style="margin-top:12px;font-size:12px;font-weight:700;color:var(--fg-muted);margin-bottom:6px">Add card</div>
+            <div class="add-row">
+              <input placeholder="Label" style="flex:1;min-width:150px" />
+              <input placeholder="Last four" style="width:90px" />
+              <select><option>LLC</option><option>Personal</option></select>
+              <input placeholder="Status" style="width:90px" />
+              <button class="btn-primary">Add card</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- ═══════════════════════════════════════════════════════════════ -->
+        <!-- SUBSCRIPTIONS -->
+        <!-- ═══════════════════════════════════════════════════════════════ -->
+        <div class="section" id="section-subscriptions">
+          <div class="section-kicker">Finances</div>
+          <div class="section-title">Subscriptions</div>
+          <p class="section-desc">Recurring charges. Yearly subscriptions are amortized to a twelfth for the monthly burn total.</p>
+
+          <div class="panel">
+            <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:12px">
+              <span style="font-size:12px;color:var(--fg-muted)">Monthly burn rate</span>
+              <span style="font-size:16px;font-weight:800;color:var(--danger)">$28.25 / mo</span>
+            </div>
+            <div class="sub-row">
+              <span class="sub-name">Claude Max (seat 1)</span>
+              <span class="sub-badge">Monthly</span>
+              <span class="sub-badge">LLC ••4821</span>
+              <span class="sub-badge">Renews 2026-07-02</span>
+              <span class="sub-amt">$100.00</span>
+            </div>
+            <div class="sub-row">
+              <span class="sub-name">Tello prepaid eSIM</span>
+              <span class="sub-badge">Monthly</span>
+              <span class="sub-badge">Personal ••7392</span>
+              <span class="sub-badge">Renews 2026-07-01</span>
+              <span class="sub-amt">$10.00</span>
+            </div>
+            <div class="sub-row">
+              <span class="sub-name">Apple Developer</span>
+              <span class="sub-badge">Yearly</span>
+              <span class="sub-badge">Personal ••7392</span>
+              <span class="sub-badge">Renews 2026-06-26</span>
+              <span class="sub-amt" style="font-size:11px;color:var(--fg-muted)">$99/yr → $8.25/mo</span>
+            </div>
+            <div style="margin-top:12px;font-size:12px;font-weight:700;color:var(--fg-muted);margin-bottom:6px">Add subscription</div>
+            <div class="add-row">
+              <input placeholder="Label" style="flex:1;min-width:150px" />
+              <input placeholder="Amount" style="width:90px" />
+              <select><option>Monthly</option><option>Yearly</option></select>
+              <select><option>Untagged</option><option>LLC ••4821</option><option>Personal ••7392</option></select>
+              <input type="date" style="width:140px" />
+              <button class="btn-primary">Add</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- ═══════════════════════════════════════════════════════════════ -->
+        <!-- CORRESPONDENCE -->
+        <!-- ═══════════════════════════════════════════════════════════════ -->
+        <div class="section" id="section-correspondence">
+          <div class="section-kicker">Finances</div>
+          <div class="section-title">Correspondence</div>
+          <p class="section-desc">Business email archive. Deadline reminders and payment receipts only — no OTP codes or share invites ever land here.</p>
+
+          <div class="panel">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+              <span style="font-size:13px;color:var(--fg-muted)">3 archived emails</span>
+              <button class="btn-ghost" style="font-size:12px">Download records</button>
+            </div>
+            <div class="tbl-wrap">
+              <table>
+                <thead><tr><th>Sent</th><th>Kind</th><th>To</th><th>Subject</th></tr></thead>
+                <tbody>
+                  <tr><td>2026-06-01</td><td>deadline_reminder</td><td>researchos.llc@gmail.com</td><td>Annual report due in 122 days</td></tr>
+                  <tr><td>2026-05-26</td><td>payment_receipt</td><td>researchos.llc@gmail.com</td><td>Vercel Pro — May invoice</td></tr>
+                  <tr><td>2026-05-14</td><td>deadline_reminder</td><td>researchos.llc@gmail.com</td><td>Apple Developer membership renews in 42 days</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <!-- ═══════════════════════════════════════════════════════════════ -->
+        <!-- PRICE MODELING -->
+        <!-- ═══════════════════════════════════════════════════════════════ -->
+        <div class="section" id="section-price-modeling">
+          <div class="section-kicker">Modeling</div>
+          <div class="section-title">Price modeling</div>
+          <p class="section-desc">
+            Per-subscriber economics and sustainability-at-scale calculators. These live in a dedicated modal (the existing
+            PriceModelingModal component) so the two sub-models can be tab-switched without competing with the rest of the
+            page. Click below to open it.
+          </p>
+
+          <div class="panel" style="display:flex;align-items:start;gap:16px;flex-wrap:wrap">
+            <div style="flex:1;min-width:200px">
+              <div style="font-size:13px;font-weight:700;margin-bottom:4px">Per-subscriber economics</div>
+              <p style="font-size:12.5px;color:var(--fg-muted)">Breakdown of hosting cost, AI cost, and margin at a given subscriber count and price point.</p>
+            </div>
+            <div style="flex:1;min-width:200px">
+              <div style="font-size:13px;font-weight:700;margin-bottom:4px">Sustainability at scale</div>
+              <p style="font-size:12.5px;color:var(--fg-muted)">How many subscribers are needed to break even, reach runway, or hit a given revenue target.</p>
+            </div>
+          </div>
+
+          <div style="margin-top:16px;display:flex;gap:10px;flex-wrap:wrap;align-items:center">
+            <button class="price-model-cta" id="open-price-modal">
+              <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M3 3h10v10H3z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/><path d="M6 8h4M8 6v4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+              Open price modeling
+            </button>
+            <span style="font-size:12px;color:var(--fg-muted)">
+              Opens the existing modal — data from assumptions.ts, no network call.
+            </span>
+          </div>
+
+          <div class="banner warn" style="margin-top:20px">
+            <strong>Open design question.</strong>
+            Should Price modeling become a full content section (no modal) so the two calculators live side-by-side with
+            a future what-if runway table? Or keep the modal so it stays compact? Grant to decide.
+          </div>
+        </div>
+
+      </div><!-- /pane-inner -->
+    </main><!-- /pane -->
+
+  </div><!-- /body-row -->
+</div><!-- /shell -->
+
+<!-- ── Price modeling modal (placeholder) ── -->
+<div class="modal-overlay" id="price-modal">
+  <div class="modal-box">
+    <button class="modal-close" id="close-price-modal" aria-label="Close">&times;</button>
+    <div class="modal-title">Price modeling</div>
+    <div class="modal-sub">Per-subscriber economics and sustainability at scale. Numbers from assumptions.ts — no network call.</div>
+
+    <div style="display:inline-flex;border:1px solid var(--border);border-radius:10px;overflow:hidden;margin-bottom:20px">
+      <button id="tab-sub" onclick="switchTab('sub')" style="padding:8px 16px;font-size:13px;font-weight:700;background:var(--brand-action);color:#fff;border:none;cursor:pointer">Per-subscriber</button>
+      <button id="tab-scale" onclick="switchTab('scale')" style="padding:8px 16px;font-size:13px;font-weight:700;background:var(--surface-sunken);color:var(--fg-muted);border:none;cursor:pointer">At scale</button>
+    </div>
+
+    <div id="modal-sub">
+      <div class="stat-grid">
+        <div class="stat-card"><div class="stat-label">Price / subscriber</div><div class="stat-value">$9.99</div></div>
+        <div class="stat-card"><div class="stat-label">Infra cost / sub</div><div class="stat-value">$0.38</div></div>
+        <div class="stat-card"><div class="stat-label">AI cost / sub</div><div class="stat-value">$0.20</div></div>
+        <div class="stat-card"><div class="stat-label">Gross margin / sub</div><div class="stat-value good">$9.41</div></div>
+        <div class="stat-card"><div class="stat-label">Margin %</div><div class="stat-value good">94%</div></div>
+      </div>
+      <div class="chart-placeholder">Per-subscriber cost waterfall (placeholder)</div>
+    </div>
+    <div id="modal-scale" style="display:none">
+      <div class="stat-grid">
+        <div class="stat-card"><div class="stat-label">Break-even</div><div class="stat-value">18 subs</div></div>
+        <div class="stat-card"><div class="stat-label">6-mo runway</div><div class="stat-value">42 subs</div></div>
+        <div class="stat-card"><div class="stat-label">$50k ARR</div><div class="stat-value">417 subs</div></div>
+      </div>
+      <div class="chart-placeholder">Revenue vs. cost curve at scale (placeholder)</div>
+    </div>
+  </div>
+</div>
+
+<script>
+(function() {
+  'use strict';
+
+  // ── Rail navigation ──────────────────────────────────────────────────
+  const railItems = document.querySelectorAll('.rail-item[data-section]');
+  const sections  = document.querySelectorAll('.section[id]');
+  const crumb     = document.getElementById('topbar-crumb');
+
+  const sectionNames = {
+    'dashboard':           'Dashboard',
+    'signups':             'Signups by month',
+    'institutions':        'Profiles by institution',
+    'capacity':            'Infrastructure capacity',
+    'feature-usage':       'Feature usage',
+    'where-things-stand':  'Where things stand',
+    'cost-breaker':        'Cost breaker',
+    'gift-pools':          'Gift pools',
+    'spend-category':      'Spend by category',
+    'deadlines':           'Deadlines',
+    'setup-checklist':     'Setup checklist',
+    'infra-cost':          'Infra cost estimate',
+    'payment-methods':     'Payment methods',
+    'subscriptions':       'Subscriptions',
+    'correspondence':      'Correspondence',
+    'price-modeling':      'Price modeling',
+  };
+
+  function activate(sectionId) {
+    // Update rail
+    railItems.forEach(function(btn) {
+      btn.classList.toggle('active', btn.dataset.section === sectionId);
+    });
+    // Update pane
+    sections.forEach(function(sec) {
+      sec.classList.toggle('visible', sec.id === 'section-' + sectionId);
+    });
+    // Update crumb
+    if (crumb) crumb.textContent = sectionNames[sectionId] || sectionId;
+    // Scroll pane to top
+    document.getElementById('pane').scrollTo({ top: 0 });
+  }
+
+  railItems.forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      activate(btn.dataset.section);
+    });
+  });
+
+  // ── Rail search ──────────────────────────────────────────────────────
+  const searchInput = document.getElementById('rail-search');
+  searchInput.addEventListener('input', function() {
+    const q = this.value.trim().toLowerCase();
+    railItems.forEach(function(btn) {
+      const label = btn.textContent.trim().toLowerCase();
+      const match = !q || label.includes(q);
+      btn.classList.toggle('hidden', !match);
+    });
+    // Hide entire groups if all their items are hidden
+    document.querySelectorAll('.rail-group').forEach(function(group) {
+      const items = group.querySelectorAll('.rail-item');
+      const anyVisible = Array.from(items).some(function(i) { return !i.classList.contains('hidden'); });
+      group.classList.toggle('hidden', !anyVisible);
+    });
+  });
+
+  // ── Price modeling modal ─────────────────────────────────────────────
+  const modal        = document.getElementById('price-modal');
+  const openBtn      = document.getElementById('open-price-modal');
+  const closeBtn     = document.getElementById('close-price-modal');
+
+  if (openBtn) {
+    openBtn.addEventListener('click', function() {
+      modal.classList.add('open');
+    });
+  }
+  if (closeBtn) {
+    closeBtn.addEventListener('click', function() {
+      modal.classList.remove('open');
+    });
+  }
+  modal.addEventListener('click', function(e) {
+    if (e.target === modal) modal.classList.remove('open');
+  });
+  document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') modal.classList.remove('open');
+  });
+})();
+
+function switchTab(which) {
+  document.getElementById('modal-sub').style.display   = which === 'sub'   ? '' : 'none';
+  document.getElementById('modal-scale').style.display = which === 'scale' ? '' : 'none';
+  var btn = {
+    sub:   document.getElementById('tab-sub'),
+    scale: document.getElementById('tab-scale'),
+  };
+  Object.keys(btn).forEach(function(k) {
+    btn[k].style.background = k === which ? 'var(--brand-action)' : 'var(--surface-sunken)';
+    btn[k].style.color      = k === which ? '#fff'                : 'var(--fg-muted)';
+  });
+}
+</script>
+</body>
+</html>

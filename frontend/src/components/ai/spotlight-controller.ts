@@ -62,6 +62,26 @@ type SpotlightHandles = {
 // page never stacks rings.
 let active: SpotlightHandles | null = null;
 
+// Coaching-spotlight suppression (ai nav-polish bot, 2026-06-13). While a per-step
+// plan is running, BeakerBot navigates the background app once per step and a fast
+// 2-step plan finishes in ~1-2s. The guide_to_element coaching spotlight (the ring
+// + bubble) popping and tearing down on every one of those steps reads as a jarring
+// flicker, and the user is not following along element-by-element during an
+// autonomous run anyway. So the plan driver suppresses coaching spotlights for the
+// duration of the run. APPROVAL spotlights (a destructive or outward-facing step
+// asking for consent at the moment it runs) pass `force` and are never suppressed,
+// because those ARE the moments the user needs to see.
+let coachingSuppressed = false;
+
+/** Suppress (or re-enable) coaching spotlights. Called by the plan driver around a
+ *  per-step run. Turning suppression ON also dismisses any coaching spotlight that
+ *  is currently showing, so a highlight left over from a prior turn does not linger
+ *  into the plan run. Approval spotlights (force) are unaffected. */
+export function setSpotlightSuppressed(suppressed: boolean): void {
+  coachingSuppressed = suppressed;
+  if (suppressed) dismissSpotlight();
+}
+
 // ---------------------------------------------------------------------------
 // Rect subscription bus (ai adaptive-dodge bot, 2026-06-11).
 //
@@ -345,8 +365,15 @@ export function waitForElement(
  *  any existing spotlight. Tracks the target's position on scroll and resize, drops
  *  itself if the target detaches from the DOM, and auto-dismisses after a while.
  *  Returns when mounted. */
-export function showSpotlight(el: HTMLElement, narration: string): void {
+export function showSpotlight(
+  el: HTMLElement,
+  narration: string,
+  opts?: { force?: boolean },
+): void {
   if (typeof document === "undefined") return;
+  // A coaching spotlight is suppressed while a per-step plan runs (see
+  // setSpotlightSuppressed). An approval spotlight passes force and shows anyway.
+  if (coachingSuppressed && !opts?.force) return;
   dismissSpotlight();
   ensureKeyframes();
 

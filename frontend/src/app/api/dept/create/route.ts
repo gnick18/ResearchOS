@@ -22,8 +22,6 @@ import {
 
 export const runtime = "nodejs";
 
-const HEX = /^[0-9a-f]+$/i;
-
 export async function POST(request: Request): Promise<Response> {
   if (!DEPT_TIER_ENABLED) return json(404, { error: "not found" });
 
@@ -41,10 +39,12 @@ export async function POST(request: Request): Promise<Response> {
   }
   const deptId = typeof body.deptId === "string" ? body.deptId.trim() : "";
   const name = typeof body.name === "string" ? body.name.trim() : "";
+  // adminEd25519Pub is now vestigial: invites are server-issued opaque tokens
+  // (no client signature), so no admin signing key is needed. Accepted if a
+  // legacy client still sends one, otherwise stored empty.
   const pub =
     typeof body.adminEd25519Pub === "string" ? body.adminEd25519Pub.trim() : "";
   if (!deptId || !name) return json(400, { error: "deptId and name are required" });
-  if (!HEX.test(pub)) return json(400, { error: "a valid admin pubkey is required" });
 
   try {
     await ensureDeptSchema();

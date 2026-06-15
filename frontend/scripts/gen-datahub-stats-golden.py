@@ -63,6 +63,7 @@ in datahub-stats.ts.
 from __future__ import annotations
 
 import json
+import sys
 
 import numpy as np
 import scipy
@@ -130,6 +131,15 @@ LOGIT_Y = [
     0, 0, 0, 1, 0, 0, 1, 0, 1, 1,
     0, 1, 1, 1, 0, 1, 1, 1, 1, 1,
 ]
+
+# A PERFECTLY SEPARABLE binary-outcome dataset for the Firth penalized-likelihood
+# fallback. y flips cleanly from 0 to 1 at x = 5.5, so the predictor completely
+# separates the classes and the ordinary maximum-likelihood estimate has no finite
+# maximum (it diverges). The engine falls back to Firth's penalized likelihood,
+# validated here against the firthlogist package. Mirrored verbatim in
+# datahub-stats.ts as FIRTH_X / FIRTH_Y.
+FIRTH_X = [1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0]
+FIRTH_Y = [0, 0, 0, 0, 0, 1, 1, 1, 1, 1]
 
 # A multiple-regression dataset (D5). Two predictors x1, x2 and a response y, with
 # mild correlation between the predictors so the VIF is meaningful but not
@@ -524,6 +534,44 @@ def ref_logistic_regression():
         "auc": r4(auc),
         "iterations": int(result.mle_retvals.get("iterations", 0))
         if isinstance(result.mle_retvals, dict) else 0,
+    }
+
+
+def ref_firth_logistic():
+    """Reference Firth penalized logistic regression (separable data) via firthlogist.
+
+    On the perfectly separable FIRTH_X / FIRTH_Y dataset the ordinary MLE has no
+    finite maximum, so statsmodels Logit would diverge. firthlogist fits Firth's
+    penalized likelihood (Jeffreys prior), the same penalized score equations the
+    engine's fallback solves, so its coefficients / SE / odds ratio are the
+    reference. firthlogist appends the intercept LAST, so coef_[:-1] are the slopes
+    and coef_[-1] is the intercept, with bse_ in the same order; we reorder to
+    intercept-first to match the engine. The standard errors are the Wald SE
+    sqrt(diag((X^T W X)^-1)) at the Firth estimate.
+
+    Needs `pip install firthlogist` (and a scikit-learn compatible with it, e.g.
+    scikit-learn==1.3.2). Imported lazily so the rest of the bundle still generates
+    when firthlogist is absent.
+    """
+    from firthlogist import FirthLogisticRegression
+
+    x = np.asarray(FIRTH_X, float).reshape(-1, 1)
+    y = np.asarray(FIRTH_Y, int)
+    fl = FirthLogisticRegression(
+        fit_intercept=True, max_iter=1000, tol=1e-9, max_halfstep=1000
+    )
+    fl.fit(x, y)
+    b1 = float(fl.coef_[0])
+    b0 = float(fl.intercept_)
+    se_slope = float(fl.bse_[0])
+    se_intercept = float(fl.bse_[-1])
+    odds_ratio = float(np.exp(b1))
+    return {
+        "intercept": r4(b0),
+        "slope": r4(b1),
+        "interceptSE": r4(se_intercept),
+        "slopeSE": r4(se_slope),
+        "oddsRatio": r4(odds_ratio),
     }
 
 
@@ -1536,6 +1584,13 @@ def main():
     refs.update({"nested": ref_nested()})
     refs.update({"correlation_regression": ref_correlation_regression()})
     refs.update({"logistic_regression": ref_logistic_regression()})
+    try:
+        refs.update({"firth_logistic": ref_firth_logistic()})
+    except ImportError:
+        sys.stderr.write(
+            "WARN: firthlogist not installed, skipping the Firth reference "
+            "(pip install firthlogist scikit-learn==1.3.2 to include it)\n"
+        )
     refs.update({"roc": ref_roc()})
     refs.update({"multiple_regression": ref_multiple_regression()})
     refs.update({"qq_plot": ref_qq_plot()})
@@ -1564,6 +1619,8 @@ def main():
         "XY_Y": XY_Y,
         "LOGIT_X": LOGIT_X,
         "LOGIT_Y": LOGIT_Y,
+        "FIRTH_X": FIRTH_X,
+        "FIRTH_Y": FIRTH_Y,
         "MLR_X1": MLR_X1,
         "MLR_X2": MLR_X2,
         "MLR_Y": MLR_Y,

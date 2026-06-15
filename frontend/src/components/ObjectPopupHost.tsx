@@ -42,17 +42,9 @@ import { requestNavigation } from "@/components/ai/navigation-bridge";
 import { objectDeepLink } from "@/lib/references";
 import {
   useObjectPopupBridge,
+  POPUP_CAPABLE_TYPES,
   type ObjectRef,
 } from "@/components/ai/object-popup-bridge";
-
-// -----------------------------------------------------------------------
-// Types that are popup-capable in this pass. Other types navigate.
-// -----------------------------------------------------------------------
-
-/** The object types that open as a real popup in this host. All others fall
- *  back to navigation so every type does something sensible. Kept in sync with
- *  ObjectChip's POPUP_CAPABLE_TYPES. If you add a type here, add it there too. */
-const POPUP_CAPABLE_TYPES = new Set(["note", "task", "experiment"]);
 
 // -----------------------------------------------------------------------
 // Task id parsing

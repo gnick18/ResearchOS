@@ -36,6 +36,7 @@ import type {
   Task,
   TaskCreate,
   TaskUpdate,
+  MethodGatheredChecks,
   TaskMoveRequest,
   Dependency,
   DependencyCreate,
@@ -1891,6 +1892,25 @@ export const tasksApi = {
 
     return updateTaskForCaller(taskId, { method_attachments: attachments }, owner);
   },
+
+  // Overwrite the gathered-reagent checklist state for one attached method. The
+  // companion phone syncs the FULL map each time, so this replaces (last write
+  // wins), never merges. Mirrors saveVariationNote.
+  saveGatheredChecks: async (
+    taskId: number,
+    methodId: number,
+    gathered: MethodGatheredChecks,
+    owner?: string
+  ): Promise<Task | null> => {
+    const task = await getTaskForCaller(taskId, owner);
+    if (!task) return null;
+
+    const attachments = (task.method_attachments || []).map((a) =>
+      a.method_id === methodId ? { ...a, gathered_checks: gathered } : a
+    );
+
+    return updateTaskForCaller(taskId, { method_attachments: attachments }, owner);
+  },
   
   checkDuplicate: async (
     projectId: number,
@@ -3422,6 +3442,8 @@ export const sequencesApi = {
     if (data.organism !== undefined) metaPatch.organism = data.organism;
     if (data.tax_id !== undefined) metaPatch.tax_id = data.tax_id;
     if (data.tax_lineage !== undefined) metaPatch.tax_lineage = data.tax_lineage;
+    // Canonical figure-map style (the publication look), persisted to the sidecar.
+    if (data.figure !== undefined) metaPatch.figure = data.figure;
     let meta = await sequenceStore.updateMeta(id, metaPatch, username);
     if (!meta) {
       const raw = await sequenceStore.getRawForUser(id, username);

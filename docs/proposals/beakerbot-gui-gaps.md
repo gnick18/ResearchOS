@@ -1,63 +1,96 @@
 # BeakerBot GUI gaps, modern LLM-product affordances we are missing
 
-Owner: BeakerAI lane. Status: living backlog, recovered 2026-06-13.
+Owner: BeakerAI lane. Status: living backlog. Recovered 2026-06-13, **refreshed to
+current reality 2026-06-14**.
 
 ## Provenance
 
-This started as an inline brainstorm in a BeakerAI chat (session `d25e897f`, 2026-06-12). Grant's prompt was that BeakerBot is the most important feature of the whole site, so where are the gaps versus modern LLM products, plus two specific asks (stringing complex multi-page methods, and rich summaries over dates/users/projects). The brainstorm was never written to a tracked doc, only the summary-suite branch was spun out to [`beakerbot-summary-suite.md`](beakerbot-summary-suite.md). This file captures the full brainstorm so it stops living only in a transcript, and marks each item against what has since shipped.
-
-The list is grounded in what BeakerBot actually had at the time (around 55 tools, review modes, the chat-history rail, the context bridge), so these are genuine gaps, not things already built.
+This started as an inline brainstorm in a BeakerAI chat (session `d25e897f`, 2026-06-12).
+Grant's prompt was that BeakerBot is the most important feature of the whole site, so
+where are the gaps versus modern LLM products, plus two specific asks (stringing complex
+multi-page methods, and rich summaries over dates/users/projects). The brainstorm became
+this file, scored against what has shipped. The recommended sequence was C then B then A,
+and that is what happened.
 
 ## Status legend
 
 - SHIPPED, landed on main.
-- QUEUED, accepted and next up, not started.
 - PARTIAL, an embryo exists, the full idea is open.
 - OPEN, not started.
+- GATED, built but behind a flag / pending a verification gate.
 
-## A. Modern LLM-GUI functions (the chat product layer, where we lag ChatGPT, Claude, Cursor)
+## Headline (2026-06-14)
 
-- **Stop / cancel mid-run.** [SHIPPED] No way to abort a running loop (a whole-plan especially), table stakes. Built session 4 (AbortController threaded through `runAgentLoop`, send button becomes Stop while running).
-- **Suggested follow-up chips.** [SHIPPED] After a reply, 2 to 3 contextual next actions like "Make a chart of this", "Add to my notes", "Schedule a repeat". Surfaces capability and cuts typing, since researchers do not know what BeakerBot can do. Built session 4 (`<!-- followups: A | B | C -->`, capped at 3, latest message only).
-- **Provenance chips in answers.** [SHIPPED] When BeakerBot states a fact about the user's data, render the source (which note or result) as a clickable chip. This is the antidote to the hallucination fear, "do not fabricate" becomes "always show where this came from". Built session 4 (prompt cites tool deepLinks inline, renders via the existing ObjectChip path).
-- **Per-user persistent memory.** [SHIPPED 2026-06-13] BeakerBot remembers preferences across chats (for example "I default to Phusion, A. fumigatus, 3 technical replicates"). A bounded per-user file `users/<username>/_beakerbot_memory.json` (MAX 3500 chars, consolidates near-duplicates when over) read into context capped each turn via the same identity-filter-before-persist pattern as the context bridge, plus remember_preference and forget_preference tools. `user-memory.ts` + `user-memory-tools.ts`, injection in `conversation-store.ts`.
-- **`@` mentions and `/` commands.** [OPEN] `@` to explicitly attach an object (a note, a table, an experiment) as context, and `/summarize`, `/plot`, `/cite`. Kills the "this" / "the result" ambiguity the context bridge currently has to guess at.
-- **Editable artifacts (Canvas).** [OPEN] When BeakerBot drafts a note or summary, show it in an editable side panel the user tweaks before saving, not a one-shot approve or reject card.
-- **Edit-and-resend, regenerate, branch.** [OPEN] Standard chat affordances we lack.
-- **Image drop in chat (multimodal).** [OPEN, gated] "What is in this gel image?" The companion app already ingests photos, the chat should accept one. Gates on the Fireworks vision-model choice in the billing build.
-- **Voice input.** [OPEN] Hands are busy at the bench.
+**All three tiers A, B, C are essentially cleared.** The original A/B/C list was the
+"catch up to modern LLM products" backlog, and it is done. The frontier has moved to the
+adjacent epics in the "What's next" map at the bottom. BeakerBot is now a real agentic
+product surface (CRUD on every object, composite setup, macros, summaries, a browsable
+record-set widget, Canvas, memory, @/commands), not a chat line.
+
+## A. Modern LLM-GUI functions (the chat product layer)
+
+- **Stop / cancel mid-run.** [SHIPPED] AbortController through `runAgentLoop`, send button becomes Stop while running. Session 4.
+- **Suggested follow-up chips.** [SHIPPED] 2 to 3 contextual next actions after a reply. Session 4.
+- **Provenance chips in answers.** [SHIPPED] Facts about the user's data render the source as a clickable chip. Session 4.
+- **Per-user persistent memory.** [SHIPPED] Bounded `users/<username>/_beakerbot_memory.json` + remember/forget tools. 2026-06-13.
+- **`@` mentions and `/` commands.** [SHIPPED] `@` to attach an object as context, `/` slash commands. Merged `b03d4c02e` 2026-06-13. (Doc previously said OPEN.)
+- **Editable artifacts (Canvas).** [SHIPPED] `BeakerBotCanvas.tsx` + `canvas-store.ts`, drafts render in an editable side panel before saving. (Doc previously said OPEN.)
+- **Regenerate.** [SHIPPED] Regenerate on the last assistant reply; user messages have copy + revert-to-here.
+- **Edit-and-resend / branch.** [PARTIAL] Regenerate + revert-to-here exist; true conversation branching does not.
+- **Image drop in chat (multimodal).** [GATED] Composer accepts pasted images behind `BEAKERBOT_VISION_ENABLED`; rides on the Fireworks vision model (kimi-k2p6).
+- **Voice input.** [OPEN] Hands are busy at the bench. The one genuinely-unstarted A item.
 
 ## B. Stringing complex multi-page methods (the agentic layer)
 
-Today a cross-page task is `propose_plan`, then `go_to_page` / `read_page` / `click_element`, click by click. That is fragile (perception can miss an element) and slow. The fix is not better clicking, it is higher-level composite tools that act through the data layer, the way `create_experiment_chain` and `link_tasks` already do.
+- **Composite "set up X" tools.** [SHIPPED] `setup_experiment` creates the experiment, attaches methods, FS-links prep tasks, drops a results scaffold, in one consented call. 2026-06-13. More composite tools can follow the pattern.
+- **Reusable named workflows (macros).** [SHIPPED] Saved `/command` sequences, store + runner + slash-invoke + editor + rail manager. Merged `ba2ad9364`. (Doc previously said OPEN.)
+- **Live progress in the plan card, resume from a failed step.** [SHIPPED, flag] Live-ticking, resume-from-stopped-step, loop-driven per step. Merged `51b9728b9` behind `NEXT_PUBLIC_BEAKERBOT_PLAN_STEPS`. 4 upstream polish follow-ups before the prod flag-on. (Doc previously said PARTIAL.)
+- **Cross-object atomic actions.** [PARTIAL] `create_experiment_chain`, `link_tasks`, `setup_experiment` exist; a fully general cross-type composite is still open.
+- **Full CRUD + content-edit on every object.** [SHIPPED, not in the original list] create / read / update / content-edit / delete for all 7 core object types, gated + own-only + no-interpretation. 2026-06-14.
 
-- **Composite "set up X" tools.** [SHIPPED 2026-06-13] `setup_experiment` creates the experiment, attaches its methods, creates and FS-links the prep tasks on the Gantt, and drops a results scaffold, in one consented call instead of many fragile clicks, then navigates and highlights. BeakerBot still only does what a user could by hand, just via the API, not simulated UI. More composite "set up X" tools can follow the same pattern.
-- **Reusable named workflows (macros).** [OPEN] Let a user save a multi-step recipe ("new cloning experiment") and re-run it with new params. `create_experiment_chain` is the start of this.
-- **Live progress in the plan card, resume from a failed step.** [PARTIAL] The whole-plan card should tick off each step as it runs and resume from a failed step rather than restart the whole thing. The review-modes spec ([`beakerbot-review-modes.md`](beakerbot-review-modes.md)) covers the per-step blocks, resume is still open.
-- **Cross-object atomic actions.** [PARTIAL] "Create an experiment for this method, schedule it, and link a note" as one composite that spans object types.
+## C. Rich summaries over dates, users, projects (the PI killer feature)
 
-## C. Rich summaries over dates, users, projects (called out as the big one, the PI killer feature)
+- **Dedicated per-type summary tools.** [SHIPPED] `summarize_experiments/notes/projects/purchases/inventory` + `lab_digest`. The tool owns every count, the model only narrates. Session 4.
+- **A filter wizard.** [SHIPPED] Guided picker extending `ask_user` for ambiguous filters. Session 4.
+- **Summaries as real artifacts.** [SHIPPED] `save_summary_as_note` composes a structured note via the draft-preview gate, numbers verbatim from the tools. 2026-06-13.
+- **Deterministic resolvers.** [SHIPPED, not in the original list] period/calendar windows, project + member name resolution (fuzzy), `search_full_text` body grep, `list_records` top-N. Verified live 7/7. 2026-06-14.
+- **Inline record-set widget.** [SHIPPED, not in the original list] When any record tool returns a SET, the chat renders a searchable master-detail browser (2 to 4 compact chip-tabs + preview, 5+ full search + rail), deterministic, full set to the UI / capped to the model. Live-verified + fixed. Merged `2d57e50a3` + `406248cd1`. 2026-06-14.
 
-"Summarize Kritika's experiments in Q2", "what did the cyp51A project accomplish last month", "every purchase over $500 this year". This is where the model would otherwise hallucinate counts, so the hard rule is the tool does the filtering and counting, the model only narrates.
+## What's next (the adjacent epics, the real frontier)
 
-- **Dedicated per-type summary tools.** [SHIPPED] `summarize_experiments`, `summarize_notes`, `summarize_projects`, `summarize_purchases`, `summarize_inventory`, plus a cross-type `lab_digest` rollup. The tool owns every count and total, the model writes prose from the real list, never counts. Built session 4 (summary suite). See [`beakerbot-summary-suite.md`](beakerbot-summary-suite.md).
-- **A filter wizard.** [SHIPPED] Instead of phrasing a complex filter in prose, a guided picker (extends the existing `ask_user` button pattern), object types, then date range, users, projects, status, keyword. BeakerBot offers it whenever a summary request is ambiguous. Built session 4.
-- **Summaries as real artifacts, not just chat text.** [SHIPPED 2026-06-13] `save_summary_as_note` composes a structured note (narration plus timeline plus per-type breakdown tables plus drill-down chips to each underlying object) from a summary-suite result and writes it via the draft-preview gate. Numbers are copied verbatim from the deterministic summary tools, the model only narrates. A chart embed activates automatically if a summary tool later provides a plot doc id. PDF export of the note rides on the existing export-baking path.
+The A/B/C catch-up is done. These are the live targets, roughly by leverage.
 
-This rides on the cross-type artifact index already built (see `project_beakerbot_context_index`), the summary tools are the query layer on top of it.
+1. **One-front-door BeakerSearch.** [DONE 2026-06-14] Phase 1 (merge `1f0d748b1`):
+   the 3 missing Layer 2 read tools (`read_task`, `read_inventory`, `read_datahub`),
+   phylo in the GUI palette (also @-mentionable), context-bridge publishers on
+   sequences/methods/chemistry/phylo/supplies. Phase 2 (merge `4fc0dc00d`): index
+   unification done the SAFE way, the investigation found a full single-index merge
+   inadvisable (the GUI must be instant/prebuilt + fuzzy-ranked, the AI runs outside
+   React on-demand + token-ranked), so instead a shared per-type adapter layer + one
+   type registry (`src/lib/index/indexed-types.ts`) with per-side exhaustiveness guards
+   means a new artifact type can't land in only one index (compile error). Closed the
+   inventory gap (AI index now covers inventory). Scorers, build strategies, key/href
+   formats deliberately untouched, behavior-preserving (1683 tests green). The two
+   indices stay separate at runtime by design, they just can't drift anymore.
+   Still deferred (low value): context-bridge on purchases (no 1:1 PurchaseItem id) and
+   notes/projects (selection lives in panels); the optional future single-runtime-index
+   merge is explicitly NOT recommended.
+2. **PDF-reproduce-from-paper.** [PARTIAL] Outputs 1 and 2 (draft_paper_summary,
+   extract_paper_method) shipped. Open: the ingestion UI (attach a PDF, pdf.js text
+   extraction) that feeds the draft tools, plus outputs 3 and 4 (pipeline -> generate_tree,
+   figure -> editable style spec), gated on phylo review and the vision model. See
+   `beakerbot-pdf-reproduce-analysis.md`.
+3. **Flag-on / launch gates.** Resumable plan card's 4 upstream follow-ups before its prod
+   flag; vision-model verification to ungate image drop.
+4. **A-list stragglers.** Voice input; true conversation branching.
+5. **Record-set widget v2 polish.** Pending lab_digest crash repro (Next 16 undefined-throw
+   class, cleared on retry); an optional panel resize handle.
 
-## Recommended sequence (from the original brainstorm)
+## Shipped waves, for the record
 
-1. **The summary suite (C)** is the highest leverage, the thing a PI would pay for and nothing else does well. Largely shipped now.
-2. **The composite workflow tools (B)** are the biggest reliability win. Mostly open.
-3. **The GUI affordances (A)** are cheaper polish that make it feel modern (stop button, follow-up chips, provenance chips are quick and high-impact). The quick three shipped, the rest is open.
-
-## Shipped in the 2026-06-13 wave
-
-Per-user memory (A), the setup_experiment composite (B), and save_summary_as_note (C), built in parallel as background bots and landed on main with tsc 0 and the full AI suite green. Also from the same wave, PDF-reproduce outputs 1 and 2 (draft_paper_summary, extract_paper_method), the text-in core of the reproduce-from-PDF flow tracked in `beakerbot-pdf-reproduce-analysis.md`.
-
-## What is still open, at a glance
-
-- A-list chat affordances, `@` and `/` commands, editable Canvas, regenerate or branch, image drop (gated on the vision model), voice. These all touch the chat shell, so they run one at a time.
-- The PDF-reproduce ingestion UI (attach a PDF, pdf.js text extraction) that feeds the two draft tools, plus outputs 3 and 4 (gated on phylo review and the vision model).
-- B-list, reusable workflow macros and a resumable plan card, plus more composite and cross-object tools.
+- 2026-06-13 wave: per-user memory (A), `setup_experiment` composite (B),
+  `save_summary_as_note` (C), PDF-reproduce outputs 1 and 2.
+- 2026-06-13/14: `@`/`/` commands, workflow macros, resumable plan card, full CRUD +
+  content-edit + delete.
+- 2026-06-14: summary-robustness deterministic resolvers (live-verified 7/7), the inline
+  record-set widget (all record tools, compact + full layouts, live-verified).

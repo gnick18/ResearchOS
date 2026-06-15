@@ -21,6 +21,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { Icon } from "@/components/icons";
+import Tooltip from "@/components/Tooltip";
 import type { DatasetSidecar } from "@/lib/datahub/bigtable/types";
 import {
   countRows,
@@ -167,14 +168,16 @@ export default function DatasetExportDialog({
           <Icon name="download" className="h-4 w-4 text-foreground-muted" />
           <h2 className="text-body font-semibold text-foreground">Export dataset</h2>
           <span className="flex-1" />
-          <button
-            type="button"
-            aria-label="Close"
-            onClick={onClose}
-            className="rounded-md p-1 text-foreground-muted transition-colors hover:bg-surface-sunken hover:text-foreground"
-          >
-            <Icon name="close" className="h-4 w-4" />
-          </button>
+          <Tooltip label="Close">
+            <button
+              type="button"
+              aria-label="Close"
+              onClick={onClose}
+              className="rounded-md p-1 text-foreground-muted transition-colors hover:bg-surface-sunken hover:text-foreground"
+            >
+              <Icon name="close" className="h-4 w-4" />
+            </button>
+          </Tooltip>
         </div>
 
         <div className="flex flex-col gap-4 px-5 py-4">

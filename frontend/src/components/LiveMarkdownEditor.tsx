@@ -17,6 +17,8 @@ const ReferencePicker = dynamic(
   () => import("./references/ReferencePicker"),
   { ssr: false },
 );
+import type { ReferencePickerTab } from "./references/ReferencePicker";
+import type { IconName } from "./icons/registry";
 import type { EditorLoroHandle } from "@/lib/loro/editor-handle";
 import type { Note } from "@/lib/types";
 import MarkdownShortcutsSidebar from "./MarkdownShortcutsSidebar";
@@ -33,6 +35,7 @@ const ImageAnnotatorModal = dynamic(() => import("./ImageAnnotatorModal"), {
 });
 import ImageStrip from "./ImageStrip";
 import Tooltip from "./Tooltip";
+import { Icon } from "./icons";
 import FileStrip, { FILE_STRIP_DRAG_MIME } from "./FileStrip";
 import ImageTrashDropZone from "./ImageTrashDropZone";
 import FileTrashDropZone from "./FileTrashDropZone";
@@ -58,8 +61,16 @@ import {
   readStoredEditorWidthPreset,
   writeStoredEditorWidthPreset,
 } from "@/lib/markdown/editor-width-preset";
+import {
+  readStoredTypewriterScroll,
+  writeStoredTypewriterScroll,
+  readStoredFocusDimming,
+  writeStoredFocusDimming,
+} from "@/lib/markdown/editor-focus-prefs";
 import { useOptionalCurrentUser } from "@/lib/file-system/file-system-context";
 import { patchUserSettings, readUserSettings } from "@/lib/settings/user-settings";
+import { listSectionHeadings } from "@/lib/embeds/markdown-section";
+import { useOptionalBeakerSearch } from "./beaker-search/BeakerSearchProvider";
 
 // Type for editor mode. "inline" is the CodeMirror 6 Typora-style surface
 // (now the sole editor). "preview" is the read-only ReactMarkdown render.
@@ -182,14 +193,24 @@ interface LiveMarkdownEditorProps {
    *  that hides the internal Save button can enable its own Save button the
    *  moment the user starts typing. */
   onDirtyChange?: (dirty: boolean) => void;
-  /** Writing Focus Mode (FOCUS_WRITING_MODE_DESIGN.md §6). Controlled-or-
-   *  internal pair mirroring `mode` / `onModeChange`. When `onFocusModeChange`
-   *  is provided the wrapper treats `focusMode` as a controlled value (the
-   *  tour drives it this way); otherwise it owns the boolean internally and
-   *  the toolbar button / shortcut toggle it. Defaults to off. */
-  focusMode?: boolean;
-  /** Callback when focus mode changes (enables the controlled pattern). */
-  onFocusModeChange?: (focusMode: boolean) => void;
+  /** Unified editor surface (UNIFIED_EDITOR_SURFACE_DESIGN.md §3B / §9).
+   *  When a host popup provides this, the editor's Focus button (and the
+   *  Cmd/Ctrl+Shift+F shortcut) call `onRequestExpand()` to ask the HOST to
+   *  grow itself to fullscreen (same DOM, CSS size transition) and shrink back.
+   *  The editor renders inline at every size; there is no separate fullscreen
+   *  overlay. The host is expected to flush/commit the editor buffer before
+   *  growing (see saveRef / the host's flush bridge); the editor also flushes
+   *  its in-flight buffer (`commitBufferRef`) before calling `onRequestExpand`
+   *  as a belt-and-suspenders guard. When this prop is ABSENT (the non-popup
+   *  mounts: methods page, the method create / compound / variation panels, the
+   *  BeakerBot Canvas) the editor shows NO Focus button, since those surfaces
+   *  have no host that can expand, so the affordance would be a dead end. */
+  onRequestExpand?: () => void;
+  /** Pressed/label state for the Focus button when the host owns expand via
+   *  `onRequestExpand`. Reflects whether the host popup is currently expanded
+   *  so the button can read as a toggle (expand <-> collapse). Ignored when
+   *  `onRequestExpand` is absent. */
+  expanded?: boolean;
   /** Optional parent-supplied content rendered on the RIGHT side of the
    *  single unified toolbar (after a flex spacer). Surfaces that own their
    *  own Save action or sub-tab switcher (the experiment popup's Lab Notes /
@@ -276,8 +297,8 @@ export default function LiveMarkdownEditor({
   saveRef,
   onExplicitSave,
   onDirtyChange,
-  focusMode = false,
-  onFocusModeChange,
+  onRequestExpand,
+  expanded = false,
   toolbarTrailing,
   legacyAttachmentsDir,
   loroHandle,
@@ -299,109 +320,72 @@ export default function LiveMarkdownEditor({
   // Internal mode state (used if onModeChange is not provided)
   const [internalMode, setInternalMode] = useState<EditorMode>(mode);
 
-  // Writing Focus Mode (FOCUS_WRITING_MODE_DESIGN.md §6). Controlled-or-
-  // internal pattern mirroring `mode` / `onModeChange` above. When the host
-  // (or the tour) supplies `onFocusModeChange`, `focusMode` is the source of
-  // truth; otherwise we own it internally and the toolbar button / shortcut
-  // toggle it.
-  const [internalFocusMode, setInternalFocusMode] = useState<boolean>(focusMode);
-  const focusModeActive = onFocusModeChange ? focusMode : internalFocusMode;
-  const setFocusMode = useCallback(
-    (next: boolean) => {
-      if (onFocusModeChange) {
-        onFocusModeChange(next);
-      } else {
-        setInternalFocusMode(next);
-      }
-    },
-    [onFocusModeChange],
-  );
-
   // Reference picker (Chemistry Phase 3). State lives here in LiveMarkdownEditor
   // so the toolbar button and the InlineMarkdownEditor slash callback both toggle
   // the same modal. Only active when enableReferencePicker is true.
   const [referencePickerOpen, setReferencePickerOpen] = useState(false);
+  // L1 Phase B: the slim insert rail's typed entries (Sequence / Molecule /
+  // Data Hub table / Plot) open the SAME picker pre-targeted to a tab. Null =
+  // open on the picker's own default tab (the generic "Insert ref" entry / the
+  // "/" trigger). Reset to null on close so the next plain open is unbiased.
+  const [referencePickerTab, setReferencePickerTab] =
+    useState<ReferencePickerTab | null>(null);
+  // Open the reference picker, optionally pre-targeted to a tab. Shared by the
+  // ＋ overflow menu, the slim insert rail, and the "/" trigger (which passes
+  // no tab). Closes the overflow menu so the two never stack.
+  const openReferencePicker = useCallback(
+    (tab?: ReferencePickerTab) => {
+      setReferencePickerTab(tab ?? null);
+      setReferencePickerOpen(true);
+      setInsertMenuOpen(false);
+    },
+    [],
+  );
 
-  // Buffer-safety bridge (FOCUS_WRITING_MODE_DESIGN.md §7). Wired for
-  // belt-and-suspenders safety across the focus-mode portal flip. Element
-  // identity is preserved across the portal flip (the SAME editor subtree
-  // renders in both branches), so no remount happens. The flush-to-pending
-  // function may be null when the inline editor is mounted (it owns its own
-  // CM6 history stack), which is fine.
+  // In-flight buffer flush. The inline (CM6) editor publishes a flush-to-pending
+  // function here; the manual-save / expand paths call it to commit any unsaved
+  // keystrokes before the host grows or shrinks the popup, so no typing is lost
+  // across the size transition. May be null while the inline editor's own CM6
+  // history stack owns the buffer, which is fine.
   const commitBufferRef = useRef<(() => void) | null>(null);
   // Imperative insert published by the inline (CodeMirror 6) child. The inline
   // Style Guide rail (MarkdownShortcutsSidebar) calls this to splice a markdown
   // snippet in at the editor's current selection. Null until the inline editor
   // mounts; only the inline branch wires it.
   const insertRef = useRef<((syntax: string) => void) | null>(null);
-  // Captured focused element on enter, restored on exit (a11y §10).
-  const focusReturnElRef = useRef<HTMLElement | null>(null);
-  // Overlay root for the focus trap + guarded-Escape scoping.
-  const focusOverlayRef = useRef<HTMLDivElement>(null);
-  // Parked status published by the child editor (no block mid-edit AND no
-  // block selected). The guarded-Escape listener consults this so it never
-  // exits focus mode while a block is being edited or merely selected
-  // (FOCUS_WRITING_MODE_DESIGN.md §0 decision 1). Defaults true so a fresh
-  // editor with nothing selected is parked.
-  const editorParkedRef = useRef(true);
-  // Mirror focusMode into a ref so it can be read inside listeners with
-  // stable deps (avoids re-binding the document keydown on every render).
-  const focusModeActiveRef = useRef(false);
 
-  // Buffer-safe portal container (FOCUS_WRITING_MODE_DESIGN.md §7).
-  //
-  // React UNMOUNTS + remounts a portal's children when the portal CONTAINER
-  // node changes between renders (verified in react-dom 19's reconciler:
-  // updatePortal bails to createFiberFromPortal on a containerInfo mismatch).
-  // A remount would wipe the editor's CM6 state and silently drop in-flight
-  // typing, exactly the failure the design doc calls the top correctness risk.
-  //
-  // So we create ONE stable container div and ALWAYS portal the editor subtree
-  // into it (the container reference never changes, so React never remounts).
-  // We then move that single node IMPERATIVELY in the DOM: into the in-place
-  // mount slot when not in focus mode, and into document.body (full-viewport
-  // overlay) when in focus mode. Moving a node with `appendChild` does not
-  // change the node's identity, so the portal's containerInfo stays equal and
-  // the component state survives.
-  const portalContainerRef = useRef<HTMLDivElement | null>(null);
-  if (portalContainerRef.current === null && typeof document !== "undefined") {
-    portalContainerRef.current = document.createElement("div");
-  }
-  // The in-place mount slot: a `display: contents` node so it is transparent
-  // to the host's flex layout. The portal container lives inside it when not
-  // in focus mode. Captured via a callback ref so the move effect can react.
-  const [inPlaceMount, setInPlaceMount] = useState<HTMLDivElement | null>(null);
-  const inPlaceMountCallbackRef = useCallback((node: HTMLDivElement | null) => {
-    setInPlaceMount(node);
+  // Self-effacing chrome (UNIFIED_EDITOR_SURFACE_DESIGN.md §3A, U5). When the
+  // host popup is EXPANDED (fullscreen), the editor's quiet contextual toolbar
+  // dozes ~2.5s after the user goes quiet (i.e. into writing) and wakes the
+  // instant they move the pointer or press a key, so the writing surface stays
+  // calm without trapping the controls. Applies ONLY at fullscreen; the small
+  // docked editor keeps its toolbar always visible. The host popup's PINNED tab
+  // bar is owned by the popup, not this component, so it never dozes (Grant's
+  // pinned-tabs decision). Defaults awake so the toolbar is visible the moment
+  // the surface expands.
+  const [chromeDozing, setChromeDozing] = useState(false);
+
+  // Unified editor surface seam (UNIFIED_EDITOR_SURFACE_DESIGN.md §9).
+  // The Focus button and the Cmd/Ctrl+Shift+F shortcut ask the HOST popup to
+  // grow / shrink itself (same DOM, CSS size transition) via `onRequestExpand`.
+  // The editor renders inline at every size, so there is no separate fullscreen
+  // overlay to toggle. When `onRequestExpand` is absent (the non-popup mounts)
+  // there is no host to expand: the Focus button is not rendered and this is a
+  // no-op. A ref keeps the keydown closure stable without re-binding the
+  // listener on every render.
+  const onRequestExpandRef = useRef(onRequestExpand);
+  useEffect(() => {
+    onRequestExpandRef.current = onRequestExpand;
+  }, [onRequestExpand]);
+  const requestExpandToggle = useCallback(() => {
+    const requestExpand = onRequestExpandRef.current;
+    if (!requestExpand) return;
+    // Flush the in-flight buffer before the host transition so no typing is
+    // lost across the grow / shrink. Belt-and-suspenders alongside the host's
+    // own flush bridge.
+    commitBufferRef.current?.();
+    requestExpand();
   }, []);
-
-  // Toggle handler shared by the toolbar button, the exit button, the
-  // Cmd/Ctrl+Shift+F shortcut, and the guarded Escape. Flush the in-flight
-  // buffer to pending BEFORE flipping the portal target (see commitBufferRef
-  // above), then flip.
-  const toggleFocusMode = useCallback(
-    (next: boolean) => {
-      commitBufferRef.current?.();
-      if (next) {
-        // Capture where focus was so we can restore it on exit (the toolbar
-        // enter button, typically). Done before the overlay mounts.
-        if (typeof document !== "undefined") {
-          focusReturnElRef.current =
-            document.activeElement instanceof HTMLElement
-              ? document.activeElement
-              : null;
-        }
-      }
-      setFocusMode(next);
-    },
-    [setFocusMode],
-  );
-
-  // The child fires this (Cmd/Ctrl+Shift+F) to request a toggle. It reads the
-  // live focusMode value from the ref so the closure stays stable.
-  const handleChildToggleFocusMode = useCallback(() => {
-    toggleFocusMode(!focusModeActiveRef.current);
-  }, [toggleFocusMode]);
 
   // Writing-surface WIDTH preset (MARKDOWN_EDITOR_TYPORA_DESIGN.md Phase 1).
   // Grant's pain point: the surface (esp. Focus Mode) was a constant box. The
@@ -459,6 +443,83 @@ export default function LiveMarkdownEditor({
     [currentUser],
   );
   const measureClass = editorWidthMeasureClass(widthPreset);
+
+  // Focus behaviors (UNIFIED_EDITOR_SURFACE_DESIGN.md §3A, U5 toggles). Two
+  // per-user, default-OFF writing-comfort behaviors that engage ONLY at the
+  // fullscreen scale. Seeded synchronously from localStorage for an immediate
+  // first-paint decision (mirroring widthPreset); the durable per-account record
+  // lives in settings.json (`editorTypewriterScroll` / `editorFocusDimming`),
+  // reconciled below. Resolved (pref AND expanded) before passing to the editor.
+  const [typewriterPref, setTypewriterPref] = useState<boolean>(() =>
+    readStoredTypewriterScroll(),
+  );
+  const [dimmingPref, setDimmingPref] = useState<boolean>(() =>
+    readStoredFocusDimming(),
+  );
+  // Reconcile both prefs from durable settings on connect / user-switch, same
+  // shape as the width-preset reconcile. Absent on disk = keep the local mirror
+  // (a fresh account stays at the default-off rather than being forced).
+  useEffect(() => {
+    if (!currentUser) return;
+    let cancelled = false;
+    void (async () => {
+      try {
+        const settings = await readUserSettings(currentUser);
+        if (cancelled) return;
+        if (settings.editorTypewriterScroll !== undefined) {
+          const v = settings.editorTypewriterScroll === true;
+          setTypewriterPref(v);
+          writeStoredTypewriterScroll(v);
+        }
+        if (settings.editorFocusDimming !== undefined) {
+          const v = settings.editorFocusDimming === true;
+          setDimmingPref(v);
+          writeStoredFocusDimming(v);
+        }
+      } catch {
+        // Disk read failed (not connected / transient): keep the local mirror.
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [currentUser]);
+  // Apply + persist a focus-behavior toggle: update state, mirror to localStorage
+  // synchronously, and best-effort write the durable settings record.
+  const applyTypewriterPref = useCallback(
+    (next: boolean) => {
+      setTypewriterPref(next);
+      writeStoredTypewriterScroll(next);
+      if (currentUser) {
+        void patchUserSettings(currentUser, {
+          editorTypewriterScroll: next,
+        }).catch(() => {
+          // Not connected / write failed: the localStorage mirror still holds.
+        });
+      }
+    },
+    [currentUser],
+  );
+  const applyDimmingPref = useCallback(
+    (next: boolean) => {
+      setDimmingPref(next);
+      writeStoredFocusDimming(next);
+      if (currentUser) {
+        void patchUserSettings(currentUser, {
+          editorFocusDimming: next,
+        }).catch(() => {
+          // Not connected / write failed: the localStorage mirror still holds.
+        });
+      }
+    },
+    [currentUser],
+  );
+  // Resolved flags handed to InlineMarkdownEditor: the behavior runs only when
+  // (its pref is on) AND (the host popup is expanded / fullscreen). This is the
+  // double-gate — the docked editor (expanded=false) and BeakerBotCanvas (never
+  // expanded) always resolve to false, so they are unaffected by these prefs.
+  const typewriterActive = typewriterPref && expanded;
+  const dimmingActive = dimmingPref && expanded;
 
   // Use controlled mode (from prop) or internal mode
   const currentMode = onModeChange ? mode : internalMode;
@@ -522,8 +583,43 @@ export default function LiveMarkdownEditor({
     resolvedPath: string;
     kind: FileViewerKind;
   } | null>(null);
-  const [showAttachmentStrip, setShowAttachmentStrip] = useState(true);
   const [activeAttachmentTab, setActiveAttachmentTab] = useState<"images" | "files">("images");
+  // ── Right Context rail (focus-mode gutter rails, design 2026-06-13) ──
+  // The right gutter holds a quiet Context rail with four icon tabs, each
+  // popping a flyout anchored to the rail (never over the text column):
+  //   outline   — the doc's headings, click to jump
+  //   embeds    — the live embeds placed in the doc, click to jump
+  //   files     — Attachments (the NEW home of the former bottom Images/Files
+  //               strip: same ImageStrip / FileStrip + tab bar, relocated)
+  //   bot       — summon BeakerBot (only when the provider is present)
+  // `contextFlyout` is which flyout is open (null = closed). The Attachments
+  // flyout replaces the retired bottom strip; the toolbar "Attachments" toggle
+  // and the rail's Attachments tab both open contextFlyout="files".
+  const [contextFlyout, setContextFlyout] = useState<
+    "outline" | "embeds" | "files" | "bot" | null
+  >(null);
+  const contextFlyoutRef = useRef<HTMLDivElement>(null);
+  // Non-throwing BeakerSearch access: this editor mounts on surfaces WITHOUT
+  // the app shell (BeakerBot Canvas, method create / compound / variation
+  // panels), so we read the context optionally and only offer the BeakerBot
+  // tab when a provider is genuinely above us.
+  const beakerSearch = useOptionalBeakerSearch();
+  // L1 quiet toolbar: the secondary insert actions (Add File / Browse / Insert
+  // ref / Number figures) collapse behind a single "＋" overflow menu so the
+  // docked toolbar reads as a calm contextual strip. This tracks whether that
+  // menu is open. Closing on outside-click / Escape is wired below.
+  const [insertMenuOpen, setInsertMenuOpen] = useState(false);
+  const insertMenuRef = useRef<HTMLDivElement>(null);
+  // U5 focus-behaviors popover: a small quiet menu (next to the width control,
+  // fullscreen only) holding the Typewriter scroll + Focus dimming toggles. Open
+  // state + outside-click/Escape close mirror the ＋ insert menu below.
+  const [focusMenuOpen, setFocusMenuOpen] = useState(false);
+  const focusMenuRef = useRef<HTMLDivElement>(null);
+  // The focus menu is portaled to document.body (see render) to escape the
+  // editor's stacking context; this ref is the portaled panel and the position
+  // is the fixed anchor computed from the trigger.
+  const focusMenuPanelRef = useRef<HTMLDivElement>(null);
+  const [focusMenuPos, setFocusMenuPos] = useState<{ top: number; right: number } | null>(null);
   // Native-file drag affordance: light up the editor (or the surrounding popup)
   // while the user is dragging a file from Finder over it. Counter handles
   // child-element bubbling — dragenter/leave fire on every nested element the
@@ -532,6 +628,138 @@ export default function LiveMarkdownEditor({
   const dragCounterRef = useRef(0);
   const wrapperRef = useRef<HTMLDivElement>(null);
   const editorContentRef = useRef<HTMLDivElement>(null);
+
+  // ── Slim insert rail: measured never-overlap rule (L1 Phase B, design §3A) ──
+  // The rail floats in the editor's RIGHT gutter and must NEVER overlap the
+  // document text. We measure the REAL empty gutter every resize:
+  //   gutter = (containerWidth - writingColumnWidth) / 2
+  // and only render the rail when that gutter is >= RAIL_MIN_GUTTER_PX. The
+  // writing column width is read off a visually-hidden probe that carries the
+  // SAME `measureClass` (w-full max-w-[Nch] mx-auto), so its measured width is
+  // exactly the column's: min(containerWidth, Nch). At the Full-bleed preset the
+  // probe fills the container, gutter -> ~0, and the rail hides entirely (per
+  // design). When the gutter is too narrow (small laptop / split-screen /
+  // docked popup) the rail also hides and its tools stay reachable in the ＋
+  // overflow menu. `colRef` is the relatively-positioned host the rail is
+  // absolutely placed within.
+  const railColRef = useRef<HTMLDivElement>(null);
+  const railProbeRef = useRef<HTMLDivElement>(null);
+  // The right Context rail element, so the flyout's outside-click guard can
+  // tell a click on a rail tab (which owns its own toggle) from a true outside
+  // click.
+  const contextRailRef = useRef<HTMLDivElement>(null);
+  const [railGutterPx, setRailGutterPx] = useState(0);
+  const measureRailGutter = useCallback(() => {
+    const host = railColRef.current;
+    const probe = railProbeRef.current;
+    if (!host || !probe) return;
+    const containerWidth = host.clientWidth;
+    const columnWidth = probe.clientWidth;
+    // Half the leftover horizontal space is one gutter. Clamp at 0 so a probe
+    // wider than its host (shouldn't happen) never reads negative.
+    const gutter = Math.max(0, (containerWidth - columnWidth) / 2);
+    setRailGutterPx((prev) => (Math.abs(prev - gutter) > 0.5 ? gutter : prev));
+  }, []);
+
+  // Close the quiet toolbar's "＋" insert overflow menu on an outside click or
+  // Escape, so it behaves like a normal popover and never traps focus.
+  useEffect(() => {
+    if (!insertMenuOpen) return;
+    const onPointerDown = (e: PointerEvent) => {
+      if (!insertMenuRef.current?.contains(e.target as Node)) {
+        setInsertMenuOpen(false);
+      }
+    };
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setInsertMenuOpen(false);
+    };
+    document.addEventListener("pointerdown", onPointerDown, true);
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("pointerdown", onPointerDown, true);
+      document.removeEventListener("keydown", onKeyDown);
+    };
+  }, [insertMenuOpen]);
+
+  // Close the U5 focus-behaviors popover on an outside click or Escape (same
+  // shape as the ＋ insert menu above), so it never traps focus.
+  useEffect(() => {
+    if (!focusMenuOpen) return;
+    const onPointerDown = (e: PointerEvent) => {
+      // The panel is portaled out of this subtree, so check it explicitly too.
+      if (
+        !focusMenuRef.current?.contains(e.target as Node) &&
+        !focusMenuPanelRef.current?.contains(e.target as Node)
+      ) {
+        setFocusMenuOpen(false);
+      }
+    };
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setFocusMenuOpen(false);
+    };
+    document.addEventListener("pointerdown", onPointerDown, true);
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("pointerdown", onPointerDown, true);
+      document.removeEventListener("keydown", onKeyDown);
+    };
+  }, [focusMenuOpen]);
+
+  // Anchor the portaled focus menu under its trigger with fixed coords, and keep
+  // it attached while open as the surface scrolls or the window resizes.
+  useLayoutEffect(() => {
+    if (!focusMenuOpen) return;
+    const update = () => {
+      const r = focusMenuRef.current?.getBoundingClientRect();
+      if (r) setFocusMenuPos({ top: r.bottom + 4, right: window.innerWidth - r.right });
+    };
+    update();
+    window.addEventListener("resize", update);
+    window.addEventListener("scroll", update, true);
+    return () => {
+      window.removeEventListener("resize", update);
+      window.removeEventListener("scroll", update, true);
+    };
+  }, [focusMenuOpen]);
+
+  // Close the right Context-rail flyout on an outside click or Escape, so it
+  // behaves like a normal popover and never traps focus. The check ignores
+  // clicks on the rail itself (the rail buttons own their own toggle) and on
+  // the flyout body; everything else dismisses.
+  useEffect(() => {
+    if (!contextFlyout) return;
+    const onPointerDown = (e: PointerEvent) => {
+      const target = e.target as Node;
+      if (contextFlyoutRef.current?.contains(target)) return;
+      if (contextRailRef.current?.contains(target)) return;
+      setContextFlyout(null);
+    };
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setContextFlyout(null);
+    };
+    document.addEventListener("pointerdown", onPointerDown, true);
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("pointerdown", onPointerDown, true);
+      document.removeEventListener("keydown", onKeyDown);
+    };
+  }, [contextFlyout]);
+
+  // Keep the never-overlap gutter measurement live. A single ResizeObserver on
+  // the rail host re-measures whenever the editor column resizes (popup resize,
+  // split-screen, rail collapse, width-preset change). measureClass is in the
+  // dep list so changing the writing width (which changes the column cap, and
+  // therefore the gutter) re-measures immediately rather than waiting on a
+  // resize. Cheap: it reads two clientWidths and skips state churn under 0.5px.
+  useLayoutEffect(() => {
+    const host = railColRef.current;
+    if (!host || typeof ResizeObserver === "undefined") return;
+    measureRailGutter();
+    const ro = new ResizeObserver(() => measureRailGutter());
+    ro.observe(host);
+    return () => ro.disconnect();
+  }, [measureRailGutter, measureClass, currentMode]);
+
   // Forward-reference to the LabArchives Form-B drop interceptor (defined
   // further down once its callback deps — value/onChange/etc — are in
   // scope). The capture-phase native drop listener below reads through this
@@ -635,6 +863,45 @@ export default function LiveMarkdownEditor({
     },
     []
   );
+  // Scroll the rendered editor body to the first element whose visible text
+  // begins with `text` (best-effort, mirrors handleJumpToImage's DOM scan).
+  // Used by the Outline / Embeds flyouts to jump to a heading or a placed embed
+  // without coupling to CodeMirror internals. A brief ring flash marks the
+  // target. No-op when nothing matches (e.g. the line is scrolled out of the
+  // virtualized CM viewport); never throws.
+  const handleJumpToText = useCallback((text: string) => {
+    const needle = text.trim().toLowerCase();
+    if (!needle) return;
+    const scroll = () => {
+      const root = editorContentRef.current;
+      if (!root) return;
+      const candidates = Array.from(
+        root.querySelectorAll<HTMLElement>(
+          "h1,h2,h3,h4,h5,h6,a,p,li,div,span",
+        ),
+      );
+      const target = candidates.find((el) =>
+        (el.textContent ?? "").trim().toLowerCase().startsWith(needle),
+      );
+      if (!target) return;
+      target.scrollIntoView({ behavior: "smooth", block: "center" });
+      target.classList.add(
+        "ring-2",
+        "ring-brand-action",
+        "ring-offset-2",
+        "rounded",
+        "transition-shadow",
+      );
+      window.setTimeout(() => {
+        target.classList.remove(
+          "ring-2",
+          "ring-brand-action",
+          "ring-offset-2",
+        );
+      }, 1400);
+    };
+    requestAnimationFrame(scroll);
+  }, []);
   const processedBrokenSrcsRef = useRef<Set<string>>(new Set());
   // Separate set for file refs so a `Files/foo.pdf` scan never collides with
   // a same-named image src in the image-only processed set above.
@@ -1627,90 +1894,14 @@ export default function LiveMarkdownEditor({
     };
   }, [isDraggingFile]);
 
-  // ---- Writing Focus Mode (FOCUS_WRITING_MODE_DESIGN.md §5, §6, §10) ----
+  // ---- Fullscreen expand shortcut (UNIFIED_EDITOR_SURFACE_DESIGN.md §9) ----
 
-  // Keep the latest focusMode value on a ref so the child's Cmd+Shift+F
-  // toggle (handleChildToggleFocusMode) reads the live value without
-  // re-binding the editor's document-level keydown listener.
-  useEffect(() => {
-    focusModeActiveRef.current = focusModeActive;
-  }, [focusModeActive]);
-
-  // Focus mode keeps ALL the editor's own tools (the Shortcuts / Style Guide
-  // rail and the Images / Files attachment strip) so no editing functionality
-  // is lost (Grant 2026-05-29). Focus mode strips the surrounding host popup
-  // chrome (tabs, header, icon rail), which the full-viewport overlay simply
-  // covers, NOT the editor's own affordances. So the attachment strip stays
-  // visible (its `true` default) on enter, and the rail is not force-collapsed
-  // (see forceHelperCollapsed below). The "Attachments" toggle in the focus
-  // top bar can still collapse the strip on demand for a calmer surface.
-
-  // Restore focus to where it was before entering (a11y §10). Runs on the
-  // exit transition; the captured element is the toolbar enter button.
-  useEffect(() => {
-    if (!focusModeActive && focusReturnElRef.current) {
-      const el = focusReturnElRef.current;
-      focusReturnElRef.current = null;
-      try {
-        el.focus();
-      } catch {
-        // Some elements throw on focus in test environments; ignore.
-      }
-    }
-  }, [focusModeActive]);
-
-  // Guarded Escape exit (FOCUS_WRITING_MODE_DESIGN.md §0 decision 1, §5).
-  // Document-level listener that exits focus mode ONLY when parked. The
-  // inline editor's CM6 keymap may call stopPropagation for its own Escape
-  // handling. When this listener DOES receive one it re-checks the guards
-  // before acting, and early-returns on a tour-synthetic Escape so the
-  // in-cluster Escapes the walkthrough fires never bounce the user out of
-  // focus mode mid-demo.
-  useEffect(() => {
-    if (!focusModeActive) return;
-    if (typeof document === "undefined") return;
-    const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key !== "Escape") return;
-      // Modifier-combo Escape is not our toggle; let it pass through.
-      if (e.metaKey || e.ctrlKey || e.altKey || e.shiftKey) return;
-      // Only act when PARKED: no block mid-edit, no block selected, and no
-      // tour cursor lock active. The child editor signals "mid-edit" by
-      // keeping a textarea focused (its own handler stopPropagation's that
-      // case before we see it); the belt-and-suspenders checks below cover
-      // the rest.
-      // PARKED guard (decision 1): the child publishes whether no block is
-      // mid-edit AND no block is selected. If it is not parked, decline.
-      if (!editorParkedRef.current) return;
-      // Belt-and-suspenders: also decline if a textarea inside the overlay is
-      // focused (mid-edit). The child's own block-commit Escape owns that
-      // case and stopPropagation's it, so we usually never see it, but this
-      // keeps us safe if the parked ref ever lags a frame.
-      const active = document.activeElement as HTMLElement | null;
-      const isEditingTextarea =
-        active instanceof HTMLTextAreaElement &&
-        Boolean(focusOverlayRef.current?.contains(active));
-      if (isEditingTextarea) return;
-      const tourCursorLocked = Boolean(
-        (window as unknown as { __beakerBotCursorScriptRunning?: boolean })
-          .__beakerBotCursorScriptRunning,
-      );
-      if (tourCursorLocked) return;
-      // We are parked: claim the Escape so the host popup's own
-      // Escape-to-close / shrink never also fires, then exit focus mode.
-      e.preventDefault();
-      e.stopPropagation();
-      toggleFocusMode(false);
-    };
-    // Capture phase so we win over the host popup's window-level Escape
-    // (which would otherwise close / shrink the popup underneath).
-    document.addEventListener("keydown", onKeyDown, true);
-    return () => document.removeEventListener("keydown", onKeyDown, true);
-  }, [focusModeActive, toggleFocusMode]);
-
-  // Cmd/Ctrl+Shift+F focus-mode toggle. The inline (CodeMirror 6) editor does
-  // not install a document-level keydown, so the wrapper owns the shortcut
-  // here. Fires when this editor owns focus OR when nothing editable anywhere
-  // owns focus (so a freshly opened editor with focus on the host chrome still
+  // Cmd/Ctrl+Shift+F expand toggle. The inline (CodeMirror 6) editor does not
+  // install a document-level keydown, so the wrapper owns the shortcut here. It
+  // routes through requestExpandToggle, which asks the host popup to grow /
+  // shrink (and is a no-op on the non-popup mounts that pass no onRequestExpand).
+  // Fires when this editor owns focus OR when nothing editable anywhere owns
+  // focus (so a freshly opened editor with focus on the host chrome still
   // toggles), and yields when a DIFFERENT editor's field is focused.
   const inlineBranchActive = currentMode === "inline";
   useEffect(() => {
@@ -1735,97 +1926,149 @@ export default function LiveMarkdownEditor({
       if (!ownsFocus && editableFocused) return;
       e.preventDefault();
       e.stopPropagation();
-      toggleFocusMode(!focusModeActiveRef.current);
+      requestExpandToggle();
     };
     document.addEventListener("keydown", onKeyDown, true);
     return () => document.removeEventListener("keydown", onKeyDown, true);
-  }, [inlineBranchActive, toggleFocusMode]);
+  }, [inlineBranchActive, requestExpandToggle]);
 
-  // Minimal focus trap (a11y §10): keep Tab / Shift+Tab cycling within the
-  // overlay. On enter, move focus to the overlay root so keyboard users
-  // land inside the dialog.
+  // Self-effacing chrome doze (UNIFIED_EDITOR_SURFACE_DESIGN.md §3A, U5). Only
+  // armed when the host popup is EXPANDED. Pointer-move or keypress anywhere in
+  // the editor subtree wakes the chrome and (re)starts a ~2.5s idle timer; when
+  // it fires the toolbar dozes. Listeners are scoped to the editor wrapper so
+  // activity elsewhere on the page (incl. the pinned tab bar, which lives
+  // outside this subtree) never affects it. When not expanded the chrome is
+  // always awake, so the small docked toolbar stays put.
   useEffect(() => {
-    if (!focusModeActive) return;
-    const root = focusOverlayRef.current;
-    if (!root) return;
-    // Land focus inside the overlay on enter.
-    try {
-      root.focus();
-    } catch {
-      // ignore in test environments
+    if (!expanded) {
+      setChromeDozing(false);
+      return;
     }
-    const onTrapKeyDown = (e: KeyboardEvent) => {
-      if (e.key !== "Tab") return;
-      const focusables = Array.from(
-        root.querySelectorAll<HTMLElement>(
-          'a[href], button:not([disabled]), textarea, input:not([disabled]), select, [tabindex]:not([tabindex="-1"])',
-        ),
-      ).filter((el) => el.offsetParent !== null || el === root);
-      if (focusables.length === 0) return;
-      const first = focusables[0];
-      const last = focusables[focusables.length - 1];
-      const activeEl = document.activeElement as HTMLElement | null;
-      if (e.shiftKey) {
-        if (activeEl === first || activeEl === root) {
-          e.preventDefault();
-          last.focus();
-        }
-      } else if (activeEl === last) {
-        e.preventDefault();
-        first.focus();
-      }
+    const root = wrapperRef.current;
+    if (!root || typeof window === "undefined") return;
+    let timer: number | undefined;
+    const arm = () => {
+      setChromeDozing(false);
+      if (timer !== undefined) window.clearTimeout(timer);
+      timer = window.setTimeout(() => setChromeDozing(true), 2500);
     };
-    root.addEventListener("keydown", onTrapKeyDown);
-    return () => root.removeEventListener("keydown", onTrapKeyDown);
-  }, [focusModeActive]);
-
-  // Move the stable portal container in the DOM (never replace it) so the
-  // editor's React state survives the focus toggle. When focus mode is on the
-  // container lives in document.body (its `fixed inset-0` child becomes the
-  // viewport overlay); otherwise it lives inside the in-place mount slot in
-  // the host's normal flow. The container is `display: contents` so it is
-  // transparent to layout in both homes. useLayoutEffect so the node is
-  // attached before paint (no first-frame flash of an editor-less slot).
-  useLayoutEffect(() => {
-    const container = portalContainerRef.current;
-    if (!container) return;
-    container.style.display = "contents";
-    const desiredParent = focusModeActive ? document.body : inPlaceMount;
-    if (desiredParent && container.parentNode !== desiredParent) {
-      desiredParent.appendChild(container);
-    }
-  }, [focusModeActive, inPlaceMount]);
-
-  // Detach the stable container from the DOM on unmount so it doesn't leak as
-  // an orphan in document.body if we unmount mid-focus-mode.
-  useEffect(() => {
+    // Start awake with the timer armed so the toolbar dozes if the user goes
+    // straight to writing without any further activity.
+    arm();
+    root.addEventListener("pointermove", arm);
+    root.addEventListener("keydown", arm);
     return () => {
-      const container = portalContainerRef.current;
-      if (container && container.parentNode) {
-        container.parentNode.removeChild(container);
-      }
+      if (timer !== undefined) window.clearTimeout(timer);
+      root.removeEventListener("pointermove", arm);
+      root.removeEventListener("keydown", arm);
     };
-  }, []);
+  }, [expanded]);
 
-  // The editor subtree, rendered ONCE. In focus mode it is relocated into a
-  // body-level portal via createPortal below; React preserves component
-  // state (the CM6 editor's state + undo refs) when only the portal
-  // container changes and element identity is kept, so no remount happens
-  // and no typing is lost (FOCUS_WRITING_MODE_DESIGN.md §7).
-  // In focus mode the outer wrapper centers the body in a FLUID, ch-based
-  // readable measure (Phase 1) instead of the old constant `max-w-5xl` box.
-  // The measure follows the user's width preset (Narrow / Comfortable / Wide /
-  // Full-bleed); Full-bleed drops the cap so the surface uses the available
-  // width. `h-full` is kept so the column still fills the overlay height and
-  // scrolls inside itself.
+  // ── Slim insert rail config (L1 Phase B) ──────────────────────────────────
+  // Minimum REAL empty gutter (px) before the rail may render. Below this the
+  // rail would crowd or overlap the text, so it hides and folds into the ＋
+  // overflow menu instead. ~76px matches the design's measured threshold and
+  // comfortably clears the ~44px rail (8px chrome + 32px hit area + insets).
+  const RAIL_MIN_GUTTER_PX = 76;
+  // Each entry drops a live embed at the caret through the EXISTING pipeline:
+  // typed object inserts open the ReferencePicker pre-targeted to a tab (which
+  // calls insertRef on pick), and Image routes through the same Add Image flow
+  // as the toolbar. No new embed syntax is introduced. Reference / table / plot
+  // / sequence / molecule need the picker; Image always works. The whole rail
+  // is gated on enableReferencePicker (the insert-pipeline capability) so it
+  // only appears on surfaces that opted in, and never on the constrained mounts
+  // (BeakerBot Canvas, the method create / compound / variation panels).
+  const railInsertItems: {
+    key: string;
+    label: string;
+    icon: IconName;
+    onClick: () => void;
+  }[] = [
+    { key: "reference", label: "Reference", icon: "reference", onClick: () => openReferencePicker() },
+    { key: "table", label: "Data Hub table", icon: "table", onClick: () => openReferencePicker("datahub") },
+    { key: "plot", label: "Plot or figure", icon: "chart", onClick: () => openReferencePicker("datahub") },
+    { key: "sequence", label: "Sequence", icon: "sequence", onClick: () => openReferencePicker("sequences") },
+    { key: "molecule", label: "Molecule", icon: "moleculeCircular", onClick: () => openReferencePicker("molecules") },
+    { key: "image", label: "Image or file", icon: "attach", onClick: () => { setInsertMenuOpen(false); handleAddImageClick(); } },
+  ];
+  // The never-overlap gate: opted-in surface, edit mode (insert-at-caret has no
+  // meaning in Preview / read-only), and a measured gutter wide enough to clear
+  // the text. Full-bleed collapses the gutter to ~0 so railVisible is false and
+  // the rail hides entirely, exactly as the design specifies.
+  const railVisible =
+    enableReferencePicker &&
+    !disabled &&
+    currentMode !== "preview" &&
+    railGutterPx >= RAIL_MIN_GUTTER_PX;
+
+  // ── Right Context rail config (gutter rails L/R, 2026-06-13) ──────────────
+  // The right gutter holds a quiet Context rail mirroring the design mockup:
+  // Outline / Embeds / Attachments / BeakerBot, each an icon tab that pops a
+  // flyout anchored to the rail. It obeys the SAME measured never-overlap rule
+  // as the insert rail (a wide-enough gutter, edit mode, not full-bleed), so it
+  // never sits on the text and never appears on the constrained non-popup
+  // mounts. When the gutter is too narrow the tools fold into a single "≡"
+  // chrome control and the flyout re-anchors below the toolbar instead of over
+  // the gutter (never on the words).
+  const contextRailVisible =
+    enableReferencePicker &&
+    !disabled &&
+    currentMode !== "preview" &&
+    railGutterPx >= RAIL_MIN_GUTTER_PX;
+  // The doc outline: every ATX heading, in order, reused from the shared
+  // section parser so it matches transclusion section matching exactly.
+  const docOutline = listSectionHeadings(value);
+  // Placed embeds: markdown links that point at a ResearchOS object view (a
+  // `#ros=` fragment, or an internal object route). This is a read-only listing
+  // for the Embeds flyout's jump targets; it never rewrites the body. The label
+  // is the link text; the kind is inferred from the href for the leading glyph.
+  const docEmbeds: { label: string; href: string; icon: IconName }[] = [];
+  {
+    const LINK_RE = /\[([^\]]+)\]\(([^)\s]+)\)/g;
+    const seen = new Set<string>();
+    let m: RegExpExecArray | null;
+    while ((m = LINK_RE.exec(value)) !== null) {
+      const label = m[1].trim();
+      const href = m[2].trim();
+      const isEmbed =
+        href.includes("#ros=") ||
+        /^\/(sequences|molecules|notes|methods|experiments|datahub|data-hub|trees|phylo)\b/.test(
+          href,
+        );
+      if (!isEmbed) continue;
+      const key = `${label}::${href}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      let icon: IconName = "reference";
+      if (/sequences/.test(href)) icon = "sequence";
+      else if (/molecules/.test(href)) icon = "moleculeCircular";
+      else if (/(datahub|data-hub)/.test(href)) icon = "table";
+      else if (/(trees|phylo)/.test(href)) icon = "labTree";
+      else if (/notes|methods|experiments/.test(href)) icon = "reference";
+      docEmbeds.push({ label, href, icon });
+    }
+  }
+
+  // The editor subtree, rendered inline at EVERY size (no portal, no overlay).
+  // The host popup grows / shrinks itself around this same DOM, so the editor
+  // never remounts and no in-flight typing is lost across the size transition
+  // (UNIFIED_EDITOR_SURFACE_DESIGN.md §9).
+  // When the host popup is EXPANDED (fullscreen) the outer wrapper centers the
+  // body in a FLUID, ch-based readable measure (Phase 1) so the writing-room
+  // type reads well across the wide surface. The measure follows the user's
+  // width preset (Narrow / Comfortable / Wide / Full-bleed); Full-bleed drops
+  // the cap so the surface uses the available width. `h-full` is kept so the
+  // column fills the available height and scrolls inside itself.
   const editorTree = (
     <div
       ref={wrapperRef}
-      className={
-        focusModeActive
-          ? `flex flex-col h-full ${measureClass}`
-          : "flex flex-col h-full"
-      }
+      // Full-width always: the warm-paper room + toolbar span the whole surface
+      // and the writing column is centered by the INNER measure (InlineMarkdownEditor
+      // + the Preview card both carry measureClass). Capping this outer wrapper with
+      // the measure (the old `expanded` branch) shrank the paper to a narrow centered
+      // card AND collapsed the gutters the insert/context rails need — so focus mode
+      // read as a small card floating in white instead of an edge-to-edge room.
+      className="flex flex-col h-full"
       onDragEnter={handleWrapperDragEnter}
       onDragLeave={handleWrapperDragLeave}
       // Capture phase: the inner drop handler calls stopPropagation on valid
@@ -1833,17 +2076,37 @@ export default function LiveMarkdownEditor({
       // Capture runs top-down before that stop, so we always reset on drop.
       onDropCapture={handleWrapperDrop}
     >
-      {/* Toolbar: the FULL in-place toolbar. Hidden while focus mode is on
-          (the focus overlay renders its own compact top bar instead, see
-          §6: hide Add File / Browse / Strip, keep a compact Hybrid / Preview
-          toggle + Attachments toggle + Save + Exit). */}
-      {showToolbar && !focusModeActive && (
-        <div className="flex items-center gap-2 px-4 py-2 border-b border-border bg-surface-sunken/50">
+      {/* Toolbar: the quiet contextual strip. Always rendered when showToolbar
+          is set; at fullscreen it self-effaces (dozes ~2.5s into writing, wakes
+          on pointer-move / keypress) via `chromeDozing` below, but the markup is
+          unchanged across docked and fullscreen. */}
+      {showToolbar && (
+        // L1 quiet contextual toolbar. The heavy permanent toolbar collapses
+        // into a calm, low-contrast strip: Edit / Preview + Focus stay visible;
+        // the secondary insert actions (Add File / Browse / Insert ref / Number
+        // figures) fold into a single "＋" overflow menu; the Attachments
+        // (strip) toggle and Focus enter button are quiet icon buttons. EVERY
+        // original action + behavior is preserved — only the presentation is
+        // quieted (Phase A). No hard border / sunken fill so it reads as part
+        // of the writing room.
+        <div
+          // Self-effacing chrome (U5): at fullscreen the toolbar fades out and
+          // goes non-interactive while dozing, and wakes (opacity-100) the
+          // instant the user moves the pointer or presses a key. `chromeDozing`
+          // is only ever true when expanded, so the docked toolbar is unaffected.
+          className={`${
+            expanded
+              ? "relative z-40 self-center mt-2 mb-1 inline-flex rounded-full border border-border bg-surface-overlay/85 shadow-md backdrop-blur px-2.5"
+              : "flex px-3"
+          } items-center gap-1.5 py-1.5 transition-opacity duration-500 ${
+            chromeDozing ? "opacity-0 pointer-events-none" : "opacity-100"
+          }`}
+        >
           {/* Two-way mode toggle: Edit | Preview. The inline CodeMirror 6
               surface is now the sole editor ("Edit"); Hybrid was retired from
               the UI (its code stays as a dormant fallback). The Edit pill maps
               to the "inline" EditorMode. */}
-          <div className="flex items-center bg-surface-sunken rounded-md p-0.5">
+          <div className="flex items-center bg-surface-sunken/70 rounded-lg p-0.5">
             <Tooltip
               label="Write in a single live editing surface"
               placement="bottom"
@@ -1853,7 +2116,7 @@ export default function LiveMarkdownEditor({
                 data-testid="editor-mode-inline"
                 onClick={() => setMode("inline")}
                 disabled={disabled}
-                className={`px-2.5 py-1 text-meta rounded transition-colors ${
+                className={`px-2.5 py-1 text-meta rounded-md transition-colors ${
                   currentMode !== "preview"
                     ? "bg-surface-raised text-foreground font-medium shadow-sm"
                     : "text-foreground-muted hover:text-foreground"
@@ -1867,7 +2130,7 @@ export default function LiveMarkdownEditor({
                 type="button"
                 onClick={() => setMode("preview")}
                 disabled={disabled}
-                className={`px-2.5 py-1 text-meta rounded transition-colors ${
+                className={`px-2.5 py-1 text-meta rounded-md transition-colors ${
                   currentMode === "preview"
                     ? "bg-surface-raised text-foreground font-medium shadow-sm"
                     : "text-foreground-muted hover:text-foreground"
@@ -1877,142 +2140,355 @@ export default function LiveMarkdownEditor({
               </button>
             </Tooltip>
           </div>
-          {/* Writing Focus Mode enter button (FOCUS_WRITING_MODE_DESIGN.md
-              §6). Sits next to the Edit / Preview toggle. Inline SVG
-              "expand" glyph (no emoji), project Tooltip (never native
-              title=), data-tour-target for the walkthrough's enter beat. */}
-          <Tooltip label="Focus mode (Cmd+Shift+F)" placement="bottom">
-            <button
-              type="button"
-              data-tour-target="hybrid-editor-focus-toggle"
-              data-testid="hybrid-editor-focus-toggle"
-              onClick={() => toggleFocusMode(true)}
-              disabled={disabled}
-              aria-label="Enter writing focus mode"
-              className="p-1.5 text-foreground-muted rounded hover:bg-foreground-muted/15 hover:text-foreground transition-colors disabled:opacity-50"
-            >
-              <svg
-                className="w-4 h-4"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-                aria-hidden="true"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4"
-                />
-              </svg>
-            </button>
-          </Tooltip>
-          <Tooltip
-            label={allowAnyFileType ? "Click to upload any file from your computer" : "Click to upload an image file from your computer"}
-            placement="bottom"
-          >
-            <button
-              type="button"
-              onClick={handleAddImageClick}
-              disabled={disabled}
-              className="px-2.5 py-1 text-meta bg-surface-sunken text-foreground-muted rounded hover:bg-foreground-muted/15 transition-colors disabled:opacity-50"
-            >
-              {allowAnyFileType ? "Add File" : "Add Image"}
-            </button>
-          </Tooltip>
-          
-          {/* Browse Images Button */}
-          {onBrowseImages && (
-            <Tooltip label={`Browse images already attached to this ${recordType}`} placement="bottom">
+
+          {/* Quiet divider between the primary toggle and the contextual icons. */}
+          <div
+            aria-hidden="true"
+            className="w-px h-4 bg-border mx-0.5"
+          />
+
+          {/* ＋ Insert overflow menu. Collapses the four secondary insert
+              actions (Add File / Add Image, Browse, Insert ref, Number figures)
+              behind a single quiet "＋" so the strip stays calm. Each row keeps
+              its EXACT original handler + behavior; only the presentation moved
+              from inline buttons into this menu. Outside-click / Escape close it
+              (wired via the insertMenuOpen effect above). */}
+          <div className="relative" ref={insertMenuRef}>
+            <Tooltip label="Insert" placement="bottom">
               <button
                 type="button"
-                onClick={onBrowseImages}
+                aria-label="Insert"
+                aria-haspopup="menu"
+                aria-expanded={insertMenuOpen}
+                onClick={() => setInsertMenuOpen((v) => !v)}
                 disabled={disabled}
-                className="px-2.5 py-1 text-meta bg-surface-sunken text-foreground-muted rounded hover:bg-foreground-muted/15 transition-colors disabled:opacity-50"
+                className={`p-1.5 rounded-lg transition-colors disabled:opacity-50 ${
+                  insertMenuOpen
+                    ? "bg-brand-action/12 text-brand-action"
+                    : "text-foreground-muted hover:bg-foreground-muted/15 hover:text-foreground"
+                }`}
               >
-                Browse
+                <Icon name="plus" className="w-4 h-4" />
               </button>
             </Tooltip>
-          )}
-
-          {/* Insert Reference (Chemistry Phase 3). Only shown when the host
-              opts in via enableReferencePicker. Opens the tabbed picker for
-              Molecules / Sequences / Methods; the chosen row inserts the
-              objectReferenceMarkdown at the CM6 caret via insertRef. */}
-          {enableReferencePicker && !disabled && (
-            <Tooltip label="Insert reference (molecule, sequence, or method)" placement="bottom">
-              <button
-                type="button"
-                aria-label="Insert reference"
-                onClick={() => setReferencePickerOpen(true)}
-                className="px-2.5 py-1 text-meta bg-surface-sunken text-foreground-muted rounded hover:bg-foreground-muted/15 transition-colors"
+            {insertMenuOpen && (
+              <div
+                role="menu"
+                className="absolute left-0 top-full mt-1 z-30 min-w-[11rem] py-1 rounded-lg border border-border bg-surface-overlay shadow-lg"
               >
-                Insert ref
-              </button>
-            </Tooltip>
-          )}
+                {/* Add File / Add Image */}
+                <button
+                  type="button"
+                  role="menuitem"
+                  onClick={() => {
+                    setInsertMenuOpen(false);
+                    handleAddImageClick();
+                  }}
+                  disabled={disabled}
+                  className="w-full flex items-center gap-2 px-3 py-1.5 text-left text-meta text-foreground hover:bg-foreground-muted/10 transition-colors disabled:opacity-50"
+                >
+                  <Icon name="plus" className="w-4 h-4 text-foreground-muted" />
+                  {allowAnyFileType ? "Add File" : "Add Image"}
+                </button>
 
-          {/* Number figures toggle. Inserts / removes the portable
-              `<!-- ros:number-figures -->` directive (hidden in the editor, kept
-              in the saved .md) so embedded figures + tables get "Figure N" /
-              "Table N" labels in this document. Per-document, no global setting. */}
-          {enableReferencePicker && !disabled && (
+                {/* Browse Images */}
+                {onBrowseImages && (
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={() => {
+                      setInsertMenuOpen(false);
+                      onBrowseImages();
+                    }}
+                    disabled={disabled}
+                    className="w-full flex items-center gap-2 px-3 py-1.5 text-left text-meta text-foreground hover:bg-foreground-muted/10 transition-colors disabled:opacity-50"
+                  >
+                    <Icon name="search" className="w-4 h-4 text-foreground-muted" />
+                    Browse
+                  </button>
+                )}
+
+                {/* Typed insert entries (L1 Phase B). These mirror the slim
+                    insert rail one-for-one so the SAME tools stay reachable
+                    when the rail is hidden (narrow gutter / split-screen /
+                    full-bleed) — the "fold into the floating chrome" half of
+                    the never-overlap rule. Each opens the ReferencePicker
+                    pre-targeted to a tab; Image routes through the Add Image
+                    flow above, so it is not repeated here. */}
+                {enableReferencePicker && !disabled && (
+                  <>
+                    <div className="my-1 h-px bg-border" aria-hidden="true" />
+                    {railInsertItems
+                      .filter((item) => item.key !== "image")
+                      .map((item) => (
+                        <button
+                          key={item.key}
+                          type="button"
+                          role="menuitem"
+                          aria-label={item.label}
+                          onClick={item.onClick}
+                          className="w-full flex items-center gap-2 px-3 py-1.5 text-left text-meta text-foreground hover:bg-foreground-muted/10 transition-colors"
+                        >
+                          <Icon name={item.icon} className="w-4 h-4 text-foreground-muted" />
+                          {item.label}
+                        </button>
+                      ))}
+                  </>
+                )}
+
+                {/* Attachments (docked home). The standalone Attachments toolbar
+                    button now only renders at fullscreen (the pill's paperclip);
+                    docked, Attachments folds in here as a menu item so the bar
+                    stays slim (Edit|Preview · ＋ · / to insert). Same handler as
+                    the toolbar button — opens the Attachments flyout in the
+                    Context rail. Honors hideAttachments. Keeps the same
+                    aria-label ("Toggle attachments") as the fullscreen pill
+                    button so name-based queries resolve, plus a docked-specific
+                    testid (editor-insert-attachments). */}
+                {!hideAttachments && (
+                  <button
+                    type="button"
+                    role="menuitem"
+                    data-testid="editor-insert-attachments"
+                    aria-label="Toggle attachments"
+                    aria-pressed={contextFlyout === "files"}
+                    onClick={() => {
+                      setInsertMenuOpen(false);
+                      setContextFlyout((v) => (v === "files" ? null : "files"));
+                    }}
+                    className="w-full flex items-center gap-2 px-3 py-1.5 text-left text-meta text-foreground hover:bg-foreground-muted/10 transition-colors"
+                  >
+                    <Icon name="attach" className="w-4 h-4 text-foreground-muted" />
+                    Attachments
+                  </button>
+                )}
+
+                {/* Number figures directive toggle (per-document). Keeps the
+                    exact insert/remove logic; the active state shows a check. */}
+                {enableReferencePicker && !disabled && (
+                  <button
+                    type="button"
+                    role="menuitemcheckbox"
+                    aria-checked={FIGURE_DIRECTIVE.test(value)}
+                    aria-label="Number figures"
+                    onClick={() => {
+                      const on = FIGURE_DIRECTIVE.test(value);
+                      const next = on
+                        ? value.replace(/^[^\n]*<!--\s*ros:number-figures\s*-->[^\n]*\n?/m, "")
+                        : `<!-- ros:number-figures -->\n${value}`;
+                      onChange(next);
+                      setInsertMenuOpen(false);
+                    }}
+                    className="w-full flex items-center gap-2 px-3 py-1.5 text-left text-meta text-foreground hover:bg-foreground-muted/10 transition-colors"
+                  >
+                    <Icon
+                      name={FIGURE_DIRECTIVE.test(value) ? "check" : "list"}
+                      className={`w-4 h-4 ${FIGURE_DIRECTIVE.test(value) ? "text-brand-action" : "text-foreground-muted"}`}
+                    />
+                    Number figures
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* Attachments toggle (kept quiet). Opens the Attachments flyout in
+              the right Context rail, which is the NEW home of the former bottom
+              Images / Files strip: same ImageStrip / FileStrip + tab bar, just
+              relocated off the bottom edge and into the gutter. Carries the
+              paperclip glyph (Grant-approved) beside the quiet label. Hidden
+              when the surface suppresses attachments (hideAttachments).
+
+              DOCKED SLIMMING (2026-06-14): this standalone button now renders
+              ONLY at fullscreen (`expanded`) — it stays the Writing-Room pill's
+              📎 paperclip. Docked, Attachments folds into the ＋ insert menu
+              above (data-testid editor-insert-attachments) so the docked bar is
+              just Edit|Preview · ＋ · / to insert. */}
+          {!hideAttachments && expanded && (
             <Tooltip
               label={
-                FIGURE_DIRECTIVE.test(value)
-                  ? "Stop numbering figures and tables in this document"
-                  : "Number the figures and tables in this document (Figure 1, Table 2)"
+                contextFlyout === "files"
+                  ? "Hide attachments"
+                  : "Every image and file attached to this experiment - drag a tile into the body to insert it"
               }
               placement="bottom"
             >
               <button
                 type="button"
-                aria-pressed={FIGURE_DIRECTIVE.test(value)}
-                aria-label="Number figures"
-                onClick={() => {
-                  const on = FIGURE_DIRECTIVE.test(value);
-                  const next = on
-                    ? value.replace(/^[^\n]*<!--\s*ros:number-figures\s*-->[^\n]*\n?/m, "")
-                    : `<!-- ros:number-figures -->\n${value}`;
-                  onChange(next);
-                }}
-                className={`px-2.5 py-1 text-meta rounded transition-colors ${
-                  FIGURE_DIRECTIVE.test(value)
-                    ? "bg-blue-100 dark:bg-blue-500/20 text-blue-700 dark:text-blue-300"
-                    : "bg-surface-sunken text-foreground-muted hover:bg-foreground-muted/15"
+                aria-label="Toggle attachments"
+                aria-pressed={contextFlyout === "files"}
+                onClick={() =>
+                  setContextFlyout((v) => (v === "files" ? null : "files"))
+                }
+                className={`flex items-center gap-1.5 px-2.5 py-1 text-meta rounded-lg transition-colors ${
+                  contextFlyout === "files"
+                    ? "bg-brand-action/12 text-brand-action font-medium"
+                    : "text-foreground-muted hover:bg-foreground-muted/15 hover:text-foreground"
                 }`}
               >
-                Number figures
+                <Icon name="attach" className="w-3.5 h-3.5" />
+                {/* Icon-only at fullscreen to match the Writing-Room pill's
+                    glyph row. The Tooltip label, handler, and aria all stay, so
+                    the toggle is unchanged for a11y. (This button now only
+                    renders when `expanded`; docked, Attachments lives in the ＋
+                    insert menu — editor-insert-attachments.) */}
               </button>
             </Tooltip>
           )}
 
-          {/* Attachment Strip Toggle — shows a scrollable strip of every
-              image OR non-image file attached to this experiment along the
-              bottom. A small Images / Files tab bar above the strip switches
-              between the two. Drag a thumbnail into the body to insert a
-              reference at the drop point. */}
-          <Tooltip
-            label={
-              showAttachmentStrip
-                ? "Hide the attachments strip"
-                : "Show every image and file attached to this experiment along the bottom - drag a tile into the body to insert it"
-            }
-            placement="bottom"
-          >
-            <button
-              type="button"
-              onClick={() => setShowAttachmentStrip((v) => !v)}
-              className={`px-2.5 py-1 text-meta rounded transition-colors ${
-                showAttachmentStrip
-                  ? "bg-blue-100 dark:bg-blue-500/20 text-blue-700 dark:text-blue-300"
-                  : "bg-surface-sunken text-foreground-muted hover:bg-foreground-muted/15"
-              }`}
+          {/* Focus (expand) affordance lives in the HOST popup header now, not
+              here (UNIFIED_EDITOR_SURFACE_DESIGN.md §9, "one focus control").
+              The editor no longer renders its own Focus button — focus is driven
+              by the header's expand/collapse control (click) plus the
+              Cmd/Ctrl+Shift+F shortcut (keyboard), which still routes through
+              `onRequestExpand`. The `expanded` prop continues to drive in-editor
+              focus state (typewriter / dimming gating, width control, chrome
+              doze). */}
+
+          {/* "/" discoverability hint (L1 Phase B, design §3A). Quiet,
+              low-contrast text so it teaches without shouting. Shown only when
+              the slash-insert pipeline is actually wired (enableReferencePicker)
+              and not in read-only / preview, so it never advertises an action
+              the surface can't perform. Hidden on very narrow strips so it
+              never crowds the trailing controls. The styling mirrors BeakerBot's
+              composer slash affordance (a `/` token + muted copy) so users
+              learn one "/" mental model. */}
+          {enableReferencePicker && !disabled && currentMode !== "preview" && !expanded && (
+            <span
+              data-testid="editor-slash-hint"
+              className="hidden md:inline-flex items-center gap-1 pl-1 text-meta text-foreground-muted/70 select-none"
             >
-              Strip
-            </button>
-          </Tooltip>
-          
+              <span className="rounded border border-border px-1 font-semibold text-foreground-muted">
+                /
+              </span>
+              to insert
+            </span>
+          )}
+
+          {/* Writing-surface WIDTH control moved OUT of the pill and INTO the
+              "Writing focus" popover below (fullscreen-chrome slim) so the
+              fullscreen pill stays minimal (Edit/Preview · ＋ · 📎 · ⊙focus).
+              The 4 segmented measure glyphs + applyWidthPreset + per-preset
+              testids now live as a "Writing width" section inside the focus
+              menu; width stays reachable via the ⊙ control at fullscreen.
+              Docked never rendered this (it was already gated on `expanded`). */}
+
+          {/* Focus behaviors (UNIFIED_EDITOR_SURFACE_DESIGN.md §3A, U5 toggles).
+              A small quiet popover, shown ONLY when the host popup is EXPANDED
+              (fullscreen) — these comfort behaviors only matter at the dedicated
+              writing scale, and they are double-gated (pref AND expanded) before
+              reaching the editor. Each toggle persists immediately (localStorage
+              mirror + durable settings) and takes effect live via the editor's
+              reconfigure compartment. Both default off (the design's amber
+              decision). The popover ALSO hosts the writing-width presets (moved
+              here from the pill). */}
+          {expanded && (
+            <div ref={focusMenuRef} className="relative">
+              <Tooltip label="Writing focus" placement="bottom">
+                <button
+                  type="button"
+                  data-testid="hybrid-editor-focus-menu"
+                  aria-haspopup="menu"
+                  aria-expanded={focusMenuOpen}
+                  aria-label="Writing focus options"
+                  onClick={() => setFocusMenuOpen((v) => !v)}
+                  className={`p-1.5 rounded-md transition-colors ${
+                    focusMenuOpen || typewriterPref || dimmingPref
+                      ? "bg-surface-raised text-foreground shadow-sm"
+                      : "text-foreground-muted hover:text-foreground"
+                  }`}
+                >
+                  <Icon name="focus" className="h-4 w-4" />
+                </button>
+              </Tooltip>
+              {focusMenuOpen && focusMenuPos && createPortal(
+                <div
+                  ref={focusMenuPanelRef}
+                  role="menu"
+                  data-testid="hybrid-editor-focus-popover"
+                  // Portaled to document.body and fixed under the trigger: the
+                  // menu must escape the editor's stacking context. The fullscreen
+                  // pill's backdrop-blur and the document body sit in contexts that
+                  // otherwise paint over an in-tree menu (doc text bled through,
+                  // confirmed via elementFromPoint). As a top-level layer with an
+                  // opaque --surface-overlay fill it always renders solid above the
+                  // popup.
+                  style={{
+                    position: "fixed",
+                    top: focusMenuPos.top,
+                    right: focusMenuPos.right,
+                    zIndex: 500,
+                    backgroundColor: "var(--surface-overlay)",
+                  }}
+                  className="min-w-[15rem] p-1.5 rounded-lg border border-border bg-surface-overlay shadow-lg"
+                >
+                  <FocusToggleRow
+                    icon="align"
+                    label="Typewriter scroll"
+                    description="Hold the active line near the middle of the screen."
+                    checked={typewriterPref}
+                    testId="hybrid-editor-typewriter-toggle"
+                    onChange={applyTypewriterPref}
+                  />
+                  <FocusToggleRow
+                    icon="focus"
+                    label="Dim other lines"
+                    description="Fade everything except the line you're writing, while focused."
+                    checked={dimmingPref}
+                    testId="hybrid-editor-dimming-toggle"
+                    onChange={applyDimmingPref}
+                  />
+
+                  {/* Writing-width presets (relocated from the pill —
+                      fullscreen-chrome slim). Same segmented measure glyphs,
+                      applyWidthPreset handler, and per-preset testids
+                      (hybrid-editor-width-*) so the moved control is still
+                      covered by the existing tests; the group testid
+                      hybrid-editor-width-control is preserved too. */}
+                  <div className="my-1 h-px bg-border" aria-hidden="true" />
+                  <div className="px-2 pt-0.5 pb-1.5">
+                    <div className="mb-1 text-xs font-medium text-foreground-muted">
+                      Writing width
+                    </div>
+                    <div
+                      role="group"
+                      aria-label="Writing width"
+                      data-testid="hybrid-editor-width-control"
+                      className="flex items-center bg-surface-sunken/70 rounded-lg p-0.5"
+                    >
+                      {EDITOR_WIDTH_PRESETS.map((preset) => {
+                        const active = widthPreset === preset;
+                        return (
+                          <Tooltip
+                            key={preset}
+                            label={EDITOR_WIDTH_PRESET_DESCRIPTIONS[preset]}
+                            placement="bottom"
+                          >
+                            <button
+                              type="button"
+                              data-testid={`hybrid-editor-width-${preset}`}
+                              aria-pressed={active}
+                              aria-label={`Set writing width to ${EDITOR_WIDTH_PRESET_LABELS[preset]}`}
+                              onClick={() => applyWidthPreset(preset)}
+                              className={`p-1.5 rounded-md transition-colors ${
+                                active
+                                  ? "bg-surface-raised text-foreground shadow-sm"
+                                  : "text-foreground-muted hover:text-foreground"
+                              }`}
+                            >
+                              <WidthPresetGlyph preset={preset} />
+                            </button>
+                          </Tooltip>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </div>,
+                document.body,
+              )}
+            </div>
+          )}
+
           <input
             ref={fileInputRef}
             type="file"
@@ -2037,7 +2513,14 @@ export default function LiveMarkdownEditor({
       {/* Main content area with helper panel and editor */}
       <div
         ref={editorContentRef}
-        className="flex flex-1 min-h-0"
+        className={
+          // L1 calm editor atom: the content zone is a warm "writing room"
+          // (calm paper + writing-room type via the scoped `.ros-editor-room`
+          // rules in globals.css). The same surface renders at every size, so
+          // the room treatment now also applies when the host popup is expanded
+          // to fullscreen (UNIFIED_EDITOR_SURFACE_DESIGN.md §9, U5).
+          "flex flex-1 min-h-0 ros-editor-room"
+        }
         onDragOver={(e) => {
           const types = Array.from(e.dataTransfer.types);
           if (
@@ -2212,7 +2695,7 @@ export default function LiveMarkdownEditor({
             <div className="p-4 h-full overflow-y-auto">
               {previewValue.trim() ? (
                 <div
-                  className={`light-scope prose prose-sm prose-gray ${measureClass} px-6 py-4 rounded-md border border-border bg-surface-raised`}
+                  className={`ros-editor-preview-card light-scope prose prose-sm prose-gray ${measureClass} px-6 py-4 rounded-md border border-border bg-surface-raised`}
                   style={{ lineHeight: "1.7" }}
                 >
                   {/* Preview render path: RenderedMarkdown handles object
@@ -2261,13 +2744,19 @@ export default function LiveMarkdownEditor({
             // sheet stays one click away without disturbing the calm surface;
             // the shortcuts keep working via the CM6 keymap.
             <div className="flex h-full min-h-0">
-              {showShortcutsHelper && (
+              {/* Markdown shortcuts / Style Guide rail. At fullscreen it is now
+                  FULLY hidden (not even the thin collapsed strip) — the Insert
+                  rail owns that gutter in the Writing Room, and the markdown
+                  shortcuts still work via the CM6 keymap. Docked is unchanged
+                  (rail renders as before). Fullscreen-chrome slim. */}
+              {showShortcutsHelper && !expanded && (
                 <MarkdownShortcutsSidebar
                   onInsertSyntax={(s) => insertRef.current?.(s)}
-                  focusActive={focusModeActive}
+                  focusActive={expanded}
                 />
               )}
               <div
+                ref={railColRef}
                 className="relative flex-1 flex flex-col min-h-0 h-full"
                 data-tour-target="inline-editor-surface"
               >
@@ -2289,22 +2778,291 @@ export default function LiveMarkdownEditor({
                   collabUser={collabUser}
                   embedPinContext={embedPinContext}
                   normalizeRef={normalizeRef}
-                  onRequestReference={enableReferencePicker ? () => setReferencePickerOpen(true) : undefined}
+                  onRequestReference={enableReferencePicker ? () => openReferencePicker() : undefined}
+                  // U5 focus behaviors: already double-gated (pref AND expanded)
+                  // so the docked editor / Canvas always pass false.
+                  typewriterScroll={typewriterActive}
+                  focusDimming={dimmingActive}
                 />
+
+                {/* Never-overlap probe (L1 Phase B). A zero-height, invisible
+                    twin of the writing column: same `measureClass` (w-full
+                    max-w-[Nch] mx-auto), so its measured width IS the column's.
+                    measureRailGutter reads it to compute the real gutter. It is
+                    aria-hidden + pointer-events-none so it never affects layout
+                    height, scroll, or assistive tech. The p-4 padding mirrors
+                    the editor's own scroll-pane padding so the gutter math
+                    matches what the user sees. */}
+                <div
+                  aria-hidden="true"
+                  className="absolute inset-x-0 top-0 h-0 overflow-hidden pointer-events-none px-4"
+                >
+                  <div ref={railProbeRef} className={measureClass} />
+                </div>
+
+                {/* Slim Insert rail — LEFT gutter (gutter rails L/R, design
+                    2026-06-13). Floats in the editor's LEFT gutter and drops a
+                    live embed at the caret via the existing ReferencePicker /
+                    insertRef pipeline (no new embed syntax). HARD never-overlap
+                    rule: renders ONLY when the measured empty gutter is wide
+                    enough to clear the text; when too narrow (split-screen /
+                    docked popup) OR full-bleed it hides and its tools stay
+                    reachable in the ＋ overflow menu. Dozes with the chrome at
+                    fullscreen (chromeDozing). Edit-mode + non-disabled only. */}
+                {railVisible && (
+                  <div
+                    data-testid="editor-insert-rail"
+                    className={`absolute left-3 top-1/2 -translate-y-1/2 z-[4] flex flex-col gap-1 rounded-2xl border border-border bg-surface-overlay/85 px-1.5 py-2 shadow-lg backdrop-blur transition-opacity duration-500 ${
+                      chromeDozing ? "opacity-0 pointer-events-none" : "opacity-100"
+                    }`}
+                  >
+                    <span className="px-1 pb-0.5 text-center text-[8px] font-extrabold uppercase tracking-[0.08em] text-foreground-muted">
+                      Insert
+                    </span>
+                    {railInsertItems.map((item) => (
+                      <Tooltip key={item.key} label={item.label} placement="right">
+                        <button
+                          type="button"
+                          aria-label={item.label}
+                          onClick={item.onClick}
+                          className="flex h-8 w-8 items-center justify-center rounded-lg text-foreground-muted transition-colors hover:bg-brand-action/12 hover:text-brand-action"
+                        >
+                          <Icon name={item.icon} className="h-4 w-4" />
+                        </button>
+                      </Tooltip>
+                    ))}
+                  </div>
+                )}
+
+                {/* Context rail — RIGHT gutter (gutter rails L/R, design
+                    2026-06-13). Four quiet icon tabs, each popping a flyout
+                    anchored to the rail (never over the text column): Outline,
+                    placed Embeds, Attachments (the new home of the retired
+                    bottom strip), and BeakerBot. Same measured never-overlap
+                    gate as the Insert rail; dozes with the chrome. The BeakerBot
+                    tab only renders when a BeakerSearch provider is present
+                    above us (it stays inert on the constrained mounts). */}
+                {contextRailVisible && (
+                  <div
+                    ref={contextRailRef}
+                    data-testid="editor-context-rail"
+                    className={`absolute right-3 top-1/2 -translate-y-1/2 z-[4] flex flex-col gap-1 rounded-2xl border border-border bg-surface-overlay/85 px-1.5 py-2 shadow-lg backdrop-blur transition-opacity duration-500 ${
+                      chromeDozing ? "opacity-0 pointer-events-none" : "opacity-100"
+                    }`}
+                  >
+                    <span className="px-1 pb-0.5 text-center text-[8px] font-extrabold uppercase tracking-[0.08em] text-foreground-muted">
+                      Doc
+                    </span>
+                    {(
+                      [
+                        { key: "outline", label: "Outline", icon: "list" },
+                        { key: "embeds", label: "Embeds", icon: "layer" },
+                        ...(!hideAttachments
+                          ? [{ key: "files", label: "Attachments", icon: "attach" }]
+                          : []),
+                        ...(beakerSearch
+                          ? [{ key: "bot", label: "BeakerBot", icon: "ask" }]
+                          : []),
+                      ] as { key: typeof contextFlyout; label: string; icon: IconName }[]
+                    ).map((tab) => (
+                      <Tooltip key={tab.key} label={tab.label} placement="left">
+                        <button
+                          type="button"
+                          data-testid={`editor-context-tab-${tab.key}`}
+                          aria-label={tab.label}
+                          aria-pressed={contextFlyout === tab.key}
+                          onClick={() => {
+                            if (tab.key === "bot") {
+                              // BeakerBot summons the app's existing surface
+                              // (no inline panel built into the editor); close
+                              // any open flyout so the two never stack.
+                              setContextFlyout(null);
+                              beakerSearch?.openBeakerBot();
+                              return;
+                            }
+                            setContextFlyout((v) => (v === tab.key ? null : tab.key));
+                          }}
+                          className={`flex h-8 w-8 items-center justify-center rounded-lg transition-colors ${
+                            contextFlyout === tab.key
+                              ? "bg-brand-action/16 text-brand-action"
+                              : "text-foreground-muted hover:bg-brand-action/12 hover:text-brand-action"
+                          }`}
+                        >
+                          <Icon name={tab.icon} className="h-4 w-4" />
+                        </button>
+                      </Tooltip>
+                    ))}
+                  </div>
+                )}
+
+                {/* Context-rail flyout. Anchored to the RIGHT rail, opening into
+                    the gutter / outside the text column so it never sits on the
+                    writing. Dismisses on Esc + outside-click (wired above);
+                    does not trap focus. Only rendered alongside a visible
+                    Context rail, so it inherits the same never-overlap gate. */}
+                {contextRailVisible && contextFlyout && contextFlyout !== "bot" && (
+                  <div
+                    ref={contextFlyoutRef}
+                    data-testid="editor-context-flyout"
+                    role="dialog"
+                    aria-label={
+                      contextFlyout === "outline"
+                        ? "Outline"
+                        : contextFlyout === "embeds"
+                          ? "Embeds in this note"
+                          : "Attachments"
+                    }
+                    className={`absolute right-16 top-1/2 -translate-y-1/2 z-[5] flex max-h-[78%] w-64 flex-col overflow-hidden rounded-2xl border border-border bg-surface-overlay/95 shadow-xl backdrop-blur transition-opacity duration-500 ${
+                      chromeDozing ? "opacity-0 pointer-events-none" : "opacity-100"
+                    }`}
+                  >
+                    {contextFlyout === "outline" && (
+                      <div className="overflow-auto p-2">
+                        <h4 className="px-2 pb-1.5 text-[10px] font-extrabold uppercase tracking-[0.05em] text-foreground-muted">
+                          Outline
+                        </h4>
+                        {docOutline.length === 0 && docEmbeds.length === 0 ? (
+                          <p className="px-2 py-1.5 text-meta text-foreground-muted">
+                            No headings yet. Add a # heading to build an outline.
+                          </p>
+                        ) : (
+                          <>
+                            {docOutline.map((h, i) => (
+                              <button
+                                key={`h-${i}-${h.text}`}
+                                type="button"
+                                onClick={() => handleJumpToText(h.text)}
+                                className="block w-full truncate rounded-lg px-2 py-1.5 text-left text-meta text-foreground transition-colors hover:bg-brand-action/12"
+                                style={{ paddingLeft: `${8 + (h.level - 1) * 12}px` }}
+                              >
+                                {h.text}
+                              </button>
+                            ))}
+                            {docEmbeds.length > 0 && (
+                              <>
+                                <div className="my-1 h-px bg-border" aria-hidden="true" />
+                                {docEmbeds.map((e, i) => (
+                                  <button
+                                    key={`oe-${i}-${e.href}`}
+                                    type="button"
+                                    onClick={() => handleJumpToText(e.label)}
+                                    className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-meta text-foreground-muted transition-colors hover:bg-brand-action/12"
+                                  >
+                                    <Icon name={e.icon} className="h-3.5 w-3.5 shrink-0" />
+                                    <span className="truncate">{e.label}</span>
+                                  </button>
+                                ))}
+                              </>
+                            )}
+                          </>
+                        )}
+                      </div>
+                    )}
+
+                    {contextFlyout === "embeds" && (
+                      <div className="overflow-auto p-2">
+                        <h4 className="px-2 pb-1.5 text-[10px] font-extrabold uppercase tracking-[0.05em] text-foreground-muted">
+                          Embeds in this note
+                        </h4>
+                        {docEmbeds.length === 0 ? (
+                          <p className="px-2 py-1.5 text-meta text-foreground-muted">
+                            None yet. Add one from the left Insert rail.
+                          </p>
+                        ) : (
+                          docEmbeds.map((e, i) => (
+                            <button
+                              key={`e-${i}-${e.href}`}
+                              type="button"
+                              onClick={() => handleJumpToText(e.label)}
+                              className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-meta text-foreground transition-colors hover:bg-brand-action/12"
+                            >
+                              <Icon name={e.icon} className="h-4 w-4 shrink-0 text-brand-action" />
+                              <span className="truncate">{e.label}</span>
+                            </button>
+                          ))
+                        )}
+                      </div>
+                    )}
+
+                    {contextFlyout === "files" && !hideAttachments && (
+                      // Attachments flyout = the new home of the retired bottom
+                      // strip. The SAME Images / Files tab bar + ImageStrip /
+                      // FileStrip + add affordance + drag-to-insert, just lifted
+                      // off the bottom edge into the gutter. Nothing lost.
+                      <div className="flex min-h-0 flex-col">
+                        <div className="flex items-center gap-1 border-b border-border px-2 pt-2">
+                          <button
+                            type="button"
+                            onClick={() => setActiveAttachmentTab("images")}
+                            className={`rounded-t px-2.5 py-1 text-meta transition-colors ${
+                              activeAttachmentTab === "images"
+                                ? "border border-b-transparent border-border bg-surface-raised font-medium text-foreground"
+                                : "text-foreground-muted hover:text-foreground"
+                            }`}
+                          >
+                            Images
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setActiveAttachmentTab("files")}
+                            className={`rounded-t px-2.5 py-1 text-meta transition-colors ${
+                              activeAttachmentTab === "files"
+                                ? "border border-b-transparent border-border bg-surface-raised font-medium text-foreground"
+                                : "text-foreground-muted hover:text-foreground"
+                            }`}
+                          >
+                            Files
+                          </button>
+                          <button
+                            type="button"
+                            aria-label="Add attachment"
+                            onClick={() => handleAddImageClick()}
+                            className="ml-auto flex h-6 w-6 items-center justify-center rounded text-foreground-muted transition-colors hover:bg-brand-action/12 hover:text-brand-action"
+                          >
+                            <Icon name="plus" className="h-3.5 w-3.5" />
+                          </button>
+                        </div>
+                        <div className="min-h-0 overflow-auto">
+                          {activeAttachmentTab === "images" ? (
+                            <ImageStrip
+                              content={value}
+                              basePath={imageBasePath}
+                              legacyPdfsDir={legacyAttachmentsDir}
+                              onJumpToImage={handleJumpToImage}
+                              recordType={recordType}
+                              onBodyChange={disabled ? undefined : onChange}
+                            />
+                          ) : (
+                            <FileStrip
+                              content={value}
+                              basePath={imageBasePath}
+                              legacyPdfsDir={legacyAttachmentsDir}
+                              recordType={recordType}
+                              onBodyChange={disabled ? undefined : onChange}
+                            />
+                          )}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
             </div>
           )}
         </div>
       </div>
 
-      {/* Attachment Strip — every image or non-image file attached to this
-          experiment, as scrollable thumbnails / tiles. A small Images |
-          Files tab bar switches between the two strips. Drag one into the
-          markdown to insert at the drop point, or (images only) drop on the
-          trash zone (rendered while an image drag is in progress) to delete
-          from disk and strip references. */}
-      {!hideAttachments && showAttachmentStrip && (
-        <div className="sticky bottom-0 z-10">
+      {/* Attachments fallback panel (never-overlap fold). The Attachments flyout
+          normally lives in the right Context rail, but the rail only shows when
+          the gutter is wide enough and we are in edit mode. When the rail is
+          hidden (narrow window / split-screen / Full-bleed / Preview) but the
+          user still asks for Attachments via the toolbar toggle, we surface the
+          SAME Images / Files strip docked at the bottom edge instead. It sits
+          BELOW the writing column (a sticky strip), so it never overlaps the
+          text either way. Same ImageStrip / FileStrip + tab bar + add affordance
+          + drag-to-insert: nothing is lost, only relocated. */}
+      {!hideAttachments && contextFlyout === "files" && !contextRailVisible && (
+        <div className="sticky bottom-0 z-10" data-testid="editor-attachments-fallback">
           <div className="flex items-center gap-1 px-3 pt-2 bg-surface-sunken border-t border-border">
             <button
               type="button"
@@ -2327,6 +3085,14 @@ export default function LiveMarkdownEditor({
               }`}
             >
               Files
+            </button>
+            <button
+              type="button"
+              aria-label="Hide attachments"
+              onClick={() => setContextFlyout(null)}
+              className="ml-auto flex h-6 w-6 items-center justify-center rounded text-foreground-muted transition-colors hover:bg-foreground-muted/15 hover:text-foreground"
+            >
+              <Icon name="close" className="h-3.5 w-3.5" />
             </button>
           </div>
           {activeAttachmentTab === "images" ? (
@@ -2602,245 +3368,32 @@ export default function LiveMarkdownEditor({
     </div>
   );
 
-  // ---- Buffer-safe render switch (FOCUS_WRITING_MODE_DESIGN.md §7) ----
+  // ---- Render (UNIFIED_EDITOR_SURFACE_DESIGN.md §9) ----
   //
-  // The single most important correctness constraint: toggling focus mode
-  // must NOT remount the editor, or its CM6 state + undo refs are wiped and
-  // in-flight typing is lost silently.
-  //
-  // We ALWAYS render `editorTree` through a portal at a FIXED position in the
-  // React element tree: it is always the single child of the column div,
-  // which is always the second slot of the outer `frame` div. Only two things
-  // change between the normal and focus renders:
-  //   1. the portal CONTAINER DOM node (the in-place mount node vs
-  //      document.body), and
-  //   2. the chrome classNames + whether the focus top bar slot is filled.
-  // React preserves component state when only the portal container changes
-  // and element identity is kept, so the editor never unmounts.
-  //
-  // The in-place mount node is rendered by THIS component (the
-  // `inPlaceMountRef` div with `display: contents` so it is transparent to
-  // the host's flex layout). On the very first render its DOM node does not
-  // exist yet, so we portal into document.body for that one frame and a
-  // layout effect re-renders once the node attaches; in practice focus mode
-  // always starts off, so the in-place node is present before the user can
-  // toggle.
-  const frame = (
-    <div
-      ref={focusModeActive ? focusOverlayRef : undefined}
-      role={focusModeActive ? "dialog" : undefined}
-      aria-modal={focusModeActive ? true : undefined}
-      aria-label={focusModeActive ? "Writing focus mode" : undefined}
-      tabIndex={focusModeActive ? -1 : undefined}
-      className={
-        focusModeActive
-          // z-[410] sits ABOVE the LivingPopup band (z-[400]) so Focus Mode
-          // covers the task/note popup it launches from. It used to be z-50,
-          // fine when popups were also ~z-50, but the LivingPopup migration
-          // raised popups to z-[400] and stranded Focus Mode beneath them.
-          // Stays BELOW the v4 tour overlays (input lock z-[420], spotlight
-          // z-[440], speech z-[450]) so the tour still paints over Focus Mode
-          // exactly as before.
-          ? "fixed inset-0 z-[410] flex flex-col bg-surface-raised outline-none"
-          : "contents"
-      }
-    >
-      {/* Focus top-bar slot (index 0). Stays a falsy slot when not in focus
-          mode so the column div below keeps its index-1 position and the
-          editor subtree inside it is never re-keyed / remounted. */}
-      {focusModeActive && (
-        <div className="flex items-center gap-2 px-4 py-2 border-b border-border bg-surface-raised/80 backdrop-blur-sm">
-          {/* Compact Edit / Preview toggle (kept on the calm surface). The
-              Edit pill maps to the inline CodeMirror 6 surface (sole editor);
-              Hybrid was retired from the UI. */}
-          <div className="flex items-center bg-surface-sunken rounded-md p-0.5">
-            <button
-              type="button"
-              data-testid="editor-mode-inline-focus"
-              onClick={() => setMode("inline")}
-              disabled={disabled}
-              className={`px-2.5 py-1 text-meta rounded transition-colors ${
-                currentMode !== "preview"
-                  ? "bg-surface-raised text-foreground font-medium shadow-sm"
-                  : "text-foreground-muted hover:text-foreground"
-              } disabled:opacity-50`}
-            >
-              Edit
-            </button>
-            <button
-              type="button"
-              onClick={() => setMode("preview")}
-              disabled={disabled}
-              className={`px-2.5 py-1 text-meta rounded transition-colors ${
-                currentMode === "preview"
-                  ? "bg-surface-raised text-foreground font-medium shadow-sm"
-                  : "text-foreground-muted hover:text-foreground"
-              } disabled:opacity-50`}
-            >
-              Preview
-            </button>
-          </div>
-
-          {/* Single collapsed Attachments toggle: re-shows the existing
-              Images / Files tray (reuses showAttachmentStrip). */}
-          <button
-            type="button"
-            onClick={() => setShowAttachmentStrip((v) => !v)}
-            className={`px-2.5 py-1 text-meta rounded transition-colors ${
-              showAttachmentStrip
-                ? "bg-blue-100 dark:bg-blue-500/20 text-blue-700 dark:text-blue-300"
-                : "bg-surface-sunken text-foreground-muted hover:bg-foreground-muted/15"
-            }`}
-          >
-            Attachments
-          </button>
-
-          <div className="flex-1" />
-
-          {/* Writing-surface WIDTH control (MARKDOWN_EDITOR_TYPORA_DESIGN.md
-              Phase 1). A small segmented affordance: Narrow / Comfortable /
-              Wide / Full-bleed. Each segment carries an inline-SVG measure
-              glyph (no emoji) inside a project Tooltip (never native title=).
-              The active preset is highlighted; clicking one applies + persists
-              it (localStorage mirror + per-user settings). Lives only on the
-              Focus Mode top bar, which is the dedicated writing surface. */}
-          <div
-            role="group"
-            aria-label="Writing width"
-            data-testid="hybrid-editor-width-control"
-            className="flex items-center bg-surface-sunken rounded-md p-0.5"
-          >
-            {EDITOR_WIDTH_PRESETS.map((preset) => {
-              const active = widthPreset === preset;
-              return (
-                <Tooltip
-                  key={preset}
-                  label={EDITOR_WIDTH_PRESET_DESCRIPTIONS[preset]}
-                  placement="bottom"
-                >
-                  <button
-                    type="button"
-                    data-testid={`hybrid-editor-width-${preset}`}
-                    aria-pressed={active}
-                    aria-label={`Set writing width to ${EDITOR_WIDTH_PRESET_LABELS[preset]}`}
-                    onClick={() => applyWidthPreset(preset)}
-                    className={`p-1.5 rounded transition-colors ${
-                      active
-                        ? "bg-surface-raised text-foreground shadow-sm"
-                        : "text-foreground-muted hover:text-foreground"
-                    }`}
-                  >
-                    <WidthPresetGlyph preset={preset} />
-                  </button>
-                </Tooltip>
-              );
-            })}
-          </div>
-
-          {/* Focus-mode Save (FOCUS_WRITING_MODE_DESIGN.md §0 decision 3, §7).
-              The host disk-Save button sits outside the editor and is covered
-              by this overlay, so focus mode renders its own, but only when a
-              saveRef is wired (the four primary surfaces + the method create /
-              compound mounts). When the host provides onExplicitSave too we
-              flush via saveRef and call onExplicitSave (the exact wiring the
-              popup's own Save uses, e.g. TaskDetailPopup.tsx:4042-4045);
-              otherwise the saveRef flush IS the editor's internal manual save
-              (it commits the buffer + fires onChange). Surfaces with no
-              saveRef (VariationNotesPanel) keep the editor's own visible Save
-              button inside the overlay as the fallback, so we don't render a
-              second one here. Cmd+S keeps working unchanged in every case. */}
-          {saveRef && (
-            <Tooltip label="Save (Cmd+S)" placement="bottom">
-              <button
-                type="button"
-                data-testid="hybrid-editor-focus-save"
-                onClick={() => {
-                  const flushed = saveRef.current?.();
-                  if (flushed !== undefined && onExplicitSave) {
-                    onExplicitSave(flushed);
-                  }
-                }}
-                disabled={disabled}
-                aria-label="Save"
-                className="px-3 py-1.5 text-meta font-medium rounded-md shadow-sm bg-brand-action text-white hover:bg-brand-action/90 transition-colors disabled:opacity-50"
-              >
-                Save
-              </button>
-            </Tooltip>
-          )}
-
-          {/* Exit control (FOCUS_WRITING_MODE_DESIGN.md §5). Inline SVG
-              "collapse" glyph, project Tooltip, data-tour-target for the
-              walkthrough's exit beat. */}
-          <Tooltip label="Exit focus mode (Esc)" placement="bottom">
-            <button
-              type="button"
-              data-tour-target="hybrid-editor-focus-exit"
-              data-testid="hybrid-editor-focus-exit"
-              onClick={() => toggleFocusMode(false)}
-              aria-label="Exit writing focus mode"
-              className="p-1.5 text-foreground-muted rounded hover:bg-foreground-muted/15 hover:text-foreground transition-colors"
-            >
-              <svg
-                className="w-4 h-4"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-                aria-hidden="true"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M9 9V4m0 5H4m5 0L4 4m11 5h5m-5 0V4m0 5l5-5M9 15v5m0-5H4m5 0l-5 5m11-5h5m-5 0v5m0-5l5 5"
-                />
-              </svg>
-            </button>
-          </Tooltip>
-        </div>
-      )}
-
-      {/* Column slot (index 1). `editorTree` is ALWAYS its single child, at a
-          stable React-tree position across the normal <-> focus toggle, so
-          the manual-save buffer survives the portal-container flip. */}
-      <div
-        className={
-          focusModeActive
-            ? "flex-1 min-h-0 overflow-hidden flex justify-center px-4"
-            : "contents"
-        }
-      >
-        {editorTree}
-      </div>
-    </div>
-  );
-
+  // The editor renders INLINE at every size. The host popup grows / shrinks
+  // itself (modal-grows-in-place) around this same DOM, so the editor never
+  // teleports into an overlay and never remounts; its CM6 state + undo refs and
+  // any in-flight buffer survive the size transition. The retired model used a
+  // body-level portal to move the editor in/out of a fullscreen overlay; that
+  // machinery is gone (no portal, no focus trap, no buffer-flip).
   return (
     <>
-      {/* In-place mount slot. `display: contents` keeps it transparent to the
-          host's flex layout so the normal render looks identical to before.
-          The stable portal container (moved imperatively by the effect above)
-          lives inside this node when not in focus mode. */}
-      <div ref={inPlaceMountCallbackRef} className="contents" />
-      {/* ALWAYS portal into the SAME stable container so React never remounts
-          the editor subtree (no buffer loss). The container's DOM home is
-          what moves, not the container itself. */}
-      {portalContainerRef.current
-        ? createPortal(frame, portalContainerRef.current)
-        : null}
+      {editorTree}
 
-      {/* Reference picker modal (Chemistry Phase 3). Rendered outside the
-          portal so it is never clipped by the editor's overflow parents.
-          Only mounts when enableReferencePicker is true AND the picker is
-          open, so the default (picker off) adds exactly zero nodes to the
-          DOM. When a reference is picked, insert it at the CM6 caret via
-          the existing insertRef. */}
+      {/* Reference picker modal (Chemistry Phase 3). Only mounts when
+          enableReferencePicker is true AND the picker is open, so the default
+          (picker off) adds exactly zero nodes to the DOM. When a reference is
+          picked, insert it at the CM6 caret via the existing insertRef. */}
       {enableReferencePicker && referencePickerOpen && (
         <ReferencePicker
+          initialTab={referencePickerTab ?? undefined}
           onPick={(markdown) => {
             insertRef.current?.(markdown);
           }}
-          onClose={() => setReferencePickerOpen(false)}
+          onClose={() => {
+            setReferencePickerOpen(false);
+            setReferencePickerTab(null);
+          }}
         />
       )}
     </>
@@ -2885,6 +3438,58 @@ function WidthPresetGlyph({ preset }: { preset: EditorWidthPreset }) {
         d={`M${x1} 9h${x2 - x1}M${x1} 12h${x2 - x1}M${x1} 15h${x2 - x1}`}
       />
     </svg>
+  );
+}
+
+/**
+ * One row in the U5 focus-behaviors popover: an icon + label + one-line
+ * description, with a small click-to-toggle pill on the right. A plain button
+ * (role=menuitemcheckbox) rather than a heavy switch, to keep the popover quiet;
+ * the brand-action fill signals the on state. The whole row is clickable.
+ */
+function FocusToggleRow({
+  icon,
+  label,
+  description,
+  checked,
+  testId,
+  onChange,
+}: {
+  icon: IconName;
+  label: string;
+  description: string;
+  checked: boolean;
+  testId: string;
+  onChange: (next: boolean) => void;
+}) {
+  return (
+    <button
+      type="button"
+      role="menuitemcheckbox"
+      aria-checked={checked}
+      data-testid={testId}
+      onClick={() => onChange(!checked)}
+      className="flex w-full items-start gap-2.5 rounded-md px-2 py-1.5 text-left transition-colors hover:bg-surface-sunken/70"
+    >
+      <Icon
+        name={icon}
+        className={`mt-0.5 h-4 w-4 shrink-0 ${
+          checked ? "text-brand-action" : "text-foreground-muted"
+        }`}
+      />
+      <span className="flex-1 min-w-0">
+        <span className="block text-sm font-medium text-foreground">{label}</span>
+        <span className="block text-xs text-foreground-muted">{description}</span>
+      </span>
+      <span
+        aria-hidden="true"
+        className={`mt-0.5 flex h-4 w-7 shrink-0 items-center rounded-full px-0.5 transition-colors ${
+          checked ? "justify-end bg-brand-action" : "justify-start bg-surface-sunken"
+        }`}
+      >
+        <span className="h-3 w-3 rounded-full bg-surface-overlay shadow-sm" />
+      </span>
+    </button>
   );
 }
 

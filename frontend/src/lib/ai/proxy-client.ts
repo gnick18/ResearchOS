@@ -20,11 +20,16 @@ const ENDPOINT = "/api/ai/chat";
 // knows exactly what to fix.
 export class ProxyError extends Error {}
 
-/** The proxy-backed model caller for production use. Sends { messages, tools,
- *  stream:false, stream_options.include_usage:true } and returns the provider
- *  JSON (which carries a usage block when the provider supports it). Throws
- *  ProxyError with the proxy's message on a non-OK response. */
-export const callModelViaProxy: ModelCaller = async (messages, tools, signal) => {
+/** Shared POST to the proxy. The optional taskId groups every turn of one
+ *  BeakerBot task under a single id in the billing ledger (so a multi-turn task's
+ *  cost reads as one task, not scattered per-request rows). Omitted when absent,
+ *  in which case the proxy falls back to a per-request id. */
+async function postChat(
+  messages: Parameters<ModelCaller>[0],
+  tools: Parameters<ModelCaller>[1],
+  signal?: AbortSignal,
+  taskId?: string,
+): Promise<ModelResponse> {
   const res = await fetch(ENDPOINT, {
     method: "POST",
     headers: { "content-type": "application/json" },
@@ -39,6 +44,9 @@ export const callModelViaProxy: ModelCaller = async (messages, tools, signal) =>
       // understand stream_options ignore the field harmlessly, and the status
       // line degrades gracefully when usage is absent.
       stream_options: { include_usage: true },
+      // Stable per-task id so the ledger groups a task's turns. Undefined is
+      // omitted by JSON.stringify, leaving the proxy's per-request fallback.
+      task_id: taskId,
     }),
     signal,
   });
@@ -55,4 +63,18 @@ export const callModelViaProxy: ModelCaller = async (messages, tools, signal) =>
   }
 
   return (await res.json()) as ModelResponse;
-};
+}
+
+/** The proxy-backed model caller for production use. Sends { messages, tools,
+ *  stream:false, stream_options.include_usage:true } and returns the provider
+ *  JSON (which carries a usage block when the provider supports it). Throws
+ *  ProxyError with the proxy's message on a non-OK response. */
+export const callModelViaProxy: ModelCaller = (messages, tools, signal) =>
+  postChat(messages, tools, signal);
+
+/** A proxy caller bound to one task id, so every turn of that BeakerBot task is
+ *  metered under the same task_id. The agent loop is one task, so the store mints
+ *  an id per runAgentLoop call and uses this. */
+export function proxyCallerForTask(taskId: string): ModelCaller {
+  return (messages, tools, signal) => postChat(messages, tools, signal, taskId);
+}

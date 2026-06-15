@@ -15,15 +15,23 @@ import {
   moleculeToBrief,
   phyloToBrief,
   experimentToBrief,
+  inventoryToBrief,
+  BRIEF_ADAPTERS,
+  buildAllBriefs,
   searchMyWork,
   dayPrefix,
   filterArtifacts,
+  resolveProjectRefsToIds,
+  resolveOwnerRefsToUsernames,
+  periodToDateRange,
+  listArtifacts,
   type ArtifactBrief,
   type ArtifactIndexDeps,
 } from "../artifact-index";
-import type { Note, NoteEntry, Method, SequenceRecord, Project, PurchaseItem, Task } from "@/lib/types";
+import type { Note, NoteEntry, Method, SequenceRecord, Project, PurchaseItem, Task, InventoryItem } from "@/lib/types";
 import type { DataHubDocument } from "@/lib/datahub/model/types";
 import type { Molecule } from "@/lib/chemistry/api";
+import { INDEXED_TYPES } from "@/lib/index/indexed-types";
 
 // ---------------------------------------------------------------------------
 // Fixtures
@@ -174,6 +182,30 @@ function makeExperiment(overrides: Partial<Task> = {}): Task {
   };
 }
 
+function makeInventory(overrides: Partial<InventoryItem> = {}): InventoryItem {
+  return {
+    id: 8,
+    name: "Q5 High-Fidelity DNA Polymerase",
+    category: "enzyme",
+    catalog_number: "M0491S",
+    vendor: "NEB",
+    cas: null,
+    url: null,
+    container_label: null,
+    storage_class: null,
+    hazard_note: null,
+    sds_url: null,
+    notes: "store at minus 20",
+    low_at_count: 2,
+    product_barcode: null,
+    owner: "grant",
+    shared_with: [],
+    created_by: "grant",
+    last_edited_at: "2026-06-06T09:00:00.000Z",
+    ...overrides,
+  };
+}
+
 // ---------------------------------------------------------------------------
 // tokenize
 // ---------------------------------------------------------------------------
@@ -300,7 +332,7 @@ describe("methodToBrief", () => {
     expect(brief.id).toBe("2");
     expect(brief.title).toBe("Tm melting curve");
     expect(brief.subtitle).toBe("markdown");
-    expect(brief.deepLink).toMatch(/\/methods\/2/);
+    expect(brief.deepLink).toMatch(/\/methods\?openMethod=2/);
   });
 
   it("includes tags as keywords", () => {
@@ -314,7 +346,7 @@ describe("methodToBrief", () => {
     // deep link a reference is written from must carry the public scope.
     const brief = methodToBrief(makeMethod({ is_public: true }));
     expect(brief.id).toBe("2");
-    expect(brief.deepLink).toBe("/methods/public%3A2");
+    expect(brief.deepLink).toBe("/methods?openMethod=public%3A2");
   });
 });
 
@@ -410,6 +442,89 @@ describe("experimentToBrief", () => {
   });
 });
 
+describe("inventoryToBrief", () => {
+  it("returns type inventory, the item name, and the /inventory deepLink", () => {
+    const brief = inventoryToBrief(makeInventory());
+    expect(brief.type).toBe("inventory");
+    expect(brief.title).toBe("Q5 High-Fidelity DNA Polymerase");
+    expect(brief.subtitle).toBe("enzyme");
+    // Pageless like purchases: deep-link to the /inventory page.
+    expect(brief.deepLink).toBe("/inventory");
+  });
+
+  it("dates on last_edited_at and carries the owner through", () => {
+    const brief = inventoryToBrief(makeInventory({ owner: "alice" }));
+    expect(brief.date).toBe("2026-06-06T09:00:00.000Z");
+    expect(brief.owner).toBe("alice");
+  });
+
+  it("folds name, category, vendor, catalog, and CAS into keywords", () => {
+    const brief = inventoryToBrief(
+      makeInventory({ name: "Q5", vendor: "NEB", catalog_number: "M0491S", cas: "9007-49-2" }),
+    );
+    expect(brief.keywords).toContain("q5");
+    expect(brief.keywords).toContain("enzyme");
+    expect(brief.keywords).toContain("neb");
+    expect(brief.keywords).toContain("m0491s");
+    expect(brief.keywords).toContain("9007-49-2");
+  });
+
+  it("NEVER leaks the free-text notes body into keywords (kept model-lean)", () => {
+    const brief = inventoryToBrief(makeInventory({ notes: "store at minus 20 special handling" }));
+    const kw = (brief.keywords ?? []).join(" ");
+    expect(kw).not.toContain("minus");
+    expect(kw).not.toContain("special");
+    expect(kw).not.toContain("handling");
+  });
+
+  it("appears in buildAllBriefs so search_my_work + the summaries cover inventory", async () => {
+    const briefs = await buildAllBriefs(makeStubDeps());
+    const inv = briefs.filter((b) => b.type === "inventory");
+    expect(inv).toHaveLength(1);
+    expect(inv[0].title).toBe("Q5 High-Fidelity DNA Polymerase");
+    expect(inv[0].deepLink).toBe("/inventory");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Anti-drift guard: the shared type registry covers every adapter, on the AI
+// side. INDEXED_TYPES is the single source of truth; BRIEF_ADAPTERS is a
+// Record<IndexedType, ...> so a new kind fails to COMPILE without an adapter.
+// This runtime test backstops the compile-time guard.
+// ---------------------------------------------------------------------------
+
+describe("indexed-type registry + exhaustiveness (AI side)", () => {
+  it("BRIEF_ADAPTERS has exactly one adapter per IndexedType", () => {
+    const adapterKeys = Object.keys(BRIEF_ADAPTERS).sort();
+    const registryKeys = [...INDEXED_TYPES].sort();
+    expect(adapterKeys).toEqual(registryKeys);
+  });
+
+  it("every IndexedType in the registry has a defined adapter function", () => {
+    for (const t of INDEXED_TYPES) {
+      expect(typeof BRIEF_ADAPTERS[t]).toBe("function");
+    }
+  });
+
+  it("covers the full set of ten artifact kinds", () => {
+    expect(INDEXED_TYPES).toHaveLength(10);
+    expect([...INDEXED_TYPES].sort()).toEqual(
+      [
+        "datahub",
+        "experiment",
+        "inventory",
+        "method",
+        "molecule",
+        "note",
+        "phylo",
+        "project",
+        "purchase",
+        "sequence",
+      ].sort(),
+    );
+  });
+});
+
 // ---------------------------------------------------------------------------
 // searchMyWork integration (stubbed deps)
 // ---------------------------------------------------------------------------
@@ -425,6 +540,7 @@ function makeStubDeps(overrides: Partial<ArtifactIndexDeps> = {}): ArtifactIndex
     listExperiments: async () => [makeExperiment()],
     listMolecules: async () => [makeMolecule()],
     listPhylo: async () => [],
+    listInventory: async () => [makeInventory()],
     ...overrides,
   };
 }
@@ -507,6 +623,7 @@ describe("searchMyWork", () => {
       listPurchases: async () => [],
       listExperiments: async () => [],
       listMolecules: async () => [],
+      listInventory: async () => [],
     });
 
   it("keeps only briefs on or after the since bound", async () => {
@@ -538,6 +655,7 @@ describe("searchMyWork", () => {
       listProjects: async () => [],
       listExperiments: async () => [],
       listMolecules: async () => [],
+      listInventory: async () => [],
     });
     const results = await searchMyWork("", { since: "2026-01-01" }, deps);
     expect(results.every((r) => r.type !== "purchase")).toBe(true);
@@ -721,5 +839,157 @@ describe("owner on briefs", () => {
 
   it("purchaseToBrief leaves owner undefined on an undecorated item", () => {
     expect(purchaseToBrief(makePurchase()).owner).toBeUndefined();
+  });
+});
+
+describe("resolveProjectRefsToIds", () => {
+  const projects = [
+    { id: 1, name: "cyp51A knockout" },
+    { id: 2, name: "Imaging" },
+  ];
+  it("resolves a project NAME (case-insensitive) to its id", () => {
+    expect(resolveProjectRefsToIds(["cyp51a knockout"], projects)).toEqual(["1"]);
+  });
+  it("passes through a numeric id that matches a real project", () => {
+    expect(resolveProjectRefsToIds(["2"], projects)).toEqual(["2"]);
+    expect(resolveProjectRefsToIds([2], projects)).toEqual(["2"]);
+  });
+  it("dedupes and drops unresolved refs", () => {
+    expect(resolveProjectRefsToIds(["Imaging", "imaging", "Nope", "999"], projects)).toEqual(["2"]);
+  });
+  it("returns [] for empty / missing input", () => {
+    expect(resolveProjectRefsToIds(undefined, projects)).toEqual([]);
+    expect(resolveProjectRefsToIds([], projects)).toEqual([]);
+  });
+  it("resolves a partial / typo'd project name via fuzzy match", () => {
+    expect(resolveProjectRefsToIds(["cyp51"], projects)).toEqual(["1"]); // prefix
+    expect(resolveProjectRefsToIds(["Imagimg"], projects)).toEqual(["2"]); // one typo
+  });
+});
+
+describe("resolveOwnerRefsToUsernames", () => {
+  const members = ["kritika", "grant", "alex chen"];
+  it("resolves an exact / cased username", () => {
+    expect(resolveOwnerRefsToUsernames(["Kritika"], members)).toEqual(["kritika"]);
+  });
+  it("resolves a first name and a small typo", () => {
+    expect(resolveOwnerRefsToUsernames(["alex"], members)).toEqual(["alex chen"]);
+    expect(resolveOwnerRefsToUsernames(["kritka"], members)).toEqual(["kritika"]);
+  });
+  it("dedupes and drops unresolved refs", () => {
+    expect(resolveOwnerRefsToUsernames(["grant", "Grant", "nobody"], members)).toEqual(["grant"]);
+  });
+  it("returns [] for empty / missing input", () => {
+    expect(resolveOwnerRefsToUsernames(undefined, members)).toEqual([]);
+    expect(resolveOwnerRefsToUsernames([], members)).toEqual([]);
+  });
+});
+
+describe("listArtifacts", () => {
+  // Only notes; every other type empty, so we control the ordering precisely.
+  const onlyNotes = (notes: Note[]) =>
+    makeStubDeps({
+      listNotes: async () => notes,
+      listMethods: async () => [],
+      listSequences: async () => [],
+      listDataHub: async () => [],
+      listProjects: async () => [],
+      listPurchases: async () => [],
+      listExperiments: async () => [],
+      listMolecules: async () => [],
+      listPhylo: async () => [],
+      listInventory: async () => [],
+    });
+
+  const deps = () =>
+    onlyNotes([
+      makeNote({ id: 1, title: "Banana", updated_at: "2026-06-01T00:00:00.000Z" }),
+      makeNote({ id: 2, title: "Apple", updated_at: "2026-06-10T00:00:00.000Z" }),
+      makeNote({ id: 3, title: "Cherry", updated_at: "2026-05-01T00:00:00.000Z" }),
+    ]);
+
+  it("sorts by date descending (newest first) by default", async () => {
+    const { total, items } = await listArtifacts({}, deps());
+    expect(total).toBe(3);
+    expect(items.map((i) => i.id)).toEqual(["2", "1", "3"]);
+  });
+
+  it("sorts by date ascending (oldest first)", async () => {
+    const { items } = await listArtifacts({ order: "asc" }, deps());
+    expect(items.map((i) => i.id)).toEqual(["3", "1", "2"]);
+  });
+
+  it("sorts by title A-Z", async () => {
+    const { items } = await listArtifacts({ sortBy: "title", order: "asc" }, deps());
+    expect(items.map((i) => i.title)).toEqual(["Apple", "Banana", "Cherry"]);
+  });
+
+  it("caps to limit but reports the full total", async () => {
+    const { total, items } = await listArtifacts({ limit: 2 }, deps());
+    expect(total).toBe(3);
+    expect(items.map((i) => i.id)).toEqual(["2", "1"]);
+  });
+
+  it("applies the filter (type restriction) before sorting", async () => {
+    const { total } = await listArtifacts({ filter: { types: ["method"] } }, deps());
+    expect(total).toBe(0); // the deps expose only notes
+  });
+});
+
+describe("periodToDateRange", () => {
+  // Frozen "today" = Saturday 2026-06-13 (Q2, mid-month). Calendar semantics.
+  const today = "2026-06-13";
+
+  it("returns no bounds for all_time / unknown / missing", () => {
+    expect(periodToDateRange("all_time", today)).toEqual({});
+    expect(periodToDateRange("nonsense", today)).toEqual({});
+    expect(periodToDateRange(undefined, today)).toEqual({});
+  });
+
+  it("today is a single day", () => {
+    expect(periodToDateRange("today", today)).toEqual({ since: "2026-06-13", until: "2026-06-13" });
+  });
+
+  it("this_month runs from the 1st through today", () => {
+    expect(periodToDateRange("this_month", today)).toEqual({ since: "2026-06-01", until: "2026-06-13" });
+  });
+
+  it("last_month is the full previous calendar month", () => {
+    expect(periodToDateRange("last_month", today)).toEqual({ since: "2026-05-01", until: "2026-05-31" });
+  });
+
+  it("last_month crosses the year boundary in January", () => {
+    expect(periodToDateRange("last_month", "2026-01-09")).toEqual({ since: "2025-12-01", until: "2025-12-31" });
+  });
+
+  it("this_quarter runs from the quarter start through today", () => {
+    // June is in Q2 (Apr-Jun).
+    expect(periodToDateRange("this_quarter", today)).toEqual({ since: "2026-04-01", until: "2026-06-13" });
+  });
+
+  it("last_quarter is the full previous quarter", () => {
+    // From Q2, last quarter is Q1 (Jan-Mar).
+    expect(periodToDateRange("last_quarter", today)).toEqual({ since: "2026-01-01", until: "2026-03-31" });
+  });
+
+  it("last_quarter crosses the year boundary from Q1", () => {
+    // February is Q1; last quarter is the prior year's Q4 (Oct-Dec).
+    expect(periodToDateRange("last_quarter", "2026-02-15")).toEqual({ since: "2025-10-01", until: "2025-12-31" });
+  });
+
+  it("this_year and last_year span calendar years", () => {
+    expect(periodToDateRange("this_year", today)).toEqual({ since: "2026-01-01", until: "2026-06-13" });
+    expect(periodToDateRange("last_year", today)).toEqual({ since: "2025-01-01", until: "2025-12-31" });
+  });
+
+  it("this_week runs Monday through today, last_week is the prior Mon-Sun", () => {
+    // 2026-06-13 is a Saturday; that week's Monday is 2026-06-08.
+    expect(periodToDateRange("this_week", today)).toEqual({ since: "2026-06-08", until: "2026-06-13" });
+    expect(periodToDateRange("last_week", today)).toEqual({ since: "2026-06-01", until: "2026-06-07" });
+  });
+
+  it("normalizes spaces and hyphens in the token", () => {
+    expect(periodToDateRange("Last Month", today)).toEqual({ since: "2026-05-01", until: "2026-05-31" });
+    expect(periodToDateRange("last-month", today)).toEqual({ since: "2026-05-01", until: "2026-05-31" });
   });
 });

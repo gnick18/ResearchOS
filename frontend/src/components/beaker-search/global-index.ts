@@ -29,12 +29,40 @@ import { supplyKeyFor } from "@/lib/supplies/supply-model";
 import type { DataHubDocument } from "@/lib/datahub/model/types";
 import type { Molecule } from "@/lib/chemistry/api";
 import type { PurchaseItem } from "@/lib/types";
+import { objectDeepLink } from "@/lib/references";
+import type { PhyloMeta } from "@/lib/phylo/api";
+import type { GuiIndexType, IndexedType } from "@/lib/index/indexed-types";
+import { aiTypeToGuiType } from "@/lib/index/indexed-types";
+// The SHARED per-type adapters. The GUI sources each entry's COMMON brief fields
+// (title -> label, keywords + title -> haystack tokens) from these, so the
+// palette can never drift from the AI index on what a record's title or
+// searchable terms are. The adapters are pure functions (no React, no I/O), so
+// importing them here pulls no agent-loop machinery. The GUI then ENRICHES each
+// entry with its own iconName, meta subline, composite key, href, recencyAt,
+// enabled flag, and (for notes) ocr, none of which live on the brief.
+import {
+  noteToBrief,
+  experimentToBrief,
+  methodToBrief,
+  sequenceToBrief,
+  dataHubToBrief,
+  projectToBrief,
+  purchaseToBrief,
+  moleculeToBrief,
+  phyloToBrief,
+  inventoryToBrief,
+  type ArtifactBrief,
+} from "@/lib/ai/artifact-index";
 
 /** The uniform record the global source ranks and renders. One per core record.
  *  Ranking and rendering branch only on `type`, `iconName`, and `open`, never on
  *  the source record shape, so chunk 2 stays type-agnostic. */
 export interface GlobalIndexEntry {
-  type: "task" | "project" | "method" | "sequence" | "inventory" | "note" | "datahub" | "molecule" | "purchase";
+  /** The palette's discriminant, derived from the shared INDEXED_TYPES registry
+   *  (GuiIndexType) so it can never drift from the AI index's covered kinds. The
+   *  registry maps the GUI's "task" to the AI brief's "experiment"; every other
+   *  kind shares one name. */
+  type: GuiIndexType;
   /** Composite identity, taskKey() / `${owner}:${id}` / the sequence id as a
    *  string. The dedup key AND the carrier of the owner into the jump. */
   key: string;
@@ -91,6 +119,9 @@ export interface GlobalIndexInput {
    *  an owner field by listAllIncludingShared; without it we fall back to the
    *  currentUser so own items always have a key. */
   purchaseItems?: Array<PurchaseItem & { owner?: string }>;
+  /** Saved phylogenetic trees (PhyloMeta). Optional for the same backward-compat
+   *  reason as datahubDocs, so existing callers / tests build the same index. */
+  phyloTrees?: PhyloMeta[];
 }
 
 /** Parse an ISO stamp to epoch ms, 0 when absent or unparseable, so a missing
@@ -117,7 +148,21 @@ function sharedTail(owner: string, currentUser: string, isShared: boolean | unde
   return "";
 }
 
+/** The COMMON searchable terms a record contributes, sourced from its shared
+ *  brief (the AI index's canonical adapter): the brief title plus every keyword
+ *  the adapter derived. Folded into the GUI haystack ALONGSIDE the palette's own
+ *  extras (OCR, owner, folder, notes) so the haystack stays a strict SUPERSET of
+ *  what it indexed before while the title / keyword terms can no longer drift
+ *  from the AI index. Pure. */
+function briefTerms(brief: ArtifactBrief): string {
+  return [brief.title, ...(brief.keywords ?? [])].join(" ");
+}
+
 function buildTaskEntry(t: Task, projectNameByKey: Map<string, string>, currentUser: string): GlobalIndexEntry {
+  // COMMON fields (label, searchable terms) come from the shared adapter so they
+  // can never drift from the AI index. experimentToBrief reads task.name + tags,
+  // which is exactly what the palette indexed for a task of any type.
+  const brief = experimentToBrief(t);
   const key = taskKey(t);
   const projectName =
     t.project_id != null
@@ -136,9 +181,16 @@ function buildTaskEntry(t: Task, projectNameByKey: Map<string, string>, currentU
   return {
     type: "task",
     key,
-    label: t.name,
+    label: brief.title,
     meta,
-    haystack: buildHaystack([t.name, projectName, (t.tags ?? []).join(" "), t.is_shared_with_me ? t.owner : null]),
+    // Brief terms (name + tags) PLUS the GUI-only extras the brief does not
+    // carry (the resolved project NAME and the sharer's owner), keeping the
+    // haystack a superset of what it folded before.
+    haystack: buildHaystack([briefTerms(brief), projectName, t.is_shared_with_me ? t.owner : null]),
+    // recencyAt stays the task's last_edited_at, NOT the brief date: the
+    // experiment brief dates on start_date (for the AI date window), but the
+    // palette's recency boost must keep ranking by the last EDIT, the existing
+    // behavior the scorer and recency test depend on.
     recencyAt: toEpoch(t.last_edited_at),
     iconName: "list",
     href: `/?openTask=${encodeURIComponent(key)}`,
@@ -147,6 +199,7 @@ function buildTaskEntry(t: Task, projectNameByKey: Map<string, string>, currentU
 }
 
 function buildProjectEntry(p: Project, currentUser: string): GlobalIndexEntry {
+  const brief = projectToBrief(p);
   const key = `${p.owner}:${p.id}`;
   const isShared = Boolean(p.is_shared_with_me) && p.owner !== currentUser;
   const meta = isShared ? `Project, shared by ${p.owner}` : "Project";
@@ -158,9 +211,12 @@ function buildProjectEntry(p: Project, currentUser: string): GlobalIndexEntry {
   return {
     type: "project",
     key,
-    label: p.name,
+    label: brief.title,
     meta,
-    haystack: buildHaystack([p.name, (p.tags ?? []).join(" "), isShared ? p.owner : null]),
+    // Brief terms (name + tags + color) plus the sharer's owner (GUI-only).
+    haystack: buildHaystack([briefTerms(brief), isShared ? p.owner : null]),
+    // recencyAt keeps the GUI's last_edited_at (the brief falls back to
+    // created_at; the palette's recency boost intentionally tracks edits only).
     recencyAt: toEpoch(p.last_edited_at),
     iconName: "folder",
     href,
@@ -169,6 +225,7 @@ function buildProjectEntry(p: Project, currentUser: string): GlobalIndexEntry {
 }
 
 function buildMethodEntry(m: Method, currentUser: string): GlobalIndexEntry {
+  const brief = methodToBrief(m);
   // public/lab-wide methods carry owner "public"; the ?openMethod= resolver is
   // id-based and owner-priority, so the bare id lands the right record.
   const key = m.is_public ? `public:${m.id}` : `${m.owner}:${m.id}`;
@@ -181,12 +238,13 @@ function buildMethodEntry(m: Method, currentUser: string): GlobalIndexEntry {
   return {
     type: "method",
     key,
-    label: m.name,
+    label: brief.title,
     meta,
+    // Brief terms (name + type + tags + excerpt) plus the GUI-only folder path
+    // and the sharer's owner. The excerpt is new (a superset), the folder path
+    // is preserved.
     haystack: buildHaystack([
-      m.name,
-      m.method_type,
-      (m.tags ?? []).join(" "),
+      briefTerms(brief),
       m.folder_path,
       m.is_shared_with_me ? m.owner : null,
     ]),
@@ -198,6 +256,7 @@ function buildMethodEntry(m: Method, currentUser: string): GlobalIndexEntry {
 }
 
 function buildSequenceEntry(s: SequenceRecord): GlobalIndexEntry {
+  const brief = sequenceToBrief(s);
   // Sequences are page-scoped and ownerless (the documented composite-key
   // exception), so the key is the bare numeric id as a string.
   const topology = s.circular ? "Circular" : "Linear";
@@ -207,9 +266,11 @@ function buildSequenceEntry(s: SequenceRecord): GlobalIndexEntry {
   return {
     type: "sequence",
     key: String(s.id),
-    label: s.display_name,
+    label: brief.title,
     meta: parts.join(", "),
-    haystack: buildHaystack([s.display_name, s.organism, s.seq_type]),
+    // Brief terms (display name + seq type + organism + accession + topology)
+    // are a superset of the prior name + organism + type fold.
+    haystack: buildHaystack([briefTerms(brief)]),
     recencyAt: toEpoch(s.added_at),
     iconName: s.circular ? "moleculeCircular" : "moleculeLinear",
     href: `/sequences?seq=${s.id}`,
@@ -221,6 +282,7 @@ function buildSequenceEntry(s: SequenceRecord): GlobalIndexEntry {
  *  The index gate (INVENTORY_ENABLED) lives in buildGlobalIndex, not here, so
  *  the entry shape can be tested independently of the flag. */
 export function buildInventoryEntry(item: InventoryItem): GlobalIndexEntry {
+  const brief = inventoryToBrief(item);
   const key = `${item.owner}:${item.id}`;
   const metaParts = [item.category, item.vendor, item.catalog_number].filter(
     (p): p is string => Boolean(p && p.trim()),
@@ -238,9 +300,13 @@ export function buildInventoryEntry(item: InventoryItem): GlobalIndexEntry {
   return {
     type: "inventory",
     key,
-    label: item.name,
+    label: brief.title,
     meta,
-    haystack: buildHaystack([item.name, item.vendor, item.catalog_number, item.cas, item.notes]),
+    // Brief terms (name + category + vendor + catalog + CAS) PLUS item.notes,
+    // which the AI brief deliberately OMITS (a free-text body must not cross to
+    // the model). Folding notes here keeps the palette haystack a strict
+    // superset of what it indexed before (the documented per-type carve-out).
+    haystack: buildHaystack([briefTerms(brief), item.notes]),
     recencyAt: toEpoch(item.last_edited_at),
     iconName: "vial" as IconName,
     href: `/supplies?supply=${encodeURIComponent(supplyKey)}`,
@@ -260,6 +326,7 @@ export function buildNoteEntry(
 ): GlobalIndexEntry {
   // The note's composite, collision-safe key (mirrors workbench noteKey),
   // `note-<owner>:<id>`; owner falls back to the current user for a personal note.
+  const brief = noteToBrief(note);
   const owner = note.username || currentUser;
   const key = `note-${owner}:${note.id}`;
   const sharedIn = owner !== currentUser;
@@ -268,10 +335,18 @@ export function buildNoteEntry(
   return {
     type: "note",
     key,
-    label: note.title || "Untitled note",
+    label: brief.title,
     meta,
-    haystack: buildHaystack([note.title, note.description, ocrText || null]),
+    // Brief terms (title + description + every entry title) PLUS the scanned
+    // OCR text, which is GUI-only (the AI brief must never carry OCR / bodies
+    // across to the model). This keeps the note haystack a strict SUPERSET of
+    // its prior title + description + OCR fold, AND it now also indexes entry
+    // titles the way the AI keyword set does.
+    haystack: buildHaystack([briefTerms(brief), ocrText || null]),
     ocr: ocrText || undefined,
+    // recencyAt prefers the GUI's last_edited_at over updated_at (the brief
+    // dates on updated_at only); the palette boost intentionally tracks the last
+    // edit, the existing behavior.
     recencyAt: toEpoch(note.last_edited_at ?? note.updated_at),
     iconName: "file",
     href: `/workbench?tab=notes&note=${encodeURIComponent(key)}`,
@@ -287,6 +362,7 @@ export function buildDataHubEntry(
   doc: DataHubDocument,
   currentUser: string,
 ): GlobalIndexEntry {
+  const brief = dataHubToBrief(doc);
   // Owner is available via the last_edited_by field when present, or via the
   // caller. For a simpler key use the doc id alone (it is already globally
   // unique within a user's space). Prefix with "datahub:" for namespace safety.
@@ -305,9 +381,12 @@ export function buildDataHubEntry(
   return {
     type: "datahub",
     key,
-    label: doc.name,
+    label: brief.title,
     meta,
-    haystack: buildHaystack([doc.name, doc.table_type, doc.folder_path]),
+    // Brief terms (name + table type) plus the GUI-only folder path.
+    haystack: buildHaystack([briefTerms(brief), doc.folder_path]),
+    // recencyAt keeps the GUI's last_edited_at (the brief falls back to
+    // created_at; the palette boost tracks edits only).
     recencyAt: toEpoch(doc.last_edited_at),
     iconName: "chart" as IconName,
     href: `/datahub?doc=${encodeURIComponent(doc.id)}`,
@@ -320,6 +399,7 @@ export function buildDataHubEntry(
  *  Deep-links via /chemistry?molecule=<id> which ChemistryHub reads on mount
  *  to auto-select the molecule and open its detail. */
 export function buildMoleculeEntry(mol: Molecule): GlobalIndexEntry {
+  const brief = moleculeToBrief(mol);
   // Molecule ids are per-user strings (no global dedup needed for own library).
   const key = `molecule:${mol.id}`;
   const metaParts: string[] = [];
@@ -331,9 +411,11 @@ export function buildMoleculeEntry(mol: Molecule): GlobalIndexEntry {
   return {
     type: "molecule",
     key,
-    label: mol.name,
+    label: brief.title,
     meta,
-    haystack: buildHaystack([mol.name, mol.formula, mol.smiles, mol.inchikey]),
+    // Brief terms (name + formula + inchikey + smiles + source) are a superset
+    // of the prior name + formula + smiles + inchikey fold.
+    haystack: buildHaystack([briefTerms(brief)]),
     recencyAt: toEpoch(mol.added_at),
     iconName: "vial" as IconName,
     href: `/chemistry?molecule=${encodeURIComponent(mol.id)}`,
@@ -349,6 +431,7 @@ export function buildPurchaseEntry(
   item: PurchaseItem & { owner?: string },
   currentUser: string,
 ): GlobalIndexEntry {
+  const brief = purchaseToBrief(item);
   const owner = item.owner ?? currentUser;
   // Composite key: owner + item id. Item ids are per-owner incrementing ints.
   const key = `purchase:${owner}:${item.id}`;
@@ -362,14 +445,88 @@ export function buildPurchaseEntry(
   return {
     type: "purchase",
     key,
-    label: item.item_name,
+    label: brief.title,
     meta,
-    haystack: buildHaystack([item.item_name, item.vendor, item.category, item.catalog_number, item.cas, item.notes]),
-    recencyAt: 0, // PurchaseItem has no edit timestamp; recency boost is not applicable.
+    // Brief terms (item name + vendor + category + CAS + order status) PLUS the
+    // GUI-only catalog number and free-text notes the brief omits, so the
+    // haystack stays a superset of the prior fold.
+    haystack: buildHaystack([briefTerms(brief), item.catalog_number, item.notes]),
+    // recencyAt stays 0 here: the GUI has always treated purchases as
+    // recency-neutral. The purchase brief dates on last_edited_at for the AI
+    // date window, but adopting it would change the palette's recency ranking,
+    // so the existing behavior is preserved.
+    recencyAt: 0,
     iconName: "receipt" as IconName,
     href: "/purchases",
     enabled: true,
   };
+}
+
+/** Map a saved phylogenetic tree (PhyloMeta) to a GlobalIndexEntry. Exported for
+ *  unit tests. Uses the "tree" glyph (the rooted-cladogram phylo icon). The deep
+ *  link is the canonical /phylo?doc=<id> Tree Studio route via objectDeepLink, the
+ *  same route the AI index (phyloToBrief) uses, so a found tree opens from any
+ *  page. Trees are per-user library records keyed by their string id. */
+export function buildPhyloEntry(meta: PhyloMeta): GlobalIndexEntry {
+  const brief = phyloToBrief(meta);
+  const tipLabel =
+    typeof meta.tip_count === "number" ? `${meta.tip_count} tips` : "Phylogenetic tree";
+  const meta_ = meta.format ? `${tipLabel}, ${String(meta.format)}` : tipLabel;
+  return {
+    type: "phylo",
+    key: `phylo:${meta.id}`,
+    label: brief.title,
+    meta: meta_,
+    // Brief terms (name + format) match the prior fold exactly.
+    haystack: buildHaystack([briefTerms(brief)]),
+    recencyAt: toEpoch(meta.added_at),
+    iconName: "tree" as IconName,
+    href: objectDeepLink("phylo", meta.id),
+    enabled: true,
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Exhaustiveness guard (GUI side). The Record<GuiIndexType, GuiEntryBuilder>
+// type forces an entry for EVERY indexed kind: adding a kind to the shared
+// INDEXED_TYPES registry (which widens GuiIndexType) makes this map fail to
+// COMPILE until the GUI also handles it. This mirrors BRIEF_ADAPTERS on the AI
+// side, so a new artifact type can never silently land in one index but not the
+// other. The map's value is a tiny descriptor (the entry builder reference) used
+// only to prove coverage at compile time and by the exhaustiveness test; the
+// real per-type build still happens in the typed loops below, since the builders
+// take different shaped records. The "shared" adapter each builder draws its
+// common fields from is named so the test can assert the pairing too.
+// ---------------------------------------------------------------------------
+
+/** Descriptor proving one GUI kind is covered: the entry builder and the shared
+ *  brief adapter it sources its common fields from. */
+type GuiTypeCoverage = {
+  entryBuilder: (...args: never[]) => GlobalIndexEntry;
+  briefAdapter: (record: never) => ArtifactBrief;
+};
+
+/** Every GUI palette kind, mapped to the builder + shared adapter that covers
+ *  it. The Record<GuiIndexType, ...> type is the anti-drift guard: a new kind
+ *  fails to compile here until the GUI handles it. */
+export const GUI_TYPE_COVERAGE: Record<GuiIndexType, GuiTypeCoverage> = {
+  task: { entryBuilder: buildTaskEntry, briefAdapter: experimentToBrief },
+  project: { entryBuilder: buildProjectEntry, briefAdapter: projectToBrief },
+  method: { entryBuilder: buildMethodEntry, briefAdapter: methodToBrief },
+  sequence: { entryBuilder: buildSequenceEntry, briefAdapter: sequenceToBrief },
+  inventory: { entryBuilder: buildInventoryEntry, briefAdapter: inventoryToBrief },
+  note: { entryBuilder: buildNoteEntry, briefAdapter: noteToBrief },
+  datahub: { entryBuilder: buildDataHubEntry, briefAdapter: dataHubToBrief },
+  molecule: { entryBuilder: buildMoleculeEntry, briefAdapter: moleculeToBrief },
+  purchase: { entryBuilder: buildPurchaseEntry, briefAdapter: purchaseToBrief },
+  phylo: { entryBuilder: buildPhyloEntry, briefAdapter: phyloToBrief },
+};
+
+/** Map an AI brief type to the GUI palette spelling, re-exported through the
+ *  index module so callers that bridge the two indices (the record-set widget,
+ *  @-mention resolvers) have one helper. Thin pass-through to the registry. */
+export function briefTypeToGuiType(type: IndexedType): GuiIndexType {
+  return aiTypeToGuiType(type);
 }
 
 /** Map the core record sets into one flat index. Pure and O(n) over the
@@ -389,6 +546,7 @@ export function buildGlobalIndex(input: GlobalIndexInput): GlobalIndexEntry[] {
     datahubDocs = [],
     molecules = [],
     purchaseItems = [],
+    phyloTrees = [],
   } = input;
 
   const projectNameByKey = new Map<string, string>();
@@ -408,5 +566,6 @@ export function buildGlobalIndex(input: GlobalIndexInput): GlobalIndexEntry[] {
   for (const doc of datahubDocs) entries.push(buildDataHubEntry(doc, currentUser));
   for (const mol of molecules) entries.push(buildMoleculeEntry(mol));
   for (const item of purchaseItems) entries.push(buildPurchaseEntry(item, currentUser));
+  for (const tree of phyloTrees) entries.push(buildPhyloEntry(tree));
   return entries;
 }

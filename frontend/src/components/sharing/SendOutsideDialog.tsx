@@ -34,6 +34,8 @@ import {
 } from "@/lib/sharing/relay/client";
 import { buildNoteBundleInput } from "@/lib/sharing/note-transfer";
 import InviteOutOfBandPanel from "@/components/sharing/InviteOutOfBandPanel";
+import FindAndShareModal from "@/components/account/FindAndShareModal";
+import { isFindAndShareEnabled } from "@/lib/account/find-and-share";
 import Tooltip from "@/components/Tooltip";
 import { scanNoteDependencies } from "@/lib/sharing/note-dependencies";
 import {
@@ -264,6 +266,9 @@ function SendForm({
 }) {
   const [recipient, setRecipient] = useState("");
   const [state, setState] = useState<SendState>({ phase: "idle" });
+  // Phase 3 Chunk 3B: the find-and-share modal entry (flag-gated). Lets the
+  // sender search by @handle/name instead of typing an email from memory.
+  const [findShareOpen, setFindShareOpen] = useState(false);
 
   // Scan the note's entry bodies for embedded objects once (memoized).
   // The note body lives in note.entries[].content (each entry is a markdown
@@ -501,6 +506,29 @@ function SendForm({
         This sends an encrypted copy, a snapshot of the note as it looks now. It
         is not live shared editing, the recipient gets their own copy.
       </p>
+
+      {isFindAndShareEnabled() && senderEmail && (
+        <button
+          type="button"
+          onClick={() => setFindShareOpen(true)}
+          className="w-full rounded-lg border border-border bg-surface px-3 py-2 text-meta font-semibold text-foreground hover:border-brand-action"
+        >
+          Find a researcher by name or @handle
+        </button>
+      )}
+
+      {findShareOpen && senderEmail && (
+        <FindAndShareModal
+          senderEmail={senderEmail}
+          senderLabel={senderEmail}
+          itemTitle={note.title || "Untitled note"}
+          itemKind="note"
+          buildBundle={() =>
+            buildNoteBundleInput(note, ownerUsername, { embedOpts: selectionSets })
+          }
+          onClose={() => setFindShareOpen(false)}
+        />
+      )}
 
       <div>
         <label

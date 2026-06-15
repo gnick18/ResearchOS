@@ -109,20 +109,19 @@ const ICONS_RAW = {
     ),
   },
   tree: {
-    concept: "Tree",
+    concept: "Phylogenetic tree (rooted cladogram, branches to tips)",
     body: (
       <>
-        <path d="M12 20.5V7" />
-        <path d="M10.5 20.5h3" />
-        <circle cx="12" cy="4.8" r="1.7" />
-        <path d="M12 11 7.6 8.4" />
-        <circle cx="6.2" cy="7.6" r="1.7" />
-        <path d="M12 11 16.4 8.4" />
-        <circle cx="17.8" cy="7.6" r="1.7" />
-        <path d="M12 15 8 12.9" />
-        <circle cx="6.6" cy="12.1" r="1.7" />
-        <path d="M12 15 16 12.9" />
-        <circle cx="17.4" cy="12.1" r="1.7" />
+        <path d="M3 12H6" />
+        <path d="M6 6V16" />
+        <path d="M6 6H13" />
+        <path d="M6 16H10" />
+        <path d="M10 12V20" />
+        <path d="M10 12H13" />
+        <path d="M10 20H13" />
+        <circle cx="14.5" cy="6" r="1.5" />
+        <circle cx="14.5" cy="12" r="1.5" />
+        <circle cx="14.5" cy="20" r="1.5" />
       </>
     ),
   },
@@ -284,6 +283,17 @@ const ICONS_RAW = {
       <>
         <rect x="3.5" y="5" width="17" height="14" rx="1.5" />
         <path d="M3.5 10h17M3.5 14.5h17M11.5 5v14" />
+      </>
+    ),
+  },
+  figure: {
+    concept: "Figure / composed publication figure page (Figures composer)",
+    body: (
+      <>
+        <rect x="3.5" y="4.5" width="17" height="15" rx="1.5" />
+        <path d="M3.5 13h17" />
+        <path d="M6.5 10.8l2.4-2.6 2 1.8 3-3" />
+        <path d="M6.5 15.8h8M6.5 17.6h4.5" />
       </>
     ),
   },
@@ -793,6 +803,19 @@ const ICONS_RAW = {
       </>
     ),
   },
+  // Fit a figure to the viewport (plotting toolbar). Corner brackets framing a
+  // centered rectangle (the figure sitting inside the frame). Distinct from
+  // `scan` (barcode lines) and from `focus` (arrows outward, now Fullscreen);
+  // Grant sign-off 2026-06-14.
+  fitView: {
+    concept: "Fit figure to view",
+    body: (
+      <>
+        <path d="M4 7V5a1 1 0 0 1 1-1h2M17 4h2a1 1 0 0 1 1 1v2M20 17v2a1 1 0 0 1-1 1h-2M7 20H5a1 1 0 0 1-1-1v-2" />
+        <rect x="8" y="9.5" width="8" height="5" rx="1.5" />
+      </>
+    ),
+  },
 
   // ── Companion / phone linking (Settings Devices redesign, Grant sign-off
   //    2026-06-08). Bodies verbatim from the shipped DevicesSection. The
@@ -1027,6 +1050,17 @@ const ICONS_RAW = {
         <path d="M14 8h5m0 0-2.2-2.2M19 8l-2.2 2.2" />
         <path d="M8 14v5m0 0 2.2-2.2M8 19l-2.2-2.2" />
       </>
+    ),
+  },
+
+  // ── Attachments (editor quiet toolbar + insert rail, L1 Phase B) ───────────
+  // Classic paperclip. Grant signed off this new glyph for the editor's
+  // Attachments control (2026-06-13). Path is verbatim from the standalone
+  // PaperclipIcon in lib/utils/icons.tsx so the two stay identical.
+  attach: {
+    concept: "Attachments / attach a file (paperclip)",
+    body: (
+      <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48" />
     ),
   },
 } satisfies Record<string, IconEntry>;

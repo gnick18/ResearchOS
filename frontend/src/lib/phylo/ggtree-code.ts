@@ -16,7 +16,13 @@
 // No em-dashes, no emojis, no mid-sentence colons.
 
 import type { RenderSpec } from "./render";
-import type { AlignedPanel, CladeAnnotation } from "./types";
+import type {
+  AlignedPanel,
+  CladeAnnotation,
+  NodePie,
+  TaxaLink,
+  TaxaStrip,
+} from "./types";
 
 export const GGTREE_CAVEAT =
   "This script is generated from your figure. The ggtree output is close but not 100% pixel-identical to the Studio canvas, ggtree uses a different layout engine.";
@@ -43,7 +49,11 @@ function isNumericColumn(
 
 /** Map a Studio layout to the ggtree layout string. */
 function ggtreeLayout(spec: RenderSpec): string {
-  if (spec.layout === "circular") return "circular";
+  if (spec.layout === "circular" || spec.layout === "inwardCircular")
+    return "circular";
+  if (spec.layout === "fan") return "fan";
+  if (spec.layout === "slanted") return "slanted";
+  if (spec.layout === "unrooted") return "daylight";
   return "rectangular";
 }
 
@@ -178,8 +188,13 @@ function generateFromTracks(spec: RenderSpec): string {
       );
     }
   }
-  // Theme + scale bar.
-  lines.push("p + theme_tree() + geom_treescale()");
+  // Theme + scale bar (or a reversed time axis when requested).
+  if (spec.timeAxis) {
+    lines.push("p <- revts(p)   # tips at age 0, root in the past");
+    lines.push("p + theme_tree2() + scale_x_continuous(labels = abs)");
+  } else {
+    lines.push("p + theme_tree() + geom_treescale()");
+  }
   return lines.join("\n");
 }
 
@@ -221,6 +236,9 @@ function generateFromPanels(spec: RenderSpec, panels: AlignedPanel[]): string {
       `p <- p + aes(color = ${rNameKey(spec.branchColorColumn)})   # color branches by trait`,
     );
   }
+  if (spec.rootEdge) {
+    lines.push("p <- p + geom_rootedge()   # stub branch below the root");
+  }
 
   let offset = 0.05;
   for (const panel of panels) {
@@ -233,6 +251,20 @@ function generateFromPanels(spec: RenderSpec, panels: AlignedPanel[]): string {
           "p <- p + geom_nodelab(aes(label = label), size = 2, hjust = -0.2)   # branch support",
         );
         break;
+      case "nodepoints": {
+        const npo = panel.options ?? {};
+        const size = Number(npo.size) || 3;
+        const color = (typeof npo.color === "string" && npo.color) || "#374151";
+        lines.push(
+          `p <- p + geom_nodepoint(size = ${(size / 2).toFixed(1)}, colour = ${rstr(color)})   # internal node points`,
+        );
+        if (npo.showRoot) {
+          lines.push(
+            `p <- p + geom_rootpoint(size = ${(size / 2 + 0.5).toFixed(1)}, colour = ${rstr(color)})`,
+          );
+        }
+        break;
+      }
       case "clade": {
         const clades =
           (panel.options?.clades as CladeAnnotation[] | undefined) ?? [];
@@ -265,14 +297,93 @@ function generateFromPanels(spec: RenderSpec, panels: AlignedPanel[]): string {
         }
         break;
       }
-      case "points":
-        if (col) {
+      case "taxalink": {
+        const links =
+          (panel.options?.links as TaxaLink[] | undefined) ?? [];
+        for (const l of links) {
+          if (!l.from || !l.to) continue;
           lines.push(
-            `p <- p + geom_tippoint(aes(color = ${rNameKey(col)}), size = 2)`,
+            `p <- p + geom_taxalink(taxa1 = ${rstr(l.from)}, taxa2 = ${rstr(l.to)}, color = ${rstr(l.color || "#7C3AED")}, linetype = 2, curvature = 0.5)`,
           );
-          lines.push(panelColorScale(spec, col, numeric, "color"));
         }
         break;
+      }
+      case "taxastrip": {
+        const strips =
+          (panel.options?.strips as TaxaStrip[] | undefined) ?? [];
+        for (const s of strips) {
+          if (!s.from || !s.to) continue;
+          lines.push(
+            `p <- p + geom_strip(${rstr(s.from)}, ${rstr(s.to)}, label = ${rstr(s.label || "")}, color = ${rstr(s.color || "#1D9E75")}, barsize = 2, offset = 0.5)`,
+          );
+        }
+        break;
+      }
+      case "nodepie": {
+        const pies = (panel.options?.pies as NodePie[] | undefined) ?? [];
+        const usable = pies.filter(
+          (pie) => pie.tips?.length && pie.slices?.length,
+        );
+        if (usable.length === 0) break;
+        // nodepie needs a per-node data frame + geom_inset, not a one-liner.
+        // Emit the data frame + the inset call so the figure is reproducible.
+        const cats = usable[0].slices.map((s) => s.label);
+        lines.push("# Node pies (ggtree nodepie + geom_inset).");
+        lines.push("pie_data <- data.frame(");
+        const nodeExprs = usable.map(
+          (pie) =>
+            `MRCA(tree, c(${pie.tips.map((t) => rstr(t)).join(", ")}))`,
+        );
+        lines.push(`  node = c(${nodeExprs.join(", ")}),`);
+        for (const cat of cats) {
+          const vals = usable.map((pie) => {
+            const s = pie.slices.find((x) => x.label === cat);
+            return s ? s.value : 0;
+          });
+          lines.push(`  ${rNameKey(cat)} = c(${vals.join(", ")}),`);
+        }
+        lines.push(")");
+        const colors = usable[0].slices.map((s) => rstr(s.color)).join(", ");
+        lines.push(
+          `pies <- nodepie(pie_data, cols = 2:${cats.length + 1}, color = c(${colors}))`,
+        );
+        lines.push("p <- p + geom_inset(pies, width = 0.05, height = 0.05)");
+        break;
+      }
+      case "noderange": {
+        const key =
+          (typeof panel.options?.rangeKey === "string" &&
+            panel.options.rangeKey) ||
+          "height_95%_HPD";
+        const color =
+          (typeof panel.options?.color === "string" && panel.options.color) ||
+          "#2563EB";
+        lines.push(
+          `p <- p + geom_range(range = ${rstr(key)}, color = ${rstr(color)}, alpha = 0.35, size = 2)`,
+        );
+        break;
+      }
+      case "points": {
+        const po = panel.options ?? {};
+        const sizeCol = typeof po.sizeColumn === "string" ? po.sizeColumn : "";
+        const shapeCol =
+          typeof po.shapeColumn === "string" ? po.shapeColumn : "";
+        const aesParts: string[] = [];
+        if (col) aesParts.push(`color = ${rNameKey(col)}`);
+        if (sizeCol) aesParts.push(`size = ${rNameKey(sizeCol)}`);
+        if (shapeCol) aesParts.push(`shape = ${rNameKey(shapeCol)}`);
+        if (aesParts.length > 0) {
+          // A mapped size drives the radius; otherwise pin a fixed size.
+          const sizeArg = sizeCol ? "" : ", size = 2";
+          lines.push(
+            `p <- p + geom_tippoint(aes(${aesParts.join(", ")})${sizeArg})`,
+          );
+          if (col) lines.push(panelColorScale(spec, col, numeric, "color"));
+        } else {
+          lines.push("p <- p + geom_tippoint(size = 2)");
+        }
+        break;
+      }
       case "labels": {
         const lo = panel.options ?? {};
         const face = (lo.italic ?? true) ? 'fontface = "italic", ' : "";
@@ -370,11 +481,37 @@ function generateFromPanels(spec: RenderSpec, panels: AlignedPanel[]): string {
         );
         offset += 0.3;
         break;
+      case "datahubPlot": {
+        // A tip-aligned Data Hub grouped-bar figure. The data is a separate table
+        // (not the metadata df), so emit an honest geom_fruit template from a LONG
+        // per-tip table; the bar position mirrors the panel's barMode.
+        const mode = String(panel.options?.barMode ?? "dodge");
+        const position =
+          mode === "stack100"
+            ? "position_fill()"
+            : mode === "stack"
+              ? "position_stack()"
+              : "position_dodge2()";
+        const title = String(panel.options?.title ?? "Data Hub plot");
+        lines.push(
+          `# A tip-aligned Data Hub figure (${title}). ggtreeExtra draws it from a`,
+          "# LONG per-tip table (one row per tip x series, with a value column),",
+          "# where the tip column matches the tree tip ids. With that table as 'dat':",
+          `#   p <- p + geom_fruit(data = dat, geom = geom_col, mapping = aes(x = value, fill = series), position = ${position}, offset = ${offset.toFixed(2)})`,
+        );
+        offset += 0.2;
+        break;
+      }
       default:
         break;
     }
   }
-  lines.push("p + theme_tree() + geom_treescale()");
+  if (spec.timeAxis) {
+    lines.push("p <- revts(p)   # tips at age 0, root in the past");
+    lines.push("p + theme_tree2() + scale_x_continuous(labels = abs)");
+  } else {
+    lines.push("p + theme_tree() + geom_treescale()");
+  }
   return lines.join("\n");
 }
 

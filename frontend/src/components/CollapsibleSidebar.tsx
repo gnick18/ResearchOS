@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 
 import { Icon } from "@/components/icons";
+import Tooltip from "@/components/Tooltip";
 
 /**
  * Wraps a fixed-width (w-64) left rail (DailyTasksSidebar / CalendarSidebar) and
@@ -68,33 +69,35 @@ export default function CollapsibleSidebar({
           Faint by default, brightens on hover. Vertically centered so it clears
           the rail's own top-right controls. */}
       {!collapsed && (
-        <button
-          type="button"
-          onClick={toggle}
-          aria-label="Hide sidebar"
-          title="Hide sidebar"
-          className="group absolute top-1/2 -translate-y-1/2 -right-3 z-30 flex h-12 w-6 items-center justify-center rounded-r-md border border-l-0 border-border bg-surface-raised text-foreground-muted opacity-40 shadow-sm transition-opacity hover:opacity-100"
-        >
-          <Icon name="chevronLeft" className="h-3 w-3" />
-        </button>
+        <Tooltip label="Hide sidebar">
+          <button
+            type="button"
+            onClick={toggle}
+            aria-label="Hide sidebar"
+            className="group absolute top-1/2 -translate-y-1/2 -right-3 z-30 flex h-12 w-6 items-center justify-center rounded-r-md border border-l-0 border-border bg-surface-raised text-foreground-muted opacity-40 shadow-sm transition-opacity hover:opacity-100"
+          >
+            <Icon name="chevronLeft" className="h-3 w-3" />
+          </button>
+        </Tooltip>
       )}
 
       {/* Pull-back handle: a thin full-height strip at the screen's left edge
           when collapsed. Widens + brightens on hover and reveals a chevron, so
           it reads as something to pull the rail back out with. */}
       {collapsed && (
-        <button
-          type="button"
-          onClick={toggle}
-          aria-label="Show sidebar"
-          title="Show sidebar"
-          className="group absolute inset-y-0 left-0 z-30 flex w-2 items-center justify-center border-r border-border bg-surface-raised text-foreground-muted transition-[width,background-color] hover:w-5 hover:bg-surface-sunken"
-        >
-          <Icon
-            name="chevronRight"
-            className="h-3 w-3 opacity-0 transition-opacity group-hover:opacity-100"
-          />
-        </button>
+        <Tooltip label="Show sidebar">
+          <button
+            type="button"
+            onClick={toggle}
+            aria-label="Show sidebar"
+            className="group absolute inset-y-0 left-0 z-30 flex w-2 items-center justify-center border-r border-border bg-surface-raised text-foreground-muted transition-[width,background-color] hover:w-5 hover:bg-surface-sunken"
+          >
+            <Icon
+              name="chevronRight"
+              className="h-3 w-3 opacity-0 transition-opacity group-hover:opacity-100"
+            />
+          </button>
+        </Tooltip>
       )}
     </div>
   );

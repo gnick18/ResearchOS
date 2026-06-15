@@ -288,7 +288,7 @@ export default function QpcrAnalysisMethodTabContent({
             <span className="text-body font-medium text-foreground">
               {method.name || "qPCR analysis"}
             </span>
-            <span className="text-meta px-1.5 py-0.5 bg-amber-100 dark:bg-amber-500/20 text-amber-700 dark:text-amber-300 rounded">qPCR</span>
+            <span className="text-meta px-1.5 py-0.5 bg-surface-sunken text-foreground-muted rounded">qPCR</span>
             {hasReadouts && (
               <span className={MODIFIED_BADGE_CLASSES}>{MODIFIED_CHIP_TEXT}</span>
             )}
@@ -352,7 +352,7 @@ export default function QpcrAnalysisMethodTabContent({
                           <td className="px-3 py-1">
                             <span className="font-medium text-foreground">{ref.target || "(unnamed)"}</span>
                             {ref.is_reference && (
-                              <span className="ml-1.5 text-meta px-1.5 py-0.5 bg-amber-100 dark:bg-amber-500/20 text-amber-700 dark:text-amber-300 rounded">
+                              <span className="ml-1.5 text-meta px-1.5 py-0.5 border border-border text-foreground-muted rounded">
                                 ref
                               </span>
                             )}

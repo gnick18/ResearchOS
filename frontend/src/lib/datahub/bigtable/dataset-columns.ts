@@ -170,6 +170,149 @@ export async function readDistinctLabels(
   return order;
 }
 
+/**
+ * Stringify a raw Arrow cell to a group / category LABEL the same way
+ * readColumnByGroup does (BigInt to its base-10 string, everything else String(),
+ * trimmed). Empty / null become "" so the caller can drop the row.
+ */
+function labelStr(v: unknown): string {
+  if (v === null || v === undefined) return "";
+  return String(typeof v === "bigint" ? v.toString() : v).trim();
+}
+
+/** One row of a value column plus two category labels (two-way ANOVA / nested). */
+export interface ValueTwoLabelRow {
+  value: number;
+  labelA: string;
+  labelB: string;
+}
+
+/**
+ * Read a numeric VALUE column plus TWO categorical label columns, aligned by row,
+ * dropping a row whose value is non-finite or EITHER label is empty. Drives the
+ * dataset-lane two-way ANOVA (value + row factor + column factor) and the nested
+ * tests (value + group + subgroup). Coercion mirrors the other readers exactly
+ * (toFiniteNumber for the value, labelStr for the labels). Row order is preserved.
+ *
+ * SCOPE (validation gate). This query only PROJECTS the three columns. The
+ * bucketing into the synthetic grouped / nested table happens in JS downstream; no
+ * SQL aggregate, no statistic.
+ */
+export async function readValueAndTwoLabels(
+  handle: OpenDatasetHandle,
+  valueColumn: string,
+  labelAColumn: string,
+  labelBColumn: string,
+  recipe?: TransformOp[],
+): Promise<ValueTwoLabelRow[]> {
+  const sql = `SELECT ${quoteIdent(valueColumn)} AS dv, ${quoteIdent(
+    labelAColumn,
+  )} AS la, ${quoteIdent(labelBColumn)} AS lb FROM ${fromSource(handle, recipe)}`;
+  const table = await query(sql);
+  const out: ValueTwoLabelRow[] = [];
+  for (const row of table.toArray()) {
+    const r = row as { dv: unknown; la: unknown; lb: unknown };
+    const n = toFiniteNumber(r.dv);
+    if (n === null) continue;
+    const la = labelStr(r.la);
+    const lb = labelStr(r.lb);
+    if (la === "" || lb === "") continue;
+    out.push({ value: n, labelA: la, labelB: lb });
+  }
+  return out;
+}
+
+/** A cross-tabulated count grid, the shape contingencyMatrix consumes. */
+export interface ContingencyCounts {
+  rowLabels: string[];
+  colLabels: string[];
+  matrix: number[][];
+}
+
+/**
+ * Read TWO categorical columns and cross-tabulate them into an R x C count grid
+ * (row factor by column factor), in FIRST-SEEN order on both axes. A row with
+ * either label empty is dropped. Drives the dataset-lane contingency / chi-square
+ * + Fisher analysis.
+ *
+ * SCOPE (validation gate). This query only PROJECTS the two columns; the counting
+ * is plain JS bucketing, NOT a SQL GROUP BY aggregate, so no statistic is computed
+ * off the validated path. The counts go to the validated engine via a synthetic
+ * contingency table.
+ */
+export async function readContingencyCounts(
+  handle: OpenDatasetHandle,
+  rowFactorColumn: string,
+  colFactorColumn: string,
+  recipe?: TransformOp[],
+): Promise<ContingencyCounts> {
+  const sql = `SELECT ${quoteIdent(rowFactorColumn)} AS la, ${quoteIdent(
+    colFactorColumn,
+  )} AS lb FROM ${fromSource(handle, recipe)}`;
+  const table = await query(sql);
+  const rowLabels: string[] = [];
+  const colLabels: string[] = [];
+  const cells = new Map<string, Map<string, number>>();
+  for (const row of table.toArray()) {
+    const r = row as { la: unknown; lb: unknown };
+    const la = labelStr(r.la);
+    const lb = labelStr(r.lb);
+    if (la === "" || lb === "") continue;
+    if (!cells.has(la)) {
+      cells.set(la, new Map());
+      rowLabels.push(la);
+    }
+    if (!colLabels.includes(lb)) colLabels.push(lb);
+    const m = cells.get(la)!;
+    m.set(lb, (m.get(lb) ?? 0) + 1);
+  }
+  const matrix = rowLabels.map((rl) =>
+    colLabels.map((cl) => cells.get(rl)!.get(cl) ?? 0),
+  );
+  return { rowLabels, colLabels, matrix };
+}
+
+/** One subject for a survival analysis (time, 0/1 event, group label). */
+export interface SurvivalRow {
+  time: number;
+  event: 0 | 1;
+  group: string;
+}
+
+/**
+ * Read survival rows: a finite TIME column, an EVENT column coerced to exactly 0
+ * (censored) or 1 (event), and an optional GROUP column. A row is kept only when
+ * time is finite and event is 0 or 1 (mirroring survival-table.ts survivalGroups);
+ * an absent or empty group folds to "All subjects", exactly as the editable lane.
+ *
+ * SCOPE (validation gate). This query only PROJECTS the columns; partitioning into
+ * arms + every survival statistic happen on the validated engine downstream.
+ */
+export async function readSurvivalRows(
+  handle: OpenDatasetHandle,
+  timeColumn: string,
+  eventColumn: string,
+  groupColumn: string | null,
+  recipe?: TransformOp[],
+): Promise<SurvivalRow[]> {
+  const groupSel = groupColumn ? `, ${quoteIdent(groupColumn)} AS sg` : "";
+  const sql = `SELECT ${quoteIdent(timeColumn)} AS st, ${quoteIdent(
+    eventColumn,
+  )} AS se${groupSel} FROM ${fromSource(handle, recipe)}`;
+  const table = await query(sql);
+  const out: SurvivalRow[] = [];
+  for (const row of table.toArray()) {
+    const r = row as { st: unknown; se: unknown; sg?: unknown };
+    const t = toFiniteNumber(r.st);
+    if (t === null) continue;
+    const ev = toFiniteNumber(r.se);
+    if (ev !== 0 && ev !== 1) continue;
+    const group = groupColumn ? labelStr(r.sg) || "All subjects" : "All subjects";
+    out.push({ time: t, event: ev as 0 | 1, group });
+  }
+  return out;
+}
+
 /** One partition of a value column, keyed by a grouping column's category. */
 export interface GroupedColumnValues {
   /** The grouping-column category label (stringified), in first-seen order. */

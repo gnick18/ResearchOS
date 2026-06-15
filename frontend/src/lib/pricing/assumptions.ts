@@ -37,6 +37,13 @@ export const BLENDED_PER_GB_MO =
 /** A small operating buffer added on top of raw storage cost. FLAGGED. */
 export const BUFFER = 0.15;
 
+/** Activity (write-operation) cost, dollars per million writes. This is the
+ *  real swing cost behind a subscriber, uncorrelated with how much they store,
+ *  so it is the load-bearing number in the operator price-modeling tool. Until
+ *  now it lived only in docs/proposals/PRICING_COST_MODEL.md; exported here so
+ *  activity is a tunable assumption like the rest. FLAGGED placeholder. */
+export const ACTIVITY_PER_M_WRITES = 1.5;
+
 // ── Payment processing (Stripe) ─────────────────────────────────────────────
 
 /** Stripe percentage fee. FLAGGED. */
