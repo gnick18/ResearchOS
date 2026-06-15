@@ -29,6 +29,7 @@ import { useRouter } from 'expo-router';
 
 import { ThemedText } from '@/components/themed-text';
 import { palette } from '@/lib/design';
+import { useMascotKeepOut } from '@/lib/mascot-avoid';
 
 export interface TabHeaderProps {
   /** The tab title, shown at the app-wide large-title scale. */
@@ -49,6 +50,9 @@ export function TabHeader({
   unreadCount = 0,
 }: TabHeaderProps) {
   const router = useRouter();
+  // Register the whole action cluster (bell / today / settings) as a mascot
+  // keep-out so the floating BeakerBot never parks on top of these buttons.
+  const actionsKeepOut = useMascotKeepOut();
 
   return (
     <View>
@@ -57,7 +61,11 @@ export function TabHeader({
           {title}
         </ThemedText>
 
-        <View style={styles.actions}>
+        <View
+          ref={actionsKeepOut.ref}
+          onLayout={actionsKeepOut.onLayout}
+          style={styles.actions}
+        >
           {/* Notifications. */}
           <Pressable
             testID="tab-notifications"
