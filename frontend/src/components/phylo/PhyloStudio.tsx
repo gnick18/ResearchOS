@@ -104,6 +104,11 @@ import {
   type OverlaySelection,
 } from "@/components/phylo/SmartDataWizard";
 import {
+  PhyloLayoutAdvisor,
+  type AdvisorDelta,
+  type AdvisorState,
+} from "@/components/phylo/PhyloLayoutAdvisor";
+import {
   rankJoinCandidates,
   mergeTableColumnsIntoMetadata,
   type JoinCandidate,
@@ -1032,6 +1037,45 @@ export function PhyloStudio({ initialTreeId }: { initialTreeId?: string } = {}) 
 
   // ---- persist ----
 
+  // Collision-aware layout advisor: current settings it can change, + the apply
+  // callback that maps an AdvisorDelta onto the figure state.
+  const advisorLabelsPanel = panels.find((p) => p.kind === "labels");
+  const advisorState: AdvisorState = {
+    columnGap,
+    legendPlacement,
+    labelsTilt: Number(advisorLabelsPanel?.options?.tilt) || 0,
+    labelsFontSize: Number(advisorLabelsPanel?.options?.fontSize) || 11,
+  };
+  const applyAdvisorDelta = (d: AdvisorDelta) => {
+    if (d.columnGap !== undefined) setColumnGap(d.columnGap);
+    if (d.legendPlacement !== undefined) setLegendPlacement(d.legendPlacement);
+    if (
+      d.labelsTilt !== undefined ||
+      d.labelsFontSize !== undefined ||
+      d.dropPanelIds?.length
+    ) {
+      setPanels((prev) => {
+        let next = prev.map((p) =>
+          p.kind === "labels"
+            ? {
+                ...p,
+                options: {
+                  ...p.options,
+                  ...(d.labelsTilt !== undefined ? { tilt: d.labelsTilt } : {}),
+                  ...(d.labelsFontSize !== undefined
+                    ? { fontSize: d.labelsFontSize }
+                    : {}),
+                },
+              }
+            : p,
+        );
+        if (d.dropPanelIds?.length)
+          next = next.filter((p) => !d.dropPanelIds!.includes(p.id));
+        return next;
+      });
+    }
+  };
+
   const onSave = async () => {
     if (!tree) return;
     // The layer stack is the source of truth, written as panels. We ALSO derive
@@ -1142,6 +1186,16 @@ export function PhyloStudio({ initialTreeId }: { initialTreeId?: string } = {}) 
       icon: <Icon name="tree" className="h-5 w-5" />,
       panel: (
         <div className="space-y-3.5">
+          {tree && spec && (
+            <PhyloLayoutAdvisor
+              key={openTreeId ?? "unsaved"}
+              tree={tree}
+              spec={spec}
+              state={advisorState}
+              onApply={applyAdvisorDelta}
+              plotId={openTreeId}
+            />
+          )}
           <Panel title="Layout">
             <div className="flex flex-wrap items-center gap-2">
               <Seg
