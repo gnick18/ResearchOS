@@ -19,7 +19,7 @@ import { Icon } from "@/components/icons";
  */
 export default function TrustBand() {
   return (
-    <div className="trustband mx-auto max-w-[1180px] px-6">
+    <div className="trustband mx-auto max-w-[1180px] px-2 sm:px-6">
       <p className="tb-eyebrow">// billing you can trust, by design</p>
       <h2 className="tb-h2">Pricing that can&apos;t surprise you</h2>
       <p className="tb-sub">
@@ -215,7 +215,7 @@ export default function TrustBand() {
           margin: 0;
         }
         .tb-h2 {
-          font-size: 30px;
+          font-size: clamp(20px, 6vw, 30px);
           font-weight: 800;
           letter-spacing: -0.02em;
           text-align: center;
@@ -240,7 +240,7 @@ export default function TrustBand() {
           box-shadow: 0 30px 60px -40px rgba(15, 40, 80, 0.4);
         }
         .band-top {
-          padding: 34px 30px 8px;
+          padding: clamp(16px, 5vw, 34px) clamp(14px, 5vw, 30px) 8px;
           text-align: center;
           background: radial-gradient(
             120% 120% at 50% -10%,
@@ -280,7 +280,7 @@ export default function TrustBand() {
           color: var(--muted);
         }
         .band-h {
-          font-size: 26px;
+          font-size: clamp(18px, 5vw, 26px);
           font-weight: 800;
           letter-spacing: -0.02em;
           margin: 6px auto 0;
@@ -304,6 +304,13 @@ export default function TrustBand() {
         @media (max-width: 760px) {
           .bento {
             grid-template-columns: repeat(2, 1fr);
+          }
+        }
+        @media (max-width: 480px) {
+          .bento {
+            grid-template-columns: 1fr;
+            padding: 12px 12px 20px;
+            gap: 10px;
           }
         }
         .tile {
@@ -332,6 +339,14 @@ export default function TrustBand() {
           .span3,
           .span2 {
             grid-column: span 2;
+          }
+        }
+        @media (max-width: 480px) {
+          .span6,
+          .span4,
+          .span3,
+          .span2 {
+            grid-column: span 1;
           }
         }
         .tile.hero {
@@ -437,10 +452,22 @@ export default function TrustBand() {
           display: flex;
           align-items: center;
           justify-content: flex-start;
-          gap: 10px;
+          gap: 8px;
           margin-top: 12px;
           flex-wrap: wrap;
           position: relative;
+        }
+        @media (max-width: 480px) {
+          .pool {
+            flex-direction: column;
+            align-items: flex-start;
+          }
+          .pool .arrow {
+            display: none;
+          }
+          .pool .spark {
+            display: none;
+          }
         }
         .pool .spark {
           position: absolute;

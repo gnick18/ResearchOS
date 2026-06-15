@@ -160,9 +160,9 @@ export default function DepartmentBuilder() {
 
 function CalcRow({ label, value }: { label: string; value: string }) {
   return (
-    <div className="flex items-baseline justify-between gap-3 py-1.5 text-[12.5px] text-foreground-muted">
-      <span>{label}</span>
-      <b className="font-semibold tabular-nums text-foreground">{value}</b>
+    <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5 py-1.5 text-[12.5px] text-foreground-muted">
+      <span className="min-w-0 shrink">{label}</span>
+      <b className="shrink-0 font-semibold tabular-nums text-foreground">{value}</b>
     </div>
   );
 }

@@ -17,7 +17,7 @@ export default function PricingHero() {
       <p className="text-[11.5px] font-extrabold uppercase tracking-[0.12em] text-brand-action">
         Pricing
       </p>
-      <h1 className="mx-auto mb-3 mt-2.5 max-w-[26ch] text-3xl font-extrabold leading-tight text-brand-ink dark:text-foreground sm:text-4xl">
+      <h1 className="mx-auto mb-3 mt-2.5 max-w-[26ch] text-2xl font-extrabold leading-tight text-brand-ink dark:text-foreground sm:text-3xl lg:text-4xl">
         The notebook is free. You pay only for optional cloud storage.
       </h1>
       <p className="mx-auto mb-4 max-w-[60ch] text-[14.5px] leading-relaxed text-foreground-muted">
