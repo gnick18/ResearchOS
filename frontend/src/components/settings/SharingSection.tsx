@@ -424,7 +424,7 @@ function ReadyIdentity({
         <button
           type="button"
           onClick={onDisconnect}
-          className="px-3 py-1.5 text-body border border-border bg-surface-sunken hover:bg-border text-red-600 rounded-lg"
+          className="ros-btn-destructive px-3 py-1.5 text-body"
         >
           Disconnect from this device
         </button>
@@ -435,7 +435,7 @@ function ReadyIdentity({
           <button
             type="button"
             onClick={onReset}
-            className="px-3 py-1.5 text-body border border-border bg-surface-sunken hover:bg-border text-red-600 dark:text-red-400 rounded-lg"
+            className="ros-btn-destructive px-3 py-1.5 text-body"
           >
             Reset identity
           </button>
@@ -505,7 +505,7 @@ function NeedsRestoreIdentity({
           <button
             type="button"
             onClick={onReset}
-            className="px-3 py-2 text-body border border-border bg-surface-sunken hover:bg-border text-red-600 dark:text-red-400 rounded-lg"
+            className="ros-btn-destructive px-3 py-2 text-body"
           >
             Reset identity
           </button>
@@ -1132,7 +1132,7 @@ export function ProfileEditorCard() {
               type="button"
               onClick={remove}
               disabled={busy}
-              className="px-3 py-1.5 text-body border border-border bg-surface-sunken hover:bg-border text-red-600 dark:text-red-400 rounded-lg disabled:opacity-50"
+              className="ros-btn-destructive px-3 py-1.5 text-body disabled:opacity-50"
             >
               {busy ? "Removing…" : "Remove from directory"}
             </button>
