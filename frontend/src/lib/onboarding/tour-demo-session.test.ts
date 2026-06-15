@@ -5,6 +5,8 @@ import {
   readTourResume,
   hasTourResume,
   clearTourResume,
+  beginTourDemoSession,
+  endTourDemoSession,
   type StorageLike,
   type TourResumeState,
 } from "./tour-demo-session";
@@ -123,5 +125,101 @@ describe("tour-demo-session resume marker", () => {
     expect(hasTourResume(null)).toBe(false);
     expect(() => saveTourResume(STATE, null)).not.toThrow();
     expect(() => clearTourResume(null)).not.toThrow();
+  });
+});
+
+describe("beginTourDemoSession", () => {
+  it("saves the marker BEFORE navigating, stashes the route, hard-navs to /demo", () => {
+    const order: string[] = [];
+    let saved: TourResumeState | null = null;
+    let stashed: string | null = null;
+    let navigated: string | null = null;
+    beginTourDemoSession(STATE, {
+      saveMarker: (s) => {
+        order.push("save");
+        saved = s;
+      },
+      storePreDemoRoute: (r) => {
+        order.push("stash");
+        stashed = r;
+      },
+      currentRoute: () => "/datahub?doc=1",
+      navigate: (u) => {
+        order.push("navigate");
+        navigated = u;
+      },
+    });
+    expect(saved).toEqual(STATE);
+    expect(stashed).toBe("/datahub?doc=1");
+    expect(navigated).toBe("/demo");
+    // Marker must be persisted before the navigation tears the page down.
+    expect(order).toEqual(["save", "stash", "navigate"]);
+  });
+});
+
+describe("endTourDemoSession", () => {
+  it("restores the real folder BEFORE clearing demo, then returns to the stashed route", async () => {
+    const order: string[] = [];
+    let replaced: string | null = null;
+    await endTourDemoSession({
+      restore: async () => {
+        order.push("restore");
+        return true;
+      },
+      clearDemoMode: () => order.push("clearDemo"),
+      clearMarker: () => order.push("clearMarker"),
+      consumeRoute: () => {
+        order.push("consume");
+        return "/datahub?doc=1";
+      },
+      replace: (u) => {
+        order.push("replace");
+        replaced = u;
+      },
+    });
+    expect(order).toEqual([
+      "restore",
+      "clearDemo",
+      "clearMarker",
+      "consume",
+      "replace",
+    ]);
+    expect(replaced).toBe("/datahub?doc=1");
+  });
+
+  it("falls back to / when no route was stashed (or restore failed)", async () => {
+    let replaced: string | null = null;
+    await endTourDemoSession({
+      restore: async () => false,
+      clearDemoMode: () => {},
+      clearMarker: () => {},
+      consumeRoute: () => null,
+      replace: (u) => {
+        replaced = u;
+      },
+    });
+    expect(replaced).toBe("/");
+  });
+
+  it("still exits cleanly when restore throws (never strands the user in demo)", async () => {
+    let replaced: string | null = null;
+    let demoCleared = false;
+    await expect(
+      endTourDemoSession({
+        restore: async () => {
+          throw new Error("idb fail");
+        },
+        clearDemoMode: () => {
+          demoCleared = true;
+        },
+        clearMarker: () => {},
+        consumeRoute: () => null,
+        replace: (u) => {
+          replaced = u;
+        },
+      }),
+    ).resolves.toBeUndefined();
+    expect(demoCleared).toBe(true);
+    expect(replaced).toBe("/");
   });
 });
