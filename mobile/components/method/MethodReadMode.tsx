@@ -662,6 +662,7 @@ export function MethodReadMode({
   onClose,
   onAddVariation,
   onSyncChecks,
+  onMakePhoneFriendly,
   variationBusy,
 }: {
   method: MethodProjection;
@@ -671,6 +672,10 @@ export function MethodReadMode({
   /** Sync the full gathered checklist map to the laptop (debounced). Omitted for
    *  demo / library methods that have no experiment to write back to. */
   onSyncChecks?: (methodId: number | undefined, checks: CheckMap, total: number) => void;
+  /** Offer to have BeakerBot restructure this method into clean steps (metered
+   *  AI). Provided only for body-type methods in a real experiment; omitted for
+   *  structured / demo / library methods, where it does not apply. */
+  onMakePhoneFriendly?: () => void;
   variationBusy: boolean;
 }) {
   const { surface, spacing, radii } = useTheme();
@@ -827,6 +832,17 @@ export function MethodReadMode({
             </ThemedText>
           ) : null}
         </View>
+        {onMakePhoneFriendly ? (
+          <Pressable
+            onPress={onMakePhoneFriendly}
+            hitSlop={12}
+            accessibilityRole="button"
+            accessibilityLabel="Make a phone-friendly version of this method"
+            style={[rstyles.closeBtn, { backgroundColor: surface.sunken }]}
+          >
+            <Ionicons name="sparkles-outline" size={17} color={accent} />
+          </Pressable>
+        ) : null}
         <View style={rstyles.awake}>
           <View style={[rstyles.awakeDot, { backgroundColor: palette.success }]} />
           <ThemedText style={[rstyles.awakeTxt, { color: palette.success }]}>SCREEN ON</ThemedText>

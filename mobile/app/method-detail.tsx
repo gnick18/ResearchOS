@@ -13,9 +13,10 @@
 // need; the canonical method stays on the laptop.
 //
 // House style: no em-dashes, no emojis, no mid-sentence colons.
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
+  Alert,
   Pressable,
   RefreshControl,
   ScrollView,
@@ -42,6 +43,8 @@ import { fetchSnapshot, type MethodSnapshot, type MethodProjection } from '@/lib
 import { getCachedMethod } from '@/lib/method-library-store';
 import { getDemoMethod } from '@/lib/method-library';
 import { postAddVariation } from '@/lib/add-variation';
+import { postReformatMethod, estimateReformatSeconds } from '@/lib/reformat-method';
+import { startBeakerBotJob, subscribeMethodRefresh } from '@/lib/beakerbot-job';
 import { postMethodChecks } from '@/lib/add-method-check';
 import type { CheckMap } from '@/lib/method-checks';
 
@@ -559,6 +562,57 @@ export default function MethodScreen() {
     [pairing, snapshot?.taskId, snapshot?.owner],
   );
 
+  // When a reformat lands, the laptop republishes the method snapshot and the
+  // working bubble fires this nudge, so this screen reloads in place and the
+  // tidied steps appear without navigating away.
+  useEffect(() => subscribeMethodRefresh(() => void load()), [load]);
+
+  // Offer to make a body-type method phone-friendly (metered AI). Confirms first
+  // so there is no surprise token spend, then starts the working bubble + sends
+  // the reformat command to the laptop. Guarded to a real paired experiment.
+  const onMakePhoneFriendly = useCallback(
+    (method: MethodProjection) => {
+      if (!pairing || !snapshot?.taskId || !snapshot?.owner) return;
+      if (typeof method.methodId !== 'number') return;
+      const taskId = snapshot.taskId;
+      const owner = snapshot.owner;
+      const methodId = method.methodId;
+      const eta = estimateReformatSeconds((method.body ?? '').length);
+      Alert.alert(
+        'Make a phone version?',
+        `BeakerBot will restructure "${method.name ?? 'this method'}" into clean steps for the bench. Every number and reagent stays exactly as written. This uses AI credits and takes about ${eta} seconds.`,
+        [
+          { text: 'Not now', style: 'cancel' },
+          {
+            text: 'Make it',
+            style: 'default',
+            onPress: () => {
+              const jobId = `job_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
+              startBeakerBotJob({
+                kind: 'reformat-method',
+                jobId,
+                label: method.name ?? '',
+                methodId,
+                taskId,
+                etaSeconds: eta,
+                startedAt: Date.now(),
+              });
+              void postReformatMethod(
+                taskId,
+                owner,
+                methodId,
+                jobId,
+                pairing.userX25519PubHex ?? '',
+                pairing.relayUrl,
+              );
+            },
+          },
+        ],
+      );
+    },
+    [pairing, snapshot?.taskId, snapshot?.owner],
+  );
+
   // Sync the gathered checklist state to the laptop's attached method (rides the
   // offline outbox, last-write-wins). No-op until paired with a real experiment.
   const onSyncChecks = useCallback(
@@ -658,14 +712,25 @@ export default function MethodScreen() {
   // Full-screen read mode takes over the whole screen (no header, no tab chrome
   // since this is a pushed stack screen). expo-keep-awake fires inside it.
   if (readIndex != null && methods[readIndex]) {
+    const opened = methods[readIndex];
+    // Offer the reformat only for body-type methods with text (the structured
+    // pcr/lc/compound types already read as steps and have no markdown to tidy).
+    const rt = opened.resolvedType;
+    const canReformat =
+      !!opened.body &&
+      rt !== 'pcr' &&
+      rt !== 'lc_gradient' &&
+      rt !== 'compound' &&
+      !!snapshot?.taskId;
     return (
       <ScreenFrame edges={['top', 'bottom']}>
         <MethodReadMode
-          method={methods[readIndex]}
+          method={opened}
           experimentName={snapshot?.experimentName}
           onClose={() => setReadIndex(null)}
           onAddVariation={onAddVariation}
           onSyncChecks={onSyncChecks}
+          onMakePhoneFriendly={canReformat ? () => onMakePhoneFriendly(opened) : undefined}
           variationBusy={variationBusy}
         />
       </ScreenFrame>

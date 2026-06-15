@@ -25,6 +25,7 @@ import { AppSplash } from '@/components/AppSplash';
 import { AppLockGate } from '@/components/AppLockGate';
 import { RainbowBar } from '@/components/ui/RainbowBar';
 import { SuccessBurst } from '@/components/SuccessBurst';
+import BeakerBotWorkingBubble from '@/components/BeakerBotWorkingBubble';
 import { HeaderMascot } from '@/components/HeaderMascot';
 import { LabAlarm, LabAlarmWatcher } from '@/components/LabAlarm';
 import { useColorScheme } from '@/hooks/use-color-scheme';
@@ -245,6 +246,10 @@ export default function RootLayout() {
             over the screen. Native only (Skia). */}
         {Platform.OS !== 'web' ? <LabAlarmWatcher /> : null}
         {Platform.OS !== 'web' ? <LabAlarm /> : null}
+        {/* BeakerBot working bubble: appears upper-right while a metered-AI job
+            (the method reformat) is in flight, tap to see token usage + time
+            left. Renders null when no job is running. Native only (Skia). */}
+        {Platform.OS !== 'web' ? <BeakerBotWorkingBubble /> : null}
       </View>
       {splashVisible && Platform.OS !== 'web' ? <AppSplash onFinish={handleSplashFinish} /> : null}
       {/* Biometric app lock. Opt-in (default off), so this renders null and adds
