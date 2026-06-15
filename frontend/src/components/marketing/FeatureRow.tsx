@@ -26,7 +26,9 @@ export default function FeatureRow({
   title: string;
   body: ReactNode;
   pills?: string[];
-  visual: ReactNode;
+  /** The framed visual beside the text. Omit it for a text-only feature block
+   *  (the row then spans full width in a single column). */
+  visual?: ReactNode;
   flip?: boolean;
   tint?: boolean;
   /** Optional extra content under the body (e.g. a bullet list or a link). */
@@ -61,6 +63,19 @@ export default function FeatureRow({
     </div>
   );
   const media = <div className={flip ? "md:order-1" : undefined}>{visual}</div>;
+
+  // Text-only row (no visual): a single centered column, no two-up grid.
+  if (!visual) {
+    return (
+      <section
+        className={`px-6 py-16 sm:px-12 ${
+          tint ? "border-y border-[#dbe6f3] bg-[#f4f8fd]" : ""
+        }`}
+      >
+        <Reveal className="mx-auto max-w-[760px]">{text}</Reveal>
+      </section>
+    );
+  }
 
   return (
     <section
