@@ -14,3 +14,14 @@
 export const ONBOARDING_WIZARD_ENABLED =
   process.env.NEXT_PUBLIC_ONBOARDING_WIZARD === "1" ||
   process.env.NEXT_PUBLIC_ONBOARDING_WIZARD === "true";
+
+// Onboarding TUTOR feature flag. The LLM-driven guided first-run (Beaker drives
+// the real pages with a presenter cursor; a tailored, example-first presentation
+// that runs after the setup wizard, account-gated, funded by a capped slice of
+// the new-account token gift). Same NEXT_PUBLIC pattern: OFF by default in prod,
+// safe to commit and push, turned on locally with NEXT_PUBLIC_ONBOARDING_TUTOR=1.
+// When OFF, none of the tutor code mounts and nothing changes. Spec:
+// docs/proposals/2026-06-14-llm-onboarding-tutor.md (+ -onboarding-demo-scripts).
+export const ONBOARDING_TUTOR_ENABLED =
+  process.env.NEXT_PUBLIC_ONBOARDING_TUTOR === "1" ||
+  process.env.NEXT_PUBLIC_ONBOARDING_TUTOR === "true";
