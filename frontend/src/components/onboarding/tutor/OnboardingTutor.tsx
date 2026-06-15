@@ -41,12 +41,16 @@ export interface OnboardingTutorProps {
   /** The capped onboarding token meter, for the visible spend indicator. The
    *  live layer accrues real usage into it. Defaults to a fresh full meter. */
   meter?: OnboardingMeter;
+  /** Mount regardless of the feature flag. Dev preview only, never set in the
+   *  real after-account mount (that path respects ONBOARDING_TUTOR_ENABLED). */
+  forceEnabled?: boolean;
 }
 
 export default function OnboardingTutor({
   onComplete,
   onRememberFact,
   meter,
+  forceEnabled = false,
 }: OnboardingTutorProps) {
   const tokenMeter = meter ?? newMeter();
   const [state, dispatch] = useReducer(tutorReducer, initialTutorState);
@@ -58,7 +62,7 @@ export default function OnboardingTutor({
     if (isFinished(state)) onComplete();
   }, [state, onComplete]);
 
-  if (!ONBOARDING_TUTOR_ENABLED) return null;
+  if (!ONBOARDING_TUTOR_ENABLED && !forceEnabled) return null;
   if (isFinished(state)) return null;
 
   if (state.phase === "welcome") {

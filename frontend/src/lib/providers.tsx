@@ -699,7 +699,8 @@ function AppContent({ children }: { children: ReactNode }) {
     pathname === "/dev/scrollbars" ||
     pathname === "/dev/scroll-recede" ||
     pathname === "/dev/popup-titles" ||
-    pathname === "/dev/recolor-depth"
+    pathname === "/dev/recolor-depth" ||
+    pathname === "/dev/onboarding-tutor"
   ) {
     return (
       <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
