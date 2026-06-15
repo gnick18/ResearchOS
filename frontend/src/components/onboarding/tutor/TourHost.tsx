@@ -24,6 +24,11 @@ import {
   markOnboardingTutorDone,
 } from "@/lib/onboarding/tour-gate";
 import { isFreshUserForWizard } from "@/lib/onboarding/is-fresh-user";
+import {
+  readTourResume,
+  clearTourResume,
+  type TourResumeState,
+} from "@/lib/onboarding/tour-demo-session";
 
 export interface TourHostProps {
   /** The connected user, from providers. Null while none is connected. */
@@ -47,19 +52,35 @@ export default function TourHost({ username }: TourHostProps) {
     };
   }, [username]);
 
+  // A resume marker from a pre-reload run (the demo-entry reload, build plan §2).
+  // When present the tour was mid-run and re-entered demo mode, so it resumes at
+  // the live-demo beat instead of replaying welcome/picker. Also the path a
+  // mid-tour refresh takes. Read once on mount (synchronous, sessionStorage).
+  const [resume] = useState<TourResumeState | null>(() => readTourResume());
+
   // Decide whether to run once the signal resolves. The gate also checks the
-  // flag, so this is false in prod until ONBOARDING_TUTOR_ENABLED is on.
+  // flag, so this is false in prod until ONBOARDING_TUTOR_ENABLED is on. A live
+  // resume marker forces it active regardless of the fresh-account read, so a
+  // post-reload (or refreshed) tour always picks back up rather than evaluating
+  // freshness against the now-demo footprint.
   const [active, setActive] = useState(false);
   useEffect(() => {
+    if (resume) {
+      setActive(true);
+      return;
+    }
     if (fresh === null) return;
     setActive(shouldRunOnboardingTutor({ freshAccount: fresh }));
-  }, [fresh]);
+  }, [fresh, resume]);
 
   const handleComplete = useCallback(() => {
     markOnboardingTutorDone();
+    // Drop the resume marker so a later fresh run never picks up this tour.
+    clearTourResume();
     setActive(false);
-    // TODO(live): exit the tour-scoped demo-data mode so the user lands in their
-    // own clean empty workspace.
+    // TODO(live): exit tour-scoped demo mode (clearDemoMode +
+    // restorePreDemoStateOrClear) so the user lands in their own clean empty
+    // workspace. Browser-coupled (it reloads out of demo); verify in checkpoint D.
   }, []);
 
   const handleRememberFact = useCallback(() => {
@@ -68,6 +89,11 @@ export default function TourHost({ username }: TourHostProps) {
 
   if (!active) return null;
 
+  // TODO(live): when `resume` is set, hand its beatIndex + picks + fixtureFlavor
+  // to OnboardingTutor as an initial machine state so it re-enters at the
+  // live-demo beat (skipping welcome/picker). That machine-resume prop + the
+  // begin-show reload that writes the marker are the browser-coupled half of
+  // increment 2 (verify in checkpoint A). The marker plumbing + gate are wired.
   return (
     <OnboardingTutor
       onComplete={handleComplete}
