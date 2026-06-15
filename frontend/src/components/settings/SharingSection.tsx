@@ -416,7 +416,7 @@ function ReadyIdentity({
           <button
             type="button"
             onClick={onRotate}
-            className="px-3 py-1.5 text-body border border-border bg-surface-sunken hover:bg-border text-foreground rounded-lg"
+            className="ros-btn-neutral px-3 py-1.5 text-body"
           >
             Rotate key
           </button>
@@ -1124,7 +1124,7 @@ export function ProfileEditorCard() {
             <button
               type="button"
               onClick={openEdit}
-              className="px-3 py-1.5 text-body border border-border bg-surface-sunken hover:bg-border text-foreground rounded-lg"
+              className="ros-btn-neutral px-3 py-1.5 text-body"
             >
               Edit profile
             </button>
@@ -1256,7 +1256,7 @@ export function ProfileEditorCard() {
                 setError(null);
               }}
               disabled={busy}
-              className="flex-1 px-3 py-2 text-body border border-border bg-surface-sunken hover:bg-border text-foreground rounded-lg disabled:opacity-50"
+              className="ros-btn-neutral flex-1 px-3 py-2 text-body disabled:opacity-50"
             >
               Cancel
             </button>
@@ -1971,7 +1971,7 @@ export function RotateIdentityPopup({
             <button
               type="button"
               onClick={onClose}
-              className="flex-1 py-2 text-body bg-surface-raised/5 hover:bg-surface-raised/10 border border-border text-foreground rounded-lg"
+              className="ros-btn-neutral flex-1 py-2 text-body"
             >
               Cancel
             </button>
@@ -2146,7 +2146,7 @@ export function DisconnectIdentityPopup({
             type="button"
             onClick={onClose}
             disabled={busy}
-            className="flex-1 py-2 text-body bg-surface-raised/5 hover:bg-surface-raised/10 border border-border text-foreground rounded-lg disabled:opacity-50"
+            className="ros-btn-neutral flex-1 py-2 text-body disabled:opacity-50"
           >
             Cancel
           </button>
@@ -2240,7 +2240,7 @@ export function ResetIdentityPopup({
             type="button"
             onClick={onClose}
             disabled={busy}
-            className="flex-1 py-2 text-body bg-surface-raised/5 hover:bg-surface-raised/10 border border-border text-foreground rounded-lg disabled:opacity-50"
+            className="ros-btn-neutral flex-1 py-2 text-body disabled:opacity-50"
           >
             Cancel
           </button>
