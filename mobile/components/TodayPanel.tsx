@@ -42,7 +42,8 @@ import Animated, {
 import { useRouter } from 'expo-router';
 
 import { ThemedText } from '@/components/themed-text';
-import { useTheme, palette } from '@/lib/design';
+import { RainbowBar } from '@/components/ui/RainbowBar';
+import { useTheme, palette, fonts } from '@/lib/design';
 import type { SnapshotTask } from '@/lib/snapshots';
 
 // The panel is anchored to the top of the screen and translated up by its own
@@ -203,6 +204,13 @@ export function TodayPanel({
         }}
         accessibilityViewIsModal
       >
+        {/* Rainbow brand edge (contract .rb-edge): the signature sliver pinned to
+            the panel's top, clipped to its rounded corners. Reuses the shared
+            RainbowBar primitive (pastel light / vivid dark). */}
+        <View style={styles.rainbowEdge} pointerEvents="none">
+          <RainbowBar height={3} />
+        </View>
+
         <View style={styles.headerRow}>
           <ThemedText style={[styles.title, { color: surface.text }]}>
             Today
@@ -610,7 +618,10 @@ const styles = StyleSheet.create({
     maxHeight: '92%',
     borderWidth: 1,
     borderRadius: 30,
-    paddingTop: 16,
+    // Clip the rainbow brand edge to the rounded top corners.
+    overflow: 'hidden',
+    // Extra top room so content clears the 3px rainbow sliver.
+    paddingTop: 19,
     paddingHorizontal: 16,
     paddingBottom: 10,
     shadowColor: '#081e3c',
@@ -619,6 +630,14 @@ const styles = StyleSheet.create({
     shadowRadius: 40,
     elevation: 16,
   },
+  // Contract .rb-edge: a 3px signature rainbow sliver across the panel top.
+  rainbowEdge: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    height: 3,
+  },
   headerRow: {
     flexDirection: 'row',
     alignItems: 'baseline',
@@ -626,8 +645,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 4,
     marginBottom: 12,
   },
-  title: { fontSize: 21, fontWeight: '800', letterSpacing: -0.3 },
-  date: { fontSize: 12, fontWeight: '600' },
+  title: { fontSize: 21, fontFamily: fonts.extrabold, fontWeight: '800', letterSpacing: -0.3 },
+  date: { fontSize: 12, fontFamily: fonts.semibold, fontWeight: '600' },
 
   // Stat tiles
   stats: { flexDirection: 'row', gap: 9, marginBottom: 13 },
@@ -635,13 +654,20 @@ const styles = StyleSheet.create({
     flex: 1,
     borderWidth: 1,
     borderRadius: 16,
-    paddingVertical: 12,
+    paddingVertical: 13,
     paddingHorizontal: 10,
     alignItems: 'center',
+    // Soft lift so the tinted tiles read as elevated, per the contract.
+    shadowColor: '#0F1722',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 3,
+    elevation: 1,
   },
-  statNum: { fontSize: 26, fontWeight: '800', lineHeight: 28 },
+  statNum: { fontSize: 26, fontFamily: fonts.extrabold, fontWeight: '800', lineHeight: 28 },
   statLabel: {
     fontSize: 10.5,
+    fontFamily: fonts.bold,
     fontWeight: '700',
     marginTop: 5,
     textTransform: 'uppercase',
@@ -655,6 +681,7 @@ const styles = StyleSheet.create({
   },
   expBandHeader: {
     fontSize: 10.5,
+    fontFamily: fonts.extrabold,
     fontWeight: '800',
     letterSpacing: 0.5,
     textTransform: 'uppercase',
@@ -677,6 +704,7 @@ const styles = StyleSheet.create({
   },
   expName: {
     fontSize: 12.5,
+    fontFamily: fonts.bold,
     fontWeight: '700',
     flex: 1,
     minWidth: 0,
@@ -689,6 +717,7 @@ const styles = StyleSheet.create({
   },
   dayChipText: {
     fontSize: 10,
+    fontFamily: fonts.extrabold,
     fontWeight: '800',
   },
   expMethodRow: {
@@ -705,6 +734,7 @@ const styles = StyleSheet.create({
   },
   expMethodName: {
     fontSize: 10.5,
+    fontFamily: fonts.medium,
     flex: 1,
     minWidth: 0,
   },
@@ -714,6 +744,7 @@ const styles = StyleSheet.create({
 
   group: {
     fontSize: 10.5,
+    fontFamily: fonts.extrabold,
     fontWeight: '800',
     letterSpacing: 0.5,
     textTransform: 'uppercase',
@@ -732,11 +763,11 @@ const styles = StyleSheet.create({
   },
   tick: { width: 7, height: 7, borderRadius: 999 },
   trowBody: { flex: 1, minWidth: 0 },
-  trowTitle: { fontSize: 12.5, fontWeight: '700' },
-  trowMeta: { fontSize: 10.5, marginTop: 1 },
+  trowTitle: { fontSize: 12.5, fontFamily: fonts.bold, fontWeight: '700' },
+  trowMeta: { fontSize: 10.5, fontFamily: fonts.medium, marginTop: 1 },
 
-  empty: { fontSize: 12.5, lineHeight: 18, marginHorizontal: 4, marginBottom: 6 },
-  helper: { fontSize: 12.5, lineHeight: 18, marginHorizontal: 4, paddingVertical: 8 },
+  empty: { fontSize: 12.5, fontFamily: fonts.ui, lineHeight: 18, marginHorizontal: 4, marginBottom: 6 },
+  helper: { fontSize: 12.5, fontFamily: fonts.ui, lineHeight: 18, marginHorizontal: 4, paddingVertical: 8 },
   errorBanner: {
     borderWidth: 1,
     borderRadius: 12,
@@ -744,15 +775,21 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     marginBottom: 6,
   },
-  errorText: { fontSize: 12.5, lineHeight: 18 },
-  synced: { fontSize: 10.5, marginTop: 8, marginHorizontal: 4 },
+  errorText: { fontSize: 12.5, fontFamily: fonts.medium, lineHeight: 18 },
+  synced: { fontSize: 10.5, fontFamily: fonts.medium, marginTop: 8, marginHorizontal: 4 },
 
   grab: {
     alignItems: 'center',
-    gap: 3,
-    paddingTop: 9,
+    gap: 4,
+    paddingTop: 11,
     paddingBottom: 3,
   },
   grabBar: { width: 42, height: 5, borderRadius: 999 },
-  grabLabel: { fontSize: 10, fontWeight: '700' },
+  grabLabel: {
+    fontSize: 10,
+    fontFamily: fonts.bold,
+    fontWeight: '700',
+    letterSpacing: 0.3,
+    textTransform: 'uppercase',
+  },
 });

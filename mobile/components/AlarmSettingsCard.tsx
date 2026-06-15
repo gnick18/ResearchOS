@@ -14,7 +14,7 @@ import { Ionicons } from '@expo/vector-icons';
 
 import { ThemedText } from '@/components/themed-text';
 import { Card } from '@/components/ui/Card';
-import { palette, radii, useTheme } from '@/lib/design';
+import { palette, radii, fonts, useTheme } from '@/lib/design';
 import {
   ALARM_SOURCES,
   alarmSoundLabel,
@@ -25,7 +25,7 @@ import {
 const SOUND_CHOICES: AlarmSound[] = ['chime', 'digital'];
 
 export function AlarmSettingsCard() {
-  const { surface, spacing } = useTheme();
+  const { surface, spacing, shadow } = useTheme();
   const [prefs, setPrefs] = useAlarmPrefs();
 
   // One preview player tracking the chosen sound. Auto-stops after a few seconds.
@@ -61,62 +61,81 @@ export function AlarmSettingsCard() {
   return (
     <Card style={{ gap: spacing.md }}>
       <View style={styles.headRow}>
-        <Ionicons name="notifications-outline" size={18} color={surface.text} />
-        <ThemedText style={[styles.title, { color: surface.text }]}>Alarm</ThemedText>
+        {/* Amber alarm icon-chip, matching the amber timer accent + the amber
+            "Reminder" category chip on the Notifications screen. */}
+        <View style={[styles.headChip, { backgroundColor: palette.amberDim }]}>
+          <Ionicons name="alarm-outline" size={18} color={palette.amber} />
+        </View>
+        <View style={styles.headText}>
+          <ThemedText style={[styles.title, { color: surface.text }]}>Alarm</ThemedText>
+          <ThemedText style={[styles.caption, { color: surface.muted }]}>
+            Plays when a timer finishes. The animation always shows.
+          </ThemedText>
+        </View>
       </View>
-      <ThemedText style={[styles.caption, { color: palette.faint }]}>
-        Plays when a timer finishes. The animation always shows.
-      </ThemedText>
+
+      <View style={[styles.divider, { backgroundColor: surface.hairline }]} />
 
       <View style={styles.toggleRow}>
         <ThemedText style={[styles.rowLabel, { color: surface.text }]}>Sound</ThemedText>
         <Switch
           value={prefs.soundOn}
           onValueChange={(v) => setPrefs({ soundOn: v })}
-          trackColor={{ true: palette.sky, false: '#d1d5db' }}
-          thumbColor="#ffffff"
+          trackColor={{ true: palette.sky, false: surface.borderStrong }}
+          thumbColor={palette.white}
         />
       </View>
 
       {prefs.soundOn ? (
-        <View style={{ gap: 8 }}>
-          <View style={styles.choiceRow}>
+        <View style={styles.soundBlock}>
+          {/* Contract segmented control (.seg): a sunken track with the active
+              choice lifted onto a surface chip. */}
+          <View style={[styles.seg, { backgroundColor: surface.sunken }]}>
             {SOUND_CHOICES.map((s) => {
               const on = prefs.sound === s;
               return (
                 <Pressable
                   key={s}
                   onPress={() => setPrefs({ sound: s })}
+                  accessibilityRole="button"
+                  accessibilityState={{ selected: on }}
                   style={[
-                    styles.choice,
+                    styles.segBtn,
+                    on && shadow.sm,
                     {
-                      borderRadius: radii.md,
-                      backgroundColor: on ? palette.skyDim : surface.surface,
-                      borderColor: on ? palette.sky : palette.elevatedBorder,
+                      backgroundColor: on ? surface.surface : 'transparent',
                     },
                   ]}
                 >
-                  <ThemedText style={[styles.choiceLabel, { color: on ? palette.sky : surface.muted }]}>
+                  <ThemedText
+                    style={[styles.segLabel, { color: on ? surface.text : surface.muted }]}
+                  >
                     {alarmSoundLabel(s)}
                   </ThemedText>
                 </Pressable>
               );
             })}
           </View>
-          <Pressable onPress={playSample} style={styles.sample} accessibilityRole="button">
-            <Ionicons name="play-circle-outline" size={18} color={palette.sky} />
+          <Pressable
+            onPress={playSample}
+            style={[styles.sample, { backgroundColor: palette.skyDim, borderRadius: radii.pill }]}
+            accessibilityRole="button"
+          >
+            <Ionicons name="play-circle" size={18} color={palette.sky} />
             <ThemedText style={[styles.sampleLabel, { color: palette.sky }]}>Play sample</ThemedText>
           </Pressable>
         </View>
       ) : null}
+
+      <View style={[styles.divider, { backgroundColor: surface.hairline }]} />
 
       <View style={styles.toggleRow}>
         <ThemedText style={[styles.rowLabel, { color: surface.text }]}>Vibration</ThemedText>
         <Switch
           value={prefs.vibrateOn}
           onValueChange={(v) => setPrefs({ vibrateOn: v })}
-          trackColor={{ true: palette.sky, false: '#d1d5db' }}
-          thumbColor="#ffffff"
+          trackColor={{ true: palette.sky, false: surface.borderStrong }}
+          thumbColor={palette.white}
         />
       </View>
     </Card>
@@ -124,14 +143,41 @@ export function AlarmSettingsCard() {
 }
 
 const styles = StyleSheet.create({
-  headRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  title: { fontSize: 16, fontWeight: '700' },
-  caption: { fontSize: 12.5, lineHeight: 17 },
+  headRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  headChip: {
+    width: 38,
+    height: 38,
+    borderRadius: 11,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  headText: { flex: 1, gap: 3 },
+  title: { fontSize: 16, fontFamily: fonts.bold, fontWeight: '700', lineHeight: 21 },
+  caption: { fontSize: 12.5, fontFamily: fonts.ui, lineHeight: 17 },
+
+  divider: { height: StyleSheet.hairlineWidth, marginVertical: 2 },
+
   toggleRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  rowLabel: { fontSize: 15, fontWeight: '500' },
-  choiceRow: { flexDirection: 'row', gap: 8 },
-  choice: { flex: 1, borderWidth: 1, paddingVertical: 11, alignItems: 'center' },
-  choiceLabel: { fontSize: 14, fontWeight: '700' },
-  sample: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: 4 },
-  sampleLabel: { fontSize: 14, fontWeight: '600' },
+  rowLabel: { fontSize: 15, fontFamily: fonts.semibold, fontWeight: '600' },
+
+  soundBlock: { gap: 10 },
+  // Contract .seg: sunken pill-track, active choice lifted onto a surface chip.
+  seg: { flexDirection: 'row', borderRadius: radii.md, padding: 3, gap: 3 },
+  segBtn: {
+    flex: 1,
+    paddingVertical: 9,
+    borderRadius: 11,
+    alignItems: 'center',
+  },
+  segLabel: { fontSize: 13.5, fontFamily: fonts.semibold, fontWeight: '600' },
+
+  sample: {
+    alignSelf: 'flex-start',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 7,
+    paddingVertical: 8,
+    paddingHorizontal: 13,
+  },
+  sampleLabel: { fontSize: 13.5, fontFamily: fonts.semibold, fontWeight: '600' },
 });

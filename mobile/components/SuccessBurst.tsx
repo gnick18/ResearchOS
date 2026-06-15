@@ -42,6 +42,7 @@ import Animated, {
 } from 'react-native-reanimated';
 
 import { useColorScheme } from '@/hooks/use-color-scheme';
+import { fonts } from '@/lib/design';
 import { subscribeSuccess, type SuccessPayload } from '@/lib/success-burst';
 import { useReduceMotion } from '@/lib/interaction-prefs';
 
@@ -260,6 +261,6 @@ export function SuccessBurst() {
 const styles = StyleSheet.create({
   overlay: { zIndex: 60, backgroundColor: 'transparent' },
   labelWrap: { position: 'absolute', alignItems: 'center' },
-  label: { fontSize: 17, fontWeight: '800' },
-  sub: { fontSize: 12.5, marginTop: 2 },
+  label: { fontSize: 17, fontFamily: fonts.extrabold, fontWeight: '800', letterSpacing: -0.2 },
+  sub: { fontSize: 12.5, fontFamily: fonts.medium, marginTop: 3 },
 });

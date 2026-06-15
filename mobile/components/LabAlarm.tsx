@@ -49,6 +49,7 @@ import Animated, {
 } from 'react-native-reanimated';
 
 import { useColorScheme } from '@/hooks/use-color-scheme';
+import { fonts } from '@/lib/design';
 import { listTimers } from '@/lib/timers';
 import { ALARM_SOURCES, getAlarmPrefs, loadAlarmPrefs } from '@/lib/alarm-prefs';
 import {
@@ -336,12 +337,15 @@ function LabAlarmOverlay({ alarm, onStop }: { alarm: ActiveAlarm; onStop: () => 
 
         {/* Text + Stop, positioned below the lockup */}
         <View style={[styles.textWrap, { top: beakerCy + beakerPx * 0.62 }]} pointerEvents="box-none">
-          <Text style={styles.kicker}>TIME&apos;S UP</Text>
+          {/* Amber pill chip, echoing the bell + the amber timer accent. */}
+          <View style={styles.kickerChip}>
+            <Text style={styles.kicker}>TIME&apos;S UP</Text>
+          </View>
           <Text style={styles.title} numberOfLines={2}>{alarm.title}</Text>
           {alarm.subtitle ? <Text style={styles.subtitle}>{alarm.subtitle}</Text> : null}
           <Pressable
             onPress={onStop}
-            style={({ pressed }) => [styles.stop, pressed && { opacity: 0.85 }]}
+            style={({ pressed }) => [styles.stop, pressed && { opacity: 0.9, transform: [{ scale: 0.98 }] }]}
             accessibilityRole="button"
             accessibilityLabel="Stop alarm"
           >
@@ -354,9 +358,11 @@ function LabAlarmOverlay({ alarm, onStop }: { alarm: ActiveAlarm; onStop: () => 
 }
 
 const styles = StyleSheet.create({
+  // Deep night scrim matching the contract lockscreen wash (radial #16203a ->
+  // #05070d). A touch deeper than before so the lit lockup reads as a takeover.
   overlay: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(8, 12, 24, 0.62)',
+    backgroundColor: 'rgba(5, 8, 18, 0.74)',
     zIndex: 9000,
   },
   textWrap: {
@@ -366,38 +372,59 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 28,
   },
+  // Amber pill chip (contract pill vocabulary), tinted to the bell + timer accent.
+  kickerChip: {
+    backgroundColor: 'rgba(245,158,11,0.18)',
+    borderWidth: 1,
+    borderColor: 'rgba(245,158,11,0.40)',
+    borderRadius: 999,
+    paddingVertical: 5,
+    paddingHorizontal: 13,
+    marginBottom: 12,
+  },
   kicker: {
     color: BELL_AMBER,
-    fontSize: 13,
+    fontSize: 12,
+    fontFamily: fonts.extrabold,
     fontWeight: '800',
-    letterSpacing: 2,
+    letterSpacing: 1.6,
     // Android floors the text-view width without counting the trailing
     // letter-spacing, clipping the last glyph. Pad by >= letterSpacing.
     paddingRight: 2,
-    marginBottom: 6,
   },
   title: {
     color: '#ffffff',
     fontSize: 26,
+    fontFamily: fonts.extrabold,
     fontWeight: '800',
     textAlign: 'center',
-    letterSpacing: -0.3,
+    letterSpacing: -0.4,
+    lineHeight: 31,
   },
   subtitle: {
-    color: 'rgba(255,255,255,0.7)',
+    color: 'rgba(255,255,255,0.72)',
     fontSize: 14,
-    marginTop: 6,
+    fontFamily: fonts.medium,
+    marginTop: 7,
   },
+  // Contract primary-button depth: a lifted white slab with a soft glow.
   stop: {
-    marginTop: 26,
+    marginTop: 28,
     backgroundColor: '#ffffff',
-    paddingVertical: 14,
-    paddingHorizontal: 56,
+    paddingVertical: 15,
+    paddingHorizontal: 60,
     borderRadius: 16,
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.35,
+    shadowRadius: 22,
+    elevation: 10,
   },
   stopLabel: {
     color: '#0c1830',
     fontSize: 17,
+    fontFamily: fonts.extrabold,
     fontWeight: '800',
+    letterSpacing: 0.2,
   },
 });
