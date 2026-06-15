@@ -76,13 +76,6 @@ function fmtCountdown(ms: number): string {
 }
 
 // Short date like "Jun 16" from an ISO/date string.
-function shortDate(value?: string): string {
-  if (!value) return '';
-  const ms = Date.parse(value);
-  if (Number.isNaN(ms)) return '';
-  return new Date(ms).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
-}
-
 export default function HomeScreen() {
   const t = useTheme();
   const router = useRouter();
@@ -163,14 +156,11 @@ export default function HomeScreen() {
       ? `Synced ${synced}`
       : 'Waiting for first sync';
 
-  // Today snapshot, partitioned the same way the Today panel does it.
-  const allTasks = today?.tasks ?? [];
-  const experiments = allTasks.filter((task) => task.task_type === 'experiment');
-  const todayTasks = allTasks.filter((task) => task.task_type !== 'experiment');
-  const overdueTasks = today?.overdueTasks ?? [];
-  const upcomingTasks = today?.upcomingTasks ?? [];
-  const dueCount = todayTasks.length + overdueTasks.length;
-  const hasAnyToday = todayTasks.length + overdueTasks.length + upcomingTasks.length > 0;
+  // Active experiments still surface on Home as a glance band; the rest of the
+  // Today schedule lives in the header Today dropdown (one source of truth).
+  const experiments = (today?.tasks ?? []).filter(
+    (task) => task.task_type === 'experiment',
+  );
 
   // Running timer (local store, ticks once a second). Hidden when none.
   const running = timers.find((tm) => tm.status === 'running');
@@ -192,26 +182,6 @@ export default function HomeScreen() {
       <Text style={[styles.tileNm, { color: s.muted }]} numberOfLines={1}>{label}</Text>
     </Pressable>
   );
-
-  // One Today/Overdue/Coming-up row in the Home card style.
-  const taskRow = (
-    name: string | undefined,
-    rightLabel: string,
-    tone: 'today' | 'over' | 'soon',
-    key: string,
-    first: boolean,
-  ) => {
-    const tickColor = tone === 'over' ? p.danger : tone === 'soon' ? p.amber : p.sky;
-    return (
-      <View key={key} style={[styles.taskRow, !first && { borderTopWidth: 1, borderTopColor: s.hairline }]}>
-        <View style={[styles.checkbox, { borderColor: tickColor }]} />
-        <Text style={[styles.taskT, { color: tone === 'over' ? p.danger : s.text }]} numberOfLines={1}>
-          {name && name.length > 0 ? name : 'Untitled task'}
-        </Text>
-        <Text style={[styles.taskW, { color: tone === 'over' ? p.danger : s.muted }]}>{rightLabel}</Text>
-      </View>
-    );
-  };
 
   return (
     <ScreenFrame edges={['top']}>
@@ -274,39 +244,8 @@ export default function HomeScreen() {
           </>
         ) : null}
 
-        {/* today */}
-        <Label action={dueCount > 0 ? `${dueCount} due` : undefined}>Today</Label>
-        {hasAnyToday ? (
-          <View style={[styles.card, { backgroundColor: s.surface, borderColor: s.border }, t.shadow.sm]}>
-            {overdueTasks.map((task, i) =>
-              taskRow(task.name, 'Overdue', 'over', task.id ?? `over-${i}`, i === 0),
-            )}
-            {todayTasks.map((task, i) =>
-              taskRow(
-                task.name,
-                task.task_type ?? 'Today',
-                'today',
-                task.id ?? `today-${i}`,
-                overdueTasks.length === 0 && i === 0,
-              ),
-            )}
-            {upcomingTasks.map((task, i) =>
-              taskRow(
-                task.name,
-                shortDate(task.start_date) || 'Soon',
-                'soon',
-                task.id ?? `soon-${i}`,
-                overdueTasks.length === 0 && todayTasks.length === 0 && i === 0,
-              ),
-            )}
-          </View>
-        ) : (
-          <View style={[styles.card, styles.emptyCard, { backgroundColor: s.surface, borderColor: s.border }, t.shadow.sm]}>
-            <Text style={[styles.emptyTxt, { color: s.muted }]}>
-              {pairing ? 'Nothing scheduled for today.' : 'Connect a laptop to see your schedule.'}
-            </Text>
-          </View>
-        )}
+        {/* Today list lives in the header Today dropdown now (one source of
+            truth); Home no longer duplicates the schedule. */}
 
         {/* tools launcher */}
         <Label>Tools</Label>
