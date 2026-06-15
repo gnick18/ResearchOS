@@ -118,15 +118,12 @@ All four locked 2026-06-15 (see the "Locked decisions" block at the top): reuse-
 
 **Increment 1 — DONE (this commit):** new primitive `writeIdentityReferenceSidecar(username, keys)` (`storage.ts`) — writes a reference sidecar (public keys + fingerprint + createdAt, **no** recoveryBlob) reusing an existing keypair, parks it in the session. Recovery stays account-level (vault + cloud + originating folder). Unit-tested (`write-identity-reference-sidecar.test.ts`, 3 tests): correct shape, no recoveryBlob, same keypair reused across two folders. Purely additive — no existing flow changed, safe to land.
 
-**Increment 2 — the behaviour change (needs the verification decision below):** flip `autoProvisionFromAccount` (`UserLoginScreen.tsx:~603`) so that, under the flag, when the device already holds THIS account's verified identity it calls `writeIdentityReferenceSidecar` instead of `createLocalIdentity`. First-ever folder for the account still mints (and publishes, so it becomes the canonical keypair).
+**Increment 2 — DONE (the behaviour change):** `autoProvisionFromAccount` (`UserLoginScreen.tsx`) now, under `MULTI_FOLDER_ENABLED`, REUSES the device's keypair via `writeIdentityReferenceSidecar` instead of `createLocalIdentity` **when it is verified to be the signed-in account's** (decision below). First-ever folder for an account still mints. Verification, offline, unpublished, mismatch, or flag-off all fall back to the original mint, so it is never less safe than before. tsc 0; identity suite 98 tests pass.
 
-### ⚠️ The one Phase B decision: how do we verify the device keypair is the current account's?
+### ✅ Phase B verification decision (LOCKED 2026-06-15): directory fingerprint match
+Reuse the device keypair only if `fetchMyProfile()` (`GET /api/directory/profile`, OAuth-authed) returns a published profile whose `fingerprint` matches the device keypair's fingerprint (`compactFingerprint` on both sides). Any miss → safe fallback to mint. Lightweight (one authed read), no recovery code needed for the common same-device second-folder case, and a previous user's vault key on a shared machine can never be reused (their fingerprint won't match the new signer's published profile).
 
-Before reusing the vault keypair we MUST confirm it belongs to the signed-in OAuth account, or a previous user's vault key could be sealed into a new person's folder. Options:
-- **(Recommended) Directory public-key match.** Fetch the directory record for the signed-in email and reuse the vault keypair only if its public key matches. No match / offline / unpublished → fall back to mint-or-cloud-restore (safe). Requires a lightweight "my published identity" read.
-- **Cloud-restore every time.** Always pull the canonical keypair from `/api/directory/my-backup` on folder open. Strongest guarantee, but needs the recovery code to unwrap and adds a network hop per open.
-
-This is the security-sensitive call to settle (ideally with the identity lane) before Increment 2 lands.
+**Still ahead in Phase B:** the manual create-user path (non-auto-provision) and the cross-device "open a second folder on a new laptop" case (cloud-restore the canonical keypair, then reference-sidecar) — both layer on the same primitive.
 
 ## 7. Coordination
 

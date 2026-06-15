@@ -17,10 +17,14 @@ import {
   createLocalIdentity,
   saveIdentity,
   unlockIdentityWithRecovery,
+  loadIdentity,
+  writeIdentityReferenceSidecar,
 } from "@/lib/sharing/identity/storage";
 import { isAccountFirstEnabled } from "@/lib/account/account-first";
 import { deriveWorkspaceUsername } from "@/lib/account/workspace-username";
-import { decodePublicKey } from "@/lib/sharing/identity/keys";
+import { decodePublicKey, fingerprint as computeFingerprint } from "@/lib/sharing/identity/keys";
+import { fetchMyProfile, compactFingerprint } from "@/lib/sharing/profile";
+import { MULTI_FOLDER_ENABLED } from "@/lib/file-system/multi-folder-config";
 import { generateDeviceSalt } from "@/lib/sharing/identity/backup";
 import { deleteSharingIdentity } from "@/lib/sharing/identity/sidecar";
 import { performUserDelete } from "@/lib/users/perform-delete";
@@ -658,10 +662,43 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
         // A missing color just falls back to the username-hash swatch.
       }
 
-      // 3. Mint the E2E identity keypair silently (sidecar at rest + unlocked key
-      //    in the session). This is the provisioning the manual create-user gate
-      //    performs and the lab-create flow relies on.
-      await createLocalIdentity(username);
+      // 3. Establish the E2E identity for this folder. Phase B (account/folder/
+      //    identity redesign): if this device already holds THIS account's
+      //    identity AND it matches the directory record published under the
+      //    signed-in email, REUSE that one keypair (write a reference sidecar) so
+      //    the account is the SAME identity across every lab folder. Only the
+      //    FIRST folder for an account mints a fresh keypair. The directory
+      //    public-key match is the guard so a previous user's vault key on a
+      //    shared machine can never be sealed into this new folder. Any failure
+      //    to verify (flag off, offline, unpublished, or a mismatch) falls back
+      //    to the original mint, so this is never less safe than before.
+      let reusedIdentity = false;
+      if (MULTI_FOLDER_ENABLED) {
+        try {
+          const existing = await loadIdentity();
+          if (existing) {
+            const profile = await fetchMyProfile();
+            if (
+              profile &&
+              compactFingerprint(profile.fingerprint) ===
+                compactFingerprint(
+                  computeFingerprint(existing.keys.signing.publicKey),
+                )
+            ) {
+              await writeIdentityReferenceSidecar(username, existing.keys);
+              reusedIdentity = true;
+            }
+          }
+        } catch {
+          // Any error -> fall through to a fresh mint below (safe default).
+        }
+      }
+      if (!reusedIdentity) {
+        // Mint the E2E identity keypair silently (sidecar at rest + unlocked key
+        // in the session). The provisioning the manual create-user gate performs
+        // and the lab-create flow relies on; also the account's FIRST folder.
+        await createLocalIdentity(username);
+      }
 
       // 4. Enter the app.
       await performLogin(username);
