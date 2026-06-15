@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "550965250647",
+    "project_id": "researchos-d22c4",
+    "storage_bucket": "researchos-d22c4.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:550965250647:android:bc70fb77a6cb8da686b112",
+        "android_client_info": {
+          "package_name": "app.researchos.companion"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAyDMs_OxczwnmA9dptkFVnSibYu7TMiO8"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
