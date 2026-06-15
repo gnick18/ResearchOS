@@ -22,6 +22,7 @@ import {
 } from "@/lib/onboarding/tutor-machine";
 import WelcomeTakeover from "./WelcomeTakeover";
 import InterestPicker from "./InterestPicker";
+import ShowcaseStage from "./ShowcaseStage";
 
 export interface OnboardingTutorProps {
   /** Fires when the run reaches done or skipped. The host unmounts the tutor and
@@ -60,11 +61,30 @@ export default function OnboardingTutor({ onComplete }: OnboardingTutorProps) {
     );
   }
 
-  // phase === "playing" — placeholder beat surface (Phase 3 replaces with the
-  // real on-page showcase). Shows what the reel director chose so the flow is
-  // walkable and testable end to end now.
+  // phase === "playing".
   const beat = currentBeat(state);
   const total = state.reel?.beats.length ?? 0;
+
+  // DEEP demos render the real showcase stage (presenter cursor + morph). The AI
+  // demo, montage, memory, and recap beats are still placeholders below (Phase 3
+  // continues + Phase 4). onDone advances to the next beat.
+  if (beat?.kind === "deep_demo" && beat.surface) {
+    return (
+      <div>
+        <button
+          onClick={() => dispatch({ type: "skip" })}
+          className="fixed right-4 top-4 z-[70] text-xs text-[var(--muted,#6b716a)] hover:underline"
+        >
+          Skip for now
+        </button>
+        <ShowcaseStage
+          key={`${beat.surface}-${state.beatIndex}`}
+          surface={beat.surface}
+          onDone={() => dispatch({ type: "next" })}
+        />
+      </div>
+    );
+  }
   return (
     <div className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-[var(--surface,#fff)] px-6 text-center">
       <button
