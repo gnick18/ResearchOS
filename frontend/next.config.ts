@@ -159,11 +159,16 @@ const CSP = [
   "default-src 'self'",
   "script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval' 'unsafe-eval' https://va.vercel-scripts.com",
   "style-src 'self' 'unsafe-inline'",
-  "img-src 'self' blob: data: https://*.public.blob.vercel-storage.com",
+  // assets.research-os.com: the open-asset (icon library) CDN on Cloudflare R2.
+  // Thumbnails load via <img>, so the custom domain must be in img-src (the R2
+  // wildcard below only covers the s3 endpoint, not the custom domain).
+  "img-src 'self' blob: data: https://*.public.blob.vercel-storage.com https://assets.research-os.com",
   // Vercel Blob CDN for the welcome-page demo loop videos and their posters.
   "media-src 'self' https://*.public.blob.vercel-storage.com",
   "font-src 'self' data:",
-  `connect-src 'self' https://api.telegram.org https://vitals.vercel-insights.com https://*.r2.cloudflarestorage.com https://api.ncbi.nlm.nih.gov https://eutils.ncbi.nlm.nih.gov https://pubchem.ncbi.nlm.nih.gov https://www.ebi.ac.uk https://www.surechembl.org data: ${COLLAB_RELAY_ORIGIN} ${CAPTURE_RELAY_ORIGIN}`,
+  // assets.research-os.com: loadAssetManifest + fetchAssetSvg fetch the icon
+  // library manifest + SVGs from the R2 custom domain (not the *.r2 wildcard).
+  `connect-src 'self' https://api.telegram.org https://vitals.vercel-insights.com https://*.r2.cloudflarestorage.com https://assets.research-os.com https://api.ncbi.nlm.nih.gov https://eutils.ncbi.nlm.nih.gov https://pubchem.ncbi.nlm.nih.gov https://www.ebi.ac.uk https://www.surechembl.org data: ${COLLAB_RELAY_ORIGIN} ${CAPTURE_RELAY_ORIGIN}`,
   "worker-src 'self' blob:",
   "frame-src 'self' blob:",
   "frame-ancestors 'none'",
