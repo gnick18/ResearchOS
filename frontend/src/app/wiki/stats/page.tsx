@@ -149,9 +149,29 @@ export default function StatsHubPage() {
         </li>
       </ul>
 
+      <h2>Planning and assumption checking</h2>
+      <p>
+        Before you run a test, the <strong>power and sample-size planner</strong>{" "}
+        lets you work out three questions in any direction: given an effect size,
+        alpha, and a target power, how large does your sample need to be? Given
+        the sample you already have, what power do you achieve? Given your sample
+        and power target, what is the smallest effect you could detect? The
+        planner covers the two-sample t-test, the paired t-test, one-way ANOVA,
+        and Pearson correlation.
+      </p>
+      <p>
+        After you have data, the <strong>assumption Report Card</strong> runs the
+        checks your chosen test relies on and surfaces them in plain language.
+        For parametric tests it runs a Shapiro-Wilk normality test on each group
+        and a Levene or Brown-Forsythe equal-variance test across groups, and
+        tells you whether each assumption passes at your chosen alpha. A failing
+        check is a prompt to look at a nonparametric alternative, not a verdict
+        that the parametric result is wrong.
+      </p>
+
       <Callout variant="tip" title="Every number is checked">
         Every test in these pages is validated against the tools labs already
-        trust (scipy, statsmodels, and R) on the{" "}
+        trust (scipy, statsmodels, lifelines, scikit-learn, and R) on the{" "}
         <Link href="/transparency">transparency page</Link>, which reruns the
         same inputs through those packages and shows the numbers line up. The
         result you read in the Data Hub is the same one those packages would give

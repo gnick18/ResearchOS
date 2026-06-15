@@ -12,15 +12,19 @@ export default function VersionHistoryPage() {
       <Callout variant="info" title="What has version history today">
         Version history, including restore and the 24-hour undo, is on for
         everyone on free-form <strong>Notes</strong>, <strong>Tasks</strong>, and{" "}
-        <strong>Projects</strong>. There's nothing to configure or turn on, it
+        <strong>Projects</strong>. There&apos;s nothing to configure or turn on, it
         works automatically. The same timeline, diff, and restore also cover a
-        task's <strong>Lab Notes</strong> and <strong>Results</strong> documents
+        task&apos;s <strong>Lab Notes</strong> and <strong>Results</strong> documents
         and the{" "}
         <Link href="/wiki/features/sequences">Sequences history tab</Link>,
         though those document surfaces record the restore as a normal forward
-        version rather than offering the one-click 24-hour undo. We're working on
-        version history for Methods next. The page below uses Notes as the worked
-        example, but the behavior is the same on every surface that has it.
+        version rather than offering the one-click 24-hour undo.{" "}
+        <strong>Purchase items</strong> also have version history via
+        PurchaseHistoryPopup when the purchase history feature is enabled; the
+        History button appears in the purchase editor and opens the same
+        timeline and diff view. We&apos;re working on version history for Methods
+        next. The page below uses Notes as the worked example, but the behavior
+        is the same on every surface that has it.
       </Callout>
 
       <h2>What a version is</h2>

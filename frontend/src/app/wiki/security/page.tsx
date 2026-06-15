@@ -49,8 +49,8 @@ export default function SecurityPage() {
         </li>
         <li>Your calendar subscription URLs and the events they pulled in.</li>
         <li>
-          The optional PBKDF2-hashed password protecting your per-user
-          profile.
+          The Argon2id-protected credentials in <code>_account.json</code>{" "}
+          guarding your per-user profile.
         </li>
       </ul>
       <details className="mt-4 border border-border rounded-lg p-3 [&[open]>summary]:mb-3">
@@ -68,11 +68,20 @@ export default function SecurityPage() {
     lab/                         shared lab-account state (funding accounts, etc.)
     <username>/
       settings.json              user settings, default views, tab visibility
-      _auth.json                 PBKDF2-hashed password (only if set)
+      _account.json              Argon2id-protected credentials (replaces _auth.json)
       _counters.json             id counters per entity type
       _shared_with_me.json       inbound sharing pointers
       _calendar-feeds.json       subscribed iCal URLs
       _notifications.json        bell-dropdown rows
+      _history/                  per-record version history (.jsonl append logs)
+        task/<id>.jsonl
+        task_notes/<id>.jsonl
+        task_results/<id>.jsonl
+        project/<id>.jsonl
+        notes/<id>.jsonl
+        sequences/<id>.jsonl
+        molecules/<id>.jsonl
+        inventory_items/<id>.jsonl
       projects/<id>.json         one flat file per project
       tasks/<id>.json            one flat file per task (the JSON carries
                                  fields; long-form text and attachments
@@ -83,6 +92,12 @@ export default function SecurityPage() {
       cell_culture_schedules/<id>.json
       plate_layouts/<id>.json
       notes/<id>.json            shared lab notes
+      sequences/<id>.json        DNA/RNA/protein sequences
+      molecules/<id>.json        chemical structures
+      inventory_items/<id>.json  inventory catalog entries
+      datahub/<id>.json          Data Hub datasets
+      phylo/<id>.json            phylogenetic tree files
+      figures/<id>.json          figure composer artboards
       results/task-<id>/         per-task long-form content + attachments
         notes.md                 your Lab Notes tab writeup
         results.md               your Results tab writeup
@@ -103,9 +118,10 @@ export default function SecurityPage() {
       <p>
         A few routes on the ResearchOS server are involved. Two are
         CORS-bypass streams that exist because browsers refuse to talk
-        directly to the upstream service. The last two are anonymous
-        telemetry, a page-view ping and a feature-usage beacon. None of them
-        ever sees the contents of your data folder.
+        directly to the upstream service. One is the optional AI assistant.
+        The last two are anonymous telemetry, a page-view ping and a
+        feature-usage beacon. None of them ever sees the contents of your
+        data folder.
       </p>
       <ul>
         <li>
@@ -127,6 +143,17 @@ export default function SecurityPage() {
           API isn&apos;t CORS-open, so the call has to go server-side. The
           route only ever touches public ORCID data, it&apos;s rate-limited
           per IP, and it stores nothing.
+        </li>
+        <li>
+          <strong>BeakerBot AI assistant.</strong> When you send a message to
+          the built-in AI assistant (BeakerBot), the browser calls{" "}
+          <code>/api/ai/chat</code>, which forwards the conversation to the
+          Fireworks inference API and streams the response back. The route is
+          only active when <code>AI_ASSISTANT_ENABLED</code> is on. It stores
+          nothing server-side. No message content, no conversation history,
+          and no file contents are persisted on our servers. Your local
+          records are read on your machine and bundled into the request
+          entirely in the browser before the call is made.
         </li>
         <li>
           <strong>Vercel Web Analytics.</strong> When you navigate between
@@ -212,11 +239,12 @@ export default function SecurityPage() {
         browser.
       </Callout>
       <Callout variant="warning" title="Passwords aren't encryption">
-        We hash account passwords with PBKDF2-SHA-256 (600,000 iterations)
-        so a snooping co-located user can&apos;t trivially read them, but
-        the data itself sits in plaintext on disk. Anyone with disk access
-        has it. Turn on OS-level full-disk encryption (FileVault on macOS,
-        BitLocker on Windows) if your laptop walks around.
+        Account credentials are protected with Argon2id (t=3, m=64 MiB),
+        stored in <code>_account.json</code>, so a snooping co-located user
+        cannot trivially extract them, but the research data itself is stored
+        as plain JSON on disk. Anyone with direct disk access to the folder
+        can read it. Turn on OS-level full-disk encryption (FileVault on
+        macOS, BitLocker on Windows) if your laptop walks around.
       </Callout>
       <Callout variant="warning" title="Public hosting is opt-in, and the proxy is open">
         If you self-host ResearchOS on a public Vercel deploy with no auth
@@ -266,6 +294,16 @@ export default function SecurityPage() {
           </li>
         </ul>
       </Callout>
+      <Screenshot
+        src="/wiki/screenshots/security-data-inventory-panel.png"
+        alt="The Data inventory panel in Settings, listing every file path the app has written and the External Calls section naming each outbound endpoint."
+        caption="Data inventory panel in Settings. Every file path and every outbound endpoint is listed here."
+      />
+      <Screenshot
+        src="/wiki/screenshots/security-offline-mode-toggle.png"
+        alt="The Offline mode toggle in Settings, shown in the on position, with the note that the Vercel Analytics script and proxy routes are disabled."
+        caption="Offline mode toggle in Settings. One click disables the analytics script and all proxy routes."
+      />
       <details className="mt-4 border border-border rounded-lg p-3 [&[open]>summary]:mb-3">
         <summary className="cursor-pointer font-medium text-foreground">
           The thorough way, open DevTools and watch the network yourself

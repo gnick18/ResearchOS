@@ -24,6 +24,10 @@ export const APP_ROUTE_TO_WIKI: Record<string, string> = {
   "/lab-overview": "/wiki/features/lab-overview",
   "/lab-experiments": "/wiki/features/lab-experiments",
   "/lab-notes": "/wiki/features/lab-notes",
+  "/lab-inbox": "/wiki/features/lab-inbox",
+  // No dedicated /people wiki page yet; point at the lab-head overview, the
+  // closest surface that explains the roster + workload + approvals.
+  "/people": "/wiki/features/lab-head",
   "/search": "/wiki/features/search",
   "/links": "/wiki/features/links",
   "/settings": "/wiki/features/settings",
@@ -128,7 +132,7 @@ export const WIKI_NAV: WikiNode[] = [
       {
         href: "/wiki/getting-started/welcome-wizard",
         label: "Welcome Tour (BeakerBot)",
-        blurb: "Guided walkthrough on your real account: setup Q&A, hands-on tour, cleanup grid.",
+        blurb: "The original guided walkthrough is retired and fresh accounts no longer launch it. A new flag-gated onboarding wizard is in progress.",
       },
       {
         href: "/wiki/getting-started/demo-mode",
@@ -217,6 +221,11 @@ export const WIKI_NAV: WikiNode[] = [
         href: "/wiki/features/ai-helper",
         label: "Use any AI with your data",
         blurb: "Your notebook is plain files, so any AI can read it. The built-in AI Helper prompt plus the paste and agentic flows.",
+      },
+      {
+        href: "/wiki/features/beakerbot",
+        label: "BeakerBot assistant",
+        blurb: "The built-in assistant that operates the app for you: mentions, slash commands, macros, full object CRUD, summaries, and PDF reproduce.",
       },
       {
         href: "/wiki/features/methods",
@@ -340,7 +349,7 @@ export const WIKI_NAV: WikiNode[] = [
       {
         href: "/wiki/features/lab-overview",
         label: "Lab Overview",
-        blurb: "The PI's fixed, curated landing page at /lab-overview: pending approvals, announcements, lab activity, today's events, member workload, trainee notes.",
+        blurb: "The PI's curated landing page at /lab-overview with a What-needs-you hero, a lab stat strip, the people snapshot, and an inline announcement composer.",
       },
       {
         href: "/wiki/features/lab-experiments",

@@ -31,19 +31,27 @@ export default function OutliersPage() {
 
       <h2>How to read the result</h2>
       <p>
-        The Data Hub reports the <strong>suspected value</strong>, the{" "}
-        <strong>Grubbs statistic</strong> (how many standard deviations it lies
-        from the mean), and a <strong>p-value</strong>. A p-value below your
-        threshold means the point is statistically extreme. The Grubbs test is
-        designed to flag <em>one</em> outlier at a time; if you suspect several,
-        it is the wrong tool, and a cluster of extreme points often means the data
-        are not normal rather than that several are errors.
+        The Data Hub reports, for each pass of the sweep, the{" "}
+        <strong>suspected value</strong>, the <strong>Grubbs G statistic</strong>{" "}
+        (how many standard deviations it lies from the mean of the remaining
+        sample), the <strong>critical G</strong> for the sample size and alpha,
+        and whether the value is flagged. The engine runs{" "}
+        <strong>iteratively by default</strong>: after flagging and removing the
+        most extreme point, it recomputes the mean and standard deviation on what
+        remains and tests again, repeating until no point is flagged or the sample
+        drops below 3. Each pass is shown in the result table in order, so you
+        can see which values were removed and which pass cleared the bar. This
+        iterative sweep is the standard approach for removing more than one
+        potential outlier, and it uses Bonferroni-corrected critical values so
+        that testing multiple points does not inflate the false-flagging rate.
+        A cluster of extreme points that all flag may mean the data simply are not
+        normally distributed rather than that several replicates are errors.
       </p>
 
       <Screenshot
         src="/wiki/screenshots/datahub-stats-outliers.png"
         alt="A Grubbs outlier result in the Data Hub, with a table reporting the most extreme value, its Grubbs G statistic, the critical G for the sample size and alpha, and whether the value is flagged as an outlier."
-        caption="Grubbs screens one suspected value at a time. The table reports the most extreme point and its Grubbs G, how many standard deviations it sits from the mean, against the critical G for your sample size and alpha, so a value is flagged only when G clears the bar. Here one out-of-family replicate is flagged and the next pass clears."
+        caption="Grubbs runs an iterative sweep by default. The table shows each pass: the most extreme value in that pass, its G statistic, and whether G exceeded the Bonferroni-corrected critical value. The sweep stops when a pass clears or the sample is too small to test."
       />
 
       <Callout variant="danger" title="A flag is not a license to delete">

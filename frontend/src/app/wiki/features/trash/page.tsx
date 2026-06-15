@@ -8,7 +8,7 @@ export default function TrashFeaturePage() {
   return (
     <WikiPage
       title="Trash &amp; History"
-      intro="A recovery window for deletes. When you delete a note, task, project, method, purchase, goal, lab link, mass spec protocol, sequence, inventory item or stock, or storage location, it does not vanish. It moves into a per-user trash folder where it sits for 30 days. Within that window you can restore it back to its original location with one click. After the window passes, an automatic sweep removes it for good."
+      intro="A recovery window for deletes. When you delete a note, task, project, method, purchase, goal, lab link, mass spec protocol, sequence, molecule, inventory item or stock, or storage location, it does not vanish. It moves into a per-user trash folder where it sits for 30 days. Within that window you can restore it back to its original location with one click. After the window passes, an automatic sweep removes it for good."
     >
       <h2>Why this exists</h2>
       <p>
@@ -54,12 +54,11 @@ export default function TrashFeaturePage() {
         <Link href="/settings#history-and-trash">Settings &rarr; History &amp; Trash</Link>{" "}
         section. Trashed records are grouped into sections by what they are,
         so all your deleted notes sit together, all your deleted tasks sit
-        together, and so on. Sequences now show up here too, alongside notes,
-        tasks, projects, methods, purchase items, high-level goals, lab links,
-        mass spec protocols, inventory items and stocks, and storage locations.
-        A section only
-        appears when it has something in it, so the page stays short when most
-        categories are empty.
+        together, and so on. The full set of sections is notes, tasks, projects,
+        methods, purchase items, high-level goals, lab links, mass spec protocols,
+        sequences, molecules, inventory items, inventory stocks, and storage
+        locations. A section only appears when it has something in it, so the
+        page stays short when most categories are empty.
       </p>
       <p>Each row shows the following.</p>
       <ul>

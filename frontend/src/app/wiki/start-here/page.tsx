@@ -30,12 +30,13 @@ export default function StartHerePage() {
       <h2>What ResearchOS is, in one paragraph</h2>
       <p>
         It is a research project manager that runs entirely in your browser and
-        reads and writes a folder on your own computer. No account, no sign-up,
-        no upload. You point it at a folder, pick a username, and everything you
-        make (projects, tasks, lab notes, methods, protocols, purchases,
+        reads and writes a folder on your own computer. No upload required. You
+        point it at a folder, pick a username, and everything you make
+        (projects, tasks, lab notes, methods, protocols, purchases,
         attachments) gets saved as plain JSON and image files inside that
-        folder. Put the folder in OneDrive, Dropbox, or iCloud and your whole
-        lab can work out of the same one.
+        folder. Optional Free and Lab cloud accounts add sync, sharing, and
+        real-time collaboration. Put the folder in OneDrive, Dropbox, or
+        iCloud and your whole lab can work out of the same one.
       </p>
 
       <h2>A few things worth knowing up front</h2>
@@ -74,9 +75,10 @@ export default function StartHerePage() {
         <Link href="/wiki/features/home">sends you to the surface for your role</Link>.
         A member or solo researcher lands on the{" "}
         <Link href="/wiki/features/experiments">Workbench</Link>, opened to a grid
-        of their projects, with its Projects, Experiments, Notes, and Lists tabs,
-        a project filter that sticks as you move between them, and a popup holding
-        the details, lab notes, method, and results. A PI lands on Lab Overview
+        of their projects, with its Projects, Experiments, Notes, Lists, and{" "}
+        <Link href="/wiki/features/one-on-ones">Check-ins</Link> tabs, a project
+        filter that sticks as you move between them, and a popup holding the
+        details, lab notes, method, and results. A PI lands on Lab Overview
         instead. Either way, you start on the thing you actually use.
       </Callout>
 

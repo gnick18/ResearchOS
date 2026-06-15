@@ -50,12 +50,11 @@ export default function RestrictionDigestFeaturePage() {
 
       <h2>The enzyme catalog</h2>
       <p>
-        The Workspace ships with a large catalog of restriction enzymes drawn from a
-        standard NEB-derived dataset (over two hundred enzymes). Each enzyme carries
-        its recognition sequence and its cut geometry, and from that the catalog
-        derives the metadata you filter on. That covers how long the recognition site
-        is, whether
-        the site is palindromic, whether it contains a degenerate (non-ACGT) code, and
+        The Workspace ships with a catalog of 236 restriction enzymes drawn from a
+        standard NEB-derived dataset. Each enzyme carries its recognition sequence
+        and its cut geometry, and from that the catalog derives the metadata you
+        filter on. That covers how long the recognition site is, whether the site
+        is palindromic, whether it contains a degenerate (non-ACGT) code, and
         what overhang the cut leaves. You never have to type an enzyme&apos;s
         recognition site or cut position, it all comes from the bundled data.
       </p>
@@ -120,9 +119,11 @@ export default function RestrictionDigestFeaturePage() {
       </p>
       <p>
         When you settle on a selection you want to reuse, the Saved sets control
-        lets you name it and keep it. Saved sets are stored per user and follow you
-        across every sequence you open, so a panel of go-to enzymes is one click away
-        the next time, not something you rebuild by hand.
+        lets you name it and keep it. Saved sets are stored per user in a small
+        sidecar file (<code>users/&lt;you&gt;/_enzyme_sets.json</code>) and
+        follow you across every sequence you open. They are not shared with
+        labmates, so each user builds their own panel of go-to sets. A saved set
+        is one click away the next time, not something you rebuild by hand.
       </p>
 
       <Callout variant="tip" title="The digest is validated band-for-band">

@@ -250,6 +250,43 @@ export default function PurchasesFeaturePage() {
         placed, replacing the old stopgap of toggling the parent order complete.
       </Callout>
 
+      <h2>Document attachments</h2>
+      <p>
+        Every line item in an expanded order has a thin{" "}
+        <strong>Documents</strong> sub-row beneath it. In edit mode, an{" "}
+        <strong>Attach PDF</strong> control lets you upload a document for that
+        item, and each attached file gets a kind label you can change from a
+        dropdown. The four kinds are <strong>Order form</strong>,{" "}
+        <strong>Invoice</strong>, <strong>Receipt</strong>, and{" "}
+        <strong>Quote</strong>. Attached files are shown as clickable chips that
+        open in a new tab. Remove an attachment with the close button in edit
+        mode. The Documents row is hidden entirely when an item has no
+        attachments and is not being edited, so it adds no visual noise to clean
+        rows.
+      </p>
+      <p>
+        Once you have ordered or received a line item, the page checks whether
+        any of those items still have no document attached. When there are some,
+        a gentle amber nudge appears above the list reading something like{" "}
+        <em>N purchases have no document attached. Attach receipts to keep the
+        grant record complete.</em> It is informational only and never blocks
+        any action.
+      </p>
+
+      <h2>Send to department</h2>
+      <p>
+        For PI accounts that have department routing configured in their
+        settings, each approved purchase line item gains a{" "}
+        <strong>Send to department</strong> control in its Documents row.
+        Clicking it opens your OS mail client with a pre-drafted email addressed
+        to the configured department contact and pre-filled with the item name,
+        vendor, grant string, and total. No email is sent from within
+        ResearchOS, and no credentials are stored. The mailto opens the PI&apos;s
+        own mail client so the PI reviews and sends the message directly. When
+        more than one department contact is configured, a short dropdown lets
+        you pick which recipient before clicking.
+      </p>
+
       <h2>Buy again</h2>
       <p>
         Reagents run out and get reordered on a loop. On any{" "}
@@ -391,17 +428,10 @@ export default function PurchasesFeaturePage() {
         name, task name, start date, total price, and owner.
       </p>
 
-      {/* TODO screenshot agent: recapture the dashboard header to drop the old "View in Lab Mode" link.
-          Route: /purchases (scrolled to dashboard)
-          Fixture: ?wikiCapture=1
-          Viewport: desktop 1440x900
-          State: any user fixture; dashboard with the Export CSV button visible (no Lab Mode link)
-          Save to: frontend/public/wiki/screenshots/purchases-csv-export.png
-      */}
       <Screenshot
         src="/wiki/screenshots/purchases-csv-export.png"
-        alt="The dashboard header with the green Export CSV button at the top right."
-        caption="Export CSV downloads only what is currently in scope."
+        alt="The spending dashboard header showing the Export CSV button at the top right and the time-range dropdown to its left."
+        caption="Export CSV downloads only what is currently in scope (time range, project filter, and any funding-card selection)."
       />
 
       <p>
@@ -416,52 +446,32 @@ export default function PurchasesFeaturePage() {
 
       <h2>The PI experience</h2>
       <p>
-        PIs have <code>/purchases</code> in their nav just like everyone
-        else, and the page gives them the same order list and dashboard
-        scoped to lab-visible spend. For a lab-wide rollup, the LabPurchases
-        Tool inside the Lab Overview opens from the Tools launcher in the
-        header. The popup is a four-tab dashboard.
+        PIs use the same <code>/purchases</code> page as every other lab member,
+        with two differences. First, the fourth filter chip is relabeled{" "}
+        <strong>Pending approval</strong> (members see it as{" "}
+        <em>Awaiting approval</em>) because PIs own that queue. Clicking it
+        narrows the list to every purchase across the lab that is still waiting
+        on a PI decision, and the chip carries a live count badge of that queue.
+        Second, a sticky banner appears at the top of the page when the pending
+        count is above zero, showing the number of items awaiting approval across
+        the lab and linking the PI straight to the filtered view.
       </p>
-      <ul>
-        <li>
-          <strong>Pending approvals</strong>. The work queue. Each row is a
-          purchase waiting on the PI with inline{" "}
-          <strong>Approve</strong> and <strong>Decline</strong> buttons. The
-          first action of a fresh session unlocks the 5-minute edit window, and
-          subsequent rows process without re-prompting. See{" "}
-          <Link href="/wiki/features/lab-head/edit-session-and-password">
-            Edit session and password
-          </Link>.
-        </li>
-        <li>
-          <strong>All purchases</strong>. A flat lab-wide view of every
-          purchase across every member, filterable by member, project, and
-          funding string.
-        </li>
-        <li>
-          <strong>Funding</strong>. The funding-account cards (spent vs.
-          budget) rolled up across the whole lab, not just the PI&apos;s
-          own purchases.
-        </li>
-        <li>
-          <strong>Spending</strong>. The full spend-over-time chart and the
-          breakdown lenses (project / vendor / category), same shape as the
-          dashboard at the bottom of <code>/purchases</code> but with lab-wide
-          scope.
-        </li>
-      </ul>
+      <p>
+        Each line item in the pending view has inline{" "}
+        <strong>Approve</strong> and <strong>Decline</strong> buttons that a PI
+        can act on directly, in the same expanded-row view every member uses.
+        There is no separate popup or Tools launcher.
+      </p>
 
       <h3>The decline state</h3>
       <p>
         A declined purchase carries a <code>declined_at</code> timestamp and
-        renders with a red <code>PurchaseDeclinedBadge</code> wherever it
-        appears, in the member&apos;s own list, in the All Purchases tab, and in
-        the Lab Activity stream. The Pending Approvals tab also shows a{" "}
+        renders with a red <strong>Declined</strong> badge wherever it appears,
+        including in the member&apos;s own list and in the Lab Activity stream.
+        The Pending approval filter also shows a{" "}
         <strong>Recently declined</strong> section at the bottom so a PI
         can <strong>Re-approve</strong> a previously-declined purchase
-        without making the member resubmit. Each decline and each re-approve
-        writes a row to the audit log (see{" "}
-        <Link href="/wiki/features/lab-head/audit-log">Audit log</Link>).
+        without making the member resubmit.
       </p>
 
       <Callout variant="info" title="Empty state">

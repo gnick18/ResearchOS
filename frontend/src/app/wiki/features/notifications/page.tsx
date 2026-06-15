@@ -244,6 +244,123 @@ export default function NotificationsFeaturePage() {
         lets you attach it in one click without opening the Inbox modal at all.
       </Callout>
 
+      <h2>Notification routing matrix</h2>
+      <p>
+        All notification routing is configured in{" "}
+        <strong>Settings, Notifications</strong>. The matrix has five categories
+        (rows) and four channels (columns). Each cell is an independent toggle.
+      </p>
+      <p>
+        The five categories map the 14 internal notification types into
+        user-facing groups.
+      </p>
+      <ul>
+        <li>
+          <strong>Shared &amp; assigned to me.</strong> A task, method, or
+          project shared with you, or a task assigned or flagged for your review.
+        </li>
+        <li>
+          <strong>Comments &amp; mentions.</strong> Someone comments on your
+          work or @-mentions you.
+        </li>
+        <li>
+          <strong>Lab announcements.</strong> Your PI posts a lab-wide
+          announcement.
+        </li>
+        <li>
+          <strong>Purchases &amp; orders.</strong> An order you requested is
+          placed or approved, or one is assigned to you.
+        </li>
+        <li>
+          <strong>Reminders &amp; schedule changes.</strong> Calendar reminders,
+          and when a shared task&apos;s date shifts.
+        </li>
+      </ul>
+      <p>
+        The four channels are as follows.
+      </p>
+      <ul>
+        <li>
+          <strong>Bell (in-app).</strong> The bell in the laptop header always
+          collects every notification in its category. The bell toggle is stored
+          for a future &quot;mute from bell&quot; feature but does not currently
+          suppress the in-app store.
+        </li>
+        <li>
+          <strong>Laptop.</strong> Desktop pop-ups from the browser while a
+          ResearchOS tab is open. Requires browser notification permission.
+        </li>
+        <li>
+          <strong>Phone.</strong> A push to your paired Companion phone. Requires
+          a cloud account (solo users without an account never see this column).
+          The laptop must be open and publishing to deliver the push.
+        </li>
+        <li>
+          <strong>Email.</strong> An email to the verified address on your
+          account. Requires a cloud account (same gate as Phone).
+        </li>
+      </ul>
+      <p>
+        The defaults shipped in the product are: Shared gets Bell, Laptop, and
+        Phone on; Comments gets Bell and Laptop; Lab announcements gets Bell and
+        Email; Purchases gets Bell only; Reminders gets Bell, Laptop, and Phone.
+      </p>
+
+      <Screenshot
+        src="/wiki/screenshots/notifications-routing-matrix.png"
+        alt="The Notifications section in Settings, showing a 5-row by 4-column matrix of category-channel toggles, with a Quiet hours section below it."
+        caption="Settings, Notifications. Five categories, four channels. Phone and Email only show for cloud account users."
+      />
+
+      <h2>Quiet hours</h2>
+      <p>
+        Quiet hours silence the push channels (Laptop, Phone, Email) during a
+        time window you set. The bell still collects while quiet. Options are a
+        start time, an end time (the window handles overnight ranges where start
+        is after end, such as 19:00 to 08:00), and an optional{" "}
+        <strong>weekends quiet</strong> flag that silences Saturday and Sunday
+        entirely. Quiet hours ship off by default; opt in to activate them.
+      </p>
+
+      <h2>Solo-user gating</h2>
+      <p>
+        Phone and Email are account-only channels. A solo user working without a
+        cloud account never sees the Phone or Email columns in the matrix, and any
+        stored preference for those channels is ignored at dispatch time. This
+        keeps the settings surface simple for local-only setups and prevents
+        confusing &quot;why did that not buzz my phone&quot; moments.
+      </p>
+
+      <h2>Phone Notifications screen</h2>
+      <p>
+        The Companion phone app has a dedicated <strong>Notifications</strong>{" "}
+        screen (reachable from the Home tab header bell icon). It shows the
+        notifications the laptop has routed to your phone channel as a synced
+        list. Each row shows a category-tinted icon chip, an unread dot, the
+        notification title, a one-line body, and a relative time.
+      </p>
+      <p>
+        The list is fetched from a sealed &quot;notifications&quot; snapshot the
+        laptop publishes while open. It is not a live OS push feed; it is a
+        polled mirror of what the laptop has sent to the phone channel. Pull down
+        to refresh. Read state is owned by the laptop bell, so the list mirrors
+        the laptop&apos;s read state rather than tracking reads separately on the
+        phone.
+      </p>
+      <p>
+        Opening the Notifications screen also refreshes the phone&apos;s push
+        token, covering a token rotation or a notification permission granted
+        after pairing.
+      </p>
+
+      <Callout variant="info" title="The phone channel needs the laptop open">
+        The laptop publishes the notifications snapshot while it is running and
+        a ResearchOS tab is open. If the laptop is closed or the tab is shut, no
+        new notifications appear on the phone until the laptop is open again.
+        The phone list shows a &quot;Last synced&quot; timestamp so you can see
+        how fresh the data is.
+      </Callout>
+
       <h2>Lab Inbox and comments</h2>
       <p>
         The bell handles things you need to acknowledge directly, including the

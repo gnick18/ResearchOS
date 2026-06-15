@@ -71,12 +71,32 @@ export default function DoseResponsePage() {
         parameter, or is the simpler model good enough?
       </p>
       <p>
-        The Data Hub reports a comparison (an F test or an information criterion
-        such as AIC) that weighs the gain in fit against the added complexity, and
-        states which model is preferred. The honest default is the simpler model
-        unless the data clearly call for more. A multi-effect comparison like this
-        has no single number to act on, so read the verdict, which names the
-        winning model and why.
+        The Data Hub runs <strong>two distinct comparisons</strong>, both reported
+        together.
+      </p>
+      <ul>
+        <li>
+          The <strong>extra-sum-of-squares F test</strong> applies when the two
+          models are nested, that is, when the simpler model is a special case of
+          the more complex one (for example, the 4PL is the 5PL with the
+          asymmetry parameter fixed at 1). It asks whether the reduction in
+          residual sum of squares justifies the added parameter, using an F
+          statistic and a p-value. A small p (by convention, below 0.05) favors
+          the more complex model.
+        </li>
+        <li>
+          The <strong>AICc</strong> (small-sample-corrected Akaike Information
+          Criterion) is always valid, whether or not the models are nested. It
+          trades goodness of fit against parameter count without a null-hypothesis
+          test. The model with the lower AICc is preferred; the Data Hub reports
+          the delta and the Akaike weights, which express the probability each
+          model is the better of the two.
+        </li>
+      </ul>
+      <p>
+        The honest default is the simpler model unless the data clearly call for
+        more. Read both verdicts, as they can sometimes point in different
+        directions when the sample is small.
       </p>
 
       <h2 id="global-fits">Global fits: sharing parameters across datasets</h2>
@@ -84,10 +104,12 @@ export default function DoseResponsePage() {
         Often several curves should share something. Three compounds tested the
         same day plausibly share the same top and bottom plateau, they differ only
         in potency. A <strong>global fit</strong> fits all the curves at once with
-        some parameters <em>shared</em> and others left free per curve. Sharing
-        the plateaus pins them down using every point from every curve, which
-        makes the per-curve EC50s more precise and lets you compare potency on a
-        fair footing.
+        some parameters <em>shared</em> and others left free per curve. Any of
+        the four 4PL parameters (bottom plateau, top plateau, EC50, Hill slope)
+        or the 5PL asymmetry parameter can be designated as shared or free
+        independently. Sharing the plateaus, for instance, pins them down using
+        every point from every curve, which makes the per-curve EC50s more
+        precise and lets you compare potency on a fair footing.
       </p>
       <p>
         The result reports the shared parameters once, the free parameters per

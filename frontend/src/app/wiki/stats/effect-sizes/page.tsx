@@ -89,11 +89,42 @@ export default function EffectSizesPage() {
       />
 
       <p>
-        The bootstrap interval and Hedges&apos; g sit just below. The bootstrap
-        CI is a second, assumption-light estimate of the same interval, and
-        Hedges&apos; g is Cohen&apos;s d with a small-sample correction, so on
-        the handful of replicates a typical experiment collects it is the more
-        honest standardized number.
+        The bootstrap interval and Hedges&apos; g sit just below. Hedges&apos;
+        g is Cohen&apos;s d with a small-sample correction, so on the handful of
+        replicates a typical experiment collects it is the more honest
+        standardized number.
+      </p>
+      <p>
+        The <strong>bootstrap confidence interval</strong> is a second,
+        assumption-light estimate of the uncertainty on the mean difference. It
+        works by resampling your data thousands of times with replacement, computing
+        the difference of means on each resample, and reading the 2.5th and 97.5th
+        percentile off the resulting distribution (using the BCa acceleration
+        correction for bias). Because it makes no assumption about normality or
+        equal variance, it can disagree with the parametric interval when those
+        assumptions are strained. A narrow bootstrap CI matching the parametric
+        one is reassuring; a wide disagreement is a sign to look more carefully at
+        the data.
+      </p>
+
+      <h2 id="test-variants">Welch versus Student, and from-summary-stats</h2>
+      <p>
+        The two-sample t-test comes in two variants. The default is{" "}
+        <strong>Welch&apos;s t-test</strong>, which does not assume the two
+        groups have the same variance and adjusts the degrees of freedom using
+        the Welch-Satterthwaite equation. The optional{" "}
+        <strong>Student&apos;s t-test</strong> pools the variance estimate across
+        groups, which is a reasonable shortcut when you are confident the groups
+        have equal spread, but Welch is the safer default when you are not.
+        Both report the same difference-of-means effect size and its interval.
+      </p>
+      <p>
+        If you already have group means, standard deviations, and sample sizes
+        from a published table rather than raw replicates, the Data Hub can run
+        the t-test and ANOVA from those entered summaries, reproducing the
+        omnibus F and the effect sizes without needing the original data. Post-hoc
+        pairwise comparisons require raw replicates and are not available from
+        summary-stats entry alone.
       </p>
 
       <h2>A worked example</h2>
@@ -120,8 +151,9 @@ export default function EffectSizesPage() {
       </Callout>
 
       <p>
-        ResearchOS validates the t-test, Cohen&apos;s d, and the confidence
-        interval against scipy and statsmodels on the{" "}
+        ResearchOS validates the Welch and Student t-tests, Cohen&apos;s d,
+        Hedges&apos; g, the bootstrap CI, and the from-summary-stats path against
+        scipy and statsmodels on the{" "}
         <Link href="/transparency">transparency page</Link>, which reruns the
         same inputs through those packages so you can see the numbers match.
       </p>

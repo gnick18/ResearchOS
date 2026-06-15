@@ -19,10 +19,12 @@ export default function LabNotesFeaturePage() {
         member's notes in one view, the PI's own included.
       </p>
       <Callout variant="info" title="Where you reach it">
-        This surface lives behind the &quot;Browse lab notes&quot; button on the{" "}
-        <Link href="/wiki/features/lab-overview">Lab Overview</Link>, the PI's
-        landing page. It's the notes counterpart to{" "}
+        Navigate directly to <code>/lab-notes</code>, or follow the link from
+        the <Link href="/wiki/features/lab-head">PI</Link> pages. It is the
+        notes counterpart to{" "}
         <Link href="/wiki/features/lab-experiments">Browse lab experiments</Link>.
+        The Lab Overview itself does not have a browse link-out button; those
+        were retired when the Lab Overview was redesigned.
       </Callout>
 
       <h2>Who can open it</h2>
@@ -46,8 +48,10 @@ export default function LabNotesFeaturePage() {
         </Step>
         <Step>
           <strong>Edit as the lab head.</strong> If you need to correct
-          something, the popup offers an &quot;Edit as lab head&quot; affordance
-          that asks you to confirm once per session, then unlocks editing.
+          something, the popup offers an <strong>Edit as lab head</strong>{" "}
+          button. Clicking it opens a one-time confirmation dialog for that
+          record. After you confirm, that specific record is freely editable
+          for the rest of the browser session without being asked again.
         </Step>
         <Step>
           <strong>The change stays the member's.</strong> Your edit is written
@@ -57,9 +61,11 @@ export default function LabNotesFeaturePage() {
         </Step>
       </Steps>
       <Callout variant="warning" title="Editing is deliberate, not the default">
-        Opening a note never makes it editable on its own. You read by default
-        and have to ask for the edit, so skimming the lab's notes can't change a
-        member's record by accident.
+        Opening a note never puts it in an editable state on its own. You read
+        by default and have to click <strong>Edit as lab head</strong> and
+        confirm, so skimming the lab&apos;s notes cannot change a member&apos;s
+        record by accident. Each distinct record gets its own confirmation the
+        first time you edit it.
       </Callout>
 
       <h2>Where to go next</h2>

@@ -11,11 +11,10 @@ export default function MethodsFeaturePage() {
       title="Methods Library"
       intro="A method is a reusable protocol you write once and attach to any experiment as a tab. The library ships ten method types, from free-form Markdown to specialized structured editors for PCR, LC gradients, plate layouts, and more, so a method matches the shape of the work instead of forcing everything into prose."
     >
-      {/* methods-library.png needs recapture: predates 10-type rewrite; alt text still lists only 3 types */}
       <Screenshot
         src="/wiki/screenshots/methods-library.png"
-        alt="The Methods page showing categories of method cards, with type pills marking the method type on each card."
-        caption="The Method Library, where cards are grouped under category headings with type pills on each card."
+        alt="The Methods Library page showing method cards grouped under category headings, with colored type pills (Markdown, PCR, LC Gradient, Plate Layout, and others) marking each card."
+        caption="The Method Library. Cards are grouped under category headings and carry a colored type pill. The library supports ten method types."
       />
 
       <TryInDemo href="/methods">Try methods in the demo</TryInDemo>
@@ -38,6 +37,11 @@ export default function MethodsFeaturePage() {
       </p>
 
       <h2>The ten method types</h2>
+      <Screenshot
+        src="/wiki/screenshots/methods-type-picker.png"
+        alt="The New Method modal with two sections, Standard and Structured, showing the ten method type tiles including Markdown, PDF, PCR, LC Gradient, Plate Layout, Cell culture passaging, Mass spec, qPCR analysis, and Coding workflow. The Kit type has no tile in this picker."
+        caption="The type picker in the New Method modal. Nine types appear as tiles. Kit does not appear here because kits are created by extending an existing method, not by starting from scratch."
+      />
       <p>
         The create-method modal groups types into two sections. Each type
         gets its own viewer when the method is opened, its own icon on
@@ -90,18 +94,34 @@ export default function MethodsFeaturePage() {
         </li>
         <li>
           <strong>qPCR analysis</strong> records Cq readouts, melt-curve
-          Tm, standard-curve efficiency, and ΔΔCq fold-change.
+          Tm, standard-curve efficiency, and ΔΔCq fold-change. A typical qPCR
+          workflow pairs a PCR cycling method with a qPCR analysis method by
+          bundling both into a kit, so the thermal program and the analysis
+          fields travel together when attached to an experiment.
         </li>
         <li>
           <strong>Coding workflow</strong> stores reusable scripts
           (Python, R, SQL) and Jupyter notebooks alongside protocol text.
         </li>
         <li>
-          <strong>Kit</strong> bundles existing methods into
-          one attachable unit (e.g. plate layout plus assay PDF). Reached
-          by extending an existing method, not as a standalone picker tile.
+          <strong>Kit</strong> bundles two or more existing methods into
+          one attachable unit (for example, a plate layout plus an assay PDF, or
+          a PCR cycling method plus a qPCR analysis). Because kits are created
+          by extending an existing method (via the{" "}
+          <em>Add component (extend into kit)</em> affordance on the method
+          popup) rather than by starting from scratch, the Kit type does not
+          appear as a tile in the New Method picker.
         </li>
       </ul>
+      <Callout variant="info" title="Per-account method-type enablement">
+        Each account can limit which method types appear in the New Method
+        picker. When an account was created with a narrowed set (for example, a
+        chemistry-focused lab that opted out of Coding workflow), only the
+        enabled types show up as picker tiles. The Kit type is always available
+        regardless of the enabled set, since kits are composed from methods you
+        already own rather than created directly. If a type you expect is missing
+        from your picker, a lab admin can update the enabled set in settings.
+      </Callout>
 
       <h2>Create a method</h2>
       <Steps>

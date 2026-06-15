@@ -7,39 +7,51 @@ export default function ContingencyPage() {
   return (
     <WikiPage
       title="Contingency tables, odds ratios, and relative risk"
-      intro="When your data are counts in categories rather than measured numbers, responded or did not, mutant or wild type, survived or died, you compare proportions. A contingency table lays those counts out, and a handful of tests and effect sizes tell you whether the categories are linked and how strongly. This page covers chi-square versus Fisher exact, the odds ratio (the same one logistic regression reports), and relative risk."
+      intro="When your data are counts in categories rather than measured numbers, responded or did not, mutant or wild type, survived or died, you compare proportions. A contingency table lays those counts out, and a handful of tests and effect sizes tell you whether the categories are linked and how strongly. This page covers chi-square, Fisher exact, logistic regression as a first-class analysis, the odds ratio, and relative risk."
     >
       <h2>What a contingency table is</h2>
       <p>
-        A <strong>contingency table</strong> is a grid of counts. The simplest is
-        two-by-two, two groups down the side, two outcomes across the top, with the
-        number of subjects in each cell. The question is whether the outcome
-        depends on the group, or whether the rows and columns are independent and
-        any apparent pattern is just chance.
+        A <strong>contingency table</strong> is a grid of counts. It can be any
+        size: two outcomes by two groups (2x2), three treatment arms by four
+        response categories (3x4), or any R-by-C arrangement. The question is
+        always the same: does the distribution of counts across columns depend
+        on which row you are in, or are the rows and columns independent and any
+        apparent pattern is just chance?
       </p>
 
-      <h2 id="chi-square">Chi-square versus Fisher exact</h2>
+      <h2 id="chi-square">Chi-square and Fisher exact</h2>
       <p>
-        Two tests answer that same question, and the only real choice between them
-        is sample size.
+        For any R&times;C table the Data Hub runs the{" "}
+        <strong>Pearson chi-square test of independence</strong>. It compares the
+        counts you observed against the counts you would expect if the rows and
+        columns were independent. The test is reliable when the expected count in
+        every cell is reasonably large (a common rule of thumb is at least 5); the
+        result reports the minimum expected count so you can check.
+      </p>
+      <p>
+        For a <strong>2x2 table</strong>, the Data Hub always reports all three
+        of the following, regardless of cell counts.
       </p>
       <ul>
         <li>
-          The <strong>chi-square test</strong> compares the counts you observed
-          against the counts you would expect if the rows and columns were
-          independent. It is fast and standard, and it is reliable when the
-          expected count in every cell is reasonably large (a common rule of thumb
-          is at least 5).
+          <strong>Chi-square</strong> (Pearson, uncorrected), the standard
+          large-sample statistic.
         </li>
         <li>
-          <strong>Fisher&apos;s exact test</strong> computes the probability
-          directly rather than approximating, so it stays accurate when counts are
-          small. With any sparse cell, Fisher exact is the safe choice, and the
-          Data Hub leans on it automatically for small tables.
+          <strong>Chi-square with Yates continuity correction</strong>, which
+          subtracts 0.5 from each absolute deviation before squaring, giving a
+          slightly more conservative result for the 2x2 case.
+        </li>
+        <li>
+          <strong>Fisher&apos;s exact test</strong>, which computes the
+          probability directly from the hypergeometric distribution rather than
+          approximating, so it stays accurate when counts are small. Fisher exact
+          is only computed for 2x2 tables; for larger tables the chi-square is the
+          right test.
         </li>
       </ul>
       <p>
-        Both report a <strong>p-value</strong> for whether the categories are
+        All three report a <strong>p-value</strong> for whether the categories are
         associated. As elsewhere, that tells you whether there is a link, not how
         strong it is. For strength, you want the effect sizes below.
       </p>
@@ -78,13 +90,23 @@ export default function ContingencyPage() {
         caption="A 2x2 table. The Data Hub reports the chi-square (Yates-corrected and uncorrected), Fisher's exact p for small counts, the relative risk, and the odds ratio with its 95 percent confidence interval, then shows the observed counts against the counts you would expect if the two factors were unrelated."
       />
 
-      <Callout variant="info" title="This is also what logistic regression reports">
-        <strong>Logistic regression</strong> predicts a yes/no outcome from one or
-        more predictors, and it reports each predictor&apos;s effect as an odds
-        ratio, read exactly as above. The difference from a plain contingency
-        table is that logistic regression can hold several predictors constant at
-        once, so an odds ratio there means &quot;the change in odds per unit of
-        this predictor, with the others fixed,&quot; just like a coefficient in{" "}
+      <Callout variant="info" title="Logistic regression is a first-class analysis">
+        <strong>Logistic regression</strong> is its own analysis in the Data Hub,
+        not just an extension of the contingency table. It predicts a yes/no
+        outcome from a continuous predictor and reports the odds ratio for that
+        predictor, read exactly as above, with its 95% confidence interval and
+        p-value. The practical advantage over a contingency table is that logistic
+        regression works directly on the continuous predictor without binning it,
+        and it reports the X value at which the predicted probability equals 0.5,
+        a useful summary for dose-response-style binary data. When the data are
+        separable (all zeros on one side, all ones on the other) the standard
+        maximum-likelihood estimate diverges; the engine detects this and falls
+        back to{" "}
+        <strong>Firth&apos;s penalized-likelihood correction</strong>{" "}
+        automatically, keeping the estimates finite and flagging the method in the
+        result. The odds ratio a logistic regression reports is the same quantity
+        as the contingency table odds ratio, but conditioned on the continuous
+        predictor value, just like a coefficient in{" "}
         <Link href="/wiki/stats/correlation-and-regression#multiple">
           multiple regression
         </Link>
@@ -115,8 +137,9 @@ export default function ContingencyPage() {
       </p>
 
       <p>
-        ResearchOS validates the chi-square and Fisher exact tests, the odds
-        ratio, and logistic regression against scipy and statsmodels on the{" "}
+        ResearchOS validates the chi-square, Yates-corrected chi-square, Fisher
+        exact test, odds ratio, relative risk, and logistic regression (including
+        the Firth fallback) against scipy and statsmodels on the{" "}
         <Link href="/transparency">transparency page</Link>.
       </p>
     </WikiPage>

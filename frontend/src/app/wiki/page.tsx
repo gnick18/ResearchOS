@@ -38,8 +38,9 @@ export default function WikiLandingPage() {
       <h2>60-second tour</h2>
       <p>
         ResearchOS is a single-page research-management app that reads and writes
-        directly to a folder on your computer. There&apos;s no server, no account,
-        no sign-up. Your data lives in plain JSON files you fully own.
+        directly to a folder on your computer. Your data lives in plain JSON files
+        you fully own. Optional Free and Lab cloud accounts add sync, sharing, and
+        real-time collaboration, and a signup takes under a minute.
       </p>
       <ol className="my-4 list-decimal pl-6 space-y-2.5 text-foreground leading-relaxed marker:text-foreground-muted marker:font-semibold">
         <li>
@@ -47,11 +48,11 @@ export default function WikiLandingPage() {
           can&apos;t read local folders yet.
         </li>
         <li>
-          Click <strong>Link Folder</strong> to point ResearchOS at a folder
+          Click <strong>Open a folder</strong> to point ResearchOS at a folder
           on your disk. It can be an existing ResearchOS folder or a brand-new
           empty one you made first (Chrome cannot create a folder from the
           picker, so starting fresh means making an empty folder in your file
-          manager, then linking it). Want the full breakdown first? See{" "}
+          manager, then opening it). Want the full breakdown first? See{" "}
           <Link href="/wiki/getting-started/connecting-your-folder">
             Connecting Your Folder
           </Link>

@@ -111,14 +111,21 @@ export default function CloningWorkspaceFeaturePage() {
         the overhang appears once, as the seam between the fragments.
       </p>
       <p>
-        In the Workspace you choose two or more sequences and a set of common cutters
-        (EcoRI, BamHI, HindIII, PstI, KpnI, SmaI, XhoI, and NotI). The engine
-        digests each sequence on both strands, types every resulting end as blunt, a
-        5&apos; overhang, or a 3&apos; overhang, and then enumerates the products
-        whose ends form a consistent ligation chain. Because a fragment can ligate in
-        either orientation, a pair of identical overhangs is genuinely ambiguous and
-        yields more than one product. The Workspace returns every distinct product
-        rather than guessing, so you pick the intended one in the review step.
+        In the Workspace you choose two or more sequences and pick from a fixed
+        set of eight common cutters: EcoRI, BamHI, HindIII, PstI, KpnI, SmaI,
+        XhoI, and NotI. This set covers the most widely-used single-cut and
+        compatible-overhang combinations in subcloning work. For any site not in
+        this set, use the full enzyme picker in the{" "}
+        <Link href="/wiki/features/restriction-digest">Restriction Digest</Link>{" "}
+        tool to confirm cut positions, then work backwards to a compatible set
+        from the eight available here. The engine digests each sequence on both
+        strands, types every resulting end as blunt, a 5&apos; overhang, or a
+        3&apos; overhang, and then enumerates the products whose ends form a
+        consistent ligation chain. Because a fragment can ligate in either
+        orientation, a pair of identical overhangs is genuinely ambiguous and
+        yields more than one product. The Workspace returns every distinct
+        product rather than guessing, so you pick the intended one in the review
+        step.
       </p>
 
       <h2>Golden Gate (Type IIS)</h2>
@@ -132,12 +139,14 @@ export default function CloningWorkspaceFeaturePage() {
         together one way.
       </p>
       <p>
-        In the Workspace you add your parts and choose a Type IIS enzyme. The engine
-        digests every part with that enzyme, drops the pieces that still carry the
-        recognition site (the flanks), and ligates the central parts by their custom
-        overhangs into a seamless product. The review step warns you if a kept piece
-        has a blunt end, which usually means a part is missing a flanking Type IIS
-        site.
+        In the Workspace you add your parts and choose one of the four supported
+        Type IIS enzymes: BsaI, BsmBI, BbsI, or SapI. These cover the most
+        common Golden Gate systems (MoClo, GoldenBraid, Loop, and SapI-based
+        scarless cloning). The engine digests every part with the chosen enzyme,
+        drops the pieces that still carry the recognition site (the flanks), and
+        ligates the central parts by their custom overhangs into a seamless
+        product. The review step warns you if a kept piece has a blunt end,
+        which usually means a part is missing a flanking Type IIS site.
       </p>
 
       <h2>Gateway (BP and LR)</h2>
@@ -173,9 +182,12 @@ export default function CloningWorkspaceFeaturePage() {
       <p>
         Whichever chemistry you used, the review step is the same surface. It shows
         the assembled product sequence with its features, the junctions it formed, and
-        any warnings. Features from each input fragment are rebased into the product
-        coordinates, so a CDS or a promoter that started on an input fragment lands at
-        the right place on the new construct. When a chemistry designs primers, those
+        any warnings. A compact header above the sequence displays the product name,
+        topology, length in base pairs, and <strong>GC%</strong>, so you can
+        spot a GC-extreme construct before you move to primer ordering. Features
+        from each input fragment are rebased into the product coordinates, so a
+        CDS or a promoter that started on an input fragment lands at the right
+        place on the new construct. When a chemistry designs primers, those
         appear here too, ready to copy or to save as <code>primer_bind</code> features.
         When you accept the product, it is saved as a new sequence in the active
         collection and opens in the editor like any other sequence.

@@ -27,7 +27,7 @@ export default function MethodValidationPage() {
       <h2>What it is checked against</h2>
       <p>
         The reference tools, called oracles in the code, are the established
-        names in computational biology.
+        names in computational biology and statistics.
       </p>
       <ul>
         <li>
@@ -43,6 +43,29 @@ export default function MethodValidationPage() {
           <strong>pydna</strong> for restriction-ligation and Golden Gate
           assembly products. Gateway recombination is checked separately
           against the published attB site sequence.
+        </li>
+        <li>
+          <strong>scipy</strong> and <strong>statsmodels</strong> for the Data
+          Hub statistics engine: t-tests (Welch and Student), ANOVA (one-way,
+          two-way, repeated-measures, Kruskal-Wallis, Friedman), correlation
+          (Pearson and Spearman), simple and multiple regression, logistic
+          regression (including the Firth penalized-likelihood fallback),
+          dose-response curve fitting, Grubbs outlier tests, power and
+          sample-size calculations, and the assumption checks (Shapiro-Wilk,
+          Levene, Brown-Forsythe).
+        </li>
+        <li>
+          <strong>lifelines</strong> for the Kaplan-Meier estimator, log-rank
+          test, Gehan-Breslow-Wilcoxon test, and Cox proportional hazards
+          regression (including the likelihood-ratio test and concordance).
+        </li>
+        <li>
+          <strong>scikit-learn</strong> and <strong>R&apos;s pROC</strong> for
+          ROC curve and AUC (including the Hanley-McNeil standard error).
+        </li>
+        <li>
+          <strong>R&apos;s survival library</strong> as a second reference for
+          the Kaplan-Meier, log-rank, and Cox outputs.
         </li>
       </ul>
       <p>
@@ -113,7 +136,7 @@ export default function MethodValidationPage() {
 
       <Screenshot
         src="/wiki/screenshots/transparency-method-validation.png"
-        alt="The public Method validation page summarizing 146 exact matches, 8 within a documented tolerance, and 2 larger documented differences, with a differences spotlight calling out the cases that diverge."
+        alt="The public Method validation page showing a summary of exact matches, cases within a documented tolerance, and a small number of larger documented differences, with a differences spotlight calling out the cases that diverge."
         caption="The public Method validation page. Every comparison is counted (exact, within tolerance, or a documented difference), and the cases that diverge are spotlighted rather than hidden."
       />
 

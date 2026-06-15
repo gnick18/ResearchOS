@@ -1,6 +1,7 @@
 import Link from "next/link";
 import WikiPage from "@/components/wiki/WikiPage";
 import Callout from "@/components/wiki/Callout";
+import Screenshot from "@/components/wiki/Screenshot";
 import { Steps, Step } from "@/components/wiki/Steps";
 
 export default function HomeFeaturePage() {
@@ -48,11 +49,15 @@ export default function HomeFeaturePage() {
         <Link href="/wiki/features/projects">Project Surface</Link> for the
         Overview, Results, Methods, Goals, and Activity walkthrough). The
         Workbench's other tabs (Experiments, Notes, Lists) sit alongside
-        Projects in the same view. A fifth role-relative 1:1 tab (labeled
-        Mentoring for a lab head, Check-ins for a member) appears when it applies
-        to you, a lab head always sees it, and a member sees it once they're in
-        at least one active 1:1.
+        Projects in the same view. A <strong>Check-ins</strong> tab also appears
+        for anyone in at least one active 1:1; a lab head always sees it.
       </p>
+
+      <Screenshot
+        src="/wiki/screenshots/home-workbench-projects-grid.png"
+        alt="The Workbench Projects grid showing several project cards, each with a color dot, project name, percent-complete progress bar, and count chips for experiments and tasks."
+        caption="Members and solo researchers land here: the Workbench Projects grid."
+      />
 
       <h2>Create a project</h2>
       <p>

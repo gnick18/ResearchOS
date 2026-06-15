@@ -7,8 +7,8 @@ import { Steps, Step } from "@/components/wiki/Steps";
 export default function ProjectsFeaturePage() {
   return (
     <WikiPage
-      title="Project Surface"
-      intro="A project has two faces. A compact card on the Workbench Projects tab for quick stats and a way in, and a full route page that hosts the project's hypothesis prose, results, methods, sequences, goals, activity, and funding."
+      title="Projects"
+      intro="Projects are the top-level containers for your research. A compact card on the Workbench Projects tab gives quick stats and a way in. Clicking a card opens the ProjectDetailPopup, a full-pane popup that hosts the project's overview, results, methods, sequences, goals, activity, and molecules."
     >
       <h2>The project card on the Workbench</h2>
       <p>
@@ -44,55 +44,77 @@ export default function ProjectsFeaturePage() {
         </li>
       </ul>
       <p>
-        The card has no drag handle and no menu button. Clicking anywhere on the
-        card navigates to the project&apos;s route at{" "}
-        <code>/workbench/projects/&lt;id&gt;</code>. There is no popup
-        intermediate step. Project-level actions (rename, share, archive,
-        delete) live on the route&apos;s top bar, covered below.
+        Clicking anywhere on the card opens the project&apos;s{" "}
+        <strong>ProjectDetailPopup</strong>. There is no navigation to a
+        separate full-page route. Project-level actions (version history, edit,
+        share, deposit, archive, delete) are accessible from within the popup
+        via a kebab menu in the popup top bar.
       </p>
 
-      <Callout variant="info" title="Where the URL points">
-        Your own projects live at <code>/workbench/projects/3</code>. A
-        project a labmate has shared with you appends an owner hint:{" "}
-        <code>/workbench/projects/3?owner=morgan</code>. That second segment
-        is how ResearchOS picks the right per-user file path when ids collide
-        across labmates.
+      <Callout variant="info" title="Deep links still work">
+        Bookmarked URLs like{" "}
+        <code>/workbench/projects/3</code> and shared links with an owner
+        hint (<code>?owner=morgan</code>) still open correctly. They render
+        the Workbench Projects view and auto-open the popup for that project,
+        exactly as a card click does.
       </Callout>
 
-      <h2>The project route</h2>
+      <h2>The ProjectDetailPopup</h2>
       <Screenshot
-        src="/wiki/screenshots/projects-route-overview.png"
-        alt="The project route page with a color stripe, a breadcrumb back to Projects, the project name, top-bar action icons, and a row of tabs reading Overview Results Methods."
-        caption="The project route at /workbench/projects/1, opened on the Overview tab."
+        src="/wiki/screenshots/projects-popup-home.png"
+        alt="The ProjectDetailPopup open over the Workbench Projects grid, showing a color stripe at the top, the project name, a kebab menu icon, and a row of tab labels reading Overview Results Methods."
+        caption="The ProjectDetailPopup. Click any project card to open it. The kebab menu in the top bar holds version history, edit, share, deposit, archive, and delete."
       />
-      {/* SCREENSHOT TODO: projects-route-overview.png predates the real-tabs
-          redesign — it may still show the old sticky scroll-anchor strip. Do
-          NOT capture here; recapture when the route UI settles. */}
       <p>
-        The route opens with a color stripe across the top edge, then a sticky
-        top bar. The top bar carries a <strong>&#8592; Projects</strong>{" "}
-        breadcrumb back to the grid, the project name, and (on the right) a{" "}
-        <strong>View timeline &rarr;</strong> link that jumps to the Gantt
-        prefiltered to this project, plus a row of icon buttons for version
-        history, edit, share, deposit, archive, and delete.
+        The popup opens with a color stripe across the top edge. A sticky
+        top bar carries the project name, a <strong>View timeline &rarr;</strong>{" "}
+        link that jumps to the Gantt prefiltered to this project, and a{" "}
+        <strong>kebab menu</strong> (three-dot icon) on the right that holds all
+        project-level actions.
       </p>
       <p>
         Below the top bar sits a row of <strong>tabs</strong>. These are real
         tabs backed by app state, not scroll anchors, so only the active
-        section&apos;s content renders at a time. The full set is{" "}
+        section&apos;s content renders at a time. The full tab set is{" "}
         <strong>Overview</strong>, <strong>Results</strong>,{" "}
         <strong>Methods</strong>, <strong>Sequences</strong>,{" "}
-        <strong>Goals</strong>, <strong>Activity</strong>, and{" "}
-        <strong>Funding</strong>, but a tab only appears when it has something to
-        show. Overview and Results always show. Results stays put even when it
-        is empty, because its empty state is actionable (it points you at the
-        experiments where results live), so it is never a dead end. Methods,
-        Sequences, and Activity auto-hide when they are empty, and Goals appears
-        only when you opted into goals. So a brand-new project with just a
-        hypothesis shows close to a single Overview tab, never a tab that leads
-        nowhere.
+        <strong>Goals</strong>, and <strong>Activity</strong>. A tab only
+        appears when it has something to show. Overview and Results always show.
+        Methods, Sequences, Goals, and Activity auto-hide when they are empty,
+        so a brand-new project with just a hypothesis shows close to a single
+        Overview tab, never a tab that leads nowhere.
       </p>
-      <Callout variant="info" title="Empty sections hide themselves">
+
+      <h2>Funding context (always visible, not a tab)</h2>
+      <p>
+        Funding information sits <strong>above the tab body</strong>, not as a
+        tab of its own. It is always-visible context that frames whichever
+        section is active. It shows two things.
+      </p>
+      <ul>
+        <li>
+          <strong>Primary grant.</strong> The single funding account you linked
+          to the project in the Edit dialog. When nothing is linked, this area
+          reads <em>No primary grant linked</em>.
+        </li>
+        <li>
+          <strong>Grants charged in this project.</strong> The distinct set of
+          grants that purchases inside the project were actually charged to,
+          derived live from each purchase&apos;s funding line. This can differ
+          from the primary grant, which is the whole point.
+        </li>
+      </ul>
+      <p>
+        The funding area self-hides when a project has no primary link and no
+        charged grants, so an unfunded project stays uncluttered. For how the
+        grant metadata flows into a deposit and a compliant report, see{" "}
+        <Link href="/wiki/compliance/nih-data-management">
+          NIH data-management compliance
+        </Link>
+        .
+      </p>
+
+      <Callout variant="info" title="Empty tabs hide themselves">
         You will not see a Methods or Sequences tab until the project actually
         has an attached method or a linked sequence. The tab strip grows as the
         project fills in, which keeps an early-stage project from looking broken.
@@ -117,11 +139,11 @@ export default function ProjectsFeaturePage() {
       <h3>Results</h3>
       <Screenshot
         src="/wiki/screenshots/projects-route-results.png"
-        alt="The Results section of the project route, showing two experiment groups each with their own header row and a strip of thumbnail images."
+        alt="The Results tab inside a project popup, showing two experiment groups each with their own header row and a strip of thumbnail images."
         caption="Results are grouped by experiment, newest images first."
       />
       <p>
-        The Results section pulls every image from every{" "}
+        The Results tab pulls every image from every{" "}
         <strong>Results</strong> tab on every experiment that belongs to this
         project, then groups them by experiment. Each group has a collapsible
         header with the experiment name and the image count. Within a group,
@@ -129,8 +151,8 @@ export default function ProjectsFeaturePage() {
         full-size image with its caption.
       </p>
       <p>
-        Experiments hosted into this project by labmates (their experiments,
-        attached to your project) appear in their own groups with a{" "}
+        Experiments hosted into this project by labmates appear in their own
+        groups with a{" "}
         <strong>Shared by &lt;owner&gt;</strong> chip. Hosted groups are
         suppressed on archived projects.
       </p>
@@ -138,11 +160,11 @@ export default function ProjectsFeaturePage() {
       <h3>Methods</h3>
       <Screenshot
         src="/wiki/screenshots/projects-route-methods.png"
-        alt="The Methods section of the project route, listing several methods with type pills and a 'used in N experiments' badge on each row."
+        alt="The Methods tab inside a project popup, listing several methods with type pills and a 'used in N experiments' badge on each row."
         caption="The Methods inventory deduplicates across experiments and counts usage."
       />
       <p>
-        The Methods section is a flat, deduplicated inventory of every method
+        The Methods tab is a flat, deduplicated inventory of every method
         attached to an experiment in this project. Each row carries the method
         name, a type pill (Markdown, PDF, PCR), and a{" "}
         <strong>used in N experiments</strong> badge so you can see which
@@ -158,7 +180,7 @@ export default function ProjectsFeaturePage() {
 
       <h3>Sequences</h3>
       <p>
-        The Sequences section lists the plasmids and sequences from your{" "}
+        The Sequences tab lists the plasmids and sequences from your{" "}
         <Link href="/wiki/features/sequences">sequence library</Link> that are
         linked to this project. Each row shows the sequence name, its length in
         base pairs, and a type pill (DNA, RNA, or Protein). The tab appears only
@@ -191,7 +213,7 @@ export default function ProjectsFeaturePage() {
       <h3>Activity</h3>
       <Screenshot
         src="/wiki/screenshots/projects-route-activity.png"
-        alt="The Activity section, listing a chronological feed of events. Each row has an icon, a summary line, and a relative timestamp on the right."
+        alt="The Activity tab inside a project popup, listing a chronological feed of events. Each row has an icon, a summary line, and a relative timestamp on the right."
         caption="Activity is a chronological feed scoped to this project."
       />
       <p>
@@ -210,50 +232,28 @@ export default function ProjectsFeaturePage() {
         written.
       </p>
 
-      <h3>Funding</h3>
+      <h3>Molecules doorway</h3>
       <p>
-        The Funding section ties a project to the grants that pay for it, which
-        is the backbone of an accurate data-management or grant report. It shows
-        two complementary things.
-      </p>
-      <ul>
-        <li>
-          <strong>Primary grant.</strong> The single funding account you linked
-          to the project in the Edit dialog. This is the project&apos;s declared
-          funding source. When nothing is linked, the section reads{" "}
-          <em>No primary grant linked</em>.
-        </li>
-        <li>
-          <strong>Grants charged in this project.</strong> The distinct set of
-          grants that purchases inside the project were actually charged to,
-          derived live from each purchase&apos;s funding line. This can differ
-          from the primary grant, which is the whole point. It surfaces where
-          the money really went. A charged line with no matching account in your
-          lab carries a small <em>(no matching account)</em> note.
-        </li>
-      </ul>
-      <p>
-        The section is read-only and self-hides when a project has no primary
-        link and no charged grants, so an unfunded project stays uncluttered.
-        For how the grant metadata flows into a deposit and a compliant report,
-        see{" "}
-        <Link href="/wiki/compliance/nih-data-management">
-          NIH data-management compliance
-        </Link>
-        .
+        When a project has linked molecules (from the{" "}
+        <Link href="/wiki/features/chemistry">Chemistry</Link> library), a{" "}
+        <strong>Molecules</strong> doorway appears in the popup&apos;s{" "}
+        <strong>Go to</strong> section. Clicking it opens a read-only roll-up of
+        all molecules linked to this project, without leaving the popup. The
+        doorway is only shown when the Chemistry feature is enabled and the
+        project has at least one linked molecule.
       </p>
 
-      <h2>Top-bar actions on the route</h2>
+      <h2>Top-bar kebab menu</h2>
       <p>
-        The project route&apos;s sticky top bar holds the project-level actions
-        as icon buttons on the right. Hover any icon for a tooltip naming it.
+        The popup&apos;s sticky top bar holds a kebab menu (three-dot icon) on
+        the right. Opening it reveals the project-level actions.
       </p>
       <ul>
         <li>
           <strong>Version history</strong> opens a side panel of saved versions.
           Pick one to preview a read-only diff, and (when you can write the
           project) restore it. After a restore an <strong>Undo restore</strong>{" "}
-          button appears in the top bar for a 24-hour window.
+          button appears for a 24-hour window.
         </li>
         <li>
           <strong>Edit</strong> opens the edit dialog, where you can rename the
@@ -272,7 +272,7 @@ export default function ProjectsFeaturePage() {
         <li>
           <strong>Archive / Unarchive</strong> triggers an amber confirmation
           before archiving. Archived projects keep all their tasks but drop out
-          of the active grid and the Gantt. Unarchive from the same button.
+          of the active grid and the Gantt. Unarchive from the same item.
           Disabled for view-only receivers.
         </li>
         <li>
@@ -283,16 +283,16 @@ export default function ProjectsFeaturePage() {
       </ul>
       <Callout variant="info" title="The Miscellaneous project is permanent">
         A built-in project called <strong>Miscellaneous</strong> holds
-        standalone tasks that don&apos;t belong to a research project. Its route
-        top bar hides every action button (edit, share, deposit, archive,
-        delete), and it can&apos;t be renamed or removed. The route still works
+        standalone tasks that don&apos;t belong to a research project. Its popup
+        hides every action in the kebab menu (edit, share, deposit, archive,
+        delete), and it can&apos;t be renamed or removed. The popup still works
         as a read-only progress view.
       </Callout>
 
       <h2>Sharing and shared projects</h2>
       <p>
-        When a labmate shares a project with you, the URL gains an{" "}
-        <code>?owner=&lt;username&gt;</code> query parameter so the route knows
+        When a labmate shares a project with you, the deep-link URL gains an{" "}
+        <code>?owner=&lt;username&gt;</code> query parameter so the app knows
         which user&apos;s files to read.
       </p>
       <p>
@@ -300,57 +300,25 @@ export default function ProjectsFeaturePage() {
       </p>
       <ul>
         <li>
-          <strong>View permission.</strong> The Edit and Archive buttons render
-          disabled (cursor-not-allowed), and the Share button is omitted
-          entirely. The route still loads, and you can read the overview, browse
-          the results gallery, scan the methods and sequences inventories, and
-          read the activity feed. You cannot type into the overview textarea (it
-          renders read-only).
+          <strong>View permission.</strong> The Edit and Archive items in the
+          kebab menu render disabled, and the Share item is omitted entirely.
+          The popup still loads, and you can read the overview, browse the
+          results gallery, scan the methods and sequences inventories, and
+          read the activity feed.
         </li>
         <li>
           <strong>Edit permission.</strong> The Edit and Archive actions are
           live. Your writes route back to the owner&apos;s directory, so they
-          reflect on their copy too. Delete is still owner-only, grayed out for
-          any receiver regardless of permission.
+          reflect on their copy too. Delete is still owner-only.
         </li>
       </ul>
       <p>
-        On the route, a small <strong>Shared by &lt;owner&gt;</strong> chip sits
-        next to the project name so you always know whose namespace you&apos;re
+        A small <strong>Shared by &lt;owner&gt;</strong> chip sits next to the
+        project name in the popup so you always know whose namespace you&apos;re
         reading from.
       </p>
 
-      <h2>The Miscellaneous bucket</h2>
-      <p>
-        ResearchOS ships with a built-in <strong>Miscellaneous</strong> project
-        for standalone tasks that don&apos;t belong to a specific research
-        project. It behaves differently from a real project.
-      </p>
-      <ul>
-        <li>
-          Its <strong>route top bar hides every action button</strong>. Edit,
-          Share, Deposit, Archive, and Delete are not available, because
-          Miscellaneous can&apos;t be renamed, shared, archived, or removed.
-        </li>
-        <li>
-          Clicking its card on the grid <strong>navigates to the route</strong>{" "}
-          at <code>/workbench/projects/&lt;misc-id&gt;</code>, where you can see
-          progress and the activity feed.
-        </li>
-        <li>
-          The <strong>Overview and Results tabs still render</strong> (those two
-          always show), but there is no project hypothesis to write up and no
-          Methods or Sequences inventory to deduplicate, since Miscellaneous
-          holds loose tasks rather than experiments and constructs.
-        </li>
-      </ul>
-      <Callout variant="info" title="Miscellaneous is a permanent catch-all">
-        Miscellaneous holds ad-hoc tasks and can&apos;t be edited, shared,
-        archived, or deleted. Its route still works as a read-only progress
-        view.
-      </Callout>
-
-      <h2>Getting around the Surface</h2>
+      <h2>Getting around</h2>
       <Steps>
         <Step>
           Open the <strong>Projects</strong> tab on the{" "}
@@ -358,25 +326,25 @@ export default function ProjectsFeaturePage() {
           where you land by default) to see the grid of project cards.
         </Step>
         <Step>
-          Click a card to navigate to that project&apos;s route. The card itself
-          has no menu, project-level actions live on the route&apos;s top bar.
+          Click a card to open the <strong>ProjectDetailPopup</strong>. Use the
+          tabs (Overview, Results, Methods, Sequences, Goals, Activity) to move
+          between sections.
         </Step>
         <Step>
-          On the route, write into the Overview textarea and use the tab strip
-          to move between Results, Methods, Sequences, optional Goals, Activity,
-          and Funding. Only the tabs with content show.
+          Use the kebab menu in the popup top bar for project-level actions
+          (version history, edit, share, deposit, archive, delete).
         </Step>
         <Step>
-          Use the <strong>&#8592; Projects</strong> breadcrumb in the top bar
-          to return to the grid.
+          Close the popup with the close button or press Escape to return to the
+          grid.
         </Step>
       </Steps>
 
-      <Callout variant="tip" title="Bookmark the project route">
-        Project routes are first-class URLs. Bookmark them, paste them into
-        your lab notebook, or drop the link into a Slack thread. Anyone with
-        view-or-edit access on a shared project lands on the same view when
-        they open the URL.
+      <Callout variant="tip" title="Bookmark deep links">
+        Project deep links are first-class URLs. Bookmark{" "}
+        <code>/workbench/projects/3</code>, paste it into your lab notebook,
+        or drop the link into a Slack thread. Anyone with view-or-edit access
+        on a shared project lands on the same popup when they open the URL.
       </Callout>
     </WikiPage>
   );

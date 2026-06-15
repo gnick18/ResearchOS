@@ -85,13 +85,34 @@ export default function CompanionPairingPage() {
 
       <h2>Try the demo without a laptop</h2>
       <p>
-        If you want to look around before you pair anything real, the home screen
-        has a <strong>Try the demo</strong> option. It runs a fake pairing
+        If you want to look around before you pair anything real, the pairing
+        screen has a <strong>Try the demo</strong> option. It runs a fake pairing
         against sample data, so the app behaves as though it is connected to a
         laptop full of experiments without one being present. Every screen works,
         nothing you do there touches a real notebook, and you can leave the demo
         and pair for real whenever you are ready.
       </p>
+
+      <h2>Laptop-side settings</h2>
+      <p>
+        Two companion preferences live in the laptop&apos;s{" "}
+        <strong>Companion hub</strong> (the phone button in the app header, or
+        Settings). Both are in the hub&apos;s <strong>Settings</strong> tab.
+      </p>
+      <ul>
+        <li>
+          <strong>Show Companion button on Home.</strong> Toggles the phone
+          button in the app header. When off, the Companion is still reachable
+          from Settings, but the button does not appear on every page.
+        </li>
+        <li>
+          <strong>Auto-publish snapshots to paired phones.</strong> Controls
+          whether the laptop actively pushes today, inventory, and notebook
+          snapshots to paired phones. When off, the phone can still pull
+          snapshots manually (pull-to-refresh), but the laptop stops the
+          automatic push.
+        </li>
+      </ul>
 
       <Callout variant="tip" title="Pair once, then forget it">
         Pairing is a setup step, not a daily one. After your phone is linked to

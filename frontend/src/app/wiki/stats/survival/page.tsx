@@ -56,6 +56,23 @@ export default function SurvivalPage() {
         hazard ratio below are what you report.
       </Callout>
 
+      <h2 id="gehan">Gehan-Breslow-Wilcoxon test</h2>
+      <p>
+        The Data Hub reports a second test alongside the log-rank:{" "}
+        <strong>Gehan-Breslow-Wilcoxon</strong>. It uses the same
+        observed-minus-expected machinery as the log-rank, but each event
+        time&apos;s contribution is weighted by the total number of subjects
+        still at risk at that moment. Because the risk set is largest early in
+        follow-up and shrinks as subjects fail or censor, the Gehan-Breslow-Wilcoxon
+        test gives early events more weight and late events less, making it more
+        sensitive to curves that separate early and converge later. The log-rank
+        weights every event time equally, so it is more sensitive to a consistent
+        difference across the whole follow-up. When you expect or see a crossing
+        of the two curves, neither test is ideal; read both p-values and note
+        whether they tell the same story. Both report a chi-square statistic with
+        groups minus 1 degrees of freedom.
+      </p>
+
       <h2 id="hazard-ratios">Hazard ratios and the Cox model</h2>
       <p>
         The <strong>hazard ratio</strong> is the effect size for survival data. The
@@ -88,6 +105,19 @@ export default function SurvivalPage() {
         adjust for other variables at once (age, stage), reporting a hazard ratio
         for each, much like multiple regression for survival.
       </p>
+      <p>
+        The Cox result also reports two overall model summaries. The{" "}
+        <strong>likelihood-ratio chi-square</strong> compares the fitted model to
+        the null model (all coefficients zero), with degrees of freedom equal to
+        the number of covariates; a significant chi-square means the covariates
+        together improve the survival prediction. <strong>Harrell&apos;s
+        concordance</strong> (c-index) measures how well the model ranks subjects,
+        the probability that of a comparable pair (one fails before the other),
+        the model assigns the higher risk to the one who failed first. A c-index
+        of 0.5 means the model ranks no better than chance; 1.0 is perfect
+        discrimination. It is the survival analogue of the AUC and is read the
+        same way.
+      </p>
 
       <h2>A worked example</h2>
       <p>
@@ -101,9 +131,11 @@ export default function SurvivalPage() {
       </p>
 
       <p>
-        ResearchOS validates the Kaplan-Meier estimate, the log-rank test, and the
-        Cox model against the lifelines package and R&apos;s survival library on
-        the <Link href="/transparency">transparency page</Link>.
+        ResearchOS validates the Kaplan-Meier estimate, the log-rank test, the
+        Gehan-Breslow-Wilcoxon test, and the Cox model (including concordance and
+        the likelihood-ratio test) against the lifelines package and R&apos;s
+        survival library on the{" "}
+        <Link href="/transparency">transparency page</Link>.
       </p>
     </WikiPage>
   );

@@ -32,15 +32,46 @@ export default function RepeatedMeasuresPage() {
       </p>
       <p>
         The result reports an <strong>F statistic</strong> and{" "}
-        <strong>p-value</strong> for the within-subject factor, much like an
-        ordinary ANOVA, but computed against the right within-subject error so
-        the subject-to-subject baseline does not drown the signal.
+        <strong>p-value</strong> for the within-subject factor, plus a{" "}
+        <strong>partial eta-squared</strong> effect size. Partial eta-squared is
+        the fraction of the within-subject variance that the condition factor
+        explains, computed as the condition sum of squares divided by the sum of
+        condition and error sums of squares (the subject-to-subject baseline is
+        excluded from the denominator). A partial eta-squared of 0.30 means the
+        condition accounts for 30% of the within-subject variation, the part you
+        can actually change by manipulating the condition.
+      </p>
+
+      <h2 id="sphericity">Sphericity and its corrections</h2>
+      <p>
+        Repeated-measures ANOVA relies on an assumption called{" "}
+        <strong>sphericity</strong>: the variances of the differences between
+        every pair of conditions should be equal. When you have only two
+        conditions the assumption is automatically met. With three or more, it can
+        fail, and when it does the standard F test&apos;s p-value is too small,
+        giving more false positives than it should.
+      </p>
+      <p>
+        The Data Hub reports two corrected p-values alongside the standard one.
+        The <strong>Greenhouse-Geisser correction</strong> adjusts the degrees of
+        freedom by a factor epsilon (between 1/(k minus 1) and 1) estimated from
+        the covariance matrix of the conditions. The smaller epsilon is, the worse
+        the sphericity violation. The{" "}
+        <strong>Huynh-Feldt correction</strong> uses a slightly less conservative
+        epsilon that corrects the downward bias in the Greenhouse-Geisser estimate.
+        Both corrected p-values are reported with their epsilon. When the standard
+        and corrected p-values agree you have little to worry about; when they
+        diverge, report the corrected one. If either epsilon is well below 1, a{" "}
+        <Link href="/wiki/stats/anova#kruskal-wallis">
+          nonparametric Friedman test
+        </Link>{" "}
+        is worth considering as an alternative.
       </p>
 
       <Screenshot
         src="/wiki/screenshots/datahub-stats-repeated-measures.png"
         alt="A repeated-measures ANOVA result in the Data Hub across three within-subject timepoints, with an ANOVA table splitting variation into conditions, subjects, and error, plus partial eta-squared and the Greenhouse-Geisser and Huynh-Feldt epsilon corrections."
-        caption="Three timepoints measured on the same subjects. The table splits the variation into the condition effect, the subject-to-subject differences, and the leftover error, and F is tested against that within-subject error. The Greenhouse-Geisser and Huynh-Feldt corrections below adjust the p-value when the sphericity assumption is in doubt."
+        caption="Three timepoints measured on the same subjects. The table splits the variation into the condition effect, the subject-to-subject differences, and the leftover error, and F is tested against that within-subject error. Partial eta-squared below it captures how much of the within-subject spread the condition explains. The Greenhouse-Geisser and Huynh-Feldt corrections adjust the p-value when sphericity is in doubt."
       />
 
       <h2 id="mixed-models">Mixed models</h2>
@@ -60,9 +91,21 @@ export default function RepeatedMeasuresPage() {
         it works from the data you have rather than requiring a perfect grid. The
         result reports, for each fixed effect, an{" "}
         <strong>estimate</strong> with its <strong>standard error</strong>,{" "}
-        <strong>confidence interval</strong>, and <strong>p-value</strong>, plus
-        a summary of how much variance each random effect soaked up.
+        <strong>confidence interval</strong>, and <strong>p-value</strong>. It
+        also reports, for each random effect, the estimated variance component,
+        which tells you how much of the total spread each random source (animals,
+        plates, days) is responsible for. A large random-effect variance on
+        &quot;animal&quot; means animals differ a lot from each other, and
+        collecting more replicates within each animal will not help much; you
+        need more animals.
       </p>
+
+      <Callout variant="info" title="Nonparametric option">
+        If normality is in doubt, the Friedman test is the nonparametric
+        counterpart of the repeated-measures ANOVA. It ranks observations within
+        each subject rather than working on raw values, and is covered on the{" "}
+        <Link href="/wiki/stats/anova#friedman">ANOVA page</Link>.
+      </Callout>
 
       <h2 id="nested">Nested designs and the replicate trap</h2>
       <p>
@@ -118,8 +161,9 @@ export default function RepeatedMeasuresPage() {
       </Callout>
 
       <p>
-        ResearchOS validates repeated-measures ANOVA, the mixed-model fits, and
-        the nested tests against statsmodels and R on the{" "}
+        ResearchOS validates repeated-measures ANOVA (including sphericity
+        corrections), the mixed-model fits, and the nested tests against
+        statsmodels, pingouin, and R on the{" "}
         <Link href="/transparency">transparency page</Link>.
       </p>
     </WikiPage>

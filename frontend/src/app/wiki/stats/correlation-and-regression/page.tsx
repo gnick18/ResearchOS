@@ -33,6 +33,20 @@ export default function CorrelationRegressionPage() {
         r near zero. Always look at the scatter plot, not just the number.
       </Callout>
 
+      <h2 id="spearman">Spearman correlation</h2>
+      <p>
+        When your data are ranks, scores on an ordinal scale, or visibly
+        non-normal, <strong>Spearman&apos;s rho</strong> is the nonparametric
+        alternative. It works exactly like Pearson&apos;s r, but on the
+        rank-transformed data rather than the raw values. The result is a
+        coefficient that runs from -1 to +1 with the same meaning, and the Data
+        Hub reports it with the same 95% confidence interval (Fisher z
+        approximation on the ranks) and a p-value. Because Spearman captures any
+        monotone relationship, not only straight lines, it is less sensitive to
+        outliers and does not assume that the relationship between the two
+        variables is linear.
+      </p>
+
       <h2>Fitting a line with simple linear regression</h2>
       <p>
         Where correlation gives a single number for tightness,{" "}
@@ -94,6 +108,23 @@ export default function CorrelationRegressionPage() {
         caption="Each predictor gets its own coefficient, read as the change in the outcome per unit while the other predictors are held fixed. The standardized beta puts the slopes on a common scale, and the VIF column flags predictors that move together, where a value above about 5 to 10 means a coefficient is hard to trust."
       />
 
+      <h2 id="vif">The VIF column and multicollinearity</h2>
+      <p>
+        The multiple-regression result includes a <strong>VIF</strong> (variance
+        inflation factor) for each predictor. The VIF for a given predictor is
+        computed by regressing that predictor on all the other predictors and
+        taking 1 / (1 minus that r-squared). A VIF of 1 means the predictor is
+        completely uncorrelated with the others, and its coefficient is as
+        precisely estimated as the data allow. A VIF above roughly 5 to 10 is a
+        flag that the predictor is redundant with something else in the model, and
+        the coefficient&apos;s confidence interval is wider and less stable than
+        it looks in isolation. When two predictors always move together in your
+        setup, the model cannot separate their individual effects, and the
+        coefficients for both get wide, shaky intervals. The fix is more varied
+        data or dropping a redundant predictor, not trusting a narrow-looking
+        coefficient.
+      </p>
+
       <Callout variant="tip" title="Watch for predictors that move together">
         When two predictors are themselves strongly correlated (temperature and
         pressure that always rise together in your setup), the model struggles to
@@ -104,9 +135,12 @@ export default function CorrelationRegressionPage() {
 
       <Callout variant="info" title="Related pages">
         If your outcome is a yes/no category rather than a number, you want
-        logistic regression and its odds ratios, covered on the{" "}
-        <Link href="/wiki/stats/contingency#odds-ratios">contingency page</Link>.
-        If the relationship is a saturating curve rather than a line, see{" "}
+        logistic regression, a first-class analysis in the Data Hub. It predicts
+        a binary outcome from a continuous predictor and reports an odds ratio
+        with its interval. See the{" "}
+        <Link href="/wiki/stats/contingency#odds-ratios">contingency page</Link>{" "}
+        for how to read that odds ratio. If the relationship is a saturating curve
+        rather than a line, see{" "}
         <Link href="/wiki/stats/dose-response">dose-response curves</Link>. The
         slope and its interval are read the same way as any other effect size, so{" "}
         <Link href="/wiki/stats/effect-sizes">that page</Link> is the foundation
@@ -114,9 +148,9 @@ export default function CorrelationRegressionPage() {
       </Callout>
 
       <p>
-        ResearchOS validates correlation, simple regression, and multiple
-        regression against scipy and statsmodels on the{" "}
-        <Link href="/transparency">transparency page</Link>.
+        ResearchOS validates Pearson and Spearman correlation, simple regression,
+        and multiple regression (including VIF) against scipy and statsmodels on
+        the <Link href="/transparency">transparency page</Link>.
       </p>
     </WikiPage>
   );

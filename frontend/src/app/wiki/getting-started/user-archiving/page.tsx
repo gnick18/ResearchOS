@@ -10,17 +10,17 @@ export default function UserArchivingPage() {
       intro="When a lab member leaves (graduates, rotates out, switches projects), archiving their account is the right move. Archiving hides them from the surfaces where you pick someone, but keeps every byte of their data on disk and in the lab's history. They drop out of the login picker by default and out of the pickers you use to assign new work (the @mention, share, and assignee dropdowns). The records they already wrote stay readable to anyone with permission."
     >
       {/* TODO screenshot agent: capture the LabRoster in Settings with the Archive action on a row.
-          Route: /settings (Lab Mode tab, LabRoster section)
+          Route: /settings?section=members
           Fixture: ?wikiCapture=1
           Viewport: desktop 1440x900
-          State: lab_head fixture in active edit session; roster shows 3 active members
+          State: lab_head fixture; roster shows 3 active members
                  with hover state on one row exposing the Archive button
           Save to: frontend/public/wiki/screenshots/user-archiving-roster.png
       */}
       <Screenshot
         src="/wiki/screenshots/user-archiving-roster.png"
         alt="The LabRoster table in Settings with three members listed and an Archive button revealed on hover for one of the rows."
-        caption="The LabRoster in Settings, Lab Mode tab. Hover a member row to surface the Archive action."
+        caption="The LabRoster in Settings. Hover a member row to surface the Archive action."
       />
 
       <h2>Archive vs. delete</h2>
@@ -54,12 +54,11 @@ export default function UserArchivingPage() {
 
       <h2>Where the affordance lives</h2>
       <p>
-        Only a lab head can archive a member. Open{" "}
-        <strong>Settings</strong> &rarr; <strong>Lab Mode tab</strong> and the{" "}
-        <strong>Lab Roster</strong> section lists every member. Hover any
-        row to reveal an <strong>Archive</strong> button on the right (you
-        can also right-click a row for the same action). There is no password
-        and no edit session to unlock anymore, being a lab head is enough.
+        Only a lab head can archive a member. Open <strong>Settings</strong>{" "}
+        and choose <strong>Lab Roster</strong> from the left rail. The roster
+        lists every member. Hover any row to reveal an{" "}
+        <strong>Archive</strong> button on the right (you can also right-click
+        a row for the same action). Being a lab head is enough to proceed.
         Clicking Archive opens a short confirmation dialog so you do not
         archive someone by accident, and that is the only gate.
       </p>

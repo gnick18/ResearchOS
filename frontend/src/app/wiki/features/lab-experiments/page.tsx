@@ -20,10 +20,11 @@ export default function LabExperimentsFeaturePage() {
         own included, so the lab's bench work all sits in one place.
       </p>
       <Callout variant="info" title="Where you reach it">
-        This surface lives behind the &quot;Browse lab experiments&quot; button
-        on the <Link href="/wiki/features/lab-overview">Lab Overview</Link>,
-        the PI's landing page. It isn't a tab on the member Workbench, and a
-        member or solo researcher never sees it.
+        Navigate directly to <code>/lab-experiments</code>, or follow the link
+        from the <Link href="/wiki/features/lab-head">PI</Link> pages. It is
+        not a tab on the member Workbench, and a member or solo researcher
+        never sees it. The Lab Overview itself does not have a browse link-out
+        button; those were retired when the Lab Overview was redesigned.
       </Callout>
 
       <h2>Who can open it</h2>
@@ -49,8 +50,10 @@ export default function LabExperimentsFeaturePage() {
         </Step>
         <Step>
           <strong>Edit as the lab head.</strong> If you need to correct
-          something, the popup offers an &quot;Edit as lab head&quot; affordance.
-          It asks you to confirm once per session, then unlocks editing.
+          something, the popup offers an <strong>Edit as lab head</strong>{" "}
+          button. Clicking it opens a one-time confirmation dialog for that
+          record. After you confirm, that specific record is freely editable
+          for the rest of the browser session without being asked again.
         </Step>
         <Step>
           <strong>The change stays the member's.</strong> Your edit is written
@@ -60,9 +63,11 @@ export default function LabExperimentsFeaturePage() {
         </Step>
       </Steps>
       <Callout variant="warning" title="Editing is deliberate, not the default">
-        Opening an experiment never puts it in an editable state on its own. You
-        review by default and have to ask for the edit, so a PI skimming the lab
-        can't change a member's record by accident.
+        Opening an experiment never puts it in an editable state on its own.
+        You review by default and have to click <strong>Edit as lab head</strong>{" "}
+        and confirm, so a PI skimming the lab cannot change a member&apos;s
+        record by accident. Each distinct record gets its own confirmation the
+        first time you edit it.
       </Callout>
 
       <h2>Where to go next</h2>

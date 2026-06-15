@@ -61,8 +61,8 @@ export default function ResultsFeaturePage() {
       <h2>Per-project completed work → project Results gallery</h2>
       <p>
         Clicking a project card on the{" "}
-        <Link href="/wiki/features/home">Home</Link> page opens that project&apos;s
-        detail popup (the deep link lives at{" "}
+        <Link href="/wiki/features/projects">Workbench Projects tab</Link> opens
+        that project&apos;s detail popup (the deep link lives at{" "}
         <code>/workbench/projects/&lt;id&gt;</code>). Its{" "}
         <strong>Go to</strong> section has a <strong>Results</strong> doorway
         that opens a gallery of every result image for that project. This is

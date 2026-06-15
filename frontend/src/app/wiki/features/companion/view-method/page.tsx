@@ -8,27 +8,60 @@ export default function CompanionViewMethodPage() {
   return (
     <WikiPage
       title="View a method on your phone"
-      intro="Send the method for the experiment you are running to your phone, where it reads big and scrolls cleanly at the bench. When you change something on the fly, log the variation right there and it lands back on the laptop as a timestamped note on that method, so what you actually did is recorded while it is fresh."
+      intro="The Methods tab is your full protocol library on the phone, searchable and available offline. Tap any method to read it big and scrollable at the bench. When you change something on the fly, log the variation right there and it lands back on the laptop as a timestamped note on that method."
     >
       <p>
         Following a protocol at the bench off a laptop screen is awkward. The
         screen is across the room, the text is small, and your hands are busy.
-        Viewing the method on your phone puts the steps where you are working,
-        sized to read at arm&apos;s length. And because real protocols drift, you
-        ran the gel five minutes longer, you bumped the anneal temperature, the
-        phone also lets you record that change without breaking stride.
+        The Methods tab puts your entire library on the phone, sized to read at
+        arm&apos;s length. And because real protocols drift, you ran the gel five
+        minutes longer, you bumped the anneal temperature, the phone also lets you
+        record that change without breaking stride.
       </p>
 
       <Screenshot
-        src="/wiki/screenshots/companion-method.png"
-        alt="A method rendered on a phone in the Companion, with large scrollable steps and an Add a variation button at the bottom."
-        caption="A method projected to the phone, rendered large and scrollable, with the option to log a variation."
+        src="/wiki/screenshots/companion-notebook-tab.png"
+        alt="The Companion Notebook tab on a phone showing the View method on phone button, which opens the focused experiment's method in the big-text read mode."
+        caption="The Notebook tab offers a View method on phone button when a laptop is paired. The Methods tab gives you the full offline library."
       />
-      {/* SCREENSHOT: Companion method viewer on a phone showing a rendered method
-          and the Add a variation action. Capture from the dev-client. Save to
-          frontend/public/wiki/screenshots/companion-method.png */}
 
-      <h2>Send a method to the phone</h2>
+      <h2>Two paths to a method</h2>
+      <p>
+        Methods reach the phone in two ways, and both end up in the same
+        big-text read mode.
+      </p>
+
+      <h3>The Methods tab (primary path)</h3>
+      <p>
+        The <strong>Methods</strong> tab is the method library for the phone. It
+        shows all your methods with search, type filter chips, and a sort toggle
+        (by Type, A to Z, or Recent). Tap any row to open that method in read
+        mode.
+      </p>
+      <ul>
+        <li>
+          <strong>Offline download.</strong> The library is cached on the phone
+          so read mode works at the bench with no signal. A status chip at the
+          top of the tab shows the download state: &quot;Download for offline&quot;,
+          &quot;Downloading&quot;, a count of cached methods when ready, or
+          &quot;Update available&quot; when the laptop has newer versions. Tap
+          the chip to start the first download or apply an update.
+        </li>
+        <li>
+          <strong>Favorites.</strong> Tap the star icon on any row to save that
+          method as a favorite. Favorites are stored locally on the phone.
+        </li>
+        <li>
+          <strong>Active-experiment recommendations band.</strong> When the
+          laptop has an open experiment, a sky-tinted card appears at the top of
+          the library list (above search results) showing the methods attached to
+          that experiment, with a live green dot. Tapping a recommendation opens
+          the focused experiment&apos;s method projection from the laptop. This
+          band is hidden when you are searching or filtering.
+        </li>
+      </ul>
+
+      <h3>View method on phone (Notebook tab path)</h3>
       <Steps>
         <Step>
           <p>
@@ -49,6 +82,11 @@ export default function CompanionViewMethodPage() {
           </p>
         </Step>
       </Steps>
+      <p>
+        The <strong>View method on phone</strong> button also appears on the
+        Notebook tab, giving you a shortcut to the focused experiment&apos;s
+        method without needing to navigate to it first on the laptop.
+      </p>
 
       <h2>It reads every method type</h2>
       <p>

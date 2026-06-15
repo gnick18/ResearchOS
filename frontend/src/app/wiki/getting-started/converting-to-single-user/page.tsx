@@ -44,9 +44,10 @@ export default function ConvertingToSingleUserPage() {
         ResearchOS shows a blocking choice before you start working. It is
         role-aware, so what you see depends on whether you own the folder or are
         one of the other members in it. You can always pick{" "}
-        <strong>Keep it shared for now</strong> to dismiss the prompt for this
-        session; it comes back the next time you launch, until the folder is
-        converted.
+        <strong>Keep it shared for now</strong> to dismiss the prompt; the
+        dismiss is persisted to disk so it goes away for this session, but
+        it comes back the next time you launch with this folder, until the
+        folder is converted.
       </p>
       <p>
         The same conversion is also reachable later from{" "}
@@ -204,12 +205,13 @@ export default function ConvertingToSingleUserPage() {
           have to stay inside the old shared folder.
         </Step>
         <Step>
-          On the connect screen, click <strong>Open a folder</strong> (or{" "}
-          <strong>Link Folder</strong>) and select that bundle folder. See{" "}
+          On the connect screen, use <strong>Browse for a folder</strong> (or
+          drag the bundle into the drop zone) and select that bundle folder.
+          See{" "}
           <Link href="/wiki/getting-started/connecting-your-folder">
             Connecting Your Folder
           </Link>{" "}
-          for how the picker works.
+          for how the connect flow works.
         </Step>
         <Step>
           ResearchOS opens it as a single-user folder with all of that

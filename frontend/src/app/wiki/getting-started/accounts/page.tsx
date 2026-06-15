@@ -1,6 +1,7 @@
 import Link from "next/link";
 import WikiPage from "@/components/wiki/WikiPage";
 import Callout from "@/components/wiki/Callout";
+import Screenshot from "@/components/wiki/Screenshot";
 import { Steps, Step } from "@/components/wiki/Steps";
 
 export default function AccountsPage() {
@@ -8,14 +9,37 @@ export default function AccountsPage() {
     <WikiPage
       intro="ResearchOS has three tiers, each designed around how much you want to share and collaborate. You pick one when you create your account, and you can switch later."
     >
-      <h2>The three tiers</h2>
+      <h2>How you get here</h2>
       <p>
-        The first time you open ResearchOS, a start screen gives you three
-        paths. Understanding what each one is will save you from picking the
-        wrong one and wondering why a feature is missing.
+        The account-first entry is the default. When you open ResearchOS
+        signed in but without a data folder connected, you land on the{" "}
+        <strong>/account</strong> home rather than the folder-connect wall.
+        From there you choose a tier before linking any folder. If you arrived
+        via OAuth (Google, GitHub, ORCID, or LinkedIn) the provider sign-in
+        happens first, and the tier-chooser screen follows once the OAuth
+        handshake completes.
       </p>
 
-      <h3>Local-only (solo, no login)</h3>
+      <Screenshot
+        src="/wiki/screenshots/accounts-start-screen.png"
+        alt="The account start screen with the three-path tier chooser."
+        caption="The account start screen. Choose a path before connecting your folder."
+      />
+
+      <Screenshot
+        src="/wiki/screenshots/accounts-tier-chooser.png"
+        alt="The tier chooser showing the Just me local tile, Free account tile, and Lab tile."
+        caption="The tier-chooser. The Lab tile is shown when the Lab tier is available."
+      />
+
+      <h2>The three tiers</h2>
+      <p>
+        The tier chooser presents three paths. Understanding what each one is
+        will save you from picking the wrong one and wondering why a feature
+        is missing.
+      </p>
+
+      <h3>Just me, local (solo, no login)</h3>
       <p>
         The lightest path. You connect a folder, pick a username, and
         ResearchOS is ready to go. No account is created, no sign-in happens,
@@ -28,14 +52,18 @@ export default function AccountsPage() {
         collaborate with people outside your folder. If you share a lab folder
         via OneDrive, Dropbox, or Google Drive, the existing{" "}
         <Link href="/wiki/shared-lab-accounts">Shared Lab Accounts</Link> setup
-        is a local-only workflow too. Local-only is the default for anyone who
-        wants to try the app without committing to an account.
+        is a local-only workflow too. &ldquo;Just me, local&rdquo; is the right
+        pick for anyone who wants to try the app without committing to an
+        account.
       </p>
 
       <h3>Free account (solo + sharing)</h3>
       <p>
         You sign in with Google, GitHub, ORCID, or LinkedIn. Your data still
-        lives on your disk. Signing in unlocks two sharing surfaces.
+        lives on your disk. Signing in creates a cloud identity with an{" "}
+        <strong>@handle</strong> and a researcher profile (name, institution,
+        ORCID, and other typed links) that other researchers can find. It
+        unlocks two sharing surfaces.
       </p>
       <ul>
         <li>
@@ -75,12 +103,15 @@ export default function AccountsPage() {
         When you create a Lab account you become the Lab Head for that lab.
         Members join by following your invite link, or by finding your lab
         in the lab directory and requesting to join (you approve the request).
+        The Lab tile is only shown when the Lab tier is available (it is
+        currently live for free PI lab accounts).
       </p>
 
       <Callout variant="tip" title="Not sure which to pick?">
-        Start with Local-only. You can connect a folder, build out your
-        projects, and switch to a Free account or a Lab later without losing
-        any data. The tier is tied to your account, not to your folder.
+        Start with &ldquo;Just me, local.&rdquo; You can connect a folder,
+        build out your projects, and switch to a Free account or a Lab later
+        without losing any data. The tier is tied to your account, not to your
+        folder.
       </Callout>
 
       <h2>A side-by-side comparison</h2>
@@ -89,7 +120,7 @@ export default function AccountsPage() {
           <thead>
             <tr className="bg-surface-sunken text-foreground-muted text-meta uppercase tracking-wide">
               <th className="px-4 py-2.5 text-left font-semibold">Feature</th>
-              <th className="px-4 py-2.5 text-center font-semibold">Local-only</th>
+              <th className="px-4 py-2.5 text-center font-semibold">Just me, local</th>
               <th className="px-4 py-2.5 text-center font-semibold">Free account</th>
               <th className="px-4 py-2.5 text-center font-semibold">Lab</th>
             </tr>
@@ -153,11 +184,10 @@ export default function AccountsPage() {
         </table>
       </div>
 
-      <h2>How to create a Local-only account</h2>
+      <h2>How to create a &ldquo;Just me, local&rdquo; account</h2>
       <Steps>
         <Step>
-          On the start screen, click <strong>Create a new account</strong>,
-          then choose <strong>Local-only</strong>.
+          On the start screen, choose <strong>Just me, local</strong>.
         </Step>
         <Step>
           Connect your data folder using the browser&apos;s folder picker. See{" "}
@@ -174,12 +204,12 @@ export default function AccountsPage() {
       <h2>How to create a Free account</h2>
       <Steps>
         <Step>
-          On the start screen, click <strong>Create a new account</strong>,
-          then choose <strong>Free account</strong>.
+          On the start screen, choose <strong>Free account</strong>.
         </Step>
         <Step>
-          Sign in with Google, GitHub, ORCID, or LinkedIn. This creates an
-          identity that other researchers can find in the directory. The sign-in
+          Sign in with Google, GitHub, ORCID, or LinkedIn. This creates a
+          cloud identity with an <strong>@handle</strong> and a researcher
+          profile other researchers can find in the directory. The sign-in
           happens once, and ResearchOS remembers it so you don&apos;t have to
           sign in again on this device.
         </Step>
@@ -196,8 +226,7 @@ export default function AccountsPage() {
       <h2>How to create a Lab</h2>
       <Steps>
         <Step>
-          On the start screen, click <strong>Create a new account</strong>,
-          then choose <strong>Lab</strong>, then{" "}
+          On the start screen, choose <strong>Lab</strong>, then{" "}
           <strong>Create a new lab</strong>.
         </Step>
         <Step>
@@ -234,8 +263,7 @@ export default function AccountsPage() {
       <h3>Via the lab directory</h3>
       <Steps>
         <Step>
-          From the start screen, click <strong>Create a new account</strong>,
-          choose <strong>Lab</strong>, then{" "}
+          On the start screen, choose <strong>Lab</strong>, then{" "}
           <strong>Find and join a lab</strong>.
         </Step>
         <Step>
@@ -266,8 +294,8 @@ export default function AccountsPage() {
       </p>
       <ul>
         <li>
-          <strong>Local-only and Free accounts:</strong> free, no cloud storage
-          used, no billing ever.
+          <strong>&ldquo;Just me, local&rdquo; and Free accounts:</strong> free,
+          no cloud storage used, no billing ever.
         </li>
         <li>
           <strong>Lab accounts:</strong> a free plan with a 5 GB cloud pool

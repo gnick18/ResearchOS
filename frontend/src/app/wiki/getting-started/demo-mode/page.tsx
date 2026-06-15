@@ -108,27 +108,34 @@ export default function DemoModePage() {
         the last one.
       </p>
 
-      <h2>Reading the docs from inside the demo</h2>
+      <h2>Floating affordances in the demo</h2>
       <p>
-        Two floating affordances stay with you across every route inside the
-        demo, regardless of whether the URL is a <code>/demo</code> path or
-        the equivalent live app path (<code>/methods</code>,{" "}
-        <code>/gantt</code>, and so on).
+        Two small pill buttons live in the bottom-right corner and follow you
+        across every route while the demo&apos;s sticky session flag is set,
+        including wiki pages you may bounce to. Both use the same muted neutral
+        pill style (surface-raised background, border, foreground-muted text)
+        so they read as quiet controls rather than dominating the screen.
       </p>
+      <ul>
+        <li>
+          <strong>View as lab head / View as member.</strong> The demo signs
+          you in as <strong>alex</strong> (a lab member) by default. The{" "}
+          <strong>View as lab head</strong> pill switches the fixture identity
+          to <strong>Mira</strong>, the demo&apos;s PI, so you can explore the
+          Lab Overview dashboard and other PI-only surfaces. Clicking it again
+          (labeled <strong>View as member</strong>) switches back to alex. The
+          identity switch is a hard navigation through <code>/demo</code> so
+          the fixture re-seeds as the target user.
+        </li>
+        <li>
+          <strong>Leave demo.</strong> An always-visible escape hatch. Clicking
+          it opens the Leave the demo dialog described below. It never
+          disappears so you always have a one-click exit.
+        </li>
+      </ul>
       <p>
-        In the bottom-right corner, a darker pill-shaped{" "}
-        <strong>Read the docs</strong> button (with a small upward-right arrow
-        glyph) shows up whenever the current view has a matching wiki page.
-        Click it on <code>/methods</code> and you land on the Methods wiki
-        entry, ready to read about what you just clicked. The button silently
-        hides on views without a docs page yet. Browser-back puts you
-        straight back inside the demo with your state intact, because the
-        sticky demo flag survives the trip to <code>/wiki</code>.
-      </p>
-      <p>
-        The mirror move works from the wiki side. Feature pages with a
-        demo-able view embed an amber inline call-out (the{" "}
-        <code>TryInDemo</code> component) that drops you into{" "}
+        Feature wiki pages with a demo-able view embed an amber inline call-out
+        (the <code>TryInDemo</code> component) that drops you into{" "}
         <code>/demo/&lt;route&gt;</code> for that view. Each call-site picks
         its own label, so you&apos;ll see variants like{" "}
         <em>Try the Gantt view</em>, <em>Try methods in the demo</em>,{" "}
@@ -140,31 +147,36 @@ export default function DemoModePage() {
 
       <h2>Leaving the demo</h2>
       <p>
-        A floating amber <strong>Leave Demo</strong> button lives in the
-        bottom-right and follows you across every route while the demo flag
-        is set. It&apos;s undismissable, so you never lose the exit. Clicking
-        it opens a dialog titled <strong>Leave the demo?</strong> with two
-        choices.
+        The muted <strong>Leave demo</strong> pill in the bottom-right follows
+        you across every route while the demo flag is set. It&apos;s
+        undismissable, so you never lose the exit. Clicking it opens a dialog
+        titled <strong>Leave the demo?</strong> with two choices.
       </p>
       <ul>
         <li>
-          The amber <strong>Leave demo</strong> button at the top resets all
-          demo state in this tab and drops you on the connect-folder screen,
-          ready to pick a real folder (or start a new one). Demo edits are
-          not saved to disk anywhere, so they go away with the reload. If you
-          opened <code>/demo</code> from a tab that was already connected to
-          a real folder, the original folder is restored automatically.
+          The <strong>Leave demo</strong> button at the top resets all demo
+          state in this tab and drops you on the connect screen, ready to
+          pick a real folder (or start a new one). Demo edits are not saved
+          to disk anywhere, so they go away with the reload. If you opened{" "}
+          <code>/demo</code> from a tab that was already connected to a real
+          folder, the original folder is restored automatically.
         </li>
         <li>
           The smaller <strong>Keep exploring the demo</strong> link at the
-          bottom just closes the dialog if you clicked Leave Demo by mistake.
+          bottom just closes the dialog if you clicked Leave demo by mistake.
         </li>
       </ul>
 
       <Screenshot
+        src="/wiki/screenshots/demo-mode-overview.png"
+        alt="The demo app with the muted Leave demo pill and View as lab head pill visible in the bottom-right corner."
+        caption="The demo with both floating pills visible. Leave demo is always present; View as lab head toggles the fixture identity."
+      />
+
+      <Screenshot
         src="/wiki/screenshots/demo-mode-leave.png"
         alt="The Leave the demo dialog with a primary Leave demo button and a smaller Keep exploring link below."
-        caption="The Leave Demo dialog. Confirm to reset and return to the folder picker, or keep exploring."
+        caption="The Leave Demo dialog. Confirm to reset and return to the connect screen, or keep exploring."
       />
 
       <h2>Three ways to try the app</h2>
@@ -178,12 +190,11 @@ export default function DemoModePage() {
           with a labmate.
         </li>
         <li>
-          <strong>The &ldquo;Or download as a starter folder&rdquo; link.</strong>{" "}
-          On the connect-folder screen there&apos;s a small text link under
-          the big <strong>Explore demo in browser</strong> button. It
-          downloads <code>demo-lab.zip</code> with the same seeded yeast lab.
-          Unzip it, point ResearchOS at the unzipped folder, and your edits
-          persist on disk for as long as you keep the folder around.
+          <strong>The &ldquo;download as a starter folder&rdquo; link.</strong>{" "}
+          On the welcome page there is a link to download{" "}
+          <code>demo-lab.zip</code> with the same seeded yeast lab. Unzip it,
+          point ResearchOS at the unzipped folder, and your edits persist on
+          disk for as long as you keep the folder around.
         </li>
         <li>
           <strong>Connect a real folder.</strong> For actual research work.
@@ -191,7 +202,7 @@ export default function DemoModePage() {
           <Link href="/wiki/getting-started/connecting-your-folder">
             Connecting Your Folder
           </Link>{" "}
-          for the picker flow, and{" "}
+          for the connect flow, and{" "}
           <Link href="/wiki/shared-lab-accounts">Shared Lab Accounts</Link>{" "}
           for putting that folder in OneDrive / Drive / Dropbox / iCloud so
           your whole lab shares it.

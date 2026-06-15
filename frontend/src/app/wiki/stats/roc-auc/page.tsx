@@ -55,10 +55,15 @@ export default function RocAucPage() {
       </p>
       <p>
         The Data Hub reports the <strong>AUC</strong> with its{" "}
-        <strong>95% confidence interval</strong>. An interval whose lower end
-        stays well above 0.5 means the marker genuinely separates the groups, and
-        its width tells you how sure you are, read it as on the{" "}
-        <Link href="/wiki/stats/effect-sizes">effect sizes</Link> page.
+        <strong>standard error</strong> (Hanley and McNeil 1982 closed form, the
+        same formula GraphPad Prism and pROC use) and its{" "}
+        <strong>95% confidence interval</strong>. It also reports the number of
+        positives and negatives in the dataset, which tells you whether the
+        confidence interval is likely to be meaningful, a very small positive or
+        negative count gives a wide interval regardless of what the AUC is. An
+        interval whose lower end stays well above 0.5 means the marker genuinely
+        separates the groups, and its width tells you how sure you are, read it
+        as on the <Link href="/wiki/stats/effect-sizes">effect sizes</Link> page.
       </p>
 
       <Screenshot

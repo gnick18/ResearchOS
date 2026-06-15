@@ -1,6 +1,7 @@
 import Link from "next/link";
 import WikiPage from "@/components/wiki/WikiPage";
 import Callout from "@/components/wiki/Callout";
+import Screenshot from "@/components/wiki/Screenshot";
 
 export default function InventoryFeaturePage() {
   return (
@@ -8,6 +9,12 @@ export default function InventoryFeaturePage() {
       title="Inventory"
       intro="The inventory you will actually keep. Most lab inventories die because they ask for precision the bench cannot sustain. Inventory in ResearchOS asks for almost nothing (a coarse count and the occasional one-tap status) and computes the signals that actually matter (what is expiring, what has gone stale, what is running low) from data you type once, or never."
     >
+      <Screenshot
+        src="/wiki/screenshots/inventory-signal-list.png"
+        alt="The Inventory list view showing stock items grouped by signal, with colored status chips for expiring, low, and empty items and a search bar at the top."
+        caption="The Inventory list with signal-driven grouping. Expiring, low, and empty items surface at the top so the most urgent reorders are visible without scrolling."
+      />
+
       <h2>Why most lab inventories become fiction</h2>
       <p>
         Almost every electronic lab notebook ships an inventory, and almost
@@ -166,6 +173,17 @@ export default function InventoryFeaturePage() {
         no shared key gets burned.
       </p>
 
+      <Callout variant="tip" title="Scan from your phone too">
+        The Companion app on iOS and Android has a dedicated Inventory scanning
+        tab that uses the phone camera as a barcode scanner, so you can scan
+        container codes while standing at the freezer without needing a laptop
+        webcam. See{" "}
+        <Link href="/wiki/features/companion/inventory-scanning">
+          Companion: inventory scanning
+        </Link>{" "}
+        for the full mobile flow.
+      </Callout>
+
       <h2>The storage map</h2>
       <p>
         When you want to know not just that you own something but exactly where
@@ -185,6 +203,12 @@ export default function InventoryFeaturePage() {
         only when finding a specific tube is worth it.
       </p>
 
+      <Screenshot
+        src="/wiki/screenshots/inventory-storage-map.png"
+        alt="The storage map panel showing a freezer tree on the left (freezer, rack, box hierarchy) and a rows-by-columns box grid on the right with colored cells indicating stock status."
+        caption="The storage map. Navigate the location tree on the left and click any cell to see what sits there or to move a stock in or out."
+      />
+
       <h2>Spreadsheet import for an existing inventory</h2>
       <p>
         If your lab already keeps a list somewhere (and most do, usually a
@@ -196,36 +220,59 @@ export default function InventoryFeaturePage() {
         never get off the ground, is close to free.
       </p>
 
-      <h2>Typed fields for antibodies and plasmids</h2>
+      <h2>Item categories</h2>
       <p>
-        Most items are plain reagents and need nothing beyond a name, a count,
-        and a date. Some item types earn a few extra fields, and Inventory
-        treats those as <strong>categories of the same inventory item</strong>,
-        not separate record types, so they keep their stocks, storage positions,
-        expiry, staleness, low-count, history, trash, and sharing unchanged.
-        Only the detail editor renders the extra fields.
+        Every inventory item belongs to exactly one category. The category you
+        choose drives which extra typed fields appear in the detail editor. The
+        full set of categories is listed below.
       </p>
       <ul>
         <li>
-          <strong>Plasmids</strong> carry backbone, insert, resistance,
-          bacterial host, size in base pairs, source and Addgene number, and an
-          attached sequence file. These line up with the cloning and PCR work
-          elsewhere in the app.
+          <strong>Reagent</strong> (the default). Generic chemical or consumable
+          with no typed extension fields.
         </li>
         <li>
-          <strong>Antibodies</strong> carry target, host species, clonality and
+          <strong>Antibody</strong>. Carries target, host species, clonality and
           clone, conjugate, isotype, reactivity, applications (for example WB,
           IF, IHC, FACS), recommended dilution, and an RRID for reproducibility.
           Antibodies are also the textbook case for opt-in precise consumption
-          tracking, since they are expensive, finite, and often fought over.
+          tracking, since they are expensive, finite, and often shared between
+          users.
+        </li>
+        <li>
+          <strong>Plasmid</strong>. Carries backbone, insert, resistance,
+          bacterial host, size in base pairs, source and Addgene number, and an
+          attached sequence file. Lines up with the cloning and sequencing work
+          elsewhere in the app.
+        </li>
+        <li>
+          <strong>Enzyme</strong>, <strong>Primer</strong>,{" "}
+          <strong>Cell line</strong>, <strong>Strain</strong>. Plain categories
+          with no extra typed fields today. A future version will add typed
+          fields to each the same way antibodies and plasmids were extended.
+        </li>
+        <li>
+          <strong>Kit</strong>. A multi-component commercial kit treated as a
+          single inventory record. Track kit lots and expiry dates without
+          splitting the kit into individual components.
+        </li>
+        <li>
+          <strong>Equipment</strong>. A single piece of shared equipment.
+          Equipment items have no container-count semantics since there is
+          normally one instance, but they carry storage location, expiry (for
+          calibration deadlines), and the same staleness signals as any other
+          item.
+        </li>
+        <li>
+          <strong>Other</strong>. For anything that does not fit the categories
+          above.
         </li>
       </ul>
       <p>
-        These are additive. A plain reagent simply has none of them. Categories
-        like enzymes, primers, cell lines, and strains are already there to
-        choose, and a future version will give them typed fields the same way we
-        did for antibodies and plasmids, without disturbing anything that
-        already exists.
+        All categories share the same stock list, storage positions, expiry,
+        staleness signals, low-count threshold, history, trash, search, and
+        sharing. The category only controls which extra fields the detail editor
+        renders.
       </p>
 
       <h2>Precise consumption is opt-in, never the default</h2>

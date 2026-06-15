@@ -7,7 +7,7 @@ export default function SharingAndPermissionsPage() {
   return (
     <WikiPage
       title="Sharing and permissions"
-      intro="Every shareable record in ResearchOS (a method, a note, a task, a project, a high-level goal) carries one sharing field, shared_with, an array of small objects pairing a username with a permission level. That field plus a single sentinel value for 'the whole lab' is the entire permission story. Two primitives, canRead and canWrite, build on top of it. PIs get an implicit view-all on the read side. This page is the canonical reference for how the model works."
+      intro="Every shareable record in ResearchOS (a method, a note, a task, a project, a high-level goal) carries one sharing field, shared_with, an array of small objects pairing a username with a permission level. That field plus a single sentinel value for 'the whole lab' is the entire permission story. Two primitives, canRead and canWrite, build on top of it. PIs get an implicit view-all on the read side and write-all on the write side, gated by a once-per-session UI confirm in record popups. This page is the canonical reference for how the model works."
     >
       {/* TODO screenshot agent: capture a Method share dialog showing the shared_with list.
           Route: open a method popup, click the share affordance
@@ -92,62 +92,104 @@ shared_with: SharedUser[];`}</code>
         backing list is not stored, so adding or archiving a lab member
         never requires a sweep across every record to keep things in sync.
       </p>
+      <p>
+        Inventory items are a special case. New inventory records are created
+        with <code>{`{ username: "*", level: "edit" }`}</code> by default, so
+        the whole lab can add, edit, and decrement stock out of the box. You
+        can tighten this per-item by editing its sharing in the inventory popup.
+      </p>
 
-      <h2>The two primitives, canRead and canWrite</h2>
+      <h2>Account types</h2>
+      <p>
+        The <code>account_type</code> field on a viewer drives the PI implicit
+        view-all and write-all rules. The three values in the system are.
+      </p>
+      <ul>
+        <li>
+          <strong><code>&quot;solo&quot;</code></strong>. A user with no lab affiliation.
+          No special privileges beyond owning their own records.
+        </li>
+        <li>
+          <strong><code>&quot;lab&quot;</code></strong>. A lab member (not the head). Can
+          read and write their own records plus anything explicitly shared with
+          them.
+        </li>
+        <li>
+          <strong><code>&quot;lab_head&quot;</code></strong>. The PI. Gets implicit
+          view-all on reads and write-all on writes (see below for how the
+          write-all is gated in the UI).
+        </li>
+      </ul>
+
+      <h2>The two primitives: canRead and canWrite</h2>
       <p>
         Every permission decision in the app routes through one of two
-        pure, synchronous functions.
+        pure, synchronous functions in{" "}
+        <code>lib/sharing/unified.ts</code>.
       </p>
       <ul>
         <li>
           <strong>canRead(record, viewer)</strong>: true if the viewer is
           the owner, OR the viewer&apos;s account_type is{" "}
-          <code>lab_head</code> (implicit view-all), OR{" "}
+          <code>&quot;lab_head&quot;</code> (implicit view-all), OR{" "}
           <code>record.shared_with</code> has an entry whose{" "}
           <code>username</code> matches the viewer OR is{" "}
           <code>WHOLE_LAB_SENTINEL</code>.
         </li>
         <li>
-          <strong>canWrite(record, viewer, session)</strong>: true if the
-          viewer is the owner, OR the viewer is a PI AND the
-          edit-session is currently unlocked for the record&apos;s owner
-          (the Phase 5 passcode flow, see{" "}
-          <Link href="/wiki/features/lab-head/edit-session-and-password">
-            PI edit session
-          </Link>
-          ), OR <code>record.shared_with</code> has an entry whose{" "}
+          <strong>canWrite(record, viewer)</strong>: true if the viewer is
+          the owner, OR the viewer&apos;s account_type is{" "}
+          <code>&quot;lab_head&quot;</code> (role-based write-all, see note
+          below), OR <code>record.shared_with</code> has an entry whose{" "}
           <code>username</code> matches (or is <code>&quot;*&quot;</code>){" "}
           AND the entry&apos;s <code>level</code> is{" "}
           <code>&quot;edit&quot;</code>.
         </li>
       </ul>
       <p>
-        Both functions are pure, so the same input always gives the same output, with no I/O. They are
+        Both functions take exactly two arguments and are pure, so the same
+        input always gives the same output with no I/O. They are
         synchronous, so every render and every save can call them without
         async ceremony.
+      </p>
+
+      <h2>canWriteIgnoringPiRole and the once-per-session UI confirm</h2>
+      <p>
+        A companion helper,{" "}
+        <code>canWriteIgnoringPiRole(record, viewer)</code>, returns true only
+        when the viewer is the owner or has an explicit edit-share entry.
+        Callers use it to tell whether the PI&apos;s write right comes purely
+        from their role or from a normal owner/edit-share basis.
+      </p>
+      <p>
+        When a PI tries to edit a record that passes <code>canWrite</code>{" "}
+        only because of the PI role (not because they own it or have an explicit
+        edit-share), the <strong>record popup</strong> shows a
+        once-per-session confirmation before opening the editor. That
+        confirm step is a UI guard in the popup, not a condition in{" "}
+        <code>canWrite</code> itself. <code>canWrite</code> is a pure predicate
+        with no session state.
+      </p>
+
+      <h2>expandSharedWith: resolving the sentinel</h2>
+      <p>
+        <code>expandSharedWith(shared_with, allLabUsernames, owner)</code> in{" "}
+        <code>lib/sharing/unified.ts</code> replaces the <code>&quot;*&quot;</code>{" "}
+        sentinel with the concrete set of current lab members. The owner is
+        excluded (they already have access). When a user appears both as an
+        explicit entry and via the sentinel, the highest level wins
+        (edit beats read). This is the function share dialogs use to render
+        the per-member recipient list.
       </p>
 
       <h2>The PI implicit view-all</h2>
       <p>
         A user whose <code>account_type === &quot;lab_head&quot;</code> gets
-        an extra rule on the read side only: <code>canRead</code> returns
-        true for every record in the lab regardless of{" "}
-        <code>shared_with</code>. The Lab Overview cross-lab dashboards
-        depend on this rule. The member workload widget has to be able to
-        read every member&apos;s active tasks even when those tasks are
-        private to the member.
-      </p>
-      <p>
-        The implicit view-all does not extend to writes. A PI reading
-        a member&apos;s private note can leave a comment (comments respect
-        read access) but cannot edit the note body unless the lab-head
-        edit-session is unlocked for that member&apos;s data. See{" "}
-        <Link href="/wiki/features/lab-head">PI</Link> for the broader
-        role and{" "}
-        <Link href="/wiki/features/lab-head/edit-session-and-password">
-          edit session and password
-        </Link>
-        {" "}for the passcode-gated write path.
+        an extra rule on the read side: <code>canRead</code> returns true for
+        every record in the lab regardless of <code>shared_with</code>. The
+        Lab Overview cross-lab dashboards depend on this rule. The member
+        workload widget has to be able to read every member&apos;s active tasks
+        even when those tasks are private to the member.
       </p>
 
       <h2>Methods auto-grant via task-share</h2>
@@ -208,6 +250,12 @@ shared_with: SharedUser[];`}</code>
         </li>
         <li>
           <strong>Notes</strong> can be shared the same way.
+        </li>
+        <li>
+          <strong>Inventory items</strong> default to whole-lab edit (the{" "}
+          <code>&quot;*&quot;</code> sentinel at level{" "}
+          <code>&quot;edit&quot;</code>) so every member can add, use, and
+          update stock. You can restrict a particular item per-record.
         </li>
       </ul>
 

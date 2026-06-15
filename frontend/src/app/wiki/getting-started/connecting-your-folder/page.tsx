@@ -7,7 +7,7 @@ import { Steps, Step } from "@/components/wiki/Steps";
 export default function ConnectingYourFolderPage() {
   return (
     <WikiPage
-      intro="Pick a folder on your disk. ResearchOS will read and write JSON files inside it (no cloud, no upload). On a brand-new visit, BeakerBot waves at you from the upper-right and offers an optional 3-minute walkthrough you can take before linking anything."
+      intro="Pick a folder on your disk. ResearchOS will read and write JSON files inside it (no cloud, no upload). On a brand-new visit, BeakerBot idles in the upper-right and offers an optional 3-minute walkthrough you can take before connecting anything."
     >
       <Callout variant="info" title="Chrome or Edge only">
         ResearchOS uses the File System Access API, which is only available in
@@ -20,12 +20,12 @@ export default function ConnectingYourFolderPage() {
       </Callout>
 
       <Screenshot
-        src="/wiki/screenshots/folder-connect.png"
-        alt="The folder-link screen with a single Link a folder card in the center, BeakerBot waving from the upper-right with a Take the 3-minute walkthrough button, an Explore demo in browser link below the card, and the funding credentials stamp in the bottom-right corner."
-        caption="The first screen you see on a fresh install. One centered Link a folder card, BeakerBot's optional walkthrough nudge in the upper-right, and the funding credentials stamp pinned bottom-right."
+        src="/wiki/screenshots/folder-connect-current.png"
+        alt="The Connect your folder screen with a dashed-border drop zone that reads Drag your data folder here, a Browse for a folder button below the divider, and an idle BeakerBot with a speech bubble and Take the 3-minute walkthrough button in the upper-right."
+        caption="The Connect your folder screen. Drag a folder into the drop zone or use the Browse for a folder button. The old folder-connect.png depicts the retired single-card layout."
       />
 
-      <h2>Why there is one card, not two</h2>
+      <h2>Why there is no separate &ldquo;create folder&rdquo; option</h2>
       <p>
         ResearchOS works against a real folder on your disk, and Chrome&apos;s
         File System Access API can only ever <em>open</em> a folder you point it
@@ -33,51 +33,53 @@ export default function ConnectingYourFolderPage() {
         picker blocks the parent locations a new-folder flow would need, even the
         Documents root). An earlier version of this screen had a separate
         &ldquo;Create New Folder&rdquo; card with a name field, but it dead-ended
-        on that browser limitation, so the screen is now a single{" "}
-        <strong>Link a folder</strong> card. Linking an existing ResearchOS
-        folder and starting fresh both work the same way. You point at a folder
-        that already exists on disk, and ResearchOS sets up an empty one
-        automatically the first time you link it.
+        on that browser limitation. Connecting an existing ResearchOS folder and
+        starting fresh both work the same way through the drop zone. You point at
+        a folder that already exists on disk, and ResearchOS sets up its structure
+        automatically the first time you connect it.
       </p>
 
       <h2>The page layout, at a glance</h2>
       <p>
-        On a first visit, three things share this screen.
+        The screen is titled <strong>Connect your folder</strong>. On a first
+        visit, three things share it.
       </p>
       <ul>
         <li>
-          <strong>The Link a folder card in the center</strong>: one card,
-          titled <strong>Link a folder</strong>. It holds a short description,
-          a drag-and-drop zone, and the <strong>Choose a folder</strong>{" "}
-          button. This is the whole folder flow. Link an existing folder or a
-          brand-new empty one through the same card.
+          <strong>The drop zone in the center</strong>: a dashed-border card
+          with the heading <strong>Drag your data folder here</strong>. Below a
+          short divider sits the <strong>Browse for a folder</strong> button for
+          users who prefer the OS picker. Connecting an existing ResearchOS
+          folder and starting fresh both use this same zone.
         </li>
         <li>
-          <strong>BeakerBot in the upper-right</strong>: a small sky-blue
-          beaker mascot waving at you. Below the mascot is a white speech
-          bubble that explains the optional walkthrough, plus a button labeled{" "}
-          <strong>Take the 3-minute walkthrough</strong>. Skip past it
-          entirely if you already know what you want to do.
+          <strong>BeakerBot in the upper-right</strong>: a small sky-blue beaker
+          mascot in idle pose (not waving). Below the mascot is a speech bubble
+          with a brief nudge, plus a button labeled{" "}
+          <strong>Take the 3-minute walkthrough</strong>. Skip past it entirely
+          if you already know what you want to do.
         </li>
         <li>
           <strong>The funding credentials stamp in the bottom-right</strong>: a
           small badge that names the academic project this app was built under
-          (a UW Distinguished Research Fellowship at UW-Madison). Pure authority signal; nothing to click.
+          (a UW Distinguished Research Fellowship at UW-Madison). Pure authority
+          signal; nothing to click.
         </li>
       </ul>
       <p>
         Want to look around before committing a folder? The seeded fake yeast
         lab (browse it in the app, or download it as a real starter folder you
-        can link) lives in Demo Mode, not on this card. See{" "}
+        can link) is accessible from the welcome page and via the{" "}
+        <code>/demo</code> URL. See{" "}
         <Link href="/wiki/getting-started/demo-mode">Demo Mode</Link>.
       </p>
 
-      <Callout variant="tip" title="The walkthrough is optional and doesn't link a folder">
+      <Callout variant="tip" title="The walkthrough is optional and doesn't connect a folder">
         Clicking <strong>Take the 3-minute walkthrough</strong> opens a 4-beat
         modal (welcome, data security, folder choice, cloud provider). It
         runs the BeakerBot intro in slide form, then closes and returns you to
-        this same picker. The modal never picks a folder for you. Returning
-        users skip it entirely. See{" "}
+        this same connect screen. The modal never connects a folder for you.
+        Returning users skip it entirely. See{" "}
         <em>The optional walkthrough modal</em>, below, for what each beat
         covers.
       </Callout>
@@ -86,7 +88,7 @@ export default function ConnectingYourFolderPage() {
       <p>
         Because the picker can only open a folder that already exists, you make
         the folder yourself first. Do this with your normal file manager (Finder
-        on Mac, Explorer on Windows) before you click Choose a folder.
+        on Mac, Explorer on Windows) before you click Browse for a folder.
       </p>
       <Steps>
         <Step>
@@ -100,22 +102,22 @@ export default function ConnectingYourFolderPage() {
           Name it something like <code>ResearchOS</code>.
         </Step>
         <Step>
-          Click <strong>Choose a folder</strong> and select the folder you just
-          made, not its top-level parent.
+          Click <strong>Browse for a folder</strong> and select the folder you
+          just made, not its top-level parent.
         </Step>
       </Steps>
 
       <h2>What you&apos;ll do</h2>
       <Steps>
         <Step>
-          Link the folder. You have two equivalent ways. Click the{" "}
-          <strong>Choose a folder</strong> button to open your operating
+          Connect the folder. You have two equivalent ways. Click{" "}
+          <strong>Browse for a folder</strong> to open your operating
           system&apos;s folder picker, or <strong>drag a folder directly onto
-          the Link a folder card</strong>. The card highlights with a dashed
-          blue border, and its hint text changes from &ldquo;Drop your folder
-          here, or click below to pick&rdquo; to &ldquo;Release to link this
-          folder&rdquo; as you drag over it. Release to connect. Both paths work
-          for an existing ResearchOS folder and for a brand-new empty one.
+          the drop zone</strong>. The zone highlights with a blue dashed border
+          and the heading changes from &ldquo;Drag your data folder here&rdquo;
+          to &ldquo;Release to connect this folder&rdquo; as you drag over it.
+          Release to connect. Both paths work for an existing ResearchOS folder
+          and for a brand-new empty one.
         </Step>
         <Step>
           The browser asks for permission to read and write that folder. Click{" "}
@@ -136,19 +138,19 @@ export default function ConnectingYourFolderPage() {
         pick it, that is its block on sensitive locations. The top-level
         Desktop, Documents, Downloads, and home folders are off limits. The
         picker shows a recovery popup (<em>That folder can&apos;t be used. Pick a
-        different spot.</em>) with a <strong>Link a folder in Documents</strong>{" "}
-        retry button. Make an empty subfolder inside one of those locations
-        (like <code>Documents/ResearchOS</code>) and link that instead.
+        different spot.</em>) with a retry button. Make an empty subfolder inside
+        one of those locations (like <code>Documents/ResearchOS</code>) and
+        connect that instead.
       </Callout>
 
       <h2>The optional walkthrough modal</h2>
       <p>
         The <strong>Take the 3-minute walkthrough</strong> button on the
-        picker opens a small 4-beat modal that introduces the app before you
-        commit to picking a folder. It is opt-in, not auto-fire. Brand-new
-        users see the speech bubble&apos;s gentle nudge (&ldquo;New here? It
-        is strongly recommended to take a short onboarding walkthrough (3
-        minutes). Returning? Just take it from here.&rdquo;), and returning
+        connect screen opens a small 4-beat modal that introduces the app
+        before you commit to connecting a folder. It is opt-in, not auto-fire.
+        Brand-new users see the speech bubble&apos;s gentle nudge (&ldquo;New
+        here? It is strongly recommended to take a short onboarding walkthrough
+        (3 minutes). Returning? Just take it from here.&rdquo;), and returning
         users ignore it entirely. Here is what the four beats cover.
       </p>
       <ol>
@@ -172,8 +174,8 @@ export default function ConnectingYourFolderPage() {
           <strong>Cloud provider.</strong> Picks the cloud you want to host
           the folder in (OneDrive, Google Drive, Dropbox, Box, iCloud) and
           links you to the per-provider setup guide. Closing the modal returns
-          you to the picker; the folder link itself still happens through the
-          Link a folder card.
+          you to the connect screen; the folder connection itself still happens
+          through the drop zone.
         </li>
       </ol>
       <p>
@@ -183,18 +185,18 @@ export default function ConnectingYourFolderPage() {
         reopening it is a one-click decision you make each visit.
       </p>
 
-      <Callout variant="tip" title="Already have data? Pick the same folder.">
+      <Callout variant="tip" title="Already have data? Connect the same folder.">
         If you&apos;ve used ResearchOS before, point it at the same folder you
         used last time. Your projects, tasks, methods, and notes will load
         exactly as you left them.
       </Callout>
 
       <Callout variant="info" title="Just kicking the tires?">
-        Skip the folder picker and visit{" "}
-        <Link href="/wiki/getting-started/demo-mode">Demo Mode</Link> instead.
-        It opens the app at <code>/demo</code> with a seeded fake yeast lab
-        you can click around in. No folder, no install, edits disappear on
-        reload.
+        Skip the folder connection and visit the demo instead. The welcome page
+        has a button to open the app at <code>/demo</code> with a seeded fake
+        yeast lab you can click around in, or you can navigate to{" "}
+        <code>/demo</code> directly. No folder, no install, edits disappear on
+        reload. See <Link href="/wiki/getting-started/demo-mode">Demo Mode</Link>.
       </Callout>
 
       <h2>What gets created inside the folder</h2>

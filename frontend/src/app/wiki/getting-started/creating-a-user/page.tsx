@@ -17,19 +17,23 @@ export default function CreatingAUserPage() {
 
       <h2>What &quot;user&quot; means here</h2>
       <p>
-        ResearchOS has no central account system. Each &quot;user&quot; is
-        a named folder inside <code>users/</code> in your data directory,
-        with their own projects, tasks, methods, and notes underneath.
+        Each &quot;user&quot; is a named folder inside <code>users/</code> in
+        your data directory, with their own projects, tasks, methods, and notes
+        underneath. ResearchOS has cloud accounts (Free and Lab tiers) that are
+        separate from and independent of the data folder. An account lets you
+        sign in with Google, GitHub, ORCID, or LinkedIn, gives you an{" "}
+        <strong>@handle</strong> and a researcher profile, and enables sharing
+        and real-time co-editing. The data folder is always local.
       </p>
       <p>
-        In this model, <strong>the folder is the lab</strong>. Anyone with
-        access to the same folder can pick a username on the user-picker and
-        become a member, no invite step needed. If a folder is private to you,
-        you&apos;re a lab of one. If a folder is shared via OneDrive / Google
-        Drive / Dropbox / iCloud, everyone with read-write access to that
-        folder is in the same lab. See{" "}
+        On a folder that is shared via OneDrive / Google Drive / Dropbox /
+        iCloud, everyone with read-write access can pick or create a username
+        on the user-picker. Cloud accounts and the Lab tier are the preferred
+        way to collaborate. See{" "}
         <Link href="/wiki/shared-lab-accounts">Shared Lab Accounts</Link> for
-        the cloud setup.
+        the legacy shared-folder cloud setup, and{" "}
+        <Link href="/wiki/getting-started/accounts">Accounts</Link> for the
+        cloud account tiers.
       </p>
 
       <h2>Creating a user</h2>
@@ -96,12 +100,9 @@ export default function CreatingAUserPage() {
       <Callout variant="info" title="PI accounts always have a password">
         The optional password above is for members and solo accounts. A PI
         (an account flagged <code>account_type === &quot;lab_head&quot;</code>)
-        is the exception, a PI must set a password during account setup before
+        is the exception. A PI must set a password during account setup before
         they can finish, and it&apos;s enforced at login. So there&apos;s never
-        a PI account with no password behind it. See{" "}
-        <Link href="/wiki/features/lab-head/edit-session-and-password">
-          Edit session and password
-        </Link>.
+        a PI account with no password behind it.
       </Callout>
 
       <h2>Switching users</h2>

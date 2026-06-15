@@ -11,14 +11,10 @@ export default function ExperimentsFeaturePage() {
       title="The Workbench"
       intro="The Workbench is where active research lives day to day. One page with four core tabs (Projects, Experiments, Notes, Lists), each with its own way of grouping work, plus a fifth tab that appears only for people in a 1:1. The URL is /workbench, and /experiments still redirects there for backwards compatibility."
     >
-      {/* SCREENSHOT TODO: workbench-experiments.png predates the kanban
-          redesign — it still shows the old stacked-section layout and a
-          three-tab strip. Do NOT capture here; recapture once the kanban UI
-          settles. */}
       <Screenshot
         src="/wiki/screenshots/workbench-experiments.png"
-        alt="The Workbench page with the Experiments tab active, showing the tab strip, the project filter pills, and the experiment cards."
-        caption="The Workbench with the Experiments tab selected (screenshot predates the kanban redesign)."
+        alt="The Workbench page with the Experiments tab active, showing the left rail with status and project navigation plus owner and method filter chips, and the main pane with the List/Board toggle and experiment rows in list view."
+        caption="The Workbench with the Experiments tab selected. The left rail carries status navigation, project navigation, and owner and method filter chips. The main pane defaults to List view with a List/Board toggle in the header."
       />
 
       <TryInDemo href="/workbench">Try the Workbench</TryInDemo>
@@ -41,8 +37,8 @@ export default function ExperimentsFeaturePage() {
       <p>
         Each tab uses a different organizing principle. The Projects tab
         is a browsable grid of project cards. The Experiments tab arranges
-        protocols by where they sit in the run cycle on a kanban board (ready,
-        blocked, running, awaiting writeup), with a results zone below it. The
+        protocols by stage in a status-banded list (the default) or a four-column
+        kanban board, toggled with a List/Board button in the pane header. The
         Lists tab groups list tasks by how close their dates are to right now
         (overdue, doing, upcoming, recently done, earlier). The Notes
         tab skips grouping entirely and offers a flat, search-driven
@@ -94,10 +90,28 @@ export default function ExperimentsFeaturePage() {
       <h2>The Experiments tab</h2>
       <p>
         The Experiments tab arranges every experiment task in your library by
-        stage of the protocol. The in-flight work sits on a{" "}
-        <strong>kanban board</strong> of four columns across the top, and the
-        finished work sits in two results zones below it. The four board columns
-        run side by side so you can scan the whole pipeline at a glance.
+        stage of the protocol. It opens in <strong>List view</strong> by
+        default, a dense status-banded list grouped into sections (In flight,
+        Awaiting write-up, Recent results, Earlier). A{" "}
+        <strong>List / Board</strong> toggle in the pane header switches to{" "}
+        <strong>Board view</strong>, which spreads the in-flight work across a
+        kanban board of four side-by-side columns.
+      </p>
+      <p>
+        A left rail runs alongside both views. The top of the rail has a{" "}
+        <strong>Status</strong> section (All experiments, In flight, Awaiting
+        write-up, Recent results, Earlier) and a{" "}
+        <strong>By project</strong> section with one entry per project.
+        Clicking any rail item narrows the pane to that scope without leaving
+        the tab. Below the project list are two filter groups,{" "}
+        <strong>Owner</strong> (Mine / Shared with me) and{" "}
+        <strong>Filter by method</strong> (one chip per method name used across
+        your experiments). These compose with each other and with the status and
+        project navigation above them.
+      </p>
+      <p>
+        The in-flight section of the list and the full board share the same
+        four stage categories.
       </p>
 
       <h3>Ready to start</h3>
@@ -161,14 +175,16 @@ export default function ExperimentsFeaturePage() {
         collapsed.
       </p>
 
-      {/* SCREENSHOT TODO: workbench-experiments-sections.png predates the kanban
-          redesign — it shows stacked vertical section headers, not the
-          four-column board. Do NOT capture here; recapture once the kanban UI
-          settles. */}
+      <Screenshot
+        src="/wiki/screenshots/workbench-experiments-list-view.png"
+        alt="The Experiments tab in List view, showing status-banded sections (In flight, Awaiting write-up, Recent results) with experiment rows beneath each section header and the List/Board toggle in the top right of the pane."
+        caption="List view is the default. Experiments are grouped into status bands and the List/Board toggle in the pane header switches to the four-column kanban board."
+      />
+
       <Screenshot
         src="/wiki/screenshots/workbench-experiments-sections.png"
-        alt="The Experiments tab showing the four-column kanban board (Ready to start, Blocked, Running, Awaiting writeup) with cards underneath each column."
-        caption="The four board columns run side by side, each with an uppercase header and a count (screenshot predates the kanban redesign)."
+        alt="The Experiments tab in Board view showing four kanban columns (Ready to start, Blocked, Running, Awaiting write-up) running side by side, each with an uppercase header and a count badge."
+        caption="Board view. The four columns run side by side so you can scan the whole pipeline at a glance."
       />
 
       <h3>Cards and chains</h3>

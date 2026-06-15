@@ -570,6 +570,34 @@ A3 looks suspect, repeat tomorrow morning.`}</code>
         ResearchOS.
       </p>
 
+      <h2>Object embeds</h2>
+      <p>
+        A lone <code>[name](ros://&lt;type&gt;/&lt;id&gt;)</code> link on its own
+        line renders as a live card instead of a plain hyperlink. Trees,
+        sequences, molecules, and notes each have their own card style. The card
+        pulls from the same source the full viewer does, so a tree embed is the
+        same rendering engine as the Tree Studio, not a screenshot.
+      </p>
+      <Screenshot
+        src="/wiki/screenshots/editor-embed-card.png"
+        alt="A note in the markdown editor containing a lone ros:// link that has rendered as a live phylogenetic tree card, with the tree visible inline in the note body."
+        caption="A ros:// link alone on its line renders as a live object card. The same note stays portable plain markdown when opened outside ResearchOS."
+      />
+      <p>
+        You get an embed link whenever you insert a reference from the{" "}
+        <strong>@mention</strong> picker and it resolves to a block-embed type.
+        The link is still valid markdown outside ResearchOS, it just opens as a
+        normal link in a text editor. Inside ResearchOS, the renderer at{" "}
+        <code>RenderedMarkdown.tsx</code> detects the <code>ros://</code> scheme
+        and mounts the live card in place of the raw link text.
+      </p>
+      <Callout variant="info" title="One link, one card">
+        Only a lone link on its own paragraph triggers the block-embed view. A
+        ros:// link in the middle of a sentence stays as a chip (an inline
+        mention pill), not a card, so you can reference an object inline without
+        forcing a full card break.
+      </Callout>
+
       <h2>Things people miss</h2>
       <ul>
         <li>

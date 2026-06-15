@@ -119,6 +119,11 @@ export default function GanttFeaturePage() {
           Shorter zooms keep day-level detail. Longer ones span many weeks.
           <strong> All</strong> currently shows an 8-week window starting
           from the current Monday, not a full-history view.
+          <Screenshot
+            src="/wiki/screenshots/gantt-zoom-controls.png"
+            alt="The Gantt toolbar showing the zoom segmented control with eight buttons (1W, 2W, 3W, 1M, 3M, 6M, 1Y, All) and the week navigator with back/forward arrows, a date picker, and a Today link."
+            caption="Zoom segmented control and week navigator. The eight zoom levels set how many days each column represents. The navigator steps or jumps to any Monday."
+          />
         </li>
         <li>
           <strong>Week navigator</strong> on the right. Step the visible

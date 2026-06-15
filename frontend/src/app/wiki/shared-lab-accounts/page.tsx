@@ -19,6 +19,17 @@ export default function SharedLabAccountsPage() {
         PI rollup are already wired up for you to click around in.
       </Callout>
 
+      <Callout variant="info" title="Lab accounts via ResearchOS cloud">
+        If your lab uses ResearchOS cloud accounts, the PI creates a lab and
+        invites members by email. Members accept and the lab covers their
+        storage from the shared pool. No shared folder is required for this
+        path. See{" "}
+        <Link href="/wiki/getting-started/accounts">Accounts and tiers</Link>{" "}
+        for the invite and join flow. The shared-folder setup below is the
+        alternative for labs that prefer to manage their own sync through
+        OneDrive, Dropbox, Google Drive, or iCloud.
+      </Callout>
+
       <h2>How it works</h2>
       <p>
         Put your ResearchOS folder inside a cloud-synced folder (e.g., OneDrive,
@@ -64,7 +75,7 @@ export default function SharedLabAccountsPage() {
           the folder <strong>always available offline</strong>.
         </Step>
         <Step>
-          Each member opens ResearchOS, clicks <strong>Link Folder</strong>,
+          Each member opens ResearchOS, clicks <strong>Open a folder</strong>,
           and picks that shared folder.
         </Step>
         <Step>

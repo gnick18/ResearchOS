@@ -28,10 +28,7 @@ export default function LabInboxCommentsPage() {
         right side of the popup, the way Google Docs and Word park comments
         beside the document instead of below it. The thread sits next to the
         record you are reading, so you keep the recipe or the note in view
-        while you scan the conversation about it. The Lab Inbox is the
-        aggregator. The same comments appear in the inbox stream so you can
-        read everything written today without opening each record one at a
-        time.
+        while you scan the conversation about it.
       </p>
 
       <h2>Opening the comments rail</h2>
@@ -92,24 +89,19 @@ export default function LabInboxCommentsPage() {
         filter index.
       </Callout>
       <p>
-        Members see their @-mentions both in the bell (the personal queue)
-        and in the @-mentions filter of the Lab Inbox.
+        Members see their @-mentions in the bell (the personal notification
+        queue). On the Lab Overview, the{" "}
+        <strong>What needs you</strong> hero shows a live count of @-mentions
+        for the PI and links to the notes surface where the relevant records
+        live.
       </p>
 
-      <h2>The in-place source-record popup</h2>
+      <h2>Finding comments across records</h2>
       <p>
-        Clicking a comment row in the Lab Inbox opens the host record in a
-        popup on top of the inbox. The inbox itself stays mounted underneath,
-        so closing the host popup drops you straight back into the inbox at
-        the same scroll position. That is the Lab Inbox R1 affordance. You can
-        triage a stream of comments by opening each host record, leaving a
-        reply, and closing it without losing your place in the stream.
-      </p>
-      <p>
-        The same affordance works the other way around. Open a task from any
-        other surface (Gantt, Workbench, Home), click the header comment
-        button to open the rail, and the same comment object is there with the
-        same thread.
+        Comments live on the record they were written on. To find a comment,
+        open the record it belongs to and the comments rail will show the
+        thread. When a bell notification links you to a comment, tapping it
+        opens the host record directly with the rail expanded.
       </p>
 
       <h2>Cross-owner read access</h2>

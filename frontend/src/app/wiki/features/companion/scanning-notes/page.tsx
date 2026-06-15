@@ -32,10 +32,10 @@ export default function CompanionScanningNotesPage() {
       <Steps>
         <Step>
           <p>
-            Tap <strong>Scan</strong> and hold the phone over the page. The
-            native document scanner detects the page edges, rectifies the
-            perspective, and cleans the image, so a photo taken at an angle
-            comes out flat and legible.
+            Tap <strong>Scan a handwritten note</strong> on the Notebook tab and
+            hold the phone over the page. The native document scanner detects the
+            page edges, rectifies the perspective, and cleans the image, so a
+            photo taken at an angle comes out flat and legible.
           </p>
         </Step>
         <Step>
@@ -43,13 +43,18 @@ export default function CompanionScanningNotesPage() {
             The phone runs <strong>on-device text recognition</strong> on the
             cleaned scan to extract the words. On iOS this is Apple Vision; on
             Android it is ML Kit. Either way the recognition happens on the
-            phone, not on a server.
+            phone, not on a server. The OCR result travels as its own sealed
+            command, independent of the image upload, so the two never block each
+            other.
           </p>
         </Step>
         <Step>
           <p>
-            Route the scan to an experiment the same way you route a photo. The
-            laptop receives the image and the recognized text together.
+            After the scan queues, the <strong>Notebook Chooser</strong> opens
+            exactly as it does for a photo capture. Pick the experiment tab (Lab
+            Notes or Results), a note, or another notebook. Choosing nothing
+            leaves the scan in your laptop inbox. The OCR sidecar follows the
+            image to the same destination.
           </p>
         </Step>
       </Steps>
@@ -58,11 +63,12 @@ export default function CompanionScanningNotesPage() {
       <p>
         When the laptop receives a scan, it stores the image and writes the
         recognized text into a small companion file next to it, an{" "}
-        <code>{"{image}"}.ocr.json</code> sidecar. The instruction to write that
-        sidecar arrives as a sealed ocr-sidecar command, so the relay carries it
-        without being able to read it. Because the text lands in the sidecar, it
-        is indexed by search right away, and a query for something you wrote by
-        hand finds the scanned page immediately.
+        <code>{"{image}"}.ocr.json</code> sidecar. The OCR arrives as a separate
+        sealed ocr-sidecar command keyed to the image&apos;s capture ID, so the
+        relay carries it without being able to read it, and the sidecar is written
+        wherever the image lands (inbox, experiment, or note). Because the text
+        lands in the sidecar, it is indexed by search right away, and a query for
+        something you wrote by hand finds the scanned page immediately.
       </p>
 
       <Callout variant="info" title="Recognition runs on your phone, not a server">

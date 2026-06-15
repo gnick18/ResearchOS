@@ -7,7 +7,7 @@ export default function AnovaPage() {
   return (
     <WikiPage
       title="ANOVA, post-hoc tests, and two-way ANOVA"
-      intro="A t-test compares two groups. The moment you have three or more, you need ANOVA, which asks whether any of the groups differ before you go hunting for which ones. This page covers the one-way ANOVA, the post-hoc tests that find the specific pairs that differ, and the two-way ANOVA for when two factors are in play at once."
+      intro="A t-test compares two groups. The moment you have three or more, you need ANOVA, which asks whether any of the groups differ before you go hunting for which ones. This page covers the one-way ANOVA, the post-hoc tests that find the specific pairs that differ, the two-way ANOVA for when two factors are in play at once, and the nonparametric alternatives for when normality does not hold."
     >
       <h2>What ANOVA is</h2>
       <p>
@@ -52,6 +52,26 @@ export default function AnovaPage() {
         caption="The ANOVA table breaks the variation into between-group and within-group parts, and F is the ratio of the two. Eta-squared and omega-squared below it say how much of the spread the grouping explains, and the Multiple comparisons tab holds the post-hoc pairs."
       />
 
+      <h2 id="effect-sizes">Effect sizes: eta-squared and omega-squared</h2>
+      <p>
+        The F statistic and its p-value tell you whether the groups differ. They
+        do not tell you by how much in a scale you can reason about. For that,
+        the Data Hub reports two effect sizes.{" "}
+        <strong>Eta-squared</strong> is the fraction of total variation the
+        grouping factor explains, computed as the between-groups sum of squares
+        divided by the total sum of squares. An eta-squared of 0.10 means the
+        grouping accounts for 10% of the spread in the data. It is
+        straightforward but slightly upward-biased, because it is calculated
+        on the specific sample rather than the underlying population.{" "}
+        <strong>Omega-squared</strong> corrects for that bias by subtracting an
+        estimate of the degrees-of-freedom penalty from the numerator, which
+        makes it a more honest estimate of the population effect when the sample
+        is small. For large samples the two are nearly identical; for small ones,
+        prefer omega-squared in write-ups. The 95% confidence interval on
+        eta-squared is reported using the noncentral F pivot, so you can see the
+        range of plausible effect sizes.
+      </p>
+
       <h2 id="post-hoc">Post-hoc tests: which pairs differ</h2>
       <p>
         A significant ANOVA tells you that <em>some</em> group differs, not{" "}
@@ -65,10 +85,18 @@ export default function AnovaPage() {
         can read each one at face value.
       </p>
       <p>
-        The common correction (Tukey) compares every group to every other.
-        Others compare each treatment only to a single control, which is the
-        right choice when that is genuinely the only comparison you planned. The
-        verdict tells you which pairs cleared the bar in plain words.
+        The Data Hub offers five post-hoc families. <strong>Tukey HSD</strong>{" "}
+        (the default) compares every group to every other using the studentized
+        range, and is the standard choice when you have no pre-specified
+        contrasts. <strong>Dunnett</strong> compares each treatment to a single
+        named control, which is the right choice when the only comparisons you
+        planned are treatment versus control. <strong>Sidak</strong> and{" "}
+        <strong>Bonferroni</strong> are all-pairs corrections based on the t
+        distribution, Bonferroni the most conservative, Sidak slightly less so
+        for uncorrelated comparisons. <strong>Holm-Sidak</strong> is a
+        step-down version of Sidak that gains power by adjusting each comparison
+        based on its rank in the ordered p-value list while enforcing monotonicity.
+        The verdict tells you which pairs cleared the bar in plain words.
       </p>
       <Callout variant="tip" title="Read the post-hoc intervals, not just the stars">
         A pair can clear significance with a difference that is still tiny. As on
@@ -108,6 +136,34 @@ export default function AnovaPage() {
         on its own, often with post-hoc comparisons of the specific cells.
       </p>
 
+      <h2 id="kruskal-wallis">Kruskal-Wallis: nonparametric one-way comparison</h2>
+      <p>
+        When the normality assumption is in doubt or your data are ranks or
+        scores rather than measured quantities, the{" "}
+        <strong>Kruskal-Wallis test</strong> is the nonparametric replacement
+        for the one-way ANOVA. Instead of working on the raw values, it ranks all
+        observations pooled across groups and tests whether the mean ranks of the
+        groups are more spread apart than chance would produce. The result reports
+        an H statistic (corrected for tied ranks) and a chi-square p-value on
+        k minus 1 degrees of freedom. A significant Kruskal-Wallis is followed by{" "}
+        <strong>Dunn&apos;s post-hoc test</strong> (Bonferroni-adjusted), which
+        compares mean ranks pairwise. The reported effect size is{" "}
+        <strong>epsilon-squared</strong>, the rank analogue of eta-squared.
+      </p>
+
+      <h2 id="friedman">Friedman: nonparametric repeated measures</h2>
+      <p>
+        The <strong>Friedman test</strong> is the nonparametric counterpart of a
+        one-way repeated-measures ANOVA. It is the right choice when the same
+        subjects are measured under each condition but you cannot assume
+        normality. Within each subject (block), observations are ranked across
+        conditions; the test then asks whether the mean ranks differ more across
+        conditions than chance would produce. Like Kruskal-Wallis, a significant
+        Friedman result is followed by Dunn&apos;s pairwise post-hoc. Use
+        Friedman when you would otherwise reach for repeated-measures ANOVA but
+        the assumption of a normal within-subject distribution is questionable.
+      </p>
+
       <h2>A worked example</h2>
       <p>
         Three media give colony counts averaging 50, 65, and 80. The one-way
@@ -130,8 +186,8 @@ export default function AnovaPage() {
       </Callout>
 
       <p>
-        ResearchOS validates one-way and two-way ANOVA and the post-hoc
-        corrections against statsmodels and R on the{" "}
+        ResearchOS validates one-way and two-way ANOVA, the post-hoc families,
+        Kruskal-Wallis, and Friedman against scipy, statsmodels, and R on the{" "}
         <Link href="/transparency">transparency page</Link>.
       </p>
     </WikiPage>

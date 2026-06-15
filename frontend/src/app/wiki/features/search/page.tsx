@@ -6,7 +6,8 @@ import Callout from "@/components/wiki/Callout";
 export default function SearchFeaturePage() {
   return (
     <WikiPage
-      intro="A filter-driven search page that finds tasks across every project under your user. Fill in the form, click Search, click a result card to open its task popup."
+      title="Search"
+      intro="A filter-driven search page that finds tasks across every project you own or have shared with you. Fill in the form, click Search, click a result card to open its task popup."
     >
       <Screenshot
         src="/wiki/screenshots/search-results.png"
@@ -138,6 +139,8 @@ export default function SearchFeaturePage() {
       </p>
 
       <Callout variant="tip" title="What gets searched, and what doesn't">
+        The search scope includes your own tasks plus every task that has been
+        shared with you (including tasks hosted into your projects by labmates).
         Keywords match against task names, task tags, and method names and tags;
         they do not match against note bodies, results text, or PCR protocol
         contents. Open the Notes page or a method&apos;s own editor to search

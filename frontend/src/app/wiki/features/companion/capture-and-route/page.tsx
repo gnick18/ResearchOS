@@ -20,13 +20,10 @@ export default function CompanionCaptureRoutePage() {
       </p>
 
       <Screenshot
-        src="/wiki/screenshots/companion-capture.png"
-        alt="The Companion capture screen on a phone, showing a just-taken gel photo with a caption field and a destination chooser below it."
-        caption="A fresh capture with its caption and the destination it will be routed into."
+        src="/wiki/screenshots/companion-notebook-tab.png"
+        alt="The Companion Notebook tab on a phone, showing the Take a photo and Quick note action cards at the top, the Scan a handwritten note card, and the Upload from camera roll button below."
+        caption="The Notebook tab is the bench capture hub. Take a photo, write a quick note, scan a page, or upload from the camera roll."
       />
-      {/* SCREENSHOT: Companion capture screen on a phone with a photo taken,
-          caption field, and the Notebook Chooser destination. Capture from the
-          dev-client. Save to frontend/public/wiki/screenshots/companion-capture.png */}
 
       <h2>Capture, caption, route</h2>
       <p>
@@ -36,10 +33,10 @@ export default function CompanionCaptureRoutePage() {
       <Steps>
         <Step>
           <p>
-            <strong>Capture.</strong> Take a new photo with the camera, or upload
-            one you already have on the phone. The image queues locally first, so
-            you can shoot even with no signal and it uploads once the phone is
-            paired and online.
+            <strong>Capture.</strong> Take a new photo with the camera, upload
+            one you already have on the phone, or pick multiple from the camera
+            roll. The image queues locally first, so you can shoot even with no
+            signal and it uploads once the phone is paired and online.
           </p>
         </Step>
         <Step>
@@ -52,10 +49,16 @@ export default function CompanionCaptureRoutePage() {
         </Step>
         <Step>
           <p>
-            <strong>Route.</strong> Pick the destination in the{" "}
-            <strong>Notebook Chooser</strong> sheet. You choose the experiment
-            and whether the image lands in its{" "}
-            <strong>Lab Notes</strong> or its <strong>Results</strong> tab.
+            <strong>Route.</strong> After the photo uploads, the{" "}
+            <strong>Notebook Chooser</strong> sheet opens. If an experiment is
+            open on the laptop, you see a fast-path alert first: choose{" "}
+            <strong>Lab Notes</strong>, <strong>Results</strong>, or{" "}
+            <strong>More notebooks...</strong> to open the full chooser. The
+            full chooser lists every notebook you can write to (your own, shared
+            with edit permission, or a 1:1 notebook). Picking a notebook or
+            entry files the photo there. Choosing{" "}
+            <strong>Send to inbox instead</strong> leaves the photo in your
+            laptop inbox to file later.
           </p>
         </Step>
       </Steps>
@@ -71,17 +74,29 @@ export default function CompanionCaptureRoutePage() {
         relay the instant the laptop pulls it down.
       </p>
 
-      <Callout variant="info" title="No experiment focused? It lands in your Inbox">
-        If no experiment is open and focused on the laptop, a routed capture has
-        nowhere obvious to go, so it lands in your{" "}
-        <Link href="/wiki/features/notifications">Inbox</Link> instead of being
-        lost. You file it into an experiment from there when you are back at the
-        laptop, so a capture is never dropped just because nothing was selected.
+      <Callout variant="info" title="No experiment focused? The chooser shows all your notebooks">
+        If no experiment is open on the laptop, the fast-path alert is skipped
+        and the Notebook Chooser shows directly, listing every notebook you can
+        write to. Choosing nothing (closing the sheet) leaves the photo in your
+        inbox, where you can file it from the laptop later. A capture is never
+        dropped.
       </Callout>
+
+      <h2>Bulk upload from the camera roll</h2>
+      <p>
+        Uploading multiple photos at once opens the{" "}
+        <strong>bulk upload screen</strong> (<code>app/bulk.tsx</code>). A grid
+        shows every photo you picked, all selected by default. You can deselect
+        any you do not want to send, write one caption that applies to every
+        selected photo, and optionally annotate the first selected photo. Tapping{" "}
+        <strong>Send to lab</strong> queues each selected photo through the same
+        outbox pipeline a single capture uses. If the phone is not paired, they
+        wait in the outbox until it is.
+      </p>
 
       <h2>Annotate without touching the original</h2>
       <p>
-        Some images are worth marking up, circling the product band, arrowing the
+        Some images are worth marking up: circling the product band, arrowing the
         colony you picked. The Companion lets you draw an annotation overlay on a
         capture, and that overlay is saved as a separate{" "}
         <code>.annot.json</code> file next to the image rather than painted into
@@ -93,11 +108,22 @@ export default function CompanionCaptureRoutePage() {
         everywhere the image appears.
       </p>
 
+      <h2>Offline retry and backoff</h2>
+      <p>
+        Captures queue on the phone when the relay is unreachable. A failed send
+        retries automatically up to two times, with increasing backoff (the row
+        reads &quot;Waiting for connection&quot; while it retries). After two
+        automatic attempts the row settles into a manual{" "}
+        <strong>Retry</strong> link so you can try again when you have signal.
+        Swipe a row left to delete it from the phone outbox; if the capture
+        already reached the laptop, that copy stays there.
+      </p>
+
       <Callout variant="tip" title="Local-first means you can shoot anywhere">
         Captures queue on the phone and upload when paired, so a cold room or a
         basement scope with no signal does not stop you. Shoot the photo, caption
-        it, choose where it goes, and the routing completes the moment the phone
-        and laptop can reach the relay again.
+        it, and the routing completes the moment the phone and laptop can reach
+        the relay again.
       </Callout>
     </WikiPage>
   );

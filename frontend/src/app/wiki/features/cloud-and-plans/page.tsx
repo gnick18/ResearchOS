@@ -108,6 +108,80 @@ export default function CloudAndPlansPage() {
         purchase can be, so more of the money reaches the work.
       </p>
 
+      <h2>BeakerBot AI usage (a separate meter)</h2>
+      <p>
+        Cloud storage is the only flat-plan item. The optional AI assistant,
+        BeakerBot, is metered separately on actual use, because each turn
+        calls a hosted model that costs real money. Local search and all other
+        features are free forever.
+      </p>
+      <ul>
+        <li>
+          <strong>Free trial.</strong> Every new account gets a one-time
+          sign-up gift of about 1.6 million tokens, no card needed. That
+          covers roughly 15 full tasks or 30-plus quick questions. It is a
+          one-time trial, not a recurring monthly allowance.
+        </li>
+        <li>
+          <strong>After the trial, prepaid top-ups.</strong> No subscription.
+          You add credit when you want it and pay only for what you use. Your
+          current balance and the cost of the last task are always visible.
+        </li>
+        <li>
+          <strong>What tasks actually cost.</strong> A quick question is about
+          50,000 tokens. A full task that reads across your work is about
+          110,000 tokens. Near our cost, a full task is about two cents of
+          compute.
+        </li>
+        <li>
+          <strong>Balance is shown in tokens.</strong> A token is a small
+          chunk of text. Your balance is always shown in tokens, paired with
+          a plain-value hint and a note that cost varies with question size.
+        </li>
+        <li>
+          <strong>Labs can fund a shared AI pool.</strong> A lab, department,
+          or institution can fund a shared pool so members never enter a card.
+        </li>
+      </ul>
+      <Callout variant="info" title="BeakerBot billing is off during the beta">
+        The AI meter is built but not yet active. During the beta, every
+        BeakerBot turn is free. The trial balance will be applied when billing
+        turns on.
+      </Callout>
+
+      <h2>Account tiers</h2>
+      <p>
+        There are four audiences, and each picks from a fixed set of plans.
+        Individuals and labs choose from Free, Plus, and Pro bundles (with
+        Lab variants for labs). Departments and institutions use an automated
+        self-serve plan builder instead of a fixed bundle. The structure is
+        locked and final. The only item not yet published is the Plus and Pro
+        sticker prices, which will be set from real usage before launch.
+      </p>
+      <ul>
+        <li>
+          <strong>Free</strong> (individuals and labs). 5 GB shared pool,
+          full feature access, no card, no expiry. A real working tier, not
+          a trial.
+        </li>
+        <li>
+          <strong>Plus and Pro</strong>. Larger storage pools. Prices are
+          provisional and not yet published.
+        </li>
+        <li>
+          <strong>Lab Free / Lab Plus / Lab Pro</strong>. The same tiers as
+          above, with a shared pool covering the whole lab. Only the PI pays.
+        </li>
+        <li>
+          <strong>Department and Institution</strong>. Self-serve automated
+          plan builder at <code>/pricing</code>. You enter labs, average
+          members, and estimated adoption, and it derives a monthly rate. A
+          modest sustaining rate above bare cost on these larger tiers keeps
+          ResearchOS free for individual researchers and funds open-source
+          development.
+        </li>
+      </ul>
+
       <h2>What happens at the cap</h2>
       <p>
         Reaching the cap means paused, not charged. If a lab fills its pool,

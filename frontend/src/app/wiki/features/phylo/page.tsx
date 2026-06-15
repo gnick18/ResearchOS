@@ -12,8 +12,8 @@ export default function PhyloFeaturePage() {
     >
       <Screenshot
         src="/wiki/screenshots/phylo-hub-overview.png"
-        alt="The Phylogenetics workbench landing on the Tree Studio, with a saved tree rendered as a rectangular phylogram, a left panel of layout and annotation controls, and a top toggle between Tree Builder and Tree Studio."
-        caption="The Phylogenetics workbench. A toggle at the top switches between the Tree Builder (write a recipe) and the Tree Studio (render and annotate a finished tree)."
+        alt="The Phylogenetics workbench landing on the Tree Studio, with a collection rail on the left listing saved trees, a rectangular phylogram rendered in the center canvas, and the tabbed action rail on the right."
+        caption="The Phylogenetics workbench. The left rail holds your saved tree library. The canvas renders the open tree. The right rail carries five tabs for shaping, layering, data, exporting, and code."
       />
 
       <TryInDemo href="/phylo">Try the Phylogenetics workbench</TryInDemo>
@@ -136,41 +136,134 @@ export default function PhyloFeaturePage() {
       <p>
         It reads the standard tree formats, Newick and Nexus, whether you paste the
         text, open a saved tree from your library, or drop in the{" "}
-        <code>.treefile</code> the Tree Builder recipe produced. From there you lay
-        the tree out as a <strong>rectangular</strong> phylogram or a{" "}
-        <strong>circular</strong> one, <strong>reroot</strong> it on any branch or
-        outgroup, <strong>ladderize</strong> it so the branching reads cleanly,{" "}
-        <strong>collapse</strong> a clade you want to summarize, and{" "}
-        <strong>color</strong> branches to call out a group.
+        <code>.treefile</code> the Tree Builder recipe produced. The Tree Builder
+        wizard is reachable from the rail&apos;s <strong>Build a tree</strong>{" "}
+        overlay button rather than a top-level toggle.
       </p>
+
+      <h3>The collection rail</h3>
       <Screenshot
-        src="/wiki/screenshots/phylo-studio-rectangular.png"
-        alt="The Tree Studio showing a rectangular phylogram with bootstrap support shown on internal nodes, tip labels, and a colored clade highlight, alongside a control panel for layout, rooting, and annotation tracks."
-        caption="A rectangular phylogram in the Tree Studio with support values and a highlighted clade. Layout, rooting, and annotation are all controls on the left."
+        src="/wiki/screenshots/phylo-collection-rail.png"
+        alt="The left collection rail in the Tree Studio listing saved trees with their names and last-modified dates, with a search field at the top and a Build a tree button below it."
+        caption="The left rail holds every tree you have saved. Click one to open it in the Studio. Build a tree opens the recipe wizard as an overlay."
       />
       <p>
+        A collapsible left rail lists every tree you have saved, newest first,
+        with a search field to filter by name. Clicking a tree in the rail opens
+        it in the canvas. A <strong>Build a tree</strong> button at the bottom of
+        the rail opens the Tree Builder recipe wizard as a centered overlay, so you
+        can kick off a new analysis without leaving the Studio.
+      </p>
+
+      <h3>The five action-rail tabs</h3>
+      <Screenshot
+        src="/wiki/screenshots/phylo-studio-tabs.png"
+        alt="The right action rail of the Tree Studio with five tabs visible: Shape, Layers, Data, Export, and Code, with the Shape tab open showing layout options, a phylogram/cladogram toggle, and axis controls."
+        caption="The five tabs of the action rail. Shape covers layout and axes. Layers controls the draw order. Data holds metadata and alignment inputs. Export saves the figure. Code generates ggtree R."
+      />
+      <p>
+        When a tree is open, a tabbed rail on the right organizes every control
+        into five tabs. Each tab is a flyout panel.
+      </p>
+      <ul>
+        <li>
+          <strong>Shape.</strong> Layout, rooting, axes, and the page frame.
+          Pick one of six layouts: <em>Rectangular</em>, <em>Slanted</em>,{" "}
+          <em>Circular</em>, <em>Fan</em>, <em>Inward Circular</em>, or{" "}
+          <em>Unrooted</em>. Toggle between <em>phylogram</em> (branch lengths
+          to scale) and <em>cladogram</em> (equal branch lengths). Toggle the
+          branch-length scale bar, a root-edge stub, and a full-width time axis.
+          Reroot on an outgroup, midpoint-root, ladderize, or rotate a clade by
+          picking its tip members. Color branches by a metadata column using the{" "}
+          <em>Branch color by</em> picker.
+        </li>
+        <li>
+          <strong>Layers.</strong> The draw order from inner to outer. Each
+          layer is an annotation track that you add from the Add menu and reorder
+          by dragging. Tracks include tip labels, tip points, color strips,
+          heatmap rings, bar panels, MRCA clade highlights, node pies, bracket
+          annotations, and support-value labels on internal nodes.
+        </li>
+        <li>
+          <strong>Data.</strong> Metadata (drop a CSV to drive the layers),
+          alignment (drop a FASTA to show an MSA panel beside the tips), and a
+          Data Hub plot picker (align a grouped-bar figure to the tips by a join
+          column). The tab shows live match counts for each source so you know
+          how many tips lined up before you add a layer.
+        </li>
+        <li>
+          <strong>Export.</strong> Download as SVG or PNG, copy the figure to
+          the clipboard, export the page sheet (when the artboard is on), and
+          save the current tree to your library. A <em>Copy reference for a
+          note</em> button produces a <code>ros://</code> link you can paste
+          into any note to embed the tree as a live card.
+        </li>
+        <li>
+          <strong>Code.</strong> A generated ggtree R script that reproduces the
+          current figure in R, with a caveat that two rendering engines never
+          agree pixel-for-pixel.
+        </li>
+      </ul>
+
+      <Screenshot
+        src="/wiki/screenshots/phylo-studio-rectangular.png"
+        alt="The Tree Studio showing a rectangular phylogram with bootstrap support values on internal nodes, tip labels, and a colored clade highlight on the canvas, with the Layers tab open on the right."
+        caption="A rectangular phylogram with support values and a clade highlight. Layers on the right control the draw order of annotation tracks."
+      />
+
+      <Screenshot
+        src="/wiki/screenshots/phylo-studio-branch-color.png"
+        alt="The Tree Studio Shape tab with the Branch color by picker showing a metadata column selected, and the canvas rendering branches colored by that column with a legend."
+        caption="Branch color by column, set in the Shape tab. Any metadata column can drive the branch color."
+      />
+
+      <p>
         <strong>Annotation tracks.</strong> A finished figure is rarely just the
-        tree. The Studio layers the tracks a published phylogeny carries, tip
+        tree. The Studio layers the tracks a published phylogeny carries: tip
         labels, colored tip points, a color strip beside the tips, aligned bar
-        charts, a heatmap panel, clade highlights, and the bootstrap or posterior
-        support on each branch. Each track is toggled on or off, so you build up
-        exactly the figure you need.
+        charts, a heatmap panel, MRCA clade highlights, node pie charts, bracket
+        annotations, and the bootstrap or posterior support on each branch. Each
+        track is toggled on or off, so you build up exactly the figure you need.
       </p>
       <p>
         <strong>Linking your metadata.</strong> The tracks are driven by a metadata
-        table you link as a CSV, one row per tip with whatever columns you want to
-        show, a clade assignment, a country, a resistance call, an abundance. Real
-        tip labels are messy, often a strain name joined to an accession, so the
-        match is robust. It tries an exact match first, then a normalized one, then
-        a token match against composite labels, auto-detects which column holds the
-        tip identifier, and shows you a live count of how many tips it matched, so
-        you can see at a glance whether your table lined up.
+        table you link as a CSV in the Data tab, one row per tip with whatever
+        columns you want to show, a clade assignment, a country, a resistance call,
+        an abundance. Real tip labels are messy, often a strain name joined to an
+        accession, so the match is robust. It tries an exact match first, then a
+        normalized one, then a token match against composite labels, auto-detects
+        which column holds the tip identifier, and shows you a live count of how
+        many tips it matched, so you can see at a glance whether your table lined up.
       </p>
       <Screenshot
         src="/wiki/screenshots/phylo-studio-circular.png"
         alt="The Tree Studio showing a large circular tree with a colored clade strip and a resistance heatmap ring around the outside, drawn from a linked metadata CSV."
         caption="A circular layout with a clade color strip and a metadata heatmap ring. The rings are driven by the columns in the linked CSV."
       />
+
+      <h3>MSA alignment panel</h3>
+      <Screenshot
+        src="/wiki/screenshots/phylo-studio-msa.png"
+        alt="The Tree Studio with an MSA alignment panel rendered as a colored grid of sequence blocks beside the tree tips, joined to each tip by label."
+        caption="Drop an aligned FASTA in the Data tab and the MSA panel appears beside the tips. Sequences join to tips by label, the same way metadata does."
+      />
+      <p>
+        Drop an aligned FASTA in the Data tab and the Tree Studio adds an MSA
+        panel beside the tips. Sequences join to tips by label using the same
+        robust matcher as metadata. Long alignments are binned into blocks for
+        readability; the match-count line shows how many tips have a sequence.
+      </p>
+
+      <h3>ZoomPanCanvas and minimap</h3>
+      <p>
+        The canvas pans and zooms with the same trackpad-native model the Data Hub
+        and Figure Composer use: pinch or scroll to zoom at the cursor position, drag
+        to pan. A minimap thumbnail appears in the corner when you are zoomed in,
+        giving you a birds-eye view of the full tree with a rectangle showing the
+        current viewport. Click or drag the minimap rectangle to jump to that region.
+        A fit control snaps the tree back to fill the visible area, and a zoom
+        readout shows the current scale.
+      </p>
 
       <h3>Adding data straight from the Data Hub</h3>
       <p>

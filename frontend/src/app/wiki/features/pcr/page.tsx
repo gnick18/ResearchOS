@@ -10,11 +10,10 @@ export default function PCRFeaturePage() {
       title="PCR Protocols"
       intro="Save reusable PCR programs (temperature steps plus reagent mix) and attach them to experiments the same way you attach a method."
     >
-      {/* pcr-editor.png needs recapture: predates cyan band + Add Cycle modal + StepEditPopup flow */}
       <Screenshot
         src="/wiki/screenshots/pcr-editor.png"
-        alt="The PCR protocol editor with a row of colored temperature blocks on top and a reagent table below."
-        caption="The protocol editor, with the thermal gradient on top and the reagent table below."
+        alt="The PCR protocol editor showing the thermal gradient at the top with colored temperature blocks for each step, including one or more purple-outlined cycled sections, and the Reaction Recipe table below."
+        caption="The protocol editor. One or more cycled sections (purple dashed rectangles) can sit side by side in the gradient, each with its own repeat count and its own set of steps."
       />
 
       <h2>What a PCR protocol is</h2>
@@ -51,7 +50,11 @@ export default function PCRFeaturePage() {
         Reading the gradient panel left to right, every protocol moves through
         four zones in this order. The default that a brand-new protocol starts
         with shows all four, so a new protocol is also the quickest way to see
-        the layout.
+        the layout. A protocol can contain more than one cycled block when the
+        chemistry calls for it (for example, a touch-down PCR with two
+        consecutive cycle rectangles at different annealing temperatures). Each
+        cycled block has its own repeat count and its own set of steps, all
+        within the same gradient.
       </p>
       <ul>
         <li>
@@ -199,11 +202,10 @@ export default function PCRFeaturePage() {
         protocol starts from the unedited values.
       </p>
 
-      {/* pcr-reagent-totals.png needs recapture: predates ingredient checkoff column */}
       <Screenshot
         src="/wiki/screenshots/pcr-reagent-totals.png"
-        alt="The Reaction Recipe table with rows for each ingredient and a checkoff checkbox column, plus a Total row at the bottom."
-        caption="The recipe table sits below the gradient. The Total row at the bottom is a manual entry that holds your target reaction volume."
+        alt="The Reaction Recipe table showing ingredient rows, each with a checkoff checkbox on the left side and stock concentration and volume columns, plus the Total row at the bottom."
+        caption="The recipe table. Each ingredient row has a checkoff checkbox at the left. The Total row at the bottom is a manual entry for your target reaction volume and has no checkbox."
       />
 
       <h2>Checking off ingredients at the bench</h2>
@@ -222,13 +224,14 @@ export default function PCRFeaturePage() {
 
       <h2>Sharing</h2>
       <p>
-        Protocols are stored under your user by default and visible only to
-        you. The API supports a public flag that would write to{" "}
-        <code>users/public/pcr_protocols/</code>, but the{" "}
-        <strong>creation UI does not expose this toggle</strong>. Sharing a
-        PCR protocol is currently backend-only. The picker on each experiment
-        shows protocols from your own user folder and any that exist in the
-        public folder.
+        A PCR protocol is a method like any other, and it shares the same
+        Private/Public pill as every other method type. Open the protocol and
+        click the <strong>Private</strong> pill in the header to open the share
+        popup. Select <strong>All Lab Users</strong> and click{" "}
+        <strong>Apply</strong>. The pill flips to <strong>Public</strong> and
+        the protocol appears in every labmate&apos;s method picker. See{" "}
+        <Link href="/wiki/features/methods">Methods Library</Link> for the full
+        sharing model.
       </p>
 
       <Callout variant="tip" title="Variations stay on the experiment">

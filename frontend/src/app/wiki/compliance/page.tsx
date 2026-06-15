@@ -7,7 +7,7 @@ export default function ComplianceIndex() {
   const children = node?.children ?? [];
   return (
     <WikiPage
-      intro="Plain-English answers to the two questions labs ask before they trust an electronic notebook with grant-funded data. Does ResearchOS support the NIH Data Management & Sharing Policy, and how does it compare to LabArchives?"
+      intro="Plain-English answers to the questions labs ask before they trust an electronic notebook with grant-funded data. Does ResearchOS support the NIH Data Management &amp; Sharing Policy, how does it compare to LabArchives, and how do you deposit data to a repository when it is time to share?"
     >
       <div className="grid gap-3 not-prose mt-3 sm:grid-cols-2">
         {children.map((c) => (

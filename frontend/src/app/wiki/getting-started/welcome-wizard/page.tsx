@@ -54,31 +54,41 @@ export default function WelcomeWizardPage() {
         through your own account instead of front-loading taxonomy questions.
       </Callout>
 
-      <Callout variant="info" title="This is not the 3-minute walkthrough on the picker">
-        One quick thing to keep separate. The folder-picker screen (before you
-        link a folder) shows a small{" "}
+      <Callout variant="info" title="This is not the 3-minute walkthrough on the connect screen">
+        One quick thing to keep separate. The folder-connect screen (before you
+        connect a folder) shows a small{" "}
         <strong>Take the 3-minute walkthrough</strong>{" "}
-        button next to BeakerBot in the upper-right. That is a separate, opt-
-        in 4-beat modal that introduces ResearchOS at a high level (welcome,
-        data security, folder choice, cloud provider). It runs <em>before</em>{" "}
-        you commit to picking a folder, never writes to disk, and closes back
-        to the picker. The longer tour described on this page is the in-product
-        BeakerBot tour that auto-fires <em>after</em> you sign in to a fresh
-        user account. See{" "}
+        button next to BeakerBot in the upper-right. That is a separate, opt-in
+        4-beat modal that introduces ResearchOS at a high level (welcome, data
+        security, folder choice, cloud provider). It runs <em>before</em>{" "}
+        you commit to connecting a folder, never writes to disk, and closes back
+        to the connect screen. The longer tour described on this page is the
+        in-product BeakerBot tour that auto-fires <em>after</em> you sign in to
+        a fresh user account. See{" "}
         <Link href="/wiki/getting-started/connecting-your-folder">
           Connecting Your Folder
         </Link>{" "}
-        for the picker-side walkthrough.
+        for the connect-screen walkthrough.
       </Callout>
 
       <h2>Who sees the tour</h2>
       <p>
-        Nobody, anymore. The auto-fire path is hardcoded off, so a fresh
-        account lands straight on the normal empty state with no tour, no
-        banner, and no nag. The rest of this page describes how the tour
-        behaved while it was live, kept for reference and for the parts that
-        still ship (the setup questions used to seed your visible tabs).
+        Nobody, by default. The auto-fire path is off, so a fresh account
+        lands straight on the normal empty state with no tour, no banner, and
+        no nag. The rest of this page describes how the tour behaved while it
+        was live, kept for reference and for the parts that still ship (the
+        setup questions used to seed your visible tabs).
       </p>
+
+      <Callout variant="info" title="A new onboarding wizard is coming">
+        A simpler, account-gated BeakerBot-guided first-run experience is being
+        built behind the <code>NEXT_PUBLIC_ONBOARDING_WIZARD</code> flag (off by
+        default). It replaces the full tour described on this page with a
+        deterministic step machine and an LLM-powered skin, includes ephemeral
+        demo seeding, a capped AI token meter, and branching by area of interest.
+        When the flag is on, a fresh account triggers the new wizard instead of
+        the retired tour. The flag is not live in production yet.
+      </Callout>
 
       <h2>Phase 1, setup questions</h2>
       <p>

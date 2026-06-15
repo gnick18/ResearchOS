@@ -246,12 +246,14 @@ export default function NihDataManagementPage() {
       <Callout variant="info" title="Per-entry version history with restore ships today">
         Alongside the append-only PI audit log and soft-delete Trash,
         ResearchOS now keeps a full per-record version history with a restore
-        button and a 24-hour undo on notes, tasks, and projects. You can browse
-        prior versions, see who changed what, and roll an entry back. See{" "}
+        button and a 24-hour undo on notes, tasks, projects, and Results. You
+        can browse prior versions, see who changed what, and roll an entry
+        back. See{" "}
         <Link href="/wiki/features/version-history">Version history</Link>.
-        Results and methods do not have it yet, so if your plan requires a
-        complete versioned history of those two record types, account for that
-        narrower gap now.
+        The one remaining gap is standalone library Methods (the reusable
+        protocol records in your Methods library), which do not yet have
+        per-version history. If your plan requires a complete versioned history
+        of your method library, account for that narrower gap now.
       </Callout>
       <Callout variant="info" title="Structured grant and ORCID fields feed the deposit">
         ResearchOS has first-class fields for your ORCID iD (on your profile) and
