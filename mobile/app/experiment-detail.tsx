@@ -12,7 +12,14 @@
 // House style: no em-dashes, no emojis, no mid-sentence colons.
 import { useState } from 'react';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import {
+  ActivityIndicator,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  TextInput,
+  View,
+} from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
 import { ScreenFrame } from '@/components/ui/ScreenFrame';
@@ -23,6 +30,7 @@ import { useTodayState } from '@/lib/today-store';
 import { typeMeta } from '@/lib/method-library';
 import { usePairing } from '@/lib/pairing';
 import { captureToExperiment } from '@/lib/experiment-capture';
+import { postAppendLine } from '@/lib/calc-export';
 import type { RouteTab } from '@/lib/route-capture';
 import { useTheme, palette, fonts } from '@/lib/design';
 import type { SnapshotTask } from '@/lib/snapshots';
@@ -35,6 +43,9 @@ export default function ExperimentDetailScreen() {
   const { snapshot } = useTodayState();
   const [busyTab, setBusyTab] = useState<RouteTab | null>(null);
   const [status, setStatus] = useState<string | null>(null);
+  const [noteText, setNoteText] = useState('');
+  const [noteTab, setNoteTab] = useState<RouteTab>('notes');
+  const [noteSending, setNoteSending] = useState(false);
 
   // Find the task across all three buckets (today / overdue / upcoming).
   const allTasks: SnapshotTask[] = [
@@ -89,6 +100,34 @@ export default function ExperimentDetailScreen() {
       );
     } finally {
       setBusyTab(null);
+    }
+  };
+
+  const sendNote = async () => {
+    const text = noteText.trim();
+    if (!canAdd || !task?.owner || !text || noteSending) return;
+    const pub = pairing?.userX25519PubHex ?? '';
+    const where = noteTab === 'results' ? 'Results' : 'Lab Notes';
+    setNoteSending(true);
+    setStatus(null);
+    try {
+      if (!pairing) {
+        setStatus('Pair this phone to send a note to the experiment.');
+        return;
+      }
+      if (!pub) {
+        setStatus('Re-pair this phone to send notes (missing key).');
+        return;
+      }
+      // postAppendLine seals + posts the append-line command the laptop already
+      // handles (appends to the experiment's notes/results markdown doc).
+      await postAppendLine(numericTaskId, task.owner, noteTab, text, pub, pairing.relayUrl);
+      setNoteText('');
+      setStatus(`Note added to ${where} for this experiment.`);
+    } catch {
+      setStatus('Could not send the note. Try again when back online.');
+    } finally {
+      setNoteSending(false);
     }
   };
 
@@ -168,6 +207,9 @@ export default function ExperimentDetailScreen() {
             <ThemedText style={[styles.sectionLabel, { color: surface.muted }]}>
               ADD TO THIS EXPERIMENT
             </ThemedText>
+            <ThemedText style={[styles.subLabel, { color: surface.muted }]}>
+              Photo
+            </ThemedText>
             <View style={styles.addRow}>
               <Pressable
                 onPress={() => addTo('notes')}
@@ -208,6 +250,73 @@ export default function ExperimentDetailScreen() {
                 <ThemedText style={[styles.addBtnText, { color: surface.text }]}>
                   Results
                 </ThemedText>
+              </Pressable>
+            </View>
+
+            <ThemedText style={[styles.subLabel, { color: surface.muted }]}>
+              Note
+            </ThemedText>
+            <TextInput
+              value={noteText}
+              onChangeText={setNoteText}
+              placeholder="Write a note for this experiment..."
+              placeholderTextColor={surface.muted}
+              multiline
+              style={[
+                styles.noteInput,
+                { backgroundColor: surface.surface, borderColor: surface.border, color: surface.text },
+              ]}
+            />
+            <View style={styles.noteRow}>
+              <View style={styles.tabToggle}>
+                {(['notes', 'results'] as RouteTab[]).map((tb) => {
+                  const active = noteTab === tb;
+                  return (
+                    <Pressable
+                      key={tb}
+                      onPress={() => setNoteTab(tb)}
+                      style={[
+                        styles.tabPill,
+                        {
+                          backgroundColor: active ? palette.sky : surface.surface,
+                          borderColor: active ? palette.sky : surface.border,
+                        },
+                      ]}
+                      accessibilityRole="button"
+                      accessibilityState={{ selected: active }}
+                    >
+                      <ThemedText
+                        style={[
+                          styles.tabPillText,
+                          { color: active ? palette.white : surface.muted },
+                        ]}
+                      >
+                        {tb === 'results' ? 'Results' : 'Lab Notes'}
+                      </ThemedText>
+                    </Pressable>
+                  );
+                })}
+              </View>
+              <Pressable
+                onPress={sendNote}
+                disabled={noteSending || noteText.trim().length === 0}
+                style={[
+                  styles.sendBtn,
+                  {
+                    backgroundColor: palette.sky,
+                    opacity: noteSending || noteText.trim().length === 0 ? 0.5 : 1,
+                  },
+                ]}
+                accessibilityRole="button"
+                accessibilityLabel="Send note to this experiment"
+              >
+                {noteSending ? (
+                  <ActivityIndicator size="small" color={palette.white} />
+                ) : (
+                  <ThemedText style={[styles.sendBtnText, { color: palette.white }]}>
+                    Send
+                  </ThemedText>
+                )}
               </Pressable>
             </View>
             {status ? (
@@ -264,7 +373,56 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   addSection: { marginTop: 8 },
+  subLabel: {
+    marginTop: 14,
+    marginBottom: 6,
+    fontSize: 12,
+    fontFamily: fonts.semibold,
+    fontWeight: '600',
+  },
   addRow: { flexDirection: 'row', gap: 10 },
+  noteInput: {
+    borderWidth: 1,
+    borderRadius: 14,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    minHeight: 72,
+    fontSize: 15,
+    fontFamily: fonts.medium,
+    textAlignVertical: 'top',
+  },
+  noteRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: 10,
+    gap: 10,
+  },
+  tabToggle: { flexDirection: 'row', gap: 8, flex: 1 },
+  tabPill: {
+    borderWidth: 1,
+    borderRadius: 999,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+  },
+  tabPillText: {
+    fontSize: 13,
+    fontFamily: fonts.semibold,
+    fontWeight: '600',
+  },
+  sendBtn: {
+    borderRadius: 12,
+    paddingHorizontal: 22,
+    paddingVertical: 10,
+    minWidth: 72,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  sendBtnText: {
+    fontSize: 15,
+    fontFamily: fonts.semibold,
+    fontWeight: '600',
+  },
   addBtn: {
     flex: 1,
     flexDirection: 'row',
