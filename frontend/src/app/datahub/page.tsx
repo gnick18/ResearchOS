@@ -2107,6 +2107,7 @@ export default function DataHubPage() {
           primary: true,
           tooltip: "Choose a statistical test to run on this table.",
           testId: "datahub-toolbar-analyze",
+          tutorTarget: "datahub-analyze-button",
         },
         {
           icon: "chart",
