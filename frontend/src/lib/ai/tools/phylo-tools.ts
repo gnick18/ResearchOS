@@ -589,14 +589,18 @@ export function resolveBuilderOptions(args: Record<string, unknown>): {
 
 // The recipe fields each side accepts. Same loose values generate_tree takes, so
 // resolveBuilderOptions maps them through the catalog identically on both sides.
+// The wire enum must be plain string values, NOT the catalog's {value,label,hint}
+// objects. Fireworks (OpenAI-compatible) hard-rejects an enum of objects with a
+// 400 ("could not translate the enum ..."), which takes the WHOLE tool list — and
+// thus all of BeakerBot — down. Map each catalog option to its `.value`.
 const RECIPE_SIDE_PROPS = {
-  dataType: { type: "string", enum: DATA_TYPES, description: "nucleotide or protein." },
-  align: { type: "string", enum: ALIGN_TOOLS, description: "Aligner." },
-  trim: { type: "string", enum: TRIM_TOOLS, description: "Alignment trimming tool." },
-  model: { type: "string", enum: MODEL_CHOICES, description: "modelfinder, or fixed to pass fixedModel." },
+  dataType: { type: "string", enum: DATA_TYPES.map((o) => o.value), description: "nucleotide or protein." },
+  align: { type: "string", enum: ALIGN_TOOLS.map((o) => o.value), description: "Aligner." },
+  trim: { type: "string", enum: TRIM_TOOLS.map((o) => o.value), description: "Alignment trimming tool." },
+  model: { type: "string", enum: MODEL_CHOICES.map((o) => o.value), description: "modelfinder, or fixed to pass fixedModel." },
   fixedModel: { type: "string", description: "The exact substitution model string when model is fixed (e.g. GTR+G)." },
-  infer: { type: "string", enum: INFER_TOOLS, description: "Tree-inference method." },
-  support: { type: "string", enum: SUPPORT_CHOICES, description: "Branch-support method." },
+  infer: { type: "string", enum: INFER_TOOLS.map((o) => o.value), description: "Tree-inference method." },
+  support: { type: "string", enum: SUPPORT_CHOICES.map((o) => o.value), description: "Branch-support method." },
   ufbootReps: { type: "number", description: "Ultrafast bootstrap replicates (when support is ufboot)." },
   bsReps: { type: "number", description: "Standard bootstrap replicates (when support is bootstrap)." },
   outgroup: { type: "string", description: "Outgroup taxon for rooting, empty if none." },
