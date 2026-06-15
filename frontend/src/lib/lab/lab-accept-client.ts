@@ -3,7 +3,7 @@
 // Three thin calls over the LabRecordDO's /lab/accept* routes:
 //   postLabAccept    MEMBER side: post a signed accept (open write).
 //   listLabAccepts   HEAD side: read pending accepts (head-signed).
-//   dismissLabAccept HEAD side: remove one accept by nonce (head-signed).
+//   dismissLabAccept HEAD side: remove one accept by member pubkey (head-signed).
 //
 // The head-signed reads/dismisses carry an issuedAt the DO checks for freshness
 // (a 5-minute window) so a captured request cannot be replayed indefinitely.
@@ -84,18 +84,18 @@ export async function listLabAccepts(
 }
 
 /**
- * HEAD side. Removes one pending accept by nonce after finalizing it. Signs
- * "lab-accept-dismiss\n<labId>\n<nonce>\n<issuedAt>".
+ * HEAD side. Removes one pending accept by the member's pubkey after finalizing
+ * it. Signs "lab-accept-dismiss\n<labId>\n<memberPubkey>\n<issuedAt>".
  */
 export async function dismissLabAccept(
   labId: string,
-  nonce: string,
+  memberPubkey: string,
   headEd25519Priv: Uint8Array,
 ): Promise<Response> {
   ensureEnabled();
   const issuedAt = Date.now();
   const signature = signHex(
-    `lab-accept-dismiss\n${labId}\n${nonce}\n${issuedAt}`,
+    `lab-accept-dismiss\n${labId}\n${memberPubkey}\n${issuedAt}`,
     headEd25519Priv,
   );
   return fetch(
@@ -103,7 +103,7 @@ export async function dismissLabAccept(
     {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ nonce, issuedAt, signature }),
+      body: JSON.stringify({ memberPubkey, issuedAt, signature }),
     },
   );
 }

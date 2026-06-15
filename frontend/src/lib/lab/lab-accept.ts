@@ -39,7 +39,9 @@ import {
 /** The member's signed accept, stored in the lab's accept queue. */
 export interface LabAcceptPayload {
   labId: string;
-  /** Mirrors invite.nonce; the queue is keyed by it (one pending accept/nonce). */
+  /** Mirrors invite.nonce. The relay accept queue is keyed by memberEd25519Pub
+   * (one pending accept per member), so a single reusable invite link admits
+   * many members. */
   nonce: string;
   /** The invite echoed back, so the head verifies its own signature statelessly. */
   invite: LabInvitePayload;

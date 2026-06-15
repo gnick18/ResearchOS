@@ -308,5 +308,100 @@ const gen1Envelope = {
   check("(k) get on a missing lab returns 404", res.status === 404);
 }
 
+// ---- accept queue: ONE reusable invite link admits MANY members -------------
+// The relay only shape-validates the accept on push (the crypto is the head's
+// job at finalize). What matters at the storage layer is that the queue is keyed
+// by the member's Ed25519 pubkey, NOT the invite nonce, so two members opening
+// the SAME link (same nonce, different member pubkeys) both get a pending row.
+//
+// Build a minimally well-formed accept the push handler accepts. The `invite`
+// only has to be an object here; head verification of its signature happens
+// client-side at finalize, which is out of scope for the relay.
+function buildAccept(labId, nonce, memberPubHex) {
+  return {
+    labId,
+    nonce,
+    invite: { labId, nonce }, // shape-only; head verifies it at finalize
+    memberUsername: `m-${memberPubHex.slice(0, 6)}`,
+    memberX25519Pub: "ab".repeat(32),
+    memberEd25519Pub: memberPubHex,
+    sealedEmail: "cd".repeat(48),
+    memberSig: "ef".repeat(64),
+  };
+}
+
+// Use a fresh lab so this section is independent of the earlier roster state.
+const labQ = `lab-accept-q-${Date.now()}`;
+const qHead = keypair();
+{
+  const g = signEntry(
+    { seq: 0, type: "create", keyGeneration: 0, roster: [{ username: "pi", x25519PublicKey: "11".repeat(32), ed25519PublicKey: qHead.pub, role: "head" }], subject: null, issuedAt: Date.now(), prevHash: "" },
+    qHead.priv,
+  );
+  const res = await postJson(`/lab/create?lab=${labQ}`, {
+    entry: g,
+    envelope: { generation: 0, copies: [], seedLink: "22".repeat(60) },
+  });
+  check("(l) accept-queue: lab create returns 200", res.status === 200);
+}
+
+const sharedNonce = "nonce-shared-link";
+const memberA = keypair();
+const memberB = keypair();
+
+// Two members open the SAME link (same nonce) but sign in as DIFFERENT identities.
+{
+  const ra = await postJson(`/lab/accept?lab=${labQ}`, { accept: buildAccept(labQ, sharedNonce, memberA.pub) });
+  const rb = await postJson(`/lab/accept?lab=${labQ}`, { accept: buildAccept(labQ, sharedNonce, memberB.pub) });
+  check("(m) accept-queue: member A push returns 200", ra.status === 200);
+  check("(m) accept-queue: member B push (same nonce) returns 200", rb.status === 200);
+}
+
+function signQ(message) {
+  return bytesToHex(ed25519.sign(new TextEncoder().encode(message), qHead.priv));
+}
+
+// Head lists: BOTH pending accepts persist, proving a reusable link admits many.
+{
+  const issuedAt = Date.now();
+  const signature = signQ(`lab-accept-list\n${labQ}\n${issuedAt}`);
+  const res = await postJson(`/lab/accept/list?lab=${labQ}`, { issuedAt, signature });
+  const data = await res.json();
+  const pubs = (data.accepts ?? []).map((a) => a.memberEd25519Pub).sort();
+  const ok =
+    res.status === 200 &&
+    data.accepts.length === 2 &&
+    pubs.includes(memberA.pub) &&
+    pubs.includes(memberB.pub);
+  check("(n) accept-queue: same-nonce, different-member accepts BOTH persist", ok);
+}
+
+// Dismiss member A by their pubkey; member B's pending accept must remain.
+{
+  const issuedAt = Date.now();
+  const signature = signQ(`lab-accept-dismiss\n${labQ}\n${memberA.pub}\n${issuedAt}`);
+  const res = await postJson(`/lab/accept/dismiss?lab=${labQ}`, { memberPubkey: memberA.pub, issuedAt, signature });
+  check("(o) accept-queue: dismiss member A by pubkey returns 200", res.status === 200);
+}
+{
+  const issuedAt = Date.now();
+  const signature = signQ(`lab-accept-list\n${labQ}\n${issuedAt}`);
+  const res = await postJson(`/lab/accept/list?lab=${labQ}`, { issuedAt, signature });
+  const data = await res.json();
+  const ok =
+    res.status === 200 &&
+    data.accepts.length === 1 &&
+    data.accepts[0].memberEd25519Pub === memberB.pub;
+  check("(o) accept-queue: dismissing one member leaves the other pending", ok);
+}
+
+// Dismiss without memberPubkey is a 400.
+{
+  const issuedAt = Date.now();
+  const signature = signQ(`lab-accept-dismiss\n${labQ}\n\n${issuedAt}`);
+  const res = await postJson(`/lab/accept/dismiss?lab=${labQ}`, { issuedAt, signature });
+  check("(p) accept-queue: dismiss without memberPubkey returns 400", res.status === 400);
+}
+
 console.log(pass ? "\nRESULT: ALL PASS" : "\nRESULT: FAIL");
 process.exit(pass ? 0 : 1);
