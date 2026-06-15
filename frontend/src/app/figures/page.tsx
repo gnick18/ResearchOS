@@ -1,76 +1,65 @@
 "use client";
 
+// The /figures entry point. There is no separate landing hub any more: the file
+// list lives in the composer's left rail. So this route opens straight into the
+// most recent figure page, or shows a one-button empty state when there are none.
+
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Icon } from "@/components/icons";
-import {
-  listFigurePages,
-  createFigurePageDoc,
-} from "@/lib/figure/figure-page-store";
-import type { FigurePage } from "@/lib/figure/figure-page";
+import AppShell from "@/components/AppShell";
+import { listFigurePages, createFigurePageDoc } from "@/lib/figure/figure-page-store";
 
 export default function FiguresHome() {
   const router = useRouter();
-  const [pages, setPages] = useState<FigurePage[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [state, setState] = useState<"loading" | "empty">("loading");
 
   useEffect(() => {
     let live = true;
-    void listFigurePages().then((p) => {
-      if (live) {
-        setPages(p);
-        setLoading(false);
+    void listFigurePages().then((pages) => {
+      if (!live) return;
+      if (pages.length > 0) {
+        router.replace(`/figures/${pages[0].id}`);
+      } else {
+        setState("empty");
       }
     });
     return () => {
       live = false;
     };
-  }, []);
+  }, [router]);
 
   const create = async () => {
     const page = await createFigurePageDoc("Untitled figure", null);
-    router.push(`/figures/${page.id}`);
+    router.replace(`/figures/${page.id}`);
   };
 
   return (
-    <div className="mx-auto max-w-4xl p-8">
-      <div className="mb-6 flex items-center justify-between">
-        <div>
-          <h1 className="text-xl font-bold">Figures</h1>
-          <p className="text-body text-foreground-muted">
-            Multi-panel publication pages, composed from your plots, trees, and maps.
-          </p>
-        </div>
-        <button
-          type="button"
-          onClick={create}
-          className="flex items-center gap-1.5 rounded-lg bg-brand-action px-3 py-2 text-meta font-semibold text-white hover:opacity-90"
-        >
-          <Icon name="plus" className="h-3.5 w-3.5" /> New figure page
-        </button>
-      </div>
-
-      {loading && <p className="text-body text-foreground-muted">Loading...</p>}
-      {!loading && pages.length === 0 && (
-        <div className="rounded-xl border border-dashed border-border p-10 text-center text-body text-foreground-muted">
-          No figure pages yet. Create one to arrange several figures on a publication page.
-        </div>
-      )}
-      <div className="grid grid-cols-2 gap-4 md:grid-cols-3">
-        {pages.map((p) => (
-          <button
-            key={p.id}
-            type="button"
-            onClick={() => router.push(`/figures/${p.id}`)}
-            className="rounded-xl border border-border p-4 text-left hover:border-brand-action"
-          >
-            <div className="mb-2 flex aspect-[4/3] items-center justify-center rounded-md bg-surface-sunken text-meta text-foreground-faint">
-              {p.panels.length} panel{p.panels.length === 1 ? "" : "s"}
+    <AppShell>
+      <div className="flex h-full flex-col items-center justify-center gap-4 p-8 text-center">
+        {state === "loading" ? (
+          <p className="text-body text-foreground-muted">Opening your figures...</p>
+        ) : (
+          <>
+            <Icon name="figure" className="h-10 w-10 text-foreground-faint" />
+            <div>
+              <h1 className="text-heading font-semibold text-foreground">Make your first figure</h1>
+              <p className="mt-1 max-w-sm text-body text-foreground-muted">
+                Arrange your plots, trees, sequences, and icons on one publication page, then export
+                a single clean vector.
+              </p>
             </div>
-            <p className="truncate text-body font-medium">{p.name}</p>
-          </button>
-        ))}
+            <button
+              type="button"
+              onClick={create}
+              className="flex items-center gap-1.5 rounded-lg bg-brand-action px-4 py-2 text-meta font-semibold text-white hover:opacity-90"
+              data-testid="figure-create-first"
+            >
+              <Icon name="plus" className="h-3.5 w-3.5" /> New figure
+            </button>
+          </>
+        )}
       </div>
-    </div>
+    </AppShell>
   );
 }

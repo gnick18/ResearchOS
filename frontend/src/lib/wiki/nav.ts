@@ -565,7 +565,7 @@ export const WIKI_NAV: WikiNode[] = [
       {
         href: "/wiki/trust/how-we-fund-it",
         label: "How it stays free",
-        blurb: "Grant-funded through a UW Distinguished Research Fellowship at UW-Madison, no per-seat fees.",
+        blurb: "Open source and local-first, so there are no servers to fund and no per-seat fees.",
       },
     ],
   },

@@ -11,12 +11,13 @@
 
 import React, { useCallback, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import Svg, { Path, Circle } from 'react-native-svg';
+import Svg, { Path } from 'react-native-svg';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ScreenFrame } from '@/components/ui/ScreenFrame';
+import { TabHeader } from '@/components/ui/TabHeader';
 import { ActiveExperimentsBand } from '@/components/TodayPanel';
 import { useTheme, fonts, spacing, radii } from '@/lib/design';
 import { usePairing } from '@/lib/pairing';
@@ -75,13 +76,6 @@ function fmtCountdown(ms: number): string {
 }
 
 // Short date like "Jun 16" from an ISO/date string.
-function shortDate(value?: string): string {
-  if (!value) return '';
-  const ms = Date.parse(value);
-  if (Number.isNaN(ms)) return '';
-  return new Date(ms).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
-}
-
 export default function HomeScreen() {
   const t = useTheme();
   const router = useRouter();
@@ -162,14 +156,11 @@ export default function HomeScreen() {
       ? `Synced ${synced}`
       : 'Waiting for first sync';
 
-  // Today snapshot, partitioned the same way the Today panel does it.
-  const allTasks = today?.tasks ?? [];
-  const experiments = allTasks.filter((task) => task.task_type === 'experiment');
-  const todayTasks = allTasks.filter((task) => task.task_type !== 'experiment');
-  const overdueTasks = today?.overdueTasks ?? [];
-  const upcomingTasks = today?.upcomingTasks ?? [];
-  const dueCount = todayTasks.length + overdueTasks.length;
-  const hasAnyToday = todayTasks.length + overdueTasks.length + upcomingTasks.length > 0;
+  // Active experiments still surface on Home as a glance band; the rest of the
+  // Today schedule lives in the header Today dropdown (one source of truth).
+  const experiments = (today?.tasks ?? []).filter(
+    (task) => task.task_type === 'experiment',
+  );
 
   // Running timer (local store, ticks once a second). Hidden when none.
   const running = timers.find((tm) => tm.status === 'running');
@@ -192,54 +183,11 @@ export default function HomeScreen() {
     </Pressable>
   );
 
-  // One Today/Overdue/Coming-up row in the Home card style.
-  const taskRow = (
-    name: string | undefined,
-    rightLabel: string,
-    tone: 'today' | 'over' | 'soon',
-    key: string,
-    first: boolean,
-  ) => {
-    const tickColor = tone === 'over' ? p.danger : tone === 'soon' ? p.amber : p.sky;
-    return (
-      <View key={key} style={[styles.taskRow, !first && { borderTopWidth: 1, borderTopColor: s.hairline }]}>
-        <View style={[styles.checkbox, { borderColor: tickColor }]} />
-        <Text style={[styles.taskT, { color: tone === 'over' ? p.danger : s.text }]} numberOfLines={1}>
-          {name && name.length > 0 ? name : 'Untitled task'}
-        </Text>
-        <Text style={[styles.taskW, { color: tone === 'over' ? p.danger : s.muted }]}>{rightLabel}</Text>
-      </View>
-    );
-  };
-
   return (
     <ScreenFrame edges={['top']}>
       {/* header */}
       <View style={styles.head}>
-        <View style={styles.headText}>
-          <Text style={[styles.greet, { color: s.muted }]} numberOfLines={1}>{greeting}</Text>
-          <Text style={[styles.title, { color: s.text }]} numberOfLines={1}>Home</Text>
-        </View>
-        <View style={styles.headActions}>
-          <Pressable style={[styles.iconBtn, { backgroundColor: s.surface, borderColor: s.border }, t.shadow.sm]} onPress={() => router.push('/notifications')}>
-            <Ic d="M6 9a6 6 0 0 1 12 0c0 7 3 8 3 8H3s3-1 3-8M9.5 21a2.5 2.5 0 0 0 5 0" color={s.text} size={19} sw={1.7} />
-          </Pressable>
-          <Pressable style={[styles.iconBtn, { backgroundColor: s.surface, borderColor: s.border }, t.shadow.sm]} onPress={() => router.push('/modal')}>
-            <Svg width={19} height={19} viewBox="0 0 24 24">
-              {/* Settings gear (matches TabHeader's settings-outline; the old
-                  rayed glyph read as a sun). */}
-              <Circle cx={12} cy={12} r={3} stroke={s.text} strokeWidth={1.7} fill="none" />
-              <Path
-                d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"
-                stroke={s.text}
-                strokeWidth={1.7}
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                fill="none"
-              />
-            </Svg>
-          </Pressable>
-        </View>
+        <TabHeader title="Home" eyebrow={greeting} />
       </View>
 
       <ScrollView style={styles.scroll} contentContainerStyle={{ paddingHorizontal: spacing.lg, paddingBottom: insets.bottom + 96 }} showsVerticalScrollIndicator={false}>
@@ -296,39 +244,8 @@ export default function HomeScreen() {
           </>
         ) : null}
 
-        {/* today */}
-        <Label action={dueCount > 0 ? `${dueCount} due` : undefined}>Today</Label>
-        {hasAnyToday ? (
-          <View style={[styles.card, { backgroundColor: s.surface, borderColor: s.border }, t.shadow.sm]}>
-            {overdueTasks.map((task, i) =>
-              taskRow(task.name, 'Overdue', 'over', task.id ?? `over-${i}`, i === 0),
-            )}
-            {todayTasks.map((task, i) =>
-              taskRow(
-                task.name,
-                task.task_type ?? 'Today',
-                'today',
-                task.id ?? `today-${i}`,
-                overdueTasks.length === 0 && i === 0,
-              ),
-            )}
-            {upcomingTasks.map((task, i) =>
-              taskRow(
-                task.name,
-                shortDate(task.start_date) || 'Soon',
-                'soon',
-                task.id ?? `soon-${i}`,
-                overdueTasks.length === 0 && todayTasks.length === 0 && i === 0,
-              ),
-            )}
-          </View>
-        ) : (
-          <View style={[styles.card, styles.emptyCard, { backgroundColor: s.surface, borderColor: s.border }, t.shadow.sm]}>
-            <Text style={[styles.emptyTxt, { color: s.muted }]}>
-              {pairing ? 'Nothing scheduled for today.' : 'Connect a laptop to see your schedule.'}
-            </Text>
-          </View>
-        )}
+        {/* Today list lives in the header Today dropdown now (one source of
+            truth); Home no longer duplicates the schedule. */}
 
         {/* tools launcher */}
         <Label>Tools</Label>
@@ -380,12 +297,7 @@ export default function HomeScreen() {
 }
 
 const styles = StyleSheet.create({
-  head: { paddingHorizontal: spacing.lg, paddingTop: 6, paddingBottom: 10, flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between', gap: 10 },
-  headText: { flex: 1, minWidth: 0 },
-  greet: { fontSize: 12.5, fontFamily: fonts.semibold, marginBottom: 5 },
-  title: { fontSize: 27, fontFamily: fonts.extrabold, letterSpacing: -0.8, lineHeight: 30 },
-  headActions: { flexDirection: 'row', gap: 8 },
-  iconBtn: { width: 38, height: 38, borderRadius: 12, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
+  head: { paddingHorizontal: spacing.lg, paddingTop: 6, paddingBottom: 10 },
   scroll: { flex: 1 },
   statusCard: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 14, paddingHorizontal: 15, borderRadius: radii.lg, borderWidth: 1 },
   pulse: { width: 42, height: 42, borderRadius: 13, alignItems: 'center', justifyContent: 'center' },

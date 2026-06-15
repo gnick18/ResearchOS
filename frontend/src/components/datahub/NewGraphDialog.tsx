@@ -23,6 +23,10 @@ import type {
 import { groupColumns } from "@/lib/datahub/column-table";
 import { yColumns } from "@/lib/datahub/xy-table";
 import type { PlotKind, FitModelId } from "@/lib/datahub/plot-spec";
+import {
+  findRegressionAnalysis,
+  findRocAnalysis,
+} from "@/lib/datahub/table-capabilities";
 
 export interface NewGraphSubmit {
   kind: PlotKind;
@@ -154,22 +158,6 @@ function defaultFitModel(
   return "none";
 }
 
-/** Find a stored regression on the table (its residuals feed the diagnostics). */
-function findRegression(content: DataHubDocContent | null): AnalysisSpec | null {
-  if (!content) return null;
-  return (
-    content.analyses.find(
-      (a) => a.type === "linearRegression" || a.type === "multipleRegression",
-    ) ?? null
-  );
-}
-
-/** Find a stored ROC curve analysis on the table (it feeds the ROC visual). */
-function findRoc(content: DataHubDocContent | null): AnalysisSpec | null {
-  if (!content) return null;
-  return content.analyses.find((a) => a.type === "rocCurve") ?? null;
-}
-
 export default function NewGraphDialog({
   open,
   content,
@@ -194,8 +182,14 @@ export default function NewGraphDialog({
   // The analyses on the table that a diagnostic plot can draw from. A regression
   // feeds the residual plot (and lets the QQ plot use its residuals); a ROC curve
   // analysis feeds the ROC visual.
-  const regression = useMemo(() => findRegression(content), [content]);
-  const roc = useMemo(() => findRoc(content), [content]);
+  const regression = useMemo(
+    () => (content ? findRegressionAnalysis(content) : null),
+    [content],
+  );
+  const roc = useMemo(
+    () => (content ? findRocAnalysis(content) : null),
+    [content],
+  );
 
   const [kind, setKind] = useState<PlotKind>("columnScatter");
   const [useBrackets, setUseBrackets] = useState(true);

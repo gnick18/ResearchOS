@@ -77,7 +77,16 @@ export function _resetAssetManifestCache(): void {
 /** Fetch one asset's raw SVG text (for inlining + recolor). Null on failure. */
 export async function fetchAssetSvg(asset: Pick<LibraryAsset, "svgPath">): Promise<string | null> {
   try {
-    const res = await fetch(assetSvgUrl(asset), { cache: "force-cache" });
+    // The picker thumbnails request the bare SVG URL via <img> with NO Origin
+    // header, so the CDN (Cloudflare in front of R2) can cache that response
+    // WITHOUT Access-Control-Allow-Origin. A later cross-origin fetch() then
+    // fails on the cached header-less variant ("Failed to fetch") and the placed
+    // icon renders empty. A fetch-only query suffix gives this request its OWN
+    // cache entry, only ever populated by Origin-bearing fetches, so it always
+    // carries the CORS header (and still caches). The bare <img> URL is untouched.
+    // The proper long-term fix is an unconditional Access-Control-Allow-Origin on
+    // the assets domain (a CDN response-header rule); this keeps icons working now.
+    const res = await fetch(`${assetSvgUrl(asset)}?cors=1`, { cache: "force-cache" });
     if (!res.ok) return null;
     return await res.text();
   } catch {

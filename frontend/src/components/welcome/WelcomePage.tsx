@@ -1222,8 +1222,8 @@ export default function WelcomePage({
             <div className="mt-6 flex flex-col items-center gap-3">
               <RoadmapChip />
               <p className="text-meta text-[#94a3b8]">
-                Free and open, funded by a UW Distinguished Research Fellowship
-                and donations. Curious how the optional cloud is priced?{" "}
+                Free and open source. It grew out of a UW-Madison Distinguished
+                Research Fellowship. Curious how the optional cloud is priced?{" "}
                 <a
                   href="/pricing"
                   className="font-semibold text-brand-action hover:text-brand-ink"

@@ -81,8 +81,9 @@ export default function CloudAndPlansPage() {
       <h2>Plans and how it is paid for</h2>
       <p>
         The local-first core is free and open source under the AGPLv3, with
-        every feature included. It is supported by a UW Distinguished Research Fellowship at UW-Madison
-        and by voluntary contributions. Cloud storage above the free pool comes
+        every feature included. Because your data lives on your own disk there is
+        very little to run, and voluntary contributions help sustain it. Cloud
+        storage above the free pool comes
         as flat-price plans. Individuals and labs pay only what it costs us to
         run, and larger institutions pay a modest sustaining rate above that,
         which keeps ResearchOS free for individual researchers and funds the

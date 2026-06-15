@@ -43,6 +43,9 @@ import { useRouter } from 'expo-router';
 
 import { ThemedText } from '@/components/themed-text';
 import { RainbowBar } from '@/components/ui/RainbowBar';
+import { LinearGradient } from 'expo-linear-gradient';
+import { Ionicons } from '@expo/vector-icons';
+
 import { useTheme, palette, fonts } from '@/lib/design';
 import type { SnapshotTask } from '@/lib/snapshots';
 
@@ -222,9 +225,9 @@ export function TodayPanel({
 
         {/* Three glanceable stat tiles. */}
         <View style={styles.stats}>
-          <StatTile count={tasks.length} label="Today" tone="today" dark={dark} />
-          <StatTile count={overdue} label="Overdue" tone="over" dark={dark} />
-          <StatTile count={upcoming} label="Coming up" tone="soon" dark={dark} />
+          <StatTile count={tasks.length} label="Today" tone="today" />
+          <StatTile count={overdue} label="Overdue" tone="over" />
+          <StatTile count={upcoming} label="Coming up" tone="soon" />
         </View>
 
         <ScrollView
@@ -491,38 +494,45 @@ export function ActiveExperimentsBand({
 // ── Stat tile ────────────────────────────────────────────────────────────────
 
 // A single glanceable count tile (Today sky / Overdue red / Coming up amber).
+// Glanceable stat tile, styled to match the Notebook capture cards: a saturated
+// gradient fill, a white glyph in a translucent tile, white count + label, and a
+// soft circle accent bleeding off the bottom-right corner.
 function StatTile({
   count,
   label,
   tone,
-  dark,
 }: {
   count: number;
   label: string;
   tone: 'today' | 'over' | 'soon';
-  dark: boolean;
 }) {
-  const { surface } = useTheme();
-  let bg = surface.sunken;
-  let border = surface.border;
-  let numColor = surface.text;
-  if (tone === 'today') {
-    bg = dark ? 'rgba(26,160,230,0.16)' : palette.skyLight;
-    border = palette.skyBorder;
-    numColor = palette.sky;
-  } else if (tone === 'over') {
-    bg = dark ? 'rgba(220,38,38,0.18)' : palette.dangerLight;
-    border = palette.dangerBorder;
-    numColor = palette.danger;
-  } else {
-    bg = dark ? 'rgba(245,158,11,0.16)' : palette.amberDim;
-    border = palette.amberBorder;
-    numColor = palette.amber;
-  }
+  const grad: readonly [string, string] =
+    tone === 'today'
+      ? [palette.sky, '#39B4FF']
+      : tone === 'over'
+        ? ['#FF6F61', '#FF9182']
+        : ['#F59E0B', '#FBBF24'];
+  const icon =
+    tone === 'today'
+      ? 'today-outline'
+      : tone === 'over'
+        ? 'alert-circle-outline'
+        : 'time-outline';
   return (
-    <View style={[styles.stat, { backgroundColor: bg, borderColor: border }]}>
-      <ThemedText style={[styles.statNum, { color: numColor }]}>{count}</ThemedText>
-      <ThemedText style={[styles.statLabel, { color: surface.muted }]}>
+    <View style={styles.stat}>
+      <LinearGradient
+        colors={grad}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={StyleSheet.absoluteFill}
+        pointerEvents="none"
+      />
+      <View style={styles.statBlob} pointerEvents="none" />
+      <View style={styles.statIconTile}>
+        <Ionicons name={icon} size={15} color={palette.white} />
+      </View>
+      <ThemedText style={styles.statNum}>{count}</ThemedText>
+      <ThemedText numberOfLines={1} style={styles.statLabel}>
         {label}
       </ThemedText>
     </View>
@@ -652,26 +662,54 @@ const styles = StyleSheet.create({
   stats: { flexDirection: 'row', gap: 9, marginBottom: 13 },
   stat: {
     flex: 1,
-    borderWidth: 1,
     borderRadius: 16,
-    paddingVertical: 13,
-    paddingHorizontal: 10,
-    alignItems: 'center',
-    // Soft lift so the tinted tiles read as elevated, per the contract.
+    paddingHorizontal: 12,
+    paddingVertical: 12,
+    minHeight: 92,
+    overflow: 'hidden', // clip the corner blob to the rounded card
+    justifyContent: 'flex-end', // count + label sit at the bottom-left
+    // Soft lift so the colored tiles read as elevated, per the contract.
     shadowColor: '#0F1722',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 3,
-    elevation: 1,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.12,
+    shadowRadius: 6,
+    elevation: 2,
   },
-  statNum: { fontSize: 26, fontFamily: fonts.extrabold, fontWeight: '800', lineHeight: 28 },
+  statBlob: {
+    position: 'absolute',
+    right: -18,
+    bottom: -22,
+    width: 72,
+    height: 72,
+    borderRadius: 36,
+    backgroundColor: 'rgba(255,255,255,0.14)',
+  },
+  statIconTile: {
+    position: 'absolute',
+    top: 10,
+    left: 10,
+    width: 28,
+    height: 28,
+    borderRadius: 9,
+    backgroundColor: 'rgba(255,255,255,0.22)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  statNum: {
+    fontSize: 26,
+    fontFamily: fonts.extrabold,
+    fontWeight: '800',
+    lineHeight: 28,
+    color: palette.white,
+  },
   statLabel: {
     fontSize: 10.5,
     fontFamily: fonts.bold,
     fontWeight: '700',
-    marginTop: 5,
+    marginTop: 3,
     textTransform: 'uppercase',
     letterSpacing: 0.4,
+    color: 'rgba(255,255,255,0.92)',
   },
 
   // Active experiments band

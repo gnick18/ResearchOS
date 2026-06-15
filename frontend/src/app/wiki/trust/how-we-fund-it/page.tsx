@@ -5,24 +5,29 @@ import WikiPage from "@/components/wiki/WikiPage";
 export default function HowWeFundItPage() {
   return (
     <WikiPage
-      intro="Who pays for a tool shapes who it serves. ResearchOS is grant-funded, not venture-backed, and that single fact is why it can stay free and open for labs that could never afford a per-seat subscription."
+      intro="Who pays for a tool shapes who it serves. ResearchOS is open source and local-first, not venture-backed, and that is why it can stay free and open for labs that could never afford a per-seat subscription."
     >
-      <h2>Where the money comes from</h2>
+      <h2>Why it costs so little to run</h2>
       <p>
-        ResearchOS is funded by a UW Distinguished Research Fellowship at the
-        University of Wisconsin-Madison, supported through the Office of the Vice
-        Chancellor for Research with funding from the Wisconsin Alumni Research
-        Foundation. It is not backed by venture capital, it is not chasing an
-        acquisition, and it does not answer to investors who need the user base
-        monetized. The work is paid for as research infrastructure, which is a
-        fundamentally different incentive than software built to maximize revenue
-        per user.
+        ResearchOS is local-first. Your notebook lives in a folder on your own
+        disk, not on our servers, so there is almost nothing to host and almost
+        nothing to pay for in the first place. The code is open source under
+        AGPLv3, maintained by its author rather than a company that needs the
+        user base monetized. It is not backed by venture capital, it is not
+        chasing an acquisition, and it does not answer to investors who need
+        payment extracted per user. That is a fundamentally different incentive
+        than software built to maximize revenue per seat.
+      </p>
+      <p>
+        ResearchOS grew out of work begun during a UW-Madison Distinguished
+        Research Fellowship. The fellowship is where the project started; it does
+        not fund the tool today.
       </p>
 
       <h2>What that means for your lab</h2>
       <p>
-        Because the funding does not depend on extracting payment from the
-        people using the tool, ResearchOS does not have the usual levers a
+        Because keeping the tool running does not depend on extracting payment
+        from the people using it, ResearchOS does not have the usual levers a
         commercial ELN reaches for.
       </p>
       <ul>
@@ -51,16 +56,17 @@ export default function HowWeFundItPage() {
         teaching lab, a lab at an under-resourced institution, or a researcher
         in a setting where the field&apos;s standard tools are out of budget,
         the price is often the reason good data management never happens.
-        Grant funding removes that barrier at the point of use. The lab that
-        most needs a free tool is the lab least able to argue for a software
-        line item, and ResearchOS is built so those labs are not left out.
+        Building the tool to be local-first and open removes that barrier at the
+        point of use. The lab that most needs a free tool is the lab least able
+        to argue for a software line item, and ResearchOS is built so those labs
+        are not left out.
       </p>
 
       <Callout variant="info" title="Honest framing">
-        ResearchOS is free and open, grant-funded today, with donations welcome
-        to help sustain it over time. The grant covers the near term, and
-        voluntary support can extend the runway without ever turning the tool
-        into a product that charges low-resource labs to use it.
+        ResearchOS is free and open because it is open source and local-first,
+        with voluntary donations welcome to help sustain it over time. Voluntary
+        support extends the runway without ever turning the tool into a product
+        that charges low-resource labs to use it.
       </Callout>
 
       {/* Wisconsin LLC badge: soft tone on this formal trust page, no California
@@ -76,7 +82,7 @@ export default function HowWeFundItPage() {
         landscape years out. What ResearchOS can say plainly is the commitment
         behind the design. The project is built to stay free and open for the
         labs that depend on that, the license guarantees the code can never be
-        taken back, and the goal of every funding decision is to keep the tool
+        taken back, and the goal of every decision is to keep the tool
         reachable rather than to extract from the people using it.
       </p>
     </WikiPage>

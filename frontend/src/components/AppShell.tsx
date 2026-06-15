@@ -27,6 +27,7 @@ import Wordmark from "./Wordmark";
 import { useShowcaseUnlock } from "./showcase/useShowcaseUnlock";
 import StreakBadge from "./StreakBadge";
 import LabHeaderLogo from "@/components/lab/LabHeaderLogo";
+import FolderSwitcher from "@/components/file-system/FolderSwitcher";
 import { installStreakActivityTracking } from "@/lib/streak/streak-activity-bootstrap";
 import { NAV_ITEMS, HOME_HREF } from "@/lib/nav";
 import { INVENTORY_ENABLED } from "@/lib/inventory/config";
@@ -414,6 +415,11 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
             <LabHeaderLogo />
           </span>
         </PillWrap>
+
+        {/* Folder switcher (Phase A, multi-folder). Renders nothing unless the
+            NEXT_PUBLIC_MULTI_FOLDER flag is on AND more than one folder is
+            remembered, so the header is unchanged for flag-off / solo users. */}
+        <FolderSwitcher variant="header" />
 
         {/* The persistent "My work" toggle (NAV-2). Lab head only: it flips the
             nav between the lab lens and the personal researcher view. */}

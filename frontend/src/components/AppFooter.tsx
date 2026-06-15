@@ -7,9 +7,10 @@ import Wordmark from "@/components/Wordmark";
  * Shared site footer, intentionally minimal (Grant 2026-06-11): just the legal
  * entity sign-off, the wordmark, "ResearchOS LLC, a registered Wisconsin
  * company", and the Built-in-Madison line, aligned to the bottom-right like a
- * quiet credit. The full OVCR + WARF funding acknowledgment lives on the welcome
- * and login pages, not in this shared footer, and the privacy policy stays
- * reachable from the landing, settings, and the pricing page header.
+ * quiet credit. The University origin credit (ResearchOS grew out of a
+ * UW-Madison Distinguished Research Fellowship) lives on the welcome and login
+ * pages, not in this shared footer, and the privacy policy stays reachable from
+ * the landing, settings, and the pricing page header.
  *
  * Voice rules: no em-dashes, no emojis. Pass `className` (e.g. "mt-auto") so a
  * flex-column parent can pin it to the bottom of a short page.

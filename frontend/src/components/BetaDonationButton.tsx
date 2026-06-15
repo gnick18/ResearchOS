@@ -141,10 +141,10 @@ function DonationModal({
               </li>
               <li>
                 <span className="font-semibold text-foreground">
-                  Funded by a fellowship.
+                  Free by design.
                 </span>{" "}
-                A UW Distinguished Research Fellowship at UW-Madison supports ResearchOS, so there is
-                nothing to pay to use it.
+                ResearchOS is open source and local-first, so there are no servers
+                to fund and nothing to pay to use it.
               </li>
               <li>
                 <span className="font-semibold text-foreground">

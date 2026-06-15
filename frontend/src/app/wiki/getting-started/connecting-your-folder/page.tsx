@@ -60,9 +60,9 @@ export default function ConnectingYourFolderPage() {
           if you already know what you want to do.
         </li>
         <li>
-          <strong>The funding credentials stamp in the bottom-right</strong>: a
-          small badge that names the academic project this app was built under
-          (a UW Distinguished Research Fellowship at UW-Madison). Pure authority
+          <strong>The credentials stamp in the bottom-right</strong>: a
+          small badge that names the academic project this app grew out of
+          (a UW-Madison Distinguished Research Fellowship). Pure authority
           signal; nothing to click.
         </li>
       </ul>

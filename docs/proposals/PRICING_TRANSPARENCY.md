@@ -49,8 +49,8 @@ pricing a thin optional layer on top of a tool that mostly runs on your computer
    commodity object storage that costs us about $0.015 per gigabyte per month.
    The metered lane passes that through, it is cost recovery, not a markup.
 
-3. No investors, no sales machine. ResearchOS is grant-funded (a UW-Madison RISE
-   fellowship) and open source (AGPLv3). There is no venture capital demanding
+3. No investors, no sales machine. ResearchOS is open source (AGPLv3) and
+   local-first, with no paid tier. There is no venture capital demanding
    a return, no enterprise sales team to fund, and no proprietary lock-in. Those
    are a large part of what a commercial ELN's price actually pays for.
 

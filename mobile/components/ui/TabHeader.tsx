@@ -1,24 +1,29 @@
 /**
- * TabHeader. The one shared header every bottom-tab uses (Notebook, Inventory,
- * Method, Timer, Wiki, Calc), so the title scale + position and the action
- * buttons are identical across the app. It replaces the per-tab hand-rolled
- * headers (Method used to look different, and only Notebook had the bell + gear).
+ * TabHeader. The one shared header every bottom-tab root uses (Home, Notebook,
+ * Methods, Inventory, Timers, Wiki, Calc), so the title and the action trio are
+ * identical across the app.
  *
  * Layout, matching the approved mockup
  * (docs/mockups/2026-06-13-companion-unified-header.html):
  *
+ *   [ (eyebrow?)                                                            ]
  *   [ Title .......................... (bell) (today) (settings) ]
  *
- * The three buttons are the MAIN buttons and are ALL rendered in the brand
- * accent (palette.sky) as Ionicons, ~24px, consistent on every tab:
+ * The three buttons are ALWAYS present (the brand accent sky Ionicons, ~24px) on
+ * every tab, so notifications, Today, and Settings are reachable from anywhere:
  *   - Notifications  notifications-outline  -> /notifications  (unread badge)
- *   - Today          today-outline          -> onToday()       (amber count badge)
+ *   - Today          today-outline          -> toggles the global Today dropdown
+ *                                              (TodayHost in app/_layout), amber
+ *                                              "due today" badge
  *   - Settings       settings-outline       -> /modal
  *
- * The Today button only renders when onToday is provided, so tabs without a
- * Today (or an unpaired / Show-Today-off Notebook) simply pass nothing and the
- * button is hidden. The single connection cue lives on the Notebook pairing
- * card (live / last-synced / offline + tap to Sync now), not in this header.
+ * The Today button reads + toggles lib/today-store, so it works the same from
+ * every tab without per-screen wiring. It hides only when the user turns Show
+ * Today off in Settings. The bell badge reads the global unread count, so it is
+ * correct on every tab with no prop passing.
+ *
+ * Optional `eyebrow` renders a small muted line above the title (Home uses it for
+ * the time-of-day greeting).
  *
  * House style: no em-dashes, no emojis, no mid-sentence colons.
  */
@@ -29,35 +34,46 @@ import { useRouter } from 'expo-router';
 
 import { ThemedText } from '@/components/themed-text';
 import { palette } from '@/lib/design';
+import { useMascotKeepOut } from '@/lib/mascot-avoid';
+import { useTodayPrefs } from '@/lib/today-prefs';
+import { toggleToday, useTodayBadgeCount } from '@/lib/today-store';
+import { useUnreadNotificationCount } from '@/lib/unread-notifications';
 
 export interface TabHeaderProps {
   /** The tab title, shown at the app-wide large-title scale. */
   title: string;
-  /** When provided, the Today button renders and calls this on press. Pass
-   *  undefined to hide the Today button (tab has no Today, or it is gated off). */
-  onToday?: () => void;
-  /** Count shown in the amber Today badge. Hidden when 0 or absent. */
-  todayCount?: number;
-  /** Unread-notification count for the bell badge. Hidden when 0 or absent. */
-  unreadCount?: number;
+  /** Optional small muted line above the title (e.g. a greeting on Home). */
+  eyebrow?: string;
 }
 
-export function TabHeader({
-  title,
-  onToday,
-  todayCount = 0,
-  unreadCount = 0,
-}: TabHeaderProps) {
+export function TabHeader({ title, eyebrow }: TabHeaderProps) {
   const router = useRouter();
+  const [todayPrefs] = useTodayPrefs();
+  const unreadCount = useUnreadNotificationCount();
+  const todayCount = useTodayBadgeCount();
+  // Register the whole action cluster (bell / today / settings) as a mascot
+  // keep-out so the floating BeakerBot never parks on top of these buttons.
+  const actionsKeepOut = useMascotKeepOut();
 
   return (
     <View>
       <View style={styles.row}>
-        <ThemedText type="title" numberOfLines={1} style={styles.title}>
-          {title}
-        </ThemedText>
+        <View style={styles.titleCol}>
+          {eyebrow ? (
+            <ThemedText numberOfLines={1} style={styles.eyebrow}>
+              {eyebrow}
+            </ThemedText>
+          ) : null}
+          <ThemedText type="title" numberOfLines={1}>
+            {title}
+          </ThemedText>
+        </View>
 
-        <View style={styles.actions}>
+        <View
+          ref={actionsKeepOut.ref}
+          onLayout={actionsKeepOut.onLayout}
+          style={styles.actions}
+        >
           {/* Notifications. */}
           <Pressable
             testID="tab-notifications"
@@ -81,15 +97,16 @@ export function TabHeader({
             ) : null}
           </Pressable>
 
-          {/* Today. Only when the tab provides it (paired + Show-Today on). */}
-          {onToday ? (
+          {/* Today. Always present (unless Show Today is off); toggles the shared
+              dropdown panel. */}
+          {todayPrefs.showToday ? (
             <Pressable
               testID="tab-today"
-              onPress={onToday}
+              onPress={toggleToday}
               hitSlop={12}
               accessibilityRole="button"
               accessibilityLabel={
-                todayCount > 0 ? `Today, ${todayCount} scheduled` : 'Today'
+                todayCount > 0 ? `Today, ${todayCount} due` : 'Today'
               }
               style={styles.btn}
             >
@@ -127,7 +144,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
   },
-  title: { flex: 1, marginRight: 8 },
+  titleCol: { flex: 1, marginRight: 8 },
+  eyebrow: {
+    fontSize: 13,
+    lineHeight: 16,
+    opacity: 0.6,
+    marginBottom: 1,
+  },
   actions: {
     flexDirection: 'row',
     alignItems: 'center',

@@ -28,8 +28,8 @@ export default function WelcomeBeat({ onNext }: WelcomeBeatProps) {
       </h2>
       <p className="mb-3 text-title leading-relaxed text-slate-700">
         Welcome to ResearchOS, a free and open source digital lab notebook
-        from ResearchOS LLC, a registered Wisconsin company, funded in part by
-        the UW Distinguished Research Fellowship at UW-Madison.
+        from ResearchOS LLC, a registered Wisconsin company. It grew out of a
+        UW-Madison Distinguished Research Fellowship.
       </p>
       <p className="mb-6 text-title leading-relaxed text-slate-700">
         I&apos;ll help you set things up. Every experiment, note, and result

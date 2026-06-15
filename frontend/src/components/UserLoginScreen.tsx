@@ -17,10 +17,14 @@ import {
   createLocalIdentity,
   saveIdentity,
   unlockIdentityWithRecovery,
+  loadIdentity,
+  writeIdentityReferenceSidecar,
 } from "@/lib/sharing/identity/storage";
 import { isAccountFirstEnabled } from "@/lib/account/account-first";
 import { deriveWorkspaceUsername } from "@/lib/account/workspace-username";
-import { decodePublicKey } from "@/lib/sharing/identity/keys";
+import { decodePublicKey, fingerprint as computeFingerprint } from "@/lib/sharing/identity/keys";
+import { fetchMyProfile, compactFingerprint } from "@/lib/sharing/profile";
+import { MULTI_FOLDER_ENABLED } from "@/lib/file-system/multi-folder-config";
 import { generateDeviceSalt } from "@/lib/sharing/identity/backup";
 import { deleteSharingIdentity } from "@/lib/sharing/identity/sidecar";
 import { performUserDelete } from "@/lib/users/perform-delete";
@@ -92,7 +96,7 @@ function SharingIdentityIcon({ className }: { className?: string }) {
 }
 
 export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
-  const { setCurrentUser, currentUser: contextCurrentUser } = useFileSystem();
+  const { setCurrentUser, currentUser: contextCurrentUser, disconnect } = useFileSystem();
   const queryClient = useQueryClient();
   const [loading, setLoading] = useState(true);
   const [users, setUsers] = useState<string[]>([]);
@@ -110,15 +114,6 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
   // with Yes (login) or No (expand to the full picker so a new person can add an
   // account). Expanding sticks for the rest of this screen's life.
   const [expandPicker, setExpandPicker] = useState(false);
-  // Identity model simplification Phase 2 (2026-06-07): a one-time warning shown
-  // when the user adds the SECOND account to a folder that has one user today.
-  // Crossing 1 -> 2 turns the folder into a shared lab (lab mode is now derived
-  // from "2 or more users"), and the consequence is that every user, including
-  // the person already here, must set up an account with a login before the app
-  // features work. The warning informs before that transition; the ref remembers
-  // the acknowledgement so the re-invoked create proceeds.
-  const [showSharedFolderWarn, setShowSharedFolderWarn] = useState(false);
-  const sharedFolderWarnAckedRef = useRef(false);
   const [error, setError] = useState<string | null>(null);
   const [loggingIn, setLoggingIn] = useState<string | null>(null);
   const [mainUser, setMainUser] = useState<string | null>(null);
@@ -667,10 +662,43 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
         // A missing color just falls back to the username-hash swatch.
       }
 
-      // 3. Mint the E2E identity keypair silently (sidecar at rest + unlocked key
-      //    in the session). This is the provisioning the manual create-user gate
-      //    performs and the lab-create flow relies on.
-      await createLocalIdentity(username);
+      // 3. Establish the E2E identity for this folder. Phase B (account/folder/
+      //    identity redesign): if this device already holds THIS account's
+      //    identity AND it matches the directory record published under the
+      //    signed-in email, REUSE that one keypair (write a reference sidecar) so
+      //    the account is the SAME identity across every lab folder. Only the
+      //    FIRST folder for an account mints a fresh keypair. The directory
+      //    public-key match is the guard so a previous user's vault key on a
+      //    shared machine can never be sealed into this new folder. Any failure
+      //    to verify (flag off, offline, unpublished, or a mismatch) falls back
+      //    to the original mint, so this is never less safe than before.
+      let reusedIdentity = false;
+      if (MULTI_FOLDER_ENABLED) {
+        try {
+          const existing = await loadIdentity();
+          if (existing) {
+            const profile = await fetchMyProfile();
+            if (
+              profile &&
+              compactFingerprint(profile.fingerprint) ===
+                compactFingerprint(
+                  computeFingerprint(existing.keys.signing.publicKey),
+                )
+            ) {
+              await writeIdentityReferenceSidecar(username, existing.keys);
+              reusedIdentity = true;
+            }
+          }
+        } catch {
+          // Any error -> fall through to a fresh mint below (safe default).
+        }
+      }
+      if (!reusedIdentity) {
+        // Mint the E2E identity keypair silently (sidecar at rest + unlocked key
+        // in the session). The provisioning the manual create-user gate performs
+        // and the lab-create flow relies on; also the account's FIRST folder.
+        await createLocalIdentity(username);
+      }
 
       // 4. Enter the app.
       await performLogin(username);
@@ -841,15 +869,6 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
     // picker isn't the right surface to surface the collision message.
     if (users.includes(username)) {
       setError(`User '${username}' already exists. Pick a different name.`);
-      return;
-    }
-
-    // Adding the SECOND user to a one-user folder makes it a shared lab. Warn
-    // once before that transition so the user understands every account
-    // (including the one already here) will then need a login to use features.
-    // The ack ref lets the modal's Continue re-invoke this and skip the gate.
-    if (users.length === 1 && !sharedFolderWarnAckedRef.current) {
-      setShowSharedFolderWarn(true);
       return;
     }
 
@@ -1622,29 +1641,27 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
                 </div>
               )}
 
-              {/* Divider */}
-              {users.length > 0 && (
-                <div className="relative my-4">
-                  <div className="absolute inset-0 flex items-center">
-                    <div className="w-full border-t border-border"></div>
-                  </div>
-                  <div className="relative flex justify-center text-body">
-                    <span className="px-2 bg-transparent text-foreground-muted">or</span>
-                  </div>
-                </div>
+              {/* Create a user is ONLY offered on an EMPTY folder (the first
+                  user has to be made somewhere). Once a folder already has a
+                  user we do NOT offer creating another: the product no longer
+                  supports multiple users in one folder. Each person uses their
+                  OWN cloud-synced folder (visible on every machine they sign in
+                  on), and collaboration is via sharing / lab invites — never by
+                  piling users into one folder (Grant 2026-06-15). Existing
+                  multi-user folders still list + log in every user; we just
+                  never GROW one from this screen. */}
+              {users.length === 0 && (
+                <button
+                  onClick={() => setShowCreateForm(true)}
+                  disabled={loggingIn !== null}
+                  className="w-full flex items-center justify-center gap-2 py-3 rounded-xl border border-dashed border-brand-action/45 bg-brand-action/[0.06] text-brand-action dark:text-brand-sky font-medium shadow-sm transition-all hover:-translate-y-0.5 hover:border-brand-action hover:bg-brand-action/[0.12] hover:shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                  </svg>
+                  Create New User
+                </button>
               )}
-
-              {/* Create new user button */}
-              <button
-                onClick={() => setShowCreateForm(true)}
-                disabled={loggingIn !== null}
-                className="w-full flex items-center justify-center gap-2 py-3 rounded-xl border border-dashed border-brand-action/45 bg-brand-action/[0.06] text-brand-action dark:text-brand-sky font-medium shadow-sm transition-all hover:-translate-y-0.5 hover:border-brand-action hover:bg-brand-action/[0.12] hover:shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-                </svg>
-                Create New User
-              </button>
 
               {/* Sharing OAuth section. Shown only when the device is online AND
                   OAuth publish is actually configured (NEXT_PUBLIC_SHARING_ENABLED).
@@ -2049,50 +2066,6 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
         </div>
       )}
 
-      {/* Shared-folder warning, shown once before the SECOND user is added to a
-          one-user folder (the 1 -> 2 transition that makes it a shared lab). */}
-      {showSharedFolderWarn && (
-        <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/50 backdrop-blur-sm">
-          <div
-            className="bg-surface-raised rounded-2xl shadow-2xl border border-border max-w-sm w-full mx-4 overflow-hidden"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="px-6 py-4 border-b border-border">
-              <h3 className="text-title font-semibold text-foreground">
-                This becomes a shared lab folder
-              </h3>
-              <p className="text-meta text-foreground-muted mt-0.5 leading-relaxed">
-                Adding a second user turns this folder into a shared lab. Once it
-                is shared, every user{soleUser ? `, including ${soleUser},` : ""}{" "}
-                has to set up an account with a login before the app features
-                work. You can still continue.
-              </p>
-            </div>
-            <div className="px-6 py-5 flex gap-3">
-              <button
-                type="button"
-                onClick={() => setShowSharedFolderWarn(false)}
-                className="flex-1 py-2 text-body font-medium text-foreground-muted hover:text-foreground rounded-lg border border-border hover:bg-surface-sunken"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  sharedFolderWarnAckedRef.current = true;
-                  setShowSharedFolderWarn(false);
-                  void handleCreateUser();
-                }}
-                className="flex-1 py-2 text-body font-semibold text-white bg-brand-action hover:bg-brand-action/90 rounded-lg"
-                data-testid="shared-folder-warn-continue"
-              >
-                Continue
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
       {/* Recovery code, shown once right after a new account is created. */}
       {createdRecovery && (
         <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/50 backdrop-blur-sm">
@@ -2196,6 +2169,21 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
         <p className="text-center text-meta text-foreground-muted">
           Your data is stored locally in the folder you picked
         </p>
+        {/* Escape hatch: picked the wrong folder? Disconnect (non-destructive —
+            the folder's data stays on disk) and land back on the folder-connect
+            screen to choose a different one. Without this the account picker was
+            a soft-lock once a folder was chosen (Grant 2026-06-15). Hidden in
+            demo/wiki-capture, which run on an ephemeral fixture folder. */}
+        {!isDemoOrWikiCapture() && (
+          <button
+            type="button"
+            onClick={() => void disconnect()}
+            className="text-meta text-foreground-muted underline underline-offset-2 hover:text-foreground transition-colors"
+            data-testid="login-change-folder"
+          >
+            Use a different folder
+          </button>
+        )}
         <div className="flex items-center gap-4 flex-wrap justify-center max-w-[90vw]">
         <a
           href="/wiki/getting-started/creating-a-user"

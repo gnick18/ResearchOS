@@ -14,7 +14,15 @@ import {
   clearCurrentUser,
   restorePreDemoStateOrClear,
   peekSharedRealIdentity,
+  rememberFolder,
+  listRememberedFolders,
+  forgetRememberedFolder,
+  getActiveFolderId,
+  getRememberedFolderHandle,
+  setActiveFolderId,
+  type RememberedFolder,
 } from "./indexeddb-store";
+import { MULTI_FOLDER_ENABLED } from "./multi-folder-config";
 import { readMainUser, writeMainUser, pruneOrphanUserMetadataEntries } from "./user-metadata";
 import { clearCurrentUserCache } from "../storage/json-store";
 import { clearPiEditConfirmations } from "../lab/pi-edit-guard";
@@ -66,6 +74,14 @@ interface FileSystemState {
    * screen. Never set in normal use, true fixture installs, or `/demo`.
    */
   captureRefused: boolean;
+  /**
+   * The folders the app remembers, most-recently-opened first (Phase A,
+   * multi-folder). Always [] when NEXT_PUBLIC_MULTI_FOLDER is off, so flag-off
+   * consumers see no remembered set and the switcher UI stays hidden. Refreshed
+   * on connect / switch / forget. Carries the structured-clone handle so a
+   * switch can re-grant permission without the OS picker.
+   */
+  rememberedFolders: RememberedFolder[];
 }
 
 interface FileSystemContextValue extends FileSystemState {
@@ -102,6 +118,29 @@ interface FileSystemContextValue extends FileSystemState {
    * is unavailable.
    */
   connectEphemeralDev: () => Promise<boolean>;
+  /**
+   * Multi-folder (Phase A). Returns the remembered folders, most-recently-opened
+   * first. When NEXT_PUBLIC_MULTI_FOLDER is off this always resolves to [] (the
+   * remembered set is never read), so callers degrade to single-folder behavior.
+   */
+  listFolders: () => Promise<RememberedFolder[]>;
+  /**
+   * Multi-folder (Phase A). Re-grant permission to an already-remembered folder
+   * handle and make it active WITHOUT the OS picker, reusing the same
+   * permission-then-finishConnect machinery as reconnectWithStoredHandle. Falls
+   * back to the OS picker (connect) only when the stored handle can't be
+   * re-granted (handle missing or the browser revoked the grant). Returns true
+   * when a folder ends up connected. No-op (returns false) when the flag is off.
+   */
+  switchFolder: (id: string) => Promise<boolean>;
+  /**
+   * Multi-folder (Phase A). Remove one folder from the remembered set. Does NOT
+   * delete any data on disk. If the forgotten folder is the active one, the
+   * session is disconnected (back to the connect screen) so the user is never
+   * left pointing at a folder the app no longer remembers. No-op when the flag
+   * is off.
+   */
+  forgetFolder: (id: string) => Promise<void>;
 }
 
 /** DEV ONLY. Name of the throwaway OPFS folder backing an ephemeral session. */
@@ -206,6 +245,7 @@ export function FileSystemProvider({ children }: { children: React.ReactNode }) 
     needsInitialization: false,
     lastConnectedFolder: null,
     captureRefused: false,
+    rememberedFolders: [],
   });
 
   // edit-session bleed fix 2026-05-24: shadow the currentUser into a ref
@@ -337,6 +377,19 @@ export function FileSystemProvider({ children }: { children: React.ReactNode }) 
         }
 
         await storeDirectoryHandle(handle);
+
+        // Multi-folder (Phase A): add this folder to the remembered set and make
+        // it the active one, keeping the legacy single key (written just above)
+        // in lockstep with the active folder. Guarded by the flag, so a flag-off
+        // build never touches the remembered set and stays byte-identical to
+        // today. Best-effort: a failure here must not block the connect.
+        if (MULTI_FOLDER_ENABLED) {
+          try {
+            await rememberFolder(handle);
+          } catch (err) {
+            console.warn("[FileSystemProvider] rememberFolder failed:", err);
+          }
+        }
 
         // Demo-lab date rebase: if this folder is a demo (marker file
         // says so), shift all task/goal/event/project/shared dates by
@@ -538,6 +591,18 @@ export function FileSystemProvider({ children }: { children: React.ReactNode }) 
         // reconnect) skip setCurrentUser, so we hydrate here too.
         if (currentUser) {
           await hydrateSettingsForUser(currentUser);
+        }
+
+        // Multi-folder (Phase A): surface the up-to-date remembered set to the
+        // switcher UI. Off the critical path (the connect already committed
+        // above) and flag-guarded so it is inert when multi-folder is off.
+        if (MULTI_FOLDER_ENABLED) {
+          try {
+            const folders = await listRememberedFolders();
+            setState((prev) => ({ ...prev, rememberedFolders: folders }));
+          } catch {
+            // best-effort
+          }
         }
 
         return true;
@@ -835,6 +900,21 @@ export function FileSystemProvider({ children }: { children: React.ReactNode }) 
           }
         }
 
+        // Multi-folder (Phase A): on the connect/setup screen, surface the
+        // remembered set so the switcher can offer one-click re-open of any
+        // previously connected folder. listRememberedFolders runs the legacy
+        // OLD->NEW migration internally, so a returning user's single folder
+        // appears here even on the very first multi-folder load. Flag-guarded
+        // and best-effort, so a flag-off load is byte-identical to today.
+        let initialFolders: RememberedFolder[] = [];
+        if (MULTI_FOLDER_ENABLED) {
+          try {
+            initialFolders = await listRememberedFolders();
+          } catch {
+            initialFolders = [];
+          }
+        }
+
         setState((prev) => ({
           ...prev,
           lastConnectedFolder: meta?.name || storedHandle?.name || null,
@@ -844,6 +924,7 @@ export function FileSystemProvider({ children }: { children: React.ReactNode }) 
           // is no longer authoritative — see Bug 2 fix 2026-05-23.
           mainUser: null,
           isLoading: false,
+          rememberedFolders: initialFolders,
         }));
       } catch (err) {
         console.error("[FileSystemProvider.initialize] Error:", err);
@@ -995,7 +1076,19 @@ export function FileSystemProvider({ children }: { children: React.ReactNode }) 
         return false;
       }
 
-      await storeDirectoryHandle(fileService.getDirectoryHandle()!);
+      const initHandle = fileService.getDirectoryHandle()!;
+      await storeDirectoryHandle(initHandle);
+
+      // Multi-folder (Phase A): remember the just-initialized folder as active.
+      let initFolders: RememberedFolder[] = [];
+      if (MULTI_FOLDER_ENABLED) {
+        try {
+          await rememberFolder(initHandle);
+          initFolders = await listRememberedFolders();
+        } catch (err) {
+          console.warn("[FileSystemProvider] rememberFolder (init) failed:", err);
+        }
+      }
 
       setState((prev) => ({
         ...prev,
@@ -1004,6 +1097,7 @@ export function FileSystemProvider({ children }: { children: React.ReactNode }) 
         error: null,
         availableUsers: [],
         needsInitialization: false,
+        rememberedFolders: MULTI_FOLDER_ENABLED ? initFolders : prev.rememberedFolders,
       }));
 
       return true;
@@ -1177,6 +1271,17 @@ export function FileSystemProvider({ children }: { children: React.ReactNode }) 
 
       await storeDirectoryHandle(newFolderHandle);
 
+      // Multi-folder (Phase A): remember the newly-created folder as active.
+      let createdFolders: RememberedFolder[] = [];
+      if (MULTI_FOLDER_ENABLED) {
+        try {
+          await rememberFolder(newFolderHandle);
+          createdFolders = await listRememberedFolders();
+        } catch (err) {
+          console.warn("[FileSystemProvider] rememberFolder (create) failed:", err);
+        }
+      }
+
       setState((prev) => ({
         ...prev,
         isConnected: true,
@@ -1187,6 +1292,7 @@ export function FileSystemProvider({ children }: { children: React.ReactNode }) 
         availableUsers: [],
         needsInitialization: false,
         lastConnectedFolder: newFolderHandle.name,
+        rememberedFolders: MULTI_FOLDER_ENABLED ? createdFolders : prev.rememberedFolders,
       }));
 
       return true;
@@ -1202,7 +1308,34 @@ export function FileSystemProvider({ children }: { children: React.ReactNode }) 
     }
   }, []);
 
+  // disconnect() semantics (Phase A / multi-folder).
+  //
+  // SINGLE-FOLDER (flag off): unchanged from today. It clears the one remembered
+  // handle + the current/main user and returns the user to the connect screen.
+  // It is the "forget my folder" action (the only folder the app knew).
+  //
+  // MULTI-FOLDER (flag on): disconnect FORGETS THE ACTIVE FOLDER ONLY, not the
+  // whole remembered set. The legacy single key and the active pointer are
+  // cleared (so the app is no longer pointing at a folder), and the active
+  // folder is dropped from the remembered set (its on-disk data is untouched).
+  // The OTHER remembered folders survive, so the connect screen can still offer
+  // a one-click switch to them. This matches the "return to connect screen"
+  // behavior the UI already expects while keeping the rest of the set intact.
+  // To remove a specific non-active folder, use forgetFolder(id).
   const disconnect = useCallback(async () => {
+    let survivingFolders: RememberedFolder[] = [];
+    if (MULTI_FOLDER_ENABLED) {
+      try {
+        const activeId = await getActiveFolderId();
+        if (activeId) {
+          await forgetRememberedFolder(activeId);
+        }
+        survivingFolders = await listRememberedFolders();
+      } catch (err) {
+        console.warn("[FileSystemProvider] disconnect: forget active failed:", err);
+      }
+    }
+
     fileService.clearDirectoryHandle();
     await clearDirectoryHandle();
     // Dev: drop the throwaway OPFS folder so a closed ephemeral session leaves
@@ -1257,6 +1390,7 @@ export function FileSystemProvider({ children }: { children: React.ReactNode }) 
       needsInitialization: false,
       lastConnectedFolder: null,
       captureRefused: false,
+      rememberedFolders: survivingFolders,
     });
   }, []);
 
@@ -1338,6 +1472,92 @@ export function FileSystemProvider({ children }: { children: React.ReactNode }) 
     }
   }, [refreshUsers]);
 
+  // ── Multi-folder (Phase A) public methods ────────────────────────────────
+
+  const listFolders = useCallback(async (): Promise<RememberedFolder[]> => {
+    if (!MULTI_FOLDER_ENABLED) return [];
+    const folders = await listRememberedFolders();
+    setState((prev) => ({ ...prev, rememberedFolders: folders }));
+    return folders;
+  }, []);
+
+  const switchFolder = useCallback(
+    async (id: string): Promise<boolean> => {
+      if (!MULTI_FOLDER_ENABLED) return false;
+
+      const handle = await getRememberedFolderHandle(id);
+      if (!handle) {
+        // The remembered handle is gone (forgotten, or never stored). Fall back
+        // to the OS picker so the user can re-pick a folder. connect() routes
+        // through finishConnect, which re-remembers whatever they pick.
+        return connect();
+      }
+
+      setState((prev) => ({
+        ...prev,
+        isLoading: true,
+        loadingStage: "verifying-permission",
+        error: null,
+      }));
+      await new Promise<void>((resolve) =>
+        requestAnimationFrame(() => requestAnimationFrame(() => resolve())),
+      );
+
+      // Re-grant permission to the stored handle WITHOUT the OS picker, reusing
+      // the same requestPermission-then-finishConnect machinery as
+      // reconnectWithStoredHandle. requestPermission must run from a user
+      // gesture (the switcher click qualifies).
+      const permissionable = handle as PermissionableHandle;
+      if (permissionable.requestPermission) {
+        let permission: PermissionState = "denied";
+        try {
+          permission = await permissionable.requestPermission({ mode: "readwrite" });
+        } catch (err) {
+          console.warn("[FileSystemProvider.switchFolder] requestPermission failed:", err);
+          permission = "denied";
+        }
+        if (permission !== "granted") {
+          // Could not re-grant on the stored handle. Fall back to the picker so
+          // the user is never hard-stuck on a folder they can't re-open.
+          setState((prev) => ({ ...prev, isLoading: false, loadingStage: null }));
+          return connect();
+        }
+      }
+
+      // Make this the active folder and keep the legacy single key in lockstep
+      // so a later flag-off build reconnects to it. fileService is pointed at
+      // the new handle inside finishConnect.
+      await setActiveFolderId(id);
+      fileService.resetReadCount();
+      setState((prev) => ({ ...prev, loadingStage: "connecting" }));
+      const ok = await finishConnect(handle);
+      if (!ok) {
+        setState((prev) => ({ ...prev, isLoading: false, loadingStage: null }));
+      }
+      return ok;
+    },
+    [connect, finishConnect],
+  );
+
+  const forgetFolder = useCallback(
+    async (id: string): Promise<void> => {
+      if (!MULTI_FOLDER_ENABLED) return;
+      const activeId = await getActiveFolderId();
+      await forgetRememberedFolder(id);
+      const folders = await listRememberedFolders();
+      setState((prev) => ({ ...prev, rememberedFolders: folders }));
+      // Forgetting the ACTIVE folder means the app is now pointing at a folder
+      // it no longer remembers. Disconnect the session so the user lands on the
+      // connect screen (where the surviving folders are still one click away)
+      // rather than being stranded mid-session. forgetRememberedFolder already
+      // cleared the active pointer; disconnect() clears the legacy single key.
+      if (activeId && activeId === id) {
+        await disconnect();
+      }
+    },
+    [disconnect],
+  );
+
   const value: FileSystemContextValue = {
     ...state,
     connect,
@@ -1351,6 +1571,9 @@ export function FileSystemProvider({ children }: { children: React.ReactNode }) 
     initializeFolder,
     createNewFolder,
     connectEphemeralDev,
+    listFolders,
+    switchFolder,
+    forgetFolder,
   };
 
   return (

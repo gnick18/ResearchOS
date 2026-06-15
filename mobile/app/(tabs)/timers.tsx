@@ -13,9 +13,9 @@ import { Ionicons } from '@expo/vector-icons';
 
 import { ThemedText } from '@/components/themed-text';
 import { ScreenFrame } from '@/components/ui/ScreenFrame';
+import { TabHeader } from '@/components/ui/TabHeader';
 import { Button } from '@/components/ui/Button';
 import { SectionHeader } from '@/components/ui/SectionHeader';
-import { AlarmSettingsCard } from '@/components/AlarmSettingsCard';
 import { useTheme, palette, fonts } from '@/lib/design';
 import { ensureNotificationPermission } from '@/lib/notifications';
 import {
@@ -200,10 +200,7 @@ export default function TimersScreen() {
         contentContainerStyle={styles.scrollContent}
         keyboardShouldPersistTaps="handled"
       >
-          <ThemedText style={[styles.kicker, { color: surface.muted }]}>
-            Bench timers
-          </ThemedText>
-          <ThemedText type="title">Timers</ThemedText>
+          <TabHeader title="Timers" />
 
           {/* Running timers float to the top, newest first. The whole section
               vanishes when nothing is running, so New timer sits at the top. */}
@@ -353,8 +350,6 @@ export default function TimersScreen() {
               ))}
             </>
           ) : null}
-
-          <AlarmSettingsCard />
       </ScrollView>
     </ScreenFrame>
   );
@@ -473,11 +468,6 @@ const styles = StyleSheet.create({
     paddingTop: 16,
     paddingBottom: 112,
     gap: 16,
-  },
-  kicker: {
-    fontSize: 12.5,
-    fontFamily: fonts.semibold,
-    marginBottom: 4,
   },
   // Section label, contract .lbl: 12px, 700, .08em tracking, faint, uppercase.
   lbl: {

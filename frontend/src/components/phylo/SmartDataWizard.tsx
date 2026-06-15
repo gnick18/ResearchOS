@@ -50,6 +50,11 @@ export interface SmartDataWizardProps {
   }) => void | Promise<void>;
   /** Dismiss the wizard. */
   onClose: () => void;
+  /** Mounted inline in a scrolling chat (vs the centered GUI modal). When inline
+   *  the body must NOT introduce its own vertical scroll, or it traps the wheel
+   *  and the chat cannot scroll while the cursor is over the wizard. The wizard
+   *  grows naturally and the chat owns the scroll. */
+  inline?: boolean;
 }
 
 type Step = "table" | "columns" | "geoms" | "done";
@@ -76,6 +81,7 @@ export function SmartDataWizard({
   candidates,
   onAddOverlays,
   onClose,
+  inline = false,
 }: SmartDataWizardProps) {
   const [step, setStep] = useState<Step>("table");
   const [tableId, setTableId] = useState<string | null>(
@@ -179,7 +185,7 @@ export function SmartDataWizard({
       <Header onClose={onClose} title={titleFor(step, table)} />
       {step !== "done" && <StepRail step={step} />}
 
-      <div className="max-h-[460px] overflow-y-auto px-4 py-3">
+      <div className={inline ? "px-4 py-3" : "max-h-[460px] overflow-y-auto px-4 py-3"}>
         {step === "table" && (
           <TableStep candidates={candidates} selectedId={tableId} onPick={pickTable} />
         )}

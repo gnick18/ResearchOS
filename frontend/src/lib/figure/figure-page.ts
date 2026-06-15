@@ -44,9 +44,27 @@ export interface FigurePanel {
   style?: PanelStyle;
 }
 
+/** Semantic text styles (Heading / Label / Body), the science-text presets. */
+export type TextVariant = "heading" | "label" | "body";
+export const TEXT_VARIANT_PT: Record<TextVariant, number> = { heading: 18, label: 12, body: 10 };
+export const TEXT_VARIANT_WEIGHT: Record<TextVariant, number> = {
+  heading: 700,
+  label: 600,
+  body: 400,
+};
+
 /** The 3-tool annotation set (Text, Arrow with head toggle, Bracket with label). */
 export type Annotation =
-  | { annId: string; kind: "text"; xIn: number; yIn: number; text: string; fontPt: number }
+  | {
+      annId: string;
+      kind: "text";
+      xIn: number;
+      yIn: number;
+      text: string;
+      fontPt: number;
+      /** Semantic style. Absent on legacy text annotations (treated as label). */
+      variant?: TextVariant;
+    }
   | {
       annId: string;
       kind: "arrow";
@@ -87,12 +105,41 @@ export interface PlacedAsset {
   hIn: number;
   /** Clockwise rotation in degrees (0 = upright). */
   rotation?: number;
-  /** Single-color tint applied to the whole asset (per-fill targets come later). */
+  /** Single-color tint applied to the whole asset (overridden by fillTints). */
   tint?: string;
+  /** Per-fill recolor map: original fill value -> replacement. Multi-part icons
+   *  recolored piece by piece. When non-empty it takes precedence over `tint`. */
+  fillTints?: Record<string, string>;
   /** The verbatim citation, cached at place-time for the auto-credits block. */
   credit: string;
   /** Whether the license requires the credit be shown (CC-BY / SA / MIT / BSD). */
   requiresAttribution: boolean;
+}
+
+// ── Smart connectors (Phase 2) ────────────────────────────────────────────────
+// A connector is an arrow/line whose ENDS ATTACH TO ELEMENTS (panels, icons,
+// annotations) rather than to absolute coordinates. Each end stores a ref + a
+// side; the on-screen path is resolved live from the elements' current boxes, so
+// moving an element auto-reroutes the line. This is the BioRender signature.
+
+export type ConnectorSide = "top" | "right" | "bottom" | "left";
+export type ConnectorShape = "straight" | "elbow" | "curve";
+
+/** One end of a connector: which element it attaches to, and on which side. */
+export interface ConnectorEnd {
+  ref: { kind: "panel" | "asset" | "annotation" | "shape"; id: string };
+  side: ConnectorSide;
+}
+
+export interface Connector {
+  connId: string;
+  from: ConnectorEnd;
+  to: ConnectorEnd;
+  shape: ConnectorShape;
+  /** 0 = plain line, 1 = arrowhead at `to`, 2 = arrowheads at both ends. */
+  heads: 0 | 1 | 2;
+  color: string;
+  weightPt: number;
 }
 
 /** A composed publication page. Stored as its own document, collection-scoped. */
@@ -107,6 +154,10 @@ export interface FigurePage {
   annotations: Annotation[];
   /** Placed library assets (icons / illustrations). Absent on pre-asset pages. */
   assets?: PlacedAsset[];
+  /** Smart connectors (element-anchored arrows). Absent on pre-connector pages. */
+  connectors?: Connector[];
+  /** Vector primitives (rectangles / ellipses). Absent on pre-shape pages. */
+  shapes?: FigureShape[];
 }
 
 /** Page margin (inches) kept clear of panels for the grid + a tidy frame. */
@@ -370,8 +421,13 @@ export function moveAnnotation(
 }
 
 /** A new text annotation anchored at a click point (real inches). */
-export function makeTextAnnotation(annId: string, xIn: number, yIn: number): Annotation {
-  return { annId, kind: "text", xIn, yIn, text: "Text", fontPt: 12 };
+export function makeTextAnnotation(
+  annId: string,
+  xIn: number,
+  yIn: number,
+  variant: TextVariant = "label",
+): Annotation {
+  return { annId, kind: "text", xIn, yIn, text: "Text", fontPt: TEXT_VARIANT_PT[variant], variant };
 }
 
 /** A new arrow (1 head) starting at the click point, pointing right. */
@@ -389,6 +445,122 @@ export function makeBracketAnnotation(annId: string, xIn: number, yIn: number): 
 /** Every placed asset, tolerating a pre-asset page where the field is absent. */
 export function pageAssets(page: FigurePage): PlacedAsset[] {
   return page.assets ?? [];
+}
+
+// ── Connector model helpers ───────────────────────────────────────────────────
+
+export function pageConnectors(page: FigurePage): Connector[] {
+  return page.connectors ?? [];
+}
+
+// ── Shapes (rectangles / ellipses) ────────────────────────────────────────────
+// Lightweight vector primitives for backgrounds, highlights, and grouping boxes.
+// Box-based and first-class (selectable / draggable / recolorable / z-ordered).
+
+export type ShapeKind = "rect" | "ellipse";
+
+export interface FigureShape {
+  shapeId: string;
+  kind: ShapeKind;
+  xIn: number;
+  yIn: number;
+  wIn: number;
+  hIn: number;
+  /** Fill color or "none". */
+  fill: string;
+  /** Stroke color or "none". */
+  stroke: string;
+  /** Stroke width in points. */
+  strokeWPt: number;
+}
+
+export function pageShapes(page: FigurePage): FigureShape[] {
+  return page.shapes ?? [];
+}
+
+export function makeShape(shapeId: string, kind: ShapeKind, xIn: number, yIn: number): FigureShape {
+  return {
+    shapeId,
+    kind,
+    xIn,
+    yIn,
+    wIn: 1.5,
+    hIn: kind === "ellipse" ? 1.5 : 1,
+    fill: "#e3f4ec",
+    stroke: "#1d9e75",
+    strokeWPt: 1.5,
+  };
+}
+
+export function addShape(page: FigurePage, shape: FigureShape): FigurePage {
+  return { ...page, shapes: [...pageShapes(page), shape] };
+}
+
+export function removeShape(page: FigurePage, shapeId: string): FigurePage {
+  return { ...page, shapes: pageShapes(page).filter((s) => s.shapeId !== shapeId) };
+}
+
+export function updateShape(
+  page: FigurePage,
+  shapeId: string,
+  patch: Partial<Omit<FigureShape, "shapeId" | "kind">>,
+): FigurePage {
+  return {
+    ...page,
+    shapes: pageShapes(page).map((s) => (s.shapeId === shapeId ? { ...s, ...patch } : s)),
+  };
+}
+
+export function moveShape(page: FigurePage, shapeId: string, dxIn: number, dyIn: number): FigurePage {
+  return {
+    ...page,
+    shapes: pageShapes(page).map((s) =>
+      s.shapeId !== shapeId
+        ? s
+        : { ...s, xIn: Math.max(0, s.xIn + dxIn), yIn: Math.max(0, s.yIn + dyIn) },
+    ),
+  };
+}
+
+export function makeConnector(
+  connId: string,
+  from: ConnectorEnd,
+  to: ConnectorEnd,
+): Connector {
+  return { connId, from, to, shape: "elbow", heads: 1, color: "#1f2937", weightPt: 1.5 };
+}
+
+export function addConnector(page: FigurePage, conn: Connector): FigurePage {
+  return { ...page, connectors: [...pageConnectors(page), conn] };
+}
+
+export function removeConnector(page: FigurePage, connId: string): FigurePage {
+  return { ...page, connectors: pageConnectors(page).filter((c) => c.connId !== connId) };
+}
+
+export function updateConnector(
+  page: FigurePage,
+  connId: string,
+  patch: Partial<Omit<Connector, "connId" | "from" | "to">>,
+): FigurePage {
+  return {
+    ...page,
+    connectors: pageConnectors(page).map((c) => (c.connId === connId ? { ...c, ...patch } : c)),
+  };
+}
+
+/** Drop any connectors whose endpoints reference a now-deleted element. */
+export function pruneConnectors(page: FigurePage): FigurePage {
+  const alive = (ref: ConnectorEnd["ref"]) =>
+    ref.kind === "panel"
+      ? page.panels.some((p) => p.panelId === ref.id)
+      : ref.kind === "asset"
+        ? pageAssets(page).some((a) => a.assetId === ref.id)
+        : ref.kind === "shape"
+          ? pageShapes(page).some((s) => s.shapeId === ref.id)
+          : page.annotations.some((a) => a.annId === ref.id);
+  const kept = pageConnectors(page).filter((c) => alive(c.from.ref) && alive(c.to.ref));
+  return kept.length === pageConnectors(page).length ? page : { ...page, connectors: kept };
 }
 
 /**

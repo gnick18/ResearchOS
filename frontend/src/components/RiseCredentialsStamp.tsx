@@ -1,7 +1,7 @@
 "use client";
 
 /**
- * Funding credentials stamp.
+ * Origin credentials stamp.
  *
  * Fixed-position card in the bottom-right corner of the viewport. Lives
  * on the folder-connect gate (`FolderConnectGate`) as a structural
@@ -10,14 +10,14 @@
  * retired pre-onboarding modal's `CredentialsFooter` on 2026-05-25.
  *
  * Two signals:
- *   1. Funding source (a UW Distinguished Research Fellowship, with WARF
- *      funding), as the approved text acknowledgment
+ *   1. Origin credit: ResearchOS grew out of a UW-Madison Distinguished
+ *      Research Fellowship (origin only, no claim of ongoing funding)
  *   2. Free + open source, with a link to the public GitHub repo
  *
- * Funding acknowledgment (2026-06-11): the old "UW-Madison RISE Initiative"
- * name + logo were retired here. We use the official program name and OVCR/WARF
- * wording instead. The logo is not shown, since logo usage on the product site
- * is pending OVCR (Cynthia) confirmation; text acknowledgment only.
+ * Wording (2026-06-15, per UW OVCR request): the credit is origin-only and must
+ * not state or imply that UW-Madison or WARF funding supports the company. The
+ * earlier "supported by ... with funding from the Wisconsin Alumni Research
+ * Foundation" text was changed to this origin credit. No logo is shown.
  *
  * Voice rules: no em-dashes, no emojis. (File still named RiseCredentialsStamp
  * for import stability; an internal rename is a separate cleanup.)
@@ -31,8 +31,8 @@ export default function RiseCredentialsStamp() {
       data-testid="rise-credentials-stamp"
     >
       <p className="pointer-events-auto max-w-[280px] leading-tight">
-        Supported by a UW Distinguished Research Fellowship at UW-Madison, with
-        funding from the Wisconsin Alumni Research Foundation.
+        ResearchOS grew out of work begun during a UW-Madison Distinguished
+        Research Fellowship.
         <br />
         Free and open source on{" "}
         <a

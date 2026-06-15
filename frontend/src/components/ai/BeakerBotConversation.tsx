@@ -82,6 +82,13 @@ import { applyOverlayCommit } from "./overlay-commit";
 // RecipeComparisonWidget renders the reproduce-from-PDF light-comparison card.
 // Lazy so it never loads until a comparison turn surfaces one.
 const RecipeComparisonWidget = lazy(() => import("./RecipeComparisonWidget"));
+// AnalysisPickerWidget renders the constraint-aware analysis/graph picker inline
+// when a suggest_analyses turn surfaces capabilities.
+const AnalysisPickerWidget = lazy(() =>
+  import("./AnalysisPickerWidget").then((m) => ({
+    default: m.AnalysisPickerWidget,
+  })),
+);
 import { useCanvasStore } from "@/lib/ai/canvas-store";
 
 // Lightweight markdown renderer for assistant replies only. Scoped to this
@@ -763,6 +770,16 @@ export default function BeakerBotConversation({
   } = useAiChat();
   const [draft, setDraft] = useState("");
   const listRef = useRef<HTMLDivElement | null>(null);
+  // Auto-follow the newest content only while the user is already at the bottom.
+  // If they have scrolled up (to read, or to use an inline widget), do NOT yank
+  // them back down on the next message or status change.
+  const stickToBottomRef = useRef(true);
+  const handleListScroll = useCallback(() => {
+    const el = listRef.current;
+    if (!el) return;
+    stickToBottomRef.current =
+      el.scrollHeight - el.scrollTop - el.clientHeight < 80;
+  }, []);
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
 
   // Canvas (docked editable draft panel) hooks. The pointer line that replaces
@@ -1146,10 +1163,11 @@ export default function BeakerBotConversation({
     [handlePdfFile, processImageFiles],
   );
 
-  // Keep the newest message in view as the answer reveals.
+  // Keep the newest message in view as the answer reveals, but only when the
+  // user is already parked at the bottom (see stickToBottomRef).
   useEffect(() => {
     const el = listRef.current;
-    if (el) el.scrollTop = el.scrollHeight;
+    if (el && stickToBottomRef.current) el.scrollTop = el.scrollHeight;
   }, [messages, status]);
 
   const handleSend = () => {
@@ -1283,6 +1301,7 @@ export default function BeakerBotConversation({
       {/* Message thread */}
       <div
         ref={listRef}
+        onScroll={handleListScroll}
         data-testid="beakerbot-messages"
         className="flex flex-1 flex-col gap-3 overflow-y-auto px-4 py-4"
       >
@@ -1422,6 +1441,7 @@ export default function BeakerBotConversation({
                         return (
                           <SmartDataWizard
                             key={key}
+                            inline
                             candidates={w.candidates}
                             onAddOverlays={async (args) => {
                               const res = await applyOverlayCommit({
@@ -1458,6 +1478,40 @@ export default function BeakerBotConversation({
                       {m.recipeComparisons.map((c, i) => (
                         <RecipeComparisonWidget key={`${m.id}:rc:${i}`} payload={c} />
                       ))}
+                    </div>
+                  </Suspense>
+                ) : null}
+
+                {/* Inline analysis/graph picker (suggest_analyses). Lists only the
+                    analyses + graphs the engine said can run on the table; picking
+                    one tells BeakerBot to run it deterministically, so the chat is
+                    never navigated away from. */}
+                {m.role === "assistant" && m.analysisPickers && m.analysisPickers.length > 0 ? (
+                  <Suspense fallback={null}>
+                    <div className="flex w-full flex-col gap-2 self-start">
+                      {m.analysisPickers.map((p, i) => {
+                        const key = `${m.id}:ap:${i}`;
+                        if (dismissedWizards.has(key)) return null;
+                        const dismiss = () =>
+                          setDismissedWizards((prev) => new Set(prev).add(key));
+                        return (
+                          <AnalysisPickerWidget
+                            key={key}
+                            inline
+                            tableName={p.tableName}
+                            capabilities={p.capabilities}
+                            onPick={(item) => {
+                              const verb =
+                                item.kind === "graph"
+                                  ? `Make a ${item.label} of`
+                                  : `Run the ${item.label} on`;
+                              dismiss();
+                              void send(`${verb} ${p.tableName}.`);
+                            }}
+                            onClose={dismiss}
+                          />
+                        );
+                      })}
                     </div>
                   </Suspense>
                 ) : null}

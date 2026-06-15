@@ -20,7 +20,7 @@ import { useFocusEffect, useRouter } from 'expo-router';
 import { ThemedText } from '@/components/themed-text';
 import { ScreenFrame } from '@/components/ui/ScreenFrame';
 import { Shimmer } from '@/components/ui/Shimmer';
-import { useUnreadNotificationCount } from '@/lib/unread-notifications';
+import { TabHeader } from '@/components/ui/TabHeader';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { EmptyState } from '@/components/ui/EmptyState';
@@ -42,7 +42,6 @@ function stockIsLow(stock: TrackedStock): boolean {
 export default function InventoryScreen() {
   const router = useRouter();
   const { surface, spacing } = useTheme();
-  const unreadCount = useUnreadNotificationCount();
 
   const { pairing, loading: pairingLoading, refresh: refreshPairing } =
     usePairing();
@@ -102,10 +101,7 @@ export default function InventoryScreen() {
   return (
     <ScreenFrame edges={['top']}>
       <View style={styles.head}>
-        <ThemedText style={[styles.greet, { color: surface.muted }]}>
-          {pairing?.labName ?? 'Your lab'}
-        </ThemedText>
-        <ThemedText type="title">Inventory</ThemedText>
+        <TabHeader title="Inventory" />
       </View>
       <ScrollView
         style={styles.fill}
@@ -452,7 +448,6 @@ function formatShortDate(value?: string | null): string {
 const styles = StyleSheet.create({
   fill: { flex: 1 },
   head: { paddingHorizontal: 16, paddingTop: 6, paddingBottom: 10 },
-  greet: { fontSize: 12.5, fontFamily: fonts.semibold, marginBottom: 5 },
   scrollContent: {
     paddingHorizontal: 16,
     paddingTop: 2,

@@ -120,32 +120,38 @@ const KO_PAD = 8; // inflate registered buttons a touch so the bot keeps clear
 
 type Anchor = { key: string; cx: number; cy: number };
 
-function rectsOverlap(a: KeepOutRect, b: KeepOutRect): boolean {
-  return (
-    a.x < b.x + b.width &&
-    a.x + a.width > b.x &&
-    a.y < b.y + b.height &&
-    a.y + a.height > b.y
-  );
+// Area of the intersection of two rects (0 when they do not overlap).
+function overlapArea(a: KeepOutRect, b: KeepOutRect): number {
+  const ix = Math.max(0, Math.min(a.x + a.width, b.x + b.width) - Math.max(a.x, b.x));
+  const iy = Math.max(0, Math.min(a.y + a.height, b.y + b.height) - Math.max(a.y, b.y));
+  return ix * iy;
 }
 
-// Candidate beaker-center positions in priority order, bottom-right first.
-function cornerAnchors(W: number, H: number, insetTop: number): Anchor[] {
+// Candidate beaker-center positions in priority order. Bottom-right first (the
+// happy resting spot), then bottom-left, then the side-edge midpoints (good
+// clear gutters when a full-width button blocks the bottom), then the top
+// corners as a last resort since those collide with the header action cluster.
+function candidateAnchors(W: number, H: number, insetTop: number): Anchor[] {
   const r = FOOT / 2;
   const right = W - EDGE - r;
   const left = EDGE + r;
   const bottom = H - TAB_BAR_H - 8 - r;
   const top = insetTop + 8 + r;
+  const mid = (top + bottom) / 2;
   return [
     { key: 'br', cx: right, cy: bottom },
     { key: 'bl', cx: left, cy: bottom },
+    { key: 'rm', cx: right, cy: mid },
+    { key: 'lm', cx: left, cy: mid },
     { key: 'tr', cx: right, cy: top },
     { key: 'tl', cx: left, cy: top },
   ];
 }
 
-// First corner whose footprint clears every registered button; falls back to
-// bottom-right when every corner is occupied.
+// First candidate in priority order whose footprint fully clears every
+// registered keep-out rect. When none is fully clear (every spot is crowded),
+// fall back to the one that covers the LEAST, never a blind corner that could
+// sit squarely on a button.
 function chooseAnchor(
   W: number,
   H: number,
@@ -153,21 +159,25 @@ function chooseAnchor(
   occupied: KeepOutRect[],
 ): Anchor {
   const r = FOOT / 2;
-  const candidates = cornerAnchors(W, H, insetTop);
+  const candidates = candidateAnchors(W, H, insetTop);
+  const padded = occupied.map((o) => ({
+    x: o.x - KO_PAD,
+    y: o.y - KO_PAD,
+    width: o.width + KO_PAD * 2,
+    height: o.height + KO_PAD * 2,
+  }));
+  let best = candidates[0];
+  let bestOverlap = Infinity;
   for (const c of candidates) {
     const foot: KeepOutRect = { x: c.cx - r, y: c.cy - r, width: FOOT, height: FOOT };
-    const clear = occupied.every(
-      (o) =>
-        !rectsOverlap(foot, {
-          x: o.x - KO_PAD,
-          y: o.y - KO_PAD,
-          width: o.width + KO_PAD * 2,
-          height: o.height + KO_PAD * 2,
-        }),
-    );
-    if (clear) return c;
+    const total = padded.reduce((sum, o) => sum + overlapArea(foot, o), 0);
+    if (total === 0) return c; // fully clear, take it
+    if (total < bestOverlap) {
+      bestOverlap = total;
+      best = c;
+    }
   }
-  return candidates[0];
+  return best;
 }
 
 // Heart centered roughly on (0,0), spans about x[-5,5] y[-3.5,4].

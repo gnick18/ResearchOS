@@ -27,6 +27,7 @@ import { RainbowBar } from '@/components/ui/RainbowBar';
 import { SuccessBurst } from '@/components/SuccessBurst';
 import BeakerBotWorkingBubble from '@/components/BeakerBotWorkingBubble';
 import { HeaderMascot } from '@/components/HeaderMascot';
+import { TodayHost } from '@/components/TodayHost';
 import { LabAlarm, LabAlarmWatcher } from '@/components/LabAlarm';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useMascotPrefs } from '@/lib/mascot-prefs';
@@ -250,6 +251,9 @@ export default function RootLayout() {
             (the method reformat) is in flight, tap to see token usage + time
             left. Renders null when no job is running. Native only (Skia). */}
         {Platform.OS !== 'web' ? <BeakerBotWorkingBubble /> : null}
+        {/* Today dropdown: the header trio's Today button (on every tab root)
+            toggles this shared panel, fed by one global snapshot fetch. */}
+        {Platform.OS !== 'web' ? <TodayHost /> : null}
       </View>
       {splashVisible && Platform.OS !== 'web' ? <AppSplash onFinish={handleSplashFinish} /> : null}
       {/* Biometric app lock. Opt-in (default off), so this renders null and adds
