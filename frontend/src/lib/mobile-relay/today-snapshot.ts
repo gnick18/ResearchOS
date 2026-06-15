@@ -35,6 +35,12 @@ export interface SnapshotTask {
    * Omitted when the method could not be resolved or the task is not an experiment.
    */
   linkedMethodType?: string | null;
+  /**
+   * Total number of methods attached to this task (>= 1 when linkedMethodName is
+   * set). Lets the phone glance show "first method +N more" without resolving
+   * every method name. Omitted when no method is attached; treat absent as 1.
+   */
+  linkedMethodCount?: number | null;
 }
 
 /** The decrypted shape the phone reads after openSealed. */
@@ -172,6 +178,9 @@ export async function buildTodaySnapshot(): Promise<TodaySnapshot> {
     if (resolved) {
       snap.linkedMethodName = resolved.name;
       snap.linkedMethodType = resolved.methodType;
+      // Count rides only when we resolved a first method, so the phone can show
+      // "first +N more" without resolving the rest.
+      snap.linkedMethodCount = t.method_attachments?.length ?? 1;
     }
     return snap;
   };

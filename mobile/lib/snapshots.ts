@@ -43,6 +43,10 @@ export type SnapshotTask = {
   /** Raw method_type of the first attached method (e.g. "pcr", "markdown").
    *  Optional companion to linkedMethodName for a type badge. */
   linkedMethodType?: string | null;
+  /** Total methods attached to this task (>= 1 when linkedMethodName is set).
+   *  Drives the "first method +N more" glance. Absent on older laptops; treat
+   *  absent or <= 1 as a single method. */
+  linkedMethodCount?: number | null;
 };
 
 // The decrypted "today" snapshot. generatedAt drives the "last synced" line.

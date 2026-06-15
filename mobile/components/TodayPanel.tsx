@@ -425,6 +425,7 @@ function ExperimentCard({
 
   const label = dayLabel(task.start_date, task.end_date);
   const hasMethod = !!task.linkedMethodName;
+  const extraMethods = Math.max(0, (task.linkedMethodCount ?? 1) - 1);
 
   return (
     <Pressable
@@ -461,10 +462,15 @@ function ExperimentCard({
           >
             {task.linkedMethodName}
           </ThemedText>
-          {/* Tap affordance: makes it obvious the card opens the attached method. */}
+          {extraMethods > 0 ? (
+            <ThemedText style={[styles.methodMore, { color: palette.purple }]}>
+              {`+${extraMethods} more`}
+            </ThemedText>
+          ) : null}
+          {/* Tap affordance: makes it obvious the card opens the attached method(s). */}
           <View style={styles.expOpenCue}>
             <ThemedText style={[styles.expOpenCueText, { color: palette.purple }]}>
-              View method
+              {extraMethods > 0 ? 'View methods' : 'View method'}
             </ThemedText>
             <Ionicons name="chevron-forward" size={12} color={palette.purple} />
           </View>
@@ -577,6 +583,7 @@ export function TaskRow({
     .join('  -  ');
   const hasMethod = !!task.linkedMethodName;
   const tappable = hasMethod && !!onOpenMethod;
+  const extraMethods = Math.max(0, (task.linkedMethodCount ?? 1) - 1);
 
   const body = (
     <>
@@ -605,10 +612,15 @@ export function TaskRow({
             >
               {task.linkedMethodName}
             </ThemedText>
+            {extraMethods > 0 ? (
+              <ThemedText style={[styles.methodMore, { color: palette.purple }]}>
+                {`+${extraMethods} more`}
+              </ThemedText>
+            ) : null}
             {tappable ? (
               <View style={styles.expOpenCue}>
                 <ThemedText style={[styles.expOpenCueText, { color: palette.purple }]}>
-                  View method
+                  {extraMethods > 0 ? 'View methods' : 'View method'}
                 </ThemedText>
                 <Ionicons name="chevron-forward" size={12} color={palette.purple} />
               </View>
@@ -852,6 +864,12 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontFamily: fonts.bold,
     fontWeight: '700',
+  },
+  methodMore: {
+    fontSize: 10,
+    fontFamily: fonts.bold,
+    fontWeight: '700',
+    flexShrink: 0,
   },
 
   scroll: { flexGrow: 0 },

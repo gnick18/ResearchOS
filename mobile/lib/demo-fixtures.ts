@@ -45,6 +45,7 @@ export const DEMO_TODAY_SNAPSHOT: TodaySnapshot = {
       task_type: 'experiment',
       linkedMethodName: 'Colony PCR, GoTaq',
       linkedMethodType: 'pcr',
+      linkedMethodCount: 3,
     },
     {
       id: 'demo-task-1',
@@ -74,6 +75,7 @@ export const DEMO_TODAY_SNAPSHOT: TodaySnapshot = {
       task_type: 'PCR',
       linkedMethodName: 'qPCR validation, SYBR Green',
       linkedMethodType: 'pcr',
+      linkedMethodCount: 2,
     },
   ],
   upcomingTasks: [
