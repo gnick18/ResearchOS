@@ -68,6 +68,33 @@ export type Annotation =
       label?: string;
     };
 
+/**
+ * A placed library asset (a science icon / illustration from the open-asset
+ * federation). Unlike a panel (a live data figure with an A/B/C label), an asset
+ * is a lightweight decorative graphic: positioned in real inches, freely sized,
+ * optionally tinted. Its provenance (credit + whether attribution is required) is
+ * cached at place-time so export + the credits block need no live fetch.
+ */
+export interface PlacedAsset {
+  assetId: string;
+  /** Which library asset this instance draws (source + id within the source). */
+  ref: { source: string; sourceId: string };
+  /** Relative SVG path in the asset bundle, cached so render resolves the URL. */
+  svgPath: string;
+  xIn: number;
+  yIn: number;
+  wIn: number;
+  hIn: number;
+  /** Clockwise rotation in degrees (0 = upright). */
+  rotation?: number;
+  /** Single-color tint applied to the whole asset (per-fill targets come later). */
+  tint?: string;
+  /** The verbatim citation, cached at place-time for the auto-credits block. */
+  credit: string;
+  /** Whether the license requires the credit be shown (CC-BY / SA / MIT / BSD). */
+  requiresAttribution: boolean;
+}
+
 /** A composed publication page. Stored as its own document, collection-scoped. */
 export interface FigurePage {
   id: string;
@@ -78,6 +105,8 @@ export interface FigurePage {
   labelStyle: LabelStyle;
   panels: FigurePanel[];
   annotations: Annotation[];
+  /** Placed library assets (icons / illustrations). Absent on pre-asset pages. */
+  assets?: PlacedAsset[];
 }
 
 /** Page margin (inches) kept clear of panels for the grid + a tidy frame. */
@@ -353,4 +382,99 @@ export function makeArrowAnnotation(annId: string, xIn: number, yIn: number): An
 /** A new horizontal significance bracket anchored at the click point. */
 export function makeBracketAnnotation(annId: string, xIn: number, yIn: number): Annotation {
   return { annId, kind: "bracket", xIn, yIn, spanIn: 1.5, orientation: "horizontal", label: "" };
+}
+
+// ── Placed assets (the open-asset icon / illustration layer) ──────────────────
+
+/** Every placed asset, tolerating a pre-asset page where the field is absent. */
+export function pageAssets(page: FigurePage): PlacedAsset[] {
+  return page.assets ?? [];
+}
+
+/**
+ * A new placed asset, sized to a sensible default square (1.2in) at a drop point.
+ * `fields` carries the library asset's identity + provenance, cached on the page.
+ */
+export function makePlacedAsset(
+  assetId: string,
+  fields: {
+    source: string;
+    sourceId: string;
+    svgPath: string;
+    credit: string;
+    requiresAttribution: boolean;
+  },
+  xIn: number,
+  yIn: number,
+  sizeIn = 1.2,
+): PlacedAsset {
+  return {
+    assetId,
+    ref: { source: fields.source, sourceId: fields.sourceId },
+    svgPath: fields.svgPath,
+    xIn,
+    yIn,
+    wIn: sizeIn,
+    hIn: sizeIn,
+    credit: fields.credit,
+    requiresAttribution: fields.requiresAttribution,
+  };
+}
+
+/** Append a placed asset to the page. */
+export function addPlacedAsset(page: FigurePage, asset: PlacedAsset): FigurePage {
+  return { ...page, assets: [...pageAssets(page), asset] };
+}
+
+/** Remove a placed asset by id. */
+export function removePlacedAsset(page: FigurePage, assetId: string): FigurePage {
+  return { ...page, assets: pageAssets(page).filter((a) => a.assetId !== assetId) };
+}
+
+/** Patch one placed asset (move / resize / tint / rotate), shallow merge. */
+export function updatePlacedAsset(
+  page: FigurePage,
+  assetId: string,
+  patch: Partial<Omit<PlacedAsset, "assetId" | "ref">>,
+): FigurePage {
+  return {
+    ...page,
+    assets: pageAssets(page).map((a) => (a.assetId === assetId ? { ...a, ...patch } : a)),
+  };
+}
+
+/** Translate a placed asset by a delta in inches (clamped to >= 0). */
+export function movePlacedAsset(
+  page: FigurePage,
+  assetId: string,
+  dxIn: number,
+  dyIn: number,
+): FigurePage {
+  return {
+    ...page,
+    assets: pageAssets(page).map((a) =>
+      a.assetId === assetId
+        ? { ...a, xIn: Math.max(0, a.xIn + dxIn), yIn: Math.max(0, a.yIn + dyIn) }
+        : a,
+    ),
+  };
+}
+
+/**
+ * The figure's auto-generated credit lines: the unique citation of every placed
+ * asset whose license requires attribution (CC-BY / SA / MIT / BSD). Public-Domain
+ * and CC0 assets need no credit, so they are omitted. De-duplicated (the same icon
+ * used twice cites once) and stable in placement order. This is the legal
+ * load-bearing piece, computed purely from the page.
+ */
+export function figureCredits(page: FigurePage): string[] {
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const a of pageAssets(page)) {
+    if (!a.requiresAttribution) continue;
+    if (seen.has(a.credit)) continue;
+    seen.add(a.credit);
+    out.push(a.credit);
+  }
+  return out;
 }
