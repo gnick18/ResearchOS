@@ -55,6 +55,7 @@ import { useCompanionHub } from "@/lib/ui/companion-hub-store";
 import { useTimersPopup } from "@/lib/ui/timers-popup-store";
 import { useRunningTimerCount } from "@/lib/timers/laptop-timers";
 import { usePhonePaired } from "@/hooks/usePhonePaired";
+import { useLabPendingRequests } from "@/hooks/useLabPendingRequests";
 import SharingClaimResume from "@/components/sharing/SharingClaimResume";
 import LabInviteResume from "@/components/lab/LabInviteResume";
 import LabCreateResume from "@/components/lab/LabCreateResume";
@@ -80,6 +81,11 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   const openTimers = useTimersPopup((s) => s.open);
   const runningTimers = useRunningTimerCount();
   const phonePaired = usePhonePaired();
+  // Pending lab join-request count (lab-pending-requests-ux, 2026-06-14). Drives
+  // an attention dot on the avatar menu so a PI sees waiting requests without
+  // opening Settings. Inert for non-PIs; shares the React Query cache with the
+  // settings rail badge by key, so this is not an extra fetch.
+  const pendingRequests = useLabPendingRequests();
   const { currentUser } = useFileSystem();
   const userColors = useUserColors(currentUser ?? "");
   const baseColor = userColors.primary;
@@ -571,6 +577,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
               primaryColor={baseColor}
               tinted={tinted}
               pathname={pathname}
+              attention={pendingRequests.count > 0}
             />
           )}
         </div>

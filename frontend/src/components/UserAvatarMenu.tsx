@@ -50,6 +50,10 @@ export interface UserAvatarMenuProps {
   tinted: boolean;
   /** Current pathname for active-state styling. */
   pathname: string | null;
+  /** When true, an Apple-style attention dot rides the avatar chip so the user
+   *  knows something needs them (pending lab join requests) without opening the
+   *  menu. Subtle, only when there is something to surface. */
+  attention?: boolean;
 }
 
 // ---------------------------------------------------------------------------
@@ -209,6 +213,7 @@ export default function UserAvatarMenu({
   primaryColor,
   tinted,
   pathname,
+  attention = false,
 }: UserAvatarMenuProps) {
   const [open, setOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -327,6 +332,12 @@ export default function UserAvatarMenu({
         >
           {orb}
           <span className="relative">{initial(currentUser)}</span>
+          {attention && (
+            <span
+              aria-hidden="true"
+              className="absolute -top-0.5 -right-0.5 h-2.5 w-2.5 rounded-full bg-red-500 ring-2 ring-surface-raised"
+            />
+          )}
         </button>
       </Tooltip>
 
