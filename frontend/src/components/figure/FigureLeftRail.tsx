@@ -12,9 +12,12 @@ import { Icon, type IconName } from "@/components/icons";
 import {
   loadAssetManifest,
   searchAssets,
-  listCategories,
+  listCategoryGroups,
+  verificationStatus,
+  countReviewable,
   assetSvgUrl,
   type LibraryAsset,
+  type CategoryGroup,
 } from "@/lib/figure/asset-library";
 import type { FigurePage, ShapeKind, TextVariant } from "@/lib/figure/figure-page";
 import type { ElementRef } from "@/lib/figure/figure-arrange";
@@ -220,11 +223,20 @@ function PanelHead({ children }: { children: React.ReactNode }) {
   );
 }
 
+// The contribution / review flow is dark until go-live, so the verification
+// badges + "Help review" entry only surface when the lane's flag is on.
+const ASSET_CONTRIBUTE_ENABLED =
+  process.env.NEXT_PUBLIC_ASSET_CONTRIBUTE_ENABLED === "1" ||
+  process.env.NEXT_PUBLIC_ASSET_CONTRIBUTE_ENABLED === "true";
+
 function IconsPanel({ onPick }: { onPick: (a: LibraryAsset) => void }) {
   const [assets, setAssets] = useState<LibraryAsset[]>([]);
   const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState("");
   const [category, setCategory] = useState<string | null>(null);
+  // Which top-level sections are open in the tree. Collapsed by default so a
+  // 9-section corpus stays scannable; selecting a leaf keeps its section open.
+  const [expanded, setExpanded] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     let live = true;
@@ -238,11 +250,31 @@ function IconsPanel({ onPick }: { onPick: (a: LibraryAsset) => void }) {
     };
   }, []);
 
-  const categories = useMemo(() => listCategories(assets), [assets]);
+  // The locked taxonomy from the Icon Library lane: sections (display-ordered,
+  // empty omitted) each holding the leaf categories actually present.
+  const groups = useMemo<CategoryGroup[]>(() => listCategoryGroups(assets), [assets]);
   const results = useMemo(
     () => searchAssets(assets, { query, category }).slice(0, 240),
     [assets, query, category],
   );
+  const reviewable = useMemo(
+    () => (ASSET_CONTRIBUTE_ENABLED ? countReviewable(assets) : 0),
+    [assets],
+  );
+
+  const toggleSection = (section: string) =>
+    setExpanded((prev) => {
+      const next = new Set(prev);
+      if (next.has(section)) next.delete(section);
+      else next.add(section);
+      return next;
+    });
+
+  const selectCategory = (cat: string | null, section?: string) => {
+    setCategory(cat);
+    // Keep the chosen leaf's section open so the selection stays visible.
+    if (section) setExpanded((prev) => new Set(prev).add(section));
+  };
 
   return (
     <>
@@ -256,25 +288,57 @@ function IconsPanel({ onPick }: { onPick: (a: LibraryAsset) => void }) {
           className="w-full bg-transparent text-meta outline-none placeholder:text-foreground-faint"
         />
       </div>
-      <div className="mb-2 flex flex-wrap gap-1">
-        <button
-          type="button"
-          onClick={() => setCategory(null)}
-          className={`rounded-full px-2 py-0.5 text-[10.5px] ${category === null ? "bg-brand-action text-white" : "border border-border-strong text-foreground-muted"}`}
-        >
-          All
-        </button>
-        {categories.slice(0, 10).map((c) => (
+
+      {/* Collapsible grouped category tree (BioRender-style), bounded so the
+          results grid below always keeps room. */}
+      {!loading && assets.length > 0 && (
+        <div className="mb-2 max-h-44 overflow-auto rounded-lg border border-border-strong bg-surface-sunken p-1">
           <button
-            key={c}
             type="button"
-            onClick={() => setCategory(c)}
-            className={`rounded-full px-2 py-0.5 text-[10.5px] ${category === c ? "bg-brand-action text-white" : "border border-border-strong text-foreground-muted"}`}
+            onClick={() => selectCategory(null)}
+            className={`block w-full rounded-md px-2 py-1 text-left text-meta font-semibold ${category === null ? "bg-brand-action text-white" : "text-foreground hover:bg-surface-raised"}`}
           >
-            {c}
+            All icons
           </button>
-        ))}
-      </div>
+          {groups.map((g) => {
+            const open = expanded.has(g.section);
+            return (
+              <div key={g.section}>
+                <button
+                  type="button"
+                  onClick={() => toggleSection(g.section)}
+                  className="flex w-full items-center gap-1 rounded-md px-1.5 py-1 text-left text-meta font-semibold text-foreground-muted hover:bg-surface-raised"
+                  aria-expanded={open}
+                >
+                  <Icon
+                    name={open ? "chevronDown" : "chevronRight"}
+                    className="h-3 w-3 shrink-0 opacity-70"
+                  />
+                  <span className="truncate">{g.section}</span>
+                  <span className="ml-auto text-[10px] text-foreground-faint">
+                    {g.categories.length}
+                  </span>
+                </button>
+                {open && (
+                  <div className="ml-3 border-l border-border pl-1">
+                    {g.categories.map((c) => (
+                      <button
+                        key={c}
+                        type="button"
+                        onClick={() => selectCategory(c, g.section)}
+                        className={`block w-full truncate rounded-md px-2 py-0.5 text-left text-[11px] ${category === c ? "bg-brand-action text-white" : "text-foreground-muted hover:bg-surface-raised"}`}
+                      >
+                        {c}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
+
       <div className="min-h-0 flex-1 overflow-auto">
         {loading ? (
           <p className="p-4 text-center text-meta text-foreground-muted">Loading the library...</p>
@@ -282,40 +346,64 @@ function IconsPanel({ onPick }: { onPick: (a: LibraryAsset) => void }) {
           <p className="p-4 text-center text-meta text-foreground-faint">
             No assets available yet.
           </p>
+        ) : results.length === 0 ? (
+          <p className="p-4 text-center text-meta text-foreground-faint">
+            Nothing here. Try another category or search.
+          </p>
         ) : (
           <div className="grid grid-cols-3 gap-2">
-            {results.map((a) => (
-              <button
-                key={a.uid}
-                type="button"
-                draggable
-                onDragStart={(e) => {
-                  // Carry the whole asset so the canvas drop can place it without
-                  // re-resolving the manifest. text/plain keeps it broadly droppable.
-                  e.dataTransfer.setData("application/x-ros-asset", JSON.stringify(a));
-                  e.dataTransfer.effectAllowed = "copy";
-                }}
-                onClick={() => onPick(a)}
-                title={`${a.title} (${a.license}${a.requiresAttribution ? ", cited" : ""}). Click or drag onto the page.`}
-                className="flex aspect-square cursor-grab items-center justify-center rounded-lg border border-border bg-surface-sunken p-1.5 hover:border-brand-action active:cursor-grabbing"
-                data-testid="figure-icon-option"
-              >
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src={assetSvgUrl(a)}
-                  alt={a.title}
-                  loading="lazy"
-                  draggable={false}
-                  className="pointer-events-none h-full w-full object-contain"
-                />
-              </button>
-            ))}
+            {results.map((a) => {
+              const unverified = ASSET_CONTRIBUTE_ENABLED && verificationStatus(a) === "unverified";
+              return (
+                <button
+                  key={a.uid}
+                  type="button"
+                  draggable
+                  onDragStart={(e) => {
+                    // Carry the whole asset so the canvas drop can place it without
+                    // re-resolving the manifest. text/plain keeps it broadly droppable.
+                    e.dataTransfer.setData("application/x-ros-asset", JSON.stringify(a));
+                    e.dataTransfer.effectAllowed = "copy";
+                  }}
+                  onClick={() => onPick(a)}
+                  title={`${a.title} (${a.license}${a.requiresAttribution ? ", cited" : ""}${unverified ? ", community, unverified" : ""}). Click or drag onto the page.`}
+                  className="relative flex aspect-square cursor-grab items-center justify-center rounded-lg border border-border bg-surface-sunken p-1.5 hover:border-brand-action active:cursor-grabbing"
+                  data-testid="figure-icon-option"
+                >
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={assetSvgUrl(a)}
+                    alt={a.title}
+                    loading="lazy"
+                    draggable={false}
+                    className="pointer-events-none h-full w-full object-contain"
+                  />
+                  {unverified && (
+                    <span
+                      aria-hidden
+                      className="absolute right-1 top-1 h-1.5 w-1.5 rounded-full bg-amber-400 ring-1 ring-surface-sunken"
+                    />
+                  )}
+                </button>
+              );
+            })}
           </div>
         )}
       </div>
-      <p className="mt-2 text-[10px] text-foreground-faint">
-        {loading ? "" : `${results.length} of ${assets.length}. Credits auto-added.`}
-      </p>
+
+      <div className="mt-2 flex items-center justify-between gap-2">
+        <p className="text-[10px] text-foreground-faint">
+          {loading ? "" : `${results.length} of ${assets.length}. Credits auto-added.`}
+        </p>
+        {reviewable > 0 && (
+          <a
+            href="/library/review"
+            className="shrink-0 text-[10px] font-semibold text-brand-action hover:underline"
+          >
+            Help review ({reviewable})
+          </a>
+        )}
+      </div>
     </>
   );
 }
