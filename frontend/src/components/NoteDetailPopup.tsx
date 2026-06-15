@@ -1563,18 +1563,20 @@ export default function NoteDetailPopup({
           className={`font-bold text-foreground w-full focus:outline-none bg-transparent ${
             isExpanded
               ? "text-3xl leading-tight border-0 focus:ring-0 placeholder:text-foreground-muted/50"
-              : "text-2xl border-b-2 border-emerald-500"
+              : "text-2xl border-b-2 border-sky-500"
           }`}
           autoFocus
           disabled={readOnly}
         />
       ) : (
+        // Family hue: note = sky (writing). The accent marker sits on the
+        // display title; editing shows the plain input.
         <h2
           onClick={() => !readOnly && setEditingTitle(true)}
-          className={`font-bold text-foreground ${
+          className={`ros-title-accent ros-accent-sky font-bold text-foreground ${
             isExpanded ? "text-3xl leading-tight" : "text-2xl"
           } ${
-            !readOnly ? "cursor-pointer hover:text-emerald-600 dark:hover:text-emerald-300" : ""
+            !readOnly ? "cursor-pointer hover:brightness-95 dark:hover:brightness-110" : ""
           }`}
         >
           {title}
@@ -1588,7 +1590,7 @@ export default function NoteDetailPopup({
           onBlur={saveDescription}
           onKeyDown={(e) => e.key === "Enter" && saveDescription()}
           placeholder="Add a description..."
-          className="text-body text-foreground-muted w-full border-b-2 border-emerald-500 focus:outline-none bg-transparent mt-1"
+          className="text-body text-foreground-muted w-full border-b-2 border-sky-500 focus:outline-none bg-transparent mt-1"
           autoFocus
           disabled={readOnly}
         />
@@ -1596,7 +1598,7 @@ export default function NoteDetailPopup({
         <p
           onClick={() => !readOnly && setEditingDescription(true)}
           className={`text-body text-foreground-muted mt-1 ${
-            !readOnly ? "cursor-pointer hover:text-emerald-600 dark:hover:text-emerald-300" : ""
+            !readOnly ? "cursor-pointer hover:text-sky-600 dark:hover:text-sky-300" : ""
           }`}
         >
           {description || (!readOnly ? "Add a description..." : "")}
