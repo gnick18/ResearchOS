@@ -36,9 +36,16 @@ font unchanged). `titleAccent`: `amber | violet | sky | emerald | rose`. Light =
 crisp pastel behind dark text; dark = OPAQUE saturated fill of the SAME hue
 (deeper shade) behind light text. NEVER low-alpha translucent in dark (the room
 bleeds through = mud). One uniform hue per object type.
-- Assigned: NewPurchaseModal=amber, PurchaseHistoryPopup=violet.
-- Mockup picks for the rest: note=sky, experiment=emerald, sequence=rose
-  (confirm new types with Grant; one hue per meaning).
+- SCHEME LOCKED (Grant 2026-06-14): **domain family** — related objects share a
+  hue; utility/system dialogs stay PLAIN (no accent). The 5-hue map:
+  - **amber** procurement: Purchase, Supply, Funding, Approvals
+  - **sky** writing: Note, Notebook, Wiki, Lab notes
+  - **emerald** experiments: Experiment, Method, Result, Protocol
+  - **rose** molecular: Sequence, Molecule, Chemistry
+  - **violet** work+data: Project, Task, Data Hub, Analysis, History, Calendar
+  - **plain** (no accent): settings, wizards, confirms, import/export, sharing,
+    feedback, billing, and other system/utility dialogs.
+- Assigned: NewPurchaseModal=amber, PurchaseHistoryPopup=violet (history=work+data).
 - Classes `.ros-title-accent` + `.ros-accent-<hue>` (globals.css) for non-shell
   titles (page headers) too.
 
