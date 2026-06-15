@@ -128,6 +128,10 @@ export interface RenderSpec {
   /** Per-figure gap (px) between overlay columns; absent = PANEL_GAP. The
    *  collision advisor's "increase column spacing" lever. */
   columnGap?: number;
+  /** Where the legends sit: "right" (default, reserved right column) or "bottom"
+   *  (a horizontal strip below the figure, freeing the right edge). The advisor's
+   *  "move the legend" fix. */
+  legendPlacement?: "right" | "bottom";
   tracks: FigureTracks;
   columns: FigureColumns;
   width: number;
@@ -606,15 +610,26 @@ function renderFromPanels(
       }),
     });
   }
+  // Legend placement (the advisor's "move the legend" fix). Default "right"
+  // reserves a right-edge column (unchanged); "bottom" frees the right edge by
+  // laying the legends in a horizontal strip below the figure, reducing the tree
+  // height. Bottom is the cure when the right column overran the labels.
+  const legendBottom =
+    spec.legendPlacement === "bottom" && legendItems.length > 0;
   // Reserve one legend sub-column normally; when the stacked legends would run
   // past the canvas height, reserve enough sub-columns to hold them side by side
   // (capped) so they never overlap the figure or each other (multi-panel polish).
   const legendCols =
-    legendItems.length > 0
+    legendItems.length > 0 && !legendBottom
       ? legendColumnCount(legendItems, spec.height)
       : 0;
   const legendW = legendCols * LEGEND_COL_WIDTH;
   const plotWidth = Math.max(120, spec.width - legendW);
+  // When bottom, reserve a strip whose height holds the wrapped legend rows.
+  const legendStripH = legendBottom
+    ? bottomLegendStripHeight(legendItems, spec.width)
+    : 0;
+  const layoutHeight = spec.height - legendStripH;
 
   // Per-figure overlay-column gap (the advisor's spacing lever); absent = default.
   const columnGap = spec.columnGap ?? PANEL_GAP;
@@ -630,7 +645,7 @@ function renderFromPanels(
 
   const opts: LayoutOptions = {
     width: plotWidth,
-    height: spec.height,
+    height: layoutHeight,
     rightInset:
       isCircular(spec.layout) ? 0 : room + labelRoom + 8,
     padding: 16,
@@ -761,17 +776,21 @@ function renderFromPanels(
 
   // Scale bar (rectangular phylogram only) is drawn inside drawRectTree.
   const legend =
-    legendItems.length > 0
-      ? renderPanelLegendColumn(legendItems, plotWidth, spec.height, legendCols)
-      : "";
+    legendItems.length === 0
+      ? ""
+      : legendBottom
+        ? renderPanelLegendRow(legendItems, spec.width, layoutHeight, legendStripH)
+        : renderPanelLegendColumn(legendItems, plotWidth, spec.height, legendCols);
   if (wantManifest && legendItems.length > 0)
     outManifest!.push({
       id: "legend",
       kind: "legend",
-      x: plotWidth,
-      y: 0,
-      w: legendW,
-      h: spec.height,
+      // Bottom strip spans the full width below the figure; right column sits past
+      // the plot. Either way this is where the legend ink lands.
+      x: legendBottom ? 0 : plotWidth,
+      y: legendBottom ? layoutHeight : 0,
+      w: legendBottom ? spec.width : legendW,
+      h: legendBottom ? legendStripH : spec.height,
       label: `${legendItems.length} legend keys`,
     });
 
@@ -1679,6 +1698,54 @@ function renderPanelLegendColumn(
     parts.push(r.svg);
     y += r.height;
   }
+  return parts.join("");
+}
+
+/** How many legend entries fit across the width in one bottom-strip row. */
+function legendPerRow(width: number): number {
+  return Math.max(1, Math.floor((width - 24) / LEGEND_COL_WIDTH));
+}
+
+/** Height (px) a bottom legend strip needs to hold all entries, wrapped across
+ *  the width. The row height is the tallest single legend (capped), so a tall
+ *  categorical key does not clip. */
+function bottomLegendStripHeight(
+  entries: LegendEntry[],
+  width: number,
+): number {
+  if (entries.length === 0) return 0;
+  const perRow = legendPerRow(width);
+  const rows = Math.ceil(entries.length / perRow);
+  const rowH = Math.min(
+    96,
+    Math.max(...entries.map((e) => estimateLegendHeight(e))),
+  );
+  return rows * rowH + 12;
+}
+
+/**
+ * Render the legends in a horizontal strip below the figure (placement "bottom"),
+ * wrapping left-to-right across the width into stacked rows. Frees the right edge
+ * entirely, the cure when the right legend column overran the labels. Each entry
+ * occupies one LEGEND_COL_WIDTH slot, the same renderer as the right column.
+ */
+function renderPanelLegendRow(
+  entries: LegendEntry[],
+  width: number,
+  stripTop: number,
+  stripH: number,
+): string {
+  const perRow = legendPerRow(width);
+  const rows = Math.max(1, Math.ceil(entries.length / perRow));
+  const rowH = stripH > 0 ? (stripH - 8) / rows : 0;
+  const maxY = stripTop + stripH;
+  const parts: string[] = [];
+  entries.forEach((entry, i) => {
+    const x = 12 + (i % perRow) * LEGEND_COL_WIDTH;
+    const y = stripTop + 6 + Math.floor(i / perRow) * rowH;
+    const r = renderOneLegend(entry, x, y, maxY);
+    if (r.height > 0) parts.push(r.svg);
+  });
   return parts.join("");
 }
 

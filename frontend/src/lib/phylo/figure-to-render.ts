@@ -55,6 +55,9 @@ export interface FigureInputs {
   /** Per-figure gap (px) between overlay columns; absent = the default PANEL_GAP.
    *  The collision advisor's "increase column spacing" lever. */
   columnGap?: number;
+  /** Legend placement: "right" (default) or "bottom". The advisor's "move the
+   *  legend" fix. */
+  legendPlacement?: "right" | "bottom";
   tracks: FigureTracks;
   categoryColumn?: string;
   barColumn?: string;
@@ -208,6 +211,7 @@ export function figureToRenderSpec(
     rootEdge: inputs.rootEdge,
     timeAxis: inputs.timeAxis,
     columnGap: inputs.columnGap,
+    legendPlacement: inputs.legendPlacement,
     tracks: inputs.tracks,
     columns: {
       category: inputs.categoryColumn || undefined,
@@ -247,6 +251,8 @@ interface StoredFigure {
   timeAxis?: boolean;
   /** Per-figure overlay-column gap in px (optional, additive, defaults PANEL_GAP). */
   columnGap?: number;
+  /** Legend placement "right" | "bottom" (optional, additive, defaults right). */
+  legendPlacement?: "right" | "bottom";
   tracks?: Record<string, boolean>;
   /** Per-track sequential-palette overrides (Phase 0, optional). */
   scales?: FigureScales;
@@ -290,6 +296,7 @@ export function figureInputsFromStored(
   const rootEdge = figure?.rootEdge;
   const timeAxis = figure?.timeAxis;
   const columnGap = figure?.columnGap;
+  const legendPlacement = figure?.legendPlacement;
   const tracks: FigureTracks = {
     ...DEFAULT_FIGURE_TRACKS,
     ...((figure?.tracks ?? {}) as Partial<FigureTracks>),
@@ -308,6 +315,7 @@ export function figureInputsFromStored(
       rootEdge,
       timeAxis,
       columnGap,
+      legendPlacement,
       tracks,
       metaRows: null,
       scales,
@@ -324,6 +332,7 @@ export function figureInputsFromStored(
     rootEdge,
     timeAxis,
     columnGap,
+    legendPlacement,
     tracks,
     metaRows: metadata.rows,
     tipColumn: metadata.tipColumn || cols[0] || "",

@@ -92,6 +92,13 @@ export interface PhyloFigureSpec {
    * advisor's "increase column spacing" lever (and a manual control).
    */
   columnGap?: number;
+  /**
+   * Where the legends sit: "right" (default, reserved right column) or "bottom"
+   * (a horizontal strip below the figure). Optional + additive: absent reads as
+   * "right" so an older record renders unchanged. The advisor's "move the legend"
+   * fix (and a manual control).
+   */
+  legendPlacement?: "right" | "bottom";
 }
 
 /**

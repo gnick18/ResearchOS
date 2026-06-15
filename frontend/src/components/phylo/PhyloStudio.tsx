@@ -256,6 +256,11 @@ export function PhyloStudio({ initialTreeId }: { initialTreeId?: string } = {}) 
   // Per-figure gap (px) between overlay columns; default = render's PANEL_GAP (8).
   // The collision advisor's "increase column spacing" lever + a manual control.
   const [columnGap, setColumnGap] = useState<number>(8);
+  // Legend placement: "right" (default reserved column) or "bottom" (strip below).
+  // The advisor's "move the legend" fix + a manual control.
+  const [legendPlacement, setLegendPlacement] = useState<"right" | "bottom">(
+    "right",
+  );
   // Draw a full-width time axis (age before present) instead of the scale bar.
   const [timeAxis, setTimeAxis] = useState(false);
   // The ordered LAYER stack (phylo Phase 1). This IS the persisted panels[]; the
@@ -453,6 +458,7 @@ export function PhyloStudio({ initialTreeId }: { initialTreeId?: string } = {}) 
         rootEdge,
         timeAxis,
         columnGap,
+        legendPlacement,
         tracks: EMPTY_TRACKS,
         categoryColumn,
         metaRows,
@@ -474,6 +480,7 @@ export function PhyloStudio({ initialTreeId }: { initialTreeId?: string } = {}) 
     rootEdge,
     timeAxis,
     columnGap,
+    legendPlacement,
     categoryColumn,
     metaRows,
     tipColumn,
@@ -828,6 +835,7 @@ export function PhyloStudio({ initialTreeId }: { initialTreeId?: string } = {}) 
     setScaleBar(inputs.scaleBar ?? true);
     setRootEdge(inputs.rootEdge ?? false);
     setColumnGap(inputs.columnGap ?? 8);
+    setLegendPlacement(inputs.legendPlacement ?? "right");
     setTimeAxis(inputs.timeAxis ?? false);
     // Stored panels win; else project the layer stack from the Phase 0 fields.
     const restored =
@@ -1039,6 +1047,7 @@ export function PhyloStudio({ initialTreeId }: { initialTreeId?: string } = {}) 
       rootEdge,
       timeAxis,
       columnGap,
+      legendPlacement,
       tracks: derived.tracks,
       legend: true,
       panels,
@@ -1236,6 +1245,32 @@ export function PhyloStudio({ initialTreeId }: { initialTreeId?: string } = {}) 
                 </span>
               </div>
             )}
+            <div className="mt-2 flex items-center gap-2">
+              <span className="text-xs font-semibold text-foreground-muted whitespace-nowrap">
+                Legend
+              </span>
+              <div className="flex gap-1">
+                {(["right", "bottom"] as const).map((pos) => (
+                  <button
+                    key={pos}
+                    type="button"
+                    onClick={() => setLegendPlacement(pos)}
+                    title={
+                      pos === "bottom"
+                        ? "Place the legend in a strip below the figure (frees the right edge)"
+                        : "Place the legend in a column on the right"
+                    }
+                    className={`rounded-lg border px-2.5 py-1 text-xs font-bold capitalize transition-colors ${
+                      legendPlacement === pos
+                        ? "border-accent bg-accent-soft text-accent"
+                        : "border-border text-foreground-muted hover:text-foreground"
+                    }`}
+                  >
+                    {pos}
+                  </button>
+                ))}
+              </div>
+            </div>
             {artboard.enabled && (
               <div className="mt-3 border-t border-border pt-3">
                 <FigureArtboardControls
