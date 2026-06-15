@@ -285,6 +285,50 @@ export async function sealIdentityIntoSidecar(
 }
 
 /**
+ * Phase B (account/folder/identity redesign, docs/proposals/2026-06-15-account-folder-identity-redesign.md):
+ * REUSE an account's existing keypair in a folder instead of minting a new one.
+ *
+ * Writes a REFERENCE sidecar for `username` carrying ONLY the public identity
+ * (public keys + fingerprint + createdAt) and NO recoveryBlob, then parks the
+ * already-owned keypair in the session. The keypair is NOT re-wrapped here: its
+ * recovery anchor lives at the ACCOUNT level (the device vault, the cloud
+ * backup, and the originating folder's recoveryBlob), not in this folder. This
+ * is how one cloud account stays the SAME identity across multiple lab folders,
+ * so the directory's one-email-one-keypair model is finally correct.
+ *
+ * SECURITY CONTRACT: the caller MUST have verified that `keys` is the CURRENT
+ * account's identity (e.g. the device-vault keypair's public key matches the
+ * directory record for the signed-in email) BEFORE calling, so a previous
+ * user's vault key can never be sealed into a different person's new folder.
+ * This function does no verification of its own.
+ */
+export async function writeIdentityReferenceSidecar(
+  username: string,
+  keys: IdentityKeys,
+): Promise<void> {
+  const sidecar: SharingIdentitySidecar = {
+    version: 1,
+    x25519PublicKey: encodePublicKey(keys.encryption.publicKey),
+    ed25519PublicKey: encodePublicKey(keys.signing.publicKey),
+    fingerprint: computeFingerprint(keys.signing.publicKey),
+    createdAt: new Date().toISOString(),
+    recoveryConfirmedAt: null,
+    // No recoveryBlob on purpose: this folder REFERENCES the account identity;
+    // recovery is account-level (vault + cloud + the originating folder).
+  };
+  await writeSharingIdentity(username, sidecar);
+  try {
+    await ensureGitignoreEntries([
+      "_sharing_identity.json",
+      "users/*/_sharing_identity.json",
+    ]);
+  } catch {
+    // best-effort; the sidecar still works if the append fails
+  }
+  await saveIdentity(toStored(keys));
+}
+
+/**
  * Stamps recoveryConfirmedAt on the user's sidecar, marking that they saved
  * their recovery words. Called when the user ticks the confirmation checkbox and
  * completes CreateLocalIdentityStep. No-op if the sidecar is absent.

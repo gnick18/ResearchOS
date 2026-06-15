@@ -107,6 +107,27 @@ Ordered by layer, with the concrete seams.
 
 All four locked 2026-06-15 (see the "Locked decisions" block at the top): reuse-don't-mint identity; **hybrid recovery** (recoverable default + opt-in strict E2E); clean reset migration; start Phase A now. Nothing here is open.
 
+## 6b. Phase B build plan (identity reuse) — IN PROGRESS
+
+**Goal:** when a signed-in account opens a folder, REUSE its one keypair instead of minting a fresh one per folder.
+
+**The seam (confirmed in code):**
+- `createLocalIdentity` (`storage.ts:182`) mints a new keypair + wraps it under a fresh recovery code + writes a sidecar carrying that `recoveryBlob`. This is the per-folder mint we are replacing.
+- `SharingIdentitySidecar.recoveryBlob` is **optional** (`sidecar.ts:66`), so a public-only "reference" sidecar is already a legal shape.
+- The session/vault already hold the account's keypair on a device that has set up before (`loadIdentity()` / `restoreSessionFromStore()`); `cloud-restore.ts` (`/api/directory/my-backup`) restores it on a new device.
+
+**Increment 1 — DONE (this commit):** new primitive `writeIdentityReferenceSidecar(username, keys)` (`storage.ts`) — writes a reference sidecar (public keys + fingerprint + createdAt, **no** recoveryBlob) reusing an existing keypair, parks it in the session. Recovery stays account-level (vault + cloud + originating folder). Unit-tested (`write-identity-reference-sidecar.test.ts`, 3 tests): correct shape, no recoveryBlob, same keypair reused across two folders. Purely additive — no existing flow changed, safe to land.
+
+**Increment 2 — the behaviour change (needs the verification decision below):** flip `autoProvisionFromAccount` (`UserLoginScreen.tsx:~603`) so that, under the flag, when the device already holds THIS account's verified identity it calls `writeIdentityReferenceSidecar` instead of `createLocalIdentity`. First-ever folder for the account still mints (and publishes, so it becomes the canonical keypair).
+
+### ⚠️ The one Phase B decision: how do we verify the device keypair is the current account's?
+
+Before reusing the vault keypair we MUST confirm it belongs to the signed-in OAuth account, or a previous user's vault key could be sealed into a new person's folder. Options:
+- **(Recommended) Directory public-key match.** Fetch the directory record for the signed-in email and reuse the vault keypair only if its public key matches. No match / offline / unpublished → fall back to mint-or-cloud-restore (safe). Requires a lightweight "my published identity" read.
+- **Cloud-restore every time.** Always pull the canonical keypair from `/api/directory/my-backup` on folder open. Strongest guarantee, but needs the recovery code to unwrap and adds a network hop per open.
+
+This is the security-sensitive call to settle (ideally with the identity lane) before Increment 2 lands.
+
 ## 7. Coordination
 
 The identity pieces (4.1, 4.4, 4.5) overlap the cloud-accounts / identity lane's owned surface. Phase A (4.2) is independent and safe to start. Phases B–C should be co-designed with that lane before code, given the security implications.
