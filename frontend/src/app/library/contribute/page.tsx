@@ -6,6 +6,12 @@ import MarketingFooter from "@/components/MarketingFooter";
 import MarketingBackdrop from "@/components/marketing/MarketingBackdrop";
 import Kicker from "@/components/marketing/Kicker";
 import { Icon } from "@/components/icons";
+import ContributeWizard from "@/components/library/ContributeWizard";
+
+/** When on, the live wizard renders; otherwise the "coming soon" placeholder. */
+const CONTRIBUTE_ENABLED =
+  process.env.NEXT_PUBLIC_ASSET_CONTRIBUTE_ENABLED === "1" ||
+  process.env.NEXT_PUBLIC_ASSET_CONTRIBUTE_ENABLED === "true";
 
 /**
  * Public `/library/contribute` route. Placeholder for the contribution wizard
@@ -44,6 +50,10 @@ const STEPS: { title: string; body: string }[] = [
 ];
 
 export default function ContributePage() {
+  return CONTRIBUTE_ENABLED ? <ContributeWizard /> : <ContributePlaceholder />;
+}
+
+function ContributePlaceholder() {
   return (
     <div className="min-h-dvh bg-surface text-foreground">
       <MarketingNav />

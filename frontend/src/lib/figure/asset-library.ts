@@ -20,6 +20,22 @@ export const ASSET_LIBRARY_ENABLED =
   process.env.NEXT_PUBLIC_ASSET_LIBRARY_ENABLED === "1" ||
   process.env.NEXT_PUBLIC_ASSET_LIBRARY_ENABLED === "true";
 
+/**
+ * Community-contribution provenance + wiki-style verification state. ABSENT on
+ * the curated PhyloPic/BioIcons seed (treated as "curated" / trusted). Present on
+ * community submissions, which auto-publish "unverified" until an INDEPENDENT
+ * user (never the submitter) vouches for them.
+ */
+export interface AssetVerification {
+  status: "curated" | "unverified" | "verified";
+  /** @handles of the independent users who vouched. */
+  verifiedBy?: string[];
+  /** ISO timestamp of the first vouch. */
+  verifiedAt?: string;
+  /** Count of "this looks wrong" reports, for the auto-pull threshold. */
+  flags?: number;
+}
+
 /** One library asset, mirroring an entry in the ingest bundle's manifest.json. */
 export interface LibraryAsset {
   /** Stable cross-source id, "<source>:<sourceId>". */
@@ -42,6 +58,15 @@ export interface LibraryAsset {
   /** Distinct fill colors in the SVG (1 = monochrome, drives single-tint vs per-fill). */
   fills: number;
   hasViewBox: boolean;
+  /** Contributor @handle for a community submission; null/absent for the curated seed. */
+  submittedBy?: string | null;
+  /** Wiki-style verification state. Absent on the curated seed (treated as "curated"). */
+  verification?: AssetVerification;
+}
+
+/** The verification status of an asset, defaulting the curated seed to "curated". */
+export function verificationStatus(asset: LibraryAsset): AssetVerification["status"] {
+  return asset.verification?.status ?? "curated";
 }
 
 /** Absolute URL of an asset's SVG on the CDN. */
@@ -52,18 +77,34 @@ export function assetSvgUrl(asset: Pick<LibraryAsset, "svgPath">): string {
 // Manifest fetch is cached for the page lifetime (the bundle is immutable per deploy).
 let manifestPromise: Promise<LibraryAsset[]> | null = null;
 
-/** Load + cache the asset manifest from the CDN. Returns [] on any failure. */
+/** Fetch one manifest file from the CDN. Returns [] on any failure (missing file ok). */
+async function fetchManifestFile(name: string): Promise<LibraryAsset[]> {
+  try {
+    const res = await fetch(`${ASSET_BASE_URL}/${name}`, { cache: "force-cache" });
+    if (!res.ok) return [];
+    const data = (await res.json()) as LibraryAsset[];
+    return Array.isArray(data) ? data : [];
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * Load + cache the asset manifest from the CDN. Merges the CURATED seed
+ * (manifest.json, written only by the ingest) with the COMMUNITY submissions
+ * (community-manifest.json, written by the contribution endpoint). The two files
+ * are kept separate so user input never rewrites the trusted seed; this merge is
+ * the only place they come together. A missing community manifest is fine (the
+ * feature may not be live yet) and just yields the curated set.
+ */
 export async function loadAssetManifest(): Promise<LibraryAsset[]> {
   if (!manifestPromise) {
     manifestPromise = (async () => {
-      try {
-        const res = await fetch(`${ASSET_BASE_URL}/manifest.json`, { cache: "force-cache" });
-        if (!res.ok) return [];
-        const data = (await res.json()) as LibraryAsset[];
-        return Array.isArray(data) ? data : [];
-      } catch {
-        return [];
-      }
+      const [curated, community] = await Promise.all([
+        fetchManifestFile("manifest.json"),
+        fetchManifestFile("community-manifest.json"),
+      ]);
+      return [...curated, ...community];
     })();
   }
   return manifestPromise;
