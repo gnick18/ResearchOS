@@ -107,7 +107,13 @@ On account setup / first publish, IF the user is on the default (recoverable) ti
    - **(C) Plain env secret, separate store:** SEK is an env var, but the escrow blobs live in a *different* datastore than Neon, so one credential leak isn't enough. Weakest of the three; only acceptable as a temporary beta posture with eyes open.
    - ❌ **Not acceptable:** SEK as an env var on the same deployment that holds `DATABASE_URL`, with escrow in the same Neon DB. That is a one-leak-loses-everything honeypot.
 
-   **Upgrade path:** start free with (B) and move to (A) later without changing the envelope-encryption shape — both wrap the same per-user DEKs, so swapping the SEK custody backend re-wraps only the small DEKs, not the blobs. So picking (B) now does not lock us out of HSM-grade custody later.
+   **Where the SEK service runs (settled): Cloudflare, for isolation AND cost.** In split (B) the SEK-holding reissue service belongs on **Cloudflare**, not Vercel — for two reasons that point the same way:
+   - **Trust-domain isolation (the deciding reason):** the Neon DB creds (`DATABASE_URL`) live on Vercel with the main app. Putting the SEK service on Vercel too would re-collapse escrow ciphertext + the key that opens it into one blast radius, defeating the whole split. The SEK must live in a *different* domain → Cloudflare.
+   - **Cost at scale (the bonus):** escrow ops do not scale with user count (enrollment is once-per-user; reissue only on a lockout), so even at 10k+ users this service stays in the cheapest tier. Cloudflare Workers is also structurally cheaper for short-CPU request workloads (Paid ~$5/mo, 10M req + 30M CPU-ms included, CPU-time billing so no charge for I/O wait) vs Vercel Functions (~$20/mo per seat, Active-CPU + invocation billing). At 10k+ users the reissue Worker is well inside Cloudflare's included tier.
+
+   So: **main app stays on Vercel; the SEK-holding reissue Worker runs on Cloudflare.** This is the placement to build to — do not co-locate the SEK on Vercel to consolidate.
+
+   **Upgrade path:** start free with (B) and move to (A) later without changing the envelope-encryption shape — both wrap the same per-user DEKs, so swapping the SEK custody backend re-wraps only the small DEKs, not the blobs. A managed KMS (AWS/GCP) slots in *behind* the same Cloudflare reissue Worker, so picking (B) now does not lock us out of HSM-grade custody later.
 
 2. **Step-up auth before reissue?** Require a *fresh* OAuth (`max_age`/recent-auth) and/or a provider second factor before honoring a reissue, to blunt stolen-session takeover. Recommended yes.
 
