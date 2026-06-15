@@ -150,6 +150,12 @@ export function buildSmartSearchTasks(): BootTask[] {
           tf.env.remoteHost = modelHost.replace(/\/$/, "") + "/";
           tf.env.remotePathTemplate = "{model}/";
         }
+        // onnxruntime-web defaults its .wasm binaries to a jsdelivr CDN that the
+        // app CSP connect-src does not allow. Serve them from our own origin (the
+        // embeddings base) and run single-threaded so no cross-origin isolation
+        // (COOP/COEP) is required.
+        tf.env.backends.onnx.wasm.wasmPaths = `${EMBED_BASE.replace(/\/$/, "")}/ort/`;
+        tf.env.backends.onnx.wasm.numThreads = 1;
         // Aggregate the per-file download progress into one 0..1.
         const totals: Record<string, { loaded: number; total: number }> = {};
         const pipe = await tf.pipeline("feature-extraction", meta.model, {
