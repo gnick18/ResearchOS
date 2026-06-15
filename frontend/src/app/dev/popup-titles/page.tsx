@@ -129,9 +129,12 @@ const ACCENT_CSS = `
 .acc-emerald { background: #a7f3d0; }
 .acc-rose    { background: #fecdd3; }
 
-[data-theme="dark"] .acc-amber   { background: rgba(245, 158, 11, 0.24); }
-[data-theme="dark"] .acc-violet  { background: rgba(167, 139, 250, 0.26); }
-[data-theme="dark"] .acc-sky     { background: rgba(56, 189, 248, 0.24); }
-[data-theme="dark"] .acc-emerald { background: rgba(16, 185, 129, 0.24); }
-[data-theme="dark"] .acc-rose    { background: rgba(244, 63, 94, 0.26); }
+/* Dark mode: OPAQUE saturated fills of the same hue (a deeper shade), not
+ * translucent tints — a low-alpha tint lets the navy room bleed through and
+ * turns the color to mud. Light title text rides on top. */
+[data-theme="dark"] .acc-amber   { background: #b45309; }
+[data-theme="dark"] .acc-violet  { background: #6d28d9; }
+[data-theme="dark"] .acc-sky     { background: #0369a1; }
+[data-theme="dark"] .acc-emerald { background: #047857; }
+[data-theme="dark"] .acc-rose    { background: #be123c; }
 `;
