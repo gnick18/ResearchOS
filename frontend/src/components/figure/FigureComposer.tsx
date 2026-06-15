@@ -480,6 +480,45 @@ export default function FigureComposer({ pageId }: { pageId: string }) {
     ? page.annotations.find((a) => a.annId === selectedAnn) ?? null
     : null;
 
+  // A static, non-interactive thumbnail of the page for the ZoomPanCanvas minimap
+  // (panels + placed icons, no handlers). Without this the minimap shows just the
+  // view-rect over a blank box. Rendered at the same natural size as the stage.
+  const minimapStage = (
+    <div className="relative h-full w-full bg-white">
+      {page.panels.map((p) => (
+        <div
+          key={p.panelId}
+          className="absolute overflow-hidden [&>svg]:h-full [&>svg]:w-full"
+          style={{
+            left: p.xIn * scale,
+            top: p.yIn * scale,
+            width: p.wIn * scale,
+            height: p.hIn * scale,
+          }}
+          dangerouslySetInnerHTML={{ __html: panelSvgs.get(p.panelId) ?? "" }}
+        />
+      ))}
+      {pageAssets(page).map((a) => {
+        const raw = assetSvgs.get(a.assetId) ?? "";
+        const display = a.tint && raw ? tintSvg(raw, a.tint) : raw;
+        return (
+          <div
+            key={a.assetId}
+            className="absolute [&>svg]:h-full [&>svg]:w-full"
+            style={{
+              left: a.xIn * scale,
+              top: a.yIn * scale,
+              width: a.wIn * scale,
+              height: a.hIn * scale,
+              transform: a.rotation ? `rotate(${a.rotation}deg)` : undefined,
+            }}
+            dangerouslySetInnerHTML={{ __html: display }}
+          />
+        );
+      })}
+    </div>
+  );
+
   return (
     <div className="flex h-full gap-4 p-4" data-testid="figure-composer">
       <div className="flex min-w-0 flex-1 flex-col overflow-hidden rounded-2xl border border-border bg-surface-sunken">
@@ -487,7 +526,7 @@ export default function FigureComposer({ pageId }: { pageId: string }) {
             two-finger pan, pinch / Cmd-wheel zoom-at-cursor, Space-drag, scrollbars,
             minimap. The stage is rendered at its natural fit size; the canvas zooms
             on top. Drag math reads the live on-screen scale via effScale(). */}
-        <ZoomPanCanvas contentWidth={pageW} contentHeight={pageH}>
+        <ZoomPanCanvas contentWidth={pageW} contentHeight={pageH} minimap={minimapStage}>
         <div
           ref={stageRef}
           className="relative bg-white shadow-lg"

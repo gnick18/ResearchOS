@@ -736,6 +736,14 @@ export default function GraphEditor({
             <ZoomPanCanvas
               contentWidth={pageDims(artboard).wIn * 96}
               contentHeight={pageDims(artboard).hIn * 96}
+              minimap={
+                <FigureArtboard
+                  figureSvg={svg}
+                  figWIn={frame.exportInchesW}
+                  figHIn={frame.exportInchesH}
+                  state={artboard}
+                />
+              }
             >
               <FigureArtboard
                 figureSvg={svg}
@@ -761,6 +769,13 @@ export default function GraphEditor({
             <ZoomPanCanvas
               contentWidth={frame.screenWidth + 30}
               contentHeight={frame.screenHeight + 30}
+              minimap={
+                <div
+                  className="[&>svg]:h-full [&>svg]:w-full"
+                  style={{ width: frame.screenWidth, height: frame.screenHeight }}
+                  dangerouslySetInnerHTML={{ __html: svg }}
+                />
+              }
             >
               <div className="rounded-lg border border-border bg-white p-3 shadow-sm">
                 <FigureResizeFrame
