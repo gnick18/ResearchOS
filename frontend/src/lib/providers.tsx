@@ -425,7 +425,12 @@ function AppContent({ children }: { children: ReactNode }) {
     pathname === "/thanks" ||
     pathname === "/sponsors" ||
     pathname === "/privacy" ||
-    pathname === "/terms";
+    pathname === "/terms" ||
+    // The open asset-library landing + its subpages (browse, contribute,
+    // review) are public, carry their own MarketingNav + footer, and need no
+    // folder, so they bypass the folder-connect gate like the other marketing
+    // pages.
+    pathname?.startsWith("/library");
 
   // Folderless, session-authenticated routes: the org admin portals + their
   // accept pages, the account home, and public @handle profiles. These run off
