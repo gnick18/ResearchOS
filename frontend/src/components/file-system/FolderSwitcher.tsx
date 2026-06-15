@@ -217,7 +217,11 @@ export default function FolderSwitcher({
           onClick={() => setOpen((v) => !v)}
           className={
             tinted
-              ? "flex max-w-[180px] items-center gap-1.5 rounded-full bg-white px-3 py-1 text-sm font-medium text-foreground shadow-sm transition-colors hover:bg-white/90"
+              ? // On the colored header the pill is forced bg-white in BOTH
+                // themes, so the text must be a theme-invariant dark (text-gray-900),
+                // matching the active nav-tab pill. text-foreground would be light
+                // in dark mode = invisible on white.
+                "flex max-w-[180px] items-center gap-1.5 rounded-full bg-white px-3 py-1 text-sm font-medium text-gray-900 shadow-sm transition-colors hover:bg-white/90"
               : "flex max-w-[180px] items-center gap-1.5 rounded-lg px-2 py-1 text-sm text-foreground-muted transition-colors hover:bg-surface-sunken hover:text-foreground"
           }
         >
