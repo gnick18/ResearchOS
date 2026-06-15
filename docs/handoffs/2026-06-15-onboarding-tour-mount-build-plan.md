@@ -17,6 +17,16 @@ The job: make Beaker drive the REAL pages (vs the stand-in stage), gated, in dem
 ### 2. Tour-scoped demo mode
 Reuse the existing demo-mode path (`isDemoOrWikiCapture()` + the demo fixtures; demo renders every surface on in-memory data with NO folder writes). On tour start: enter a tour-scoped demo-data mode pointed at a field-personalized fixture set (one resistance_assay table, one 8-tip tree, one sequence, …). On `onComplete`/skip: exit → user lands in their clean empty workspace. Investigate `lib/file-system/file-system-context.tsx` (demo detection) + the demo fixture source; add a tour flavor rather than forking demo mode.
 
+**DECISION (BeakerAI lane, 2026-06-15) — reload-into-demo, masked, with a resume marker. NOT a mid-session imperative service swap.**
+The fixture swap is init-time BY DESIGN: `FileSystemProvider.initialize()` (`file-system-context.tsx:623`) reads `getDemoMode()` once on mount and calls `installFixtureBranch`; consumers open Loro docs + cache data off the file service, so swapping it under a live tree would strand stale state. Reuse the existing demo machinery verbatim instead of an imperative `enterDemoForTour()`:
+- sticky `DEMO_MODE_KEY` (`wiki-capture-mock.ts`, `getDemoMode()`), real-folder backup/restore `backupRealHandleForDemo()` / `restorePreDemoStateOrClear()` (`indexeddb-store.ts:801/833`), and route stash `pre-demo-route.ts` already exist.
+Build steps:
+1. Add a tour demo FLAVOR: sticky `researchos:tour-demo` (+ field fixture pick) honored by `getDemoMode()` + the fixture seeder, seeding the tour's field-personalized set rather than the generic Demo Lab.
+2. TourHost "begin show": persist resume state `{active, beatIndex, picks, fixtureFlavor}` to sessionStorage, set the sticky, `location.reload()` behind the OPAQUE `TutorScreen` ("Setting the stage…") so the reload is invisible.
+3. TourHost on mount: resume state + demo active → skip welcome/picker, jump to the live-demo beat. (This resume marker IS the refresh-survival mechanism — a mid-tour refresh re-enters demo + resumes.)
+4. Complete/skip: clear sticky + marker, `restorePreDemoStateOrClear()`, return to the clean empty workspace.
+The reload fires EXACTLY ONCE at the welcome/picker→live-demo boundary, fully hidden behind the opaque screen, so zero perceived discontinuity. Fresh account = no real data to lose.
+
 ### 3. Live-overlay rendering (replace the stand-in stage)
 For `deep_demo` + `ai_demo` beats only, the tutor overlay goes TRANSPARENT so the real page shows. Keep welcome/picker/montage/memory/recap as opaque `TutorScreen` takeovers. Build a `LiveCursorLayer` (transparent, `pointer-events-none`, fixed) that floats `PresenterCursor` + `CoachBubble` + a SOFT RING (no dim — Grant pick B) positioned via `tutor-target.ts` `resolveTargetPoint` against `[data-tutor-target]` on the real page. The showcase-player already drives the steps; swap the stand-in stage for the live layer + a `router.push(choreography.route)` on the ARRIVE step.
 
