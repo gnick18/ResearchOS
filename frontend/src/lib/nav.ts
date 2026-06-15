@@ -18,6 +18,11 @@ export const NAV_ITEMS: NavItem[] = [
   { href: "/datahub", label: "Data Hub" },
   { href: "/phylo", label: "Phylogenetics" },
   { href: "/figures", label: "Figures" },
+  // /library (the open scientific-asset / icon library that feeds the Figure
+  // composer). A shared resource, not a per-user workspace, so it is NOT in the
+  // default inline set (DEFAULT_INLINE_HREFS) — it lands in the More overflow by
+  // default. Gated visible in AppShell on ASSET_LIBRARY_ENABLED, like Figures.
+  { href: "/library", label: "Icon Library" },
   { href: "/inventory", label: "Inventory" },
   { href: "/purchases", label: "Purchases" },
   { href: "/calendar", label: "Calendar" },

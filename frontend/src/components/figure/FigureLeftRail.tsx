@@ -391,17 +391,42 @@ function IconsPanel({ onPick }: { onPick: (a: LibraryAsset) => void }) {
         )}
       </div>
 
-      <div className="mt-2 flex items-center justify-between gap-2">
-        <p className="text-[10px] text-foreground-faint">
-          {loading ? "" : `${results.length} of ${assets.length}. Credits auto-added.`}
-        </p>
-        {reviewable > 0 && (
+      {/* Hub links out to the full Icon Library. Open in a new tab so the
+          composer's canvas state survives. "Browse all" is always available;
+          contribute + review appear once the contribution feature is live. */}
+      <div className="mt-2 space-y-1">
+        <div className="flex items-center justify-between gap-2">
+          <p className="text-[10px] text-foreground-faint">
+            {loading ? "" : `${results.length} of ${assets.length}. Credits auto-added.`}
+          </p>
           <a
-            href="/library/review"
+            href="/library"
+            target="_blank"
+            rel="noopener noreferrer"
             className="shrink-0 text-[10px] font-semibold text-brand-action hover:underline"
           >
-            Help review ({reviewable})
+            Browse all ↗
           </a>
+        </div>
+        {ASSET_CONTRIBUTE_ENABLED && (
+          <div className="flex items-center gap-3">
+            <a
+              href="/library/contribute"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-[10px] font-semibold text-brand-action hover:underline"
+            >
+              + Add an icon
+            </a>
+            <a
+              href="/library/review"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-[10px] font-semibold text-foreground-muted hover:underline"
+            >
+              {reviewable > 0 ? `Help review (${reviewable})` : "Review queue"}
+            </a>
+          </div>
         )}
       </div>
     </>
