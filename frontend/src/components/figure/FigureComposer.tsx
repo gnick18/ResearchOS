@@ -82,7 +82,9 @@ import {
   readFigurePage,
   saveFigurePage,
   createFigurePageDoc,
+  listFigurePages,
 } from "@/lib/figure/figure-page-store";
+import FigureLeftRail from "@/components/figure/FigureLeftRail";
 import {
   composeFigurePageSvg,
   annotationLayerSvg,
@@ -130,6 +132,8 @@ function renderSignature(page: FigurePage): string {
 
 export default function FigureComposer({ pageId }: { pageId: string }) {
   const [page, setPage] = useState<FigurePage | null>(null);
+  // All figure pages, for the left-rail Figures file list (replaces the hub).
+  const [pages, setPages] = useState<FigurePage[]>([]);
   const [panelSvgs, setPanelSvgs] = useState<Map<string, string>>(new Map());
   // Unified multi-selection (the Phase 1 diagram-tool model). The per-kind single
   // selections below are DERIVED from it, so the existing inspector + drag code is
@@ -207,6 +211,18 @@ export default function FigureComposer({ pageId }: { pageId: string }) {
       .catch(() => {
         if (live) setLoadState("missing");
       });
+    return () => {
+      live = false;
+    };
+  }, [pageId]);
+
+  // Load the figure-page list for the left-rail Figures file browser. Reloads
+  // when the active page changes (e.g. after creating one), so it stays current.
+  useEffect(() => {
+    let live = true;
+    void listFigurePages().then((p) => {
+      if (live) setPages(p);
+    });
     return () => {
       live = false;
     };
@@ -790,6 +806,23 @@ export default function FigureComposer({ pageId }: { pageId: string }) {
 
   return (
     <div className="flex min-h-0 flex-1 gap-4 p-4" data-testid="figure-composer">
+      {ASSET_LIBRARY_ENABLED && (
+        <FigureLeftRail
+          tool={tool}
+          setTool={setTool}
+          textVariant={textVariant}
+          setTextVariant={setTextVariant}
+          onPickIcon={placeIcon}
+          pages={pages}
+          currentPageId={page.id}
+          onOpenPage={(id) => router.push(`/figures/${id}`)}
+          onNewPage={async () => {
+            const created = await createFigurePageDoc("Untitled figure", null);
+            router.push(`/figures/${created.id}`);
+          }}
+          onAddFigure={() => setPickerOpen(true)}
+        />
+      )}
       <div className="flex min-w-0 flex-1 flex-col overflow-hidden rounded-2xl border border-border bg-surface-sunken">
         {/* Contextual arrange bar: appears on selection. Align/distribute act on
             the multi-selection; arrange (z-order) acts on each selected element. */}
@@ -1105,24 +1138,6 @@ export default function FigureComposer({ pageId }: { pageId: string }) {
 
       <div className="w-72 shrink-0 space-y-4 overflow-auto">
         <div className="flex flex-wrap gap-2">
-          <button
-            type="button"
-            onClick={() => setPickerOpen(true)}
-            className="flex items-center gap-1.5 rounded-lg border border-border-strong px-3 py-1.5 text-meta font-semibold hover:border-brand-action"
-            data-testid="figure-add"
-          >
-            <Icon name="plus" className="h-3.5 w-3.5" /> Add figure
-          </button>
-          {ASSET_LIBRARY_ENABLED && (
-            <button
-              type="button"
-              onClick={() => setIconPickerOpen(true)}
-              className="flex items-center gap-1.5 rounded-lg border border-border-strong px-3 py-1.5 text-meta font-semibold hover:border-brand-action"
-              data-testid="figure-add-icon"
-            >
-              <Icon name="plus" className="h-3.5 w-3.5" /> Add icon
-            </button>
-          )}
           <Tooltip label="Arrange every panel into a clean grid (undoable).">
             <button
               type="button"
