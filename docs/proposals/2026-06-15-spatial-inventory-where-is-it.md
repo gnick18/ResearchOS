@@ -38,8 +38,33 @@ The "scan the room once" idea: capture a 3D model of the lab, then placing an it
 ### Phase E — photo auto-localization (most ambitious / research-grade)
 "Take a photo of where you put it, and the app guesses the spot on the overview; user nudges if wrong." This is camera relocalization against the prior scan. Almost certainly the hardest piece and may be research-grade rather than shippable; the deep-research will give an honest verdict.
 
-## Feasibility — open-source spatial tech (RESEARCH IN FLIGHT)
-A background deep-research is investigating, with citations: ARKit RoomPlan (and its LiDAR-only device limit), ARCore Depth/Scene Semantics, open-source photogrammetry (Meshroom/COLMAP/OpenMVG), NeRF/Gaussian Splatting, photo-based localization (hloc/COLMAP), Expo/React-Native AR integration reality (the likely biggest blocker), the 2D-floorplan middle ground, scan storage size vs our local+E2E model, and honest "not realistic for a small team" calls. This section will be filled from that report, with feasibility tiers mapped to Phases C/D/E.
+## Feasibility — open-source spatial tech (research complete 2026-06-15)
+Cited landscape research done. The headline reframes the plan: **the 2D floorplan + drag-drop pin model is the canonical data structure, not a mid-tier "nice to have."** Every capture method feeds that one model; 3D is a presentation enhancement for the devices that can do it; photo auto-localization is research-grade and must not be a v1 promise.
+
+**Room capture**
+- **Apple RoomPlan** is the single best 3D lever: parametric (labeled, dimensioned) USDZ output, ~cm accuracy, multi-room via StructureBuilder, and a usable **Expo wrapper already exists** (`expo-roomplan`, community-maintained — vet it). BUT it is **LiDAR-only -> iPhone/iPad Pro only** (iPhone 12 Pro+ Pro models, LiDAR iPad Pros). Base iPhones cannot run it. iOS 16+ (17+ for multi-room).
+- **Android has NO RoomPlan equivalent.** ARCore Scene Semantics is outdoor-only; the Depth API gives per-frame depth (not a room model) and virtually no Android phones have LiDAR. On-device Android room modeling = a large custom build; the only real Android 3D path is cloud photogrammetry/Gaussian-splat (server step).
+- **Photogrammetry (Meshroom/COLMAP) and NeRF/Gaussian Splatting** are desktop/server-GPU or cloud-training pipelines. Using them means **uploading raw lab photos to a GPU backend, which breaks our local-first + E2E model** and adds hosting cost. The phone is only a capture client. Cool, wrong primitive for "where is it" (photoreal blob, not queryable geometry).
+
+**Photo auto-localization ("snap a pic, app finds the spot")** is the trap. The open-source SOTA (hloc: NetVLAD + SuperPoint + SuperGlue) is a research-benchmark Python/desktop-GPU stack -> server-side -> breaks E2E. The realistic on-device version is Apple `ARWorldMap` relocalization, which Apple itself flags as unreliable as space grows and **in dynamic scenes** (a lab with rearranged glassware is near worst-case), and it is iOS-only + not cleanly exposed through Expo. **Verdict: research-grade; do not promise it.** Ship a deterministic QR/shelf-code or manual-pin fallback that does the same job.
+
+**Expo/React-Native reality**
+- Expo CAN reach ARKit/RoomPlan via **dev-client + Expo Modules API + config plugin** (no "ejecting"). `expo-roomplan` wraps RoomPlan today; ViroReact (`@reactvision/react-viro`, actively maintained again) gives plane-detection/marker AR but is NOT a room modeler and does not wrap RoomPlan.
+- **iOS/Android parity for room MODELING is zero** (RoomPlan iOS-Pro-only, no Android analog). Parity only exists for the 2D pin layer and basic plane AR.
+- Displaying a model is easy: USDZ -> AR Quick Look (iOS); `expo-gl`+three.js or `<model-viewer>` for glTF cross-platform; `react-native-svg` for the 2D plan + pins.
+
+**Storage / E2E**
+- 2D plan + pins = KBs of JSON (plus an optional plan image) -> trivially local + E2E.
+- RoomPlan parametric USDZ = hundreds KB to a few MB -> on-device-friendly, encrypt as a blob.
+- Photogrammetry mesh = tens-hundreds MB; Gaussian splat = tens-hundreds MB AND cloud training -> both break E2E and are heavy to sync. Avoid for a lab-data product unless we build encryption-aware GPU infra (large undertaking).
+
+### Feasibility tiers (mapped to the phases above)
+- **Tier 1 = Phase A + B + C (ship-soon, the spine).** 2D floorplan + barcode-scan + drag-drop pin, on the canonical pin model, layered on the existing `location_text`. Cross-platform, E2E-clean, low risk. ~90% of the value at ~10% of the cost.
+- **Tier 2 = Phase D, iOS-Pro/iPad only, ADDITIVE.** RoomPlan capture -> USDZ; auto-derive the 2D plan from its parametric walls so it feeds the SAME pin model; AR Quick Look / three.js viewing. Strictly additive to Tier 1; UI must say "3D scan available on LiDAR devices."
+- **Tier 3 = ambitious, server-required, privacy-fraught.** Cloud photogrammetry/splat for Android 3D parity + an ARWorldMap "suggest a pin" assist (opt-in beta, never the primary locate flow). Only if Android 3D becomes a hard requirement.
+- **Tier 4 = NOT realistic for a small team in 2026 (= Phase E and beyond).** Robust cross-platform on-device photo auto-localization in a feature-poor, changing lab; on-device Gaussian-splat training; a self-updating semantic map. Research-grade, multi-year.
+
+Full cited report (with ~25 source URLs: Apple RoomPlan/WWDC, ARCore docs, Meshroom/COLMAP, hloc, ARWorldMap limits, expo-roomplan/ViroReact, react-planner, react-native-svg) is preserved in the research transcript for this session; key sources are linked inline above.
 
 ## Key open questions
 - Capture friction: will researchers actually record location at scan-in? (Phase A must be near-zero-tap or it dies.)
@@ -47,5 +72,11 @@ A background deep-research is investigating, with citations: ARKit RoomPlan (and
 - Storage + E2E: room scans are large binaries; how do they ride our local-first, end-to-end-encrypted data model?
 - Where does the value plateau — is Phase A+B+C enough, with D/E as "wow" extras?
 
-## Recommendation (pre-research)
-Build Phase A regardless of how the 3D research lands — it is small, uses the existing field, and delivers the core "where do I find this / do we have it" value immediately. Treat C as the likely spatial sweet spot and D/E as research-gated stretch goals. Revisit after the feasibility report.
+## Recommendation (post-research)
+1. **Make the 2D pin model the canonical data structure** now: `{ plan, zones, pins: {itemId, x, y, zoneLabel} }`, local + E2E. Every capture method (free-text, structured location, drawn/imported plan, and later a RoomPlan flatten) feeds this one model. This is the architectural decision that keeps us cross-platform and out of the research swamp.
+2. **Build Phase A immediately** (wire the existing `location_text` to the app + scan-in prompt + lookup) — it is small, needs no 3D, and delivers the core "where do I find this / do we have it" value on every phone today. It is the on-ramp to the pin model.
+3. **Phases B + C are the Tier-1 spine** (structured locations -> 2D floorplan + drag-drop pins via `react-native-svg`; author the plan on the laptop with `react-planner` or a simple SVG editor). Cross-platform, E2E-clean, low risk. This is the realistic full feature.
+4. **Phase D (RoomPlan 3D) is a Tier-2 ADDITIVE enhancement for LiDAR iPhone/iPad Pro users only** — it auto-derives the 2D plan so it feeds the same pin model; everyone else uses the 2D path. Gate the UI by device capability.
+5. **Photo auto-localization (Phase E) is research-grade — do NOT promise it.** Ship a deterministic QR/shelf-code or manual-pin mechanism as the real "fast placement" feature; treat any auto-localize as an iOS-only flagged experiment, never the primary flow.
+
+Net: the ambitious "scan the room, photo finds the spot" vision is partly real (RoomPlan capture on Pro devices) and partly a multi-year research trap (cross-platform on-device auto-localization). The win is achievable now by treating 2D pins as the spine and 3D as a device-gated garnish.
