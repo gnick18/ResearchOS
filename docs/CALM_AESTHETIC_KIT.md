@@ -48,12 +48,13 @@ never flat grey patches: `bg-surface-raised` + `border border-border` + a soft
 two-layer shadow that lifts on hover. Reference: CalmPopupShell footer
 Done/Close button. (Memory: feedback_grey_buttons_need_shadow.)
 
-### 5. Seam depth — `.ros-seam` (TODO: extract)
-Soft depth between stacked section cards and rail group separators, recolored
-for dark like the card shadow. Geometry-flexible (vertical column edge OR
-horizontal divider). Settings lane is waiting on this. Until extracted, the
-history-panel masked-gradient approach (`.ros-history-panel` + topglow/botglow)
-is the column-edge reference.
+### 5. Seam depth — `.ros-seam` + `.ros-seam-divider`
+`.ros-seam` (globals.css): a raised-card depth (lighter than the popup drop)
+for stacked section cards, so they separate with depth instead of a flat
+`shadow-sm`. `.ros-seam-divider`: a soft horizontal divider that fades at the
+ends, for rail group separators. Both recolor for dark (bluish-white). Apply
+`.ros-seam` to section cards (replace `shadow-sm`); use `.ros-seam-divider` as a
+1px element between rail groups.
 
 ## DARK MODE IS HALF THE WORK (learned 2026-06-14)
 Every surface must be checked in BOTH modes. The recurring dark-mode traps:
