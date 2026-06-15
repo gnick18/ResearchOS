@@ -16,8 +16,9 @@ import {
   assetSvgUrl,
   type LibraryAsset,
 } from "@/lib/figure/asset-library";
-import type { FigurePage, TextVariant } from "@/lib/figure/figure-page";
+import type { FigurePage, ShapeKind, TextVariant } from "@/lib/figure/figure-page";
 import type { ElementRef } from "@/lib/figure/figure-arrange";
+import { FIGURE_TEMPLATES, type FigureTemplate } from "@/lib/figure/figure-templates";
 
 /** One row in the Layers panel (computed by the composer in render/z order). */
 export interface LayerItem {
@@ -60,6 +61,8 @@ export default function FigureLeftRail({
   selectedKeys,
   onSelectLayer,
   onReorderLayer,
+  onAddShape,
+  onUseTemplate,
 }: {
   tool: null | "text" | "arrow" | "bracket" | "connect";
   setTool: (t: null | "text" | "arrow" | "bracket" | "connect") => void;
@@ -75,6 +78,8 @@ export default function FigureLeftRail({
   selectedKeys: Set<string>;
   onSelectLayer: (ref: ElementRef) => void;
   onReorderLayer: (ref: ElementRef, dir: "up" | "down") => void;
+  onAddShape: (kind: ShapeKind) => void;
+  onUseTemplate: (t: FigureTemplate) => void;
 }) {
   // Default to Icons (the library is the headline of this rail).
   const [section, setSection] = useState<RailSection>("icons");
@@ -146,13 +151,53 @@ export default function FigureLeftRail({
           />
         )}
         {section === "shapes" && (
-          <ComingSoon title="Shapes" note="Rectangles, ellipses, lines and arrows land here next." />
+          <>
+            <PanelHead>Shapes</PanelHead>
+            <div className="space-y-1.5">
+              <button
+                type="button"
+                onClick={() => onAddShape("rect")}
+                className="flex w-full items-center gap-2 rounded-lg border border-border-strong px-2 py-1.5 text-meta font-medium hover:border-brand-action"
+              >
+                <span className="h-3.5 w-3.5 rounded-sm border-2 border-brand-action bg-brand-soft" />
+                Rectangle
+              </button>
+              <button
+                type="button"
+                onClick={() => onAddShape("ellipse")}
+                className="flex w-full items-center gap-2 rounded-lg border border-border-strong px-2 py-1.5 text-meta font-medium hover:border-brand-action"
+              >
+                <span className="h-3.5 w-3.5 rounded-full border-2 border-brand-action bg-brand-soft" />
+                Ellipse
+              </button>
+              <p className="pt-1 text-meta text-foreground-faint">
+                Drop a shape on the page, then recolor and resize it in the inspector.
+              </p>
+            </div>
+          </>
         )}
         {section === "templates" && (
-          <ComingSoon
-            title="Templates"
-            note="Start from a gallery layout that can bind to your data. Coming next."
-          />
+          <>
+            <PanelHead>Templates</PanelHead>
+            <div className="min-h-0 flex-1 space-y-1.5 overflow-auto">
+              {FIGURE_TEMPLATES.map((t) => (
+                <button
+                  key={t.id}
+                  type="button"
+                  onClick={() => onUseTemplate(t)}
+                  className="w-full rounded-lg border border-border px-2 py-1.5 text-left hover:border-brand-action"
+                >
+                  <div className="text-meta font-semibold text-foreground">{t.name}</div>
+                  <div className="text-[10.5px] leading-snug text-foreground-muted">
+                    {t.description}
+                  </div>
+                </button>
+              ))}
+            </div>
+            <p className="mt-2 text-[10px] text-foreground-faint">
+              Adds the layout to the current page. Drop your own figures and icons in.
+            </p>
+          </>
         )}
         {section === "layers" && (
           <LayersPanel
@@ -243,13 +288,26 @@ function IconsPanel({ onPick }: { onPick: (a: LibraryAsset) => void }) {
               <button
                 key={a.uid}
                 type="button"
+                draggable
+                onDragStart={(e) => {
+                  // Carry the whole asset so the canvas drop can place it without
+                  // re-resolving the manifest. text/plain keeps it broadly droppable.
+                  e.dataTransfer.setData("application/x-ros-asset", JSON.stringify(a));
+                  e.dataTransfer.effectAllowed = "copy";
+                }}
                 onClick={() => onPick(a)}
-                title={`${a.title} (${a.license}${a.requiresAttribution ? ", cited" : ""})`}
-                className="flex aspect-square items-center justify-center rounded-lg border border-border bg-surface-sunken p-1.5 hover:border-brand-action"
+                title={`${a.title} (${a.license}${a.requiresAttribution ? ", cited" : ""}). Click or drag onto the page.`}
+                className="flex aspect-square cursor-grab items-center justify-center rounded-lg border border-border bg-surface-sunken p-1.5 hover:border-brand-action active:cursor-grabbing"
                 data-testid="figure-icon-option"
               >
                 {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={assetSvgUrl(a)} alt={a.title} loading="lazy" className="h-full w-full object-contain" />
+                <img
+                  src={assetSvgUrl(a)}
+                  alt={a.title}
+                  loading="lazy"
+                  draggable={false}
+                  className="pointer-events-none h-full w-full object-contain"
+                />
               </button>
             ))}
           </div>

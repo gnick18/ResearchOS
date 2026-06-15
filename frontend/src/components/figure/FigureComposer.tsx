@@ -40,6 +40,13 @@ import {
   removePlacedAsset,
   updatePlacedAsset,
   figureCredits,
+  type FigureShape,
+  type ShapeKind,
+  pageShapes,
+  makeShape,
+  addShape,
+  removeShape,
+  updateShape,
   type Connector,
   type ConnectorEnd,
   type ConnectorShape,
@@ -85,6 +92,7 @@ import {
   listFigurePages,
 } from "@/lib/figure/figure-page-store";
 import FigureLeftRail, { type LayerItem } from "@/components/figure/FigureLeftRail";
+import { applyTemplateSized } from "@/lib/figure/figure-templates";
 import {
   composeFigurePageSvg,
   annotationLayerSvg,
@@ -143,6 +151,7 @@ export default function FigureComposer({ pageId }: { pageId: string }) {
   const selected = single?.kind === "panel" ? single.id : null;
   const selectedAsset = single?.kind === "asset" ? single.id : null;
   const selectedAnn = single?.kind === "annotation" ? single.id : null;
+  const selectedShape = single?.kind === "shape" ? single.id : null;
   const isSelectedRef = (ref: ElementRef) => selection.some((r) => sameRef(r, ref));
   const selectRef = (ref: ElementRef, additive: boolean) =>
     setSelection((prev) =>
@@ -182,6 +191,10 @@ export default function FigureComposer({ pageId }: { pageId: string }) {
   const [assetSvgs, setAssetSvgs] = useState<Map<string, string>>(new Map());
   const [iconPickerOpen, setIconPickerOpen] = useState(false);
   const assetDrag = useRef<
+    | null
+    | { id: string; resize: boolean; sx: number; sy: number; ox: number; oy: number; ow: number; oh: number }
+  >(null);
+  const shapeDrag = useRef<
     | null
     | { id: string; resize: boolean; sx: number; sy: number; ox: number; oy: number; ow: number; oh: number }
   >(null);
@@ -398,6 +411,17 @@ export default function FigureComposer({ pageId }: { pageId: string }) {
     assetDrag.current = { id, resize, sx: e.clientX, sy: e.clientY, ox: a.xIn, oy: a.yIn, ow: a.wIn, oh: a.hIn };
   };
 
+  const onShapeDown = (e: React.MouseEvent, id: string, resize: boolean) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const ref: ElementRef = { kind: "shape", id };
+    if (maybeGroupDrag(ref, e, resize)) return;
+    pressSelect(ref, e);
+    const s = page ? pageShapes(page).find((x) => x.shapeId === id) : undefined;
+    if (!s) return;
+    shapeDrag.current = { id, resize, sx: e.clientX, sy: e.clientY, ox: s.xIn, oy: s.yIn, ow: s.wIn, oh: s.hIn };
+  };
+
   useEffect(() => {
     const move = (e: MouseEvent) => {
       const d = drag.current;
@@ -478,6 +502,48 @@ export default function FigureComposer({ pageId }: { pageId: string }) {
     };
     const up = () => {
       assetDrag.current = null;
+      setGuides([]);
+    };
+    window.addEventListener("mousemove", move);
+    window.addEventListener("mouseup", up);
+    return () => {
+      window.removeEventListener("mousemove", move);
+      window.removeEventListener("mouseup", up);
+    };
+  }, [effScale, mutate, page]);
+
+  // Drag / resize a shape (mirrors the asset drag).
+  useEffect(() => {
+    const move = (e: MouseEvent) => {
+      const d = shapeDrag.current;
+      if (!d) return;
+      const s = effScale();
+      let dxIn = (e.clientX - d.sx) / s;
+      let dyIn = (e.clientY - d.sy) / s;
+      if (d.resize) {
+        mutate((prev) =>
+          updateShape(prev, d.id, { wIn: Math.max(0.2, d.ow + dxIn), hIn: Math.max(0.2, d.oh + dyIn) }),
+        );
+      } else {
+        if (page) {
+          const ps = pageSizeIn(page);
+          const snap = computeSnap(
+            page,
+            { kind: "shape", id: d.id },
+            { xIn: d.ox + dxIn, yIn: d.oy + dyIn, wIn: d.ow, hIn: d.oh },
+            { pageWIn: ps.wIn, pageHIn: ps.hIn },
+          );
+          dxIn += snap.dxIn;
+          dyIn += snap.dyIn;
+          setGuides(snap.guides);
+        }
+        mutate((prev) =>
+          updateShape(prev, d.id, { xIn: Math.max(0, d.ox + dxIn), yIn: Math.max(0, d.oy + dyIn) }),
+        );
+      }
+    };
+    const up = () => {
+      shapeDrag.current = null;
       setGuides([]);
     };
     window.addEventListener("mousemove", move);
@@ -704,6 +770,10 @@ export default function FigureComposer({ pageId }: { pageId: string }) {
     if (ref.kind === "asset") {
       return { ref, label: "Icon", icon: "library" };
     }
+    if (ref.kind === "shape") {
+      const s = pageShapes(page).find((x) => x.shapeId === ref.id);
+      return { ref, label: s?.kind === "ellipse" ? "Ellipse" : "Rectangle", icon: "pencil" };
+    }
     const a = page.annotations.find((x) => x.annId === ref.id);
     const label =
       a?.kind === "text" ? a.text || "Text" : a?.kind === "arrow" ? "Arrow" : "Bracket";
@@ -734,14 +804,9 @@ export default function FigureComposer({ pageId }: { pageId: string }) {
     annDrag.current = { id, sx: e.clientX, sy: e.clientY };
   };
 
-  // Place a picked library asset centered on the page, and load its SVG.
-  const placeIcon = (asset: LibraryAsset) => {
+  // Place a library asset with its top-left at (xIn, yIn), clamped to the page.
+  const placeIconAt = (asset: LibraryAsset, xIn: number, yIn: number) => {
     const sizeIn = 1.2;
-    // Cascade each new icon down-right so consecutive placements do not stack
-    // exactly on top of each other (wrapping before it runs off the page).
-    const step = (pageAssets(page).length % 6) * 0.3;
-    const xIn = Math.max(0, Math.min(wIn - sizeIn, wIn / 2 - sizeIn / 2 + step));
-    const yIn = Math.max(0, Math.min(hIn - sizeIn, hIn / 2 - sizeIn / 2 + step));
     const assetId = `ic${page.id}-${Date.now().toString(36)}`;
     const placed = makePlacedAsset(
       assetId,
@@ -752,11 +817,12 @@ export default function FigureComposer({ pageId }: { pageId: string }) {
         credit: asset.credit,
         requiresAttribution: asset.requiresAttribution,
       },
-      xIn,
-      yIn,
+      Math.max(0, Math.min(wIn - sizeIn, xIn)),
+      Math.max(0, Math.min(hIn - sizeIn, yIn)),
       sizeIn,
     );
     mutate((p) => addPlacedAsset(p, placed), true);
+    setSelectedConn(null);
     setSelection([{ kind: "asset", id: assetId }]);
     setIconPickerOpen(false);
     // Eagerly fetch the SVG so it appears immediately (the effect also covers it).
@@ -765,8 +831,50 @@ export default function FigureComposer({ pageId }: { pageId: string }) {
     });
   };
 
+  // Click-to-place: centered, cascading down-right so consecutive icons do not
+  // stack exactly on top of each other (wrapping before it runs off the page).
+  const placeIcon = (asset: LibraryAsset) => {
+    const step = (pageAssets(page).length % 6) * 0.3;
+    placeIconAt(asset, wIn / 2 - 0.6 + step, hIn / 2 - 0.6 + step);
+  };
+
+  // Add a shape (rectangle / ellipse) centered on the page, cascading.
+  const placeShape = (kind: ShapeKind) => {
+    const step = (pageShapes(page).length % 6) * 0.3;
+    const shapeId = `sh${page.id}-${Date.now().toString(36)}`;
+    const sh = makeShape(
+      shapeId,
+      kind,
+      Math.max(0, wIn / 2 - 0.75 + step),
+      Math.max(0, hIn / 2 - 0.5 + step),
+    );
+    mutate((p) => addShape(p, sh), true);
+    setSelectedConn(null);
+    setSelection([{ kind: "shape", id: shapeId }]);
+  };
+
+  // Drop an icon dragged from the left rail at the cursor (centered on it).
+  const onCanvasDrop = (e: React.DragEvent) => {
+    const raw = e.dataTransfer.getData("application/x-ros-asset");
+    if (!raw) return;
+    e.preventDefault();
+    let asset: LibraryAsset;
+    try {
+      asset = JSON.parse(raw) as LibraryAsset;
+    } catch {
+      return;
+    }
+    const rect = stageRef.current?.getBoundingClientRect();
+    if (!rect) return;
+    const s = effScale();
+    placeIconAt(asset, (e.clientX - rect.left) / s - 0.6, (e.clientY - rect.top) / s - 0.6);
+  };
+
   const selectedAssetObj = selectedAsset
     ? pageAssets(page).find((a) => a.assetId === selectedAsset) ?? null
+    : null;
+  const selectedShapeObj = selectedShape
+    ? pageShapes(page).find((s) => s.shapeId === selectedShape) ?? null
     : null;
   const credits = figureCredits(page);
 
@@ -846,6 +954,8 @@ export default function FigureComposer({ pageId }: { pageId: string }) {
           onReorderLayer={(ref, dir) =>
             mutate((p) => (dir === "up" ? bringForward(p, ref) : sendBackward(p, ref)), true)
           }
+          onAddShape={placeShape}
+          onUseTemplate={(t) => mutate((p) => applyTemplateSized(p, t, wIn, hIn), true)}
         />
       )}
       <div className="flex min-w-0 flex-1 flex-col overflow-hidden rounded-2xl border border-border bg-surface-sunken">
@@ -934,6 +1044,10 @@ export default function FigureComposer({ pageId }: { pageId: string }) {
           ref={stageRef}
           className="relative bg-white shadow-lg"
           style={{ width: pageW, height: pageH }}
+          onDragOver={(e) => {
+            if (e.dataTransfer.types.includes("application/x-ros-asset")) e.preventDefault();
+          }}
+          onDrop={onCanvasDrop}
           onPointerDown={(e) => e.stopPropagation()}
           onMouseDown={(e) => {
             // Empty-canvas press starts a marquee (rubber-band) select. A plain
@@ -948,6 +1062,39 @@ export default function FigureComposer({ pageId }: { pageId: string }) {
             if (!e.shiftKey) clearSel();
           }}
         >
+          {/* Shapes layer (rectangles / ellipses), below panels as backgrounds. */}
+          {pageShapes(page).map((s) => {
+            const sel = isSelectedRef({ kind: "shape", id: s.shapeId });
+            return (
+              <div
+                key={s.shapeId}
+                className={`absolute ${s.kind === "ellipse" ? "rounded-full" : "rounded-sm"} ${sel ? "outline outline-2 outline-brand-action" : "outline outline-1 outline-transparent hover:outline-border-strong"}`}
+                style={{
+                  left: s.xIn * scale,
+                  top: s.yIn * scale,
+                  width: s.wIn * scale,
+                  height: s.hIn * scale,
+                  background: s.fill === "none" ? "transparent" : s.fill,
+                  border:
+                    s.stroke === "none"
+                      ? undefined
+                      : `${Math.max(1, (s.strokeWPt * scale) / 72)}px solid ${s.stroke}`,
+                  cursor: "grab",
+                }}
+                onPointerDown={(e) => e.stopPropagation()}
+                onMouseDown={(e) => onShapeDown(e, s.shapeId, false)}
+                data-testid="figure-shape"
+              >
+                {selection.length === 1 && sel && (
+                  <div
+                    className="absolute -bottom-1.5 -right-1.5 h-3 w-3 rounded-sm border-2 border-brand-action bg-white"
+                    style={{ cursor: "nwse-resize" }}
+                    onMouseDown={(e) => onShapeDown(e, s.shapeId, true)}
+                  />
+                )}
+              </div>
+            );
+          })}
           {page.panels.map((p) => {
             const sel = isSelectedRef({ kind: "panel", id: p.panelId });
             const lab = labels.get(p.panelId);
@@ -1803,6 +1950,76 @@ export default function FigureComposer({ pageId }: { pageId: string }) {
                 clearSel();
               }}
               className="mt-2 block text-meta font-medium text-pin hover:underline"
+            >
+              Remove from page
+            </button>
+          </div>
+        )}
+
+        {selectedShapeObj && (
+          <div className="space-y-2.5 rounded-xl border border-border p-3" data-testid="figure-shape-inspector">
+            <h3 className="text-meta font-bold uppercase tracking-wide text-foreground-faint">
+              Selected {selectedShapeObj.kind}
+            </h3>
+            <div className="flex items-center gap-2 text-meta">
+              <span className="w-12 text-foreground-muted">Fill</span>
+              <input
+                type="color"
+                value={toHex6(selectedShapeObj.fill === "none" ? "#ffffff" : selectedShapeObj.fill)}
+                onChange={(e) =>
+                  mutate((p) => updateShape(p, selectedShapeObj.shapeId, { fill: e.target.value }))
+                }
+                className="h-6 w-9 cursor-pointer rounded border border-border-strong"
+              />
+              <button
+                type="button"
+                onClick={() => mutate((p) => updateShape(p, selectedShapeObj.shapeId, { fill: "none" }))}
+                className={`rounded border px-1.5 py-0.5 ${selectedShapeObj.fill === "none" ? "border-brand-action text-brand-action" : "border-border-strong text-foreground-muted"}`}
+              >
+                None
+              </button>
+            </div>
+            <div className="flex items-center gap-2 text-meta">
+              <span className="w-12 text-foreground-muted">Stroke</span>
+              <input
+                type="color"
+                value={toHex6(selectedShapeObj.stroke === "none" ? "#000000" : selectedShapeObj.stroke)}
+                onChange={(e) =>
+                  mutate((p) => updateShape(p, selectedShapeObj.shapeId, { stroke: e.target.value }))
+                }
+                className="h-6 w-9 cursor-pointer rounded border border-border-strong"
+              />
+              <button
+                type="button"
+                onClick={() => mutate((p) => updateShape(p, selectedShapeObj.shapeId, { stroke: "none" }))}
+                className={`rounded border px-1.5 py-0.5 ${selectedShapeObj.stroke === "none" ? "border-brand-action text-brand-action" : "border-border-strong text-foreground-muted"}`}
+              >
+                None
+              </button>
+            </div>
+            <label className="flex items-center justify-between gap-2 text-meta text-foreground-muted">
+              <span>Stroke width</span>
+              <input
+                type="range"
+                min={0.5}
+                max={6}
+                step={0.5}
+                value={selectedShapeObj.strokeWPt}
+                onChange={(e) =>
+                  mutate((p) =>
+                    updateShape(p, selectedShapeObj.shapeId, { strokeWPt: Number(e.target.value) }),
+                  )
+                }
+                className="w-32"
+              />
+            </label>
+            <button
+              type="button"
+              onClick={() => {
+                mutate((p) => pruneConnectors(removeShape(p, selectedShapeObj.shapeId)), true);
+                clearSel();
+              }}
+              className="block text-meta font-medium text-pin hover:underline"
             >
               Remove from page
             </button>
