@@ -619,6 +619,46 @@ function SettingsBodyInner({
           keywords: "tips feature hints onboarding help walkthrough",
           render: () => <TipsSection />,
         },
+        {
+          id: "asset-library",
+          group: "Workspace",
+          title: "Icon library",
+          icon: "library",
+          keywords:
+            "icon library asset open source biorender icons svg figure contribute review verify clipart illustration phylopic bioicons",
+          render: () => (
+            <SectionShell
+              id="asset-library"
+              title="Icon library"
+              description="A free, openly-licensed library of scientific icons and silhouettes you can drop into figures — every asset carries its source and license, and credits are added automatically. Browse it, contribute your own, or help review community submissions."
+              searchKeywords="icon library asset open source biorender icons svg figure contribute review verify clipart illustration phylopic bioicons"
+            >
+              <div className="flex flex-wrap gap-2">
+                <Link
+                  href="/library"
+                  className="inline-flex items-center gap-2 rounded-lg bg-brand-action px-3 py-2 text-sm font-semibold text-white hover:opacity-90"
+                >
+                  <Icon name="library" className="h-4 w-4" />
+                  Browse the library
+                </Link>
+                <Link
+                  href="/library/contribute"
+                  className="inline-flex items-center gap-2 rounded-lg border border-border bg-surface-raised px-3 py-2 text-sm font-semibold text-foreground hover:bg-surface-sunken"
+                >
+                  <Icon name="plus" className="h-4 w-4" />
+                  Contribute an icon
+                </Link>
+                <Link
+                  href="/library/review"
+                  className="inline-flex items-center gap-2 rounded-lg border border-border bg-surface-raised px-3 py-2 text-sm font-semibold text-foreground hover:bg-surface-sunken"
+                >
+                  <Icon name="check" className="h-4 w-4" />
+                  Review submissions
+                </Link>
+              </div>
+            </SectionShell>
+          ),
+        },
       ],
     },
     {

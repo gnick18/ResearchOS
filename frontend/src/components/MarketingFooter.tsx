@@ -45,6 +45,7 @@ const COLUMNS: FooterColumn[] = [
       { label: "BeakerBot AI", href: "/ai" },
       { label: "Pricing", href: "/pricing" },
       { label: "Live demo", href: "/demo" },
+      { label: "Icon library", href: "/library" },
       { label: "Docs", href: "/wiki" },
     ],
   },
