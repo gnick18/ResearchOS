@@ -973,6 +973,19 @@ export default function GraphEditor({
                 />
               </Ctl>
 
+              <Ctl label="X labels">
+                <Seg<"auto" | "horizontal" | "angled">
+                  value={style.xLabelMode ?? "auto"}
+                  options={[
+                    { value: "auto", label: "Auto" },
+                    { value: "horizontal", label: "Flat" },
+                    { value: "angled", label: "Angled" },
+                  ]}
+                  onChange={(v) => onStyleChange({ xLabelMode: v })}
+                  testIdPrefix="datahub-xlabels"
+                />
+              </Ctl>
+
               <Ctl label="Value labels">
                 <Seg<"on" | "off">
                   value={style.showValueLabels ? "on" : "off"}
