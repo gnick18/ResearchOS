@@ -34,11 +34,13 @@ import {
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import Svg, { Circle, G, Path, Defs, LinearGradient, Stop } from 'react-native-svg';
+import { LinearGradient } from 'expo-linear-gradient';
+import { Ionicons } from '@expo/vector-icons';
+import Svg, { Circle, G, Path, Defs, LinearGradient as SvgLinearGradient, Stop } from 'react-native-svg';
 
 import { ThemedText } from '@/components/themed-text';
 import { Button } from '@/components/ui/Button';
-import { useTheme, palette, spacing, radii } from '@/lib/design';
+import { useTheme, palette, spacing, radii, fonts } from '@/lib/design';
 import { authenticateAppLock, useAppLockPrefs } from '@/lib/app-lock';
 
 // Re-lock when the app was in the background longer than this. A brief switch
@@ -66,11 +68,11 @@ function LockMark({ dark }: { dark: boolean }) {
   return (
     <Svg width={132} height={154} viewBox="8 3 24 31">
       <Defs>
-        <LinearGradient id="lockLiquid" x1="0" y1="12" x2="0" y2="32" gradientUnits="userSpaceOnUse">
+        <SvgLinearGradient id="lockLiquid" x1="0" y1="12" x2="0" y2="32" gradientUnits="userSpaceOnUse">
           {ramp.map((c, i) => (
             <Stop key={i} offset={i / (ramp.length - 1)} stopColor={c} />
           ))}
-        </LinearGradient>
+        </SvgLinearGradient>
       </Defs>
       <Path d={D_GLASS_FILL} fill={glassFill} />
       <G>
@@ -168,15 +170,52 @@ export function AppLockGate() {
       ]}
     >
       <View style={styles.center}>
-        <LockMark dark={dark} />
-        <ThemedText style={[styles.title, { color: surface.text }]}>Locked</ThemedText>
+        {/* Brand mascot lockup. The mark itself is brand-locked (verbatim
+            geometry, sky strokes, pastel liquid). It rides a soft brand-tinted
+            halo disc + a privacy-sky lock chip so the lock moment reads as a
+            calm, elevated brand surface rather than a bare icon on the canvas.
+            Halo + chip use theme-consistent sky, never the mascot colors. */}
+        <View style={styles.markBlock}>
+          <LinearGradient
+            colors={
+              dark
+                ? ['rgba(26,160,230,0.20)', 'rgba(26,160,230,0)']
+                : ['rgba(26,160,230,0.16)', 'rgba(26,160,230,0)']
+            }
+            start={{ x: 0.5, y: 0.1 }}
+            end={{ x: 0.5, y: 1 }}
+            style={styles.halo}
+            pointerEvents="none"
+          />
+          <LockMark dark={dark} />
+          {/* Privacy chip: a small sky lock badge clipped to the mark's lower
+              corner, signalling the gate without recoloring the mascot. */}
+          <View
+            style={[
+              styles.lockChip,
+              {
+                backgroundColor: palette.sky,
+                borderColor: surface.bg,
+              },
+            ]}
+            pointerEvents="none"
+          >
+            <Ionicons name="lock-closed" size={15} color={palette.white} />
+          </View>
+        </View>
+
+        <ThemedText style={[styles.title, { color: surface.text }]}>
+          ResearchOS is locked
+        </ThemedText>
         <ThemedText style={[styles.sub, { color: surface.muted }]}>
-          Unlock to open your bench. Your captures and notes stay private to you.
+          Unlock with Face ID to see your bench. Your captures and notes stay
+          private to you.
         </ThemedText>
         <Button
           label={authing ? 'Unlocking' : 'Unlock'}
           loading={authing}
           onPress={() => void runUnlock()}
+          icon={<Ionicons name="lock-open-outline" size={18} color={palette.white} />}
           style={styles.btn}
           accessibilityLabel="Unlock the app"
         />
@@ -200,20 +239,62 @@ const styles = StyleSheet.create({
     maxWidth: 360,
     width: '100%',
   },
+  // Holds the brand mark, its halo, and the corner lock chip.
+  markBlock: {
+    width: 168,
+    height: 168,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  // Soft brand-tinted glow disc behind the mark for depth (contract glow).
+  halo: {
+    position: 'absolute',
+    width: 168,
+    height: 168,
+    borderRadius: 84,
+  },
+  // Sky lock badge tucked at the lower-right of the mark.
+  lockChip: {
+    position: 'absolute',
+    right: 22,
+    bottom: 20,
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    borderWidth: 3,
+    alignItems: 'center',
+    justifyContent: 'center',
+    // Contract --shadow-md, sky-tinted so the chip lifts off the mark.
+    shadowColor: palette.sky,
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.4,
+    shadowRadius: 8,
+    elevation: 6,
+  },
   title: {
-    fontSize: 24,
-    fontWeight: '700',
-    marginTop: spacing.lg,
+    fontSize: 22,
+    lineHeight: 27,
+    fontFamily: fonts.extrabold,
+    fontWeight: '800',
+    letterSpacing: -0.3,
+    marginTop: spacing.sm,
+    textAlign: 'center',
   },
   sub: {
-    fontSize: 15,
-    lineHeight: 21,
+    fontSize: 14,
+    lineHeight: 20,
+    fontFamily: fonts.ui,
     textAlign: 'center',
-    paddingHorizontal: spacing.md,
+    paddingHorizontal: spacing.lg,
+    maxWidth: 320,
   },
+  // Content-sized pill (contract app-lock button: width auto, padding 13/26).
   btn: {
-    marginTop: spacing.md,
-    minWidth: 200,
+    marginTop: spacing.lg,
+    alignSelf: 'center',
+    paddingHorizontal: 26,
+    paddingVertical: 14,
+    minWidth: 0,
     borderRadius: radii.md,
   },
 });

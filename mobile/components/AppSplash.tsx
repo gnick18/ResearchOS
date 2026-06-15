@@ -430,9 +430,25 @@ export function AppSplash({ onFinish }: AppSplashProps) {
   }));
   const reduceStyle = useAnimatedStyle(() => ({ opacity: reduceOpacity.value }));
 
+  // Tagline fades up just after the wordmark settles (tail of the word window),
+  // mirroring the contract's wordmark + "Your bench companion" subtitle lockup.
+  const taglineStyle = useAnimatedStyle(() => {
+    const start = W.word[0] + (W.word[1] - W.word[0]) * 0.7;
+    const p = progress.value;
+    let t = 0;
+    if (p > start) {
+      t = Math.min(1, (p - start) / (1 - start));
+      t = 1 - Math.pow(1 - t, 3);
+    }
+    return { opacity: t, transform: [{ translateY: (1 - t) * 6 }] };
+  });
+
   // Wordmark sizing + placement below the mark.
   const wordFont = Math.max(22, Math.min(cappedMarkPx * 0.2, 34));
   const wordTop = markCenterY + cappedMarkPx * 0.62;
+  // Tagline color: a muted reading of the wordmark color for the secondary line.
+  const taglineColor = dark ? 'rgba(255,255,255,0.66)' : 'rgba(12,24,48,0.62)';
+  const taglineFont = Math.max(12.5, Math.min(cappedMarkPx * 0.085, 15));
 
   // While the reduce-motion gate resolves, render just the matching background so
   // there is never a flash of a half-built frame.
@@ -480,6 +496,26 @@ export function AppSplash({ onFinish }: AppSplashProps) {
     </View>
   );
 
+  // Tagline row, seated just under the wordmark. The contract pairs the brand
+  // wordmark with "Your bench companion" on the splash.
+  const tagline = (animated: boolean) => (
+    <Animated.View
+      style={[
+        styles.tagRow,
+        { top: wordTop + wordFont + 8, width },
+        animated ? taglineStyle : null,
+      ]}
+      pointerEvents="none"
+    >
+      <Animated.Text
+        style={[styles.tag, { color: taglineColor, fontSize: taglineFont }]}
+        allowFontScaling={false}
+      >
+        Your bench companion
+      </Animated.Text>
+    </Animated.View>
+  );
+
   // ---- Reduce-motion path: static lockup, fade in then out -----------------
   if (reduceMotion) {
     return (
@@ -487,6 +523,7 @@ export function AppSplash({ onFinish }: AppSplashProps) {
         <Animated.View style={[StyleSheet.absoluteFill, reduceStyle]}>
           {staticMark}
           {wordmark(false)}
+          {tagline(false)}
         </Animated.View>
       </Animated.View>
     );
@@ -557,6 +594,9 @@ export function AppSplash({ onFinish }: AppSplashProps) {
 
       {/* Wordmark overlaid as crisp RN text, per-letter fade-up. */}
       {wordmark(true)}
+
+      {/* Tagline settles in just after the wordmark. */}
+      {tagline(true)}
     </Animated.View>
   );
 }
@@ -576,5 +616,17 @@ const styles = StyleSheet.create({
   word: {
     fontWeight: '800',
     letterSpacing: 0.2,
+  },
+  tagRow: {
+    position: 'absolute',
+    left: 0,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  tag: {
+    fontWeight: '500',
+    letterSpacing: 0.1,
+    textAlign: 'center',
   },
 });
