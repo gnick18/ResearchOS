@@ -212,7 +212,7 @@
   "components/transparency/TransparencyTabs.tsx": 2,
   "components/ui/LivingPopup.tsx": 1,
   "components/welcome/DemoLoop.tsx": 2,
-  "components/welcome/WelcomePage.tsx": 5,
+  "components/welcome/WelcomePage.tsx": 3,
   "components/wiki/WikiSearch.tsx": 1,
   "components/wiki/WikiSidebar.tsx": 1,
   "components/wiki/WikiTopBar.tsx": 1,

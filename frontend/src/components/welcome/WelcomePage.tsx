@@ -106,18 +106,12 @@ function R2Demo({ name, label }: { name: string; label: string }) {
  *  capture endpoint that does not exist yet. */
 const CONTACT_EMAIL = "researchos.llc@gmail.com";
 
-/** Launch flag, shared with CompanionHub. When the companion app actually ships
- *  on the stores, set NEXT_PUBLIC_COMPANION_APP_LIVE=1 in Vercel and the tri-CTA
- *  store badges become real links; until then they render a "Coming soon" state
- *  so the phone visitor never taps a dead store URL. */
+/** Launch flag, shared with CompanionHub. While false the tri-CTA shows a
+ *  brand-free "iOS & Android · Coming soon" pill (no Apple/Google marks — their
+ *  official store badges only apply once real listings exist and require their
+ *  own artwork). At launch: set NEXT_PUBLIC_COMPANION_APP_LIVE=1 in Vercel AND
+ *  swap the pill for the official App Store + Google Play badge artwork. */
 const COMPANION_APP_LIVE = process.env.NEXT_PUBLIC_COMPANION_APP_LIVE === "1";
-
-/** Real App Store / Play listing URLs, filled in at launch (mirrors the
- *  placeholder in CompanionHub). Only used when COMPANION_APP_LIVE is true. */
-const APP_STORE_URL =
-  "https://apps.apple.com/app/researchos-companion/idPLACEHOLDER";
-const PLAY_STORE_URL =
-  "https://play.google.com/store/apps/details?id=app.researchos.companion";
 
 /** mailto: for the "email me a desktop link" + "notify me" actions. We open the
  *  visitor's own mail client (the same draft-and-hand-off pattern the pricing
@@ -596,74 +590,6 @@ function ComparisonCards() {
 }
 
 /* ----------------------------------------------------------------------------
- * Store badge (App Store / Google Play) for the phone tri-CTA. Dark pill,
- * matches the mockup's .badge. Renders as a link when COMPANION_APP_LIVE, else
- * a non-interactive "Coming soon" pill so we never tap a dead store URL.
- * -------------------------------------------------------------------------- */
-function StoreBadge({
-  store,
-}: {
-  store: "apple" | "google";
-}) {
-  const isApple = store === "apple";
-  const href = isApple ? APP_STORE_URL : PLAY_STORE_URL;
-  const line1 = COMPANION_APP_LIVE
-    ? isApple
-      ? "Download on the"
-      : "Get it on"
-    : "Coming soon to";
-  const line2 = isApple ? "App Store" : "Google Play";
-  const glyph = isApple ? (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="#fff" aria-hidden className="flex-none">
-      <path d="M16.4 12.6c0-2 1.6-3 1.7-3-1-1.4-2.4-1.6-2.9-1.6-1.2-.1-2.4.7-3 .7-.6 0-1.6-.7-2.6-.7-1.3 0-2.6.8-3.2 2-1.4 2.4-.4 6 1 8 .6 1 1.4 2.1 2.4 2 1-.1 1.3-.6 2.5-.6s1.5.6 2.6.6 1.7-1 2.3-2c.7-1.1 1-2.1 1-2.2-.1 0-2.1-.8-2.1-3.4zM14.7 6.3c.5-.7.9-1.6.8-2.5-.8 0-1.7.5-2.3 1.2-.5.6-.9 1.5-.8 2.4.9.1 1.8-.4 2.3-1.1z" />
-    </svg>
-  ) : (
-    <svg width="17" height="17" viewBox="0 0 24 24" aria-hidden className="flex-none">
-      <path fill="#39a0d8" d="M3.6 2.2l9.2 9.2-2.6 2.6z" />
-      <path fill="#5bbf6a" d="M3.6 2.2L14.4 8 12 10.4z" />
-      <path fill="#f6c343" d="M17.6 9.9l2.8 1.6c1 .6 1 1.4 0 2l-2.8 1.6-2.8-2.6z" />
-      <path fill="#d8475b" d="M3.6 21.8l9.2-9.2 2.6 2.6z" />
-    </svg>
-  );
-
-  const inner = (
-    <>
-      {glyph}
-      <span className="min-w-0 text-left">
-        <span className="block text-[9px] leading-none text-white/80">
-          {line1}
-        </span>
-        <span className="block text-body font-bold leading-tight text-white">
-          {line2}
-        </span>
-      </span>
-    </>
-  );
-
-  const cls =
-    "flex min-h-[44px] flex-1 items-center gap-2 rounded-xl border border-[#1c2630] bg-[#0f1722] px-3 py-2";
-
-  if (COMPANION_APP_LIVE) {
-    return (
-      <a
-        href={href}
-        target="_blank"
-        rel="noopener noreferrer"
-        className={`${cls} transition-transform hover:scale-[1.02]`}
-        aria-label={`${isApple ? "Download on the App Store" : "Get it on Google Play"}`}
-      >
-        {inner}
-      </a>
-    );
-  }
-  return (
-    <div className={`${cls} opacity-90`} aria-label={`${line2} ${line1.toLowerCase()}`}>
-      {inner}
-    </div>
-  );
-}
-
-/* ----------------------------------------------------------------------------
  * The phone / unsupported tri-CTA (mockup scroll 1). Shown only when
  * `unsupported` is true, in priority order: (1) companion app, (2) open on
  * desktop + live demo, (3) notify me. It replaces the desktop "Start your
@@ -729,9 +655,22 @@ function PhoneTriCta() {
                 Capture experiments, photos, timers and checklists at the bench.
                 It syncs straight into your notebook.
               </p>
-              <div className="mt-4 flex gap-2">
-                <StoreBadge store="apple" />
-                <StoreBadge store="google" />
+              {/* Brand-free availability pill: no Apple/Google marks while the
+                  app is pre-launch (their official badges only apply once real
+                  store listings exist, and require their own artwork). At launch,
+                  swap this for the official App Store + Google Play badges and
+                  flip NEXT_PUBLIC_COMPANION_APP_LIVE. */}
+              <div className="mt-4">
+                <span className="inline-flex min-h-[44px] items-center rounded-xl border border-[#1c2630] bg-[#0f1722] px-4 py-2">
+                  <span className="text-left">
+                    <span className="block text-body font-bold leading-tight text-white">
+                      iOS &amp; Android
+                    </span>
+                    <span className="block text-[11px] leading-none text-white/80">
+                      Coming soon
+                    </span>
+                  </span>
+                </span>
               </div>
               {!COMPANION_APP_LIVE && (
                 <p className="mt-3 text-meta leading-snug text-[#7c8aa0]">
