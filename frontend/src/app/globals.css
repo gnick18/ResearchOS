@@ -643,6 +643,11 @@
   );
 }
 
+/* Hide the native scrollbar on a viewport that uses the custom overlay thumb
+ * (ScrollArea). The component draws its own pill thumb on top. */
+.ros-hide-native-scroll { scrollbar-width: none; }
+.ros-hide-native-scroll::-webkit-scrollbar { width: 0; height: 0; display: none; }
+
 /* ── Thin scrollbar (the emerging standard, Grant 2026-06-14) ───────────────
  * A clean, thin scrollbar for the calm surfaces. macOS Chrome's native overlay
  * scrollbar ignores CSS width, so styling it via ::-webkit-scrollbar is the only
