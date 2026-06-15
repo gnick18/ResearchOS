@@ -46,6 +46,11 @@ bleeds through = mud). One uniform hue per object type.
   - **plain** (no accent): settings, wizards, confirms, import/export, sharing,
     feedback, billing, and other system/utility dialogs.
 - Assigned: NewPurchaseModal=amber, PurchaseHistoryPopup=violet (history=work+data).
+- RECOLOR DEPTH LOCKED (Grant 2026-06-14, option 3): the family hue reaches the
+  title marker AND every affordance (focus rings, selected chips/tabs, edit
+  borders, status text, hovers) — but PRIMARY ACTION BUTTONS stay their semantic
+  color (green = save/confirm, red = destructive). So per popup: recolor its old
+  accent hue → family hue everywhere EXCEPT primary/destructive action buttons.
 - Classes `.ros-title-accent` + `.ros-accent-<hue>` (globals.css) for non-shell
   titles (page headers) too.
 

@@ -1637,7 +1637,7 @@ export default function NoteDetailPopup({
       {LORO_PILOT_ENABLED && !!loroHandle && collab.state.status === "live" && (
         <span className="inline-flex items-center gap-1">
           <span aria-hidden>·</span>
-          <span className="inline-flex items-center gap-1 text-emerald-600 dark:text-emerald-300 font-medium">
+          <span className="inline-flex items-center gap-1 text-sky-600 dark:text-sky-300 font-medium">
             <svg className="w-3 h-3" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
               <circle cx="12" cy="12" r="5" />
             </svg>
@@ -1967,7 +1967,7 @@ export default function NoteDetailPopup({
                       onClick={() => switchToTab(entry.id)}
                       className={`px-3 py-1.5 rounded-lg text-body whitespace-nowrap border transition-colors ${
                         activeTab === entry.id
-                          ? "bg-emerald-100 dark:bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 font-medium border-emerald-300 dark:border-emerald-500/40"
+                          ? "bg-sky-100 dark:bg-sky-500/20 text-sky-700 dark:text-sky-300 font-medium border-sky-300 dark:border-sky-500/40"
                           : "bg-surface-raised text-foreground border-border hover:bg-surface-sunken hover:border-foreground-muted/40"
                       }`}
                     >
@@ -2000,14 +2000,14 @@ export default function NoteDetailPopup({
                   value={newEntryTitle}
                   onChange={(e) => setNewEntryTitle(e.target.value)}
                   placeholder="Entry title..."
-                  className="flex-1 px-3 py-2 border border-border rounded-lg focus:outline-none focus:border-emerald-500"
+                  className="flex-1 px-3 py-2 border border-border rounded-lg focus:outline-none focus:border-sky-500"
                   autoFocus
                 />
                 <input
                   type="date"
                   value={newEntryDate}
                   onChange={(e) => setNewEntryDate(e.target.value)}
-                  className="px-3 py-2 border border-border rounded-lg focus:outline-none focus:border-emerald-500"
+                  className="px-3 py-2 border border-border rounded-lg focus:outline-none focus:border-sky-500"
                 />
                 <button
                   onClick={addNewEntry}
@@ -2040,7 +2040,7 @@ export default function NoteDetailPopup({
                     onChange={(e) => setEntryTitle(e.target.value)}
                     onBlur={saveEntryTitle}
                     onKeyDown={(e) => e.key === "Enter" && saveEntryTitle()}
-                    className="text-body font-medium text-foreground border-b-2 border-emerald-500 focus:outline-none bg-transparent"
+                    className="text-body font-medium text-foreground border-b-2 border-sky-500 focus:outline-none bg-transparent"
                     autoFocus
                     disabled={readOnly}
                   />
@@ -2048,7 +2048,7 @@ export default function NoteDetailPopup({
                   <span
                     onClick={startEditingEntryTitle}
                     className={`text-body font-medium text-foreground ${
-                      !readOnly ? "cursor-pointer hover:text-emerald-600 dark:hover:text-emerald-300" : ""
+                      !readOnly ? "cursor-pointer hover:text-sky-600 dark:hover:text-sky-300" : ""
                     }`}
                     title={!readOnly ? "Click to edit title" : ""}
                   >
@@ -2064,7 +2064,7 @@ export default function NoteDetailPopup({
                     onChange={(e) => setEntryDate(e.target.value)}
                     onBlur={saveEntryDate}
                     onKeyDown={(e) => e.key === "Enter" && saveEntryDate()}
-                    className="text-body text-foreground-muted border-b-2 border-emerald-500 focus:outline-none bg-transparent"
+                    className="text-body text-foreground-muted border-b-2 border-sky-500 focus:outline-none bg-transparent"
                     autoFocus
                     disabled={readOnly}
                   />
@@ -2072,7 +2072,7 @@ export default function NoteDetailPopup({
                   <span
                     onClick={startEditingEntryDate}
                     className={`text-body text-foreground-muted ${
-                      !readOnly ? "cursor-pointer hover:text-emerald-600 dark:hover:text-emerald-300" : ""
+                      !readOnly ? "cursor-pointer hover:text-sky-600 dark:hover:text-sky-300" : ""
                     }`}
                     title={!readOnly ? "Click to edit date" : ""}
                   >
