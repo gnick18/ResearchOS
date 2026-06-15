@@ -65,7 +65,10 @@
 
 import { fileService } from "@/lib/file-system/file-service";
 import { appQueryClient } from "@/lib/query-client";
-import { filesApi, notesApi, inventoryItemsApi, inventoryStocksApi, purchasesApi, tasksApi, buildCurrentViewer } from "@/lib/local-api";
+import { filesApi, methodsApi, notesApi, inventoryItemsApi, inventoryStocksApi, purchasesApi, tasksApi, buildCurrentViewer } from "@/lib/local-api";
+import { writePhoneReformat } from "@/lib/methods/phone-reformat-cache";
+import { publishMethodToAllDevices } from "./method-snapshot";
+import { publishAiJobStatus, type AiJobStatus } from "./ai-job-status";
 import { canWriteIgnoringPiRole } from "@/lib/sharing/unified";
 import { attachImageToTask, attachImageToNote } from "@/lib/attachments/attach-image";
 import { writeAnnotations, type AnnotationDoc } from "@/lib/attachments/annotations";
@@ -385,6 +388,32 @@ interface MethodCheckCommand {
   total: number;
   /** ISO timestamp of the phone tick that produced this state. */
   at: string;
+}
+
+/**
+ * A reformat-method command (method phone projection reformatter, Phase 2 phone
+ * trigger, 2026-06-14). The phone seals this when the researcher taps "make a
+ * phone version" on a body-type method at the bench. The laptop reads the
+ * method's source body, calls the metered reformat endpoint, caches the result
+ * next to the source (writePhoneReformat), republishes the method snapshot so the
+ * phone re-renders with the tidied steps, and publishes an ai-job status so the
+ * phone bubble can land on the real token count. The model only restructures the
+ * user's own content under a verbatim guardrail (enforced server-side), so this
+ * stays inside BeakerBot's allowed scope.
+ */
+interface ReformatMethodCommand {
+  type: "reformat-method";
+  /** Correlation id the phone minted, echoed back in the ai-job status so the
+   *  phone only reacts to its own job. */
+  jobId: string;
+  /** Numeric task id (the focused experiment the method is viewed under). */
+  taskId: number;
+  /** Owner username (whose namespace the method + experiment live in). */
+  owner: string;
+  /** The method to reformat. */
+  methodId: number;
+  /** ISO timestamp from the phone. */
+  at?: string;
 }
 
 /**
@@ -884,6 +913,9 @@ export async function runCaptureInboxPoll(
   // Method-check commands (gathered reagents). Applied after captures; each
   // overwrites its attachment's gathered_checks (last-write-wins).
   const methodCheckQueue: Array<{ cmd: MethodCheckCommand; commandId: string }> = [];
+  // Reformat-method commands (phone "make phone-friendly"). Applied after captures;
+  // each calls the metered AI endpoint, caches the result, and republishes.
+  const reformatQueue: Array<{ cmd: ReformatMethodCommand; commandId: string }> = [];
 
   // Load the user's X25519 private key for unsealing commands. The relay
   // seals each command to the user's identity encryption key, which is
@@ -1017,6 +1049,25 @@ export async function runCaptureInboxPoll(
               );
             } else {
               console.warn(`${LOG_PREFIX} method-check command ${cmd.commandId} has invalid fields, skipping`);
+            }
+          } else if (parsed.type === "reformat-method") {
+            // Phone "make phone-friendly". Queue for after the capture pass; the
+            // handler calls the metered AI endpoint, so it must not block the
+            // route-map / image work. jobId + methodId + owner are required.
+            const rm = parsed as ReformatMethodCommand;
+            if (
+              typeof rm.jobId === "string" &&
+              rm.jobId &&
+              typeof rm.taskId === "number" &&
+              rm.owner &&
+              typeof rm.methodId === "number"
+            ) {
+              reformatQueue.push({ cmd: rm, commandId: cmd.commandId });
+              console.info(
+                `${LOG_PREFIX} reformat-method command queued: task ${rm.owner}/${rm.taskId} method ${rm.methodId} job ${rm.jobId}`,
+              );
+            } else {
+              console.warn(`${LOG_PREFIX} reformat-method command ${cmd.commandId} has invalid fields, skipping`);
             }
           } else if (parsed.type === "timer") {
             // Phase 3: a timer started or dismissed on the phone. No dependency
@@ -2029,6 +2080,111 @@ export async function runCaptureInboxPoll(
     }
   }
   // ── end method-check processing ─────────────────────────────────────────
+
+  // ── reformat-method processing ──────────────────────────────────────────
+  // Apply any reformat-method commands. Each reads the method's source body,
+  // calls the metered AI reformat endpoint (server-side guardrail), caches the
+  // result next to the source, republishes the method snapshot, and announces an
+  // ai-job status so the phone bubble lands on the real token count. We ACK after
+  // every terminal outcome (success OR a handled error) so a failed job never
+  // auto-retries and re-bills; the user re-taps to retry instead.
+  for (const { cmd, commandId } of reformatQueue) {
+    const announce = (patch: Partial<AiJobStatus>) =>
+      publishAiJobStatus(keys, {
+        kind: "reformat-method",
+        jobId: cmd.jobId,
+        methodId: cmd.methodId,
+        taskId: cmd.taskId,
+        status: "working",
+        at: new Date().toISOString(),
+        ...patch,
+      }).catch(() => {
+        // best-effort, the phone also runs its own local countdown
+      });
+    const ack = async () => {
+      try {
+        await ackCommands(keys, [commandId]);
+      } catch (ackErr) {
+        console.warn(
+          `${LOG_PREFIX} failed to ack reformat-method command ${commandId}`,
+          ackErr instanceof Error ? ackErr.message : String(ackErr),
+        );
+      }
+    };
+    try {
+      const method = await methodsApi.get(cmd.methodId, cmd.owner).catch(() => null);
+      const sourcePath = method?.source_path ?? null;
+      if (!method || !sourcePath || sourcePath.includes("://")) {
+        console.warn(
+          `${LOG_PREFIX} reformat-method: method ${cmd.owner}/${cmd.methodId} has no markdown body, skipping`,
+        );
+        await announce({ status: "error", errorReason: "no_body" });
+        await ack();
+        continue;
+      }
+
+      await announce({ status: "working" });
+
+      const file = await filesApi.readFile(sourcePath);
+      const res = await fetch("/api/ai/reformat-method", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ body: file.content, task_id: cmd.jobId }),
+      });
+
+      if (res.status === 402) {
+        await announce({ status: "error", errorReason: "out_of_credits" });
+        await ack();
+        continue;
+      }
+      if (!res.ok) {
+        // The endpoint refused before spending tokens (no key, provider error).
+        await announce({ status: "error", errorReason: "failed" });
+        await ack();
+        continue;
+      }
+
+      const data = (await res.json()) as {
+        ok?: boolean;
+        reformatted?: string;
+        usage?: { total?: number };
+      };
+      let outcome: NonNullable<AiJobStatus["outcome"]> = "kept-plain";
+      if (data?.ok && typeof data.reformatted === "string") {
+        await writePhoneReformat(sourcePath, file.sha, data.reformatted);
+        outcome = "reformatted";
+        console.info(
+          `${LOG_PREFIX} reformat-method: cached phone reformat for method ${cmd.owner}/${cmd.methodId}`,
+        );
+      } else {
+        // The guardrail refused the reformat; the phone keeps the deterministic
+        // plain steps, which is a calm outcome, not an error.
+        console.info(
+          `${LOG_PREFIX} reformat-method: guardrail kept plain steps for method ${cmd.owner}/${cmd.methodId}`,
+        );
+      }
+
+      // Republish the method snapshot so the phone re-renders (a fresh cache hit
+      // when reformatted, the same body when kept-plain). Best-effort.
+      await publishMethodToAllDevices(keys, cmd.taskId, cmd.owner).catch(() => {});
+
+      const tokens = typeof data?.usage?.total === "number" ? data.usage.total : 0;
+      await announce({ status: "done", outcome, tokens });
+      await ack();
+      pulled += 1;
+    } catch (reformatErr) {
+      errors += 1;
+      console.warn(
+        `${LOG_PREFIX} failed to apply reformat-method command ${commandId}`,
+        reformatErr instanceof Error ? reformatErr.message : String(reformatErr),
+      );
+      // Ack even on an unexpected throw, so a metered job never auto-retries and
+      // re-bills; the phone shows an error and the user can re-tap to retry.
+      await announce({ status: "error", errorReason: "failed" });
+      await ack();
+    }
+  }
+  // ── end reformat-method processing ──────────────────────────────────────
 
   // The poller writes notes/images straight through the API + file-service layer,
   // which does NOT run the React Query mutation hooks that normally refresh open

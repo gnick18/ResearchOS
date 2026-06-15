@@ -197,10 +197,12 @@ export async function POST(request: Request): Promise<Response> {
     return jsonError(502, "The model provider returned an unreadable response.");
   }
 
-  // Meter the turn before we decide pass/fail: the tokens were spent regardless
-  // of whether the output survives validation.
+  // Read token usage once: meter the turn when billing is on (the tokens were
+  // spent regardless of whether the output survives validation), and surface the
+  // counts in the response so a caller (the phone job bubble) can show them.
+  const { prompt, completion } = readUsage((json as { usage?: unknown }).usage);
+  const usage = { prompt, completion, total: prompt + completion };
   if (billingOn && ownerKey) {
-    const { prompt, completion } = readUsage((json as { usage?: unknown }).usage);
     await meter(ownerKey, taskId, prompt, completion);
   }
 
@@ -221,13 +223,14 @@ export async function POST(request: Request): Promise<Response> {
         invented_words: verdict.inventedWords,
         coverage: verdict.coverage,
         coverage_short: verdict.coverageShort,
+        usage,
       }),
       { status: 200, headers: { "content-type": "application/json", "cache-control": "no-store" } },
     );
   }
 
   return new Response(
-    JSON.stringify({ ok: true, reformatted, coverage: verdict.coverage }),
+    JSON.stringify({ ok: true, reformatted, coverage: verdict.coverage, usage }),
     { status: 200, headers: { "content-type": "application/json", "cache-control": "no-store" } },
   );
 }
