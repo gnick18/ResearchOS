@@ -343,8 +343,19 @@ function draftToStep(d: StepDraft): ReadStep {
   };
 }
 
+// Strip non-content the laptop injects before it ever becomes a bench step. The
+// frontend prepends an auto-generated provenance stamp wrapped in
+// <!-- stamp:start -->...<!-- stamp:end --> (see frontend stamp-utils.ts) when a
+// method is sent to the phone; that is metadata, never an instruction, so it must
+// never render. We also drop any other HTML comments for the same reason.
+function stripNonContent(body: string): string {
+  return body
+    .replace(/<!--\s*stamp:start\s*-->[\s\S]*?<!--\s*stamp:end\s*-->/g, '')
+    .replace(/<!--[\s\S]*?-->/g, '');
+}
+
 function parseBodyToSteps(body: string): ReadStep[] {
-  const lines = body.replace(/\r\n/g, '\n').split('\n').map((l) => l.replace(/\s+$/, ''));
+  const lines = stripNonContent(body).replace(/\r\n/g, '\n').split('\n').map((l) => l.replace(/\s+$/, ''));
   const steps: ReadStep[] = [];
   let phase: string | undefined;
   let cur: StepDraft | null = null;
@@ -360,6 +371,12 @@ function parseBodyToSteps(body: string): ReadStep[] {
     if (line.trim() === '') {
       // A blank line ends a prose paragraph; list and checklist steps continue.
       if (cur && cur.kind === 'para') flush();
+      continue;
+    }
+
+    // A thematic break (---, ***, ___ on its own line) is a visual separator,
+    // not an instruction, so it must never become a step.
+    if (/^(-{3,}|\*{3,}|_{3,})$/.test(line.trim())) {
       continue;
     }
 
