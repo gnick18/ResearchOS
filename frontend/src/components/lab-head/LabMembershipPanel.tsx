@@ -25,6 +25,7 @@ import {
   finalizePendingAccepts,
 } from "@/lib/lab/lab-head-membership";
 import { getLabRemote } from "@/lib/lab/lab-do-client";
+import { fetchLabProfile } from "@/lib/lab/lab-profile-client";
 import {
   fetchLabRoster,
   type UnifiedLabRoster,
@@ -148,6 +149,11 @@ export default function LabMembershipPanel() {
   const [senderLabel, setSenderLabel] = useState<string>(currentUser ?? "");
   const [labName, setLabName] = useState<string>("");
   const [labNameTouched, setLabNameTouched] = useState(false);
+  // The saved cosmetic branding, used as the display-only fields on minted
+  // invites so the branded join welcome paints instantly. Falls back to the
+  // panel's labName / no title when unset.
+  const [brandLabName, setBrandLabName] = useState<string>("");
+  const [brandPiTitle, setBrandPiTitle] = useState<string>("");
 
   const sharingOn = isRealSharingEnabled();
 
@@ -199,6 +205,33 @@ export default function LabMembershipPanel() {
     };
   }, [labId, outcomes]);
 
+  // Load the saved cosmetic branding so minted invites carry the lab name + PI
+  // title (display only). Best-effort; the invite is fine without them.
+  useEffect(() => {
+    if (!labId) return;
+    let cancelled = false;
+    void (async () => {
+      try {
+        const profile = await fetchLabProfile(labId);
+        if (cancelled || !profile) return;
+        setBrandLabName(profile.labName ?? "");
+        setBrandPiTitle(profile.piTitle ?? "");
+      } catch {
+        // Best-effort; invites just go out without the display branding.
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [labId]);
+
+  // The display-only branding for a minted invite. Prefers the saved lab name,
+  // then the panel's editable labName, then a calm fallback handled downstream.
+  const inviteDisplay = () => ({
+    labName: (brandLabName || labName).trim() || undefined,
+    piTitle: brandPiTitle.trim() || undefined,
+  });
+
   if (!labId || !currentUser) {
     return (
       <p className="text-meta text-foreground-muted leading-relaxed">
@@ -236,6 +269,7 @@ export default function LabMembershipPanel() {
         username: currentUser,
         identity: requireIdentity(),
         origin: window.location.origin,
+        ...inviteDisplay(),
       });
       setLink(l);
       setCopied(false);
@@ -257,6 +291,7 @@ export default function LabMembershipPanel() {
       username: currentUser,
       identity: requireIdentity(),
       origin: window.location.origin,
+      ...inviteDisplay(),
     }).link;
 
   /** POST the minted link to the recipient's inbox. Best effort. */
@@ -361,6 +396,7 @@ export default function LabMembershipPanel() {
           username: currentUser,
           identity: requireIdentity(),
           origin: window.location.origin,
+          ...inviteDisplay(),
         });
         setApprovedLinks((cur) => ({ ...cur, [req.requesterEmailHash]: l }));
       }

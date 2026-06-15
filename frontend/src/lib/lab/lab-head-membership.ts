@@ -48,13 +48,20 @@ export async function mintLabTokenForHead(params: {
   return { link: `${params.origin}/lab/join#${data.token}` };
 }
 
-/** Mints a head invite and returns the payload + the shareable join link. */
+/** Mints a head invite and returns the payload + the shareable join link. The
+ *  head's known lab name + PI title ride along as DISPLAY-ONLY fields (not signed)
+ *  so the branded join welcome can paint instantly before its open profile fetch
+ *  lands. */
 export function mintInviteForHead(params: {
   labId: string;
   username: string;
   identity: StoredIdentity;
   origin: string;
   ttlMs?: number;
+  /** Display only, cosmetic. The head's lab name. */
+  labName?: string;
+  /** Display only, cosmetic. The PI's title (Dr. / Prof. / ...). */
+  piTitle?: string;
 }): { invite: LabInvitePayload; link: string } {
   const invite = mintLabInvite({
     labId: params.labId,
@@ -63,6 +70,8 @@ export function mintInviteForHead(params: {
     headX25519Pub: encodePublicKey(params.identity.keys.encryption.publicKey),
     headEd25519Priv: params.identity.keys.signing.privateKey,
     expiresAt: Date.now() + (params.ttlMs ?? DEFAULT_INVITE_TTL_MS),
+    labName: params.labName,
+    piTitle: params.piTitle,
   });
   return { invite, link: encodeInviteLink(params.origin, invite) };
 }

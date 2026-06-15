@@ -100,6 +100,24 @@ function capStr(v: unknown, max: number): string | null {
   return typeof v === "string" ? v.slice(0, max) : null;
 }
 
+/** Max length of a stored cosmetic lab-branding string (name / title / display
+ *  name). Generous enough for a real lab name, bounded so a hand-crafted request
+ *  cannot stuff the DO meta table. */
+const LAB_BRAND_MAX_LEN = 200;
+
+/** Max lab-logo size in bytes (512 KB). A logo is a small mark, not an asset
+ *  library, so this is plenty while keeping the R2 object cheap to stream on
+ *  every member screen. */
+const LAB_LOGO_MAX_BYTES = 512 * 1024;
+
+/** The image content-types a lab logo may use. */
+const LAB_LOGO_CONTENT_TYPES = new Set([
+  "image/png",
+  "image/jpeg",
+  "image/webp",
+  "image/svg+xml",
+]);
+
 export interface Env {
   COLLAB_ROOM: DurableObjectNamespace;
   /** R2 bucket for periodic per-doc snapshot backups (disaster recovery). */
@@ -286,6 +304,31 @@ export default {
       return handleLabData(url, request, env);
     }
 
+    // Lab identity + branding (cosmetic). The lab logo route accepts BOTH a
+    // head-signed POST (upload) and an OPEN GET (stream the bytes), so it is
+    // routed to the LabRecordDO here, ahead of the POST-only /lab/* block below.
+    // The branding is cosmetic (it never gates access), the GET is public by
+    // design (it is shown to a not-yet-member on the invite page), and the POST
+    // is head-signed inside the DO. Mirrors how /lab/create resolves the DO by
+    // ?lab=<labId>.
+    if (url.pathname === "/lab/logo") {
+      if (request.method !== "GET" && request.method !== "POST") {
+        return new Response("Method not allowed", {
+          status: 405,
+          headers: CORS_HEADERS,
+        });
+      }
+      const labId = url.searchParams.get("lab");
+      if (!labId || labId.trim() === "") {
+        return new Response("Missing required query parameter: lab", {
+          status: 400,
+          headers: CORS_HEADERS,
+        });
+      }
+      const stub = env.LAB_RECORD.get(env.LAB_RECORD.idFromName(labId));
+      return stub.fetch(request);
+    }
+
     // Per-lab record store (lab tier Phase 2). The authoritative server-side home
     // of a lab: the head pubkey, the head-signed hash-chained membership log, and
     // the per-generation sealed lab-key envelopes. Addressed by ?lab=<labId>, so
@@ -303,7 +346,9 @@ export default {
       url.pathname === "/lab/resync" ||
       url.pathname === "/lab/accept" ||
       url.pathname === "/lab/accept/list" ||
-      url.pathname === "/lab/accept/dismiss"
+      url.pathname === "/lab/accept/dismiss" ||
+      url.pathname === "/lab/profile" ||
+      url.pathname === "/lab/profile/get"
     ) {
       if (request.method !== "POST") {
         return new Response("Method not allowed", {
@@ -3712,6 +3757,24 @@ export class LabRecordDO {
     this.metaSet("head_pubkey", head.ed25519PublicKey);
     this.metaSet("lab_id", labId);
     this.metaSet("head", JSON.stringify(head));
+
+    // Optional cosmetic lab branding carried alongside the genesis. These are
+    // NOT part of the signed log (they never gate access), so we just stash the
+    // strings in meta. All optional, so an older client that omits them is fine.
+    const brandBody = body as {
+      labName?: unknown;
+      piTitle?: unknown;
+      piDisplay?: unknown;
+    };
+    if (typeof brandBody.labName === "string") {
+      this.metaSet("lab_name", brandBody.labName.slice(0, LAB_BRAND_MAX_LEN));
+    }
+    if (typeof brandBody.piTitle === "string") {
+      this.metaSet("pi_title", brandBody.piTitle.slice(0, LAB_BRAND_MAX_LEN));
+    }
+    if (typeof brandBody.piDisplay === "string") {
+      this.metaSet("pi_display", brandBody.piDisplay.slice(0, LAB_BRAND_MAX_LEN));
+    }
     this.sql().exec(
       "INSERT INTO log (seq, type, key_generation, signature, entry) VALUES (?, ?, ?, ?, ?)",
       entry.seq,
@@ -4048,6 +4111,121 @@ export class LabRecordDO {
     return this.json({ ok: true }, 200);
   }
 
+  /** POST /lab/profile?lab=<labId>. Head-signed update of the cosmetic lab
+   *  branding (lab name, PI title, PI display name). These are NOT in the signed
+   *  membership log; they never gate access, so a head signature over a fresh
+   *  message is the whole authorization. Body:
+   *  { labName, piTitle, piDisplay, issuedAt, signature } signed over
+   *  "lab-profile\n<labId>\n<labName>\n<piTitle>\n<piDisplay>\n<issuedAt>". */
+  private async handleProfileUpdate(request: Request, labId: string): Promise<Response> {
+    let body: {
+      labName?: unknown;
+      piTitle?: unknown;
+      piDisplay?: unknown;
+      issuedAt?: number;
+      signature?: string;
+    };
+    try {
+      body = await request.json();
+    } catch {
+      return this.json({ error: "invalid JSON body" }, 400);
+    }
+    const labName = typeof body.labName === "string" ? body.labName : "";
+    const piTitle = typeof body.piTitle === "string" ? body.piTitle : "";
+    const piDisplay = typeof body.piDisplay === "string" ? body.piDisplay : "";
+    const message = `lab-profile\n${labId}\n${labName}\n${piTitle}\n${piDisplay}\n${body.issuedAt}`;
+    const rej = this.requireHeadSig(message, body.signature ?? "", body.issuedAt ?? 0);
+    if (rej) return rej;
+    this.metaSet("lab_name", labName.slice(0, LAB_BRAND_MAX_LEN));
+    this.metaSet("pi_title", piTitle.slice(0, LAB_BRAND_MAX_LEN));
+    this.metaSet("pi_display", piDisplay.slice(0, LAB_BRAND_MAX_LEN));
+    return this.json({ ok: true }, 200);
+  }
+
+  /** POST /lab/profile/get?lab=<labId>. OPEN read of the cosmetic branding (the
+   *  invite page shows it to a not-yet-member). Returns empty strings + hasLogo
+   *  false for a lab that exists but has not been branded; 404 for no such lab. */
+  private handleProfileGet(): Response {
+    if (this.metaGet("head_pubkey") === null) {
+      return this.json({ error: "lab does not exist" }, 404);
+    }
+    return this.json(
+      {
+        labName: this.metaGet("lab_name") ?? "",
+        piTitle: this.metaGet("pi_title") ?? "",
+        piDisplay: this.metaGet("pi_display") ?? "",
+        hasLogo: this.metaGet("has_logo") === "1",
+      },
+      200,
+    );
+  }
+
+  /** POST /lab/logo?lab=<labId>. Head-signed logo upload. The raw image bytes are
+   *  the request body; the content-type is the request Content-Type header. Caps
+   *  the size + restricts the type, verifies the head signature over
+   *  "lab-logo\n<labId>\n<sha256hex>\n<issuedAt>" (sha256 of the bytes), then puts
+   *  to LAB_DATA under logos/<labId> with the content-type in R2 httpMetadata and
+   *  sets has_logo=1 + logo_ct. The issuedAt + signature ride in query params so
+   *  the body stays the raw image. */
+  private async handleLogoUpload(request: Request, labId: string): Promise<Response> {
+    const url = new URL(request.url);
+    const contentType = request.headers.get("content-type") ?? "";
+    if (!LAB_LOGO_CONTENT_TYPES.has(contentType)) {
+      return this.json({ error: "unsupported image type" }, 415);
+    }
+    const bytes = new Uint8Array(await request.arrayBuffer());
+    if (bytes.byteLength === 0) {
+      return this.json({ error: "empty logo body" }, 400);
+    }
+    if (bytes.byteLength > LAB_LOGO_MAX_BYTES) {
+      return this.json({ error: "logo too large" }, 413);
+    }
+    const sha = await sha256Hex(bytes);
+    const issuedAt = Number(url.searchParams.get("issuedAt") ?? "0");
+    const signature = url.searchParams.get("sig") ?? "";
+    const message = `lab-logo\n${labId}\n${sha}\n${issuedAt}`;
+    const rej = this.requireHeadSig(message, signature, issuedAt);
+    if (rej) return rej;
+    try {
+      await this.env.LAB_DATA.put(`logos/${labId}`, bytes, {
+        httpMetadata: { contentType },
+      });
+    } catch {
+      return this.json({ error: "storage write failed" }, 500);
+    }
+    this.metaSet("has_logo", "1");
+    this.metaSet("logo_ct", contentType);
+    return this.json({ ok: true }, 200);
+  }
+
+  /** GET /lab/logo?lab=<labId>. OPEN read of the lab logo bytes, streamed with the
+   *  stored content-type. 404 when the lab has no logo. */
+  private async handleLogoGet(): Promise<Response> {
+    if (this.metaGet("has_logo") !== "1") {
+      return this.json({ error: "no logo" }, 404);
+    }
+    const labId = this.metaGet("lab_id") ?? "";
+    const obj = await this.env.LAB_DATA.get(`logos/${labId}`);
+    if (!obj) {
+      return this.json({ error: "no logo" }, 404);
+    }
+    const ct =
+      obj.httpMetadata?.contentType ??
+      this.metaGet("logo_ct") ??
+      "application/octet-stream";
+    return new Response(obj.body, {
+      status: 200,
+      headers: {
+        ...CORS_HEADERS,
+        "Content-Type": ct,
+        // A short cache so the ambient header logo is not re-fetched on every
+        // navigation, but a logo change shows up promptly (the client also
+        // cache-busts the URL on a fresh upload).
+        "Cache-Control": "public, max-age=300",
+      },
+    });
+  }
+
   async fetch(request: Request): Promise<Response> {
     const url = new URL(request.url);
     const labId = url.searchParams.get("lab") ?? "";
@@ -4058,6 +4236,12 @@ export class LabRecordDO {
     if (url.pathname === "/lab/accept") return this.handleAcceptPush(request, labId);
     if (url.pathname === "/lab/accept/list") return this.handleAcceptList(request, labId);
     if (url.pathname === "/lab/accept/dismiss") return this.handleAcceptDismiss(request, labId);
+    if (url.pathname === "/lab/profile") return this.handleProfileUpdate(request, labId);
+    if (url.pathname === "/lab/profile/get") return this.handleProfileGet();
+    if (url.pathname === "/lab/logo") {
+      if (request.method === "GET") return this.handleLogoGet();
+      return this.handleLogoUpload(request, labId);
+    }
     return this.json({ error: "not found" }, 404);
   }
 }

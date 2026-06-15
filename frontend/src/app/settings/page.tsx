@@ -58,6 +58,7 @@ import DynamicAnimation from "@/components/DynamicAnimation";
 import { hasLocalAccount } from "@/lib/auth/account-store";
 import LabRoster from "@/components/lab-head/LabRoster";
 import LabMembershipPanel from "@/components/lab-head/LabMembershipPanel";
+import LabIdentitySection from "@/components/lab/LabIdentitySection";
 import { LAB_TIER_ENABLED } from "@/lib/lab/config";
 import AuditTrailViewer from "@/components/lab-head/AuditTrailViewer";
 import { loadIdentity } from "@/lib/sharing/identity/storage";
@@ -720,9 +721,12 @@ function SettingsBodyInner({
                 title: "Lab settings",
                 icon: "shield" as const,
                 keywords:
-                  "account type member pi lab head role agreement mode solo lab visibility approval policy settings",
+                  "account type member pi lab head role agreement mode solo lab visibility approval policy settings name title logo identity branding",
                 render: () => (
                   <>
+                    {LAB_TIER_ENABLED && isLabHead ? (
+                      <LabIdentitySection settings={settings} />
+                    ) : null}
                     <AccountTypeSection settings={settings} update={update} />
                     {isLabHead ? (
                       <LabAgreementSection settings={settings} update={update} />
