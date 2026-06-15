@@ -58,6 +58,7 @@ import DynamicAnimation from "@/components/DynamicAnimation";
 import { hasLocalAccount } from "@/lib/auth/account-store";
 import LabRoster from "@/components/lab-head/LabRoster";
 import LabMembershipPanel from "@/components/lab-head/LabMembershipPanel";
+import { useLabPendingRequests } from "@/hooks/useLabPendingRequests";
 import LabIdentitySection from "@/components/lab/LabIdentitySection";
 import { LAB_TIER_ENABLED } from "@/lib/lab/config";
 import AuditTrailViewer from "@/components/lab-head/AuditTrailViewer";
@@ -261,6 +262,12 @@ function SettingsBodyInner({
   // folder). A cross-folder cloud lab has only the PI locally, so the folder
   // roster is redundant there and the unified Members section hides it.
   const isMultiUser = useIsMultiUserFolder() ?? false;
+
+  // Pending lab join-request count (lab-pending-requests-ux, 2026-06-14). Drives
+  // the count pill + attention dot on the Members rail item so a PI sees who is
+  // waiting without opening the section. Inert (0, no fetch) for non-PIs. React
+  // Query dedupes this with the avatar-menu dot in AppShell by the shared key.
+  const { count: pendingRequestCount } = useLabPendingRequests();
 
   // Load on mount + when the active user changes.
   useEffect(() => {
@@ -699,6 +706,8 @@ function SettingsBodyInner({
                 group: "Lab",
                 title: "Members",
                 icon: "users" as const,
+                // Surfaces pending join requests right on the rail item.
+                badgeCount: pendingRequestCount,
                 keywords:
                   "members roster invite join link add request archive restore lab people seat pending sponsored collaborator",
                 render: () => (
