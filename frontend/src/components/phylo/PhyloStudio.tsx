@@ -276,6 +276,11 @@ export function PhyloStudio({ initialTreeId }: { initialTreeId?: string } = {}) 
   const [smartCandidates, setSmartCandidates] = useState<JoinCandidate[]>([]);
   const [smartOpen, setSmartOpen] = useState(false);
   const [smartDismissed, setSmartDismissed] = useState(false);
+  // The open tree's collection membership, captured when a saved tree is opened.
+  // The smart scan is scoped to these projects (the locked "same project" rule),
+  // matching the BeakerBot suggest_tree_overlays tool. Empty for an unsaved /
+  // unfiled tree, which has no collection and therefore no auto-suggestions.
+  const [openTreeProjectIds, setOpenTreeProjectIds] = useState<string[]>([]);
 
   // Publication page-frame (artboard) state for the figure. Disabled by default
   // (the canvas renders exactly as before). The figure's width in inches is its
@@ -632,20 +637,28 @@ export function PhyloStudio({ initialTreeId }: { initialTreeId?: string } = {}) 
     setSelectedLayerId(panel.id);
   }
 
-  // Smart Data Binding: scan the collection's Data Hub tables for ones that join
-  // the open tree's tips and rank them (the engine drops zero-join / key-only
-  // tables). Drives the "N tables can overlay this tree" banner + the wizard.
-  // getContent is a local read (local-first), so loading every table's content is
-  // cheap; recomputed when the tree or the table list changes.
+  // Smart Data Binding: scan the open tree's COLLECTION (its projects) for Data
+  // Hub tables that join its tips and rank them (the engine drops zero-join /
+  // key-only tables). Scoped to the tree's projects (the locked "same project"
+  // rule, matching the BeakerBot suggest_tree_overlays tool); an unsaved / unfiled
+  // tree has no collection, so no auto-suggestions. getContent is a local read
+  // (local-first), so loading the collection's table contents is cheap; recomputed
+  // when the tree or its collection changes.
   useEffect(() => {
     let cancelled = false;
-    if (!tree || dhTables.length === 0) {
+    if (!tree || openTreeProjectIds.length === 0) {
       setSmartCandidates([]);
       return;
     }
     (async () => {
+      // Union the tables across the tree's projects, deduped by id.
+      const byId = new Map<string, { id: string; name: string }>();
+      for (const pid of openTreeProjectIds) {
+        const docs = await dataHubApi.listByProject(pid);
+        for (const d of docs) if (!byId.has(d.id)) byId.set(d.id, { id: d.id, name: d.name });
+      }
       const loaded: CandidateTable[] = [];
-      for (const t of dhTables) {
+      for (const t of byId.values()) {
         const content = await dataHubApi.getContent(t.id);
         if (content) loaded.push({ id: t.id, name: t.name, content });
       }
@@ -655,7 +668,7 @@ export function PhyloStudio({ initialTreeId }: { initialTreeId?: string } = {}) 
     return () => {
       cancelled = true;
     };
-  }, [tree, dhTables]);
+  }, [tree, openTreeProjectIds]);
 
   // Re-arm the banner when a different SAVED tree is opened (not on every edit,
   // which would re-nag). An imported / unsaved tree clears openTreeId, which also
@@ -730,6 +743,8 @@ export function PhyloStudio({ initialTreeId }: { initialTreeId?: string } = {}) 
       // A freshly imported / pasted tree has no stored id yet; onPickSaved and
       // onSave set it back when the tree is opened from or written to the store.
       setOpenTreeId(null);
+      // No collection yet either (onPickSaved sets it from the saved meta).
+      setOpenTreeProjectIds([]);
     } catch (err) {
       setParseError(
         err instanceof TreeParseError
@@ -751,6 +766,9 @@ export function PhyloStudio({ initialTreeId }: { initialTreeId?: string } = {}) 
     restoreSavedFigure(raw.meta);
     // This tree lives in the store, so Copy reference can point at it.
     setOpenTreeId(id);
+    // Scope the smart-binding scan to this tree's collection (set AFTER
+    // loadTreeText, which cleared it).
+    setOpenTreeProjectIds(raw.meta.project_ids ?? []);
   }
 
   /**
