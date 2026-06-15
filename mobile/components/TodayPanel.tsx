@@ -271,15 +271,15 @@ export function TodayPanel({
                   experiments={activeBandTasks}
                   dark={dark}
                   onPress={(task) => {
-                    // Deep-link to the method read view for the focused experiment.
+                    // Deep-link to the method for the focused experiment. We land on
+                    // the method view (steps, key params, add-variation, plus a Read
+                    // mode button), NOT straight into full-screen read mode, so the
+                    // bench researcher can act on the method rather than only read it.
                     // The method snapshot is published separately by the laptop when
-                    // the user taps "View method on phone". We navigate to the same
-                    // route the Method tab's recs band uses (/method-detail?read=1),
-                    // which reads the currently published method snapshot. If the
-                    // laptop has not published a method snapshot for this experiment
-                    // the read screen shows its "open a method from the laptop"
-                    // empty state, which is the correct degradation.
-                    router.push('/method-detail?read=1');
+                    // the user taps "View method on phone"; if none is published the
+                    // screen shows its "open a method from the laptop" empty state,
+                    // which is the correct degradation.
+                    router.push('/method-detail');
                   }}
                 />
               ) : null}
@@ -456,6 +456,13 @@ function ExperimentCard({
           >
             {task.linkedMethodName}
           </ThemedText>
+          {/* Tap affordance: makes it obvious the card opens the attached method. */}
+          <View style={styles.expOpenCue}>
+            <ThemedText style={[styles.expOpenCueText, { color: palette.purple }]}>
+              View method
+            </ThemedText>
+            <Ionicons name="chevron-forward" size={12} color={palette.purple} />
+          </View>
         </View>
       ) : null}
     </Pressable>
@@ -780,6 +787,17 @@ const styles = StyleSheet.create({
     fontFamily: fonts.medium,
     flex: 1,
     minWidth: 0,
+  },
+  expOpenCue: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 1,
+    flexShrink: 0,
+  },
+  expOpenCueText: {
+    fontSize: 10,
+    fontFamily: fonts.bold,
+    fontWeight: '700',
   },
 
   scroll: { flexGrow: 0 },

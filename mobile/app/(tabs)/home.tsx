@@ -213,7 +213,7 @@ export default function HomeScreen() {
             <ActiveExperimentsBand
               experiments={experiments}
               dark={t.dark}
-              onPress={() => router.push('/method-detail?read=1')}
+              onPress={() => router.push('/method-detail')}
             />
           </View>
         ) : null}
