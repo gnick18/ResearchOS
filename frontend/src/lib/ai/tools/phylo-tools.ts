@@ -23,6 +23,12 @@
 import { phyloApi, type PhyloMeta } from "@/lib/phylo/api";
 import { requestNavigation } from "@/components/ai/navigation-bridge";
 import type { RawPhyloFiles } from "@/lib/phylo/phylo-store";
+import { parseTree } from "@/lib/phylo/parse";
+import { rankJoinCandidates } from "@/lib/phylo/smart-binding";
+import { dataHubApi } from "@/lib/datahub/api";
+import type { DataHubDocContent } from "@/lib/datahub/model/types";
+import { getBeakerContext } from "@/components/ai/context-bridge";
+import { withOverlayWizardUi, candidatesToFacts } from "@/lib/ai/overlay-wizard";
 import type {
   PhyloFigureSpec,
   PhyloLayout,
@@ -91,6 +97,17 @@ export type PhyloToolsDeps = {
     id: string,
     patch: { figure?: PhyloFigureSpec; metadata?: PhyloMetadataBinding },
   ) => Promise<PhyloMeta | null>;
+  /** Read one saved tree's raw files (tree text + sidecar). Wraps phyloApi.get.
+   *  suggest_tree_overlays parses the tree text to rank joinable tables. */
+  getTree: (id: string) => Promise<RawPhyloFiles | null>;
+  /** List the Data Hub tables across a tree's projects, deduped by id. Wraps
+   *  dataHubApi.listByProject. suggest_tree_overlays ranks these against tips. */
+  listProjectTables: (
+    projectIds: string[],
+  ) => Promise<{ id: string; name: string }[]>;
+  /** Read one Data Hub table's full content (columns + rows). Wraps
+   *  dataHubApi.getContent. The engine joins this against the tree's tips. */
+  getTableContent: (id: string) => Promise<DataHubDocContent | null>;
 };
 
 export const phyloToolsDeps: PhyloToolsDeps = {
@@ -98,6 +115,16 @@ export const phyloToolsDeps: PhyloToolsDeps = {
   navigate: requestNavigation,
   createTree: (tree, meta) => phyloApi.create(tree, meta),
   updateTreeMeta: (id, patch) => phyloApi.updateMeta(id, patch),
+  getTree: (id) => phyloApi.get(id),
+  listProjectTables: async (projectIds) => {
+    const seen = new Map<string, { id: string; name: string }>();
+    for (const pid of projectIds) {
+      const docs = await dataHubApi.listByProject(pid);
+      for (const d of docs) if (!seen.has(d.id)) seen.set(d.id, { id: d.id, name: d.name });
+    }
+    return [...seen.values()];
+  },
+  getTableContent: (id) => dataHubApi.getContent(id),
 };
 
 /** Resolve a tree reference (a stable string id or a case-insensitive name) to a
@@ -171,6 +198,143 @@ export const readPhyloTreeTool: AiTool = {
       };
     }
     return { ok: true as const, tree: briefOf(meta) };
+  },
+};
+
+// ---------------------------------------------------------------------------
+// suggest_tree_overlays (Phase 4 Smart Data Binding, the chat front door)
+// ---------------------------------------------------------------------------
+//
+// ONE engine, TWO front doors (Grant): this calls the SAME deterministic engine
+// (rankJoinCandidates) the /phylo GUI uses, then rides the candidates UI-only so
+// BeakerBotConversation mounts the SAME SmartDataWizard inline in chat. The model
+// only narrates the engine's ranked facts (table join rates, overlayable columns)
+// and NEVER recomputes a join or invents a column. The actual write is the user
+// clicking Add in the wizard (host commit), exactly like the GUI, so this tool is
+// read-only and non-gated (no approval card).
+
+export const suggestTreeOverlaysTool: AiTool = {
+  name: "suggest_tree_overlays",
+  description:
+    "Find the user's Data Hub tables that can OVERLAY a phylogenetic tree (tables whose values join the tree's tip labels), ranked by how many tips they join, and open the Smart Data Binding wizard inline so the user can pick columns and overlay styles to add to their tree. Use this when the user wants to add data / metadata / annotations / heatmaps / bars / color strips onto a tree (for example \"add my metadata to this tree\", \"what data can I overlay on my cyp51A tree\", \"annotate my tree with the location column\"). By default it acts on the tree the user has OPEN in the Studio; pass `tree` (a saved tree name or id) to target a specific one. It is READ-ONLY and deterministic, the engine computes every join rate and overlayable column. Relay the ranked tables and their joinable columns as FACTS (table name, joins N of M tips, the columns and the chart types each can drive), never invent a table, a column, or a join rate. The wizard appears below your reply for the user to choose and apply; do NOT call any other tool to apply it, the user drives the wizard. If no table joins the tree, say so plainly and do not open the wizard.",
+  parameters: {
+    type: "object",
+    properties: {
+      tree: {
+        type: "string",
+        description:
+          "Optional saved tree to act on, by name or id. Omit to use the tree the user currently has open in the Tree Studio.",
+      },
+    },
+    additionalProperties: false,
+  },
+  // No action / previewable flag: read-only. The write is the user's wizard Add,
+  // committed by the chat host (BeakerBotConversation), mirroring the GUI.
+  execute: async (args) => {
+    const ref = typeof args.tree === "string" ? args.tree.trim() : "";
+
+    let trees: PhyloMeta[];
+    try {
+      trees = await phyloToolsDeps.listTrees();
+    } catch {
+      return {
+        ok: false as const,
+        error: "I could not read your saved trees. A folder may not be connected.",
+      };
+    }
+
+    // Resolve the target tree: an explicit ref, else the open tree from context.
+    let meta = ref ? resolveTree(trees, ref) : null;
+    if (!meta && !ref) {
+      const ctx = getBeakerContext();
+      if (ctx?.selection?.type === "phylo") {
+        meta = resolveTree(trees, ctx.selection.id);
+      }
+    }
+    if (!meta) {
+      if (ref) {
+        const names = trees.map((t) => `"${t.name}"`).join(", ");
+        return {
+          ok: false as const,
+          error: `I could not find a tree called "${ref}". Your trees are: ${names || "(none yet)"}.`,
+        };
+      }
+      return {
+        ok: false as const,
+        error:
+          "I am not sure which tree you mean. Open a tree in the Tree Studio, or name a saved tree. I will not guess.",
+      };
+    }
+
+    // Load the tree text and parse it to a topology for the engine.
+    let files: RawPhyloFiles | null;
+    try {
+      files = await phyloToolsDeps.getTree(meta.id);
+    } catch {
+      return { ok: false as const, error: "I could not read that tree's file." };
+    }
+    if (!files) {
+      return { ok: false as const, error: "That tree's file could not be found." };
+    }
+    let tree;
+    try {
+      tree = parseTree(files.tree);
+    } catch {
+      return { ok: false as const, error: "I could not parse that tree." };
+    }
+
+    const treeName = meta.name || "Tree";
+
+    // Load the Data Hub tables in the tree's projects and rank joinable ones.
+    let tables: { id: string; name: string }[];
+    try {
+      tables = await phyloToolsDeps.listProjectTables(meta.project_ids ?? []);
+    } catch {
+      return { ok: false as const, error: "I could not read your Data Hub tables." };
+    }
+    if (tables.length === 0) {
+      return {
+        ok: true as const,
+        treeName,
+        candidateCount: 0,
+        message: `There are no Data Hub tables in ${treeName}'s project to overlay.`,
+      };
+    }
+
+    const candidateTables: { id: string; name: string; content: DataHubDocContent }[] = [];
+    for (const t of tables) {
+      const content = await phyloToolsDeps.getTableContent(t.id);
+      if (content) candidateTables.push({ id: t.id, name: t.name, content });
+    }
+
+    // Only surface tables that actually join at least one tip.
+    const candidates = rankJoinCandidates(tree, candidateTables).filter(
+      (c) => c.matchedTips > 0,
+    );
+    if (candidates.length === 0) {
+      return {
+        ok: true as const,
+        treeName,
+        candidateCount: 0,
+        message: `None of the Data Hub tables in ${treeName}'s project join its tip labels, so there is nothing to overlay yet.`,
+      };
+    }
+
+    const result = {
+      ok: true as const,
+      treeName,
+      treeId: meta.id,
+      candidateCount: candidates.length,
+      candidates: candidatesToFacts(candidates),
+    };
+    // Ride the full candidates UI-only so the wizard mounts inline; stripped
+    // before the model so its context stays the lean facts above.
+    return withOverlayWizardUi(result, {
+      widget: "overlayWizard",
+      treeId: meta.id,
+      treeName,
+      candidates,
+    });
   },
 };
 

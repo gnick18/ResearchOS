@@ -208,12 +208,19 @@ export function OAuthFirstLanding({
               ))}
             </div>
 
-            {/* Made in Madison badge + fellowship credit (brand refresh change
-                2). MadeInMadison renders the real Wisconsin state mark with the
-                gold Madison star. */}
-            <div className="mt-5 flex flex-col items-center border-t border-dashed border-border pt-4">
-              <MadeInMadison variant="line" tone="soft" />
-            </div>
+          </div>
+
+          {/* Made in Madison badge (brand refresh change 2). Pinned bottom-right
+              so it fills the empty corner and never collides with the centered
+              scroll-down affordance below. MadeInMadison renders the real
+              Wisconsin state mark with the gold Madison star; sized up a touch
+              for this hero corner. */}
+          <div className="absolute bottom-5 right-6 z-[1]">
+            <MadeInMadison
+              variant="line"
+              tone="soft"
+              className="text-sm gap-2.5 [&_svg]:h-6 [&_svg]:w-6"
+            />
           </div>
 
           {/* Bouncing scroll-down affordance to the welcome section. */}

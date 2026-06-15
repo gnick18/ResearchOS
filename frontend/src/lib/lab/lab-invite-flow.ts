@@ -122,7 +122,7 @@ export async function finalizeLabAccepts(params: {
       record.head.username === accept.memberUsername ||
       record.members.some((m) => m.username === accept.memberUsername);
     if (dup) {
-      await dismissLabAccept(labId, accept.nonce, headEd25519Priv);
+      await dismissLabAccept(labId, accept.memberEd25519Pub, headEd25519Priv);
       outcomes.push({ ...base, status: "skipped", reason: "already a member" });
       continue;
     }
@@ -165,7 +165,7 @@ export async function finalizeLabAccepts(params: {
     }
 
     record = nextRecord;
-    await dismissLabAccept(labId, accept.nonce, headEd25519Priv);
+    await dismissLabAccept(labId, accept.memberEd25519Pub, headEd25519Priv);
     outcomes.push({ ...base, status: "added", reason: "" });
   }
 
