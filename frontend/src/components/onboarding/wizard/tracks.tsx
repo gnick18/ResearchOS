@@ -49,6 +49,7 @@ export function buildSoloFreeTrack(cb: TrackCallbacks = {}): WizardTrack {
           <SignInStep
             heading="Create your free account"
             subheading="Pick a sign-in provider. Your data stays on your disk; the account is free and only used for sharing and the researcher directory."
+            onboardingWizardReturn="free"
           />
         ),
       },
@@ -118,6 +119,7 @@ export function buildPiCreateTrack(cb: TrackCallbacks = {}): WizardTrack {
             heading="Create a lab"
             subheading="Sign in with a provider to anchor your lab identity. Your data stays on your disk; the sign-in only binds the lab to your email."
             labCreate
+            onboardingWizardReturn="lab"
           />
         ),
       },

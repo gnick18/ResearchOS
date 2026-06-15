@@ -36,6 +36,16 @@ interface OAuthFirstOptions {
   /** Set the researchos:lab-create marker before redirecting (Lab create
    *  path). LabCreateResume reads it on return to provision the lab. */
   labCreate?: boolean;
+  /**
+   * Onboarding wizard go-live (NEXT_PUBLIC_ONBOARDING_WIZARD). When set, the
+   * callback also carries ?onbWizard=<free|lab> so the boot gate re-mounts the
+   * research wizard at the handle step on return (instead of falling through to
+   * FolderConnectGate). The ?sharingClaim=1 flag is still set, so the global
+   * SharingClaimResume keypair-mint and LabCreateResume provisioning run exactly
+   * as before; this only changes which onboarding surface the user sees, so the
+   * folder step is reached inside the wizard with no fresh-folder bounce.
+   */
+  onboardingWizard?: "free" | "lab";
 }
 
 /**
@@ -61,7 +71,14 @@ export function startOAuthFirstSignIn(
     }
   }
 
+  // The callback always carries ?sharingClaim=1 (keypair-mint resume). When the
+  // onboarding wizard is driving this sign-in, append ?onbWizard=<free|lab> so the
+  // boot gate resumes the wizard at the handle step rather than FolderConnectGate.
+  const callbackUrl = options.onboardingWizard
+    ? `/?sharingClaim=1&onbWizard=${options.onboardingWizard}`
+    : "/?sharingClaim=1";
+
   // The devmock provider has no real OAuth round trip; route it the same way the
   // claim resume expects (it signs in via the mock and returns with the flag).
-  void signIn(provider, { callbackUrl: "/?sharingClaim=1" });
+  void signIn(provider, { callbackUrl });
 }

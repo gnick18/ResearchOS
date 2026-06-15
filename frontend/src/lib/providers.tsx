@@ -48,6 +48,11 @@ import OnboardingWizard, {
   type WizardSelection,
 } from "@/components/onboarding/wizard/OnboardingWizard";
 import { ONBOARDING_WIZARD_ENABLED } from "@/lib/onboarding/config";
+import {
+  readOnboardingWizardReturn,
+  clearOnboardingWizardReturn,
+  selectionForOnbWizardReturn,
+} from "@/lib/onboarding/onboarding-wizard-return";
 import { clearOrgWizardReturn } from "@/lib/onboarding/org-wizard-signin";
 import CelebrationManager from "@/components/onboarding/CelebrationManager";
 import MilestoneTwirlMount from "@/components/onboarding/MilestoneTwirlMount";
@@ -190,6 +195,34 @@ function useOrgWizardReturn(): WizardSelection | null {
       if (v === "dept") return "org-dept" as WizardSelection;
       if (v === "inst") return "org-inst" as WizardSelection;
       return null;
+    },
+    () => null,
+  );
+}
+
+/**
+ * Research onboarding-wizard resume marker (?onbWizard=free|lab), the go-live
+ * counterpart of useOrgWizardReturn. Drives re-mounting the Free / PI wizard at
+ * the handle step on the post-OAuth return, so a fresh sign-in lands in the
+ * wizard instead of falling through to FolderConnectGate (the fresh-folder
+ * bounce). The ?sharingClaim=1 flag is still present, so the global keypair-mint
+ * / lab-provision resumes run unchanged. Only meaningful behind the wizard flag.
+ */
+function useResearchWizardReturn(): WizardSelection | null {
+  const subscribe = useCallback((onChange: () => void) => {
+    if (typeof window === "undefined") return () => {};
+    window.addEventListener("popstate", onChange);
+    window.addEventListener("researchos:locationchange", onChange);
+    return () => {
+      window.removeEventListener("popstate", onChange);
+      window.removeEventListener("researchos:locationchange", onChange);
+    };
+  }, []);
+  return useSyncExternalStore(
+    subscribe,
+    () => {
+      const v = readOnboardingWizardReturn();
+      return v ? (selectionForOnbWizardReturn(v) as WizardSelection) : null;
     },
     () => null,
   );
@@ -439,6 +472,13 @@ function AppContent({ children }: { children: ReactNode }) {
   // hook is always called (rules of hooks); the flag gates the value.
   const orgWizardReturnRaw = useOrgWizardReturn();
   const orgWizardReturn = ONBOARDING_WIZARD_ENABLED ? orgWizardReturnRaw : null;
+  // Research wizard post-OAuth return (?onbWizard=free|lab). Hook runs
+  // unconditionally (rules of hooks); the flag gates the value. Null when absent
+  // or flag off, so the OFF path falls through to the unchanged folder gate.
+  const researchWizardReturnRaw = useResearchWizardReturn();
+  const researchWizardReturn = ONBOARDING_WIZARD_ENABLED
+    ? researchWizardReturnRaw
+    : null;
   // Splash plays once per tab session (survives reloads, so dev reloads and
   // returning users do not replay it; a brand-new tab plays it). Skippable.
   // True once today's launch splash has played. Read from the per-day stamp so
@@ -726,6 +766,41 @@ function AppContent({ children }: { children: ReactNode }) {
     return (
       <QueryClientProvider client={queryClient}>
         <WelcomePage unsupported />
+      </QueryClientProvider>
+    );
+  }
+
+  // Research onboarding wizard post-OAuth return (NEXT_PUBLIC_ONBOARDING_WIZARD).
+  // The Free / Lab-create tiers signed in with ?sharingClaim=1&onbWizard=<free|lab>,
+  // so the global SharingClaimResume keypair-mint and LabCreateResume provisioning
+  // still run; this only changes the onboarding surface: resume INSIDE the wizard
+  // at the handle step (handle -> profile -> [lab-setup] -> folder) instead of
+  // falling through to FolderConnectGate. The wizard FolderStep connects and
+  // initializes the folder inline, so there is no fresh-folder bounce. Rendered
+  // above the account-first redirect and the folder gate so the marker always
+  // wins; once a folder connects (isConnected flips) this yields to the app.
+  // Dark and inert when the flag is off (researchWizardReturn is null).
+  if (
+    researchWizardReturn &&
+    !isConnected &&
+    !isDemoOrWikiCapture()
+  ) {
+    // Note: this intentionally stays mounted through needsInitialization so the
+    // wizard FolderStep shows its inline "initialize this folder" prompt, rather
+    // than yielding to FolderConnectGate (which would be the bounce we are
+    // removing). isConnected flips true once init completes, yielding to the app.
+    return (
+      <QueryClientProvider client={queryClient}>
+        <OnboardingWizard
+          selection={researchWizardReturn}
+          initialStepId="handle"
+          onClose={() => {
+            // The selection lives in the URL marker, so strip it or this branch
+            // re-renders in a close loop. Closing drops to the app root in its
+            // current state (limited if no folder), never a hard-trap.
+            clearOnboardingWizardReturn();
+          }}
+        />
       </QueryClientProvider>
     );
   }

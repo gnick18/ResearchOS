@@ -647,7 +647,13 @@ export function AccountTierChooser({ onLocal, onChoose, onOrgAdmin }: AccountTie
   // byte-for-byte the previous behavior.
   function handleFreeProvider(provider: SharingProvider) {
     if (isOAuthFirstLoginEnabled()) {
-      startOAuthFirstSignIn(provider);
+      // Go-live: carry the onbWizard marker so the return resumes the Free track
+      // wizard at the handle step (no FolderConnectGate bounce). Flag off keeps
+      // the bare keypair-mint callback, byte for byte the current behavior.
+      startOAuthFirstSignIn(
+        provider,
+        ONBOARDING_WIZARD_ENABLED ? { onboardingWizard: "free" } : {},
+      );
       return;
     }
     markLandingSeen();
@@ -657,7 +663,15 @@ export function AccountTierChooser({ onLocal, onChoose, onOrgAdmin }: AccountTie
   // -- Lab Create flow: provider sub-step -> set marker -> navigate --
   function handleLabCreateProvider(provider: SharingProvider) {
     if (isOAuthFirstLoginEnabled()) {
-      startOAuthFirstSignIn(provider, { labCreate: true });
+      // Go-live: keep the lab-create marker (LabCreateResume provisions the lab
+      // on return) and add the onbWizard marker so the return resumes the PI/lab
+      // wizard at the handle step instead of FolderConnectGate.
+      startOAuthFirstSignIn(
+        provider,
+        ONBOARDING_WIZARD_ENABLED
+          ? { labCreate: true, onboardingWizard: "lab" }
+          : { labCreate: true },
+      );
       return;
     }
     markLandingSeen();

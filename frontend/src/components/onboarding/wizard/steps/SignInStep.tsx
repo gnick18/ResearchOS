@@ -38,6 +38,13 @@ export interface SignInStepProps {
    */
   orgKind?: OrgWizardKind;
   /**
+   * Research go-live: carry the onbWizard return marker so a wizard-initiated
+   * sign-in resumes the wizard at the handle step on return (keeps the
+   * ?sharingClaim=1 keypair-mint callback). "free" -> Free track, "lab" -> PI
+   * track. Omitted (pre go-live) leaves the bare keypair-mint callback.
+   */
+  onboardingWizardReturn?: "free" | "lab";
+  /**
    * Test/host seam: override the provider-click handler. Defaults to the real
    * OAuth-first kickoff. Lets a preview or test exercise the step without a live
    * redirect.
@@ -50,6 +57,7 @@ export default function SignInStep({
   subheading,
   labCreate = false,
   orgKind,
+  onboardingWizardReturn,
   onProvider,
 }: SignInStepProps) {
   const handleProvider = (provider: SharingProvider) => {
@@ -61,7 +69,10 @@ export default function SignInStep({
       startOrgWizardSignIn(provider, orgKind);
       return;
     }
-    startOAuthFirstSignIn(provider, labCreate ? { labCreate: true } : {});
+    startOAuthFirstSignIn(provider, {
+      ...(labCreate ? { labCreate: true } : {}),
+      ...(onboardingWizardReturn ? { onboardingWizard: onboardingWizardReturn } : {}),
+    });
   };
 
   return (
