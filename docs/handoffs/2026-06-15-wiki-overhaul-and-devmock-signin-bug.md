@@ -20,8 +20,13 @@ A 10-agent audit of all 91 wiki pages, then a 10-agent fix pass, then a full scr
 
 **Side fix (separate worktree, chip `task_c44dddd3`):** `/trash` hid deleted molecules + storage nodes (SECTION_ORDER + ALL_ENTITY_TYPES missing them); fixed with a test. Grant ran the chip; lives in its own worktree.
 
-## PART C — dev-mock sign-in BUG (IN PROGRESS, unresolved — START HERE)
+## PART C — dev-mock sign-in BUG (RESOLVED 2026-06-15, commit `bf2192b61`)
 **Symptom (Grant):** clicking the **dev mock sign-in** does nothing "anymore" — it closes and refreshes the page, no sign-in. A regression (worked before).
+
+**ROOT CAUSE + FIX (next-session Phylo lane):** the bug only reproduces when the sign-in screen is reached via the **login-preview** surface (`?previewLogin=signin`), not the normal landing -> "Sign in" path (which always worked). The preview block in `src/lib/providers.tsx` persists `PREVIEW_KEY=ros_preview_login` to sessionStorage so the preview survives the "/" router bounce. The dev-mock button runs the **live** claim flow (`signIn("devmock", {callbackUrl:"/?sharingClaim=1"})`), so on return the boot gate re-read the persisted key and re-entered the preview branch (line ~592) **before** `SharingClaimResume`/the account flow could run — re-showing "Welcome back" even though the session cookie + `/api/auth/session` were already established. So the user WAS authenticated; the UI just trapped them in preview mode ("closes and refreshes, no sign-in"). Fix: when `sharingClaimReturn` is true, clear `PREVIEW_KEY` and yield out of the preview branch. Verified with `/tmp/repro-signin2.mjs` (drives both flows on :3000): normal AND preview now both land on `/account` signed in as `pi@researchos.test`. tsc clean. Committed local main only (shared-tree hold), NOT pushed.
+
+---
+### Original investigation notes (for reference)
 
 **Investigation so far:**
 - Env is FINE: `.env.local` has `AUTH_DEV_MOCK=1`, `NEXT_PUBLIC_AUTH_DEV_MOCK=1`, `AUTH_DEV_MOCK_EMAIL=pi@re...`, `AUTH_SECRET` set. The `devmock` provider IS registered (`src/lib/sharing/auth.ts:62,159`).
