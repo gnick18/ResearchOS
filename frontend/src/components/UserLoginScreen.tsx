@@ -22,7 +22,7 @@ import {
 } from "@/lib/sharing/identity/storage";
 import { isAccountFirstEnabled } from "@/lib/account/account-first";
 import { deriveWorkspaceUsername } from "@/lib/account/workspace-username";
-import { decodePublicKey, fingerprint as computeFingerprint } from "@/lib/sharing/identity/keys";
+import { decodePublicKey, encodePublicKey, fingerprint as computeFingerprint } from "@/lib/sharing/identity/keys";
 import { fetchMyProfile, compactFingerprint } from "@/lib/sharing/profile";
 import { MULTI_FOLDER_ENABLED } from "@/lib/file-system/multi-folder-config";
 import { generateDeviceSalt } from "@/lib/sharing/identity/backup";
@@ -604,6 +604,41 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
   // can save/rotate it later from Settings -> Sharing, where the unconfirmed
   // recovery state is surfaced. DEVICE_KEY_V2 is off, so this device-local
   // keypair is the canonical identity for this folder.
+
+  // Phase B (account/folder/identity redesign, §4.1/§6b): REUSE this account's
+  // existing on-device identity in a folder instead of minting a fresh keypair,
+  // so one cloud account stays the SAME identity across every lab folder. The
+  // guard is strict: the device must already hold an identity AND that identity's
+  // public key must match the directory record published under the signed-in
+  // email (fetchMyProfile). Only on that verified match do we write a reference
+  // sidecar (public-only, no recoveryBlob) and park the already-owned key. Any
+  // uncertain case (flag off, offline, no local identity, unpublished account, a
+  // fingerprint mismatch, or any thrown error) returns false so the caller keeps
+  // its existing mint / force-profile behavior. This NEVER makes a path less safe:
+  // a previous user's vault key on a shared machine cannot pass the directory
+  // public-key match, so it can never be sealed into a different person's folder.
+  const reuseAccountIdentityIfVerified = async (
+    username: string,
+  ): Promise<boolean> => {
+    if (!MULTI_FOLDER_ENABLED) return false;
+    try {
+      const existing = await loadIdentity();
+      if (!existing) return false;
+      const profile = await fetchMyProfile();
+      if (
+        profile &&
+        compactFingerprint(profile.fingerprint) ===
+          compactFingerprint(computeFingerprint(existing.keys.signing.publicKey))
+      ) {
+        await writeIdentityReferenceSidecar(username, existing.keys);
+        return true;
+      }
+    } catch {
+      // Any error -> fall back to the caller's mint / force-profile path.
+    }
+    return false;
+  };
+
   const autoProvisionFromAccount = async () => {
     setAutoProvisioning(true);
     setError(null);
@@ -672,28 +707,49 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
       //    shared machine can never be sealed into this new folder. Any failure
       //    to verify (flag off, offline, unpublished, or a mismatch) falls back
       //    to the original mint, so this is never less safe than before.
-      let reusedIdentity = false;
-      if (MULTI_FOLDER_ENABLED) {
-        try {
-          const existing = await loadIdentity();
-          if (existing) {
-            const profile = await fetchMyProfile();
-            if (
-              profile &&
-              compactFingerprint(profile.fingerprint) ===
-                compactFingerprint(
-                  computeFingerprint(existing.keys.signing.publicKey),
-                )
-            ) {
-              await writeIdentityReferenceSidecar(username, existing.keys);
-              reusedIdentity = true;
-            }
-          }
-        } catch {
-          // Any error -> fall through to a fresh mint below (safe default).
-        }
-      }
+      const reusedIdentity = await reuseAccountIdentityIfVerified(username);
       if (!reusedIdentity) {
+        // Cross-device safe guard (Phase B §6b). Reuse did NOT happen. Before
+        // silently minting a fresh keypair, make sure we are not about to DIVERGE
+        // from an identity this account already published elsewhere. On a NEW
+        // laptop the device vault is empty (loadIdentity() is null) but the
+        // account may already own a canonical keypair published from another
+        // device or folder. Minting a NEW one here would fork the account's
+        // identity and, on publish, fight / overwrite the canonical record. So:
+        // when the flag is on AND there is NO local identity AND the account HAS
+        // a published profile, do NOT mint. Stop auto-provisioning and surface a
+        // clear "restore on this device" state instead, leaving the canonical
+        // identity intact. The reuse path above already covered the case where a
+        // local identity exists and matches; a local identity that exists but
+        // does NOT match still falls through to mint (it is not this account's
+        // key, so a fresh per-folder keypair is the correct, unchanged behavior).
+        if (MULTI_FOLDER_ENABLED) {
+          let publishedElsewhere = false;
+          try {
+            const local = await loadIdentity();
+            if (!local) {
+              const profile = await fetchMyProfile();
+              publishedElsewhere = !!profile;
+            }
+          } catch {
+            // Could not determine — fall through to the unchanged mint so a
+            // transient profile-read hiccup never blocks first-ever setup.
+          }
+          if (publishedElsewhere) {
+            // Phase C: this is where the real cross-device restore UX lands
+            // (DEVICE_KEY_V2 — unwrap the account's canonical keypair from the
+            // cloud backup / recovery code on this new device, then write a
+            // reference sidecar, exactly like the reuse path). Until then we stop
+            // rather than mint a divergent identity, and point the user at the
+            // recovery door they already have. autoProvisionAttempted stays true
+            // so this does not loop; the picker / recovery affordance takes over.
+            setError(
+              "This account already has an identity on another device. Restore it on this device with your recovery code before setting up this folder.",
+            );
+            setAutoProvisioning(false);
+            return;
+          }
+        }
         // Mint the E2E identity keypair silently (sidecar at rest + unlocked key
         // in the session). The provisioning the manual create-user gate performs
         // and the lab-create flow relies on; also the account's FIRST folder.
@@ -763,6 +819,39 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
         setRecoveryInput("");
         setUnlockGate({ username });
         return;
+      }
+
+      // Phase B (Follow-on 3): reference-sidecar login. A reused folder carries a
+      // sidecar with the public identity but NO recoveryBlob, because recovery is
+      // account-level. Such a user would skip the unlock gate above, then could be
+      // wrongly forced to re-create an identity they already hold. So when the
+      // sidecar has no recoveryBlob BUT this device's loaded identity public-key /
+      // fingerprint MATCHES the sidecar, the account is already established on this
+      // device -> sign in directly, skipping BOTH the unlock gate and the
+      // force-profile gate. A genuine new member in a shared folder (no local
+      // identity, or one that does NOT match) still falls through to the existing
+      // force-profile logic, so this never weakens the shared-folder gate. Gated on
+      // MULTI_FOLDER_ENABLED so flag-off behavior is byte-identical to today.
+      if (MULTI_FOLDER_ENABLED && sidecar && !sidecar.recoveryBlob) {
+        try {
+          const local = await loadIdentity();
+          if (
+            local &&
+            encodePublicKey(local.keys.signing.publicKey) ===
+              sidecar.ed25519PublicKey &&
+            encodePublicKey(local.keys.encryption.publicKey) ===
+              sidecar.x25519PublicKey &&
+            compactFingerprint(
+              computeFingerprint(local.keys.signing.publicKey),
+            ) === compactFingerprint(sidecar.fingerprint)
+          ) {
+            await performLogin(username);
+            return;
+          }
+        } catch {
+          // Match check failed (no local identity / read error) -> fall through to
+          // the existing force-profile logic, the safe default.
+        }
       }
 
       // No profile yet. A login is mandatory once a folder is shared (two or
@@ -907,6 +996,14 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
           onLogin();
           return;
         }
+        // Phase B (Follow-on 1): reuse this account's verified on-device identity
+        // for the new user instead of forcing a fresh keypair mint. A verified
+        // reuse means the account is already established here, so sign in
+        // directly; otherwise the force / optional-profile logic runs unchanged.
+        if (await reuseAccountIdentityIfVerified(username)) {
+          onLogin();
+          return;
+        }
         if (folderRequiresLogin(users.length + 1, labHeadUsers.size > 0)) {
           // Shared folder: a profile (OAuth) is mandatory before entering, so
           // force the setup wizard rather than offering it as optional.
@@ -963,6 +1060,19 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
 
       // Demo / wiki-capture: no account-creation gate, enter directly.
       if (isDemoOrWikiCapture()) {
+        onLogin();
+        return;
+      }
+
+      // Phase B (Follow-on 1): if this device already holds THIS account's
+      // verified identity, REUSE it for the new user (a reference sidecar) rather
+      // than forcing CreateLocalIdentityStep to mint a second keypair. A verified
+      // reuse means the account is already established on this device, so the user
+      // is signed in directly. Only when reuse does NOT happen does the original
+      // force / optional-profile logic below run unchanged. The match is
+      // fingerprint-verified against the directory, so a non-account key never
+      // reuses; flag-off short-circuits to false, keeping today's behavior.
+      if (await reuseAccountIdentityIfVerified(username)) {
         onLogin();
         return;
       }

@@ -123,7 +123,12 @@ All four locked 2026-06-15 (see the "Locked decisions" block at the top): reuse-
 ### ✅ Phase B verification decision (LOCKED 2026-06-15): directory fingerprint match
 Reuse the device keypair only if `fetchMyProfile()` (`GET /api/directory/profile`, OAuth-authed) returns a published profile whose `fingerprint` matches the device keypair's fingerprint (`compactFingerprint` on both sides). Any miss → safe fallback to mint. Lightweight (one authed read), no recovery code needed for the common same-device second-folder case, and a previous user's vault key on a shared machine can never be reused (their fingerprint won't match the new signer's published profile).
 
-**Still ahead in Phase B:** the manual create-user path (non-auto-provision) and the cross-device "open a second folder on a new laptop" case (cloud-restore the canonical keypair, then reference-sidecar) — both layer on the same primitive.
+**Increment 3 — DONE (the follow-ons):** factored `reuseAccountIdentityIfVerified(username)` (flag-off short-circuits to false) and applied it across the identity flow:
+- **Manual create-user path** (`handleColorPickerAccept` + `handleCreateUser` fallback): reuse the verified on-device identity instead of forcing a fresh mint.
+- **Reference-sidecar login** (`handleLogin`): a user whose folder sidecar has no `recoveryBlob` but whose device identity public-keys + fingerprint MATCH signs in directly, skipping both the unlock gate and the force-profile gate. A genuine new member (no/mismatched local key) still gets forced correctly.
+- **Cross-device safe guard** (`autoProvisionFromAccount`): on a new device with no local key but a published profile elsewhere, do NOT mint a divergent keypair — stop and point at recovery. The full cross-device restore UX (cloud-restore + reference-sidecar) is marked `// Phase C:` and lands with recovery.
+
+tsc 0; identity suite 98 tests pass; flag-OFF byte-identical (helper inert, all new branches behind `MULTI_FOLDER_ENABLED`). **Phase B core + follow-ons COMPLETE; only the Phase-C-dependent cross-device restore UX remains, by design.**
 
 ## 7. Coordination
 
