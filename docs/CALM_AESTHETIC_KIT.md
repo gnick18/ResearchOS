@@ -61,7 +61,9 @@ never flat grey patches. Single source of truth: the `.ros-btn-neutral` class
 owns the raised fill + hairline + soft two-layer shadow + hover/active states,
 including the dark recolor (bluish-white shadow) and the inverted dark hover
 (lighten, not darken). The CalmPopupShell footer Done/Close button uses it.
-(Memory: feedback_grey_buttons_need_shadow.)
+`.ros-btn-destructive` is the red sibling (same raised surface, red text +
+red-tinted hover, dark-correct) for destructive actions. (Memory:
+feedback_grey_buttons_need_shadow.)
 
 ### 5. Seam depth — `.ros-seam` + `.ros-seam-divider`
 `.ros-seam` (globals.css): a raised-card depth (lighter than the popup drop)
