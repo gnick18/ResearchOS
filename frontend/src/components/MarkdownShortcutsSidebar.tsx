@@ -162,7 +162,7 @@ export default function MarkdownShortcutsSidebar({
                   <span className="text-meta text-foreground-muted group-hover:text-foreground">
                     {row.label}
                   </span>
-                  <span className="text-meta font-mono text-foreground bg-surface-raised border border-border px-1.5 py-0.5 rounded">
+                  <span className="ros-kbd text-meta font-mono text-foreground bg-surface-raised border border-border px-1.5 py-0.5 rounded">
                     {IS_MAC ? row.keyMac : row.keyOther}
                   </span>
                 </div>
@@ -180,7 +180,7 @@ export default function MarkdownShortcutsSidebar({
                     className="px-2 py-1.5 rounded hover:bg-surface-sunken transition-colors group cursor-pointer"
                     onClick={() => onInsertSyntax?.(item.syntax)}
                   >
-                    <div className="text-meta font-mono text-foreground group-hover:text-accent bg-surface-raised border border-border px-1.5 py-0.5 rounded mb-0.5">
+                    <div className="ros-kbd text-meta font-mono text-foreground group-hover:text-accent bg-surface-raised border border-border px-1.5 py-0.5 rounded mb-0.5">
                       {item.syntax}
                     </div>
                     <div className="text-meta text-foreground-muted group-hover:text-foreground-muted">

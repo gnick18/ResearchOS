@@ -136,6 +136,10 @@ export interface CalmPopupShellProps {
   expandToggleRef?: React.MutableRefObject<() => void>;
   /** data-tour-target on the Focus glyph (automation parity). */
   focusTourTarget?: string;
+  /** Keyboard shortcut hint shown in the Focus button tooltip (e.g. "⌘⇧F").
+   *  Only pass it where the shortcut is actually bound (editor popups whose
+   *  LiveMarkdownEditor binds Cmd/Ctrl+Shift+F); omit elsewhere. */
+  focusShortcut?: string;
   /** data-tour-target on the Close glyph (automation parity). */
   closeTourTarget?: string;
 
@@ -200,6 +204,7 @@ export default function CalmPopupShell({
   onExpandedChange,
   expandToggleRef,
   focusTourTarget,
+  focusShortcut,
   closeTourTarget,
   escapeLayers,
   footer,
@@ -390,7 +395,13 @@ export default function CalmPopupShell({
             {headerLead}
             {overflow}
             {expandable && (
-              <Tooltip label={isExpanded ? "Exit focus" : "Focus"} placement="bottom">
+              <Tooltip
+                label={
+                  (isExpanded ? "Exit focus" : "Focus") +
+                  (focusShortcut ? ` (${focusShortcut})` : "")
+                }
+                placement="bottom"
+              >
                 <button
                   type="button"
                   onClick={() => toggleExpand()}

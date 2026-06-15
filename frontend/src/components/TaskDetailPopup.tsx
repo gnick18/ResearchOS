@@ -108,6 +108,16 @@ import { setCollabSignerEmail } from "@/lib/collab/client/current-email";
 import { useSharingIdentity } from "@/hooks/useSharingIdentity";
 import { useAccountCapabilities } from "@/hooks/useAccountCapabilities";
 
+// Platform-aware Focus shortcut hint for the experiment shell's Focus tooltip.
+// The Lab Notes / Results editors bind Cmd+Shift+F on Mac, Ctrl+Shift+F else;
+// SSR (no navigator) falls back to the Ctrl label. Only the editor-bearing
+// experiment shell passes this; the simple-task checklist shell omits it.
+const FOCUS_SHORTCUT_HINT =
+  typeof navigator !== "undefined" &&
+  navigator.platform.toUpperCase().indexOf("MAC") >= 0
+    ? "⌘⇧F"
+    : "Ctrl+Shift+F";
+
 interface TaskDetailPopupProps {
   task: Task;
   project?: Project;
@@ -1425,6 +1435,7 @@ export default function TaskDetailPopup({
       // Bridge the shell's flush-then-toggle to the editor tabs' onRequestExpand
       // (toggleExpanded delegates to shellToggleExpandRef.current).
       expandToggleRef={shellToggleExpandRef}
+      focusShortcut={FOCUS_SHORTCUT_HINT}
       focusTourTarget="task-popup-fullscreen"
       closeTourTarget="task-popup-close"
       dockedWidthClassName="max-w-5xl"

@@ -66,6 +66,15 @@ import { setCollabSignerEmail } from "@/lib/collab/client/current-email";
 import { getCollabDocId } from "@/lib/collab/client/doc-id";
 import { isRevoked, onRevoked } from "@/lib/collab/client/revocation";
 
+// Platform-aware Focus shortcut hint surfaced in the shell's Focus tooltip. The
+// editor (LiveMarkdownEditor) binds Cmd+Shift+F on Mac, Ctrl+Shift+F elsewhere;
+// SSR (no navigator) falls back to the Ctrl label, matching MarkdownShortcutsSidebar.
+const FOCUS_SHORTCUT_HINT =
+  typeof navigator !== "undefined" &&
+  navigator.platform.toUpperCase().indexOf("MAC") >= 0
+    ? "⌘⇧F"
+    : "Ctrl+Shift+F";
+
 interface NoteDetailPopupProps {
   note: Note;
   onClose: () => void;
@@ -1933,6 +1942,7 @@ export default function NoteDetailPopup({
       // Bridge the shell's flush-then-toggle to the editor's onRequestExpand
       // (toggleExpanded delegates to shellToggleExpandRef.current).
       expandToggleRef={shellToggleExpandRef}
+      focusShortcut={FOCUS_SHORTCUT_HINT}
       closeTourTarget="lab-mode-note-popup-close"
       dockedWidthClassName="max-w-4xl"
       dragRingTarget

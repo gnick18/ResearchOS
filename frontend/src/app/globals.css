@@ -577,6 +577,17 @@
   filter: brightness(1.2);
 }
 
+/* .ros-kbd: keyboard-shortcut chips read as little raised KEYCAPS, not flat
+ * boxes — a crisp 1px bottom edge (the key's depth) + a soft drop. Dark recolors
+ * to bluish-white (black is invisible on the dark room). Pair with the existing
+ * font-mono + border + bg-surface-raised + padding the chip already has. */
+.ros-kbd {
+  box-shadow: 0 1px 0 0 rgba(15, 23, 42, 0.14), 0 2px 3px -1px rgba(15, 23, 42, 0.12);
+}
+[data-theme="dark"] .ros-kbd {
+  box-shadow: 0 1px 0 0 rgba(190, 205, 235, 0.12), 0 2px 3px -1px rgba(190, 205, 235, 0.1);
+}
+
 /* Per-popup title accent block: a colored marker behind the title, longer than
  * the text, snug height. Each popup passes its own hue. Light = a crisp pastel
  * behind the dark title; dark = an opaque saturated fill of the same hue behind
