@@ -935,6 +935,20 @@
   );
 }
 
+/* .ros-topbar-shadow: a soft DOWNWARD shadow under a sticky top bar so it lifts
+ * above the scrolling content below, separating the two through depth rather
+ * than a hard line (matching the panel edge glows). The negative spread keeps it
+ * from bleeding sideways; z-index lifts it above the later-painted body so the
+ * shadow lands ON the content. Dark recolors to the bluish-white edge. */
+.ros-topbar-shadow {
+  position: relative;
+  z-index: 1;
+  box-shadow: 0 6px 8px -6px rgba(15, 23, 42, 0.18);
+}
+[data-theme="dark"] .ros-topbar-shadow {
+  box-shadow: 0 6px 8px -6px rgba(190, 205, 235, 0.16);
+}
+
 /* Hide the native scrollbar on a viewport that uses the custom overlay thumb
  * (ScrollArea). The component draws its own pill thumb on top. */
 .ros-hide-native-scroll { scrollbar-width: none; }

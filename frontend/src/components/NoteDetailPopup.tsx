@@ -2040,7 +2040,7 @@ export default function NoteDetailPopup({
               gone at both sizes so the entry meta sits on the one continuous calm
               surface. A hairline keeps the editor zone visually distinct. */}
           {note.is_running_log && currentEntry && (
-            <div className="px-4 py-2 flex items-center justify-between flex-shrink-0 border-b border-border/40">
+            <div className="ros-topbar-shadow px-4 py-2 flex items-center justify-between flex-shrink-0 border-b border-border/40">
               <div className="flex items-center gap-3">
                 {/* Entry title - editable */}
                 {editingEntryTitle ? (
