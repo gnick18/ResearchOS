@@ -23,6 +23,7 @@
 
 import { COLLAB_RELAY_URL } from "@/lib/loro/config";
 import { LAB_TIER_ENABLED } from "./config";
+import { rotateLabKey, addMember } from "./lab-key";
 import type {
   LabLogEntry,
   LabMember,
@@ -198,6 +199,119 @@ export async function appendLabEntryRemote(
     copy: envelopeOrCopy.copy,
   };
   return postJson(`/lab/append?lab=${encodeURIComponent(labId)}`, body);
+}
+
+/**
+ * Phase C2 (PI re-admit after an identity reset) orchestrator. Re-admits an
+ * EXISTING member who reset their identity key and now holds a fresh keypair, so
+ * their roster entry's keys are stale. This is the remote, two-append counterpart
+ * of the pure readmitMember primitive in lab-key.ts.
+ *
+ * THE TWO-APPEND MODEL. The relay appends exactly ONE signed log entry per call,
+ * and a re-admit is a rotate (evict the stale keys, new generation) THEN an add
+ * (re-admit the same username with the new keys). So it is two sequential
+ * appends, and they are NOT atomic on the relay. The ordering matters for the
+ * partial-failure story:
+ *
+ *   - If the ROTATE append fails, nothing is committed server-side. The relay
+ *     still has the lab at its previous generation with the member's stale entry
+ *     intact. The caller can safely retry readmitMemberRemote from scratch.
+ *   - If the rotate append SUCCEEDS but the ADD append fails, the member is now
+ *     fully removed server-side (the rotate evicted them and bumped the
+ *     generation). DO NOT retry readmitMemberRemote: a second rotate would target
+ *     a username that is no longer a member and throw. The recovery path is to
+ *     re-invite the (now-removed) member through the normal accept flow, which
+ *     adds them at the current generation with their new keys.
+ *
+ * The lab key never leaves the browser; only head-signed entries and sealed
+ * copies are sent. The caller must have already verified `record` (the relay is
+ * blind, so the client owns verification before trusting the roster it acts on).
+ *
+ * @param args.labId the lab id (the DO is addressed by it).
+ * @param args.record the current, already-verified lab record.
+ * @param args.currentLabKey the head's decrypted current lab key (never sent).
+ * @param args.username the existing member to re-admit (must be a non-head member).
+ * @param args.newKeys the member's NEW public keys, fingerprint-checked by the caller.
+ * @param args.headEd25519PrivateKey the PI's signing key, the sole log signer.
+ * @returns ok with the final record + envelope + new lab key on success; otherwise
+ *   ok:false with the failing stage and relay status. On stage "add" the returned
+ *   `record` is the post-rotate record (member already removed) for the caller's UI.
+ * @throws if the username is the head or is not currently a member (mirrors
+ *   readmitMember), before any network call.
+ */
+export async function readmitMemberRemote(args: {
+  labId: string;
+  record: LabRecord;
+  currentLabKey: Uint8Array;
+  username: string;
+  newKeys: { x25519PublicKey: string; ed25519PublicKey: string };
+  headEd25519PrivateKey: Uint8Array;
+}): Promise<
+  | { ok: true; record: LabRecord; envelope: LabKeyEnvelope; newLabKey: Uint8Array }
+  | { ok: false; stage: "rotate" | "add"; status: number; record?: LabRecord }
+> {
+  ensureEnabled();
+  const { labId, record, currentLabKey, username, newKeys, headEd25519PrivateKey } =
+    args;
+
+  // Validate up front, mirroring the throws in readmitMember, so a bad target
+  // never reaches the relay.
+  if (username === record.head.username) {
+    throw new Error("readmitMemberRemote: cannot re-admit the lab head");
+  }
+  const existing = record.members.find((m) => m.username === username);
+  if (!existing) {
+    throw new Error(
+      `readmitMemberRemote: ${username} is not a member of this lab`,
+    );
+  }
+
+  // 1. Rotate the stale keys out (new generation, seed-linked to the past).
+  const rotated = rotateLabKey(
+    record,
+    currentLabKey,
+    username,
+    headEd25519PrivateKey,
+  );
+
+  // 2. Append the rotate. Nothing is committed server-side until this succeeds,
+  //    so a failure here is fully safe to retry from scratch.
+  const res1 = await appendRotateRemote(labId, rotated);
+  if (!res1.ok) {
+    return { ok: false, stage: "rotate", status: res1.status };
+  }
+
+  // 3. Re-add the same member with their new keys, preserving role + any email
+  //    binding (the human-identity layer survives a key reset).
+  const readmitted: LabMember = {
+    ...existing,
+    x25519PublicKey: newKeys.x25519PublicKey,
+    ed25519PublicKey: newKeys.ed25519PublicKey,
+  };
+  const { record: finalRecord, copy } = addMember(
+    rotated.record,
+    rotated.newLabKey,
+    readmitted,
+    headEd25519PrivateKey,
+  );
+
+  // 4. Append the add. If this fails the rotate IS already committed, so the
+  //    member is now fully removed server-side. Do NOT retry readmitMemberRemote
+  //    (a second rotate would target a non-member and throw); the recovery path
+  //    is to re-invite them through the normal accept flow. Return the post-rotate
+  //    record so the caller's UI reflects the removal.
+  const addEntry = finalRecord.log[finalRecord.log.length - 1];
+  const res2 = await appendAddMemberRemote(labId, addEntry, copy);
+  if (!res2.ok) {
+    return { ok: false, stage: "add", status: res2.status, record: rotated.record };
+  }
+
+  return {
+    ok: true,
+    record: finalRecord,
+    envelope: { ...rotated.envelope, copies: [...rotated.envelope.copies, copy] },
+    newLabKey: rotated.newLabKey,
+  };
 }
 
 /** The shape the DO returns from /lab/get. The client re-runs
