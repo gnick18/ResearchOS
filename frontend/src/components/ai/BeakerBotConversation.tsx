@@ -79,6 +79,9 @@ const SmartDataWizard = lazy(() =>
   })),
 );
 import { applyOverlayCommit } from "./overlay-commit";
+// RecipeComparisonWidget renders the reproduce-from-PDF light-comparison card.
+// Lazy so it never loads until a comparison turn surfaces one.
+const RecipeComparisonWidget = lazy(() => import("./RecipeComparisonWidget"));
 import { useCanvasStore } from "@/lib/ai/canvas-store";
 
 // Lightweight markdown renderer for assistant replies only. Scoped to this
@@ -1442,6 +1445,19 @@ export default function BeakerBotConversation({
                           />
                         );
                       })}
+                    </div>
+                  </Suspense>
+                ) : null}
+
+                {/* Inline recipe-comparison cards (reproduce-from-PDF light
+                    comparison). Renders the deterministic paper-vs-user diff below
+                    the reply, facts only. */}
+                {m.role === "assistant" && m.recipeComparisons && m.recipeComparisons.length > 0 ? (
+                  <Suspense fallback={null}>
+                    <div className="flex w-full flex-col gap-2 self-start">
+                      {m.recipeComparisons.map((c, i) => (
+                        <RecipeComparisonWidget key={`${m.id}:rc:${i}`} payload={c} />
+                      ))}
                     </div>
                   </Suspense>
                 ) : null}

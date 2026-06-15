@@ -29,6 +29,10 @@ import { dataHubApi } from "@/lib/datahub/api";
 import type { DataHubDocContent } from "@/lib/datahub/model/types";
 import { getBeakerContext } from "@/components/ai/context-bridge";
 import { withOverlayWizardUi, candidatesToFacts } from "@/lib/ai/overlay-wizard";
+import {
+  compareBuilderOptions,
+  withRecipeComparisonUi,
+} from "@/lib/ai/recipe-compare";
 import type {
   PhyloFigureSpec,
   PhyloLayout,
@@ -572,6 +576,93 @@ export function resolveBuilderOptions(args: Record<string, unknown>): {
 
   return { options, defaulted, catalogMissNotes };
 }
+
+// ---------------------------------------------------------------------------
+// compare_tree_recipes (reproduce-from-PDF "light comparison" carve-out)
+// ---------------------------------------------------------------------------
+//
+// The ONE scoped no-interpretation loosening (Grant 2026-06-12): lay the paper's
+// recipe next to the user's as FACTS. The diff is computed deterministically here
+// (resolveBuilderOptions on both sides -> compareBuilderOptions), so the model
+// cannot rank them, only relay same/different. It rides the comparison UI-only so
+// it renders as a fixed inline card (exact values, never reformatted by the model).
+
+// The recipe fields each side accepts. Same loose values generate_tree takes, so
+// resolveBuilderOptions maps them through the catalog identically on both sides.
+const RECIPE_SIDE_PROPS = {
+  dataType: { type: "string", enum: DATA_TYPES, description: "nucleotide or protein." },
+  align: { type: "string", enum: ALIGN_TOOLS, description: "Aligner." },
+  trim: { type: "string", enum: TRIM_TOOLS, description: "Alignment trimming tool." },
+  model: { type: "string", enum: MODEL_CHOICES, description: "modelfinder, or fixed to pass fixedModel." },
+  fixedModel: { type: "string", description: "The exact substitution model string when model is fixed (e.g. GTR+G)." },
+  infer: { type: "string", enum: INFER_TOOLS, description: "Tree-inference method." },
+  support: { type: "string", enum: SUPPORT_CHOICES, description: "Branch-support method." },
+  ufbootReps: { type: "number", description: "Ultrafast bootstrap replicates (when support is ufboot)." },
+  bsReps: { type: "number", description: "Standard bootstrap replicates (when support is bootstrap)." },
+  outgroup: { type: "string", description: "Outgroup taxon for rooting, empty if none." },
+} as const;
+
+export const compareTreeRecipesTool: AiTool = {
+  name: "compare_tree_recipes",
+  description:
+    "Lay a paper's tree-building recipe next to the user's own, as a FACTUAL side-by-side (aligner, trimming, substitution model, tree method, branch support, replicate count, rooting, data type). Use this in the reproduce-from-PDF flow when the user wants to know how their pipeline compares to the paper's (for example \"how does my tree compare to the paper's method\", \"what is different between their pipeline and mine\"). Fill `paper` from the paper's methods (the same way you fill generate_tree) and `mine` from how the user built their tree (their description, or a recipe they generated). It is read-only and deterministic, the engine computes the diff. HARD RULE: this is descriptive ONLY. You may state THAT the recipes differ and how, never which is better, never that a value is high or low or wrong, never recommend switching, never draw a conclusion about either tree's quality. The comparison renders as an inline table below your reply with the exact values, so you do not need to re-list every row, just note the key differences as plain facts.",
+  parameters: {
+    type: "object",
+    properties: {
+      paper: {
+        type: "object",
+        description: "The paper's recipe, as recipe-option fields.",
+        properties: RECIPE_SIDE_PROPS,
+        additionalProperties: false,
+      },
+      mine: {
+        type: "object",
+        description: "The user's own tree recipe, as recipe-option fields.",
+        properties: RECIPE_SIDE_PROPS,
+        additionalProperties: false,
+      },
+      paperLabel: { type: "string", description: "Optional header for the paper column (e.g. the paper's short cite)." },
+      mineLabel: { type: "string", description: "Optional header for the user's column. Defaults to \"Your tree\"." },
+    },
+    required: ["paper", "mine"],
+    additionalProperties: false,
+  },
+  // Read-only + non-gated: a deterministic comparison, no write, no navigation.
+  execute: async (args) => {
+    const paperArgs =
+      args.paper && typeof args.paper === "object"
+        ? (args.paper as Record<string, unknown>)
+        : {};
+    const mineArgs =
+      args.mine && typeof args.mine === "object"
+        ? (args.mine as Record<string, unknown>)
+        : {};
+    const paper = resolveBuilderOptions(paperArgs).options;
+    const mine = resolveBuilderOptions(mineArgs).options;
+    const rows = compareBuilderOptions(paper, mine);
+    const paperLabel =
+      typeof args.paperLabel === "string" && args.paperLabel.trim()
+        ? args.paperLabel.trim()
+        : "Paper";
+    const mineLabel =
+      typeof args.mineLabel === "string" && args.mineLabel.trim()
+        ? args.mineLabel.trim()
+        : "Your tree";
+    const result = {
+      ok: true as const,
+      paperLabel,
+      mineLabel,
+      comparison: rows,
+      differenceCount: rows.filter((r) => !r.same).length,
+    };
+    return withRecipeComparisonUi(result, {
+      widget: "recipeComparison",
+      rows,
+      paperLabel,
+      mineLabel,
+    });
+  },
+};
 
 export const generateTreeTool: AiTool = {
   name: "generate_tree",

@@ -92,6 +92,7 @@ import {
 import { getMemoryEntries, buildMemoryContext } from "@/lib/ai/user-memory";
 import { recordSetFromResult } from "@/lib/ai/record-set";
 import { overlayWizardFromResult } from "@/lib/ai/overlay-wizard";
+import { recipeComparisonFromResult } from "@/lib/ai/recipe-compare";
 import type {
   ApprovalRequest,
   ApprovalDecision,
@@ -138,6 +139,10 @@ export type ChatMessage = {
   // set never reaches the model). The panel mounts each <SmartDataWizard> below the
   // reply so the user can pick + apply overlays onto their tree.
   overlayWizards?: import("./overlay-wizard").OverlayWizardPayload[];
+  // Inline tree-recipe comparison cards (the reproduce-from-PDF light-comparison
+  // carve-out). One per compare_tree_recipes call. Lifted from the tool result's
+  // _ui; renders the deterministic paper-vs-user diff below the reply, facts only.
+  recipeComparisons?: import("./recipe-compare").RecipeComparisonPayload[];
 };
 
 // The pending approval the UI renders while the loop is paused on the user.
@@ -621,11 +626,27 @@ function appendOverlayWizardFromResult(assistantId: string, result: unknown): vo
   }));
 }
 
+/** Lift a compare_tree_recipes comparison payload onto the in-flight assistant
+ *  message, so the inline comparison card renders below the reply. Same seam. */
+function appendRecipeComparisonFromResult(assistantId: string, result: unknown): void {
+  const payload = recipeComparisonFromResult(result);
+  if (!payload) return;
+  useConversationStore.setState((state) => ({
+    messages: state.messages.map((m) =>
+      m.id === assistantId
+        ? { ...m, recipeComparisons: [...(m.recipeComparisons ?? []), payload] }
+        : m,
+    ),
+  }));
+}
+
 /** Run every inline-widget capture over a raw tool result (record sets + overlay
- *  wizards). One call site for both so the two onToolResult hooks stay in sync. */
+ *  wizards + recipe comparisons). One call site so the onToolResult hooks stay in
+ *  sync. */
 function captureInlineWidgets(assistantId: string, result: unknown): void {
   appendRecordSetFromResult(assistantId, result);
   appendOverlayWizardFromResult(assistantId, result);
+  appendRecipeComparisonFromResult(assistantId, result);
 }
 
 function revealAnswer(assistantId: string, answer: string): Promise<void> {

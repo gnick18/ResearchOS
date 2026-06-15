@@ -82,6 +82,7 @@ import {
   generateTreeTool,
   matchFigureStyleTool,
   suggestTreeOverlaysTool,
+  compareTreeRecipesTool,
 } from "./phylo-tools";
 import {
   createExperimentTool,
@@ -357,6 +358,12 @@ export const READ_ONLY_TOOLS: AiTool[] = [
   // inline. The model only narrates the ranked facts; the write is the user's
   // wizard Add (host commit), so no approval card.
   suggestTreeOverlaysTool,
+  // compare_tree_recipes (reproduce-from-PDF "light comparison" carve-out) is
+  // read-only + deterministic: it diffs the paper's recipe vs the user's
+  // (resolveBuilderOptions on both -> compareBuilderOptions) and rides the result
+  // UI-only as an inline comparison card. FACTS ONLY by construction (no ranking is
+  // produced), the scoped no-interpretation loosening Grant signed off for this flow.
+  compareTreeRecipesTool,
   // match_figure_style (PDF-reproduce Output 4) is non-gated for the same reason
   // as make_datahub_graph: it writes a reversible figure-style spec the user
   // explicitly asked for onto the user's OWN tree (a saved tree or pasted Newick),
