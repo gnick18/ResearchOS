@@ -160,3 +160,39 @@ Context for a "should we move things to Cloudflare to save money" question (Gran
 ## 8. One-paragraph summary for the reviewer
 
 The strict, zero-knowledge recovery tier already exists (`my-backup` serves a recovery-code-wrapped blob over OAuth; we can't open it). The only new thing C3 builds is the **recoverable default tier**, which inescapably means **we hold a server-decryptable copy** of default-tier users' keys — the accepted trade for "sign in with Google and your key comes back." The single most important decision is **where the server escrow key lives**: it must be in a different trust domain than the database so that no single leak or subpoena of the DB yields plaintext keys. This is **free at our scale** — recommend the asymmetric-SEK split using the Vercel + Cloudflare trust domains we already have (web tier holds only the public SEK; a tiny Cloudflare Worker holds the private SEK and is the only thing that can reissue), with managed KMS (~$1/mo) as an optional later upgrade that doesn't change the envelope shape. Secondary mitigations — step-up auth, hard rate limits, mandatory notify-on-reissue, and an optional cancel-delay — blunt the new "OAuth account-takeover = key-takeover" risk. I recommend shipping beta with **default = strict** (zero new risk, already built) and flipping the default to recoverable only after the SEK custody is provisioned and this design is approved.
+
+---
+
+## 10. BUILD STATUS + deploy / security-pass runbook
+
+**The full C3 + C4 + C6 code is BUILT and tested on the isolated branch `feat/identity-c3-escrow`** (commits `a42e746f9` backend + Worker, `b247674d6` client + C4 toggle, `ae993efd3` C6 token layer). **tsc 0; 288 identity/invites/directory/lab tests pass.** Per the locked rule it is NOT on shared `main` and is NOT deployed — flag-on is gated on the steps below. Built autonomously 2026-06-15 (Grant authorized finishing Phase C while away).
+
+### What's on the branch
+- Crypto: `lib/sharing/identity/escrow.ts` (+ `escrow.test.ts`, split property proven).
+- Backend: `lib/sharing/directory/db.ts` (escrow + audit + pending_reissue tables), `auth.ts` (fresh-reauth `authTime`), `fresh-auth.ts`, `escrow-notify.ts`, `escrow-worker.ts`, routes `escrow-enroll` (+ DELETE), `escrow-reissue`, `escrow-reissue/claim`, `escrow-reissue/cancel`.
+- Worker: `cloudflare/escrow-sek-worker/` (self-contained; `POST /unseal`, byte-compatibility proven by `worker-unseal.test.ts`).
+- Client + C4: `lib/sharing/identity/escrow-client.ts`, `components/settings/RecoveryTierSection.tsx`, the recoverable door in `UserLoginScreen.tsx`'s restore modal, `recovery-tier.ts`.
+- C6: `lib/invites/invite-tokens.ts` pre-provision fields + `issuePreprovisionInvite` + `resolvePreprovisionClaim` seam.
+
+### Deploy steps (operator, in order)
+1. **Mint the SEK** (one time): run `generateSekKeyPair()` (from `escrow.ts`) once. You get `{ publicKey, privateKey }` (hex). **Split custody — never co-locate.**
+2. **Deploy the Cloudflare Worker** to a **separate Cloudflare account/zone** from the Vercel app: `cd cloudflare/escrow-sek-worker && npm install && wrangler deploy`. Set its secrets: `wrangler secret put ESCROW_SEK_PRIVATE_KEY` (the private half) and `wrangler secret put WORKER_AUTH_TOKEN` (a fresh random bearer). Note its URL.
+3. **Set Vercel envs** (Prod + Preview): `ESCROW_SEK_PUBLIC_KEY` + `NEXT_PUBLIC_ESCROW_SEK_PUBLIC_KEY` = the public half; `ESCROW_WORKER_URL` = the Worker URL; `ESCROW_WORKER_AUTH_TOKEN` = the same bearer as the Worker's `WORKER_AUTH_TOKEN`; `APP_ORIGIN` = the app origin for cancel links. (Existing `DATABASE_URL`, `DIRECTORY_HMAC_PEPPER`, `RESEND_API_KEY`, `KV_*`, `AUTH_*` already set.)
+4. **DB:** no manual migration — `ensureEscrowSchema()` lazily `CREATE TABLE IF NOT EXISTS` on first escrow-route hit (same pattern as the rest of the directory).
+5. **Merge the branch** into `main` ONLY after the security pass below. Keep `NEXT_PUBLIC_MULTI_FOLDER` off and `recoveryTier` defaulting to strict until staged on.
+
+### Security pass checklist (do BEFORE flag-on — this is the §7.7 gate, your call)
+- [ ] **Trust-domain split is real:** the Worker is in a different Cloudflare account than the Vercel/Neon credentials; a Neon dump + a Vercel-env leak together still cannot open a key without the Worker secret.
+- [ ] **Enrollment is ciphertext-only:** confirm `escrow-enroll` never receives or logs a plaintext bundle (the client wraps under the SEK public key; the route stores `escrowBlob`/`wrappedDek` only).
+- [ ] **Fresh-reauth actually blocks:** a stale (non-fresh) session gets 401 on `escrow-reissue` and `/claim`; only a recent sign-in passes `isFreshAuth`.
+- [ ] **Rate limits bite:** IP limiter + the 5/day-per-account reissue limiter both enforce.
+- [ ] **48h hold + cancel:** a claim before `fire_at` returns pending; the cancel link (token path, no session) aborts from any device; audit rows appear for request/claim/cancel/unenroll.
+- [ ] **Notify fires:** every reissue request emails the enrolled address with a working cancel link (Resend).
+- [ ] **Walk the threat paths** (design §4): stolen-session takeover (blunted by fresh-reauth + notify + 48h cancel), DB dump (ciphertext only), compulsion (disclosed for recoverable tier), SEK loss (recoverable users fall back to recovery code / C1 reset).
+- [ ] **Flag-off byte-identical:** with `MULTI_FOLDER_ENABLED` off and no SEK env, Settings + login are unchanged and enrollment is a no-op.
+
+### Staged flag-on (after the pass)
+Enable for ONE test account, run the full matrix: enroll recoverable → simulate device loss → `escrow-reissue` → confirm 48h pending + the email → cancel (verify abort) → re-request → wait out the hold (or temporarily shorten it in a staging build) → `/claim` → confirm client-side decrypt + sign-in with the recovered identity, data intact. Then broaden. Default tier stays strict until this is clean.
+
+### C6 follow-up (small, after C3 is live)
+Wire the two documented seams: a PI "invite a future member" button → `issuePreprovisionInvite`; and in the accept flow (`UserLoginScreen.tsx` `autoProvisionFromAccount`, after `redeemInvite`) → `resolvePreprovisionClaim` → dispatch its plan to `autoProvisionFromAccount` + `enrollEscrow` + the lab-accept admit.
