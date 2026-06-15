@@ -1,0 +1,89 @@
+// Shared ingest library for the open scientific-asset federation.
+//
+// Pure + testable. Defines the normalized Asset shape every source adapter emits,
+// the license policy, the auto-credit formatter, and an SVG sanitizer that PRESERVES
+// per-fill addressability (so per-fill recolor works downstream). No app deps.
+//
+// Allowed licenses (commercial + derivative OK): CC0 / Public Domain / CC-BY / CC-BY-SA.
+// Excluded: anything -NC (non-commercial) or -ND (no-derivatives; we recolor).
+
+/**
+ * @typedef {Object} Asset
+ * @property {string} uid          Stable cross-source id, "<source>:<sourceId>".
+ * @property {string} source       "phylopic" | "bioart" | "servier" | ...
+ * @property {string} sourceId     The id within the source.
+ * @property {string} title        Human title (taxon / asset name).
+ * @property {string|null} creator Attribution name(s).
+ * @property {string} license      Normalized license id (see classifyLicense).
+ * @property {string|null} licenseUrl
+ * @property {boolean} requiresAttribution
+ * @property {string} sourceUrl    Canonical page for the asset.
+ * @property {string} credit       Pre-formatted citation string.
+ * @property {string} svgPath      Relative path of the sanitized SVG in the bundle.
+ * @property {string[]} tags
+ * @property {string|null} category
+ */
+
+/** License policy. allowed = may ingest; attribution = must credit on use. */
+export function classifyLicense(s) {
+  const t = (s || "").toLowerCase();
+  if (/nc-nd|by-nc-nd/.test(t)) return { id: "CC-BY-NC-ND", allowed: false, attribution: false };
+  if (/nc-sa|by-nc-sa/.test(t)) return { id: "CC-BY-NC-SA", allowed: false, attribution: false };
+  if (/by-nc/.test(t)) return { id: "CC-BY-NC", allowed: false, attribution: false };
+  if (/by-nd/.test(t)) return { id: "CC-BY-ND", allowed: false, attribution: false };
+  if (/by-sa/.test(t)) return { id: "CC-BY-SA", allowed: true, attribution: true };
+  if (/\/by\/|cc-by\b|\bcc by\b|attribution\s*[34]/.test(t)) return { id: "CC-BY", allowed: true, attribution: true };
+  if (/zero|cc0|publicdomain\/zero/.test(t)) return { id: "CC0", allowed: true, attribution: false };
+  if (/public\s*domain|publicdomain|\/mark\//.test(t)) return { id: "Public Domain", allowed: true, attribution: false };
+  return { id: "UNKNOWN", allowed: false, attribution: false };
+}
+
+/** A short human label for a license id, for the credits UI. */
+export function licenseLabel(id) {
+  return id === "Public Domain" ? "Public Domain" : id;
+}
+
+/**
+ * Build the verbatim credit line. CC-BY/SA require it; CC0/PD include a courtesy
+ * credit (apps may hide it). Format mirrors the source's own citation style.
+ */
+export function formatCredit({ source, title, creator, license, sourceUrl }) {
+  const who = creator || "Unknown";
+  if (source === "phylopic") {
+    return `${title} by ${who}. PhyloPic. ${sourceUrl} (${licenseLabel(license)})`;
+  }
+  if (source === "bioart") {
+    return `${who}. ${title}. NIH BioArt Source. ${sourceUrl} (${licenseLabel(license)})`;
+  }
+  // Generic fallback.
+  return `${title} by ${who}. ${sourceUrl} (${licenseLabel(license)})`;
+}
+
+/**
+ * Sanitize an SVG for safe embedding while KEEPING per-fill structure intact:
+ *  - strip <script>, on* handlers, external refs (xlink to http), <foreignObject>.
+ *  - keep all fill attributes/styles + path structure so per-fill recolor works.
+ *  - ensure a viewBox so the asset scales in the composer.
+ * Returns { svg, fills } where fills is the count of distinct fill colors.
+ */
+export function sanitizeSvg(input) {
+  let svg = String(input);
+  // Drop XML prolog / doctype / comments.
+  svg = svg.replace(/<\?xml[\s\S]*?\?>/gi, "").replace(/<!DOCTYPE[\s\S]*?>/gi, "").replace(/<!--[\s\S]*?-->/g, "");
+  // Remove scripts + event handlers + foreignObject (XSS / non-portable).
+  svg = svg.replace(/<script[\s\S]*?<\/script>/gi, "");
+  svg = svg.replace(/<foreignObject[\s\S]*?<\/foreignObject>/gi, "");
+  svg = svg.replace(/\son\w+\s*=\s*"(?:[^"\\]|\\.)*"/gi, "");
+  svg = svg.replace(/\son\w+\s*=\s*'(?:[^'\\]|\\.)*'/gi, "");
+  // Neutralize external/script hrefs but keep internal (#id) refs for fills/gradients.
+  svg = svg.replace(/((?:xlink:)?href)\s*=\s*"(?!#)[^"]*"/gi, '$1="#"');
+  svg = svg.trim();
+  // Count distinct fill colors (per-fill recolor feasibility).
+  const fills = new Set();
+  for (const m of svg.matchAll(/fill\s*[:=]\s*["']?(#[0-9a-fA-F]{3,8}|rgb\([^)]+\)|[a-zA-Z]+)/g)) {
+    const v = m[1].toLowerCase();
+    if (v !== "none") fills.add(v);
+  }
+  const hasViewBox = /\bviewBox\s*=/.test(svg);
+  return { svg, fills: fills.size, hasViewBox };
+}
