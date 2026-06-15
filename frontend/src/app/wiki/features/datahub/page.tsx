@@ -11,7 +11,7 @@ export default function DataHubFeaturePage() {
       intro="Data Hub is a free, open-source GraphPad Prism alternative built into ResearchOS. It runs your statistics and your publication figures entirely in the browser, so your data never leaves your folder."
     >
       <Screenshot
-        src="/wiki/screenshots/datahub-tab-overview.png"
+        src="/wiki/screenshots/datahub-overview.png"
         alt="The Data Hub tab with the navigator rail on the left listing data tables, analyses, and graphs, and a publication figure with significance brackets in the main panel."
         caption="Data Hub. The navigator rail holds your tables, analyses, and figures; the main panel shows the data grid, the results sheet, or the figure you are working on."
       />
@@ -57,7 +57,7 @@ export default function DataHubFeaturePage() {
       <p>
         Like Prism, Data Hub shapes the table to the analysis you intend, so the
         grid and the available tests match how your data is actually laid out. New
-        table offers four archetypes.
+        table offers eight archetypes.
       </p>
       <p>
         A <strong>Column</strong> table is the starting point. Each column is a
@@ -83,9 +83,32 @@ export default function DataHubFeaturePage() {
         happened, 0 if the subject was censored), and an optional group label so
         arms can be compared with a Kaplan-Meier curve and the log-rank test.
       </p>
+      <p>
+        A <strong>Contingency</strong> table holds counts in a grid of two
+        categorical factors. It runs the chi-square test of independence, and for
+        a 2x2 table it adds Fisher&apos;s exact test with the relative risk and the
+        odds ratio.
+      </p>
+      <p>
+        A <strong>Nested</strong> table records technical replicates nested inside
+        biological replicates, for example cells within a mouse or mice within a
+        treatment. It runs the nested t-test for two top-level groups and the
+        nested one-way ANOVA for three or more, so technical replicates are not
+        treated as independent.
+      </p>
+      <p>
+        A <strong>Parts of whole</strong> table describes the composition of a
+        single whole, a category label and a value per slice. It draws pie, donut,
+        and 100-percent stacked-bar figures, each slice as its percent of the total.
+      </p>
+      <p>
+        An <strong>Info sheet</strong> is a documentation table. It holds notes and
+        constants that describe a dataset so the context travels with the data. It
+        runs no analysis and draws no figure.
+      </p>
       <Screenshot
-        src="/wiki/screenshots/datahub-new-table.png"
-        alt="The New data table dialog showing the four table type tiles: Column, XY, Grouped, and Survival, each with a short description."
+        src="/wiki/screenshots/datahub-table-types.png"
+        alt="The New data table dialog showing the eight table type tiles, Column, XY, Grouped, Survival, Contingency, Nested, Parts of whole, and Info sheet, each with a short description."
         caption="New table. Pick the archetype that matches your data; the grid and the available analyses follow from it."
       />
 
@@ -106,15 +129,53 @@ export default function DataHubFeaturePage() {
         converge cleanly.
       </Callout>
 
+      <h2>Transforms and derived tables</h2>
+      <p>
+        Sometimes the raw numbers are not the numbers you analyze. Data Hub can
+        produce a new table that is computed from an existing one, so the cleaning
+        step is explicit and repeatable rather than a one-off edit you cannot
+        retrace. Five transforms ship: a general transform that applies a function
+        to every value, normalize, transpose (swap rows and columns),
+        remove-baseline (subtract a chosen baseline), and fraction-of-total (each
+        value as its share of its column or row).
+      </p>
+      <p>
+        A transform creates a derived table that keeps a live link to its source.
+        When you open the derived table, it recomputes from the source&apos;s
+        current content rather than from a saved snapshot, so an edit to the
+        original flows through automatically and the derived table can never go
+        stale. If the source is deleted, the derived table shows a clear empty
+        state instead of silently keeping old numbers.
+      </p>
+
       <h2>Running an analysis</h2>
       <p>
         New analysis offers only the tests that are valid for the open table, so
-        you never pick a test the data cannot support. A Column table offers
-        unpaired and paired t-tests and one-way ANOVA with Tukey comparisons, plus
-        their rank-based counterparts (Mann-Whitney U, Wilcoxon signed-rank,
-        Kruskal-Wallis). An XY table offers Pearson and Spearman correlation and
-        linear regression. A Grouped table offers two-way ANOVA. A Survival table
-        offers Kaplan-Meier with the log-rank test.
+        you never pick a test the data cannot support. The set is broad and grows
+        with the table type.
+      </p>
+      <p>
+        From a <strong>Column</strong> table: unpaired and paired t-tests, one-way
+        ANOVA with Tukey comparisons, and their rank-based counterparts
+        (Mann-Whitney U, Wilcoxon signed-rank, Kruskal-Wallis); repeated-measures
+        ANOVA and its mixed-model cousin (a random-intercept linear mixed model)
+        for within-subject designs; multiple linear regression; and the Grubbs
+        outlier test.
+      </p>
+      <p>
+        From an <strong>XY</strong> table: Pearson and Spearman correlation, linear
+        regression, simple logistic regression, the ROC curve with AUC, dose-response
+        curve fitting (4PL and 5PL) with model comparison by AICc and an
+        extra-sum-of-squares F test, and global (shared-parameter) fitting across
+        several curves at once.
+      </p>
+      <p>
+        From the design-specific tables: two-way ANOVA from a{" "}
+        <strong>Grouped</strong> table; Kaplan-Meier survival with the log-rank and
+        Gehan-Breslow-Wilcoxon tests plus Cox proportional-hazards regression from
+        a <strong>Survival</strong> table; the chi-square and Fisher exact tests
+        from a <strong>Contingency</strong> table; and the nested t-test and nested
+        one-way ANOVA from a <strong>Nested</strong> table.
       </p>
       <p>
         Every result leads with a plain-language verdict, a sentence that states
@@ -123,9 +184,55 @@ export default function DataHubFeaturePage() {
         section reads it.
       </p>
       <Screenshot
-        src="/wiki/screenshots/datahub-results-sheet.png"
+        src="/wiki/screenshots/datahub-stats-anova.png"
         alt="A results sheet showing a plain-language verdict at the top, an ANOVA table with SS, df, MS, F, and p columns, and a Tukey comparisons table with significance asterisks."
         caption="The results sheet. The plain-language verdict comes first, then the full statistics table, then the pairwise comparisons."
+      />
+
+      <h2>A tour of the analyses</h2>
+      <p>
+        The same results-sheet pattern carries every analysis, from the everyday
+        comparisons to the pharmacology fits and the survival models.
+      </p>
+      <Screenshot
+        src="/wiki/screenshots/datahub-stats-dose-response.png"
+        alt="A dose-response results sheet with a fitted sigmoidal curve over the data points and an EC50, Hill slope, Top, and Bottom parameter table."
+        caption="Dose-response. A 4PL or 5PL logistic fit reports the EC50 with an asymmetric confidence interval, the Hill slope, and the plateaus, with model comparison by AICc."
+      />
+      <Screenshot
+        src="/wiki/screenshots/datahub-stats-survival.png"
+        alt="A Kaplan-Meier survival results sheet with step curves for two arms and a log-rank test summary."
+        caption="Survival. Kaplan-Meier curves per arm with the log-rank and Gehan-Breslow-Wilcoxon tests, plus Cox proportional-hazards regression."
+      />
+      <Screenshot
+        src="/wiki/screenshots/datahub-stats-roc-auc.png"
+        alt="An ROC curve results sheet plotting true positive rate against false positive rate with the area under the curve and the optimal cut point."
+        caption="ROC and AUC. The full curve, the area under it with a confidence interval, and the optimal cut point by Youden's J."
+      />
+      <Screenshot
+        src="/wiki/screenshots/datahub-stats-linear-regression.png"
+        alt="A linear regression results sheet with the fitted line over the scatter and a slope, intercept, and R-squared table."
+        caption="Linear regression. Slope and intercept with their standard errors and confidence intervals, R-squared, and the residual standard error."
+      />
+      <Screenshot
+        src="/wiki/screenshots/datahub-stats-multiple-regression.png"
+        alt="A multiple regression results sheet with one row per predictor showing coefficient, standard error, t, p, standardized beta, and VIF."
+        caption="Multiple regression. Each predictor with its coefficient, confidence interval, standardized beta, and VIF, plus the overall model fit."
+      />
+      <Screenshot
+        src="/wiki/screenshots/datahub-stats-contingency.png"
+        alt="A contingency results sheet showing an observed and expected count matrix, the chi-square statistic, and 2x2 relative risk and odds ratio measures."
+        caption="Contingency. The chi-square test on the count matrix, and for a 2x2 table Fisher's exact test with relative risk and odds ratio."
+      />
+      <Screenshot
+        src="/wiki/screenshots/datahub-stats-repeated-measures.png"
+        alt="A repeated-measures ANOVA results sheet with the condition F and p and the Greenhouse-Geisser and Huynh-Feldt sphericity corrections."
+        caption="Repeated measures. Within-subject ANOVA with the Greenhouse-Geisser and Huynh-Feldt sphericity corrections, alongside a random-intercept mixed model."
+      />
+      <Screenshot
+        src="/wiki/screenshots/datahub-stats-outliers.png"
+        alt="A Grubbs outlier screen showing each flagged value with its per-step G statistic and critical value."
+        caption="Outliers. The Grubbs test screens each column on its own, flagging values with their per-step G statistic against the critical value."
       />
 
       <h2>Show the code</h2>
@@ -136,10 +243,27 @@ export default function DataHubFeaturePage() {
         and you get the same numbers. This is the answer to the question a closed
         tool cannot answer, which is where a given number actually came from.
       </p>
+      <p>
+        The same proof extends to the picture. Every figure carries its own code
+        export, the matplotlib that redraws it from the same group names and values
+        the on-screen figure used, so the plot is as reproducible as the
+        statistic. Both halves answer the same question for the number and for the
+        figure.
+      </p>
+      <p>
+        Data Hub also drafts the paragraphs a paper needs. From a finished
+        analysis it writes a Methods sentence that names the test and cites the
+        canonical reference for it, a Results sentence that reports the finding
+        with the inline statistics from the engine, and a formatted reference list
+        that includes the open-source software the engine computed with. The
+        numbers come only from the engine; the phrasing and the citations are the
+        curation.
+      </p>
       <Callout variant="info" title="Validated against the references">
         The statistics engine is checked against external reference values
-        (scipy, R, and NIST) in an automated test suite, so the numbers Data Hub
-        reports match the tools the field already trusts. The public{" "}
+        (scipy, statsmodels, lifelines, R, and a NIST certified dataset) in an
+        automated test suite, so the numbers Data Hub reports match the tools the
+        field already trusts. The public{" "}
         <Link href="/transparency">Transparency of tests</Link> page documents
         this approach for the bioinformatics tools, and Data Hub follows the same
         rule. No statistic ships without a reference-pinned test.
@@ -162,8 +286,8 @@ export default function DataHubFeaturePage() {
         therefore already assumption-aware.
       </p>
       <Screenshot
-        src="/wiki/screenshots/datahub-guided-wizard.png"
-        alt="The guided analysis wizard showing a recommended test at the top and an assumption Report Card below with PASS, FAIL, and NOTE rows in plain language."
+        src="/wiki/screenshots/datahub-guided-analysis.png"
+        alt="The guided analysis wizard showing a recommended test at the top and an assumption Report Card below with pass, fail, and note rows in plain language."
         caption="The guided wizard. It recommends a test and shows the assumption Report Card, switching to a rank-based test automatically when an assumption fails."
       />
 
@@ -184,10 +308,19 @@ export default function DataHubFeaturePage() {
         cluster per row level and one bar per group. A Survival table makes a
         Kaplan-Meier step curve, one line per arm.
       </p>
+      <p>
+        For a Column table you can also draw an estimation plot, the modern
+        effect-size figure that shows the raw data alongside the bootstrap sampling
+        distribution of the mean difference and its confidence interval, in the
+        Gardner-Altman style for two groups and the Cumming style for three or more
+        sharing one control. It shows the size of the effect rather than only a
+        yes or no significance star, and the interval comes straight from the same
+        validated bootstrap the results sheet reports.
+      </p>
       <Screenshot
-        src="/wiki/screenshots/datahub-graph-editor.png"
-        alt="The graph editor with a column scatter figure on the left showing points, a mean line, error bars, and significance brackets, and a styling panel on the right with error-bar, color, and axis controls."
-        caption="The graph editor. The figure is live SVG; every control on the right redraws it, and the export stays a true vector."
+        src="/wiki/screenshots/datahub-stats-effect-sizes.png"
+        alt="An estimation plot showing the raw data of each group on the left and the bootstrap sampling distribution of the mean difference with its confidence interval on the right."
+        caption="An estimation plot. It shows the raw data and the bootstrap distribution of the effect with its confidence interval, not just a significance star."
       />
       <p>
         Error bars come straight from the raw replicates, the same numbers the
@@ -195,6 +328,28 @@ export default function DataHubFeaturePage() {
         table. Significance brackets are pulled from a stored ANOVA, so the right
         stars drop onto the figure with one toggle rather than being drawn by hand.
       </p>
+      <p>
+        Color is its own studio. The Palette Studio replaces a single color
+        dropdown with a browseable palette library filtered by how many series the
+        plot has, a custom per-series mode, a generate-and-lock workflow, import
+        from a coolors.co URL, and your own saved palettes, with the live figure as
+        the preview as you choose.
+      </p>
+      <p>
+        Cleaning a figure is part of the same loop. Right-click a data cell to
+        exclude it: the value stays visible and editable in the grid, but every
+        analysis and every plot treats it as absent, so it drops out of the mean,
+        the error bars, the dots, and the stored test at once. Nothing is deleted
+        and nothing is hidden.
+      </p>
+      <Callout variant="tip" title="A real publication page behind the figure">
+        Every figure sits on a plot artboard, an Illustrator-style page in real
+        units. Drop the figure onto a chosen paper size, position and scale it to
+        exact units on a pan-and-zoom canvas, and export the page as an exact SVG.
+        The same artboard is shared with the{" "}
+        <Link href="/wiki/features/phylo">phylogenetics Tree Studio</Link>, so a
+        figure means the same thing in both places.
+      </Callout>
       <Callout variant="tip" title="One source of truth">
         Because the footer stats, the analysis, and the figure all read the same
         cells, you cannot end up with a bar chart that disagrees with the table it
@@ -214,7 +369,7 @@ export default function DataHubFeaturePage() {
         object.
       </p>
       <Screenshot
-        src="/wiki/screenshots/datahub-import.png"
+        src="/wiki/screenshots/datahub-import-data.png"
         alt="The import dialog showing a pasted Excel range with detected columns, a transpose toggle, and a preview of how the data will map onto a table."
         caption="Import. Paste from Excel or pick a CSV or .xlsx file; Data Hub detects the structure and previews the table before creating it."
       />
@@ -239,6 +394,17 @@ export default function DataHubFeaturePage() {
         ResearchOS rather than leaving it in a separate paid application is that
         your data, your statistics, and your figures all live in one place that
         you own.
+      </p>
+      <p>
+        A few threads tie it to the rest of the app. The power and sample-size
+        planner answers the design question before any data is collected, how many
+        subjects you need to detect an effect, how much power a planned n gives
+        you, or the smallest effect that n can reliably detect, running against the
+        same engine the analyses use. BeakerBot can create a Data Hub table for you
+        from pasted data in one step, detecting the columns and writing the table.
+        And a Data Hub table can drive a layer in the{" "}
+        <Link href="/wiki/features/phylo">phylogenetics Tree Studio</Link>, so a
+        metadata table can render as a tip-aligned plot beside a tree.
       </p>
     </WikiPage>
   );

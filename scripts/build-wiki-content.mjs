@@ -315,7 +315,16 @@ function findOpenTags(s, tagName) {
 /* ──────────────────── preprocessing ───────────────────────────────────── */
 
 function preprocess(source) {
-  let s = source.replace(/^\s*import[\s\S]*?;[ \t]*\n/gm, "");
+  // Strip only real top-level import statements. Anchor at column 0 with a word
+  // boundary so an indented prose line like "imported from PubChem ..." is NOT
+  // matched (the old /^\s*import[\s\S]*?;/ ate from such a line to the next
+  // entity semicolon, e.g. &apos;, silently truncating the rest of the page).
+  // Handles `import X from "y";`, `import type {…} from "y";`, and side-effect
+  // `import "y";`, single- or multi-line.
+  let s = source.replace(
+    /^import\b(?:[\s\S]*?\bfrom\s+)?["'][^"']+["']\s*;[ \t]*$/gm,
+    "",
+  );
   s = s.replace(/^[ \t]*\/\/.*$/gm, "");
   s = s.replace(/\/\*[\s\S]*?\*\//g, "");
   return s;

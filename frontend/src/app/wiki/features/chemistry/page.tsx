@@ -69,10 +69,11 @@ export default function ChemistryFeaturePage() {
       <p>
         <strong>Search by structure.</strong> Beyond the name filter, a
         search-by-structure mode finds molecules in your own library by chemistry
-        rather than text. You draw a fragment to match every molecule that contains
-        that substructure, or rank the library by similarity to a reference
-        structure, so the analogs you already have surface even when their names
-        give nothing away.
+        rather than text. You type a SMILES or SMARTS query and pick one of two
+        modes. Substructure match returns every molecule that contains that
+        fragment, and Similarity ranks the library by Tanimoto score against your
+        query, with the match shown as a percent on each result, so the analogs you
+        already have surface even when their names give nothing away.
       </p>
       <p>
         <strong>Right-click and bulk actions.</strong> Right-clicking a molecule in
@@ -113,9 +114,14 @@ export default function ChemistryFeaturePage() {
       <p>
         <strong>Import a structure file.</strong> The Import action accepts MDL
         Molfiles (.mol), SDF files (.sdf, where each record lands as its own
-        molecule), and SMILES files (.smi, .smiles). Everything is parsed in your
-        browser, so the file never leaves your machine. A single-molecule import
-        drops you straight onto the new molecule in the detail view.
+        molecule), and SMILES files (.smi, .smiles). A plain <code>.txt</code> file
+        is treated as one SMILES per line, so a column of structures comes in as a
+        batch. ChemDraw&apos;s own <code>.cdxml</code> and <code>.cdx</code> files
+        are recognized too, though they are not parsed directly, so the workbench
+        asks you to export them as MOL or SMILES from ChemDraw first and import
+        that. Everything is parsed in your browser, so the file never leaves your
+        machine. A single-molecule import drops you straight onto the new molecule
+        in the detail view.
       </p>
       <Callout variant="info" title="Where molecules are stored">
         Each molecule is written to your folder as
@@ -219,7 +225,9 @@ export default function ChemistryFeaturePage() {
         European biomedical literature index. Each paper links out to its article
         page and each patent links to Google Patents. A common compound returns tens
         of thousands of results, so the panel ranks and paginates them and always
-        shows the total rather than dumping everything.
+        shows the total rather than dumping everything. You can star a paper or a
+        patent, and the star persists on the molecule, so the next time you open it
+        your saved references surface as a one-click strip above the live results.
       </p>
       <Screenshot
         src="/wiki/screenshots/chemistry-literature.png"
@@ -230,10 +238,10 @@ export default function ChemistryFeaturePage() {
         The Literature action in the library rail opens the same search as a
         standalone surface, so you can look up a compound by name without first
         adding it to your library. Below the name search sits a substructure patent
-        search powered by SureChEMBL, which indexes compounds extracted from tens of
-        millions of patents. You draw a fragment, and it finds patent compounds that
-        contain that substructure. The search runs asynchronously on SureChEMBL,
-        submitting the fragment and polling until the results are ready.
+        search powered by SureChEMBL, which indexes compounds extracted from 28
+        million patents. You type a SMILES or SMARTS fragment, and it finds patent
+        compounds that contain that substructure. The search runs asynchronously on
+        SureChEMBL, submitting the fragment and polling until the results are ready.
       </p>
       <Screenshot
         src="/wiki/screenshots/chemistry-substructure-patents.png"
@@ -281,6 +289,32 @@ export default function ChemistryFeaturePage() {
         opening it in the workbench when clicked, the same way a note can reference a
         sequence or an experiment. This keeps the structure and the writing about it
         in one connected place rather than as a screenshot pasted into a document.
+      </p>
+      <p>
+        A molecule also drops into the figure composer at <code>/figures</code> as a
+        panel, depicted by the same renderer the workbench uses, so a structure sits
+        in a publication layout next to your plots and sequence panels. Chemistry
+        panels carry no per-panel styling controls, by design, since the depiction is
+        the structure itself.
+      </p>
+
+      <h2>Working with BeakerBot</h2>
+      <p>
+        BeakerBot, the assistant that runs throughout the app, can operate the
+        Chemistry workbench for you. It can create a molecule from a SMILES you give
+        it, pull one in from PubChem by name or CID, read a molecule&apos;s identity
+        back to you, rename it, edit its structure from a SMILES you provide, and
+        delete it to the Trash. When you have a molecule selected in the rail, it
+        resolves &quot;this molecule&quot; to that selection, so you can ask it to
+        rename or read the one you are looking at without naming it.
+      </p>
+      <p>
+        The line BeakerBot will not cross is inventing chemistry. It operates the
+        app and relays what the on-device engine computes, so a formula, weight, or
+        canonical form always comes from RDKit, never from the model&apos;s memory,
+        and a structure edit only ever uses a SMILES you actually provided. Every
+        write shows a preview first, and a delete asks for a confirmation, so nothing
+        changes in your library without your say-so.
       </p>
 
       <h2>What it is built on</h2>

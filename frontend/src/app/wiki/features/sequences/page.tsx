@@ -88,6 +88,28 @@ export default function SequencesFeaturePage() {
         library entries, so the oligo stays with the template it belongs to.
       </p>
 
+      <h3>Download from NCBI</h3>
+      <p>
+        A Download from NCBI button in the library header opens a guided flow that
+        pulls a sequence straight from NCBI into the active collection. You can
+        fetch a gene by symbol plus organism (for example GAPDH in Homo sapiens),
+        a genome or assembly, or any accession, whether a nuccore record like
+        NM_002046 or a genome accession like GCF_000005845. The record is fetched
+        directly from your browser against NCBI&apos;s public API, so the only
+        thing that leaves your machine is the public identifier you ask for, the
+        same privacy model as the Primer-BLAST handoff. Annotated records arrive
+        with their features intact. Genome downloads are size-capped, and a genome
+        larger than the cap is refused with a clear message rather than freezing
+        the editor. The downloaded sequence lands as a fully parsed entry carrying
+        a &ldquo;From NCBI&rdquo; provenance badge, with its accession kept
+        linkable.
+      </p>
+      <Screenshot
+        src="/wiki/screenshots/sequences-ncbi-download.png"
+        alt="The Download from NCBI dialog showing a gene-symbol and organism search, a results list, and a size-capped preview before the download."
+        caption="The Download from NCBI flow. Fetch a gene, a genome, or any accession; only the public identifier leaves your machine."
+      />
+
       <h2>The tab bar and view modes</h2>
       <p>
         The bottom of the editor panel carries a tab bar with five tabs, Map,
@@ -112,11 +134,16 @@ export default function SequencesFeaturePage() {
         A thin horizontal row of pill chips, labeled Show, sits in the editor
         chrome alongside the tab bar. This is the display strip. Each chip is a
         toggle, and pressing it switches a display layer on or off without changing
-        the active tab. The strip carries chips for features, primers, restriction
-        enzyme cut sites, CDS translation, open reading frames, the base-position
-        ruler, and the circular vs. linear topology override. A wrap-mode chip,
-        active when the sequence is displayed in linear form, switches between a
-        wrapped multi-row layout and a single continuous line. On the Features,
+        the active tab. The strip carries eight chips. Features toggles the whole
+        annotation layer. Primers toggles primer-binding annotations. Enzyme sites
+        overlays restriction-enzyme cut sites. Translation shows the amino-acid
+        translation of CDS features. Open reading frames is a distinct toggle that
+        highlights ATG-to-stop runs (over 30 aa, both strands) in unannotated DNA.
+        Ruler / index shows the base-position ruler. Topology relabels in place
+        (Circular for a plasmid, Linear for a linear molecule) and overrides a
+        circular sequence to a linear layout. Wrap, active when the sequence is
+        shown in linear form, switches between a wrapped multi-row layout and a
+        single continuous line. On the Features,
         Primers, and History tabs (where there is no canvas to draw on) the chips
         dim and go non-interactive in place rather than disappearing, so nothing
         jumps as you switch tabs.
@@ -257,6 +284,25 @@ export default function SequencesFeaturePage() {
         to carry over the reference&apos;s features wherever alignment identity
         is high enough. Both paths land their accepted features in a single
         undoable edit.
+      </p>
+
+      <h2>Protein analysis</h2>
+      <p>
+        Selecting a CDS feature opens a protein inspector for the coding region.
+        The inspector reads out the protein length in amino acids, the molecular
+        mass in kDa, and the isoelectric point, and it offers three actions.
+        Translate to protein turns on the amino-acid track on the map. Full protein
+        properties opens a deeper view with the amino-acid composition, a
+        hydropathy profile, and the extinction coefficient. Find domains runs an
+        on-device HMMER scan in the protein panel, with an optional handoff to
+        EBI InterProScan for a fuller search. Domain hits are labeled by source
+        (EBI InterProScan, an on-device database, or a curated common-domains set)
+        so you always know where a call came from.
+      </p>
+      <p>
+        A completed domain scan saves as a result artifact, so you can re-open it
+        later from the History tab&apos;s Results section without recomputing it
+        (see Sequence history below).
       </p>
 
       <h2>The cloning engine</h2>
@@ -405,6 +451,16 @@ export default function SequencesFeaturePage() {
         the selected checkpoint in one click, creating a new checkpoint so the
         roll-forward is also preserved.
       </p>
+      <p>
+        The History tab also carries a Results section above the version timeline.
+        Operations that produce something, a completed Compare / Align run or a
+        domain scan, persist there as re-openable result artifacts rather than
+        throwaway popups. Re-opening one re-renders the stored result without
+        recomputing it. Each artifact records a fingerprint of the sequence at the
+        moment it was computed, so a result picks up a staleness flag once the
+        sequence has changed since the run, telling you the stored result no longer
+        reflects the current molecule.
+      </p>
       <Callout variant="info" title="History and the version-history system">
         Sequence history uses the same underlying engine as the{" "}
         <Link href="/wiki/features/version-history">Version History</Link> system
@@ -422,7 +478,12 @@ export default function SequencesFeaturePage() {
         with the sequence name as the header. A selection-to-FASTA option exports
         only the selected region, and a selection-to-protein-FASTA option exports
         the translated amino acid sequence of the selected CDS. The circular map
-        can also be exported as a PNG or SVG image from the map view.
+        can also be exported as a PNG or SVG image from the map view. A saved
+        sequence map also drops into the{" "}
+        <Link href="/wiki/features/figures">Figure Composer</Link> at{" "}
+        <code>/figures</code> as a per-panel-styleable panel, so you can lay it out
+        alongside plots, trees, and molecules in a multi-panel publication figure
+        and export the whole page as one clean vector SVG.
       </p>
 
       <h2>Connection to the rest of the app</h2>
@@ -433,6 +494,19 @@ export default function SequencesFeaturePage() {
         the experiments that use it. Deleting a sequence goes through the same
         trash flow as every other record type, with the same 30-day recovery window
         and the same restore behavior.
+      </p>
+      <p>
+        A sequence also embeds as a live read-only block inside a note, rendered
+        either as a map ribbon or as a bases preview, so a write-up can show the
+        construct without leaving the editor. Enriching a sequence&apos;s organism
+        from NCBI fills in its taxonomic lineage, and an &ldquo;Explore in
+        tree&rdquo; link then opens the tree view centered on that organism.
+      </p>
+      <p>
+        BeakerBot can drive the workbench too. The assistant can compute Tm,
+        translate a sequence, take a reverse complement, find open reading frames,
+        design primers, fetch a record from NCBI, and run Gibson or
+        digest-and-ligate assembly, all through the same engines the editor uses.
       </p>
       <p>
         The primer Tm engine in the Sequences workbench is the same nearest-neighbor
