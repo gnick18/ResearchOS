@@ -17,6 +17,7 @@ import {
   assignLabels,
   pageAssets,
   pageConnectors,
+  pageShapes,
   TEXT_VARIANT_WEIGHT,
 } from "@/lib/figure/figure-page";
 import { missingPanelSvg } from "@/lib/figure/figure-source";
@@ -239,6 +240,29 @@ export function annotationLayerSvg(page: FigurePage, ppi: number): string {
   );
 }
 
+/** Shapes (rectangles / ellipses) as SVG, in page coordinates. */
+export function shapesToSvg(page: FigurePage, ppi: number): string {
+  return pageShapes(page)
+    .map((s) => {
+      const fill = s.fill === "none" ? "none" : s.fill;
+      const stroke = s.stroke === "none" ? "none" : s.stroke;
+      const sw = ((s.strokeWPt * ppi) / 72).toFixed(2);
+      const common = `fill="${fill}" stroke="${stroke}" stroke-width="${sw}"`;
+      if (s.kind === "ellipse") {
+        const cx = (s.xIn * ppi + (s.wIn * ppi) / 2).toFixed(1);
+        const cy = (s.yIn * ppi + (s.hIn * ppi) / 2).toFixed(1);
+        const rx = ((s.wIn * ppi) / 2).toFixed(1);
+        const ry = ((s.hIn * ppi) / 2).toFixed(1);
+        return `<ellipse cx="${cx}" cy="${cy}" rx="${rx}" ry="${ry}" ${common}/>`;
+      }
+      return (
+        `<rect x="${(s.xIn * ppi).toFixed(1)}" y="${(s.yIn * ppi).toFixed(1)}" ` +
+        `width="${(s.wIn * ppi).toFixed(1)}" height="${(s.hIn * ppi).toFixed(1)}" rx="2" ${common}/>`
+      );
+    })
+    .join("");
+}
+
 /** Arrowhead marker for connectors (follows each path's stroke via context-stroke). */
 export function connectorArrowMarker(): string {
   return (
@@ -324,6 +348,9 @@ export function composeFigurePageSvg(page: FigurePage, opts: ComposeOpts): strin
 
   // The page sheet.
   parts.push(`<rect x="0" y="0" width="${W.toFixed(1)}" height="${H.toFixed(1)}" fill="#ffffff"/>`);
+
+  // Shapes (rectangles / ellipses), below the panels as backgrounds.
+  parts.push(shapesToSvg(page, ppi));
 
   // Panels, each as a positioned nested viewport, plus its label.
   const labelPx = Math.max(9, 0.16 * ppi);

@@ -5,10 +5,10 @@
 //
 // Everything is in real inches, matching figure-page.ts. No em-dashes, no emojis.
 
-import type { Annotation, FigurePage, PlacedAsset } from "@/lib/figure/figure-page";
-import { moveAnnotation, movePlacedAsset, pageAssets } from "@/lib/figure/figure-page";
+import type { Annotation, FigurePage, FigureShape, PlacedAsset } from "@/lib/figure/figure-page";
+import { moveAnnotation, movePlacedAsset, moveShape, pageAssets, pageShapes } from "@/lib/figure/figure-page";
 
-export type ElementKind = "panel" | "asset" | "annotation";
+export type ElementKind = "panel" | "asset" | "annotation" | "shape";
 
 /** A stable, kind-tagged reference to any element on the page. */
 export interface ElementRef {
@@ -46,6 +46,7 @@ export function sameRef(a: ElementRef, b: ElementRef): boolean {
 /** Every element on the page, in render order (panels, then icons, then annotations). */
 export function listElements(page: FigurePage): ElementRef[] {
   return [
+    ...pageShapes(page).map((s) => ({ kind: "shape" as const, id: s.shapeId })),
     ...page.panels.map((p) => ({ kind: "panel" as const, id: p.panelId })),
     ...pageAssets(page).map((a) => ({ kind: "asset" as const, id: a.assetId })),
     ...page.annotations.map((a) => ({ kind: "annotation" as const, id: a.annId })),
@@ -89,6 +90,10 @@ export function elementBox(page: FigurePage, ref: ElementRef): Box | null {
     const a = pageAssets(page).find((x) => x.assetId === ref.id);
     return a ? { xIn: a.xIn, yIn: a.yIn, wIn: a.wIn, hIn: a.hIn } : null;
   }
+  if (ref.kind === "shape") {
+    const s = pageShapes(page).find((x) => x.shapeId === ref.id);
+    return s ? { xIn: s.xIn, yIn: s.yIn, wIn: s.wIn, hIn: s.hIn } : null;
+  }
   const an = page.annotations.find((x) => x.annId === ref.id);
   return an ? annotationBox(an) : null;
 }
@@ -112,6 +117,7 @@ export function translateElement(
   dyIn: number,
 ): FigurePage {
   if (ref.kind === "asset") return movePlacedAsset(page, ref.id, dxIn, dyIn);
+  if (ref.kind === "shape") return moveShape(page, ref.id, dxIn, dyIn);
   if (ref.kind === "annotation") return moveAnnotation(page, ref.id, dxIn, dyIn);
   return {
     ...page,
@@ -264,18 +270,32 @@ export function computeSnap(
 // "arrange" reorders an element WITHIN its own layer (true cross-layer z-order is
 // a later refinement that touches the compositor). Returns a new page.
 
-type ArrayKey = "panels" | "assets" | "annotations";
+type ArrayKey = "panels" | "assets" | "annotations" | "shapes";
 function arrayFor(kind: ElementKind): ArrayKey {
-  return kind === "panel" ? "panels" : kind === "asset" ? "assets" : "annotations";
+  return kind === "panel"
+    ? "panels"
+    : kind === "asset"
+      ? "assets"
+      : kind === "shape"
+        ? "shapes"
+        : "annotations";
 }
-function idOf(kind: ElementKind): "panelId" | "assetId" | "annId" {
-  return kind === "panel" ? "panelId" : kind === "asset" ? "assetId" : "annId";
+function idOf(kind: ElementKind): "panelId" | "assetId" | "annId" | "shapeId" {
+  return kind === "panel"
+    ? "panelId"
+    : kind === "asset"
+      ? "assetId"
+      : kind === "shape"
+        ? "shapeId"
+        : "annId";
 }
 
 function reorder(page: FigurePage, ref: ElementRef, to: "front" | "back" | "forward" | "backward"): FigurePage {
   const key = arrayFor(ref.kind);
   const idField = idOf(ref.kind);
-  const list = (key === "assets" ? pageAssets(page) : (page[key] as unknown[])) as Array<Record<string, unknown>>;
+  const list = (
+    key === "assets" ? pageAssets(page) : key === "shapes" ? pageShapes(page) : (page[key] as unknown[])
+  ) as Array<Record<string, unknown>>;
   const i = list.findIndex((el) => el[idField] === ref.id);
   if (i < 0) return page;
   const next = [...list];

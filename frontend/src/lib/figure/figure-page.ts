@@ -127,7 +127,7 @@ export type ConnectorShape = "straight" | "elbow" | "curve";
 
 /** One end of a connector: which element it attaches to, and on which side. */
 export interface ConnectorEnd {
-  ref: { kind: "panel" | "asset" | "annotation"; id: string };
+  ref: { kind: "panel" | "asset" | "annotation" | "shape"; id: string };
   side: ConnectorSide;
 }
 
@@ -156,6 +156,8 @@ export interface FigurePage {
   assets?: PlacedAsset[];
   /** Smart connectors (element-anchored arrows). Absent on pre-connector pages. */
   connectors?: Connector[];
+  /** Vector primitives (rectangles / ellipses). Absent on pre-shape pages. */
+  shapes?: FigureShape[];
 }
 
 /** Page margin (inches) kept clear of panels for the grid + a tidy frame. */
@@ -451,6 +453,75 @@ export function pageConnectors(page: FigurePage): Connector[] {
   return page.connectors ?? [];
 }
 
+// ── Shapes (rectangles / ellipses) ────────────────────────────────────────────
+// Lightweight vector primitives for backgrounds, highlights, and grouping boxes.
+// Box-based and first-class (selectable / draggable / recolorable / z-ordered).
+
+export type ShapeKind = "rect" | "ellipse";
+
+export interface FigureShape {
+  shapeId: string;
+  kind: ShapeKind;
+  xIn: number;
+  yIn: number;
+  wIn: number;
+  hIn: number;
+  /** Fill color or "none". */
+  fill: string;
+  /** Stroke color or "none". */
+  stroke: string;
+  /** Stroke width in points. */
+  strokeWPt: number;
+}
+
+export function pageShapes(page: FigurePage): FigureShape[] {
+  return page.shapes ?? [];
+}
+
+export function makeShape(shapeId: string, kind: ShapeKind, xIn: number, yIn: number): FigureShape {
+  return {
+    shapeId,
+    kind,
+    xIn,
+    yIn,
+    wIn: 1.5,
+    hIn: kind === "ellipse" ? 1.5 : 1,
+    fill: "#e3f4ec",
+    stroke: "#1d9e75",
+    strokeWPt: 1.5,
+  };
+}
+
+export function addShape(page: FigurePage, shape: FigureShape): FigurePage {
+  return { ...page, shapes: [...pageShapes(page), shape] };
+}
+
+export function removeShape(page: FigurePage, shapeId: string): FigurePage {
+  return { ...page, shapes: pageShapes(page).filter((s) => s.shapeId !== shapeId) };
+}
+
+export function updateShape(
+  page: FigurePage,
+  shapeId: string,
+  patch: Partial<Omit<FigureShape, "shapeId" | "kind">>,
+): FigurePage {
+  return {
+    ...page,
+    shapes: pageShapes(page).map((s) => (s.shapeId === shapeId ? { ...s, ...patch } : s)),
+  };
+}
+
+export function moveShape(page: FigurePage, shapeId: string, dxIn: number, dyIn: number): FigurePage {
+  return {
+    ...page,
+    shapes: pageShapes(page).map((s) =>
+      s.shapeId !== shapeId
+        ? s
+        : { ...s, xIn: Math.max(0, s.xIn + dxIn), yIn: Math.max(0, s.yIn + dyIn) },
+    ),
+  };
+}
+
 export function makeConnector(
   connId: string,
   from: ConnectorEnd,
@@ -485,7 +556,9 @@ export function pruneConnectors(page: FigurePage): FigurePage {
       ? page.panels.some((p) => p.panelId === ref.id)
       : ref.kind === "asset"
         ? pageAssets(page).some((a) => a.assetId === ref.id)
-        : page.annotations.some((a) => a.annId === ref.id);
+        : ref.kind === "shape"
+          ? pageShapes(page).some((s) => s.shapeId === ref.id)
+          : page.annotations.some((a) => a.annId === ref.id);
   const kept = pageConnectors(page).filter((c) => alive(c.from.ref) && alive(c.to.ref));
   return kept.length === pageConnectors(page).length ? page : { ...page, connectors: kept };
 }

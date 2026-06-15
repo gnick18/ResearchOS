@@ -16,7 +16,7 @@ import {
   assetSvgUrl,
   type LibraryAsset,
 } from "@/lib/figure/asset-library";
-import type { FigurePage, TextVariant } from "@/lib/figure/figure-page";
+import type { FigurePage, ShapeKind, TextVariant } from "@/lib/figure/figure-page";
 import type { ElementRef } from "@/lib/figure/figure-arrange";
 
 /** One row in the Layers panel (computed by the composer in render/z order). */
@@ -60,6 +60,7 @@ export default function FigureLeftRail({
   selectedKeys,
   onSelectLayer,
   onReorderLayer,
+  onAddShape,
 }: {
   tool: null | "text" | "arrow" | "bracket" | "connect";
   setTool: (t: null | "text" | "arrow" | "bracket" | "connect") => void;
@@ -75,6 +76,7 @@ export default function FigureLeftRail({
   selectedKeys: Set<string>;
   onSelectLayer: (ref: ElementRef) => void;
   onReorderLayer: (ref: ElementRef, dir: "up" | "down") => void;
+  onAddShape: (kind: ShapeKind) => void;
 }) {
   // Default to Icons (the library is the headline of this rail).
   const [section, setSection] = useState<RailSection>("icons");
@@ -146,7 +148,30 @@ export default function FigureLeftRail({
           />
         )}
         {section === "shapes" && (
-          <ComingSoon title="Shapes" note="Rectangles, ellipses, lines and arrows land here next." />
+          <>
+            <PanelHead>Shapes</PanelHead>
+            <div className="space-y-1.5">
+              <button
+                type="button"
+                onClick={() => onAddShape("rect")}
+                className="flex w-full items-center gap-2 rounded-lg border border-border-strong px-2 py-1.5 text-meta font-medium hover:border-brand-action"
+              >
+                <span className="h-3.5 w-3.5 rounded-sm border-2 border-brand-action bg-brand-soft" />
+                Rectangle
+              </button>
+              <button
+                type="button"
+                onClick={() => onAddShape("ellipse")}
+                className="flex w-full items-center gap-2 rounded-lg border border-border-strong px-2 py-1.5 text-meta font-medium hover:border-brand-action"
+              >
+                <span className="h-3.5 w-3.5 rounded-full border-2 border-brand-action bg-brand-soft" />
+                Ellipse
+              </button>
+              <p className="pt-1 text-meta text-foreground-faint">
+                Drop a shape on the page, then recolor and resize it in the inspector.
+              </p>
+            </div>
+          </>
         )}
         {section === "templates" && (
           <ComingSoon
