@@ -317,9 +317,9 @@ export default function DeptDashboard() {
 
       {/* Usage by lab. */}
       <div className="rounded-xl border border-border bg-surface">
-        <div className="flex items-center gap-2 border-b border-border px-4 py-3">
+        <div className="flex flex-wrap items-center gap-x-2 gap-y-1 border-b border-border px-4 py-3">
           <h2 className="text-body font-medium text-foreground">Usage by lab</h2>
-          <span className="text-meta text-foreground-muted">click a lab for accounts</span>
+          <span className="hidden text-meta text-foreground-muted sm:inline">click a lab for accounts</span>
           <span className="ml-auto text-meta text-foreground-muted">
             Total {fmtBytes(usage.totalBytes)} &middot; {usage.totalSyncs} syncs
           </span>
@@ -353,11 +353,11 @@ export default function DeptDashboard() {
                     <span className="min-w-0 flex-1 truncate text-body text-foreground">
                       {l.label ?? `${l.labHeadKey.slice(0, 10)}…`}
                     </span>
-                    <span className="text-meta text-foreground-muted">{l.accounts.length} accts</span>
-                    <span className="w-20 text-right text-meta tabular-nums text-foreground">
+                    <span className="hidden text-meta text-foreground-muted sm:inline">{l.accounts.length} accts</span>
+                    <span className="text-right text-meta tabular-nums text-foreground sm:w-20">
                       {fmtBytes(l.bytes)}
                     </span>
-                    <span className="w-12 text-right text-meta text-foreground-muted">{pct}%</span>
+                    <span className="hidden text-right text-meta text-foreground-muted sm:inline sm:w-12">{pct}%</span>
                   </button>
                   {isOpen && (
                     <ul className="bg-surface-sunken">
@@ -370,8 +370,8 @@ export default function DeptDashboard() {
                             {a.label ?? `${a.memberKey.slice(0, 10)}…`}
                             {a.isHead ? " (PI)" : ""}
                           </span>
-                          <span className="w-20 text-right tabular-nums">{fmtBytes(a.bytes)}</span>
-                          <span className="w-16 text-right">{a.syncs} syncs</span>
+                          <span className="text-right tabular-nums sm:w-20">{fmtBytes(a.bytes)}</span>
+                          <span className="hidden sm:inline sm:w-16 sm:text-right">{a.syncs} syncs</span>
                         </li>
                       ))}
                     </ul>

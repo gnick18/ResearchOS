@@ -114,7 +114,7 @@ export default function DeptAdminPanel() {
             your lab heads; they enroll their own members. You see the labs and their
             usage, never their research data.
           </p>
-          <div className="mt-4 flex flex-wrap gap-2">
+          <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:flex-wrap">
             <input
               className={inputCls}
               value={name}
@@ -126,7 +126,7 @@ export default function DeptAdminPanel() {
             />
             <button
               type="button"
-              className={primaryBtn}
+              className={`${primaryBtn} w-full sm:w-auto`}
               disabled={busy || !name.trim()}
               onClick={() => void createDept()}
             >
@@ -163,23 +163,23 @@ export default function DeptAdminPanel() {
           Share this link with a PI. They sign in and join; you do not need their
           email.
         </p>
-        <div className="mt-3 flex flex-wrap items-center gap-2">
-          <button type="button" className={primaryBtn} onClick={() => void makeInviteLink()}>
+        <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
+          <button type="button" className={`${primaryBtn} w-full sm:w-auto`} onClick={() => void makeInviteLink()}>
             Create invite link
           </button>
           {link && (
-            <>
+            <div className="flex min-w-0 flex-1 items-center gap-2">
               <span className="min-w-0 flex-1 overflow-hidden text-ellipsis whitespace-nowrap rounded-lg border border-border bg-surface-sunken px-3 py-2 font-mono text-meta text-foreground-muted">
                 {link}
               </span>
               <button
                 type="button"
-                className="rounded-md border border-border bg-surface px-3 py-2 text-meta font-medium text-foreground hover:bg-surface-sunken"
+                className="flex-none rounded-md border border-border bg-surface px-3 py-2 text-meta font-medium text-foreground hover:bg-surface-sunken"
                 onClick={() => void copyLink()}
               >
                 {copied ? "Copied" : "Copy"}
               </button>
-            </>
+            </div>
           )}
         </div>
       </div>
