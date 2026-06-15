@@ -5038,6 +5038,427 @@ const FIXTURE_ROUTES = [
     waitFor: "text=read on this result",
     settleMs: 1200,
   },
+
+  // ──────────────────────────────────────────────────────────────────────────
+  // PI shots (signed in as mira, the fixture's lab_head).
+  // ──────────────────────────────────────────────────────────────────────────
+
+  {
+    // OV-1: the "What needs you" amber hero section at the top of /lab-overview.
+    // Clip to the section so only the hero tile(s) appear; skip the stat strip.
+    path: "/lab-overview?fixtureUser=mira",
+    file: "lab-overview-needs-you-hero.png",
+    waitFor: "text=Lab Overview",
+    settleMs: 1200,
+    action: async (page) => {
+      try {
+        // Wait for the hero section (aria-label="What needs you") or the
+        // all-clear variant to mount.
+        await page
+          .waitForSelector('[aria-label="What needs you"], text=You\'re all caught up', {
+            timeout: 8000,
+          })
+          .catch(() => {});
+        await page.waitForTimeout(600);
+        const hero = page
+          .locator('[aria-label="What needs you"]')
+          .first();
+        if (await hero.count()) {
+          const box = await hero.boundingBox().catch(() => null);
+          if (box) {
+            return {
+              clip: {
+                x: Math.max(0, box.x - 16),
+                y: Math.max(0, box.y - 16),
+                width: Math.min(1440, box.width + 32),
+                height: box.height + 32,
+              },
+            };
+          }
+        }
+      } catch (err) {
+        console.warn(`  ⚠ lab-overview-needs-you-hero: ${err.message}`);
+      }
+    },
+  },
+
+  {
+    // OV-2: the compact LabStatStrip (members / active experiments / open tasks /
+    // overdue). Clip to the strip row.
+    path: "/lab-overview?fixtureUser=mira",
+    file: "lab-overview-stat-strip.png",
+    waitFor: "text=Lab Overview",
+    settleMs: 1200,
+    action: async (page) => {
+      try {
+        // The stat strip has no data-testid; identify it by the unique text
+        // "active experiments" which lives only inside the strip.
+        await page
+          .waitForSelector("text=active experiments", { timeout: 8000 })
+          .catch(() => {});
+        await page.waitForTimeout(500);
+        const strip = page
+          .locator("text=active experiments")
+          .locator("xpath=ancestor::div[contains(@class,'divide-x')]")
+          .first();
+        if (await strip.count()) {
+          const box = await strip.boundingBox().catch(() => null);
+          if (box) {
+            return {
+              clip: {
+                x: Math.max(0, box.x - 16),
+                y: Math.max(0, box.y - 16),
+                width: Math.min(1440, box.width + 32),
+                height: box.height + 32,
+              },
+            };
+          }
+        }
+      } catch (err) {
+        console.warn(`  ⚠ lab-overview-stat-strip: ${err.message}`);
+      }
+    },
+  },
+
+  {
+    // OV-5: the inline AnnouncementComposer card ("Post an announcement").
+    // Clip to the SectionCard that contains it.
+    path: "/lab-overview?fixtureUser=mira",
+    file: "lab-overview-announcement-composer.png",
+    waitFor: "text=Post an announcement",
+    settleMs: 1200,
+    action: async (page) => {
+      try {
+        await page
+          .waitForSelector("text=Post an announcement", { timeout: 8000 })
+          .catch(() => {});
+        await page.waitForTimeout(400);
+        // Scroll the composer into view so it is fully on-screen.
+        const heading = page.getByText(/Post an announcement/i).first();
+        if (await heading.count()) {
+          await heading.scrollIntoViewIfNeeded({ timeout: 3000 }).catch(() => {});
+          await page.waitForTimeout(400);
+          // The SectionCard wrapper is the nearest ancestor with rounded-2xl.
+          const card = heading
+            .locator("xpath=ancestor::section[contains(@class,'rounded-2xl')]")
+            .first();
+          if (await card.count()) {
+            const box = await card.boundingBox().catch(() => null);
+            if (box) {
+              return {
+                clip: {
+                  x: Math.max(0, box.x - 16),
+                  y: Math.max(0, box.y - 16),
+                  width: Math.min(1440, box.width + 32),
+                  height: box.height + 32,
+                },
+              };
+            }
+          }
+        }
+      } catch (err) {
+        console.warn(`  ⚠ lab-overview-announcement-composer: ${err.message}`);
+      }
+    },
+  },
+
+  {
+    // AP-1/AP-3: the Approvals page showing the purchase queue + flag queue.
+    path: "/approvals?fixtureUser=mira",
+    file: "lab-head-approvals-page.png",
+    waitFor: "text=Approvals",
+    settleMs: 1000,
+  },
+
+  {
+    // OV-4: the AuditTrailViewer popup, opened from the "Audit trail" button
+    // in the Lab Overview header.
+    path: "/lab-overview?fixtureUser=mira",
+    file: "lab-head-audit-trail-viewer.png",
+    waitFor: "text=Lab Overview",
+    settleMs: 1000,
+    action: async (page) => {
+      try {
+        await page
+          .waitForSelector("text=Lab Overview", { timeout: 8000 })
+          .catch(() => {});
+        await page.waitForTimeout(600);
+        // Click the "Audit trail" header button.
+        const btn = page.getByRole("button", { name: /Audit trail/i }).first();
+        if (await btn.count()) {
+          await btn.click({ timeout: 3000 });
+          // Wait for the modal title text to appear.
+          await page
+            .waitForSelector('[data-testid="audit-trail-viewer"]', {
+              timeout: 6000,
+            })
+            .catch(() => {});
+          await page.waitForTimeout(700);
+        }
+      } catch (err) {
+        console.warn(`  ⚠ lab-head-audit-trail-viewer: ${err.message}`);
+      }
+    },
+  },
+
+  {
+    // Settings → Members section (the unified roster + invite link + membership
+    // agreement for a PI). Use ?section=members to scroll the rail there.
+    path: "/settings?fixtureUser=mira&section=members",
+    file: "settings-lab-members.png",
+    waitFor: "text=Lab Roster",
+    settleMs: 1000,
+    action: async (page) => {
+      try {
+        // Scroll the Lab Roster heading into view so the member rows are visible.
+        const rosterHeading = page.getByText(/Lab Roster/i).first();
+        if (await rosterHeading.count()) {
+          await rosterHeading
+            .scrollIntoViewIfNeeded({ timeout: 3000 })
+            .catch(() => {});
+          await page.waitForTimeout(400);
+        }
+        // Hover the second roster row to reveal the Archive button affordance.
+        let row = page.locator('[data-testid^="lab-roster-row-"]').nth(1);
+        if (!(await row.count())) {
+          row = page.locator('[data-testid^="lab-roster-row-"]').first();
+        }
+        if (await row.count()) {
+          await row.scrollIntoViewIfNeeded({ timeout: 3000 }).catch(() => {});
+          await row.hover({ timeout: 3000 }).catch(() => {});
+          await page.waitForTimeout(400);
+        }
+      } catch (err) {
+        console.warn(`  ⚠ settings-lab-members: ${err.message}`);
+      }
+    },
+    highlight: { text: "Archive" },
+  },
+
+  {
+    // Settings → Usage & billing section (AI token usage + cloud storage).
+    // mira is account_type lab_head but the fixture uses in-memory file system
+    // (no real cloud account / sharingIdentity status="ready"), so the billing
+    // panel may not render. We try; if the section does not mount we still
+    // capture whatever is visible and the size check determines the outcome.
+    path: "/settings?fixtureUser=mira&section=billing",
+    file: "settings-usage-billing.png",
+    waitFor: "text=Settings",
+    settleMs: 1200,
+    action: async (page) => {
+      try {
+        // Try to find and scroll to the Usage / Billing section by text.
+        const billingText = page
+          .getByText(/Usage|Billing|AI tokens|Storage/i)
+          .first();
+        if (await billingText.count()) {
+          await billingText
+            .scrollIntoViewIfNeeded({ timeout: 3000 })
+            .catch(() => {});
+          await page.waitForTimeout(500);
+        }
+      } catch (err) {
+        console.warn(`  ⚠ settings-usage-billing: ${err.message}`);
+      }
+    },
+  },
+
+  // ──────────────────────────────────────────────────────────────────────────
+  // alex shots (signed in as alex, the default fixture user).
+  // ──────────────────────────────────────────────────────────────────────────
+
+  {
+    // Workbench → Check-ins tab → "Start a check-in" dialog. alex has no
+    // existing 1:1 s so the empty-state button also opens the dialog; we
+    // click the rail button directly to be deterministic.
+    path: "/workbench",
+    file: "check-ins-new-dialog.png",
+    waitFor: "text=Workbench",
+    settleMs: 800,
+    action: async (page) => {
+      try {
+        // Navigate to the Check-ins tab.
+        const tab = page
+          .getByRole("button", { name: /Check-ins/i })
+          .first();
+        if (await tab.count()) {
+          await tab.click({ timeout: 3000 });
+          await page.waitForTimeout(600);
+        } else {
+          // data-tour-target fallback
+          const tabByTarget = page
+            .locator('[data-tour-target="workbench-oneonone-tab"]')
+            .first();
+          if (await tabByTarget.count()) {
+            await tabByTarget.click({ timeout: 3000 });
+            await page.waitForTimeout(600);
+          }
+        }
+        // Click the "Start a check-in" rail button to open the dialog.
+        const startBtn = page
+          .locator('[data-testid="oneonone-start-rail"]')
+          .first();
+        if (await startBtn.count()) {
+          await startBtn.click({ timeout: 3000 });
+        } else {
+          // Empty-state button fallback.
+          const emptyBtn = page
+            .locator('[data-testid="oneonone-start-empty-rail"]')
+            .first();
+          if (await emptyBtn.count()) {
+            await emptyBtn.click({ timeout: 3000 });
+          }
+        }
+        // Wait for the dialog to mount.
+        await page
+          .waitForSelector('[aria-label="Start a check-in"]', {
+            timeout: 5000,
+          })
+          .catch(() => {});
+        await page.waitForTimeout(600);
+      } catch (err) {
+        console.warn(`  ⚠ check-ins-new-dialog: ${err.message}`);
+      }
+    },
+    highlight: { text: "Start a check-in" },
+  },
+
+  {
+    // Inventory → Storage map view (the freezer tree + A1 grid). Click the
+    // "Storage map" tab in the inventory header to switch views.
+    path: "/inventory",
+    file: "inventory-storage-map.png",
+    waitFor: "text=Inventory",
+    settleMs: 800,
+    action: async (page) => {
+      try {
+        // Wait for the page to fully load.
+        await page
+          .waitForSelector("text=Add item", { timeout: 8000 })
+          .catch(() => {});
+        await page.waitForTimeout(500);
+        // Click the "Storage map" tab button.
+        const storageTab = page
+          .getByRole("tab", { name: /Storage map/i })
+          .first();
+        if (await storageTab.count()) {
+          await storageTab.click({ timeout: 3000 });
+        } else {
+          // Fallback: any button with text "Storage map".
+          const btn = page
+            .getByRole("button", { name: /Storage map/i })
+            .first();
+          if (await btn.count()) {
+            await btn.click({ timeout: 3000 });
+          }
+        }
+        await page.waitForTimeout(1000);
+      } catch (err) {
+        console.warn(`  ⚠ inventory-storage-map: ${err.message}`);
+      }
+    },
+  },
+
+  // ──────────────────────────────────────────────────────────────────────────
+  // BeakerBot shots.
+  // AI_ASSISTANT_ENABLED=1 + NEXT_PUBLIC_DEV_AI_IN_DEMO=1 are both set in
+  // .env.local, so canUseAI is satisfied. The fixture signs in as alex.
+  // ──────────────────────────────────────────────────────────────────────────
+
+  {
+    // The BeakerBot composer with a "/slash" menu open. Navigate to home,
+    // open the BeakerBot panel via the bottom-bar "Cmd J" button, type "/",
+    // wait for the slash command list to appear, then capture.
+    path: "/",
+    file: "beakerbot-composer.png",
+    waitFor: "text=Research Project Overview",
+    settleMs: 800,
+    action: async (page) => {
+      try {
+        // Click the "Ask BeakerBot AI" button in the bottom bar (aria-label).
+        const aiBtn = page
+          .locator('[aria-label="Ask BeakerBot AI"]')
+          .first();
+        if (await aiBtn.count()) {
+          await aiBtn.click({ timeout: 3000 });
+        } else {
+          // Fallback: Cmd J keyboard shortcut.
+          await page.keyboard.press("Meta+j");
+        }
+        // Wait for the beakerbot-surface / input to mount.
+        await page
+          .waitForSelector('[data-testid="beakerbot-input"]', {
+            timeout: 8000,
+          })
+          .catch(() => {});
+        await page.waitForTimeout(600);
+        // Type "/" to open the slash command menu.
+        const input = page
+          .locator('[data-testid="beakerbot-input"]')
+          .first();
+        if (await input.count()) {
+          await input.click({ timeout: 3000 });
+          await input.type("/", { delay: 50 });
+          // Wait for the slash menu to appear.
+          await page
+            .waitForSelector('[data-testid="beakersearch-review-plan"], text=/propose_plan/', {
+              timeout: 4000,
+            })
+            .catch(() => {});
+          await page.waitForTimeout(500);
+        }
+      } catch (err) {
+        console.warn(`  ⚠ beakerbot-composer: ${err.message}`);
+      }
+    },
+  },
+
+  // ──────────────────────────────────────────────────────────────────────────
+  // Phylo shots.
+  // ──────────────────────────────────────────────────────────────────────────
+
+  {
+    // Phylo Studio Shape tab with "Branch color by" set to a metadata column.
+    // The fixture tree (doc=1) has metadata columns: CLADE, COUNTRY, FCZ, etc.
+    // Open Shape tab, set the "Branch color by" <select> to "CLADE".
+    path: "/phylo?doc=1",
+    file: "phylo-studio-branch-color.png",
+    waitFor: "text=Build a tree, svg",
+    settleMs: 2000,
+    action: async (page) => {
+      try {
+        // Open the Shape tab.
+        await page.getByText(/^Shape$/).first().click({ timeout: 3000 });
+        await page.waitForTimeout(700);
+        // Find the "Branch color by" label then its associated <select>.
+        const branchLabel = page.getByText(/Branch color by/i).first();
+        if (await branchLabel.count()) {
+          await branchLabel
+            .scrollIntoViewIfNeeded({ timeout: 3000 })
+            .catch(() => {});
+          // The <select> is a sibling of the label span inside a <label> element.
+          const sel = branchLabel.locator("xpath=../select").first();
+          if (await sel.count()) {
+            await sel.selectOption("CLADE", { timeout: 3000 }).catch(async () => {
+              // Fallback: pick the first non-empty option.
+              const options = await sel.locator("option").all();
+              for (const opt of options) {
+                const val = await opt.getAttribute("value");
+                if (val && val !== "") {
+                  await sel.selectOption(val, { timeout: 2000 }).catch(() => {});
+                  break;
+                }
+              }
+            });
+            await page.waitForTimeout(1200);
+          }
+        }
+      } catch (err) {
+        console.warn(`  ⚠ phylo-studio-branch-color: ${err.message}`);
+      }
+    },
+  },
+
 ];
 
 /** Hide dev/beta UI that distracts from docs. Re-applied per page.
