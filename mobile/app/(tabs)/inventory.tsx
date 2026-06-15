@@ -19,6 +19,7 @@ import { useFocusEffect, useRouter } from 'expo-router';
 
 import { ThemedText } from '@/components/themed-text';
 import { ScreenFrame } from '@/components/ui/ScreenFrame';
+import { Shimmer } from '@/components/ui/Shimmer';
 import { useUnreadNotificationCount } from '@/lib/unread-notifications';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
@@ -253,7 +254,7 @@ function ScanHeroCard({ onPress }: { onPress: () => void }) {
         colors={[palette.sky, '#39b4ff']}
         start={{ x: 0.15, y: 0 }}
         end={{ x: 0.85, y: 1 }}
-        style={[styles.scanHero, { borderRadius: radii.lg }]}
+        style={[styles.scanHero, { borderRadius: radii.lg, overflow: 'hidden' }]}
       >
         <View style={styles.scanHeroIcon}>
           <Ionicons name="scan-outline" size={26} color={palette.white} />
@@ -265,6 +266,8 @@ function ScanHeroCard({ onPress }: { onPress: () => void }) {
           </ThemedText>
         </View>
         <Ionicons name="chevron-forward" size={20} color="rgba(255,255,255,0.92)" />
+        {/* High-polish touch: a slow, subtle left→right glint every few seconds. */}
+        <Shimmer borderRadius={radii.lg} />
       </LinearGradient>
     </Pressable>
   );
