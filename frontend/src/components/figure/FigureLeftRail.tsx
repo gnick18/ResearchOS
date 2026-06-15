@@ -17,6 +17,14 @@ import {
   type LibraryAsset,
 } from "@/lib/figure/asset-library";
 import type { FigurePage, TextVariant } from "@/lib/figure/figure-page";
+import type { ElementRef } from "@/lib/figure/figure-arrange";
+
+/** One row in the Layers panel (computed by the composer in render/z order). */
+export interface LayerItem {
+  ref: ElementRef;
+  label: string;
+  icon: IconName;
+}
 
 export type RailSection =
   | "figures"
@@ -48,6 +56,10 @@ export default function FigureLeftRail({
   onOpenPage,
   onNewPage,
   onAddFigure,
+  layers,
+  selectedKeys,
+  onSelectLayer,
+  onReorderLayer,
 }: {
   tool: null | "text" | "arrow" | "bracket" | "connect";
   setTool: (t: null | "text" | "arrow" | "bracket" | "connect") => void;
@@ -59,6 +71,10 @@ export default function FigureLeftRail({
   onOpenPage: (id: string) => void;
   onNewPage: () => void;
   onAddFigure: () => void;
+  layers: LayerItem[];
+  selectedKeys: Set<string>;
+  onSelectLayer: (ref: ElementRef) => void;
+  onReorderLayer: (ref: ElementRef, dir: "up" | "down") => void;
 }) {
   // Default to Icons (the library is the headline of this rail).
   const [section, setSection] = useState<RailSection>("icons");
@@ -139,7 +155,12 @@ export default function FigureLeftRail({
           />
         )}
         {section === "layers" && (
-          <ComingSoon title="Layers" note="Reorder, lock, and rename every element on the page." />
+          <LayersPanel
+            layers={layers}
+            selectedKeys={selectedKeys}
+            onSelect={onSelectLayer}
+            onReorder={onReorderLayer}
+          />
         )}
       </div>
     </div>
@@ -295,6 +316,69 @@ function FiguresPanel({
           </button>
         ))}
       </div>
+    </>
+  );
+}
+
+function LayersPanel({
+  layers,
+  selectedKeys,
+  onSelect,
+  onReorder,
+}: {
+  layers: LayerItem[];
+  selectedKeys: Set<string>;
+  onSelect: (ref: ElementRef) => void;
+  onReorder: (ref: ElementRef, dir: "up" | "down") => void;
+}) {
+  return (
+    <>
+      <PanelHead>Layers</PanelHead>
+      {layers.length === 0 ? (
+        <p className="text-meta text-foreground-faint">
+          Nothing on the page yet. Add a figure or an icon.
+        </p>
+      ) : (
+        <div className="min-h-0 flex-1 space-y-1 overflow-auto">
+          {layers.map((it, i) => {
+            const key = `${it.ref.kind}:${it.ref.id}`;
+            const sel = selectedKeys.has(key);
+            return (
+              <div
+                key={key}
+                className={`flex items-center gap-1 rounded-lg border px-1.5 py-1 text-meta ${sel ? "border-brand-action bg-brand-action/10" : "border-border hover:border-brand-action"}`}
+              >
+                <button
+                  type="button"
+                  onClick={() => onSelect(it.ref)}
+                  className="flex min-w-0 flex-1 items-center gap-1.5 text-left"
+                >
+                  <Icon name={it.icon} className="h-3.5 w-3.5 shrink-0 text-foreground-muted" />
+                  <span className="min-w-0 flex-1 truncate">{it.label}</span>
+                </button>
+                <button
+                  type="button"
+                  title="Bring forward"
+                  disabled={i === 0}
+                  onClick={() => onReorder(it.ref, "up")}
+                  className="shrink-0 text-foreground-faint hover:text-foreground disabled:opacity-30"
+                >
+                  <Icon name="chevronDown" className="h-3.5 w-3.5 rotate-180" />
+                </button>
+                <button
+                  type="button"
+                  title="Send backward"
+                  disabled={i === layers.length - 1}
+                  onClick={() => onReorder(it.ref, "down")}
+                  className="shrink-0 text-foreground-faint hover:text-foreground disabled:opacity-30"
+                >
+                  <Icon name="chevronDown" className="h-3.5 w-3.5" />
+                </button>
+              </div>
+            );
+          })}
+        </div>
+      )}
     </>
   );
 }

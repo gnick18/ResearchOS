@@ -84,7 +84,7 @@ import {
   createFigurePageDoc,
   listFigurePages,
 } from "@/lib/figure/figure-page-store";
-import FigureLeftRail from "@/components/figure/FigureLeftRail";
+import FigureLeftRail, { type LayerItem } from "@/components/figure/FigureLeftRail";
 import {
   composeFigurePageSvg,
   annotationLayerSvg,
@@ -695,6 +695,22 @@ export default function FigureComposer({ pageId }: { pageId: string }) {
   const pageW = wIn * scale;
   const pageH = hIn * scale;
 
+  // Layers panel: every element, front-most first (top of the list = front).
+  const layerItems: LayerItem[] = [...listElements(page)].reverse().map((ref) => {
+    if (ref.kind === "panel") {
+      const lab = labels.get(ref.id);
+      return { ref, label: lab ? `Panel ${lab}` : "Panel", icon: "figure" };
+    }
+    if (ref.kind === "asset") {
+      return { ref, label: "Icon", icon: "library" };
+    }
+    const a = page.annotations.find((x) => x.annId === ref.id);
+    const label =
+      a?.kind === "text" ? a.text || "Text" : a?.kind === "arrow" ? "Arrow" : "Bracket";
+    return { ref, label, icon: a?.kind === "text" ? "text" : "annotate" };
+  });
+  const selectedKeys = new Set(selection.map((r) => `${r.kind}:${r.id}`));
+
   const placeAnnotation = (xIn: number, yIn: number) => {
     if (!tool) return;
     const annId = `a${page.id}-${Date.now().toString(36)}`;
@@ -821,6 +837,15 @@ export default function FigureComposer({ pageId }: { pageId: string }) {
             router.push(`/figures/${created.id}`);
           }}
           onAddFigure={() => setPickerOpen(true)}
+          layers={layerItems}
+          selectedKeys={selectedKeys}
+          onSelectLayer={(ref) => {
+            setSelectedConn(null);
+            setSelection([ref]);
+          }}
+          onReorderLayer={(ref, dir) =>
+            mutate((p) => (dir === "up" ? bringForward(p, ref) : sendBackward(p, ref)), true)
+          }
         />
       )}
       <div className="flex min-w-0 flex-1 flex-col overflow-hidden rounded-2xl border border-border bg-surface-sunken">
