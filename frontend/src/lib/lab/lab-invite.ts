@@ -36,6 +36,13 @@ export interface LabInvitePayload {
   labId: string;
   /** Display only: the head's username, shown to the member before they accept. */
   headUsername: string;
+  /** Display only: the lab's name, shown on the branded join welcome. NOT part of
+   *  canonicalInviteMessage (cosmetic, exactly like headUsername); the relay's
+   *  open /lab/profile/get is the source of truth, this is just an instant first
+   *  paint before that fetch lands. Optional for backward compatibility. */
+  labName?: string;
+  /** Display only: the PI's title (Dr. / Prof. / ...). Cosmetic, see labName. */
+  piTitle?: string;
   /** Hex Ed25519 head pubkey. The member cross-checks this against the lab
    *  record's head before trusting the invite. */
   headEd25519Pub: string;
@@ -77,13 +84,17 @@ export function mintLabInvite(params: {
   headEd25519Priv: Uint8Array;
   expiresAt: number;
   nonce?: string;
+  /** Display only, cosmetic. Carried into the payload but NOT signed. */
+  labName?: string;
+  /** Display only, cosmetic. Carried into the payload but NOT signed. */
+  piTitle?: string;
 }): LabInvitePayload {
   const nonce = params.nonce ?? bytesToHex(randomBytes(32));
   const message = new TextEncoder().encode(
     canonicalInviteMessage({ labId: params.labId, nonce, expiresAt: params.expiresAt }),
   );
   const sig = bytesToHex(ed25519.sign(message, params.headEd25519Priv));
-  return {
+  const payload: LabInvitePayload = {
     labId: params.labId,
     headUsername: params.headUsername,
     headEd25519Pub: params.headEd25519Pub,
@@ -92,6 +103,11 @@ export function mintLabInvite(params: {
     expiresAt: params.expiresAt,
     sig,
   };
+  // Only include the display fields when present, so an invite without branding
+  // serializes to the same shape it did before this feature.
+  if (params.labName) payload.labName = params.labName;
+  if (params.piTitle) payload.piTitle = params.piTitle;
+  return payload;
 }
 
 /**

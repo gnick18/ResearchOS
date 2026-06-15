@@ -124,3 +124,37 @@ describe("encodeInviteLink + decodeInviteFragment", () => {
     expect(decodeInviteFragment(partial)).toBeNull();
   });
 });
+
+describe("lab identity branding (display-only fields)", () => {
+  it("omits labName/piTitle when not supplied (backward-compatible shape)", () => {
+    const inv = mint();
+    expect("labName" in inv).toBe(false);
+    expect("piTitle" in inv).toBe(false);
+  });
+
+  it("carries labName + piTitle and round-trips them through the link", () => {
+    const inv = mint({ labName: "Fungal Interactions Lab", piTitle: "Dr." });
+    expect(inv.labName).toBe("Fungal Interactions Lab");
+    expect(inv.piTitle).toBe("Dr.");
+    const frag = encodeInviteLink("https://x", inv).split("#")[1];
+    const decoded = decodeInviteFragment(frag);
+    expect(decoded?.labName).toBe("Fungal Interactions Lab");
+    expect(decoded?.piTitle).toBe("Dr.");
+  });
+
+  it("does NOT sign the display fields (they are cosmetic, not in the canonical message)", () => {
+    // The canonical message is labId + nonce + expiresAt only. Tampering labName
+    // must therefore leave the signature valid (it is display only).
+    const inv = mint({ labName: "Fungal Interactions Lab" });
+    expect(verifyInviteSignature(inv)).toBe(true);
+    const tampered = { ...inv, labName: "Some Other Lab" };
+    expect(verifyInviteSignature(tampered)).toBe(true);
+    // Proof the canonical message ignores labName.
+    const msg = canonicalInviteMessage({
+      labId: inv.labId,
+      nonce: inv.nonce,
+      expiresAt: inv.expiresAt,
+    });
+    expect(msg.includes("Fungal")).toBe(false);
+  });
+});
