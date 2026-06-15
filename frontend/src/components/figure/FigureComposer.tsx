@@ -701,8 +701,11 @@ export default function FigureComposer({ pageId }: { pageId: string }) {
   // Place a picked library asset centered on the page, and load its SVG.
   const placeIcon = (asset: LibraryAsset) => {
     const sizeIn = 1.2;
-    const xIn = Math.max(0, wIn / 2 - sizeIn / 2);
-    const yIn = Math.max(0, hIn / 2 - sizeIn / 2);
+    // Cascade each new icon down-right so consecutive placements do not stack
+    // exactly on top of each other (wrapping before it runs off the page).
+    const step = (pageAssets(page).length % 6) * 0.3;
+    const xIn = Math.max(0, Math.min(wIn - sizeIn, wIn / 2 - sizeIn / 2 + step));
+    const yIn = Math.max(0, Math.min(hIn - sizeIn, hIn / 2 - sizeIn / 2 + step));
     const assetId = `ic${page.id}-${Date.now().toString(36)}`;
     const placed = makePlacedAsset(
       assetId,
@@ -738,6 +741,9 @@ export default function FigureComposer({ pageId }: { pageId: string }) {
   const selectedConnObj = selectedConn
     ? pageConnectors(page).find((c) => c.connId === selectedConn) ?? null
     : null;
+
+  // Asset ids within a multi-selection, for bulk recolor.
+  const selAssetIds = selection.filter((r) => r.kind === "asset").map((r) => r.id);
 
   // A static, non-interactive thumbnail of the page for the ZoomPanCanvas minimap
   // (panels + placed icons, no handlers). Without this the minimap shows just the
@@ -1277,6 +1283,47 @@ export default function FigureComposer({ pageId }: { pageId: string }) {
             </div>
           )}
         </div>
+
+        {/* Bulk actions on a multi-selection (Phase 3): recolor every selected icon
+            at once, the fastest way to make a figure's icons look coherent. */}
+        {selection.length >= 2 && (
+          <div className="rounded-xl border border-border p-3">
+            <h3 className="mb-2 text-meta font-bold uppercase tracking-wide text-foreground-faint">
+              {selection.length} selected
+            </h3>
+            {selAssetIds.length > 0 ? (
+              <div className="flex flex-wrap items-center gap-1.5">
+                <span className="text-meta text-foreground-muted">
+                  Recolor {selAssetIds.length} icon{selAssetIds.length === 1 ? "" : "s"}
+                </span>
+                {["", "#2563eb", "#16a34a", "#dc2626", "#b9770f", "#6d28d9", "#0f172a"].map((c) => (
+                  <button
+                    key={c || "none"}
+                    type="button"
+                    aria-label={c ? `Recolor all to ${c}` : "Reset all to original"}
+                    onClick={() =>
+                      mutate((p) => {
+                        let np = p;
+                        for (const id of selAssetIds)
+                          np = updatePlacedAsset(np, id, { tint: c || undefined, fillTints: undefined });
+                        return np;
+                      }, true)
+                    }
+                    className="h-5 w-5 rounded border border-border"
+                    style={c ? { background: c } : undefined}
+                    title={c ? c : "Original colors"}
+                  >
+                    {c ? "" : <Icon name="close" className="h-3 w-3 text-foreground-muted" />}
+                  </button>
+                ))}
+              </div>
+            ) : (
+              <p className="text-meta text-foreground-faint">
+                Use the bar above the canvas to align, distribute, or reorder.
+              </p>
+            )}
+          </div>
+        )}
 
         {selected &&
           (() => {
