@@ -160,6 +160,10 @@ interface InlineMarkdownEditorProps {
   /** Fluid ch-based measure class (Narrow / Comfortable / Wide / Full-bleed),
    *  mirroring how LiveMarkdownEditor centers the preview + focus surfaces. */
   measureClass?: string;
+  /** True when the host popup is in focus mode (fullscreen). Lifts the writing
+   *  column onto a page shadow so it reads as a sheet; the docked editor keeps
+   *  its flat box. */
+  expanded?: boolean;
   /** Chip 2b: the directory a relative image src (Images/...) resolves against,
    *  so the inline image widget mints the same blob URL the preview does. When
    *  unset the blobUrlResolver falls back to the data root (wrapper parity). */
@@ -403,6 +407,7 @@ export default function InlineMarkdownEditor({
   onExplicitSave,
   onDirtyChange,
   measureClass,
+  expanded = false,
   imageBasePath,
   embedPinContext,
   loroHandle,
@@ -1150,7 +1155,9 @@ export default function InlineMarkdownEditor({
         <div
           ref={hostRef}
           data-testid="inline-markdown-editor"
-          className="cm-inline-editor light-scope min-h-[12rem] rounded-md border border-border bg-surface-raised"
+          className={`cm-inline-editor light-scope min-h-[12rem] rounded-md border border-border bg-surface-raised ${
+            expanded ? "ros-page-shadow" : ""
+          }`}
         />
         {!loaded && (
           <p className="px-6 py-4 text-body text-foreground-muted italic">

@@ -949,6 +949,18 @@
   box-shadow: 0 6px 8px -6px rgba(190, 205, 235, 0.16);
 }
 
+/* .ros-page-shadow: a full elevated box shadow so the focus-mode writing column
+ * reads as a sheet of PAGE floating on the writing-room surface (a close hairline
+ * contact shadow + a soft wide lift). Pairs with the column's existing border +
+ * raised fill. Dark recolors to the bluish-white edge so it stays visible on the
+ * dark room. Applied only at fullscreen (the docked editor keeps its flat box). */
+.ros-page-shadow {
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.07), 0 14px 36px -10px rgba(15, 23, 42, 0.2);
+}
+[data-theme="dark"] .ros-page-shadow {
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.4), 0 14px 36px -10px rgba(190, 205, 235, 0.12);
+}
+
 /* Hide the native scrollbar on a viewport that uses the custom overlay thumb
  * (ScrollArea). The component draws its own pill thumb on top. */
 .ros-hide-native-scroll { scrollbar-width: none; }

@@ -2695,7 +2695,9 @@ export default function LiveMarkdownEditor({
             <div className="p-4 h-full overflow-y-auto">
               {previewValue.trim() ? (
                 <div
-                  className={`ros-editor-preview-card light-scope prose prose-sm prose-gray ${measureClass} px-6 py-4 rounded-md border border-border bg-surface-raised`}
+                  className={`ros-editor-preview-card light-scope prose prose-sm prose-gray ${measureClass} px-6 py-4 rounded-md border border-border bg-surface-raised ${
+                    expanded ? "ros-page-shadow" : ""
+                  }`}
                   style={{ lineHeight: "1.7" }}
                 >
                   {/* Preview render path: RenderedMarkdown handles object
@@ -2770,6 +2772,7 @@ export default function LiveMarkdownEditor({
                   onExplicitSave={onExplicitSave}
                   onDirtyChange={onDirtyChange}
                   measureClass={measureClass}
+                  expanded={expanded}
                   imageBasePath={imageBasePath}
                   loroHandle={loroHandle}
                   loroEntryIndex={loroEntryIndex}
