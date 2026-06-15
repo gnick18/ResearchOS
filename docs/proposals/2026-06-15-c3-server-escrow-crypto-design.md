@@ -1,6 +1,6 @@
 # C3 — Hybrid Server Escrow + OAuth-Gated Key Reissue: Crypto Design & Threat Model
 
-**Status:** Design for review — NO CODE. This is the security sign-off gate for Phase C3 of the account/folder/identity redesign.
+**Status:** Design APPROVED 2026-06-15 (Grant signed off §5.1 SEK custody + §5.2–5.5). Build is now unblocked on an isolated branch (NOT shared `main`); flag-on stays gated on the post-build security pass (§7.7). This was the security sign-off gate for Phase C3.
 **Date:** 2026-06-15
 **Author:** Popup Unifier / Account-Folder-Identity lane (de-facto identity-lane owner this cohort).
 **Reviewer:** Grant (there is no separate security team; for <10 beta users Grant is the reviewer of record).
@@ -117,21 +117,22 @@ On account setup / first publish, IF the user is on the default (recoverable) ti
 
    **Upgrade path:** start free with (B) and move to (A) later without changing the envelope-encryption shape — both wrap the same per-user DEKs, so swapping the SEK custody backend re-wraps only the small DEKs, not the blobs. A managed KMS (AWS/GCP) slots in *behind* the same Cloudflare reissue Worker, so picking (B) now does not lock us out of HSM-grade custody later.
 
-2. **Step-up auth before reissue?** Require a *fresh* OAuth (`max_age`/recent-auth) and/or a provider second factor before honoring a reissue, to blunt stolen-session takeover. Recommended yes.
+2. **Step-up auth before reissue? — LOCKED 2026-06-15: require fresh re-auth.** A reissue requires a *fresh* OAuth (`max_age`/recent-auth), not merely a live session, to blunt stolen-session / lingering-cookie takeover. (Provider 2FA was considered and not required, since it depends on the user having enabled it at the provider; fresh re-auth is the floor.)
 
-3. **Notify + delay?** Mandatory user notification on every reissue (recommended yes). Optional 24–72h "tripwire" delay with a cancel link (Apple-style) so a victim can abort an attacker's reissue. Decision: delay on/off for beta.
+3. **Notify + delay? — LOCKED 2026-06-15: notify + 48h cancel-delay.** Every reissue notifies the user immediately and holds the key for ~48h with a one-click cancel link (Apple-style tripwire) before releasing it, so a victim of an account-takeover can abort the attacker's reissue. (Notification is mandatory in all cases; the 48h hold is the default — a future "skip on a trusted device" option can be added but is not in the beta scope.)
 
-4. **Default tier truly the default?** The locked decision says yes (recoverable = default, strict = opt-in). Confirm we ship beta with default=recoverable, or beta-conservative with default=strict until escrow is battle-tested. (I lean: beta default = **strict** since strict is already built and zero-new-risk, then flip default to recoverable once §5.1 custody is in place and reviewed. This sequences risk.)
+4. **Default tier truly the default? — LOCKED 2026-06-15: beta default = STRICT.** Ship beta with strict/zero-knowledge as the default (already built today, zero new risk), and flip the default to recoverable only after the Cloudflare SEK is provisioned and this design's build is reviewed. The recoverable tier remains the locked *end-state* default (parent proposal decision #2); this is purely a risk-sequencing choice for beta, not a reversal.
 
-5. **Provider binding.** Reissue should require the *same* provider/email that enrolled (we already store `provider` in the session and `email_hash`). Confirm: lock reissue to the enrolled email_hash; ORCID-only logins (no email) cannot use the email-keyed escrow — they stay strict-tier.
+5. **Provider binding — LOCKED 2026-06-15: lock to the enrolled email.** Reissue is only honored via the same email/provider that enrolled the escrow (we already store `provider` in the session and key by `email_hash`). ORCID-only logins (no email) cannot use the email-keyed escrow and stay strict-tier. This keeps the reissue attack surface to the single enrolled identity rather than the weakest of several linked providers.
 
 ---
 
 ## 6. What is and isn't blocked
 
-- **NOT blocked (safe now):** this design doc; the C4 tier-toggle UI/labeling (it surfaces a choice between two already-coherent postures, strict = existing); continuing C5 cross-device restore *for the strict path only* (recovery-code unwrap of the existing my-backup blob — no new server secret).
-- **Blocked on your sign-off (this doc):** anything that creates the `directory_escrow` table, the SEK, or the reissue route — i.e. the default-tier escrow itself.
-- **Hard rule:** none of the C3 backend lands on shared `main` (per the single-shared-checkout reframe, a main commit publishes to origin). It is built on an isolated branch/worktree, behind the flag, and merged only after sign-off + a deploy plan for the SEK.
+- **Design sign-off: DONE (2026-06-15).** §5 all locked. Building the default-tier escrow is now unblocked, on the conditions below.
+- **Still gated:** **flag-on / deploy** is gated on the post-build security pass (§7.7) + SEK provisioning. Building the code is fine; turning it on for real users is the remaining gate.
+- **Hard rule (unchanged):** none of the C3 backend lands on shared `main` (per the single-shared-checkout reframe, a main commit publishes to origin). It is built on an isolated branch/worktree, behind the flag, and merged only after the post-build security pass + the SEK deploy plan. The Cloudflare SEK Worker is its own deploy in its own trust domain.
+- **Independently safe (no escrow dependency):** the C4 tier-toggle UI/labeling (surfaces strict vs recoverable; strict = existing) and C5 cross-device restore *for the strict path only* (recovery-code unwrap of the existing my-backup blob).
 
 ## 7. Build plan (unlocked by sign-off)
 
