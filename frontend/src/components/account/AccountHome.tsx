@@ -13,6 +13,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { getSession } from "next-auth/react";
 import { useFileSystem } from "@/lib/file-system/file-system-context";
+import { ONBOARDING_WIZARD_ENABLED } from "@/lib/onboarding/config";
 import { isDeviceKeyV2Enabled } from "@/lib/sharing/identity/device-key-v2";
 import { loadKeysAtRest } from "@/lib/sharing/identity/device-vault";
 import { getSessionIdentity } from "@/lib/sharing/identity/session-key";
@@ -498,6 +499,24 @@ export default function AccountHome() {
                     ? "Point us to your folder"
                     : "Connect a data folder"}
             </button>
+            {/*
+              Go-live (gated by NEXT_PUBLIC_ONBOARDING_WIZARD): a permanent escape
+              to the read-only /demo workspace so a signed-in user without a
+              folder is never stuck on this card. Hidden while the flag is off so
+              the merge changes nothing until launch.
+            */}
+            {ONBOARDING_WIZARD_ENABLED && (
+              <p className="mt-3 text-meta text-foreground-muted">
+                Not ready to pick a folder?{" "}
+                <a
+                  href="/demo"
+                  data-testid="account-home-try-demo"
+                  className="font-semibold text-brand-action hover:underline"
+                >
+                  Try the demo instead
+                </a>
+              </p>
+            )}
           </>
         )}
       </div>

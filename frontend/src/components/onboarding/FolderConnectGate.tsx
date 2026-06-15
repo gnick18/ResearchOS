@@ -30,6 +30,7 @@ import {
   isFileSystemAccessSupported,
 } from "@/lib/file-system/file-system-context";
 import BrowserNotSupported from "@/components/BrowserNotSupported";
+import { ONBOARDING_WIZARD_ENABLED } from "@/lib/onboarding/config";
 import BetaDonationButton from "@/components/BetaDonationButton";
 import FeedbackModal from "@/components/FeedbackModal";
 import BeakerBot from "@/components/BeakerBot";
@@ -451,20 +452,23 @@ export default function FolderConnectGate({
         )}
 
         {/*
-          Go-live: a permanent escape off the folder gate to the read-only /demo
-          workspace, so a user who is not ready to connect a folder is never
-          trapped here (no soft-locks). The demo loads the starter yeast lab.
+          Go-live (gated by NEXT_PUBLIC_ONBOARDING_WIZARD): a permanent escape off
+          the folder gate to the read-only /demo workspace, so a user who is not
+          ready to connect a folder is never trapped here (no soft-locks). Hidden
+          while the flag is off so the merge changes nothing until launch.
         */}
-        <p className="mt-6 text-center text-meta text-foreground-muted">
-          Not ready to pick a folder?{" "}
-          <a
-            href="/demo"
-            data-testid="gate-try-demo"
-            className="font-semibold text-[#1283c9] hover:underline"
-          >
-            Try the demo instead
-          </a>
-        </p>
+        {ONBOARDING_WIZARD_ENABLED && (
+          <p className="mt-6 text-center text-meta text-foreground-muted">
+            Not ready to pick a folder?{" "}
+            <a
+              href="/demo"
+              data-testid="gate-try-demo"
+              className="font-semibold text-[#1283c9] hover:underline"
+            >
+              Try the demo instead
+            </a>
+          </p>
+        )}
 
         <GateFooter onBugReport={openBugReport} />
       </div>
