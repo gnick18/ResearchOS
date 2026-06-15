@@ -21,7 +21,8 @@
 // the primary CTA uses .bg-brand-action text-white transition-colors hover:bg-brand-action/90, <Icon> only, no emojis / em-dashes /
 // mid-sentence colons.
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import FileDropzone from "@/components/ui/FileDropzone";
 import type { Project } from "@/lib/types";
 import type { ColumnDef, RowRecord } from "@/lib/datahub/model/types";
 import { importTextToTable, isXlsxFile } from "@/lib/datahub/import-table";
@@ -68,7 +69,6 @@ export default function ImportTableDialog({
   const [sheets, setSheets] = useState<SheetGrid[]>([]);
   const [sheetIndex, setSheetIndex] = useState(0);
   const [xlsxBusy, setXlsxBusy] = useState(false);
-  const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   // Reset the form each open so a prior draft never lingers, and seed the
   // collection from the active rail filter.
@@ -286,31 +286,22 @@ export default function ImportTableDialog({
             className="mt-1 w-full resize-y rounded-md border border-border bg-surface-raised px-2.5 py-2 font-mono text-meta text-foreground placeholder:text-foreground-muted focus:border-sky-400 focus:outline-none"
           />
 
-          <div className="mt-2 flex flex-wrap items-center gap-2">
-            <button
-              type="button"
-              onClick={() => fileInputRef.current?.click()}
-              disabled={xlsxBusy}
-              className="rounded-md border border-border px-2.5 py-1.5 text-meta font-medium text-foreground transition-colors hover:bg-surface-sunken disabled:opacity-50"
-            >
-              {xlsxBusy ? "Reading workbook..." : "Choose a file"}
-            </button>
-            <input
-              ref={fileInputRef}
-              type="file"
+          <div className="mt-2">
+            <FileDropzone
               accept=".csv,.tsv,.txt,text/csv,text/tab-separated-values,text/plain,.xlsx,.xls,.xlsm,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel"
-              className="hidden"
-              data-testid="datahub-import-file"
-              onChange={(e) => {
-                void handleFile(e.target.files?.[0] ?? null);
-                // Allow re-picking the same file.
-                e.currentTarget.value = "";
+              onFiles={(files) => {
+                void handleFile(files[0] ?? null);
               }}
+              onReject={(message) => setFileNote(message)}
+              disabled={xlsxBusy}
+              label={xlsxBusy ? "Reading workbook..." : undefined}
+              hint="CSV, TSV, Excel"
+              ariaLabel="Choose a file to import"
             />
-            <span className="text-meta text-foreground-muted">
+            <p className="mt-2 text-meta text-foreground-muted">
               CSV, TSV, TXT, or an Excel workbook (.xlsx). Everything is read in
               the browser, your data never leaves your machine.
-            </span>
+            </p>
           </div>
 
           {fileNote && (

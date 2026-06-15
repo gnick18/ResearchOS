@@ -14,9 +14,10 @@
 // only, brand + semantic dark-mode tokens, Tooltip on icon-only buttons, no
 // emojis / em-dashes / mid-sentence colons.
 
-import { useMemo, useRef, useState } from "react";
+import { useMemo, useState } from "react";
 
 import { Icon } from "@/components/icons";
+import FileDropzone from "@/components/ui/FileDropzone";
 import { inventoryItemsApi, inventoryStocksApi } from "@/lib/local-api";
 import type { InventoryItem } from "@/lib/types";
 import {
@@ -68,7 +69,6 @@ export default function ImportInventoryDialog({
   const [importing, setImporting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<ImportResult | null>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const parsed = useMemo(() => parseTable(text), [text]);
 
@@ -223,8 +223,8 @@ export default function ImportInventoryDialog({
           text={text}
           onText={setText}
           onLoadSample={loadSample}
-          fileInputRef={fileInputRef}
           onFile={onFile}
+          onReject={setError}
         />
       )}
 
@@ -386,14 +386,14 @@ function PasteStep({
   text,
   onText,
   onLoadSample,
-  fileInputRef,
   onFile,
+  onReject,
 }: {
   text: string;
   onText: (v: string) => void;
   onLoadSample: () => void;
-  fileInputRef: React.RefObject<HTMLInputElement | null>;
   onFile: (f: File | null) => void;
+  onReject: (message: string) => void;
 }) {
   return (
     <div className="mt-4">
@@ -415,20 +415,12 @@ function PasteStep({
         <span className="h-px flex-1 bg-border" />
       </div>
 
-      <button
-        type="button"
-        onClick={() => fileInputRef.current?.click()}
-        className="flex w-full items-center justify-center gap-2 rounded-lg border border-dashed border-border px-4 py-3 text-meta text-foreground-muted hover:bg-surface-sunken hover:text-foreground"
-      >
-        <Icon name="import" className="h-4 w-4" />
-        Choose a CSV file
-      </button>
-      <input
-        ref={fileInputRef}
-        type="file"
+      <FileDropzone
         accept=".csv,.tsv,.txt,text/csv,text/tab-separated-values,text/plain"
-        className="hidden"
-        onChange={(e) => onFile(e.target.files?.[0] ?? null)}
+        onFiles={(files) => onFile(files[0] ?? null)}
+        onReject={onReject}
+        label="Choose a CSV file"
+        hint="CSV, TSV"
       />
 
       <div className="mt-3 flex items-center justify-between gap-2">

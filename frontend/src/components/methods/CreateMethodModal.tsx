@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useUnsavedChangesGuard } from "@/hooks/useUnsavedChangesGuard";
 import LivingPopup from "@/components/ui/LivingPopup";
+import FileDropzone from "@/components/ui/FileDropzone";
 import {
   methodsApi as rawMethodsApi,
   filesApi,
@@ -229,7 +230,6 @@ export function CreateMethodModal({
 
   // PDF state
   const [pdfFile, setPdfFile] = useState<File | null>(null);
-  const pdfInputRef = useRef<HTMLInputElement>(null);
 
   // PCR state — standard PCR cycling defaults; user adjusts after Create.
   const [pcrGradient, setPcrGradient] = useState<PCRGradient>({
@@ -957,46 +957,34 @@ export function CreateMethodModal({
                 <label className="block text-meta font-medium text-foreground-muted mb-2">
                   Upload PDF
                 </label>
-                <div
-                  onClick={() => pdfInputRef.current?.click()}
-                  className="border-2 border-dashed border-border rounded-lg p-8 text-center cursor-pointer hover:border-blue-400 hover:bg-blue-50 dark:hover:bg-brand-action/10 transition-colors"
-                >
-                  {pdfFile ? (
-                    <div>
-                      <p className="text-body font-medium text-foreground">
-                        {pdfFile.name}
-                      </p>
-                      <p className="text-meta text-foreground-muted mt-1">
-                        {(pdfFile.size / 1024 / 1024).toFixed(2)} MB
-                      </p>
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setPdfFile(null);
-                        }}
-                        className="mt-2 text-meta text-red-500 hover:text-red-700 dark:hover:text-red-300"
-                      >
-                        Remove
-                      </button>
-                    </div>
-                  ) : (
-                    <div>
-                      <p className="text-body text-foreground-muted">
-                        Click to select a PDF file
-                      </p>
-                    </div>
-                  )}
-                </div>
-                <input
-                  ref={pdfInputRef}
-                  type="file"
-                  accept=".pdf"
-                  className="hidden"
-                  onChange={(e) => {
-                    if (e.target.files?.[0]) setPdfFile(e.target.files[0]);
-                  }}
-                />
+                {pdfFile ? (
+                  <div className="border-2 border-dashed border-border rounded-lg p-8 text-center">
+                    <p className="text-body font-medium text-foreground">
+                      {pdfFile.name}
+                    </p>
+                    <p className="text-meta text-foreground-muted mt-1">
+                      {(pdfFile.size / 1024 / 1024).toFixed(2)} MB
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => setPdfFile(null)}
+                      className="mt-2 text-meta text-red-500 hover:text-red-700 dark:hover:text-red-300"
+                    >
+                      Remove
+                    </button>
+                  </div>
+                ) : (
+                  <FileDropzone
+                    accept=".pdf"
+                    hint="PDF"
+                    icon="file"
+                    ariaLabel="Upload PDF"
+                    onFiles={(files) => {
+                      if (files[0]) setPdfFile(files[0]);
+                    }}
+                    onReject={setUploadWarning}
+                  />
+                )}
                 <p className="text-meta text-foreground-muted mt-2">
                   PDF methods can be viewed but not edited inline. Step
                   deviations will be saved as a separate Markdown file.

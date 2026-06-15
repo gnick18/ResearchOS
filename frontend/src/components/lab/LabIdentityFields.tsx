@@ -13,8 +13,8 @@
 //
 // No emojis, no em-dashes, no mid-sentence colons.
 
-import { useCallback, type ChangeEvent } from "react";
-import { useRef } from "react";
+import { useCallback } from "react";
+import FileDropzone from "@/components/ui/FileDropzone";
 import { fileToLabLogo, type PreparedLogo } from "@/lib/lab/lab-logo-image";
 
 /** The preset PI titles. "Custom" reveals a free-text field, "None" clears it. */
@@ -59,14 +59,8 @@ export default function LabIdentityFields({
   onLogoError?: (message: string) => void;
   disabled?: boolean;
 }) {
-  const fileInputRef = useRef<HTMLInputElement | null>(null);
-
   const handleFile = useCallback(
-    async (e: ChangeEvent<HTMLInputElement>) => {
-      const file = e.target.files?.[0];
-      // Reset the input so re-picking the same file fires change again.
-      e.target.value = "";
-      if (!file) return;
+    async (file: File) => {
       try {
         const prepared = await fileToLabLogo(file);
         onLogoChange(prepared);
@@ -166,22 +160,18 @@ export default function LabIdentityFields({
             )}
           </div>
           <div className="flex flex-col gap-2">
-            <input
-              ref={fileInputRef}
-              type="file"
+            <FileDropzone
               accept="image/png,image/jpeg,image/webp,image/svg+xml"
-              onChange={(e) => void handleFile(e)}
-              className="hidden"
+              onFiles={(files) => {
+                if (files[0]) void handleFile(files[0]);
+              }}
+              onReject={(msg) => onLogoError?.(msg)}
               disabled={disabled}
+              compact
+              label={logo ? "Replace logo" : "Choose logo"}
+              hint="PNG, JPEG, WebP, SVG"
+              ariaLabel="Lab logo"
             />
-            <button
-              type="button"
-              onClick={() => fileInputRef.current?.click()}
-              className="rounded-md border border-border bg-surface px-3 py-1.5 text-meta font-medium text-foreground hover:bg-surface-hover disabled:opacity-50"
-              disabled={disabled}
-            >
-              {logo ? "Replace logo" : "Choose logo"}
-            </button>
             {logo && (
               <button
                 type="button"

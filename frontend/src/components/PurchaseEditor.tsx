@@ -27,6 +27,7 @@ import PurchaseAssigneePicker from "@/components/PurchaseAssigneePicker";
 import PurchaseOrderStatusControl from "@/components/PurchaseOrderStatusControl";
 import BuyAgainButton from "@/components/BuyAgainButton";
 import Tooltip from "@/components/Tooltip";
+import FileDropzone from "@/components/ui/FileDropzone";
 import { Icon } from "@/components/icons";
 import PiEditConfirmDialog from "@/components/lab-head/PiEditConfirmDialog";
 import PiEditAuditNote from "@/components/lab-head/PiEditAuditNote";
@@ -142,7 +143,7 @@ function PurchaseDocsRow({
   editing,
   attaching,
   colSpan,
-  onAttach,
+  onFiles,
   onRemove,
   onOpen,
   onKindChange,
@@ -152,7 +153,7 @@ function PurchaseDocsRow({
   editing: boolean;
   attaching: boolean;
   colSpan: number;
-  onAttach: () => void;
+  onFiles: (files: File[]) => void;
   onRemove: (id: string) => void;
   onOpen: (att: PurchaseAttachment) => void;
   onKindChange: (id: string, kind: PurchaseAttachmentKind) => void;
@@ -226,15 +227,16 @@ function PurchaseDocsRow({
             ))
           )}
           {editing && (
-            <button
-              type="button"
-              onClick={onAttach}
+            <FileDropzone
+              accept="application/pdf,.pdf"
+              onFiles={onFiles}
               disabled={attaching}
-              className="inline-flex items-center gap-1 rounded-md border border-border px-2 py-0.5 text-meta font-medium text-foreground hover:bg-surface-sunken disabled:opacity-50"
-            >
-              <Icon name="import" className="w-3.5 h-3.5" />
-              {attaching ? "Attaching..." : "Attach PDF"}
-            </button>
+              icon="file"
+              label={attaching ? "Attaching..." : "Attach PDF"}
+              hint="PDF"
+              compact
+              ariaLabel="Attach PDF document"
+            />
           )}
           {routing && routing.contacts.length > 0 && (
             <span className="ml-auto inline-flex items-center gap-1">
@@ -834,7 +836,6 @@ export default function PurchaseEditor({
   // the file to the purchase's folder immediately and appends the reference to
   // the open edit row; the reference persists when the row is saved. Removing
   // drops the reference (the file is left on disk in v1, orphaned once saved).
-  const attachInputRef = useRef<HTMLInputElement | null>(null);
   const [attaching, setAttaching] = useState(false);
   // Files written to disk during the open edit session. Used by orphan cleanup
   // (save deletes removed-but-original + attached-then-removed files; cancel
@@ -1071,19 +1072,6 @@ export default function PurchaseEditor({
 
   return (
     <div className="p-4">
-      {/* Purchase documents (PURCHASE_DOCS_AND_ROUTING.md phase 1b). One hidden
-          file input shared by the open edit row's "Attach PDF" button; only one
-          row edits at a time, so a single input is enough. */}
-      <input
-        ref={attachInputRef}
-        type="file"
-        accept="application/pdf,.pdf"
-        className="hidden"
-        onChange={(e) => {
-          void handleAttachFile(e.target.files?.[0]);
-          e.target.value = "";
-        }}
-      />
       {/* R1b: sharing chips — read-only visibility hint row for the
           parent purchase task. */}
       {parentTask && (
@@ -1434,7 +1422,7 @@ export default function PurchaseEditor({
                   editing
                   attaching={attaching}
                   colSpan={16}
-                  onAttach={() => attachInputRef.current?.click()}
+                  onFiles={(files) => void handleAttachFile(files[0])}
                   onRemove={handleRemoveAttachment}
                   onOpen={handleOpenAttachment}
                   onKindChange={handleAttachmentKindChange}
@@ -1714,7 +1702,7 @@ export default function PurchaseEditor({
                   editing={false}
                   attaching={false}
                   colSpan={16}
-                  onAttach={() => {}}
+                  onFiles={() => {}}
                   onRemove={() => {}}
                   onOpen={handleOpenAttachment}
                   onKindChange={() => {}}
