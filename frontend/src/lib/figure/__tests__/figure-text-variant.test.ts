@@ -9,8 +9,10 @@ describe("typed text variants", () => {
   });
 
   it("each variant carries its preset point size", () => {
-    expect(makeTextAnnotation("t", 0, 0, "heading").fontPt).toBe(18);
-    expect(makeTextAnnotation("t", 0, 0, "body").fontPt).toBe(10);
+    const h = makeTextAnnotation("t", 0, 0, "heading");
+    const b = makeTextAnnotation("t", 0, 0, "body");
+    expect(h.kind === "text" ? h.fontPt : 0).toBe(18);
+    expect(b.kind === "text" ? b.fontPt : 0).toBe(10);
   });
 
   it("renders the variant's font-weight (heading bold, body normal)", () => {
