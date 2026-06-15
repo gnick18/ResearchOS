@@ -10,6 +10,7 @@
 
 import { BeakerBotScene } from "@/components/onboarding/BeakerBotScene";
 import type { RecapItem } from "@/lib/onboarding/tutor-summary";
+import TutorScreen from "./TutorScreen";
 
 export interface RecapBeatProps {
   recap: RecapItem[];
@@ -21,7 +22,7 @@ export interface RecapBeatProps {
 
 export default function RecapBeat({ recap, remembered, onFinish }: RecapBeatProps) {
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-[var(--surface,#fff)] px-6">
+    <TutorScreen>
       <div className="w-full max-w-md">
         <div className="mb-4 flex items-start gap-2">
           <span className="h-8 w-8 flex-none">
@@ -68,6 +69,6 @@ export default function RecapBeat({ recap, remembered, onFinish }: RecapBeatProp
           You can replay any section later from the Help menu.
         </div>
       </div>
-    </div>
+    </TutorScreen>
   );
 }

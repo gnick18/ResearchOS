@@ -9,6 +9,7 @@
 // em-dashes, no mid-sentence colons.
 
 import { BeakerBotScene } from "@/components/onboarding/BeakerBotScene";
+import TutorScreen from "./TutorScreen";
 
 export interface MemoryProposeBeatProps {
   fact: string;
@@ -24,7 +25,7 @@ export default function MemoryProposeBeat({
   onDecline,
 }: MemoryProposeBeatProps) {
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-[var(--surface,#fff)] px-6">
+    <TutorScreen>
       <div className="w-full max-w-md">
         <div className="mb-4 flex items-start gap-2">
           <span className="h-8 w-8 flex-none">
@@ -58,6 +59,6 @@ export default function MemoryProposeBeat({
           </div>
         </div>
       </div>
-    </div>
+    </TutorScreen>
   );
 }

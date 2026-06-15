@@ -14,6 +14,7 @@
 
 import { BeakerBotScene } from "@/components/onboarding/BeakerBotScene";
 import { ROLES, GOALS, type Role, type GoalKey } from "@/lib/onboarding/reel-director";
+import TutorScreen from "./TutorScreen";
 
 export interface InterestPickerProps {
   role: Role | null;
@@ -32,7 +33,7 @@ export default function InterestPicker({
 }: InterestPickerProps) {
   const canStart = role !== null;
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-[var(--surface,#fff)] px-6">
+    <TutorScreen>
       <div className="w-full max-w-md">
         <div className="mb-4 flex items-start gap-2">
           <div className="h-8 w-8 flex-none">
@@ -104,6 +105,6 @@ export default function InterestPicker({
           </button>
         </div>
       </div>
-    </div>
+    </TutorScreen>
   );
 }

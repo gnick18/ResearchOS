@@ -12,6 +12,7 @@
 import { useEffect } from "react";
 import { BeakerBotScene } from "@/components/onboarding/BeakerBotScene";
 import type { AiVariant } from "@/lib/onboarding/reel-director";
+import TutorScreen from "./TutorScreen";
 
 export interface AiDemoBeatProps {
   variant: AiVariant;
@@ -49,7 +50,7 @@ export default function AiDemoBeat({ variant, onDone }: AiDemoBeatProps) {
   }, [onDone]);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-[var(--surface,#fff)] px-6">
+    <TutorScreen>
       <div className="w-full max-w-xl">
         <div className="mb-2 flex items-center justify-between text-[10.5px] uppercase tracking-wide text-[var(--faint,#9aa097)]">
           <span>on {s.route}</span>
@@ -84,6 +85,6 @@ export default function AiDemoBeat({ variant, onDone }: AiDemoBeatProps) {
           </div>
         </div>
       </div>
-    </div>
+    </TutorScreen>
   );
 }

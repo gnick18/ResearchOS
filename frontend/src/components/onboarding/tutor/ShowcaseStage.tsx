@@ -28,6 +28,7 @@ import { choreographyFor } from "@/lib/onboarding/showcase-choreography";
 import type { Surface } from "@/lib/onboarding/reel-director";
 import PresenterCursor from "./PresenterCursor";
 import CoachBubble from "./CoachBubble";
+import TutorScreen from "./TutorScreen";
 
 export interface ShowcaseStageProps {
   surface: Surface;
@@ -65,7 +66,7 @@ export default function ShowcaseStage({ surface, onDone }: ShowcaseStageProps) {
   const step = currentStep(state);
 
   return (
-    <div className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-[var(--surface,#fff)] px-6">
+    <TutorScreen contentClassName="flex-col">
       <div className="mb-2 flex w-full max-w-xl items-center justify-between text-[10.5px] uppercase tracking-wide text-[var(--faint,#9aa097)]">
         <span>on {choreography.route}</span>
         <span className="rounded border border-[var(--amber,#b9770f)] bg-[var(--amber-soft,#fbf0dc)] px-1.5 py-0.5 font-bold text-[var(--amber-ink,#8a5908)]">
@@ -133,6 +134,6 @@ export default function ShowcaseStage({ surface, onDone }: ShowcaseStageProps) {
           </button>
         </div>
       </div>
-    </div>
+    </TutorScreen>
   );
 }

@@ -10,6 +10,7 @@
 
 import { useEffect, useState } from "react";
 import type { Surface } from "@/lib/onboarding/reel-director";
+import TutorScreen from "./TutorScreen";
 
 export interface MontageBeatProps {
   surfaces: Surface[];
@@ -48,7 +49,7 @@ export default function MontageBeat({ surfaces, onDone }: MontageBeatProps) {
   const card = surface ? CARD[surface] : null;
 
   return (
-    <div className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-[var(--surface,#fff)] px-6">
+    <TutorScreen contentClassName="flex-col">
       <div className="mb-3 text-[10.5px] font-semibold uppercase tracking-wide text-[var(--faint,#9aa097)]">
         A quick look at the rest
       </div>
@@ -79,6 +80,6 @@ export default function MontageBeat({ surfaces, onDone }: MontageBeatProps) {
           />
         ))}
       </div>
-    </div>
+    </TutorScreen>
   );
 }
