@@ -16,8 +16,10 @@ import {
   pageSizeIn,
   assignLabels,
   pageAssets,
+  pageConnectors,
 } from "@/lib/figure/figure-page";
 import { missingPanelSvg } from "@/lib/figure/figure-source";
+import { connectorEndpoints, connectorPath, type Point } from "@/lib/figure/figure-connectors";
 
 /**
  * The <defs> (arrowhead markers) the annotation layer needs. Shared by the
@@ -195,6 +197,72 @@ export function annotationLayerSvg(page: FigurePage, ppi: number): string {
   );
 }
 
+/** Arrowhead marker for connectors (follows each path's stroke via context-stroke). */
+export function connectorArrowMarker(): string {
+  return (
+    `<marker id="fc-arrow" markerWidth="9" markerHeight="9" refX="6.5" refY="3" orient="auto">` +
+    `<path d="M0 0 L6 3 L0 6 z" fill="context-stroke" /></marker>`
+  );
+}
+
+/** The connector path elements (no <svg> wrapper). interactive adds fat hit paths. */
+export function connectorsToSvg(
+  page: FigurePage,
+  ppi: number,
+  opts: { selectedConn?: string | null; interactive?: boolean } = {},
+): string {
+  const parts: string[] = [];
+  for (const c of pageConnectors(page)) {
+    const ep = connectorEndpoints(page, c);
+    if (!ep) continue;
+    const a: Point = { xIn: ep.from.xIn * ppi, yIn: ep.from.yIn * ppi };
+    const b: Point = { xIn: ep.to.xIn * ppi, yIn: ep.to.yIn * ppi };
+    const d = connectorPath(a, b, c.shape);
+    const seld = opts.selectedConn === c.connId;
+    const w = Math.max(1, (c.weightPt * ppi) / 72);
+    const me = c.heads >= 1 ? ` marker-end="url(#fc-arrow)"` : "";
+    const ms = c.heads === 2 ? ` marker-start="url(#fc-arrow)"` : "";
+    if (opts.interactive) {
+      parts.push(
+        `<path d="${d}" fill="none" stroke="transparent" stroke-width="${Math.max(10, w + 8).toFixed(1)}" ` +
+          `data-conn-id="${c.connId}" style="pointer-events:stroke;cursor:pointer" />`,
+      );
+    }
+    parts.push(
+      `<path d="${d}" fill="none" stroke="${seld ? "#7c5cff" : c.color}" ` +
+        `stroke-width="${(seld ? w + 0.5 : w).toFixed(2)}" stroke-linejoin="round" stroke-linecap="round" ` +
+        `style="pointer-events:none"${me}${ms} />`,
+    );
+  }
+  return parts.join("");
+}
+
+/** The on-screen connector layer (injected string; interactive hit paths + rubber). */
+export function connectorLayerSvg(
+  page: FigurePage,
+  ppi: number,
+  opts: { selectedConn?: string | null; rubber?: { from: Point; to: Point } | null } = {},
+): string {
+  const { wIn, hIn } = pageSizeIn(page);
+  const W = (wIn * ppi).toFixed(1);
+  const H = (hIn * ppi).toFixed(1);
+  let rubber = "";
+  if (opts.rubber) {
+    const r = opts.rubber;
+    rubber =
+      `<line x1="${(r.from.xIn * ppi).toFixed(1)}" y1="${(r.from.yIn * ppi).toFixed(1)}" ` +
+      `x2="${(r.to.xIn * ppi).toFixed(1)}" y2="${(r.to.yIn * ppi).toFixed(1)}" ` +
+      `stroke="#7c5cff" stroke-width="1.5" stroke-dasharray="4 3" style="pointer-events:none" />`;
+  }
+  return (
+    `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}">` +
+    `<defs>${connectorArrowMarker()}</defs>` +
+    connectorsToSvg(page, ppi, { selectedConn: opts.selectedConn, interactive: true }) +
+    rubber +
+    `</svg>`
+  );
+}
+
 /** Compose the whole page into one SVG string. */
 export function composeFigurePageSvg(page: FigurePage, opts: ComposeOpts): string {
   const ppi = opts.pxPerInch;
@@ -208,8 +276,9 @@ export function composeFigurePageSvg(page: FigurePage, opts: ComposeOpts): strin
       `xmlns="http://www.w3.org/2000/svg" font-family="-apple-system, Inter, system-ui, sans-serif">`,
   ];
 
-  // Arrowhead markers, used by arrow annotations.
+  // Arrowhead markers, used by arrow annotations + smart connectors.
   parts.push(annotationDefs());
+  parts.push(`<defs>${connectorArrowMarker()}</defs>`);
 
   // The page sheet.
   parts.push(`<rect x="0" y="0" width="${W.toFixed(1)}" height="${H.toFixed(1)}" fill="#ffffff"/>`);
@@ -240,6 +309,9 @@ export function composeFigurePageSvg(page: FigurePage, opts: ComposeOpts): strin
       if (svg) parts.push(placeAssetSvg(a, svg, ppi));
     }
   }
+
+  // Smart-connector layer (element-anchored), above panels + icons.
+  parts.push(connectorsToSvg(page, ppi, { interactive: false }));
 
   // Annotation layer (page coordinates), drawn by the shared renderer.
   for (const a of page.annotations) {

@@ -38,7 +38,17 @@ import {
   removePlacedAsset,
   updatePlacedAsset,
   figureCredits,
+  type Connector,
+  type ConnectorEnd,
+  type ConnectorShape,
+  pageConnectors,
+  makeConnector,
+  addConnector,
+  removeConnector,
+  updateConnector,
+  pruneConnectors,
 } from "@/lib/figure/figure-page";
+import { elementAnchors, nearestSide, type Point } from "@/lib/figure/figure-connectors";
 import {
   type ElementRef,
   type Box,
@@ -52,6 +62,8 @@ import {
   computeSnap,
   translateElement,
   elementsInRect,
+  elementAtPoint,
+  listElements,
   bringToFront,
   sendToBack,
   bringForward,
@@ -72,6 +84,7 @@ import {
 import {
   composeFigurePageSvg,
   annotationLayerSvg,
+  connectorLayerSvg,
   tintSvg,
 } from "@/lib/figure/figure-compose";
 import {
@@ -123,11 +136,21 @@ export default function FigureComposer({ pageId }: { pageId: string }) {
           : [...prev, ref]
         : [ref],
     );
-  const clearSel = () => setSelection([]);
+  const clearSel = () => {
+    setSelection([]);
+    setSelectedConn(null);
+  };
   const [undo, setUndo] = useState<FigurePage[]>([]);
   const [pickerOpen, setPickerOpen] = useState(false);
   const [loadState, setLoadState] = useState<"loading" | "ready" | "missing">("loading");
-  const [tool, setTool] = useState<null | "text" | "arrow" | "bracket">(null);
+  const [tool, setTool] = useState<null | "text" | "arrow" | "bracket" | "connect">(null);
+  // Smart-connector state (Phase 2). selectedConn is kept separate from the element
+  // selection (connectors are not panels/icons/annotations). connDraw holds an
+  // in-progress connector while dragging from an anchor node; connCursor is the
+  // live cursor in inches for the rubber line.
+  const [selectedConn, setSelectedConn] = useState<string | null>(null);
+  const connDraw = useRef<null | { from: ConnectorEnd; startIn: Point }>(null);
+  const [connCursor, setConnCursor] = useState<Point | null>(null);
   // Marquee drag-select rectangle (inches), live while dragging on empty canvas.
   const [marquee, setMarquee] = useState<Box | null>(null);
   const marqueeRef = useRef<null | { sx: number; sy: number; box?: Box }>(null);
@@ -307,6 +330,7 @@ export default function FigureComposer({ pageId }: { pageId: string }) {
   // element already in a multi-selection KEEPS the group (so it can be dragged
   // together), otherwise it selects only that element.
   const pressSelect = (ref: ElementRef, e: React.MouseEvent) => {
+    setSelectedConn(null);
     if (e.shiftKey) selectRef(ref, true);
     else if (!isSelectedRef(ref)) setSelection([ref]);
   };
@@ -541,6 +565,51 @@ export default function FigureComposer({ pageId }: { pageId: string }) {
     };
   }, [effScale, page]);
 
+  // Smart-connector draw: drag from an anchor node, drop on an element to connect.
+  useEffect(() => {
+    const move = (e: MouseEvent) => {
+      if (!connDraw.current) return;
+      const rect = stageRef.current?.getBoundingClientRect();
+      if (!rect) return;
+      const s = effScale();
+      setConnCursor({ xIn: (e.clientX - rect.left) / s, yIn: (e.clientY - rect.top) / s });
+    };
+    const up = (e: MouseEvent) => {
+      const d = connDraw.current;
+      connDraw.current = null;
+      setConnCursor(null);
+      if (!d || !page) return;
+      const rect = stageRef.current?.getBoundingClientRect();
+      if (!rect) return;
+      const s = effScale();
+      const xIn = (e.clientX - rect.left) / s;
+      const yIn = (e.clientY - rect.top) / s;
+      const target = elementAtPoint(page, xIn, yIn);
+      // Need a target that exists and is not the source element.
+      if (!target || sameRef(target, d.from.ref as ElementRef)) {
+        setTool(null);
+        return;
+      }
+      const tBox = elementBox(page, target);
+      if (!tBox) {
+        setTool(null);
+        return;
+      }
+      const to: ConnectorEnd = { ref: target, side: nearestSide(tBox, d.startIn) };
+      const connId = `cn${page.id}-${Date.now().toString(36)}`;
+      mutate((p) => addConnector(p, makeConnector(connId, d.from, to)), true);
+      setSelection([]);
+      setSelectedConn(connId);
+      setTool(null);
+    };
+    window.addEventListener("mousemove", move);
+    window.addEventListener("mouseup", up);
+    return () => {
+      window.removeEventListener("mousemove", move);
+      window.removeEventListener("mouseup", up);
+    };
+  }, [effScale, mutate, page]);
+
   const exportSvg = useCallback(() => {
     if (!page) return;
     const svg = composeFigurePageSvg(page, { pxPerInch: 300, panelSvgs, assetSvgs });
@@ -652,6 +721,10 @@ export default function FigureComposer({ pageId }: { pageId: string }) {
 
   const selectedAnnotation = selectedAnn
     ? page.annotations.find((a) => a.annId === selectedAnn) ?? null
+    : null;
+
+  const selectedConnObj = selectedConn
+    ? pageConnectors(page).find((c) => c.connId === selectedConn) ?? null
     : null;
 
   // A static, non-interactive thumbnail of the page for the ZoomPanCanvas minimap
@@ -879,6 +952,54 @@ export default function FigureComposer({ pageId }: { pageId: string }) {
             );
           })}
 
+          {/* Smart-connector layer. Built as an injected SVG STRING (so the
+              component carries no inline svg element, per house style); paths
+              resolve live from element boxes and reroute on move. A delegated
+              mousedown reads data-conn-id to select a connector. */}
+          <div
+            className="absolute inset-0"
+            style={{ pointerEvents: "none" }}
+            onMouseDown={(e) => {
+              const id = (e.target as Element)
+                .closest?.("[data-conn-id]")
+                ?.getAttribute("data-conn-id");
+              if (!id) return;
+              e.stopPropagation();
+              setSelection([]);
+              setSelectedConn(id);
+            }}
+            dangerouslySetInnerHTML={{
+              __html: connectorLayerSvg(page, scale, {
+                selectedConn,
+                rubber:
+                  connDraw.current && connCursor
+                    ? { from: connDraw.current.startIn, to: connCursor }
+                    : null,
+              }),
+            }}
+          />
+
+          {/* Anchor nodes (Connect tool): drag one to another element to connect. */}
+          {tool === "connect" &&
+            listElements(page).map((ref) => {
+              const b = elementBox(page, ref);
+              if (!b) return null;
+              return elementAnchors(b).map((an) => (
+                <div
+                  key={`${ref.kind}-${ref.id}-${an.side}`}
+                  className="absolute z-30 h-3 w-3 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-white bg-brand-action shadow"
+                  style={{ left: an.point.xIn * scale, top: an.point.yIn * scale, cursor: "crosshair" }}
+                  onPointerDown={(e) => e.stopPropagation()}
+                  onMouseDown={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    connDraw.current = { from: { ref, side: an.side }, startIn: an.point };
+                    setConnCursor(an.point);
+                  }}
+                />
+              ));
+            })}
+
           {/* Annotation layer, painted above the panels (one injected SVG string,
               so the component carries no inline SVG of its own). Click-through. */}
           <div
@@ -910,8 +1031,9 @@ export default function FigureComposer({ pageId }: { pageId: string }) {
               );
             })}
 
-          {/* Placement capture overlay (only while a tool is active). */}
-          {tool && (
+          {/* Placement capture overlay (annotation tools only, NOT connect: the
+              connect tool needs the anchor nodes to receive the press). */}
+          {tool && tool !== "connect" && (
             <div
               className="absolute inset-0 z-10"
               style={{ cursor: "crosshair" }}
@@ -1060,10 +1182,87 @@ export default function FigureComposer({ pageId }: { pageId: string }) {
               </button>
             ))}
           </div>
-          {tool && (
+          {tool && tool !== "connect" && (
             <p className="mt-2 text-meta text-foreground-faint">
               Click the page to place the {tool}.
             </p>
+          )}
+        </div>
+
+        {/* Smart connectors (Phase 2): the connect tool + the selected-connector
+            inspector. The connector itself anchors to elements and reroutes on move. */}
+        <div className="rounded-xl border border-border p-3">
+          <h3 className="mb-2 text-meta font-bold uppercase tracking-wide text-foreground-faint">
+            Connect
+          </h3>
+          <button
+            type="button"
+            onClick={() => setTool(tool === "connect" ? null : "connect")}
+            className={`w-full rounded-lg border px-2 py-1.5 text-meta font-medium ${tool === "connect" ? "border-brand-action bg-brand-action/10 text-brand-action" : "border-border-strong hover:border-brand-action"}`}
+          >
+            {tool === "connect" ? "Connecting (drag node to node)" : "Smart connector"}
+          </button>
+          {tool === "connect" && (
+            <p className="mt-2 text-meta text-foreground-faint">
+              Drag from a blue node on one element onto another element to connect them.
+            </p>
+          )}
+
+          {selectedConnObj && (
+            <div className="mt-3 space-y-2.5 border-t border-border pt-3">
+              <div className="flex gap-1">
+                {(["straight", "elbow", "curve"] as ConnectorShape[]).map((s) => (
+                  <button
+                    key={s}
+                    type="button"
+                    onClick={() => mutate((p) => updateConnector(p, selectedConnObj.connId, { shape: s }), true)}
+                    className={`flex-1 rounded border px-1.5 py-1 text-meta capitalize ${selectedConnObj.shape === s ? "border-brand-action bg-brand-action/10 text-brand-action" : "border-border-strong hover:border-brand-action"}`}
+                  >
+                    {s}
+                  </button>
+                ))}
+              </div>
+              <div className="flex gap-1">
+                {([["None", 0], ["End", 1], ["Both", 2]] as [string, 0 | 1 | 2][]).map(([lbl, h]) => (
+                  <button
+                    key={h}
+                    type="button"
+                    onClick={() => mutate((p) => updateConnector(p, selectedConnObj.connId, { heads: h }), true)}
+                    className={`flex-1 rounded border px-1.5 py-1 text-meta ${selectedConnObj.heads === h ? "border-brand-action bg-brand-action/10 text-brand-action" : "border-border-strong hover:border-brand-action"}`}
+                  >
+                    {lbl}
+                  </button>
+                ))}
+              </div>
+              <div className="flex items-center gap-2">
+                <input
+                  type="color"
+                  value={selectedConnObj.color}
+                  onChange={(e) => mutate((p) => updateConnector(p, selectedConnObj.connId, { color: e.target.value }), true)}
+                  className="h-7 w-9 cursor-pointer rounded border border-border-strong"
+                />
+                <span className="text-meta text-foreground-muted">Weight</span>
+                <input
+                  type="range"
+                  min={0.5}
+                  max={4}
+                  step={0.5}
+                  value={selectedConnObj.weightPt}
+                  onChange={(e) => mutate((p) => updateConnector(p, selectedConnObj.connId, { weightPt: Number(e.target.value) }), true)}
+                  className="flex-1"
+                />
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  mutate((p) => removeConnector(p, selectedConnObj.connId), true);
+                  setSelectedConn(null);
+                }}
+                className="block text-meta font-medium text-pin hover:underline"
+              >
+                Remove connector
+              </button>
+            </div>
           )}
         </div>
 
@@ -1244,7 +1443,7 @@ export default function FigureComposer({ pageId }: { pageId: string }) {
                 <button
                   type="button"
                   onClick={() => {
-                    mutate((p) => removePanel(p, selected), true);
+                    mutate((p) => pruneConnectors(removePanel(p, selected)), true);
                     clearSel();
                   }}
                   className="block text-meta font-medium text-pin hover:underline"
@@ -1332,7 +1531,7 @@ export default function FigureComposer({ pageId }: { pageId: string }) {
             <button
               type="button"
               onClick={() => {
-                mutate((p) => removeAnnotation(p, selectedAnnotation.annId), true);
+                mutate((p) => pruneConnectors(removeAnnotation(p, selectedAnnotation.annId)), true);
                 clearSel();
               }}
               className="block text-meta font-medium text-pin hover:underline"
@@ -1390,7 +1589,7 @@ export default function FigureComposer({ pageId }: { pageId: string }) {
             <button
               type="button"
               onClick={() => {
-                mutate((p) => removePlacedAsset(p, selectedAssetObj.assetId), true);
+                mutate((p) => pruneConnectors(removePlacedAsset(p, selectedAssetObj.assetId)), true);
                 clearSel();
               }}
               className="mt-2 block text-meta font-medium text-pin hover:underline"

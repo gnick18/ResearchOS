@@ -294,6 +294,15 @@ export const sendToBack = (p: FigurePage, r: ElementRef) => reorder(p, r, "back"
 export const bringForward = (p: FigurePage, r: ElementRef) => reorder(p, r, "forward");
 export const sendBackward = (p: FigurePage, r: ElementRef) => reorder(p, r, "backward");
 
+/** The topmost element whose box contains a point (for connector drop targets). */
+export function elementAtPoint(page: FigurePage, xIn: number, yIn: number): ElementRef | null {
+  const hits = listElements(page).filter((r) => {
+    const b = elementBox(page, r);
+    return b ? xIn >= b.xIn && xIn <= b.xIn + b.wIn && yIn >= b.yIn && yIn <= b.yIn + b.hIn : false;
+  });
+  return hits.length ? hits[hits.length - 1] : null;
+}
+
 /** Refs whose box intersects a marquee rectangle (for drag-select). */
 export function elementsInRect(page: FigurePage, rect: Box): ElementRef[] {
   const hit = (b: Box) =>
