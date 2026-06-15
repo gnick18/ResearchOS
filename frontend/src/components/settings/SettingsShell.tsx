@@ -205,7 +205,7 @@ export default function SettingsShell({
               </div>
             </div>
 
-            {groups.map((group) => {
+            {groups.map((group, groupIndex) => {
               const visibleSections = group.sections.filter(sectionMatches);
               if (visibleSections.length === 0) return null;
               // Bubble an attention dot to the group heading when any section in
@@ -216,6 +216,11 @@ export default function SettingsShell({
               );
               return (
                 <div key={group.label} className="mt-3">
+                  {/* Soft fading divider between rail groups (Popup Unifier
+                      seam kit). First group has no divider above it. */}
+                  {groupIndex > 0 && (
+                    <div className="ros-seam-divider mb-3" aria-hidden="true" />
+                  )}
                   <div className="flex items-center gap-1.5 px-2 pb-1.5">
                     <span className="text-meta font-bold uppercase tracking-wide text-foreground-muted">
                       {group.label}
