@@ -92,17 +92,28 @@ describe("labMapsApi — create + read", () => {
     const map = await labMapsApi.create({ name: "Lab map" });
     const updated = await labMapsApi.update(map.id, {
       pins: [
-        { id: "p1", nodeId: 5, label: null, x: 0.25, y: 0.4 },
-        { id: "p2", nodeId: null, label: "Bench 3", x: 0.8, y: 0.6 },
+        { id: "p1", nodeId: 5, label: null, x: 0.25, y: 0.4, image: null },
+        {
+          id: "p2",
+          nodeId: null,
+          label: "Bench 3",
+          x: 0.8,
+          y: 0.6,
+          image: "data:image/jpeg;base64,AAAA",
+        },
       ],
     });
     expect(updated?.pins).toHaveLength(2);
     expect(updated?.pins[0]).toMatchObject({ id: "p1", nodeId: 5, x: 0.25, y: 0.4 });
     expect(updated?.pins[1]).toMatchObject({ nodeId: null, label: "Bench 3" });
+    // The per-location photo round-trips (spatial inventory "show me where it is").
+    expect(updated?.pins[0].image).toBeNull();
+    expect(updated?.pins[1].image).toBe("data:image/jpeg;base64,AAAA");
     expect(updated?.last_edited_by).toBeTruthy();
 
     const read = await labMapsApi.get(map.id);
     expect(read?.pins).toHaveLength(2);
+    expect(read?.pins[1].image).toBe("data:image/jpeg;base64,AAAA");
   });
 });
 

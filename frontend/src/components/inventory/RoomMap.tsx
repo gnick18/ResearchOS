@@ -71,6 +71,7 @@ export default function RoomMap({ nodes, stocks }: RoomMapProps) {
   const mapRef = useRef<LabMap | null>(null);
   const canvasRef = useRef<HTMLDivElement | null>(null);
   const fileRef = useRef<HTMLInputElement | null>(null);
+  const photoRef = useRef<HTMLInputElement | null>(null);
   const dragRef = useRef<{ pinId: string; moved: boolean } | null>(null);
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -109,6 +110,24 @@ export default function RoomMap({ nodes, stocks }: RoomMapProps) {
       persist(next);
     },
     [persist],
+  );
+
+  // Set (or clear) the photo on a node's pin. Photos are downscaled to a bounded
+  // data URL before storing so the lab map record + the phone snapshot stay small.
+  const setPinImage = useCallback(
+    (nodeId: number, image: string | null) => {
+      commit(pins.map((p) => (p.nodeId === nodeId ? { ...p, image } : p)));
+    },
+    [commit, pins],
+  );
+
+  const onUploadPhoto = useCallback(
+    async (nodeId: number, file: File | undefined) => {
+      if (!file) return;
+      const data = await downscaleToDataUrl(file, 720, 0.72);
+      if (data) setPinImage(nodeId, data);
+    },
+    [setPinImage],
   );
 
   // Set the floor plan SVG (or clear it) and persist the plan immediately.
@@ -169,6 +188,7 @@ export default function RoomMap({ nodes, stocks }: RoomMapProps) {
       label: null,
       x: 0.5 + offset - 0.08,
       y: 0.5 + offset - 0.08,
+      image: null,
     };
     commit([...pins, pin]);
     setSelected(node.id);
@@ -216,6 +236,8 @@ export default function RoomMap({ nodes, stocks }: RoomMapProps) {
   };
 
   const selectedNode = selected != null ? nodesById.get(selected) ?? null : null;
+  const selectedPin =
+    selected != null ? pins.find((p) => p.nodeId === selected) ?? null : null;
 
   return (
     <div className="flex flex-col gap-4 lg:flex-row">
@@ -339,26 +361,69 @@ export default function RoomMap({ nodes, stocks }: RoomMapProps) {
         </div>
 
         {selectedNode ? (
-          <div className="mt-3 flex items-center justify-between rounded-lg border border-border bg-surface-raised px-3 py-2">
-            <div className="min-w-0">
-              <p className="truncate text-body font-medium text-foreground">
-                {selectedNode.name}
-              </p>
-              <p className="text-meta text-foreground-muted">
-                {STORAGE_KIND_LABEL[selectedNode.kind] ?? selectedNode.kind} -{" "}
-                {countContents(selectedNode.id, nodes, stocks)} items inside
-              </p>
+          <div className="mt-3 rounded-lg border border-border bg-surface-raised px-3 py-2">
+            <input
+              ref={photoRef}
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={(e) => {
+                void onUploadPhoto(selectedNode.id, e.target.files?.[0]);
+                e.target.value = "";
+              }}
+            />
+            <div className="flex items-center justify-between gap-3">
+              <div className="flex min-w-0 items-center gap-3">
+                {selectedPin?.image ? (
+                  // The pin photo. It is lab-authored (uploaded or downscaled
+                  // here), not remote content.
+                  <img
+                    src={selectedPin.image}
+                    alt={`Photo of ${selectedNode.name}`}
+                    className="h-12 w-12 shrink-0 rounded-md border border-border object-cover"
+                  />
+                ) : null}
+                <div className="min-w-0">
+                  <p className="truncate text-body font-medium text-foreground">
+                    {selectedNode.name}
+                  </p>
+                  <p className="text-meta text-foreground-muted">
+                    {STORAGE_KIND_LABEL[selectedNode.kind] ?? selectedNode.kind} -{" "}
+                    {countContents(selectedNode.id, nodes, stocks)} items inside
+                  </p>
+                </div>
+              </div>
+              <Tooltip label="Remove pin">
+                <button
+                  type="button"
+                  onClick={() => removePin(selectedNode.id)}
+                  aria-label="Remove pin"
+                  className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-border text-foreground-muted hover:bg-surface-sunken hover:text-foreground"
+                >
+                  <Icon name="trash" className="h-4 w-4" />
+                </button>
+              </Tooltip>
             </div>
-            <Tooltip label="Remove pin">
+            <div className="mt-2 flex items-center gap-2">
               <button
                 type="button"
-                onClick={() => removePin(selectedNode.id)}
-                aria-label="Remove pin"
-                className="flex h-8 w-8 items-center justify-center rounded-lg border border-border text-foreground-muted hover:bg-surface-sunken hover:text-foreground"
+                onClick={() => photoRef.current?.click()}
+                className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-surface-raised px-2.5 py-1 text-meta text-foreground hover:bg-surface-sunken"
               >
-                <Icon name="trash" className="h-4 w-4" />
+                <Icon name="camera" className="h-3.5 w-3.5" />
+                {selectedPin?.image ? "Replace photo" : "Add photo"}
               </button>
-            </Tooltip>
+              {selectedPin?.image ? (
+                <button
+                  type="button"
+                  onClick={() => setPinImage(selectedNode.id, null)}
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-surface-raised px-2.5 py-1 text-meta text-foreground-muted hover:bg-surface-sunken hover:text-foreground"
+                >
+                  <Icon name="x" className="h-3.5 w-3.5" />
+                  Remove photo
+                </button>
+              ) : null}
+            </div>
           </div>
         ) : null}
       </div>
@@ -404,4 +469,39 @@ export default function RoomMap({ nodes, stocks }: RoomMapProps) {
       </div>
     </div>
   );
+}
+
+// Read an image File, downscale it so the longest side is <= maxDim, and return a
+// JPEG data URL. Keeps a pin photo small enough to ride in the lab map record and
+// the sealed phone snapshot. Returns null if the file cannot be decoded.
+function downscaleToDataUrl(
+  file: File,
+  maxDim: number,
+  quality: number,
+): Promise<string | null> {
+  return new Promise((resolve) => {
+    const reader = new FileReader();
+    reader.onerror = () => resolve(null);
+    reader.onload = () => {
+      const img = new window.Image();
+      img.onerror = () => resolve(null);
+      img.onload = () => {
+        const scale = Math.min(1, maxDim / Math.max(img.width, img.height));
+        const w = Math.max(1, Math.round(img.width * scale));
+        const h = Math.max(1, Math.round(img.height * scale));
+        const canvas = document.createElement("canvas");
+        canvas.width = w;
+        canvas.height = h;
+        const ctx = canvas.getContext("2d");
+        if (!ctx) {
+          resolve(null);
+          return;
+        }
+        ctx.drawImage(img, 0, 0, w, h);
+        resolve(canvas.toDataURL("image/jpeg", quality));
+      };
+      img.src = String(reader.result ?? "");
+    };
+    reader.readAsDataURL(file);
+  });
 }

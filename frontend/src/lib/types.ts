@@ -1514,6 +1514,10 @@ export interface LabMapPin {
   label: string | null; // free label (when nodeId is null) or a display override
   x: number; // 0..1 across the plan width
   y: number; // 0..1 across the plan height
+  /** Optional photo of this physical spot (a downscaled raster data URL), shown
+   *  next to the pin when someone locates an item ("show me where it is"). Doubles
+   *  as the slot for a future RoomPlan-derived render. Null when none. */
+  image: string | null;
 }
 
 /**

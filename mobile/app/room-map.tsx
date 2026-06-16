@@ -7,6 +7,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
+  Image,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -113,6 +114,9 @@ export default function RoomMapScreen() {
 
   const activeNodeId = selected;
   const activeNode = activeNodeId != null ? nodesById.get(activeNodeId) ?? null : null;
+  const activePin =
+    activeNodeId != null ? pins.find((p) => p.nodeId === activeNodeId) ?? null : null;
+  const activeImage = activePin?.image ?? null;
   const couldNotPlace = focusNodeId != null && focusPinNodeId == null;
 
   return (
@@ -203,6 +207,14 @@ export default function RoomMapScreen() {
 
             {activeNode ? (
               <View style={[styles.detail, { borderColor: surface.border, backgroundColor: surface.surface }]}>
+                {activeImage ? (
+                  <Image
+                    source={{ uri: activeImage }}
+                    style={[styles.detailPhoto, { borderColor: surface.border }]}
+                    resizeMode="cover"
+                    accessibilityLabel={`Photo of ${activeNode.name}`}
+                  />
+                ) : null}
                 <View style={{ flex: 1 }}>
                   <ThemedText style={[styles.detailName, { color: surface.text }]} numberOfLines={1}>
                     {activeNode.name}
@@ -268,6 +280,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 12,
   },
+  detailPhoto: { width: 52, height: 52, borderRadius: 8, borderWidth: 1 },
   detailName: { fontSize: 15, fontFamily: fonts.semibold, fontWeight: '600' },
   detailMeta: { fontSize: 13, marginTop: 1 },
 });

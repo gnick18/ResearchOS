@@ -137,6 +137,9 @@ export interface SnapshotLabMapPin {
   label: string | null;
   x: number;
   y: number;
+  /** Optional photo of this physical spot (data URL), shown next to the pin when
+   *  the phone locates an item. Null when none. */
+  image: string | null;
 }
 
 /** The lab's 2D room map, projected for the phone (read-only). `aspect` =
@@ -343,6 +346,7 @@ export async function buildInventorySnapshot(): Promise<InventorySnapshot> {
           label: p.label,
           x: p.x,
           y: p.y,
+          image: p.image ?? null,
         })),
         imageSvg: map.plan?.imageData ?? null,
       };

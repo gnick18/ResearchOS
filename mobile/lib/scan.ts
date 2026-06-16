@@ -109,6 +109,9 @@ export type LabMapPin = {
   label?: string | null;
   x?: number;
   y?: number;
+  // Optional photo of this physical spot (data URL), shown next to the pin when
+  // the phone locates an item ("show me where it is"). Tolerated missing.
+  image?: string | null;
 };
 
 // The lab's 2D room map, projected for the phone's read-only viewer. `aspect` =
