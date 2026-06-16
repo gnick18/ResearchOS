@@ -1441,7 +1441,7 @@ export function FinalizeTab() {
             </div>
             <div className="mt-4">
               <Slider
-                label={`Cost growth with scale: +${fmt(fixedGrowthPerK)}/mo per 1k users`}
+                label={`Infra usage growth: +${fmt(fixedGrowthPerK)}/mo per 1k users (not subs)`}
                 min={0}
                 max={50}
                 step={1}
@@ -1456,10 +1456,11 @@ export function FinalizeTab() {
             <p className="mt-2 text-meta text-foreground-muted">
               Infra floor (Workers + Vercel + Apple/LLC/domain, amortized) is
               sourced from the operator console; operating overhead is editable and
-              includes the permanent Claude Max that co-runs ops. Fixed costs are
-              NOT flat forever, so the growth dial steps them up per 1k users
-              (provider-tier overages + services/subs you add as you scale, which
-              the admin InfraCostPanel free-tier ceilings track for real).
+              includes the permanent Claude Max that co-runs ops. SUBSCRIPTIONS stay
+              flat (one Max at any size). Only provider USAGE grows with the user
+              base (hosting/bandwidth above free tiers), which local-first keeps
+              small, so the growth dial is modest. Set it to 0 if serving cost is
+              negligible.
             </p>
           </Panel>
 

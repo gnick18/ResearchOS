@@ -77,13 +77,16 @@ export const DEFAULT_OPERATING_COSTS: FixedCostItem[] = [
 ];
 
 /**
- * Fixed costs are NOT flat forever (Grant 2026-06-16): as the user base grows you
- * cross provider free tiers (Vercel/Workers/R2 overages, tracked in the admin
- * InfraCostPanel + capacity free-tier ceilings) and add services, support, and
- * subscriptions (more Claude Max seats, tooling). We model that step-up as a
- * linear run-rate added per 1,000 users on top of the flat base. A rough, tunable
- * default; the real per-service ceilings live in the operator console. */
-export const DEFAULT_FIXED_GROWTH_PER_K_USERS = 10;
+ * Infra-USAGE growth per 1,000 users (Grant 2026-06-16). SUBSCRIPTIONS do not
+ * scale with the company: one permanent Claude Max co-runs ops at any size, and
+ * accounting/tooling stay flat, so they live in the flat base above. The only
+ * thing that genuinely grows with the user base is provider USAGE above the free
+ * tiers (Vercel bandwidth/compute, Workers requests, R2 ops for serving the app
+ * to more people), tracked in the admin InfraCostPanel + capacity free-tier
+ * ceilings. Local-first keeps that small (most compute is client-side, storage
+ * is pass-through, the relay is already a per-write variable cost), so the
+ * default is modest and tunable. Set to 0 if you judge serving cost negligible. */
+export const DEFAULT_FIXED_GROWTH_PER_K_USERS = 3;
 
 /** Monthly-equivalent total of a fixed-cost list (yearly items divided by 12). */
 export function monthlyOf(items: FixedCostItem[]): number {
