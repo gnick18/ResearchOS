@@ -11,6 +11,7 @@ import {
   RefreshControl,
   ScrollView,
   StyleSheet,
+  TextInput,
   View,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
@@ -96,7 +97,21 @@ export default function InventoryScreen() {
   // One-tap "Reorder low" filter on the tracked-items section.
   const [lowOnly, setLowOnly] = useState(false);
   const hasLow = trackedStocks.some(stockIsLow);
-  const shownStocks = lowOnly ? trackedStocks.filter(stockIsLow) : trackedStocks;
+
+  // Spatial inventory Phase A lookup: "where is it / do we have it". Filter the
+  // tracked list by item name OR location, so typing "trypsin" or "-80" finds
+  // the stock + shows its location + remaining count (already on the row). Shown
+  // only once the list is long enough to be worth searching.
+  const [query, setQuery] = useState('');
+  const q = query.trim().toLowerCase();
+  const matchesQuery = (s: TrackedStock) =>
+    !q ||
+    (s.itemName ?? '').toLowerCase().includes(q) ||
+    (s.location ?? '').toLowerCase().includes(q);
+  const showSearch = trackedStocks.length >= 4;
+  const shownStocks = trackedStocks.filter(
+    (s) => (!lowOnly || stockIsLow(s)) && matchesQuery(s),
+  );
 
   return (
     <ScreenFrame edges={['top']}>
@@ -183,6 +198,35 @@ export default function InventoryScreen() {
               action={hasLow ? (lowOnly ? 'Show all' : 'Reorder low') : undefined}
               onAction={hasLow ? () => setLowOnly((v) => !v) : undefined}
             />
+            {showSearch ? (
+              <View
+                style={[
+                  styles.searchBox,
+                  {
+                    backgroundColor: surface.surface2,
+                    borderColor: surface.border,
+                  },
+                ]}
+              >
+                <Ionicons name="search" size={16} color={surface.muted} />
+                <TextInput
+                  testID="inventory-search"
+                  value={query}
+                  onChangeText={setQuery}
+                  placeholder="Find an item or location"
+                  placeholderTextColor={surface.placeholder}
+                  style={[styles.searchInput, { color: surface.text }]}
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                  returnKeyType="search"
+                />
+                {query.length > 0 ? (
+                  <Pressable onPress={() => setQuery('')} hitSlop={8}>
+                    <Ionicons name="close-circle" size={16} color={surface.muted} />
+                  </Pressable>
+                ) : null}
+              </View>
+            ) : null}
             {shownStocks.length > 0 ? (
               <Card>
                 {shownStocks.map((stock, i) => (
@@ -194,6 +238,11 @@ export default function InventoryScreen() {
                   />
                 ))}
               </Card>
+            ) : q.length > 0 ? (
+              <EmptyState
+                icon="search"
+                text={`No tracked items match "${query.trim()}".`}
+              />
             ) : loaded ? (
               <EmptyState
                 icon="cube-outline"
@@ -559,6 +608,16 @@ const styles = StyleSheet.create({
   rowMeta: { fontSize: 12, lineHeight: 17, marginTop: 2 },
   locationRow: { flexDirection: 'row', alignItems: 'center', gap: 3, marginTop: 2 },
   locationText: { fontSize: 12, lineHeight: 16, flexShrink: 1 },
+  searchBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    borderWidth: 1,
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    minHeight: 44,
+  },
+  searchInput: { flex: 1, fontSize: 15, paddingVertical: 10 },
   // Contract .pill: 5px/11px padding, pill radius, 11.5px / 700.
   pill: { paddingHorizontal: 11, paddingVertical: 5, borderRadius: 999 },
   pillText: { fontSize: 11.5, fontFamily: fonts.bold, fontWeight: '700' },
