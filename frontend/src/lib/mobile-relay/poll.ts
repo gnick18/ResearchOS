@@ -99,6 +99,7 @@ import {
   loadSeenCaptures,
   markCaptureSeen,
 } from "@/lib/mobile-relay/seen-captures";
+import { splitBlocks, blockAnchor } from "@/lib/mobile-relay/note-anchor";
 import {
   deductUnitsFromScan,
   registerTrackedBarcode,
@@ -120,6 +121,23 @@ function rememberOcr(captureId: string, ocr: OcrResult): void {
     if (oldest !== undefined) ocrByCaptureId.delete(oldest);
   }
   ocrByCaptureId.set(captureId, ocr);
+}
+
+// Idempotency ledger for insert-note-block (phone notes P2), keyed by the
+// phone's clientId. The relay commandId dedup (the phone posts clientId as the
+// commandId) covers the wire, but a command can re-appear before its ack lands
+// (ack best-effort), so we also remember every applied clientId here and skip a
+// repeat. MODULE-LEVEL so it survives across poll cycles within one laptop
+// session; capped so a long session cannot leak unboundedly.
+const insertedNoteClientIds = new Set<string>();
+const INSERTED_NOTE_CLIENTID_CAP = 500;
+
+function rememberInsertedNote(clientId: string): void {
+  if (insertedNoteClientIds.size >= INSERTED_NOTE_CLIENTID_CAP) {
+    const oldest = insertedNoteClientIds.values().next().value;
+    if (oldest !== undefined) insertedNoteClientIds.delete(oldest);
+  }
+  insertedNoteClientIds.add(clientId);
 }
 
 /** Write the decoupled OCR sidecar next to a just-written image, if one arrived
@@ -282,6 +300,41 @@ interface AppendLineCommand {
   tab: "notes" | "results";
   /** Plain markdown line: "<expr> = <value with units>", no bullet/label. */
   text: string;
+}
+
+/**
+ * An insert-note-block command (phone notes P2). The phone seals this when the
+ * researcher places a note BETWEEN existing blocks of an experiment's notes /
+ * results doc (not just at the end, the way append-line does). The laptop
+ * unseals it, splits its current doc into blocks, finds the block whose content
+ * anchor matches anchorHash (disambiguated by anchorIndex when several match),
+ * and inserts `block` as its own paragraph after that block. Uses the SAME dual
+ * path append-line uses (live event when the experiment is open, .md splice when
+ * closed). Deduped on clientId so a re-send never inserts twice.
+ *
+ * anchorHash + anchorIndex carry two sentinels:
+ *   anchorIndex = -1 (TOP) inserts before the first block.
+ *   anchorIndex = Number.MAX_SAFE_INTEGER (END) appends at the end.
+ */
+interface InsertNoteBlockCommand {
+  type: "insert-note-block";
+  /** Numeric task id (matches ActiveTask.id in the store). */
+  taskId: number;
+  /** Owner username (matches ActiveTask.owner). */
+  owner: string;
+  /** Which doc tab the block lands in. */
+  tab: "notes" | "results";
+  /** blockAnchor(block) of the block to insert AFTER. Empty for the top sentinel. */
+  anchorHash: string;
+  /** Index of the anchored block in the pulled doc, a disambiguation hint, or a
+   *  sentinel (-1 = top, Number.MAX_SAFE_INTEGER = end). */
+  anchorIndex: number;
+  /** The phone-note callout markdown to insert. */
+  block: string;
+  /** Idempotency key (also the relay commandId). */
+  clientId: string;
+  /** ISO timestamp the phone stamped, informational. */
+  ts?: string;
 }
 
 /**
@@ -871,6 +924,101 @@ async function writeCaptureSidecar(
   imageEvents.emitMetadataChanged({ basePath, filename });
 }
 
+/**
+ * Resolve where a phone-note block lands in `existing` and return the new doc
+ * text with the block spliced in as its own paragraph (blank line before and
+ * after). Pure + exported so the anchor-match round-trip can be unit tested
+ * without any relay / file mocking.
+ *
+ * Resolution (content-anchor only, P2):
+ *   - anchorIndex = TOP sentinel (-1): insert before the first block.
+ *   - anchorIndex = END sentinel (Number.MAX_SAFE_INTEGER): append at the end.
+ *   - otherwise: find every block whose blockAnchor matches anchorHash and pick
+ *     the one whose index is nearest anchorIndex; insert AFTER it. If no block
+ *     matches the hash, fall back to the surviving block nearest anchorIndex
+ *     (so an edited-since-pull anchor lands close, never corrupting). With no
+ *     blocks at all, the block becomes the whole doc.
+ *
+ * The note is ALWAYS a whole, self-contained block inserted at a blank-line
+ * boundary, so a miss is cosmetic (a paragraph off) and can never split text.
+ */
+export const NOTE_TOP_ANCHOR_INDEX = -1;
+export const NOTE_END_ANCHOR_INDEX = Number.MAX_SAFE_INTEGER;
+
+export function insertNoteBlockIntoMarkdown(
+  existing: string,
+  block: string,
+  anchorHash: string,
+  anchorIndex: number,
+): string {
+  const trimmedBlock = block.trim();
+
+  // Empty doc: the note becomes the whole document.
+  if (!existing.trim()) return trimmedBlock + "\n";
+
+  const blocks = splitBlocks(existing);
+  if (blocks.length === 0) return trimmedBlock + "\n";
+
+  // Recover each block's start/end character offset in the ORIGINAL text by
+  // scanning sequentially. We splice the note in at a block boundary and leave
+  // everything else BYTE-FOR-BYTE untouched. This is the safety guarantee: we
+  // never re-serialize the doc, so existing spacing, fenced code blocks, and
+  // tables (which can contain blank lines) are preserved verbatim. A
+  // split-then-rejoin would collapse blank-line runs and could mangle a code
+  // fence, which is exactly the corruption this design promises never happens.
+  const starts: number[] = [];
+  const ends: number[] = [];
+  let cursor = 0;
+  for (const b of blocks) {
+    const at = existing.indexOf(b, cursor);
+    if (at === -1) {
+      // Should not happen (blocks are substrings of existing), but stay safe.
+      starts.push(cursor);
+      ends.push(existing.length);
+    } else {
+      starts.push(at);
+      cursor = at + b.length;
+      ends.push(cursor);
+    }
+  }
+
+  // Top sentinel: before the first block (keep any leading whitespace intact).
+  if (anchorIndex === NOTE_TOP_ANCHOR_INDEX) {
+    const at = starts[0];
+    return existing.slice(0, at) + trimmedBlock + "\n\n" + existing.slice(at);
+  }
+
+  // End sentinel: after the last block (keep any trailing content intact).
+  if (anchorIndex === NOTE_END_ANCHOR_INDEX) {
+    const at = ends[ends.length - 1];
+    return existing.slice(0, at) + "\n\n" + trimmedBlock + existing.slice(at);
+  }
+
+  // Find the insertion target index (the block to insert AFTER).
+  let targetIdx = -1;
+  if (anchorHash) {
+    const matches: number[] = [];
+    for (let i = 0; i < blocks.length; i += 1) {
+      if (blockAnchor(blocks[i]) === anchorHash) matches.push(i);
+    }
+    if (matches.length > 0) {
+      // Nearest match to the pulled index (the disambiguation hint).
+      targetIdx = matches.reduce((best, i) =>
+        Math.abs(i - anchorIndex) < Math.abs(best - anchorIndex) ? i : best,
+      );
+    }
+  }
+  if (targetIdx === -1) {
+    // No anchor match (edited / deleted since the pull). Fall back to the
+    // surviving block nearest the pulled index so the note lands close.
+    targetIdx = Math.max(0, Math.min(blocks.length - 1, anchorIndex));
+  }
+
+  // Splice after the target block's end offset, preserving the rest verbatim.
+  const at = ends[targetIdx];
+  return existing.slice(0, at) + "\n\n" + trimmedBlock + existing.slice(at);
+}
+
 export interface PollResult {
   /** How many captures were successfully landed AND acked this run. */
   pulled: number;
@@ -904,6 +1052,10 @@ export async function runCaptureInboxPoll(
   // Append-line commands to apply after the route-map pass. Accumulated here so
   // we process captures first (route-map must be complete), then apply appends.
   const appendLineQueue: Array<{ cmd: AppendLineCommand; commandId: string }> = [];
+  // Insert-note-block commands (phone notes P2). Applied after captures for the
+  // same ordering reason as appendLineQueue; each inserts a phone-note block at a
+  // content anchor in the task's notes/results doc.
+  const insertNoteBlockQueue: Array<{ cmd: InsertNoteBlockCommand; commandId: string }> = [];
   // Append-note-text commands (text routing). Applied after captures for the
   // same ordering reason as appendLineQueue.
   const appendNoteTextQueue: Array<{ cmd: AppendNoteTextCommand; commandId: string }> = [];
@@ -1006,6 +1158,28 @@ export async function runCaptureInboxPoll(
               );
             } else {
               console.warn(`${LOG_PREFIX} append-line command ${cmd.commandId} has invalid fields, skipping`);
+            }
+          } else if (parsed.type === "insert-note-block") {
+            // Phone notes P2: insert a phone-note block at a content anchor.
+            // Defer to after captures for the same ordering reason as append-line.
+            const inb = parsed as InsertNoteBlockCommand;
+            if (
+              typeof inb.taskId === "number" &&
+              inb.owner &&
+              (inb.tab === "notes" || inb.tab === "results") &&
+              typeof inb.anchorHash === "string" &&
+              typeof inb.anchorIndex === "number" &&
+              typeof inb.block === "string" &&
+              inb.block.trim() &&
+              typeof inb.clientId === "string" &&
+              inb.clientId
+            ) {
+              insertNoteBlockQueue.push({ cmd: inb, commandId: cmd.commandId });
+              console.info(
+                `${LOG_PREFIX} insert-note-block command queued: task ${inb.owner}/${inb.taskId} tab=${inb.tab} anchor=${inb.anchorHash || "(top)"} idx=${inb.anchorIndex} clientId=${inb.clientId}`,
+              );
+            } else {
+              console.warn(`${LOG_PREFIX} insert-note-block command ${cmd.commandId} has invalid fields, skipping`);
             }
           } else if (parsed.type === "append-note-text") {
             // Text routing: append markdown text into a note entry.
@@ -1713,6 +1887,109 @@ export async function runCaptureInboxPoll(
     }
   }
   // ── end append-line processing ──────────────────────────────────────────
+
+  // ── insert-note-block processing (phone notes P2) ───────────────────────
+  // Apply any insert-note-block commands that arrived this poll. Each splices a
+  // phone-note block at a content anchor in the task's notes/results doc, using
+  // the SAME dual path append-line uses (live event when the experiment is open,
+  // .md splice when closed). Deduped on the phone's clientId so a re-send (the
+  // relay handed it back before its ack landed) never inserts twice. Handled
+  // independently so one bad command does not block the rest.
+  for (const { cmd, commandId } of insertNoteBlockQueue) {
+    try {
+      // Idempotency: skip a clientId we already applied this session, but still
+      // re-ack so the relay drops the duplicate.
+      if (insertedNoteClientIds.has(cmd.clientId)) {
+        console.info(
+          `${LOG_PREFIX} insert-note-block clientId ${cmd.clientId} already applied, re-acking`,
+        );
+        try {
+          await ackCommands(keys, [commandId]);
+        } catch {
+          // best-effort
+        }
+        continue;
+      }
+
+      // Check whether the target experiment is currently open in the popup. When
+      // open, dispatch a window event so the live editor splices the block at the
+      // anchor (its useEffect listener does the actual insert + persist). When
+      // closed, splice the .md file on disk directly.
+      const active = useAppStore.getState().activeTask;
+      if (active && active.id === cmd.taskId && active.owner === cmd.owner) {
+        if (typeof window !== "undefined") {
+          window.dispatchEvent(
+            new CustomEvent("notebook:insert-note-block", {
+              detail: {
+                taskId: cmd.taskId,
+                owner: cmd.owner,
+                tab: cmd.tab,
+                block: cmd.block,
+                anchorHash: cmd.anchorHash,
+                anchorIndex: cmd.anchorIndex,
+              },
+            }),
+          );
+          console.info(
+            `${LOG_PREFIX} insert-note-block dispatched to open popup: task ${cmd.owner}/${cmd.taskId} tab=${cmd.tab}`,
+          );
+        }
+      } else {
+        // Not open: splice the .md file on disk. notes.md / results.md live in the
+        // task results folder (same path append-line writes to).
+        const base = taskResultsBase({ id: cmd.taskId, owner: cmd.owner });
+        const filePath = cmd.tab === "results"
+          ? `${base}/results.md`
+          : `${base}/notes.md`;
+
+        let existing = "";
+        try {
+          const read = await filesApi.readFile(filePath);
+          existing = read.content;
+        } catch {
+          // File does not exist yet (fresh experiment). Start with an empty doc.
+        }
+
+        const next = insertNoteBlockIntoMarkdown(
+          existing,
+          cmd.block,
+          cmd.anchorHash,
+          cmd.anchorIndex,
+        );
+        await filesApi.writeFile(
+          filePath,
+          next,
+          `Insert phone note into task ${cmd.taskId}`,
+        );
+        console.info(
+          `${LOG_PREFIX} insert-note-block wrote to disk: ${filePath}`,
+        );
+      }
+
+      // Record the clientId BEFORE acking so a failed ack does not re-insert.
+      rememberInsertedNote(cmd.clientId);
+
+      // Ack the command after a successful apply.
+      try {
+        await ackCommands(keys, [commandId]);
+        console.info(`${LOG_PREFIX} acked insert-note-block command ${commandId}`);
+      } catch (ackErr) {
+        console.warn(
+          `${LOG_PREFIX} failed to ack insert-note-block command ${commandId}`,
+          ackErr instanceof Error ? ackErr.message : String(ackErr),
+        );
+      }
+
+      pulled += 1;
+    } catch (insertErr) {
+      errors += 1;
+      console.warn(
+        `${LOG_PREFIX} failed to apply insert-note-block command ${commandId}`,
+        insertErr instanceof Error ? insertErr.message : String(insertErr),
+      );
+    }
+  }
+  // ── end insert-note-block processing ────────────────────────────────────
 
   // ── append-note-text processing ─────────────────────────────────────────
   // Apply any append-note-text commands that arrived this poll. Each is handled

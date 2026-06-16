@@ -10,7 +10,7 @@
 // relay follow-up, same limitation the band card has).
 //
 // House style: no em-dashes, no emojis, no mid-sentence colons.
-import { useCallback, useEffect, useState } from 'react';
+import { Fragment, useCallback, useEffect, useState } from 'react';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import {
   ActivityIndicator,
@@ -31,12 +31,201 @@ import { useTodayState } from '@/lib/today-store';
 import { typeMeta } from '@/lib/method-library';
 import { usePairing } from '@/lib/pairing';
 import { captureToExperiment } from '@/lib/experiment-capture';
-import { postAppendLine } from '@/lib/calc-export';
+import {
+  postAppendLine,
+  postInsertNoteBlock,
+  END_ANCHOR_INDEX,
+  TOP_ANCHOR_INDEX,
+} from '@/lib/calc-export';
+import { splitBlocks, blockAnchor } from '@/lib/note-anchor';
+import { buildPhoneNoteBlock } from '@/lib/phone-note-format';
 import { fetchSnapshot, type ExperimentNotesSnapshot } from '@/lib/snapshots';
 import { signWithDevice } from '@/lib/device-identity';
 import type { RouteTab } from '@/lib/route-capture';
 import { useTheme, palette, fonts } from '@/lib/design';
 import type { SnapshotTask } from '@/lib/snapshots';
+
+/** A note the user has composed + placed locally but not yet pushed. anchorHash
+ *  + anchorIndex identify the block it sits AFTER (top/end sentinels for the
+ *  ends); body is the raw text; id is a stable key (also the push clientId). */
+type StagedNote = {
+  id: string;
+  anchorHash: string;
+  anchorIndex: number;
+  body: string;
+};
+
+/** A simple unique-ish id for a staged note (also reused as the push clientId). */
+function makeStagedId(): string {
+  return `pn_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
+}
+
+/**
+ * One tab's doc rendered as an ordered list of blocks with a "+ note here"
+ * affordance at the top, between every pair of blocks, and at the bottom. A
+ * composed note shows inline as a pending phone-note card at its slot. Staged
+ * notes live in the parent (so the Push tray can count + send across tabs).
+ *
+ * anchorIndex convention matches calc-export: slot 0 sits before block 0 (top
+ * sentinel), slot i (1..n-1) sits after block i-1 (anchored), and slot n sits
+ * after the last block (end sentinel). The hash is blockAnchor of the block the
+ * note sits after, empty for the top sentinel.
+ */
+function DocBlocks({
+  markdown,
+  tab,
+  accent,
+  label,
+  staged,
+  composingSlot,
+  composeText,
+  onOpenCompose,
+  onChangeCompose,
+  onCommitCompose,
+  onCancelCompose,
+  onRemoveStaged,
+}: {
+  markdown: string;
+  tab: RouteTab;
+  accent: string;
+  label: string;
+  staged: StagedNote[];
+  composingSlot: number | null;
+  composeText: string;
+  onOpenCompose: (slot: number, anchorHash: string, anchorIndex: number) => void;
+  onChangeCompose: (text: string) => void;
+  onCommitCompose: () => void;
+  onCancelCompose: () => void;
+  onRemoveStaged: (id: string) => void;
+}) {
+  const { surface } = useTheme();
+  const blocks = splitBlocks(markdown);
+
+  // Resolve the anchor a given insertion slot maps to.
+  const anchorForSlot = (slot: number): { hash: string; index: number } => {
+    if (slot <= 0) return { hash: '', index: TOP_ANCHOR_INDEX };
+    if (slot >= blocks.length) {
+      // After the last block. Carry the real last-block anchor so a re-pull that
+      // grew the doc still lands right after it; END sentinel when the doc is
+      // empty so it appends rather than fixing on a missing block.
+      if (blocks.length === 0) return { hash: '', index: END_ANCHOR_INDEX };
+      return { hash: blockAnchor(blocks[blocks.length - 1]), index: blocks.length - 1 };
+    }
+    // Between block slot-1 and slot: anchored to block slot-1.
+    return { hash: blockAnchor(blocks[slot - 1]), index: slot - 1 };
+  };
+
+  // Staged notes that belong to a given slot (matched by resolved anchor).
+  const stagedForSlot = (slot: number): StagedNote[] => {
+    const a = anchorForSlot(slot);
+    return staged.filter((n) => n.anchorHash === a.hash && n.anchorIndex === a.index);
+  };
+
+  // The number of insertion slots is blocks.length + 1 (top, between, bottom).
+  const slots = Array.from({ length: blocks.length + 1 }, (_, i) => i);
+
+  return (
+    <View style={[styles.docCard, { backgroundColor: surface.surface, borderColor: surface.border }]}>
+      <ThemedText style={[styles.docTabLabel, { color: accent }]}>{label}</ThemedText>
+      {slots.map((slot) => {
+        const a = anchorForSlot(slot);
+        const slotStaged = stagedForSlot(slot);
+        const composing = composingSlot === slot;
+        return (
+          <Fragment key={`slot-${slot}`}>
+            {/* Insertion affordance for this slot. */}
+            {composing ? (
+              <View style={[styles.composer, { borderColor: accent }]}>
+                <TextInput
+                  value={composeText}
+                  onChangeText={onChangeCompose}
+                  placeholder="Write a note to place here..."
+                  placeholderTextColor={surface.muted}
+                  multiline
+                  autoFocus
+                  style={[styles.composerInput, { color: surface.text }]}
+                />
+                <View style={styles.composerRow}>
+                  <Pressable
+                    onPress={onCancelCompose}
+                    hitSlop={6}
+                    accessibilityRole="button"
+                    accessibilityLabel="Cancel this note"
+                    style={styles.composerCancel}
+                  >
+                    <ThemedText style={[styles.composerCancelText, { color: surface.muted }]}>
+                      Cancel
+                    </ThemedText>
+                  </Pressable>
+                  <Pressable
+                    onPress={onCommitCompose}
+                    disabled={composeText.trim().length === 0}
+                    accessibilityRole="button"
+                    accessibilityLabel="Place this note"
+                    style={[
+                      styles.composerPlace,
+                      { backgroundColor: accent, opacity: composeText.trim().length === 0 ? 0.5 : 1 },
+                    ]}
+                  >
+                    <ThemedText style={[styles.composerPlaceText, { color: palette.white }]}>
+                      Place
+                    </ThemedText>
+                  </Pressable>
+                </View>
+              </View>
+            ) : (
+              <Pressable
+                onPress={() => onOpenCompose(slot, a.hash, a.index)}
+                hitSlop={4}
+                accessibilityRole="button"
+                accessibilityLabel={`Add a note here in ${label}`}
+                style={styles.addHereRow}
+              >
+                <View style={[styles.addHereLine, { backgroundColor: surface.border }]} />
+                <View style={[styles.addHereChip, { borderColor: surface.border, backgroundColor: surface.surface }]}>
+                  <Ionicons name="add" size={13} color={accent} />
+                  <ThemedText style={[styles.addHereText, { color: surface.muted }]}>note here</ThemedText>
+                </View>
+                <View style={[styles.addHereLine, { backgroundColor: surface.border }]} />
+              </Pressable>
+            )}
+
+            {/* Pending notes placed at this slot. */}
+            {slotStaged.map((n) => (
+              <View
+                key={n.id}
+                style={[styles.pendingNote, { borderColor: accent, backgroundColor: `${accent}14` }]}
+              >
+                <View style={styles.pendingHeader}>
+                  <Ionicons name="phone-portrait-outline" size={14} color={accent} />
+                  <ThemedText style={[styles.pendingLabel, { color: accent }]}>
+                    Pending phone note
+                  </ThemedText>
+                  <Pressable
+                    onPress={() => onRemoveStaged(n.id)}
+                    hitSlop={8}
+                    accessibilityRole="button"
+                    accessibilityLabel="Discard this pending note"
+                  >
+                    <Ionicons name="close" size={15} color={surface.muted} />
+                  </Pressable>
+                </View>
+                <MarkdownLite markdown={n.body} />
+              </View>
+            ))}
+
+            {/* The block itself (none after the last slot). */}
+            {slot < blocks.length ? (
+              <View style={styles.docBlock}>
+                <MarkdownLite markdown={blocks[slot]} />
+              </View>
+            ) : null}
+          </Fragment>
+        );
+      })}
+    </View>
+  );
+}
 
 export default function ExperimentDetailScreen() {
   const { surface, spacing } = useTheme();
@@ -51,6 +240,16 @@ export default function ExperimentDetailScreen() {
   const [noteSending, setNoteSending] = useState(false);
   const [notesSnap, setNotesSnap] = useState<ExperimentNotesSnapshot | null>(null);
   const [notesLoading, setNotesLoading] = useState(false);
+
+  // Phone notes P2 staging. Staged notes are placed locally and pushed on demand;
+  // each carries the tab it belongs to + the anchor of the block it sits after.
+  const [stagedNotes, setStagedNotes] = useState<Array<StagedNote & { tab: RouteTab }>>([]);
+  // The active composer slot, keyed by tab so only one composer is open at a time.
+  const [composer, setComposer] = useState<
+    { tab: RouteTab; slot: number; anchorHash: string; anchorIndex: number } | null
+  >(null);
+  const [composeText, setComposeText] = useState('');
+  const [pushing, setPushing] = useState(false);
 
   // Pull the experiment's notes/results docs (read-only). One-time on mount plus
   // a manual refresh; the laptop publishes the latest sealed projection.
@@ -164,6 +363,95 @@ export default function ExperimentDetailScreen() {
     }
   };
 
+  // ── Phone notes P2 staging handlers ────────────────────────────────────────
+
+  const openCompose = (tab: RouteTab, slot: number, anchorHash: string, anchorIndex: number) => {
+    setComposer({ tab, slot, anchorHash, anchorIndex });
+    setComposeText('');
+  };
+
+  const cancelCompose = () => {
+    setComposer(null);
+    setComposeText('');
+  };
+
+  const commitCompose = () => {
+    const body = composeText.trim();
+    if (!composer || !body) return;
+    setStagedNotes((prev) => [
+      ...prev,
+      {
+        id: makeStagedId(),
+        tab: composer.tab,
+        anchorHash: composer.anchorHash,
+        anchorIndex: composer.anchorIndex,
+        body,
+      },
+    ]);
+    setComposer(null);
+    setComposeText('');
+  };
+
+  const removeStaged = (id: string) => {
+    setStagedNotes((prev) => prev.filter((n) => n.id !== id));
+  };
+
+  const discardStaged = () => {
+    setStagedNotes([]);
+    cancelCompose();
+  };
+
+  const pushStaged = async () => {
+    if (stagedNotes.length === 0 || pushing) return;
+    const pub = pairing?.userX25519PubHex ?? '';
+    if (!pairing || !canAdd || !task?.owner) {
+      setStatus('Pair this phone to push notes to the experiment.');
+      return;
+    }
+    if (!pub) {
+      setStatus('Re-pair this phone to push notes (missing key).');
+      return;
+    }
+    setPushing(true);
+    setStatus(null);
+    const author = pairing.userName ?? 'Phone';
+    const failed: Array<StagedNote & { tab: RouteTab }> = [];
+    try {
+      for (const note of stagedNotes) {
+        const block = buildPhoneNoteBlock(note.body, author);
+        if (!block) continue;
+        const ok = await postInsertNoteBlock(
+          numericTaskId,
+          task.owner,
+          note.tab,
+          note.anchorHash,
+          note.anchorIndex,
+          block,
+          note.id,
+          pub,
+          pairing.relayUrl,
+        );
+        if (!ok) failed.push(note);
+      }
+      if (failed.length === 0) {
+        setStagedNotes([]);
+        setStatus(
+          stagedNotes.length === 1
+            ? 'Note pushed to this experiment.'
+            : `${stagedNotes.length} notes pushed to this experiment.`,
+        );
+        // Re-pull so the canonical laptop doc (with the embeds in place) shows.
+        await loadNotes();
+      } else {
+        // Keep the ones that did not send so the user can retry (offline flush).
+        setStagedNotes(failed);
+        setStatus('Some notes did not send. They will retry when back online.');
+      }
+    } finally {
+      setPushing(false);
+    }
+  };
+
   if (!task) {
     return (
       <ScreenFrame>
@@ -255,15 +543,74 @@ export default function ExperimentDetailScreen() {
               </Pressable>
             </View>
             {notesSnap?.notes?.markdown ? (
-              <View style={[styles.docCard, { backgroundColor: surface.surface, borderColor: surface.border }]}>
-                <ThemedText style={[styles.docTabLabel, { color: palette.sky }]}>Lab Notes</ThemedText>
-                <MarkdownLite markdown={notesSnap.notes.markdown} />
-              </View>
+              <DocBlocks
+                markdown={notesSnap.notes.markdown}
+                tab="notes"
+                accent={palette.sky}
+                label="Lab Notes"
+                staged={stagedNotes.filter((n) => n.tab === 'notes')}
+                composingSlot={composer?.tab === 'notes' ? composer.slot : null}
+                composeText={composeText}
+                onOpenCompose={(slot, hash, index) => openCompose('notes', slot, hash, index)}
+                onChangeCompose={setComposeText}
+                onCommitCompose={commitCompose}
+                onCancelCompose={cancelCompose}
+                onRemoveStaged={removeStaged}
+              />
             ) : null}
             {notesSnap?.results?.markdown ? (
-              <View style={[styles.docCard, { backgroundColor: surface.surface, borderColor: surface.border }]}>
-                <ThemedText style={[styles.docTabLabel, { color: palette.violet }]}>Results</ThemedText>
-                <MarkdownLite markdown={notesSnap.results.markdown} />
+              <DocBlocks
+                markdown={notesSnap.results.markdown}
+                tab="results"
+                accent={palette.violet}
+                label="Results"
+                staged={stagedNotes.filter((n) => n.tab === 'results')}
+                composingSlot={composer?.tab === 'results' ? composer.slot : null}
+                composeText={composeText}
+                onOpenCompose={(slot, hash, index) => openCompose('results', slot, hash, index)}
+                onChangeCompose={setComposeText}
+                onCommitCompose={commitCompose}
+                onCancelCompose={cancelCompose}
+                onRemoveStaged={removeStaged}
+              />
+            ) : null}
+
+            {stagedNotes.length > 0 ? (
+              <View style={[styles.tray, { backgroundColor: surface.surface, borderColor: surface.border }]}>
+                <ThemedText style={[styles.trayCount, { color: surface.text }]}>
+                  {stagedNotes.length === 1
+                    ? '1 note staged'
+                    : `${stagedNotes.length} notes staged`}
+                </ThemedText>
+                <View style={styles.trayActions}>
+                  <Pressable
+                    onPress={discardStaged}
+                    disabled={pushing}
+                    hitSlop={6}
+                    accessibilityRole="button"
+                    accessibilityLabel="Discard all staged notes"
+                    style={styles.trayDiscard}
+                  >
+                    <ThemedText style={[styles.trayDiscardText, { color: surface.muted }]}>
+                      Discard
+                    </ThemedText>
+                  </Pressable>
+                  <Pressable
+                    onPress={() => void pushStaged()}
+                    disabled={pushing}
+                    accessibilityRole="button"
+                    accessibilityLabel="Push staged notes to the experiment"
+                    style={[styles.trayPush, { backgroundColor: palette.sky, opacity: pushing ? 0.6 : 1 }]}
+                  >
+                    {pushing ? (
+                      <ActivityIndicator size="small" color={palette.white} />
+                    ) : (
+                      <ThemedText style={[styles.trayPushText, { color: palette.white }]}>
+                        Push
+                      </ThemedText>
+                    )}
+                  </Pressable>
+                </View>
               </View>
             ) : null}
           </View>
@@ -460,6 +807,96 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     marginBottom: 6,
   },
+  docBlock: { marginVertical: 2 },
+  addHereRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingVertical: 6,
+  },
+  addHereLine: { flex: 1, height: 1 },
+  addHereChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    borderWidth: 1,
+    borderRadius: 999,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+  },
+  addHereText: { fontSize: 11, fontFamily: fonts.semibold, fontWeight: '600' },
+  composer: {
+    borderWidth: 1,
+    borderRadius: 12,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    marginVertical: 6,
+  },
+  composerInput: {
+    minHeight: 56,
+    fontSize: 14,
+    fontFamily: fonts.medium,
+    textAlignVertical: 'top',
+  },
+  composerRow: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    alignItems: 'center',
+    gap: 10,
+    marginTop: 8,
+  },
+  composerCancel: { paddingHorizontal: 8, paddingVertical: 6 },
+  composerCancelText: { fontSize: 13, fontFamily: fonts.semibold, fontWeight: '600' },
+  composerPlace: {
+    borderRadius: 10,
+    paddingHorizontal: 16,
+    paddingVertical: 7,
+  },
+  composerPlaceText: { fontSize: 13, fontFamily: fonts.semibold, fontWeight: '600' },
+  pendingNote: {
+    borderWidth: 1,
+    borderStyle: 'dashed',
+    borderRadius: 12,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    marginVertical: 6,
+  },
+  pendingHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 4,
+  },
+  pendingLabel: {
+    flex: 1,
+    fontSize: 11,
+    letterSpacing: 0.4,
+    fontFamily: fonts.bold,
+    fontWeight: '700',
+  },
+  tray: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    borderWidth: 1,
+    borderRadius: 14,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    marginTop: 4,
+  },
+  trayCount: { fontSize: 14, fontFamily: fonts.semibold, fontWeight: '600' },
+  trayActions: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  trayDiscard: { paddingHorizontal: 10, paddingVertical: 8 },
+  trayDiscardText: { fontSize: 14, fontFamily: fonts.semibold, fontWeight: '600' },
+  trayPush: {
+    borderRadius: 12,
+    paddingHorizontal: 22,
+    paddingVertical: 9,
+    minWidth: 72,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  trayPushText: { fontSize: 14, fontFamily: fonts.semibold, fontWeight: '600' },
   addSection: { marginTop: 8 },
   subLabel: {
     marginTop: 14,
