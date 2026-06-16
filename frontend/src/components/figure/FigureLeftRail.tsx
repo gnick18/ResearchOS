@@ -19,6 +19,14 @@ import {
   type LibraryAsset,
   type CategoryGroup,
 } from "@/lib/figure/asset-library";
+import { buildSearchIndex, rankDocs } from "@/lib/figure/asset-search";
+import {
+  buildSmartSearchTasks,
+  semanticSearch,
+  isEmbedIndexReady,
+} from "@/lib/figure/asset-embed-search";
+import { runBoot, createLocalTimingStore, type BootState } from "@/lib/page-boot/page-boot";
+import { BeakerBotLoader } from "@/components/page-boot/BeakerBotLoader";
 import type { FigurePage, ShapeKind, TextVariant } from "@/lib/figure/figure-page";
 import type { ElementRef } from "@/lib/figure/figure-arrange";
 import { FIGURE_TEMPLATES, type FigureTemplate } from "@/lib/figure/figure-templates";
@@ -229,6 +237,19 @@ const ASSET_CONTRIBUTE_ENABLED =
   process.env.NEXT_PUBLIC_ASSET_CONTRIBUTE_ENABLED === "1" ||
   process.env.NEXT_PUBLIC_ASSET_CONTRIBUTE_ENABLED === "true";
 
+// The lazy embedding (semantic) layer is gated until the vector sidecar is live
+// on the CDN; the keyword baseline is always on.
+const ASSET_SMART_SEARCH_ENABLED =
+  process.env.NEXT_PUBLIC_ASSET_SMART_SEARCH === "1" ||
+  process.env.NEXT_PUBLIC_ASSET_SMART_SEARCH === "true";
+
+const smartTimingStore = createLocalTimingStore();
+
+// Cap the rendered grid: each tile fetches an SVG from the CDN, so rendering
+// hundreds at once is what makes results feel slow to appear. ~90 fills several
+// scroll-pages; the rest are reachable by narrowing the search/category.
+const RESULT_CAP = 90;
+
 function IconsPanel({ onPick }: { onPick: (a: LibraryAsset) => void }) {
   const [assets, setAssets] = useState<LibraryAsset[]>([]);
   const [loading, setLoading] = useState(true);
@@ -237,6 +258,9 @@ function IconsPanel({ onPick }: { onPick: (a: LibraryAsset) => void }) {
   // Which top-level sections are open in the tree. Collapsed by default so a
   // 9-section corpus stays scannable; selecting a leaf keeps its section open.
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
+
+  // Debounced query so we don't re-rank 14k assets on every keystroke.
+  const [debouncedQuery, setDebouncedQuery] = useState("");
 
   useEffect(() => {
     let live = true;
@@ -250,13 +274,83 @@ function IconsPanel({ onPick }: { onPick: (a: LibraryAsset) => void }) {
     };
   }, []);
 
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedQuery(query), 120);
+    return () => clearTimeout(t);
+  }, [query]);
+
+  // Tokenize the manifest ONCE; re-searching reuses the cached tokens.
+  const searchIndex = useMemo(() => buildSearchIndex(assets), [assets]);
+
   // The locked taxonomy from the Icon Library lane: sections (display-ordered,
   // empty omitted) each holding the leaf categories actually present.
   const groups = useMemo<CategoryGroup[]>(() => listCategoryGroups(assets), [assets]);
-  const results = useMemo(
-    () => searchAssets(assets, { query, category }).slice(0, 240),
-    [assets, query, category],
-  );
+  // With a query, rank by near-miss relevance (typo + synonym tolerant) over the
+  // category-filtered set, so "rodent" / "moose" / "cell death" still find icons
+  // whose title never says those words. With no query, keep the plain category
+  // view (rankAssets returns nothing for an empty query).
+  // Smart (semantic) search: lazy index load behind the BeakerBot loader, then
+  // async blended ranking. Off by default + flag-gated; keyword is always on.
+  const [smart, setSmart] = useState(false);
+  const [smartReady, setSmartReady] = useState(false);
+  const [boot, setBoot] = useState<BootState | null>(null);
+  const [smartResults, setSmartResults] = useState<LibraryAsset[] | null>(null);
+
+  const keywordResults = useMemo(() => {
+    if (!debouncedQuery.trim()) {
+      return searchAssets(assets, { category }).slice(0, RESULT_CAP);
+    }
+    const docs = category
+      ? searchIndex.filter((d) => d.asset.category === category)
+      : searchIndex;
+    return rankDocs(docs, debouncedQuery, { limit: RESULT_CAP }).map((s) => s.asset);
+  }, [assets, searchIndex, debouncedQuery, category]);
+
+  const enableSmart = () => {
+    setSmart(true);
+    if (smartReady || isEmbedIndexReady()) {
+      setSmartReady(true);
+      return;
+    }
+    setBoot({ pct: 0, label: "Starting up", etaMs: null, phase: "running" });
+    void runBoot(buildSmartSearchTasks(), {
+      pageId: "figures-smart-search",
+      timingStore: smartTimingStore,
+      onUpdate: setBoot,
+    })
+      .then(() => {
+        setSmartReady(true);
+        setBoot(null);
+      })
+      .catch(() => {
+        // boot holds the error state; the loader shows a retry.
+      });
+  };
+
+  // Recompute blended semantic results when smart is on + ready (debounced query).
+  useEffect(() => {
+    if (!smart || !smartReady || !debouncedQuery.trim()) {
+      setSmartResults(null);
+      return;
+    }
+    let live = true;
+    void semanticSearch(assets, debouncedQuery, { limit: RESULT_CAP }).then((r) => {
+      if (live) setSmartResults(r.map((s) => s.asset));
+    });
+    return () => {
+      live = false;
+    };
+  }, [smart, smartReady, debouncedQuery, assets]);
+
+  // What the grid shows: smart (blended, category-filtered) when active + ready,
+  // else the keyword baseline.
+  const results = useMemo(() => {
+    if (smart && smartReady && debouncedQuery.trim() && smartResults) {
+      return category ? smartResults.filter((a) => a.category === category) : smartResults;
+    }
+    return keywordResults;
+  }, [smart, smartReady, debouncedQuery, smartResults, category, keywordResults]);
+
   const reviewable = useMemo(
     () => (ASSET_CONTRIBUTE_ENABLED ? countReviewable(assets) : 0),
     [assets],
@@ -284,9 +378,23 @@ function IconsPanel({ onPick }: { onPick: (a: LibraryAsset) => void }) {
         <input
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          placeholder="Search icons..."
+          placeholder={smart ? "Smart search..." : "Search icons..."}
           className="w-full bg-transparent text-meta outline-none placeholder:text-foreground-faint"
         />
+        {ASSET_SMART_SEARCH_ENABLED && (
+          <button
+            type="button"
+            onClick={() => (smart ? setSmart(false) : enableSmart())}
+            title={
+              smart
+                ? "Smart search on (finds icons by meaning). Click to turn off."
+                : "Smart search: find icons by meaning, not just words. Loads a small model the first time."
+            }
+            className={`shrink-0 rounded-full px-2 py-0.5 text-[10.5px] font-medium ${smart ? "bg-brand-action text-white" : "border border-border-strong text-foreground-muted"}`}
+          >
+            Smart
+          </button>
+        )}
       </div>
 
       {/* Collapsible grouped category tree (BioRender-style), bounded so the
@@ -340,7 +448,13 @@ function IconsPanel({ onPick }: { onPick: (a: LibraryAsset) => void }) {
       )}
 
       <div className="min-h-0 flex-1 overflow-auto">
-        {loading ? (
+        {boot ? (
+          <BeakerBotLoader
+            state={boot}
+            blurb="Loading the smart-search model in your browser. It caches after the first time, then searches by meaning instantly, and nothing leaves your device."
+            onRetry={enableSmart}
+          />
+        ) : loading ? (
           <p className="p-4 text-center text-meta text-foreground-muted">Loading the library...</p>
         ) : assets.length === 0 ? (
           <p className="p-4 text-center text-meta text-foreground-faint">
