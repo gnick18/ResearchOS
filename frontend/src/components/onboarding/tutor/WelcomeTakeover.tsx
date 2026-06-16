@@ -56,12 +56,21 @@ export default function WelcomeTakeover({
         Skip for now
       </button>
 
-      <div className="absolute left-4 top-4 z-20 flex items-center gap-2 rounded-full bg-[var(--brand-soft,#e3f4ec)]/90 px-3 py-1 text-[10px] font-semibold text-[var(--brand-ink,#0f6e56)] shadow-sm backdrop-blur">
-        onboarding
-        <span className="h-1 w-9 overflow-hidden rounded bg-black/10">
+      {/* Free-AI allowance, framed as an honest gift rather than a raw token
+          count (a "Nk / 150k" number read like a 150,000-step tour). Just a
+          label + a quiet bar that fills as the tour spends AI; no numbers. */}
+      <div
+        className="absolute left-4 top-4 z-20 flex items-center gap-2 rounded-full bg-[var(--brand-soft,#e3f4ec)]/90 px-3 py-1 text-[10px] font-semibold text-[var(--brand-ink,#0f6e56)] shadow-sm backdrop-blur"
+        title="The AI in this tour is on us"
+      >
+        Free AI
+        <span
+          className="h-1 w-9 overflow-hidden rounded bg-black/10"
+          role="img"
+          aria-label={`Free AI allowance, ${Math.round(pct)} percent used`}
+        >
           <span className="block h-full rounded bg-[var(--brand,#1d9e75)]" style={{ width: `${pct}%` }} />
         </span>
-        {Math.round(tokensUsed / 1000)}k / {Math.round(tokenCap / 1000)}k
       </div>
 
       <div className="relative z-10 flex h-full flex-col items-center justify-center px-6 text-center">
