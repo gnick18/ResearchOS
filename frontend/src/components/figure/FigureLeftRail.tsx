@@ -25,6 +25,12 @@ import {
   semanticSearch,
   isEmbedIndexReady,
 } from "@/lib/figure/asset-embed-search";
+import {
+  getRecentUids,
+  getFavoriteUids,
+  recordRecent,
+  setFavorite,
+} from "@/lib/figure/asset-recents";
 import { runBoot, createLocalTimingStore, type BootState } from "@/lib/page-boot/page-boot";
 import { BeakerBotLoader } from "@/components/page-boot/BeakerBotLoader";
 import type { FigurePage, ShapeKind, TextVariant } from "@/lib/figure/figure-page";
@@ -262,6 +268,16 @@ function IconsPanel({ onPick }: { onPick: (a: LibraryAsset) => void }) {
   // Debounced query so we don't re-rank 14k assets on every keystroke.
   const [debouncedQuery, setDebouncedQuery] = useState("");
 
+  // Recently-inserted + starred icons, loaded from localStorage on mount so the
+  // most-used few are one click away (a 14k library makes re-searching tedious).
+  const [recentUids, setRecentUids] = useState<string[]>([]);
+  const [favUids, setFavUids] = useState<string[]>([]);
+
+  useEffect(() => {
+    setRecentUids(getRecentUids());
+    setFavUids(getFavoriteUids());
+  }, []);
+
   useEffect(() => {
     let live = true;
     void loadAssetManifest().then((a) => {
@@ -370,6 +386,37 @@ function IconsPanel({ onPick }: { onPick: (a: LibraryAsset) => void }) {
     if (section) setExpanded((prev) => new Set(prev).add(section));
   };
 
+  // uid -> asset, so the recents/favorites tray can resolve stored uids to live
+  // assets (a removed/renamed asset simply drops out, no dangling tile).
+  const byUid = useMemo(() => {
+    const m = new Map<string, LibraryAsset>();
+    for (const a of assets) m.set(a.uid, a);
+    return m;
+  }, [assets]);
+  const favSet = useMemo(() => new Set(favUids), [favUids]);
+
+  // The tray shows favorites first, then recents not already starred, resolved
+  // to live assets and capped to a couple compact rows.
+  const trayAssets = useMemo(() => {
+    const seen = new Set<string>();
+    const out: LibraryAsset[] = [];
+    for (const uid of [...favUids, ...recentUids]) {
+      if (seen.has(uid)) continue;
+      seen.add(uid);
+      const a = byUid.get(uid);
+      if (a) out.push(a);
+      if (out.length >= 12) break;
+    }
+    return out;
+  }, [favUids, recentUids, byUid]);
+
+  // Inserting an icon records it as recent; clicking the star toggles a favorite.
+  const handlePick = (a: LibraryAsset) => {
+    setRecentUids(recordRecent(a.uid));
+    onPick(a);
+  };
+  const toggleFav = (uid: string) => setFavUids(setFavorite(uid));
+
   return (
     <>
       <PanelHead>Icons</PanelHead>
@@ -396,6 +443,49 @@ function IconsPanel({ onPick }: { onPick: (a: LibraryAsset) => void }) {
           </button>
         )}
       </div>
+
+      {/* Recent + favorite icons: one-click re-insert for the handful people use
+          most. Only while browsing (no query), so it never competes with results. */}
+      {!debouncedQuery.trim() && trayAssets.length > 0 && (
+        <div className="mb-2">
+          <p className="mb-1 text-[10px] font-bold uppercase tracking-wide text-foreground-faint">
+            Recent &amp; favorites
+          </p>
+          <div className="flex gap-1.5 overflow-x-auto pb-1">
+            {trayAssets.map((a) => (
+              <button
+                key={a.uid}
+                type="button"
+                draggable
+                onDragStart={(e) => {
+                  e.dataTransfer.setData("application/x-ros-asset", JSON.stringify(a));
+                  e.dataTransfer.effectAllowed = "copy";
+                  setRecentUids(recordRecent(a.uid));
+                }}
+                onClick={() => handlePick(a)}
+                title={`${a.title}. Click or drag onto the page.`}
+                className="relative flex h-10 w-10 shrink-0 cursor-grab items-center justify-center rounded-lg border border-border bg-surface-sunken p-1 hover:border-brand-action active:cursor-grabbing"
+              >
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={assetSvgUrl(a)}
+                  alt={a.title}
+                  loading="lazy"
+                  draggable={false}
+                  className="pointer-events-none h-full w-full object-contain"
+                />
+                {favSet.has(a.uid) && (
+                  <Icon
+                    name="star"
+                    aria-hidden
+                    className="absolute right-0.5 top-0.5 h-2 w-2 text-amber-400"
+                  />
+                )}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Collapsible grouped category tree (BioRender-style), bounded so the
           results grid below always keeps room. */}
@@ -478,10 +568,11 @@ function IconsPanel({ onPick }: { onPick: (a: LibraryAsset) => void }) {
                     // re-resolving the manifest. text/plain keeps it broadly droppable.
                     e.dataTransfer.setData("application/x-ros-asset", JSON.stringify(a));
                     e.dataTransfer.effectAllowed = "copy";
+                    setRecentUids(recordRecent(a.uid));
                   }}
-                  onClick={() => onPick(a)}
+                  onClick={() => handlePick(a)}
                   title={`${a.title} (${a.license}${a.requiresAttribution ? ", cited" : ""}${unverified ? ", community, unverified" : ""}). Click or drag onto the page.`}
-                  className="relative flex aspect-square cursor-grab items-center justify-center rounded-lg border border-border bg-surface-sunken p-1.5 hover:border-brand-action active:cursor-grabbing"
+                  className="group relative flex aspect-square cursor-grab items-center justify-center rounded-lg border border-border bg-surface-sunken p-1.5 hover:border-brand-action active:cursor-grabbing"
                   data-testid="figure-icon-option"
                 >
                   {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -492,6 +583,32 @@ function IconsPanel({ onPick }: { onPick: (a: LibraryAsset) => void }) {
                     draggable={false}
                     className="pointer-events-none h-full w-full object-contain"
                   />
+                  {/* Star toggle: always visible once starred, on hover otherwise.
+                      A span (not a nested button) so it stays valid inside the tile. */}
+                  <span
+                    role="button"
+                    tabIndex={0}
+                    aria-label={favSet.has(a.uid) ? "Remove from favorites" : "Add to favorites"}
+                    title={favSet.has(a.uid) ? "Unstar" : "Star for quick access"}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      toggleFav(a.uid);
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        toggleFav(a.uid);
+                      }
+                    }}
+                    className={`absolute left-0.5 top-0.5 flex h-4 w-4 items-center justify-center rounded transition-opacity ${
+                      favSet.has(a.uid)
+                        ? "text-amber-400"
+                        : "text-foreground-faint opacity-0 hover:text-amber-400 group-hover:opacity-100"
+                    }`}
+                  >
+                    <Icon name="star" className="h-3 w-3" />
+                  </span>
                   {unverified && (
                     <span
                       aria-hidden

@@ -50,6 +50,15 @@ describe("asset-search: synonym expansion", () => {
   it("expands a multi-word domain term", () => {
     expect(expandQuery("cell death")).toContain("apoptosis");
   });
+  it("expands lab-equipment terms (extended groups)", () => {
+    expect(expandQuery("centrifuge")).toContain("rotor");
+    expect(expandQuery("pcr")).toContain("thermocycler");
+    expect(expandQuery("gel")).toContain("western blot");
+  });
+  it("expands anatomy terms (extended groups)", () => {
+    expect(expandQuery("blood")).toContain("erythrocyte");
+    expect(expandQuery("crispr")).toContain("cas9");
+  });
 });
 
 describe("asset-search: rankAssets", () => {
