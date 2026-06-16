@@ -494,14 +494,14 @@ export default function EntityVersionHistorySidebar<P extends EntityProjection>(
       {!isEmpty && (
         <div className="ros-history-toolbar px-4 py-2 border-b border-border flex items-center gap-2 flex-shrink-0">
           <span className="text-meta text-foreground-muted">Compare against</span>
-          <div className="inline-flex rounded-lg bg-surface-sunken p-0.5 text-meta">
+          <div className="inline-flex rounded-lg bg-surface-sunken p-0.5 text-meta border border-border ros-seg-track">
             <button
               type="button"
               onClick={() => setCompareCurrent(false)}
               data-testid="compare-previous"
               className={`px-2 py-0.5 rounded-md transition-colors ${
                 !compareCurrent
-                  ? "bg-surface-raised text-foreground shadow-sm font-medium"
+                  ? "bg-surface-raised text-foreground ros-seg-active font-medium"
                   : "text-foreground-muted hover:text-foreground"
               }`}
             >
@@ -513,7 +513,7 @@ export default function EntityVersionHistorySidebar<P extends EntityProjection>(
               data-testid="compare-current"
               className={`px-2 py-0.5 rounded-md transition-colors ${
                 compareCurrent
-                  ? "bg-surface-raised text-foreground shadow-sm font-medium"
+                  ? "bg-surface-raised text-foreground ros-seg-active font-medium"
                   : "text-foreground-muted hover:text-foreground"
               }`}
             >
