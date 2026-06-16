@@ -36,6 +36,7 @@ function geo(opts: { tallTopRightBar: boolean }): GroupedBarGeometry {
     y1: 28, // top
     yMax: 100,
     ticks: [],
+    xLabelAngle: 0,
     clusters: [
       {
         label: "control",
@@ -107,6 +108,49 @@ describe("detectCollisions on a Data Hub grouped bar", () => {
     expect(
       detectCollisions(m).some((c) => c.kind === "legend-over-content"),
     ).toBe(false);
+  });
+});
+
+// Two long level names centered close together, so their flat boxes overlap.
+function crowdedGeo(xLabelAngle: number): GroupedBarGeometry {
+  return {
+    width: 430,
+    height: 340,
+    x0: 52,
+    x1: 320,
+    y0: 280,
+    y1: 28,
+    yMax: 100,
+    ticks: [],
+    xLabelAngle,
+    clusters: [
+      {
+        label: "vehicle control 24h",
+        labelX: 120,
+        bars: [{ x: 100, y: 120, width: 24, height: 160, color: "#94a3b8", error: null }],
+      },
+      {
+        label: "treated cohort 24h",
+        labelX: 200,
+        bars: [{ x: 188, y: 120, width: 24, height: 160, color: "#1d4ed8", error: null }],
+      },
+    ],
+    legend: [],
+  };
+}
+
+describe("plotLayoutManifest (x-label crowding + tilt)", () => {
+  it("flags label-crowding when long flat labels overlap", () => {
+    const m = plotLayoutManifest(crowdedGeo(0), style);
+    expect(m.boxes.filter((b) => b.kind === "axisLabel").length).toBe(2);
+    expect(detectCollisions(m).some((c) => c.kind === "label-crowding")).toBe(true);
+  });
+
+  it("tilting the labels drops the axis-label boxes, clearing the crowding", () => {
+    const m = plotLayoutManifest(crowdedGeo(-40), style);
+    // Angled labels run diagonally and no longer collide, so none are emitted.
+    expect(m.boxes.some((b) => b.kind === "axisLabel")).toBe(false);
+    expect(detectCollisions(m).some((c) => c.kind === "label-crowding")).toBe(false);
   });
 });
 

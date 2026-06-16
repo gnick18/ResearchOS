@@ -829,6 +829,21 @@ describe("plot-spec: grouped bar modes", () => {
     expect(right.x1).toBeLessThan(overlay.x1);
     expect(right.x1).toBeGreaterThan(right.x0);
   });
+
+  it("xLabelMode controls the category-label angle (the advisor's tilt lever)", () => {
+    const base = { ...defaultPlotStyle(), kind: "groupedBar" as const };
+    // Short level names (L1) fit flat in auto, so the default is byte-identical.
+    expect(layoutGroupedBar(groupedContent(), base).xLabelAngle).toBe(0);
+    expect(
+      layoutGroupedBar(groupedContent(), { ...base, xLabelMode: "horizontal" })
+        .xLabelAngle,
+    ).toBe(0);
+    // "angled" forces the tilt the tilt-tip-labels fix applies.
+    expect(
+      layoutGroupedBar(groupedContent(), { ...base, xLabelMode: "angled" })
+        .xLabelAngle,
+    ).not.toBe(0);
+  });
 });
 
 describe("plot-spec: tip-aligned grouped bar (phylo Phase 4 seam)", () => {

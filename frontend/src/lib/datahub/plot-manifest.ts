@@ -95,18 +95,22 @@ export function plotLayoutManifest(
     });
 
     // The x-axis category labels (centered on labelX), for horizontal crowding.
-    geo.clusters.forEach((cluster, ci) => {
-      const w = estimateLabelWidth(cluster.label, tickFont);
-      boxes.push({
-        id: `xlabel:${ci}`,
-        kind: "axisLabel",
-        x: cluster.labelX - w / 2,
-        y: geo.y0 + X_LABEL_BASELINE_DROP - tickFont,
-        w,
-        h: tickFont + 3,
-        label: cluster.label,
+    // Only when drawn FLAT: a tilted label runs diagonally down-left and no longer
+    // collides with its neighbor, so the advisor's tilt fix resolves the crowding.
+    if (geo.xLabelAngle === 0) {
+      geo.clusters.forEach((cluster, ci) => {
+        const w = estimateLabelWidth(cluster.label, tickFont);
+        boxes.push({
+          id: `xlabel:${ci}`,
+          kind: "axisLabel",
+          x: cluster.labelX - w / 2,
+          y: geo.y0 + X_LABEL_BASELINE_DROP - tickFont,
+          w,
+          h: tickFont + 3,
+          label: cluster.label,
+        });
       });
-    });
+    }
 
     // The legend block (top-right INSIDE the plot area, or the reserved gutter for
     // "right"), measured with the SAME constants the serializer draws from.

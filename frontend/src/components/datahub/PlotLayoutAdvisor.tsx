@@ -44,6 +44,7 @@ import {
 const DATAHUB_FIXES: ReadonlySet<FixId> = new Set<FixId>([
   "relocate-legend",
   "shrink-label-font",
+  "tilt-tip-labels",
 ]);
 
 /** The concrete style patch a fix maps to, given the live style. */
@@ -54,6 +55,9 @@ function patchForFix(id: FixId, style: PlotStyle): Partial<PlotStyle> {
       return { legendPlacement: "right" };
     case "shrink-label-font":
       return { fontSize: Math.max(8, style.fontSize - 1) };
+    case "tilt-tip-labels":
+      // Angle the x-axis category labels so crowded level names stop colliding.
+      return { xLabelMode: "angled" };
     default:
       return {};
   }
@@ -132,7 +136,11 @@ export function PlotLayoutAdvisor({
       return;
     }
     // Snapshot ONLY the fields the wand touches, so undo restores exactly them.
-    setSnapshot({ legendPlacement: style.legendPlacement, fontSize: style.fontSize });
+    setSnapshot({
+      legendPlacement: style.legendPlacement,
+      fontSize: style.fontSize,
+      xLabelMode: style.xLabelMode,
+    });
     const merged = fixes
       .map((f) => patchForFix(f.id, style))
       .reduce(mergePatches, {});

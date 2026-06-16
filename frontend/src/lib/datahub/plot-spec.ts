@@ -2182,6 +2182,8 @@ export interface GroupedBarGeometry {
   ticks: AxisTick[];
   clusters: GroupedCluster[];
   legend: GroupedLegendItem[];
+  /** Rotation (deg) of the x-axis category labels, 0 when they fit flat. */
+  xLabelAngle: number;
 }
 
 /**
@@ -2212,7 +2214,31 @@ export function layoutGroupedBar(
       : 0;
   const x0 = padL;
   const x1 = width - padR - legendGutter;
-  const y0 = height - padB;
+
+  // X-axis category-label angle, the SAME lever + semantics as the column plot:
+  // "auto" rotates only when a level name is wider than its cluster, "horizontal"
+  // forces flat, "angled" forces the tilt the collision advisor's tilt fix applies.
+  // A figure whose labels already fit stays flat (byte-identical). Rotated labels
+  // drop below the axis, so reserve that extra room.
+  const labelClusterW = (x1 - x0) / Math.max(1, levels.length);
+  const maxLevelW = levels.reduce(
+    (m, lv) => Math.max(m, estimateLabelWidth(lv, style.fontSize)),
+    0,
+  );
+  const xLabelMode = style.xLabelMode ?? "auto";
+  const xLabelAngle =
+    xLabelMode === "horizontal"
+      ? 0
+      : xLabelMode === "angled"
+        ? -40
+        : maxLevelW > labelClusterW * 0.92
+          ? -40
+          : 0;
+  const extraBottom =
+    xLabelAngle !== 0
+      ? Math.max(0, maxLevelW * Math.sin((40 * Math.PI) / 180) - 14)
+      : 0;
+  const y0 = height - padB - extraBottom;
   const y1 = padT;
 
   // Resolve every cell mean + error once.
@@ -2357,7 +2383,7 @@ export function layoutGroupedBar(
     color: groupColors[gi] ?? "#000000",
   }));
 
-  return { width, height, x0, x1, y0, y1, yMax, ticks, clusters, legend };
+  return { width, height, x0, x1, y0, y1, yMax, ticks, clusters, legend, xLabelAngle };
 }
 
 /**
@@ -2463,7 +2489,11 @@ export function renderGroupedBarSvg(
       }
     }
     parts.push(
-      `<text x="${cluster.labelX.toFixed(2)}" y="${geo.y0 + 16}" font-size="${tickFont}" fill="${LABEL_TEXT}" text-anchor="middle">${esc(cluster.label)}</text>`,
+      geo.xLabelAngle !== 0
+        ? // Angled labels: anchor the end at the tick and rotate down-left so long
+          // level names never overlap (same treatment as the column plot).
+          `<text transform="translate(${cluster.labelX.toFixed(2)}, ${(geo.y0 + 12).toFixed(2)}) rotate(${geo.xLabelAngle})" font-size="${tickFont}" fill="${LABEL_TEXT}" text-anchor="end">${esc(cluster.label)}</text>`
+        : `<text x="${cluster.labelX.toFixed(2)}" y="${geo.y0 + 16}" font-size="${tickFont}" fill="${LABEL_TEXT}" text-anchor="middle">${esc(cluster.label)}</text>`,
     );
   }
 
