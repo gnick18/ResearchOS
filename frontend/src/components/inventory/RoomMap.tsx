@@ -247,7 +247,7 @@ export default function RoomMap({ nodes, stocks }: RoomMapProps) {
               onClick={() => setFloorplan(SAMPLE_FLOORPLAN_SVG)}
               className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-surface-raised px-3 py-1.5 text-meta text-foreground hover:bg-surface-sunken"
             >
-              <Icon name="map" className="h-3.5 w-3.5" />
+              <Icon name="floorPlanSample" className="h-3.5 w-3.5" />
               Use sample plan
             </button>
           ) : (
@@ -330,7 +330,7 @@ export default function RoomMap({ nodes, stocks }: RoomMapProps) {
                   {name}
                 </span>
                 <Icon
-                  name="storageNested"
+                  name="pin"
                   className={`h-5 w-5 ${isSel ? "text-brand-action" : "text-foreground-muted"}`}
                 />
               </button>

@@ -416,6 +416,47 @@ const ICONS_RAW = {
       </>
     ),
   },
+  floorPlan: {
+    concept:
+      "Floor plan / lab room map (top-down room layout with an open-door swing). The spatial inventory Room map, distinct from the plasmid `map` and the logical `storageNested` box-finder.",
+    body: (
+      <>
+        <rect x="3" y="3" width="18" height="18" rx="2" />
+        <path d="M12 3V9" />
+        <path d="M12 9H16" />
+        <path d="M16 9A4 4 0 0 1 12 13" />
+        <path d="M13 15H21" />
+      </>
+    ),
+  },
+  floorPlanSample: {
+    concept:
+      "Load a sample / starter floor plan (the `floorPlan` glyph with a corner sparkle). Used on the Room map 'Use sample plan' control only.",
+    body: (
+      <>
+        <rect x="3" y="3" width="18" height="18" rx="2" />
+        <path d="M12 3V9" />
+        <path d="M12 9H16" />
+        <path d="M16 9A4 4 0 0 1 12 13" />
+        <path d="M13 15H21" />
+        <path
+          d="M20.5 2l.62 1.63L22.75 4.25l-1.63.62L20.5 6.5l-.62-1.63L18.25 4.25l1.63-.62z"
+          fill="currentColor"
+          stroke="none"
+        />
+      </>
+    ),
+  },
+  pin: {
+    concept:
+      "Map pin / physical location marker (a place on the room map). The find-on-map markers + 'where is it' affordance, distinct from `storageNested` (a storage container) and `location` (nested-containers storage concept).",
+    body: (
+      <>
+        <path d="M12 21c4-4.9 6-8.1 6-11a6 6 0 1 0-12 0c0 2.9 2 6.1 6 11Z" />
+        <circle cx="12" cy="10" r="2.2" />
+      </>
+    ),
+  },
   sequence: {
     concept: "Sequence",
     body: (
