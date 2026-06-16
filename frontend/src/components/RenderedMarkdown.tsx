@@ -16,6 +16,8 @@ import { parseObjectDeepLink, parseObjectEmbed, type EmbedDescriptor } from "@/l
 import { parseExternalEmbed, type ExternalEmbedDescriptor } from "@/lib/embeds/external-embeds";
 import ObjectChip from "@/components/ObjectChip";
 import ObjectEmbed from "@/components/embeds/ObjectEmbed";
+import { Icon } from "@/components/icons/Icon";
+import { parsePhoneNoteCallout } from "@/lib/mobile-relay/phone-note-callout";
 import { lazy, Suspense } from "react";
 import { buildFigureNumberPlan } from "@/lib/embeds/figure-numbering";
 // P7-2 transclusion: raw ![[...]] resilience (Part A).
@@ -476,6 +478,33 @@ export default function RenderedMarkdown({
               );
             }
             return <p {...props}>{children}</p>;
+          },
+          // A blockquote tagged `> [!phone-note] ...` renders as a phone-note
+          // card (phone glyph + attribution header + body). Every other
+          // blockquote renders normally, so this is additive and a callout from
+          // any other tool (no marker) degrades to a plain blockquote.
+          blockquote: ({ node, children, ...props }) => {
+            const text = hastText(node as unknown as HastNode);
+            const callout = parsePhoneNoteCallout(text);
+            if (!callout) {
+              return <blockquote {...props}>{children}</blockquote>;
+            }
+            return (
+              <div
+                data-phone-note="true"
+                className="my-3 overflow-hidden rounded-xl border border-border bg-surface-raised"
+              >
+                <div className="flex min-w-0 items-center gap-2 border-b border-border bg-surface-sunken px-3 py-2">
+                  <Icon name="phone" className="h-4 w-4 shrink-0 text-foreground-muted" title="Phone note" />
+                  <span className="truncate text-meta font-semibold text-foreground-muted">
+                    {callout.header || "Phone note"}
+                  </span>
+                </div>
+                <div className="whitespace-pre-wrap px-3 py-2 text-body text-foreground">
+                  {callout.body}
+                </div>
+              </div>
+            );
           },
           a: ({ href, children, ...props }) => {
             const hrefStr = href ? String(href) : "";
