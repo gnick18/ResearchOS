@@ -1171,7 +1171,7 @@ export function FinalizeTab() {
     "w-16 rounded border border-border bg-surface-sunken px-1.5 py-1 text-meta tabular-nums";
 
   return (
-    <div className="grid items-start gap-6 text-foreground lg:grid-cols-[1fr_360px]">
+    <div className="grid items-start gap-6 text-foreground lg:grid-cols-[minmax(0,1fr)_460px]">
       <div className="min-w-0 space-y-6">
       <div className="rounded-xl border border-border bg-surface-sunken px-4 py-3 text-meta leading-relaxed text-foreground-muted">
         <b className="text-foreground">Locked.</b> Solo and lab bill 6/12-month

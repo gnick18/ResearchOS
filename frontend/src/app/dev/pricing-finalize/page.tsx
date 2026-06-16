@@ -16,7 +16,7 @@ import { FinalizeTab } from "@/components/admin/PriceModelingModal";
 
 export default function PricingFinalizeDevPage() {
   return (
-    <main className="mx-auto max-w-3xl space-y-8 px-6 py-10">
+    <main className="mx-auto max-w-[1800px] space-y-8 px-8 py-10">
       <header>
         <span className="inline-block rounded-full bg-amber-100 px-3 py-1 text-meta font-semibold text-amber-800">
           Scratch, delete after lock-in
