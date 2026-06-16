@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-06-16T01:57:04.294Z",
+  "generatedAt": "2026-06-16T02:33:34.913Z",
   "pageCount": 93,
   "categories": [
     {
@@ -2128,18 +2128,19 @@
       ],
       "categoryId": "features",
       "headings": [
-        "What it is",
-        "Finding a researcher",
+        "What it is for",
+        "Find who you want to share with",
         "Your public profile",
         "Verified institutional identity",
         "Listed by choice, private by default of email",
         "Rolling out"
       ],
       "bodySnippets": [
-        "The researcher network is the people side of ResearchOS. It is a public directory of researchers, listed by their own choice, that lets you find a colleague by name or institution, confirm who they are, and open a profile of the work they share. It needs no login to browse.",
-        "Most of ResearchOS is about your own work, your methods, sequences, data, and figures, all kept in your own folder. The researcher network is the one place that looks outward, at the other people using ResearchOS. It lives at and is reachable from the top navigation and the fo...",
-        "It is a discovery surface, not a messaging product. The network tells you who is on ResearchOS and lets you confirm that a person is who they say they are. It never exposes an email address.",
+        "The researcher network is how your work leaves your lab. It is the shortest path from your data to a collaborator, find anyone else on ResearchOS, in your department or across the world, and share a method, sequence, dataset, or figure straight to them, with no zipped files, n...",
+        "Most of ResearchOS is about your own work, your methods, sequences, data, and figures, all kept in your own folder. The researcher network is the one place that looks outward, and it exists for a single purpose, to make sharing that work with another researcher seamless. It li...",
+        "It is not a social network, a feed, or a publications profile to compete with ResearchGate. The directory, the search, and the verified-domain badge are all in service of one thing, getting your data to the right person with as little friction as possible. It never exposes an ...",
         "The hub has a single search box. Type a name or an institution and it returns the researchers who have opted in to the directory, with their display name, affiliation, and a key fingerprint. Each result links to that person's public profile. The search runs over listed profile...",
+        "It is especially quick for the people closest to you. Every institution has a public page that lists the researchers there who are on ResearchOS, so you can find a colleague in your own department or across your institution and share with them as easily as someone on the other...",
         "Every account has a public profile at , the shareable, login-free page for your work. It shows your name, affiliation, avatar, a short bio, and your typed links, an ORCID record, a ResearchGate page, and a personal website. You edit all of it from Settings under your profile. ...",
         "When you sign in with an institutional account, your profile carries a verified-domain badge, for example , so a collaborator can trust that you really are at the institution you claim. Alongside the badge, every profile has a key fingerprint you can read out of band to confir...",
         "A profile is included in the directory by default once you claim a handle, because being findable is the point of a network. You can opt out at any time, which removes you from search and from any institution member list. In every case the directory stays un-walkable for email...",

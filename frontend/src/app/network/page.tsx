@@ -16,7 +16,7 @@ import { SOCIAL_LAYER_ENABLED } from "@/lib/social/config";
 export const metadata: Metadata = {
   title: "Researcher network | ResearchOS",
   description:
-    "Find researchers on ResearchOS. Search by name or institution, confirm verified institutional identities, and open shareable profiles. Listed by choice, no email ever shown.",
+    "Send your work to any researcher, in one step. The shortest path from your data to a collaborator, share a method, sequence, dataset, or figure straight to them, in your department or across the world, with no files or email needed.",
 };
 
 export default function NetworkPage() {

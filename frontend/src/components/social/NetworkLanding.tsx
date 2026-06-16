@@ -23,19 +23,24 @@ import PublicResearcherSearch from "@/components/social/PublicResearcherSearch";
 
 const VALUE_PROPS: { icon: IconName; title: string; body: string }[] = [
   {
-    icon: "search",
-    title: "Find the people behind the work",
-    body: "Search by name or institution and see who is on ResearchOS. Every result links to a shareable profile with the work they choose to show.",
+    icon: "share",
+    title: "Send work, not files",
+    body: "Share a method, sequence, dataset, or figure straight to another researcher on ResearchOS. No zipping, no email chains, no shared-drive permissions to manage.",
+  },
+  {
+    icon: "labTree",
+    title: "Find your department and institution",
+    body: "See who from your lab, department, or institution is already on ResearchOS, and share with a colleague down the hall as easily as one across the world.",
   },
   {
     icon: "shield",
-    title: "Verified institutional identities",
-    body: "Researchers who sign in with an institutional account carry a verified-domain badge, and a key fingerprint you can confirm out of band.",
+    title: "Know it reached the right person",
+    body: "A verified-domain badge and a key fingerprint let you confirm a collaborator before you send, so your work goes to the person you meant, not a look-alike.",
   },
   {
     icon: "users",
-    title: "Listed by choice, never by surprise",
-    body: "Profiles are in the directory only by opt-in, and you can hide yourself any time. Search shows names and affiliations, never an email address.",
+    title: "Reachable by choice",
+    body: "Being listed is what lets a collaborator find and share with you. It is opt-in, you can hide any time, and your email is never shown.",
   },
 ];
 
@@ -49,18 +54,21 @@ export default function NetworkLanding() {
         <MarketingBackdrop tone="vivid" />
         <div className="relative z-10 mx-auto max-w-5xl px-6 pb-12 pt-16 text-center sm:pt-24">
           <Reveal className="flex justify-center">
-            <Kicker>Researcher network</Kicker>
+            <Kicker>Seamless sharing</Kicker>
           </Reveal>
           <Reveal as="div" delay={60}>
             <h1 className="mx-auto mt-4 max-w-3xl text-balance text-4xl font-bold tracking-tight sm:text-5xl">
-              Find researchers, not just their papers.
+              Send your work to any researcher, in one step.
             </h1>
           </Reveal>
           <Reveal as="div" delay={120}>
             <p className="mx-auto mt-5 max-w-2xl text-pretty text-lg text-foreground-muted">
-              A directory of researchers on ResearchOS, listed by choice. Search
-              by name or institution, confirm an identity by its verified domain
-              and key fingerprint, and open a profile to see the work they share.
+              The researcher network is how your work leaves your lab. Find anyone
+              else on ResearchOS and share a method, sequence, dataset, or figure
+              straight to them, with no zipped files, no email chains, and no drive
+              permissions. It is not a feed or a follower count. It is the shortest
+              path from your data to a collaborator, whether they are in your
+              department or across the world.
             </p>
           </Reveal>
           <Reveal as="div" delay={180}>
@@ -69,7 +77,7 @@ export default function NetworkLanding() {
                 href="#find"
                 className="inline-flex items-center gap-2 rounded-full bg-brand-action px-5 py-2.5 text-sm font-semibold text-white transition hover:opacity-90"
               >
-                <Icon name="search" className="h-4 w-4" /> Find a researcher
+                <Icon name="search" className="h-4 w-4" /> Find a collaborator
               </a>
               <Link
                 href="/settings?section=profile"
@@ -89,7 +97,7 @@ export default function NetworkLanding() {
           <Reveal as="div">
             <div className="rounded-2xl border border-border bg-surface p-5 shadow-sm sm:p-6">
               <h2 className="text-lg font-semibold text-foreground">
-                Search the directory
+                Find who you want to share with
               </h2>
               <p className="mt-1 mb-4 text-meta text-foreground-muted">
                 Listed researchers only. No login required.
@@ -103,7 +111,7 @@ export default function NetworkLanding() {
       {/* Value props */}
       <section className="relative">
         <div className="mx-auto max-w-5xl px-6 py-14">
-          <div className="grid gap-5 sm:grid-cols-3">
+          <div className="grid gap-5 sm:grid-cols-2">
             {VALUE_PROPS.map((p, i) => (
               <Reveal as="div" key={p.title} delay={i * 80}>
                 <div className="h-full rounded-2xl border border-border bg-surface p-6">

@@ -6,30 +6,38 @@ export default function NetworkFeaturePage() {
   return (
     <WikiPage
       title="Researcher network"
-      intro="The researcher network is the people side of ResearchOS. It is a public directory of researchers, listed by their own choice, that lets you find a colleague by name or institution, confirm who they are, and open a profile of the work they share. It needs no login to browse."
+      intro="The researcher network is how your work leaves your lab. It is the shortest path from your data to a collaborator, find anyone else on ResearchOS, in your department or across the world, and share a method, sequence, dataset, or figure straight to them, with no zipped files, no email chains, and no drive permissions. It is not a feed or a follower count."
     >
-      <h2>What it is</h2>
+      <h2>What it is for</h2>
       <p>
         Most of ResearchOS is about your own work, your methods, sequences, data,
         and figures, all kept in your own folder. The researcher network is the one
-        place that looks outward, at the other people using ResearchOS. It lives at{" "}
+        place that looks outward, and it exists for a single purpose, to make
+        sharing that work with another researcher seamless. It lives at{" "}
         <code>/network</code> and is reachable from the top navigation and the
         footer, the same way the <Link href="/wiki/features/library">icon library</Link>{" "}
         is.
       </p>
       <p>
-        It is a discovery surface, not a messaging product. The network tells you
-        who is on ResearchOS and lets you confirm that a person is who they say they
-        are. It never exposes an email address.
+        It is not a social network, a feed, or a publications profile to compete
+        with ResearchGate. The directory, the search, and the verified-domain badge
+        are all in service of one thing, getting your data to the right person with
+        as little friction as possible. It never exposes an email address.
       </p>
 
-      <h2>Finding a researcher</h2>
+      <h2>Find who you want to share with</h2>
       <p>
         The hub has a single search box. Type a name or an institution and it
         returns the researchers who have opted in to the directory, with their
         display name, affiliation, and a key fingerprint. Each result links to that
         person&rsquo;s public profile. The search runs over listed profiles only, so
         someone who has opted out never appears.
+      </p>
+      <p>
+        It is especially quick for the people closest to you. Every institution has
+        a public page that lists the researchers there who are on ResearchOS, so you
+        can find a colleague in your own department or across your institution and
+        share with them as easily as someone on the other side of the world.
       </p>
 
       <h2>Your public profile</h2>

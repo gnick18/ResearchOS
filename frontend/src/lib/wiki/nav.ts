@@ -273,7 +273,7 @@ export const WIKI_NAV: WikiNode[] = [
       {
         href: "/wiki/features/network",
         label: "Researcher network",
-        blurb: "The people side of ResearchOS. A public, opt-in directory to find researchers by name or institution, with verified institutional identities and a shareable profile of the work you choose to show.",
+        blurb: "The shortest path from your data to a collaborator. Share a method, sequence, dataset, or figure straight to any researcher on ResearchOS, in your department or across the world, with no files or email needed.",
       },
       {
         href: "/wiki/features/cloning",
