@@ -28,7 +28,9 @@ import {
   pickAxis,
   resolvePlotGroups,
   bracketRequestsFromAnalysis,
+  bracketStackDepth,
   layoutPlot,
+  estimateLabelWidth,
   renderPlotSvg,
   renderPlot,
   figureFileStem,
@@ -293,7 +295,12 @@ describe("plot-spec: layout geometry (exact coordinates)", () => {
     expect(sdBar.bottomY).toBeCloseTo(Y(10), 6); // 20 - 10
     expect(semBar.topY).toBeCloseTo(Y(20 + sem), 6);
     expect(semBar.bottomY).toBeCloseTo(Y(20 - sem), 6);
-    expect(sdBar.capHalf).toBe(7);
+    // Caps are a fixed fraction of the mean-line width (independent of error
+    // kind) and narrower than the mean line, so the I-beam nests cleanly inside
+    // it rather than reading as a cramped mark or three equal parallel lines.
+    expect(sdBar.capHalf).toBe(semBar.capHalf);
+    expect(sdBar.capHalf).toBeLessThan(sdGeo.groups[0].meanHalf);
+    expect(sdBar.capHalf).toBeGreaterThan(5);
 
     // Because the y axis grows downward in pixels, the SEM top cap sits BELOW
     // (greater pixel y than) the SD top cap, confirming SEM is the tighter bar.
@@ -383,6 +390,115 @@ const ANOVA_SPEC: AnalysisSpec = {
   resultStale: false,
 };
 
+// Four tight groups (near-zero within-group spread) at the demo's heights, so
+// every pairwise comparison is significant and the axis sits just above the data.
+function fourGroupTightContent(): DataHubDocContent {
+  return {
+    meta: META,
+    columns: [
+      { id: "g1", name: "Control", role: "y", dataType: "number" },
+      { id: "g2", name: "A", role: "y", dataType: "number" },
+      { id: "g3", name: "B", role: "y", dataType: "number" },
+      { id: "g4", name: "C", role: "y", dataType: "number" },
+    ],
+    rows: [
+      { id: "r1", cells: { g1: 1.01, g2: 2.4, g3: 3.4, g4: 1.8 } },
+      { id: "r2", cells: { g1: 1.0, g2: 2.41, g3: 3.41, g4: 1.81 } },
+      { id: "r3", cells: { g1: 0.99, g2: 2.39, g3: 3.39, g4: 1.79 } },
+    ],
+    analyses: [],
+    plots: [],
+  };
+}
+
+const ALL_PAIRS_4 = [
+  { i: 0, j: 1, label: "****" },
+  { i: 0, j: 2, label: "****" },
+  { i: 0, j: 3, label: "****" },
+  { i: 1, j: 2, label: "****" },
+  { i: 1, j: 3, label: "****" },
+  { i: 2, j: 3, label: "****" },
+];
+
+describe("plot-spec: bracketStackDepth", () => {
+  it("is 0 for no requests, 1 for a single span", () => {
+    expect(bracketStackDepth([])).toBe(0);
+    expect(bracketStackDepth([{ i: 0, j: 1 }])).toBe(1);
+  });
+  it("counts all-pairs-of-4 as a 6-tier stack", () => {
+    expect(bracketStackDepth(ALL_PAIRS_4)).toBe(6);
+  });
+  it("counts each-vs-control (3 overlapping spans) as 3 tiers", () => {
+    expect(
+      bracketStackDepth([
+        { i: 0, j: 1 },
+        { i: 0, j: 2 },
+        { i: 0, j: 3 },
+      ]),
+    ).toBe(3);
+  });
+  it("keeps non-overlapping spans on the same tier", () => {
+    expect(
+      bracketStackDepth([
+        { i: 0, j: 1 },
+        { i: 2, j: 3 },
+      ]),
+    ).toBe(1);
+  });
+});
+
+describe("plot-spec: vs-control bracket filter", () => {
+  const ALL_SIG: AnalysisSpec = {
+    ...ANOVA_SPEC,
+    resultCache: {
+      kind: "anova",
+      comparisons: [
+        { groupA: "Control", groupB: "Drug A", pAdjusted: 0.001 },
+        { groupA: "Control", groupB: "Drug B", pAdjusted: 0.001 },
+        { groupA: "Drug A", groupB: "Drug B", pAdjusted: 0.001 },
+      ],
+    },
+  };
+  it("keeps all pairs when no reference index is given", () => {
+    const groups = resolvePlotGroups(threeGroupContent(), defaultPlotStyle());
+    expect(bracketRequestsFromAnalysis(ALL_SIG, groups)).toHaveLength(3);
+  });
+  it("drops pairs that do not touch the control (index 0)", () => {
+    const groups = resolvePlotGroups(threeGroupContent(), defaultPlotStyle());
+    const reqs = bracketRequestsFromAnalysis(ALL_SIG, groups, 0);
+    expect(reqs).toHaveLength(2);
+    expect(reqs.every((r) => r.i === 0 || r.j === 0)).toBe(true);
+  });
+});
+
+describe("plot-spec: bracket headroom", () => {
+  const topTick = (geo: ReturnType<typeof layoutPlot>) =>
+    Math.max(...geo.ticks.map((t) => t.value));
+
+  it("raises the axis so a tall bracket stack is not crammed onto the data", () => {
+    const groups = resolvePlotGroups(fourGroupTightContent(), defaultPlotStyle());
+    const noBrackets = topTick(layoutPlot(groups, defaultPlotStyle(), []));
+    const withBrackets = topTick(layoutPlot(groups, defaultPlotStyle(), ALL_PAIRS_4));
+    // The data tops out ~3.4 so the data-only axis is tight (4). Six tiers need
+    // real room above it, so the axis must expand.
+    expect(withBrackets).toBeGreaterThan(noBrackets);
+  });
+
+  it("does not expand the axis when the user pinned yAxisMax", () => {
+    const groups = resolvePlotGroups(fourGroupTightContent(), defaultPlotStyle());
+    const style: PlotStyle = { ...defaultPlotStyle(), yAxisMax: 4 };
+    expect(topTick(layoutPlot(groups, style, ALL_PAIRS_4))).toBe(4);
+  });
+
+  it("fewer comparisons (vs-control) need less headroom than all pairs", () => {
+    const groups = resolvePlotGroups(fourGroupTightContent(), defaultPlotStyle());
+    const vsControl = ALL_PAIRS_4.filter((r) => r.i === 0);
+    const all = topTick(layoutPlot(groups, defaultPlotStyle(), ALL_PAIRS_4));
+    const ctrl = topTick(layoutPlot(groups, defaultPlotStyle(), vsControl));
+    expect(ctrl).toBeLessThanOrEqual(all);
+  });
+});
+
 describe("plot-spec: significance brackets", () => {
   it("pulls only significant Tukey pairs, narrowest span first", () => {
     const groups = resolvePlotGroups(threeGroupContent(), defaultPlotStyle());
@@ -419,10 +535,11 @@ describe("plot-spec: significance brackets", () => {
     expect(b0.rightX).toBeCloseTo(geo.groups[1].cx, 6);
     expect(b1.leftX).toBeCloseTo(geo.groups[0].cx, 6);
     expect(b1.rightX).toBeCloseTo(geo.groups[2].cx, 6);
-    // Tier 2 sits 18px higher (smaller pixel y) than tier 1.
-    expect(b1.spanY).toBeCloseTo(b0.spanY - 18, 6);
-    // Legs drop 6px below the span.
-    expect(b0.legY).toBeCloseTo(b0.spanY + 6, 6);
+    // The wider (0,2) span crosses the taller Drug B, so it clears Drug B and
+    // sits at least one tier (18px) above the (0,1) bar.
+    expect(b1.spanY).toBeLessThanOrEqual(b0.spanY - 18 + 1e-6);
+    // Legs drop 8px below the span.
+    expect(b0.legY).toBeCloseTo(b0.spanY + 8, 6);
     // Label sits just above the span.
     expect(b0.labelY).toBeCloseTo(b0.spanY - 3, 6);
   });
@@ -449,9 +566,10 @@ describe("plot-spec: significance brackets", () => {
       expect(b.labelY).toBeGreaterThanOrEqual(geo.y1);
       expect(b.spanY).toBeGreaterThan(0);
     }
-    // The block keeps its uniform tier spacing after any downward shift.
+    // The wider span still sits at least a tier above the narrower one after the
+    // whole stack is shifted down (the shift is uniform, so spacing is kept).
     if (geo.brackets.length >= 2) {
-      expect(geo.brackets[1].spanY).toBeCloseTo(geo.brackets[0].spanY - 18, 6);
+      expect(geo.brackets[1].spanY).toBeLessThanOrEqual(geo.brackets[0].spanY - 18 + 1e-6);
     }
   });
 });
@@ -807,6 +925,34 @@ describe("plot-spec: grouped bar modes", () => {
     const geo = layoutGroupedBar(groupedContent(), style);
     expect(geo.yMax).toBe(20);
     expect(geo.ticks.map((t) => t.value)).toEqual([0, 5, 10, 15, 20]);
+  });
+
+  it("legendPlacement 'right' reserves a gutter, shrinking the plot width", () => {
+    const base = { ...defaultPlotStyle(), kind: "groupedBar" as const };
+    const overlay = layoutGroupedBar(groupedContent(), base);
+    const right = layoutGroupedBar(groupedContent(), {
+      ...base,
+      legendPlacement: "right" as const,
+    });
+    // The right-placed legend pushes the plot's right edge in (bars stop short),
+    // so it sits clear of them; the overlay default leaves x1 untouched.
+    expect(right.x1).toBeLessThan(overlay.x1);
+    expect(right.x1).toBeGreaterThan(right.x0);
+  });
+
+  it("xLabelMode controls the category-label angle (the advisor's tilt lever)", () => {
+    const base = { ...defaultPlotStyle(), kind: "groupedBar" as const };
+    // Short level names (L1) fit flat in auto, so the default is byte-identical.
+    expect(layoutGroupedBar(groupedContent(), base).xLabelAngle).toBe(0);
+    expect(
+      layoutGroupedBar(groupedContent(), { ...base, xLabelMode: "horizontal" })
+        .xLabelAngle,
+    ).toBe(0);
+    // "angled" forces the tilt the tilt-tip-labels fix applies.
+    expect(
+      layoutGroupedBar(groupedContent(), { ...base, xLabelMode: "angled" })
+        .xLabelAngle,
+    ).not.toBe(0);
   });
 });
 
@@ -1256,5 +1402,55 @@ describe("plot-spec: re-layout vs scale", () => {
     expect(exportPngPixels(relayout.frame)).toEqual(
       exportPngPixels(scale.frame),
     );
+  });
+});
+
+describe("plot-spec: x-axis label overlap handling", () => {
+  const contentWithNames = (names: string[]): DataHubDocContent => ({
+    meta: META,
+    columns: names.map((n, i) => ({
+      id: `c${i}`,
+      name: n,
+      role: "y" as const,
+      dataType: "number" as const,
+    })),
+    rows: [
+      { id: "r1", cells: Object.fromEntries(names.map((_, i) => [`c${i}`, 10 + i])) },
+      { id: "r2", cells: Object.fromEntries(names.map((_, i) => [`c${i}`, 20 + i])) },
+      { id: "r3", cells: Object.fromEntries(names.map((_, i) => [`c${i}`, 30 + i])) },
+    ],
+    analyses: [],
+    plots: [],
+  });
+  const longNames = ["Control (WT)", "FakeYeast-001", "FakeYeast-002", "FakeYeast-003"];
+
+  it("estimateLabelWidth grows with text length", () => {
+    expect(estimateLabelWidth("FakeYeast-001", 13)).toBeGreaterThan(estimateLabelWidth("WT", 13));
+  });
+
+  it("keeps short labels flat (angle 0)", () => {
+    const style = defaultPlotStyle();
+    const groups = resolvePlotGroups(contentWithNames(["A", "B", "C"]), style);
+    expect(layoutPlot(groups, style, []).xLabelAngle).toBe(0);
+  });
+
+  it("angles long labels that would overlap", () => {
+    const style = defaultPlotStyle();
+    const groups = resolvePlotGroups(contentWithNames(longNames), style);
+    expect(layoutPlot(groups, style, []).xLabelAngle).toBe(-40);
+  });
+
+  it("respects the xLabelMode override either way", () => {
+    const horiz = { ...defaultPlotStyle(), xLabelMode: "horizontal" as const };
+    const angled = { ...defaultPlotStyle(), xLabelMode: "angled" as const };
+    expect(layoutPlot(resolvePlotGroups(contentWithNames(longNames), horiz), horiz, []).xLabelAngle).toBe(0);
+    expect(layoutPlot(resolvePlotGroups(contentWithNames(["A", "B"]), angled), angled, []).xLabelAngle).toBe(-40);
+  });
+
+  it("reserves bottom room when angled (plot area pulled up)", () => {
+    const style = defaultPlotStyle();
+    const flat = layoutPlot(resolvePlotGroups(contentWithNames(["A", "B"]), style), style, []);
+    const rot = layoutPlot(resolvePlotGroups(contentWithNames(longNames), style), style, []);
+    expect(rot.y0).toBeLessThan(flat.y0);
   });
 });

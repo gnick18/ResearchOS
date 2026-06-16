@@ -4,14 +4,31 @@
 // locally, and parses the JSON. The relay only ever holds opaque bytes. House
 // style: no em-dashes, no emojis, no mid-sentence colons.
 import { unsealSnapshot } from '@/lib/device-identity';
-import { recordSnapshotGeneratedAt } from '@/lib/connection-status';
+import {
+  recordSnapshotGeneratedAt,
+  recordSyncRevoked,
+} from '@/lib/connection-status';
 import type { Pairing } from '@/lib/pairing';
+
+/** Thrown when an authenticated snapshot fetch is rejected because this phone's
+ *  device key is no longer registered with the relay (HTTP 403 "device not
+ *  bound"), which is what happens when the laptop unpairs/removes this device.
+ *  Distinct from a transient failure so callers can show a "re-pair" state
+ *  instead of a generic "could not sync". A 404 is NOT revocation (it means the
+ *  laptop has not published this snapshot yet) and never raises this. */
+export class PairingRevokedError extends Error {
+  constructor() {
+    super('This phone is no longer paired with the laptop.');
+    this.name = 'PairingRevokedError';
+  }
+}
 
 import {
   DEMO_TODAY_SNAPSHOT,
   DEMO_INVENTORY_SNAPSHOT,
   DEMO_NOTEBOOKS_SNAPSHOT,
   DEMO_NOTIFICATIONS_SNAPSHOT,
+  DEMO_EXPERIMENT_NOTES,
 } from '@/lib/demo-fixtures';
 import { DEMO_METHOD_SNAPSHOT } from '@/lib/method-library';
 
@@ -36,6 +53,10 @@ export type SnapshotTask = {
   start_date?: string;
   end_date?: string;
   task_type?: string;
+  /** Name of the project (folder) this task belongs to, resolved by the laptop
+   *  from task.project_id. Shown as a folder chip on the experiment card. Absent
+   *  on older laptops or when the task has no resolvable project. */
+  projectName?: string | null;
   /** Name of the first attached method. Only present on experiment-type tasks
    *  that have a method attachment and were built by a laptop that supports the
    *  today-band feature. Absent on older laptops and non-experiment tasks. */
@@ -43,6 +64,23 @@ export type SnapshotTask = {
   /** Raw method_type of the first attached method (e.g. "pcr", "markdown").
    *  Optional companion to linkedMethodName for a type badge. */
   linkedMethodType?: string | null;
+  /** Total methods attached to this task (>= 1 when linkedMethodName is set).
+   *  Drives the "first method +N more" glance. Absent on older laptops; treat
+   *  absent or <= 1 as a single method. */
+  linkedMethodCount?: number | null;
+  /** Every method attached to this task (attachment order, capped). Powers the
+   *  experiment hub screen. Each entry carries id + owner so a row can deep-link
+   *  to that specific method. Absent on older laptops (fall back to the single
+   *  linkedMethodName glance). */
+  linkedMethods?: Array<{
+    methodId?: number;
+    owner?: string | null;
+    name?: string | null;
+    methodType?: string | null;
+  }> | null;
+  /** Owner username of the task itself, so the phone can target a route-capture
+   *  command at this experiment's notes/results tab. Absent on older laptops. */
+  owner?: string | null;
 };
 
 // The decrypted "today" snapshot. generatedAt drives the "last synced" line.
@@ -300,6 +338,18 @@ export type NotificationsSnapshot = {
 // is the "laptop has not published yet" case. Any other non-200 throws so the
 // caller can surface it.
 //
+/** A pulled, read-only projection of one experiment's Notes + Results docs, for
+ *  the experiment hub. The laptop publishes the raw markdown of notes.md /
+ *  results.md (sealed); the phone renders it. Pull-in-time, refreshed on demand. */
+export type ExperimentNotesSnapshot = {
+  taskId: number;
+  owner: string;
+  experimentName?: string | null;
+  notes?: { markdown: string } | null;
+  results?: { markdown: string } | null;
+  generatedAt?: string;
+};
+
 // When pairing.demo is true the relay is never touched; a matching fixture is
 // returned immediately so the placeholder keys never reach the network.
 export async function fetchSnapshot(
@@ -321,6 +371,8 @@ export async function fetchSnapshot(
     // so the active-experiment recommendations band (and its read mode) are
     // demoable. Per-type seeds are browsed from the library tab's DEMO_LIBRARY.
     if (name === 'method') return DEMO_METHOD_SNAPSHOT;
+    // Experiment notes/results read view for the hub (pull/read/place/push).
+    if (name === 'experiment-notes') return DEMO_EXPERIMENT_NOTES;
     // The library snapshot has no relay fixture; the library tab keeps its own
     // DEMO_LIBRARY fixture for demo mode so demo recordings still work. Return
     // null so the tab falls back to that fixture instead of an empty cache.
@@ -352,6 +404,14 @@ export async function fetchSnapshot(
 
   const res = await fetch(url);
   if (res.status === 404) return null;
+  // 403 from snapshot/get means the relay no longer has this device bound to the
+  // user (the laptop unpaired/removed it). Record the revoked state so the UI can
+  // prompt a re-pair, then raise a distinguishable error. We do NOT touch the
+  // local pairing here; the user chooses to re-pair.
+  if (res.status === 403) {
+    recordSyncRevoked();
+    throw new PairingRevokedError();
+  }
   if (!res.ok) {
     throw new Error(`snapshot fetch failed (status ${res.status})`);
   }

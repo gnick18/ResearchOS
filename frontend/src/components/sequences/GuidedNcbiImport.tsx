@@ -661,7 +661,7 @@ export default function GuidedNcbiImport({
                 type="button"
                 onClick={() => setConfirm(null)}
                 data-testid="ncbi-size-confirm-cancel"
-                className="rounded-md border border-border px-2.5 py-1 text-meta font-medium text-foreground transition-colors hover:bg-surface-sunken"
+                className="ros-btn-neutral px-2.5 py-1 text-meta font-medium text-foreground"
               >
                 Cancel
               </button>
@@ -685,7 +685,7 @@ export default function GuidedNcbiImport({
             <button
               type="button"
               onClick={() => abortRef.current?.abort()}
-              className="ml-auto rounded-md border border-border px-2.5 py-1 text-meta font-medium text-foreground transition-colors hover:bg-surface-sunken"
+              className="ros-btn-neutral ml-auto px-2.5 py-1 text-meta font-medium text-foreground"
             >
               Cancel
             </button>
@@ -959,7 +959,7 @@ function AssembliesStep({
           type="button"
           disabled={busy}
           onClick={onBack}
-          className="flex items-center gap-1.5 rounded-md border border-border px-3 py-1.5 text-meta font-medium text-foreground transition-colors hover:bg-surface-sunken disabled:opacity-50"
+          className="ros-btn-neutral flex items-center gap-1.5 px-3 py-1.5 text-meta font-medium text-foreground disabled:opacity-50"
         >
           <Icon name="chevronLeft" className="h-3.5 w-3.5" />
           Back
@@ -1091,7 +1091,7 @@ function ContigsStep({
           type="button"
           disabled={busy}
           onClick={onBack}
-          className="flex items-center gap-1.5 rounded-md border border-border px-3 py-1.5 text-meta font-medium text-foreground transition-colors hover:bg-surface-sunken disabled:opacity-50"
+          className="ros-btn-neutral flex items-center gap-1.5 px-3 py-1.5 text-meta font-medium text-foreground disabled:opacity-50"
         >
           <Icon name="chevronLeft" className="h-3.5 w-3.5" />
           Back
@@ -1248,7 +1248,7 @@ function GeneStep({
           type="button"
           disabled={busy}
           onClick={onBack}
-          className="flex items-center gap-1.5 rounded-md border border-border px-3 py-1.5 text-meta font-medium text-foreground transition-colors hover:bg-surface-sunken disabled:opacity-50"
+          className="ros-btn-neutral flex items-center gap-1.5 px-3 py-1.5 text-meta font-medium text-foreground disabled:opacity-50"
         >
           <Icon name="chevronLeft" className="h-3.5 w-3.5" />
           Back
@@ -1359,7 +1359,7 @@ function WindowStep({
           type="button"
           disabled={busy}
           onClick={onBack}
-          className="flex items-center gap-1.5 rounded-md border border-border px-3 py-1.5 text-meta font-medium text-foreground transition-colors hover:bg-surface-sunken disabled:opacity-50"
+          className="ros-btn-neutral flex items-center gap-1.5 px-3 py-1.5 text-meta font-medium text-foreground disabled:opacity-50"
         >
           <Icon name="chevronLeft" className="h-3.5 w-3.5" />
           Back
@@ -1403,7 +1403,7 @@ function DoneScreen({
         <button
           type="button"
           onClick={onAgain}
-          className="rounded-md border border-border px-3.5 py-1.5 text-meta font-medium text-foreground transition-colors hover:bg-surface-sunken"
+          className="ros-btn-neutral px-3.5 py-1.5 text-meta font-medium text-foreground"
         >
           Import another
         </button>

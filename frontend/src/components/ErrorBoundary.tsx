@@ -116,7 +116,7 @@ export default class ErrorBoundary extends Component<Props, State> {
                   work from any state. (feedback polish R1) */}
               <button
                 onClick={this.handleSendBugReport}
-                className="px-4 py-2 text-body text-foreground-muted hover:bg-surface-sunken rounded-lg transition-colors border border-border"
+                className="ros-btn-neutral px-4 py-2 text-body text-foreground-muted"
               >
                 Send Bug Report
               </button>

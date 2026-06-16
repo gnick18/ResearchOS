@@ -133,6 +133,65 @@ export async function getBindingByHash(
 }
 
 /**
+ * Re-inserts the canonical 4-char-group spacing into a compact (space-free)
+ * fingerprint, matching how fingerprints are stored in directory_profiles /
+ * directory_identities ("aaaa bbbb cccc"). Mirrors the /researcher route.
+ */
+function groupFingerprint(compact: string): string {
+  const groups: string[] = [];
+  for (let i = 0; i < compact.length; i += 4) {
+    groups.push(compact.slice(i, i + 4));
+  }
+  return groups.join(" ");
+}
+
+/**
+ * Fetches the binding for a LISTED, published researcher by their fingerprint, or
+ * null if the fingerprint is not bound or its profile is unlisted/absent. The
+ * reverse of getBindingByHash keyed by fingerprint, joined to directory_profiles
+ * so it only ever resolves someone who has opted into the public directory
+ * (unlisted = false). This powers the no-email fingerprint-routed sealed send:
+ * the relay resolves a recipient found on the /network hub to their mailbox hash
+ * (emailHash) WITHOUT the sender ever knowing the recipient's email.
+ *
+ * The input may be the compact (space-free) or already-grouped fingerprint; it is
+ * normalized to the stored grouped form. Exact match only, never a prefix, so the
+ * directory stays non-enumerable. The keyBackupBlob is loaded for shape parity
+ * but callers must never expose it.
+ */
+export async function getBindingByFingerprint(
+  fingerprint: string,
+): Promise<DirectoryBinding | null> {
+  const compact = fingerprint.replace(/\s+/g, "").toLowerCase();
+  if (!/^[0-9a-f]{8,64}$/.test(compact)) return null;
+  const grouped = groupFingerprint(compact);
+  const sql = getSql();
+  const rows = (await sql`
+    SELECT i.email_hash, i.x25519_pub, i.ed25519_pub, i.fingerprint, i.key_backup_blob
+    FROM directory_identities i
+    JOIN directory_profiles p ON p.fingerprint = i.fingerprint
+    WHERE i.fingerprint = ${grouped}
+      AND p.unlisted = false
+    LIMIT 1
+  `) as Array<{
+    email_hash: string;
+    x25519_pub: string;
+    ed25519_pub: string;
+    fingerprint: string;
+    key_backup_blob: string | null;
+  }>;
+  if (rows.length === 0) return null;
+  const r = rows[0];
+  return {
+    emailHash: r.email_hash,
+    x25519PublicKey: r.x25519_pub,
+    ed25519PublicKey: r.ed25519_pub,
+    fingerprint: r.fingerprint,
+    keyBackupBlob: r.key_backup_blob,
+  };
+}
+
+/**
  * Fetches the current binding for an Ed25519 public key (hex), or null if none.
  * This is the reverse of getBindingByHash: the DO stores only the owner_pubkey
  * (the Ed25519 signing key), so the /api/collab/doc-size route uses this to
@@ -345,6 +404,11 @@ export async function ensureProfileSchema(): Promise<void> {
   // notify_on_collab_invite defaults to true so any row that predates the column
   // reads as opted-in, which is the backward-safe default for the preference.
   await sql`ALTER TABLE directory_profiles ADD COLUMN IF NOT EXISTS notify_on_collab_invite boolean NOT NULL DEFAULT true`;
+  // unlisted: opt-OUT of the public researcher search (the /network hub). Default
+  // false = listed-by-default, the locked social-layer decision, so existing rows
+  // read as listed. The public-search route filters WHERE unlisted = false; the
+  // authed searchProfiles ignores it (a signed user can find anyone, as before).
+  await sql`ALTER TABLE directory_profiles ADD COLUMN IF NOT EXISTS unlisted boolean NOT NULL DEFAULT false`;
 }
 
 /**
@@ -447,6 +511,149 @@ export async function searchProfiles(
     updatedAt: r.updated_at,
     x25519PublicKey: r.x25519_pub,
     ed25519PublicKey: r.ed25519_pub,
+  }));
+}
+
+/** A single result row of the PUBLIC researcher search (the /network hub). */
+export interface PublicProfileResult {
+  fingerprint: string;
+  displayName: string;
+  affiliation: string | null;
+  /** The verified institutional email domain (e.g. wisc.edu), or null. */
+  verifiedDomain: string | null;
+  orcid: string | null;
+}
+
+/**
+ * A public institution page (the /institution/[slug] hub), DERIVED from verified
+ * email-domain clusters. There is no curated institution entity in the directory;
+ * an "institution" is simply the set of listed researchers who proved the same
+ * affiliation_domain. So the slug, name, and domain are all the verified domain,
+ * logoUrl is null (no curated branding yet), departments are the distinct
+ * affiliations seen in the cluster, and members are the listed profiles.
+ */
+export interface InstitutionCluster {
+  slug: string;
+  name: string;
+  domain: string;
+  logoUrl: string | null;
+  departments: string[];
+  memberCount: number;
+  members: PublicProfileResult[];
+}
+
+/**
+ * PUBLIC, unauthenticated institution page, derived from a verified-domain
+ * cluster. Returns the LISTED researchers (unlisted = false) whose verified
+ * affiliation_domain equals `domain`, or null when no listed member shares it
+ * (the route renders that as found:false). Never returns email or keys, same as
+ * searchPublicProfiles. The route adds the public gate + IP rate limits.
+ */
+export async function getInstitutionByDomain(
+  domain: string,
+): Promise<InstitutionCluster | null> {
+  const sql = getSql();
+  const rows = (await sql`
+    SELECT
+      p.fingerprint,
+      p.display_name,
+      p.affiliation,
+      p.affiliation_domain,
+      p.orcid
+    FROM directory_profiles p
+    WHERE p.unlisted = false
+      AND lower(p.affiliation_domain) = lower(${domain})
+    ORDER BY lower(p.display_name)
+  `) as Array<{
+    fingerprint: string;
+    display_name: string;
+    affiliation: string | null;
+    affiliation_domain: string | null;
+    orcid: string | null;
+  }>;
+
+  if (rows.length === 0) return null;
+
+  const members: PublicProfileResult[] = rows.map((r) => ({
+    fingerprint: r.fingerprint,
+    displayName: r.display_name,
+    affiliation: r.affiliation,
+    verifiedDomain: r.affiliation_domain,
+    orcid: r.orcid,
+  }));
+
+  // Distinct, non-empty affiliations become the department list (stable order).
+  const departments = Array.from(
+    new Set(
+      members
+        .map((m) => (m.affiliation || "").trim())
+        .filter((a) => a.length > 0),
+    ),
+  ).sort((a, b) => a.localeCompare(b));
+
+  // The canonical domain is what members actually proved (preserves real case),
+  // falling back to the queried value. slug = name = domain for the derived v1.
+  const canonicalDomain = rows[0].affiliation_domain || domain;
+
+  return {
+    slug: canonicalDomain,
+    name: canonicalDomain,
+    domain: canonicalDomain,
+    logoUrl: null,
+    departments,
+    memberCount: members.length,
+    members,
+  };
+}
+
+/**
+ * PUBLIC, unauthenticated researcher search for the /network hub. Same trigram
+ * match as searchProfiles, but with three deliberate differences from the authed
+ * search:
+ *   1. Filters WHERE unlisted = false, so an opted-out researcher never appears.
+ *   2. Returns ONLY directory-safe fields, no public key material and no email,
+ *      so it cannot be harvested into a sealing/contact corpus.
+ *   3. No join to directory_identities (the keys live there), keeping the row
+ *      strictly to what a public profile card shows.
+ * The route layer adds the public gate (isSharingEnabled + isSocialLayerEnabled),
+ * IP rate limits, and the min/max query-length check.
+ */
+export async function searchPublicProfiles(
+  query: string,
+  limit: number = 20,
+): Promise<PublicProfileResult[]> {
+  const sql = getSql();
+  const rows = (await sql`
+    SELECT
+      p.fingerprint,
+      p.display_name,
+      p.affiliation,
+      p.affiliation_domain,
+      p.orcid
+    FROM directory_profiles p
+    WHERE p.unlisted = false
+      AND (lower(p.display_name) || ' ' || lower(coalesce(p.affiliation, '')))
+          % lower(${query})
+    ORDER BY
+      similarity(
+        lower(p.display_name) || ' ' || lower(coalesce(p.affiliation, '')),
+        lower(${query})
+      ) DESC
+    LIMIT ${limit}
+  `) as Array<{
+    fingerprint: string;
+    display_name: string;
+    affiliation: string | null;
+    affiliation_domain: string | null;
+    orcid: string | null;
+  }>;
+
+  return rows.map((r) => ({
+    fingerprint: r.fingerprint,
+    displayName: r.display_name,
+    affiliation: r.affiliation,
+    verifiedDomain: r.affiliation_domain,
+    orcid: r.orcid,
   }));
 }
 

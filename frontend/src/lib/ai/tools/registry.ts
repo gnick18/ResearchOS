@@ -91,6 +91,7 @@ import {
   createExperimentChainTool,
 } from "./experiment-tools";
 import { setupExperimentTool } from "./setup-experiment";
+import { setupProjectTool } from "./setup-project";
 import {
   draftPaperSummaryTool,
   extractPaperMethodTool,
@@ -473,6 +474,15 @@ export const ACTION_TOOLS: AiTool[] = [
   // header. The user sees a numbered preview of every step before anything writes.
   // None of the individual writes is destructive, so it never forces the hard-stop.
   setupExperimentTool,
+  // setup_project is the project-level composite (action: true, isDestructive
+  // false). In one consented action it creates the project, then creates each
+  // experiment ALREADY assigned to that new project (scheduled back-to-back),
+  // optionally links them as a finish-to-start chain, and scaffolds each results
+  // file. The back-reference (children pointing at a parent that did not exist
+  // before the call) is what the model cannot reliably do by chaining separate
+  // create_* calls. The user sees a numbered preview of every step before any
+  // write. None of the individual writes is destructive.
+  setupProjectTool,
   // Scheduling coworker tools (action: true, isDestructive false). create_task
   // adds a task to a project the user names; reschedule_task moves a task through
   // the dependency-aware shift path (tasksApi.move) so dependents cascade and the

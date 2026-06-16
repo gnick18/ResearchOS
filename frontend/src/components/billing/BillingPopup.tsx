@@ -372,7 +372,7 @@ function MemberInvites({
                 type="button"
                 disabled={busy}
                 onClick={() => onRespond(inv.labKey, "decline")}
-                className="rounded-lg border border-border px-3 py-1.5 text-meta font-semibold text-foreground hover:bg-surface-sunken disabled:opacity-50"
+                className="ros-btn-neutral px-3 py-1.5 text-meta font-semibold text-foreground disabled:opacity-50"
               >
                 Decline
               </button>
@@ -574,7 +574,7 @@ function LabSponsorSection({
                               : "Cannot remove (no stored email)"
                           }
                           onClick={() => m.label && onRemove(m.label)}
-                          className="rounded-lg border border-border px-3 py-1.5 text-meta font-semibold text-foreground hover:bg-surface-raised disabled:opacity-40"
+                          className="ros-btn-neutral px-3 py-1.5 text-meta font-semibold text-foreground disabled:opacity-40"
                         >
                           Remove
                         </button>

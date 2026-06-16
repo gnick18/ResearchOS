@@ -41,6 +41,7 @@
 
 import { dataHubApi } from "@/lib/datahub/api";
 import { requestNavigation } from "@/components/ai/navigation-bridge";
+import { analysisResultInChat } from "./analysis-presentation";
 import { openDataHubDoc, type DataHubDocHandle } from "@/lib/loro/datahub-store";
 import {
   getDataHubContent,
@@ -165,6 +166,19 @@ export const datahubAnalysisDeps: DataHubAnalysisDeps = {
   persistAnalysis: defaultPersistAnalysis,
   navigate: requestNavigation,
 };
+
+/**
+ * Navigate the user to a stored result, UNLESS the current turn was initiated by
+ * the inline analysis/graph picker, in which case the result stays in chat (no
+ * navigation) so the inline interaction is not yanked off to /datahub. A typed
+ * run leaves the latch off and navigates as before (Grant's locked nuance, only
+ * the picker-driven run stays in chat). Every run tool below routes its
+ * navigation through this one gate.
+ */
+function maybeNavigate(path: string): void {
+  if (analysisResultInChat()) return;
+  datahubAnalysisDeps.navigate(path);
+}
 
 // ---------------------------------------------------------------------------
 // Content cache (bridges the sync describeAction to the async content read).
@@ -705,7 +719,7 @@ export const runDataHubAnalysisTool: AiTool = {
     // the chat summary. This is hard-wired here, not left to the model, so it always
     // happens after a successful run. The navigate seam defaults to the navigation
     // bridge, which performs a soft SPA transition that preserves the panel.
-    datahubAnalysisDeps.navigate(
+    maybeNavigate(
       `/datahub?doc=${parsed.tableId}&analysis=${run.result.analysisId}`,
     );
 
@@ -987,7 +1001,7 @@ export const compareModelsTool: AiTool = {
       } satisfies CompareModelsResult;
     }
 
-    datahubAnalysisDeps.navigate(
+    maybeNavigate(
       `/datahub?doc=${parsed.tableId}&analysis=${built.result.analysisId}`,
     );
 
@@ -1217,7 +1231,7 @@ export const runMultipleRegressionTool: AiTool = {
         error: "The regression computed but could not be saved to the table. The result is not stored.",
       } satisfies MultipleRegressionToolResult;
     }
-    datahubAnalysisDeps.navigate(`/datahub?doc=${parsed.tableId}&analysis=${built.result.analysisId}`);
+    maybeNavigate(`/datahub?doc=${parsed.tableId}&analysis=${built.result.analysisId}`);
     return built.result satisfies MultipleRegressionToolResult;
   },
 };
@@ -1421,7 +1435,7 @@ export const runLogisticRegressionTool: AiTool = {
         error: "The regression computed but could not be saved to the table. The result is not stored.",
       } satisfies LogisticRegressionToolResult;
     }
-    datahubAnalysisDeps.navigate(`/datahub?doc=${parsed.tableId}&analysis=${built.result.analysisId}`);
+    maybeNavigate(`/datahub?doc=${parsed.tableId}&analysis=${built.result.analysisId}`);
     return built.result satisfies LogisticRegressionToolResult;
   },
 };
@@ -1642,7 +1656,7 @@ export const globalFitTool: AiTool = {
         error: "The global fit computed but could not be saved to the table. The result is not stored.",
       } satisfies GlobalFitToolResult;
     }
-    datahubAnalysisDeps.navigate(`/datahub?doc=${parsed.tableId}&analysis=${built.result.analysisId}`);
+    maybeNavigate(`/datahub?doc=${parsed.tableId}&analysis=${built.result.analysisId}`);
     return built.result satisfies GlobalFitToolResult;
   },
 };
@@ -1873,7 +1887,7 @@ export const runDoseResponseTool: AiTool = {
         error: "The dose-response fit computed but could not be saved to the table. The result is not stored.",
       } satisfies DoseResponseToolResult;
     }
-    datahubAnalysisDeps.navigate(`/datahub?doc=${parsed.tableId}&analysis=${built.result.analysisId}`);
+    maybeNavigate(`/datahub?doc=${parsed.tableId}&analysis=${built.result.analysisId}`);
     return built.result satisfies DoseResponseToolResult;
   },
 };
@@ -2094,7 +2108,7 @@ export const runCoxRegressionTool: AiTool = {
         error: "The Cox regression computed but could not be saved to the table. The result is not stored.",
       } satisfies CoxRegressionToolResult;
     }
-    datahubAnalysisDeps.navigate(`/datahub?doc=${parsed.tableId}&analysis=${built.result.analysisId}`);
+    maybeNavigate(`/datahub?doc=${parsed.tableId}&analysis=${built.result.analysisId}`);
     return built.result satisfies CoxRegressionToolResult;
   },
 };
@@ -2282,7 +2296,7 @@ export const runContingencyTool: AiTool = {
         error: "The contingency analysis computed but could not be saved to the table. The result is not stored.",
       } satisfies ContingencyToolResult;
     }
-    datahubAnalysisDeps.navigate(`/datahub?doc=${parsed.tableId}&analysis=${built.result.analysisId}`);
+    maybeNavigate(`/datahub?doc=${parsed.tableId}&analysis=${built.result.analysisId}`);
     return built.result satisfies ContingencyToolResult;
   },
 };
@@ -2487,7 +2501,7 @@ export const runNestedTTestTool: AiTool = {
         error: "The nested t-test computed but could not be saved to the table. The result is not stored.",
       } satisfies NestedTTestToolResult;
     }
-    datahubAnalysisDeps.navigate(`/datahub?doc=${parsed.tableId}&analysis=${built.result.analysisId}`);
+    maybeNavigate(`/datahub?doc=${parsed.tableId}&analysis=${built.result.analysisId}`);
     return built.result satisfies NestedTTestToolResult;
   },
 };
@@ -2534,7 +2548,7 @@ export const runNestedAnovaTool: AiTool = {
         error: "The nested ANOVA computed but could not be saved to the table. The result is not stored.",
       } satisfies NestedAnovaToolResult;
     }
-    datahubAnalysisDeps.navigate(`/datahub?doc=${parsed.tableId}&analysis=${built.result.analysisId}`);
+    maybeNavigate(`/datahub?doc=${parsed.tableId}&analysis=${built.result.analysisId}`);
     return built.result satisfies NestedAnovaToolResult;
   },
 };
@@ -2744,7 +2758,7 @@ export const runRocCurveTool: AiTool = {
         error: "The ROC curve computed but could not be saved to the table. The result is not stored.",
       } satisfies RocCurveToolResult;
     }
-    datahubAnalysisDeps.navigate(`/datahub?doc=${parsed.tableId}&analysis=${built.result.analysisId}`);
+    maybeNavigate(`/datahub?doc=${parsed.tableId}&analysis=${built.result.analysisId}`);
     return built.result satisfies RocCurveToolResult;
   },
 };
@@ -2985,7 +2999,7 @@ export const runRepeatedMeasuresAnovaTool: AiTool = {
         error: "The repeated-measures ANOVA computed but could not be saved to the table. The result is not stored.",
       } satisfies RmAnovaToolResult;
     }
-    datahubAnalysisDeps.navigate(`/datahub?doc=${parsed.tableId}&analysis=${built.result.analysisId}`);
+    maybeNavigate(`/datahub?doc=${parsed.tableId}&analysis=${built.result.analysisId}`);
     return built.result satisfies RmAnovaToolResult;
   },
 };
@@ -3161,7 +3175,7 @@ export const runMixedModelTool: AiTool = {
         error: "The mixed model computed but could not be saved to the table. The result is not stored.",
       } satisfies MixedModelToolResult;
     }
-    datahubAnalysisDeps.navigate(`/datahub?doc=${parsed.tableId}&analysis=${built.result.analysisId}`);
+    maybeNavigate(`/datahub?doc=${parsed.tableId}&analysis=${built.result.analysisId}`);
     return built.result satisfies MixedModelToolResult;
   },
 };
@@ -3401,7 +3415,7 @@ export const runGrubbsOutliersTool: AiTool = {
         error: "The outlier screen computed but could not be saved to the table. The result is not stored.",
       } satisfies GrubbsOutliersToolResult;
     }
-    datahubAnalysisDeps.navigate(`/datahub?doc=${parsed.tableId}&analysis=${built.result.analysisId}`);
+    maybeNavigate(`/datahub?doc=${parsed.tableId}&analysis=${built.result.analysisId}`);
     return built.result satisfies GrubbsOutliersToolResult;
   },
 };

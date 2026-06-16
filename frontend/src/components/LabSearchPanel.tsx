@@ -696,7 +696,7 @@ export default function LabSearchPanel({
                 ) : (
                   <button
                     onClick={enterSelectMode}
-                    className="px-3 py-1.5 text-meta text-foreground-muted border border-border rounded-lg hover:bg-surface-sunken"
+                    className="ros-btn-neutral px-3 py-1.5 text-meta text-foreground-muted"
                   >
                     Select
                   </button>

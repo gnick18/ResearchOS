@@ -37,4 +37,31 @@ describe("WelcomePage", () => {
     ).toBeTruthy();
     expect(screen.getByText("Free, but accountable")).toBeTruthy();
   });
+
+  it("renders the tri-CTA on the unsupported (phone) path", () => {
+    render(<WelcomePage unsupported />);
+
+    // The three CTA cards, in priority order.
+    expect(screen.getByText("Get the companion app")).toBeTruthy();
+    expect(
+      screen.getByText("Open on desktop for the full app"),
+    ).toBeTruthy();
+    expect(screen.getByText("Be first to know")).toBeTruthy();
+
+    // Demo + notify hand-offs are present and wired.
+    expect(screen.getByTestId("phone-cta-demo").getAttribute("href")).toBe(
+      "/demo",
+    );
+    expect(
+      screen.getByTestId("phone-cta-notify").getAttribute("href"),
+    ).toMatch(/^mailto:/);
+
+    // Companion store badges default to a "Coming soon" state (no live flag).
+    expect(screen.getAllByText("Coming soon to").length).toBe(2);
+  });
+
+  it("hides the tri-CTA on the supported desktop path", () => {
+    render(<WelcomePage />);
+    expect(screen.queryByText("Get the companion app")).toBeNull();
+  });
 });

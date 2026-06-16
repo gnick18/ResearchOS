@@ -572,7 +572,7 @@ function ResultRow({
               type="button"
               onClick={onOpen}
               data-testid="sequence-result-open"
-              className="inline-flex items-center gap-1 rounded-md border border-border px-2 py-0.5 text-meta font-medium text-foreground-muted transition-colors hover:bg-surface-sunken hover:text-foreground"
+              className="ros-btn-neutral inline-flex items-center gap-1 px-2 py-0.5 text-meta font-medium text-foreground-muted"
             >
               <Icon name="eye" className="h-3 w-3" />
               Open
@@ -583,7 +583,7 @@ function ResultRow({
               type="button"
               onClick={() => setConfirming(true)}
               data-testid="sequence-result-delete"
-              className="inline-flex items-center gap-1 rounded-md border border-border px-2 py-0.5 text-meta font-medium text-foreground-muted transition-colors hover:bg-surface-sunken hover:text-foreground"
+              className="ros-btn-neutral inline-flex items-center gap-1 px-2 py-0.5 text-meta font-medium text-foreground-muted"
             >
               <Icon name="trash" className="h-3 w-3" />
               Delete
@@ -604,7 +604,7 @@ function ResultRow({
               <button
                 type="button"
                 onClick={() => setConfirming(false)}
-                className="rounded-md bg-surface-sunken px-2 py-0.5 text-meta font-medium text-foreground-muted transition-colors hover:bg-surface-sunken"
+                className="ros-btn-neutral px-2 py-0.5 text-meta font-medium text-foreground-muted"
               >
                 Cancel
               </button>
@@ -695,7 +695,7 @@ function SequenceVersionRow({
               type="button"
               onClick={onCancelConfirm}
               disabled={restoring}
-              className="rounded-md bg-surface-sunken px-2 py-0.5 text-meta font-medium text-foreground-muted transition-colors hover:bg-surface-sunken disabled:opacity-60"
+              className="ros-btn-neutral px-2 py-0.5 text-meta font-medium text-foreground-muted disabled:opacity-60"
             >
               Cancel
             </button>

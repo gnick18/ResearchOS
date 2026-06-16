@@ -26,11 +26,12 @@ import {
 import { aggregateNotes, summarizeNotesDeps } from "./summarize-notes";
 import { aggregateProjects, summarizeProjectsDeps } from "./summarize-projects";
 import {
-  attachRecordSetIfBig,
+  attachSummaryUi,
   periodLabel,
   RECORD_SET_UI_CAP,
   type RecordSetRow,
 } from "@/lib/ai/record-set";
+import { labDigestReport } from "@/lib/ai/summary-report";
 import type { AiTool } from "./types";
 
 // ---------------------------------------------------------------------------
@@ -308,7 +309,7 @@ export const labDigestTool: AiTool = {
     // the model reads is unchanged; the rows ride out-of-band under _ui, gated on
     // the ">4" rule by attachRecordSetIfBig.
     const rows = labDigestRows({ experiments, purchases, notes }, window, today);
-    return attachRecordSetIfBig({ ok: true as const, digest }, rows, {
+    return attachSummaryUi({ ok: true as const, digest }, rows, labDigestReport(digest), {
       kind: "lab_digest",
       title: periodLabel("Lab digest", { since: window.since, until: window.until }),
       total: rows.length,

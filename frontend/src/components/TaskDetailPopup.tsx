@@ -98,7 +98,8 @@ import type { TaskRestorePayload } from "@/lib/types";
 // editor binds the task's single "content" text, and grant-on-share reuses the
 // same docId-keyed server grant notes use (no task-specific server route).
 import { LORO_PILOT_ENABLED } from "@/lib/loro/config";
-import { appendTaskLine } from "@/lib/loro/task-doc";
+import { appendTaskLine, getTaskContentText, setTaskContentText } from "@/lib/loro/task-doc";
+import { insertNoteBlockIntoMarkdown } from "@/lib/mobile-relay/poll";
 import { openTaskDoc, type TaskDocHandle } from "@/lib/loro/task-store";
 import { useCollabSession } from "@/lib/loro/collab/use-collab-session";
 import { peerColorClass } from "@/lib/loro/collab/safe-ephemeral-plugin";
@@ -320,6 +321,24 @@ export default function TaskDetailPopup({
   const registerActiveTabAppendLine = useCallback(
     (fn: ((line: string) => void) | null) => {
       activeTabAppendLineRef.current = fn;
+    },
+    [],
+  );
+  // Phone notes P2: insert-note-block handle. The active tab registers a function
+  // that splices a phone-note block at a content anchor (block index + hash) via
+  // the same Loro / legacy paths the append handle uses. Null when no editor tab
+  // is mounted. Mirrors the append-line ref above.
+  const activeTabInsertNoteRef = useRef<
+    | ((detail: { block: string; anchorHash: string; anchorIndex: number }) => void)
+    | null
+  >(null);
+  const registerActiveTabInsertNote = useCallback(
+    (
+      fn:
+        | ((detail: { block: string; anchorHash: string; anchorIndex: number }) => void)
+        | null,
+    ) => {
+      activeTabInsertNoteRef.current = fn;
     },
     [],
   );
@@ -773,6 +792,46 @@ export default function TaskDetailPopup({
     };
     window.addEventListener("notebook:append-line", handler);
     return () => window.removeEventListener("notebook:append-line", handler);
+  }, [task.id, task.owner, selectTab]);
+
+  // Phone notes P2: receive an insert-note-block event from the poll loop. Same
+  // shape as the append-line handler (flush, switch to the target tab, defer one
+  // tick so the tab re-registers its handle) but it inserts the phone-note block
+  // at the carried content anchor instead of appending at the end.
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const detail = (e as CustomEvent).detail as
+        | {
+            taskId?: number;
+            owner?: string;
+            tab?: "notes" | "results";
+            block?: string;
+            anchorHash?: string;
+            anchorIndex?: number;
+          }
+        | undefined;
+      if (!detail || detail.taskId !== task.id || detail.owner !== task.owner) {
+        return;
+      }
+      const targetTab: Tab = detail.tab === "results" ? "results" : "notes";
+      const block = detail.block ?? "";
+      const anchorHash = detail.anchorHash ?? "";
+      const anchorIndex =
+        typeof detail.anchorIndex === "number" ? detail.anchorIndex : 0;
+      void (async () => {
+        try {
+          await activeTabFlushSaveRef.current?.();
+        } catch {
+          // Best-effort flush.
+        }
+        selectTab(targetTab);
+        setTimeout(() => {
+          activeTabInsertNoteRef.current?.({ block, anchorHash, anchorIndex });
+        }, 80);
+      })();
+    };
+    window.addEventListener("notebook:insert-note-block", handler);
+    return () => window.removeEventListener("notebook:insert-note-block", handler);
   }, [task.id, task.owner, selectTab]);
 
   // Onboarding v4 §6.6 `experiment-attach-method-open` sub-step advances
@@ -1494,7 +1553,7 @@ export default function TaskDetailPopup({
                     editable too. LabNotes/Results route to the member via their
                     Loro doc owner (task.owner) + the legacyOwner fallback, and
                     MethodTabs routes + audits via piActor. */}
-                {activeTab === "notes" && <LabNotesTab task={task} readOnly={readOnly || (task.is_shared_with_me === true && task.shared_permission === "view")} ownerUsername={username} onRegisterFlushSave={registerActiveTabFlushSave} onRegisterAppendLine={registerActiveTabAppendLine} onRegisterDirtyState={registerActiveTabDirtyState} onRegisterDocHistory={registerActiveTabDocHistory} expanded={isExpanded} onRequestExpand={toggleExpanded} />}
+                {activeTab === "notes" && <LabNotesTab task={task} readOnly={readOnly || (task.is_shared_with_me === true && task.shared_permission === "view")} ownerUsername={username} onRegisterFlushSave={registerActiveTabFlushSave} onRegisterAppendLine={registerActiveTabAppendLine} onRegisterInsertNote={registerActiveTabInsertNote} onRegisterDirtyState={registerActiveTabDirtyState} onRegisterDocHistory={registerActiveTabDocHistory} expanded={isExpanded} onRequestExpand={toggleExpanded} />}
                 {activeTab === "method" && (
                   <MethodTabs
                     task={task}
@@ -1503,7 +1562,7 @@ export default function TaskDetailPopup({
                     piActor={piActive && currentUser ? currentUser : undefined}
                   />
                 )}
-                {activeTab === "results" && <ResultsTab task={task} readOnly={readOnly || (task.is_shared_with_me === true && task.shared_permission === "view")} ownerUsername={username} onRegisterFlushSave={registerActiveTabFlushSave} onRegisterAppendLine={registerActiveTabAppendLine} onRegisterDirtyState={registerActiveTabDirtyState} onRegisterDocHistory={registerActiveTabDocHistory} expanded={isExpanded} onRequestExpand={toggleExpanded} />}
+                {activeTab === "results" && <ResultsTab task={task} readOnly={readOnly || (task.is_shared_with_me === true && task.shared_permission === "view")} ownerUsername={username} onRegisterFlushSave={registerActiveTabFlushSave} onRegisterAppendLine={registerActiveTabAppendLine} onRegisterInsertNote={registerActiveTabInsertNote} onRegisterDirtyState={registerActiveTabDirtyState} onRegisterDocHistory={registerActiveTabDocHistory} expanded={isExpanded} onRequestExpand={toggleExpanded} />}
                 {activeTab === "purchases" && (
                   <PurchaseEditor
                     taskId={task.id}
@@ -3620,7 +3679,7 @@ function DetailsTab({
 
 // ── Lab Notes Tab (with LiveMarkdownEditor) ──────────────────────────────────
 
-function LabNotesTab({ task, readOnly = false, ownerUsername, onRegisterFlushSave, onRegisterAppendLine, onRegisterDirtyState, onRegisterDocHistory, expanded = false, onRequestExpand }: { task: Task; readOnly?: boolean; ownerUsername?: string; onRegisterFlushSave?: (fn: (() => Promise<void>) | null) => void; onRegisterAppendLine?: (fn: ((line: string) => void) | null) => void; onRegisterDirtyState?: (state: { dirty: boolean; saving: boolean } | null) => void; onRegisterDocHistory?: (state: { toggle: () => void; isOpen: boolean } | null) => void; expanded?: boolean; onRequestExpand?: () => void }) {
+function LabNotesTab({ task, readOnly = false, ownerUsername, onRegisterFlushSave, onRegisterAppendLine, onRegisterInsertNote, onRegisterDirtyState, onRegisterDocHistory, expanded = false, onRequestExpand }: { task: Task; readOnly?: boolean; ownerUsername?: string; onRegisterFlushSave?: (fn: (() => Promise<void>) | null) => void; onRegisterAppendLine?: (fn: ((line: string) => void) | null) => void; onRegisterInsertNote?: (fn: ((detail: { block: string; anchorHash: string; anchorIndex: number }) => void) | null) => void; onRegisterDirtyState?: (state: { dirty: boolean; saving: boolean } | null) => void; onRegisterDocHistory?: (state: { toggle: () => void; isOpen: boolean } | null) => void; expanded?: boolean; onRequestExpand?: () => void }) {
   const [content, setContent] = useState("");
   const [originalContent, setOriginalContent] = useState("");
   const [saving, setSaving] = useState(false);
@@ -4333,6 +4392,29 @@ function LabNotesTab({ task, readOnly = false, ownerUsername, onRegisterFlushSav
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [readOnly, onRegisterAppendLine, loroHandle, content, handleSave]);
 
+  // Phone notes P2: register an insert-note-block handle so a phone note placed
+  // BETWEEN blocks lands at its content anchor in the live editor (not just at
+  // the end like append-line). Both paths compute the spliced text with the same
+  // pure helper the poll loop uses for the on-disk path, so open vs closed land
+  // identically. Insert-only at block boundaries, so no existing text is touched.
+  useEffect(() => {
+    if (readOnly || !onRegisterInsertNote) return;
+    onRegisterInsertNote(({ block, anchorHash, anchorIndex }) => {
+      if (LORO_PILOT_ENABLED && loroHandle) {
+        const current = getTaskContentText(loroHandle.doc);
+        const next = insertNoteBlockIntoMarkdown(current, block, anchorHash, anchorIndex);
+        setTaskContentText(loroHandle.doc, next);
+        loroHandle.doc.commit({ message: "phone:insert-note-block" });
+      } else {
+        const next = insertNoteBlockIntoMarkdown(content, block, anchorHash, anchorIndex);
+        setContent(next);
+        void handleSave(next);
+      }
+    });
+    return () => onRegisterInsertNote(null);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [readOnly, onRegisterInsertNote, loroHandle, content, handleSave]);
+
   // save-checkpoint bot: version-history controller for the Lab Notes document.
   // `writeRestored` writes the reconstructed markdown back to notes.md + reflects
   // it into the editor, then the controller records the "revert" version.
@@ -4598,7 +4680,7 @@ function LabNotesTab({ task, readOnly = false, ownerUsername, onRegisterFlushSav
 
 // ── Results Tab ──────────────────────────────────────────────────────────────
 
-function ResultsTab({ task, readOnly = false, ownerUsername, onRegisterFlushSave, onRegisterAppendLine, onRegisterDirtyState, onRegisterDocHistory, expanded = false, onRequestExpand }: { task: Task; readOnly?: boolean; ownerUsername?: string; onRegisterFlushSave?: (fn: (() => Promise<void>) | null) => void; onRegisterAppendLine?: (fn: ((line: string) => void) | null) => void; onRegisterDirtyState?: (state: { dirty: boolean; saving: boolean } | null) => void; onRegisterDocHistory?: (state: { toggle: () => void; isOpen: boolean } | null) => void; expanded?: boolean; onRequestExpand?: () => void }) {
+function ResultsTab({ task, readOnly = false, ownerUsername, onRegisterFlushSave, onRegisterAppendLine, onRegisterInsertNote, onRegisterDirtyState, onRegisterDocHistory, expanded = false, onRequestExpand }: { task: Task; readOnly?: boolean; ownerUsername?: string; onRegisterFlushSave?: (fn: (() => Promise<void>) | null) => void; onRegisterAppendLine?: (fn: ((line: string) => void) | null) => void; onRegisterInsertNote?: (fn: ((detail: { block: string; anchorHash: string; anchorIndex: number }) => void) | null) => void; onRegisterDirtyState?: (state: { dirty: boolean; saving: boolean } | null) => void; onRegisterDocHistory?: (state: { toggle: () => void; isOpen: boolean } | null) => void; expanded?: boolean; onRequestExpand?: () => void }) {
   const [content, setContent] = useState("");
   const [originalContent, setOriginalContent] = useState("");
   const [saving, setSaving] = useState(false);
@@ -5196,6 +5278,27 @@ function ResultsTab({ task, readOnly = false, ownerUsername, onRegisterFlushSave
     return () => onRegisterAppendLine(null);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [readOnly, onRegisterAppendLine, loroHandle, content, handleSave]);
+
+  // Phone notes P2: register an insert-note-block handle (Results doc). Mirrors
+  // LabNotesTab's handle exactly. Both paths splice via the same pure helper the
+  // poll loop uses for the on-disk path, so open vs closed land identically.
+  useEffect(() => {
+    if (readOnly || !onRegisterInsertNote) return;
+    onRegisterInsertNote(({ block, anchorHash, anchorIndex }) => {
+      if (LORO_PILOT_ENABLED && loroHandle) {
+        const current = getTaskContentText(loroHandle.doc);
+        const next = insertNoteBlockIntoMarkdown(current, block, anchorHash, anchorIndex);
+        setTaskContentText(loroHandle.doc, next);
+        loroHandle.doc.commit({ message: "phone:insert-note-block" });
+      } else {
+        const next = insertNoteBlockIntoMarkdown(content, block, anchorHash, anchorIndex);
+        setContent(next);
+        void handleSave(next);
+      }
+    });
+    return () => onRegisterInsertNote(null);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [readOnly, onRegisterInsertNote, loroHandle, content, handleSave]);
 
   // save-checkpoint bot: version-history controller for the Results document.
   const docHistory = useTaskDocHistory({

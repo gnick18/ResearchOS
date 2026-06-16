@@ -14,7 +14,7 @@
   "columns": [
     {
       "id": "col-x",
-      "name": "log[drug] (M)",
+      "name": "[drug] (M)",
       "role": "x",
       "dataType": "number"
     },
@@ -35,7 +35,7 @@
     {
       "id": "row-1",
       "cells": {
-        "col-x": -9,
+        "col-x": 1e-9,
         "col-ya": 0.9,
         "col-yb": 0.1
       }
@@ -43,7 +43,7 @@
     {
       "id": "row-2",
       "cells": {
-        "col-x": -8.5,
+        "col-x": 3.1622776601683795e-9,
         "col-ya": 2.9,
         "col-yb": 0.4
       }
@@ -51,7 +51,7 @@
     {
       "id": "row-3",
       "cells": {
-        "col-x": -8,
+        "col-x": 1e-8,
         "col-ya": 8.6,
         "col-yb": 0.8
       }
@@ -59,7 +59,7 @@
     {
       "id": "row-4",
       "cells": {
-        "col-x": -7.5,
+        "col-x": 3.162277660168379e-8,
         "col-ya": 23,
         "col-yb": 2.9
       }
@@ -67,7 +67,7 @@
     {
       "id": "row-5",
       "cells": {
-        "col-x": -7,
+        "col-x": 1e-7,
         "col-ya": 50.4,
         "col-yb": 8.6
       }
@@ -75,7 +75,7 @@
     {
       "id": "row-6",
       "cells": {
-        "col-x": -6.5,
+        "col-x": 3.162277660168379e-7,
         "col-ya": 75.9,
         "col-yb": 23.4
       }
@@ -83,7 +83,7 @@
     {
       "id": "row-7",
       "cells": {
-        "col-x": -6,
+        "col-x": 0.000001,
         "col-ya": 90.8,
         "col-yb": 50.4
       }
@@ -91,7 +91,7 @@
     {
       "id": "row-8",
       "cells": {
-        "col-x": -5.5,
+        "col-x": 0.000003162277660168379,
         "col-ya": 96.9,
         "col-yb": 75.9
       }
@@ -99,7 +99,7 @@
     {
       "id": "row-9",
       "cells": {
-        "col-x": -5,
+        "col-x": 0.00001,
         "col-ya": 99.1,
         "col-yb": 90.8
       }
@@ -107,7 +107,7 @@
     {
       "id": "row-10",
       "cells": {
-        "col-x": -4.5,
+        "col-x": 0.000031622776601683795,
         "col-ya": 99.6,
         "col-yb": 96.9
       }
@@ -115,7 +115,7 @@
     {
       "id": "row-11",
       "cells": {
-        "col-x": -4,
+        "col-x": 0.0001,
         "col-ya": 100.1,
         "col-yb": 99.1
       }
@@ -139,7 +139,7 @@
         "model": "logistic4pl",
         "modelLabel": "4-parameter logistic (variable slope)",
         "share": "hill-top-bottom",
-        "xName": "log[drug] (M)",
+        "xName": "[drug] (M)",
         "datasetNames": [
           "FakeDrug-A (% inhibition)",
           "FakeDrug-B (% inhibition)"
@@ -148,17 +148,17 @@
           {
             "name": "FakeDrug-A (% inhibition)",
             "x": [
-              -9,
-              -8.5,
-              -8,
-              -7.5,
-              -7,
-              -6.5,
-              -6,
-              -5.5,
-              -5,
-              -4.5,
-              -4
+              1e-9,
+              3.1622776601683795e-9,
+              1e-8,
+              3.162277660168379e-8,
+              1e-7,
+              3.162277660168379e-7,
+              0.000001,
+              0.000003162277660168379,
+              0.00001,
+              0.000031622776601683795,
+              0.0001
             ],
             "y": [
               0.9,
@@ -177,17 +177,17 @@
           {
             "name": "FakeDrug-B (% inhibition)",
             "x": [
-              -9,
-              -8.5,
-              -8,
-              -7.5,
-              -7,
-              -6.5,
-              -6,
-              -5.5,
-              -5,
-              -4.5,
-              -4
+              1e-9,
+              3.1622776601683795e-9,
+              1e-8,
+              3.162277660168379e-8,
+              1e-7,
+              3.162277660168379e-7,
+              0.000001,
+              0.000003162277660168379,
+              0.00001,
+              0.000031622776601683795,
+              0.0001
             ],
             "y": [
               0.1,
@@ -282,13 +282,14 @@
         "errorBar": "sem",
         "showPoints": true,
         "showBrackets": true,
+        "bracketComparisons": "all",
         "colorMode": "brand",
         "palette": "okabe",
         "colorOverrides": {},
         "fontSize": 13,
         "title": "Two-drug dose-response",
         "yTitle": "% inhibition",
-        "xTitle": "log[drug] (M)",
+        "xTitle": "[drug] (M)",
         "fitModel": "linear",
         "sizeUnit": "px",
         "dpi": 300,
@@ -299,7 +300,10 @@
         "estimationCi": 0.95,
         "estimationB": 5000,
         "estimationSeed": 12345,
-        "estimationBootMethod": "bca"
+        "estimationBootMethod": "bca",
+        "diagnosticColumnIndex": 0,
+        "donutHoleRatio": 0.6,
+        "xScaleType": "log"
       },
       "source": {
         "tableId": "7",

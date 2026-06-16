@@ -17,8 +17,11 @@ import { HistoryEngine } from "@/lib/history/engine";
 import { MemoryStorage, makeSpacedClock } from "@/lib/history/test-utils";
 import type { Note, Task } from "@/lib/types";
 
-/** A minimal "list" task for the TaskDetailPopup row (routes through the simple
- *  CalmPopupShell path where the violet title marker lives). */
+/** A populated "list" task for the TaskDetailPopup row (routes through the simple
+ *  CalmPopupShell path where the violet title marker lives). Seeded with a real
+ *  checklist (half done), tags, an assignee, and edit metadata so the violet
+ *  checklist shell + the quiet meta subline render with content to judge, not an
+ *  empty state. */
 export const FIXTURE_TASK: Task = {
   id: 1,
   project_id: 1,
@@ -32,12 +35,22 @@ export const FIXTURE_TASK: Task = {
   weekend_override: null,
   method_ids: [],
   deviation_log: null,
-  tags: null,
+  tags: ["cohort-2", "procurement", "buffers"],
   sort_order: 0,
   experiment_color: null,
-  sub_tasks: null,
+  sub_tasks: [
+    { id: "s1", text: "Confirm cohort 2 headcount with Morgan", is_complete: true },
+    { id: "s2", text: "Pull the reagent list from the cohort 1 order", is_complete: true },
+    { id: "s3", text: "Get a Fisher quote for the doubled NaCl + Tris", is_complete: true },
+    { id: "s4", text: "Submit the purchase request for PI approval", is_complete: false },
+    { id: "s5", text: "Log the order in the lab procurement sheet", is_complete: false },
+    { id: "s6", text: "Receive and shelf in cold storage when it arrives", is_complete: false },
+  ],
   method_attachments: [],
   owner: "dev",
+  assignee: "mira",
+  last_edited_by: "mira",
+  last_edited_at: "2025-12-31T18:00:00.000Z",
   shared_with: [],
 };
 

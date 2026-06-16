@@ -152,7 +152,7 @@ export default function SharedNotebookView({ notebook }: SharedNotebookViewProps
                 onClick={() => void handleAddNote(true)}
                 disabled={busy}
                 data-testid="notebook-add-running-log"
-                className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-body font-medium text-foreground-muted transition-colors hover:bg-surface-sunken disabled:opacity-40"
+                className="ros-btn-neutral flex items-center gap-1.5 px-3 py-1.5 text-body font-medium text-foreground-muted disabled:opacity-40"
               >
                 <Icon name="plus" className="h-4 w-4" />
                 Running log

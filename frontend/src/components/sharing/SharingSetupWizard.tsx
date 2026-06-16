@@ -48,6 +48,7 @@ import {
   type SharingIdentitySidecar,
 } from "@/lib/sharing/identity/sidecar";
 import { canonicalizeEmail } from "@/lib/sharing/directory/email";
+import { resolveDevMockSignInOptions } from "@/lib/sharing/dev-mock-email";
 import { trackIdentityCreated } from "@/lib/analytics/events";
 import { useEscapeToClose } from "@/hooks/useEscapeToClose";
 import { usePopupLayer } from "@/lib/ui/popup-stack";
@@ -276,10 +277,15 @@ export default function SharingSetupWizard({
 
   const startOAuth = useCallback((provider: OAuthProvider) => {
     if (typeof window === "undefined") return;
+    const devMock = resolveDevMockSignInOptions(provider);
+    if (devMock === null) return; // dev-mock email prompt cancelled
     const url = new URL(window.location.href);
     url.searchParams.set(CLAIM_QUERY_PARAM, "1");
     // Send the user back to wherever the wizard is mounted, with the resume flag.
-    void signIn(provider, { callbackUrl: url.pathname + url.search + url.hash });
+    void signIn(provider, {
+      callbackUrl: url.pathname + url.search + url.hash,
+      ...devMock,
+    });
   }, []);
 
   const requestCode = useCallback(async () => {

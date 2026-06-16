@@ -260,7 +260,7 @@ export default function ImportInventoryDialog({
             <button
               type="button"
               onClick={onCancel}
-              className="rounded-lg border border-border px-4 py-2 text-body text-foreground hover:bg-surface-sunken"
+              className="ros-btn-neutral px-4 py-2 text-body text-foreground"
             >
               Cancel
             </button>
@@ -280,7 +280,7 @@ export default function ImportInventoryDialog({
             <button
               type="button"
               onClick={() => setStep("paste")}
-              className="inline-flex items-center gap-1.5 rounded-lg border border-border px-4 py-2 text-body text-foreground hover:bg-surface-sunken"
+              className="ros-btn-neutral inline-flex items-center gap-1.5 px-4 py-2 text-body text-foreground"
             >
               <Icon name="chevronLeft" className="h-4 w-4" />
               Back
@@ -302,7 +302,7 @@ export default function ImportInventoryDialog({
             <button
               type="button"
               onClick={() => setStep("map")}
-              className="inline-flex items-center gap-1.5 rounded-lg border border-border px-4 py-2 text-body text-foreground hover:bg-surface-sunken"
+              className="ros-btn-neutral inline-flex items-center gap-1.5 px-4 py-2 text-body text-foreground"
             >
               <Icon name="chevronLeft" className="h-4 w-4" />
               Back

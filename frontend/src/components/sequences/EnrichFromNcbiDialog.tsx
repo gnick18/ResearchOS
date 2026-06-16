@@ -412,7 +412,7 @@ export default function EnrichFromNcbiDialog({
               type="button"
               onClick={cancelInFlight}
               disabled={phase === "applying"}
-              className="rounded-md border border-border px-3 py-1.5 text-meta font-medium text-foreground transition-colors hover:bg-surface-sunken disabled:opacity-40"
+              className="ros-btn-neutral px-3 py-1.5 text-meta font-medium text-foreground disabled:opacity-40"
             >
               Cancel
             </button>
@@ -420,7 +420,7 @@ export default function EnrichFromNcbiDialog({
             <button
               type="button"
               onClick={handleClose}
-              className="rounded-md border border-border px-3 py-1.5 text-meta font-medium text-foreground transition-colors hover:bg-surface-sunken"
+              className="ros-btn-neutral px-3 py-1.5 text-meta font-medium text-foreground"
             >
               Close
             </button>

@@ -4,7 +4,7 @@
 // phone's own device public key. No raw payload is kept; the verified, parsed
 // values are the record. House style: no em-dashes, no emojis, no mid-sentence
 // colons.
-import { useCallback, useEffect, useState } from 'react';
+import { useSyncExternalStore } from 'react';
 import * as SecureStore from 'expo-secure-store';
 import { clearAllCaptures } from '@/lib/captures';
 
@@ -112,6 +112,10 @@ export async function setPairing(p: {
     demo: p.demo === true ? true : undefined,
   };
   await SecureStore.setItemAsync(PAIRING_KEY, JSON.stringify(pairing));
+  // Push the new pairing into the shared store so EVERY mounted consumer (Home,
+  // TodayHost, Notebook, etc.) flips to the new connection immediately, with no
+  // app restart. A deliberate pair on any screen propagates everywhere.
+  setStorePairing(pairing);
   return pairing;
 }
 
@@ -131,27 +135,80 @@ export async function setDemoPairing(): Promise<Pairing> {
 
 export async function clearPairing(): Promise<void> {
   await SecureStore.deleteItemAsync(PAIRING_KEY);
+  // Clear the shared store too so an unpair on any screen drops every consumer
+  // back to "not connected" right away (otherwise an already-mounted Home /
+  // TodayHost keeps fetching with the stale pairing until the app restarts).
+  setStorePairing(null);
 }
 
-// React hook so screens react to pair/unpair. Loads on mount and exposes a
-// refresh the caller runs after writing.
+// ---- Shared reactive store ------------------------------------------------
+//
+// usePairing must be a single shared store, not per-instance state. Each screen
+// or host that calls usePairing() previously held its OWN copy loaded on mount,
+// so an unpair/pair on one screen left the others (Home, TodayHost) holding a
+// stale pairing and fetching against it (still showing demo data after pairing a
+// real lab) until the app restarted. A module singleton + useSyncExternalStore
+// fixes that: a write anywhere notifies every consumer. Mirrors the pattern in
+// lib/today-store.ts.
+
+interface PairingStoreState {
+  pairing: Pairing | null;
+  loaded: boolean;
+}
+
+let storeState: PairingStoreState = { pairing: null, loaded: false };
+const pairingListeners = new Set<() => void>();
+
+function emitPairing(): void {
+  pairingListeners.forEach((fn) => fn());
+}
+
+// Replace the whole state object on each change so getSnapshot returns a stable
+// reference between emits (required by useSyncExternalStore).
+function setStorePairing(pairing: Pairing | null): void {
+  storeState = { pairing, loaded: true };
+  emitPairing();
+}
+
+// Exported so a non-React consumer (or a test) can read the shared store without
+// going through the hook. getPairingSnapshot returns a stable reference between
+// emits, as useSyncExternalStore requires.
+export function getPairingSnapshot(): PairingStoreState {
+  return storeState;
+}
+
+export function subscribePairing(listener: () => void): () => void {
+  pairingListeners.add(listener);
+  return () => {
+    pairingListeners.delete(listener);
+  };
+}
+
+/** Re-read the persisted pairing into the shared store and notify all listeners.
+ *  Used for the initial load and by usePairing().refresh (back-compat). */
+export async function reloadPairing(): Promise<Pairing | null> {
+  const current = await getPairing();
+  setStorePairing(current);
+  return current;
+}
+
+// Guard so concurrent mounts trigger the one-time initial load exactly once.
+let initialLoadStarted = false;
+function ensureInitialLoad(): void {
+  if (initialLoadStarted) return;
+  initialLoadStarted = true;
+  void reloadPairing();
+}
+
+// React hook so screens react to pair/unpair. Reads the shared store, so a
+// pair/unpair on ANY screen propagates to every consumer immediately. Same shape
+// as before (pairing, loading, refresh) so existing callers are unchanged.
 export function usePairing() {
-  const [pairing, setPairingState] = useState<Pairing | null>(null);
-  const [loading, setLoading] = useState(true);
-
-  const refresh = useCallback(async () => {
-    setLoading(true);
-    try {
-      const current = await getPairing();
-      setPairingState(current);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    refresh();
-  }, [refresh]);
-
-  return { pairing, loading, refresh };
+  ensureInitialLoad();
+  const { pairing, loaded } = useSyncExternalStore(
+    subscribePairing,
+    getPairingSnapshot,
+    getPairingSnapshot,
+  );
+  return { pairing, loading: !loaded, refresh: () => reloadPairing() };
 }

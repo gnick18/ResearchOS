@@ -59,6 +59,14 @@ export const NAV_ICON_BY_HREF: Record<string, IconName> = {
   // (a framed plot panel + caption), distinct from "chart" (Data Hub) and
   // "results" (analysis output).
   "/figures": "figure",
+  // /library (the open icon/asset library) reuses the "library" glyph (a
+  // browsable catalog of reusable items) — the same meaning the method template
+  // library uses it for, so no glyph-per-meaning collision.
+  "/library": "library",
+  // /network (the public researcher-network hub) uses "users" (a group of
+  // people), the meaning the People/roster surfaces use; no collision with the
+  // workspace-route glyphs. Only present in NAV_ITEMS when SOCIAL_LAYER_ENABLED.
+  "/network": "users",
   "/purchases": "download",
   "/calendar": "history",
   "/inventory": "vial",
@@ -127,6 +135,31 @@ export function useGlobalCommands(): EditorCommand[] {
         iconName: NAV_ICON_BY_HREF["/supplies"] ?? "more",
         keywords: "Supplies inventory purchases",
         run: () => router.push("/supplies"),
+      });
+    }
+
+    // The icon-library sub-routes are not NAV_ITEMS, so they don't get an
+    // auto-generated "Go to" row. Add them explicitly so the contribution +
+    // peer-review surfaces are reachable from BeakerSearch (typing "contribute"
+    // or "review icon"), not buried behind the /library landing alone.
+    if (pathname !== "/library/contribute") {
+      goTo.push({
+        id: "goto-/library/contribute",
+        label: "Contribute an icon",
+        group: "Go to",
+        iconName: "plus",
+        keywords: "icon library contribute submit add upload asset",
+        run: () => router.push("/library/contribute"),
+      });
+    }
+    if (pathname !== "/library/review") {
+      goTo.push({
+        id: "goto-/library/review",
+        label: "Review icon submissions",
+        group: "Go to",
+        iconName: "check",
+        keywords: "icon library review verify approve flag peer community",
+        run: () => router.push("/library/review"),
       });
     }
 

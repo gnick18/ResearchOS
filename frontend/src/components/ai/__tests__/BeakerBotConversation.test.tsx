@@ -1,7 +1,10 @@
 import { describe, expect, it, vi, afterEach, beforeEach } from "vitest";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import BeakerBotConversation from "../BeakerBotConversation";
-import { resetConversationModule } from "@/lib/ai/conversation-store";
+import {
+  resetConversationModule,
+  useConversationStore,
+} from "@/lib/ai/conversation-store";
 
 // Render + agent-loop pin for the BeakerBot conversation body. This is the live
 // component the BeakerSearch palette renders in Ask mode (the docked
@@ -523,6 +526,105 @@ describe("BeakerBotConversation", () => {
       expect(screen.getByTestId("beakerbot-error")).toHaveTextContent(
         /AI_API_KEY/,
       );
+    });
+  });
+});
+
+// ---- Composer: submit while a turn is streaming -----------------------------
+//
+// Regression for the silent-clear bug: pressing Enter to submit a message while
+// the assistant is still streaming a previous turn used to clear the composer
+// without sending or queuing the text, so the typed message was lost. The store
+// already single-slot-queues a send issued mid-stream; these tests pin the
+// composer wiring that reaches it. The preferred behavior is to queue the text
+// (it shows in the "Queued" chip and auto-fires once the running turn settles),
+// never to drop it.
+describe("composer submit while a turn is in flight", () => {
+  it("queues a message typed mid-stream and never silently clears the text", async () => {
+    // A controllable in-flight turn: the first proxy call hangs (a pending
+    // promise) so sending stays true. Later calls answer immediately.
+    let releaseFirst!: (r: Response) => void;
+    const firstResponse = new Promise<Response>((resolve) => {
+      releaseFirst = resolve;
+    });
+    const fetchMock = vi
+      .fn()
+      .mockReturnValueOnce(firstResponse)
+      .mockResolvedValue(jsonResponse(finalAnswer("reply to the queued one")));
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<BeakerBotConversation />);
+    const input = screen.getByTestId("beakerbot-input") as HTMLTextAreaElement;
+
+    // Send the first message; it stays in flight while fetch hangs.
+    fireEvent.change(input, { target: { value: "first message" } });
+    fireEvent.click(screen.getByTestId("beakerbot-send"));
+
+    // The turn is streaming once the Stop button replaces Send.
+    await screen.findByTestId("beakerbot-stop");
+    // The composer stays usable while streaming (no longer disabled), so a
+    // follow-up can be typed and queued.
+    expect(input.disabled).toBe(false);
+
+    // Type a second message and press Enter WHILE the first is still streaming.
+    fireEvent.change(input, { target: { value: "second message" } });
+    fireEvent.keyDown(input, { key: "Enter", shiftKey: false });
+
+    // The composer clears (text is not left dangling) AND the text is preserved
+    // in the queued chip, so nothing the user typed is silently lost.
+    expect(input.value).toBe("");
+    const queued = await screen.findByTestId("beakerbot-queued");
+    expect(queued.textContent).toContain("second message");
+
+    // The queued message must NOT be in the transcript yet (still waiting).
+    expect(
+      screen
+        .queryAllByTestId("beakerbot-message-user")
+        .map((el) => el.textContent),
+    ).not.toContain("second message");
+
+    // Release the in-flight turn; the queued message must auto-fire and land in
+    // the transcript, and the queued chip clears.
+    releaseFirst(jsonResponse(finalAnswer("reply to the first one")));
+    await waitFor(() => {
+      expect(
+        screen
+          .getAllByTestId("beakerbot-message-user")
+          .map((el) => el.textContent),
+      ).toContain("second message");
+    });
+    await waitFor(() => {
+      expect(screen.queryByTestId("beakerbot-queued")).toBeNull();
+    });
+  });
+
+  it("does not clear the composer when Enter is pressed on empty input mid-stream", async () => {
+    let releaseFirst!: (r: Response) => void;
+    const firstResponse = new Promise<Response>((resolve) => {
+      releaseFirst = resolve;
+    });
+    const fetchMock = vi
+      .fn()
+      .mockReturnValueOnce(firstResponse)
+      .mockResolvedValue(jsonResponse(finalAnswer("done")));
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<BeakerBotConversation />);
+    const input = screen.getByTestId("beakerbot-input") as HTMLTextAreaElement;
+
+    fireEvent.change(input, { target: { value: "first message" } });
+    fireEvent.click(screen.getByTestId("beakerbot-send"));
+    await screen.findByTestId("beakerbot-stop");
+
+    // An Enter with no typed text must be a no-op: nothing queued, nothing
+    // cleared, no stray queued chip.
+    fireEvent.keyDown(input, { key: "Enter", shiftKey: false });
+    expect(input.value).toBe("");
+    expect(screen.queryByTestId("beakerbot-queued")).toBeNull();
+
+    releaseFirst(jsonResponse(finalAnswer("done")));
+    await waitFor(() => {
+      expect(useConversationStore.getState().sending).toBe(false);
     });
   });
 });

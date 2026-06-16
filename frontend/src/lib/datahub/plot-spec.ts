@@ -59,6 +59,7 @@ import {
   fitModel,
   getModel,
   prepareFitData,
+  fitLog10sDose,
   kaplanMeier,
 } from "@/lib/datahub/engine";
 import type { BootstrapMethod } from "@/lib/datahub/engine/bootstrap";
@@ -152,6 +153,12 @@ export interface PlotStyle {
   /** Draw significance brackets from the linked analysis. */
   showBrackets: boolean;
   /**
+   * Which significant comparisons get a bracket. "all" = every significant pair
+   * (the default), "vsControl" = only comparisons against the first group (the
+   * control), the GraphPad-style "each treatment vs control" figure.
+   */
+  bracketComparisons?: "all" | "vsControl";
+  /**
    * Legacy single-hue color mode. Kept for back-compat (an old spec without a
    * palette maps its colorMode onto a palette id in readPlotStyle); the studio
    * writes `palette` instead.
@@ -178,6 +185,12 @@ export interface PlotStyle {
   yTitle: string;
   /** X axis title (below the group labels). Empty hides it. */
   xTitle: string;
+  /**
+   * How x-axis group labels are oriented. "auto" (default) keeps them flat and
+   * only angles them when they would overlap; "horizontal" forces flat;
+   * "angled" forces the rotated layout. (Wrap / shrink are future modes.)
+   */
+  xLabelMode?: "auto" | "horizontal" | "angled";
   /**
    * For an XY figure, the curve fitted over the scatter. "none" draws points
    * only; "linear" draws the least-squares line; any other id is a registered
@@ -280,6 +293,14 @@ export interface PlotStyle {
    * the figure already computes.
    */
   showValueLabels?: boolean;
+  /**
+   * Where the legend sits relative to the plot area (grouped bar). "overlay" (the
+   * default, and what absent reads as) keeps the legend top-right INSIDE the data
+   * band, byte-identical to before this field existed. "right" reserves a gutter
+   * so the bars stop short and the legend sits clear of them. This is the lever the
+   * collision advisor's relocate-legend fix applies. Read only by the grouped bar.
+   */
+  legendPlacement?: "overlay" | "right";
 }
 
 /** The unit a figure's width / height is typed in (and stored as). */
@@ -331,6 +352,7 @@ export function defaultPlotStyle(): PlotStyle {
     errorBar: "sem",
     showPoints: true,
     showBrackets: true,
+    bracketComparisons: "all",
     colorMode: "brand",
     palette: DEFAULT_PALETTE_ID,
     colorOverrides: {},
@@ -492,6 +514,10 @@ export function readPlotStyle(spec: PlotSpec): PlotStyle {
     showPoints: typeof s.showPoints === "boolean" ? s.showPoints : d.showPoints,
     showBrackets:
       typeof s.showBrackets === "boolean" ? s.showBrackets : d.showBrackets,
+    bracketComparisons:
+      s.bracketComparisons === "vsControl" || s.bracketComparisons === "all"
+        ? s.bracketComparisons
+        : d.bracketComparisons,
     colorMode:
       s.colorMode === "sky" || s.colorMode === "ink" || s.colorMode === "brand"
         ? (s.colorMode as ColorMode)
@@ -619,6 +645,9 @@ export function readPlotStyle(spec: PlotSpec): PlotStyle {
       ? (s.yTickStep as number)
       : undefined,
     showValueLabels: s.showValueLabels === true ? true : undefined,
+    // Legend placement (grouped bar). Absent / unknown reads as overlay, so an old
+    // grouped figure is byte-identical.
+    legendPlacement: s.legendPlacement === "right" ? "right" : undefined,
   };
 }
 
@@ -663,6 +692,10 @@ export function buildPlotSpec(args: {
   diagnosticColumnIndex?: number;
   /** For a donut figure, the center hole radius as a fraction of the pie radius. */
   donutHoleRatio?: number;
+  /** Significance-bracket comparison set ("all" pairs vs "vsControl"). */
+  bracketComparisons?: "all" | "vsControl";
+  /** X-axis scale ("log" for dose-response concentration axes). */
+  xScaleType?: "linear" | "log";
 }): PlotSpec {
   const style = defaultPlotStyle();
   style.kind = args.kind;
@@ -684,6 +717,9 @@ export function buildPlotSpec(args: {
     style.diagnosticColumnIndex = args.diagnosticColumnIndex;
   if (args.donutHoleRatio !== undefined)
     style.donutHoleRatio = args.donutHoleRatio;
+  if (args.bracketComparisons !== undefined)
+    style.bracketComparisons = args.bracketComparisons;
+  if (args.xScaleType !== undefined) style.xScaleType = args.xScaleType;
   const source: PlotSource = {
     tableId: args.tableId,
     analysisId: args.analysisId ?? null,
@@ -896,6 +932,14 @@ export interface PlotGeometry {
   ticks: AxisTick[];
   groups: GroupGeometry[];
   brackets: BracketGeometry[];
+  /** Rotation (deg) applied to the x-axis group labels, 0 when they fit flat. */
+  xLabelAngle: number;
+}
+
+/** Rough rendered width (px) of a label, for overlap detection in pure layout. */
+export function estimateLabelWidth(text: string, fontSize: number): number {
+  // 0.58 is an average glyph-width factor for the system sans at this size.
+  return text.length * fontSize * 0.58;
 }
 
 /** GraphPad-style significance stars from an adjusted p-value. */
@@ -1049,6 +1093,12 @@ export function pickAxis(
 export function bracketRequestsFromAnalysis(
   spec: AnalysisSpec | null,
   groups: PlotGroup[],
+  /**
+   * When set, keep only comparisons involving this group index (the control),
+   * so the figure shows "each group vs control" instead of every pairwise pair.
+   * null/undefined = all significant pairs.
+   */
+  referenceIndex?: number | null,
 ): { i: number; j: number; label: string }[] {
   if (!spec) return [];
   const cache = spec.resultCache as
@@ -1067,6 +1117,13 @@ export function bracketRequestsFromAnalysis(
     const i = indexByName.get(c.groupA);
     const j = indexByName.get(c.groupB);
     if (i === undefined || j === undefined || i === j) continue;
+    if (
+      referenceIndex != null &&
+      i !== referenceIndex &&
+      j !== referenceIndex
+    ) {
+      continue; // "vs control" mode drops pairs that do not touch the reference.
+    }
     out.push({
       i: Math.min(i, j),
       j: Math.max(i, j),
@@ -1076,6 +1133,41 @@ export function bracketRequestsFromAnalysis(
   // Draw the narrowest spans lowest so wider brackets stack above them.
   out.sort((a, b) => a.j - a.i - (b.j - b.i));
   return out;
+}
+
+/**
+ * How many tiers tall the significance-bracket stack will be, given the requested
+ * spans. Pure + combinatorial (depends only on which spans overlap, not on pixel
+ * positions), so the axis headroom can be sized BEFORE the pixel layout runs.
+ * Mirrors the tier assignment in layoutPlot: narrowest spans first, each span one
+ * tier above any already-placed span whose column range overlaps it (a shared
+ * endpoint counts, so end legs never collide).
+ */
+export function bracketStackDepth(
+  requests: { i: number; j: number }[],
+): number {
+  if (requests.length === 0) return 0;
+  const spans = requests.map((r) => ({
+    lo: Math.min(r.i, r.j),
+    hi: Math.max(r.i, r.j),
+  }));
+  spans.sort((a, b) => {
+    const wa = a.hi - a.lo;
+    const wb = b.hi - b.lo;
+    if (wa !== wb) return wa - wb;
+    return a.lo - b.lo;
+  });
+  const placed: { lo: number; hi: number; tier: number }[] = [];
+  let maxTier = 0;
+  for (const s of spans) {
+    let tier = 0;
+    for (const p of placed) {
+      if (p.lo <= s.hi && s.lo <= p.hi) tier = Math.max(tier, p.tier + 1);
+    }
+    placed.push({ lo: s.lo, hi: s.hi, tier });
+    if (tier > maxTier) maxTier = tier;
+  }
+  return maxTier + 1;
 }
 
 /**
@@ -1092,16 +1184,69 @@ export function layoutPlot(
   const { width, height, padL, padR, padT, padB } = figureBox(style);
   const x0 = padL;
   const x1 = width - padR;
-  const y0 = height - padB;
   const y1 = padT;
 
+  // X-axis group labels: estimate whether they would overlap at the band width
+  // and angle them (reserving extra bottom room) so long names never collide.
+  // Short labels keep the flat layout, so existing geometry is unchanged.
+  const n = Math.max(1, groups.length);
+  const bandW = (x1 - x0) / n;
+  const maxLabelW = groups.reduce(
+    (m, g) => Math.max(m, estimateLabelWidth(g.name, style.fontSize)),
+    0,
+  );
+  const xLabelMode = style.xLabelMode ?? "auto";
+  const xLabelAngle =
+    xLabelMode === "horizontal"
+      ? 0
+      : xLabelMode === "angled"
+        ? -40
+        : maxLabelW > bandW * 0.92
+          ? -40
+          : 0;
+  // Rotated labels drop below the axis by ~width*sin(40deg); reserve that room
+  // beyond the one flat-label line the base padding already allows for.
+  const extraBottom =
+    xLabelAngle !== 0 ? Math.max(0, maxLabelW * Math.sin((40 * Math.PI) / 180) - 14) : 0;
+  const y0 = height - padB - extraBottom;
+
   const auto = pickAxis(groups, style.errorBar);
+  // Reserve vertical room for the significance-bracket stack. pickAxis sizes the
+  // headroom to the DATA only, so a tall stack (many significant comparisons)
+  // would be crammed down onto the points by the ceiling clamp. Convert the
+  // stack's pixel budget into a higher yMax, so the data is plotted lower and the
+  // tiers fit above it. Skipped when the user pinned yMax, or no brackets.
+  let autoYMax = auto.yMax;
+  if (
+    style.showBrackets &&
+    bracketRequests.length > 0 &&
+    !(style.yAxisMax !== undefined && style.yAxisMax > 0)
+  ) {
+    let dataTop = 0;
+    for (const g of groups) {
+      for (const v of g.values) if (Number.isFinite(v) && v > dataTop) dataTop = v;
+      if (g.stats.mean !== null) {
+        const top = g.stats.mean + (errorMagnitude(g.stats, style.errorBar) ?? 0);
+        if (top > dataTop) dataTop = top;
+      }
+    }
+    const plotH = y0 - y1;
+    const depth = bracketStackDepth(bracketRequests);
+    // (depth-1) tier steps + the gap above the tallest point + the top label + a
+    // small margin, matching the layout constants used below.
+    const stackPx = (depth - 1) * 18 + 16 + style.fontSize + 8;
+    const frac = plotH > 0 ? stackPx / plotH : 1;
+    if (dataTop > 0 && frac > 0 && frac < 0.8) {
+      const needed = dataTop / (1 - frac);
+      if (needed > autoYMax) autoYMax = Math.ceil(needed / auto.step) * auto.step;
+    }
+  }
   // Manual overrides: a column figure keeps a 0 baseline, so only the top (yMax)
   // and the tick step can be set; an out-of-range value is ignored.
   const yMax =
     style.yAxisMax !== undefined && style.yAxisMax > 0
       ? style.yAxisMax
-      : auto.yMax;
+      : autoYMax;
   const step =
     style.yTickStep !== undefined && style.yTickStep > 0
       ? style.yTickStep
@@ -1117,10 +1262,13 @@ export function layoutPlot(
     ticks.push({ value, y: Y(value) });
   }
 
-  const n = Math.max(1, groups.length);
-  const bandW = (x1 - x0) / n;
   const meanHalf = Math.min(22, bandW * 0.3);
-  const capHalf = 7;
+  // Error-bar caps sit a touch narrower than the mean line (~0.62x) so the
+  // top cap, mean line, and bottom cap read as one nested I-beam/bracket: wide
+  // enough not to look like a cramped mark in the center of the mean line, but
+  // narrow enough not to collapse into three equal parallel lines when SEM is
+  // small (the mean line stays the widest, the caps clearly inside it).
+  const capHalf = Math.max(6, Math.round(meanHalf * 0.62));
 
   const groupGeo: GroupGeometry[] = groups.map((g, i) => {
     const cx = x0 + bandW * (i + 0.5);
@@ -1173,41 +1321,67 @@ export function layoutPlot(
     };
   });
 
-  // Stack the brackets above the tallest drawn element so legs never cross a
-  // point or an error cap. Each successive bracket rises one step.
+  // Significance brackets. Each bracket sits just above the TALLEST element under
+  // the groups its span CROSSES (not the global top), and steps one tier higher
+  // than any already-placed bracket whose x-range overlaps it. So a narrow
+  // adjacent comparison hugs its own pair, while a wide comparison that reaches
+  // across taller groups rises above them and over the narrower bars it crosses.
+  // Legs are short stubs that mark the endpoints; they do not reach the data.
   const brackets: BracketGeometry[] = [];
   if (style.showBrackets && bracketRequests.length > 0) {
-    // The highest element y (smallest pixel y) across points + error tops.
-    let highest = y1 + 24;
-    for (const gg of groupGeo) {
-      if (gg.errorBar) highest = Math.min(highest, gg.errorBar.topY);
-      for (const p of gg.points) highest = Math.min(highest, p.y);
-      if (gg.meanY !== null) highest = Math.min(highest, gg.meanY);
-    }
-    const legDrop = 6;
-    const tier = 18;
     // The bars that will actually be drawn (both endpoints resolve to a group).
     const drawn = bracketRequests.filter(
       (req) =>
         groupGeo[req.i]?.cx !== undefined && groupGeo[req.j]?.cx !== undefined,
     );
-    // Where the topmost bracket's span line and its label would land if we just
-    // stacked up from the tallest element. The label sits 3px above the span.
-    const topSpanY = highest - 14 - (drawn.length - 1) * tier;
-    const topLabelY = topSpanY - 3;
-    // The title (when shown) sits above the plot area at y1 - 14, so its glyphs
-    // run roughly y1 - 14 - (f + 1) .. y1 - 14. Keep every bracket label clear
-    // of it AND inside the canvas by holding a ceiling a little below the top
-    // axis inset. When the stack would rise past that ceiling, push it down as a
-    // block (the spacing between bars is unchanged, only the whole stack shifts).
+    // Highest drawn element (smallest pixel y) per group: points, error top, mean.
+    const groupTop = groupGeo.map((g) => {
+      let t = g.meanY ?? y0;
+      if (g.errorBar) t = Math.min(t, g.errorBar.topY);
+      for (const p of g.points) t = Math.min(t, p.y);
+      return t;
+    });
+    const gap = 16; // air between a bracket and the tallest element it clears
+    const tier = 18; // vertical step between two stacked (overlapping) brackets
+    const legDrop = 8;
+    // Place narrow spans first (then left to right) so a wide span is pushed up
+    // OVER the narrow ones it crosses, never the reverse.
+    const order = drawn
+      .map((req, idx) => ({ req, idx }))
+      .sort((a, b) => {
+        const wa = Math.abs(a.req.j - a.req.i);
+        const wb = Math.abs(b.req.j - b.req.i);
+        if (wa !== wb) return wa - wb;
+        return Math.min(a.req.i, a.req.j) - Math.min(b.req.i, b.req.j);
+      });
+    const placed: { lo: number; hi: number; spanY: number }[] = [];
+    const spanYByIdx: number[] = new Array(drawn.length);
+    for (const { req, idx } of order) {
+      const lo = Math.min(req.i, req.j);
+      const hi = Math.max(req.i, req.j);
+      // Clear the tallest element anywhere under this span.
+      let clearY = Infinity;
+      for (let k = lo; k <= hi; k++) clearY = Math.min(clearY, groupTop[k]!);
+      let spanY = clearY - gap;
+      // And sit a tier above any already-placed bracket whose x-range overlaps
+      // (touching at a shared endpoint column counts, so legs never collide).
+      for (const p of placed) {
+        if (p.lo <= hi && lo <= p.hi) spanY = Math.min(spanY, p.spanY - tier);
+      }
+      placed.push({ lo, hi, spanY });
+      spanYByIdx[idx] = spanY;
+    }
+    // Hold the whole stack below a ceiling (clear of the title / canvas top),
+    // shifting every bracket down by the same delta so the tiers are preserved.
     const hasTitle = style.title.trim() !== "";
     const ceiling = hasTitle ? y1 + 6 : 4;
+    let topLabelY = Infinity;
+    for (const s of spanYByIdx) topLabelY = Math.min(topLabelY, s - 3 - style.fontSize);
     const shiftDown = topLabelY < ceiling ? ceiling - topLabelY : 0;
-    let level = 0;
-    for (const req of drawn) {
+    drawn.forEach((req, idx) => {
       const a = groupGeo[req.i]!.cx;
       const b = groupGeo[req.j]!.cx;
-      const spanY = highest - 14 - level * tier + shiftDown;
+      const spanY = spanYByIdx[idx]! + shiftDown;
       brackets.push({
         leftX: a,
         rightX: b,
@@ -1217,8 +1391,7 @@ export function layoutPlot(
         labelY: spanY - 3,
         label: req.label,
       });
-      level += 1;
-    }
+    });
   }
 
   return {
@@ -1232,6 +1405,7 @@ export function layoutPlot(
     ticks,
     groups: groupGeo,
     brackets,
+    xLabelAngle,
   };
 }
 
@@ -1249,6 +1423,16 @@ export function esc(s: string): string {
 }
 
 export function fmtTick(value: number): string {
+  if (value === 0) return "0";
+  // Very small / very large magnitudes (e.g. a dose-response log axis at 1e-9 M)
+  // need compact exponential, else rounding to 2 decimals collapses them to "0".
+  const abs = Math.abs(value);
+  if (abs < 1e-3 || abs >= 1e5) {
+    return value
+      .toExponential(1)
+      .replace(/\.0e/, "e")
+      .replace("e+", "e");
+  }
   // Integers print plainly; fractional ticks keep up to two decimals, trimmed.
   if (Number.isInteger(value)) return String(value);
   return String(Math.round(value * 100) / 100);
@@ -1422,7 +1606,12 @@ export function renderPlotSvg(
       );
     }
     parts.push(
-      `<text x="${g.labelX}" y="${g.labelY}" font-size="${f}" fill="${LABEL_TEXT}" text-anchor="middle">${esc(g.name)}</text>`,
+      geo.xLabelAngle !== 0
+        ? // Angled labels: anchor the label's end at the tick and rotate it down-left
+          // so long names never overlap.
+          `<text transform="translate(${g.labelX}, ${g.labelY - 4}) rotate(${geo.xLabelAngle})" ` +
+            `font-size="${f}" fill="${LABEL_TEXT}" text-anchor="end">${esc(g.name)}</text>`
+        : `<text x="${g.labelX}" y="${g.labelY}" font-size="${f}" fill="${LABEL_TEXT}" text-anchor="middle">${esc(g.name)}</text>`,
     );
   });
 
@@ -1685,7 +1874,11 @@ export function renderPlot(
   }
   const groups = resolvePlotGroups(content, style);
   const requests = style.showBrackets
-    ? bracketRequestsFromAnalysis(analysis, groups)
+    ? bracketRequestsFromAnalysis(
+        analysis,
+        groups,
+        style.bracketComparisons === "vsControl" ? 0 : null,
+      )
     : [];
   const geometry = layoutPlot(groups, style, requests);
   const svg = onScreen(renderPlotSvg(geometry, style));
@@ -1839,8 +2032,9 @@ function resolveXYFit(
   if (modelId === "none") return null;
   const model = getModel(modelId);
   if (!model) return null;
-  // Dose-response models fit on log10(dose); transform a raw dose column (and drop
-  // non-positive doses) so the plotted curve uses the same fit as the analysis.
+  // Dose-response models fit on log10(dose); a raw dose column is transformed (and
+  // non-positive doses dropped) so the plotted curve uses the same fit as the
+  // analysis, while an already-log column is fit as-is.
   const fitData = prepareFitData(modelId, x, y);
   if (fitData.x.length <= model.paramNames.length) return null;
   const result = fitModel(modelId, fitData.x, fitData.y);
@@ -1848,11 +2042,13 @@ function resolveXYFit(
   const params = result.parameters.map((p) => p.value);
   if (!params.every((v) => Number.isFinite(v))) return null;
   const rawPredict = model.fn(params);
-  // The curve is sampled at raw x positions; for a log-dose model map each raw
-  // dose through log10 first so the drawn curve matches the fitted parameters
-  // (and EC50 = 10^logEC50 sits at the visible half-max). Non-positive doses have
-  // no point on a log-dose curve.
-  const predict = model.logXInput
+  // The curve is sampled at the same x positions as the scatter. When the fit
+  // log10-transformed a raw dose column, map each raw dose through log10 first so
+  // the drawn curve matches the fitted parameters (EC50 = 10^logEC50 sits at the
+  // visible half-max); non-positive doses have no point. When X was already log
+  // dose (or not a log model) the parameters live in x's own space, so evaluate
+  // directly. fitLog10sDose makes this match the fit's transform decision exactly.
+  const predict = fitLog10sDose(modelId, x)
     ? (xv: number) => (xv > 0 ? rawPredict(Math.log10(xv)) : NaN)
     : rawPredict;
   const r2 = Number.isFinite(result.rSquared)
@@ -2100,6 +2296,8 @@ export interface GroupedBarGeometry {
   ticks: AxisTick[];
   clusters: GroupedCluster[];
   legend: GroupedLegendItem[];
+  /** Rotation (deg) of the x-axis category labels, 0 when they fit flat. */
+  xLabelAngle: number;
 }
 
 /**
@@ -2113,13 +2311,49 @@ export function layoutGroupedBar(
   style: PlotStyle,
 ): GroupedBarGeometry {
   const { width, height, padL, padR, padT, padB } = figureBox(style);
-  const x0 = padL;
-  const x1 = width - padR;
-  const y0 = height - padB;
-  const y1 = padT;
-
   const levels = rowFactorLevels(content);
   const groups = groupDatasets(content);
+
+  // A "right"-placed legend reserves a gutter so the bars stop short and the
+  // legend sits clear of them (the collision advisor's relocate-legend fix). The
+  // default "overlay" reserves nothing, so x1 is unchanged and an old figure is
+  // byte-identical.
+  const placement = style.legendPlacement ?? "overlay";
+  const legendGutter =
+    placement === "right" && groups.length > 0
+      ? groupedLegendWidth(
+          groups.map((g) => g.name),
+          Math.max(8, style.fontSize - 2),
+        ) + GROUPED_LEGEND.gutterPad
+      : 0;
+  const x0 = padL;
+  const x1 = width - padR - legendGutter;
+
+  // X-axis category-label angle, the SAME lever + semantics as the column plot:
+  // "auto" rotates only when a level name is wider than its cluster, "horizontal"
+  // forces flat, "angled" forces the tilt the collision advisor's tilt fix applies.
+  // A figure whose labels already fit stays flat (byte-identical). Rotated labels
+  // drop below the axis, so reserve that extra room.
+  const labelClusterW = (x1 - x0) / Math.max(1, levels.length);
+  const maxLevelW = levels.reduce(
+    (m, lv) => Math.max(m, estimateLabelWidth(lv, style.fontSize)),
+    0,
+  );
+  const xLabelMode = style.xLabelMode ?? "auto";
+  const xLabelAngle =
+    xLabelMode === "horizontal"
+      ? 0
+      : xLabelMode === "angled"
+        ? -40
+        : maxLevelW > labelClusterW * 0.92
+          ? -40
+          : 0;
+  const extraBottom =
+    xLabelAngle !== 0
+      ? Math.max(0, maxLevelW * Math.sin((40 * Math.PI) / 180) - 14)
+      : 0;
+  const y0 = height - padB - extraBottom;
+  const y1 = padT;
 
   // Resolve every cell mean + error once.
   const stat = (level: string, datasetId: string) =>
@@ -2263,7 +2497,48 @@ export function layoutGroupedBar(
     color: groupColors[gi] ?? "#000000",
   }));
 
-  return { width, height, x0, x1, y0, y1, yMax, ticks, clusters, legend };
+  return { width, height, x0, x1, y0, y1, yMax, ticks, clusters, legend, xLabelAngle };
+}
+
+/**
+ * Layout literals for the grouped-bar legend (top-right INSIDE the plot area).
+ * Shared by renderGroupedBarSvg (the ink) and the collision advisor's manifest
+ * (plot-manifest.ts), so the advisor measures the exact box that is drawn. Per
+ * row: a 9px swatch at x1-92 then the series name; rows step down by 13 from
+ * y1+4. The legend sitting inside the data band is the "legend over the bars"
+ * collision the advisor flags.
+ */
+export const GROUPED_LEGEND = {
+  swatchInsetFromX1: 92, // overlay swatch left x = geo.x1 - 92
+  textInsetFromX1: 79, // overlay series-name left x = geo.x1 - 79
+  rowH: 13,
+  topPad: 4, // first row top y = geo.y1 + 4
+  swatch: 9,
+  gutterPad: 10, // gap between the plot area and a "right"-placed legend
+} as const;
+
+/** The block width a legend needs (swatch + gap + widest series name), matching
+ *  the overlay box width (swatchInset - textInset = 13, plus the widest name).
+ *  Shared by layoutGroupedBar (to reserve the right gutter), the serializer, and
+ *  the collision manifest. */
+export function groupedLegendWidth(names: string[], tickFont: number): number {
+  const maxNameW = names.reduce(
+    (m, n) => Math.max(m, estimateLabelWidth(n, tickFont)),
+    0,
+  );
+  return GROUPED_LEGEND.swatchInsetFromX1 - GROUPED_LEGEND.textInsetFromX1 + maxNameW;
+}
+
+/** The legend swatch left-x for a placement. "overlay" draws inside the plot top-
+ *  right; "right" draws in the reserved gutter just past the (shrunk) plot edge.
+ *  One formula so the ink, the manifest, and the reserved gutter never drift. */
+export function groupedLegendSwatchX(
+  x1: number,
+  placement: "overlay" | "right",
+): number {
+  return placement === "right"
+    ? x1 + GROUPED_LEGEND.gutterPad
+    : x1 - GROUPED_LEGEND.swatchInsetFromX1;
 }
 
 /** Serialize a grouped bar figure into a standalone SVG string. */
@@ -2328,19 +2603,32 @@ export function renderGroupedBarSvg(
       }
     }
     parts.push(
-      `<text x="${cluster.labelX.toFixed(2)}" y="${geo.y0 + 16}" font-size="${tickFont}" fill="${LABEL_TEXT}" text-anchor="middle">${esc(cluster.label)}</text>`,
+      geo.xLabelAngle !== 0
+        ? // Angled labels: anchor the end at the tick and rotate down-left so long
+          // level names never overlap (same treatment as the column plot).
+          `<text transform="translate(${cluster.labelX.toFixed(2)}, ${(geo.y0 + 12).toFixed(2)}) rotate(${geo.xLabelAngle})" font-size="${tickFont}" fill="${LABEL_TEXT}" text-anchor="end">${esc(cluster.label)}</text>`
+        : `<text x="${cluster.labelX.toFixed(2)}" y="${geo.y0 + 16}" font-size="${tickFont}" fill="${LABEL_TEXT}" text-anchor="middle">${esc(cluster.label)}</text>`,
     );
   }
 
-  // Legend (top-right inside the plot area). The swatch carries data-series so a
-  // direct edit on the plot can recolor a whole group from its legend entry.
-  let ly = geo.y1 + 4;
+  // Legend. "overlay" (default) draws it top-right INSIDE the plot area; "right"
+  // draws it in the reserved gutter just past the (shrunk) plot edge, clear of the
+  // bars. The swatch carries data-series so a direct edit on the plot can recolor a
+  // whole group from its legend entry. The x lives in groupedLegendSwatchX so the
+  // collision advisor's manifest measures the EXACT box this draws (no drift).
+  const legendSwatchX = groupedLegendSwatchX(
+    geo.x1,
+    style.legendPlacement ?? "overlay",
+  );
+  const legendTextX =
+    legendSwatchX + (GROUPED_LEGEND.swatchInsetFromX1 - GROUPED_LEGEND.textInsetFromX1);
+  let ly = geo.y1 + GROUPED_LEGEND.topPad;
   geo.legend.forEach((item, i) => {
     parts.push(
-      `<rect data-series="${i}" x="${geo.x1 - 92}" y="${ly}" width="9" height="9" fill="${item.color}" opacity="0.85"/>` +
-        `<text x="${geo.x1 - 79}" y="${ly + 8}" font-size="${tickFont}" fill="${LABEL_TEXT}">${esc(item.name)}</text>`,
+      `<rect data-series="${i}" x="${legendSwatchX}" y="${ly}" width="${GROUPED_LEGEND.swatch}" height="${GROUPED_LEGEND.swatch}" fill="${item.color}" opacity="0.85"/>` +
+        `<text x="${legendTextX}" y="${ly + 8}" font-size="${tickFont}" fill="${LABEL_TEXT}">${esc(item.name)}</text>`,
     );
-    ly += 13;
+    ly += GROUPED_LEGEND.rowH;
   });
 
   if (style.xTitle.trim() !== "") {
@@ -2570,14 +2858,25 @@ export function layoutSurvivalCurve(
   style: PlotStyle,
 ): SurvivalCurveGeometry {
   const { width, height, padL, padR, padT, padB } = figureBox(style);
-  const x0 = padL;
-  const x1 = width - padR;
-  const y0 = height - padB;
-  const y1 = padT;
-
   const groups = survivalGroups(content).filter(
     (g) => g.observations.length > 0,
   );
+
+  // A "right"-placed legend reserves a gutter so the curves stop short of it (the
+  // collision advisor's relocate-legend fix). Default "overlay" reserves nothing,
+  // so an old survival figure is byte-identical.
+  const placement = style.legendPlacement ?? "overlay";
+  const legendGutter =
+    placement === "right" && groups.length > 0
+      ? groupedLegendWidth(
+          groups.map((g) => g.name),
+          Math.max(8, style.fontSize - 2),
+        ) + GROUPED_LEGEND.gutterPad
+      : 0;
+  const x0 = padL;
+  const x1 = width - padR - legendGutter;
+  const y0 = height - padB;
+  const y1 = padT;
 
   // Time axis runs 0 .. the largest observed time.
   let tMaxData = 0;
@@ -2697,15 +2996,23 @@ export function renderSurvivalCurveSvg(
     );
   }
 
-  // Legend (top-right inside the plot area). The swatch carries data-series so a
-  // direct edit on the plot can recolor a whole arm from its legend entry.
-  let ly = geo.y1 + 4;
+  // Legend. "overlay" (default) draws it top-right INSIDE the plot; "right" draws
+  // it in the reserved gutter clear of the curves. The swatch carries data-series
+  // so a direct edit on the plot can recolor a whole arm from its legend entry. The
+  // x lives in groupedLegendSwatchX so the collision advisor measures the exact box.
+  const legendSwatchX = groupedLegendSwatchX(
+    geo.x1,
+    style.legendPlacement ?? "overlay",
+  );
+  const legendTextX =
+    legendSwatchX + (GROUPED_LEGEND.swatchInsetFromX1 - GROUPED_LEGEND.textInsetFromX1);
+  let ly = geo.y1 + GROUPED_LEGEND.topPad;
   geo.legend.forEach((item, i) => {
     parts.push(
-      `<rect data-series="${i}" x="${geo.x1 - 92}" y="${ly}" width="9" height="9" fill="${item.color}" opacity="0.9"/>` +
-        `<text x="${geo.x1 - 79}" y="${ly + 8}" font-size="${tickFont}" fill="${LABEL_TEXT}">${esc(item.name)}</text>`,
+      `<rect data-series="${i}" x="${legendSwatchX}" y="${ly}" width="${GROUPED_LEGEND.swatch}" height="${GROUPED_LEGEND.swatch}" fill="${item.color}" opacity="0.9"/>` +
+        `<text x="${legendTextX}" y="${ly + 8}" font-size="${tickFont}" fill="${LABEL_TEXT}">${esc(item.name)}</text>`,
     );
-    ly += 13;
+    ly += GROUPED_LEGEND.rowH;
   });
 
   parts.push(`</svg>`);

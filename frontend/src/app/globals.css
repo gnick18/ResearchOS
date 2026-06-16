@@ -459,11 +459,17 @@
  * re-asserting the dark tokens for the popup subtree (it is otherwise
  * .light-scope = white paper + dark text, which would vanish on the dark room). */
 [data-theme="dark"] .ros-calm-surface {
-  /* Exact dark tokens from the approved Writing-Room mockup. */
   color-scheme: dark;
-  --editor-room-top: #10182a;
-  --editor-room-bot: #0a1120;
-  --background: #0a1120;
+  /* The popup must LIFT off the dark page, the same way the warm sand lifts off
+     the light page. The room gradient used to bottom out at #0a1120 ~ the page
+     --background (#0a0e1a), so the calm popup vanished into the room. Grant picked
+     the "barely there" lift (#131c30): a quiet slate, just above the page, paired
+     with the bluish-white .ros-popup-card-shadow edge to do the heavy separation.
+     The radial keeps a faint lighter halo at the top for the calm "room" feel;
+     the body settles to the picked tone. */
+  --editor-room-top: #18233c;
+  --editor-room-bot: #131c30;
+  --background: #131c30;
   --foreground: #eaf2fb;
   --surface: #0a0e1a;
   --surface-raised: #16233c;
@@ -586,6 +592,42 @@
 }
 [data-theme="dark"] .ros-kbd {
   box-shadow: 0 1px 0 0 rgba(190, 205, 235, 0.12), 0 2px 3px -1px rgba(190, 205, 235, 0.1);
+}
+
+/* .ros-seg-active: the SELECTED thumb of a segmented toggle (e.g. the
+ * Edit | Preview switch) reads as a real RAISED button lifted off its sunken
+ * track, not a flat tinted patch. Tailwind `shadow-sm` is a black drop that is
+ * faint on the light track and fully invisible on the dark room (Grant flagged
+ * the Edit pill looked unraised in both). This is the keycap treatment scaled
+ * for a pill — a crisp bottom edge + soft drop — and recolors bluish-white in
+ * dark like every other shadow primitive. Pair with bg-surface-raised. */
+.ros-seg-active {
+  box-shadow: 0 1px 0 0 rgba(15, 23, 42, 0.12), 0 2px 4px -1px rgba(15, 23, 42, 0.14);
+}
+[data-theme="dark"] .ros-seg-active {
+  box-shadow:
+    0 0 0 1px rgba(190, 205, 235, 0.07),
+    0 1px 0 0 rgba(190, 205, 235, 0.12),
+    0 2px 4px -1px rgba(190, 205, 235, 0.12);
+}
+
+/* .ros-seg-track: the TRACK of a segmented toggle floats off the page as its own
+ * plane, so the control reads as a STACK — page, then the raised track (inactive
+ * Preview rides on it), then the .ros-seg-active thumb raised again off the track.
+ * The track is a touch darker than the thumb (sunken vs raised fill) so the lit
+ * thumb pops against it; the outer drop lifts the whole pill, the inner top
+ * highlight defines its lip. Recolors in dark like the other primitives. */
+.ros-seg-track {
+  box-shadow:
+    inset 0 1px 1px rgba(15, 23, 42, 0.05),
+    0 1px 2px rgba(15, 23, 42, 0.10),
+    0 5px 12px -4px rgba(15, 23, 42, 0.16);
+}
+[data-theme="dark"] .ros-seg-track {
+  box-shadow:
+    0 0 0 1px rgba(190, 205, 235, 0.06),
+    0 1px 2px rgba(190, 205, 235, 0.08),
+    0 6px 14px -4px rgba(0, 0, 0, 0.5);
 }
 
 /* Per-popup title accent block: a colored marker behind the title, longer than
@@ -741,22 +783,22 @@
   );
 }
 [data-theme="dark"] .ros-calm-surface .ros-history-panel {
-  background: linear-gradient(
-    to bottom,
-    transparent 0,
-    color-mix(in srgb, #ffffff 5%, transparent) 28px,
-    color-mix(in srgb, #ffffff 5%, transparent) calc(100% - 28px),
-    transparent 100%
-  );
+  /* NO fill tint in dark. A light wash on the lifted calm-popup surface reads as
+     a visible lighter "hue band" (Grant flagged it on the editor rail; same fix
+     here). The panel is the SAME surface as its diff column, defined by its seam
+     shadow alone, matching light + the refined .ros-helper-rail. */
+  background: transparent;
 }
 [data-theme="dark"] .ros-calm-surface .ros-history-panel::before {
-  /* Dark room: a black shadow is invisible, so the seam reads as a soft
-   * bluish-white edge glow instead (matching the dark card shadow). */
+  /* The panel sits on the LIFTED calm-popup surface (not the near-black room),
+   * so a real dark shadow registers and reads as a clean shadow border, NOT an
+   * inner glow. Mirror the light-mode seam (dark shadow) rather than the
+   * bluish-white glow, which made the panel look lit-from-within. */
   background: linear-gradient(
     to right,
     transparent 0%,
-    rgba(190, 205, 235, 0.05) 55%,
-    rgba(190, 205, 235, 0.16) 100%
+    rgba(0, 0, 0, 0.10) 55%,
+    rgba(0, 0, 0, 0.32) 100%
   );
 }
 /* Matching top-edge shadow, cast UPWARD into the header gap so the panel reads
@@ -783,10 +825,11 @@
   mask-image: linear-gradient(to right, transparent 0, #000 14px, #000 100%);
 }
 [data-theme="dark"] .ros-calm-surface .ros-history-topglow {
+  /* Dark shadow on the lifted popup surface, not a bluish glow (see ::before). */
   background: linear-gradient(
     to top,
-    rgba(190, 205, 235, 0.13) 0%,
-    rgba(190, 205, 235, 0.04) 50%,
+    rgba(0, 0, 0, 0.28) 0%,
+    rgba(0, 0, 0, 0.08) 50%,
     transparent 100%
   );
 }
@@ -811,10 +854,11 @@
   mask-image: linear-gradient(to right, transparent 0, #000 14px, #000 100%);
 }
 [data-theme="dark"] .ros-calm-surface .ros-history-botglow {
+  /* Dark shadow on the lifted popup surface, not a bluish glow (see ::before). */
   background: linear-gradient(
     to bottom,
-    rgba(190, 205, 235, 0.13) 0%,
-    rgba(190, 205, 235, 0.04) 50%,
+    rgba(0, 0, 0, 0.28) 0%,
+    rgba(0, 0, 0, 0.08) 50%,
     transparent 100%
   );
 }
@@ -867,22 +911,22 @@
   );
 }
 [data-theme="dark"] .ros-helper-rail {
-  background: linear-gradient(
-    to bottom,
-    transparent 0,
-    color-mix(in srgb, #ffffff 5%, transparent) 28px,
-    color-mix(in srgb, #ffffff 5%, transparent) calc(100% - 28px),
-    transparent 100%
-  );
+  /* NO fill tint in dark. A light wash on the dark popup surface reads as a
+     visible lighter "hue band" (Grant flagged it), whereas the light-mode dark
+     tint on warm sand is imperceptible. So in dark the rail is the SAME surface
+     as its surroundings, defined by its shadow border alone, matching light. */
+  background: transparent;
 }
 [data-theme="dark"] .ros-helper-rail::after {
-  /* Dark room: a black shadow is invisible, so the seam reads as a soft
-   * bluish-white edge glow instead (matching the dark card shadow). */
+  /* The rail now sits on the LIFTED calm-popup surface (not the near-black room),
+   * so a real dark shadow registers there and reads as a clean shadow border,
+   * NOT an inner glow. Mirror the light-mode seam (dark shadow) rather than the
+   * bluish-white glow, which made the rail look lit-from-within. */
   background: linear-gradient(
     to left,
     transparent 0%,
-    rgba(190, 205, 235, 0.05) 55%,
-    rgba(190, 205, 235, 0.16) 100%
+    rgba(0, 0, 0, 0.10) 55%,
+    rgba(0, 0, 0, 0.32) 100%
   );
 }
 /* Top + bottom edge glows so the rail reads as a fully boxed floating panel
@@ -919,18 +963,19 @@
   );
 }
 [data-theme="dark"] .ros-helper-rail-topglow {
+  /* Dark shadow on the lifted popup surface, not a bluish glow (see ::after). */
   background: linear-gradient(
     to top,
-    rgba(190, 205, 235, 0.13) 0%,
-    rgba(190, 205, 235, 0.04) 50%,
+    rgba(0, 0, 0, 0.28) 0%,
+    rgba(0, 0, 0, 0.08) 50%,
     transparent 100%
   );
 }
 [data-theme="dark"] .ros-helper-rail-botglow {
   background: linear-gradient(
     to bottom,
-    rgba(190, 205, 235, 0.13) 0%,
-    rgba(190, 205, 235, 0.04) 50%,
+    rgba(0, 0, 0, 0.28) 0%,
+    rgba(0, 0, 0, 0.08) 50%,
     transparent 100%
   );
 }
@@ -1011,8 +1056,10 @@
   box-shadow: 0 5px 8px -4px rgba(15, 23, 42, 0.18);
 }
 [data-theme="dark"] .ros-calm-surface .ros-history-panel .ros-history-toolbar {
-  background: color-mix(in srgb, #ffffff 7%, transparent);
-  box-shadow: 0 1px 0 0 rgba(190, 205, 235, 0.1), 0 5px 10px -6px rgba(190, 205, 235, 0.1);
+  /* No light wash in dark (it reads as a lit band on the lifted surface); the
+     strip separates by a clean dark drop alone, matching the panel + light mode. */
+  background: transparent;
+  box-shadow: 0 5px 10px -6px rgba(0, 0, 0, 0.5);
 }
 /* The sticky day header keeps its near-opaque fill (it has to occlude rows
  * scrolling under it) but trades the washed hairline for a soft drop shadow so
@@ -1022,7 +1069,9 @@
   box-shadow: 0 5px 8px -4px rgba(15, 23, 42, 0.18);
 }
 [data-theme="dark"] .ros-calm-surface .ros-history-panel .ros-history-dayhead {
-  box-shadow: 0 1px 0 0 rgba(190, 205, 235, 0.1), 0 5px 10px -6px rgba(190, 205, 235, 0.1);
+  /* Clean dark drop (not the bluish lit-from-within glow) so the sticky header
+     floats over the rows on the lifted dark surface, matching light mode. */
+  box-shadow: 0 5px 10px -6px rgba(0, 0, 0, 0.5);
 }
 
 /* Ghost icon button — the calm header glyph treatment (Focus / Close / the

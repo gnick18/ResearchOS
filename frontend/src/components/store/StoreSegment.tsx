@@ -34,7 +34,7 @@ export function StoreSegment({
     <div
       role="radiogroup"
       aria-label={ariaLabel}
-      className="inline-flex w-full rounded-lg bg-surface-sunken p-0.5"
+      className="inline-flex w-full rounded-lg bg-surface-sunken p-0.5 ros-seg-track border border-border"
     >
       {options.map((opt) => {
         const active = opt.id === value;
@@ -47,7 +47,7 @@ export function StoreSegment({
             onClick={() => onChange(opt.id)}
             className={`flex-1 rounded-md px-3 py-1.5 text-meta font-medium transition-colors ${
               active
-                ? "bg-surface-raised text-foreground shadow-sm"
+                ? "bg-surface-raised text-foreground ros-seg-active"
                 : "text-foreground-muted hover:text-foreground"
             }`}
           >

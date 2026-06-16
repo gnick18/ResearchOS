@@ -27,6 +27,7 @@ import {
   SUSTAIN_PER_LAB,
 } from "@/lib/pricing/assumptions";
 import {
+  FIXED_BASE_MONTHLY,
   FREE_GB_INDIVIDUAL,
   MEMBERS_PER_LAB,
   PER_MEMBER_GB,
@@ -40,11 +41,37 @@ import {
   subscriberMargin,
   sustainability,
   tierPrice,
+  type BillingCadence,
   type FreeUsageMix,
   type ModelTier,
   type PayingSide,
   type PricingModel,
 } from "@/lib/pricing/modeling";
+import {
+  STORAGE_MARKUP,
+  AI_INDIV_RETAIL_PER_M,
+  AI_ORG_RETAIL_PER_M,
+  AI_REAL_COST_PER_M,
+  AI_SIGNUP_GRANT_USD,
+  INFRA_FIXED_MONTHLY,
+  DEFAULT_OPERATING_COSTS,
+  DEFAULT_SCALING_SERVICES,
+  scalingInfraCost,
+  serviceMonthlyCost,
+  serviceCrossUsers,
+  monthlyOf,
+  avgFreeUserCostPathA,
+  breakEvenConversion,
+  breakEvenUsers,
+  freeUsersPerPayer,
+  projectAtScale,
+  serviceMargin,
+  storageRetailPerGB,
+  type AdoptionMix,
+  type FixedCostItem,
+  type ScalingService,
+  type ServiceTiers,
+} from "@/lib/pricing/service-model";
 
 // Canvas chart palette. Canvas cannot read Tailwind tokens, so the chart colors
 // are explicit. Chosen to read on the light operator surface.
@@ -999,6 +1026,832 @@ export function SustainabilityTab({ active }: { active: boolean }) {
 }
 
 // ============================================================================
+// Tab 3: finalize the storage flip ladder (2026-06-15 decisions)
+// ============================================================================
+
+// ── Path-A service tiers (Grant 2026-06-15, AI folded in 2026-06-16) ────────
+// We charge for cloud SERVICES, not GB. Storage is a-la-carte pass-through at
+// ~1.15x cost. AI is a separate metered token product at LOCKED rates (1.4x
+// individual/lab, 2x dept). Solo is one paid subscriber tier; lab and dept are
+// per active seat; dept adds a flat per-lab governance fee. Free users get no
+// cloud produce feature, so the free base is cheap. Seed values are a first cut.
+
+interface ServiceRow {
+  key: "solo" | "lab" | "dept";
+  name: string;
+  unlocks: string;
+  price: number;
+  relayWritesM: number;
+  cadence: BillingCadence;
+  perSeat: boolean;
+  governanceFeePerLab?: number;
+}
+
+const DEFAULT_SERVICE_ROWS: ServiceRow[] = [
+  { key: "solo", name: "Solo", unlocks: "Send, live co-edit, phone capture, push", price: 6, relayWritesM: 0.5, cadence: "annual", perSeat: false },
+  { key: "lab", name: "Lab", unlocks: "Solo per member + dashboard, shared library, pooled budgets", price: 5, relayWritesM: 0.6, cadence: "annual", perSeat: true },
+  { key: "dept", name: "Dept", unlocks: "Lab parity + Commons, compliance, per-lab budgets, admin", price: 5, relayWritesM: 0.6, cadence: "annual", perSeat: true, governanceFeePerLab: 16 },
+];
+
+// Streamlined scenario presets so the dashboard is a few clicks, not a wall of
+// sliders (Grant 2026-06-15, "too many things to adjust").
+const CONVERSION_PRESETS = [
+  { id: "cons", label: "Conservative", v: 0.02 },
+  { id: "base", label: "Base", v: 0.05 },
+  { id: "opt", label: "Optimistic", v: 0.1 },
+];
+const MIX_PRESETS = [
+  { id: "solo", label: "Solo-heavy", solo: 0.6, lab: 0.3, dept: 0.1 },
+  { id: "bal", label: "Balanced", solo: 0.4, lab: 0.4, dept: 0.2 },
+  { id: "dept", label: "Dept-heavy", solo: 0.2, lab: 0.4, dept: 0.4 },
+];
+
+export function FinalizeTab() {
+  const [rows, setRows] = useState<ServiceRow[]>(DEFAULT_SERVICE_ROWS);
+  const [freeRelayM, setFreeRelayM] = useState(0);
+  const [aiTokensM, setAiTokensM] = useState(3);
+  const [aiAdoption, setAiAdoption] = useState(0.3);
+  const [opCosts, setOpCosts] = useState<FixedCostItem[]>(DEFAULT_OPERATING_COSTS);
+  const [scalingSvcs, setScalingSvcs] = useState<ScalingService[]>(
+    DEFAULT_SCALING_SERVICES,
+  );
+  const [conversion, setConversion] = useState(0.05);
+  const [soloShare, setSoloShare] = useState(0.4);
+  const [labShare, setLabShare] = useState(0.4);
+  const [deptShare, setDeptShare] = useState(0.2);
+  const [membersPerLab, setMembersPerLab] = useState(6);
+  const chartRef = useRef<HTMLCanvasElement | null>(null);
+
+  function update(key: ServiceRow["key"], patch: Partial<ServiceRow>) {
+    setRows((rs) => rs.map((r) => (r.key === key ? { ...r, ...patch } : r)));
+  }
+  function applyMix(p: (typeof MIX_PRESETS)[number]) {
+    setSoloShare(p.solo);
+    setLabShare(p.lab);
+    setDeptShare(p.dept);
+  }
+
+  const solo = rows.find((r) => r.key === "solo")!;
+  const lab = rows.find((r) => r.key === "lab")!;
+  const dept = rows.find((r) => r.key === "dept")!;
+  const govFee = dept.governanceFeePerLab ?? 0;
+
+  const tiers: ServiceTiers = {
+    solo: { id: "solo", name: "Solo", audience: "solo", price: solo.price, relayWritesM: solo.relayWritesM, cadence: solo.cadence },
+    lab: { id: "lab", name: "Lab", audience: "lab", price: lab.price, relayWritesM: lab.relayWritesM, cadence: lab.cadence },
+    dept: { id: "dept", name: "Dept", audience: "dept", price: dept.price, relayWritesM: dept.relayWritesM, cadence: dept.cadence, governanceFeePerLab: govFee },
+  };
+  const mix: AdoptionMix = {
+    conversion,
+    soloShare,
+    labShare,
+    deptShare,
+    membersPerLab,
+    freeRelayWritesM: freeRelayM,
+    aiTokensPerPaidM: aiTokensM,
+    aiAdoption,
+  };
+
+  const avgFree = avgFreeUserCostPathA(freeRelayM);
+  const breakEven = breakEvenConversion(tiers, mix);
+  const perPayer = freeUsersPerPayer(tiers, mix);
+  const storagePerGB = storageRetailPerGB();
+  const opMonthly = monthlyOf(opCosts);
+  const fixedMonthly = INFRA_FIXED_MONTHLY + opMonthly;
+  const project = (users: number) =>
+    projectAtScale(users, tiers, mix, fixedMonthly, scalingSvcs);
+  const beUsers = breakEvenUsers(tiers, mix, fixedMonthly, scalingSvcs);
+  const deptLabMonthly = membersPerLab * dept.price + govFee;
+
+  function updateOp(i: number, patch: Partial<FixedCostItem>) {
+    setOpCosts((cs) => cs.map((c, j) => (j === i ? { ...c, ...patch } : c)));
+  }
+  function updateSvc(i: number, patch: Partial<ScalingService>) {
+    setScalingSvcs((ss) => ss.map((s, j) => (j === i ? { ...s, ...patch } : s)));
+  }
+
+  const activeMix =
+    MIX_PRESETS.find(
+      (p) => p.solo === soloShare && p.lab === labShare && p.dept === deptShare,
+    )?.id ?? "";
+
+  // Composition + scenario views at a representative 50k scale.
+  const SCALE = 50000;
+  const comp = project(SCALE);
+  const posTotal = comp.sub + comp.ai + comp.gov || 1;
+  const scenarioNets = CONVERSION_PRESETS.map((s) => ({
+    ...s,
+    net: projectAtScale(
+      SCALE,
+      tiers,
+      { ...mix, conversion: s.v },
+      fixedMonthly,
+      scalingSvcs,
+    ).net,
+    beUsers: breakEvenUsers(
+      tiers,
+      { ...mix, conversion: s.v },
+      fixedMonthly,
+      scalingSvcs,
+    ),
+  }));
+  const scenarioMax = Math.max(1, ...scenarioNets.map((s) => Math.abs(s.net)));
+
+  function drawProjection() {
+    const c = prep(chartRef.current);
+    if (!c) return;
+    const { x, w, h } = c;
+    const padL = 58,
+      padR = 14,
+      padT = 14,
+      padB = 28;
+    const W = w - padL - padR,
+      H = h - padT - padB;
+    // Auto-scale the x-axis so the break-even crossover sits comfortably
+    // on-chart (about 60% across) instead of a fixed 50k window.
+    const niceMax = (v: number) => {
+      const pow = Math.pow(10, Math.floor(Math.log10(v)));
+      const n = v / pow;
+      const step = n <= 1 ? 1 : n <= 2 ? 2 : n <= 5 ? 5 : 10;
+      return step * pow;
+    };
+    const maxU = Number.isFinite(beUsers)
+      ? Math.max(5000, niceMax(beUsers * 1.7))
+      : 50000;
+    const pts: { u: number; rev: number; exp: number }[] = [];
+    for (let i = 0; i <= 100; i++) {
+      const u = (maxU * i) / 100;
+      const p = project(u);
+      pts.push({ u, rev: p.revenue, exp: p.expense });
+    }
+    const ymax = Math.max(100, ...pts.map((p) => Math.max(p.rev, p.exp)));
+    const X = (u: number) => padL + (W * u) / maxU;
+    const Y = (v: number) => padT + H * (1 - v / ymax);
+
+    // Shade the profitable region (right of break-even) light green.
+    const beOnChart = Number.isFinite(beUsers) && beUsers <= maxU;
+    if (beOnChart) {
+      x.fillStyle = "rgba(22,163,74,0.08)";
+      x.fillRect(X(beUsers), padT, w - padR - X(beUsers), H);
+    }
+
+    x.strokeStyle = CH.grid;
+    x.fillStyle = CH.axis;
+    x.font = "11px sans-serif";
+    for (let g = 0; g <= 4; g++) {
+      const v = (ymax * g) / 4;
+      const yy = Y(v);
+      x.beginPath();
+      x.moveTo(padL, yy);
+      x.lineTo(w - padR, yy);
+      x.stroke();
+      x.fillText(fmt0(v), 4, yy + 3);
+    }
+    for (let g = 0; g <= 5; g++) {
+      const u = (maxU * g) / 5;
+      const lbl = u >= 1000 ? `${+(u / 1000).toFixed(1)}k` : String(Math.round(u));
+      x.fillText(lbl, X(u) - 8, h - 10);
+    }
+    const line = (key: "rev" | "exp", color: string) => {
+      x.strokeStyle = color;
+      x.lineWidth = 2.4;
+      x.beginPath();
+      pts.forEach((p, i) => {
+        const px = X(p.u),
+          py = Y(p[key]);
+        i ? x.lineTo(px, py) : x.moveTo(px, py);
+      });
+      x.stroke();
+    };
+    line("exp", CH.bad);
+    line("rev", CH.good);
+
+    // Break-even marker: a dashed vertical line at the user count where revenue
+    // crosses expense, labeled. This is the "how many users to be profitable".
+    if (beOnChart) {
+      const bx = X(beUsers);
+      x.strokeStyle = "#0f172a";
+      x.setLineDash([4, 3]);
+      x.lineWidth = 1.5;
+      x.beginPath();
+      x.moveTo(bx, padT);
+      x.lineTo(bx, h - padB);
+      x.stroke();
+      x.setLineDash([]);
+      x.fillStyle = "#0f172a";
+      x.font = "bold 11px sans-serif";
+      const label = `break even ${
+        beUsers >= 1000 ? `${(beUsers / 1000).toFixed(1)}k` : Math.round(beUsers)
+      } users`;
+      const tw = x.measureText(label).width;
+      x.fillText(label, Math.min(bx + 5, w - padR - tw), padT + 10);
+    }
+  }
+
+  useEffect(() => {
+    const id = requestAnimationFrame(drawProjection);
+    window.addEventListener("resize", drawProjection);
+    return () => {
+      cancelAnimationFrame(id);
+      window.removeEventListener("resize", drawProjection);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [rows, freeRelayM, aiTokensM, aiAdoption, opCosts, scalingSvcs, conversion, soloShare, labShare, deptShare, membersPerLab]);
+
+  const inputCls =
+    "w-16 rounded border border-border bg-surface-sunken px-1.5 py-1 text-meta tabular-nums";
+
+  return (
+    <div className="space-y-8 text-foreground">
+      {/* Working area: dials + numbers on the left, plots on the right. */}
+      <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_480px]">
+        <div className="min-w-0 space-y-6">
+          <Panel title="Assumptions">
+            <div className="grid gap-5 lg:grid-cols-2">
+              <Slider
+                label={`AI adoption: ${Math.round(aiAdoption * 100)}% of paid users buy AI`}
+                min={0}
+                max={100}
+                step={5}
+                value={aiAdoption * 100}
+                onChange={(v) => setAiAdoption(v / 100)}
+              />
+              <Slider
+                label={`AI per AI-user: ${aiTokensM.toFixed(1)}M tok/mo`}
+                min={0}
+                max={20}
+                step={0.5}
+                value={aiTokensM}
+                onChange={setAiTokensM}
+              />
+              <Slider
+                label={`Members per lab: ${membersPerLab}`}
+                min={2}
+                max={20}
+                step={1}
+                value={membersPerLab}
+                onChange={setMembersPerLab}
+              />
+              <Slider
+                label={`Free relay (stress test): ${freeRelayM.toFixed(2)}M/mo`}
+                min={0}
+                max={0.5}
+                step={0.01}
+                value={freeRelayM}
+                onChange={setFreeRelayM}
+              />
+            </div>
+          </Panel>
+
+          <Panel title="Service tiers (price buys services, not GB)">
+            <div className="overflow-x-auto">
+              <table className="w-full text-meta tabular-nums">
+                <thead>
+                  <tr className="text-left text-foreground-muted">
+                    <th className="px-2 py-1.5 font-semibold">Tier</th>
+                    <th className="px-2 py-1.5 font-semibold">What it unlocks</th>
+                    <th className="px-2 py-1.5 font-semibold">$/mo</th>
+                    <th className="px-2 py-1.5 font-semibold">Relay M</th>
+                    <th className="px-2 py-1.5 text-right font-semibold">Sub net</th>
+                    <th className="px-2 py-1.5 text-right font-semibold">+ AI</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr className="border-t border-border">
+                    <td className="px-2 py-1.5 font-medium text-foreground">Free</td>
+                    <td className="px-2 py-1.5 text-foreground-muted">
+                      Local notebook, workspaces, receive, directory, public
+                    </td>
+                    <td className="px-2 py-1.5 text-foreground-muted">$0</td>
+                    <td className="px-2 py-1.5 text-foreground-muted">
+                      {freeRelayM.toFixed(2)}
+                    </td>
+                    <td className="px-2 py-1.5 text-right text-foreground-muted">
+                      -{fmt(avgFree)}
+                    </td>
+                    <td className="px-2 py-1.5 text-right text-foreground-muted">
+                      grant
+                    </td>
+                  </tr>
+                  {rows.map((r) => {
+                    const m = serviceMargin(r.price, r.relayWritesM, r.cadence);
+                    const tone =
+                      m.net >= r.price * 0.6
+                        ? "text-emerald-600"
+                        : m.net >= r.price * 0.3
+                          ? "text-amber-600"
+                          : "text-rose-600 font-bold";
+                    const aiPerM =
+                      r.key === "dept" ? AI_ORG_RETAIL_PER_M : AI_INDIV_RETAIL_PER_M;
+                    // Adoption-weighted: avg AI margin per paid seat (only a
+                    // fraction buy AI), so it matches the projection.
+                    const aiNet =
+                      aiAdoption * aiTokensM * (aiPerM - AI_REAL_COST_PER_M);
+                    return (
+                      <tr key={r.key} className="border-t border-border align-top">
+                        <td className="px-2 py-1.5 font-medium text-foreground">
+                          {r.name}
+                          {r.perSeat && (
+                            <span className="ml-1 text-foreground-muted">/seat</span>
+                          )}
+                        </td>
+                        <td className="px-2 py-1.5 text-foreground-muted">
+                          {r.unlocks}
+                          {r.key === "dept" && (
+                            <span className="mt-1 block">
+                              <span className="text-foreground">
+                                + governance fee
+                              </span>{" "}
+                              <input
+                                type="number"
+                                step={1}
+                                value={govFee}
+                                onChange={(e) =>
+                                  update("dept", {
+                                    governanceFeePerLab: +e.target.value,
+                                  })
+                                }
+                                className={inputCls}
+                              />{" "}
+                              / lab
+                            </span>
+                          )}
+                        </td>
+                        <td className="px-2 py-1.5">
+                          <input
+                            type="number"
+                            step={0.5}
+                            value={r.price}
+                            onChange={(e) => update(r.key, { price: +e.target.value })}
+                            className={inputCls}
+                          />
+                        </td>
+                        <td className="px-2 py-1.5">
+                          <input
+                            type="number"
+                            step={0.05}
+                            value={r.relayWritesM}
+                            onChange={(e) =>
+                              update(r.key, { relayWritesM: +e.target.value })
+                            }
+                            className={inputCls}
+                          />
+                        </td>
+                        <td className={`px-2 py-1.5 text-right ${tone}`}>
+                          {fmt(m.net)}
+                        </td>
+                        <td className="px-2 py-1.5 text-right text-violet-600">
+                          +{fmt(aiNet)}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </Panel>
+
+          <Panel title="Fixed business costs (charged every month, any scale)">
+            <div className="space-y-1.5 text-meta tabular-nums">
+              <div className="flex items-center justify-between border-b border-dashed border-border py-1">
+                <span className="text-foreground-muted">
+                  Platform + amortized annual fees (sourced)
+                </span>
+                <span className="font-medium">{fmt(INFRA_FIXED_MONTHLY)}/mo</span>
+              </div>
+              {opCosts.map((c, i) => (
+                <div key={c.label} className="flex items-center gap-2 py-0.5">
+                  <span className="flex-1 text-foreground-muted">{c.label}</span>
+                  <input
+                    type="number"
+                    step={5}
+                    value={c.amount}
+                    onChange={(e) => updateOp(i, { amount: +e.target.value })}
+                    className={inputCls}
+                  />
+                  <Seg
+                    options={[
+                      { id: "monthly", label: "/mo" },
+                      { id: "yearly", label: "/yr" },
+                    ]}
+                    value={c.cadence}
+                    onChange={(v) =>
+                      updateOp(i, { cadence: v as FixedCostItem["cadence"] })
+                    }
+                  />
+                </div>
+              ))}
+              <div className="flex items-center justify-between border-t border-border pt-1.5 font-semibold">
+                <span>Total fixed (base)</span>
+                <span>{fmt(fixedMonthly)}/mo</span>
+              </div>
+            </div>
+            <div className="mt-4">
+              <div className="mb-1 text-meta font-semibold text-foreground">
+                Service step-ups (each crosses its free tier at its own user count)
+              </div>
+              <div className="overflow-x-auto">
+                <table className="w-full text-meta tabular-nums">
+                  <thead>
+                    <tr className="text-left text-foreground-muted">
+                      <th className="px-2 py-1 font-semibold">Service</th>
+                      <th className="px-2 py-1 font-semibold">Per user</th>
+                      <th className="px-2 py-1 font-semibold">Crosses at</th>
+                      <th className="px-2 py-1 text-right font-semibold">At 50k</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {scalingSvcs.map((s, i) => {
+                      const cross = serviceCrossUsers(s);
+                      const at50 = serviceMonthlyCost(s, 50000);
+                      return (
+                        <tr key={s.id} className="border-t border-border align-top">
+                          <td className="px-2 py-1 text-foreground-muted">
+                            {s.label}
+                          </td>
+                          <td className="px-2 py-1">
+                            <input
+                              type="number"
+                              step={1}
+                              value={s.perUserPerMonth}
+                              onChange={(e) =>
+                                updateSvc(i, { perUserPerMonth: +e.target.value })
+                              }
+                              className="w-14 rounded border border-border bg-surface-sunken px-1 py-0.5 text-meta tabular-nums"
+                            />
+                            <span className="ml-1 text-foreground-muted">
+                              {s.unit}
+                            </span>
+                          </td>
+                          <td className="px-2 py-1 text-foreground-muted">
+                            {Number.isFinite(cross)
+                              ? cross >= 1000
+                                ? `~${(cross / 1000).toFixed(1)}k`
+                                : `~${Math.round(cross)}`
+                              : "never"}
+                          </td>
+                          <td className="px-2 py-1 text-right">
+                            {at50 > 0 ? fmt0(at50) : "free"}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                    <tr className="border-t border-border font-semibold">
+                      <td className="px-2 py-1" colSpan={3}>
+                        Fixed at 50k (base + steps)
+                      </td>
+                      <td className="px-2 py-1 text-right">
+                        {fmt0(fixedMonthly + scalingInfraCost(scalingSvcs, 50000))}
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+            <p className="mt-2 text-meta text-foreground-muted">
+              Infra floor + operating overhead (incl. the permanent Claude Max) are
+              the flat base; SUBSCRIPTIONS do not scale. Each provider service
+              crosses its own free tier at its own user count (edit the per-user
+              usage), so the expense steps up at distinct moments. Storage (R2 files
+              + DO bytes) is a-la-carte pass-through and DO requests are already the
+              per-write relay cost, so they are not counted here. Free ceilings are
+              from the admin InfraCostPanel (checked 2026-06-06).
+            </p>
+          </Panel>
+
+          <Panel title="Scenario">
+            <Lbl>Paid conversion</Lbl>
+            <Seg
+              options={CONVERSION_PRESETS.map((p) => ({
+                id: p.id,
+                label: `${p.label} ${(p.v * 100).toFixed(0)}%`,
+              }))}
+              value={CONVERSION_PRESETS.find((p) => p.v === conversion)?.id ?? ""}
+              onChange={(id) =>
+                setConversion(
+                  CONVERSION_PRESETS.find((p) => p.id === id)?.v ?? conversion,
+                )
+              }
+              wrap
+            />
+            <div className="mt-2">
+              <Slider
+                label={`Fine tune: ${(conversion * 100).toFixed(1)}%`}
+                min={1}
+                max={20}
+                step={0.5}
+                value={conversion * 100}
+                onChange={(v) => setConversion(v / 100)}
+              />
+            </div>
+            <Lbl>Adoption mix</Lbl>
+            <Seg
+              options={MIX_PRESETS.map((p) => ({ id: p.id, label: p.label }))}
+              value={activeMix}
+              onChange={(id) => {
+                const p = MIX_PRESETS.find((x) => x.id === id);
+                if (p) applyMix(p);
+              }}
+              wrap
+            />
+            <p className="mt-2 text-meta text-foreground-muted">
+              Solo{" "}
+              {Math.round((soloShare / (soloShare + labShare + deptShare)) * 100)}% /
+              Lab {Math.round((labShare / (soloShare + labShare + deptShare)) * 100)}%
+              / Dept{" "}
+              {Math.round((deptShare / (soloShare + labShare + deptShare)) * 100)}% of
+              the paying base.
+            </p>
+
+            <div className="mt-4 grid grid-cols-3 gap-3">
+              {[
+                { lbl: "1k", u: 1000 },
+                { lbl: "10k", u: 10000 },
+                { lbl: "50k", u: 50000 },
+              ].map(({ lbl, u }) => {
+                const n = project(u).net;
+                return (
+                  <div key={lbl} className="rounded-lg bg-surface-sunken p-2.5">
+                    <div className="text-meta text-foreground-muted">{lbl} users</div>
+                    <div
+                      className={`text-body font-semibold ${
+                        n < 0 ? "text-rose-600" : "text-emerald-600"
+                      }`}
+                    >
+                      {fmt0(n)}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            <div className="mt-3 rounded-lg border border-border bg-surface-sunken p-3">
+              <div className="flex items-baseline justify-between">
+                <span className="text-meta text-foreground-muted">
+                  Break-even conversion
+                </span>
+                <span
+                  className={`text-body font-semibold ${
+                    breakEven <= conversion ? "text-emerald-600" : "text-amber-600"
+                  }`}
+                >
+                  {(breakEven * 100).toFixed(1)}%
+                </span>
+              </div>
+              <p className="mt-1 text-meta text-foreground-muted">
+                {Number.isFinite(perPayer)
+                  ? `One paying user carries ~${Math.round(perPayer)} free users. You are at ${(conversion * 100).toFixed(1)}%.`
+                  : `Free users cost ~$0/mo, so a paying user carries unlimited free users. Recurring break-even is just the fixed business costs. You are at ${(conversion * 100).toFixed(1)}%.`}
+              </p>
+            </div>
+          </Panel>
+        </div>
+
+        <div className="space-y-6 lg:sticky lg:top-4">
+          <Panel title="When do we become profitable?">
+            <div
+              className={`mb-3 rounded-lg border p-3 ${
+                Number.isFinite(beUsers)
+                  ? "border-emerald-200 bg-emerald-50"
+                  : "border-rose-200 bg-rose-50"
+              }`}
+            >
+              <div className="text-meta text-foreground-muted">
+                Break even (net crosses $0) at
+              </div>
+              {Number.isFinite(beUsers) ? (
+                <>
+                  <div className="text-heading font-bold text-emerald-700">
+                    {beUsers >= 1000
+                      ? `~${(beUsers / 1000).toFixed(1)}k total accounts`
+                      : `~${Math.round(beUsers)} total accounts`}
+                  </div>
+                  {(() => {
+                    const paying = beUsers * conversion;
+                    const sum = soloShare + labShare + deptShare || 1;
+                    const solo = paying * (soloShare / sum);
+                    const labSeats = paying * (labShare / sum);
+                    const deptSeats = paying * (deptShare / sum);
+                    const labs = labSeats / membersPerLab;
+                    const depts = deptSeats / membersPerLab;
+                    const segs: string[] = [];
+                    if (solo >= 0.5) segs.push(`${Math.round(solo)} solo`);
+                    if (labSeats >= 0.5)
+                      segs.push(
+                        `~${Math.max(1, Math.round(labs))} labs (${Math.round(labSeats)} seats)`,
+                      );
+                    if (deptSeats >= 0.5)
+                      segs.push(
+                        `~${Math.max(1, Math.round(depts))} depts (${Math.round(deptSeats)} seats)`,
+                      );
+                    return (
+                      <div className="mt-1 text-meta text-foreground-muted">
+                        of which <b className="text-foreground">~{Math.round(paying)} pay</b>
+                        {segs.length > 0 && (
+                          <>
+                            {" = "}
+                            <span className="text-foreground">{segs.join("  ·  ")}</span>
+                          </>
+                        )}
+                        . Lab/dept are per-seat, so a lab is {membersPerLab} seats.
+                      </div>
+                    );
+                  })()}
+                </>
+              ) : (
+                <div className="text-body font-semibold text-rose-700">
+                  Never at {(conversion * 100).toFixed(1)}% conversion. Each user
+                  loses money, so no scale fixes it. Raise conversion or prices.
+                </div>
+              )}
+              <p className="mt-1 text-meta text-foreground-muted">
+                Above that user count the {fmt0(fixedMonthly)}/mo of fixed costs is
+                covered and every further user is profit.
+              </p>
+            </div>
+            <canvas
+              ref={chartRef}
+              height={220}
+              className="block w-full rounded-lg border border-border bg-surface-sunken"
+              style={{ height: 220 }}
+            />
+            <Legend
+              items={[
+                { c: CH.good, t: "revenue in" },
+                { c: CH.bad, t: "expense out" },
+                { c: "rgba(22,163,74,0.5)", t: "profitable zone" },
+              ]}
+            />
+          </Panel>
+
+          <Panel title="Break-even users by conversion scenario">
+            <div className="space-y-2">
+              {scenarioNets.map((s) => {
+                const pct = (Math.abs(s.net) / scenarioMax) * 100;
+                const pos = s.net >= 0;
+                const beLabel = Number.isFinite(s.beUsers)
+                  ? s.beUsers >= 1000
+                    ? `${(s.beUsers / 1000).toFixed(1)}k`
+                    : `${Math.round(s.beUsers)}`
+                  : "never";
+                return (
+                  <div key={s.id} className="flex items-center gap-2 text-meta">
+                    <span className="w-24 shrink-0 text-foreground-muted">
+                      {s.label} {(s.v * 100).toFixed(0)}%
+                    </span>
+                    <span
+                      className={`w-20 shrink-0 font-semibold tabular-nums ${
+                        Number.isFinite(s.beUsers)
+                          ? "text-foreground"
+                          : "text-rose-600"
+                      }`}
+                    >
+                      {beLabel}
+                      {Number.isFinite(s.beUsers) && (
+                        <span className="font-normal text-foreground-muted">
+                          {" "}
+                          users
+                        </span>
+                      )}
+                    </span>
+                    <span className="relative h-4 flex-1 overflow-hidden rounded bg-surface-sunken">
+                      <span
+                        className={`absolute inset-y-0 left-0 rounded ${
+                          pos ? "bg-emerald-500" : "bg-rose-500"
+                        }`}
+                        style={{ width: `${pct}%` }}
+                      />
+                    </span>
+                    <span
+                      className={`w-16 shrink-0 text-right tabular-nums ${
+                        pos ? "text-emerald-600" : "text-rose-600"
+                      }`}
+                    >
+                      {fmt0(s.net)}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+            <p className="mt-2 text-meta text-foreground-muted">
+              Break-even user count (left) and net per month at 50k (bar + right)
+              for each conversion model. Lower break-even is better.
+            </p>
+          </Panel>
+
+          <Panel title="Where the money comes from (at 50k users)">
+            <div className="flex h-5 w-full overflow-hidden rounded-md">
+              <span
+                className="bg-sky-500"
+                style={{ width: `${(comp.sub / posTotal) * 100}%` }}
+              />
+              <span
+                className="bg-violet-500"
+                style={{ width: `${(comp.ai / posTotal) * 100}%` }}
+              />
+              <span
+                className="bg-emerald-500"
+                style={{ width: `${(comp.gov / posTotal) * 100}%` }}
+              />
+            </div>
+            <div className="mt-3 space-y-1">
+              <Kv k="Subscriptions" v={`${fmt0(comp.sub)} (${Math.round((comp.sub / posTotal) * 100)}%)`} />
+              <Kv k="AI margin" v={`${fmt0(comp.ai)} (${Math.round((comp.ai / posTotal) * 100)}%)`} />
+              <Kv k="Governance fees" v={`${fmt0(comp.gov)} (${Math.round((comp.gov / posTotal) * 100)}%)`} />
+              <Kv k="Free relay (recurring)" v={`-${fmt0(comp.freeCost)}`} tone="bad" />
+              <Kv k="Fixed business costs" v={`-${fmt0(comp.fixed)}`} tone="bad" />
+              <Kv k="Net per month" v={fmt0(comp.net)} bold tone={comp.net < 0 ? "bad" : "good"} />
+            </div>
+            <div className="mt-3 rounded-lg border border-amber-200 bg-amber-50 p-2.5 text-meta text-foreground">
+              <div className="flex justify-between">
+                <span className="text-foreground-muted">
+                  Acquiring this free base ({fmt0(comp.users * (1 - conversion))} free
+                  users x {fmt(AI_SIGNUP_GRANT_USD)})
+                </span>
+                <span className="font-semibold tabular-nums">
+                  {fmt0(comp.freeAcqOneTime)}
+                </span>
+              </div>
+              <p className="mt-1 text-foreground-muted">
+                One-time AI sign-up grant, paid once per account. Not in the monthly
+                net above.
+              </p>
+            </div>
+          </Panel>
+        </div>
+      </div>
+
+      {/* Context + explanation, all at the bottom. */}
+      <div className="space-y-6 border-t border-border pt-8">
+        <div className="rounded-xl border border-border bg-surface-sunken px-4 py-3 text-meta leading-relaxed text-foreground-muted">
+          <b className="text-foreground">Path A, locked.</b> Local-first
+          cloud-SERVICES company, not storage-by-GB. Paid tiers buy what the relay
+          enables (send, live co-edit, phone capture, push, governance), not
+          gigabytes. Storage a-la-carte at ~{STORAGE_MARKUP.toFixed(2)}x cost (
+          {`$${storagePerGB.toFixed(4)}/GB`}), never a profit center. AI is a
+          separate metered token product at LOCKED rates,{" "}
+          {`indiv $${AI_INDIV_RETAIL_PER_M.toFixed(2)}/1M (1.4x), dept $${AI_ORG_RETAIL_PER_M.toFixed(2)}/1M (2x), our cost $${AI_REAL_COST_PER_M.toFixed(3)}/1M`}
+          . Solo and lab bill 6/12-month only. Relay cost{" "}
+          {`${fmt(ACTIVITY_PER_M_WRITES)}/M writes, Stripe ${(STRIPE_PCT * 100).toFixed(1)}% + ${fmt(STRIPE_FIXED)}.`}
+        </div>
+
+        <Panel title="Free tier = the network audience (no cloud produce feature)">
+          <div className="rounded-xl border border-sky-200 bg-sky-50 p-4 text-meta leading-relaxed text-foreground">
+            Free gets the consume + be-present side: unlimited{" "}
+            <b>local notebook</b>, <b>shared-folder workspaces</b> (their own cloud,
+            async file sync, not live collab), <b>directory presence</b>,{" "}
+            <b>receive</b> shares (the sender bears the relay cost), in-app receipt
+            notes, accept invites, public library/wiki/demo. No send, no live collab,
+            no phone capture, no push. <b>None of that writes to us</b>, so a free
+            user costs <b>~$0/mo recurring</b>. The only cost is a{" "}
+            <b>one-time {fmt(AI_SIGNUP_GRANT_USD)} AI sign-up grant</b> to acquire
+            the account, tracked separately from the monthly net (see the
+            composition panel).
+          </div>
+        </Panel>
+
+        <Panel title="Dept economics: storage at parity, the fee is the value">
+          <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-meta leading-relaxed text-foreground">
+            A dept lab pays the standalone Lab seat rate ({fmt(dept.price)}/seat, no
+            storage surcharge) plus a flat <b>{fmt0(govFee)}/lab</b> governance fee. A{" "}
+            {membersPerLab}-member lab is <b>{fmt0(deptLabMonthly)}/mo</b> (
+            {membersPerLab} x {fmt(dept.price)} + {fmt0(govFee)}). The governance fee
+            is the Commons + compliance + admin layer, and the org margin that funds
+            the free tier. Dept AI also bills at the 2x org rate.
+          </div>
+        </Panel>
+
+        <Panel title="How to read it">
+          <ul className="list-disc space-y-1.5 pl-5 text-meta leading-relaxed text-foreground-muted">
+            <li>
+              <b className="text-foreground">Sub net</b> is what we keep per
+              subscriber (solo) or per active seat (lab, dept) after relay cost and
+              the 6/12-month Stripe fee. <b className="text-foreground">+AI</b> is the
+              average AI margin per paid seat, already scaled by AI adoption (only
+              {" "}
+              {Math.round(aiAdoption * 100)}% of paid users buy AI; dept at the 2x
+              rate). Storage rides on top at cost and is in neither.
+            </li>
+            <li>
+              Free users do nothing that writes to us, so their recurring monthly
+              cost is ~$0. The $0.25 AI sign-up grant is a one-time acquisition cost,
+              shown separately and kept out of the monthly net. The free-relay dial
+              stays at 0 by default and is only there to stress-test a chattier free
+              user.
+            </li>
+            <li>
+              The scenario plots use a representative 50k-user scale. Same tiers,
+              three conversion models, so where a bar turns green is where the
+              business clears.
+            </li>
+          </ul>
+        </Panel>
+      </div>
+    </div>
+  );
+}
+
+// ============================================================================
 // shared small UI bits
 // ============================================================================
 
@@ -1134,7 +1987,7 @@ export default function PriceModelingModal({
   open: boolean;
   onClose: () => void;
 }) {
-  const [tab, setTab] = useState<"perSub" | "sustain">("perSub");
+  const [tab, setTab] = useState<"perSub" | "sustain" | "finalize">("perSub");
 
   return (
     <LivingPopup
@@ -1162,6 +2015,7 @@ export default function PriceModelingModal({
             options={[
               { id: "perSub", label: "Per-subscriber economics" },
               { id: "sustain", label: "Sustainability at scale" },
+              { id: "finalize", label: "Finalize the flip" },
             ]}
             value={tab}
             onChange={(v) => setTab(v as typeof tab)}
@@ -1176,6 +2030,9 @@ export default function PriceModelingModal({
           </div>
           <div className={tab === "sustain" ? "" : "hidden"}>
             <SustainabilityTab active={tab === "sustain"} />
+          </div>
+          <div className={tab === "finalize" ? "" : "hidden"}>
+            <FinalizeTab />
           </div>
         </div>
       </div>

@@ -2,6 +2,8 @@
 
 Status: live-prep. 2026-06-13. Grant wants real payments on for the beta because live testing is the real bug harness (test mode has already surfaced 3 bugs). This is the pre-flight so the flip is safe, not a guess. Owner tags: [me] orchestrator can do, [you] Grant only, [done].
 
+> UPDATE 2026-06-15 (Grant): GO for billing-live-during-beta. Sales-tax blocker (#4) is RESOLVED by turning on Stripe Tax (auto-computes + collects + remits responsibility deferred to Stripe), so no manual WI-nexus decision needed. All customer-facing "free during the beta" copy is now FLAG-DRIVEN (it flips to live pricing automatically when the flags flip): server pages (`/pricing`, `/terms`, `/wiki`) read `isBillingEnabled()` / `isAiBillingEnabled()` from `lib/billing/config.ts`; the client Welcome page reads `NEXT_PUBLIC_BILLING_LIVE` (a build-baked mirror of the server `BILLING_ENABLED`). Provisional Plus/Pro sticker prices are STILL not published (billing-copy-facts guardrail unchanged) — the labeled calculators stay. Remaining = flip the prod flags below.
+
 ## What is verified (test mode)
 
 - [done] AI billing: ledger (grant-once + idempotency), top-up -> webhook -> credit (real Checkout), proxy enforcement (402 fail-closed) + streaming usage capture. Bug fixed: creditTokens partial-index ON CONFLICT (was pay-but-no-credit), verified live.
@@ -13,13 +15,14 @@ Status: live-prep. 2026-06-13. Grant wants real payments on for the beta because
 1. [you] Set the real `AI_TOKEN_PRICE_USD` from live Fireworks gpt-oss-120b rates. It is a `0.25/750k` PLACEHOLDER today, so every token/dollar number (gift size, pack token amounts, per-task cost) is provisional. Pull live rates, do not trust a remembered number. One config constant in `lib/billing/ai-config.ts`.
 2. [you] Create the LIVE Stripe products/prices for the three AI packs ($10/$25/$50), get the live price ids -> set `STRIPE_AI_PRICE_10/25/50` in Vercel prod env. (The test prices I made are test-mode only.)
 3. [you] Set the LIVE Stripe secret key (`sk_live_...`) + register the LIVE webhook endpoint in the Stripe dashboard at `https://<prod-domain>/api/billing/webhook`, copy its `whsec_...` into Vercel as `STRIPE_WEBHOOK_SECRET`. Test-mode `stripe listen` does not cover prod. For the dept tier, select `invoice.paid` (NOT both invoice.paid + invoice.payment_succeeded; the dedup fix covers it either way, but cleaner).
-4. [you] Sales tax: turn on Stripe Tax (auto-computes + collects) or make a conscious WI-nexus decision. The `ORG_BILLING_TAX_ENABLED` seam is off pending this. Charging real money while under-collecting tax you owe is the mistake that bites later.
+4. [done 2026-06-15] Sales tax: Stripe Tax is ON (auto-computes + collects), so tax handling is deferred to the processor. No manual WI-nexus decision needed. (Was the last hard blocker.)
 5. [you] Provider spend caps: a Fireworks hard monthly cap + Stripe Spend Management, as the runaway guards (the app-side cost circuit breaker already exists).
 
 ## Flags to flip on prod (after the blockers)
 
 - [you] `BILLING_ENABLED=true` (storage + org billing path; currently dark in prod).
 - [you] `AI_BILLING_ENABLED=true` (AI proxy enforcement + recording).
+- [you] `NEXT_PUBLIC_BILLING_LIVE=1` (client mirror for the Welcome page copy; flip it WITH `BILLING_ENABLED`; NEXT_PUBLIC bakes at build so it needs a redeploy). The server pages (`/pricing`, `/terms`, `/wiki`) follow `BILLING_ENABLED` / `AI_BILLING_ENABLED` directly and need no separate flag.
 - [you] `NEXT_PUBLIC_AI_ASSISTANT_ENABLED=true` (the BeakerBot UI; rebuild needed, NEXT_PUBLIC bakes at build).
 - [you] The tier flags (`NEXT_PUBLIC_DEPT_TIER_ENABLED`, `_INSTITUTION_TIER_ENABLED`) if org billing is part of the beta launch.
 - Note: NEXT_PUBLIC_* vars bake at build, so flipping them needs a redeploy, not a live toggle.

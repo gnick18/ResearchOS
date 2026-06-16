@@ -109,6 +109,12 @@ export default function FileDropzone({
       tabIndex={disabled ? -1 : 0}
       aria-label={ariaLabel}
       aria-disabled={disabled || undefined}
+      // This surface handles the file itself, so opt out of the window-level
+      // GlobalDropGuard: data-attach-target suppresses its "not supported" toast,
+      // and stopPropagation on the drop keeps the event from reaching the window
+      // listener at all. Fixes the misleading toast across every FileDropzone use
+      // (import dialogs, purchase editor, lab logo, datahub/chemistry/ELN import).
+      data-attach-target
       onClick={open}
       onKeyDown={(e) => {
         if (e.key === "Enter" || e.key === " ") {
@@ -133,6 +139,7 @@ export default function FileDropzone({
       onDrop={(e) => {
         if (disabled) return;
         e.preventDefault();
+        e.stopPropagation();
         setDragOver(false);
         emit(e.dataTransfer.files);
       }}

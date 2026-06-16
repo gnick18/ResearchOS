@@ -24,7 +24,10 @@ import {
   canonicalizeEmail,
   hashEmail,
 } from "@/lib/sharing/directory/email";
-import { getBindingByHash } from "@/lib/sharing/directory/db";
+import {
+  getBindingByHash,
+  getBindingByFingerprint,
+} from "@/lib/sharing/directory/db";
 import {
   getRelayIdentityLimiter,
   getRelayIpBackstopLimiter,
@@ -88,8 +91,11 @@ export async function POST(request: Request): Promise<Response> {
   // result is a bad shape, a stale request, an unregistered sender, or a bad
   // signature, all collapse to one generic error.
   const verified = await verifyRelayRequest(body, "send", getPepper());
-  if (!verified || !verified.parsed.recipientEmail ||
-      verified.parsed.sizeBytes === undefined) {
+  if (
+    !verified ||
+    verified.parsed.sizeBytes === undefined ||
+    (!verified.parsed.recipientEmail && !verified.parsed.recipientFingerprint)
+  ) {
     return json(400, GENERIC_FAILURE);
   }
 
@@ -107,11 +113,27 @@ export async function POST(request: Request): Promise<Response> {
   // Resolve the recipient via the directory. Registered-to-registered only, an
   // absent binding means the recipient is not on ResearchOS, returned as a clear
   // distinct result (not the generic failure) so the client can tell the sender.
-  const recipientCanonical = canonicalizeEmail(verified.parsed.recipientEmail);
-  const recipientHash = hashEmail(recipientCanonical, getPepper());
-  const recipientBinding = await getBindingByHash(recipientHash);
-  if (!recipientBinding) {
-    return json(404, { error: "recipient is not on ResearchOS" });
+  // Resolve the recipient to their mailbox hash. A fingerprint-addressed send (the
+  // no-email /network path) resolves via the directory to a LISTED researcher's
+  // hash, so the sender never learns the recipient's email; an email-addressed send
+  // hashes the email as before. Either way an absent binding means the recipient is
+  // not on ResearchOS (returned distinctly so the client can tell the sender).
+  let recipientHash: string;
+  if (verified.parsed.recipientFingerprint) {
+    const recipientBinding = await getBindingByFingerprint(
+      verified.parsed.recipientFingerprint,
+    );
+    if (!recipientBinding) {
+      return json(404, { error: "recipient is not on ResearchOS" });
+    }
+    recipientHash = recipientBinding.emailHash;
+  } else {
+    const recipientCanonical = canonicalizeEmail(verified.parsed.recipientEmail!);
+    recipientHash = hashEmail(recipientCanonical, getPepper());
+    const recipientBinding = await getBindingByHash(recipientHash);
+    if (!recipientBinding) {
+      return json(404, { error: "recipient is not on ResearchOS" });
+    }
   }
 
   // Per-recipient mailbox COUNT cap. Together with the per-IP rate limit this also

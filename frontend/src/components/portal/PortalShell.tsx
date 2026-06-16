@@ -79,7 +79,7 @@ export default function PortalShell({
 
       <div className="relative z-10 flex min-h-screen flex-col">
         {/* Portal header: brand lockup + portal label, no app nav. */}
-        <header className="flex items-center gap-3 border-b border-border/60 px-5 py-3 backdrop-blur-sm">
+        <header className="flex flex-wrap items-center gap-3 border-b border-border/60 px-5 py-3 backdrop-blur-sm">
           <Wordmark size="sm" animated={false} className="gap-2" />
           <span className="rounded-full border border-brand-purple/30 bg-brand-purple/10 px-2.5 py-1 text-meta font-bold uppercase tracking-wide text-brand-purple">
             {title}

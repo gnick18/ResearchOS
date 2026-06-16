@@ -25,7 +25,8 @@ import {
   fetchAllTasksIncludingShared,
   projectsApi,
 } from "@/lib/local-api";
-import { attachRecordSetIfBig, type RecordSetRow } from "@/lib/ai/record-set";
+import { attachSummaryUi, type RecordSetRow } from "@/lib/ai/record-set";
+import { projectsSummaryReport } from "@/lib/ai/summary-report";
 import type { Project, Task } from "@/lib/types";
 import type { AiTool } from "./types";
 
@@ -277,7 +278,7 @@ export const summarizeProjectsTool: AiTool = {
       };
     });
 
-    return attachRecordSetIfBig({ ok: true as const, summary }, rows, {
+    return attachSummaryUi({ ok: true as const, summary }, rows, projectsSummaryReport(summary), {
       kind: "summarize_projects",
       title: "Projects",
       total: summary.totalProjects,

@@ -59,4 +59,26 @@ describe("data hub figure source", () => {
       expect(palette.choices.length).toBeGreaterThan(1);
     }
   });
+
+  it("offers a manual legend-placement select (the composer escape for relocate)", () => {
+    registerDataHubFigureSource();
+    const schema = getFigureSource("datahub")?.styleSchema?.() ?? [];
+    const legend = schema.find((o) => o.key === "legendPlacement");
+    expect(legend?.kind).toBe("select");
+    if (legend?.kind === "select") {
+      expect(legend.default).toBe("overlay");
+      expect(legend.choices.map((c) => c.value)).toEqual(["overlay", "right"]);
+    }
+  });
+
+  it("maps the relocate-legend fix to a legendPlacement override, nothing else", () => {
+    registerDataHubFigureSource();
+    const src = getFigureSource("datahub");
+    expect(src?.styleForFix?.("relocate-legend")).toEqual({
+      options: { legendPlacement: "right" },
+    });
+    // No Data Hub lever for the phylo-only fixes, so the composer won't offer them.
+    expect(src?.styleForFix?.("tilt-tip-labels")).toBeNull();
+    expect(src?.styleForFix?.("increase-column-gap")).toBeNull();
+  });
 });

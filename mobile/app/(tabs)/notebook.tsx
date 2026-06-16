@@ -1017,21 +1017,8 @@ export default function NotebookScreen() {
             testID="notebook-upload-roll"
             variant="secondary"
             accent="amber"
-            label="Upload from camera roll"
+            label="Bulk upload from camera roll"
             onPress={onUploadFromLibrary}
-          />
-        ) : null}
-
-        {/* View method on phone (read-mode protocol viewer). Opens the focused
-            experiment's method, published from the laptop, so the researcher can
-            follow the recipe at the bench and jot variations. */}
-        {!previewUri && !quickNoteOpen && pairing ? (
-          <Button
-            testID="notebook-view-method"
-            variant="secondary"
-            accent="sky"
-            label="View method on phone"
-            onPress={() => router.push('/method-detail')}
           />
         ) : null}
 

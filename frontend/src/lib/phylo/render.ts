@@ -48,6 +48,7 @@ import {
   type PanelValues,
 } from "./panel-render";
 import type { AlignmentKind } from "./msa";
+import type { LayoutManifest, PlacedBox } from "./layout-manifest";
 import {
   projectTracksToPanels,
   extractPanelValues,
@@ -124,6 +125,21 @@ export interface RenderSpec {
    *  phylogram, with the tips at age 0 (ggtree theme_tree2). Default off.
    *  Replaces the compact scale bar when on. */
   timeAxis?: boolean;
+  /** Per-figure gap (px) between overlay columns; absent = PANEL_GAP. The
+   *  collision advisor's "increase column spacing" lever. */
+  columnGap?: number;
+  /** Where the legends sit: "right" (default, reserved right column) or "bottom"
+   *  (a horizontal strip below the figure, freeing the right edge). The advisor's
+   *  "move the legend" fix. */
+  legendPlacement?: "right" | "bottom";
+  /**
+   * Circular only: left-anchor the circle and open a right gutter for per-track
+   * callouts (each ring's name pulled out to the side at the fan's open gap, with
+   * a thin leader) + the legend — the "circle left, annotations right" published
+   * look. The Studio sets this for the rooted "circular" layout and widens the
+   * canvas to match; it is inert for any caller that does not widen the canvas
+   * (it only engages when width > height). */
+  circularGutter?: boolean;
   tracks: FigureTracks;
   columns: FigureColumns;
   width: number;
@@ -304,12 +320,42 @@ function resolveScales(root: TreeNode, spec: RenderSpec): ResolvedScales {
 }
 
 /** Build a complete SVG string for the current figure. */
-export function renderTreeSvg(root: TreeNode, spec: RenderSpec): string {
+export function renderTreeSvg(
+  root: TreeNode,
+  spec: RenderSpec,
+  outManifest?: PlacedBox[],
+): string {
   // The unrooted (equal-angle) layout has no tip line/circle, so it bypasses the
   // panel + aligned-track machinery and draws its own self-contained figure.
   if (spec.layout === "unrooted") return renderUnrooted(root, spec);
-  if (spec.panels) return renderFromPanels(root, spec, spec.panels);
+  if (spec.panels) return renderFromPanels(root, spec, spec.panels, outManifest);
   return renderFromTracks(root, spec);
+}
+
+/**
+ * Render AND emit the layout manifest (the bboxes the draw just used) for the
+ * collision-aware layout advisor. The manifest is exact (same numbers as the SVG),
+ * not a re-derivation. v1 populates the rectangular panel path; other layouts
+ * return an empty box list for now. See layout-manifest.ts.
+ */
+export function renderTreeWithManifest(
+  root: TreeNode,
+  spec: RenderSpec,
+): { svg: string; manifest: LayoutManifest } {
+  const boxes: PlacedBox[] = [];
+  const svg = renderTreeSvg(root, spec, boxes);
+  // plotRight = the right edge of the tree+panels+labels region; the legend column
+  // sits past it. Derived from the boxes (the rightmost non-legend element), or the
+  // full width when nothing was placed.
+  const nonLegend = boxes.filter((b) => b.kind !== "legend");
+  const plotRight =
+    nonLegend.length > 0
+      ? Math.max(...nonLegend.map((b) => b.x + b.w))
+      : spec.width;
+  return {
+    svg,
+    manifest: { width: spec.width, height: spec.height, plotRight, boxes },
+  };
 }
 
 /**
@@ -439,17 +485,17 @@ const MSA_DEFAULT_THICKNESS = 120;
 /** Sum the radial / horizontal room every visible aligned panel needs. The gap
  *  between stacked panels is generous enough that adjacent rings / columns read
  *  as separate bands rather than visually merging (the multi-panel spacing). */
-function alignedRoom(panels: AlignedPanel[]): number {
+function alignedRoom(panels: AlignedPanel[], gap: number = PANEL_GAP): number {
   let room = 6; // initial gap from the tips
   for (const p of panels) {
     if (!p.visible || !ALIGNED_KINDS.has(p.kind)) continue;
     if (p.kind === "heat") {
       const ncol = p.columns?.length ?? 1;
-      room += ncol * (panelBandThickness(p) + 1) + PANEL_GAP;
+      room += ncol * (panelBandThickness(p) + 1) + gap;
     } else if (p.kind === "msa") {
-      room += (p.width && p.width > 0 ? p.width : MSA_DEFAULT_THICKNESS) + PANEL_GAP;
+      room += (p.width && p.width > 0 ? p.width : MSA_DEFAULT_THICKNESS) + gap;
     } else {
-      room += panelBandThickness(p) + PANEL_GAP;
+      room += panelBandThickness(p) + gap;
     }
   }
   return room;
@@ -457,6 +503,13 @@ function alignedRoom(panels: AlignedPanel[]): number {
 
 /** Inter-panel spacing (px) reserved so stacked rings / columns stay distinct. */
 const PANEL_GAP = 8;
+
+/** Clamp a tip-label tilt to a sane range; beyond +/-80 deg the text reads as
+ *  vertical and the layout math degenerates. */
+function clampTilt(deg: number): number {
+  if (!Number.isFinite(deg)) return 0;
+  return Math.max(-80, Math.min(80, deg));
+}
 
 /**
  * Draw one tip-aligned Data Hub plot panel (phylo Phase 4). Resolves the panel's
@@ -531,6 +584,7 @@ function renderFromPanels(
   rootRaw: TreeNode,
   spec: RenderSpec,
   panels: AlignedPanel[],
+  outManifest?: PlacedBox[],
 ): string {
   const meta = spec.metadata;
   // Collapse any clade marked collapsed to a single leaf before layout; the rest
@@ -543,6 +597,17 @@ function renderFromPanels(
   const labelsPanel =
     panels.find((p) => p.visible && p.kind === "labels") ?? null;
   const hasLabels = !!labelsPanel;
+
+  // Right-gutter callouts: a radial layout (circular / fan / inward-circular), given
+  // a wider-than-tall canvas (the Studio widens it), left-anchors the circle and
+  // pulls each ring's name out to the right through the open gap (all three have a
+  // clear right side: the rooted fan's 3 o'clock gap, the open fan's empty right
+  // half) with a thin leader, so the rings self-identify without bouncing to the
+  // legend (Grant's "circle left, callouts right" look). Inert unless widened.
+  const gutter =
+    !!spec.circularGutter &&
+    isCircular(spec.layout) &&
+    spec.width > spec.height;
 
   // Legends, one per colored aligned panel (and colored tip decoration) that asks
   // for one. Tip points are a decoration drawn on the tree, not an aligned panel,
@@ -564,36 +629,70 @@ function renderFromPanels(
       }),
     });
   }
+  // Legend placement (the advisor's "move the legend" fix). Default "right"
+  // reserves a right-edge column (unchanged); "bottom" frees the right edge by
+  // laying the legends in a horizontal strip below the figure, reducing the tree
+  // height. Bottom is the cure when the right column overran the labels.
+  const legendBottom =
+    spec.legendPlacement === "bottom" && legendItems.length > 0;
   // Reserve one legend sub-column normally; when the stacked legends would run
   // past the canvas height, reserve enough sub-columns to hold them side by side
   // (capped) so they never overlap the figure or each other (multi-panel polish).
+  // In gutter mode the callouts own the inner part of the right margin, so cap the
+  // legend to a single column at the far right — it never grows back across the
+  // callout band (the callouts already carry ring identity, so an overflowing key
+  // dropping its tail is acceptable).
   const legendCols =
-    legendItems.length > 0
-      ? legendColumnCount(legendItems, spec.height)
+    legendItems.length > 0 && !legendBottom
+      ? gutter
+        ? 1
+        : legendColumnCount(legendItems, spec.height)
       : 0;
   const legendW = legendCols * LEGEND_COL_WIDTH;
   const plotWidth = Math.max(120, spec.width - legendW);
+  // When bottom, reserve a strip whose height holds the wrapped legend rows.
+  const legendStripH = legendBottom
+    ? bottomLegendStripHeight(legendItems, spec.width)
+    : 0;
+  const layoutHeight = spec.height - legendStripH;
 
-  const room = alignedRoom(aligned);
-  const labelRoom = hasLabels ? longestLabelPx(root) : 8;
+  // Per-figure overlay-column gap (the advisor's spacing lever); absent = default.
+  const columnGap = spec.columnGap ?? PANEL_GAP;
+  const room = alignedRoom(aligned, columnGap);
+  // Tilted tip labels project a narrower horizontal footprint (labelW * cos), so
+  // they reserve less right-edge room; 0 tilt keeps the full horizontal reserve.
+  const labelTilt = clampTilt(Number(labelsPanel?.options?.tilt) || 0);
+  const labelTiltCos = Math.cos((Math.abs(labelTilt) * Math.PI) / 180);
+  const labelReserve = hasLabels
+    ? Math.max(12, longestLabelPx(root) * labelTiltCos)
+    : 8;
+  const labelRoom = labelReserve;
 
   const opts: LayoutOptions = {
     width: plotWidth,
-    height: spec.height,
+    height: layoutHeight,
     rightInset:
       isCircular(spec.layout) ? 0 : room + labelRoom + 8,
     padding: 16,
     phylogram: spec.phylogram,
     circularRingRoom: isCircular(spec.layout) ? room + 4 : 0,
+    // Reserve only the label room the figure draws (labelRoom is ~8 when labels are
+    // off), so a label-less circular tree gets that radius back for the tree.
+    circularLabelRoom: isCircular(spec.layout) ? labelRoom : undefined,
     sweepDegrees: sweepFor(spec.layout),
+    circularGutter: gutter,
   };
 
   const parts: string[] = [];
   let axis: TipAxis;
   let panelStart: number; // x cursor (rect) / radius cursor (circular)
+  // The circular layout's center/radius, hoisted so the post-loop callout pass can
+  // place leaders + labels relative to the circle (only used in gutter mode).
+  let circLayout: ReturnType<typeof layoutCircular> | null = null;
 
   if (isCircular(spec.layout)) {
     const layout = layoutCircular(root, opts);
+    circLayout = layout;
     drawCircularTree(parts, root, layout, spec, panels, collapsed);
     axis = circularTipAxis(root, layout, layout.radius + 6);
     panelStart = axis.ringStartR;
@@ -615,10 +714,43 @@ function renderFromPanels(
     panelStart = Math.max(axis.panelStartX, decorRight + 10);
   }
 
+  // Layout-manifest emission (collision-aware advisor). v1 covers the rectangular
+  // path, where crowding was reported; the y-extent of the tip band is shared by
+  // every panel column + the labels.
+  const wantManifest = !!outManifest && !isCircular(spec.layout);
+  const tipYs = axis.tips.map((t) => t.y);
+  const tipTop = tipYs.length ? Math.min(...tipYs) : 0;
+  const tipBot = tipYs.length ? Math.max(...tipYs) : spec.height;
+  const bandPad = axis.bandHeight / 2;
+  const colY = tipTop - bandPad;
+  const colH = tipBot - tipTop + axis.bandHeight;
+
   // Draw each aligned panel in order, advancing the cursor by its thickness plus
   // a spacing gap so stacked rings / columns stay visually distinct. A small panel
   // title sits above each panel (rectangular) so a reader knows what each column /
-  // ring is, the multi-panel readability fix.
+  // ring is, the multi-panel readability fix. In gutter mode the circular titles
+  // are not drawn inline; their (name, radius band) is collected here and rendered
+  // as pulled-out callouts after the loop.
+  const callouts: { title: string; rInner: number; rOuter: number }[] = [];
+  const recordCallout = (panel: AlignedPanel, rInner: number, thick: number) => {
+    // A multi-column panel (e.g. a heat panel over FCZ / AMB / MCF) draws one
+    // ring per column, so give each ring its own callout at its sub-band, matching
+    // the per-track names in Grant's sketch. Single-column / msa panels get one.
+    const cols = panel.columns;
+    if (cols && cols.length > 1) {
+      cols.forEach((col, i) => {
+        if (!col) return;
+        callouts.push({
+          title: col,
+          rInner: rInner + (i / cols.length) * thick,
+          rOuter: rInner + ((i + 1) / cols.length) * thick,
+        });
+      });
+      return;
+    }
+    const title = panelTitleText(panel, spec);
+    if (title) callouts.push({ title, rInner, rOuter: rInner + thick });
+  };
   let cursor = panelStart;
   for (const panel of aligned) {
     const localAxis: TipAxis =
@@ -630,9 +762,20 @@ function renderFromPanels(
     if (panel.kind === "datahubPlot") {
       const drawn = renderDatahubPanel(panel, localAxis, spec);
       if (drawn) {
-        parts.push(panelTitle(panel, localAxis, spec, root, meta));
+        if (gutter) recordCallout(panel, cursor, drawn.thickness);
+        else parts.push(panelTitle(panel, localAxis, spec, root, meta));
         parts.push(drawn.svg);
-        cursor += drawn.thickness + PANEL_GAP;
+        if (wantManifest)
+          outManifest!.push({
+            id: panel.id,
+            kind: "panel",
+            x: cursor,
+            y: colY,
+            w: drawn.thickness,
+            h: colH,
+            label: panelTitleText(panel, spec) || undefined,
+          });
+        cursor += drawn.thickness + columnGap;
       }
       continue;
     }
@@ -651,22 +794,84 @@ function renderFromPanels(
     const scales = buildPanelScales(panel, root, meta, spec.categoryColors);
     const r = renderPanel(panel, localAxis, values, scales);
     if (r.thickness > 0) {
-      parts.push(panelTitle(panel, localAxis, spec, root, meta));
+      if (gutter) recordCallout(panel, cursor, r.thickness);
+      else parts.push(panelTitle(panel, localAxis, spec, root, meta));
       parts.push(r.svg);
-      cursor += r.thickness + PANEL_GAP;
+      if (wantManifest)
+        outManifest!.push({
+          id: panel.id,
+          kind: "panel",
+          x: cursor,
+          y: colY,
+          w: r.thickness,
+          h: colH,
+          label: panelTitleText(panel, spec) || undefined,
+        });
+      cursor += r.thickness + columnGap;
     }
   }
 
   // Tip labels (outermost), drawn past the last panel.
   if (labelsPanel) {
     drawLabels(parts, root, axis, spec, cursor, labelsPanel);
+    if (wantManifest) {
+      // The tip-label box is the ACTUAL oriented label ink: its natural horizontal
+      // rectangle (width = the tip name's drawn width, height = the font size) plus
+      // the tilt as a real rotation about the label's baseline anchor. The crowding
+      // detector tests the true oriented rectangles (SAT), so BOTH reversible label
+      // fixes measurably help: shrinking the font shrinks the box, and tilting turns
+      // the labels into parallel diagonal strips that genuinely stop colliding. (The
+      // old model spanned the full row band, so crowding was over-reported and no
+      // reversible fix could ever clear it.)
+      const labelFs = Number(labelsPanel.options?.fontSize) || 11;
+      const nameById = new Map(leaves(root).map((l) => [l.id, l.name]));
+      for (const t of axis.tips) {
+        const name = nameById.get(t.id) ?? "";
+        outManifest!.push({
+          id: `tipLabel:${t.id}`,
+          kind: "tipLabel",
+          x: cursor,
+          y: t.y - labelFs / 2,
+          w: Math.max(2, name.length * labelFs * 0.6),
+          h: labelFs,
+          angle: labelTilt || undefined,
+          label: name || undefined,
+        });
+      }
+    }
+  }
+
+  // Pulled-out per-track callouts (gutter mode): each ring's name in the right
+  // margin, connected to the ring by a thin leader through the fan's open gap. The
+  // circle was left-anchored, so the band right of the left square is free for them
+  // (and the single-column legend sits at the far right).
+  if (gutter && circLayout && callouts.length > 0) {
+    parts.push(
+      drawCircularCallouts(callouts, circLayout, layoutHeight, plotWidth, spec),
+    );
   }
 
   // Scale bar (rectangular phylogram only) is drawn inside drawRectTree.
   const legend =
-    legendItems.length > 0
-      ? renderPanelLegendColumn(legendItems, plotWidth, spec.height, legendCols)
-      : "";
+    legendItems.length === 0
+      ? ""
+      : legendBottom
+        ? renderPanelLegendRow(legendItems, spec.width, layoutHeight, legendStripH)
+        : renderPanelLegendColumn(legendItems, plotWidth, spec.height, legendCols);
+  if (wantManifest && legendItems.length > 0)
+    outManifest!.push({
+      id: "legend",
+      kind: "legend",
+      // Bottom strip spans the full width below the figure; right column sits past
+      // the plot. The right column's ink starts at plotWidth + 12 (the 12px reserved
+      // gap is NOT legend territory), so anchor the box there - otherwise tip labels
+      // sitting in the right margin falsely register as legend overlaps.
+      x: legendBottom ? 0 : plotWidth + 12,
+      y: legendBottom ? layoutHeight : 0,
+      w: legendBottom ? spec.width : legendW,
+      h: legendBottom ? legendStripH : spec.height,
+      label: `${legendItems.length} legend keys`,
+    });
 
   return svgDocument(spec.width, spec.height, parts.join(""), legend);
 }
@@ -719,6 +924,55 @@ function panelTitle(
   return `<text x="${lx}" y="${ly}" font-size="8.5" font-weight="600" fill="${MUTED}" text-anchor="middle">${esc(truncate(title, 18))}</text>`;
 }
 
+/**
+ * Pulled-out per-track callouts for a left-anchored circular tree (gutter mode).
+ * Each ring's name is stacked in the right margin and tied to its ring by a thin
+ * leader that exits through the fan's open gap at 3 o'clock — so "CLADE / FCZ /
+ * AMB / MCF" read straight off the figure instead of via the side legend (Grant's
+ * pulled-out sketch). The circle sits in the left height-sized square, so the band
+ * from there to the single-column legend is the callouts' room.
+ */
+function drawCircularCallouts(
+  callouts: { title: string; rInner: number; rOuter: number }[],
+  layout: { cx: number; cy: number; radius: number },
+  layoutHeight: number,
+  plotWidth: number,
+  spec: RenderSpec,
+): string {
+  const { cx, cy } = layout;
+  const outerMost = Math.max(...callouts.map((c) => c.rOuter));
+  // Text column: just past the left square, and clear of the outermost ring's ink.
+  // Hold it left of the legend column (plotWidth) so the two never collide.
+  const labelX = Math.min(
+    Math.max(layoutHeight + 14, cx + outerMost + 26),
+    plotWidth - 6,
+  );
+  const railX = labelX - 14; // the leaders' vertical knee, just left of the text
+  const gap = 15;
+  const stackH = (callouts.length - 1) * gap;
+  // Center the stack on the fan's open gap (3 o'clock = cy), clamped into canvas.
+  const topY = Math.min(
+    Math.max(cy - stackH / 2, 16),
+    layoutHeight - stackH - 12,
+  );
+  const parts: string[] = [];
+  callouts.forEach((c, i) => {
+    const labelY = topY + i * gap;
+    const rMid = (c.rInner + c.rOuter) / 2;
+    // Anchor on the ring at the open gap (cartesian angle 0 -> straight right).
+    const ax = cx + rMid;
+    const ay = cy;
+    // Elbow leader: ring anchor -> vertical rail at the label's row -> short tick.
+    parts.push(
+      `<circle cx="${ax.toFixed(1)}" cy="${ay.toFixed(1)}" r="1.6" fill="${MUTED}"/>`,
+      `<path d="M${ax.toFixed(1)} ${ay.toFixed(1)} L${railX.toFixed(1)} ${labelY.toFixed(1)} L${(labelX - 4).toFixed(1)} ${labelY.toFixed(1)}" fill="none" stroke="${MUTED}" stroke-width="0.75"/>`,
+      `<text x="${labelX.toFixed(1)}" y="${(labelY + 3).toFixed(1)}" font-size="9.5" font-weight="600" fill="${FG}">${esc(truncate(c.title, 16))}</text>`,
+    );
+  });
+  void spec;
+  return parts.join("");
+}
+
 /** The tip-marker shapes a points layer can map a categorical column onto
  *  (ggtree aes(shape = ...)). Order is the assignment order per distinct value. */
 type TipShape = "circle" | "square" | "triangle" | "diamond";
@@ -756,12 +1010,17 @@ function pointStyling(
   spec: RenderSpec,
   root: TreeNode,
   baseR: number,
+  /** Upper bound on the marker radius, from the per-tip spacing, so dense trees
+   *  draw distinct dots instead of one merged blob. Defaults to no cap. */
+  maxR: number = Infinity,
 ): { radiusFor: (id: number) => number; shapeFor: (id: number) => TipShape } {
   const opts = panel.options ?? {};
   const sizeCol = typeof opts.sizeColumn === "string" ? opts.sizeColumn : "";
   const shapeCol = typeof opts.shapeColumn === "string" ? opts.shapeColumn : "";
   const meta = spec.metadata;
-  let radiusFor = (_id: number) => baseR;
+  // Clamp every marker to the spacing cap (and a small floor so it never vanishes).
+  const clamp = (r: number) => Math.max(0.8, Math.min(r, maxR));
+  let radiusFor = (_id: number) => clamp(baseR);
   if (sizeCol && meta) {
     const vals: number[] = [];
     for (const tip of leaves(root)) {
@@ -773,8 +1032,8 @@ function pointStyling(
       const span = Math.max(...vals) - mn || 1;
       radiusFor = (id: number) => {
         const v = Number(meta.get(id)?.[sizeCol]);
-        if (!Number.isFinite(v)) return baseR * 0.7;
-        return 2.5 + ((v - mn) / span) * 5;
+        if (!Number.isFinite(v)) return clamp(baseR * 0.7);
+        return clamp(2.5 + ((v - mn) / span) * 5);
       };
     }
   }
@@ -791,6 +1050,34 @@ function pointStyling(
     };
   }
   return { radiusFor, shapeFor };
+}
+
+/** The smallest distance between two adjacent tip markers (in tip order). A dense
+ *  tree caps its dot radius to ~half of this so the markers stay distinct instead
+ *  of merging into one blob. Layout-agnostic (Euclidean): an arc gap for circular,
+ *  a band gap for rectangular. Infinity when there are fewer than two tips. */
+function tipMarkerSpacing(
+  root: TreeNode,
+  byId: ReadonlyMap<number, { x: number; y: number }>,
+): number {
+  const tips = leaves(root);
+  let min = Infinity;
+  for (let i = 1; i < tips.length; i++) {
+    const a = byId.get(tips[i - 1].id);
+    const b = byId.get(tips[i].id);
+    if (a && b) min = Math.min(min, Math.hypot(a.x - b.x, a.y - b.y));
+  }
+  return min;
+}
+
+/** Left x of a clade highlight band: the MIDDLE of the clade MRCA's stem branch
+ *  (conventional ggtree geom_hilight anchor), so the band hugs the clade from its
+ *  branching point. The root clade has no stem (parentX null), so it falls back to
+ *  the tree-base inset. Never left of x=12. */
+function cladeRootLeft(cladeRoot: { x: number; parentX: number | null }): number {
+  const stemMid =
+    cladeRoot.parentX === null ? 12 : (cladeRoot.parentX + cladeRoot.x) / 2;
+  return Math.max(12, stemMid);
 }
 
 /** Draw the rectangular tree spine + clade + support + points. Returns `plotRight`
@@ -841,12 +1128,17 @@ function drawRectTree(
     } else {
       const y0 = Math.min(...ys) - 12;
       const y1 = Math.max(...ys) + 12;
+      // Anchor the highlight's left edge at the MIDDLE of the clade MRCA's stem
+      // branch (conventional geom_hilight placement), so the band hugs the clade
+      // from its branching point rather than running to the tree base. The root
+      // clade has no stem branch, so it falls back to the tree-base inset.
+      const xLeft = cladeRootLeft(cladeRoot);
       parts.push(
-        `<rect x="12" y="${y0}" width="${plotRight + 6 - 12}" height="${y1 - y0}" rx="6" fill="${hl.color}" opacity="0.10"/>`,
+        `<rect x="${xLeft.toFixed(1)}" y="${y0}" width="${(plotRight + 6 - xLeft).toFixed(1)}" height="${y1 - y0}" rx="6" fill="${hl.color}" opacity="0.10"/>`,
       );
       if (hl.label) {
         parts.push(
-          `<text x="16" y="${y0 + 12}" font-size="10" font-weight="700" fill="${hl.color}">${esc(hl.label)}</text>`,
+          `<text x="${(xLeft + 4).toFixed(1)}" y="${y0 + 12}" font-size="10" font-weight="700" fill="${hl.color}">${esc(hl.label)}</text>`,
         );
       }
     }
@@ -940,7 +1232,13 @@ function drawRectTree(
             categoryColors: spec.categoryColors,
           })
         : null;
-    const { radiusFor, shapeFor } = pointStyling(pointsPanel, spec, root, 4);
+    const { radiusFor, shapeFor } = pointStyling(
+      pointsPanel,
+      spec,
+      root,
+      4,
+      tipMarkerSpacing(root, byId) * 0.45,
+    );
     for (const tip of leaves(root)) {
       if (collapsed.has(tip.id)) continue; // a collapsed clade shows a triangle
       const p = byId.get(tip.id)!;
@@ -1190,7 +1488,13 @@ function drawCircularTree(
             categoryColors: spec.categoryColors,
           })
         : null;
-    const { radiusFor, shapeFor } = pointStyling(pointsPanel, spec, root, 3.5);
+    const { radiusFor, shapeFor } = pointStyling(
+      pointsPanel,
+      spec,
+      root,
+      3.5,
+      tipMarkerSpacing(root, byId) * 0.45,
+    );
     for (const tip of leaves(root)) {
       if (collapsed.has(tip.id)) continue; // a collapsed clade shows a wedge
       const p = byId.get(tip.id)!;
@@ -1304,21 +1608,27 @@ function drawLabels(
   if (axis.layout === "rectangular") {
     const fs = Number(opts.fontSize) || 11;
     const boxPad = boxed ? 3 : 0;
+    // Tilt (degrees): rotate each label around its anchor so long names need less
+    // vertical room and stop colliding (the advisor's "tilt tip labels" fix).
+    // 0 = horizontal (default, unchanged). Negative reads up-and-to-the-right.
+    const tilt = clampTilt(Number(opts.tilt) || 0);
     for (const slot of axis.tips) {
       const fill = fillFor(slot.id);
       const baseX = align ? cursor : slot.x;
       const tx = baseX + 4 + boxPad;
+      const ty = slot.y + fs * 0.36;
+      const spin = tilt ? ` transform="rotate(${tilt} ${tx.toFixed(1)} ${slot.y.toFixed(1)})"` : "";
       if (align && baseX - slot.x > 4) {
         parts.push(leader(slot.x, slot.y, baseX + 2, slot.y));
       }
       if (boxed) {
         const w = Math.max(8, slot.name.length * fs * 0.6) + 8;
         parts.push(
-          `<rect x="${(tx - 4).toFixed(1)}" y="${(slot.y - fs / 2 - 3).toFixed(1)}" width="${w.toFixed(1)}" height="${fs + 6}" rx="3" fill="#ffffff" stroke="${fill}" stroke-width="0.75"/>`,
+          `<rect x="${(tx - 4).toFixed(1)}" y="${(slot.y - fs / 2 - 3).toFixed(1)}" width="${w.toFixed(1)}" height="${fs + 6}" rx="3" fill="#ffffff" stroke="${fill}" stroke-width="0.75"${spin}/>`,
         );
       }
       parts.push(
-        `<text x="${tx.toFixed(1)}" y="${(slot.y + fs * 0.36).toFixed(1)}" font-size="${fs}"${styleAttr} fill="${fill}">${esc(slot.name)}</text>`,
+        `<text x="${tx.toFixed(1)}" y="${ty.toFixed(1)}" font-size="${fs}"${styleAttr} fill="${fill}"${spin}>${esc(slot.name)}</text>`,
       );
     }
   } else {
@@ -1426,7 +1736,26 @@ function collectPanelLegends(
       }
     }
   }
-  return out;
+  // Dedupe identical legend keys: one column bound to several geoms (e.g. MIC as
+  // BOTH a heat and a bar overlay, which the smart-binding multi-add can produce)
+  // otherwise draws the SAME colorbar two or three times, piling redundant keys
+  // over the tip labels (the crowded-overlay report, 2026-06-15). Collapse to one
+  // per distinct (column, representation) signature, keeping the first.
+  const seen = new Set<string>();
+  const deduped: LegendEntry[] = [];
+  for (const e of out) {
+    const sig = e.residue
+      ? `r:${e.residue}`
+      : e.valueScale
+        ? `v:${e.title}:${e.valueScale.lo}:${e.valueScale.hi}`
+        : e.scale
+          ? `s:${e.title}:${e.scale.kind}:${(e.scale.categories ?? []).join(",")}`
+          : `t:${e.title}`;
+    if (seen.has(sig)) continue;
+    seen.add(sig);
+    deduped.push(e);
+  }
+  return deduped;
 }
 
 /** A single legend entry's markup + the height it consumed, at (x, y). The msa
@@ -1532,6 +1861,54 @@ function renderPanelLegendColumn(
     parts.push(r.svg);
     y += r.height;
   }
+  return parts.join("");
+}
+
+/** How many legend entries fit across the width in one bottom-strip row. */
+function legendPerRow(width: number): number {
+  return Math.max(1, Math.floor((width - 24) / LEGEND_COL_WIDTH));
+}
+
+/** Height (px) a bottom legend strip needs to hold all entries, wrapped across
+ *  the width. The row height is the tallest single legend (capped), so a tall
+ *  categorical key does not clip. */
+function bottomLegendStripHeight(
+  entries: LegendEntry[],
+  width: number,
+): number {
+  if (entries.length === 0) return 0;
+  const perRow = legendPerRow(width);
+  const rows = Math.ceil(entries.length / perRow);
+  const rowH = Math.min(
+    96,
+    Math.max(...entries.map((e) => estimateLegendHeight(e))),
+  );
+  return rows * rowH + 12;
+}
+
+/**
+ * Render the legends in a horizontal strip below the figure (placement "bottom"),
+ * wrapping left-to-right across the width into stacked rows. Frees the right edge
+ * entirely, the cure when the right legend column overran the labels. Each entry
+ * occupies one LEGEND_COL_WIDTH slot, the same renderer as the right column.
+ */
+function renderPanelLegendRow(
+  entries: LegendEntry[],
+  width: number,
+  stripTop: number,
+  stripH: number,
+): string {
+  const perRow = legendPerRow(width);
+  const rows = Math.max(1, Math.ceil(entries.length / perRow));
+  const rowH = stripH > 0 ? (stripH - 8) / rows : 0;
+  const maxY = stripTop + stripH;
+  const parts: string[] = [];
+  entries.forEach((entry, i) => {
+    const x = 12 + (i % perRow) * LEGEND_COL_WIDTH;
+    const y = stripTop + 6 + Math.floor(i / perRow) * rowH;
+    const r = renderOneLegend(entry, x, y, maxY);
+    if (r.height > 0) parts.push(r.svg);
+  });
   return parts.join("");
 }
 
@@ -1830,9 +2207,12 @@ function renderRectangular(
       if (cl.length > 0) {
         const y0 = Math.min(...cl.map((c) => c.y)) - 12;
         const y1 = Math.max(...cl.map((c) => c.y)) + 12;
+        // Left edge at the middle of the clade MRCA's stem branch (see the
+        // multi-clade path above), not the tree base.
+        const xLeft = cladeRootLeft(cladeRoot);
         parts.push(
-          `<rect x="12" y="${y0}" width="${plotRight + 6 - 12}" height="${y1 - y0}" rx="6" fill="${spec.cladeHighlight.color}" opacity="0.10"/>`,
-          `<text x="16" y="${y0 + 12}" font-size="10" font-weight="700" fill="${spec.cladeHighlight.color}">${esc(spec.cladeHighlight.label)}</text>`,
+          `<rect x="${xLeft.toFixed(1)}" y="${y0}" width="${(plotRight + 6 - xLeft).toFixed(1)}" height="${y1 - y0}" rx="6" fill="${spec.cladeHighlight.color}" opacity="0.10"/>`,
+          `<text x="${(xLeft + 4).toFixed(1)}" y="${y0 + 12}" font-size="10" font-weight="700" fill="${spec.cladeHighlight.color}">${esc(spec.cladeHighlight.label)}</text>`,
         );
       }
     }
@@ -1994,8 +2374,11 @@ function niceTick(maxDepth: number): number {
 // Ring track radial thicknesses (circular layout), kept modest so several rings
 // fit inside the canvas without overrunning the labels.
 const RING_GAP = 6; // gap from the tip radius to the first ring
-const STRIP_RING = 8;
-const HEAT_RING = 10;
+// Metadata color-wheel ring thicknesses. Kept thin so the rings read as a
+// secondary outer band and the tree stays the main object (both the radius
+// reservation in circularRingRoom and the drawn ink use these, so they agree).
+const STRIP_RING = 5;
+const HEAT_RING = 6;
 const BAR_RING = 30; // max radial length of a bar in the bar ring
 
 function renderCircular(

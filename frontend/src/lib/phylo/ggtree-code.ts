@@ -395,8 +395,12 @@ function generateFromPanels(spec: RenderSpec, panels: AlignedPanel[]): string {
         const size = Number(lo.fontSize)
           ? (Number(lo.fontSize) / 3.7).toFixed(1)
           : "3";
+        // Tilt maps to geom_tiplab(angle=); ggtree's angle is counter-clockwise,
+        // so a positive label tilt (clockwise in SVG) negates.
+        const tiltDeg = Number(lo.tilt) || 0;
+        const angleArg = tiltDeg ? `angle = ${-tiltDeg}, ` : "";
         lines.push(
-          `p <- p + geom_tiplab(${geomArg}${colorArg}${face}size = ${size})`,
+          `p <- p + geom_tiplab(${angleArg}${geomArg}${colorArg}${face}size = ${size})`,
         );
         break;
       }

@@ -2106,7 +2106,7 @@ export default function LiveMarkdownEditor({
               surface is now the sole editor ("Edit"); Hybrid was retired from
               the UI (its code stays as a dormant fallback). The Edit pill maps
               to the "inline" EditorMode. */}
-          <div className="flex items-center bg-surface-sunken/70 rounded-lg p-0.5">
+          <div className="flex items-center bg-surface-sunken rounded-lg p-0.5 border border-border ros-seg-track">
             <Tooltip
               label="Write in a single live editing surface"
               placement="bottom"
@@ -2118,7 +2118,7 @@ export default function LiveMarkdownEditor({
                 disabled={disabled}
                 className={`px-2.5 py-1 text-meta rounded-md transition-colors ${
                   currentMode !== "preview"
-                    ? "bg-surface-raised text-foreground font-medium shadow-sm"
+                    ? "bg-surface-raised text-foreground font-medium ros-seg-active"
                     : "text-foreground-muted hover:text-foreground"
                 } disabled:opacity-50`}
               >
@@ -2132,7 +2132,7 @@ export default function LiveMarkdownEditor({
                 disabled={disabled}
                 className={`px-2.5 py-1 text-meta rounded-md transition-colors ${
                   currentMode === "preview"
-                    ? "bg-surface-raised text-foreground font-medium shadow-sm"
+                    ? "bg-surface-raised text-foreground font-medium ros-seg-active"
                     : "text-foreground-muted hover:text-foreground"
                 } disabled:opacity-50`}
               >
@@ -2141,10 +2141,13 @@ export default function LiveMarkdownEditor({
             </Tooltip>
           </div>
 
-          {/* Quiet divider between the primary toggle and the contextual icons. */}
+          {/* Quiet divider between the primary toggle and the contextual icons.
+              Only at fullscreen (the centered pill clusters its glyphs); docked,
+              the ＋ / "/" insert group is pushed to the far RIGHT (ml-auto below),
+              so a left-side divider would orphan next to the segments. */}
           <div
             aria-hidden="true"
-            className="w-px h-4 bg-border mx-0.5"
+            className={`w-px h-4 bg-border mx-0.5 ${expanded ? "" : "hidden"}`}
           />
 
           {/* ＋ Insert overflow menu. Collapses the four secondary insert
@@ -2153,7 +2156,11 @@ export default function LiveMarkdownEditor({
               its EXACT original handler + behavior; only the presentation moved
               from inline buttons into this menu. Outside-click / Escape close it
               (wired via the insertMenuOpen effect above). */}
-          <div className="relative" ref={insertMenuRef}>
+          {/* Docked: push the ＋ insert control + the "/ to insert" hint to the
+              far RIGHT so they stop crowding the already-busy left (the segmented
+              Edit|Preview toggle). At fullscreen the centered pill keeps them
+              inline. */}
+          <div className={`relative ${expanded ? "" : "ml-auto"}`} ref={insertMenuRef}>
             <Tooltip label="Insert" placement="bottom">
               <button
                 type="button"
@@ -2164,8 +2171,8 @@ export default function LiveMarkdownEditor({
                 disabled={disabled}
                 className={`p-1.5 rounded-lg transition-colors disabled:opacity-50 ${
                   insertMenuOpen
-                    ? "bg-brand-action/12 text-brand-action"
-                    : "text-foreground-muted hover:bg-foreground-muted/15 hover:text-foreground"
+                    ? "bg-brand-action/12 text-brand-action border border-brand-action/30"
+                    : "ros-btn-neutral"
                 }`}
               >
                 <Icon name="plus" className="w-4 h-4" />
@@ -2174,7 +2181,7 @@ export default function LiveMarkdownEditor({
             {insertMenuOpen && (
               <div
                 role="menu"
-                className="absolute left-0 top-full mt-1 z-30 min-w-[11rem] py-1 rounded-lg border border-border bg-surface-overlay shadow-lg"
+                className={`absolute top-full mt-1 z-30 min-w-[11rem] py-1 rounded-lg border border-border bg-surface-overlay shadow-lg ${expanded ? "left-0" : "right-0"}`}
               >
                 {/* Add File / Add Image */}
                 <button

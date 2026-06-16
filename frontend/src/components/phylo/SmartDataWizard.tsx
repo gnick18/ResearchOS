@@ -439,7 +439,15 @@ function GeomStep({
   }
   return (
     <div className="space-y-3.5">
-      {overlays.map((o) => (
+      {overlays.map((o) => {
+        // Prevent-at-add-time (Grant 2026-06-15): default is one overlay per
+        // column (the recommended geom is pre-checked); picking a 2nd geom for the
+        // SAME column draws the same data twice and crowds the figure (the MIC
+        // heat+bars report), so warn - but never hard-block (no soft-lock).
+        const selCount = o.geoms.filter((g) =>
+          picks.has(selKey(o.columnId, g)),
+        ).length;
+        return (
         <div key={o.columnId}>
           <div className="text-xs font-semibold text-foreground mb-1.5">
             {o.columnName}
@@ -478,8 +486,16 @@ function GeomStep({
               );
             })}
           </div>
+          {selCount > 1 && (
+            <p className="mt-1.5 text-[11px] text-amber-600">
+              {o.columnName} will be added as {selCount} overlays. One geom is
+              usually enough; multiple draw the same data on top of each other and
+              crowd the figure.
+            </p>
+          )}
         </div>
-      ))}
+        );
+      })}
     </div>
   );
 }

@@ -1,3 +1,5 @@
+import { SOCIAL_LAYER_ENABLED } from "@/lib/social/config";
+
 export interface NavItem {
   href: string;
   label: string;
@@ -18,6 +20,20 @@ export const NAV_ITEMS: NavItem[] = [
   { href: "/datahub", label: "Data Hub" },
   { href: "/phylo", label: "Phylogenetics" },
   { href: "/figures", label: "Figures" },
+  // /library (the open scientific-asset / icon library that feeds the Figure
+  // composer). A shared resource, not a per-user workspace, so it is NOT in the
+  // default inline set (DEFAULT_INLINE_HREFS) — it lands in the More overflow by
+  // default. Gated visible in AppShell on ASSET_LIBRARY_ENABLED, like Figures.
+  { href: "/library", label: "Icon Library" },
+  // /network (the public researcher-network discovery hub). Like /library it is
+  // a public, shared discovery surface, not a per-user workspace, so it lands in
+  // the More overflow. Unlike /library the route 404s when the social layer is
+  // off, so the tab is added ONLY when SOCIAL_LAYER_ENABLED (a conditional
+  // entry, not just a visibility filter) and it must stay in the wiki-coverage
+  // EXCLUDED_PREFIXES.
+  ...(SOCIAL_LAYER_ENABLED
+    ? [{ href: "/network", label: "Researcher Network" }]
+    : []),
   { href: "/inventory", label: "Inventory" },
   { href: "/purchases", label: "Purchases" },
   { href: "/calendar", label: "Calendar" },

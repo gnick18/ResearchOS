@@ -15,6 +15,21 @@ export function isSharingEnabled(): boolean {
 }
 
 /**
+ * SECOND gate for the PUBLIC, unauthenticated social-layer surface (the public
+ * researcher search that powers the /network hub). Kept SEPARATE from
+ * isSharingEnabled on purpose: sharing is already on in prod, and the
+ * NEXT_PUBLIC_SOCIAL_LAYER client flag only hides the /network UI, not an API
+ * route. Without this server-side gate a public-search endpoint would go live
+ * the moment it deploys, making every directory profile enumerable before any
+ * opt-out toggle ships. The public search route requires BOTH this AND
+ * isSharingEnabled, so it stays dark until SOCIAL_LAYER_ENABLED is deliberately
+ * flipped. Matches the exact-string-"true" convention of isSharingEnabled.
+ */
+export function isSocialLayerEnabled(): boolean {
+  return process.env.SOCIAL_LAYER_ENABLED === "true";
+}
+
+/**
  * Returns the server HMAC pepper, the secret keyed into every email hash. Throws
  * a clear error if it is missing so a misconfigured deployment fails loudly at
  * request time rather than silently hashing under an empty key (which would make

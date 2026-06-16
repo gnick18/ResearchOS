@@ -238,7 +238,12 @@ export function SequenceOperationsRail({
               text={contextBar.text}
             />
           ) : null}
-          <div className="min-h-0 flex-1 overflow-auto p-3.5">{active.panel}</div>
+          {/* pb clears the global BeakerSearch bottom-center ask bar (AppShell's
+              BeakerSearchBottomBar, fixed bottom-5 ≈ 64px tall). Without it the
+              last inspector control (e.g. Shape → Tree's "Rotate this clade")
+              scrolls under the floating bar at short viewport heights and a
+              click lands on the bar instead of the button. */}
+          <div className="min-h-0 flex-1 overflow-auto px-3.5 pt-3.5 pb-24">{active.panel}</div>
         </div>
       ) : null}
 

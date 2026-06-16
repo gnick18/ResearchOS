@@ -144,6 +144,34 @@ export const dataHubApi = {
       .sort(sortByName);
   },
 
+  /** List documents that belong to NO project (the "Unfiled" collection). The
+   *  unfiled counterpart of listByProject, so an unfiled tree can find unfiled
+   *  tables to overlay (smart-binding scope). */
+  async listUnfiled(): Promise<DataHubDocument[]> {
+    const mirrors = await listAllMirrors();
+    return mirrors
+      .map(toDocument)
+      .filter((d) => d.project_ids.length === 0)
+      .sort(sortByName);
+  },
+
+  /**
+   * List the tables in a tree's collection SCOPE, deduped by id. When projectIds
+   * is non-empty the scope is the union across those projects; when it is empty
+   * the scope is the Unfiled collection (so an unfiled tree joins unfiled tables).
+   * This is the single "same collection" rule both smart-binding front doors use
+   * (the /phylo scan effect and the BeakerBot suggest_tree_overlays tool).
+   */
+  async listForScope(projectIds: string[]): Promise<DataHubDocument[]> {
+    if (projectIds.length === 0) return this.listUnfiled();
+    const seen = new Map<string, DataHubDocument>();
+    for (const pid of projectIds) {
+      for (const d of await this.listByProject(pid))
+        if (!seen.has(d.id)) seen.set(d.id, d);
+    }
+    return [...seen.values()].sort(sortByName);
+  },
+
   /** Get one document's metadata by id (null when not found). */
   async get(id: string): Promise<DataHubDocument | null> {
     const found = await findById(id);

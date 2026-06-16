@@ -274,7 +274,7 @@ export default function DatasetExportDialog({
           <button
             type="button"
             onClick={onClose}
-            className="rounded-md border border-border px-3 py-1.5 text-meta font-medium text-foreground transition-colors hover:bg-surface-sunken"
+            className="ros-btn-neutral px-3 py-1.5 text-meta font-medium text-foreground"
           >
             Cancel
           </button>

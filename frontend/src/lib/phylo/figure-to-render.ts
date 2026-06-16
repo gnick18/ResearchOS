@@ -52,6 +52,12 @@ export interface FigureInputs {
   /** Draw a full-width time axis (age before present) instead of the scale bar
    *  (default off). */
   timeAxis?: boolean;
+  /** Per-figure gap (px) between overlay columns; absent = the default PANEL_GAP.
+   *  The collision advisor's "increase column spacing" lever. */
+  columnGap?: number;
+  /** Legend placement: "right" (default) or "bottom". The advisor's "move the
+   *  legend" fix. */
+  legendPlacement?: "right" | "bottom";
   tracks: FigureTracks;
   categoryColumn?: string;
   barColumn?: string;
@@ -204,6 +210,16 @@ export function figureToRenderSpec(
     scaleBar: inputs.scaleBar,
     rootEdge: inputs.rootEdge,
     timeAxis: inputs.timeAxis,
+    columnGap: inputs.columnGap,
+    legendPlacement: inputs.legendPlacement,
+    // The radial layouts (circular / fan / inward-circular) get the "circle left,
+    // callouts right" treatment: the renderer left-anchors the circle and pulls each
+    // ring's name into the right gutter. Inert unless the canvas is widened (width >
+    // height), which the Studio does for these layouts.
+    circularGutter:
+      inputs.layout === "circular" ||
+      inputs.layout === "fan" ||
+      inputs.layout === "inwardCircular",
     tracks: inputs.tracks,
     columns: {
       category: inputs.categoryColumn || undefined,
@@ -241,6 +257,10 @@ interface StoredFigure {
   rootEdge?: boolean;
   /** Time-axis toggle (optional, additive, defaults off). */
   timeAxis?: boolean;
+  /** Per-figure overlay-column gap in px (optional, additive, defaults PANEL_GAP). */
+  columnGap?: number;
+  /** Legend placement "right" | "bottom" (optional, additive, defaults right). */
+  legendPlacement?: "right" | "bottom";
   tracks?: Record<string, boolean>;
   /** Per-track sequential-palette overrides (Phase 0, optional). */
   scales?: FigureScales;
@@ -283,6 +303,8 @@ export function figureInputsFromStored(
   const scaleBar = figure?.scaleBar;
   const rootEdge = figure?.rootEdge;
   const timeAxis = figure?.timeAxis;
+  const columnGap = figure?.columnGap;
+  const legendPlacement = figure?.legendPlacement;
   const tracks: FigureTracks = {
     ...DEFAULT_FIGURE_TRACKS,
     ...((figure?.tracks ?? {}) as Partial<FigureTracks>),
@@ -300,6 +322,8 @@ export function figureInputsFromStored(
       scaleBar,
       rootEdge,
       timeAxis,
+      columnGap,
+      legendPlacement,
       tracks,
       metaRows: null,
       scales,
@@ -315,6 +339,8 @@ export function figureInputsFromStored(
     scaleBar,
     rootEdge,
     timeAxis,
+    columnGap,
+    legendPlacement,
     tracks,
     metaRows: metadata.rows,
     tipColumn: metadata.tipColumn || cols[0] || "",

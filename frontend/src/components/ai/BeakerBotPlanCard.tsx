@@ -117,7 +117,7 @@ export default function BeakerBotPlanCard({
             type="button"
             data-testid="beakerbot-plan-cancel"
             onClick={onDismiss}
-            className="rounded-md border border-border px-3 py-1.5 text-meta text-foreground-muted transition-colors hover:bg-surface-sunken"
+            className="ros-btn-neutral px-3 py-1.5 text-meta text-foreground-muted"
           >
             Cancel the rest
           </button>

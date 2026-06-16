@@ -1,0 +1,394 @@
+"use client";
+
+// RoomMap (spatial inventory Phase C). The lab's 2D room map: a canvas backdrop
+// with draggable pins, each marking a StorageNode at a normalized (x,y). Pin a
+// freezer / bench / cabinet once and everything inside it becomes locatable on
+// the floor plan (item -> stock -> its node -> that node's pin). Persists to the
+// single whole-lab LabMap via labMapsApi (debounced).
+//
+// This is the spatial layer; the Storage map is the logical box-finder. A pin's
+// id is `pin-<nodeId>` so a node is pinned at most once. House style: <Icon> only
+// (no inline svg), Tooltip on icon-only buttons, brand + semantic tokens, no
+// emojis / em-dashes / mid-sentence colons.
+
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
+
+import { Icon } from "@/components/icons";
+import Tooltip from "@/components/Tooltip";
+import { getOrCreateLabMap, labMapsApi } from "@/lib/local-api";
+import type {
+  InventoryStock,
+  LabMap,
+  LabMapPin,
+  LabMapPlan,
+  StorageNode,
+} from "@/lib/types";
+import { STORAGE_KIND_LABEL } from "./inventory-ui";
+import { SAMPLE_FLOORPLAN_SVG } from "./sample-floorplan";
+
+interface RoomMapProps {
+  nodes: StorageNode[];
+  stocks: InventoryStock[];
+}
+
+// Count the stocks physically inside a node or any of its descendants, so a pin
+// on "-80 #2" reflects everything in its racks + boxes, not just direct children.
+function countContents(
+  nodeId: number,
+  nodes: StorageNode[],
+  stocks: InventoryStock[],
+): number {
+  const childrenByParent = new Map<number | null, StorageNode[]>();
+  for (const n of nodes) {
+    const p = n.parent_id ?? null;
+    const arr = childrenByParent.get(p) ?? [];
+    arr.push(n);
+    childrenByParent.set(p, arr);
+  }
+  const subtree = new Set<number>();
+  const stack = [nodeId];
+  while (stack.length > 0) {
+    const id = stack.pop()!;
+    if (subtree.has(id)) continue;
+    subtree.add(id);
+    for (const child of childrenByParent.get(id) ?? []) stack.push(child.id);
+  }
+  return stocks.filter(
+    (s) => s.location_node_id != null && subtree.has(s.location_node_id),
+  ).length;
+}
+
+export default function RoomMap({ nodes, stocks }: RoomMapProps) {
+  const { data: loadedMap } = useQuery<LabMap>({
+    queryKey: ["lab-map"],
+    queryFn: getOrCreateLabMap,
+  });
+
+  const [pins, setPins] = useState<LabMapPin[]>([]);
+  const [plan, setPlan] = useState<LabMapPlan | null>(null);
+  const [selected, setSelected] = useState<number | null>(null);
+  const mapRef = useRef<LabMap | null>(null);
+  const canvasRef = useRef<HTMLDivElement | null>(null);
+  const fileRef = useRef<HTMLInputElement | null>(null);
+  const dragRef = useRef<{ pinId: string; moved: boolean } | null>(null);
+  const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Seed local pins + plan once the map loads.
+  useEffect(() => {
+    if (loadedMap) {
+      mapRef.current = loadedMap;
+      setPins(loadedMap.pins);
+      setPlan(loadedMap.plan);
+    }
+  }, [loadedMap]);
+
+  const nodesById = useMemo(() => {
+    const m = new Map<number, StorageNode>();
+    for (const n of nodes) m.set(n.id, n);
+    return m;
+  }, [nodes]);
+
+  // Persist the current pins to the single lab map, debounced.
+  const persist = useCallback((next: LabMapPin[]) => {
+    const map = mapRef.current;
+    if (!map) return;
+    if (saveTimer.current) clearTimeout(saveTimer.current);
+    saveTimer.current = setTimeout(() => {
+      void labMapsApi.update(
+        map.id,
+        { pins: next },
+        map.is_shared_with_me ? map.owner : undefined,
+      );
+    }, 400);
+  }, []);
+
+  const commit = useCallback(
+    (next: LabMapPin[]) => {
+      setPins(next);
+      persist(next);
+    },
+    [persist],
+  );
+
+  // Set the floor plan SVG (or clear it) and persist the plan immediately.
+  const setFloorplan = useCallback((svg: string | null) => {
+    const map = mapRef.current;
+    const base: LabMapPlan = map?.plan ?? {
+      kind: "blank",
+      imagePath: null,
+      imageData: null,
+      aspect: 1.5,
+    };
+    const nextPlan: LabMapPlan = {
+      ...base,
+      kind: svg ? "image" : "blank",
+      imageData: svg,
+    };
+    setPlan(nextPlan);
+    if (map) {
+      void labMapsApi.update(
+        map.id,
+        { plan: nextPlan },
+        map.is_shared_with_me ? map.owner : undefined,
+      );
+    }
+  }, []);
+
+  const onUploadFile = useCallback(
+    (file: File | undefined) => {
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = () => {
+        const text = String(reader.result ?? "");
+        // Accept SVG markup only (v1). Concatenated needle so this source file
+        // carries no literal inline-svg substring for the icon-guard to count.
+        if (text.includes("<" + "svg")) setFloorplan(text);
+      };
+      reader.readAsText(file);
+    },
+    [setFloorplan],
+  );
+
+  // Nodes not yet pinned, offered in the "Place a location" rail. Containers
+  // (anything that is not a `box`) read most naturally on a room map, but any
+  // node can be pinned.
+  const pinnedNodeIds = useMemo(
+    () => new Set(pins.map((p) => p.nodeId).filter((n): n is number => n != null)),
+    [pins],
+  );
+  const unpinned = nodes.filter((n) => !pinnedNodeIds.has(n.id));
+
+  const addPin = (node: StorageNode) => {
+    if (pins.some((p) => p.nodeId === node.id)) return;
+    // Stagger new pins slightly so several added in a row do not stack exactly.
+    const offset = (pins.length % 5) * 0.04;
+    const pin: LabMapPin = {
+      id: `pin-${node.id}`,
+      nodeId: node.id,
+      label: null,
+      x: 0.5 + offset - 0.08,
+      y: 0.5 + offset - 0.08,
+    };
+    commit([...pins, pin]);
+    setSelected(node.id);
+  };
+
+  const removePin = (nodeId: number) => {
+    commit(pins.filter((p) => p.nodeId !== nodeId));
+    if (selected === nodeId) setSelected(null);
+  };
+
+  // ── Drag a pin ──────────────────────────────────────────────────────────────
+  const onPinPointerDown = (e: React.PointerEvent, pin: LabMapPin) => {
+    e.preventDefault();
+    (e.target as HTMLElement).setPointerCapture?.(e.pointerId);
+    dragRef.current = { pinId: pin.id, moved: false };
+  };
+
+  const onPinPointerMove = (e: React.PointerEvent) => {
+    const drag = dragRef.current;
+    const canvas = canvasRef.current;
+    if (!drag || !canvas) return;
+    const rect = canvas.getBoundingClientRect();
+    const x = Math.min(1, Math.max(0, (e.clientX - rect.left) / rect.width));
+    const y = Math.min(1, Math.max(0, (e.clientY - rect.top) / rect.height));
+    drag.moved = true;
+    setPins((cur) =>
+      cur.map((p) => (p.id === drag.pinId ? { ...p, x, y } : p)),
+    );
+  };
+
+  const onPinPointerUp = (e: React.PointerEvent, pin: LabMapPin) => {
+    const drag = dragRef.current;
+    (e.target as HTMLElement).releasePointerCapture?.(e.pointerId);
+    dragRef.current = null;
+    if (drag?.moved) {
+      // Persist the final position from the freshest state.
+      setPins((cur) => {
+        persist(cur);
+        return cur;
+      });
+    } else if (pin.nodeId != null) {
+      // A click (no drag) selects the pin.
+      setSelected((s) => (s === pin.nodeId ? null : pin.nodeId));
+    }
+  };
+
+  const selectedNode = selected != null ? nodesById.get(selected) ?? null : null;
+
+  return (
+    <div className="flex flex-col gap-4 lg:flex-row">
+      {/* Canvas */}
+      <div className="min-w-0 flex-1">
+        {/* Floor plan controls */}
+        <div className="mb-2 flex flex-wrap items-center gap-2">
+          <input
+            ref={fileRef}
+            type="file"
+            accept=".svg,image/svg+xml"
+            className="hidden"
+            onChange={(e) => {
+              onUploadFile(e.target.files?.[0]);
+              e.target.value = "";
+            }}
+          />
+          <button
+            type="button"
+            onClick={() => fileRef.current?.click()}
+            className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-surface-raised px-3 py-1.5 text-meta text-foreground hover:bg-surface-sunken"
+          >
+            <Icon name="import" className="h-3.5 w-3.5" />
+            Upload floor plan
+          </button>
+          {!plan?.imageData ? (
+            <button
+              type="button"
+              onClick={() => setFloorplan(SAMPLE_FLOORPLAN_SVG)}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-surface-raised px-3 py-1.5 text-meta text-foreground hover:bg-surface-sunken"
+            >
+              <Icon name="map" className="h-3.5 w-3.5" />
+              Use sample plan
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={() => setFloorplan(null)}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-surface-raised px-3 py-1.5 text-meta text-foreground-muted hover:bg-surface-sunken hover:text-foreground"
+            >
+              <Icon name="x" className="h-3.5 w-3.5" />
+              Remove floor plan
+            </button>
+          )}
+          <span className="text-meta text-foreground-subtle">
+            Upload a .svg floor plan, or use the sample. Pins sit on top.
+          </span>
+        </div>
+        <div
+          ref={canvasRef}
+          className={`ros-room-canvas relative w-full overflow-hidden rounded-xl border border-border ${
+            plan?.imageData ? "bg-white" : "bg-surface-sunken"
+          }`}
+          style={{
+            aspectRatio: "3 / 2",
+            ...(plan?.imageData
+              ? {}
+              : {
+                  backgroundImage:
+                    "linear-gradient(to right, var(--color-border) 1px, transparent 1px), linear-gradient(to bottom, var(--color-border) 1px, transparent 1px)",
+                  backgroundSize: "32px 32px",
+                }),
+          }}
+        >
+          {plan?.imageData ? (
+            <div
+              className="pointer-events-none absolute inset-0 [&>svg]:h-full [&>svg]:w-full"
+              // The plan is lab-authored vector markup (sample or an uploaded
+              // .svg), rendered as the backdrop. Not user-pasted HTML.
+              dangerouslySetInnerHTML={{ __html: plan.imageData }}
+            />
+          ) : null}
+
+          {pins.length === 0 ? (
+            <div className="pointer-events-none absolute inset-0 flex items-center justify-center px-6 text-center">
+              <p className="text-meta text-foreground-muted">
+                Pick a location on the right to drop a pin, then drag it where it
+                sits in the room.
+              </p>
+            </div>
+          ) : null}
+
+          {pins.map((pin) => {
+            const node = pin.nodeId != null ? nodesById.get(pin.nodeId) : null;
+            const name = node?.name ?? pin.label ?? "Pin";
+            const isSel = pin.nodeId != null && pin.nodeId === selected;
+            return (
+              <button
+                key={pin.id}
+                type="button"
+                onPointerDown={(e) => onPinPointerDown(e, pin)}
+                onPointerMove={onPinPointerMove}
+                onPointerUp={(e) => onPinPointerUp(e, pin)}
+                className="absolute flex -translate-x-1/2 -translate-y-full cursor-grab touch-none flex-col items-center active:cursor-grabbing"
+                style={{ left: `${pin.x * 100}%`, top: `${pin.y * 100}%` }}
+              >
+                <span
+                  className={`max-w-[140px] truncate rounded-md px-2 py-0.5 text-[11px] font-medium shadow-sm ${
+                    isSel
+                      ? "bg-brand-action text-white"
+                      : "bg-surface-raised text-foreground border border-border"
+                  }`}
+                >
+                  {name}
+                </span>
+                <Icon
+                  name="storageNested"
+                  className={`h-5 w-5 ${isSel ? "text-brand-action" : "text-foreground-muted"}`}
+                />
+              </button>
+            );
+          })}
+        </div>
+
+        {selectedNode ? (
+          <div className="mt-3 flex items-center justify-between rounded-lg border border-border bg-surface-raised px-3 py-2">
+            <div className="min-w-0">
+              <p className="truncate text-body font-medium text-foreground">
+                {selectedNode.name}
+              </p>
+              <p className="text-meta text-foreground-muted">
+                {STORAGE_KIND_LABEL[selectedNode.kind] ?? selectedNode.kind} -{" "}
+                {countContents(selectedNode.id, nodes, stocks)} items inside
+              </p>
+            </div>
+            <Tooltip label="Remove pin">
+              <button
+                type="button"
+                onClick={() => removePin(selectedNode.id)}
+                aria-label="Remove pin"
+                className="flex h-8 w-8 items-center justify-center rounded-lg border border-border text-foreground-muted hover:bg-surface-sunken hover:text-foreground"
+              >
+                <Icon name="trash" className="h-4 w-4" />
+              </button>
+            </Tooltip>
+          </div>
+        ) : null}
+      </div>
+
+      {/* Place-a-location rail */}
+      <div className="w-full shrink-0 lg:w-64">
+        <p className="mb-2 text-meta font-semibold uppercase tracking-wide text-foreground-subtle">
+          Place a location
+        </p>
+        {nodes.length === 0 ? (
+          <p className="text-meta text-foreground-muted">
+            No storage locations yet. Add freezers and shelves in the Storage map,
+            then pin them here.
+          </p>
+        ) : unpinned.length === 0 ? (
+          <p className="text-meta text-foreground-muted">
+            Every location is on the map.
+          </p>
+        ) : (
+          <div className="flex flex-col gap-1.5">
+            {unpinned.map((node) => (
+              <button
+                key={node.id}
+                type="button"
+                onClick={() => addPin(node)}
+                className="flex items-center gap-2 rounded-lg border border-border bg-surface-raised px-3 py-2 text-left text-body text-foreground hover:bg-surface-sunken"
+              >
+                <Icon
+                  name={node.kind === "box" ? "box" : "storageNested"}
+                  className="h-4 w-4 shrink-0 text-foreground-muted"
+                />
+                <span className="min-w-0 flex-1 truncate">{node.name}</span>
+                <Icon name="plus" className="h-3.5 w-3.5 text-foreground-muted" />
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}

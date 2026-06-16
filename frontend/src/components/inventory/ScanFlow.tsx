@@ -435,7 +435,7 @@ function ConsumeCard({
           type="button"
           onClick={onScanAnother}
           disabled={busy}
-          className="inline-flex items-center gap-1.5 rounded-lg border border-border px-3 py-2 text-body text-foreground hover:bg-surface-sunken disabled:opacity-50"
+          className="ros-btn-neutral inline-flex items-center gap-1.5 px-3 py-2 text-body text-foreground disabled:opacity-50"
         >
           <Icon name="scan" className="h-4 w-4" />
           Scan another
@@ -520,7 +520,7 @@ function MultiMatchPicker({
           type="button"
           onClick={onScanAnother}
           disabled={busy}
-          className="inline-flex items-center gap-1.5 rounded-lg border border-border px-3 py-2 text-body text-foreground hover:bg-surface-sunken disabled:opacity-50"
+          className="ros-btn-neutral inline-flex items-center gap-1.5 px-3 py-2 text-body text-foreground disabled:opacity-50"
         >
           <Icon name="scan" className="h-4 w-4" />
           Scan another
@@ -712,7 +712,7 @@ function RegisterCard({
         <button
           type="button"
           onClick={onCancel}
-          className="rounded-lg border border-border px-3 py-2 text-body text-foreground hover:bg-surface-sunken"
+          className="ros-btn-neutral px-3 py-2 text-body text-foreground"
         >
           Cancel
         </button>

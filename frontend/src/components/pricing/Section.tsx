@@ -22,7 +22,7 @@ export function Section({
   return (
     <section
       id={id}
-      className={`border-b border-border px-6 py-8 last:border-b-0 sm:px-8 ${className}`}
+      className={`border-b border-border px-3 py-6 last:border-b-0 sm:px-8 sm:py-8 ${className}`}
     >
       {/* Shared marketing scroll-reveal: each band lifts in as it scrolls on
           screen, the same entrance the welcome page and login hero use. */}

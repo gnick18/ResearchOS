@@ -38,7 +38,7 @@ export default function ApplyProgressStep({
           <button
             type="button"
             onClick={onRetry}
-            className="px-3 py-2 text-body bg-gray-200 hover:bg-gray-300 text-gray-800 rounded-lg"
+            className="ros-btn-neutral px-3 py-2 text-body"
           >
             Back to mapping
           </button>

@@ -357,7 +357,7 @@ export default function QpcrAnalysisEditor({
             <Tooltip label="Add target row" placement="left">
               <button
                 onClick={addReference}
-                className="px-2 py-1 text-meta rounded border border-border text-foreground-muted hover:bg-surface-sunken"
+                className="ros-btn-neutral px-2 py-1 text-meta text-foreground-muted"
               >
                 + Target
               </button>
@@ -505,7 +505,7 @@ export default function QpcrAnalysisEditor({
             <Tooltip label="Add curve point" placement="left">
               <button
                 onClick={addCurvePoint}
-                className="px-2 py-1 text-meta rounded border border-border text-foreground-muted hover:bg-surface-sunken"
+                className="ros-btn-neutral px-2 py-1 text-meta text-foreground-muted"
               >
                 + Point
               </button>

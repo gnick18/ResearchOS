@@ -27,6 +27,7 @@ import {
   type AnalysisRecipe,
 } from "@/lib/datahub/recipes-store";
 import { Icon } from "@/components/icons";
+import { WidgetOptionGrid, WidgetRow } from "@/components/ai/widget-kit";
 import Tooltip from "@/components/Tooltip";
 import BeakerBot from "@/components/BeakerBot";
 import { useBeakerSearch } from "@/components/beaker-search/BeakerSearchProvider";
@@ -565,30 +566,27 @@ export default function NewAnalysisDialog({
             <label className="mt-4 block text-meta font-medium uppercase tracking-wide text-foreground-muted">
               Analysis
             </label>
-            <div className="mt-1 flex flex-col gap-2">
-              {validTypes.map((t) => {
-                const active = type === t;
-                const meta = TYPE_META[t];
-                return (
-                  <button
-                    key={t}
-                    type="button"
-                    onClick={() => setType(t)}
-                    className={`rounded-md border px-3 py-2 text-left transition-colors ${
-                      active
-                        ? "border-sky-400 bg-accent-soft"
-                        : "border-border bg-surface-raised hover:bg-surface-sunken"
-                    }`}
-                  >
-                    <span className="block text-body font-medium text-foreground">
-                      {meta.label}
-                    </span>
-                    <span className="mt-0.5 block text-meta text-foreground-muted">
-                      {meta.blurb}
-                    </span>
-                  </button>
-                );
-              })}
+            {/* Two-column tiled chooser via the shared BeakerBot widget kit, so
+                the Data Hub Analyze picker reads like the in-chat analysis picker
+                (analyses = protocol/blue family). @container drives the reflow. */}
+            <div className="mt-1 @container">
+              <WidgetOptionGrid>
+                {validTypes.map((t) => {
+                  const active = type === t;
+                  const meta = TYPE_META[t];
+                  return (
+                    <WidgetRow
+                      key={t}
+                      icon="results"
+                      tint="protocol"
+                      label={meta.label}
+                      hint={meta.blurb}
+                      active={active}
+                      onClick={() => setType(t)}
+                    />
+                  );
+                })}
+              </WidgetOptionGrid>
             </div>
 
             {isGrouped ? (
@@ -780,7 +778,7 @@ export default function NewAnalysisDialog({
             <button
               type="button"
               onClick={onCancel}
-              className="rounded-md border border-border px-3 py-1.5 text-body font-medium text-foreground-muted hover:bg-surface-sunken"
+              className="ros-btn-neutral px-3 py-1.5 text-body font-medium text-foreground-muted"
             >
               Cancel
             </button>

@@ -384,29 +384,97 @@ export function modelExpectsLogX(id: string): boolean {
 }
 
 /**
- * Prepare (x, y) pairs for fitting model `id`. For a log-dose model (logXInput)
- * this drops non-positive / non-finite doses — log10 has no value there — and
- * replaces x with log10(x), so a RAW dose column fits the model's log10(dose)
- * parameterization and EC50 = 10^logEC50 lands back in linear dose units. Any
- * other model gets its pairs back unchanged. x and y stay paired; the returned
- * arrays are fresh (callers can keep the originals for display).
+ * How a log-dose model's X column should be read:
+ *  - "auto" (default): infer from the data (see `xLooksLogDose`);
+ *  - "concentration": X is raw concentration, log10-transform it internally;
+ *  - "logDose": X is already log10(dose), fit it as-is (no transform).
+ * Only meaningful for a log-dose model (logXInput); ignored by every other model.
+ */
+export type DoseXScale = "auto" | "concentration" | "logDose";
+
+/**
+ * Heuristic: does this X column already hold log10(dose) rather than raw
+ * concentration? A concentration is non-negative (there is no negative molar
+ * amount), so any strictly-negative finite dose means the column was already
+ * log-transformed — the ubiquitous GraphPad/Prism "log[agonist] (M)" column
+ * (e.g. -9, -8.5, ..., -4). A lone zero is NOT a signal: a zero-dose (vehicle)
+ * row is a legitimate raw concentration that log10 simply drops, so only strict
+ * negatives flip the verdict and an all-positive column always reads as raw.
+ */
+export function xLooksLogDose(x: number[]): boolean {
+  for (const xi of x) {
+    if (Number.isFinite(xi) && xi < 0) return true;
+  }
+  return false;
+}
+
+/**
+ * Whether `prepareFitData` will log10-transform X for model `id` given this X
+ * column and the chosen scale: true only for a log-dose model fed raw
+ * concentration (after "auto" detection, or an explicit "concentration"). This
+ * is the SINGLE source of truth for the transform decision, so the analysis fit,
+ * the rendered fit curve, and the generated R/Python all stay in lockstep — read
+ * it instead of branching on `logXInput` directly.
+ */
+export function fitLog10sDose(
+  id: string,
+  x: number[],
+  scale: DoseXScale = "auto",
+): boolean {
+  if (!modelExpectsLogX(id)) return false;
+  if (scale === "logDose") return false;
+  if (scale === "concentration") return true;
+  return !xLooksLogDose(x);
+}
+
+/** The (x, y) pairs ready to fit, plus a record of what the preparation did. */
+export interface PreparedFitData {
+  x: number[];
+  y: number[];
+  /**
+   * How many finite pairs the positive-dose filter dropped (log10 has no value
+   * at x <= 0). 0 unless a raw-dose log transform actually ran; lets the caller
+   * explain a too-few-points failure that the drop caused.
+   */
+  droppedNonPositive: number;
+  /** True when X was replaced by log10(X) (raw concentration -> log-dose space). */
+  logTransformed: boolean;
+}
+
+/**
+ * Prepare (x, y) pairs for fitting model `id`. For a log-dose model fed raw
+ * concentration (see `fitLog10sDose`) this drops non-positive / non-finite doses
+ * — log10 has no value there — and replaces x with log10(x), so a RAW dose
+ * column fits the model's log10(dose) parameterization and EC50 = 10^logEC50
+ * lands back in linear dose units. A log-dose model whose X already looks
+ * log-transformed (or when `scale` says so) is fit as-is, so a "log[agonist]"
+ * column no longer has every point discarded by the positive-x filter. Any other
+ * model gets its pairs back unchanged. x and y stay paired; the returned arrays
+ * are fresh (callers can keep the originals for display).
  */
 export function prepareFitData(
   id: string,
   x: number[],
   y: number[],
-): { x: number[]; y: number[] } {
-  if (!modelExpectsLogX(id)) return { x, y };
+  scale: DoseXScale = "auto",
+): PreparedFitData {
+  if (!fitLog10sDose(id, x, scale)) {
+    return { x, y, droppedNonPositive: 0, logTransformed: false };
+  }
   const fx: number[] = [];
   const fy: number[] = [];
+  let droppedNonPositive = 0;
   for (let i = 0; i < x.length; i++) {
     const xi = x[i];
-    if (xi > 0 && Number.isFinite(xi)) {
+    if (!Number.isFinite(xi)) continue;
+    if (xi > 0) {
       fx.push(Math.log10(xi));
       fy.push(y[i]);
+    } else {
+      droppedNonPositive++;
     }
   }
-  return { x: fx, y: fy };
+  return { x: fx, y: fy, droppedNonPositive, logTransformed: true };
 }
 
 /**

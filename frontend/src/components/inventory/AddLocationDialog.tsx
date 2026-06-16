@@ -225,7 +225,7 @@ export default function AddLocationDialog({
         <button
           type="button"
           onClick={onCancel}
-          className="px-4 py-2 text-body rounded-lg border border-border text-foreground hover:bg-surface-sunken transition-colors"
+          className="ros-btn-neutral px-4 py-2 text-body text-foreground"
         >
           Cancel
         </button>

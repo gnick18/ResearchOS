@@ -1,0 +1,6 @@
+
+# Locally-generated embedding sidecar for smart-search dev (hosted on R2 in prod)
+/public/dev-embeddings/
+
+# ROR registry asset: hosted on R2, never committed (scripts/upload-institution-registry.mjs)
+/public/institution-registry.json

@@ -47,6 +47,7 @@ import {
   type InventorySnapshot,
   type TrackedStock,
   type RecentPurchase,
+  type StorageNode,
 } from '@/lib/scan';
 import { parseBarcode, barcodesMatch, type ParsedBarcode } from '@/lib/barcode';
 
@@ -226,6 +227,11 @@ export default function ScanScreen() {
   const [unitsPerScan, setUnitsPerScan] = useState(1);
   const [totalInBox, setTotalInBox] = useState('');
   const [unitLabel, setUnitLabel] = useState('reaction');
+  // Spatial inventory Phase A: free-text "where did you put it" captured at scan-in.
+  const [location, setLocation] = useState('');
+  // Phase B bridge (write half): structured placement chosen from the storage tree.
+  const [locNodeId, setLocNodeId] = useState<number | null>(null);
+  const [locPosition, setLocPosition] = useState<string | null>(null);
 
   const [send, setSend] = useState<ActionResult | { ok: 'idle' } | { ok: 'sending' }>({ ok: 'idle' });
   const [doneMsg, setDoneMsg] = useState('');
@@ -319,6 +325,9 @@ export default function ScanScreen() {
     setUnitsPerScan(1);
     setTotalInBox('');
     setUnitLabel('reaction');
+    setLocation('');
+    setLocNodeId(null);
+    setLocPosition(null);
     setSend({ ok: 'idle' });
     setDoneMsg('');
   }, []);
@@ -356,6 +365,9 @@ export default function ScanScreen() {
         setUnitLabel('reaction');
         setUnitsPerScan(1);
         setTotalInBox('');
+        setLocation('');
+        setLocNodeId(null);
+        setLocPosition(null);
         setStep('track');
       }
     },
@@ -414,6 +426,9 @@ export default function ScanScreen() {
               unitsPerScan,
               totalUnits,
               unitLabel,
+              location: location.trim() || undefined,
+              locationNodeId: locNodeId ?? undefined,
+              position: locPosition ?? undefined,
             },
             `Track ${trackCtx.purchase.name ?? 'item'}`,
             pairing,
@@ -435,6 +450,9 @@ export default function ScanScreen() {
               unitsPerScan,
               totalUnits,
               unitLabel,
+              location: location.trim() || undefined,
+              locationNodeId: locNodeId ?? undefined,
+              position: locPosition ?? undefined,
             },
             trackCtx.name,
             pairing,
@@ -443,7 +461,7 @@ export default function ScanScreen() {
         `Saved and tracking ${trackCtx.name}`,
       );
     }
-  }, [trackCtx, pairing, totalInBox, unitsPerScan, unitLabel, code, run]);
+  }, [trackCtx, pairing, totalInBox, unitsPerScan, unitLabel, location, locNodeId, locPosition, code, run]);
 
   // "No thanks", apply the create/arrival without tracking.
   const onSkipTracking = useCallback(() => {
@@ -464,6 +482,9 @@ export default function ScanScreen() {
             catalog: trackCtx.catalog,
             productBarcode: code,
             quantity: trackCtx.quantity,
+            location: location.trim() || undefined,
+            locationNodeId: locNodeId ?? undefined,
+            position: locPosition ?? undefined,
           },
           trackCtx.name,
           pairing,
@@ -471,7 +492,7 @@ export default function ScanScreen() {
         ),
       trackCtx.mode === 'purchase' ? `Order saved for ${trackCtx.name}` : `${trackCtx.name} added to inventory`,
     );
-  }, [trackCtx, pairing, code, run]);
+  }, [trackCtx, pairing, code, location, locNodeId, locPosition, run]);
 
   // Enter the create flow (add new PO / add inventory), prefilled from the guess.
   const startCreate = useCallback(
@@ -490,6 +511,9 @@ export default function ScanScreen() {
       setUnitsPerScan(1);
       setTotalInBox('');
       setUnitLabel('reaction');
+      setLocation('');
+      setLocNodeId(null);
+      setLocPosition(null);
       setStep('track');
     },
     [snap, code],
@@ -498,6 +522,23 @@ export default function ScanScreen() {
   const sending = send.ok === 'sending';
   const errorMsg = send.ok === false ? send.error : null;
   const cameraReady = paired && permission?.granted === true && step === 'scan' && !handled;
+
+  // Spatial inventory Phase A: distinct recent locations from synced stocks, so
+  // the scan-in prompt can offer one-tap reuse ("-80 door" again) and locations
+  // stay consistent across the lab. Cap at 6 to keep the chip row tidy.
+  const recentLocations = Array.from(
+    new Set(
+      (snap?.trackedStocks ?? [])
+        .map((s) => (s.location ?? '').trim())
+        .filter((l) => l.length > 0),
+    ),
+  ).slice(0, 6);
+  // Phase B bridge: the lab's storage tree, for the structured location picker.
+  const storageNodes: StorageNode[] = snap?.storageNodes ?? [];
+  const onPickLocation = useCallback((nodeId: number | null, pos: string | null) => {
+    setLocNodeId(nodeId);
+    setLocPosition(pos);
+  }, []);
 
   return (
     <ScreenFrame>
@@ -625,6 +666,13 @@ export default function ScanScreen() {
               setTotalInBox={setTotalInBox}
               unitLabel={unitLabel}
               setUnitLabel={setUnitLabel}
+              location={location}
+              setLocation={setLocation}
+              recentLocations={recentLocations}
+              storageNodes={storageNodes}
+              locationNodeId={locNodeId}
+              position={locPosition}
+              onPickLocation={onPickLocation}
               onStart={onStartTracking}
               onSkip={onSkipTracking}
               sending={sending}
@@ -977,6 +1025,173 @@ function SheetOption({
   );
 }
 
+// Spatial inventory Phase B bridge (write half): a cascading picker over the
+// lab's StorageNode tree (room -> freezer -> ... -> box -> A1 cell), mirroring
+// the laptop LocationPicker. Fully controlled: the parent owns {nodeId, position}.
+// `focus` is the node currently expanded for browsing (null = top level); a `box`
+// node shows its cell grid instead of children.
+function StorageLocationPicker({
+  nodes,
+  nodeId,
+  position,
+  onChange,
+}: {
+  nodes: StorageNode[];
+  nodeId: number | null;
+  position: string | null;
+  onChange: (nodeId: number | null, position: string | null) => void;
+}) {
+  const { surface, spacing, radii } = useTheme();
+  const [focus, setFocus] = useState<number | null>(null);
+
+  const byId = new Map<number, StorageNode>();
+  for (const n of nodes) byId.set(n.id, n);
+  const childrenOf = (parent: number | null) =>
+    nodes.filter((n) => (n.parentId ?? null) === parent);
+
+  // Walk parentId to a breadcrumb path for any node.
+  const pathTo = (id: number | null): StorageNode[] => {
+    const out: StorageNode[] = [];
+    const seen = new Set<number>();
+    let cur = id;
+    while (cur != null && !seen.has(cur)) {
+      seen.add(cur);
+      const n = byId.get(cur);
+      if (!n) break;
+      out.unshift(n);
+      cur = n.parentId ?? null;
+    }
+    return out;
+  };
+
+  const focusNode = focus != null ? byId.get(focus) ?? null : null;
+  const isBox = focusNode?.kind === 'box';
+  const children = childrenOf(focus);
+
+  const cells: string[] = [];
+  if (isBox && focusNode) {
+    const rows = focusNode.boxRows ?? 9;
+    const cols = focusNode.boxCols ?? 9;
+    for (let r = 0; r < rows; r += 1)
+      for (let c = 0; c < cols; c += 1)
+        cells.push(`${String.fromCharCode(65 + r)}${c + 1}`);
+  }
+
+  const selectedLabel =
+    nodeId != null
+      ? (() => {
+          const base = pathTo(nodeId)
+            .map((n) => n.name ?? '?')
+            .join(' > ');
+          return position ? `${base} - ${position}` : base;
+        })()
+      : null;
+
+  const crumbs = pathTo(focus);
+
+  return (
+    <View style={{ gap: spacing.sm }}>
+      {selectedLabel ? (
+        <View
+          style={[
+            styles.locSelected,
+            { backgroundColor: palette.successDim, borderRadius: radii.md },
+          ]}
+        >
+          <Ionicons name="location" size={14} color={palette.success} />
+          <ThemedText style={[styles.locSelectedText, { color: surface.text }]} numberOfLines={2}>
+            {selectedLabel}
+          </ThemedText>
+          <Pressable onPress={() => onChange(null, null)} hitSlop={8}>
+            <Ionicons name="close-circle" size={16} color={surface.muted} />
+          </Pressable>
+        </View>
+      ) : null}
+
+      {/* Breadcrumb trail (tap to jump back up a level). */}
+      <View style={styles.chips}>
+        <Pressable
+          onPress={() => setFocus(null)}
+          style={[styles.crumb, { borderColor: surface.border, borderRadius: radii.pill }]}
+        >
+          <ThemedText style={[styles.crumbText, { color: surface.muted }]}>All</ThemedText>
+        </Pressable>
+        {crumbs.map((n) => (
+          <Pressable
+            key={n.id}
+            onPress={() => setFocus(n.id)}
+            style={[styles.crumb, { borderColor: surface.border, borderRadius: radii.pill }]}
+          >
+            <ThemedText style={[styles.crumbText, { color: surface.muted }]} numberOfLines={1}>
+              {n.name ?? '?'}
+            </ThemedText>
+          </Pressable>
+        ))}
+      </View>
+
+      {isBox ? (
+        <View style={styles.cellGrid}>
+          {cells.map((cell) => {
+            const on = nodeId === focus && position === cell;
+            return (
+              <Pressable
+                key={cell}
+                onPress={() => onChange(focus, cell)}
+                style={[
+                  styles.cell,
+                  {
+                    backgroundColor: on ? palette.sky : surface.surface2,
+                    borderColor: on ? palette.sky : surface.border,
+                  },
+                ]}
+              >
+                <ThemedText
+                  style={[styles.cellText, { color: on ? palette.white : surface.muted }]}
+                >
+                  {cell}
+                </ThemedText>
+              </Pressable>
+            );
+          })}
+        </View>
+      ) : children.length > 0 ? (
+        <View style={{ gap: 6 }}>
+          {children.map((n) => (
+            <View
+              key={n.id}
+              style={[styles.nodeRow, { borderColor: surface.border, borderRadius: radii.md }]}
+            >
+              <Pressable
+                onPress={() => setFocus(n.id)}
+                style={styles.nodeRowMain}
+              >
+                <Ionicons
+                  name={n.kind === 'box' ? 'grid-outline' : 'folder-outline'}
+                  size={16}
+                  color={surface.muted}
+                />
+                <ThemedText style={[styles.nodeRowName, { color: surface.text }]} numberOfLines={1}>
+                  {n.name ?? '?'}
+                </ThemedText>
+              </Pressable>
+              <Pressable onPress={() => onChange(n.id, null)} hitSlop={6} style={styles.placeHere}>
+                <ThemedText style={[styles.placeHereText, { color: palette.sky }]}>
+                  {nodeId === n.id && !position ? 'Selected' : 'Place here'}
+                </ThemedText>
+              </Pressable>
+              <Ionicons name="chevron-forward" size={16} color={surface.muted} />
+            </View>
+          ))}
+        </View>
+      ) : (
+        <ThemedText style={[styles.sub, { color: surface.muted }]}>
+          Nothing inside this location yet.
+        </ThemedText>
+      )}
+    </View>
+  );
+}
+
 function TrackView({
   title,
   isArrived,
@@ -986,6 +1201,13 @@ function TrackView({
   setTotalInBox,
   unitLabel,
   setUnitLabel,
+  location,
+  setLocation,
+  recentLocations,
+  storageNodes,
+  locationNodeId,
+  position,
+  onPickLocation,
   onStart,
   onSkip,
   sending,
@@ -999,6 +1221,13 @@ function TrackView({
   setTotalInBox: (s: string) => void;
   unitLabel: string;
   setUnitLabel: (s: string) => void;
+  location: string;
+  setLocation: (s: string) => void;
+  recentLocations: string[];
+  storageNodes: StorageNode[];
+  locationNodeId: number | null;
+  position: string | null;
+  onPickLocation: (nodeId: number | null, position: string | null) => void;
   onStart: () => void;
   onSkip: () => void;
   sending: boolean;
@@ -1006,6 +1235,7 @@ function TrackView({
 }) {
   const { surface, spacing, radii, dark } = useTheme();
   const [totalFocus, setTotalFocus] = useState(false);
+  const [locFocus, setLocFocus] = useState(false);
   const perScanText = unitsPerScan === 1 ? `1 ${unitLabel}` : `${unitsPerScan} ${unitLabel}s`;
   return (
     <View style={{ gap: spacing.md }}>
@@ -1093,6 +1323,66 @@ function TrackView({
         </View>
       </Card>
 
+      <ThemedText style={[styles.sectionLabel, { color: surface.faint }]}>WHERE DID YOU PUT IT?</ThemedText>
+      {storageNodes.length > 0 ? (
+        <Card style={{ gap: spacing.md }}>
+          <StorageLocationPicker
+            nodes={storageNodes}
+            nodeId={locationNodeId}
+            position={position}
+            onChange={onPickLocation}
+          />
+        </Card>
+      ) : null}
+      <Card style={{ gap: spacing.md }}>
+        {storageNodes.length > 0 ? (
+          <ThemedText style={[styles.fieldLabel, { color: surface.muted }]}>
+            Or jot a quick note
+          </ThemedText>
+        ) : null}
+        <TextInput
+          value={location}
+          onChangeText={setLocation}
+          onFocus={() => setLocFocus(true)}
+          onBlur={() => setLocFocus(false)}
+          placeholder="e.g. -80 freezer, left door"
+          placeholderTextColor={surface.placeholder}
+          style={[
+            styles.locInput,
+            {
+              backgroundColor: locFocus ? surface.surface : surface.surface2,
+              borderColor: locFocus ? palette.sky : surface.borderStrong,
+              borderRadius: radii.md,
+              color: surface.text,
+            },
+            locFocus ? focusRing(dark) : null,
+          ]}
+        />
+        {recentLocations.length > 0 ? (
+          <View style={styles.chips}>
+            {recentLocations.map((loc) => {
+              const on = location.trim() === loc;
+              return (
+                <Pressable
+                  key={loc}
+                  onPress={() => setLocation(loc)}
+                  style={[
+                    styles.chip,
+                    {
+                      backgroundColor: on ? palette.sky : surface.surface,
+                      borderColor: on ? palette.sky : surface.border,
+                      borderRadius: radii.pill,
+                    },
+                  ]}
+                >
+                  <ThemedText style={[styles.chipText, { color: on ? palette.white : surface.muted }]}>{loc}</ThemedText>
+                </Pressable>
+              );
+            })}
+          </View>
+        ) : null}
+      </Card>
+
       <Callout tone="sky">
         Each scan deducts <ThemedText style={styles.calloutLead}>{perScanText}</ThemedText>. We will warn you when it runs low.
       </Callout>
@@ -1173,6 +1463,47 @@ const styles = StyleSheet.create({
     textAlign: 'right',
   },
   fieldLabelLg: { fontSize: 15, fontFamily: fonts.semibold, fontWeight: '600', lineHeight: 20 },
+  locInput: {
+    borderWidth: 1,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    fontSize: 16,
+    minHeight: 48,
+  },
+  // Structured storage-tree picker (Phase B bridge).
+  locSelected: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+  },
+  locSelectedText: { flex: 1, fontSize: 14, fontFamily: fonts.semibold, fontWeight: '600' },
+  crumb: { borderWidth: 1, paddingHorizontal: 10, paddingVertical: 5, maxWidth: 160 },
+  crumbText: { fontSize: 13 },
+  nodeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    borderWidth: 1,
+    paddingLeft: 12,
+    paddingRight: 10,
+    minHeight: 46,
+  },
+  nodeRowMain: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 10 },
+  nodeRowName: { flex: 1, fontSize: 15 },
+  placeHere: { paddingHorizontal: 8, paddingVertical: 6 },
+  placeHereText: { fontSize: 13, fontFamily: fonts.semibold, fontWeight: '600' },
+  cellGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
+  cell: {
+    borderWidth: 1,
+    borderRadius: 6,
+    minWidth: 38,
+    paddingVertical: 8,
+    paddingHorizontal: 6,
+    alignItems: 'center',
+  },
+  cellText: { fontSize: 12 },
 
   // Camera viewfinder (contract .scanframe): white corner brackets + a glowing
   // sky scanline, with a centered hint line below.

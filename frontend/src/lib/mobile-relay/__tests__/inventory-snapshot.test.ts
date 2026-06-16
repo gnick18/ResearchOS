@@ -31,6 +31,11 @@ vi.mock("@/lib/file-system/file-service", () => ({
     }),
     ensureDir: vi.fn(async () => null),
     listFiles: vi.fn(async (path: string) => listed.get(path) ?? []),
+    // discoverUsers() (used by the shared-inclusive storage-node read) walks the
+    // users root; the snapshot test data all lives under the mocked current user.
+    listDirectories: vi.fn(async (path: string) =>
+      path === "users" ? ["alice"] : [],
+    ),
     deleteFile: vi.fn(async () => false),
     readText: vi.fn(async () => null),
     writeText: vi.fn(async () => {}),
@@ -50,6 +55,7 @@ import {
   inventoryStocksApi,
   purchasesApi,
   tasksApi,
+  storageNodesApi,
 } from "@/lib/local-api";
 import { clearCurrentUserCache } from "@/lib/storage/json-store";
 
@@ -115,6 +121,106 @@ describe("buildInventorySnapshot — trackedStocks", () => {
     const snap = await buildInventorySnapshot();
     expect(snap.trackedStocks).toHaveLength(1);
     expect(snap.trackedStocks[0].unitLabel).toBe("rxn");
+  });
+
+  it("carries the stock's location_text as `location` (spatial inventory Phase A)", async () => {
+    const item = await inventoryItemsApi.create({
+      name: "Q5 Polymerase",
+      product_barcode: "555000111222",
+    });
+    await inventoryStocksApi.create({
+      item_id: item.id,
+      units_per_scan: 1,
+      units_remaining: 25,
+      location_text: "-20 freezer, door rack",
+      container_count: 1,
+    });
+
+    const snap = await buildInventorySnapshot();
+    expect(snap.trackedStocks).toHaveLength(1);
+    expect(snap.trackedStocks[0].location).toBe("-20 freezer, door rack");
+  });
+
+  it("resolves locationPath from the StorageNode tree (Phase B bridge)", async () => {
+    const freezer = await storageNodesApi.create({ name: "-80 #2", kind: "freezer" });
+    const box = await storageNodesApi.create({
+      name: "Box: Q5",
+      kind: "box",
+      parent_id: freezer.id,
+      box_rows: 9,
+      box_cols: 9,
+    });
+    const item = await inventoryItemsApi.create({
+      name: "Q5 Polymerase",
+      product_barcode: "555000999888",
+    });
+    await inventoryStocksApi.create({
+      item_id: item.id,
+      units_per_scan: 1,
+      units_remaining: 25,
+      location_node_id: box.id,
+      position: "A1",
+      container_count: 1,
+    });
+
+    const snap = await buildInventorySnapshot();
+    expect(snap.trackedStocks).toHaveLength(1);
+    expect(snap.trackedStocks[0].locationPath).toBe("-80 #2 > Box: Q5 - A1");
+  });
+
+  it("publishes the storage tree for the phone's location picker (Phase B write half)", async () => {
+    const freezer = await storageNodesApi.create({ name: "-80 #2", kind: "freezer" });
+    await storageNodesApi.create({
+      name: "Box: Q5",
+      kind: "box",
+      parent_id: freezer.id,
+      box_rows: 9,
+      box_cols: 9,
+    });
+
+    const snap = await buildInventorySnapshot();
+    expect(snap.storageNodes).toHaveLength(2);
+    const box = snap.storageNodes.find((n) => n.kind === "box");
+    expect(box?.parentId).toBe(freezer.id);
+    expect(box?.boxRows).toBe(9);
+    expect(box?.boxCols).toBe(9);
+    const top = snap.storageNodes.find((n) => n.kind === "freezer");
+    expect(top?.parentId).toBeNull();
+  });
+
+  it("reports locationPath null when the stock is not placed in the tree", async () => {
+    const item = await inventoryItemsApi.create({
+      name: "Agarose",
+      product_barcode: "555000777666",
+    });
+    await inventoryStocksApi.create({
+      item_id: item.id,
+      units_per_scan: 1,
+      units_remaining: 5,
+      container_count: 1,
+    });
+
+    const snap = await buildInventorySnapshot();
+    expect(snap.trackedStocks).toHaveLength(1);
+    expect(snap.trackedStocks[0].locationPath).toBeNull();
+  });
+
+  it("reports location null when location_text is absent or whitespace", async () => {
+    const item = await inventoryItemsApi.create({
+      name: "DMSO",
+      product_barcode: "555000333444",
+    });
+    await inventoryStocksApi.create({
+      item_id: item.id,
+      units_per_scan: 1,
+      units_remaining: 10,
+      location_text: "   ",
+      container_count: 1,
+    });
+
+    const snap = await buildInventorySnapshot();
+    expect(snap.trackedStocks).toHaveLength(1);
+    expect(snap.trackedStocks[0].location).toBeNull();
   });
 
   it("excludes a stock when the parent item has no product_barcode", async () => {

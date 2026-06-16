@@ -52,7 +52,13 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { digestEnzymes } from "@/lib/sequences/enzyme-filters";
-import { layoutLabels, tierCount, type LabelItem } from "@/lib/sequences/label-layout";
+import {
+  layoutLabels,
+  tierCount,
+  cutSiteStackTooDeep,
+  type LabelItem,
+} from "@/lib/sequences/label-layout";
+import { Icon } from "@/components/icons";
 import {
   MIN_WINDOW_BP,
   clampSpan,
@@ -145,6 +151,14 @@ export interface LinearMapProps {
    * shared selection is visible here too and persists across Map/Sequence.
    */
   selection?: { start: number; end: number } | null;
+  /**
+   * Optional: turn the cut-site / primer layers off, wired to the editor's rail
+   * toggles. When provided, the "labels are crowded" advisory (shown when the
+   * above-line tier stack gets deep) offers a one-click hide. Omitted = the
+   * advisory still warns but without the buttons (the toggles live elsewhere).
+   */
+  onHideEnzymes?: () => void;
+  onHidePrimers?: () => void;
 }
 
 // ── layout constants (px) ──────────────────────────────────────────────────
@@ -248,10 +262,15 @@ export default function LinearMap({
   onClearSelection,
   onRangeSelect,
   selection,
+  onHideEnzymes,
+  onHidePrimers,
 }: LinearMapProps) {
   const wrapRef = useRef<HTMLDivElement | null>(null);
   const svgRef = useRef<SVGSVGElement | null>(null);
   const [width, setWidth] = useState(0);
+  // crowding advisory bot — dismiss the "cut-site labels are crowded" hint for the
+  // session (it re-shows next mount; cheap, no persistence needed).
+  const [crowdHintDismissed, setCrowdHintDismissed] = useState(false);
   // Hover state for enzyme highlight, keyed on enzyme NAME (all sites of the same
   // enzyme highlight together — SnapGene behavior).
   const [hoverEnzyme, setHoverEnzyme] = useState<string | null>(null);
@@ -630,6 +649,13 @@ export default function LinearMap({
     [aboveItems, trackWidth],
   );
   const aboveTiers = tierCount(abovePlaced);
+  // crowding advisory bot — the above-line cut-site / primer labels never overlap
+  // (layoutLabels guarantees it) but they STACK into tiers, and a deep stack reads
+  // as a thicket of long leaders. Surface a quiet, dismissible nudge to hide a layer
+  // or zoom in (the same levers the rail + zoom already offer). Mirrors the layout
+  // advisor's philosophy on the interactive surface.
+  const cutSitesCrowded =
+    cutSiteStackTooDeep(aboveTiers) && !crowdHintDismissed && aboveSources.length > 0;
 
   // ── FEATURES (below the line) ────────────────────────────────────────────
   // Pack feature labels into tiers too (these CAN nudge horizontally, since a
@@ -814,6 +840,49 @@ export default function LinearMap({
         ref={wrapRef}
         className="relative flex min-h-0 flex-1 flex-col overflow-auto"
       >
+      {cutSitesCrowded ? (
+        <div className="pointer-events-none sticky top-2 z-10 flex justify-center px-3">
+          <div className="pointer-events-auto flex max-w-md items-start gap-2 rounded-md border border-amber-400/60 bg-amber-50 px-3 py-2 text-meta text-amber-900 shadow-sm dark:border-amber-500/40 dark:bg-amber-950/60 dark:text-amber-200">
+            <Icon name="alert" className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+            <div className="flex flex-col gap-1.5">
+              <span>
+                Cut-site &amp; primer labels are {aboveTiers} tiers deep. Hide a layer or
+                zoom in for a cleaner read.
+              </span>
+              {(onHideEnzymes || onHidePrimers) && (
+                <div className="flex flex-wrap gap-1.5">
+                  {onHideEnzymes && showEnzymes && (
+                    <button
+                      type="button"
+                      onClick={onHideEnzymes}
+                      className="rounded border border-amber-400/60 px-1.5 py-0.5 font-medium hover:bg-amber-100 dark:hover:bg-amber-900/50"
+                    >
+                      Hide cut sites
+                    </button>
+                  )}
+                  {onHidePrimers && showPrimers && (
+                    <button
+                      type="button"
+                      onClick={onHidePrimers}
+                      className="rounded border border-amber-400/60 px-1.5 py-0.5 font-medium hover:bg-amber-100 dark:hover:bg-amber-900/50"
+                    >
+                      Hide primers
+                    </button>
+                  )}
+                </div>
+              )}
+            </div>
+            <button
+              type="button"
+              onClick={() => setCrowdHintDismissed(true)}
+              aria-label="Dismiss"
+              className="ml-1 shrink-0 rounded px-1 text-amber-700 hover:bg-amber-100 dark:text-amber-300 dark:hover:bg-amber-900/50"
+            >
+              ×
+            </button>
+          </div>
+        </div>
+      ) : null}
       {trackWidth > 0 ? (
         <svg
           ref={svgRef}

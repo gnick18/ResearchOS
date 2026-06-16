@@ -149,6 +149,10 @@ interface DemoDocSpec {
     title?: string;
     /** Fitted curve to bake into the figure (defaults to linear in the builder). */
     fitModel?: FitModelId;
+    /** Significance-bracket comparison set ("all" pairs vs "vsControl"). */
+    bracketComparisons?: "all" | "vsControl";
+    /** X-axis scale ("log" for a dose-response concentration axis). */
+    xScaleType?: "linear" | "log";
   };
 }
 
@@ -192,9 +196,15 @@ function demoDocs(): DemoDocSpec[] {
   //    log10(dose in M), an 11-point serial dilution; y is percent inhibition.
   //    The same arrays the D1 dose-response transparency pins are validated on, so
   //    the 4PL / 5PL fit and the EC50 are known to converge cleanly.
+  // Raw dose (M) on a log10 grid from 1e-9 to 1e-4. The dose-response engine takes
+  // RAW concentration and log-transforms it internally (the figure uses a log X
+  // axis), so the X column holds actual molar concentrations, not pre-logged values.
+  const doseGridM = [-9.0, -8.5, -8.0, -7.5, -7.0, -6.5, -6.0, -5.5, -5.0, -4.5, -4.0].map(
+    (logM) => Math.pow(10, logM),
+  );
   const dose = xyTable(
-    "log[FakeDrug-A] (M)",
-    [-9.0, -8.5, -8.0, -7.5, -7.0, -6.5, -6.0, -5.5, -5.0, -4.5, -4.0],
+    "[FakeDrug-A] (M)",
+    doseGridM,
     [
       {
         id: "col-inhib",
@@ -250,8 +260,8 @@ function demoDocs(): DemoDocSpec[] {
   //    differ only in EC50, the textbook case for a global (shared-parameter) fit.
   //    The D3 global-fit transparency dataset (curve A EC50 10x lower than B).
   const multiCurve = xyTable(
-    "log[drug] (M)",
-    [-9.0, -8.5, -8.0, -7.5, -7.0, -6.5, -6.0, -5.5, -5.0, -4.5, -4.0],
+    "[drug] (M)",
+    doseGridM,
     [
       {
         id: "col-ya",
@@ -286,6 +296,8 @@ function demoDocs(): DemoDocSpec[] {
         analysisId: "analysis-gfp-anova",
         yTitle: "Relative fakeGFP expression",
         title: "fakeGFP reporter induction by strain",
+        // Each strain vs the WT control, not all 6 pairwise (cleaner figure).
+        bracketComparisons: "vsControl",
       },
     },
     {
@@ -349,9 +361,10 @@ function demoDocs(): DemoDocSpec[] {
         kind: "xyScatter",
         yColumnId: "col-inhib",
         yTitle: "% inhibition",
-        xTitle: "log[FakeDrug-A] (M)",
+        xTitle: "[FakeDrug-A] (M)",
         title: "Dose-response, FakeDrug-A inhibition",
         fitModel: "logistic4pl",
+        xScaleType: "log",
       },
     },
     {
@@ -400,8 +413,9 @@ function demoDocs(): DemoDocSpec[] {
         kind: "xyScatter",
         yColumnId: "col-ya",
         yTitle: "% inhibition",
-        xTitle: "log[drug] (M)",
+        xTitle: "[drug] (M)",
         title: "Two-drug dose-response",
+        xScaleType: "log",
       },
     },
   ];
@@ -464,6 +478,8 @@ function buildContent(spec: DemoDocSpec): DataHubDocContent {
         xTitle: spec.plot.xTitle,
         title: spec.plot.title,
         fitModel: spec.plot.fitModel,
+        bracketComparisons: spec.plot.bracketComparisons,
+        xScaleType: spec.plot.xScaleType,
       }),
     );
   }

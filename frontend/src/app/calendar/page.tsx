@@ -320,14 +320,14 @@ export default function CalendarPage() {
               Today
             </button>
           </div>
-          <div className="inline-flex bg-surface-sunken rounded-lg p-0.5">
+          <div className="inline-flex bg-surface-sunken rounded-lg p-0.5 ros-seg-track border border-border">
             {(["month", "week", "day"] as const).map((v) => (
               <button
                 key={v}
                 onClick={() => setView(v)}
                 className={`px-3 py-1 text-meta font-medium rounded-md capitalize transition-colors ${
                   view === v
-                    ? "bg-surface-raised text-foreground shadow-sm"
+                    ? "bg-surface-raised text-foreground ros-seg-active"
                     : "text-foreground-muted hover:text-foreground"
                 }`}
               >

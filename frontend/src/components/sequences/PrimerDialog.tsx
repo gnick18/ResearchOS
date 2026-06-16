@@ -345,14 +345,14 @@ export default function PrimerDialog({ request }: { request: PrimerDialogRequest
           }}
         >
           {/* Mode toggle: manual primer vs. mutagenesis designer. */}
-          <div className="flex items-center gap-1 rounded-lg bg-surface-sunken p-0.5" role="tablist" aria-label="Primer mode">
+          <div className="flex items-center gap-1 rounded-lg bg-surface-sunken p-0.5 ros-seg-track border border-border" role="tablist" aria-label="Primer mode">
             <button
               type="button"
               role="tab"
               aria-selected={mode === "manual"}
               onClick={() => setMode("manual")}
               className={`flex flex-1 items-center justify-center gap-1.5 rounded-md px-3 py-1.5 text-meta font-medium transition-colors ${
-                mode === "manual" ? "bg-surface-raised text-foreground shadow-sm" : "text-foreground-muted hover:text-foreground"
+                mode === "manual" ? "bg-surface-raised text-foreground ros-seg-active" : "text-foreground-muted hover:text-foreground"
               }`}
             >
               <IconPrimer className="h-3.5 w-3.5" />
@@ -364,7 +364,7 @@ export default function PrimerDialog({ request }: { request: PrimerDialogRequest
               aria-selected={mode === "mutagenesis"}
               onClick={() => setMode("mutagenesis")}
               className={`flex flex-1 items-center justify-center gap-1.5 rounded-md px-3 py-1.5 text-meta font-medium transition-colors ${
-                mode === "mutagenesis" ? "bg-surface-raised text-foreground shadow-sm" : "text-foreground-muted hover:text-foreground"
+                mode === "mutagenesis" ? "bg-surface-raised text-foreground ros-seg-active" : "text-foreground-muted hover:text-foreground"
               }`}
             >
               <IconMutate className="h-3.5 w-3.5" />

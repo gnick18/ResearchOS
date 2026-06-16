@@ -506,7 +506,7 @@ export default function DatasetPlotDialog({
             <button
               type="button"
               onClick={onClose}
-              className="rounded-md border border-border px-3 py-1.5 text-body font-medium text-foreground-muted hover:bg-surface-sunken"
+              className="ros-btn-neutral px-3 py-1.5 text-body font-medium text-foreground-muted"
             >
               {preview ? "Done" : "Cancel"}
             </button>
@@ -515,7 +515,7 @@ export default function DatasetPlotDialog({
                 type="button"
                 onClick={() => void save()}
                 disabled={saving || saved}
-                className="rounded-md border border-border px-3 py-1.5 text-body font-medium text-foreground hover:bg-surface-sunken disabled:opacity-50"
+                className="ros-btn-neutral px-3 py-1.5 text-body font-medium text-foreground disabled:opacity-50"
                 data-testid="dataset-plot-save"
               >
                 {saving ? "Saving" : "Save figure"}

@@ -128,33 +128,45 @@ export default function HomeScreen() {
 
   // Status card: lab label + live connection state + last-synced freshness.
   const labName = pairing?.labName ?? 'Your lab';
+  // revoked = the relay no longer has this device bound (the laptop unpaired it).
+  // We show a distinct "Unpaired" state with a re-pair prompt rather than a
+  // misleading "Idle" that implies the laptop is merely asleep.
+  const revoked = !!pairing && conn.state === 'revoked';
   const connLabel = !pairing
     ? 'Not connected'
-    : conn.state === 'synced'
-      ? 'Live'
-      : conn.state === 'offline'
-        ? 'Offline'
-        : 'Idle';
+    : revoked
+      ? 'Unpaired'
+      : conn.state === 'synced'
+        ? 'Live'
+        : conn.state === 'offline'
+          ? 'Offline'
+          : 'Idle';
   const dotColor = !pairing
     ? s.faint
-    : conn.state === 'synced'
-      ? p.success
-      : conn.state === 'offline'
-        ? p.danger
-        : p.amber;
+    : revoked
+      ? p.danger
+      : conn.state === 'synced'
+        ? p.success
+        : conn.state === 'offline'
+          ? p.danger
+          : p.amber;
   const dotDim = !pairing
     ? s.sunken
-    : conn.state === 'synced'
-      ? p.successDim
-      : conn.state === 'offline'
-        ? p.dangerLight ?? s.sunken
-        : p.amberDim;
+    : revoked
+      ? p.dangerLight ?? s.sunken
+      : conn.state === 'synced'
+        ? p.successDim
+        : conn.state === 'offline'
+          ? p.dangerLight ?? s.sunken
+          : p.amberDim;
   const synced = relTime(conn.lastSyncAt);
   const statusMeta = !pairing
     ? 'Connect a laptop to sync'
-    : synced
-      ? `Synced ${synced}`
-      : 'Waiting for first sync';
+    : revoked
+      ? 'This phone was unpaired from the laptop. Re-pair to reconnect.'
+      : synced
+        ? `Synced ${synced}`
+        : 'Waiting for first sync';
 
   // Active experiments still surface on Home as a glance band; the rest of the
   // Today schedule lives in the header Today dropdown (one source of truth).
@@ -169,7 +181,12 @@ export default function HomeScreen() {
 
   const Label = ({ children, action }: { children: string; action?: string }) => (
     <View style={styles.lblRow}>
-      <Text style={[styles.lbl, { color: s.faint }]} numberOfLines={1}>{children}</Text>
+      {/* No numberOfLines on the section label. These are short fixed single-word
+          uppercase labels (Tools / Recent / Running now) that never need
+          truncation, and on Android the letterSpacing >= 1 + numberOfLines={1}
+          combination under-measures the width and clips the last glyph
+          ("TODAY" -> "TOD..."). See reference_android_text_clip. */}
+      <Text style={[styles.lbl, { color: s.faint }]}>{children}</Text>
       {action ? <Text style={[styles.lblAction, { color: p.sky }]} numberOfLines={1}>{action}</Text> : null}
     </View>
   );
@@ -203,7 +220,10 @@ export default function HomeScreen() {
           </View>
           <View style={{ flex: 1 }}>
             <Text style={[styles.statusLab, { color: s.text }]} numberOfLines={1}>{`${labName} · ${connLabel}`}</Text>
-            <Text style={[styles.statusMeta, { color: s.muted }]} numberOfLines={1}>{statusMeta}</Text>
+            {/* The revoked / re-pair message is a full sentence, so allow it to
+                wrap to two lines instead of truncating; short statuses still fit
+                on one. */}
+            <Text style={[styles.statusMeta, { color: s.muted }]} numberOfLines={2}>{statusMeta}</Text>
           </View>
         </LinearGradient>
 
@@ -213,7 +233,14 @@ export default function HomeScreen() {
             <ActiveExperimentsBand
               experiments={experiments}
               dark={t.dark}
-              onPress={() => router.push('/method-detail?read=1')}
+              onPress={(task) =>
+                // task.id is a NUMBER at runtime (the laptop's Task.id), so
+                // stringify before encoding and only fall back to the bare method
+                // view when there is genuinely no id to route the hub by.
+                task.id != null && String(task.id).length > 0
+                  ? router.push(`/experiment-detail?taskId=${encodeURIComponent(String(task.id))}`)
+                  : router.push('/method-detail')
+              }
             />
           </View>
         ) : null}
@@ -227,7 +254,7 @@ export default function HomeScreen() {
                 colors={[t.dark ? 'rgba(245,158,11,0.20)' : 'rgba(245,158,11,0.14)', s.surface]}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 1 }}
-                style={[styles.timerLive, { borderColor: p.amberBorder }, t.shadow.sm]}
+                style={[styles.timerLive, { backgroundColor: s.surface, borderColor: p.amberBorder }, t.shadow.sm]}
               >
                 <View style={[styles.ring, { borderColor: p.amber }]}>
                   <Ic d="M12 13V9M9 2h6M12 22a8 8 0 1 0 0-16 8 8 0 0 0 0 16Z" color={p.amber} size={20} />

@@ -11,6 +11,7 @@ import {
   RefreshControl,
   ScrollView,
   StyleSheet,
+  TextInput,
   View,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
@@ -96,7 +97,25 @@ export default function InventoryScreen() {
   // One-tap "Reorder low" filter on the tracked-items section.
   const [lowOnly, setLowOnly] = useState(false);
   const hasLow = trackedStocks.some(stockIsLow);
-  const shownStocks = lowOnly ? trackedStocks.filter(stockIsLow) : trackedStocks;
+
+  // Spatial inventory Phase A lookup: "where is it / do we have it". Filter the
+  // tracked list by item name OR location, so typing "trypsin" or "-80" finds
+  // the stock + shows its location + remaining count (already on the row). Shown
+  // only once the list is long enough to be worth searching.
+  const [query, setQuery] = useState('');
+  const q = query.trim().toLowerCase();
+  const matchesQuery = (s: TrackedStock) =>
+    !q ||
+    (s.itemName ?? '').toLowerCase().includes(q) ||
+    (s.location ?? '').toLowerCase().includes(q) ||
+    (s.locationPath ?? '').toLowerCase().includes(q);
+  const showSearch = trackedStocks.length >= 4;
+  // Phase C: the lab has a room map with at least one pin, so "find on map" + the
+  // map entry are worth showing.
+  const hasRoomMap = (snapshot?.labMap?.pins?.length ?? 0) > 0;
+  const shownStocks = trackedStocks.filter(
+    (s) => (!lowOnly || stockIsLow(s)) && matchesQuery(s),
+  );
 
   return (
     <ScreenFrame edges={['top']}>
@@ -153,6 +172,24 @@ export default function InventoryScreen() {
               onPress={() => router.push('/add-purchase')}
             />
 
+            {/* Room map entry (Phase C), only when the lab has pinned a map. */}
+            {hasRoomMap ? (
+              <Pressable
+                testID="inventory-room-map"
+                onPress={() => router.push('/room-map')}
+                style={[
+                  styles.roomMapBtn,
+                  { borderColor: surface.border, backgroundColor: surface.surface },
+                ]}
+              >
+                <Ionicons name="map-outline" size={16} color={palette.sky} />
+                <ThemedText style={[styles.roomMapText, { color: surface.text }]}>
+                  View room map
+                </ThemedText>
+                <Ionicons name="chevron-forward" size={15} color={surface.muted} />
+              </Pressable>
+            ) : null}
+
             {/* Error banner */}
             {error ? (
               <View
@@ -183,6 +220,35 @@ export default function InventoryScreen() {
               action={hasLow ? (lowOnly ? 'Show all' : 'Reorder low') : undefined}
               onAction={hasLow ? () => setLowOnly((v) => !v) : undefined}
             />
+            {showSearch ? (
+              <View
+                style={[
+                  styles.searchBox,
+                  {
+                    backgroundColor: surface.surface2,
+                    borderColor: surface.border,
+                  },
+                ]}
+              >
+                <Ionicons name="search" size={16} color={surface.muted} />
+                <TextInput
+                  testID="inventory-search"
+                  value={query}
+                  onChangeText={setQuery}
+                  placeholder="Find an item or location"
+                  placeholderTextColor={surface.placeholder}
+                  style={[styles.searchInput, { color: surface.text }]}
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                  returnKeyType="search"
+                />
+                {query.length > 0 ? (
+                  <Pressable onPress={() => setQuery('')} hitSlop={8}>
+                    <Ionicons name="close-circle" size={16} color={surface.muted} />
+                  </Pressable>
+                ) : null}
+              </View>
+            ) : null}
             {shownStocks.length > 0 ? (
               <Card>
                 {shownStocks.map((stock, i) => (
@@ -191,9 +257,19 @@ export default function InventoryScreen() {
                     testID={`inventory-tracked-row-${i}`}
                     stock={stock}
                     last={i === shownStocks.length - 1}
+                    onFindOnMap={
+                      hasRoomMap
+                        ? (nodeId) => router.push(`/room-map?node=${nodeId}`)
+                        : undefined
+                    }
                   />
                 ))}
               </Card>
+            ) : q.length > 0 ? (
+              <EmptyState
+                icon="search"
+                text={`No tracked items match "${query.trim()}".`}
+              />
             ) : loaded ? (
               <EmptyState
                 icon="cube-outline"
@@ -301,24 +377,36 @@ function TrackedStockRow({
   stock,
   last,
   testID,
+  onFindOnMap,
 }: {
   stock: TrackedStock;
   last: boolean;
   testID?: string;
+  onFindOnMap?: (nodeId: number) => void;
 }) {
   const { surface } = useTheme();
   const name = stock.itemName ?? 'Unknown item';
   const remaining = stock.unitsRemaining ?? 0;
   const total = stock.totalUnits ?? 0;
   const unitLabel = stock.unitLabel ?? '';
+  // Spatial inventory: the stock's physical location, shown as a subtle
+  // "where is it" line under the units. Prefer the structured box-finder path
+  // (Phase B bridge) over the free-text note (Phase A); hidden entirely when the
+  // lab has recorded neither (so undecorated labs see no empty affordance).
+  const location = (stock.locationPath ?? '').trim() || (stock.location ?? '').trim();
   const isLow =
     stock.lowAtCount != null &&
     typeof stock.unitsRemaining === 'number' &&
     stock.unitsRemaining <= stock.lowAtCount;
 
+  // Pluralize the unit by the count it follows (singular unitLabel is the
+  // contract, matching the scan/deduct screen), so a stock with 6 bottles reads
+  // "3 of 6 bottles left" and a lone vial reads "1 vial left".
+  const unitFor = (n: number) =>
+    unitLabel ? ` ${unitLabel}${n === 1 ? '' : 's'}` : '';
   const unitsText = total > 0
-    ? `${remaining} of ${total}${unitLabel ? ` ${unitLabel}` : ''} left`
-    : `${remaining}${unitLabel ? ` ${unitLabel}` : ''} left`;
+    ? `${remaining} of ${total}${unitFor(total)} left`
+    : `${remaining}${unitFor(remaining)} left`;
 
   return (
     <View
@@ -350,6 +438,34 @@ function TrackedStockRow({
         <ThemedText style={[styles.rowMeta, { color: surface.muted }]}>
           {unitsText}
         </ThemedText>
+        {location ? (
+          stock.locationNodeId != null && onFindOnMap ? (
+            <Pressable
+              onPress={() => onFindOnMap(stock.locationNodeId as number)}
+              style={styles.locationRow}
+              hitSlop={6}
+            >
+              <Ionicons name="location" size={12} color={palette.sky} />
+              <ThemedText
+                style={[styles.locationText, { color: palette.sky }]}
+                numberOfLines={1}
+              >
+                {location}
+              </ThemedText>
+              <Ionicons name="chevron-forward" size={11} color={palette.sky} />
+            </Pressable>
+          ) : (
+            <View style={styles.locationRow}>
+              <Ionicons name="location-outline" size={12} color={surface.muted} />
+              <ThemedText
+                style={[styles.locationText, { color: surface.muted }]}
+                numberOfLines={1}
+              >
+                {location}
+              </ThemedText>
+            </View>
+          )
+        ) : null}
       </View>
       <View
         style={[
@@ -537,6 +653,28 @@ const styles = StyleSheet.create({
   rowText: { flex: 1, minWidth: 0 },
   rowTitle: { fontSize: 14, fontFamily: fonts.semibold, fontWeight: '600', lineHeight: 19 },
   rowMeta: { fontSize: 12, lineHeight: 17, marginTop: 2 },
+  roomMapBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    borderWidth: 1,
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    minHeight: 46,
+  },
+  roomMapText: { flex: 1, fontSize: 14, fontFamily: fonts.semibold, fontWeight: '600' },
+  locationRow: { flexDirection: 'row', alignItems: 'center', gap: 3, marginTop: 2 },
+  locationText: { fontSize: 12, lineHeight: 16, flexShrink: 1 },
+  searchBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    borderWidth: 1,
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    minHeight: 44,
+  },
+  searchInput: { flex: 1, fontSize: 15, paddingVertical: 10 },
   // Contract .pill: 5px/11px padding, pill radius, 11.5px / 700.
   pill: { paddingHorizontal: 11, paddingVertical: 5, borderRadius: 999 },
   pillText: { fontSize: 11.5, fontFamily: fonts.bold, fontWeight: '700' },

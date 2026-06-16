@@ -47,6 +47,15 @@ placeholder for Grant to set before launch.
   $0, shared-pool labs, solidarity sustaining on the larger tiers). The only held
   item is the Plus and Pro FINAL sticker prices, unpublished until real usage sets
   them. Transparent cost-recovery ESTIMATES are fine when labeled an estimate.
+- COMPANION APP PACKAGING (decision 2026-06-15). The phone companion is free to
+  download and free to use offline (timers, calculators, wiki) and in demo mode,
+  so anyone can see bench capture working. LIVE PAIRING to a laptop account, the
+  capture-and-sync that actually costs us, requires a paid plan, Starter and up.
+  Frame the entry tier around it, Starter is phone capture rather than just
+  storage. The gate is flag-driven to billing-live, so during the free beta
+  pairing stays open for everyone and the paywall activates only when billing
+  goes live, and it is enforced at the relay, not just in the client. Demo
+  pairing stays free always.
 
 ## Activity is never billed per edit
 

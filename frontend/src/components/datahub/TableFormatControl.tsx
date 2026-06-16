@@ -199,7 +199,7 @@ export default function TableFormatControl({
                 <button
                   type="button"
                   onClick={() => setPending(null)}
-                  className="rounded-md border border-border bg-surface-raised px-2.5 py-1 text-[11px] font-medium text-foreground transition-colors hover:bg-surface-sunken"
+                  className="ros-btn-neutral px-2.5 py-1 text-[11px] font-medium"
                   data-testid="datahub-table-format-cancel"
                 >
                   Cancel

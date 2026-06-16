@@ -719,7 +719,7 @@ export default function CloningWorkspace({ open, onClose, activeProjectIds, onSa
             <button
               type="button"
               onClick={() => setStep("pick")}
-              className="rounded-md border border-border px-3 py-1.5 text-meta font-medium text-foreground hover:bg-surface-sunken"
+              className="ros-btn-neutral px-3 py-1.5 text-meta font-medium text-foreground"
             >
               Back to fragments
             </button>
@@ -847,7 +847,7 @@ export default function CloningWorkspace({ open, onClose, activeProjectIds, onSa
               <button
                 type="button"
                 onClick={() => setPasteOpen((o) => !o)}
-                className="rounded-md border border-border px-3 py-1.5 text-meta font-medium text-foreground hover:bg-surface-sunken"
+                className="ros-btn-neutral px-3 py-1.5 text-meta font-medium text-foreground"
               >
                 Paste a sequence…
               </button>
@@ -1348,7 +1348,7 @@ export default function CloningWorkspace({ open, onClose, activeProjectIds, onSa
               <div>
                 <div className="mb-2 flex items-center justify-between">
                   <SectionLabel>Oligo order list ({result.primers.length * 2})</SectionLabel>
-                  <button type="button" onClick={copyOligos} className="flex items-center gap-1.5 rounded-md border border-border px-2.5 py-1.5 text-meta font-medium text-foreground hover:bg-surface-sunken">
+                  <button type="button" onClick={copyOligos} className="ros-btn-neutral flex items-center gap-1.5 px-2.5 py-1.5 text-meta font-medium text-foreground">
                     <CopyIcon className="h-3.5 w-3.5" /> {copied ? "Copied" : "Copy all"}
                   </button>
                 </div>
@@ -1448,7 +1448,7 @@ function ReviewShell({
 
       <div className="flex items-center justify-end gap-3 border-t border-border pt-4">
         {saveError ? <span className="text-meta text-rose-600 dark:text-rose-300">{saveError}</span> : null}
-        <button type="button" onClick={onBack} className="rounded-md border border-border px-4 py-2 text-body font-medium text-foreground hover:bg-surface-sunken">
+        <button type="button" onClick={onBack} className="ros-btn-neutral px-4 py-2 text-body font-medium text-foreground">
           Back
         </button>
       </div>

@@ -22,7 +22,8 @@ export interface PropertyRow {
 export default function PropertyTable({ rows }: { rows: PropertyRow[] }) {
   return (
     <figure className="overflow-hidden rounded-xl border border-border bg-surface-raised">
-      <div className="overflow-x-auto">
+      {/* Desktop table — hidden on phones */}
+      <div className="hidden sm:block overflow-x-auto">
         <table className="w-full text-left text-meta">
           <thead>
             <tr className="border-b border-border bg-surface-sunken text-foreground-muted">
@@ -50,6 +51,35 @@ export default function PropertyTable({ rows }: { rows: PropertyRow[] }) {
             ))}
           </tbody>
         </table>
+      </div>
+
+      {/* Phone stacked cards — visible below sm */}
+      <div className="sm:hidden divide-y divide-border">
+        {rows.map((r) => (
+          <div key={r.metric} className="flex flex-col gap-2 p-3">
+            <div className="flex items-center justify-between gap-2">
+              <span className="font-medium text-foreground">
+                {r.metric}
+                {r.unit ? <span className="ml-1 text-foreground-muted text-meta">({r.unit})</span> : null}
+              </span>
+              <StatusPill status={r.status} exact={r.delta === 0} />
+            </div>
+            <div className="grid grid-cols-3 gap-x-2 text-meta text-center">
+              <div>
+                <div className="text-[10px] uppercase tracking-wide text-foreground-muted">Ours</div>
+                <div className="font-mono text-foreground">{r.ours}</div>
+              </div>
+              <div>
+                <div className="text-[10px] uppercase tracking-wide text-foreground-muted">Biopython</div>
+                <div className="font-mono text-foreground-muted">{r.theirs}</div>
+              </div>
+              <div>
+                <div className="text-[10px] uppercase tracking-wide text-foreground-muted">Δ</div>
+                <div className="font-mono text-foreground-muted">{r.delta}</div>
+              </div>
+            </div>
+          </div>
+        ))}
       </div>
     </figure>
   );

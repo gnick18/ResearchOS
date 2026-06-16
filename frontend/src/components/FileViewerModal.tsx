@@ -105,7 +105,7 @@ export default function FileViewerModal({
               <button
                 type="button"
                 onClick={handleDownload}
-                className="px-3 py-1.5 text-meta text-foreground bg-surface-raised border border-border rounded-md hover:bg-surface-sunken transition-colors"
+                className="ros-btn-neutral px-3 py-1.5 text-meta"
               >
                 Download
               </button>
@@ -181,7 +181,7 @@ export default function FileViewerModal({
               type="button"
               onClick={handleDownload}
               disabled={step === "loading"}
-              className="px-4 py-2 text-body text-foreground bg-surface-raised border border-border rounded-lg hover:bg-surface-sunken transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              className="ros-btn-neutral px-4 py-2 text-body disabled:opacity-50 disabled:cursor-not-allowed"
             >
               Download
             </button>

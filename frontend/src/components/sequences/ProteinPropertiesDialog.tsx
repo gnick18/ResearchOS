@@ -225,7 +225,7 @@ export default function ProteinPropertiesDialog({
               <button
                 type="button"
                 onClick={useSelection}
-                className="self-end rounded-md border border-border bg-surface-raised px-3 py-1.5 text-body font-medium text-foreground transition-colors hover:bg-surface-sunken"
+                className="ros-btn-neutral self-end px-3 py-1.5 text-body font-medium"
               >
                 Use selection
               </button>

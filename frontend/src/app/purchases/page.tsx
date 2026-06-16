@@ -440,7 +440,7 @@ function PurchasesPageContent() {
               onClick={handleExportAudit}
               disabled={allPurchases.length === 0}
               title="Download a CSV of all purchases grouped by grant, with their attached documents, for a grant audit"
-              className="px-3 py-1.5 text-body bg-surface-sunken text-foreground rounded-lg hover:bg-surface transition-colors disabled:opacity-50"
+              className="ros-btn-neutral px-3 py-1.5 text-body disabled:opacity-50"
             >
               Export audit CSV
             </button>

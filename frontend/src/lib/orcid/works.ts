@@ -13,6 +13,12 @@
 // Types
 // ---------------------------------------------------------------------------
 
+/** One author on a work, with an ORCID iD when ORCID has one for them. */
+export interface OrcidContributor {
+  name: string;
+  orcid: string | null;
+}
+
 export interface OrcidWork {
   putCode: string;
   title: string;
@@ -21,6 +27,10 @@ export interface OrcidWork {
   type: string | null;
   doi: string | null;
   url: string | null;
+  // Author list. Empty when ORCID has no contributors for the work (the common
+  // case for the works-summary endpoint, which omits them). Never null, so the
+  // panel can always map over it safely.
+  contributors: OrcidContributor[];
 }
 
 // ---------------------------------------------------------------------------
@@ -96,6 +106,100 @@ function safeStr(val: unknown): string | null {
 /** Normalizes a title for duplicate detection, lowercase, alphanumeric-only. */
 function normalizeTitle(title: string): string {
   return title.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+}
+
+/**
+ * Pulls the author list out of a work record's `contributors` block. Resilient,
+ * a missing block, a non-array, or entries without a credit-name all collapse
+ * to an empty list rather than throwing. The works-SUMMARY endpoint has no
+ * contributors block, so this returns [] there; only the full work detail (the
+ * bulk endpoint) carries authors.
+ */
+function parseContributors(s: Record<string, unknown>): OrcidContributor[] {
+  const block = s["contributors"] as Record<string, unknown> | undefined;
+  const list = Array.isArray(block?.["contributor"])
+    ? (block!["contributor"] as unknown[])
+    : [];
+
+  const out: OrcidContributor[] = [];
+  for (const c of list) {
+    if (!c || typeof c !== "object") continue;
+    const cc = c as Record<string, unknown>;
+
+    const nameObj = cc["credit-name"] as Record<string, unknown> | undefined;
+    const name = safeStr(nameObj?.["value"]);
+    if (!name) continue; // an unnamed contributor is not displayable, skip it
+
+    // contributor-orcid -> path is the bare 0000-... iD when present.
+    const oObj = cc["contributor-orcid"] as Record<string, unknown> | undefined;
+    const orcid = safeStr(oObj?.["path"]) ?? safeStr(oObj?.["uri"]);
+
+    out.push({ name, orcid: normalizeOrcidId(orcid) });
+  }
+  return out;
+}
+
+/** Reduces an ORCID path or URI to the bare 0000-0000-0000-0000 iD, or null. */
+function normalizeOrcidId(raw: string | null): string | null {
+  if (!raw) return null;
+  const m = raw.match(/\d{4}-\d{4}-\d{4}-\d{3}[\dX]/);
+  return m ? m[0] : null;
+}
+
+/** Normalizes a person name for the conservative no-iD fallback match. */
+function normalizeName(name: string): string {
+  return name
+    .toLowerCase()
+    .normalize("NFKD")
+    .replace(/[̀-ͯ]/g, "") // strip combining diacritics
+    .replace(/[.,]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+/** One author in the display list, flagged when it is the profile owner. */
+export interface MarkedContributor extends OrcidContributor {
+  isOwner: boolean;
+}
+
+/**
+ * Marks which entry in a work's author list is the profile owner.
+ *
+ * Primary match, the owner's ORCID iD equals a contributor's iD. This is exact
+ * and unambiguous, so it always wins.
+ *
+ * Fallback, only when NO contributor on the work carries any iD at all (so an
+ * iD match is impossible) do we fall back to a normalized-name comparison
+ * against the supplied owner name. This is deliberately conservative, if any
+ * contributor has an iD we trust the iDs alone and never guess by name, which
+ * avoids bolding a same-named-but-different person.
+ */
+export function markOwnerInContributors(
+  contributors: OrcidContributor[],
+  ownerOrcid: string,
+  ownerName?: string | null,
+): MarkedContributor[] {
+  const owner = normalizeOrcidId(ownerOrcid);
+  const anyHasId = contributors.some((c) => c.orcid !== null);
+
+  // iD match path (used whenever any contributor carries an iD).
+  if (anyHasId || !ownerName) {
+    let matched = false;
+    return contributors.map((c) => {
+      const isOwner = !matched && owner !== null && c.orcid === owner;
+      if (isOwner) matched = true;
+      return { ...c, isOwner };
+    });
+  }
+
+  // No-iD fallback, conservative normalized-name match (first match only).
+  const wantName = normalizeName(ownerName);
+  let matched = false;
+  return contributors.map((c) => {
+    const isOwner = !matched && wantName !== "" && normalizeName(c.name) === wantName;
+    if (isOwner) matched = true;
+    return { ...c, isOwner };
+  });
 }
 
 /**
@@ -289,7 +393,12 @@ export function parseOrcidWorks(raw: unknown): OrcidWork[] {
       url = safeStr(workUrlObj?.["value"]);
     }
 
-    works.push({ putCode, title, journal, year, type, doi, url });
+    // The works-summary endpoint omits contributors, so this is normally [].
+    // When this same parser is fed a full work record (the bulk detail
+    // endpoint), parseContributors picks the authors up.
+    const contributors = parseContributors(s);
+
+    works.push({ putCode, title, journal, year, type, doi, url, contributors });
   }
 
   // Collapse obvious preprint/published duplicates (same title), then sort
@@ -328,9 +437,83 @@ export async function fetchOrcidWorks(orcid: string): Promise<OrcidWork[]> {
       return [];
     }
     const raw: unknown = await res.json();
-    const works = parseOrcidWorks(raw);
-    return works.slice(0, MAX_WORKS);
+    const works = parseOrcidWorks(raw).slice(0, MAX_WORKS);
+
+    // The works-SUMMARY response above omits contributors (authors). Rather
+    // than firing one detail request per work, we make ONE bulk-detail call,
+    // /works/{putCode1,putCode2,...} (ORCID allows up to 100 put-codes), which
+    // returns full work records including contributors. So the whole panel
+    // costs at most 2 ORCID calls regardless of work count. If the bulk call
+    // fails we keep the summaries as-is (contributors stay []), so authors are
+    // simply not shown rather than the panel breaking.
+    return await enrichWithContributors(orcid, works, token, pubHost);
   } catch {
     return [];
   }
+}
+
+/**
+ * Fills in each work's `contributors` via a single bulk-detail ORCID call.
+ * Non-throwing, on any failure it returns the works unchanged.
+ */
+async function enrichWithContributors(
+  orcid: string,
+  works: OrcidWork[],
+  token: string,
+  pubHost: string,
+): Promise<OrcidWork[]> {
+  if (works.length === 0) return works;
+  try {
+    // ORCID caps a bulk read at 100 put-codes; MAX_WORKS keeps us well under.
+    const putCodes = works.map((w) => w.putCode).join(",");
+    const res = await fetch(
+      `${pubHost}/v3.0/${encodeURIComponent(orcid)}/works/${putCodes}`,
+      {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          Accept: "application/json",
+        },
+      },
+    );
+    if (!res.ok) {
+      if (res.status === 401) cachedToken = null;
+      return works;
+    }
+    const raw: unknown = await res.json();
+    const byCode = parseBulkContributors(raw);
+    if (byCode.size === 0) return works;
+    return works.map((w) =>
+      byCode.has(w.putCode)
+        ? { ...w, contributors: byCode.get(w.putCode)! }
+        : w,
+    );
+  } catch {
+    return works;
+  }
+}
+
+/**
+ * Parses a /works/{putCodes} bulk response into a put-code -> contributors map.
+ * Shape, { bulk: [ { work: <full work record> }, ... ] }. Resilient to missing
+ * pieces, anything unparseable is simply skipped.
+ */
+function parseBulkContributors(raw: unknown): Map<string, OrcidContributor[]> {
+  const out = new Map<string, OrcidContributor[]>();
+  if (!raw || typeof raw !== "object") return out;
+
+  const bulk = (raw as Record<string, unknown>)["bulk"];
+  if (!Array.isArray(bulk)) return out;
+
+  for (const entry of bulk) {
+    if (!entry || typeof entry !== "object") continue;
+    const work = (entry as Record<string, unknown>)["work"];
+    if (!work || typeof work !== "object") continue;
+    const w = work as Record<string, unknown>;
+
+    const putCode = String(w["put-code"] ?? "");
+    if (!putCode) continue;
+
+    out.set(putCode, parseContributors(w));
+  }
+  return out;
 }

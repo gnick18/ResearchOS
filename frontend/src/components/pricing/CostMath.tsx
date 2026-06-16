@@ -15,7 +15,11 @@ import {
   HOT_PER_GB_MO,
 } from "@/lib/pricing/assumptions";
 
-export default function CostMath() {
+interface CostMathProps {
+  billingEnabled: boolean;
+}
+
+export default function CostMath({ billingEnabled }: CostMathProps) {
   const coldPct = Math.round(BLENDED_COLD_SHARE * 100);
   const hotPct = 100 - coldPct;
 
@@ -85,9 +89,9 @@ export default function CostMath() {
             free for the individual researchers.
           </p>
           <p className="text-[11.5px] leading-snug text-foreground-muted">
-            An estimate, not a final price, and free today during the beta. Tax is
-            added on top only where the LLC is registered to collect it, which for
-            most universities is nowhere.
+            {billingEnabled
+              ? "An estimate, not a final price. Tax is added on top only where the LLC is registered to collect it, which for most universities is nowhere."
+              : "An estimate, not a final price, and free today during the beta. Tax is added on top only where the LLC is registered to collect it, which for most universities is nowhere."}
           </p>
         </div>
       </div>

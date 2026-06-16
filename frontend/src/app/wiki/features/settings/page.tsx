@@ -3,8 +3,12 @@ import WikiPage from "@/components/wiki/WikiPage";
 import Callout from "@/components/wiki/Callout";
 import Screenshot from "@/components/wiki/Screenshot";
 import TryInDemo from "@/components/wiki/TryInDemo";
+import {
+  isAiBillingEnabled,
+} from "@/lib/billing/config";
 
-export default function SettingsFeaturePage() {
+export default async function SettingsFeaturePage() {
+  const aiBillingOn = isAiBillingEnabled();
   return (
     <WikiPage
       title="Settings"
@@ -102,12 +106,23 @@ export default function SettingsFeaturePage() {
       <ul>
         <li>
           <strong>AI usage</strong> - your live BeakerBot token balance, recent
-          task costs, and three prepaid top-up packs ($10, $25, $50). During the
-          beta period, when billing enforcement is off, the section instead shows
-          the &ldquo;AI is free during the beta&rdquo; framing. Token amounts for
-          each pack come from the live rate, so the numbers stay accurate as
-          rates change. A link to the pricing page shows the current per-token
-          rate. Flagged with a &ldquo;new&rdquo; pill.
+          task costs, and three prepaid top-up packs ($10, $25, $50).{" "}
+          {aiBillingOn ? (
+            <>
+              Token amounts for each pack come from the live rate, so the
+              numbers stay accurate as rates change. A link to the pricing page
+              shows the current per-token rate.
+            </>
+          ) : (
+            <>
+              During the beta period, when billing enforcement is off, the
+              section instead shows the &ldquo;AI is free during the
+              beta&rdquo; framing. Token amounts for each pack come from the
+              live rate, so the numbers stay accurate as rates change. A link
+              to the pricing page shows the current per-token rate.
+            </>
+          )}{" "}
+          Flagged with a &ldquo;new&rdquo; pill.
         </li>
         <li>
           <strong>Cloud storage</strong> - how much of your cloud storage cap

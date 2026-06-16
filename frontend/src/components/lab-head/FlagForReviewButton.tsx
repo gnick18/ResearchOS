@@ -213,7 +213,7 @@ export default function FlagForReviewButton({
                     type="button"
                     onClick={handleClear}
                     disabled={busy}
-                    className="px-3 py-1.5 rounded-md text-meta text-foreground-muted hover:bg-surface-sunken border border-border"
+                    className="ros-btn-neutral px-3 py-1.5 text-meta text-foreground-muted"
                     data-testid="lab-head-flag-clear"
                   >
                     Clear flag

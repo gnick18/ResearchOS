@@ -329,6 +329,35 @@ export async function writeIdentityReferenceSidecar(
 }
 
 /**
+ * Phase C (recovery, docs/proposals/2026-06-15-account-folder-identity-redesign.md §4.4):
+ * RESET this user's identity while KEEPING their data. The notebook data is
+ * plaintext on disk and is NOT touched here; only the cryptographic identity is
+ * replaced. This is the lockout escape: a user who has lost their recovery code
+ * and provider access, but still holds the folder, can re-establish a fresh
+ * identity rather than being permanently locked out.
+ *
+ * Drops the stale identity from the session + at-rest vault, then mints a fresh
+ * keypair + sidecar (overwriting the old sidecar) and returns the new one-time
+ * recovery code.
+ *
+ * WHAT IS LOST: the old signing identity, so prior signatures / provenance
+ * orphan, and the ability to decrypt data previously shared TO the old key.
+ * WHAT SURVIVES: all of the user's own notebook data (it is plaintext on disk).
+ * For a SHARED lab the new public key must be re-admitted to the roster by the
+ * lab head (Phase C PI re-admit) before sharing works again.
+ */
+export async function resetIdentityKeepData(
+  username: string,
+  params?: KdfParams,
+): Promise<{ recoveryCode: string; recoveryWords: string }> {
+  // Drop the stale identity from the session + at-rest store so the fresh mint
+  // below is unambiguously the active one (createLocalIdentity also parks the
+  // new key, but a leftover vault entry must never shadow it).
+  await clearIdentity();
+  return createLocalIdentity(username, params);
+}
+
+/**
  * Stamps recoveryConfirmedAt on the user's sidecar, marking that they saved
  * their recovery words. Called when the user ticks the confirmation checkbox and
  * completes CreateLocalIdentityStep. No-op if the sidecar is absent.

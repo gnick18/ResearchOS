@@ -557,3 +557,80 @@ export function addMember(
   };
   return { record, copy };
 }
+
+/**
+ * Phase C2 (PI re-admit, docs/proposals/2026-06-15-account-folder-identity-redesign.md
+ * §4.4 / §6c): re-admit an EXISTING member who reset their identity (Phase C1
+ * resetIdentityKeepData) and now holds a fresh keypair. Their old roster entry's
+ * keys are stale, so the lab key sealed to the old x25519 key can no longer be
+ * opened by them, and nothing new can be sealed to them until the head admits
+ * the new keys.
+ *
+ * This is composed from the two existing, audited primitives rather than a new
+ * signed-log event type (which would change canonicalEntryMessage +
+ * verifyMembershipLog — the tamper-evident schema we deliberately do not touch
+ * here): a `rotate` evicts the stale keys (new generation, sealed only to the
+ * remaining members + PI, seed-linked so historical lab data stays readable),
+ * then an `add` re-admits the SAME username with the new keys, sealing the new
+ * generation's key to the new x25519 key. The lost old key is therefore
+ * cryptographically excluded from everything sealed after the re-admit, which is
+ * the correct posture for a key the member can no longer hold.
+ *
+ * The re-admitted member regains lab data (current + historical via the seed
+ * chain) once they hold the new key. Person-to-person shares sealed directly to
+ * their OLD identity key remain unreadable — that loss is inherent to the reset
+ * and is what the Phase C1 confirmation warns about.
+ *
+ * @param currentRecord the lab record before the re-admit.
+ * @param currentLabKey the current lab key (the generation currentRecord is at).
+ * @param username the existing member to re-admit (must be a non-head member).
+ * @param newKeys the member's NEW public keys, harvested from their re-published
+ *   directory profile / sidecar by the caller (verify the fingerprint there).
+ * @param headEd25519PrivateKey the PI's signing key, the sole log signer.
+ * @throws if the username is the head or is not currently a member.
+ */
+export function readmitMember(
+  currentRecord: LabRecord,
+  currentLabKey: Uint8Array,
+  username: string,
+  newKeys: { x25519PublicKey: string; ed25519PublicKey: string },
+  headEd25519PrivateKey: Uint8Array,
+): RotationResult {
+  if (username === currentRecord.head.username) {
+    throw new Error("readmitMember: cannot re-admit the lab head");
+  }
+  const existing = currentRecord.members.find((m) => m.username === username);
+  if (!existing) {
+    throw new Error(
+      `readmitMember: ${username} is not a member of this lab`,
+    );
+  }
+
+  // 1. Rotate the stale keys out (new generation, seed-linked to the past).
+  const rotated = rotateLabKey(
+    currentRecord,
+    currentLabKey,
+    username,
+    headEd25519PrivateKey,
+  );
+
+  // 2. Re-add the same member with their new keys, preserving role + any
+  //    existing email binding (the human-identity layer survives a key reset).
+  const readmitted: LabMember = {
+    ...existing,
+    x25519PublicKey: newKeys.x25519PublicKey,
+    ed25519PublicKey: newKeys.ed25519PublicKey,
+  };
+  const { record, copy } = addMember(
+    rotated.record,
+    rotated.newLabKey,
+    readmitted,
+    headEd25519PrivateKey,
+  );
+
+  return {
+    newLabKey: rotated.newLabKey,
+    envelope: { ...rotated.envelope, copies: [...rotated.envelope.copies, copy] },
+    record,
+  };
+}

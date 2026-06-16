@@ -20,7 +20,16 @@
 //
 // No em-dashes, no emojis, no mid-sentence colons.
 
-import { inventoryItemsApi, inventoryStocksApi, purchasesApi, fetchAllTasks } from "@/lib/local-api";
+import {
+  inventoryItemsApi,
+  inventoryStocksApi,
+  purchasesApi,
+  fetchAllTasks,
+  fetchAllStorageNodesIncludingShared,
+  fetchAllLabMapsIncludingShared,
+} from "@/lib/local-api";
+import { buildNodePath } from "@/components/inventory/inventory-ui";
+import type { StorageNode, LabMap } from "@/lib/types";
 import { sealToRecipient } from "@/lib/sharing/encryption";
 import { decodePublicKey } from "@/lib/sharing/identity/keys";
 import { listDevices, publishSnapshot, type UserCaptureKeys } from "./client";
@@ -58,6 +67,27 @@ export interface SnapshotTrackedStock {
   lowAtCount: number | null;
   purchaseItemId: number | null;
   totalUnits: number;
+  /**
+   * Free-text physical location of this stock ("-80 door, left"), from
+   * `InventoryStock.location_text`. Null when the lab has not recorded one yet.
+   * Spatial inventory Phase A: surfaced so the phone can answer "where is it"
+   * and the scan-in flow can prompt + set it. Additive (an older phone ignores it).
+   */
+  location: string | null;
+  /**
+   * Structured location path resolved from the lab's StorageNode tree
+   * (`location_node_id` + `position`), e.g. "-80 #2 > Rack 1 > Box: Q5 - A1".
+   * Spatial inventory Phase B bridge: the laptop's box-finder placement, read-only
+   * on the phone. Null when the stock has no structured location (then the phone
+   * falls back to `location`). Additive.
+   */
+  locationPath: string | null;
+  /**
+   * The stock's raw `location_node_id`, so the phone can "find it on the room
+   * map": walk this node up the tree to the nearest pinned ancestor and highlight
+   * that pin. Null when unplaced. Phase C. Additive.
+   */
+  locationNodeId: number | null;
 }
 
 /**
@@ -85,6 +115,40 @@ export interface SnapshotBarcodeIndexEntry {
   catalog: string | null;
 }
 
+/**
+ * One node of the lab's storage tree, projected for the phone's cascading
+ * location picker (spatial inventory Phase B bridge, write half). The phone walks
+ * `parentId` one level at a time; a `box` node exposes its `boxRows` x `boxCols`
+ * grid as the A1 position options. Mirrors `StorageNode` minus display-only fields.
+ */
+export interface SnapshotStorageNode {
+  id: number;
+  name: string;
+  kind: string;
+  parentId: number | null;
+  boxRows: number | null;
+  boxCols: number | null;
+}
+
+/** One pin on the room map, projected for the phone's read-only viewer. Marks a
+ *  StorageNode (`nodeId`) or a free label at a normalized 0..1 (x,y). Phase C. */
+export interface SnapshotLabMapPin {
+  nodeId: number | null;
+  label: string | null;
+  x: number;
+  y: number;
+}
+
+/** The lab's 2D room map, projected for the phone (read-only). `aspect` =
+ *  width/height of the plan. Null published when the lab has no map yet. Phase C. */
+export interface SnapshotLabMap {
+  aspect: number;
+  pins: SnapshotLabMapPin[];
+  /** The floor plan as inline SVG markup, so the phone can render the real plan
+   *  under the pins. Null = blank canvas. Phase C floor-plan import. */
+  imageSvg: string | null;
+}
+
 /** The decrypted shape the phone reads after openSealed. */
 export interface InventorySnapshot {
   generatedAt: string;
@@ -94,21 +158,52 @@ export interface InventorySnapshot {
   trackedStocks: SnapshotTrackedStock[];
   recentPurchases: SnapshotRecentPurchase[];
   barcodeIndex: Record<string, SnapshotBarcodeIndexEntry>;
+  /** The whole-lab storage tree, so the phone scan-in flow can offer a structured
+   *  location picker (Phase B bridge, write half). Additive. */
+  storageNodes: SnapshotStorageNode[];
+  /** The lab's 2D room map (Phase C), so the phone can render it + find an item
+   *  on it. Null when the lab has not started a map. Additive. */
+  labMap: SnapshotLabMap | null;
 }
 
 /** Reads the connected folder's inventory and builds the snapshot. */
 export async function buildInventorySnapshot(): Promise<InventorySnapshot> {
   // Parallel fetch to keep snapshot build fast.
-  const [items, stocks, purchases, tasks] = await Promise.all([
+  const [items, stocks, purchases, tasks, storageNodes, labMaps] = await Promise.all([
     inventoryItemsApi.list(),
     inventoryStocksApi.list(),
     purchasesApi.listAll(),
     fetchAllTasks(),
+    // The location tree is whole-lab shared, so a stock owned by this user may
+    // sit in a node another member created. Use the shared-inclusive read.
+    fetchAllStorageNodesIncludingShared().catch(() => [] as StorageNode[]),
+    // The room map is one-per-lab, whole-lab shared. Read-only here (never create).
+    fetchAllLabMapsIncludingShared().catch(() => [] as LabMap[]),
   ]);
 
   // ── Item lookup maps ──────────────────────────────────────────────────────
   // item by id, for stock -> item join.
   const itemById = new Map(items.map((i) => [i.id, i]));
+
+  // Storage-node lookup for resolving a stock's structured location to a path.
+  const nodesById = new Map<number, StorageNode>(
+    storageNodes.map((n) => [n.id, n]),
+  );
+
+  // Resolve a stock's `location_node_id` + `position` to a readable path like
+  // "-80 #2 > Box: Q5 - A1". Returns null when the stock is not placed in the
+  // tree (the phone then falls back to the free-text `location_text`).
+  const resolveLocationPath = (
+    nodeId: number | null | undefined,
+    position: string | null | undefined,
+  ): string | null => {
+    if (nodeId == null) return null;
+    const path = buildNodePath(nodeId, nodesById);
+    if (path.length === 0) return null;
+    const names = path.map((n) => n.name).join(" > ");
+    const pos = (position ?? "").trim();
+    return pos ? `${names} - ${pos}` : names;
+  };
 
   // task start_date by task id, for orderedDate in recentPurchases.
   const taskDateById = new Map(
@@ -155,6 +250,9 @@ export async function buildInventorySnapshot(): Promise<InventorySnapshot> {
       lowAtCount: item.low_at_count,
       purchaseItemId: stock.purchase_item_id,
       totalUnits,
+      location: (stock.location_text && stock.location_text.trim()) || null,
+      locationPath: resolveLocationPath(stock.location_node_id, stock.position),
+      locationNodeId: stock.location_node_id ?? null,
     });
   }
 
@@ -225,6 +323,30 @@ export async function buildInventorySnapshot(): Promise<InventorySnapshot> {
     trackedStocks,
     recentPurchases,
     barcodeIndex,
+    storageNodes: storageNodes.map((n) => ({
+      id: n.id,
+      name: n.name,
+      kind: n.kind,
+      parentId: n.parent_id,
+      boxRows: n.box_rows,
+      boxCols: n.box_cols,
+    })),
+    labMap: (() => {
+      // One map per lab; pick the lowest id when several exist (matches
+      // getOrCreateLabMap). Publish null when the lab has not started one.
+      const map = [...labMaps].sort((a, b) => a.id - b.id)[0];
+      if (!map) return null;
+      return {
+        aspect: map.plan?.aspect ?? 1.5,
+        pins: map.pins.map((p) => ({
+          nodeId: p.nodeId,
+          label: p.label,
+          x: p.x,
+          y: p.y,
+        })),
+        imageSvg: map.plan?.imageData ?? null,
+      };
+    })(),
   };
 }
 

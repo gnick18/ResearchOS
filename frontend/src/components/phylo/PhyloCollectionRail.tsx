@@ -24,6 +24,8 @@ import type { EditMenuItem } from "@/components/sequences/SequenceEditMenu";
 const TREE_LIST_KEY = ["phylo", "list"] as const;
 
 export function PhyloCollectionRail({
+  collection: collectionProp,
+  onCollectionChange,
   selectedId,
   onPick,
   onNew,
@@ -31,6 +33,12 @@ export function PhyloCollectionRail({
   onCollapse,
   onOpenCleared,
 }: {
+  /** The selected collection ("all" / "unfiled" / a project id), controlled by
+   *  the parent so the save flow can read the sidebar selection. Falls back to
+   *  internal state when omitted. */
+  collection?: string;
+  /** Notifies the parent when the user picks a different collection. */
+  onCollectionChange?: (collection: string) => void;
   /** The open tree's id, for row highlight. */
   selectedId: string | null;
   /** Open a saved tree in the canvas. */
@@ -47,7 +55,17 @@ export function PhyloCollectionRail({
   const queryClient = useQueryClient();
   const { openMenu } = useContextMenu();
 
-  const [collection, setCollection] = useState<string>("all");
+  // Controlled by the parent when collectionProp is provided (so PhyloStudio can
+  // read the sidebar selection for the save flow); otherwise self-managed.
+  const [collectionInternal, setCollectionInternal] = useState<string>("all");
+  const collection = collectionProp ?? collectionInternal;
+  const setCollection = useCallback(
+    (next: string) => {
+      setCollectionInternal(next);
+      onCollectionChange?.(next);
+    },
+    [onCollectionChange],
+  );
   const [query, setQuery] = useState("");
   const [checkedIds, setCheckedIds] = useState<Set<string>>(new Set());
   const [bulkBusy, setBulkBusy] = useState(false);
@@ -227,31 +245,75 @@ export function PhyloCollectionRail({
     [invalidate, selectedId, onOpenCleared],
   );
 
+  // Re-file ONE tree into a project (or, with projectId "", clear it to Unfiled).
+  // Replaces the tree's membership so the row's collection is unambiguous; this
+  // is what lets a pasted/loaded tree be co-scoped with a project's Data Hub
+  // tables for the smart-binding wizard.
+  const handleMoveToProject = useCallback(
+    async (t: PhyloMeta, projectId: string) => {
+      const next = projectId ? [projectId] : [];
+      if (
+        t.project_ids.length === next.length &&
+        t.project_ids.every((p, i) => p === next[i])
+      )
+        return;
+      await phyloApi.updateMeta(t.id, { project_ids: next });
+      await invalidate();
+    },
+    [invalidate],
+  );
+
   const buildTreeMenu = useCallback(
-    (t: PhyloMeta): EditMenuItem[] => [
-      { id: "open", label: "Open", enabled: true, onRun: () => onPick(t.id) },
-      {
-        id: "rename",
-        label: "Rename",
-        enabled: true,
-        onRun: () => setRenameTarget(t),
-      },
-      {
-        id: "duplicate",
-        label: "Duplicate",
-        enabled: true,
-        onRun: () => void handleDuplicate(t),
-      },
-      {
+    (t: PhyloMeta): EditMenuItem[] => {
+      const items: EditMenuItem[] = [
+        { id: "open", label: "Open", enabled: true, onRun: () => onPick(t.id) },
+        {
+          id: "rename",
+          label: "Rename",
+          enabled: true,
+          onRun: () => setRenameTarget(t),
+        },
+        {
+          id: "duplicate",
+          label: "Duplicate",
+          enabled: true,
+          onRun: () => void handleDuplicate(t),
+        },
+      ];
+      // Move-to-project group: one row per project, plus Unfiled. The tree's
+      // current collection is greyed (already there). Only shown when projects
+      // exist, so a folderless user sees no dead options.
+      if (projects.length > 0) {
+        const isUnfiled = t.project_ids.length === 0;
+        items.push({
+          id: "unfiled",
+          label: isUnfiled ? "Unfiled (current)" : "Move to Unfiled",
+          enabled: !isUnfiled,
+          group: true,
+          onRun: () => void handleMoveToProject(t, ""),
+        });
+        for (const p of projects) {
+          const pid = String(p.id);
+          const here = t.project_ids.includes(pid);
+          items.push({
+            id: `move-${pid}`,
+            label: here ? `${p.name} (current)` : `Move to ${p.name}`,
+            enabled: !here,
+            onRun: () => void handleMoveToProject(t, pid),
+          });
+        }
+      }
+      items.push({
         id: "delete",
         label: "Delete",
         enabled: true,
         destructive: true,
         group: true,
         onRun: () => void handleDeleteOne(t),
-      },
-    ],
-    [onPick, handleDuplicate, handleDeleteOne],
+      });
+      return items;
+    },
+    [onPick, handleDuplicate, handleDeleteOne, handleMoveToProject, projects],
   );
 
   return (

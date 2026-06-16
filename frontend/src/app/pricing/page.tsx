@@ -14,13 +14,16 @@ import PricingHero from "@/components/pricing/PricingHero";
 import { Section, SectionHeading } from "@/components/pricing/Section";
 import TrustBand from "@/components/pricing/TrustBand";
 import TwoPartModel from "@/components/pricing/TwoPartModel";
+import { isAiBillingEnabled, isBillingEnabled } from "@/lib/billing/config";
 
 /**
  * Public `/pricing` route. The first real pricing page, a faithful port of the
  * approved mockup `docs/mockups/2026-06-10-pricing-page.html`. Every word comes
  * from BILLING_FACTS in the house voice. No Plus or Pro dollar figures are
- * printed (those are still provisional), and nothing claims billing is live
- * since it is off during the beta.
+ * printed (those are still provisional). Beta-free copy is flag-driven: it
+ * shows only while the relevant billing flag (BILLING_ENABLED for storage,
+ * AI_BILLING_ENABLED for the AI) is off, and switches to live-pricing copy
+ * once the flag is on, so the page is always truthful.
  *
  * Marketing / informational page, intentionally excluded from the wiki-coverage
  * map (alongside /transparency) and rendered without the AppShell
@@ -31,7 +34,7 @@ import TwoPartModel from "@/components/pricing/TwoPartModel";
 export const metadata: Metadata = {
   title: "Pricing | ResearchOS",
   description:
-    "The ResearchOS local notebook is free and open source forever. The only paid parts are optional cloud storage and the optional AI assistant, both metered at cost. Individuals and labs pay what it costs us, larger institutions pay a little more to keep it free for everyone else. See the competitor savings, the plan builders, the AI pricing, and the actual cost math. Everything is free during the beta.",
+    "The ResearchOS local notebook is free and open source forever. The only paid parts are optional cloud storage and the optional AI assistant, both metered at cost. Individuals and labs pay what it costs us, larger institutions pay a little more to keep it free for everyone else. See the competitor savings, the plan builders, the AI pricing, and the actual cost math.",
 };
 
 const SUPPORT_ITEMS: FeatureItem[] = [
@@ -83,12 +86,15 @@ const AI_ITEMS: FeatureItem[] = [
 ];
 
 export default function PricingPage() {
+  const billingEnabled = isBillingEnabled();
+  const aiBillingEnabled = isAiBillingEnabled();
+
   return (
     <div className="min-h-screen bg-surface-sunken">
       <MarketingNav />
-      <div className="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
-        <div className="overflow-hidden rounded-3xl border border-border bg-surface">
-          <PricingHero />
+      <div className="mx-auto max-w-7xl px-2 py-6 sm:px-6 sm:py-10 lg:px-8">
+        <div className="overflow-hidden rounded-2xl border border-border bg-surface sm:rounded-3xl">
+          <PricingHero billingEnabled={billingEnabled} />
 
           {/* Two-part model */}
           <Section>
@@ -133,7 +139,10 @@ export default function PricingPage() {
               hold the exact top-up prices until a few real tasks show what they
               actually cost, the same way we set storage from data instead of
               guessing. The free sign-up gift is set so realistic use lands near
-              25 cents of compute, and during the beta the AI is free.
+              25 cents of compute
+              {aiBillingEnabled
+                ? "."
+                : ", and during the beta the AI is free."}
             </p>
           </Section>
 
@@ -152,16 +161,17 @@ export default function PricingPage() {
               title="One plan covers your storage and your editing, on one invoice"
               subtitle="Pick a plan, not a pile of meters. Each plan bundles a storage allowance and an editing allowance into a single monthly price. Most people stay on Free."
             />
-            <PlanPicker />
+            <PlanPicker billingEnabled={billingEnabled} />
             <p className="mx-auto mt-5 max-w-2xl border-t border-dashed border-border pt-3.5 text-center text-[12px] leading-relaxed text-foreground-muted">
               <b className="text-foreground">
                 Why no final Plus and Pro prices yet.
               </b>{" "}
               We hold the exact figure until a few weeks of real usage show what
               storage actually costs, so we set it from data instead of guessing
-              high. The math below shows how we will get there, and during the beta
-              every plan is free. The plan structure itself is final, six plans,
-              one picker, Free at 5 GB and zero dollars.
+              high.{" "}
+              {billingEnabled
+                ? "The plan structure itself is final, six plans, one picker, Free at 5 GB and zero dollars."
+                : "During the beta every plan is free. The plan structure itself is final, six plans, one picker, Free at 5 GB and zero dollars."}
             </p>
           </Section>
 
@@ -169,9 +179,13 @@ export default function PricingPage() {
           <Section>
             <SectionHeading
               title="How we would price it, our actual costs"
-              subtitle="No guessing. Here is the real math, our infrastructure cost plus payment processing plus a small buffer. Individuals and labs pay exactly this, and larger institutions pay a transparent bit more that funds the free tiers. Everything is free during the beta."
+              subtitle={
+                billingEnabled
+                  ? "No guessing. Here is the real math, our infrastructure cost plus payment processing plus a small buffer. Individuals and labs pay exactly this, and larger institutions pay a transparent bit more that funds the free tiers."
+                  : "No guessing. Here is the real math, our infrastructure cost plus payment processing plus a small buffer. Individuals and labs pay exactly this, and larger institutions pay a transparent bit more that funds the free tiers. Everything is free during the beta."
+              }
             />
-            <CostMath />
+            <CostMath billingEnabled={billingEnabled} />
           </Section>
 
           {/* Trust band: metering + labs + guardrails as one designed band with
@@ -191,7 +205,7 @@ export default function PricingPage() {
 
           {/* Pricing FAQ (saas-landing-pages framework: answer the billing and
               switching objections right before the closing reassurance). */}
-          <PricingFaq />
+          <PricingFaq billingEnabled={billingEnabled} />
 
           {/* Credibility + beta note */}
           <Section className="bg-surface-raised text-center">
@@ -203,10 +217,20 @@ export default function PricingPage() {
             </div>
             <p className="mx-auto max-w-[64ch] text-[12.5px] leading-relaxed text-foreground-muted">
               We are the merchant of record, with real banking and Stripe set up,
-              so paid storage, when it turns on, is a real and accountable
-              business, not a hobby donation link. Until then we are in beta, and
-              everything, including sharing and real-time collaboration, is{" "}
-              <b className="text-foreground">free right now</b>.
+              so paid storage is a real and accountable business, not a hobby
+              donation link.{" "}
+              {billingEnabled || aiBillingEnabled ? (
+                <>
+                  Cloud storage and the AI are billed at what they cost us,
+                  with a transparent cost breakdown above.
+                </>
+              ) : (
+                <>
+                  Until then we are in beta, and everything, including sharing
+                  and real-time collaboration, is{" "}
+                  <b className="text-foreground">free right now</b>.
+                </>
+              )}
             </p>
           </Section>
         </div>

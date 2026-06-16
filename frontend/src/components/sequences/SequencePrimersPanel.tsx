@@ -372,7 +372,7 @@ export default function SequencePrimersPanel({
       {/* Header + mode switch */}
       <div className="flex items-center justify-between border-b border-border px-4 py-2">
         <span className="text-meta font-semibold uppercase tracking-wide text-foreground-muted">Primers</span>
-        <div className="inline-flex rounded-md bg-surface-sunken p-0.5 text-meta font-medium">
+        <div className="inline-flex rounded-md bg-surface-sunken p-0.5 text-meta font-medium ros-seg-track border border-border">
           {(
             [
               ["list", "List"],
@@ -386,7 +386,7 @@ export default function SequencePrimersPanel({
               onClick={() => setMode(m)}
               aria-pressed={mode === m}
               className={`rounded px-2.5 py-1 transition-colors ${
-                mode === m ? "bg-surface-raised text-foreground shadow-sm" : "text-foreground-muted hover:text-foreground"
+                mode === m ? "bg-surface-raised text-foreground ros-seg-active" : "text-foreground-muted hover:text-foreground"
               }`}
             >
               {label}
@@ -425,7 +425,7 @@ export default function SequencePrimersPanel({
                   <button
                     type="button"
                     onClick={onAddCustomPrimer}
-                    className="rounded-md border border-border px-2.5 py-1 text-meta font-medium text-foreground-muted transition-colors hover:bg-surface-sunken"
+                    className="ros-btn-neutral px-2.5 py-1 text-meta font-medium text-foreground-muted"
                   >
                     Add a primer
                   </button>
@@ -693,7 +693,7 @@ export default function SequencePrimersPanel({
                     <button
                       type="button"
                       onClick={() => copy(checkPrimer)}
-                      className="inline-flex items-center gap-1 rounded-md border border-border px-2.5 py-1 text-meta font-medium text-foreground-muted transition-colors hover:bg-surface-sunken"
+                      className="ros-btn-neutral inline-flex items-center gap-1 px-2.5 py-1 text-meta font-medium text-foreground-muted"
                     >
                       <IconCopy className="h-3.5 w-3.5" />
                       {copied === checkPrimer ? "Copied" : "Copy"}
@@ -704,7 +704,7 @@ export default function SequencePrimersPanel({
                       type="button"
                       onClick={runSpecificity}
                       disabled={specBusy}
-                      className="inline-flex items-center gap-1 rounded-md border border-border px-2.5 py-1 text-meta font-medium text-foreground-muted transition-colors hover:bg-surface-sunken disabled:opacity-50"
+                      className="ros-btn-neutral inline-flex items-center gap-1 px-2.5 py-1 text-meta font-medium text-foreground-muted disabled:opacity-50"
                     >
                       <IconShield className="h-3.5 w-3.5" />
                       {specBusy ? "Scanning..." : "Check specificity"}

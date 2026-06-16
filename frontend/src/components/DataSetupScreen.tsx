@@ -88,7 +88,7 @@ export default function DataSetupScreen({ isOpen, onClose }: DataSetupScreenProp
             {!confirmingDisconnect ? (
               <button
                 onClick={() => setConfirmingDisconnect(true)}
-                className="w-full py-2.5 text-body text-foreground bg-surface-sunken hover:bg-surface-sunken rounded-lg transition-colors"
+                className="ros-btn-neutral w-full py-2.5 text-body"
               >
                 Disconnect / Pick Different Folder
               </button>

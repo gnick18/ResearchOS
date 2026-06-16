@@ -59,3 +59,70 @@ export async function postAppendLine(
 
   await postCommand(bytesToHex(sealed), relayUrl);
 }
+
+/** Where an inserted note block lands, mirroring AppendTab. */
+export type InsertTab = 'notes' | 'results';
+
+/**
+ * Builds, seals, and posts an insert-note-block command to the relay (phone
+ * notes P2). Unlike append-line (which only lands at the END of the doc), this
+ * carries a content anchor so the laptop can insert the block AFTER a specific
+ * existing block.
+ *
+ * `anchorHash` is blockAnchor(block) of the block the note was placed after, and
+ * `anchorIndex` is that block's index in the pulled doc (a disambiguation hint
+ * when several blocks share an anchor). Two sentinels:
+ *   anchorIndex = -1 with an empty anchorHash means "insert at the very top".
+ *   anchorIndex = Number.MAX_SAFE_INTEGER (END_ANCHOR_INDEX) means "append at end".
+ *
+ * `block` is the phone-note callout markdown. `clientId` is the idempotency key:
+ * it is sent both inside the payload AND as the relay commandId, so a re-send
+ * (offline flush, double-tap) is deduped by the relay and the laptop poller. As
+ * with postAppendLine, an absent userX25519PubHex is a graceful no-op.
+ */
+export async function postInsertNoteBlock(
+  taskId: number,
+  owner: string,
+  tab: InsertTab,
+  anchorHash: string,
+  anchorIndex: number,
+  block: string,
+  clientId: string,
+  userX25519PubHex: string,
+  relayUrl?: string,
+): Promise<boolean> {
+  // Guard: no-op when the user X25519 pubkey is not yet available (pairing gap).
+  if (!userX25519PubHex) return false;
+
+  const command = {
+    type: 'insert-note-block',
+    taskId,
+    owner,
+    tab,
+    anchorHash,
+    anchorIndex,
+    block,
+    clientId,
+    ts: new Date().toISOString(),
+  };
+  const plaintext = utf8ToBytes(JSON.stringify(command));
+
+  let sealed: Uint8Array;
+  try {
+    sealed = await sealToUser(plaintext, userX25519PubHex);
+  } catch {
+    // Sealing failed (bad key format, etc.). Report the failure so the caller
+    // can keep the note staged rather than silently dropping it.
+    return false;
+  }
+
+  // Pass clientId as the relay commandId so a retry of the same staged note is
+  // deduped end to end (relay + laptop poller).
+  return postCommand(bytesToHex(sealed), relayUrl, clientId);
+}
+
+/** Sentinel anchorIndex meaning "append the block at the very end of the doc". */
+export const END_ANCHOR_INDEX = Number.MAX_SAFE_INTEGER;
+
+/** Sentinel anchorIndex meaning "insert the block before the first block". */
+export const TOP_ANCHOR_INDEX = -1;

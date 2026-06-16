@@ -255,14 +255,14 @@ export default function BarcodeScanner({
             <button
               type="button"
               onClick={() => dropToFallback(null)}
-              className="rounded-lg border border-border px-3 py-2 text-body text-foreground hover:bg-surface-sunken"
+              className="ros-btn-neutral px-3 py-2 text-body text-foreground"
             >
               Type a code instead
             </button>
             <button
               type="button"
               onClick={onClose}
-              className="rounded-lg border border-border px-3 py-2 text-body text-foreground hover:bg-surface-sunken"
+              className="ros-btn-neutral px-3 py-2 text-body text-foreground"
             >
               Close
             </button>
@@ -294,7 +294,7 @@ export default function BarcodeScanner({
             <button
               type="button"
               onClick={onClose}
-              className="rounded-lg border border-border px-3 py-2 text-body text-foreground hover:bg-surface-sunken"
+              className="ros-btn-neutral px-3 py-2 text-body text-foreground"
             >
               Close
             </button>

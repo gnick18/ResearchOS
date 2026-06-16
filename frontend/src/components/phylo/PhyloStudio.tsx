@@ -16,7 +16,7 @@
 // No em-dashes, no emojis, no mid-sentence colons.
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { Icon } from "@/components/icons";
 import Tooltip from "@/components/Tooltip";
@@ -24,6 +24,7 @@ import { phyloApi } from "@/lib/phylo/api";
 import { setBeakerContext } from "@/components/ai/context-bridge";
 import { SAMPLE_TREE, SAMPLE_CSV, SAMPLE_ALIGNMENT } from "@/lib/phylo/sample";
 import { PhyloCollectionRail } from "@/components/phylo/PhyloCollectionRail";
+import { projectsApi } from "@/lib/local-api";
 import { PhyloBuilder } from "@/components/phylo/PhyloBuilder";
 import LivingPopup from "@/components/ui/LivingPopup";
 import FileDropzone from "@/components/ui/FileDropzone";
@@ -103,6 +104,11 @@ import {
   type OverlaySelection,
 } from "@/components/phylo/SmartDataWizard";
 import {
+  PhyloLayoutAdvisor,
+  type AdvisorDelta,
+  type AdvisorState,
+} from "@/components/phylo/PhyloLayoutAdvisor";
+import {
   rankJoinCandidates,
   mergeTableColumnsIntoMetadata,
   type JoinCandidate,
@@ -130,6 +136,37 @@ import type { DataHubDocContent } from "@/lib/datahub/model/types";
 
 const FIG_W = 620;
 const FIG_H = 460;
+
+// Radial-family layouts draw a centered circle, so their usable radius is capped
+// by the SHORTER canvas dimension. On the landscape FIG_H they were starved (the
+// data rings + tip labels then dwarf the tree). Give them a SQUARE figure so the
+// radius uses the full width, matching how the composer already treats them
+// (treeAspect = 1). Rectangular layouts keep FIG_H, so they are byte-identical.
+const SQUARE_FIG_LAYOUTS = new Set<PhyloLayout>([
+  "circular",
+  "fan",
+  "unrooted",
+  "inwardCircular",
+]);
+const figHeightFor = (layout: PhyloLayout): number =>
+  SQUARE_FIG_LAYOUTS.has(layout) ? FIG_W : FIG_H;
+
+// The rooted circular layout is rendered "circle left, callouts right": the circle
+// keeps its full height-bound radius in a square block on the left, and this extra
+// width opens a right gutter that holds each ring's pulled-out track callout + the
+// single-column legend. Widening the canvas costs the tree no radius (it is
+// height-bound), so the tree stays exactly as large. Every other layout keeps
+// FIG_W, so they are unaffected.
+const RADIAL_CALLOUT_GUTTER = 220;
+// The radial family that gets the right-gutter track callouts (circle left). NOT
+// unrooted: it has no concentric rings to call out and no single open gap.
+const CALLOUT_GUTTER_LAYOUTS = new Set<PhyloLayout>([
+  "circular",
+  "fan",
+  "inwardCircular",
+]);
+const figWidthFor = (layout: PhyloLayout): number =>
+  CALLOUT_GUTTER_LAYOUTS.has(layout) ? FIG_W + RADIAL_CALLOUT_GUTTER : FIG_W;
 
 // Per-page key for the persisted left-rail width (the shared split shell, keyed
 // per page exactly as Sequences/Chemistry do).
@@ -201,6 +238,20 @@ export function PhyloStudio({ initialTreeId }: { initialTreeId?: string } = {}) 
   // Declared above the publisher effect so the effect can reference it.
   const [openTreeProjectIds, setOpenTreeProjectIds] = useState<string[]>([]);
 
+  // The collection currently selected in the sidebar rail (lifted here so the
+  // save flow can default a freshly pasted/loaded tree into the project the user
+  // is viewing). "all" / "unfiled" mean no project; any other value is a project
+  // id. The rail reads + writes it through the controlled props below.
+  const [railCollection, setRailCollection] = useState<string>("all");
+  // The project a Save writes the tree into ("" = Unfiled). Seeded from the
+  // sidebar selection on a fresh load and from the tree's own project when a
+  // saved tree is opened; the Save panel exposes it as a picker.
+  const [saveProjectId, setSaveProjectId] = useState<string>("");
+  const { data: phyloProjects = [] } = useQuery({
+    queryKey: ["projects", "for-phylo"],
+    queryFn: () => projectsApi.list(),
+  });
+
   // Publish the open SAVED tree to the BeakerBot context bridge so the model can
   // resolve "this", "this tree", or "this phylogeny" to what the user has open in
   // the Studio. Only a saved tree (openTreeId set) is published, since that is the
@@ -238,6 +289,14 @@ export function PhyloStudio({ initialTreeId }: { initialTreeId?: string } = {}) 
   // Show the branch-length scale bar on a phylogram (geom_treescale). Default on.
   const [scaleBar, setScaleBar] = useState(true);
   const [rootEdge, setRootEdge] = useState(false);
+  // Per-figure gap (px) between overlay columns; default = render's PANEL_GAP (8).
+  // The collision advisor's "increase column spacing" lever + a manual control.
+  const [columnGap, setColumnGap] = useState<number>(8);
+  // Legend placement: "right" (default reserved column) or "bottom" (strip below).
+  // The advisor's "move the legend" fix + a manual control.
+  const [legendPlacement, setLegendPlacement] = useState<"right" | "bottom">(
+    "right",
+  );
   // Draw a full-width time axis (age before present) instead of the scale bar.
   const [timeAxis, setTimeAxis] = useState(false);
   // The ordered LAYER stack (phylo Phase 1). This IS the persisted panels[]; the
@@ -299,7 +358,13 @@ export function PhyloStudio({ initialTreeId }: { initialTreeId?: string } = {}) 
     artboardInitial(undefined),
   );
   const [figWIn, setFigWIn] = useState<number>(FIG_W / 96);
-  const figHIn = figWIn * (FIG_H / FIG_W);
+  // The figure height depends on the layout (square for the radial family), so the
+  // tree gets the full radius instead of being starved by the landscape height.
+  const figH = figHeightFor(layout);
+  // The figure width also depends on the layout (the rooted circular layout gets a
+  // right callout gutter), so the aspect is taken against the layout-aware width.
+  const figW = figWidthFor(layout);
+  const figHIn = figWIn * (figH / figW);
   const onArtboardChange = (patch: Partial<ArtboardState>) =>
     setArtboard((s) => {
       const next = { ...s, ...patch };
@@ -307,7 +372,7 @@ export function PhyloStudio({ initialTreeId }: { initialTreeId?: string } = {}) 
       return next;
     });
   const onFitToPage = () => {
-    const fit = fitFigureToPage(pageDims(artboard), FIG_W / FIG_H);
+    const fit = fitFigureToPage(pageDims(artboard), figW / figH);
     setFigWIn(fit.figWIn);
   };
   // Tip members whose MRCA clade the Rotate button flips (ggtree rotate()).
@@ -434,6 +499,8 @@ export function PhyloStudio({ initialTreeId }: { initialTreeId?: string } = {}) 
         scaleBar,
         rootEdge,
         timeAxis,
+        columnGap,
+        legendPlacement,
         tracks: EMPTY_TRACKS,
         categoryColumn,
         metaRows,
@@ -442,7 +509,7 @@ export function PhyloStudio({ initialTreeId }: { initialTreeId?: string } = {}) 
         alignment,
         branchColorColumn,
       },
-      { width: FIG_W, height: FIG_H },
+      { width: figWidthFor(layout), height: figHeightFor(layout) },
     );
     // Phase 4: the resolved Data Hub plot inputs are live figure state, supplied
     // on the spec the same way figureToRenderSpec resolves alignment to msaTrack.
@@ -454,6 +521,8 @@ export function PhyloStudio({ initialTreeId }: { initialTreeId?: string } = {}) 
     scaleBar,
     rootEdge,
     timeAxis,
+    columnGap,
+    legendPlacement,
     categoryColumn,
     metaRows,
     tipColumn,
@@ -643,30 +712,26 @@ export function PhyloStudio({ initialTreeId }: { initialTreeId?: string } = {}) 
     setSelectedLayerId(panel.id);
   }
 
-  // Smart Data Binding: scan the open tree's COLLECTION (its projects) for Data
-  // Hub tables that join its tips and rank them (the engine drops zero-join /
-  // key-only tables). Scoped to the tree's projects (the locked "same project"
-  // rule, matching the BeakerBot suggest_tree_overlays tool); an unsaved / unfiled
-  // tree has no collection, so no auto-suggestions. getContent is a local read
+  // Smart Data Binding: scan the open tree's COLLECTION for Data Hub tables that
+  // join its tips and rank them (the engine drops zero-join / key-only tables).
+  // Scoped to the tree's collection (the locked "same collection" rule, matching
+  // the BeakerBot suggest_tree_overlays tool): the union of its projects, or the
+  // Unfiled tables when the tree is unfiled (so an unfiled — including freshly
+  // pasted — tree still joins unfiled tables). getContent is a local read
   // (local-first), so loading the collection's table contents is cheap; recomputed
   // when the tree or its collection changes.
   useEffect(() => {
     let cancelled = false;
-    if (!tree || openTreeProjectIds.length === 0) {
+    if (!tree) {
       setSmartCandidates([]);
       return;
     }
     (async () => {
-      // Union the tables across the tree's projects, deduped by id.
-      const byId = new Map<string, { id: string; name: string }>();
-      for (const pid of openTreeProjectIds) {
-        const docs = await dataHubApi.listByProject(pid);
-        for (const d of docs) if (!byId.has(d.id)) byId.set(d.id, { id: d.id, name: d.name });
-      }
+      const docs = await dataHubApi.listForScope(openTreeProjectIds);
       const loaded: CandidateTable[] = [];
-      for (const t of byId.values()) {
-        const content = await dataHubApi.getContent(t.id);
-        if (content) loaded.push({ id: t.id, name: t.name, content });
+      for (const d of docs) {
+        const content = await dataHubApi.getContent(d.id);
+        if (content) loaded.push({ id: d.id, name: d.name, content });
       }
       if (cancelled) return;
       setSmartCandidates(rankJoinCandidates(tree, loaded));
@@ -751,6 +816,14 @@ export function PhyloStudio({ initialTreeId }: { initialTreeId?: string } = {}) 
       setOpenTreeId(null);
       // No collection yet either (onPickSaved sets it from the saved meta).
       setOpenTreeProjectIds([]);
+      // Default the save destination to the project the sidebar is filtered to,
+      // so a paste while viewing a project saves straight into it ("all" /
+      // "unfiled" → Unfiled). The Save picker can still override it.
+      setSaveProjectId(
+        railCollection === "all" || railCollection === "unfiled"
+          ? ""
+          : railCollection,
+      );
     } catch (err) {
       setParseError(
         err instanceof TreeParseError
@@ -775,6 +848,9 @@ export function PhyloStudio({ initialTreeId }: { initialTreeId?: string } = {}) 
     // Scope the smart-binding scan to this tree's collection (set AFTER
     // loadTreeText, which cleared it).
     setOpenTreeProjectIds(raw.meta.project_ids ?? []);
+    // The Save picker reflects where this tree already lives (re-saving keeps it
+    // there; a single-project tree shows that project).
+    setSaveProjectId(raw.meta.project_ids?.[0] ?? "");
   }
 
   /**
@@ -800,6 +876,8 @@ export function PhyloStudio({ initialTreeId }: { initialTreeId?: string } = {}) 
     setPhylogram(inputs.phylogram);
     setScaleBar(inputs.scaleBar ?? true);
     setRootEdge(inputs.rootEdge ?? false);
+    setColumnGap(inputs.columnGap ?? 8);
+    setLegendPlacement(inputs.legendPlacement ?? "right");
     setTimeAxis(inputs.timeAxis ?? false);
     // Stored panels win; else project the layer stack from the Phase 0 fields.
     const restored =
@@ -941,7 +1019,7 @@ export function PhyloStudio({ initialTreeId }: { initialTreeId?: string } = {}) 
   const pngDims = (): [number, number, number] =>
     artboard.enabled
       ? [pxAtDpi(figWIn, ARTBOARD_DPI), pxAtDpi(figHIn, ARTBOARD_DPI), 1]
-      : [FIG_W, FIG_H, 3];
+      : [figW, figH, 3];
 
   const onExportSvg = () =>
     svgMarkup && downloadSvg(exportSvgMarkup(), treeName || "tree");
@@ -996,6 +1074,45 @@ export function PhyloStudio({ initialTreeId }: { initialTreeId?: string } = {}) 
 
   // ---- persist ----
 
+  // Collision-aware layout advisor: current settings it can change, + the apply
+  // callback that maps an AdvisorDelta onto the figure state.
+  const advisorLabelsPanel = panels.find((p) => p.kind === "labels");
+  const advisorState: AdvisorState = {
+    columnGap,
+    legendPlacement,
+    labelsTilt: Number(advisorLabelsPanel?.options?.tilt) || 0,
+    labelsFontSize: Number(advisorLabelsPanel?.options?.fontSize) || 11,
+  };
+  const applyAdvisorDelta = (d: AdvisorDelta) => {
+    if (d.columnGap !== undefined) setColumnGap(d.columnGap);
+    if (d.legendPlacement !== undefined) setLegendPlacement(d.legendPlacement);
+    if (
+      d.labelsTilt !== undefined ||
+      d.labelsFontSize !== undefined ||
+      d.dropPanelIds?.length
+    ) {
+      setPanels((prev) => {
+        let next = prev.map((p) =>
+          p.kind === "labels"
+            ? {
+                ...p,
+                options: {
+                  ...p.options,
+                  ...(d.labelsTilt !== undefined ? { tilt: d.labelsTilt } : {}),
+                  ...(d.labelsFontSize !== undefined
+                    ? { fontSize: d.labelsFontSize }
+                    : {}),
+                },
+              }
+            : p,
+        );
+        if (d.dropPanelIds?.length)
+          next = next.filter((p) => !d.dropPanelIds!.includes(p.id));
+        return next;
+      });
+    }
+  };
+
   const onSave = async () => {
     if (!tree) return;
     // The layer stack is the source of truth, written as panels. We ALSO derive
@@ -1010,6 +1127,8 @@ export function PhyloStudio({ initialTreeId }: { initialTreeId?: string } = {}) 
       scaleBar,
       rootEdge,
       timeAxis,
+      columnGap,
+      legendPlacement,
       tracks: derived.tracks,
       legend: true,
       panels,
@@ -1028,17 +1147,40 @@ export function PhyloStudio({ initialTreeId }: { initialTreeId?: string } = {}) 
               derived.heatColumns.length > 0 ? derived.heatColumns : undefined,
           }
         : undefined;
-    const created = await phyloApi.create(serializeNewick(tree), {
-      name: treeName || "Untitled tree",
-      project_ids: [],
-      format: "newick",
-      source: "upload",
-      figure,
-      metadata,
-    });
-    // The tree now lives in the store, so Copy reference can point at it.
-    setOpenTreeId(created.meta.id);
-    setSavedMsg("Saved to your trees");
+    // File the tree into the chosen collection ("" = Unfiled). This is what lets
+    // a pasted tree be co-scoped with a Data Hub table in the same project, so
+    // the smart-binding wizard can join them.
+    const projectIds = saveProjectId ? [saveProjectId] : [];
+    if (openTreeId) {
+      // Re-saving an already-open tree updates the record in place rather than
+      // creating a duplicate (the figure / metadata / name / project all reflect
+      // the current edit). "Move to project" on the row is the explicit re-file.
+      await phyloApi.update(openTreeId, serializeNewick(tree), {
+        name: treeName || "Untitled tree",
+        project_ids: projectIds,
+        figure,
+        metadata,
+      });
+    } else {
+      const created = await phyloApi.create(serializeNewick(tree), {
+        name: treeName || "Untitled tree",
+        project_ids: projectIds,
+        format: "newick",
+        source: "upload",
+        figure,
+        metadata,
+      });
+      // The tree now lives in the store, so Copy reference can point at it.
+      setOpenTreeId(created.meta.id);
+    }
+    // Re-scope the smart-binding scan to where the tree now lives (so the banner
+    // immediately reflects joinable tables in the chosen project).
+    setOpenTreeProjectIds(projectIds);
+    const destName = saveProjectId
+      ? (phyloProjects.find((p) => String(p.id) === saveProjectId)?.name ??
+        "project")
+      : null;
+    setSavedMsg(destName ? `Saved to ${destName}` : "Saved to your trees");
     setTimeout(() => setSavedMsg(null), 2200);
     // The rail owns the live list; tell it to re-fetch so the new tree appears.
     void queryClient.invalidateQueries({ queryKey: ["phylo", "list"] });
@@ -1081,6 +1223,16 @@ export function PhyloStudio({ initialTreeId }: { initialTreeId?: string } = {}) 
       icon: <Icon name="tree" className="h-5 w-5" />,
       panel: (
         <div className="space-y-3.5">
+          {tree && spec && (
+            <PhyloLayoutAdvisor
+              key={openTreeId ?? "unsaved"}
+              tree={tree}
+              spec={spec}
+              state={advisorState}
+              onApply={applyAdvisorDelta}
+              plotId={openTreeId}
+            />
+          )}
           <Panel title="Layout">
             <div className="flex flex-wrap items-center gap-2">
               <Seg
@@ -1157,6 +1309,58 @@ export function PhyloStudio({ initialTreeId }: { initialTreeId?: string } = {}) 
               >
                 Page frame
               </button>
+            </div>
+            {panels.some(
+              (p) => p.visible && p.kind !== "labels" && p.kind !== "clade",
+            ) && (
+              <div className="mt-3 flex items-center gap-2">
+                <label
+                  htmlFor="phylo-column-gap"
+                  className="text-xs font-semibold text-foreground-muted whitespace-nowrap"
+                  title="Gap between overlay columns (heatmap / bars / strips)"
+                >
+                  Column spacing
+                </label>
+                <input
+                  id="phylo-column-gap"
+                  type="range"
+                  min={2}
+                  max={40}
+                  step={1}
+                  value={columnGap}
+                  onChange={(e) => setColumnGap(Number(e.target.value))}
+                  className="flex-1 accent-[var(--accent)]"
+                />
+                <span className="w-8 text-right text-xs tabular-nums text-foreground-muted">
+                  {columnGap}
+                </span>
+              </div>
+            )}
+            <div className="mt-2 flex items-center gap-2">
+              <span className="text-xs font-semibold text-foreground-muted whitespace-nowrap">
+                Legend
+              </span>
+              <div className="flex gap-1">
+                {(["right", "bottom"] as const).map((pos) => (
+                  <button
+                    key={pos}
+                    type="button"
+                    onClick={() => setLegendPlacement(pos)}
+                    title={
+                      pos === "bottom"
+                        ? "Place the legend in a strip below the figure (frees the right edge)"
+                        : "Place the legend in a column on the right"
+                    }
+                    className={`rounded-lg border px-2.5 py-1 text-xs font-bold capitalize transition-colors ${
+                      legendPlacement === pos
+                        ? "border-accent bg-accent-soft text-accent"
+                        : "border-border text-foreground-muted hover:text-foreground"
+                    }`}
+                  >
+                    {pos}
+                  </button>
+                ))}
+              </div>
             </div>
             {artboard.enabled && (
               <div className="mt-3 border-t border-border pt-3">
@@ -1523,6 +1727,26 @@ export function PhyloStudio({ initialTreeId }: { initialTreeId?: string } = {}) 
               </Tooltip>
             )}
           </div>
+          <label className="mt-3 block text-[10.5px] font-semibold uppercase tracking-wide text-foreground-muted">
+            Save to
+          </label>
+          <select
+            aria-label="Save this tree into a project"
+            value={saveProjectId}
+            onChange={(e) => setSaveProjectId(e.target.value)}
+            className="mt-1 w-full rounded-md border border-border bg-surface-raised px-2 py-1.5 text-body text-foreground outline-none focus:border-brand-action"
+          >
+            <option value="">Unfiled (no project)</option>
+            {phyloProjects.length > 0 && (
+              <optgroup label="Projects">
+                {phyloProjects.map((p) => (
+                  <option key={String(p.id)} value={String(p.id)}>
+                    {p.name}
+                  </option>
+                ))}
+              </optgroup>
+            )}
+          </select>
           <button
             onClick={onSave}
             className="mt-2 w-full px-3 py-1.5 rounded-lg font-bold text-sm border border-border text-foreground hover:border-accent flex items-center justify-center gap-1.5"
@@ -1599,6 +1823,8 @@ export function PhyloStudio({ initialTreeId }: { initialTreeId?: string } = {}) 
         aria-hidden={shell.collapsed}
       >
         <PhyloCollectionRail
+          collection={railCollection}
+          onCollectionChange={setRailCollection}
           selectedId={openTreeId}
           onPick={(id) => void onPickSaved(id)}
           onNew={() => {
@@ -1652,8 +1878,8 @@ export function PhyloStudio({ initialTreeId }: { initialTreeId?: string } = {}) 
               ) : (
                 <div className="min-h-0 flex-1">
                   <ZoomPanCanvas
-                    contentWidth={FIG_W}
-                    contentHeight={FIG_H}
+                    contentWidth={figW}
+                    contentHeight={figH}
                     minimap={
                       <div dangerouslySetInnerHTML={{ __html: svgMarkup }} />
                     }

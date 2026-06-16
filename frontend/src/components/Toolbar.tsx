@@ -529,7 +529,7 @@ export default function Toolbar({
       <div className="flex-1" />
 
       {/* View mode buttons */}
-      <div className="flex items-center bg-surface-sunken rounded-lg p-0.5">
+      <div className="flex items-center bg-surface-sunken rounded-lg p-0.5 ros-seg-track border border-border">
         {VIEW_MODES.map((vm) => (
           <button
             key={vm.value}
@@ -538,7 +538,7 @@ export default function Toolbar({
               px-2.5 py-1 text-meta rounded-md transition-colors
               ${
                 viewMode === vm.value
-                  ? "bg-surface-raised text-foreground shadow-sm font-medium"
+                  ? "bg-surface-raised text-foreground ros-seg-active font-medium"
                   : "text-foreground-muted hover:text-foreground"
               }
             `}

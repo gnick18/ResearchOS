@@ -139,6 +139,11 @@ import type {
   StorageNode,
   StorageNodeCreate,
   StorageNodeUpdate,
+  LabMap,
+  LabMapCreate,
+  LabMapUpdate,
+  LabMapPin,
+  LabMapPlan,
   CustomCalculator,
   CustomCalculatorCreate,
   CustomCalculatorUpdate,
@@ -275,6 +280,11 @@ const inventoryStocksStore = new JsonStore<InventoryStock>("inventory_stocks");
 // `users/<owner>/storage_nodes/<id>.json` (FLAG-1/FLAG-2, v2). Same whole-lab-
 // edit default + computed-union read path as the inventory stores.
 const storageNodesStore = new JsonStore<StorageNode>("storage_nodes");
+
+// LabMap (the 2D spatial room map, spatial inventory Phase C). One record per
+// lab, whole-lab shared. Path `users/<owner>/lab_maps/<id>.json`. Same whole-lab-
+// edit default + computed-union read path as the storage tree.
+const labMapsStore = new JsonStore<LabMap>("lab_maps");
 
 async function loadLabUsers(): Promise<{
   usernames: string[];
@@ -3318,6 +3328,127 @@ export const fetchAllStorageNodesIncludingShared = async (): Promise<
     }
   }
   return out;
+};
+
+// ── labMapsApi (2D spatial room map, spatial inventory Phase C) ───────────────
+
+const DEFAULT_LAB_MAP_PLAN: LabMapPlan = {
+  kind: "blank",
+  imagePath: null,
+  imageData: null,
+  aspect: 1.5,
+};
+
+/** Normalize-on-read (template: normalizeStorageNodeRecord). Back-fills the plan
+ *  + clamps pin coordinates to 0..1 so an older or hand-edited record loads cleanly. */
+export function normalizeLabMapRecord(raw: LabMap, fallbackOwner?: string): LabMap {
+  const plan = raw.plan ?? DEFAULT_LAB_MAP_PLAN;
+  return {
+    ...raw,
+    name: raw.name ?? "Lab map",
+    plan: {
+      kind: plan.imageData || plan.kind === "image" ? "image" : "blank",
+      imagePath: plan.imagePath ?? null,
+      imageData: plan.imageData ?? null,
+      aspect:
+        typeof plan.aspect === "number" && plan.aspect > 0 ? plan.aspect : 1.5,
+    },
+    pins: Array.isArray(raw.pins)
+      ? raw.pins
+          .filter(
+            (p): p is LabMapPin =>
+              !!p && typeof p.x === "number" && typeof p.y === "number",
+          )
+          .map((p) => ({
+            id: String(p.id ?? `${p.nodeId ?? "pin"}-${p.x}-${p.y}`),
+            nodeId: typeof p.nodeId === "number" ? p.nodeId : null,
+            label: p.label ?? null,
+            x: Math.min(1, Math.max(0, p.x)),
+            y: Math.min(1, Math.max(0, p.y)),
+          }))
+      : [],
+    owner: raw.owner ?? fallbackOwner ?? "",
+    shared_with: normalizeSharedWith(raw.shared_with),
+    created_by: raw.created_by ?? null,
+  };
+}
+
+export const labMapsApi = {
+  list: async (): Promise<LabMap[]> => {
+    const maps = await labMapsStore.listAll();
+    return maps.map((m) => normalizeLabMapRecord(m));
+  },
+
+  get: async (id: number, owner?: string): Promise<LabMap | null> => {
+    const rec = owner
+      ? await labMapsStore.getForUser(id, owner)
+      : await labMapsStore.get(id);
+    return rec ? normalizeLabMapRecord(rec, owner) : null;
+  },
+
+  create: async (data: LabMapCreate, owner?: string): Promise<LabMap> => {
+    const currentUser = await getCurrentUserCached();
+    const targetOwner = owner ?? currentUser;
+    const shared_with = data.shared_with ?? wholeLabEditShare();
+    const stamp = await buildAttributionStamp(data.created_by);
+    const payload: Omit<LabMap, "id"> = {
+      name: data.name ?? "Lab map",
+      plan: data.plan ?? DEFAULT_LAB_MAP_PLAN,
+      pins: data.pins ?? [],
+      owner: targetOwner,
+      shared_with,
+      created_by: data.created_by ?? targetOwner,
+      last_edited_by: stamp.last_edited_by,
+      last_edited_at: stamp.last_edited_at,
+    };
+    const created = owner
+      ? await labMapsStore.createForUser(payload, owner)
+      : await labMapsStore.create(payload);
+    return normalizeLabMapRecord(created, targetOwner);
+  },
+
+  update: async (
+    id: number,
+    data: LabMapUpdate,
+    owner?: string,
+  ): Promise<LabMap | null> => {
+    const patch = {
+      ...data,
+      ...(await buildAttributionStamp(data.last_edited_by)),
+    };
+    const updated = owner
+      ? await labMapsStore.updateForUser(id, patch, owner)
+      : await labMapsStore.update(id, patch);
+    return updated ? normalizeLabMapRecord(updated, owner) : null;
+  },
+};
+
+/** Every lab map visible to the viewer (own + whole-lab shared). One per lab in
+ *  practice; mirrors fetchAllStorageNodesIncludingShared. */
+export const fetchAllLabMapsIncludingShared = async (): Promise<LabMap[]> => {
+  const viewer = await buildCurrentViewer();
+  const currentUser = viewer.username;
+  const usernames = await discoverUsers();
+  const out: LabMap[] = [];
+  for (const username of usernames) {
+    const maps = await labMapsStore.listAllForUser(username);
+    for (const raw of maps) {
+      const map = normalizeLabMapRecord(raw, username);
+      if (!canRead(map, viewer)) continue;
+      out.push({ ...map, is_shared_with_me: map.owner !== currentUser });
+    }
+  }
+  return out;
+};
+
+/** The lab's single map, creating an empty whole-lab-shared one on first use.
+ *  Stable pick = lowest id when several exist. */
+export const getOrCreateLabMap = async (): Promise<LabMap> => {
+  const all = await fetchAllLabMapsIncludingShared();
+  if (all.length > 0) {
+    return [...all].sort((a, b) => a.id - b.id)[0];
+  }
+  return labMapsApi.create({ name: "Lab map" });
 };
 
 // ── sequencesApi ────────────────────────────────────────────────────────────

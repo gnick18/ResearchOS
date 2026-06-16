@@ -35,6 +35,7 @@
 // House style, no em-dashes, no emojis, no mid-sentence colons.
 
 import { requestNavigation } from "@/components/ai/navigation-bridge";
+import { analysisResultInChat } from "./analysis-presentation";
 import { openDataHubDoc, type DataHubDocHandle } from "@/lib/loro/datahub-store";
 import {
   getDataHubContent,
@@ -705,9 +706,14 @@ export const makeDataHubGraphTool: AiTool = {
     // the just-stored plot so the Graphs view of the figure (not the raw data
     // grid) is what the user lands on, so they SEE the chart rather than only
     // reading the chat line. Hard-wired here, not left to the model.
-    datahubGraphDeps.navigate(
-      `/datahub?doc=${parsed.tableId}&plot=${built.result.plotId}`,
-    );
+    // Skip the navigation when the run was initiated by the inline picker, so a
+    // picker-driven plot stays in chat (Grant's locked nuance); a typed plot
+    // request still navigates to the stored figure.
+    if (!analysisResultInChat()) {
+      datahubGraphDeps.navigate(
+        `/datahub?doc=${parsed.tableId}&plot=${built.result.plotId}`,
+      );
+    }
 
     return built.result satisfies MakeGraphResult;
   },

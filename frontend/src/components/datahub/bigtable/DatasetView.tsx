@@ -271,7 +271,7 @@ export default function DatasetView({
               type="button"
               onClick={() => setShowAnalyze(true)}
               disabled={handle === null}
-              className="ml-auto inline-flex items-center gap-1.5 rounded-md border border-border px-2.5 py-1 text-meta font-medium text-foreground transition-colors hover:bg-surface-sunken disabled:opacity-50"
+              className="ros-btn-neutral ml-auto inline-flex items-center gap-1.5 px-2.5 py-1 text-meta font-medium text-foreground disabled:opacity-50"
               data-testid="bigtable-open-analyze"
             >
               <Icon name="results" className="h-3.5 w-3.5" />
@@ -291,7 +291,7 @@ export default function DatasetView({
               type="button"
               onClick={() => setShowGraph(true)}
               disabled={handle === null}
-              className="inline-flex items-center gap-1.5 rounded-md border border-border px-2.5 py-1 text-meta font-medium text-foreground transition-colors hover:bg-surface-sunken disabled:opacity-50"
+              className="ros-btn-neutral inline-flex items-center gap-1.5 px-2.5 py-1 text-meta font-medium text-foreground disabled:opacity-50"
               data-testid="bigtable-open-graph"
             >
               <Icon name="chart" className="h-3.5 w-3.5" />
@@ -303,7 +303,7 @@ export default function DatasetView({
           <button
             type="button"
             onClick={onOpenTransform}
-            className={`inline-flex items-center gap-1.5 rounded-md border border-border px-2.5 py-1 text-meta font-medium text-foreground transition-colors hover:bg-surface-sunken ${
+            className={`ros-btn-neutral inline-flex items-center gap-1.5 px-2.5 py-1 text-meta font-medium text-foreground ${
               analyzeEnabled ? "" : "ml-auto"
             }`}
             data-testid="bigtable-open-transform"
@@ -324,7 +324,7 @@ export default function DatasetView({
               type="button"
               onClick={() => setShowExport(true)}
               disabled={handle === null}
-              className={`inline-flex items-center gap-1.5 rounded-md border border-border px-2.5 py-1 text-meta font-medium text-foreground transition-colors hover:bg-surface-sunken disabled:opacity-50 ${
+              className={`ros-btn-neutral inline-flex items-center gap-1.5 px-2.5 py-1 text-meta font-medium text-foreground disabled:opacity-50 ${
                 analyzeEnabled || onOpenTransform ? "" : "ml-auto"
               }`}
               data-testid="bigtable-open-export"
@@ -365,7 +365,7 @@ export default function DatasetView({
               type="button"
               onClick={() => setShowDeleteConfirm(false)}
               disabled={deleting}
-              className="rounded-md border border-border px-2.5 py-1 text-meta font-medium text-foreground transition-colors hover:bg-surface-sunken disabled:opacity-50"
+              className="ros-btn-neutral px-2.5 py-1 text-meta font-medium text-foreground disabled:opacity-50"
             >
               Cancel
             </button>
@@ -423,7 +423,7 @@ export default function DatasetView({
           <button
             type="button"
             onClick={jumpToRow}
-            className="rounded-md border border-border px-2.5 py-1 text-meta font-medium text-foreground transition-colors hover:bg-surface-sunken"
+            className="ros-btn-neutral px-2.5 py-1 text-meta font-medium text-foreground"
             data-testid="bigtable-jump-go"
           >
             Go
@@ -431,7 +431,7 @@ export default function DatasetView({
           <button
             type="button"
             onClick={() => setShowFullRender(true)}
-            className="ml-auto rounded-md border border-border px-2.5 py-1 text-meta font-medium text-foreground transition-colors hover:bg-surface-sunken"
+            className="ros-btn-neutral ml-auto px-2.5 py-1 text-meta font-medium text-foreground"
             data-testid="bigtable-render-all"
           >
             Render all rows

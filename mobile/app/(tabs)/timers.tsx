@@ -378,7 +378,15 @@ function TimerRow({
     const accentBorder = fromLaptop ? palette.skyBorder : palette.amberBorder;
     const tint = fromLaptop ? palette.skyDim : palette.amberDim;
     return (
-      <View style={[styles.liveWrap, { borderColor: accentBorder, ...shadowSm(dark) }]}>
+      <View
+        style={[
+          styles.liveWrap,
+          // Solid base UNDER the gradient: tint is a translucent accent (0.14
+          // alpha), so without an opaque base it bleeds the gray screen behind
+          // and muddies to tan. Over surface it reads as a clean accent wash.
+          { backgroundColor: surface.surface, borderColor: accentBorder, ...shadowSm(dark) },
+        ]}
+      >
         <LinearGradient
           colors={[tint, surface.surface]}
           start={{ x: 0, y: 0 }}

@@ -167,6 +167,65 @@ describe("parseRelayBody, shape validation", () => {
     ).toBeNull();
   });
 
+  it("accepts a fingerprint instead of an email for send, normalized to compact lowercase", () => {
+    const parsed = parseRelayBody(
+      {
+        ...base,
+        action: "send",
+        recipientFingerprint: "ABCD EF12 3456 7890",
+        sizeBytes: 5,
+      },
+      "send",
+    );
+    expect(parsed).not.toBeNull();
+    expect(parsed?.recipientFingerprint).toBe("abcdef1234567890");
+    expect(parsed?.recipientEmail).toBeUndefined();
+  });
+
+  it("rejects a send carrying BOTH an email and a fingerprint", () => {
+    expect(
+      parseRelayBody(
+        {
+          ...base,
+          action: "send",
+          recipientEmail: "bob@example.com",
+          recipientFingerprint: "abcdef1234567890",
+          sizeBytes: 5,
+        },
+        "send",
+      ),
+    ).toBeNull();
+  });
+
+  it("rejects a send carrying NEITHER an email nor a fingerprint", () => {
+    expect(
+      parseRelayBody({ ...base, action: "send", sizeBytes: 5 }, "send"),
+    ).toBeNull();
+  });
+
+  it("rejects a malformed fingerprint for send", () => {
+    expect(
+      parseRelayBody(
+        { ...base, action: "send", recipientFingerprint: "nothex!!", sizeBytes: 5 },
+        "send",
+      ),
+    ).toBeNull();
+  });
+
+  it("does NOT accept a fingerprint for invite (email-only)", () => {
+    expect(
+      parseRelayBody(
+        {
+          ...base,
+          action: "invite",
+          recipientFingerprint: "abcdef1234567890",
+          sizeBytes: 5,
+        },
+        "invite",
+      ),
+    ).toBeNull();
+  });
+
   it("requires bundleId for confirm, fetch and ack", () => {
     expect(parseRelayBody({ ...base, action: "fetch" }, "fetch")).toBeNull();
     expect(parseRelayBody({ ...base, action: "confirm" }, "confirm")).toBeNull();

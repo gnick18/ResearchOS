@@ -61,7 +61,7 @@ export default function LabArchivesSignInStep({
           <button
             type="button"
             onClick={() => onContinue(new Map())}
-            className="px-3 py-2 text-body bg-surface-sunken hover:bg-surface-sunken/80 text-foreground rounded-lg"
+            className="ros-btn-neutral px-3 py-2 text-body"
           >
             Skip — leave as placeholders
           </button>

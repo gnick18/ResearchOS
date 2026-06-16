@@ -67,8 +67,9 @@ import { DEPT_TIER_ENABLED } from "@/lib/dept/config";
 import { INSTITUTION_TIER_ENABLED } from "@/lib/institution/config";
 import RainbowFrame from "@/components/marketing/RainbowFrame";
 import FeatureRow from "@/components/marketing/FeatureRow";
-import RoadmapModal from "@/components/RoadmapModal";
 import { markLandingSeen } from "@/lib/landing/landing-gate";
+import { ASSET_BASE_URL } from "@/lib/figure/asset-library";
+import { isMobileDevice } from "@/lib/file-system/file-system-context";
 
 /** The rainbow ramps, pulled from the brand tokens in globals.css so the
  *  welcome page never drifts from the footer / avatars / banner. RAINBOW is the
@@ -77,6 +78,37 @@ import { markLandingSeen } from "@/lib/landing/landing-gate";
  *  out as type on white). */
 const RAINBOW = "var(--brand-rainbow)";
 const RAINBOW_TEXT = "var(--brand-rainbow-vivid)";
+
+/** The current welcome demo clips live in R2 under the `welcome/` prefix, served
+ *  from the shared asset domain (`ASSET_BASE_URL`, default
+ *  https://assets.research-os.com). The old per-feature Vercel Blob clips were
+ *  retired 2026-06-15; this is the curated five-clip lineup. */
+const WELCOME_VIDEO_BASE = `${ASSET_BASE_URL}/welcome`;
+
+/** A framed R2 welcome demo clip (poster + mp4 by name under `welcome/`). Wraps
+ *  the shared DemoLoop in the rainbow frame used across the feature rows. */
+function R2Demo({ name, label }: { name: string; label: string }) {
+  return (
+    <RainbowFrame>
+      <DemoLoop
+        src={`${WELCOME_VIDEO_BASE}/${name}.mp4`}
+        poster={`${WELCOME_VIDEO_BASE}/${name}.poster.jpg`}
+        label={label}
+        preload="metadata"
+      />
+    </RainbowFrame>
+  );
+}
+
+
+/** Public mirror of the server BILLING_ENABLED switch, for client copy. While
+ *  false, the pricing copy says cloud + AI are free during the beta; while true,
+ *  it reads as live, billed pricing. NEXT_PUBLIC bakes at build, so flip it in
+ *  Vercel ALONGSIDE the server BILLING_ENABLED / AI_BILLING_ENABLED and redeploy
+ *  (see docs/proposals/2026-06-13-billing-go-live-checklist.md). Kept a separate
+ *  flag because the server switch is not readable from this client component. */
+const BILLING_LIVE = process.env.NEXT_PUBLIC_BILLING_LIVE === "1";
+
 
 /** A check glyph for the trust-block lists, sky-blue. The single inline check
  *  glyph in the file, reused everywhere a bullet needs a tick. */
@@ -382,6 +414,203 @@ function TrustCard({
   return <div className={cls}>{inner}</div>;
 }
 
+/* ----------------------------------------------------------------------------
+ * Phone reflow of the cost table (the lead band). Below the `sm` breakpoint the
+ * wide three-column table is hard to scan with a thumb, so each tool becomes a
+ * stacked card (name + what it does + price) and the "thousands -> free" punch
+ * line becomes a final highlighted card. Desktop (>= sm) keeps the real table.
+ * SSR-safe: pure CSS visibility toggle, no viewport hook.
+ * -------------------------------------------------------------------------- */
+function CostCards() {
+  return (
+    <div className="mt-8 flex flex-col gap-3 sm:hidden">
+      {COST_ROWS.map((r) => (
+        <div
+          key={r.tool}
+          className="rounded-2xl border border-[#e3eaf3] bg-white p-4 shadow-[0_1px_2px_rgba(15,40,80,0.04)]"
+        >
+          <div className="flex items-baseline justify-between gap-3">
+            <span className="text-body font-bold text-brand-ink">{r.tool}</span>
+            <span className="whitespace-nowrap text-meta font-bold text-brand-ink">
+              {r.price}
+            </span>
+          </div>
+          <p className="mt-1 text-meta leading-snug text-[#475569]">{r.does}</p>
+        </div>
+      ))}
+      {/* The punch line, as a branded card. */}
+      <div
+        className="relative overflow-hidden rounded-2xl border border-transparent bg-gradient-to-br from-white to-[#eef5fc] p-4"
+        style={{ boxShadow: "0 0 0 1.5px var(--brand-action)" }}
+      >
+        <div className="text-xl font-extrabold leading-tight tracking-tight text-brand-ink">
+          Thousands per year <span aria-hidden>&rarr;</span>{" "}
+          <span
+            style={{
+              background: RAINBOW_TEXT,
+              WebkitBackgroundClip: "text",
+              backgroundClip: "text",
+              color: "transparent",
+            }}
+          >
+            free
+          </span>
+        </div>
+        <div className="mt-1 text-body font-extrabold text-emerald-600">
+          with ResearchOS
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ----------------------------------------------------------------------------
+ * Phone reflow of the four-way comparison table. Below `sm` each product
+ * becomes a stacked card listing how it scores on each capability (price, where
+ * the data lives, full-suite). ResearchOS leads, framed with the brand accent;
+ * the others follow. Desktop (>= sm) keeps the wide table.
+ * -------------------------------------------------------------------------- */
+const COMPARE_CAPS: { label: string; us: Cell; labarchives: Cell; snapgene: Cell; quartzy: Cell }[] = [
+  {
+    label: "Price",
+    us: { mark: "win", text: "Free and open source; the app never charges per seat" },
+    labarchives: { mark: "none", text: "Paid, per-seat licensing; limited free tier" },
+    snapgene: { mark: "none", text: "Paid license per seat; free viewer only" },
+    quartzy: { mark: "have", text: "Free core ordering; paid inventory tiers" },
+  },
+  {
+    label: "Where your data lives",
+    us: { mark: "win", text: "A folder on your own machine" },
+    labarchives: { mark: "none", text: "On LabArchives' cloud servers" },
+    snapgene: { mark: "have", text: "Files on your machine" },
+    quartzy: { mark: "none", text: "On Quartzy's cloud servers" },
+  },
+  {
+    label: "A full lab suite",
+    us: { mark: "win", text: "Notebook, planning, purchasing, sequences, all in one" },
+    labarchives: { mark: "have", text: "Notebook plus widgets and add-ons" },
+    snapgene: { mark: "none", text: "Sequences only, not a notebook" },
+    quartzy: { mark: "none", text: "Ordering and inventory only" },
+  },
+];
+
+type CompareProduct = "us" | "labarchives" | "snapgene" | "quartzy";
+const COMPARE_PRODUCTS: { id: CompareProduct; name: string }[] = [
+  { id: "us", name: "ResearchOS" },
+  { id: "labarchives", name: "LabArchives" },
+  { id: "snapgene", name: "SnapGene" },
+  { id: "quartzy", name: "Quartzy" },
+];
+
+function ComparisonCards() {
+  return (
+    <div className="mx-auto mt-2 flex max-w-[520px] flex-col gap-3 sm:hidden">
+      {COMPARE_PRODUCTS.map((p) => {
+        const isUs = p.id === "us";
+        return (
+          <div
+            key={p.id}
+            className="overflow-hidden rounded-2xl border bg-white"
+            style={
+              isUs
+                ? {
+                    borderColor: "var(--brand-action)",
+                    boxShadow: "0 0 0 1px var(--brand-action)",
+                  }
+                : { borderColor: "#e3eaf3" }
+            }
+          >
+            <div
+              className={`px-4 py-2.5 ${isUs ? "" : "bg-[#f5f9fd]"}`}
+              style={
+                isUs
+                  ? {
+                      background:
+                        "linear-gradient(90deg, rgba(18,131,201,0.10), rgba(155,123,214,0.10))",
+                    }
+                  : undefined
+              }
+            >
+              <span
+                className={`text-body font-extrabold ${isUs ? "text-sky-700" : "text-brand-ink"}`}
+              >
+                {p.name}
+              </span>
+            </div>
+            <div>
+              {COMPARE_CAPS.map((cap) => {
+                const cell = cap[p.id];
+                return (
+                  <div
+                    key={cap.label}
+                    className="flex items-start gap-2.5 border-t border-[#e3eaf3] px-4 py-2.5 first:border-t-0"
+                  >
+                    <MarkIcon mark={cell.mark} />
+                    <div className="min-w-0">
+                      <div className="text-meta font-semibold text-brand-ink">
+                        {cap.label}
+                      </div>
+                      <div className="text-meta leading-snug text-[#64748b]">
+                        {cell.text}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+/* ----------------------------------------------------------------------------
+ * Compact pricing-tier snapshot for the cost lead. Shows the SHAPE of the plans
+ * (storage allowances, who pays) without printing the provisional Plus/Pro
+ * sticker prices, per docs/reference/billing-copy-facts.md (final prices are not
+ * published; the /pricing calculator shows the labeled estimates). The free/paid
+ * framing line is flag-aware: free during the beta while BILLING_LIVE is off,
+ * live billed pricing once it flips.
+ * -------------------------------------------------------------------------- */
+function TierSummary() {
+  const tiers: { name: string; detail: string }[] = [
+    { name: "Free", detail: "5 GB cloud, $0. A real working tier." },
+    { name: "Plus / Pro", detail: "More storage, priced at what it costs us." },
+    { name: "Labs", detail: "One shared pool. Only the PI pays." },
+    {
+      name: "Departments & institutions",
+      detail: "A sustaining rate that keeps it free for individuals.",
+    },
+  ];
+  return (
+    <div className="mt-8">
+      <div className="grid gap-3 sm:grid-cols-2">
+        {tiers.map((t) => (
+          <div
+            key={t.name}
+            className="rounded-2xl border border-[#e3eaf3] bg-white p-4 shadow-[0_1px_2px_rgba(15,40,80,0.04)]"
+          >
+            <div className="text-body font-extrabold text-brand-ink">
+              {t.name}
+            </div>
+            <p className="mt-0.5 text-meta leading-snug text-[#475569]">
+              {t.detail}
+            </p>
+          </div>
+        ))}
+      </div>
+      <p className="mt-3 text-meta leading-snug text-[#64748b]">
+        Plus a metered BeakerBot AI, priced near cost, with about 1.6 million free
+        tokens to start.{" "}
+        {BILLING_LIVE
+          ? "Cloud storage and AI are billed now, at what they cost us."
+          : "Cloud storage and AI are free during the beta while we test the billing."}
+      </p>
+    </div>
+  );
+}
+
 /* ========================================================================== */
 
 export default function WelcomePage({
@@ -402,8 +631,13 @@ export default function WelcomePage({
 } = {}) {
   const router = useRouter();
 
-  // Roadmap modal state.
-  const [roadmapOpen, setRoadmapOpen] = useState(false);
+  // Phone vs desktop, resolved after mount (navigator is client-only). null
+  // until then so SSR + first client render match (no banner), avoiding a
+  // hydration mismatch and any mobile flash of the desktop-required banner.
+  const [isMobile, setIsMobile] = useState<boolean | null>(null);
+  useEffect(() => {
+    setIsMobile(isMobileDevice());
+  }, []);
 
   // "Get started" routes UP to the connect chooser, which now lives ABOVE this
   // page. When this component is embedded in EntrySnapSurface, the chooser is
@@ -443,33 +677,6 @@ export default function WelcomePage({
     router.push("/");
   };
 
-  /** The "What we're building" roadmap chip, used in the nav and standalone. */
-  const RoadmapChip = ({ className }: { className?: string }) => (
-    <button
-      type="button"
-      onClick={() => setRoadmapOpen(true)}
-      className={`inline-flex items-center gap-1.5 rounded-full border border-[#d3deec] bg-white px-3 py-1 text-meta font-semibold text-brand-ink transition-colors hover:bg-[#eef4fb] hover:border-[#c5d6ea] ${className ?? ""}`}
-    >
-      {/* 4-point asterisk / spark icon */}
-      <svg
-        width="14"
-        height="14"
-        viewBox="0 0 16 16"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="2"
-        strokeLinecap="round"
-        aria-hidden
-      >
-        <line x1="8" y1="2" x2="8" y2="14" />
-        <line x1="2" y1="8" x2="14" y2="8" />
-        <line x1="3.5" y1="3.5" x2="12.5" y2="12.5" />
-        <line x1="12.5" y1="3.5" x2="3.5" y2="12.5" />
-      </svg>
-      What we&apos;re building
-    </button>
-  );
-
   return (
     <div
       ref={rootRef}
@@ -478,10 +685,13 @@ export default function WelcomePage({
       {/* Thick rainbow ribbon pinned to the very top edge. */}
       <div aria-hidden className="h-2 w-full" style={{ background: RAINBOW }} />
 
-      {/* Desktop-required notice (unsupported device / browser). The page below
-          is fully readable; this explains why the entry buttons do not start the
-          app here, and points to the requirements guide. */}
-      {unsupported && (
+      {/* Desktop-required notice. Shown only for an UNSUPPORTED DESKTOP browser
+          (Safari / Firefox), where "switch to Chrome or Edge" is actionable. NOT
+          shown on phones (isMobile): a phone cannot switch to desktop Chrome, so
+          the banner is just noise there; the marketing content reads the same as
+          the desktop site. isMobile is null until mount, so this never flashes on
+          a phone. */}
+      {unsupported && isMobile === false && (
         <div className="sticky top-0 z-20 border-b border-amber-200 bg-amber-50/95 backdrop-blur">
           <div className="mx-auto flex max-w-[1180px] flex-col gap-1 px-6 py-3 text-left sm:flex-row sm:items-center sm:justify-between sm:gap-4">
             <p className="text-meta leading-snug text-amber-900 sm:text-body">
@@ -510,7 +720,6 @@ export default function WelcomePage({
           <nav className="relative z-10 mx-auto flex w-full max-w-[1440px] items-center justify-between px-6 py-5 sm:px-12">
             <Wordmark size="md" animated={false} className="gap-2.5" />
             <div className="flex items-center gap-3">
-              <RoadmapChip />
               {/* Get started: routes up to the connect chooser (embedded) or
                   home (standalone). The brand-gradient primary action. */}
               <button
@@ -531,6 +740,12 @@ export default function WelcomePage({
             MarketingBackdrop aurora (vivid) so the brand sings here, the same
             stage the pricing hero uses. The NIH card is NOT here anymore; it is
             its own section #12 below. */}
+        {/* The SAME hero on every device, just reflowed for the screen. On an
+            unsupported device/browser (every phone, plus Safari/Firefox) the
+            sticky desktop-required banner above already explains that the app
+            itself runs on desktop, so the marketing content stays identical
+            rather than diverging into a separate phone landing. Hidden when
+            embedded (the chooser's own bar leads). */}
         {!embedded && (
           <header className="relative isolate overflow-hidden bg-gradient-to-b from-white to-[#eef4fb] px-6 pb-16 pt-4 text-center sm:px-12">
             <MarketingBackdrop tone="vivid" />
@@ -627,17 +842,32 @@ export default function WelcomePage({
                 it, free, in a folder on your own machine.
               </p>
             </Reveal>
-            <CostTable />
+            {/* Wide cost table on >= sm; stacked cards on phone. */}
+            <div className="hidden sm:block">
+              <CostTable />
+            </div>
+            <CostCards />
+            {/* The lead motion proof: one app standing in for the whole stack. */}
+            <Reveal className="mt-8">
+              <R2Demo
+                name="replaces-5-tools"
+                label="One ResearchOS window standing in for a separate notebook, chemistry, cloning, stats, and ordering app"
+              />
+            </Reveal>
+            <Reveal>
+              <TierSummary />
+            </Reveal>
             <Reveal>
               <p className="mt-5 max-w-[68ch] border-t border-dashed border-[#dbe6f3] pt-4 text-body leading-relaxed text-[#64748b]">
-                Free to use, with every feature included. The only thing that
-                ever costs money is optional cloud storage, and we charge what it
-                costs us.{" "}
+                The notebook and every feature are free, forever. The only thing
+                that ever costs money is optional cloud storage and the AI, and we
+                charge what they cost us.{" "}
                 <a
                   href="/pricing"
                   className="font-bold text-brand-action transition-colors hover:text-brand-ink"
                 >
-                  See exactly how it is priced <span aria-hidden>&rarr;</span>
+                  See the full pricing and the cost calculator{" "}
+                  <span aria-hidden>&rarr;</span>
                 </a>
               </p>
             </Reveal>
@@ -675,7 +905,10 @@ export default function WelcomePage({
             restPose="idle"
             size="h-24 w-24"
           >
-            <div className="mx-auto max-w-[1320px] overflow-hidden rounded-2xl border border-[#e3eaf3] bg-white shadow-[0_1px_2px_rgba(15,40,80,0.04)]">
+            {/* Phone: the four-way table reflows into stacked per-product cards
+                so BeakerBot peeks over the same content at any width. */}
+            <ComparisonCards />
+            <div className="mx-auto hidden max-w-[1320px] overflow-hidden rounded-2xl border border-[#e3eaf3] bg-white shadow-[0_1px_2px_rgba(15,40,80,0.04)] sm:block">
               <div className="overflow-x-auto">
                 <table className="w-full min-w-[860px] border-collapse text-left">
                   <thead>
@@ -745,16 +978,6 @@ export default function WelcomePage({
           title="Draw and search chemistry, built in"
           body="Draw a structure like you would in ChemDraw, pull the compound straight from PubChem, then search the literature and patents by structure, a free stab at what most labs open SciFinder for. Drop any of it into your experiment note. The tools labs pay a fortune for, free."
           pills={["Structure editor", "PubChem import", "Literature and patent search"]}
-          visual={
-            <RainbowFrame>
-              <DemoLoop
-                src="https://tkqei2x7bdmdvg7v.public.blob.vercel-storage.com/chemistry-gliotoxin.mp4"
-                poster="https://tkqei2x7bdmdvg7v.public.blob.vercel-storage.com/chemistry-gliotoxin.poster.jpg"
-                label="Importing gliotoxin from PubChem and searching the literature and patents by structure in the ResearchOS chemistry workbench"
-                preload="metadata"
-              />
-            </RainbowFrame>
-          }
         />
 
         {/* ── 4. DATA HUB ──────────────────────────────────────────────── */}
@@ -764,16 +987,6 @@ export default function WelcomePage({
           title="Run the stats and make the figure"
           body="Paste your data, run the test, make a publication-ready plot. Every statistic is validated in public against scipy, R, and Prism, so you can trust the number you cite."
           pills={["Validated tests", "Publication figures", "No black box"]}
-          visual={
-            <RainbowFrame>
-              <DemoLoop
-                src="https://tkqei2x7bdmdvg7v.public.blob.vercel-storage.com/data-hub.mp4"
-                poster="https://tkqei2x7bdmdvg7v.public.blob.vercel-storage.com/data-hub.poster.jpg"
-                label="Running a validated t-test, reading the plain-language verdict, and styling a publication-ready bar plot in the ResearchOS Data Hub"
-                preload="metadata"
-              />
-            </RainbowFrame>
-          }
         />
 
         {/* ── 5. SEQUENCE EDITOR (real clip, flagship) ─────────────────── */}
@@ -789,24 +1002,10 @@ export default function WelcomePage({
               bubble="whoa!"
               size="h-24 w-24"
             >
-              <div className="grid gap-4">
-                <RainbowFrame>
-                  <DemoLoop
-                    src="https://tkqei2x7bdmdvg7v.public.blob.vercel-storage.com/sequence-editor-a.mp4"
-                    poster="https://tkqei2x7bdmdvg7v.public.blob.vercel-storage.com/sequence-editor-a.poster.jpg"
-                    label="A circular plasmid map rendering in the ResearchOS sequence editor, with annotated feature arcs, then a Gibson assembly designing its own junction primers"
-                    preload="metadata"
-                  />
-                </RainbowFrame>
-                <RainbowFrame>
-                  <DemoLoop
-                    src="https://tkqei2x7bdmdvg7v.public.blob.vercel-storage.com/sequence-ncbi.mp4"
-                    poster="https://tkqei2x7bdmdvg7v.public.blob.vercel-storage.com/sequence-ncbi.poster.jpg"
-                    label="The guided NCBI import wizard finding a gene in a reference genome by name and importing a windowed sequence into the ResearchOS library"
-                    preload="metadata"
-                  />
-                </RainbowFrame>
-              </div>
+              <R2Demo
+                name="sequence-editor-a"
+                label="A circular plasmid map rendering in the ResearchOS sequence editor, with annotated feature arcs, then a Gibson assembly designing its own junction primers"
+              />
             </BeakerBotPeek>
           }
         >
@@ -838,16 +1037,6 @@ export default function WelcomePage({
           title="Track orders and inventory"
           body="Log a purchase, attach the order PDF, and the PI can send it to the department in one click. Inventory and ordering for the whole lab, no extra subscription."
           pills={["Order tracking", "Attach PDFs", "Send to department"]}
-          visual={
-            <RainbowFrame>
-              <DemoLoop
-                src="https://tkqei2x7bdmdvg7v.public.blob.vercel-storage.com/purchases.mp4"
-                poster="https://tkqei2x7bdmdvg7v.public.blob.vercel-storage.com/purchases.poster.jpg"
-                label="Filtering lab orders by stage and category, expanding line items, and the spending dashboard in ResearchOS purchases"
-                preload="metadata"
-              />
-            </RainbowFrame>
-          }
         />
 
         {/* ── 6.5 CHECK-INS + MENTORING ────────────────────────────────── */}
@@ -863,14 +1052,10 @@ export default function WelcomePage({
             "Mentorship tree",
           ]}
           visual={
-            <RainbowFrame>
-              <DemoLoop
-                src="https://tkqei2x7bdmdvg7v.public.blob.vercel-storage.com/check-ins.mp4"
-                poster="https://tkqei2x7bdmdvg7v.public.blob.vercel-storage.com/check-ins.poster.jpg"
-                label="A lab mentorship tree, an individual development plan, and a lab-meeting presenter rotation in ResearchOS check-ins"
-                preload="metadata"
-              />
-            </RainbowFrame>
+            <R2Demo
+              name="pi-lab-overview"
+              label="A PI's overview of the lab in ResearchOS: the mentorship tree, individual development plans, and the lab-meeting presenter rotation"
+            />
           }
         />
 
@@ -909,7 +1094,7 @@ export default function WelcomePage({
                   finished product shot, not an empty play placeholder. Leads
                   the cascade, then the four capability cards follow it in. */}
               <Reveal className="justify-self-center" delay={0}>
-                <div className="relative aspect-[9/19] w-[196px] overflow-hidden rounded-[30px] border-8 border-[#060d1c] bg-[#0d1424] shadow-[0_20px_54px_rgba(0,0,0,0.55)]">
+                <div className="relative aspect-[9/19] w-[clamp(150px,46vw,196px)] max-w-full overflow-hidden rounded-[30px] border-8 border-[#060d1c] bg-[#0d1424] shadow-[0_20px_54px_rgba(0,0,0,0.55)]">
                   <span
                     aria-hidden
                     className="absolute left-1/2 top-2.5 z-[2] h-1.5 w-[52px] -translate-x-1/2 rounded-full bg-[#060d1c]"
@@ -979,6 +1164,15 @@ export default function WelcomePage({
                 </Reveal>
               </div>
             </div>
+
+            {/* Methods library in motion: opening a saved method and running it
+                step by step at the bench from the phone. */}
+            <Reveal className="mt-9">
+              <R2Demo
+                name="methods-library"
+                label="Opening a saved method from the ResearchOS library and running it step by step at the bench from the companion app"
+              />
+            </Reveal>
           </div>
         </section>
 
@@ -1014,6 +1208,13 @@ export default function WelcomePage({
                 />
               </Reveal>
             </div>
+            {/* Local-first in motion: the data living in a folder the user owns. */}
+            <Reveal className="mt-8">
+              <R2Demo
+                name="own-your-data"
+                label="ResearchOS working from a folder on the user's own computer, the original records living locally with optional cloud sync"
+              />
+            </Reveal>
           </div>
         </section>
 
@@ -1059,21 +1260,37 @@ export default function WelcomePage({
           </Reveal>
         </section>
 
+        {/* ── 11.5 OPEN ICON LIBRARY (open-science resource, not a feature pitch) ─ */}
+        <section className="px-6 py-16 sm:px-12">
+          <Reveal className="mx-auto max-w-[1080px]">
+            <div className="overflow-hidden rounded-2xl border border-[#e3eaf3] bg-white p-6 shadow-[0_1px_2px_rgba(15,40,80,0.04)] sm:p-8">
+              <Kicker>// free for everyone, not just our users</Kicker>
+              <h2 className="mt-2.5 max-w-[24ch] text-2xl font-extrabold leading-tight tracking-tight text-brand-ink sm:text-3xl">
+                An open icon library for science
+              </h2>
+              <p className="mt-4 max-w-[64ch] text-title leading-relaxed text-[#475569]">
+                Over 14,000 openly-licensed scientific icons and silhouettes (CC0,
+                CC-BY, and public domain). Every asset carries its source and
+                license, and the credits are added for you. Browse them, drop them
+                into your figures, or contribute your own.
+              </p>
+              <a
+                href="/library"
+                data-testid="welcome-icon-library"
+                className="mt-5 inline-flex min-h-[44px] items-center gap-1.5 text-body font-bold text-brand-action transition-colors hover:text-brand-ink"
+              >
+                Browse the icon library <span aria-hidden>&rarr;</span>
+              </a>
+            </div>
+          </Reveal>
+        </section>
+
         {/* ── 12. NIH + ZENODO (moved out of the hero) ─────────────────── */}
         <FeatureRow
           kicker="// built for grant-funded labs"
           title="Grant-ready deposits, free"
           body="Records you own, real version history, clean exports, and a one-click Zenodo deposit carrying your ORCID and grant metadata. That covers an NIH Data Management and Sharing Plan, with no enterprise license to buy."
           pills={["Records you own", "Version history", "Zenodo deposit"]}
-          visual={
-            <RainbowFrame>
-              <DemoLoop
-                src="https://tkqei2x7bdmdvg7v.public.blob.vercel-storage.com/nih-zenodo.mp4"
-                poster="https://tkqei2x7bdmdvg7v.public.blob.vercel-storage.com/nih-zenodo.poster.jpg"
-                label="Building a grant-ready Zenodo deposit with ORCID and grant metadata"
-              />
-            </RainbowFrame>
-          }
         >
           <a
             href="/wiki/compliance/nih-data-management"
@@ -1218,9 +1435,8 @@ export default function WelcomePage({
                 <span aria-hidden>&rarr;</span>
               </a>
             </div>
-            {/* Roadmap chip + pricing handoff, the mockup's CTA footnote. */}
+            {/* Pricing handoff, the mockup's CTA footnote. */}
             <div className="mt-6 flex flex-col items-center gap-3">
-              <RoadmapChip />
               <p className="text-meta text-[#94a3b8]">
                 Free and open source. It grew out of a UW-Madison Distinguished
                 Research Fellowship. Curious how the optional cloud is priced?{" "}
@@ -1243,8 +1459,6 @@ export default function WelcomePage({
         <MarketingFooter />
       </div>
 
-      {/* Roadmap modal */}
-      <RoadmapModal open={roadmapOpen} onClose={() => setRoadmapOpen(false)} />
     </div>
   );
 }

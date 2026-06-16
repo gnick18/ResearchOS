@@ -27,6 +27,8 @@ import { useRouter } from "next/navigation";
 import { getSession, signIn } from "next-auth/react";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { getSessionIdentity } from "@/lib/sharing/identity/session-key";
+import { ensureLocalIdentity } from "@/lib/sharing/identity/ensure-identity";
+import { MULTI_FOLDER_ENABLED } from "@/lib/file-system/multi-folder-config";
 import {
   decodeInviteFragment,
   isInviteExpired,
@@ -343,7 +345,19 @@ export default function LabJoinPage() {
     setPhase("working");
     setMessage("");
     try {
-      const identity = getSessionIdentity();
+      let identity = getSessionIdentity();
+      // Solo-deferred identity (§8): joining a lab is an explicit sharing action,
+      // so mint a keypair on demand if the member deferred (account-first no
+      // longer pre-mints under MULTI_FOLDER). Idempotent; the recovery code
+      // surfaces via the Settings unconfirmed-recovery nag.
+      if (!identity && currentUser && MULTI_FOLDER_ENABLED) {
+        try {
+          await ensureLocalIdentity(currentUser);
+          identity = getSessionIdentity();
+        } catch {
+          // fall through to the guard below
+        }
+      }
       if (!identity || !currentUser) {
         setPhase("error");
         setMessage("Set up your workspace and unlock it first.");
@@ -380,7 +394,17 @@ export default function LabJoinPage() {
 
   const enterLab = async () => {
     if (!invite) return;
-    const identity = getSessionIdentity();
+    let identity = getSessionIdentity();
+    // Solo-deferred identity (§8): mint on demand if the member deferred, same as
+    // accept() above (entering a lab needs the local keypair).
+    if (!identity && currentUser && MULTI_FOLDER_ENABLED) {
+      try {
+        await ensureLocalIdentity(currentUser);
+        identity = getSessionIdentity();
+      } catch {
+        // fall through to the guard below
+      }
+    }
     if (!identity || !currentUser) {
       setPhase("error");
       setMessage("Set up your workspace and unlock it first.");

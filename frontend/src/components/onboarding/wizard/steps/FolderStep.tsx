@@ -183,7 +183,7 @@ export default function FolderStep({ onConnected }: FolderStepProps) {
                 onClick={() => void handleConnect()}
                 disabled={isLoading}
                 data-testid="wizard-folder-browse"
-                className="mt-3 inline-flex items-center justify-center gap-2 rounded-lg border border-border px-4 py-2 text-sm font-medium text-foreground transition-colors hover:border-foreground-muted hover:bg-surface-sunken disabled:opacity-50"
+                className="ros-btn-neutral mt-3 inline-flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium text-foreground disabled:opacity-50"
               >
                 {isLoading ? "Opening..." : "Browse for a folder"}
               </button>

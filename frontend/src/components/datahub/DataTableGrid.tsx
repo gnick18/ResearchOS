@@ -235,7 +235,7 @@ export default function DataTableGrid({
             <button
               type="button"
               onClick={onAddRow}
-              className="flex items-center gap-1 rounded-md border border-border px-2.5 py-1.5 text-meta font-medium text-foreground transition-colors hover:bg-surface-sunken"
+              className="ros-btn-neutral flex items-center gap-1 px-2.5 py-1.5 text-meta font-medium text-foreground"
             >
               <Icon name="plus" className="h-3.5 w-3.5" />
               Add row
@@ -244,7 +244,7 @@ export default function DataTableGrid({
           <button
             type="button"
             onClick={onAddColumn}
-            className="flex items-center gap-1 rounded-md border border-border px-2.5 py-1.5 text-meta font-medium text-foreground transition-colors hover:bg-surface-sunken"
+            className="ros-btn-neutral flex items-center gap-1 px-2.5 py-1.5 text-meta font-medium text-foreground"
           >
             <Icon name="plus" className="h-3.5 w-3.5" />
             Add group

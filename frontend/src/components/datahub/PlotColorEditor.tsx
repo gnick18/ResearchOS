@@ -178,7 +178,7 @@ export default function PlotColorEditor({
               clearOverride(popover.series);
               setPopover(null);
             }}
-            className="flex items-center gap-1 rounded border border-border px-1.5 py-1 text-[10px] font-medium text-foreground hover:bg-surface-sunken"
+            className="ros-btn-neutral flex items-center gap-1 px-1.5 py-1 text-[10px] font-medium text-foreground"
           >
             <Icon name="refresh" className="h-3 w-3" />
             Reset

@@ -34,6 +34,7 @@ import { INVENTORY_ENABLED } from "@/lib/inventory/config";
 import { CHEMISTRY_ENABLED } from "@/lib/chemistry/config";
 import { DATAHUB_ENABLED } from "@/lib/datahub/config";
 import { PHYLO_ENABLED } from "@/lib/phylo/config";
+import { ASSET_LIBRARY_ENABLED } from "@/lib/figure/asset-library";
 import { HELP_HREF, appRouteToWikiRoute } from "@/lib/wiki/nav";
 import { useAppStore } from "@/lib/store";
 import { useFileSystem } from "@/lib/file-system/file-system-context";
@@ -247,6 +248,10 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
     // page). Its only source today is Data Hub, so gate it the same way (visible
     // when Data Hub is on or in demo), broadening as more figure sources land.
     if (item.href === "/figures") return DATAHUB_ENABLED || isDemo;
+    // /library (the open icon/asset library) is gated on its own flag, like the
+    // other opt-in modules. Visible when the asset library is on or in demo; it
+    // defaults into the More overflow (not in DEFAULT_INLINE_HREFS).
+    if (item.href === "/library") return ASSET_LIBRARY_ENABLED || isDemo;
     // /sequences (the molecular-biology editor) is a flagship surface that
     // must always be reachable from the nav. Existing accounts whose
     // visibleTabs list predates the route would otherwise never see it (the
@@ -431,7 +436,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         {/* Folder switcher (Phase A, multi-folder). Renders nothing unless the
             NEXT_PUBLIC_MULTI_FOLDER flag is on AND more than one folder is
             remembered, so the header is unchanged for flag-off / solo users. */}
-        <FolderSwitcher variant="header" />
+        <FolderSwitcher variant="header" tinted={tinted} />
 
         {/* The persistent "My work" toggle (NAV-2). Lab head only: it flips the
             nav between the lab lens and the personal researcher view. */}

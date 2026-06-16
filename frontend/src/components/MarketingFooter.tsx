@@ -2,6 +2,7 @@ import Link from "next/link";
 
 import MadeInMadison from "@/components/MadeInMadison";
 import Wordmark from "@/components/Wordmark";
+import { SOCIAL_LAYER_ENABLED } from "@/lib/social/config";
 
 /**
  * Rich marketing footer for the public pages (welcome, pricing, transparency,
@@ -45,6 +46,11 @@ const COLUMNS: FooterColumn[] = [
       { label: "BeakerBot AI", href: "/ai" },
       { label: "Pricing", href: "/pricing" },
       { label: "Live demo", href: "/demo" },
+      { label: "Icon library", href: "/library" },
+      // Social layer (Phase A), behind NEXT_PUBLIC_SOCIAL_LAYER so flag-off is unchanged.
+      ...(SOCIAL_LAYER_ENABLED
+        ? [{ label: "Researcher network", href: "/network" }]
+        : []),
       { label: "Docs", href: "/wiki" },
     ],
   },

@@ -525,7 +525,7 @@ export default function ReferencePicker({ onPick, onClose, initialTab }: Referen
           <div
             role="group"
             aria-label="Insert as"
-            className="inline-flex rounded-lg border border-border p-0.5 bg-surface-sunken"
+            className="inline-flex rounded-lg border border-border p-0.5 bg-surface-sunken ros-seg-track"
           >
             <button
               type="button"
@@ -533,7 +533,7 @@ export default function ReferencePicker({ onPick, onClose, initialTab }: Referen
               onClick={() => setMode("mention")}
               className={`px-2.5 py-0.5 text-[11px] font-semibold rounded-md transition-colors ${
                 mode === "mention"
-                  ? "bg-surface-raised text-foreground shadow-sm"
+                  ? "bg-surface-raised text-foreground ros-seg-active"
                   : "text-foreground-muted hover:text-foreground"
               }`}
             >
@@ -545,7 +545,7 @@ export default function ReferencePicker({ onPick, onClose, initialTab }: Referen
               onClick={() => setMode("embed")}
               className={`px-2.5 py-0.5 text-[11px] font-semibold rounded-md transition-colors ${
                 mode === "embed"
-                  ? "bg-surface-raised text-foreground shadow-sm"
+                  ? "bg-surface-raised text-foreground ros-seg-active"
                   : "text-foreground-muted hover:text-foreground"
               }`}
             >

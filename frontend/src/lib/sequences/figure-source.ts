@@ -13,7 +13,13 @@ import { sequencesApi } from "@/lib/local-api";
 import { sequenceStore } from "@/lib/sequences/sequence-store";
 import { genbankToDetail } from "@/lib/sequences/parse";
 import { documentFromDetail, type SeqDocument } from "@/lib/sequences/edit-model";
-import { renderSequenceMapSvg, featureKey, type SequenceMapStyle } from "@/lib/sequences/map-render";
+import {
+  renderSequenceMapSvg,
+  buildLinearMapManifest,
+  buildCircularMapManifest,
+  featureKey,
+  type SequenceMapStyle,
+} from "@/lib/sequences/map-render";
 import { mergeMapStyle } from "@/lib/sequences/figure-style";
 import { resolveFeatureColor } from "@/lib/sequences/feature-colors";
 import {
@@ -109,6 +115,33 @@ export const sequenceFigureSource: FigureSource = {
   async saveDefaultStyle(id, style): Promise<void> {
     // Promote a panel's style to the sequence's canonical figure style (sidecar).
     await sequencesApi.update(Number(id), { figure: toMapStyle(style) });
+  },
+
+  // The collision-advisor seam. Both maps stack labels / feature rows that can run
+  // off the canvas (content-overflow): the LINEAR map lane-packs features upward, a
+  // CIRCULAR plasmid de-collides its side label columns without bounding them to the
+  // figure. Same id + opts + merged style as render(), so the boxes are the exact
+  // numbers the SVG was drawn from.
+  async getLayoutManifest(id, opts) {
+    const loaded = await loadDoc(id);
+    if (!loaded) return null;
+    const style = mergeMapStyle(loaded.canonical, toMapStyle(opts.style));
+    const size = {
+      width: Math.max(1, Math.round(opts.widthIn * opts.dpi)),
+      height: Math.max(1, Math.round(opts.heightIn * opts.dpi)),
+    };
+    return loaded.doc.circular
+      ? buildCircularMapManifest(loaded.doc, size, style)
+      : buildLinearMapManifest(loaded.doc, size, style);
+  },
+
+  // The panel-style override each fix maps to (composition-local, no source
+  // mutation). The overflow fix "shrink the contents to fit" thins the feature
+  // rows (smaller featureScale -> shorter rowH -> the same rows stack into less
+  // height), which is the lever the sequence map actually has.
+  styleForFix(fixId) {
+    if (fixId === "shrink-label-font") return { options: { featureScale: 0.6 } };
+    return null;
   },
 
   editHref(id) {

@@ -23,7 +23,11 @@ import type {
 } from "@/lib/datahub/model/types";
 
 // Flag OFF so only the demo signal can open the surface.
-vi.mock("@/lib/datahub/config", () => ({ DATAHUB_ENABLED: false }));
+vi.mock("@/lib/datahub/config", () => ({
+  DATAHUB_ENABLED: false,
+  BIGTABLE_ENABLED: false,
+  isBigTableEnabled: () => false,
+}));
 
 const holder = vi.hoisted(() => ({ demo: false }));
 vi.mock("@/lib/file-system/wiki-capture-mock", async (importOriginal) => {

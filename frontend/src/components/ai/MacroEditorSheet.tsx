@@ -17,6 +17,7 @@
 
 import { useMemo, useState } from "react";
 import { Icon } from "@/components/icons";
+import { WidgetIconTile } from "./widget-kit";
 import Tooltip from "@/components/Tooltip";
 import {
   createMacro,
@@ -168,9 +169,7 @@ export default function MacroEditorSheet({
       >
         {/* header */}
         <div className="flex items-center gap-2.5 border-b border-border px-4 py-3">
-          <span className="flex h-7 w-7 flex-none items-center justify-center rounded-md bg-purple-500/15 text-purple-600 dark:text-purple-300">
-            <Icon name="bolt" className="h-4 w-4" title="Macro" />
-          </span>
+          <WidgetIconTile icon="bolt" tint="macro" />
           <span className="flex-1 text-body font-semibold text-foreground">
             {macroId !== undefined ? "Edit macro" : "Save as macro"}
           </span>
@@ -394,7 +393,7 @@ export default function MacroEditorSheet({
           <button
             type="button"
             onClick={onClose}
-            className="rounded-md border border-border px-3.5 py-2 text-body text-foreground-muted hover:bg-surface-sunken"
+            className="ros-btn-neutral px-3.5 py-2 text-body text-foreground-muted"
           >
             Cancel
           </button>

@@ -19,10 +19,12 @@ import {
   unlockIdentityWithRecovery,
   loadIdentity,
   writeIdentityReferenceSidecar,
+  resetIdentityKeepData,
 } from "@/lib/sharing/identity/storage";
+import { recoverDeviceKeyFromCloud } from "@/lib/sharing/identity/cloud-restore";
 import { isAccountFirstEnabled } from "@/lib/account/account-first";
 import { deriveWorkspaceUsername } from "@/lib/account/workspace-username";
-import { decodePublicKey, fingerprint as computeFingerprint } from "@/lib/sharing/identity/keys";
+import { decodePublicKey, encodePublicKey, fingerprint as computeFingerprint } from "@/lib/sharing/identity/keys";
 import { fetchMyProfile, compactFingerprint } from "@/lib/sharing/profile";
 import { MULTI_FOLDER_ENABLED } from "@/lib/file-system/multi-folder-config";
 import { generateDeviceSalt } from "@/lib/sharing/identity/backup";
@@ -30,10 +32,7 @@ import { deleteSharingIdentity } from "@/lib/sharing/identity/sidecar";
 import { performUserDelete } from "@/lib/users/perform-delete";
 import { readUserSettings } from "@/lib/settings/user-settings";
 import { readArchivedSet } from "@/lib/lab/user-archive";
-import {
-  readSharingIdentity,
-  hasSharingIdentity,
-} from "@/lib/sharing/identity/sidecar";
+import { readSharingIdentity } from "@/lib/sharing/identity/sidecar";
 import { evaluateUnlockMatch } from "@/lib/sharing/identity/unlock-match";
 import { GoogleIcon, GitHubIcon, LinkedInIcon, MicrosoftIcon } from "@/components/sharing/icons";
 import SharingProviderButtons from "@/components/sharing/SharingProviderButtons";
@@ -215,6 +214,31 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
   } | null>(null);
   const [recoveryCopied, setRecoveryCopied] = useState(false);
 
+  // Phase C1 (recovery, docs/proposals/2026-06-15-account-folder-identity-redesign.md
+  // §6c): the reset-keep-data lockout escape. When a user can't unlock (lost the
+  // recovery code AND provider access) they can mint a fresh identity rather than
+  // be permanently locked out — their plaintext notebook data is untouched. This
+  // is a no-soft-lock escape ([[feedback_no_soft_locks]]). Two-step: the unlock
+  // gate offers it as a last resort, clicking opens a warning confirmation, and
+  // confirming runs resetIdentityKeepData + shows the new recovery code (reusing
+  // the createdRecovery display). Dark behind MULTI_FOLDER_ENABLED.
+  const [resetConfirmFor, setResetConfirmFor] = useState<string | null>(null);
+  const [resetting, setResetting] = useState(false);
+
+  // Phase C5 (cross-device restore, docs/proposals/2026-06-15-account-folder-
+  // identity-redesign.md §6c): when a signed-in account lands on a fresh device
+  // (no local keypair) but already has a canonical identity published from
+  // elsewhere, do NOT mint a divergent key — restore the published one from the
+  // cloud backup with the recovery code, then write a reference sidecar and
+  // enter. This replaces the Phase B `// Phase C:` stop-and-point guard with the
+  // real restore UX (strict path: recovery-code unwrap of the existing OAuth-
+  // gated my-backup blob, no new server surface). Dark behind MULTI_FOLDER_ENABLED.
+  const [crossDeviceRestore, setCrossDeviceRestore] = useState<{
+    username: string;
+  } | null>(null);
+  const [restoreInput, setRestoreInput] = useState("");
+  const [restoring, setRestoring] = useState(false);
+
   // Per-user password management popup (set/change/remove)
   const [managingPasswordFor, setManagingPasswordFor] = useState<string | null>(null);
 
@@ -320,19 +344,30 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
 
 
   // D1: fan-out read of every user's `_sharing_identity.json` to find
-  // accounts that have CLAIMED a global sharing identity. Mirrors
+  // accounts that have PUBLISHED a global sharing identity via OAuth. Mirrors
   // `refreshLockStatus` — a per-user read failure leaves the user out of the
   // set, so a missing or unreadable sidecar just means "no provider unlock
-  // offered", which falls back to the unchanged password gate.
+  // offered", which falls back to the recovery-code gate.
+  //
+  // The discriminator is the sidecar's `email`, NOT mere file existence. Under
+  // the local-keypair-first model (IDENTITY_OAUTH_ONLY.md, 2026-06-06) a SOLO
+  // account also has a sidecar (it carries recoveryBlob + public keys) but NO
+  // email, because it was never published. Gating on hasSharingIdentity() alone
+  // (file exists) wrongly flagged solo folders as OAuth-claimed, so reconnecting
+  // a never-logged-in folder demanded a third-party sign-in that was never set
+  // up. Only an account PUBLISHED under an email has a real OAuth door to offer,
+  // so claimedUsers (which renders the "Sign in online to unlock" providers) is
+  // keyed on sidecar.email.
   const refreshClaimedStatus = async (usernames: string[]) => {
     const next = new Set<string>();
     await Promise.all(
       usernames.map(async (u) => {
         try {
-          if (await hasSharingIdentity(u)) next.add(u);
+          const sidecar = await readSharingIdentity(u);
+          if (sidecar?.email) next.add(u);
         } catch {
-          // Treat as unclaimed on read failure — never show a provider
-          // option we cannot back with a real sidecar.
+          // Treat as unpublished on read failure — never show a provider
+          // option we cannot back with a real published identity.
         }
       }),
     );
@@ -604,6 +639,97 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
   // can save/rotate it later from Settings -> Sharing, where the unconfirmed
   // recovery state is surfaced. DEVICE_KEY_V2 is off, so this device-local
   // keypair is the canonical identity for this folder.
+
+  // Phase B (account/folder/identity redesign, §4.1/§6b): REUSE this account's
+  // existing on-device identity in a folder instead of minting a fresh keypair,
+  // so one cloud account stays the SAME identity across every lab folder. The
+  // guard is strict: the device must already hold an identity AND that identity's
+  // public key must match the directory record published under the signed-in
+  // email (fetchMyProfile). Only on that verified match do we write a reference
+  // sidecar (public-only, no recoveryBlob) and park the already-owned key. Any
+  // uncertain case (flag off, offline, no local identity, unpublished account, a
+  // fingerprint mismatch, or any thrown error) returns false so the caller keeps
+  // its existing mint / force-profile behavior. This NEVER makes a path less safe:
+  // a previous user's vault key on a shared machine cannot pass the directory
+  // public-key match, so it can never be sealed into a different person's folder.
+  const reuseAccountIdentityIfVerified = async (
+    username: string,
+  ): Promise<boolean> => {
+    if (!MULTI_FOLDER_ENABLED) return false;
+    try {
+      const existing = await loadIdentity();
+      if (!existing) return false;
+      const profile = await fetchMyProfile();
+      if (
+        profile &&
+        compactFingerprint(profile.fingerprint) ===
+          compactFingerprint(computeFingerprint(existing.keys.signing.publicKey))
+      ) {
+        await writeIdentityReferenceSidecar(username, existing.keys);
+        return true;
+      }
+    } catch {
+      // Any error -> fall back to the caller's mint / force-profile path.
+    }
+    return false;
+  };
+
+  // Phase C5: run the cross-device restore. Unwraps the account's canonical
+  // keypair from the cloud backup with the recovery code (sets the session +
+  // at-rest vault), then writes a reference sidecar for this folder and enters.
+  // After a successful restore loadIdentity() is non-null, so the same verified
+  // reuse path the same-device case uses now writes the sidecar; a defensive
+  // direct write covers the unlikely case reuse declines (e.g. a profile-read
+  // hiccup) so a restored user is never stranded.
+  const handleCrossDeviceRestore = async () => {
+    if (!crossDeviceRestore) return;
+    const { username } = crossDeviceRestore;
+    setError(null);
+    setRestoring(true);
+    try {
+      const result = await recoverDeviceKeyFromCloud(restoreInput);
+      if (!result.ok) {
+        setError(
+          result.reason === "wrong-words"
+            ? "That recovery code does not match this account."
+            : result.reason === "no-blob"
+              ? "No cloud backup was found for this account to restore."
+              : result.reason === "unauthorized"
+                ? "Your sign-in expired. Sign in again, then restore."
+                : "Could not reach the server. Check your connection and try again.",
+        );
+        setRestoring(false);
+        return;
+      }
+      // Identity is now on this device. Bind it to this folder's sidecar.
+      const linked = await reuseAccountIdentityIfVerified(username);
+      if (!linked) {
+        const restored = await loadIdentity();
+        if (restored) {
+          await writeIdentityReferenceSidecar(username, restored.keys);
+        }
+      }
+      setCrossDeviceRestore(null);
+      setRestoreInput("");
+      setRestoring(false);
+      await performLogin(username);
+    } catch {
+      setError("Could not restore your identity on this device. Please try again.");
+      setRestoring(false);
+    }
+  };
+
+  // Phase C5: abandon the restore. The workspace user dir was created during
+  // auto-provision, so dropping back lands on the normal picker (the user can
+  // retry restore from there, or use a different folder). We do NOT mint a
+  // divergent identity here — that is the whole point of the guard.
+  const cancelCrossDeviceRestore = () => {
+    setCrossDeviceRestore(null);
+    setRestoreInput("");
+    setRestoring(false);
+    setError(null);
+  };
+
   const autoProvisionFromAccount = async () => {
     setAutoProvisioning(true);
     setError(null);
@@ -672,32 +798,61 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
       //    shared machine can never be sealed into this new folder. Any failure
       //    to verify (flag off, offline, unpublished, or a mismatch) falls back
       //    to the original mint, so this is never less safe than before.
-      let reusedIdentity = false;
-      if (MULTI_FOLDER_ENABLED) {
-        try {
-          const existing = await loadIdentity();
-          if (existing) {
-            const profile = await fetchMyProfile();
-            if (
-              profile &&
-              compactFingerprint(profile.fingerprint) ===
-                compactFingerprint(
-                  computeFingerprint(existing.keys.signing.publicKey),
-                )
-            ) {
-              await writeIdentityReferenceSidecar(username, existing.keys);
-              reusedIdentity = true;
-            }
-          }
-        } catch {
-          // Any error -> fall through to a fresh mint below (safe default).
-        }
-      }
+      const reusedIdentity = await reuseAccountIdentityIfVerified(username);
       if (!reusedIdentity) {
-        // Mint the E2E identity keypair silently (sidecar at rest + unlocked key
-        // in the session). The provisioning the manual create-user gate performs
-        // and the lab-create flow relies on; also the account's FIRST folder.
-        await createLocalIdentity(username);
+        // Cross-device safe guard (Phase B §6b). Reuse did NOT happen. Before
+        // silently minting a fresh keypair, make sure we are not about to DIVERGE
+        // from an identity this account already published elsewhere. On a NEW
+        // laptop the device vault is empty (loadIdentity() is null) but the
+        // account may already own a canonical keypair published from another
+        // device or folder. Minting a NEW one here would fork the account's
+        // identity and, on publish, fight / overwrite the canonical record. So:
+        // when the flag is on AND there is NO local identity AND the account HAS
+        // a published profile, do NOT mint. Stop auto-provisioning and surface a
+        // clear "restore on this device" state instead, leaving the canonical
+        // identity intact. The reuse path above already covered the case where a
+        // local identity exists and matches; a local identity that exists but
+        // does NOT match still falls through to mint (it is not this account's
+        // key, so a fresh per-folder keypair is the correct, unchanged behavior).
+        if (MULTI_FOLDER_ENABLED) {
+          let publishedElsewhere = false;
+          try {
+            const local = await loadIdentity();
+            if (!local) {
+              const profile = await fetchMyProfile();
+              publishedElsewhere = !!profile;
+            }
+          } catch {
+            // Could not determine — fall through to the unchanged mint so a
+            // transient profile-read hiccup never blocks first-ever setup.
+          }
+          if (publishedElsewhere) {
+            // Phase C5: the account has a canonical identity published from
+            // another device. Instead of minting a divergent key (or dead-ending
+            // at an error), open the cross-device restore gate: the user enters
+            // their recovery code, we unwrap the canonical keypair from the cloud
+            // backup, write a reference sidecar for THIS folder, and enter — the
+            // same end state as the same-device reuse path. The workspace user
+            // dir was already created above (step 1), so the restore handler only
+            // needs to establish the identity + performLogin. autoProvisionAttempted
+            // stays true so this does not loop; the modal (or its cancel) takes over.
+            setCrossDeviceRestore({ username });
+            setAutoProvisioning(false);
+            return;
+          }
+        }
+        // Solo-deferred identity (§8): under MULTI_FOLDER, do NOT mint a keypair
+        // here. Enter with no identity (the data layer is keypair-free); a keypair
+        // is minted on demand at the first sharing action via ensureLocalIdentity,
+        // which surfaces the recovery code then. This closes the one path that
+        // minted a recovery-code-locked identity without ever showing the user the
+        // code. Flag-OFF keeps the eager silent mint, so behavior is byte-identical.
+        if (!MULTI_FOLDER_ENABLED) {
+          // Mint the E2E identity keypair silently (sidecar at rest + unlocked key
+          // in the session). The provisioning the manual create-user gate performs
+          // and the lab-create flow relies on; also the account's FIRST folder.
+          await createLocalIdentity(username);
+        }
       }
 
       // 4. Enter the app.
@@ -765,6 +920,39 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
         return;
       }
 
+      // Phase B (Follow-on 3): reference-sidecar login. A reused folder carries a
+      // sidecar with the public identity but NO recoveryBlob, because recovery is
+      // account-level. Such a user would skip the unlock gate above, then could be
+      // wrongly forced to re-create an identity they already hold. So when the
+      // sidecar has no recoveryBlob BUT this device's loaded identity public-key /
+      // fingerprint MATCHES the sidecar, the account is already established on this
+      // device -> sign in directly, skipping BOTH the unlock gate and the
+      // force-profile gate. A genuine new member in a shared folder (no local
+      // identity, or one that does NOT match) still falls through to the existing
+      // force-profile logic, so this never weakens the shared-folder gate. Gated on
+      // MULTI_FOLDER_ENABLED so flag-off behavior is byte-identical to today.
+      if (MULTI_FOLDER_ENABLED && sidecar && !sidecar.recoveryBlob) {
+        try {
+          const local = await loadIdentity();
+          if (
+            local &&
+            encodePublicKey(local.keys.signing.publicKey) ===
+              sidecar.ed25519PublicKey &&
+            encodePublicKey(local.keys.encryption.publicKey) ===
+              sidecar.x25519PublicKey &&
+            compactFingerprint(
+              computeFingerprint(local.keys.signing.publicKey),
+            ) === compactFingerprint(sidecar.fingerprint)
+          ) {
+            await performLogin(username);
+            return;
+          }
+        } catch {
+          // Match check failed (no local identity / read error) -> fall through to
+          // the existing force-profile logic, the safe default.
+        }
+      }
+
       // No profile yet. A login is mandatory once a folder is shared (two or
       // more users) or a lab head is present, so the user must MAKE A PROFILE
       // (OAuth) before signing in. A genuinely solo folder has no login and goes
@@ -800,6 +988,8 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
     setRecoveryMode(false);
     setRecoveryInput("");
     setUnlockingViaProvider(false);
+    setResetConfirmFor(null);
+    setResetting(false);
     setLoggingIn(null);
     setError(null);
   };
@@ -830,6 +1020,34 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
     } catch {
       setError("Could not unlock with that recovery code. Please try again.");
       setUnlocking(false);
+    }
+  };
+
+  // Phase C1: the reset-keep-data confirm. Mints a fresh identity for a
+  // locked-out user while leaving their plaintext notebook data on disk
+  // untouched, then surfaces the new one-time recovery code through the same
+  // createdRecovery display a brand-new account uses. The old signing key,
+  // prior signatures, and the ability to read data previously shared TO the old
+  // key are lost (warned about in the confirm view); a shared lab needs the PI
+  // to re-admit the new key (Phase C2). No backend — purely client-side.
+  const handleResetKeepData = async () => {
+    const username = resetConfirmFor;
+    if (!username) return;
+    setError(null);
+    setResetting(true);
+    try {
+      const { recoveryCode } = await resetIdentityKeepData(username);
+      // Tear down the unlock + confirm surfaces, then hand off to the
+      // save-your-recovery-code step which signs the user in on continue.
+      setResetConfirmFor(null);
+      setUnlockGate(null);
+      setRecoveryMode(false);
+      setRecoveryInput("");
+      setResetting(false);
+      setCreatedRecovery({ username, code: recoveryCode });
+    } catch {
+      setError("Could not reset this account. Your data is unchanged — please try again.");
+      setResetting(false);
     }
   };
 
@@ -907,6 +1125,14 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
           onLogin();
           return;
         }
+        // Phase B (Follow-on 1): reuse this account's verified on-device identity
+        // for the new user instead of forcing a fresh keypair mint. A verified
+        // reuse means the account is already established here, so sign in
+        // directly; otherwise the force / optional-profile logic runs unchanged.
+        if (await reuseAccountIdentityIfVerified(username)) {
+          onLogin();
+          return;
+        }
         if (folderRequiresLogin(users.length + 1, labHeadUsers.size > 0)) {
           // Shared folder: a profile (OAuth) is mandatory before entering, so
           // force the setup wizard rather than offering it as optional.
@@ -963,6 +1189,19 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
 
       // Demo / wiki-capture: no account-creation gate, enter directly.
       if (isDemoOrWikiCapture()) {
+        onLogin();
+        return;
+      }
+
+      // Phase B (Follow-on 1): if this device already holds THIS account's
+      // verified identity, REUSE it for the new user (a reference sidecar) rather
+      // than forcing CreateLocalIdentityStep to mint a second keypair. A verified
+      // reuse means the account is already established on this device, so the user
+      // is signed in directly. Only when reuse does NOT happen does the original
+      // force / optional-profile logic below run unchanged. The match is
+      // fingerprint-verified against the directory, so a non-account key never
+      // reuses; flag-off short-circuits to false, keeping today's behavior.
+      if (await reuseAccountIdentityIfVerified(username)) {
         onLogin();
         return;
       }
@@ -1823,7 +2062,7 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
                 <button
                   onClick={cancelDelete}
                   disabled={isArchivingUser || isDeletingUser}
-                  className="flex-1 py-2.5 bg-surface-sunken hover:bg-surface-sunken/70 text-foreground font-medium rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="ros-btn-neutral flex-1 py-2.5 font-medium disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   Cancel
                 </button>
@@ -1865,7 +2104,56 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
               </p>
             </div>
             <div className="px-6 py-5 space-y-3">
-              {unlockingViaProvider ? (
+              {resetConfirmFor ? (
+                /* Phase C1 reset-keep-data confirmation — the last-resort
+                   lockout escape. Clear about what survives (all your data) and
+                   what is lost (old signing identity + access to data shared TO
+                   you; a shared lab needs the PI to re-admit your new key). */
+                <div className="space-y-3" data-testid="reset-keep-data-confirm">
+                  <div className="p-3 bg-amber-50 dark:bg-amber-500/15 border border-amber-200 dark:border-amber-500/30 rounded-lg space-y-2">
+                    <p className="text-meta font-medium text-amber-800 dark:text-amber-200">
+                      Reset your identity and keep your data?
+                    </p>
+                    <p className="text-meta text-amber-800/90 dark:text-amber-200/90">
+                      Use this only if you can&apos;t sign in any other way. It
+                      gives <span className="font-medium">{resetConfirmFor}</span> a
+                      brand-new identity and a new recovery code.
+                    </p>
+                    <ul className="text-meta text-amber-800/90 dark:text-amber-200/90 list-disc pl-4 space-y-0.5">
+                      <li><span className="font-medium">Kept:</span> all of your notebook data stays on disk, untouched.</li>
+                      <li><span className="font-medium">Lost:</span> your old signing identity, so past signatures and anything previously shared <em>to</em> you can no longer be opened.</li>
+                      <li>If you&apos;re in a shared lab, your lab head will need to re-admit your new key before sharing works again.</li>
+                    </ul>
+                  </div>
+                  {error && (
+                    <div className="p-2 bg-red-50 dark:bg-red-500/15 border border-red-200 dark:border-red-500/30 rounded-lg">
+                      <p className="text-meta text-red-700 dark:text-red-300">{error}</p>
+                    </div>
+                  )}
+                  <div className="flex gap-2 pt-1">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setResetConfirmFor(null);
+                        setError(null);
+                      }}
+                      disabled={resetting}
+                      className="ros-btn-neutral flex-1 py-2 text-body disabled:opacity-50"
+                    >
+                      Back
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleResetKeepData}
+                      disabled={resetting}
+                      className="flex-1 py-2 text-body bg-red-600 hover:bg-red-700 text-white font-medium rounded-lg disabled:opacity-50"
+                      data-testid="reset-keep-data-confirm-submit"
+                    >
+                      {resetting ? "Resetting…" : "Reset, keep my data"}
+                    </button>
+                  </div>
+                </div>
+              ) : unlockingViaProvider ? (
                 <p className="text-meta text-foreground-muted text-center py-1">
                   Confirming your sign-in...
                 </p>
@@ -1944,55 +2232,79 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
               )}
 
 
-              {error && (
-                <div className="p-2 bg-red-50 dark:bg-red-500/15 border border-red-200 dark:border-red-500/30 rounded-lg">
-                  <p className="text-meta text-red-700 dark:text-red-300">{error}</p>
-                </div>
+              {/* Everything below is the normal unlock chrome — hidden while
+                  the Phase C1 reset-keep-data confirmation owns the modal. */}
+              {!resetConfirmFor && (
+                <>
+                  {error && (
+                    <div className="p-2 bg-red-50 dark:bg-red-500/15 border border-red-200 dark:border-red-500/30 rounded-lg">
+                      <p className="text-meta text-red-700 dark:text-red-300">{error}</p>
+                    </div>
+                  )}
+
+                  <div className="flex gap-2 pt-1">
+                    <button
+                      onClick={cancelUnlockGate}
+                      disabled={unlocking}
+                      className="ros-btn-neutral flex-1 py-2 text-body disabled:opacity-50"
+                    >
+                      Cancel
+                    </button>
+                    {recoveryMode && (
+                      <button
+                        onClick={handleSubmitRecovery}
+                        disabled={unlocking || !recoveryInput}
+                        className="flex-1 py-2 text-body bg-brand-action hover:bg-brand-action/90 text-white font-medium rounded-lg disabled:opacity-50"
+                        data-testid="unlock-recovery-submit"
+                      >
+                        {unlocking ? "Unlocking…" : "Unlock"}
+                      </button>
+                    )}
+                  </div>
+
+                  {/* Toggle between the OAuth door and the recovery-code
+                      input. Hidden while an OAuth resume is confirming, and hidden
+                      in recovery mode when there is no OAuth option to go back to. */}
+                  {!unlockingViaProvider &&
+                    !(
+                      recoveryMode &&
+                      !(claimedUsers.has(unlockGate.username) && isOnline)
+                    ) && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setError(null);
+                          setRecoveryMode((m) => !m);
+                        }}
+                        disabled={unlocking}
+                        className="text-meta text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 disabled:opacity-50"
+                        data-testid="unlock-toggle-recovery"
+                      >
+                        {recoveryMode
+                          ? "Back to other unlock options"
+                          : "Use your recovery code instead"}
+                      </button>
+                    )}
+
+                  {/* Phase C1: last-resort lockout escape. Dark behind
+                      MULTI_FOLDER_ENABLED until the recovery arc ships. Hidden
+                      during an OAuth resume so it never competes with it. */}
+                  {MULTI_FOLDER_ENABLED && !unlockingViaProvider && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setError(null);
+                        setResetConfirmFor(unlockGate.username);
+                      }}
+                      disabled={unlocking}
+                      className="block text-meta text-foreground-muted underline underline-offset-2 hover:text-foreground transition-colors disabled:opacity-50"
+                      data-testid="unlock-reset-keep-data"
+                    >
+                      Can&apos;t sign in? Reset and keep your data
+                    </button>
+                  )}
+                </>
               )}
-
-              <div className="flex gap-2 pt-1">
-                <button
-                  onClick={cancelUnlockGate}
-                  disabled={unlocking}
-                  className="flex-1 py-2 text-body bg-surface-sunken hover:bg-surface-sunken/70 border border-border text-foreground rounded-lg disabled:opacity-50"
-                >
-                  Cancel
-                </button>
-                {recoveryMode && (
-                  <button
-                    onClick={handleSubmitRecovery}
-                    disabled={unlocking || !recoveryInput}
-                    className="flex-1 py-2 text-body bg-brand-action hover:bg-brand-action/90 text-white font-medium rounded-lg disabled:opacity-50"
-                    data-testid="unlock-recovery-submit"
-                  >
-                    {unlocking ? "Unlocking…" : "Unlock"}
-                  </button>
-                )}
-              </div>
-
-              {/* Toggle between the OAuth door and the recovery-code
-                  input. Hidden while an OAuth resume is confirming, and hidden
-                  in recovery mode when there is no OAuth option to go back to. */}
-              {!unlockingViaProvider &&
-                !(
-                  recoveryMode &&
-                  !(claimedUsers.has(unlockGate.username) && isOnline)
-                ) && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setError(null);
-                      setRecoveryMode((m) => !m);
-                    }}
-                    disabled={unlocking}
-                    className="text-meta text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 disabled:opacity-50"
-                    data-testid="unlock-toggle-recovery"
-                  >
-                    {recoveryMode
-                      ? "Back to other unlock options"
-                      : "Use your recovery code instead"}
-                  </button>
-                )}
             </div>
           </div>
         </div>
@@ -2123,6 +2435,78 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
               >
                 I saved it, continue
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Phase C5: cross-device restore gate. Shown when a signed-in account
+          lands on a fresh device with a canonical identity published elsewhere.
+          Restores the published keypair from the cloud backup with the recovery
+          code rather than minting a divergent one. */}
+      {crossDeviceRestore && (
+        <div
+          className="fixed inset-0 z-[200] flex items-center justify-center bg-black/50 backdrop-blur-sm"
+          onClick={cancelCrossDeviceRestore}
+        >
+          <div
+            className="bg-surface-raised rounded-2xl shadow-2xl border border-border max-w-sm w-full mx-4 overflow-hidden"
+            onClick={(e) => e.stopPropagation()}
+            data-testid="cross-device-restore"
+          >
+            <div className="px-6 py-4 border-b border-border">
+              <h3 className="text-title font-semibold text-foreground">
+                Restore your identity on this device
+              </h3>
+              <p className="text-meta text-foreground-muted mt-0.5">
+                This account already has an identity set up on another device.
+                Enter your recovery code to restore it here, then we&apos;ll open
+                this folder under it.
+              </p>
+            </div>
+            <div className="px-6 py-5 space-y-3">
+              <input
+                type="text"
+                value={restoreInput}
+                onChange={(e) => setRestoreInput(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && restoreInput && !restoring) {
+                    handleCrossDeviceRestore();
+                  }
+                  if (e.key === "Escape" && !restoring) cancelCrossDeviceRestore();
+                }}
+                disabled={restoring}
+                className="w-full px-3 py-2 bg-surface-sunken border border-border rounded-lg text-foreground placeholder-foreground-muted focus:outline-none focus:ring-2 focus:ring-blue-500 text-body font-mono"
+                placeholder="Recovery code or 12 words"
+                data-testid="cross-device-restore-input"
+                autoFocus
+              />
+
+              {error && (
+                <div className="p-2 bg-red-50 dark:bg-red-500/15 border border-red-200 dark:border-red-500/30 rounded-lg">
+                  <p className="text-meta text-red-700 dark:text-red-300">{error}</p>
+                </div>
+              )}
+
+              <div className="flex gap-2 pt-1">
+                <button
+                  type="button"
+                  onClick={cancelCrossDeviceRestore}
+                  disabled={restoring}
+                  className="ros-btn-neutral flex-1 py-2 text-body disabled:opacity-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={handleCrossDeviceRestore}
+                  disabled={restoring || !restoreInput}
+                  className="flex-1 py-2 text-body bg-brand-action hover:bg-brand-action/90 text-white font-medium rounded-lg disabled:opacity-50"
+                  data-testid="cross-device-restore-submit"
+                >
+                  {restoring ? "Restoring…" : "Restore and continue"}
+                </button>
+              </div>
             </div>
           </div>
         </div>

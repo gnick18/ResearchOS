@@ -46,6 +46,17 @@ export type TrackedStock = {
   lowAtCount?: number | null;
   purchaseItemId?: number | string | null;
   totalUnits?: number;
+  // Free-text physical location of this stock ("-80 door, left"), from the
+  // laptop's InventoryStock.location_text. Spatial inventory Phase A. Tolerated
+  // missing so an older laptop snapshot never crashes the row.
+  location?: string | null;
+  // Structured location path resolved from the laptop's StorageNode box-finder
+  // tree ("-80 #2 > Box: Q5 - A1"). Spatial inventory Phase B bridge. Preferred
+  // over `location` for display when present; tolerated missing.
+  locationPath?: string | null;
+  // The stock's raw location_node_id, so the phone can find it on the room map
+  // (walk up to the nearest pinned ancestor). Phase C. Tolerated missing.
+  locationNodeId?: number | null;
 };
 
 // A purchase that has been ordered but not yet marked arrived. Drives the
@@ -78,12 +89,45 @@ export type InventoryItem = {
   container_label?: string | null;
 };
 
+// One node of the lab's storage tree (room -> freezer -> ... -> box), projected
+// for the phone's cascading location picker. The phone walks `parentId`; a `box`
+// node exposes a boxRows x boxCols grid as the A1 position options. Spatial
+// inventory Phase B bridge (write half). Tolerated missing.
+export type StorageNode = {
+  id: number;
+  name?: string;
+  kind?: string;
+  parentId?: number | null;
+  boxRows?: number | null;
+  boxCols?: number | null;
+};
+
+// One pin on the room map (read-only on the phone). Marks a StorageNode
+// (`nodeId`) or a free label at a normalized 0..1 (x,y). Spatial inventory Phase C.
+export type LabMapPin = {
+  nodeId?: number | null;
+  label?: string | null;
+  x?: number;
+  y?: number;
+};
+
+// The lab's 2D room map, projected for the phone's read-only viewer. `aspect` =
+// width/height of the plan. Spatial inventory Phase C. Tolerated missing/null.
+export type LabMap = {
+  aspect?: number;
+  pins?: LabMapPin[];
+  // The floor plan as inline SVG markup, rendered under the pins. Phase C.
+  imageSvg?: string | null;
+};
+
 export type InventorySnapshot = {
   generatedAt?: string;
   items?: InventoryItem[];
   trackedStocks?: TrackedStock[];
   recentPurchases?: RecentPurchase[];
   barcodeIndex?: Record<string, BarcodeIndexEntry>;
+  storageNodes?: StorageNode[];
+  labMap?: LabMap | null;
 };
 
 // ---------------------------------------------------------------------------
@@ -97,6 +141,11 @@ export type RegisterTrackerPayload = {
   unitsPerScan: number;
   totalUnits: number;
   unitLabel: string;
+  // Spatial inventory Phase A: free-text location captured at scan-in ("-80 door").
+  location?: string;
+  // Phase B bridge (write half): structured placement from the storage-tree picker.
+  locationNodeId?: number;
+  position?: string;
 };
 export type DeductPayload = {
   stockId?: number | string;
@@ -117,6 +166,11 @@ export type CreatePayload = {
   unitsPerScan?: number;
   totalUnits?: number;
   unitLabel?: string;
+  // Spatial inventory Phase A: free-text location captured at scan-in ("-80 door").
+  location?: string;
+  // Phase B bridge (write half): structured placement from the storage-tree picker.
+  locationNodeId?: number;
+  position?: string;
 };
 
 export type ActionResult = { ok: true } | { ok: false; error: string };

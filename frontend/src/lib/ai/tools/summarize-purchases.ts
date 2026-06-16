@@ -28,7 +28,8 @@ import {
 } from "@/lib/ai/artifact-index";
 import { purchasesApi, usersApi } from "@/lib/local-api";
 import { getCurrentUserCached } from "@/lib/storage/json-store";
-import { attachRecordSetIfBig, periodLabel, RECORD_SET_UI_CAP, type RecordSetRow } from "@/lib/ai/record-set";
+import { attachSummaryUi, periodLabel, RECORD_SET_UI_CAP, type RecordSetRow } from "@/lib/ai/record-set";
+import { purchaseSummaryReport } from "@/lib/ai/summary-report";
 import type { PurchaseItem } from "@/lib/types";
 import type { AiTool } from "./types";
 
@@ -431,10 +432,15 @@ export const summarizePurchasesTool: AiTool = {
       }),
     );
 
-    return attachRecordSetIfBig({ ok: true as const, summary }, rows, {
-      kind: "summarize_purchases",
-      title: periodLabel("Purchases", filter),
-      total: fullSummary.count,
-    });
+    return attachSummaryUi(
+      { ok: true as const, summary },
+      rows,
+      purchaseSummaryReport(summary),
+      {
+        kind: "summarize_purchases",
+        title: periodLabel("Purchases", filter),
+        total: fullSummary.count,
+      },
+    );
   },
 };

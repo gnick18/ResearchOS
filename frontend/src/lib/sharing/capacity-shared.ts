@@ -93,13 +93,15 @@ export const ANNUAL_RECURRING_FEES_CENTS = {
   appleDeveloper: 9900, // $99/yr Apple Developer Program
   wiAnnualReport: 2500, // $25/yr Wisconsin LLC annual report, online filing (DFI, verified 2026-06; $40 only if filed on paper)
   domain: 999, // $9.99/yr research-os.app (Grant's actual)
+  domainCom: 1044, // ~$10.44/yr research-os.com (Cloudflare Registrar at-cost; VERIFY Grant's actual renewal)
 };
 
 /** The annual recurring fees expressed as a monthly run-rate (sum / 12). */
 export const AMORTIZED_ANNUAL_CENTS = Math.round(
   (ANNUAL_RECURRING_FEES_CENTS.appleDeveloper +
     ANNUAL_RECURRING_FEES_CENTS.wiAnnualReport +
-    ANNUAL_RECURRING_FEES_CENTS.domain) /
+    ANNUAL_RECURRING_FEES_CENTS.domain +
+    ANNUAL_RECURRING_FEES_CENTS.domainCom) /
     12,
 );
 

@@ -116,7 +116,11 @@ const LAB_PLANS: PlanCard[] = [
   },
 ];
 
-export default function PlanPicker() {
+interface PlanPickerProps {
+  billingEnabled: boolean;
+}
+
+export default function PlanPicker({ billingEnabled }: PlanPickerProps) {
   const [seg, setSeg] = useState<Segment>("ind");
 
   return (
@@ -125,7 +129,7 @@ export default function PlanPicker() {
         <div
           role="tablist"
           aria-label="Choose a plan audience"
-          className="inline-flex flex-wrap justify-center gap-1 rounded-xl border border-border bg-surface-sunken p-1"
+          className="inline-flex flex-wrap justify-center gap-1 rounded-xl border border-border bg-surface-sunken p-1 ros-seg-track"
         >
           {SEGMENTS.map((s) => {
             const active = seg === s.id;
@@ -137,7 +141,7 @@ export default function PlanPicker() {
                 onClick={() => setSeg(s.id)}
                 className={`rounded-lg px-4 py-1.5 text-[13px] font-bold transition-colors ${
                   active
-                    ? "bg-surface-raised text-foreground shadow-sm"
+                    ? "bg-surface-raised text-foreground ros-seg-active"
                     : "text-foreground-muted hover:text-foreground"
                 }`}
               >
@@ -150,8 +154,8 @@ export default function PlanPicker() {
 
       {seg === "ind" ? <PlanCards plans={INDIVIDUAL_PLANS} /> : null}
       {seg === "lab" ? <PlanCards plans={LAB_PLANS} /> : null}
-      {seg === "dept" ? <DepartmentBuilder /> : null}
-      {seg === "inst" ? <InstitutionBuilder /> : null}
+      {seg === "dept" ? <DepartmentBuilder billingEnabled={billingEnabled} /> : null}
+      {seg === "inst" ? <InstitutionBuilder billingEnabled={billingEnabled} /> : null}
     </div>
   );
 }

@@ -70,6 +70,7 @@ import BeakerBotCanvas from "./BeakerBotCanvas";
 // renderers it pulls in) never bloats the chat bundle until a turn actually
 // resolves a record set.
 const RecordSetWidget = lazy(() => import("./RecordSetWidget"));
+const SummaryReportWidget = lazy(() => import("./SummaryReportWidget"));
 // SmartDataWizard (the Phase 4 Smart Data Binding wizard) is mounted inline when a
 // suggest_tree_overlays turn finds joinable tables. Lazy so the phylo widget never
 // loads until a turn actually surfaces one. Named export, so adapt to default.
@@ -291,7 +292,7 @@ function ChoicePrompt({
           type="button"
           data-testid="beakerbot-choice-cancel"
           onClick={() => onResolve([], true)}
-          className="flex items-center gap-1 rounded-md border border-border px-3 py-1.5 text-meta font-medium text-foreground-muted transition-colors hover:bg-surface-sunken hover:text-foreground"
+          className="ros-btn-neutral flex items-center gap-1 px-3 py-1.5 text-meta font-medium text-foreground-muted"
         >
           <Icon name="close" className="h-3.5 w-3.5" title="Cancel" />
           Cancel
@@ -446,7 +447,7 @@ function TransformApprovalCard({
           type="button"
           data-testid="beakerbot-transform-reject"
           onClick={onReject}
-          className="flex items-center gap-1 rounded-md border border-border px-3 py-1.5 text-meta font-medium text-foreground-muted transition-colors hover:bg-surface-sunken hover:text-foreground"
+          className="ros-btn-neutral flex items-center gap-1 px-3 py-1.5 text-meta font-medium text-foreground-muted"
         >
           <Icon name="close" className="h-3.5 w-3.5" title="Reject" />
           Reject
@@ -569,7 +570,7 @@ function StepApprovalCard({
           type="button"
           data-testid="beakerbot-step-reject"
           onClick={onReject}
-          className="flex items-center gap-1 rounded-md border border-border px-3 py-1.5 text-meta font-medium text-foreground-muted transition-colors hover:bg-surface-sunken hover:text-foreground"
+          className="ros-btn-neutral flex items-center gap-1 px-3 py-1.5 text-meta font-medium text-foreground-muted"
         >
           <Icon name="close" className="h-3.5 w-3.5" title="Reject" />
           Reject
@@ -628,7 +629,7 @@ function RevertConfirmDialog({
             type="button"
             data-testid="beakerbot-revert-cancel"
             onClick={onCancel}
-            className="flex-1 rounded-lg border border-border bg-surface-raised px-3 py-2 text-meta font-medium text-foreground-muted transition-colors hover:bg-surface-sunken"
+            className="ros-btn-neutral flex-1 px-3 py-2 text-meta font-medium text-foreground-muted"
           >
             Cancel
           </button>
@@ -1178,11 +1179,17 @@ export default function BeakerBotConversation({
     const hasImages = BEAKERBOT_VISION_ENABLED && pendingImages.length > 0;
     const hasPaper = attachedPaper !== null;
     const hasRefs = attachedRefs.length > 0;
-    if ((!text.trim() && !hasImages && !hasPaper && !hasRefs) || sending) return;
+    // Nothing to send. Do NOT touch the draft (this is the only reject path, so
+    // a stray Enter on an empty composer never clears anything).
+    if (!text.trim() && !hasImages && !hasPaper && !hasRefs) return;
+    // NOTE: we intentionally do NOT bail when a turn is already streaming. send()
+    // single-slot-queues the text in that case (the "Queued" chip shows it, then
+    // it auto-fires once the in-flight run settles), so an Enter mid-stream queues
+    // the message instead of silently dropping it. The CLEAR below is therefore
+    // gated on having real content to enqueue, never on the busy state.
     // Stop dictation before sending so the session closes cleanly.
     stopListening();
     closeOverlays();
-    setDraft("");
     // When only chips are attached (no typed text, no image, no paper), send a
     // neutral instruction so the store's empty-text guard does not drop the turn.
     // The attached refs carry the actual targets via the per-turn refs note.
@@ -1190,6 +1197,10 @@ export default function BeakerBotConversation({
       text.trim() || hasImages || hasPaper
         ? text
         : "Use the attached objects.";
+    // Clear the composer only when there is real outgoing text (the typed message
+    // or the chips-only marker). An empty outgoing means the draft was already
+    // empty, so there is nothing to clear and nothing to lose.
+    if (outgoing.trim()) setDraft("");
     void send(outgoing);
     // Capture the id of the empty assistant placeholder the store just seeded.
     // The store seeds it synchronously before the first await, so we can read
@@ -1400,6 +1411,20 @@ export default function BeakerBotConversation({
                     when a record-returning tool resolved a set this turn. Each is a
                     searchable master-detail browser of the full match set. Lazy so
                     the heavy UI never loads until a set is present. */}
+                {/* Inline summary aggregate cards. Rendered ABOVE the items widget
+                    when a summarize_* tool ran on a set, so the deterministic
+                    counts/totals are the first thing the user sees (and they come
+                    from the tool, never the model's prose). */}
+                {m.role === "assistant" && m.summaryReports && m.summaryReports.length > 0 ? (
+                  <Suspense fallback={null}>
+                    <div className="flex w-full flex-col gap-2 self-start">
+                      {m.summaryReports.map((r, i) => (
+                        <SummaryReportWidget key={`${r.kind}-${i}`} report={r} />
+                      ))}
+                    </div>
+                  </Suspense>
+                ) : null}
+
                 {m.role === "assistant" && m.recordSets && m.recordSets.length > 0 ? (
                   <Suspense fallback={null}>
                     <div className="flex w-full flex-col gap-2 self-start">
@@ -1506,7 +1531,12 @@ export default function BeakerBotConversation({
                                   ? `Make a ${item.label} of`
                                   : `Run the ${item.label} on`;
                               dismiss();
-                              void send(`${verb} ${p.tableName}.`);
+                              // Picker-driven run stays in chat (no navigation to
+                              // /datahub), so the inline picker interaction is not
+                              // yanked off the chat. A typed run still navigates.
+                              void send(`${verb} ${p.tableName}.`, {
+                                resultInChat: true,
+                              });
                             }}
                             onClose={dismiss}
                           />
@@ -1685,7 +1715,7 @@ export default function BeakerBotConversation({
               type="button"
               data-testid="beakerbot-approval-cancel"
               onClick={() => resolveApproval("skip")}
-              className="flex items-center gap-1 rounded-md border border-border px-3 py-1.5 text-meta font-medium text-foreground-muted transition-colors hover:bg-surface-sunken hover:text-foreground"
+              className="ros-btn-neutral flex items-center gap-1 px-3 py-1.5 text-meta font-medium text-foreground-muted"
             >
               <Icon name="close" className="h-3.5 w-3.5" title="Cancel" />
               Cancel
@@ -1740,7 +1770,7 @@ export default function BeakerBotConversation({
               type="button"
               data-testid="beakerbot-approval-skip"
               onClick={() => resolveApproval("skip")}
-              className="flex items-center gap-1 rounded-md border border-border px-3 py-1.5 text-meta font-medium text-foreground-muted transition-colors hover:bg-surface-sunken hover:text-foreground"
+              className="ros-btn-neutral flex items-center gap-1 px-3 py-1.5 text-meta font-medium text-foreground-muted"
             >
               <Icon name="skip" className="h-3.5 w-3.5" title="Skip" />
               Skip
@@ -1997,7 +2027,7 @@ export default function BeakerBotConversation({
                   type="button"
                   data-testid="beakerbot-clear-images"
                   onClick={clearPendingImages}
-                  className="self-start rounded-md border border-border px-2 py-1 text-[11px] text-foreground-muted transition-colors hover:bg-surface-sunken hover:text-foreground"
+                  className="ros-btn-neutral self-start px-2 py-1 text-[11px] text-foreground-muted"
                 >
                   Clear all
                 </button>
@@ -2115,7 +2145,6 @@ export default function BeakerBotConversation({
               aria-label="Message BeakerBot"
               rows={2}
               value={draft}
-              disabled={sending}
               onChange={(e) => {
                 setDraft(e.target.value);
                 refreshOverlays(e.target.value, e.target.selectionStart);
@@ -2195,7 +2224,11 @@ export default function BeakerBotConversation({
                 }
               }}
               onPaste={BEAKERBOT_VISION_ENABLED ? handlePaste : undefined}
-              placeholder="Message BeakerBot, or @ to attach, / for a command"
+              placeholder={
+                sending
+                  ? "BeakerBot is replying. Your next message will send once it finishes."
+                  : "Message BeakerBot, or @ to attach, / for a command"
+              }
               // The panel root reads in Beaker's signature typeface (--font-ai,
               // Hanken) because that font is BEAKER'S voice. The composer is where
               // the USER writes, not Beaker, so it drops to the app body font chain.

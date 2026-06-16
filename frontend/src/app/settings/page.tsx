@@ -619,6 +619,46 @@ function SettingsBodyInner({
           keywords: "tips feature hints onboarding help walkthrough",
           render: () => <TipsSection />,
         },
+        {
+          id: "asset-library",
+          group: "Workspace",
+          title: "Icon library",
+          icon: "library",
+          keywords:
+            "icon library asset open source biorender icons svg figure contribute review verify clipart illustration phylopic bioicons",
+          render: () => (
+            <SectionShell
+              id="asset-library"
+              title="Icon library"
+              description="A free, openly-licensed library of scientific icons and silhouettes you can drop into figures — every asset carries its source and license, and credits are added automatically. Browse it, contribute your own, or help review community submissions."
+              searchKeywords="icon library asset open source biorender icons svg figure contribute review verify clipart illustration phylopic bioicons"
+            >
+              <div className="flex flex-wrap gap-2">
+                <Link
+                  href="/library"
+                  className="inline-flex items-center gap-2 rounded-lg bg-brand-action px-3 py-2 text-sm font-semibold text-white hover:opacity-90"
+                >
+                  <Icon name="library" className="h-4 w-4" />
+                  Browse the library
+                </Link>
+                <Link
+                  href="/library/contribute"
+                  className="inline-flex items-center gap-2 rounded-lg border border-border bg-surface-raised px-3 py-2 text-sm font-semibold text-foreground hover:bg-surface-sunken"
+                >
+                  <Icon name="plus" className="h-4 w-4" />
+                  Contribute an icon
+                </Link>
+                <Link
+                  href="/library/review"
+                  className="inline-flex items-center gap-2 rounded-lg border border-border bg-surface-raised px-3 py-2 text-sm font-semibold text-foreground hover:bg-surface-sunken"
+                >
+                  <Icon name="check" className="h-4 w-4" />
+                  Review submissions
+                </Link>
+              </div>
+            </SectionShell>
+          ),
+        },
       ],
     },
     {
@@ -962,7 +1002,7 @@ function OpenCompanionHubButton() {
     <button
       type="button"
       onClick={(e) => open({ x: e.clientX, y: e.clientY })}
-      className="inline-flex items-center gap-2 rounded-lg border border-border bg-surface-raised px-3.5 py-2 text-body font-medium text-foreground shadow-sm hover:bg-surface-sunken"
+      className="ros-btn-neutral inline-flex items-center gap-2 px-3.5 py-2 text-body font-medium"
     >
       <Icon name="phone" className="h-4 w-4" />
       Open Companion hub
@@ -1413,7 +1453,7 @@ function LabAuditTrailSection() {
         <button
           type="button"
           onClick={() => setViewerOpen(true)}
-          className="inline-flex items-center gap-2 rounded-lg border border-border bg-surface-raised px-3.5 py-2 text-body font-medium text-foreground shadow-sm hover:bg-surface-sunken"
+          className="ros-btn-neutral inline-flex items-center gap-2 px-3.5 py-2 text-body font-medium"
           data-testid="open-audit-trail-settings"
         >
           <span aria-hidden="true" className="text-foreground-muted">
@@ -1530,7 +1570,7 @@ function PurchaseRoutingSection({ settings, update }: SectionProps) {
           <button
             type="button"
             onClick={addContact}
-            className="mt-2 inline-flex items-center gap-1 rounded-lg border border-border px-3 py-1.5 text-meta font-medium hover:bg-surface-sunken"
+            className="ros-btn-neutral mt-2 inline-flex items-center gap-1 px-3 py-1.5 text-meta font-medium"
           >
             <Icon name="plus" className="h-3.5 w-3.5" /> Add contact
           </button>
@@ -3468,7 +3508,7 @@ function TipsSection() {
           type="button"
           onClick={() => setWhatsNewOpen(true)}
           data-testid="settings-open-whats-new"
-          className="px-3 py-2 text-body border border-border text-foreground hover:bg-surface-sunken rounded-lg whitespace-nowrap"
+          className="ros-btn-neutral px-3 py-2 text-body whitespace-nowrap"
         >
           What&apos;s new
         </button>
@@ -3506,7 +3546,7 @@ function TipsSection() {
             window.location.assign("/demo");
           }}
           data-testid="settings-explore-demo"
-          className="px-3 py-2 text-body border border-border text-foreground hover:bg-surface-sunken rounded-lg whitespace-nowrap"
+          className="ros-btn-neutral px-3 py-2 text-body whitespace-nowrap"
         >
           Explore the demo
         </button>

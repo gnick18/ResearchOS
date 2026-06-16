@@ -114,6 +114,35 @@ export function tierPrice(tier: ModelTier, model: PricingModel): number {
     : priceWithActivity(tier.capGB, tier.freeGB, tier.throttleM);
 }
 
+// --- billing cadence (solo + lab are 6/12-month only, Grant 2026-06-15) -------
+//
+// A flat sticker tier billed less often than monthly amortizes Stripe's fixed
+// $0.30 over more months. A $1/mo charge billed monthly loses ~33% to fees;
+// billed annually it loses ~5%. That is why the cheap entry tiers are 6/12-month
+// only. monthly here reproduces stripeOn() exactly, so existing callers are
+// unchanged.
+
+export type BillingCadence = "monthly" | "semiannual" | "annual";
+
+/** Stripe charges per year for a cadence. */
+export function cadenceChargesPerYear(c: BillingCadence): number {
+  return c === "monthly" ? 12 : c === "semiannual" ? 2 : 1;
+}
+
+/** Per-month Stripe cost for a monthly-equivalent price billed at a cadence.
+ *  monthly === stripeOn(price). Longer cadences spread the fixed fee, which is
+ *  what makes a $1 or $2 tier viable. */
+export function stripeMonthlyAmortized(
+  monthlyPrice: number,
+  cadence: BillingCadence,
+): number {
+  if (monthlyPrice <= 0) return 0;
+  const annual = monthlyPrice * 12;
+  const fees =
+    cadenceChargesPerYear(cadence) * STRIPE_FIXED + STRIPE_PCT * annual;
+  return fees / 12;
+}
+
 export interface MarginBreakdown {
   price: number;
   storageCost: number;
@@ -123,15 +152,18 @@ export interface MarginBreakdown {
   net: number;
 }
 
-/** Per-subscriber P&L for a price against actual storage + write usage. */
+/** Per-subscriber P&L for a price against actual storage + write usage. The
+ *  cadence defaults to monthly, where the Stripe cost equals stripeOn(price), so
+ *  every existing caller is unchanged; the finalize tab passes 6/12-month. */
 export function subscriberMargin(
   price: number,
   gb: number,
   actM: number,
+  cadence: BillingCadence = "monthly",
 ): MarginBreakdown {
   const storageCost = gb * BLENDED_PER_GB_MO;
   const activityCost = actM * ACTIVITY_PER_M_WRITES;
-  const stripe = stripeOn(price);
+  const stripe = stripeMonthlyAmortized(price, cadence);
   return {
     price,
     storageCost,
@@ -142,8 +174,13 @@ export function subscriberMargin(
 }
 
 /** Net margin for a price at given usage (the curve value in the chart). */
-export function netMargin(price: number, gb: number, actM: number): number {
-  return subscriberMargin(price, gb, actM).net;
+export function netMargin(
+  price: number,
+  gb: number,
+  actM: number,
+  cadence: BillingCadence = "monthly",
+): number {
+  return subscriberMargin(price, gb, actM, cadence).net;
 }
 
 // --- sustainability at scale -------------------------------------------------
@@ -221,6 +258,19 @@ function orgIn(labs: number, sustainPerLab: number): number {
   const sustain = labs * sustainPerLab;
   const cost = bareCost(gb, members * 0.1) + stripeOn(recovery + sustain);
   return sustain + (recovery - cost);
+}
+
+/** Representative dept/institution per-lab effective monthly rate = storage
+ *  recovery on a typical lab pool (members * PER_MEMBER_GB over freeGBPerLab) plus
+ *  the sustain. The ordering invariant (Grant 2026-06-15) is that this must
+ *  exceed the standalone Lab plan, so a lab inside a dept/inst pays MORE than it
+ *  would on its own, which is what makes the org tier the solidarity surplus. */
+export function orgPerLabRate(
+  sustainPerLab: number,
+  freeGBPerLab: number,
+): number {
+  const gb = MEMBERS_PER_LAB * PER_MEMBER_GB;
+  return priceStorageOnly(gb, freeGBPerLab) + sustainPerLab;
 }
 
 /** Total monthly money in from the paying side. */

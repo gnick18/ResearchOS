@@ -35,7 +35,8 @@ import {
   fetchAllInventoryItemsIncludingShared,
   fetchAllInventoryStocksIncludingShared,
 } from "@/lib/local-api";
-import { attachRecordSetIfBig, type RecordSetRow } from "@/lib/ai/record-set";
+import { attachSummaryUi, type RecordSetRow } from "@/lib/ai/record-set";
+import { inventorySummaryReport } from "@/lib/ai/summary-report";
 import type { InventoryItem, InventoryStock } from "@/lib/types";
 import type { AiTool } from "./types";
 
@@ -387,7 +388,7 @@ export const summarizeInventoryTool: AiTool = {
 
     // attachRecordSetIfBig gates the inline widget on the ">4" rule, so 4 or fewer
     // flagged items show inline chips and 5 or more render the browser.
-    return attachRecordSetIfBig({ ok: true as const, summary }, rows, {
+    return attachSummaryUi({ ok: true as const, summary }, rows, inventorySummaryReport(summary), {
       kind: "summarize_inventory",
       title: "Inventory to watch",
       total: rows.length,

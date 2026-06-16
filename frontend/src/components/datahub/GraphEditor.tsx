@@ -27,6 +27,7 @@ import CodePanel from "@/components/datahub/CodePanel";
 import StyledSelect from "@/components/datahub/StyledSelect";
 import PlotColorPicker from "@/components/datahub/PlotColorPicker";
 import PlotColorEditor from "@/components/datahub/PlotColorEditor";
+import { PlotLayoutAdvisor } from "@/components/datahub/PlotLayoutAdvisor";
 import ScrollableNumberInput from "@/components/datahub/ScrollableNumberInput";
 import type {
   AnalysisSpec,
@@ -53,6 +54,7 @@ import {
   type AxisScaleType,
   type BarMode,
 } from "@/lib/datahub/plot-spec";
+import { isPartsOfWholeKind } from "@/lib/datahub/parts-of-whole-plot";
 import { plotCode } from "@/lib/datahub/plot-code";
 import { chainCode, type ContentResolver } from "@/lib/datahub/chain-code";
 import {
@@ -526,6 +528,7 @@ export default function GraphEditor({
   const isGrouped = style.kind === "groupedBar";
   const isColumn = style.kind === "columnScatter" || style.kind === "columnBar";
   const isSurvival = style.kind === "survivalCurve";
+  const isPartsOfWhole = isPartsOfWholeKind(style.kind);
   const isEstimation =
     style.kind === "estimationGardnerAltman" ||
     style.kind === "estimationCumming";
@@ -724,6 +727,21 @@ export default function GraphEditor({
           </Tooltip>
         </div>
 
+        {/* Collision-aware layout advisor (Phase 5): when the legend piles onto the
+            bars / curves, labels crowd, or a many-category legend runs off the
+            figure, a quiet banner offers a one-click auto-fix + per-fix previews.
+            Grouped bar, survival, and parts-of-whole emit a manifest today; it
+            renders nothing when the plot is clean or for other plot kinds. */}
+        {(isGrouped || isSurvival || isPartsOfWhole) && (
+          <PlotLayoutAdvisor
+            spec={spec}
+            content={content}
+            analysis={analysis}
+            onStyleChange={onStyleChange}
+            plotId={spec.id ?? null}
+          />
+        )}
+
         {/* Shared pan/zoom viewport (same ZoomPanCanvas the Phylo Studio + Figure
             composer use): two-finger pan, pinch / Cmd-wheel zoom-at-cursor,
             Space-drag, scrollbars, minimap. The figure renders at its natural size;
@@ -874,12 +892,53 @@ export default function GraphEditor({
                   onChange={(v) => onStyleChange({ errorBar: v })}
                 />
               </Ctl>
+              <Ctl label="Legend">
+                <Seg<"overlay" | "right">
+                  value={style.legendPlacement ?? "overlay"}
+                  options={[
+                    { value: "overlay", label: "Overlay" },
+                    { value: "right", label: "Right" },
+                  ]}
+                  onChange={(v) =>
+                    onStyleChange({
+                      legendPlacement: v === "overlay" ? undefined : v,
+                    })
+                  }
+                />
+              </Ctl>
+              <Ctl label="X labels">
+                <Seg<"auto" | "horizontal" | "angled">
+                  value={style.xLabelMode ?? "auto"}
+                  options={[
+                    { value: "auto", label: "Auto" },
+                    { value: "horizontal", label: "Flat" },
+                    { value: "angled", label: "Angled" },
+                  ]}
+                  onChange={(v) => onStyleChange({ xLabelMode: v })}
+                />
+              </Ctl>
             </>
           ) : isSurvival ? (
-            <p className="text-[11px] text-foreground-muted">
-              A survival curve has no per-bar style. Tune colors and labels in the
-              sections below.
-            </p>
+            <>
+              <Ctl label="Legend">
+                <Seg<"overlay" | "right">
+                  value={style.legendPlacement ?? "overlay"}
+                  options={[
+                    { value: "overlay", label: "Overlay" },
+                    { value: "right", label: "Right" },
+                  ]}
+                  onChange={(v) =>
+                    onStyleChange({
+                      legendPlacement: v === "overlay" ? undefined : v,
+                    })
+                  }
+                />
+              </Ctl>
+              <p className="text-[11px] text-foreground-muted">
+                A survival curve has no per-bar style. Tune colors and labels in the
+                sections below.
+              </p>
+            </>
           ) : isEstimation ? (
             <>
               <Ctl label="Control group">
@@ -973,6 +1032,19 @@ export default function GraphEditor({
                 />
               </Ctl>
 
+              <Ctl label="X labels">
+                <Seg<"auto" | "horizontal" | "angled">
+                  value={style.xLabelMode ?? "auto"}
+                  options={[
+                    { value: "auto", label: "Auto" },
+                    { value: "horizontal", label: "Flat" },
+                    { value: "angled", label: "Angled" },
+                  ]}
+                  onChange={(v) => onStyleChange({ xLabelMode: v })}
+                  testIdPrefix="datahub-xlabels"
+                />
+              </Ctl>
+
               <Ctl label="Value labels">
                 <Seg<"on" | "off">
                   value={style.showValueLabels ? "on" : "off"}
@@ -997,6 +1069,20 @@ export default function GraphEditor({
                   testIdPrefix="datahub-brackets"
                 />
               </Ctl>
+
+              {style.showBrackets && (
+                <Ctl label="Compare">
+                  <Seg<"all" | "vsControl">
+                    value={style.bracketComparisons === "vsControl" ? "vsControl" : "all"}
+                    options={[
+                      { value: "all", label: "All pairs" },
+                      { value: "vsControl", label: "Vs control" },
+                    ]}
+                    onChange={(v) => onStyleChange({ bracketComparisons: v })}
+                    testIdPrefix="datahub-bracket-compare"
+                  />
+                </Ctl>
+              )}
             </>
           )}
         </Section>
@@ -1155,7 +1241,7 @@ export default function GraphEditor({
             <button
               type="button"
               onClick={onExportSvg}
-              className="flex flex-1 items-center justify-center gap-1.5 rounded-md border border-border px-2 py-1.5 text-meta font-medium text-foreground transition-colors hover:bg-surface-sunken"
+              className="ros-btn-neutral flex flex-1 items-center justify-center gap-1.5 px-2 py-1.5 text-meta font-medium text-foreground"
               data-testid="datahub-export-svg"
             >
               <Icon name="download" className="h-3.5 w-3.5" />
@@ -1165,7 +1251,7 @@ export default function GraphEditor({
               type="button"
               onClick={onExportPng}
               disabled={busy}
-              className="flex flex-1 items-center justify-center gap-1.5 rounded-md border border-border px-2 py-1.5 text-meta font-medium text-foreground transition-colors hover:bg-surface-sunken disabled:opacity-50"
+              className="ros-btn-neutral flex flex-1 items-center justify-center gap-1.5 px-2 py-1.5 text-meta font-medium text-foreground disabled:opacity-50"
               data-testid="datahub-export-png"
             >
               <Icon name="export" className="h-3.5 w-3.5" />
@@ -1175,7 +1261,7 @@ export default function GraphEditor({
               type="button"
               onClick={onCopy}
               disabled={busy}
-              className="flex flex-1 items-center justify-center gap-1.5 rounded-md border border-border px-2 py-1.5 text-meta font-medium text-foreground transition-colors hover:bg-surface-sunken disabled:opacity-50"
+              className="ros-btn-neutral flex flex-1 items-center justify-center gap-1.5 px-2 py-1.5 text-meta font-medium text-foreground disabled:opacity-50"
               data-testid="datahub-copy-figure"
             >
               <Icon name="copy" className="h-3.5 w-3.5" />
@@ -1186,7 +1272,7 @@ export default function GraphEditor({
             <button
               type="button"
               onClick={onExportPage}
-              className="mt-2 flex w-full items-center justify-center gap-1.5 rounded-md border border-border px-2 py-1.5 text-meta font-medium text-foreground transition-colors hover:bg-surface-sunken"
+              className="ros-btn-neutral mt-2 flex w-full items-center justify-center gap-1.5 px-2 py-1.5 text-meta font-medium text-foreground"
               data-testid="datahub-export-page"
             >
               <Icon name="download" className="h-3.5 w-3.5" />
@@ -1201,7 +1287,7 @@ export default function GraphEditor({
           <button
             type="button"
             onClick={() => setShowingCode((v) => !v)}
-            className="mt-3 flex w-full items-center justify-center gap-1.5 rounded-md border border-border px-2 py-1.5 text-meta font-medium text-foreground transition-colors hover:bg-surface-sunken"
+            className="ros-btn-neutral mt-3 flex w-full items-center justify-center gap-1.5 px-2 py-1.5 text-meta font-medium text-foreground"
             data-testid="datahub-figure-code-toggle"
             aria-expanded={showingCode}
           >

@@ -38,13 +38,13 @@ record-set widget, Canvas, memory, @/commands), not a chat line.
 - **Regenerate.** [SHIPPED] Regenerate on the last assistant reply; user messages have copy + revert-to-here.
 - **Edit-and-resend / branch.** [PARTIAL] Regenerate + revert-to-here exist; true conversation branching does not.
 - **Image drop in chat (multimodal).** [GATED] Composer accepts pasted images behind `BEAKERBOT_VISION_ENABLED`; rides on the Fireworks vision model (kimi-k2p6).
-- **Voice input.** [OPEN] Hands are busy at the bench. The one genuinely-unstarted A item.
+- **Voice input.** [SHIPPED] Web Speech API dictation on the composer mic button (`useVoiceInput.ts`, merged `2a739b49d` 2026-06-13); the mic hides itself when the browser lacks the API. (Doc previously said OPEN/unstarted.)
 
 ## B. Stringing complex multi-page methods (the agentic layer)
 
 - **Composite "set up X" tools.** [SHIPPED] `setup_experiment` creates the experiment, attaches methods, FS-links prep tasks, drops a results scaffold, in one consented call. 2026-06-13. More composite tools can follow the pattern.
 - **Reusable named workflows (macros).** [SHIPPED] Saved `/command` sequences, store + runner + slash-invoke + editor + rail manager. Merged `ba2ad9364`. (Doc previously said OPEN.)
-- **Live progress in the plan card, resume from a failed step.** [SHIPPED, flag] Live-ticking, resume-from-stopped-step, loop-driven per step. Merged `51b9728b9` behind `NEXT_PUBLIC_BEAKERBOT_PLAN_STEPS`. 4 upstream polish follow-ups before the prod flag-on. (Doc previously said PARTIAL.)
+- **Live progress in the plan card, resume from a failed step.** [SHIPPED, flag] Live-ticking, resume-from-stopped-step, loop-driven per step. Merged `51b9728b9` behind `NEXT_PUBLIC_BEAKERBOT_PLAN_STEPS`. Its 4 upstream follow-ups are ALL DONE on main; it only awaits Grant's prod flag flip. (Doc previously said PARTIAL, then "4 follow-ups before flag-on".)
 - **Cross-object atomic actions.** [PARTIAL] `create_experiment_chain`, `link_tasks`, `setup_experiment` exist; a fully general cross-type composite is still open.
 - **Full CRUD + content-edit on every object.** [SHIPPED, not in the original list] create / read / update / content-edit / delete for all 7 core object types, gated + own-only + no-interpretation. 2026-06-14.
 
@@ -54,7 +54,8 @@ record-set widget, Canvas, memory, @/commands), not a chat line.
 - **A filter wizard.** [SHIPPED] Guided picker extending `ask_user` for ambiguous filters. Session 4.
 - **Summaries as real artifacts.** [SHIPPED] `save_summary_as_note` composes a structured note via the draft-preview gate, numbers verbatim from the tools. 2026-06-13.
 - **Deterministic resolvers.** [SHIPPED, not in the original list] period/calendar windows, project + member name resolution (fuzzy), `search_full_text` body grep, `list_records` top-N. Verified live 7/7. 2026-06-14.
-- **Inline record-set widget.** [SHIPPED, not in the original list] When any record tool returns a SET, the chat renders a searchable master-detail browser (2 to 4 compact chip-tabs + preview, 5+ full search + rail), deterministic, full set to the UI / capped to the model. Live-verified + fixed. Merged `2d57e50a3` + `406248cd1`. 2026-06-14.
+- **Inline record-set widget.** [SHIPPED, not in the original list] When any record tool returns a SET, the chat renders a searchable master-detail browser (2 to 4 compact chip-tabs + preview, 5+ full search + rail), deterministic, full set to the UI / capped to the model. Live-verified + fixed. Merged `2d57e50a3` + `406248cd1`. 2026-06-14. (Restyled with per-type tinted tiles via the shared widget kit, 2026-06-15.)
+- **Inline summary AGGREGATE card.** [SHIPPED] A summarize_* tool's deterministic aggregate (scope chips + stat tiles + by-status/owner/vendor bars + period histogram) renders as a widget ABOVE the items list for all 6 summary types, so the counts/totals the user sees come straight from the tool, never the model's prose. Merged `b13e0dddb` 2026-06-15, Grant live-verified. `summary-report.ts` + `SummaryReportWidget.tsx` on the widget kit.
 
 ## What's next (the adjacent epics, the real frontier)
 
@@ -75,14 +76,15 @@ The A/B/C catch-up is done. These are the live targets, roughly by leverage.
    Still deferred (low value): context-bridge on purchases (no 1:1 PurchaseItem id) and
    notes/projects (selection lives in panels); the optional future single-runtime-index
    merge is explicitly NOT recommended.
-2. **PDF-reproduce-from-paper.** [PARTIAL] Outputs 1 and 2 (draft_paper_summary,
-   extract_paper_method) shipped. Open: the ingestion UI (attach a PDF, pdf.js text
-   extraction) that feeds the draft tools, plus outputs 3 and 4 (pipeline -> generate_tree,
-   figure -> editable style spec), gated on phylo review and the vision model. See
-   `beakerbot-pdf-reproduce-analysis.md`.
-3. **Flag-on / launch gates.** Resumable plan card's 4 upstream follow-ups before its prod
-   flag; vision-model verification to ungate image drop.
-4. **A-list stragglers.** Voice input; true conversation branching.
+2. **PDF-reproduce-from-paper.** [SHIPPED] All 4 outputs built + the ingestion UI
+   (attach a PDF, pdf.js text extraction `pdf-extract.ts` merged `1b7cd7137`; figure
+   picker `PdfFigurePicker.tsx` + `pdf-render.ts`); live browser-verified 2026-06-14
+   (see memory `project_beakerbot_pdf_reproduce`). Only a light-comparison carve-out
+   remains. (Doc previously said PARTIAL.) See `beakerbot-pdf-reproduce-analysis.md`.
+3. **Flag-on / launch gates.** Resumable plan card's 4 upstream follow-ups are ALL DONE
+   on main (it only awaits Grant's prod flag flip); vision-model verification to ungate
+   image drop.
+4. **A-list stragglers.** [voice input SHIPPED] true conversation branching remains.
 5. **Record-set widget v2 polish.** Pending lab_digest crash repro (Next 16 undefined-throw
    class, cleared on retry); an optional panel resize handle.
 

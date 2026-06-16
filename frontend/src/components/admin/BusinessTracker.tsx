@@ -255,6 +255,23 @@ export function EntityCard({
           />,
         )}
         {field(
+          "Funding grant number",
+          <>
+            <input
+              className={input}
+              placeholder="e.g. PJ000007271"
+              value={form.fundingGrantNo ?? ""}
+              onChange={(e) =>
+                setForm({ ...form, fundingGrantNo: e.target.value || null })
+              }
+            />
+            <p className="mt-1 text-meta text-foreground-muted">
+              The UW research award the project originated under, recorded for the
+              IP disclosure. Internal record only, never shown on any public page.
+            </p>
+          </>,
+        )}
+        {field(
           "Registered agent",
           <input
             className={input}

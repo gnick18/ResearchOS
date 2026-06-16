@@ -8,9 +8,12 @@
  * governs the code, these terms govern the hosted service and the optional paid
  * services), that the everyday app is local-first so the user's data stays in
  * their own folder, and that the only paid parts are optional cloud storage and
- * the metered AI assistant, both free during the beta. The science-tool honesty
- * note (verify analytical and AI output before you rely on it) is deliberate and
- * matches the validation-gate posture.
+ * the metered AI assistant. Whether those services are currently free during the
+ * beta or live and billed is determined by storageBillingOn and aiBillingOn,
+ * which are read from server env flags by the page and passed in as props.
+ *
+ * The science-tool honesty note (verify analytical and AI output before you rely
+ * on it) is deliberate and matches the validation-gate posture.
  *
  * This is an informational / legal page, not a documented app feature. Like
  * /privacy and /open-source it renders without the AppShell or a connected data
@@ -56,7 +59,17 @@ function Section({
   );
 }
 
-export default function TermsOfService() {
+export interface TermsOfServiceProps {
+  /** True when BILLING_ENABLED is on and cloud storage is a live paid service. */
+  storageBillingOn: boolean;
+  /** True when AI_BILLING_ENABLED is on and the AI assistant is a live paid service. */
+  aiBillingOn: boolean;
+}
+
+export default function TermsOfService({
+  storageBillingOn,
+  aiBillingOn,
+}: TermsOfServiceProps) {
   return (
     <div className="flex min-h-screen flex-col bg-surface-sunken text-foreground">
       <div aria-hidden className="brand-rainbow-bg h-2 w-full" />
@@ -109,9 +122,19 @@ export default function TermsOfService() {
               responsible for keeping your own backups.
             </li>
             <li>
-              The only paid parts are optional cloud storage and the metered AI
-              assistant, and both are free during the beta. You can stop using
-              them at any time, with no lock-in.
+              {storageBillingOn || aiBillingOn ? (
+                <>
+                  The only paid parts are optional cloud storage and the metered
+                  AI assistant. Both are optional services billed at cost, with
+                  no lock-in, and you can stop at any time.
+                </>
+              ) : (
+                <>
+                  The only paid parts are optional cloud storage and the metered
+                  AI assistant, and both are free during the beta. You can stop
+                  using them at any time, with no lock-in.
+                </>
+              )}
             </li>
             <li>
               ResearchOS is a tool, not a guarantee. Always check an analysis, a
@@ -250,11 +273,28 @@ export default function TermsOfService() {
 
         <Section
           id="paid"
-          title="Optional paid services, free during the beta"
+          title={
+            storageBillingOn || aiBillingOn
+              ? "Optional paid services"
+              : "Optional paid services, free during the beta"
+          }
         >
           <p>
-            The local-first app is free forever. Two optional things can cost
-            money, and both are free right now during the beta.
+            The local-first app is free forever. Two optional services can cost
+            money.
+            {!storageBillingOn && !aiBillingOn && (
+              <> Both are free right now during the beta.</>
+            )}
+            {(storageBillingOn || aiBillingOn) &&
+              !storageBillingOn && (
+                <> Cloud storage is not yet billing. The AI assistant is a live
+                paid service.</>
+              )}
+            {(storageBillingOn || aiBillingOn) &&
+              !aiBillingOn && (
+                <> Cloud storage is a live paid service. The AI assistant is not
+                yet billing.</>
+              )}
           </p>
           <ul className="ml-5 list-disc space-y-2">
             <li>
@@ -264,6 +304,20 @@ export default function TermsOfService() {
               larger departments and institutions pay a modest sustaining rate
               above cost that keeps the free tiers free. There is a real free
               tier, not a trial.
+              {!storageBillingOn && (
+                <> Cloud storage is free during the beta.</>
+              )}
+              {storageBillingOn && (
+                <> Pricing is shown on the{" "}
+                <Link
+                  href="/pricing"
+                  className="font-semibold text-sky-700 dark:text-sky-300 underline-offset-2 hover:underline"
+                >
+                  pricing page
+                </Link>
+                . Sales tax, where applicable, is computed and collected
+                automatically by our payment processor, Stripe.</>
+              )}
             </li>
             <li>
               <strong>The AI assistant.</strong> BeakerBot is metered because
@@ -271,6 +325,13 @@ export default function TermsOfService() {
               starts with a free batch of tokens, and after that you buy prepaid
               top-ups priced near our actual cost. You always see your balance
               and what the last task cost.
+              {!aiBillingOn && (
+                <> The AI assistant is free during the beta.</>
+              )}
+              {aiBillingOn && (
+                <> Sales tax, where applicable, is computed and collected
+                automatically by Stripe.</>
+              )}
             </li>
           </ul>
           <p>
@@ -278,10 +339,13 @@ export default function TermsOfService() {
             annual contract and no lock-in. Because consumed AI tokens and used
             storage reflect costs we have already paid to provide them, they are
             generally not refundable, but stopping is always immediate and you
-            are never billed for a period you did not use. Final prices for the
-            paid plans are still being set from real usage data, and we will show
-            them clearly before any charge ever applies. For the full pricing
-            picture, see the{" "}
+            are never billed for a period you did not use.
+            {!(storageBillingOn || aiBillingOn) && (
+              <> Final prices for the paid plans are still being set from real
+              usage data, and we will show them clearly before any charge ever
+              applies.</>
+            )}{" "}
+            For the full pricing picture, see the{" "}
             <Link
               href="/pricing"
               className="font-semibold text-sky-700 dark:text-sky-300 underline-offset-2 hover:underline"

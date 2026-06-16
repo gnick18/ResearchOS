@@ -67,6 +67,7 @@ function getModelCaller(taskId?: string): ModelCaller {
   return taskId ? proxyCallerForTask(taskId) : callModelViaProxy;
 }
 import { DEFAULT_TOOLS } from "@/lib/ai/tools/registry";
+import { setAnalysisResultInChat } from "@/lib/ai/tools/analysis-presentation";
 import { BEAKERBOT_SYSTEM_PROMPT } from "@/lib/ai/system-prompt";
 import {
   runMacro,
@@ -91,6 +92,7 @@ import {
 } from "@/components/ai/spotlight-controller";
 import { getMemoryEntries, buildMemoryContext } from "@/lib/ai/user-memory";
 import { recordSetFromResult } from "@/lib/ai/record-set";
+import { summaryReportFromResult } from "@/lib/ai/summary-report";
 import { overlayWizardFromResult } from "@/lib/ai/overlay-wizard";
 import { analysisPickerFromResult } from "@/lib/ai/analysis-picker";
 import { recipeComparisonFromResult } from "@/lib/ai/recipe-compare";
@@ -145,6 +147,11 @@ export type ChatMessage = {
   // _ui; renders the deterministic paper-vs-user diff below the reply, facts only.
   recipeComparisons?: import("./recipe-compare").RecipeComparisonPayload[];
   analysisPickers?: import("./analysis-picker").AnalysisPickerPayload[];
+  // Inline summary aggregate cards. One per summarize_* tool that ran on a set
+  // (>= 2 matches). Lifted from the aggregate riding on the same record-set _ui
+  // (the items render via recordSets above); the card shows the deterministic
+  // counts/totals so the user never reads them from the model's prose.
+  summaryReports?: import("./summary-report").SummaryReport[];
 };
 
 // The pending approval the UI renders while the loop is paused on the user.
@@ -349,7 +356,14 @@ export type ToolStep = {
 };
 
 interface ConversationActions {
-  send: (text: string) => Promise<void>;
+  /**
+   * Send a user message and run a turn. `opts.resultInChat` arms the Data Hub
+   * run tools to keep their result IN CHAT (no navigation to /datahub) for this
+   * turn only, used by the inline analysis/graph picker so picking an item does
+   * not yank the user off the chat (Grant's locked nuance). A typed send leaves
+   * it off and a run navigates as before.
+   */
+  send: (text: string, opts?: { resultInChat?: boolean }) => Promise<void>;
   /**
    * Run a saved workflow macro. Raises one Run-card approval (the same plan
    * approval UI), and on approval replays the macro's steps deterministically via
@@ -656,11 +670,28 @@ function appendAnalysisPickerFromResult(assistantId: string, result: unknown): v
   }));
 }
 
-/** Run every inline-widget capture over a raw tool result (record sets + overlay
- *  wizards + recipe comparisons + analysis pickers). One call site so the
- *  onToolResult hooks stay in sync. */
+/** Lift a summarize_* tool's deterministic aggregate onto the in-flight assistant
+ *  message, so <SummaryReportWidget> renders the counts/totals above the items.
+ *  Same seam (the aggregate rides on the record-set _ui); a result with no summary
+ *  aggregate is ignored, so this is safe to call after every tool. */
+function appendSummaryReportFromResult(assistantId: string, result: unknown): void {
+  const report = summaryReportFromResult(result);
+  if (!report) return;
+  useConversationStore.setState((state) => ({
+    messages: state.messages.map((m) =>
+      m.id === assistantId
+        ? { ...m, summaryReports: [...(m.summaryReports ?? []), report] }
+        : m,
+    ),
+  }));
+}
+
+/** Run every inline-widget capture over a raw tool result (record sets + summary
+ *  aggregates + overlay wizards + recipe comparisons + analysis pickers). One call
+ *  site so the onToolResult hooks stay in sync. */
 function captureInlineWidgets(assistantId: string, result: unknown): void {
   appendRecordSetFromResult(assistantId, result);
+  appendSummaryReportFromResult(assistantId, result);
   appendOverlayWizardFromResult(assistantId, result);
   appendRecipeComparisonFromResult(assistantId, result);
   appendAnalysisPickerFromResult(assistantId, result);
@@ -1007,7 +1038,7 @@ export const useConversationStore = create<ConversationStore>((set, get) => ({
     conversationEpoch += 1;
   },
 
-  send: async (text: string) => {
+  send: async (text: string, opts?: { resultInChat?: boolean }) => {
     const trimmed = text.trim();
     // Guard: discard empty input.
     if (!trimmed) return;
@@ -1021,6 +1052,12 @@ export const useConversationStore = create<ConversationStore>((set, get) => ({
     }
 
     set({ error: null });
+
+    // Arm (or clear) in-chat result presentation for THIS turn. The Data Hub run
+    // tools consult this latch when deciding whether to navigate to the stored
+    // result. Set on every turn we start (default off), so a picker-driven turn
+    // keeps its result in chat while a later typed run navigates as before.
+    setAnalysisResultInChat(opts?.resultInChat === true);
 
     // Create a fresh controller for this send. Guard against a stale ref from a
     // previous turn that was not cleaned up (belt-and-suspenders).

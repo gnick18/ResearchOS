@@ -163,6 +163,16 @@ export function tierCount(placed: PlacedLabel[]): number {
   return max + 1;
 }
 
+/** Above this many stacked above-line label tiers (enzyme cut sites + primers), the
+ *  linear map's leaders grow long and the stack reads as an unreadable thicket, so
+ *  the editor surfaces a "crowded, hide some or zoom in" advisory. The labels never
+ *  overlap (layoutLabels guarantees it) and the canvas grows to fit, so this is a
+ *  legibility threshold, not a collision. */
+export const CUT_SITE_TIER_LIMIT = 5;
+export function cutSiteStackTooDeep(tiers: number): boolean {
+  return tiers >= CUT_SITE_TIER_LIMIT;
+}
+
 /**
  * Test/verification helper: do any two labels in the SAME tier overlap (ignoring
  * the gap, just geometric overlap)? Returns true if a collision exists. Used by

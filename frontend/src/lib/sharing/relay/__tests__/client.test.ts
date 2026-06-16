@@ -215,7 +215,12 @@ describe("sendShare order, lookup then send then PUT then confirm", () => {
     });
 
     // Confirm runs last, strictly after the PUT, so a failed upload never reaches it.
-    expect(calls).toEqual([
+    // The best-effort phone-push notify is fire-and-forget and not part of the send
+    // ordering contract, so it is filtered out before asserting the core sequence.
+    const coreCalls = calls.filter(
+      (c) => !c.includes("/capture/notify-recipient"),
+    );
+    expect(coreCalls).toEqual([
       "POST /api/directory/lookup",
       "POST /api/relay/send",
       "PUT https://r2.example/put-here",

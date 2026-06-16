@@ -266,14 +266,38 @@ function emptySvg(geo: PartsOfWholeGeometry, style: PlotStyle): string {
   return parts.join("");
 }
 
+/** The bounding box of the legend block (a column of swatch+label rows down the
+ *  right edge, vertically centered). Shared by legendSvg (the ink) and the
+ *  collision advisor's manifest, so the advisor measures the exact block that is
+ *  drawn and can flag it running off the figure (the legend-overflow collision).
+ *  firstBaseline / rowH are the first text baseline + the per-row step. */
+export function partsLegendBox(
+  geo: PartsOfWholeGeometry,
+  style: PlotStyle,
+): { x: number; y: number; w: number; h: number; rowH: number; firstBaseline: number } {
+  const f = Math.max(8, style.fontSize - 2);
+  const legendW = Math.min(150, geo.width * 0.34);
+  const rowH = f + 8;
+  const blockH = geo.segments.length * rowH;
+  const topBase = Math.max(style.fontSize + 18, geo.height / 2 - blockH / 2);
+  return {
+    x: geo.width - legendW + 6,
+    y: topBase + 2, // the first swatch top (text baseline is topBase + f, swatch at -f+2)
+    w: legendW,
+    h: Math.max(0, (geo.segments.length - 1) * rowH + f),
+    rowH,
+    firstBaseline: topBase + f,
+  };
+}
+
 /** The legend rows (a swatch + label + percent), drawn down the right edge. */
 function legendSvg(geo: PartsOfWholeGeometry, style: PlotStyle): string[] {
   const parts: string[] = [];
   const f = Math.max(8, style.fontSize - 2);
-  const x = geo.width - Math.min(150, geo.width * 0.34) + 6;
-  const rowH = f + 8;
-  const blockH = geo.segments.length * rowH;
-  let y = Math.max(style.fontSize + 18, geo.height / 2 - blockH / 2) + f;
+  const box = partsLegendBox(geo, style);
+  const x = box.x;
+  const rowH = box.rowH;
+  let y = box.firstBaseline;
   for (const s of geo.segments) {
     parts.push(
       `<rect x="${x.toFixed(2)}" y="${(y - f + 2).toFixed(2)}" width="${f}" height="${f}" rx="2" fill="${s.color}"/>`,

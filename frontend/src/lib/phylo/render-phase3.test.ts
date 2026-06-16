@@ -179,6 +179,48 @@ describe("multi-panel legend polish", () => {
     );
     expect(new Set(xs).size).toBeGreaterThan(1);
   });
+
+  it("dedupes identical legends when one column drives multiple overlays", () => {
+    // The smart-binding multi-add can bind ONE column to several geoms; without
+    // dedupe each draws the same colorbar, piling redundant keys over the labels
+    // (the crowded-overlay report, 2026-06-15). Two strips on the same column must
+    // yield a single legend.
+    const rows = [
+      { tip: "A", zzcol: "x" },
+      { tip: "B", zzcol: "y" },
+      { tip: "C", zzcol: "x" },
+      { tip: "D", zzcol: "y" },
+    ];
+    const META = matchMetadataToTips(TREE, rows, "tip").matched;
+    const spec: RenderSpec = {
+      layout: "rectangular",
+      phylogram: false,
+      tracks: {
+        labels: false,
+        labelsItalic: false,
+        points: false,
+        strip: false,
+        bars: false,
+        heat: false,
+        clade: false,
+        support: false,
+      },
+      columns: {},
+      width: 700,
+      height: 480,
+      metadata: META,
+      // Tip-point decorations color by a column (so each contributes a legend)
+      // but draw no column-name header on the tree, so the only place the column
+      // name appears is the legend title - isolating the legend count.
+      panels: [
+        { id: "p1", kind: "points", visible: true, column: "zzcol", legend: true },
+        { id: "p2", kind: "points", visible: true, column: "zzcol", legend: true },
+      ],
+    };
+    const svg = renderTreeSvg(TREE, spec);
+    // Two same-column point overlays -> exactly one legend after dedupe.
+    expect((svg.match(/>zzcol</g) ?? []).length).toBe(1);
+  });
 });
 
 describe("distribution panel value scale-key (circular numeric axis fix)", () => {
@@ -407,6 +449,23 @@ describe("multi-clade highlights by MRCA (Wave 2: geom_hilight)", () => {
     expect(svg).toContain('fill="#00ff00" opacity="0.10"');
     expect(svg).toContain("Clade AB");
     expect(svg).toContain("Clade CD");
+  });
+
+  it("rectangular: anchors the highlight left edge at the clade MRCA stem, not the tree base", () => {
+    const svg = renderTreeSvg(
+      TREE,
+      cladeSpec("rectangular", [
+        { id: "b", tips: ["C", "D"], color: "#00ff00", label: "" },
+      ]),
+    );
+    // The band must start at the middle of the (C,D) MRCA's stem branch, well to
+    // the right of the old hardcoded tree-base inset (x=12) - conventional
+    // geom_hilight placement.
+    const m = svg.match(
+      /<rect x="([\d.]+)"[^>]*fill="#00ff00" opacity="0\.10"/,
+    );
+    expect(m).not.toBeNull();
+    expect(Number(m![1])).toBeGreaterThan(12);
   });
 
   it("circular: draws an annulus band for a named clade", () => {

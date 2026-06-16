@@ -437,7 +437,7 @@ export default function PlateLayoutEditor(props: PlateLayoutEditorProps) {
               <button
                 type="button"
                 onClick={() => setCompact((v) => !v)}
-                className="px-2 py-1 text-meta rounded border border-border text-foreground-muted hover:bg-surface-sunken"
+                className="ros-btn-neutral px-2 py-1 text-meta text-foreground-muted"
               >
                 {compact ? "Comfortable cells" : "Compact cells"}
               </button>

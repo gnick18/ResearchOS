@@ -248,7 +248,7 @@ function SharingControl({
               type="button"
               onClick={onSendExternal}
               disabled={!canSendExternal}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-border text-meta font-semibold text-foreground-muted hover:text-foreground hover:bg-surface-sunken transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              className="ros-btn-neutral inline-flex items-center gap-1.5 px-3 py-1.5 text-meta font-semibold text-foreground-muted disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <Icon name="share" className="w-4 h-4" />
               External person
@@ -266,7 +266,7 @@ function SharingControl({
           <button
             type="button"
             onClick={onSubmitToLibrary}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-border text-meta font-semibold text-foreground-muted hover:text-foreground hover:bg-surface-sunken transition-colors"
+            className="ros-btn-neutral inline-flex items-center gap-1.5 px-3 py-1.5 text-meta font-semibold text-foreground-muted"
           >
             <Icon name="library" className="w-4 h-4" />
             Share to the library
@@ -521,7 +521,7 @@ export function CalculatorUseView({
               type="button"
               onClick={onEdit}
               aria-label="Edit this calculator"
-              className="flex-shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-border text-meta font-medium text-foreground-muted hover:text-foreground hover:bg-surface-sunken transition-colors"
+              className="ros-btn-neutral flex-shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 text-meta font-medium text-foreground-muted"
             >
               <Icon name="pencil" className="w-4 h-4" />
               Edit
@@ -960,7 +960,7 @@ export function CalculatorEditView({
             <button
               type="button"
               onClick={onStartFromTemplate}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-border text-meta font-semibold text-foreground-muted hover:text-foreground hover:bg-surface-sunken transition-colors"
+              className="ros-btn-neutral inline-flex items-center gap-1.5 px-3 py-1.5 text-meta font-semibold text-foreground-muted"
             >
               <Icon name="library" className="w-4 h-4" />
               Start from a template
@@ -969,7 +969,7 @@ export function CalculatorEditView({
           <button
             type="button"
             onClick={onCancel}
-            className="px-3 py-1.5 rounded-lg border border-border text-meta font-medium text-foreground-muted hover:text-foreground hover:bg-surface-sunken transition-colors"
+            className="ros-btn-neutral px-3 py-1.5 text-meta font-medium text-foreground-muted"
           >
             Cancel
           </button>

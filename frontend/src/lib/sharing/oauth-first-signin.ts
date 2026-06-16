@@ -31,6 +31,7 @@ import { signIn } from "next-auth/react";
 import type { SharingProvider } from "@/components/sharing/SharingProviderButtons";
 import { markLandingSeen } from "@/lib/landing/landing-gate";
 import { rememberLastProvider } from "@/lib/sharing/oauth-first-login";
+import { resolveDevMockSignInOptions } from "@/lib/sharing/dev-mock-email";
 
 interface OAuthFirstOptions {
   /** Set the researchos:lab-create marker before redirecting (Lab create
@@ -59,6 +60,11 @@ export function startOAuthFirstSignIn(
 ): void {
   if (typeof window === "undefined") return;
 
+  // Resolve the dev-mock email (and honour a cancel) BEFORE any side effects, so
+  // a cancelled prompt leaves landing/provider markers untouched.
+  const devMock = resolveDevMockSignInOptions(provider);
+  if (devMock === null) return; // dev-mock email prompt cancelled
+
   markLandingSeen();
   rememberLastProvider(provider);
 
@@ -80,5 +86,6 @@ export function startOAuthFirstSignIn(
 
   // The devmock provider has no real OAuth round trip; route it the same way the
   // claim resume expects (it signs in via the mock and returns with the flag).
-  void signIn(provider, { callbackUrl });
+  // devMock carries the chosen email for the mock provider, {} otherwise.
+  void signIn(provider, { callbackUrl, ...devMock });
 }

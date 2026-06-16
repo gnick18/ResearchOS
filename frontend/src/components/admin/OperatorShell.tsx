@@ -41,6 +41,7 @@ import CostBreakerPanel from "@/components/admin/CostBreakerPanel";
 import GiftPoolsPanel from "@/components/admin/GiftPoolsPanel";
 import SpendByCategoryPanel from "@/components/admin/SpendByCategoryPanel";
 import {
+  FinalizeTab,
   PerSubscriberTab,
   SustainabilityTab,
 } from "@/components/admin/PriceModelingModal";
@@ -927,6 +928,12 @@ export default function OperatorShell() {
                 canvases draw immediately. */}
             <Section section={byId("price-modeling")}>
               <div className="space-y-10">
+                <div>
+                  <h3 className="mb-3 text-title font-semibold text-foreground">
+                    Finalize the storage flip
+                  </h3>
+                  <FinalizeTab />
+                </div>
                 <div>
                   <h3 className="mb-3 text-title font-semibold text-foreground">
                     Per-subscriber economics

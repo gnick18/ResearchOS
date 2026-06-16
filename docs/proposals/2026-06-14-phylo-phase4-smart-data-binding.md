@@ -2,7 +2,7 @@
 
 **Date:** 2026-06-14
 **Lane:** phylogenetics / Tree Studio (`/phylo`)
-**Status:** DESIGN APPROVED by Grant (wizard locked 2026-06-14). NOT built yet. Builds on the LOCKED Phases 0–3 findability redesign + the `layer-schema.ts` engine.
+**Status:** BUILT + APPROVED (Grant re-approved 2026-06-15). All 3 build-order steps complete and committed on local main: (1) `smart-binding.ts` engine + 12 unit tests, (2) `SmartDataWizard.tsx` mounted in `PhyloStudio` (Add menu + auto-suggest banner), (3) BeakerBot `suggest_tree_overlays` tool (`src/lib/ai/tools/phylo-tools.ts` + `overlay-wizard.ts` + `overlay-commit.ts`, with tests). Gate green: `tsc --noEmit` 0; 328 phylo + overlay tests pass. BROWSER-VERIFIED 2026-06-15 (Grant + agent): all 8 steps PASS — banner + wizard (join chip honestly "joins 7 of 8 tips" partial), columns step with locked anchor, "Add N overlays" as separate restyleable layers, loop-back, empty state, AND the BeakerBot inline door narrating the SAME real engine number. No console errors. TWO FOLLOW-UP GAPS found + NOW FIXED (commit c29532b88): (1) Unfiled tree + Unfiled table now join via new dataHubApi.listUnfiled()/listForScope() used by both front doors; (2) trees can now be saved into a project (Save-panel "Save to" picker defaulting from the sidebar collection + "Move to project" on the tree row context menu). Also fixed in the same verify sweep: the shared inspector rail overflowing behind the floating ask bar (commit 8255af2fc). Builds on the LOCKED Phases 0–3 findability redesign + the `layer-schema.ts` engine.
 **Mockup:** `docs/mockups/2026-06-14-phylo-phase4-smart-data-binding.html`
 **Memory:** `project_phylo_tree_studio_redesign` (Phase 4 captured), `[[feedback_beakerbot_no_interpretation]]`, `[[project_beakerbot_record_set_widget]]`.
 
@@ -40,6 +40,14 @@ After Phases 0–3 the hub is *coherent* but still *passive*: the user has to kn
 **Overlay kinds an overlaid table can drive** (from `layer-schema.ts` / `types.ts:178`): numeric column → `heat` / `bars` / `dots` / `point` (point+error) / `scatter`; categorical column → `strip` (color strip) / `nodepie` (node pies); the table itself → `datahubPlot` (grouped-bar panel).
 
 ---
+
+## Add mechanism — LOCKED: per-column overlays (Grant 2026-06-14)
+
+A joined table's chosen columns become **native per-column overlay panels** (`heat`/`bars`/`dots`/`point` for numeric, `strip` for categorical) — each a first-class, individually-restyleable layer in the stack — NOT a single whole-table `datahubPlot`. Rationale: matches the approved mockup's per-column "possible plots", and the overlay reads/restyles exactly like any hand-bound overlay.
+
+**Consequence (NOT pure wiring):** native overlays bind to the tree's **metadata** (`panel.column` → a metadata column), and a tree holds ONE `PhyloMetadataBinding` (`types.ts:249`, inline `rows` keyed by `tipColumn`, or one linked Data Hub table). So Phase 4 needs a new **metadata-merge step**: take the joined table content (`joinContentToTips` already keys rows to tips), and merge the chosen columns into the tree's inline-rows metadata binding — handling (a) no existing binding, (b) an existing inline-rows binding (union columns on the shared tip key), (c) an existing linked-table binding (materialize to inline rows, then merge), and (d) column-name collisions (namespace as `<table>:<col>` or suffix). The wizard's "Add N overlays" then: merge-once, then append one overlay panel per chosen (column, geom).
+
+This merge logic is pure + unit-testable and lives in the engine module alongside the ranking.
 
 ## The engine (new, pure, unit-testable)
 
@@ -114,12 +122,12 @@ The model never computes a join rate or invents an overlay — it reads them off
 
 ---
 
-## Decisions to confirm with Grant (mockup-review gate)
+## Decisions — LOCKED (Grant 2026-06-14)
 
-1. **Auto-suggest aggressiveness** — quiet inline banner (proposed) vs. auto-open the wizard on tree open vs. only-on-demand (Add menu entry). Proposed: banner.
-2. **Collection scope** — same *project* (`listByProject`) vs same *folder* (`listByFolder`). Proposed: project, with a folder filter chip.
-3. **Step 3 multi-add target** — multiple overlays from ONE table per wizard run, or allow spanning tables in one run. Proposed: one table per run (simpler; re-run for another table).
-4. **Low-coverage threshold** — show all tables with rate > 0, or hide below some floor (e.g. < 10%)? Proposed: show all > 0, sorted, with the rate visible so the user judges.
+1. **Auto-suggest aggressiveness** — ✅ **Quiet, dismissable, non-modal banner** in the Layers tab ("N tables can overlay this tree" → opens the wizard). Also reachable any time from the Add ＋ menu. NOT auto-open.
+2. **Collection scope** — ✅ **Same project** (`listByProject`), with a **folder filter chip** to narrow.
+3. **Step 3 multi-add target** — ✅ **One table per run** (add several of that table's overlays at once), BUT after the add, the wizard shows an **"＋ Add another table"** loop-back that returns to Step 1 so the user keeps going without closing/reopening. Make the loop feel smooth.
+4. **Low-coverage threshold** — ✅ **Show all tables with rate > 0**, sorted high→low, rate visible so the user judges. No hidden floor.
 
 ## Build order (after mockup approval)
 1. `smart-binding.ts` engine + unit tests (mirror `layer-schema.ts` test style; assert ranking + overlay enumeration against fixtures).

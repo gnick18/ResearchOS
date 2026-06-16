@@ -16,13 +16,40 @@ import { useEffect, useState } from "react";
 
 import Link from "next/link";
 import AppFooter from "@/components/AppFooter";
+import MarketingNav from "@/components/MarketingNav";
+import MarketingFooter from "@/components/MarketingFooter";
+import MarketingBackdrop from "@/components/marketing/MarketingBackdrop";
 import ProfileCard from "./ProfileCard";
+import { SOCIAL_LAYER_ENABLED } from "@/lib/social/config";
 import {
   type PublishedProfile,
   fetchProfileByFingerprint,
 } from "@/lib/sharing/profile";
 
 function PageShell({ children }: { children: React.ReactNode }) {
+  // Social layer (Phase A): the public researcher-network hub links here, so the
+  // shareable profile shares the /library + /u marketing chrome. Flag-off keeps
+  // the original standalone shell, byte-for-byte unchanged.
+  if (SOCIAL_LAYER_ENABLED) {
+    return (
+      <div className="min-h-dvh bg-surface text-foreground">
+        <MarketingNav />
+        <section className="relative overflow-hidden">
+          <MarketingBackdrop tone="soft" />
+          <div className="relative z-10 mx-auto flex w-full max-w-lg flex-col px-4 pb-16 pt-10">
+            <Link
+              href="/network"
+              className="mb-4 inline-flex items-center text-meta font-medium text-foreground-muted underline-offset-2 hover:text-foreground hover:underline"
+            >
+              Back to the researcher network
+            </Link>
+            {children}
+          </div>
+        </section>
+        <MarketingFooter />
+      </div>
+    );
+  }
   return (
     <div className="flex min-h-screen flex-col bg-gradient-to-b from-slate-100 to-slate-50 text-foreground">
       <header className="border-b border-border bg-surface-raised/80 backdrop-blur">

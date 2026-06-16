@@ -47,6 +47,7 @@ import ScanFlow from "@/components/inventory/ScanFlow";
 import StockFormDialog from "@/components/inventory/StockFormDialog";
 import StockRow from "@/components/inventory/StockRow";
 import StorageMap from "@/components/inventory/StorageMap";
+import RoomMap from "@/components/inventory/RoomMap";
 import InventoryHealth from "@/components/inventory/InventoryHealth";
 import SignalRecordRow from "@/components/inventory/SignalRecordRow";
 import {
@@ -133,7 +134,7 @@ function InventoryPageContent() {
   const [query, setQuery] = useState("");
   // List (the chunk-2 item list) vs Storage (the box-finder map). Defaults to
   // List per the design; the segmented control flips it.
-  const [view, setView] = useState<"list" | "storage">("list");
+  const [view, setView] = useState<"list" | "storage" | "room">("list");
   // A breadcrumb-jump request handed to the storage map: select this box cell.
   const [jumpTarget, setJumpTarget] = useState<{
     nodeId: number;
@@ -466,7 +467,7 @@ function InventoryPageContent() {
             <div
               role="tablist"
               aria-label="Inventory view"
-              className="inline-flex items-center gap-0.5 rounded-lg bg-surface-sunken p-0.5"
+              className="inline-flex items-center gap-0.5 rounded-lg bg-surface-sunken p-0.5 ros-seg-track border border-border"
             >
               <button
                 type="button"
@@ -475,7 +476,7 @@ function InventoryPageContent() {
                 onClick={() => setView("list")}
                 className={`inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-meta font-medium transition-colors ${
                   view === "list"
-                    ? "bg-surface-raised text-foreground shadow-sm"
+                    ? "bg-surface-raised text-foreground ros-seg-active"
                     : "text-foreground-muted hover:text-foreground"
                 }`}
               >
@@ -489,12 +490,26 @@ function InventoryPageContent() {
                 onClick={() => setView("storage")}
                 className={`inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-meta font-medium transition-colors ${
                   view === "storage"
-                    ? "bg-surface-raised text-foreground shadow-sm"
+                    ? "bg-surface-raised text-foreground ros-seg-active"
                     : "text-foreground-muted hover:text-foreground"
                 }`}
               >
                 <Icon name="box" className="h-3.5 w-3.5" />
                 Storage map
+              </button>
+              <button
+                type="button"
+                role="tab"
+                aria-selected={view === "room"}
+                onClick={() => setView("room")}
+                className={`inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-meta font-medium transition-colors ${
+                  view === "room"
+                    ? "bg-surface-raised text-foreground ros-seg-active"
+                    : "text-foreground-muted hover:text-foreground"
+                }`}
+              >
+                <Icon name="map" className="h-3.5 w-3.5" />
+                Room map
               </button>
             </div>
             <Tooltip label="Refresh">
@@ -518,7 +533,7 @@ function InventoryPageContent() {
             <button
               type="button"
               onClick={() => setImportOpen(true)}
-              className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-surface-raised px-3 py-2 text-body text-foreground hover:bg-surface-sunken"
+              className="ros-btn-neutral inline-flex items-center gap-1.5 px-3 py-2 text-body"
             >
               <Icon name="import" className="h-4 w-4" />
               Import
@@ -534,7 +549,9 @@ function InventoryPageContent() {
           </div>
         </div>
 
-        {view === "storage" ? (
+        {view === "room" ? (
+          <RoomMap nodes={nodes} stocks={stocks} />
+        ) : view === "storage" ? (
           <StorageMap
             items={items}
             stocks={stocks}
@@ -1115,7 +1132,7 @@ function EmptyState({
           <button
             type="button"
             onClick={onImport}
-            className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-surface-raised px-4 py-2 text-body text-foreground hover:bg-surface-sunken"
+            className="ros-btn-neutral inline-flex items-center gap-1.5 px-4 py-2 text-body"
           >
             <Icon name="import" className="h-4 w-4" />
             Import a spreadsheet

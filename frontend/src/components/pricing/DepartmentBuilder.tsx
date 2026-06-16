@@ -27,7 +27,11 @@ const MAILTO =
     "We are looking at ResearchOS for our department. Here is the plan estimate from research-os.app/pricing.",
   );
 
-export default function DepartmentBuilder() {
+interface DepartmentBuilderProps {
+  billingEnabled: boolean;
+}
+
+export default function DepartmentBuilder({ billingEnabled }: DepartmentBuilderProps) {
   const [labs, setLabs] = useState(8);
   const [members, setMembers] = useState(6);
   const [adopt, setAdopt] = useState(60);
@@ -149,7 +153,7 @@ export default function DepartmentBuilder() {
               invoice to your procurement office on net terms, or a card or bank
               account on file, change it any month, no lock-in. Paying by bank
               transfer costs a little less because it costs us less to process. An
-              estimate, not a final price, and free during the beta.
+              estimate, not a final price{billingEnabled ? "." : ", and free during the beta."}
             </p>
           </div>
         </div>
@@ -160,9 +164,9 @@ export default function DepartmentBuilder() {
 
 function CalcRow({ label, value }: { label: string; value: string }) {
   return (
-    <div className="flex items-baseline justify-between gap-3 py-1.5 text-[12.5px] text-foreground-muted">
-      <span>{label}</span>
-      <b className="font-semibold tabular-nums text-foreground">{value}</b>
+    <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5 py-1.5 text-[12.5px] text-foreground-muted">
+      <span className="min-w-0 shrink">{label}</span>
+      <b className="shrink-0 font-semibold tabular-nums text-foreground">{value}</b>
     </div>
   );
 }

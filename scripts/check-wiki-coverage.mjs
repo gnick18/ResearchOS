@@ -59,7 +59,6 @@ const EXCLUDED_PREFIXES = [
   "/dev-gate", // dev-only lab-flow entry route (IS_DEV gated, not a documented user feature; like /sharing-setup-test)
   "/dev-join", // dev-only lab-flow entry route (IS_DEV gated, not a documented user feature; like /sharing-setup-test)
   "/dev-lab", // dev-only lab-flow entry route (IS_DEV gated, not a documented user feature; like /sharing-setup-test)
-  "/researchers", // opt-in researcher directory (browse + standalone shareable profile pages); a sharing-network surface, documented under the sharing wiki, not its own page
   "/admin", // operator-only metrics dashboard (gated on ADMIN_EMAILS, data 404s for non-admins); internal tool, not a documented user feature
   "/business", // operator-only LLC business tracker (moved here from /admin/business 2026-06-10; same ADMIN_EMAILS gate, data 404s for non-admins); internal tool, not a documented user feature
   "/buisness", // redirect-only alias → /business (common misspelling), no UI

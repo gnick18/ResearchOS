@@ -10,6 +10,28 @@
 import type { TodaySnapshot, NotificationsSnapshot } from '@/lib/snapshots';
 import type { InventorySnapshot } from '@/lib/scan';
 
+// A sample lab floor plan (vector) so the demo Room map shows a real plan under
+// the pins. Mirrors frontend sample-floorplan.ts; freezer bank upper-left, cold
+// storage lower-right (matching the demo pins).
+const SAMPLE_FLOORPLAN_SVG = `<svg viewBox="0 0 300 200" xmlns="http://www.w3.org/2000/svg" font-family="sans-serif">
+  <rect x="5" y="5" width="290" height="190" rx="4" fill="#ffffff" stroke="#94a3b8" stroke-width="2.5"/>
+  <path d="M132 195 A36 36 0 0 1 168 195" fill="none" stroke="#cbd5e1" stroke-width="1.4"/>
+  <rect x="20" y="26" width="92" height="46" rx="3" fill="#e7f0fb" stroke="#94a3b8" stroke-width="1.6"/>
+  <line x1="51" y1="26" x2="51" y2="72" stroke="#94a3b8" stroke-width="1"/>
+  <line x1="82" y1="26" x2="82" y2="72" stroke="#94a3b8" stroke-width="1"/>
+  <text x="66" y="19" font-size="9" fill="#475569" text-anchor="middle">Freezer bank</text>
+  <rect x="196" y="22" width="84" height="26" rx="2" fill="#f1f5f9" stroke="#94a3b8" stroke-width="1.5"/>
+  <text x="238" y="39" font-size="9" fill="#475569" text-anchor="middle">Fume hood</text>
+  <rect x="96" y="92" width="108" height="34" rx="3" fill="#f8fafc" stroke="#94a3b8" stroke-width="1.6"/>
+  <line x1="150" y1="92" x2="150" y2="126" stroke="#cbd5e1" stroke-width="1"/>
+  <text x="150" y="113" font-size="9" fill="#475569" text-anchor="middle">Bench</text>
+  <rect x="14" y="120" width="30" height="42" rx="2" fill="#eff6ff" stroke="#94a3b8" stroke-width="1.4"/>
+  <circle cx="29" cy="141" r="6" fill="none" stroke="#94a3b8" stroke-width="1.2"/>
+  <text x="29" y="174" font-size="8" fill="#475569" text-anchor="middle">Sink</text>
+  <rect x="214" y="104" width="66" height="60" rx="3" fill="#e7f0fb" stroke="#94a3b8" stroke-width="1.6"/>
+  <text x="247" y="100" font-size="9" fill="#475569" text-anchor="middle">Cold storage</text>
+</svg>`;
+
 // ---------------------------------------------------------------------------
 // Today snapshot fixture (name = "today")
 // ---------------------------------------------------------------------------
@@ -38,23 +60,39 @@ export const DEMO_TODAY_SNAPSHOT: TodaySnapshot = {
     {
       // Experiment-typed task: drives the active-experiments band (Home hub +
       // Today panel). Carries a linked method so the band card shows it.
-      id: 'demo-exp-1',
+      id: '9001',
+      owner: 'you',
       name: 'fakeGFP expression (chapter 2)',
       start_date: yesterdayStr,
       end_date: twoDaysOutStr,
       task_type: 'experiment',
+      projectName: 'GFP reporter library',
       linkedMethodName: 'Colony PCR, GoTaq',
       linkedMethodType: 'pcr',
+      linkedMethodCount: 3,
+      linkedMethods: [
+        { name: 'Colony PCR, GoTaq', methodType: 'pcr' },
+        { name: 'Plasmid miniprep', methodType: 'extract' },
+        { name: 'Agarose gel electrophoresis', methodType: 'markdown' },
+      ],
     },
     {
-      id: 'demo-task-1',
+      id: '9002',
+      owner: 'you',
       name: 'Split HEK293 cells (passage 18)',
       start_date: todayStr,
       end_date: todayStr,
       task_type: 'Cell culture',
+      linkedMethodName: 'HEK293 passaging (1:6 split)',
+      linkedMethodType: 'cell-culture',
+      linkedMethodCount: 1,
+      linkedMethods: [
+        { name: 'HEK293 passaging (1:6 split)', methodType: 'cell-culture' },
+      ],
     },
     {
-      id: 'demo-task-2',
+      id: '9003',
+      owner: 'you',
       name: 'Image plate 4 (GFP channel, 20x)',
       start_date: todayStr,
       end_date: todayStr,
@@ -65,20 +103,35 @@ export const DEMO_TODAY_SNAPSHOT: TodaySnapshot = {
   upcoming: 1,
   overdueTasks: [
     {
-      id: 'demo-task-3',
+      id: '9004',
+      owner: 'you',
       name: 'qPCR validation of KO clone B7',
       start_date: yesterdayStr,
       end_date: yesterdayStr,
       task_type: 'PCR',
+      linkedMethodName: 'qPCR validation, SYBR Green',
+      linkedMethodType: 'pcr',
+      linkedMethodCount: 2,
+      linkedMethods: [
+        { name: 'qPCR validation, SYBR Green', methodType: 'pcr' },
+        { name: 'Relative quantification (ddCt)', methodType: 'markdown' },
+      ],
     },
   ],
   upcomingTasks: [
     {
-      id: 'demo-task-4',
+      id: '9005',
+      owner: 'you',
       name: 'Western blot for p53 (lysate batch 3)',
       start_date: twoDaysOutStr,
       end_date: twoDaysOutStr,
       task_type: 'Protein analysis',
+      linkedMethodName: 'Western blot, wet transfer',
+      linkedMethodType: 'protein',
+      linkedMethodCount: 1,
+      linkedMethods: [
+        { name: 'Western blot, wet transfer', methodType: 'protein' },
+      ],
     },
   ],
 };
@@ -97,9 +150,10 @@ export const DEMO_INVENTORY_SNAPSHOT: InventorySnapshot = {
       productBarcode: '10569010',
       unitsPerScan: 1,
       unitsRemaining: 3,
-      unitLabel: 'bottles',
+      unitLabel: 'bottle',
       lowAtCount: 2,
       totalUnits: 6,
+      location: 'Cold room, shelf B2',
     },
     {
       stockId: 'demo-stock-2',
@@ -108,9 +162,10 @@ export const DEMO_INVENTORY_SNAPSHOT: InventorySnapshot = {
       productBarcode: 'F4135',
       unitsPerScan: 1,
       unitsRemaining: 1,
-      unitLabel: 'bottles',
+      unitLabel: 'bottle',
       lowAtCount: 2,
       totalUnits: 4,
+      location: '-20 freezer, door rack',
     },
     {
       stockId: 'demo-stock-3',
@@ -121,9 +176,10 @@ export const DEMO_INVENTORY_SNAPSHOT: InventorySnapshot = {
       productBarcode: '036000291452',
       unitsPerScan: 1,
       unitsRemaining: 5,
-      unitLabel: 'vials',
+      unitLabel: 'vial',
       lowAtCount: 2,
       totalUnits: 10,
+      location: '-80 door, left',
     },
     {
       stockId: 'demo-stock-4',
@@ -132,9 +188,11 @@ export const DEMO_INVENTORY_SNAPSHOT: InventorySnapshot = {
       productBarcode: 'ant-pr-1',
       unitsPerScan: 1,
       unitsRemaining: 2,
-      unitLabel: 'vials',
+      unitLabel: 'vial',
       lowAtCount: 3,
       totalUnits: 5,
+      locationPath: '-80 #2 > Rack 1 > Box: Selection antibiotics - B4',
+      locationNodeId: 3,
     },
   ],
   recentPurchases: [
@@ -155,6 +213,25 @@ export const DEMO_INVENTORY_SNAPSHOT: InventorySnapshot = {
   ],
   barcodeIndex: {},
   items: [],
+  // A small storage tree so the scan-in structured location picker is demoable:
+  // a freezer with a rack + 9x9 box, and a fridge with a shelf.
+  storageNodes: [
+    { id: 1, name: '-80 #2', kind: 'freezer', parentId: null },
+    { id: 2, name: 'Rack 1', kind: 'rack', parentId: 1 },
+    { id: 3, name: 'Box: Selection antibiotics', kind: 'box', parentId: 2, boxRows: 9, boxCols: 9 },
+    { id: 4, name: '4 C fridge', kind: 'fridge', parentId: null },
+    { id: 5, name: 'Shelf 2', kind: 'shelf', parentId: 4 },
+  ],
+  // A small room map so the phone viewer + "find on map" are demoable: the -80
+  // and the fridge pinned on the floor plan.
+  labMap: {
+    aspect: 1.5,
+    imageSvg: SAMPLE_FLOORPLAN_SVG,
+    pins: [
+      { nodeId: 1, label: null, x: 0.26, y: 0.32 },
+      { nodeId: 4, label: null, x: 0.68, y: 0.62 },
+    ],
+  },
 };
 
 // ---------------------------------------------------------------------------
@@ -292,4 +369,40 @@ export const DEMO_NOTIFICATIONS_SNAPSHOT: NotificationsSnapshot = {
       read: true,
     },
   ],
+};
+
+// ---------------------------------------------------------------------------
+// Experiment notes/results read fixture (name = "experiment-notes")
+// Read-only pull of the focused experiment's notes.md / results.md, for the
+// experiment hub's read view. Markdown is rendered by MarkdownLite.
+// ---------------------------------------------------------------------------
+export const DEMO_EXPERIMENT_NOTES = {
+  taskId: 9001,
+  owner: 'you',
+  experimentName: 'fakeGFP expression (chapter 2)',
+  notes: {
+    markdown: [
+      '# Lab notes',
+      '',
+      '## Day 1 - colony pick',
+      'Picked 8 colonies from the GoTaq plate into 5 mL LB + amp.',
+      'Grew overnight at 37 C, 220 rpm.',
+      '',
+      '## Day 2 - miniprep',
+      'Mini-prepped all 8. A260/A280 between 1.85 and 1.92 for every sample.',
+      '',
+      '- Tube 3 yield was low (re-elute next time)',
+      '- Tubes 5 and 7 looked best',
+    ].join('\n'),
+  },
+  results: {
+    markdown: [
+      '# Results',
+      '',
+      'Gel of the colony PCR, lanes 1 to 8. Expected band at 1.2 kb.',
+      '',
+      'Clones 5 and 7 show the correct insert; clone 3 is empty vector.',
+    ].join('\n'),
+  },
+  generatedAt: yesterdayIso,
 };

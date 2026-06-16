@@ -635,7 +635,7 @@ export default function SpendingDashboard({
                 Breakdown by {breakdownLensLabel[breakdownLens]}
               </h4>
               <div
-                className="inline-flex bg-surface-sunken rounded-lg p-0.5 text-meta"
+                className="inline-flex bg-surface-sunken rounded-lg p-0.5 text-meta ros-seg-track border border-border"
                 data-tour-target="spending-breakdown-lens-toggle"
               >
                 {(Object.keys(breakdownLensLabel) as BreakdownLens[]).map(
@@ -646,7 +646,7 @@ export default function SpendingDashboard({
                       data-tour-target={`spending-breakdown-lens-${lens}`}
                       className={`px-3 py-1 rounded transition-colors ${
                         breakdownLens === lens
-                          ? "bg-surface-raised text-foreground shadow-sm"
+                          ? "bg-surface-raised text-foreground ros-seg-active"
                           : "text-foreground-muted hover:text-foreground"
                       }`}
                     >

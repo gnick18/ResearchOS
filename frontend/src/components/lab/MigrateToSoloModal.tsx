@@ -132,7 +132,7 @@ export default function MigrateToSoloModal({
               tasks, or files are touched, and nothing is deleted.
             </p>
             <div className="flex items-center justify-end gap-2">
-              <button type="button" onClick={onClose} className="px-4 py-2 text-body rounded-lg border border-border text-foreground hover:bg-surface-raised">
+              <button type="button" onClick={onClose} className="ros-btn-neutral px-4 py-2 text-body text-foreground">
                 Cancel
               </button>
               <button type="button" onClick={run} className="bg-brand-action text-white transition-colors hover:bg-brand-action/90 px-4 py-2 text-body rounded-lg">
@@ -184,7 +184,7 @@ export default function MigrateToSoloModal({
             </div>
 
             <div className="flex items-center justify-end gap-2">
-              <button type="button" onClick={onClose} className="px-4 py-2 text-body rounded-lg border border-border text-foreground hover:bg-surface-raised">
+              <button type="button" onClick={onClose} className="ros-btn-neutral px-4 py-2 text-body text-foreground">
                 Cancel
               </button>
               <button type="button" onClick={run} className="bg-brand-action text-white transition-colors hover:bg-brand-action/90 px-4 py-2 text-body rounded-lg">
@@ -265,7 +265,7 @@ export default function MigrateToSoloModal({
               to finish where it left off.
             </p>
             <div className="flex items-center justify-end gap-2">
-              <button type="button" onClick={onClose} className="px-4 py-2 text-body rounded-lg border border-border text-foreground hover:bg-surface-raised">
+              <button type="button" onClick={onClose} className="ros-btn-neutral px-4 py-2 text-body text-foreground">
                 Close
               </button>
               <button type="button" onClick={run} className="bg-brand-action text-white transition-colors hover:bg-brand-action/90 px-4 py-2 text-body rounded-lg">
