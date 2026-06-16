@@ -13,6 +13,11 @@
  *   stale   - network is up but we have no fresh data (no recent successful
  *             fetch, or the last fetch failed). Usually the laptop is asleep or
  *             not publishing, so the relay has nothing new for this phone.
+ *   revoked - the relay rejected an authenticated fetch because this phone's
+ *             device key is no longer registered (the laptop unpaired/removed
+ *             this device). The phone is "paired" locally but the laptop side is
+ *             gone, so the UI prompts a re-pair. Cleared by the next successful
+ *             sync (a re-pair restores it).
  *
  * Freshness is recorded by the snapshot fetch sites via recordSyncSuccess /
  * recordSyncFailure (best-effort, module-level, no storage). We treat a
@@ -31,7 +36,7 @@ import NetInfo from '@react-native-community/netinfo';
 // ordinary polling gaps.
 const FRESHNESS_WINDOW_MS = 5 * 60 * 1000;
 
-export type ConnectionState = 'synced' | 'offline' | 'stale';
+export type ConnectionState = 'synced' | 'offline' | 'stale' | 'revoked';
 
 // ---- Sync freshness (module-level, best-effort, no persistence) -----------
 //
@@ -43,6 +48,11 @@ export type ConnectionState = 'synced' | 'offline' | 'stale';
 
 let lastSuccessAt: number | null = null;
 let lastAttemptFailed = false;
+// Set when the relay reports this device is no longer registered (403 on an
+// authenticated fetch, i.e. the laptop unpaired this phone). Sticky until the
+// next successful sync clears it, so a single revoked response keeps showing the
+// re-pair prompt even across ordinary polling gaps.
+let revoked = false;
 const listeners = new Set<() => void>();
 
 function notify(): void {
@@ -54,12 +64,25 @@ function notify(): void {
 export function recordSyncSuccess(): void {
   lastSuccessAt = Date.now();
   lastAttemptFailed = false;
+  // A 200 proves the device is registered again, so a prior revoked state is
+  // resolved (the user re-paired).
+  revoked = false;
   notify();
 }
 
 /** Record a failed snapshot fetch (thrown error / non-200). Does not move the
  *  last-success timestamp, so freshness still ages out naturally. Best-effort. */
 export function recordSyncFailure(): void {
+  lastAttemptFailed = true;
+  notify();
+}
+
+/** Record that the relay rejected an authenticated fetch because this device is
+ *  no longer registered (403 "device not bound"), i.e. the laptop unpaired this
+ *  phone. Sticky until the next recordSyncSuccess. The fetch site (fetchSnapshot)
+ *  calls this on a 403 before throwing PairingRevokedError. Best-effort. */
+export function recordSyncRevoked(): void {
+  revoked = true;
   lastAttemptFailed = true;
   notify();
 }
@@ -124,8 +147,12 @@ export interface ConnectionStatus {
 }
 
 function derive(online: boolean, now: number): ConnectionState {
-  // Offline wins: if there is no network, captures queue locally, full stop.
+  // Offline wins: if there is no network, captures queue locally, full stop. We
+  // also cannot confirm revocation without a network, so do not surface it here.
   if (!online) return 'offline';
+  // Revoked beats stale: the laptop removed this device, so a plain "Idle" would
+  // mislead the user into waiting. The UI prompts a re-pair instead.
+  if (revoked) return 'revoked';
   // Online but stale: no fresh data (laptop asleep / not publishing, or the
   // last fetch failed). lastAttemptFailed forces stale even inside the window
   // so a sudden relay outage is visible right away.
