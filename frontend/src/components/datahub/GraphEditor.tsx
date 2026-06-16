@@ -27,6 +27,7 @@ import CodePanel from "@/components/datahub/CodePanel";
 import StyledSelect from "@/components/datahub/StyledSelect";
 import PlotColorPicker from "@/components/datahub/PlotColorPicker";
 import PlotColorEditor from "@/components/datahub/PlotColorEditor";
+import { PlotLayoutAdvisor } from "@/components/datahub/PlotLayoutAdvisor";
 import ScrollableNumberInput from "@/components/datahub/ScrollableNumberInput";
 import type {
   AnalysisSpec,
@@ -724,6 +725,20 @@ export default function GraphEditor({
           </Tooltip>
         </div>
 
+        {/* Collision-aware layout advisor (Phase 5): when the legend piles onto the
+            bars or labels crowd, a quiet banner offers a one-click auto-fix +
+            per-fix previews. Grouped bar is the kind that emits a manifest today;
+            it renders nothing when the plot is clean or for other plot kinds. */}
+        {isGrouped && (
+          <PlotLayoutAdvisor
+            spec={spec}
+            content={content}
+            analysis={analysis}
+            onStyleChange={onStyleChange}
+            plotId={spec.id ?? null}
+          />
+        )}
+
         {/* Shared pan/zoom viewport (same ZoomPanCanvas the Phylo Studio + Figure
             composer use): two-finger pan, pinch / Cmd-wheel zoom-at-cursor,
             Space-drag, scrollbars, minimap. The figure renders at its natural size;
@@ -872,6 +887,20 @@ export default function GraphEditor({
                     { value: "none", label: "None" },
                   ]}
                   onChange={(v) => onStyleChange({ errorBar: v })}
+                />
+              </Ctl>
+              <Ctl label="Legend">
+                <Seg<"overlay" | "right">
+                  value={style.legendPlacement ?? "overlay"}
+                  options={[
+                    { value: "overlay", label: "Overlay" },
+                    { value: "right", label: "Right" },
+                  ]}
+                  onChange={(v) =>
+                    onStyleChange({
+                      legendPlacement: v === "overlay" ? undefined : v,
+                    })
+                  }
                 />
               </Ctl>
             </>
