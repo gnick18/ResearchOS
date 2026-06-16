@@ -137,6 +137,20 @@ import type { DataHubDocContent } from "@/lib/datahub/model/types";
 const FIG_W = 620;
 const FIG_H = 460;
 
+// Radial-family layouts draw a centered circle, so their usable radius is capped
+// by the SHORTER canvas dimension. On the landscape FIG_H they were starved (the
+// data rings + tip labels then dwarf the tree). Give them a SQUARE figure so the
+// radius uses the full width, matching how the composer already treats them
+// (treeAspect = 1). Rectangular layouts keep FIG_H, so they are byte-identical.
+const SQUARE_FIG_LAYOUTS = new Set<PhyloLayout>([
+  "circular",
+  "fan",
+  "unrooted",
+  "inwardCircular",
+]);
+const figHeightFor = (layout: PhyloLayout): number =>
+  SQUARE_FIG_LAYOUTS.has(layout) ? FIG_W : FIG_H;
+
 // Per-page key for the persisted left-rail width (the shared split shell, keyed
 // per page exactly as Sequences/Chemistry do).
 const LIST_WIDTH_KEY = "researchos:phylo:listWidth";
@@ -327,7 +341,10 @@ export function PhyloStudio({ initialTreeId }: { initialTreeId?: string } = {}) 
     artboardInitial(undefined),
   );
   const [figWIn, setFigWIn] = useState<number>(FIG_W / 96);
-  const figHIn = figWIn * (FIG_H / FIG_W);
+  // The figure height depends on the layout (square for the radial family), so the
+  // tree gets the full radius instead of being starved by the landscape height.
+  const figH = figHeightFor(layout);
+  const figHIn = figWIn * (figH / FIG_W);
   const onArtboardChange = (patch: Partial<ArtboardState>) =>
     setArtboard((s) => {
       const next = { ...s, ...patch };
@@ -335,7 +352,7 @@ export function PhyloStudio({ initialTreeId }: { initialTreeId?: string } = {}) 
       return next;
     });
   const onFitToPage = () => {
-    const fit = fitFigureToPage(pageDims(artboard), FIG_W / FIG_H);
+    const fit = fitFigureToPage(pageDims(artboard), FIG_W / figH);
     setFigWIn(fit.figWIn);
   };
   // Tip members whose MRCA clade the Rotate button flips (ggtree rotate()).
@@ -472,7 +489,7 @@ export function PhyloStudio({ initialTreeId }: { initialTreeId?: string } = {}) 
         alignment,
         branchColorColumn,
       },
-      { width: FIG_W, height: FIG_H },
+      { width: FIG_W, height: figHeightFor(layout) },
     );
     // Phase 4: the resolved Data Hub plot inputs are live figure state, supplied
     // on the spec the same way figureToRenderSpec resolves alignment to msaTrack.
@@ -982,7 +999,7 @@ export function PhyloStudio({ initialTreeId }: { initialTreeId?: string } = {}) 
   const pngDims = (): [number, number, number] =>
     artboard.enabled
       ? [pxAtDpi(figWIn, ARTBOARD_DPI), pxAtDpi(figHIn, ARTBOARD_DPI), 1]
-      : [FIG_W, FIG_H, 3];
+      : [FIG_W, figH, 3];
 
   const onExportSvg = () =>
     svgMarkup && downloadSvg(exportSvgMarkup(), treeName || "tree");
@@ -1840,7 +1857,7 @@ export function PhyloStudio({ initialTreeId }: { initialTreeId?: string } = {}) 
                 <div className="min-h-0 flex-1">
                   <ZoomPanCanvas
                     contentWidth={FIG_W}
-                    contentHeight={FIG_H}
+                    contentHeight={figH}
                     minimap={
                       <div dangerouslySetInnerHTML={{ __html: svgMarkup }} />
                     }
