@@ -38,5 +38,14 @@ Local `main` is well ahead of `origin/main` (was ahead 51 / behind 42 at session
 3. **Phase C** — 2D floorplan + drag-drop pins (`react-native-svg`), laptop-authored or RoomPlan-derived.
 4. **Phase D** — RoomPlan 3D capture (iOS-Pro-only, one-person lab-setup, auto-derives the 2D plan -> same pin model). See the proposal's "One feature, layered" section.
 
+## Phase B bridge — laptop StorageMap → phone (2026-06-16)
+**KEY DISCOVERY:** the laptop ALREADY ships a full structured-location system the proposal never noticed — `StorageMap` (mounted in `frontend/src/app/inventory/page.tsx:49` as a "List ⇄ Storage map" toggle): a `StorageNode` tree (room→freezer→rack→box, any depth) down to A1 box-cell placement, whole-lab shared. That IS the proposal's "Phase B (structured locations)", already built + then some. The proposal's Phase B is therefore redundant on the laptop; the real gap was that the PHONE had none of it. Grant's decision (2026-06-16): **bridge StorageMap to the phone** (not rebuild it; not jump to the spatial 2D/3D map yet).
+
+- **Read/display half DONE + emulator-verified** (`e9c67e7f4`): the inventory snapshot resolves each stock's `location_node_id` + `position` to a readable path ("-80 #2 > Box: Q5 - A1") via `buildNodePath` over the whole-lab-shared node tree (`fetchAllStorageNodesIncludingShared`); the phone Inventory row prefers this structured path over the Phase A free-text note, and search matches both. tsc 0; snapshot tests 13/13. NOTE the snapshot builder now does a shared-inclusive storage-node walk — slightly heavier; fine at the slow publish cadence.
+- **Write half (structured picker at scan-in) NOT built.** Would need: publish the `StorageNode` tree in the snapshot; a cascading location picker on mobile (mirror `LocationPicker.tsx` — freezer→...→box→A1, dropdown-style not a grid); extend the create/register payloads with `locationNodeId` + `position`; laptop handlers apply them. Tradeoff flagged to Grant: large, and the write round-trip is NOT on-device-verifiable here (needs a paired phone); structured box-cell placement is arguably a laptop-StorageMap task, with the phone's free-text capture (Phase A) as the lightweight on-the-go path. Awaiting Grant's go before investing.
+
+## Genuinely-new spatial layer (still unbuilt)
+`StorageMap` is a LOGICAL hierarchy + box grids, NOT a spatial floorplan. Grant's "2D map of the room with pins / 3D RoomPlan / click-to-see-the-actual-spot" vision (proposal Phases C/D) remains unbuilt and is the real new frontier once the bridge is settled.
+
 ## Memory
 `[[project_spatial_inventory]]`, `[[project_mobile_experiment_hub]]`, `[[reference_mobile_dev_build_emulator]]`.
