@@ -149,6 +149,8 @@ interface DemoDocSpec {
     title?: string;
     /** Fitted curve to bake into the figure (defaults to linear in the builder). */
     fitModel?: FitModelId;
+    /** Significance-bracket comparison set ("all" pairs vs "vsControl"). */
+    bracketComparisons?: "all" | "vsControl";
   };
 }
 
@@ -286,6 +288,8 @@ function demoDocs(): DemoDocSpec[] {
         analysisId: "analysis-gfp-anova",
         yTitle: "Relative fakeGFP expression",
         title: "fakeGFP reporter induction by strain",
+        // Each strain vs the WT control, not all 6 pairwise (cleaner figure).
+        bracketComparisons: "vsControl",
       },
     },
     {
@@ -464,6 +468,7 @@ function buildContent(spec: DemoDocSpec): DataHubDocContent {
         xTitle: spec.plot.xTitle,
         title: spec.plot.title,
         fitModel: spec.plot.fitModel,
+        bracketComparisons: spec.plot.bracketComparisons,
       }),
     );
   }

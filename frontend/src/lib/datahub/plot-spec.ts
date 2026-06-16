@@ -152,6 +152,12 @@ export interface PlotStyle {
   /** Draw significance brackets from the linked analysis. */
   showBrackets: boolean;
   /**
+   * Which significant comparisons get a bracket. "all" = every significant pair
+   * (the default), "vsControl" = only comparisons against the first group (the
+   * control), the GraphPad-style "each treatment vs control" figure.
+   */
+  bracketComparisons?: "all" | "vsControl";
+  /**
    * Legacy single-hue color mode. Kept for back-compat (an old spec without a
    * palette maps its colorMode onto a palette id in readPlotStyle); the studio
    * writes `palette` instead.
@@ -337,6 +343,7 @@ export function defaultPlotStyle(): PlotStyle {
     errorBar: "sem",
     showPoints: true,
     showBrackets: true,
+    bracketComparisons: "all",
     colorMode: "brand",
     palette: DEFAULT_PALETTE_ID,
     colorOverrides: {},
@@ -498,6 +505,10 @@ export function readPlotStyle(spec: PlotSpec): PlotStyle {
     showPoints: typeof s.showPoints === "boolean" ? s.showPoints : d.showPoints,
     showBrackets:
       typeof s.showBrackets === "boolean" ? s.showBrackets : d.showBrackets,
+    bracketComparisons:
+      s.bracketComparisons === "vsControl" || s.bracketComparisons === "all"
+        ? s.bracketComparisons
+        : d.bracketComparisons,
     colorMode:
       s.colorMode === "sky" || s.colorMode === "ink" || s.colorMode === "brand"
         ? (s.colorMode as ColorMode)
@@ -669,6 +680,8 @@ export function buildPlotSpec(args: {
   diagnosticColumnIndex?: number;
   /** For a donut figure, the center hole radius as a fraction of the pie radius. */
   donutHoleRatio?: number;
+  /** Significance-bracket comparison set ("all" pairs vs "vsControl"). */
+  bracketComparisons?: "all" | "vsControl";
 }): PlotSpec {
   const style = defaultPlotStyle();
   style.kind = args.kind;
@@ -690,6 +703,8 @@ export function buildPlotSpec(args: {
     style.diagnosticColumnIndex = args.diagnosticColumnIndex;
   if (args.donutHoleRatio !== undefined)
     style.donutHoleRatio = args.donutHoleRatio;
+  if (args.bracketComparisons !== undefined)
+    style.bracketComparisons = args.bracketComparisons;
   const source: PlotSource = {
     tableId: args.tableId,
     analysisId: args.analysisId ?? null,
@@ -1063,6 +1078,12 @@ export function pickAxis(
 export function bracketRequestsFromAnalysis(
   spec: AnalysisSpec | null,
   groups: PlotGroup[],
+  /**
+   * When set, keep only comparisons involving this group index (the control),
+   * so the figure shows "each group vs control" instead of every pairwise pair.
+   * null/undefined = all significant pairs.
+   */
+  referenceIndex?: number | null,
 ): { i: number; j: number; label: string }[] {
   if (!spec) return [];
   const cache = spec.resultCache as
@@ -1081,6 +1102,13 @@ export function bracketRequestsFromAnalysis(
     const i = indexByName.get(c.groupA);
     const j = indexByName.get(c.groupB);
     if (i === undefined || j === undefined || i === j) continue;
+    if (
+      referenceIndex != null &&
+      i !== referenceIndex &&
+      j !== referenceIndex
+    ) {
+      continue; // "vs control" mode drops pairs that do not touch the reference.
+    }
     out.push({
       i: Math.min(i, j),
       j: Math.max(i, j),
@@ -1090,6 +1118,41 @@ export function bracketRequestsFromAnalysis(
   // Draw the narrowest spans lowest so wider brackets stack above them.
   out.sort((a, b) => a.j - a.i - (b.j - b.i));
   return out;
+}
+
+/**
+ * How many tiers tall the significance-bracket stack will be, given the requested
+ * spans. Pure + combinatorial (depends only on which spans overlap, not on pixel
+ * positions), so the axis headroom can be sized BEFORE the pixel layout runs.
+ * Mirrors the tier assignment in layoutPlot: narrowest spans first, each span one
+ * tier above any already-placed span whose column range overlaps it (a shared
+ * endpoint counts, so end legs never collide).
+ */
+export function bracketStackDepth(
+  requests: { i: number; j: number }[],
+): number {
+  if (requests.length === 0) return 0;
+  const spans = requests.map((r) => ({
+    lo: Math.min(r.i, r.j),
+    hi: Math.max(r.i, r.j),
+  }));
+  spans.sort((a, b) => {
+    const wa = a.hi - a.lo;
+    const wb = b.hi - b.lo;
+    if (wa !== wb) return wa - wb;
+    return a.lo - b.lo;
+  });
+  const placed: { lo: number; hi: number; tier: number }[] = [];
+  let maxTier = 0;
+  for (const s of spans) {
+    let tier = 0;
+    for (const p of placed) {
+      if (p.lo <= s.hi && s.lo <= p.hi) tier = Math.max(tier, p.tier + 1);
+    }
+    placed.push({ lo: s.lo, hi: s.hi, tier });
+    if (tier > maxTier) maxTier = tier;
+  }
+  return maxTier + 1;
 }
 
 /**
@@ -1133,12 +1196,42 @@ export function layoutPlot(
   const y0 = height - padB - extraBottom;
 
   const auto = pickAxis(groups, style.errorBar);
+  // Reserve vertical room for the significance-bracket stack. pickAxis sizes the
+  // headroom to the DATA only, so a tall stack (many significant comparisons)
+  // would be crammed down onto the points by the ceiling clamp. Convert the
+  // stack's pixel budget into a higher yMax, so the data is plotted lower and the
+  // tiers fit above it. Skipped when the user pinned yMax, or no brackets.
+  let autoYMax = auto.yMax;
+  if (
+    style.showBrackets &&
+    bracketRequests.length > 0 &&
+    !(style.yAxisMax !== undefined && style.yAxisMax > 0)
+  ) {
+    let dataTop = 0;
+    for (const g of groups) {
+      for (const v of g.values) if (Number.isFinite(v) && v > dataTop) dataTop = v;
+      if (g.stats.mean !== null) {
+        const top = g.stats.mean + (errorMagnitude(g.stats, style.errorBar) ?? 0);
+        if (top > dataTop) dataTop = top;
+      }
+    }
+    const plotH = y0 - y1;
+    const depth = bracketStackDepth(bracketRequests);
+    // (depth-1) tier steps + the gap above the tallest point + the top label + a
+    // small margin, matching the layout constants used below.
+    const stackPx = (depth - 1) * 18 + 16 + style.fontSize + 8;
+    const frac = plotH > 0 ? stackPx / plotH : 1;
+    if (dataTop > 0 && frac > 0 && frac < 0.8) {
+      const needed = dataTop / (1 - frac);
+      if (needed > autoYMax) autoYMax = Math.ceil(needed / auto.step) * auto.step;
+    }
+  }
   // Manual overrides: a column figure keeps a 0 baseline, so only the top (yMax)
   // and the tick step can be set; an out-of-range value is ignored.
   const yMax =
     style.yAxisMax !== undefined && style.yAxisMax > 0
       ? style.yAxisMax
-      : auto.yMax;
+      : autoYMax;
   const step =
     style.yTickStep !== undefined && style.yTickStep > 0
       ? style.yTickStep
@@ -1756,7 +1849,11 @@ export function renderPlot(
   }
   const groups = resolvePlotGroups(content, style);
   const requests = style.showBrackets
-    ? bracketRequestsFromAnalysis(analysis, groups)
+    ? bracketRequestsFromAnalysis(
+        analysis,
+        groups,
+        style.bracketComparisons === "vsControl" ? 0 : null,
+      )
     : [];
   const geometry = layoutPlot(groups, style, requests);
   const svg = onScreen(renderPlotSvg(geometry, style));

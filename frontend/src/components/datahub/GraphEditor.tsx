@@ -1010,6 +1010,20 @@ export default function GraphEditor({
                   testIdPrefix="datahub-brackets"
                 />
               </Ctl>
+
+              {style.showBrackets && (
+                <Ctl label="Compare">
+                  <Seg<"all" | "vsControl">
+                    value={style.bracketComparisons === "vsControl" ? "vsControl" : "all"}
+                    options={[
+                      { value: "all", label: "All pairs" },
+                      { value: "vsControl", label: "Vs control" },
+                    ]}
+                    onChange={(v) => onStyleChange({ bracketComparisons: v })}
+                    testIdPrefix="datahub-bracket-compare"
+                  />
+                </Ctl>
+              )}
             </>
           )}
         </Section>

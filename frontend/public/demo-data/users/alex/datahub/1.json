@@ -254,6 +254,7 @@
         "errorBar": "sem",
         "showPoints": true,
         "showBrackets": true,
+        "bracketComparisons": "vsControl",
         "colorMode": "brand",
         "fontSize": 13,
         "title": "fakeGFP reporter induction by strain",
