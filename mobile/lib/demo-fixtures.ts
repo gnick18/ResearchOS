@@ -169,6 +169,7 @@ export const DEMO_INVENTORY_SNAPSHOT: InventorySnapshot = {
       unitLabel: 'vial',
       lowAtCount: 3,
       totalUnits: 5,
+      locationPath: '-80 #2 > Rack 1 > Box: Selection antibiotics - B4',
     },
   ],
   recentPurchases: [

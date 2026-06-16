@@ -20,7 +20,15 @@
 //
 // No em-dashes, no emojis, no mid-sentence colons.
 
-import { inventoryItemsApi, inventoryStocksApi, purchasesApi, fetchAllTasks } from "@/lib/local-api";
+import {
+  inventoryItemsApi,
+  inventoryStocksApi,
+  purchasesApi,
+  fetchAllTasks,
+  fetchAllStorageNodesIncludingShared,
+} from "@/lib/local-api";
+import { buildNodePath } from "@/components/inventory/inventory-ui";
+import type { StorageNode } from "@/lib/types";
 import { sealToRecipient } from "@/lib/sharing/encryption";
 import { decodePublicKey } from "@/lib/sharing/identity/keys";
 import { listDevices, publishSnapshot, type UserCaptureKeys } from "./client";
@@ -65,6 +73,14 @@ export interface SnapshotTrackedStock {
    * and the scan-in flow can prompt + set it. Additive (an older phone ignores it).
    */
   location: string | null;
+  /**
+   * Structured location path resolved from the lab's StorageNode tree
+   * (`location_node_id` + `position`), e.g. "-80 #2 > Rack 1 > Box: Q5 - A1".
+   * Spatial inventory Phase B bridge: the laptop's box-finder placement, read-only
+   * on the phone. Null when the stock has no structured location (then the phone
+   * falls back to `location`). Additive.
+   */
+  locationPath: string | null;
 }
 
 /**
@@ -106,16 +122,39 @@ export interface InventorySnapshot {
 /** Reads the connected folder's inventory and builds the snapshot. */
 export async function buildInventorySnapshot(): Promise<InventorySnapshot> {
   // Parallel fetch to keep snapshot build fast.
-  const [items, stocks, purchases, tasks] = await Promise.all([
+  const [items, stocks, purchases, tasks, storageNodes] = await Promise.all([
     inventoryItemsApi.list(),
     inventoryStocksApi.list(),
     purchasesApi.listAll(),
     fetchAllTasks(),
+    // The location tree is whole-lab shared, so a stock owned by this user may
+    // sit in a node another member created. Use the shared-inclusive read.
+    fetchAllStorageNodesIncludingShared().catch(() => [] as StorageNode[]),
   ]);
 
   // ── Item lookup maps ──────────────────────────────────────────────────────
   // item by id, for stock -> item join.
   const itemById = new Map(items.map((i) => [i.id, i]));
+
+  // Storage-node lookup for resolving a stock's structured location to a path.
+  const nodesById = new Map<number, StorageNode>(
+    storageNodes.map((n) => [n.id, n]),
+  );
+
+  // Resolve a stock's `location_node_id` + `position` to a readable path like
+  // "-80 #2 > Box: Q5 - A1". Returns null when the stock is not placed in the
+  // tree (the phone then falls back to the free-text `location_text`).
+  const resolveLocationPath = (
+    nodeId: number | null | undefined,
+    position: string | null | undefined,
+  ): string | null => {
+    if (nodeId == null) return null;
+    const path = buildNodePath(nodeId, nodesById);
+    if (path.length === 0) return null;
+    const names = path.map((n) => n.name).join(" > ");
+    const pos = (position ?? "").trim();
+    return pos ? `${names} - ${pos}` : names;
+  };
 
   // task start_date by task id, for orderedDate in recentPurchases.
   const taskDateById = new Map(
@@ -163,6 +202,7 @@ export async function buildInventorySnapshot(): Promise<InventorySnapshot> {
       purchaseItemId: stock.purchase_item_id,
       totalUnits,
       location: (stock.location_text && stock.location_text.trim()) || null,
+      locationPath: resolveLocationPath(stock.location_node_id, stock.position),
     });
   }
 

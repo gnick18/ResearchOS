@@ -107,7 +107,8 @@ export default function InventoryScreen() {
   const matchesQuery = (s: TrackedStock) =>
     !q ||
     (s.itemName ?? '').toLowerCase().includes(q) ||
-    (s.location ?? '').toLowerCase().includes(q);
+    (s.location ?? '').toLowerCase().includes(q) ||
+    (s.locationPath ?? '').toLowerCase().includes(q);
   const showSearch = trackedStocks.length >= 4;
   const shownStocks = trackedStocks.filter(
     (s) => (!lowOnly || stockIsLow(s)) && matchesQuery(s),
@@ -360,10 +361,11 @@ function TrackedStockRow({
   const remaining = stock.unitsRemaining ?? 0;
   const total = stock.totalUnits ?? 0;
   const unitLabel = stock.unitLabel ?? '';
-  // Spatial inventory Phase A: the stock's physical location, shown as a subtle
-  // "where is it" line under the units. Hidden entirely when the lab has not
-  // recorded one (so undecorated labs see no empty affordance).
-  const location = (stock.location ?? '').trim();
+  // Spatial inventory: the stock's physical location, shown as a subtle
+  // "where is it" line under the units. Prefer the structured box-finder path
+  // (Phase B bridge) over the free-text note (Phase A); hidden entirely when the
+  // lab has recorded neither (so undecorated labs see no empty affordance).
+  const location = (stock.locationPath ?? '').trim() || (stock.location ?? '').trim();
   const isLow =
     stock.lowAtCount != null &&
     typeof stock.unitsRemaining === 'number' &&

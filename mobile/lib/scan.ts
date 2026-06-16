@@ -50,6 +50,10 @@ export type TrackedStock = {
   // laptop's InventoryStock.location_text. Spatial inventory Phase A. Tolerated
   // missing so an older laptop snapshot never crashes the row.
   location?: string | null;
+  // Structured location path resolved from the laptop's StorageNode box-finder
+  // tree ("-80 #2 > Box: Q5 - A1"). Spatial inventory Phase B bridge. Preferred
+  // over `location` for display when present; tolerated missing.
+  locationPath?: string | null;
 };
 
 // A purchase that has been ordered but not yet marked arrived. Drives the
