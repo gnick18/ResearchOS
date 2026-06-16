@@ -37,6 +37,21 @@ describe("FinalizeTab (Path-A service dashboard)", () => {
     cleanup();
   });
 
+  it("puts the working area (dials + plots) above the prose context", () => {
+    const { container } = render(<FinalizeTab />);
+    const text = container.textContent ?? "";
+    const assumptions = text.indexOf("Assumptions");
+    const plot = text.indexOf("Profit vs expense");
+    const lockedStrip = text.indexOf("Path A, locked");
+    const howToRead = text.indexOf("How to read it");
+    expect(assumptions).toBeGreaterThanOrEqual(0);
+    expect(plot).toBeGreaterThanOrEqual(0);
+    // Working-area markers must come before the bottom prose in DOM order.
+    expect(plot).toBeLessThan(lockedStrip);
+    expect(assumptions).toBeLessThan(howToRead);
+    cleanup();
+  });
+
   it("scenario + mix preset clicks do not throw", () => {
     render(<FinalizeTab />);
     fireEvent.click(screen.getAllByText(/Optimistic/i)[0]);

@@ -25,16 +25,6 @@ export default function PricingFinalizeDevPage() {
         <h1 className="mt-3 text-heading font-semibold text-foreground">
           Service tiers finalize (Path A)
         </h1>
-        <p className="mt-2 max-w-2xl text-body text-foreground-muted leading-relaxed">
-          Price buys cloud SERVICES, not gigabytes. Set each tier&apos;s service
-          price and its relay footprint, the dept governance fee, and the free
-          relay cost, then read the margin and the profit-at-scale projection.
-          Storage is a-la-carte at cost and is not a tier axis. When it looks
-          right we copy the numbers into plans.ts and assumptions.ts and the
-          pricing bible. Nothing here writes back. The legacy GB per-subscriber
-          and sustainability models still live in the operator console under
-          Modeling for reference.
-        </p>
       </header>
 
       <FinalizeTab />
