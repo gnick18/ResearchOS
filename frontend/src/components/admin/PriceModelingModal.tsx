@@ -1620,14 +1620,44 @@ export function FinalizeTab() {
                 Break even (net crosses $0) at
               </div>
               {Number.isFinite(beUsers) ? (
-                <div className="text-heading font-bold text-emerald-700">
-                  {beUsers >= 1000
-                    ? `~${(beUsers / 1000).toFixed(1)}k users`
-                    : `~${Math.round(beUsers)} users`}
-                  <span className="ml-2 text-meta font-normal text-foreground-muted">
-                    ({Math.round(beUsers * conversion).toLocaleString()} paying)
-                  </span>
-                </div>
+                <>
+                  <div className="text-heading font-bold text-emerald-700">
+                    {beUsers >= 1000
+                      ? `~${(beUsers / 1000).toFixed(1)}k total accounts`
+                      : `~${Math.round(beUsers)} total accounts`}
+                  </div>
+                  {(() => {
+                    const paying = beUsers * conversion;
+                    const sum = soloShare + labShare + deptShare || 1;
+                    const solo = paying * (soloShare / sum);
+                    const labSeats = paying * (labShare / sum);
+                    const deptSeats = paying * (deptShare / sum);
+                    const labs = labSeats / membersPerLab;
+                    const depts = deptSeats / membersPerLab;
+                    const segs: string[] = [];
+                    if (solo >= 0.5) segs.push(`${Math.round(solo)} solo`);
+                    if (labSeats >= 0.5)
+                      segs.push(
+                        `~${Math.max(1, Math.round(labs))} labs (${Math.round(labSeats)} seats)`,
+                      );
+                    if (deptSeats >= 0.5)
+                      segs.push(
+                        `~${Math.max(1, Math.round(depts))} depts (${Math.round(deptSeats)} seats)`,
+                      );
+                    return (
+                      <div className="mt-1 text-meta text-foreground-muted">
+                        of which <b className="text-foreground">~{Math.round(paying)} pay</b>
+                        {segs.length > 0 && (
+                          <>
+                            {" = "}
+                            <span className="text-foreground">{segs.join("  ·  ")}</span>
+                          </>
+                        )}
+                        . Lab/dept are per-seat, so a lab is {membersPerLab} seats.
+                      </div>
+                    );
+                  })()}
+                </>
               ) : (
                 <div className="text-body font-semibold text-rose-700">
                   Never at {(conversion * 100).toFixed(1)}% conversion. Each user
