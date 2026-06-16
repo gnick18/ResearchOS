@@ -59,6 +59,7 @@ import {
   fitModel,
   getModel,
   prepareFitData,
+  fitLog10sDose,
   kaplanMeier,
 } from "@/lib/datahub/engine";
 import type { BootstrapMethod } from "@/lib/datahub/engine/bootstrap";
@@ -2020,8 +2021,9 @@ function resolveXYFit(
   if (modelId === "none") return null;
   const model = getModel(modelId);
   if (!model) return null;
-  // Dose-response models fit on log10(dose); transform a raw dose column (and drop
-  // non-positive doses) so the plotted curve uses the same fit as the analysis.
+  // Dose-response models fit on log10(dose); a raw dose column is transformed (and
+  // non-positive doses dropped) so the plotted curve uses the same fit as the
+  // analysis, while an already-log column is fit as-is.
   const fitData = prepareFitData(modelId, x, y);
   if (fitData.x.length <= model.paramNames.length) return null;
   const result = fitModel(modelId, fitData.x, fitData.y);
@@ -2029,11 +2031,13 @@ function resolveXYFit(
   const params = result.parameters.map((p) => p.value);
   if (!params.every((v) => Number.isFinite(v))) return null;
   const rawPredict = model.fn(params);
-  // The curve is sampled at raw x positions; for a log-dose model map each raw
-  // dose through log10 first so the drawn curve matches the fitted parameters
-  // (and EC50 = 10^logEC50 sits at the visible half-max). Non-positive doses have
-  // no point on a log-dose curve.
-  const predict = model.logXInput
+  // The curve is sampled at the same x positions as the scatter. When the fit
+  // log10-transformed a raw dose column, map each raw dose through log10 first so
+  // the drawn curve matches the fitted parameters (EC50 = 10^logEC50 sits at the
+  // visible half-max); non-positive doses have no point. When X was already log
+  // dose (or not a log model) the parameters live in x's own space, so evaluate
+  // directly. fitLog10sDose makes this match the fit's transform decision exactly.
+  const predict = fitLog10sDose(modelId, x)
     ? (xv: number) => (xv > 0 ? rawPredict(Math.log10(xv)) : NaN)
     : rawPredict;
   const r2 = Number.isFinite(result.rSquared)

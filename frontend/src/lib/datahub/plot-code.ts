@@ -39,7 +39,12 @@ import {
   rocCurveData,
 } from "@/lib/datahub/diagnostic-plot";
 import { yColumns, xyPairs } from "@/lib/datahub/xy-table";
-import { getModel, fitModel, prepareFitData } from "@/lib/datahub/engine";
+import {
+  getModel,
+  fitModel,
+  prepareFitData,
+  fitLog10sDose,
+} from "@/lib/datahub/engine";
 
 // ---------------------------------------------------------------------------
 // Python literal helpers (shared style with show-code.ts)
@@ -340,9 +345,11 @@ function xyScatterCode(
               "# The parameters are the ones the figure fitted, so this redraws the same curve.",
             );
             lines.push("xfit = np.linspace(x.min(), x.max(), 200)");
-            // A log-dose model evaluates the curve at log10(dose); a raw model
-            // evaluates at the dose directly.
-            const xfitVar = model.logXInput ? "np.log10(xfit)" : "xfit";
+            // When the fit log10-transformed a raw dose column, the curve is
+            // evaluated at log10(dose); otherwise (already-log dose, or a raw
+            // model) it is evaluated at x directly. fitLog10sDose mirrors the
+            // exact transform the figure's fit used.
+            const xfitVar = fitLog10sDose(modelId, xs) ? "np.log10(xfit)" : "xfit";
             lines.push(`yfit = ${expr}`.replace(/\bx\b/g, xfitVar));
             lines.push(
               `ax.plot(xfit, yfit, color=${pyStr(color)}, linewidth=2, zorder=2)`,
