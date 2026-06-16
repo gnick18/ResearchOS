@@ -158,7 +158,10 @@ export default function HandleProfilePage() {
                     directory profile card. */}
                 {profile?.links?.orcid && (
                   <div className="mt-6">
-                    <OrcidPublications orcid={profile.links.orcid} />
+                    <OrcidPublications
+                      orcid={profile.links.orcid}
+                      ownerName={profile.displayName}
+                    />
                   </div>
                 )}
               </div>

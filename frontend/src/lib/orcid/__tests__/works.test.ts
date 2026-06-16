@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 
-import { parseOrcidWorks, orderWorks } from "../works";
-import type { OrcidWork } from "../works";
+import { parseOrcidWorks, orderWorks, markOwnerInContributors } from "../works";
+import type { OrcidWork, OrcidContributor } from "../works";
 
 // A realistic ORCID Public API v3.0 /works payload: one fully-populated
 // journal article (title, journal, year, DOI), one sparse work (no journal,
@@ -203,7 +203,16 @@ describe("parseOrcidWorks", () => {
 // ---------------------------------------------------------------------------
 
 function makeWork(putCode: string, year: string | null = null): OrcidWork {
-  return { putCode, title: `Work ${putCode}`, journal: null, year, type: null, doi: null, url: null };
+  return {
+    putCode,
+    title: `Work ${putCode}`,
+    journal: null,
+    year,
+    type: null,
+    doi: null,
+    url: null,
+    contributors: [],
+  };
 }
 
 describe("orderWorks", () => {
@@ -259,5 +268,125 @@ describe("orderWorks", () => {
     const result = orderWorks(works, ["30"], []);
     // "30" pinned first, then the rest newest-first: "40", "20", "10"
     expect(result.map((w) => w.putCode)).toEqual(["30", "40", "20", "10"]);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// markOwnerInContributors
+// ---------------------------------------------------------------------------
+
+const OWNER = "0000-0001-2345-6789";
+
+function authors(...cs: [string, string | null][]): OrcidContributor[] {
+  return cs.map(([name, orcid]) => ({ name, orcid }));
+}
+
+describe("markOwnerInContributors", () => {
+  it("marks the owner by exact ORCID iD", () => {
+    const list = authors(
+      ["Jane Coauthor", "0000-0002-1111-2222"],
+      ["Grant Nickles", OWNER],
+      ["Sam Coauthor", null],
+    );
+    const marked = markOwnerInContributors(list, OWNER, "Grant Nickles");
+    expect(marked.map((c) => c.isOwner)).toEqual([false, true, false]);
+  });
+
+  it("matches the iD even when the owner is given as a full orcid.org url", () => {
+    const list = authors(["Grant Nickles", OWNER]);
+    const marked = markOwnerInContributors(list, `https://orcid.org/${OWNER}`);
+    expect(marked[0].isOwner).toBe(true);
+  });
+
+  it("marks no one when the owner iD is absent from a list that does carry iDs", () => {
+    const list = authors(
+      ["Jane Coauthor", "0000-0002-1111-2222"],
+      ["Someone Else", "0000-0003-3333-4444"],
+    );
+    const marked = markOwnerInContributors(list, OWNER, "Jane Coauthor");
+    expect(marked.every((c) => !c.isOwner)).toBe(true);
+  });
+
+  it("falls back to a normalized-name match ONLY when no contributor has an iD", () => {
+    const list = authors(
+      ["J. Coauthor", null],
+      ["Grant  Nickles.", null], // extra space + trailing dot
+      ["Sam Coauthor", null],
+    );
+    const marked = markOwnerInContributors(list, OWNER, "Grant Nickles");
+    expect(marked.map((c) => c.isOwner)).toEqual([false, true, false]);
+  });
+
+  it("never name-matches when any contributor carries an iD (avoids wrong person)", () => {
+    const list = authors(
+      ["Grant Nickles", null], // same name, but a DIFFERENT person, no iD
+      ["Real Owner", "0000-0002-1111-2222"],
+    );
+    const marked = markOwnerInContributors(list, OWNER, "Grant Nickles");
+    // An iD exists in the list, so the name fallback is disabled and nobody is
+    // bolded (the owner's own iD is simply not among these contributors).
+    expect(marked.every((c) => !c.isOwner)).toBe(true);
+  });
+
+  it("ignores diacritics in the no-iD name fallback", () => {
+    const list = authors(["GrÿnÉvald", null], ["Other", null]);
+    const marked = markOwnerInContributors(list, OWNER, "Grynevald");
+    expect(marked[0].isOwner).toBe(true);
+  });
+
+  it("marks only the first match when names repeat in the no-iD fallback", () => {
+    const list = authors(["Grant Nickles", null], ["Grant Nickles", null]);
+    const marked = markOwnerInContributors(list, OWNER, "Grant Nickles");
+    expect(marked.map((c) => c.isOwner)).toEqual([true, false]);
+  });
+
+  it("returns an empty array unchanged", () => {
+    expect(markOwnerInContributors([], OWNER, "Grant Nickles")).toEqual([]);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// parseOrcidWorks, contributors
+// ---------------------------------------------------------------------------
+
+describe("parseOrcidWorks contributors", () => {
+  it("parses a contributors block off a full work record", () => {
+    const works = parseOrcidWorks({
+      group: [
+        {
+          "work-summary": [
+            {
+              "put-code": 5,
+              title: { title: { value: "A paper with authors" } },
+              contributors: {
+                contributor: [
+                  {
+                    "credit-name": { value: "Jane Coauthor" },
+                    "contributor-orcid": { path: "0000-0002-1111-2222" },
+                  },
+                  {
+                    "credit-name": { value: "Grant Nickles" },
+                    "contributor-orcid": { uri: `https://orcid.org/${OWNER}` },
+                  },
+                  { "credit-name": { value: "No iD Author" } },
+                  { "credit-name": null }, // skipped, not displayable
+                ],
+              },
+            },
+          ],
+        },
+      ],
+    });
+    expect(works).toHaveLength(1);
+    expect(works[0].contributors).toEqual([
+      { name: "Jane Coauthor", orcid: "0000-0002-1111-2222" },
+      { name: "Grant Nickles", orcid: OWNER },
+      { name: "No iD Author", orcid: null },
+    ]);
+  });
+
+  it("defaults contributors to an empty array when the block is absent", () => {
+    const [first] = parseOrcidWorks(SAMPLE);
+    expect(first.contributors).toEqual([]);
   });
 });
