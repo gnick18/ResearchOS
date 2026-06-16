@@ -22,6 +22,8 @@ import OnboardingTutor from "./OnboardingTutor";
 import {
   shouldRunOnboardingTutor,
   markOnboardingTutorDone,
+  markOnboardingTutorStarted,
+  isOnboardingTutorInProgress,
 } from "@/lib/onboarding/tour-gate";
 import { isFreshUserForWizard } from "@/lib/onboarding/is-fresh-user";
 import {
@@ -78,6 +80,14 @@ export default function TourHost({ username }: TourHostProps) {
   // mid-tour refresh takes. Read once on mount (synchronous, sessionStorage).
   const [resume] = useState<TourResumeState | null>(() => readTourResume());
 
+  // Whether a run is already mid-flight (started, not yet done). Read once on
+  // mount. This is what makes the walkthrough survive a reload or a folder
+  // reconnect during the welcome/picker phase: those phases have no resume
+  // marker, and the freshness signal can flip to false (folder briefly
+  // disconnected, or now carries a footprint), so without this the tour would
+  // silently not reopen and the user would land on the homepage.
+  const [inProgress] = useState<boolean>(() => isOnboardingTutorInProgress());
+
   // Decide whether to run once the signal resolves. The gate also checks the
   // flag, so this is false in prod until ONBOARDING_TUTOR_ENABLED is on. A live
   // resume marker forces it active regardless of the fresh-account read, so a
@@ -89,9 +99,19 @@ export default function TourHost({ username }: TourHostProps) {
       setActive(true);
       return;
     }
+    // A run already in flight reopens regardless of the freshness re-check, so a
+    // reload or folder reconnect during welcome/picker resumes the walkthrough.
+    if (inProgress) {
+      setActive(true);
+      return;
+    }
     if (fresh === null) return;
-    setActive(shouldRunOnboardingTutor({ freshAccount: fresh }));
-  }, [fresh, resume]);
+    const run = shouldRunOnboardingTutor({ freshAccount: fresh });
+    setActive(run);
+    // Persist that the run began, so the next mount takes the inProgress path
+    // above instead of re-deciding freshness.
+    if (run) markOnboardingTutorStarted();
+  }, [fresh, resume, inProgress]);
 
   // The "Setting the stage" handoff: the picker's start hands us the marker, we
   // paint an opaque cover, then (next frame, so the cover is visible) persist the
