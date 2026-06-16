@@ -36,6 +36,8 @@ import { getSession } from "next-auth/react";
 import { LAB_TIER_ENABLED } from "@/lib/lab/config";
 import { useFileSystem } from "@/lib/file-system/file-system-context";
 import { getSessionIdentity } from "@/lib/sharing/identity/session-key";
+import { ensureLocalIdentity } from "@/lib/sharing/identity/ensure-identity";
+import { MULTI_FOLDER_ENABLED } from "@/lib/file-system/multi-folder-config";
 import { createLabLocal } from "@/lib/lab/lab-create";
 import {
   publishPendingGenesis,
@@ -228,9 +230,28 @@ export default function LabCreateResume() {
 
     void (async () => {
       // Check identity + session are ready before attempting creation.
-      const identity = getSessionIdentity();
+      let identity = getSessionIdentity();
       const session = await getSession();
       const oauthEmail = session?.user?.email ?? "";
+
+      // Solo-deferred identity (§8): under MULTI_FOLDER, account-first no longer
+      // pre-mints a keypair on a fresh folder, so a PI creating a lab may have
+      // none yet. Creating a lab DOES need a local keypair (it signs the genesis
+      // record), so mint on demand here — lab creation is itself the explicit
+      // "set up to collaborate" action that warrants an identity. ensureLocalIdentity
+      // is idempotent (no-op if one already exists) and parks the key in the
+      // session, so we re-read it after. The recovery code surfaces via the
+      // Settings unconfirmed-recovery nag, the same posture as before this change
+      // (where the key was pre-minted just as silently). Flag-OFF is unchanged:
+      // autoProvision still pre-mints, so this branch is not reached.
+      if (!identity && MULTI_FOLDER_ENABLED) {
+        try {
+          await ensureLocalIdentity(currentUser);
+          identity = getSessionIdentity();
+        } catch {
+          // Mint failed (disk/permission) — fall through to the retry below.
+        }
+      }
 
       if (!identity) {
         if (retry < MAX_RETRIES) {
