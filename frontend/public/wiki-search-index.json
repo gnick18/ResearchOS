@@ -1,6 +1,6 @@
 {
-  "generatedAt": "2026-06-15T17:07:56.190Z",
-  "pageCount": 92,
+  "generatedAt": "2026-06-16T01:57:04.294Z",
+  "pageCount": 93,
   "categories": [
     {
       "id": "start-here",
@@ -537,7 +537,9 @@
         "Related",
         "Text barely counts",
         "Why it can stay this cheap",
+        "BeakerBot is billed at cost",
         "BeakerBot billing is off during the beta",
+        "Cloud billing is active",
         "During the beta, everything is free"
       ],
       "bodySnippets": [
@@ -570,7 +572,9 @@
         "Department and Institution . Self-serve automated plan builder at . You enter labs, average members, and estimated adoption, and it derives a monthly rate. A modest sustaining rate above bare cost on these larger tiers keeps ResearchOS free for individual researchers and funds...",
         "Notes and methods are tiny, so a lab would need roughly half a million text notes to fill the free pool. The pool only fills with the heavy things, mostly images and large file attachments in shared work. A gel or bench photo is about the size of a photo from a modern phone, a...",
         "Because the app is local-first, your everyday work never touches our servers, so our costs are small and the price can be too. Bulk storage costs us about a penny and a half per gigabyte-month, so a 5 GB free pool costs us pennies and the paid plans only need to recover real c...",
+        "AI metering is active. Each BeakerBot turn draws from your token balance at the rate shown on the pricing page. The cost is what the AI actually costs us, nothing more. Sales tax is handled automatically by our payment processor.",
         "The AI meter is built but not yet active. During the beta, every BeakerBot turn is free. The trial balance will be applied when billing turns on.",
+        "Cloud storage and optional AI are billed at what they cost us. Sales tax is handled automatically by our payment processor. The local notebook and all core features are free forever.",
         "Cloud billing is not turned on yet. The whole system is free while we gather real usage to set the plan prices, so nothing charges you today."
       ]
     },
@@ -2116,6 +2120,33 @@
       ]
     },
     {
+      "href": "/wiki/features/network",
+      "title": "Researcher network",
+      "breadcrumbs": [
+        "Features",
+        "Researcher network"
+      ],
+      "categoryId": "features",
+      "headings": [
+        "What it is",
+        "Finding a researcher",
+        "Your public profile",
+        "Verified institutional identity",
+        "Listed by choice, private by default of email",
+        "Rolling out"
+      ],
+      "bodySnippets": [
+        "The researcher network is the people side of ResearchOS. It is a public directory of researchers, listed by their own choice, that lets you find a colleague by name or institution, confirm who they are, and open a profile of the work they share. It needs no login to browse.",
+        "Most of ResearchOS is about your own work, your methods, sequences, data, and figures, all kept in your own folder. The researcher network is the one place that looks outward, at the other people using ResearchOS. It lives at and is reachable from the top navigation and the fo...",
+        "It is a discovery surface, not a messaging product. The network tells you who is on ResearchOS and lets you confirm that a person is who they say they are. It never exposes an email address.",
+        "The hub has a single search box. Type a name or an institution and it returns the researchers who have opted in to the directory, with their display name, affiliation, and a key fingerprint. Each result links to that person's public profile. The search runs over listed profile...",
+        "Every account has a public profile at , the shareable, login-free page for your work. It shows your name, affiliation, avatar, a short bio, and your typed links, an ORCID record, a ResearchGate page, and a personal website. You edit all of it from Settings under your profile. ...",
+        "When you sign in with an institutional account, your profile carries a verified-domain badge, for example , so a collaborator can trust that you really are at the institution you claim. Alongside the badge, every profile has a key fingerprint you can read out of band to confir...",
+        "A profile is included in the directory by default once you claim a handle, because being findable is the point of a network. You can opt out at any time, which removes you from search and from any institution member list. In every case the directory stays un-walkable for email...",
+        "The researcher network is a new surface and is being turned on gradually. Some parts, like live directory search and institution pages, light up as the directory backend is enabled. Your profile at and its privacy controls work today."
+      ]
+    },
+    {
       "href": "/wiki/features/notifications",
       "title": "Notifications & Inbox",
       "breadcrumbs": [
@@ -2841,7 +2872,7 @@
         "Profile & appearance - your display name, avatar color and gradient, tinted header toggle, ORCID, affiliation, researcher profile, and the public-profile card. Also shows your account and keys (sharing identity, fingerprint, recovery code). This folds in everything that used t...",
         "Account & security - who you are signed in as, a Switch user button that opens the same picker as the app login screen, and the password gate for this account. The password wraps your keys with Argon2id (a deliberately slow, memory-hard function) before anything is written to ...",
         "Add a free account (solo users only) - a gentle one-card explainer of the features a free cloud account unlocks (BeakerBot AI, cloud storage, email and phone notifications, Companion pairing, and sharing). If you already have a cloud account this card is hidden and Usage & bil...",
-        "AI usage - your live BeakerBot token balance, recent task costs, and three prepaid top-up packs ($10, $25, $50). During the beta period, when billing enforcement is off, the section instead shows the \"AI is free during the beta\" framing. Token amounts for each pack come from t...",
+        "AI usage - your live BeakerBot token balance, recent task costs, and three prepaid top-up packs ($10, $25, $50). Flagged with a \"new\" pill.",
         "Cloud storage - how much of your cloud storage cap you have used, what tier you are on, and a link to the pricing page for upgrade options. Flagged with a \"new\" pill.",
         "Appearance - three tiles (Light, Dark, System) that set the app theme. System follows your device. This is a per-device preference and does not sync between computers. The welcome page always stays light.",
         "Animation - a grid of celebration themes for the animation that plays when you complete a task. Ten themes plus a None tile to skip the animation entirely. Click a tile for a live preview. Separately, a BeakerBot animations toggle governs streak and milestone celebrations. The...",

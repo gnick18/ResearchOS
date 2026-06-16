@@ -37,6 +37,7 @@ export const APP_ROUTE_TO_WIKI: Record<string, string> = {
   "/chemistry": "/wiki/features/chemistry",
   "/phylo": "/wiki/features/phylo",
   "/figures": "/wiki/features/figures",
+  "/network": "/wiki/features/network",
 };
 
 /** Prefix-aware lookup. Tries an exact match first, then walks the
@@ -268,6 +269,11 @@ export const WIKI_NAV: WikiNode[] = [
         href: "/wiki/features/figures",
         label: "Figure Composer",
         blurb: "Lay your real data figures out on a single publication page, with live panels from sequences, molecules, trees, and Data Hub plots, exported as one clean vector SVG.",
+      },
+      {
+        href: "/wiki/features/network",
+        label: "Researcher network",
+        blurb: "The people side of ResearchOS. A public, opt-in directory to find researchers by name or institution, with verified institutional identities and a shareable profile of the work you choose to show.",
       },
       {
         href: "/wiki/features/cloning",
