@@ -101,6 +101,8 @@ export type RegisterTrackerPayload = {
   unitsPerScan: number;
   totalUnits: number;
   unitLabel: string;
+  // Spatial inventory Phase A: free-text location captured at scan-in ("-80 door").
+  location?: string;
 };
 export type DeductPayload = {
   stockId?: number | string;
@@ -121,6 +123,8 @@ export type CreatePayload = {
   unitsPerScan?: number;
   totalUnits?: number;
   unitLabel?: string;
+  // Spatial inventory Phase A: free-text location captured at scan-in ("-80 door").
+  location?: string;
 };
 
 export type ActionResult = { ok: true } | { ok: false; error: string };

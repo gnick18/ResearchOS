@@ -216,6 +216,8 @@ interface RegisterTrackerPayload {
   unitsPerScan?: number | string;
   totalUnits?: number | string;
   unitLabel?: string;
+  /** Spatial inventory Phase A: free-text physical location captured at scan-in. */
+  location?: string;
 }
 
 /** deduct: the user scanned a tracked barcode; deduct `amount` units. */
@@ -243,6 +245,8 @@ interface CreatePurchasePayload {
   unitsPerScan?: number | string;
   totalUnits?: number | string;
   unitLabel?: string;
+  /** Spatial inventory Phase A: free-text physical location captured at scan-in. */
+  location?: string;
 }
 
 /**
@@ -257,6 +261,8 @@ interface CreateInventoryPayload {
   unitsPerScan?: number | string;
   totalUnits?: number | string;
   unitLabel?: string;
+  /** Spatial inventory Phase A: free-text physical location captured at scan-in. */
+  location?: string;
 }
 
 // ── Phase 1 command channel ─────────────────────────────────────────────────
@@ -676,6 +682,12 @@ async function applyRegisterTracker(
     await inventoryStocksApi.update(stock.id, { scan_unit_label: payload.unitLabel });
   }
 
+  // Spatial inventory Phase A: record where the package was put, if captured.
+  const location = (payload.location && payload.location.trim()) || null;
+  if (location) {
+    await inventoryStocksApi.update(stock.id, { location_text: location });
+  }
+
   console.info(
     `${logPrefix} register-tracker: stock ${stock.id} registered (ups=${unitsPerScan}, total=${totalUnits}, barcode=${payload.productBarcode})`,
   );
@@ -805,6 +817,7 @@ async function applyCreatePurchase(
     received_date: today,
     container_count: quantity != null && quantity >= 1 ? Math.floor(quantity) : 1,
     status: "in_stock",
+    location_text: (payload.location && payload.location.trim()) || null,
   });
   console.info(
     `${logPrefix} create-purchase: inventory item ${invItem.id} + stock ${stock.id} created`,
@@ -853,6 +866,7 @@ async function applyCreateInventory(
     received_date: today,
     container_count: 1,
     status: "in_stock",
+    location_text: (payload.location && payload.location.trim()) || null,
   });
   console.info(
     `${logPrefix} create-inventory: item ${invItem.id} + stock ${stock.id} created`,

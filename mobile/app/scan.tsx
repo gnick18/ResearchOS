@@ -226,6 +226,8 @@ export default function ScanScreen() {
   const [unitsPerScan, setUnitsPerScan] = useState(1);
   const [totalInBox, setTotalInBox] = useState('');
   const [unitLabel, setUnitLabel] = useState('reaction');
+  // Spatial inventory Phase A: free-text "where did you put it" captured at scan-in.
+  const [location, setLocation] = useState('');
 
   const [send, setSend] = useState<ActionResult | { ok: 'idle' } | { ok: 'sending' }>({ ok: 'idle' });
   const [doneMsg, setDoneMsg] = useState('');
@@ -319,6 +321,7 @@ export default function ScanScreen() {
     setUnitsPerScan(1);
     setTotalInBox('');
     setUnitLabel('reaction');
+    setLocation('');
     setSend({ ok: 'idle' });
     setDoneMsg('');
   }, []);
@@ -356,6 +359,7 @@ export default function ScanScreen() {
         setUnitLabel('reaction');
         setUnitsPerScan(1);
         setTotalInBox('');
+        setLocation('');
         setStep('track');
       }
     },
@@ -414,6 +418,7 @@ export default function ScanScreen() {
               unitsPerScan,
               totalUnits,
               unitLabel,
+              location: location.trim() || undefined,
             },
             `Track ${trackCtx.purchase.name ?? 'item'}`,
             pairing,
@@ -435,6 +440,7 @@ export default function ScanScreen() {
               unitsPerScan,
               totalUnits,
               unitLabel,
+              location: location.trim() || undefined,
             },
             trackCtx.name,
             pairing,
@@ -443,7 +449,7 @@ export default function ScanScreen() {
         `Saved and tracking ${trackCtx.name}`,
       );
     }
-  }, [trackCtx, pairing, totalInBox, unitsPerScan, unitLabel, code, run]);
+  }, [trackCtx, pairing, totalInBox, unitsPerScan, unitLabel, location, code, run]);
 
   // "No thanks", apply the create/arrival without tracking.
   const onSkipTracking = useCallback(() => {
@@ -464,6 +470,7 @@ export default function ScanScreen() {
             catalog: trackCtx.catalog,
             productBarcode: code,
             quantity: trackCtx.quantity,
+            location: location.trim() || undefined,
           },
           trackCtx.name,
           pairing,
@@ -471,7 +478,7 @@ export default function ScanScreen() {
         ),
       trackCtx.mode === 'purchase' ? `Order saved for ${trackCtx.name}` : `${trackCtx.name} added to inventory`,
     );
-  }, [trackCtx, pairing, code, run]);
+  }, [trackCtx, pairing, code, location, run]);
 
   // Enter the create flow (add new PO / add inventory), prefilled from the guess.
   const startCreate = useCallback(
@@ -490,6 +497,7 @@ export default function ScanScreen() {
       setUnitsPerScan(1);
       setTotalInBox('');
       setUnitLabel('reaction');
+      setLocation('');
       setStep('track');
     },
     [snap, code],
@@ -498,6 +506,17 @@ export default function ScanScreen() {
   const sending = send.ok === 'sending';
   const errorMsg = send.ok === false ? send.error : null;
   const cameraReady = paired && permission?.granted === true && step === 'scan' && !handled;
+
+  // Spatial inventory Phase A: distinct recent locations from synced stocks, so
+  // the scan-in prompt can offer one-tap reuse ("-80 door" again) and locations
+  // stay consistent across the lab. Cap at 6 to keep the chip row tidy.
+  const recentLocations = Array.from(
+    new Set(
+      (snap?.trackedStocks ?? [])
+        .map((s) => (s.location ?? '').trim())
+        .filter((l) => l.length > 0),
+    ),
+  ).slice(0, 6);
 
   return (
     <ScreenFrame>
@@ -625,6 +644,9 @@ export default function ScanScreen() {
               setTotalInBox={setTotalInBox}
               unitLabel={unitLabel}
               setUnitLabel={setUnitLabel}
+              location={location}
+              setLocation={setLocation}
+              recentLocations={recentLocations}
               onStart={onStartTracking}
               onSkip={onSkipTracking}
               sending={sending}
@@ -986,6 +1008,9 @@ function TrackView({
   setTotalInBox,
   unitLabel,
   setUnitLabel,
+  location,
+  setLocation,
+  recentLocations,
   onStart,
   onSkip,
   sending,
@@ -999,6 +1024,9 @@ function TrackView({
   setTotalInBox: (s: string) => void;
   unitLabel: string;
   setUnitLabel: (s: string) => void;
+  location: string;
+  setLocation: (s: string) => void;
+  recentLocations: string[];
   onStart: () => void;
   onSkip: () => void;
   sending: boolean;
@@ -1006,6 +1034,7 @@ function TrackView({
 }) {
   const { surface, spacing, radii, dark } = useTheme();
   const [totalFocus, setTotalFocus] = useState(false);
+  const [locFocus, setLocFocus] = useState(false);
   const perScanText = unitsPerScan === 1 ? `1 ${unitLabel}` : `${unitsPerScan} ${unitLabel}s`;
   return (
     <View style={{ gap: spacing.md }}>
@@ -1093,6 +1122,51 @@ function TrackView({
         </View>
       </Card>
 
+      <ThemedText style={[styles.sectionLabel, { color: surface.faint }]}>WHERE DID YOU PUT IT?</ThemedText>
+      <Card style={{ gap: spacing.md }}>
+        <TextInput
+          value={location}
+          onChangeText={setLocation}
+          onFocus={() => setLocFocus(true)}
+          onBlur={() => setLocFocus(false)}
+          placeholder="e.g. -80 freezer, left door"
+          placeholderTextColor={surface.placeholder}
+          style={[
+            styles.locInput,
+            {
+              backgroundColor: locFocus ? surface.surface : surface.surface2,
+              borderColor: locFocus ? palette.sky : surface.borderStrong,
+              borderRadius: radii.md,
+              color: surface.text,
+            },
+            locFocus ? focusRing(dark) : null,
+          ]}
+        />
+        {recentLocations.length > 0 ? (
+          <View style={styles.chips}>
+            {recentLocations.map((loc) => {
+              const on = location.trim() === loc;
+              return (
+                <Pressable
+                  key={loc}
+                  onPress={() => setLocation(loc)}
+                  style={[
+                    styles.chip,
+                    {
+                      backgroundColor: on ? palette.sky : surface.surface,
+                      borderColor: on ? palette.sky : surface.border,
+                      borderRadius: radii.pill,
+                    },
+                  ]}
+                >
+                  <ThemedText style={[styles.chipText, { color: on ? palette.white : surface.muted }]}>{loc}</ThemedText>
+                </Pressable>
+              );
+            })}
+          </View>
+        ) : null}
+      </Card>
+
       <Callout tone="sky">
         Each scan deducts <ThemedText style={styles.calloutLead}>{perScanText}</ThemedText>. We will warn you when it runs low.
       </Callout>
@@ -1173,6 +1247,13 @@ const styles = StyleSheet.create({
     textAlign: 'right',
   },
   fieldLabelLg: { fontSize: 15, fontFamily: fonts.semibold, fontWeight: '600', lineHeight: 20 },
+  locInput: {
+    borderWidth: 1,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    fontSize: 16,
+    minHeight: 48,
+  },
 
   // Camera viewfinder (contract .scanframe): white corner brackets + a glowing
   // sky scanline, with a centered hint line below.

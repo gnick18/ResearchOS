@@ -117,6 +117,42 @@ describe("buildInventorySnapshot — trackedStocks", () => {
     expect(snap.trackedStocks[0].unitLabel).toBe("rxn");
   });
 
+  it("carries the stock's location_text as `location` (spatial inventory Phase A)", async () => {
+    const item = await inventoryItemsApi.create({
+      name: "Q5 Polymerase",
+      product_barcode: "555000111222",
+    });
+    await inventoryStocksApi.create({
+      item_id: item.id,
+      units_per_scan: 1,
+      units_remaining: 25,
+      location_text: "-20 freezer, door rack",
+      container_count: 1,
+    });
+
+    const snap = await buildInventorySnapshot();
+    expect(snap.trackedStocks).toHaveLength(1);
+    expect(snap.trackedStocks[0].location).toBe("-20 freezer, door rack");
+  });
+
+  it("reports location null when location_text is absent or whitespace", async () => {
+    const item = await inventoryItemsApi.create({
+      name: "DMSO",
+      product_barcode: "555000333444",
+    });
+    await inventoryStocksApi.create({
+      item_id: item.id,
+      units_per_scan: 1,
+      units_remaining: 10,
+      location_text: "   ",
+      container_count: 1,
+    });
+
+    const snap = await buildInventorySnapshot();
+    expect(snap.trackedStocks).toHaveLength(1);
+    expect(snap.trackedStocks[0].location).toBeNull();
+  });
+
   it("excludes a stock when the parent item has no product_barcode", async () => {
     const item = await inventoryItemsApi.create({ name: "Ethanol" });
     await inventoryStocksApi.create({
