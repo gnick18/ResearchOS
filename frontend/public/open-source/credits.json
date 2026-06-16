@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-06-15T23:22:40.585Z",
+  "generatedAt": "2026-06-16T01:06:06.841Z",
   "appVersion": "0.75.0",
   "dependencyCount": 84,
   "licenseCounts": {
@@ -298,6 +298,12 @@
       "repo": "https://github.com/duckdb/duckdb-wasm"
     },
     {
+      "name": "@huggingface/transformers",
+      "version": "3.8.1",
+      "license": "Apache-2.0",
+      "repo": "https://github.com/huggingface/transformers.js"
+    },
+    {
       "name": "@lezer/common",
       "version": "1.5.2",
       "license": "MIT",
@@ -440,12 +446,6 @@
       "version": "2.0.1",
       "license": "MIT",
       "repo": "https://github.com/vercel/analytics"
-    },
-    {
-      "name": "@xenova/transformers",
-      "version": "2.17.2",
-      "license": "Apache-2.0",
-      "repo": "https://github.com/xenova/transformers.js"
     },
     {
       "name": "apache-arrow",

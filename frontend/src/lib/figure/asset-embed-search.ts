@@ -11,6 +11,7 @@
 // unit-tested; the load path is integration-wired via buildSmartSearchTasks.
 
 import { fetchWithProgress } from "@/lib/page-boot/fetch-with-progress";
+import type { ProgressInfo } from "@huggingface/transformers";
 import type { BootTask } from "@/lib/page-boot/page-boot";
 import { rankAssets, type ScoredAsset } from "./asset-search";
 import type { LibraryAsset } from "./asset-library";
@@ -137,7 +138,10 @@ export function buildSmartSearchTasks(): BootTask[] {
       run: async (onProgress) => {
         const meta_url = `${EMBED_BASE}/embeddings-v1.meta.json`;
         meta = (await fetch(meta_url, { cache: "force-cache" }).then((r) => r.json())) as EmbedMeta;
-        const tf = await import("@xenova/transformers");
+        // @huggingface/transformers (the maintained successor to @xenova/transformers,
+        // which threw at module-evaluation under the Turbopack prod bundle). Same
+        // env API; dynamic-imported so nothing loads until smart search is invoked.
+        const tf = await import("@huggingface/transformers");
         // The MiniLM model files must load from a CSP-allowed origin. By default
         // transformers.js fetches from huggingface.co, which is NOT in the app's
         // connect-src allowlist; in prod we host the model on our own R2 (already
@@ -153,15 +157,24 @@ export function buildSmartSearchTasks(): BootTask[] {
         // onnxruntime-web defaults its .wasm binaries to a jsdelivr CDN that the
         // app CSP connect-src does not allow. Serve them from our own origin (the
         // embeddings base) and run single-threaded so no cross-origin isolation
-        // (COOP/COEP) is required.
-        tf.env.backends.onnx.wasm.wasmPaths = `${EMBED_BASE.replace(/\/$/, "")}/ort/`;
-        tf.env.backends.onnx.wasm.numThreads = 1;
+        // (COOP/COEP) is required. NOTE: v3's onnxruntime (1.22) requests the
+        // unified jsep build `ort-wasm-simd-threaded.jsep.wasm` (NOT v2's
+        // `ort-wasm.wasm`/`ort-wasm-simd.wasm`); the ingest lane stages that file.
+        if (tf.env.backends?.onnx?.wasm) {
+          tf.env.backends.onnx.wasm.wasmPaths = `${EMBED_BASE.replace(/\/$/, "")}/ort/`;
+          tf.env.backends.onnx.wasm.numThreads = 1;
+        }
         // Aggregate the per-file download progress into one 0..1.
         const totals: Record<string, { loaded: number; total: number }> = {};
         const pipe = await tf.pipeline("feature-extraction", meta.model, {
-          progress_callback: (p: { file?: string; loaded?: number; total?: number }) => {
-            if (p.file && typeof p.total === "number" && p.total > 0) {
-              totals[p.file] = { loaded: p.loaded ?? 0, total: p.total };
+          // q8 maps to the `onnx/model_quantized.onnx` already on R2 (v3's
+          // DEFAULT_DTYPE_SUFFIX_MAPPING: q8 -> "_quantized"); device wasm avoids
+          // the WebGPU probe so it deterministically uses the hosted wasm runtime.
+          dtype: "q8",
+          device: "wasm",
+          progress_callback: (p: ProgressInfo) => {
+            if (p.status === "progress" && p.total > 0) {
+              totals[p.file] = { loaded: p.loaded, total: p.total };
               let l = 0;
               let t = 0;
               for (const f of Object.values(totals)) {

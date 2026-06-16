@@ -50,6 +50,10 @@ RUNTIME DEPENDENCIES
   License: MIT
   Source:  https://github.com/duckdb/duckdb-wasm
 
+@huggingface/transformers@3.8.1
+  License: Apache-2.0
+  Source:  https://github.com/huggingface/transformers.js
+
 @lezer/common@1.5.2
   License: MIT
   Source:  https://github.com/lezer-parser/common
@@ -144,10 +148,6 @@ RUNTIME DEPENDENCIES
 @vercel/analytics@2.0.1
   License: MIT
   Source:  https://github.com/vercel/analytics
-
-@xenova/transformers@2.17.2
-  License: Apache-2.0
-  Source:  https://github.com/xenova/transformers.js
 
 apache-arrow@21.1.0
   License: Apache-2.0
