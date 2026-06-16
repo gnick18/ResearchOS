@@ -212,11 +212,14 @@ export function figureToRenderSpec(
     timeAxis: inputs.timeAxis,
     columnGap: inputs.columnGap,
     legendPlacement: inputs.legendPlacement,
-    // The rooted circular layout gets the "circle left, callouts right" treatment:
-    // the renderer left-anchors the circle and pulls each ring's name into the
-    // right gutter. Inert unless the canvas is widened (width > height), which the
-    // Studio does for this layout.
-    circularGutter: inputs.layout === "circular",
+    // The radial layouts (circular / fan / inward-circular) get the "circle left,
+    // callouts right" treatment: the renderer left-anchors the circle and pulls each
+    // ring's name into the right gutter. Inert unless the canvas is widened (width >
+    // height), which the Studio does for these layouts.
+    circularGutter:
+      inputs.layout === "circular" ||
+      inputs.layout === "fan" ||
+      inputs.layout === "inwardCircular",
     tracks: inputs.tracks,
     columns: {
       category: inputs.categoryColumn || undefined,

@@ -158,8 +158,15 @@ const figHeightFor = (layout: PhyloLayout): number =>
 // height-bound), so the tree stays exactly as large. Every other layout keeps
 // FIG_W, so they are unaffected.
 const RADIAL_CALLOUT_GUTTER = 220;
+// The radial family that gets the right-gutter track callouts (circle left). NOT
+// unrooted: it has no concentric rings to call out and no single open gap.
+const CALLOUT_GUTTER_LAYOUTS = new Set<PhyloLayout>([
+  "circular",
+  "fan",
+  "inwardCircular",
+]);
 const figWidthFor = (layout: PhyloLayout): number =>
-  layout === "circular" ? FIG_W + RADIAL_CALLOUT_GUTTER : FIG_W;
+  CALLOUT_GUTTER_LAYOUTS.has(layout) ? FIG_W + RADIAL_CALLOUT_GUTTER : FIG_W;
 
 // Per-page key for the persisted left-rail width (the shared split shell, keyed
 // per page exactly as Sequences/Chemistry do).

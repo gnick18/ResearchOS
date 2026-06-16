@@ -598,14 +598,15 @@ function renderFromPanels(
     panels.find((p) => p.visible && p.kind === "labels") ?? null;
   const hasLabels = !!labelsPanel;
 
-  // Right-gutter callouts: the rooted circular layout, given a wider-than-tall
-  // canvas (the Studio widens it), left-anchors the circle and pulls each ring's
-  // name out to the right at the fan's open gap with a thin leader, so the rings
-  // self-identify without bouncing to the legend (Grant's "circle left, callouts
-  // right" published look). Inert unless the canvas is actually widened.
+  // Right-gutter callouts: a radial layout (circular / fan / inward-circular), given
+  // a wider-than-tall canvas (the Studio widens it), left-anchors the circle and
+  // pulls each ring's name out to the right through the open gap (all three have a
+  // clear right side: the rooted fan's 3 o'clock gap, the open fan's empty right
+  // half) with a thin leader, so the rings self-identify without bouncing to the
+  // legend (Grant's "circle left, callouts right" look). Inert unless widened.
   const gutter =
     !!spec.circularGutter &&
-    spec.layout === "circular" &&
+    isCircular(spec.layout) &&
     spec.width > spec.height;
 
   // Legends, one per colored aligned panel (and colored tip decoration) that asks

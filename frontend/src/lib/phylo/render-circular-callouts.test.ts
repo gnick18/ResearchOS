@@ -108,4 +108,13 @@ describe("circular gutter callouts (pulled-out track names)", () => {
     const svg = renderTreeSvg(TREE, spec(840, 620, "rectangular"));
     expect(svg).not.toContain('font-size="9.5"');
   });
+
+  it("also draws callouts for the fan + inward-circular radial layouts", () => {
+    for (const layout of ["fan", "inwardCircular"] as const) {
+      const svg = renderTreeSvg(TREE, spec(840, 620, layout));
+      expect(svg).toContain("Region"); // the ring's track name
+      expect(svg).toContain('stroke-width="0.75"'); // the leader
+      expect(svg).toContain('font-size="9.5"'); // the callout label
+    }
+  });
 });
