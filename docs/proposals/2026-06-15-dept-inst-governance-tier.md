@@ -55,9 +55,11 @@ The concrete feature that makes Model B enforceable. The department sets a polic
 **The verification ladder.**
 1. Attestation plus reminders, ships first, works for every institution, trust based.
 2. Heuristic confidence, best-effort signals that raise confidence without proving (folder-name patterns, whether the same data is synced across the user's devices).
-3. Microsoft Graph or Google Drive hard-verify, the upgrade that makes it real. An institution on Microsoft 365 connects ResearchOS with admin consent, and the Graph API confirms the user has OneDrive provisioned and the ResearchOS folder exists in it. For an M365 school where everyone gets a terabyte of OneDrive, this turns attestation into actual verification.
+3. Provider hard-verify through a pluggable storage-provider connector. The department selects its institution's cloud provider, and ResearchOS verifies through that provider's API where one exists, Microsoft Graph for Microsoft 365, the Google Drive and Admin SDK for Google Workspace, plus Box and Dropbox Business, confirming the user has the storage provisioned and the ResearchOS folder present. Attestation stays the universal baseline for any provider we have not integrated, so the feature works everywhere and gets stronger where an API exists.
 
-Division of labor. ResearchOS owns the roster, policy, per-user status, nudges, and the move helper. Institutional IT owns the OneDrive admin center and, when connected, the Graph verification. We are the layer that maps ResearchOS folders specifically onto the institution's storage and makes the gaps visible and self-healing.
+The storage substrate is already provider-agnostic, because ResearchOS connects to a synced folder on disk and does not care which cloud syncs it (OneDrive, Google Drive, Box, Dropbox, and iCloud all present the same way). Only the verification is provider-specific, so it lives behind a StorageProvider connector seam, the same registry pattern as the existing FigureSource and AssetSource seams, and the policy, the move helper, and the reminder copy are all parameterized by the chosen provider.
+
+Division of labor. ResearchOS owns the roster, policy, per-user status, nudges, and the move helper. Institutional IT owns the provider's admin console (OneDrive, Google Workspace, Box, or Dropbox) and, when connected, the provider verification. We are the layer that maps ResearchOS folders specifically onto the institution's storage and makes the gaps visible and self-healing.
 
 ## The Department Commons (the standout offering)
 
@@ -87,11 +89,17 @@ Public pages are a free distribution play, not a paid perk. Gating them behind t
 
 The useful page content is the living research substance a hand-maintained faculty site cannot keep current. An always-fresh people and expertise directory, an open protocols showcase drawn from the Commons, and a reproducible outputs showcase tied to the transparency work. The only page element the paid tier earns is a data-stewardship verified mark, backed by the storage-compliance system, a trust signal a funder or collaborator actually values because it cannot be faked. The directory work folds into the researcher social-layer lane, not the billing lane.
 
+## Decisions locked 2026-06-15
+
+- Compliance verification builds a provider-agnostic verification seam into the beta from the start, not deferred. The department selects its institution's cloud provider (Microsoft 365, Google Workspace, Box, Dropbox), and ResearchOS hard-verifies through that provider's API where one exists, needing tenant-admin consent to activate. Attestation is the universal fallback for any provider we have not integrated. Marking a member exempt requires a reason and an expiry, so an exemption cannot become a permanent silent bypass.
+- Commons revision behavior. When the department updates a resource, a lab gets an explicit accept-changes prompt, not a silent swap, and can either accept the new version or fork it into a personal or lab copy using the existing fork system, so a lab can deliberately diverge from the department standard. This protects an in-progress experiment from a method changing underneath it.
+- The Commons includes labs-contribute-upward (the approval queue in the approved mockup), built on top of the read-only foundation.
+- The dept portal mockup is approved.
+
 ## Open decisions
 
 1. Confirm the pricing shift from "more per lab on storage" to a governance fee with storage at or below standalone, against the live model.
-2. Commons direction, read-only top-down standards versus labs-contribute-upward with departmental approval. The second is more powerful and needs the approval and governance layer.
-3. Compliance verification, ship attestation-first now versus design the Microsoft Graph hard-verify in from the start.
+2. Build phasing for the Commons, read-only top-down first and then labs-contribute-upward as phase two, per the architecture sketch.
 
 ## Companion artifacts
 
