@@ -131,3 +131,17 @@ Storage (R2 files + DO bytes) is à-la-carte pass-through and DO requests are al
 4. **Does Solo include any a-la-carte backup allowance, or is all storage purely metered on top?**
 
 Once these settle, the numbers go into `plans.ts` + `assumptions.ts`, the master bible gets written, and the dev page is deleted.
+
+## Three pricing modes (Grant 2026-06-16) — Model A locked
+
+Pricing model is **Model A (pay-for-what-you-use)**, LOCKED. Structure: a small base/floor + usage at a markup, AI metered at near-cost (1.4x/2x, ~3% of revenue), storage at-cost. The only knobs that vary between modes are the **base fee** and the **usage markup**; AI and storage are constant. Dept is the **Enterprise premium** lever (GitHub-Enterprise logic — depts are the only strong margin lever, gated on shipping governance/Commons/data-continuity). Floor is an additive base; 6-month billing off an accrued ledger with a ~$5 min charge + card-on-file (final-invoice-on-cancel).
+
+Three modes were modeled and rendered into a review/share deck — `docs/proposals/2026-06-16-pricing-modes.html` (regenerate via `2026-06-16-pricing-modes.gen.py`), each with three plots (time-to-$5, break-even, revenue composition):
+
+| Mode | Solo | Lab | Dept | Break-even (paying) | Net @ 50k | Net @ 100k |
+|---|---|---|---|---|---|---|
+| **Lean / benevolent** | $1 + 3x | $5 + 2.75x | $10/lab + 2.5x | ~180 | ~$3.6k/mo (~$43k/yr) | ~$90k/yr |
+| **Fund-the-labs** | $3 + 5x | $12 + 4.5x | $25/lab + 4x | ~70 | ~$9.2k/mo (~$110k/yr) | ~$224k/yr |
+| **Premium (academic)** | $6 + 8x | $25 + 7x | $50/lab + 6x | ~40 | ~$18k/mo (~$217k/yr) | ~$438k/yr |
+
+Assumptions held constant: 5% conversion, 40/40/20 solo/lab/dept mix, ~6 seats/lab + 5 labs/dept, typical usage ~0.2M relay writes/seat/mo. Even Premium keeps a seat under ~$10/mo, a fraction of LabArchives alone ($27.50/user/mo). Philosophy in all three: better product, dramatically cheaper than the replaced tool stack, academics-first. **Open: Grant + Emile pick the mode (philosophy + ambition).** NEXT after pick: rebuild `service-model.ts` + dashboard around the chosen Model A params (mode-parameterized), then `plans.ts`/`assumptions.ts` + master bible.
