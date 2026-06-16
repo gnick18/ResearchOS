@@ -15,6 +15,7 @@ import {
   type FixedCostItem,
   STORAGE_MARKUP,
   storageRetailPerGB,
+  hostedAssetMonthlyCost,
   relayCost,
   serviceMargin,
   avgFreeUserCostPathA,
@@ -68,6 +69,14 @@ describe("storage is near-cost pass-through", () => {
   it("markup is a thin 1.1-1.2x band, never a profit center", () => {
     expect(STORAGE_MARKUP).toBeGreaterThanOrEqual(1.1);
     expect(STORAGE_MARKUP).toBeLessThanOrEqual(1.2);
+  });
+
+  it("hosted companion-site assets bill at the same pass-through rate per GB", () => {
+    // 1 GB (1e9 bytes) bills at exactly one storageRetailPerGB; it scales linearly.
+    expect(hostedAssetMonthlyCost(1e9)).toBeCloseTo(storageRetailPerGB(), 9);
+    expect(hostedAssetMonthlyCost(5e9)).toBeCloseTo(5 * storageRetailPerGB(), 9);
+    expect(hostedAssetMonthlyCost(0)).toBe(0);
+    expect(hostedAssetMonthlyCost(-100)).toBe(0); // never negative
   });
 });
 

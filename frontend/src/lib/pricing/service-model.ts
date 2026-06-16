@@ -267,6 +267,15 @@ export function storageRetailPerGB(): number {
   return BLENDED_PER_GB_MO * (1 + BUFFER) * STORAGE_MARKUP;
 }
 
+/** Monthly pass-through bill for a lab's hosted companion-site data assets
+ *  (lab-domains lane), billed at the same 1.15x cost-recovery storage rate, no
+ *  margin (Grant 2026-06-16). Input is total hosted bytes from
+ *  getLabHostedBytes; 1 GB = 1e9 bytes (decimal, matching cloud-storage billing). */
+export function hostedAssetMonthlyCost(bytes: number): number {
+  const gb = Math.max(0, bytes) / 1e9;
+  return gb * storageRetailPerGB();
+}
+
 /** Our bare cost of the relay activity a service generates, dollars per month. */
 export function relayCost(writesM: number): number {
   return writesM * ACTIVITY_PER_M_WRITES;

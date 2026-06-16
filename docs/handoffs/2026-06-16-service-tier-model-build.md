@@ -71,3 +71,11 @@ Related: `docs/proposals/2026-06-16-service-tier-structure.md`, `[[project-prici
 ## Pricing modes deck (2026-06-16)
 
 Model A LOCKED. Three modes (Lean / Fund-the-labs / Premium) modeled into a review/share deck for Grant + Emile: `docs/proposals/2026-06-16-pricing-modes.html` (regen `2026-06-16-pricing-modes.gen.py`), each with time-to-$5, break-even, and revenue-composition plots. Only the base fee + usage markup vary between modes; AI (1.4x/2x, ~3% of rev) and storage (at-cost) are constant; dept is the Enterprise premium lever. Numbers + assumptions in the proposal `2026-06-16-service-tier-structure.md` and `[[project-pricing-finalize-2026-06]]`. OPEN = Grant+Emile pick the mode; NEXT after pick = rebuild service-model.ts + dashboard (mode-parameterized) then plans.ts/assumptions.ts + master bible.
+
+## Lab-domains Phase 4 billing primitives (BUILT 2026-06-16, inert)
+
+Grant greenlit building these in parallel with the social lane's Phase 3b. All inert until the social lane imports them, like isLabPublishEntitled.
+- **Hosted-assets metered line** (`lib/collab/server/db.ts`): separate `lab_hosted_assets` table (asset_id, lab_owner_key, bytes, archived) + `setHostedAssetBytes` / `removeHostedAsset` / `getLabHostedBytes(labOwnerKey)` / `setHostedAssetArchived` / `isHostedAssetArchived`. Distinct from collab_doc_sizes (own quota/lapse rules). Social lane reports bytes; billing reads the lab total.
+- **Pass-through bill** (`lib/pricing/service-model.ts`): `hostedAssetMonthlyCost(bytes)` = bytes/1e9 GB x storageRetailPerGB() (the 1.15x cost-recovery rate, no margin). Unit-tested.
+- **Reclaim signal** (`lib/billing/db.ts`): `getLabLapse(labOwnerKey): {lapsedAt} | null` -> non-null (lapsedAt = sub updated_at) when the lab is not on an active sub, null when active/never-subscribed. Social lane GCs hosted R2 assets 30 days after lapsedAt, SKIPPING any asset where isHostedAssetArchived is true (the prepaid permanent-archive SKU sets that flag). lapsedAt only moves forward so GC never fires early; re-subscribe -> null -> clock resets.
+- **Still owed (billing-live):** the actual prepaid permanent-archive PURCHASE flow (Stripe one-time charge -> setHostedAssetArchived). The flag + setter exist now so the social lane can build GC-skip against it; wire the charge when billing goes live.
