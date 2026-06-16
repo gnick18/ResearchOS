@@ -726,10 +726,10 @@ export default function GraphEditor({
         </div>
 
         {/* Collision-aware layout advisor (Phase 5): when the legend piles onto the
-            bars or labels crowd, a quiet banner offers a one-click auto-fix +
-            per-fix previews. Grouped bar is the kind that emits a manifest today;
-            it renders nothing when the plot is clean or for other plot kinds. */}
-        {isGrouped && (
+            bars / curves or labels crowd, a quiet banner offers a one-click auto-fix
+            + per-fix previews. Grouped bar + survival emit a manifest today; it
+            renders nothing when the plot is clean or for other plot kinds. */}
+        {(isGrouped || isSurvival) && (
           <PlotLayoutAdvisor
             spec={spec}
             content={content}
@@ -905,10 +905,26 @@ export default function GraphEditor({
               </Ctl>
             </>
           ) : isSurvival ? (
-            <p className="text-[11px] text-foreground-muted">
-              A survival curve has no per-bar style. Tune colors and labels in the
-              sections below.
-            </p>
+            <>
+              <Ctl label="Legend">
+                <Seg<"overlay" | "right">
+                  value={style.legendPlacement ?? "overlay"}
+                  options={[
+                    { value: "overlay", label: "Overlay" },
+                    { value: "right", label: "Right" },
+                  ]}
+                  onChange={(v) =>
+                    onStyleChange({
+                      legendPlacement: v === "overlay" ? undefined : v,
+                    })
+                  }
+                />
+              </Ctl>
+              <p className="text-[11px] text-foreground-muted">
+                A survival curve has no per-bar style. Tune colors and labels in the
+                sections below.
+              </p>
+            </>
           ) : isEstimation ? (
             <>
               <Ctl label="Control group">

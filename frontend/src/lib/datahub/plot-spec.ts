@@ -2714,14 +2714,25 @@ export function layoutSurvivalCurve(
   style: PlotStyle,
 ): SurvivalCurveGeometry {
   const { width, height, padL, padR, padT, padB } = figureBox(style);
-  const x0 = padL;
-  const x1 = width - padR;
-  const y0 = height - padB;
-  const y1 = padT;
-
   const groups = survivalGroups(content).filter(
     (g) => g.observations.length > 0,
   );
+
+  // A "right"-placed legend reserves a gutter so the curves stop short of it (the
+  // collision advisor's relocate-legend fix). Default "overlay" reserves nothing,
+  // so an old survival figure is byte-identical.
+  const placement = style.legendPlacement ?? "overlay";
+  const legendGutter =
+    placement === "right" && groups.length > 0
+      ? groupedLegendWidth(
+          groups.map((g) => g.name),
+          Math.max(8, style.fontSize - 2),
+        ) + GROUPED_LEGEND.gutterPad
+      : 0;
+  const x0 = padL;
+  const x1 = width - padR - legendGutter;
+  const y0 = height - padB;
+  const y1 = padT;
 
   // Time axis runs 0 .. the largest observed time.
   let tMaxData = 0;
@@ -2841,15 +2852,23 @@ export function renderSurvivalCurveSvg(
     );
   }
 
-  // Legend (top-right inside the plot area). The swatch carries data-series so a
-  // direct edit on the plot can recolor a whole arm from its legend entry.
-  let ly = geo.y1 + 4;
+  // Legend. "overlay" (default) draws it top-right INSIDE the plot; "right" draws
+  // it in the reserved gutter clear of the curves. The swatch carries data-series
+  // so a direct edit on the plot can recolor a whole arm from its legend entry. The
+  // x lives in groupedLegendSwatchX so the collision advisor measures the exact box.
+  const legendSwatchX = groupedLegendSwatchX(
+    geo.x1,
+    style.legendPlacement ?? "overlay",
+  );
+  const legendTextX =
+    legendSwatchX + (GROUPED_LEGEND.swatchInsetFromX1 - GROUPED_LEGEND.textInsetFromX1);
+  let ly = geo.y1 + GROUPED_LEGEND.topPad;
   geo.legend.forEach((item, i) => {
     parts.push(
-      `<rect data-series="${i}" x="${geo.x1 - 92}" y="${ly}" width="9" height="9" fill="${item.color}" opacity="0.9"/>` +
-        `<text x="${geo.x1 - 79}" y="${ly + 8}" font-size="${tickFont}" fill="${LABEL_TEXT}">${esc(item.name)}</text>`,
+      `<rect data-series="${i}" x="${legendSwatchX}" y="${ly}" width="${GROUPED_LEGEND.swatch}" height="${GROUPED_LEGEND.swatch}" fill="${item.color}" opacity="0.9"/>` +
+        `<text x="${legendTextX}" y="${ly + 8}" font-size="${tickFont}" fill="${LABEL_TEXT}">${esc(item.name)}</text>`,
     );
-    ly += 13;
+    ly += GROUPED_LEGEND.rowH;
   });
 
   parts.push(`</svg>`);

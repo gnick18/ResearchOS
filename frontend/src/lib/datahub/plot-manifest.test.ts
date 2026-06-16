@@ -12,6 +12,7 @@ import {
   renderGroupedBarSvg,
   GROUPED_LEGEND,
   type GroupedBarGeometry,
+  type SurvivalCurveGeometry,
   type PlotStyle,
 } from "./plot-spec";
 import { detectCollisions } from "@/lib/figure/layout-collision";
@@ -103,6 +104,76 @@ describe("detectCollisions on a Data Hub grouped bar", () => {
     // The legend box now sits past the plot edge (to the right of every bar), so
     // the relocate-legend fix resolves the collision the overlay had.
     expect(legend.x).toBe(g.x1 + GROUPED_LEGEND.gutterPad);
+    expect(
+      detectCollisions(m).some((c) => c.kind === "legend-over-content"),
+    ).toBe(false);
+  });
+});
+
+// A survival figure with a high-staying (slow-decline) curve whose flat right
+// segment passes under the top-right legend. y1 is the plot-area top.
+function survGeo(): SurvivalCurveGeometry {
+  return {
+    width: 430,
+    height: 340,
+    x0: 52,
+    x1: 320,
+    y0: 280, // survival 0 (bottom)
+    y1: 28, // survival 1 (top)
+    tMax: 10,
+    xTicks: [],
+    yTicks: [],
+    curves: [
+      {
+        name: "Arm A",
+        color: "#1d4ed8",
+        median: null,
+        // Drops a little then runs flat at y=45 across the right half (under the
+        // legend, which sits at y 32..58 for two arms).
+        path: [
+          { x: 52, y: 30 },
+          { x: 200, y: 45 },
+          { x: 320, y: 45 },
+        ],
+      },
+      {
+        name: "Arm B",
+        color: "#f59e0b",
+        median: null,
+        // Drops low quickly, clear of the legend zone.
+        path: [
+          { x: 52, y: 30 },
+          { x: 120, y: 220 },
+          { x: 320, y: 220 },
+        ],
+      },
+    ],
+    legend: [
+      { name: "Arm A", color: "#1d4ed8" },
+      { name: "Arm B", color: "#f59e0b" },
+    ],
+  };
+}
+
+describe("plotLayoutManifest (survival curve)", () => {
+  it("emits curve-segment marks + one legend box", () => {
+    const m = plotLayoutManifest(survGeo(), style);
+    expect(m.boxes.some((b) => b.kind === "mark")).toBe(true);
+    expect(m.boxes.filter((b) => b.kind === "legend")).toHaveLength(1);
+  });
+
+  it("flags legend-over-content when a high curve runs under the legend", () => {
+    const m = plotLayoutManifest(survGeo(), style);
+    expect(
+      detectCollisions(m).some((c) => c.kind === "legend-over-content"),
+    ).toBe(true);
+  });
+
+  it("legendPlacement 'right' moves the legend off the curves", () => {
+    const m = plotLayoutManifest(survGeo(), {
+      ...style,
+      legendPlacement: "right" as const,
+    });
     expect(
       detectCollisions(m).some((c) => c.kind === "legend-over-content"),
     ).toBe(false);
