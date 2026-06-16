@@ -54,6 +54,9 @@ export type TrackedStock = {
   // tree ("-80 #2 > Box: Q5 - A1"). Spatial inventory Phase B bridge. Preferred
   // over `location` for display when present; tolerated missing.
   locationPath?: string | null;
+  // The stock's raw location_node_id, so the phone can find it on the room map
+  // (walk up to the nearest pinned ancestor). Phase C. Tolerated missing.
+  locationNodeId?: number | null;
 };
 
 // A purchase that has been ordered but not yet marked arrived. Drives the
@@ -99,6 +102,22 @@ export type StorageNode = {
   boxCols?: number | null;
 };
 
+// One pin on the room map (read-only on the phone). Marks a StorageNode
+// (`nodeId`) or a free label at a normalized 0..1 (x,y). Spatial inventory Phase C.
+export type LabMapPin = {
+  nodeId?: number | null;
+  label?: string | null;
+  x?: number;
+  y?: number;
+};
+
+// The lab's 2D room map, projected for the phone's read-only viewer. `aspect` =
+// width/height of the plan. Spatial inventory Phase C. Tolerated missing/null.
+export type LabMap = {
+  aspect?: number;
+  pins?: LabMapPin[];
+};
+
 export type InventorySnapshot = {
   generatedAt?: string;
   items?: InventoryItem[];
@@ -106,6 +125,7 @@ export type InventorySnapshot = {
   recentPurchases?: RecentPurchase[];
   barcodeIndex?: Record<string, BarcodeIndexEntry>;
   storageNodes?: StorageNode[];
+  labMap?: LabMap | null;
 };
 
 // ---------------------------------------------------------------------------

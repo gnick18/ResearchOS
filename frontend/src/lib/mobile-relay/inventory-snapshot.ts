@@ -26,9 +26,10 @@ import {
   purchasesApi,
   fetchAllTasks,
   fetchAllStorageNodesIncludingShared,
+  fetchAllLabMapsIncludingShared,
 } from "@/lib/local-api";
 import { buildNodePath } from "@/components/inventory/inventory-ui";
-import type { StorageNode } from "@/lib/types";
+import type { StorageNode, LabMap } from "@/lib/types";
 import { sealToRecipient } from "@/lib/sharing/encryption";
 import { decodePublicKey } from "@/lib/sharing/identity/keys";
 import { listDevices, publishSnapshot, type UserCaptureKeys } from "./client";
@@ -81,6 +82,12 @@ export interface SnapshotTrackedStock {
    * falls back to `location`). Additive.
    */
   locationPath: string | null;
+  /**
+   * The stock's raw `location_node_id`, so the phone can "find it on the room
+   * map": walk this node up the tree to the nearest pinned ancestor and highlight
+   * that pin. Null when unplaced. Phase C. Additive.
+   */
+  locationNodeId: number | null;
 }
 
 /**
@@ -123,6 +130,22 @@ export interface SnapshotStorageNode {
   boxCols: number | null;
 }
 
+/** One pin on the room map, projected for the phone's read-only viewer. Marks a
+ *  StorageNode (`nodeId`) or a free label at a normalized 0..1 (x,y). Phase C. */
+export interface SnapshotLabMapPin {
+  nodeId: number | null;
+  label: string | null;
+  x: number;
+  y: number;
+}
+
+/** The lab's 2D room map, projected for the phone (read-only). `aspect` =
+ *  width/height of the plan. Null published when the lab has no map yet. Phase C. */
+export interface SnapshotLabMap {
+  aspect: number;
+  pins: SnapshotLabMapPin[];
+}
+
 /** The decrypted shape the phone reads after openSealed. */
 export interface InventorySnapshot {
   generatedAt: string;
@@ -135,12 +158,15 @@ export interface InventorySnapshot {
   /** The whole-lab storage tree, so the phone scan-in flow can offer a structured
    *  location picker (Phase B bridge, write half). Additive. */
   storageNodes: SnapshotStorageNode[];
+  /** The lab's 2D room map (Phase C), so the phone can render it + find an item
+   *  on it. Null when the lab has not started a map. Additive. */
+  labMap: SnapshotLabMap | null;
 }
 
 /** Reads the connected folder's inventory and builds the snapshot. */
 export async function buildInventorySnapshot(): Promise<InventorySnapshot> {
   // Parallel fetch to keep snapshot build fast.
-  const [items, stocks, purchases, tasks, storageNodes] = await Promise.all([
+  const [items, stocks, purchases, tasks, storageNodes, labMaps] = await Promise.all([
     inventoryItemsApi.list(),
     inventoryStocksApi.list(),
     purchasesApi.listAll(),
@@ -148,6 +174,8 @@ export async function buildInventorySnapshot(): Promise<InventorySnapshot> {
     // The location tree is whole-lab shared, so a stock owned by this user may
     // sit in a node another member created. Use the shared-inclusive read.
     fetchAllStorageNodesIncludingShared().catch(() => [] as StorageNode[]),
+    // The room map is one-per-lab, whole-lab shared. Read-only here (never create).
+    fetchAllLabMapsIncludingShared().catch(() => [] as LabMap[]),
   ]);
 
   // ── Item lookup maps ──────────────────────────────────────────────────────
@@ -221,6 +249,7 @@ export async function buildInventorySnapshot(): Promise<InventorySnapshot> {
       totalUnits,
       location: (stock.location_text && stock.location_text.trim()) || null,
       locationPath: resolveLocationPath(stock.location_node_id, stock.position),
+      locationNodeId: stock.location_node_id ?? null,
     });
   }
 
@@ -299,6 +328,21 @@ export async function buildInventorySnapshot(): Promise<InventorySnapshot> {
       boxRows: n.box_rows,
       boxCols: n.box_cols,
     })),
+    labMap: (() => {
+      // One map per lab; pick the lowest id when several exist (matches
+      // getOrCreateLabMap). Publish null when the lab has not started one.
+      const map = [...labMaps].sort((a, b) => a.id - b.id)[0];
+      if (!map) return null;
+      return {
+        aspect: map.plan?.aspect ?? 1.5,
+        pins: map.pins.map((p) => ({
+          nodeId: p.nodeId,
+          label: p.label,
+          x: p.x,
+          y: p.y,
+        })),
+      };
+    })(),
   };
 }
 

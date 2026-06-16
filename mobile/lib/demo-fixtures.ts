@@ -170,6 +170,7 @@ export const DEMO_INVENTORY_SNAPSHOT: InventorySnapshot = {
       lowAtCount: 3,
       totalUnits: 5,
       locationPath: '-80 #2 > Rack 1 > Box: Selection antibiotics - B4',
+      locationNodeId: 3,
     },
   ],
   recentPurchases: [
@@ -199,6 +200,15 @@ export const DEMO_INVENTORY_SNAPSHOT: InventorySnapshot = {
     { id: 4, name: '4 C fridge', kind: 'fridge', parentId: null },
     { id: 5, name: 'Shelf 2', kind: 'shelf', parentId: 4 },
   ],
+  // A small room map so the phone viewer + "find on map" are demoable: the -80
+  // and the fridge pinned on the floor plan.
+  labMap: {
+    aspect: 1.5,
+    pins: [
+      { nodeId: 1, label: null, x: 0.26, y: 0.32 },
+      { nodeId: 4, label: null, x: 0.68, y: 0.62 },
+    ],
+  },
 };
 
 // ---------------------------------------------------------------------------

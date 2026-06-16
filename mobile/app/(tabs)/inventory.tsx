@@ -110,6 +110,9 @@ export default function InventoryScreen() {
     (s.location ?? '').toLowerCase().includes(q) ||
     (s.locationPath ?? '').toLowerCase().includes(q);
   const showSearch = trackedStocks.length >= 4;
+  // Phase C: the lab has a room map with at least one pin, so "find on map" + the
+  // map entry are worth showing.
+  const hasRoomMap = (snapshot?.labMap?.pins?.length ?? 0) > 0;
   const shownStocks = trackedStocks.filter(
     (s) => (!lowOnly || stockIsLow(s)) && matchesQuery(s),
   );
@@ -168,6 +171,24 @@ export default function InventoryScreen() {
               label="+ Add a purchase item"
               onPress={() => router.push('/add-purchase')}
             />
+
+            {/* Room map entry (Phase C), only when the lab has pinned a map. */}
+            {hasRoomMap ? (
+              <Pressable
+                testID="inventory-room-map"
+                onPress={() => router.push('/room-map')}
+                style={[
+                  styles.roomMapBtn,
+                  { borderColor: surface.border, backgroundColor: surface.surface },
+                ]}
+              >
+                <Ionicons name="map-outline" size={16} color={palette.sky} />
+                <ThemedText style={[styles.roomMapText, { color: surface.text }]}>
+                  View room map
+                </ThemedText>
+                <Ionicons name="chevron-forward" size={15} color={surface.muted} />
+              </Pressable>
+            ) : null}
 
             {/* Error banner */}
             {error ? (
@@ -236,6 +257,11 @@ export default function InventoryScreen() {
                     testID={`inventory-tracked-row-${i}`}
                     stock={stock}
                     last={i === shownStocks.length - 1}
+                    onFindOnMap={
+                      hasRoomMap
+                        ? (nodeId) => router.push(`/room-map?node=${nodeId}`)
+                        : undefined
+                    }
                   />
                 ))}
               </Card>
@@ -351,10 +377,12 @@ function TrackedStockRow({
   stock,
   last,
   testID,
+  onFindOnMap,
 }: {
   stock: TrackedStock;
   last: boolean;
   testID?: string;
+  onFindOnMap?: (nodeId: number) => void;
 }) {
   const { surface } = useTheme();
   const name = stock.itemName ?? 'Unknown item';
@@ -411,15 +439,32 @@ function TrackedStockRow({
           {unitsText}
         </ThemedText>
         {location ? (
-          <View style={styles.locationRow}>
-            <Ionicons name="location-outline" size={12} color={surface.muted} />
-            <ThemedText
-              style={[styles.locationText, { color: surface.muted }]}
-              numberOfLines={1}
+          stock.locationNodeId != null && onFindOnMap ? (
+            <Pressable
+              onPress={() => onFindOnMap(stock.locationNodeId as number)}
+              style={styles.locationRow}
+              hitSlop={6}
             >
-              {location}
-            </ThemedText>
-          </View>
+              <Ionicons name="location" size={12} color={palette.sky} />
+              <ThemedText
+                style={[styles.locationText, { color: palette.sky }]}
+                numberOfLines={1}
+              >
+                {location}
+              </ThemedText>
+              <Ionicons name="chevron-forward" size={11} color={palette.sky} />
+            </Pressable>
+          ) : (
+            <View style={styles.locationRow}>
+              <Ionicons name="location-outline" size={12} color={surface.muted} />
+              <ThemedText
+                style={[styles.locationText, { color: surface.muted }]}
+                numberOfLines={1}
+              >
+                {location}
+              </ThemedText>
+            </View>
+          )
         ) : null}
       </View>
       <View
@@ -608,6 +653,16 @@ const styles = StyleSheet.create({
   rowText: { flex: 1, minWidth: 0 },
   rowTitle: { fontSize: 14, fontFamily: fonts.semibold, fontWeight: '600', lineHeight: 19 },
   rowMeta: { fontSize: 12, lineHeight: 17, marginTop: 2 },
+  roomMapBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    borderWidth: 1,
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    minHeight: 46,
+  },
+  roomMapText: { flex: 1, fontSize: 14, fontFamily: fonts.semibold, fontWeight: '600' },
   locationRow: { flexDirection: 'row', alignItems: 'center', gap: 3, marginTop: 2 },
   locationText: { fontSize: 12, lineHeight: 16, flexShrink: 1 },
   searchBox: {
