@@ -316,9 +316,14 @@ function TrackedStockRow({
     typeof stock.unitsRemaining === 'number' &&
     stock.unitsRemaining <= stock.lowAtCount;
 
+  // Pluralize the unit by the count it follows (singular unitLabel is the
+  // contract, matching the scan/deduct screen), so a stock with 6 bottles reads
+  // "3 of 6 bottles left" and a lone vial reads "1 vial left".
+  const unitFor = (n: number) =>
+    unitLabel ? ` ${unitLabel}${n === 1 ? '' : 's'}` : '';
   const unitsText = total > 0
-    ? `${remaining} of ${total}${unitLabel ? ` ${unitLabel}` : ''} left`
-    : `${remaining}${unitLabel ? ` ${unitLabel}` : ''} left`;
+    ? `${remaining} of ${total}${unitFor(total)} left`
+    : `${remaining}${unitFor(remaining)} left`;
 
   return (
     <View
