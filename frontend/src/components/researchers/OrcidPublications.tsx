@@ -15,7 +15,7 @@ import {
   type OrcidWork,
   fetchOrcidPublications,
 } from "@/lib/sharing/profile";
-import { orderWorks } from "@/lib/orcid/works";
+import { orderWorks, markOwnerInContributors } from "@/lib/orcid/works";
 
 function ExternalIcon({ className }: { className?: string }) {
   return (
@@ -34,14 +34,63 @@ function ExternalIcon({ className }: { className?: string }) {
   );
 }
 
+/**
+ * Renders a work's author list with the profile owner's name bold + brand
+ * colored. Long lists collapse to the first AUTHORS_SHOWN names plus a
+ * "+N more", but the owner is always kept visible so the highlight never hides.
+ */
+function AuthorList({
+  contributors,
+  ownerOrcid,
+  ownerName,
+}: {
+  contributors: OrcidWork["contributors"];
+  ownerOrcid: string;
+  ownerName?: string | null;
+}) {
+  if (!contributors || contributors.length === 0) return null;
+
+  const marked = markOwnerInContributors(contributors, ownerOrcid, ownerName);
+
+  let shown = marked.slice(0, AUTHORS_SHOWN);
+  // If the owner is past the cap, surface it so the highlight is never hidden.
+  if (!shown.some((c) => c.isOwner)) {
+    const owner = marked.find((c) => c.isOwner);
+    if (owner) shown = [...marked.slice(0, AUTHORS_SHOWN - 1), owner];
+  }
+  const extra = marked.length - shown.length;
+
+  return (
+    <p className="text-meta text-gray-500">
+      {shown.map((c, i) => (
+        <span key={`${c.name}-${i}`}>
+          {i > 0 && ", "}
+          {c.isOwner ? (
+            <span className="font-semibold text-sky-700">{c.name}</span>
+          ) : (
+            c.name
+          )}
+        </span>
+      ))}
+      {extra > 0 && <span>{`, and ${extra} more`}</span>}
+    </p>
+  );
+}
+
 const SHOWN = 8;
+
+// How many authors to print before collapsing the rest into "+N more". The
+// owner is always kept visible even when it would fall past this cap.
+const AUTHORS_SHOWN = 6;
 
 export default function OrcidPublications({
   orcid,
+  ownerName,
   pinnedWorks = [],
   hiddenWorks = [],
 }: {
   orcid: string;
+  ownerName?: string | null;
   pinnedWorks?: string[];
   hiddenWorks?: string[];
 }) {
@@ -103,6 +152,11 @@ export default function OrcidPublications({
                   {w.title}
                 </span>
               )}
+              <AuthorList
+                contributors={w.contributors}
+                ownerOrcid={orcid}
+                ownerName={ownerName}
+              />
               {meta && <p className="text-meta text-gray-500">{meta}</p>}
               {w.doi && (
                 <a
