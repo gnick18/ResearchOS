@@ -76,6 +76,8 @@ import { summarizeInventoryTool } from "./summarize-inventory";
 import { summarizeSequencesTool } from "./summarize-sequences";
 import { summarizeMethodsTool } from "./summarize-methods";
 import { summarizeChemistryTool } from "./summarize-chemistry";
+import { summarizeTasksTool } from "./summarize-tasks";
+import { summarizeCalculatorsTool } from "./summarize-calculators";
 import { labDigestTool } from "./lab-digest";
 import { listLabMembersTool } from "./lab-members";
 import { searchLiteratureTool } from "./search-literature";
@@ -95,6 +97,7 @@ import {
 } from "./experiment-tools";
 import { setupExperimentTool } from "./setup-experiment";
 import { setupProjectTool } from "./setup-project";
+import { setupInventoryItemTool } from "./setup-inventory-item";
 import {
   draftPaperSummaryTool,
   extractPaperMethodTool,
@@ -310,6 +313,14 @@ export const READ_ONLY_TOOLS: AiTool[] = [
   // molecular weight, a weight histogram, the heaviest + recently added). Per-user
   // namespaced like summarize_sequences, so it scopes to the caller's own library.
   summarizeChemistryTool,
+  // summarize_tasks is the cross-task-type deadline / workload view (experiments +
+  // purchases + lists): count, by-status (overdue / due-this-week / upcoming),
+  // by-type / owner / project, assigned + flagged counts, overdue + due lists. The
+  // whole-lab default mirrors summarize_experiments (own plus shared).
+  summarizeTasksTool,
+  // summarize_calculators aggregates the build-your-own calculator library: count,
+  // with-logic + shared counts, avg inputs, by-field / owner, recently edited.
+  summarizeCalculatorsTool,
   labDigestTool,
   // Lab roster, so the summary wizard's whose-step can offer real member names
   // and resolve a typed name to a real owner. Read-only.
@@ -501,6 +512,12 @@ export const ACTION_TOOLS: AiTool[] = [
   // create_* calls. The user sees a numbered preview of every step before any
   // write. None of the individual writes is destructive.
   setupProjectTool,
+  // setup_inventory_item is the inventory-level composite (action: true,
+  // isDestructive false). In one consented action it creates the item, then creates
+  // each physical stock ALREADY assigned to that new item (the stock item_id is the
+  // back-reference the model cannot thread across separate create calls). Numbered
+  // preview before any write; no individual write is destructive.
+  setupInventoryItemTool,
   // Scheduling coworker tools (action: true, isDestructive false). create_task
   // adds a task to a project the user names; reschedule_task moves a task through
   // the dependency-aware shift path (tasksApi.move) so dependents cascade and the

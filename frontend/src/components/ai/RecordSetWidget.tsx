@@ -50,6 +50,7 @@ const TYPE_ICON: Record<RecordSetRowType, IconName> = {
   experiment: "list",
   purchase: "receipt",
   inventory: "box",
+  calculator: "calculator",
 };
 
 const TYPE_LABEL: Record<RecordSetRowType, string> = {
@@ -67,6 +68,7 @@ const TYPE_LABEL: Record<RecordSetRowType, string> = {
   experiment: "Experiment",
   purchase: "Purchase",
   inventory: "Inventory item",
+  calculator: "Calculator",
 };
 
 // Below this widget width the two columns collapse to a single column with a
@@ -88,6 +90,7 @@ function descriptorForRow(row: RecordSetRow & { type: ObjectRefType }): EmbedDes
 const PAGELESS_ROUTE: Partial<Record<RecordSetRowType, string>> = {
   purchase: "/purchases",
   inventory: "/inventory",
+  calculator: "/calculators",
 };
 
 /** Open the row's full object the way an embed Open button does. Purchases and

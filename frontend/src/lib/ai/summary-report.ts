@@ -32,6 +32,8 @@ import type { InventorySummary } from "@/lib/ai/tools/summarize-inventory";
 import type { SequenceSummary } from "@/lib/ai/tools/summarize-sequences";
 import type { MethodSummary } from "@/lib/ai/tools/summarize-methods";
 import type { ChemistrySummary } from "@/lib/ai/tools/summarize-chemistry";
+import type { TaskSummary } from "@/lib/ai/tools/summarize-tasks";
+import type { CalculatorSummary } from "@/lib/ai/tools/summarize-calculators";
 import type { LabDigest } from "@/lib/ai/tools/lab-digest";
 
 /** Semantic tone for a stat tile or a bar. Maps to a color in the widget; it is a
@@ -437,6 +439,98 @@ export function chemistrySummaryReport(s: ChemistrySummary): SummaryReport {
     ],
     barGroups,
     histogram,
+  };
+}
+
+/** Map a TaskSummary aggregate to the normalized report (the workload card). Every
+ *  number is lifted verbatim from the tool's aggregate. Pure. */
+export function taskSummaryReport(s: TaskSummary): SummaryReport {
+  const scope: string[] = [
+    s.filter.owners && s.filter.owners.length > 0 ? s.filter.owners.join(", ") : "whole lab",
+  ];
+  if (s.filter.keywords?.trim()) scope.push(`"${s.filter.keywords.trim()}"`);
+
+  const typeRows: SummaryBarRow[] = s.byType.map((b) => ({
+    label: b.type,
+    value: b.count,
+    tone: "accent" as const,
+  }));
+  const ownerRows: SummaryBarRow[] = s.byOwner.map((b) => ({
+    label: b.owner,
+    value: b.count,
+    tone: "accent" as const,
+  }));
+  const projectRows: SummaryBarRow[] = s.byProject.map((b) => ({
+    label: b.projectName,
+    value: b.count,
+    tone: "accent" as const,
+  }));
+
+  const barGroups: SummaryBarGroup[] = [
+    {
+      title: "By status",
+      rows: [
+        { label: "Done", value: s.byStatus.complete, tone: "done" },
+        { label: "Overdue", value: s.byStatus.overdue, tone: "overdue" },
+        { label: "Due this week", value: s.byStatus.dueThisWeek, tone: "upcoming" },
+        { label: "Upcoming", value: s.byStatus.upcoming, tone: "active" },
+      ],
+    },
+  ];
+  if (typeRows.length > 0) barGroups.push({ title: "By type", rows: typeRows });
+  if (ownerRows.length > 1) barGroups.push({ title: "By owner", rows: ownerRows });
+  if (projectRows.length > 0) barGroups.push({ title: "By project", rows: projectRows });
+
+  return {
+    kind: "summarize_tasks",
+    heading: "Tasks",
+    scope,
+    stats: [
+      { label: "tasks", value: String(s.count), emphasis: true },
+      { label: "overdue", value: String(s.byStatus.overdue), tone: "overdue" },
+      { label: "due this week", value: String(s.byStatus.dueThisWeek), tone: "upcoming" },
+      { label: "flagged", value: String(s.flaggedCount), tone: "accent" },
+    ],
+    barGroups,
+    histogram: null,
+  };
+}
+
+/** Map a CalculatorSummary aggregate to the normalized report (the calculator-
+ *  library card). Every number is lifted verbatim from the tool's aggregate. Pure. */
+export function calculatorSummaryReport(s: CalculatorSummary): SummaryReport {
+  const scope: string[] = [
+    s.filter.owners && s.filter.owners.length > 0 ? s.filter.owners.join(", ") : "whole lab",
+  ];
+  if (s.filter.keywords?.trim()) scope.push(`"${s.filter.keywords.trim()}"`);
+
+  const fieldRows: SummaryBarRow[] = s.byField.map((b) => ({
+    label: b.field,
+    value: b.count,
+    tone: "accent" as const,
+  }));
+  const ownerRows: SummaryBarRow[] = s.byOwner.map((b) => ({
+    label: b.owner,
+    value: b.count,
+    tone: "accent" as const,
+  }));
+
+  const barGroups: SummaryBarGroup[] = [];
+  if (fieldRows.length > 0) barGroups.push({ title: "By field", rows: fieldRows });
+  if (ownerRows.length > 1) barGroups.push({ title: "By owner", rows: ownerRows });
+
+  return {
+    kind: "summarize_calculators",
+    heading: "Calculators",
+    scope,
+    stats: [
+      { label: "calculators", value: String(s.count), emphasis: true },
+      { label: "with logic", value: String(s.withConditionalsCount), tone: "accent" },
+      { label: "shared with you", value: String(s.sharedWithMeCount), tone: "neutral" },
+      { label: "avg inputs", value: s.avgInputs != null ? String(s.avgInputs) : "n/a", tone: "neutral" },
+    ],
+    barGroups,
+    histogram: null,
   };
 }
 
