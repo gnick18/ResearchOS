@@ -26,7 +26,7 @@ import type {
   StorageNode,
 } from "@/lib/types";
 import { STORAGE_KIND_LABEL } from "./inventory-ui";
-import { SAMPLE_FLOORPLAN_SVG } from "./sample-floorplan";
+import { FLOOR_PLAN_TEMPLATES } from "./floorplan-templates";
 
 interface RoomMapProps {
   nodes: StorageNode[];
@@ -68,6 +68,7 @@ export default function RoomMap({ nodes, stocks }: RoomMapProps) {
 
   const [pins, setPins] = useState<LabMapPin[]>([]);
   const [plan, setPlan] = useState<LabMapPlan | null>(null);
+  const [templatesOpen, setTemplatesOpen] = useState(false);
   const [selected, setSelected] = useState<number | null>(null);
   const [hovered, setHovered] = useState<number | null>(null);
   const mapRef = useRef<LabMap | null>(null);
@@ -132,8 +133,10 @@ export default function RoomMap({ nodes, stocks }: RoomMapProps) {
     [setPinImage],
   );
 
-  // Set the floor plan SVG (or clear it) and persist the plan immediately.
-  const setFloorplan = useCallback((svg: string | null) => {
+  // Set (or clear) the floor plan SVG and persist the plan immediately. When the
+  // plan changes, the aspect follows it (parsed from a template or the uploaded
+  // SVG's viewBox) so the map fits the real room shape instead of a fixed 3:2.
+  const setFloorplan = useCallback((svg: string | null, aspect?: number) => {
     const map = mapRef.current;
     const base: LabMapPlan = map?.plan ?? {
       kind: "blank",
@@ -145,6 +148,7 @@ export default function RoomMap({ nodes, stocks }: RoomMapProps) {
       ...base,
       kind: svg ? "image" : "blank",
       imageData: svg,
+      aspect: svg && aspect && aspect > 0 ? aspect : base.aspect,
     };
     setPlan(nextPlan);
     if (map) {
@@ -164,7 +168,7 @@ export default function RoomMap({ nodes, stocks }: RoomMapProps) {
         const text = String(reader.result ?? "");
         // Accept SVG markup only (v1). Concatenated needle so this source file
         // carries no literal inline-svg substring for the icon-guard to count.
-        if (text.includes("<" + "svg")) setFloorplan(text);
+        if (text.includes("<" + "svg")) setFloorplan(text, svgAspect(text));
       };
       reader.readAsText(file);
     },
@@ -274,16 +278,16 @@ export default function RoomMap({ nodes, stocks }: RoomMapProps) {
             <Icon name="import" className="h-3.5 w-3.5" />
             Upload floor plan
           </button>
-          {!plan?.imageData ? (
-            <button
-              type="button"
-              onClick={() => setFloorplan(SAMPLE_FLOORPLAN_SVG)}
-              className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-surface-raised px-3 py-1.5 text-meta text-foreground hover:bg-surface-sunken"
-            >
-              <Icon name="floorPlanSample" className="h-3.5 w-3.5" />
-              Use sample plan
-            </button>
-          ) : (
+          <button
+            type="button"
+            onClick={() => setTemplatesOpen((o) => !o)}
+            aria-expanded={templatesOpen}
+            className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-surface-raised px-3 py-1.5 text-meta text-foreground hover:bg-surface-sunken"
+          >
+            <Icon name="floorPlanSample" className="h-3.5 w-3.5" />
+            Templates
+          </button>
+          {plan?.imageData ? (
             <button
               type="button"
               onClick={() => setFloorplan(null)}
@@ -292,13 +296,36 @@ export default function RoomMap({ nodes, stocks }: RoomMapProps) {
               <Icon name="x" className="h-3.5 w-3.5" />
               Remove floor plan
             </button>
-          )}
+          ) : null}
           <span className="text-meta text-foreground-subtle">
             Place each freezer or bench where it physically sits in the room (the
-            Storage map handles which box). Upload a .svg floor plan or use the
-            sample; pins sit on top.
+            Storage map handles which box). Pick a template or upload a .svg floor
+            plan; pins sit on top.
           </span>
         </div>
+        {templatesOpen ? (
+          <div className="mb-2 grid grid-cols-2 gap-2 sm:grid-cols-4">
+            {FLOOR_PLAN_TEMPLATES.map((t) => (
+              <button
+                key={t.id}
+                type="button"
+                onClick={() => {
+                  setFloorplan(t.svg, t.aspect);
+                  setTemplatesOpen(false);
+                }}
+                className="flex flex-col gap-1 rounded-lg border border-border bg-surface-raised p-1.5 text-left hover:bg-surface-sunken"
+              >
+                <span
+                  className="block overflow-hidden rounded bg-white [&>svg]:h-full [&>svg]:w-full"
+                  style={{ aspectRatio: String(t.aspect) }}
+                  // Lab-authored template markup, not user-pasted content.
+                  dangerouslySetInnerHTML={{ __html: t.svg }}
+                />
+                <span className="px-0.5 text-meta text-foreground">{t.name}</span>
+              </button>
+            ))}
+          </div>
+        ) : null}
         <div className="relative w-full" style={{ aspectRatio: String(aspect) }}>
           <ZoomPanCanvas
             contentWidth={CONTENT_W}
@@ -495,6 +522,16 @@ export default function RoomMap({ nodes, stocks }: RoomMapProps) {
       </div>
     </div>
   );
+}
+
+// Parse an SVG's viewBox aspect (width / height) so an uploaded floor plan fits
+// the map true-to-shape. Returns undefined when there is no usable viewBox.
+function svgAspect(svg: string): number | undefined {
+  const m = svg.match(/viewBox\s*=\s*["']\s*[\d.]+\s+[\d.]+\s+([\d.]+)\s+([\d.]+)/i);
+  if (!m) return undefined;
+  const w = parseFloat(m[1]);
+  const h = parseFloat(m[2]);
+  return w > 0 && h > 0 ? w / h : undefined;
 }
 
 // Read an image File, downscale it so the longest side is <= maxDim, and return a
