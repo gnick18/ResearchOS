@@ -32,7 +32,6 @@ import { typeMeta } from '@/lib/method-library';
 import { usePairing } from '@/lib/pairing';
 import { captureToExperiment } from '@/lib/experiment-capture';
 import {
-  postAppendLine,
   postInsertNoteBlock,
   END_ANCHOR_INDEX,
   TOP_ANCHOR_INDEX,
@@ -76,6 +75,7 @@ function DocBlocks({
   tab,
   accent,
   label,
+  placing,
   staged,
   composingSlot,
   composeText,
@@ -89,6 +89,9 @@ function DocBlocks({
   tab: RouteTab;
   accent: string;
   label: string;
+  /** When false the doc is a clean read view (no insertion affordances). The
+   *  "+ note here" slots only appear in placement mode (the Add note toggle). */
+  placing: boolean;
   staged: StagedNote[];
   composingSlot: number | null;
   composeText: string;
@@ -173,7 +176,7 @@ function DocBlocks({
                   </Pressable>
                 </View>
               </View>
-            ) : (
+            ) : placing ? (
               <Pressable
                 onPress={() => onOpenCompose(slot, a.hash, a.index)}
                 hitSlop={4}
@@ -181,14 +184,14 @@ function DocBlocks({
                 accessibilityLabel={`Add a note here in ${label}`}
                 style={styles.addHereRow}
               >
-                <View style={[styles.addHereLine, { backgroundColor: surface.border }]} />
-                <View style={[styles.addHereChip, { borderColor: surface.border, backgroundColor: surface.surface }]}>
+                <View style={[styles.addHereLine, { backgroundColor: accent }]} />
+                <View style={[styles.addHereChip, { borderColor: accent, backgroundColor: `${accent}14` }]}>
                   <Ionicons name="add" size={13} color={accent} />
-                  <ThemedText style={[styles.addHereText, { color: surface.muted }]}>note here</ThemedText>
+                  <ThemedText style={[styles.addHereText, { color: accent }]}>place here</ThemedText>
                 </View>
-                <View style={[styles.addHereLine, { backgroundColor: surface.border }]} />
+                <View style={[styles.addHereLine, { backgroundColor: accent }]} />
               </Pressable>
-            )}
+            ) : null}
 
             {/* Pending notes placed at this slot. */}
             {slotStaged.map((n) => (
@@ -235,9 +238,6 @@ export default function ExperimentDetailScreen() {
   const { snapshot } = useTodayState();
   const [busyTab, setBusyTab] = useState<RouteTab | null>(null);
   const [status, setStatus] = useState<string | null>(null);
-  const [noteText, setNoteText] = useState('');
-  const [noteTab, setNoteTab] = useState<RouteTab>('notes');
-  const [noteSending, setNoteSending] = useState(false);
   const [notesSnap, setNotesSnap] = useState<ExperimentNotesSnapshot | null>(null);
   const [notesLoading, setNotesLoading] = useState(false);
 
@@ -250,6 +250,14 @@ export default function ExperimentDetailScreen() {
   >(null);
   const [composeText, setComposeText] = useState('');
   const [pushing, setPushing] = useState(false);
+  // Placement mode: off = clean read view; on = the "place here" slots appear so
+  // a note can be dropped between blocks. Toggled by the Add note / Done button.
+  const [placing, setPlacing] = useState(false);
+  const exitPlacing = () => {
+    setPlacing(false);
+    setComposer(null);
+    setComposeText('');
+  };
 
   // Pull the experiment's notes/results docs (read-only). One-time on mount plus
   // a manual refresh; the laptop publishes the latest sealed projection.
@@ -332,34 +340,6 @@ export default function ExperimentDetailScreen() {
       );
     } finally {
       setBusyTab(null);
-    }
-  };
-
-  const sendNote = async () => {
-    const text = noteText.trim();
-    if (!canAdd || !task?.owner || !text || noteSending) return;
-    const pub = pairing?.userX25519PubHex ?? '';
-    const where = noteTab === 'results' ? 'Results' : 'Lab Notes';
-    setNoteSending(true);
-    setStatus(null);
-    try {
-      if (!pairing) {
-        setStatus('Pair this phone to send a note to the experiment.');
-        return;
-      }
-      if (!pub) {
-        setStatus('Re-pair this phone to send notes (missing key).');
-        return;
-      }
-      // postAppendLine seals + posts the append-line command the laptop already
-      // handles (appends to the experiment's notes/results markdown doc).
-      await postAppendLine(numericTaskId, task.owner, noteTab, text, pub, pairing.relayUrl);
-      setNoteText('');
-      setStatus(`Note added to ${where} for this experiment.`);
-    } catch {
-      setStatus('Could not send the note. Try again when back online.');
-    } finally {
-      setNoteSending(false);
     }
   };
 
@@ -483,7 +463,7 @@ export default function ExperimentDetailScreen() {
           <ThemedText style={[styles.tagline, { color: surface.muted }]}>{meta}</ThemedText>
         ) : null}
 
-        <ThemedText style={[styles.sectionLabel, { color: surface.muted }]}>
+        <ThemedText style={[styles.sectionLabel, { color: palette.sky }]}>
           {methods.length === 1 ? 'METHOD' : `METHODS · ${methods.length}`}
         </ThemedText>
 
@@ -526,21 +506,46 @@ export default function ExperimentDetailScreen() {
         {notesSnap?.notes?.markdown || notesSnap?.results?.markdown ? (
           <View style={styles.docSection}>
             <View style={styles.docHeaderRow}>
-              <ThemedText style={[styles.sectionLabel, { color: surface.muted }]}>
+              <ThemedText style={[styles.sectionLabel, { color: palette.sky }]}>
                 NOTES & RESULTS
               </ThemedText>
-              <Pressable
-                onPress={() => void loadNotes()}
-                hitSlop={8}
-                accessibilityRole="button"
-                accessibilityLabel="Refresh notes"
-              >
-                {notesLoading ? (
-                  <ActivityIndicator size="small" color={surface.muted} />
-                ) : (
-                  <Ionicons name="refresh" size={16} color={palette.sky} />
-                )}
-              </Pressable>
+              <View style={styles.headerActions}>
+                <Pressable
+                  onPress={() => (placing ? exitPlacing() : setPlacing(true))}
+                  accessibilityRole="button"
+                  accessibilityLabel={placing ? 'Done adding notes' : 'Add a note'}
+                  style={[
+                    styles.addNoteBtn,
+                    placing
+                      ? { backgroundColor: palette.sky, borderColor: palette.sky }
+                      : { backgroundColor: `${palette.sky}14`, borderColor: `${palette.sky}40` },
+                  ]}
+                >
+                  {!placing ? (
+                    <Ionicons name="add" size={15} color={palette.sky} />
+                  ) : null}
+                  <ThemedText
+                    style={[
+                      styles.addNoteBtnText,
+                      { color: placing ? palette.white : palette.sky },
+                    ]}
+                  >
+                    {placing ? 'Done' : 'Add note'}
+                  </ThemedText>
+                </Pressable>
+                <Pressable
+                  onPress={() => void loadNotes()}
+                  hitSlop={8}
+                  accessibilityRole="button"
+                  accessibilityLabel="Refresh notes"
+                >
+                  {notesLoading ? (
+                    <ActivityIndicator size="small" color={surface.muted} />
+                  ) : (
+                    <Ionicons name="refresh" size={16} color={palette.sky} />
+                  )}
+                </Pressable>
+              </View>
             </View>
             {notesSnap?.notes?.markdown ? (
               <DocBlocks
@@ -548,6 +553,7 @@ export default function ExperimentDetailScreen() {
                 tab="notes"
                 accent={palette.sky}
                 label="Lab Notes"
+                placing={placing}
                 staged={stagedNotes.filter((n) => n.tab === 'notes')}
                 composingSlot={composer?.tab === 'notes' ? composer.slot : null}
                 composeText={composeText}
@@ -564,6 +570,7 @@ export default function ExperimentDetailScreen() {
                 tab="results"
                 accent={palette.violet}
                 label="Results"
+                placing={placing}
                 staged={stagedNotes.filter((n) => n.tab === 'results')}
                 composingSlot={composer?.tab === 'results' ? composer.slot : null}
                 composeText={composeText}
@@ -618,7 +625,7 @@ export default function ExperimentDetailScreen() {
 
         {canAdd ? (
           <View style={styles.addSection}>
-            <ThemedText style={[styles.sectionLabel, { color: surface.muted }]}>
+            <ThemedText style={[styles.sectionLabel, { color: palette.sky }]}>
               ADD TO THIS EXPERIMENT
             </ThemedText>
             <ThemedText style={[styles.subLabel, { color: surface.muted }]}>
@@ -667,72 +674,9 @@ export default function ExperimentDetailScreen() {
               </Pressable>
             </View>
 
-            <ThemedText style={[styles.subLabel, { color: surface.muted }]}>
-              Note
-            </ThemedText>
-            <TextInput
-              value={noteText}
-              onChangeText={setNoteText}
-              placeholder="Write a note for this experiment..."
-              placeholderTextColor={surface.muted}
-              multiline
-              style={[
-                styles.noteInput,
-                { backgroundColor: surface.surface, borderColor: surface.border, color: surface.text },
-              ]}
-            />
-            <View style={styles.noteRow}>
-              <View style={styles.tabToggle}>
-                {(['notes', 'results'] as RouteTab[]).map((tb) => {
-                  const active = noteTab === tb;
-                  return (
-                    <Pressable
-                      key={tb}
-                      onPress={() => setNoteTab(tb)}
-                      style={[
-                        styles.tabPill,
-                        {
-                          backgroundColor: active ? palette.sky : surface.surface,
-                          borderColor: active ? palette.sky : surface.border,
-                        },
-                      ]}
-                      accessibilityRole="button"
-                      accessibilityState={{ selected: active }}
-                    >
-                      <ThemedText
-                        style={[
-                          styles.tabPillText,
-                          { color: active ? palette.white : surface.muted },
-                        ]}
-                      >
-                        {tb === 'results' ? 'Results' : 'Lab Notes'}
-                      </ThemedText>
-                    </Pressable>
-                  );
-                })}
-              </View>
-              <Pressable
-                onPress={sendNote}
-                disabled={noteSending || noteText.trim().length === 0}
-                style={[
-                  styles.sendBtn,
-                  {
-                    backgroundColor: palette.sky,
-                    opacity: noteSending || noteText.trim().length === 0 ? 0.5 : 1,
-                  },
-                ]}
-                accessibilityRole="button"
-                accessibilityLabel="Send note to this experiment"
-              >
-                {noteSending ? (
-                  <ActivityIndicator size="small" color={palette.white} />
-                ) : (
-                  <ThemedText style={[styles.sendBtnText, { color: palette.white }]}>
-                    Send
-                  </ThemedText>
-                )}
-              </Pressable>
-            </View>
+            {/* Text notes are added via placement mode in the NOTES & RESULTS
+                section above (Add note -> place here), so the experiment lands
+                them at a position. This section keeps Photo capture only. */}
             {status ? (
               <ThemedText style={[styles.statusText, { color: surface.muted }]}>
                 {status}
@@ -753,7 +697,7 @@ const styles = StyleSheet.create({
   sectionLabel: {
     marginTop: 22,
     marginBottom: 8,
-    fontSize: 11,
+    fontSize: 13,
     letterSpacing: 0.6,
     fontFamily: fonts.bold,
     fontWeight: '700',
@@ -792,6 +736,25 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     marginBottom: 8,
+  },
+  headerActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  addNoteBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    borderWidth: 1,
+    borderRadius: 999,
+    paddingHorizontal: 11,
+    paddingVertical: 5,
+  },
+  addNoteBtnText: {
+    fontSize: 12.5,
+    fontFamily: fonts.semibold,
+    fontWeight: '600',
   },
   docCard: {
     borderWidth: 1,
