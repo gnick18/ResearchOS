@@ -18,11 +18,11 @@ Net: the data model has a toe-hold (`location_text`), but it is unstructured, in
 
 ## Phased plan (cheapest, highest-value first)
 
-### Phase A — make "where is it" real with what we already have (no 3D, ship-soon)
-The 90%-of-value, 10%-of-cost layer. Pure data plumbing on top of the existing `location_text`.
-- **Laptop:** add `location_text` to the inventory snapshot (`SnapshotTrackedStock`); on receive-to-inventory, optionally carry a location.
-- **App:** (1) show each stock's location in the Inventory tab; (2) on barcode scan / receive, prompt "Where did you put this?" (free text, recent-locations autocomplete); (3) a lookup: search an item and see its location + a "do we have this?" yes/quantity/where answer; this is the seamless scan→place loop Grant described, minus any map.
-- This alone delivers the "where do I find this" + "do we have it or order it" experience for any diligent lab.
+### Phase A — make "where is it" real with what we already have (no 3D, ship-soon) — BUILT 2026-06-16
+The 90%-of-value, 10%-of-cost layer. Pure data plumbing on top of the existing `location_text`. **All three pieces built + emulator-verified in demo mode (write round-trip pending a paired device):**
+- **Laptop:** `location` added to the inventory snapshot's `SnapshotTrackedStock` (populated from `location_text`); the scan-in create/register poll handlers (`applyCreatePurchase` / `applyCreateInventory` / `applyRegisterTracker`) set `location_text`. Commit `0976d2c9a` (read) + `958bf1aa9` (write).
+- **App:** (1) ~~show each stock's location in the Inventory tab~~ DONE — subtle pin + location line under the units (`0976d2c9a`); (2) ~~scan-in "Where did you put this?" prompt~~ DONE — free-text input + recent-locations autocomplete chips in the track/receive step (`958bf1aa9`); (3) ~~lookup~~ DONE — "Find an item or location" search on the Inventory tab filters by name OR location, surfacing location + remaining count + status (`8aeebba50`).
+- Delivers the "where do I find this" + "do we have it or order it" experience for any diligent lab. NEXT: paired-device round-trip verification (the laptop poll handlers can only be exercised with a real paired phone), then Phases B/C (structured locations -> 2D pin map).
 
 ### Phase B — structured locations (a named place graph)
 Replace free text with a lab-defined hierarchy (e.g. Room -> Unit (freezer/shelf/cabinet) -> Position), so locations are pickable, consistent, and aggregatable ("everything in Freezer B"). Free text stays as an escape hatch.
