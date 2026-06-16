@@ -8,10 +8,12 @@ import {
   relayCost,
   serviceMargin,
   avgFreeUserCostPathA,
+  freeBaseAcquisitionOneTime,
   aiMarginPerUser,
   AI_INDIV_RETAIL_PER_M,
   AI_ORG_RETAIL_PER_M,
   AI_REAL_COST_PER_M,
+  AI_SIGNUP_GRANT_USD,
   blendedSubNet,
   blendedGovPerPaid,
   blendedAiMargin,
@@ -35,7 +37,8 @@ const MIX: AdoptionMix = {
   labShare: 0.4,
   deptShare: 0.2,
   membersPerLab: 6,
-  freeRelayWritesM: 0.05,
+  freeRelayWritesM: 0, // Path A: free users do nothing that writes to us
+  freeUserLifetimeMonths: 24,
   aiTokensPerPaidM: 1,
 };
 
@@ -99,15 +102,24 @@ describe("AI billing (locked rates)", () => {
   });
 });
 
-describe("free users are cheap under Path A", () => {
-  it("free cost is only the thin relay footprint", () => {
+describe("free users are near-free under Path A", () => {
+  it("relay-only cost when no lifetime is given (stress-test path)", () => {
     expect(avgFreeUserCostPathA(0.05)).toBeCloseTo(relayCost(0.05), 9);
   });
 
-  it("a free user costs far less than a paying user nets", () => {
-    expect(blendedPaidNet(TIERS, MIX)).toBeGreaterThan(
-      avgFreeUserCostPathA(MIX.freeRelayWritesM) * 20,
-    );
+  it("with zero relay, the only cost is the amortized AI sign-up grant", () => {
+    expect(avgFreeUserCostPathA(0, 24)).toBeCloseTo(AI_SIGNUP_GRANT_USD / 24, 9);
+  });
+
+  it("the grant is about 25 cents one-time per account", () => {
+    expect(AI_SIGNUP_GRANT_USD).toBeCloseTo(0.25, 2);
+    expect(freeBaseAcquisitionOneTime(10000)).toBeCloseTo(10000 * AI_SIGNUP_GRANT_USD, 6);
+  });
+
+  it("a free user costs pennies a month versus dollars of paid net", () => {
+    const free = avgFreeUserCostPathA(MIX.freeRelayWritesM, MIX.freeUserLifetimeMonths);
+    expect(free).toBeLessThan(0.02);
+    expect(blendedPaidNet(TIERS, MIX)).toBeGreaterThan(free * 100);
   });
 });
 
@@ -145,8 +157,15 @@ describe("projectAtScale", () => {
     expect(p.revenue).toBeCloseTo(10000 * 0.05 * blendedPaidNet(TIERS, MIX), 6);
   });
 
-  it("expense is the free base relay cost plus the fixed floor", () => {
+  it("expense splits into free relay, amortized AI grant, and the fixed floor", () => {
     const p = projectAtScale(10000, TIERS, MIX);
+    const free = 10000 * (1 - MIX.conversion);
+    expect(p.freeRelayCost).toBeCloseTo(free * relayCost(MIX.freeRelayWritesM), 6);
+    expect(p.freeAcqCost).toBeCloseTo(
+      free * (AI_SIGNUP_GRANT_USD / MIX.freeUserLifetimeMonths),
+      6,
+    );
+    expect(p.freeCost).toBeCloseTo(p.freeRelayCost + p.freeAcqCost, 9);
     expect(p.expense).toBeCloseTo(p.freeCost + p.fixed, 9);
     expect(p.fixed).toBe(FIXED_BASE_MONTHLY);
   });
@@ -158,13 +177,13 @@ describe("projectAtScale", () => {
 
 describe("breakEvenConversion", () => {
   it("is freeCost / (paidNet + freeCost)", () => {
-    const F = avgFreeUserCostPathA(MIX.freeRelayWritesM);
+    const F = avgFreeUserCostPathA(MIX.freeRelayWritesM, MIX.freeUserLifetimeMonths);
     const R = blendedPaidNet(TIERS, MIX);
     expect(breakEvenConversion(TIERS, MIX)).toBeCloseTo(F / (R + F), 9);
   });
 
-  it("lands at a realistic low conversion because the free base is cheap", () => {
-    expect(breakEvenConversion(TIERS, MIX)).toBeLessThan(0.03);
+  it("is well under 1% because free users are near-free", () => {
+    expect(breakEvenConversion(TIERS, MIX)).toBeLessThan(0.01);
   });
 
   it("freeUsersPerPayer is the inverse intuition", () => {

@@ -65,13 +65,15 @@ Sells governance, not charity. Storage at parity with a standalone lab (no surch
 
 ## Why this is sustainable (the model says so)
 
-Because free users have no cloud produce feature, a free user costs us only a thin relay footprint (receiving sender-paid snapshots + directory presence), about **$0.08/mo** at the seed assumptions, versus ~$0.46/mo under the old GB model. So:
+Free users have no cloud produce feature, and the honest consequence (Grant 2026-06-16) is that **a free user does nothing that writes to us**: the local notebook is on their disk, shared-folder workspaces sync through their own cloud, receiving a share is sender-paid, reads have no R2 egress fee, and the public surfaces are cached. So the free-user recurring relay cost is **~$0**.
 
-- One paying user carries on the order of **60+ free users** (was ~11).
-- **Break-even conversion lands under 3%** (was ~15% at a 1M free write cap), which is realistic for freemium.
-- The seed tiers are net-positive at 50k users at 5% conversion in the projection.
+The only real free-user cost is the **one-time $0.25 AI sign-up grant**, modeled as an acquisition cost amortized over the free-user lifetime (default 24 months) = about **$0.01/mo** per free user, versus ~$0.46/mo under the old GB model. So:
 
-The #1 beta unknown is unchanged in spirit but smaller in magnitude: the real relay footprint of a free user (here assumed tiny because produce features are gated).
+- One paying user carries on the order of **hundreds of free users**.
+- **Break-even conversion lands well under 1%** (was ~15% at a 1M free write cap).
+- The seed tiers are net-positive at 50k users even at conservative conversion.
+
+This makes the free base essentially a fixed acquisition cost plus a flat infra floor, not a per-user recurring drain. The model keeps a free-relay dial (default 0) only to stress-test "what if free users turn out chattier than expected."
 
 ## The model + dashboard
 

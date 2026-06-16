@@ -145,13 +145,32 @@ export function serviceMargin(
 }
 
 /**
- * Average monthly cost to us of one FREE user under Path A. Free users get no
- * cloud produce feature, so the only cost is a thin relay footprint (receiving
- * sender-paid snapshots, directory presence) and effectively no storage.
- * freeRelayWritesM is small by design, which is the point.
+ * Average monthly cost to us of one FREE user under Path A.
+ *
+ * Free users get NO cloud produce feature, so they generate ~0 recurring relay
+ * writes: the local notebook is on their disk, shared-folder workspaces sync
+ * through their own cloud, receiving a share is sender-paid, and reads have no
+ * R2 egress fee. The only real free-user cost is the ONE-TIME AI sign-up grant
+ * (~$0.25, Grant 2026-06-16). We amortize that grant over an assumed free-user
+ * lifetime so the monthly number reflects steady-state re-acquisition (churn
+ * replacement). freeRelayWritesM defaults to 0 in the dashboard and exists only
+ * to stress-test "what if free users turn out chattier than expected." When
+ * freeLifetimeMonths is 0 the grant is not amortized (relay-only).
  */
-export function avgFreeUserCostPathA(freeRelayWritesM: number): number {
-  return relayCost(freeRelayWritesM);
+export function avgFreeUserCostPathA(
+  freeRelayWritesM: number,
+  freeLifetimeMonths = 0,
+): number {
+  const relay = relayCost(freeRelayWritesM);
+  const grantAmortized =
+    freeLifetimeMonths > 0 ? AI_SIGNUP_GRANT_USD / freeLifetimeMonths : 0;
+  return relay + grantAmortized;
+}
+
+/** One-time cost to acquire a free base of `freeUsers`, the AI sign-up grant
+ *  paid once per account. Context alongside the recurring monthly view. */
+export function freeBaseAcquisitionOneTime(freeUsers: number): number {
+  return freeUsers * AI_SIGNUP_GRANT_USD;
 }
 
 /** The three live service tiers (institution is punted for beta). Lab/dept
@@ -174,9 +193,12 @@ export interface AdoptionMix {
   deptShare: number;
   /** Assumed active members per lab (so a dept lab can amortize its fee). */
   membersPerLab: number;
-  /** Relay write footprint of one free user, millions per month. Tiny under
-   *  Path A because free users have no cloud produce features. */
+  /** Relay write footprint of one free user, millions per month. ~0 under Path A
+   *  (no cloud produce feature); exists only to stress-test a chattier free user. */
   freeRelayWritesM: number;
+  /** Assumed free-user lifetime in months, used to amortize the one-time AI
+   *  sign-up grant into a steady-state monthly cost. */
+  freeUserLifetimeMonths: number;
   /** Average AI tokens a PAYING user spends per month, in millions. Drives the
    *  AI margin on the paid side (dept users at the 2x org rate). */
   aiTokensPerPaidM: number;
@@ -255,7 +277,11 @@ export interface ScalePoint {
   gov: number;
   /** sub + ai + gov, the positive side of the P&L. */
   revenue: number;
-  /** Free base support cost. */
+  /** Free-user recurring relay cost (~0 under Path A). */
+  freeRelayCost: number;
+  /** Free-user AI sign-up grant, amortized over the assumed lifetime. */
+  freeAcqCost: number;
+  /** freeRelayCost + freeAcqCost, the whole free base support cost. */
   freeCost: number;
   /** Fixed infra floor. */
   fixed: number;
@@ -276,10 +302,27 @@ export function projectAtScale(
   const ai = paid * blendedAiMargin(tiers, mix);
   const gov = paid * blendedGovPerPaid(tiers, mix);
   const revenue = sub + ai + gov;
-  const freeCost = free * avgFreeUserCostPathA(mix.freeRelayWritesM);
+  const freeRelayCost = free * relayCost(mix.freeRelayWritesM);
+  const freeAcqCost =
+    mix.freeUserLifetimeMonths > 0
+      ? free * (AI_SIGNUP_GRANT_USD / mix.freeUserLifetimeMonths)
+      : 0;
+  const freeCost = freeRelayCost + freeAcqCost;
   const fixed = FIXED_BASE_MONTHLY;
   const expense = freeCost + fixed;
-  return { users, sub, ai, gov, revenue, freeCost, fixed, expense, net: revenue - expense };
+  return {
+    users,
+    sub,
+    ai,
+    gov,
+    revenue,
+    freeRelayCost,
+    freeAcqCost,
+    freeCost,
+    fixed,
+    expense,
+    net: revenue - expense,
+  };
 }
 
 /**
@@ -292,16 +335,17 @@ export function breakEvenConversion(
   tiers: ServiceTiers,
   mix: AdoptionMix,
 ): number {
-  const F = avgFreeUserCostPathA(mix.freeRelayWritesM);
+  const F = avgFreeUserCostPathA(mix.freeRelayWritesM, mix.freeUserLifetimeMonths);
   const R = blendedPaidNet(tiers, mix);
   if (R + F <= 0) return 1;
   return Math.min(1, Math.max(0, F / (R + F)));
 }
 
 /** How many free users one paying user can carry at break-even (the inverse
- *  intuition for the same number). */
+ *  intuition for the same number). Infinity when free users are effectively free
+ *  (relay 0 and grant not amortized), which is Path A in the limit. */
 export function freeUsersPerPayer(tiers: ServiceTiers, mix: AdoptionMix): number {
-  const F = avgFreeUserCostPathA(mix.freeRelayWritesM);
+  const F = avgFreeUserCostPathA(mix.freeRelayWritesM, mix.freeUserLifetimeMonths);
   if (F <= 0) return Number.POSITIVE_INFINITY;
   return blendedPaidNet(tiers, mix) / F;
 }

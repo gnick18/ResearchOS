@@ -1058,7 +1058,8 @@ const MIX_PRESETS = [
 
 export function FinalizeTab() {
   const [rows, setRows] = useState<ServiceRow[]>(DEFAULT_SERVICE_ROWS);
-  const [freeRelayM, setFreeRelayM] = useState(0.05);
+  const [freeRelayM, setFreeRelayM] = useState(0);
+  const [freeLifetimeMo, setFreeLifetimeMo] = useState(24);
   const [aiTokensM, setAiTokensM] = useState(3);
   const [conversion, setConversion] = useState(0.05);
   const [soloShare, setSoloShare] = useState(0.4);
@@ -1093,10 +1094,11 @@ export function FinalizeTab() {
     deptShare,
     membersPerLab,
     freeRelayWritesM: freeRelayM,
+    freeUserLifetimeMonths: freeLifetimeMo,
     aiTokensPerPaidM: aiTokensM,
   };
 
-  const avgFree = avgFreeUserCostPathA(freeRelayM);
+  const avgFree = avgFreeUserCostPathA(freeRelayM, freeLifetimeMo);
   const breakEven = breakEvenConversion(tiers, mix);
   const perPayer = freeUsersPerPayer(tiers, mix);
   const storagePerGB = storageRetailPerGB();
@@ -1175,7 +1177,7 @@ export function FinalizeTab() {
       window.removeEventListener("resize", drawProjection);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [rows, freeRelayM, aiTokensM, conversion, soloShare, labShare, deptShare, membersPerLab]);
+  }, [rows, freeRelayM, freeLifetimeMo, aiTokensM, conversion, soloShare, labShare, deptShare, membersPerLab]);
 
   const inputCls =
     "w-16 rounded border border-border bg-surface-sunken px-1.5 py-1 text-meta tabular-nums";
@@ -1202,22 +1204,23 @@ export function FinalizeTab() {
             cloud, async file sync, not live collab), <b>directory presence</b>,{" "}
             <b>receive</b> shares (the sender bears the relay cost), in-app receipt
             notes, accept invites, public library/wiki/demo. No send, no live
-            collab, no phone capture, no push. So a free user costs us only a thin
-            relay footprint, about <b>{fmt(avgFree)}/mo</b>, plus a one-time AI
-            sign-up grant of <b>{fmt(AI_SIGNUP_GRANT_USD)}</b> (acquisition cost,
-            not recurring).
+            collab, no phone capture, no push. <b>None of that writes to us</b>,
+            so a free user generates ~0 recurring cloud cost. The only real cost
+            is the <b>one-time {fmt(AI_SIGNUP_GRANT_USD)} AI sign-up grant</b>,
+            amortized over a {freeLifetimeMo}-month lifetime ={" "}
+            <b>{fmt(avgFree)}/mo</b> per free user.
           </div>
         </Panel>
 
         <Panel title="Assumptions">
-          <div className="grid gap-5 lg:grid-cols-3">
+          <div className="grid gap-5 lg:grid-cols-2">
             <Slider
-              label={`Free relay: ${freeRelayM.toFixed(2)}M/mo`}
-              min={0}
-              max={0.5}
-              step={0.01}
-              value={freeRelayM}
-              onChange={setFreeRelayM}
+              label={`Free-user lifetime: ${freeLifetimeMo} mo (amortizes the ${fmt(AI_SIGNUP_GRANT_USD)} grant)`}
+              min={6}
+              max={60}
+              step={3}
+              value={freeLifetimeMo}
+              onChange={setFreeLifetimeMo}
             />
             <Slider
               label={`AI per paid user: ${aiTokensM.toFixed(1)}M tok/mo`}
@@ -1235,11 +1238,20 @@ export function FinalizeTab() {
               value={membersPerLab}
               onChange={setMembersPerLab}
             />
+            <Slider
+              label={`Free relay (stress test): ${freeRelayM.toFixed(2)}M/mo`}
+              min={0}
+              max={0.5}
+              step={0.01}
+              value={freeRelayM}
+              onChange={setFreeRelayM}
+            />
           </div>
           <p className="mt-3 text-meta text-foreground-muted">
-            Free relay footprint is the real cost dial (small by design, no produce
-            feature). AI per paid user drives the metered AI margin on top of the
-            subscription.
+            Free users do nothing that writes to us, so their cost is just the
+            one-time AI grant amortized over their lifetime. The free-relay dial
+            stays at 0 by default and is only there to stress-test a chattier free
+            user. AI per paid user drives the metered AI margin.
           </p>
         </Panel>
 
@@ -1526,7 +1538,9 @@ export function FinalizeTab() {
             <Kv k="Subscriptions" v={`${fmt0(comp.sub)} (${Math.round((comp.sub / posTotal) * 100)}%)`} />
             <Kv k="AI margin" v={`${fmt0(comp.ai)} (${Math.round((comp.ai / posTotal) * 100)}%)`} />
             <Kv k="Governance fees" v={`${fmt0(comp.gov)} (${Math.round((comp.gov / posTotal) * 100)}%)`} />
-            <Kv k="Free base + infra cost" v={`-${fmt0(comp.expense)}`} tone="bad" />
+            <Kv k="Free AI grant (amortized)" v={`-${fmt0(comp.freeAcqCost)}`} tone="bad" />
+            <Kv k="Free relay" v={`-${fmt0(comp.freeRelayCost)}`} tone="bad" />
+            <Kv k="Fixed infra floor" v={`-${fmt0(comp.fixed)}`} tone="bad" />
             <Kv k="Net per month" v={fmt0(comp.net)} bold tone={comp.net < 0 ? "bad" : "good"} />
           </div>
         </Panel>
