@@ -26,6 +26,10 @@ import type { ArtifactFilter } from "@/lib/ai/artifact-index";
 import { recordSetFromResult } from "@/lib/ai/record-set";
 import type { ExperimentSummary } from "@/lib/ai/tools/summarize-experiments";
 import type { PurchaseSummary } from "@/lib/ai/tools/summarize-purchases";
+import type { NoteSummary } from "@/lib/ai/tools/summarize-notes";
+import type { ProjectsSummary } from "@/lib/ai/tools/summarize-projects";
+import type { InventorySummary } from "@/lib/ai/tools/summarize-inventory";
+import type { LabDigest } from "@/lib/ai/tools/lab-digest";
 
 /** Semantic tone for a stat tile or a bar. Maps to a color in the widget; it is a
  *  STATUS / role tone (done / overdue / spend), never an object-domain tint. */
@@ -191,6 +195,120 @@ export function purchaseSummaryReport(s: PurchaseSummary): SummaryReport {
             bars: s.byMonth.map((m) => ({ label: m.key, value: m.spend })),
           }
         : null,
+  };
+}
+
+/** Map a NoteSummary aggregate to the normalized report. Structural only (counts,
+ *  owners, months, entry total) - never a model reading of note content. Pure. */
+export function noteSummaryReport(s: NoteSummary): SummaryReport {
+  const ownerRows: SummaryBarRow[] = Object.entries(s.byOwner)
+    .sort((a, b) => b[1] - a[1])
+    .map(([label, value]) => ({ label, value, tone: "accent" as const }));
+  const barGroups: SummaryBarGroup[] = [];
+  if (ownerRows.length > 0) barGroups.push({ title: "By owner", rows: ownerRows });
+  return {
+    kind: "summarize_notes",
+    heading: "Notes",
+    scope: scopeChips(s.filter),
+    stats: [
+      { label: "notes", value: String(s.total), emphasis: true },
+      { label: "entries", value: String(s.totalEntries) },
+    ],
+    barGroups,
+    histogram:
+      s.byMonth.length > 0
+        ? { title: "Over time", bars: s.byMonth.map((m) => ({ label: m.month, value: m.count })) }
+        : null,
+  };
+}
+
+/** Map a ProjectsSummary rollup to the normalized report. Each project bar shows
+ *  its percent-complete (overdue projects toned red). Pure. Its filter is the
+ *  scope-flag shape, not an ArtifactFilter, so the chips are built inline. */
+export function projectsSummaryReport(s: ProjectsSummary): SummaryReport {
+  const scope: string[] = [s.filter.includeShared ? "whole lab" : "mine"];
+  scope.push(s.filter.includeArchived ? "incl. archived" : "active only");
+  const projectRows: SummaryBarRow[] = s.projects.map((p) => ({
+    label: p.name,
+    value: p.percentComplete,
+    display: `${p.percentComplete}%`,
+    tone: p.overdue ? ("overdue" as const) : ("done" as const),
+  }));
+  const barGroups: SummaryBarGroup[] = [];
+  if (projectRows.length > 0) barGroups.push({ title: "Percent complete", rows: projectRows });
+  return {
+    kind: "summarize_projects",
+    heading: "Projects",
+    scope,
+    stats: [
+      { label: "projects", value: String(s.totalProjects), emphasis: true },
+      { label: "with overdue", value: String(s.projectsWithOverdue), tone: "overdue" },
+    ],
+    barGroups,
+    histogram: null,
+  };
+}
+
+/** Map an InventorySummary aggregate to the normalized report. The flag lists drive
+ *  the headline tiles (low / out / expiring), categories drive the breakdown. Pure. */
+export function inventorySummaryReport(s: InventorySummary): SummaryReport {
+  const scope: string[] = [
+    s.filter.owners && s.filter.owners.length > 0 ? s.filter.owners.join(", ") : "whole lab",
+    `expiring ≤ ${s.filter.expiringWithinDays}d`,
+  ];
+  if (s.filter.keywords?.trim()) scope.push(`"${s.filter.keywords.trim()}"`);
+  const categoryRows: SummaryBarRow[] = s.byCategory.map((c) => ({
+    label: c.category,
+    value: c.count,
+    tone: "accent" as const,
+  }));
+  const barGroups: SummaryBarGroup[] = [];
+  if (categoryRows.length > 0) barGroups.push({ title: "By category", rows: categoryRows });
+  return {
+    kind: "summarize_inventory",
+    heading: "Inventory",
+    scope,
+    stats: [
+      { label: "items", value: String(s.itemCount), emphasis: true },
+      { label: "low", value: String(s.low.length), tone: "upcoming" },
+      { label: "out", value: String(s.out.length), tone: "overdue" },
+      { label: "expiring soon", value: String(s.expiringSoon.length), tone: "upcoming" },
+    ],
+    barGroups,
+    histogram: null,
+  };
+}
+
+/** Map a cross-type LabDigest to the normalized report (the week-in-review card).
+ *  Every number is lifted verbatim from the composed digest. Pure. */
+export function labDigestReport(d: LabDigest): SummaryReport {
+  const scope: string[] = [];
+  if (d.window.since && d.window.until) scope.push(`${d.window.since} to ${d.window.until}`);
+  else if (d.window.since) scope.push(`since ${d.window.since}`);
+  scope.push(d.window.owners && d.window.owners.length > 0 ? d.window.owners.join(", ") : "whole lab");
+  return {
+    kind: "lab_digest",
+    heading: "Lab digest",
+    scope,
+    stats: [
+      { label: "experiments run", value: String(d.experiments.run), emphasis: true },
+      { label: "finished", value: String(d.experiments.finished), tone: "done" },
+      { label: "notes written", value: String(d.notes.written) },
+      { label: "spend", value: d.purchases.totalSpendDisplay, tone: "spend" },
+    ],
+    barGroups: [
+      {
+        title: "This window",
+        rows: [
+          { label: "Experiments", value: d.experiments.run, tone: "accent" },
+          { label: "Finished", value: d.experiments.finished, tone: "done" },
+          { label: "Overdue", value: d.experiments.overdue, tone: "overdue" },
+          { label: "Notes", value: d.notes.written, tone: "accent" },
+          { label: "Purchases", value: d.purchases.made, tone: "spend" },
+        ],
+      },
+    ],
+    histogram: null,
   };
 }
 

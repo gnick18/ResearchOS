@@ -13,6 +13,10 @@ import { attachSummaryUi, recordSetFromResult, type RecordSetRow } from "@/lib/a
 import {
   experimentSummaryReport,
   purchaseSummaryReport,
+  noteSummaryReport,
+  projectsSummaryReport,
+  inventorySummaryReport,
+  labDigestReport,
   scopeChips,
   summaryReportFromResult,
 } from "@/lib/ai/summary-report";
@@ -106,6 +110,71 @@ describe("purchaseSummaryReport", () => {
   it("splits pending vs received from the aggregate", () => {
     expect(report.stats.find((s) => s.label === "received")?.value).toBe("3");
     expect(report.stats.find((s) => s.label === "pending")?.value).toBe("2");
+  });
+});
+
+describe("the remaining four builders", () => {
+  it("notes: counts + entry total + by-owner + histogram", () => {
+    const r = noteSummaryReport({
+      filter: { types: ["note"] },
+      total: 9,
+      byOwner: { kritika: 5, diego: 4 },
+      byMonth: [{ month: "2026-05", count: 9 }],
+      totalEntries: 22,
+      items: [],
+      truncated: false,
+    });
+    expect(r.heading).toBe("Notes");
+    expect(r.stats.find((s) => s.label === "entries")?.value).toBe("22");
+    expect(r.barGroups[0].title).toBe("By owner");
+    expect(r.histogram?.bars[0]).toEqual({ label: "2026-05", value: 9 });
+  });
+
+  it("projects: percent-complete bars, overdue toned red, manual scope chips", () => {
+    const r = projectsSummaryReport({
+      filter: { includeShared: true, includeArchived: false, asOf: "2026-06-15" },
+      totalProjects: 2,
+      projectsWithOverdue: 1,
+      projects: [
+        { name: "cyp51A", percentComplete: 80, overdue: true } as never,
+        { name: "screen", percentComplete: 40, overdue: false } as never,
+      ],
+    });
+    expect(r.scope).toEqual(["whole lab", "active only"]);
+    const bars = r.barGroups[0].rows;
+    expect(bars[0]).toMatchObject({ label: "cyp51A", display: "80%", tone: "overdue" });
+    expect(bars[1]).toMatchObject({ tone: "done" });
+  });
+
+  it("inventory: flag tiles + expiring-window scope chip", () => {
+    const r = inventorySummaryReport({
+      filter: { owners: null, keywords: null, expiringWithinDays: 30, asOf: "2026-06-15" },
+      itemCount: 40,
+      stockCount: 88,
+      byCategory: [{ category: "Reagents", count: 30 }],
+      low: [{}, {}] as never,
+      out: [{}] as never,
+      expiringSoon: [{}, {}, {}] as never,
+      expired: [],
+      recentMovements: [],
+      truncated: false,
+    });
+    expect(r.scope).toContain("expiring ≤ 30d");
+    expect(r.stats.find((s) => s.label === "low")?.value).toBe("2");
+    expect(r.stats.find((s) => s.label === "expiring soon")?.value).toBe("3");
+  });
+
+  it("lab_digest: cross-type tiles echo the verbatim spend string", () => {
+    const r = labDigestReport({
+      window: { since: "2026-06-08", until: "2026-06-14", owners: null, asOf: "2026-06-15" },
+      experiments: { run: 6, finished: 4, overdue: 1, finishingThisWeek: 2 },
+      notes: { written: 3, entries: 7 },
+      purchases: { made: 2, totalSpend: 412, totalSpendDisplay: "$412.00", pending: 1 },
+      scheduled: { projectsWithOverdue: 1, nextUpcomingStart: "2026-06-16" },
+    });
+    expect(r.heading).toBe("Lab digest");
+    expect(r.stats.find((s) => s.label === "spend")?.value).toBe("$412.00");
+    expect(r.barGroups[0].rows.map((x) => x.label)).toContain("Experiments");
   });
 });
 

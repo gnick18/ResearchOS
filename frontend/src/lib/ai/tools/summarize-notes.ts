@@ -31,7 +31,8 @@ import {
   type ArtifactFilter,
 } from "@/lib/ai/artifact-index";
 import { fetchAllNotesIncludingShared, usersApi } from "@/lib/local-api";
-import { attachRecordSetIfBig, periodLabel, RECORD_SET_UI_CAP, type RecordSetRow } from "@/lib/ai/record-set";
+import { attachSummaryUi, periodLabel, RECORD_SET_UI_CAP, type RecordSetRow } from "@/lib/ai/record-set";
+import { noteSummaryReport } from "@/lib/ai/summary-report";
 import type { Note } from "@/lib/types";
 import type { AiTool } from "./types";
 
@@ -319,7 +320,7 @@ export const summarizeNotesTool: AiTool = {
       }),
     );
 
-    return attachRecordSetIfBig({ ok: true as const, summary }, rows, {
+    return attachSummaryUi({ ok: true as const, summary }, rows, noteSummaryReport(summary), {
       kind: "summarize_notes",
       title: periodLabel("Notes", filter),
       total: fullSummary.total,
