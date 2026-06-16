@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 
+import BeakerBot from "@/components/BeakerBot";
 import MadeInMadison from "@/components/MadeInMadison";
 import MarketingFooter from "@/components/MarketingFooter";
 import MarketingNav from "@/components/MarketingNav";
@@ -86,6 +87,45 @@ const AI_ITEMS: FeatureItem[] = [
 ];
 
 export default function PricingPage() {
+  // TEMP: hide the public pricing page on deployed builds while we finalize the
+  // new (Model A) pricing, so visitors never see stale tiers. Shows a Beaker
+  // maintenance state on prod/preview; the real page still renders in local
+  // `next dev` so we keep building it. Set PRICING_LIVE=true to expose it, or
+  // remove this block once pricing is locked.
+  if (
+    process.env.NODE_ENV === "production" &&
+    process.env.PRICING_LIVE !== "true"
+  ) {
+    return (
+      <div className="min-h-screen bg-surface-sunken">
+        <MarketingNav />
+        <main className="mx-auto flex min-h-[60vh] max-w-2xl flex-col items-center justify-center px-6 py-20 text-center">
+          <BeakerBot
+            pose="idle"
+            animated={false}
+            className="h-40 w-40 text-sky-500"
+            ariaLabel="BeakerBot updating the pricing"
+          />
+          <h1 className="mt-6 text-2xl font-semibold text-foreground sm:text-3xl">
+            Pricing is getting an update
+          </h1>
+          <p className="mt-3 max-w-md text-body leading-relaxed text-foreground-muted">
+            We are finalizing a simpler, fairer pricing model built for
+            academics. It will be back here shortly, and everything in the app
+            stays free during the beta in the meantime.
+          </p>
+          <a
+            href="/"
+            className="mt-7 rounded-full border border-border px-5 py-2 text-meta font-medium text-foreground hover:bg-surface"
+          >
+            Back to home
+          </a>
+        </main>
+        <MarketingFooter />
+      </div>
+    );
+  }
+
   const billingEnabled = isBillingEnabled();
   const aiBillingEnabled = isAiBillingEnabled();
 
