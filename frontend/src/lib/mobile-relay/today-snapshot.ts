@@ -10,7 +10,7 @@
 //
 // No em-dashes, no emojis, no mid-sentence colons.
 
-import { fetchAllTasks, methodsApi } from "@/lib/local-api";
+import { fetchAllTasks, methodsApi, projectsApi } from "@/lib/local-api";
 import { sealToRecipient } from "@/lib/sharing/encryption";
 import { decodePublicKey } from "@/lib/sharing/identity/keys";
 import { listDevices, publishSnapshot, type UserCaptureKeys } from "./client";
@@ -23,6 +23,10 @@ export interface SnapshotTask {
   start_date: string;
   end_date: string;
   task_type: string;
+  /** Project (folder) name resolved from task.project_id, shown as a folder chip
+   *  on the experiment card. Optional so older phones + tasks with no resolvable
+   *  project are unaffected. */
+  projectName?: string | null;
   /**
    * Name of the first attached method. Only populated for experiment-type tasks
    * that have at least one method attachment. Optional so older phones and all
@@ -103,6 +107,8 @@ interface TaskLike {
   end_date: string;
   task_type: string;
   is_complete: boolean;
+  /** Present on real Task records; resolved to a project name for the card. */
+  project_id?: number | null;
   /** Present on real Task records returned by fetchAllTasks. */
   method_attachments?: Array<{ method_id: number; owner: string | null }>;
   /** Present on real Task records; used as fallback owner for method lookup. */
@@ -202,6 +208,19 @@ export async function buildTodaySnapshot(): Promise<TodaySnapshot> {
     }),
   );
 
+  // Resolve project_id -> project name once for the folder chip. Best-effort over
+  // the current user's projects (own experiments, the common case); a shared
+  // task whose project lives in another owner's namespace simply shows no folder
+  // chip rather than a wrong one. A list failure leaves every chip absent.
+  const projectNames = new Map<number, string>();
+  try {
+    for (const p of await projectsApi.list()) {
+      if (p && typeof p.id === "number" && p.name) projectNames.set(p.id, p.name);
+    }
+  } catch {
+    // No projects resolvable; cards just omit the folder chip.
+  }
+
   const toSnap = (t: TaskLike): SnapshotTask => {
     const snap: SnapshotTask = {
       id: t.id,
@@ -211,6 +230,10 @@ export async function buildTodaySnapshot(): Promise<TodaySnapshot> {
       task_type: t.task_type,
     };
     if (t.owner) snap.owner = t.owner;
+    if (t.project_id != null) {
+      const pname = projectNames.get(t.project_id);
+      if (pname) snap.projectName = pname;
+    }
     const methods = methodResolutions.get(t.id);
     if (methods && methods.length > 0) {
       snap.linkedMethods = methods;

@@ -458,6 +458,17 @@ function ExperimentCard({
           </ThemedText>
         </View>
       </View>
+      {task.projectName ? (
+        <View style={styles.expProjectRow}>
+          <Ionicons name="folder-outline" size={12} color={palette.purple} />
+          <ThemedText
+            style={[styles.expProjectText, { color: surface.muted }]}
+            numberOfLines={1}
+          >
+            {task.projectName}
+          </ThemedText>
+        </View>
+      ) : null}
       {hasMethod ? (
         <View style={styles.expMethodRow}>
           {/* Flask glyph rendered as a unicode character keeps the no-emoji rule
@@ -843,6 +854,18 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 6,
     marginTop: 2,
+  },
+  expProjectRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginTop: 3,
+  },
+  expProjectText: {
+    flex: 1,
+    minWidth: 0,
+    fontSize: 12,
+    fontFamily: fonts.medium,
   },
   trowMethodRow: {
     flexDirection: 'row',

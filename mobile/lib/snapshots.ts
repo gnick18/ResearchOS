@@ -53,6 +53,10 @@ export type SnapshotTask = {
   start_date?: string;
   end_date?: string;
   task_type?: string;
+  /** Name of the project (folder) this task belongs to, resolved by the laptop
+   *  from task.project_id. Shown as a folder chip on the experiment card. Absent
+   *  on older laptops or when the task has no resolvable project. */
+  projectName?: string | null;
   /** Name of the first attached method. Only present on experiment-type tasks
    *  that have a method attachment and were built by a laptop that supports the
    *  today-band feature. Absent on older laptops and non-experiment tasks. */

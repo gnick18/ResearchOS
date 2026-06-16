@@ -44,6 +44,7 @@ export const DEMO_TODAY_SNAPSHOT: TodaySnapshot = {
       start_date: yesterdayStr,
       end_date: twoDaysOutStr,
       task_type: 'experiment',
+      projectName: 'GFP reporter library',
       linkedMethodName: 'Colony PCR, GoTaq',
       linkedMethodType: 'pcr',
       linkedMethodCount: 3,
