@@ -51,7 +51,7 @@ export default function WelcomeTakeover({
 
       <button
         onClick={onSkip}
-        className="absolute right-4 top-4 z-20 text-xs text-[var(--muted,#6b716a)] hover:text-[var(--fg,#1f2421)] hover:underline"
+        className="absolute right-4 top-4 z-20 text-sm text-[var(--muted,#6b716a)] hover:text-[var(--fg,#1f2421)] hover:underline"
       >
         Skip for now
       </button>
@@ -60,7 +60,7 @@ export default function WelcomeTakeover({
           count (a "Nk / 150k" number read like a 150,000-step tour). Just a
           label + a quiet bar that fills as the tour spends AI; no numbers. */}
       <div
-        className="absolute left-4 top-4 z-20 flex items-center gap-2 rounded-full bg-[var(--brand-soft,#e3f4ec)]/90 px-3 py-1 text-[10px] font-semibold text-[var(--brand-ink,#0f6e56)] shadow-sm backdrop-blur"
+        className="absolute left-4 top-4 z-20 flex items-center gap-2 rounded-full bg-[var(--brand-soft,#e3f4ec)]/90 px-3 py-1 text-xs font-semibold text-[var(--brand-ink,#0f6e56)] shadow-sm backdrop-blur"
         title="The AI in this tour is on us"
       >
         Free AI
@@ -85,10 +85,16 @@ export default function WelcomeTakeover({
           />
         </div>
 
-        <h1 className="mt-1 text-3xl font-extrabold tracking-tight text-[var(--fg,#1f2421)] sm:text-4xl">
+        <h1
+          className="mt-1 text-4xl font-extrabold tracking-tight text-[var(--fg,#1f2421)] sm:text-5xl"
+          style={{ fontFamily: "var(--font-ai)" }}
+        >
           Hi, I'm Beaker.
         </h1>
-        <p className="mt-3 max-w-md text-[15px] leading-relaxed text-[var(--muted,#6b716a)]">
+        <p
+          className="mt-3 max-w-md text-lg leading-relaxed text-[var(--muted,#6b716a)]"
+          style={{ fontFamily: "var(--font-ai)" }}
+        >
           Give me five minutes and I'll show you what this place can do for your
           research. No setup, just watch.
         </p>
@@ -98,7 +104,7 @@ export default function WelcomeTakeover({
         </button>
         <button
           onClick={onSkip}
-          className="mt-3 px-3 py-1 text-[13px] font-medium text-[var(--muted,#6b716a)] hover:text-[var(--fg,#1f2421)]"
+          className="mt-3 px-3 py-1 text-sm font-medium text-[var(--muted,#6b716a)] hover:text-[var(--fg,#1f2421)]"
         >
           I'll explore on my own
         </button>
