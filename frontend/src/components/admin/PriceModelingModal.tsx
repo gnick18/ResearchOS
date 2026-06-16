@@ -1034,7 +1034,7 @@ const DEFAULT_LADDER: LadderRow[] = [
 const FILL = 0.4;
 
 export function FinalizeTab() {
-  const [freeGb, setFreeGb] = useState(1);
+  const [freeGb, setFreeGb] = useState(0.5);
   const [sustain, setSustain] = useState(16);
   const [rows, setRows] = useState<LadderRow[]>(DEFAULT_LADDER);
   const [conversion, setConversion] = useState(0.05);
