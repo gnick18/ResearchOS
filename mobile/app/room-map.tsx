@@ -265,25 +265,26 @@ export default function RoomMapScreen() {
                       { left: `${pin.x * 100}%`, top: `${pin.y * 100}%`, opacity: dimmed ? 0.45 : 1 },
                     ]}
                   >
-                    <View
-                      style={[
-                        styles.pinChip,
-                        {
-                          backgroundColor: on ? palette.sky : surface.surface,
-                          borderColor: on ? palette.sky : surface.border,
-                        },
-                      ]}
-                    >
-                      <ThemedText
-                        style={[styles.pinText, { color: on ? palette.white : surface.text }]}
-                        numberOfLines={1}
+                    {/* Label only on the selected pin, so labels never pile up
+                        on a dense map. Other pins are just markers; tap to name. */}
+                    {on ? (
+                      <View
+                        style={[
+                          styles.pinChip,
+                          { backgroundColor: palette.sky, borderColor: palette.sky },
+                        ]}
                       >
-                        {name}
-                      </ThemedText>
-                    </View>
+                        <ThemedText
+                          style={[styles.pinText, { color: palette.white }]}
+                          numberOfLines={1}
+                        >
+                          {name}
+                        </ThemedText>
+                      </View>
+                    ) : null}
                     <Ionicons
                       name="location"
-                      size={20}
+                      size={on ? 24 : 20}
                       color={on ? palette.sky : surface.muted}
                     />
                   </Pressable>

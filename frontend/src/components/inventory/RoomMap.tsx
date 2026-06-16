@@ -69,6 +69,7 @@ export default function RoomMap({ nodes, stocks }: RoomMapProps) {
   const [pins, setPins] = useState<LabMapPin[]>([]);
   const [plan, setPlan] = useState<LabMapPlan | null>(null);
   const [selected, setSelected] = useState<number | null>(null);
+  const [hovered, setHovered] = useState<number | null>(null);
   const mapRef = useRef<LabMap | null>(null);
   const canvasRef = useRef<HTMLDivElement | null>(null);
   const fileRef = useRef<HTMLInputElement | null>(null);
@@ -334,6 +335,7 @@ export default function RoomMap({ nodes, stocks }: RoomMapProps) {
             const node = pin.nodeId != null ? nodesById.get(pin.nodeId) : null;
             const name = node?.name ?? pin.label ?? "Pin";
             const isSel = pin.nodeId != null && pin.nodeId === selected;
+            const showLabel = isSel || hovered === pin.nodeId;
             return (
               <button
                 key={pin.id}
@@ -341,21 +343,27 @@ export default function RoomMap({ nodes, stocks }: RoomMapProps) {
                 onPointerDown={(e) => onPinPointerDown(e, pin)}
                 onPointerMove={onPinPointerMove}
                 onPointerUp={(e) => onPinPointerUp(e, pin)}
+                onMouseEnter={() => pin.nodeId != null && setHovered(pin.nodeId)}
+                onMouseLeave={() => setHovered((h) => (h === pin.nodeId ? null : h))}
                 className="absolute flex -translate-x-1/2 -translate-y-full cursor-grab touch-none flex-col items-center active:cursor-grabbing"
                 style={{ left: `${pin.x * 100}%`, top: `${pin.y * 100}%` }}
               >
-                <span
-                  className={`max-w-[140px] truncate rounded-md px-2 py-0.5 text-[11px] font-medium shadow-sm ${
-                    isSel
-                      ? "bg-brand-action text-white"
-                      : "bg-surface-raised text-foreground border border-border"
-                  }`}
-                >
-                  {name}
-                </span>
+                {/* Label only on the hovered or selected pin, so labels never
+                    pile up on a dense map. Other pins are just markers. */}
+                {showLabel ? (
+                  <span
+                    className={`max-w-[140px] truncate rounded-md px-2 py-0.5 text-[11px] font-medium shadow-sm ${
+                      isSel
+                        ? "bg-brand-action text-white"
+                        : "bg-surface-raised text-foreground border border-border"
+                    }`}
+                  >
+                    {name}
+                  </span>
+                ) : null}
                 <Icon
                   name="pin"
-                  className={`h-5 w-5 ${isSel ? "text-brand-action" : "text-foreground-muted"}`}
+                  className={`${isSel ? "h-6 w-6 text-brand-action" : "h-5 w-5 text-foreground-muted"}`}
                 />
               </button>
             );
