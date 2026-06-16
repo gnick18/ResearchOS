@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 
+import BeakerBot from "@/components/BeakerBot";
 import MadeInMadison from "@/components/MadeInMadison";
 import MarketingFooter from "@/components/MarketingFooter";
 import MarketingNav from "@/components/MarketingNav";
@@ -66,6 +67,44 @@ const ONWARD: { href: string; title: string; sub: string; external?: boolean }[]
 ];
 
 export default function AboutPage() {
+  // TEMP: hide the public /about page on deployed builds. It tells a solo-founder
+  // story that is now out of date (Emile is a co-founder), and the page will be
+  // remade. Shows a Beaker maintenance state on prod/preview; the real page still
+  // renders in local `next dev`. Set ABOUT_LIVE=true to expose it, or remove this
+  // block once the page is rewritten.
+  if (
+    process.env.NODE_ENV === "production" &&
+    process.env.ABOUT_LIVE !== "true"
+  ) {
+    return (
+      <div className="min-h-screen bg-surface-sunken">
+        <MarketingNav />
+        <main className="mx-auto flex min-h-[60vh] max-w-2xl flex-col items-center justify-center px-6 py-20 text-center">
+          <BeakerBot
+            pose="idle"
+            animated={false}
+            className="h-40 w-40 text-sky-500"
+            ariaLabel="BeakerBot updating the about page"
+          />
+          <h1 className="mt-6 text-2xl font-semibold text-foreground sm:text-3xl">
+            Our story is getting an update
+          </h1>
+          <p className="mt-3 max-w-md text-body leading-relaxed text-foreground-muted">
+            We are refreshing this page now that the team has grown. Back soon,
+            with the full picture of who is building ResearchOS.
+          </p>
+          <a
+            href="/"
+            className="mt-7 rounded-full border border-border px-5 py-2 text-meta font-medium text-foreground hover:bg-surface"
+          >
+            Back to home
+          </a>
+        </main>
+        <MarketingFooter />
+      </div>
+    );
+  }
+
   return (
     <div className="flex min-h-screen flex-col bg-surface-sunken text-foreground">
       <div aria-hidden className="brand-rainbow-bg h-2 w-full" />
