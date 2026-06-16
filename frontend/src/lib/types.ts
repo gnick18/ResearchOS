@@ -1501,6 +1501,70 @@ export interface StorageNodeUpdate {
   last_edited_at?: string;
 }
 
+// ── Lab map (2D spatial floorplan, spatial inventory Phase C) ─────────────────
+/**
+ * `LabMapPin` — one marker on the 2D room map. `nodeId` links it to a StorageNode
+ * (so "where is item X" resolves item -> stock -> its node -> that node's pin on
+ * the map), or is null for a free-standing label pin. `x`/`y` are normalized
+ * 0..1 across the plan area, so a pin survives any display size or export scale.
+ */
+export interface LabMapPin {
+  id: string; // stable client-generated id (keying + edits)
+  nodeId: number | null; // a StorageNode this pin marks, or null for a free label
+  label: string | null; // free label (when nodeId is null) or a display override
+  x: number; // 0..1 across the plan width
+  y: number; // 0..1 across the plan height
+}
+
+/**
+ * `LabMapPlan` — the floorplan backdrop the pins sit on. `"blank"` is a plain
+ * gridded canvas (drop pins, draw nothing); `"image"` shows an uploaded or
+ * RoomPlan-derived floorplan at `imagePath`. `aspect` = width / height of the
+ * plan area so the canvas keeps shape across devices.
+ */
+export interface LabMapPlan {
+  kind: "blank" | "image";
+  imagePath: string | null;
+  aspect: number; // width / height, default 1.5
+}
+
+/**
+ * `LabMap` — the lab's 2D spatial map. One per lab, whole-lab shared. The
+ * canonical `{ plan, pins }` object every capture method (manual drop now, a
+ * RoomPlan flatten later) feeds; the phone renders it read-only. Sharing +
+ * attribution mirror `StorageNode`.
+ */
+export interface LabMap {
+  id: number;
+  name: string;
+  plan: LabMapPlan;
+  pins: LabMapPin[];
+  owner: string;
+  shared_with: SharedUser[];
+  created_by: string | null;
+  last_edited_by?: string;
+  last_edited_at?: string;
+  is_shared_with_me?: boolean; // read-time overlay, never persisted
+  shared_permission?: "view" | "edit";
+}
+
+export interface LabMapCreate {
+  name?: string;
+  plan?: LabMapPlan;
+  pins?: LabMapPin[];
+  shared_with?: SharedUser[];
+  created_by?: string | null;
+}
+
+export interface LabMapUpdate {
+  name?: string;
+  plan?: LabMapPlan;
+  pins?: LabMapPin[];
+  shared_with?: SharedUser[];
+  last_edited_by?: string;
+  last_edited_at?: string;
+}
+
 // ── PCR Methods ──────────────────────────────────────────────────────────────
 
 export interface PCRStep {
