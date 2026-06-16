@@ -5510,6 +5510,8 @@ export default function SequenceEditView({
                     onClearSelection={handleMapClearSelection}
                     onRangeSelect={handleMapDragSelect}
                     selection={mapSelection}
+                    onHideEnzymes={() => setView((v) => ({ ...v, showEnzymes: false }))}
+                    onHidePrimers={() => setView((v) => ({ ...v, showPrimers: false }))}
                   />
                 ) : (
                 <SeqViz

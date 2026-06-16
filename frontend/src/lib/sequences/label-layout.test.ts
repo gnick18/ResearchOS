@@ -10,6 +10,8 @@ import {
   layoutLabels,
   tierCount,
   hasTierOverlap,
+  cutSiteStackTooDeep,
+  CUT_SITE_TIER_LIMIT,
   type LabelItem,
   type PlacedLabel,
 } from "./label-layout";
@@ -28,6 +30,18 @@ function anyOverlapWithinTier(placed: PlacedLabel[]): boolean {
   }
   return false;
 }
+
+describe("cutSiteStackTooDeep (interactive crowding advisory)", () => {
+  it("flags a stack only once it reaches the tier limit", () => {
+    expect(cutSiteStackTooDeep(CUT_SITE_TIER_LIMIT - 1)).toBe(false);
+    expect(cutSiteStackTooDeep(CUT_SITE_TIER_LIMIT)).toBe(true);
+    expect(cutSiteStackTooDeep(CUT_SITE_TIER_LIMIT + 4)).toBe(true);
+  });
+  it("does not flag an empty / shallow map", () => {
+    expect(cutSiteStackTooDeep(0)).toBe(false);
+    expect(cutSiteStackTooDeep(1)).toBe(false);
+  });
+});
 
 describe("layoutLabels", () => {
   it("returns an empty placement for no items", () => {
