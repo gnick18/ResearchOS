@@ -75,6 +75,21 @@ The only real free-user cost is the **one-time $0.25 AI sign-up grant**, which i
 
 This makes the free base a fixed one-time acquisition cost plus a flat infra floor, not a per-user recurring drain. The model keeps a free-relay dial (default 0) only to stress-test "what if free users turn out chattier than expected" (which is the only thing that would make recurring break-even nonzero).
 
+## Billing models under consideration (floated with Emile, 2026-06-16)
+
+The tier structure above is *what* you pay for; this is *how* you're billed. Three models are on the table, not yet decided. Two facts shape all of them:
+
+- **Present monthly, bill in 6-12-month chunks.** Stripe takes $0.30/charge, so five $3 charges lose ~10% to fees vs ~2% for one $15 charge. We show a monthly price but batch the actual charge.
+- **There is a MINIMUM/floor, and it is not usage.** A solo user's real cloud COGS is pennies (relay ~$0.01-0.08, storage pennies under local-first, AI only if used). The ~$5-6 is a **floor to make a paying customer worth processing** (clear the Stripe $0.30/charge + chip at the ~$260/mo flat overhead), so for most users it is mostly access + margin, not metered usage. Consequence: since usage << floor, a pure pay-per-use model and a flat access fee converge in practice.
+
+**A) Post-paid usage + monthly minimum.** Free vs. paid, no paid tiers. Card on file at signup (SetupIntent + ToS mandate); usage billed, never pay for what you didn't use, with a settable monthly max. Collectible via **threshold billing** (charge at term OR at $X accrued, whichever first, capping our float) and a **final invoice on cancellation** (auto-charge the card for accrued usage when they cancel — that's how you collect from a month-3 churner). *Pro:* most honest, cheapest in a light month. *Con:* "billed per click" psychology; the floor means they usually pay it anyway; we carry receivable/collection + card-decline risk.
+
+**B) Build-your-own commitment subscription.** The PI commits a $/mo amount based on expected usage, adjustable each month. *Pro:* most predictable revenue / lock-in (why ~99% of SaaS uses flat tiers). *Con:* onus on the PI to pick the right number; a lab over-pays when usage dips; month-adjustable undercuts the lock-in unless it is an annual commit.
+
+**C) Prepaid "top-up" wallet (prepaid-phone style).** Load credit (e.g. $50); usage draws it down; top up when low; **no month, no commitment, no recurring bill**. *Pro:* zero bill-shock (only spend what you loaded), **zero receivable risk** (paid upfront, nothing to collect, no card-on-file-at-cancel needed), fee-efficient. *Con:* least predictable revenue; some dislike managing a balance. **Most consistent with what's built** — AI billing already works this way and storage is already prepaid blocks.
+
+Status: floated with Emile for a gut check; decision pending. C (or a hybrid: small fixed access sub + prepaid credits for the variable storage/AI layer) is the current lean because it removes the collection problem entirely.
+
 ## Fixed business costs (Grant 2026-06-16)
 
 The monthly net now charges the real fixed LLC overhead, not a flat placeholder. It is the sum of:
