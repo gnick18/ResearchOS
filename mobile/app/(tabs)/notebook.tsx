@@ -1017,7 +1017,7 @@ export default function NotebookScreen() {
             testID="notebook-upload-roll"
             variant="secondary"
             accent="amber"
-            label="Upload from camera roll"
+            label="Bulk upload from camera roll"
             onPress={onUploadFromLibrary}
           />
         ) : null}
