@@ -828,8 +828,10 @@ Open, openly-licensed scientific icon corpus surfaced in the figure composer + a
 `/library`. Full plan: docs/proposals/2026-06-15-asset-library-portal-landing-contribution.md.
 Latest handoff: docs/handoffs/2026-06-15-open-asset-library-portal-landing-contribution.md.
 
-- **Corpus**: 14,296 assets (11,738 PhyloPic + 2,558 BioIcons) live on R2 at
-  `assets.research-os.com`. License invariant (HARD): CC0 / Public Domain / CC-BY /
+- **Corpus**: 14,559 assets (11,738 PhyloPic + 2,821 BioIcons) live on R2 at
+  `assets.research-os.com` (BioIcons failure-retry 2026-06-15 recovered 264 via a
+  space->underscore path candidate; 7 residual are genuine upstream deletions).
+  License invariant (HARD): CC0 / Public Domain / CC-BY /
   CC-BY-SA only, never -NC/-ND. Every asset carries a verbatim credit. Ingest tooling in
   `frontend/scripts/asset-ingest/` (standalone node, out/ gitignored, synced via rclone
   remote `r2:`). PhyloPic categories/tags come from a TOP-DOWN clade index (filter_clade)
@@ -839,10 +841,30 @@ Latest handoff: docs/handoffs/2026-06-15-open-asset-library-portal-landing-contr
   seed); `listCategoryGroups` gives the BioRender-style grouped tree; `verificationStatus`
   / `reviewableAssets` / `countReviewable` drive the wiki-verification UI. Keep changes
   ADDITIVE — the Figure Composer lane consumes this file (IconsPanel in FigureLeftRail.tsx).
-- **Contribution + wiki verification** (Part 3, behind `NEXT_PUBLIC_ASSET_CONTRIBUTE_ENABLED`,
-  OFF): wizard at `/library/contribute`, review queue at `/library/review`, endpoints
-  `/api/library/{submit,verify,flag}` (nodejs runtime, reuse relay `R2_*` creds, bucket
-  override `ASSET_R2_BUCKET`). Auto-publish flagged "unverified"; an INDEPENDENT user must
-  verify (server enforces `verifierId !== submittedBy`); 3 flags auto-unpublish.
-- **Curated re-sync MUST exclude** `community-manifest.json` + `assets/community/**` or it
-  clobbers user submissions.
+- **Contribution + accountable moderation** (`NEXT_PUBLIC_ASSET_CONTRIBUTE_ENABLED`, now
+  ON in prod): wizard `/library/contribute`, review queue `/library/review`, endpoints
+  `/api/library/{submit,verify,flag,reject,revert,removed}` (nodejs, reuse relay `R2_*`
+  creds, bucket override `ASSET_R2_BUCKET`). Auto-publish flagged "unverified"; INDEPENDENT
+  verify (server enforces `verifierId !== submittedBy`); REJECT requires a written reason +
+  moves the asset to `community-removed.json` for a 30-day revertible window with the
+  rejector's @handle + reason (anyone signed in can revert; lazy GC purges past 30d).
+  Identity = a persisted @handle (`use-library-actor.ts`) attributing every action
+  consistently; crypto-binding to the cloud account is the documented follow-up (coordinate
+  with Popup Unifier's C3 identity lane). E2E-verified live on prod 2026-06-15.
+- **Discoverability** (2026-06-15): `/library` woven into MarketingNav + footer + Settings +
+  BeakerSearch + the in-app More-overflow nav (lib/nav.ts, gated ASSET_LIBRARY_ENABLED) +
+  welcome block; persistent "Back to the library" on contribute/review. NOTE: adding a route
+  to NAV_ITEMS REQUIRES adding it to `scripts/check-wiki-coverage.mjs` EXCLUDED_PREFIXES (or
+  APP_ROUTE_TO_WIKI) or the prebuild gate fails EVERY prod build — `/library` did exactly this
+  on 2026-06-15. Always run `node scripts/check-wiki-coverage.mjs --ci` before merging a nav change.
+- **Semantic icon search** (Figure Composer lane consumes; INJEST hosts): MiniLM vectors +
+  model + onnxruntime wasm on R2 — `embeddings-v1.bin` + `embeddings-v1.meta.json` (next to
+  manifest.json, refreshable cache), `Xenova/all-MiniLM-L6-v2/*` + `ort/ort-wasm{,-simd}.wasm`
+  (immutable). Client flags `NEXT_PUBLIC_ASSET_SMART_SEARCH` + `NEXT_PUBLIC_ASSET_MODEL_HOST`.
+  **HARD COUPLING**: `embeddings-v1.bin` row order MUST match manifest.json — regenerate +
+  re-sync it in the SAME pass as any corpus change (`embed-assets.mjs`), or rows drift.
+- **Social/researcher layer** is the parallel that is NOT at this bar yet — build & sequencing
+  plan `docs/proposals/2026-06-15-social-layer-build-plan.md` (audit + library-parity +
+  Popup-coordination); locked spec `docs/proposals/2026-06-14-researcher-profiles-and-social-layer.md`.
+- **Curated re-sync MUST exclude** `community-manifest.json` + `assets/community/**` (+ the
+  shared `welcome/**` Billing videos) or it clobbers them — use `rclone copy`, never `sync`.

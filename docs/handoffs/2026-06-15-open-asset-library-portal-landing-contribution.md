@@ -23,6 +23,37 @@ Plan doc: docs/proposals/2026-06-15-asset-library-portal-landing-contribution.md
 
 tsc clean; vitest green; ingest node:tests green.
 
+## SESSION 2 (2026-06-15 cont.) — shipped this session, all on origin/main + LIVE on prod
+
+1. **BioIcons failure-retry** — corpus 14,296 → **14,559** (+264 recovered via a
+   space->underscore path candidate in `ingest-bioicons.mjs`; 7 residual = upstream-gone).
+   Synced via `rclone copy`. Live.
+2. **Discoverability weave** — `/library` into MarketingNav + footer + Settings + BeakerSearch
+   + in-app More-overflow nav + welcome block; persistent "Back to the library" on
+   contribute/review. **LESSON: adding to NAV_ITEMS without a `check-wiki-coverage.mjs`
+   exclusion broke EVERY prod build for hours** (the prebuild gate, which tsc does NOT catch);
+   fixed by excluding `/library`. Always run the coverage check before merging a nav change.
+3. **Accountable, revertible community moderation** — new endpoints
+   `/api/library/{reject,revert,removed}` + `community-removed.json` (30-day window, rejector
+   @handle + written reason kept, anyone-signed-in revert, lazy GC) + persisted-@handle actor
+   (`use-library-actor.ts`) + ReviewQueue Recently-removed panel. **E2E-verified live on prod**
+   via Claude-in-Chrome (contribute→unverified→independent-review→reject-with-reason→30-day
+   attributed removal→restore, all 7 steps green). Test artifact cleaned up.
+4. **GlobalDropGuard fix** — the "Files can only be attached..." toast fired over the contribute
+   zone + the shared `FileDropzone` (~10 surfaces); fixed with `data-attach-target` +
+   stopPropagation (cosmetic-only; files attached anyway). NOT a security block.
+5. **Semantic icon search hosting** — staged Figure Composer's MiniLM vectors + model +
+   onnxruntime wasm on R2 (see the Semantic-search sidecars note in R2 / CDN below). Env vars
+   set, gated on `NEXT_PUBLIC_ASSET_SMART_SEARCH`; FC's client merge is the last step.
+6. **Social-layer build plan** — `docs/proposals/2026-06-15-social-layer-build-plan.md` (audit
+   showing the social side is NOT at library parity; phased build atop the locked spec, hard
+   coordination boundary with Popup Unifier's C3 identity/directory lane). NOT built — awaiting
+   Grant's 4 open decisions (hub route name, public login-free search, institution provisioning,
+   v1 scope).
+
+NOTE: the GO-LIVE GATES below are now DONE — redirect live, R2 write-token proven, contribute
+flag ON, deployed. The prod build was repaired mid-session (the wiki-coverage break above).
+
 ## FIGURE COMPOSER: taxonomy is LOCKED (answer to their gating question)
 
 YES, build the grouped sidebar now. The full-corpus ingest is DONE + synced, so:
