@@ -133,6 +133,65 @@ export async function getBindingByHash(
 }
 
 /**
+ * Re-inserts the canonical 4-char-group spacing into a compact (space-free)
+ * fingerprint, matching how fingerprints are stored in directory_profiles /
+ * directory_identities ("aaaa bbbb cccc"). Mirrors the /researcher route.
+ */
+function groupFingerprint(compact: string): string {
+  const groups: string[] = [];
+  for (let i = 0; i < compact.length; i += 4) {
+    groups.push(compact.slice(i, i + 4));
+  }
+  return groups.join(" ");
+}
+
+/**
+ * Fetches the binding for a LISTED, published researcher by their fingerprint, or
+ * null if the fingerprint is not bound or its profile is unlisted/absent. The
+ * reverse of getBindingByHash keyed by fingerprint, joined to directory_profiles
+ * so it only ever resolves someone who has opted into the public directory
+ * (unlisted = false). This powers the no-email fingerprint-routed sealed send:
+ * the relay resolves a recipient found on the /network hub to their mailbox hash
+ * (emailHash) WITHOUT the sender ever knowing the recipient's email.
+ *
+ * The input may be the compact (space-free) or already-grouped fingerprint; it is
+ * normalized to the stored grouped form. Exact match only, never a prefix, so the
+ * directory stays non-enumerable. The keyBackupBlob is loaded for shape parity
+ * but callers must never expose it.
+ */
+export async function getBindingByFingerprint(
+  fingerprint: string,
+): Promise<DirectoryBinding | null> {
+  const compact = fingerprint.replace(/\s+/g, "").toLowerCase();
+  if (!/^[0-9a-f]{8,64}$/.test(compact)) return null;
+  const grouped = groupFingerprint(compact);
+  const sql = getSql();
+  const rows = (await sql`
+    SELECT i.email_hash, i.x25519_pub, i.ed25519_pub, i.fingerprint, i.key_backup_blob
+    FROM directory_identities i
+    JOIN directory_profiles p ON p.fingerprint = i.fingerprint
+    WHERE i.fingerprint = ${grouped}
+      AND p.unlisted = false
+    LIMIT 1
+  `) as Array<{
+    email_hash: string;
+    x25519_pub: string;
+    ed25519_pub: string;
+    fingerprint: string;
+    key_backup_blob: string | null;
+  }>;
+  if (rows.length === 0) return null;
+  const r = rows[0];
+  return {
+    emailHash: r.email_hash,
+    x25519PublicKey: r.x25519_pub,
+    ed25519PublicKey: r.ed25519_pub,
+    fingerprint: r.fingerprint,
+    keyBackupBlob: r.key_backup_blob,
+  };
+}
+
+/**
  * Fetches the current binding for an Ed25519 public key (hex), or null if none.
  * This is the reverse of getBindingByHash: the DO stores only the owner_pubkey
  * (the Ed25519 signing key), so the /api/collab/doc-size route uses this to

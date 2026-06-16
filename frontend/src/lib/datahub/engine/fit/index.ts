@@ -13,8 +13,12 @@ export {
   getModel,
   listModels,
   modelExpectsLogX,
+  xLooksLogDose,
+  fitLog10sDose,
   prepareFitData,
   fivePLLogEC50Shift,
+  type DoseXScale,
+  type PreparedFitData,
   type NonlinearModel,
 } from "./models";
 export {

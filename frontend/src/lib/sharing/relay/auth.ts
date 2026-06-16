@@ -76,6 +76,13 @@ export interface RelayPayloadInput {
   issuedAt: string;
   /** send and invite only, the recipient's email the bundle is addressed to. */
   recipientEmail?: string;
+  /**
+   * send only, the recipient's directory fingerprint (compact lowercase hex), the
+   * no-email alternative to recipientEmail for a researcher found on /network. A
+   * "send" carries EXACTLY ONE of recipientEmail / recipientFingerprint; the relay
+   * resolves the fingerprint to the recipient mailbox hash server-side.
+   */
+  recipientFingerprint?: string;
   /** send and invite only, the sealed-bundle size in bytes. */
   sizeBytes?: number;
   /** confirm, fetch, and ack only, the server-issued bundle id. */
@@ -105,6 +112,9 @@ export function buildRelayPayload(input: RelayPayloadInput): Uint8Array {
   ];
   if (input.recipientEmail !== undefined) {
     lines.push(`recipientEmail=${input.recipientEmail}`);
+  }
+  if (input.recipientFingerprint !== undefined) {
+    lines.push(`recipientFingerprint=${input.recipientFingerprint}`);
   }
   if (input.sizeBytes !== undefined) {
     lines.push(`sizeBytes=${input.sizeBytes}`);
@@ -154,6 +164,7 @@ export interface ParsedRelayBody {
   issuedAt: string;
   signature: string;
   recipientEmail?: string;
+  recipientFingerprint?: string;
   sizeBytes?: number;
   bundleId?: string;
   inviteId?: string;
@@ -194,7 +205,27 @@ export function parseRelayBody(
     signature: b.signature,
   };
 
-  if (expectedAction === "send" || expectedAction === "invite") {
+  if (expectedAction === "send") {
+    // A send addresses the recipient by EXACTLY ONE of email or fingerprint.
+    // Fingerprint is the no-email path for a researcher found on the /network hub.
+    if (!isNonNegativeInteger(b.sizeBytes)) return null;
+    const hasEmail = isNonEmptyString(b.recipientEmail);
+    const hasFingerprint = isNonEmptyString(b.recipientFingerprint);
+    if (hasEmail === hasFingerprint) return null; // neither, or both, is invalid
+    if (hasEmail) {
+      const recipientEmail = (b.recipientEmail as string).trim();
+      if (!EMAIL_RE.test(recipientEmail)) return null;
+      parsed.recipientEmail = recipientEmail;
+    } else {
+      // Normalize to compact lowercase hex so the rebuilt signed bytes match what
+      // the client signed (the client signs the same normalized form).
+      const fp = (b.recipientFingerprint as string).replace(/\s+/g, "").toLowerCase();
+      if (!/^[0-9a-f]{8,64}$/.test(fp)) return null;
+      parsed.recipientFingerprint = fp;
+    }
+    parsed.sizeBytes = b.sizeBytes;
+  } else if (expectedAction === "invite") {
+    // Invite is the keyless one-time-link path, email-addressed only.
     if (!isNonEmptyString(b.recipientEmail)) return null;
     const recipientEmail = b.recipientEmail.trim();
     if (!EMAIL_RE.test(recipientEmail)) return null;
@@ -266,6 +297,7 @@ export async function verifyRelayRequest(
     email: canonical,
     issuedAt: parsed.issuedAt,
     recipientEmail: parsed.recipientEmail,
+    recipientFingerprint: parsed.recipientFingerprint,
     sizeBytes: parsed.sizeBytes,
     bundleId: parsed.bundleId,
     inviteId: parsed.inviteId,

@@ -137,6 +137,29 @@ const DOSE_RESPONSE_MODEL_FIELD: ParamField = {
 };
 
 /**
+ * How the dose-response / global-fit X column should be read. The logistic models
+ * are parameterized in log10(dose): the engine log10-transforms a raw
+ * concentration column internally so EC50 comes back in linear dose units. But a
+ * GraphPad/Prism user routinely pastes an already-log "log[agonist] (M)" column
+ * (e.g. -9, -8.5, ...), where every value is <= 0 and the positive-dose filter
+ * would discard the whole curve. "Auto" detects that case (a negative column is
+ * already log dose, an all-positive column is raw concentration) and is correct
+ * for almost everyone; the explicit choices override the guess when needed.
+ */
+const DOSE_X_SCALE_FIELD: ParamField = {
+  key: "xScale",
+  label: "X values",
+  control: "seg",
+  options: [
+    { value: "auto", label: "Auto-detect" },
+    { value: "concentration", label: "Concentration" },
+    { value: "logDose", label: "Log dose" },
+  ],
+  default: "auto",
+  why: "These fits expect raw concentration and take log10 internally, so the EC50 reads in dose units. If your X column is already log dose (the common Prism log[agonist] column, e.g. -9 to -4), Auto-detect treats it as log dose so the points are not all dropped. Pick Concentration or Log dose to override the guess.",
+};
+
+/**
  * The two model picks plus the nested flag for the model-comparison analysis.
  * Both pickers list the same fittable curve models; the run layer orders them by
  * parameter count so the F test always treats the simpler model as the baseline.
@@ -304,7 +327,7 @@ export const ANALYSIS_PARAM_SCHEMA: Record<string, ParamField[]> = {
   linearRegression: [],
   logisticRegression: [],
   rocCurve: [],
-  doseResponse: [DOSE_RESPONSE_MODEL_FIELD],
+  doseResponse: [DOSE_RESPONSE_MODEL_FIELD, DOSE_X_SCALE_FIELD],
   modelComparison: [
     COMPARE_MODEL_A_FIELD,
     COMPARE_MODEL_B_FIELD,
@@ -313,7 +336,7 @@ export const ANALYSIS_PARAM_SCHEMA: Record<string, ParamField[]> = {
   kaplanMeier: [],
   coxRegression: [COX_REFERENCE_FIELD],
   multipleRegression: [],
-  globalFit: [GLOBAL_FIT_MODEL_FIELD, GLOBAL_FIT_SHARE_FIELD],
+  globalFit: [GLOBAL_FIT_MODEL_FIELD, GLOBAL_FIT_SHARE_FIELD, DOSE_X_SCALE_FIELD],
   grubbsOutlier: [GRUBBS_ALPHA_FIELD, GRUBBS_MODE_FIELD],
   contingency: [CONTINGENCY_YATES_FIELD],
   // The nested tests read the whole table and take no editable options (the

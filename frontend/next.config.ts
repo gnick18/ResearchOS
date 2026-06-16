@@ -157,7 +157,11 @@ const CAPTURE_RELAY_ORIGIN =
  */
 const CSP = [
   "default-src 'self'",
-  "script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval' 'unsafe-eval' https://va.vercel-scripts.com",
+  // assets.research-os.com: the smart-icon-search semantic layer dynamically
+  // imports onnxruntime-web's wasm loader (`ort-wasm-simd-threaded.jsep.mjs`) as
+  // an ES module from our R2 CDN. A module import is governed by script-src (not
+  // connect-src), so the CDN must be allowed here too, not only in connect-src.
+  "script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval' 'unsafe-eval' https://va.vercel-scripts.com https://assets.research-os.com",
   "style-src 'self' 'unsafe-inline'",
   // assets.research-os.com: the open-asset (icon library) CDN on Cloudflare R2.
   // Thumbnails load via <img>, so the custom domain must be in img-src (the R2

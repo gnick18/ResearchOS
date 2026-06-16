@@ -37,6 +37,9 @@ export const APP_ROUTE_TO_WIKI: Record<string, string> = {
   "/chemistry": "/wiki/features/chemistry",
   "/phylo": "/wiki/features/phylo",
   "/figures": "/wiki/features/figures",
+  "/network": "/wiki/features/network",
+  "/library": "/wiki/features/library",
+  "/researchers": "/wiki/features/researchers",
 };
 
 /** Prefix-aware lookup. Tries an exact match first, then walks the
@@ -268,6 +271,21 @@ export const WIKI_NAV: WikiNode[] = [
         href: "/wiki/features/figures",
         label: "Figure Composer",
         blurb: "Lay your real data figures out on a single publication page, with live panels from sequences, molecules, trees, and Data Hub plots, exported as one clean vector SVG.",
+      },
+      {
+        href: "/wiki/features/network",
+        label: "Researcher network",
+        blurb: "The shortest path from your data to a collaborator. Share a method, sequence, dataset, or figure straight to any researcher on ResearchOS, in your department or across the world, with no files or email needed.",
+      },
+      {
+        href: "/wiki/features/library",
+        label: "Open icon library",
+        blurb: "A public, login-free alternative to BioRender. Around 14,559 openly licensed scientific icons and silhouettes, every one with its source and a ready-to-paste citation, dropped straight into your figures.",
+      },
+      {
+        href: "/wiki/features/researchers",
+        label: "Researcher directory",
+        blurb: "The opt-in, in-app way to find a researcher by name or institution and share your work with them, with a verified-institution badge and a key fingerprint you confirm before sharing.",
       },
       {
         href: "/wiki/features/cloning",

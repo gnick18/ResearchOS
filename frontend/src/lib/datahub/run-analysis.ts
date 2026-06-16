@@ -68,6 +68,7 @@ import {
   fitModel,
   fitGlobal,
   prepareFitData,
+  type DoseXScale,
   fivePLLogEC50Shift,
   extraSumOfSquaresF,
   aiccCompare,
@@ -1168,6 +1169,49 @@ function fitParam(fit: FitResult, name: string): DoseResponseParam {
   };
 }
 
+/** Count of finite values, for honest "N of M" reporting in fit messages. */
+function finiteCount(x: number[]): number {
+  let n = 0;
+  for (const v of x) if (Number.isFinite(v)) n++;
+  return n;
+}
+
+/**
+ * The "X values" scale picked for a dose-response analysis, read from the spec
+ * params (the segmented control in the panel). Absent / unknown falls back to
+ * "auto", which keeps the historical raw-dose behavior for an all-positive
+ * column and only treats a negative column as already-log.
+ */
+function readDoseXScale(spec: AnalysisSpec): DoseXScale {
+  const raw = readParams(spec).xScale;
+  return raw === "concentration" || raw === "logDose" ? raw : "auto";
+}
+
+/**
+ * Turn the fitter's generic "need more than N finite points" into an actionable
+ * message when the shortfall came from the positive-dose filter. A log-dose model
+ * log10-transforms raw concentration internally, so any x <= 0 has no log and is
+ * dropped; if that emptied the fit, say exactly what happened and how to fix it
+ * (most often: the column is already log dose, so switch the X-values control)
+ * instead of a bare point count. When nothing was dropped, the original error
+ * stands — it is a genuine too-few-points case.
+ */
+function explainDoseDrop(
+  error: string,
+  dropped: number,
+  totalFinite: number,
+  logTransformed: boolean,
+): string {
+  if (!logTransformed || dropped === 0) return error;
+  return (
+    `This fit reads X as raw concentration and log-transforms it internally, but ` +
+    `${dropped} of ${totalFinite} X values are <= 0 (a zero or negative dose has no ` +
+    `log10) and were dropped, leaving too few points to fit. If your X column is ` +
+    `already log dose (e.g. log[agonist] in M), set "X values" to "Log dose". ` +
+    `Otherwise enter raw concentration (a positive amount per row).`
+  );
+}
+
 /**
  * Fit a dose-response curve (4PL default, 5PL optional) to the resolved XY pairs
  * and normalize the EC50 / Hill / Top / Bottom / R-squared readouts.
@@ -1190,12 +1234,24 @@ function runDoseResponse(
   const model =
     (readParams(spec).model as "logistic4pl" | "logistic5pl" | undefined) ??
     "logistic4pl";
-  // The dose-response models are parameterized in log10(dose); the picked X is a
-  // raw dose column, so transform it (and drop non-positive doses) before fitting
-  // so EC50 = 10^logEC50 comes back in linear dose units instead of 10^(rawDose).
-  const fitData = prepareFitData(model, x, y);
+  // The dose-response models are parameterized in log10(dose). A raw dose column
+  // is transformed (and non-positive doses dropped) so EC50 = 10^logEC50 comes
+  // back in linear dose units; a column that already holds log dose (a negative
+  // "log[agonist]" column, or an explicit "Log dose" pick) is fit as-is instead
+  // of having every point discarded by the positive-x filter.
+  const fitData = prepareFitData(model, x, y, readDoseXScale(spec));
   const fit = fitModel(model, fitData.x, fitData.y);
-  if (!fit.ok) return { ok: false, error: fit.error };
+  if (!fit.ok) {
+    return {
+      ok: false,
+      error: explainDoseDrop(
+        fit.error,
+        fitData.droppedNonPositive,
+        finiteCount(x),
+        fitData.logTransformed,
+      ),
+    };
+  }
   const res = fit as FitResult & { ok: true };
 
   const logParam = res.parameters.find((p) => p.name === "logEC50");
@@ -1278,12 +1334,29 @@ function runModelComparison(
   // log10(dose), an enzyme/decay model takes raw x. prepareFitData transforms a
   // raw dose column per model so both fit the same parameterization the analyses
   // use. For same-domain comparisons (the usual 4PL-vs-5PL) both keep all points.
-  const prepA = prepareFitData(idA, x, y);
-  const prepB = prepareFitData(idB, x, y);
+  const scale = readDoseXScale(spec);
+  const prepA = prepareFitData(idA, x, y, scale);
+  const prepB = prepareFitData(idB, x, y, scale);
   const fitA = fitModel(idA, prepA.x, prepA.y);
-  if (!fitA.ok) return { ok: false, error: `${modelA.label}: ${fitA.error}` };
+  if (!fitA.ok) {
+    const why = explainDoseDrop(
+      fitA.error,
+      prepA.droppedNonPositive,
+      finiteCount(x),
+      prepA.logTransformed,
+    );
+    return { ok: false, error: `${modelA.label}: ${why}` };
+  }
   const fitB = fitModel(idB, prepB.x, prepB.y);
-  if (!fitB.ok) return { ok: false, error: `${modelB.label}: ${fitB.error}` };
+  if (!fitB.ok) {
+    const why = explainDoseDrop(
+      fitB.error,
+      prepB.droppedNonPositive,
+      finiteCount(x),
+      prepB.logTransformed,
+    );
+    return { ok: false, error: `${modelB.label}: ${why}` };
+  }
   const n = Math.min(prepA.x.length, prepB.x.length);
 
   // Order by parameter count so the F test always sees the simpler model first.
@@ -1405,17 +1478,28 @@ function runGlobalFit(
     return { label: c.name, x: pairs.x, y: pairs.y };
   });
 
-  // The dose-response models fit on log10(dose); the shared X is a raw dose column,
-  // so transform each dataset (dropping non-positive doses) before the global fit,
-  // exactly as the single-curve runDoseResponse does. The raw `datasets` are kept
-  // for the returned point curves.
-  const fitDatasets = datasets.map((d) => {
-    const prepared = prepareFitData(model, d.x, d.y);
-    return { label: d.label, x: prepared.x, y: prepared.y };
-  });
+  // The dose-response models fit on log10(dose); a raw shared-X column is
+  // transformed (dropping non-positive doses) before the global fit, exactly as
+  // the single-curve runDoseResponse does, while an already-log column is fit
+  // as-is. The raw `datasets` are kept for the returned point curves.
+  const scale = readDoseXScale(spec);
+  const prepared = datasets.map((d) => prepareFitData(model, d.x, d.y, scale));
+  const fitDatasets = prepared.map((p, i) => ({
+    label: datasets[i].label,
+    x: p.x,
+    y: p.y,
+  }));
 
   const fit = fitGlobal(model, fitDatasets, sharedNames);
-  if (!fit.ok) return { ok: false, error: fit.error };
+  if (!fit.ok) {
+    const dropped = prepared.reduce((s, p) => s + p.droppedNonPositive, 0);
+    const totalFinite = datasets.reduce((s, d) => s + finiteCount(d.x), 0);
+    const logTransformed = prepared.some((p) => p.logTransformed);
+    return {
+      ok: false,
+      error: explainDoseDrop(fit.error, dropped, totalFinite, logTransformed),
+    };
+  }
   const res = fit as GlobalFitResult & { ok: true };
 
   // Shared parameters: pass the engine's single value + SE + CI straight through,

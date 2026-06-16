@@ -17,8 +17,13 @@ import { useEffect, useState } from "react";
 
 import LivingPopup from "@/components/ui/LivingPopup";
 import ProfileCard from "./ProfileCard";
+import { Icon } from "@/components/icons";
+import RecipientShareDialog from "@/components/social/RecipientShareDialog";
 import { useProfileModal } from "@/lib/sharing/profile-modal-store";
 import { useProfileSettingsModal } from "@/lib/profile/profile-settings-modal-store";
+import { useSharingIdentity } from "@/hooks/useSharingIdentity";
+import { useFileSystem } from "@/lib/file-system/file-system-context";
+import { SOCIAL_LAYER_ENABLED } from "@/lib/social/config";
 import {
   type PublishedProfile,
   fetchProfileByFingerprint,
@@ -29,10 +34,23 @@ export default function ResearcherProfileModal() {
   const origin = useProfileModal((s) => s.origin);
   const close = useProfileModal((s) => s.close);
   const openProfileSettings = useProfileSettingsModal((s) => s.open);
+  const identity = useSharingIdentity();
+  const { currentUser } = useFileSystem();
 
   const [profile, setProfile] = useState<PublishedProfile | null | undefined>(
     undefined,
   );
+  const [shareOpen, setShareOpen] = useState(false);
+
+  // Social layer (Phase C2): a found researcher in the directory has a published
+  // key, so we can offer a recipient-first "share work with them" send. Gated on
+  // the flag + a ready (published) sharing identity + a connected folder (the
+  // send reads a note off disk). Flag-off or no identity = button absent.
+  const canShare =
+    SOCIAL_LAYER_ENABLED &&
+    !!identity.email &&
+    !!currentUser &&
+    !!profile;
 
   // Fetch the profile for the open fingerprint. Reset to the loading state on a
   // new fingerprint so the spinner shows before the next profile resolves.
@@ -51,6 +69,7 @@ export default function ResearcherProfileModal() {
   /* eslint-enable react-hooks/set-state-in-effect */
 
   return (
+    <>
     <LivingPopup
       open={fingerprint != null}
       origin={origin}
@@ -85,8 +104,33 @@ export default function ResearcherProfileModal() {
           </button>
         </div>
       ) : (
-        <ProfileCard profile={profile} />
+        <div className="space-y-3">
+          <ProfileCard profile={profile} />
+          {canShare && (
+            <button
+              type="button"
+              onClick={() => setShareOpen(true)}
+              className="flex w-full items-center justify-center gap-2 rounded-2xl bg-brand-action px-4 py-3 text-body font-semibold text-white shadow-sm transition hover:opacity-90"
+            >
+              <Icon name="share" className="h-4 w-4" />
+              Share work with {profile.displayName}
+            </button>
+          )}
+        </div>
       )}
     </LivingPopup>
+    {shareOpen && profile && identity.email && currentUser && (
+      <RecipientShareDialog
+        recipient={{
+          displayName: profile.displayName,
+          fingerprint: profile.fingerprint,
+          hasPublishedKey: true,
+        }}
+        senderEmail={identity.email}
+        ownerUsername={currentUser}
+        onClose={() => setShareOpen(false)}
+      />
+    )}
+    </>
   );
 }

@@ -166,6 +166,7 @@ export default function ProfileCard({
           {profile.orcid && (
             <OrcidPublications
               orcid={profile.orcid}
+              ownerName={profile.displayName}
               hiddenWorks={profile.hiddenWorks}
               pinnedWorks={profile.pinnedWorks}
             />

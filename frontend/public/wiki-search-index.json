@@ -1,6 +1,6 @@
 {
-  "generatedAt": "2026-06-15T17:07:56.190Z",
-  "pageCount": 92,
+  "generatedAt": "2026-06-16T03:22:58.759Z",
+  "pageCount": 95,
   "categories": [
     {
       "id": "start-here",
@@ -537,7 +537,9 @@
         "Related",
         "Text barely counts",
         "Why it can stay this cheap",
+        "BeakerBot is billed at cost",
         "BeakerBot billing is off during the beta",
+        "Cloud billing is active",
         "During the beta, everything is free"
       ],
       "bodySnippets": [
@@ -570,7 +572,9 @@
         "Department and Institution . Self-serve automated plan builder at . You enter labs, average members, and estimated adoption, and it derives a monthly rate. A modest sustaining rate above bare cost on these larger tiers keeps ResearchOS free for individual researchers and funds...",
         "Notes and methods are tiny, so a lab would need roughly half a million text notes to fill the free pool. The pool only fills with the heavy things, mostly images and large file attachments in shared work. A gel or bench photo is about the size of a photo from a modern phone, a...",
         "Because the app is local-first, your everyday work never touches our servers, so our costs are small and the price can be too. Bulk storage costs us about a penny and a half per gigabyte-month, so a 5 GB free pool costs us pennies and the paid plans only need to recover real c...",
+        "AI metering is active. Each BeakerBot turn draws from your token balance at the rate shown on the pricing page. The cost is what the AI actually costs us, nothing more. Sales tax is handled automatically by our payment processor.",
         "The AI meter is built but not yet active. During the beta, every BeakerBot turn is free. The trial balance will be applied when billing turns on.",
+        "Cloud storage and optional AI are billed at what they cost us. Sales tax is handled automatically by our payment processor. The local notebook and all core features are free forever.",
         "Cloud billing is not turned on yet. The whole system is free while we gather real usage to set the plan prices, so nothing charges you today."
       ]
     },
@@ -1860,6 +1864,38 @@
       ]
     },
     {
+      "href": "/wiki/features/library",
+      "title": "Open icon library",
+      "breadcrumbs": [
+        "Features",
+        "Open icon library"
+      ],
+      "categoryId": "features",
+      "headings": [
+        "What it is for",
+        "What is in it",
+        "Browse, search, and the category tree",
+        "Attribution is handled for you",
+        "Using icons in your figures",
+        "Contributing and review",
+        "Open licenses, used correctly",
+        "Rolling out"
+      ],
+      "bodySnippets": [
+        "The open icon library is a public, login-free collection of openly licensed scientific icons and silhouettes, a free alternative to BioRender. It carries roughly 14,559 assets, every one of them under a permissive open license, and every one of them ships with its source and a...",
+        "A good figure needs clean scientific icons, a cell, a mouse, a flask, a species silhouette, and finding ones you are actually allowed to publish is harder than it should be. The open icon library answers that. It lives at , it needs no account, and it gathers openly licensed s...",
+        "It is a free alternative to BioRender for the asset side of figure making. The whole collection is openly licensed and free to use, and because every asset carries its provenance, the attribution that open licenses ask for is produced for you rather than left as your homework.",
+        "The library holds roughly 14,559 assets drawn from openly licensed sources, chiefly PhyloPic for organism silhouettes and BioIcons for scientific diagram icons. Everything is vector art that scales cleanly into a figure at any size.",
+        "Only genuinely open licenses are included, CC0, Public Domain, CC-BY, and CC-BY-SA. Assets under a non-commercial (NC) or no-derivatives (ND) license are deliberately left out, so anything you find here is safe to use and to adapt in published work.",
+        "You can explore the library two ways. Search by keyword to jump straight to what you need, or walk a category tree that organizes the collection by subject so you can browse by area when you are not sure what to call the thing you want. Each asset shows its name, its source, a...",
+        "Open licenses still ask for credit, and getting that credit right is fiddly. The library does it for you. Every asset records the source it came from and a verbatim citation, so when you use an icon you have the exact attribution text ready to paste, with no guessing about who...",
+        "The library feeds the Figure Composer , where you lay your panels out on a publication page. Pull an icon from the library into a composition and it sits alongside your live data panels, exported together as one clean vector figure, with the attribution it needs traveling with...",
+        "The library is meant to grow, and it grows in the open. A community contribution flow lives at , where you can submit an openly licensed asset, and an independent peer-review flow at , where submissions are vetted before they join the collection. The review step is what keeps ...",
+        "Including only CC0, Public Domain, CC-BY, and CC-BY-SA, and carrying each asset's source and citation, is what keeps the library honest. You get art you are clearly allowed to publish, and the credit that goes with it is produced rather than improvised.",
+        "The open icon library is a new surface and its collection keeps growing as contributions are submitted and reviewed. Browsing and searching the existing assets, and using them in your figures, work today."
+      ]
+    },
+    {
       "href": "/wiki/features/links",
       "title": "Links",
       "breadcrumbs": [
@@ -2113,6 +2149,34 @@
         "The Methods Library page showing method cards grouped under category headings, with colored type pills (Markdown, PCR, LC Gradient, Plate Layout, and others) marking each card.",
         "The type picker in the New Method modal. Nine types appear as tiles. Kit does not appear here because kits are created by extending an existing method, not by starting from scratch.",
         "The New Method modal with two sections, Standard and Structured, showing the ten method type tiles including Markdown, PDF, PCR, LC Gradient, Plate Layout, Cell culture passaging, Mass spec, qPCR analysis, and Coding workflow. The Kit type has no tile in this picker."
+      ]
+    },
+    {
+      "href": "/wiki/features/network",
+      "title": "Researcher network",
+      "breadcrumbs": [
+        "Features",
+        "Researcher network"
+      ],
+      "categoryId": "features",
+      "headings": [
+        "What it is for",
+        "Find who you want to share with",
+        "Your public profile",
+        "Verified institutional identity",
+        "Listed by choice, private by default of email",
+        "Rolling out"
+      ],
+      "bodySnippets": [
+        "The researcher network is how your work leaves your lab. It is the shortest path from your data to a collaborator, find anyone else on ResearchOS, in your department or across the world, and share a method, sequence, dataset, or figure straight to them, with no zipped files, n...",
+        "Most of ResearchOS is about your own work, your methods, sequences, data, and figures, all kept in your own folder. The researcher network is the one place that looks outward, and it exists for a single purpose, to make sharing that work with another researcher seamless. It li...",
+        "It is not a social network, a feed, or a publications profile to compete with ResearchGate. The directory, the search, and the verified-domain badge are all in service of one thing, getting your data to the right person with as little friction as possible. It never exposes an ...",
+        "The hub has a single search box. Type a name or an institution and it returns the researchers who have opted in to the directory, with their display name, affiliation, and a key fingerprint. Each result links to that person's public profile. The search runs over listed profile...",
+        "It is especially quick for the people closest to you. Every institution has a public page that lists the researchers there who are on ResearchOS, so you can find a colleague in your own department or across your institution and share with them as easily as someone on the other...",
+        "Every account has a public profile at , the shareable, login-free page for your work. It shows your name, affiliation, avatar, a short bio, and your typed links, an ORCID record, a ResearchGate page, and a personal website. You edit all of it from Settings under your profile. ...",
+        "When you sign in with an institutional account, your profile carries a verified-domain badge, for example , so a collaborator can trust that you really are at the institution you claim. Alongside the badge, every profile has a key fingerprint you can read out of band to confir...",
+        "A profile is included in the directory by default once you claim a handle, because being findable is the point of a network. You can opt out at any time, which removes you from search and from any institution member list. In every case the directory stays un-walkable for email...",
+        "The researcher network is a new surface and is being turned on gradually. Some parts, like live directory search and institution pages, light up as the directory backend is enabled. Your profile at and its privacy controls work today."
       ]
     },
     {
@@ -2572,6 +2636,36 @@
       ]
     },
     {
+      "href": "/wiki/features/researchers",
+      "title": "Researcher directory",
+      "breadcrumbs": [
+        "Features",
+        "Researcher directory"
+      ],
+      "categoryId": "features",
+      "headings": [
+        "What it is for",
+        "Find a researcher",
+        "Confirming who you are sharing with",
+        "Shareable profile pages",
+        "How it relates to the public hub",
+        "Listed by choice, email never shown",
+        "Why the out-of-band check matters",
+        "Rolling out"
+      ],
+      "bodySnippets": [
+        "The researcher directory is the opt-in, in-app way to find another researcher on ResearchOS and share your work with them. Search by name or institution from inside the app, confirm who you are sharing with using a verified-institution badge and a key fingerprint, and reach a ...",
+        "Most of ResearchOS is about your own work. The researcher directory is the piece that helps you get that work to someone else. It lives at and exists for one purpose, to let you find a colleague or collaborator who is also on ResearchOS and share a method, sequence, dataset, o...",
+        "Search the directory by name or by institution from inside the app. Results return the researchers who have opted in, so you can find a labmate, a collaborator across campus, or someone at another institution and start sharing without leaving your workspace.",
+        "Each result carries a verified-institution badge, so you can trust that a person really is at the institution they claim. Alongside the badge, every researcher has a key fingerprint. Confirm that fingerprint out of band, over a channel you already trust, before you share, and ...",
+        "Every listed researcher has a standalone, shareable profile page at . It is a stable address you can link to, and the fingerprint in the URL is the same one you confirm before sharing.",
+        "It is worth keeping two surfaces straight. The researcher directory at is the in-app directory you use while you work. The public discovery hub is the public, login-free hub that looks outward. They serve the same goal, connecting your work to other researchers, from two sides...",
+        "You appear in the directory only by opting in, and you can change that at any time. When you are listed, the directory shows your name and affiliation, and it never shows your email address. Reaching someone goes through the normal share flow, never a harvested inbox.",
+        "The verified-institution badge tells you where someone is, and the key fingerprint tells you it is really them. Reading the fingerprint back over a channel you already trust is the step that makes secure sharing certain rather than hopeful.",
+        "The researcher directory is a new surface and is being turned on gradually. Live directory search and profile pages light up as the directory backend is enabled, and your own listing and its privacy controls are yours to set."
+      ]
+    },
+    {
       "href": "/wiki/features/restriction-digest",
       "title": "Restriction digest",
       "breadcrumbs": [
@@ -2841,7 +2935,7 @@
         "Profile & appearance - your display name, avatar color and gradient, tinted header toggle, ORCID, affiliation, researcher profile, and the public-profile card. Also shows your account and keys (sharing identity, fingerprint, recovery code). This folds in everything that used t...",
         "Account & security - who you are signed in as, a Switch user button that opens the same picker as the app login screen, and the password gate for this account. The password wraps your keys with Argon2id (a deliberately slow, memory-hard function) before anything is written to ...",
         "Add a free account (solo users only) - a gentle one-card explainer of the features a free cloud account unlocks (BeakerBot AI, cloud storage, email and phone notifications, Companion pairing, and sharing). If you already have a cloud account this card is hidden and Usage & bil...",
-        "AI usage - your live BeakerBot token balance, recent task costs, and three prepaid top-up packs ($10, $25, $50). During the beta period, when billing enforcement is off, the section instead shows the \"AI is free during the beta\" framing. Token amounts for each pack come from t...",
+        "AI usage - your live BeakerBot token balance, recent task costs, and three prepaid top-up packs ($10, $25, $50). Flagged with a \"new\" pill.",
         "Cloud storage - how much of your cloud storage cap you have used, what tier you are on, and a link to the pricing page for upgrade options. Flagged with a \"new\" pill.",
         "Appearance - three tiles (Light, Dark, System) that set the app theme. System follows your device. This is a per-device preference and does not sync between computers. The welcome page always stays light.",
         "Animation - a grid of celebration themes for the animation that plays when you complete a task. Ten themes plus a None tile to skip the animation entirely. Click a tile for a live preview. Separately, a BeakerBot animations toggle governs streak and milestone celebrations. The...",

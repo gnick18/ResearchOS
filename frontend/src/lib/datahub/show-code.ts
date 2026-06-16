@@ -13,6 +13,7 @@
 // No em-dashes, no emojis, no mid-sentence colons.
 
 import { globalFitSharedNames } from "@/lib/datahub/analysis-params";
+import { fitLog10sDose } from "@/lib/datahub/engine";
 import type {
   NormalizedAnova,
   NormalizedCorrelation,
@@ -543,6 +544,12 @@ for i in range(1, X.shape[1]):
 function doseResponseCode(r: NormalizedDoseResponse): string {
   const x = pyList(r.x);
   const y = pyList(r.y);
+  // The model is parameterized in log10(dose). Match the analysis: a raw dose
+  // column is log10-transformed here; a column that already holds log dose is
+  // used as-is (transforming it again would shift the EC50 by orders of magnitude).
+  const xSetup = fitLog10sDose(r.model, r.x)
+    ? "x = np.log10(np.asarray(dose, dtype=float))  # dose-response fits on log10(dose)"
+    : "x = np.asarray(dose, dtype=float)  # X is already log10(dose)";
   if (r.model === "logistic5pl") {
     return `import numpy as np
 from scipy.optimize import curve_fit
@@ -550,7 +557,7 @@ from scipy import stats
 
 dose = ${x}
 y = ${y}
-x = np.log10(np.asarray(dose, dtype=float))  # dose-response fits on log10(dose)
+${xSetup}
 
 # 5-parameter logistic (asymmetric), x = log10(dose). Bottom, Top, logEC50,
 # HillSlope, S. The 4PL is the special case S = 1.
@@ -595,7 +602,7 @@ from scipy import stats
 
 dose = ${x}
 y = ${y}
-x = np.log10(np.asarray(dose, dtype=float))  # dose-response fits on log10(dose)
+${xSetup}
 
 # 4-parameter logistic (variable slope), x = log10(dose). The Prism
 # "log(agonist) vs response" dose-response model. Bottom, Top, logEC50, HillSlope.
@@ -717,6 +724,16 @@ function globalFitCode(r: NormalizedGlobalFit): string {
   sharedSet.delete("logEC50");
   const isShared = (name: string) => sharedSet.has(name);
 
+  // The model is parameterized in log10(dose). Decide ONCE from every curve's X
+  // combined whether the fit log10-transforms a raw concentration column (the
+  // common case) or the X is already log dose. Mirrors the single-curve path and
+  // the engine's prepareFitData so the generated shared params and per-curve
+  // EC50s match the on-screen numbers instead of being fit in raw-dose space.
+  const logDose = fitLog10sDose(
+    r.model,
+    r.curves.flatMap((c) => c.x),
+  );
+
   const nCurves = r.curves.length;
   // Build the curve data lists.
   const curveData = r.curves
@@ -778,9 +795,14 @@ function globalFitCode(r: NormalizedGlobalFit): string {
   }
   for (const nm of localNames) {
     if (nm === "logEC50") {
-      // One starting logEC50 per curve at each curve's own half-max x.
+      // One starting logEC50 per curve at each curve's own half-max x. The seed
+      // lives in the same space the residual fits in, so log10 it when the fit
+      // log10-transforms a raw concentration column.
+      const halfMaxX = `x[min(range(len(x)), key=lambda i: abs(y[i] - (min(y)+max(y))/2))]`;
       p0Parts.push(
-        `*[x[min(range(len(x)), key=lambda i: abs(y[i] - (min(y)+max(y))/2))] for x, y in zip(xs, ys)]`,
+        logDose
+          ? `*[np.log10(${halfMaxX}) for x, y in zip(xs, ys)]`
+          : `*[${halfMaxX} for x, y in zip(xs, ys)]`,
       );
     } else if (nm === "Bottom") p0Parts.push(`*[min(y) for y in ys]`);
     else if (nm === "Top") p0Parts.push(`*[max(y) for y in ys]`);
@@ -832,7 +854,11 @@ def residuals(p):
     ${allParams.join(", ")} = unpack(p)
     res = []
     for d in range(${nCurves}):
-        xa = np.asarray(xs[d], dtype=float)
+        xa = ${
+          logDose
+            ? "np.log10(np.asarray(xs[d], dtype=float))  # raw concentration -> log10(dose)"
+            : "np.asarray(xs[d], dtype=float)  # X is already log10(dose)"
+        }
         res.append(curve(xa, ${evalArgs.join(", ")}) - np.asarray(ys[d], dtype=float))
     return np.concatenate(res)
 

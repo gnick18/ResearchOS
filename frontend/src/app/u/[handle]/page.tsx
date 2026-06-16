@@ -21,6 +21,7 @@ import MarketingNav from "@/components/MarketingNav";
 import MarketingFooter from "@/components/MarketingFooter";
 import Wordmark from "@/components/Wordmark";
 import ProfileAvatar from "@/components/account/ProfileAvatar";
+import OrcidPublications from "@/components/researchers/OrcidPublications";
 import { Icon, type IconName } from "@/components/icons";
 import { SOCIAL_LAYER_ENABLED } from "@/lib/social/config";
 import type { ProfileLinks } from "@/lib/account/account-profile-validation";
@@ -149,6 +150,18 @@ export default function HandleProfilePage() {
                         <Icon name={l.icon} className="h-3.5 w-3.5" /> {l.label}
                       </a>
                     ))}
+                  </div>
+                )}
+
+                {/* Auto-pulled public works when an ORCID iD is linked. Reuses the
+                    same OrcidPublications panel + /api/orcid/works proxy as the
+                    directory profile card. */}
+                {profile?.links?.orcid && (
+                  <div className="mt-6">
+                    <OrcidPublications
+                      orcid={profile.links.orcid}
+                      ownerName={profile.displayName}
+                    />
                   </div>
                 )}
               </div>

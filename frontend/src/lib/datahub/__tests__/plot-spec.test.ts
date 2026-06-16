@@ -28,6 +28,7 @@ import {
   pickAxis,
   resolvePlotGroups,
   bracketRequestsFromAnalysis,
+  bracketStackDepth,
   layoutPlot,
   estimateLabelWidth,
   renderPlotSvg,
@@ -388,6 +389,115 @@ const ANOVA_SPEC: AnalysisSpec = {
   },
   resultStale: false,
 };
+
+// Four tight groups (near-zero within-group spread) at the demo's heights, so
+// every pairwise comparison is significant and the axis sits just above the data.
+function fourGroupTightContent(): DataHubDocContent {
+  return {
+    meta: META,
+    columns: [
+      { id: "g1", name: "Control", role: "y", dataType: "number" },
+      { id: "g2", name: "A", role: "y", dataType: "number" },
+      { id: "g3", name: "B", role: "y", dataType: "number" },
+      { id: "g4", name: "C", role: "y", dataType: "number" },
+    ],
+    rows: [
+      { id: "r1", cells: { g1: 1.01, g2: 2.4, g3: 3.4, g4: 1.8 } },
+      { id: "r2", cells: { g1: 1.0, g2: 2.41, g3: 3.41, g4: 1.81 } },
+      { id: "r3", cells: { g1: 0.99, g2: 2.39, g3: 3.39, g4: 1.79 } },
+    ],
+    analyses: [],
+    plots: [],
+  };
+}
+
+const ALL_PAIRS_4 = [
+  { i: 0, j: 1, label: "****" },
+  { i: 0, j: 2, label: "****" },
+  { i: 0, j: 3, label: "****" },
+  { i: 1, j: 2, label: "****" },
+  { i: 1, j: 3, label: "****" },
+  { i: 2, j: 3, label: "****" },
+];
+
+describe("plot-spec: bracketStackDepth", () => {
+  it("is 0 for no requests, 1 for a single span", () => {
+    expect(bracketStackDepth([])).toBe(0);
+    expect(bracketStackDepth([{ i: 0, j: 1 }])).toBe(1);
+  });
+  it("counts all-pairs-of-4 as a 6-tier stack", () => {
+    expect(bracketStackDepth(ALL_PAIRS_4)).toBe(6);
+  });
+  it("counts each-vs-control (3 overlapping spans) as 3 tiers", () => {
+    expect(
+      bracketStackDepth([
+        { i: 0, j: 1 },
+        { i: 0, j: 2 },
+        { i: 0, j: 3 },
+      ]),
+    ).toBe(3);
+  });
+  it("keeps non-overlapping spans on the same tier", () => {
+    expect(
+      bracketStackDepth([
+        { i: 0, j: 1 },
+        { i: 2, j: 3 },
+      ]),
+    ).toBe(1);
+  });
+});
+
+describe("plot-spec: vs-control bracket filter", () => {
+  const ALL_SIG: AnalysisSpec = {
+    ...ANOVA_SPEC,
+    resultCache: {
+      kind: "anova",
+      comparisons: [
+        { groupA: "Control", groupB: "Drug A", pAdjusted: 0.001 },
+        { groupA: "Control", groupB: "Drug B", pAdjusted: 0.001 },
+        { groupA: "Drug A", groupB: "Drug B", pAdjusted: 0.001 },
+      ],
+    },
+  };
+  it("keeps all pairs when no reference index is given", () => {
+    const groups = resolvePlotGroups(threeGroupContent(), defaultPlotStyle());
+    expect(bracketRequestsFromAnalysis(ALL_SIG, groups)).toHaveLength(3);
+  });
+  it("drops pairs that do not touch the control (index 0)", () => {
+    const groups = resolvePlotGroups(threeGroupContent(), defaultPlotStyle());
+    const reqs = bracketRequestsFromAnalysis(ALL_SIG, groups, 0);
+    expect(reqs).toHaveLength(2);
+    expect(reqs.every((r) => r.i === 0 || r.j === 0)).toBe(true);
+  });
+});
+
+describe("plot-spec: bracket headroom", () => {
+  const topTick = (geo: ReturnType<typeof layoutPlot>) =>
+    Math.max(...geo.ticks.map((t) => t.value));
+
+  it("raises the axis so a tall bracket stack is not crammed onto the data", () => {
+    const groups = resolvePlotGroups(fourGroupTightContent(), defaultPlotStyle());
+    const noBrackets = topTick(layoutPlot(groups, defaultPlotStyle(), []));
+    const withBrackets = topTick(layoutPlot(groups, defaultPlotStyle(), ALL_PAIRS_4));
+    // The data tops out ~3.4 so the data-only axis is tight (4). Six tiers need
+    // real room above it, so the axis must expand.
+    expect(withBrackets).toBeGreaterThan(noBrackets);
+  });
+
+  it("does not expand the axis when the user pinned yAxisMax", () => {
+    const groups = resolvePlotGroups(fourGroupTightContent(), defaultPlotStyle());
+    const style: PlotStyle = { ...defaultPlotStyle(), yAxisMax: 4 };
+    expect(topTick(layoutPlot(groups, style, ALL_PAIRS_4))).toBe(4);
+  });
+
+  it("fewer comparisons (vs-control) need less headroom than all pairs", () => {
+    const groups = resolvePlotGroups(fourGroupTightContent(), defaultPlotStyle());
+    const vsControl = ALL_PAIRS_4.filter((r) => r.i === 0);
+    const all = topTick(layoutPlot(groups, defaultPlotStyle(), ALL_PAIRS_4));
+    const ctrl = topTick(layoutPlot(groups, defaultPlotStyle(), vsControl));
+    expect(ctrl).toBeLessThanOrEqual(all);
+  });
+});
 
 describe("plot-spec: significance brackets", () => {
   it("pulls only significant Tukey pairs, narrowest span first", () => {

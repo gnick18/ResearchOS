@@ -447,7 +447,11 @@ export async function renderDatasetPlot(
       opts,
     );
     const requests = style.showBrackets
-      ? bracketRequestsFromAnalysis(null, groups)
+      ? bracketRequestsFromAnalysis(
+          null,
+          groups,
+          style.bracketComparisons === "vsControl" ? 0 : null,
+        )
       : [];
     const geometry = layoutPlot(groups, style, requests);
     return { svg: renderPlotSvg(geometry, style), sampleInfo };

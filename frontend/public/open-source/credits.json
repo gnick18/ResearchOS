@@ -1,9 +1,9 @@
 {
-  "generatedAt": "2026-06-13T17:14:19.433Z",
+  "generatedAt": "2026-06-16T01:06:06.841Z",
   "appVersion": "0.75.0",
-  "dependencyCount": 83,
+  "dependencyCount": 84,
   "licenseCounts": {
-    "Apache-2.0": 17,
+    "Apache-2.0": 18,
     "MIT": 53,
     "BSD-3-Clause": 2,
     "ISC": 8,
@@ -296,6 +296,12 @@
       "version": "1.29.0",
       "license": "MIT",
       "repo": "https://github.com/duckdb/duckdb-wasm"
+    },
+    {
+      "name": "@huggingface/transformers",
+      "version": "3.8.1",
+      "license": "Apache-2.0",
+      "repo": "https://github.com/huggingface/transformers.js"
     },
     {
       "name": "@lezer/common",
