@@ -5852,7 +5852,17 @@ export default function SequenceEditView({
           chips + the zoom cluster, which drive it) stays live underneath, so this
           spine no longer disables in place. It always renders the live cluster
           for the active canvas mode. */}
-      <div className="shrink-0 border-t border-border">
+      {/* seq bottom-bar clearance — the global BeakerSearch ask bar
+          (AppShell's BeakerSearchBottomBar) is fixed bottom-center, ~62px tall
+          off the bottom edge, and centered 460px wide. Without clearance it
+          floats over the TOP of this tab row, where the Map / Sequence /
+          Features / Primers / History tabs live, halving (or eating) their hit
+          target so Map became awkward/impossible to click. Reserve a bg-surface
+          band below the spine so the tabs lift clear of the bar; the bar then
+          rests in that band instead of over the tabs. bg-surface here only
+          colors the padded band (every inner row already paints bg-surface).
+          Mirrors SequenceOperationsRail's pb-24 clearance for the same bar. */}
+      <div className="shrink-0 border-t border-border bg-surface pb-[calc(5rem+env(safe-area-inset-bottom))]">
         {/* 1. Show display strip. Always live now (the canvas it controls is
             always visible, even behind an open flyout). */}
         <SequenceDisplayStrip
