@@ -175,10 +175,32 @@ function planStorageBytes(sub: SubscriptionRecord | null): number {
  * paid LAB plan) rather than the legacy lab_billing flag, so the plan is the
  * single source of truth in the flat-plan model.
  */
-function isLabSponsor(sub: SubscriptionRecord | null): boolean {
+/**
+ * Pure predicate: whether a subscription is an ACTIVE, paid LAB-audience plan.
+ * The single definition of "active lab tier", reused by isLabSponsor and the
+ * cross-lane publish gate isLabPublishEntitled.
+ */
+export function isActiveLabPlan(sub: SubscriptionRecord | null): boolean {
   if (!sub || sub.status !== "active") return false;
   const plan = getPlan(sub.planId);
   return !!plan && plan.audience === "lab" && plan.priceCents > 0;
+}
+
+function isLabSponsor(sub: SubscriptionRecord | null): boolean {
+  return isActiveLabPlan(sub);
+}
+
+/**
+ * Cross-lane entitlement gate for the lab-domains / companion-sites lane (social
+ * lane owns slug registry + rendering; this is the publish/edit gate it checks).
+ * True only for an active, paid LAB-tier subscription. Self-contained (ensures
+ * schema) so the social lane can call it cold by lab owner key.
+ * See docs/handoffs/2026-06-16-service-tier-model-build.md.
+ */
+export async function isLabPublishEntitled(labOwnerKey: string): Promise<boolean> {
+  if (!labOwnerKey) return false;
+  await ensureBillingSchema();
+  return isActiveLabPlan(await getSubscription(labOwnerKey));
 }
 
 /**
