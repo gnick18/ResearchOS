@@ -1,6 +1,6 @@
 {
-  "generatedAt": "2026-06-16T02:33:34.913Z",
-  "pageCount": 93,
+  "generatedAt": "2026-06-16T03:22:58.759Z",
+  "pageCount": 95,
   "categories": [
     {
       "id": "start-here",
@@ -1864,6 +1864,38 @@
       ]
     },
     {
+      "href": "/wiki/features/library",
+      "title": "Open icon library",
+      "breadcrumbs": [
+        "Features",
+        "Open icon library"
+      ],
+      "categoryId": "features",
+      "headings": [
+        "What it is for",
+        "What is in it",
+        "Browse, search, and the category tree",
+        "Attribution is handled for you",
+        "Using icons in your figures",
+        "Contributing and review",
+        "Open licenses, used correctly",
+        "Rolling out"
+      ],
+      "bodySnippets": [
+        "The open icon library is a public, login-free collection of openly licensed scientific icons and silhouettes, a free alternative to BioRender. It carries roughly 14,559 assets, every one of them under a permissive open license, and every one of them ships with its source and a...",
+        "A good figure needs clean scientific icons, a cell, a mouse, a flask, a species silhouette, and finding ones you are actually allowed to publish is harder than it should be. The open icon library answers that. It lives at , it needs no account, and it gathers openly licensed s...",
+        "It is a free alternative to BioRender for the asset side of figure making. The whole collection is openly licensed and free to use, and because every asset carries its provenance, the attribution that open licenses ask for is produced for you rather than left as your homework.",
+        "The library holds roughly 14,559 assets drawn from openly licensed sources, chiefly PhyloPic for organism silhouettes and BioIcons for scientific diagram icons. Everything is vector art that scales cleanly into a figure at any size.",
+        "Only genuinely open licenses are included, CC0, Public Domain, CC-BY, and CC-BY-SA. Assets under a non-commercial (NC) or no-derivatives (ND) license are deliberately left out, so anything you find here is safe to use and to adapt in published work.",
+        "You can explore the library two ways. Search by keyword to jump straight to what you need, or walk a category tree that organizes the collection by subject so you can browse by area when you are not sure what to call the thing you want. Each asset shows its name, its source, a...",
+        "Open licenses still ask for credit, and getting that credit right is fiddly. The library does it for you. Every asset records the source it came from and a verbatim citation, so when you use an icon you have the exact attribution text ready to paste, with no guessing about who...",
+        "The library feeds the Figure Composer , where you lay your panels out on a publication page. Pull an icon from the library into a composition and it sits alongside your live data panels, exported together as one clean vector figure, with the attribution it needs traveling with...",
+        "The library is meant to grow, and it grows in the open. A community contribution flow lives at , where you can submit an openly licensed asset, and an independent peer-review flow at , where submissions are vetted before they join the collection. The review step is what keeps ...",
+        "Including only CC0, Public Domain, CC-BY, and CC-BY-SA, and carrying each asset's source and citation, is what keeps the library honest. You get art you are clearly allowed to publish, and the credit that goes with it is produced rather than improvised.",
+        "The open icon library is a new surface and its collection keeps growing as contributions are submitted and reviewed. Browsing and searching the existing assets, and using them in your figures, work today."
+      ]
+    },
+    {
       "href": "/wiki/features/links",
       "title": "Links",
       "breadcrumbs": [
@@ -2601,6 +2633,36 @@
         "The free-text vendor and category columns on individual rows are distinct from the top-level project routing. The top-level routing has one reserved bucket. Miscellaneous routes to the hidden project. One is the project the order lives in, the other is a per-line-item annotati...",
         "When a labmate placed an order on someone else's behalf, advancing that item from Needs ordering to Ordered fires a bell to the requester, so the person who asked for the reagent finds out it is on the way without having to check back. This is the real signal that the order wa...",
         "When you have no purchases yet, the spend-over-time chart shows the prompt Add a purchase to see spend breakdowns here. The funding cards still render with a zero spent value against each account's budget, so the budget scaffold is visible from day one."
+      ]
+    },
+    {
+      "href": "/wiki/features/researchers",
+      "title": "Researcher directory",
+      "breadcrumbs": [
+        "Features",
+        "Researcher directory"
+      ],
+      "categoryId": "features",
+      "headings": [
+        "What it is for",
+        "Find a researcher",
+        "Confirming who you are sharing with",
+        "Shareable profile pages",
+        "How it relates to the public hub",
+        "Listed by choice, email never shown",
+        "Why the out-of-band check matters",
+        "Rolling out"
+      ],
+      "bodySnippets": [
+        "The researcher directory is the opt-in, in-app way to find another researcher on ResearchOS and share your work with them. Search by name or institution from inside the app, confirm who you are sharing with using a verified-institution badge and a key fingerprint, and reach a ...",
+        "Most of ResearchOS is about your own work. The researcher directory is the piece that helps you get that work to someone else. It lives at and exists for one purpose, to let you find a colleague or collaborator who is also on ResearchOS and share a method, sequence, dataset, o...",
+        "Search the directory by name or by institution from inside the app. Results return the researchers who have opted in, so you can find a labmate, a collaborator across campus, or someone at another institution and start sharing without leaving your workspace.",
+        "Each result carries a verified-institution badge, so you can trust that a person really is at the institution they claim. Alongside the badge, every researcher has a key fingerprint. Confirm that fingerprint out of band, over a channel you already trust, before you share, and ...",
+        "Every listed researcher has a standalone, shareable profile page at . It is a stable address you can link to, and the fingerprint in the URL is the same one you confirm before sharing.",
+        "It is worth keeping two surfaces straight. The researcher directory at is the in-app directory you use while you work. The public discovery hub is the public, login-free hub that looks outward. They serve the same goal, connecting your work to other researchers, from two sides...",
+        "You appear in the directory only by opting in, and you can change that at any time. When you are listed, the directory shows your name and affiliation, and it never shows your email address. Reaching someone goes through the normal share flow, never a harvested inbox.",
+        "The verified-institution badge tells you where someone is, and the key fingerprint tells you it is really them. Reading the fingerprint back over a channel you already trust is the step that makes secure sharing certain rather than hopeful.",
+        "The researcher directory is a new surface and is being turned on gradually. Live directory search and profile pages light up as the directory backend is enabled, and your own listing and its privacy controls are yours to set."
       ]
     },
     {
