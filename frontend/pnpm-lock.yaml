@@ -176,6 +176,9 @@ importers:
       konva:
         specifier: ^10.3.0
         version: 10.3.0
+      liquid-glass-react:
+        specifier: ^1.1.1
+        version: 1.1.1(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
       loro-codemirror:
         specifier: ^0.3.3
         version: 0.3.3(@codemirror/state@6.6.0)(@codemirror/view@6.43.0)(loro-crdt@1.12.3)
@@ -5904,6 +5907,12 @@ packages:
     peerDependenciesMeta:
       canvas:
         optional: true
+
+  liquid-glass-react@1.1.1:
+    resolution: {integrity: sha512-pKzaktaMAEztd93wpWcz2Z5Z9qdLJUNJdMX+n00Ca4XsnrLTQ5xJzm/+GQXZUeuFXe/PQ8ziVMZO6531PyaFJw==}
+    peerDependencies:
+      react: '>=19'
+      react-dom: '>=19'
 
   listenercount@1.0.1:
     resolution: {integrity: sha512-3mk/Zag0+IJxeDrxSgaDPy4zZ3w05PRZeJNnlWhzFz5OkX49J4krc+A8X2d2M69vGMBEX0uyl8M+W+8gH+kBqQ==}
@@ -14739,6 +14748,11 @@ snapshots:
       html-escaper: 3.0.3
       htmlparser2: 10.1.0
       uhyphen: 0.2.0
+
+  liquid-glass-react@1.1.1(react-dom@19.2.3(react@19.2.3))(react@19.2.3):
+    dependencies:
+      react: 19.2.3
+      react-dom: 19.2.3(react@19.2.3)
 
   listenercount@1.0.1: {}
 

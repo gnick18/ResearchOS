@@ -12,6 +12,7 @@
 // onSkip. No emojis, no em-dashes, no mid-sentence colons.
 
 import { useEffect, useState } from "react";
+import LiquidGlass from "liquid-glass-react";
 import BeakerBot, { type BeakerBotPose } from "@/components/BeakerBot";
 import MarketingBackdrop from "@/components/marketing/MarketingBackdrop";
 import styles from "./WelcomeTakeover.module.css";
@@ -38,6 +39,10 @@ export default function WelcomeTakeover({
 }: WelcomeTakeoverProps) {
   const pct = tokenCap > 0 ? Math.min(100, (tokensUsed / tokenCap) * 100) : 0;
   const [poseIdx, setPoseIdx] = useState(0);
+  // LiquidGlass reads navigator at render, so it is not SSR-safe; mount it only
+  // after hydration and show a styled fallback button until then.
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
   useEffect(() => {
     const id = setInterval(
       () => setPoseIdx((i) => (i + 1) % HERO_POSES.length),
@@ -100,9 +105,33 @@ export default function WelcomeTakeover({
           research. No setup, just watch.
         </p>
 
-        <button onClick={onStart} className={`${styles.cta} mt-7`}>
-          Show me around
-        </button>
+        <div className={`mt-7 ${styles.glassButton}`}>
+          {mounted ? (
+            <LiquidGlass
+              onClick={onStart}
+              cornerRadius={40}
+              padding="16px 40px"
+              displacementScale={64}
+              blurAmount={0.06}
+              saturation={150}
+              aberrationIntensity={2}
+              elasticity={0}
+              overLight
+              className="cursor-pointer"
+            >
+              <span
+                className="text-base font-semibold text-[var(--fg,#1f2421)]"
+                style={{ fontFamily: "var(--font-ai)" }}
+              >
+                Show me around
+              </span>
+            </LiquidGlass>
+          ) : (
+            <button onClick={onStart} className={styles.cta}>
+              Show me around
+            </button>
+          )}
+        </div>
         <button
           onClick={onSkip}
           className="mt-3 px-3 py-1 text-sm font-medium text-[var(--muted,#6b716a)] hover:text-[var(--fg,#1f2421)]"

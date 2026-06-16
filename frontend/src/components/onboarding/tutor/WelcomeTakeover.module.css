@@ -80,3 +80,29 @@
     transform: none;
   }
 }
+
+/* LiquidGlass (liquid-glass-react) wrapper. The library ships its drop-shadow
+   layers tagged with the Tailwind class `bg-black`, which our app's Tailwind
+   paints SOLID black and leaves in normal flow (they stacked below the button as
+   black pills and ballooned the wrapper). Pull them out of flow and clear the
+   fill so only the real glass shows, then give the glass our own soft float
+   shadow via the wrapper. */
+.glassButton {
+  position: relative;
+  display: inline-block;
+  filter: drop-shadow(0 8px 16px rgba(31, 38, 35, 0.18));
+}
+.glassButton :global(.bg-black) {
+  position: absolute !important;
+  inset: 0 !important;
+  top: 0 !important;
+  left: 0 !important;
+  background: transparent !important;
+  pointer-events: none;
+}
+/* The library centers its glass root with a base translate(-50%, -50%), expecting
+   absolute positioning; our flex-centered wrapper already centers it, so that
+   translate just shoves it half its size up-and-left. Neutralize it. */
+.glassButton :global(.cursor-pointer) {
+  transform: none !important;
+}

@@ -1,10 +1,10 @@
 {
-  "generatedAt": "2026-06-13T17:14:19.433Z",
+  "generatedAt": "2026-06-16T07:02:11.971Z",
   "appVersion": "0.75.0",
-  "dependencyCount": 83,
+  "dependencyCount": 84,
   "licenseCounts": {
     "Apache-2.0": 17,
-    "MIT": 53,
+    "MIT": 54,
     "BSD-3-Clause": 2,
     "ISC": 8,
     "(MIT AND BSD)": 1,
@@ -578,6 +578,12 @@
       "version": "10.3.0",
       "license": "MIT",
       "repo": "https://github.com/konvajs/konva"
+    },
+    {
+      "name": "liquid-glass-react",
+      "version": "1.1.1",
+      "license": "MIT",
+      "repo": null
     },
     {
       "name": "loro-codemirror",
