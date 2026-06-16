@@ -27,8 +27,10 @@ import {
   type RenderedFigure,
   type RenderOpts,
   type StyleOption,
+  type PanelStyle,
 } from "@/lib/figure/figure-source";
 import type { LayoutManifest } from "@/lib/figure/layout-manifest";
+import type { FixId } from "@/lib/figure/layout-collision";
 
 type DataHubContent = NonNullable<Awaited<ReturnType<typeof dataHubApi.getContent>>>;
 type DataHubPlot = NonNullable<DataHubContent["plots"]>[number];
@@ -79,6 +81,9 @@ function sizePlot(
   opts: RenderOpts,
 ): { sized: DataHubPlot; analysis: Parameters<typeof renderPlot>[2] } {
   const palette = opts.style?.options?.palette;
+  // A composed panel can override the legend placement (the collision advisor's
+  // relocate-legend fix applies it here, without mutating the saved plot).
+  const legendPlacement = opts.style?.options?.legendPlacement;
   const sized = withStyle(plot, {
     width: opts.widthIn,
     height: opts.heightIn,
@@ -87,6 +92,7 @@ function sizePlot(
     // letter + caption carry it); an empty title hides it in renderPlot.
     ...(opts.overrides?.hideTitle ? { title: "" } : {}),
     ...(typeof palette === "string" && palette ? { palette } : {}),
+    ...(legendPlacement === "right" ? { legendPlacement: "right" as const } : {}),
   }) as DataHubPlot;
   const source = readPlotSource(sized);
   const analysis = source.analysisId
@@ -165,7 +171,29 @@ export const dataHubFigureSource: FigureSource = {
           ...PALETTES.map((p) => ({ value: p.id, label: p.name })),
         ],
       },
+      {
+        // The manual lever for the legend, so a composed panel can move the legend
+        // out of the bars (and the collision advisor's relocate-legend is never a
+        // one-way trap once its banner self-hides). Grouped bar only; ignored
+        // elsewhere. Default "overlay" matches the plot's own default.
+        kind: "select",
+        key: "legendPlacement",
+        label: "Legend",
+        default: "overlay",
+        choices: [
+          { value: "overlay", label: "Overlay" },
+          { value: "right", label: "Right of plot" },
+        ],
+      },
     ];
+  },
+
+  styleForFix(fixId: FixId): PanelStyle | null {
+    // The only Data Hub lever today: move the legend out of the bars.
+    if (fixId === "relocate-legend") {
+      return { options: { legendPlacement: "right" } };
+    }
+    return null;
   },
 
   editHref(id) {

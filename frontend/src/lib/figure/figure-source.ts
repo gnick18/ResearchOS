@@ -11,6 +11,7 @@
 // No em-dashes, no emojis, no mid-sentence colons.
 
 import type { LayoutManifest } from "./layout-manifest";
+import type { FixId } from "./layout-collision";
 
 /** One figure a source offers, enough to list + reference it. */
 export interface FigureRef {
@@ -168,6 +169,15 @@ export interface FigureSource {
    * docs/proposals/2026-06-15-collision-aware-layout-advisor.md (Phase 5).
    */
   getLayoutManifest?(id: string, opts: RenderOpts): Promise<LayoutManifest | null>;
+  /**
+   * Optional: the PANEL-STYLE override that applies a collision-advisor fix on this
+   * surface (e.g. relocate-legend -> options.legendPlacement "right"), or null when
+   * the source has no lever for that fix. Lets the composer's per-panel advisor
+   * stay surface-agnostic: it offers only the fixes a source can actually apply, and
+   * applies them as composition-local overrides (no source mutation). Static per
+   * source, so it takes no figure id.
+   */
+  styleForFix?(fixId: FixId): PanelStyle | null;
 }
 
 // Module-level registry. Surfaces register once at startup (registerSources()).
