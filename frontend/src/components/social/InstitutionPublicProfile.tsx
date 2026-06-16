@@ -66,7 +66,19 @@ function MemberCard({ member }: { member: PublicResearcher }) {
   );
 }
 
-export default function InstitutionPublicProfile({ slug }: { slug: string }) {
+export default function InstitutionPublicProfile({
+  slug,
+  registryName = null,
+}: {
+  slug: string;
+  /**
+   * Canonical name resolved server-side from the ROR institution registry, or
+   * null when the domain is unknown. Used as the name fallback before the live
+   * endpoint resolves, ahead of the humanized slug. The registry asset is
+   * server-only, so the name is passed down rather than imported here.
+   */
+  registryName?: string | null;
+}) {
   const [status, setStatus] = useState<Status>("loading");
   const [inst, setInst] = useState<PublicInstitution | null>(null);
 
@@ -96,9 +108,10 @@ export default function InstitutionPublicProfile({ slug }: { slug: string }) {
     };
   }, [slug]);
 
-  // Name to show: the resolved canonical name when found, else a best-effort
-  // humanized slug (clearly a fallback while the directory comes online).
-  const displayName = inst?.name ?? humanizeInstitutionSlug(slug);
+  // Name to show, in precedence order: the live endpoint name when found, then
+  // the server-resolved ROR registry name, then a best-effort humanized slug
+  // (a clear fallback while the directory comes online).
+  const displayName = inst?.name ?? registryName ?? humanizeInstitutionSlug(slug);
 
   return (
     <div className="min-h-dvh bg-surface text-foreground">
