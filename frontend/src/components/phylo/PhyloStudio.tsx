@@ -105,6 +105,9 @@ import {
 } from "@/components/phylo/SmartDataWizard";
 import {
   PhyloLayoutAdvisor,
+  phyloLayoutIssues,
+  readAdvisorSilenced,
+  writeAdvisorSilenced,
   type AdvisorDelta,
   type AdvisorState,
 } from "@/components/phylo/PhyloLayoutAdvisor";
@@ -531,6 +534,25 @@ export function PhyloStudio({ initialTreeId }: { initialTreeId?: string } = {}) 
     branchColorColumn,
     datahubResolved,
   ]);
+
+  // Layout-issue detection runs ONCE here (artboard- and zoom-independent: those only
+  // uniformly scale the same figure SVG, which preserves overlaps) so it drives BOTH
+  // the advisor card inside the Shape tab AND an amber dot on the Shape tab itself --
+  // so a crowding warning is discoverable from any tab, not only when the Shape
+  // inspector happens to be open.
+  const { collisions: layoutCollisions, fixes: layoutFixes } = useMemo(
+    () =>
+      tree && spec
+        ? phyloLayoutIssues(tree, spec)
+        : { collisions: [], fixes: [] },
+    [tree, spec],
+  );
+  const [advisorSilenced, setAdvisorSilenced] = useState(false);
+  useEffect(() => {
+    setAdvisorSilenced(readAdvisorSilenced(openTreeId));
+  }, [openTreeId]);
+  const layoutAdvisorActive =
+    !advisorSilenced && layoutCollisions.length > 0 && layoutFixes.length > 0;
 
   // The alignment-to-tips match (for the "matched X of Y" indicator + auto-adding
   // an msa panel on import). Recomputed when the tree or the imported alignment
@@ -1221,16 +1243,25 @@ export function PhyloStudio({ initialTreeId }: { initialTreeId?: string } = {}) 
       title: "Tree shape",
       sub: "Layout, rooting, axes, page",
       icon: <Icon name="tree" className="h-5 w-5" />,
+      // An amber dot flags unaddressed layout issues so the advisor is noticeable
+      // from any tab (it otherwise lives only inside this inspector).
+      badge: layoutAdvisorActive ? "dot" : undefined,
       panel: (
         <div className="space-y-3.5">
-          {tree && spec && (
+          {tree && spec && layoutAdvisorActive && (
             <PhyloLayoutAdvisor
               key={openTreeId ?? "unsaved"}
               tree={tree}
               spec={spec}
               state={advisorState}
               onApply={applyAdvisorDelta}
-              plotId={openTreeId}
+              collisions={layoutCollisions}
+              fixes={layoutFixes}
+              silenced={advisorSilenced}
+              onSilence={() => {
+                writeAdvisorSilenced(openTreeId);
+                setAdvisorSilenced(true);
+              }}
             />
           )}
           <Panel title="Layout">

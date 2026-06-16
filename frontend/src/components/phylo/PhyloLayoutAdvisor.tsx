@@ -17,7 +17,7 @@
 //
 // No em-dashes, no emojis, no mid-sentence colons.
 
-import { useMemo, useState } from "react";
+import { useState } from "react";
 
 import {
   renderTreeSvg,
@@ -28,6 +28,7 @@ import {
   detectCollisions,
   suggestFixes,
   type Collision,
+  type FixSuggestion,
   type FixId,
 } from "@/lib/phylo/layout-collision";
 import type { TreeNode } from "@/lib/phylo/parse";
@@ -121,15 +122,68 @@ function mergeDeltas(a: AdvisorDelta, b: AdvisorDelta): AdvisorDelta {
 
 const silKey = (plotId: string) => `ros:phylo:advisor-silenced:${plotId}`;
 
+/** Detect layout collisions on the open figure and keep only the fixes that apply
+ *  to a phylo tree (canvas height has no Studio control here; tilting does NOT
+ *  de-collide a vertical tip-label stack -- it only helps a horizontal axis-label
+ *  row, e.g. Data Hub). Runs on the fixed figure spec and is artboard- and
+ *  zoom-independent: the artboard / zoom only UNIFORMLY scale the same figure SVG
+ *  (viewBox), and uniform scaling preserves overlaps, so the verdict on the fixed
+ *  spec matches the rendered figure at any size. Shared by the advisor card and the
+ *  Shape-tab issue badge so the two never drift. */
+export function phyloLayoutIssues(
+  tree: TreeNode,
+  spec: RenderSpec,
+): { collisions: Collision[]; fixes: FixSuggestion[] } {
+  let collisions: Collision[] = [];
+  try {
+    collisions = detectCollisions(renderTreeWithManifest(tree, spec).manifest);
+  } catch {
+    collisions = [];
+  }
+  const fixes = suggestFixes(collisions).filter(
+    (f) =>
+      f.available &&
+      f.id !== "increase-canvas-height" &&
+      f.id !== "tilt-tip-labels",
+  );
+  return { collisions, fixes };
+}
+
+/** Read the per-plot "don't show again" silence flag (shared by the advisor card
+ *  and the Shape-tab badge). An unsaved tree (null id) is never silenced. */
+export function readAdvisorSilenced(plotId: string | null): boolean {
+  if (!plotId || typeof window === "undefined") return false;
+  try {
+    return window.localStorage.getItem(silKey(plotId)) === "1";
+  } catch {
+    return false;
+  }
+}
+
+/** Persist the per-plot silence flag (best-effort). */
+export function writeAdvisorSilenced(plotId: string | null): void {
+  if (!plotId || typeof window === "undefined") return;
+  try {
+    window.localStorage.setItem(silKey(plotId), "1");
+  } catch {
+    // best-effort; the runtime dismissal still hides it this session.
+  }
+}
+
 export interface PhyloLayoutAdvisorProps {
   tree: TreeNode;
-  /** The live render spec for the open figure (detection + preview base). */
+  /** The live render spec for the open figure (preview base). */
   spec: RenderSpec;
   state: AdvisorState;
   /** Apply a delta to the host's figure state. */
   onApply: (delta: AdvisorDelta) => void;
-  /** The saved tree id, or null for an unsaved tree (no cross-reload silence). */
-  plotId: string | null;
+  /** Detection results, computed once by the host (so the Shape-tab badge and this
+   *  card agree). See `phyloLayoutIssues`. */
+  collisions: Collision[];
+  fixes: FixSuggestion[];
+  /** Host-owned per-plot silence state (so the tab badge matches the card). */
+  silenced: boolean;
+  onSilence: () => void;
 }
 
 export function PhyloLayoutAdvisor({
@@ -137,58 +191,21 @@ export function PhyloLayoutAdvisor({
   spec,
   state,
   onApply,
-  plotId,
+  collisions,
+  fixes,
+  silenced,
+  onSilence,
 }: PhyloLayoutAdvisorProps) {
-  const collisions = useMemo(() => {
-    try {
-      return detectCollisions(renderTreeWithManifest(tree, spec).manifest);
-    } catch {
-      return [];
-    }
-  }, [tree, spec]);
-
-  // Drop two fixes that do not apply to a phylo tree: canvas height has no Studio
-  // control here, and tilt-tip-labels does not de-collide a VERTICAL tip-label stack
-  // (rotating each label about its own anchor leaves the anchor spacing unchanged --
-  // tilt only helps a horizontal axis-label row, e.g. Data Hub). The oriented-overlap
-  // detector now reflects this honestly, so the real phylo lever is shrink-the-font.
-  const fixes = useMemo(
-    () =>
-      suggestFixes(collisions).filter(
-        (f) =>
-          f.available &&
-          f.id !== "increase-canvas-height" &&
-          f.id !== "tilt-tip-labels",
-      ),
-    [collisions],
-  );
   // The wand applies only the REVERSIBLE fixes; dropping an overlay is
   // destructive, so it stays a deliberate menu action (keeps "undo" honest).
   const wandFixes = fixes.filter((f) => f.id !== "drop-duplicate-overlay");
 
-  const [silenced, setSilenced] = useState(() => {
-    if (!plotId || typeof window === "undefined") return false;
-    try {
-      return window.localStorage.getItem(silKey(plotId)) === "1";
-    } catch {
-      return false;
-    }
-  });
   const [snapshot, setSnapshot] = useState<AdvisorState | null>(null);
   const [open, setOpen] = useState(false);
 
   if (silenced || collisions.length === 0 || fixes.length === 0) return null;
 
-  const silence = () => {
-    setSilenced(true);
-    if (plotId && typeof window !== "undefined") {
-      try {
-        window.localStorage.setItem(silKey(plotId), "1");
-      } catch {
-        // best-effort; the runtime dismissal still hides it this session.
-      }
-    }
-  };
+  const silence = onSilence;
 
   const wand = () => {
     if (snapshot) {
