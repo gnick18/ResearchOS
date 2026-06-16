@@ -786,8 +786,10 @@ function renderFromPanels(
       id: "legend",
       kind: "legend",
       // Bottom strip spans the full width below the figure; right column sits past
-      // the plot. Either way this is where the legend ink lands.
-      x: legendBottom ? 0 : plotWidth,
+      // the plot. The right column's ink starts at plotWidth + 12 (the 12px reserved
+      // gap is NOT legend territory), so anchor the box there - otherwise tip labels
+      // sitting in the right margin falsely register as legend overlaps.
+      x: legendBottom ? 0 : plotWidth + 12,
       y: legendBottom ? layoutHeight : 0,
       w: legendBottom ? spec.width : legendW,
       h: legendBottom ? legendStripH : spec.height,

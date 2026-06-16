@@ -65,10 +65,18 @@ export function detectCollisions(manifest: LayoutManifest): Collision[] {
   const panels = boxes.filter((b) => b.kind === "panel");
 
   // 1. Legend over content (the headline crowding): the legend column overlaps any
-  // label or panel. Reported once, listing what it covers.
+  // label or panel. Require a real (>2px both ways) intersection, not a sub-pixel
+  // touch at the reserved-margin boundary, so a label sitting flush against the
+  // legend gap is not a false positive.
+  const TOUCH = 2;
+  const realOverlap = (a: PlacedBox, b: PlacedBox): boolean => {
+    const ix = Math.min(a.x + a.w, b.x + b.w) - Math.max(a.x, b.x);
+    const iy = Math.min(a.y + a.h, b.y + b.h) - Math.max(a.y, b.y);
+    return ix > TOUCH && iy > TOUCH;
+  };
   if (legend) {
     const covered = boxes.filter(
-      (b) => b.kind !== "legend" && boxOverlapArea(legend, b) > 0,
+      (b) => b.kind !== "legend" && realOverlap(legend, b),
     );
     if (covered.length > 0) {
       const worst = Math.max(
