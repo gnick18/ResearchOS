@@ -6,6 +6,7 @@ import { isLabSitesEnabled } from "@/lib/social/config";
 import { getPage, getSiteBySlug } from "@/lib/social/lab-site-db";
 import { normalizePagePath, resolvePublicPage } from "@/lib/social/lab-site";
 import { parseSnapshotBundle } from "@/lib/social/lab-site-snapshots";
+import { parseHostedManifest } from "@/lib/social/lab-site-hosted";
 import { normalizeSlug } from "@/lib/social/slug-registry";
 import { getSlug } from "@/lib/social/slug-registry-db";
 
@@ -96,12 +97,18 @@ export default async function LabSitePublicPage({
   // embeds. parseSnapshotBundle is defensive, a null / malformed column yields an
   // empty bundle and each embed then shows the calm unavailable card.
   const bundle = parseSnapshotBundle(page.snapshotsJson);
+  // Phase 4a: the hosted dataset-asset manifest. parseHostedManifest is defensive,
+  // a null / malformed column yields an empty manifest and the page renders no live
+  // viewers (each embed falls back to its baked snapshot). When entries exist, the
+  // matching embed renders the LIVE DuckDB-WASM viewer reading the Parquet on R2.
+  const manifest = parseHostedManifest(page.hostedJson);
   return (
     <LabSitePageView
       slug={slug}
       title={page.title}
       bodyMd={page.bodyMd}
       snapshots={bundle.snapshots}
+      hostedAssets={manifest.assets}
     />
   );
 }

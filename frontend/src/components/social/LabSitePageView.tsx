@@ -24,12 +24,14 @@ import MarketingFooter from "@/components/MarketingFooter";
 import MarketingBackdrop from "@/components/marketing/MarketingBackdrop";
 import RenderedMarkdown from "@/components/RenderedMarkdown";
 import type { BakedEmbed } from "@/lib/export/bake-embeds";
+import type { HostedAssetEntry } from "@/lib/social/lab-site-hosted";
 
 export default function LabSitePageView({
   slug,
   title,
   bodyMd,
   snapshots,
+  hostedAssets,
 }: {
   slug: string;
   title: string;
@@ -43,6 +45,15 @@ export default function LabSitePageView({
    * blocks render FROZEN, never live.
    */
   snapshots?: Record<string, BakedEmbed>;
+  /**
+   * Live hosted dataset assets keyed by embed link href (Phase 4a). Passed from
+   * the server route as a plain record (serializable across the boundary), rebuilt
+   * into the Map RenderedMarkdown expects. When an embed href has an entry, it
+   * renders the LIVE DuckDB-WASM viewer reading the Parquet on R2; otherwise the
+   * frozen baked snapshot (Phase 3b). Absent / empty means a page with no hosted
+   * data, byte-identical to Phase 3b.
+   */
+  hostedAssets?: Record<string, HostedAssetEntry>;
 }) {
   const heading = title?.trim() || slug;
   // Rebuild the Map from the serialized record once per snapshots object. An
@@ -51,6 +62,12 @@ export default function LabSitePageView({
   const bakedEmbeds = useMemo(
     () => new Map<string, BakedEmbed>(Object.entries(snapshots ?? {})),
     [snapshots],
+  );
+  // Rebuild the hosted-asset Map (Phase 4a). Empty / absent yields an empty Map,
+  // so every embed routes through the baked path unchanged.
+  const hostedAssetsMap = useMemo(
+    () => new Map<string, HostedAssetEntry>(Object.entries(hostedAssets ?? {})),
+    [hostedAssets],
   );
   return (
     <div className="min-h-dvh bg-surface text-foreground">
@@ -75,6 +92,7 @@ export default function LabSitePageView({
             content={bodyMd ?? ""}
             className="prose prose-gray mt-8 max-w-none dark:prose-invert"
             bakedEmbeds={bakedEmbeds}
+            hostedAssets={hostedAssetsMap}
           />
         </div>
       </section>
