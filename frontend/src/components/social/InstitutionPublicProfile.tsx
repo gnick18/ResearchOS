@@ -156,11 +156,11 @@ export default function InstitutionPublicProfile({ slug }: { slug: string }) {
 
               {inst && inst.departments.length > 0 && (
                 <Reveal as="div" delay={120}>
-                  <div className="mt-6 flex flex-wrap justify-center gap-2">
+                  <div className="mt-6 flex flex-wrap justify-center gap-3">
                     {inst.departments.map((d) => (
                       <span
                         key={d}
-                        className="rounded-full border border-border px-3 py-1 text-meta text-foreground-muted"
+                        className="ros-popup-card-shadow rounded-full border border-border bg-surface-raised px-3.5 py-1.5 text-meta text-foreground-muted"
                       >
                         {d}
                       </span>
