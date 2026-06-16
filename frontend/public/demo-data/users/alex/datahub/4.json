@@ -14,7 +14,7 @@
   "columns": [
     {
       "id": "col-x",
-      "name": "log[FakeDrug-A] (M)",
+      "name": "[FakeDrug-A] (M)",
       "role": "x",
       "dataType": "number"
     },
@@ -29,77 +29,77 @@
     {
       "id": "row-1",
       "cells": {
-        "col-x": -9,
+        "col-x": 1e-9,
         "col-inhib": 4.8
       }
     },
     {
       "id": "row-2",
       "cells": {
-        "col-x": -8.5,
+        "col-x": 3.1622776601683795e-9,
         "col-inhib": 6.1
       }
     },
     {
       "id": "row-3",
       "cells": {
-        "col-x": -8,
+        "col-x": 1e-8,
         "col-inhib": 7.9
       }
     },
     {
       "id": "row-4",
       "cells": {
-        "col-x": -7.5,
+        "col-x": 3.162277660168379e-8,
         "col-inhib": 12.5
       }
     },
     {
       "id": "row-5",
       "cells": {
-        "col-x": -7,
+        "col-x": 1e-7,
         "col-inhib": 24
       }
     },
     {
       "id": "row-6",
       "cells": {
-        "col-x": -6.5,
+        "col-x": 3.162277660168379e-7,
         "col-inhib": 47
       }
     },
     {
       "id": "row-7",
       "cells": {
-        "col-x": -6,
+        "col-x": 0.000001,
         "col-inhib": 70
       }
     },
     {
       "id": "row-8",
       "cells": {
-        "col-x": -5.5,
+        "col-x": 0.000003162277660168379,
         "col-inhib": 86
       }
     },
     {
       "id": "row-9",
       "cells": {
-        "col-x": -5,
+        "col-x": 0.00001,
         "col-inhib": 93.5
       }
     },
     {
       "id": "row-10",
       "cells": {
-        "col-x": -4.5,
+        "col-x": 0.000031622776601683795,
         "col-inhib": 96.8
       }
     },
     {
       "id": "row-11",
       "cells": {
-        "col-x": -4,
+        "col-x": 0.0001,
         "col-inhib": 98.1
       }
     }
@@ -120,20 +120,20 @@
         "type": "doseResponse",
         "model": "logistic4pl",
         "modelLabel": "4-parameter logistic (variable slope)",
-        "xName": "log[FakeDrug-A] (M)",
+        "xName": "[FakeDrug-A] (M)",
         "yName": "% inhibition",
         "x": [
-          -9,
-          -8.5,
-          -8,
-          -7.5,
-          -7,
-          -6.5,
-          -6,
-          -5.5,
-          -5,
-          -4.5,
-          -4
+          1e-9,
+          3.1622776601683795e-9,
+          1e-8,
+          3.162277660168379e-8,
+          1e-7,
+          3.162277660168379e-7,
+          0.000001,
+          0.000003162277660168379,
+          0.00001,
+          0.000031622776601683795,
+          0.0001
         ],
         "y": [
           4.8,
@@ -198,13 +198,14 @@
         "errorBar": "sem",
         "showPoints": true,
         "showBrackets": true,
+        "bracketComparisons": "all",
         "colorMode": "brand",
         "palette": "okabe",
         "colorOverrides": {},
         "fontSize": 13,
         "title": "Dose-response, FakeDrug-A inhibition",
         "yTitle": "% inhibition",
-        "xTitle": "log[FakeDrug-A] (M)",
+        "xTitle": "[FakeDrug-A] (M)",
         "fitModel": "logistic4pl",
         "sizeUnit": "px",
         "dpi": 300,
@@ -216,7 +217,9 @@
         "estimationB": 5000,
         "estimationSeed": 12345,
         "estimationBootMethod": "bca",
-        "diagnosticColumnIndex": 0
+        "diagnosticColumnIndex": 0,
+        "donutHoleRatio": 0.6,
+        "xScaleType": "log"
       },
       "source": {
         "tableId": "4",

@@ -82,6 +82,8 @@
         "type": "unpairedTTest",
         "test": "Welch's t-test",
         "nonparametric": false,
+        "tail": "two-sided",
+        "variance": "welch",
         "groups": [
           {
             "columnId": "col-1",
@@ -109,10 +111,20 @@
         "pValue": 0.0000523529724349812,
         "effectSize": -7.59681162786857,
         "effectSizeLabel": "Cohen's d",
+        "hedgesG": -6.6059231546683215,
+        "effectSizeCI95": [
+          -11.985893412320706,
+          -3.187117244248598
+        ],
         "ci95": [
           -24.086339891980945,
           -15.063660108019043
         ],
+        "bootstrapCI95": [
+          -22.348585202469053,
+          -16.3
+        ],
+        "normalityShaky": false,
         "meanA": 41.575,
         "meanB": 61.15,
         "meanDiff": -19.574999999999996
@@ -129,12 +141,27 @@
         "errorBar": "sem",
         "showPoints": true,
         "showBrackets": true,
+        "bracketComparisons": "all",
         "colorMode": "brand",
+        "palette": "okabe",
+        "colorOverrides": {},
         "fontSize": 13,
         "title": "Heat-shock survival by strain",
         "yTitle": "% survival (50 C, 30 min)",
         "xTitle": "",
-        "fitModel": "linear"
+        "fitModel": "linear",
+        "sizeUnit": "px",
+        "dpi": 300,
+        "resizeMode": "relayout",
+        "aspectLocked": true,
+        "estimationPaired": false,
+        "estimationControlIndex": 0,
+        "estimationCi": 0.95,
+        "estimationB": 5000,
+        "estimationSeed": 12345,
+        "estimationBootMethod": "bca",
+        "diagnosticColumnIndex": 0,
+        "donutHoleRatio": 0.6
       },
       "source": {
         "tableId": "3",

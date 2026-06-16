@@ -103,6 +103,7 @@
         "type": "oneWayAnova",
         "test": "One-way ANOVA",
         "nonparametric": false,
+        "postHoc": "tukey",
         "groups": [
           {
             "columnId": "col-1",
@@ -240,7 +241,16 @@
             "significant": true,
             "method": "Tukey HSD"
           }
-        ]
+        ],
+        "effectSize": {
+          "label": "eta-squared",
+          "etaSquared": 0.9809262797702272,
+          "omegaSquared": 0.9761862382770792,
+          "etaSquaredCI95": [
+            0.9452537208640068,
+            0.9867573035498389
+          ]
+        }
       },
       "resultStale": false
     }
@@ -256,11 +266,25 @@
         "showBrackets": true,
         "bracketComparisons": "vsControl",
         "colorMode": "brand",
+        "palette": "okabe",
+        "colorOverrides": {},
         "fontSize": 13,
         "title": "fakeGFP reporter induction by strain",
         "yTitle": "Relative fakeGFP expression",
         "xTitle": "",
-        "fitModel": "linear"
+        "fitModel": "linear",
+        "sizeUnit": "px",
+        "dpi": 300,
+        "resizeMode": "relayout",
+        "aspectLocked": true,
+        "estimationPaired": false,
+        "estimationControlIndex": 0,
+        "estimationCi": 0.95,
+        "estimationB": 5000,
+        "estimationSeed": 12345,
+        "estimationBootMethod": "bca",
+        "diagnosticColumnIndex": 0,
+        "donutHoleRatio": 0.6
       },
       "source": {
         "tableId": "1",

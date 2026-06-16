@@ -682,6 +682,8 @@ export function buildPlotSpec(args: {
   donutHoleRatio?: number;
   /** Significance-bracket comparison set ("all" pairs vs "vsControl"). */
   bracketComparisons?: "all" | "vsControl";
+  /** X-axis scale ("log" for dose-response concentration axes). */
+  xScaleType?: "linear" | "log";
 }): PlotSpec {
   const style = defaultPlotStyle();
   style.kind = args.kind;
@@ -705,6 +707,7 @@ export function buildPlotSpec(args: {
     style.donutHoleRatio = args.donutHoleRatio;
   if (args.bracketComparisons !== undefined)
     style.bracketComparisons = args.bracketComparisons;
+  if (args.xScaleType !== undefined) style.xScaleType = args.xScaleType;
   const source: PlotSource = {
     tableId: args.tableId,
     analysisId: args.analysisId ?? null,
@@ -1408,6 +1411,16 @@ export function esc(s: string): string {
 }
 
 export function fmtTick(value: number): string {
+  if (value === 0) return "0";
+  // Very small / very large magnitudes (e.g. a dose-response log axis at 1e-9 M)
+  // need compact exponential, else rounding to 2 decimals collapses them to "0".
+  const abs = Math.abs(value);
+  if (abs < 1e-3 || abs >= 1e5) {
+    return value
+      .toExponential(1)
+      .replace(/\.0e/, "e")
+      .replace("e+", "e");
+  }
   // Integers print plainly; fractional ticks keep up to two decimals, trimmed.
   if (Number.isInteger(value)) return String(value);
   return String(Math.round(value * 100) / 100);

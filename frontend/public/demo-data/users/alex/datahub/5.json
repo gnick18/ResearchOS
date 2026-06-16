@@ -260,7 +260,8 @@
         "mcFaddenR2": 0.2896495671744883,
         "xAtHalf": 4.10740052802554,
         "auc": 0.84375,
-        "iterations": 6
+        "iterations": 6,
+        "method": "mle"
       },
       "resultStale": false
     }
