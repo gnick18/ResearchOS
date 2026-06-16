@@ -152,6 +152,47 @@ def fixed_costs_card():
             f'<p class="phil">About <b>{money(tot)}/mo</b>, the same in every mode (fixed costs don\'t change with pricing). This is the flat overhead we cover before any profit. One permanent Claude Max that co-runs the company is the bulk of it; everything else is small. It grows only slightly with scale as we cross provider free tiers.</p>'
             + "".join(bar) + "".join(leg) + '</div>')
 
+def growth_card():
+    # Illustrative flywheel: organic growth vs. reinvesting profit into acquisition
+    # once we pass ~10k users. Paid spend (ads, conference sponsorships) holds off
+    # until 10k; before that it's just near-free talks. Rates are illustrative.
+    months=36; g=1.13; gboost=1.22
+    org=[500.0]; rei=[500.0]
+    for _ in range(months):
+        org.append(org[-1]*g)
+        rei.append(rei[-1]*(gboost if rei[-1]>=10000 else g))
+    cross=next((t for t,v in enumerate(rei) if v>=10000), None)
+    ymax=max(rei[-1], 10000)
+    w,h=820,300; padL=46; padR=16; padT=18; padB=34
+    W=w-padL-padR; Hh=h-padT-padB
+    X=lambda t: padL+W*t/months
+    Y=lambda v: padT+Hh*(1-v/ymax)
+    s=[f'<svg viewBox="0 0 {w} {h}" width="100%" style="max-width:{w}px">']
+    for gv in (10000,25000,50000,75000,100000):
+        if gv<=ymax*1.02:
+            yy=Y(gv); s.append(f'<line x1="{padL}" y1="{yy:.1f}" x2="{w-padR}" y2="{yy:.1f}" stroke="{GRD}"/>')
+            s.append(f'<text x="{padL-5}" y="{yy+4:.1f}" font-size="10" fill="{MUT}" text-anchor="end">{gv//1000}k</text>')
+    if cross is not None:
+        cx=X(cross)
+        s.append(f'<line x1="{cx:.1f}" y1="{padT}" x2="{cx:.1f}" y2="{h-padB}" stroke="#A32D2D" stroke-width="1.3" stroke-dasharray="4 3"/>')
+        s.append(f'<text x="{cx-6:.1f}" y="{padT+12}" font-size="11" fill="#A32D2D" font-weight="500" text-anchor="end">ads + sponsorships start (~10k users)</text>')
+    do="M "+" L ".join(f"{X(t):.1f} {Y(v):.1f}" for t,v in enumerate(org))
+    dr="M "+" L ".join(f"{X(t):.1f} {Y(v):.1f}" for t,v in enumerate(rei))
+    s.append(f'<path d="{do}" fill="none" stroke="#888780" stroke-width="2.5"/>')
+    s.append(f'<path d="{dr}" fill="none" stroke="#1D9E75" stroke-width="2.5"/>')
+    for mo in (0,6,12,18,24,30,36):
+        s.append(f'<text x="{X(mo):.1f}" y="{h-12}" font-size="11" fill="{MUT}" text-anchor="middle">{mo}</text>')
+    s.append(f'<text x="{w/2:.0f}" y="{h-1}" font-size="11" fill="{MUT}" text-anchor="middle">months</text>')
+    s.append('</svg>')
+    leg=('<div style="display:flex;gap:20px;margin-top:8px;font-size:13px;color:#444">'
+         '<span style="display:flex;align-items:center;gap:6px"><span style="width:11px;height:11px;border-radius:2px;background:#888780"></span>Organic / word of mouth</span>'
+         '<span style="display:flex;align-items:center;gap:6px"><span style="width:11px;height:11px;border-radius:2px;background:#1D9E75"></span>Reinvest profit into growth at 10k</span>'
+         '</div>')
+    return ('<div class="card"><h2>Optional: reinvesting to grow</h2>'
+            '<p class="phil">The three modes above assume zero spend on growth. But once we are sustainable, profit can go back into getting more customers. Early on that is just you and Emile giving talks at conferences, which is nearly free. Once we pass ~10k users we add paid channels: targeted BlueSky and LinkedIn ads where academics already are, and conference sponsorships (branding on the materials and sessions). Because each extra user is almost free to serve, that spend compounds into far more customers and far more profit, which funds the next round of growth.</p>'
+            + "".join(s) + leg +
+            '<p class="note">Illustrative shape, not a forecast. The real slope depends on how fast we grow and how efficiently these channels reach academics, which beta and the first campaigns will tell us. The point is the flywheel. We hold paid spend until ~10k users so we only ever spend money the business is already throwing off.</p></div>')
+
 parts=[]
 parts.append('''<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
 <title>ResearchOS pricing modes</title>
@@ -242,6 +283,9 @@ for m in MODES:
     parts.append(comp_bar(m))
     parts.append('<p class="note">The base and flat fees carry most of it. The usage markup is the fairness knob, so heavy users pay a bit more. AI stays tiny on purpose, never the money-maker.</p>')
     parts.append('</div>')
+
+# optional growth/reinvestment flywheel
+parts.append(growth_card())
 
 # closing
 parts.append('<div class="card"><h2>The thesis</h2><p class="phil">Every mode runs on the same idea. A better product than anything out there, at a price far below the stack of tools it replaces. The modes only differ in how hard we push. Keep the lights on, fund the labs, or build a real engine for them. Even Premium prices a seat below a single existing tool. We\'re academics first, always.</p>'
