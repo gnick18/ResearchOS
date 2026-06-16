@@ -93,16 +93,30 @@ still earns its keep — a label column off the canvas isn't fixed by rotating.
   trigger is the tip-labels layer being ON). Fix: lifted detection into PhyloStudio
   (`phyloLayoutIssues`, shared with the card), added an **amber dot on the Shape tab**
   (`RailOperation.badge`) so the warning is noticeable from any tab, and made the card a
-  controlled component with host-owned shared silence. +3 unit tests. The visual dot
-  itself is the one item still worth an in-app glance (uses the rail's existing,
-  tested badge mechanism).
+  controlled component with host-owned shared silence. +3 unit tests.
+  **Test E (the dot) LIVE-VERIFIED PASS on :3000 (2026-06-16, driven via Chrome):**
+  rectangular + Tip labels on -> the Shape tab shows the amber dot while on the Layers
+  tab (card in the unmounted Shape panel, so the dot is the cross-tab signal); opening
+  Shape shows the 304-issue card; the card's x clears BOTH the card and the dot and
+  persists silence; demo default (circular, labels off) shows no dot. The earlier FAIL
+  was a wrong-server artifact -- it was run against :3050 (the `tour-mount` worktree),
+  whose branch does not contain this commit (0 occurrences of `layoutAdvisorActive`),
+  so it had the old card but no dot. ALWAYS pin phylo verifies to :3000 (main).
+- **Numbered column-header badges (`54c70bb8b`).** Grant reported the rectangular
+  per-column text titles colliding above narrow columns ("CLADE" overdrawing "FCZ +2").
+  Fix: when 2+ colored columns share the header band, replace the text titles with a
+  small numbered badge (white disc, black ring) over each column (one per sub-column for
+  a multi-column heat panel) and prefix the matching legend key with the same badge, so
+  each column self-identifies through the legend. Rectangular-only (circular uses gutter
+  callouts); single column keeps its text title. +3 unit tests; raster-verified on a
+  CLADE/FCZ/AMB/MCF figure. Not yet live-eyeballed in-app (low risk, pure render).
 
 ## Open follow-ups (none blocking; all noted in memory)
 
-- In-app glance at the new Shape-tab amber dot (`03008d775`) — low risk, rail badge is
-  already tested; just confirm it shows when tip labels crowd and clears on dismiss.
 - Sequence editor view tabs (Map/Sequence/...) sit under the floating BeakerBot
-  chat-search bar (found in the Chrome pass) — spun off as a separate background task.
+  chat-search bar (found in the Chrome pass) — fixed by the Sequences lane
+  (`54f38f399`, pb clearance band). Tree Studio checked: no twin overlap (its tabs are
+  the right-side vertical rail, not a bottom row).
 - Sequence circular leader-over-wedge crossings (needs a line-overlap primitive).
 - Phylo circular callout aesthetics on the real 305-tip demo (levers
   `RADIAL_CALLOUT_GUTTER`=220, `gap`=15 in drawCircularCallouts).
