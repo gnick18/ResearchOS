@@ -51,6 +51,17 @@ tsc clean; vitest green; ingest node:tests green.
    Grant's 4 open decisions (hub route name, public login-free search, institution provisioning,
    v1 scope).
 
+7. **Sanitizer fix (multi-line DOCTYPE)** — `sanitizeSvg` (lib.mjs) left orphaned `<!ENTITY>`
+   lines when a `<!DOCTYPE svg [ <!ENTITY...> ]>` internal subset spanned lines (Illustrator
+   exports), giving invalid XML / broken-image for 146 bioicons (~1%, mostly DBCLS). Fixed the
+   regex to consume the whole `[...]` subset + drop standalone `<!ENTITY>` + neutralize `&ns_xxx;`
+   refs (ingest worktree `475fa2e77`); re-sanitized + re-synced all 146 to R2. Edge cache
+   (max-age=14400) self-heals < 4h. Figure Composer adds a client onError placeholder.
+8. **Smart search MERGED to origin** (MobileUI, `0ba184501..af34dc855`, gate-verified: frozen-
+   lockfile clean, tsc 0, wiki-coverage 0). Vercel build deploying; INJEST watching + will
+   curl the live model/vector/ort fetches, then FC does the in-browser "Smart ranks" check =
+   go-live closed. Env vars `NEXT_PUBLIC_ASSET_SMART_SEARCH` + `NEXT_PUBLIC_ASSET_MODEL_HOST` set.
+
 NOTE: the GO-LIVE GATES below are now DONE — redirect live, R2 write-token proven, contribute
 flag ON, deployed. The prod build was repaired mid-session (the wiki-coverage break above).
 

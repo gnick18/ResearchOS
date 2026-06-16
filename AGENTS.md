@@ -836,6 +836,9 @@ Latest handoff: docs/handoffs/2026-06-15-open-asset-library-portal-landing-contr
   `frontend/scripts/asset-ingest/` (standalone node, out/ gitignored, synced via rclone
   remote `r2:`). PhyloPic categories/tags come from a TOP-DOWN clade index (filter_clade)
   with EXACT-match clade resolution (fuzzy match over-broadens, e.g. Archaea→Neomura).
+  `sanitizeSvg` MUST strip the whole multi-line `<!DOCTYPE svg [ <!ENTITY...> ]>` internal
+  subset (Illustrator exports) or it orphans `<!ENTITY>` lines → invalid XML → broken-image
+  (fixed 2026-06-15; 146 bioicons re-synced). Curated SVGs cache 4h at the edge.
 - **App seam**: `frontend/src/lib/figure/asset-library.ts` — `loadAssetManifest` merges the
   curated `manifest.json` with `community-manifest.json` (user input never rewrites the
   seed); `listCategoryGroups` gives the BioRender-style grouped tree; `verificationStatus`
