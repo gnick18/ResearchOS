@@ -146,3 +146,21 @@ Ordered by independence (safe + client-side first; the escrow backend last, behi
 ## 7. Coordination
 
 The identity pieces (4.1, 4.4, 4.5) overlap the cloud-accounts / identity lane's owned surface. Phase A (4.2) is independent and safe to start. Phases B–C should be co-designed with that lane before code, given the security implications.
+
+## 8. Solo-deferred identity — no keypair until a sharing action (2026-06-15, Grant-directed)
+
+**Motivation (Grant).** A solo user who never shares has no use for a cryptographic keypair: sharing is unused, at-rest encryption is off (`DEVICE_KEY_V2`), and losing the recovery code only costs an identity re-mint (data is plaintext). Handing them a recovery code to manage is pure friction with zero payoff — and minting eagerly "so a later publish needs no migration" is build-convenience, not user value (violates the efficiency-first rule). So: **a user gets NO keypair/sidecar/recovery code until they take an action that actually needs one.**
+
+**Verified precondition (2026-06-15).** The data layer is already keypair-free: `json-store.ts` / `local-api.ts` write plain JSON, zero crypto on local records (signing/sealing is sharing/lab/relay-only). `performLogin` needs no identity. `IdentitySessionRestorer` no-ops when none. Demo/wiki-capture already runs the whole app with no keypair. The normal solo *create → "Skip for now"* path already enters via `onLogin()` with no mint, and a no-sidecar user reconnects straight in (no unlock gate, `folderRequiresLogin` false). So this is mostly **codifying + closing the last eager-mint**, not a rebuild.
+
+**INVARIANT.** No code path mints a local keypair until the user invokes a *sharing action*: publish a findable profile, create or join a lab, share a record to a recipient, or enable at-rest encryption (`DEVICE_KEY_V2`). Solo create writes a user dir + settings + color and nothing cryptographic.
+
+**Design.**
+1. **Single on-demand chokepoint** `ensureLocalIdentity(username)` (`lib/sharing/identity/ensure-identity.ts`): if the user already has a usable keypair (loaded identity, or a sidecar with a `recoveryBlob`, or a matching reference sidecar) → no-op `{created:false}`; else mint via `createLocalIdentity` → `{created:true, recoveryCode, recoveryWords}`. Every sharing entry point calls this and, when `created`, surfaces the recovery code ("save your recovery code") before completing the action — so a keypair is never minted invisibly.
+2. **Close the one silent mint:** `autoProvisionFromAccount` (`UserLoginScreen.tsx:847`) no longer silently `createLocalIdentity()` on a signed-in account's first folder; it defers (enters via `performLogin`), and the keypair mints on the first sharing action like everyone else. The reuse + cross-device-restore guards above it are unchanged.
+3. **Wire the entry points through the chokepoint:** publish (`SharingSetupWizard` — reuse an existing local keypair instead of double-minting), lab create / join (`lab-session` + `LabCreateResume`), share-a-record ("send to" / seal-to-recipient), and the `DEVICE_KEY_V2` enable path.
+4. **Migration:** existing solo accounts that already carry a keypair keep it (no forced removal); the unlock gate handles them correctly (recovery-code door, the 2026-06-15 `claimedUsers` fix). Optionally a later "you don't need this — drop your unused identity" Settings affordance.
+
+**Gating:** all new branches behind `NEXT_PUBLIC_MULTI_FOLDER`; flag-OFF byte-identical. Tests for `ensureLocalIdentity` (get-or-mint, idempotent, no double-mint) + the deferred auto-provision.
+
+**Build increments:** (1) backbone — `ensureLocalIdentity` + defer auto-provision + tests; (2) wire each sharing entry point with live verification per point (identity-sensitive, verify one at a time).

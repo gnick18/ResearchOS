@@ -32,10 +32,7 @@ import { deleteSharingIdentity } from "@/lib/sharing/identity/sidecar";
 import { performUserDelete } from "@/lib/users/perform-delete";
 import { readUserSettings } from "@/lib/settings/user-settings";
 import { readArchivedSet } from "@/lib/lab/user-archive";
-import {
-  readSharingIdentity,
-  hasSharingIdentity,
-} from "@/lib/sharing/identity/sidecar";
+import { readSharingIdentity } from "@/lib/sharing/identity/sidecar";
 import { evaluateUnlockMatch } from "@/lib/sharing/identity/unlock-match";
 import { GoogleIcon, GitHubIcon, LinkedInIcon, MicrosoftIcon } from "@/components/sharing/icons";
 import SharingProviderButtons from "@/components/sharing/SharingProviderButtons";
@@ -347,19 +344,30 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
 
 
   // D1: fan-out read of every user's `_sharing_identity.json` to find
-  // accounts that have CLAIMED a global sharing identity. Mirrors
+  // accounts that have PUBLISHED a global sharing identity via OAuth. Mirrors
   // `refreshLockStatus` — a per-user read failure leaves the user out of the
   // set, so a missing or unreadable sidecar just means "no provider unlock
-  // offered", which falls back to the unchanged password gate.
+  // offered", which falls back to the recovery-code gate.
+  //
+  // The discriminator is the sidecar's `email`, NOT mere file existence. Under
+  // the local-keypair-first model (IDENTITY_OAUTH_ONLY.md, 2026-06-06) a SOLO
+  // account also has a sidecar (it carries recoveryBlob + public keys) but NO
+  // email, because it was never published. Gating on hasSharingIdentity() alone
+  // (file exists) wrongly flagged solo folders as OAuth-claimed, so reconnecting
+  // a never-logged-in folder demanded a third-party sign-in that was never set
+  // up. Only an account PUBLISHED under an email has a real OAuth door to offer,
+  // so claimedUsers (which renders the "Sign in online to unlock" providers) is
+  // keyed on sidecar.email.
   const refreshClaimedStatus = async (usernames: string[]) => {
     const next = new Set<string>();
     await Promise.all(
       usernames.map(async (u) => {
         try {
-          if (await hasSharingIdentity(u)) next.add(u);
+          const sidecar = await readSharingIdentity(u);
+          if (sidecar?.email) next.add(u);
         } catch {
-          // Treat as unclaimed on read failure — never show a provider
-          // option we cannot back with a real sidecar.
+          // Treat as unpublished on read failure — never show a provider
+          // option we cannot back with a real published identity.
         }
       }),
     );
@@ -833,10 +841,18 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
             return;
           }
         }
-        // Mint the E2E identity keypair silently (sidecar at rest + unlocked key
-        // in the session). The provisioning the manual create-user gate performs
-        // and the lab-create flow relies on; also the account's FIRST folder.
-        await createLocalIdentity(username);
+        // Solo-deferred identity (§8): under MULTI_FOLDER, do NOT mint a keypair
+        // here. Enter with no identity (the data layer is keypair-free); a keypair
+        // is minted on demand at the first sharing action via ensureLocalIdentity,
+        // which surfaces the recovery code then. This closes the one path that
+        // minted a recovery-code-locked identity without ever showing the user the
+        // code. Flag-OFF keeps the eager silent mint, so behavior is byte-identical.
+        if (!MULTI_FOLDER_ENABLED) {
+          // Mint the E2E identity keypair silently (sidecar at rest + unlocked key
+          // in the session). The provisioning the manual create-user gate performs
+          // and the lab-create flow relies on; also the account's FIRST folder.
+          await createLocalIdentity(username);
+        }
       }
 
       // 4. Enter the app.
