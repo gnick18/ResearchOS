@@ -80,9 +80,11 @@ This makes the free base a fixed one-time acquisition cost plus a flat infra flo
 The monthly net now charges the real fixed LLC overhead, not a flat placeholder. It is the sum of:
 
 - **Infra floor, sourced from the operator console** (`capacity-shared.ts`): Cloudflare Workers $5 + Vercel Pro $20 = $25/mo, plus the recurring annual fees (Apple Developer $99, WI LLC report $25, domain $9.99) amortized to ~$11/mo. About **$36/mo**, imported so it never drifts from what the console tracks.
-- **Operating overhead** (editable in the dashboard, seeded realistic): dev tooling (Claude Max ~$100), accounting/legal/filing (~$40), misc software + monitoring (~$20). About **$160/mo**.
+- **Operating overhead** (editable in the dashboard, seeded realistic): a permanent **Claude Max (~$200/mo)** that co-runs the company with Grant (site maintenance, fixes, marketing) and is kept on at every stage, accounting/legal/filing (~$40), misc software + monitoring (~$20). About **$260/mo**.
 
-So the seeded total fixed is **~$196/mo** (versus the old $28 placeholder), charged every month regardless of user count. It dominates the P&L at small scale (a 1k-user, 5%-conversion month nets ~$56 after it) and washes out at scale. Yearly items are amortized to a monthly run-rate. The dashboard's composition panel shows it as "Fixed business costs," and the break-even card notes that with free users costing ~$0/mo, recurring break-even is just covering this fixed total.
+So the seeded total fixed base is **~$296/mo** (versus the old $28 placeholder), charged every month regardless of user count. Yearly items are amortized to a monthly run-rate.
+
+**Fixed costs are NOT flat forever.** As the user base grows you cross provider free tiers (Vercel/Workers/R2 overages, tracked in the admin InfraCostPanel + capacity free-tier ceilings) and add services, support, and subscriptions. The model adds a **cost-growth term** (default **+$10/mo per 1k users**, tunable) on top of the flat base, so the expense line slopes up: ~$396/mo at 10k users, ~$796/mo at 50k. `breakEvenUsers()` subtracts that marginal scaling cost from each user's contribution, so heavy cost growth pushes break-even out (and, if marginal cost exceeds per-user margin, makes it unreachable at any scale). At the seed numbers the business breaks even around **~1.2k users** (Conservative ~3.3k, Optimistic ~600). The real per-service ceilings live in the operator console; the dev page seeds tunable estimates.
 
 ## The model + dashboard
 

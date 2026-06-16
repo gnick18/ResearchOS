@@ -209,6 +209,15 @@ describe("projectAtScale", () => {
     expect(p.expense).toBeCloseTo(p.freeCost + 500, 9);
   });
 
+  it("scales fixed costs up with the user base (not flat forever)", () => {
+    const flat = projectAtScale(10000, TIERS, MIX, 200, 0);
+    const grows = projectAtScale(10000, TIERS, MIX, 200, 10);
+    expect(flat.fixed).toBe(200);
+    // 10 per 1k users x 10k users = 100 on top of the 200 base.
+    expect(grows.fixed).toBeCloseTo(200 + 10 * (10000 / 1000), 9);
+    expect(grows.fixed).toBeGreaterThan(flat.fixed);
+  });
+
   it("reports the one-time acquisition cost separately, not in the monthly net", () => {
     const p = projectAtScale(10000, TIERS, MIX);
     const free = 10000 * (1 - MIX.conversion);
@@ -240,6 +249,17 @@ describe("breakEvenConversion", () => {
   it("break-even users is Infinity when each user loses money", () => {
     // Zero conversion means no revenue, so no scale ever covers the fixed cost.
     expect(breakEvenUsers(TIERS, { ...MIX, conversion: 0 }, 196)).toBe(
+      Number.POSITIVE_INFINITY,
+    );
+  });
+
+  it("cost growth pushes break-even out, and can make it unreachable", () => {
+    const flat = breakEvenUsers(TIERS, MIX, 196, 0);
+    const grows = breakEvenUsers(TIERS, MIX, 196, 10);
+    expect(grows).toBeGreaterThan(flat); // scaling costs delay break-even
+    // If marginal scaling cost exceeds the per-user margin, scale never wins.
+    const perUser = MIX.conversion * 5; // ~ conv x paidNet, in dollars
+    expect(breakEvenUsers(TIERS, MIX, 196, perUser * 1000 * 2)).toBe(
       Number.POSITIVE_INFINITY,
     );
   });

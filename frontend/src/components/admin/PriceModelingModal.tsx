@@ -55,6 +55,7 @@ import {
   AI_SIGNUP_GRANT_USD,
   INFRA_FIXED_MONTHLY,
   DEFAULT_OPERATING_COSTS,
+  DEFAULT_FIXED_GROWTH_PER_K_USERS,
   monthlyOf,
   avgFreeUserCostPathA,
   breakEvenConversion,
@@ -1067,6 +1068,9 @@ export function FinalizeTab() {
   const [aiTokensM, setAiTokensM] = useState(3);
   const [aiAdoption, setAiAdoption] = useState(0.3);
   const [opCosts, setOpCosts] = useState<FixedCostItem[]>(DEFAULT_OPERATING_COSTS);
+  const [fixedGrowthPerK, setFixedGrowthPerK] = useState(
+    DEFAULT_FIXED_GROWTH_PER_K_USERS,
+  );
   const [conversion, setConversion] = useState(0.05);
   const [soloShare, setSoloShare] = useState(0.4);
   const [labShare, setLabShare] = useState(0.4);
@@ -1111,8 +1115,8 @@ export function FinalizeTab() {
   const opMonthly = monthlyOf(opCosts);
   const fixedMonthly = INFRA_FIXED_MONTHLY + opMonthly;
   const project = (users: number) =>
-    projectAtScale(users, tiers, mix, fixedMonthly);
-  const beUsers = breakEvenUsers(tiers, mix, fixedMonthly);
+    projectAtScale(users, tiers, mix, fixedMonthly, fixedGrowthPerK);
+  const beUsers = breakEvenUsers(tiers, mix, fixedMonthly, fixedGrowthPerK);
   const deptLabMonthly = membersPerLab * dept.price + govFee;
 
   function updateOp(i: number, patch: Partial<FixedCostItem>) {
@@ -1130,9 +1134,19 @@ export function FinalizeTab() {
   const posTotal = comp.sub + comp.ai + comp.gov || 1;
   const scenarioNets = CONVERSION_PRESETS.map((s) => ({
     ...s,
-    net: projectAtScale(SCALE, tiers, { ...mix, conversion: s.v }, fixedMonthly)
-      .net,
-    beUsers: breakEvenUsers(tiers, { ...mix, conversion: s.v }, fixedMonthly),
+    net: projectAtScale(
+      SCALE,
+      tiers,
+      { ...mix, conversion: s.v },
+      fixedMonthly,
+      fixedGrowthPerK,
+    ).net,
+    beUsers: breakEvenUsers(
+      tiers,
+      { ...mix, conversion: s.v },
+      fixedMonthly,
+      fixedGrowthPerK,
+    ),
   }));
   const scenarioMax = Math.max(1, ...scenarioNets.map((s) => Math.abs(s.net)));
 
@@ -1235,7 +1249,7 @@ export function FinalizeTab() {
       window.removeEventListener("resize", drawProjection);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [rows, freeRelayM, aiTokensM, aiAdoption, opCosts, conversion, soloShare, labShare, deptShare, membersPerLab]);
+  }, [rows, freeRelayM, aiTokensM, aiAdoption, opCosts, fixedGrowthPerK, conversion, soloShare, labShare, deptShare, membersPerLab]);
 
   const inputCls =
     "w-16 rounded border border-border bg-surface-sunken px-1.5 py-1 text-meta tabular-nums";
@@ -1421,15 +1435,31 @@ export function FinalizeTab() {
                 </div>
               ))}
               <div className="flex items-center justify-between border-t border-border pt-1.5 font-semibold">
-                <span>Total fixed</span>
+                <span>Total fixed (base)</span>
                 <span>{fmt(fixedMonthly)}/mo</span>
+              </div>
+            </div>
+            <div className="mt-4">
+              <Slider
+                label={`Cost growth with scale: +${fmt(fixedGrowthPerK)}/mo per 1k users`}
+                min={0}
+                max={50}
+                step={1}
+                value={fixedGrowthPerK}
+                onChange={setFixedGrowthPerK}
+              />
+              <div className="mt-1 flex justify-between text-meta text-foreground-muted tabular-nums">
+                <span>At 10k users: {fmt0(fixedMonthly + fixedGrowthPerK * 10)}/mo</span>
+                <span>At 50k: {fmt0(fixedMonthly + fixedGrowthPerK * 50)}/mo</span>
               </div>
             </div>
             <p className="mt-2 text-meta text-foreground-muted">
               Infra floor (Workers + Vercel + Apple/LLC/domain, amortized) is
-              sourced from the operator console. Operating overhead is editable.
-              The whole total is charged to the monthly net regardless of user
-              count, so it dominates at small scale.
+              sourced from the operator console; operating overhead is editable and
+              includes the permanent Claude Max that co-runs ops. Fixed costs are
+              NOT flat forever, so the growth dial steps them up per 1k users
+              (provider-tier overages + services/subs you add as you scale, which
+              the admin InfraCostPanel free-tier ceilings track for real).
             </p>
           </Panel>
 

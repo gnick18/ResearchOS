@@ -32,6 +32,8 @@ describe("FinalizeTab (Path-A service dashboard)", () => {
     has(/Free relay \(recurring\)/i); // recurring cost line
     has(/Fixed business costs/i); // recurring cost line
     has(/Fixed business costs \(charged every month/i); // the editable panel
+    has(/Claude Max \(co-runs ops/i); // the permanent ops subscription
+    has(/Cost growth with scale/i); // fixed costs step up with users
     cleanup();
   });
 

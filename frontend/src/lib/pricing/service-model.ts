@@ -69,10 +69,21 @@ export interface FixedCostItem {
  *  distinct from per-user COGS. Editable estimates the operator tunes; sized to
  *  be realistic rather than zero. */
 export const DEFAULT_OPERATING_COSTS: FixedCostItem[] = [
-  { label: "Claude Max (dev tooling)", amount: 100, cadence: "monthly" },
+  // A permanent Claude Max subscription that co-runs the company with Grant
+  // (site maintenance, fixes, marketing), kept on at every stage. Max 20x tier.
+  { label: "Claude Max (co-runs ops: maintenance, fixes, marketing)", amount: 200, cadence: "monthly" },
   { label: "Accounting / legal / filing", amount: 40, cadence: "monthly" },
   { label: "Misc software + monitoring", amount: 20, cadence: "monthly" },
 ];
+
+/**
+ * Fixed costs are NOT flat forever (Grant 2026-06-16): as the user base grows you
+ * cross provider free tiers (Vercel/Workers/R2 overages, tracked in the admin
+ * InfraCostPanel + capacity free-tier ceilings) and add services, support, and
+ * subscriptions (more Claude Max seats, tooling). We model that step-up as a
+ * linear run-rate added per 1,000 users on top of the flat base. A rough, tunable
+ * default; the real per-service ceilings live in the operator console. */
+export const DEFAULT_FIXED_GROWTH_PER_K_USERS = 10;
 
 /** Monthly-equivalent total of a fixed-cost list (yearly items divided by 12). */
 export function monthlyOf(items: FixedCostItem[]): number {
@@ -341,6 +352,7 @@ export function projectAtScale(
   tiers: ServiceTiers,
   mix: AdoptionMix,
   fixedMonthly: number = totalFixedMonthly(),
+  fixedGrowthPerKUsers: number = 0,
 ): ScalePoint {
   const free = users * (1 - mix.conversion);
   const paid = users * mix.conversion;
@@ -349,7 +361,9 @@ export function projectAtScale(
   const gov = paid * blendedGovPerPaid(tiers, mix);
   const revenue = sub + ai + gov;
   const freeCost = free * relayCost(mix.freeRelayWritesM);
-  const fixed = fixedMonthly;
+  // Fixed costs step up with scale: the flat base plus a run-rate per 1k users
+  // (provider-tier overages + services/subs you add as you grow).
+  const fixed = fixedMonthly + fixedGrowthPerKUsers * (users / 1000);
   const expense = freeCost + fixed;
   return {
     users,
@@ -393,10 +407,14 @@ export function breakEvenUsers(
   tiers: ServiceTiers,
   mix: AdoptionMix,
   fixedMonthly: number = totalFixedMonthly(),
+  fixedGrowthPerKUsers: number = 0,
 ): number {
+  // Each user contributes its margin MINUS the marginal scaling cost it adds.
+  // If scaling per user exceeds the per-user margin, scale never catches up.
   const perUser =
     mix.conversion * blendedPaidNet(tiers, mix) -
-    (1 - mix.conversion) * avgFreeUserCostPathA(mix.freeRelayWritesM);
+    (1 - mix.conversion) * avgFreeUserCostPathA(mix.freeRelayWritesM) -
+    fixedGrowthPerKUsers / 1000;
   if (perUser <= 0) return Number.POSITIVE_INFINITY;
   return fixedMonthly / perUser;
 }
