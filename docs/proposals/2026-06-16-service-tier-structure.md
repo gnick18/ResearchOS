@@ -75,8 +75,8 @@ The #1 beta unknown is unchanged in spirit but smaller in magnitude: the real re
 
 ## The model + dashboard
 
-- Pure math: `frontend/src/lib/pricing/service-model.ts` (tested, `__tests__/service-model.test.ts`, 16 cases). Reuses the Stripe cadence helpers from `modeling.ts` and the cost constants from `assumptions.ts`.
-- Dashboard: the rebuilt `FinalizeTab` in `PriceModelingModal.tsx`, live at `/dev/pricing-finalize`. Left column = locked context + free-tier definition + the editable service-tier table (price, relay footprint, governance fee) + dept economics. Right rail = the profit-vs-expense-at-scale chart with conversion + Solo/Lab/Dept mix knobs, net-at-scale cards, and the break-even-conversion headline.
+- Pure math: `frontend/src/lib/pricing/service-model.ts` (tested, `__tests__/service-model.test.ts`, 22 cases). Reuses the Stripe cadence helpers from `modeling.ts`, the cost constants from `assumptions.ts`, and the LOCKED AI rates from `billing/ai-config.ts`. AI margin is folded in on the paid side (1.4x individual/lab, 2x dept over our real $0.153/1M cost), and the one-time sign-up grant (~$0.25) is the free-side acquisition cost.
+- Dashboard: the rebuilt `FinalizeTab` in `PriceModelingModal.tsx`, live at `/dev/pricing-finalize`. Left column = locked context (incl. the AI rates) + free-tier definition + the editable service-tier table (price, relay footprint, governance fee, per-tier AI margin) + dept economics. Right rail = streamlined scenario presets (Conservative/Base/Optimistic conversion + Solo/Lab/Dept-heavy mix), net-at-scale cards, the break-even-conversion headline, and three outcome plots: profit-vs-expense-at-scale, net-by-scenario, and a revenue-composition breakdown (subscriptions vs AI vs governance).
 - The legacy GB per-subscriber + sustainability tabs stay in the operator console for reference; they are not the go-forward surface.
 
 ## Open decisions for Grant

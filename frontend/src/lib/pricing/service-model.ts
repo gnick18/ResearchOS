@@ -29,12 +29,54 @@ import {
   ACTIVITY_PER_M_WRITES,
   BLENDED_PER_GB_MO,
   BUFFER,
+  STRIPE_PCT,
 } from "./assumptions";
 import {
   stripeMonthlyAmortized,
   FIXED_BASE_MONTHLY,
   type BillingCadence,
 } from "./modeling";
+import {
+  AI_TOKEN_PRICE_USD,
+  AI_ORG_TOKEN_PRICE_USD,
+  AI_MEASURED_BARE_COST_USD_PER_TOKEN,
+  STARTER_GRANT_TOKENS,
+} from "../billing/ai-config";
+
+// ── AI billing, LOCKED rates (ai-config.ts, Grant 2026-06-14) ───────────────
+// AI is a metered token product bought in prepaid packs, separate from the
+// service subscription. Rates are locked: bare basis $0.20/1M, real measured
+// cost $0.153/1M, individual/lab markup 1.4x ($0.28/1M retail), dept/inst 2x
+// ($0.40/1M). The ~0.6x org gap is the same solidarity surplus as storage. We
+// fold AI MARGIN (retail minus our real cost) into the paid side, and the
+// one-time sign-up grant into the free-side acquisition cost.
+
+/** Retail AI price per 1M tokens, individual + lab (1.4x). About $0.28. */
+export const AI_INDIV_RETAIL_PER_M = AI_TOKEN_PRICE_USD * 1_000_000;
+/** Retail AI price per 1M tokens, dept + inst (2x). About $0.40. */
+export const AI_ORG_RETAIL_PER_M = AI_ORG_TOKEN_PRICE_USD * 1_000_000;
+/** Our real measured inference cost per 1M tokens. About $0.153. */
+export const AI_REAL_COST_PER_M = AI_MEASURED_BARE_COST_USD_PER_TOKEN * 1_000_000;
+/** One-time AI sign-up grant cost to us, in dollars (the measured cost of the
+ *  ~1.63M starter tokens). About $0.25. A per-signup acquisition cost, NOT a
+ *  recurring monthly free pool. */
+export const AI_SIGNUP_GRANT_USD =
+  STARTER_GRANT_TOKENS * AI_MEASURED_BARE_COST_USD_PER_TOKEN;
+
+/**
+ * Monthly AI margin we keep from one paying user's token usage. They pay the
+ * locked markup rate (1.4x individual/lab, 2x dept), we pay the real measured
+ * cost. Stripe on a prepaid pack is approximated as a flat percentage since AI
+ * is bought in $10+ packs (the fixed fee amortizes to noise). org=true charges
+ * the 2x dept rate.
+ */
+export function aiMarginPerUser(aiTokensM: number, org: boolean): number {
+  const retailPerM = org ? AI_ORG_RETAIL_PER_M : AI_INDIV_RETAIL_PER_M;
+  const revenue = aiTokensM * retailPerM;
+  const cost = aiTokensM * AI_REAL_COST_PER_M;
+  const stripe = revenue * STRIPE_PCT;
+  return revenue - cost - stripe;
+}
 
 /** A-la-carte storage retail markup over blended cost. Covers Stripe + R2 + the
  *  operating buffer with no real surplus, so storage is pass-through, never a
@@ -135,6 +177,9 @@ export interface AdoptionMix {
   /** Relay write footprint of one free user, millions per month. Tiny under
    *  Path A because free users have no cloud produce features. */
   freeRelayWritesM: number;
+  /** Average AI tokens a PAYING user spends per month, in millions. Drives the
+   *  AI margin on the paid side (dept users at the 2x org rate). */
+  aiTokensPerPaidM: number;
 }
 
 /** Normalize the paying-side shares to sum to 1 (they are entered freely). */
@@ -151,9 +196,9 @@ function normShares(mix: AdoptionMix): {
   };
 }
 
-/** Blended net we keep per paying user, weighted by the paying-side mix. Dept
- *  members carry their per-lab governance fee amortized across the lab. */
-export function blendedPaidNet(tiers: ServiceTiers, mix: AdoptionMix): number {
+/** Subscription net per paying user, weighted by the paying-side mix (no AI, no
+ *  governance fee). Dept seats are at lab parity. */
+export function blendedSubNet(tiers: ServiceTiers, mix: AdoptionMix): number {
   const s = normShares(mix);
   const soloNet = serviceMargin(
     tiers.solo.price,
@@ -165,22 +210,61 @@ export function blendedPaidNet(tiers: ServiceTiers, mix: AdoptionMix): number {
     tiers.lab.relayWritesM,
     tiers.lab.cadence,
   ).net;
-  // Dept labs pay lab-parity per seat PLUS a flat governance fee per lab,
-  // amortized across the members so it reads as a per-paying-user contribution.
+  const deptSeatNet = serviceMargin(
+    tiers.dept.price,
+    tiers.dept.relayWritesM,
+    tiers.dept.cadence,
+  ).net;
+  return s.solo * soloNet + s.lab * labSeatNet + s.dept * deptSeatNet;
+}
+
+/** Governance-fee contribution per paying user. Only dept members carry it, the
+ *  flat per-lab fee amortized across the lab. */
+export function blendedGovPerPaid(tiers: ServiceTiers, mix: AdoptionMix): number {
+  const s = normShares(mix);
   const govPerMember =
     (tiers.dept.governanceFeePerLab ?? 0) / Math.max(1, mix.membersPerLab);
-  const deptSeatNet = labSeatNet + govPerMember;
-  return s.solo * soloNet + s.lab * labSeatNet + s.dept * deptSeatNet;
+  return s.dept * govPerMember;
+}
+
+/** AI margin per paying user, weighted by mix. Dept members bill at the 2x org
+ *  rate, solo + lab at the 1.4x individual rate. */
+export function blendedAiMargin(tiers: ServiceTiers, mix: AdoptionMix): number {
+  const s = normShares(mix);
+  const indiv = aiMarginPerUser(mix.aiTokensPerPaidM, false);
+  const org = aiMarginPerUser(mix.aiTokensPerPaidM, true);
+  return (s.solo + s.lab) * indiv + s.dept * org;
+}
+
+/** Total net we keep per paying user = subscription + AI margin + governance. */
+export function blendedPaidNet(tiers: ServiceTiers, mix: AdoptionMix): number {
+  return (
+    blendedSubNet(tiers, mix) +
+    blendedAiMargin(tiers, mix) +
+    blendedGovPerPaid(tiers, mix)
+  );
 }
 
 export interface ScalePoint {
   users: number;
+  /** Subscription net contribution. */
+  sub: number;
+  /** AI margin contribution. */
+  ai: number;
+  /** Governance-fee contribution. */
+  gov: number;
+  /** sub + ai + gov, the positive side of the P&L. */
   revenue: number;
+  /** Free base support cost. */
+  freeCost: number;
+  /** Fixed infra floor. */
+  fixed: number;
+  /** freeCost + fixed. */
   expense: number;
   net: number;
 }
 
-/** Profit vs expense at a given total user count, driven by the tiers + mix. */
+/** Profit vs expense at a given total user count, broken into revenue sources. */
 export function projectAtScale(
   users: number,
   tiers: ServiceTiers,
@@ -188,10 +272,14 @@ export function projectAtScale(
 ): ScalePoint {
   const free = users * (1 - mix.conversion);
   const paid = users * mix.conversion;
-  const revenue = paid * blendedPaidNet(tiers, mix);
-  const expense =
-    free * avgFreeUserCostPathA(mix.freeRelayWritesM) + FIXED_BASE_MONTHLY;
-  return { users, revenue, expense, net: revenue - expense };
+  const sub = paid * blendedSubNet(tiers, mix);
+  const ai = paid * blendedAiMargin(tiers, mix);
+  const gov = paid * blendedGovPerPaid(tiers, mix);
+  const revenue = sub + ai + gov;
+  const freeCost = free * avgFreeUserCostPathA(mix.freeRelayWritesM);
+  const fixed = FIXED_BASE_MONTHLY;
+  const expense = freeCost + fixed;
+  return { users, sub, ai, gov, revenue, freeCost, fixed, expense, net: revenue - expense };
 }
 
 /**

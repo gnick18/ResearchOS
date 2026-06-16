@@ -8,6 +8,13 @@ import {
   relayCost,
   serviceMargin,
   avgFreeUserCostPathA,
+  aiMarginPerUser,
+  AI_INDIV_RETAIL_PER_M,
+  AI_ORG_RETAIL_PER_M,
+  AI_REAL_COST_PER_M,
+  blendedSubNet,
+  blendedGovPerPaid,
+  blendedAiMargin,
   blendedPaidNet,
   projectAtScale,
   breakEvenConversion,
@@ -29,6 +36,7 @@ const MIX: AdoptionMix = {
   deptShare: 0.2,
   membersPerLab: 6,
   freeRelayWritesM: 0.05,
+  aiTokensPerPaidM: 1,
 };
 
 describe("storage is near-cost pass-through", () => {
@@ -60,12 +68,34 @@ describe("serviceMargin", () => {
   });
 
   it("a profitable service tier keeps most of its price", () => {
-    // Relay cost is tiny relative to a service price, so net should be high.
     expect(serviceMargin(6, 0.5, "annual").net).toBeGreaterThan(4.5);
   });
 
   it("marginX is Infinity for a relay-free (governance/presence) line", () => {
     expect(serviceMargin(16, 0, "annual").marginX).toBe(Number.POSITIVE_INFINITY);
+  });
+});
+
+describe("AI billing (locked rates)", () => {
+  it("individual retail is ~$0.28/1M, org ~$0.40/1M, real cost ~$0.153/1M", () => {
+    expect(AI_INDIV_RETAIL_PER_M).toBeCloseTo(0.28, 6);
+    expect(AI_ORG_RETAIL_PER_M).toBeCloseTo(0.4, 6);
+    expect(AI_REAL_COST_PER_M).toBeCloseTo(0.153, 6);
+  });
+
+  it("org AI margin exceeds individual at the same usage (2x vs 1.4x)", () => {
+    expect(aiMarginPerUser(5, true)).toBeGreaterThan(aiMarginPerUser(5, false));
+  });
+
+  it("margin is retail minus real cost minus pack Stripe", () => {
+    const m = aiMarginPerUser(10, false);
+    const rev = 10 * AI_INDIV_RETAIL_PER_M;
+    const expected = rev - 10 * AI_REAL_COST_PER_M - rev * 0.029;
+    expect(m).toBeCloseTo(expected, 9);
+  });
+
+  it("zero usage yields zero AI margin", () => {
+    expect(aiMarginPerUser(0, false)).toBe(0);
   });
 });
 
@@ -75,18 +105,30 @@ describe("free users are cheap under Path A", () => {
   });
 
   it("a free user costs far less than a paying user nets", () => {
-    const free = avgFreeUserCostPathA(MIX.freeRelayWritesM);
-    const paid = blendedPaidNet(TIERS, MIX);
-    expect(paid).toBeGreaterThan(free * 20);
+    expect(blendedPaidNet(TIERS, MIX)).toBeGreaterThan(
+      avgFreeUserCostPathA(MIX.freeRelayWritesM) * 20,
+    );
   });
 });
 
-describe("blendedPaidNet", () => {
-  it("amortizes the dept governance fee across lab members", () => {
-    // Pure-dept mix should beat pure-lab by exactly govFee / membersPerLab.
-    const deptOnly = blendedPaidNet(TIERS, { ...MIX, soloShare: 0, labShare: 0, deptShare: 1 });
-    const labOnly = blendedPaidNet(TIERS, { ...MIX, soloShare: 0, labShare: 1, deptShare: 0 });
-    expect(deptOnly - labOnly).toBeCloseTo(16 / 6, 9);
+describe("blended paid net decomposes into sub + AI + governance", () => {
+  it("blendedPaidNet equals its three components", () => {
+    expect(blendedPaidNet(TIERS, MIX)).toBeCloseTo(
+      blendedSubNet(TIERS, MIX) +
+        blendedAiMargin(TIERS, MIX) +
+        blendedGovPerPaid(TIERS, MIX),
+      9,
+    );
+  });
+
+  it("governance is the dept share times the per-member fee", () => {
+    expect(blendedGovPerPaid(TIERS, MIX)).toBeCloseTo(0.2 * (16 / 6), 9);
+  });
+
+  it("AI margin blends org rate only for the dept share", () => {
+    const expected =
+      0.8 * aiMarginPerUser(1, false) + 0.2 * aiMarginPerUser(1, true);
+    expect(blendedAiMargin(TIERS, MIX)).toBeCloseTo(expected, 9);
   });
 
   it("normalizes shares that do not sum to one", () => {
@@ -97,18 +139,16 @@ describe("blendedPaidNet", () => {
 });
 
 describe("projectAtScale", () => {
-  it("revenue is paid users times blended net", () => {
+  it("revenue is the sum of sub, AI, and governance contributions", () => {
     const p = projectAtScale(10000, TIERS, MIX);
+    expect(p.revenue).toBeCloseTo(p.sub + p.ai + p.gov, 9);
     expect(p.revenue).toBeCloseTo(10000 * 0.05 * blendedPaidNet(TIERS, MIX), 6);
   });
 
   it("expense is the free base relay cost plus the fixed floor", () => {
     const p = projectAtScale(10000, TIERS, MIX);
-    const free = 10000 * 0.95;
-    expect(p.expense).toBeCloseTo(
-      free * avgFreeUserCostPathA(MIX.freeRelayWritesM) + FIXED_BASE_MONTHLY,
-      6,
-    );
+    expect(p.expense).toBeCloseTo(p.freeCost + p.fixed, 9);
+    expect(p.fixed).toBe(FIXED_BASE_MONTHLY);
   });
 
   it("is net positive at scale for the seed tiers (Path A is sustainable)", () => {
@@ -129,7 +169,6 @@ describe("breakEvenConversion", () => {
 
   it("freeUsersPerPayer is the inverse intuition", () => {
     const be = breakEvenConversion(TIERS, MIX);
-    // free per payer ~= (1 - be) / be
     expect(freeUsersPerPayer(TIERS, MIX)).toBeCloseTo((1 - be) / be, 6);
   });
 });

@@ -49,6 +49,10 @@ import {
 } from "@/lib/pricing/modeling";
 import {
   STORAGE_MARKUP,
+  AI_INDIV_RETAIL_PER_M,
+  AI_ORG_RETAIL_PER_M,
+  AI_REAL_COST_PER_M,
+  AI_SIGNUP_GRANT_USD,
   avgFreeUserCostPathA,
   breakEvenConversion,
   freeUsersPerPayer,
@@ -1015,62 +1019,47 @@ export function SustainabilityTab({ active }: { active: boolean }) {
 // Tab 3: finalize the storage flip ladder (2026-06-15 decisions)
 // ============================================================================
 
-// ── Path-A service tiers (Grant 2026-06-15) ─────────────────────────────────
+// ── Path-A service tiers (Grant 2026-06-15, AI folded in 2026-06-16) ────────
 // We charge for cloud SERVICES, not GB. Storage is a-la-carte pass-through at
-// ~1.15x cost. Solo is one paid subscriber tier; lab and dept are priced per
-// active seat, and dept adds a flat per-lab governance fee (the org margin).
-// Free users get no cloud produce feature, so the free base is cheap, which is
-// what makes the whole thing sustainable. Seed values are a first cut, not yet
-// written to plans.ts.
+// ~1.15x cost. AI is a separate metered token product at LOCKED rates (1.4x
+// individual/lab, 2x dept). Solo is one paid subscriber tier; lab and dept are
+// per active seat; dept adds a flat per-lab governance fee. Free users get no
+// cloud produce feature, so the free base is cheap. Seed values are a first cut.
 
 interface ServiceRow {
   key: "solo" | "lab" | "dept";
   name: string;
   unlocks: string;
-  /** Per subscriber (solo) or per active seat (lab/dept), dollars per month. */
   price: number;
-  /** Relay activity the services generate, millions of writes per month. */
   relayWritesM: number;
   cadence: BillingCadence;
   perSeat: boolean;
-  /** Dept-only flat governance fee per lab per month. */
   governanceFeePerLab?: number;
 }
 
 const DEFAULT_SERVICE_ROWS: ServiceRow[] = [
-  {
-    key: "solo",
-    name: "Solo",
-    unlocks: "Send, live co-edit, phone capture, push",
-    price: 6,
-    relayWritesM: 0.5,
-    cadence: "annual",
-    perSeat: false,
-  },
-  {
-    key: "lab",
-    name: "Lab",
-    unlocks: "Solo per member + dashboard, shared library, pooled budgets",
-    price: 5,
-    relayWritesM: 0.6,
-    cadence: "annual",
-    perSeat: true,
-  },
-  {
-    key: "dept",
-    name: "Dept",
-    unlocks: "Lab parity + Commons, compliance, per-lab budgets, admin",
-    price: 5,
-    relayWritesM: 0.6,
-    cadence: "annual",
-    perSeat: true,
-    governanceFeePerLab: 16,
-  },
+  { key: "solo", name: "Solo", unlocks: "Send, live co-edit, phone capture, push", price: 6, relayWritesM: 0.5, cadence: "annual", perSeat: false },
+  { key: "lab", name: "Lab", unlocks: "Solo per member + dashboard, shared library, pooled budgets", price: 5, relayWritesM: 0.6, cadence: "annual", perSeat: true },
+  { key: "dept", name: "Dept", unlocks: "Lab parity + Commons, compliance, per-lab budgets, admin", price: 5, relayWritesM: 0.6, cadence: "annual", perSeat: true, governanceFeePerLab: 16 },
+];
+
+// Streamlined scenario presets so the dashboard is a few clicks, not a wall of
+// sliders (Grant 2026-06-15, "too many things to adjust").
+const CONVERSION_PRESETS = [
+  { id: "cons", label: "Conservative", v: 0.02 },
+  { id: "base", label: "Base", v: 0.05 },
+  { id: "opt", label: "Optimistic", v: 0.1 },
+];
+const MIX_PRESETS = [
+  { id: "solo", label: "Solo-heavy", solo: 0.6, lab: 0.3, dept: 0.1 },
+  { id: "bal", label: "Balanced", solo: 0.4, lab: 0.4, dept: 0.2 },
+  { id: "dept", label: "Dept-heavy", solo: 0.2, lab: 0.4, dept: 0.4 },
 ];
 
 export function FinalizeTab() {
   const [rows, setRows] = useState<ServiceRow[]>(DEFAULT_SERVICE_ROWS);
   const [freeRelayM, setFreeRelayM] = useState(0.05);
+  const [aiTokensM, setAiTokensM] = useState(3);
   const [conversion, setConversion] = useState(0.05);
   const [soloShare, setSoloShare] = useState(0.4);
   const [labShare, setLabShare] = useState(0.4);
@@ -1080,6 +1069,11 @@ export function FinalizeTab() {
 
   function update(key: ServiceRow["key"], patch: Partial<ServiceRow>) {
     setRows((rs) => rs.map((r) => (r.key === key ? { ...r, ...patch } : r)));
+  }
+  function applyMix(p: (typeof MIX_PRESETS)[number]) {
+    setSoloShare(p.solo);
+    setLabShare(p.lab);
+    setDeptShare(p.dept);
   }
 
   const solo = rows.find((r) => r.key === "solo")!;
@@ -1099,6 +1093,7 @@ export function FinalizeTab() {
     deptShare,
     membersPerLab,
     freeRelayWritesM: freeRelayM,
+    aiTokensPerPaidM: aiTokensM,
   };
 
   const avgFree = avgFreeUserCostPathA(freeRelayM);
@@ -1106,10 +1101,22 @@ export function FinalizeTab() {
   const perPayer = freeUsersPerPayer(tiers, mix);
   const storagePerGB = storageRetailPerGB();
   const project = (users: number) => projectAtScale(users, tiers, mix);
-
-  // A representative dept lab total = members at lab-parity net + the fee.
-  const deptSeatNet = serviceMargin(dept.price, dept.relayWritesM, dept.cadence).net;
   const deptLabMonthly = membersPerLab * dept.price + govFee;
+
+  const activeMix =
+    MIX_PRESETS.find(
+      (p) => p.solo === soloShare && p.lab === labShare && p.dept === deptShare,
+    )?.id ?? "";
+
+  // Composition + scenario views at a representative 50k scale.
+  const SCALE = 50000;
+  const comp = project(SCALE);
+  const posTotal = comp.sub + comp.ai + comp.gov || 1;
+  const scenarioNets = CONVERSION_PRESETS.map((s) => ({
+    ...s,
+    net: projectAtScale(SCALE, tiers, { ...mix, conversion: s.v }).net,
+  }));
+  const scenarioMax = Math.max(1, ...scenarioNets.map((s) => Math.abs(s.net)));
 
   function drawProjection() {
     const c = prep(chartRef.current);
@@ -1168,45 +1175,44 @@ export function FinalizeTab() {
       window.removeEventListener("resize", drawProjection);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [rows, freeRelayM, conversion, soloShare, labShare, deptShare, membersPerLab]);
+  }, [rows, freeRelayM, aiTokensM, conversion, soloShare, labShare, deptShare, membersPerLab]);
 
   const inputCls =
     "w-16 rounded border border-border bg-surface-sunken px-1.5 py-1 text-meta tabular-nums";
 
   return (
-    <div className="grid items-start gap-6 text-foreground lg:grid-cols-[minmax(0,1fr)_460px]">
+    <div className="grid items-start gap-6 text-foreground lg:grid-cols-[minmax(0,1fr)_480px]">
       <div className="min-w-0 space-y-6">
         <div className="rounded-xl border border-border bg-surface-sunken px-4 py-3 text-meta leading-relaxed text-foreground-muted">
-          <b className="text-foreground">Path A, locked.</b> We are a local-first
-          cloud-SERVICES company, not a storage-by-GB vendor. Paid tiers buy what
-          the relay enables (send, live co-edit, phone capture, push, governance),
-          not gigabytes. Storage is a-la-carte at ~{STORAGE_MARKUP.toFixed(2)}x
-          cost (
-          {`$${storagePerGB.toFixed(4)}/GB retail`}), never a profit center.
-          Per-object opt-in stays sacred (a 10 GB run stays local). AI keeps its
-          own token meter (1.4x solo-lab, 2x dept). Solo and lab bill 6/12-month
-          only. Cost basis,{" "}
-          {`${fmt(ACTIVITY_PER_M_WRITES)}/M relay writes, Stripe ${(STRIPE_PCT * 100).toFixed(1)}% + ${fmt(STRIPE_FIXED)}.`}
+          <b className="text-foreground">Path A, locked.</b> Local-first
+          cloud-SERVICES company, not storage-by-GB. Paid tiers buy what the relay
+          enables (send, live co-edit, phone capture, push, governance), not
+          gigabytes. Storage a-la-carte at ~{STORAGE_MARKUP.toFixed(2)}x cost (
+          {`$${storagePerGB.toFixed(4)}/GB`}), never a profit center. AI is a
+          separate metered token product at LOCKED rates,{" "}
+          {`indiv $${AI_INDIV_RETAIL_PER_M.toFixed(2)}/1M (1.4x), dept $${AI_ORG_RETAIL_PER_M.toFixed(2)}/1M (2x), our cost $${AI_REAL_COST_PER_M.toFixed(3)}/1M`}
+          . Solo and lab bill 6/12-month only. Relay cost{" "}
+          {`${fmt(ACTIVITY_PER_M_WRITES)}/M writes, Stripe ${(STRIPE_PCT * 100).toFixed(1)}% + ${fmt(STRIPE_FIXED)}.`}
         </div>
 
         <Panel title="Free tier = the network audience (no cloud produce feature)">
           <div className="rounded-xl border border-sky-200 bg-sky-50 p-4 text-meta leading-relaxed text-foreground">
-            Free gets the consume + be-present side, all cheap and
-            network-building: unlimited <b>local notebook</b>,{" "}
-            <b>shared-folder workspaces</b> (a folder synced on their own cloud,
-            not live collab), <b>directory presence</b>,{" "}
-            <b>receive</b> cross-boundary shares (the sender bears the relay cost),
-            in-app receipt notes, accept invites, and all public library/wiki/demo.
-            No send, no live relay collab, no phone capture, no push. So a free
-            user costs us only a thin relay footprint, about{" "}
-            <b>{fmt(avgFree)}/mo</b> at the slider below.
+            Free gets the consume + be-present side: unlimited{" "}
+            <b>local notebook</b>, <b>shared-folder workspaces</b> (their own
+            cloud, async file sync, not live collab), <b>directory presence</b>,{" "}
+            <b>receive</b> shares (the sender bears the relay cost), in-app receipt
+            notes, accept invites, public library/wiki/demo. No send, no live
+            collab, no phone capture, no push. So a free user costs us only a thin
+            relay footprint, about <b>{fmt(avgFree)}/mo</b>, plus a one-time AI
+            sign-up grant of <b>{fmt(AI_SIGNUP_GRANT_USD)}</b> (acquisition cost,
+            not recurring).
           </div>
         </Panel>
 
-        <Panel title="Decisions">
-          <div className="grid gap-5 lg:grid-cols-2">
+        <Panel title="Assumptions">
+          <div className="grid gap-5 lg:grid-cols-3">
             <Slider
-              label={`Free relay footprint: ${freeRelayM.toFixed(2)}M writes/mo`}
+              label={`Free relay: ${freeRelayM.toFixed(2)}M/mo`}
               min={0}
               max={0.5}
               step={0.01}
@@ -1214,7 +1220,15 @@ export function FinalizeTab() {
               onChange={setFreeRelayM}
             />
             <Slider
-              label={`Members per lab (scale): ${membersPerLab}`}
+              label={`AI per paid user: ${aiTokensM.toFixed(1)}M tok/mo`}
+              min={0}
+              max={20}
+              step={0.5}
+              value={aiTokensM}
+              onChange={setAiTokensM}
+            />
+            <Slider
+              label={`Members per lab: ${membersPerLab}`}
               min={2}
               max={20}
               step={1}
@@ -1223,9 +1237,9 @@ export function FinalizeTab() {
             />
           </div>
           <p className="mt-3 text-meta text-foreground-muted">
-            The free relay footprint is the real cost dial now, and it is small by
-            design because free users have no cloud produce feature. Receiving a
-            share is sender-paid.
+            Free relay footprint is the real cost dial (small by design, no produce
+            feature). AI per paid user drives the metered AI margin on top of the
+            subscription.
           </p>
         </Panel>
 
@@ -1238,15 +1252,15 @@ export function FinalizeTab() {
                   <th className="px-2 py-1.5 font-semibold">What it unlocks</th>
                   <th className="px-2 py-1.5 font-semibold">$/mo</th>
                   <th className="px-2 py-1.5 font-semibold">Relay M</th>
-                  <th className="px-2 py-1.5 text-right font-semibold">Net</th>
-                  <th className="px-2 py-1.5 text-right font-semibold">Margin</th>
+                  <th className="px-2 py-1.5 text-right font-semibold">Sub net</th>
+                  <th className="px-2 py-1.5 text-right font-semibold">+ AI</th>
                 </tr>
               </thead>
               <tbody>
                 <tr className="border-t border-border">
                   <td className="px-2 py-1.5 font-medium text-foreground">Free</td>
                   <td className="px-2 py-1.5 text-foreground-muted">
-                    Local notebook, receive, directory, public
+                    Local notebook, workspaces, receive, directory, public
                   </td>
                   <td className="px-2 py-1.5 text-foreground-muted">$0</td>
                   <td className="px-2 py-1.5 text-foreground-muted">
@@ -1256,7 +1270,7 @@ export function FinalizeTab() {
                     -{fmt(avgFree)}
                   </td>
                   <td className="px-2 py-1.5 text-right text-foreground-muted">
-                    cost
+                    grant
                   </td>
                 </tr>
                 {rows.map((r) => {
@@ -1267,9 +1281,9 @@ export function FinalizeTab() {
                       : m.net >= r.price * 0.3
                         ? "text-amber-600"
                         : "text-rose-600 font-bold";
-                  const marginLabel = Number.isFinite(m.marginX)
-                    ? `${m.marginX.toFixed(1)}x`
-                    : "pure";
+                  const aiPerM =
+                    r.key === "dept" ? AI_ORG_RETAIL_PER_M : AI_INDIV_RETAIL_PER_M;
+                  const aiNet = aiTokensM * (aiPerM - AI_REAL_COST_PER_M);
                   return (
                     <tr key={r.key} className="border-t border-border align-top">
                       <td className="px-2 py-1.5 font-medium text-foreground">
@@ -1320,9 +1334,11 @@ export function FinalizeTab() {
                           className={inputCls}
                         />
                       </td>
-                      <td className="px-2 py-1.5 text-right">{fmt(m.net)}</td>
                       <td className={`px-2 py-1.5 text-right ${tone}`}>
-                        {marginLabel}
+                        {fmt(m.net)}
+                      </td>
+                      <td className="px-2 py-1.5 text-right text-violet-600">
+                        +{fmt(aiNet)}
                       </td>
                     </tr>
                   );
@@ -1331,65 +1347,70 @@ export function FinalizeTab() {
             </table>
           </div>
           <p className="mt-2 text-meta text-foreground-muted">
-            Net is what we keep per subscriber (solo) or per active seat (lab,
-            dept) after relay cost and the 6/12-month Stripe fee. Storage rides on
-            top at cost and is not in this margin. Lab and dept are per seat, so
-            the org total scales with headcount.
+            Sub net is what we keep per subscriber (solo) or per active seat (lab,
+            dept) after relay cost and the 6/12-month Stripe fee. The +AI column is
+            the metered AI margin at the current usage (dept at the 2x rate).
+            Storage rides on top at cost and is in neither.
           </p>
         </Panel>
 
         <Panel title="Dept economics: storage at parity, the fee is the value">
           <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-meta leading-relaxed text-foreground">
             A dept lab pays the standalone Lab seat rate ({fmt(dept.price)}/seat,
-            same as a standalone lab, no storage surcharge) plus a flat{" "}
-            <b>{fmt0(govFee)}/lab</b> governance fee. A{" "}
-            {membersPerLab}-member lab is{" "}
-            <b>{fmt0(deptLabMonthly)}/mo</b> ({membersPerLab} x {fmt(dept.price)} +{" "}
-            {fmt0(govFee)}). The governance fee is the Commons + compliance + admin
-            layer, and it is the org margin that funds the free tier. Each dept
-            seat nets {fmt(deptSeatNet)} before the fee.
+            no storage surcharge) plus a flat <b>{fmt0(govFee)}/lab</b> governance
+            fee. A {membersPerLab}-member lab is <b>{fmt0(deptLabMonthly)}/mo</b> (
+            {membersPerLab} x {fmt(dept.price)} + {fmt0(govFee)}). The governance
+            fee is the Commons + compliance + admin layer, and the org margin that
+            funds the free tier. Dept AI also bills at the 2x org rate.
           </div>
         </Panel>
       </div>
 
-      <div className="lg:sticky lg:top-4">
-        <Panel title="Profit vs expense at scale">
-          <Slider
-            label={`Paid conversion: ${(conversion * 100).toFixed(1)}%`}
-            min={1}
-            max={20}
-            step={0.5}
-            value={conversion * 100}
-            onChange={(v) => setConversion(v / 100)}
+      <div className="space-y-6 lg:sticky lg:top-4">
+        <Panel title="Scenario">
+          <Lbl>Paid conversion</Lbl>
+          <Seg
+            options={CONVERSION_PRESETS.map((p) => ({
+              id: p.id,
+              label: `${p.label} ${(p.v * 100).toFixed(0)}%`,
+            }))}
+            value={
+              CONVERSION_PRESETS.find((p) => p.v === conversion)?.id ?? ""
+            }
+            onChange={(id) =>
+              setConversion(
+                CONVERSION_PRESETS.find((p) => p.id === id)?.v ?? conversion,
+              )
+            }
+            wrap
           />
-          <div className="mt-3 grid grid-cols-3 gap-2">
+          <div className="mt-2">
             <Slider
-              label={`Solo ${Math.round(soloShare * 100)}%`}
-              min={0}
-              max={100}
-              step={5}
-              value={soloShare * 100}
-              onChange={(v) => setSoloShare(v / 100)}
-            />
-            <Slider
-              label={`Lab ${Math.round(labShare * 100)}%`}
-              min={0}
-              max={100}
-              step={5}
-              value={labShare * 100}
-              onChange={(v) => setLabShare(v / 100)}
-            />
-            <Slider
-              label={`Dept ${Math.round(deptShare * 100)}%`}
-              min={0}
-              max={100}
-              step={5}
-              value={deptShare * 100}
-              onChange={(v) => setDeptShare(v / 100)}
+              label={`Fine tune: ${(conversion * 100).toFixed(1)}%`}
+              min={1}
+              max={20}
+              step={0.5}
+              value={conversion * 100}
+              onChange={(v) => setConversion(v / 100)}
             />
           </div>
-          <p className="mt-1 text-meta text-foreground-muted">
-            Solo / Lab / Dept shares of the paying base (normalized).
+          <Lbl>Adoption mix</Lbl>
+          <Seg
+            options={MIX_PRESETS.map((p) => ({ id: p.id, label: p.label }))}
+            value={activeMix}
+            onChange={(id) => {
+              const p = MIX_PRESETS.find((x) => x.id === id);
+              if (p) applyMix(p);
+            }}
+            wrap
+          />
+          <p className="mt-2 text-meta text-foreground-muted">
+            Solo {Math.round((soloShare / (soloShare + labShare + deptShare)) * 100)}
+            % / Lab{" "}
+            {Math.round((labShare / (soloShare + labShare + deptShare)) * 100)}% /
+            Dept{" "}
+            {Math.round((deptShare / (soloShare + labShare + deptShare)) * 100)}% of
+            the paying base.
           </p>
 
           <div className="mt-4 grid grid-cols-3 gap-3">
@@ -1430,17 +1451,18 @@ export function FinalizeTab() {
               </span>
             </div>
             <p className="mt-1 text-meta text-foreground-muted">
-              One paying user carries ~{Math.round(perPayer)} free users. Because
-              free users have no cloud produce feature, break-even lands far below
-              the old GB model. You are at {(conversion * 100).toFixed(1)}%.
+              One paying user carries ~{Math.round(perPayer)} free users. You are at{" "}
+              {(conversion * 100).toFixed(1)}%.
             </p>
           </div>
+        </Panel>
 
+        <Panel title="Profit vs expense at scale">
           <canvas
             ref={chartRef}
-            height={240}
-            className="mt-4 block w-full rounded-lg border border-border bg-surface-sunken"
-            style={{ height: 240 }}
+            height={220}
+            className="block w-full rounded-lg border border-border bg-surface-sunken"
+            style={{ height: 220 }}
           />
           <Legend
             items={[
@@ -1448,11 +1470,65 @@ export function FinalizeTab() {
               { c: CH.bad, t: "expense out" },
             ]}
           />
-          <p className="mt-3 text-meta text-foreground-muted">
-            Driven by the tiers. Paid conversion splits into solo, standalone-lab,
-            and dept seats by the shares, and the free base carries its thin relay
-            cost plus the fixed infra floor. Representative, not a forecast.
+        </Panel>
+
+        <Panel title="Net per month by scenario (at 50k users)">
+          <div className="space-y-2">
+            {scenarioNets.map((s) => {
+              const pct = (Math.abs(s.net) / scenarioMax) * 100;
+              const pos = s.net >= 0;
+              return (
+                <div key={s.id} className="flex items-center gap-2 text-meta">
+                  <span className="w-28 shrink-0 text-foreground-muted">
+                    {s.label} {(s.v * 100).toFixed(0)}%
+                  </span>
+                  <span className="relative h-4 flex-1 overflow-hidden rounded bg-surface-sunken">
+                    <span
+                      className={`absolute inset-y-0 left-0 rounded ${
+                        pos ? "bg-emerald-500" : "bg-rose-500"
+                      }`}
+                      style={{ width: `${pct}%` }}
+                    />
+                  </span>
+                  <span
+                    className={`w-16 shrink-0 text-right tabular-nums ${
+                      pos ? "text-emerald-600" : "text-rose-600"
+                    }`}
+                  >
+                    {fmt0(s.net)}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+          <p className="mt-2 text-meta text-foreground-muted">
+            Same tiers, three conversion models. Where the bar turns green is where
+            the business clears.
           </p>
+        </Panel>
+
+        <Panel title="Where the money comes from (at 50k users)">
+          <div className="flex h-5 w-full overflow-hidden rounded-md">
+            <span
+              className="bg-sky-500"
+              style={{ width: `${(comp.sub / posTotal) * 100}%` }}
+            />
+            <span
+              className="bg-violet-500"
+              style={{ width: `${(comp.ai / posTotal) * 100}%` }}
+            />
+            <span
+              className="bg-emerald-500"
+              style={{ width: `${(comp.gov / posTotal) * 100}%` }}
+            />
+          </div>
+          <div className="mt-3 space-y-1">
+            <Kv k="Subscriptions" v={`${fmt0(comp.sub)} (${Math.round((comp.sub / posTotal) * 100)}%)`} />
+            <Kv k="AI margin" v={`${fmt0(comp.ai)} (${Math.round((comp.ai / posTotal) * 100)}%)`} />
+            <Kv k="Governance fees" v={`${fmt0(comp.gov)} (${Math.round((comp.gov / posTotal) * 100)}%)`} />
+            <Kv k="Free base + infra cost" v={`-${fmt0(comp.expense)}`} tone="bad" />
+            <Kv k="Net per month" v={fmt0(comp.net)} bold tone={comp.net < 0 ? "bad" : "good"} />
+          </div>
         </Panel>
       </div>
     </div>
