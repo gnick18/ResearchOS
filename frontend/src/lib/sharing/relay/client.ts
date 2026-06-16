@@ -175,6 +175,62 @@ async function postJson<T>(path: string, body: unknown): Promise<T> {
   return parsed as T;
 }
 
+/** GETs JSON from a same-origin route, parsing the JSON body. */
+async function getJson<T>(path: string): Promise<T> {
+  const res = await fetch(path);
+  let parsed: unknown = null;
+  try {
+    parsed = await res.json();
+  } catch {
+    parsed = null;
+  }
+  if (!res.ok) {
+    throw new RelayError(extractError(parsed, path), res.status);
+  }
+  return parsed as T;
+}
+
+/** Exactly one of these addresses a send recipient. */
+export interface RecipientAddress {
+  recipientEmail?: string;
+  recipientFingerprint?: string;
+}
+
+/**
+ * Resolves a recipient's public keys + the relay addressing field from EITHER an
+ * email (the directory lookup) or a directory fingerprint (the no-email /network
+ * path, via the exact-match lookup-by-fingerprint route). Throws
+ * RecipientNotFoundError when the recipient is not on ResearchOS. The returned
+ * `address` is spread verbatim into the signed "send" payload, so the bytes the
+ * client signs and the bytes the relay rebuilds stay identical.
+ */
+async function resolveRecipient(addr: RecipientAddress): Promise<{
+  x25519PublicKey: string;
+  ed25519PublicKey: string;
+  address: RecipientAddress;
+}> {
+  if (addr.recipientFingerprint) {
+    const fp = addr.recipientFingerprint.replace(/\s+/g, "").toLowerCase();
+    const res = await getJson<LookupResponse>(
+      `/api/directory/lookup-by-fingerprint?fp=${encodeURIComponent(fp)}`,
+    );
+    if (!res.found) throw new RecipientNotFoundError(fp);
+    return {
+      x25519PublicKey: res.x25519PublicKey,
+      ed25519PublicKey: res.ed25519PublicKey,
+      address: { recipientFingerprint: fp },
+    };
+  }
+  const email = addr.recipientEmail ?? "";
+  const res = await postJson<LookupResponse>("/api/directory/lookup", { email });
+  if (!res.found) throw new RecipientNotFoundError(email);
+  return {
+    x25519PublicKey: res.x25519PublicKey,
+    ed25519PublicKey: res.ed25519PublicKey,
+    address: { recipientEmail: email },
+  };
+}
+
 /** A new ISO-8601 timestamp for the signed issuedAt. Browser runtime, Date is fine. */
 function nowIso(): string {
   return new Date().toISOString();
@@ -203,7 +259,13 @@ export interface SendShareParams {
   /** The sender's own canonical email (the identity making the request). */
   email: string;
   /** The recipient's email, resolved against the directory. */
-  recipientEmail: string;
+  recipientEmail?: string;
+  /**
+   * The recipient's directory fingerprint, the no-email alternative to
+   * recipientEmail for a researcher found on /network. Provide EXACTLY ONE of
+   * recipientEmail / recipientFingerprint.
+   */
+  recipientFingerprint?: string;
   /** Everything buildBundle needs to assemble the portable bundle. */
   bundle: BuildBundleInput;
 }
@@ -226,19 +288,17 @@ export async function sendShare(
 ): Promise<SendShareResult> {
   const identity = await requireIdentity();
 
-  // 1. Resolve the recipient's keys from the directory.
-  const lookup = await postJson<LookupResponse>("/api/directory/lookup", {
-    email: params.recipientEmail,
+  // 1. Resolve the recipient's keys + addressing from email or fingerprint.
+  const recipient = await resolveRecipient({
+    recipientEmail: params.recipientEmail,
+    recipientFingerprint: params.recipientFingerprint,
   });
-  if (!lookup.found) {
-    throw new RecipientNotFoundError(params.recipientEmail);
-  }
 
   // 2. Build the portable bundle.
   const zipped = await buildBundle(params.bundle);
 
   // 3. Seal it to the recipient's X25519 public key. Opaque to the relay.
-  const recipientPublicKey = decodePublicKey(lookup.x25519PublicKey);
+  const recipientPublicKey = decodePublicKey(recipient.x25519PublicKey);
   const sealed = sealToRecipient(zipped, recipientPublicKey);
 
   // 4. Sign a "send" request and reserve a bundle id plus an upload URL.
@@ -247,7 +307,7 @@ export async function sendShare(
       action: "send",
       email: params.email,
       issuedAt: nowIso(),
-      recipientEmail: params.recipientEmail,
+      ...recipient.address,
       sizeBytes: sealed.length,
     },
     identity.keys.signing.privateKey,
@@ -294,7 +354,7 @@ export async function sendShare(
       ed25519PublicKeyHex: encodePublicKey(identity.keys.signing.publicKey),
       ed25519PrivateKey: identity.keys.signing.privateKey,
     },
-    lookup.ed25519PublicKey,
+    recipient.ed25519PublicKey,
     "shared",
   ).catch(() => {});
 
@@ -322,7 +382,12 @@ export interface SendRawShareParams {
   /** The sender's own canonical email (the identity making the request). */
   email: string;
   /** The recipient's email, resolved against the directory. */
-  recipientEmail: string;
+  recipientEmail?: string;
+  /**
+   * The recipient's directory fingerprint, the no-email alternative to
+   * recipientEmail. Provide EXACTLY ONE of recipientEmail / recipientFingerprint.
+   */
+  recipientFingerprint?: string;
   /** The raw payload bytes to seal and relay verbatim (e.g. an export zip). */
   payload: Uint8Array;
   /** Item kind, used only for the anonymous share_sent usage counter. The
@@ -343,16 +408,14 @@ export async function sendRawShare(
 ): Promise<SendShareResult> {
   const identity = await requireIdentity();
 
-  // 1. Resolve the recipient's keys from the directory.
-  const lookup = await postJson<LookupResponse>("/api/directory/lookup", {
-    email: params.recipientEmail,
+  // 1. Resolve the recipient's keys + addressing from email or fingerprint.
+  const recipient = await resolveRecipient({
+    recipientEmail: params.recipientEmail,
+    recipientFingerprint: params.recipientFingerprint,
   });
-  if (!lookup.found) {
-    throw new RecipientNotFoundError(params.recipientEmail);
-  }
 
   // 2. Seal the caller's payload bytes directly. Opaque to the relay.
-  const recipientPublicKey = decodePublicKey(lookup.x25519PublicKey);
+  const recipientPublicKey = decodePublicKey(recipient.x25519PublicKey);
   const sealed = sealToRecipient(params.payload, recipientPublicKey);
 
   // 3. Sign a "send" request and reserve a bundle id plus an upload URL.
@@ -361,7 +424,7 @@ export async function sendRawShare(
       action: "send",
       email: params.email,
       issuedAt: nowIso(),
-      recipientEmail: params.recipientEmail,
+      ...recipient.address,
       sizeBytes: sealed.length,
     },
     identity.keys.signing.privateKey,
@@ -401,7 +464,7 @@ export async function sendRawShare(
       ed25519PublicKeyHex: encodePublicKey(identity.keys.signing.publicKey),
       ed25519PrivateKey: identity.keys.signing.privateKey,
     },
-    lookup.ed25519PublicKey,
+    recipient.ed25519PublicKey,
     "shared",
   ).catch(() => {});
 

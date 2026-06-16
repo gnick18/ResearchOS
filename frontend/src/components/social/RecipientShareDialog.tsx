@@ -164,16 +164,27 @@ export default function RecipientShareDialog({
     return { loading: false, options: filterNoteOptions(mapped, query) };
   }, [kind, query, notesRaw, methodsRaw, seqsRaw]);
 
+  // A directory researcher (one with a published key) can be sealed to by
+  // fingerprint with no email at all, the one-click no-email send. A bare @handle
+  // without a published key falls back to the email path (seal-or-one-time-link).
+  const sealByFingerprint =
+    Boolean(recipient.fingerprint) && recipient.hasPublishedKey;
+
   const onSend = useCallback(
     async (picked: PickedObject) => {
       const email = recipientEmail.trim();
-      if (!isValidRecipientEmail(email)) {
+      if (!sealByFingerprint && !isValidRecipientEmail(email)) {
         setPhase({
           name: "error",
           message: "Enter the recipient's email so we can deliver the share.",
         });
         return;
       }
+      // The signed send is addressed by fingerprint (no email) or by email.
+      const address = sealByFingerprint
+        ? { recipientFingerprint: recipient.fingerprint as string }
+        : { recipientEmail: email };
+      const sentLabel = sealByFingerprint ? recipientLabel(recipient) : email;
       setPhase({ name: "sending" });
       try {
         if (picked.kind === "note") {
@@ -181,10 +192,12 @@ export default function RecipientShareDialog({
           if (!note) throw new Error("note not found");
           const bundle = await buildNoteBundleInput(note, ownerUsername);
           try {
-            await sendShare({ email: senderEmail, recipientEmail: email, bundle });
-            setPhase({ name: "sent", recipient: email });
+            await sendShare({ email: senderEmail, ...address, bundle });
+            setPhase({ name: "sent", recipient: sentLabel });
           } catch (err) {
-            if (!isNoPublishedKey(err)) throw err;
+            // The fingerprint path only targets a recipient who has a published
+            // key, so there is no one-time-link fallback there, surface the error.
+            if (sealByFingerprint || !isNoPublishedKey(err)) throw err;
             void decideDeliveryMethod({ hasPublishedKey: false });
             const result = await inviteShare({
               email: senderEmail,
@@ -218,13 +231,13 @@ export default function RecipientShareDialog({
         try {
           await sendRawShare({
             email: senderEmail,
-            recipientEmail: email,
+            ...address,
             payload,
             kind: picked.kind,
           });
-          setPhase({ name: "sent", recipient: email });
+          setPhase({ name: "sent", recipient: sentLabel });
         } catch (err) {
-          if (!isNoPublishedKey(err)) throw err;
+          if (sealByFingerprint || !isNoPublishedKey(err)) throw err;
           void decideDeliveryMethod({ hasPublishedKey: false });
           const result = await inviteRawShare({
             email: senderEmail,
@@ -248,7 +261,15 @@ export default function RecipientShareDialog({
         });
       }
     },
-    [recipientEmail, senderEmail, ownerUsername, notesRaw, methodsRaw],
+    [
+      recipientEmail,
+      sealByFingerprint,
+      recipient,
+      senderEmail,
+      ownerUsername,
+      notesRaw,
+      methodsRaw,
+    ],
   );
 
   const subtitle = recipientSubtitle(recipient);
@@ -384,31 +405,38 @@ export default function RecipientShareDialog({
                   {phase.picked.title}
                 </p>
               </div>
-              <div>
-                <label
-                  htmlFor="recipient-share-email"
-                  className="mb-1 block text-meta font-medium text-foreground"
-                >
-                  Recipient email
-                </label>
-                <input
-                  id="recipient-share-email"
-                  type="email"
-                  value={recipientEmail}
-                  onChange={(e) => setRecipientEmail(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter" && isValidRecipientEmail(recipientEmail))
-                      onSend(phase.picked);
-                  }}
-                  placeholder="them@university.edu"
-                  autoComplete="email"
-                  className="w-full rounded-lg border border-border px-3 py-2 text-body text-foreground placeholder:text-foreground-muted focus:outline-none focus:ring-2 focus:ring-brand-action"
-                />
-                <p className="mt-1 text-meta text-foreground-muted">
-                  If they have a published key we seal to it; if not, you get a
-                  private link to pass along. A one-click no-email send is coming.
+              {sealByFingerprint ? (
+                <p className="text-meta text-foreground-muted leading-relaxed">
+                  We seal this directly to {recipientLabel(recipient)}&rsquo;s key
+                  and drop it in their inbox. No email needed.
                 </p>
-              </div>
+              ) : (
+                <div>
+                  <label
+                    htmlFor="recipient-share-email"
+                    className="mb-1 block text-meta font-medium text-foreground"
+                  >
+                    Recipient email
+                  </label>
+                  <input
+                    id="recipient-share-email"
+                    type="email"
+                    value={recipientEmail}
+                    onChange={(e) => setRecipientEmail(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" && isValidRecipientEmail(recipientEmail))
+                        onSend(phase.picked);
+                    }}
+                    placeholder="them@university.edu"
+                    autoComplete="email"
+                    className="w-full rounded-lg border border-border px-3 py-2 text-body text-foreground placeholder:text-foreground-muted focus:outline-none focus:ring-2 focus:ring-brand-action"
+                  />
+                  <p className="mt-1 text-meta text-foreground-muted">
+                    If they have a published key we seal to it; if not, you get a
+                    private link to pass along.
+                  </p>
+                </div>
+              )}
               <div className="flex gap-2 pt-1">
                 <button
                   type="button"
@@ -420,7 +448,7 @@ export default function RecipientShareDialog({
                 <button
                   type="button"
                   onClick={() => onSend(phase.picked)}
-                  disabled={!isValidRecipientEmail(recipientEmail)}
+                  disabled={!sealByFingerprint && !isValidRecipientEmail(recipientEmail)}
                   className="flex-1 rounded-lg bg-brand-action px-4 py-2 text-body font-medium text-white disabled:opacity-50"
                 >
                   Send
