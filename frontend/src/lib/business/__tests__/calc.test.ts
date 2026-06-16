@@ -6,6 +6,10 @@ import {
   APPLE_DEV_FEE_CENTS,
   APPLE_DEV_FEE_SOURCE,
   DEFAULT_ENTITY,
+  DOMAIN_APP_FEE_CENTS,
+  DOMAIN_APP_FEE_SOURCE,
+  DOMAIN_COM_FEE_CENTS,
+  DOMAIN_COM_FEE_SOURCE,
   GOOGLE_DEV_FEE_CENTS,
   GOOGLE_DEV_FEE_SOURCE,
   computeReimbursement,
@@ -118,6 +122,8 @@ describe("upcomingDeadlines", () => {
       appleEnrollmentDate: null,
       googlePlayAccount: null,
       googleEnrollmentDate: null,
+      appDomainRenewalDate: null,
+      comDomainRenewalDate: null,
       bankLabel: null,
       docsFolder: null,
       salesTaxStatus: "pending",
@@ -175,6 +181,28 @@ describe("devAccountFeeSeeds", () => {
     };
     const seeds = devAccountFeeSeeds(config, today);
     expect(seeds[0].date).toBe(today);
+  });
+
+  it("seeds each domain renewal dated at its renewal date when set", () => {
+    const config: EntityConfig = {
+      ...DEFAULT_ENTITY,
+      appDomainRenewalDate: "2026-09-01",
+      comDomainRenewalDate: "2026-10-15",
+    };
+    const seeds = devAccountFeeSeeds(config, today);
+    const app = seeds.find((s) => s.source === DOMAIN_APP_FEE_SOURCE)!;
+    const com = seeds.find((s) => s.source === DOMAIN_COM_FEE_SOURCE)!;
+    expect(app.amountCents).toBe(DOMAIN_APP_FEE_CENTS);
+    expect(app.date).toBe("2026-09-01");
+    expect(app.category).toBe("Domains");
+    expect(com.amountCents).toBe(DOMAIN_COM_FEE_CENTS);
+    expect(com.date).toBe("2026-10-15");
+  });
+
+  it("seeds no domain fee until a renewal date is entered", () => {
+    const seeds = devAccountFeeSeeds(DEFAULT_ENTITY, today);
+    expect(seeds.some((s) => s.source === DOMAIN_APP_FEE_SOURCE)).toBe(false);
+    expect(seeds.some((s) => s.source === DOMAIN_COM_FEE_SOURCE)).toBe(false);
   });
 
   it("seeds both fees when both accounts are filled in", () => {

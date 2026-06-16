@@ -35,6 +35,12 @@ export interface EntityConfig {
   /** ISO date the Google Play developer account was registered. Dates the $25
    *  one-time registration fee in the ledger. Null until set. */
   googleEnrollmentDate: string | null;
+  /** ISO date the research-os.app domain renews, anchors the ~$9.99/yr renewal
+   *  fee in the ledger and the renewal deadline. Null until set. */
+  appDomainRenewalDate: string | null;
+  /** ISO date the research-os.com domain renews, anchors the ~$10.44/yr renewal
+   *  fee in the ledger. Null until set. */
+  comDomainRenewalDate: string | null;
   /** A label for the business bank account, never the account number. */
   bankLabel: string | null;
   /** Where the actual filed documents live on disk (the ResearchOS_LLC folder). */
@@ -257,6 +263,8 @@ export const DEFAULT_ENTITY: EntityConfig = {
   appleEnrollmentDate: null,
   googlePlayAccount: null,
   googleEnrollmentDate: null,
+  appDomainRenewalDate: null,
+  comDomainRenewalDate: null,
   bankLabel: null,
   docsFolder: null,
   salesTaxStatus: "pending",
@@ -448,10 +456,18 @@ export function nextAppleRenewal(
 export const APPLE_DEV_FEE_CENTS = 9900;
 /** The Google Play developer registration, $25 one-time. */
 export const GOOGLE_DEV_FEE_CENTS = 2500;
+/** research-os.app domain renewal, ~$9.99/year. Keep in sync with
+ *  capacity-shared.ts ANNUAL_RECURRING_FEES_CENTS.domain (the cost-model side). */
+export const DOMAIN_APP_FEE_CENTS = 999;
+/** research-os.com domain renewal, ~$10.44/year (Cloudflare at-cost; replace
+ *  with the real figure off the invoice). Mirror of ANNUAL_RECURRING_FEES_CENTS.domainCom. */
+export const DOMAIN_COM_FEE_CENTS = 1044;
 /** Ledger source tags for the auto-seeded dev-account fees. db.ts reconciles
  *  one ledger row per source, so these stay idempotent across re-saves. */
 export const APPLE_DEV_FEE_SOURCE = "apple-dev-fee";
 export const GOOGLE_DEV_FEE_SOURCE = "google-dev-fee";
+export const DOMAIN_APP_FEE_SOURCE = "domain-app-fee";
+export const DOMAIN_COM_FEE_SOURCE = "domain-com-fee";
 
 /** One auto-seeded dev-account fee, ready to reconcile into business_ledger. */
 export interface DevFeeSeed {
@@ -492,6 +508,24 @@ export function devAccountFeeSeeds(
       amountCents: GOOGLE_DEV_FEE_CENTS,
       category: "Dev accounts",
       note: "Google Play developer registration ($25 one-time)",
+    });
+  }
+  if (config.appDomainRenewalDate) {
+    out.push({
+      source: DOMAIN_APP_FEE_SOURCE,
+      date: config.appDomainRenewalDate,
+      amountCents: DOMAIN_APP_FEE_CENTS,
+      category: "Domains",
+      note: "research-os.app domain renewal (~$9.99/year)",
+    });
+  }
+  if (config.comDomainRenewalDate) {
+    out.push({
+      source: DOMAIN_COM_FEE_SOURCE,
+      date: config.comDomainRenewalDate,
+      amountCents: DOMAIN_COM_FEE_CENTS,
+      category: "Domains",
+      note: "research-os.com domain renewal (~$10.44/year)",
     });
   }
   return out;

@@ -85,6 +85,8 @@ export async function ensureBusinessSchema(): Promise<void> {
   await sql`ALTER TABLE business_entity ADD COLUMN IF NOT EXISTS apple_enrollment_date date`;
   await sql`ALTER TABLE business_entity ADD COLUMN IF NOT EXISTS google_play_account text`;
   await sql`ALTER TABLE business_entity ADD COLUMN IF NOT EXISTS google_enrollment_date date`;
+  await sql`ALTER TABLE business_entity ADD COLUMN IF NOT EXISTS app_domain_renewal_date date`;
+  await sql`ALTER TABLE business_entity ADD COLUMN IF NOT EXISTS com_domain_renewal_date date`;
   await sql`ALTER TABLE business_entity ADD COLUMN IF NOT EXISTS bank_label text`;
   await sql`ALTER TABLE business_entity ADD COLUMN IF NOT EXISTS docs_folder text`;
   await sql`ALTER TABLE business_entity ADD COLUMN IF NOT EXISTS sales_tax_status text`;
@@ -328,6 +330,8 @@ type EntityRow = {
   apple_enrollment_date: string | null;
   google_play_account: string | null;
   google_enrollment_date: string | null;
+  app_domain_renewal_date: string | null;
+  com_domain_renewal_date: string | null;
   bank_label: string | null;
   docs_folder: string | null;
   sales_tax_status: string | null;
@@ -364,6 +368,8 @@ function rowToEntity(r: EntityRow): EntityConfig {
     appleEnrollmentDate: toIsoDateString(r.apple_enrollment_date),
     googlePlayAccount: r.google_play_account ?? null,
     googleEnrollmentDate: toIsoDateString(r.google_enrollment_date),
+    appDomainRenewalDate: toIsoDateString(r.app_domain_renewal_date),
+    comDomainRenewalDate: toIsoDateString(r.com_domain_renewal_date),
     bankLabel: r.bank_label ?? null,
     docsFolder: r.docs_folder ?? null,
     salesTaxStatus: normalizeSalesTaxStatus(r.sales_tax_status),
@@ -379,7 +385,8 @@ export async function getEntity(): Promise<EntityConfig> {
   const rows = (await sql`
     SELECT legal_name, state, entity_id, formation_date, ein, registered_agent,
            duns, business_phone, apple_enrollment_id, apple_enrollment_date, google_play_account,
-           google_enrollment_date, bank_label, docs_folder, sales_tax_status,
+           google_enrollment_date, app_domain_renewal_date, com_domain_renewal_date,
+           bank_label, docs_folder, sales_tax_status,
            sales_tax_note, reserve_pct, funding_grant_no
     FROM business_entity WHERE id = 1
   `) as EntityRow[];
@@ -394,13 +401,14 @@ export async function upsertEntity(config: EntityConfig): Promise<EntityConfig> 
     INSERT INTO business_entity
       (id, legal_name, state, entity_id, formation_date, ein, registered_agent,
        duns, business_phone, apple_enrollment_id, apple_enrollment_date, google_play_account,
-       google_enrollment_date, bank_label,
+       google_enrollment_date, app_domain_renewal_date, com_domain_renewal_date, bank_label,
        docs_folder, sales_tax_status, sales_tax_note, reserve_pct, funding_grant_no, updated_at)
     VALUES
       (1, ${config.legalName}, ${config.state}, ${config.entityId},
        ${config.formationDate}, ${config.ein}, ${config.registeredAgent},
        ${config.duns}, ${config.businessPhone}, ${config.appleEnrollmentId}, ${config.appleEnrollmentDate},
        ${config.googlePlayAccount}, ${config.googleEnrollmentDate},
+       ${config.appDomainRenewalDate}, ${config.comDomainRenewalDate},
        ${config.bankLabel}, ${config.docsFolder},
        ${config.salesTaxStatus}, ${config.salesTaxNote}, ${config.reservePct}, ${config.fundingGrantNo}, now())
     ON CONFLICT (id) DO UPDATE SET
@@ -416,6 +424,8 @@ export async function upsertEntity(config: EntityConfig): Promise<EntityConfig> 
       apple_enrollment_date = EXCLUDED.apple_enrollment_date,
       google_play_account = EXCLUDED.google_play_account,
       google_enrollment_date = EXCLUDED.google_enrollment_date,
+      app_domain_renewal_date = EXCLUDED.app_domain_renewal_date,
+      com_domain_renewal_date = EXCLUDED.com_domain_renewal_date,
       bank_label = EXCLUDED.bank_label,
       docs_folder = EXCLUDED.docs_folder,
       sales_tax_status = EXCLUDED.sales_tax_status,

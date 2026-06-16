@@ -369,6 +369,39 @@ export function EntityCard({
           />,
         )}
         {field(
+          "research-os.app renewal date",
+          <>
+            <input
+              type="date"
+              className={input}
+              value={form.appDomainRenewalDate ?? ""}
+              onChange={(e) =>
+                setForm({ ...form, appDomainRenewalDate: e.target.value || null })
+              }
+            />
+            <p className="mt-1 text-meta text-foreground-muted">
+              ~$9.99/year. Auto-logged to the ledger once the date is set.
+            </p>
+          </>,
+        )}
+        {field(
+          "research-os.com renewal date",
+          <>
+            <input
+              type="date"
+              className={input}
+              value={form.comDomainRenewalDate ?? ""}
+              onChange={(e) =>
+                setForm({ ...form, comDomainRenewalDate: e.target.value || null })
+              }
+            />
+            <p className="mt-1 text-meta text-foreground-muted">
+              ~$10.44/year. Auto-logged to the ledger once the date is set; update
+              the amount in calc.ts off the real invoice.
+            </p>
+          </>,
+        )}
+        {field(
           "Bank account label",
           <input
             className={input}

@@ -175,6 +175,14 @@ function parseEntity(raw: unknown): EntityConfig | null {
     typeof o.googleEnrollmentDate === "string" && ISO_DATE.test(o.googleEnrollmentDate)
       ? o.googleEnrollmentDate
       : null;
+  const appDomainRenewalDate =
+    typeof o.appDomainRenewalDate === "string" && ISO_DATE.test(o.appDomainRenewalDate)
+      ? o.appDomainRenewalDate
+      : null;
+  const comDomainRenewalDate =
+    typeof o.comDomainRenewalDate === "string" && ISO_DATE.test(o.comDomainRenewalDate)
+      ? o.comDomainRenewalDate
+      : null;
   const reservePctRaw = Number(o.reservePct);
   const reservePct = Number.isFinite(reservePctRaw)
     ? Math.min(Math.max(reservePctRaw, 0), 100)
@@ -197,6 +205,8 @@ function parseEntity(raw: unknown): EntityConfig | null {
     googlePlayAccount:
       o.googlePlayAccount == null ? null : asString(o.googlePlayAccount),
     googleEnrollmentDate,
+    appDomainRenewalDate,
+    comDomainRenewalDate,
     bankLabel: o.bankLabel == null ? null : asString(o.bankLabel),
     docsFolder: o.docsFolder == null ? null : asString(o.docsFolder),
     salesTaxStatus,
