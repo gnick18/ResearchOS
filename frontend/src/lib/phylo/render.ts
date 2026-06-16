@@ -2251,8 +2251,11 @@ function niceTick(maxDepth: number): number {
 // Ring track radial thicknesses (circular layout), kept modest so several rings
 // fit inside the canvas without overrunning the labels.
 const RING_GAP = 6; // gap from the tip radius to the first ring
-const STRIP_RING = 8;
-const HEAT_RING = 10;
+// Metadata color-wheel ring thicknesses. Kept thin so the rings read as a
+// secondary outer band and the tree stays the main object (both the radius
+// reservation in circularRingRoom and the drawn ink use these, so they agree).
+const STRIP_RING = 5;
+const HEAT_RING = 6;
 const BAR_RING = 30; // max radial length of a bar in the bar ring
 
 function renderCircular(
