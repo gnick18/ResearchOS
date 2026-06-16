@@ -1,0 +1,724 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Dept portal, storage compliance + department commons, mockup</title>
+<!--
+  MOCKUP: Department portal , storage compliance + department commons , 2026-06-15
+  ================================================================================
+  DESIGN ARTIFACT only. Do not modify real app code from this file.
+  Same governance-tier portal as 2026-06-13-department-admin-dashboard.html,
+  two new sections reachable from the in-page rail:
+    SECTION 1 , Storage compliance (every member folder on managed cloud storage)
+    SECTION 2 , Department commons (governed shared library above the labs)
+  Interactions match the house bar: comment-mode pins (localStorage, side panel),
+  per-section Approve / Disapprove verdicts (persisted), and a markdown Export.
+-->
+<style>
+  :root{
+    --bg:#f6f7f9; --panel:#ffffff; --raised:#ffffff; --sunken:#eef1f5;
+    --ink:#111827; --muted:#6b7280; --faint:#9ca3af; --border:#e5e7eb;
+    --sky:#1AA0E6; --action:#1283C9; --amber:#F59E0B; --coral:#FF6F61;
+    --green:#16a34a; --red:#dc2626; --violet:#5B47D6; --chipbg:#eef2f7;
+  }
+  .dark{
+    --bg:#0a0e1a; --panel:#1c2638; --raised:#1c2638; --sunken:#141b2b;
+    --ink:#e7ecf3; --muted:#9aa6b8; --faint:#6b7890; --border:#2a3650; --chipbg:#28344c;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.5 -apple-system,Inter,system-ui,sans-serif}
+  header{position:sticky;top:0;z-index:30;background:var(--panel);border-bottom:1px solid var(--border);padding:11px 20px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+  h1{font-size:16px;margin:0;font-weight:800;letter-spacing:-.2px}
+  .sub{color:var(--muted);font-size:12px;max-width:560px}
+  .spacer{margin-left:auto}
+  button.tool{background:var(--sunken);color:var(--ink);border:1px solid var(--border);border-radius:8px;padding:7px 12px;font-size:12px;font-weight:600;cursor:pointer}
+  button.tool:hover{border-color:var(--action)}
+  button.tool.primary{background:var(--action);color:#fff;border-color:var(--action)}
+  button.tool.on{background:var(--violet);color:#fff;border-color:var(--violet)}
+
+  .wrap{max-width:1080px;margin:0 auto;padding:22px 20px 120px}
+
+  /* in-app chrome */
+  .appbar{display:flex;align-items:center;gap:10px;background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:9px 13px;margin-bottom:8px;flex-wrap:wrap}
+  .brand{font-weight:800;font-size:13px;display:flex;align-items:center;gap:7px}
+  .dot{width:14px;height:14px;border-radius:4px;background:var(--sky)}
+  .lens{display:inline-flex;border:1px solid var(--border);border-radius:999px;overflow:hidden;font-size:11px;font-weight:700;margin-left:6px}
+  .lens span{padding:4px 11px;background:var(--raised);color:var(--muted);cursor:pointer}
+  .lens span.on{background:var(--violet);color:#fff}
+  .navset{display:flex;gap:4px;flex-wrap:wrap;margin-left:8px}
+  .navchip{font-size:11.5px;font-weight:600;color:var(--muted);padding:4px 10px;border-radius:8px;cursor:pointer;border:1px solid transparent}
+  .navchip:hover{color:var(--ink)}
+  .navchip.on{background:var(--chipbg);color:var(--ink)}
+
+  .crumb{font-size:11.5px;color:var(--faint);margin:0 0 12px;font-weight:600}
+  .crumb b{color:var(--muted)}
+  .crumb .inst{color:var(--violet)}
+
+  .ptitle{font-size:21px;font-weight:800;letter-spacing:-.3px;margin:0}
+  .pdesc{color:var(--muted);font-size:13px;margin:3px 0 18px;max-width:680px}
+
+  .card{background:var(--panel);border:1px solid var(--border);border-radius:14px;margin-bottom:16px;overflow:hidden}
+  .card>.ch{padding:11px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:9px;flex-wrap:wrap}
+  .card .ch h3{margin:0;font-size:14px;font-weight:800}
+  .card .ch .csub{font-size:11.5px;color:var(--faint)}
+  .card>.cb{padding:15px 16px}
+  .ch .spacer{margin-left:auto}
+
+  .view{display:none}
+  .view.active{display:block}
+
+  /* section verdict bar */
+  .verdictbar{display:flex;align-items:center;gap:9px;flex-wrap:wrap;background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:9px 13px;margin-bottom:16px}
+  .verdictbar .vlbl{font-size:11.5px;font-weight:700;color:var(--muted)}
+  .vbtn{border:1px solid var(--border);background:var(--sunken);color:var(--muted);border-radius:8px;padding:6px 13px;font-size:12px;font-weight:700;cursor:pointer}
+  .vbtn.app.on{background:var(--green);color:#fff;border-color:var(--green)}
+  .vbtn.dis.on{background:var(--red);color:#fff;border-color:var(--red)}
+  .vstate{font-size:11.5px;color:var(--faint);font-weight:600}
+
+  /* policy header */
+  .policy{border:1px solid var(--border);border-radius:12px;background:var(--raised);padding:14px 16px}
+  .policy .pl{font-size:10.5px;text-transform:uppercase;letter-spacing:.06em;color:var(--faint);font-weight:700}
+  .policy .pt{font-size:16px;font-weight:800;letter-spacing:-.2px;margin:3px 0 0;display:flex;align-items:center;gap:9px;flex-wrap:wrap}
+  .policy .pt input{font:inherit;font-size:16px;font-weight:800;border:1px solid var(--action);border-radius:8px;padding:3px 8px;background:var(--panel);color:var(--ink);max-width:420px}
+  .policy .pd{font-size:12.5px;color:var(--muted);margin-top:6px}
+  .edit-link{font-size:12px;font-weight:700;color:var(--action);cursor:pointer}
+
+  .connectband{display:flex;align-items:center;gap:12px;flex-wrap:wrap;border:1px dashed var(--action);border-radius:11px;padding:12px 14px;background:rgba(18,131,201,.05);margin-top:13px}
+  .connectband .cbtxt{font-size:12.5px;color:var(--ink);flex:1;min-width:240px}
+  .connectband .cbtxt b{color:var(--action)}
+  .connectband.linked{border-style:solid;border-color:var(--green);background:rgba(22,163,74,.05)}
+  .connectband.linked .cbtxt b{color:var(--green)}
+
+  /* summary stat tiles */
+  .stats{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin:16px 0}
+  @media(max-width:760px){.stats{grid-template-columns:repeat(2,1fr)}}
+  .stat{border:1px solid var(--border);border-radius:11px;background:var(--raised);padding:12px 13px}
+  .stat .sn{font-size:24px;font-weight:800;letter-spacing:-.4px}
+  .stat .sl{font-size:11.5px;color:var(--muted);font-weight:600;margin-top:1px}
+  .stat.s-ok .sn{color:var(--green)} .stat.s-pend .sn{color:var(--amber)}
+  .stat.s-local .sn{color:var(--red)} .stat.s-gap .sn{color:var(--violet)}
+
+  table{width:100%;border-collapse:collapse;font-size:12.5px}
+  th{text-align:left;font-size:10.5px;text-transform:uppercase;letter-spacing:.05em;color:var(--faint);font-weight:700;padding:6px 8px;border-bottom:1px solid var(--border)}
+  td{padding:8px;border-bottom:1px solid var(--border);vertical-align:middle}
+  tr:last-child td{border-bottom:none}
+  .av{width:22px;height:22px;border-radius:999px;display:inline-grid;place-items:center;font-size:9.5px;font-weight:800;color:#fff;vertical-align:middle;margin-right:7px}
+  .badge{font-size:9.5px;font-weight:700;border-radius:999px;padding:2px 8px;white-space:nowrap}
+  .b-pi{background:rgba(91,71,214,.14);color:var(--violet)}
+  .b-role{background:var(--sunken);color:var(--muted)}
+  .b-ok{background:rgba(22,163,74,.14);color:var(--green)}
+  .b-pend{background:rgba(245,158,11,.16);color:#b45309}
+  .dark .b-pend{color:#fbbf24}
+  .b-local{background:rgba(220,38,38,.14);color:var(--red)}
+  .b-unk{background:var(--sunken);color:var(--faint)}
+  .b-graph{background:rgba(18,131,201,.14);color:var(--action)}
+  .b-att{background:var(--sunken);color:var(--muted)}
+  .rowact{display:flex;gap:5px;flex-wrap:wrap;justify-content:flex-end}
+  .rowact button{padding:4px 9px;font-size:11px}
+  .estat{font-size:11px;color:var(--muted)}
+  .gapnote{font-size:12.5px;color:var(--muted);background:var(--sunken);border-radius:10px;padding:11px 13px;margin-top:4px}
+  .gapnote b{color:var(--ink)}
+
+  /* commons two-sided toggle */
+  .sideswitch{display:inline-flex;border:1px solid var(--border);border-radius:999px;overflow:hidden;font-size:12px;font-weight:700}
+  .sideswitch span{padding:6px 15px;background:var(--raised);color:var(--muted);cursor:pointer}
+  .sideswitch span.on{background:var(--action);color:#fff}
+
+  .grouphdr{font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--faint);font-weight:700;margin:18px 0 9px;display:flex;align-items:center;gap:8px}
+  .grouphdr .gc{font-size:10px;font-weight:700;color:var(--muted);background:var(--sunken);border-radius:999px;padding:2px 8px}
+
+  .res{display:flex;align-items:center;gap:12px;border:1px solid var(--border);border-radius:11px;background:var(--raised);padding:11px 13px;margin-bottom:9px;flex-wrap:wrap}
+  .res .ricon{width:30px;height:30px;border-radius:9px;display:grid;place-items:center;font-size:13px;font-weight:800;color:#fff;flex-shrink:0}
+  .res .rmain{flex:1;min-width:220px}
+  .res .rn{font-size:13.5px;font-weight:700;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+  .res .rmeta{font-size:11.5px;color:var(--muted);margin-top:2px}
+  .res .rmeta b{color:var(--ink)}
+  .vtag{font-size:10px;font-weight:700;color:var(--muted);background:var(--sunken);border-radius:6px;padding:2px 7px}
+  .b-off{background:rgba(91,71,214,.14);color:var(--violet);cursor:pointer;border:1px solid transparent}
+  .b-off.off{background:var(--sunken);color:var(--faint)}
+  .res .ract{display:flex;gap:6px;flex-wrap:wrap}
+  .res .ract button{padding:5px 10px;font-size:11.5px}
+
+  /* approval queue */
+  .qrow{display:flex;align-items:center;gap:11px;border-bottom:1px solid var(--border);padding:10px 0;flex-wrap:wrap}
+  .qrow:last-child{border-bottom:none}
+  .qrow .qmain{flex:1;min-width:220px}
+  .qrow .qn{font-size:13px;font-weight:700}
+  .qrow .qm{font-size:11.5px;color:var(--muted);margin-top:1px}
+  .qrow .qact{display:flex;gap:6px}
+  .qrow .qact button{padding:5px 12px;font-size:11.5px}
+  .qrow.resolved{opacity:.5}
+  .qbtn-ok{background:var(--green);color:#fff;border-color:var(--green)}
+  .qbtn-no{background:var(--raised);color:var(--red);border-color:var(--red)}
+
+  /* lab side search */
+  .searchbar{display:flex;align-items:center;gap:9px;flex-wrap:wrap;margin-bottom:11px}
+  .inp{border:1px solid var(--border);border-radius:9px;padding:9px 12px;font-size:12.5px;background:var(--raised);color:var(--ink);flex:1;min-width:220px}
+  .fchips{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:13px}
+  .fchip{font-size:11.5px;font-weight:600;color:var(--muted);padding:5px 11px;border-radius:999px;cursor:pointer;border:1px solid var(--border);background:var(--raised)}
+  .fchip.on{background:var(--chipbg);color:var(--ink);border-color:var(--action)}
+  .lullnote{font-size:12px;color:var(--muted);background:rgba(18,131,201,.06);border:1px solid var(--border);border-radius:10px;padding:10px 13px;margin-top:6px}
+  .lullnote b{color:var(--action)}
+
+  /* toast */
+  #toast{position:fixed;left:50%;bottom:26px;transform:translateX(-50%) translateY(20px);background:var(--ink);color:var(--bg);font-size:12.5px;font-weight:600;padding:9px 16px;border-radius:999px;opacity:0;transition:.2s;z-index:60;pointer-events:none}
+  #toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+
+  /* comment mode pins */
+  body.commenting *{cursor:crosshair !important}
+  .pin{position:absolute;z-index:48;width:22px;height:22px;border-radius:999px 999px 999px 2px;background:var(--violet);color:#fff;font-size:11px;font-weight:800;display:grid;place-items:center;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,.3);transform:translate(-50%,-100%)}
+  #pinbox{position:fixed;z-index:50;width:250px;background:var(--panel);border:1px solid var(--border);border-radius:11px;box-shadow:0 10px 34px rgba(0,0,0,.22);padding:11px;display:none}
+  #pinbox textarea{width:100%;border:1px solid var(--border);border-radius:8px;padding:7px;font:inherit;font-size:12px;background:var(--raised);color:var(--ink);resize:vertical;min-height:54px}
+  #pinbox .pbrow{display:flex;gap:6px;margin-top:7px}
+  #pinbox .pbrow button{flex:1}
+
+  /* review drawer */
+  #fab{position:fixed;right:20px;bottom:20px;z-index:40;background:var(--violet);color:#fff;border:none;border-radius:999px;padding:12px 18px;font-size:13px;font-weight:800;cursor:pointer;box-shadow:0 6px 20px rgba(0,0,0,.25)}
+  #drawer{position:fixed;top:0;right:0;height:100%;width:380px;max-width:92vw;background:var(--panel);border-left:1px solid var(--border);z-index:55;transform:translateX(100%);transition:transform .2s;display:flex;flex-direction:column}
+  #drawer.open{transform:translateX(0)}
+  #drawer .dh{padding:14px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px}
+  #drawer .dh h3{margin:0;font-size:14px;font-weight:800}
+  #drawer .db{flex:1;overflow:auto;padding:14px 16px}
+  #drawer .df{padding:12px 16px;border-top:1px solid var(--border);display:flex;gap:8px;align-items:center}
+  .dgroup{font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--faint);font-weight:700;margin:4px 0 8px}
+  .dverdict{border:1px solid var(--border);border-radius:11px;padding:10px;margin-bottom:11px;background:var(--raised)}
+  .dverdict .dt{font-size:12.5px;font-weight:700;display:flex;align-items:center;gap:7px}
+  .dverdict .vp{font-size:10px;font-weight:700;border-radius:999px;padding:2px 8px}
+  .vp.approve{background:rgba(22,163,74,.16);color:var(--green)}
+  .vp.disapprove{background:rgba(220,38,38,.16);color:var(--red)}
+  .vp.none{background:var(--sunken);color:var(--faint)}
+  .pinitem{border:1px solid var(--border);border-radius:10px;padding:9px 10px;margin-bottom:9px;background:var(--raised)}
+  .pinitem .ph{font-size:11.5px;font-weight:700;display:flex;align-items:center;gap:7px}
+  .pinitem .pnum{width:18px;height:18px;border-radius:999px;background:var(--violet);color:#fff;font-size:10px;font-weight:800;display:grid;place-items:center}
+  .pinitem .pt{font-size:12px;color:var(--ink);margin:5px 0 2px}
+  .pinitem .pl{font-size:10.5px;color:var(--faint)}
+  .pinitem .del{margin-left:auto;color:var(--red);font-size:11px;cursor:pointer;font-weight:700}
+  .scrim{position:fixed;inset:0;background:rgba(0,0,0,.3);z-index:54;display:none}
+  .scrim.on{display:block}
+  .empty{font-size:12px;color:var(--faint);text-align:center;padding:18px 0}
+</style>
+</head>
+<body>
+<header>
+  <div>
+    <h1>Department portal, governance tier</h1>
+    <div class="sub">Mockup. Switch sections in the rail (Storage compliance / Department commons). Turn on Comment mode and click anything to drop a pin. Set a per-section verdict, then Export.</div>
+  </div>
+  <span class="spacer"></span>
+  <button class="tool" id="commentBtn">Comment mode</button>
+  <button class="tool" id="darkBtn">Dark</button>
+</header>
+
+<div class="wrap">
+  <div class="appbar">
+    <span class="brand"><span class="dot"></span>ResearchOS</span>
+    <span class="lens"><span>My lab</span><span class="on">Department</span></span>
+    <span class="navset" id="navset">
+      <span class="navchip on" data-v="compliance">Storage compliance</span>
+      <span class="navchip" data-v="commons">Department commons</span>
+    </span>
+    <span class="spacer"></span>
+    <span class="badge b-pi">Dr. Vega &middot; Dept admin</span>
+  </div>
+  <div class="crumb"><span class="inst">UW&ndash;Madison</span> <b>&rsaquo;</b> Department of Microbiology</div>
+
+  <!-- ============================================================= -->
+  <!-- SECTION 1 , STORAGE COMPLIANCE                                 -->
+  <!-- ============================================================= -->
+  <div class="view active" data-view="compliance">
+    <h2 class="ptitle">Storage compliance</h2>
+    <p class="pdesc">Every member folder must live on the institution's managed cloud so research data is retained when people leave. Track who is set up, nudge who is not.</p>
+
+    <div class="verdictbar" data-section="compliance">
+      <span class="vlbl">Your call on this section</span>
+      <button class="vbtn app" data-v="approve">Approve</button>
+      <button class="vbtn dis" data-v="disapprove">Disapprove</button>
+      <span class="vstate">No verdict yet</span>
+    </div>
+
+    <div class="card">
+      <div class="cb">
+        <div class="policy">
+          <div class="pl">Active policy</div>
+          <div class="pt">
+            <span id="polText">Policy, all folders must live on UW OneDrive</span>
+            <input id="polInput" style="display:none" value="Policy, all folders must live on UW OneDrive" />
+            <span class="edit-link" id="polEdit">Edit</span>
+          </div>
+          <div class="pd">Members set their ResearchOS folder to a synced OneDrive path during setup. The department keeps access when a researcher graduates or leaves, so no data walks out the door.</div>
+        </div>
+
+        <div class="connectband" id="connectBand">
+          <div class="cbtxt"><b>Connect Microsoft 365</b> to verify folder paths automatically through the Graph API. Without it, status is <b>self-attested</b> (members report it themselves). With it, status is <b>Graph-verified</b> against the real OneDrive path.</div>
+          <button class="tool primary" id="connectBtn">Connect Microsoft 365</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="stats">
+      <div class="stat s-ok"><div class="sn">31<span style="font-size:14px;color:var(--muted);font-weight:600"> / 38</span></div><div class="sl">Accounts compliant</div></div>
+      <div class="stat s-pend"><div class="sn">5</div><div class="sl">Pending setup</div></div>
+      <div class="stat s-local"><div class="sn">2</div><div class="sl">Local-only</div></div>
+      <div class="stat s-gap"><div class="sn">2</div><div class="sl">On roster, no account</div></div>
+    </div>
+
+    <div class="card">
+      <div class="ch"><h3>Member folder status</h3><span class="csub">Across 4 labs in the department</span><span class="spacer"></span><button class="tool" id="nudgeAll">Nudge all non-compliant</button></div>
+      <div class="cb" style="padding:0">
+        <table>
+          <thead><tr><th style="width:24%">Name</th><th>Lab</th><th>Role</th><th>Folder status</th><th>Verified via</th><th>Last checked</th><th></th></tr></thead>
+          <tbody id="rosterBody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="ch"><h3>Roster vs accounts</h3><span class="csub">From the payroll roster the institution shares</span></div>
+      <div class="cb">
+        <div class="gapnote"><b>2 people on the payroll roster have no ResearchOS account yet.</b> R. Tremblay (new postdoc, Tremblay Lab) and a Keller Lab tech started this month. Send them a join link so their folders land on OneDrive from day one.
+          <div style="margin-top:9px"><button class="tool primary" data-toast="Join links sent to 2 roster members">Send join links</button> <button class="tool" data-toast="Reconciled against the latest payroll roster">Re-sync roster</button></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============================================================= -->
+  <!-- SECTION 2 , DEPARTMENT COMMONS                                 -->
+  <!-- ============================================================= -->
+  <div class="view" data-view="commons">
+    <h2 class="ptitle">Department commons</h2>
+    <p class="pdesc">A governed shared library one level above the labs. Protocols, reference data, strains, calculators, and standards the department vouches for. Every lab inherits and searches it.</p>
+
+    <div class="verdictbar" data-section="commons">
+      <span class="vlbl">Your call on this section</span>
+      <button class="vbtn app" data-v="approve">Approve</button>
+      <button class="vbtn dis" data-v="disapprove">Disapprove</button>
+      <span class="vstate">No verdict yet</span>
+    </div>
+
+    <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:14px">
+      <span class="sideswitch" id="sideSwitch">
+        <span class="on" data-side="dept">Dept side, curate</span>
+        <span data-side="lab">Lab side, browse</span>
+      </span>
+      <span class="estat" id="sideHint">Publish and govern what every lab inherits.</span>
+    </div>
+
+    <!-- DEPT SIDE -->
+    <div id="deptSide">
+      <div class="card">
+        <div class="ch"><h3>Commons library</h3><span class="csub">Grouped by resource type</span><span class="spacer"></span><button class="tool primary" data-toast="Publish to Commons, picker opens">Publish to Commons</button></div>
+        <div class="cb" id="deptLib"></div>
+      </div>
+
+      <div class="card">
+        <div class="ch"><h3>Approval queue</h3><span class="csub">Labs submitting resources upward for the department to vouch for</span></div>
+        <div class="cb" id="queueBody"></div>
+      </div>
+    </div>
+
+    <!-- LAB SIDE -->
+    <div id="labSide" style="display:none">
+      <div class="card">
+        <div class="ch"><h3>Browse the commons</h3><span class="csub">How a Rivera Lab member sees it</span></div>
+        <div class="cb">
+          <div class="searchbar">
+            <input class="inp" id="labSearch" placeholder="Search the department commons, e.g. genomic DNA, gliotoxin, Af293" />
+          </div>
+          <div class="fchips" id="labFilters"></div>
+          <div id="labCards"></div>
+          <div class="lullnote"><b>Pulling a protocol embeds it in your work and keeps it linked.</b> When the department publishes a new version, your copy updates automatically and you see what changed. Nothing overwrites your own edits without asking.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- comment-mode pin editor -->
+<div id="pinbox">
+  <textarea id="pinText" placeholder="Note for Grant..."></textarea>
+  <div class="pbrow"><button class="tool primary" id="pinSave">Save pin</button><button class="tool" id="pinCancel">Cancel</button></div>
+</div>
+
+<div id="toast"></div>
+
+<!-- review drawer -->
+<button id="fab">Review &middot; <span id="fabN">0</span></button>
+<div class="scrim" id="scrim"></div>
+<div id="drawer">
+  <div class="dh"><h3>Review</h3><span class="spacer"></span><button class="tool" id="closeDrawer">Close</button></div>
+  <div class="db" id="reviewBody"></div>
+  <div class="df"><span class="estat" id="estat">Nothing marked up yet</span><span class="spacer"></span><button class="tool" id="clearBtn">Clear</button><button class="tool primary" id="exportBtn">Export</button></div>
+</div>
+
+<script>
+// ----------------------------------------------------------------
+// DEMO DATA , fungal-biology lab content
+// ----------------------------------------------------------------
+const LABCOLOR={ "Keller Lab":"#5B47D6", "Rivera Lab":"#1AA0E6", "Tremblay Lab":"#16a34a", "Park Lab":"#F59E0B" };
+const init=n=>n.split(" ").map(w=>w[0]).slice(0,2).join("").toUpperCase();
+
+// status: ok | pending | local | unknown ; verified: graph | attested | none
+const ROSTER=[
+  {n:"Dr. Anika Keller", lab:"Keller Lab",   role:"PI",      status:"ok",      ver:"graph",    last:"2h ago"},
+  {n:"Marcus Vance",     lab:"Keller Lab",   role:"postdoc", status:"ok",      ver:"graph",    last:"2h ago"},
+  {n:"Sofia Delgado",    lab:"Keller Lab",   role:"grad",    status:"pending", ver:"none",     last:"6d ago"},
+  {n:"jb-rotation",      lab:"Keller Lab",   role:"grad",    status:"unknown", ver:"none",     last:"never"},
+  {n:"Dr. Lina Rivera",  lab:"Rivera Lab",   role:"PI",      status:"ok",      ver:"graph",    last:"1h ago"},
+  {n:"Sam Okafor",       lab:"Rivera Lab",   role:"postdoc", status:"ok",      ver:"attested", last:"3d ago"},
+  {n:"Priya Rao",        lab:"Rivera Lab",   role:"grad",    status:"local",   ver:"graph",    last:"1h ago"},
+  {n:"Leo Park",         lab:"Rivera Lab",   role:"tech",    status:"pending", ver:"none",     last:"9d ago"},
+  {n:"Dr. Émile Tremblay",lab:"Tremblay Lab",role:"PI",      status:"ok",      ver:"graph",    last:"4h ago"},
+  {n:"Yuki Tanaka",      lab:"Tremblay Lab", role:"grad",    status:"ok",      ver:"attested", last:"5d ago"},
+  {n:"Hassan Ali",       lab:"Tremblay Lab", role:"tech",    status:"local",   ver:"graph",    last:"30m ago"},
+  {n:"Dr. Theo Park",    lab:"Park Lab",     role:"PI",      status:"ok",      ver:"attested", last:"1d ago"},
+];
+const STBADGE={
+  ok:      ['Compliant','b-ok'],
+  pending: ['Pending setup','b-pend'],
+  local:   ['Local-only','b-local'],
+  unknown: ['Unknown','b-unk'],
+};
+const VERBADGE={ graph:['Graph-verified','b-graph'], attested:['Attested','b-att'], none:['—','b-att'] };
+
+const rb=document.getElementById('rosterBody');
+function paintRoster(){
+  rb.innerHTML=ROSTER.map((m,i)=>{
+    const [sl,sc]=STBADGE[m.status], [vl,vc]=VERBADGE[m.ver];
+    const roleB=m.role==='PI'?'b-pi':'b-role';
+    const acts = m.status==='ok'
+      ? `<button class="tool" data-act="exempt" data-i="${i}">Mark exempt</button>`
+      : `<button class="tool primary" data-act="nudge" data-i="${i}">Nudge</button><button class="tool" data-act="snooze" data-i="${i}">Snooze</button><button class="tool" data-act="exempt" data-i="${i}">Exempt</button>`;
+    return `<tr>
+      <td><span class="av" style="background:${LABCOLOR[m.lab]}">${init(m.n)}</span>${m.n}</td>
+      <td><span class="estat">${m.lab}</span></td>
+      <td><span class="badge ${roleB}">${m.role}</span></td>
+      <td><span class="badge ${sc}">${sl}</span></td>
+      <td><span class="badge ${vc}">${vl}</span></td>
+      <td><span class="estat">${m.last}</span></td>
+      <td><div class="rowact">${acts}</div></td>
+    </tr>`;
+  }).join('');
+  rb.querySelectorAll('[data-act]').forEach(b=>b.onclick=(e)=>{
+    if(document.body.classList.contains('commenting')) return;
+    e.stopPropagation();
+    const act=b.dataset.act, m=ROSTER[+b.dataset.i];
+    if(act==='nudge') toast(`Reminder sent to ${m.n}`);
+    if(act==='snooze') toast(`Snoozed ${m.n} for 7 days`);
+    if(act==='exempt') toast(`${m.n} marked exempt from the policy`);
+  });
+}
+paintRoster();
+
+document.getElementById('nudgeAll').onclick=(e)=>{ if(document.body.classList.contains('commenting'))return; e.stopPropagation(); toast('Reminder sent to 7 non-compliant members'); };
+
+// policy edit
+const polEdit=document.getElementById('polEdit'),polText=document.getElementById('polText'),polInput=document.getElementById('polInput');
+polEdit.onclick=(e)=>{
+  if(document.body.classList.contains('commenting'))return; e.stopPropagation();
+  const editing=polInput.style.display!=='none';
+  if(editing){ polText.textContent=polInput.value; polText.style.display=''; polInput.style.display='none'; polEdit.textContent='Edit'; toast('Policy updated'); }
+  else { polInput.style.display=''; polText.style.display='none'; polEdit.textContent='Save'; polInput.focus(); }
+};
+
+// connect M365 toggle
+let linked=false;
+const connectBand=document.getElementById('connectBand'),connectBtn=document.getElementById('connectBtn');
+connectBtn.onclick=(e)=>{
+  if(document.body.classList.contains('commenting'))return; e.stopPropagation();
+  linked=!linked;
+  if(linked){
+    connectBand.classList.add('linked');
+    connectBand.querySelector('.cbtxt').innerHTML='<b>Microsoft 365 connected.</b> Folder paths are checked against the real OneDrive location through the Graph API. Statuses below now read Graph-verified where the path matches.';
+    connectBtn.textContent='Disconnect';
+    toast('Microsoft 365 connected, statuses now auto-verify');
+  } else {
+    connectBand.classList.remove('linked');
+    connectBand.querySelector('.cbtxt').innerHTML='<b>Connect Microsoft 365</b> to verify folder paths automatically through the Graph API. Without it, status is <b>self-attested</b> (members report it themselves). With it, status is <b>Graph-verified</b> against the real OneDrive path.';
+    connectBtn.textContent='Connect Microsoft 365';
+    toast('Microsoft 365 disconnected, back to self-attested');
+  }
+};
+
+// generic data-toast buttons
+function wireToasts(){ document.querySelectorAll('[data-toast]').forEach(b=>b.onclick=(e)=>{ if(document.body.classList.contains('commenting'))return; e.stopPropagation(); toast(b.dataset.toast); }); }
+
+// ----------------------------------------------------------------
+// DEPARTMENT COMMONS data
+// ----------------------------------------------------------------
+const TYPES=[
+  {key:'protocol', label:'Protocols & methods', icon:'Pr', color:'#1283C9'},
+  {key:'refdb',    label:'Reference databases', icon:'Db', color:'#5B47D6'},
+  {key:'plasmid',  label:'Plasmids & strains',  icon:'Pl', color:'#16a34a'},
+  {key:'calc',     label:'Calculators',         icon:'fx', color:'#F59E0B'},
+  {key:'template', label:'Templates',           icon:'Tp', color:'#0891b2'},
+  {key:'control',  label:'Controls / standards',icon:'Ct', color:'#FF6F61'},
+];
+const TLABEL=Object.fromEntries(TYPES.map(t=>[t.key,t.label]));
+const TMETA=Object.fromEntries(TYPES.map(t=>[t.key,t]));
+
+const RESOURCES=[
+  {t:'protocol', n:'Aspergillus genomic DNA extraction', v:'v3', off:true,  by:'Keller Lab',   labs:4},
+  {t:'protocol', n:'gliotoxin LC-MS quantification',     v:'v2', off:true,  by:'Tremblay Lab', labs:3},
+  {t:'protocol', n:'Conidia harvest and storage',        v:'v1', off:false, by:'Rivera Lab',   labs:2},
+  {t:'refdb',    n:'Secondary metabolite BGC reference table', v:'v5', off:true, by:'Dept curated', labs:4},
+  {t:'plasmid',  n:'pRG3-AMA1-NotI',                     v:'v1', off:true,  by:'Keller Lab',   labs:3},
+  {t:'plasmid',  n:'A. fumigatus Af293 (reference strain)', v:'—', off:true, by:'Dept stock', labs:4},
+  {t:'plasmid',  n:'cyp51A knockout strain',             v:'—', off:false, by:'Tremblay Lab', labs:2},
+  {t:'calc',     n:'Spore dilution / hemocytometer',     v:'v2', off:true,  by:'Dept curated', labs:4},
+  {t:'template', n:'Fungal growth assay record sheet',   v:'v3', off:false, by:'Rivera Lab',   labs:3},
+  {t:'control',  n:'qPCR standard curve, actin',         v:'v4', off:true,  by:'Park Lab',     labs:3},
+  {t:'control',  n:'Gliotoxin reference standard, 5 mM',  v:'v1', off:false, by:'Tremblay Lab', labs:2},
+];
+
+const QUEUE=[
+  {n:'Hyphal fusion microscopy protocol', sub:'Rivera Lab', t:'protocol', note:'Submitted by Sam Okafor, asks the department to vouch for it as a shared method.'},
+  {n:'pTR-hph hygromycin selection vector', sub:'Tremblay Lab', t:'plasmid', note:'Submitted by Yuki Tanaka, wants it in the shared strain and plasmid stock.'},
+  {n:'Melanin quantification calculator',  sub:'Park Lab', t:'calc', note:'Submitted by Dr. Theo Park, derived from the published OD-to-concentration curve.'},
+];
+
+// DEPT SIDE render
+function paintDeptLib(){
+  const wrap=document.getElementById('deptLib');
+  wrap.innerHTML=TYPES.map(ty=>{
+    const items=RESOURCES.filter(r=>r.t===ty.key);
+    if(!items.length) return '';
+    return `<div class="grouphdr">${ty.label}<span class="gc">${items.length}</span></div>`+
+      items.map((r,i)=>{
+        const gi=RESOURCES.indexOf(r);
+        return `<div class="res">
+          <div class="ricon" style="background:${ty.color}">${ty.icon}</div>
+          <div class="rmain">
+            <div class="rn">${r.n} <span class="vtag">${r.v}</span>
+              <span class="badge b-off ${r.off?'':'off'}" data-off="${gi}" title="Toggle official dept standard">${r.off?'Official dept standard':'Mark official'}</span>
+            </div>
+            <div class="rmeta">Published by <b>${r.by}</b> &middot; used by <b>${r.labs}</b> ${r.labs===1?'lab':'labs'}</div>
+          </div>
+          <div class="ract">
+            <button class="tool" data-toast="New version published, labs auto-notified">Publish new version</button>
+            <button class="tool" data-toast="Deprecated, labs keep their pulled copy with a deprecation note">Deprecate</button>
+          </div>
+        </div>`;
+      }).join('');
+  }).join('');
+  wrap.querySelectorAll('[data-off]').forEach(b=>b.onclick=(e)=>{
+    if(document.body.classList.contains('commenting'))return; e.stopPropagation();
+    const r=RESOURCES[+b.dataset.off]; r.off=!r.off; paintDeptLib(); wireToasts();
+    toast(r.off?`Marked official, ${r.n}`:`Removed official badge, ${r.n}`);
+  });
+  wireToasts();
+}
+paintDeptLib();
+
+// approval queue render
+function paintQueue(){
+  const q=document.getElementById('queueBody');
+  q.innerHTML=QUEUE.map((it,i)=>`
+    <div class="qrow" data-q="${i}">
+      <div class="ricon" style="background:${TMETA[it.t].color}">${TMETA[it.t].icon}</div>
+      <div class="qmain">
+        <div class="qn">${it.n} <span class="vtag">${TLABEL[it.t]}</span></div>
+        <div class="qm">From <b>${it.sub}</b> &middot; ${it.note}</div>
+      </div>
+      <div class="qact">
+        <button class="tool qbtn-ok" data-qa="ok" data-i="${i}">Approve</button>
+        <button class="tool qbtn-no" data-qa="no" data-i="${i}">Decline</button>
+      </div>
+    </div>`).join('');
+  q.querySelectorAll('[data-qa]').forEach(b=>b.onclick=(e)=>{
+    if(document.body.classList.contains('commenting'))return; e.stopPropagation();
+    const row=q.querySelector(`.qrow[data-q="${b.dataset.i}"]`);
+    const it=QUEUE[+b.dataset.i];
+    row.classList.add('resolved');
+    row.querySelector('.qact').innerHTML = b.dataset.qa==='ok'
+      ? '<span class="badge b-ok">Approved into commons</span>'
+      : '<span class="badge b-local">Declined</span>';
+    toast(b.dataset.qa==='ok'?`Approved, ${it.n} is now in the commons`:`Declined, ${it.n}`);
+  });
+}
+paintQueue();
+
+// LAB SIDE render
+let labFilter='all';
+function paintLabFilters(){
+  const fc=document.getElementById('labFilters');
+  const chips=[['all','All']].concat(TYPES.map(t=>[t.key,t.label]));
+  fc.innerHTML=chips.map(([k,l])=>`<span class="fchip ${k===labFilter?'on':''}" data-f="${k}">${l}</span>`).join('');
+  fc.querySelectorAll('.fchip').forEach(c=>c.onclick=(e)=>{
+    if(document.body.classList.contains('commenting'))return; e.stopPropagation();
+    labFilter=c.dataset.f; paintLabFilters(); paintLabCards();
+  });
+}
+function paintLabCards(){
+  const q=(document.getElementById('labSearch').value||'').toLowerCase();
+  const lc=document.getElementById('labCards');
+  const items=RESOURCES.filter(r=>(labFilter==='all'||r.t===labFilter)&&(!q||r.n.toLowerCase().includes(q)));
+  if(!items.length){ lc.innerHTML='<div class="empty">No commons resources match.</div>'; return; }
+  lc.innerHTML=items.map(r=>{
+    const ty=TMETA[r.t];
+    return `<div class="res">
+      <div class="ricon" style="background:${ty.color}">${ty.icon}</div>
+      <div class="rmain">
+        <div class="rn">${r.n} <span class="vtag">${r.v}</span>${r.off?'<span class="badge b-off">Official</span>':''}</div>
+        <div class="rmeta">${ty.label} &middot; from <b>${r.by}</b> &middot; used by ${r.labs} labs</div>
+      </div>
+      <div class="ract">
+        <button class="tool primary" data-toast="Pulled into your work, it auto-updates when the dept revises it">${r.t==='plasmid'||r.t==='control'?'Add to my lab':'Pull into my work'}</button>
+      </div>
+    </div>`;
+  }).join('');
+  wireToasts();
+}
+document.getElementById('labSearch').oninput=()=>paintLabCards();
+paintLabFilters(); paintLabCards();
+
+// side switch
+document.getElementById('sideSwitch').querySelectorAll('span').forEach(s=>s.onclick=(e)=>{
+  if(document.body.classList.contains('commenting'))return; e.stopPropagation();
+  document.querySelectorAll('#sideSwitch span').forEach(x=>x.classList.remove('on')); s.classList.add('on');
+  const lab=s.dataset.side==='lab';
+  document.getElementById('deptSide').style.display=lab?'none':'block';
+  document.getElementById('labSide').style.display=lab?'block':'none';
+  document.getElementById('sideHint').textContent=lab?'How a lab member discovers and pulls from the commons.':'Publish and govern what every lab inherits.';
+});
+
+// ----------------------------------------------------------------
+// NAV
+// ----------------------------------------------------------------
+document.querySelectorAll('#navset .navchip').forEach(c=>c.onclick=(e)=>{
+  if(document.body.classList.contains('commenting'))return; e.stopPropagation();
+  document.querySelectorAll('#navset .navchip').forEach(x=>x.classList.remove('on')); c.classList.add('on');
+  const v=c.dataset.v; document.querySelectorAll('.view').forEach(view=>view.classList.toggle('active',view.dataset.view===v));
+});
+
+// dark
+document.getElementById('darkBtn').onclick=function(){ if(document.body.classList.contains('commenting'))return; document.body.classList.toggle('dark'); this.textContent=document.body.classList.contains('dark')?'Light':'Dark'; };
+
+// toast
+let toastT;
+function toast(msg){ const t=document.getElementById('toast'); t.textContent=msg; t.classList.add('show'); clearTimeout(toastT); toastT=setTimeout(()=>t.classList.remove('show'),2200); }
+
+// ----------------------------------------------------------------
+// VERDICTS (per section) + COMMENT PINS , persisted
+// ----------------------------------------------------------------
+const VKEY='dept-portal-commons-compliance-v1';
+const STORE=JSON.parse(localStorage.getItem(VKEY)||'{}');
+STORE.verdicts=STORE.verdicts||{}; STORE.pins=STORE.pins||[];
+const SECTIONS={compliance:'Storage compliance', commons:'Department commons'};
+function save(){ localStorage.setItem(VKEY,JSON.stringify(STORE)); }
+
+function paintVerdicts(){
+  document.querySelectorAll('.verdictbar').forEach(bar=>{
+    const sec=bar.dataset.section, v=STORE.verdicts[sec];
+    bar.querySelector('.vbtn.app').classList.toggle('on',v==='approve');
+    bar.querySelector('.vbtn.dis').classList.toggle('on',v==='disapprove');
+    bar.querySelector('.vstate').textContent = v==='approve'?'Approved':v==='disapprove'?'Disapproved':'No verdict yet';
+  });
+}
+document.querySelectorAll('.verdictbar .vbtn').forEach(b=>b.onclick=(e)=>{
+  if(document.body.classList.contains('commenting'))return; e.stopPropagation();
+  const bar=b.closest('.verdictbar'), sec=bar.dataset.section, v=b.dataset.v;
+  STORE.verdicts[sec]=STORE.verdicts[sec]===v?undefined:v; save(); paintVerdicts(); paintReview();
+});
+paintVerdicts();
+
+// ---- comment mode ----
+let commenting=false, pending=null;
+const commentBtn=document.getElementById('commentBtn');
+commentBtn.onclick=()=>{
+  commenting=!commenting; document.body.classList.toggle('commenting',commenting);
+  commentBtn.classList.toggle('on',commenting);
+  commentBtn.textContent=commenting?'Exit comment mode':'Comment mode';
+  toast(commenting?'Comment mode on, click anything to pin a note':'Comment mode off');
+};
+// capture clicks in comment mode
+document.addEventListener('click',(e)=>{
+  if(!commenting) return;
+  if(e.target.closest('#pinbox')||e.target.closest('.pin')||e.target.closest('header')||e.target.closest('#drawer')||e.target.closest('#fab')) return;
+  e.preventDefault(); e.stopPropagation();
+  const sec=document.querySelector('.view.active').dataset.view;
+  let lbl=(e.target.closest('.card .ch h3, .ptitle, .res .rn, .stat .sl, .qn, .policy .pt, .grouphdr')||{}).textContent;
+  lbl=(lbl||e.target.textContent||'element').trim().replace(/\s+/g,' ').slice(0,46);
+  pending={x:e.pageX,y:e.pageY,sec,lbl};
+  const pb=document.getElementById('pinbox');
+  pb.style.left=Math.min(e.clientX,window.innerWidth-262)+'px';
+  pb.style.top=Math.min(e.clientY+8,window.innerHeight-150)+'px';
+  pb.style.display='block'; document.getElementById('pinText').value=''; document.getElementById('pinText').focus();
+},true);
+document.getElementById('pinCancel').onclick=()=>{ document.getElementById('pinbox').style.display='none'; pending=null; };
+document.getElementById('pinSave').onclick=()=>{
+  const txt=document.getElementById('pinText').value.trim();
+  if(!txt){ toast('Add a note first'); return; }
+  STORE.pins.push({...pending,txt,n:STORE.pins.length+1}); save();
+  document.getElementById('pinbox').style.display='none'; pending=null;
+  paintPins(); paintReview(); toast('Pin saved');
+};
+function paintPins(){
+  document.querySelectorAll('.pin').forEach(p=>p.remove());
+  STORE.pins.forEach((p,i)=>{
+    const el=document.createElement('div'); el.className='pin'; el.textContent=p.n; el.style.left=p.x+'px'; el.style.top=p.y+'px';
+    el.title=p.txt; el.onclick=(ev)=>{ ev.stopPropagation(); openDrawer(true); const node=document.getElementById('pin-'+i); if(node){node.scrollIntoView({block:'center'});node.style.outline='2px solid var(--violet)';setTimeout(()=>node.style.outline='',1200);} };
+    document.body.appendChild(el);
+  });
+}
+paintPins();
+
+// ----------------------------------------------------------------
+// REVIEW DRAWER
+// ----------------------------------------------------------------
+function paintReview(){
+  const body=document.getElementById('reviewBody');
+  let html='<div class="dgroup">Section verdicts</div>';
+  Object.entries(SECTIONS).forEach(([k,l])=>{
+    const v=STORE.verdicts[k];
+    const cls=v==='approve'?'approve':v==='disapprove'?'disapprove':'none';
+    const txt=v==='approve'?'Approved':v==='disapprove'?'Disapproved':'No verdict';
+    html+=`<div class="dverdict"><div class="dt">${l}<span class="spacer" style="margin-left:auto"></span><span class="vp ${cls}">${txt}</span></div></div>`;
+  });
+  html+='<div class="dgroup" style="margin-top:14px">Comment pins ('+STORE.pins.length+')</div>';
+  if(!STORE.pins.length){ html+='<div class="empty">Turn on Comment mode and click anything to pin a note.</div>'; }
+  else {
+    STORE.pins.forEach((p,i)=>{
+      html+=`<div class="pinitem" id="pin-${i}">
+        <div class="ph"><span class="pnum">${p.n}</span> ${SECTIONS[p.sec]||p.sec} <span class="del" data-del="${i}">delete</span></div>
+        <div class="pt">${escapeHtml(p.txt)}</div>
+        <div class="pl">on, ${escapeHtml(p.lbl)}</div>
+      </div>`;
+    });
+  }
+  body.innerHTML=html;
+  body.querySelectorAll('[data-del]').forEach(b=>b.onclick=()=>{ STORE.pins.splice(+b.dataset.del,1); STORE.pins.forEach((p,j)=>p.n=j+1); save(); paintPins(); paintReview(); });
+  const nv=Object.values(STORE.verdicts).filter(Boolean).length;
+  document.getElementById('fabN').textContent=STORE.pins.length+nv;
+  document.getElementById('estat').textContent = (STORE.pins.length||nv)?`${nv} verdict${nv===1?'':'s'}, ${STORE.pins.length} pin${STORE.pins.length===1?'':'s'}`:'Nothing marked up yet';
+}
+function escapeHtml(s){ return s.replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c])); }
+paintReview();
+
+const drawer=document.getElementById('drawer'),scrim=document.getElementById('scrim');
+function openDrawer(o){ drawer.classList.toggle('open',o); scrim.classList.toggle('on',o); }
+document.getElementById('fab').onclick=()=>openDrawer(true);
+document.getElementById('closeDrawer').onclick=()=>openDrawer(false);
+scrim.onclick=()=>openDrawer(false);
+document.getElementById('clearBtn').onclick=()=>{ if(!confirm('Clear all verdicts and pins?'))return; STORE.verdicts={};STORE.pins=[];save();paintVerdicts();paintPins();paintReview();toast('Cleared'); };
+
+// EXPORT to clipboard (markdown)
+document.getElementById('exportBtn').onclick=async()=>{
+  const lines=['# Department portal review, commons + compliance','',`_Marked up ${new Date().toISOString().slice(0,10)}_`,'','## Section verdicts',''];
+  Object.entries(SECTIONS).forEach(([k,l])=>{
+    const v=STORE.verdicts[k];
+    lines.push(`- ${l}, ${v==='approve'?'APPROVE':v==='disapprove'?'DISAPPROVE':'(no verdict)'}`);
+  });
+  lines.push('','## Comment pins','');
+  if(!STORE.pins.length) lines.push('_None_');
+  STORE.pins.forEach(p=>{ lines.push(`${p.n}. [${SECTIONS[p.sec]||p.sec}] ${p.txt}  \n   on, ${p.lbl}`); });
+  const text=lines.join('\n');
+  try{ await navigator.clipboard.writeText(text); toast('Review copied to clipboard'); }
+  catch(e){
+    const a=document.createElement('a'); a.href=URL.createObjectURL(new Blob([text],{type:'text/markdown'})); a.download='dept-portal-review.md'; a.click(); toast('Clipboard blocked, downloaded .md instead');
+  }
+};
+</script>
+</body>
+</html>
