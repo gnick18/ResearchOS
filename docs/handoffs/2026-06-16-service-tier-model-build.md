@@ -67,3 +67,7 @@ NOTE: `capacity-shared.ts` (the 2nd-domain commit) is a SHARED file; the change 
 Shared keys (both lanes): owner-key hash (`lib/billing/owner.ts`), ROR id (institution), `collab_doc_sizes`/`collab_owner_writes` tally mechanism. Dept/inst boundary settled earlier: ROR = institution identity, owner-key hash = person identity, billing references social never reverse.
 
 Related: `docs/proposals/2026-06-16-service-tier-structure.md`, `[[project-pricing-finalize-2026-06]]`, `[[project-dept-inst-governance-tier]]`.
+
+## Pricing modes deck (2026-06-16)
+
+Model A LOCKED. Three modes (Lean / Fund-the-labs / Premium) modeled into a review/share deck for Grant + Emile: `docs/proposals/2026-06-16-pricing-modes.html` (regen `2026-06-16-pricing-modes.gen.py`), each with time-to-$5, break-even, and revenue-composition plots. Only the base fee + usage markup vary between modes; AI (1.4x/2x, ~3% of rev) and storage (at-cost) are constant; dept is the Enterprise premium lever. Numbers + assumptions in the proposal `2026-06-16-service-tier-structure.md` and `[[project-pricing-finalize-2026-06]]`. OPEN = Grant+Emile pick the mode; NEXT after pick = rebuild service-model.ts + dashboard (mode-parameterized) then plans.ts/assumptions.ts + master bible.

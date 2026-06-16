@@ -250,6 +250,15 @@ export default function RoomMapScreen() {
                   <SvgXml xml={floorplan} width="100%" height="100%" />
                 </View>
               ) : null}
+              {/* Tap empty map space to deselect. Pins render after this, so they
+                  sit on top and still capture their own taps. */}
+              {activeNodeId != null ? (
+                <Pressable
+                  style={StyleSheet.absoluteFill}
+                  onPress={() => setSelected(null)}
+                  accessibilityLabel="Clear selection"
+                />
+              ) : null}
               {pins.map((pin, i) => {
                 if (pin.x == null || pin.y == null) return null;
                 const node = pin.nodeId != null ? nodesById.get(pin.nodeId) : null;
