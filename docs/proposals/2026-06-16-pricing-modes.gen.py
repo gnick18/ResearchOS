@@ -14,7 +14,8 @@ def fixed(u):
 MODES=[
  dict(key="lean", name="Mode 1 · Lean", short="Lean", color="#1D9E75", tint="#E1F5EE", dark="#0F6E56",
       tag="Charge as little as we can and still keep the lights on.",
-      phil="There's no profit motive here. The whole point is to take the cost barrier out from under academics. It's a better notebook than anything on the market, priced at roughly what it costs us to run. Even if we only ever serve people in Wisconsin, this still works.",
+      phil="There's no profit motive here. The whole point is to take the cost barrier out from under academics. It's a better notebook than anything on the market, priced at roughly what it costs us to run.",
+      warn="The thin prices mean a thin cushion. We run at a loss of roughly $260 to $300 a month (the fixed costs above) until we reach about 180 paying customers, which is around 3,600 signups. At an early-stage pace that can take six months or more to reach. And if we only ever pull a small audience, we could sit below break-even indefinitely. Lean only becomes self-sustaining once we are past that base.",
       solo_floor=1, lab_flat=5, dept_flat=10, smk=3, lmk=2.75, dmk=2.5),
  dict(key="fund", name="Mode 2 · Fund the labs", short="Fund the labs", color="#BA7517", tint="#FAEEDA", dark="#854F0B",
       tag="Enough margin to actually fund our labs.",
@@ -253,6 +254,8 @@ for m in MODES:
     parts.append(f'<h2 style="color:{m["dark"]}">{esc(m["name"])}</h2>')
     parts.append(f'<p class="tag" style="color:{m["dark"]}">{esc(m["tag"])}</p>')
     parts.append(f'<p class="phil">{esc(m["phil"])}</p>')
+    if m.get("warn"):
+        parts.append(f'<div style="margin:12px 0 2px;background:#FAEEDA;border-radius:10px;padding:12px 14px;font-size:13.5px;color:#854F0B;line-height:1.6"><b>Reality check.</b> {esc(m["warn"])}</div>')
     parts.append('<div class="pricing">')
     for lab2,txt in [("Solo",f'${m["solo_floor"]}/mo floor + {m["smk"]}× usage'),
                      ("Lab",f'${m["lab_flat"]} flat + {m["lmk"]}× usage'),
