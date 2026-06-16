@@ -190,9 +190,11 @@ export interface AdoptionMix {
   /** Relay write footprint of one free user, millions per month. ~0 under Path A
    *  (no cloud produce feature); exists only to stress-test a chattier free user. */
   freeRelayWritesM: number;
-  /** Average AI tokens a PAYING user spends per month, in millions. Drives the
-   *  AI margin on the paid side (dept users at the 2x org rate). */
+  /** Average AI tokens an AI-USING paid user spends per month, in millions. */
   aiTokensPerPaidM: number;
+  /** Share of paying users who actually use AI (buy packs). Typically 0.2-0.4;
+   *  the rest never touch the metered AI product. Scales the AI margin. */
+  aiAdoption: number;
 }
 
 /** Normalize the paying-side shares to sum to 1 (they are entered freely). */
@@ -240,13 +242,14 @@ export function blendedGovPerPaid(tiers: ServiceTiers, mix: AdoptionMix): number
   return s.dept * govPerMember;
 }
 
-/** AI margin per paying user, weighted by mix. Dept members bill at the 2x org
- *  rate, solo + lab at the 1.4x individual rate. */
+/** AI margin per paying user, weighted by mix and scaled by AI adoption (only a
+ *  fraction of paid users buy AI). Dept members bill at the 2x org rate, solo +
+ *  lab at the 1.4x individual rate. */
 export function blendedAiMargin(tiers: ServiceTiers, mix: AdoptionMix): number {
   const s = normShares(mix);
   const indiv = aiMarginPerUser(mix.aiTokensPerPaidM, false);
   const org = aiMarginPerUser(mix.aiTokensPerPaidM, true);
-  return (s.solo + s.lab) * indiv + s.dept * org;
+  return mix.aiAdoption * ((s.solo + s.lab) * indiv + s.dept * org);
 }
 
 /** Total net we keep per paying user = subscription + AI margin + governance. */

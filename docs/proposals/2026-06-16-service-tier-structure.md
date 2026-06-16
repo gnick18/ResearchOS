@@ -61,7 +61,7 @@ Sells governance, not charity. Storage at parity with a standalone lab (no surch
 ## Where storage and AI sit
 
 - **Storage** is a-la-carte for anyone who wants us to hold a backup (e.g. a grad student with no institutional cloud), at ~$0.06/GB retail (1.15x blended cost). It is a convenience line, never a tier axis and never in the service margin.
-- **AI** is the separate token meter, unchanged (1.4x solo-lab, 2x dept), with the sign-up grant and packs.
+- **AI** is the separate token meter, unchanged (1.4x solo-lab, 2x dept), with the sign-up grant and packs. The model assumes only **20-40% of paid users actually buy AI** (default 30%); the rest never touch the metered product, so AI margin is scaled by that adoption rate.
 
 ## Why this is sustainable (the model says so)
 

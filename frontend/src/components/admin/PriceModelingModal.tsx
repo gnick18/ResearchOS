@@ -1060,6 +1060,7 @@ export function FinalizeTab() {
   const [rows, setRows] = useState<ServiceRow[]>(DEFAULT_SERVICE_ROWS);
   const [freeRelayM, setFreeRelayM] = useState(0);
   const [aiTokensM, setAiTokensM] = useState(3);
+  const [aiAdoption, setAiAdoption] = useState(0.3);
   const [conversion, setConversion] = useState(0.05);
   const [soloShare, setSoloShare] = useState(0.4);
   const [labShare, setLabShare] = useState(0.4);
@@ -1094,6 +1095,7 @@ export function FinalizeTab() {
     membersPerLab,
     freeRelayWritesM: freeRelayM,
     aiTokensPerPaidM: aiTokensM,
+    aiAdoption,
   };
 
   const avgFree = avgFreeUserCostPathA(freeRelayM);
@@ -1175,7 +1177,7 @@ export function FinalizeTab() {
       window.removeEventListener("resize", drawProjection);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [rows, freeRelayM, aiTokensM, conversion, soloShare, labShare, deptShare, membersPerLab]);
+  }, [rows, freeRelayM, aiTokensM, aiAdoption, conversion, soloShare, labShare, deptShare, membersPerLab]);
 
   const inputCls =
     "w-16 rounded border border-border bg-surface-sunken px-1.5 py-1 text-meta tabular-nums";
@@ -1186,9 +1188,17 @@ export function FinalizeTab() {
       <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_480px]">
         <div className="min-w-0 space-y-6">
           <Panel title="Assumptions">
-            <div className="grid gap-5 lg:grid-cols-3">
+            <div className="grid gap-5 lg:grid-cols-2">
               <Slider
-                label={`AI per paid user: ${aiTokensM.toFixed(1)}M tok/mo`}
+                label={`AI adoption: ${Math.round(aiAdoption * 100)}% of paid users buy AI`}
+                min={0}
+                max={100}
+                step={5}
+                value={aiAdoption * 100}
+                onChange={(v) => setAiAdoption(v / 100)}
+              />
+              <Slider
+                label={`AI per AI-user: ${aiTokensM.toFixed(1)}M tok/mo`}
                 min={0}
                 max={20}
                 step={0.5}
@@ -1254,7 +1264,10 @@ export function FinalizeTab() {
                           : "text-rose-600 font-bold";
                     const aiPerM =
                       r.key === "dept" ? AI_ORG_RETAIL_PER_M : AI_INDIV_RETAIL_PER_M;
-                    const aiNet = aiTokensM * (aiPerM - AI_REAL_COST_PER_M);
+                    // Adoption-weighted: avg AI margin per paid seat (only a
+                    // fraction buy AI), so it matches the projection.
+                    const aiNet =
+                      aiAdoption * aiTokensM * (aiPerM - AI_REAL_COST_PER_M);
                     return (
                       <tr key={r.key} className="border-t border-border align-top">
                         <td className="px-2 py-1.5 font-medium text-foreground">
@@ -1542,8 +1555,10 @@ export function FinalizeTab() {
               <b className="text-foreground">Sub net</b> is what we keep per
               subscriber (solo) or per active seat (lab, dept) after relay cost and
               the 6/12-month Stripe fee. <b className="text-foreground">+AI</b> is the
-              metered AI margin at the current usage (dept at the 2x rate). Storage
-              rides on top at cost and is in neither.
+              average AI margin per paid seat, already scaled by AI adoption (only
+              {" "}
+              {Math.round(aiAdoption * 100)}% of paid users buy AI; dept at the 2x
+              rate). Storage rides on top at cost and is in neither.
             </li>
             <li>
               Free users do nothing that writes to us, so their recurring monthly

@@ -39,6 +39,7 @@ const MIX: AdoptionMix = {
   membersPerLab: 6,
   freeRelayWritesM: 0, // Path A: free users do nothing that writes to us
   aiTokensPerPaidM: 1,
+  aiAdoption: 0.3, // only ~20-40% of paid users buy AI
 };
 
 describe("storage is near-cost pass-through", () => {
@@ -130,10 +131,17 @@ describe("blended paid net decomposes into sub + AI + governance", () => {
     expect(blendedGovPerPaid(TIERS, MIX)).toBeCloseTo(0.2 * (16 / 6), 9);
   });
 
-  it("AI margin blends org rate only for the dept share", () => {
+  it("AI margin blends org rate only for the dept share, scaled by adoption", () => {
     const expected =
-      0.8 * aiMarginPerUser(1, false) + 0.2 * aiMarginPerUser(1, true);
+      0.3 * (0.8 * aiMarginPerUser(1, false) + 0.2 * aiMarginPerUser(1, true));
     expect(blendedAiMargin(TIERS, MIX)).toBeCloseTo(expected, 9);
+  });
+
+  it("AI margin scales linearly with adoption (and is zero at 0%)", () => {
+    expect(blendedAiMargin(TIERS, { ...MIX, aiAdoption: 0 })).toBe(0);
+    const at30 = blendedAiMargin(TIERS, { ...MIX, aiAdoption: 0.3 });
+    const at60 = blendedAiMargin(TIERS, { ...MIX, aiAdoption: 0.6 });
+    expect(at60).toBeCloseTo(at30 * 2, 9);
   });
 
   it("normalizes shares that do not sum to one", () => {

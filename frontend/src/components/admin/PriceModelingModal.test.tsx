@@ -16,7 +16,8 @@ describe("FinalizeTab (Path-A service dashboard)", () => {
   it("mounts and shows the locked AI rates + the three outcome panels", () => {
     render(<FinalizeTab />);
     has(/metered token product at LOCKED rates/i); // locked AI rates strip
-    has(/AI per paid user/i); // streamlined assumption knob
+    has(/AI adoption/i); // share of paid users who buy AI
+    has(/AI per AI-user/i); // streamlined assumption knob
     has(/Conservative/i); // scenario preset
     has(/Dept-heavy/i); // mix preset
     has(/Net per month by scenario/i); // outcome plot 2
