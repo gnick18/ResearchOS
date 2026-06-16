@@ -815,15 +815,25 @@ function renderFromPanels(
     drawLabels(parts, root, axis, spec, cursor, labelsPanel);
     if (wantManifest) {
       const labelW = labelReserve;
+      // The tip-label box reflects the ACTUAL rendered label ink, not the whole tip
+      // row. Its vertical extent is the font size, shrunk by the tilt (cos) because a
+      // tilted label leans off-horizontal and needs less vertical room (drawLabels'
+      // stated intent, line ~1600). This is what lets the advisor's two reversible
+      // label fixes -- shrink-label-font and tilt-tip-labels -- measurably reduce
+      // detected label-crowding. The old box spanned the full row band (bandHeight),
+      // so adjacent boxes always touched: crowding was over-reported AND no reversible
+      // fix could clear it (only a taller canvas would, which the wand never applies).
+      const labelFs = Number(labelsPanel.options?.fontSize) || 11;
+      const labelBoxH = Math.max(2, labelFs * labelTiltCos);
       const nameById = new Map(leaves(root).map((l) => [l.id, l.name]));
       for (const t of axis.tips) {
         outManifest!.push({
           id: `tipLabel:${t.id}`,
           kind: "tipLabel",
           x: cursor,
-          y: t.y - bandPad,
+          y: t.y - labelBoxH / 2,
           w: labelW,
-          h: axis.bandHeight,
+          h: labelBoxH,
           label: nameById.get(t.id) ?? undefined,
         });
       }
