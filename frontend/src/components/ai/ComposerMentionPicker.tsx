@@ -150,7 +150,7 @@ export default function ComposerMentionPicker({
                 {showGroup ? (
                   <div className="flex items-center gap-1.5 px-3 pb-0.5 pt-2 text-[10px] font-semibold uppercase tracking-wide text-foreground-muted">
                     <span
-                      className={`h-[7px] w-[7px] rounded-full ${tintDotClass(
+                      className={`h-[7px] w-[7px] shrink-0 rounded-full ${tintDotClass(
                         tintForObjectType(entry.type),
                       )}`}
                     />

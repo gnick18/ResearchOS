@@ -65,7 +65,7 @@ export default function ComposerSlashMenu({
           {commands.length > 0 ? (
             <>
               <div className="flex items-center gap-1.5 px-3 pb-1 pt-2 text-[10px] font-semibold uppercase tracking-wide text-foreground-muted">
-                <span className="h-[7px] w-[7px] rounded-full bg-border" />
+                <span className="h-[7px] w-[7px] shrink-0 rounded-full bg-foreground-muted/40" />
                 Commands
               </div>
               {commands.map((command, i) => {
@@ -100,7 +100,7 @@ export default function ComposerSlashMenu({
           {macros.length > 0 ? (
             <>
               <div className="flex items-center gap-1.5 px-3 pb-1 pt-2 text-[10px] font-semibold uppercase tracking-wide text-purple-500 dark:text-purple-300">
-                <span className="h-[7px] w-[7px] rounded-full bg-purple-400" />
+                <span className="h-[7px] w-[7px] shrink-0 rounded-full bg-purple-500" />
                 Your macros
               </div>
               {macros.map((macro, j) => {

@@ -43,14 +43,16 @@ const TINT_TILE: Record<WidgetTint, string> = {
   neutral: "bg-surface-sunken text-foreground-muted",
 };
 
+// Strong enough to read as a colored dot next to uppercase muted labels (the
+// 400 tones were too faint at 7px). org/neutral stay border-toned on purpose.
 const TINT_DOT: Record<WidgetTint, string> = {
-  bio: "bg-purple-400",
-  data: "bg-teal-400",
-  protocol: "bg-blue-400",
-  commerce: "bg-amber-400",
-  macro: "bg-purple-400",
-  org: "bg-border",
-  neutral: "bg-border",
+  bio: "bg-purple-500",
+  data: "bg-teal-500",
+  protocol: "bg-blue-500",
+  commerce: "bg-amber-500",
+  macro: "bg-purple-500",
+  org: "bg-foreground-muted/40",
+  neutral: "bg-foreground-muted/40",
 };
 
 /** The family dot's color class, for section labels rendered outside WidgetSection
@@ -172,7 +174,9 @@ export function WidgetSection({
     <div className={`mb-1 ${className}`}>
       <div className="flex items-center gap-1.5 px-1 pb-1 pt-2 text-[10.5px] font-semibold uppercase tracking-wide text-foreground-muted">
         {tint ? (
-          <span className={`h-[7px] w-[7px] rounded-full ${TINT_DOT[tint]}`} />
+          <span
+            className={`h-[7px] w-[7px] shrink-0 rounded-full ${TINT_DOT[tint]}`}
+          />
         ) : null}
         {label}
       </div>
@@ -209,9 +213,11 @@ export function WidgetRow({
   hint,
   trailing,
   active = false,
+  disabled = false,
   onClick,
   onMouseEnter,
   title,
+  testId,
   compact = false,
 }: {
   icon?: IconName;
@@ -220,9 +226,13 @@ export function WidgetRow({
   hint?: ReactNode;
   trailing?: ReactNode;
   active?: boolean;
+  /** Greys the row + blocks the click (constraint-aware "unavailable" rows). */
+  disabled?: boolean;
   onClick?: () => void;
   onMouseEnter?: () => void;
   title?: string;
+  /** Passes through to data-testid so existing row hooks survive the refactor. */
+  testId?: string;
   compact?: boolean;
 }) {
   return (
@@ -231,12 +241,16 @@ export function WidgetRow({
       onClick={onClick}
       onMouseEnter={onMouseEnter}
       title={title}
+      data-testid={testId}
+      disabled={disabled}
       className={`flex w-full items-center gap-2 rounded-lg border px-2.5 text-left transition-colors ${
         compact ? "py-1.5" : "py-2"
       } ${
-        active
-          ? "border-brand bg-surface-raised"
-          : "border-border bg-surface hover:border-brand hover:bg-surface-raised"
+        disabled
+          ? "cursor-not-allowed border-border bg-surface opacity-50"
+          : active
+            ? "border-brand bg-surface-raised"
+            : "border-border bg-surface hover:border-brand hover:bg-surface-raised"
       }`}
     >
       {icon ? (
