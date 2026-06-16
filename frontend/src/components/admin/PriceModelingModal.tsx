@@ -1068,7 +1068,13 @@ const MIX_PRESETS = [
   { id: "dept", label: "Dept-heavy", solo: 0.2, lab: 0.4, dept: 0.4 },
 ];
 
-export function FinalizeTab() {
+/**
+ * splitScroll: on large screens, give the working area two INDEPENDENTLY
+ * scrolling columns (left = dials/tiers/scenario, right = plots) bounded to the
+ * viewport, so the operator can scroll the settings while the graphs stay in
+ * view. Opt-in so the constrained /admin modal mount keeps its normal flow.
+ */
+export function FinalizeTab({ splitScroll = false }: { splitScroll?: boolean } = {}) {
   const [rows, setRows] = useState<ServiceRow[]>(DEFAULT_SERVICE_ROWS);
   const [freeRelayM, setFreeRelayM] = useState(0);
   const [aiTokensM, setAiTokensM] = useState(3);
@@ -1300,9 +1306,19 @@ export function FinalizeTab() {
 
   return (
     <div className="space-y-8 text-foreground">
-      {/* Working area: dials + numbers on the left, plots on the right. */}
-      <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_480px]">
-        <div className="min-w-0 space-y-6">
+      {/* Working area: dials + numbers on the left, plots on the right. When
+          splitScroll is on, each column scrolls independently within the
+          viewport so the graphs stay in view while you tune the settings. */}
+      <div
+        className={`grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_480px]${
+          splitScroll ? " lg:h-[calc(100vh-8rem)]" : ""
+        }`}
+      >
+        <div
+          className={`min-w-0 space-y-6${
+            splitScroll ? " lg:h-full lg:overflow-y-auto lg:pr-3" : ""
+          }`}
+        >
           <Panel title="Assumptions">
             <div className="grid gap-5 lg:grid-cols-2">
               <Slider
@@ -1696,7 +1712,13 @@ export function FinalizeTab() {
           </Panel>
         </div>
 
-        <div className="space-y-6 lg:sticky lg:top-4">
+        <div
+          className={`space-y-6 ${
+            splitScroll
+              ? "lg:h-full lg:overflow-y-auto lg:pr-1"
+              : "lg:sticky lg:top-4"
+          }`}
+        >
           <Panel title="When do we become profitable?">
             <div
               className={`mb-3 rounded-lg border p-3 ${

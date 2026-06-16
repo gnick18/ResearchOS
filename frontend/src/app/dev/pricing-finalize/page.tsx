@@ -27,7 +27,7 @@ export default function PricingFinalizeDevPage() {
         </h1>
       </header>
 
-      <FinalizeTab />
+      <FinalizeTab splitScroll />
     </main>
   );
 }

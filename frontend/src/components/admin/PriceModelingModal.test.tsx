@@ -70,4 +70,12 @@ describe("FinalizeTab (Path-A service dashboard)", () => {
     has(/Break-even conversion/i); // still rendered after recomputation
     cleanup();
   });
+
+  it("splitScroll mounts and makes the columns independent scroll panes", () => {
+    const { container } = render(<FinalizeTab splitScroll />);
+    // Two independently-scrolling columns on lg screens.
+    expect(container.querySelectorAll(".lg\\:overflow-y-auto").length).toBeGreaterThanOrEqual(2);
+    has(/When do we become profitable/i); // plots still render
+    cleanup();
+  });
 });
