@@ -178,7 +178,7 @@ export default function MigrationGate() {
               <button
                 type="button"
                 onClick={dismiss}
-                className="px-4 py-2 text-body rounded-lg border border-border text-foreground hover:bg-surface-raised"
+                className="ros-btn-neutral px-4 py-2 text-body text-foreground"
               >
                 Keep it shared for now
               </button>
@@ -201,7 +201,7 @@ export default function MigrationGate() {
               <button
                 type="button"
                 onClick={dismiss}
-                className="px-4 py-2 text-body rounded-lg border border-border text-foreground hover:bg-surface-raised"
+                className="ros-btn-neutral px-4 py-2 text-body text-foreground"
               >
                 Keep working here for now
               </button>

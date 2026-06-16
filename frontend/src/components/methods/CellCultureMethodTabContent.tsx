@@ -481,7 +481,7 @@ function QuickLogButton({ onClick, label }: { onClick: () => void; label: string
     <Tooltip label={`Log a ${label.toLowerCase()} event at the current time`} placement="bottom">
       <button
         onClick={onClick}
-        className="px-2 py-1 text-meta rounded border border-border text-foreground-muted hover:bg-surface-sunken"
+        className="ros-btn-neutral px-2 py-1 text-meta text-foreground-muted"
       >
         + {label}
       </button>

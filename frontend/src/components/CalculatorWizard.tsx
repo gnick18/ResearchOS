@@ -543,7 +543,7 @@ export function CalculatorWizard({
           <button
             type="button"
             onClick={() => go(-1)}
-            className="px-3 py-1.5 rounded-lg border border-border text-meta font-medium text-foreground-muted hover:text-foreground hover:bg-surface-sunken transition-colors"
+            className="ros-btn-neutral px-3 py-1.5 text-meta font-medium text-foreground-muted"
           >
             Back
           </button>
@@ -551,7 +551,7 @@ export function CalculatorWizard({
           <button
             type="button"
             onClick={onCancel}
-            className="px-3 py-1.5 rounded-lg border border-border text-meta font-medium text-foreground-muted hover:text-foreground hover:bg-surface-sunken transition-colors"
+            className="ros-btn-neutral px-3 py-1.5 text-meta font-medium text-foreground-muted"
           >
             Cancel
           </button>

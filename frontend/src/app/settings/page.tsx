@@ -1570,7 +1570,7 @@ function PurchaseRoutingSection({ settings, update }: SectionProps) {
           <button
             type="button"
             onClick={addContact}
-            className="mt-2 inline-flex items-center gap-1 rounded-lg border border-border px-3 py-1.5 text-meta font-medium hover:bg-surface-sunken"
+            className="ros-btn-neutral mt-2 inline-flex items-center gap-1 px-3 py-1.5 text-meta font-medium"
           >
             <Icon name="plus" className="h-3.5 w-3.5" /> Add contact
           </button>
@@ -3508,7 +3508,7 @@ function TipsSection() {
           type="button"
           onClick={() => setWhatsNewOpen(true)}
           data-testid="settings-open-whats-new"
-          className="px-3 py-2 text-body border border-border text-foreground hover:bg-surface-sunken rounded-lg whitespace-nowrap"
+          className="ros-btn-neutral px-3 py-2 text-body whitespace-nowrap"
         >
           What&apos;s new
         </button>
@@ -3546,7 +3546,7 @@ function TipsSection() {
             window.location.assign("/demo");
           }}
           data-testid="settings-explore-demo"
-          className="px-3 py-2 text-body border border-border text-foreground hover:bg-surface-sunken rounded-lg whitespace-nowrap"
+          className="ros-btn-neutral px-3 py-2 text-body whitespace-nowrap"
         >
           Explore the demo
         </button>

@@ -1350,14 +1350,14 @@ export default function MethodsPage() {
                 }
               }}
               data-tour-target="methods-add-category"
-              className="px-3 py-1.5 text-body border border-border text-foreground rounded-lg hover:bg-surface-sunken"
+              className="ros-btn-neutral px-3 py-1.5 text-body"
             >
               + New Category
             </button>
             <button
               onClick={() => setBrowsingTemplates(true)}
               data-tour-target="methods-template-library-button"
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-body border border-border text-foreground rounded-lg hover:bg-surface-sunken"
+              className="ros-btn-neutral inline-flex items-center gap-1.5 px-3 py-1.5 text-body"
             >
               <TemplateLibraryIcon className="w-4 h-4" />
               Template library
@@ -1774,7 +1774,7 @@ function CreateCategoryModal({
             onClick={() => handleCreate(false)}
             disabled={!categoryName.trim()}
             data-tour-target="methods-category-create-empty"
-            className="px-4 py-2 text-body border border-border text-foreground hover:bg-surface-sunken rounded-lg disabled:opacity-50"
+            className="ros-btn-neutral px-4 py-2 text-body disabled:opacity-50"
           >
             Create Empty
           </button>

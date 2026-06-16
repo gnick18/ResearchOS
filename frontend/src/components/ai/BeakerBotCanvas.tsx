@@ -62,7 +62,7 @@ function DiscardConfirm({
             type="button"
             data-testid="beakerbot-canvas-discard-cancel"
             onClick={onCancel}
-            className="rounded-md border border-border px-3 py-1.5 text-meta font-medium text-foreground-muted transition-colors hover:bg-surface-sunken hover:text-foreground"
+            className="ros-btn-neutral px-3 py-1.5 text-meta font-medium text-foreground-muted"
           >
             Keep editing
           </button>
@@ -289,7 +289,7 @@ export default function BeakerBotCanvas() {
             type="button"
             data-testid="beakerbot-canvas-discard"
             onClick={() => setDiscardId(activeTab.id)}
-            className="flex items-center gap-1 rounded-md border border-border px-3 py-1.5 text-meta font-medium text-foreground-muted transition-colors hover:bg-surface-sunken hover:text-foreground"
+            className="ros-btn-neutral flex items-center gap-1 px-3 py-1.5 text-meta font-medium text-foreground-muted"
           >
             <Icon name="trash" className="h-3.5 w-3.5" title="Discard" />
             Discard

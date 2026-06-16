@@ -393,7 +393,7 @@ export default function MacroEditorSheet({
           <button
             type="button"
             onClick={onClose}
-            className="rounded-md border border-border px-3.5 py-2 text-body text-foreground-muted hover:bg-surface-sunken"
+            className="ros-btn-neutral px-3.5 py-2 text-body text-foreground-muted"
           >
             Cancel
           </button>

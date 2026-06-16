@@ -283,7 +283,7 @@ export function PdfFigurePicker({
               <button
                 type="button"
                 onClick={onClose}
-                className="mt-1 rounded-md border border-border px-3 py-1.5 text-[12px] font-medium text-foreground hover:bg-surface-sunken"
+                className="ros-btn-neutral mt-1 px-3 py-1.5 text-[12px] font-medium text-foreground"
               >
                 Close
               </button>
@@ -369,7 +369,7 @@ export function PdfFigurePicker({
             <button
               type="button"
               onClick={() => void confirmRegion(true)}
-              className="rounded-md border border-border px-3 py-1.5 text-[12px] font-medium text-foreground hover:bg-surface-sunken"
+              className="ros-btn-neutral px-3 py-1.5 text-[12px] font-medium text-foreground"
             >
               Use whole page
             </button>

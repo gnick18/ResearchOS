@@ -1670,7 +1670,7 @@ export default function SequencesPage() {
                   <button
                     type="button"
                     onClick={() => setAssembleOpen(true)}
-                    className="flex items-center gap-1 rounded-md border border-border px-2.5 py-1.5 text-meta font-medium text-foreground transition-colors hover:bg-surface-sunken"
+                    className="ros-btn-neutral flex items-center gap-1 px-2.5 py-1.5 text-meta font-medium"
                   >
                     <AssembleIcon className="h-3.5 w-3.5" />
                     Assemble
@@ -1682,7 +1682,7 @@ export default function SequencesPage() {
                   <button
                     type="button"
                     onClick={() => setCompareOpen(true)}
-                    className="flex items-center gap-1 rounded-md border border-border px-2.5 py-1.5 text-meta font-medium text-foreground transition-colors hover:bg-surface-sunken"
+                    className="ros-btn-neutral flex items-center gap-1 px-2.5 py-1.5 text-meta font-medium"
                   >
                     <AlignIcon className="h-3.5 w-3.5" />
                     Align
@@ -1699,7 +1699,7 @@ export default function SequencesPage() {
                       disabled={importing}
                       aria-haspopup="menu"
                       aria-expanded={importMenuOpen}
-                      className="flex items-center gap-1 rounded-md border border-border px-2.5 py-1.5 text-meta font-medium text-foreground transition-colors hover:bg-surface-sunken disabled:opacity-50"
+                      className="ros-btn-neutral flex items-center gap-1 px-2.5 py-1.5 text-meta font-medium disabled:opacity-50"
                     >
                       <ImportIcon className="h-3.5 w-3.5" />
                       {importing ? "Importing…" : "Import"}
@@ -1744,7 +1744,7 @@ export default function SequencesPage() {
                   <button
                     type="button"
                     onClick={() => setNcbiOpen(true)}
-                    className="flex items-center gap-1 rounded-md border border-border px-2.5 py-1.5 text-meta font-medium text-foreground transition-colors hover:bg-surface-sunken"
+                    className="ros-btn-neutral flex items-center gap-1 px-2.5 py-1.5 text-meta font-medium"
                   >
                     <NcbiCloudIcon className="h-3.5 w-3.5" />
                     Download from NCBI
@@ -2285,7 +2285,7 @@ export default function SequencesPage() {
               <button
                 type="button"
                 onClick={() => setPasteConfirm(null)}
-                className="rounded-md border border-border px-3 py-1.5 text-body font-medium text-foreground-muted hover:bg-surface-sunken"
+                className="ros-btn-neutral px-3 py-1.5 text-body font-medium text-foreground-muted"
               >
                 Cancel
               </button>

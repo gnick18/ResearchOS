@@ -355,7 +355,7 @@ export default function LabRoster() {
                   <button
                     type="button"
                     onClick={() => setReadmitUsername(row.username)}
-                    className="flex-shrink-0 px-2.5 py-1 rounded-md text-meta font-medium border border-border text-foreground hover:bg-surface-sunken"
+                    className="ros-btn-neutral flex-shrink-0 px-2.5 py-1 text-meta font-medium text-foreground"
                     data-testid={`lab-roster-readmit-${row.username}`}
                   >
                     Re-admit (reset key)
@@ -367,7 +367,7 @@ export default function LabRoster() {
                     onClick={() =>
                       setPendingAction({ kind: "archive", row })
                     }
-                    className="flex-shrink-0 px-2.5 py-1 rounded-md text-meta font-medium border border-border text-foreground hover:bg-surface-sunken"
+                    className="ros-btn-neutral flex-shrink-0 px-2.5 py-1 text-meta font-medium text-foreground"
                     data-testid={`lab-roster-archive-${row.username}`}
                   >
                     Archive
@@ -741,7 +741,7 @@ function ReadmitDialog({
                 type="button"
                 onClick={() => void runSearch()}
                 disabled={searching || query.trim().length < 2}
-                className="px-3 py-1.5 rounded-md text-meta font-medium border border-border text-foreground hover:bg-surface-sunken disabled:opacity-50"
+                className="ros-btn-neutral px-3 py-1.5 text-meta font-medium text-foreground disabled:opacity-50"
               >
                 {searching ? "Searching…" : "Search"}
               </button>

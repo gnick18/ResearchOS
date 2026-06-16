@@ -257,7 +257,7 @@ function PurchaseDocsRow({
               <button
                 type="button"
                 onClick={() => routing.onSend(sendTo || routing.contacts[0].email)}
-                className="inline-flex items-center gap-1 rounded-md border border-border px-2 py-0.5 text-meta font-medium text-foreground hover:bg-surface-sunken"
+                className="ros-btn-neutral inline-flex items-center gap-1 px-2 py-0.5 text-meta font-medium"
                 title="Draft an email to the department with this purchase's details"
               >
                 <Icon name="share" className="w-3.5 h-3.5" />

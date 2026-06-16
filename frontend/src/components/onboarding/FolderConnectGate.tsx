@@ -433,7 +433,7 @@ export default function FolderConnectGate({
                     onClick={handleConnect}
                     disabled={isLoading}
                     data-testid="gate-choose-folder"
-                    className="mt-3 inline-flex items-center justify-center gap-2 rounded-lg border border-border px-4 py-2 text-body font-medium text-foreground transition-colors hover:bg-surface-sunken hover:border-foreground-muted disabled:opacity-50"
+                    className="ros-btn-neutral mt-3 inline-flex items-center justify-center gap-2 px-4 py-2 text-body font-medium text-foreground disabled:opacity-50"
                   >
                     {isLoading ? (
                       <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-current" />

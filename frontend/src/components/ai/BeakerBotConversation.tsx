@@ -292,7 +292,7 @@ function ChoicePrompt({
           type="button"
           data-testid="beakerbot-choice-cancel"
           onClick={() => onResolve([], true)}
-          className="flex items-center gap-1 rounded-md border border-border px-3 py-1.5 text-meta font-medium text-foreground-muted transition-colors hover:bg-surface-sunken hover:text-foreground"
+          className="ros-btn-neutral flex items-center gap-1 px-3 py-1.5 text-meta font-medium text-foreground-muted"
         >
           <Icon name="close" className="h-3.5 w-3.5" title="Cancel" />
           Cancel
@@ -447,7 +447,7 @@ function TransformApprovalCard({
           type="button"
           data-testid="beakerbot-transform-reject"
           onClick={onReject}
-          className="flex items-center gap-1 rounded-md border border-border px-3 py-1.5 text-meta font-medium text-foreground-muted transition-colors hover:bg-surface-sunken hover:text-foreground"
+          className="ros-btn-neutral flex items-center gap-1 px-3 py-1.5 text-meta font-medium text-foreground-muted"
         >
           <Icon name="close" className="h-3.5 w-3.5" title="Reject" />
           Reject
@@ -570,7 +570,7 @@ function StepApprovalCard({
           type="button"
           data-testid="beakerbot-step-reject"
           onClick={onReject}
-          className="flex items-center gap-1 rounded-md border border-border px-3 py-1.5 text-meta font-medium text-foreground-muted transition-colors hover:bg-surface-sunken hover:text-foreground"
+          className="ros-btn-neutral flex items-center gap-1 px-3 py-1.5 text-meta font-medium text-foreground-muted"
         >
           <Icon name="close" className="h-3.5 w-3.5" title="Reject" />
           Reject
@@ -1715,7 +1715,7 @@ export default function BeakerBotConversation({
               type="button"
               data-testid="beakerbot-approval-cancel"
               onClick={() => resolveApproval("skip")}
-              className="flex items-center gap-1 rounded-md border border-border px-3 py-1.5 text-meta font-medium text-foreground-muted transition-colors hover:bg-surface-sunken hover:text-foreground"
+              className="ros-btn-neutral flex items-center gap-1 px-3 py-1.5 text-meta font-medium text-foreground-muted"
             >
               <Icon name="close" className="h-3.5 w-3.5" title="Cancel" />
               Cancel
@@ -1770,7 +1770,7 @@ export default function BeakerBotConversation({
               type="button"
               data-testid="beakerbot-approval-skip"
               onClick={() => resolveApproval("skip")}
-              className="flex items-center gap-1 rounded-md border border-border px-3 py-1.5 text-meta font-medium text-foreground-muted transition-colors hover:bg-surface-sunken hover:text-foreground"
+              className="ros-btn-neutral flex items-center gap-1 px-3 py-1.5 text-meta font-medium text-foreground-muted"
             >
               <Icon name="skip" className="h-3.5 w-3.5" title="Skip" />
               Skip
@@ -2027,7 +2027,7 @@ export default function BeakerBotConversation({
                   type="button"
                   data-testid="beakerbot-clear-images"
                   onClick={clearPendingImages}
-                  className="self-start rounded-md border border-border px-2 py-1 text-[11px] text-foreground-muted transition-colors hover:bg-surface-sunken hover:text-foreground"
+                  className="ros-btn-neutral self-start px-2 py-1 text-[11px] text-foreground-muted"
                 >
                   Clear all
                 </button>

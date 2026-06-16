@@ -143,7 +143,7 @@ function OccupiedView({
             <button
               type="button"
               onClick={() => onOpenItem(item)}
-              className="inline-flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-meta font-medium text-foreground hover:bg-surface-sunken"
+              className="ros-btn-neutral inline-flex items-center gap-1.5 px-3 py-1.5 text-meta font-medium text-foreground"
             >
               <Icon name="eye" className="h-3.5 w-3.5" />
               Open item
@@ -152,7 +152,7 @@ function OccupiedView({
           <button
             type="button"
             onClick={() => setMoving(true)}
-            className="inline-flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-meta font-medium text-foreground hover:bg-surface-sunken"
+            className="ros-btn-neutral inline-flex items-center gap-1.5 px-3 py-1.5 text-meta font-medium text-foreground"
           >
             <Icon name="move" className="h-3.5 w-3.5" />
             Move

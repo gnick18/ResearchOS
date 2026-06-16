@@ -574,7 +574,7 @@ function SuppliesPageInner() {
                   <button
                     type="button"
                     onClick={() => setFundingOpen(true)}
-                    className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-surface-raised px-3 py-1.5 text-meta font-medium text-foreground hover:bg-surface-sunken"
+                    className="ros-btn-neutral inline-flex items-center gap-1.5 px-3 py-1.5 text-meta font-medium"
                     data-testid="supplies-manage-funding"
                   >
                     <Icon name="folder" className="h-3.5 w-3.5" />
@@ -585,7 +585,7 @@ function SuppliesPageInner() {
                   <button
                     type="button"
                     onClick={() => setSpendingOpen(true)}
-                    className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-surface-raised px-3 py-1.5 text-meta font-medium text-foreground hover:bg-surface-sunken"
+                    className="ros-btn-neutral inline-flex items-center gap-1.5 px-3 py-1.5 text-meta font-medium"
                     data-testid="supplies-view-spending"
                   >
                     <Icon name="eye" className="h-3.5 w-3.5" />
@@ -749,7 +749,7 @@ function SuppliesPageInner() {
                           type="button"
                           onClick={() => addToCart(s)}
                           aria-label={`Reorder ${s.identity.name}`}
-                          className="absolute right-4 top-1/2 -translate-y-1/2 inline-flex items-center gap-1 rounded-lg border border-border bg-surface-raised px-2 py-1 text-meta font-medium text-foreground hover:bg-surface-sunken"
+                          className="ros-btn-neutral absolute right-4 top-1/2 -translate-y-1/2 inline-flex items-center gap-1 px-2 py-1 text-meta font-medium"
                         >
                           <Icon name="refresh" className="h-3.5 w-3.5" />
                           Reorder

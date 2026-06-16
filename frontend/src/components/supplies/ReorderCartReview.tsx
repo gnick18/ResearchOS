@@ -223,7 +223,7 @@ export default function ReorderCartReview({ onClose }: { onClose: () => void }) 
             type="button"
             onClick={onClose}
             disabled={submitting}
-            className="rounded-lg border border-border px-4 py-2 text-body text-foreground hover:bg-surface-sunken disabled:opacity-50"
+            className="ros-btn-neutral px-4 py-2 text-body text-foreground disabled:opacity-50"
           >
             Cancel
           </button>

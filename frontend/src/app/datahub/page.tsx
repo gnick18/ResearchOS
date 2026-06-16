@@ -2352,7 +2352,7 @@ export default function DataHubPage() {
                 <button
                   type="button"
                   onClick={() => setImportOpen(true)}
-                  className="rounded-md border border-border px-4 py-2 text-body font-medium text-foreground transition-colors hover:bg-surface-sunken"
+                  className="ros-btn-neutral px-4 py-2 text-body font-medium"
                 >
                   Import data
                 </button>
@@ -2398,7 +2398,7 @@ export default function DataHubPage() {
                   <button
                     type="button"
                     onClick={handleCopyReference}
-                    className="flex items-center gap-1 rounded-md border border-border px-2 py-1 text-meta font-medium text-foreground-muted transition-colors hover:bg-surface-sunken"
+                    className="ros-btn-neutral flex items-center gap-1 px-2 py-1 text-meta font-medium text-foreground-muted"
                     data-testid="datahub-copy-reference"
                   >
                     <Icon name="copy" className="h-3.5 w-3.5" />
@@ -2538,7 +2538,7 @@ export default function DataHubPage() {
                     <button
                       type="button"
                       onClick={() => setConfirmDeleteTableId(selectedMeta.id)}
-                      className="rounded-md border border-border px-3 py-1.5 text-body font-medium text-foreground transition-colors hover:bg-surface-sunken"
+                      className="ros-btn-neutral px-3 py-1.5 text-body font-medium"
                       data-testid="datahub-derived-delete"
                     >
                       Delete this derived table

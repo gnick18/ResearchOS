@@ -2115,7 +2115,7 @@ function RotationArea({
                   onClick={() => advanceMutation.mutate(track.id)}
                   disabled={advanceMutation.isPending}
                   data-testid={`rotation-advance-${track.id}`}
-                  className="ml-auto flex items-center gap-1.5 rounded-lg border border-border px-2.5 py-1 text-meta font-medium text-foreground transition-colors hover:bg-surface-sunken disabled:opacity-40"
+                  className="ros-btn-neutral ml-auto flex items-center gap-1.5 px-2.5 py-1 text-meta font-medium text-foreground disabled:opacity-40"
                 >
                   <Icon name="chevronRight" className="h-3.5 w-3.5" />
                   Advance
