@@ -5,6 +5,7 @@ import Link from "next/link";
 
 import Wordmark from "@/components/Wordmark";
 import { Icon } from "@/components/icons";
+import { SOCIAL_LAYER_ENABLED } from "@/lib/social/config";
 
 /**
  * Sticky top nav for the public marketing pages (pricing, transparency,
@@ -25,6 +26,8 @@ const NAV_LINKS: { label: string; href: string }[] = [
   { label: "Product", href: "/" },
   { label: "BeakerBot", href: "/ai" },
   { label: "Library", href: "/library" },
+  // Social layer (Phase A), behind NEXT_PUBLIC_SOCIAL_LAYER so flag-off is unchanged.
+  ...(SOCIAL_LAYER_ENABLED ? [{ label: "Network", href: "/network" }] : []),
   { label: "Pricing", href: "/pricing" },
   { label: "Transparency", href: "/transparency" },
   { label: "Docs", href: "/wiki" },
