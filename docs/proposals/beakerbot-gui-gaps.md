@@ -44,7 +44,7 @@ record-set widget, Canvas, memory, @/commands), not a chat line.
 
 - **Composite "set up X" tools.** [SHIPPED] `setup_experiment` creates the experiment, attaches methods, FS-links prep tasks, drops a results scaffold, in one consented call. 2026-06-13. More composite tools can follow the pattern.
 - **Reusable named workflows (macros).** [SHIPPED] Saved `/command` sequences, store + runner + slash-invoke + editor + rail manager. Merged `ba2ad9364`. (Doc previously said OPEN.)
-- **Live progress in the plan card, resume from a failed step.** [SHIPPED, flag] Live-ticking, resume-from-stopped-step, loop-driven per step. Merged `51b9728b9` behind `NEXT_PUBLIC_BEAKERBOT_PLAN_STEPS`. 4 upstream polish follow-ups before the prod flag-on. (Doc previously said PARTIAL.)
+- **Live progress in the plan card, resume from a failed step.** [SHIPPED, flag] Live-ticking, resume-from-stopped-step, loop-driven per step. Merged `51b9728b9` behind `NEXT_PUBLIC_BEAKERBOT_PLAN_STEPS`. Its 4 upstream follow-ups are ALL DONE on main; it only awaits Grant's prod flag flip. (Doc previously said PARTIAL, then "4 follow-ups before flag-on".)
 - **Cross-object atomic actions.** [PARTIAL] `create_experiment_chain`, `link_tasks`, `setup_experiment` exist; a fully general cross-type composite is still open.
 - **Full CRUD + content-edit on every object.** [SHIPPED, not in the original list] create / read / update / content-edit / delete for all 7 core object types, gated + own-only + no-interpretation. 2026-06-14.
 
