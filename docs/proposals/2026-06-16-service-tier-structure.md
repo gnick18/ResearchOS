@@ -23,7 +23,7 @@ Institution is punted for beta (the Commons does not scale to a whole institutio
 The cheap RECEIVE/PRESENCE side that makes paid worth buying. Free users are the audience that gives the paid send/collaborate features their value.
 
 - Unlimited **local notebook** (the product, forever, on your disk).
-- **Shared-folder async collaboration** (their own / institution cloud, costs us nothing, the free-lab path).
+- **Shared-folder workspaces** (work out of a folder synced on their own / institution cloud, costs us nothing, the free-lab path). This is async file sync, NOT live collab. The word "collab" / "collaboration" is reserved for the paid live relay feature, so free-tier copy never uses it.
 - **Network profile + directory presence** (discoverable, opt-out).
 - **Receive cross-boundary shares** (snapshot lands local; the SENDER bears the relay cost).
 - **In-app receipt notifications** (not phone push).
@@ -44,7 +44,7 @@ Recommend a single paid solo tier (Grant leaned "Free / Plus, one paid cloud tie
 
 ### Lab (per active seat) — optional QoL on top of free individuals
 
-A low-resource lab is already free (everyone makes free individual accounts and collaborates through a shared folder). Lab mode is optional paid quality-of-life: 30-day trial, then per-seat.
+A low-resource lab is already free (everyone makes free individual accounts and works out of a shared folder). Lab mode is optional paid quality-of-life: 30-day trial, then per-seat.
 
 - Per member: all Solo services.
 - Plus lab-level: central management dashboard, shared lab library, pooled AI/relay budgets, member management, lab-wide relay collab.

@@ -1192,8 +1192,9 @@ export function FinalizeTab() {
         <Panel title="Free tier = the network audience (no cloud produce feature)">
           <div className="rounded-xl border border-sky-200 bg-sky-50 p-4 text-meta leading-relaxed text-foreground">
             Free gets the consume + be-present side, all cheap and
-            network-building: unlimited <b>local notebook</b>, shared-folder async
-            collaboration (their own cloud), <b>directory presence</b>,{" "}
+            network-building: unlimited <b>local notebook</b>,{" "}
+            <b>shared-folder workspaces</b> (a folder synced on their own cloud,
+            not live collab), <b>directory presence</b>,{" "}
             <b>receive</b> cross-boundary shares (the sender bears the relay cost),
             in-app receipt notes, accept invites, and all public library/wiki/demo.
             No send, no live relay collab, no phone capture, no push. So a free

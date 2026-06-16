@@ -23,7 +23,7 @@ Free users get the cheap RECEIVE / PRESENCE side that makes PAID worth buying. N
 
 **FREE gets:**
 - Unlimited **local notebook** (forever; the product, not the cloud pool).
-- **Shared-folder collaboration** (async, on their own / institution's cloud — the free-lab path, costs us nothing, NOT the paid relay kind).
+- **Shared-folder workspaces** (async file sync on their own / institution's cloud — the free-lab path, costs us nothing, NOT live collab). Note: "collab" / "collaboration" / "co-edit" is reserved for the paid live relay feature; free-tier copy never calls this "collaboration."
 - **Network profile + directory presence** (discoverable, opt-out) so paid users can find them.
 - **Receive cross-boundary shares** — snapshot lands in their local notebook; the **SENDER bears the relay cost**, so receiving is nearly free to us.
 - **In-app "you received X" receipt notifications** (NOT phone push — push stays paid).
@@ -32,7 +32,7 @@ Free users get the cheap RECEIVE / PRESENCE side that makes PAID worth buying. N
 
 **PAID = produce + lead:** SEND cross-boundary, real-time RELAY collab (live co-edit), phone capture, push, backup, governance.
 
-**Key reconciliation (do not trip the locked lab decision):** "free can't collaborate" means **no real-time RELAY collab** only. **Shared-folder async collaboration stays FREE** — that preserves the earlier locked "free for low-resource labs" decision (a low-resource lab = free individual accounts collaborating through a shared folder on their own institutional cloud).
+**Key reconciliation (do not trip the locked lab decision):** "free has no collab" means **no real-time RELAY collab** (live co-editing). **Shared-folder workspaces stay FREE** — that preserves the earlier locked "free for low-resource labs" decision (a low-resource lab = free individual accounts working out of a shared folder on their own institutional cloud). Terminology rule: "collab" / "collaboration" / "co-edit" refers ONLY to the paid live relay feature, never to the free shared-folder workspace.
 
 The one line that stays sustainable AND is a flywheel: **free = consume + be present** (receive, be findable, async-collab via shared folder); **paid = produce + lead** (send, live co-edit, phone, push, backup, governance). The thing we would NOT give free is **sending anything through our relay** — that is both the produce side and the cost side.
 
