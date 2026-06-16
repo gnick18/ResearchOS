@@ -286,6 +286,14 @@ export interface PlotStyle {
    * the figure already computes.
    */
   showValueLabels?: boolean;
+  /**
+   * Where the legend sits relative to the plot area (grouped bar). "overlay" (the
+   * default, and what absent reads as) keeps the legend top-right INSIDE the data
+   * band, byte-identical to before this field existed. "right" reserves a gutter
+   * so the bars stop short and the legend sits clear of them. This is the lever the
+   * collision advisor's relocate-legend fix applies. Read only by the grouped bar.
+   */
+  legendPlacement?: "overlay" | "right";
 }
 
 /** The unit a figure's width / height is typed in (and stored as). */
@@ -625,6 +633,9 @@ export function readPlotStyle(spec: PlotSpec): PlotStyle {
       ? (s.yTickStep as number)
       : undefined,
     showValueLabels: s.showValueLabels === true ? true : undefined,
+    // Legend placement (grouped bar). Absent / unknown reads as overlay, so an old
+    // grouped figure is byte-identical.
+    legendPlacement: s.legendPlacement === "right" ? "right" : undefined,
   };
 }
 
@@ -2184,13 +2195,25 @@ export function layoutGroupedBar(
   style: PlotStyle,
 ): GroupedBarGeometry {
   const { width, height, padL, padR, padT, padB } = figureBox(style);
-  const x0 = padL;
-  const x1 = width - padR;
-  const y0 = height - padB;
-  const y1 = padT;
-
   const levels = rowFactorLevels(content);
   const groups = groupDatasets(content);
+
+  // A "right"-placed legend reserves a gutter so the bars stop short and the
+  // legend sits clear of them (the collision advisor's relocate-legend fix). The
+  // default "overlay" reserves nothing, so x1 is unchanged and an old figure is
+  // byte-identical.
+  const placement = style.legendPlacement ?? "overlay";
+  const legendGutter =
+    placement === "right" && groups.length > 0
+      ? groupedLegendWidth(
+          groups.map((g) => g.name),
+          Math.max(8, style.fontSize - 2),
+        ) + GROUPED_LEGEND.gutterPad
+      : 0;
+  const x0 = padL;
+  const x1 = width - padR - legendGutter;
+  const y0 = height - padB;
+  const y1 = padT;
 
   // Resolve every cell mean + error once.
   const stat = (level: string, datasetId: string) =>
@@ -2346,12 +2369,37 @@ export function layoutGroupedBar(
  * collision the advisor flags.
  */
 export const GROUPED_LEGEND = {
-  swatchInsetFromX1: 92, // swatch left x = geo.x1 - 92
-  textInsetFromX1: 79, // series-name left x = geo.x1 - 79
+  swatchInsetFromX1: 92, // overlay swatch left x = geo.x1 - 92
+  textInsetFromX1: 79, // overlay series-name left x = geo.x1 - 79
   rowH: 13,
   topPad: 4, // first row top y = geo.y1 + 4
   swatch: 9,
+  gutterPad: 10, // gap between the plot area and a "right"-placed legend
 } as const;
+
+/** The block width a legend needs (swatch + gap + widest series name), matching
+ *  the overlay box width (swatchInset - textInset = 13, plus the widest name).
+ *  Shared by layoutGroupedBar (to reserve the right gutter), the serializer, and
+ *  the collision manifest. */
+export function groupedLegendWidth(names: string[], tickFont: number): number {
+  const maxNameW = names.reduce(
+    (m, n) => Math.max(m, estimateLabelWidth(n, tickFont)),
+    0,
+  );
+  return GROUPED_LEGEND.swatchInsetFromX1 - GROUPED_LEGEND.textInsetFromX1 + maxNameW;
+}
+
+/** The legend swatch left-x for a placement. "overlay" draws inside the plot top-
+ *  right; "right" draws in the reserved gutter just past the (shrunk) plot edge.
+ *  One formula so the ink, the manifest, and the reserved gutter never drift. */
+export function groupedLegendSwatchX(
+  x1: number,
+  placement: "overlay" | "right",
+): number {
+  return placement === "right"
+    ? x1 + GROUPED_LEGEND.gutterPad
+    : x1 - GROUPED_LEGEND.swatchInsetFromX1;
+}
 
 /** Serialize a grouped bar figure into a standalone SVG string. */
 export function renderGroupedBarSvg(
@@ -2419,15 +2467,22 @@ export function renderGroupedBarSvg(
     );
   }
 
-  // Legend (top-right inside the plot area). The swatch carries data-series so a
-  // direct edit on the plot can recolor a whole group from its legend entry. The
-  // layout literals live in GROUPED_LEGEND so the collision advisor's manifest can
-  // measure the EXACT box this draws (one source of truth, no drift).
+  // Legend. "overlay" (default) draws it top-right INSIDE the plot area; "right"
+  // draws it in the reserved gutter just past the (shrunk) plot edge, clear of the
+  // bars. The swatch carries data-series so a direct edit on the plot can recolor a
+  // whole group from its legend entry. The x lives in groupedLegendSwatchX so the
+  // collision advisor's manifest measures the EXACT box this draws (no drift).
+  const legendSwatchX = groupedLegendSwatchX(
+    geo.x1,
+    style.legendPlacement ?? "overlay",
+  );
+  const legendTextX =
+    legendSwatchX + (GROUPED_LEGEND.swatchInsetFromX1 - GROUPED_LEGEND.textInsetFromX1);
   let ly = geo.y1 + GROUPED_LEGEND.topPad;
   geo.legend.forEach((item, i) => {
     parts.push(
-      `<rect data-series="${i}" x="${geo.x1 - GROUPED_LEGEND.swatchInsetFromX1}" y="${ly}" width="${GROUPED_LEGEND.swatch}" height="${GROUPED_LEGEND.swatch}" fill="${item.color}" opacity="0.85"/>` +
-        `<text x="${geo.x1 - GROUPED_LEGEND.textInsetFromX1}" y="${ly + 8}" font-size="${tickFont}" fill="${LABEL_TEXT}">${esc(item.name)}</text>`,
+      `<rect data-series="${i}" x="${legendSwatchX}" y="${ly}" width="${GROUPED_LEGEND.swatch}" height="${GROUPED_LEGEND.swatch}" fill="${item.color}" opacity="0.85"/>` +
+        `<text x="${legendTextX}" y="${ly + 8}" font-size="${tickFont}" fill="${LABEL_TEXT}">${esc(item.name)}</text>`,
     );
     ly += GROUPED_LEGEND.rowH;
   });

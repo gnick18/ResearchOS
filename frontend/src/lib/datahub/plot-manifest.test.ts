@@ -94,4 +94,17 @@ describe("detectCollisions on a Data Hub grouped bar", () => {
       detectCollisions(m).some((c) => c.kind === "legend-over-content"),
     ).toBe(false);
   });
+
+  it("legendPlacement 'right' moves the legend into the gutter, clearing the bars", () => {
+    const g = geo({ tallTopRightBar: true });
+    const right = { ...style, legendPlacement: "right" as const };
+    const m = plotLayoutManifest(g, right);
+    const legend = m.boxes.find((b) => b.kind === "legend")!;
+    // The legend box now sits past the plot edge (to the right of every bar), so
+    // the relocate-legend fix resolves the collision the overlay had.
+    expect(legend.x).toBe(g.x1 + GROUPED_LEGEND.gutterPad);
+    expect(
+      detectCollisions(m).some((c) => c.kind === "legend-over-content"),
+    ).toBe(false);
+  });
 });
