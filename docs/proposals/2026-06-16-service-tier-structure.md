@@ -75,6 +75,15 @@ The only real free-user cost is the **one-time $0.25 AI sign-up grant**, which i
 
 This makes the free base a fixed one-time acquisition cost plus a flat infra floor, not a per-user recurring drain. The model keeps a free-relay dial (default 0) only to stress-test "what if free users turn out chattier than expected" (which is the only thing that would make recurring break-even nonzero).
 
+## Fixed business costs (Grant 2026-06-16)
+
+The monthly net now charges the real fixed LLC overhead, not a flat placeholder. It is the sum of:
+
+- **Infra floor, sourced from the operator console** (`capacity-shared.ts`): Cloudflare Workers $5 + Vercel Pro $20 = $25/mo, plus the recurring annual fees (Apple Developer $99, WI LLC report $25, domain $9.99) amortized to ~$11/mo. About **$36/mo**, imported so it never drifts from what the console tracks.
+- **Operating overhead** (editable in the dashboard, seeded realistic): dev tooling (Claude Max ~$100), accounting/legal/filing (~$40), misc software + monitoring (~$20). About **$160/mo**.
+
+So the seeded total fixed is **~$196/mo** (versus the old $28 placeholder), charged every month regardless of user count. It dominates the P&L at small scale (a 1k-user, 5%-conversion month nets ~$56 after it) and washes out at scale. Yearly items are amortized to a monthly run-rate. The dashboard's composition panel shows it as "Fixed business costs," and the break-even card notes that with free users costing ~$0/mo, recurring break-even is just covering this fixed total.
+
 ## The model + dashboard
 
 - Pure math: `frontend/src/lib/pricing/service-model.ts` (tested, `__tests__/service-model.test.ts`, 22 cases). Reuses the Stripe cadence helpers from `modeling.ts`, the cost constants from `assumptions.ts`, and the LOCKED AI rates from `billing/ai-config.ts`. AI margin is folded in on the paid side (1.4x individual/lab, 2x dept over our real $0.153/1M cost), and the one-time sign-up grant (~$0.25) is the free-side acquisition cost.

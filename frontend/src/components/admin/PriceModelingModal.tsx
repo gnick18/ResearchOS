@@ -53,6 +53,9 @@ import {
   AI_ORG_RETAIL_PER_M,
   AI_REAL_COST_PER_M,
   AI_SIGNUP_GRANT_USD,
+  INFRA_FIXED_MONTHLY,
+  DEFAULT_OPERATING_COSTS,
+  monthlyOf,
   avgFreeUserCostPathA,
   breakEvenConversion,
   freeUsersPerPayer,
@@ -60,6 +63,7 @@ import {
   serviceMargin,
   storageRetailPerGB,
   type AdoptionMix,
+  type FixedCostItem,
   type ServiceTiers,
 } from "@/lib/pricing/service-model";
 
@@ -1061,6 +1065,7 @@ export function FinalizeTab() {
   const [freeRelayM, setFreeRelayM] = useState(0);
   const [aiTokensM, setAiTokensM] = useState(3);
   const [aiAdoption, setAiAdoption] = useState(0.3);
+  const [opCosts, setOpCosts] = useState<FixedCostItem[]>(DEFAULT_OPERATING_COSTS);
   const [conversion, setConversion] = useState(0.05);
   const [soloShare, setSoloShare] = useState(0.4);
   const [labShare, setLabShare] = useState(0.4);
@@ -1102,8 +1107,15 @@ export function FinalizeTab() {
   const breakEven = breakEvenConversion(tiers, mix);
   const perPayer = freeUsersPerPayer(tiers, mix);
   const storagePerGB = storageRetailPerGB();
-  const project = (users: number) => projectAtScale(users, tiers, mix);
+  const opMonthly = monthlyOf(opCosts);
+  const fixedMonthly = INFRA_FIXED_MONTHLY + opMonthly;
+  const project = (users: number) =>
+    projectAtScale(users, tiers, mix, fixedMonthly);
   const deptLabMonthly = membersPerLab * dept.price + govFee;
+
+  function updateOp(i: number, patch: Partial<FixedCostItem>) {
+    setOpCosts((cs) => cs.map((c, j) => (j === i ? { ...c, ...patch } : c)));
+  }
 
   const activeMix =
     MIX_PRESETS.find(
@@ -1116,7 +1128,8 @@ export function FinalizeTab() {
   const posTotal = comp.sub + comp.ai + comp.gov || 1;
   const scenarioNets = CONVERSION_PRESETS.map((s) => ({
     ...s,
-    net: projectAtScale(SCALE, tiers, { ...mix, conversion: s.v }).net,
+    net: projectAtScale(SCALE, tiers, { ...mix, conversion: s.v }, fixedMonthly)
+      .net,
   }));
   const scenarioMax = Math.max(1, ...scenarioNets.map((s) => Math.abs(s.net)));
 
@@ -1177,7 +1190,7 @@ export function FinalizeTab() {
       window.removeEventListener("resize", drawProjection);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [rows, freeRelayM, aiTokensM, aiAdoption, conversion, soloShare, labShare, deptShare, membersPerLab]);
+  }, [rows, freeRelayM, aiTokensM, aiAdoption, opCosts, conversion, soloShare, labShare, deptShare, membersPerLab]);
 
   const inputCls =
     "w-16 rounded border border-border bg-surface-sunken px-1.5 py-1 text-meta tabular-nums";
@@ -1332,6 +1345,49 @@ export function FinalizeTab() {
             </div>
           </Panel>
 
+          <Panel title="Fixed business costs (charged every month, any scale)">
+            <div className="space-y-1.5 text-meta tabular-nums">
+              <div className="flex items-center justify-between border-b border-dashed border-border py-1">
+                <span className="text-foreground-muted">
+                  Platform + amortized annual fees (sourced)
+                </span>
+                <span className="font-medium">{fmt(INFRA_FIXED_MONTHLY)}/mo</span>
+              </div>
+              {opCosts.map((c, i) => (
+                <div key={c.label} className="flex items-center gap-2 py-0.5">
+                  <span className="flex-1 text-foreground-muted">{c.label}</span>
+                  <input
+                    type="number"
+                    step={5}
+                    value={c.amount}
+                    onChange={(e) => updateOp(i, { amount: +e.target.value })}
+                    className={inputCls}
+                  />
+                  <Seg
+                    options={[
+                      { id: "monthly", label: "/mo" },
+                      { id: "yearly", label: "/yr" },
+                    ]}
+                    value={c.cadence}
+                    onChange={(v) =>
+                      updateOp(i, { cadence: v as FixedCostItem["cadence"] })
+                    }
+                  />
+                </div>
+              ))}
+              <div className="flex items-center justify-between border-t border-border pt-1.5 font-semibold">
+                <span>Total fixed</span>
+                <span>{fmt(fixedMonthly)}/mo</span>
+              </div>
+            </div>
+            <p className="mt-2 text-meta text-foreground-muted">
+              Infra floor (Workers + Vercel + Apple/LLC/domain, amortized) is
+              sourced from the operator console. Operating overhead is editable.
+              The whole total is charged to the monthly net regardless of user
+              count, so it dominates at small scale.
+            </p>
+          </Panel>
+
           <Panel title="Scenario">
             <Lbl>Paid conversion</Lbl>
             <Seg
@@ -1414,7 +1470,7 @@ export function FinalizeTab() {
               <p className="mt-1 text-meta text-foreground-muted">
                 {Number.isFinite(perPayer)
                   ? `One paying user carries ~${Math.round(perPayer)} free users. You are at ${(conversion * 100).toFixed(1)}%.`
-                  : `Free users cost ~$0/mo, so a paying user carries unlimited free users. Break-even is just the fixed infra floor. You are at ${(conversion * 100).toFixed(1)}%.`}
+                  : `Free users cost ~$0/mo, so a paying user carries unlimited free users. Recurring break-even is just the fixed business costs. You are at ${(conversion * 100).toFixed(1)}%.`}
               </p>
             </div>
           </Panel>
@@ -1487,7 +1543,7 @@ export function FinalizeTab() {
               <Kv k="AI margin" v={`${fmt0(comp.ai)} (${Math.round((comp.ai / posTotal) * 100)}%)`} />
               <Kv k="Governance fees" v={`${fmt0(comp.gov)} (${Math.round((comp.gov / posTotal) * 100)}%)`} />
               <Kv k="Free relay (recurring)" v={`-${fmt0(comp.freeCost)}`} tone="bad" />
-              <Kv k="Fixed infra floor" v={`-${fmt0(comp.fixed)}`} tone="bad" />
+              <Kv k="Fixed business costs" v={`-${fmt0(comp.fixed)}`} tone="bad" />
               <Kv k="Net per month" v={fmt0(comp.net)} bold tone={comp.net < 0 ? "bad" : "good"} />
             </div>
             <div className="mt-3 rounded-lg border border-amber-200 bg-amber-50 p-2.5 text-meta text-foreground">

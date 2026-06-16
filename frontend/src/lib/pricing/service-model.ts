@@ -31,17 +31,64 @@ import {
   BUFFER,
   STRIPE_PCT,
 } from "./assumptions";
-import {
-  stripeMonthlyAmortized,
-  FIXED_BASE_MONTHLY,
-  type BillingCadence,
-} from "./modeling";
+import { stripeMonthlyAmortized, type BillingCadence } from "./modeling";
 import {
   AI_TOKEN_PRICE_USD,
   AI_ORG_TOKEN_PRICE_USD,
   AI_MEASURED_BARE_COST_USD_PER_TOKEN,
   STARTER_GRANT_TOKENS,
 } from "../billing/ai-config";
+import {
+  FIXED_MONTHLY_BASE_CENTS,
+  AMORTIZED_ANNUAL_CENTS,
+} from "../sharing/capacity-shared";
+
+// ── Fixed business costs (Grant 2026-06-16, bake the real LLC overhead in) ──
+// The old model used a flat $28 placeholder. The operator console already tracks
+// the real fixed costs in capacity-shared.ts, so we source them here rather than
+// re-type them: the platform base (Cloudflare Workers $5 + Vercel Pro $20 =
+// $25/mo) plus the recurring ANNUAL fees (Apple $99, WI LLC report $25, domain
+// $9.99) amortized to ~$11/mo. On top of that the LLC pays operating overhead
+// (dev tooling, accounting, software) that the per-user COGS never captures, so
+// the dashboard seeds an editable list and the projection charges the total
+// every month regardless of scale.
+
+/** Real tracked infra floor, dollars per month, sourced from the operator
+ *  console (capacity-shared.ts). Platform base + amortized annual fees. */
+export const INFRA_FIXED_MONTHLY =
+  (FIXED_MONTHLY_BASE_CENTS + AMORTIZED_ANNUAL_CENTS) / 100;
+
+export interface FixedCostItem {
+  label: string;
+  /** Dollars per period. */
+  amount: number;
+  cadence: "monthly" | "yearly";
+}
+
+/** Operating overhead the LLC pays to run, ON TOP of the infra floor and
+ *  distinct from per-user COGS. Editable estimates the operator tunes; sized to
+ *  be realistic rather than zero. */
+export const DEFAULT_OPERATING_COSTS: FixedCostItem[] = [
+  { label: "Claude Max (dev tooling)", amount: 100, cadence: "monthly" },
+  { label: "Accounting / legal / filing", amount: 40, cadence: "monthly" },
+  { label: "Misc software + monitoring", amount: 20, cadence: "monthly" },
+];
+
+/** Monthly-equivalent total of a fixed-cost list (yearly items divided by 12). */
+export function monthlyOf(items: FixedCostItem[]): number {
+  return items.reduce(
+    (sum, it) => sum + (it.cadence === "yearly" ? it.amount / 12 : it.amount),
+    0,
+  );
+}
+
+/** Total fixed business cost per month = sourced infra floor + operating
+ *  overhead. This is the flat monthly the company pays at any scale. */
+export function totalFixedMonthly(
+  operating: FixedCostItem[] = DEFAULT_OPERATING_COSTS,
+): number {
+  return INFRA_FIXED_MONTHLY + monthlyOf(operating);
+}
 
 // ── AI billing, LOCKED rates (ai-config.ts, Grant 2026-06-14) ───────────────
 // AI is a metered token product bought in prepaid packs, separate from the
@@ -286,11 +333,14 @@ export interface ScalePoint {
 
 /** Profit vs expense at a given total user count, broken into revenue sources.
  *  The free base costs ~$0/mo recurring; acquiring it is a one-time cost tracked
- *  in freeAcqOneTime and deliberately kept out of the monthly net. */
+ *  in freeAcqOneTime and deliberately kept out of the monthly net. fixedMonthly
+ *  is the flat business cost (infra floor + operating overhead) charged every
+ *  month regardless of scale; defaults to the sourced + seeded total. */
 export function projectAtScale(
   users: number,
   tiers: ServiceTiers,
   mix: AdoptionMix,
+  fixedMonthly: number = totalFixedMonthly(),
 ): ScalePoint {
   const free = users * (1 - mix.conversion);
   const paid = users * mix.conversion;
@@ -299,7 +349,7 @@ export function projectAtScale(
   const gov = paid * blendedGovPerPaid(tiers, mix);
   const revenue = sub + ai + gov;
   const freeCost = free * relayCost(mix.freeRelayWritesM);
-  const fixed = FIXED_BASE_MONTHLY;
+  const fixed = fixedMonthly;
   const expense = freeCost + fixed;
   return {
     users,

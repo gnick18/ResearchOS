@@ -28,7 +28,8 @@ describe("FinalizeTab (Path-A service dashboard)", () => {
     has(/None of that writes to us/i);
     has(/Acquiring this free base/i); // one-time acquisition line
     has(/Free relay \(recurring\)/i); // recurring cost line
-    has(/Fixed infra floor/i); // recurring cost line
+    has(/Fixed business costs/i); // recurring cost line
+    has(/Fixed business costs \(charged every month/i); // the editable panel
     cleanup();
   });
 

@@ -1,8 +1,14 @@
 import { describe, expect, it } from "vitest";
 
 import { ACTIVITY_PER_M_WRITES, BLENDED_PER_GB_MO, BUFFER } from "../assumptions";
-import { stripeMonthlyAmortized, FIXED_BASE_MONTHLY } from "../modeling";
+import { stripeMonthlyAmortized } from "../modeling";
+import { FIXED_MONTHLY_BASE_CENTS, AMORTIZED_ANNUAL_CENTS } from "../../sharing/capacity-shared";
 import {
+  INFRA_FIXED_MONTHLY,
+  DEFAULT_OPERATING_COSTS,
+  monthlyOf,
+  totalFixedMonthly,
+  type FixedCostItem,
   STORAGE_MARKUP,
   storageRetailPerGB,
   relayCost,
@@ -53,6 +59,34 @@ describe("storage is near-cost pass-through", () => {
   it("markup is a thin 1.1-1.2x band, never a profit center", () => {
     expect(STORAGE_MARKUP).toBeGreaterThanOrEqual(1.1);
     expect(STORAGE_MARKUP).toBeLessThanOrEqual(1.2);
+  });
+});
+
+describe("fixed business costs", () => {
+  it("infra floor is the sourced platform base + amortized annual fees", () => {
+    expect(INFRA_FIXED_MONTHLY).toBeCloseTo(
+      (FIXED_MONTHLY_BASE_CENTS + AMORTIZED_ANNUAL_CENTS) / 100,
+      9,
+    );
+    // Workers $5 + Vercel $20 + ~$11 annual ~= $36/mo.
+    expect(INFRA_FIXED_MONTHLY).toBeGreaterThan(30);
+  });
+
+  it("monthlyOf amortizes yearly items and sums monthly ones", () => {
+    const items: FixedCostItem[] = [
+      { label: "a", amount: 10, cadence: "monthly" },
+      { label: "b", amount: 120, cadence: "yearly" },
+    ];
+    expect(monthlyOf(items)).toBeCloseTo(10 + 120 / 12, 9);
+  });
+
+  it("total fixed monthly is the floor plus operating overhead", () => {
+    expect(totalFixedMonthly()).toBeCloseTo(
+      INFRA_FIXED_MONTHLY + monthlyOf(DEFAULT_OPERATING_COSTS),
+      9,
+    );
+    // The seeded total is real money, well above the old $28 placeholder.
+    expect(totalFixedMonthly()).toBeGreaterThan(150);
   });
 });
 
@@ -158,12 +192,20 @@ describe("projectAtScale", () => {
     expect(p.revenue).toBeCloseTo(10000 * 0.05 * blendedPaidNet(TIERS, MIX), 6);
   });
 
-  it("recurring expense is just free relay plus the fixed floor (grant is one-time)", () => {
+  it("recurring expense is free relay plus the real fixed business cost", () => {
     const p = projectAtScale(10000, TIERS, MIX);
     const free = 10000 * (1 - MIX.conversion);
     expect(p.freeCost).toBeCloseTo(free * relayCost(MIX.freeRelayWritesM), 6);
     expect(p.expense).toBeCloseTo(p.freeCost + p.fixed, 9);
-    expect(p.fixed).toBe(FIXED_BASE_MONTHLY);
+    // Default fixed is the sourced infra floor + seeded operating overhead, not
+    // the old flat placeholder.
+    expect(p.fixed).toBeCloseTo(totalFixedMonthly(), 9);
+  });
+
+  it("accepts a custom fixed monthly cost", () => {
+    const p = projectAtScale(10000, TIERS, MIX, 500);
+    expect(p.fixed).toBe(500);
+    expect(p.expense).toBeCloseTo(p.freeCost + 500, 9);
   });
 
   it("reports the one-time acquisition cost separately, not in the monthly net", () => {
