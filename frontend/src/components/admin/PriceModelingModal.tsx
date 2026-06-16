@@ -27,6 +27,7 @@ import {
   SUSTAIN_PER_LAB,
 } from "@/lib/pricing/assumptions";
 import {
+  FIXED_BASE_MONTHLY,
   FREE_GB_INDIVIDUAL,
   MEMBERS_PER_LAB,
   PER_MEMBER_GB,
@@ -34,6 +35,7 @@ import {
   bareCost,
   modelTiers,
   netMargin,
+  orgPerLabRate,
   priceStorageOnly,
   priceWithActivity,
   stripeOn,
@@ -999,6 +1001,375 @@ export function SustainabilityTab({ active }: { active: boolean }) {
 }
 
 // ============================================================================
+// Tab 3: finalize the storage flip ladder (2026-06-15 decisions)
+// ============================================================================
+
+type FinalCadence = "semiannual" | "annual";
+
+interface LadderRow {
+  key: string;
+  name: string;
+  capGB: number;
+  writesM: number;
+  price: number;
+  cadence: FinalCadence;
+  lab: boolean;
+  free?: boolean;
+}
+
+// Seeded from the 2026-06-15 working decisions: 1 GB free, a $1/$2 entry tier,
+// the existing Plus/Pro and Lab Plus/Pro at their current modest margin, all
+// solo + lab tiers billed 6 or 12-month only. Scratch values, not yet written
+// to plans.ts.
+const DEFAULT_LADDER: LadderRow[] = [
+  { key: "free", name: "Free", capGB: 1, writesM: 1, price: 0, cadence: "annual", lab: false, free: true },
+  { key: "starter", name: "Starter", capGB: 10, writesM: 0.3, price: 3, cadence: "annual", lab: false },
+  { key: "basic", name: "Basic", capGB: 25, writesM: 0.5, price: 4, cadence: "annual", lab: false },
+  { key: "plus", name: "Plus", capGB: 50, writesM: 1, price: 7, cadence: "semiannual", lab: false },
+  { key: "pro", name: "Pro", capGB: 250, writesM: 2, price: 25, cadence: "semiannual", lab: false },
+  { key: "lab_free", name: "Lab Free", capGB: 1, writesM: 1, price: 0, cadence: "annual", lab: true, free: true },
+  { key: "lab_plus", name: "Lab Plus", capGB: 100, writesM: 3, price: 12, cadence: "semiannual", lab: true },
+  { key: "lab_pro", name: "Lab Pro", capGB: 500, writesM: 8, price: 30, cadence: "semiannual", lab: true },
+];
+
+const FILL = 0.4;
+
+export function FinalizeTab() {
+  const [freeGb, setFreeGb] = useState(1);
+  const [sustain, setSustain] = useState(16);
+  const [rows, setRows] = useState<LadderRow[]>(DEFAULT_LADDER);
+  const [conversion, setConversion] = useState(0.05);
+  const [orgShare, setOrgShare] = useState(0.3);
+  const chartRef = useRef<HTMLCanvasElement | null>(null);
+
+  function update(i: number, patch: Partial<LadderRow>) {
+    setRows((rs) => rs.map((r, j) => (j === i ? { ...r, ...patch } : r)));
+  }
+
+  const labPlus = rows.find((r) => r.key === "lab_plus")?.price ?? 0;
+  const orgRate = orgPerLabRate(sustain, freeGb);
+  const recovery = orgRate - sustain;
+  const orderingOk = orgRate > labPlus;
+
+  // Volume pricing: $/GB should decline down the ladder, the small tiers pay the
+  // most per GB and Pro the least.
+  const pgbDeclining = (order: string[]) => {
+    let prev = Infinity;
+    let ok = true;
+    let where = "";
+    for (const k of order) {
+      const r = rows.find((x) => x.key === k);
+      if (!r || r.capGB <= 0) continue;
+      const v = r.price / r.capGB;
+      if (v > prev + 1e-9) {
+        ok = false;
+        where = r.name;
+        break;
+      }
+      prev = v;
+    }
+    return { ok, where };
+  };
+  const indivDecl = pgbDeclining(["starter", "basic", "plus", "pro"]);
+  const labDecl = pgbDeclining(["lab_plus", "lab_pro"]);
+  const declOk = indivDecl.ok && labDecl.ok;
+  const declWhere = !indivDecl.ok ? indivDecl.where : labDecl.where;
+
+  // Profit-vs-expense-at-scale projection, driven by the ladder. A simple
+  // adoption funnel scales a representative customer mix from the tunable
+  // conversion + org share. Representative, not a forecast.
+  const SOLO_SHARE = 0.4;
+  const avgFree = avgFreeUserCost({
+    lightPct: 70,
+    typicalPct: 25,
+    heavyPct: 5,
+    capM: 1,
+  });
+  const netOf = (key: string) => {
+    const r = rows.find((x) => x.key === key);
+    if (!r) return 0;
+    return subscriberMargin(r.price, r.capGB * FILL, r.writesM, r.cadence).net;
+  };
+  const project = (users: number) => {
+    const free = users * (1 - conversion);
+    const paid = users * conversion;
+    const solo = paid * SOLO_SHARE;
+    const inLabs = paid * (1 - SOLO_SHARE);
+    const orgLabs = (inLabs * orgShare) / MEMBERS_PER_LAB;
+    const standaloneLabs = (inLabs * (1 - orgShare)) / MEMBERS_PER_LAB;
+    const revenue =
+      solo * netOf("plus") +
+      standaloneLabs * netOf("lab_plus") +
+      orgLabs * orgRate;
+    const expense = free * avgFree + FIXED_BASE_MONTHLY;
+    return { revenue, expense, net: revenue - expense };
+  };
+
+  function drawProjection() {
+    const c = prep(chartRef.current);
+    if (!c) return;
+    const { x, w, h } = c;
+    const padL = 58,
+      padR = 14,
+      padT = 14,
+      padB = 28;
+    const W = w - padL - padR,
+      H = h - padT - padB;
+    const maxU = 50000;
+    const pts: { u: number; rev: number; exp: number }[] = [];
+    for (let i = 0; i <= 100; i++) {
+      const u = (maxU * i) / 100;
+      const p = project(u);
+      pts.push({ u, rev: p.revenue, exp: p.expense });
+    }
+    const ymax = Math.max(100, ...pts.map((p) => Math.max(p.rev, p.exp)));
+    const X = (u: number) => padL + (W * u) / maxU;
+    const Y = (v: number) => padT + H * (1 - v / ymax);
+    x.strokeStyle = CH.grid;
+    x.fillStyle = CH.axis;
+    x.font = "11px sans-serif";
+    for (let g = 0; g <= 4; g++) {
+      const v = (ymax * g) / 4;
+      const yy = Y(v);
+      x.beginPath();
+      x.moveTo(padL, yy);
+      x.lineTo(w - padR, yy);
+      x.stroke();
+      x.fillText(fmt0(v), 4, yy + 3);
+    }
+    for (let u = 0; u <= maxU; u += 10000)
+      x.fillText(u / 1000 + "k", X(u) - 8, h - 10);
+    const line = (key: "rev" | "exp", color: string) => {
+      x.strokeStyle = color;
+      x.lineWidth = 2.4;
+      x.beginPath();
+      pts.forEach((p, i) => {
+        const px = X(p.u),
+          py = Y(p[key]);
+        i ? x.lineTo(px, py) : x.moveTo(px, py);
+      });
+      x.stroke();
+    };
+    line("exp", CH.bad);
+    line("rev", CH.good);
+  }
+
+  useEffect(() => {
+    const id = requestAnimationFrame(drawProjection);
+    window.addEventListener("resize", drawProjection);
+    return () => {
+      cancelAnimationFrame(id);
+      window.removeEventListener("resize", drawProjection);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [rows, freeGb, sustain, conversion, orgShare]);
+
+  const inputCls =
+    "w-16 rounded border border-border bg-surface-sunken px-1.5 py-1 text-meta tabular-nums";
+
+  return (
+    <div className="space-y-6 text-foreground">
+      <div className="rounded-xl border border-border bg-surface-sunken px-4 py-3 text-meta leading-relaxed text-foreground-muted">
+        <b className="text-foreground">Locked.</b> Solo and lab bill 6/12-month
+        only. Storage dept/inst is a flat dollar-per-lab sustain, AI keeps its
+        1.4x/2x markup. Solo and lab target a modest ~3x margin, and dept/inst
+        must cost more per lab than standalone. Cost basis,{" "}
+        {`$${BLENDED_PER_GB_MO.toFixed(4)}/GB, ${fmt(ACTIVITY_PER_M_WRITES)}/M writes, Stripe ${(STRIPE_PCT * 100).toFixed(1)}% + ${fmt(STRIPE_FIXED)}, ${Math.round(FILL * 100)}% assumed fill.`}
+      </div>
+
+      <Panel title="Decisions">
+        <div className="grid gap-5 lg:grid-cols-2">
+          <div>
+            <Lbl>Free pool (individual, lab, and dept/inst per-lab)</Lbl>
+            <Seg
+              options={[
+                { id: "0.5", label: "0.5 GB" },
+                { id: "1", label: "1 GB" },
+                { id: "2", label: "2 GB" },
+              ]}
+              value={String(freeGb)}
+              onChange={(v) => setFreeGb(parseFloat(v))}
+            />
+          </div>
+          <Slider
+            label={`Dept/inst sustain: ${fmt0(sustain)} / active lab`}
+            min={0}
+            max={40}
+            step={1}
+            value={sustain}
+            onChange={setSustain}
+          />
+        </div>
+      </Panel>
+
+      <Panel title="The ladder">
+        <div className="overflow-x-auto">
+          <table className="w-full text-meta tabular-nums">
+            <thead>
+              <tr className="text-left text-foreground-muted">
+                <th className="px-2 py-1.5 font-semibold">Tier</th>
+                <th className="px-2 py-1.5 font-semibold">Pool GB</th>
+                <th className="px-2 py-1.5 font-semibold">$/mo</th>
+                <th className="px-2 py-1.5 font-semibold">$/GB</th>
+                <th className="px-2 py-1.5 font-semibold">Writes M</th>
+                <th className="px-2 py-1.5 font-semibold">Billing</th>
+                <th className="px-2 py-1.5 text-right font-semibold">Net</th>
+                <th className="px-2 py-1.5 text-right font-semibold">Margin</th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((r, i) => {
+                const cap = r.free ? freeGb : r.capGB;
+                const gbUsed = cap * FILL;
+                const bd = subscriberMargin(r.price, gbUsed, r.writesM, r.cadence);
+                const cost = bd.storageCost + bd.activityCost;
+                const marginX = cost > 0 ? (r.price - bd.stripe) / cost : 0;
+                const tone =
+                  r.free || r.price <= 0
+                    ? ""
+                    : marginX >= 3
+                      ? "text-emerald-600"
+                      : marginX >= 1.5
+                        ? "text-amber-600"
+                        : "text-rose-600 font-bold";
+                const billing = r.cadence === "annual" ? "12-month" : "6-month";
+                const sep = r.key === "lab_free" ? "border-t-2 border-border" : "border-t border-border";
+                return (
+                  <tr key={r.key} className={sep}>
+                    <td className="px-2 py-1.5 font-medium text-foreground">{r.name}</td>
+                    <td className="px-2 py-1.5">
+                      {r.free ? (
+                        <span className="text-foreground-muted">{freeGb}</span>
+                      ) : (
+                        <input type="number" value={r.capGB} onChange={(e) => update(i, { capGB: +e.target.value })} className={inputCls} />
+                      )}
+                    </td>
+                    <td className="px-2 py-1.5">
+                      {r.free ? (
+                        <span className="text-foreground-muted">$0</span>
+                      ) : (
+                        <input type="number" step={0.5} value={r.price} onChange={(e) => update(i, { price: +e.target.value })} className={inputCls} />
+                      )}
+                    </td>
+                    <td className="px-2 py-1.5 text-foreground-muted">
+                      {r.free || r.price <= 0 || r.capGB <= 0
+                        ? "—"
+                        : `$${(r.price / r.capGB).toFixed(3)}`}
+                    </td>
+                    <td className="px-2 py-1.5">
+                      {r.free ? (
+                        <span className="text-foreground-muted">{r.writesM}</span>
+                      ) : (
+                        <input type="number" step={0.1} value={r.writesM} onChange={(e) => update(i, { writesM: +e.target.value })} className={inputCls} />
+                      )}
+                    </td>
+                    <td className="px-2 py-1.5 text-foreground-muted">{r.free ? "free" : billing}</td>
+                    <td className="px-2 py-1.5 text-right">{r.free || r.price <= 0 ? "$0" : fmt(bd.net)}</td>
+                    <td className={`px-2 py-1.5 text-right ${tone}`}>{r.free || r.price <= 0 ? "free" : `${marginX.toFixed(1)}x`}</td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+        <p className="mt-2 text-meta text-foreground-muted">
+          Edit pool GB, price, and the write allowance. Net is what we keep after
+          our cost and the 6/12-month Stripe fee. Margin is green at or above 3x,
+          amber 1.5 to 3x, red below. The write allowance is the real lever.
+        </p>
+        <p className={`mt-1 text-meta ${declOk ? "text-emerald-600" : "text-amber-600"}`}>
+          {declOk
+            ? "Volume pricing holds, $/GB declines down the ladder so the small tiers pay the most per GB and Pro the least."
+            : `Volume pricing broken, ${declWhere} charges more per GB than the tier above it.`}
+        </p>
+      </Panel>
+
+      <Panel title="Profit vs expense at scale">
+        <div className="grid gap-4 lg:grid-cols-2">
+          <Slider
+            label={`Paid conversion: ${(conversion * 100).toFixed(1)}%`}
+            min={1}
+            max={20}
+            step={0.5}
+            value={conversion * 100}
+            onChange={(v) => setConversion(v / 100)}
+          />
+          <Slider
+            label={`Org share of paying: ${Math.round(orgShare * 100)}%`}
+            min={0}
+            max={100}
+            step={5}
+            value={orgShare * 100}
+            onChange={(v) => setOrgShare(v / 100)}
+          />
+        </div>
+        <div className="mt-4 grid gap-3 sm:grid-cols-3">
+          {[
+            { lbl: "1k users", u: 1000 },
+            { lbl: "10k users", u: 10000 },
+            { lbl: "50k users", u: 50000 },
+          ].map(({ lbl, u }) => {
+            const n = project(u).net;
+            return (
+              <div key={lbl} className="rounded-lg bg-surface-sunken p-3">
+                <div className="text-meta text-foreground-muted">{lbl}, net/mo</div>
+                <div
+                  className={`text-title font-semibold ${
+                    n < 0 ? "text-rose-600" : "text-emerald-600"
+                  }`}
+                >
+                  {fmt0(n)}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+        <canvas
+          ref={chartRef}
+          height={260}
+          className="mt-4 block w-full rounded-lg border border-border bg-surface-sunken"
+          style={{ height: 260 }}
+        />
+        <Legend
+          items={[
+            { c: CH.good, t: "revenue in" },
+            { c: CH.bad, t: "expense out" },
+          ]}
+        />
+        <p className="mt-2 text-meta text-foreground-muted">
+          Projection from the ladder. At each user count, paid conversion splits
+          into solo individuals (Plus), standalone labs (Lab Plus), and dept/inst
+          labs by the org share, and the free base carries the support cost plus
+          the fixed infra floor. Representative, not a forecast.
+        </p>
+      </Panel>
+
+      <Panel title="Ordering check: dept/inst must cost more per lab than standalone">
+        <div
+          className={`rounded-xl border p-4 text-meta leading-relaxed ${
+            orderingOk ? "border-emerald-200 bg-emerald-50" : "border-rose-200 bg-rose-50"
+          }`}
+        >
+          A representative lab ({MEMBERS_PER_LAB} members,{" "}
+          {MEMBERS_PER_LAB * PER_MEMBER_GB} GB) inside a dept/inst pays{" "}
+          <b>{fmt(orgRate)}/mo</b> ({fmt(recovery)} recovery + {fmt0(sustain)}{" "}
+          sustain) versus the standalone Lab Plus at <b>{fmt0(labPlus)}/mo</b>.{" "}
+          {orderingOk ? (
+            <b className="text-emerald-700">
+              Coherent, org pays {fmt(orgRate - labPlus)}/lab more.
+            </b>
+          ) : (
+            <b className="text-rose-700">
+              Inverted, raise sustain above {fmt(labPlus - recovery)}.
+            </b>
+          )}
+        </div>
+      </Panel>
+    </div>
+  );
+}
+
+// ============================================================================
 // shared small UI bits
 // ============================================================================
 
@@ -1134,7 +1505,7 @@ export default function PriceModelingModal({
   open: boolean;
   onClose: () => void;
 }) {
-  const [tab, setTab] = useState<"perSub" | "sustain">("perSub");
+  const [tab, setTab] = useState<"perSub" | "sustain" | "finalize">("perSub");
 
   return (
     <LivingPopup
@@ -1162,6 +1533,7 @@ export default function PriceModelingModal({
             options={[
               { id: "perSub", label: "Per-subscriber economics" },
               { id: "sustain", label: "Sustainability at scale" },
+              { id: "finalize", label: "Finalize the flip" },
             ]}
             value={tab}
             onChange={(v) => setTab(v as typeof tab)}
@@ -1176,6 +1548,9 @@ export default function PriceModelingModal({
           </div>
           <div className={tab === "sustain" ? "" : "hidden"}>
             <SustainabilityTab active={tab === "sustain"} />
+          </div>
+          <div className={tab === "finalize" ? "" : "hidden"}>
+            <FinalizeTab />
           </div>
         </div>
       </div>
