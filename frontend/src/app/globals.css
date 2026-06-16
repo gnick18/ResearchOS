@@ -916,8 +916,8 @@
   position: absolute;
   top: 0;
   bottom: 0;
-  right: -26px;
-  width: 26px;
+  right: -16px;
+  width: 16px;
   pointer-events: none;
   /* Densest at the rail's right edge (the seam), fading out toward the editor. */
   background: linear-gradient(
@@ -949,15 +949,14 @@
   background: transparent;
 }
 [data-theme="dark"] .ros-helper-rail::after {
-  /* The rail now sits on the LIFTED calm-popup surface (not the near-black room),
-   * so a real dark shadow registers there and reads as a clean shadow border,
-   * NOT an inner glow. Mirror the light-mode seam (dark shadow) rather than the
-   * bluish-white glow, which made the rail look lit-from-within. */
+  /* The rail is a FLOATING panel lifting off the editor, so its seam uses the
+   * signature bluish-white raised glow in dark — unified with the history panel
+   * ::before (NOT the clean-dark seam, which is only for co-planar regions). */
   background: linear-gradient(
     to left,
     transparent 0%,
-    rgba(0, 0, 0, 0.10) 55%,
-    rgba(0, 0, 0, 0.32) 100%
+    rgba(190, 205, 235, 0.10) 55%,
+    rgba(190, 205, 235, 0.26) 100%
   );
 }
 /* Top + bottom edge glows so the rail reads as a fully boxed floating panel
@@ -994,19 +993,21 @@
   );
 }
 [data-theme="dark"] .ros-helper-rail-topglow {
-  /* Dark shadow on the lifted popup surface, not a bluish glow (see ::after). */
+  /* Signature bluish-white glow at the same 0.26 peak as the seam, unified with
+     the history panel so the rail is boxed on all sides in dark. */
   background: linear-gradient(
     to top,
-    rgba(0, 0, 0, 0.28) 0%,
-    rgba(0, 0, 0, 0.08) 50%,
+    rgba(190, 205, 235, 0.26) 0%,
+    rgba(190, 205, 235, 0.08) 50%,
     transparent 100%
   );
 }
 [data-theme="dark"] .ros-helper-rail-botglow {
+  /* Bluish-white glow, unified with the rail seam + history panel. */
   background: linear-gradient(
     to bottom,
-    rgba(0, 0, 0, 0.28) 0%,
-    rgba(0, 0, 0, 0.08) 50%,
+    rgba(190, 205, 235, 0.26) 0%,
+    rgba(190, 205, 235, 0.08) 50%,
     transparent 100%
   );
 }
