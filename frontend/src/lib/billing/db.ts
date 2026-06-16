@@ -204,6 +204,30 @@ export async function isLabPublishEntitled(labOwnerKey: string): Promise<boolean
 }
 
 /**
+ * Reclaim signal for the lab-domains / companion-sites lane. Returns
+ * `{ lapsedAt }` when this lab is currently NOT on an active subscription (so the
+ * social lane can GC its hosted R2 assets 30 days after `lapsedAt`), or `null`
+ * when the lab is active or never subscribed (nothing to reclaim). `lapsedAt` is
+ * the subscription row's last-updated time, which is when the Stripe webhook
+ * flipped it off active. It only moves forward, so GC never fires early; if the
+ * lab re-subscribes, this returns null again and the GC clock resets.
+ */
+export async function getLabLapse(
+  labOwnerKey: string,
+): Promise<{ lapsedAt: string } | null> {
+  if (!labOwnerKey) return null;
+  await ensureBillingSchema();
+  const sql = getSql();
+  const rows = (await sql`
+    SELECT status, updated_at FROM billing_subscriptions WHERE owner_key = ${labOwnerKey}
+  `) as Array<{ status: string; updated_at: string | null }>;
+  if (!rows.length) return null; // never subscribed -> nothing hosted to reclaim
+  if (rows[0].status === "active") return null; // active -> not lapsed
+  const lapsedAt = rows[0].updated_at;
+  return lapsedAt ? { lapsedAt } : null;
+}
+
+/**
  * Total storage quota (bytes) for an owner. This is the single number the collab
  * / relay enforcement layer checks a write against. Defined here so billing owns
  * it and the enforcement just reads it.

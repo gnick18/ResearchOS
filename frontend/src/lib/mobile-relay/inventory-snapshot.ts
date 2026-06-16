@@ -88,6 +88,12 @@ export interface SnapshotTrackedStock {
    * that pin. Null when unplaced. Phase C. Additive.
    */
   locationNodeId: number | null;
+  /**
+   * True when the stock's location (node or an ancestor) is marked external — a
+   * closet / cold-room-down-the-hall that is NOT on the room map. The phone shows
+   * it as "stored externally" rather than a find-on-map link. Phase C. Additive.
+   */
+  locationExternal: boolean;
 }
 
 /**
@@ -128,6 +134,8 @@ export interface SnapshotStorageNode {
   parentId: number | null;
   boxRows: number | null;
   boxCols: number | null;
+  /** External (off-map) location — listed under "External storage", never pinned. */
+  isExternal: boolean;
 }
 
 /** One pin on the room map, projected for the phone's read-only viewer. Marks a
@@ -208,6 +216,21 @@ export async function buildInventorySnapshot(): Promise<InventorySnapshot> {
     return pos ? `${names} - ${pos}` : names;
   };
 
+  // A stock is "external" when its location node, or any ancestor, is marked
+  // external (a closet / cold-room-down-the-hall, never pinned on the room map).
+  const resolveExternal = (nodeId: number | null | undefined): boolean => {
+    const seen = new Set<number>();
+    let cur = nodeId ?? null;
+    while (cur != null && !seen.has(cur)) {
+      seen.add(cur);
+      const n = nodesById.get(cur);
+      if (!n) break;
+      if (n.is_external) return true;
+      cur = n.parent_id ?? null;
+    }
+    return false;
+  };
+
   // task start_date by task id, for orderedDate in recentPurchases.
   const taskDateById = new Map(
     (tasks as Array<{ id: number; start_date: string; task_type: string }>)
@@ -256,6 +279,7 @@ export async function buildInventorySnapshot(): Promise<InventorySnapshot> {
       location: (stock.location_text && stock.location_text.trim()) || null,
       locationPath: resolveLocationPath(stock.location_node_id, stock.position),
       locationNodeId: stock.location_node_id ?? null,
+      locationExternal: resolveExternal(stock.location_node_id),
     });
   }
 
@@ -333,6 +357,7 @@ export async function buildInventorySnapshot(): Promise<InventorySnapshot> {
       parentId: n.parent_id,
       boxRows: n.box_rows,
       boxCols: n.box_cols,
+      isExternal: !!n.is_external,
     })),
     labMap: (() => {
       // One map per lab; pick the lowest id when several exist (matches

@@ -213,6 +213,97 @@ export async function getActivityBenchmark(): Promise<ActivityBenchmark> {
 }
 
 // ---------------------------------------------------------------------------
+// Lab hosted assets (companion-site data, social/lab-domains lane)
+// ---------------------------------------------------------------------------
+// A SEPARATE owner-keyed byte tally for PUBLISHED companion-site data assets
+// (e.g. the parquet/json behind an interactive dataset viewer on R2). Kept
+// distinct from collab_doc_sizes (the private cloud-workspace pool) on purpose:
+// different billing (pass-through at 1.15x cost-recovery, see
+// hostedAssetMonthlyCost in lib/pricing/service-model.ts), no quota wall (you
+// pay for what you host), and a different lapse rule (GC 30 days after the lab's
+// subscription lapses, UNLESS archived). The social lane reports bytes per asset
+// and checks the archived flag before GC; billing reads the lab total to bill.
+
+export async function ensureHostedAssetsSchema(): Promise<void> {
+  const sql = getSql();
+  await sql`
+    CREATE TABLE IF NOT EXISTS lab_hosted_assets (
+      asset_id      TEXT NOT NULL PRIMARY KEY,
+      lab_owner_key TEXT NOT NULL,
+      bytes         BIGINT NOT NULL DEFAULT 0,
+      archived      BOOLEAN NOT NULL DEFAULT FALSE,
+      updated_at    TIMESTAMPTZ NOT NULL DEFAULT now()
+    )
+  `;
+  await sql`
+    CREATE INDEX IF NOT EXISTS idx_lab_hosted_assets_owner
+      ON lab_hosted_assets (lab_owner_key)
+  `;
+}
+
+/** Upsert one published asset's byte size. The social lane calls this on publish
+ *  and whenever the hosted dataset changes. */
+export async function setHostedAssetBytes(
+  assetId: string,
+  labOwnerKey: string,
+  bytes: number,
+): Promise<void> {
+  const sql = getSql();
+  await ensureHostedAssetsSchema();
+  await sql`
+    INSERT INTO lab_hosted_assets (asset_id, lab_owner_key, bytes, updated_at)
+    VALUES (${assetId}, ${labOwnerKey}, ${Math.max(0, Math.round(bytes))}, now())
+    ON CONFLICT (asset_id) DO UPDATE SET
+      lab_owner_key = EXCLUDED.lab_owner_key,
+      bytes         = EXCLUDED.bytes,
+      updated_at    = now()
+  `;
+}
+
+/** Drop an asset's row (the social lane calls this on delete or after GC). */
+export async function removeHostedAsset(assetId: string): Promise<void> {
+  const sql = getSql();
+  await ensureHostedAssetsSchema();
+  await sql`DELETE FROM lab_hosted_assets WHERE asset_id = ${assetId}`;
+}
+
+/** Total hosted-asset bytes billed to a lab (assets keyed to its owner key). */
+export async function getLabHostedBytes(labOwnerKey: string): Promise<number> {
+  const sql = getSql();
+  await ensureHostedAssetsSchema();
+  const rows = (await sql`
+    SELECT COALESCE(SUM(bytes), 0) AS b
+    FROM lab_hosted_assets
+    WHERE lab_owner_key = ${labOwnerKey}
+  `) as Array<{ b: string | number }>;
+  return Number(rows[0]?.b ?? 0);
+}
+
+/** Mark an asset permanently archived. The prepaid permanent-archive purchase
+ *  sets this; the social lane checks it to SKIP the 30-day reclaim GC. */
+export async function setHostedAssetArchived(
+  assetId: string,
+  archived: boolean,
+): Promise<void> {
+  const sql = getSql();
+  await ensureHostedAssetsSchema();
+  await sql`
+    UPDATE lab_hosted_assets SET archived = ${archived}, updated_at = now()
+    WHERE asset_id = ${assetId}
+  `;
+}
+
+/** Whether an asset is permanently archived (GC must skip it). */
+export async function isHostedAssetArchived(assetId: string): Promise<boolean> {
+  const sql = getSql();
+  await ensureHostedAssetsSchema();
+  const rows = (await sql`
+    SELECT archived FROM lab_hosted_assets WHERE asset_id = ${assetId} LIMIT 1
+  `) as Array<{ archived: boolean }>;
+  return rows[0]?.archived === true;
+}
+
+// ---------------------------------------------------------------------------
 // Storage-measurement helpers (used by billing routes and /admin gauge)
 // ---------------------------------------------------------------------------
 

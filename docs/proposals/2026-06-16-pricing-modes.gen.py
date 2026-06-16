@@ -39,6 +39,8 @@ def break_even(m):
         if U*conv*bn>=fixed(U): return U
     return None
 def net(m,U): return U*conv*blended(m)-fixed(U)
+def net_paid(m,paid): return paid*blended(m)-fixed(paid/conv)
+def total_est(paid): return int(round((paid/conv)/1000.0)*1000)
 def solo_months_to5(m,w):
     bill=m["solo_floor"]+w*relay*m["smk"]; return 5.0/bill
 def composition(m,U=50000):
@@ -86,13 +88,13 @@ def line_be(m, color, w=620, h=240):
     s.append(f'<path d="{d}" fill="none" stroke="{color}" stroke-width="2.5"/>')
     # break-even marker
     s.append(f'<line x1="{bx:.1f}" y1="{padT}" x2="{bx:.1f}" y2="{h-padB}" stroke="{color}" stroke-width="1.5" stroke-dasharray="4 3"/>')
-    s.append(f'<text x="{bx+6:.1f}" y="{padT+14}" font-size="12" fill="{DK}" font-weight="500">break even ~{int(round(be_paid/10)*10):,} paying</text>')
+    s.append(f'<text x="{bx+6:.1f}" y="{padT+14}" font-size="12" fill="{DK}" font-weight="500">break even ~{int(round(be_paid/10)*10):,} paid</text>')
     # axes labels
     for pd in (0,500,1000,1500,2000,2500):
         s.append(f'<text x="{X(pd):.1f}" y="{h-12}" font-size="11" fill="{MUT}" text-anchor="middle">{pd:,}</text>')
     s.append(f'<text x="{padL}" y="{Y(ymax)-2:.1f}" font-size="11" fill="{MUT}">${ymax:,.0f}/mo</text>')
     s.append(f'<text x="{padL}" y="{zy-3:.1f}" font-size="11" fill="{MUT}">$0</text>')
-    s.append(f'<text x="{w/2:.0f}" y="{h-1}" font-size="11" fill="{MUT}" text-anchor="middle">paying users</text>')
+    s.append(f'<text x="{w/2:.0f}" y="{h-1}" font-size="11" fill="{MUT}" text-anchor="middle">paid customers</text>')
     s.append('</svg>'); return "".join(s)
 
 def comp_bar(m, w=620):
@@ -147,16 +149,27 @@ table.cmp td.n{text-align:right;font-variant-numeric:tabular-nums}
 </style></head><body><div class="wrap">''')
 
 parts.append('<h1>ResearchOS pricing: three modes</h1>')
-parts.append('<p class="sub">It\'s the same product and the same structure underneath. A small base fee plus usage at a markup, AI metered near cost, storage at cost. The only things that change between the three modes are the <b>base fee</b> and how much we mark up <b>usage</b>. Pick one based on how ambitious we want to be. In all three, a seat still costs a fraction of what the tools it replaces cost.</p>')
+parts.append('<p class="sub">It\'s the same product and the same structure underneath. A small base fee plus usage at a markup, AI metered near cost, storage at cost. The only things that change between the three modes are the <b>base fee</b> and how much we mark up <b>usage</b>. We measure everything by <b>paid customers</b>, because free users cost us almost nothing: a one-time ~$0.25 each and no cloud usage that scales. So the real question for each mode is how many paying labs and researchers it takes to work. In all three, a seat still costs a fraction of what the tools it replaces cost.</p>')
+
+# shared assumptions key (same for every mode)
+parts.append('<div class="card"><h2>Assumptions (same across all three modes)</h2>'
+ '<ul style="margin:8px 0 0;padding-left:20px;font-size:14px;color:#444;line-height:1.85">'
+ '<li><b>Paid-customer mix:</b> 40% solo &middot; 40% lab seats &middot; 20% dept seats</li>'
+ '<li>~6 active seats per lab, ~5 labs per department</li>'
+ '<li>Typical usage ~0.2M relay writes per seat per month</li>'
+ '<li>AI metered at 1.4&times; (solo/lab) / 2&times; (dept), constant in every mode. Storage at cost, constant.</li>'
+ '<li>Free users cost ~$0 (a one-time ~$0.25, no cloud usage that scales), so we count <b>paid customers</b>, not signups.</li>'
+ '<li>For the total-signup estimates only: roughly 5% of signups convert to paid (so ~2,500 paid &approx; 50k signups).</li>'
+ '</ul></div>')
 
 # summary table
-parts.append('<div class="card"><h2>At a glance</h2><table class="cmp"><tr><th>Mode</th><th class="n">Typical seat / mo</th><th class="n">Break-even (paying)</th><th class="n">Net @ 50k users</th><th class="n">Net @ 100k users</th></tr>')
+parts.append('<div class="card"><h2>At a glance</h2><table class="cmp"><tr><th>Mode</th><th class="n">Typical seat / mo</th><th class="n">Break-even (paid)</th><th class="n">Net @ 2,500 paid</th><th class="n">Net @ 5,000 paid</th></tr>')
 for m in MODES:
     s,l,d=seats_net(m); be=break_even(m)
     parts.append(f'<tr><td><b style="color:{m["dark"]}">{esc(m["short"])}</b></td>'
                  f'<td class="n">${l:.2f}–${d:.2f}</td><td class="n">~{int(round(be*conv/10)*10):,}</td>'
-                 f'<td class="n">{money(net(m,50000))}/mo</td><td class="n">{money(net(m,100000))}/mo</td></tr>')
-parts.append('</table><p class="note">Annualized, that\'s about $43k/yr for Lean, $110k for Fund the labs, and $217k for Premium at 50k users, and roughly double those at 100k. Assumes 5% of users pay, a 40/40/20 solo/lab/dept split, about 6 seats per lab, and typical usage. For reference, LabArchives by itself runs $27.50/user/mo ($330/yr), and the bundle ResearchOS replaces costs far more.</p></div>')
+                 f'<td class="n">{money(net_paid(m,2500))}/mo</td><td class="n">{money(net_paid(m,5000))}/mo</td></tr>')
+parts.append('</table><p class="note">2,500 paid customers is roughly 50k signups; 5,000 paid is roughly 100k. Annualized, that\'s about $43k/yr for Lean, $110k for Fund the labs, and $217k for Premium at 2,500 paid, and roughly double those at 5,000. For reference, LabArchives by itself runs $27.50/user/mo ($330/yr), and the bundle ResearchOS replaces costs far more.</p></div>')
 
 for m in MODES:
     s,l,d=seats_net(m); be=break_even(m); bn=blended(m)
@@ -172,10 +185,10 @@ for m in MODES:
     parts.append('</div>')
     # KPIs
     parts.append('<div class="kpis">')
-    for L,V in [("Break-even", f'~{int(round(be*conv/10)*10):,} paying'),
-                ("Net @ 50k", f'{money(net(m,50000))}/mo'),
-                ("Net @ 100k", f'{money(net(m,100000))}/mo'),
-                ("Annual @ 50k", f'{money(net(m,50000)*12)}/yr')]:
+    for L,V in [("Break-even", f'~{int(round(be*conv/10)*10):,} paid'),
+                ("Net @ 2,500 paid", f'{money(net_paid(m,2500))}/mo'),
+                ("Net @ 5,000 paid", f'{money(net_paid(m,5000))}/mo'),
+                ("Annual @ 2,500 paid", f'{money(net_paid(m,2500)*12)}/yr')]:
         parts.append(f'<div class="kpi"><div class="l">{L}</div><div class="v" style="color:{m["dark"]}">{V}</div></div>')
     parts.append('</div>')
     # Plot 1: time to $5 (solo)
@@ -186,18 +199,18 @@ for m in MODES:
     parts.append(hbars(rows, max(r[1] for r in rows), "mo", m["color"]))
     parts.append('<p class="note">The lower the base and markup, the longer it takes a user to even owe us $5. Labs and depts pay their flat fee monthly. We bill every 6 months and only run a card once the balance clears $5.</p>')
     # Plot 2: break-even
-    parts.append('<h3>2 &nbsp;·&nbsp; Profit vs. number of paying users</h3>')
+    parts.append('<h3>2 &nbsp;·&nbsp; Profit vs. number of paid customers</h3>')
     parts.append(line_be(m, m["color"]))
-    parts.append(f'<p class="note">Crosses into profit at ~{int(round(be*conv/10)*10):,} paying users (~{be:,} total at 5% conversion). Everything to the right of the dashed line is profit that funds the labs.</p>')
+    parts.append(f'<p class="note">Crosses into profit at ~{int(round(be*conv/10)*10):,} paid customers (~{int(round(be/1000.0)*1000):,} signups at 5%). Everything to the right of the dashed line is profit that funds the labs.</p>')
     # Plot 3: composition
-    parts.append('<h3>3 &nbsp;·&nbsp; Where the revenue comes from (at 50k users)</h3>')
+    parts.append('<h3>3 &nbsp;·&nbsp; Where the revenue comes from (at 2,500 paid customers)</h3>')
     parts.append(comp_bar(m))
     parts.append('<p class="note">The base and flat fees carry most of it. The usage markup is the fairness knob, so heavy users pay a bit more. AI stays tiny on purpose, never the money-maker.</p>')
     parts.append('</div>')
 
 # closing
 parts.append('<div class="card"><h2>The thesis</h2><p class="phil">Every mode runs on the same idea. A better product than anything out there, at a price far below the stack of tools it replaces. The modes only differ in how hard we push. Keep the lights on, fund the labs, or build a real engine for them. Even Premium prices a seat below a single existing tool. We\'re academics first, always.</p>'
- '<p class="note">Assumptions held constant across modes: 5% of users convert to paid; 40/40/20 solo/lab/dept mix; ~6 seats/lab, 5 labs/dept; "typical" usage ≈ 0.2M relay writes/seat/mo; AI metered at 1.4× (solo/lab) / 2× (dept) over our $0.153/M cost, ~30% of paid users buy it; storage at ~1.15× cost (no margin); Stripe 2.9% + $0.30 amortized over 6-month billing; fixed operating cost ~$260/mo growing modestly with provider tiers. Real per-user usage is the #1 thing beta will tell us; these are honest estimates, not measurements.</p></div>')
+ '<p class="note">Methodology, beyond the assumptions key up top: AI margin is over our $0.153/M measured cost, with about 30% of paid users buying it. Stripe is 2.9% + $0.30, amortized over 6-month billing. Fixed operating cost is about $260/mo, growing modestly as we cross provider tiers. Real per-user usage is the biggest thing beta will tell us, so treat these as honest estimates, not measurements.</p></div>')
 
 parts.append('</div></body></html>')
 

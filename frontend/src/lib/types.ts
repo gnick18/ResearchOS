@@ -1465,6 +1465,14 @@ export interface StorageNode {
 
   notes: string | null;
 
+  /**
+   * Marks a location that lives OUTSIDE the scanned/drawn room (a closet, a cold
+   * room down the hall, a shared facility). External locations are never pinned
+   * on the room map; they show in an "External storage" list section instead.
+   * Inherited by descendants. Defaults to false.
+   */
+  is_external?: boolean;
+
   owner: string;
   shared_with: SharedUser[]; // the location tree is typically whole-lab shared
   created_by: string | null;
@@ -1482,6 +1490,7 @@ export interface StorageNodeCreate {
   box_rows?: number | null;
   box_cols?: number | null;
   notes?: string | null;
+  is_external?: boolean;
   /** Defaults to whole-lab edit when omitted (design §6.1). */
   shared_with?: SharedUser[];
   created_by?: string | null;
@@ -1495,6 +1504,7 @@ export interface StorageNodeUpdate {
   box_rows?: number | null;
   box_cols?: number | null;
   notes?: string | null;
+  is_external?: boolean;
   shared_with?: SharedUser[];
   // Auto-stamped by `storageNodesApi.update`.
   last_edited_by?: string;

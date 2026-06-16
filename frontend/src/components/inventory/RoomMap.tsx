@@ -12,12 +12,12 @@
 // emojis / em-dashes / mid-sentence colons.
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { Icon } from "@/components/icons";
 import Tooltip from "@/components/Tooltip";
 import ZoomPanCanvas from "@/components/figure/ZoomPanCanvas";
-import { getOrCreateLabMap, labMapsApi } from "@/lib/local-api";
+import { getOrCreateLabMap, labMapsApi, storageNodesApi } from "@/lib/local-api";
 import type {
   InventoryStock,
   LabMap,
@@ -182,7 +182,30 @@ export default function RoomMap({ nodes, stocks }: RoomMapProps) {
     () => new Set(pins.map((p) => p.nodeId).filter((n): n is number => n != null)),
     [pins],
   );
-  const unpinned = nodes.filter((n) => !pinnedNodeIds.has(n.id));
+  // Pinnable = on the room map; external locations live off the map (their own
+  // section) and are never offered as pins.
+  const unpinned = nodes.filter((n) => !pinnedNodeIds.has(n.id) && !n.is_external);
+  const externalNodes = nodes.filter((n) => n.is_external);
+
+  const queryClient = useQueryClient();
+  // Mark a location external (off the room map) or bring it back. Persists the
+  // flag on the StorageNode and refreshes the shared storage-node query.
+  const setNodeExternal = useCallback(
+    (node: StorageNode, value: boolean) => {
+      // Dropping it off the map also clears any existing pin for it.
+      if (value && pins.some((p) => p.nodeId === node.id)) {
+        commit(pins.filter((p) => p.nodeId !== node.id));
+      }
+      void storageNodesApi
+        .update(
+          node.id,
+          { is_external: value },
+          node.is_shared_with_me ? node.owner : undefined,
+        )
+        .then(() => queryClient.invalidateQueries({ queryKey: ["storage-nodes"] }));
+    },
+    [pins, commit, queryClient],
+  );
 
   const addPin = (node: StorageNode) => {
     if (pins.some((p) => p.nodeId === node.id)) return;
@@ -498,27 +521,74 @@ export default function RoomMap({ nodes, stocks }: RoomMapProps) {
           </div>
         ) : unpinned.length === 0 ? (
           <p className="text-meta text-foreground-muted">
-            Every location is on the map.
+            No more locations to place.
           </p>
         ) : (
           <div className="flex flex-col gap-1.5">
             {unpinned.map((node) => (
-              <button
+              <div
                 key={node.id}
-                type="button"
-                onClick={() => addPin(node)}
-                className="flex items-center gap-2 rounded-lg border border-border bg-surface-raised px-3 py-2 text-left text-body text-foreground hover:bg-surface-sunken"
+                className="flex items-center rounded-lg border border-border bg-surface-raised hover:bg-surface-sunken"
               >
-                <Icon
-                  name={node.kind === "box" ? "box" : "storageNested"}
-                  className="h-4 w-4 shrink-0 text-foreground-muted"
-                />
-                <span className="min-w-0 flex-1 truncate">{node.name}</span>
-                <Icon name="plus" className="h-3.5 w-3.5 text-foreground-muted" />
-              </button>
+                <button
+                  type="button"
+                  onClick={() => addPin(node)}
+                  title="Drop a pin on the map"
+                  className="flex min-w-0 flex-1 items-center gap-2 px-3 py-2 text-left text-body text-foreground"
+                >
+                  <Icon
+                    name={node.kind === "box" ? "box" : "storageNested"}
+                    className="h-4 w-4 shrink-0 text-foreground-muted"
+                  />
+                  <span className="min-w-0 flex-1 truncate">{node.name}</span>
+                  <Icon name="plus" className="h-3.5 w-3.5 text-foreground-muted" />
+                </button>
+                <Tooltip label="Move to external storage (off-map)">
+                  <button
+                    type="button"
+                    onClick={() => setNodeExternal(node, true)}
+                    aria-label="Move to external storage"
+                    className="mr-1 flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-foreground-muted hover:text-foreground"
+                  >
+                    <Icon name="export" className="h-3.5 w-3.5" />
+                  </button>
+                </Tooltip>
+              </div>
             ))}
           </div>
         )}
+
+        {externalNodes.length > 0 ? (
+          <div className="mt-4">
+            <p className="mb-2 text-meta font-semibold uppercase tracking-wide text-foreground-subtle">
+              External storage
+            </p>
+            <div className="flex flex-col gap-1.5">
+              {externalNodes.map((node) => (
+                <div
+                  key={node.id}
+                  className="flex items-center gap-2 rounded-lg border border-border bg-surface-raised px-3 py-2 text-body text-foreground-muted"
+                >
+                  <Icon name="export" className="h-4 w-4 shrink-0" />
+                  <span className="min-w-0 flex-1 truncate">{node.name}</span>
+                  <Tooltip label="Bring onto the room map">
+                    <button
+                      type="button"
+                      onClick={() => setNodeExternal(node, false)}
+                      className="shrink-0 rounded-md px-1.5 py-0.5 text-meta hover:bg-surface-sunken hover:text-foreground"
+                    >
+                      On map
+                    </button>
+                  </Tooltip>
+                </div>
+              ))}
+            </div>
+            <p className="mt-1.5 text-meta text-foreground-subtle">
+              Off the room map (a closet, cold room, or shared facility). Items
+              stored here show as external, not pinned.
+            </p>
+          </div>
+        ) : null}
       </div>
     </div>
   );

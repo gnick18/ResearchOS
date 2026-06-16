@@ -57,6 +57,9 @@ export type TrackedStock = {
   // The stock's raw location_node_id, so the phone can find it on the room map
   // (walk up to the nearest pinned ancestor). Phase C. Tolerated missing.
   locationNodeId?: number | null;
+  // True when the location is external (off the room map) - shown as "stored
+  // externally" rather than a find-on-map link. Phase C. Tolerated missing.
+  locationExternal?: boolean;
 };
 
 // A purchase that has been ordered but not yet marked arrived. Drives the
@@ -100,6 +103,8 @@ export type StorageNode = {
   parentId?: number | null;
   boxRows?: number | null;
   boxCols?: number | null;
+  // External (off-map) location: listed under "External storage", never pinned.
+  isExternal?: boolean;
 };
 
 // One pin on the room map (read-only on the phone). Marks a StorageNode
