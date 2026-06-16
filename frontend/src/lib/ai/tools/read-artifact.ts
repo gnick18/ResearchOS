@@ -29,7 +29,9 @@ import {
   tasksApi,
   inventoryItemsApi,
   inventoryStocksApi,
+  filesApi,
 } from "@/lib/local-api";
+import { taskResultsBase } from "@/lib/tasks/results-paths";
 import { moleculesApi } from "@/lib/chemistry/api";
 import { dataHubApi } from "@/lib/datahub/api";
 import type { Note, Method, SequenceDetail, Project, PurchaseItem, Task, InventoryItem, InventoryStock } from "@/lib/types";
@@ -78,7 +80,10 @@ export type SequenceProjection =
     }
   | { ok: false; error: string };
 
-/** Trimmed experiment projection returned by read_experiment. */
+/** Trimmed experiment projection returned by read_experiment. With deep: true it
+ *  also carries the written content (the results.md writeup + the deviation log),
+ *  the full-content read the user gets when they ask Beaker to read the experiment,
+ *  not just its meta. */
 export type ExperimentProjection =
   | {
       ok: true;
@@ -89,6 +94,12 @@ export type ExperimentProjection =
       dueDate: string;
       methodCount: number;
       tags: string[];
+      /** The results.md writeup body (deep only). Trimmed at RESULTS_BODY_TRIM. */
+      resultsBody?: string;
+      /** The freeform deviation log (deep only), when present. */
+      deviationLog?: string;
+      /** True when the results body was longer than the trim and got cut. */
+      bodyTruncated?: boolean;
     }
   | { ok: false; error: string };
 
@@ -415,6 +426,9 @@ export type ReadArtifactDeps = {
   getInventoryItem: (id: number) => Promise<InventoryItem | null>;
   listStocksForItem: (id: number) => Promise<InventoryStock[]>;
   getDataHubContent: (id: string) => Promise<DataHubDocContent | null>;
+  /** Read an experiment's results.md writeup body. Returns "" when missing or
+   *  unreadable, so a single bad file never breaks the deep read. */
+  readExperimentResults: (task: Pick<Task, "id" | "owner">) => Promise<string>;
 };
 
 export const readArtifactDeps: ReadArtifactDeps = {
@@ -434,7 +448,19 @@ export const readArtifactDeps: ReadArtifactDeps = {
   // getContent returns the full document (columns / rows / analyses); the tool
   // projects only metadata + the row COUNT, never the cell data.
   getDataHubContent: (id) => dataHubApi.getContent(id),
+  readExperimentResults: async (task) => {
+    try {
+      return (await filesApi.readFile(`${taskResultsBase(task)}/results.md`)).content ?? "";
+    } catch {
+      return "";
+    }
+  },
 };
+
+/** Max characters of results body returned by read_experiment deep. Larger than
+ *  the meta trims because this IS the full-content read the user asked for, but
+ *  still bounded so one giant writeup cannot blow the context window. */
+const RESULTS_BODY_TRIM = 4000;
 
 // ---------------------------------------------------------------------------
 // Tool implementations.
@@ -534,16 +560,22 @@ export const readSequenceTool: AiTool = {
 export const readExperimentTool: AiTool = {
   name: "read_experiment",
   description:
-    "Read one of the user's experiments by id, returning its name, status (active or complete), start and due dates, the number of attached methods, and tags. " +
-    "Use this after search_my_work returns a brief with type \"experiment\". " +
-    "Returns { ok: true, id, name, status, startDate, dueDate, methodCount, tags } or { ok: false, error }. " +
+    "Read one of the user's experiments by id. By default returns its meta (name, status active or complete, start and due dates, attached method count, tags). " +
+    "Pass deep: true to ALSO read the experiment's written content, the results.md writeup body and the deviation log, which is what you call when the user asks you to read what an experiment actually says (\"read my colony PCR experiment\", \"what did I write in the cyp51A run\", \"pull out the results of these experiments\"). The body is the user's own text, trimmed if very long with a flag, and you relay or condense it, you never interpret a finding. " +
+    "Use this after search_my_work or search_full_text returns a brief with type \"experiment\". " +
+    "Returns { ok: true, id, name, status, startDate, dueDate, methodCount, tags, resultsBody?, deviationLog?, bodyTruncated? } or { ok: false, error }. " +
     "Read-only, never navigates.",
   parameters: {
     type: "object",
     properties: {
       id: {
         type: "string",
-        description: "The experiment id from a search_my_work brief.",
+        description: "The experiment id from a search brief.",
+      },
+      deep: {
+        type: "boolean",
+        description:
+          "When true, also read and return the experiment's full written content (the results.md writeup body and the deviation log). Default false (meta only). Use it whenever the user wants to know what the experiment SAYS, not just its status.",
       },
     },
     required: ["id"],
@@ -560,7 +592,20 @@ export const readExperimentTool: AiTool = {
         error: `Item ${args.id} is a ${task.task_type}, not an experiment.`,
       } satisfies ExperimentProjection;
     }
-    return projectExperiment(task) satisfies ExperimentProjection;
+    const base = projectExperiment(task);
+    if (args.deep !== true) return base satisfies ExperimentProjection;
+
+    // Deep: read the results.md writeup body + the deviation log (the user's own
+    // written content). Best-effort file read; meta still returns if it fails.
+    const rawBody = await readArtifactDeps.readExperimentResults(task);
+    const trimmedBody = trimBody(rawBody, RESULTS_BODY_TRIM);
+    const deviation = task.deviation_log?.trim();
+    return {
+      ...base,
+      ...(trimmedBody ? { resultsBody: trimmedBody } : {}),
+      ...(deviation ? { deviationLog: trimBody(deviation, RESULTS_BODY_TRIM) } : {}),
+      ...(rawBody.length > RESULTS_BODY_TRIM ? { bodyTruncated: true } : {}),
+    } satisfies ExperimentProjection;
   },
 };
 

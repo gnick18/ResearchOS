@@ -3,8 +3,13 @@
 // Stubs the deps (notes / methods / method-body reader) so no real folder is hit.
 
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { searchFullTextDeps, searchFullTextTool, noteBodyText } from "../tools/search-full-text";
-import type { Note, Method } from "@/lib/types";
+import {
+  searchFullTextDeps,
+  searchFullTextTool,
+  noteBodyText,
+  experimentBodyText,
+} from "../tools/search-full-text";
+import type { Note, Method, Task } from "@/lib/types";
 
 const note = (id: number, title: string, content: string, entryTitle = "Day 1") =>
   ({
@@ -16,6 +21,9 @@ const note = (id: number, title: string, content: string, entryTitle = "Day 1") 
 
 const method = (id: number, name: string, isPublic = false) =>
   ({ id, name, source_path: `methods/m${id}/m${id}.md`, method_type: "markdown", is_public: isPublic }) as Method;
+
+const expTask = (id: number, name: string, deviation = "", type: Task["task_type"] = "experiment") =>
+  ({ id, name, task_type: type, owner: "me", deviation_log: deviation || null }) as Task;
 
 beforeEach(() => {
   vi.restoreAllMocks();
@@ -93,5 +101,49 @@ describe("search_full_text tool", () => {
     vi.spyOn(searchFullTextDeps, "listMethods").mockResolvedValue([]);
     const small = (await searchFullTextTool.execute({ query: "cyp51A" })) as { _ui?: unknown };
     expect(small._ui).toBeUndefined();
+  });
+});
+
+describe("experimentBodyText", () => {
+  it("joins the name + deviation log + results writeup", () => {
+    const t = expTask(1, "Colony PCR", "ran 2C hot");
+    const body = experimentBodyText(t, "Lanes 3, 7, 11 showed no band.");
+    expect(body).toContain("Colony PCR");
+    expect(body).toContain("ran 2C hot");
+    expect(body).toContain("no band");
+  });
+});
+
+describe("search_full_text over experiments", () => {
+  it("reads experiment results.md writeups + deviation logs and matches them", async () => {
+    vi.spyOn(searchFullTextDeps, "listNotes").mockResolvedValue([]);
+    vi.spyOn(searchFullTextDeps, "listMethods").mockResolvedValue([]);
+    vi.spyOn(searchFullTextDeps, "listTasks").mockResolvedValue([
+      expTask(10, "Colony PCR, Plate 4"),
+      expTask(11, "Order tips", "", "purchase"), // not an experiment, skipped
+    ]);
+    vi.spyOn(searchFullTextDeps, "readExperimentResults").mockResolvedValue(
+      "Lanes 3, 7, 11 showed no band. Re-ran, no band again.",
+    );
+
+    const r = (await searchFullTextTool.execute({ query: "no band", types: ["experiment"] })) as {
+      ok: boolean; count: number; totalMatches: number;
+      results: Array<{ type: string; id: number; matches: number; deepLink: string; snippet: string }>;
+    };
+    expect(r.ok).toBe(true);
+    expect(r.count).toBe(1); // only the experiment task, not the purchase
+    const hit = r.results[0];
+    expect(hit.type).toBe("experiment");
+    expect(hit.id).toBe(10);
+    expect(hit.matches).toBe(2);
+    expect(hit.snippet).toContain("no band");
+  });
+
+  it("does not read experiment bodies when experiment is excluded from types", async () => {
+    vi.spyOn(searchFullTextDeps, "listNotes").mockResolvedValue([note(1, "N", "no band here")]);
+    vi.spyOn(searchFullTextDeps, "listMethods").mockResolvedValue([]);
+    const taskSpy = vi.spyOn(searchFullTextDeps, "listTasks").mockResolvedValue([]);
+    await searchFullTextTool.execute({ query: "no band", types: ["note"] });
+    expect(taskSpy).not.toHaveBeenCalled();
   });
 });

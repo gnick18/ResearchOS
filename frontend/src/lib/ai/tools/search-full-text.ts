@@ -18,29 +18,48 @@
 //
 // House style, no em-dashes, no emojis, no mid-sentence colons.
 
-import { fetchAllNotesIncludingShared, fetchAllMethodsIncludingShared, filesApi } from "@/lib/local-api";
+import {
+  fetchAllNotesIncludingShared,
+  fetchAllMethodsIncludingShared,
+  fetchAllTasksIncludingShared,
+  filesApi,
+} from "@/lib/local-api";
+import { taskResultsBase } from "@/lib/tasks/results-paths";
 import { objectDeepLink, methodRefId, type ObjectRefType } from "@/lib/references";
 import { countMatches, findFirst, snippetAround } from "@/lib/ai/deep-text";
 import { attachRecordSetIfBig, RECORD_SET_UI_CAP, type RecordSetRow } from "@/lib/ai/record-set";
-import type { Note, Method } from "@/lib/types";
+import type { Note, Method, Task } from "@/lib/types";
 import type { AiTool } from "./types";
 
-export type SearchableType = "note" | "method";
+export type SearchableType = "note" | "method" | "experiment";
 
 export type SearchFullTextDeps = {
   listNotes: () => Promise<Array<Note & { owner?: string }>>;
   listMethods: () => Promise<Method[]>;
+  /** Experiments to deep-search (all tasks; the tool filters to task_type
+   *  "experiment"). */
+  listTasks: () => Promise<Task[]>;
   /** Read a method's markdown body file. Returns "" when missing/unreadable, so a
    *  single bad file never aborts the whole scan. */
   readMethodBody: (path: string) => Promise<string>;
+  /** Read an experiment's results.md writeup body. "" when missing/unreadable. */
+  readExperimentResults: (task: Pick<Task, "id" | "owner">) => Promise<string>;
 };
 
 export const searchFullTextDeps: SearchFullTextDeps = {
   listNotes: () => fetchAllNotesIncludingShared(),
   listMethods: () => fetchAllMethodsIncludingShared(),
+  listTasks: () => fetchAllTasksIncludingShared(),
   readMethodBody: async (path) => {
     try {
       return (await filesApi.readFile(path)).content ?? "";
+    } catch {
+      return "";
+    }
+  },
+  readExperimentResults: async (task) => {
+    try {
+      return (await filesApi.readFile(`${taskResultsBase(task)}/results.md`)).content ?? "";
     } catch {
       return "";
     }
@@ -72,13 +91,23 @@ export function noteBodyText(note: Note): string {
   return parts.join("\n");
 }
 
+/** The full searchable body text of an experiment: name + deviation log + the
+ *  results.md writeup, joined. The results body is read on demand and passed in. */
+export function experimentBodyText(task: Task, resultsBody: string): string {
+  const parts: string[] = [];
+  if (task.name) parts.push(task.name);
+  if (task.deviation_log) parts.push(task.deviation_log);
+  if (resultsBody) parts.push(resultsBody);
+  return parts.join("\n");
+}
+
 const MAX_HITS = 25;
-const ALL_TYPES: SearchableType[] = ["note", "method"];
+const ALL_TYPES: SearchableType[] = ["note", "method", "experiment"];
 
 export const searchFullTextTool: AiTool = {
   name: "search_full_text",
   description:
-    "DEEP-search the full BODY text of the user's notes and method protocols for a string or a regular expression, and return the records that match with a short snippet and a per-record match count, plus an accurate TOTAL count across everything searched. Use this ONLY when the user wants to find records by what is written INSIDE them (for example \"notes that mention cyp51A anywhere\", \"which protocol talks about the miniprep\", \"how many notes mention Sigma\"), because the normal search and the summary keyword filter match only titles, headings, tags, and descriptions, NOT the deep body. This scan is broader and slower than a normal search (method bodies are read from disk). CONFIRM FIRST, before you call this, confirm the exact search term (or regex) with the user using ask_user, so you scan for the right string, never guess it. Read-only. Returns { count, totalMatches, results } where each result has type, id, title, deepLink, snippet, matches, and (for notes) entryTitle. NO INTERPRETATION, you locate the matching records and relay their own snippets, you never summarize a finding.",
+    "DEEP-search the full BODY text of the user's notes, method protocols, AND experiment writeups (the results.md content plus the deviation log) for a string or a regular expression, and return the records that match with a short snippet and a per-record match count, plus an accurate TOTAL count across everything searched. Use this when the user wants to find records by what is written INSIDE them (for example \"which PCR experiments mention no band\", \"notes that mention cyp51A anywhere\", \"which protocol talks about the miniprep\", \"how many records mention Sigma\"), because the normal search and the summary keyword filter match only titles, headings, tags, and descriptions, NOT the deep body. This scan is broader and slower than a normal search (method bodies are read from disk). CONFIRM FIRST, before you call this, confirm the exact search term (or regex) with the user using ask_user, so you scan for the right string, never guess it. Read-only. Returns { count, totalMatches, results } where each result has type, id, title, deepLink, snippet, matches, and (for notes) entryTitle. NO INTERPRETATION, you locate the matching records and relay their own snippets, you never summarize a finding.",
   parameters: {
     type: "object",
     properties: {
@@ -92,8 +121,8 @@ export const searchFullTextTool: AiTool = {
       },
       types: {
         type: "array",
-        items: { type: "string", enum: ["note", "method"] },
-        description: "Which object bodies to search. Default both [\"note\", \"method\"]. Pass [\"note\"] or [\"method\"] to narrow.",
+        items: { type: "string", enum: ["note", "method", "experiment"] },
+        description: "Which object bodies to search. Default all [\"note\", \"method\", \"experiment\"]. An experiment body is its results.md writeup plus its deviation log. Narrow to a subset when the user names a type.",
       },
     },
     required: ["query"],
@@ -117,7 +146,9 @@ export const searchFullTextTool: AiTool = {
     }
 
     const requested = Array.isArray(args.types)
-      ? (args.types.filter((t): t is SearchableType => t === "note" || t === "method"))
+      ? args.types.filter(
+          (t): t is SearchableType => t === "note" || t === "method" || t === "experiment",
+        )
       : ALL_TYPES;
     const types = requested.length > 0 ? requested : ALL_TYPES;
 
@@ -183,6 +214,34 @@ export const searchFullTextTool: AiTool = {
           id: method.id,
           title: method.name,
           deepLink: objectDeepLink("method" as ObjectRefType, methodRefId(method.id, !!method.is_public)),
+          snippet: snippetAround(body, found.index, found.length),
+          matches: countMatches(body, query, isRegex),
+        });
+      }
+    }
+
+    // Experiments: the results.md writeup is file-backed (read on demand), the
+    // deviation log is in memory. Together they are the experiment's written
+    // content, the body the AI page promises Beaker can read.
+    if (types.includes("experiment")) {
+      let tasks: Task[] = [];
+      try {
+        tasks = await searchFullTextDeps.listTasks();
+      } catch {
+        tasks = [];
+      }
+      for (const task of tasks) {
+        if (task.task_type !== "experiment") continue;
+        const resultsBody = await searchFullTextDeps.readExperimentResults(task);
+        const body = experimentBodyText(task, resultsBody);
+        if (!body) continue;
+        const found = findFirst(body, query, isRegex);
+        if (!found) continue;
+        pushHit({
+          type: "experiment",
+          id: task.id,
+          title: task.name || "Untitled experiment",
+          deepLink: objectDeepLink("experiment" as ObjectRefType, task.id),
           snippet: snippetAround(body, found.index, found.length),
           matches: countMatches(body, query, isRegex),
         });

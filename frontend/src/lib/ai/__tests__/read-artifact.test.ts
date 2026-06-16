@@ -560,6 +560,43 @@ describe("readExperimentTool.execute", () => {
     expect(result.ok).toBe(false);
     expect(result.error).toContain("purchase");
   });
+
+  it("omits the body by default (meta only)", async () => {
+    let bodyRead = 0;
+    overrideDeps({
+      getExperiment: async () => ({ ...makeTask(), deviation_log: "ran 2C hot" }),
+      readExperimentResults: async () => {
+        bodyRead += 1;
+        return "Lanes 3, 7, 11 showed no band.";
+      },
+    });
+    const result = (await readExperimentTool.execute({ id: "6" })) as Record<string, unknown>;
+    expect(result.resultsBody).toBeUndefined();
+    expect(result.deviationLog).toBeUndefined();
+    expect(bodyRead).toBe(0); // no file read when not deep
+  });
+
+  it("returns the results writeup + deviation log when deep", async () => {
+    overrideDeps({
+      getExperiment: async () => ({ ...makeTask(), deviation_log: "ran 2C hot" }),
+      readExperimentResults: async () => "Lanes 3, 7, 11 showed no band. Re-ran, same result.",
+    });
+    const result = (await readExperimentTool.execute({ id: "6", deep: true })) as Record<string, unknown>;
+    expect(result.ok).toBe(true);
+    expect(result.resultsBody).toContain("no band");
+    expect(result.deviationLog).toBe("ran 2C hot");
+    expect(result.bodyTruncated).toBeUndefined();
+  });
+
+  it("flags a truncated body when the writeup is very long", async () => {
+    overrideDeps({
+      getExperiment: async () => makeTask(),
+      readExperimentResults: async () => "x".repeat(5000),
+    });
+    const result = (await readExperimentTool.execute({ id: "6", deep: true })) as Record<string, unknown>;
+    expect(result.bodyTruncated).toBe(true);
+    expect((result.resultsBody as string).length).toBeLessThan(5000);
+  });
 });
 
 describe("readProjectTool.execute", () => {
