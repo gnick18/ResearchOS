@@ -6,6 +6,7 @@ import {
   extractClientIp,
   getPepper,
   isSharingEnabled,
+  isSocialLayerEnabled,
   json,
 } from "../guard";
 import { canonicalizeEmail, hashEmail } from "../email";
@@ -14,6 +15,7 @@ const ORIGINAL = { ...process.env };
 
 beforeEach(() => {
   delete process.env.SHARING_ENABLED;
+  delete process.env.SOCIAL_LAYER_ENABLED;
   delete process.env.DIRECTORY_HMAC_PEPPER;
 });
 
@@ -38,6 +40,29 @@ describe("isSharingEnabled", () => {
     expect(isSharingEnabled()).toBe(false);
     process.env.SHARING_ENABLED = "yes";
     expect(isSharingEnabled()).toBe(false);
+  });
+});
+
+describe("isSocialLayerEnabled", () => {
+  it("is false when unset", () => {
+    expect(isSocialLayerEnabled()).toBe(false);
+  });
+
+  it("is true only for the exact string 'true'", () => {
+    process.env.SOCIAL_LAYER_ENABLED = "true";
+    expect(isSocialLayerEnabled()).toBe(true);
+  });
+
+  it("is false for other truthy-looking values", () => {
+    process.env.SOCIAL_LAYER_ENABLED = "1";
+    expect(isSocialLayerEnabled()).toBe(false);
+    process.env.SOCIAL_LAYER_ENABLED = "TRUE";
+    expect(isSocialLayerEnabled()).toBe(false);
+  });
+
+  it("is independent of isSharingEnabled (separate gate)", () => {
+    process.env.SHARING_ENABLED = "true";
+    expect(isSocialLayerEnabled()).toBe(false);
   });
 });
 

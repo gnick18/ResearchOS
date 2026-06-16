@@ -345,6 +345,11 @@ export async function ensureProfileSchema(): Promise<void> {
   // notify_on_collab_invite defaults to true so any row that predates the column
   // reads as opted-in, which is the backward-safe default for the preference.
   await sql`ALTER TABLE directory_profiles ADD COLUMN IF NOT EXISTS notify_on_collab_invite boolean NOT NULL DEFAULT true`;
+  // unlisted: opt-OUT of the public researcher search (the /network hub). Default
+  // false = listed-by-default, the locked social-layer decision, so existing rows
+  // read as listed. The public-search route filters WHERE unlisted = false; the
+  // authed searchProfiles ignores it (a signed user can find anyone, as before).
+  await sql`ALTER TABLE directory_profiles ADD COLUMN IF NOT EXISTS unlisted boolean NOT NULL DEFAULT false`;
 }
 
 /**
@@ -447,6 +452,67 @@ export async function searchProfiles(
     updatedAt: r.updated_at,
     x25519PublicKey: r.x25519_pub,
     ed25519PublicKey: r.ed25519_pub,
+  }));
+}
+
+/** A single result row of the PUBLIC researcher search (the /network hub). */
+export interface PublicProfileResult {
+  fingerprint: string;
+  displayName: string;
+  affiliation: string | null;
+  /** The verified institutional email domain (e.g. wisc.edu), or null. */
+  verifiedDomain: string | null;
+  orcid: string | null;
+}
+
+/**
+ * PUBLIC, unauthenticated researcher search for the /network hub. Same trigram
+ * match as searchProfiles, but with three deliberate differences from the authed
+ * search:
+ *   1. Filters WHERE unlisted = false, so an opted-out researcher never appears.
+ *   2. Returns ONLY directory-safe fields, no public key material and no email,
+ *      so it cannot be harvested into a sealing/contact corpus.
+ *   3. No join to directory_identities (the keys live there), keeping the row
+ *      strictly to what a public profile card shows.
+ * The route layer adds the public gate (isSharingEnabled + isSocialLayerEnabled),
+ * IP rate limits, and the min/max query-length check.
+ */
+export async function searchPublicProfiles(
+  query: string,
+  limit: number = 20,
+): Promise<PublicProfileResult[]> {
+  const sql = getSql();
+  const rows = (await sql`
+    SELECT
+      p.fingerprint,
+      p.display_name,
+      p.affiliation,
+      p.affiliation_domain,
+      p.orcid
+    FROM directory_profiles p
+    WHERE p.unlisted = false
+      AND (lower(p.display_name) || ' ' || lower(coalesce(p.affiliation, '')))
+          % lower(${query})
+    ORDER BY
+      similarity(
+        lower(p.display_name) || ' ' || lower(coalesce(p.affiliation, '')),
+        lower(${query})
+      ) DESC
+    LIMIT ${limit}
+  `) as Array<{
+    fingerprint: string;
+    display_name: string;
+    affiliation: string | null;
+    affiliation_domain: string | null;
+    orcid: string | null;
+  }>;
+
+  return rows.map((r) => ({
+    fingerprint: r.fingerprint,
+    displayName: r.display_name,
+    affiliation: r.affiliation,
+    verifiedDomain: r.affiliation_domain,
+    orcid: r.orcid,
   }));
 }
 
