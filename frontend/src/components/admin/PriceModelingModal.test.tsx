@@ -37,6 +37,7 @@ describe("FinalizeTab (Path-A service dashboard)", () => {
     has(/Crosses at/i); // the per-service cross-user column
     has(/Owner tax on profit/i); // the tax dial
     has(/Take-home \(after tax\)/i); // post-tax take-home line
+    has(/Measured relay footprint/i); // measured-vs-seed grounding line
     cleanup();
   });
 

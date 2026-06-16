@@ -173,6 +173,45 @@ export async function getLabPoolWrites(
   return Number(rows[0]?.pool_writes ?? 0);
 }
 
+/**
+ * Average monthly write footprint per ACTIVE owner, computed from the most
+ * recent period that has any data. This is the measured ground truth for the
+ * pricing model's per-tier relayWritesM seed (the cost driver). Returns zeros
+ * when no activity has been recorded yet (beta), so callers render a "no data"
+ * state rather than a misleading 0.
+ */
+export interface ActivityBenchmark {
+  /** YYYY-MM period the benchmark is computed over, or null if no data yet. */
+  period: string | null;
+  /** Owners with any writes in that period. */
+  activeOwners: number;
+  /** Mean writes per active owner that period (raw count, not millions). */
+  avgWritesPerOwner: number;
+}
+
+export async function getActivityBenchmark(): Promise<ActivityBenchmark> {
+  const sql = getSql();
+  await ensureOwnerWritesSchema();
+  const rows = (await sql`
+    SELECT period,
+           COUNT(*)::int AS active_owners,
+           COALESCE(AVG(writes), 0) AS avg_writes
+    FROM collab_owner_writes
+    WHERE writes > 0
+    GROUP BY period
+    ORDER BY period DESC
+    LIMIT 1
+  `) as Array<{ period: string; active_owners: number; avg_writes: string | number }>;
+  if (!rows.length) {
+    return { period: null, activeOwners: 0, avgWritesPerOwner: 0 };
+  }
+  return {
+    period: rows[0].period,
+    activeOwners: Number(rows[0].active_owners),
+    avgWritesPerOwner: Number(rows[0].avg_writes),
+  };
+}
+
 // ---------------------------------------------------------------------------
 // Storage-measurement helpers (used by billing routes and /admin gauge)
 // ---------------------------------------------------------------------------

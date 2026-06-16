@@ -1082,7 +1082,38 @@ export function FinalizeTab() {
   const [deptShare, setDeptShare] = useState(0.2);
   const [membersPerLab, setMembersPerLab] = useState(6);
   const [taxRate, setTaxRate] = useState(DEFAULT_TAX_RATE);
+  // Measured relay-write footprint per active owner, the ground truth for the
+  // per-tier relayWritesM seed. Fetched from the operator-gated benchmark route;
+  // null until loaded, period null when no activity is recorded yet (beta).
+  const [measured, setMeasured] = useState<{
+    period: string | null;
+    activeOwners: number;
+    avgWritesPerOwner: number;
+  } | null>(null);
   const chartRef = useRef<HTMLCanvasElement | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      try {
+        if (typeof fetch !== "function") return;
+        const res = await fetch("/api/admin/pricing/activity-benchmark");
+        if (!res.ok) return;
+        const data = (await res.json()) as {
+          period: string | null;
+          activeOwners: number;
+          avgWritesPerOwner: number;
+        };
+        if (!cancelled) setMeasured(data);
+      } catch {
+        // No measured data (not operator, or beta with no activity). The seeds
+        // stand and the panel shows a "no data yet" note.
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   function update(key: ServiceRow["key"], patch: Partial<ServiceRow>) {
     setRows((rs) => rs.map((r) => (r.key === key ? { ...r, ...patch } : r)));
@@ -1115,6 +1146,7 @@ export function FinalizeTab() {
   };
 
   const avgFree = avgFreeUserCostPathA(freeRelayM);
+  const measuredM = measured ? measured.avgWritesPerOwner / 1_000_000 : 0;
   const breakEven = breakEvenConversion(tiers, mix);
   const perPayer = freeUsersPerPayer(tiers, mix);
   const storagePerGB = storageRetailPerGB();
@@ -1423,6 +1455,37 @@ export function FinalizeTab() {
                   })}
                 </tbody>
               </table>
+            </div>
+            <div className="mt-3 rounded-lg border border-border bg-surface-sunken p-2.5 text-meta">
+              {measured && measured.period ? (
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <span className="text-foreground-muted">
+                    Measured relay footprint:{" "}
+                    <b className="text-foreground tabular-nums">
+                      {measuredM.toFixed(3)}M
+                    </b>{" "}
+                    writes/owner/mo ({measured.activeOwners} active, {measured.period})
+                  </span>
+                  <button
+                    type="button"
+                    className="rounded-md border border-border px-2 py-1 font-medium hover:bg-surface"
+                    onClick={() =>
+                      setRows((rs) =>
+                        rs.map((r) => ({ ...r, relayWritesM: measuredM })),
+                      )
+                    }
+                  >
+                    Apply to all tiers
+                  </button>
+                </div>
+              ) : (
+                <span className="text-foreground-muted">
+                  Measured relay footprint: no collab activity recorded yet (beta).
+                  The per-tier relay seeds above are estimates; this fills in from{" "}
+                  <code>collab_owner_writes</code> once owners are active (operator
+                  view only).
+                </span>
+              )}
             </div>
           </Panel>
 
