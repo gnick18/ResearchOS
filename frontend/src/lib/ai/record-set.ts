@@ -58,7 +58,7 @@ export const RECORD_SET_COMPACT_MAX = 4;
  *  link (purchases open the /purchases page, inventory items open /inventory). The
  *  widget renders those two as the calm fallback card and routes their Open full to
  *  the page as a whole. */
-export type RecordSetRowType = ObjectRefType | "purchase" | "inventory";
+export type RecordSetRowType = ObjectRefType | "purchase" | "inventory" | "calculator";
 
 /** One row in the record-set browser. A small, display-only envelope, never a body.
  *  type routes the preview to the right embed renderer; id is always a string so a
