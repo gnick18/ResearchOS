@@ -29,6 +29,7 @@ import type { PurchaseSummary } from "@/lib/ai/tools/summarize-purchases";
 import type { NoteSummary } from "@/lib/ai/tools/summarize-notes";
 import type { ProjectsSummary } from "@/lib/ai/tools/summarize-projects";
 import type { InventorySummary } from "@/lib/ai/tools/summarize-inventory";
+import type { SequenceSummary } from "@/lib/ai/tools/summarize-sequences";
 import type { LabDigest } from "@/lib/ai/tools/lab-digest";
 
 /** Semantic tone for a stat tile or a bar. Maps to a color in the widget; it is a
@@ -276,6 +277,73 @@ export function inventorySummaryReport(s: InventorySummary): SummaryReport {
     ],
     barGroups,
     histogram: null,
+  };
+}
+
+/** Map a SequenceSummary aggregate to the normalized report (the cloning-bench
+ *  card). Every number is lifted verbatim from the tool's aggregate. Pure. */
+export function sequenceSummaryReport(s: SequenceSummary): SummaryReport {
+  const scope: string[] = [
+    s.filter.owners && s.filter.owners.length > 0 ? s.filter.owners.join(", ") : "your library",
+  ];
+  if (s.filter.project?.trim()) scope.push(s.filter.project.trim());
+  if (s.filter.keywords?.trim()) scope.push(`"${s.filter.keywords.trim()}"`);
+
+  const typeRows: SummaryBarRow[] = s.byType.map((b) => ({
+    label: b.type.toUpperCase(),
+    value: b.count,
+    tone: "accent" as const,
+  }));
+  const topologyRows: SummaryBarRow[] = s.byTopology.map((b) => ({
+    label: b.topology,
+    value: b.count,
+    tone: "neutral" as const,
+  }));
+  const projectRows: SummaryBarRow[] = s.byProject.map((b) => ({
+    label: b.projectName,
+    value: b.count,
+    tone: "accent" as const,
+  }));
+  const organismRows: SummaryBarRow[] = s.byOrganism.slice(0, 8).map((b) => ({
+    label: b.organism,
+    value: b.count,
+    tone: "neutral" as const,
+  }));
+  const ownerRows: SummaryBarRow[] = s.byOwner.map((b) => ({
+    label: b.owner,
+    value: b.count,
+    tone: "accent" as const,
+  }));
+
+  const barGroups: SummaryBarGroup[] = [];
+  if (typeRows.length > 0) barGroups.push({ title: "By type", rows: typeRows });
+  if (topologyRows.length > 0) barGroups.push({ title: "By topology", rows: topologyRows });
+  if (projectRows.length > 0) barGroups.push({ title: "By project", rows: projectRows });
+  if (organismRows.length > 0) barGroups.push({ title: "By organism", rows: organismRows });
+  if (ownerRows.length > 0) barGroups.push({ title: "By owner", rows: ownerRows });
+
+  // The length distribution as a timeline-style histogram (the only "spread"
+  // visual the card has). Shown only when there is more than one sequence.
+  const histogram =
+    s.count > 1
+      ? {
+          title: "By length",
+          bars: s.lengthBins.map((b) => ({ label: b.label, value: b.count })),
+        }
+      : null;
+
+  return {
+    kind: "summarize_sequences",
+    heading: "Sequences",
+    scope,
+    stats: [
+      { label: "sequences", value: String(s.count), emphasis: true },
+      { label: "plasmids", value: String(s.plasmidCount), tone: "accent" },
+      { label: "total bp", value: s.totalBases.toLocaleString(), tone: "neutral" },
+      { label: "features", value: String(s.totalFeatures), tone: "neutral" },
+    ],
+    barGroups,
+    histogram,
   };
 }
 

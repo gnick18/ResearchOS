@@ -73,6 +73,7 @@ import { summarizePurchasesTool } from "./summarize-purchases";
 import { summarizeNotesTool } from "./summarize-notes";
 import { summarizeProjectsTool } from "./summarize-projects";
 import { summarizeInventoryTool } from "./summarize-inventory";
+import { summarizeSequencesTool } from "./summarize-sequences";
 import { labDigestTool } from "./lab-digest";
 import { listLabMembersTool } from "./lab-members";
 import { searchLiteratureTool } from "./search-literature";
@@ -292,6 +293,11 @@ export const READ_ONLY_TOOLS: AiTool[] = [
   summarizeNotesTool,
   summarizeProjectsTool,
   summarizeInventoryTool,
+  // summarize_sequences aggregates the per-user sequence library deterministically
+  // (count, total bases, plasmids, by-type / topology / project / organism, the
+  // length distribution, longest + recently added). Per-user namespaced, so it
+  // scopes to the caller's own library by default and only folds in named members.
+  summarizeSequencesTool,
   labDigestTool,
   // Lab roster, so the summary wizard's whose-step can offer real member names
   // and resolve a typed name to a real owner. Read-only.
