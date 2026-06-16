@@ -51,7 +51,7 @@ export default function FullRenderWarning({
               <button
                 type="button"
                 onClick={onRevealFile}
-                className="inline-flex items-center gap-1.5 rounded-md border border-border px-3 py-1.5 text-meta font-medium text-foreground transition-colors hover:bg-surface-sunken"
+                className="ros-btn-neutral inline-flex items-center gap-1.5 px-3 py-1.5 text-meta font-medium text-foreground"
               >
                 <Icon name="folder" className="h-3.5 w-3.5" />
                 Reveal the file on disk
@@ -60,7 +60,7 @@ export default function FullRenderWarning({
             <button
               type="button"
               onClick={onKeepPreviewing}
-              className="rounded-md border border-border px-3 py-1.5 text-meta font-medium text-foreground transition-colors hover:bg-surface-sunken"
+              className="ros-btn-neutral px-3 py-1.5 text-meta font-medium text-foreground"
               data-testid="bigtable-keep-previewing"
             >
               Keep previewing

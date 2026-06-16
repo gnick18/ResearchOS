@@ -733,7 +733,7 @@ export default function DatasetAnalysisDialog({
                   setResult(null);
                   setSaved(false);
                 }}
-                className="inline-flex items-center gap-1.5 rounded-md border border-border px-3 py-1.5 text-body font-medium text-foreground-muted hover:bg-surface-sunken"
+                className="ros-btn-neutral inline-flex items-center gap-1.5 px-3 py-1.5 text-body font-medium text-foreground-muted"
               >
                 <Icon name="results" className="h-4 w-4" />
                 Run another
@@ -746,7 +746,7 @@ export default function DatasetAnalysisDialog({
                   type="button"
                   onClick={() => void save()}
                   disabled={saving || saved || !result.outcome.ok}
-                  className="rounded-md border border-border px-3 py-1.5 text-body font-medium text-foreground hover:bg-surface-sunken disabled:opacity-50"
+                  className="ros-btn-neutral px-3 py-1.5 text-body font-medium text-foreground disabled:opacity-50"
                   data-testid="dataset-analysis-save"
                 >
                   {saving ? "Saving" : "Save analysis"}
@@ -767,7 +767,7 @@ export default function DatasetAnalysisDialog({
                 <button
                   type="button"
                   onClick={onClose}
-                  className="rounded-md border border-border px-3 py-1.5 text-body font-medium text-foreground-muted hover:bg-surface-sunken"
+                  className="ros-btn-neutral px-3 py-1.5 text-body font-medium text-foreground-muted"
                 >
                   Cancel
                 </button>

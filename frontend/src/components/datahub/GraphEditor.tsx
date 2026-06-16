@@ -1241,7 +1241,7 @@ export default function GraphEditor({
             <button
               type="button"
               onClick={onExportSvg}
-              className="flex flex-1 items-center justify-center gap-1.5 rounded-md border border-border px-2 py-1.5 text-meta font-medium text-foreground transition-colors hover:bg-surface-sunken"
+              className="ros-btn-neutral flex flex-1 items-center justify-center gap-1.5 px-2 py-1.5 text-meta font-medium text-foreground"
               data-testid="datahub-export-svg"
             >
               <Icon name="download" className="h-3.5 w-3.5" />
@@ -1251,7 +1251,7 @@ export default function GraphEditor({
               type="button"
               onClick={onExportPng}
               disabled={busy}
-              className="flex flex-1 items-center justify-center gap-1.5 rounded-md border border-border px-2 py-1.5 text-meta font-medium text-foreground transition-colors hover:bg-surface-sunken disabled:opacity-50"
+              className="ros-btn-neutral flex flex-1 items-center justify-center gap-1.5 px-2 py-1.5 text-meta font-medium text-foreground disabled:opacity-50"
               data-testid="datahub-export-png"
             >
               <Icon name="export" className="h-3.5 w-3.5" />
@@ -1261,7 +1261,7 @@ export default function GraphEditor({
               type="button"
               onClick={onCopy}
               disabled={busy}
-              className="flex flex-1 items-center justify-center gap-1.5 rounded-md border border-border px-2 py-1.5 text-meta font-medium text-foreground transition-colors hover:bg-surface-sunken disabled:opacity-50"
+              className="ros-btn-neutral flex flex-1 items-center justify-center gap-1.5 px-2 py-1.5 text-meta font-medium text-foreground disabled:opacity-50"
               data-testid="datahub-copy-figure"
             >
               <Icon name="copy" className="h-3.5 w-3.5" />
@@ -1272,7 +1272,7 @@ export default function GraphEditor({
             <button
               type="button"
               onClick={onExportPage}
-              className="mt-2 flex w-full items-center justify-center gap-1.5 rounded-md border border-border px-2 py-1.5 text-meta font-medium text-foreground transition-colors hover:bg-surface-sunken"
+              className="ros-btn-neutral mt-2 flex w-full items-center justify-center gap-1.5 px-2 py-1.5 text-meta font-medium text-foreground"
               data-testid="datahub-export-page"
             >
               <Icon name="download" className="h-3.5 w-3.5" />
@@ -1287,7 +1287,7 @@ export default function GraphEditor({
           <button
             type="button"
             onClick={() => setShowingCode((v) => !v)}
-            className="mt-3 flex w-full items-center justify-center gap-1.5 rounded-md border border-border px-2 py-1.5 text-meta font-medium text-foreground transition-colors hover:bg-surface-sunken"
+            className="ros-btn-neutral mt-3 flex w-full items-center justify-center gap-1.5 px-2 py-1.5 text-meta font-medium text-foreground"
             data-testid="datahub-figure-code-toggle"
             aria-expanded={showingCode}
           >

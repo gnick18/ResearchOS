@@ -62,7 +62,7 @@ export default function ManualSwitchControl({
               type="button"
               onClick={() => setArmed(false)}
               disabled={busy}
-              className="rounded-md border border-border px-2.5 py-1.5 text-meta font-medium text-foreground transition-colors hover:bg-surface-sunken disabled:opacity-50"
+              className="ros-btn-neutral px-2.5 py-1.5 text-meta font-medium text-foreground disabled:opacity-50"
             >
               Cancel
             </button>

@@ -438,7 +438,7 @@ export default function ImportTableDialog({
           <button
             type="button"
             onClick={onCancel}
-            className="rounded-md border border-border px-3 py-1.5 text-body font-medium text-foreground-muted hover:bg-surface-sunken"
+            className="ros-btn-neutral px-3 py-1.5 text-body font-medium text-foreground-muted"
           >
             Cancel
           </button>

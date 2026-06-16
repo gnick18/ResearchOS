@@ -425,7 +425,7 @@ export default function SequencePrimersPanel({
                   <button
                     type="button"
                     onClick={onAddCustomPrimer}
-                    className="rounded-md border border-border px-2.5 py-1 text-meta font-medium text-foreground-muted transition-colors hover:bg-surface-sunken"
+                    className="ros-btn-neutral px-2.5 py-1 text-meta font-medium text-foreground-muted"
                   >
                     Add a primer
                   </button>
@@ -693,7 +693,7 @@ export default function SequencePrimersPanel({
                     <button
                       type="button"
                       onClick={() => copy(checkPrimer)}
-                      className="inline-flex items-center gap-1 rounded-md border border-border px-2.5 py-1 text-meta font-medium text-foreground-muted transition-colors hover:bg-surface-sunken"
+                      className="ros-btn-neutral inline-flex items-center gap-1 px-2.5 py-1 text-meta font-medium text-foreground-muted"
                     >
                       <IconCopy className="h-3.5 w-3.5" />
                       {copied === checkPrimer ? "Copied" : "Copy"}
@@ -704,7 +704,7 @@ export default function SequencePrimersPanel({
                       type="button"
                       onClick={runSpecificity}
                       disabled={specBusy}
-                      className="inline-flex items-center gap-1 rounded-md border border-border px-2.5 py-1 text-meta font-medium text-foreground-muted transition-colors hover:bg-surface-sunken disabled:opacity-50"
+                      className="ros-btn-neutral inline-flex items-center gap-1 px-2.5 py-1 text-meta font-medium text-foreground-muted disabled:opacity-50"
                     >
                       <IconShield className="h-3.5 w-3.5" />
                       {specBusy ? "Scanning..." : "Check specificity"}

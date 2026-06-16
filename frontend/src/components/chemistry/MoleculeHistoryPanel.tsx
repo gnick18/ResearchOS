@@ -493,7 +493,7 @@ function MoleculeVersionRow({
             type="button"
             onClick={onSelect}
             data-testid="molecule-preview-button"
-            className="mt-1 inline-flex items-center gap-1 rounded-md border border-border px-2 py-0.5 text-meta font-medium text-foreground-muted transition-colors hover:bg-surface-sunken hover:text-foreground"
+            className="ros-btn-neutral mt-1 inline-flex items-center gap-1 px-2 py-0.5 text-meta font-medium text-foreground-muted"
           >
             {selected ? "Hide preview" : "Preview"}
           </button>

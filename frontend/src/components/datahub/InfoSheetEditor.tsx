@@ -127,7 +127,7 @@ export default function InfoSheetEditor({
           <button
             type="button"
             onClick={() => onChange(addConstant(info))}
-            className="flex shrink-0 items-center gap-1 rounded-md border border-border px-2 py-1 text-meta font-medium text-foreground transition-colors hover:bg-surface-sunken"
+            className="ros-btn-neutral flex shrink-0 items-center gap-1 px-2 py-1 text-meta font-medium text-foreground"
             data-testid="datahub-info-add-constant"
           >
             <Icon name="plus" className="h-3.5 w-3.5" />

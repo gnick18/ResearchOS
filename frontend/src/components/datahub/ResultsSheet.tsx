@@ -2271,7 +2271,7 @@ export default function ResultsSheet({
           <button
             type="button"
             onClick={() => setRecipeName(null)}
-            className="rounded-md border border-border px-3 py-1 text-body font-medium text-foreground-muted hover:bg-surface-sunken"
+            className="ros-btn-neutral px-3 py-1 text-body font-medium text-foreground-muted"
           >
             Cancel
           </button>

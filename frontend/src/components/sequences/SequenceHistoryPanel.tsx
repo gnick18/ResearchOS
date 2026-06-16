@@ -572,7 +572,7 @@ function ResultRow({
               type="button"
               onClick={onOpen}
               data-testid="sequence-result-open"
-              className="inline-flex items-center gap-1 rounded-md border border-border px-2 py-0.5 text-meta font-medium text-foreground-muted transition-colors hover:bg-surface-sunken hover:text-foreground"
+              className="ros-btn-neutral inline-flex items-center gap-1 px-2 py-0.5 text-meta font-medium text-foreground-muted"
             >
               <Icon name="eye" className="h-3 w-3" />
               Open
@@ -583,7 +583,7 @@ function ResultRow({
               type="button"
               onClick={() => setConfirming(true)}
               data-testid="sequence-result-delete"
-              className="inline-flex items-center gap-1 rounded-md border border-border px-2 py-0.5 text-meta font-medium text-foreground-muted transition-colors hover:bg-surface-sunken hover:text-foreground"
+              className="ros-btn-neutral inline-flex items-center gap-1 px-2 py-0.5 text-meta font-medium text-foreground-muted"
             >
               <Icon name="trash" className="h-3 w-3" />
               Delete

@@ -636,7 +636,7 @@ export default function PaletteStudio({
             <button
               type="button"
               onClick={resetOverrides}
-              className="flex items-center gap-1.5 rounded-md border border-border px-2 py-1 text-[11px] font-medium text-foreground transition-colors hover:bg-surface-sunken"
+              className="ros-btn-neutral flex items-center gap-1.5 px-2 py-1 text-[11px] font-medium text-foreground"
             >
               <Icon name="refresh" className="h-3 w-3" />
               Reset to palette
@@ -644,7 +644,7 @@ export default function PaletteStudio({
             <button
               type="button"
               onClick={beginSaveCustom}
-              className="flex items-center gap-1.5 rounded-md border border-border px-2 py-1 text-[11px] font-medium text-foreground transition-colors hover:bg-surface-sunken"
+              className="ros-btn-neutral flex items-center gap-1.5 px-2 py-1 text-[11px] font-medium text-foreground"
               data-testid="palette-custom-save"
             >
               <Icon name="save" className="h-3 w-3" />
@@ -693,7 +693,7 @@ export default function PaletteStudio({
             <button
               type="button"
               onClick={generate}
-              className="flex items-center gap-1.5 rounded-md border border-border px-2 py-1 text-[11px] font-medium text-foreground transition-colors hover:bg-surface-sunken"
+              className="ros-btn-neutral flex items-center gap-1.5 px-2 py-1 text-[11px] font-medium text-foreground"
             >
               <Icon name="refresh" className="h-3 w-3" />
               Generate unlocked
@@ -708,7 +708,7 @@ export default function PaletteStudio({
             <button
               type="button"
               onClick={saveGenerated}
-              className="flex items-center gap-1.5 rounded-md border border-border px-2 py-1 text-[11px] font-medium text-foreground transition-colors hover:bg-surface-sunken"
+              className="ros-btn-neutral flex items-center gap-1.5 px-2 py-1 text-[11px] font-medium text-foreground"
             >
               <Icon name="save" className="h-3 w-3" />
               Save to my palettes
@@ -734,7 +734,7 @@ export default function PaletteStudio({
               <button
                 type="button"
                 onClick={importColors}
-                className="flex items-center gap-1.5 rounded-md border border-border px-2 py-1 text-[11px] font-medium text-foreground transition-colors hover:bg-surface-sunken"
+                className="ros-btn-neutral flex items-center gap-1.5 px-2 py-1 text-[11px] font-medium text-foreground"
                 data-testid="palette-import-button"
               >
                 <Icon name="import" className="h-3 w-3" />
@@ -764,7 +764,7 @@ export default function PaletteStudio({
         <button
           type="button"
           onClick={onBrowse}
-          className="mt-2 flex w-full items-center justify-center gap-1.5 rounded-md border border-border px-2 py-1.5 text-[11px] font-medium text-foreground transition-colors hover:bg-surface-sunken"
+          className="ros-btn-neutral mt-2 flex w-full items-center justify-center gap-1.5 px-2 py-1.5 text-[11px] font-medium text-foreground"
           data-testid="palette-browse-button"
         >
           <Icon name="layer" className="h-3 w-3" />

@@ -170,14 +170,14 @@ function TierBPanel({
         <button
           type="button"
           onClick={() => onChange(columns.map((c) => c.name))}
-          className="rounded-md border border-border px-2.5 py-1.5 text-meta font-medium text-foreground transition-colors hover:bg-surface-sunken"
+          className="ros-btn-neutral px-2.5 py-1.5 text-meta font-medium text-foreground"
         >
           Select all
         </button>
         <button
           type="button"
           onClick={() => onChange([])}
-          className="rounded-md border border-border px-2.5 py-1.5 text-meta font-medium text-foreground transition-colors hover:bg-surface-sunken"
+          className="ros-btn-neutral px-2.5 py-1.5 text-meta font-medium text-foreground"
         >
           None
         </button>

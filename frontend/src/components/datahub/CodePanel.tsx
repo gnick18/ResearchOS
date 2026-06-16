@@ -47,7 +47,7 @@ export default function CodePanel({
           <button
             type="button"
             onClick={onCopy}
-            className="flex items-center gap-1.5 rounded-md border border-border px-2 py-1 text-meta font-medium text-foreground transition-colors hover:bg-surface-sunken"
+            className="ros-btn-neutral flex items-center gap-1.5 px-2 py-1 text-meta font-medium text-foreground"
             data-testid={`${testId}-copy`}
           >
             <Icon
