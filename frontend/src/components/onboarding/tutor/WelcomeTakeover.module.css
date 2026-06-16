@@ -1,5 +1,5 @@
 /* Onboarding tutor welcome hero. The signature backdrop + a big Beaker + a
-   frosted liquid-glass CTA, so the first screen sings instead of sitting empty.
+   frosted glass CTA, so the first screen sings instead of sitting empty.
    No emojis, no em-dashes, no mid-sentence colons. */
 
 /* Soft brand glow pooled behind the big mascot so it reads as a hero, not a
@@ -20,47 +20,37 @@
   pointer-events: none;
 }
 
-/* The shiny rainbow CTA. Vivid brand rainbow, a glossy light streak sweeping
-   across, a brand-tinted glow, and a lift on hover, so it begs to be touched. */
-/* Apple-style liquid-glass CTA. A translucent frosted pill that lets the
-   colorful backdrop blur through, a bright glass edge, a top inner highlight
-   (light catching the rim), and a soft float shadow. Dark legible label, no
-   rainbow fill. */
+/* Unified glass CTA. One frosted pill that renders the SAME on every browser (no
+   Chromium-only displacement): a translucent fill the colorful backdrop blurs
+   through, a gradient glass rim that is bright at the top and soft at the bottom
+   (light catching the edge), a top inner highlight, a static specular sheen, and
+   a soft float shadow. Dark legible label. */
 .cta {
   position: relative;
-  overflow: hidden;
+  isolation: isolate;
   cursor: pointer;
+  border: 1px solid transparent;
   border-radius: 9999px;
-  padding: 15px 38px;
+  padding: 16px 42px;
   font-size: 16px;
   font-weight: 700;
   letter-spacing: 0.01em;
-  color: var(--fg, #1f2421);
-  background: rgba(255, 255, 255, 0.18);
-  border: 1px solid rgba(255, 255, 255, 0.55);
-  -webkit-backdrop-filter: blur(16px) saturate(180%);
-  backdrop-filter: blur(16px) saturate(180%);
+  color: #fff;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.22);
+  background:
+    linear-gradient(135deg, rgba(31, 170, 126, 0.82), rgba(22, 132, 168, 0.8)) padding-box,
+    linear-gradient(180deg, rgba(255, 255, 255, 0.85), rgba(255, 255, 255, 0.3)) border-box;
+  -webkit-backdrop-filter: blur(14px) saturate(185%);
+  backdrop-filter: blur(14px) saturate(185%);
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.75),
-    inset 0 -1px 3px rgba(255, 255, 255, 0.22),
-    0 10px 30px -10px rgba(31, 38, 35, 0.32),
-    0 2px 6px rgba(0, 0, 0, 0.08);
+    inset 0 1px 1px rgba(255, 255, 255, 0.7),
+    inset 0 -8px 16px -6px rgba(255, 255, 255, 0.18),
+    0 12px 28px -8px rgba(20, 120, 110, 0.45),
+    0 2px 6px rgba(0, 0, 0, 0.1);
   transition: transform 0.18s ease, box-shadow 0.18s ease, background 0.18s ease;
 }
-.cta:hover {
-  transform: translateY(-1px) scale(1.025);
-  background: rgba(255, 255, 255, 0.3);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.9),
-    inset 0 -1px 3px rgba(255, 255, 255, 0.28),
-    0 14px 38px -10px rgba(31, 38, 35, 0.4),
-    0 3px 8px rgba(0, 0, 0, 0.1);
-}
-.cta:active {
-  transform: translateY(0) scale(0.99);
-}
-/* A soft specular sheen across the top half, so the glass reads as a curved
-   surface catching light rather than a flat frosted panel. Static, no sweep. */
+/* Specular sheen across the top half, so the pill reads as a curved glass
+   surface catching light rather than a flat frosted panel. */
 .cta::before {
   content: "";
   position: absolute;
@@ -68,41 +58,27 @@
   border-radius: inherit;
   background: linear-gradient(
     180deg,
-    rgba(255, 255, 255, 0.45),
-    rgba(255, 255, 255, 0.05) 48%,
-    transparent 60%
+    rgba(255, 255, 255, 0.5),
+    rgba(255, 255, 255, 0) 54%
   );
   pointer-events: none;
 }
-
+.cta:hover {
+  transform: translateY(-1px) scale(1.02);
+  background:
+    linear-gradient(135deg, rgba(36, 188, 140, 0.9), rgba(26, 148, 188, 0.88)) padding-box,
+    linear-gradient(180deg, rgba(255, 255, 255, 0.95), rgba(255, 255, 255, 0.38)) border-box;
+  box-shadow:
+    inset 0 1px 1px rgba(255, 255, 255, 0.85),
+    inset 0 -8px 16px -6px rgba(255, 255, 255, 0.22),
+    0 16px 36px -8px rgba(20, 120, 110, 0.5),
+    0 3px 8px rgba(0, 0, 0, 0.12);
+}
+.cta:active {
+  transform: translateY(0) scale(0.99);
+}
 @media (prefers-reduced-motion: reduce) {
   .cta:hover {
     transform: none;
   }
-}
-
-/* LiquidGlass (liquid-glass-react) wrapper. The library ships its drop-shadow
-   layers tagged with the Tailwind class `bg-black`, which our app's Tailwind
-   paints SOLID black and leaves in normal flow (they stacked below the button as
-   black pills and ballooned the wrapper). Pull them out of flow and clear the
-   fill so only the real glass shows, then give the glass our own soft float
-   shadow via the wrapper. */
-.glassButton {
-  position: relative;
-  display: inline-block;
-  filter: drop-shadow(0 8px 16px rgba(31, 38, 35, 0.18));
-}
-.glassButton :global(.bg-black) {
-  position: absolute !important;
-  inset: 0 !important;
-  top: 0 !important;
-  left: 0 !important;
-  background: transparent !important;
-  pointer-events: none;
-}
-/* The library centers its glass root with a base translate(-50%, -50%), expecting
-   absolute positioning; our flex-centered wrapper already centers it, so that
-   translate just shoves it half its size up-and-left. Neutralize it. */
-.glassButton :global(.cursor-pointer) {
-  transform: none !important;
 }
