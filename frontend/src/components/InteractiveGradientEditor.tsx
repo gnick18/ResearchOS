@@ -158,7 +158,7 @@ export function StepEditPopup({ step, onSave, onClose, isNew = false }: StepEdit
           <button
             onClick={handleSave}
             data-tour-target="pcr-step-save"
-            className="flex-1 px-4 py-2 text-body text-white bg-brand-action hover:bg-brand-action/90 rounded-lg"
+            className="ros-btn-raise flex-1 px-4 py-2 text-body text-white bg-brand-action hover:bg-brand-action/90 rounded-lg"
           >
             Save
           </button>
@@ -233,7 +233,7 @@ export function CycleEditPopup({ repeats, onSave, onClose }: CycleEditPopupProps
           </button>
           <button
             onClick={() => onSave(newRepeats)}
-            className="flex-1 px-4 py-2 text-body text-white bg-brand-action hover:bg-brand-action/90 rounded-lg"
+            className="ros-btn-raise flex-1 px-4 py-2 text-body text-white bg-brand-action hover:bg-brand-action/90 rounded-lg"
           >
             Save
           </button>

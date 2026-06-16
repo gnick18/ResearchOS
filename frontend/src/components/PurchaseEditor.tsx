@@ -1124,14 +1124,14 @@ export default function PurchaseEditor({
             <button
               onClick={() => handleOverwriteChoice("overwrite")}
               disabled={saving}
-              className="px-3 py-1.5 text-meta bg-amber-600 text-white rounded-lg hover:bg-amber-700 disabled:cursor-not-allowed disabled:opacity-50"
+              className="ros-btn-raise px-3 py-1.5 text-meta bg-amber-600 text-white rounded-lg hover:bg-amber-700 disabled:cursor-not-allowed disabled:opacity-50"
             >
               Overwrite existing
             </button>
             <button
               onClick={() => handleOverwriteChoice("new")}
               disabled={saving}
-              className="px-3 py-1.5 text-meta bg-brand-action text-white rounded-lg hover:bg-brand-action/90 disabled:cursor-not-allowed disabled:opacity-50"
+              className="ros-btn-raise px-3 py-1.5 text-meta bg-brand-action text-white rounded-lg hover:bg-brand-action/90 disabled:cursor-not-allowed disabled:opacity-50"
             >
               Save as new item
             </button>

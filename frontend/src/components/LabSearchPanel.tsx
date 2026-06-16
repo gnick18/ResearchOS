@@ -641,7 +641,7 @@ export default function LabSearchPanel({
           <button
             onClick={handleSearch}
             disabled={loading}
-            className="px-4 py-2 text-body bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+            className="ros-btn-raise px-4 py-2 text-body bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
           >
             {loading && (
               <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
@@ -682,7 +682,7 @@ export default function LabSearchPanel({
                         void computeExportEstimate();
                       }}
                       disabled={selectedTaskKeys.size === 0}
-                      className="px-3 py-1.5 text-meta bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                      className="ros-btn-raise px-3 py-1.5 text-meta bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       Export selected
                     </button>

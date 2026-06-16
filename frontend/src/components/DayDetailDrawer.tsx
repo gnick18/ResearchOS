@@ -177,7 +177,7 @@ export default function DayDetailDrawer({
         <div className="px-5 py-3 border-t border-border bg-surface-sunken flex justify-end">
           <button
             onClick={() => onCreate(dateStr)}
-            className="px-3 py-1.5 text-body bg-brand-action text-white rounded-lg hover:bg-brand-action/90"
+            className="ros-btn-raise px-3 py-1.5 text-body bg-brand-action text-white rounded-lg hover:bg-brand-action/90"
           >
             + New event on this day
           </button>

@@ -267,7 +267,7 @@ export default function ImportExperimentDialog({
             <button
               type="button"
               onClick={onConfirmImport}
-              className="px-4 py-2 text-body bg-brand-action hover:bg-brand-action/90 text-white rounded-lg"
+              className="ros-btn-raise px-4 py-2 text-body bg-brand-action hover:bg-brand-action/90 text-white rounded-lg"
             >
               {isMethod ? "Import method" : "Import experiment"}
             </button>
@@ -278,7 +278,7 @@ export default function ImportExperimentDialog({
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 text-body bg-brand-action hover:bg-brand-action/90 text-white rounded-lg"
+              className="ros-btn-raise px-4 py-2 text-body bg-brand-action hover:bg-brand-action/90 text-white rounded-lg"
             >
               Done
             </button>

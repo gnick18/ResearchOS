@@ -2069,7 +2069,7 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
                 <button
                   onClick={handleConfirmDelete}
                   disabled={isArchivingUser || isDeletingUser}
-                  className="flex-1 py-2.5 bg-red-600 hover:bg-red-700 text-white font-medium rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                  className="ros-btn-raise flex-1 py-2.5 bg-red-600 hover:bg-red-700 text-white font-medium rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                 >
                   {deleteConfirmStep === 1 ? (
                     "Continue"
@@ -2146,7 +2146,7 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
                       type="button"
                       onClick={handleResetKeepData}
                       disabled={resetting}
-                      className="flex-1 py-2 text-body bg-red-600 hover:bg-red-700 text-white font-medium rounded-lg disabled:opacity-50"
+                      className="ros-btn-raise flex-1 py-2 text-body bg-red-600 hover:bg-red-700 text-white font-medium rounded-lg disabled:opacity-50"
                       data-testid="reset-keep-data-confirm-submit"
                     >
                       {resetting ? "Resetting…" : "Reset, keep my data"}
@@ -2254,7 +2254,7 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
                       <button
                         onClick={handleSubmitRecovery}
                         disabled={unlocking || !recoveryInput}
-                        className="flex-1 py-2 text-body bg-brand-action hover:bg-brand-action/90 text-white font-medium rounded-lg disabled:opacity-50"
+                        className="ros-btn-raise flex-1 py-2 text-body bg-brand-action hover:bg-brand-action/90 text-white font-medium rounded-lg disabled:opacity-50"
                         data-testid="unlock-recovery-submit"
                       >
                         {unlocking ? "Unlocking…" : "Unlock"}
@@ -2430,7 +2430,7 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
                   await setCurrentUser(u);
                   setProfileStep({ username: u });
                 }}
-                className="w-full py-2 text-body bg-brand-action hover:bg-brand-action/90 text-white font-medium rounded-lg"
+                className="ros-btn-raise w-full py-2 text-body bg-brand-action hover:bg-brand-action/90 text-white font-medium rounded-lg"
                 data-testid="recovery-continue"
               >
                 I saved it, continue
@@ -2501,7 +2501,7 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
                   type="button"
                   onClick={handleCrossDeviceRestore}
                   disabled={restoring || !restoreInput}
-                  className="flex-1 py-2 text-body bg-brand-action hover:bg-brand-action/90 text-white font-medium rounded-lg disabled:opacity-50"
+                  className="ros-btn-raise flex-1 py-2 text-body bg-brand-action hover:bg-brand-action/90 text-white font-medium rounded-lg disabled:opacity-50"
                   data-testid="cross-device-restore-submit"
                 >
                   {restoring ? "Restoring…" : "Restore and continue"}

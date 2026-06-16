@@ -646,7 +646,7 @@ export default function AppNavBar({
                 e.stopPropagation();
                 exitEdit();
               }}
-              className="inline-flex items-center gap-1 px-3 py-1 text-[12px] font-bold rounded-lg border border-accent bg-accent text-white hover:brightness-110"
+              className="ros-btn-raise inline-flex items-center gap-1 px-3 py-1 text-[12px] font-bold rounded-lg border border-accent bg-accent text-white hover:brightness-110"
             >
               <Icon name="check" className="w-3.5 h-3.5" />
               Done

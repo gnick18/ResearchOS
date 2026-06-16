@@ -552,7 +552,7 @@ export default function Toolbar({
       <button
         onClick={onCreateGoal}
         data-tour-target="gantt-goals-button"
-        className="px-3 py-1.5 text-body bg-amber-500 text-white rounded-lg hover:bg-amber-600 transition-colors flex items-center gap-1"
+        className="ros-btn-raise px-3 py-1.5 text-body bg-amber-500 text-white rounded-lg hover:bg-amber-600 transition-colors flex items-center gap-1"
       >
         <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
           <circle cx="12" cy="12" r="10"/>
@@ -566,7 +566,7 @@ export default function Toolbar({
       <button
         onClick={onCreateTask}
         data-tour-target="gantt-new-task-button"
-        className="px-3 py-1.5 text-body bg-brand-action text-white rounded-lg hover:bg-brand-action/90 transition-colors"
+        className="ros-btn-raise px-3 py-1.5 text-body bg-brand-action text-white rounded-lg hover:bg-brand-action/90 transition-colors"
       >
         + Task
       </button>

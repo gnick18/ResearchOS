@@ -161,7 +161,7 @@ export default function CalendarRemindersModal({ open, onClose }: Props) {
                 {permission === "default" && (
                   <button
                     onClick={handleRequestPermission}
-                    className="px-3 py-1.5 text-meta bg-brand-action text-white rounded-lg hover:bg-brand-action/90"
+                    className="ros-btn-raise px-3 py-1.5 text-meta bg-brand-action text-white rounded-lg hover:bg-brand-action/90"
                   >
                     Enable browser notifications
                   </button>

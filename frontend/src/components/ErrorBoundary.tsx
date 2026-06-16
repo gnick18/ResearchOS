@@ -102,7 +102,7 @@ export default class ErrorBoundary extends Component<Props, State> {
                 </button>
                 <button
                   onClick={() => window.location.reload()}
-                  className="flex-1 px-4 py-2 text-body text-white bg-brand-action hover:bg-brand-action/90 rounded-lg transition-colors"
+                  className="ros-btn-raise flex-1 px-4 py-2 text-body text-white bg-brand-action hover:bg-brand-action/90 rounded-lg transition-colors"
                 >
                   Refresh Page
                 </button>

@@ -190,7 +190,7 @@ export default function DuplicateUploadDialog({
             ref={renameButtonRef}
             type="button"
             onClick={() => handleClick("rename")}
-            className="w-full py-2.5 px-4 bg-brand-action hover:bg-brand-action/90 text-white text-body font-medium rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-2"
+            className="ros-btn-raise w-full py-2.5 px-4 bg-brand-action hover:bg-brand-action/90 text-white text-body font-medium rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-2"
           >
             Save as{" "}
             <span className="font-mono text-meta bg-blue-700 px-1.5 py-0.5 rounded">

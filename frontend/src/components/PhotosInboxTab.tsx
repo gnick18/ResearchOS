@@ -981,7 +981,7 @@ function MoveToActiveControl({
         type="button"
         disabled
         title="Open an experiment or a note first"
-        className="px-3 py-1.5 text-meta text-white bg-brand-action hover:bg-brand-action/90 rounded-md transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+        className="ros-btn-raise px-3 py-1.5 text-meta text-white bg-brand-action hover:bg-brand-action/90 rounded-md transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
       >
         Move to active
       </button>
@@ -996,7 +996,7 @@ function MoveToActiveControl({
         disabled={busy}
         onClick={() => onMoveToTask(activeTask)}
         title={`Move to Experiment ${activeTask.id} (${activeTask.name})`}
-        className="px-3 py-1.5 text-meta text-white bg-brand-action hover:bg-brand-action/90 rounded-md transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+        className="ros-btn-raise px-3 py-1.5 text-meta text-white bg-brand-action hover:bg-brand-action/90 rounded-md transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
       >
         Move to active
       </button>
@@ -1011,7 +1011,7 @@ function MoveToActiveControl({
         disabled={busy}
         onClick={() => onMoveToNote(activeNote)}
         title={`Move to note "${activeNote.title}"`}
-        className="px-3 py-1.5 text-meta text-white bg-brand-action hover:bg-brand-action/90 rounded-md transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+        className="ros-btn-raise px-3 py-1.5 text-meta text-white bg-brand-action hover:bg-brand-action/90 rounded-md transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
       >
         Move to active note
       </button>
@@ -1035,7 +1035,7 @@ function MoveToActiveControl({
         aria-haspopup="menu"
         aria-expanded={dropdownOpen}
         title="Move to active…"
-        className="px-3 py-1.5 text-meta text-white bg-brand-action hover:bg-brand-action/90 rounded-md transition-colors disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-1"
+        className="ros-btn-raise px-3 py-1.5 text-meta text-white bg-brand-action hover:bg-brand-action/90 rounded-md transition-colors disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-1"
       >
         <span>Move to active</span>
         <span aria-hidden className="text-meta leading-none">▾</span>

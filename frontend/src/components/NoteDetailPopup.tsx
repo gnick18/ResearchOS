@@ -1890,7 +1890,7 @@ export default function NoteDetailPopup({
               onClick={() => void confirmUndoRestore()}
               disabled={restoreBusy}
               data-testid="note-undo-confirm-button"
-              className="px-2.5 py-1 text-meta font-medium text-white bg-amber-600 hover:bg-amber-700 disabled:opacity-60 rounded-md transition-colors"
+              className="ros-btn-raise px-2.5 py-1 text-meta font-medium text-white bg-amber-600 hover:bg-amber-700 disabled:opacity-60 rounded-md transition-colors"
             >
               {restoreBusy ? "Undoing..." : "Discard edits and undo"}
             </button>
@@ -2022,7 +2022,7 @@ export default function NoteDetailPopup({
                 <button
                   onClick={addNewEntry}
                   disabled={!newEntryTitle.trim() || saving}
-                  className="px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  className="ros-btn-raise px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                 >
                   Add
                 </button>

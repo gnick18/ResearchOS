@@ -127,7 +127,7 @@ export default function LeaveDemoModal({ isOpen, onClose }: Props) {
           <button
             type="button"
             onClick={goHome}
-            className="w-full py-2.5 px-4 bg-amber-500 hover:bg-amber-600 text-white text-body font-medium rounded-lg transition-colors"
+            className="ros-btn-raise w-full py-2.5 px-4 bg-amber-500 hover:bg-amber-600 text-white text-body font-medium rounded-lg transition-colors"
           >
             {confirmLabel}
           </button>

@@ -1444,7 +1444,7 @@ export default function TaskDetailPopup({
               onClick={() => void confirmUndoRestore()}
               disabled={restoreBusy}
               data-testid="task-undo-confirm-button"
-              className="px-2.5 py-1 text-meta font-medium text-white bg-amber-600 hover:bg-amber-700 disabled:opacity-60 rounded-md transition-colors"
+              className="ros-btn-raise px-2.5 py-1 text-meta font-medium text-white bg-amber-600 hover:bg-amber-700 disabled:opacity-60 rounded-md transition-colors"
             >
               {restoreBusy ? "Undoing..." : "Discard edits and undo"}
             </button>
@@ -1857,7 +1857,7 @@ function SimpleTaskChecklist({
             <button
               onClick={handleAddSubTask}
               disabled={!newSubTaskText.trim() || saving}
-              className="px-3 py-2 text-body bg-brand-action text-white rounded-lg hover:bg-brand-action/90 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="ros-btn-raise px-3 py-2 text-body bg-brand-action text-white rounded-lg hover:bg-brand-action/90 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               +
             </button>
@@ -2820,7 +2820,7 @@ function DetailsTab({
               <div className="flex gap-2 mt-3">
                 <button
                   onClick={() => setDuplicateWarning(null)}
-                  className="px-3 py-1.5 text-meta font-medium text-white bg-brand-action hover:bg-brand-action/90 rounded-lg transition-colors"
+                  className="ros-btn-raise px-3 py-1.5 text-meta font-medium text-white bg-brand-action hover:bg-brand-action/90 rounded-lg transition-colors"
                 >
                   Change name
                 </button>
@@ -2996,7 +2996,7 @@ function DetailsTab({
             <button
               onClick={handleAddSubTask}
               disabled={!newSubTaskText.trim() || saving}
-              className="px-3 py-1.5 text-body bg-brand-action text-white rounded-lg hover:bg-brand-action/90 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="ros-btn-raise px-3 py-1.5 text-body bg-brand-action text-white rounded-lg hover:bg-brand-action/90 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               Add
             </button>
@@ -3051,7 +3051,7 @@ function DetailsTab({
                 <button
                   onClick={handleConfirmShift}
                   disabled={saving}
-                  className="px-3 py-1.5 text-meta font-medium text-white bg-amber-600 hover:bg-amber-700 rounded-lg transition-colors disabled:opacity-50"
+                  className="ros-btn-raise px-3 py-1.5 text-meta font-medium text-white bg-amber-600 hover:bg-amber-700 rounded-lg transition-colors disabled:opacity-50"
                 >
                   {saving ? "Applying..." : "Apply changes"}
                 </button>
@@ -3206,7 +3206,7 @@ function DetailsTab({
                     type="button"
                     onClick={handleRemoveFromChain}
                     disabled={saving}
-                    className="px-3 py-1.5 text-meta text-white bg-red-600 hover:bg-red-700 rounded-lg disabled:opacity-50"
+                    className="ros-btn-raise px-3 py-1.5 text-meta text-white bg-red-600 hover:bg-red-700 rounded-lg disabled:opacity-50"
                   >
                     {saving ? "Removing..." : "Remove from Chain"}
                   </button>
@@ -3476,7 +3476,7 @@ function DetailsTab({
                       type="button"
                       onClick={handleAddDependency}
                       disabled={saving}
-                      className="px-3 py-1.5 text-meta text-white bg-amber-600 hover:bg-amber-700 rounded-lg disabled:opacity-50"
+                      className="ros-btn-raise px-3 py-1.5 text-meta text-white bg-amber-600 hover:bg-amber-700 rounded-lg disabled:opacity-50"
                     >
                       {saving ? "Adding..." : "Add Dependency"}
                     </button>
@@ -3665,7 +3665,7 @@ function DetailsTab({
                 type="button"
                 disabled={sharingIntoProject}
                 onClick={handleConfirmShareIntoProject}
-                className="px-4 py-2 text-body font-medium text-white bg-brand-action hover:bg-brand-action/90 rounded-lg transition-colors disabled:opacity-50"
+                className="ros-btn-raise px-4 py-2 text-body font-medium text-white bg-brand-action hover:bg-brand-action/90 rounded-lg transition-colors disabled:opacity-50"
               >
                 {sharingIntoProject ? "Sharing..." : "Share into project"}
               </button>
@@ -4548,7 +4548,7 @@ function LabNotesTab({ task, readOnly = false, ownerUsername, onRegisterFlushSav
                       type="button"
                       onClick={() => setRehydrateModalOpen(true)}
                       disabled={hasUnsavedChanges}
-                      className="shrink-0 px-3 py-1.5 text-meta font-medium bg-amber-600 hover:bg-amber-700 text-white rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
+                      className="ros-btn-raise shrink-0 px-3 py-1.5 text-meta font-medium bg-amber-600 hover:bg-amber-700 text-white rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       Pull them in →
                     </button>

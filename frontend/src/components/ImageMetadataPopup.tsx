@@ -256,7 +256,7 @@ export default function ImageMetadataPopup({
                           type="button"
                           onClick={handleRename}
                           disabled={renaming || renameInput.trim() === filename || !renameInput.trim()}
-                          className="px-3 py-2 text-meta text-white bg-brand-action hover:bg-brand-action/90 rounded-lg transition-colors disabled:opacity-40"
+                          className="ros-btn-raise px-3 py-2 text-meta text-white bg-brand-action hover:bg-brand-action/90 rounded-lg transition-colors disabled:opacity-40"
                         >
                           {renaming ? "Renaming…" : "Rename"}
                         </button>
@@ -285,7 +285,7 @@ export default function ImageMetadataPopup({
                     type="button"
                     onClick={() => setAnnotating(true)}
                     disabled={!loaded || !previewUrl}
-                    className="w-full flex items-center justify-center gap-2 px-4 py-2.5 text-body font-medium text-white bg-brand-action hover:bg-brand-action/90 rounded-lg transition-colors disabled:opacity-50"
+                    className="ros-btn-raise w-full flex items-center justify-center gap-2 px-4 py-2.5 text-body font-medium text-white bg-brand-action hover:bg-brand-action/90 rounded-lg transition-colors disabled:opacity-50"
                   >
                     {/* Pencil icon (custom inline SVG, no icon library). */}
                     <svg
@@ -340,7 +340,7 @@ export default function ImageMetadataPopup({
                 onClick={handleMoveToActive}
                 disabled={moving || !loaded}
                 title={`File this image into Experiment ${activeTask.id} (${activeTask.name})`}
-                className="px-4 py-2 text-body text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg transition-colors disabled:opacity-50 font-medium"
+                className="ros-btn-raise px-4 py-2 text-body text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg transition-colors disabled:opacity-50 font-medium"
               >
                 {moving ? "Moving…" : `Move to ${activeTask.name}`}
               </button>
@@ -356,7 +356,7 @@ export default function ImageMetadataPopup({
               type="button"
               onClick={handleSave}
               disabled={saving || !loaded}
-              className="px-4 py-2 text-body text-white bg-brand-action hover:bg-brand-action/90 rounded-lg transition-colors disabled:opacity-50"
+              className="ros-btn-raise px-4 py-2 text-body text-white bg-brand-action hover:bg-brand-action/90 rounded-lg transition-colors disabled:opacity-50"
             >
               {saving ? "Saving…" : "Save"}
             </button>

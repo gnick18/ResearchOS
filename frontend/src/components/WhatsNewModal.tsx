@@ -473,7 +473,7 @@ export default function WhatsNewModal({
                 type="button"
                 onClick={onDismiss}
                 data-testid="whats-new-got-it"
-                className="bg-brand-action text-white transition-colors hover:bg-brand-action/90 w-full py-2.5 px-4 text-body font-medium rounded-lg"
+                className="ros-btn-raise bg-brand-action text-white transition-colors hover:bg-brand-action/90 w-full py-2.5 px-4 text-body font-medium rounded-lg"
               >
                 Got it
               </button>

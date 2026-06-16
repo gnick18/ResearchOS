@@ -192,7 +192,7 @@ export default function ExportFormatDialog({
               <button
                 type="button"
                 onClick={() => setWarningAcknowledged(true)}
-                className="px-3 py-1.5 text-body font-medium text-white bg-amber-600 hover:bg-amber-700 rounded-lg"
+                className="ros-btn-raise px-3 py-1.5 text-body font-medium text-white bg-amber-600 hover:bg-amber-700 rounded-lg"
               >
                 Continue
               </button>
@@ -264,7 +264,7 @@ export default function ExportFormatDialog({
                       type="button"
                       disabled={isExporting}
                       onClick={() => onExportToFile?.(saveToDiskFormat)}
-                      className="ml-auto px-3 py-1.5 text-meta font-medium text-white bg-brand-action hover:bg-brand-action/90 rounded disabled:opacity-50 disabled:cursor-not-allowed"
+                      className="ros-btn-raise ml-auto px-3 py-1.5 text-meta font-medium text-white bg-brand-action hover:bg-brand-action/90 rounded disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       Save to disk…
                     </button>

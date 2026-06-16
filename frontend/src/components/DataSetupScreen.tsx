@@ -108,7 +108,7 @@ export default function DataSetupScreen({ isOpen, onClose }: DataSetupScreenProp
                   <button
                     onClick={handleDisconnect}
                     disabled={disconnecting}
-                    className="flex-1 py-2 text-body text-white bg-red-600 hover:bg-red-700 rounded-lg disabled:opacity-50"
+                    className="ros-btn-raise flex-1 py-2 text-body text-white bg-red-600 hover:bg-red-700 rounded-lg disabled:opacity-50"
                   >
                     {disconnecting ? "Disconnecting…" : "Disconnect"}
                   </button>

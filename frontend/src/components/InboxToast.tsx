@@ -162,7 +162,7 @@ export default function InboxToast() {
                     type="button"
                     onClick={() => void fileToActive(item)}
                     disabled={filing}
-                    className="px-2 py-1 text-meta text-white bg-brand-action hover:bg-brand-action/90 rounded-md transition-colors disabled:opacity-50"
+                    className="ros-btn-raise px-2 py-1 text-meta text-white bg-brand-action hover:bg-brand-action/90 rounded-md transition-colors disabled:opacity-50"
                   >
                     {filing ? "Filing…" : "File here"}
                   </button>

@@ -1534,7 +1534,7 @@ export default function GanttChart({
               </button>
               <button
                 onClick={handleConfirmShift}
-                className="px-4 py-2 text-body text-white bg-orange-600 hover:bg-orange-700 rounded-lg"
+                className="ros-btn-raise px-4 py-2 text-body text-white bg-orange-600 hover:bg-orange-700 rounded-lg"
               >
                 Apply Changes
               </button>

@@ -321,7 +321,7 @@ export default function DemoPurchasesViewer({
           onClick={onClose}
           data-tour-target="demo-purchases-back-button"
           data-testid="demo-purchases-back-button"
-          className="px-3 py-1.5 text-body bg-amber-600 text-white rounded-lg hover:bg-amber-700 transition-colors"
+          className="ros-btn-raise px-3 py-1.5 text-body bg-amber-600 text-white rounded-lg hover:bg-amber-700 transition-colors"
         >
           Back to my page
         </button>

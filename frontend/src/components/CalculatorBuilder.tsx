@@ -977,7 +977,7 @@ export function CalculatorEditView({
             type="button"
             onClick={save}
             disabled={!canSave}
-            className="bg-brand-action text-white transition-colors hover:bg-brand-action/90 inline-flex items-center gap-1.5 px-4 py-1.5 text-meta font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
+            className="ros-btn-raise bg-brand-action text-white transition-colors hover:bg-brand-action/90 inline-flex items-center gap-1.5 px-4 py-1.5 text-meta font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <Icon name="save" className="w-4 h-4" />
             {saving ? "Saving" : "Save"}

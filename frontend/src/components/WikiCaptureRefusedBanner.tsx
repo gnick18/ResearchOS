@@ -62,7 +62,7 @@ export default function WikiCaptureRefusedBanner() {
           <button
             type="button"
             onClick={() => setAcknowledged(true)}
-            className="mt-3 rounded-lg bg-amber-600 px-3 py-1.5 text-body font-medium text-white transition-colors hover:bg-amber-700 focus-visible:ring-2 focus-visible:ring-amber-400 focus-visible:ring-offset-2"
+            className="ros-btn-raise mt-3 rounded-lg bg-amber-600 px-3 py-1.5 text-body font-medium text-white transition-colors hover:bg-amber-700 focus-visible:ring-2 focus-visible:ring-amber-400 focus-visible:ring-offset-2"
           >
             I understand
           </button>
