@@ -91,6 +91,7 @@ import {
 } from "@/components/ai/spotlight-controller";
 import { getMemoryEntries, buildMemoryContext } from "@/lib/ai/user-memory";
 import { recordSetFromResult } from "@/lib/ai/record-set";
+import { summaryReportFromResult } from "@/lib/ai/summary-report";
 import { overlayWizardFromResult } from "@/lib/ai/overlay-wizard";
 import { analysisPickerFromResult } from "@/lib/ai/analysis-picker";
 import { recipeComparisonFromResult } from "@/lib/ai/recipe-compare";
@@ -145,6 +146,11 @@ export type ChatMessage = {
   // _ui; renders the deterministic paper-vs-user diff below the reply, facts only.
   recipeComparisons?: import("./recipe-compare").RecipeComparisonPayload[];
   analysisPickers?: import("./analysis-picker").AnalysisPickerPayload[];
+  // Inline summary aggregate cards. One per summarize_* tool that ran on a set
+  // (>= 2 matches). Lifted from the aggregate riding on the same record-set _ui
+  // (the items render via recordSets above); the card shows the deterministic
+  // counts/totals so the user never reads them from the model's prose.
+  summaryReports?: import("./summary-report").SummaryReport[];
 };
 
 // The pending approval the UI renders while the loop is paused on the user.
@@ -656,11 +662,28 @@ function appendAnalysisPickerFromResult(assistantId: string, result: unknown): v
   }));
 }
 
-/** Run every inline-widget capture over a raw tool result (record sets + overlay
- *  wizards + recipe comparisons + analysis pickers). One call site so the
- *  onToolResult hooks stay in sync. */
+/** Lift a summarize_* tool's deterministic aggregate onto the in-flight assistant
+ *  message, so <SummaryReportWidget> renders the counts/totals above the items.
+ *  Same seam (the aggregate rides on the record-set _ui); a result with no summary
+ *  aggregate is ignored, so this is safe to call after every tool. */
+function appendSummaryReportFromResult(assistantId: string, result: unknown): void {
+  const report = summaryReportFromResult(result);
+  if (!report) return;
+  useConversationStore.setState((state) => ({
+    messages: state.messages.map((m) =>
+      m.id === assistantId
+        ? { ...m, summaryReports: [...(m.summaryReports ?? []), report] }
+        : m,
+    ),
+  }));
+}
+
+/** Run every inline-widget capture over a raw tool result (record sets + summary
+ *  aggregates + overlay wizards + recipe comparisons + analysis pickers). One call
+ *  site so the onToolResult hooks stay in sync. */
 function captureInlineWidgets(assistantId: string, result: unknown): void {
   appendRecordSetFromResult(assistantId, result);
+  appendSummaryReportFromResult(assistantId, result);
   appendOverlayWizardFromResult(assistantId, result);
   appendRecipeComparisonFromResult(assistantId, result);
   appendAnalysisPickerFromResult(assistantId, result);

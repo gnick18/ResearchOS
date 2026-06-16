@@ -24,6 +24,9 @@
 
 import type { ObjectRefType } from "@/lib/references";
 import type { ArtifactBrief } from "@/lib/ai/artifact-index";
+// Type-only import (no runtime cycle): summary-report.ts depends on this module at
+// runtime, this one only references its TYPE for the optional aggregate field.
+import type { SummaryReport } from "@/lib/ai/summary-report";
 
 /** The field a tool attaches its UI-only full set under, and the loop strips before
  *  the result reaches the model. A leading underscore marks it as out-of-band. */
@@ -83,6 +86,10 @@ export type RecordSet = {
   items: RecordSetRow[];
   /** The search term, when one drove the set. Shown in the header. */
   query?: string;
+  /** A summarize_* tool tucks its deterministic aggregate here so the inline
+   *  SummaryReportWidget can render it ABOVE the items. Absent on a plain
+   *  record-set (search_my_work etc.); its presence is the summary discriminator. */
+  aggregate?: SummaryReport;
 };
 
 /** Attach a RecordSet to a tool result under the _ui key WITHOUT touching the rest
@@ -131,6 +138,22 @@ export function attachRecordSetIfBig<T extends object>(
 ): T {
   const set = maybeRecordSet(rows, opts);
   return set ? withRecordSetUi(result, set) : result;
+}
+
+/** Attach a summarize_* tool's items record-set AND its deterministic aggregate to
+ *  the result, on the one shared `_ui`. Reuses the exact ">= RECORD_SET_MIN_ITEMS"
+ *  gate as attachRecordSetIfBig, so a summary of a set (>= 2 matches) renders the
+ *  aggregate card + the items widget, and a 0-or-1 match summary stays prose (the
+ *  model narrates the tiny aggregate, no widget). The aggregate rides on the
+ *  record-set so there is still exactly one `_ui` per result. */
+export function attachSummaryUi<T extends object>(
+  result: T,
+  rows: RecordSetRow[],
+  aggregate: SummaryReport,
+  opts: { kind: string; title: string; total?: number; query?: string },
+): T {
+  const set = maybeRecordSet(rows, opts);
+  return set ? withRecordSetUi(result, { ...set, aggregate }) : result;
 }
 
 /** Return a shallow clone of a tool result with the _ui key removed, so the full

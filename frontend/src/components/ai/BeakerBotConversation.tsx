@@ -70,6 +70,7 @@ import BeakerBotCanvas from "./BeakerBotCanvas";
 // renderers it pulls in) never bloats the chat bundle until a turn actually
 // resolves a record set.
 const RecordSetWidget = lazy(() => import("./RecordSetWidget"));
+const SummaryReportWidget = lazy(() => import("./SummaryReportWidget"));
 // SmartDataWizard (the Phase 4 Smart Data Binding wizard) is mounted inline when a
 // suggest_tree_overlays turn finds joinable tables. Lazy so the phylo widget never
 // loads until a turn actually surfaces one. Named export, so adapt to default.
@@ -1400,6 +1401,20 @@ export default function BeakerBotConversation({
                     when a record-returning tool resolved a set this turn. Each is a
                     searchable master-detail browser of the full match set. Lazy so
                     the heavy UI never loads until a set is present. */}
+                {/* Inline summary aggregate cards. Rendered ABOVE the items widget
+                    when a summarize_* tool ran on a set, so the deterministic
+                    counts/totals are the first thing the user sees (and they come
+                    from the tool, never the model's prose). */}
+                {m.role === "assistant" && m.summaryReports && m.summaryReports.length > 0 ? (
+                  <Suspense fallback={null}>
+                    <div className="flex w-full flex-col gap-2 self-start">
+                      {m.summaryReports.map((r, i) => (
+                        <SummaryReportWidget key={`${r.kind}-${i}`} report={r} />
+                      ))}
+                    </div>
+                  </Suspense>
+                ) : null}
+
                 {m.role === "assistant" && m.recordSets && m.recordSets.length > 0 ? (
                   <Suspense fallback={null}>
                     <div className="flex w-full flex-col gap-2 self-start">

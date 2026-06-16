@@ -30,7 +30,8 @@ import {
   fetchAllTasksIncludingShared,
   usersApi,
 } from "@/lib/local-api";
-import { attachRecordSetIfBig, periodLabel, RECORD_SET_UI_CAP, type RecordSetRow } from "@/lib/ai/record-set";
+import { attachSummaryUi, periodLabel, RECORD_SET_UI_CAP, type RecordSetRow } from "@/lib/ai/record-set";
+import { experimentSummaryReport } from "@/lib/ai/summary-report";
 import type { Project, Task } from "@/lib/types";
 import type { AiTool } from "./types";
 
@@ -441,10 +442,15 @@ export const summarizeExperimentsTool: AiTool = {
       }),
     );
 
-    return attachRecordSetIfBig({ ok: true as const, summary }, rows, {
-      kind: "summarize_experiments",
-      title: periodLabel("Experiments", filter),
-      total: fullSummary.total,
-    });
+    return attachSummaryUi(
+      { ok: true as const, summary },
+      rows,
+      experimentSummaryReport(summary),
+      {
+        kind: "summarize_experiments",
+        title: periodLabel("Experiments", filter),
+        total: fullSummary.total,
+      },
+    );
   },
 };
