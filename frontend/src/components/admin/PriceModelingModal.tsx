@@ -1285,58 +1285,62 @@ export function FinalizeTab() {
       </Panel>
 
       <Panel title="Profit vs expense at scale">
-        <div className="grid gap-4 lg:grid-cols-2">
-          <Slider
-            label={`Paid conversion: ${(conversion * 100).toFixed(1)}%`}
-            min={1}
-            max={20}
-            step={0.5}
-            value={conversion * 100}
-            onChange={(v) => setConversion(v / 100)}
-          />
-          <Slider
-            label={`Org share of paying: ${Math.round(orgShare * 100)}%`}
-            min={0}
-            max={100}
-            step={5}
-            value={orgShare * 100}
-            onChange={(v) => setOrgShare(v / 100)}
-          />
+        <div className="grid items-start gap-6 lg:grid-cols-2">
+          <div className="space-y-4">
+            <Slider
+              label={`Paid conversion: ${(conversion * 100).toFixed(1)}%`}
+              min={1}
+              max={20}
+              step={0.5}
+              value={conversion * 100}
+              onChange={(v) => setConversion(v / 100)}
+            />
+            <Slider
+              label={`Org share of paying: ${Math.round(orgShare * 100)}%`}
+              min={0}
+              max={100}
+              step={5}
+              value={orgShare * 100}
+              onChange={(v) => setOrgShare(v / 100)}
+            />
+            <div className="grid gap-3 sm:grid-cols-3">
+              {[
+                { lbl: "1k users", u: 1000 },
+                { lbl: "10k users", u: 10000 },
+                { lbl: "50k users", u: 50000 },
+              ].map(({ lbl, u }) => {
+                const n = project(u).net;
+                return (
+                  <div key={lbl} className="rounded-lg bg-surface-sunken p-3">
+                    <div className="text-meta text-foreground-muted">{lbl}, net/mo</div>
+                    <div
+                      className={`text-title font-semibold ${
+                        n < 0 ? "text-rose-600" : "text-emerald-600"
+                      }`}
+                    >
+                      {fmt0(n)}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+          <div>
+            <canvas
+              ref={chartRef}
+              height={260}
+              className="block w-full rounded-lg border border-border bg-surface-sunken"
+              style={{ height: 260 }}
+            />
+            <Legend
+              items={[
+                { c: CH.good, t: "revenue in" },
+                { c: CH.bad, t: "expense out" },
+              ]}
+            />
+          </div>
         </div>
-        <div className="mt-4 grid gap-3 sm:grid-cols-3">
-          {[
-            { lbl: "1k users", u: 1000 },
-            { lbl: "10k users", u: 10000 },
-            { lbl: "50k users", u: 50000 },
-          ].map(({ lbl, u }) => {
-            const n = project(u).net;
-            return (
-              <div key={lbl} className="rounded-lg bg-surface-sunken p-3">
-                <div className="text-meta text-foreground-muted">{lbl}, net/mo</div>
-                <div
-                  className={`text-title font-semibold ${
-                    n < 0 ? "text-rose-600" : "text-emerald-600"
-                  }`}
-                >
-                  {fmt0(n)}
-                </div>
-              </div>
-            );
-          })}
-        </div>
-        <canvas
-          ref={chartRef}
-          height={260}
-          className="mt-4 block w-full rounded-lg border border-border bg-surface-sunken"
-          style={{ height: 260 }}
-        />
-        <Legend
-          items={[
-            { c: CH.good, t: "revenue in" },
-            { c: CH.bad, t: "expense out" },
-          ]}
-        />
-        <p className="mt-2 text-meta text-foreground-muted">
+        <p className="mt-3 text-meta text-foreground-muted">
           Projection from the ladder. At each user count, paid conversion splits
           into solo individuals (Plus), standalone labs (Lab Plus), and dept/inst
           labs by the org share, and the free base carries the support cost plus
