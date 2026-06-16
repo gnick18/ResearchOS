@@ -128,6 +128,30 @@ def fmt_mo(months):
     if d>=7: return f"{round(d/7)} wk"
     return f"{max(1,round(d))} days"
 
+def fixed_costs_card():
+    # Same flat overhead in every mode (these don't change with pricing). Sourced
+    # from the model: INFRA_FIXED_MONTHLY (~$37) + DEFAULT_OPERATING_COSTS.
+    items=[
+      ("Claude Max (ops, dev, marketing)", 200.00, "#534AB7"),
+      ("Infrastructure (Cloudflare, Vercel, domains, Apple/LLC fees)", 37.04, "#378ADD"),
+      ("Software + monitoring", 20.00, "#1D9E75"),
+      ("Tax software (DIY filing)", 3.33, "#BA7517"),
+      ("LLC phone (Tello, pay-per-use)", 1.25, "#888780"),
+    ]
+    tot=sum(v for _,v,_ in items)
+    bar=['<svg viewBox="0 0 820 24" width="100%" style="max-width:820px">']
+    x=0
+    for lab,v,c in items:
+        bw=820*v/tot; bar.append(f'<rect x="{x:.1f}" y="0" width="{bw:.1f}" height="22" fill="{c}"/>'); x+=bw
+    bar.append('</svg>')
+    leg=['<div style="display:flex;flex-wrap:wrap;gap:9px 20px;margin-top:11px;font-size:13px;color:#444">']
+    for lab,v,c in items:
+        leg.append(f'<span style="display:flex;align-items:center;gap:7px"><span style="width:11px;height:11px;border-radius:2px;background:{c}"></span>{esc(lab)} &nbsp;<b>{money(v)}</b>/mo ({v/tot*100:.0f}%)</span>')
+    leg.append('</div>')
+    return ('<div class="card"><h2>Monthly fixed costs</h2>'
+            f'<p class="phil">About <b>{money(tot)}/mo</b>, the same in every mode (fixed costs don\'t change with pricing). This is the flat overhead we cover before any profit. One permanent Claude Max that co-runs the company is the bulk of it; everything else is small. It grows only slightly with scale as we cross provider free tiers.</p>'
+            + "".join(bar) + "".join(leg) + '</div>')
+
 parts=[]
 parts.append('''<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
 <title>ResearchOS pricing modes</title>
@@ -178,6 +202,9 @@ for m in MODES:
                  f'<td class="n">${l:.2f}–${d:.2f}</td><td class="n">~{int(round(be*conv/10)*10):,}</td>'
                  f'<td class="n">{money(net_paid(m,2500))}/mo</td><td class="n">{money(net_paid(m,5000))}/mo</td></tr>')
 parts.append('</table><p class="note">2,500 paid customers is roughly 50k signups; 5,000 paid is roughly 100k. Annualized, that\'s about $43k/yr for Lean, $110k for Fund the labs, and $217k for Premium at 2,500 paid, and roughly double those at 5,000. For reference, LabArchives by itself runs $27.50/user/mo ($330/yr), and the bundle ResearchOS replaces costs far more.</p></div>')
+
+# fixed-costs breakdown (same in every mode)
+parts.append(fixed_costs_card())
 
 for m in MODES:
     s,l,d=seats_net(m); be=break_even(m); bn=blended(m)
