@@ -132,6 +132,14 @@ export interface RenderSpec {
    *  (a horizontal strip below the figure, freeing the right edge). The advisor's
    *  "move the legend" fix. */
   legendPlacement?: "right" | "bottom";
+  /**
+   * Circular only: left-anchor the circle and open a right gutter for per-track
+   * callouts (each ring's name pulled out to the side at the fan's open gap, with
+   * a thin leader) + the legend — the "circle left, annotations right" published
+   * look. The Studio sets this for the rooted "circular" layout and widens the
+   * canvas to match; it is inert for any caller that does not widen the canvas
+   * (it only engages when width > height). */
+  circularGutter?: boolean;
   tracks: FigureTracks;
   columns: FigureColumns;
   width: number;
@@ -590,6 +598,16 @@ function renderFromPanels(
     panels.find((p) => p.visible && p.kind === "labels") ?? null;
   const hasLabels = !!labelsPanel;
 
+  // Right-gutter callouts: the rooted circular layout, given a wider-than-tall
+  // canvas (the Studio widens it), left-anchors the circle and pulls each ring's
+  // name out to the right at the fan's open gap with a thin leader, so the rings
+  // self-identify without bouncing to the legend (Grant's "circle left, callouts
+  // right" published look). Inert unless the canvas is actually widened.
+  const gutter =
+    !!spec.circularGutter &&
+    spec.layout === "circular" &&
+    spec.width > spec.height;
+
   // Legends, one per colored aligned panel (and colored tip decoration) that asks
   // for one. Tip points are a decoration drawn on the tree, not an aligned panel,
   // but they color by a column too, so their legend is collected alongside.
@@ -619,9 +637,15 @@ function renderFromPanels(
   // Reserve one legend sub-column normally; when the stacked legends would run
   // past the canvas height, reserve enough sub-columns to hold them side by side
   // (capped) so they never overlap the figure or each other (multi-panel polish).
+  // In gutter mode the callouts own the inner part of the right margin, so cap the
+  // legend to a single column at the far right — it never grows back across the
+  // callout band (the callouts already carry ring identity, so an overflowing key
+  // dropping its tail is acceptable).
   const legendCols =
     legendItems.length > 0 && !legendBottom
-      ? legendColumnCount(legendItems, spec.height)
+      ? gutter
+        ? 1
+        : legendColumnCount(legendItems, spec.height)
       : 0;
   const legendW = legendCols * LEGEND_COL_WIDTH;
   const plotWidth = Math.max(120, spec.width - legendW);
@@ -655,14 +679,19 @@ function renderFromPanels(
     // off), so a label-less circular tree gets that radius back for the tree.
     circularLabelRoom: isCircular(spec.layout) ? labelRoom : undefined,
     sweepDegrees: sweepFor(spec.layout),
+    circularGutter: gutter,
   };
 
   const parts: string[] = [];
   let axis: TipAxis;
   let panelStart: number; // x cursor (rect) / radius cursor (circular)
+  // The circular layout's center/radius, hoisted so the post-loop callout pass can
+  // place leaders + labels relative to the circle (only used in gutter mode).
+  let circLayout: ReturnType<typeof layoutCircular> | null = null;
 
   if (isCircular(spec.layout)) {
     const layout = layoutCircular(root, opts);
+    circLayout = layout;
     drawCircularTree(parts, root, layout, spec, panels, collapsed);
     axis = circularTipAxis(root, layout, layout.radius + 6);
     panelStart = axis.ringStartR;
@@ -698,7 +727,29 @@ function renderFromPanels(
   // Draw each aligned panel in order, advancing the cursor by its thickness plus
   // a spacing gap so stacked rings / columns stay visually distinct. A small panel
   // title sits above each panel (rectangular) so a reader knows what each column /
-  // ring is, the multi-panel readability fix.
+  // ring is, the multi-panel readability fix. In gutter mode the circular titles
+  // are not drawn inline; their (name, radius band) is collected here and rendered
+  // as pulled-out callouts after the loop.
+  const callouts: { title: string; rInner: number; rOuter: number }[] = [];
+  const recordCallout = (panel: AlignedPanel, rInner: number, thick: number) => {
+    // A multi-column panel (e.g. a heat panel over FCZ / AMB / MCF) draws one
+    // ring per column, so give each ring its own callout at its sub-band, matching
+    // the per-track names in Grant's sketch. Single-column / msa panels get one.
+    const cols = panel.columns;
+    if (cols && cols.length > 1) {
+      cols.forEach((col, i) => {
+        if (!col) return;
+        callouts.push({
+          title: col,
+          rInner: rInner + (i / cols.length) * thick,
+          rOuter: rInner + ((i + 1) / cols.length) * thick,
+        });
+      });
+      return;
+    }
+    const title = panelTitleText(panel, spec);
+    if (title) callouts.push({ title, rInner, rOuter: rInner + thick });
+  };
   let cursor = panelStart;
   for (const panel of aligned) {
     const localAxis: TipAxis =
@@ -710,7 +761,8 @@ function renderFromPanels(
     if (panel.kind === "datahubPlot") {
       const drawn = renderDatahubPanel(panel, localAxis, spec);
       if (drawn) {
-        parts.push(panelTitle(panel, localAxis, spec, root, meta));
+        if (gutter) recordCallout(panel, cursor, drawn.thickness);
+        else parts.push(panelTitle(panel, localAxis, spec, root, meta));
         parts.push(drawn.svg);
         if (wantManifest)
           outManifest!.push({
@@ -741,7 +793,8 @@ function renderFromPanels(
     const scales = buildPanelScales(panel, root, meta, spec.categoryColors);
     const r = renderPanel(panel, localAxis, values, scales);
     if (r.thickness > 0) {
-      parts.push(panelTitle(panel, localAxis, spec, root, meta));
+      if (gutter) recordCallout(panel, cursor, r.thickness);
+      else parts.push(panelTitle(panel, localAxis, spec, root, meta));
       parts.push(r.svg);
       if (wantManifest)
         outManifest!.push({
@@ -775,6 +828,16 @@ function renderFromPanels(
         });
       }
     }
+  }
+
+  // Pulled-out per-track callouts (gutter mode): each ring's name in the right
+  // margin, connected to the ring by a thin leader through the fan's open gap. The
+  // circle was left-anchored, so the band right of the left square is free for them
+  // (and the single-column legend sits at the far right).
+  if (gutter && circLayout && callouts.length > 0) {
+    parts.push(
+      drawCircularCallouts(callouts, circLayout, layoutHeight, plotWidth, spec),
+    );
   }
 
   // Scale bar (rectangular phylogram only) is drawn inside drawRectTree.
@@ -848,6 +911,55 @@ function panelTitle(
   const lx = localAxis.cx;
   const ly = localAxis.cy - r - 4;
   return `<text x="${lx}" y="${ly}" font-size="8.5" font-weight="600" fill="${MUTED}" text-anchor="middle">${esc(truncate(title, 18))}</text>`;
+}
+
+/**
+ * Pulled-out per-track callouts for a left-anchored circular tree (gutter mode).
+ * Each ring's name is stacked in the right margin and tied to its ring by a thin
+ * leader that exits through the fan's open gap at 3 o'clock — so "CLADE / FCZ /
+ * AMB / MCF" read straight off the figure instead of via the side legend (Grant's
+ * pulled-out sketch). The circle sits in the left height-sized square, so the band
+ * from there to the single-column legend is the callouts' room.
+ */
+function drawCircularCallouts(
+  callouts: { title: string; rInner: number; rOuter: number }[],
+  layout: { cx: number; cy: number; radius: number },
+  layoutHeight: number,
+  plotWidth: number,
+  spec: RenderSpec,
+): string {
+  const { cx, cy } = layout;
+  const outerMost = Math.max(...callouts.map((c) => c.rOuter));
+  // Text column: just past the left square, and clear of the outermost ring's ink.
+  // Hold it left of the legend column (plotWidth) so the two never collide.
+  const labelX = Math.min(
+    Math.max(layoutHeight + 14, cx + outerMost + 26),
+    plotWidth - 6,
+  );
+  const railX = labelX - 14; // the leaders' vertical knee, just left of the text
+  const gap = 15;
+  const stackH = (callouts.length - 1) * gap;
+  // Center the stack on the fan's open gap (3 o'clock = cy), clamped into canvas.
+  const topY = Math.min(
+    Math.max(cy - stackH / 2, 16),
+    layoutHeight - stackH - 12,
+  );
+  const parts: string[] = [];
+  callouts.forEach((c, i) => {
+    const labelY = topY + i * gap;
+    const rMid = (c.rInner + c.rOuter) / 2;
+    // Anchor on the ring at the open gap (cartesian angle 0 -> straight right).
+    const ax = cx + rMid;
+    const ay = cy;
+    // Elbow leader: ring anchor -> vertical rail at the label's row -> short tick.
+    parts.push(
+      `<circle cx="${ax.toFixed(1)}" cy="${ay.toFixed(1)}" r="1.6" fill="${MUTED}"/>`,
+      `<path d="M${ax.toFixed(1)} ${ay.toFixed(1)} L${railX.toFixed(1)} ${labelY.toFixed(1)} L${(labelX - 4).toFixed(1)} ${labelY.toFixed(1)}" fill="none" stroke="${MUTED}" stroke-width="0.75"/>`,
+      `<text x="${labelX.toFixed(1)}" y="${(labelY + 3).toFixed(1)}" font-size="9.5" font-weight="600" fill="${FG}">${esc(truncate(c.title, 16))}</text>`,
+    );
+  });
+  void spec;
+  return parts.join("");
 }
 
 /** The tip-marker shapes a points layer can map a categorical column onto

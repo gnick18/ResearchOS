@@ -151,6 +151,16 @@ const SQUARE_FIG_LAYOUTS = new Set<PhyloLayout>([
 const figHeightFor = (layout: PhyloLayout): number =>
   SQUARE_FIG_LAYOUTS.has(layout) ? FIG_W : FIG_H;
 
+// The rooted circular layout is rendered "circle left, callouts right": the circle
+// keeps its full height-bound radius in a square block on the left, and this extra
+// width opens a right gutter that holds each ring's pulled-out track callout + the
+// single-column legend. Widening the canvas costs the tree no radius (it is
+// height-bound), so the tree stays exactly as large. Every other layout keeps
+// FIG_W, so they are unaffected.
+const RADIAL_CALLOUT_GUTTER = 220;
+const figWidthFor = (layout: PhyloLayout): number =>
+  layout === "circular" ? FIG_W + RADIAL_CALLOUT_GUTTER : FIG_W;
+
 // Per-page key for the persisted left-rail width (the shared split shell, keyed
 // per page exactly as Sequences/Chemistry do).
 const LIST_WIDTH_KEY = "researchos:phylo:listWidth";
@@ -344,7 +354,10 @@ export function PhyloStudio({ initialTreeId }: { initialTreeId?: string } = {}) 
   // The figure height depends on the layout (square for the radial family), so the
   // tree gets the full radius instead of being starved by the landscape height.
   const figH = figHeightFor(layout);
-  const figHIn = figWIn * (figH / FIG_W);
+  // The figure width also depends on the layout (the rooted circular layout gets a
+  // right callout gutter), so the aspect is taken against the layout-aware width.
+  const figW = figWidthFor(layout);
+  const figHIn = figWIn * (figH / figW);
   const onArtboardChange = (patch: Partial<ArtboardState>) =>
     setArtboard((s) => {
       const next = { ...s, ...patch };
@@ -352,7 +365,7 @@ export function PhyloStudio({ initialTreeId }: { initialTreeId?: string } = {}) 
       return next;
     });
   const onFitToPage = () => {
-    const fit = fitFigureToPage(pageDims(artboard), FIG_W / figH);
+    const fit = fitFigureToPage(pageDims(artboard), figW / figH);
     setFigWIn(fit.figWIn);
   };
   // Tip members whose MRCA clade the Rotate button flips (ggtree rotate()).
@@ -489,7 +502,7 @@ export function PhyloStudio({ initialTreeId }: { initialTreeId?: string } = {}) 
         alignment,
         branchColorColumn,
       },
-      { width: FIG_W, height: figHeightFor(layout) },
+      { width: figWidthFor(layout), height: figHeightFor(layout) },
     );
     // Phase 4: the resolved Data Hub plot inputs are live figure state, supplied
     // on the spec the same way figureToRenderSpec resolves alignment to msaTrack.
@@ -999,7 +1012,7 @@ export function PhyloStudio({ initialTreeId }: { initialTreeId?: string } = {}) 
   const pngDims = (): [number, number, number] =>
     artboard.enabled
       ? [pxAtDpi(figWIn, ARTBOARD_DPI), pxAtDpi(figHIn, ARTBOARD_DPI), 1]
-      : [FIG_W, figH, 3];
+      : [figW, figH, 3];
 
   const onExportSvg = () =>
     svgMarkup && downloadSvg(exportSvgMarkup(), treeName || "tree");
@@ -1856,7 +1869,7 @@ export function PhyloStudio({ initialTreeId }: { initialTreeId?: string } = {}) 
               ) : (
                 <div className="min-h-0 flex-1">
                   <ZoomPanCanvas
-                    contentWidth={FIG_W}
+                    contentWidth={figW}
                     contentHeight={figH}
                     minimap={
                       <div dangerouslySetInnerHTML={{ __html: svgMarkup }} />

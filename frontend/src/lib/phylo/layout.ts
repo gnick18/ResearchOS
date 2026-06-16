@@ -88,6 +88,15 @@ export interface LayoutOptions {
    * open fan. Ignored by the rectangular layout.
    */
   sweepDegrees?: number;
+  /**
+   * Left-anchor the circle (cx = height/2) instead of centering it (cx = width/2),
+   * so a wider-than-tall canvas opens a right gutter for per-track callouts + the
+   * legend (the "circle left, annotations right" published look). The radius is
+   * unchanged (it is already height-bound when width > height), so widening costs
+   * the tree nothing. Only takes effect when width > height; otherwise ignored, so
+   * every square / portrait caller is byte-identical.
+   */
+  circularGutter?: boolean;
 }
 
 /** Sum of branch lengths from the root to each node. Treats missing lengths as 0. */
@@ -188,7 +197,14 @@ export function layoutCircular(
   const lv = leaves(root);
   const maxDepth = Math.max(1e-9, ...[...depths.values()]);
   const aMax = Math.max(1, lv.length - 1);
-  const cx = width / 2;
+  // Left-anchor the circle in a height-sized square when a right gutter is asked
+  // for and the canvas is wider than tall, so the freed width on the right holds
+  // the per-track callouts + the legend. cx = height/2 keeps the circle (and its
+  // surrounding label ring) in the left square; the radius below is unchanged
+  // (already height-bound when width > height). Square / portrait callers, and any
+  // caller that does not opt in, keep cx = width/2 exactly.
+  const cx =
+    opts.circularGutter && width > height ? height / 2 : width / 2;
   // Nudge the center down a few px so the topmost tips + their labels do not
   // clip at the canvas top edge (the fan is densest near the top). The bottom
   // has the open gap of the rooted fan, so it has room to spare.
