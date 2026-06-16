@@ -91,6 +91,16 @@ Grant's reframe collapses the iOS/Android parity worry: **the map is a shared la
 
 This resolves open question #2 below (we accept the asymmetric, one-author feature).
 
+### One feature, layered — NOT "2D mode vs 3D mode" (Grant, 2026-06-16)
+Hard requirement: the 2D map and the 3D scan must feel like **one feature with optional depth layers**, never two separate tools the user chooses between. The architecture that delivers this:
+- **One canonical object** — the 2D map `{ plan, zones, pins: {itemId, x, y, zone} }`. Everything reads/writes this. The 3D scan is an OPTIONAL layer keyed to the SAME coordinates, not a second object.
+- **Two authoring routes, identical output.** (a) **Pro device:** one RoomPlan scan auto-derives the 2D plan AND stores the 3D model — the scan BUILDS the 2D map for you, you didn't "also do the 2D version." (b) **No Pro device:** draw/import the 2D plan on the **laptop** (Lab settings). Same plan + pins, minus the 3D layer. The laptop-draw path is the fallback that produces the IDENTICAL base object, so a lab can upgrade to 3D later with no redo.
+- **Shared coordinate space is the technical key.** RoomPlan's 2D plan is literally the floor-projection of the 3D scan (its net predicts walls as 2D lines, then lifts to 3D), so a pin at (x,y) on the 2D map is the same physical point in the 3D model. No two-coordinate-system sync; the 2D map IS the 3D scan from above. One pin, two views.
+- **Consume is identical; 3D adds exactly one affordance.** Item lookup always shows the pin on the 2D map (every phone). When a 3D scan exists, an extra "See the actual spot" button drops the member into the scan positioned at that pin (the "show me the real shelf" experience). No scan -> no button, nothing else changes. Graceful degradation, not a separate flow.
+- **Zone-anchored pins keep the upgrade clean.** Pins reference a named zone (Phase B) not only raw x/y, so swapping the base layer (manual draw -> later 3D scan) re-homes pins automatically because the zone exists in both. "Start 2D, add 3D later" never loses placements.
+
+Net: base 2D map (anyone authors, everyone reads cross-platform) + optional 3D depth layer (one Pro device adds, everyone benefits). Layers on one object.
+
 ## Recommendation (post-research)
 1. **Make the 2D pin model the canonical data structure** now: `{ plan, zones, pins: {itemId, x, y, zoneLabel} }`, local + E2E. Every capture method (free-text, structured location, drawn/imported plan, and later a RoomPlan flatten) feeds this one model. This is the architectural decision that keeps us cross-platform and out of the research swamp.
 2. **Build Phase A immediately** (wire the existing `location_text` to the app + scan-in prompt + lookup) — it is small, needs no 3D, and delivers the core "where do I find this / do we have it" value on every phone today. It is the on-ramp to the pin model.
