@@ -43,6 +43,14 @@ export interface PlacedBox {
   h: number;
   /** Human label for messages ("MIC", a tip name), when meaningful. */
   label?: string;
+  /**
+   * Optional rotation (degrees) of the box about its anchor -- the left edge,
+   * vertically centered (x, y + h/2) -- matching how a tilted tip label rotates
+   * about its baseline anchor. When set (and non-zero), overlap is computed on the
+   * true ORIENTED rectangle (SAT), so tilting a long label into a parallel diagonal
+   * strip correctly stops it colliding with its neighbor. Absent / 0 = axis-aligned
+   * (every existing emitter is unchanged). */
+  angle?: number;
 }
 
 /** The placed geometry of one rendered figure. */
@@ -62,4 +70,63 @@ export function boxOverlapArea(a: PlacedBox, b: PlacedBox): number {
   const ix = Math.max(0, Math.min(a.x + a.w, b.x + b.w) - Math.max(a.x, b.x));
   const iy = Math.max(0, Math.min(a.y + a.h, b.y + b.h) - Math.max(a.y, b.y));
   return ix * iy;
+}
+
+/** The four corners of a box, rotated by its `angle` about its anchor (the left
+ *  edge, vertically centered) -- the pivot a tilted tip label spins around. */
+function boxCorners(b: PlacedBox): Array<[number, number]> {
+  const pts: Array<[number, number]> = [
+    [b.x, b.y],
+    [b.x + b.w, b.y],
+    [b.x + b.w, b.y + b.h],
+    [b.x, b.y + b.h],
+  ];
+  const deg = b.angle ?? 0;
+  if (!deg) return pts;
+  const a = (deg * Math.PI) / 180;
+  const ca = Math.cos(a);
+  const sa = Math.sin(a);
+  const px = b.x;
+  const py = b.y + b.h / 2;
+  return pts.map(([x, y]) => {
+    const dx = x - px;
+    const dy = y - py;
+    return [px + dx * ca - dy * sa, py + dx * sa + dy * ca];
+  });
+}
+
+/** Separating-axis test: do two convex quads overlap (touching counts)? */
+function quadsOverlap(A: Array<[number, number]>, B: Array<[number, number]>): boolean {
+  for (const poly of [A, B]) {
+    for (let i = 0; i < poly.length; i++) {
+      const [x1, y1] = poly[i];
+      const [x2, y2] = poly[(i + 1) % poly.length];
+      const nx = -(y2 - y1);
+      const ny = x2 - x1;
+      let aMin = Infinity;
+      let aMax = -Infinity;
+      let bMin = Infinity;
+      let bMax = -Infinity;
+      for (const [x, y] of A) {
+        const p = x * nx + y * ny;
+        if (p < aMin) aMin = p;
+        if (p > aMax) aMax = p;
+      }
+      for (const [x, y] of B) {
+        const p = x * nx + y * ny;
+        if (p < bMin) bMin = p;
+        if (p > bMax) bMax = p;
+      }
+      if (aMax < bMin || bMax < aMin) return false; // a separating axis exists
+    }
+  }
+  return true;
+}
+
+/** Whether two labels overlap, honoring rotation. With no angle on either, this is
+ *  the axis-aligned area test (unchanged); when a label is tilted, it tests the true
+ *  oriented rectangles, so parallel diagonal labels no longer count as colliding. */
+export function labelsOverlap(a: PlacedBox, b: PlacedBox): boolean {
+  if (!a.angle && !b.angle) return boxOverlapArea(a, b) > 0;
+  return quadsOverlap(boxCorners(a), boxCorners(b));
 }

@@ -189,7 +189,7 @@ describe("renderTreeWithManifest (integration)", () => {
     expect(wide - tight).toBeCloseTo(26, 0); // 30 - 4
   });
 
-  it("tilting tip labels rotates them and narrows the reserved label width", () => {
+  it("tilting tip labels rotates them and carries the tilt as a box angle", () => {
     const mk = (tilt: number): RenderSpec => ({
       layout: "rectangular",
       phylogram: false,
@@ -216,11 +216,13 @@ describe("renderTreeWithManifest (integration)", () => {
     // The rendered labels carry a rotate() transform only when tilted.
     expect(flat.svg).not.toContain("rotate(45");
     expect(tilted.svg).toContain("rotate(45");
-    // Tilted labels project a narrower horizontal footprint, so the manifest
-    // tip-label box is narrower (cos 45 ~ 0.71).
-    const labelW = (r: typeof flat) =>
-      r.manifest.boxes.find((b) => b.kind === "tipLabel")!.w;
-    expect(labelW(tilted)).toBeLessThan(labelW(flat));
+    // The manifest carries the tilt as the box ANGLE (a real rotation for oriented
+    // overlap), not as a narrowed width -- the ink width + height are unchanged.
+    const box = (r: typeof flat) => r.manifest.boxes.find((b) => b.kind === "tipLabel")!;
+    expect(box(flat).angle ?? 0).toBe(0);
+    expect(box(tilted).angle).toBe(45);
+    expect(box(tilted).w).toBeCloseTo(box(flat).w, 5);
+    expect(box(tilted).h).toBeCloseTo(box(flat).h, 5);
   });
 
   it("legendPlacement 'bottom' moves the legend below the figure, freeing the right edge", () => {

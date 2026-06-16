@@ -815,27 +815,27 @@ function renderFromPanels(
   if (labelsPanel) {
     drawLabels(parts, root, axis, spec, cursor, labelsPanel);
     if (wantManifest) {
-      const labelW = labelReserve;
-      // The tip-label box reflects the ACTUAL rendered label ink, not the whole tip
-      // row. Its vertical extent is the font size, shrunk by the tilt (cos) because a
-      // tilted label leans off-horizontal and needs less vertical room (drawLabels'
-      // stated intent, line ~1600). This is what lets the advisor's two reversible
-      // label fixes -- shrink-label-font and tilt-tip-labels -- measurably reduce
-      // detected label-crowding. The old box spanned the full row band (bandHeight),
-      // so adjacent boxes always touched: crowding was over-reported AND no reversible
-      // fix could clear it (only a taller canvas would, which the wand never applies).
+      // The tip-label box is the ACTUAL oriented label ink: its natural horizontal
+      // rectangle (width = the tip name's drawn width, height = the font size) plus
+      // the tilt as a real rotation about the label's baseline anchor. The crowding
+      // detector tests the true oriented rectangles (SAT), so BOTH reversible label
+      // fixes measurably help: shrinking the font shrinks the box, and tilting turns
+      // the labels into parallel diagonal strips that genuinely stop colliding. (The
+      // old model spanned the full row band, so crowding was over-reported and no
+      // reversible fix could ever clear it.)
       const labelFs = Number(labelsPanel.options?.fontSize) || 11;
-      const labelBoxH = Math.max(2, labelFs * labelTiltCos);
       const nameById = new Map(leaves(root).map((l) => [l.id, l.name]));
       for (const t of axis.tips) {
+        const name = nameById.get(t.id) ?? "";
         outManifest!.push({
           id: `tipLabel:${t.id}`,
           kind: "tipLabel",
           x: cursor,
-          y: t.y - labelBoxH / 2,
-          w: labelW,
-          h: labelBoxH,
-          label: nameById.get(t.id) ?? undefined,
+          y: t.y - labelFs / 2,
+          w: Math.max(2, name.length * labelFs * 0.6),
+          h: labelFs,
+          angle: labelTilt || undefined,
+          label: name || undefined,
         });
       }
     }

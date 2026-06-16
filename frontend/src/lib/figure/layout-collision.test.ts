@@ -10,6 +10,7 @@ import { describe, it, expect } from "vitest";
 import { detectCollisions, suggestFixes } from "./layout-collision";
 import {
   boxOverlapArea,
+  labelsOverlap,
   isLabelKind,
   type LayoutManifest,
   type PlacedBox,
@@ -22,6 +23,41 @@ function manifest(boxes: PlacedBox[]): LayoutManifest {
     : 100;
   return { width: 430, height: 340, plotRight, boxes };
 }
+
+describe("labelsOverlap (oriented strips)", () => {
+  const lbl = (x: number, y: number, w: number, h: number, angle?: number): PlacedBox => ({
+    id: `${x},${y}`,
+    kind: "tipLabel",
+    x,
+    y,
+    w,
+    h,
+    angle,
+  });
+
+  it("falls back to the axis-aligned area test when neither box is tilted", () => {
+    // Two wide labels in a row, overlapping horizontally at the same baseline.
+    expect(labelsOverlap(lbl(0, 0, 60, 12), lbl(40, 0, 60, 12))).toBe(true);
+    expect(labelsOverlap(lbl(0, 0, 60, 12), lbl(80, 0, 60, 12))).toBe(false);
+  });
+
+  it("tilting a crowded horizontal row de-collides it (the case tilt is for)", () => {
+    // Same overlapping row, now both tilted -45: the wide strips rotate off each
+    // other's path and no longer collide.
+    const a = lbl(0, 0, 60, 12, -45);
+    const b = lbl(40, 0, 60, 12, -45);
+    expect(labelsOverlap(lbl(0, 0, 60, 12), lbl(40, 0, 60, 12))).toBe(true); // flat: collide
+    expect(labelsOverlap(a, b)).toBe(false); // tilted: clear
+  });
+
+  it("does NOT pretend tilt separates a tight vertical stack", () => {
+    // Same x, stacked closer than the font height: tilting cannot fix this (the
+    // anchors stay put), so it is honestly still flagged.
+    const a = lbl(0, 0, 60, 12, -45);
+    const b = lbl(0, 6, 60, 12, -45);
+    expect(labelsOverlap(a, b)).toBe(true);
+  });
+});
 
 describe("isLabelKind", () => {
   it("treats tip labels and axis labels as crowdable, others not", () => {

@@ -147,11 +147,18 @@ export function PhyloLayoutAdvisor({
     }
   }, [tree, spec]);
 
-  // Drop the one fix with no Studio control (canvas height is fixed here).
+  // Drop two fixes that do not apply to a phylo tree: canvas height has no Studio
+  // control here, and tilt-tip-labels does not de-collide a VERTICAL tip-label stack
+  // (rotating each label about its own anchor leaves the anchor spacing unchanged --
+  // tilt only helps a horizontal axis-label row, e.g. Data Hub). The oriented-overlap
+  // detector now reflects this honestly, so the real phylo lever is shrink-the-font.
   const fixes = useMemo(
     () =>
       suggestFixes(collisions).filter(
-        (f) => f.available && f.id !== "increase-canvas-height",
+        (f) =>
+          f.available &&
+          f.id !== "increase-canvas-height" &&
+          f.id !== "tilt-tip-labels",
       ),
     [collisions],
   );

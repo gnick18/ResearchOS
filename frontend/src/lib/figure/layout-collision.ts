@@ -16,6 +16,7 @@ import {
   type LayoutManifest,
   type PlacedBox,
   boxOverlapArea,
+  labelsOverlap,
   isLabelKind,
 } from "./layout-manifest";
 
@@ -119,12 +120,14 @@ export function detectCollisions(manifest: LayoutManifest): Collision[] {
   for (let i = 1; i < labels.length; i++) {
     const a = labels[i - 1];
     const b = labels[i];
-    const ov = boxOverlapArea(a, b);
-    if (ov > 0) {
+    // labelsOverlap honors rotation: tilted tip labels become parallel diagonal
+    // strips that genuinely de-collide, so tilt is a real fix (not just a height
+    // shrink). Axis-aligned (untilted) labels fall back to the area test unchanged.
+    if (labelsOverlap(a, b)) {
       out.push({
         kind: "label-crowding",
         boxIds: [a.id, b.id],
-        severity: Math.min(1, ov / (area(b) || 1)),
+        severity: Math.min(1, boxOverlapArea(a, b) / (area(b) || 1)),
         message: `Labels ${a.label ?? a.id} and ${b.label ?? b.id} overlap.`,
       });
     }

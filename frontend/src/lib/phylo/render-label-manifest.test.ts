@@ -39,11 +39,14 @@ function specWithLabels(opts: Record<string, unknown>, layout: PhyloLayout = "re
 const tipBoxes = (spec: ReturnType<typeof specWithLabels>) =>
   renderTreeWithManifest(TREE, spec).manifest.boxes.filter((b) => b.kind === "tipLabel");
 
-describe("tip-label manifest box reflects font + tilt", () => {
-  it("box height equals the label font size at zero tilt (not the row band)", () => {
-    const boxes = tipBoxes(specWithLabels({ fontSize: 11, tilt: 0 }));
-    expect(boxes.length).toBe(48);
-    for (const b of boxes) expect(b.h).toBeCloseTo(11, 5);
+describe("tip-label manifest box reflects the true oriented label ink", () => {
+  it("box height equals the label font size (not the row band), at any tilt", () => {
+    const flat = tipBoxes(specWithLabels({ fontSize: 11, tilt: 0 }));
+    expect(flat.length).toBe(48);
+    for (const b of flat) expect(b.h).toBeCloseTo(11, 5);
+    // Tilt is carried as a real rotation, NOT a height shrink (the old cos proxy).
+    const tilted = tipBoxes(specWithLabels({ fontSize: 11, tilt: -45 }));
+    for (const b of tilted) expect(b.h).toBeCloseTo(11, 5);
   });
 
   it("a smaller font yields proportionally shorter boxes", () => {
@@ -53,21 +56,23 @@ describe("tip-label manifest box reflects font + tilt", () => {
     expect(small).toBeLessThan(big);
   });
 
-  it("tilting shrinks the box height by cos(tilt)", () => {
-    const flat = tipBoxes(specWithLabels({ fontSize: 11, tilt: 0 }))[0].h;
-    const tilted = tipBoxes(specWithLabels({ fontSize: 11, tilt: -45 }))[0].h;
-    expect(tilted).toBeCloseTo(11 * Math.cos((45 * Math.PI) / 180), 4);
-    expect(tilted).toBeLessThan(flat);
+  it("tilting sets the box angle (the rotation), leaving width + height as the ink", () => {
+    const flat = tipBoxes(specWithLabels({ fontSize: 11, tilt: 0 }))[0];
+    const tilted = tipBoxes(specWithLabels({ fontSize: 11, tilt: -45 }))[0];
+    expect(flat.angle ?? 0).toBe(0);
+    expect(tilted.angle).toBe(-45);
+    expect(tilted.h).toBeCloseTo(flat.h, 5); // height unchanged
+    expect(tilted.w).toBeCloseTo(flat.w, 5); // width unchanged
   });
 });
 
-describe("the reversible label fixes now reduce detected crowding", () => {
-  it("shrinking the font clears label-crowding the full-band box could never clear", () => {
+describe("shrinking the font is the lever that clears phylo label-crowding", () => {
+  it("a smaller font clears crowding the full-band box could never clear", () => {
     const crowdedManifest = renderTreeWithManifest(TREE, specWithLabels({ fontSize: 11 })).manifest;
-    const fixedManifest = renderTreeWithManifest(TREE, specWithLabels({ fontSize: 7, tilt: -45 })).manifest;
+    const fixedManifest = renderTreeWithManifest(TREE, specWithLabels({ fontSize: 7 })).manifest;
     const crowded = detectCollisions(crowdedManifest).filter((c) => c.kind === "label-crowding");
     const fixed = detectCollisions(fixedManifest).filter((c) => c.kind === "label-crowding");
     expect(crowded.length).toBeGreaterThan(0); // dense font-11 labels really do crowd
-    expect(fixed.length).toBeLessThan(crowded.length); // the wand's fix measurably helps
+    expect(fixed.length).toBeLessThan(crowded.length); // shrinking the font measurably helps
   });
 });
