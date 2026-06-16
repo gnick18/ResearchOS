@@ -72,10 +72,11 @@ export const DEFAULT_OPERATING_COSTS: FixedCostItem[] = [
   // A permanent Claude Max subscription that co-runs the company with Grant
   // (site maintenance, fixes, marketing), kept on at every stage. Max 20x tier.
   { label: "Claude Max (co-runs ops: maintenance, fixes, marketing)", amount: 200, cadence: "monthly" },
-  // The LLC business phone, the Tello prepaid line (tracked as a sub in the admin
-  // console; verify Grant's actual top-up). Apple $99/yr + WI report $25/yr +
-  // both domains are in the sourced infra floor above, not here.
-  { label: "Tello (LLC business phone line)", amount: 10, cadence: "monthly" },
+  // The LLC business phone, the Tello pay-as-you-go line (NOT a monthly sub).
+  // Grant almost never uses the number, so it is only ~$10-20/yr of pay-per-use.
+  // Apple $99/yr + WI report $25/yr + both domains are in the sourced infra
+  // floor above, not here.
+  { label: "Tello (LLC phone, pay-per-use)", amount: 15, cadence: "yearly" },
   { label: "Accounting / legal / filing", amount: 40, cadence: "monthly" },
   { label: "Misc software + monitoring", amount: 20, cadence: "monthly" },
 ];
