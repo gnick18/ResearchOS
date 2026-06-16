@@ -24,7 +24,11 @@ import type {
  */
 
 // Flag ON so the route renders instead of the "not enabled" gate.
-vi.mock("@/lib/datahub/config", () => ({ DATAHUB_ENABLED: true }));
+vi.mock("@/lib/datahub/config", () => ({
+  DATAHUB_ENABLED: true,
+  BIGTABLE_ENABLED: false,
+  isBigTableEnabled: () => false,
+}));
 
 vi.mock("@/components/AppShell", () => ({
   default: ({ children }: { children: React.ReactNode }) => <>{children}</>,
