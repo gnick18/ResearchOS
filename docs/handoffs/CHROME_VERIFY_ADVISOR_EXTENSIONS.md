@@ -107,6 +107,24 @@ acceptable result here.
 
 ---
 
+## Test E — Shape-tab layout-issue dot (added 2026-06-16, commit `03008d775`)
+
+The phylo layout advisor lives inside the **Shape** inspector, so an amber dot now
+marks the Shape tab whenever there are unaddressed layout issues, making it noticeable
+from any tab.
+
+1. `BASE/phylo?demo=1` → wait for the demo tree.
+2. Turn **tip labels ON** (Layers tab) so the 300+ tips crowd. Switch to a DIFFERENT
+   tab (e.g. Layers or Data).
+3. **Capture E1.** Expected: the **Shape** tab in the right action rail shows a small
+   **amber dot**. Open the Shape tab → the amber advisor card is there. Click the card's
+   **×** ("don't show again") → the card hides AND the Shape-tab dot disappears.
+4. Turn tip labels OFF → the dot does not appear (nothing to fix).
+
+PASS if the dot appears on crowding, opens to the advisor, and clears on dismiss.
+
+---
+
 ## Report format
 
 ```
@@ -114,6 +132,7 @@ A (fan/inward callouts): PASS/FAIL — <one line>
 B (advisor drops tilt):  PASS/FAIL — <one line>
 C (cut-site crowd chip): PASS/FAIL/BLOCKED — <one line>
 D (composer overflow):   PASS/FAIL/BLOCKED — <one line>
+E (Shape-tab dot):       PASS/FAIL — <one line>
 Console errors seen: <none / list>
 ```
-Attach captures A1, A2, B1, C1, D1.
+Attach captures A1, A2, B1, C1, D1, E1.

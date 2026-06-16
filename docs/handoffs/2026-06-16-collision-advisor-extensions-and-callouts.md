@@ -74,17 +74,35 @@ still earns its keep — a label column off the canvas isn't fixed by rotating.
 - **Headless / unit:** tsc 0; full figure/phylo/datahub/sequences suites green
   throughout. Each render slice raster-verified via qlmanage (callouts land, overflow
   fires, refactors draw byte-identical).
-- **In-app live pass: IN PROGRESS** — Grant is running the Chrome prompt
-  `docs/handoffs/CHROME_VERIFY_ADVISOR_EXTENSIONS.md` (4 tests, demo-mode). Tests A
-  (fan/inward callouts) + B (advisor drops tilt) are the high-confidence ones; C
-  (interactive cut-site chip — may BLOCK if no enzyme-dense demo sequence) and D
-  (composer overflow — may BLOCK if add-panel UI is flag-gated) are BLOCKED-acceptable.
-  **If results came back: act on them.** Likely tuning lever: `CUT_SITE_TIER_LIMIT`
-  (label-layout.ts, currently 5) if the chip never fires on real demo data.
+- **In-app live pass: CLOSED / PASSED (2026-06-16).** Grant ran the Chrome prompt
+  `docs/handoffs/CHROME_VERIFY_ADVISOR_EXTENSIONS.md` against `:3000`:
+  - **A (fan/inward callouts): PASS** — both radial layouts put the figure left, track
+    names in the right gutter with leaders; rectangular swaps back to per-column headers.
+  - **B (advisor drops tilt): PASS** — Review menu offered only "Shrink the label font",
+    no "Tilt the labels"; auto-fix shrank font without tilting, Undo reverted clean.
+  - **C (cut-site crowding chip): PASS** — fired at **9 tiers** on pEGFP-N1-TRAP1; "Hide
+    cut sites" flipped the rail toggle and cleared it, × dismissed. `CUT_SITE_TIER_LIMIT`
+    (=5) needs NO tuning (it fired well above threshold).
+  - **D (composer overflow): BLOCKED-acceptable** — `/figures` has no add-panel UI to
+    insert a sequence map (the known flag-gated caveat); engine + seam are unit-verified.
+- **Advisor discoverability follow-up (`03008d775`).** The verifier's confusion ("only
+  fires with a Page frame/artboard") was a MISATTRIBUTION: the advisor lives inside the
+  Shape inspector, so the firing was only noticed after navigating to that tab (where
+  the artboard toggle also is). Detection is artboard- and zoom-independent (the
+  artboard only uniformly scales the same figure SVG, which preserves overlaps; the real
+  trigger is the tip-labels layer being ON). Fix: lifted detection into PhyloStudio
+  (`phyloLayoutIssues`, shared with the card), added an **amber dot on the Shape tab**
+  (`RailOperation.badge`) so the warning is noticeable from any tab, and made the card a
+  controlled component with host-owned shared silence. +3 unit tests. The visual dot
+  itself is the one item still worth an in-app glance (uses the rail's existing,
+  tested badge mechanism).
 
 ## Open follow-ups (none blocking; all noted in memory)
 
-- Live-verify the four in-app (the Chrome pass above).
+- In-app glance at the new Shape-tab amber dot (`03008d775`) — low risk, rail badge is
+  already tested; just confirm it shows when tip labels crowd and clears on dismiss.
+- Sequence editor view tabs (Map/Sequence/...) sit under the floating BeakerBot
+  chat-search bar (found in the Chrome pass) — spun off as a separate background task.
 - Sequence circular leader-over-wedge crossings (needs a line-overlap primitive).
 - Phylo circular callout aesthetics on the real 305-tip demo (levers
   `RADIAL_CALLOUT_GUTTER`=220, `gap`=15 in drawCircularCallouts).
