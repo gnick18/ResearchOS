@@ -29,6 +29,7 @@ import { openObjectRef } from "@/components/ai/object-popup-bridge";
 import { requestNavigation } from "@/components/ai/navigation-bridge";
 import { DEFAULT_EMBED_VIEW, type EmbedDescriptor, type ObjectRefType } from "@/lib/references";
 import { RECORD_SET_COMPACT_MAX, type RecordSet, type RecordSetRow, type RecordSetRowType } from "@/lib/ai/record-set";
+import { WidgetIconTile, tintForObjectType } from "./widget-kit";
 
 // Per-type glyph + label, mirroring ObjectEmbed's maps so the list and the embed
 // preview read consistently. Kept local (ObjectEmbed does not export them) and
@@ -125,9 +126,12 @@ function RowButton({
           : "text-foreground-muted hover:bg-surface-sunken/60 hover:text-foreground"
       }`}
     >
-      <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center text-foreground-muted">
-        <Icon name={TYPE_ICON[row.type]} className="h-4 w-4" />
-      </span>
+      <WidgetIconTile
+        icon={TYPE_ICON[row.type]}
+        tint={tintForObjectType(row.type)}
+        size="sm"
+        className="mt-0.5"
+      />
       <span className="min-w-0 flex-1">
         <span className="block truncate text-meta font-semibold text-foreground">
           {row.title || row.id}
@@ -424,13 +428,17 @@ function CompactRecordSet({ set }: { set: RecordSet }) {
               type="button"
               onClick={() => setSelectedId(row.id)}
               aria-selected={on}
-              className={`inline-flex max-w-full items-center gap-1.5 rounded-md border px-2.5 py-1 text-meta transition-colors ${
+              className={`inline-flex max-w-full items-center gap-1.5 rounded-md border py-1 pl-1 pr-2.5 text-meta transition-colors ${
                 on
                   ? "border-brand-action bg-brand-action/10 text-foreground"
                   : "border-border text-foreground-muted hover:border-brand-action hover:text-foreground"
               }`}
             >
-              <Icon name={TYPE_ICON[row.type]} className="h-3.5 w-3.5 shrink-0" />
+              <WidgetIconTile
+                icon={TYPE_ICON[row.type]}
+                tint={tintForObjectType(row.type)}
+                size="sm"
+              />
               <span className="truncate">{row.title || row.id}</span>
             </button>
           );

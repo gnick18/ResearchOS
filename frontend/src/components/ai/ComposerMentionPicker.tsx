@@ -18,7 +18,8 @@
 // entry), no emojis / em-dashes / mid-sentence colons.
 
 import { useEffect, useMemo } from "react";
-import { Icon, type IconName } from "@/components/icons";
+import { type IconName } from "@/components/icons";
+import { WidgetIconTile, tintDotClass, tintForObjectType } from "./widget-kit";
 import { useGlobalObjectIndex } from "@/components/beaker-search/useGlobalObjectIndex";
 import type { GlobalIndexEntry } from "@/components/beaker-search/global-index";
 import type { AttachedRef } from "@/lib/ai/conversation-store";
@@ -147,7 +148,12 @@ export default function ComposerMentionPicker({
             return (
               <div key={entry.key}>
                 {showGroup ? (
-                  <div className="px-3 pb-0.5 pt-2 text-[10px] font-semibold uppercase tracking-wide text-foreground-muted">
+                  <div className="flex items-center gap-1.5 px-3 pb-0.5 pt-2 text-[10px] font-semibold uppercase tracking-wide text-foreground-muted">
+                    <span
+                      className={`h-[7px] w-[7px] rounded-full ${tintDotClass(
+                        tintForObjectType(entry.type),
+                      )}`}
+                    />
                     {GROUP_LABEL[entry.type]}
                   </div>
                 ) : null}
@@ -166,9 +172,10 @@ export default function ComposerMentionPicker({
                     isActive ? "bg-brand/10" : "hover:bg-surface-sunken"
                   }`}
                 >
-                  <Icon
-                    name={entry.iconName as IconName}
-                    className="h-4 w-4 flex-none text-foreground-muted"
+                  <WidgetIconTile
+                    icon={entry.iconName as IconName}
+                    tint={tintForObjectType(entry.type)}
+                    size="sm"
                   />
                   <span className="min-w-0 flex-1 truncate text-body text-foreground">
                     {entry.label}

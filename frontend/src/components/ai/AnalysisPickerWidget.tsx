@@ -19,11 +19,19 @@
 // Icon-guard: every glyph comes from @/components/icons. No emojis, no em-dashes,
 // no mid-sentence colons.
 
-import { Icon } from "@/components/icons";
+import { type IconName } from "@/components/icons";
 import type {
   Capability,
   TableCapabilities,
 } from "@/lib/datahub/table-capabilities";
+import {
+  WidgetHeader,
+  WidgetOptionGrid,
+  WidgetRow,
+  WidgetSection,
+  widgetCardClass,
+  type WidgetTint,
+} from "./widget-kit";
 
 export type PickerFocus = "both" | "analyses" | "graphs";
 
@@ -48,39 +56,34 @@ function titleFor(focus: PickerFocus, tableName: string): string {
 function Section({
   title,
   items,
+  tint,
+  icon,
   onPick,
 }: {
   title: string;
   items: Capability[];
+  /** Domain family for the row tiles + the section dot. */
+  tint: WidgetTint;
+  /** One glyph per section (analyses vs graphs) from the registry. */
+  icon: IconName;
   onPick: (item: Capability) => void;
 }) {
   if (items.length === 0) return null;
   return (
-    <div className="mb-1">
-      <div className="px-1 pb-1 pt-2 text-[10.5px] font-semibold uppercase tracking-wide text-foreground-muted">
-        {title}
-      </div>
-      <div className="flex flex-col gap-1">
+    <WidgetSection label={title} tint={tint}>
+      <WidgetOptionGrid>
         {items.map((item) => (
-          <button
+          <WidgetRow
             key={`${item.kind}:${item.id}`}
-            type="button"
+            icon={icon}
+            tint={tint}
+            label={item.label}
+            hint={item.hint}
             onClick={() => onPick(item)}
-            className="flex items-center gap-2 rounded-lg border border-border bg-surface px-2.5 py-2 text-left transition-colors hover:border-brand hover:bg-surface-raised"
-          >
-            <div className="min-w-0 flex-1">
-              <div className="truncate text-[13px] font-medium text-foreground">
-                {item.label}
-              </div>
-              <div className="truncate text-[11px] text-foreground-muted">
-                {item.hint}
-              </div>
-            </div>
-            <Icon name="chevronRight" className="h-3.5 w-3.5 shrink-0 text-foreground-muted" />
-          </button>
+          />
         ))}
-      </div>
-    </div>
+      </WidgetOptionGrid>
+    </WidgetSection>
   );
 }
 
@@ -96,28 +99,32 @@ export function AnalysisPickerWidget({
   const showGraphs = focus !== "analyses";
 
   return (
-    <div className="w-[440px] max-w-full overflow-hidden rounded-2xl border border-border bg-surface-raised shadow-xl">
-      <div className="flex items-center gap-2.5 border-b border-border px-4 py-3">
-        <Icon name="chart" className="h-4 w-4 shrink-0 text-accent" />
-        <div className="truncate text-sm font-semibold text-foreground">
-          {titleFor(focus, tableName)}
-        </div>
-        <button
-          type="button"
-          onClick={onClose}
-          aria-label="Close"
-          className="ml-auto text-foreground-muted hover:text-foreground"
-        >
-          <Icon name="x" className="h-4 w-4" />
-        </button>
-      </div>
+    <div className={widgetCardClass(inline)}>
+      <WidgetHeader
+        icon="chart"
+        tint="data"
+        title={titleFor(focus, tableName)}
+        onClose={onClose}
+      />
 
       <div className={inline ? "px-3 py-2" : "max-h-[420px] overflow-y-auto px-3 py-2"}>
         {showAnalyses && (
-          <Section title="Analyses" items={capabilities.analyses} onPick={onPick} />
+          <Section
+            title="Analyses"
+            items={capabilities.analyses}
+            tint="protocol"
+            icon="results"
+            onPick={onPick}
+          />
         )}
         {showGraphs && (
-          <Section title="Graphs" items={capabilities.graphs} onPick={onPick} />
+          <Section
+            title="Graphs"
+            items={capabilities.graphs}
+            tint="data"
+            icon="figure"
+            onPick={onPick}
+          />
         )}
       </div>
     </div>
