@@ -23,7 +23,7 @@ C3's design is APPROVED (all §5 decisions locked: fresh re-auth, notify + 48h c
 ## Live-verify infra I stood up (this session)
 - **Lab relay running in background** for C2: `cd relay && npm run dev` → `workerd` on `127.0.0.1:8787` (the default `COLLAB_RELAY_URL`; no CF account needed). **It is a background process — kill it when done** (`lsof -nP -iTCP:8787 -sTCP:LISTEN`). Directory backend is already wired in Grant's `.env.local` (Neon), so C5 needs no relay.
 - **Scratch folders:** `~/Desktop/ROS-verify-c5`, `~/Desktop/ROS-verify-c2-pi`, `~/Desktop/ROS-verify-c2-member` (empty; agent populates in-app — seeding is fragile because notes are Loro-binary + identities need valid crypto).
-- **Verify prompts** are in the collaborative human-in-the-loop format (see AGENTS.md convention I added: agent drives, STOPS to hand off the OS-picker / second-account steps, never fabricates, console open).
+- **Verify prompts (NOT YET RUN — Grant deferred C2 + C5):** the full ready-to-paste C2 + C5 collaborative prompts + setup + gotchas live in **`docs/test-prompts/2026-06-15-phase-c-c2-c5-verify.md`**. Key gotcha learned from a partial C5 run: `my-backup` 401 = the account isn't OAuth-claimed yet (the local "Create your account" mint does NOT write the cloud backup); fix = Settings → Sharing identity → "Publish a profile" → dev-mock OAuth claim, which writes the binding + key_backup_blob → flips 401→200. Also: the `FolderSwitcher` dropdown doesn't expose its items to the Chrome agent (switch folders by hand; TODO a11y).
 - C5 fresh-device step: clear IndexedDB DB `researchos-sharing-identity`, store `device-vault`.
 
 ## OPEN ITEM — C2 needs two DISTINCT accounts (blocker for its live verify)
