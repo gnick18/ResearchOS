@@ -211,14 +211,6 @@ function circularMap(
     );
   }
 
-  // center name + length.
-  parts.push(
-    `<text x="${cx.toFixed(1)}" y="${(cy - 1).toFixed(1)}" font-size="${(fontPx * 1.05).toFixed(1)}" fill="${INK}" text-anchor="middle" font-weight="600">${esc(truncate(doc.name, 22))}</text>`,
-  );
-  parts.push(
-    `<text x="${cx.toFixed(1)}" y="${(cy + fontPx * 1.3).toFixed(1)}" font-size="${fontPx.toFixed(1)}" fill="${MUTED}" text-anchor="middle">${seqLen} bp</text>`,
-  );
-
   // Feature wedges.
   for (const f of visibleFeatures(doc, style)) {
     const span = featureSpanBp(f, seqLen);
@@ -254,6 +246,27 @@ function circularMap(
       );
     }
   }
+
+  // Center name + length, drawn LAST over a masking backdrop chip. A circular tree
+  // can be rotated freely, so any leader / wedge can swing behind the center text --
+  // detecting that collision is futile. Instead the callout always wins: a rounded
+  // white card sized to the two lines masks whatever passes behind it, so the name +
+  // bp stay legible at every rotation. (Grant's fix; rotation-proof, no detection.)
+  const nameTrunc = truncate(doc.name, 22);
+  const bpStr = `${seqLen} bp`;
+  const cardW =
+    Math.max(nameTrunc.length * fontPx * 1.05 * 0.56, bpStr.length * fontPx * 0.55) +
+    fontPx * 1.4;
+  const cardH = fontPx * 3.1;
+  parts.push(
+    `<rect x="${(cx - cardW / 2).toFixed(1)}" y="${(cy - fontPx * 1.25).toFixed(1)}" width="${cardW.toFixed(1)}" height="${cardH.toFixed(1)}" rx="${(fontPx * 0.5).toFixed(1)}" fill="#ffffff" stroke="${TICK}" stroke-width="0.75"/>`,
+  );
+  parts.push(
+    `<text x="${cx.toFixed(1)}" y="${(cy - 1).toFixed(1)}" font-size="${(fontPx * 1.05).toFixed(1)}" fill="${INK}" text-anchor="middle" font-weight="600">${esc(nameTrunc)}</text>`,
+  );
+  parts.push(
+    `<text x="${cx.toFixed(1)}" y="${(cy + fontPx * 1.3).toFixed(1)}" font-size="${fontPx.toFixed(1)}" fill="${MUTED}" text-anchor="middle">${bpStr}</text>`,
+  );
   return parts.join("");
 }
 
