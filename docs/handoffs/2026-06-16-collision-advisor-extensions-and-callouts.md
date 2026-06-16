@@ -59,6 +59,16 @@ label about its own anchor without changing the spacing → it does NOT de-colli
 **no longer offers tilt-tip-labels** (shrink-font is the real phylo lever, taller-canvas
 stays the manual suggestion). Data Hub's advisor keeps tilt where it works.
 
+**8. Circular map center-callout backdrop** `0d65a634c` — Grant's insight: a circular
+plasmid can be freely ROTATED, so detecting whether a leader/wedge sits behind the
+center "name / bp" text is futile (the next rotation re-creates it). Instead the center
+callout is now drawn LAST over a rounded white card that masks whatever passes behind
+it → legible at every rotation, no detection. Visual-only change to circularMap; also
+upgrades the live `/sequences` circular view + every exported/embedded plasmid.
+**PHILOSOPHY for the lane: circular seq maps want rotation-proof VISUAL GUARDS
+(backdrops), not collision detection.** The `content-overflow` plasmid advisor (#4)
+still earns its keep — a label column off the canvas isn't fixed by rotating.
+
 ## Verification status
 
 - **Headless / unit:** tsc 0; full figure/phylo/datahub/sequences suites green
