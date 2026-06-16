@@ -339,7 +339,7 @@ function ResetStreakModal({
           <button
             type="button"
             onClick={onCancel}
-            className="px-3 py-1.5 text-body font-medium text-foreground bg-surface-raised border border-border hover:bg-surface-sunken rounded-lg transition-colors"
+            className="ros-btn-neutral px-3 py-1.5 text-body font-medium"
             data-testid="streaks-reset-cancel"
           >
             Cancel

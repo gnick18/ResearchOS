@@ -526,7 +526,7 @@ function MoleculeVersionRow({
               type="button"
               onClick={onCancelConfirm}
               disabled={restoring}
-              className="rounded-md bg-surface-sunken px-2 py-0.5 text-meta font-medium text-foreground-muted transition-colors hover:bg-surface-sunken disabled:opacity-60"
+              className="ros-btn-neutral px-2 py-0.5 text-meta font-medium text-foreground-muted disabled:opacity-60"
             >
               Cancel
             </button>

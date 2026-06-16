@@ -2062,7 +2062,7 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
                 <button
                   onClick={cancelDelete}
                   disabled={isArchivingUser || isDeletingUser}
-                  className="flex-1 py-2.5 bg-surface-sunken hover:bg-surface-sunken/70 text-foreground font-medium rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="ros-btn-neutral flex-1 py-2.5 font-medium disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   Cancel
                 </button>
@@ -2138,7 +2138,7 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
                         setError(null);
                       }}
                       disabled={resetting}
-                      className="flex-1 py-2 text-body bg-surface-sunken hover:bg-surface-sunken/70 border border-border text-foreground rounded-lg disabled:opacity-50"
+                      className="ros-btn-neutral flex-1 py-2 text-body disabled:opacity-50"
                     >
                       Back
                     </button>
@@ -2246,7 +2246,7 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
                     <button
                       onClick={cancelUnlockGate}
                       disabled={unlocking}
-                      className="flex-1 py-2 text-body bg-surface-sunken hover:bg-surface-sunken/70 border border-border text-foreground rounded-lg disabled:opacity-50"
+                      className="ros-btn-neutral flex-1 py-2 text-body disabled:opacity-50"
                     >
                       Cancel
                     </button>
@@ -2493,7 +2493,7 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
                   type="button"
                   onClick={cancelCrossDeviceRestore}
                   disabled={restoring}
-                  className="flex-1 py-2 text-body bg-surface-sunken hover:bg-surface-sunken/70 border border-border text-foreground rounded-lg disabled:opacity-50"
+                  className="ros-btn-neutral flex-1 py-2 text-body disabled:opacity-50"
                 >
                   Cancel
                 </button>

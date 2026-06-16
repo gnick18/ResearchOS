@@ -425,7 +425,7 @@ export default function UserColorPickerPopup({
           <button
             type="button"
             onClick={onCancel}
-            className="flex-1 py-2.5 text-body bg-surface-sunken hover:bg-surface-raised border border-border text-foreground rounded-lg transition-colors"
+            className="ros-btn-neutral flex-1 py-2.5 text-body"
           >
             Cancel
           </button>

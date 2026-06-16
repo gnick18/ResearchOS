@@ -399,7 +399,7 @@ function SendForm({
           <button
             type="button"
             onClick={() => setState({ phase: "idle" })}
-            className="flex-1 py-2 text-body rounded-lg bg-surface-sunken text-foreground hover:bg-surface-sunken transition-colors"
+            className="ros-btn-neutral flex-1 py-2 text-body"
           >
             Back
           </button>
@@ -536,7 +536,7 @@ function SendForm({
           type="button"
           onClick={onClose}
           disabled={sending}
-          className="flex-1 py-2 text-body rounded-lg bg-surface-sunken text-foreground hover:bg-surface-sunken transition-colors disabled:opacity-60"
+          className="ros-btn-neutral flex-1 py-2 text-body disabled:opacity-60"
         >
           Cancel
         </button>

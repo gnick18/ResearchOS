@@ -234,7 +234,7 @@ export default function FolderConnectGate({
                     onBack();
                   }}
                   disabled={isLoading}
-                  className="px-4 py-3 bg-surface-sunken hover:bg-surface-sunken/70 text-foreground font-medium rounded-lg transition-all disabled:opacity-50"
+                  className="ros-btn-neutral px-4 py-3 font-medium disabled:opacity-50"
                 >
                   Cancel
                 </button>

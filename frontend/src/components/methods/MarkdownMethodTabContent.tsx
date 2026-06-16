@@ -322,7 +322,7 @@ export default function MarkdownMethodTabContent({
                       <button
                         onClick={handleReset}
                         disabled={saving}
-                        className="px-3 py-1.5 text-meta bg-surface-sunken text-foreground-muted rounded-lg hover:bg-foreground-muted/15 disabled:opacity-50"
+                        className="ros-btn-neutral px-3 py-1.5 text-meta text-foreground-muted disabled:opacity-50"
                       >
                         Reset to source method
                       </button>

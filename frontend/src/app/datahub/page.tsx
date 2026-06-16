@@ -2490,7 +2490,7 @@ export default function DataHubPage() {
                     <button
                       type="button"
                       onClick={() => setConfirmDeleteTableId(null)}
-                      className="rounded-md border border-border bg-surface-raised px-2.5 py-1 text-meta font-medium text-foreground transition-colors hover:bg-surface-sunken"
+                      className="ros-btn-neutral px-2.5 py-1 text-meta font-medium"
                       data-testid="datahub-delete-cancel"
                     >
                       Cancel

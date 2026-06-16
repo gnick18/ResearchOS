@@ -361,7 +361,7 @@ export default function AccountPasswordPopup({
               <button
                 onClick={onClose}
                 disabled={busy}
-                className="flex-1 py-2 text-body bg-surface-sunken hover:bg-surface-raised border border-border text-foreground rounded-lg disabled:opacity-50"
+                className="ros-btn-neutral flex-1 py-2 text-body disabled:opacity-50"
               >
                 Close
               </button>
@@ -438,7 +438,7 @@ export default function AccountPasswordPopup({
             <div className="flex justify-end">
               <button
                 onClick={() => setShowForgot(false)}
-                className="px-4 py-2 text-body bg-surface-sunken hover:bg-surface-raised border border-border text-foreground rounded-lg"
+                className="ros-btn-neutral px-4 py-2 text-body"
               >
                 Got it
               </button>

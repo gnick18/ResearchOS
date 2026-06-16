@@ -1002,7 +1002,7 @@ function OpenCompanionHubButton() {
     <button
       type="button"
       onClick={(e) => open({ x: e.clientX, y: e.clientY })}
-      className="inline-flex items-center gap-2 rounded-lg border border-border bg-surface-raised px-3.5 py-2 text-body font-medium text-foreground shadow-sm hover:bg-surface-sunken"
+      className="ros-btn-neutral inline-flex items-center gap-2 px-3.5 py-2 text-body font-medium"
     >
       <Icon name="phone" className="h-4 w-4" />
       Open Companion hub
@@ -1453,7 +1453,7 @@ function LabAuditTrailSection() {
         <button
           type="button"
           onClick={() => setViewerOpen(true)}
-          className="inline-flex items-center gap-2 rounded-lg border border-border bg-surface-raised px-3.5 py-2 text-body font-medium text-foreground shadow-sm hover:bg-surface-sunken"
+          className="ros-btn-neutral inline-flex items-center gap-2 px-3.5 py-2 text-body font-medium"
           data-testid="open-audit-trail-settings"
         >
           <span aria-hidden="true" className="text-foreground-muted">

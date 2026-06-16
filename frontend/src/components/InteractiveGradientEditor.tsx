@@ -151,7 +151,7 @@ export function StepEditPopup({ step, onSave, onClose, isNew = false }: StepEdit
         <div className="flex gap-2 mt-6">
           <button
             onClick={onClose}
-            className="flex-1 px-4 py-2 text-body text-foreground-muted bg-surface-sunken hover:bg-foreground-muted/15 rounded-lg"
+            className="ros-btn-neutral flex-1 px-4 py-2 text-body text-foreground-muted"
           >
             Cancel
           </button>
@@ -227,7 +227,7 @@ export function CycleEditPopup({ repeats, onSave, onClose }: CycleEditPopupProps
         <div className="flex gap-2 mt-6">
           <button
             onClick={onClose}
-            className="flex-1 px-4 py-2 text-body text-foreground-muted bg-surface-sunken hover:bg-foreground-muted/15 rounded-lg"
+            className="ros-btn-neutral flex-1 px-4 py-2 text-body text-foreground-muted"
           >
             Cancel
           </button>
@@ -1721,7 +1721,7 @@ export function InteractiveGradientEditor({
             <div className="flex gap-2">
               <button
                 onClick={() => setAddingCycle(false)}
-                className="flex-1 px-4 py-2 text-body text-foreground-muted bg-surface-sunken hover:bg-foreground-muted/15 rounded-lg"
+                className="ros-btn-neutral flex-1 px-4 py-2 text-body text-foreground-muted"
               >
                 Cancel
               </button>

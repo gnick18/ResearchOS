@@ -756,7 +756,7 @@ export default function EntityVersionHistorySidebar<P extends EntityProjection>(
                   onClick={() => setConfirmingRestore(false)}
                   disabled={restoring}
                   data-testid="restore-cancel-button"
-                  className="px-3 py-2 text-body font-medium text-foreground-muted bg-surface-sunken hover:bg-surface-sunken disabled:opacity-60 rounded-lg transition-colors"
+                  className="ros-btn-neutral px-3 py-2 text-body font-medium text-foreground-muted disabled:opacity-60"
                 >
                   Cancel
                 </button>

@@ -441,7 +441,7 @@ export default function RecipientShareDialog({
                 <button
                   type="button"
                   onClick={() => setPhase({ name: "pick" })}
-                  className="flex-1 rounded-lg bg-surface-sunken px-4 py-2 text-body font-medium text-foreground"
+                  className="ros-btn-neutral flex-1 px-4 py-2 text-body font-medium"
                 >
                   Back
                 </button>

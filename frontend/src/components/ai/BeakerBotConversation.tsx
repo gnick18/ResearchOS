@@ -629,7 +629,7 @@ function RevertConfirmDialog({
             type="button"
             data-testid="beakerbot-revert-cancel"
             onClick={onCancel}
-            className="flex-1 rounded-lg border border-border bg-surface-raised px-3 py-2 text-meta font-medium text-foreground-muted transition-colors hover:bg-surface-sunken"
+            className="ros-btn-neutral flex-1 px-3 py-2 text-meta font-medium text-foreground-muted"
           >
             Cancel
           </button>

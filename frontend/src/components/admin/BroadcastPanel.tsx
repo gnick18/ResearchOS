@@ -299,7 +299,7 @@ export default function BroadcastPanel() {
           type="button"
           onClick={() => send(true)}
           disabled={sendBusy || !subject.trim() || !body.trim()}
-          className="rounded-lg border border-border bg-surface-raised px-4 py-2 text-body font-medium text-foreground hover:bg-surface-sunken disabled:opacity-40"
+          className="ros-btn-neutral px-4 py-2 text-body font-medium disabled:opacity-40"
         >
           {sendBusy ? "Sending..." : "Send test to myself"}
         </button>
