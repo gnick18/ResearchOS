@@ -3335,6 +3335,7 @@ export const fetchAllStorageNodesIncludingShared = async (): Promise<
 const DEFAULT_LAB_MAP_PLAN: LabMapPlan = {
   kind: "blank",
   imagePath: null,
+  imageData: null,
   aspect: 1.5,
 };
 
@@ -3346,8 +3347,9 @@ export function normalizeLabMapRecord(raw: LabMap, fallbackOwner?: string): LabM
     ...raw,
     name: raw.name ?? "Lab map",
     plan: {
-      kind: plan.kind === "image" ? "image" : "blank",
+      kind: plan.imageData || plan.kind === "image" ? "image" : "blank",
       imagePath: plan.imagePath ?? null,
+      imageData: plan.imageData ?? null,
       aspect:
         typeof plan.aspect === "number" && plan.aspect > 0 ? plan.aspect : 1.5,
     },

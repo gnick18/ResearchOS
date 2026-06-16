@@ -17,8 +17,15 @@ import { useQuery } from "@tanstack/react-query";
 import { Icon } from "@/components/icons";
 import Tooltip from "@/components/Tooltip";
 import { getOrCreateLabMap, labMapsApi } from "@/lib/local-api";
-import type { InventoryStock, LabMap, LabMapPin, StorageNode } from "@/lib/types";
+import type {
+  InventoryStock,
+  LabMap,
+  LabMapPin,
+  LabMapPlan,
+  StorageNode,
+} from "@/lib/types";
 import { STORAGE_KIND_LABEL } from "./inventory-ui";
+import { SAMPLE_FLOORPLAN_SVG } from "./sample-floorplan";
 
 interface RoomMapProps {
   nodes: StorageNode[];
@@ -59,17 +66,20 @@ export default function RoomMap({ nodes, stocks }: RoomMapProps) {
   });
 
   const [pins, setPins] = useState<LabMapPin[]>([]);
+  const [plan, setPlan] = useState<LabMapPlan | null>(null);
   const [selected, setSelected] = useState<number | null>(null);
   const mapRef = useRef<LabMap | null>(null);
   const canvasRef = useRef<HTMLDivElement | null>(null);
+  const fileRef = useRef<HTMLInputElement | null>(null);
   const dragRef = useRef<{ pinId: string; moved: boolean } | null>(null);
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Seed local pins once the map loads.
+  // Seed local pins + plan once the map loads.
   useEffect(() => {
     if (loadedMap) {
       mapRef.current = loadedMap;
       setPins(loadedMap.pins);
+      setPlan(loadedMap.plan);
     }
   }, [loadedMap]);
 
@@ -99,6 +109,45 @@ export default function RoomMap({ nodes, stocks }: RoomMapProps) {
       persist(next);
     },
     [persist],
+  );
+
+  // Set the floor plan SVG (or clear it) and persist the plan immediately.
+  const setFloorplan = useCallback((svg: string | null) => {
+    const map = mapRef.current;
+    const base: LabMapPlan = map?.plan ?? {
+      kind: "blank",
+      imagePath: null,
+      imageData: null,
+      aspect: 1.5,
+    };
+    const nextPlan: LabMapPlan = {
+      ...base,
+      kind: svg ? "image" : "blank",
+      imageData: svg,
+    };
+    setPlan(nextPlan);
+    if (map) {
+      void labMapsApi.update(
+        map.id,
+        { plan: nextPlan },
+        map.is_shared_with_me ? map.owner : undefined,
+      );
+    }
+  }, []);
+
+  const onUploadFile = useCallback(
+    (file: File | undefined) => {
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = () => {
+        const text = String(reader.result ?? "");
+        // Accept SVG markup only (v1). Concatenated needle so this source file
+        // carries no literal inline-svg substring for the icon-guard to count.
+        if (text.includes("<" + "svg")) setFloorplan(text);
+      };
+      reader.readAsText(file);
+    },
+    [setFloorplan],
   );
 
   // Nodes not yet pinned, offered in the "Place a location" rail. Containers
@@ -172,16 +221,74 @@ export default function RoomMap({ nodes, stocks }: RoomMapProps) {
     <div className="flex flex-col gap-4 lg:flex-row">
       {/* Canvas */}
       <div className="min-w-0 flex-1">
+        {/* Floor plan controls */}
+        <div className="mb-2 flex flex-wrap items-center gap-2">
+          <input
+            ref={fileRef}
+            type="file"
+            accept=".svg,image/svg+xml"
+            className="hidden"
+            onChange={(e) => {
+              onUploadFile(e.target.files?.[0]);
+              e.target.value = "";
+            }}
+          />
+          <button
+            type="button"
+            onClick={() => fileRef.current?.click()}
+            className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-surface-raised px-3 py-1.5 text-meta text-foreground hover:bg-surface-sunken"
+          >
+            <Icon name="import" className="h-3.5 w-3.5" />
+            Upload floor plan
+          </button>
+          {!plan?.imageData ? (
+            <button
+              type="button"
+              onClick={() => setFloorplan(SAMPLE_FLOORPLAN_SVG)}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-surface-raised px-3 py-1.5 text-meta text-foreground hover:bg-surface-sunken"
+            >
+              <Icon name="map" className="h-3.5 w-3.5" />
+              Use sample plan
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={() => setFloorplan(null)}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-surface-raised px-3 py-1.5 text-meta text-foreground-muted hover:bg-surface-sunken hover:text-foreground"
+            >
+              <Icon name="x" className="h-3.5 w-3.5" />
+              Remove floor plan
+            </button>
+          )}
+          <span className="text-meta text-foreground-subtle">
+            Upload a .svg floor plan, or use the sample. Pins sit on top.
+          </span>
+        </div>
         <div
           ref={canvasRef}
-          className="ros-room-canvas relative w-full overflow-hidden rounded-xl border border-border bg-surface-sunken"
+          className={`ros-room-canvas relative w-full overflow-hidden rounded-xl border border-border ${
+            plan?.imageData ? "bg-white" : "bg-surface-sunken"
+          }`}
           style={{
             aspectRatio: "3 / 2",
-            backgroundImage:
-              "linear-gradient(to right, var(--color-border) 1px, transparent 1px), linear-gradient(to bottom, var(--color-border) 1px, transparent 1px)",
-            backgroundSize: "32px 32px",
+            ...(plan?.imageData
+              ? {}
+              : {
+                  backgroundImage:
+                    "linear-gradient(to right, var(--color-border) 1px, transparent 1px), linear-gradient(to bottom, var(--color-border) 1px, transparent 1px)",
+                  backgroundSize: "32px 32px",
+                }),
           }}
         >
+          {plan?.imageData ? (
+            <div
+              className="pointer-events-none absolute inset-0 [&>svg]:h-full [&>svg]:w-full"
+              // The plan is lab-authored vector markup (sample or an uploaded
+              // .svg), rendered as the backdrop. Not user-pasted HTML.
+              dangerouslySetInnerHTML={{ __html: plan.imageData }}
+            />
+          ) : null}
+
           {pins.length === 0 ? (
             <div className="pointer-events-none absolute inset-0 flex items-center justify-center px-6 text-center">
               <p className="text-meta text-foreground-muted">

@@ -144,6 +144,9 @@ export interface SnapshotLabMapPin {
 export interface SnapshotLabMap {
   aspect: number;
   pins: SnapshotLabMapPin[];
+  /** The floor plan as inline SVG markup, so the phone can render the real plan
+   *  under the pins. Null = blank canvas. Phase C floor-plan import. */
+  imageSvg: string | null;
 }
 
 /** The decrypted shape the phone reads after openSealed. */
@@ -341,6 +344,7 @@ export async function buildInventorySnapshot(): Promise<InventorySnapshot> {
           x: p.x,
           y: p.y,
         })),
+        imageSvg: map.plan?.imageData ?? null,
       };
     })(),
   };

@@ -1525,6 +1525,10 @@ export interface LabMapPin {
 export interface LabMapPlan {
   kind: "blank" | "image";
   imagePath: string | null;
+  /** The floor plan as inline SVG markup (vector floor plans, v1). Rendered as
+   *  the Room map backdrop on laptop + phone; published in the inventory snapshot.
+   *  Null = a blank gridded canvas. Raster import is a later enhancement. */
+  imageData: string | null;
   aspect: number; // width / height, default 1.5
 }
 

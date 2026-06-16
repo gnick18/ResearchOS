@@ -10,6 +10,28 @@
 import type { TodaySnapshot, NotificationsSnapshot } from '@/lib/snapshots';
 import type { InventorySnapshot } from '@/lib/scan';
 
+// A sample lab floor plan (vector) so the demo Room map shows a real plan under
+// the pins. Mirrors frontend sample-floorplan.ts; freezer bank upper-left, cold
+// storage lower-right (matching the demo pins).
+const SAMPLE_FLOORPLAN_SVG = `<svg viewBox="0 0 300 200" xmlns="http://www.w3.org/2000/svg" font-family="sans-serif">
+  <rect x="5" y="5" width="290" height="190" rx="4" fill="#ffffff" stroke="#94a3b8" stroke-width="2.5"/>
+  <path d="M132 195 A36 36 0 0 1 168 195" fill="none" stroke="#cbd5e1" stroke-width="1.4"/>
+  <rect x="20" y="26" width="92" height="46" rx="3" fill="#e7f0fb" stroke="#94a3b8" stroke-width="1.6"/>
+  <line x1="51" y1="26" x2="51" y2="72" stroke="#94a3b8" stroke-width="1"/>
+  <line x1="82" y1="26" x2="82" y2="72" stroke="#94a3b8" stroke-width="1"/>
+  <text x="66" y="19" font-size="9" fill="#475569" text-anchor="middle">Freezer bank</text>
+  <rect x="196" y="22" width="84" height="26" rx="2" fill="#f1f5f9" stroke="#94a3b8" stroke-width="1.5"/>
+  <text x="238" y="39" font-size="9" fill="#475569" text-anchor="middle">Fume hood</text>
+  <rect x="96" y="92" width="108" height="34" rx="3" fill="#f8fafc" stroke="#94a3b8" stroke-width="1.6"/>
+  <line x1="150" y1="92" x2="150" y2="126" stroke="#cbd5e1" stroke-width="1"/>
+  <text x="150" y="113" font-size="9" fill="#475569" text-anchor="middle">Bench</text>
+  <rect x="14" y="120" width="30" height="42" rx="2" fill="#eff6ff" stroke="#94a3b8" stroke-width="1.4"/>
+  <circle cx="29" cy="141" r="6" fill="none" stroke="#94a3b8" stroke-width="1.2"/>
+  <text x="29" y="174" font-size="8" fill="#475569" text-anchor="middle">Sink</text>
+  <rect x="214" y="104" width="66" height="60" rx="3" fill="#e7f0fb" stroke="#94a3b8" stroke-width="1.6"/>
+  <text x="247" y="100" font-size="9" fill="#475569" text-anchor="middle">Cold storage</text>
+</svg>`;
+
 // ---------------------------------------------------------------------------
 // Today snapshot fixture (name = "today")
 // ---------------------------------------------------------------------------
@@ -204,6 +226,7 @@ export const DEMO_INVENTORY_SNAPSHOT: InventorySnapshot = {
   // and the fridge pinned on the floor plan.
   labMap: {
     aspect: 1.5,
+    imageSvg: SAMPLE_FLOORPLAN_SVG,
     pins: [
       { nodeId: 1, label: null, x: 0.26, y: 0.32 },
       { nodeId: 4, label: null, x: 0.68, y: 0.62 },

@@ -116,6 +116,8 @@ export type LabMapPin = {
 export type LabMap = {
   aspect?: number;
   pins?: LabMapPin[];
+  // The floor plan as inline SVG markup, rendered under the pins. Phase C.
+  imageSvg?: string | null;
 };
 
 export type InventorySnapshot = {

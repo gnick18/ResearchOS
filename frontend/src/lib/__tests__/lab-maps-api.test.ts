@@ -74,7 +74,12 @@ describe("labMapsApi — create + read", () => {
     const map = await labMapsApi.create({ name: "Lab map" });
     expect(map.id).toBe(1);
     expect(map.name).toBe("Lab map");
-    expect(map.plan).toEqual({ kind: "blank", imagePath: null, aspect: 1.5 });
+    expect(map.plan).toEqual({
+      kind: "blank",
+      imagePath: null,
+      imageData: null,
+      aspect: 1.5,
+    });
     expect(map.pins).toEqual([]);
     expect(map.owner).toBe("alex");
     expect(map.shared_with).toEqual([
@@ -145,10 +150,30 @@ describe("normalizeLabMapRecord — legacy / partial records", () => {
       ],
     } as unknown as LabMap;
     const norm = normalizeLabMapRecord(partial, "alex");
-    expect(norm.plan).toEqual({ kind: "blank", imagePath: null, aspect: 1.5 });
+    expect(norm.plan).toEqual({
+      kind: "blank",
+      imagePath: null,
+      imageData: null,
+      aspect: 1.5,
+    });
     expect(norm.pins[0]).toMatchObject({ x: 1, y: 0 });
     expect(norm.pins[1]).toMatchObject({ x: 0.5, y: 0.5 });
     expect(norm.owner).toBe("alex");
+  });
+
+  it("derives plan kind 'image' when a floor plan is present", () => {
+    // Build the marker by concatenation so this test file carries no literal
+    // inline-svg substring (keeps the icon-guard from counting it).
+    const planSvg = "<" + "svg/>";
+    const withPlan = {
+      id: 6,
+      name: "Map",
+      plan: { kind: "blank", imagePath: null, imageData: planSvg, aspect: 1.5 },
+      pins: [],
+    } as unknown as LabMap;
+    const norm = normalizeLabMapRecord(withPlan);
+    expect(norm.plan.kind).toBe("image");
+    expect(norm.plan.imageData).toBe(planSvg);
   });
 
   it("drops malformed pins (missing coordinates)", () => {

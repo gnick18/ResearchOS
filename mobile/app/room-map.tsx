@@ -13,6 +13,7 @@ import {
   View,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { SvgXml } from 'react-native-svg';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 
 import { ThemedText } from '@/components/themed-text';
@@ -66,6 +67,7 @@ export default function RoomMapScreen() {
   const pins: LabMapPin[] = snapshot?.labMap?.pins ?? [];
   const tracked: TrackedStock[] = snapshot?.trackedStocks ?? [];
   const aspect = snapshot?.labMap?.aspect ?? 1.5;
+  const floorplan = snapshot?.labMap?.imageSvg ?? null;
 
   const nodesById = useMemo(() => {
     const m = new Map<number, StorageNode>();
@@ -149,9 +151,18 @@ export default function RoomMapScreen() {
             <View
               style={[
                 styles.canvas,
-                { aspectRatio: aspect, borderColor: surface.border, backgroundColor: surface.surface2 },
+                {
+                  aspectRatio: aspect,
+                  borderColor: surface.border,
+                  backgroundColor: floorplan ? '#ffffff' : surface.surface2,
+                },
               ]}
             >
+              {floorplan ? (
+                <View style={StyleSheet.absoluteFill} pointerEvents="none">
+                  <SvgXml xml={floorplan} width="100%" height="100%" />
+                </View>
+              ) : null}
               {pins.map((pin, i) => {
                 if (pin.x == null || pin.y == null) return null;
                 const node = pin.nodeId != null ? nodesById.get(pin.nodeId) : null;
