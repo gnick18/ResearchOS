@@ -504,7 +504,7 @@ export default function FeedbackModal({ isOpen, onClose, prefilledError }: Feedb
             <div
               role="radiogroup"
               aria-label="Feedback type"
-              className="inline-flex rounded-lg border border-border bg-surface-sunken p-0.5"
+              className="inline-flex rounded-lg border border-border bg-surface-sunken p-0.5 ros-seg-track"
             >
               {TYPE_OPTIONS.map((opt) => {
                 const selected = type === opt.value;
@@ -517,7 +517,7 @@ export default function FeedbackModal({ isOpen, onClose, prefilledError }: Feedb
                     onClick={() => handleTypeChange(opt.value)}
                     className={`px-3 py-1.5 text-body rounded-md transition-colors ${
                       selected
-                        ? "bg-surface-raised text-foreground shadow-sm font-medium"
+                        ? "bg-surface-raised text-foreground ros-seg-active font-medium"
                         : "text-foreground-muted hover:text-foreground"
                     }`}
                   >

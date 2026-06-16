@@ -372,7 +372,7 @@ export default function SequencePrimersPanel({
       {/* Header + mode switch */}
       <div className="flex items-center justify-between border-b border-border px-4 py-2">
         <span className="text-meta font-semibold uppercase tracking-wide text-foreground-muted">Primers</span>
-        <div className="inline-flex rounded-md bg-surface-sunken p-0.5 text-meta font-medium">
+        <div className="inline-flex rounded-md bg-surface-sunken p-0.5 text-meta font-medium ros-seg-track border border-border">
           {(
             [
               ["list", "List"],
@@ -386,7 +386,7 @@ export default function SequencePrimersPanel({
               onClick={() => setMode(m)}
               aria-pressed={mode === m}
               className={`rounded px-2.5 py-1 transition-colors ${
-                mode === m ? "bg-surface-raised text-foreground shadow-sm" : "text-foreground-muted hover:text-foreground"
+                mode === m ? "bg-surface-raised text-foreground ros-seg-active" : "text-foreground-muted hover:text-foreground"
               }`}
             >
               {label}

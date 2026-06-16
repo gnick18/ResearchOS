@@ -167,7 +167,7 @@ export default function SendToTaskPicker({
           <div
             role="group"
             aria-label="Destination folder"
-            className="inline-flex rounded-lg border border-border p-0.5 bg-surface-sunken"
+            className="inline-flex rounded-lg border border-border p-0.5 bg-surface-sunken ros-seg-track"
           >
             <button
               type="button"
@@ -175,7 +175,7 @@ export default function SendToTaskPicker({
               onClick={() => setSubTab("notes")}
               className={`px-3 py-1 text-meta font-medium rounded-md transition-colors ${
                 subTab === "notes"
-                  ? "bg-surface-raised text-foreground shadow-sm"
+                  ? "bg-surface-raised text-foreground ros-seg-active"
                   : "text-foreground-muted hover:text-foreground"
               }`}
             >
@@ -187,7 +187,7 @@ export default function SendToTaskPicker({
               onClick={() => setSubTab("results")}
               className={`px-3 py-1 text-meta font-medium rounded-md transition-colors ${
                 subTab === "results"
-                  ? "bg-surface-raised text-foreground shadow-sm"
+                  ? "bg-surface-raised text-foreground ros-seg-active"
                   : "text-foreground-muted hover:text-foreground"
               }`}
             >

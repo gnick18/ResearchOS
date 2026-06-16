@@ -216,7 +216,7 @@ export function SequenceFindBox({
         <div
           role="radiogroup"
           aria-label="Find mode"
-          className="mr-1 flex items-center rounded-md bg-surface-sunken p-0.5"
+          className="mr-1 flex items-center rounded-md bg-surface-sunken p-0.5 ros-seg-track border border-border"
         >
           {MODES.map((m) => (
             <Tooltip key={m.mode} label={m.hint} placement="bottom">
@@ -227,7 +227,7 @@ export function SequenceFindBox({
                 onClick={() => setMode(m.mode)}
                 className={`rounded px-2 py-0.5 text-meta font-medium transition-colors ${
                   mode === m.mode
-                    ? "bg-surface-raised text-foreground shadow-sm"
+                    ? "bg-surface-raised text-foreground ros-seg-active"
                     : "text-foreground-muted hover:text-foreground"
                 }`}
               >

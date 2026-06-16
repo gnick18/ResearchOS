@@ -378,7 +378,7 @@ export default function SendReferencePicker({
             <div
               role="group"
               aria-label="Destination doc"
-              className="inline-flex rounded-lg border border-border p-0.5 bg-surface-sunken"
+              className="inline-flex rounded-lg border border-border p-0.5 bg-surface-sunken ros-seg-track"
             >
               <button
                 type="button"
@@ -386,7 +386,7 @@ export default function SendReferencePicker({
                 onClick={() => setExpSurface("results")}
                 className={`px-3 py-1 text-meta font-medium rounded-md transition-colors ${
                   expSurface === "results"
-                    ? "bg-surface-raised text-foreground shadow-sm"
+                    ? "bg-surface-raised text-foreground ros-seg-active"
                     : "text-foreground-muted hover:text-foreground"
                 }`}
               >
@@ -398,7 +398,7 @@ export default function SendReferencePicker({
                 onClick={() => setExpSurface("labnotes")}
                 className={`px-3 py-1 text-meta font-medium rounded-md transition-colors ${
                   expSurface === "labnotes"
-                    ? "bg-surface-raised text-foreground shadow-sm"
+                    ? "bg-surface-raised text-foreground ros-seg-active"
                     : "text-foreground-muted hover:text-foreground"
                 }`}
               >

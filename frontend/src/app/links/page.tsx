@@ -383,7 +383,7 @@ export default function LabLinksPage() {
                 <div
                   role="radiogroup"
                   aria-label="Link visibility"
-                  className="inline-flex rounded-lg border border-border p-0.5 bg-surface-sunken"
+                  className="inline-flex rounded-lg border border-border p-0.5 bg-surface-sunken ros-seg-track"
                 >
                   <button
                     type="button"
@@ -392,7 +392,7 @@ export default function LabLinksPage() {
                     onClick={() => setWholeLab(false)}
                     className={`flex items-center gap-1.5 px-3 py-1.5 text-body font-medium rounded-md transition-colors ${
                       !wholeLab
-                        ? "bg-surface-raised text-foreground shadow-sm"
+                        ? "bg-surface-raised text-foreground ros-seg-active"
                         : "text-foreground-muted hover:text-foreground"
                     }`}
                   >
@@ -409,7 +409,7 @@ export default function LabLinksPage() {
                     onClick={() => setWholeLab(true)}
                     className={`flex items-center gap-1.5 px-3 py-1.5 text-body font-medium rounded-md transition-colors ${
                       wholeLab
-                        ? "bg-surface-raised text-blue-600 dark:text-blue-300 shadow-sm"
+                        ? "bg-surface-raised text-blue-600 dark:text-blue-300 ros-seg-active"
                         : "text-foreground-muted hover:text-foreground"
                     }`}
                   >

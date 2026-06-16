@@ -131,13 +131,13 @@ export default function MarkdownShortcutsSidebar({
 
       {!collapsed && (
         <div className="flex-1 overflow-y-auto px-2 pb-2">
-          <div className="flex gap-1 mb-3 bg-surface-sunken rounded-lg p-0.5">
+          <div className="flex gap-1 mb-3 bg-surface-sunken rounded-lg p-0.5 ros-seg-track border border-border">
             <button
               type="button"
               onClick={() => setTab("shortcuts")}
               className={`flex-1 px-2 py-1 text-meta rounded-md transition-colors ${
                 tab === "shortcuts"
-                  ? "bg-surface-raised text-foreground font-medium shadow-sm"
+                  ? "bg-surface-raised text-foreground font-medium ros-seg-active"
                   : "text-foreground-muted hover:text-foreground"
               }`}
             >
@@ -148,7 +148,7 @@ export default function MarkdownShortcutsSidebar({
               onClick={() => setTab("styleguide")}
               className={`flex-1 px-2 py-1 text-meta rounded-md transition-colors ${
                 tab === "styleguide"
-                  ? "bg-surface-raised text-foreground font-medium shadow-sm"
+                  ? "bg-surface-raised text-foreground font-medium ros-seg-active"
                   : "text-foreground-muted hover:text-foreground"
               }`}
             >

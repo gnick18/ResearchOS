@@ -466,7 +466,7 @@ function InventoryPageContent() {
             <div
               role="tablist"
               aria-label="Inventory view"
-              className="inline-flex items-center gap-0.5 rounded-lg bg-surface-sunken p-0.5"
+              className="inline-flex items-center gap-0.5 rounded-lg bg-surface-sunken p-0.5 ros-seg-track border border-border"
             >
               <button
                 type="button"
@@ -475,7 +475,7 @@ function InventoryPageContent() {
                 onClick={() => setView("list")}
                 className={`inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-meta font-medium transition-colors ${
                   view === "list"
-                    ? "bg-surface-raised text-foreground shadow-sm"
+                    ? "bg-surface-raised text-foreground ros-seg-active"
                     : "text-foreground-muted hover:text-foreground"
                 }`}
               >
@@ -489,7 +489,7 @@ function InventoryPageContent() {
                 onClick={() => setView("storage")}
                 className={`inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-meta font-medium transition-colors ${
                   view === "storage"
-                    ? "bg-surface-raised text-foreground shadow-sm"
+                    ? "bg-surface-raised text-foreground ros-seg-active"
                     : "text-foreground-muted hover:text-foreground"
                 }`}
               >

@@ -279,14 +279,14 @@ export default function LabExperimentsPanel({
           </p>
         </div>
 
-        <div className="inline-flex items-center bg-surface-sunken rounded-lg p-1 text-body">
+        <div className="inline-flex items-center bg-surface-sunken rounded-lg p-1 text-body ros-seg-track border border-border">
           <button
             type="button"
             onClick={() => setAndPersistMode("gallery")}
             className={
               "px-3 py-1 rounded-md transition " +
               (viewMode === "gallery"
-                ? "bg-surface-raised text-foreground shadow-sm"
+                ? "bg-surface-raised text-foreground ros-seg-active"
                 : "text-foreground-muted hover:text-foreground")
             }
           >
@@ -298,7 +298,7 @@ export default function LabExperimentsPanel({
             className={
               "px-3 py-1 rounded-md transition " +
               (viewMode === "compare"
-                ? "bg-surface-raised text-foreground shadow-sm"
+                ? "bg-surface-raised text-foreground ros-seg-active"
                 : "text-foreground-muted hover:text-foreground")
             }
           >

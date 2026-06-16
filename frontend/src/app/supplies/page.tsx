@@ -629,7 +629,7 @@ function SuppliesPageInner() {
 
         {/* Filters */}
         <nav
-          className="mb-3 inline-flex gap-1 rounded-xl border border-border bg-surface-sunken p-1"
+          className="mb-3 inline-flex gap-1 rounded-xl border border-border bg-surface-sunken p-1 ros-seg-track"
           aria-label="Supplies filters"
           role="tablist"
         >
@@ -644,7 +644,7 @@ function SuppliesPageInner() {
                 onClick={() => setFilter(c.key)}
                 className={`rounded-lg px-3.5 py-1.5 text-body font-medium transition-colors ${
                   active
-                    ? "bg-surface-raised text-foreground shadow-sm"
+                    ? "bg-surface-raised text-foreground ros-seg-active"
                     : "text-foreground-muted hover:text-foreground hover:bg-surface-raised/60"
                 }`}
               >

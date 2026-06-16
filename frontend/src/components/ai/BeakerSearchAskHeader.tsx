@@ -321,7 +321,7 @@ export default function BeakerSearchAskHeader({
         role="group"
         aria-label="BeakerBot review mode"
         data-testid="beakersearch-review-mode"
-        className="flex flex-shrink-0 items-center gap-0.5 rounded-md border border-border bg-surface-sunken p-0.5"
+        className="flex flex-shrink-0 items-center gap-0.5 rounded-md border border-border bg-surface-sunken p-0.5 ros-seg-track"
       >
         <Tooltip
           label="Step-by-step. BeakerBot shows each step and waits for you to approve it before it runs."
@@ -335,7 +335,7 @@ export default function BeakerSearchAskHeader({
             onClick={reviewMode === "step" ? undefined : toggleReviewMode}
             className={`flex items-center gap-1 rounded px-2 py-0.5 text-meta font-medium transition-colors ${
               reviewMode === "step"
-                ? "bg-brand-action text-white shadow-sm"
+                ? "bg-brand-action text-white ros-seg-active"
                 : "text-foreground-muted hover:text-foreground"
             }`}
           >
@@ -354,7 +354,7 @@ export default function BeakerSearchAskHeader({
             onClick={reviewMode === "plan" ? undefined : toggleReviewMode}
             className={`flex items-center gap-1 rounded px-2 py-0.5 text-meta font-medium transition-colors ${
               reviewMode === "plan"
-                ? "bg-brand-action text-white shadow-sm"
+                ? "bg-brand-action text-white ros-seg-active"
                 : "text-foreground-muted hover:text-foreground"
             }`}
           >
