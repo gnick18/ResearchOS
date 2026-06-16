@@ -218,6 +218,9 @@ interface RegisterTrackerPayload {
   unitLabel?: string;
   /** Spatial inventory Phase A: free-text physical location captured at scan-in. */
   location?: string;
+  /** Phase B bridge (write half): structured placement from the storage-tree picker. */
+  locationNodeId?: number | string;
+  position?: string;
 }
 
 /** deduct: the user scanned a tracked barcode; deduct `amount` units. */
@@ -247,6 +250,9 @@ interface CreatePurchasePayload {
   unitLabel?: string;
   /** Spatial inventory Phase A: free-text physical location captured at scan-in. */
   location?: string;
+  /** Phase B bridge (write half): structured placement from the storage-tree picker. */
+  locationNodeId?: number | string;
+  position?: string;
 }
 
 /**
@@ -263,6 +269,9 @@ interface CreateInventoryPayload {
   unitLabel?: string;
   /** Spatial inventory Phase A: free-text physical location captured at scan-in. */
   location?: string;
+  /** Phase B bridge (write half): structured placement from the storage-tree picker. */
+  locationNodeId?: number | string;
+  position?: string;
 }
 
 // ── Phase 1 command channel ─────────────────────────────────────────────────
@@ -687,6 +696,14 @@ async function applyRegisterTracker(
   if (location) {
     await inventoryStocksApi.update(stock.id, { location_text: location });
   }
+  // Phase B bridge (write half): structured placement from the storage-tree picker.
+  const nodeId = toNumber(payload.locationNodeId);
+  if (nodeId != null) {
+    await inventoryStocksApi.update(stock.id, {
+      location_node_id: nodeId,
+      position: (payload.position && payload.position.trim()) || null,
+    });
+  }
 
   console.info(
     `${logPrefix} register-tracker: stock ${stock.id} registered (ups=${unitsPerScan}, total=${totalUnits}, barcode=${payload.productBarcode})`,
@@ -818,6 +835,8 @@ async function applyCreatePurchase(
     container_count: quantity != null && quantity >= 1 ? Math.floor(quantity) : 1,
     status: "in_stock",
     location_text: (payload.location && payload.location.trim()) || null,
+    location_node_id: toNumber(payload.locationNodeId) ?? null,
+    position: (payload.position && payload.position.trim()) || null,
   });
   console.info(
     `${logPrefix} create-purchase: inventory item ${invItem.id} + stock ${stock.id} created`,
@@ -867,6 +886,8 @@ async function applyCreateInventory(
     container_count: 1,
     status: "in_stock",
     location_text: (payload.location && payload.location.trim()) || null,
+    location_node_id: toNumber(payload.locationNodeId) ?? null,
+    position: (payload.position && payload.position.trim()) || null,
   });
   console.info(
     `${logPrefix} create-inventory: item ${invItem.id} + stock ${stock.id} created`,

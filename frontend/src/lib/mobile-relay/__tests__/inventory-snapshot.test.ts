@@ -168,6 +168,26 @@ describe("buildInventorySnapshot — trackedStocks", () => {
     expect(snap.trackedStocks[0].locationPath).toBe("-80 #2 > Box: Q5 - A1");
   });
 
+  it("publishes the storage tree for the phone's location picker (Phase B write half)", async () => {
+    const freezer = await storageNodesApi.create({ name: "-80 #2", kind: "freezer" });
+    await storageNodesApi.create({
+      name: "Box: Q5",
+      kind: "box",
+      parent_id: freezer.id,
+      box_rows: 9,
+      box_cols: 9,
+    });
+
+    const snap = await buildInventorySnapshot();
+    expect(snap.storageNodes).toHaveLength(2);
+    const box = snap.storageNodes.find((n) => n.kind === "box");
+    expect(box?.parentId).toBe(freezer.id);
+    expect(box?.boxRows).toBe(9);
+    expect(box?.boxCols).toBe(9);
+    const top = snap.storageNodes.find((n) => n.kind === "freezer");
+    expect(top?.parentId).toBeNull();
+  });
+
   it("reports locationPath null when the stock is not placed in the tree", async () => {
     const item = await inventoryItemsApi.create({
       name: "Agarose",

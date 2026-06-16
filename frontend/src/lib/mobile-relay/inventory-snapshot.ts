@@ -108,6 +108,21 @@ export interface SnapshotBarcodeIndexEntry {
   catalog: string | null;
 }
 
+/**
+ * One node of the lab's storage tree, projected for the phone's cascading
+ * location picker (spatial inventory Phase B bridge, write half). The phone walks
+ * `parentId` one level at a time; a `box` node exposes its `boxRows` x `boxCols`
+ * grid as the A1 position options. Mirrors `StorageNode` minus display-only fields.
+ */
+export interface SnapshotStorageNode {
+  id: number;
+  name: string;
+  kind: string;
+  parentId: number | null;
+  boxRows: number | null;
+  boxCols: number | null;
+}
+
 /** The decrypted shape the phone reads after openSealed. */
 export interface InventorySnapshot {
   generatedAt: string;
@@ -117,6 +132,9 @@ export interface InventorySnapshot {
   trackedStocks: SnapshotTrackedStock[];
   recentPurchases: SnapshotRecentPurchase[];
   barcodeIndex: Record<string, SnapshotBarcodeIndexEntry>;
+  /** The whole-lab storage tree, so the phone scan-in flow can offer a structured
+   *  location picker (Phase B bridge, write half). Additive. */
+  storageNodes: SnapshotStorageNode[];
 }
 
 /** Reads the connected folder's inventory and builds the snapshot. */
@@ -273,6 +291,14 @@ export async function buildInventorySnapshot(): Promise<InventorySnapshot> {
     trackedStocks,
     recentPurchases,
     barcodeIndex,
+    storageNodes: storageNodes.map((n) => ({
+      id: n.id,
+      name: n.name,
+      kind: n.kind,
+      parentId: n.parent_id,
+      boxRows: n.box_rows,
+      boxCols: n.box_cols,
+    })),
   };
 }
 

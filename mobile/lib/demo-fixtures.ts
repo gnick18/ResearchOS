@@ -190,6 +190,15 @@ export const DEMO_INVENTORY_SNAPSHOT: InventorySnapshot = {
   ],
   barcodeIndex: {},
   items: [],
+  // A small storage tree so the scan-in structured location picker is demoable:
+  // a freezer with a rack + 9x9 box, and a fridge with a shelf.
+  storageNodes: [
+    { id: 1, name: '-80 #2', kind: 'freezer', parentId: null },
+    { id: 2, name: 'Rack 1', kind: 'rack', parentId: 1 },
+    { id: 3, name: 'Box: Selection antibiotics', kind: 'box', parentId: 2, boxRows: 9, boxCols: 9 },
+    { id: 4, name: '4 C fridge', kind: 'fridge', parentId: null },
+    { id: 5, name: 'Shelf 2', kind: 'shelf', parentId: 4 },
+  ],
 };
 
 // ---------------------------------------------------------------------------

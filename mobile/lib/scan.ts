@@ -86,12 +86,26 @@ export type InventoryItem = {
   container_label?: string | null;
 };
 
+// One node of the lab's storage tree (room -> freezer -> ... -> box), projected
+// for the phone's cascading location picker. The phone walks `parentId`; a `box`
+// node exposes a boxRows x boxCols grid as the A1 position options. Spatial
+// inventory Phase B bridge (write half). Tolerated missing.
+export type StorageNode = {
+  id: number;
+  name?: string;
+  kind?: string;
+  parentId?: number | null;
+  boxRows?: number | null;
+  boxCols?: number | null;
+};
+
 export type InventorySnapshot = {
   generatedAt?: string;
   items?: InventoryItem[];
   trackedStocks?: TrackedStock[];
   recentPurchases?: RecentPurchase[];
   barcodeIndex?: Record<string, BarcodeIndexEntry>;
+  storageNodes?: StorageNode[];
 };
 
 // ---------------------------------------------------------------------------
@@ -107,6 +121,9 @@ export type RegisterTrackerPayload = {
   unitLabel: string;
   // Spatial inventory Phase A: free-text location captured at scan-in ("-80 door").
   location?: string;
+  // Phase B bridge (write half): structured placement from the storage-tree picker.
+  locationNodeId?: number;
+  position?: string;
 };
 export type DeductPayload = {
   stockId?: number | string;
@@ -129,6 +146,9 @@ export type CreatePayload = {
   unitLabel?: string;
   // Spatial inventory Phase A: free-text location captured at scan-in ("-80 door").
   location?: string;
+  // Phase B bridge (write half): structured placement from the storage-tree picker.
+  locationNodeId?: number;
+  position?: string;
 };
 
 export type ActionResult = { ok: true } | { ok: false; error: string };
