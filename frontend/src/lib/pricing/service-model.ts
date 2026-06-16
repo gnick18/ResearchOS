@@ -191,12 +191,21 @@ export function totalFixedMonthly(
 
 // ── Owner taxes (Grant 2026-06-16) ──────────────────────────────────────────
 // The LLC is a single-member pass-through, so operating profit flows to Grant's
-// personal return: self-employment tax (~15.3%) plus federal marginal plus WI
-// state income tax. We model that as ONE editable effective rate applied to
-// POSITIVE profit only. Taxes never apply at a loss, so this does NOT move the
-// break-even point, it only shrinks take-home above it. Default 0.35 is a
-// reasonable blended SE + federal + WI estimate; the operator tunes it.
-export const DEFAULT_TAX_RATE = 0.35;
+// personal return. We model the whole burden as ONE editable EFFECTIVE rate on
+// POSITIVE profit only (taxes never apply at a loss, so this does NOT move the
+// break-even point, it only shrinks take-home above it).
+//
+// Default 0.32 is a researched blend for a Wisconsin solo LLC at lower-six-figure
+// profit (verified 2026-06, IRS + WI DOR):
+//   - Self-employment tax ~14.1% of profit: 15.3% (12.4% Social Security under
+//     the 2025 $176,100 wage base + 2.9% uncapped Medicare) x the 92.35% SE base.
+//   - Federal income tax ~13-15% effective, AFTER the 20% QBI pass-through
+//     deduction and the above-the-line half-SE deduction (~22-24% marginal).
+//   - Wisconsin income tax ~4-5% effective on the 3.50-7.65% graduated brackets
+//     (WI has no separate self-employment tax).
+// Planning band roughly 30-38%; the rate climbs with profit (higher federal
+// bracket), so the operator dials it up for the high-scale scenarios.
+export const DEFAULT_TAX_RATE = 0.32;
 
 /** Owner tax on a month's operating profit. Zero at or below break-even (taxes
  *  apply to profit only, so a loss owes nothing). */
