@@ -382,3 +382,22 @@ export function parseSearchQuery(q: unknown): string | null {
   if (trimmed.length < 2 || trimmed.length > 100) return null;
   return trimmed;
 }
+
+/**
+ * Validates the ?slug= param for the public institution page. The institution
+ * slug IS the verified email domain (e.g. wisc.edu), since institutions are
+ * derived from domain clusters. Returns the lowercased domain on success, or
+ * null if absent, malformed, or out of range. Accepts only domain-shaped strings
+ * (letters, digits, dots, hyphens) containing at least one dot, which also blocks
+ * path traversal and injection in the slug.
+ */
+export function parseInstitutionSlug(slug: unknown): string | null {
+  if (typeof slug !== "string") return null;
+  const trimmed = slug.trim().toLowerCase();
+  if (trimmed.length < 3 || trimmed.length > 100) return null;
+  if (!/^[a-z0-9.-]+$/.test(trimmed)) return null;
+  if (!trimmed.includes(".")) return null;
+  // Reject leading/trailing dots or hyphens and empty labels (e.g. "a..b").
+  if (/^[.-]|[.-]$|\.\./.test(trimmed)) return null;
+  return trimmed;
+}
