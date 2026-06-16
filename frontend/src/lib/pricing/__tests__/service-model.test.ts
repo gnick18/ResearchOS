@@ -6,6 +6,10 @@ import { FIXED_MONTHLY_BASE_CENTS, AMORTIZED_ANNUAL_CENTS } from "../../sharing/
 import {
   INFRA_FIXED_MONTHLY,
   DEFAULT_OPERATING_COSTS,
+  DEFAULT_SCALING_SERVICES,
+  scalingInfraCost,
+  serviceMonthlyCost,
+  serviceCrossUsers,
   monthlyOf,
   totalFixedMonthly,
   type FixedCostItem,
@@ -88,6 +92,37 @@ describe("fixed business costs", () => {
     );
     // The seeded total is real money, well above the old $28 placeholder.
     expect(totalFixedMonthly()).toBeGreaterThan(150);
+  });
+});
+
+describe("per-service step-ups", () => {
+  it("each service crosses its free tier at a different user count", () => {
+    const resend = DEFAULT_SCALING_SERVICES.find((s) => s.id === "resend")!;
+    const upstash = DEFAULT_SCALING_SERVICES.find((s) => s.id === "upstash")!;
+    const vercel = DEFAULT_SCALING_SERVICES.find((s) => s.id === "vercel")!;
+    // Resend 3000/2 = 1500, Upstash 500k/40 = 12500, Vercel 10M/150 ~= 66667.
+    expect(serviceCrossUsers(resend)).toBeCloseTo(1500, 0);
+    expect(serviceCrossUsers(upstash)).toBeCloseTo(12500, 0);
+    expect(serviceCrossUsers(vercel)).toBeCloseTo(10_000_000 / 150, 0);
+    // All distinct moments, ascending.
+    expect(serviceCrossUsers(resend)).toBeLessThan(serviceCrossUsers(upstash));
+    expect(serviceCrossUsers(upstash)).toBeLessThan(serviceCrossUsers(vercel));
+  });
+
+  it("a service is free below its cross and costs its tier above", () => {
+    const resend = DEFAULT_SCALING_SERVICES.find((s) => s.id === "resend")!;
+    expect(serviceMonthlyCost(resend, 1000)).toBe(0); // 2000 emails < 3000 free
+    expect(serviceMonthlyCost(resend, 5000)).toBe(20); // 10000 emails, $20 tier
+    expect(serviceMonthlyCost(resend, 40000)).toBe(90); // 80000 emails, $90 tier
+  });
+
+  it("total scaling infra cost steps up as services cross, monotonic", () => {
+    const at1k = scalingInfraCost(DEFAULT_SCALING_SERVICES, 1000);
+    const at20k = scalingInfraCost(DEFAULT_SCALING_SERVICES, 20000);
+    const at100k = scalingInfraCost(DEFAULT_SCALING_SERVICES, 100000);
+    expect(at1k).toBe(0); // below every free tier
+    expect(at20k).toBeGreaterThan(at1k);
+    expect(at100k).toBeGreaterThanOrEqual(at20k);
   });
 });
 
@@ -194,8 +229,9 @@ describe("projectAtScale", () => {
   });
 
   it("recurring expense is free relay plus the real fixed business cost", () => {
-    const p = projectAtScale(10000, TIERS, MIX);
-    const free = 10000 * (1 - MIX.conversion);
+    // 500 users is below every service free tier, so no step-ups yet.
+    const p = projectAtScale(500, TIERS, MIX);
+    const free = 500 * (1 - MIX.conversion);
     expect(p.freeCost).toBeCloseTo(free * relayCost(MIX.freeRelayWritesM), 6);
     expect(p.expense).toBeCloseTo(p.freeCost + p.fixed, 9);
     // Default fixed is the sourced infra floor + seeded operating overhead, not
@@ -204,18 +240,18 @@ describe("projectAtScale", () => {
   });
 
   it("accepts a custom fixed monthly cost", () => {
-    const p = projectAtScale(10000, TIERS, MIX, 500);
+    const p = projectAtScale(10000, TIERS, MIX, 500, []); // no scaling services
     expect(p.fixed).toBe(500);
     expect(p.expense).toBeCloseTo(p.freeCost + 500, 9);
   });
 
-  it("scales fixed costs up with the user base (not flat forever)", () => {
-    const flat = projectAtScale(10000, TIERS, MIX, 200, 0);
-    const grows = projectAtScale(10000, TIERS, MIX, 200, 10);
-    expect(flat.fixed).toBe(200);
-    // 10 per 1k users x 10k users = 100 on top of the 200 base.
-    expect(grows.fixed).toBeCloseTo(200 + 10 * (10000 / 1000), 9);
-    expect(grows.fixed).toBeGreaterThan(flat.fixed);
+  it("scales fixed costs up via per-service step-ups (not flat forever)", () => {
+    const small = projectAtScale(500, TIERS, MIX, 200, []); // no scaling services
+    const big = projectAtScale(50000, TIERS, MIX, 200); // default services
+    expect(small.fixed).toBe(200); // below every free tier, no steps
+    // At 50k the default services have stepped up, so fixed exceeds the base.
+    expect(big.fixed).toBeGreaterThan(200);
+    expect(big.fixed).toBeCloseTo(200 + scalingInfraCost(DEFAULT_SCALING_SERVICES, 50000), 9);
   });
 
   it("reports the one-time acquisition cost separately, not in the monthly net", () => {
@@ -237,13 +273,14 @@ describe("breakEvenConversion", () => {
     expect(freeUsersPerPayer(TIERS, MIX)).toBe(Number.POSITIVE_INFINITY);
   });
 
-  it("break-even users covers the fixed cost at the per-user contribution", () => {
+  it("break-even users is the first count where net turns non-negative", () => {
     const fixed = 196;
     const be = breakEvenUsers(TIERS, MIX, fixed);
-    // The projected net at exactly the break-even user count is ~0.
-    expect(projectAtScale(be, TIERS, MIX, fixed).net).toBeCloseTo(0, 6);
     expect(be).toBeGreaterThan(0);
     expect(Number.isFinite(be)).toBe(true);
+    // Net is non-negative at break-even and was negative one step (100) before.
+    expect(projectAtScale(be, TIERS, MIX, fixed).net).toBeGreaterThanOrEqual(0);
+    expect(projectAtScale(be - 100, TIERS, MIX, fixed).net).toBeLessThan(0);
   });
 
   it("break-even users is Infinity when each user loses money", () => {
@@ -253,15 +290,11 @@ describe("breakEvenConversion", () => {
     );
   });
 
-  it("cost growth pushes break-even out, and can make it unreachable", () => {
-    const flat = breakEvenUsers(TIERS, MIX, 196, 0);
-    const grows = breakEvenUsers(TIERS, MIX, 196, 10);
-    expect(grows).toBeGreaterThan(flat); // scaling costs delay break-even
-    // If marginal scaling cost exceeds the per-user margin, scale never wins.
-    const perUser = MIX.conversion * 5; // ~ conv x paidNet, in dollars
-    expect(breakEvenUsers(TIERS, MIX, 196, perUser * 1000 * 2)).toBe(
-      Number.POSITIVE_INFINITY,
-    );
+  it("service step-ups push break-even out vs no scaling", () => {
+    const noScaling = breakEvenUsers(TIERS, MIX, 196, []);
+    const withScaling = breakEvenUsers(TIERS, MIX, 196); // default services
+    expect(withScaling).toBeGreaterThanOrEqual(noScaling);
+    expect(Number.isFinite(withScaling)).toBe(true);
   });
 
   it("becomes positive only under the stress-test relay dial", () => {

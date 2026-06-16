@@ -55,7 +55,10 @@ import {
   AI_SIGNUP_GRANT_USD,
   INFRA_FIXED_MONTHLY,
   DEFAULT_OPERATING_COSTS,
-  DEFAULT_FIXED_GROWTH_PER_K_USERS,
+  DEFAULT_SCALING_SERVICES,
+  scalingInfraCost,
+  serviceMonthlyCost,
+  serviceCrossUsers,
   monthlyOf,
   avgFreeUserCostPathA,
   breakEvenConversion,
@@ -66,6 +69,7 @@ import {
   storageRetailPerGB,
   type AdoptionMix,
   type FixedCostItem,
+  type ScalingService,
   type ServiceTiers,
 } from "@/lib/pricing/service-model";
 
@@ -1068,8 +1072,8 @@ export function FinalizeTab() {
   const [aiTokensM, setAiTokensM] = useState(3);
   const [aiAdoption, setAiAdoption] = useState(0.3);
   const [opCosts, setOpCosts] = useState<FixedCostItem[]>(DEFAULT_OPERATING_COSTS);
-  const [fixedGrowthPerK, setFixedGrowthPerK] = useState(
-    DEFAULT_FIXED_GROWTH_PER_K_USERS,
+  const [scalingSvcs, setScalingSvcs] = useState<ScalingService[]>(
+    DEFAULT_SCALING_SERVICES,
   );
   const [conversion, setConversion] = useState(0.05);
   const [soloShare, setSoloShare] = useState(0.4);
@@ -1115,12 +1119,15 @@ export function FinalizeTab() {
   const opMonthly = monthlyOf(opCosts);
   const fixedMonthly = INFRA_FIXED_MONTHLY + opMonthly;
   const project = (users: number) =>
-    projectAtScale(users, tiers, mix, fixedMonthly, fixedGrowthPerK);
-  const beUsers = breakEvenUsers(tiers, mix, fixedMonthly, fixedGrowthPerK);
+    projectAtScale(users, tiers, mix, fixedMonthly, scalingSvcs);
+  const beUsers = breakEvenUsers(tiers, mix, fixedMonthly, scalingSvcs);
   const deptLabMonthly = membersPerLab * dept.price + govFee;
 
   function updateOp(i: number, patch: Partial<FixedCostItem>) {
     setOpCosts((cs) => cs.map((c, j) => (j === i ? { ...c, ...patch } : c)));
+  }
+  function updateSvc(i: number, patch: Partial<ScalingService>) {
+    setScalingSvcs((ss) => ss.map((s, j) => (j === i ? { ...s, ...patch } : s)));
   }
 
   const activeMix =
@@ -1139,13 +1146,13 @@ export function FinalizeTab() {
       tiers,
       { ...mix, conversion: s.v },
       fixedMonthly,
-      fixedGrowthPerK,
+      scalingSvcs,
     ).net,
     beUsers: breakEvenUsers(
       tiers,
       { ...mix, conversion: s.v },
       fixedMonthly,
-      fixedGrowthPerK,
+      scalingSvcs,
     ),
   }));
   const scenarioMax = Math.max(1, ...scenarioNets.map((s) => Math.abs(s.net)));
@@ -1249,7 +1256,7 @@ export function FinalizeTab() {
       window.removeEventListener("resize", drawProjection);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [rows, freeRelayM, aiTokensM, aiAdoption, opCosts, fixedGrowthPerK, conversion, soloShare, labShare, deptShare, membersPerLab]);
+  }, [rows, freeRelayM, aiTokensM, aiAdoption, opCosts, scalingSvcs, conversion, soloShare, labShare, deptShare, membersPerLab]);
 
   const inputCls =
     "w-16 rounded border border-border bg-surface-sunken px-1.5 py-1 text-meta tabular-nums";
@@ -1440,27 +1447,75 @@ export function FinalizeTab() {
               </div>
             </div>
             <div className="mt-4">
-              <Slider
-                label={`Infra usage growth: +${fmt(fixedGrowthPerK)}/mo per 1k users (not subs)`}
-                min={0}
-                max={50}
-                step={1}
-                value={fixedGrowthPerK}
-                onChange={setFixedGrowthPerK}
-              />
-              <div className="mt-1 flex justify-between text-meta text-foreground-muted tabular-nums">
-                <span>At 10k users: {fmt0(fixedMonthly + fixedGrowthPerK * 10)}/mo</span>
-                <span>At 50k: {fmt0(fixedMonthly + fixedGrowthPerK * 50)}/mo</span>
+              <div className="mb-1 text-meta font-semibold text-foreground">
+                Service step-ups (each crosses its free tier at its own user count)
+              </div>
+              <div className="overflow-x-auto">
+                <table className="w-full text-meta tabular-nums">
+                  <thead>
+                    <tr className="text-left text-foreground-muted">
+                      <th className="px-2 py-1 font-semibold">Service</th>
+                      <th className="px-2 py-1 font-semibold">Per user</th>
+                      <th className="px-2 py-1 font-semibold">Crosses at</th>
+                      <th className="px-2 py-1 text-right font-semibold">At 50k</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {scalingSvcs.map((s, i) => {
+                      const cross = serviceCrossUsers(s);
+                      const at50 = serviceMonthlyCost(s, 50000);
+                      return (
+                        <tr key={s.id} className="border-t border-border align-top">
+                          <td className="px-2 py-1 text-foreground-muted">
+                            {s.label}
+                          </td>
+                          <td className="px-2 py-1">
+                            <input
+                              type="number"
+                              step={1}
+                              value={s.perUserPerMonth}
+                              onChange={(e) =>
+                                updateSvc(i, { perUserPerMonth: +e.target.value })
+                              }
+                              className="w-14 rounded border border-border bg-surface-sunken px-1 py-0.5 text-meta tabular-nums"
+                            />
+                            <span className="ml-1 text-foreground-muted">
+                              {s.unit}
+                            </span>
+                          </td>
+                          <td className="px-2 py-1 text-foreground-muted">
+                            {Number.isFinite(cross)
+                              ? cross >= 1000
+                                ? `~${(cross / 1000).toFixed(1)}k`
+                                : `~${Math.round(cross)}`
+                              : "never"}
+                          </td>
+                          <td className="px-2 py-1 text-right">
+                            {at50 > 0 ? fmt0(at50) : "free"}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                    <tr className="border-t border-border font-semibold">
+                      <td className="px-2 py-1" colSpan={3}>
+                        Fixed at 50k (base + steps)
+                      </td>
+                      <td className="px-2 py-1 text-right">
+                        {fmt0(fixedMonthly + scalingInfraCost(scalingSvcs, 50000))}
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
               </div>
             </div>
             <p className="mt-2 text-meta text-foreground-muted">
-              Infra floor (Workers + Vercel + Apple/LLC/domain, amortized) is
-              sourced from the operator console; operating overhead is editable and
-              includes the permanent Claude Max that co-runs ops. SUBSCRIPTIONS stay
-              flat (one Max at any size). Only provider USAGE grows with the user
-              base (hosting/bandwidth above free tiers), which local-first keeps
-              small, so the growth dial is modest. Set it to 0 if serving cost is
-              negligible.
+              Infra floor + operating overhead (incl. the permanent Claude Max) are
+              the flat base; SUBSCRIPTIONS do not scale. Each provider service
+              crosses its own free tier at its own user count (edit the per-user
+              usage), so the expense steps up at distinct moments. Storage (R2 files
+              + DO bytes) is a-la-carte pass-through and DO requests are already the
+              per-write relay cost, so they are not counted here. Free ceilings are
+              from the admin InfraCostPanel (checked 2026-06-06).
             </p>
           </Panel>
 

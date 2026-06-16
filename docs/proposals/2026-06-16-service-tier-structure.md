@@ -84,7 +84,15 @@ The monthly net now charges the real fixed LLC overhead, not a flat placeholder.
 
 So the seeded total fixed base is **~$296/mo** (versus the old $28 placeholder), charged every month regardless of user count. Yearly items are amortized to a monthly run-rate.
 
-**Subscriptions stay flat; only infra usage scales.** One permanent Claude Max co-runs ops at any company size (it does not grow with users, Grant 2026-06-16), and accounting/tooling are flat too, so they sit in the flat base. The one thing that genuinely grows with the user base is provider USAGE above the free tiers (Vercel bandwidth/compute, Workers requests, R2 ops for serving the app), tracked in the admin InfraCostPanel + capacity free-tier ceilings. Local-first keeps that small (most compute is client-side, storage is pass-through, the relay is already a per-write variable cost), so the model adds a modest **infra-usage-growth term** (default **+$3/mo per 1k users**, tunable, zero-able) on top of the flat base: ~$326/mo at 10k users, ~$446/mo at 50k. `breakEvenUsers()` subtracts that marginal usage cost from each user's contribution, so it pushes break-even out only slightly (and, if marginal cost ever exceeds per-user margin, makes it unreachable at any scale). At the seed numbers the business breaks even around **~1.2k users** (Conservative ~3.3k, Optimistic ~600). The real per-service ceilings live in the operator console; the dev page seeds tunable estimates.
+**Subscriptions stay flat; provider services step up at different moments.** One permanent Claude Max co-runs ops at any company size (it does not grow with users, Grant 2026-06-16), and accounting/tooling are flat too, so they sit in the flat base. What grows is provider USAGE crossing each service's free tier — and crucially, **each service crosses at a different user count**, so the cost curve is a set of step functions, not one slope. The model itemizes each scaling service (`ScalingService`: a per-active-user usage rate + ascending cost tiers) sourced from the admin InfraCostPanel (free ceiling + next paid step, checked 2026-06-06):
+
+| Service | Free tier | Per-user (seed) | Crosses at | Next step |
+|---|---|---|---|---|
+| Resend (OTP/invites/reminders) | 3,000 emails/mo | 2 emails | ~1.5k users | $20, then $90 at ~25k |
+| Upstash Redis (rate limits + OTP) | 500k commands/mo | 40 commands | ~12.5k users | $10/mo |
+| Vercel (edge requests above Pro's 10M) | 10M req/mo | 150 req | ~67k users | $20, then $60 |
+
+Storage (R2 files + DO bytes) is à-la-carte pass-through and DO requests are already the per-write relay cost, so they are not double-counted; D1 and the Workers base are far off or already in the flat base. The per-user usage rates are editable seeds. So fixed costs step up at distinct moments: ~$296/mo base → +$20 at ~1.5k → +$10 more at ~12.5k → +$70 more (Resend $90 tier) at ~25k → ~$396/mo at 50k. `breakEvenUsers()` solves numerically because the expense has jumps; at the seed numbers the business breaks even around **~1.2k users** (just before Resend's first step), Conservative ~3.3k, Optimistic ~600. The chart's expense line shows the steps; the real ceilings live in the operator console.
 
 ## The model + dashboard
 

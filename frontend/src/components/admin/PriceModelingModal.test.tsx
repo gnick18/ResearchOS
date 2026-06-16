@@ -33,7 +33,8 @@ describe("FinalizeTab (Path-A service dashboard)", () => {
     has(/Fixed business costs/i); // recurring cost line
     has(/Fixed business costs \(charged every month/i); // the editable panel
     has(/Claude Max \(co-runs ops/i); // the permanent ops subscription
-    has(/Infra usage growth/i); // infra usage scales, subs stay flat
+    has(/Service step-ups/i); // per-service free-tier crossings
+    has(/Crosses at/i); // the per-service cross-user column
     cleanup();
   });
 

@@ -76,17 +76,94 @@ export const DEFAULT_OPERATING_COSTS: FixedCostItem[] = [
   { label: "Misc software + monitoring", amount: 20, cadence: "monthly" },
 ];
 
-/**
- * Infra-USAGE growth per 1,000 users (Grant 2026-06-16). SUBSCRIPTIONS do not
- * scale with the company: one permanent Claude Max co-runs ops at any size, and
- * accounting/tooling stay flat, so they live in the flat base above. The only
- * thing that genuinely grows with the user base is provider USAGE above the free
- * tiers (Vercel bandwidth/compute, Workers requests, R2 ops for serving the app
- * to more people), tracked in the admin InfraCostPanel + capacity free-tier
- * ceilings. Local-first keeps that small (most compute is client-side, storage
- * is pass-through, the relay is already a per-write variable cost), so the
- * default is modest and tunable. Set to 0 if you judge serving cost negligible. */
-export const DEFAULT_FIXED_GROWTH_PER_K_USERS = 3;
+// ── Per-service step-ups (Grant 2026-06-16) ────────────────────────────────
+// Subscriptions stay flat (one Claude Max at any size). The thing that grows is
+// PROVIDER USAGE crossing each service's free tier, and each service crosses at a
+// DIFFERENT user count. So instead of one linear term we model each scaling
+// service from the operator console's InfraCostPanel (free ceiling + next paid
+// step, checked 2026-06-06): a per-active-user usage rate and ascending cost
+// tiers. Storage (R2 files, DO bytes) is a-la-carte pass-through and DO request
+// cost is already the per-write relay cost, so they are not double-counted here;
+// D1 and Workers-base cross so far out (or are already in the flat base) that
+// they are omitted from the step model.
+
+export interface ScalingTier {
+  /** Inclusive usage ceiling for this tier; the first tier whose ceiling covers
+   *  the usage applies. Infinity for the top tier. */
+  upToUsage: number;
+  /** Flat monthly cost while usage sits in this tier. The free tier is 0. */
+  monthlyCost: number;
+}
+
+export interface ScalingService {
+  id: string;
+  label: string;
+  /** Display unit (emails/mo, commands/mo, edge req/mo). */
+  unit: string;
+  /** Usage this service incurs per ACTIVE user per month. */
+  perUserPerMonth: number;
+  /** Ascending cost tiers by usage. */
+  tiers: ScalingTier[];
+}
+
+export const DEFAULT_SCALING_SERVICES: ScalingService[] = [
+  {
+    id: "resend",
+    label: "Resend (OTP, invites, reminders)",
+    unit: "emails/mo",
+    perUserPerMonth: 2,
+    tiers: [
+      { upToUsage: 3_000, monthlyCost: 0 },
+      { upToUsage: 50_000, monthlyCost: 20 },
+      { upToUsage: Number.POSITIVE_INFINITY, monthlyCost: 90 },
+    ],
+  },
+  {
+    id: "upstash",
+    label: "Upstash Redis (rate limits + OTP)",
+    unit: "commands/mo",
+    perUserPerMonth: 40,
+    tiers: [
+      { upToUsage: 500_000, monthlyCost: 0 },
+      { upToUsage: Number.POSITIVE_INFINITY, monthlyCost: 10 },
+    ],
+  },
+  {
+    id: "vercel",
+    label: "Vercel (edge requests above Pro's 10M)",
+    unit: "edge req/mo",
+    perUserPerMonth: 150,
+    tiers: [
+      { upToUsage: 10_000_000, monthlyCost: 0 },
+      { upToUsage: 30_000_000, monthlyCost: 20 },
+      { upToUsage: Number.POSITIVE_INFINITY, monthlyCost: 60 },
+    ],
+  },
+];
+
+/** A service's flat monthly cost at a given user count (the tier its usage lands
+ *  in). Storage-style pass-through services are excluded by construction. */
+export function serviceMonthlyCost(svc: ScalingService, users: number): number {
+  const usage = users * svc.perUserPerMonth;
+  const tier =
+    svc.tiers.find((t) => usage <= t.upToUsage) ?? svc.tiers[svc.tiers.length - 1];
+  return tier.monthlyCost;
+}
+
+/** The user count at which a service first leaves its free (cost 0) tier. */
+export function serviceCrossUsers(svc: ScalingService): number {
+  const free = svc.tiers.find((t) => t.monthlyCost === 0);
+  if (!free || svc.perUserPerMonth <= 0) return Number.POSITIVE_INFINITY;
+  return free.upToUsage / svc.perUserPerMonth;
+}
+
+/** Total stepped infra cost from all scaling services at a given user count. */
+export function scalingInfraCost(
+  services: ScalingService[],
+  users: number,
+): number {
+  return services.reduce((sum, s) => sum + serviceMonthlyCost(s, users), 0);
+}
 
 /** Monthly-equivalent total of a fixed-cost list (yearly items divided by 12). */
 export function monthlyOf(items: FixedCostItem[]): number {
@@ -355,7 +432,7 @@ export function projectAtScale(
   tiers: ServiceTiers,
   mix: AdoptionMix,
   fixedMonthly: number = totalFixedMonthly(),
-  fixedGrowthPerKUsers: number = 0,
+  scalingServices: ScalingService[] = DEFAULT_SCALING_SERVICES,
 ): ScalePoint {
   const free = users * (1 - mix.conversion);
   const paid = users * mix.conversion;
@@ -364,9 +441,9 @@ export function projectAtScale(
   const gov = paid * blendedGovPerPaid(tiers, mix);
   const revenue = sub + ai + gov;
   const freeCost = free * relayCost(mix.freeRelayWritesM);
-  // Fixed costs step up with scale: the flat base plus a run-rate per 1k users
-  // (provider-tier overages + services/subs you add as you grow).
-  const fixed = fixedMonthly + fixedGrowthPerKUsers * (users / 1000);
+  // Fixed costs step up with scale: the flat base plus the stepped infra cost as
+  // each provider service crosses its own free tier at its own user count.
+  const fixed = fixedMonthly + scalingInfraCost(scalingServices, users);
   const expense = freeCost + fixed;
   return {
     users,
@@ -410,16 +487,24 @@ export function breakEvenUsers(
   tiers: ServiceTiers,
   mix: AdoptionMix,
   fixedMonthly: number = totalFixedMonthly(),
-  fixedGrowthPerKUsers: number = 0,
+  scalingServices: ScalingService[] = DEFAULT_SCALING_SERVICES,
 ): number {
-  // Each user contributes its margin MINUS the marginal scaling cost it adds.
-  // If scaling per user exceeds the per-user margin, scale never catches up.
+  // Per-user margin (free users cost ~0). If <= 0 no scale ever breaks even.
   const perUser =
     mix.conversion * blendedPaidNet(tiers, mix) -
-    (1 - mix.conversion) * avgFreeUserCostPathA(mix.freeRelayWritesM) -
-    fixedGrowthPerKUsers / 1000;
+    (1 - mix.conversion) * avgFreeUserCostPathA(mix.freeRelayWritesM);
   if (perUser <= 0) return Number.POSITIVE_INFINITY;
-  return fixedMonthly / perUser;
+  // Expense has step jumps as services cross their free tiers, so solve
+  // numerically for the first user count where revenue covers it. perUser > 0
+  // means net is eventually positive, so a finite crossing exists below the cap.
+  const net = (u: number) =>
+    u * perUser - fixedMonthly - scalingInfraCost(scalingServices, u);
+  const cap = 500_000;
+  const step = 100;
+  for (let u = step; u <= cap; u += step) {
+    if (net(u) >= 0) return u;
+  }
+  return Number.POSITIVE_INFINITY;
 }
 
 /** How many free users one paying user can carry at break-even (the inverse
