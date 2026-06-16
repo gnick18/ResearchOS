@@ -36,6 +36,7 @@ describe("FinalizeTab (Path-A service dashboard)", () => {
     has(/Service step-ups/i); // per-service free-tier crossings
     has(/Crosses at/i); // the per-service cross-user column
     has(/Owner tax on profit/i); // the tax dial
+    has(/Free grant usage/i); // conservative free-grant-usage dial
     has(/Take-home \(after tax\)/i); // post-tax take-home line
     has(/Measured relay footprint/i); // measured-vs-seed grounding line
     cleanup();

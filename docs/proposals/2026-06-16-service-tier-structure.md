@@ -67,7 +67,7 @@ Sells governance, not charity. Storage at parity with a standalone lab (no surch
 
 Free users have no cloud produce feature, and the honest consequence (Grant 2026-06-16) is that **a free user does nothing that writes to us**: the local notebook is on their disk, shared-folder workspaces sync through their own cloud, receiving a share is sender-paid, reads have no R2 egress fee, and the public surfaces are cached. So the free-user recurring relay cost is **~$0**.
 
-The only real free-user cost is the **one-time $0.25 AI sign-up grant**, which is a pure acquisition cost (Grant 2026-06-16): it is reported **separately as a one-time line** ("$0.25 x N free users"), never amortized into the monthly net. So the recurring monthly free-user cost is **~$0**, versus ~$0.46/mo under the old GB model. So:
+The only real free-user cost is the **one-time $0.25 AI sign-up grant**, which is a pure acquisition cost (Grant 2026-06-16): it is reported **separately as a one-time line** ("$0.25 x N free users x usage%"), never amortized into the monthly net. The grant only costs us inference if the account actually uses it, so it scales by a **free-grant usage rate** kept deliberately CONSERVATIVE/high (default **85%**, the 80-90% band) and SEPARATE from the 20-40% paid-AI adoption (trying a free gift is far more common than buying ongoing packs). So the recurring monthly free-user cost is **~$0**, versus ~$0.46/mo under the old GB model. So:
 
 - A paying user carries **unlimited** free users on a recurring basis (free users cost ~$0/mo).
 - **Recurring break-even is just the flat infra floor** (the free base adds no recurring cost); the only thing to "earn back" on the free base is the one-time $0.25/account.

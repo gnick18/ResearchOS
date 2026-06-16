@@ -19,6 +19,7 @@ import {
   serviceMargin,
   avgFreeUserCostPathA,
   freeBaseAcquisitionOneTime,
+  DEFAULT_FREE_GRANT_USAGE,
   aiMarginPerUser,
   AI_INDIV_RETAIL_PER_M,
   AI_ORG_RETAIL_PER_M,
@@ -53,6 +54,7 @@ const MIX: AdoptionMix = {
   freeRelayWritesM: 0, // Path A: free users do nothing that writes to us
   aiTokensPerPaidM: 1,
   aiAdoption: 0.3, // only ~20-40% of paid users buy AI
+  freeGrantUsage: 0.85, // conservative: most free accounts use the AI gift
 };
 
 describe("storage is near-cost pass-through", () => {
@@ -187,6 +189,17 @@ describe("free users cost ~$0/mo recurring under Path A", () => {
     expect(AI_SIGNUP_GRANT_USD).toBeCloseTo(0.25, 2);
     expect(freeBaseAcquisitionOneTime(10000)).toBeCloseTo(10000 * AI_SIGNUP_GRANT_USD, 6);
   });
+
+  it("the grant cost scales by the free-grant usage rate (conservative ~0.85)", () => {
+    expect(DEFAULT_FREE_GRANT_USAGE).toBeGreaterThanOrEqual(0.8);
+    expect(DEFAULT_FREE_GRANT_USAGE).toBeLessThanOrEqual(0.9);
+    expect(freeBaseAcquisitionOneTime(10000, 0.85)).toBeCloseTo(
+      10000 * AI_SIGNUP_GRANT_USD * 0.85,
+      6,
+    );
+    // Usage is independent of paid AI adoption (a free gift, not a paid pack).
+    expect(freeBaseAcquisitionOneTime(10000, 0)).toBe(0);
+  });
 });
 
 describe("blended paid net decomposes into sub + AI + governance", () => {
@@ -259,7 +272,10 @@ describe("projectAtScale", () => {
   it("reports the one-time acquisition cost separately, not in the monthly net", () => {
     const p = projectAtScale(10000, TIERS, MIX);
     const free = 10000 * (1 - MIX.conversion);
-    expect(p.freeAcqOneTime).toBeCloseTo(free * AI_SIGNUP_GRANT_USD, 6);
+    expect(p.freeAcqOneTime).toBeCloseTo(
+      free * AI_SIGNUP_GRANT_USD * MIX.freeGrantUsage,
+      6,
+    );
     // net is revenue minus the recurring expense only; the one-time cost is excluded.
     expect(p.net).toBeCloseTo(p.revenue - p.expense, 9);
   });

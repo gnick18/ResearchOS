@@ -53,6 +53,7 @@ import {
   AI_ORG_RETAIL_PER_M,
   AI_REAL_COST_PER_M,
   AI_SIGNUP_GRANT_USD,
+  DEFAULT_FREE_GRANT_USAGE,
   INFRA_FIXED_MONTHLY,
   DEFAULT_OPERATING_COSTS,
   DEFAULT_SCALING_SERVICES,
@@ -1082,6 +1083,7 @@ export function FinalizeTab() {
   const [deptShare, setDeptShare] = useState(0.2);
   const [membersPerLab, setMembersPerLab] = useState(6);
   const [taxRate, setTaxRate] = useState(DEFAULT_TAX_RATE);
+  const [freeGrantUsage, setFreeGrantUsage] = useState(DEFAULT_FREE_GRANT_USAGE);
   // Measured relay-write footprint per active owner, the ground truth for the
   // per-tier relayWritesM seed. Fetched from the operator-gated benchmark route;
   // null until loaded, period null when no activity is recorded yet (beta).
@@ -1143,6 +1145,7 @@ export function FinalizeTab() {
     freeRelayWritesM: freeRelayM,
     aiTokensPerPaidM: aiTokensM,
     aiAdoption,
+    freeGrantUsage,
   };
 
   const avgFree = avgFreeUserCostPathA(freeRelayM);
@@ -1290,7 +1293,7 @@ export function FinalizeTab() {
       window.removeEventListener("resize", drawProjection);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [rows, freeRelayM, aiTokensM, aiAdoption, opCosts, scalingSvcs, taxRate, conversion, soloShare, labShare, deptShare, membersPerLab]);
+  }, [rows, freeRelayM, aiTokensM, aiAdoption, freeGrantUsage, opCosts, scalingSvcs, taxRate, conversion, soloShare, labShare, deptShare, membersPerLab]);
 
   const inputCls =
     "w-16 rounded border border-border bg-surface-sunken px-1.5 py-1 text-meta tabular-nums";
@@ -1341,6 +1344,14 @@ export function FinalizeTab() {
                 step={1}
                 value={taxRate * 100}
                 onChange={(v) => setTaxRate(v / 100)}
+              />
+              <Slider
+                label={`Free grant usage: ${Math.round(freeGrantUsage * 100)}% of free accounts use the AI gift`}
+                min={0}
+                max={100}
+                step={5}
+                value={freeGrantUsage * 100}
+                onChange={(v) => setFreeGrantUsage(v / 100)}
               />
             </div>
             <p className="mt-2 text-meta text-foreground-muted">
@@ -1846,7 +1857,8 @@ export function FinalizeTab() {
               <div className="flex justify-between">
                 <span className="text-foreground-muted">
                   Acquiring this free base ({fmt0(comp.users * (1 - conversion))} free
-                  users x {fmt(AI_SIGNUP_GRANT_USD)})
+                  users x {fmt(AI_SIGNUP_GRANT_USD)} x {Math.round(freeGrantUsage * 100)}%
+                  use the gift)
                 </span>
                 <span className="font-semibold tabular-nums">
                   {fmt0(comp.freeAcqOneTime)}

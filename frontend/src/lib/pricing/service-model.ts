@@ -234,6 +234,15 @@ export const AI_SIGNUP_GRANT_USD =
   STARTER_GRANT_TOKENS * AI_MEASURED_BARE_COST_USD_PER_TOKEN;
 
 /**
+ * Share of FREE accounts we assume consume (most of) their one-time AI sign-up
+ * grant. Deliberately CONSERVATIVE/high (Grant 2026-06-16): trying the free gift
+ * at signup is a different, far higher behavior than the 20-40% of PAID users who
+ * buy ongoing AI packs, so this is its own assumption, NOT aiAdoption. Default
+ * 0.85 (the 80-90% band) so the modeled free-base cost stays cautious.
+ */
+export const DEFAULT_FREE_GRANT_USAGE = 0.85;
+
+/**
  * Monthly AI margin we keep from one paying user's token usage. They pay the
  * locked markup rate (1.4x individual/lab, 2x dept), we pay the real measured
  * cost. Stripe on a prepaid pack is approximated as a flat percentage since AI
@@ -331,10 +340,14 @@ export function avgFreeUserCostPathA(freeRelayWritesM: number): number {
 }
 
 /** One-time cost to acquire a free base of `freeUsers`, the $0.25 AI sign-up
- *  grant paid once per account. Reported separately from the recurring monthly
- *  net, never amortized into it. */
-export function freeBaseAcquisitionOneTime(freeUsers: number): number {
-  return freeUsers * AI_SIGNUP_GRANT_USD;
+ *  grant. Only the share that actually consumes the grant costs us inference
+ *  (usageRate, default 1 = assume everyone). Reported separately from the
+ *  recurring monthly net, never amortized into it. */
+export function freeBaseAcquisitionOneTime(
+  freeUsers: number,
+  usageRate: number = 1,
+): number {
+  return freeUsers * AI_SIGNUP_GRANT_USD * usageRate;
 }
 
 /** The three live service tiers (institution is punted for beta). Lab/dept
@@ -365,6 +378,11 @@ export interface AdoptionMix {
   /** Share of paying users who actually use AI (buy packs). Typically 0.2-0.4;
    *  the rest never touch the metered AI product. Scales the AI margin. */
   aiAdoption: number;
+  /** Share of FREE accounts that consume their one-time AI sign-up grant. High
+   *  by design (~0.85), separate from aiAdoption: trying the free gift is far
+   *  more common than buying ongoing paid packs. Scales the one-time free-base
+   *  acquisition cost only. */
+  freeGrantUsage: number;
 }
 
 /** Normalize the paying-side shares to sum to 1 (they are entered freely). */
@@ -497,7 +515,7 @@ export function projectAtScale(
     net,
     tax,
     takeHome: net - tax,
-    freeAcqOneTime: freeBaseAcquisitionOneTime(free),
+    freeAcqOneTime: freeBaseAcquisitionOneTime(free, mix.freeGrantUsage),
   };
 }
 
