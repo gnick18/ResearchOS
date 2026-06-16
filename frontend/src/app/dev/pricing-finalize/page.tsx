@@ -1,12 +1,13 @@
 "use client";
 
-// TEMP scratch page (Grant + Claude, 2026-06-15). A standalone surface to
-// finalize the storage-flip pricing ladder without the operator gate. It mounts
-// the SAME components the /admin Modeling section uses (FinalizeTab plus the two
-// reference models), all driven by lib/pricing/modeling.ts, so the numbers here
-// are the real model, not a mock.
+// TEMP scratch page (Grant + Claude, 2026-06-15, rebuilt for Path A 2026-06-16).
+// A standalone surface to finalize the PATH-A SERVICE TIERS without the operator
+// gate. It mounts the SAME FinalizeTab the /admin Modeling section uses, driven
+// by lib/pricing/service-model.ts, so the numbers here are the real model, not a
+// mock. We charge for cloud SERVICES (send, live co-edit, phone capture, push,
+// governance), not GB. Storage is a-la-carte at cost; the GB ladder is gone.
 //
-// Once the ladder is locked: copy the numbers into lib/billing/plans.ts and
+// Once the tiers are locked: copy the numbers into lib/billing/plans.ts and
 // lib/pricing/assumptions.ts (the single sources of truth), update the master
 // pricing bible, then DELETE this page. It is not linked from anywhere.
 //
@@ -22,15 +23,17 @@ export default function PricingFinalizeDevPage() {
           Scratch, delete after lock-in
         </span>
         <h1 className="mt-3 text-heading font-semibold text-foreground">
-          Pricing finalize
+          Service tiers finalize (Path A)
         </h1>
         <p className="mt-2 max-w-2xl text-body text-foreground-muted leading-relaxed">
-          Just the open decisions, the locked rules are fixed context. Set the
-          free pool, the sustain, and each tier&apos;s price and write allowance.
-          When it looks right we copy the numbers into plans.ts and
-          assumptions.ts and the pricing bible. Nothing here writes back. The
-          deeper per-subscriber and sustainability models still live in the
-          operator console under Modeling.
+          Price buys cloud SERVICES, not gigabytes. Set each tier&apos;s service
+          price and its relay footprint, the dept governance fee, and the free
+          relay cost, then read the margin and the profit-at-scale projection.
+          Storage is a-la-carte at cost and is not a tier axis. When it looks
+          right we copy the numbers into plans.ts and assumptions.ts and the
+          pricing bible. Nothing here writes back. The legacy GB per-subscriber
+          and sustainability models still live in the operator console under
+          Modeling for reference.
         </p>
       </header>
 

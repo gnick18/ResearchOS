@@ -41,11 +41,23 @@ import {
   subscriberMargin,
   sustainability,
   tierPrice,
+  type BillingCadence,
   type FreeUsageMix,
   type ModelTier,
   type PayingSide,
   type PricingModel,
 } from "@/lib/pricing/modeling";
+import {
+  STORAGE_MARKUP,
+  avgFreeUserCostPathA,
+  breakEvenConversion,
+  freeUsersPerPayer,
+  projectAtScale,
+  serviceMargin,
+  storageRetailPerGB,
+  type AdoptionMix,
+  type ServiceTiers,
+} from "@/lib/pricing/service-model";
 
 // Canvas chart palette. Canvas cannot read Tailwind tokens, so the chart colors
 // are explicit. Chosen to read on the light operator surface.
@@ -1003,111 +1015,101 @@ export function SustainabilityTab({ active }: { active: boolean }) {
 // Tab 3: finalize the storage flip ladder (2026-06-15 decisions)
 // ============================================================================
 
-type FinalCadence = "semiannual" | "annual";
+// ── Path-A service tiers (Grant 2026-06-15) ─────────────────────────────────
+// We charge for cloud SERVICES, not GB. Storage is a-la-carte pass-through at
+// ~1.15x cost. Solo is one paid subscriber tier; lab and dept are priced per
+// active seat, and dept adds a flat per-lab governance fee (the org margin).
+// Free users get no cloud produce feature, so the free base is cheap, which is
+// what makes the whole thing sustainable. Seed values are a first cut, not yet
+// written to plans.ts.
 
-interface LadderRow {
-  key: string;
+interface ServiceRow {
+  key: "solo" | "lab" | "dept";
   name: string;
-  capGB: number;
-  writesM: number;
+  unlocks: string;
+  /** Per subscriber (solo) or per active seat (lab/dept), dollars per month. */
   price: number;
-  cadence: FinalCadence;
-  lab: boolean;
-  free?: boolean;
+  /** Relay activity the services generate, millions of writes per month. */
+  relayWritesM: number;
+  cadence: BillingCadence;
+  perSeat: boolean;
+  /** Dept-only flat governance fee per lab per month. */
+  governanceFeePerLab?: number;
 }
 
-// Seeded from the 2026-06-15 working decisions: 1 GB free, a $1/$2 entry tier,
-// the existing Plus/Pro and Lab Plus/Pro at their current modest margin, all
-// solo + lab tiers billed 6 or 12-month only. Scratch values, not yet written
-// to plans.ts.
-const DEFAULT_LADDER: LadderRow[] = [
-  { key: "free", name: "Free", capGB: 1, writesM: 1, price: 0, cadence: "annual", lab: false, free: true },
-  { key: "starter", name: "Starter", capGB: 10, writesM: 0.3, price: 3, cadence: "annual", lab: false },
-  { key: "basic", name: "Basic", capGB: 25, writesM: 0.5, price: 4, cadence: "annual", lab: false },
-  { key: "plus", name: "Plus", capGB: 50, writesM: 1, price: 7, cadence: "semiannual", lab: false },
-  { key: "pro", name: "Pro", capGB: 250, writesM: 2, price: 25, cadence: "semiannual", lab: false },
-  { key: "lab_starter", name: "Lab Starter", capGB: 25, writesM: 1.5, price: 4, cadence: "semiannual", lab: true },
-  { key: "lab_basic", name: "Lab Basic", capGB: 50, writesM: 2, price: 7, cadence: "semiannual", lab: true },
-  { key: "lab_plus", name: "Lab Plus", capGB: 100, writesM: 3, price: 12, cadence: "semiannual", lab: true },
-  { key: "lab_pro", name: "Lab Pro", capGB: 500, writesM: 8, price: 30, cadence: "semiannual", lab: true },
+const DEFAULT_SERVICE_ROWS: ServiceRow[] = [
+  {
+    key: "solo",
+    name: "Solo",
+    unlocks: "Send, live co-edit, phone capture, push",
+    price: 6,
+    relayWritesM: 0.5,
+    cadence: "annual",
+    perSeat: false,
+  },
+  {
+    key: "lab",
+    name: "Lab",
+    unlocks: "Solo per member + dashboard, shared library, pooled budgets",
+    price: 5,
+    relayWritesM: 0.6,
+    cadence: "annual",
+    perSeat: true,
+  },
+  {
+    key: "dept",
+    name: "Dept",
+    unlocks: "Lab parity + Commons, compliance, per-lab budgets, admin",
+    price: 5,
+    relayWritesM: 0.6,
+    cadence: "annual",
+    perSeat: true,
+    governanceFeePerLab: 16,
+  },
 ];
 
-const FILL = 0.4;
-
 export function FinalizeTab() {
-  const [freeGb, setFreeGb] = useState(0.5);
-  const [sustain, setSustain] = useState(16);
-  const [rows, setRows] = useState<LadderRow[]>(DEFAULT_LADDER);
+  const [rows, setRows] = useState<ServiceRow[]>(DEFAULT_SERVICE_ROWS);
+  const [freeRelayM, setFreeRelayM] = useState(0.05);
   const [conversion, setConversion] = useState(0.05);
-  const [orgShare, setOrgShare] = useState(0.3);
+  const [soloShare, setSoloShare] = useState(0.4);
+  const [labShare, setLabShare] = useState(0.4);
+  const [deptShare, setDeptShare] = useState(0.2);
+  const [membersPerLab, setMembersPerLab] = useState(6);
   const chartRef = useRef<HTMLCanvasElement | null>(null);
 
-  function update(i: number, patch: Partial<LadderRow>) {
-    setRows((rs) => rs.map((r, j) => (j === i ? { ...r, ...patch } : r)));
+  function update(key: ServiceRow["key"], patch: Partial<ServiceRow>) {
+    setRows((rs) => rs.map((r) => (r.key === key ? { ...r, ...patch } : r)));
   }
 
-  const labPlus = rows.find((r) => r.key === "lab_plus")?.price ?? 0;
-  // Dept labs pay the SAME storage rate as standalone labs (the Lab tier), plus a
-  // flat per-lab governance fee. That fee, not a per-GB surcharge, is the dept
-  // margin that funds the free tier. sustain is now that governance fee.
-  const orgRate = labPlus + sustain;
+  const solo = rows.find((r) => r.key === "solo")!;
+  const lab = rows.find((r) => r.key === "lab")!;
+  const dept = rows.find((r) => r.key === "dept")!;
+  const govFee = dept.governanceFeePerLab ?? 0;
 
-  // Volume pricing: $/GB should decline down the ladder, the small tiers pay the
-  // most per GB and Pro the least.
-  const pgbDeclining = (order: string[]) => {
-    let prev = Infinity;
-    let ok = true;
-    let where = "";
-    for (const k of order) {
-      const r = rows.find((x) => x.key === k);
-      if (!r || r.capGB <= 0) continue;
-      const v = r.price / r.capGB;
-      if (v > prev + 1e-9) {
-        ok = false;
-        where = r.name;
-        break;
-      }
-      prev = v;
-    }
-    return { ok, where };
+  const tiers: ServiceTiers = {
+    solo: { id: "solo", name: "Solo", audience: "solo", price: solo.price, relayWritesM: solo.relayWritesM, cadence: solo.cadence },
+    lab: { id: "lab", name: "Lab", audience: "lab", price: lab.price, relayWritesM: lab.relayWritesM, cadence: lab.cadence },
+    dept: { id: "dept", name: "Dept", audience: "dept", price: dept.price, relayWritesM: dept.relayWritesM, cadence: dept.cadence, governanceFeePerLab: govFee },
   };
-  const indivDecl = pgbDeclining(["starter", "basic", "plus", "pro"]);
-  const labDecl = pgbDeclining(["lab_starter", "lab_basic", "lab_plus", "lab_pro"]);
-  const declOk = indivDecl.ok && labDecl.ok;
-  const declWhere = !indivDecl.ok ? indivDecl.where : labDecl.where;
+  const mix: AdoptionMix = {
+    conversion,
+    soloShare,
+    labShare,
+    deptShare,
+    membersPerLab,
+    freeRelayWritesM: freeRelayM,
+  };
 
-  // Profit-vs-expense-at-scale projection, driven by the ladder. A simple
-  // adoption funnel scales a representative customer mix from the tunable
-  // conversion + org share. Representative, not a forecast.
-  const SOLO_SHARE = 0.4;
-  // A free user costs us storage (bounded by the free pool, at the same assumed
-  // fill as paid) plus writes (a fraction of the free row write allowance). This
-  // is what makes the free-pool and free-write-cap levers actually move the
-  // projection.
-  const FREE_WRITE_FILL = 0.3;
-  const freeWriteCap = rows.find((r) => r.key === "free")?.writesM ?? 1;
-  const avgFree =
-    freeGb * FILL * BLENDED_PER_GB_MO * (1 + BUFFER) +
-    freeWriteCap * FREE_WRITE_FILL * ACTIVITY_PER_M_WRITES;
-  const netOf = (key: string) => {
-    const r = rows.find((x) => x.key === key);
-    if (!r) return 0;
-    return subscriberMargin(r.price, r.capGB * FILL, r.writesM, r.cadence).net;
-  };
-  const project = (users: number) => {
-    const free = users * (1 - conversion);
-    const paid = users * conversion;
-    const solo = paid * SOLO_SHARE;
-    const inLabs = paid * (1 - SOLO_SHARE);
-    const orgLabs = (inLabs * orgShare) / MEMBERS_PER_LAB;
-    const standaloneLabs = (inLabs * (1 - orgShare)) / MEMBERS_PER_LAB;
-    const revenue =
-      solo * netOf("plus") +
-      standaloneLabs * netOf("lab_plus") +
-      orgLabs * (netOf("lab_plus") + sustain);
-    const expense = free * avgFree + FIXED_BASE_MONTHLY;
-    return { revenue, expense, net: revenue - expense };
-  };
+  const avgFree = avgFreeUserCostPathA(freeRelayM);
+  const breakEven = breakEvenConversion(tiers, mix);
+  const perPayer = freeUsersPerPayer(tiers, mix);
+  const storagePerGB = storageRetailPerGB();
+  const project = (users: number) => projectAtScale(users, tiers, mix);
+
+  // A representative dept lab total = members at lab-parity net + the fee.
+  const deptSeatNet = serviceMargin(dept.price, dept.relayWritesM, dept.cadence).net;
+  const deptLabMonthly = membersPerLab * dept.price + govFee;
 
   function drawProjection() {
     const c = prep(chartRef.current);
@@ -1166,7 +1168,7 @@ export function FinalizeTab() {
       window.removeEventListener("resize", drawProjection);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [rows, freeGb, sustain, conversion, orgShare]);
+  }, [rows, freeRelayM, conversion, soloShare, labShare, deptShare, membersPerLab]);
 
   const inputCls =
     "w-16 rounded border border-border bg-surface-sunken px-1.5 py-1 text-meta tabular-nums";
@@ -1174,134 +1176,179 @@ export function FinalizeTab() {
   return (
     <div className="grid items-start gap-6 text-foreground lg:grid-cols-[minmax(0,1fr)_460px]">
       <div className="min-w-0 space-y-6">
-      <div className="rounded-xl border border-border bg-surface-sunken px-4 py-3 text-meta leading-relaxed text-foreground-muted">
-        <b className="text-foreground">Locked.</b> Solo and lab bill 6/12-month
-        only. Storage dept/inst is a flat dollar-per-lab sustain, AI keeps its
-        1.4x/2x markup. Solo and lab target a modest ~3x margin, and dept labs
-        pay the standalone Lab rate plus a flat governance fee. Labs have no
-        permanent free tier, they get a 30-day 5 GB trial then pick a Lab plan,
-        and a low-resource lab stays free by using individual accounts. Cost
-        basis,{" "}
-        {`$${BLENDED_PER_GB_MO.toFixed(4)}/GB, ${fmt(ACTIVITY_PER_M_WRITES)}/M writes, Stripe ${(STRIPE_PCT * 100).toFixed(1)}% + ${fmt(STRIPE_FIXED)}, ${Math.round(FILL * 100)}% assumed fill.`}
-      </div>
+        <div className="rounded-xl border border-border bg-surface-sunken px-4 py-3 text-meta leading-relaxed text-foreground-muted">
+          <b className="text-foreground">Path A, locked.</b> We are a local-first
+          cloud-SERVICES company, not a storage-by-GB vendor. Paid tiers buy what
+          the relay enables (send, live co-edit, phone capture, push, governance),
+          not gigabytes. Storage is a-la-carte at ~{STORAGE_MARKUP.toFixed(2)}x
+          cost (
+          {`$${storagePerGB.toFixed(4)}/GB retail`}), never a profit center.
+          Per-object opt-in stays sacred (a 10 GB run stays local). AI keeps its
+          own token meter (1.4x solo-lab, 2x dept). Solo and lab bill 6/12-month
+          only. Cost basis,{" "}
+          {`${fmt(ACTIVITY_PER_M_WRITES)}/M relay writes, Stripe ${(STRIPE_PCT * 100).toFixed(1)}% + ${fmt(STRIPE_FIXED)}.`}
+        </div>
 
-      <Panel title="Decisions">
-        <div className="grid gap-5 lg:grid-cols-2">
-          <div>
-            <Lbl>Free pool (individual)</Lbl>
-            <Seg
-              options={[
-                { id: "0.5", label: "0.5 GB" },
-                { id: "1", label: "1 GB" },
-                { id: "2", label: "2 GB" },
-              ]}
-              value={String(freeGb)}
-              onChange={(v) => setFreeGb(parseFloat(v))}
+        <Panel title="Free tier = the network audience (no cloud produce feature)">
+          <div className="rounded-xl border border-sky-200 bg-sky-50 p-4 text-meta leading-relaxed text-foreground">
+            Free gets the consume + be-present side, all cheap and
+            network-building: unlimited <b>local notebook</b>, shared-folder async
+            collaboration (their own cloud), <b>directory presence</b>,{" "}
+            <b>receive</b> cross-boundary shares (the sender bears the relay cost),
+            in-app receipt notes, accept invites, and all public library/wiki/demo.
+            No send, no live relay collab, no phone capture, no push. So a free
+            user costs us only a thin relay footprint, about{" "}
+            <b>{fmt(avgFree)}/mo</b> at the slider below.
+          </div>
+        </Panel>
+
+        <Panel title="Decisions">
+          <div className="grid gap-5 lg:grid-cols-2">
+            <Slider
+              label={`Free relay footprint: ${freeRelayM.toFixed(2)}M writes/mo`}
+              min={0}
+              max={0.5}
+              step={0.01}
+              value={freeRelayM}
+              onChange={setFreeRelayM}
+            />
+            <Slider
+              label={`Members per lab (scale): ${membersPerLab}`}
+              min={2}
+              max={20}
+              step={1}
+              value={membersPerLab}
+              onChange={setMembersPerLab}
             />
           </div>
-          <Slider
-            label={`Dept governance fee: ${fmt0(sustain)} / lab`}
-            min={0}
-            max={40}
-            step={1}
-            value={sustain}
-            onChange={setSustain}
-          />
-        </div>
-      </Panel>
+          <p className="mt-3 text-meta text-foreground-muted">
+            The free relay footprint is the real cost dial now, and it is small by
+            design because free users have no cloud produce feature. Receiving a
+            share is sender-paid.
+          </p>
+        </Panel>
 
-      <Panel title="The ladder">
-        <div className="overflow-x-auto">
-          <table className="w-full text-meta tabular-nums">
-            <thead>
-              <tr className="text-left text-foreground-muted">
-                <th className="px-2 py-1.5 font-semibold">Tier</th>
-                <th className="px-2 py-1.5 font-semibold">Pool GB</th>
-                <th className="px-2 py-1.5 font-semibold">$/mo</th>
-                <th className="px-2 py-1.5 font-semibold">$/GB</th>
-                <th className="px-2 py-1.5 font-semibold">Writes M</th>
-                <th className="px-2 py-1.5 font-semibold">Billing</th>
-                <th className="px-2 py-1.5 text-right font-semibold">Net</th>
-                <th className="px-2 py-1.5 text-right font-semibold">Margin</th>
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map((r, i) => {
-                const cap = r.free ? freeGb : r.capGB;
-                const gbUsed = cap * FILL;
-                const bd = subscriberMargin(r.price, gbUsed, r.writesM, r.cadence);
-                const cost = bd.storageCost + bd.activityCost;
-                const marginX = cost > 0 ? (r.price - bd.stripe) / cost : 0;
-                const tone =
-                  r.free || r.price <= 0
-                    ? ""
-                    : marginX >= 3
+        <Panel title="Service tiers (price buys services, not GB)">
+          <div className="overflow-x-auto">
+            <table className="w-full text-meta tabular-nums">
+              <thead>
+                <tr className="text-left text-foreground-muted">
+                  <th className="px-2 py-1.5 font-semibold">Tier</th>
+                  <th className="px-2 py-1.5 font-semibold">What it unlocks</th>
+                  <th className="px-2 py-1.5 font-semibold">$/mo</th>
+                  <th className="px-2 py-1.5 font-semibold">Relay M</th>
+                  <th className="px-2 py-1.5 text-right font-semibold">Net</th>
+                  <th className="px-2 py-1.5 text-right font-semibold">Margin</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr className="border-t border-border">
+                  <td className="px-2 py-1.5 font-medium text-foreground">Free</td>
+                  <td className="px-2 py-1.5 text-foreground-muted">
+                    Local notebook, receive, directory, public
+                  </td>
+                  <td className="px-2 py-1.5 text-foreground-muted">$0</td>
+                  <td className="px-2 py-1.5 text-foreground-muted">
+                    {freeRelayM.toFixed(2)}
+                  </td>
+                  <td className="px-2 py-1.5 text-right text-foreground-muted">
+                    -{fmt(avgFree)}
+                  </td>
+                  <td className="px-2 py-1.5 text-right text-foreground-muted">
+                    cost
+                  </td>
+                </tr>
+                {rows.map((r) => {
+                  const m = serviceMargin(r.price, r.relayWritesM, r.cadence);
+                  const tone =
+                    m.net >= r.price * 0.6
                       ? "text-emerald-600"
-                      : marginX >= 1.5
+                      : m.net >= r.price * 0.3
                         ? "text-amber-600"
                         : "text-rose-600 font-bold";
-                const billing = r.cadence === "annual" ? "12-month" : "6-month";
-                const sep = r.key === "lab_starter" ? "border-t-2 border-border" : "border-t border-border";
-                return (
-                  <tr key={r.key} className={sep}>
-                    <td className="px-2 py-1.5 font-medium text-foreground">{r.name}</td>
-                    <td className="px-2 py-1.5">
-                      {r.free ? (
-                        <span className="text-foreground-muted">{freeGb}</span>
-                      ) : (
-                        <input type="number" value={r.capGB} onChange={(e) => update(i, { capGB: +e.target.value })} className={inputCls} />
-                      )}
-                    </td>
-                    <td className="px-2 py-1.5">
-                      {r.free ? (
-                        <span className="text-foreground-muted">$0</span>
-                      ) : (
-                        <input type="number" step={0.5} value={r.price} onChange={(e) => update(i, { price: +e.target.value })} className={inputCls} />
-                      )}
-                    </td>
-                    <td className="px-2 py-1.5 text-foreground-muted">
-                      {r.free || r.price <= 0 || r.capGB <= 0
-                        ? "—"
-                        : `$${(r.price / r.capGB).toFixed(3)}`}
-                    </td>
-                    <td className="px-2 py-1.5">
-                      {r.free ? (
-                        <span className="text-foreground-muted">{r.writesM}</span>
-                      ) : (
-                        <input type="number" step={0.1} value={r.writesM} onChange={(e) => update(i, { writesM: +e.target.value })} className={inputCls} />
-                      )}
-                    </td>
-                    <td className="px-2 py-1.5 text-foreground-muted">{r.free ? "free" : billing}</td>
-                    <td className="px-2 py-1.5 text-right">{r.free || r.price <= 0 ? "$0" : fmt(bd.net)}</td>
-                    <td className={`px-2 py-1.5 text-right ${tone}`}>{r.free || r.price <= 0 ? "free" : `${marginX.toFixed(1)}x`}</td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-        <p className="mt-2 text-meta text-foreground-muted">
-          Edit pool GB, price, and the write allowance. Net is what we keep after
-          our cost and the 6/12-month Stripe fee. Margin is green at or above 3x,
-          amber 1.5 to 3x, red below. The write allowance is the real lever.
-        </p>
-        <p className={`mt-1 text-meta ${declOk ? "text-emerald-600" : "text-amber-600"}`}>
-          {declOk
-            ? "Volume pricing holds, $/GB declines down the ladder so the small tiers pay the most per GB and Pro the least."
-            : `Volume pricing broken, ${declWhere} charges more per GB than the tier above it.`}
-        </p>
-      </Panel>
+                  const marginLabel = Number.isFinite(m.marginX)
+                    ? `${m.marginX.toFixed(1)}x`
+                    : "pure";
+                  return (
+                    <tr key={r.key} className="border-t border-border align-top">
+                      <td className="px-2 py-1.5 font-medium text-foreground">
+                        {r.name}
+                        {r.perSeat && (
+                          <span className="ml-1 text-foreground-muted">/seat</span>
+                        )}
+                      </td>
+                      <td className="px-2 py-1.5 text-foreground-muted">
+                        {r.unlocks}
+                        {r.key === "dept" && (
+                          <span className="mt-1 block">
+                            <span className="text-foreground">
+                              + governance fee
+                            </span>{" "}
+                            <input
+                              type="number"
+                              step={1}
+                              value={govFee}
+                              onChange={(e) =>
+                                update("dept", {
+                                  governanceFeePerLab: +e.target.value,
+                                })
+                              }
+                              className={inputCls}
+                            />{" "}
+                            / lab
+                          </span>
+                        )}
+                      </td>
+                      <td className="px-2 py-1.5">
+                        <input
+                          type="number"
+                          step={0.5}
+                          value={r.price}
+                          onChange={(e) => update(r.key, { price: +e.target.value })}
+                          className={inputCls}
+                        />
+                      </td>
+                      <td className="px-2 py-1.5">
+                        <input
+                          type="number"
+                          step={0.05}
+                          value={r.relayWritesM}
+                          onChange={(e) =>
+                            update(r.key, { relayWritesM: +e.target.value })
+                          }
+                          className={inputCls}
+                        />
+                      </td>
+                      <td className="px-2 py-1.5 text-right">{fmt(m.net)}</td>
+                      <td className={`px-2 py-1.5 text-right ${tone}`}>
+                        {marginLabel}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+          <p className="mt-2 text-meta text-foreground-muted">
+            Net is what we keep per subscriber (solo) or per active seat (lab,
+            dept) after relay cost and the 6/12-month Stripe fee. Storage rides on
+            top at cost and is not in this margin. Lab and dept are per seat, so
+            the org total scales with headcount.
+          </p>
+        </Panel>
 
-      <Panel title="Dept economics: storage at parity, the fee is the value">
-        <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-meta leading-relaxed">
-          A dept lab pays the standalone Lab Plus rate (<b>{fmt0(labPlus)}/mo</b>)
-          plus a flat <b>{fmt0(sustain)}/lab</b> governance fee, so{" "}
-          <b>{fmt0(orgRate)}/mo</b> per lab. Storage is at parity with a standalone
-          lab, there is no per-GB surcharge. The governance fee is the dept value
-          (the Commons, compliance, central admin) and is the margin that funds the
-          free tier.
-        </div>
-      </Panel>
+        <Panel title="Dept economics: storage at parity, the fee is the value">
+          <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-meta leading-relaxed text-foreground">
+            A dept lab pays the standalone Lab seat rate ({fmt(dept.price)}/seat,
+            same as a standalone lab, no storage surcharge) plus a flat{" "}
+            <b>{fmt0(govFee)}/lab</b> governance fee. A{" "}
+            {membersPerLab}-member lab is{" "}
+            <b>{fmt0(deptLabMonthly)}/mo</b> ({membersPerLab} x {fmt(dept.price)} +{" "}
+            {fmt0(govFee)}). The governance fee is the Commons + compliance + admin
+            layer, and it is the org margin that funds the free tier. Each dept
+            seat nets {fmt(deptSeatNet)} before the fee.
+          </div>
+        </Panel>
       </div>
 
       <div className="lg:sticky lg:top-4">
@@ -1314,16 +1361,36 @@ export function FinalizeTab() {
             value={conversion * 100}
             onChange={(v) => setConversion(v / 100)}
           />
-          <div className="mt-3">
+          <div className="mt-3 grid grid-cols-3 gap-2">
             <Slider
-              label={`Org share of paying: ${Math.round(orgShare * 100)}%`}
+              label={`Solo ${Math.round(soloShare * 100)}%`}
               min={0}
               max={100}
               step={5}
-              value={orgShare * 100}
-              onChange={(v) => setOrgShare(v / 100)}
+              value={soloShare * 100}
+              onChange={(v) => setSoloShare(v / 100)}
+            />
+            <Slider
+              label={`Lab ${Math.round(labShare * 100)}%`}
+              min={0}
+              max={100}
+              step={5}
+              value={labShare * 100}
+              onChange={(v) => setLabShare(v / 100)}
+            />
+            <Slider
+              label={`Dept ${Math.round(deptShare * 100)}%`}
+              min={0}
+              max={100}
+              step={5}
+              value={deptShare * 100}
+              onChange={(v) => setDeptShare(v / 100)}
             />
           </div>
+          <p className="mt-1 text-meta text-foreground-muted">
+            Solo / Lab / Dept shares of the paying base (normalized).
+          </p>
+
           <div className="mt-4 grid grid-cols-3 gap-3">
             {[
               { lbl: "1k", u: 1000 },
@@ -1333,7 +1400,9 @@ export function FinalizeTab() {
               const n = project(u).net;
               return (
                 <div key={lbl} className="rounded-lg bg-surface-sunken p-2.5">
-                  <div className="text-meta text-foreground-muted">{lbl} users</div>
+                  <div className="text-meta text-foreground-muted">
+                    {lbl} users
+                  </div>
                   <div
                     className={`text-body font-semibold ${
                       n < 0 ? "text-rose-600" : "text-emerald-600"
@@ -1345,11 +1414,32 @@ export function FinalizeTab() {
               );
             })}
           </div>
+
+          <div className="mt-3 rounded-lg border border-border bg-surface-sunken p-3">
+            <div className="flex items-baseline justify-between">
+              <span className="text-meta text-foreground-muted">
+                Break-even conversion
+              </span>
+              <span
+                className={`text-body font-semibold ${
+                  breakEven <= conversion ? "text-emerald-600" : "text-amber-600"
+                }`}
+              >
+                {(breakEven * 100).toFixed(1)}%
+              </span>
+            </div>
+            <p className="mt-1 text-meta text-foreground-muted">
+              One paying user carries ~{Math.round(perPayer)} free users. Because
+              free users have no cloud produce feature, break-even lands far below
+              the old GB model. You are at {(conversion * 100).toFixed(1)}%.
+            </p>
+          </div>
+
           <canvas
             ref={chartRef}
-            height={260}
+            height={240}
             className="mt-4 block w-full rounded-lg border border-border bg-surface-sunken"
-            style={{ height: 260 }}
+            style={{ height: 240 }}
           />
           <Legend
             items={[
@@ -1358,10 +1448,9 @@ export function FinalizeTab() {
             ]}
           />
           <p className="mt-3 text-meta text-foreground-muted">
-            Projection from the ladder. Paid conversion splits into solo (Plus),
-            standalone labs (Lab Plus), and dept labs by the org share, and the
-            free base carries the support cost plus the fixed infra floor.
-            Representative, not a forecast.
+            Driven by the tiers. Paid conversion splits into solo, standalone-lab,
+            and dept seats by the shares, and the free base carries its thin relay
+            cost plus the fixed infra floor. Representative, not a forecast.
           </p>
         </Panel>
       </div>
