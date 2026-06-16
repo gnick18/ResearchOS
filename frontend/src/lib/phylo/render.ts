@@ -884,12 +884,17 @@ function pointStyling(
   spec: RenderSpec,
   root: TreeNode,
   baseR: number,
+  /** Upper bound on the marker radius, from the per-tip spacing, so dense trees
+   *  draw distinct dots instead of one merged blob. Defaults to no cap. */
+  maxR: number = Infinity,
 ): { radiusFor: (id: number) => number; shapeFor: (id: number) => TipShape } {
   const opts = panel.options ?? {};
   const sizeCol = typeof opts.sizeColumn === "string" ? opts.sizeColumn : "";
   const shapeCol = typeof opts.shapeColumn === "string" ? opts.shapeColumn : "";
   const meta = spec.metadata;
-  let radiusFor = (_id: number) => baseR;
+  // Clamp every marker to the spacing cap (and a small floor so it never vanishes).
+  const clamp = (r: number) => Math.max(0.8, Math.min(r, maxR));
+  let radiusFor = (_id: number) => clamp(baseR);
   if (sizeCol && meta) {
     const vals: number[] = [];
     for (const tip of leaves(root)) {
@@ -901,8 +906,8 @@ function pointStyling(
       const span = Math.max(...vals) - mn || 1;
       radiusFor = (id: number) => {
         const v = Number(meta.get(id)?.[sizeCol]);
-        if (!Number.isFinite(v)) return baseR * 0.7;
-        return 2.5 + ((v - mn) / span) * 5;
+        if (!Number.isFinite(v)) return clamp(baseR * 0.7);
+        return clamp(2.5 + ((v - mn) / span) * 5);
       };
     }
   }
@@ -919,6 +924,24 @@ function pointStyling(
     };
   }
   return { radiusFor, shapeFor };
+}
+
+/** The smallest distance between two adjacent tip markers (in tip order). A dense
+ *  tree caps its dot radius to ~half of this so the markers stay distinct instead
+ *  of merging into one blob. Layout-agnostic (Euclidean): an arc gap for circular,
+ *  a band gap for rectangular. Infinity when there are fewer than two tips. */
+function tipMarkerSpacing(
+  root: TreeNode,
+  byId: ReadonlyMap<number, { x: number; y: number }>,
+): number {
+  const tips = leaves(root);
+  let min = Infinity;
+  for (let i = 1; i < tips.length; i++) {
+    const a = byId.get(tips[i - 1].id);
+    const b = byId.get(tips[i].id);
+    if (a && b) min = Math.min(min, Math.hypot(a.x - b.x, a.y - b.y));
+  }
+  return min;
 }
 
 /** Left x of a clade highlight band: the MIDDLE of the clade MRCA's stem branch
@@ -1083,7 +1106,13 @@ function drawRectTree(
             categoryColors: spec.categoryColors,
           })
         : null;
-    const { radiusFor, shapeFor } = pointStyling(pointsPanel, spec, root, 4);
+    const { radiusFor, shapeFor } = pointStyling(
+      pointsPanel,
+      spec,
+      root,
+      4,
+      tipMarkerSpacing(root, byId) * 0.45,
+    );
     for (const tip of leaves(root)) {
       if (collapsed.has(tip.id)) continue; // a collapsed clade shows a triangle
       const p = byId.get(tip.id)!;
@@ -1333,7 +1362,13 @@ function drawCircularTree(
             categoryColors: spec.categoryColors,
           })
         : null;
-    const { radiusFor, shapeFor } = pointStyling(pointsPanel, spec, root, 3.5);
+    const { radiusFor, shapeFor } = pointStyling(
+      pointsPanel,
+      spec,
+      root,
+      3.5,
+      tipMarkerSpacing(root, byId) * 0.45,
+    );
     for (const tip of leaves(root)) {
       if (collapsed.has(tip.id)) continue; // a collapsed clade shows a wedge
       const p = byId.get(tip.id)!;
