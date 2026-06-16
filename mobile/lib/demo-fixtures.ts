@@ -131,6 +131,7 @@ export const DEMO_INVENTORY_SNAPSHOT: InventorySnapshot = {
       unitLabel: 'bottle',
       lowAtCount: 2,
       totalUnits: 6,
+      location: 'Cold room, shelf B2',
     },
     {
       stockId: 'demo-stock-2',
@@ -142,6 +143,7 @@ export const DEMO_INVENTORY_SNAPSHOT: InventorySnapshot = {
       unitLabel: 'bottle',
       lowAtCount: 2,
       totalUnits: 4,
+      location: '-20 freezer, door rack',
     },
     {
       stockId: 'demo-stock-3',
@@ -155,6 +157,7 @@ export const DEMO_INVENTORY_SNAPSHOT: InventorySnapshot = {
       unitLabel: 'vial',
       lowAtCount: 2,
       totalUnits: 10,
+      location: '-80 door, left',
     },
     {
       stockId: 'demo-stock-4',

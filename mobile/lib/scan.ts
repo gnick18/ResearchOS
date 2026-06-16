@@ -46,6 +46,10 @@ export type TrackedStock = {
   lowAtCount?: number | null;
   purchaseItemId?: number | string | null;
   totalUnits?: number;
+  // Free-text physical location of this stock ("-80 door, left"), from the
+  // laptop's InventoryStock.location_text. Spatial inventory Phase A. Tolerated
+  // missing so an older laptop snapshot never crashes the row.
+  location?: string | null;
 };
 
 // A purchase that has been ordered but not yet marked arrived. Drives the

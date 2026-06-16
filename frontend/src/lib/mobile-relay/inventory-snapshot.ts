@@ -58,6 +58,13 @@ export interface SnapshotTrackedStock {
   lowAtCount: number | null;
   purchaseItemId: number | null;
   totalUnits: number;
+  /**
+   * Free-text physical location of this stock ("-80 door, left"), from
+   * `InventoryStock.location_text`. Null when the lab has not recorded one yet.
+   * Spatial inventory Phase A: surfaced so the phone can answer "where is it"
+   * and the scan-in flow can prompt + set it. Additive (an older phone ignores it).
+   */
+  location: string | null;
 }
 
 /**
@@ -155,6 +162,7 @@ export async function buildInventorySnapshot(): Promise<InventorySnapshot> {
       lowAtCount: item.low_at_count,
       purchaseItemId: stock.purchase_item_id,
       totalUnits,
+      location: (stock.location_text && stock.location_text.trim()) || null,
     });
   }
 

@@ -311,6 +311,10 @@ function TrackedStockRow({
   const remaining = stock.unitsRemaining ?? 0;
   const total = stock.totalUnits ?? 0;
   const unitLabel = stock.unitLabel ?? '';
+  // Spatial inventory Phase A: the stock's physical location, shown as a subtle
+  // "where is it" line under the units. Hidden entirely when the lab has not
+  // recorded one (so undecorated labs see no empty affordance).
+  const location = (stock.location ?? '').trim();
   const isLow =
     stock.lowAtCount != null &&
     typeof stock.unitsRemaining === 'number' &&
@@ -355,6 +359,17 @@ function TrackedStockRow({
         <ThemedText style={[styles.rowMeta, { color: surface.muted }]}>
           {unitsText}
         </ThemedText>
+        {location ? (
+          <View style={styles.locationRow}>
+            <Ionicons name="location-outline" size={12} color={surface.muted} />
+            <ThemedText
+              style={[styles.locationText, { color: surface.muted }]}
+              numberOfLines={1}
+            >
+              {location}
+            </ThemedText>
+          </View>
+        ) : null}
       </View>
       <View
         style={[
@@ -542,6 +557,8 @@ const styles = StyleSheet.create({
   rowText: { flex: 1, minWidth: 0 },
   rowTitle: { fontSize: 14, fontFamily: fonts.semibold, fontWeight: '600', lineHeight: 19 },
   rowMeta: { fontSize: 12, lineHeight: 17, marginTop: 2 },
+  locationRow: { flexDirection: 'row', alignItems: 'center', gap: 3, marginTop: 2 },
+  locationText: { fontSize: 12, lineHeight: 16, flexShrink: 1 },
   // Contract .pill: 5px/11px padding, pill radius, 11.5px / 700.
   pill: { paddingHorizontal: 11, paddingVertical: 5, borderRadius: 999 },
   pillText: { fontSize: 11.5, fontFamily: fonts.bold, fontWeight: '700' },
