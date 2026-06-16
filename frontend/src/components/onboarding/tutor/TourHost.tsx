@@ -22,6 +22,7 @@ import OnboardingTutor from "./OnboardingTutor";
 import {
   shouldRunOnboardingTutor,
   markOnboardingTutorDone,
+  isForceLiveTourArmed,
 } from "@/lib/onboarding/tour-gate";
 import { isFreshUserForWizard } from "@/lib/onboarding/is-fresh-user";
 import {
@@ -57,6 +58,11 @@ type TourMarker = { role: Role; goals: GoalKey[]; beatIndex: number };
  *  fixtures land it can be derived from role + goals. */
 const DEMO_FIXTURE_FLAVOR = "default";
 
+/** Dev only. The dev "Start tour" button arms a force-live flag so the coupled
+ *  tour can be mounted over the real app without a pristine fresh folder; this is
+ *  read only in development, so prod can never be forced on by a stray flag. */
+const IS_DEV = process.env.NODE_ENV === "development";
+
 export interface TourHostProps {
   /** The connected user, from providers. Null while none is connected. */
   username: string | null;
@@ -87,18 +93,28 @@ export default function TourHost({ username }: TourHostProps) {
   // re-check (which can flip false on reconnect) instead of dropping the user home.
   const [progress] = useState<TourProgress | null>(() => readTourProgress());
 
-  // Decide whether to run. A persisted progress always resumes; otherwise the
-  // gate (flag + fresh account + not-done) makes the first-time decision. The gate
-  // is false in prod until ONBOARDING_TUTOR_ENABLED is on.
+  // Dev-only forced run (read once on mount). When armed it mounts the live
+  // coupled tour over the real app regardless of the fresh-account gate, so a
+  // developer can watch the run without a pristine empty folder.
+  const [forceLive] = useState(() => IS_DEV && isForceLiveTourArmed());
+
+  // Decide whether to run. A persisted progress always resumes; a dev forced run
+  // mounts regardless of freshness; otherwise the gate (flag + fresh account +
+  // not-done) makes the first-time decision. The gate is false in prod until
+  // ONBOARDING_TUTOR_ENABLED is on.
   const [active, setActive] = useState(false);
   useEffect(() => {
     if (progress) {
       setActive(true);
       return;
     }
+    if (forceLive) {
+      setActive(true);
+      return;
+    }
     if (fresh === null) return;
     setActive(shouldRunOnboardingTutor({ freshAccount: fresh }));
-  }, [fresh, progress]);
+  }, [fresh, progress, forceLive]);
 
   // The "Setting the stage" handoff: the picker's start hands us the marker, we
   // paint an opaque cover, then (next frame, so the cover is visible) persist the

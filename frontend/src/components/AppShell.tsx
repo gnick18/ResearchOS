@@ -20,6 +20,7 @@ import FeedbackButton from "./FeedbackButton";
 import CalculatorsButton from "./CalculatorsButton";
 import DevTestNotificationButton from "./DevTestNotificationButton";
 import DevDemoToggleButton from "./DevDemoToggleButton";
+import DevForceTourButton from "./DevForceTourButton";
 import DevBeakerBotGalleryButton from "./DevBeakerBotGalleryButton";
 import { isDemoOrWikiCapture } from "@/lib/file-system/wiki-capture-mock";
 import FeedbackModal from "./FeedbackModal";
@@ -731,6 +732,8 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
             <DevTestNotificationButton />
 
             <DevDemoToggleButton />
+
+            <DevForceTourButton />
           </>
         )}
 

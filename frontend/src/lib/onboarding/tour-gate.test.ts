@@ -2,6 +2,8 @@ import { describe, it, expect } from "vitest";
 import {
   shouldRunOnboardingTutor,
   markOnboardingTutorDone,
+  armForceLiveTour,
+  isForceLiveTourArmed,
   type TourGateStorage,
 } from "./tour-gate";
 
@@ -40,5 +42,24 @@ describe("tour-gate", () => {
     expect(
       shouldRunOnboardingTutor({ freshAccount: true, enabled: true, storage }),
     ).toBe(false);
+  });
+});
+
+describe("tour-gate, dev force-live override", () => {
+  it("is not armed by default", () => {
+    expect(isForceLiveTourArmed(memStorage())).toBe(false);
+  });
+
+  it("reports armed after armForceLiveTour", () => {
+    const storage = memStorage();
+    armForceLiveTour(storage);
+    expect(isForceLiveTourArmed(storage)).toBe(true);
+  });
+
+  it("is disarmed when the run is marked done", () => {
+    const storage = memStorage();
+    armForceLiveTour(storage);
+    markOnboardingTutorDone(storage);
+    expect(isForceLiveTourArmed(storage)).toBe(false);
   });
 });

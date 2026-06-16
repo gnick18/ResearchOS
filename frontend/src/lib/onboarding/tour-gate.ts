@@ -13,6 +13,12 @@
 import { ONBOARDING_TUTOR_ENABLED } from "./config";
 
 const DONE_KEY = "ros.onboardingTutor.done.v1";
+// Dev-only "force live" override (never armed in prod). Lets a developer mount
+// the live coupled tour over the real app without satisfying the fresh-account
+// gate, so no pristine empty folder is needed to watch the run. Armed by the dev
+// button, honored by TourHost only in development, and cleared the moment the run
+// ends (markOnboardingTutorDone) so it never sticks across runs.
+const FORCE_LIVE_KEY = "ros.onboardingTutor.forceLive.v1";
 
 export interface TourGateStorage {
   getItem(key: string): string | null;
@@ -61,8 +67,39 @@ export function markOnboardingTutorDone(
   if (!storage) return;
   try {
     storage.setItem(DONE_KEY, "1");
+    // A forced dev run is also over now, so disarm it (no-op in prod where it is
+    // never armed). Without this a finished forced run would re-mount at welcome
+    // on the next reload because the force flag, not freshness, drove the mount.
+    storage.setItem(FORCE_LIVE_KEY, "0");
   } catch {
     // best effort; a private-mode storage failure just means it may replay
+  }
+}
+
+/** Dev-only: arm a forced live run so TourHost mounts the coupled tour over the
+ *  real app regardless of the fresh-account gate. The dev button also clears the
+ *  done + progress markers first, so the next mount starts clean at welcome. */
+export function armForceLiveTour(
+  storage: TourGateStorage | null = defaultStorage(),
+): void {
+  if (!storage) return;
+  try {
+    storage.setItem(FORCE_LIVE_KEY, "1");
+  } catch {
+    // best effort
+  }
+}
+
+/** Dev-only: whether a forced live run is armed. TourHost reads this only in
+ *  development, so a stray flag can never force the tour on in prod. */
+export function isForceLiveTourArmed(
+  storage: TourGateStorage | null = defaultStorage(),
+): boolean {
+  if (!storage) return false;
+  try {
+    return storage.getItem(FORCE_LIVE_KEY) === "1";
+  } catch {
+    return false;
   }
 }
 
