@@ -146,24 +146,18 @@ function groupFingerprint(compact: string): string {
 }
 
 /**
- * Fetches the DELIVERY binding for a published researcher by their fingerprint, or
- * null if the fingerprint has no published profile. The reverse of getBindingByHash
- * keyed by fingerprint, joined to directory_profiles so it only resolves someone
- * who has an account on the network (the join also disambiguates, profile PK is the
- * fingerprint). This powers the no-email fingerprint-routed sealed send: the relay
- * resolves a recipient to their mailbox hash (emailHash) WITHOUT the sender ever
- * knowing the recipient's email.
- *
- * DELIVERY does NOT filter unlisted (hide-only model, Grant 2026-06-15): unlisting
- * hides a profile from DISCOVERY (search, institution lists, public-search), but a
- * sender who already holds the exact fingerprint can still deliver. The unlisted
- * filter lives on the discovery queries (searchPublicProfiles, getInstitutionByDomain),
- * not on this delivery resolver. Lookup-by-fingerprint is exact-match only, so this
- * is not an enumeration surface.
+ * Fetches the binding for a LISTED, published researcher by their fingerprint, or
+ * null if the fingerprint is not bound or its profile is unlisted/absent. The
+ * reverse of getBindingByHash keyed by fingerprint, joined to directory_profiles
+ * so it only ever resolves someone who has opted into the public directory
+ * (unlisted = false). This powers the no-email fingerprint-routed sealed send:
+ * the relay resolves a recipient found on the /network hub to their mailbox hash
+ * (emailHash) WITHOUT the sender ever knowing the recipient's email.
  *
  * The input may be the compact (space-free) or already-grouped fingerprint; it is
- * normalized to the stored grouped form. Exact match only, never a prefix. The
- * keyBackupBlob is loaded for shape parity but callers must never expose it.
+ * normalized to the stored grouped form. Exact match only, never a prefix, so the
+ * directory stays non-enumerable. The keyBackupBlob is loaded for shape parity
+ * but callers must never expose it.
  */
 export async function getBindingByFingerprint(
   fingerprint: string,
@@ -177,6 +171,7 @@ export async function getBindingByFingerprint(
     FROM directory_identities i
     JOIN directory_profiles p ON p.fingerprint = i.fingerprint
     WHERE i.fingerprint = ${grouped}
+      AND p.unlisted = false
     LIMIT 1
   `) as Array<{
     email_hash: string;

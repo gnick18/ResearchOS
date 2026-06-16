@@ -29,17 +29,13 @@ import { getIpLimiter } from "@/lib/sharing/directory/ratelimit";
 import {
   extractClientIp,
   isSharingEnabled,
-  isSocialLayerEnabled,
   json,
 } from "@/lib/sharing/directory/guard";
 
 export const runtime = "nodejs";
 
 export async function GET(request: Request): Promise<Response> {
-  // Double-gated exactly like public-search / institution: the directory must be
-  // on AND the social layer deliberately enabled. Otherwise the fp-send surface
-  // would go live just because SHARING_ENABLED is on (security-pass Finding 1).
-  if (!isSharingEnabled() || !isSocialLayerEnabled()) {
+  if (!isSharingEnabled()) {
     return json(404, { error: "not found" });
   }
 

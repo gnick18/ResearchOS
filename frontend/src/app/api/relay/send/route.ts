@@ -36,7 +36,6 @@ import {
   extractClientIp,
   getPepper,
   isSharingEnabled,
-  isSocialLayerEnabled,
   json,
 } from "@/lib/sharing/directory/guard";
 import { verifyRelayRequest } from "@/lib/sharing/relay/auth";
@@ -121,13 +120,6 @@ export async function POST(request: Request): Promise<Response> {
   // not on ResearchOS (returned distinctly so the client can tell the sender).
   let recipientHash: string;
   if (verified.parsed.recipientFingerprint) {
-    // Fingerprint routing is the social-layer feature, gated on the social server
-    // flag so it stays dark just like public-search / institution until it is
-    // deliberately enabled (security-pass Finding 1). When off, an fp-addressed
-    // send is indistinguishable from an absent recipient (no existence oracle).
-    if (!isSocialLayerEnabled()) {
-      return json(404, { error: "recipient is not on ResearchOS" });
-    }
     const recipientBinding = await getBindingByFingerprint(
       verified.parsed.recipientFingerprint,
     );
