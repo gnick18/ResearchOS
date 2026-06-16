@@ -21,6 +21,7 @@ import {
 
 export type CollisionKind =
   | "legend-over-content" // the legend overlaps a label / panel / mark
+  | "legend-overflow" // the legend block is taller than the figure (runs off-canvas)
   | "label-crowding" // adjacent labels overlap (vertically or horizontally)
   | "panel-overlap" // two overlay columns overlap horizontally
   | "duplicate-overlay"; // one column bound to two overlay panels
@@ -89,6 +90,22 @@ export function detectCollisions(manifest: LayoutManifest): Collision[] {
         boxIds: [legend.id, ...covered.map((b) => b.id)],
         severity: Math.min(1, worst),
         message: `The legend overlaps ${covered.length} element${covered.length === 1 ? "" : "s"} (labels / data).`,
+      });
+    }
+    // 1b. Legend overflow: the legend block is taller than the figure (too many
+    // entries), so it runs off the top / bottom edge. Common on a many-category
+    // pie / donut, where the legend lives in a reserved column and just gets too
+    // long. A small box inside the canvas never trips this.
+    const EDGE = 2;
+    const overBottom = legend.y + legend.h - manifest.height;
+    const overTop = -legend.y;
+    if (overBottom > EDGE || overTop > EDGE) {
+      const over = Math.max(overBottom, overTop, 0);
+      out.push({
+        kind: "legend-overflow",
+        boxIds: [legend.id],
+        severity: Math.min(1, over / (legend.h || 1)),
+        message: "The legend is too long to fit and runs off the figure.",
       });
     }
   }
@@ -182,6 +199,14 @@ export function suggestFixes(collisions: Collision[]): FixSuggestion[] {
       id: "drop-duplicate-overlay",
       title: "Drop a redundant overlay to free a legend slot",
       rationale: "Fewer overlays means fewer legend keys to place.",
+      available: true,
+    });
+  }
+  if (kinds.has("legend-overflow")) {
+    add({
+      id: "shrink-label-font",
+      title: "Shrink the legend to fit",
+      rationale: "A smaller font lets every legend entry fit on the figure.",
       available: true,
     });
   }

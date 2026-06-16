@@ -54,6 +54,7 @@ import {
   type AxisScaleType,
   type BarMode,
 } from "@/lib/datahub/plot-spec";
+import { isPartsOfWholeKind } from "@/lib/datahub/parts-of-whole-plot";
 import { plotCode } from "@/lib/datahub/plot-code";
 import { chainCode, type ContentResolver } from "@/lib/datahub/chain-code";
 import {
@@ -527,6 +528,7 @@ export default function GraphEditor({
   const isGrouped = style.kind === "groupedBar";
   const isColumn = style.kind === "columnScatter" || style.kind === "columnBar";
   const isSurvival = style.kind === "survivalCurve";
+  const isPartsOfWhole = isPartsOfWholeKind(style.kind);
   const isEstimation =
     style.kind === "estimationGardnerAltman" ||
     style.kind === "estimationCumming";
@@ -726,10 +728,11 @@ export default function GraphEditor({
         </div>
 
         {/* Collision-aware layout advisor (Phase 5): when the legend piles onto the
-            bars / curves or labels crowd, a quiet banner offers a one-click auto-fix
-            + per-fix previews. Grouped bar + survival emit a manifest today; it
+            bars / curves, labels crowd, or a many-category legend runs off the
+            figure, a quiet banner offers a one-click auto-fix + per-fix previews.
+            Grouped bar, survival, and parts-of-whole emit a manifest today; it
             renders nothing when the plot is clean or for other plot kinds. */}
-        {(isGrouped || isSurvival) && (
+        {(isGrouped || isSurvival || isPartsOfWhole) && (
           <PlotLayoutAdvisor
             spec={spec}
             content={content}

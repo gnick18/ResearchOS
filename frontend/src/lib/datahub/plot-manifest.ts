@@ -23,6 +23,7 @@ import {
   estimateLabelWidth,
   type PlotStyle,
 } from "./plot-spec";
+import { partsLegendBox } from "./parts-of-whole-plot";
 import type { LayoutManifest, PlacedBox } from "@/lib/figure/layout-manifest";
 
 type PlotGeom = ReturnType<typeof renderPlot>["geometry"];
@@ -142,6 +143,28 @@ export function plotLayoutManifest(
     });
     pushLegendBox(boxes, geo, style, tickFont);
     return { width: geo.width, height: geo.height, plotRight: geo.x1, boxes };
+  }
+
+  // Parts of whole (pie / donut / stacked): the legend lives in a reserved right
+  // column, so it never overlaps the slices; the real failure is a many-category
+  // legend growing TALLER than the figure. Emit just the legend block box so the
+  // detector can flag legend-overflow. (No slice marks: pie/donut have no inline
+  // labels, and a stacked segment is labelled only when it is tall enough.)
+  if ("segments" in geometry && geometry.kind) {
+    const geo = geometry;
+    if (geo.segments.length > 0) {
+      const lb = partsLegendBox(geo, style);
+      boxes.push({
+        id: "legend",
+        kind: "legend",
+        x: lb.x,
+        y: lb.y,
+        w: lb.w,
+        h: lb.h,
+        label: "legend",
+      });
+    }
+    return { width: geo.width, height: geo.height, plotRight: geo.width, boxes };
   }
 
   // Other kinds: nothing emitted yet (no detection, and no false positives).

@@ -110,12 +110,39 @@ describe("a clean Data-Hub-shaped figure is quiet", () => {
   });
 });
 
+describe("legend-overflow (legend taller than the figure)", () => {
+  it("flags a legend block that runs off the bottom of the canvas", () => {
+    // A many-entry legend, taller than the 340 canvas (y+h = 366 > 340).
+    const m = manifest([
+      { id: "legend", kind: "legend", x: 300, y: 6, w: 120, h: 360 },
+    ]);
+    expect(detectCollisions(m).some((c) => c.kind === "legend-overflow")).toBe(true);
+  });
+
+  it("does NOT flag a small legend that fits inside the canvas", () => {
+    const m = manifest([
+      { id: "legend", kind: "legend", x: 300, y: 40, w: 70, h: 60 },
+      { id: "mark", kind: "mark", x: 60, y: 120, w: 30, h: 60 },
+    ]);
+    expect(detectCollisions(m).some((c) => c.kind === "legend-overflow")).toBe(false);
+  });
+});
+
 describe("suggestFixes is shared", () => {
   it("offers relocate-legend for a legend-over-content collision", () => {
     const fixes = suggestFixes([
       { kind: "legend-over-content", boxIds: ["legend"], severity: 0.5, message: "" },
     ]);
     expect(fixes.find((f) => f.id === "relocate-legend")?.available).toBe(true);
+  });
+
+  it("offers shrink-label-font (shrink to fit) for a legend-overflow collision", () => {
+    const fixes = suggestFixes([
+      { kind: "legend-overflow", boxIds: ["legend"], severity: 0.5, message: "" },
+    ]);
+    const fit = fixes.find((f) => f.id === "shrink-label-font");
+    expect(fit?.available).toBe(true);
+    expect(fit?.title).toBe("Shrink the legend to fit");
   });
 
   it("boxOverlapArea is re-exported and pure", () => {

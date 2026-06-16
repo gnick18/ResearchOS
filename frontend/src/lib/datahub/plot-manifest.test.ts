@@ -15,6 +15,7 @@ import {
   type SurvivalCurveGeometry,
   type PlotStyle,
 } from "./plot-spec";
+import type { PartsOfWholeGeometry } from "./parts-of-whole-plot";
 import { detectCollisions } from "@/lib/figure/layout-collision";
 
 // Only the fields plotLayoutManifest + renderGroupedBarSvg read; the rest of
@@ -221,5 +222,42 @@ describe("plotLayoutManifest (survival curve)", () => {
     expect(
       detectCollisions(m).some((c) => c.kind === "legend-over-content"),
     ).toBe(false);
+  });
+});
+
+/** A pie with n equal categories, so n drives how tall the right-column legend is. */
+function partsGeo(n: number): PartsOfWholeGeometry {
+  const segments = Array.from({ length: n }, (_, i) => ({
+    index: i,
+    label: `Category ${i + 1}`,
+    value: 1,
+    fraction: 1 / n,
+    percent: 100 / n,
+    color: "#888888",
+  }));
+  return {
+    kind: "pie",
+    width: 430,
+    height: 340,
+    segments,
+    total: n,
+    cx: 140,
+    cy: 170,
+    radius: 100,
+    innerRadius: 0,
+    bar: { x: 0, y: 0, width: 0, height: 0 },
+    emptyMessage: null,
+  };
+}
+
+describe("plotLayoutManifest (parts of whole)", () => {
+  it("flags legend-overflow when a many-category legend runs off the figure", () => {
+    const m = plotLayoutManifest(partsGeo(20), style);
+    expect(detectCollisions(m).some((c) => c.kind === "legend-overflow")).toBe(true);
+  });
+
+  it("stays quiet when the legend fits on the figure", () => {
+    const m = plotLayoutManifest(partsGeo(4), style);
+    expect(detectCollisions(m).some((c) => c.kind === "legend-overflow")).toBe(false);
   });
 });
