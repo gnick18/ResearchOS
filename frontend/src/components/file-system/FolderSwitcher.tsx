@@ -41,8 +41,16 @@ export default function FolderSwitcher({
   /** When set, render as a full-width list (connect screen) instead of the
    *  compact header pill + dropdown. */
   variant = "header",
+  /** Header tint state (passed from AppShell). When the header is colored
+   *  (lab branding / colored header), the bare muted trigger washes out, so we
+   *  render it as a white pill with dark text, mirroring the PillWrap the
+   *  neighboring header controls use. We can't wrap this in PillWrap from
+   *  AppShell because this component returns null when there is nothing to
+   *  switch, which would leave an empty floating pill. */
+  tinted = false,
 }: {
   variant?: "header" | "panel";
+  tinted?: boolean;
 }) {
   const {
     rememberedFolders,
@@ -207,7 +215,15 @@ export default function FolderSwitcher({
           aria-expanded={open}
           data-testid="folder-switcher-trigger"
           onClick={() => setOpen((v) => !v)}
-          className="flex max-w-[180px] items-center gap-1.5 rounded-lg px-2 py-1 text-sm text-foreground-muted transition-colors hover:bg-surface-sunken hover:text-foreground"
+          className={
+            tinted
+              ? // On the colored header the pill is forced bg-white in BOTH
+                // themes, so the text must be a theme-invariant dark (text-gray-900),
+                // matching the active nav-tab pill. text-foreground would be light
+                // in dark mode = invisible on white.
+                "flex max-w-[180px] items-center gap-1.5 rounded-full bg-white px-3 py-1 text-sm font-medium text-gray-900 shadow-sm transition-colors hover:bg-white/90"
+              : "flex max-w-[180px] items-center gap-1.5 rounded-lg px-2 py-1 text-sm text-foreground-muted transition-colors hover:bg-surface-sunken hover:text-foreground"
+          }
         >
           <Icon name="folder" className="h-4 w-4 shrink-0" />
           <span className="truncate">{label}</span>

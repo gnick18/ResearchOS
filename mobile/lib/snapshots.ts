@@ -12,6 +12,7 @@ import {
   DEMO_INVENTORY_SNAPSHOT,
   DEMO_NOTEBOOKS_SNAPSHOT,
   DEMO_NOTIFICATIONS_SNAPSHOT,
+  DEMO_EXPERIMENT_NOTES,
 } from '@/lib/demo-fixtures';
 import { DEMO_METHOD_SNAPSHOT } from '@/lib/method-library';
 
@@ -317,6 +318,18 @@ export type NotificationsSnapshot = {
 // is the "laptop has not published yet" case. Any other non-200 throws so the
 // caller can surface it.
 //
+/** A pulled, read-only projection of one experiment's Notes + Results docs, for
+ *  the experiment hub. The laptop publishes the raw markdown of notes.md /
+ *  results.md (sealed); the phone renders it. Pull-in-time, refreshed on demand. */
+export type ExperimentNotesSnapshot = {
+  taskId: number;
+  owner: string;
+  experimentName?: string | null;
+  notes?: { markdown: string } | null;
+  results?: { markdown: string } | null;
+  generatedAt?: string;
+};
+
 // When pairing.demo is true the relay is never touched; a matching fixture is
 // returned immediately so the placeholder keys never reach the network.
 export async function fetchSnapshot(
@@ -338,6 +351,8 @@ export async function fetchSnapshot(
     // so the active-experiment recommendations band (and its read mode) are
     // demoable. Per-type seeds are browsed from the library tab's DEMO_LIBRARY.
     if (name === 'method') return DEMO_METHOD_SNAPSHOT;
+    // Experiment notes/results read view for the hub (pull/read/place/push).
+    if (name === 'experiment-notes') return DEMO_EXPERIMENT_NOTES;
     // The library snapshot has no relay fixture; the library tab keeps its own
     // DEMO_LIBRARY fixture for demo mode so demo recordings still work. Return
     // null so the tab falls back to that fixture instead of an empty cache.

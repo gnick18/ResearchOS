@@ -41,7 +41,11 @@ const TRUST_ITEMS = [
   "Standard agreement",
 ];
 
-export default function InstitutionBuilder() {
+interface InstitutionBuilderProps {
+  billingEnabled: boolean;
+}
+
+export default function InstitutionBuilder({ billingEnabled }: InstitutionBuilderProps) {
   const [depts, setDepts] = useState(6);
   const [labsPer, setLabsPer] = useState(8);
   const [adopt, setAdopt] = useState(50);
@@ -164,8 +168,7 @@ export default function InstitutionBuilder() {
               per-seat licenses you pay elsewhere. One automatic recurring invoice
               on net terms, or a card or bank account on file, no one quotes it by
               hand. Paying by bank transfer costs a little less because it costs us
-              less to process. An estimate, not a final price, and free during the
-              beta. Assumes about {AVG_MEMBERS_PER_LAB} members per lab.
+              less to process. An estimate, not a final price{billingEnabled ? ". " : ", and free during the beta. "}Assumes about {AVG_MEMBERS_PER_LAB} members per lab.
             </p>
           </div>
         </div>

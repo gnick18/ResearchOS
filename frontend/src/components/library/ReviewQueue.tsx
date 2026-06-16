@@ -200,6 +200,16 @@ export default function ReviewQueue() {
   return (
     <div className="min-h-dvh bg-surface text-foreground">
       <MarketingNav />
+      {/* Persistent way back to the library (the empty-state link is not enough
+          once a queue or the removed panel is showing). */}
+      <div className="mx-auto max-w-6xl px-6 pt-4">
+        <Link
+          href="/library"
+          className="inline-flex items-center gap-1.5 text-meta font-semibold text-foreground-muted transition hover:text-brand-action"
+        >
+          <Icon name="chevronLeft" className="h-4 w-4" /> Back to the library
+        </Link>
+      </div>
       <section className="relative overflow-hidden">
         <MarketingBackdrop tone="vivid" />
         <div className="relative z-10 mx-auto max-w-3xl px-6 pb-8 pt-14 text-center sm:pt-20">

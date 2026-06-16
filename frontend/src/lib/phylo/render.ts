@@ -125,6 +125,13 @@ export interface RenderSpec {
    *  phylogram, with the tips at age 0 (ggtree theme_tree2). Default off.
    *  Replaces the compact scale bar when on. */
   timeAxis?: boolean;
+  /** Per-figure gap (px) between overlay columns; absent = PANEL_GAP. The
+   *  collision advisor's "increase column spacing" lever. */
+  columnGap?: number;
+  /** Where the legends sit: "right" (default, reserved right column) or "bottom"
+   *  (a horizontal strip below the figure, freeing the right edge). The advisor's
+   *  "move the legend" fix. */
+  legendPlacement?: "right" | "bottom";
   tracks: FigureTracks;
   columns: FigureColumns;
   width: number;
@@ -470,17 +477,17 @@ const MSA_DEFAULT_THICKNESS = 120;
 /** Sum the radial / horizontal room every visible aligned panel needs. The gap
  *  between stacked panels is generous enough that adjacent rings / columns read
  *  as separate bands rather than visually merging (the multi-panel spacing). */
-function alignedRoom(panels: AlignedPanel[]): number {
+function alignedRoom(panels: AlignedPanel[], gap: number = PANEL_GAP): number {
   let room = 6; // initial gap from the tips
   for (const p of panels) {
     if (!p.visible || !ALIGNED_KINDS.has(p.kind)) continue;
     if (p.kind === "heat") {
       const ncol = p.columns?.length ?? 1;
-      room += ncol * (panelBandThickness(p) + 1) + PANEL_GAP;
+      room += ncol * (panelBandThickness(p) + 1) + gap;
     } else if (p.kind === "msa") {
-      room += (p.width && p.width > 0 ? p.width : MSA_DEFAULT_THICKNESS) + PANEL_GAP;
+      room += (p.width && p.width > 0 ? p.width : MSA_DEFAULT_THICKNESS) + gap;
     } else {
-      room += panelBandThickness(p) + PANEL_GAP;
+      room += panelBandThickness(p) + gap;
     }
   }
   return room;
@@ -488,6 +495,13 @@ function alignedRoom(panels: AlignedPanel[]): number {
 
 /** Inter-panel spacing (px) reserved so stacked rings / columns stay distinct. */
 const PANEL_GAP = 8;
+
+/** Clamp a tip-label tilt to a sane range; beyond +/-80 deg the text reads as
+ *  vertical and the layout math degenerates. */
+function clampTilt(deg: number): number {
+  if (!Number.isFinite(deg)) return 0;
+  return Math.max(-80, Math.min(80, deg));
+}
 
 /**
  * Draw one tip-aligned Data Hub plot panel (phylo Phase 4). Resolves the panel's
@@ -596,22 +610,42 @@ function renderFromPanels(
       }),
     });
   }
+  // Legend placement (the advisor's "move the legend" fix). Default "right"
+  // reserves a right-edge column (unchanged); "bottom" frees the right edge by
+  // laying the legends in a horizontal strip below the figure, reducing the tree
+  // height. Bottom is the cure when the right column overran the labels.
+  const legendBottom =
+    spec.legendPlacement === "bottom" && legendItems.length > 0;
   // Reserve one legend sub-column normally; when the stacked legends would run
   // past the canvas height, reserve enough sub-columns to hold them side by side
   // (capped) so they never overlap the figure or each other (multi-panel polish).
   const legendCols =
-    legendItems.length > 0
+    legendItems.length > 0 && !legendBottom
       ? legendColumnCount(legendItems, spec.height)
       : 0;
   const legendW = legendCols * LEGEND_COL_WIDTH;
   const plotWidth = Math.max(120, spec.width - legendW);
+  // When bottom, reserve a strip whose height holds the wrapped legend rows.
+  const legendStripH = legendBottom
+    ? bottomLegendStripHeight(legendItems, spec.width)
+    : 0;
+  const layoutHeight = spec.height - legendStripH;
 
-  const room = alignedRoom(aligned);
-  const labelRoom = hasLabels ? longestLabelPx(root) : 8;
+  // Per-figure overlay-column gap (the advisor's spacing lever); absent = default.
+  const columnGap = spec.columnGap ?? PANEL_GAP;
+  const room = alignedRoom(aligned, columnGap);
+  // Tilted tip labels project a narrower horizontal footprint (labelW * cos), so
+  // they reserve less right-edge room; 0 tilt keeps the full horizontal reserve.
+  const labelTilt = clampTilt(Number(labelsPanel?.options?.tilt) || 0);
+  const labelTiltCos = Math.cos((Math.abs(labelTilt) * Math.PI) / 180);
+  const labelReserve = hasLabels
+    ? Math.max(12, longestLabelPx(root) * labelTiltCos)
+    : 8;
+  const labelRoom = labelReserve;
 
   const opts: LayoutOptions = {
     width: plotWidth,
-    height: spec.height,
+    height: layoutHeight,
     rightInset:
       isCircular(spec.layout) ? 0 : room + labelRoom + 8,
     padding: 16,
@@ -685,7 +719,7 @@ function renderFromPanels(
             h: colH,
             label: panelTitleText(panel, spec) || undefined,
           });
-        cursor += drawn.thickness + PANEL_GAP;
+        cursor += drawn.thickness + columnGap;
       }
       continue;
     }
@@ -716,7 +750,7 @@ function renderFromPanels(
           h: colH,
           label: panelTitleText(panel, spec) || undefined,
         });
-      cursor += r.thickness + PANEL_GAP;
+      cursor += r.thickness + columnGap;
     }
   }
 
@@ -724,7 +758,7 @@ function renderFromPanels(
   if (labelsPanel) {
     drawLabels(parts, root, axis, spec, cursor, labelsPanel);
     if (wantManifest) {
-      const labelW = longestLabelPx(root);
+      const labelW = labelReserve;
       const nameById = new Map(leaves(root).map((l) => [l.id, l.name]));
       for (const t of axis.tips) {
         outManifest!.push({
@@ -742,17 +776,21 @@ function renderFromPanels(
 
   // Scale bar (rectangular phylogram only) is drawn inside drawRectTree.
   const legend =
-    legendItems.length > 0
-      ? renderPanelLegendColumn(legendItems, plotWidth, spec.height, legendCols)
-      : "";
+    legendItems.length === 0
+      ? ""
+      : legendBottom
+        ? renderPanelLegendRow(legendItems, spec.width, layoutHeight, legendStripH)
+        : renderPanelLegendColumn(legendItems, plotWidth, spec.height, legendCols);
   if (wantManifest && legendItems.length > 0)
     outManifest!.push({
       id: "legend",
       kind: "legend",
-      x: plotWidth,
-      y: 0,
-      w: legendW,
-      h: spec.height,
+      // Bottom strip spans the full width below the figure; right column sits past
+      // the plot. Either way this is where the legend ink lands.
+      x: legendBottom ? 0 : plotWidth,
+      y: legendBottom ? layoutHeight : 0,
+      w: legendBottom ? spec.width : legendW,
+      h: legendBottom ? legendStripH : spec.height,
       label: `${legendItems.length} legend keys`,
     });
 
@@ -1407,21 +1445,27 @@ function drawLabels(
   if (axis.layout === "rectangular") {
     const fs = Number(opts.fontSize) || 11;
     const boxPad = boxed ? 3 : 0;
+    // Tilt (degrees): rotate each label around its anchor so long names need less
+    // vertical room and stop colliding (the advisor's "tilt tip labels" fix).
+    // 0 = horizontal (default, unchanged). Negative reads up-and-to-the-right.
+    const tilt = clampTilt(Number(opts.tilt) || 0);
     for (const slot of axis.tips) {
       const fill = fillFor(slot.id);
       const baseX = align ? cursor : slot.x;
       const tx = baseX + 4 + boxPad;
+      const ty = slot.y + fs * 0.36;
+      const spin = tilt ? ` transform="rotate(${tilt} ${tx.toFixed(1)} ${slot.y.toFixed(1)})"` : "";
       if (align && baseX - slot.x > 4) {
         parts.push(leader(slot.x, slot.y, baseX + 2, slot.y));
       }
       if (boxed) {
         const w = Math.max(8, slot.name.length * fs * 0.6) + 8;
         parts.push(
-          `<rect x="${(tx - 4).toFixed(1)}" y="${(slot.y - fs / 2 - 3).toFixed(1)}" width="${w.toFixed(1)}" height="${fs + 6}" rx="3" fill="#ffffff" stroke="${fill}" stroke-width="0.75"/>`,
+          `<rect x="${(tx - 4).toFixed(1)}" y="${(slot.y - fs / 2 - 3).toFixed(1)}" width="${w.toFixed(1)}" height="${fs + 6}" rx="3" fill="#ffffff" stroke="${fill}" stroke-width="0.75"${spin}/>`,
         );
       }
       parts.push(
-        `<text x="${tx.toFixed(1)}" y="${(slot.y + fs * 0.36).toFixed(1)}" font-size="${fs}"${styleAttr} fill="${fill}">${esc(slot.name)}</text>`,
+        `<text x="${tx.toFixed(1)}" y="${ty.toFixed(1)}" font-size="${fs}"${styleAttr} fill="${fill}"${spin}>${esc(slot.name)}</text>`,
       );
     }
   } else {
@@ -1654,6 +1698,54 @@ function renderPanelLegendColumn(
     parts.push(r.svg);
     y += r.height;
   }
+  return parts.join("");
+}
+
+/** How many legend entries fit across the width in one bottom-strip row. */
+function legendPerRow(width: number): number {
+  return Math.max(1, Math.floor((width - 24) / LEGEND_COL_WIDTH));
+}
+
+/** Height (px) a bottom legend strip needs to hold all entries, wrapped across
+ *  the width. The row height is the tallest single legend (capped), so a tall
+ *  categorical key does not clip. */
+function bottomLegendStripHeight(
+  entries: LegendEntry[],
+  width: number,
+): number {
+  if (entries.length === 0) return 0;
+  const perRow = legendPerRow(width);
+  const rows = Math.ceil(entries.length / perRow);
+  const rowH = Math.min(
+    96,
+    Math.max(...entries.map((e) => estimateLegendHeight(e))),
+  );
+  return rows * rowH + 12;
+}
+
+/**
+ * Render the legends in a horizontal strip below the figure (placement "bottom"),
+ * wrapping left-to-right across the width into stacked rows. Frees the right edge
+ * entirely, the cure when the right legend column overran the labels. Each entry
+ * occupies one LEGEND_COL_WIDTH slot, the same renderer as the right column.
+ */
+function renderPanelLegendRow(
+  entries: LegendEntry[],
+  width: number,
+  stripTop: number,
+  stripH: number,
+): string {
+  const perRow = legendPerRow(width);
+  const rows = Math.max(1, Math.ceil(entries.length / perRow));
+  const rowH = stripH > 0 ? (stripH - 8) / rows : 0;
+  const maxY = stripTop + stripH;
+  const parts: string[] = [];
+  entries.forEach((entry, i) => {
+    const x = 12 + (i % perRow) * LEGEND_COL_WIDTH;
+    const y = stripTop + 6 + Math.floor(i / perRow) * rowH;
+    const r = renderOneLegend(entry, x, y, maxY);
+    if (r.height > 0) parts.push(r.svg);
+  });
   return parts.join("");
 }
 

@@ -61,6 +61,16 @@ describe("generateGgtreeCode", () => {
     expect(code).toContain('fontface = "italic"');
   });
 
+  it("emits geom_tiplab(angle=) when the labels layer is tilted", () => {
+    const code = generateGgtreeCode(
+      spec({
+        panels: [{ id: "labels", kind: "labels", visible: true, options: { tilt: 45 } }],
+      }),
+    );
+    // SVG tilt is clockwise, ggtree angle is counter-clockwise, so it negates.
+    expect(code).toContain("geom_tiplab(angle = -45");
+  });
+
   it("emits geom_tippoint mapped to the category column", () => {
     const code = generateGgtreeCode(
       spec({

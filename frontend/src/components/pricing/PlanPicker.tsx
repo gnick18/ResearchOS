@@ -116,7 +116,11 @@ const LAB_PLANS: PlanCard[] = [
   },
 ];
 
-export default function PlanPicker() {
+interface PlanPickerProps {
+  billingEnabled: boolean;
+}
+
+export default function PlanPicker({ billingEnabled }: PlanPickerProps) {
   const [seg, setSeg] = useState<Segment>("ind");
 
   return (
@@ -150,8 +154,8 @@ export default function PlanPicker() {
 
       {seg === "ind" ? <PlanCards plans={INDIVIDUAL_PLANS} /> : null}
       {seg === "lab" ? <PlanCards plans={LAB_PLANS} /> : null}
-      {seg === "dept" ? <DepartmentBuilder /> : null}
-      {seg === "inst" ? <InstitutionBuilder /> : null}
+      {seg === "dept" ? <DepartmentBuilder billingEnabled={billingEnabled} /> : null}
+      {seg === "inst" ? <InstitutionBuilder billingEnabled={billingEnabled} /> : null}
     </div>
   );
 }

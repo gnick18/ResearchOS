@@ -196,6 +196,16 @@ export default function ContributeWizard() {
   return (
     <div className="min-h-dvh bg-surface text-foreground">
       <MarketingNav />
+      {/* Persistent way back to the library, available the whole time you are
+          staging icons (not just from the post-publish success screen). */}
+      <div className="mx-auto max-w-6xl px-6 pt-4">
+        <Link
+          href="/library"
+          className="inline-flex items-center gap-1.5 text-meta font-semibold text-foreground-muted transition hover:text-brand-action"
+        >
+          <Icon name="chevronLeft" className="h-4 w-4" /> Back to the library
+        </Link>
+      </div>
       <section className="relative overflow-hidden">
         <MarketingBackdrop tone="vivid" />
         <div className="relative z-10 mx-auto max-w-3xl px-6 pb-8 pt-14 text-center sm:pt-20">
@@ -245,8 +255,13 @@ export default function ContributeWizard() {
             </div>
           ) : (
             <>
-              {/* Drop zone */}
+              {/* Drop zone. data-attach-target opts this surface into the
+                  window-level GlobalDropGuard allow-list (and stopPropagation on
+                  the drop keeps the guard's "not supported" toast from firing over
+                  a zone that DOES handle the file), same as the task/note/method
+                  attach surfaces. */}
               <div
+                data-attach-target
                 onDragOver={(e) => {
                   e.preventDefault();
                   setDragOver(true);
@@ -254,6 +269,7 @@ export default function ContributeWizard() {
                 onDragLeave={() => setDragOver(false)}
                 onDrop={(e) => {
                   e.preventDefault();
+                  e.stopPropagation();
                   setDragOver(false);
                   void addFiles(e.dataTransfer.files);
                 }}

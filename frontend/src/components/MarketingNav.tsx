@@ -24,6 +24,7 @@ import { Icon } from "@/components/icons";
 const NAV_LINKS: { label: string; href: string }[] = [
   { label: "Product", href: "/" },
   { label: "BeakerBot", href: "/ai" },
+  { label: "Library", href: "/library" },
   { label: "Pricing", href: "/pricing" },
   { label: "Transparency", href: "/transparency" },
   { label: "Docs", href: "/wiki" },

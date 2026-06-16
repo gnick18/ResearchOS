@@ -10,7 +10,7 @@
 // relay follow-up, same limitation the band card has).
 //
 // House style: no em-dashes, no emojis, no mid-sentence colons.
-import { useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import {
   ActivityIndicator,
@@ -26,11 +26,14 @@ import { ScreenFrame } from '@/components/ui/ScreenFrame';
 import { ScreenHeader } from '@/components/ui/ScreenHeader';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { ThemedText } from '@/components/themed-text';
+import { MarkdownLite } from '@/components/MarkdownLite';
 import { useTodayState } from '@/lib/today-store';
 import { typeMeta } from '@/lib/method-library';
 import { usePairing } from '@/lib/pairing';
 import { captureToExperiment } from '@/lib/experiment-capture';
 import { postAppendLine } from '@/lib/calc-export';
+import { fetchSnapshot, type ExperimentNotesSnapshot } from '@/lib/snapshots';
+import { signWithDevice } from '@/lib/device-identity';
 import type { RouteTab } from '@/lib/route-capture';
 import { useTheme, palette, fonts } from '@/lib/design';
 import type { SnapshotTask } from '@/lib/snapshots';
@@ -46,6 +49,31 @@ export default function ExperimentDetailScreen() {
   const [noteText, setNoteText] = useState('');
   const [noteTab, setNoteTab] = useState<RouteTab>('notes');
   const [noteSending, setNoteSending] = useState(false);
+  const [notesSnap, setNotesSnap] = useState<ExperimentNotesSnapshot | null>(null);
+  const [notesLoading, setNotesLoading] = useState(false);
+
+  // Pull the experiment's notes/results docs (read-only). One-time on mount plus
+  // a manual refresh; the laptop publishes the latest sealed projection.
+  const loadNotes = useCallback(async () => {
+    if (!pairing) return;
+    setNotesLoading(true);
+    try {
+      const snap = (await fetchSnapshot(
+        'experiment-notes',
+        pairing,
+        signWithDevice,
+      )) as ExperimentNotesSnapshot | null;
+      setNotesSnap(snap);
+    } catch {
+      // Leave whatever we had; the section shows its empty/last state.
+    } finally {
+      setNotesLoading(false);
+    }
+  }, [pairing]);
+
+  useEffect(() => {
+    void loadNotes();
+  }, [loadNotes]);
 
   // Find the task across all three buckets (today / overdue / upcoming).
   const allTasks: SnapshotTask[] = [
@@ -201,6 +229,40 @@ export default function ExperimentDetailScreen() {
             );
           })
         )}
+
+        {notesSnap?.notes?.markdown || notesSnap?.results?.markdown ? (
+          <View style={styles.docSection}>
+            <View style={styles.docHeaderRow}>
+              <ThemedText style={[styles.sectionLabel, { color: surface.muted }]}>
+                NOTES & RESULTS
+              </ThemedText>
+              <Pressable
+                onPress={() => void loadNotes()}
+                hitSlop={8}
+                accessibilityRole="button"
+                accessibilityLabel="Refresh notes"
+              >
+                {notesLoading ? (
+                  <ActivityIndicator size="small" color={surface.muted} />
+                ) : (
+                  <Ionicons name="refresh" size={16} color={palette.sky} />
+                )}
+              </Pressable>
+            </View>
+            {notesSnap?.notes?.markdown ? (
+              <View style={[styles.docCard, { backgroundColor: surface.surface, borderColor: surface.border }]}>
+                <ThemedText style={[styles.docTabLabel, { color: palette.sky }]}>Lab Notes</ThemedText>
+                <MarkdownLite markdown={notesSnap.notes.markdown} />
+              </View>
+            ) : null}
+            {notesSnap?.results?.markdown ? (
+              <View style={[styles.docCard, { backgroundColor: surface.surface, borderColor: surface.border }]}>
+                <ThemedText style={[styles.docTabLabel, { color: palette.violet }]}>Results</ThemedText>
+                <MarkdownLite markdown={notesSnap.results.markdown} />
+              </View>
+            ) : null}
+          </View>
+        ) : null}
 
         {canAdd ? (
           <View style={styles.addSection}>
@@ -371,6 +433,27 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontFamily: fonts.semibold,
     fontWeight: '600',
+  },
+  docSection: { marginTop: 22 },
+  docHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 8,
+  },
+  docCard: {
+    borderWidth: 1,
+    borderRadius: 14,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    marginBottom: 10,
+  },
+  docTabLabel: {
+    fontSize: 11,
+    letterSpacing: 0.6,
+    fontFamily: fonts.bold,
+    fontWeight: '700',
+    marginBottom: 6,
   },
   addSection: { marginTop: 8 },
   subLabel: {

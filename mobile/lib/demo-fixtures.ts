@@ -323,3 +323,39 @@ export const DEMO_NOTIFICATIONS_SNAPSHOT: NotificationsSnapshot = {
     },
   ],
 };
+
+// ---------------------------------------------------------------------------
+// Experiment notes/results read fixture (name = "experiment-notes")
+// Read-only pull of the focused experiment's notes.md / results.md, for the
+// experiment hub's read view. Markdown is rendered by MarkdownLite.
+// ---------------------------------------------------------------------------
+export const DEMO_EXPERIMENT_NOTES = {
+  taskId: 9001,
+  owner: 'you',
+  experimentName: 'fakeGFP expression (chapter 2)',
+  notes: {
+    markdown: [
+      '# Lab notes',
+      '',
+      '## Day 1 - colony pick',
+      'Picked 8 colonies from the GoTaq plate into 5 mL LB + amp.',
+      'Grew overnight at 37 C, 220 rpm.',
+      '',
+      '## Day 2 - miniprep',
+      'Mini-prepped all 8. A260/A280 between 1.85 and 1.92 for every sample.',
+      '',
+      '- Tube 3 yield was low (re-elute next time)',
+      '- Tubes 5 and 7 looked best',
+    ].join('\n'),
+  },
+  results: {
+    markdown: [
+      '# Results',
+      '',
+      'Gel of the colony PCR, lanes 1 to 8. Expected band at 1.2 kb.',
+      '',
+      'Clones 5 and 7 show the correct insert; clone 3 is empty vector.',
+    ].join('\n'),
+  },
+  generatedAt: yesterdayIso,
+};

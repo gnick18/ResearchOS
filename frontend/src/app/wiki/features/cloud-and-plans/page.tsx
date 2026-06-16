@@ -1,8 +1,14 @@
 import Link from "next/link";
 import WikiPage from "@/components/wiki/WikiPage";
 import Callout from "@/components/wiki/Callout";
+import {
+  isBillingEnabled,
+  isAiBillingEnabled,
+} from "@/lib/billing/config";
 
-export default function CloudAndPlansPage() {
+export default async function CloudAndPlansPage() {
+  const billingOn = isBillingEnabled();
+  const aiBillingOn = isAiBillingEnabled();
   return (
     <WikiPage
       title="Cloud storage and plans"
@@ -144,11 +150,20 @@ export default function CloudAndPlansPage() {
           or institution can fund a shared pool so members never enter a card.
         </li>
       </ul>
-      <Callout variant="info" title="BeakerBot billing is off during the beta">
-        The AI meter is built but not yet active. During the beta, every
-        BeakerBot turn is free. The trial balance will be applied when billing
-        turns on.
-      </Callout>
+      {aiBillingOn ? (
+        <Callout variant="info" title="BeakerBot is billed at cost">
+          AI metering is active. Each BeakerBot turn draws from your token
+          balance at the rate shown on the pricing page. The cost is what the
+          AI actually costs us, nothing more. Sales tax is handled automatically
+          by our payment processor.
+        </Callout>
+      ) : (
+        <Callout variant="info" title="BeakerBot billing is off during the beta">
+          The AI meter is built but not yet active. During the beta, every
+          BeakerBot turn is free. The trial balance will be applied when billing
+          turns on.
+        </Callout>
+      )}
 
       <h2>Account tiers</h2>
       <p>
@@ -192,10 +207,18 @@ export default function CloudAndPlansPage() {
         data is never at risk, because it lives on your machine the whole time.
       </p>
 
-      <Callout variant="info" title="During the beta, everything is free">
-        Cloud billing is not turned on yet. The whole system is free while we
-        gather real usage to set the plan prices, so nothing charges you today.
-      </Callout>
+      {billingOn ? (
+        <Callout variant="info" title="Cloud billing is active">
+          Cloud storage and optional AI are billed at what they cost us. Sales
+          tax is handled automatically by our payment processor. The local
+          notebook and all core features are free forever.
+        </Callout>
+      ) : (
+        <Callout variant="info" title="During the beta, everything is free">
+          Cloud billing is not turned on yet. The whole system is free while we
+          gather real usage to set the plan prices, so nothing charges you today.
+        </Callout>
+      )}
 
       <h2>Related</h2>
       <p>

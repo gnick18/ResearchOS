@@ -5,13 +5,20 @@ This is the single source of truth for any customer-facing copy about cost, plan
 storage. When a billing fact changes, update it here first, then propagate to pages.
 House voice: no em-dashes, no emojis, no mid-sentence colons, always state the why, no AI-speak.
 
-## Do not publish yet (hard guardrails)
+## Publishing rules (hard guardrails)
 
-- Everything below is built behind `BILLING_ENABLED`, which is OFF in production. The whole
-  app is free during beta. Never imply billing is live.
-- No FINAL Plus or Pro sticker prices in public copy, they are provisional. Transparent
-  cost-recovery ESTIMATES are fine when clearly labeled an estimate, not final, and free during
-  beta (the pricing-page calculator and the dept/institution builders do this).
+- BILLING-LIVE-DURING-BETA (Grant, 2026-06-15): real payments are going ON during the beta
+  (live testing is the real bug harness, and Stripe Tax auto-handles sales tax). This SUPERSEDES
+  the old "everything is free during beta, never imply billing is live" guardrail. Customer copy
+  is now FLAG-DRIVEN so it is always truthful as the flags flip: while `BILLING_ENABLED` /
+  `AI_BILLING_ENABLED` are off it still reads free-during-beta; once they flip it reads live,
+  billed pricing. Server pages (`/pricing`, `/terms`, `/wiki`) read `isBillingEnabled()` /
+  `isAiBillingEnabled()` from `lib/billing/config.ts`; the client Welcome page reads
+  `NEXT_PUBLIC_BILLING_LIVE`. Do NOT hardcode either state. See
+  `docs/proposals/2026-06-13-billing-go-live-checklist.md`.
+- STILL IN FORCE: No FINAL Plus or Pro sticker prices in public copy, they are provisional.
+  Transparent cost-recovery ESTIMATES are fine when clearly labeled an estimate, not final (the
+  pricing-page calculator and the dept/institution builders do this).
 - Never say "free forever" about cloud storage. The local notebook is free forever, cloud is
   the optional paid part.
 

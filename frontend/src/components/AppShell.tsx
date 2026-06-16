@@ -424,7 +424,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         {/* Folder switcher (Phase A, multi-folder). Renders nothing unless the
             NEXT_PUBLIC_MULTI_FOLDER flag is on AND more than one folder is
             remembered, so the header is unchanged for flag-off / solo users. */}
-        <FolderSwitcher variant="header" />
+        <FolderSwitcher variant="header" tinted={tinted} />
 
         {/* The persistent "My work" toggle (NAV-2). Lab head only: it flips the
             nav between the lab lens and the personal researcher view. */}

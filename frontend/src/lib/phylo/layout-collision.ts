@@ -161,9 +161,9 @@ export function suggestFixes(collisions: Collision[]): FixSuggestion[] {
   if (kinds.has("legend-over-content")) {
     add({
       id: "relocate-legend",
-      title: "Move the legend out of the plot",
+      title: "Move the legend below the figure",
       rationale: "The legend column overlaps the tree / labels.",
-      available: false,
+      available: true,
     });
     add({
       id: "drop-duplicate-overlay",
@@ -189,7 +189,7 @@ export function suggestFixes(collisions: Collision[]): FixSuggestion[] {
       id: "tilt-tip-labels",
       title: "Tilt the tip labels",
       rationale: "Angled labels need less vertical room.",
-      available: false,
+      available: true,
     });
   }
   if (kinds.has("panel-overlap")) {
@@ -197,7 +197,7 @@ export function suggestFixes(collisions: Collision[]): FixSuggestion[] {
       id: "increase-column-gap",
       title: "Increase the spacing between overlay columns",
       rationale: "A wider gap separates the columns.",
-      available: false,
+      available: true,
     });
   }
   return fixes;

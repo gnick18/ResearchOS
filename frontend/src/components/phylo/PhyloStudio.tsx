@@ -104,6 +104,11 @@ import {
   type OverlaySelection,
 } from "@/components/phylo/SmartDataWizard";
 import {
+  PhyloLayoutAdvisor,
+  type AdvisorDelta,
+  type AdvisorState,
+} from "@/components/phylo/PhyloLayoutAdvisor";
+import {
   rankJoinCandidates,
   mergeTableColumnsIntoMetadata,
   type JoinCandidate,
@@ -253,6 +258,14 @@ export function PhyloStudio({ initialTreeId }: { initialTreeId?: string } = {}) 
   // Show the branch-length scale bar on a phylogram (geom_treescale). Default on.
   const [scaleBar, setScaleBar] = useState(true);
   const [rootEdge, setRootEdge] = useState(false);
+  // Per-figure gap (px) between overlay columns; default = render's PANEL_GAP (8).
+  // The collision advisor's "increase column spacing" lever + a manual control.
+  const [columnGap, setColumnGap] = useState<number>(8);
+  // Legend placement: "right" (default reserved column) or "bottom" (strip below).
+  // The advisor's "move the legend" fix + a manual control.
+  const [legendPlacement, setLegendPlacement] = useState<"right" | "bottom">(
+    "right",
+  );
   // Draw a full-width time axis (age before present) instead of the scale bar.
   const [timeAxis, setTimeAxis] = useState(false);
   // The ordered LAYER stack (phylo Phase 1). This IS the persisted panels[]; the
@@ -449,6 +462,8 @@ export function PhyloStudio({ initialTreeId }: { initialTreeId?: string } = {}) 
         scaleBar,
         rootEdge,
         timeAxis,
+        columnGap,
+        legendPlacement,
         tracks: EMPTY_TRACKS,
         categoryColumn,
         metaRows,
@@ -469,6 +484,8 @@ export function PhyloStudio({ initialTreeId }: { initialTreeId?: string } = {}) 
     scaleBar,
     rootEdge,
     timeAxis,
+    columnGap,
+    legendPlacement,
     categoryColumn,
     metaRows,
     tipColumn,
@@ -822,6 +839,8 @@ export function PhyloStudio({ initialTreeId }: { initialTreeId?: string } = {}) 
     setPhylogram(inputs.phylogram);
     setScaleBar(inputs.scaleBar ?? true);
     setRootEdge(inputs.rootEdge ?? false);
+    setColumnGap(inputs.columnGap ?? 8);
+    setLegendPlacement(inputs.legendPlacement ?? "right");
     setTimeAxis(inputs.timeAxis ?? false);
     // Stored panels win; else project the layer stack from the Phase 0 fields.
     const restored =
@@ -1018,6 +1037,45 @@ export function PhyloStudio({ initialTreeId }: { initialTreeId?: string } = {}) 
 
   // ---- persist ----
 
+  // Collision-aware layout advisor: current settings it can change, + the apply
+  // callback that maps an AdvisorDelta onto the figure state.
+  const advisorLabelsPanel = panels.find((p) => p.kind === "labels");
+  const advisorState: AdvisorState = {
+    columnGap,
+    legendPlacement,
+    labelsTilt: Number(advisorLabelsPanel?.options?.tilt) || 0,
+    labelsFontSize: Number(advisorLabelsPanel?.options?.fontSize) || 11,
+  };
+  const applyAdvisorDelta = (d: AdvisorDelta) => {
+    if (d.columnGap !== undefined) setColumnGap(d.columnGap);
+    if (d.legendPlacement !== undefined) setLegendPlacement(d.legendPlacement);
+    if (
+      d.labelsTilt !== undefined ||
+      d.labelsFontSize !== undefined ||
+      d.dropPanelIds?.length
+    ) {
+      setPanels((prev) => {
+        let next = prev.map((p) =>
+          p.kind === "labels"
+            ? {
+                ...p,
+                options: {
+                  ...p.options,
+                  ...(d.labelsTilt !== undefined ? { tilt: d.labelsTilt } : {}),
+                  ...(d.labelsFontSize !== undefined
+                    ? { fontSize: d.labelsFontSize }
+                    : {}),
+                },
+              }
+            : p,
+        );
+        if (d.dropPanelIds?.length)
+          next = next.filter((p) => !d.dropPanelIds!.includes(p.id));
+        return next;
+      });
+    }
+  };
+
   const onSave = async () => {
     if (!tree) return;
     // The layer stack is the source of truth, written as panels. We ALSO derive
@@ -1032,6 +1090,8 @@ export function PhyloStudio({ initialTreeId }: { initialTreeId?: string } = {}) 
       scaleBar,
       rootEdge,
       timeAxis,
+      columnGap,
+      legendPlacement,
       tracks: derived.tracks,
       legend: true,
       panels,
@@ -1126,6 +1186,16 @@ export function PhyloStudio({ initialTreeId }: { initialTreeId?: string } = {}) 
       icon: <Icon name="tree" className="h-5 w-5" />,
       panel: (
         <div className="space-y-3.5">
+          {tree && spec && (
+            <PhyloLayoutAdvisor
+              key={openTreeId ?? "unsaved"}
+              tree={tree}
+              spec={spec}
+              state={advisorState}
+              onApply={applyAdvisorDelta}
+              plotId={openTreeId}
+            />
+          )}
           <Panel title="Layout">
             <div className="flex flex-wrap items-center gap-2">
               <Seg
@@ -1202,6 +1272,58 @@ export function PhyloStudio({ initialTreeId }: { initialTreeId?: string } = {}) 
               >
                 Page frame
               </button>
+            </div>
+            {panels.some(
+              (p) => p.visible && p.kind !== "labels" && p.kind !== "clade",
+            ) && (
+              <div className="mt-3 flex items-center gap-2">
+                <label
+                  htmlFor="phylo-column-gap"
+                  className="text-xs font-semibold text-foreground-muted whitespace-nowrap"
+                  title="Gap between overlay columns (heatmap / bars / strips)"
+                >
+                  Column spacing
+                </label>
+                <input
+                  id="phylo-column-gap"
+                  type="range"
+                  min={2}
+                  max={40}
+                  step={1}
+                  value={columnGap}
+                  onChange={(e) => setColumnGap(Number(e.target.value))}
+                  className="flex-1 accent-[var(--accent)]"
+                />
+                <span className="w-8 text-right text-xs tabular-nums text-foreground-muted">
+                  {columnGap}
+                </span>
+              </div>
+            )}
+            <div className="mt-2 flex items-center gap-2">
+              <span className="text-xs font-semibold text-foreground-muted whitespace-nowrap">
+                Legend
+              </span>
+              <div className="flex gap-1">
+                {(["right", "bottom"] as const).map((pos) => (
+                  <button
+                    key={pos}
+                    type="button"
+                    onClick={() => setLegendPlacement(pos)}
+                    title={
+                      pos === "bottom"
+                        ? "Place the legend in a strip below the figure (frees the right edge)"
+                        : "Place the legend in a column on the right"
+                    }
+                    className={`rounded-lg border px-2.5 py-1 text-xs font-bold capitalize transition-colors ${
+                      legendPlacement === pos
+                        ? "border-accent bg-accent-soft text-accent"
+                        : "border-border text-foreground-muted hover:text-foreground"
+                    }`}
+                  >
+                    {pos}
+                  </button>
+                ))}
+              </div>
             </div>
             {artboard.enabled && (
               <div className="mt-3 border-t border-border pt-3">

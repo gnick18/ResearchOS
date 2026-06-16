@@ -17,6 +17,16 @@ export function isBillingEnabled(): boolean {
   return process.env.BILLING_ENABLED === "true";
 }
 
+/** Whether AI (BeakerBot) metering + billing is on. Same fail-closed switch the
+ *  proxy and /api/billing/ai-status read, exported here so server-rendered copy
+ *  (pricing, terms, wiki) can show "free during the beta" vs live AI pricing in
+ *  lockstep with enforcement. Storage and AI flip independently (the go-live
+ *  sequence turns AI on first), so keep them as two reads. */
+export function isAiBillingEnabled(): boolean {
+  const v = process.env.AI_BILLING_ENABLED;
+  return v === "1" || v === "true";
+}
+
 /** Net-terms window for org procurement invoices, in days. A sent invoice (PO
  *  number, ACH or card) is due this many days out, unlike the auto-charged card
  *  checkout individuals and labs use. */
