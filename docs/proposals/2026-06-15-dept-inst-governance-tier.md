@@ -95,11 +95,13 @@ The useful page content is the living research substance a hand-maintained facul
 - Commons revision behavior. When the department updates a resource, a lab gets an explicit accept-changes prompt, not a silent swap, and can either accept the new version or fork it into a personal or lab copy using the existing fork system, so a lab can deliberately diverge from the department standard. This protects an in-progress experiment from a method changing underneath it.
 - The Commons includes labs-contribute-upward (the approval queue in the approved mockup), built on top of the read-only foundation.
 - The dept portal mockup is approved.
+- Pricing shift CONFIRMED. Dept storage is at parity with standalone labs, there is no per-GB surcharge, and the org margin is a flat per-lab governance fee rather than a storage markup. The finalize model reflects this.
+- Companion packaging. The phone app is free to download and free to use offline and in demo mode, but live pairing and capture-sync to a laptop account require a paid plan, Starter and up. The gate is flag-driven to billing-live and enforced at the relay. This gives the entry tier a concrete reason to exist and cuts the largest free-user write driver. Recorded in BILLING_FACTS.md, MobileUI lane notified.
 
 ## Open decisions
 
-1. Confirm the pricing shift from "more per lab on storage" to a governance fee with storage at or below standalone, against the live model.
-2. Build phasing for the Commons, read-only top-down first and then labs-contribute-upward as phase two, per the architecture sketch.
+1. Build phasing for the Commons, read-only top-down first and then labs-contribute-upward as phase two, per the architecture sketch.
+2. Settle the actual Solo, Lab, and Department numbers (the ladder plus the governance fee) in the live model, then write them into plans.ts, assumptions.ts, and the bible.
 
 ## Companion artifacts
 
