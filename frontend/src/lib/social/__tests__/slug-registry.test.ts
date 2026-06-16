@@ -108,6 +108,10 @@ describe("reserved-word blocking", () => {
     const onDisk = readdirSync(appDir)
       .filter((name) => {
         if (name === "__tests__") return false;
+        // Dynamic segments ([slug]) and route groups ((group)) are not literal
+        // static routes, so they are not reservable words. The lab companion-site
+        // catch-all [labSlug] lives here and must not register as drift.
+        if (name.startsWith("[") || name.startsWith("(")) return false;
         try {
           return statSync(join(appDir, name)).isDirectory();
         } catch {

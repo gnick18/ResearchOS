@@ -23,6 +23,21 @@ const UNLOCK_COOKIE = "ros_maint_unlock";
 const COOKIE_MAX_AGE_SECONDS = 60 * 60 * 24 * 30; // 30 days
 
 export function proxy(req: NextRequest): NextResponse {
+  // Hard-gate the internal /dev/* tree in any DEPLOYED build. NODE_ENV is
+  // "production" for every Vercel deployment (preview AND prod); only a local
+  // `next dev` is "development". This runs in middleware, BEFORE routing, on
+  // purpose: the app/dev/layout.tsx notFound() gate does NOT 404 these routes in
+  // a deployed build (verified live), so the internal scratch surfaces (the
+  // pricing cost model, design probes, demo pages) stayed reachable. Middleware
+  // cannot be bypassed by routing, so a 404 here closes the whole tree.
+  if (
+    process.env.NODE_ENV === "production" &&
+    (req.nextUrl.pathname === "/dev" ||
+      req.nextUrl.pathname.startsWith("/dev/"))
+  ) {
+    return new NextResponse(null, { status: 404 });
+  }
+
   // Off unless deliberately enabled, so this is a no-op in normal operation.
   if (process.env.MAINTENANCE_MODE !== "true") {
     return NextResponse.next();
