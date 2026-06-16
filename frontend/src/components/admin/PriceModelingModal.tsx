@@ -1026,7 +1026,8 @@ const DEFAULT_LADDER: LadderRow[] = [
   { key: "basic", name: "Basic", capGB: 25, writesM: 0.5, price: 4, cadence: "annual", lab: false },
   { key: "plus", name: "Plus", capGB: 50, writesM: 1, price: 7, cadence: "semiannual", lab: false },
   { key: "pro", name: "Pro", capGB: 250, writesM: 2, price: 25, cadence: "semiannual", lab: false },
-  { key: "lab_free", name: "Lab Free", capGB: 1, writesM: 1, price: 0, cadence: "annual", lab: true, free: true },
+  { key: "lab_starter", name: "Lab Starter", capGB: 25, writesM: 1.5, price: 4, cadence: "semiannual", lab: true },
+  { key: "lab_basic", name: "Lab Basic", capGB: 50, writesM: 2, price: 7, cadence: "semiannual", lab: true },
   { key: "lab_plus", name: "Lab Plus", capGB: 100, writesM: 3, price: 12, cadence: "semiannual", lab: true },
   { key: "lab_pro", name: "Lab Pro", capGB: 500, writesM: 8, price: 30, cadence: "semiannual", lab: true },
 ];
@@ -1071,7 +1072,7 @@ export function FinalizeTab() {
     return { ok, where };
   };
   const indivDecl = pgbDeclining(["starter", "basic", "plus", "pro"]);
-  const labDecl = pgbDeclining(["lab_plus", "lab_pro"]);
+  const labDecl = pgbDeclining(["lab_starter", "lab_basic", "lab_plus", "lab_pro"]);
   const declOk = indivDecl.ok && labDecl.ok;
   const declWhere = !indivDecl.ok ? indivDecl.where : labDecl.where;
 
@@ -1177,14 +1178,17 @@ export function FinalizeTab() {
         <b className="text-foreground">Locked.</b> Solo and lab bill 6/12-month
         only. Storage dept/inst is a flat dollar-per-lab sustain, AI keeps its
         1.4x/2x markup. Solo and lab target a modest ~3x margin, and dept labs
-        pay the standalone Lab rate plus a flat governance fee. Cost basis,{" "}
+        pay the standalone Lab rate plus a flat governance fee. Labs have no
+        permanent free tier, they get a 30-day 5 GB trial then pick a Lab plan,
+        and a low-resource lab stays free by using individual accounts. Cost
+        basis,{" "}
         {`$${BLENDED_PER_GB_MO.toFixed(4)}/GB, ${fmt(ACTIVITY_PER_M_WRITES)}/M writes, Stripe ${(STRIPE_PCT * 100).toFixed(1)}% + ${fmt(STRIPE_FIXED)}, ${Math.round(FILL * 100)}% assumed fill.`}
       </div>
 
       <Panel title="Decisions">
         <div className="grid gap-5 lg:grid-cols-2">
           <div>
-            <Lbl>Free pool (individual, lab, and dept/inst per-lab)</Lbl>
+            <Lbl>Free pool (individual)</Lbl>
             <Seg
               options={[
                 { id: "0.5", label: "0.5 GB" },
@@ -1237,7 +1241,7 @@ export function FinalizeTab() {
                         ? "text-amber-600"
                         : "text-rose-600 font-bold";
                 const billing = r.cadence === "annual" ? "12-month" : "6-month";
-                const sep = r.key === "lab_free" ? "border-t-2 border-border" : "border-t border-border";
+                const sep = r.key === "lab_starter" ? "border-t-2 border-border" : "border-t border-border";
                 return (
                   <tr key={r.key} className={sep}>
                     <td className="px-2 py-1.5 font-medium text-foreground">{r.name}</td>
