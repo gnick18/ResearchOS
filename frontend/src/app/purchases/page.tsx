@@ -425,7 +425,7 @@ function PurchasesPageContent() {
           <div className="flex items-center gap-2">
             <button
               onClick={() => setShowNewPurchase(true)}
-              className="px-3 py-1.5 text-body bg-amber-600 text-white rounded-lg hover:bg-amber-700 transition-colors"
+              className="ros-btn-raise px-3 py-1.5 text-body bg-amber-600 text-white rounded-lg hover:bg-amber-700 transition-colors"
               data-tour-target="purchases-new-button"
             >
               + New Purchase
@@ -517,7 +517,7 @@ function PurchasesPageContent() {
                 as described in the supporting paragraph above. */}
             <button
               onClick={() => router.push("/lab-overview")}
-              className="flex-shrink-0 inline-flex items-center gap-1 px-3 py-1.5 text-meta font-medium bg-amber-600 text-white rounded-lg hover:bg-amber-700 transition-colors"
+              className="ros-btn-raise flex-shrink-0 inline-flex items-center gap-1 px-3 py-1.5 text-meta font-medium bg-amber-600 text-white rounded-lg hover:bg-amber-700 transition-colors"
               data-testid="purchases-lab-head-pending-banner-cta"
             >
               Open Lab Overview

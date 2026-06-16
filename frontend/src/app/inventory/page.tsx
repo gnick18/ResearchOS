@@ -508,7 +508,7 @@ function InventoryPageContent() {
                     : "text-foreground-muted hover:text-foreground"
                 }`}
               >
-                <Icon name="map" className="h-3.5 w-3.5" />
+                <Icon name="floorPlan" className="h-3.5 w-3.5" />
                 Room map
               </button>
             </div>
@@ -541,7 +541,7 @@ function InventoryPageContent() {
             <button
               type="button"
               onClick={() => setItemDialog({ mode: "add" })}
-              className="bg-brand-action text-white transition-colors hover:bg-brand-action/90 inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-body"
+              className="ros-btn-raise bg-brand-action text-white transition-colors hover:bg-brand-action/90 inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-body"
             >
               <Icon name="plus" className="h-4 w-4" />
               Add item
@@ -1124,7 +1124,7 @@ function EmptyState({
           <button
             type="button"
             onClick={onAdd}
-            className="bg-brand-action text-white transition-colors hover:bg-brand-action/90 inline-flex items-center gap-1.5 rounded-lg px-4 py-2 text-body"
+            className="ros-btn-raise bg-brand-action text-white transition-colors hover:bg-brand-action/90 inline-flex items-center gap-1.5 rounded-lg px-4 py-2 text-body"
           >
             <Icon name="plus" className="h-4 w-4" />
             Add your first item

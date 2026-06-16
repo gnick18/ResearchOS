@@ -205,7 +205,7 @@ export default function DeptJoinPage() {
               type="button"
               disabled={state === "working"}
               onClick={() => void accept()}
-              className="flex-1 rounded-lg bg-brand-action px-4 py-2.5 text-body font-semibold text-white disabled:opacity-50"
+              className="ros-btn-raise flex-1 rounded-lg bg-brand-action px-4 py-2.5 text-body font-semibold text-white disabled:opacity-50"
             >
               {state === "working" ? "Joining…" : "Accept & join"}
             </button>

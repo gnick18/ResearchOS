@@ -43,7 +43,7 @@ export default function RootError({
         <button
           type="button"
           onClick={() => reset()}
-          className="mt-6 rounded-lg bg-brand-action px-5 py-2.5 text-body font-semibold text-white transition-colors hover:bg-brand-action/90"
+          className="ros-btn-raise mt-6 rounded-lg bg-brand-action px-5 py-2.5 text-body font-semibold text-white transition-colors hover:bg-brand-action/90"
         >
           Try again
         </button>

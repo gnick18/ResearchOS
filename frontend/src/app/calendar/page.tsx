@@ -260,7 +260,7 @@ export default function CalendarPage() {
             <CalendarFeedsButton />
             <button
               onClick={() => setCreating(true)}
-              className="px-3 py-1.5 text-body bg-brand-action text-white rounded-lg hover:bg-brand-action/90"
+              className="ros-btn-raise px-3 py-1.5 text-body bg-brand-action text-white rounded-lg hover:bg-brand-action/90"
             >
               + New Event
             </button>
@@ -565,7 +565,7 @@ export default function CalendarPage() {
                     alert("Failed to delete event");
                   }
                 }}
-                className="px-4 py-2 bg-red-500 text-white text-body font-medium rounded-lg hover:bg-red-600 transition-colors"
+                className="ros-btn-raise px-4 py-2 bg-red-500 text-white text-body font-medium rounded-lg hover:bg-red-600 transition-colors"
               >
                 Delete
               </button>
@@ -882,7 +882,7 @@ function EventModal({
               <button
                 onClick={handleSave}
                 disabled={endBeforeStart}
-                className="px-4 py-2 text-body text-white bg-brand-action hover:bg-brand-action/90 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
+                className="ros-btn-raise px-4 py-2 text-body text-white bg-brand-action hover:bg-brand-action/90 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 Save
               </button>
@@ -892,7 +892,7 @@ function EventModal({
               <button onClick={onDelete} className="px-4 py-2 text-body text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 rounded-lg">
                 Delete
               </button>
-              <button onClick={onEdit} className="px-4 py-2 text-body text-white bg-brand-action hover:bg-brand-action/90 rounded-lg">
+              <button onClick={onEdit} className="ros-btn-raise px-4 py-2 text-body text-white bg-brand-action hover:bg-brand-action/90 rounded-lg">
                 Edit
               </button>
             </>
@@ -1121,7 +1121,7 @@ function CreateEventModal({
           <button
             onClick={handleCreate}
             disabled={!title.trim()}
-            className="px-4 py-2 text-body text-white bg-brand-action hover:bg-brand-action/90 rounded-lg disabled:opacity-50"
+            className="ros-btn-raise px-4 py-2 text-body text-white bg-brand-action hover:bg-brand-action/90 rounded-lg disabled:opacity-50"
           >
             Create Event
           </button>

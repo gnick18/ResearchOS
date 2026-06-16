@@ -196,7 +196,7 @@ export default function PtoEditor({ username }: Props) {
           onClick={handleAdd}
           disabled={loading || !username || !pendingDate}
           data-testid="pto-editor-add-button"
-          className="rounded bg-brand-action px-3 py-1 text-body font-medium text-white hover:bg-brand-action/90 disabled:opacity-50"
+          className="ros-btn-raise rounded bg-brand-action px-3 py-1 text-body font-medium text-white hover:bg-brand-action/90 disabled:opacity-50"
         >
           Add
         </button>

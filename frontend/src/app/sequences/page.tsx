@@ -1658,7 +1658,7 @@ export default function SequencesPage() {
                 <button
                   type="button"
                   onClick={() => setNewOpen(true)}
-                  className="flex items-center gap-1 rounded-md bg-brand-action px-2.5 py-1.5 text-meta font-medium text-white transition-colors hover:bg-brand-action/90"
+                  className="ros-btn-raise flex items-center gap-1 rounded-md bg-brand-action px-2.5 py-1.5 text-meta font-medium text-white transition-colors hover:bg-brand-action/90"
                 >
                   <PlusIcon className="h-3.5 w-3.5" />
                   New
@@ -2296,7 +2296,7 @@ export default function SequencesPage() {
                   setPasteConfirm(null);
                   void runPasteTaxonomy(req.seq.id, req.taxonomy);
                 }}
-                className="rounded-md bg-brand-action px-3 py-1.5 text-body font-medium text-white hover:bg-brand-action/90"
+                className="ros-btn-raise rounded-md bg-brand-action px-3 py-1.5 text-body font-medium text-white hover:bg-brand-action/90"
               >
                 Paste taxonomy
               </button>

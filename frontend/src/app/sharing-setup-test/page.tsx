@@ -93,7 +93,7 @@ function SharingSetupTestHarness() {
         <button
           type="button"
           onClick={() => setOpen(true)}
-          className="mt-5 px-4 py-2 text-body rounded-lg font-medium bg-brand-action hover:bg-brand-action/90 text-white"
+          className="ros-btn-raise mt-5 px-4 py-2 text-body rounded-lg font-medium bg-brand-action hover:bg-brand-action/90 text-white"
         >
           Launch sharing setup
         </button>

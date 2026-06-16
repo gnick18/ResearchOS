@@ -52,7 +52,7 @@ export default function FiguresHome() {
             <button
               type="button"
               onClick={create}
-              className="flex items-center gap-1.5 rounded-lg bg-brand-action px-4 py-2 text-meta font-semibold text-white hover:opacity-90"
+              className="ros-btn-raise flex items-center gap-1.5 rounded-lg bg-brand-action px-4 py-2 text-meta font-semibold text-white hover:opacity-90"
               data-testid="figure-create-first"
             >
               <Icon name="plus" className="h-3.5 w-3.5" /> New figure

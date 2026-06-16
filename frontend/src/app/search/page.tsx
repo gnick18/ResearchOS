@@ -654,7 +654,7 @@ export default function SearchPage() {
             <button
               onClick={handleSearch}
               data-tour-target="search-submit"
-              className="px-4 py-2 text-body bg-brand-action text-white rounded-lg hover:bg-brand-action/90"
+              className="ros-btn-raise px-4 py-2 text-body bg-brand-action text-white rounded-lg hover:bg-brand-action/90"
             >
               Search
             </button>
@@ -684,7 +684,7 @@ export default function SearchPage() {
                       <button
                         onClick={() => setExportDialogOpen(true)}
                         disabled={selectedTaskKeys.size === 0}
-                        className="px-3 py-1.5 text-meta bg-brand-action text-white rounded-lg hover:bg-brand-action/90 disabled:opacity-50 disabled:cursor-not-allowed"
+                        className="ros-btn-raise px-3 py-1.5 text-meta bg-brand-action text-white rounded-lg hover:bg-brand-action/90 disabled:opacity-50 disabled:cursor-not-allowed"
                       >
                         Export selected
                       </button>
