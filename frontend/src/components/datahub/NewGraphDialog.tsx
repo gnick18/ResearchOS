@@ -519,56 +519,45 @@ export default function NewGraphDialog({
             <p className="text-meta font-medium uppercase tracking-wide text-foreground-muted">
               Diagnostic plots
             </p>
-            <div className="mt-1 flex flex-col gap-2">
-              {groups.length >= 1 && (
-                <button
-                  type="button"
-                  onClick={() => submitDiagnostic("qqPlot", regression?.id ?? null)}
-                  className="rounded-md border border-border bg-surface-raised px-3 py-2 text-left transition-colors hover:bg-surface-sunken"
-                  data-testid="datahub-newgraph-qq"
-                >
-                  <span className="block text-body font-medium text-foreground">
-                    Normal QQ plot
-                  </span>
-                  <span className="mt-0.5 block text-meta text-foreground-muted">
-                    {regression
-                      ? "Checks whether the regression residuals are normal, the ordered values against the theoretical normal quantiles with a reference line."
-                      : "Checks whether a sample is normal, the ordered values against the theoretical normal quantiles with a reference line."}
-                  </span>
-                </button>
-              )}
-              {regression && (
-                <button
-                  type="button"
-                  onClick={() => submitDiagnostic("residualPlot", regression.id)}
-                  className="rounded-md border border-border bg-surface-raised px-3 py-2 text-left transition-colors hover:bg-surface-sunken"
-                  data-testid="datahub-newgraph-residual"
-                >
-                  <span className="block text-body font-medium text-foreground">
-                    Residual vs fitted
-                  </span>
-                  <span className="mt-0.5 block text-meta text-foreground-muted">
-                    The regression residuals against the fitted values, with a
-                    zero line. A fan or a curve flags a model that does not fit.
-                  </span>
-                </button>
-              )}
-              {roc && (
-                <button
-                  type="button"
-                  onClick={() => submitDiagnostic("rocCurve", roc.id)}
-                  className="rounded-md border border-border bg-surface-raised px-3 py-2 text-left transition-colors hover:bg-surface-sunken"
-                  data-testid="datahub-newgraph-roc"
-                >
-                  <span className="block text-body font-medium text-foreground">
-                    ROC curve
-                  </span>
-                  <span className="mt-0.5 block text-meta text-foreground-muted">
-                    The true positive rate against the false positive rate from
-                    the ROC analysis, with the chance diagonal and the AUC.
-                  </span>
-                </button>
-              )}
+            {/* Diagnostic plots are graph types too (data/teal), so they carry
+                the same tiled 2-col treatment as GRAPH TYPE above. */}
+            <div className="mt-1 @container">
+              <WidgetOptionGrid>
+                {groups.length >= 1 && (
+                  <WidgetRow
+                    icon="figure"
+                    tint="data"
+                    label="Normal QQ plot"
+                    hint={
+                      regression
+                        ? "Checks whether the regression residuals are normal, the ordered values against the theoretical normal quantiles with a reference line."
+                        : "Checks whether a sample is normal, the ordered values against the theoretical normal quantiles with a reference line."
+                    }
+                    onClick={() => submitDiagnostic("qqPlot", regression?.id ?? null)}
+                    testId="datahub-newgraph-qq"
+                  />
+                )}
+                {regression && (
+                  <WidgetRow
+                    icon="figure"
+                    tint="data"
+                    label="Residual vs fitted"
+                    hint="The regression residuals against the fitted values, with a zero line. A fan or a curve flags a model that does not fit."
+                    onClick={() => submitDiagnostic("residualPlot", regression.id)}
+                    testId="datahub-newgraph-residual"
+                  />
+                )}
+                {roc && (
+                  <WidgetRow
+                    icon="figure"
+                    tint="data"
+                    label="ROC curve"
+                    hint="The true positive rate against the false positive rate from the ROC analysis, with the chance diagonal and the AUC."
+                    onClick={() => submitDiagnostic("rocCurve", roc.id)}
+                    testId="datahub-newgraph-roc"
+                  />
+                )}
+              </WidgetOptionGrid>
             </div>
           </div>
         )}
