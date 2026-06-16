@@ -547,7 +547,7 @@ export default function VariationNotesPanel({ task, methodId, variationNotes, on
                 <button
                   onClick={() => setIsEditing(false)}
                   disabled={saving}
-                  className="rounded-lg bg-brand-action px-3 py-1.5 text-meta text-white hover:bg-brand-action/90 disabled:opacity-50"
+                  className="ros-btn-raise rounded-lg bg-brand-action px-3 py-1.5 text-meta text-white hover:bg-brand-action/90 disabled:opacity-50"
                 >
                   Done
                 </button>
@@ -621,7 +621,7 @@ export default function VariationNotesPanel({ task, methodId, variationNotes, on
             {!readOnly && (
               <button
                 onClick={handleAddNote}
-                className="mt-3 inline-flex items-center gap-1 rounded-md bg-brand-action px-3 py-1.5 text-meta text-white transition-colors hover:bg-brand-action/90"
+                className="ros-btn-raise mt-3 inline-flex items-center gap-1 rounded-md bg-brand-action px-3 py-1.5 text-meta text-white transition-colors hover:bg-brand-action/90"
               >
                 <Icon name="plus" className="h-3.5 w-3.5" />
                 Add note

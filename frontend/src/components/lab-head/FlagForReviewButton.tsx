@@ -233,7 +233,7 @@ export default function FlagForReviewButton({
                   type="button"
                   onClick={handleSet}
                   disabled={busy}
-                  className="px-3 py-1.5 rounded-md bg-amber-600 text-white text-meta font-medium hover:bg-amber-700 disabled:bg-gray-300"
+                  className="ros-btn-raise px-3 py-1.5 rounded-md bg-amber-600 text-white text-meta font-medium hover:bg-amber-700 disabled:bg-gray-300"
                   data-testid="lab-head-flag-set"
                 >
                   {busy ? "Saving…" : isFlagged ? "Update" : "Flag"}

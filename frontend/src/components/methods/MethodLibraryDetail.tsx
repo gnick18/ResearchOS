@@ -453,7 +453,7 @@ export function SingleTemplateDetail({
               type="button"
               onClick={onUse}
               disabled={anyUsing}
-              className="w-full px-4 py-2.5 text-body font-medium bg-brand-action text-white rounded-lg hover:bg-brand-action/90 disabled:opacity-50"
+              className="ros-btn-raise w-full px-4 py-2.5 text-body font-medium bg-brand-action text-white rounded-lg hover:bg-brand-action/90 disabled:opacity-50"
             >
               {isUsing ? "Adding..." : "Use template"}
             </button>
@@ -629,7 +629,7 @@ export function CompoundTemplateDetail({
               type="button"
               onClick={onUse}
               disabled={anyUsing}
-              className="w-full px-4 py-2.5 text-body font-medium bg-brand-action text-white rounded-lg hover:bg-brand-action/90 disabled:opacity-50"
+              className="ros-btn-raise w-full px-4 py-2.5 text-body font-medium bg-brand-action text-white rounded-lg hover:bg-brand-action/90 disabled:opacity-50"
             >
               {isUsing ? "Adding..." : "Use kit"}
             </button>

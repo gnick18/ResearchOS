@@ -296,7 +296,7 @@ export default function InstitutionDashboard() {
                 type="button"
                 onClick={activatePlan}
                 disabled={saving}
-                className="h-8 rounded-lg bg-brand-action px-3 text-meta font-semibold text-white disabled:opacity-60"
+                className="ros-btn-raise h-8 rounded-lg bg-brand-action px-3 text-meta font-semibold text-white disabled:opacity-60"
               >
                 {saving
                   ? "Saving…"

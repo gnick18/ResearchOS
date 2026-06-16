@@ -77,7 +77,7 @@ export default function MigrationStatusRow() {
         type="button"
         onClick={() => void rerun()}
         disabled={running || !currentUser}
-        className="px-3 py-2 text-body bg-brand-action hover:bg-brand-action/90 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-lg whitespace-nowrap"
+        className="ros-btn-raise px-3 py-2 text-body bg-brand-action hover:bg-brand-action/90 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-lg whitespace-nowrap"
       >
         {running ? "Running..." : "Re-run all checks"}
       </button>

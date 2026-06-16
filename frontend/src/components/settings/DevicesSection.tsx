@@ -492,7 +492,7 @@ export default function DevicesSection({
                 type="button"
                 onClick={() => void createDevIdentity()}
                 disabled={creatingDevId}
-                className="w-full flex items-center justify-center gap-2 py-2.5 text-body rounded-lg bg-amber-500 text-white hover:bg-amber-600 font-medium transition-colors disabled:opacity-50"
+                className="ros-btn-raise w-full flex items-center justify-center gap-2 py-2.5 text-body rounded-lg bg-amber-500 text-white hover:bg-amber-600 font-medium transition-colors disabled:opacity-50"
               >
                 {creatingDevId
                   ? "Creating dev identity..."

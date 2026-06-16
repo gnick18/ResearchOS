@@ -6201,7 +6201,7 @@ export default function SequenceEditView({
               <button
                 type="button"
                 onClick={() => void runPasteTaxonomy()}
-                className="rounded-md bg-brand-action px-3 py-1.5 text-body font-medium text-white hover:bg-brand-action/90"
+                className="ros-btn-raise rounded-md bg-brand-action px-3 py-1.5 text-body font-medium text-white hover:bg-brand-action/90"
               >
                 Paste taxonomy
               </button>

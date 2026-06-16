@@ -159,7 +159,7 @@ export default function OperatorSignIn() {
               type="button"
               disabled={codeBusy || !code.trim()}
               onClick={submitCode}
-              className="rounded-lg bg-brand-action px-4 py-2 text-body font-semibold text-white hover:bg-brand-action/90 disabled:opacity-50"
+              className="ros-btn-raise rounded-lg bg-brand-action px-4 py-2 text-body font-semibold text-white hover:bg-brand-action/90 disabled:opacity-50"
             >
               {codeBusy ? "Checking..." : "Enter"}
             </button>

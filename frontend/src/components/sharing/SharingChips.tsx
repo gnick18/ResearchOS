@@ -90,7 +90,7 @@ export default function SharingChips({
         <button
           type="button"
           onClick={onShareClick}
-          className="ml-1 px-2 py-0.5 rounded-full bg-brand-action text-white hover:bg-brand-action/90 text-meta font-medium"
+          className="ros-btn-raise ml-1 px-2 py-0.5 rounded-full bg-brand-action text-white hover:bg-brand-action/90 text-meta font-medium"
           data-tour-target="sharing-chips-share-button"
         >
           Share…

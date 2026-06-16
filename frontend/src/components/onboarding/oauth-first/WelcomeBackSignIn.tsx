@@ -142,7 +142,7 @@ export function WelcomeBackSignIn({
             <button
               type="button"
               onClick={() => startOAuthFirstSignIn("devmock")}
-              className="mt-6 w-full rounded-[10px] bg-amber-500 px-3 py-2.5 text-[13px] font-semibold text-white transition-colors hover:bg-amber-600"
+              className="ros-btn-raise mt-6 w-full rounded-[10px] bg-amber-500 px-3 py-2.5 text-[13px] font-semibold text-white transition-colors hover:bg-amber-600"
             >
               Dev mock sign-in (test the link flow)
             </button>

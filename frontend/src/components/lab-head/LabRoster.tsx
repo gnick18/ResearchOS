@@ -871,7 +871,7 @@ function ReadmitDialog({
             <button
               type="button"
               onClick={() => void doReadmit()}
-              className="px-3 py-1.5 rounded-md text-meta font-medium text-white bg-emerald-600 hover:bg-emerald-700"
+              className="ros-btn-raise px-3 py-1.5 rounded-md text-meta font-medium text-white bg-emerald-600 hover:bg-emerald-700"
               data-testid="lab-roster-readmit-confirm"
             >
               Re-admit

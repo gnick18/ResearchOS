@@ -267,7 +267,7 @@ export default function ImportInventoryDialog({
             <button
               type="button"
               onClick={goToMap}
-              className="bg-brand-action text-white transition-colors hover:bg-brand-action/90 inline-flex items-center gap-1.5 rounded-lg px-4 py-2 text-body"
+              className="ros-btn-raise bg-brand-action text-white transition-colors hover:bg-brand-action/90 inline-flex items-center gap-1.5 rounded-lg px-4 py-2 text-body"
             >
               Next, map columns
               <Icon name="chevronRight" className="h-4 w-4" />
@@ -289,7 +289,7 @@ export default function ImportInventoryDialog({
               type="button"
               onClick={goToPreview}
               disabled={!nameMapped}
-              className="bg-brand-action text-white transition-colors hover:bg-brand-action/90 inline-flex items-center gap-1.5 rounded-lg px-4 py-2 text-body disabled:cursor-not-allowed disabled:opacity-50"
+              className="ros-btn-raise bg-brand-action text-white transition-colors hover:bg-brand-action/90 inline-flex items-center gap-1.5 rounded-lg px-4 py-2 text-body disabled:cursor-not-allowed disabled:opacity-50"
             >
               Next, preview
               <Icon name="chevronRight" className="h-4 w-4" />
@@ -311,7 +311,7 @@ export default function ImportInventoryDialog({
               type="button"
               onClick={runImport}
               disabled={importing || validRows.length === 0}
-              className="bg-brand-action text-white transition-colors hover:bg-brand-action/90 inline-flex items-center gap-1.5 rounded-lg px-4 py-2 text-body disabled:cursor-not-allowed disabled:opacity-50"
+              className="ros-btn-raise bg-brand-action text-white transition-colors hover:bg-brand-action/90 inline-flex items-center gap-1.5 rounded-lg px-4 py-2 text-body disabled:cursor-not-allowed disabled:opacity-50"
             >
               <Icon name="check" className="h-4 w-4" />
               {importing
@@ -327,7 +327,7 @@ export default function ImportInventoryDialog({
           <button
             type="button"
             onClick={onDone}
-            className="bg-brand-action text-white transition-colors hover:bg-brand-action/90 mx-auto inline-flex items-center gap-1.5 rounded-lg px-5 py-2 text-body"
+            className="ros-btn-raise bg-brand-action text-white transition-colors hover:bg-brand-action/90 mx-auto inline-flex items-center gap-1.5 rounded-lg px-5 py-2 text-body"
           >
             Done
           </button>

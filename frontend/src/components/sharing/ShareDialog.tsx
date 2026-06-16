@@ -417,7 +417,7 @@ export default function ShareDialog({
                 type="button"
                 onClick={handleAdd}
                 disabled={!addUsername}
-                className="px-3 py-2 bg-brand-action text-white rounded-lg hover:bg-brand-action/90 disabled:opacity-50 disabled:cursor-not-allowed text-body font-medium"
+                className="ros-btn-raise px-3 py-2 bg-brand-action text-white rounded-lg hover:bg-brand-action/90 disabled:opacity-50 disabled:cursor-not-allowed text-body font-medium"
                 data-tour-target="share-dialog-add"
               >
                 Add
@@ -469,7 +469,7 @@ export default function ShareDialog({
             onClick={handleSave}
             disabled={saving}
             data-tour-target="share-dialog-confirm"
-            className="px-4 py-2 bg-brand-action text-white rounded-lg hover:bg-brand-action/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            className="ros-btn-raise px-4 py-2 bg-brand-action text-white rounded-lg hover:bg-brand-action/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {saving ? "Saving…" : "Save"}
           </button>

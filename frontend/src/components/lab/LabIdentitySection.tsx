@@ -186,7 +186,7 @@ export default function LabIdentitySection({
             type="button"
             onClick={() => void save()}
             disabled={saving}
-            className="rounded-md bg-brand-action px-4 py-2 text-meta font-medium text-white hover:bg-brand-action/90 disabled:opacity-50"
+            className="ros-btn-raise rounded-md bg-brand-action px-4 py-2 text-meta font-medium text-white hover:bg-brand-action/90 disabled:opacity-50"
           >
             {saving ? "Saving..." : "Save lab identity"}
           </button>

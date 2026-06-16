@@ -163,7 +163,7 @@ export default function PickUserBeforeImportModal({
                 onClick={() => void handleCreate()}
                 disabled={isCreating || isPicking}
                 data-testid="eln-pick-user-create-btn"
-                className="px-4 py-2 bg-brand-action hover:bg-brand-action/90 text-white rounded-lg transition-colors disabled:opacity-50"
+                className="ros-btn-raise px-4 py-2 bg-brand-action hover:bg-brand-action/90 text-white rounded-lg transition-colors disabled:opacity-50"
               >
                 {isCreating ? "Creating..." : "Create"}
               </button>

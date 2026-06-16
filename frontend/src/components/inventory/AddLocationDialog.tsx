@@ -233,7 +233,7 @@ export default function AddLocationDialog({
           type="button"
           onClick={handleSubmit}
           disabled={saving}
-          className="bg-brand-action text-white transition-colors hover:bg-brand-action/90 inline-flex items-center gap-1.5 px-4 py-2 text-body rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
+          className="ros-btn-raise bg-brand-action text-white transition-colors hover:bg-brand-action/90 inline-flex items-center gap-1.5 px-4 py-2 text-body rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
         >
           <Icon name="check" className="h-4 w-4" />
           Add location

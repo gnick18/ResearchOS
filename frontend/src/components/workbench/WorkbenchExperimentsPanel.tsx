@@ -947,7 +947,7 @@ export default function WorkbenchExperimentsPanel({
           <button
             onClick={handleCreateExperiment}
             data-tour-target="workbench-new-experiment"
-            className="px-6 py-3 text-body bg-brand-action text-white rounded-lg hover:bg-brand-action/90"
+            className="ros-btn-raise px-6 py-3 text-body bg-brand-action text-white rounded-lg hover:bg-brand-action/90"
           >
             + New Experiment
           </button>
@@ -1076,7 +1076,7 @@ export default function WorkbenchExperimentsPanel({
                 <button
                   onClick={handleCreateExperiment}
                   data-tour-target="workbench-new-experiment"
-                  className="px-3 py-1.5 text-body bg-brand-action text-white rounded-lg hover:bg-brand-action/90"
+                  className="ros-btn-raise px-3 py-1.5 text-body bg-brand-action text-white rounded-lg hover:bg-brand-action/90"
                 >
                   + New Experiment
                 </button>

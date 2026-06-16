@@ -326,7 +326,7 @@ export default function TaxonomyLookupDialog({
             type="button"
             onClick={handleLookup}
             disabled={query.trim() === "" || busy}
-            className="flex items-center gap-1.5 rounded-md bg-brand-action px-3.5 py-1.5 text-meta font-medium text-white transition-colors hover:bg-brand-action/90 disabled:cursor-not-allowed disabled:opacity-50"
+            className="ros-btn-raise flex items-center gap-1.5 rounded-md bg-brand-action px-3.5 py-1.5 text-meta font-medium text-white transition-colors hover:bg-brand-action/90 disabled:cursor-not-allowed disabled:opacity-50"
           >
             {busy ? (
               <>

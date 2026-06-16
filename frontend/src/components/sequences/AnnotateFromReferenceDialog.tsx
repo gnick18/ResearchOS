@@ -247,7 +247,7 @@ export default function AnnotateFromReferenceDialog({
                 type="button"
                 disabled={refId == null || running}
                 onClick={runTransfer}
-                className="rounded-md bg-brand-action px-3 py-1.5 text-body font-medium text-white hover:bg-brand-action/90 disabled:cursor-not-allowed disabled:opacity-40"
+                className="ros-btn-raise rounded-md bg-brand-action px-3 py-1.5 text-body font-medium text-white hover:bg-brand-action/90 disabled:cursor-not-allowed disabled:opacity-40"
               >
                 {running ? "Aligning…" : "Find features"}
               </button>
@@ -256,7 +256,7 @@ export default function AnnotateFromReferenceDialog({
                 type="button"
                 disabled={selectedCount === 0}
                 onClick={apply}
-                className="rounded-md bg-brand-action px-3 py-1.5 text-body font-medium text-white hover:bg-brand-action/90 disabled:cursor-not-allowed disabled:opacity-40"
+                className="ros-btn-raise rounded-md bg-brand-action px-3 py-1.5 text-body font-medium text-white hover:bg-brand-action/90 disabled:cursor-not-allowed disabled:opacity-40"
               >
                 Add {selectedCount} feature{selectedCount === 1 ? "" : "s"}
               </button>

@@ -754,7 +754,7 @@ export default function DatasetAnalysisDialog({
                 <button
                   type="button"
                   onClick={onClose}
-                  className="bg-brand-action text-white transition-colors hover:bg-brand-action/90 rounded-md px-3 py-1.5 text-body font-medium"
+                  className="ros-btn-raise bg-brand-action text-white transition-colors hover:bg-brand-action/90 rounded-md px-3 py-1.5 text-body font-medium"
                 >
                   Done
                 </button>
@@ -780,7 +780,7 @@ export default function DatasetAnalysisDialog({
                     type="button"
                     onClick={() => void run()}
                     disabled={!canRun || running}
-                    className="bg-brand-action text-white transition-colors hover:bg-brand-action/90 rounded-md px-3 py-1.5 text-body font-medium disabled:opacity-50"
+                    className="ros-btn-raise bg-brand-action text-white transition-colors hover:bg-brand-action/90 rounded-md px-3 py-1.5 text-body font-medium disabled:opacity-50"
                     data-testid="dataset-analysis-run"
                   >
                     {running ? "Running" : "Run analysis"}

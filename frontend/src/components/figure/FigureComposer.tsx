@@ -2416,7 +2416,7 @@ function AddFigurePicker({
               type="button"
               onClick={confirm}
               disabled={selected.size === 0}
-              className="rounded-lg bg-brand-action px-3 py-1.5 text-meta font-semibold text-white disabled:opacity-40"
+              className="ros-btn-raise rounded-lg bg-brand-action px-3 py-1.5 text-meta font-semibold text-white disabled:opacity-40"
               data-testid="picker-add"
             >
               Add {selected.size} figure{selected.size === 1 ? "" : "s"}

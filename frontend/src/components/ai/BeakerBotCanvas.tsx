@@ -298,7 +298,7 @@ export default function BeakerBotCanvas() {
             type="button"
             data-testid="beakerbot-canvas-save"
             onClick={() => saveTab(activeTab.id)}
-            className="bg-brand-action text-white transition-colors hover:bg-brand-action/90 flex items-center gap-1 rounded-md px-3 py-1.5 text-meta font-medium"
+            className="ros-btn-raise bg-brand-action text-white transition-colors hover:bg-brand-action/90 flex items-center gap-1 rounded-md px-3 py-1.5 text-meta font-medium"
           >
             <Icon name="save" className="h-3.5 w-3.5" title="Save" />
             Save

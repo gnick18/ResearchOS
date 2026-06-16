@@ -239,7 +239,7 @@ export default function BulkSortScreen({ result, onDone }: BulkSortScreenProps) 
         <button
           type="button"
           onClick={onDone}
-          className="px-4 py-2 text-body bg-brand-action hover:bg-brand-action/90 text-white rounded-lg whitespace-nowrap"
+          className="ros-btn-raise px-4 py-2 text-body bg-brand-action hover:bg-brand-action/90 text-white rounded-lg whitespace-nowrap"
         >
           Done
         </button>
@@ -359,7 +359,7 @@ function BulkActionBar({
       <button
         type="button"
         onClick={onDeleteRequested}
-        className="ml-auto px-2 py-1 text-meta bg-red-600 hover:bg-red-700 text-white rounded"
+        className="ros-btn-raise ml-auto px-2 py-1 text-meta bg-red-600 hover:bg-red-700 text-white rounded"
       >
         Delete {selectedCount} task{selectedCount === 1 ? "" : "s"}
       </button>
@@ -528,7 +528,7 @@ function TaskRow({
                   setConfirmOpen(false);
                   onDelete(row.task.newTaskId);
                 }}
-                className="px-3 py-1.5 text-meta bg-red-600 hover:bg-red-700 text-white rounded"
+                className="ros-btn-raise px-3 py-1.5 text-meta bg-red-600 hover:bg-red-700 text-white rounded"
               >
                 Delete
               </button>
@@ -575,7 +575,7 @@ function ConfirmDeleteModal({
           <button
             type="button"
             onClick={onConfirm}
-            className="px-3 py-1.5 text-meta bg-red-600 hover:bg-red-700 text-white rounded"
+            className="ros-btn-raise px-3 py-1.5 text-meta bg-red-600 hover:bg-red-700 text-white rounded"
           >
             Delete {count}
           </button>

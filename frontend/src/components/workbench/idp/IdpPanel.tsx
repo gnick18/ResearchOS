@@ -194,7 +194,7 @@ function NoIdpState({
         onClick={() => onCreate(stage)}
         disabled={busy}
         data-testid="idp-create"
-        className="bg-brand-action text-white transition-colors hover:bg-brand-action/90 flex items-center gap-1.5 rounded-lg px-4 py-2 text-body font-medium"
+        className="ros-btn-raise bg-brand-action text-white transition-colors hover:bg-brand-action/90 flex items-center gap-1.5 rounded-lg px-4 py-2 text-body font-medium"
       >
         <Icon name="plus" className="h-4 w-4" />
         Create the plan
@@ -1239,7 +1239,7 @@ function MentorReview({
             onClick={() =>
               call(() => idpsApi.submitReview(idp.id, { comment }))
             }
-            className="bg-brand-action text-white transition-colors hover:bg-brand-action/90 rounded-lg px-3 py-1.5 text-meta font-medium"
+            className="ros-btn-raise bg-brand-action text-white transition-colors hover:bg-brand-action/90 rounded-lg px-3 py-1.5 text-meta font-medium"
           >
             Sign off
           </button>

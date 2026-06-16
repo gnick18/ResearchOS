@@ -717,7 +717,7 @@ export default function EntityVersionHistorySidebar<P extends EntityProjection>(
               type="button"
               onClick={() => setConfirmingRestore(true)}
               data-testid="restore-button"
-              className="w-full inline-flex items-center justify-center gap-2 px-3 py-2 text-body font-medium text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg transition-colors"
+              className="ros-btn-raise w-full inline-flex items-center justify-center gap-2 px-3 py-2 text-body font-medium text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg transition-colors"
             >
               <svg
                 className="w-4 h-4"
@@ -747,7 +747,7 @@ export default function EntityVersionHistorySidebar<P extends EntityProjection>(
                   onClick={handleConfirmRestore}
                   disabled={restoring}
                   data-testid="restore-confirm-button"
-                  className="flex-1 px-3 py-2 text-body font-medium text-white bg-emerald-600 hover:bg-emerald-700 disabled:opacity-60 rounded-lg transition-colors"
+                  className="ros-btn-raise flex-1 px-3 py-2 text-body font-medium text-white bg-emerald-600 hover:bg-emerald-700 disabled:opacity-60 rounded-lg transition-colors"
                 >
                   {restoring ? "Restoring..." : "Restore"}
                 </button>

@@ -168,7 +168,7 @@ function NoIdentityBody({ onSetUp }: { onSetUp: () => void }) {
       <button
         type="button"
         onClick={onSetUp}
-        className="w-full py-2 text-body rounded-lg font-medium bg-brand-action hover:bg-brand-action/90 text-white transition-colors"
+        className="ros-btn-raise w-full py-2 text-body rounded-lg font-medium bg-brand-action hover:bg-brand-action/90 text-white transition-colors"
       >
         Set up sharing
       </button>
@@ -348,7 +348,7 @@ function SendForm({
           <button
             type="button"
             onClick={handleInvite}
-            className="flex-1 py-2 text-body rounded-lg font-medium bg-brand-action hover:bg-brand-action/90 text-white transition-colors"
+            className="ros-btn-raise flex-1 py-2 text-body rounded-lg font-medium bg-brand-action hover:bg-brand-action/90 text-white transition-colors"
           >
             Invite and share
           </button>
@@ -390,7 +390,7 @@ function SendForm({
         <button
           type="button"
           onClick={onClose}
-          className="w-full py-2 text-body rounded-lg font-medium bg-brand-action hover:bg-brand-action/90 text-white transition-colors"
+          className="ros-btn-raise w-full py-2 text-body rounded-lg font-medium bg-brand-action hover:bg-brand-action/90 text-white transition-colors"
         >
           Done
         </button>
@@ -416,7 +416,7 @@ function SendForm({
         <button
           type="button"
           onClick={onClose}
-          className="w-full py-2 text-body rounded-lg font-medium bg-brand-action hover:bg-brand-action/90 text-white transition-colors"
+          className="ros-btn-raise w-full py-2 text-body rounded-lg font-medium bg-brand-action hover:bg-brand-action/90 text-white transition-colors"
         >
           Done
         </button>
@@ -486,7 +486,7 @@ function SendForm({
           type="button"
           onClick={handleSend}
           disabled={!canSend}
-          className="flex-1 py-2 text-body rounded-lg font-medium bg-brand-action hover:bg-brand-action/90 text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          className="ros-btn-raise flex-1 py-2 text-body rounded-lg font-medium bg-brand-action hover:bg-brand-action/90 text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
         >
           {sending ? "Sending…" : "Send"}
         </button>

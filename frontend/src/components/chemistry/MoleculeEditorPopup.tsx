@@ -408,7 +408,7 @@ export function MoleculeEditorPopup({
             type="button"
             onClick={handleSave}
             disabled={saving || !ready}
-            className="inline-flex items-center gap-2 px-4 py-2 text-body font-semibold text-white rounded-lg bg-brand-action transition-colors hover:bg-brand-action/90 disabled:opacity-60"
+            className="ros-btn-raise inline-flex items-center gap-2 px-4 py-2 text-body font-semibold text-white rounded-lg bg-brand-action transition-colors hover:bg-brand-action/90 disabled:opacity-60"
           >
             <Icon name="save" className="w-4 h-4" />
             {saving ? "Saving…" : "Save to library"}

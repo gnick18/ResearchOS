@@ -120,7 +120,7 @@ export function ForkToLibraryAction({
                   <button
                     type="button"
                     onClick={() => setOpen(false)}
-                    className="px-3 py-1.5 text-meta text-white bg-brand-action hover:bg-brand-action/90 rounded-lg"
+                    className="ros-btn-raise px-3 py-1.5 text-meta text-white bg-brand-action hover:bg-brand-action/90 rounded-lg"
                   >
                     Done
                   </button>
@@ -163,7 +163,7 @@ export function ForkToLibraryAction({
                     type="button"
                     onClick={() => void handleConfirm()}
                     disabled={busy || !name.trim()}
-                    className="px-3 py-1.5 text-meta text-white bg-brand-action hover:bg-brand-action/90 rounded-lg disabled:opacity-50"
+                    className="ros-btn-raise px-3 py-1.5 text-meta text-white bg-brand-action hover:bg-brand-action/90 rounded-lg disabled:opacity-50"
                   >
                     {busy ? "Saving…" : "Create method"}
                   </button>

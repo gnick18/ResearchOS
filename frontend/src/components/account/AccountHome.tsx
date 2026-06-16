@@ -397,7 +397,7 @@ export default function AccountHome() {
                 type="button"
                 onClick={() => void save()}
                 disabled={saving || !handle.trim()}
-                className="rounded-lg bg-brand-action px-4 py-2 text-meta font-semibold text-white disabled:opacity-60"
+                className="ros-btn-raise rounded-lg bg-brand-action px-4 py-2 text-meta font-semibold text-white disabled:opacity-60"
               >
                 {saving ? "Saving…" : profile ? "Save" : "Claim handle"}
               </button>
@@ -461,7 +461,7 @@ export default function AccountHome() {
             <button
               type="button"
               onClick={() => router.push("/")}
-              className="mt-3 inline-block rounded-lg bg-brand-action px-4 py-2 text-meta font-semibold text-white"
+              className="ros-btn-raise mt-3 inline-block rounded-lg bg-brand-action px-4 py-2 text-meta font-semibold text-white"
             >
               Open ResearchOS
             </button>
@@ -488,7 +488,7 @@ export default function AccountHome() {
               type="button"
               onClick={() => void onConnect()}
               disabled={connecting}
-              className="mt-3 rounded-lg bg-brand-action px-4 py-2 text-meta font-semibold text-white disabled:opacity-60"
+              className="ros-btn-raise mt-3 rounded-lg bg-brand-action px-4 py-2 text-meta font-semibold text-white disabled:opacity-60"
             >
               {connecting
                 ? "Opening…"

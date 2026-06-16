@@ -108,7 +108,7 @@ export function PubChemImportDialog({
               data-testid="pubchem-search-submit"
               onClick={() => void runSearch()}
               disabled={loading || !query.trim()}
-              className="inline-flex items-center gap-2 px-4 py-2 text-body font-semibold text-white rounded-lg bg-brand-action transition-colors hover:bg-brand-action/90 disabled:opacity-60"
+              className="ros-btn-raise inline-flex items-center gap-2 px-4 py-2 text-body font-semibold text-white rounded-lg bg-brand-action transition-colors hover:bg-brand-action/90 disabled:opacity-60"
             >
               <Icon name="search" className="w-4 h-4" />
               {loading ? "Searching…" : "Search"}
@@ -245,7 +245,7 @@ function CandidateCard({
           data-testid="pubchem-import-btn"
           onClick={handleImport}
           disabled={importing || !molblock}
-          className="mt-auto inline-flex items-center justify-center gap-2 px-3 py-1.5 text-meta font-semibold text-white rounded-lg bg-brand-action transition-colors hover:bg-brand-action/90 disabled:opacity-50"
+          className="ros-btn-raise mt-auto inline-flex items-center justify-center gap-2 px-3 py-1.5 text-meta font-semibold text-white rounded-lg bg-brand-action transition-colors hover:bg-brand-action/90 disabled:opacity-50"
         >
           <Icon name="download" className="w-3.5 h-3.5" />
           {importing ? "Importing…" : molblock ? "Import" : "Loading…"}

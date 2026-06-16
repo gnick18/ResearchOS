@@ -1102,7 +1102,7 @@ function MoleculeRenameModal({
           <button
             type="button"
             onClick={() => onConfirm(value)}
-            className="px-3 py-1.5 text-meta font-semibold text-white bg-brand-action rounded-lg hover:opacity-90 transition-opacity"
+            className="ros-btn-raise px-3 py-1.5 text-meta font-semibold text-white bg-brand-action rounded-lg hover:opacity-90 transition-opacity"
           >
             Save
           </button>

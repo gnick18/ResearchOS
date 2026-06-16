@@ -669,7 +669,7 @@ export default function GuidedNcbiImport({
                 type="button"
                 onClick={confirm.proceed}
                 data-testid="ncbi-size-confirm-proceed"
-                className="rounded-md bg-amber-600 px-3 py-1 text-meta font-medium text-white transition-colors hover:bg-amber-700"
+                className="ros-btn-raise rounded-md bg-amber-600 px-3 py-1 text-meta font-medium text-white transition-colors hover:bg-amber-700"
               >
                 Download anyway
               </button>
@@ -833,7 +833,7 @@ function OrganismStep({
                 disabled={busy || !accession.trim()}
                 onClick={() => onImportAccession(accession)}
                 data-testid="ncbi-accession-go"
-                className="rounded-md bg-brand-action px-3.5 py-2 text-meta font-medium text-white transition-colors hover:bg-brand-action/90 disabled:cursor-not-allowed disabled:opacity-50"
+                className="ros-btn-raise rounded-md bg-brand-action px-3.5 py-2 text-meta font-medium text-white transition-colors hover:bg-brand-action/90 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 Go
               </button>
@@ -1027,7 +1027,7 @@ function ContigsStep({
         type="button"
         disabled={busy}
         onClick={onSearchGene}
-        className="mt-3 flex w-full items-center justify-center gap-1.5 rounded-md bg-brand-action px-3.5 py-2 text-meta font-medium text-white transition-colors hover:bg-brand-action/90 disabled:opacity-50"
+        className="ros-btn-raise mt-3 flex w-full items-center justify-center gap-1.5 rounded-md bg-brand-action px-3.5 py-2 text-meta font-medium text-white transition-colors hover:bg-brand-action/90 disabled:opacity-50"
       >
         <Icon name="search" className="h-3.5 w-3.5" />
         Search a gene instead
@@ -1169,7 +1169,7 @@ function GeneStep({
           disabled={busy || !query.trim() || loading}
           onClick={runSearch}
           data-testid="ncbi-gene-search"
-          className="flex items-center gap-1.5 rounded-md bg-brand-action px-3.5 py-2 text-meta font-medium text-white transition-colors hover:bg-brand-action/90 disabled:cursor-not-allowed disabled:opacity-50"
+          className="ros-btn-raise flex items-center gap-1.5 rounded-md bg-brand-action px-3.5 py-2 text-meta font-medium text-white transition-colors hover:bg-brand-action/90 disabled:cursor-not-allowed disabled:opacity-50"
         >
           {loading ? (
             <Icon name="refresh" className="h-3.5 w-3.5 animate-spin" />
@@ -1369,7 +1369,7 @@ function WindowStep({
           disabled={busy}
           onClick={onImport}
           data-testid="ncbi-import-region"
-          className="ml-auto flex items-center gap-1.5 rounded-md bg-brand-action px-3.5 py-1.5 text-meta font-medium text-white transition-colors hover:bg-brand-action/90 disabled:opacity-50"
+          className="ros-btn-raise ml-auto flex items-center gap-1.5 rounded-md bg-brand-action px-3.5 py-1.5 text-meta font-medium text-white transition-colors hover:bg-brand-action/90 disabled:opacity-50"
         >
           <Icon name="import" className="h-3.5 w-3.5" />
           Import this region
@@ -1410,7 +1410,7 @@ function DoneScreen({
         <button
           type="button"
           onClick={onClose}
-          className="rounded-md bg-brand-action px-3.5 py-1.5 text-meta font-medium text-white transition-colors hover:bg-brand-action/90"
+          className="ros-btn-raise rounded-md bg-brand-action px-3.5 py-1.5 text-meta font-medium text-white transition-colors hover:bg-brand-action/90"
         >
           Done
         </button>

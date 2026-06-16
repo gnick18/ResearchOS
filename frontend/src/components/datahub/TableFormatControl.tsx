@@ -207,7 +207,7 @@ export default function TableFormatControl({
                 <button
                   type="button"
                   onClick={confirmPending}
-                  className="rounded-md bg-amber-600 px-2.5 py-1 text-[11px] font-semibold text-white transition-colors hover:bg-amber-700"
+                  className="ros-btn-raise rounded-md bg-amber-600 px-2.5 py-1 text-[11px] font-semibold text-white transition-colors hover:bg-amber-700"
                   data-testid="datahub-table-format-apply"
                 >
                   {classifySwitch(format, pending) === "to-summary"

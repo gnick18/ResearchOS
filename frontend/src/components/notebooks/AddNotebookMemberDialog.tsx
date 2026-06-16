@@ -197,7 +197,7 @@ export default function AddNotebookMemberDialog({
             onClick={handlePrimary}
             disabled={!selected || busy}
             data-testid="notebook-add-member-confirm"
-            className="bg-brand-action text-white transition-colors hover:bg-brand-action/90 rounded-lg px-4 py-2 text-body font-medium disabled:opacity-40"
+            className="ros-btn-raise bg-brand-action text-white transition-colors hover:bg-brand-action/90 rounded-lg px-4 py-2 text-body font-medium disabled:opacity-40"
           >
             {busy
               ? "Adding…"

@@ -473,7 +473,7 @@ export function EntityCard({
               setSaving(false);
             }
           }}
-          className="rounded-lg bg-brand-action px-4 py-2 text-body font-semibold text-white hover:bg-brand-action/90 disabled:opacity-50"
+          className="ros-btn-raise rounded-lg bg-brand-action px-4 py-2 text-body font-semibold text-white hover:bg-brand-action/90 disabled:opacity-50"
         >
           {saving ? "Saving..." : "Save entity facts"}
         </button>
@@ -640,7 +640,7 @@ export function Ledger({
           type="button"
           disabled={busy}
           onClick={submit}
-          className="rounded-lg bg-brand-action px-4 py-2 text-body font-semibold text-white hover:bg-brand-action/90 disabled:opacity-50"
+          className="ros-btn-raise rounded-lg bg-brand-action px-4 py-2 text-body font-semibold text-white hover:bg-brand-action/90 disabled:opacity-50"
         >
           {busy ? "Adding..." : "Add"}
         </button>
@@ -1012,7 +1012,7 @@ export function TaxSummaryPanel({ ledger }: { ledger: LedgerEntry[] }) {
           <button
             type="button"
             onClick={downloadCsv}
-            className="rounded-lg bg-brand-action px-4 py-2 text-meta font-semibold text-white hover:bg-brand-action/90"
+            className="ros-btn-raise rounded-lg bg-brand-action px-4 py-2 text-meta font-semibold text-white hover:bg-brand-action/90"
           >
             Download CSV
           </button>
@@ -1292,7 +1292,7 @@ export function PaymentMethods({
           type="button"
           disabled={busy}
           onClick={submit}
-          className="rounded-lg bg-brand-action px-4 py-2 text-body font-semibold text-white hover:bg-brand-action/90 disabled:opacity-50"
+          className="ros-btn-raise rounded-lg bg-brand-action px-4 py-2 text-body font-semibold text-white hover:bg-brand-action/90 disabled:opacity-50"
         >
           {busy ? "Adding..." : "Add card"}
         </button>
@@ -1352,7 +1352,7 @@ export function ReimbursementPanel({
               type="button"
               disabled={busy || outstandingCents <= 0}
               onClick={() => record("capital")}
-              className="rounded-lg bg-brand-action px-4 py-2 text-body font-semibold text-white hover:bg-brand-action/90 disabled:opacity-40"
+              className="ros-btn-raise rounded-lg bg-brand-action px-4 py-2 text-body font-semibold text-white hover:bg-brand-action/90 disabled:opacity-40"
             >
               Record as capital contribution
             </button>
@@ -1631,7 +1631,7 @@ export function RecurringSubscriptions({
           type="button"
           disabled={busy}
           onClick={submit}
-          className="rounded-lg bg-brand-action px-4 py-2 text-body font-semibold text-white hover:bg-brand-action/90 disabled:opacity-50"
+          className="ros-btn-raise rounded-lg bg-brand-action px-4 py-2 text-body font-semibold text-white hover:bg-brand-action/90 disabled:opacity-50"
         >
           {busy ? "Adding..." : "Add"}
         </button>

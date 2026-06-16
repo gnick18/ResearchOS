@@ -301,7 +301,7 @@ export default function BarcodeScanner({
             <button
               type="submit"
               disabled={!typed.trim()}
-              className="bg-brand-action text-white transition-colors hover:bg-brand-action/90 inline-flex items-center gap-1.5 rounded-lg px-4 py-2 text-body disabled:opacity-50"
+              className="ros-btn-raise bg-brand-action text-white transition-colors hover:bg-brand-action/90 inline-flex items-center gap-1.5 rounded-lg px-4 py-2 text-body disabled:opacity-50"
             >
               <Icon name="scan" className="h-4 w-4" />
               Look up code

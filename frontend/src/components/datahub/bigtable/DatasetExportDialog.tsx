@@ -282,7 +282,7 @@ export default function DatasetExportDialog({
             type="button"
             onClick={runExport}
             disabled={handle === null || exporting}
-            className="inline-flex items-center gap-1.5 rounded-md bg-brand-action px-3 py-1.5 text-meta font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-50"
+            className="ros-btn-raise inline-flex items-center gap-1.5 rounded-md bg-brand-action px-3 py-1.5 text-meta font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-50"
             data-testid="dataset-export-download"
           >
             <Icon name="download" className="h-3.5 w-3.5" />

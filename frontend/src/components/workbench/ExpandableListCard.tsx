@@ -715,7 +715,7 @@ export default function ExpandableListCard({
                 type="button"
                 onClick={handleAddItem}
                 disabled={!newItemText.trim() || saving}
-                className="px-3 py-1.5 text-body bg-violet-600 text-white rounded-md hover:bg-violet-700 disabled:opacity-40 disabled:cursor-not-allowed"
+                className="ros-btn-raise px-3 py-1.5 text-body bg-violet-600 text-white rounded-md hover:bg-violet-700 disabled:opacity-40 disabled:cursor-not-allowed"
               >
                 Add
               </button>

@@ -231,7 +231,7 @@ export default function AssignTaskButton({
                 type="button"
                 onClick={handleAssign}
                 disabled={busy || !selected}
-                className="px-3 py-1.5 rounded-md bg-emerald-600 text-white text-meta font-medium hover:bg-emerald-700 disabled:bg-gray-300"
+                className="ros-btn-raise px-3 py-1.5 rounded-md bg-emerald-600 text-white text-meta font-medium hover:bg-emerald-700 disabled:bg-gray-300"
                 data-testid="lab-head-assign-task-confirm"
               >
                 {busy ? "Assigning…" : "Assign"}

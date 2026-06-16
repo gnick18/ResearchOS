@@ -106,7 +106,7 @@ export default function LabSetupStep({
               type="button"
               onClick={submit}
               disabled={!nameValid}
-              className="w-full rounded-md bg-brand-action px-4 py-3 text-body font-medium text-white hover:bg-brand-action/90 disabled:cursor-not-allowed disabled:opacity-50"
+              className="ros-btn-raise w-full rounded-md bg-brand-action px-4 py-3 text-body font-medium text-white hover:bg-brand-action/90 disabled:cursor-not-allowed disabled:opacity-50"
             >
               Create lab
             </button>

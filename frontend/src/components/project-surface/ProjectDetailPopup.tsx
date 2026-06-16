@@ -771,7 +771,7 @@ export default function ProjectDetailPopup({
                         onClick={() => void confirmUndoRestore()}
                         disabled={restoreBusy}
                         data-testid="project-undo-confirm-button"
-                        className="px-2.5 py-1 text-meta font-medium text-white bg-amber-600 hover:bg-amber-700 disabled:opacity-60 rounded-md transition-colors"
+                        className="ros-btn-raise px-2.5 py-1 text-meta font-medium text-white bg-amber-600 hover:bg-amber-700 disabled:opacity-60 rounded-md transition-colors"
                       >
                         {restoreBusy ? "Undoing..." : "Discard edits and undo"}
                       </button>
@@ -984,7 +984,7 @@ export default function ProjectDetailPopup({
               <button
                 onClick={() => void handleArchive()}
                 disabled={archiving}
-                className="px-4 py-2 text-body text-white bg-amber-600 hover:bg-amber-700 rounded-lg disabled:opacity-50"
+                className="ros-btn-raise px-4 py-2 text-body text-white bg-amber-600 hover:bg-amber-700 rounded-lg disabled:opacity-50"
               >
                 {archiving ? "Archiving..." : "Archive project"}
               </button>
@@ -1018,7 +1018,7 @@ export default function ProjectDetailPopup({
               <button
                 onClick={() => void handleDelete()}
                 disabled={deleting}
-                className="px-4 py-2 text-body text-white bg-red-600 hover:bg-red-700 rounded-lg disabled:opacity-50"
+                className="ros-btn-raise px-4 py-2 text-body text-white bg-red-600 hover:bg-red-700 rounded-lg disabled:opacity-50"
               >
                 {deleting ? "Deleting..." : "Delete"}
               </button>

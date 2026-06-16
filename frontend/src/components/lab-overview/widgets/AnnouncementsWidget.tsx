@@ -271,7 +271,7 @@ export function Composer({ username, onPosted }: ComposerProps) {
           type="button"
           onClick={handlePost}
           disabled={!canPost}
-          className="px-3 py-1.5 rounded-md bg-emerald-600 text-white text-meta font-medium hover:bg-emerald-700 disabled:bg-foreground-muted/20 disabled:cursor-not-allowed"
+          className="ros-btn-raise px-3 py-1.5 rounded-md bg-emerald-600 text-white text-meta font-medium hover:bg-emerald-700 disabled:bg-foreground-muted/20 disabled:cursor-not-allowed"
           data-testid="lab-announcement-composer-post"
         >
           {posting ? "Posting…" : "Post announcement"}
@@ -483,7 +483,7 @@ function AnnouncementCard({
               type="button"
               onClick={handleSave}
               disabled={busy || draft.trim().length === 0}
-              className="px-2 py-1 rounded-md bg-emerald-600 text-white text-meta font-medium hover:bg-emerald-700 disabled:bg-foreground-muted/20"
+              className="ros-btn-raise px-2 py-1 rounded-md bg-emerald-600 text-white text-meta font-medium hover:bg-emerald-700 disabled:bg-foreground-muted/20"
             >
               Save
             </button>

@@ -1335,7 +1335,7 @@ export function CreateMethodModal({
               (uploadType === "markdown" && !(mdContent.trim() || editorDirty))
             }
             data-tour-target="methods-create-submit"
-            className="px-4 py-2 text-body text-white bg-brand-action hover:bg-brand-action/90 rounded-lg disabled:opacity-50"
+            className="ros-btn-raise px-4 py-2 text-body text-white bg-brand-action hover:bg-brand-action/90 rounded-lg disabled:opacity-50"
           >
             {savingMode === "save" ? "Saving..." : "Create Method"}
           </button>

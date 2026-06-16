@@ -172,7 +172,7 @@ export default function NotebookAppearanceDialog({
             onClick={() => void handleSave()}
             disabled={busy}
             data-testid="notebook-appearance-save"
-            className="bg-brand-action text-white transition-colors hover:bg-brand-action/90 rounded-lg px-4 py-2 text-body font-medium disabled:opacity-40"
+            className="ros-btn-raise bg-brand-action text-white transition-colors hover:bg-brand-action/90 rounded-lg px-4 py-2 text-body font-medium disabled:opacity-40"
           >
             {busy ? "Saving…" : "Save"}
           </button>

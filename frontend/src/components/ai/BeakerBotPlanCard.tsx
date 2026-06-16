@@ -109,7 +109,7 @@ export default function BeakerBotPlanCard({
             type="button"
             data-testid="beakerbot-plan-resume"
             onClick={onResume}
-            className="flex-1 rounded-md bg-green-600 px-3 py-1.5 text-meta font-semibold text-white transition-colors hover:bg-green-700"
+            className="ros-btn-raise flex-1 rounded-md bg-green-600 px-3 py-1.5 text-meta font-semibold text-white transition-colors hover:bg-green-700"
           >
             Resume from step {plan.index + 1}
           </button>

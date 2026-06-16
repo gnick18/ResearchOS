@@ -107,7 +107,7 @@ export default function RecoveryKitModal({
             type="button"
             onClick={onConfirm}
             disabled={!saved}
-            className="rounded-lg bg-brand-action px-4 py-2 text-meta font-semibold text-white disabled:opacity-60"
+            className="ros-btn-raise rounded-lg bg-brand-action px-4 py-2 text-meta font-semibold text-white disabled:opacity-60"
           >
             I saved these
           </button>

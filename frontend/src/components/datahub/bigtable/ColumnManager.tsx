@@ -272,7 +272,7 @@ function TierCSchema({
           type="button"
           disabled={matched.length === 0}
           onClick={() => onChange(matched.map((c) => c.name))}
-          className="bg-brand-action text-white transition-colors hover:bg-brand-action/90 rounded-md px-2.5 py-1.5 text-meta font-semibold disabled:opacity-50"
+          className="ros-btn-raise bg-brand-action text-white transition-colors hover:bg-brand-action/90 rounded-md px-2.5 py-1.5 text-meta font-semibold disabled:opacity-50"
           data-testid="bigtable-tier-c-apply"
         >
           Preview these columns

@@ -415,7 +415,7 @@ export default function SequencePrimersPanel({
                   <button
                     type="button"
                     onClick={() => setMode("design")}
-                    className="inline-flex items-center gap-1 rounded-md bg-brand-action px-2.5 py-1 text-meta font-medium text-white transition-colors hover:bg-brand-action/90"
+                    className="ros-btn-raise inline-flex items-center gap-1 rounded-md bg-brand-action px-2.5 py-1 text-meta font-medium text-white transition-colors hover:bg-brand-action/90"
                   >
                     <IconPlus className="h-3.5 w-3.5" />
                     Design primers
@@ -682,7 +682,7 @@ export default function SequencePrimersPanel({
                             direction: s.direction,
                           });
                         }}
-                        className="inline-flex items-center gap-1 rounded-md bg-brand-action px-2.5 py-1 text-meta font-medium text-white transition-colors hover:bg-brand-action/90"
+                        className="ros-btn-raise inline-flex items-center gap-1 rounded-md bg-brand-action px-2.5 py-1 text-meta font-medium text-white transition-colors hover:bg-brand-action/90"
                       >
                         <IconPlus className="h-3.5 w-3.5" />
                         Add to sequence
@@ -741,7 +741,7 @@ export default function SequencePrimersPanel({
                       <button
                         type="button"
                         onClick={submitToPrimerBlast}
-                        className="inline-flex items-center gap-1 rounded-md bg-brand-action px-2.5 py-1 text-meta font-medium text-white transition-colors hover:bg-brand-action/90"
+                        className="ros-btn-raise inline-flex items-center gap-1 rounded-md bg-brand-action px-2.5 py-1 text-meta font-medium text-white transition-colors hover:bg-brand-action/90"
                       >
                         <IconGlobe className="h-3.5 w-3.5" />
                         Open Primer-BLAST

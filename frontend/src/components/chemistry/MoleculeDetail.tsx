@@ -177,7 +177,7 @@ export function MoleculeDetail({
           <button
             type="button"
             onClick={() => onEdit(molecule.id)}
-            className="inline-flex items-center gap-2 px-4 py-2 text-body font-semibold text-white rounded-lg bg-brand-action transition-colors hover:bg-brand-action/90 flex-shrink-0"
+            className="ros-btn-raise inline-flex items-center gap-2 px-4 py-2 text-body font-semibold text-white rounded-lg bg-brand-action transition-colors hover:bg-brand-action/90 flex-shrink-0"
           >
             <Icon name="pencil" className="w-4 h-4" />
             Edit structure
@@ -383,7 +383,7 @@ export function MoleculeDetail({
                 type="button"
                 disabled={busy}
                 onClick={handleDelete}
-                className="px-3 py-1.5 text-meta font-semibold text-white bg-red-600 rounded-lg disabled:opacity-60"
+                className="ros-btn-raise px-3 py-1.5 text-meta font-semibold text-white bg-red-600 rounded-lg disabled:opacity-60"
               >
                 {busy ? "Deleting…" : "Delete"}
               </button>

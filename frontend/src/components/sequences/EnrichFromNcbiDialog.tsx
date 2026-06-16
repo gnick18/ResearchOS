@@ -430,7 +430,7 @@ export default function EnrichFromNcbiDialog({
             <button
               type="button"
               onClick={handleApply}
-              className="flex items-center gap-1.5 rounded-md bg-brand-action px-3.5 py-1.5 text-meta font-medium text-white transition-colors hover:bg-brand-action/90"
+              className="ros-btn-raise flex items-center gap-1.5 rounded-md bg-brand-action px-3.5 py-1.5 text-meta font-medium text-white transition-colors hover:bg-brand-action/90"
             >
               Apply to sequence
             </button>
@@ -438,7 +438,7 @@ export default function EnrichFromNcbiDialog({
             <button
               type="button"
               disabled
-              className="flex items-center gap-1.5 rounded-md bg-sky-600 px-3.5 py-1.5 text-meta font-medium text-white opacity-70"
+              className="ros-btn-raise flex items-center gap-1.5 rounded-md bg-sky-600 px-3.5 py-1.5 text-meta font-medium text-white opacity-70"
             >
               <SpinnerIcon className="h-4 w-4" />
               Applying...
@@ -448,7 +448,7 @@ export default function EnrichFromNcbiDialog({
               type="button"
               onClick={() => handleResolve(knownId || typed)}
               disabled={(knownId || typed.trim()) === "" || phase === "resolving"}
-              className="flex items-center gap-1.5 rounded-md bg-brand-action px-3.5 py-1.5 text-meta font-medium text-white transition-colors hover:bg-brand-action/90 disabled:cursor-not-allowed disabled:opacity-50"
+              className="ros-btn-raise flex items-center gap-1.5 rounded-md bg-brand-action px-3.5 py-1.5 text-meta font-medium text-white transition-colors hover:bg-brand-action/90 disabled:cursor-not-allowed disabled:opacity-50"
             >
               {phase === "resolving" ? (
                 <>

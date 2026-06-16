@@ -2263,7 +2263,7 @@ export default function ResultsSheet({
             type="button"
             onClick={() => commitRecipe(recipeName)}
             disabled={recipeName.trim() === ""}
-            className="bg-brand-action text-white transition-colors hover:bg-brand-action/90 rounded-md px-3 py-1 text-body font-medium disabled:opacity-50"
+            className="ros-btn-raise bg-brand-action text-white transition-colors hover:bg-brand-action/90 rounded-md px-3 py-1 text-body font-medium disabled:opacity-50"
             data-testid="results-save-recipe-confirm"
           >
             Save

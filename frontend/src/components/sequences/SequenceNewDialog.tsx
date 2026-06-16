@@ -185,7 +185,7 @@ export default function SequenceNewDialog({
               type="button"
               onClick={() => submit(false)}
               disabled={!hasName || cleanedLength === 0}
-              className="rounded-lg bg-brand-action px-4 py-2 text-body font-medium text-white transition-colors hover:bg-brand-action/90 disabled:cursor-not-allowed disabled:opacity-40"
+              className="ros-btn-raise rounded-lg bg-brand-action px-4 py-2 text-body font-medium text-white transition-colors hover:bg-brand-action/90 disabled:cursor-not-allowed disabled:opacity-40"
             >
               Create sequence
             </button>

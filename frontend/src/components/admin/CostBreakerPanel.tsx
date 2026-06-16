@@ -169,7 +169,7 @@ export default function CostBreakerPanel() {
           onClick={() =>
             act({ action: "setBudget", budgetCents: Math.round(Number(budgetInput || 0) * 100) })
           }
-          className="rounded-lg bg-brand-action px-4 py-2 text-meta font-semibold text-white hover:bg-brand-action/90 disabled:opacity-50"
+          className="ros-btn-raise rounded-lg bg-brand-action px-4 py-2 text-meta font-semibold text-white hover:bg-brand-action/90 disabled:opacity-50"
         >
           Save budget
         </button>

@@ -165,7 +165,7 @@ export default function SelfExportModal({
               <button type="button" onClick={onClose} className="ros-btn-neutral px-4 py-2 text-body text-foreground">
                 Cancel
               </button>
-              <button type="button" onClick={run} className="bg-brand-action text-white transition-colors hover:bg-brand-action/90 px-4 py-2 text-body rounded-lg">
+              <button type="button" onClick={run} className="ros-btn-raise bg-brand-action text-white transition-colors hover:bg-brand-action/90 px-4 py-2 text-body rounded-lg">
                 Take my data out
               </button>
             </div>
@@ -199,7 +199,7 @@ export default function SelfExportModal({
               <button type="button" onClick={onClose} className="ros-btn-neutral px-4 py-2 text-body text-foreground">
                 Close
               </button>
-              <button type="button" onClick={run} className="bg-brand-action text-white transition-colors hover:bg-brand-action/90 px-4 py-2 text-body rounded-lg">
+              <button type="button" onClick={run} className="ros-btn-raise bg-brand-action text-white transition-colors hover:bg-brand-action/90 px-4 py-2 text-body rounded-lg">
                 Try again
               </button>
             </div>

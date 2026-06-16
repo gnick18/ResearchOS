@@ -135,7 +135,7 @@ export default function MigrateToSoloModal({
               <button type="button" onClick={onClose} className="ros-btn-neutral px-4 py-2 text-body text-foreground">
                 Cancel
               </button>
-              <button type="button" onClick={run} className="bg-brand-action text-white transition-colors hover:bg-brand-action/90 px-4 py-2 text-body rounded-lg">
+              <button type="button" onClick={run} className="ros-btn-raise bg-brand-action text-white transition-colors hover:bg-brand-action/90 px-4 py-2 text-body rounded-lg">
                 Make it my personal folder
               </button>
             </div>
@@ -187,7 +187,7 @@ export default function MigrateToSoloModal({
               <button type="button" onClick={onClose} className="ros-btn-neutral px-4 py-2 text-body text-foreground">
                 Cancel
               </button>
-              <button type="button" onClick={run} className="bg-brand-action text-white transition-colors hover:bg-brand-action/90 px-4 py-2 text-body rounded-lg">
+              <button type="button" onClick={run} className="ros-btn-raise bg-brand-action text-white transition-colors hover:bg-brand-action/90 px-4 py-2 text-body rounded-lg">
                 Convert to single-user
               </button>
             </div>
@@ -244,7 +244,7 @@ export default function MigrateToSoloModal({
               </p>
             )}
             <div className="flex justify-end">
-              <button type="button" onClick={onClose} className="bg-brand-action text-white transition-colors hover:bg-brand-action/90 px-4 py-2 text-body rounded-lg">
+              <button type="button" onClick={onClose} className="ros-btn-raise bg-brand-action text-white transition-colors hover:bg-brand-action/90 px-4 py-2 text-body rounded-lg">
                 Done
               </button>
             </div>
@@ -268,7 +268,7 @@ export default function MigrateToSoloModal({
               <button type="button" onClick={onClose} className="ros-btn-neutral px-4 py-2 text-body text-foreground">
                 Close
               </button>
-              <button type="button" onClick={run} className="bg-brand-action text-white transition-colors hover:bg-brand-action/90 px-4 py-2 text-body rounded-lg">
+              <button type="button" onClick={run} className="ros-btn-raise bg-brand-action text-white transition-colors hover:bg-brand-action/90 px-4 py-2 text-body rounded-lg">
                 Try again
               </button>
             </div>

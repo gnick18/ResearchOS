@@ -356,7 +356,7 @@ export default function WorkbenchListsPanel({
           <button
             onClick={handleCreateListTask}
             data-tour-target="workbench-new-list-button"
-            className="px-3 py-1.5 text-body bg-violet-600 text-white rounded-lg hover:bg-violet-700"
+            className="ros-btn-raise px-3 py-1.5 text-body bg-violet-600 text-white rounded-lg hover:bg-violet-700"
           >
             + New List Task
           </button>
@@ -372,7 +372,7 @@ export default function WorkbenchListsPanel({
           <button
             onClick={handleCreateListTask}
             data-tour-target="workbench-new-list-button"
-            className="px-6 py-3 text-body bg-violet-600 text-white rounded-lg hover:bg-violet-700"
+            className="ros-btn-raise px-6 py-3 text-body bg-violet-600 text-white rounded-lg hover:bg-violet-700"
           >
             + New List Task
           </button>

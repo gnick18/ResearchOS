@@ -70,7 +70,7 @@ export default function PiEditConfirmDialog({
             type="button"
             onClick={onConfirm}
             data-testid="pi-edit-confirm-button"
-            className="px-4 py-2 text-body font-medium rounded-lg bg-amber-600 text-white hover:bg-amber-700"
+            className="ros-btn-raise px-4 py-2 text-body font-medium rounded-lg bg-amber-600 text-white hover:bg-amber-700"
           >
             Edit as lab head
           </button>

@@ -195,7 +195,7 @@ export default function BroadcastPanel() {
             type="button"
             onClick={addTester}
             disabled={addBusy || !newEmail.trim()}
-            className="bg-brand-action text-white transition-colors hover:bg-brand-action/90 rounded-lg px-4 py-1.5 text-body font-medium disabled:opacity-40"
+            className="ros-btn-raise bg-brand-action text-white transition-colors hover:bg-brand-action/90 rounded-lg px-4 py-1.5 text-body font-medium disabled:opacity-40"
           >
             {addBusy ? "Adding..." : "Add"}
           </button>
@@ -309,7 +309,7 @@ export default function BroadcastPanel() {
           disabled={
             sendBusy || !subject.trim() || !body.trim() || testers.length === 0
           }
-          className="bg-brand-action text-white transition-colors hover:bg-brand-action/90 rounded-lg px-4 py-2 text-body font-medium disabled:opacity-40"
+          className="ros-btn-raise bg-brand-action text-white transition-colors hover:bg-brand-action/90 rounded-lg px-4 py-2 text-body font-medium disabled:opacity-40"
         >
           {sendBusy
             ? "Sending..."

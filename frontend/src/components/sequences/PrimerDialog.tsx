@@ -594,7 +594,7 @@ export default function PrimerDialog({ request }: { request: PrimerDialogRequest
               type="button"
               onClick={submit}
               disabled={!canAdd}
-              className="rounded-lg bg-brand-action px-4 py-2 text-body font-medium text-white transition-colors hover:bg-brand-action/90 disabled:cursor-not-allowed disabled:opacity-40"
+              className="ros-btn-raise rounded-lg bg-brand-action px-4 py-2 text-body font-medium text-white transition-colors hover:bg-brand-action/90 disabled:cursor-not-allowed disabled:opacity-40"
             >
               Add primer to template
             </button>

@@ -178,7 +178,7 @@ export function PlotLayoutAdvisor({
         <button
           type="button"
           onClick={wand}
-          className="rounded-lg bg-amber-500 px-2.5 py-1 text-xs font-bold text-white transition-colors hover:bg-amber-600"
+          className="ros-btn-raise rounded-lg bg-amber-500 px-2.5 py-1 text-xs font-bold text-white transition-colors hover:bg-amber-600"
         >
           {snapshot ? "Undo auto-fix" : "Auto-fix layout"}
         </button>

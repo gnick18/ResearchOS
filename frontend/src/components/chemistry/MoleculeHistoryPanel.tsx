@@ -518,7 +518,7 @@ function MoleculeVersionRow({
               onClick={onConfirmRestore}
               disabled={restoring}
               data-testid="molecule-restore-confirm-button"
-              className="rounded-md bg-emerald-600 px-2 py-0.5 text-meta font-medium text-white transition-colors hover:bg-emerald-700 disabled:opacity-60"
+              className="ros-btn-raise rounded-md bg-emerald-600 px-2 py-0.5 text-meta font-medium text-white transition-colors hover:bg-emerald-700 disabled:opacity-60"
             >
               {restoring ? "Restoring..." : "Restore"}
             </button>

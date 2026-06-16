@@ -249,7 +249,7 @@ export default function ProjectImportDialog({
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-1.5 text-meta font-medium text-white bg-brand-action hover:bg-brand-action/90 rounded-md transition-colors"
+              className="ros-btn-raise px-4 py-1.5 text-meta font-medium text-white bg-brand-action hover:bg-brand-action/90 rounded-md transition-colors"
             >
               Done
             </button>
@@ -267,7 +267,7 @@ export default function ProjectImportDialog({
                 type="button"
                 onClick={() => void handleImport()}
                 disabled={stage !== "review"}
-                className="px-4 py-1.5 text-meta font-medium text-white bg-brand-action hover:bg-brand-action/90 rounded-md transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                className="ros-btn-raise px-4 py-1.5 text-meta font-medium text-white bg-brand-action hover:bg-brand-action/90 rounded-md transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
               >
                 {stage === "applying" ? "Importing…" : "Import as a new project"}
               </button>

@@ -1774,7 +1774,7 @@ export default function TransformBuilder({
             type="button"
             onClick={() => setShowSave((s) => !s)}
             disabled={pipe.length === 0}
-            className="bg-brand-action text-white transition-colors hover:bg-brand-action/90 inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-meta font-semibold disabled:opacity-50"
+            className="ros-btn-raise bg-brand-action text-white transition-colors hover:bg-brand-action/90 inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-meta font-semibold disabled:opacity-50"
             data-testid="bigtable-builder-save-open"
           >
             <Icon name="save" className="h-3.5 w-3.5" />
@@ -1808,7 +1808,7 @@ export default function TransformBuilder({
             type="button"
             onClick={handleSave}
             disabled={saving || pipe.length === 0}
-            className="bg-brand-action text-white transition-colors hover:bg-brand-action/90 rounded-md px-3 py-1.5 text-meta font-semibold disabled:opacity-60"
+            className="ros-btn-raise bg-brand-action text-white transition-colors hover:bg-brand-action/90 rounded-md px-3 py-1.5 text-meta font-semibold disabled:opacity-60"
             data-testid="bigtable-builder-save-confirm"
           >
             {saving ? "Saving..." : "Save"}

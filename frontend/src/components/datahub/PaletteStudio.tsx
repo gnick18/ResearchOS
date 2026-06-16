@@ -701,7 +701,7 @@ export default function PaletteStudio({
             <button
               type="button"
               onClick={applyGenerated}
-              className="rounded-md border border-brand-action bg-brand-action px-2 py-1 text-[11px] font-medium text-white transition-colors hover:opacity-90"
+              className="ros-btn-raise rounded-md border border-brand-action bg-brand-action px-2 py-1 text-[11px] font-medium text-white transition-colors hover:opacity-90"
             >
               Apply to figure
             </button>

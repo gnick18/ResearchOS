@@ -185,7 +185,7 @@ export function CompositionPanelAdvisor({
         <button
           type="button"
           onClick={wand}
-          className="rounded-md bg-amber-500 px-2 py-0.5 text-[11px] font-bold text-white transition-colors hover:bg-amber-600"
+          className="ros-btn-raise rounded-md bg-amber-500 px-2 py-0.5 text-[11px] font-bold text-white transition-colors hover:bg-amber-600"
         >
           {snapshot ? "Undo auto-fix" : "Auto-fix"}
         </button>

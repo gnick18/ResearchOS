@@ -807,7 +807,7 @@ export default function EnzymePickerDialog({
           <button
             type="button"
             onClick={onClose}
-            className="rounded-md bg-brand-action px-3 py-1.5 text-body font-medium text-white hover:bg-brand-action/90"
+            className="ros-btn-raise rounded-md bg-brand-action px-3 py-1.5 text-body font-medium text-white hover:bg-brand-action/90"
           >
             Done
           </button>

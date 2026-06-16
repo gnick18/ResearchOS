@@ -446,7 +446,7 @@ export default function ImportTableDialog({
             type="button"
             onClick={submit}
             disabled={!canSubmit}
-            className="bg-brand-action text-white transition-colors hover:bg-brand-action/90 rounded-md px-3 py-1.5 text-body font-medium disabled:opacity-50"
+            className="ros-btn-raise bg-brand-action text-white transition-colors hover:bg-brand-action/90 rounded-md px-3 py-1.5 text-body font-medium disabled:opacity-50"
             data-testid="datahub-import-create"
           >
             Create table

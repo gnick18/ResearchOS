@@ -299,7 +299,7 @@ export default function FindAndShareModal({
               <button
                 type="button"
                 onClick={onClose}
-                className="w-full rounded-lg bg-brand-action px-4 py-2 text-body font-medium text-white"
+                className="ros-btn-raise w-full rounded-lg bg-brand-action px-4 py-2 text-body font-medium text-white"
               >
                 Done
               </button>
@@ -327,7 +327,7 @@ export default function FindAndShareModal({
               <button
                 type="button"
                 onClick={onClose}
-                className="w-full rounded-lg bg-brand-action px-4 py-2 text-body font-medium text-white"
+                className="ros-btn-raise w-full rounded-lg bg-brand-action px-4 py-2 text-body font-medium text-white"
               >
                 Done
               </button>
@@ -452,7 +452,7 @@ function SearchBody({
             type="button"
             onClick={() => onSend(picked)}
             disabled={!canSend}
-            className="flex-1 rounded-lg bg-brand-action px-4 py-2 text-body font-medium text-white disabled:opacity-50"
+            className="ros-btn-raise flex-1 rounded-lg bg-brand-action px-4 py-2 text-body font-medium text-white disabled:opacity-50"
           >
             Send
           </button>
@@ -480,7 +480,7 @@ function SearchBody({
           type="button"
           onClick={runSearch}
           disabled={searching || query.trim().length < 2}
-          className="flex-none rounded-lg bg-brand-action px-4 py-2 text-body font-medium text-white disabled:opacity-50"
+          className="ros-btn-raise flex-none rounded-lg bg-brand-action px-4 py-2 text-body font-medium text-white disabled:opacity-50"
         >
           {searching ? "…" : "Search"}
         </button>

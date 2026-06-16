@@ -282,7 +282,7 @@ export default function WorkbenchOneOnOnePanel({
               type="button"
               onClick={() => setShowNewDialog(true)}
               data-testid="oneonone-start-empty-rail"
-              className="bg-brand-action text-white transition-colors hover:bg-brand-action/90 mt-3 flex items-center gap-1.5 rounded-lg px-3 py-2 text-body font-medium"
+              className="ros-btn-raise bg-brand-action text-white transition-colors hover:bg-brand-action/90 mt-3 flex items-center gap-1.5 rounded-lg px-3 py-2 text-body font-medium"
             >
               <Icon name="userPlus" className="h-4 w-4" />
               Start a check-in
@@ -375,7 +375,7 @@ export default function WorkbenchOneOnOnePanel({
                 type="button"
                 onClick={() => setShowNewDialog(true)}
                 data-testid="oneonone-start-main"
-                className="bg-brand-action text-white transition-colors hover:bg-brand-action/90 flex items-center gap-1.5 rounded-lg px-3 py-2 text-body font-medium"
+                className="ros-btn-raise bg-brand-action text-white transition-colors hover:bg-brand-action/90 flex items-center gap-1.5 rounded-lg px-3 py-2 text-body font-medium"
               >
                 <Icon name="userPlus" className="h-4 w-4" />
                 Start a check-in
@@ -1191,7 +1191,7 @@ function BoardAddRow({
         type="button"
         onClick={submit}
         disabled={busy || !text.trim()}
-        className="bg-brand-action text-white transition-colors hover:bg-brand-action/90 flex items-center gap-1.5 rounded-lg px-3 py-2 text-body font-medium disabled:opacity-40"
+        className="ros-btn-raise bg-brand-action text-white transition-colors hover:bg-brand-action/90 flex items-center gap-1.5 rounded-lg px-3 py-2 text-body font-medium disabled:opacity-40"
       >
         <Icon name="plus" className="h-4 w-4" />
         Add
@@ -1322,7 +1322,7 @@ function EditTaskDialog({
               })
             }
             disabled={busy}
-            className="bg-brand-action text-white transition-colors hover:bg-brand-action/90 rounded-lg px-4 py-2 text-body font-medium disabled:opacity-40"
+            className="ros-btn-raise bg-brand-action text-white transition-colors hover:bg-brand-action/90 rounded-lg px-4 py-2 text-body font-medium disabled:opacity-40"
           >
             {busy ? "Saving…" : "Save"}
           </button>
@@ -1380,7 +1380,7 @@ function AddRow({
         type="button"
         onClick={onSubmit}
         disabled={busy || !value.trim()}
-        className="bg-brand-action text-white transition-colors hover:bg-brand-action/90 flex items-center gap-1.5 rounded-lg px-3 py-2 text-body font-medium disabled:opacity-40"
+        className="ros-btn-raise bg-brand-action text-white transition-colors hover:bg-brand-action/90 flex items-center gap-1.5 rounded-lg px-3 py-2 text-body font-medium disabled:opacity-40"
       >
         <Icon name="plus" className="h-4 w-4" />
         Add
@@ -1634,7 +1634,7 @@ function CompactArea({
           onClick={() => startMutation.mutate()}
           disabled={startMutation.isPending}
           data-testid="compact-start"
-          className="bg-brand-action text-white transition-colors hover:bg-brand-action/90 flex items-center gap-1.5 rounded-lg px-3 py-2 text-body font-medium disabled:opacity-40"
+          className="ros-btn-raise bg-brand-action text-white transition-colors hover:bg-brand-action/90 flex items-center gap-1.5 rounded-lg px-3 py-2 text-body font-medium disabled:opacity-40"
         >
           <Icon name="check" className="h-4 w-4" />
           Start the compact
@@ -1667,7 +1667,7 @@ function CompactArea({
               onClick={() => saveMutation.mutate(rows)}
               disabled={saveMutation.isPending}
               data-testid="compact-save"
-              className="bg-brand-action text-white transition-colors hover:bg-brand-action/90 rounded-lg px-2.5 py-1.5 text-body font-medium disabled:opacity-40"
+              className="ros-btn-raise bg-brand-action text-white transition-colors hover:bg-brand-action/90 rounded-lg px-2.5 py-1.5 text-body font-medium disabled:opacity-40"
             >
               Save
             </button>
@@ -1745,7 +1745,7 @@ function CompactArea({
             onClick={() => ackMutation.mutate()}
             disabled={ackMutation.isPending}
             data-testid="compact-acknowledge"
-            className="bg-brand-action text-white transition-colors hover:bg-brand-action/90 flex flex-none items-center gap-1.5 rounded-lg px-3 py-1.5 text-body font-medium disabled:opacity-40"
+            className="ros-btn-raise bg-brand-action text-white transition-colors hover:bg-brand-action/90 flex flex-none items-center gap-1.5 rounded-lg px-3 py-1.5 text-body font-medium disabled:opacity-40"
           >
             <Icon name="check" className="h-4 w-4" />
             Acknowledge
@@ -1812,7 +1812,7 @@ function OnboardingArea({
           onClick={() => startMutation.mutate()}
           disabled={startMutation.isPending}
           data-testid="onboarding-start"
-          className="bg-brand-action text-white transition-colors hover:bg-brand-action/90 flex items-center gap-1.5 rounded-lg px-3 py-2 text-body font-medium disabled:opacity-40"
+          className="ros-btn-raise bg-brand-action text-white transition-colors hover:bg-brand-action/90 flex items-center gap-1.5 rounded-lg px-3 py-2 text-body font-medium disabled:opacity-40"
         >
           <Icon name="list" className="h-4 w-4" />
           Start the checklist
@@ -1982,7 +1982,7 @@ function SpaceHeader({
                 }
                 disabled={setDateMutation.isPending}
                 data-testid="committee-date-save"
-                className="bg-brand-action text-white transition-colors hover:bg-brand-action/90 rounded-md px-2.5 py-1 text-meta font-medium disabled:opacity-40"
+                className="ros-btn-raise bg-brand-action text-white transition-colors hover:bg-brand-action/90 rounded-md px-2.5 py-1 text-meta font-medium disabled:opacity-40"
               >
                 Save
               </button>
@@ -2072,7 +2072,7 @@ function RotationArea({
           onClick={() => startMutation.mutate()}
           disabled={startMutation.isPending || !isMember}
           data-testid="rotation-start"
-          className="bg-brand-action text-white transition-colors hover:bg-brand-action/90 flex items-center gap-1.5 rounded-lg px-3 py-2 text-body font-medium disabled:opacity-40"
+          className="ros-btn-raise bg-brand-action text-white transition-colors hover:bg-brand-action/90 flex items-center gap-1.5 rounded-lg px-3 py-2 text-body font-medium disabled:opacity-40"
         >
           <Icon name="refresh" className="h-4 w-4" />
           Start a rotation
@@ -2479,7 +2479,7 @@ function NewOneOnOneDialog({
             onClick={() => void handleCreate()}
             disabled={selected.length === 0 || busy}
             data-testid="oneonone-new-member-confirm"
-            className="bg-brand-action text-white transition-colors hover:bg-brand-action/90 rounded-lg px-4 py-2 text-body font-medium disabled:opacity-40"
+            className="ros-btn-raise bg-brand-action text-white transition-colors hover:bg-brand-action/90 rounded-lg px-4 py-2 text-body font-medium disabled:opacity-40"
           >
             {busy
               ? "Starting…"

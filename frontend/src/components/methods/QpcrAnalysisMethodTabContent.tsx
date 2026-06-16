@@ -309,7 +309,7 @@ export default function QpcrAnalysisMethodTabContent({
               <button
                 onClick={handleSave}
                 disabled={saving || !hasUnsavedChanges}
-                className="px-3 py-1.5 text-meta text-white bg-brand-action hover:bg-brand-action/90 rounded-lg disabled:opacity-50"
+                className="ros-btn-raise px-3 py-1.5 text-meta text-white bg-brand-action hover:bg-brand-action/90 rounded-lg disabled:opacity-50"
               >
                 {saving ? "Saving…" : "Save Changes"}
               </button>

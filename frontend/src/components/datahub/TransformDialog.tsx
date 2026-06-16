@@ -632,7 +632,7 @@ export default function TransformDialog({
           <button
             type="button"
             onClick={submit}
-            className="bg-brand-action text-white transition-colors hover:bg-brand-action/90 rounded-md px-3 py-1.5 text-body font-medium"
+            className="ros-btn-raise bg-brand-action text-white transition-colors hover:bg-brand-action/90 rounded-md px-3 py-1.5 text-body font-medium"
             data-testid="datahub-transform-confirm"
           >
             {isEdit ? "Update transform" : "Create derived table"}

@@ -528,7 +528,7 @@ export default function DomainAnnotationPanel({
           <button
             type="button"
             onClick={() => void runCurated()}
-            className="inline-flex items-center gap-1 rounded-md bg-brand-action px-2.5 py-1 text-meta font-medium text-white transition-colors hover:bg-brand-action/90"
+            className="ros-btn-raise inline-flex items-center gap-1 rounded-md bg-brand-action px-2.5 py-1 text-meta font-medium text-white transition-colors hover:bg-brand-action/90"
           >
             <IconDownload className="h-3.5 w-3.5" />
             Annotate domains
@@ -602,7 +602,7 @@ export default function DomainAnnotationPanel({
           <button
             type="button"
             onClick={onConfirmConsent}
-            className="inline-flex items-center gap-1 rounded-md bg-brand-action px-2.5 py-1 text-meta font-medium text-white transition-colors hover:bg-brand-action/90"
+            className="ros-btn-raise inline-flex items-center gap-1 rounded-md bg-brand-action px-2.5 py-1 text-meta font-medium text-white transition-colors hover:bg-brand-action/90"
           >
             <IconGlobe className="h-3.5 w-3.5" />
             Search domains
@@ -783,7 +783,7 @@ export default function DomainAnnotationPanel({
             type="button"
             disabled={selectedCount === 0}
             onClick={applyAccepted}
-            className="rounded-md bg-brand-action px-2.5 py-1 text-meta font-medium text-white transition-colors hover:bg-brand-action/90 disabled:cursor-not-allowed disabled:opacity-40"
+            className="ros-btn-raise rounded-md bg-brand-action px-2.5 py-1 text-meta font-medium text-white transition-colors hover:bg-brand-action/90 disabled:cursor-not-allowed disabled:opacity-40"
           >
             Add {selectedCount > 0 ? selectedCount : ""} domain
             {selectedCount === 1 ? "" : "s"}

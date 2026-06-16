@@ -96,7 +96,7 @@ export default function DoneStep({
           type="button"
           onClick={onOpenBulkSort}
           disabled={taskCount === 0}
-          className="px-4 py-2 text-body bg-brand-action hover:bg-brand-action/90 text-white rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
+          className="ros-btn-raise px-4 py-2 text-body bg-brand-action hover:bg-brand-action/90 text-white rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
         >
           Open bulk-sort
         </button>

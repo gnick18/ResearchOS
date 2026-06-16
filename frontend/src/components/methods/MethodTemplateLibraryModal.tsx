@@ -566,7 +566,7 @@ export function ProtocolTemplateCard({
                   onUse();
                 }}
                 disabled={anyUsing}
-                className="px-3 py-1.5 text-meta bg-brand-action text-white rounded-lg hover:bg-brand-action/90 disabled:opacity-50"
+                className="ros-btn-raise px-3 py-1.5 text-meta bg-brand-action text-white rounded-lg hover:bg-brand-action/90 disabled:opacity-50"
               >
                 {isUsing ? "Adding..." : "Use template"}
               </button>
