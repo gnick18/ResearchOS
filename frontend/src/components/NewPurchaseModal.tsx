@@ -598,7 +598,7 @@ export default function NewPurchaseModal({
         {/* Custom overlay scrollbar (unified standard, ScrollArea). */}
         <ScrollArea className="flex-1 min-h-0" viewportClassName="px-6 py-4">
         {error && (
-          <div className="mb-4 px-3 py-2 bg-rose-50 dark:bg-rose-500/10 border border-rose-200 dark:border-rose-500/30 rounded-lg text-meta text-rose-700 dark:text-rose-300">
+          <div className="mb-4 px-3 py-2 bg-rose-50 dark:bg-rose-500/15 border border-rose-200 dark:border-rose-400/40 rounded-lg text-meta text-rose-700 dark:text-rose-200">
             {error}
           </div>
         )}
@@ -625,7 +625,7 @@ export default function NewPurchaseModal({
                         .filter(Boolean)
                         .join(" · ") || undefined
                     }
-                    className="inline-flex items-center max-w-[14rem] gap-1 px-2.5 py-1 rounded-full border border-amber-200 dark:border-amber-500/30 bg-amber-50 dark:bg-amber-500/10 text-amber-800 dark:text-amber-200 text-meta font-medium hover:bg-amber-100 dark:hover:bg-amber-500/20 hover:border-amber-300 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-500"
+                    className="inline-flex items-center max-w-[14rem] gap-1 px-2.5 py-1 rounded-full border border-amber-200 dark:border-amber-400/40 bg-amber-50 dark:bg-amber-500/20 text-amber-800 dark:text-amber-200 text-meta font-medium hover:bg-amber-100 dark:hover:bg-amber-500/30 hover:border-amber-300 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-500"
                   >
                     <svg
                       aria-hidden
