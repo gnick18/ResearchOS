@@ -15,6 +15,13 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { SvgXml } from 'react-native-svg';
+import { Gesture, GestureDetector } from 'react-native-gesture-handler';
+import Animated, {
+  runOnJS,
+  useAnimatedStyle,
+  useSharedValue,
+  withTiming,
+} from 'react-native-reanimated';
 import { useFocusEffect, useLocalSearchParams } from 'expo-router';
 
 import { ThemedText } from '@/components/themed-text';
@@ -119,6 +126,78 @@ export default function RoomMapScreen() {
   const activeImage = activePin?.image ?? null;
   const couldNotPlace = focusNodeId != null && focusPinNodeId == null;
 
+  // Pinch-zoom + pan on the map. Read-only viewer, so this only transforms what
+  // is shown (scale 1..4, panning clamped so the plan always covers the frame).
+  const scale = useSharedValue(1);
+  const savedScale = useSharedValue(1);
+  const tx = useSharedValue(0);
+  const ty = useSharedValue(0);
+  const sx = useSharedValue(0);
+  const sy = useSharedValue(0);
+  const cw = useSharedValue(0);
+  const ch = useSharedValue(0);
+  const [zoomed, setZoomed] = useState(false);
+
+  const clampTranslate = () => {
+    'worklet';
+    const maxX = Math.max(0, ((scale.value - 1) * cw.value) / 2);
+    const maxY = Math.max(0, ((scale.value - 1) * ch.value) / 2);
+    tx.value = Math.min(maxX, Math.max(-maxX, tx.value));
+    ty.value = Math.min(maxY, Math.max(-maxY, ty.value));
+  };
+
+  const pinch = Gesture.Pinch()
+    .onUpdate((e) => {
+      'worklet';
+      scale.value = Math.min(4, Math.max(1, savedScale.value * e.scale));
+      clampTranslate();
+    })
+    .onEnd(() => {
+      'worklet';
+      savedScale.value = scale.value;
+      if (scale.value <= 1.01) {
+        scale.value = withTiming(1);
+        tx.value = withTiming(0);
+        ty.value = withTiming(0);
+        savedScale.value = 1;
+        sx.value = 0;
+        sy.value = 0;
+      }
+      runOnJS(setZoomed)(scale.value > 1.01);
+    });
+
+  const pan = Gesture.Pan()
+    .minDistance(8)
+    .onUpdate((e) => {
+      'worklet';
+      tx.value = sx.value + e.translationX;
+      ty.value = sy.value + e.translationY;
+      clampTranslate();
+    })
+    .onEnd(() => {
+      'worklet';
+      sx.value = tx.value;
+      sy.value = ty.value;
+    });
+
+  const mapGesture = Gesture.Simultaneous(pinch, pan);
+  const mapAnim = useAnimatedStyle(() => ({
+    transform: [
+      { translateX: tx.value },
+      { translateY: ty.value },
+      { scale: scale.value },
+    ],
+  }));
+  const resetView = () => {
+    scale.value = withTiming(1);
+    savedScale.value = 1;
+    tx.value = withTiming(0);
+    ty.value = withTiming(0);
+    sx.value = 0;
+    sy.value = 0;
+    setZoomed(false);
+  };
+
   return (
     <ScreenFrame edges={['top']}>
       <ScreenHeader title="Room map" />
@@ -158,7 +237,14 @@ export default function RoomMapScreen() {
                   backgroundColor: floorplan ? '#ffffff' : surface.surface2,
                 },
               ]}
+              onLayout={(e) => {
+                const w = e.nativeEvent.layout.width;
+                cw.value = w;
+                ch.value = w / aspect;
+              }}
             >
+              <GestureDetector gesture={mapGesture}>
+                <Animated.View style={[StyleSheet.absoluteFill, mapAnim]}>
               {floorplan ? (
                 <View style={StyleSheet.absoluteFill} pointerEvents="none">
                   <SvgXml xml={floorplan} width="100%" height="100%" />
@@ -203,6 +289,19 @@ export default function RoomMapScreen() {
                   </Pressable>
                 );
               })}
+                </Animated.View>
+              </GestureDetector>
+              {zoomed ? (
+                <Pressable
+                  onPress={resetView}
+                  style={[styles.resetBtn, { backgroundColor: surface.surface, borderColor: surface.border }]}
+                  hitSlop={8}
+                  accessibilityRole="button"
+                  accessibilityLabel="Reset view"
+                >
+                  <Ionicons name="contract-outline" size={16} color={surface.muted} />
+                </Pressable>
+              ) : null}
             </View>
 
             {activeNode ? (
@@ -279,6 +378,17 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     paddingHorizontal: 14,
     paddingVertical: 12,
+  },
+  resetBtn: {
+    position: 'absolute',
+    top: 8,
+    right: 8,
+    width: 34,
+    height: 34,
+    borderRadius: 8,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   detailPhoto: { width: 52, height: 52, borderRadius: 8, borderWidth: 1 },
   detailName: { fontSize: 15, fontFamily: fonts.semibold, fontWeight: '600' },
