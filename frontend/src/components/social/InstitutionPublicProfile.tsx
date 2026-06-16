@@ -220,6 +220,13 @@ export default function InstitutionPublicProfile({ slug }: { slug: string }) {
                 ))}
               </div>
             )}
+
+            <Link
+              href="/network"
+              className="mt-8 inline-flex items-center gap-1.5 text-meta font-medium text-foreground-muted underline-offset-2 transition hover:text-brand-action hover:underline"
+            >
+              Back to the researcher network
+            </Link>
           </div>
         </section>
       )}

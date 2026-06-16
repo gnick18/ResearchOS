@@ -106,6 +106,12 @@ export default function HandleProfilePage() {
                 <p className="mt-2 text-meta text-foreground-muted">
                   There is no ResearchOS account at <b>@{handle}</b>.
                 </p>
+                <a
+                  href="/network"
+                  className="mt-5 inline-flex items-center gap-1.5 rounded-full border border-border px-4 py-2 text-meta font-medium text-foreground-muted transition hover:border-brand-action hover:text-brand-action"
+                >
+                  Back to the researcher network
+                </a>
               </div>
             ) : (
               <div className="mx-auto mt-4 w-full rounded-2xl border border-border bg-surface p-8 shadow-lg">
