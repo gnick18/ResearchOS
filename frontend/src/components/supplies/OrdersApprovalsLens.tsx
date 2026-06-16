@@ -287,7 +287,7 @@ function DeclinePurchaseButton({
         type="button"
         onClick={handleDecline}
         disabled={busy || isDeclined}
-        className="inline-flex items-center gap-1 rounded px-2 py-0.5 text-meta font-medium text-red-700 dark:text-red-300 border border-red-300 dark:border-red-500/30 bg-red-50 dark:bg-red-500/10 hover:bg-red-100 disabled:opacity-50 disabled:cursor-not-allowed"
+        className="inline-flex items-center gap-1 rounded px-2 py-0.5 text-meta font-medium text-red-700 dark:text-red-200 border border-red-300 dark:border-red-400/40 bg-red-50 dark:bg-red-500/25 hover:bg-red-100 disabled:opacity-50 disabled:cursor-not-allowed"
         data-testid="lab-head-purchase-decline-button"
       >
         <Icon name="close" className="h-3 w-3" />

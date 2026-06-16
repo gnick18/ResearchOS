@@ -207,7 +207,7 @@ export default function BeakerChatRail() {
               type="button"
               data-testid="beaker-chat-delete-confirm"
               onClick={() => void handleDelete(chat.id)}
-              className="rounded border border-red-300 bg-red-50 px-1.5 py-0.5 font-medium text-red-700 hover:bg-red-100 dark:border-red-800 dark:bg-red-900/20 dark:text-red-300"
+              className="rounded border border-red-300 bg-red-50 px-1.5 py-0.5 font-medium text-red-700 hover:bg-red-100 dark:border-red-400/40 dark:bg-red-500/25 dark:text-red-200"
             >
               Delete
             </button>
@@ -365,7 +365,7 @@ export default function BeakerChatRail() {
                         type="button"
                         data-testid="beaker-macro-delete-confirm"
                         onClick={() => void handleDeleteMacro(macro.id)}
-                        className="rounded border border-red-300 bg-red-50 px-1.5 py-0.5 font-medium text-red-700 hover:bg-red-100 dark:border-red-800 dark:bg-red-900/20 dark:text-red-300"
+                        className="rounded border border-red-300 bg-red-50 px-1.5 py-0.5 font-medium text-red-700 hover:bg-red-100 dark:border-red-400/40 dark:bg-red-500/25 dark:text-red-200"
                       >
                         Delete
                       </button>
