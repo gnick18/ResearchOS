@@ -171,8 +171,10 @@ export function suggestFixes(collisions: Collision[]): FixSuggestion[] {
   }
   if (kinds.has("legend-over-content")) {
     add({
+      // Neutral title: each surface relocates the legend with its own lever (Data
+      // Hub to a right gutter, phylo below the tree), so do not name a direction.
       id: "relocate-legend",
-      title: "Move the legend below the figure",
+      title: "Move the legend off the data",
       rationale: "The legend overlaps the data / labels.",
       available: true,
     });
