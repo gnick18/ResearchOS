@@ -97,6 +97,7 @@ import {
 } from "./experiment-tools";
 import { setupExperimentTool } from "./setup-experiment";
 import { setupProjectTool } from "./setup-project";
+import { setupInventoryItemTool } from "./setup-inventory-item";
 import {
   draftPaperSummaryTool,
   extractPaperMethodTool,
@@ -511,6 +512,12 @@ export const ACTION_TOOLS: AiTool[] = [
   // create_* calls. The user sees a numbered preview of every step before any
   // write. None of the individual writes is destructive.
   setupProjectTool,
+  // setup_inventory_item is the inventory-level composite (action: true,
+  // isDestructive false). In one consented action it creates the item, then creates
+  // each physical stock ALREADY assigned to that new item (the stock item_id is the
+  // back-reference the model cannot thread across separate create calls). Numbered
+  // preview before any write; no individual write is destructive.
+  setupInventoryItemTool,
   // Scheduling coworker tools (action: true, isDestructive false). create_task
   // adds a task to a project the user names; reschedule_task moves a task through
   // the dependency-aware shift path (tasksApi.move) so dependents cascade and the
