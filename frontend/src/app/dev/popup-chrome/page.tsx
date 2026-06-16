@@ -303,7 +303,7 @@ export default function PopupChromeReviewPage() {
           </div>
           {taskOpen && (
             <PopupErrorBoundary label="TaskDetailPopup" onReset={() => setTaskOpen(false)}>
-              <TaskDetailPopup task={FIXTURE_TASK} onClose={() => setTaskOpen(false)} />
+              <TaskDetailPopup task={FIXTURE_TASK} previewMode onClose={() => setTaskOpen(false)} />
             </PopupErrorBoundary>
           )}
         </section>

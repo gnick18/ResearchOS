@@ -133,6 +133,10 @@ interface TaskDetailPopupProps {
   /** Open with the comments rail already expanded + composer focused (used by
    *  the right-click "Add a comment" action). Experiment tasks only. */
   initialCommentsOpen?: boolean;
+  /** Render the passed `task` as-is and DON'T refetch it from disk. For the
+   *  folderless dev gallery (/dev/popup-chrome), where the on-disk read returns
+   *  empty and would clobber the seeded fixture. No effect in the real app. */
+  previewMode?: boolean;
 }
 
 type Tab = "details" | "notes" | "method" | "results" | "purchases";
@@ -146,6 +150,7 @@ export default function TaskDetailPopup({
   username,
   initialTab,
   initialCommentsOpen = false,
+  previewMode = false,
 }: TaskDetailPopupProps) {
   const queryClient = useQueryClient();
   // The effective `readOnly` is computed below, after the PI edit gate (it needs
@@ -876,7 +881,7 @@ export default function TaskDetailPopup({
     queryKey: ["task", taskKey(initialTask)],
     queryFn: () => rawTasksApi.get(initialTask.id, ownerForTask),
     initialData: initialTask,
-    enabled: !readOnly,
+    enabled: !readOnly && !previewMode,
   });
 
   // Sync local task state with the freshly-fetched record from disk while
@@ -1067,6 +1072,7 @@ export default function TaskDetailPopup({
         onExpandedChange={setIsExpanded}
         expandToggleRef={shellToggleExpandRef}
         dockedWidthClassName="max-w-3xl"
+        dockedFitContent
         accentColor={project?.color || "#3b82f6"}
       >
         {animationPosition && (
@@ -1077,11 +1083,12 @@ export default function TaskDetailPopup({
             onComplete={handleAnimationComplete}
           />
         )}
-        <div className="flex-1 min-h-0 overflow-y-auto">
+        <div className={`${isExpanded ? "flex-1" : "flex-auto"} min-h-0 overflow-y-auto`}>
           <SimpleTaskChecklist
             task={task}
             onAnimationTrigger={(pos) => setAnimationPosition(pos)}
             readOnly={readOnly}
+            expanded={isExpanded}
             piActor={piActive && currentUser ? currentUser : undefined}
           />
         </div>
@@ -1692,11 +1699,15 @@ function SimpleTaskChecklist({
   task,
   onAnimationTrigger,
   readOnly = false,
+  expanded = false,
   piActor,
 }: {
   task: Task;
   onAnimationTrigger: (pos: { x: number; y: number }) => void;
   readOnly?: boolean;
+  /** Fullscreen (Focus) mode: fill the tall card + scroll the list internally.
+   *  Docked: natural height so the popup hugs its content (parent scrolls). */
+  expanded?: boolean;
   /** PI capability revamp: the lab head's username when editing this member's
       task on the role, so writes route to the owner + audit. */
   piActor?: string;
@@ -1786,9 +1797,9 @@ function SimpleTaskChecklist({
   }, [subTasks, task, tasksApi, queryClient]);
 
   return (
-    <div className="p-3 flex-1 min-h-0 flex flex-col">
+    <div className={`p-3 flex flex-col ${expanded ? "flex-1 min-h-0" : ""}`}>
       {/* Sub-tasks list */}
-      <div className="space-y-1 mb-2.5 flex-1 min-h-0 overflow-y-auto">
+      <div className={`space-y-1 mb-2.5 ${expanded ? "flex-1 min-h-0 overflow-y-auto" : ""}`}>
         {subTasks.map((st, idx) => (
           <div
             key={st.id}

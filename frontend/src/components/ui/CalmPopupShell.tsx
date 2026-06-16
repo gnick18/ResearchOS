@@ -164,6 +164,10 @@ export interface CalmPopupShellProps {
   accentColor?: string | null;
   /** Docked card max-width Tailwind class. Default max-w-5xl. */
   dockedWidthClassName?: string;
+  /** Docked card HUGS its content (height = content) up to a capped max-height,
+   *  then the body scrolls — instead of the default fixed 90vh. For short,
+   *  content-sized popups like the simple checklist task (no big empty area). */
+  dockedFitContent?: boolean;
   /** Extra classes on the card. */
   cardClassName?: string;
   /** Forwarded to the card so LiveMarkdownEditor can find the drag-ring target. */
@@ -212,6 +216,7 @@ export default function CalmPopupShell({
   insertRail,
   accentColor,
   dockedWidthClassName = "max-w-5xl",
+  dockedFitContent = false,
   cardClassName,
   dragRingTarget,
   onCardDragOver,
@@ -323,7 +328,7 @@ export default function CalmPopupShell({
     "ros-calm-surface ros-popup-card-shadow pointer-events-auto rounded-2xl w-full mx-4 flex flex-col transition-all duration-300 overflow-hidden",
     isExpanded
       ? "inset-4 max-w-none max-h-none h-[calc(100vh-2rem)]"
-      : `${dockedWidthClassName} h-[90vh] max-h-[860px]`,
+      : `${dockedWidthClassName} ${dockedFitContent ? "max-h-[min(90vh,860px)]" : "h-[90vh] max-h-[860px]"}`,
     cardClassName ?? "",
   ]
     .filter(Boolean)
@@ -469,7 +474,7 @@ export default function CalmPopupShell({
         )}
 
         {/* Body. Render-prop so the editor tabs can read `expanded`. */}
-        <div className="s-scroll flex-1 overflow-hidden flex flex-col min-h-0">
+        <div className={`s-scroll ${dockedFitContent && !isExpanded ? "flex-auto" : "flex-1"} overflow-hidden flex flex-col min-h-0`}>
           {children}
         </div>
 
