@@ -69,6 +69,7 @@ import RainbowFrame from "@/components/marketing/RainbowFrame";
 import FeatureRow from "@/components/marketing/FeatureRow";
 import { markLandingSeen } from "@/lib/landing/landing-gate";
 import { ASSET_BASE_URL } from "@/lib/figure/asset-library";
+import { isMobileDevice } from "@/lib/file-system/file-system-context";
 
 /** The rainbow ramps, pulled from the brand tokens in globals.css so the
  *  welcome page never drifts from the footer / avatars / banner. RAINBOW is the
@@ -630,7 +631,13 @@ export default function WelcomePage({
 } = {}) {
   const router = useRouter();
 
-  // Roadmap modal state.
+  // Phone vs desktop, resolved after mount (navigator is client-only). null
+  // until then so SSR + first client render match (no banner), avoiding a
+  // hydration mismatch and any mobile flash of the desktop-required banner.
+  const [isMobile, setIsMobile] = useState<boolean | null>(null);
+  useEffect(() => {
+    setIsMobile(isMobileDevice());
+  }, []);
 
   // "Get started" routes UP to the connect chooser, which now lives ABOVE this
   // page. When this component is embedded in EntrySnapSurface, the chooser is
@@ -678,10 +685,13 @@ export default function WelcomePage({
       {/* Thick rainbow ribbon pinned to the very top edge. */}
       <div aria-hidden className="h-2 w-full" style={{ background: RAINBOW }} />
 
-      {/* Desktop-required notice (unsupported device / browser). The page below
-          is fully readable; this explains why the entry buttons do not start the
-          app here, and points to the requirements guide. */}
-      {unsupported && (
+      {/* Desktop-required notice. Shown only for an UNSUPPORTED DESKTOP browser
+          (Safari / Firefox), where "switch to Chrome or Edge" is actionable. NOT
+          shown on phones (isMobile): a phone cannot switch to desktop Chrome, so
+          the banner is just noise there; the marketing content reads the same as
+          the desktop site. isMobile is null until mount, so this never flashes on
+          a phone. */}
+      {unsupported && isMobile === false && (
         <div className="sticky top-0 z-20 border-b border-amber-200 bg-amber-50/95 backdrop-blur">
           <div className="mx-auto flex max-w-[1180px] flex-col gap-1 px-6 py-3 text-left sm:flex-row sm:items-center sm:justify-between sm:gap-4">
             <p className="text-meta leading-snug text-amber-900 sm:text-body">
