@@ -108,6 +108,7 @@ import {
 import { registerFigureSources } from "@/lib/figure/register-sources";
 import { PAPER_PRESETS } from "@/lib/figure/artboard";
 import ZoomPanCanvas from "@/components/figure/ZoomPanCanvas";
+import { CompositionPanelAdvisor } from "@/components/figure/CompositionPanelAdvisor";
 
 const SCREEN_DPI = 96;
 
@@ -1565,6 +1566,25 @@ export default function FigureComposer({ pageId }: { pageId: string }) {
                   />
                   Show plot title
                 </label>
+
+                {/* Collision-aware layout advisor (Phase 5): flags a legend over
+                    the data / crowded labels AT THIS PANEL SIZE and applies a fix
+                    as a panel-local override. Renders nothing when the panel is
+                    clean or its source has no manifest. The Style controls below
+                    are the persistent revert. */}
+                {src && sp && (
+                  <CompositionPanelAdvisor
+                    panelId={selected}
+                    source={src}
+                    refId={sp.ref.id}
+                    widthIn={sp.wIn}
+                    heightIn={sp.hIn}
+                    style={sp.style}
+                    onApply={(patch) =>
+                      mutate((p) => setPanelStyle(p, selected, patch), true)
+                    }
+                  />
+                )}
 
                 {(styleTargets.length > 0 || styleSchema.length > 0) && (
                   <div className="space-y-2 border-t border-border pt-2.5">
