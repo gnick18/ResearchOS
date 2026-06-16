@@ -58,6 +58,7 @@ import {
   monthlyOf,
   avgFreeUserCostPathA,
   breakEvenConversion,
+  breakEvenUsers,
   freeUsersPerPayer,
   projectAtScale,
   serviceMargin,
@@ -1111,6 +1112,7 @@ export function FinalizeTab() {
   const fixedMonthly = INFRA_FIXED_MONTHLY + opMonthly;
   const project = (users: number) =>
     projectAtScale(users, tiers, mix, fixedMonthly);
+  const beUsers = breakEvenUsers(tiers, mix, fixedMonthly);
   const deptLabMonthly = membersPerLab * dept.price + govFee;
 
   function updateOp(i: number, patch: Partial<FixedCostItem>) {
@@ -1130,6 +1132,7 @@ export function FinalizeTab() {
     ...s,
     net: projectAtScale(SCALE, tiers, { ...mix, conversion: s.v }, fixedMonthly)
       .net,
+    beUsers: breakEvenUsers(tiers, { ...mix, conversion: s.v }, fixedMonthly),
   }));
   const scenarioMax = Math.max(1, ...scenarioNets.map((s) => Math.abs(s.net)));
 
@@ -1143,7 +1146,17 @@ export function FinalizeTab() {
       padB = 28;
     const W = w - padL - padR,
       H = h - padT - padB;
-    const maxU = 50000;
+    // Auto-scale the x-axis so the break-even crossover sits comfortably
+    // on-chart (about 60% across) instead of a fixed 50k window.
+    const niceMax = (v: number) => {
+      const pow = Math.pow(10, Math.floor(Math.log10(v)));
+      const n = v / pow;
+      const step = n <= 1 ? 1 : n <= 2 ? 2 : n <= 5 ? 5 : 10;
+      return step * pow;
+    };
+    const maxU = Number.isFinite(beUsers)
+      ? Math.max(5000, niceMax(beUsers * 1.7))
+      : 50000;
     const pts: { u: number; rev: number; exp: number }[] = [];
     for (let i = 0; i <= 100; i++) {
       const u = (maxU * i) / 100;
@@ -1153,6 +1166,14 @@ export function FinalizeTab() {
     const ymax = Math.max(100, ...pts.map((p) => Math.max(p.rev, p.exp)));
     const X = (u: number) => padL + (W * u) / maxU;
     const Y = (v: number) => padT + H * (1 - v / ymax);
+
+    // Shade the profitable region (right of break-even) light green.
+    const beOnChart = Number.isFinite(beUsers) && beUsers <= maxU;
+    if (beOnChart) {
+      x.fillStyle = "rgba(22,163,74,0.08)";
+      x.fillRect(X(beUsers), padT, w - padR - X(beUsers), H);
+    }
+
     x.strokeStyle = CH.grid;
     x.fillStyle = CH.axis;
     x.font = "11px sans-serif";
@@ -1165,8 +1186,11 @@ export function FinalizeTab() {
       x.stroke();
       x.fillText(fmt0(v), 4, yy + 3);
     }
-    for (let u = 0; u <= maxU; u += 10000)
-      x.fillText(u / 1000 + "k", X(u) - 8, h - 10);
+    for (let g = 0; g <= 5; g++) {
+      const u = (maxU * g) / 5;
+      const lbl = u >= 1000 ? `${+(u / 1000).toFixed(1)}k` : String(Math.round(u));
+      x.fillText(lbl, X(u) - 8, h - 10);
+    }
     const line = (key: "rev" | "exp", color: string) => {
       x.strokeStyle = color;
       x.lineWidth = 2.4;
@@ -1180,6 +1204,27 @@ export function FinalizeTab() {
     };
     line("exp", CH.bad);
     line("rev", CH.good);
+
+    // Break-even marker: a dashed vertical line at the user count where revenue
+    // crosses expense, labeled. This is the "how many users to be profitable".
+    if (beOnChart) {
+      const bx = X(beUsers);
+      x.strokeStyle = "#0f172a";
+      x.setLineDash([4, 3]);
+      x.lineWidth = 1.5;
+      x.beginPath();
+      x.moveTo(bx, padT);
+      x.lineTo(bx, h - padB);
+      x.stroke();
+      x.setLineDash([]);
+      x.fillStyle = "#0f172a";
+      x.font = "bold 11px sans-serif";
+      const label = `break even ${
+        beUsers >= 1000 ? `${(beUsers / 1000).toFixed(1)}k` : Math.round(beUsers)
+      } users`;
+      const tw = x.measureText(label).width;
+      x.fillText(label, Math.min(bx + 5, w - padR - tw), padT + 10);
+    }
   }
 
   useEffect(() => {
@@ -1477,7 +1522,37 @@ export function FinalizeTab() {
         </div>
 
         <div className="space-y-6 lg:sticky lg:top-4">
-          <Panel title="Profit vs expense at scale">
+          <Panel title="When do we become profitable?">
+            <div
+              className={`mb-3 rounded-lg border p-3 ${
+                Number.isFinite(beUsers)
+                  ? "border-emerald-200 bg-emerald-50"
+                  : "border-rose-200 bg-rose-50"
+              }`}
+            >
+              <div className="text-meta text-foreground-muted">
+                Break even (net crosses $0) at
+              </div>
+              {Number.isFinite(beUsers) ? (
+                <div className="text-heading font-bold text-emerald-700">
+                  {beUsers >= 1000
+                    ? `~${(beUsers / 1000).toFixed(1)}k users`
+                    : `~${Math.round(beUsers)} users`}
+                  <span className="ml-2 text-meta font-normal text-foreground-muted">
+                    ({Math.round(beUsers * conversion).toLocaleString()} paying)
+                  </span>
+                </div>
+              ) : (
+                <div className="text-body font-semibold text-rose-700">
+                  Never at {(conversion * 100).toFixed(1)}% conversion. Each user
+                  loses money, so no scale fixes it. Raise conversion or prices.
+                </div>
+              )}
+              <p className="mt-1 text-meta text-foreground-muted">
+                Above that user count the {fmt0(fixedMonthly)}/mo of fixed costs is
+                covered and every further user is profit.
+              </p>
+            </div>
             <canvas
               ref={chartRef}
               height={220}
@@ -1488,19 +1563,40 @@ export function FinalizeTab() {
               items={[
                 { c: CH.good, t: "revenue in" },
                 { c: CH.bad, t: "expense out" },
+                { c: "rgba(22,163,74,0.5)", t: "profitable zone" },
               ]}
             />
           </Panel>
 
-          <Panel title="Net per month by scenario (at 50k users)">
+          <Panel title="Break-even users by conversion scenario">
             <div className="space-y-2">
               {scenarioNets.map((s) => {
                 const pct = (Math.abs(s.net) / scenarioMax) * 100;
                 const pos = s.net >= 0;
+                const beLabel = Number.isFinite(s.beUsers)
+                  ? s.beUsers >= 1000
+                    ? `${(s.beUsers / 1000).toFixed(1)}k`
+                    : `${Math.round(s.beUsers)}`
+                  : "never";
                 return (
                   <div key={s.id} className="flex items-center gap-2 text-meta">
-                    <span className="w-28 shrink-0 text-foreground-muted">
+                    <span className="w-24 shrink-0 text-foreground-muted">
                       {s.label} {(s.v * 100).toFixed(0)}%
+                    </span>
+                    <span
+                      className={`w-20 shrink-0 font-semibold tabular-nums ${
+                        Number.isFinite(s.beUsers)
+                          ? "text-foreground"
+                          : "text-rose-600"
+                      }`}
+                    >
+                      {beLabel}
+                      {Number.isFinite(s.beUsers) && (
+                        <span className="font-normal text-foreground-muted">
+                          {" "}
+                          users
+                        </span>
+                      )}
                     </span>
                     <span className="relative h-4 flex-1 overflow-hidden rounded bg-surface-sunken">
                       <span
@@ -1521,6 +1617,10 @@ export function FinalizeTab() {
                 );
               })}
             </div>
+            <p className="mt-2 text-meta text-foreground-muted">
+              Break-even user count (left) and net per month at 50k (bar + right)
+              for each conversion model. Lower break-even is better.
+            </p>
           </Panel>
 
           <Panel title="Where the money comes from (at 50k users)">

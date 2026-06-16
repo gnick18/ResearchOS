@@ -20,8 +20,10 @@ describe("FinalizeTab (Path-A service dashboard)", () => {
     has(/AI per AI-user/i); // streamlined assumption knob
     has(/Conservative/i); // scenario preset
     has(/Dept-heavy/i); // mix preset
-    has(/Net per month by scenario/i); // outcome plot 2
-    has(/Where the money comes from/i); // outcome plot 3
+    has(/When do we become profitable/i); // the break-even plot
+    has(/Break even/i); // the headline break-even-users readout
+    has(/Break-even users by conversion scenario/i); // per-scenario break-even
+    has(/Where the money comes from/i); // composition plot
     has(/AI margin/i); // composition row
     has(/Governance fees/i); // composition row
     // Free users are ~$0/mo recurring; the grant is a separate one-time line.
@@ -43,7 +45,7 @@ describe("FinalizeTab (Path-A service dashboard)", () => {
     const { container } = render(<FinalizeTab />);
     const text = container.textContent ?? "";
     const assumptions = text.indexOf("Assumptions");
-    const plot = text.indexOf("Profit vs expense");
+    const plot = text.indexOf("When do we become profitable");
     const lockedStrip = text.indexOf("Path A, locked");
     const howToRead = text.indexOf("How to read it");
     expect(assumptions).toBeGreaterThanOrEqual(0);

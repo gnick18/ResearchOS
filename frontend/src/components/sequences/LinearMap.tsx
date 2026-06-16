@@ -58,6 +58,7 @@ import {
   cutSiteStackTooDeep,
   type LabelItem,
 } from "@/lib/sequences/label-layout";
+import { Icon } from "@/components/icons";
 import {
   MIN_WINDOW_BP,
   clampSpan,
@@ -842,10 +843,7 @@ export default function LinearMap({
       {cutSitesCrowded ? (
         <div className="pointer-events-none sticky top-2 z-10 flex justify-center px-3">
           <div className="pointer-events-auto flex max-w-md items-start gap-2 rounded-md border border-amber-400/60 bg-amber-50 px-3 py-2 text-meta text-amber-900 shadow-sm dark:border-amber-500/40 dark:bg-amber-950/60 dark:text-amber-200">
-            <svg width="14" height="14" viewBox="0 0 16 16" className="mt-0.5 shrink-0" aria-hidden="true">
-              <path d="M8 1.5 15 14H1L8 1.5Z" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinejoin="round" />
-              <path d="M8 6.2v3.4M8 11.6v.1" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" />
-            </svg>
+            <Icon name="alert" className="mt-0.5 h-3.5 w-3.5 shrink-0" />
             <div className="flex flex-col gap-1.5">
               <span>
                 Cut-site &amp; primer labels are {aboveTiers} tiers deep. Hide a layer or

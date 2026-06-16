@@ -381,6 +381,26 @@ export function breakEvenConversion(
   return Math.min(1, Math.max(0, F / (R + F)));
 }
 
+/**
+ * Total user count at which the monthly net crosses zero (the business becomes
+ * profitable), given the tiers, mix, and fixed monthly cost. Each additional
+ * user contributes, on average, `conversion * paidNet - (1 - conversion) *
+ * freeCost`; dividing the flat fixed cost by that per-user contribution gives the
+ * count needed to cover it. Returns Infinity when the per-user contribution is
+ * <= 0 (the business never breaks even at this conversion, no scale fixes it).
+ */
+export function breakEvenUsers(
+  tiers: ServiceTiers,
+  mix: AdoptionMix,
+  fixedMonthly: number = totalFixedMonthly(),
+): number {
+  const perUser =
+    mix.conversion * blendedPaidNet(tiers, mix) -
+    (1 - mix.conversion) * avgFreeUserCostPathA(mix.freeRelayWritesM);
+  if (perUser <= 0) return Number.POSITIVE_INFINITY;
+  return fixedMonthly / perUser;
+}
+
 /** How many free users one paying user can carry at break-even (the inverse
  *  intuition for the same number). Infinity when free users are effectively free
  *  (relay 0 and grant not amortized), which is Path A in the limit. */

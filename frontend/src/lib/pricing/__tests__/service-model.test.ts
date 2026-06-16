@@ -26,6 +26,7 @@ import {
   blendedPaidNet,
   projectAtScale,
   breakEvenConversion,
+  breakEvenUsers,
   freeUsersPerPayer,
   type ServiceTiers,
   type AdoptionMix,
@@ -225,6 +226,22 @@ describe("breakEvenConversion", () => {
   it("is zero at the default zero relay (free users cost nothing recurring)", () => {
     expect(breakEvenConversion(TIERS, MIX)).toBe(0);
     expect(freeUsersPerPayer(TIERS, MIX)).toBe(Number.POSITIVE_INFINITY);
+  });
+
+  it("break-even users covers the fixed cost at the per-user contribution", () => {
+    const fixed = 196;
+    const be = breakEvenUsers(TIERS, MIX, fixed);
+    // The projected net at exactly the break-even user count is ~0.
+    expect(projectAtScale(be, TIERS, MIX, fixed).net).toBeCloseTo(0, 6);
+    expect(be).toBeGreaterThan(0);
+    expect(Number.isFinite(be)).toBe(true);
+  });
+
+  it("break-even users is Infinity when each user loses money", () => {
+    // Zero conversion means no revenue, so no scale ever covers the fixed cost.
+    expect(breakEvenUsers(TIERS, { ...MIX, conversion: 0 }, 196)).toBe(
+      Number.POSITIVE_INFINITY,
+    );
   });
 
   it("becomes positive only under the stress-test relay dial", () => {
