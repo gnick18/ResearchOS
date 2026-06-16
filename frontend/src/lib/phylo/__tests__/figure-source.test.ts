@@ -21,15 +21,40 @@ describe("phylo figure source", () => {
     expect(src?.editHref("a b")).toBe("/phylo?doc=a%20b");
   });
 
-  it("declares scale-bar / legend / root-edge toggles (Phase 3 style schema)", () => {
+  it("declares scale-bar / legend / root-edge toggles + a legend-placement select", () => {
     registerPhyloFigureSource();
     const schema = getFigureSource("phylo")?.styleSchema?.() ?? [];
-    expect(schema.every((o) => o.kind === "toggle")).toBe(true);
-    expect(schema.map((o) => o.key)).toEqual(["scaleBar", "legend", "rootEdge"]);
+    expect(schema.map((o) => o.key)).toEqual([
+      "scaleBar",
+      "legend",
+      "rootEdge",
+      "legendPlacement",
+    ]);
     // Scale bar + legend default on; the root edge defaults off (matches FigureInputs).
     const byKey = Object.fromEntries(schema.map((o) => [o.key, o]));
+    expect(byKey.scaleBar.kind).toBe("toggle");
     expect(byKey.scaleBar.default).toBe(true);
     expect(byKey.legend.default).toBe(true);
     expect(byKey.rootEdge.default).toBe(false);
+    // The legend lever is a select (Right / Below), defaulting to the stored right.
+    expect(byKey.legendPlacement.kind).toBe("select");
+    if (byKey.legendPlacement.kind === "select") {
+      expect(byKey.legendPlacement.default).toBe("right");
+      expect(byKey.legendPlacement.choices.map((c) => c.value)).toEqual([
+        "right",
+        "bottom",
+      ]);
+    }
+  });
+
+  it("maps the relocate-legend fix to a below-the-figure legend, nothing else", () => {
+    registerPhyloFigureSource();
+    const src = getFigureSource("phylo");
+    expect(src?.styleForFix?.("relocate-legend")).toEqual({
+      options: { legendPlacement: "bottom" },
+    });
+    // The other advisor fixes are not composer-panel overrides for a tree.
+    expect(src?.styleForFix?.("shrink-label-font")).toBeNull();
+    expect(src?.styleForFix?.("drop-duplicate-overlay")).toBeNull();
   });
 });

@@ -24,8 +24,10 @@ import {
   type RenderedFigure,
   type RenderOpts,
   type StyleOption,
+  type PanelStyle,
 } from "@/lib/figure/figure-source";
 import type { LayoutManifest } from "@/lib/figure/layout-manifest";
+import type { FixId } from "@/lib/figure/layout-collision";
 
 /** Circular-family layouts read best square; rectangular ones a touch wide. */
 const SQUARE_LAYOUTS = new Set<PhyloLayout>([
@@ -64,6 +66,12 @@ function buildSpec(
     scaleBar: typeof o.scaleBar === "boolean" ? o.scaleBar : base.scaleBar,
     legend: typeof o.legend === "boolean" ? o.legend : base.legend,
     rootEdge: typeof o.rootEdge === "boolean" ? o.rootEdge : base.rootEdge,
+    // The collision advisor's relocate-legend fix sets this override; absent keeps
+    // the stored placement.
+    legendPlacement:
+      o.legendPlacement === "right" || o.legendPlacement === "bottom"
+        ? o.legendPlacement
+        : base.legendPlacement,
   };
   // renderTreeSvg sizes in px; the panel asks in real inches, so convert at the
   // requested dpi. The returned SVG carries a viewBox, so it scales to the panel
@@ -123,7 +131,30 @@ export const phyloFigureSource: FigureSource = {
       { kind: "toggle", key: "scaleBar", label: "Scale bar", default: true },
       { kind: "toggle", key: "legend", label: "Legend", default: true },
       { kind: "toggle", key: "rootEdge", label: "Root edge", default: false },
+      {
+        // The manual lever for the legend, so a composed tree panel can move the
+        // legend below the figure (and the advisor's relocate-legend is never a
+        // one-way trap once its banner self-hides).
+        kind: "select",
+        key: "legendPlacement",
+        label: "Legend",
+        default: "right",
+        choices: [
+          { value: "right", label: "Right" },
+          { value: "bottom", label: "Below" },
+        ],
+      },
     ];
+  },
+
+  styleForFix(fixId: FixId): PanelStyle | null {
+    // The phylo composer lever: move the legend below the figure (the same target
+    // the Tree Studio advisor's relocate-legend uses). The other fixes (tilt /
+    // column gap / drop overlay) are not composer-panel overrides, so omit them.
+    if (fixId === "relocate-legend") {
+      return { options: { legendPlacement: "bottom" } };
+    }
+    return null;
   },
 
   editHref(id) {
