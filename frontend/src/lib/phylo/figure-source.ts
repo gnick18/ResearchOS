@@ -9,8 +9,8 @@
 // No em-dashes, no emojis, no mid-sentence colons.
 
 import { phyloApi } from "@/lib/phylo/api";
-import { parseTree } from "@/lib/phylo/parse";
-import { renderTreeSvg } from "@/lib/phylo/render";
+import { parseTree, type TreeNode } from "@/lib/phylo/parse";
+import { renderTreeSvg, renderTreeWithManifest, type RenderSpec } from "@/lib/phylo/render";
 import {
   figureToRenderSpec,
   figureInputsFromStored,
@@ -22,8 +22,10 @@ import {
   type FigureSource,
   type FigureRef,
   type RenderedFigure,
+  type RenderOpts,
   type StyleOption,
 } from "@/lib/figure/figure-source";
+import type { LayoutManifest } from "@/lib/figure/layout-manifest";
 
 /** Circular-family layouts read best square; rectangular ones a touch wide. */
 const SQUARE_LAYOUTS = new Set<PhyloLayout>([
@@ -41,6 +43,36 @@ function layoutKind(layout: PhyloLayout | undefined): string {
 /** The panel's default aspect, so an added tree panel is sensibly proportioned. */
 function treeAspect(layout: PhyloLayout | undefined): number {
   return layout && SQUARE_LAYOUTS.has(layout) ? 1.0 : 1.3;
+}
+
+type PhyloRaw = NonNullable<Awaited<ReturnType<typeof phyloApi.get>>>;
+
+/** Build the parsed tree + render spec a render at `opts` uses. Shared by
+ *  render() (draws the SVG) and getLayoutManifest() (measures the bboxes) so the
+ *  advisor reasons about the exact geometry the panel draws. Per-panel option
+ *  overrides (composer Style inspector) layer on the stored inputs without
+ *  mutating the saved tree; absent options keep the stored value. */
+function buildSpec(
+  raw: PhyloRaw,
+  opts: RenderOpts,
+): { tree: TreeNode; spec: RenderSpec } {
+  const tree = parseTree(raw.tree);
+  const base = figureInputsFromStored(raw.meta.figure, raw.meta.metadata);
+  const o = opts.style?.options ?? {};
+  const inputs = {
+    ...base,
+    scaleBar: typeof o.scaleBar === "boolean" ? o.scaleBar : base.scaleBar,
+    legend: typeof o.legend === "boolean" ? o.legend : base.legend,
+    rootEdge: typeof o.rootEdge === "boolean" ? o.rootEdge : base.rootEdge,
+  };
+  // renderTreeSvg sizes in px; the panel asks in real inches, so convert at the
+  // requested dpi. The returned SVG carries a viewBox, so it scales to the panel
+  // box when the composer nests it.
+  const spec = figureToRenderSpec(tree, inputs, {
+    width: Math.max(1, Math.round(opts.widthIn * opts.dpi)),
+    height: Math.max(1, Math.round(opts.heightIn * opts.dpi)),
+  });
+  return { tree, spec };
 }
 
 export const phyloFigureSource: FigureSource = {
@@ -65,29 +97,24 @@ export const phyloFigureSource: FigureSource = {
     const raw = await phyloApi.get(id);
     if (!raw) return missingPanelSvg(opts.widthIn, opts.heightIn);
     try {
-      const tree = parseTree(raw.tree);
-      const base = figureInputsFromStored(raw.meta.figure, raw.meta.metadata);
-      // Per-panel option overrides (composer Style inspector) layer on top of the
-      // figure's stored inputs without mutating the saved tree. Absent options
-      // keep the stored value, so an unstyled panel renders exactly as before.
-      const o = opts.style?.options ?? {};
-      const inputs = {
-        ...base,
-        scaleBar: typeof o.scaleBar === "boolean" ? o.scaleBar : base.scaleBar,
-        legend: typeof o.legend === "boolean" ? o.legend : base.legend,
-        rootEdge: typeof o.rootEdge === "boolean" ? o.rootEdge : base.rootEdge,
-      };
-      // renderTreeSvg sizes in px; the panel asks in real inches, so convert at
-      // the requested dpi. The returned SVG carries a viewBox, so it scales to
-      // the panel box when the composer nests it.
-      const spec = figureToRenderSpec(tree, inputs, {
-        width: Math.max(1, Math.round(opts.widthIn * opts.dpi)),
-        height: Math.max(1, Math.round(opts.heightIn * opts.dpi)),
-      });
+      const { tree, spec } = buildSpec(raw, opts);
       const svg = renderTreeSvg(tree, spec);
       return { svg, naturalAspect: treeAspect(raw.meta.figure?.layout) };
     } catch {
       return missingPanelSvg(opts.widthIn, opts.heightIn);
+    }
+  },
+
+  async getLayoutManifest(id, opts): Promise<LayoutManifest | null> {
+    const raw = await phyloApi.get(id);
+    if (!raw) return null;
+    try {
+      const { tree, spec } = buildSpec(raw, opts);
+      // renderTreeWithManifest emits the exact bboxes the SVG was drawn from, so
+      // the advisor measures the same geometry render() produced.
+      return renderTreeWithManifest(tree, spec).manifest;
+    } catch {
+      return null;
     }
   },
 

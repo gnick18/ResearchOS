@@ -10,6 +10,8 @@
 //
 // No em-dashes, no emojis, no mid-sentence colons.
 
+import type { LayoutManifest } from "./layout-manifest";
+
 /** One figure a source offers, enough to list + reference it. */
 export interface FigureRef {
   /** Stable id within the source (e.g. a PlotSpec id, a PhyloFigureSpec id). */
@@ -156,6 +158,16 @@ export interface FigureSource {
    * canonical-style store omits this.
    */
   saveDefaultStyle?(id: string, style: PanelStyle): Promise<void>;
+  /**
+   * Optional: emit the placed-element geometry (bounding boxes) of the figure as
+   * it would render at `opts`, so the collision-aware layout advisor can detect
+   * legend-over-content / label-crowding / duplicate overlays on this surface and
+   * preview fixes. Same id + opts as render(), so the boxes are the exact numbers
+   * the SVG was drawn from. A source with no collision support omits this and gets
+   * no advisor. Returns null when the figure does not resolve. See
+   * docs/proposals/2026-06-15-collision-aware-layout-advisor.md (Phase 5).
+   */
+  getLayoutManifest?(id: string, opts: RenderOpts): Promise<LayoutManifest | null>;
 }
 
 // Module-level registry. Surfaces register once at startup (registerSources()).
