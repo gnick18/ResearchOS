@@ -54,7 +54,8 @@ record-set widget, Canvas, memory, @/commands), not a chat line.
 - **A filter wizard.** [SHIPPED] Guided picker extending `ask_user` for ambiguous filters. Session 4.
 - **Summaries as real artifacts.** [SHIPPED] `save_summary_as_note` composes a structured note via the draft-preview gate, numbers verbatim from the tools. 2026-06-13.
 - **Deterministic resolvers.** [SHIPPED, not in the original list] period/calendar windows, project + member name resolution (fuzzy), `search_full_text` body grep, `list_records` top-N. Verified live 7/7. 2026-06-14.
-- **Inline record-set widget.** [SHIPPED, not in the original list] When any record tool returns a SET, the chat renders a searchable master-detail browser (2 to 4 compact chip-tabs + preview, 5+ full search + rail), deterministic, full set to the UI / capped to the model. Live-verified + fixed. Merged `2d57e50a3` + `406248cd1`. 2026-06-14.
+- **Inline record-set widget.** [SHIPPED, not in the original list] When any record tool returns a SET, the chat renders a searchable master-detail browser (2 to 4 compact chip-tabs + preview, 5+ full search + rail), deterministic, full set to the UI / capped to the model. Live-verified + fixed. Merged `2d57e50a3` + `406248cd1`. 2026-06-14. (Restyled with per-type tinted tiles via the shared widget kit, 2026-06-15.)
+- **Inline summary AGGREGATE card.** [SHIPPED] A summarize_* tool's deterministic aggregate (scope chips + stat tiles + by-status/owner/vendor bars + period histogram) renders as a widget ABOVE the items list for all 6 summary types, so the counts/totals the user sees come straight from the tool, never the model's prose. Merged `b13e0dddb` 2026-06-15, Grant live-verified. `summary-report.ts` + `SummaryReportWidget.tsx` on the widget kit.
 
 ## What's next (the adjacent epics, the real frontier)
 
