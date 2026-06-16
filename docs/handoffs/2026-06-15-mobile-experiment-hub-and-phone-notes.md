@@ -22,6 +22,15 @@ Plus a stack of **design/research docs** for the bigger questions Grant raised (
 - `71c9b0871` — **Phase 2b**: write a text note to Notes/Results from the hub. Reused the EXISTING `append-line` command (`lib/calc-export.ts` `postAppendLine`) — no new relay command/laptop handler needed (the laptop already appends text to the experiment's notes/results .md).
 - `0d5aaf0c9` — **phone-notes P1 (read), mobile half**: render the experiment's existing notes.md/results.md on the hub. New `ExperimentNotesSnapshot` type + `'experiment-notes'` fetch kind + demo fixture; new dependency-free `components/MarkdownLite.tsx` renderer (headings/bullets/paragraphs/inline bold+code) = the seam the rich embed cards slot into later.
 
+## Post-handoff polish (late 2026-06-15, after this doc was written — NOT pushed)
+A second interactive stretch with Grant landed four small mobile fixes. These are committed to the **local shared `main`** but **not yet on `origin/main`** (the checkout is ahead of origin; see push note below). Pick-up session committed the last one, which the throttled agent had verified but left orphaned in the working tree.
+- `54364923a` — Active Experiments card now shows the **project folder**; also folded in the **singular demo-fixture unit labels** (`bottle`/`vial`).
+- `6dabc601c` — camera-roll button relabelled **"Bulk upload from camera roll"** (was ambiguous).
+- `81651bde3` — **removed the vestigial "View method on phone" button** from the Notebook capture screen. It only did `router.push('/method-detail')` (opened the *last* laptop-published method with no which-method context) — a leftover from before the Methods tab / experiment hub / Today dropdown existed as proper contextual entry points. The `/method-detail` route stays (other paths use it).
+- `2e9b86365` — **inventory unit pluralization** (`unitFor(n)` helper, "3 of 6 bottles left"). This was the orphaned half of the HMR-verified fix whose demo-fixture half had already shipped in `54364923a`; the pick-up session typechecked (tsc 0) and committed it.
+
+**Push state at takeover:** local `main` was **ahead 51 / behind 42** of `origin/main`. The cohort's work (this lane + others) is unpushed and origin has diverged — a merge-then-push is owed but it's a **coordinator decision** (needs the other lanes quiesced + Grant's go-ahead), so the pick-up session did NOT push. Flag to Grant.
+
 ## THE design decision (read this before building more)
 Grant explicitly chose a **no-Loro "pull / read / place / push phone-note embeds"** model over full real-time CRDT editing. Spec: **`docs/proposals/2026-06-15-experiment-hub-phone-notes-pull-edit-push.md`**. The model:
 - Phone PULLS a notes/results snapshot, READS + scrolls, INSERTS self-contained note blocks at line boundaries; on PUSH each lands in the laptop doc as a `[!phone-note]` callout embed at that position.
