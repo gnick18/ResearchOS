@@ -7,7 +7,7 @@
 // No em-dashes, no emojis, no mid-sentence colons.
 
 import { describe, it, expect } from "vitest";
-import { buildLinearMapManifest, renderSequenceMapSvg } from "./map-render";
+import { buildLinearMapManifest, buildCircularMapManifest, renderSequenceMapSvg } from "./map-render";
 import type { SeqDocument, EditFeature } from "./edit-model";
 import type { SequenceMapStyle } from "./figure-style";
 import { detectCollisions, suggestFixes } from "@/lib/figure/layout-collision";
@@ -80,5 +80,48 @@ describe("manifest agrees with the rendered ink", () => {
     const arrows = (svg.match(/<path d="M/g) || []).length;
     const marks = buildLinearMapManifest(sparse, SIZE, {}).boxes.filter((b) => b.kind === "mark").length;
     expect(marks).toBe(arrows); // 3 features -> 3 arrows -> 3 mark boxes
+  });
+});
+
+describe("circular (plasmid) map manifest", () => {
+  const circ = (features: EditFeature[]): SeqDocument => ({
+    name: "pPlasmid",
+    seq: "A".repeat(4000),
+    seqType: "dna",
+    circular: true,
+    features,
+  });
+  const CSIZE = { width: 360, height: 360 };
+  // Many features on the SAME side of the ring (early bp -> right side) so their
+  // de-collided label column overruns the canvas top/bottom.
+  const lopsided = circ(
+    Array.from({ length: 24 }, (_, i) => ({
+      name: `feature_${i}_on_the_right`,
+      start: 50 + i * 5,
+      end: 120 + i * 5,
+      forward: true,
+    })),
+  );
+  const fewCirc = circ([
+    { name: "ori", start: 100, end: 600, forward: true },
+    { name: "ampR", start: 1800, end: 2600, forward: false },
+  ]);
+
+  it("emits a label box per feature plus a center block", () => {
+    const m = buildCircularMapManifest(fewCirc, CSIZE, {});
+    expect(m.boxes.filter((b) => b.kind === "tipLabel").length).toBe(2);
+    expect(m.boxes.some((b) => b.id === "center")).toBe(true);
+  });
+
+  it("a lopsided plasmid overruns the canvas -> content-overflow", () => {
+    const m = buildCircularMapManifest(lopsided, CSIZE, {});
+    const off = m.boxes.some((b) => b.kind === "tipLabel" && (b.y < 0 || b.y + b.h > CSIZE.height));
+    expect(off).toBe(true);
+    expect(detectCollisions(m).some((c) => c.kind === "content-overflow")).toBe(true);
+  });
+
+  it("a sparse plasmid does not overflow", () => {
+    const m = buildCircularMapManifest(fewCirc, CSIZE, {});
+    expect(detectCollisions(m).some((c) => c.kind === "content-overflow")).toBe(false);
   });
 });

@@ -169,21 +169,29 @@ export function detectCollisions(manifest: LayoutManifest): Collision[] {
     }
   }
 
-  // 5. Content overflow: an element stacked off the TOP of the canvas (negative y).
-  // A lane / tier stack ran out of vertical room and clipped (a dense sequence map
-  // packs feature rows upward until the top rows fall off the figure). Nothing
-  // legitimately renders above y=0, so a box meaningfully above the top edge is an
-  // unambiguous overflow. The legend is handled by legend-overflow above. Aggregated
-  // into one collision listing the clipped element ids.
-  const OVER = 4;
-  const clipped = boxes.filter((b) => b.kind !== "legend" && b.y < -OVER);
+  // 5. Content overflow: an element stacked off the TOP or BOTTOM of the canvas. A
+  // lane / tier / label stack ran out of vertical room and clipped (a dense linear
+  // map packs feature rows upward off the top; a busy plasmid's de-collided label
+  // column runs off both ends). The legend is handled by legend-overflow above, and
+  // a `panel` legitimately spans the whole data band to the edges, so both are
+  // excluded; every other kind sitting meaningfully past a vertical edge is an
+  // unambiguous overflow. Aggregated into one collision listing the clipped ids.
+  const OVER = 6;
+  const clipped = boxes.filter(
+    (b) =>
+      b.kind !== "legend" &&
+      b.kind !== "panel" &&
+      (b.y < -OVER || b.y + b.h > manifest.height + OVER),
+  );
   if (clipped.length > 0) {
-    const worst = Math.max(...clipped.map((b) => -b.y));
+    const worst = Math.max(
+      ...clipped.map((b) => Math.max(-b.y, b.y + b.h - manifest.height)),
+    );
     out.push({
       kind: "content-overflow",
       boxIds: clipped.map((b) => b.id),
       severity: Math.min(1, worst / 60),
-      message: `${clipped.length} element${clipped.length > 1 ? "s" : ""} run off the top of the figure.`,
+      message: `${clipped.length} element${clipped.length > 1 ? "s" : ""} run off the edge of the figure.`,
     });
   }
 

@@ -16,6 +16,7 @@ import { documentFromDetail, type SeqDocument } from "@/lib/sequences/edit-model
 import {
   renderSequenceMapSvg,
   buildLinearMapManifest,
+  buildCircularMapManifest,
   featureKey,
   type SequenceMapStyle,
 } from "@/lib/sequences/map-render";
@@ -116,23 +117,22 @@ export const sequenceFigureSource: FigureSource = {
     await sequencesApi.update(Number(id), { figure: toMapStyle(style) });
   },
 
-  // The collision-advisor seam. v1 covers the LINEAR map, whose features lane-pack
-  // upward, so a busy plasmid stacks feature rows off the TOP of the canvas
-  // (content-overflow). Circular maps self-de-collide their labels differently and
-  // are not covered yet, so they return null (no advisor). Same id + opts + merged
-  // style as render(), so the boxes are the exact numbers the SVG was drawn from.
+  // The collision-advisor seam. Both maps stack labels / feature rows that can run
+  // off the canvas (content-overflow): the LINEAR map lane-packs features upward, a
+  // CIRCULAR plasmid de-collides its side label columns without bounding them to the
+  // figure. Same id + opts + merged style as render(), so the boxes are the exact
+  // numbers the SVG was drawn from.
   async getLayoutManifest(id, opts) {
     const loaded = await loadDoc(id);
-    if (!loaded || loaded.doc.circular) return null;
+    if (!loaded) return null;
     const style = mergeMapStyle(loaded.canonical, toMapStyle(opts.style));
-    return buildLinearMapManifest(
-      loaded.doc,
-      {
-        width: Math.max(1, Math.round(opts.widthIn * opts.dpi)),
-        height: Math.max(1, Math.round(opts.heightIn * opts.dpi)),
-      },
-      style,
-    );
+    const size = {
+      width: Math.max(1, Math.round(opts.widthIn * opts.dpi)),
+      height: Math.max(1, Math.round(opts.heightIn * opts.dpi)),
+    };
+    return loaded.doc.circular
+      ? buildCircularMapManifest(loaded.doc, size, style)
+      : buildLinearMapManifest(loaded.doc, size, style);
   },
 
   // The panel-style override each fix maps to (composition-local, no source
