@@ -1079,12 +1079,15 @@ export function FinalizeTab() {
   // adoption funnel scales a representative customer mix from the tunable
   // conversion + org share. Representative, not a forecast.
   const SOLO_SHARE = 0.4;
-  const avgFree = avgFreeUserCost({
-    lightPct: 70,
-    typicalPct: 25,
-    heavyPct: 5,
-    capM: 1,
-  });
+  // A free user costs us storage (bounded by the free pool, at the same assumed
+  // fill as paid) plus writes (a fraction of the free row write allowance). This
+  // is what makes the free-pool and free-write-cap levers actually move the
+  // projection.
+  const FREE_WRITE_FILL = 0.3;
+  const freeWriteCap = rows.find((r) => r.key === "free")?.writesM ?? 1;
+  const avgFree =
+    freeGb * FILL * BLENDED_PER_GB_MO * (1 + BUFFER) +
+    freeWriteCap * FREE_WRITE_FILL * ACTIVITY_PER_M_WRITES;
   const netOf = (key: string) => {
     const r = rows.find((x) => x.key === key);
     if (!r) return 0;
@@ -1168,7 +1171,8 @@ export function FinalizeTab() {
     "w-16 rounded border border-border bg-surface-sunken px-1.5 py-1 text-meta tabular-nums";
 
   return (
-    <div className="space-y-6 text-foreground">
+    <div className="grid items-start gap-6 text-foreground lg:grid-cols-[1fr_360px]">
+      <div className="min-w-0 space-y-6">
       <div className="rounded-xl border border-border bg-surface-sunken px-4 py-3 text-meta leading-relaxed text-foreground-muted">
         <b className="text-foreground">Locked.</b> Solo and lab bill 6/12-month
         only. Storage dept/inst is a flat dollar-per-lab sustain, AI keeps its
@@ -1284,70 +1288,6 @@ export function FinalizeTab() {
         </p>
       </Panel>
 
-      <Panel title="Profit vs expense at scale">
-        <div className="grid items-start gap-6 lg:grid-cols-2">
-          <div className="space-y-4">
-            <Slider
-              label={`Paid conversion: ${(conversion * 100).toFixed(1)}%`}
-              min={1}
-              max={20}
-              step={0.5}
-              value={conversion * 100}
-              onChange={(v) => setConversion(v / 100)}
-            />
-            <Slider
-              label={`Org share of paying: ${Math.round(orgShare * 100)}%`}
-              min={0}
-              max={100}
-              step={5}
-              value={orgShare * 100}
-              onChange={(v) => setOrgShare(v / 100)}
-            />
-            <div className="grid gap-3 sm:grid-cols-3">
-              {[
-                { lbl: "1k users", u: 1000 },
-                { lbl: "10k users", u: 10000 },
-                { lbl: "50k users", u: 50000 },
-              ].map(({ lbl, u }) => {
-                const n = project(u).net;
-                return (
-                  <div key={lbl} className="rounded-lg bg-surface-sunken p-3">
-                    <div className="text-meta text-foreground-muted">{lbl}, net/mo</div>
-                    <div
-                      className={`text-title font-semibold ${
-                        n < 0 ? "text-rose-600" : "text-emerald-600"
-                      }`}
-                    >
-                      {fmt0(n)}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-          <div>
-            <canvas
-              ref={chartRef}
-              height={260}
-              className="block w-full rounded-lg border border-border bg-surface-sunken"
-              style={{ height: 260 }}
-            />
-            <Legend
-              items={[
-                { c: CH.good, t: "revenue in" },
-                { c: CH.bad, t: "expense out" },
-              ]}
-            />
-          </div>
-        </div>
-        <p className="mt-3 text-meta text-foreground-muted">
-          Projection from the ladder. At each user count, paid conversion splits
-          into solo individuals (Plus), standalone labs (Lab Plus), and dept/inst
-          labs by the org share, and the free base carries the support cost plus
-          the fixed infra floor. Representative, not a forecast.
-        </p>
-      </Panel>
-
       <Panel title="Ordering check: dept/inst must cost more per lab than standalone">
         <div
           className={`rounded-xl border p-4 text-meta leading-relaxed ${
@@ -1369,6 +1309,69 @@ export function FinalizeTab() {
           )}
         </div>
       </Panel>
+      </div>
+
+      <div className="lg:sticky lg:top-4">
+        <Panel title="Profit vs expense at scale">
+          <Slider
+            label={`Paid conversion: ${(conversion * 100).toFixed(1)}%`}
+            min={1}
+            max={20}
+            step={0.5}
+            value={conversion * 100}
+            onChange={(v) => setConversion(v / 100)}
+          />
+          <div className="mt-3">
+            <Slider
+              label={`Org share of paying: ${Math.round(orgShare * 100)}%`}
+              min={0}
+              max={100}
+              step={5}
+              value={orgShare * 100}
+              onChange={(v) => setOrgShare(v / 100)}
+            />
+          </div>
+          <div className="mt-4 grid grid-cols-3 gap-3">
+            {[
+              { lbl: "1k", u: 1000 },
+              { lbl: "10k", u: 10000 },
+              { lbl: "50k", u: 50000 },
+            ].map(({ lbl, u }) => {
+              const n = project(u).net;
+              return (
+                <div key={lbl} className="rounded-lg bg-surface-sunken p-2.5">
+                  <div className="text-meta text-foreground-muted">{lbl} users</div>
+                  <div
+                    className={`text-body font-semibold ${
+                      n < 0 ? "text-rose-600" : "text-emerald-600"
+                    }`}
+                  >
+                    {fmt0(n)}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+          <canvas
+            ref={chartRef}
+            height={260}
+            className="mt-4 block w-full rounded-lg border border-border bg-surface-sunken"
+            style={{ height: 260 }}
+          />
+          <Legend
+            items={[
+              { c: CH.good, t: "revenue in" },
+              { c: CH.bad, t: "expense out" },
+            ]}
+          />
+          <p className="mt-3 text-meta text-foreground-muted">
+            Projection from the ladder. Paid conversion splits into solo (Plus),
+            standalone labs (Lab Plus), and dept labs by the org share, and the
+            free base carries the support cost plus the fixed infra floor.
+            Representative, not a forecast.
+          </p>
+        </Panel>
+      </div>
     </div>
   );
 }
