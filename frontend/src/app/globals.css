@@ -537,12 +537,15 @@
   filter: brightness(0.95);
 }
 [data-theme="dark"] .ros-btn-neutral {
+  /* Fill lifts ABOVE every common dark surface (page #0a0e1a, card #1c2638,
+     popup #28344c) so a neutral button is NEVER the same color as the surface
+     behind it — in dark the shadow alone can't separate same-on-same. */
+  background: #323f5a;
   box-shadow: 0 1px 2px rgba(190, 205, 235, 0.1), 0 2px 5px rgba(190, 205, 235, 0.08);
 }
 [data-theme="dark"] .ros-btn-neutral:hover {
-  /* Keep the raised base and brighten — the inverse of light mode. */
-  background: var(--surface-raised);
-  filter: brightness(1.25);
+  /* Lighten further off the lifted base (inverse of light mode's darken). */
+  background: #3a4868;
   box-shadow: 0 2px 5px rgba(190, 205, 235, 0.12), 0 4px 10px rgba(190, 205, 235, 0.12);
 }
 [data-theme="dark"] .ros-btn-neutral:active {
@@ -571,6 +574,9 @@
   filter: brightness(0.97);
 }
 [data-theme="dark"] .ros-btn-destructive {
+  /* Same lifted neutral fill as .ros-btn-neutral so the quiet destructive button
+     is never the same color as the dark surface behind it; red text + red hover. */
+  background: #323f5a;
   color: #f87171;
   box-shadow: 0 1px 2px rgba(190, 205, 235, 0.1), 0 2px 5px rgba(190, 205, 235, 0.08);
 }
