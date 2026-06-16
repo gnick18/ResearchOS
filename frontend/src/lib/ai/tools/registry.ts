@@ -75,6 +75,7 @@ import { summarizeProjectsTool } from "./summarize-projects";
 import { summarizeInventoryTool } from "./summarize-inventory";
 import { summarizeSequencesTool } from "./summarize-sequences";
 import { summarizeMethodsTool } from "./summarize-methods";
+import { summarizeChemistryTool } from "./summarize-chemistry";
 import { labDigestTool } from "./lab-digest";
 import { listLabMembersTool } from "./lab-members";
 import { searchLiteratureTool } from "./search-literature";
@@ -304,6 +305,11 @@ export const READ_ONLY_TOOLS: AiTool[] = [
   // tag, and recently edited). Methods carry a real owner + ACL, so it scopes to
   // the whole lab (own plus shared) by default like the experiment / inventory ones.
   summarizeMethodsTool,
+  // summarize_chemistry aggregates the molecule library deterministically (count,
+  // with-structure / with-formula counts, by-source / project, average + total
+  // molecular weight, a weight histogram, the heaviest + recently added). Per-user
+  // namespaced like summarize_sequences, so it scopes to the caller's own library.
+  summarizeChemistryTool,
   labDigestTool,
   // Lab roster, so the summary wizard's whose-step can offer real member names
   // and resolve a typed name to a real owner. Read-only.

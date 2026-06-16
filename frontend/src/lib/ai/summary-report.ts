@@ -31,6 +31,7 @@ import type { ProjectsSummary } from "@/lib/ai/tools/summarize-projects";
 import type { InventorySummary } from "@/lib/ai/tools/summarize-inventory";
 import type { SequenceSummary } from "@/lib/ai/tools/summarize-sequences";
 import type { MethodSummary } from "@/lib/ai/tools/summarize-methods";
+import type { ChemistrySummary } from "@/lib/ai/tools/summarize-chemistry";
 import type { LabDigest } from "@/lib/ai/tools/lab-digest";
 
 /** Semantic tone for a stat tile or a bar. Maps to a color in the widget; it is a
@@ -389,6 +390,53 @@ export function methodSummaryReport(s: MethodSummary): SummaryReport {
     ],
     barGroups,
     histogram: null,
+  };
+}
+
+/** Map a ChemistrySummary aggregate to the normalized report (the molecule-library
+ *  card). Every number is lifted verbatim from the tool's aggregate. Pure. */
+export function chemistrySummaryReport(s: ChemistrySummary): SummaryReport {
+  const scope: string[] = ["your library"];
+  if (s.filter.project?.trim()) scope.push(s.filter.project.trim());
+  if (s.filter.keywords?.trim()) scope.push(`"${s.filter.keywords.trim()}"`);
+
+  const sourceRows: SummaryBarRow[] = s.bySource.map((b) => ({
+    label: b.source,
+    value: b.count,
+    tone: "accent" as const,
+  }));
+  const projectRows: SummaryBarRow[] = s.byProject.map((b) => ({
+    label: b.projectName,
+    value: b.count,
+    tone: "accent" as const,
+  }));
+
+  const barGroups: SummaryBarGroup[] = [];
+  if (sourceRows.length > 0) barGroups.push({ title: "By source", rows: sourceRows });
+  if (projectRows.length > 0) barGroups.push({ title: "By project", rows: projectRows });
+
+  // The molecular-weight distribution, shown only when more than one molecule
+  // carries a weight (otherwise there is no spread to show).
+  const histogram =
+    s.weightedCount > 1
+      ? {
+          title: "By molecular weight (g/mol)",
+          bars: s.weightBins.map((b) => ({ label: b.label, value: b.count })),
+        }
+      : null;
+
+  return {
+    kind: "summarize_chemistry",
+    heading: "Chemistry",
+    scope,
+    stats: [
+      { label: "molecules", value: String(s.count), emphasis: true },
+      { label: "with a structure", value: String(s.withStructureCount), tone: "accent" },
+      { label: "avg MW", value: s.avgWeight != null ? String(s.avgWeight) : "n/a", tone: "neutral" },
+      { label: "starred papers", value: String(s.starredLiteratureCount), tone: "neutral" },
+    ],
+    barGroups,
+    histogram,
   };
 }
 
