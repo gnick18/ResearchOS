@@ -466,6 +466,88 @@ export interface PublicProfileResult {
 }
 
 /**
+ * A public institution page (the /institution/[slug] hub), DERIVED from verified
+ * email-domain clusters. There is no curated institution entity in the directory;
+ * an "institution" is simply the set of listed researchers who proved the same
+ * affiliation_domain. So the slug, name, and domain are all the verified domain,
+ * logoUrl is null (no curated branding yet), departments are the distinct
+ * affiliations seen in the cluster, and members are the listed profiles.
+ */
+export interface InstitutionCluster {
+  slug: string;
+  name: string;
+  domain: string;
+  logoUrl: string | null;
+  departments: string[];
+  memberCount: number;
+  members: PublicProfileResult[];
+}
+
+/**
+ * PUBLIC, unauthenticated institution page, derived from a verified-domain
+ * cluster. Returns the LISTED researchers (unlisted = false) whose verified
+ * affiliation_domain equals `domain`, or null when no listed member shares it
+ * (the route renders that as found:false). Never returns email or keys, same as
+ * searchPublicProfiles. The route adds the public gate + IP rate limits.
+ */
+export async function getInstitutionByDomain(
+  domain: string,
+): Promise<InstitutionCluster | null> {
+  const sql = getSql();
+  const rows = (await sql`
+    SELECT
+      p.fingerprint,
+      p.display_name,
+      p.affiliation,
+      p.affiliation_domain,
+      p.orcid
+    FROM directory_profiles p
+    WHERE p.unlisted = false
+      AND lower(p.affiliation_domain) = lower(${domain})
+    ORDER BY lower(p.display_name)
+  `) as Array<{
+    fingerprint: string;
+    display_name: string;
+    affiliation: string | null;
+    affiliation_domain: string | null;
+    orcid: string | null;
+  }>;
+
+  if (rows.length === 0) return null;
+
+  const members: PublicProfileResult[] = rows.map((r) => ({
+    fingerprint: r.fingerprint,
+    displayName: r.display_name,
+    affiliation: r.affiliation,
+    verifiedDomain: r.affiliation_domain,
+    orcid: r.orcid,
+  }));
+
+  // Distinct, non-empty affiliations become the department list (stable order).
+  const departments = Array.from(
+    new Set(
+      members
+        .map((m) => (m.affiliation || "").trim())
+        .filter((a) => a.length > 0),
+    ),
+  ).sort((a, b) => a.localeCompare(b));
+
+  // The canonical domain is what members actually proved (preserves real case),
+  // falling back to the queried value. slug = name = domain for the derived v1.
+  const canonicalDomain = rows[0].affiliation_domain || domain;
+
+  return {
+    slug: canonicalDomain,
+    name: canonicalDomain,
+    domain: canonicalDomain,
+    logoUrl: null,
+    departments,
+    memberCount: members.length,
+    members,
+  };
+}
+
+/**
  * PUBLIC, unauthenticated researcher search for the /network hub. Same trigram
  * match as searchProfiles, but with three deliberate differences from the authed
  * search:

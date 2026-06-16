@@ -4,6 +4,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   parseEmailBody,
+  parseInstitutionSlug,
   parseRotateBody,
   parseVerifyBody,
   shapeLookupResult,
@@ -248,5 +249,31 @@ describe("shapeLookupResult", () => {
     });
     expect(Object.keys(shaped)).not.toContain("keyBackupBlob");
     expect(Object.keys(shaped)).not.toContain("emailHash");
+  });
+});
+
+describe("parseInstitutionSlug", () => {
+  it("accepts a domain-shaped slug and lowercases it", () => {
+    expect(parseInstitutionSlug("wisc.edu")).toBe("wisc.edu");
+    expect(parseInstitutionSlug("  Wisc.EDU ")).toBe("wisc.edu");
+    expect(parseInstitutionSlug("med.uni-bonn.de")).toBe("med.uni-bonn.de");
+  });
+
+  it("rejects non-strings, empty, too short, or too long", () => {
+    expect(parseInstitutionSlug(undefined)).toBeNull();
+    expect(parseInstitutionSlug(123)).toBeNull();
+    expect(parseInstitutionSlug("")).toBeNull();
+    expect(parseInstitutionSlug("ab")).toBeNull(); // no dot + too short
+    expect(parseInstitutionSlug("a." + "x".repeat(100))).toBeNull();
+  });
+
+  it("requires a dot and rejects non-domain / traversal characters", () => {
+    expect(parseInstitutionSlug("nodot")).toBeNull();
+    expect(parseInstitutionSlug("a/b.edu")).toBeNull();
+    expect(parseInstitutionSlug("../etc.passwd")).toBeNull();
+    expect(parseInstitutionSlug("a..b.edu")).toBeNull();
+    expect(parseInstitutionSlug(".edu")).toBeNull();
+    expect(parseInstitutionSlug("wisc.edu.")).toBeNull();
+    expect(parseInstitutionSlug("a b.edu")).toBeNull();
   });
 });
