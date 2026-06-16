@@ -12,17 +12,17 @@ def fixed(u):
     return f
 
 MODES=[
- dict(key="lean", name="Mode 1 — Lean / Benevolent", color="#1D9E75", tint="#E1F5EE", dark="#0F6E56",
-      tag="Charge as little as we can and still survive.",
-      phil="No profit motive. The point is to rip out the cost barrier for academics: a better notebook than anything on the market, at a price that is basically just keeping the lights on. If we only ever serve Wisconsin, this still works.",
+ dict(key="lean", name="Mode 1 · Lean", short="Lean", color="#1D9E75", tint="#E1F5EE", dark="#0F6E56",
+      tag="Charge as little as we can and still keep the lights on.",
+      phil="There's no profit motive here. The whole point is to take the cost barrier out from under academics. It's a better notebook than anything on the market, priced at roughly what it costs us to run. Even if we only ever serve people in Wisconsin, this still works.",
       solo_floor=1, lab_flat=5, dept_flat=10, smk=3, lmk=2.75, dmk=2.5),
- dict(key="fund", name="Mode 2 — Fund-the-labs", color="#BA7517", tint="#FAEEDA", dark="#854F0B",
-      tag="Enough margin to actually fund our labs and projects.",
-      phil="Still far below market, but priced so that at real scale (hundreds to thousands of paying users) it throws off tens to hundreds of thousands a year, money that goes straight back into Grant's and Emile's labs. A service that pays for the science it serves.",
+ dict(key="fund", name="Mode 2 · Fund the labs", short="Fund the labs", color="#BA7517", tint="#FAEEDA", dark="#854F0B",
+      tag="Enough margin to actually fund our labs.",
+      phil="Still way below market, but priced so that at real scale, hundreds to thousands of paying users, it throws off tens to hundreds of thousands a year. That money goes straight back into Grant's and Emile's labs. A tool that pays for the science it serves.",
       solo_floor=3, lab_flat=12, dept_flat=25, smk=5, lmk=4.5, dmk=4),
- dict(key="prem", name="Mode 3 — Premium (academic)", color="#7F77DD", tint="#EEEDFE", dark="#3C3489",
-      tag="Real profit, still nowhere near what a private company charges.",
-      phil="GitHub-Enterprise logic: we charge a genuine premium for the value, and reinvest the profit into the labs. Even here a seat is a small fraction of the tools it replaces (LabArchives alone is $27.50/user/mo). Better product, dramatically cheaper. We never price like a private company.",
+ dict(key="prem", name="Mode 3 · Premium", short="Premium", color="#7F77DD", tint="#EEEDFE", dark="#3C3489",
+      tag="Real profit, still nowhere near a private company.",
+      phil="Same idea as GitHub Enterprise. We charge a real premium for the value and pour the profit back into the labs. Even here a seat is a small slice of what it replaces. LabArchives alone runs $27.50 per user a month. Better product, much cheaper, and we never price like a private company.",
       solo_floor=6, lab_flat=25, dept_flat=50, smk=8, lmk=7, dmk=6),
 ]
 
@@ -146,17 +146,17 @@ table.cmp td.n{text-align:right;font-variant-numeric:tabular-nums}
 .foot{font-size:13px;color:#6b6a64;border-top:1px solid #eceae3;margin-top:30px;padding-top:18px}
 </style></head><body><div class="wrap">''')
 
-parts.append('<h1>ResearchOS — three pricing modes</h1>')
-parts.append('<p class="sub">Same product, same locked structure (a small base fee + usage at a markup, AI metered at near-cost, storage at cost). The only knobs that change between modes are the <b>base fee</b> and the <b>usage markup</b>. Three philosophies to choose from, depending on how ambitious we want to be. In every mode a seat costs a small fraction of the tools it replaces.</p>')
+parts.append('<h1>ResearchOS pricing: three modes</h1>')
+parts.append('<p class="sub">It\'s the same product and the same structure underneath. A small base fee plus usage at a markup, AI metered near cost, storage at cost. The only things that change between the three modes are the <b>base fee</b> and how much we mark up <b>usage</b>. Pick one based on how ambitious we want to be. In all three, a seat still costs a fraction of what the tools it replaces cost.</p>')
 
 # summary table
 parts.append('<div class="card"><h2>At a glance</h2><table class="cmp"><tr><th>Mode</th><th class="n">Typical seat / mo</th><th class="n">Break-even (paying)</th><th class="n">Net @ 50k users</th><th class="n">Net @ 100k users</th></tr>')
 for m in MODES:
     s,l,d=seats_net(m); be=break_even(m)
-    parts.append(f'<tr><td><b style="color:{m["dark"]}">{m["name"].split("—")[1].strip()}</b></td>'
+    parts.append(f'<tr><td><b style="color:{m["dark"]}">{esc(m["short"])}</b></td>'
                  f'<td class="n">${l:.2f}–${d:.2f}</td><td class="n">~{int(round(be*conv/10)*10):,}</td>'
                  f'<td class="n">{money(net(m,50000))}/mo</td><td class="n">{money(net(m,100000))}/mo</td></tr>')
-parts.append('</table><p class="note">Annualized: Lean ~$43k/yr → Fund-labs ~$110k/yr → Premium ~$217k/yr at 50k users; roughly double those at 100k. Assumes 5% of users pay, a 40/40/20 solo/lab/dept split, ~6 seats/lab, typical usage. Reference: LabArchives alone is ~$27.50/user/mo ($330/yr); the bundle ResearchOS replaces is far more.</p></div>')
+parts.append('</table><p class="note">Annualized, that\'s about $43k/yr for Lean, $110k for Fund the labs, and $217k for Premium at 50k users, and roughly double those at 100k. Assumes 5% of users pay, a 40/40/20 solo/lab/dept split, about 6 seats per lab, and typical usage. For reference, LabArchives by itself runs $27.50/user/mo ($330/yr), and the bundle ResearchOS replaces costs far more.</p></div>')
 
 for m in MODES:
     s,l,d=seats_net(m); be=break_even(m); bn=blended(m)
@@ -184,7 +184,7 @@ for m in MODES:
     for w,lab2 in [(0.05,"Light"),(0.2,"Typical"),(0.5,"Heavy")]:
         mo=solo_months_to5(m,w); rows.append((lab2,mo,fmt_mo(mo)))
     parts.append(hbars(rows, max(r[1] for r in rows), "mo", m["color"]))
-    parts.append('<p class="note">Lower base + markup = it takes longer to even owe us $5. Labs and depts are billed their flat fee monthly. (6-month billing cycle; we only run a card once the balance clears $5.)</p>')
+    parts.append('<p class="note">The lower the base and markup, the longer it takes a user to even owe us $5. Labs and depts pay their flat fee monthly. We bill every 6 months and only run a card once the balance clears $5.</p>')
     # Plot 2: break-even
     parts.append('<h3>2 &nbsp;·&nbsp; Profit vs. number of paying users</h3>')
     parts.append(line_be(m, m["color"]))
@@ -192,11 +192,11 @@ for m in MODES:
     # Plot 3: composition
     parts.append('<h3>3 &nbsp;·&nbsp; Where the revenue comes from (at 50k users)</h3>')
     parts.append(comp_bar(m))
-    parts.append('<p class="note">The base + flat fees carry most of it; the usage markup is the fairness lever (heavy users pay a bit more); AI is deliberately a rounding error, never the money-maker.</p>')
+    parts.append('<p class="note">The base and flat fees carry most of it. The usage markup is the fairness knob, so heavy users pay a bit more. AI stays tiny on purpose, never the money-maker.</p>')
     parts.append('</div>')
 
 # closing
-parts.append('<div class="card"><h2>The thesis</h2><p class="phil">In all three modes the philosophy is identical: a better product than anything on the market, at a price that is dramatically cheaper than the stack of tools it replaces. The modes only differ in ambition — keep the lights on, fund the labs, or build a real profit engine for the labs. Even the Premium mode prices a seat below what a single existing tool costs. Academics first, always.</p>'
+parts.append('<div class="card"><h2>The thesis</h2><p class="phil">Every mode runs on the same idea. A better product than anything out there, at a price far below the stack of tools it replaces. The modes only differ in how hard we push. Keep the lights on, fund the labs, or build a real engine for them. Even Premium prices a seat below a single existing tool. We\'re academics first, always.</p>'
  '<p class="note">Assumptions held constant across modes: 5% of users convert to paid; 40/40/20 solo/lab/dept mix; ~6 seats/lab, 5 labs/dept; "typical" usage ≈ 0.2M relay writes/seat/mo; AI metered at 1.4× (solo/lab) / 2× (dept) over our $0.153/M cost, ~30% of paid users buy it; storage at ~1.15× cost (no margin); Stripe 2.9% + $0.30 amortized over 6-month billing; fixed operating cost ~$260/mo growing modestly with provider tiers. Real per-user usage is the #1 thing beta will tell us; these are honest estimates, not measurements.</p></div>')
 
 parts.append('</div></body></html>')
